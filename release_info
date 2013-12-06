@@ -1,0 +1,53 @@
+lgdb 2.0
+=========
+
+Release Date:
+
+Purpose:
+---------
+
+  lgdb 2.0 feature release. This release introduces the new lgdb interface which
+  provides a true line mode parallel debugging experience. This release also
+  implements prototype Cray Comparative Debugging technology.
+  
+  * Command line parallel debugger allows for launching/attaching applications
+    via aprun.
+    
+  * Utilizes process sets to operate on a subset of application ranks.
+  
+  * gdb like feel, also implements a gdbmode to enable a true parallel gdb.
+  
+  * Prototype of Cray Comparative Debugging Technology.
+  
+  Note that this version of lgdb invalidates all of the previous lgdb syntax.
+  
+  Batch system is supported through the use of interactive batch (i.e. qsub -I).
+  
+Bugs Closed with this release:
+------------------------------
+
+  784447 - when debugging a live process, 'target remote' on second gdb fails
+  784446 - when attaching to live app process with lgdb, killing lgdb kills
+  
+Product and OS Dependencies:
+-----------------------------
+CLE 4.0 or greater
+
+Documentation:
+---------------
+Type `man lgdb` with the cray-lgdb module loaded to read the lgdb(1) man page.
+
+Simple usage examples are provided at the end.
+
+Also, type `help` at the lgdb 2.0 command line for more information on commands.
+
+Installation instructions:
+--------------------------
+To install the lgdb:
+  rpm -ivh cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
+
+To make lgdb %VERSION% the default version of lgdb, execute:
+  /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
+
+ Certain components, files or programs contained within this package or
+  product are Copyright 2012 Cray Inc. All rights reserved.

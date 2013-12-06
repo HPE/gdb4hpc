@@ -1,0 +1,22 @@
+Using the lgdb Comparative Debugging Feature demo sources
+
+Certain components, files or programs contained within this package or product 
+are Copyright 2013 Cray Inc. All rights reserved.
+
+To run the demos, do the following:
+
+1. Ensure that the directory is currently placed within a cross mounted location
+   such as a lustre file system.
+
+2. Run the provided build_demo.sh build script. This will ensure a properly
+   setup environment and automatically build all the necessary binaries.
+
+3. Load the cray-lgdb module and start lgdb.
+
+4. Follow the steps described in the "Using the lgdb Comparative Debugging
+   Feature" white paper or use the provided scripts in the hpcc_scripts
+   directory. The script can be used inside lgdb using the source command. For
+   example, if lgdb is started from the parent directory, you would issue the
+   following command:
+
+      source hpcc_scripts/hpcc_script_1.rc

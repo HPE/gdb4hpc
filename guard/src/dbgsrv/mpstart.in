@@ -1,0 +1,181 @@
+#!/bin/sh
+#
+# mpstart: start MPI program on remote nodes. Replacement for the
+# MPICH mpirun script to add support for dbgsrv.
+#
+# Copyright (c) 1996-2002 by Guardsoft Pty Ltd.
+#
+
+srcdir=@srcdir@
+VPATH=@srcdir@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+
+REMOTE="rsh -n"
+DBGSRV=@bindir@/dbgsrv
+POE=@poe@
+MPIPG=@mpirunpg@
+MPIRUN=@mpirun@
+HOST=`hostname`
+SHELL=/bin/sh
+
+usage()
+{
+	echo "usage: mpstart [-d] [rpc_host rpc_prog] nprocs arch_type proto prog [args]"
+	exit 1
+}
+
+if [ $# -lt 1 ]; then
+	usage
+fi
+
+if [ $1 = "-d" ]; then
+	if [ $# -lt 5 ]; then
+		usage
+		exit 1
+	fi
+	nodbg=1
+	nprocs=$2
+	arch=$3
+	proto=$4
+	prog=$5
+	shift 5
+else
+	if [ $# -lt 6 ]; then
+		usage
+		exit 1
+	fi
+	nodbg=0
+	rpc_host=$1
+	rpc_prog=$2
+	nprocs=$3
+	arch=$4
+	proto=$5
+	prog=$6
+	shift 6
+fi
+
+if [ `expr "$prog" : '/.*'` -eq 0 ]; then
+	prog="`pwd`/$prog"
+fi
+
+case $arch in
+poe)
+	MP_PROCS=$nprocs
+	export MP_PROCS
+	if [ $nodbg -eq 1 ]; then
+		exec $POE $arch $prog < /dev/null
+	else
+		exec $POE $DBGSRV -h $rpc_host -c $rpc_prog -a $arch -p $proto -- $prog < /dev/null
+	fi
+	;;
+
+mpich)
+	if [ $nodbg -eq 1 ]; then
+		hosts=`$MPIPG -np $nprocs $prog`
+	else
+		hosts=`$MPIPG -np $nprocs $DBGSRV`
+	fi
+
+	i=1
+	#rinfo="$HOST 0 1 $DBGSRV" !execer code is wrong!
+	rinfo=""
+
+	while [ $i -lt $nprocs ]; do
+		host=`echo $hosts | cut -d' ' -f$i`
+
+		if [ $nodbg -eq 1 ]; then
+			rinfo="$rinfo $host $i 1 $prog"
+		else
+			rinfo="$rinfo $host $i 1 $DBGSRV"
+		fi
+
+		i=`expr $i + 1`
+	done
+
+	if [ $nodbg -eq 1 ]; then
+		$prog $* \
+			-execer_id DBG \
+			-master_host $HOST \
+			-my_hostname $HOST \
+			-my_nodenum 0 \
+			-my_numprocs 1 \
+			-total_numnodes $nprocs \
+			-job_id $$ \
+			-remote_info $rinfo &
+	else
+		$DBGSRV -h $rpc_host -c $rpc_prog -a $arch -p $proto -- $prog $* \
+			-execer_id DBG \
+			-master_host $HOST \
+			-my_hostname $HOST \
+			-my_nodenum 0 \
+			-my_numprocs 1 \
+			-total_numnodes $nprocs \
+			-job_id $$ \
+			-remote_info $rinfo &
+	fi
+
+	i=`expr $nprocs - 1`
+
+	while [ $i -gt 0 ]; do
+		host=`echo $hosts | cut -d' ' -f$i`
+
+		if [ $nodbg -eq 1 ]; then
+			cmd="$REMOTE $host $prog $* \
+				-execer_id DBG \
+				-master_host $HOST \
+				-my_hostname $host \
+				-my_nodenum $i \
+				-my_numprocs 1 \
+				-total_numnodes $nprocs \
+				-job_id $$"
+		else
+			cmd="$REMOTE $host $DBGSRV -h $rpc_host -c $rpc_prog -a $arch -p $proto -- $prog \
+				-execer_id DBG \
+				-master_host $HOST \
+				-my_hostname $host \
+				-my_nodenum $i \
+				-my_numprocs 1 \
+				-total_numnodes $nprocs \
+				-job_id $$"
+		fi
+
+		if [ $i -gt 1 ]; then
+			$cmd &
+		else
+			$cmd
+		fi
+
+		i=`expr $i - 1`
+	done
+	;;
+
+p4)
+	#
+	# Master is automatically started, so doesn't need to be counted
+	#
+	nprocs=`expr $nprocs - 1`
+
+	$DBGSRV -h $rpc_host -c $rpc_prog -a $arch -p $proto -- $prog $nprocs $*
+	;;
+
+mpich-gm)
+	if [ $MPIRUN = no ]; then
+		echo "mpstart: guard was not configured with mpirun"
+		exit 1
+	fi
+
+	if [ $nodbg -eq 1 ]; then
+		exec $MPIRUN --np $nprocs --gm $prog < /dev/null
+	else
+		exec $MPIRUN --np $nprocs --gm $DBGSRV -h $rpc_host -c $rpc_prog -a $arch -p $proto -- $prog < /dev/null
+	fi
+	;;
+
+*)
+	echo "mpstart: unknown type "'"'$arch'"'
+	exit 1
+	;;
+esac
+
+exit 0

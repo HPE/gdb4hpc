@@ -1,0 +1,422 @@
+/*
+** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+** See COPYRIGHT in top-level directory.
+**
+** Map command.
+**
+*/
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include	<stdio.h>
+#include	<signal.h>
+#include	<string.h>
+#include	<stdlib.h>
+
+#include        "client.h"
+#include	"useful.h"
+
+cmdlist_t *	MapCmds;
+cmdlist_t *	OldCmds;
+g_map_t *	CurrentMap;
+
+extern ct_stream_t *	CurrentStream;
+extern htable_t *	DbgVars;
+
+extern int	funccmd(invoke_proc_t *, int, int, char **);
+extern int	setcmd(invoke_proc_t *, int, int, char **);
+extern int	helpcmd(invoke_proc_t *, int, int, char **);
+extern void	funchelp(void);
+extern void	sethelp(void);
+extern void	helphelp(void);
+
+int 
+mapcmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	char *		str;
+	char		buf[BUFSIZ];
+	void *		map;
+	void *		a1;
+	void *		a2;
+	list_t *	args;
+	g_map_t *	m;
+	ct_val		cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Invalid map command.\n");
+		return 0;
+	}
+
+	ArgsToBuf(&argv[1], argc-1, buf, BUFSIZ);
+
+	str = buf;
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "identifier expected");
+		PrintError();
+		return 0;
+	}
+
+	map = cv.cv_sym;
+
+	if ( ScanString(&cv, &str) != CT_LPAREN )
+	{
+		CTSyntaxError(CurrentStream, "'(' expected");
+		PrintError();
+		return 0;
+	}
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "identifier expected");
+		PrintError();
+		return 0;
+	}
+
+	a1 = cv.cv_sym;
+
+	if ( ScanString(&cv, &str) != CT_DBLCOL )
+	{
+		CTSyntaxError(CurrentStream, "'::' expected");
+		PrintError();
+		return 0;
+	}
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "identifier expected");
+		PrintError();
+		return 0;
+	}
+
+	a2 = cv.cv_sym;
+
+	if ( ScanString(&cv, &str) != CT_RPAREN )
+	{
+		CTSyntaxError(CurrentStream, "')' expected");
+		PrintError();
+		return 0;
+	}
+
+	if ( (m = FindMap(map)) != (g_map_t *)NULL )
+	{
+		PrintOutError("Map \"%s\" already defined\n", SymLookup(map));
+		return 0;
+	}
+
+	args = NewList();
+	AddToList(args, a1);
+	AddToList(args, a2);
+
+	if ( (CurrentMap = NewMap(map, args)) == (g_map_t *)NULL )
+	{
+		PrintError();
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( argc > 2 )
+	{
+		if ( strcmp(argv[2], "-debug") == 0 )
+			CurrentMap->m_debug = 1;
+		else
+		{
+			PrintOutError("invalid map switch \"%s\"\n", argv[2]);
+			DestroyMap(CurrentMap);
+			return 0;
+		}
+	}
+
+	OldCmds = SetCommands(MapCmds);
+
+	IncPromptLevel(CurrentStream);
+
+	return 1;
+}
+
+int 
+endmapcmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+
+	if
+	(
+		CurrentMap->m_index == (func_t *)NULL 
+		||
+		CurrentMap->m_proc == (func_t *)NULL 
+	)
+	{
+		PrintOutError("Must specify index and proc functions.\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+int 
+definecmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	char *		str;
+	char *		name;
+	char		buf[BUFSIZ];
+	void *		s;
+	void *		sym;
+	ct_type		t;
+	ct_val		cv;
+	expr_t *	e;
+	func_t **	f;
+	list_t *	args;
+
+	ArgsToBuf(&argv[1], argc-1, buf, BUFSIZ);
+
+	str = buf;
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "expected function name");
+		PrintError();
+		return 0;
+	}
+
+	sym = cv.cv_sym;
+	name = SymLookup(sym);
+
+	if ( strcmp(name, "index") == 0 )
+		f = &CurrentMap->m_index;
+	else if ( strcmp(name, "proc") == 0 )
+		f = &CurrentMap->m_proc;
+	else
+	{
+		PrintOutError("Only \"index\" and \"proc\" functions allowed\n");
+		return 0;
+	}
+
+	if ( *f != (func_t *)NULL )
+	{
+		PrintOutError("%s function already defined\n", name);
+		return 0;
+	}
+
+	if ( ScanString(&cv, &str) != CT_LPAREN )
+	{
+		CTSyntaxError(CurrentStream, "'(' expected");
+		PrintError();
+		return 0;
+	}
+
+	args = NewList();
+
+	for ( ;; )
+	{
+		if ( ScanString(&cv, &str) != CT_SYM )
+		{
+			CTSyntaxError(CurrentStream, "argument expected");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+
+		if ( InList(args, cv.cv_sym) )
+		{
+			CTSyntaxError(CurrentStream, "duplicate argument");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+		else if ( InList(CurrentMap->m_args, cv.cv_sym) )
+		{
+			CTSyntaxError(CurrentStream, "conflict with map argument");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+
+		AddToList(args, cv.cv_sym);
+
+		if ( (t = ScanString(&cv, &str)) == CT_RPAREN )
+			break;
+
+		if ( t != CT_COMMA )
+		{
+			CTSyntaxError(CurrentStream, "'(' or ',' expected");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+	}
+
+	if ( SizeOfList(args) != 4 )
+	{
+		PrintOutError("Four arguments must be supplied\n");
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( (t = ScanString(&cv, &str)) != CT_EQUAL )
+	{
+		CTSyntaxError(CurrentStream, "'=' expected");
+		PrintError();
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( (e = ParseExpr(str)) == (expr_t *)NULL )
+	{
+		CTSyntaxError(CurrentStream, GetError());
+		PrintError();
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	/*
+	** Add map arguments to end of argument list.
+	*/
+	SetList(CurrentMap->m_args);
+
+	while ( (s = GetListElement(CurrentMap->m_args)) != (void *)NULL )
+		AddToList(args, s);
+
+	if ( (*f = NewFunc(sym, args, e, (int (*)(list_t *, val_t **))NULL, buf, 0)) == (func_t *)NULL )
+	{
+		CTSyntaxError(CurrentStream, GetError());
+		PrintError();
+		return 0;
+	}
+
+	return 1;
+}
+
+void
+mapnotfound(char *cmd)
+{
+	DestroyMap(CurrentMap);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+	CmdNotFound(cmd);
+}
+
+void
+mapambig(char *cmd)
+{
+	DestroyMap(CurrentMap);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+	AmbiguousAltCmd(MapCmds, cmd);
+}
+
+void
+mapfailed(void)
+{
+	DestroyMap(CurrentMap);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+}
+
+void
+maphelp(void)
+{
+	printf("map name(P::V)\n");
+	printf("  index name func\n");
+	printf("  proc name func\n");
+	printf("end\n\n");
+	printf("Create a mapping function that can be used to specify the\n");
+	printf("relationship of variables between programs.\n\n");
+	printf("Map commands are read until \"end\" is encountered.\n");
+}
+
+void
+endmaphelp(void)
+{
+	printf("End a map definition.\n");
+}
+
+void
+definehelp(void)
+{
+	printf("define name(i,a) = expr\n\n");
+	printf("Define a map function. Defines a function with\n");
+	printf("two arguments: i and a. The argument i will\n");
+	printf("iterate from 0 to rank-1 of either the resulting array or\n");
+	printf("the process array. a contains the current index values.\n");
+}
+
+void
+prochelp(void)
+{
+	printf("proc n expr\n\n");
+	printf("Define a map proc function. Defines a function with\n");
+	printf("three arguments: n, P, and A. The argument n will\n");
+	printf("iterate from 0 to the rank of the resulting array.\n");
+	printf("P and A are the process and variable names suppled\n");
+	printf("in the argument to the map function.\n");
+}
+
+int
+infomapcmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	g_map_t *	m;
+
+	if ( argc > 1 )
+	{
+		if ( (m = FindMap(argv[1])) == (g_map_t *)NULL )
+		{
+			PrintOutError("No such map \"%s\"\n", argv[1]);
+			return 0;
+		}
+
+		PrintMap(stdout, m);
+		return 1;
+	}
+		
+	SetMap();
+
+	while ( (m = GetMap()) != (g_map_t *)NULL )
+		PrintMap(stdout, m);
+
+	return 1;
+}
+
+void
+infomaphelp(void)
+{
+	printf("Show information about a map.\n");
+}
+
+void
+InitCmd_map(void)
+{
+/* 
+ * Map commands are disabled for now. The command syntax needs a major rework.
+ * It also needs to be made to work with MRNet.
+	AddCommand("map", NULL, proc_ignore, 0, mapcmd,
+		maphelp, "Define a map function.");
+
+	AddInfoCommand("map", proc_ignore, 0, infomapcmd,
+			infomaphelp, "Show information about a map.");
+
+	MapCmds = NewCommandList(mapnotfound, mapambig, mapfailed);
+
+	AddAltCommand(MapCmds, "define", NULL, proc_ignore, 0, 
+		definecmd, definehelp, "Define a map function.");
+	AddAltCommand(MapCmds, "end", NULL, proc_ignore, 0, 
+		endmapcmd, endmaphelp, "End a map definition.");
+        AddAltCommand(MapCmds, "set", NULL, proc_ignore, 1, setcmd,
+		sethelp, "Set information about the program being debugged.");
+	AddAltCommand(MapCmds, "help", "h", proc_ignore, 0, helpcmd,
+			helphelp, "Show help information about commands.");
+ */
+}
+
+
+void
+FinishCmd_map(void)
+{
+	DestroyCommandList(MapCmds);
+}
+
+

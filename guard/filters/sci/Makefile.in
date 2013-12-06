@@ -1,0 +1,44 @@
+INCLUDE_GUARD = @guard_srcdir@/src/dbgcomm
+INCLUDE_SCI = @sci_root@/include
+INCLUDE_SDM = @guard_srcdir@/sdm
+LIB_SDM = @guard_srcdir@/sdm
+
+CXX = @CXX@
+RM = rm
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+libdir = @libdir@
+
+libdbgaggsci_CPPFLAGS = -g -Wall -I$(INCLUDE_SDM) -I$(INCLUDE_SCI) -I$(INCLUDE_GUARD)
+libdbgaggsci_CXXFLAGS = -fPIC
+libdbgaggsci_SOURCES = filter.cpp 
+libdbgaggsci_OBJECTS = $(libdbgaggsci_SOURCES:.cpp=.o)
+libdbgaggsci_LDFLAGS = -L$(LIB_SDM)
+libdbgaggsci_LIBADD = -lbitset
+LIBS = libdbgaggsci.so
+
+OBJECTS = $(libdbgaggsci_OBJECTS)
+clean_RMFLAGS = -f
+
+.PHONY: all
+all : LIBS_SOURCES $(LIBS)
+
+.PHONY: LIBS_SOURCES
+LIBS_SOURCES : $(libdbgaggsci_SOURCES)
+	$(CXX) $(libdbgaggsci_CPPFLAGS) $(libdbgaggsci_CXXFLAGS) -c $(libdbgaggsci_SOURCES)
+
+libdbgaggsci.so : $(libdbgaggsci_OBJECTS)
+	$(CXX) $(libdbgaggsci_CXXFLAGS) -shared -rdynamic -o $@ $(libdbgaggsci_OBJECTS) $(libdbgaggsci_LDFLAGS) $(libdbgaggsci_LIBADD)
+
+.PHONY: install
+install : $(LIBS)
+	cp -p $(LIBS) $(libdir)/$<
+
+.PHONY: clean
+clean :
+	$(RM) $(clean_RMFLAGS) $(OBJECTS) $(LIBS)
+
+.PHONY: distclean
+dist-clean : clean
+	$(RM) $(clean_RMFLAGS) Makefile

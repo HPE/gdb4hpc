@@ -1,0 +1,51 @@
+#
+# hpcc_script_4.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+# At this point, we know that both mat.X and Bptr deviate at some point in the
+# code. However, we detected mat.X at a earlier point than Bptr. Thats not to say
+# that Bptr is not also devaiting when we checked mat.X, but it does tell us that
+# we know mat.X is deviating at an earlier point. Comparative debugging ignores the
+# control flow as much as possible, and we should always try to work our way back
+# in time as quick as possible to discover the deviation.
+#
+# By examining the code, we find that mat.X is originally pointed to at line 188.
+# It appears that line 189 generates the entire A matrix, which mat.X is pointing into.
+# We should check the value of mat.X immediately after it is generated.
+#
+# We also notice that the mat struct is being passed into the HPL_pdgesv function at line 200.
+# We do not know for certain if mat.X is going to be used inside this calculation, but we should
+# check mat.X before and after this function just to be safe. There doesn't appear to be any
+# other locations where mat.X is used before line 357.
+#
+
+build $pdtest_matX
+        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":198 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":198
+        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":200 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":200
+        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":201 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":201
+        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":198 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":198
+        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":200 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":200
+        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":201 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":201
+end
+
+# RESULT:
+#
+# After running $pdtest_matX we find that there is no deviation for lines 198 and 200. We do detect a deviation of mat.X
+# at line 201. This tells us that somewhere inside HPL_pdgesv mat.X is deviating. We should now examine this function
+# more closely.
+#
+

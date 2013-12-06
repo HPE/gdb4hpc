@@ -1,0 +1,75 @@
+#
+# hpcc_script_6.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+# We know that the call to HPL_pdgesvK2 is causing deviation on A.A. We also know that for the inputs to
+# this function (GRID, ALGO, A) only A.A is deviating upon return. We also know that this also occurs only
+# in rank 1. So for this function we should concentrate only on the variable A.A for rank 1. We create assertions
+# at different points in the code. This is really just a guess and check process. If we need to refine our search,
+# we can add/remove assertions from our assertion script as needed.
+
+# I checked the value of A.A before and after pannel init (lines 121 and 134). Before and after lookahead init (lines 140 and 164).
+# Before and after the main loop (lines 164 and 202). Before and after cleanup (lines 202 and 210).
+
+build $pdgesvK2
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":121 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":121
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":134 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":134
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":140 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":140
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":164 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":164
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":202 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":202
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":210 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":210
+end
+
+# RESULT:
+#
+# We detect a deviation of A.A at line 202. This means the deviation occurs somewhere inside the main loop.
+
+# Lets create a new assertion script that looks explicitly at the main loop. Lets pick lines 174, 183, 185, 192, 198.
+
+build $pdgesvK2_main_loop
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":174 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":174
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":183 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":183
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":185 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":185
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":192 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":192
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":198 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":198
+end
+
+# RESULT:
+#
+# We detect a deviation of A.A at line 185. This means the deviation occurs somwhere between line 174 and 185.
+
+build $pdgesvK2_main_loop2
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":176 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":176
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":177 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":177
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":178 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":178
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":179 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":179
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":183 = $working{1}::(double[520][480])*A.A@"HPL_pdgesvK2.c":183
+end
+
+# RESULT:
+#
+# We detect a deviation of A.A at line 179. This means the deviation occurs inside the function HPL_pdupdate. Note that this is a
+# function pointer which is set inside HPL_pdgesvK2. We can determine the value by printing HPL_pdupdate:
+#
+# dbg all> print HPL_pdupdate
+# broken[0,2-3]: *** program is running
+# broken[1]: {void (*)()} 0x431c60 <HPL_pdupdateTT>
+# working[0,2-3]: *** program is running
+# working[1]: {void (*)()} 0x431c60 <HPL_pdupdateTT>
+#
+# This tells us that HPL_pdupdate points to the function HPL_pdupdateTT.
+

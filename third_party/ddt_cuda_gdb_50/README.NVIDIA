@@ -1,0 +1,21 @@
+OVERVIEW
+
+This package contains the sources of GDB 7.2 extended with CUDA support.
+
+
+CUDA-GDB BUILD INSTRUCTIONS (example only, adjust as needed)
+
+First, make sure that libtermcap and other required dependent packages are
+installed (try sudo yum install ncurses-devel). The configure command will
+issue an error if some packages are missing. Then issue the following commands:
+
+$ tar -xjf cuda-gdb_<version>_src_<build_number>_<os>.tar.bz2
+$ cd cuda-gdb_<version>
+$ export CFLAGS='-O -I/usr/local/cuda/include'
+$ export LDFLAGS='-lpthread'
+$ ./configure --prefix=/usr/local/cuda \
+              --program-prefix=cuda- \
+              --enable-cuda \
+              --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,m68k-unknown-linux-gnu
+$ make
+$ sudo make install

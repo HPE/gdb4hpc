@@ -1,0 +1,77 @@
+<FDS> ::= <type>
+
+<type> ::= <simple-type> | <compound-type>
+
+<simple-type> ::= <char-type> | <int-type> | <float-type> | 
+                  <enum-type> | <void-type>
+
+<char-type> ::= "c" <sign>
+
+<int-type> ::= "i" <sign> <size>
+
+<float-type> ::= "f" <size>
+
+<enum-type> ::= "<" <enum-desc> { "," <enum-desc> } ">"
+
+<enum-desc> ::= <enum-name> "=" <enum-value>
+
+<void-type> ::= "v" <size>
+
+<compound-type> ::= <array-type> | <struct-type> | <pointer-type> | 
+                    <range-type> | <func-type> | <f-param-type> | 
+                    <p-param-type> | <file-type> | <set-type> | 
+                    <var-string-type> | <region-type>
+
+<array-type> ::= "[" <range-type> "]" <type>
+
+<struct-type> ::= "{" <size> "=" <field-desc> { "," <field-desc> } "}"
+
+<field-desc> ::= <field-name> "@" <bit-offset> "#" <size-bits> ":" <type>
+
+<pointer-type> ::= "^" <size> <type>
+
+<range-type> ::= "r" <min-value> ".." <max-value> <int-type>
+
+<func-type> ::= "&" <size> <type>
+
+<f-param-type> ::= "p" <size> <type>
+
+<p-param-type> ::= "P" <size> <type>
+
+<file-type> ::= "F" <size> <type>
+
+<set-type> ::= "S" <size> <type>
+
+<var-string-type> ::= "s"
+
+<region-type> ::= "R" <rank> <int-type>
+
+<rank> ::= <digit>
+
+<size> ::= <digit>
+
+<sign> ::= "s" | "u"
+
+<enum-value> ::= <digit-seq> 
+
+<min-value> ::= <digit-seq> 
+
+<max-value> ::= <digit-seq> 
+
+<bit-offset> ::= <digit-seq>
+
+<size-bits> ::= <digit-seq>
+
+<enum-name> ::= <identifier>
+
+<field-name> ::= <identifier>
+
+<identifier> ::= "_" | <letter> | <identifier> <following-char>
+
+<following-char> ::= "_" | <letter> | <digit>
+
+<digit-seq> ::= <digit> | <digit> <digit-seq>
+
+<digit> ::= "0" .. "9"
+
+<letter> ::= "A" .. "Z" | "a" .. "z"

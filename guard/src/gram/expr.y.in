@@ -1,0 +1,515 @@
+/*
+** Expression parser.
+**
+** Copyright (c) 1996-2002 by Guardsoft Pty Ltd.
+**
+*/
+
+%pure_parser
+
+%{
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include	<stdio.h>
+#include	<string.h>
+#include	<stdlib.h>
+#include	<stdarg.h>
+
+#include	"defs.h"
+#include	"useful.h"
+#include	"aif.h"
+#include	"gram.h"
+#include	"hash.h"
+
+#define YYERROR_VERBOSE
+#define YYDEBUG 1
+%}
+
+// FIXME: The v_sym_str is a temporary hack to get around the symbol table issue.
+%union
+{
+	char *		v_str;
+	int			v_int;
+	double		v_float;
+	hentry_t *	v_sym;
+	char *		v_sym_str;
+	expr_t *	v_expr;
+}
+
+%{
+int	expr_error(char *);
+#ifdef notdef
+int	expr_verror(char *, ...);
+#endif /* notdef */
+int	expr_lex(YYSTYPE *);
+#ifdef DEBUG
+/*
+** You can uncomment the following variable to turn on debug output from the
+** parser. However this is *VERY* verbose. 
+*/
+//int     yydebug=1;
+#endif
+%}
+
+%token	<v_sym>		DSYM		%CT_DSYM%
+%token	<v_sym_str>	SYM			%CT_SYM%
+%token	<v_sym_str>	TYPE_SPEC	%CT_TYPE_SPEC%
+%token	<v_sym_str>	TYPE_IDENT	%CT_TYPE_IDENT%
+%token	<v_str>		STRING		%CT_STR%
+%token	<v_int>		INT			%CT_INT%
+%token	<v_float>	FLOAT		%CT_FLOAT%
+%token 	COND					%CT_TERNARY%
+%token 	COLON					%CT_COLON%
+%token 	COLONCOLON				%CT_DBLCOL%
+%token 	DOTDOT					%CT_DBLDOT%
+%token 	LT						%CT_LT%
+%token	GT						%CT_GT%
+%token	LEQ						%CT_LEQ%
+%token	GEQ						%CT_GEQ%
+%token	EQUAL					%CT_EQUAL%
+%token	DBLEQ					%CT_DBLEQ%
+%token	NOTEQUAL				%CT_NOTEQ%
+%token	ANDAND					%CT_AND%
+%token	OROR					%CT_OR%
+%token	AND ADDROF				%CT_BTAND%
+%token	OR						%CT_BTOR%
+%token	PLUS					%CT_PLUS%
+%token	MINUS					%CT_MINUS%
+%token	MUL STAR				%CT_STAR%
+%token	DIV						%CT_DIV%
+// TODO: %token	REM						%CT_MOD%
+%token	PERC					%CT_MOD%
+%token	LPAREN					%CT_LPAREN%
+%token	RPAREN					%CT_RPAREN%
+%token	LBRACE					%CT_LBRACE%
+%token	RBRACE					%CT_RBRACE%
+%token	LBRCK					%CT_LBRCK%
+%token	RBRCK					%CT_RBRCK%
+%token	COMMA					%CT_COMMA%
+%token	AT						%CT_AT%
+%token	DOT						%CT_DOT%
+%token	ARROW					%CT_ARROW%
+
+%type <v_expr>	start expr1 expr
+%type <v_expr>	type basetype
+%type <v_expr>	star_op
+
+%left		COMMA
+%left		ABOVE_COMMA
+%right		EQUAL
+%right		COND
+%left		OROR
+%left		ANDAND
+%left		OR
+%left		AND
+%left		DBLEQ NOTEQUAL
+%left		LT GT LEQ GEQ
+%left		PLUS MINUS
+%left		MUL DIV //REM TODO
+%nonassoc	COLONCOLON
+%nonassoc	AT
+%right		UNARY
+%right		ARROW DOT PERC LPAREN LBRCK DOTDOT
+%right		LBRACE
+
+%%
+
+start		:	expr1
+		;
+
+/* Expressions, including comma */
+expr1		:	expr
+		|		expr1 COMMA expr
+			{ $$ = AddExpr(EXPR_OPCOMMA); }
+		;
+
+/* Expressions, not including comma */
+expr	    :	star_op expr %prec UNARY
+			{ $$ = AddExpr(EXPR_OPDREF); }
+		;
+		
+expr	    :	ADDROF expr %prec UNARY
+			{ $$ = AddExpr(EXPR_OPADDROF); }
+		;
+
+expr		:	PLUS expr %prec UNARY
+			{ $$ = AddExpr(EXPR_OPPOS); }
+		;
+
+expr		:	MINUS expr %prec UNARY
+			{ $$ = AddExpr(EXPR_OPNEG); }
+		;
+
+/* FIXME: Add in logical NOT, bitwise NOT here. */
+/* FIXME: Add in increment/decrement operators here. */
+
+expr	    :	expr DOT expr
+			{ $$ = AddExpr(EXPR_OPELEMENTREF); }
+		;
+			
+expr	    :	expr ARROW expr
+			{ $$ = AddExpr(EXPR_OPELEMENTPTR); }
+		;
+		
+expr		:	expr PERC expr
+			{ $$ = AddExpr(EXPR_OPELEMENTACC); }
+		;
+
+expr	    :	expr LBRCK expr1 RBRCK
+			{ $$ = AddExpr(EXPR_OPSUBSCR); }
+		;
+
+expr		:	expr LBRCK RBRCK
+			{ $$ = AddExpr(EXPR_OPSUBSCR); }
+		;
+
+// The following is for debugger arrays/functions/maps/trans/blockmaps etc
+expr		:	expr LBRACE
+			{
+				StartExprList();
+				// FIXME: The SaveTopElt will remove the elt from the expr stack
+				// if it cooresponds to a known EXPR_SYM. This is not a very good
+				// design IMO.
+				// UPDATE: This is necessary because of the way we read the variables.
+				// The readvar function depends on if it is inside a function or not. If its
+				// in a blockmap, a certain type of readvar function is called. 
+				// There is no way to fix this since we need to know if we are going to be
+				// passing the val into a blockmap. A fix would be to merge all the function,
+				// which would require a fundamental rewrite.
+				SaveTopElt();
+			}
+				expr_list RBRACE %prec ARROW
+			{
+				// add the length of the list to the expression stack
+				(void)AddExpr(EXPR_INT, EndExprList());
+				
+				// add a list start token to denote the start of the list to the expression stack
+				(void)AddExpr(EXPR_LIST_START);
+				
+				// check to see if the saved elt is a symbol
+				if ( GetTopEltOp() == EXPR_DSYM )
+				{
+					// Note that the call to SaveTopElt removed the symbol earlier
+					// from the expr stack if it cooresponded to a known symbol.
+					
+					// check to see if the symbol is something we know about,
+					// if so we need to add the proper EXPR that cooresponds to
+					// the symbol to the expression stack along with the saved
+					// elt's val
+					if ( CheckBlockMap(GetTopEltSymVal()) )
+						$$ = AddExpr(EXPR_BLOCKMAP, GetTopEltSymVal());
+					else if ( CheckFunc(GetTopEltSymVal()) )
+						$$ = AddExpr(EXPR_FUNC, GetTopEltSymVal());
+					else
+					{
+						// The top elt must be an array reference
+						// add the subscript token
+						(void)AddExpr(EXPR_OPSUBSCR);
+					}
+				} else
+				{
+					SetError("Unknown symbol in front of \"{\"");
+					YYABORT;
+				}
+				
+				// remove the saved elt
+				RemoveTopElt();
+			}
+		;
+
+// This handles fortran multi-dimensional arrays
+expr		:	expr LPAREN
+			{
+				StartExprList();
+			}
+				expr_list RPAREN %prec ARROW
+			{
+				// add the length of the list to the expression stack
+				(void)AddExpr(EXPR_INT, EndExprList());
+				// add a list start token to denote the start of the list to the expression stack
+				(void)AddExpr(EXPR_LIST_START);
+				// add the subscript token
+				(void)AddExpr(EXPR_OPSUBSCR);
+			}
+		;
+		
+expr	    :	LPAREN 
+			{
+				(void)AddExpr(EXPR_TYPE);
+			}
+				type RPAREN expr %prec UNARY
+			{ $$ = AddExpr(EXPR_OPCAST); }
+		;
+
+expr_list	:
+		;
+		
+expr_list	:	expr
+			{ 
+				SetExprList(1);
+				(void)AddExpr(EXPR_LIST);
+			}
+		;
+		
+expr_list	:	expr_list COMMA expr %prec ABOVE_COMMA
+			{
+				IncExprList();
+				(void)AddExpr(EXPR_LIST);
+			}
+		;
+
+expr		:	expr DOTDOT expr
+			{ $$ = AddExpr(EXPR_SLICE, SLICE_RANGE); }
+		;
+		
+/* binary operators according to precedence */
+expr		:	expr MUL expr
+			{ $$ = AddExpr(EXPR_OPMUL); }
+		;
+
+expr		:	expr DIV expr
+			{ $$ = AddExpr(EXPR_OPDIV); }
+		;
+
+/*
+TODO: Disabled to make derived fortran types work
+expr		:	expr REM expr
+			{ $$ = AddExpr(EXPR_OPREM); }
+		;
+*/
+
+expr		:	expr PLUS expr
+			{ $$ = AddExpr(EXPR_OPADD); }
+		;
+
+expr		:	expr MINUS expr
+			{ $$ = AddExpr(EXPR_OPSUB); }
+		;
+
+expr		:	expr LT expr
+			{ $$ = AddExpr(EXPR_OPLT); }
+		;
+
+expr		:	expr LEQ expr
+			{ $$ = AddExpr(EXPR_OPLEQ); }
+		;
+
+expr		:	expr GT expr
+			{ $$ = AddExpr(EXPR_OPGT); }
+		;
+
+expr		:	expr GEQ expr
+			{ $$ = AddExpr(EXPR_OPGEQ); }
+		;
+
+expr		:	expr DBLEQ expr
+			{ $$ = AddExpr(EXPR_OPEQUAL); }
+		;
+		
+expr		:	expr NOTEQUAL expr
+			{ $$ = AddExpr(EXPR_OPNOTEQUAL); }
+		;
+
+/* FIXME: Add bitwise AND, bitwise XOR, and bitwise OR here. */
+
+expr		:	expr ANDAND expr
+			{ $$ = AddExpr(EXPR_OPAND); }
+		;
+
+expr		:	expr OROR expr
+			{ $$ = AddExpr(EXPR_OPOR); }
+		;
+
+expr		:	expr COND expr COLON expr %prec COND
+			{ $$ = AddExpr(EXPR_OPCOND); }
+		;
+
+expr		:	expr EQUAL expr
+			{ $$ = AddExpr(EXPR_OPEQUAL); }
+		;
+
+/* FIXME: Add other assignment operators here. */
+
+/* base types */
+expr		:	DSYM
+			{ $$ = AddExpr(EXPR_DSYM, $1); }
+		;
+
+expr		:	SYM
+			{ $$ = AddExpr(EXPR_SYM, $1); }
+		;
+
+expr		:	STRING
+			{ $$ = AddExpr(EXPR_STRING, $1); }
+		;
+		
+expr		:	INT
+			{ $$ = AddExpr(EXPR_INT, $1); }
+		;
+
+expr		:	FLOAT
+			{ $$ = AddExpr(EXPR_FLOAT, $1); }
+		;
+		
+expr		:	star_op %prec ABOVE_COMMA
+		;
+		
+// The star is a base type for blockmaps
+star_op		:	STAR
+			{ $$ = AddExpr(EXPR_STAR); }
+
+/* 
+** These are references to debug variables paired with a procset. We only want
+** to allow unary operators here.
+*/
+expr		:	expr COLONCOLON expr
+			{ $$ = AddExpr(EXPR_VAR); }
+		;
+		
+/*
+** This is used to add on a location to a debug variable reference
+*/
+expr		:	expr AT location
+		;
+
+location	:	STRING COLON INT
+			{
+				(void)AddExpr(EXPR_STRING, $1);
+				(void)AddExpr(EXPR_INT, $3);
+				(void)AddExpr(EXPR_LOC);
+			}
+		;
+
+/*
+** Type recognition is now built-in. The ScanString function will recognize
+** CT_TYPE_SPEC and CT_TYPE_IDENT which cooresponds to type specifiers and
+** identifiers. This is all defined in the cmdtoken.c sourcefile.
+*/
+type	    :	type1
+			{ $$ = AddExpr(EXPR_TYPE); }
+		;
+		
+basetype	:	TYPE_SPEC
+			{ $$ = AddExpr(EXPR_TYPE_SPEC, $1); }
+		|		TYPE_IDENT
+			{ $$ = AddExpr(EXPR_TYPE_IDENT, $1); }
+		;
+
+type1		:	basetype
+		|		type1 star_op
+			{ (void)AddExpr(EXPR_TYPE_PTR); }
+		|		type1 basetype
+		|		type1 LBRCK INT RBRCK
+			{ 
+			  (void)AddExpr(EXPR_INT, $3);
+			  (void)AddExpr(EXPR_OPSUBSCR);
+			}
+		;
+
+%%
+
+int
+expr_error(char *fmt)
+{
+	SetError(fmt);
+	return 0;
+}
+
+#ifdef notdef
+int
+expr_verror(char *fmt, ...)
+{
+	va_list	args;
+
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+
+	fprintf(stderr, "\n");
+	return 0;
+}
+#endif /* notdef */
+
+int
+expr_lex(YYSTYPE *lv)
+{
+	ct_type			ct;
+	ct_val			cv;
+
+	ct = ScanString(&cv, ExprStr);
+
+	switch ( ct )
+	{
+	case CT_STR:
+		lv->v_str = strdup(cv.cv_str);
+		break;
+
+	case CT_FLOAT:
+		lv->v_float = cv.cv_float;
+		break;
+
+	case CT_INT:
+		lv->v_int = cv.cv_int;
+		break;
+		
+	case CT_DSYM:
+		lv->v_sym = cv.cv_sym;
+		break;
+
+	/*
+	** andrewg: There used to be a bug here where a known command token could
+	** cause a naming collision with a valid program symbol. Now we just add
+	** the symbol for the command token to avoid this problem.
+	*/
+	case CT_ABSOLUTE:
+	case CT_ASSERT:
+	case CT_DFMODE:
+	case CT_DISPLAY:
+	case CT_ERROR:
+	case CT_FALSE:
+	case CT_FORCE:
+	case CT_HALT:
+	case CT_INVOKE:
+	case CT_LOGFILE:
+	case CT_LOGGING:
+	case CT_OUTPUT:
+	case CT_RELATIVE:
+	case CT_SET:
+	case CT_TRUE:
+	case CT_USING:
+	case CT_END:
+	case CT_BLOCK:
+	case CT_CYCLIC:
+	case CT_TEXT:
+	case CT_AIF:
+	case CT_HDF:
+	case CT_HDF5:
+	case CT_SUM:
+	case CT_PRODUCT:
+	case CT_AVERAGE:
+	case CT_MIN:
+	case CT_MAX:
+	case CT_STDEV:
+	case CT_HISTOGRAM:
+	case CT_COUNTELEM:
+	case CT_BOBHASH:
+	case CT_NONE:
+	case CT_DEFAULT:
+	case CT_SYNC:
+	case CT_ASYNC:
+		// For the above command tokens, we want to pretend that they are
+		// CT_SYM for now. In the future we may want to fix the parser to 
+		// actually recognize the syntax.
+		ct = CT_SYM;
+		// fall through
+	case CT_SYM:
+	case CT_TYPE_SPEC:
+	case CT_TYPE_IDENT:
+		lv->v_sym_str = strdup(cv.cv_sym_str);
+		break;
+	}
+
+	return (int)ct;
+}

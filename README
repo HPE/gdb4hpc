@@ -1,0 +1,63 @@
+Cray Comparative Debugger Source Repository README
+CCDB: Cray Comparative Debugger
+Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
+©2010 Cray Inc.  All Rights Reserved
+
+SEE LICENSE FOR ADDITIONAL COPYRIGHT AND USAGE INFORMATION
+
+ccdb - A Parallel Relative Debugger
+
+INFO: 
+ - Information related to compiling and building ccdb can be found in the INSTALL file.
+ - Information related to maintaining this repository can be found in the maintainer-README file.
+ - Information related to usage can be found in the docs/ directory.
+
+1. OVERVIEW
+
+ CCDB is a relative debugger. Unlike other debuggers, ccdb allows programmers to compare
+ data from multiple programs as they are executing. This information can then be used
+ as an aid in identifying the location of errors.
+
+ CCDB is a conventional interactive parallel debugger. It can be used to debug parallel and
+ sequential programs using interactive commands, such as setting breakpoints and displaying
+ program state. Because ccdb is a parallel debugger, it will allow commands to be applied to
+ sets of parallel processes as well as a single sequential program.
+
+ CCDB is built on top of GDB, as it is a very versitile debugger that has widespread adoption.
+ GDB provides the low-level debug services and ccdb interacts with GDB in order to enable
+ comparative debugging. The syntax used in ccdb has been heavily influenced by the High Performance
+ Debugging Forum's HPD standard.
+
+2. CCDB v1.0 RELEASE NOTES
+
+ To be added.
+
+3. SUPPORTED PLATFORMS
+
+ ccdb is built on top of guard which is designed to be a highly-portable system. 
+ However, Cray is only supporting ccdb for Cray systems and documented guard
+ commands may not be supported in ccdb. The user should always refer to the Cray
+ documentation when using ccdb.
+
+4. Bugs, Questions, and Comments
+
+ CCDB is maintained by the PE Debugger Development group at Cray as a joint project 
+ with Guardsoft Ltd. and Monash University. 
+
+ All bug reports, questions, and comments for ccdb should be directed towards
+ members of the PE Debugger Development group at Cray.
+
+ CCDB Lead
+ Member: Bob Moench
+ Email: rwm@cray.com
+ Phone: 651-605-9034
+ Location: STP 24218
+
+ CCDB Support
+ Member: Andrew Gontarek
+ Email: andrewg@cray.com
+ Phone: 651-605-9176
+ Location: STP 24215
+
+ Any and all comments or suggestions are welcome.
+

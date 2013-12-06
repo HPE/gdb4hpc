@@ -1,0 +1,173 @@
+# [variable]s filled in by sed in Makefile
+%define namespace [namespace]
+%define intranamespace_name [intranamespace_name]
+%define two_dig_version [package_branch_two_digit]
+%define two_dig_nodot_version [package_branch_two_digit_nodot]
+
+# define man_source /data/mw/pubs/deliv/man/deliverables/xt3/ccd_10.cpio
+%define man_source /cray/css/compiler/comp_rel/pubs/manpages/lgdb/%{two_dig_version}/xt_lgdb_%{two_dig_nodot_version}.cpio
+
+Summary: Performance Application Programming Interface
+Name: %{namespace}-%{intranamespace_name} 
+Version: [version] 
+Release: [rpm_release]_[package_revision]
+License: BSD
+Group: Development/System
+URL: [url]
+Source: [tarball]
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+
+#BuildRequires: gcc-fortran
+
+%description
+CCDB is a comparative debugger.
+
+# version
+%define major_version %(echo %{version} | awk -v n=1 'BEGIN { FS = "." } ; { print $n }')
+%define minor_version %(echo %{version} | awk -v n=2 'BEGIN { FS = "." } ; { print $n }')
+
+# _prefix
+%define _namespace_prefix /opt/%{namespace}
+%define _name_prefix %{_namespace_prefix}/%{intranamespace_name}
+%define _version_prefix %{_name_prefix}/%{version}
+
+# _moduledir
+%define _namespace_moduledir /opt/%{namespace}/modulefiles
+%define _name_moduledir %{_namespace_moduledir}/%{namespace}-%{intranamespace_name}
+
+%prep
+%setup
+
+%build
+./ccdb_build_tool.sh --all
+
+pushd ccdb_install
+  mkdir man
+  pushd man
+    cpio -icdm < %{man_source}
+    find . -type d -exec chmod 755 {} \;
+    find . -type f -exec chmod 644 {} \;
+  popd
+popd
+
+%install
+mkdir -p %{buildroot}%{_version_prefix}
+cp -r ccdb_install/* %{buildroot}%{_version_prefix}/
+rm -rf %{buildroot}%{_version_prefix}/modulefiles
+
+install -D %{intranamespace_name}.module %{buildroot}%{_name_moduledir}/%{version}
+install -D release_info %{buildroot}%{_version_prefix}/
+echo "%{version}-%{release}" > %{buildroot}%{_version_prefix}/.%{namespace}_rpm_release
+mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
+install -D set_default_%{namespace}-%{intranamespace_name}_%{version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version}
+install -D set_default_%{namespace}-%{intranamespace_name}_%{version} %{buildroot}%{_version_prefix}/
+
+# hardlink duplicate files to save space
+%fdupes %{buildroot}
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root,-)
+%dir %{_name_moduledir}
+%dir %{_namespace_prefix}
+%dir %{_name_prefix}
+%dir %{_version_prefix}
+
+%dir %{_version_prefix}/bin
+%{_version_prefix}/bin/%{intranamespace_name}
+%{_version_prefix}/bin/dbgsrv
+%{_version_prefix}/bin/dbgsrv_alps
+%{_version_prefix}/bin/dlaunch 
+%{_version_prefix}/bin/gdb-guard
+%{_version_prefix}/bin/mrnet_commnode 
+%{_version_prefix}/bin/mrnet_commnode_wrapper
+%{_version_prefix}/bin/mrnet_topgen
+%{_version_prefix}/bin/cuda-gdb-guard
+
+%{_version_prefix}/demos
+%{_version_prefix}/lib
+%{_version_prefix}/man
+
+%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version}
+%{_name_moduledir}/%{version}
+/opt/cray/%{intranamespace_name}/%{version}/.cray_rpm_release
+/opt/cray/%{intranamespace_name}/%{version}/set_default_%{namespace}-%{intranamespace_name}_%{version}
+/opt/cray/%{intranamespace_name}/%{version}/release_info
+/opt/cray/%{intranamespace_name}/%{version}/docs/GPLv3.txt
+/opt/cray/%{intranamespace_name}/%{version}/docs/LGPLv21.txt
+/opt/cray/%{intranamespace_name}/%{version}/docs/LICENSE
+/opt/cray/%{intranamespace_name}/%{version}/docs/epl-v10.txt
+
+
+%post
+# Use the environment variable CRAY_INSTALL_DEFAULT,
+# if it is set, remove the .version file and install
+# as default modulefile
+if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ]
+then
+  rm -f %{_name_moduledir}/.version
+  rm -f %{_name_prefix}/default
+fi
+
+#
+# Set as default if no default exists either because this is first install of
+# cray-ccdb or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
+#
+
+# prevent echo of new directory as it messes up install output
+pushd %{_name_moduledir} 1> /dev/null
+
+# set version for ccdb module if it doesn't exist
+if [ ! -f .version ]
+then
+  cat > .version << EOF
+#%Module
+set ModulesVersion "%{version}"
+EOF
+  chmod 644 .version
+
+  echo "%{intranamespace_name}/%{version} set as default module version"
+fi
+
+
+# pop out of module directory
+# prevent echo of new directory as it messes up install output
+popd 1> /dev/null
+
+# set default link for ccdb if it doesn't exist
+if [ ! -L %{_name_prefix}/default ]
+then
+  cd %{_name_prefix}
+  ln -s %{version} default
+
+  echo "%{_version_prefix} set as default path to %{name}"
+fi
+
+%preun
+# Cleanup default link if it point to this version
+default_link="%{_name_prefix}/default"
+if [ -f ${default_link} -a "$(stat -c "%%d:%%i" ${default_link})" == "$(stat -c "%%d:%%i" %{_version_prefix})" ]
+then
+  rm -f ${default_link}
+fi
+
+cd %{_name_moduledir}
+version="%{version}"
+
+# Cleanup module .version if it points to this version
+if [ -f .version ]
+then
+  dotversion=dotversion=dotversion=$(grep ModulesVersion .version | awk 'BEGIN { FS="\"" } {print $2 }')
+  
+  if [ "${dotversion}" = "${version}" ]
+  then
+    echo "Uninstalled version and .version file match = ${version}."
+    echo "Removing %{intranamespace_name} .version file."
+    rm .version
+  fi
+fi
+
+%changelog
+

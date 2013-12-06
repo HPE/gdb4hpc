@@ -1,0 +1,151 @@
+CCDB: Cray Comparative Debugger
+Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
+©2010 Cray Inc.  All Rights Reserved
+
+SEE LICENSE FOR ADDITIONAL COPYRIGHT AND USAGE INFORMATION
+
+Note: This readme is meant only for developers who are actively
+      working on the ccdb project. In order to carry out the
+      tasks described within, you must have commit access to
+      the Cray debugger-support SVN repository as well as have 
+      checkout and commit access to the Monash guard source
+      repository. The Monash guard repository is a non-public
+      password protected repository which requires special
+      permission to access. It is assumed that the developer
+      has their SVN credentials used to access both the Cray
+      and Monash repositories cached. This readme document
+      and the provided scripts do not support environments
+      were the SVN credentials are not cached.
+
+1. SYSTEM REQUIREMENTS
+
+ In order to work on ccdb development and Cray ccdb repository maintenance
+ the following third party tools are required:
+
+  - GNU autoconf v2.66 or Newer
+  - GNU automake v1.11 or Newer
+  - GNU m4 1.4.14 or Newer
+  - GNU make
+  - GNU GCC
+
+ It is recommended that the developer compile the source while using the Cray 
+ supported PrgEnv-gnu module. It is also recommended that the developer use 
+ their own local install of the GNU autotools suite (i.e. autoconf, automake, m4).
+
+ If the developer does not wish to maintain their own install of the autotools
+ suite, they can prefix their path with the css location of:
+
+    /cray/css/u6/andrewg/usr/bin
+
+ At the time of this writing, the above location has an install of the newer
+ autotools suite which meets the minimum above requirements. This install is
+ maintained by Andrew Gontarek of the PE Debugger Development group. Any
+ questions should be directed at his email andrewg@cray.com.
+
+2. Making Changes to the Source
+
+ The developer that is actively working on the ccdb tool who wishes to
+ make changes to any of the source files inside of the guard and libaif
+ directories in this repository should do so only within a local working 
+ copy of the Monash source repository. The Cray repository is meant to
+ be a local mirror of the Monash source repository with additional Cray
+ only material relating to building, modulefiles, and documentation.
+
+ As this is a joint project with Guardsoft Ltd. and Monash University, 
+ any non-Cray specific code changes (i.e. any changes relating to the 
+ guard/ and libaif/ directories) should be shared with our partners.
+
+ If you do not have access to the Monash source repository and would like
+ to propose a bugfix for ccdb, you can do so by contacting a member of the
+ PE Debugger Development group. Contact information can be found inside of
+ the README document.
+
+3. Auto-Merging Changes
+
+ Since the Cray ccdb repository is a superset mirror of the Monash guard source
+ repository, there needs to be a mechanism to synchronize the two together.
+ Monash is using an older version of the SVN server (1.3.1 at the time of this
+ writing) so using the svnsync tool is out of the question. The only mechanism
+ that exists is to use the `svn merge` command in order to pull in the changes
+ from monash into a local working copy of the Cray ccdb repository.
+
+ To assit in facilitating this process, a helper script located inside of the
+ 'scripts' directory named 'merge_monash.sh' has been included for your use.
+ To use the script, you should first make sure that you have write access to
+ your current $PWD, then you can invoke the script directly. 
+
+ As an example, lets say I have a local working copy of the Cray repository
+ inside of my css drive that I have write access to. I then cd to the
+ scripts/ directory of my local working copy and issue the following command:
+
+  $ ./merge_monash.sh
+
+ As long as you have your SVN credentials for both the Cray svn repository and
+ the Monash svn repository cached, the script is entirely automatic but will
+ display information relating to the tasks it is currently conducting.
+
+4. Manually Merging Changes
+
+ Its important to note that even though the Cray SVN repository for ccdb is meant
+ to be a mirror of the Monash repository, it is not a perfect mirror. The Monash
+ repository is laid out in a way to address the fact that guard is developed in
+ such a way that it has two "seperate" entities. There is the open source component
+ called "guard" and a private proprietary component called "guard-rd" which enables
+ the core comparative functionality. But from a Cray viewpoint these two components
+ can really be viewed as a single entity since we have a contractual agreement with
+ Guardsoft for both pieces of software.
+
+ It is recommended that the developer or maintainer use the merge_monash.sh script
+ in order to synchronize any source changes, however if this is not possible or if
+ the user needs to manually revert to a historical version, manual merging can take
+ place.
+
+ The merge_monash.sh script conducts the following steps automatically:
+
+  1. Checks out a fresh copy of the Cray svn ccdb repository trunk.
+  2. Reads the monash.rev file inside of the fresh copy to obtain the current Monash 
+     revision number of the Cray source.
+  3. Queries the current revision number of the Monash guard repository root as well
+     as obtains the last changed revision number of each source trunk inside of the
+     Monash guard repository.
+  4. Compares the current Monash revision number from the monash.rev file to the current
+     revision number obtained from the guard repository root to determine if a merge
+     needs to take place.
+
+  If a merge is needed:
+  
+   5. Creates a new tag within the Cray ccdb repository of the trunk to mark the state of the
+      trunk before merging in the changes.
+   6. Each of the last changed revision numbers obtained from the Monash guard repository source 
+      trunks is compared to the current Monash revision number from the monash.rev file to 
+      determine if a merge is needed for that particular trunk. If the last changed revision 
+      number is greater than the current Monash revision of the Cray repository, we know a 
+      merge needs to take place for that particular trunk.
+   7. If a trunk merge needs to occur, the `svn merge` command is issued using the current Monash
+      revision number from the monash.rev file as the "FROM" value, and the last changed
+      revision number of the particular trunk as the "TO" value. This is merged into our
+      local working copy that we initially checked out. Note that we only wish to do a diff
+      of the changes for the trunk in question from the last time we merged in changes, to
+      the last changed revision value. This is guarenteed to give us only the changes we
+      desire to synchronize.
+   8. After the merge is completed, the `autoreconf -i` command is run on each of the
+      directories that recieved changes. This is to assit those who build the tool by
+      removing the autosuite dependencies. (i.e. generate valid configure and Makefile.in files)
+   9. Updates the monash.rev file to change the previous revision value to the current Monash
+      revision number that was used for the current merge and change the current revision value
+      to the current revision value of the Monash guard repository root. This keeps a history
+      inside of the Cray repository of timeframes that each merge took place. (by comparing the
+      historical states of the monash.rev file)
+   10. A `svn ci` command is issued to push our changes to the local working copy to the Cray ccdb
+      SVN repository.
+   11. A new tag is created inside of the Cray ccdb repository trunk to mark the state of the trunk
+      after the merge took place. This provides an easy mechanism to undo any erroneous merges to
+      the Cray svn repository.
+  12. (or 5.) Regardless of if a merge actually took place or not, the local working copy that we
+      initially checked out from the Cray ccdb SVN repository is automatically removed as it is no
+      longer needed.
+
+ Any manual merge is possible, but it is recommended to follow a similar pattern as the one laid out
+ above to conform with those who use the merge script. It is vital that after any manual merge is 
+ conducted, the user edits the monash.rev file to reflect their changes. That way any user who uses
+ the merge script can be certain that doing so will not break the Cray repository.

@@ -1,0 +1,772 @@
+
+Guard - a Parallel Relative Debugger
+
+Greg Watson
+
+David Abramson
+
+Brian May
+
+Donny Kurniawan
+
+   Copyright © 2002 GuardSoft Pty. Ltd.
+     _________________________________________________________________
+
+   Table of Contents
+
+   1. [1]Quick Start
+
+        [2]Installing libaif
+        [3]Installing patched GDB
+        [4]Installing Guard
+        [5]Running Guard
+
+   2. [6]Introduction
+   3. [7]Definitions & Syntax
+   4. [8]Usage
+   5. [9]Process Invocation
+   6. [10]Comparisons and Assertions
+   7. [11]Debugger Commands
+
+        [12]Interactive Mode Commands
+        [13]Set Sub-Commands
+        [14]Info Sub-Commands
+        [15]Deferred Mode Sub-Commands
+
+Chapter 1. Quick Start
+
+   Table of Contents
+
+   [16]Installing libaif
+   [17]Installing patched GDB
+   [18]Installing Guard
+   [19]Running Guard
+
+   This  chapter describes how to start using Guard in the minimum amount
+   of time.
+
+Installing libaif
+
+     * Download and extract the source code:
+
+$ cd /tmp
+$ tar -xzf libaif-1.0.0.tar.gz
+
+     * Compile and install libaif by changing to the directory, and using
+       configure   and  make,  followed  by  make  install  (as  root  if
+       necessary).
+       For example:
+
+$ cd libaif-1.0.0
+$ ./configure
+...
+$ make
+...
+$ make install
+...
+
+Installing patched GDB
+
+     * Download  and  extract the source code for GDB. Either version 5.0
+       or 5.2 can be used, depending on what suits your system.
+
+$ cd /tmp
+$ tar -xzf gdb_5.0.tar.gz
+
+     * Download and extract the guard source code:
+
+$ cd /tmp
+$ tar -xzf guard-1.0.0.tar.gz
+
+     * Apply  the patches from both libaif and Guard using the applypatch
+       scripts.
+       For example:
+
+$ cd /tmp/libaif-1.0.0/patches
+$ ./applypatch --install-all /tmp/gdb-5.0
+patching file gdb-5.0/gdb/aif-valprint.c
+patching file gdb-5.0/gdb/c-valprint.c
+patching file gdb-5.0/gdb/printcmd.c
+patching file gdb-5.0/gdb/typeprint.c
+patching file gdb-5.0/gdb/valprint.c
+patching file gdb-5.0/gdb/Makefile.in
+patching file gdb-5.0/gdb/libaif.mk
+$ cd /tmp/guard-1.0.0/patches
+$ ./applypatch --install-all /tmp/gdb-5.0
+patching file gdb-5.0/gdb/buildsym.c
+patching file gdb-5.0/gdb/c-typeprint.c
+patching file gdb-5.0/gdb/dbgcmd.c
+patching file gdb-5.0/gdb/defs.h
+patching file gdb-5.0/gdb/expression.h
+patching file gdb-5.0/gdb/gdbtypes.h
+patching file gdb-5.0/gdb/language.c
+patching file gdb-5.0/gdb/language.h
+patching file gdb-5.0/gdb/symfile.c
+patching file gdb-5.0/gdb/symtab.c
+patching file gdb-5.0/gdb/typeprint.c
+patching file gdb-5.0/gdb/zpl-exp.y
+patching file gdb-5.0/gdb/zpl-lang.c
+patching file gdb-5.0/gdb/zpl-lang.h
+patching file gdb-5.0/gdb/zpl-typeprint.c
+patching file gdb-5.0/gdb/zpl-valprint.c
+patching file gdb-5.0/gdb/guard.mk
+
+     * Compile  and  install  GDB by changing to the directory, and using
+       configure and make, followed by make install (as root).
+
+Note
+       You   must  use  the  --with-aif=dir  (or  --with-aif-lib=dir  and
+       --with-aif-include=dir)  configure  options  to  locate the libaif
+       library and include files.
+
+$ cd /tmp/gdb-5.0
+$ ./configure --with-aif=/usr/local alpha-redhat-linux
+...
+$ make
+...
+$ make install
+...
+
+Installing Guard
+
+     * Compile  and install Guard by changing to the directory, and using
+       configure   and  make,  followed  by  make  install  (as  root  if
+       necessary).
+
+Note
+       By  default,  configure will search ../libaif and under /usr/local
+       for  libaif.  If this is incorrect, you can use the --with-aif=dir
+       (or   --with-aif-lib=dir   and  --with-aif-include=dir)  configure
+       options to help locate libaif as required.
+       For example:
+
+$ cd /tmp/guard-1.0.0
+$ ./configure --with-aif=/usr/local
+...
+$ make
+...
+$ make install
+...
+
+Running Guard
+
+
+$ guard
+GUARD Parallel Relative Debugger
+Copyright (c) 1996-2001 by Monash University
+
+dbg all> quit
+
+Chapter 2. Introduction
+
+   Guard  is  a  relative  debugger. Unlike other debuggers, Guard allows
+   programmers  to  compare data from programs as they are executing, and
+   then  use  this  information  as an aid to identifying the location of
+   errors.
+
+   Guard  is also a conventional interactive parallel debugger. It can be
+   used   to   debug   parallel  and  sequential  programs  using  normal
+   interactive  commands,  such  as  setting  breakpoints  and displaying
+   program  state.  Because  Guard  is a parallel debugger, it will allow
+   commands  to  be  applied  to  sets of parallel processes as well as a
+   single sequential program.
+
+   Guard's  command  set  is  derived  from  GDB,  since this debugger is
+   currently  used  to  provide  the low-level debug services. The syntax
+   that  Guard  uses  has  also  been  heavily  influenced  by  the  High
+   Performance Debugging Forum's HPD standard.
+
+Chapter 3. Definitions & Syntax
+
+   Guard's  command  set  is  derived  from  GDB,  since this debugger is
+   currently  used  to  provide  the low-level debug services. The syntax
+   that  Guard  uses  has  also  been  heavily  influenced  by  the  High
+   Performance Debugging Forum's HPD standard.
+
+   command [arg1] [arg2...]
+
+   Arguments can consist of keywords or expressions.
+
+   Expressions  are  comprised  of the usual C-like operators, constants,
+   internal  variables and program variables and are evaluated locally by
+   the  client.  Text enclosed in quotes is evaluated as an expression on
+   the server, using a syntax defined language being debugged
+
+   Guard  supports  the  use  of internal variables for storing temporary
+   values.  These  variables  are  denoted by a dollar sign followed by a
+   name,  for  example  $var. Internal variables can be referenced before
+   they are defined, but will always return void.
+
+   When  programs  are  debugged  by  Guard,  the executing processes are
+   managed  using process sets. The set "all" contains all processes that
+   are  currently  being  debugged  by default. Users can create new sets
+   that  contain arbitrary combinations of processes that the user wishes
+   to  control  as a group. A process set can be selected as the "current
+   set"  (using  the  focus  command),  and  subsequent  commands will be
+   automatically applied to all processes in this set.
+
+   Variables in a target program are referenced using a syntax consisting
+   of   an  optional  process  specifier  and  an  identifier  or  server
+   expression  separated  by  "::".  If  no process is specified then all
+   processes  in  the  current  set are used. For example to refer to the
+   variable var in process $s the program variable $s::var would be used.
+   If var was a pointer to a structure, then this must be dereferenced by
+   evaluating a server-side expression, such as $s::"var->field".
+
+   If  an  internal or target program variable is an array, then elements
+   can   be   referenced   using   standard   C  array  syntax,  such  as
+   $s::var[3][4].  Guard also supports the notion of slices. An array can
+   be   sliced  by  specifying  an  array  index  as  a  range,  such  as
+   $s::var[3..10][4].
+
+Chapter 4. Usage
+
+   Guard  is  a  client/server debugger. The Guard client must be started
+   before  the  debugger  can be used. The following command is used when
+   starting the debugger under Unix:
+
+   guard [program [args]]
+
+   If  arguments are supplied to the guard command, a single program will
+   be  started  under  debugger  control,  much  the  same way as the GDB
+   command would.
+
+   Once  the  debugger  is  started,  the  user  will see an introductory
+   message, followed by a command prompt:
+GUARD Parallel Relative Debugger
+Copyright (c) 1996-2002 by Guardsoft Pty Ltd
+
+dbg all>
+
+   At this point, the user can issue commands to the debugger.
+
+Chapter 5. Process Invocation
+
+   Process  identifiers are first class debugger variables. Processes are
+   declared  using  the  invoke  command  which specifies the name of the
+   executable  and  the  number of processes to create. The syntax of the
+   invoke command is:
+
+   invoke {decl} {command} [on host] [using arch]
+
+   decl is a list of one or more internal debugger variables which can be
+   either  scalars  or  arrays  of  multiple  dimensions.  The  number of
+   processes  started  is  calculated from the number of scalar variables
+   combined with the number of elements in each array in the list.
+
+   The  following  example  starts  a  sequential  code called "prog1" on
+   machine "host1":
+invoke $ser "prog1" on "host1"
+
+   The  process  identifier  $ser  can  then  be  used  to  refer  to the
+   sequential  process. The next example starts a 5 process parallel code
+   called "par" using the MPICH parallel architecture:
+invoke $master,$slave[2][2] "par" using "mpich"
+
+   Parallel  processes  are assigned to the process identifiers in order,
+   so  $master  refers  to the first process, and the remaining processes
+   are assigned to elements of the two-dimensional array $slave[2][2].
+
+Chapter 6. Comparisons and Assertions
+
+   Comparisons  and  assertions  are  commands  specifically designed for
+   relative  debugging.  The  comparison  command is used to compare data
+   between two programs interactively. For example. if the process $proc1
+   and  $proc2  are  stopped  at  a  breakpoint, the user might issue the
+   following command to compare variables var1 and var2:
+compare $proc1::var1 = $proc2::var2
+
+   If  the  display  mode is set appropriately, then differences in these
+   variables will be displayed immediately to the user.
+
+   Assertion  commands  are employed when the user wishes to define a set
+   of  conditions about the programs before they are executed. Assertions
+   are  encapsulated  using the graph command, and take a special form of
+   variable  reference that includes a breakpoint reference consisting of
+   a  file name and line number. An assertion comparing the variable var1
+   from file1.c at line 34 of the process $p1 with the variable var2 from
+   file2.c at line 55 of the process $p2 would take the form:
+graph $g
+  assert $p1::var1@"file1.c":34 = $p2::var2@"file2.c":55
+end
+
+   Entering these commands in the debugger will create a graph called $g.
+   Issuing  the  command  start  $g  will  then  instruct the debugger to
+   execute  the  graph. This results in breakpoints being inserted at the
+   appropriate  locations  and  then  the  processes  started.  When  the
+   breakpoints are reached, the debugger will extract the contents of the
+   variables and perform the comparison.
+
+Chapter 7. Debugger Commands
+
+   Table of Contents
+
+   [20]Interactive Mode Commands
+   [21]Set Sub-Commands
+   [22]Info Sub-Commands
+   [23]Deferred Mode Sub-Commands
+
+   The  following list describes the commands available in GUARD. Letters
+   shown in bold correspond to the abbreviation for the command.
+
+   Commands are classified into three groups. These are:
+     * process independent: the command does not interact with a process.
+     * process  targeted:  the  command  interacts with a process, and at
+       least one process must have been invoked.
+     * process  optional:  the  command  may  interact  with  a  process,
+       depending on its arguments.
+
+   Immediate  mode  commands are executed as soon as they are issued, and
+   generally  result  in  communication with the server. The set and info
+   sub-commands  are also immediate mode commands. Deferred mode commands
+   may  only  be  issued  when  the debugger is in deferred mode, and are
+   collected  by the debugger and are only processed when the end command
+   is  encountered.  The  three commands: graph, map and trans switch the
+   debugger  from  immediate  to  deferred mode. The end command switches
+   from deferred to immediate mode.
+
+Interactive Mode Commands
+
+   assign {target} {expr} [-force]
+
+          Process  Optional. Assign the value of an expression defined by
+          expr  to target. The target must evaluate to an l-value that is
+          either an internal variable or a program variable. If target is
+          the  name  of  an  internal variable that does not exist, a new
+          variable is created automatically.
+
+   break {line | func | addr}
+
+          Process  Targeted.  Set  a  breakpoint  in all processes in the
+          current  process  set.  The  location  of the breakpoint can be
+          defined  as  a  line  number  line,  a function name func or an
+          address addr.
+
+   compare {expr1 = expr2}
+
+          Process  Optional.  Compare  (subtract) the value of expression
+          expr1  with  the  value of expression expr2. The values must be
+          the  same size and shape. For complex data types such as arrays
+          and  structures,  the  comparison is performed on each element.
+          The  output  of  this  command  depends  on the settings of the
+          display, output and error variables.
+
+   cont [n]
+
+          Process  Targeted.  Continue  execution of all processes in the
+          current  process set from a breakpoint. If n is specified, then
+          the debugger will stop on the nth breakpoint.
+
+   create {$var1} [dim1] [dim2...]
+
+          Process  Independent.  Create  an  internal  variable. If dim1,
+          dim2,  etc.  are supplied then the internal variable will be an
+          array of the specified rank and shape.
+
+   defset {pset} {p1} [p2...]
+
+          Process  Independent.  Create  an  internal  variable. If dim1,
+          dim2,  etc.  are supplied then the internal variable will be an
+          array of the specified rank and shape.
+
+   delete {bp1} [bp2...]
+
+          Process  Targeted.  Delete the list of breakpoints specified by
+          bp1,  bp2, etc. in the current process set. If no arguments are
+          specified then all breakpoints will be deleted.
+
+   down [n]
+
+          Process  Targeted.  Move down the call stack by n frames in all
+          processes  in  the  current  process  set.  If  no  argument is
+          supplied then move down one frame.
+
+   focus [pset]
+
+          Process   Independent.   Change  focus  to  process  set  pset.
+          Subsequent   process   targeted  commands  will  refer  to  the
+          processes in this set.
+
+   function {func( [args...]) = expr}
+
+          Process Independent. Define a function (macro) called func. The
+          expression   expr   can   contain  format  arguments  that  are
+          substituted  by  actual  arguments  supplied  to  the function.
+          Recursion is not allowed.
+
+   graph {name}
+
+          Process  Independent.  Define  a  dataflow  graph  called name.
+          Switches to deferred mode until the end command is encountered.
+
+   halt
+
+          Process  Targeted.  Halt all executing processes in the current
+          process  set. This is the equivalent of sending a SIGINT to the
+          process.
+
+   help [command]
+
+          Process  Independent.  Display  help information on the command
+          command.  If  no  argument is supplied then a list of available
+          commands is displayed.
+
+   info {sub-command}
+
+          Process   Independent.   Display   information   specified   by
+          sub-command.
+
+   invoke {var-list} {program} [args] [on host [user passwd] [using
+          arch]]
+
+          Process  Independent.  Invoke  a  program  called  program with
+          arguments args.
+
+          If  on  is supplied, then the program is executed on the remote
+          system   host   optionally   suppling   user   and  passwd  for
+          authentication.
+
+          If  using  is supplied, the program is started under one of the
+          parallel run-time systems specified. These can be mpich, poe or
+          p4.
+
+          For  sequential  programs,  var-list is just a scalar variable.
+          For  parallel  programs, var-list must be a list of one or more
+          scalar variables or arrays. Parallel process tasks are assigned
+          to  each variable or array in turn, starting from the left. The
+          total  of  the  number  of  scalars and the ranks of each array
+          determine the number of processes started.
+
+   kill
+
+          Process  Targeted.  Kill all executing processes in the current
+          process set.
+
+   list [- | [file:]line | [file:]func | addr] [, {[file:]line |
+          [file:]func | addr}]
+
+          Process  Targeted.List  lines  of  all processes in the current
+          process set.
+
+          With  no  arguments,  list  ten  more  lines after the previous
+          listing.  If - is specified, list ten lines before the previous
+          listing
+
+          If one argument is supplied, this specifies a line around which
+          ten  lines  are  listed.  If  two arguments are supplied, these
+          specify the starting and ending lines to list.
+
+   map {name(proc::var)}
+
+          Process  Independent.Define  a  data  transformation map called
+          name.  The  mapping will be supplied with an array of processes
+          proc  and a distributed variable var. Switches to deferred mode
+          until the end command is encountered.
+
+   next [n]
+
+          Process  Targeted.Skip to next statement of each process in the
+          current  process  set,  ignoring  subroutine  calls.  If  n  is
+          supplied, skip next n statements.
+
+   print {expr}
+
+          Process  Optional.  Print the value of expr for each process in
+          the  current  process  set. Expr can contain any combination of
+          internal variables and program variables.
+
+   quit
+
+          Process Independent. Quit the debugger.
+
+   release {prog}
+
+          Process  Independent.  Release  an  invoked  program  from  the
+          debugger.  Shuts  down  the  debug  servers  for  all processes
+          associated  with the program and releases the internal variable
+          prog.
+
+   restart {graph}
+
+          Process  Independent. Restart a graph. All processes referenced
+          by the graph are restarted first.
+
+   run [graph]
+
+          Process  Targeted. Start executing all processes in the current
+          process  set.  args  are  passed to the program as command line
+          arguments.
+
+   set {sub-command}
+
+          Process Independent. Set information specified by sub-command.
+
+   source {filename}
+
+          Process  Independent.  Read  commands  specified  by  the  file
+          specified by filename.
+
+   start {graph}
+
+          Process  Independent.  Read  commands  specified  byu  the file
+          specified by filename.
+
+   status
+
+          Process  Targeted.  Print  the  status  of all processes in the
+          current process set.
+
+   step [n]
+
+          Process Targeted. Skip to next statement of each process in the
+          current  process  set. Will step into subroutine calls. If n is
+          supplied, skip next n statements.
+
+   trans {name(var)}
+
+          Process  Independent.  Define  a  data  transformation function
+          called  name.  The data structure to be transformed will passed
+          as  the  argument  var. Switches to deferred mode until the end
+          command is encountered.
+
+   up [n]
+
+          Process  Targeted.  Move  up  the  call stack by n frams in the
+          current  process  set. If no argument is supplied, then move up
+          one frame.
+
+   version
+
+          Process Independent. Display the debugger version.
+
+   viewset [pset]
+
+          Process  Independent. Display the processes associated with the
+          process  set  pset.  If  no  argument  is supplied, display all
+          process sets.
+
+   whatis {expr}
+
+          Process  Targeted. Display the data type of the expression expr
+          for each process in the current process set.
+
+   where [n]
+
+          Process  Targeted.  Display  the  current  stack frames for all
+          processes  in  the  current process set. If n is supplied, only
+          the  innermost  n  frames  are  displayed. If n is negative the
+          outermost n frames are displayed.
+
+Set Sub-Commands
+
+   set async = {on | off}
+
+          Default:  on.  Turn  asynchronous  mode  on  or  off. This only
+          affects  interactive mode, and determines if the debugger waits
+          for  each  command  to  complete  before  accepting  additional
+          commands.
+
+   set dfmode = {default | sync | async}
+
+          Set  the  dataflow  mode  to  synchronous or asynchronous. This
+          changes  the  dataflow  graph that is generated using the graph
+          command  so  that  it  operates  in  one  of  these  modes. The
+          synchronous  mode  is  default  for  assertions  that  refer to
+          independent  processes,  while  the  asynchronous  mode  is the
+          default for assertions that refer to the same process.
+
+   set display = {text | aif | hdf | hdf5 | ms}
+
+          Default:  text.  Set the display format for assertions. In text
+          mode,  any  differences  are  displayed  as  text  at the users
+          terminal.  In  aif mode, differences are output in architecture
+          independent  format  (AIF).  In hdf and hdf5 modes, differences
+          are  output  in the hierarchical data format (HDF) version 4 or
+          version  5  respectively.  In  ms  mode,  the  differences  are
+          displayed  in a GUI environment running under Microsoft Windows
+          (experimental).
+
+   set error {upper} {lower} {relative | absolute}
+
+          Default:  0.0 0.0 absolute.Differences below lower are ignored.
+          Differences  between  lower  and  upper are displayed using the
+          current display mode. Any differences above upper will halt the
+          dataflow  interpreter. The relative and absolute modes are used
+          to  specify  if lower and upper are relative or absolute limits
+          respectively. In relative mode, the difference is first divided
+          by the maximum of the two values being compared.
+
+   set ERROR_CHECKS = {max | normal | min}
+
+          Default:  normal.  Sets  error  checking mode to max, normal or
+          min.   This   determines  if  the  debugger  prompts  before  a
+          potentially  dangerous  action  is taken, prompts only before a
+          potentially   fatal  action  or  warns  otherwise,  or  ignores
+          potential danger respectively.
+
+   set EVENT_INTERRUPT = {on | off}
+
+          Default: on. Determines whether program events are detected and
+          reported to the user as soon as possible, or deferred until the
+          user has completed typing a command.
+
+   set EXECUTABLE_PATH = {path}
+
+          Default:  ./:$PATH.  In  order  to  find  the  location  of  an
+          executable  specified  using  the  invoke command, the debugger
+          searches  the  current  directory,  then  all  the  directories
+          included in the executable search path.
+
+   set force = {on | off}
+
+          Default:  off.  Determines  whether  subsequent assertions will
+          copy  the  value  from  the  LHS variable into the RHS variable
+          after the assertion is executed.
+
+   set halt = {on | off}
+
+          Default:  on.  Determines  if  processes  are  halted  when the
+          dataflow interpreter terminates.
+
+   set logfile = {filename}
+
+          Default:  empty.  Specifies  the name of a file to send logging
+          entries.
+
+   set logging = {on | off}
+
+          Default: off. Turns dataflow event logging on or off.
+
+   set MAX_LIST = {lines}
+
+          Default:  20.  Specifies the number of lines that are displayed
+          using the list command.
+
+   set MAX_LEVELS = {levels}
+
+          Default:  20.  Specifies the maximum number of call stack frams
+          that are displayed using the where command.
+
+   set MAX_HISTORY = {length}
+
+          Default:  20.  Specifies the length of the command history that
+          will be maintained.
+
+   set MAX_PROMPT = {length}
+
+          Default:  20.  Specifies  the  maximum  length  of  the command
+          prompt.
+
+   set MODE {processes | threads | multilevel}
+
+          Default:  processes.  Defines  if  the  debugger  is capable of
+          debugging   multiple-process   single  thread,  single  process
+          multiple-thread  or  multiple-process  multiple-thread programs
+          respectively. Currently only the processes mode is supported.
+
+   set output = {filename}
+
+          Default:  empty.  If  defined, specifies a file to which output
+          from assertions is sent.
+
+   set PROMPT = {prompt}
+
+          Default: guard $ptset> Sets the current prompt.
+
+   set SOURCE_PATH = {path}
+
+          Default:  empty.  If  defined, specifies a file to which output
+          from assertions is sent.
+
+   set VERBOSE = {err | warn | all}
+
+          Default:  warn.  These  levels  are  err,  warn  and all, which
+          correspond  to  show error messages only, show warning messages
+          and   normal   command  output  and  show  maximum  information
+          respectively.
+
+Info Sub-Commands
+
+   info globals
+
+          Process Targeted. Display a list of the global symbols for each
+          process in the current process set.
+
+   info map [name]
+
+          Process  Independent.  Display information about the definition
+          of the map name. If no argument is supplied, information on all
+          maps is displayed.
+
+   info process [pset]
+
+          Process  Independent. Display information about the process set
+          pset.  If  no  argument is supplied, information on all process
+          sets is displayed.
+
+   info trans [name]
+
+          Process  Independent.  Display information about the definition
+          of   the   translation   name.  If  no  argument  is  supplied,
+          information on all translations is displayed.
+
+Deferred Mode Sub-Commands
+
+   assert {var1} {= | ==} {var2}
+
+          Assert command only. Assert that variable var1 is equivalent to
+          variable   var2.   Variables   are   specified  in  the  format
+          proc::var@file:line  to  denote  a  variable called var at line
+          number line in file file from executing process proc.
+
+   define index(a,i,u,l) = {expr}
+
+          Map  command only. Define a function that describes the mapping
+          of  indices  from  a  serial  array  to  a parallel arrays. The
+          argument  i  is the current index value, a is an array of index
+          values,  u  is an array of index upper bounds and l is an array
+          of index lower bounds.
+
+   define proc(a,i,u,l) = {expr}
+
+          Map  command only. Define a function that describes the mapping
+          of  indices  from  a  serial  array  to  set  of processes. The
+          argument  i  is the current index value, a is an array of index
+          values,  u  is an array of index upper bounds and l is an array
+          of index lower bounds.
+
+   define func(i) = {expr}
+
+          Trans   command   only.   Define   a  function  that  describes
+          translation  of  elements  of  a  vector. The argument i is the
+          current index value.
+
+   end
+
+          All commands. Finish deferred mode command.
+
+References
+
+   1. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2812898
+   2. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2798872
+   3. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751106
+   4. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2754334
+   5. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2754435
+   6. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2752746
+   7. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2752812
+   8. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2752907
+   9. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751354
+  10. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751494
+  11. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751617
+  12. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751740
+  13. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2813802
+  14. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2815246
+  15. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2815436
+  16. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2798872
+  17. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751106
+  18. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2754334
+  19. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2754435
+  20. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2751740
+  21. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2813802
+  22. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2815246
+  23. file://localhost/tmp/xmlto.xTZNYA/guard.proc#id2815436

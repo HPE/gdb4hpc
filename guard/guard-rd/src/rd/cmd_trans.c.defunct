@@ -1,0 +1,338 @@
+/*
+** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+** See COPYRIGHT in top-level directory.
+**
+** Translation command.
+**
+*/
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include	<signal.h>
+#include	<string.h>
+#include	<stdio.h>
+
+#include	"client.h"
+#include	"useful.h"
+#include	"df.h"
+
+cmdlist_t *	TransCmds;
+cmdlist_t *	OldCmds;
+trans_t *	CurrentTrans;
+
+extern ct_stream_t *	CurrentStream;
+extern htable_t *	DbgVars;
+
+extern int	funccmd(invoke_proc_t *, int, int, char **);
+extern int	setcmd(invoke_proc_t *, int, int, char **);
+extern int	helpcmd(invoke_proc_t *, int, int, char **);
+extern void	funchelp(void);
+extern void	sethelp(void);
+extern void	helphelp(void);
+
+//extern void	ProcPrint(FILE *, invoke_proc_t *, char *, ...);
+extern int	Query(rec_set_t *, int, char *);
+//extern int	Query(invoke_proc_t *, int, char *);
+
+int 
+transcmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	char *		str;
+	char		buf[BUFSIZ];
+	void *		trans;
+	trans_t *	t;
+	ct_val		cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Invalid trans command.\n");
+		return 0;
+	}
+
+	ArgsToBuf(&argv[1], argc-1, buf, BUFSIZ);
+
+	str = buf;
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "identifier expected");
+		PrintError();
+		return 0;
+	}
+
+	trans = cv.cv_sym;
+
+	if ( (t = FindTrans(SymLookup(trans))) != (trans_t *)NULL )
+	{
+		PrintOutError("Translation \"%s\" already defined\n", SymLookup(trans));
+		return 0;
+	}
+
+	if ( (CurrentTrans = NewTrans(trans)) == (trans_t *)NULL )
+	{
+		PrintError();
+		return 0;
+	}
+
+	if ( argc > 2 )
+	{
+		if ( strcmp(argv[2], "-debug") == 0 )
+			CurrentTrans->t_debug = 1;
+		else
+		{
+			PrintOutError("invalid trans switch \"%s\"\n", argv[2]);
+			DestroyTrans(CurrentTrans);
+			return 0;
+		}
+	}
+
+	OldCmds = SetCommands(TransCmds);
+
+	IncPromptLevel(CurrentStream);
+
+	return 1;
+}
+
+int 
+endtranscmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+
+	return 1;
+}
+
+int 
+definetranscmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	char *		str;
+	char *		name;
+	char		buf[BUFSIZ];
+	void *		sym;
+	ct_type		t;
+	ct_val		cv;
+	expr_t *	e;
+	func_t **	f;
+	list_t *	args;
+
+	ArgsToBuf(&argv[1], argc-1, buf, BUFSIZ);
+
+	str = buf;
+
+	if ( ScanString(&cv, &str) != CT_SYM )
+	{
+		CTSyntaxError(CurrentStream, "expected function name");
+		PrintError();
+		return 0;
+	}
+
+	sym = cv.cv_sym;
+	name = SymLookup(sym);
+
+	if ( strcmp(name, "index") == 0 )
+		f = &CurrentTrans->t_index;
+	else
+	{
+		PrintOutError("Only \"index\" function allowed\n");
+		return 0;
+	}
+
+	if ( *f != (func_t *)NULL )
+	{
+		PrintOutError("%s function already defined\n", name);
+		return 0;
+	}
+
+	if ( ScanString(&cv, &str) != CT_LPAREN )
+	{
+		CTSyntaxError(CurrentStream, "'(' expected");
+		PrintError();
+		return 0;
+	}
+
+	args = NewList();
+
+	for ( ;; )
+	{
+		if ( ScanString(&cv, &str) != CT_SYM )
+		{
+			CTSyntaxError(CurrentStream, "argument expected");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+
+		if ( InList(args, cv.cv_sym) )
+		{
+			CTSyntaxError(CurrentStream, "duplicate argument");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+
+		AddToList(args, cv.cv_sym);
+
+		if ( (t = ScanString(&cv, &str)) == CT_RPAREN )
+			break;
+
+		if ( t != CT_COMMA )
+		{
+			CTSyntaxError(CurrentStream, "'(' or ',' expected");
+			PrintError();
+			DestroyList(args, (void (*)())NULL);
+			return 0;
+		}
+	}
+
+	if ( SizeOfList(args) != 1 )
+	{
+		PrintOutError("One argument must be supplied\n");
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( (t = ScanString(&cv, &str)) != CT_EQUAL )
+	{
+		CTSyntaxError(CurrentStream, "'=' expected");
+		PrintError();
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( (e = ParseExpr(str)) == (expr_t *)NULL )
+	{
+		CTSyntaxError(CurrentStream, GetError());
+		PrintError();
+		DestroyList(args, (void (*)())NULL);
+		return 0;
+	}
+
+	if ( (*f = NewFunc(sym, args, e, (int (*)(list_t *, val_t **))NULL, buf, 0)) == (func_t *)NULL )
+	{
+		CTSyntaxError(CurrentStream, GetError());
+		PrintError();
+		return 0;
+	}
+
+	return 1;
+}
+
+void
+transnotfound(char *cmd)
+{
+	DestroyTrans(CurrentTrans);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+	CmdNotFound(cmd);
+}
+
+void
+transambig(char *cmd)
+{
+	DestroyTrans(CurrentTrans);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+	AmbiguousAltCmd(TransCmds, cmd);
+}
+
+void
+transfailed(void)
+{
+	DestroyTrans(CurrentTrans);
+	DecPromptLevel(CurrentStream);
+	SetCommands(OldCmds);
+}
+
+void
+transhelp(void)
+{
+	printf("trans name(V)\n");
+	printf("  index name func\n");
+	printf("end\n\n");
+	printf("Create a translation function that specifies how to\n");
+	printf("change the shape of an array.\n\n");
+	printf("Translate commands are read until \"end\" is encountered.\n");
+}
+
+void
+endtranshelp(void)
+{
+	printf("End a translate definition.\n");
+}
+
+void
+definetranshelp(void)
+{
+	printf("define name(i,a) = expr\n\n");
+	printf("Define an index function. Defines a function with\n");
+	printf("two arguments: i and a. The argument i will\n");
+	printf("iterate from 0 to rank-1 of either the resulting array or\n");
+	printf("the process array. a contains the current index values.\n");
+}
+
+int
+infotranscmd(invoke_proc_t *p, int prom, int argc, char **argv)
+{
+	trans_t *        t;
+
+	if ( argc > 1 )
+	{
+		if ( (t = FindTrans(argv[1])) == (trans_t *)NULL )
+		{
+			PrintOutError("No such tranlation \"%s\"\n", argv[1]);
+			return 0;
+		}
+
+		PrintTrans(stdout, t);
+		return 1;
+	}
+		
+	SetTrans();
+
+	while ( (t = GetTrans()) != (trans_t *)NULL )
+		PrintTrans(stdout, t);
+
+	return 1;
+}
+
+void
+infotranshelp(void)
+{
+	printf("Show information about a translation.\n");
+}
+
+void
+InitCmd_trans(void)
+{
+/* 
+ * Trans commands are disabled for now. The command syntax needs a major rework.
+ * It also needs to be made to work with MRNet.
+	AddCommand("trans", NULL, proc_ignore, 0, transcmd,
+		transhelp, "Define a translation function.");
+
+	AddInfoCommand("trans", proc_ignore, 0, infotranscmd,
+			infotranshelp, "Show information about a translation.");
+
+	TransCmds = NewCommandList(transnotfound, transambig, transfailed);
+
+	AddAltCommand(TransCmds, "define", NULL, proc_ignore, 0, 
+		definetranscmd, definetranshelp, "Define a translation function.");
+	AddAltCommand(TransCmds, "end", NULL, proc_ignore, 0, 
+		endtranscmd, endtranshelp, "End a graph.");
+        AddAltCommand(TransCmds, "set", NULL, proc_ignore, 1, setcmd,
+		sethelp, "Set information about the program being debugged.");
+	AddAltCommand(TransCmds, "help", "h", proc_ignore, 0, helpcmd,
+			helphelp, "Show help information about commands.");
+ */
+}
+
+
+void
+FinishCmd_trans(void)
+{
+	DestroyCommandList(TransCmds);
+}
+
+

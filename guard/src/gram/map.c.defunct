@@ -1,0 +1,468 @@
+/*
+** Map routines.
+**
+** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+**
+*/
+
+/*
+** TODO: THIS FILE IS NO LONGER USED!!!
+*/
+
+#ifdef HAVE_CONFIG_H
+#include        <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include	<stdarg.h>
+#include	<stdio.h>
+#include	<signal.h>
+#include	<string.h>
+
+#include	"defs.h"
+#include	"useful.h"
+#include	"aif.h"
+#include	"fds.h"
+#include	"gram.h"
+
+#define MAP_TABLE_SIZE        7     /* 2^7 = 128 = number that can be active */
+
+static htable_t *	_map_table = (htable_t *)NULL;
+static list_t *		_map_list = (list_t *)NULL;
+
+int	EvalMapFunc(int *, g_map_t *, func_t *, int);
+
+/*
+** Find a map.
+*/
+g_map_t *
+FindMap(char *map)
+{
+	hentry_t *	h;
+
+	if ( (h = HashSearch(_map_table, map)) != (hentry_t *)NULL )
+		return (g_map_t *)h->h_data;
+
+	return (g_map_t *)NULL;
+}
+
+int
+CheckMap(hentry_t *sym)
+{
+	g_map_t *	m = FindMap(SymLookup(sym));
+
+	return m != (g_map_t *)NULL;
+}
+
+void
+SetMap(void)
+{
+	if ( _map_list != (list_t *)NULL )
+		SetList(_map_list);
+}
+
+g_map_t *
+GetMap(void)
+{
+	if ( _map_list == (list_t *)NULL )
+		return (g_map_t *)NULL;
+
+	return (g_map_t *)GetListElement(_map_list);
+}
+
+/*
+** Create a new map.
+*/
+g_map_t *
+NewMap(hentry_t *sym, list_t *args)
+{
+	g_map_t *		m;
+
+	m = (g_map_t *)Alloc(sizeof(g_map_t));
+	m->m_sym = sym;
+	m->m_args = args;
+	m->m_index = (func_t *)NULL;
+	m->m_proc = (func_t *)NULL;
+	m->m_builtin = (int (*)(list_t *))NULL;
+	m->m_current = 0;
+	m->m_debug = 0;
+
+	if ( sym == (hentry_t *)NULL )
+		return m;
+
+	if ( _map_list == (list_t *)NULL )
+		_map_list = NewList();
+
+	if ( _map_table == (htable_t *)NULL )
+		_map_table = HashCreate(MAP_TABLE_SIZE);
+
+	if ( HashInsert(_map_table, SymLookup(sym), (void *)m) == (hentry_t *)NULL )               
+	{       
+		SetError("Too many maps defined");
+		return (g_map_t *)NULL;;
+	}
+
+	AddToList(_map_list, (void *)m);
+
+	return m;
+}
+
+/*
+** Free a map.
+*/
+void
+DestroyMap(g_map_t *m)
+{
+	hentry_t *	h;
+
+	if ( m == (g_map_t *)NULL )
+		return;
+
+	if ( (h = HashSearch(_map_table, SymLookup(m->m_sym))) != (hentry_t *)NULL )
+		HashRemove(_map_table, h);
+
+	RemoveFromList(_map_list, (void *)m);
+
+	if ( m->m_args != (list_t *)NULL )
+		DestroyList(m->m_args, (void (*)())NULL);
+
+	if ( m->m_index != (func_t *)NULL )
+		FreeFunc(m->m_index);
+
+	if ( m->m_proc != (func_t *)NULL )
+		FreeFunc(m->m_proc);
+
+	Free(m);
+}
+
+AIF *
+ApplyMap(g_map_t *m, char *type, int nd, AIF **data)
+{
+	int		i;
+	int		j;
+	int		p;
+	int		d;
+	char *		r_ptr;
+	char *		d_ptr;
+	AIF *		res;
+	AIFIndex *	dix;
+	AIFIndex *	pix=NULL;
+
+	if ( FDSType(type) != AIF_ARRAY )
+	{
+		SetError("Result type of map is not an array");
+		return (AIF *)NULL;
+	}
+
+	if ( nd <= 0 )
+	{
+		SetError("Bad number of processes: %d", nd);
+		return (AIF *)NULL;
+	}
+
+	res = MakeAIF(strdup(type), NULL);
+
+	/*
+	** Determine array info for result
+	*/
+	m->m_ix = FDSArrayIndexInit(type);
+
+	/*
+	** Determine array info for data (using first element)
+	*/
+	dix = AIFArrayIndexInit(data[0]);
+
+	if ( dix->i_rank != m->m_ix->i_rank )
+	{
+		SetError("Ranks of arrays differ");
+		res = (AIF *)NULL;
+		goto ret;
+	}
+
+	if ( dix->i_bsize != m->m_ix->i_bsize )
+	{
+		SetError("Element size of arrays differs");
+		res = (AIF *)NULL;
+		goto ret;
+	}
+
+	/*
+	** Get process array information.
+	*/
+	if ( m->m_actual->v_procset->s_ig->ig_rank == 0 )
+		pix = FDSArrayIndexInit("[r0..0is4]is4");
+	else
+		pix = AIFArrayIndexInit(VAL_VAL(m->m_actual->v_procset->s_ig->ig_procs));
+
+	m->m_current = 1;
+
+	for ( i = 0 ; i < m->m_ix->i_nel ; i++ )
+	{
+		/*
+		** Compute process indices.
+		*/
+		j = 0;
+
+		do
+		{
+			if ( EvalMapFunc(&p, m, m->m_proc, j) < 0 )
+			{
+				AIFFree(res);
+				res = (AIF *)NULL;
+				goto ret;
+			}
+
+			if ( p > pix->i_max[j] || p < pix->i_min[j] )
+			{
+				SetError("Invalid process index: p[%d]=%d", j, p);
+				AIFFree(res);
+				res = (AIF *)NULL;
+				goto ret;
+			}
+
+			pix->i_index[j++] = p;
+		}
+		while ( j < pix->i_rank );
+
+		/*
+		** Compute process number.
+		*/
+		p = AIFIndexOffset(pix->i_rank, pix->i_index, pix->i_min, pix->i_max, NULL);
+
+		/*
+		** Compute data indices.
+		*/
+		for ( j = 0 ; j < m->m_ix->i_rank ; j++ )
+		{
+			if ( EvalMapFunc(&d, m, m->m_index, j) < 0 )
+			{
+				AIFFree(res);
+				res = (AIF *)NULL;
+				goto ret;
+			}
+
+			if ( d > dix->i_max[j] || d < dix->i_min[j] )
+			{
+				SetError("Invalid data index: d[%d]=%d", j, d);
+				AIFFree(res);
+				res = (AIF *)NULL;
+				goto ret;
+			}
+
+			dix->i_index[j] = d;
+		}
+
+		if ( !m->m_debug )
+		{
+			/*
+			** Compute offset into data and result
+			*/
+			d_ptr = AIF_DATA(data[p]) + AIFIndexOffset(dix->i_rank, dix->i_index, dix->i_min, dix->i_max, NULL) * dix->i_bsize;
+			r_ptr = AIF_DATA(res) + AIFIndexOffset(m->m_ix->i_rank, m->m_ix->i_index, m->m_ix->i_min, m->m_ix->i_max, NULL) * m->m_ix->i_bsize;
+
+			/*
+			** Copy data into result
+			*/
+			memcpy(r_ptr, d_ptr, dix->i_bsize);
+		}
+		else
+		{
+			printf("%s", SymLookup(m->m_sym));
+			AIFPrintArrayIndex(stdout, m->m_ix);
+			SetList(m->m_args);
+			printf(" = %s", SymLookup(GetListElement(m->m_args)));
+			AIFPrintArrayIndex(stdout, pix);
+			printf("::%s", SymLookup(GetListElement(m->m_args)));
+			AIFPrintArrayIndex(stdout, dix);
+			printf("\n");
+		}
+
+		/*
+		** Increment result index
+		*/
+		AIFArrayIndexInc(m->m_ix);
+	}
+
+ret:
+	AIFArrayIndexFree(m->m_ix);
+	AIFArrayIndexFree(dix);
+	AIFArrayIndexFree(pix);
+
+	m->m_current = 0;
+
+	return res;
+}
+
+/*
+** Evaluate map function f(i,u,l,P,A) and return the result.
+*/
+int
+EvalMapFunc(int *res, g_map_t *m, func_t *f, int index)
+{
+	int		i;
+	int		min;
+	int		max;
+	AIF *		a;
+	AIF *		a1;
+	AIFIndex *	ix;
+	val_t *		val;
+	arg_t *		av;
+	list_t *	args;
+	invoke_group *	ig;
+
+	if ( (a = IntToAIF(index)) == (AIF *)NULL )
+	{
+		SetError("%s", AIFErrorStr());
+		return -1;
+	}
+
+	args = NewList();
+
+	/*
+	** Add index to actual args.
+	*/
+	val = NewVal(lval_none, rval_aif, a);
+	av = NewArg(ARG_VAL, val);
+	AddToList(args, (void *)av);
+
+	/*
+	** Add index array to actual args.
+	*/
+	min = 0;
+	max = m->m_ix->i_rank - 1;
+
+	a = ArrayToAIF(1, &min, &max, NULL, 
+		(max - min + 1) * sizeof(int), 
+		AIF_INTEGER_TYPE(1, sizeof(int)));
+
+	val = NewVal(lval_none, rval_aif, a);
+
+	ix = AIFArrayIndexInit(a);
+
+	for ( i = 0 ; i < m->m_ix->i_rank ; i++ )
+	{
+		a1 = IntToAIF(m->m_ix->i_index[i]);
+		AIFSetArrayData(a, ix, a1);
+		AIFArrayIndexInc(ix);
+		AIFFree(a1);
+	}
+
+	AIFArrayIndexFree(ix);
+
+	av = NewArg(ARG_VAL, val);
+	AddToList(args, (void *)av);
+
+	/*
+	** Add upper bounds array to actual args.
+	*/
+	a = ArrayToAIF(1, &min, &max, NULL, 
+		(max - min + 1) * sizeof(int),
+		AIF_INTEGER_TYPE(1, sizeof(int)));
+
+	val = NewVal(lval_none, rval_aif, a);
+
+	ix = AIFArrayIndexInit(a);
+
+	for ( i = 0 ; i < m->m_ix->i_rank ; i++ )
+	{
+		a1 = IntToAIF(m->m_ix->i_max[i]);
+		AIFSetArrayData(a, ix, a1);
+		AIFArrayIndexInc(ix);
+		AIFFree(a1);
+	}
+
+	AIFArrayIndexFree(ix);
+
+	av = NewArg(ARG_VAL, val);
+	AddToList(args, (void *)av);
+
+	/*
+	** Add lower bounds array to actual args.
+	*/
+	a = ArrayToAIF(1, &min, &max, NULL, 
+		(max - min + 1) * sizeof(int), 
+		AIF_INTEGER_TYPE(1, sizeof(int)));
+
+	val = NewVal(lval_none, rval_aif, a);
+
+	ix = AIFArrayIndexInit(a);
+
+	for ( i = 0 ; i < m->m_ix->i_rank ; i++ )
+	{
+		a1 = IntToAIF(m->m_ix->i_min[i]);
+		AIFSetArrayData(a, ix, a1);
+		AIFArrayIndexInc(ix);
+		AIFFree(a1);
+	}
+
+	AIFArrayIndexFree(ix);
+
+	av = NewArg(ARG_VAL, val);
+	AddToList(args, (void *)av);
+
+	/*
+	** Add map procs to actual args.
+	*/
+//	ig = m->m_actual->v_inv;
+	ig = m->m_actual->v_procset->s_ig;
+	val = NewVal(lval_none, rval_proc, CopyAIF(VAL_VAL(ig->ig_procs)));
+	av = NewArg(ARG_VAL, val);
+	AddToList(args, (void *)av);
+
+	/*
+	** Add map var to actual args.
+	*/
+	av = NewArg(ARG_SYM, AddSym(m->m_actual->v_var));
+	AddToList(args, (void *)av);
+
+	if ( EvalFunc(&val, f, args, (rec_set_t *)NULL) < 0 )
+	{
+		SetError("Error while evaluating map function \"%s\"", SymLookup(f->f_sym));
+		DestroyList(args, DestroyArg);
+		return -1;
+	}
+
+	DestroyList(args, DestroyArg);
+
+	if ( val->val_rval_type != rval_aif )
+	{
+		SetError("Expression evaluated to bad type");
+		DestroyVal(val);
+		return -1;
+	}
+
+	if ( VAL_VAL(val) == (void *)NULL || AIFToInt(VAL_VAL(val), res) < 0 )
+	{
+		SetError("%s", AIFErrorStr());
+		DestroyVal(val);
+		return -1;
+	}
+
+	DestroyVal(val);
+
+	return 0;
+}
+
+void
+PrintMap(FILE *fp, g_map_t *m)
+{
+	SetList(m->m_args);
+
+	PrintToFd(fp, "%s(", SymLookup(m->m_sym));
+	PrintToFd(fp, "%s", SymLookup(GetListElement(m->m_args)));
+	PrintToFd(fp, "::%s)={", SymLookup(GetListElement(m->m_args)));
+
+	// Minh
+	if (m->m_index->f_strdef != NULL)
+		PrintToFd(fp, "%s,", m->m_index->f_strdef);
+	else {
+		SetError("index function for map has not been defined yet");
+		return;
+	}
+
+	if (m->m_proc->f_strdef != NULL)
+		PrintToFd(fp, "%s}\n", m->m_proc->f_strdef);
+	else {
+		SetError("proc function for map has not been defined yet");
+		return;
+	}
+}

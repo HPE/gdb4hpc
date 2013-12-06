@@ -1,0 +1,179 @@
+# Dejagnu guard testsuite library functions
+# Copyright  2010  Cray Inc. All Rights Reserved.
+#
+# These coded instructions, statements, and computer programs contain
+# unpublished proprietary information of Cray Inc., and are protected
+# by Federal copyright law.  They  may  not  be  disclosed  to  third
+# parties  or copied or duplicated in any form, in whole or in part,
+# without the prior written consent of Cray Inc.
+
+# Author: Andrew Gontarek (andrewg@cray.com)
+#
+# NAME:  guard.exp
+# 
+# ABOUT: This is the global library file for the guard test suite.
+#        Any test written for guard should use the functions provided
+#        in this file to set up the test environment.
+#
+
+# GLOBAL VARS
+# Do not change these unless you are absolutely certain
+#
+
+# The variable guard_prompt is a regexp which matches the guard prompt.
+# Set if not already set.
+global guard_prompt
+if ![info exists guard_prompt] then {
+	set guard_prompt "dbg .*> "
+}
+
+# Used to check if we have parsed the global options file.
+set parsed 0
+set sh_prompt ""
+
+# PROC_NAME: clean_regex
+# PARAMS: re_string
+# RETURNS: regex safe string
+# DESCRIPTION: Use this function to clean a string of dirty input for use
+#              in a regular expression. This will escape any special Tcl
+#              or regex character to ensure safe regex usage.
+# EXAMPLE: clean_regex {[this] {is} .\a dirty string.}
+# RETURNS: {\[this\]\ \{is\}\ \.\\a\ dirty\ string\.}
+#
+proc clean_regex {re_string} {
+	regsub -all -- {[\[\]\$\^\?\+\.\*\(\)\|\\\ \{\}]} $re_string {\\&} re_string;
+	return $re_string;
+}
+
+# PROC_NAME: strip_newlines
+# PARAMS: re_string
+# RETURNS: newline stripped string
+# DESCRIPTION: Use this function to clean a string of newlines for use
+#              in a regular expression.
+# EXAMPLE: clean_regex {\r\nI am on a new line!\r\n}
+# RETURNS: {I am on a new line!}
+#
+proc strip_newlines {re_string} {
+	regsub -all -- {[\r\n]} $re_string {} re_string;
+	return $re_string;
+}
+
+# PROC_NAME: strip_formatting
+# PARAMS: re_string
+# RETURNS: format stripped string
+# DESCRIPTION: Use this function to clean a string of special formmating chars for use
+#              in a regular expression.
+# EXAMPLE: strip_formatting {"I am a dirty string."}
+# RETURNS: {I am a dirty string.}
+#
+proc strip_formatting {re_string} {
+	regsub -all -- "^\"" $re_string {} re_string;
+	regsub -all -- "\"$" $re_string {} re_string;
+	return $re_string;
+}
+
+proc guard_start {} {
+	global guard_var
+        global sh_prompt
+
+        if [target_info exists guard_var] {
+                set guard_var [target_info guard_var]
+        } else {
+                set guard_var "guard"
+        }
+
+        if [target_info exists target_init_command] {
+                eval [target_info target_init_command];
+        }
+
+        # send a newline to get a clean prompt
+        send "\n";
+        expect {
+                # we expect to have some sort of prompt here
+                -re ".* ~ . $";
+        }
+
+        # grab the shell specific prompt
+        # assumes that we are in the home dir at shell invoke since this is default
+        # also sanitizes the input to make it work with regex
+        expect {
+                -re ".* ~ . $" {
+                        set sh_prompt [clean_regex [strip_newlines $expect_out(0,string)]];
+                }
+        }
+}
+
+# PROC_NAME: guard_setup
+# PARAMS: NONE
+# RETURNS: NULL
+# DESCRIPTION: Use this function to start a new guard session using the
+#              globally defined guard command defined inside of the 
+#              loaded module. Upon return we expect to be inside of our
+#              newly running guard session which is ready to receive
+#              commands.
+# EXAMPLE: guard_setup
+#
+proc guard_load {} {
+	global guard_prompt
+	global guard_var
+
+	send "$guard_var\n"
+	expect {
+		# we expect to see the prompt when we start up guard
+		-re "$guard_prompt$" {
+			verbose "Started guard."
+		}
+
+		default {
+			perror "Could not start guard."
+		}
+	}
+	return
+}
+
+# PROC_NAME: guard_quit
+# PARAMS: NONE
+# RETURNS: NULL
+# DESCRIPTION: Use this function to send the quit command to guard. This
+#              function will check to see if we get prompted with a y/n
+#              question in return to the quit command, at which point a
+#              y is automatically issued and further processing is done
+#              to ensure a smooth exit from guard. Upon return we expect
+#              to be inside of our spawned interactive qsub session.
+# EXAMPLE: guard_quit
+#
+proc guard_quit {} {
+	global sh_prompt
+
+	send "quit\n"
+	expect {
+		-re ".*$sh_prompt$" { 
+			verbose "Guard exit complete."
+		}
+	
+		-re "\(y\ or\ n\)" {
+			send "y\n"
+			# we need to flush the input due to the lack of a prompt
+			#send "\n"
+			expect {
+				-re "$sh_prompt" {
+					verbose "Guard exit complete."
+				}
+				
+				default {
+					send "\n"
+				}
+			}
+		}
+	
+		default {
+			perror "Guard error on exit." 
+		}
+	}
+}
+
+proc guard_exit {} {
+	if [target_info exists target_exit_command] {
+                eval [target_info target_exit_command];
+        }
+}

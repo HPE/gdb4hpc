@@ -1,0 +1,102 @@
+#
+# hpcc_script_8.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+# Lets start by blindly comparing the scalar inputs to the HPL_dgemm function call.
+
+build $dgemm
+	assert $broken{1}::ORDER@"HPL_dgemm.c":467 = $working{1}::ORDER@"HPL_dgemm.c":467
+	assert $broken{1}::TRANSA@"HPL_dgemm.c":467 = $working{1}::TRANSA@"HPL_dgemm.c":467
+	assert $broken{1}::TRANSB@"HPL_dgemm.c":467 = $working{1}::TRANSB@"HPL_dgemm.c":467
+	assert $broken{1}::M@"HPL_dgemm.c":467 = $working{1}::M@"HPL_dgemm.c":467
+	assert $broken{1}::N@"HPL_dgemm.c":467 = $working{1}::N@"HPL_dgemm.c":467
+	assert $broken{1}::K@"HPL_dgemm.c":467 = $working{1}::K@"HPL_dgemm.c":467
+	assert $broken{1}::ALPHA@"HPL_dgemm.c":467 = $working{1}::ALPHA@"HPL_dgemm.c":467
+	assert $broken{1}::LDA@"HPL_dgemm.c":467 = $working{1}::LDA@"HPL_dgemm.c":467
+	assert $broken{1}::LDB@"HPL_dgemm.c":467 = $working{1}::LDB@"HPL_dgemm.c":467
+	assert $broken{1}::BETA@"HPL_dgemm.c":467 = $working{1}::BETA@"HPL_dgemm.c":467
+	assert $broken{1}::LDC@"HPL_dgemm.c":467 = $working{1}::LDC@"HPL_dgemm.c":467
+end
+
+# RESULT:
+#
+# The following is the assertion script summary:
+#
+# *** Difference found between ALPHA and ALPHA! ***									  
+# In AssertID:7													      
+# *** Difference found between BETA and BETA! ***									    
+# In AssertID:10													     
+# *** The interpreter has halted.											    
+# Assertion script $dgemm complete.												     
+# Successful Assertion Set Iterations: 1										     
+# Total Passed Assertions: 20												
+# Total Warned Assertions: 0												 
+# Total Failed Assertions: 2												 
+# Assertion summary:													 
+# AssertID 1:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 2:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 3:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 4:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 5:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 6:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 7:  Pass: 1 Warn: 0 Fail: 1										       
+# AssertID 8:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 9:  Pass: 2 Warn: 0 Fail: 0										       
+# AssertID 10:  Pass: 1 Warn: 0 Fail: 1										      
+# AssertID 11:  Pass: 2 Warn: 0 Fail: 0
+#
+# Note that there was 1 sucessful assertion set iteration. Meaning that the HPL_dgemm was called at some point
+# in the control flow before it was called at line 382 of HPL_pdupdateTT.c without failure. We did detect a
+# difference between ALPHA and BETA which correspond to assertID's 7 and 10 respectively. We can verify when this
+# took place by issuing the backtrace (or bt) command after the assertion script interpreter halts.
+#
+# dbg all> bt														
+# broken[0,2-3]: *** program is running										      
+# broken[1]: #0  0x000000000042a488 in HPL_dgemm at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/blas/HPL_dgemm.c:467	
+# broken[1]: #1  0x0000000000432561 in HPL_pdupdateTT at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdupdateTT.c:382
+# broken[1]: #2  0x000000000044f69e in HPL_pdgesvK2 at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdgesvK2.c:178    
+# broken[1]: #3  0x0000000000432706 in HPL_pdgesv at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdgesv.c:107	
+# broken[1]: #4  0x000000000040fbce in HPL_pdtest at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/testing/ptest/HPL_pdtest.c:200    
+# broken[1]: #5  0x000000000040a1ad in HPL_main at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/testing/ptest/HPL_pddriver.c:228    
+# broken[1]: #6  0x0000000000402434 in main at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/src/hpcc.c:309			      
+# working[0,2-3]: *** program is running											
+# working[1]: #0  0x000000000042a488 in HPL_dgemm at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/blas/HPL_dgemm.c:467	  
+# working[1]: #1  0x0000000000432561 in HPL_pdupdateTT at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdupdateTT.c:382
+# working[1]: #2  0x000000000044f69e in HPL_pdgesvK2 at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdgesvK2.c:178    
+# working[1]: #3  0x0000000000432706 in HPL_pdgesv at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/src/pgesv/HPL_pdgesv.c:107	
+# working[1]: #4  0x000000000040fbce in HPL_pdtest at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/testing/ptest/HPL_pdtest.c:200    
+# working[1]: #5  0x000000000040a1ad in HPL_main at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/hpl/testing/ptest/HPL_pddriver.c:228    
+# working[1]: #6  0x0000000000402434 in main at /lus/nid00030/pjm/Cascade/hpcc-1.4.1/src/hpcc.c:309
+#
+# This verifys that we made the call to HPL_dgemm at line 382 of HPL_pdupdateTT.c as we expected. We can then print the values of
+# ALPHA and BETA to see what they are currently set to in both processes.
+#
+# dbg all> print ALPHA
+# broken[0,2-3]: *** program is running
+# broken[1]: 1
+# working[0,2-3]: *** program is running
+# working[1]: -1
+# dbg all> print BETA
+# broken[0,2-3]: *** program is running
+# broken[1]: -1
+# working[0,2-3]: *** program is running
+# working[1]: 1
+#
+# We see that there is a sign difference for both. The creator of the broken code mistakenly reversed the sign for both ALPHA and
+# BETA which led to a deviation! If we correct the mistake, recompile, and re-run TM_script_1 the codes are no longer deviating. The
+# problem goes away.
+

@@ -1,0 +1,91 @@
+#
+# hpcc_script_5.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+# We know that the call to HPL_pdgesv is causing deviation on mat.X. We should first start by
+# checking if the arguments going into the function are matching.
+
+#
+# This decomposition allows us to do a rank-wise comparison of scalar variables
+#
+decomposition $scalar
+	dimension 4
+	distribute block
+	proc_grid 4
+end
+
+build $pdgesv_args
+	assert $scalar{$broken::*GRID@"HPL_pdtest.c":200} = $scalar{$working::*GRID@"HPL_pdtest.c":200}
+	assert $scalar{$broken::*ALGO@"HPL_pdtest.c":200} = $scalar{$working::*ALGO@"HPL_pdtest.c":200}
+	assert $scalar{$broken::mat@"HPL_pdtest.c":200} = $scalar{$working::mat@"HPL_pdtest.c":200}
+end
+
+# RESULT:
+#
+# No differences are detected. 
+
+# Next lets examine HPL_pdgesv. This is a wrapper for possibly three function calls. Lets create assertions
+# for mat.X at each of these. Note that this function transforms the symbolic mat name into A.
+
+build $pdgesv_matX
+	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":97 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":103 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":103
+	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":107 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":107
+	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":112 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":112
+	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":115 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":115
+	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":97 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":97
+	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":103 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":103
+	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":107 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":107
+	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":112 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":112
+	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":115 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":115
+end
+
+# RESULT:
+#
+# The assertion at line 103 is never hit, its not a part of the valid control flow for the way we compiled our code.
+# All assertions except for line 115 match. This means that the deviation for A.X occurs in the HPL_pdtrsv function
+# which solves the upper triangular system. At this point we should also check our other input, A.A, to ensure that
+# this is not deviating at an earlier point inside this function.
+
+# We know that the total dimension of A is N by N+1, however we are told in the comments that every process holds onto
+# an ld by nq chunk of A. For process 0 A is 520 by 521 and for process 1 A is 520 by 481. We can create assertions for
+# A.A in the same fashion as we did above for A.X to check the A matrix at different points in the control flow.
+# Since we know line 103 is never hit, we can omit this assertion for our A matrix assertion script.
+
+# UPDATE: Even though the A array is N by N+1, one column was added to every process column to hold the solve data.
+#         This data has not been written yet, so we would expect the last column to be uninitialized. We should omit
+#         this column until the solve data has been written.
+
+build $pdgesv_matA
+	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":97 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":107 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":107
+	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":112 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":112
+	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":115 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":115
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":97 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":97
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":107 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":107
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":112 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":112
+	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":115 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":115
+end
+
+# RESULT:
+#
+# We find that matrix A is deviating in rank 1 at line 112. This is an important result as it deviates before the X matrix and
+# it restricts our focus to a single rank. This tells us that the A matrix is deivating inside the call to HPL_pdgesvK2 for
+# rank 1.
+
+# UPDATE: It turns out both ranks 0 and 1 are deviating. However we still are able to find the bug by following the rest of
+# the demo steps by focusing on rank 1.

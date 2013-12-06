@@ -1,0 +1,53 @@
+# NAME: guard_ParallelInvoke.exp
+# TOOL-LIB: guard.exp
+# 
+# ABOUT: This is a guard test in order to verify the successful
+#        invoke of a parallel MPI program. User supplies width
+#        n which will then be used to invoke n processes of the
+#        supplied mpi executable.
+#
+# USER-DEFINES: The width (or sum of processes) can be set with "width".
+#               Note that you should set this value to at least the number
+#               of cores per processor of the architecture you are testing on
+#               with intervals of a scalar multiple of this core number n. 
+#
+#               The mod_dir should be set to the module directory containing
+#               the modules for your specific guard under test.
+#
+#               The bin_name and bin_dir variables should be set to the name
+#               of the mpi program your are using for the invocation and the
+#               path to this executable respectively.                 
+#
+# AUTHOR: Andrew Gontarek (andrewg@cray.com)
+#
+
+# User Defined Settings
+#
+set width 8
+set bin_name "hello_mpi_c"
+set bin_dir "mpi_example"
+
+# Start up ccdb
+guard_start
+guard_load
+
+# Test specific proceedure
+set test "parallel invoke"
+send "invoke \$a\[$width\] $bin_root/$bin_dir/$bin_name\n"
+expect {
+        -re "(Initial\ breakpoint,\ in .*\(\)\r\n){$width}$guard_prompt$" {
+                pass "$test: Invoke success on entry."
+        }
+
+        eof {
+                fail "$test: EOF reached.\n"
+        }
+
+        timeout {
+                unresolved "$test: timeout.\n"
+        }
+}
+
+# quit ccdb
+guard_quit
+guard_exit

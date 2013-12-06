@@ -1,0 +1,29 @@
+$Log: CHANGES,v $
+Revision 1.1  2002/06/27 18:23:15  greg
+Updated.
+
+The libgc.a library has now been split into two pieces. A (currently)
+closed source dataflow library libdf.a and an open source grammar library
+libgram.a.
+
+Revision 1.2  2002/06/26 17:50:04  greg
+Updated.
+
+Changed name of include files to reflect change in util library name. This
+	needed to be changed to avoid conflicts on certain systems.
+
+Revision 1.1  2002/06/26 17:48:59  greg
+Created CHANGES file.
+
+Modified dataflow graph to remove use of AIFSub() for comparisons. The
+	graph now calls the user supplied function CompareData() which
+	must perform the comparison (using AIFCompare()) check for
+	exit conditions and display the results of the comparison, if
+	necessary. CompareData() returns 1 if the graph is to continue
+	or 0 if it should exit.
+Modified PrintGraph() to support printing the graph in DOT format.
+Added new COMPARE node.
+Changed assert_t (assert.h) to ainfo_t. This is now used to record
+	information about the assertion that is passed to CompareData()
+	in order to determine exit conditions, display format, etc.
+	Removed log messages from source files.

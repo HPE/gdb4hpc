@@ -1,0 +1,9 @@
+INCLUDE_SDM = @guard_srcdir@/sdm
+
+AM_CPPFLAGS = -I$(INCLUDE_SDM)
+
+noinst_LTLIBRARIES	=	libdmr.la
+libdmr_la_SOURCES	=	dmr.cpp
+libdmr_la_CXXFLAGS	=	-fPIC
+libdmr_la_LDFLAGS	=	-static
+

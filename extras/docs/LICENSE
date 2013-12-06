@@ -1,0 +1,160 @@
+lgdb 2.2 - Cray Line Mode Parallel Debugger
+With Cray Comparative Debugging Technology.
+Copyright 2007-2013 Cray Inc. All Rights Reserved.
+Copyright 1996-2013 Monash University. All Rights Reserved.
+
+Certain components, files or programs contained within this package or product 
+are Copyright 2007-2013 Cray Inc. All rights reserved.
+
+1. lgdb 2.2 uses components, files or programs covered by GNU or similar 
+licenses. It is required that you accept the terms and conditions of these 
+licenses for these components, files or programs.
+
+
+The GNU Project Debugger, gdb, is covered by License GPLv3+: GNU GPL version 3 
+or later. 
+<See docs/GPLv3.txt>
+Copyright (C) 2010 Free Software Foundation, Inc.
+
+Portions of gdb are:
+
+Modified by Cray Inc.
+Copyright (C) 2012 Cray Inc.
+Modified by Allinea Software.
+Copyright (C) Allinea Software Ltd. 2012
+
+
+The libmi library, libmi, is covered by the following License:
+
+Copyright (c) 2005, 2010 The Regents of the University of California and others. 
+This material was produced under U.S. Government contract W-7405-ENG-36 
+for Los Alamos National Laboratory, which is operated by the University 
+of California for the U.S. Department of Energy. The U.S. Government has 
+rights to use, reproduce, and distribute this software. NEITHER THE 
+GOVERNMENT NOR THE UNIVERSITY MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR 
+ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE. If software is modified 
+to produce derivative works, such modified software should be clearly 
+marked, so as not to confuse it with the version available from LANL.
+
+Additionally, this program and the accompanying materials 
+are made available under the terms of the Eclipse Public License v1.0
+which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v10.html
+ 
+LA-CC 04-115
+<See docs/epl-v10.txt>
+
+Portions of libmi are:
+
+Modified by Cray Inc.
+Copyright (c) 2011-2012 Cray Inc.
+
+
+The libssh2 library, libssh2, is covered by the following License:
+
+Copyright (c) 2004-2007 Sara Golemon <sarag@libssh2.org>
+Copyright (c) 2005,2006 Mikhail Gusarov <dottedmag@dottedmag.net>
+Copyright (c) 2006-2007 The Written Word, Inc.
+Copyright (c) 2007 Eli Fant <elifantu@mail.ru>
+Copyright (c) 2009 Daniel Stenberg
+Copyright (C) 2008, 2009 Simon Josefsson
+All rights reserved.
+
+Redistribution and use in source and binary forms,
+with or without modification, are permitted provided
+that the following conditions are met:
+
+  Redistributions of source code must retain the above
+  copyright notice, this list of conditions and the
+  following disclaimer.
+
+  Redistributions in binary form must reproduce the above
+  copyright notice, this list of conditions and the following
+  disclaimer in the documentation and/or other materials
+  provided with the distribution.
+
+  Neither the name of the copyright holder nor the names
+  of any other contributors may be used to endorse or
+  promote products derived from this software without
+  specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+
+
+The editline library, libedit, is covered by the following License:
+
+Copyright (c) 1992, 1993
+ The Regents of the University of California.  All rights reserved.
+
+This code is derived from software contributed to Berkeley by
+Christos Zoulas of Cornell University.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. Neither the name of the University nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+
+The MRNet library, libmrnet, is covered by License LGPLv2.1: GNU LESSER GENERAL 
+PUBLIC LICENSE Version 2.1. 
+<See docs/LGPLv21.txt>
+Copyright © 2003-2012 Dorian C. Arnold, Philip C. Roth, Barton P. Miller
+
+
+The bitset library, libbitset, is a derivative work that originated with the
+following License:
+
+Copyright (c) 2005 The Regents of the University of California. 
+This material was produced under U.S. Government contract W-7405-ENG-36 
+for Los Alamos National Laboratory, which is operated by the University 
+of California for the U.S. Department of Energy. The U.S. Government has 
+rights to use, reproduce, and distribute this software. NEITHER THE 
+GOVERNMENT NOR THE UNIVERSITY MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR 
+ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE. If software is modified 
+to produce derivative works, such modified software should be clearly 
+marked, so as not to confuse it with the version available from LANL.
+
+Additionally, this program and the accompanying materials 
+are made available under the terms of the Eclipse Public License v1.0
+which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v10.html
+ 
+LA-CC 04-115
+<See docs/epl-v10.txt>
+
+
+2. Under the terms of the GPL, LGPL and EPL licences the source code for the
+   GPL, LGPL and EPL components that Cray distributes with the Software will 
+   be made available upon request.

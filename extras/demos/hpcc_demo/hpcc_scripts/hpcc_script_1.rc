@@ -1,0 +1,45 @@
+#
+# hpcc_script_1.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+#
+# This decomposition allows us to do a rank-wise comparison of scalar variables
+#
+decomposition $scalar
+	dimension 4
+	distribute block
+	proc_grid 4
+end
+
+#
+# We know that resid1 deviates so its calculation is wrong. Lets blindly compare every variable
+# that goes into this calculation.
+#
+build $resid1
+	assert $scalar{$broken::resid0@"HPL_pdtest.c":418} = $scalar{$working::resid0@"HPL_pdtest.c":418}
+	assert $scalar{$broken::TEST->epsil@"HPL_pdtest.c":418} = $scalar{$working::TEST->epsil@"HPL_pdtest.c":418}
+	assert $scalar{$broken::AnormI@"HPL_pdtest.c":418} = $scalar{$working::AnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::XnormI@"HPL_pdtest.c":418} = $scalar{$working::XnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::BnormI@"HPL_pdtest.c":418} = $scalar{$working::BnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::N@"HPL_pdtest.c":418} = $scalar{$working::N@"HPL_pdtest.c":418}
+end
+
+#
+# RESULT:
+#
+# After running $resid1, we find that resid0 and XnormI come back as being different. This means we can
+# safely ignore the other variables and concentrate on these two since they are the source of deviation.
+#

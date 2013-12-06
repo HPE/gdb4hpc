@@ -1,0 +1,68 @@
+#
+# hpcc_script_7.rc
+#
+# ©2013 Cray Inc.  All Rights Reserved.
+#
+
+#
+# Launch our processes
+#
+
+launch $broken{4} hpcc_broken
+launch $working{4} hpcc_working
+
+#
+# Set error tolerance
+#
+set error 1.0e-14 1.0e-13 absolute
+
+# We are passing in a HPL_T_panel * to this function which contains our A matrix. This type is defined in hpl_panel.h.
+# We see that the member pmat contains the local array information, which is where we find the A matrix that is deviating.
+# This means to check the A matrix, we need to use the variable PANEL->pmat->A.
+#
+# The control flow gets very complicated inside this function due to the use of numerous compiler directives. We can place an
+# assertion inside of the main blocks to determine what is called, and what isn't.
+
+build $pdupdateTT
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":119 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":119
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":143 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":143
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":145 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":145
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":264 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":264
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":431 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":431
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":436 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":436
+end
+
+# RESULT:
+#
+# Assertions on lines 119, 143, and 264 pass. The assertion on line 431 failed. This narrows our scope between lines 264 and 431. This corresponds to
+# the else block which started on line 259.
+
+build $else_block
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":300 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":300
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":328 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":328
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":352 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":352
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":360 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":360
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":386 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":386
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":410 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":410
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":431 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":431
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":436 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":436
+end
+
+# RESULT:
+#
+# Assertions on lines 300 and 360 pass. The assertion on line 386 fails.
+#
+# At this point we are not sure of the value of the directive HPL_CALL_VSIPL. GDB will automatically assign invalid line numbers to the next
+# valid line in the source code. Which means we should first check higher line numbers to ensure gdb does not assign a lower number to a higher
+# number without notifying us. Lets start out by checking line 382 followed by the known failure at line 386.
+
+build $inner_if_block
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":382 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":382
+	assert $broken{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":386 = $working{1}::(double[520][480])*PANEL->pmat->A@"HPL_pdupdateTT.c":386
+end
+
+# RESULT:
+#
+# Assertion on line 382 was hit and passed. The assertion on line 386 fails. This tells us that HPL_CALL_VSIPL was not defined and the function
+# HPL_dgemm was being called. We also know that the A matrix began deviating on the return from this call.
+

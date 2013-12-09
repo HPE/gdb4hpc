@@ -146,7 +146,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 POE = @POE@
 POW_LIB = @POW_LIB@
 RANLIB = @RANLIB@
-RPCGEN = @RPCGEN@
 RSH = @RSH@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -230,6 +229,7 @@ top_srcdir = @top_srcdir@
 GUARD_RD_DIR = @rd_dir@
 GUARD_DF_DIR = @df_dir@
 ACLOCAL_AMFLAGS = -I m4
+AM_LIBTOOLFLAGS = --quiet
 @MRN_TRUE@MRNET_DIR = sdm mrnet filters filters/mrnet
 SUBDIRS = $(GUARD_RD_DIR) $(GUARD_DF_DIR) $(MRNET_DIR) \
 		src/useful src/gram src/dbgcomm src/dbgclnt \

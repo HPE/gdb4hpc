@@ -7,6 +7,7 @@ SDM	= @guard_srcdir@/sdm
 EDITLINE_LIBS	= @editline_libs@
 
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
+AM_LIBTOOLFLAGS = --quiet
 
 #################################
 # Check for optional components #

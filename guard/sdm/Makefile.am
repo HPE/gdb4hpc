@@ -11,6 +11,8 @@
 
 lib_LTLIBRARIES = libbitset.la
 
+AM_LIBTOOLFLAGS = --quiet
+
 libbitset_la_SOURCES 	= 	bitset.c compat.c conversion.c sparse_bitset.c \
 							smart_bitset.c varstr.c
 libbitset_la_CFLAGS		=	-fPIC

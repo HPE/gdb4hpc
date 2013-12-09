@@ -348,9 +348,6 @@
 /* Enable relative debugging support */
 #undef RD
 
-/* Location of rpcgen command. */
-#undef RPCGEN
-
 /* Location of rsh command. */
 #undef RSH
 
@@ -379,9 +376,6 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
-
-/* Enable sun RPC support in Guard. */
-#undef SUN_RPC
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME

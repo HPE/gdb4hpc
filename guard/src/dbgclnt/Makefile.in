@@ -34,6 +34,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 
+######################
+# Determine protocol #
+######################
+
 # Check for MRNet
 @MRN_TRUE@am__append_1 = -I$(MRNET) -I$(SDM)
 
@@ -66,18 +70,15 @@ libdbgclnt_a_OBJECTS = $(am_libdbgclnt_a_OBJECTS)
 libdbgproto_a_AR = $(AR) $(ARFLAGS)
 libdbgproto_a_LIBADD =
 am__libdbgproto_a_SOURCES_DIST = dbgclnt_proto.c proto_message.c \
-	dbgclnt_proxy.c dbgproxy.c dbgoutp.c dbgproto_clnt.c \
-	dbgclnt_rpc.c dbgclnt_mrn.c dbg_mrn_fe.c mrn_topgen.c \
-	dbgclnt_soc.c
-@RPC_TRUE@am__objects_2 = dbgproto_clnt.$(OBJEXT) \
-@RPC_TRUE@	dbgclnt_rpc.$(OBJEXT)
-@MRN_TRUE@am__objects_3 = dbgclnt_mrn.$(OBJEXT) dbg_mrn_fe.$(OBJEXT) \
+	dbgclnt_proxy.c dbgproxy.c dbgoutp.c dbgclnt_mrn.c \
+	dbg_mrn_fe.c mrn_topgen.c dbgclnt_soc.c
+@MRN_TRUE@am__objects_2 = dbgclnt_mrn.$(OBJEXT) dbg_mrn_fe.$(OBJEXT) \
 @MRN_TRUE@	mrn_topgen.$(OBJEXT)
-@SOCK_TRUE@am__objects_4 = dbgclnt_soc.$(OBJEXT)
+@SOCK_TRUE@am__objects_3 = dbgclnt_soc.$(OBJEXT)
 am_libdbgproto_a_OBJECTS = dbgclnt_proto.$(OBJEXT) \
 	proto_message.$(OBJEXT) dbgclnt_proxy.$(OBJEXT) \
 	dbgproxy.$(OBJEXT) dbgoutp.$(OBJEXT) $(am__objects_2) \
-	$(am__objects_3) $(am__objects_4)
+	$(am__objects_3)
 libdbgproto_a_OBJECTS = $(am_libdbgproto_a_OBJECTS)
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
@@ -179,7 +180,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 POE = @POE@
 POW_LIB = @POW_LIB@
 RANLIB = @RANLIB@
-RPCGEN = @RPCGEN@
 RSH = @RSH@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -271,15 +271,6 @@ SDM = @guard_srcdir@/sdm
 # BUG 804428 is fixed...
 AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(CLIENT) \
 	$(am__append_1) $(am__append_2)
-
-######################
-# Determine protocol #
-######################
-
-# Check for RPC
-@RPC_TRUE@BUILT_SOURCES = dbgproto_clnt.c 
-@RPC_TRUE@CLEANFILES = $(BUILT_SOURCES)
-@RPC_TRUE@RPC_PROTO = dbgproto_clnt.c dbgclnt_rpc.c
 @MRN_TRUE@MRN_PROTO = dbgclnt_mrn.c dbg_mrn_fe.c mrn_topgen.c
 
 # Check for Socket
@@ -302,13 +293,12 @@ libdbgclnt_a_SOURCES = dbg_client.c dbgclnt_debugfe.c \
 
 libdbgproto_a_SOURCES = dbgclnt_proto.c proto_message.c \
 			  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \
-			  $(RPC_PROTO) $(MRN_PROTO) $(SOCK_PROTO)
+			  $(MRN_PROTO) $(SOCK_PROTO)
 
 @CRAY_FALSE@guard_starter_SOURCES = guard_starter.c
 @CRAY_FALSE@guard_starter_LDADD = $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a
 @CRAY_FALSE@guard_starter_LDFLAGS = $(LDFLAGS)
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
@@ -399,10 +389,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_mrn.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_proto.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_proxy.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_rpc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_soc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgoutp.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgproto_clnt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgproxy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/guard_starter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mrn_topgen.Po@am__quote@
@@ -509,15 +497,13 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-am
+check: check-am
 all-am: Makefile $(LIBRARIES) $(PROGRAMS)
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-am
+install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -534,7 +520,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -542,7 +527,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic clean-libtool \
@@ -618,9 +602,6 @@ uninstall-am: uninstall-binPROGRAMS
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-binPROGRAMS
 
-
-@RPC_TRUE@dbgproto_clnt.c: $(DBGCOMM)/dbgproto_rpc.x
-@RPC_TRUE@	$(RPCGEN) -l $(RPCGENFLAGS) -o dbgproto_clnt.c $(DBGCOMM)/dbgproto_rpc.x
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

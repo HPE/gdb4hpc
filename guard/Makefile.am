@@ -2,6 +2,7 @@ GUARD_RD_DIR = @rd_dir@
 GUARD_DF_DIR = @df_dir@
 
 ACLOCAL_AMFLAGS = -I m4
+AM_LIBTOOLFLAGS = --quiet
 
 if MRN
 MRNET_DIR = sdm mrnet filters filters/mrnet

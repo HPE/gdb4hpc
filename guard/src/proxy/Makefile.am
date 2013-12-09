@@ -6,6 +6,7 @@ MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
+AM_LIBTOOLFLAGS = --quiet
 
 #################################
 # Check for optional components #

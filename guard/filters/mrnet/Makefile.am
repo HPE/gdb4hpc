@@ -5,6 +5,7 @@ LIB_SDM = @guard_srcdir@/sdm
 LIB_DMR = @guard_srcdir@/filters
 
 AM_CPPFLAGS = -I$(INCLUDE_MRN) -I$(INCLUDE_SDM) -I$(INCLUDE_DMR)
+AM_LIBTOOLFLAGS = --quiet
 
 lib_LTLIBRARIES			=	libdbgagg.la
 libdbgagg_la_SOURCES	=	Aggregation.cpp

@@ -6,19 +6,11 @@ SDM	= @guard_srcdir@/sdm
 
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 
+AM_LIBTOOLFLAGS = --silent
+
 ######################
 # Determine protocol #
 ######################
-
-# Check for RPC
-if RPC
-BUILT_SOURCES	= dbgproto_srv.c
-CLEANFILES	= $(BUILT_SOURCES)
-RPC_SVR		= dbgproto_srv.c dbgsrv_rpc.c
-
-dbgproto_svr.c: $(DBGCOMM)/dbgproto_rpc.x
-	        $(RPCGEN) -m $(RPCGENFLAGS) -o dbgproto_svc.c $(DBGCOMM)/dbgproto_rpc.x
-endif
 
 # Check for MRNet
 if MRN
@@ -76,7 +68,7 @@ endif
 
 bin_PROGRAMS 	= dbgsrv $(CRAY_PROGS)
 dbgsrv_SOURCES	= dbgsrv.c dbgfn.c dbgsrv_proto.c dbgsrv_cmds.c \
-		  $(BACKEND) $(RPC_SRV) $(MRN_SRV) $(SOCK_SRV)
+		  $(BACKEND) $(MRN_SRV) $(SOCK_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
 		  $(MI_LIBS) $(MRN_LIBS) -laif $(CRAYTOOL_LIBS)
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,'$$ORIGIN'

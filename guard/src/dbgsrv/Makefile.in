@@ -33,6 +33,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 
+######################
+# Determine protocol #
+######################
+
 # Check for MRNet
 @MRN_TRUE@am__append_1 = -I$(MRNET) -I$(SDM)
 bin_PROGRAMS = dbgsrv$(EXEEXT) $(am__EXEEXT_1)
@@ -176,7 +180,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 POE = @POE@
 POW_LIB = @POW_LIB@
 RANLIB = @RANLIB@
-RPCGEN = @RPCGEN@
 RSH = @RSH@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -264,15 +267,7 @@ MRNET = @guard_srcdir@/mrnet
 SDM = @guard_srcdir@/sdm
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) \
 	$(am__append_1)
-
-######################
-# Determine protocol #
-######################
-
-# Check for RPC
-@RPC_TRUE@BUILT_SOURCES = dbgproto_srv.c
-@RPC_TRUE@CLEANFILES = $(BUILT_SOURCES)
-@RPC_TRUE@RPC_SVR = dbgproto_srv.c dbgsrv_rpc.c
+AM_LIBTOOLFLAGS = --silent
 @MRN_TRUE@MRN_LIBS = -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet -lxplat
 @MRN_TRUE@MRN_SRV = dbg_mrn_be.c dbgsrv_mrn.c mrn_topo.c
 
@@ -306,14 +301,13 @@ AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) \
 @CRAY_TRUE@			  -Wl,-rpath,'$$ORIGIN'/../lib
 
 dbgsrv_SOURCES = dbgsrv.c dbgfn.c dbgsrv_proto.c dbgsrv_cmds.c \
-		  $(BACKEND) $(RPC_SRV) $(MRN_SRV) $(SOCK_SRV)
+		  $(BACKEND) $(MRN_SRV) $(SOCK_SRV)
 
 dbgsrv_LDADD = $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
 		  $(MI_LIBS) $(MRN_LIBS) -laif $(CRAYTOOL_LIBS)
 
 dbgsrv_LDFLAGS = $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,'$$ORIGIN'
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
@@ -505,15 +499,13 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-am
+check: check-am
 all-am: Makefile $(PROGRAMS)
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-am
+install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -530,7 +522,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -538,7 +529,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
@@ -613,9 +603,6 @@ uninstall-am: uninstall-binPROGRAMS
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-
-@RPC_TRUE@dbgproto_svr.c: $(DBGCOMM)/dbgproto_rpc.x
-@RPC_TRUE@	        $(RPCGEN) -m $(RPCGENFLAGS) -o dbgproto_svc.c $(DBGCOMM)/dbgproto_rpc.x
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

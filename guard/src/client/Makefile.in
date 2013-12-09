@@ -156,7 +156,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 POE = @POE@
 POW_LIB = @POW_LIB@
 RANLIB = @RANLIB@
-RPCGEN = @RPCGEN@
 RSH = @RSH@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -246,6 +245,7 @@ SDM = @guard_srcdir@/sdm
 EDITLINE_LIBS = @editline_libs@
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) \
 	-I$(DBGCOMM) $(am__append_1)
+AM_LIBTOOLFLAGS = --quiet
 
 #################################
 # Check for optional components #

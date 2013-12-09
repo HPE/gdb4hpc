@@ -227,7 +227,6 @@ guard/src/dbgclnt/dbgclnt_mrn.c -text
 guard/src/dbgclnt/dbgclnt_proto.c -text
 guard/src/dbgclnt/dbgclnt_proto.h -text
 guard/src/dbgclnt/dbgclnt_proxy.c -text
-guard/src/dbgclnt/dbgclnt_rpc.c -text
 guard/src/dbgclnt/dbgclnt_sci.c -text
 guard/src/dbgclnt/dbgclnt_soc.c -text
 guard/src/dbgclnt/dbgoutp.c -text
@@ -245,8 +244,6 @@ guard/src/dbgcomm/Makefile.am -text
 guard/src/dbgcomm/Makefile.in -text
 guard/src/dbgcomm/dbg.h -text
 guard/src/dbgcomm/dbg_mrn.h -text
-guard/src/dbgcomm/dbg_rpc.c -text
-guard/src/dbgcomm/dbg_rpc.h -text
 guard/src/dbgcomm/dbg_sci.c -text
 guard/src/dbgcomm/dbg_sci.h -text
 guard/src/dbgcomm/dbg_soc.c -text
@@ -260,7 +257,6 @@ guard/src/dbgcomm/dbgevent.h -text
 guard/src/dbgcomm/dbgformat.c -text
 guard/src/dbgcomm/dbgformat.h -text
 guard/src/dbgcomm/dbgloc.h -text
-guard/src/dbgcomm/dbgproto_rpc.x -text
 guard/src/dbgcomm/mrn_cfg.h -text
 guard/src/dbgsrv/Makefile.am -text
 guard/src/dbgsrv/Makefile.in -text
@@ -288,7 +284,6 @@ guard/src/dbgsrv/dbgsrv_p2p.c -text
 guard/src/dbgsrv/dbgsrv_p2p.h -text
 guard/src/dbgsrv/dbgsrv_proto.c -text
 guard/src/dbgsrv/dbgsrv_proto.h -text
-guard/src/dbgsrv/dbgsrv_rpc.c -text
 guard/src/dbgsrv/dbgsrv_sci.c -text
 guard/src/dbgsrv/dbgsrv_soc.c -text
 guard/src/dbgsrv/dbgsrv_util.c -text

@@ -14,7 +14,7 @@ libmi_la_SOURCES =	CLICommand.c CLIOutput.c MIArg.c MIBreakpoint.c \
 libmi_la_LDFLAGS =	-shared -avoid-version
 			
 include_HEADERS =	CLIOutput.h MI.h MIArg.h MIBreakpoint.h MICommand.h \
-					MIDisassembly.h \MIEnvironment.h MIError.h MIEvent.h \
+					MIDisassembly.h MIEnvironment.h MIError.h MIEvent.h \
 					MIFile.h MIFrame.h MIList.h MIMemory.h MIOOBRecord.h MIOutput.h \
 					MIResult.h MIResultRecord.h MISession.h MISignalInfo.h \
 					MIString.h MIThread.h MIValue.h MIVar.h

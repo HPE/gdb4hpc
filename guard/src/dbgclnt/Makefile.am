@@ -13,16 +13,6 @@ AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(CLIENT)
 # Determine protocol #
 ######################
 
-# Check for RPC
-if RPC
-BUILT_SOURCES	= dbgproto_clnt.c 
-CLEANFILES	= $(BUILT_SOURCES)
-RPC_PROTO	= dbgproto_clnt.c dbgclnt_rpc.c
-
-dbgproto_clnt.c: $(DBGCOMM)/dbgproto_rpc.x
-	$(RPCGEN) -l $(RPCGENFLAGS) -o dbgproto_clnt.c $(DBGCOMM)/dbgproto_rpc.x
-endif
-
 # Check for MRNet
 if MRN
 AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
@@ -53,7 +43,7 @@ libdbgclnt_a_SOURCES	= dbg_client.c dbgclnt_debugfe.c \
 			  $(FRONTEND)
 libdbgproto_a_SOURCES	= dbgclnt_proto.c proto_message.c \
 			  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \
-			  $(RPC_PROTO) $(MRN_PROTO) $(SOCK_PROTO)
+			  $(MRN_PROTO) $(SOCK_PROTO)
 
 if CRAY
 # Cray ALPS does not need guard_starter

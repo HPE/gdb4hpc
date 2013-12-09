@@ -58,16 +58,6 @@ AC_ARG_WITH([aif],
 	    [with_aif=check]
 	    )
 
-dnl Check for --with-rpc
-AC_ARG_WITH([rpc], 
-	    [AS_HELP_STRING([--with-rpc], 
-			   [Enable sun RPC support in Guard.]
-			   )
-	    ], 
-	    [with_rpc=yes], 
-	    [with_rpc=no]
-	    )
-
 dnl Check for --with-mpi
 AC_ARG_WITH([mpi], 
 	    [AS_HELP_STRING([--with-mpi], 
@@ -230,8 +220,7 @@ AC_ARG_WITH([libssh2],
 			    [Specify path to libssh2 library.]
 			    )
 	    ], 
-	    [libssh2_path=$withval],
-	    []
+	    [libssh2_path=$withval]
 	    )
 
 dnl Check for --with-rd
@@ -414,16 +403,6 @@ dnl Check for tar
 AC_PATH_PROGS([TAR], [gtar tar], [no])
 if test "x$TAR" = xno; then
 	AC_MSG_WARN([You must have GNU TAR to compile the tar.gz distribution of Guard.])
-fi
-
-dnl Check for rpcgen
-if test "x$with_rpc" != xno; then
-	AC_PATH_PROG([RPCGEN], [rpcgen], [no])
-	if test "x$RPCGEN" != xno; then
-		AC_DEFINE_UNQUOTED([RPCGEN], ["$ac_cv_path_RPCGEN"], [Location of rpcgen command.])
-	else
-		AC_MSG_ERROR([You must have rpcgen to enable rpc support in GUARD.])
-	fi
 fi
 
 ##############################
@@ -785,17 +764,6 @@ AC_FUNC_ALLOCA
 AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h libintl.h limits.h malloc.h memory.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/param.h sys/socket.h sys/time.h unistd.h values.h wchar.h])
 
-dnl Check for rpc headers
-if test "x$with_rpc" != xno; then
-	AC_CHECK_HEADER([rpc/rpc.h], 
-			[AC_DEFINE([SUN_RPC], 
-				   [1], 
-				   [Enable sun RPC support in Guard.])
-			],
-			[AC_MSG_ERROR([You must have rpc.h to enable rpc support in GUARD.])]
-			)
-fi
-
 dnl Check for aif headers
 if test "x$with_aif" != xcheck; then
 	if test "x$with_aif" = x; then
@@ -991,7 +959,6 @@ AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRN], [test "x$mrnet_mode" != xno])
 AM_CONDITIONAL([SOCK], [test "x$socket_mode" != xno])
-AM_CONDITIONAL([RPC], [test "x$ac_cv_header_rpc_rpc_h" = xyes])
 
 dnl Backend conds
 AM_CONDITIONAL([GDB_BACKEND], [test "x$gdb_mode" != xno])

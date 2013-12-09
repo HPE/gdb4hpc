@@ -1,4 +1,4 @@
-AC_PREREQ([2.66])
+AC_PREREQ([2.63])
 AC_INIT([libaif],
 	[1.0],
 	[http://messagelab.monash.edu.au/Guard])

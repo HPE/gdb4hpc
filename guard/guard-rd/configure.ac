@@ -14,10 +14,10 @@
 # $Author$
 #
 
-AC_PREREQ([2.68])
+AC_PREREQ([2.63])
 
 AC_INIT([guard-rd],[1.2],[andrewg@cray.com])
-AC_COPYRIGHT([© 2010-2012 Cray Inc. All Rights Reserved.])
+AC_COPYRIGHT([© 2010-2013 Cray Inc. All Rights Reserved.])
 
 AC_CONFIG_SRCDIR([src/df/df.c])
 AC_CONFIG_AUX_DIR([config])
@@ -28,7 +28,6 @@ AC_MSG_NOTICE([Configuring Relative Debugging Support for Guard.])
 
 dnl Turn on Posix extensions
 AC_USE_SYSTEM_EXTENSIONS
-AC_GNU_SOURCE
 
 AM_INIT_AUTOMAKE([foreign -Wall])
 LT_INIT

@@ -8,7 +8,7 @@ dnl which accompanies this distribution, and is available at
 dnl http://www.eclipse.org/legal/epl-v10.html
 dnl
 
-AC_PREREQ([2.68])
+AC_PREREQ([2.63])
 
 AC_INIT([libmi], [1.0.0])
 

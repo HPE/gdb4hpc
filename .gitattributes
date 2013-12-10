@@ -644,7 +644,6 @@ third_party/ddt_cuda_gdb_50/bfd/doc/Makefile.in -text
 third_party/ddt_cuda_gdb_50/bfd/doc/aoutx.texi -text
 third_party/ddt_cuda_gdb_50/bfd/doc/archive.texi -text
 third_party/ddt_cuda_gdb_50/bfd/doc/archures.texi -text
-third_party/ddt_cuda_gdb_50/bfd/doc/bfd.info -text
 third_party/ddt_cuda_gdb_50/bfd/doc/bfd.texinfo -text
 third_party/ddt_cuda_gdb_50/bfd/doc/bfdint.texi -text
 third_party/ddt_cuda_gdb_50/bfd/doc/bfdio.texi -text
@@ -1322,11 +1321,9 @@ third_party/ddt_cuda_gdb_50/gdb/README -text
 third_party/ddt_cuda_gdb_50/gdb/README.CUDA -text
 third_party/ddt_cuda_gdb_50/gdb/acinclude.m4 -text
 third_party/ddt_cuda_gdb_50/gdb/aclocal.m4 -text
-third_party/ddt_cuda_gdb_50/gdb/ada-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/ada-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/ada-lang.c -text
 third_party/ddt_cuda_gdb_50/gdb/ada-lang.h -text
-third_party/ddt_cuda_gdb_50/gdb/ada-lex.c -text
 third_party/ddt_cuda_gdb_50/gdb/ada-lex.l -text
 third_party/ddt_cuda_gdb_50/gdb/ada-operator.inc -text
 third_party/ddt_cuda_gdb_50/gdb/ada-tasks.c -text
@@ -1414,7 +1411,6 @@ third_party/ddt_cuda_gdb_50/gdb/buildsym.c -text
 third_party/ddt_cuda_gdb_50/gdb/buildsym.c.orig -text
 third_party/ddt_cuda_gdb_50/gdb/buildsym.h -text
 third_party/ddt_cuda_gdb_50/gdb/buildsym.h.orig -text
-third_party/ddt_cuda_gdb_50/gdb/c-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/c-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/c-exp.y.orig -text
 third_party/ddt_cuda_gdb_50/gdb/c-lang.c -text
@@ -1545,7 +1541,6 @@ third_party/ddt_cuda_gdb_50/gdb/corefile.c -text
 third_party/ddt_cuda_gdb_50/gdb/corelow.c -text
 third_party/ddt_cuda_gdb_50/gdb/cp-abi.c -text
 third_party/ddt_cuda_gdb_50/gdb/cp-abi.h -text
-third_party/ddt_cuda_gdb_50/gdb/cp-name-parser.c -text
 third_party/ddt_cuda_gdb_50/gdb/cp-name-parser.y -text
 third_party/ddt_cuda_gdb_50/gdb/cp-namespace.c -text
 third_party/ddt_cuda_gdb_50/gdb/cp-support.c -text
@@ -1664,29 +1659,17 @@ third_party/ddt_cuda_gdb_50/gdb/doc/Makefile.in -text
 third_party/ddt_cuda_gdb_50/gdb/doc/a4rc.sed -text
 third_party/ddt_cuda_gdb_50/gdb/doc/agentexpr.texi -text
 third_party/ddt_cuda_gdb_50/gdb/doc/all-cfg.texi -text
-third_party/ddt_cuda_gdb_50/gdb/doc/annotate.info -text
 third_party/ddt_cuda_gdb_50/gdb/doc/annotate.texinfo -text
 third_party/ddt_cuda_gdb_50/gdb/doc/configure -text
 third_party/ddt_cuda_gdb_50/gdb/doc/configure.ac -text
 third_party/ddt_cuda_gdb_50/gdb/doc/fdl.texi -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-1 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-2 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-3 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-4 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-5 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdb.info-6 -text svneol=unset#unset
 third_party/ddt_cuda_gdb_50/gdb/doc/gdb.texinfo -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdbint.info -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdbint.info-1 -text
-third_party/ddt_cuda_gdb_50/gdb/doc/gdbint.info-2 -text
 third_party/ddt_cuda_gdb_50/gdb/doc/gdbint.texinfo -text
 third_party/ddt_cuda_gdb_50/gdb/doc/gpl.texi -text
 third_party/ddt_cuda_gdb_50/gdb/doc/lpsrc.sed -text
 third_party/ddt_cuda_gdb_50/gdb/doc/observer.texi -text
 third_party/ddt_cuda_gdb_50/gdb/doc/psrc.sed -text
 third_party/ddt_cuda_gdb_50/gdb/doc/refcard.tex -text
-third_party/ddt_cuda_gdb_50/gdb/doc/stabs.info -text
 third_party/ddt_cuda_gdb_50/gdb/doc/stabs.texinfo -text
 third_party/ddt_cuda_gdb_50/gdb/doc/stack_frame.eps -text
 third_party/ddt_cuda_gdb_50/gdb/doc/stack_frame.pdf -text
@@ -1728,7 +1711,6 @@ third_party/ddt_cuda_gdb_50/gdb/exec.c -text
 third_party/ddt_cuda_gdb_50/gdb/exec.h -text
 third_party/ddt_cuda_gdb_50/gdb/expprint.c -text
 third_party/ddt_cuda_gdb_50/gdb/expression.h -text
-third_party/ddt_cuda_gdb_50/gdb/f-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/f-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/f-exp.y.orig -text
 third_party/ddt_cuda_gdb_50/gdb/f-lang.c -text
@@ -2146,7 +2128,6 @@ third_party/ddt_cuda_gdb_50/gdb/irix5-nat.c -text
 third_party/ddt_cuda_gdb_50/gdb/jit.c -text
 third_party/ddt_cuda_gdb_50/gdb/jit.c.orig -text
 third_party/ddt_cuda_gdb_50/gdb/jit.h -text
-third_party/ddt_cuda_gdb_50/gdb/jv-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/jv-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/jv-lang.c -text
 third_party/ddt_cuda_gdb_50/gdb/jv-lang.h -text
@@ -2181,7 +2162,6 @@ third_party/ddt_cuda_gdb_50/gdb/linux-tdep.h -text
 third_party/ddt_cuda_gdb_50/gdb/linux-thread-db.c -text
 third_party/ddt_cuda_gdb_50/gdb/linux-thread-db.c.orig -text
 third_party/ddt_cuda_gdb_50/gdb/lm32-tdep.c -text
-third_party/ddt_cuda_gdb_50/gdb/m2-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/m2-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/m2-lang.c -text
 third_party/ddt_cuda_gdb_50/gdb/m2-lang.h -text
@@ -2284,18 +2264,10 @@ third_party/ddt_cuda_gdb_50/gdb/nbsd-nat.c -text
 third_party/ddt_cuda_gdb_50/gdb/nbsd-nat.h -text
 third_party/ddt_cuda_gdb_50/gdb/nbsd-tdep.c -text
 third_party/ddt_cuda_gdb_50/gdb/nbsd-tdep.h -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/amd64-linux.xml -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/gdb-syscalls.dtd -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/i386-linux.xml -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/ppc-linux.xml -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/ppc64-linux.xml -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/sparc-linux.xml -text
-third_party/ddt_cuda_gdb_50/gdb/no/syscalls/sparc64-linux.xml -text
 third_party/ddt_cuda_gdb_50/gdb/notify.defs -text
 third_party/ddt_cuda_gdb_50/gdb/nto-procfs.c -text
 third_party/ddt_cuda_gdb_50/gdb/nto-tdep.c -text
 third_party/ddt_cuda_gdb_50/gdb/nto-tdep.h -text
-third_party/ddt_cuda_gdb_50/gdb/objc-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/objc-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/objc-lang.c -text
 third_party/ddt_cuda_gdb_50/gdb/objc-lang.h -text
@@ -2306,8 +2278,6 @@ third_party/ddt_cuda_gdb_50/gdb/objfiles.h.orig -text
 third_party/ddt_cuda_gdb_50/gdb/obsd-tdep.c -text
 third_party/ddt_cuda_gdb_50/gdb/obsd-tdep.h -text
 third_party/ddt_cuda_gdb_50/gdb/observer.c -text
-third_party/ddt_cuda_gdb_50/gdb/observer.h -text
-third_party/ddt_cuda_gdb_50/gdb/observer.inc -text
 third_party/ddt_cuda_gdb_50/gdb/observer.sh -text
 third_party/ddt_cuda_gdb_50/gdb/osabi.c -text
 third_party/ddt_cuda_gdb_50/gdb/osabi.h -text
@@ -2332,7 +2302,6 @@ third_party/ddt_cuda_gdb_50/gdb/osf-share/cma_stack.h -text
 third_party/ddt_cuda_gdb_50/gdb/osf-share/cma_stack_int.h -text
 third_party/ddt_cuda_gdb_50/gdb/osf-share/cma_tcb_defs.h -text
 third_party/ddt_cuda_gdb_50/gdb/osf-share/cma_util.h -text
-third_party/ddt_cuda_gdb_50/gdb/p-exp.c -text
 third_party/ddt_cuda_gdb_50/gdb/p-exp.y -text
 third_party/ddt_cuda_gdb_50/gdb/p-lang.c -text
 third_party/ddt_cuda_gdb_50/gdb/p-lang.h -text
@@ -4214,7 +4183,6 @@ third_party/ddt_cuda_gdb_50/gdb/uda-plugin-iface.c.orig -text
 third_party/ddt_cuda_gdb_50/gdb/uda-plugin-iface.h -text
 third_party/ddt_cuda_gdb_50/gdb/uda-plugin.c -text
 third_party/ddt_cuda_gdb_50/gdb/uda-plugin.h -text
-third_party/ddt_cuda_gdb_50/gdb/uda-rmt-client-cmd.c -text
 third_party/ddt_cuda_gdb_50/gdb/uda-rmt-client-cmd.y -text
 third_party/ddt_cuda_gdb_50/gdb/uda-rmt-utils.c -text
 third_party/ddt_cuda_gdb_50/gdb/uda-rmt-utils.c.orig -text
@@ -4856,7 +4824,6 @@ third_party/ddt_cuda_gdb_50/mmalloc/mfree.c -text
 third_party/ddt_cuda_gdb_50/mmalloc/mm.c -text
 third_party/ddt_cuda_gdb_50/mmalloc/mmalloc.c -text
 third_party/ddt_cuda_gdb_50/mmalloc/mmalloc.h -text
-third_party/ddt_cuda_gdb_50/mmalloc/mmalloc.info -text
 third_party/ddt_cuda_gdb_50/mmalloc/mmalloc.texi -text
 third_party/ddt_cuda_gdb_50/mmalloc/mmap-sup.c -text
 third_party/ddt_cuda_gdb_50/mmalloc/mmcheck.c -text
@@ -17099,7 +17066,6 @@ third_party/ddt_gdb-7.2/etc/configure.in -text
 third_party/ddt_gdb-7.2/etc/configure.texi -text
 third_party/ddt_gdb-7.2/etc/fdl.texi -text
 third_party/ddt_gdb-7.2/etc/make-stds.texi -text
-third_party/ddt_gdb-7.2/etc/standards.info -text
 third_party/ddt_gdb-7.2/etc/standards.texi -text
 third_party/ddt_gdb-7.2/etc/texi2pod.pl -text
 third_party/ddt_gdb-7.2/expat/CMake.README -text

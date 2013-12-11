@@ -9091,7 +9091,6 @@ third_party/ddt_cuda_gdb_55/etc/configure.texi -text
 third_party/ddt_cuda_gdb_55/etc/fdl.texi -text
 third_party/ddt_cuda_gdb_55/etc/gnu-oids.texi -text
 third_party/ddt_cuda_gdb_55/etc/make-stds.texi -text
-third_party/ddt_cuda_gdb_55/etc/standards.info -text
 third_party/ddt_cuda_gdb_55/etc/standards.texi -text
 third_party/ddt_cuda_gdb_55/etc/texi2pod.pl -text
 third_party/ddt_cuda_gdb_55/expat/CMake.README -text
@@ -9322,7 +9321,6 @@ third_party/ddt_cuda_gdb_55/gdb/aclocal.m4 -text
 third_party/ddt_cuda_gdb_55/gdb/ada-exp.y -text
 third_party/ddt_cuda_gdb_55/gdb/ada-lang.c -text
 third_party/ddt_cuda_gdb_55/gdb/ada-lang.h -text
-third_party/ddt_cuda_gdb_55/gdb/ada-lex.c -text
 third_party/ddt_cuda_gdb_55/gdb/ada-lex.l -text
 third_party/ddt_cuda_gdb_55/gdb/ada-operator.inc -text
 third_party/ddt_cuda_gdb_55/gdb/ada-tasks.c -text
@@ -10256,13 +10254,6 @@ third_party/ddt_cuda_gdb_55/gdb/nbsd-nat.c -text
 third_party/ddt_cuda_gdb_55/gdb/nbsd-nat.h -text
 third_party/ddt_cuda_gdb_55/gdb/nbsd-tdep.c -text
 third_party/ddt_cuda_gdb_55/gdb/nbsd-tdep.h -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/amd64-linux.xml -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/gdb-syscalls.dtd -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/i386-linux.xml -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/ppc-linux.xml -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/ppc64-linux.xml -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/sparc-linux.xml -text
-third_party/ddt_cuda_gdb_55/gdb/no/syscalls/sparc64-linux.xml -text
 third_party/ddt_cuda_gdb_55/gdb/notify.defs -text
 third_party/ddt_cuda_gdb_55/gdb/nto-procfs.c -text
 third_party/ddt_cuda_gdb_55/gdb/nto-tdep.c -text
@@ -10277,8 +10268,6 @@ third_party/ddt_cuda_gdb_55/gdb/objfiles.h.orig -text
 third_party/ddt_cuda_gdb_55/gdb/obsd-tdep.c -text
 third_party/ddt_cuda_gdb_55/gdb/obsd-tdep.h -text
 third_party/ddt_cuda_gdb_55/gdb/observer.c -text
-third_party/ddt_cuda_gdb_55/gdb/observer.h -text
-third_party/ddt_cuda_gdb_55/gdb/observer.inc -text
 third_party/ddt_cuda_gdb_55/gdb/observer.sh -text
 third_party/ddt_cuda_gdb_55/gdb/osabi.c -text
 third_party/ddt_cuda_gdb_55/gdb/osabi.h -text

@@ -8,6 +8,7 @@ SDM	= @guard_srcdir@/sdm
 # FIXME: CLIENT shouldn't be used here, but it is a hack until
 # BUG 804428 is fixed...
 AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(CLIENT)
+AM_LIBTOOLFLAGS = --quiet
 
 ######################
 # Determine protocol #

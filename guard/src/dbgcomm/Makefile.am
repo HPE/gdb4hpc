@@ -4,6 +4,7 @@ MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
 AM_CFLAGS = -I$(USEFUL) -I$(GRAM)
+AM_LIBTOOLFLAGS = --quiet
 
 #################################
 # Check for optional components #

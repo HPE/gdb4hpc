@@ -5,6 +5,7 @@ CLIENT	= @guard_srcdir@/src/client
 SDM	= @guard_srcdir@/sdm
 
 AM_CFLAGS = -I$(USEFUL) -I$(DBGCOMM) -I$(DBGCLNT) -I$(CLIENT) -I$(SDM)
+AM_LIBTOOLFLAGS = --quiet
 
 # check for lex/yacc related files
 BUILT_SOURCES	= expr.y expr.tab.c expr.tab.h

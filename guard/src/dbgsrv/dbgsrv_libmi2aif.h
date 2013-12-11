@@ -20,9 +20,10 @@
 #define _DBGSRV_LIBMI2AIF_H
 
 // requisite includes
-#include	"aif.h"
-#include	"MI.h"
-#include	"MIOOBRecord.h"
+#include "aif.h"
+#include "MI.h"
+#include "MIOOBRecord.h"
+#include "dbgevent.h"
 
 /********************************************************
  * TYPE CONVERSION
@@ -124,8 +125,8 @@
 /*
  * Function prototypes
  */
-int	GetAIFVar(MISession *, char *, AIF **, char **);
-int	GetAIFVarHash(MISession *, char *, AIF **, char *, int, int, int);
+dbgevent_t *	GetAIFVar(MISession *, char *, AIF **, char **);
+dbgevent_t *	GetAIFVarHash(MISession *, char *, AIF **, char *, int, int, int);
 
 #endif /* _DBGSRV_LIBMI2AIF_H */
 

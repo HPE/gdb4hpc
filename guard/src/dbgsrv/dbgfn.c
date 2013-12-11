@@ -16,8 +16,6 @@
 #include	"dbgsrv_defs.h"
 #include	"dbgfn.h"
 
-static char *	_backend_err_str = NULL;
-
 /*
 ** Setup debug backend defs
 */
@@ -695,34 +693,5 @@ DbgInterrupt(void)
 	DBG_IMP(e, DbgBackendSW->dbg_interrupt);
 
 	return DbgBackendSW->dbg_interrupt();
-}
-
-void
-DbgSetBackendError(char *err)
-{
-	if (err == NULL)
-	{
-		return;	
-	}
-	
-	if (_backend_err_str != NULL)
-	{
-		free(_backend_err_str);
-	}
-	
-	_backend_err_str = strdup(err);
-}
-
-// Make sure to free the string if calling this!
-char *
-DbgGetBackendError(void)
-{
-	char *	rtn;
-	
-	rtn = _backend_err_str;
-	
-	_backend_err_str = NULL;
-	
-	return rtn;
 }
 

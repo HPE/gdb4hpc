@@ -17,19 +17,20 @@
  ******************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdlib.h>
-#include	<string.h>
-#include	<ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
-#include	"defs.h"
-#include	"useful.h"
-#include	"dbgsrv_libmi2aif.h"
-#include	"dbgsrv_util.h"
-#include	"dbgsrv_defs.h"
-#include	"dbgfn.h"
+#include "defs.h"
+#include "useful.h"
+#include "dbgsrv_libmi2aif.h"
+#include "dbgsrv_util.h"
+#include "dbgsrv_defs.h"
+#include "dbgfn.h"
+#include "dbgevent.h"
 
 /* The following is used to turn on debug printing for the CreateSimpleAIF func.
 ** It generates a ton of output for large arrays, which is why we want to
@@ -74,7 +75,9 @@ extern void			 		SendMICommand(MISession *, MICommand *);
 */
 static MIVar *				CreateMIVar(MISession *, char *);
 static void					DeleteMIVar(MISession *, char *);
+static int					MIVarGetChildren(MISession *, MIVar *);
 static char *				GetMIWhatisValue(MISession *, char *, MIVar *);
+static int					GetTypeLength(MISession *, char *);
 static int					GetSimpleType(char *);
 static int					GetComplexType(char *);
 static int					GetType(char *);
@@ -100,28 +103,149 @@ static AIF *				GetArrayAIF(MISession *, MIVar *);
 static AIF *				GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
 static AIF *				GetPointerAIF(MISession *, MIVar *);
 
-int
+// Internal globals
+static dbgevent_t *	dbg_error = NULL;
+
+static void
+reset_err(void)
+{
+	if (dbg_error != NULL)
+	{
+		FreeEvent(dbg_error);
+	}
+	dbg_error = NULL;
+}
+
+static dbgevent_t *
+get_err(void)
+{
+	dbgevent_t *	rtn = NULL;
+
+	if (dbg_error != NULL)
+	{
+		rtn = dbg_error;
+		dbg_error = NULL;
+	}
+	
+	return rtn;
+}
+
+// This is the "main" function that should be called in this interface...
+// It returns NULL on success, otherwise it returns an error event.
+dbgevent_t *
 GetAIFVar(MISession *session, char *var, AIF **val, char **type)
 {
 	AIF * res;
 	MIVar *mivar;
 
+	// reset the error var
+	reset_err();
+
 	DVPRINT("GetAIFVar: Resolving variable %s.\n", var);
 
 	mivar = CreateMIVar(session, var);
 	
-	if (mivar == NULL) {
-		DVPRINT("GetAIFVar: Unknown variable\n");
-		return -1;
+	if (mivar == NULL) 
+	{
+		DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
+		if (dbg_error == NULL)
+		{
+			EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
+		}
+		return get_err();
 	}
 
-	if ((res = GetAIF(session, mivar)) == NULL) {
-		DVPRINT("GetAIFVar: Unknown type\n");
+	if ((res = GetAIF(session, mivar)) == NULL) 
+	{
+		DVPRINT("GetAIFVar: GetAIF returned null.\n");
+		if (dbg_error == NULL)
+		{
+			EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "Parser failed to interpret gdb variable.");
+		}
 		DeleteMIVar(session, mivar->name);
 		MIVarFree(mivar);
-		return -1;
+		return get_err();
 	}
 	*type = strdup(mivar->type);
+	*val = res;
+
+	DeleteMIVar(session, mivar->name);
+	MIVarFree(mivar);
+
+	return NULL;
+}
+
+// TODO: Merge this with the above somehow?
+dbgevent_t *
+GetAIFVarHash(MISession *session, char *var, AIF **val, char *hashinfo,
+		int hashfunc, int precision_lower, int precision_upper)
+{
+	AIF *	res;
+	AIF *	a = NULL;
+	MIVar *	mivar;
+	int		id;
+	char *	pt;
+	
+	// reset the error var
+	reset_err();
+
+	mivar = CreateMIVar(session, var);
+	
+	if (mivar == NULL) 
+	{
+		DVPRINT("GetAIFVarHash: Unknown variable\n");
+		if (dbg_error == NULL)
+		{
+			EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
+		}
+		return get_err();
+	}
+
+	if (strcmp(mivar->type, "<text variable, no debug info>") == 0) 
+	{
+		DVPRINT("GetAIFVarHash: No symbols\n");
+		EVENT_ERROR(dbg_error, DBGERR_NOSYMS, NULL);
+		return get_err();
+	}
+
+	while ((id = GetComplexType(mivar->type)) == T_UNKNOWN)
+	{
+		pt = GetMIWhatisValue(session, NULL, mivar);
+		if (pt != NULL)
+		{
+			if (mivar->type != NULL)
+			{
+				free(mivar->type);
+			}
+			mivar->type = pt;
+			// FIXME: How to fix infinite loop here? I don't have a testcase that
+			// will cause it, but its certainly possible. This is not good...
+		} else
+			break;
+	}
+
+	if ( mivar->numchild==0 || !(id==T_ARRAY || id==T_FTNARRAY) )
+	{
+		//simple type
+		a = GetAIF(session, mivar);
+		res	= PerformHash(a, hashinfo, hashfunc, precision_lower, precision_upper);
+	}
+	else
+	{
+		// of type array
+		if((res = GetArrayAIFHash(session, mivar, hashinfo, hashfunc, precision_lower, precision_upper)) == NULL)
+		{
+			DVPRINT("GetAIFVarHash: Unknown type\n");
+			DeleteMIVar(session, mivar->name);
+			MIVarFree(mivar);
+			if (dbg_error == NULL)
+			{
+				EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetArrayAIFHash failed.");
+			}
+			return get_err();
+		}
+	}
+
 	*val = res;
 
 	DeleteMIVar(session, mivar->name);
@@ -143,8 +267,10 @@ CreateMIVar(MISession *session, char *expr)
 
 	cmd = MIVarCreate("-", "*", expr);
 	SendMICommand(session, cmd);
+	// If this fails, it means the symbol doesn't exist.
 	if (!MICommandResultOK(cmd)) 
 	{
+		EVENT_ERROR(dbg_error, DBGERR_NOSYM, expr);
 		MICommandFree(cmd);
 		return NULL;
 	}
@@ -191,7 +317,7 @@ DeleteMIVar(MISession *session, char *name)
 	MICommandFree(cmd);
 }
 
-int
+static int
 MIVarGetChildren(MISession *session, MIVar *var)
 {
 	MICommand		*cmd;
@@ -209,15 +335,17 @@ MIVarGetChildren(MISession *session, MIVar *var)
 			if (err != NULL) 
 			{
 				DVPRINT("MIVarGetChildren: Debugger error: %s\n", err);
-				DbgSetBackendError(err);
+				EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, err);
 				free(err);
 			} else 
 			{
 				DVPRINT("MIVarGetChildren: Error from GDB, no error message.\n");
+				EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Error without message!");
 			}
 		} else 
 		{
 			DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
+			EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB.");
 		}
 		MICommandFree(cmd);
 		return 1;
@@ -287,7 +415,7 @@ GetMIWhatisValue(MISession *session, char *expr, MIVar *var)
 	return type;
 }
 
-int
+static int
 GetTypeLength(MISession *session, char *base_type)
 {
 	char *		res;
@@ -347,15 +475,24 @@ GetVarValue(MISession *session, char *var)
 	DBEPERFLOG(SetTimerStopAndLog("GetVarValue: -data-evaluate-expression"));
 
 	SendMICommand(session, cmd);
-	if (!MICommandResultOK(cmd)) {
+	if (!MICommandResultOK(cmd)) 
+	{
 		DVPRINT("GetVarValue: Error\n");
+		EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetAIF failed.");
 		MICommandFree(cmd);
-		return strdup("");
+		return NULL;
 	}
 	res = MIGetVarEvaluateExpressionInfo(cmd);
 	MICommandFree(cmd);
-	if (res == NULL)
-		return strdup("");
+	
+	// Check to see if the value was optimized out
+	if (strcmp(res, "<value optimized out>") == 0)
+	{
+		EVENT_ERROR(dbg_error, DBGERR_OPT, NULL);
+		free(res);
+		return NULL;
+	}
+	
 	return res;
 }
 
@@ -366,6 +503,7 @@ GetAIF(MISession *session, MIVar *var)
 
 	if (strcmp(var->type, "<text variable, no debug info>") == 0) {
 		DVPRINT("GetAIF: No symbols\n");
+		EVENT_ERROR(dbg_error, DBGERR_NOSYMS, NULL);
 		return NULL;
 	}
 	if (var->numchild == 0) 
@@ -422,7 +560,12 @@ GetSimpleAIF(MISession *session, MIVar *var)
 			DVPRINT("GetSimpleAIF: Num args: %d\n", argc);
 			rtn = GetFunctionReturnType(session, var->type);
 			DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
-			v = GetVarValue(session, var->name);
+			if ((v = GetVarValue(session, var->name)) == NULL)
+			{
+				// error already set
+				free(rtn);
+				return NULL;
+			}
 			name = GetFunctionName(v);
 			DVPRINT("GetSimpleAIF: Function name: %s\n", name);
 			addr = GetFunctionAddress(session, v);
@@ -444,16 +587,18 @@ GetSimpleAIF(MISession *session, MIVar *var)
 			return a;
 		
 		case T_UNKNOWN:
-			/*
-			 * Unrecognized type. Need a better way to handle this.
-			 */
-			DVPRINT("GetSimpleAIF: Unknown type. Defaulting to void pointer.\n");
-			DVPRINT("GetSimpleAIF: Creating AIF void pointer.\n");
-			return VoidToAIF(0, 0);
+			// Unrecognized type.
+			DVPRINT("GetSimpleAIF: Unknown type. Returning error.\n");
+			EVENT_ERROR(dbg_error, DBGERR_BADTYPE, NULL);
+			return NULL;
 		
 		default:
 			DVPRINT("GetSimpleAIF: Creating simple type.\n");
-			v = GetVarValue(session, var->name);
+			if ((v = GetVarValue(session, var->name)) == NULL)
+			{
+				// error already set
+				return NULL;
+			}
 			a = CreateSimpleAIF(id, v, NULL, 0, NULL, NULL);
 			free(v);
 			return a;
@@ -2679,6 +2824,7 @@ GetStructAIF(MISession *session, MIVar *var)
 	// Resolve the child information for the var
 	if (MIVarGetChildren(session, var))
 	{
+		// error already set
 		AIFFree(a);
 		return NULL;
 	}
@@ -2971,69 +3117,6 @@ GetUnionAIF(MISession *session, MIVar *var)
 }
 #endif
 
-int
-GetAIFVarHash(MISession *session, char *var, AIF **val, char *hashinfo,
-		int hashfunc, int precision_lower, int precision_upper)
-{
-	AIF *	res;
-	AIF *	a = NULL;
-	MIVar *	mivar;
-	int		id;
-	char *	pt;
-
-	mivar = CreateMIVar(session, var);
-	if (mivar == NULL) {
-		DVPRINT("GetAIFVarHash: Unknown variable\n");
-		return -1;
-	}
-
-	if (strcmp(mivar->type, "<text variable, no debug info>") == 0) {
-		DVPRINT("GetAIFVarHash: No symbols\n");
-		return -1;
-	}
-
-	while ((id = GetComplexType(mivar->type)) == T_UNKNOWN)
-	{
-		pt = GetMIWhatisValue(session, NULL, mivar);
-		if (pt != NULL)
-		{
-			if (mivar->type != NULL)
-			{
-				free(mivar->type);
-			}
-			mivar->type = pt;
-			// FIXME: How to fix infinite loop here? I don't have a testcase that
-			// will cause it, but its certainly possible. This is not good...
-		} else
-			break;
-	}
-
-	if ( mivar->numchild==0 || !(id==T_ARRAY || id==T_FTNARRAY) )
-	{
-		//simple type
-		a = GetAIF(session, mivar);
-		res	= PerformHash(a, hashinfo, hashfunc, precision_lower, precision_upper);
-	}
-	else
-	{
-		// of type array
-		if((res = GetArrayAIFHash(session, mivar, hashinfo, hashfunc, precision_lower, precision_upper)) == NULL)
-		{
-			DVPRINT("GetAIFVarHash: Unknown type\n");
-			DeleteMIVar(session, mivar->name);
-			MIVarFree(mivar);
-			return -1;
-		}
-	}
-
-	*val = res;
-
-	DeleteMIVar(session, mivar->name);
-	MIVarFree(mivar);
-
-	return 0;
-}
-
 /* This function is used to hash the mivar befroe creating the AIF structure.
 ** This is to optimise the space required to build the immediate AIFArray structure
 ** since only the hashes that we are interested in
@@ -3072,18 +3155,22 @@ GetArrayAIFHash(MISession *session, MIVar *var, char *hashinfo,
 				if ((buf = MICommandResultErrorMessage(cmd)) != NULL)
 				{
 					DVPRINT("GetArrayAIFHash: Debugger error: %s\n", buf);
-					DbgSetBackendError(buf);
+					EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, buf);
 					free(buf);
-				}
-				else
+				} else
+				{
 					DVPRINT("GetArrayAIFHash: Error from GDB, but no message\n");
-			}
-			else
+					EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Error without message!");
+				}
+			} else
+			{
 				DVPRINT("GetArrayAIFHash: Bad response from GDB\n");
+				EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
+			}
 
 			MICommandFree(cmd);
 
-			return (AIF *)NULL;
+			return NULL;
 		}
 		DBEPERFLOG(SetTimerStopAndLog("GetArrayAIFHash: -data-evaluate-expression"));
 		
@@ -3095,8 +3182,9 @@ GetArrayAIFHash(MISession *session, MIVar *var, char *hashinfo,
 	// Now lets get the shape of this array
 	if ((shape = GetArrayDimensionShape(session, var)) == (arrayDimension_t *)NULL)
 	{
+		// error already set
 		DVPRINT("GetArrayAIFHash: GetArrayDimensionShape error\n");
-		return (AIF *)NULL;
+		return NULL;
 	}
 
 	// we have the data string and the shape, we need to aply hashinfo to hash the data
@@ -3176,7 +3264,7 @@ GetArrayAIF(MISession *session, MIVar *var)
 				if ((buf = MICommandResultErrorMessage(cmd)) != NULL)
 				{
 					DVPRINT("GetArrayAIF: Debugger error: %s\n", buf);
-					DbgSetBackendError(buf);
+					EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, buf);
 					free(buf);
 					// try to resolve the expression as a last resort and try again
 					if (!last_resort)
@@ -3187,6 +3275,8 @@ GetArrayAIF(MISession *session, MIVar *var)
 						SendMICommand(session, cmd);
 						if (MICommandResultOK(cmd))
 						{
+							// reset the error message
+							reset_err();
 							buf2 = MIGetVarInfoPathExpression(cmd);
 							MICommandFree(cmd);
 							cmd = MIDataEvaluateExpression(buf2);
@@ -3198,14 +3288,16 @@ GetArrayAIF(MISession *session, MIVar *var)
 				} else 
 				{
 					DVPRINT("GetArrayAIF: Error from GDB, but no message\n");
+					EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Error without message!");
 				}
-			} else 
+			} else
 			{
 				DVPRINT("GetArrayAIF: Bad response from GDB\n");
+				EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
 			}
 			MICommandFree(cmd);
 			
-			return (AIF *)NULL;
+			return NULL;
 		}
 		DBEPERFLOG(SetTimerStopAndLog("GetArrayAIF: -data-evaluate-expression"));
 		
@@ -3215,8 +3307,9 @@ GetArrayAIF(MISession *session, MIVar *var)
 		// Now lets get the shape of this array
 		if ((shape = GetArrayDimensionShape(session, var)) == (arrayDimension_t *)NULL)
 		{
+			// error already set
 			DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-			return (AIF *)NULL;
+			return NULL;
 		}
 		// now that we have the string and array shape, we need to start
 		// parsing it, find the first array member, and create a simple
@@ -3752,18 +3845,22 @@ GetArrayAIF(MISession *session, MIVar *var)
 static AIF *
 GetPointerAIF(MISession *session, MIVar *var)
 {
-	void *		addr;
-	char *		addr_str;
+	void *			addr;
+	char *			addr_str;
 	long long int	addr_loc;
-	int		 addr_len;
-	AIF *		addr_aif;
-	AIF *		rtn_aif;
+	int				addr_len;
+	AIF *			addr_aif;
+	AIF *			rtn_aif;
 	
 	DVPRINT("GetPointerAIF: Pointer Type => %s\n", var->type);
 
 	// get the address for the pointer, this is represented by the value
 	// in the MI object.
-	addr_str = GetVarValue(session, var->name);
+	if ((addr_str = GetVarValue(session, var->name)) == NULL)
+	{
+		// error already set
+		return NULL;
+	}
 	
 	DVPRINT("GetPointerAIF: Pointer Addr => %s\n", addr_str);
 	

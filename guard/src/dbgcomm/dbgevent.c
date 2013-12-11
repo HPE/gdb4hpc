@@ -56,6 +56,8 @@ const char *DbgErrTab[] =
 	"No source file named \"%s\"",								// DBGERR_NOFILE
 	"No breakpoint number %s",									// DBGERR_NOBP
 	"No symbol \"%s\" in current context",						// DBGERR_NOSYM
+	"Value optimized out",										// DBGERR_OPT
+	"Unsupported symbol type",									// DBGERR_BADTYPE
 	"*** can't access memory",									// DBGERR_NOMEM
 	"*** can't run the application",							// DBGERR_CANTRUN
 	"*** could not invoke the application",						// DBGERR_INVOKE
@@ -65,7 +67,7 @@ const char *DbgErrTab[] =
 	"Bottom (innermost) frame selected; you cannot go down.",	// DBGERR_LASTFRAME
 	"Argument required (breakpoint number)",					// DBGERR_BADBPARG
 	"*** error in regular expression",							// DBGERR_REGEX
-	"No stack.",												// DBGERR_NOSTACK
+	"No stack",													// DBGERR_NOSTACK
 	"Line number %s is out of range for ",						// DBGERR_OUTOFRANGE
 	"%s: No such file or directory",							// DBGERR_NOFILEDIR
 	"No debugging symbols",										// DBGERR_NOSYMS
@@ -76,12 +78,12 @@ const char *DbgErrTab[] =
 	"%s: not in executable format",								// DBGERR_NOTEXEC
 	"chdir: %s",												// DBGERR_CHDIR
 	"Source file is more recent than executable",				// DBGERR_SOURCE
-	"Can't set variable.",										// DBGERR_SETVAR
-	"Attach failed.",											// DBGERR_ATTACH_FAILED FIXME: This is never used yet.
+	"Can't set variable",										// DBGERR_SETVAR
+	"Attach failed",											// DBGERR_ATTACH_FAILED FIXME: This is never used yet.
 	"*** The application is at an exit breakpoint.",			// DBGERR_AT_EXIT
 	"Internal error: %s",										// DBGERR_INTERNAL
 	"Unkown GDB error: \"%s\"",									// DBGERR_UNKNOWN
-	"Invalid error number."										// DBGERR_NULL
+	"Invalid error number"										// DBGERR_NULL
 };
 
 dbgevent_t *
@@ -564,6 +566,12 @@ void
 EventErrStr(dbgevent_t *e, char *fmt, ...)
 {
 	va_list	ap;
+	
+	if (fmt == NULL)
+	{
+		e->ev_errstr = NULL;
+		return;
+	}
 	
 	va_start(ap, fmt);
 	vasprintf(&e->ev_errstr, fmt, ap);

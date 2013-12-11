@@ -109,10 +109,4 @@ extern dbgevent_t *		DbgInterrupt(void);
 extern dbgevent_t *		DbgOpenSocket(char *, int);
 extern dbgevent_t *		DbgCloseSocket(void);
 
-// Used to set a backend error message
-extern void				DbgSetBackendError(char *);
-// Used to retrieve an error message
-// Make sure to free the string if calling this!
-extern char *			DbgGetBackendError(void);
-
 #endif /* !_DBGFN_H */

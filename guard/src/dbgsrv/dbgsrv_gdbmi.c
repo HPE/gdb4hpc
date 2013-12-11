@@ -1067,7 +1067,10 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				DVPRINT("Detected Nvidia driver %s\n", vers_str);
 				
 				// Now strcmp the driver version with a list of supported versions
-				if (!strncmp(vers_str, "319.62", 6))
+				if (!strncmp(vers_str, "319.72", 6))
+				{
+					vers_num = CUDA_55;
+				} else if (!strncmp(vers_str, "319.62", 6))
 				{
 					vers_num = CUDA_55;
 				} else if (!strncmp(vers_str, "319.37", 6))
@@ -4310,11 +4313,9 @@ PerformExtEvalExpr(char *exp)
 	char *		type;
 	int			func_id = 0;
 	char		sliceinfo[BUFSIZ]="";
-	char *		error_str;
 
 	DVPRINT("*** PerformExtEvalExpr(%s-%d)\n", exp, my_rank);
 
-	e = NewEvent(DBGEV_DATA);
 	ParseDBGExpr(exp, &func_id, sliceinfo, var, args);
 
 	DVPRINT("*** PerformExtEvalExpr(%s-%s-%s)\n", var, args, sliceinfo);
@@ -4326,16 +4327,12 @@ PerformExtEvalExpr(char *exp)
 		char hashinfo[BUFSIZ]="";
 		ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper, hashinfo);
 		
-		if (GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id, precision_lower, precision_upper) < 0)
+		if ((e = GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id, precision_lower, precision_upper)) != NULL)
 		{
-			if ((error_str = DbgGetBackendError()) != NULL)
-			{
-				EVENT_ERROR(e, DBGERR_DEBUGGER, error_str);
-				return e;
-			}
-			EVENT_ERROR(e, DBGERR_NOSYM, exp);
 			return e;
 		}
+		
+		e = NewEvent(DBGEV_DATA);
 		e->ev_data = a;
 
 		if (debug_flag)
@@ -4350,16 +4347,12 @@ PerformExtEvalExpr(char *exp)
 		return e;
 	}
 
-	if (GetAIFVar(GDBMISession, var, &a, &type) < 0)
+	if ((e = GetAIFVar(GDBMISession, var, &a, &type)) != NULL)
 	{
-		if ((error_str = DbgGetBackendError()) != NULL)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, error_str);
-			return e;
-		}
-		EVENT_ERROR(e, DBGERR_NOSYM, exp);
 		return e;
 	}
+	
+	e = NewEvent(DBGEV_DATA);
 
 	// if slice info found, perform slicing first
 	if (strlen(sliceinfo) > 0)
@@ -4459,7 +4452,6 @@ DbgGDBMIEvalExpr(char *exp)
 	char *			type;
 	AIF *			a;
 	dbgevent_t *	e;
-	char *			error_str;
 
 	DVPRINT("*** DbgEvalExpr(%s-%d)\n", exp, my_rank);
 
@@ -4488,19 +4480,12 @@ DbgGDBMIEvalExpr(char *exp)
 		}
 	}
 
-	e = NewEvent(DBGEV_NONE);
-
-	if (GetAIFVar(GDBMISession, exp, &a, &type) < 0)
+	if ((e = GetAIFVar(GDBMISession, exp, &a, &type)) != NULL)
 	{
-		if ((error_str = DbgGetBackendError()) != NULL)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, error_str);
-			return e;
-		}
-		EVENT_ERROR(e, DBGERR_NOSYM, exp);
 		return e;
 	}
-
+	
+	e = NewEvent(DBGEV_NONE);
 	e->ev_event = DBGEV_DATA;
 	e->ev_data = a;
 

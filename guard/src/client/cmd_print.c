@@ -54,7 +54,6 @@ PrintVal(FILE *fp, val_t *val, rec_set_t *rec_set)
 		// Retrieve the contents of the val
 		if (VAL_RETRIEVE(val, rec_set))
 		{
-			PrintError();
 			return -1;
 		}
 		
@@ -67,7 +66,6 @@ PrintVal(FILE *fp, val_t *val, rec_set_t *rec_set)
 		// Retrieve the contents of the val
 		if (VAL_RETRIEVE(val, rec_set))
 		{
-			PrintError();
 			return -1;
 		}
 		

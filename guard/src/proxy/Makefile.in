@@ -247,7 +247,7 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for relative debugging libraries
 @WITH_RD_TRUE@GUARD_RD_LIBS = @rd_libs@
-@MRN_TRUE@MRN_LIBS = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset -lxplat
+@MRN_TRUE@MRN_LIBS = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 
 # Check for gdb-mi libraries
 @GDBMI_BACKEND_TRUE@MI_LIBS = @mi_libs@

@@ -25,7 +25,7 @@ endif
 # Check for MRNet libraries
 if MRN
 AM_CFLAGS       += -I$(MRNET) -I$(SDM)
-MRN_LIBS        = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset -lxplat
+MRN_LIBS        = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 endif
 
 # Check for gdb-mi libraries

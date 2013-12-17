@@ -33,6 +33,10 @@
 #include	"df.h"
 #endif /* RD */
 
+#ifdef ALPS
+#include "cray_tools_fe.h"
+#endif /* ALPS */
+
 /*
  * External Global Variables
  */
@@ -83,6 +87,59 @@ Banner(void)
 	PrintOutMsg("Type \"help\" for a list of commands.\n");
 }
 
+// All environment setup should happen here
+static void
+SetupEnvironment(void)
+{
+	char *				inst_base;
+	char *				lib_dir;
+	char *				libexec_dir;
+	char *				cfg_dir;
+	char *				cti_ld_val_path;
+	
+	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
+	// of our process
+	if ((inst_base = getinstallbase()) == NULL)
+	{
+		fprintf(stderr, "Could not locate install base. Aborting...\n");
+		exit(1);
+	}
+	// create the path strings
+	Asprintf(&lib_dir, "%s/lib", inst_base);
+	Asprintf(&libexec_dir, "%s/libexec", inst_base);
+	Asprintf(&cti_ld_val_path, "%s/libaudit.so", lib_dir);
+	
+	// Set the environment variables
+	adjustLibPath(lib_dir);
+	adjustExecPath(libexec_dir);
+	
+	// get the cfg dir settings
+	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
+	{
+		// Not found, so default to ~/.cray_lgdb
+		char *home_dir;
+		if ((home_dir = getenv("HOME")) == NULL)
+		{
+			fprintf(stderr, "Could not read $HOME. Aborting...\n");
+			exit(1);
+		}
+		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+		setenv(CTI_CFG_DIR_VAR, cfg_dir, 1);
+		Free(cfg_dir);
+	} else
+	{
+		setenv(CTI_CFG_DIR_VAR, cfg_dir, 1);
+	}
+	
+	// set the ld_val path for the cti
+	setenv(CTI_LIBAUDIT_ENV_VAR, cti_ld_val_path, 1);
+	
+	Free(lib_dir);
+	Free(libexec_dir);
+	Free(cti_ld_val_path);
+}
+
 int 
 main(int argc, char *argv[])
 {
@@ -105,6 +162,8 @@ main(int argc, char *argv[])
 	ulp = nextafter(0.0, 0.1);
 	Client.cmp_lower_eps = DoubleToAIF(ulp);
 	Client.cmp_upper_eps = DoubleToAIF(ulp);
+	
+	SetupEnvironment();
 	
 	// Check to see if stdin is a tty, if not set the default CLI to notty
 	if (!isatty(STDIN_FILENO))

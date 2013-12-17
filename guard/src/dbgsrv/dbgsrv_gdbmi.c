@@ -3078,15 +3078,11 @@ DbgGDBMIQuit(int detach)
 	*/
 	
 	// If the command completed ok, we need to send SIGSTOP ASAP!!!
-	if (MICommandResultOK(cmd) && !detach) {
+	if (MICommandResultOK(cmd) && !detach) 
+	{
 		(void)kill(Pid, SIGSTOP);
 		DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
 	}
-	
-	// If we are not detaching, we want to sleep at exit to wait for alps to
-	// kill off the dbgsrv.
-	if (!detach)
-		exit_sleep_time = 200;
 #endif
 
 	MICommandFree(cmd);

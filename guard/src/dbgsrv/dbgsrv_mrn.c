@@ -225,12 +225,12 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 
 	if(cfg_env == NULL)
 	{
-		fprintf(stderr, "ERROR: GUARD_MRNET_CFG_DIRECTORY is not set\n");
+		fprintf(stderr, "ERROR: GUARD_CFG_DIRECTORY argument is missing!\n");
 		return -1;
 	}
 
-	DVPRINT("DbgSRVMRNInitProto GUARD_MRNET_CFG_DIRECTORY=%s\n", cfg_env);
-	setenv(GUARD_MRNET_CFG_DIRECTORY, cfg_env, 1);
+	DVPRINT("DbgSRVMRNInitProto GUARD_CFG_DIRECTORY=%s\n", cfg_env);
+	setenv(GUARD_CFG_DIRECTORY, cfg_env, 1);
 
 	for (var = MPIRankVars; *var != NULL; var++) {
 	envval = getenv(*var);

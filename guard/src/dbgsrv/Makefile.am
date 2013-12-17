@@ -14,7 +14,7 @@ AM_LIBTOOLFLAGS = --silent
 # Check for MRNet
 if MRN
 AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
-MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet -lxplat
+MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet 
 MRN_SRV		= dbg_mrn_be.c dbgsrv_mrn.c mrn_topo.c
 endif
 
@@ -57,18 +57,17 @@ dbgsrv_alps_SOURCES 	= dbgsrv_alps_mrn.c
 endif
 
 dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS)
-dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,'$$ORIGIN' \
-			  -Wl,-rpath,'$$ORIGIN'/../lib
+dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN
 endif
 
 ################
 # Build dbgsrv #
 ################
 
-bin_PROGRAMS 	= dbgsrv $(CRAY_PROGS)
+libexec_PROGRAMS= dbgsrv $(CRAY_PROGS)
 dbgsrv_SOURCES	= dbgsrv.c dbgfn.c dbgsrv_proto.c dbgsrv_cmds.c \
-		  $(BACKEND) $(MRN_SRV) $(SOCK_SRV)
+		$(BACKEND) $(MRN_SRV) $(SOCK_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
-		  $(MI_LIBS) $(MRN_LIBS) -laif $(CRAYTOOL_LIBS)
-dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,'$$ORIGIN'
+		$(MI_LIBS) $(MRN_LIBS) -laif $(CRAYTOOL_LIBS)
+dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN
 

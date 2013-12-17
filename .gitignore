@@ -1,5 +1,4 @@
 /alps_base
-/ccdb_*
 /cray.rev
 /cscope.out
 guard/Makefile
@@ -43,6 +42,7 @@ guard/src/gram/tokens
 guard/src/useful/.deps
 guard/src/useful/Makefile
 guard/stamp-h1
+/lgdb_*
 libaif/.deps
 libaif/Makefile
 libaif/aif_xdr.c

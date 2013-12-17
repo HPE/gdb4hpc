@@ -162,7 +162,7 @@ create_mrnet_commnode_wrapper(CTI_SESSION_ID sid)
 	// get configuration dir
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
-		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_CFG_DIRECTORY);
 		fclose(sfp);
 		Free(wrapper_name);
 		wrapper_name = NULL;
@@ -274,9 +274,9 @@ DbgMRNInit()
 	char *			mrnet_port_base_env;
 	
 	// grab the config dir environment variable
-	if ((mrnet_cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY)) == (char *)NULL)
+	if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
-		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_CFG_DIRECTORY);
 		return 0;
 	}
 	
@@ -367,18 +367,18 @@ DbgMRNAttach(
 	di->d_apid = pid;
 
 	// get mrnet configuration information
-	if ((cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY)) == (char *)NULL)
+	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
-		PrintOutError("ERROR: Cannot find GUARD_MRNET_CFG_DIRECTORY. Please set MRNet environment variables!\n");
+		PrintOutError("ERROR: Cannot find %s. Please set MRNet environment variables!\n", GUARD_CFG_DIRECTORY);
 		return NULL;
 	}
 	snprintf(topology_name, MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_TOPOLOGY);
 	snprintf(connections,	MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_ATTACH_CONNECTIONS);
 
 	// we are going to read the location of the filter from the env var
-	if ((filter_name = libFind(AGGREGATION_FILTER, CCDB_LIBRARY_DIR)) == (char *)NULL)
+	if ((filter_name = libFind(AGGREGATION_FILTER, NULL)) == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s in %s. Please set MRNet environment variables!\n", AGGREGATION_FILTER, CCDB_LIBRARY_DIR);
+		PrintOutError("ERROR: Cannot find %s in LD_LIBRARY_PATH. Please set MRNet environment variables!\n", AGGREGATION_FILTER);
 		return NULL;
 	}
 
@@ -787,7 +787,7 @@ DbgMRNAttach(
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
 	
-	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
+	if (mrn_fe_create_streams_and_load_filter(network, filter_name, AGGREGATION_FUNC))
 	{
 		PrintOutError("ERROR: DbgMRNAttach failed to load filter functions and creat streams for MRNet!\n");
 		mrn_fe_delete_network(network);
@@ -1022,28 +1022,20 @@ DbgMRNInvoke(
 	di->d_proto_ev_callback = cbMRNInvoke;
 
 	// get mrnet configuration information
-	if ((cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY)) == (char *)NULL)
+	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
-		PrintOutError("ERROR: Cannot find GUARD_MRNET_CFG_DIRECTORY. Please set MRNet environment variables!\n");
+		PrintOutError("ERROR: Cannot find %s. Please set MRNet environment variables!\n", GUARD_CFG_DIRECTORY);
 		return NULL;
 	}
 	snprintf(topology_name, MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_TOPOLOGY);
 	snprintf(connections,	MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_ATTACH_CONNECTIONS);
 
-#if defined (ALPS)
-	// we are going to read the location of the filter from the env var
-	if ((filter_name = libFind(AGGREGATION_FILTER, CCDB_LIBRARY_DIR)) == (char *)NULL)
+	// we are going to read the location of the filter from LD_LIBRARY_PATH
+	if ((filter_name = libFind(AGGREGATION_FILTER, NULL)) == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s in %s. Please set MRNet environment variables!\n", AGGREGATION_FILTER, CCDB_LIBRARY_DIR);
+		PrintOutError("ERROR: Cannot find %s in LD_LIBRARY_PATH. Please set MRNet environment variables!\n", AGGREGATION_FILTER);
 		return NULL;
 	}
-#else
-	if ((filter_name = libFind(AGGREGATION_FILTER, NULL)) == (char *)NULL)
-	{
-		PrintOutError("ERROR: Cannot find %s in LD_LIBRARY_PATH. Please set your environment variables!\n", AGGREGATION_FILTER);
-		return NULL;
-	}
-#endif
 
 	/*
 	** There is a race between returning a pid and
@@ -1580,7 +1572,7 @@ DbgMRNInvoke(
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
 	
-	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
+	if (mrn_fe_create_streams_and_load_filter(network, filter_name, AGGREGATION_FUNC))
 	{
 		PrintOutError("ERROR: DbgMRNInvoke failed to load filter functions and creat streams for MRNet!\n");
 		mrn_fe_delete_network(network);
@@ -1727,10 +1719,10 @@ DbgMRNInvoke(
 	char	starter[MAXPATHLEN];
 	char*	env_cfg = NULL;
 //	snprintf(starter, MAXPATHLEN-1, "%s/%s", GUARD_BINDIR, STARTER);
-	env_cfg = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	env_cfg = getenv(GUARD_CFG_DIRECTORY);
 	if(env_cfg == NULL)
 	{
-		PrintOutError("ERROR: DbgMRNInvoke cannot find GUARD_MRNET_CFG_DIRECTORY!\n");
+		PrintOutError("ERROR: DbgMRNInvoke cannot find %s!\n", GUARD_CFG_DIRECTORY);
 		return NULL;
 	}
 

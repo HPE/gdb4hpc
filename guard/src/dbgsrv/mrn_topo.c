@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "defs.h"
 #include "dbg.h"
 #include "mrn_cfg.h"
 #include "dbg_mrn.h"
@@ -55,10 +56,10 @@ get_myparent_info(int id, char *host, char *par_host, unsigned *par_port, unsign
 	DVPRINT("Reading backend attach info from %s\n", connections);
 #else
 	int retry = 0;
-	char* dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char* dir = getenv(GUARD_CFG_DIRECTORY);
         
 	if(dir == NULL){
-		PrintOutError("ERROR: get_myparent_info cannot find GUARD_MRNET_CFG_DIRECTORY! Please set up MRNet configurations!"); 	
+		PrintOutError("ERROR: get_myparent_info cannot find %s! Please set up MRNet configurations!", GUARD_CFG_DIRECTORY); 	
 		return -1;
 	}	
 	snprintf(connections, MAXPATHLEN-1, "%s/%s", dir, MRNET_ATTACH_CONNECTIONS);

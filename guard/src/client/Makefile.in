@@ -256,7 +256,7 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for relative debugging libraries
 @WITH_RD_TRUE@GUARD_RD_LIBS = @rd_libs@
-@MRN_TRUE@MRN_LIBS = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset -lxplat
+@MRN_TRUE@MRN_LIBS = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 
 # Check for gdb-mi libraries
 @GDBMI_BACKEND_TRUE@MI_LIBS = @mi_libs@
@@ -266,7 +266,7 @@ guard_SOURCES = main.c class_cmd.c cli_funcs.c cmd.c help_dict.c cmd_assign.c cm
 		  cmd_procset.c cmd_source.c cmd_step.c cmd_whatis.c cli_readline.c cli_socket.c cli_file.c \
 		  cmd_passthru.c
 
-guard_LDFLAGS = $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,'$$ORIGIN'/../lib
+guard_LDFLAGS = $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN
 guard_LDADD = $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
 		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif

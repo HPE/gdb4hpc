@@ -1,0 +1,11 @@
+#%Module
+set 	home 		%HOME%
+set	level		%VERSION%.DEV
+
+prepend-path	PATH 				$home/bin
+setenv          CRAY_LGDB_VERSION               $level
+
+proc ModulesHelp { } {
+	puts stderr "lgdb: The Cray line mode Debugger"
+}
+

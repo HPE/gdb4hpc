@@ -196,7 +196,7 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 	// get configuration dir
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
-		PrintOutError("ERROR: Cannot find GUARD_MRNET_CFG_DIRECTORY. Please set MRNet environment variables!\n");
+		PrintOutError("ERROR: Cannot find GUARD_CFG_DIRECTORY. Please set MRNet environment variables!\n");
 		Free(script_name);
 		return NULL;
 	}
@@ -702,7 +702,7 @@ mismatch_exit:
 	// get configuration dir
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
-		PrintOutError("ERROR: Cannot find GUARD_MRNET_CFG_DIRECTORY. Please set MRNet environment variables!\n");
+		PrintOutError("ERROR: Cannot find %s. Please set MRNet environment variables!\n", GUARD_CFG_DIRECTORY);
 		Free(script_name);
 		libssh2_agent_disconnect(agent);
 		libssh2_agent_free(agent);

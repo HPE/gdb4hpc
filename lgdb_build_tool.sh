@@ -1,8 +1,13 @@
 #!/bin/bash
 #
-# ccdb build tool
+# lgdb build tool
 # A primer script to automagically build guard and all of its
 # dependencies.
+#
+# NOTE: This tool makes use of ccdb references all over the place.
+#       These are legacy and are from the early days during the DARPA phase
+#       when the debugger was known as ccdb. These ccdb references really
+#       mean lgdb.
 #
 # ©2010-2013 Cray Inc.  All Rights Reserved.
 #
@@ -24,23 +29,23 @@
 #####################################################
 
 # Build version
-ccdb_version="1.6"
+ccdb_version="2.0"
 
 # Current directory name where dependencies are located
 thirdparty_directory_name="third_party"
 extras_directory_name="extras"
 
 # Directory name where the final ccdb package will be placed
-ccdb_package_directory_name="ccdb_install"
+ccdb_package_directory_name="lgdb_install"
 
 # Directory name that will be used as a "staging" directory, that is
 # dependency packages will be installed to the staging directory and only things
 # that are needed in the final ccdb package will be included in the ccdb package
 # directory.
-ccdb_staging_directory_name="ccdb_tmp"
+ccdb_staging_directory_name="lgdb_tmp"
 
 # Third party source tree names. 
-mrnet_directory_name="mrnet-11096a9"
+mrnet_directory_name="mrnet-HEAD-2b1d607"
 gdb_directory_name="ddt_gdb-7.2"
 cuda50_gdb_directory_name="ddt_cuda_gdb_50"
 cuda55_gdb_directory_name="ddt_cuda_gdb_55"
@@ -98,9 +103,11 @@ libmrnet_dso="libmrnet.so"
 libmrnet_major="libmrnet.so.4"
 libmrnet_minor="libmrnet.so.4.0.0"
 
-libxplat_dso="libxplat.so"
-libxplat_major="libxplat.so.4"
-libxplat_minor="libxplat.so.4.0.0"
+#libxplat_dso="libxplat.so"
+#libxplat_major="libxplat.so.4"
+# This is horibly broken by an MRNet bug. This should be named
+# libxplat.so.4.0.0 like every other library on the face of the planet.
+libxplat_minor="libxplat.4.0.0.so"
 
 ########################################################
 # Setup the build layout. The following variables are  #
@@ -183,7 +190,7 @@ ccdb_src="$cur_dir/$guard_directory_name"
 ccdb_rd_src="$ccdb_src/$guard_rd_directory_name"
 
 # Define where to find the module primer
-module_primer="$extras_dir/modulefiles/cray-lgdb/1.5_primer"
+module_primer="$extras_dir/modulefiles/cray-lgdb/2.0_primer"
 module_version="2.2.3"
 
 # Define where to find the demos
@@ -262,21 +269,23 @@ echo "M: cleanup"
 ##############################################
 
 # Display welcome message
-echo -e "\nccdb build tool v$ccdb_version - By andrewg@cray.com"
+echo -e "\nlgdb build tool v$ccdb_version - By andrewg@cray.com"
 
 # Remove the install directory tree if it already exists
 if [ -d $inst_dir ]; then
 	rm -rf $inst_dir
 fi
 
-# Create the install directory tree
-mkdir $inst_dir
-mkdir $inst_dir/bin
-mkdir $inst_dir/lib
-
-# Create bindir and libdir variables
+# Create bindir, libdir, and libexec variables
 bindir="$inst_dir/bin"
 libdir="$inst_dir/lib"
+libexecdir="$inst_dir/libexec"
+
+# Create the install directory tree
+mkdir $inst_dir
+mkdir $bindir
+mkdir $libdir
+mkdir $libexecdir
 
 # Create the stage directory if it doesn't already exist
 if [ ! -d $stage_dir ]; then
@@ -1365,29 +1374,29 @@ if [[ $opt_mrnet == y ]]; then
 		        cp -r $mrnet_src/include/boost $dep_includedir
 	        else
 		        echo "WARNING: Could not find the boost include files. Build may be incomplete."
-		        ((++warning))
+			echo "The system is probably already providing these for free."
 	        fi
 	fi
 	# Deliver the mrnet binaries
 	if [ -e $dep_bindir/mrnet_commnode ]; then
-	        echo "Delivering mrnet_commnode to $bindir..."
-	        cp $dep_bindir/mrnet_commnode $bindir
+	        echo "Delivering mrnet_commnode to $libexecdir..."
+	        cp $dep_bindir/mrnet_commnode $libexecdir
 	else
 	        echo "ERROR: Could not find mrnet_commnode in $dep_bindir. MRNet build failed."
 	        ((++comp_error))
 	fi
 	# Deliver the commnode wrapper
 	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
-		echo "Delivering lgdb_mrnet_commnode_wrapper to $bindir..."
-		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $bindir
+		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
+		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
 	else
 	        echo "WARNING: Could not find lgdb_mrnet_commnode_wrapper. Build may be incomplete."
 	        ((++warning))
 	fi
 	# Deliver the mrnet topology generator 
 	if [ -e $dep_bindir/mrnet_topgen ]; then
-	        echo "Delivering mrnet_topgen to $bindir..."
-	        cp $dep_bindir/mrnet_topgen $bindir
+	        echo "Delivering mrnet_topgen to $libexecdir..."
+	        cp $dep_bindir/mrnet_topgen $libexecdir
 	else
 	        echo "ERROR: Could not find mrnet_topgen in $dep_bindir. MRNet cannot create k-nomial tree."
 	        ((++comp_error))
@@ -1409,11 +1418,12 @@ if [[ $opt_mrnet == y ]]; then
 	if [ -e $dep_libdir/$libxplat_minor ]; then
 		echo "Delivering $libxplat_minor to $libdir..." 
 		cp $dep_libdir/$libxplat_minor $libdir 
-		echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
+		# if/when mrnet gets fixed uncomment the below
+		#echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
 		# cd to libdir to create the symlinks 
-		cd $libdir 
-		ln -s $libxplat_minor $libxplat_dso 
-		ln -s $libxplat_minor $libxplat_major 
+		#cd $libdir 
+		#ln -s $libxplat_minor $libxplat_dso 
+		#ln -s $libxplat_minor $libxplat_major 
 	else 
 		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. The mrnet build failed." 
 		((++comp_error)) 
@@ -1450,16 +1460,16 @@ else
         echo -e "Using MRNet package in $stage_dir."
 	# Deliver the mrnet binaries
 	if [ -f $dep_bindir/mrnet_commnode ]; then
-	        echo "Delivering mrnet_commnode to $bindir..."
-	        cp $dep_bindir/mrnet_commnode $bindir
+	        echo "Delivering mrnet_commnode to $libexecdir..."
+	        cp $dep_bindir/mrnet_commnode $libexecdir
 	else
 	        echo "ERROR: mrnet_commnode was not found. Manually add this to $inst_dir."
 	        ((++comp_error))
 	fi
 	# Deliver the commnode wrapper
 	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
-		echo "Delivering lgdb_mrnet_commnode_wrapper to $bindir..."
-		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $bindir
+		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
+		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
         else
                 echo "ERROR: lgdb_mrnet_commnode_wrapper was not found. Manually add this to $inst_dir."
                 ((++comp_error))
@@ -1481,11 +1491,12 @@ else
 	if [ -e $dep_libdir/$libxplat_minor ]; then 
 		echo "Delivering $libxplat_minor to $libdir..." 
 		cp $dep_libdir/$libxplat_minor $libdir 
-		echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
+		# if/when mrnet gets fixed uncomment the below
+		#echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
 		# cd to libdir to create the symlinks 
-		cd $libdir 
-		ln -s $libxplat_minor $libxplat_dso 
-		ln -s $libxplat_minor $libxplat_major 
+		#cd $libdir 
+		#ln -s $libxplat_minor $libxplat_dso 
+		#ln -s $libxplat_minor $libxplat_major 
 	else 
 		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. Manually add this to $inst_dir." 
 		((++comp_error)) 
@@ -1526,8 +1537,8 @@ if [[ $opt_gdb == y ]]; then
 	        echo "Renaming gdb to gdb-guard..."
 	        mv $dep_bindir/gdb $dep_bindir/gdb-guard
 	        # deliver gdb-guard to the install dir
-	        echo "Delivering gdb-guard to $bindir..."
-	        cp $dep_bindir/gdb-guard $bindir
+	        echo "Delivering gdb-guard to $libexecdir..."
+	        cp $dep_bindir/gdb-guard $libexecdir
 	else
 	        echo "ERROR: Could not find gdb in $dep_bindir. The gdb build failed."
 	        ((++comp_error))
@@ -1541,8 +1552,8 @@ else
         # Always use the gdb in the dep_bindir
         if [[ -e $dep_bindir/gdb-guard ]]; then
                 # deliver gdb-guard to the install dir
-                echo "Delivering gdb-guard to $bindir..."
-                cp $dep_bindir/gdb-guard $bindir
+                echo "Delivering gdb-guard to $libexecdir..."
+                cp $dep_bindir/gdb-guard $libexecdir
         else
 		echo "ERROR: gdb-guard was not found in $dep_bindir. Manually add this to $inst_dir."
 		((++comp_error))
@@ -1581,8 +1592,8 @@ if [[ $opt_cuda50_gdb == y ]]; then
 		echo "Renaming cuda-gdb to cuda50-gdb-guard..."
 		mv $dep_bindir/cuda-gdb $dep_bindir/cuda50-gdb-guard
 		# deliver cuda50-gdb-guard to the install dir
-		echo "Delivering cuda50-gdb-guard to $bindir..."
-		cp $dep_bindir/cuda50-gdb-guard $bindir
+		echo "Delivering cuda50-gdb-guard to $libexecdir..."
+		cp $dep_bindir/cuda50-gdb-guard $libexecdir
 	else
 		echo "ERROR: Could not find cuda-gdb in $dep_bindir. The cuda-gdb 50 build failed."
 		((++comp_error))
@@ -1596,8 +1607,8 @@ else
 	# Always use the cuda-gdb in dep_bindir
 	if [[ -e $dep_bindir/cuda50-gdb-guard ]]; then
 		# deliver cuda50-gdb-guard to install dir
-		echo "Delivering cuda50-gdb-guard to $bindir..."
-		cp $dep_bindir/cuda50-gdb-guard $bindir
+		echo "Delivering cuda50-gdb-guard to $libexecdir..."
+		cp $dep_bindir/cuda50-gdb-guard $libexecdir
 	else
 		echo "ERROR: cuda50-gdb-guard was not found in $dep_bindir. Manually add this to $inst_dir."
 		((++comp_error))
@@ -1636,8 +1647,8 @@ if [[ $opt_cuda55_gdb == y ]]; then
 		echo "Renaming cuda-gdb to cuda55-gdb-guard..."
 		mv $dep_bindir/cuda-gdb $dep_bindir/cuda55-gdb-guard
 		# deliver cuda55-gdb-guard to the install dir
-		echo "Delivering cuda55-gdb-guard to $bindir..."
-		cp $dep_bindir/cuda55-gdb-guard $bindir
+		echo "Delivering cuda55-gdb-guard to $libexecdir..."
+		cp $dep_bindir/cuda55-gdb-guard $libexecdir
 	else
 		echo "ERROR: Could not find cuda-gdb in $dep_bindir. The cuda-gdb 55 build failed."
 		((++comp_error))
@@ -1651,8 +1662,8 @@ else
 	# Always use the cuda-gdb in dep_bindir
 	if [[ -e $dep_bindir/cuda55-gdb-guard ]]; then
 		# deliver cuda55-gdb-guard to install dir
-		echo "Delivering cuda55-gdb-guard to $bindir..."
-		cp $dep_bindir/cuda55-gdb-guard $bindir
+		echo "Delivering cuda55-gdb-guard to $libexecdir..."
+		cp $dep_bindir/cuda55-gdb-guard $libexecdir
 	else
 		echo "ERROR: cuda55-gdb-guard was not found in $dep_bindir. Manually add this to $inst_dir."
 		((++comp_error))
@@ -1831,8 +1842,8 @@ if [[ $opt_interface == y ]]; then
 	echo -e "Starting post build ops.\n" 
 	# deliver dlaunch
 	if [ -e $dep_bindir/dlaunch ]; then 
-		echo "Delivering dlaunch to $bindir..."
-		cp $dep_bindir/dlaunch $bindir 
+		echo "Delivering dlaunch to $libexecdir..."
+		cp $dep_bindir/dlaunch $libexecdir 
 	else 
 		echo "ERROR: Could not find dlaunch in $dep_bindir. The tools interface build failed." 
 		((++comp_error)) 
@@ -1881,8 +1892,8 @@ else
 	echo -e "Starting tools interface install.\n"
 	# deliver dlaunch 
 	if [ -e $dep_bindir/dlaunch ]; then 
-		echo "Delivering dlaunch to $bindir..." 
-		cp $dep_bindir/dlaunch $bindir 
+		echo "Delivering dlaunch to $libexecdir..." 
+		cp $dep_bindir/dlaunch $libexecdir 
 	else 
 		echo "ERROR: Could not find dlaunch in $dep_bindir. Manually add this to $inst_dir." 
 		((++comp_error)) 
@@ -1965,11 +1976,8 @@ if [[ $opt_ccdb == y ]]; then
 	make --silent install
 	echo -e "\nccdb installed to $inst_dir.\n"
 	echo -e "Starting post build ops.\n"
-	# change the name of the guard binary to ccdb
+	# change the name of the guard binary to lgdb
 	if [ -e $bindir/guard ]; then
-	        #echo "Renaming guard to ccdb..."
-	        #mv $bindir/guard $bindir/ccdb
-		# Changed this to name the binary lgdb
 		echo "Renaming guard to lgdb..."
 		mv $bindir/guard $bindir/lgdb
 	else
@@ -1977,8 +1985,8 @@ if [[ $opt_ccdb == y ]]; then
 	        ((++comp_error))
 	fi
 	# ensure the guard_proxy was built
-	if [ ! -e $bindir/guard_proxy ]; then
-		echo "ERROR: guard_proxy not found in $bindir. The ccdb build failed."
+	if [ ! -e $libexecdir/guard_proxy ]; then
+		echo "ERROR: guard_proxy not found in $libexecdir. The ccdb build failed."
 		((++comp_error))
 	fi
 	# deliver the modulefiles

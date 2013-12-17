@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "defs.h"
 #include "dbg_client.h"
 #include "mrn_cfg.h"
 #include "dbg_mrn.h"
@@ -312,11 +313,11 @@ get_apid(int *nid)
 	int apid;
 	FILE *file;
 	char aprunid_name[MAXPATHLEN];
-	char *cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
 
 	if(cfg_dir == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 
@@ -394,7 +395,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 	FILE *topology;
 	char machines_name[MAXPATHLEN];
 	char topology_name[MAXPATHLEN];
-	char *cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
 	char *fanout_env = getenv(GUARD_MRNET_TOP_FANOUT);
 	
 	char **tmp;
@@ -403,7 +404,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 
 	if(cfg_dir == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 	snprintf(topology_name, MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_TOPOLOGY);
@@ -567,7 +568,7 @@ create_knominal_topology(int num_be, char *root, char **hosts, int attaching)
 	int num_machines, num_procs;
 	char machines_file[MAXPATHLEN];
 	char topology_file[MAXPATHLEN];
-	char *cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
 	char *fanout_env = getenv(GUARD_MRNET_TOP_FANOUT);
 	char topgen_cmd[1024];
 
@@ -575,7 +576,7 @@ create_knominal_topology(int num_be, char *root, char **hosts, int attaching)
 
 	if(cfg_dir == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 	snprintf(machines_file, MAXPATHLEN-1, "%s/%s", cfg_dir, MACHINES_FILE);
@@ -665,7 +666,7 @@ create_parents_info_with_balanced_top(MRNet_Topology *topology, int num_be)
 	FILE *          pfile;
 	MRNet_Node_t *  leaf_nodes;
 
-	dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	dir = getenv(GUARD_CFG_DIRECTORY);
 	
 	if(dir == NULL)
 	{
@@ -765,7 +766,7 @@ create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be)
 	char			temp_conn[MAXPATHLEN];
 	FILE*			pfile;
 
-	dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	dir = getenv(GUARD_CFG_DIRECTORY);
 	if(dir == NULL)
 	{
 		PrintOutError("ERROR: create_parents_info cannot find GUARD_MRNET_CFG! Please set up MRNet configurations!"); 	
@@ -886,11 +887,11 @@ prepare_mrnetcfg_files()
 	char topology_name[MAXPATHLEN];
 	char attach_name[MAXPATHLEN];
 
-	char *cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
 
 	if(cfg_dir == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 
@@ -918,11 +919,11 @@ check_mrnetcfg_files()
 	char aprunid_name[MAXPATHLEN];
 	char machines_name[MAXPATHLEN];
 
-	char *cfg_dir = getenv(GUARD_MRNET_CFG_DIRECTORY);
+	char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
 
 	if(cfg_dir == NULL)
 	{
-		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_MRNET_CFG_DIRECTORY);
+		PrintOutError("ERROR: Cannot find %s! Please set up your MRNet configurations!\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 

@@ -16,6 +16,10 @@
  *
  *********************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -235,67 +239,29 @@ libFind(const char *file, const char *envPath)
 }
 
 /*
- * Add the path directory to both PATH and LD_LIBRARY_PATH.
- *
- * Also, chdir to the path dir so that files created in "./"
- * have a writable home. This addresses the fact that /tmp 
- * can not be guaranteed to be writable.
+ * Add the path to LD_LIBRARY_PATH.
  */
 int
-adjustPaths(char *path)
+adjustLibPath(const char *path)
 {
-        struct stat statbuf;
         char *oldpath, *newpath;
         int len;
         
         // sanity check
-        if (path == (char *)NULL)
+        if (path == NULL)
                 return 1;
-        
-        // stat the directory to get its current perms
-        if (stat(path, &statbuf) == -1)
-                return 1;
-        
-        // Relax permissions to ensure we can write to this directory
-        // use the existing perms for group and global settings
-        if (chmod(path, statbuf.st_mode | S_IRWXU) != 0)
-                return 1;
-                
-        // change the working directory to path
-        if (chdir(path) != 0)
-                return 1;
-                
-        // add path to the PATH variable
-        if ((oldpath = getenv("PATH")) == (char *)NULL)
-                return 1;
-        
-        len = strlen(oldpath) + strlen(":") + strlen(path) + 1;
-        if ((newpath = malloc(len*sizeof(char))) == (char *)NULL)
-        {
-                return 1;
-        }
-        
-        snprintf(newpath, len, "%s:%s", oldpath, path);
-        
-        if (setenv("PATH", newpath, 1) != 0)
-        {
-                free(newpath);
-                return 1;
-        }
-        
-        free(newpath);
         
         // add path to the LD_LIBRARY_PATH variable
-        if ((oldpath = getenv("LD_LIBRARY_PATH")) == (char *)NULL)
+        if ((oldpath = getenv("LD_LIBRARY_PATH")) == NULL)
                 return 1;
                 
         len = strlen(oldpath) + strlen(":") + strlen(path) + 1;
-        if ((newpath = malloc(len*sizeof(char))) == (char *)NULL)
+        if ((newpath = malloc(len*sizeof(char))) == NULL)
         {
                 return 1;
         }
         
-        snprintf(newpath, len, "%s:%s", oldpath, path);
+        snprintf(newpath, len, "%s:%s", path, oldpath);
         
         if (setenv("LD_LIBRARY_PATH", newpath, 1) != 0)
         {
@@ -308,15 +274,115 @@ adjustPaths(char *path)
         return 0;
 }
 
-char *
-pathToName(char *path)
+/*
+ * Add the path to LD_LIBRARY_PATH.
+ */
+int
+adjustExecPath(const char *path)
 {
-        char *  end;
+        char *oldpath, *newpath;
+        int len;
         
-        // locate the last instance of '/' in the path
-        end = strrchr(path, '/');
+        // sanity check
+        if (path == NULL)
+                return 1;
         
-        // increment end to point one char past the final '/'
-        // and strdup from that point to the null term
-        return strdup(++end);
+        // add path to the PATH variable
+        if ((oldpath = getenv("PATH")) == NULL)
+                return 1;
+                
+        len = strlen(oldpath) + strlen(":") + strlen(path) + 1;
+        if ((newpath = malloc(len*sizeof(char))) == NULL)
+        {
+                return 1;
+        }
+        
+        snprintf(newpath, len, "%s:%s", path, oldpath);
+        
+        if (setenv("PATH", newpath, 1) != 0)
+        {
+                free(newpath);
+                return 1;
+        }
+        
+        free(newpath);
+        
+        return 0;
 }
+
+char *
+getinstallbase(void)
+{
+	pid_t			pid;
+	char			linkname[64]; // /proc/<pid>/exe
+	char *			exe_path = NULL;
+	char *			tmp;
+	char *			exe_name;
+	char *			needle = NULL;
+	char *			ptr;
+	int				ret;
+	
+	// get pid
+	pid = getpid();
+	
+	snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+	
+	if ((exe_path = malloc(PATH_MAX + 1)) == NULL)
+	{
+		return NULL;
+	}
+	memset(exe_path, '\0', PATH_MAX + 1);
+	
+	ret = readlink(linkname, exe_path, PATH_MAX + 1);
+	
+	if (ret == -1)
+	{
+		free(exe_path);
+		return NULL;
+	}
+	
+	if (ret > PATH_MAX)
+	{
+		free(exe_path);
+		return NULL;
+	}
+	
+	exe_path[PATH_MAX] = '\0';
+	
+	// get the basename of the executable and remove it from the path
+	tmp = strdup(exe_path);
+	exe_name = basename(tmp);
+	if (asprintf(&needle, "/bin/%s", exe_name) == -1)
+	{
+		free(tmp);
+		free(exe_path);
+		return NULL;
+	}
+	if ((ptr = strstr(exe_path, needle)) == NULL)
+	{
+		// Try checking in /libexec too since this could be a daemon calling the
+		// function
+		free(needle);
+		needle = NULL;
+		if (asprintf(&needle, "/libexec/%s", exe_name) == -1)
+		{
+			free(tmp);
+			free(exe_path);
+			return NULL;
+		}
+		if ((ptr = strstr(exe_path, needle)) == NULL)
+		{
+			free(needle);
+			free(tmp);
+			free(exe_path);
+			return NULL;
+		}
+	}
+	free(tmp);
+	free(needle);
+	// set the start of the substring to null
+	*ptr = '\0';
+	
+	return exe_path;
+}
+

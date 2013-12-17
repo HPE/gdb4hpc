@@ -21,9 +21,11 @@
 
 #define EXTRA_LIBRARY_PATH  "/lib64:/usr/lib64:/lib:/usr/lib"
 
-char *pathFind(const char *, const char *);
-char *libFind(const char *, const char *);
-int adjustPaths(char *);
-char *pathToName(char *);
+char *	pathFind(const char *, const char *);
+char *	libFind(const char *, const char *);
+int		adjustPaths(const char *);
+int		adjustLibPath(const char *);
+int		adjustExecPath(const char *);
+char *	getinstallbase();
 
 #endif /* _PATH_H */

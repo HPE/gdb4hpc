@@ -5,7 +5,6 @@
 /Makefile -text
 /README -text
 /TESTME -text
-/ccdb_build_tool.sh -text
 /definitions.mk -text
 dist/Makefile -text
 dist/lgdb.module.template -text
@@ -33,8 +32,7 @@ extras/docs/GPLv3.txt -text
 extras/docs/LGPLv21.txt -text
 extras/docs/LICENSE -text
 extras/docs/epl-v10.txt -text
-extras/modulefiles/ccdb/1.2_primer -text
-extras/modulefiles/cray-lgdb/1.5_primer -text
+extras/modulefiles/cray-lgdb/2.0_primer -text
 extras/scripts/clean_merge.sh -text
 extras/scripts/finish_cray_merge.sh -text
 extras/scripts/lgdb_release_tag_tool.sh -text
@@ -417,6 +415,7 @@ guard/testsuite/guard.test/guard_SimpleInvoke.exp -text
 guard/testsuite/lib/guard.exp -text
 guard/testsuite/lib/qsub_stubs.exp -text
 guard/version.h -text
+/lgdb_build_tool.sh -text
 libaif/.svnignore -text
 libaif/Makefile.am -text
 libaif/Makefile.in -text

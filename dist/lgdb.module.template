@@ -10,14 +10,9 @@
  
  setenv CRAY_LGDB_VERSION  $CRAY_LGDB_LEVEL
  setenv CRAY_LGDB_DIR $CRAY_LGDB_CURPATH
- setenv CRAY_LGDB_LIB_DIR $CRAY_LGDB_CURPATH/lib
- setenv MRN_COMM_PATH $CRAY_LGDB_CURPATH/bin/mrnet_commnode_wrapper
- setenv GUARD_MRNET_CFG_DIRECTORY ~/.ccdb
- setenv CRAY_LD_VAL_LIBRARY $CRAY_LGDB_CURPATH/lib/libaudit.so
  
  append-path	PE_PRODUCT_LIST   CRAY_LGDB
  prepend-path	PATH $CRAY_LGDB_CURPATH/bin
- prepend-path	LD_LIBRARY_PATH $CRAY_LGDB_CURPATH/lib
  prepend-path	MANPATH $CRAY_LGDB_CURPATH/man
 
  if { [ file exists ${CRAY_LGDB_CURPATH}/release_info ] } {

@@ -473,7 +473,7 @@ main(int argc, char **argv)
 			FreeArgv(this_argv);
 			
 			// cleanup pid list
-			cti_destroy_pidList(myPids);
+			cti_destroyPidList(myPids);
 
 			if (debug_flag)
 			{
@@ -542,7 +542,7 @@ main(int argc, char **argv)
 	}
 	
 	// cleanup pid list
-	cti_destroy_pidList(myPids);
+	cti_destroyPidList(myPids);
 	
 	return 0;
 }

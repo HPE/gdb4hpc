@@ -125,11 +125,11 @@ SetupEnvironment(void)
 		}
 		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
-		setenv(CTI_CFG_DIR_VAR, cfg_dir, 1);
+		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 		Free(cfg_dir);
 	} else
 	{
-		setenv(CTI_CFG_DIR_VAR, cfg_dir, 1);
+		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 	}
 	
 	// set the ld_val path for the cti

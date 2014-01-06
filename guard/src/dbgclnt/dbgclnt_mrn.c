@@ -80,7 +80,7 @@ dbgclnt_proto DbgClntMRNProtoSW =
 
 // setup a mrnet_commnode_wrapper based on this sessions staging location
 static int
-create_mrnet_commnode_wrapper(CTI_SESSION_ID sid)
+create_mrnet_commnode_wrapper(cti_session_id_t sid)
 {
 	char *	lib_dir;
 	char *	bin_dir;
@@ -347,8 +347,8 @@ DbgMRNAttach(
 #ifdef ALPS
 	int					nid, dbg=debug_flag;
 	char **				machine_hosts;
-	CTI_MANIFEST_ID		mid;
-	CTI_SESSION_ID		sid;
+	cti_manifest_id_t		mid;
+	cti_session_id_t		sid;
 #endif /* ALPS */
 
 #ifdef DEBUG
@@ -435,7 +435,7 @@ DbgMRNAttach(
 	if ((mid = cti_createNewManifest(0)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to create a CTI_MANIFEST_ID.\n");
+		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		FreeDbgInvoke(di);
 		
 		return NULL;
@@ -630,7 +630,7 @@ DbgMRNAttach(
 	if ((mid = cti_createNewManifest(sid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to create a CTI_MANIFEST_ID.\n");
+		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		FreeDbgInvoke(di);
 		
 		return NULL;
@@ -1005,8 +1005,8 @@ DbgMRNInvoke(
 	cti_aprunProc_t *	approc;
 	int					nid, dbg=debug_flag;
 	char **				machine_hosts;
-	CTI_MANIFEST_ID		mid;
-	CTI_SESSION_ID		sid;
+	cti_manifest_id_t		mid;
+	cti_session_id_t		sid;
 	int					redirectInput = 0;
 #endif /* ALPS */
 
@@ -1150,7 +1150,7 @@ DbgMRNInvoke(
 
 	// launch aprun using the tool interface
 	// Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-	if ((approc = cti_launchAprun_barrier(ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, env)) == NULL)
+	if ((approc = cti_launchAprunBarrier(ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, env)) == NULL)
 	{
 		int 	n=0, r;
 		char *	read_buf;
@@ -1208,7 +1208,7 @@ DbgMRNInvoke(
 	if ((mid = cti_createNewManifest(0)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to create a CTI_MANIFEST_ID.\n");
+		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		cti_killAprun(di->d_apid, SIGKILL);
 		FreeDbgInvoke(di);
 		sigrelse(SIGCHLD);
@@ -1451,7 +1451,7 @@ DbgMRNInvoke(
 	if ((mid = cti_createNewManifest(sid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to create a CTI_MANIFEST_ID.\n");
+		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
@@ -2003,7 +2003,7 @@ cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set)
 			
 #ifdef ALPS
 		// tell aprun to release the application from the startup barrier
-		if (cti_releaseAprun_barrier(di->d_apid))
+		if (cti_releaseAprunBarrier(di->d_apid))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Could not release application from the startup barrier.\n");

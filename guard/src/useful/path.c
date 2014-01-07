@@ -386,3 +386,41 @@ getinstallbase(void)
 	return exe_path;
 }
 
+char *
+getexepath(void)
+{
+	pid_t	pid;
+	char	linkname[64]; // /proc/<pid>/exe
+	char *	exe_path = NULL;
+	int		ret;
+	
+	// get pid
+	pid = getpid();
+	
+	snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+	
+	if ((exe_path = malloc(PATH_MAX + 1)) == NULL)
+	{
+		return NULL;
+	}
+	memset(exe_path, '\0', PATH_MAX + 1);
+	
+	ret = readlink(linkname, exe_path, PATH_MAX + 1);
+	
+	if (ret == -1)
+	{
+		free(exe_path);
+		return NULL;
+	}
+	
+	if (ret > PATH_MAX)
+	{
+		free(exe_path);
+		return NULL;
+	}
+	
+	exe_path[PATH_MAX] = '\0';
+	
+	return exe_path;
+}
+

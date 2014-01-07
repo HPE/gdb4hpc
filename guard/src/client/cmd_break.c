@@ -180,7 +180,7 @@ cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv)
 		bpi = EVENT_BP(reply->rep_event);
 
 		// Now set this to a temporary breakpoint using the enable command for this reply group
-		new_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, reply->rep_group, -1);
+		new_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, reply->rep_group);
 		
 		if ((enb_rep = DbgEnableBreak(new_rec, bpi->bp_id, 0, 1)) != NULL)
 		{
@@ -374,7 +374,7 @@ cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv)
 				if (!bitset_isempty(group))
 				{
 					// create the rec_set
-					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 					
 					// send the command
 					if ((rep_set = DbgDeleteBreak(real_rec, id_set->b_bp_id)) != NULL)
@@ -418,7 +418,7 @@ cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv)
 		if(!bitset_isempty(group))
 		{
 			// create the rec_set
-			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 			
 			// send the command
 			if ((rep_set = DbgDeleteBreak(real_rec, id_set->b_bp_id)) != NULL)
@@ -476,7 +476,7 @@ cmd_disable_cmd(rec_set_t *rec_set, int argc, char **argv)
 				group = bitset_and(id_set->b_group, rec_set->s_receiver_bs);
 				if (!bitset_isempty(group))
 				{
-					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 					
 					if ((rep_set = DbgDisableBreak(real_rec, id_set->b_bp_id)) != NULL)
 					{
@@ -518,7 +518,7 @@ cmd_disable_cmd(rec_set_t *rec_set, int argc, char **argv)
 		group = bitset_and(id_set->b_group, rec_set->s_receiver_bs);
 		if(!bitset_isempty(group))
 		{
-			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 			
 			if ((rep_set = DbgDisableBreak(real_rec, id_set->b_bp_id)) != NULL)
 			{
@@ -614,7 +614,7 @@ cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv)
 				if (!bitset_isempty(group))
 				{
 				
-					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+					real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 					
 					if ((rep_set = DbgEnableBreak(real_rec, id_set->b_bp_id, once, delete)) != NULL)
 					{
@@ -660,7 +660,7 @@ cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv)
 		group = bitset_and(id_set->b_group, rec_set->s_receiver_bs);
 		if(!bitset_isempty(group))
 		{
-			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group, -1);
+			real_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, group);
 			
 			if ((rep_set = DbgEnableBreak(real_rec, id_set->b_bp_id, once, delete)) != NULL)
 			{

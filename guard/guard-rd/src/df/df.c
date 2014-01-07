@@ -369,7 +369,7 @@ EndDF(graph_t *g)
 					continue;
 				}
 				
-				rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+				rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 				
 				// Query the new status from the backends, note that for this we
 				// want to grab the location information
@@ -556,7 +556,7 @@ _delete_bp(invoke_t *i)
 			return;
 		}
 		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 		
 		SetBPSetHead(i->i_tree);
 		
@@ -569,8 +569,7 @@ _delete_bp(invoke_t *i)
 										rec_set->s_invoke_handler,
 										rec_set->s_dbginvoke_handler,
 										rec_set->s_proto_handler,
-										id_set->b_group,
-										-1);
+										id_set->b_group);
 				if ((rep_set = DbgDeleteBreak(bp_rec_set, id_set->b_bp_id)) != NULL)
 				{
 					ProcessErrorInRepSet(bp_rec_set, rep_set);
@@ -614,7 +613,7 @@ _halt(invoke_t *i, int haltmode)
 			return;
 		}
 		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 		
 		rep_set = DbgInterrupt(rec_set);
 		
@@ -694,7 +693,7 @@ _continue(invoke_t *i)
 			return;
 		}
 		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 		
 		if ((rep_set = DbgGo(rec_set)) != NULL)
 		{

@@ -331,7 +331,6 @@ DbgMRNAttach(
 	int					rtn;
 	MRNet_Topology *	mrn_topology;
 	mrnet_type *		network;
-	char *				filter_name;
 	char *				request;
 	char *				env_var_str;
 	// Set this to the number of environment variables we need to ship over.
@@ -374,13 +373,6 @@ DbgMRNAttach(
 	}
 	snprintf(topology_name, MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_TOPOLOGY);
 	snprintf(connections,	MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_ATTACH_CONNECTIONS);
-
-	// we are going to read the location of the filter from the env var
-	if ((filter_name = libFind(AGGREGATION_FILTER, NULL)) == NULL)
-	{
-		PrintOutError("ERROR: Cannot find %s in LD_LIBRARY_PATH. Please set MRNet environment variables!\n", AGGREGATION_FILTER);
-		return NULL;
-	}
 
 	/*
 	** using the tools interface, we can interact with the compute nodes directly
@@ -513,7 +505,7 @@ DbgMRNAttach(
 #endif
 	
 	// Add the aggregation filter to the manifest
-	if (cti_addManifestLibrary(mid, filter_name))
+	if (cti_addManifestLibrary(mid, AGGREGATION_FILTER))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
@@ -787,9 +779,9 @@ DbgMRNAttach(
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
 	
-	if (mrn_fe_create_streams_and_load_filter(network, filter_name, AGGREGATION_FUNC))
+	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
 	{
-		PrintOutError("ERROR: DbgMRNAttach failed to load filter functions and creat streams for MRNet!\n");
+		PrintOutError("ERROR: DbgMRNAttach failed to load filter functions and create streams for MRNet!\n");
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
@@ -797,7 +789,6 @@ DbgMRNAttach(
 		
 		return NULL;
 	}
-	Free(filter_name);
 	
 	DPRINT("Debugging network startup completed.\n");
 	PrintOutMsg("Finalizing setup...\n");
@@ -990,7 +981,6 @@ DbgMRNInvoke(
 	int					rtn;
 	MRNet_Topology *	mrn_topology;
 	mrnet_type *		network;
-	char *				filter_name;
 	char *				request;
 	char **				ap;
 	char **				tmp;
@@ -1029,13 +1019,6 @@ DbgMRNInvoke(
 	}
 	snprintf(topology_name, MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_TOPOLOGY);
 	snprintf(connections,	MAXPATHLEN-1, "%s/%s", cfg_dir, MRNET_ATTACH_CONNECTIONS);
-
-	// we are going to read the location of the filter from LD_LIBRARY_PATH
-	if ((filter_name = libFind(AGGREGATION_FILTER, NULL)) == NULL)
-	{
-		PrintOutError("ERROR: Cannot find %s in LD_LIBRARY_PATH. Please set MRNet environment variables!\n", AGGREGATION_FILTER);
-		return NULL;
-	}
 
 	/*
 	** There is a race between returning a pid and
@@ -1335,7 +1318,7 @@ DbgMRNInvoke(
 #endif
 	
 	// add the aggregation filter
-	if (cti_addManifestLibrary(mid, filter_name))
+	if (cti_addManifestLibrary(mid, AGGREGATION_FILTER))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
@@ -1572,9 +1555,9 @@ DbgMRNInvoke(
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
 	
-	if (mrn_fe_create_streams_and_load_filter(network, filter_name, AGGREGATION_FUNC))
+	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
 	{
-		PrintOutError("ERROR: DbgMRNInvoke failed to load filter functions and creat streams for MRNet!\n");
+		PrintOutError("ERROR: DbgMRNInvoke failed to load filter functions and create streams for MRNet!\n");
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
@@ -1584,7 +1567,6 @@ DbgMRNInvoke(
 		
 		return NULL;
 	}
-	Free(filter_name);
 	
 	DPRINT("Debugging network startup completed.\n");
 	PrintOutMsg("Finalizing setup...\n");

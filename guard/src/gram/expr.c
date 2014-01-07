@@ -3322,7 +3322,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			{
 				// Create the rec_set for this reply from the lval overset using the bitset
 				// from the reply
-				target_recset = NewRecSetByOverSet(over_set, reply->rep_group, LVAL_GDB_PROCSET(lval)->s_indiv_proc);
+				target_recset = NewRecSetByOverSet(over_set, reply->rep_group);
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);
 				// Send the command using the target_recset and the event data
@@ -3360,8 +3360,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 											rec_set->s_invoke_handler,
 											rec_set->s_dbginvoke_handler,
 											rec_set->s_proto_handler,
-											reply->rep_group,
-											-1);
+											reply->rep_group);
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);
 				// Send the command using the target_recset and the event data
@@ -3590,6 +3589,7 @@ EndExprList(void)
 	return n;
 }
 
+// FIXME: Remove both of these with procset change
 void	
 ClearUserSpecProcSet()
 {

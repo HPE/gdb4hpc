@@ -2069,7 +2069,7 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 	}
 		
 //	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t1->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	result = DbgSendExpr(rec_set, t2->t_str, t3->t_int);
 	bitset_free(receiver);
@@ -2137,7 +2137,7 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 		}	
 	}
 	
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	rep_set = DbgGetExpr(rec_set, t3->t_set_bits, t1->t_int);
 	
@@ -2258,7 +2258,7 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
 	
@@ -2354,7 +2354,7 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 		}	
 	}
 
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 	
 	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
 
@@ -2612,7 +2612,7 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
@@ -2711,7 +2711,7 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 	}
 		
 //	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t1->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	rep_set = DbgOpenSocket(rec_set, opset_name, opset_size);
 
@@ -2788,7 +2788,7 @@ _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 	}
 		
 //	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1);
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
 
 	rep_set = DbgCloseSocket(rec_set);
 
@@ -2891,7 +2891,7 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver, -1); //TODO: extention for individual process
+	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver); //TODO: extention for individual process
 	switch ( t2->t_type )
 	{
 	case TK_INT:
@@ -2971,7 +2971,7 @@ NodeDbgKill(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, procset->s_indiv_proc), procset->s_indiv_proc);
+	rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, procset->s_indiv_proc));
 	
 	if ((rep_set = DbgKill(rec_set)) != NULL)
 	{
@@ -3054,7 +3054,7 @@ NodeDbgSetVar(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	rec_set_t *	rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, procset->s_indiv_proc), procset->s_indiv_proc);
+	rec_set_t *	rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, procset->s_indiv_proc));
 	rep_set_t *	rep_set = DbgSetVar(rec_set, t1->t_str, t2->t_data);
 	
 	if (ProcessErrorInRepSet(rec_set, rep_set))

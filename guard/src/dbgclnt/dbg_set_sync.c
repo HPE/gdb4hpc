@@ -13,10 +13,8 @@
 // it being defined (see dbg_set_sync.c). This has been recorded in BUG 804428
 #include	"client_settings.h"
 
-// FIXME: Remove the s_ind_proc since it's not being used anymore.
-
 rec_set_t*
-NewRecSetByDbgInvoke(void* di, void* tree, bitset* full, int ind_proc)
+NewRecSetByDbgInvoke(void* di, void* tree, bitset* full)
 {
 	rec_set_t* rec = NULL;
 
@@ -29,13 +27,12 @@ NewRecSetByDbgInvoke(void* di, void* tree, bitset* full, int ind_proc)
 	rec->s_dbginvoke_handler = di;
 	rec->s_proto_handler = tree;
 	rec->s_receiver_bs = full;
-	rec->s_ind_proc = ind_proc;
 	
 	return rec;
 }
 
 rec_set_t*
-NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers, int ind_proc)
+NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers)
 {
 	rec_set_t* rec = NULL;
 
@@ -53,8 +50,6 @@ NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers, int ind_proc)
 	if(receivers != NULL)
 		rec->s_receiver_bs = receivers;
 
-	rec->s_ind_proc = ind_proc;
-
 	rec->s_over_set = over_set;
 	DPRINT("[INFO]: NewRecSetByOverSet over_set[%p], offset[%d], rec->s_receiver_bs=%s\n", over_set, over_set->s_offset, bitset_to_set(rec->s_receiver_bs));
 
@@ -62,7 +57,7 @@ NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers, int ind_proc)
 }
 
 rec_set_t*
-NewRecSet(char* setname, void* invoke, void* dbginvoke, void* proto_handler, bitset* receiver, int ind_proc)
+NewRecSet(char* setname, void* invoke, void* dbginvoke, void* proto_handler, bitset* receiver)
 {
 	rec_set_t* rec = (rec_set_t*)Alloc(sizeof(rec_set_t));	
 
@@ -73,7 +68,6 @@ NewRecSet(char* setname, void* invoke, void* dbginvoke, void* proto_handler, bit
 
 	rec->s_proto_handler = proto_handler;
 	rec->s_receiver_bs = receiver;
-	rec->s_ind_proc = ind_proc;
 
 	rec->s_over_set = NULL;
 	
@@ -89,7 +83,6 @@ FreeRecSet(rec_set_t* rec)
 	rec->s_setname = NULL;
 	rec->s_proto_handler = NULL;
 	rec->s_receiver_bs = NULL;
-	rec->s_ind_proc = -1;
 
 	Free(rec);
 }

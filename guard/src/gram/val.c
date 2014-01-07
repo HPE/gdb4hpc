@@ -407,9 +407,9 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			over_set = GetOverlaySetForProcSet(target_procset);
 				
 			if(target_procset->s_indiv_proc >= 0)
-				target_recset = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, target_procset->s_indiv_proc), target_procset->s_indiv_proc);
+				target_recset = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, target_procset->s_indiv_proc));
 			else
-				target_recset = NewRecSetByOverSet(over_set, over_set->s_set_bs, target_procset->s_indiv_proc);
+				target_recset = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 				
 			// Save the recset into the lval
 			switch (LVAL_TYPE(val))

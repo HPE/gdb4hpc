@@ -26,6 +26,7 @@ char *	libFind(const char *, const char *);
 int		adjustPaths(const char *);
 int		adjustLibPath(const char *);
 int		adjustExecPath(const char *);
-char *	getinstallbase();
+char *	getinstallbase(void);
+char *	getexepath(void);
 
 #endif /* _PATH_H */

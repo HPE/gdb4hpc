@@ -21,14 +21,13 @@ struct rec_set_t
 	void *				s_dbginvoke_handler;	//a pointer to dbginvoke_t for switching protocol
 	void *				s_proto_handler;		//the handler of communication protocol
 	bitset *			s_receiver_bs;			//the bitset representing the receivers
-	int					s_ind_proc;				//procnum for individual process
 	dbg_over_set_t *	s_over_set;
 };//fixe me: carry invoke information, required by cmd_go, 
 typedef struct rec_set_t rec_set_t;
 
-extern rec_set_t *	NewRecSetByDbgInvoke(void* di, void* tree, bitset* full, int ind_proc);
-extern rec_set_t *	NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers, int ind_proc);
-extern rec_set_t *	NewRecSet(char* setname, void* invoke, void* dbginvoke, void* proto_handler, bitset* receiver, int ind_proc);
+extern rec_set_t *	NewRecSetByDbgInvoke(void* di, void* tree, bitset* full);
+extern rec_set_t *	NewRecSetByOverSet(dbg_over_set_t* over_set, bitset* receivers);
+extern rec_set_t *	NewRecSet(char* setname, void* invoke, void* dbginvoke, void* proto_handler, bitset* receiver);
 extern void			FreeRecSet(rec_set_t* act);
 
 /* 

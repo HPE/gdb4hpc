@@ -730,7 +730,7 @@ DoInvoke(	char *proto,
 	}
 	
 	// This is used below for dbg_client calls
-	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full, -1);
+	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full);
 	
 	rep_set = DbgStartup(rec_set);
 	
@@ -1055,7 +1055,7 @@ DoAttach(	char *proto,
 	}
 	
 	// This is used below for dbg_client calls
-	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full, -1);
+	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full);
 	
 	// Ensure the igl list has only one entry
 	// FIXME: This shouldn't be how this works, its a hack for now to ensure 
@@ -1390,7 +1390,7 @@ ReleaseInv(invoke_t *i, int detach)
 	di = (dbginvoke_t *)i->i_iexec;
 	
 	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full, -1);
+	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full);
 
 	rep_set = DbgQuit(rec_set, detach);
 
@@ -1468,7 +1468,7 @@ KillInv(invoke_t *i)
 			// I am totally confused about the naming scheme...
 			if ((over_set = GetOverlaySetForProcSet(ps)) != (dbg_over_set_t *)NULL)
 			{
-				rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, ps->s_indiv_proc), ps->s_indiv_proc);
+				rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, ps->s_indiv_proc));
 				
 				// now kill it
 				if ((rep_set = DbgKill(rec_set)) != NULL)

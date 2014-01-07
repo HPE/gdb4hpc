@@ -149,6 +149,20 @@ main(int argc, char *argv[])
 	cli_stream_args_t *	cli_args;	// CLI args
 	double				ulp;
 	
+	// Ensure the environment has been setup, otherwise set it up and re-exec
+	// This is required because otherwise dlopen's will be fubared.
+	if (getenv(GUARD_ENV_SETUP) == NULL)
+	{
+		char *exe_path;
+	
+		SetupEnvironment();
+		// Done. Set the proper environment variable so that we don't have an infinite
+		// loop here.
+		setenv(GUARD_ENV_SETUP, "true", 1);
+		exe_path = getexepath();
+		execve(exe_path, argv, environ);
+	}
+	
 	// Initialize the settings to the default values
 	Client.confirm		= 1;				// Confirm dangerous commands?
 	Client.quit			= 0;				// Quit the debugger?
@@ -162,8 +176,6 @@ main(int argc, char *argv[])
 	ulp = nextafter(0.0, 0.1);
 	Client.cmp_lower_eps = DoubleToAIF(ulp);
 	Client.cmp_upper_eps = DoubleToAIF(ulp);
-	
-	SetupEnvironment();
 	
 	// Check to see if stdin is a tty, if not set the default CLI to notty
 	if (!isatty(STDIN_FILENO))
@@ -376,7 +388,7 @@ SigHandler(int sig)
 	
 	while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
 	{
-		rec_set_t *			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+		rec_set_t *			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 		rep_set_t *			rep_set = DbgInterrupt(rec_set);
 		group_reply_t *		reply;
 		dbgloc_t *			halt_loc;
@@ -632,7 +644,7 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 			// information
 			
 			// Create a new rec_set from the overset, using the full set.
-			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 			
 			// Query the new status from the backends, note that for this we
 			// want to grab the location information

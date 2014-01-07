@@ -244,7 +244,7 @@ _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
 	SetOverlaySetForProcSet(s);
 	while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
 	{
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs, -1);
+		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
 
 		if ( !(*c->c_cmd)(rec_set, argc, argv) )
 			res = 0;

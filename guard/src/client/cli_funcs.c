@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_funcs.c - Command line interface routines.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * © 2011-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -364,7 +364,7 @@ vNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, va_list pargs
 	rtn = (*cs->cs_ext_funcs->external_init)(&cs);
 	if (rtn)
 	{
-		PrintOutError("Error: external_init() failed.\n");
+		PrintOutError("Error: cli external_init() failed.\n");
 		// destroy the cs
 		DestroyCLIStream(cs);
 		// return null
@@ -382,7 +382,6 @@ DestroyCLIStream(cli_stream_t *cs)
 	
 	if (cs == NULL)
 	{
-		PrintOutError("Error: Tried to destroy null stream.\n");
 		return;
 	}
 
@@ -1132,18 +1131,29 @@ PrintOutError(char *format, ...)
 {
 	va_list arg_list;
 	
-	// ensure that there is an error stream to print to in the current stream
-	if (CurrentStream == NULL || CurrentStream->cs_fperr == NULL)
-		return;
-	
 	// we need to disable input processing while we are printing
 	DbgMaskInput();
 	
-	// clear the current line this should contain a prompt
-	cli_clear_line();
-	
 	// setup the va_list
 	va_start(arg_list, format);
+	
+	// ensure that there is an error stream to print to in the current stream
+	if (CurrentStream == NULL || CurrentStream->cs_fperr == NULL)
+	{
+		// otherwise default to stderr
+		vfprintf(stderr, format, arg_list);
+		
+		// end the va_list
+		va_end(arg_list);
+		
+		// restore input processing
+		DbgUnmaskInput();
+		
+		return;
+	}
+	
+	// clear the current line this should contain a prompt
+	cli_clear_line();
 	
 	// XXX: If we are currently in a command and running with XML_mode, then 
 	//      we want to output the error in an XML format ON STANDARD OUT!!!
@@ -1180,18 +1190,29 @@ PrintOutMsg(char *format, ...)
 {
 	va_list arg_list;
 	
-	// ensure that there is an output stream to print to in the current stream
-	if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL)
-		return;
-	
 	// we need to disable input processing while we are printing
 	DbgMaskInput();
 	
-	// clear the current line this should contain a prompt
-	cli_clear_line();
-	
 	// setup the va_list
 	va_start(arg_list, format);
+	
+	// ensure that there is an output stream to print to in the current stream
+	if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL)
+	{
+		// otherwise default to stdout
+		vfprintf(stdout, format, arg_list);
+		
+		// end the va_list
+		va_end(arg_list);
+		
+		// restore input processing
+		DbgUnmaskInput();
+		
+		return;
+	}
+	
+	// clear the current line this should contain a prompt
+	cli_clear_line();
 	
 	// vfprintf the line we recieved
 	vfprintf(CurrentStream->cs_fpout, format, arg_list);

@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_file.c - External file CLI routines.
  *
- * © 2013 Cray Inc.  All Rights Reserved.
+ * © 2013-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -66,15 +66,22 @@ cli_file_init(cli_stream_t ** stream)
 	// set input
 	if (cs->cs_file_in_path == NULL)
 	{
-		// Default to the current setting
+		// Default to the current setting if possible
 		// Note that these are not updated until after the call to this function
 		// so they are still pointing at the old streams stuff
-		cs->cs_fpin = Client.cli_in_stream;
+		if (Client.cli_in_stream != NULL)
+		{
+			cs->cs_fpin = Client.cli_in_stream;
+		} else
+		{
+			// Use stdin as a last resort
+			cs->cs_fpin = stdin;
+		}
 	} else
 	{
 		if ( (cs->cs_fpin = fopen(cs->cs_file_in_path, "r")) == NULL )
 		{
-			perror("fpopen");
+			PrintOutError("Could not open %s for input file.\n", cs->cs_file_in_path);
 			return 1;
 		}
 		setlinebuf(cs->cs_fpin);
@@ -83,13 +90,22 @@ cli_file_init(cli_stream_t ** stream)
 	// set output
 	if (cs->cs_file_out_path == NULL)
 	{
-		// Default to the current setting
-		cs->cs_fpout = Client.cli_out_stream;
+		// Default to the current setting if possible
+		// Note that these are not updated until after the call to this function
+		// so they are still pointing at the old streams stuff
+		if (Client.cli_out_stream != NULL)
+		{
+			cs->cs_fpout = Client.cli_out_stream;
+		} else
+		{
+			// Use stdout as a last resort
+			cs->cs_fpout = stdout;
+		}
 	} else
 	{
 		if ( (cs->cs_fpout = fopen(cs->cs_file_out_path, "a")) == NULL )
 		{
-			perror("fpopen");
+			PrintOutError("Could not open %s for output file.\n", cs->cs_file_out_path);
 			return 1;
 		}
 		setlinebuf(cs->cs_fpout);
@@ -99,12 +115,21 @@ cli_file_init(cli_stream_t ** stream)
 	if (cs->cs_file_err_path == NULL)
 	{
 		// Default to the current setting
-		cs->cs_fperr = Client.cli_err_stream;
+		// Note that these are not updated until after the call to this function
+		// so they are still pointing at the old streams stuff
+		if (Client.cli_err_stream != NULL)
+		{
+			cs->cs_fperr = Client.cli_err_stream;
+		} else
+		{
+			// Use stderr as a last resort
+			cs->cs_fperr = stderr;
+		}
 	} else
 	{
 		if ( (cs->cs_fperr = fopen(cs->cs_file_err_path, "a")) == NULL )
 		{
-			perror("fpopen");
+			PrintOutError("Could not open %s for error file.\n", cs->cs_file_err_path);
 			return 1;
 		}
 		setvbuf(cs->cs_fperr, NULL, _IONBF, 0);

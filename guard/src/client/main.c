@@ -66,11 +66,31 @@ static void		PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t
  * long opts
  */
 static const struct option long_opts[] = {
+			{"batch",		required_argument,	0, 'b'},
+			{"help",		no_argument,		0, 'h'},
 			{"interface",	required_argument,	0, 'i'},
+			{"silent",		no_argument,		0, 's'},
+			{"version",		no_argument,		0, 'v'},
 			{"xml",			no_argument,		&(Client.XML_mode), 1},
 			{"debug",		no_argument,		&debug_flag, 1},
 			{0, 0, 0, 0}
 			};
+			
+static void
+usage(char *name)
+{
+	PrintOutMsg("Usage: %s [options]\n\n", name);
+	
+	PrintOutMsg("Options:\n\n");
+	
+	PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
+	PrintOutMsg("  --help, -h           Display this text\n");
+	PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
+	PrintOutMsg("  --version, -v        Display version\n");
+	
+	PrintOutMsg("\nFor more information, type \"help\" inside lgdb, or consult the\n");
+	PrintOutMsg("lgdb manpage. (man lgdb)\n");
+}
 
 static void
 Banner(void)
@@ -78,11 +98,11 @@ Banner(void)
 #ifdef ALPS
 	PrintOutMsg("lgdb 2.2 - Cray Line Mode Parallel Debugger\n");
 	PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-	PrintOutMsg("Copyright 2007-2013 Cray Inc. All Rights Reserved.\n");
+	PrintOutMsg("Copyright 2007-2014 Cray Inc. All Rights Reserved.\n");
 #else		
 	PrintOutMsg("GUARD Parallel Relative Debugger\n");
 #endif /* ALPS */
-	PrintOutMsg("Copyright 1996-2013 Monash University. All Rights Reserved.\n");
+	PrintOutMsg("Copyright 1996-2013 University of Queensland. All Rights Reserved.\n");
 	PrintOutMsg("\n");
 	PrintOutMsg("Type \"help\" for a list of commands.\n");
 }
@@ -101,7 +121,7 @@ SetupEnvironment(void)
 	// of our process
 	if ((inst_base = getinstallbase()) == NULL)
 	{
-		fprintf(stderr, "Could not locate install base. Aborting...\n");
+		PrintOutError("Could not locate install base. Aborting...\n");
 		exit(1);
 	}
 	// create the path strings
@@ -120,7 +140,7 @@ SetupEnvironment(void)
 		char *home_dir;
 		if ((home_dir = getenv("HOME")) == NULL)
 		{
-			fprintf(stderr, "Could not read $HOME. Aborting...\n");
+			PrintOutError("Could not read $HOME. Aborting...\n");
 			exit(1);
 		}
 		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
@@ -144,10 +164,9 @@ int
 main(int argc, char *argv[])
 {
 	int					c;
-	int					opt_ind = 0;
-	//FILE *			fp = stdin;
-	cli_stream_args_t *	cli_args;	// CLI args
 	double				ulp;
+	int					opt_ind = 0;
+	cli_stream_args_t *	cli_args = NULL;	// CLI args
 	
 	// Ensure the environment has been setup, otherwise set it up and re-exec
 	// This is required because otherwise dlopen's will be fubared.
@@ -177,20 +196,6 @@ main(int argc, char *argv[])
 	Client.cmp_lower_eps = DoubleToAIF(ulp);
 	Client.cmp_upper_eps = DoubleToAIF(ulp);
 	
-	// Check to see if stdin is a tty, if not set the default CLI to notty
-	if (!isatty(STDIN_FILENO))
-	{
-		// Set the default stream to notty
-		Client.cli_mode = CLI_NOTTY_STREAM;	// CLI mode
-	} else
-	{
-		// Set the default stream to tty
-		Client.cli_mode = CLI_TTY_STREAM;	// CLI mode
-	}
-	
-	// Create the CLI args
-	cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
-	
 	/*
 	** Set signal handlers.
 	** Note that this MUST happen before the InitCLI function is called, otherwise
@@ -203,24 +208,46 @@ main(int argc, char *argv[])
 	DbgHandleSignal(SIGTERM, SigHandler);
 	DbgHandleSignal(SIGQUIT, SigHandler);
 
-	while ((c = getopt_long(argc, argv, "i:", long_opts, &opt_ind)) != -1)
+	while ((c = getopt_long(argc, argv, "b:hi:sv", long_opts, &opt_ind)) != -1)
 	{
 		switch (c)
 		{
 			case 0:
 				// if this is a flag, do nothing
 				break;
+			case 'b':
+			{
+				char *stringp;
+				char *filestr;
+				
+				if (optarg == NULL)
+				{
+					PrintOutError("Error: --batch provided, but missing arguments.\n");
+					exit(1);
+				}
+				
+				// Set the mode and create the cli args
+				Client.cli_mode = CLI_FILE_STREAM;
+				stringp = strdup(optarg);
+				filestr = StripQuotes(stringp);
+				cli_args = NewCLIArgs(CLI_FILE_STREAM, filestr, NULL, NULL);
+				Free(stringp);
+				
+				// Turn confirm off, we will not be able to call fgetc on stdin
+				// with batch. If this is needed, rework the query function
+				// to call an external cli function that is cli stream dependent.
+				Client.confirm = 0;
+				
+				break;
+			}
 			case 'i':
 			{
 				char	*stringp, *argstr, *token;
 				char	*hoststr, *portstr, *errpstr;
 				
-				// destroy the existing default args
-				DestroyCLIArgs(Client.cli_mode, cli_args);
-				
-				if (optarg == (char *)NULL)
+				if (optarg == NULL)
 				{
-					fprintf(stderr, "Error: --interface provided, but missing arguments.\n");
+					PrintOutError("Error: --interface provided, but missing arguments.\n");
 					exit(1);
 				}
 				
@@ -233,9 +260,9 @@ main(int argc, char *argv[])
 				// Make sure its not null or that it doesn't contain a null terminator
 				if ((token = strsep(&stringp, ":")) == NULL || *token == '\0')
 				{
-					fprintf(stderr, "Error:    Encountered problem with host argument.\n");
-					fprintf(stderr, "Expected: --interface host:IOPort:ERRPort\n");
-					fprintf(stderr, "Found:    --interface %s\n", optarg);
+					PrintOutError("Error:    Encountered problem with host argument.\n");
+					PrintOutError("Expected: --interface host:IOPort:ERRPort\n");
+					PrintOutError("Found:    --interface %s\n", optarg);
 					exit(1);
 				}
 				hoststr = token;
@@ -243,9 +270,9 @@ main(int argc, char *argv[])
 				// Make sure its not null or that it doesn't contain a null terminator
 				if ((token = strsep(&stringp, ":")) == NULL  || *token == '\0')
 				{
-					fprintf(stderr, "Error:    Encountered problem with IOPort argument.\n");
-					fprintf(stderr, "Expected: --interface host:IOPort:ERRPort\n");
-					fprintf(stderr, "Found:    --interface %s\n", optarg);
+					PrintOutError("Error:    Encountered problem with IOPort argument.\n");
+					PrintOutError("Expected: --interface host:IOPort:ERRPort\n");
+					PrintOutError("Found:    --interface %s\n", optarg);
 					exit(1);
 				}
 				portstr = token;
@@ -253,9 +280,9 @@ main(int argc, char *argv[])
 				// Make sure this isn't pointing at the null terminator
 				if (*stringp == '\0')
 				{
-					fprintf(stderr, "Error:    Encountered problem with ERRPort argument.\n");
-					fprintf(stderr, "Expected: --interface host:IOPort:ERRPort\n");
-					fprintf(stderr, "Found:    --interface %s\n", optarg);
+					PrintOutError("Error:    Encountered problem with ERRPort argument.\n");
+					PrintOutError("Expected: --interface host:IOPort:ERRPort\n");
+					PrintOutError("Found:    --interface %s\n", optarg);
 					exit(1);
 				}
 				errpstr = stringp;
@@ -268,7 +295,7 @@ main(int argc, char *argv[])
 				// to call an external cli function that is cli stream dependent.
 				Client.confirm = 0;
 				// Set silent to 1, we don't want to print out banner
-				// This should only be the case when output is XML
+				// This should be the case when output is XML
 				Client.silent = 1;
 				
 				// Cleanup original strsep string that we strdup'ed.
@@ -276,15 +303,43 @@ main(int argc, char *argv[])
 				
 				break;
 			}
+			case 's':
+				// Set silent to 1, we don't want to print out banner
+				Client.silent = 1;
+				break;
+			case 'v':
+				PrintOutMsg("lgdb-%s\n", GUARD_VERSION);
+				exit(0);
+			case 'h':
+				usage(argv[0]);
+				exit(0);
 			default:
-				//usage(argv[0]);
+				usage(argv[0]);
 				exit(1);
 		}
+	}
+	
+	// Check if we should use the default CLI, if one of the above options didn't
+	// create cli_args, then we know we should use the default.
+	if (cli_args == NULL)
+	{
+		// Check to see if stdin is a tty, if not set the default CLI to notty
+		if (!isatty(STDIN_FILENO))
+		{
+			// Set the default stream to notty
+			Client.cli_mode = CLI_NOTTY_STREAM;	// CLI mode
+		} else
+		{
+			// Set the default stream to tty
+			Client.cli_mode = CLI_TTY_STREAM;	// CLI mode
+		}
+		// Create the CLI args
+		cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
 	}
 
 	if ( DbgInit() < 0 )
 	{
-		fprintf(stderr, "Could not initialise debugger.\n");
+		PrintOutError("Could not initialise debugger.\n");
 		exit(1);
 	}
 
@@ -295,21 +350,6 @@ main(int argc, char *argv[])
 #endif /* RD */
 	InitVal();
 	InitCLI(Client.cli_mode, cli_args);
-
-	// TODO: This is used for batch mode. It should be re-added to the arguments
-	// if needed.
-	/*
-	if ( !Client.interactive )
-	{
-		if ( optind < argc && (fp = fopen(argv[optind], "r")) == NULL )
-		{
-			PrintOutError("Could not open \"%s\"\n", argv[optind]);
-			exit(1);
-		}
-
-		exit(DoBatch(fp));
-	}
-	*/
 
 	if ( !Client.silent )
 	{
@@ -833,35 +873,3 @@ EventCB(dbgevent_t *e, bitset* ev_set, bitset* reply_set, void *arg)
 	return 1;
 }
 
-/*
-** Process a batch file.
-** FIXME: This doesn't work right now...
-*/
-/*
-static int
-DoBatch(FILE *fp)
-{
-	//CurrentStream = NewCLIStream(CLI_FILE_STREAM, fp, stdout, stderr, 0);
-
-	//DbgHandleInput(CurrentStream->cs_fdin, cli_handle_input);
-
-	while ( !Client.quit )
-		WaitForEvents(0);
-
-	//if ( fp != stdin )
-		//fclose(fp);
-
-	EndAll();
-	DbgFinish();
-	//DestroyCLIStream(CurrentStream);
-	FinishProcSet();
-#ifdef RD
-	FinishDF();
-#endif
-	FinishFunc();
-	FinishVal();
-	DestroyCommands();
-
-	return 0;
-}
-*/

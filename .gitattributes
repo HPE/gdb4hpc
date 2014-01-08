@@ -1,14 +1,8 @@
 * text=auto !eol
-/BUILDME -text
 /INSTALL -text
 /LICENSE -text
-/Makefile -text
 /README -text
 /TESTME -text
-/definitions.mk -text
-dist/Makefile -text
-dist/lgdb.module.template -text
-dist/set_default_template -text
 extras/demos/hpcc_demo/README -text
 extras/demos/hpcc_demo/build_demo.sh -text
 extras/demos/hpcc_demo/hpcc.source.tar.gz -text
@@ -40,8 +34,6 @@ extras/scripts/merge_cray.sh -text
 extras/scripts/merge_monash.sh -text
 extras/scripts/svn-prop.template.1 -text
 extras/scripts/svn-prop.template.2 -text
-/fetch_release.py -text
-/generate_manifest.pl -text
 guard/.svnignore -text
 guard/Makefile.am -text
 guard/Makefile.in -text
@@ -448,8 +440,6 @@ libaif/version.h -text
 /maintainer-README -text
 /monash.rev -text
 /release_info -text
-rpm/Makefile -text
-rpm/cray-lgdb.spec.template -text
 third_party/ddt_cuda_gdb_50/COPYING -text
 third_party/ddt_cuda_gdb_50/COPYING.LIB -text
 third_party/ddt_cuda_gdb_50/COPYING3 -text

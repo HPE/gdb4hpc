@@ -204,8 +204,6 @@ guard/src/dbgclnt/dbg_client.c -text
 guard/src/dbgclnt/dbg_client.h -text
 guard/src/dbgclnt/dbg_mrn_fe.c -text
 guard/src/dbgclnt/dbg_mrn_fe.h -text
-guard/src/dbgclnt/dbg_sci_fe.c -text
-guard/src/dbgclnt/dbg_sci_fe.h -text
 guard/src/dbgclnt/dbg_set_async.c -text
 guard/src/dbgclnt/dbg_set_async.h -text
 guard/src/dbgclnt/dbg_set_sync.c -text
@@ -217,7 +215,6 @@ guard/src/dbgclnt/dbgclnt_mrn.c -text
 guard/src/dbgclnt/dbgclnt_proto.c -text
 guard/src/dbgclnt/dbgclnt_proto.h -text
 guard/src/dbgclnt/dbgclnt_proxy.c -text
-guard/src/dbgclnt/dbgclnt_sci.c -text
 guard/src/dbgclnt/dbgclnt_soc.c -text
 guard/src/dbgclnt/dbgoutp.c -text
 guard/src/dbgclnt/dbgoutp.h -text
@@ -228,8 +225,6 @@ guard/src/dbgclnt/mrn_topgen.c -text
 guard/src/dbgclnt/mrn_topgen.h -text
 guard/src/dbgclnt/proto_message.c -text
 guard/src/dbgclnt/proto_message.h -text
-guard/src/dbgclnt/sci_topgen.c -text
-guard/src/dbgclnt/sci_topgen.h -text
 guard/src/dbgcomm/Makefile.am -text
 guard/src/dbgcomm/Makefile.in -text
 guard/src/dbgcomm/dbg.h -text

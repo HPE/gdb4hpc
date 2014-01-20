@@ -4,6 +4,23 @@
 **
 ** HDF5 handling routines
 **
+/*********************************************************************************\
+ * <Description here>
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
+ *
+ * Unpublished Proprietary Information.
+ * This unpublished work is protected to trade secret, copyright and other laws.
+ * Except as permitted by contract or express written permission of Cray Inc.,
+ * no part of this work or its content may be used, reproduced or disclosed
+ * in any form.
+ *
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
+ *
+ *********************************************************************************
 */
 
 #ifdef HAVE_CONFIG_H
@@ -14,7 +31,7 @@
 
 #include	<sys/param.h>
 
-#include        <stdint.h>
+#include    <stdint.h>
 #include	<stdio.h>
 #include	<string.h>
 #include	<hdf5.h>
@@ -22,30 +39,30 @@
 #include	"defs.h"
 #include	"useful.h"
 #include	"aif.h"
-#include        "client.h"
+#include    "client.h"
 
 void
 HDF5Dump(char *file, char *var, AIF *a)
 {
-	int			i;
-	int			off;
-	int *			id;
-	int32_t			rank;
-	int32_t *		sizes;
-	int32_t *		min;
-	int32_t *		max;
-	char *			s;
-	char *			btype;
-	char *			ftype;
-	char *			fname;
-	char			buf[MAXPATHLEN];
-	hid_t			fid;
-	hid_t			spid;
-	hid_t			sid;
-	hid_t			tid;
-	hid_t			ftid;
-	herr_t			status;
-	hentry_t *		h;
+	int					i;
+	int					off;
+	int *				id;
+	int32_t				rank;
+	int32_t *			sizes;
+	int32_t *			min;
+	int32_t *			max;
+	char *				s;
+	char *				btype;
+	char *				ftype;
+	char *				fname;
+	char				buf[MAXPATHLEN];
+	hid_t				fid;
+	hid_t				spid;
+	hid_t				sid;
+	hid_t				tid;
+	hid_t				ftid;
+	herr_t				status;
+	hentry_t *			h;
 	static htable_t *	ntab;
 
 	if ( AIFType(a) != AIF_ARRAY )

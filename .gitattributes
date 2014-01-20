@@ -114,12 +114,9 @@ guard/guard-rd/src/rd/ainfo.c -text
 guard/guard-rd/src/rd/ainfo.h -text
 guard/guard-rd/src/rd/cmd_blockmap.c -text
 guard/guard-rd/src/rd/cmd_graph.c -text
-guard/guard-rd/src/rd/cmd_map.c.defunct -text
-guard/guard-rd/src/rd/cmd_trans.c.defunct -text
 guard/guard-rd/src/rd/disp.c -text
 guard/guard-rd/src/rd/hdf.c -text
 guard/guard-rd/src/rd/hdf5.c -text
-guard/guard-rd/src/rd/ms.c.defunct -text
 guard/guard-rd/src/rd/opendx_array.cfg -text
 guard/guard-rd/src/rd/opendx_array.net -text
 guard/guard-rd/src/rd/rd.h -text

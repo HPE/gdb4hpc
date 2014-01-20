@@ -4,6 +4,23 @@
 **
 ** HDF handling routines
 **
+/*********************************************************************************\
+ * <Description here>
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
+ *
+ * Unpublished Proprietary Information.
+ * This unpublished work is protected to trade secret, copyright and other laws.
+ * Except as permitted by contract or express written permission of Cray Inc.,
+ * no part of this work or its content may be used, reproduced or disclosed
+ * in any form.
+ *
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
+ *
+ *********************************************************************************
 */
 
 #ifdef HAVE_CONFIG_H
@@ -14,26 +31,24 @@
 
 #include	"defs.h"
 #include	"useful.h"
-#include        "client.h"
-
+#include    "client.h"
 #include	<mfhdf.h>
-
 #include	"aif.h"
 
 void
 HDFDump(char *file, char * var, AIF *a)
 {
-	int			i;
-	int32			stat;
-	int32			rank;
-	int32			type;
-	int32 *			sizes;
-	int32 *			start;
-	int32 *			edges;
-	int *			min;
-	int *			max;
-	char *			btype;
-	hentry_t *		h;
+	int			    	i;
+	int32				stat;
+	int32				rank;
+	int32				type;
+	int32 *				sizes;
+	int32 *				start;
+	int32 *				edges;
+	int *				min;
+	int *				max;
+	char *				btype;
+	hentry_t *			h;
 	static int32		sd_id;
 	static int32		sds_id;
 	static htable_t *	ntab = (htable_t *)NULL;

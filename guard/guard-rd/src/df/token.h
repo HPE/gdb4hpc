@@ -1,10 +1,9 @@
-/*
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-**
-** Token definitions.
-**
+/*********************************************************************************\
+ * Token definitions.
  *
- * Â© 2010-2013 Cray Inc.  All Rights Reserved.
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +16,7 @@
  * $Rev$
  * $Author$
  *
- *********************************************************************************
-*/
+**********************************************************************************/
 
 #ifndef _TOKEN_H
 #define _TOKEN_H

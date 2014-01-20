@@ -1,17 +1,14 @@
-/*
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-** See COPYRIGHT in top-level directory.
-**
-** Routines for building graph
-**
-** TODO: avoid building duplicate GETVAR's.
-** andrewg: I think what the above is trying to say, is that if we have multiple
-** assertions against a single var at the same line number, we will grab the value
-** of the var for each assertion, instead of just caching it. The above todo has
-** thrown me off for quite some time.
-**
+/*********************************************************************************\
+ * Routines for building graph
+ * TODO: avoid building duplicate GETVAR's.
+ * andrewg: I think what the above is trying to say, is that if we have multiple
+ * assertions against a single var at the same line number, we will grab the value
+ * of the var for each assertion, instead of just caching it. The above todo has
+ * thrown me off for quite some time.
  *
- * Â© 2010-2013 Cray Inc.  All Rights Reserved.
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -24,8 +21,7 @@
  * $Rev$
  * $Author$
  *
- *********************************************************************************
-*/
+**********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>

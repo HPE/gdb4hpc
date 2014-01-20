@@ -1,11 +1,7 @@
-/*
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-** See COPYRIGHT in top-level directory.
-**
-** Guard debugger
-**
 /*********************************************************************************\
- * <Description here>
+ * Guard debugger
+ *
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
  * © 2010-2013 Cray Inc.  All Rights Reserved.
  *
@@ -20,8 +16,7 @@
  * $Rev$
  * $Author$
  *
- *********************************************************************************
-*/
+**********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>

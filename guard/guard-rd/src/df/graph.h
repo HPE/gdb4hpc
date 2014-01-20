@@ -1,11 +1,9 @@
-/*
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-** See COPYRIGHT in top-level directory.
-**
-** Graph definition
-**
+/*********************************************************************************\
+ * Graph definition
  *
- * Â© 2010-2013 Cray Inc.  All Rights Reserved.
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,8 +16,7 @@
  * $Rev$
  * $Author$
  *
- *********************************************************************************
-*/
+**********************************************************************************/
 
 #ifndef _GRAPH_H
 #define _GRAPH_H

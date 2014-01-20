@@ -1,11 +1,9 @@
-/*
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-** See COPYRIGHT in top-level directory.
-**
-** Graph builder definitions.
-**
+/*********************************************************************************\
+ * Graph builder definitions.
  *
- * Â© 2010-2013 Cray Inc.  All Rights Reserved.
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ *
+ * © 2010-2013 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,8 +16,7 @@
  * $Rev$
  * $Author$
  *
- *********************************************************************************
-*/
+**********************************************************************************/
 
 #ifndef _BUILD_H
 #define _BUILD_H
@@ -27,11 +24,11 @@
 #include	"list.h"
 #include	"bitset.h"
 
-#define EDGE(g, n1, n2, p)		(g)->g_outEdge(g, n1, n2, p)
-#define NODE(g, n)				(g)->g_outNode(g, n)
-#define ICONST(g, n, v)			(g)->g_outConstInt(g, n, v)
-#define FCONST(g, n, v)			(g)->g_outConstFloat(g, n, v)
-#define SCONST(g, n, v)			(g)->g_outConstStr(g, n, v)
+#define EDGE(g, n1, n2, p)			(g)->g_outEdge(g, n1, n2, p)
+#define NODE(g, n)					(g)->g_outNode(g, n)
+#define ICONST(g, n, v)				(g)->g_outConstInt(g, n, v)
+#define FCONST(g, n, v)				(g)->g_outConstFloat(g, n, v)
+#define SCONST(g, n, v)				(g)->g_outConstStr(g, n, v)
 #define AIFCONST(g, n, v, t)		(g)->g_outConstAIF(g, n, v, t)
 #define BITSETCONST(g, n, v)		(g)->g_outConstBitSet(g, n, v)
 #define GSTART	  					g->g_startGraph

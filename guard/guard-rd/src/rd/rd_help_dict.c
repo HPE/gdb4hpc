@@ -1,5 +1,5 @@
 /******************************************************************************\
- * rd_help_dict.c - RD command help string defintion dictionary.
+ * Regular rd command help definitions
  *
  * © 2011-2013 Cray Inc.  All Rights Reserved.
  *
@@ -14,11 +14,8 @@
  * $Rev$
  * $Author$
  *
- ******************************************************************************/
+******************************************************************************/
 
-/**********************************************
- * Regular rd command help definitions
- **********************************************/
 
 const char *cmd_blockmap_help[] = {
 	"Summary: Decomposition creation command.",

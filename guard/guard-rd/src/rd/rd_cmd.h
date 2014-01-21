@@ -1,6 +1,6 @@
 /******************************************************************************\
  * rd_cmd.h - Relative debugger command routine defines.
- *
+ * 
  * © 2011-2013 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
@@ -14,7 +14,7 @@
  * $Rev$
  * $Author$
  *
-******************************************************************************/
+ ******************************************************************************/
  
 #ifndef _RD_CMD_H
 #define _RD_CMD_H

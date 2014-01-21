@@ -296,16 +296,12 @@ guard/src/gram/invoke.c -text
 guard/src/gram/invoke.h -text
 guard/src/gram/line.c -text
 guard/src/gram/line.h -text
-guard/src/gram/map.c.defunct -text
-guard/src/gram/map.h.defunct -text
 guard/src/gram/perm.c -text
 guard/src/gram/perm.h -text
 guard/src/gram/procset.c -text
 guard/src/gram/procset.h -text
 guard/src/gram/slice.c -text
 guard/src/gram/slice.h -text
-guard/src/gram/trans.c.defunct -text
-guard/src/gram/trans.h.defunct -text
 guard/src/gram/val.c -text
 guard/src/gram/val.h -text
 guard/src/gram/var.c -text

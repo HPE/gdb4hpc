@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * path.h - Header file for the path interface.
  *
- * © 2011 Cray Inc.  All Rights Reserved.
+ * © 2011-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -9,10 +9,10 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL: http://svn/svn/debugger-support/tools_interface/trunk/useful/path.h $
- * $Date: 2011-02-24 17:03:50 -0600 (Thu, 24 Feb 2011) $
- * $Rev: 797 $
- * $Author: andrewg $
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
  *
  *********************************************************************************/
 

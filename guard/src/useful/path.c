@@ -9,10 +9,10 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL: http://svn/svn/debugger-support/tools_interface/trunk/useful/path.c $
- * $Date: 2011-03-07 15:19:14 -0600 (Mon, 07 Mar 2011) $
- * $Rev: 817 $
- * $Author: andrewg $
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
  *
  *********************************************************************************/
 

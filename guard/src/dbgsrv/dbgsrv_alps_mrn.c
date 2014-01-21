@@ -2,7 +2,7 @@
  * dbgsrv_alps.c - A wrapper program to launch guard dbgsrv's onto the compute
  *		 nodes.
  *
- * © 2009-2013 Cray Inc.	All Rights Reserved.
+ * © 2011-2014 Cray Inc.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -10,10 +10,10 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL: https://svnpub.infotech.monash.edu.au/svn/guard/guard/trunk/src/dbgsrv/dbgsrv_alps.c $
- * $Date: 2011-08-06 06:12:40 +1000 (Sat, 06 Aug 2011) $
- * $Rev: 605 $
- * $Author: ext-andrewg $
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
  *
  *********************************************************************************/
 

@@ -1,9 +1,23 @@
-/*
-** Debug support routine definitions
-**
-** Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
-**
-*/
+/*********************************************************************************\
+ * Debug support routine definitions
+ *
+ * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ *
+ * © 2011-2013 Cray Inc.  All Rights Reserved.
+ *
+ * Unpublished Proprietary Information.
+ * This unpublished work is protected to trade secret, copyright and other laws.
+ * Except as permitted by contract or express written permission of Cray Inc.,
+ * no part of this work or its content may be used, reproduced or disclosed
+ * in any form.
+ *
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
+ *
+ *********************************************************************************/
+
 
 #ifndef _DBGFN_H
 #define _DBGFN_H

@@ -1,4 +1,6 @@
-/******************************************************************************
+/******************************************************************************\
+ * <varstr.c>
+ *
  * Copyright (c) 1996-2002, 2010 by Guardsoft Pty Ltd and others.
  *
  * All rights reserved. This program and the accompanying materials
@@ -10,7 +12,21 @@
  * 	Guardsoft Pty Ltd - initial API and implementation (from libaif)
  * 	Greg Watson - stand alone implementation
  *
- ******************************************************************************/
+ *
+ * © 2011-2013 Cray Inc.  All Rights Reserved.
+ *
+ * Unpublished Proprietary Information.
+ * This unpublished work is protected to trade secret, copyright and other laws.
+ * Except as permitted by contract or express written permission of Cray Inc.,
+ * no part of this work or its content may be used, reproduced or disclosed
+ * in any form.
+ *
+ * $HeadURL$
+ * $Date$
+ * $Rev$
+ * $Author$
+ *
+ *********************************************************************************/
 #define _GNU_SOURCE
 
 #include <stdlib.h>

@@ -146,7 +146,6 @@ guard/mrnet/Topology.cpp -text
 guard/mrnet/Topology_C.h -text
 guard/scripts/Makefile.am -text
 guard/scripts/Makefile.in -text
-guard/scripts/find_mod.sh -text
 guard/scripts/start_proxy.sh -text
 guard/sdm/Makefile.am -text
 guard/sdm/Makefile.in -text

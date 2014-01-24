@@ -162,27 +162,11 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 	FILE *	sfp;
 	char *	cfg_dir;
 	char *	script_name;
-	char	module_file[PATH_MAX];
-	FILE *	fp;
 	int		ofd;
 	FILE *	ofp;
 	char *	line = NULL;
 	size_t  len = 0;
 	int		found = 0;
-
-	// run the find_mod.sh script to determine the loaded lgdb modulefile
-	if ((fp = popen("find_mod.sh", "r")) == NULL)
-	{
-		PrintOutError("ERROR: Could not run find_mod.sh.\n");
-		return NULL;
-	}
-
-	if (fgets(module_file, PATH_MAX, fp) == NULL)
-	{
-		PrintOutError("ERROR: Could not determine loaded lgdb modulefile.\n");
-		pclose(fp);
-		return NULL;
-	}
 
 	if ((sfp = fopen(script_file, "r")) == NULL)
 	{
@@ -226,8 +210,6 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 		{
 			// found the start keyword! 
 			++found;
-			// write the module load command to the file
-			fprintf(ofp, "module load %s\n\n", module_file);
 			//Print out the argv string - note that the newline is needed here
 			fprintf(ofp, "%s\n", launcher_argv_str);
 			Free(line);
@@ -294,9 +276,8 @@ ssh_start_proxy(char *hostname, char *username, char *lhost, char *lport)
 	char *					userauthlist;
 	LIBSSH2_AGENT *			agent = NULL;
 	LIBSSH2_CHANNEL *		channel;
-	FILE *					fp;
-	char					module_file[PATH_MAX];
 	char *					proxy_script;
+	char *					guard_proxy_loc;
 	FILE *					sfp;
 	char *					cfg_dir;
 	char *					script_name;
@@ -628,44 +609,6 @@ mismatch_exit:
 		return 1;
 	}
 	
-	// run the find_mod.sh script to determine the loaded lgdb modulefile
-	if ((fp = popen("find_mod.sh", "r")) == NULL)
-	{
-		PrintOutError("Could not run find_mod.sh.\n");
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
-		libssh2_session_disconnect(session, "Error occured.");
-		libssh2_session_free(session);
-		close(ssh_sock);
-		libssh2_exit();
-		return 1;
-	}
-	
-	if (fgets(module_file, PATH_MAX, fp) == NULL)
-	{
-		PrintOutError("Could not determine loaded lgdb modulefile.\n");
-		pclose(fp);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
-		libssh2_session_disconnect(session, "Error occured.");
-		libssh2_session_free(session);
-		close(ssh_sock);
-		libssh2_exit();
-		return 1;
-	}
-	
-	if (pclose(fp))
-	{
-		PrintOutError("Could not determine loaded lgdb modulefile.\n");
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
-		libssh2_session_disconnect(session, "Error occured.");
-		libssh2_session_free(session);
-		close(ssh_sock);
-		libssh2_exit();
-		return 1;
-	}
-	
 	// search for start_proxy.sh in path
 	if ((proxy_script = pathFind("start_proxy.sh", NULL)) == NULL)
 	{
@@ -739,6 +682,7 @@ mismatch_exit:
 		libssh2_session_free(session);
 		close(ssh_sock);
 		libssh2_exit();
+		return 1;
 	}
 	
 	// copy each line in the file to the temporary file
@@ -750,14 +694,28 @@ mismatch_exit:
 		line = NULL;
 	}
 	
-	// write the module load command to the file
-	fprintf(ofp, "module load %s\n\n", module_file);
+	// Find the guard_proxy binary in path, we will launch this directly
+	if ((guard_proxy_loc = pathFind("guard_proxy", NULL)) == NULL)
+	{
+		PrintOutError("ERROR: Could not locate guard_proxy in PATH.\n");
+		Free(script_name);
+		libssh2_agent_disconnect(agent);
+		libssh2_agent_free(agent);
+		libssh2_session_disconnect(session, "Error occured.");
+		libssh2_session_free(session);
+		close(ssh_sock);
+		libssh2_exit();
+		return 1;
+	}
 	
 	// write the proxy start command to the file
-	fprintf(ofp, "guard_proxy -h %s -p %s\n", lhost, lport);
+	fprintf(ofp, "%s -h %s -p %s\n", guard_proxy_loc, lhost, lport);
 	
 	// flush the output file
 	fflush(ofp);
+	
+	// cleanup
+	Free(guard_proxy_loc);
 	
 	// close the temporary file
 	if (fclose(ofp))
@@ -1055,15 +1013,26 @@ DbgPROXYCreateSession(dbgclnt_proto *proto, WLM_type manager, char *batch_templa
 		case WLM_qsub:
 		case WLM_sbatch:
 		{
+			char *	guard_proxy_loc;
 			char **	proxy_args;
 			char *	proxy_arg_str;
 			char *	popen_cmd;
 			FILE *	jobStream;
 			
-			proxy_args = NewArgv("guard_proxy", "-h", lhost, "-p", lport, NULL);
+			// Find the guard_proxy binary in path, we will launch this directly
+			if ((guard_proxy_loc = pathFind("guard_proxy", NULL)) == NULL)
+			{
+				PrintOutError("ERROR: Could not locate guard_proxy in PATH.\n");
+				Free(lport);
+				CleanupProxySession(sess);
+				return NULL;
+			}
+			
+			proxy_args = NewArgv(guard_proxy_loc, "-h", lhost, "-p", lport, NULL);
 			// stringify the proxy_args array
 			proxy_arg_str = ArgsToBuf(proxy_args, 5);
 			// Cleanup
+			Free(guard_proxy_loc);
 			FreeArgv(proxy_args);
 			
 			if ((PROXY_SESSION_JOBFILE(sess) = parseBatchScript(batch_template, proxy_arg_str)) == NULL)

@@ -15,11 +15,15 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 // TODO: These routines are copy-pasta from dbg_client.c. The proxy daemon 
 //       requires these functions to be linked in, and until I design a better
 //       interface it works for now. It's a bad idea though since both versions
 //       need to be maintained.
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <unistd.h>
 #include <fcntl.h>

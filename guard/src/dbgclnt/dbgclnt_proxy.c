@@ -107,30 +107,25 @@ static int
 setupPROXYCfgDir(void)
 {
 	struct stat		st;
-	char *			mrnet_cfg_dir;
+	char *			cfg_dir;
 	
 	// grab the environment variable
-	if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
+	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
 		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_CFG_DIRECTORY);
 		return -1;
 	}
 	
 	// try to stat the directory
-	if (stat(mrnet_cfg_dir, &st) == 0)
+	if (stat(cfg_dir, &st) == 0)
 	{
 		// the directory already exists, return
 		return 0;
-	} 
-	else
+	} else
 	{
-		// the directory doesn't exist so we need to create it
-		// use perms 755
-		if (mkdir(mrnet_cfg_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
-		{
-			PrintOutError("Could not create the MRNet config directory! Ensure you have write permissions in the %s path.\n", mrnet_cfg_dir);
-			return -1;
-		}
+		// XXX: This gets created in main. This should not fail, but it is good practice just to check
+		PrintOutError("Could not find the config directory! Ensure you have write permissions for %s.\n", cfg_dir);
+		return -1;
 	}
 	
 	return 0;

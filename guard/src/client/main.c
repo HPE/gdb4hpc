@@ -21,31 +21,33 @@
 
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<sys/types.h>
-#include	<sys/time.h>
-#include	<sys/stat.h>
-#include	<sys/mman.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
-#include	<ctype.h>
-#include	<errno.h>
-#include	<fcntl.h>
-#include	<getopt.h>
-#include	<stdio.h>
-#include	<stdarg.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<signal.h>
-#include	<setjmp.h>
-#include	<unistd.h>
-#include	<math.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <unistd.h>
+#include <math.h>
 
-#include	"client.h"
-#include	"useful.h"
+#include "client.h"
+#include "useful.h"
 #if defined (RD)
-#include	"df.h"
+#include "df.h"
 #endif /* RD */
 
 #ifdef ALPS
@@ -122,14 +124,157 @@ Banner(void)
 	PrintOutMsg("Type \"help\" for a list of commands.\n");
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// TODO: This was added due to my absolute stupidity with not cleaning up tar
+// files in the users home directory on crash. At some date in the future
+// remove it.
+// Added January 2014 - probably safe to remove in a year
+// This will just remove/cleanup the old directories
+// This function doesn't do any error checking, it is just cleaning things up
+////////////////////////////////////////////////////////////////////////////////
+static void
+fixAndrewsStupidMistake(void)
+{
+	char *			home_dir;
+	char *			cfg_dir;
+	struct dirent *	d;
+	DIR *			dir;
+	char *			name_path;
+	
+	if ((home_dir = getenv("HOME")) == NULL)
+	{
+		return;
+	}
+	
+	// First try removing every file from ~/.cray_lgdb
+	
+	// Create the directory name string
+	Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+	
+	if ((dir = opendir(cfg_dir)) != NULL)
+	{
+		do {
+			// get the next dirent entry in the directory
+			if ((d = readdir(dir)) != NULL)
+			{
+				// create the full path name
+				Asprintf(&name_path, "%s/%s", cfg_dir, d->d_name);
+				// remove the file
+				remove(name_path);
+				Free(name_path);
+			}
+		} while (d != NULL);
+	
+		closedir(dir);
+	}
+	
+	Free(cfg_dir);
+	
+	// Now do the same for ~/.ccdb
+	
+	// Create the directory name string
+	Asprintf(&cfg_dir, "%s/.ccdb", home_dir);
+	
+	if ((dir = opendir(cfg_dir)) != NULL)
+	{
+		do {
+			// get the next dirent entry in the directory
+			if ((d = readdir(dir)) != NULL)
+			{
+				// create the full path name
+				Asprintf(&name_path, "%s/%s", cfg_dir, d->d_name);
+				// remove the file
+				remove(name_path);
+				Free(name_path);
+			}
+		} while (d != NULL);
+	
+		closedir(dir);
+	}
+	
+	Free(cfg_dir);
+	
+	return;
+}
+////////////////////////////////////////////////////////////////////////////////
+
+static int
+checkDirPerms(const char *dir)
+{
+	struct stat		st;
+	
+	if (dir == NULL)
+		return -1;
+	
+	// Stat the tmp_dir
+	if (stat(dir, &st))
+	{
+		// could not stat the directory
+		return -1;
+	}
+	
+	// check to see if the user id is the same as this directory
+	if (st.st_uid == getuid())
+	{
+		// Check the user perms
+		return ((st.st_mode & S_IRWXU) ? 0:-1);
+	}
+	
+	// check to see if the group id is the same as the directory
+	if (st.st_gid == getgid())
+	{
+		// Check the group perms
+		return ((st.st_mode & S_IRWXG) ? 0:-1);
+	}
+	
+	// Check the other perms
+	return ((st.st_mode & S_IRWXO) ? 0:-1);
+}
+
+static void
+setupCfgDir(const char *dir)
+{
+	struct stat		st;
+	
+	if (dir == NULL)
+		return;
+		
+	// try to stat the directory
+	if (stat(dir, &st))
+	{
+		// the directory doesn't exist so we need to create it
+		// use perms 755
+		if (mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+		{
+			PrintOutError("Could not create config directory %s.\n", dir);
+			PrintOutError("Try setting env var %s and try again. Aborting...\n", GUARD_CFG_DIRECTORY);
+			exit(1);
+		}
+	} else
+	{
+		// chmod the existing directory to ensure there isn't any funny business
+		// going on
+		if (chmod(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+		{
+			PrintOutError("Could not chmod config directory %s.\n", dir);
+			PrintOutError("Try setting env var %s and try again. Aborting...\n", GUARD_CFG_DIRECTORY);
+			exit(1);
+		}
+	}
+}
+
 // All environment setup should happen here
+// XXX: This function and it's dependencies should be synced with the stuff in
+// the proxy_daemon.c source. If you change it here, change it there also.
 static void
 SetupEnvironment(void)
 {
 	char *				inst_base;
 	char *				lib_dir;
 	char *				libexec_dir;
+	struct passwd *		pw;
 	char *				cfg_dir;
+	char *				tmp_dir;
 	char *				cti_ld_val_path;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
@@ -148,23 +293,102 @@ SetupEnvironment(void)
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
 	
+	// Get the pw info, this is used in the unique name part of cfg directories
+	if ((pw = getpwuid(getuid())) == NULL)
+	{
+		PrintOutError("getpwuid() failed. Aborting...\n");
+		exit(1);
+	}
+	
 	// get the cfg dir settings
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
-		// Not found, so default to ~/.cray_lgdb
-		char *home_dir;
-		if ((home_dir = getenv("HOME")) == NULL)
+		// Not found.
+		// Ideally we want to use TMPDIR or /tmp, the directory name should be 
+		// unique to the user.
+		
+		// Check to see if TMPDIR is set
+		tmp_dir = getenv("TMPDIR");
+		
+		// check if can write to tmp_dir
+		if (checkDirPerms(tmp_dir))
 		{
-			PrintOutError("Could not read $HOME. Aborting...\n");
+			// We couldn't write to tmp_dir, so lets try using /tmp
+			if (checkDirPerms("/tmp"))
+			{
+				// We couldn't write to /tmp, so lets use the home directory
+				char *home_dir;
+				
+				if ((home_dir = getenv("HOME")) == NULL)
+				{
+					PrintOutError("Could not read $HOME. Aborting...\n");
+					exit(1);
+				}
+				
+				// Check if we can write to HOME
+				if (checkDirPerms(home_dir))
+				{
+					// We have no where to create a temporary directory...
+					PrintOutError("No write permission for $HOME. Aborting...\n");
+					exit(1);
+				}
+				
+				// Create the directory name string
+				Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+				
+				// Setup/create this directory
+				setupCfgDir(cfg_dir);
+				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+				Free(cfg_dir);
+			} else
+			{
+				// We can write to /tmp, so lets use that
+				
+				// Create the directory name string
+				Asprintf(&cfg_dir, "/tmp/.cray_lgdb-%s", pw->pw_name);
+				
+				// Setup/create this directory
+				setupCfgDir(cfg_dir);
+				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+				Free(cfg_dir);
+			}
+		} else
+		{
+			// We can write to TMPDIR, so lets use that
+			
+			// Create the directory name string
+			Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+			
+			// Setup/create this directory
+			setupCfgDir(cfg_dir);
+			setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+			setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+			Free(cfg_dir);
+		}
+	} else
+	{
+		// The user set GUARD_CFG_DIRECTORY, so we *ALWAYS* want to use that
+		
+		// Check to see if we can write to this directory
+		if (checkDirPerms(cfg_dir))
+		{
+			PrintOutError("Bad permissions on directory specified by env var %s. Aborting...\n", GUARD_CFG_DIRECTORY);
 			exit(1);
 		}
-		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		
+		// Lets create a unique directory just in case the user gave us some
+		// weird location that others can access
+		tmp_dir = cfg_dir;
+		cfg_dir = NULL;
+		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+		
+		// Setup/create this directory
+		setupCfgDir(cfg_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
 		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 		Free(cfg_dir);
-	} else
-	{
-		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 	}
 	
 	// set the ld_val path for the cti
@@ -182,6 +406,10 @@ main(int argc, char *argv[])
 	double				ulp;
 	int					opt_ind = 0;
 	cli_stream_args_t *	cli_args = NULL;	// CLI args
+	
+	// TODO: Remove me at some point. Added January 2014. 
+	// See definition above for more info.
+	fixAndrewsStupidMistake();
 	
 	// Ensure the environment has been setup, otherwise set it up and re-exec
 	// This is required because otherwise dlopen's will be fubared.

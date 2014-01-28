@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
+#include <pwd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -195,6 +196,71 @@ CleanupOnSocketClose(void)
 	_exit(1);
 }
 
+static int
+checkDirPerms(const char *dir)
+{
+	struct stat		st;
+	
+	if (dir == NULL)
+		return -1;
+	
+	// Stat the tmp_dir
+	if (stat(dir, &st))
+	{
+		// could not stat the directory
+		return -1;
+	}
+	
+	// check to see if the user id is the same as this directory
+	if (st.st_uid == getuid())
+	{
+		// Check the user perms
+		return ((st.st_mode & S_IRWXU) ? 0:-1);
+	}
+	
+	// check to see if the group id is the same as the directory
+	if (st.st_gid == getgid())
+	{
+		// Check the group perms
+		return ((st.st_mode & S_IRWXG) ? 0:-1);
+	}
+	
+	// Check the other perms
+	return ((st.st_mode & S_IRWXO) ? 0:-1);
+}
+
+static void
+setupCfgDir(const char *dir)
+{
+	struct stat		st;
+	
+	if (dir == NULL)
+		return;
+		
+	// try to stat the directory
+	if (stat(dir, &st))
+	{
+		// the directory doesn't exist so we need to create it
+		// use perms 755
+		if (mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+		{
+			PrintOutError("Could not create config directory %s.\n", dir);
+			PrintOutError("Try setting env var %s and try again. Aborting...\n", GUARD_CFG_DIRECTORY);
+			exit(1);
+		}
+	} else
+	{
+		// chmod the existing directory to ensure there isn't any funny business
+		// going on
+		if (chmod(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+		{
+			PrintOutError("Could not chmod config directory %s.\n", dir);
+			PrintOutError("Try setting env var %s and try again. Aborting...\n", GUARD_CFG_DIRECTORY);
+			exit(1);
+		}
+	}
+}
+
 // All environment setup should happen here
 static void
 SetupEnvironment(void)
@@ -202,14 +268,16 @@ SetupEnvironment(void)
 	char *				inst_base;
 	char *				lib_dir;
 	char *				libexec_dir;
+	struct passwd *		pw;
 	char *				cfg_dir;
+	char *				tmp_dir;
 	char *				cti_ld_val_path;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
 	if ((inst_base = getinstallbase()) == NULL)
 	{
-		fprintf(stderr, "Could not locate install base. Aborting...\n");
+		PrintOutError("Could not locate install base. Aborting...\n");
 		exit(1);
 	}
 	// create the path strings
@@ -221,23 +289,102 @@ SetupEnvironment(void)
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
 	
+	// Get the pw info, this is used in the unique name part of cfg directories
+	if ((pw = getpwuid(getuid())) == NULL)
+	{
+		PrintOutError("getpwuid() failed. Aborting...\n");
+		exit(1);
+	}
+	
 	// get the cfg dir settings
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
-		// Not found, so default to ~/.cray_lgdb
-		char *home_dir;
-		if ((home_dir = getenv("HOME")) == NULL)
+		// Not found.
+		// Ideally we want to use TMPDIR or /tmp, the directory name should be 
+		// unique to the user.
+		
+		// Check to see if TMPDIR is set
+		tmp_dir = getenv("TMPDIR");
+		
+		// check if can write to tmp_dir
+		if (checkDirPerms(tmp_dir))
 		{
-			fprintf(stderr, "Could not read $HOME. Aborting...\n");
+			// We couldn't write to tmp_dir, so lets try using /tmp
+			if (checkDirPerms("/tmp"))
+			{
+				// We couldn't write to /tmp, so lets use the home directory
+				char *home_dir;
+				
+				if ((home_dir = getenv("HOME")) == NULL)
+				{
+					PrintOutError("Could not read $HOME. Aborting...\n");
+					exit(1);
+				}
+				
+				// Check if we can write to HOME
+				if (checkDirPerms(home_dir))
+				{
+					// We have no where to create a temporary directory...
+					PrintOutError("No write permission for $HOME. Aborting...\n");
+					exit(1);
+				}
+				
+				// Create the directory name string
+				Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+				
+				// Setup/create this directory
+				setupCfgDir(cfg_dir);
+				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+				Free(cfg_dir);
+			} else
+			{
+				// We can write to /tmp, so lets use that
+				
+				// Create the directory name string
+				Asprintf(&cfg_dir, "/tmp/.cray_lgdb-%s", pw->pw_name);
+				
+				// Setup/create this directory
+				setupCfgDir(cfg_dir);
+				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+				Free(cfg_dir);
+			}
+		} else
+		{
+			// We can write to TMPDIR, so lets use that
+			
+			// Create the directory name string
+			Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+			
+			// Setup/create this directory
+			setupCfgDir(cfg_dir);
+			setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+			setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
+			Free(cfg_dir);
+		}
+	} else
+	{
+		// The user set GUARD_CFG_DIRECTORY, so we *ALWAYS* want to use that
+		
+		// Check to see if we can write to this directory
+		if (checkDirPerms(cfg_dir))
+		{
+			PrintOutError("Bad permissions on directory specified by env var %s. Aborting...\n", GUARD_CFG_DIRECTORY);
 			exit(1);
 		}
-		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		
+		// Lets create a unique directory just in case the user gave us some
+		// weird location that others can access
+		tmp_dir = cfg_dir;
+		cfg_dir = NULL;
+		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+		
+		// Setup/create this directory
+		setupCfgDir(cfg_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
 		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 		Free(cfg_dir);
-	} else
-	{
-		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 	}
 	
 	// set the ld_val path for the cti

@@ -298,13 +298,9 @@ DbgMRNInit()
 	// try to stat the directory
 	if (stat(mrnet_cfg_dir, &st))
 	{
-		// the directory doesn't exist so we need to create it
-		// use perms 755
-		if (mkdir(mrnet_cfg_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
-		{
-			PrintOutError("Could not create the MRNet config directory! Ensure you have write permissions in the %s path.\n", mrnet_cfg_dir);
-			return 0;
-		}
+		// XXX: This gets created in main. This should not fail, but it is good practice just to check
+		PrintOutError("Could not find the config directory! Ensure you have write permissions in the %s path.\n", mrnet_cfg_dir);
+		return 0;
 	}
 	
 	// Try to grab the port base environment variable

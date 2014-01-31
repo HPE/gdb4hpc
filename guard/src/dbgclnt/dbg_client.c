@@ -106,6 +106,7 @@ static fd_set			dispatch_fds;
 static int				high_fd;
 static inpcb_t			InputCB;
 static outpcb_t			OutputCB;
+static int				_mask_cnt = 0;
 static int				_mask_fd;
 #if defined (RD)
 static int				_df_ready = 0;
@@ -1366,8 +1367,12 @@ void
 DbgMaskInput(void)
 {
 	pthread_mutex_lock(&InputCB.i_lock);
-	_mask_fd = InputCB.i_fd;
-	InputCB.i_fd = -1;
+	if (_mask_cnt == 0)
+	{
+		_mask_fd = InputCB.i_fd;
+		InputCB.i_fd = -1;
+	}
+	++_mask_cnt;
 	pthread_mutex_unlock(&InputCB.i_lock);
 }
 
@@ -1378,7 +1383,14 @@ void
 DbgUnmaskInput(void)
 {
 	pthread_mutex_lock(&InputCB.i_lock);
-	InputCB.i_fd = _mask_fd;
+	if (_mask_cnt > 0)
+	{
+		--_mask_cnt;
+	}
+	if (_mask_cnt == 0)
+	{
+		InputCB.i_fd = _mask_fd;
+	}
 	pthread_mutex_unlock(&InputCB.i_lock);
 }
 

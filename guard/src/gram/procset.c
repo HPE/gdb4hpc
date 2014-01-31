@@ -35,6 +35,16 @@
 #include	"dbgevent.h"
 #include 	"dbg_client.h"
 
+// static prototypes
+static dbg_over_set_t *		NewOverlaySet(char *, invoke_t *, invoke_group *, bitset *, int, int, int, dbgset_type);
+static void					FreeOverlaySet(dbg_over_set_t *);
+static dbg_ori_set_info_t *	NewOriginalSetInfo(invoke_t *, invoke_group *);
+static void					FreeOriginalSetInfo(dbg_ori_set_info_t *);
+static void					AddOverlaySetToOrignalSet(dbg_over_set_t *);
+static void					RemoveOverlaySetFromOriginalSet(dbg_over_set_t *);
+static void					AddOverlaySetToAllProcSet(dbg_over_set_t *);
+static void					_free_procset(dbgprocset_t *);
+
 list_t *	ProcSets = (list_t *)NULL;
 dbgprocset_t *	CurrProcSet = (dbgprocset_t *)NULL;
 dbgprocset_t *	AllProcSet = (dbgprocset_t *)NULL;
@@ -207,7 +217,7 @@ NewProcSet(char *name)
 	return s;
 }
 
-dbg_over_set_t*
+static dbg_over_set_t*
 NewOverlaySet(char* name, invoke_t* invoke, invoke_group* ig, bitset* bs, int offset, int len, int nproc, dbgset_type type)
 {
 	dbg_over_set_t* set = (dbg_over_set_t*)Alloc(sizeof(dbg_over_set_t));
@@ -243,7 +253,7 @@ NewOverlaySet(char* name, invoke_t* invoke, invoke_group* ig, bitset* bs, int of
 	return set;
 }
 
-void
+static void
 FreeOverlaySet(dbg_over_set_t* set)
 {
 	if(set != NULL)
@@ -258,7 +268,7 @@ FreeOverlaySet(dbg_over_set_t* set)
 	}
 }
 
-dbg_ori_set_info_t*
+static dbg_ori_set_info_t*
 NewOriginalSetInfo(invoke_t* ori_set, invoke_group* group)
 {
 	dbg_ori_set_info_t* info = (dbg_ori_set_info_t*)Alloc(sizeof(dbg_ori_set_info_t));
@@ -269,7 +279,7 @@ NewOriginalSetInfo(invoke_t* ori_set, invoke_group* group)
 	return info;
 }
 
-void
+static void
 FreeOriginalSetInfo(dbg_ori_set_info_t* info)
 {
 	if(info != NULL)
@@ -280,7 +290,7 @@ FreeOriginalSetInfo(dbg_ori_set_info_t* info)
 	}
 }
 
-void
+static void
 AddOverlaySetToOrignalSet(dbg_over_set_t* over_set)
 {
 	dbg_ori_set_info_t *info = NULL;
@@ -306,7 +316,7 @@ AddOverlaySetToOrignalSet(dbg_over_set_t* over_set)
 	AddToList(overSetList, over_set);
 }
 
-void
+static void
 RemoveOverlaySetFromOriginalSet(dbg_over_set_t* over_set)
 {
 	dbg_ori_set_info_t *info = NULL;
@@ -349,7 +359,28 @@ GetOverlaySetListByTree(void* tree)
 	return NULL;
 }
 
-void
+// FIXME: Probably get rid of this.
+list_t*
+GetOverlaySetListByDbgInvoke(void* di)
+{
+	dbg_ori_set_info_t *info = NULL;
+
+	SetList(OriginalSetInfoList);
+    while((info = (dbg_ori_set_info_t*)GetListElement(OriginalSetInfoList)) != (dbg_ori_set_info_t*)NULL)
+    {
+        if(info->s_invoke->i_iexec == di)
+            break;
+    }
+
+	if(info != NULL)
+	{
+		return info->s_over_set_list;
+	}
+
+	return NULL;
+}
+
+static void
 AddOverlaySetToAllProcSet(dbg_over_set_t* over_set)
 {
 	dbg_over_set_t *set = NULL;
@@ -399,7 +430,7 @@ AddOverlaySetToProcSet(dbgprocset_t *s, invoke_t* invoke, invoke_group* ig, bits
 	DPRINT("AddOverlaySetToProcSet: over_set[%p], [%s], invoke:[%p], offset[%d], procnum[%d], bs%s\n", over_set, s->s_name, invoke, offset, nproc, bitset_to_set(p));
 }
 
-void
+static void
 _free_procset(dbgprocset_t *s)
 {
 	DestroyList(s->s_over_set_list, FreeOverlaySet); 
@@ -522,12 +553,6 @@ PrintProcSet(FILE *fp, dbgprocset_t *s)
 		if ( n < s->s_nproc )
 			PrintToFd(fp, ",");
 	}
-}
-
-int
-NumProcs(void)
-{
-	return AllProcSet->s_nproc;
 }
 
 void

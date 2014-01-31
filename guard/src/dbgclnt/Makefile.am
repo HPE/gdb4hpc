@@ -40,7 +40,7 @@ endif
 
 noinst_LIBRARIES	= libdbgclnt.a libdbgproto.a
 libdbgclnt_a_SOURCES	= dbg_client.c dbgclnt_debugfe.c \
-			  dbg_set_async.c dbg_set_sync.c \
+			  dbg_set_sync.c \
 			  $(FRONTEND)
 libdbgproto_a_SOURCES	= dbgclnt_proto.c proto_message.c \
 			  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \

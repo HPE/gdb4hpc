@@ -398,21 +398,8 @@ BuildUnused(graph_t *g, var_t *v)
 	{
 		if ( (gi = FindGraphInv(g, SymLookup(ig->ig_sym))) == (graph_inv *)NULL )
 			gi = NewGraphInv(g, ig);
-
-		if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0)
-		{
-			BuildUnusedProcSet(g, gi, v, NULL);
-		}
-		else
-		{
-			bitset *	token_bit_set;
-			token_bit_set = bitset_new(gi->gi_nproc);
-			bitset_invert(token_bit_set);
-
-			BuildUnusedProcSet(g, gi, v, token_bit_set);
-
-			bitset_free(token_bit_set);
-		}
+			
+		BuildUnusedProcSet(g, gi, v);
 	}
 
 	gi->gi_builtunused = 1;
@@ -420,7 +407,7 @@ BuildUnused(graph_t *g, var_t *v)
 
 void
 //BuildUnusedProcSet(graph_t *g, graph_inv *gi, var_t *v, int low_pid, int proc_count)
-BuildUnusedProcSet(graph_t *g, graph_inv *gi, var_t *v, bitset *bit_set)
+BuildUnusedProcSet(graph_t *g, graph_inv *gi, var_t *v)
 {
 	int		xt1;
 	int		xt2;

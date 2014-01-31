@@ -51,7 +51,6 @@ static int		gpu_flag = 0;
 static int		DoInvoke(char *, proto_session *, char *, char **, int, list_t *, char *, char **, char *, char *, char **, char *);
 static int		DoAttach(char *, proto_session *, int, list_t *, char *, char *);
 static void		ReleaseInv(invoke_t *, int);
-static void		KillInv(invoke_t *);
 
 /*
 ** long opts definitions
@@ -841,8 +840,6 @@ DoInvoke(	char *proto,
 		
 		// Free the adjusted bitset
 		bitset_free(bs_group);
-		
- 		CreateAsyncInfoForTree(di->d_proto_net);
  		
  		// Set the created procset to the val symbol for the invoke group.
  		if (SetProcsetForInvokeGroup(ig, p))
@@ -1186,8 +1183,6 @@ DoAttach(	char *proto,
 		
 		// Free the adjusted bitset
 		bitset_free(bs_group);
-		
- 		CreateAsyncInfoForTree(di->d_proto_net);
  		
  		// Set the created procset to the val symbol for the invoke group.
  		if (SetProcsetForInvokeGroup(ig, p))
@@ -1432,7 +1427,6 @@ ReleaseInv(invoke_t *i, int detach)
 	/*
 	** Cleanup invoke information.
 	*/
-	DestroyAsyncInfoForTree(i->i_tree);
 	FreeInvoke(i);
 }
 
@@ -1445,90 +1439,6 @@ EndAll(void)
 	SetInvoke();
 	while ((i = GetInvoke()) != (invoke_t *)NULL)
 		ReleaseInv(i, i->i_attached);
-	
-	DestroyAllAsyncInfo();
-}
-
-/*
-** IMPORTANT: This function is now only used to "force kill" an application
-** in an ungraceful way for ALPS systems. It should not be used except for 
-** error situations.
-*/
-static void
-KillInv(invoke_t *i)
-{
-	dbgprocset_t *		ps;
-	invoke_group *		ig;
-	dbg_over_set_t *	over_set = NULL;
-	rec_set_t *			rec_set;
-	rep_set_t *			rep_set;
-	
-	/*
-	** Force the server to exit.
-	*/
-	DPRINT("Killing invoke[%p]\n",i);
-		
-	SetInvokeGroup(i);
-	
-	while ((ig = GetInvokeGroup(i)) != (invoke_group *)NULL)
-	{
-		/*
-		** Remove procset entry.
-		*/
-		if ( (ps = FindProcSet(SymLookup(ig->ig_sym))) != (dbgprocset_t *)NULL )
-		{
-			// first we need to get the overlay set and then make a rec set from it so
-			// that we can kill it. This process is similar to whats found in nodes.c.
-			// I am totally confused about the naming scheme...
-			if ((over_set = GetOverlaySetForProcSet(ps)) != (dbg_over_set_t *)NULL)
-			{
-				rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, ps->s_indiv_proc));
-				
-				// now kill it
-				if ((rep_set = DbgKill(rec_set)) != NULL)
-				{
-					ProcessErrorInRepSet(rec_set, rep_set);
-					FreeRepSet(rep_set);
-					PrintOutError("Unable to kill launch group! Manually ensure all applications have been killed!\n");
-				}
-				
-				FreeRecSet(rec_set);
-			}
-		
-			if ( ps == CurrentProcSet() )
-				SetCurrentProcSet((dbgprocset_t *)NULL);
-
-			FreeProcSet(ps);
-		}
-		
-		/*
-		** Process variable removed by FreeInvoke().
-		*/
-	}
-
-	/*
-	** Cleanup invoke information.
-	*/
-	DestroyAsyncInfoForTree(i->i_tree);
-	FreeInvoke(i);
-}
-
-/*
-** IMPORTANT: This function is now only used to "force kill" an application
-** in an ungraceful way for ALPS systems. It should not be used except for 
-** error situations.
-** external exposure
-*/
-void
-KillAll(void)
-{
-	invoke_t *	i;
-	
-	SetInvoke();
-	while ((i = GetInvoke()) != (invoke_t *)NULL)
-		KillInv(i);
-	
-	DestroyAllAsyncInfo();
 }
 
 void

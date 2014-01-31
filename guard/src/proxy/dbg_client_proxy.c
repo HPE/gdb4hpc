@@ -54,8 +54,10 @@ NewDbgInvoke(int nproc, dbgclnt_proto *proto)
 	// Set non-zero members here
 	di->d_nproc = nproc;
 	di->d_proto = proto;
-
-	if ( DbgInvokeList == (list_t *)NULL )
+	// XXX: This interface doesn't make use of the d_eventset_list or d_pbset_list
+	// All of that gets forwarded to the client side.
+	
+	if ( DbgInvokeList == NULL )
 		DbgInvokeList = NewList();
 
 	/*
@@ -72,8 +74,6 @@ NewDbgInvoke(int nproc, dbgclnt_proto *proto)
 void
 FreeDbgInvoke(dbginvoke_t *di)
 {
-	int *	ev_fd;
-
 	RemoveFromList(DbgInvokeList, (void *)di);
 	
 	// Call the protocol destructor if there is one
@@ -88,16 +88,11 @@ FreeDbgInvoke(dbginvoke_t *di)
 	if( di->d_bitset_launched != NULL )
 		bitset_free(di->d_bitset_launched);
 		
-	// remove any event fds from the proto if there are any for this dbginvoke.
-	if (di->d_evfds != NULL)
-	{
-		SetList(di->d_evfds);
-		while((ev_fd = (int *)GetListElement(di->d_evfds)) != NULL)
-		{
-			Free(ev_fd);
-		}
-	}
-	DestroyList(di->d_evfds, NULL);
+	// remove any event fds from the proto
+	DestroyList(di->d_evfds, Free);
+	
+	// XXX: This interface doesn't make use of the d_eventset_list or d_pbset_list
+	// All of that gets forwarded to the client side.
 
 	Free(di);
 }

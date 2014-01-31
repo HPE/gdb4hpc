@@ -67,7 +67,6 @@ extern dbgbp_t *	NewBP(int);
 extern void			CleanupBP(list_t *);
 extern void			FreeBP(dbgbp_t *);
 extern dbgbp_t *	DupBP(dbgbp_t *);
-extern void			FreeBP(dbgbp_t *);
 extern void			RemoveBP(list_t *, int);
 extern dbgbp_t *	FindBPByFunc(list_t *, char *);
 extern dbgbp_t *	FindBPByID(list_t *, int);

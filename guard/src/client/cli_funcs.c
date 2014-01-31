@@ -97,10 +97,11 @@ InitCLI(cli_type_t default_type, cli_stream_args_t *default_args)
 	// Create the stream queue
 	StreamQueue = NewList();
 
-	/*
-	** install output callback handler.
-	*/
+	// Install the output callback handler in the dbg_client layer
 	DbgHandleOutput(ProgOutLine);
+	
+	// Install the input callback handler in the dbg_client layer
+	DbgHandleInput(Client.cli_in_fd, cli_handle_input);
 }
 
 void
@@ -169,6 +170,9 @@ SetNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, ...)
 	// call the stream restore function
 	cli_reset_stream();
 	
+	// Reset the input handler in the dbg_client layer
+	DbgHandleInput(Client.cli_in_fd, cli_handle_input);
+	
 	return 0;
 }
 
@@ -190,6 +194,8 @@ DestroyCurrentCLIStream(void)
 	if (CurrentStream == NULL)
 	{
 		Client.quit = 1;
+		// Remove the input handler
+		DbgHandleInput(-1, NULL);
 	} else
 	{
 		// Set the current IO FILE pointers
@@ -204,6 +210,9 @@ DestroyCurrentCLIStream(void)
 
 		// call the stream restore function
 		cli_reset_stream();
+		
+		// Reset the input handler in the dbg_client layer
+		DbgHandleInput(Client.cli_in_fd, cli_handle_input);
 	}
 }
 
@@ -251,6 +260,9 @@ SetDefaultCLIStream(void)
 			DestroyCLIStream(stream);
 		}
 	}
+	
+	// Reset the input handler in the dbg_client layer
+	DbgHandleInput(Client.cli_in_fd, cli_handle_input);
 	
 	// call the stream restore function
 	// Note that this should always be done. Editline gets messed up if the

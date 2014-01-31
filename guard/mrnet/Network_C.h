@@ -94,7 +94,7 @@ void network_remove_TopAddBE_event_callback(MRNet_Network* network);
 
 int network_get_num_callbacks();
 
-int network_register_Failure_event_callback(MRNet_Network* network, void (*callback)());
+int network_register_Failure_event_callback(MRNet_Network* network, void (*callback)(), void *data);
 
 int network_is_shutdown( MRNet_Network *network);
 

@@ -25,6 +25,7 @@
 #include	"hash.h"
 
 #include	"dbgevent.h"
+#include	"dbg_client.h"
 #include	"bitset.h"
 #include	"token.h"
 #include	"node.h"
@@ -124,9 +125,8 @@ struct graph_t
 	/*
 	** List of procs to check when removing bp's.
 	*/
-	list_t *	g_procs;
-
-	list_t *	g_invoke_list;
+	list_t *	g_invoke_list;	// FIXME: This should hold dbginvoke_t, not invoke_t
+	list_t *	g_bp_list;	// list of bp_t * set by graph
 
 	/*
 	** Assertion and assign information used to generate graph.
@@ -176,11 +176,11 @@ struct graph_t
 	/*
 	** User supplied routines.
 	*/
-	int	(*g_display)(char *, char *, char *, AIF *, char *, AIF *, char *, AIF *);
-	int	(*g_display_p2p)(struct graph_t *, int, char *, AIF *);
-	int	(*g_compare)(struct graph_t *, int, char *, AIF *, char *, AIF *, int);
+	int		(*g_display)(char *, char *, char *, AIF *, char *, AIF *, char *, AIF *);
+	int		(*g_display_p2p)(struct graph_t *, int, char *, AIF *);
+	int		(*g_compare)(struct graph_t *, int, char *, AIF *, char *, AIF *, int);
 	void	(*g_dbgout)(char *, int, int, void *);
-	int		(*g_dbgevent)(dbgevent_t *, bitset*, bitset*, void *);
+	int		(*g_dbgevent)(event_set_t *, bitset *);
 };
 typedef struct graph_t	graph_t;
 

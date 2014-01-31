@@ -29,7 +29,6 @@
 
 #include	"client.h"
 #include	"useful.h"
-#include	"dbg_set_async.h"
 
 /*
 ** This function is able to handle both next and step by examining the first
@@ -38,7 +37,6 @@
 static int 
 StepCmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	invoke_t *	invoke = rec_set->s_invoke_handler;
 	int			in = 0;
 	int			count = 1;
 	rep_set_t *	rep_set;
@@ -48,8 +46,6 @@ StepCmd(rec_set_t *rec_set, int argc, char **argv)
 
 	if ( argc >= 2 )
 		count = atoi(argv[1]);
-
-	RemoveEventSet(invoke->i_tree, DBGEV_STEP);
 
 	DPERFLOG(SetTimerStart("step"));
 	if ((rep_set = DbgStep(rec_set, count, in)) != NULL)

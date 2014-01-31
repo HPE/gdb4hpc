@@ -41,7 +41,7 @@ typedef struct
 
 typedef struct
 {
-	void 			(*failure_func)();
+	void 			(*failure_func)(void *);
 	pthread_mutex_t		failure_lock;
 	pthread_mutexattr_t	failure_lock_attr;
 } failure_handler_info_t;
@@ -394,7 +394,7 @@ void BE_Add_Callback( Event* evt, void* )
 	}
 }
 
-void Failure_Callback( Event* evt, void* )
+void Failure_Callback( Event* evt, void* cb_data )
 {
 	if (evt->get_Class() == Event::TOPOLOGY_EVENT)
 	{
@@ -419,7 +419,7 @@ void Failure_Callback( Event* evt, void* )
 		pthread_mutex_lock(&failure_handler->failure_lock);
 
 		if(failure_handler->failure_func != NULL)
-			(failure_handler->failure_func)();
+			(failure_handler->failure_func)(cb_data);
 			
 		pthread_mutex_unlock(&failure_handler->failure_lock);
 	}
@@ -495,11 +495,7 @@ extern "C" void network_remove_TopAddBE_event_callback(MRNet_Network* network)
 					TopologyEvent::TOPOL_ADD_BE );
 }
 
-/* FIXME: This only will work for a single network. CCDB wants to cleanup and
-	   quit if any network goes down. So we only want to call the callback
-	   once.
-*/
-extern "C" int network_register_Failure_event_callback(MRNet_Network* network, void (*callback)())
+extern "C" int network_register_Failure_event_callback(MRNet_Network* network, void (*callback)(void *), void *data)
 {
 	Network* pNetwork = (Network*)network;
 	int rtn;
@@ -539,11 +535,11 @@ extern "C" int network_register_Failure_event_callback(MRNet_Network* network, v
 		
 	int cbrett = pNetwork->register_EventCallback( Event::TOPOLOGY_EVENT,
 					       TopologyEvent::TOPOL_REMOVE_NODE,
-					       Failure_Callback, NULL );
+					       Failure_Callback, data, true );
 
 	cbrett = pNetwork->register_EventCallback( Event::TOPOLOGY_EVENT,
 					       TopologyEvent::TOPOL_CHANGE_PARENT,
-					       Failure_Callback, NULL );
+					       Failure_Callback, data, true );
 	
 	return 0;
 }

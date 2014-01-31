@@ -31,17 +31,13 @@
 #include	"client.h"
 #include	"useful.h"
 #include	"dbg_set_sync.h"
-#include	"dbg_set_async.h"
 
 static int 
 cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	invoke_t *	invoke = rec_set->s_invoke_handler;
 	rep_set_t *	rep_set;
 
 	DPERFLOG(SetTimerStart("cont"));
-	
-	RemoveEventSet(invoke->i_tree, DBGEV_BPHIT);
 
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
@@ -130,14 +126,9 @@ cmd_run_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int 
 cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	invoke_t *	invoke = rec_set->s_invoke_handler;
 	rep_set_t *	rep_set;
 
 	DPERFLOG(SetTimerStart("finish"));
-	
-	// The finish function generates a DBGEV_STEP event. If this ever changes
-	// make sure to update this.
-	RemoveEventSet(invoke->i_tree, DBGEV_STEP);
 
 	if ((rep_set = DbgFinishFunc(rec_set)) != NULL)
 	{

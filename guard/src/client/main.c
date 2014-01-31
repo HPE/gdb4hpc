@@ -18,8 +18,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
@@ -76,8 +74,7 @@ static int		started = 0;	// Is it alright to longjmp?
 static void		Banner(void);
 static void		SigHandler(int);
 static void		WaitForEvents(int);
-static void		PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *);
-//static int		DoBatch(FILE *);
+static void		PrintEventSet(dbg_over_set_t *, event_set_t *);
 
 /*
  * long opts
@@ -86,6 +83,7 @@ static const struct option long_opts[] = {
 			{"batch",		required_argument,	0, 'b'},
 			{"help",		no_argument,		0, 'h'},
 			{"interface",	required_argument,	0, 'i'},
+			{"output",		required_argument,	0, 'o'},
 			{"silent",		no_argument,		0, 's'},
 			{"version",		no_argument,		0, 'v'},
 			{"xml",			no_argument,		&(Client.XML_mode), 1},
@@ -102,6 +100,7 @@ usage(char *name)
 	
 	PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
 	PrintOutMsg("  --help, -h           Display this text\n");
+	PrintOutMsg("  --output, -o         Redirect stdout/stderr to file. Must be used with --batch.\n");
 	PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
 	PrintOutMsg("  --version, -v        Display version\n");
 	
@@ -406,6 +405,8 @@ main(int argc, char *argv[])
 	double				ulp;
 	int					opt_ind = 0;
 	cli_stream_args_t *	cli_args = NULL;	// CLI args
+	char *				in_file = NULL;
+	char *				out_file = NULL;
 	
 	// TODO: Remove me at some point. Added January 2014. 
 	// See definition above for more info.
@@ -451,7 +452,7 @@ main(int argc, char *argv[])
 	DbgHandleSignal(SIGTERM, SigHandler);
 	DbgHandleSignal(SIGQUIT, SigHandler);
 
-	while ((c = getopt_long(argc, argv, "b:hi:sv", long_opts, &opt_ind)) != -1)
+	while ((c = getopt_long(argc, argv, "b:hi:o:sv", long_opts, &opt_ind)) != -1)
 	{
 		switch (c)
 		{
@@ -461,7 +462,6 @@ main(int argc, char *argv[])
 			case 'b':
 			{
 				char *stringp;
-				char *filestr;
 				
 				if (optarg == NULL)
 				{
@@ -472,8 +472,7 @@ main(int argc, char *argv[])
 				// Set the mode and create the cli args
 				Client.cli_mode = CLI_FILE_STREAM;
 				stringp = strdup(optarg);
-				filestr = StripQuotes(stringp);
-				cli_args = NewCLIArgs(CLI_FILE_STREAM, filestr, NULL, NULL);
+				in_file = strdup(StripQuotes(stringp));
 				Free(stringp);
 				
 				// Turn confirm off, we will not be able to call fgetc on stdin
@@ -546,6 +545,24 @@ main(int argc, char *argv[])
 				
 				break;
 			}
+			case 'o':
+			{
+				char *stringp;
+				
+				if (optarg == NULL)
+				{
+					PrintOutError("Error: --output provided, but missing arguments.\n");
+					exit(1);
+				}
+				
+				// Set the mode and create the cli args
+				Client.cli_mode = CLI_FILE_STREAM;
+				stringp = strdup(optarg);
+				out_file = strdup(StripQuotes(stringp));
+				Free(stringp);
+				
+				break;
+			}
 			case 's':
 				// Set silent to 1, we don't want to print out banner
 				Client.silent = 1;
@@ -564,20 +581,39 @@ main(int argc, char *argv[])
 	
 	// Check if we should use the default CLI, if one of the above options didn't
 	// create cli_args, then we know we should use the default.
+	// We now also create the CLI_FILE_STREAM CLI here so that an output file
+	// can be used with the batch mode
 	if (cli_args == NULL)
 	{
-		// Check to see if stdin is a tty, if not set the default CLI to notty
-		if (!isatty(STDIN_FILENO))
+		if (Client.cli_mode == CLI_FILE_STREAM)
 		{
-			// Set the default stream to notty
-			Client.cli_mode = CLI_NOTTY_STREAM;	// CLI mode
+			// Ensure that there is an in_file, this is a requirement.
+			if (in_file == NULL)
+			{
+				PrintOutError("Error: Cannot use --output argument without --batch argument.\n");
+				exit(1);
+			}
+			cli_args = NewCLIArgs(CLI_FILE_STREAM, in_file, out_file, out_file);
+			Free(in_file);
+			if (out_file != NULL)
+				Free(out_file);
 		} else
 		{
-			// Set the default stream to tty
-			Client.cli_mode = CLI_TTY_STREAM;	// CLI mode
+			// Use the default CLI
+			
+			// Check to see if stdin is a tty, if not set the default CLI to notty
+			if (!isatty(STDIN_FILENO))
+			{
+				// Set the default stream to notty
+				Client.cli_mode = CLI_NOTTY_STREAM;	// CLI mode
+			} else
+			{
+				// Set the default stream to tty
+				Client.cli_mode = CLI_TTY_STREAM;	// CLI mode
+			}
+			// Create the CLI args
+			cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
 		}
-		// Create the CLI args
-		cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
 	}
 
 	if ( DbgInit() < 0 )
@@ -601,7 +637,7 @@ main(int argc, char *argv[])
 	
 	// Initial reset of the stream, for good measure.
 	// If we don't do this, the prompt will be missing when using the editline
-	// library.
+	// library. I think this is due to some weirdness with the Banner() call.
 	cli_reset_stream();
 
 	(void)setjmp(Top);
@@ -611,7 +647,6 @@ main(int argc, char *argv[])
 	{
 		if ( Client.quit )
 			break;
-		DbgHandleInput(Client.cli_in_fd, cli_handle_input);
 		WaitForEvents(0);
 	}
 
@@ -632,10 +667,11 @@ main(int argc, char *argv[])
 void
 ForceQuit(void)
 {
-	KillAll();
-	DestroyCLI();
-	
-	_exit(1);
+	Client.quit = 1;
+	// Force any running graphs to finish
+#ifdef RD
+	FinishDF();
+#endif /* RD */
 }
 
 static void
@@ -726,24 +762,22 @@ WaitForEvents(int noblock)
 }
 
 static void
-PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
+PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 {
 	bp_set_t*	bpset;
-	int			bp_id;
-	char*		setname = over_set->s_setname;
-	invoke_t *	invoke = over_set->s_invoke;
+	dbgevent_t *e = ev_set->e_ev;
 
-	DPRINT("PrintEventSet over_set[%p], offset[%d], nproc[%d], setinfo:%s\n", over_set, over_set->s_offset, over_set->s_nproc, bitset_to_set(setinfo));
+	DPRINT("PrintEventSet over_set[%p], offset[%d], nproc[%d], setinfo:%s\n", over_set, over_set->s_offset, over_set->s_nproc, bitset_to_set(ev_set->e_group));
 
 	switch ( e->ev_event )
 	{
 	case DBGEV_EXIT:
 		if ( e->ev_exit == 0 )
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Program exited normally.\n");
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program exited normally.\n");
 		} else
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Program exited with code 0%o.\n", e->ev_exit);
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program exited with code 0%o.\n", e->ev_exit);
 		}
 		break;
 
@@ -751,23 +785,24 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 		// ensure the recv bp has a cooresponding bp_set. If not, this is an unknown breakpoint.
 		// If its unknown either its a breakpoint encountered from ending the graph (graph breakpoints are hidden)
 		// or an exit breakpoint that was set by the dbg servers.
-		if ( (bpset = FindBPSetByBP( invoke->i_tree, e->ev_bp, &bp_id)) == (bp_set_t *)NULL )
+		
+		if ((bpset = FindBPSetForBP(ev_set->e_di, e->ev_bp)) == NULL)
 		{
 			if(e->ev_bp->bp_type == DBGBP_EXIT_TYPE)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "The application has reached an exit breakpoint. Please quit CCDB!\n");
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "The application has reached an exit breakpoint.\n");
 			}
 			else
 			{
 				if (e->ev_bp->bp_loc.loc_line > 0)
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
 						e->ev_bp->bp_loc.loc_func,
 						e->ev_bp->bp_loc.loc_file,
 						e->ev_bp->bp_loc.loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s\n",
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
 						e->ev_bp->bp_loc.loc_func);
 				}
 			}
@@ -782,20 +817,20 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 			case DBGBP_WATCH_TYPE:
 			case DBGBP_AWATCH_TYPE:
 			case DBGBP_RWATCH_TYPE:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Watchpoint %d, variable expression: %s\n",
-					bp_id,
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Watchpoint %d, variable expression: %s\n",
+					bpset->b_bp_id,
 					bpset->b_bp_exp);
 				// We should also print out the updated locale information for the watchpoint.
 				// This was updated in EventCB before calling this function.
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s\n",
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
 						bpset->b_loc_func);
 				}
 				break;
@@ -803,15 +838,15 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 			case DBGBP_BREAK_TYPE:
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Breakpoint %d, %s at %s:%d\n",
-						bp_id,
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Breakpoint %d, %s at %s:%d\n",
+						bpset->b_bp_id,
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Breakpoint %d, in %s\n",
-						bp_id,
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Breakpoint %d, in %s\n",
+						bpset->b_bp_id,
 						bpset->b_loc_func);
 				}
 				break;
@@ -819,15 +854,15 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 			default:
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Unknown break type %d, %s at %s:%d\n",
-						bp_id,
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Unknown break type %d, %s at %s:%d\n",
+						bpset->b_bp_id,
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Unknown break type %d, in %s\n",
-						bp_id,
+					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Unknown break type %d, in %s\n",
+						bpset->b_bp_id,
 						bpset->b_loc_func);
 				}
 				break;
@@ -836,26 +871,26 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 		break;
 
 	case DBGEV_SIGNAL:
-		PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Program received signal %s.\n", e->ev_sig_type);
+		PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program received signal %s.\n", e->ev_sig_type);
 
 		if ( e->ev_sig_frame != (dbgframe_t *)NULL )
 		{
 			if (e->ev_sig_frame->frame_loc.loc_file != NULL)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
 					e->ev_sig_frame->frame_loc.loc_func, 
 					e->ev_sig_frame->frame_loc.loc_file, 
 					e->ev_sig_frame->frame_loc.loc_line
 					);
 			} else
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "In %s\n",
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
 					e->ev_sig_frame->frame_loc.loc_func
 					);
 			}
 		} else if (e->ev_sig_line != NULL)
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "%s\n",
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s\n",
 				e->ev_sig_line
 				);
 		}
@@ -867,14 +902,14 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 		{
 			if(e->ev_step_frame->frame_loc.loc_line > 0)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "%s at %s:%d\n",
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s at %s:%d\n",
 					e->ev_step_frame->frame_loc.loc_func, 
 					e->ev_step_frame->frame_loc.loc_file, 
 					e->ev_step_frame->frame_loc.loc_line
 					);
 			} else
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "in %s\n",
+				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "in %s\n",
 					e->ev_step_frame->frame_loc.loc_func
 					);
 			}
@@ -883,27 +918,27 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 
 		if ( e->ev_step_lno < 0 )
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Single stepping until exit from function %s,\n", e->ev_step_line);
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "which has no line number information.\n");
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Single stepping until exit from function %s,\n", e->ev_step_line);
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "which has no line number information.\n");
 		}
 		else if(e->ev_step_lno == 0)
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Program has reached the end. Please quit CCDB!\n");
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program has reached the end.\n");
 		} else
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "%d\t%s\n", 
+			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%d\t%s\n", 
 				e->ev_step_lno, 
 				e->ev_step_line);
 		break;
 
 	case DBGEV_ERROR:
-		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "%s\n", DbgEventErrorStr(e));
+		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s\n", DbgEventErrorStr(e));
 		break;
 		
 	case DBGEV_OK:
 		break;
 
 	default:
-		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, setname, setinfo, over_set->s_offset, over_set->s_len, "Can't print event %d\n", e->ev_event);
+		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Can't print event %d\n", e->ev_event);
 		break;
 	}
 	
@@ -984,129 +1019,35 @@ PrintEventSet(dbg_over_set_t *over_set, bitset *setinfo, dbgevent_t *e)
 // This is called each time an asynchronous reply is recieved. The entire event
 // set which contains the aggregated event is passed in as e/ev_set and the
 // individual reply that was just received is passed in as reply_set.
-// FIXME: This should be taking in an event_set_t not e/ev_set.
+// FIXME: I think that this probably shouldn't be getting the over_set stuff,
+// but that is not fixed yet. This is currently in a hacked state.
 int	
-EventCB(dbgevent_t *e, bitset* ev_set, bitset* reply_set, void *arg)
+EventCB(event_set_t *ev_set, bitset *reply_set)
 {
-	void *				tree = arg;
 	dbg_over_set_t *	over_set = NULL;
-	bp_set_t *			bpset;
-	int					bp_id;
-	invoke_t *			invoke;
-	bp_disp_set_t *		disp_set;
-	bitset *			group;
-	int					bpset_invalid = 0;
 	
 	// need to do "special" things if we are currently reading from stdin
 	// for readline support.
 	cli_save_stream();
 
-	list_t* overSetList = (list_t*)GetOverlaySetListByTree(tree);
+	list_t* overSetList = (list_t*)GetOverlaySetListByDbgInvoke(ev_set->e_di);
 
-	DPRINT("INFO[EventCB]: received event type:[%s], ev_set:%s, reply_set:%s\n", EventToStr(e), bitset_to_set(ev_set), bitset_to_set(reply_set));	
+	DPRINT("INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s\n", EventToStr(ev_set->e_ev), bitset_to_set(ev_set->e_group), bitset_to_set(reply_set));	
 
 	if(overSetList == NULL)
 	{
-		PrintOutError("ERROR: no procset info is found for tree[%p]\n", tree);
-	} else 
+		PrintOutError("ERROR: no procset info is found for dbginvoke\n");
+	} else
 	{
 		SetList(overSetList);
-		while((over_set = (dbg_over_set_t*)GetListElement(overSetList)) != (dbg_over_set_t*)NULL)
+		// It does this in case the user used a procset like $a{2},$b{8}. This is going to go away
+		// so fix this when it does.
+		while((over_set = (dbg_over_set_t*)GetListElement(overSetList)) != NULL)
 		{
 			if(bitset_compare(over_set->s_set_bs, reply_set) != 0)
 			{
-				// conduct pre processing for special events
-				switch ( e->ev_event )
-				{
-					case DBGEV_BPHIT:
-						invoke = over_set->s_invoke;
-						if ( (bpset = FindBPSetByBP( invoke->i_tree, e->ev_bp, &bp_id)) == (bp_set_t *)NULL )
-						{
-							// do nothing
-							break;
-						}
-						
-						// if the breakpoint was a watchpoint we need to update the location information
-						switch (bpset->b_bp_type)
-						{
-							case DBGBP_WATCH_TYPE:
-							case DBGBP_AWATCH_TYPE:
-							case DBGBP_RWATCH_TYPE:
-								if (e->ev_bp->bp_loc.loc_file != NULL)
-								{
-									// Free the old value and set it to the new value
-									if(bpset->b_loc_file != NULL)
-										Free(bpset->b_loc_file);
-									bpset->b_loc_file = strdup(e->ev_bp->bp_loc.loc_file);
-								}
-								if (e->ev_bp->bp_loc.loc_func != NULL)
-								{
-									// Free the old value and set it to the new value
-									if(bpset->b_loc_func != NULL)
-										Free(bpset->b_loc_func);
-									bpset->b_loc_func = strdup(e->ev_bp->bp_loc.loc_func);
-								}
-								bpset->b_loc_line = e->ev_bp->bp_loc.loc_line;
-								
-								break;
-							default:
-								// do nothing
-								break;
-						}
-						break;
-					
-					default:
-						// do nothing
-						break;
-				}
-				
 				// print the event
-				PrintEventSet(over_set, ev_set, e);
-				
-				// conduct post processing for special events
-				switch ( e->ev_event )
-				{
-					case DBGEV_BPHIT:
-						invoke = over_set->s_invoke;
-						if ( (bpset = FindBPSetByBP( invoke->i_tree, e->ev_bp, &bp_id)) == (bp_set_t *)NULL )
-						{
-							// do nothing
-							break;
-						}
-						
-						// If the breakpoint was set to delete, we need to delete it. If it was set to dis, we need to disable it.
-						SetList(bpset->b_bp_disp);
-						while((disp_set = (bp_disp_set_t *)GetListElement(bpset->b_bp_disp)) != NULL)
-						{
-							group = bitset_and(disp_set->b_group, reply_set);
-							switch (disp_set->b_bp_disp)
-							{
-								case DBGBP_DELETE_DISP:
-									// remove the breakpoint
-									// NOTE: The breakpoint has already been removed by the backend.
-									bpset_invalid = RemoveBPSet(invoke->i_tree, bpset, e->ev_bp->bp_id, group);
-									break;
-								case DBGBP_DISABLE_DISP:
-									// mark the breakpoint as disabled for the ranks in the reply set.
-									DisableBPForBPSet(bpset, group);
-									break;
-								default:
-									// do nothing
-									break;
-							}
-							bitset_free(group);
-							if (bpset_invalid)
-							{
-								bpset_invalid = 0;
-								break;
-							}
-						}
-						break;
-						
-					default:
-						// do nothing
-						break;
-				}
+				PrintEventSet(over_set, ev_set);
 			}
 		}
 	}

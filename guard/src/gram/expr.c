@@ -1538,6 +1538,9 @@ apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diff)
 
 /*
 ** Apply unary, binary or tertiary operator to a val.
+** FIXME: How to deal with the reply sets here properly in light of the dbginvoke
+** addition? This is a problem because we can apply op's to two replies that came
+** from different dbginvoke_t trees.
 */
 static val_t *
 apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set, val_t **diff)
@@ -1659,7 +1662,7 @@ apply_op_aif_direct:
 						// Need to loop over the reply, create a new rep_set that
 						// will contain the bitset of the v1 reply along with the
 						// data of either v2 or v3 depending on true/false value
-						new_rep_set = NewRepSet(rep_set->tree);
+						new_rep_set = NewRepSet();
 						
 						while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 						{
@@ -1704,7 +1707,7 @@ apply_op_aif_direct:
 									// this new event, and finally add it to the new reply set
 									ev = NewEvent(DBGEV_DATA);
 									ev->ev_data = CopyAIF(RVAL_AIF(tmp));
-									new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+									new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 									AddReplyToSet(new_rep_set, new_reply);
 									break;
 								
@@ -1729,7 +1732,7 @@ apply_op_aif_direct:
 									if (GetNumberOfReply(rep_set) == 1)
 									{
 										reply2 = GetNextReplyInSet(rep_set2);
-										new_reply = NewGroupReply(bitset_dup(reply->rep_group), DupEvent(reply2->rep_event));
+										new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), DupEvent(reply2->rep_event));
 										AddReplyToSet(new_rep_set, new_reply);
 										break;
 									} else
@@ -1761,7 +1764,7 @@ apply_op_aif_direct:
 										}
 										
 										// create the new reply and add it to the set
-										new_reply = NewGroupReply(tset, DupEvent(reply2->rep_event));
+										new_reply = NewGroupReply(reply2->rep_di, tset, DupEvent(reply2->rep_event));
 										AddReplyToSet(new_rep_set, new_reply);
 									}
 									break;
@@ -1907,11 +1910,11 @@ apply_op_aif_direct:
 						// Need to loop over the reply, create a new rep_set that
 						// will contain the bitset of the v1 reply along with the
 						// data of either v2 or v3 depending on true/false value
-						new_rep_set = NewRepSet(rep_set->tree);
+						new_rep_set = NewRepSet();
 						
 						if (check_diff)
 						{
-							diff_rep_set = NewRepSet(rep_set->tree);
+							diff_rep_set = NewRepSet();
 						}
 						
 						while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -1933,7 +1936,7 @@ apply_op_aif_direct:
 							// bitset
 							ev = NewEvent(DBGEV_DATA);
 							ev->ev_data = aif_res;
-							new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+							new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 							AddReplyToSet(new_rep_set, new_reply);
 							
 							// Check the aif_diff
@@ -1941,7 +1944,7 @@ apply_op_aif_direct:
 							{
 								ev = NewEvent(DBGEV_DATA);
 								ev->ev_data = aif_diff;
-								new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+								new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 								AddReplyToSet(diff_rep_set, new_reply);
 							}
 						}
@@ -1979,11 +1982,11 @@ apply_op_aif_direct:
 						
 				// Need to loop over the reply, create a new rep_set that
 				// will contain the bitset of the v1 reply
-				new_rep_set = NewRepSet(rep_set->tree);
+				new_rep_set = NewRepSet();
 				
 				if (check_diff)
 				{
-					diff_rep_set = NewRepSet(rep_set->tree);
+					diff_rep_set = NewRepSet();
 				}
 				
 				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -2012,7 +2015,7 @@ apply_op_aif_direct:
 							// bitset
 							ev = NewEvent(DBGEV_DATA);
 							ev->ev_data = aif_res;
-							new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+							new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 							AddReplyToSet(new_rep_set, new_reply);
 							
 							// Check the aif_diff
@@ -2020,7 +2023,7 @@ apply_op_aif_direct:
 							{
 								ev = NewEvent(DBGEV_DATA);
 								ev->ev_data = aif_diff;
-								new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+								new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 								AddReplyToSet(diff_rep_set, new_reply);
 							}
 							
@@ -2103,7 +2106,7 @@ apply_op_aif_direct:
 								// Make a new event out of the AIF data
 								ev = NewEvent(DBGEV_DATA);
 								ev->ev_data = aif_res;
-								new_reply = NewGroupReply(tset, ev);
+								new_reply = NewGroupReply(reply->rep_di, tset, ev);
 								AddReplyToSet(new_rep_set, new_reply);
 								
 								// Check the aif_diff
@@ -2111,7 +2114,7 @@ apply_op_aif_direct:
 								{
 									ev = NewEvent(DBGEV_DATA);
 									ev->ev_data = aif_diff;
-									new_reply = NewGroupReply(bitset_dup(tset), ev);
+									new_reply = NewGroupReply(reply->rep_di, bitset_dup(tset), ev);
 									AddReplyToSet(diff_rep_set, new_reply);
 								}
 							}
@@ -2213,7 +2216,7 @@ apply_op_aif_direct:
 						
 				// Need to loop over the reply, create a new rep_set that
 				// will contain the bitset of the v1 reply
-				new_rep_set = NewRepSet(rep_set->tree);
+				new_rep_set = NewRepSet();
 						
 				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 				{
@@ -2231,7 +2234,7 @@ apply_op_aif_direct:
 					// bitset
 					ev = NewEvent(DBGEV_DATA);
 					ev->ev_data = aif_res;
-					new_reply = NewGroupReply(bitset_dup(reply->rep_group), ev);
+					new_reply = NewGroupReply(reply->rep_di, bitset_dup(reply->rep_group), ev);
 					AddReplyToSet(new_rep_set, new_reply);
 				}
 						

@@ -72,7 +72,7 @@ extern int				mrn_fe_send_command(mrnet_type *, bitset *target, char *msg);
 extern proto_msg_set * 	mrn_fe_recv_reply(mrnet_type *, bitset *target);
 
 /* enable MRNet frontend to handle failures. */
-extern void				mrn_fe_enable_failure_callback(mrnet_type *);
+extern void				mrn_fe_enable_failure_callback(mrnet_type *, dbginvoke_t *);
 
 /* Obtain event notification fds for the io and event streams */
 extern int				mrn_fe_get_io_notificationfd(mrnet_type *);

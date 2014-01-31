@@ -35,7 +35,6 @@
 #include	"dbgbp.h"
 #include	"df.h"
 #include	"dbg_client.h"
-#include	"dbg_set_async.h"
 #include	"gram.h"
 #include	"bitset.h"
 
@@ -46,7 +45,7 @@ static graph_t *	_active_graph = NULL;
 
 static void	_continue(invoke_t *);
 static void	_halt(invoke_t *, int);
-static void _delete_bp(invoke_t *);
+static void _delete_bp(graph_t *, invoke_t *);
 void		DFDisplayMsg(char *);
 
 /*
@@ -313,11 +312,8 @@ EndDF(graph_t *g)
 		// In order to delete breakpoints, we need to ensure the process has halted first.
 		_halt(invoke, halt);
 		
-		// FIXME: This shouldn't delete all the breakpoints. Rather it should
-		// only delete the breakpoints created by the graph. Currently there is
-		// no way to keep track of this and is a serious flaw.
-		_delete_bp(invoke);
-		RemoveAllBPSet(invoke->i_tree);
+		// delete the breakpoints set by graph
+		_delete_bp(g, invoke);
 	}
 	
 	if (halt)
@@ -544,58 +540,37 @@ DFDisplayMsg(char *msg)
 ** Internal helper routine to delete breakpoints.
 */
 static void
-_delete_bp(invoke_t *i)
+_delete_bp(graph_t *g, invoke_t *i)
 {
-	invoke_group *		ig;
-	dbgprocset_t *		ps;
-	dbg_over_set_t *	over_set;
-	rec_set_t *			rec_set;
+	dbginvoke_t *		di;
+	dbgbp_t *			bp;
 	bp_set_t *			bpset;
-	int					bpset_id;
-	bp_id_set_t *		id_set;
-	rec_set_t *			bp_rec_set;
+	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 	
-	SetInvokeGroup(i);
+	// point at the dbginvoke_t for this invoke
+	di = (dbginvoke_t *)i->i_iexec;
 	
-	while ((ig = GetInvokeGroup(i)) != (invoke_group *)NULL)
+	// create the rec_set
+	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full);
+	
+	SetList(g->g_bp_list);
+	while ((bp = (dbgbp_t *)GetListElement(g->g_bp_list)) != NULL)
 	{
-		ps = FindProcSet(SymLookup(ig->ig_sym));
-		over_set = GetOverlaySetForProcSet(ps);
-		if (over_set == NULL)
+		// Check to see if this di has this breakpoint
+		if ((bpset = FindBPSetForBP(di, bp)) != NULL)
 		{
-			DFErrMsg("ERROR: _delete_bp() cannot get Overlay Set for [%s]!", SymLookup(ig->ig_sym));
-			return;
-		}
-		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
-		
-		SetBPSetHead(i->i_tree);
-		
-		while ((bpset = GetNextBPSet(i->i_tree, &bpset_id)) != (bp_set_t *)NULL)
-		{
-			SetList(bpset->b_bp_id_list);
-			while ((id_set = (bp_id_set_t *)GetListElement(bpset->b_bp_id_list)) != (bp_id_set_t *)NULL)
+			// The dbg_client layer handles all the of the details here
+			if ((rep_set = DbgDeleteBreak(rec_set, bpset->b_bp_id)) != NULL)
 			{
-				bp_rec_set = NewRecSet( rec_set->s_setname, 
-										rec_set->s_invoke_handler,
-										rec_set->s_dbginvoke_handler,
-										rec_set->s_proto_handler,
-										id_set->b_group);
-				if ((rep_set = DbgDeleteBreak(bp_rec_set, id_set->b_bp_id)) != NULL)
-				{
-					ProcessErrorInRepSet(bp_rec_set, rep_set);
-					DFErrMsg("ERROR: Could not delete graph breakpoint.");
-					FreeRepSet(rep_set);
-					FreeRecSet(bp_rec_set);
-					continue;
-				}
-				FreeRecSet(bp_rec_set);
+				ProcessErrorInRepSet(rec_set, rep_set);
+				FreeRepSet(rep_set);	
+				DFErrMsg("ERROR: Could not delete graph breakpoint.");
 			}
 		}
-		
-		FreeRecSet(rec_set);
 	}
+	
+	FreeRecSet(rec_set);
 }
 
 /*

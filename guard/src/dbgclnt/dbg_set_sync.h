@@ -40,7 +40,7 @@ struct rec_set_t
 	void *				s_proto_handler;		//the handler of communication protocol
 	bitset *			s_receiver_bs;			//the bitset representing the receivers
 	dbg_over_set_t *	s_over_set;
-};//fixe me: carry invoke information, required by cmd_go, 
+};
 typedef struct rec_set_t rec_set_t;
 
 extern rec_set_t *	NewRecSetByDbgInvoke(void* di, void* tree, bitset* full);
@@ -55,8 +55,10 @@ extern void			FreeRecSet(rec_set_t* act);
 ** or a normal message (maintained by group_reply_t).
 */
 
+// TODO: Add in a dbginvoke_t entry to each reply, these should be tied to that
 struct group_reply_t
 {
+	void *			rep_di;	// TODO: Make this an actual dbginvoke_t *
 	bitset *		rep_group;
 	dbgevent_t *	rep_event;
 };
@@ -64,18 +66,16 @@ typedef struct group_reply_t group_reply_t;
 
 struct rep_set_t
 {
-	void *		tree;
 	list_t *	rep_list;	// event replies of cmd
 	list_t *	err_list;	// error events
 };
 typedef struct rep_set_t rep_set_t;
 
-extern group_reply_t *		NewGroupReply(bitset *src, dbgevent_t *reply);
-extern void					FreeGroupReply(group_reply_t* rep);
-extern group_reply_t *		CopyGroupReply(group_reply_t *rep);
-extern rep_set_t *			NewRepSet(void *);
+extern group_reply_t *		NewGroupReply(void *di, bitset *src, dbgevent_t *reply);
+extern rep_set_t *			NewRepSet(void);
 extern void					FreeRepSet(rep_set_t* set);
 extern rep_set_t *			CopyRepSet(rep_set_t* set);
+extern rep_set_t *			MergeRepSet(rep_set_t* set, rep_set_t *tmp_set);
 extern void					AddReplyToSet(rep_set_t* set, group_reply_t * rep);
 extern void					AddErrToSet(rep_set_t* set, group_reply_t * err_rep);
 extern void					ResetSet(rep_set_t *set);
@@ -83,23 +83,7 @@ extern int					SetHasError(rep_set_t *set);
 extern void					SetReplyHeadInSet(rep_set_t* set);
 extern int					GetNumberOfReply(rep_set_t* set);
 extern group_reply_t *		GetNextReplyInSet(rep_set_t* set);
-extern void					SetErrHeadInSet(rep_set_t* set);
-extern group_reply_t *		GetNextErrInSet(rep_set_t* set);
 extern int					ProcessErrorInRepSet(rec_set_t *, rep_set_t *);
-
-// FIXME: Modify graph to get rid of this crap. The tokens should be updated to
-// understand the rep_set_t instead of a static AIF.
-
-/*ConvertRepSetToAIF and ExtractRepSetFromAIF are for re-using the existing framework of evaluating expression */
-
-/*
-ConvertRepSetToAIF is called within Dbg<Proto>EvalExpr (like DbgMRNEvalExpr and DbgSCIEvalExpr).
-Dbg<Proto>EvalExpr collects a number of aggregated values with the format of <value, bitset>, which represented by rep_set_t
-ConvertRepSetToAIF converts all the "values" into a AIF_STRUCT that is returned by DbgEvalExpr
-all the "bitsets" are kept within a rep_set_t
-*/
-// FIXME: Remove
-extern AIF*					ConvertRepSetToAIF(rep_set_t* set);
 
 /* This funciont is not rep_set-related*/
 extern bitset*				SetIndividualProcess(bitset* bs, int offset, int procnum); 

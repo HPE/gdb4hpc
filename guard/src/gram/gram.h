@@ -100,13 +100,9 @@ extern void				PrintFunc(FILE *, func_t *);
 /*
 ** invoke.h
 */
-extern invoke_t *		NewInvoke(char *, list_t *, char *, void *);
-extern invoke_group *	NewInvokeGroup(hentry_t *, val_t *, int);
 extern int				CreateInvokeGroupList(expr_t *, list_t *, rec_set_t *);
-extern int				CreateInvokeGroup(list_t *, val_t *, rec_set_t *, int);
 extern int				SetProcsetForInvokeGroup(invoke_group *, dbgprocset_t *);
 extern invoke_t *		AddInvoke(char *, list_t *, char *, void *, void*, bitset*, int);
-extern invoke_t *		FindInvoke(hentry_t *);
 extern invoke_group *	FindInvokeGroup(hentry_t *);
 extern int				SetInvoke(void);
 extern invoke_t *		GetInvoke(void);
@@ -186,9 +182,9 @@ extern dbgprocset_t *	FindProcSet(char *name);
 extern dbgprocset_t *	CurrentProcSet(void);
 extern int				ParseProcSet(dbgprocset_t *, char *, rec_set_t *);
 extern void				PrintProcSet(FILE *, dbgprocset_t *);
-extern int				NumProcs(void);
 extern void				AddOverlaySetToProcSet(dbgprocset_t *, invoke_t *, invoke_group*, bitset *, int, int, int, dbgset_type);
 extern list_t*			GetOverlaySetListByTree(void *);
+extern list_t*			GetOverlaySetListByDbgInvoke(void *);
 extern void				SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetNextOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetOverlaySetForProcSet(dbgprocset_t *);

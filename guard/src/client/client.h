@@ -40,7 +40,7 @@
 /*
 ** Functions defined in main.c
 */
-extern int		EventCB(dbgevent_t *, bitset *, bitset *, void *);
+extern int		EventCB(event_set_t *, bitset *);
 extern void		ForceQuit(void);
 
 /*
@@ -67,7 +67,6 @@ extern int      PrintVal(FILE *, val_t *, rec_set_t *);
 ** Functions defined in cmd_proc.c
 */
 extern void		PrintHaltedLocationSet(char *, bitset *, dbgloc_t *);
-extern void		KillAll(void);
 extern void		EndAll(void);
 
 #endif /* _CLIENT_H */

@@ -4,7 +4,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,9 +18,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
-
 
 #ifndef _DBGCLNT_PROTO_H
 #define _DBGCLNT_PROTO_H
@@ -59,16 +56,16 @@ typedef enum WLM_type WLM_type;
 // main protocol definition
 struct dbgclnt_proto
 {
-	char *					sw_name;												/* Name of the protocol */
+	char *					sw_name;													/* Name of the protocol */
 	
-	int						(*sw_init)(void);										/* protocol init function */
-	void					(*sw_finish)(void);										/* protocol finish function */
+	int						(*sw_init)(void);											/* protocol init function */
+	void					(*sw_finish)(void);											/* protocol finish function */
 	
-	bitset *				(*sw_send_cmd)(proto_network, bitset *, char *);		/* protocol send command function */
-	struct proto_msg_set *	(*sw_recv_reply)(proto_network, bitset *, bitset *);	/* protocol receive reply function */
+	bitset *				(*sw_send_cmd)(struct dbginvoke *, bitset *, char *);		/* protocol send command function */
+	struct proto_msg_set *	(*sw_recv_reply)(struct dbginvoke *, bitset *, bitset *);	/* protocol receive reply function */
 	
-	int						(*sw_checkevents)(struct dbginvoke *);					/* protocol check for ready event function */
-	void					(*sw_dispatchevents)(struct dbginvoke *, int);			/* protocol event dispatch function */
+	int						(*sw_checkevents)(struct dbginvoke *);						/* protocol check for ready event function */
+	void					(*sw_dispatchevents)(struct dbginvoke *, int);				/* protocol event dispatch function */
 
 	/*
 	** Client protocol routines.
@@ -77,21 +74,20 @@ struct dbgclnt_proto
 													WLM_type, 
 													char *, 
 													char *, 
-													char *);						/* protocol create session function */
-	void					(*sw_save_session)(proto_session *);
-	void					(*sw_cleanup_session)(proto_session *);					/* protocol cleanup session function - called when a session is no longer valid */
-	struct dbginvoke *		(*sw_attach)(	struct dbgclnt_proto *, 
+													char *);							/* protocol create session function */
+	void					(*sw_save_session)(proto_session *);	
+	void					(*sw_cleanup_session)(proto_session *);						/* protocol cleanup session function - called when a session is no longer valid */
+	int						(*sw_attach)(	struct dbginvoke *,
 											proto_session *,
 											int,
 											char *, 
 											char *, 
 											int,
-											int);									/* protocol attach function */
-	struct dbginvoke *		(*sw_invoke)(	struct dbgclnt_proto *,
+											int);										/* protocol attach function */
+	int						(*sw_invoke)(	struct dbginvoke *,
 											proto_session *,
 											char *,
 											char **,
-											int,
 											char *,
 											char **,
 											char *,
@@ -99,9 +95,9 @@ struct dbgclnt_proto
 											char **,
 											char *,
 											int,
-											int);									/* protocol launch function */
-	int						(*sw_exit)(struct dbginvoke *, int detach);				/* protocol exit function */
-	void					(*sw_destroyclnt)(struct dbginvoke *);					/* protocol destroy dbginvoke specific instance */
+											int);										/* protocol launch function */
+	int						(*sw_exit)(struct dbginvoke *, int detach);					/* protocol exit function */
+	void					(*sw_destroyclnt)(struct dbginvoke *);						/* protocol destroy dbginvoke specific instance */
 };
 typedef struct dbgclnt_proto		dbgclnt_proto;
 

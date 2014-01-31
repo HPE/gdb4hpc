@@ -49,6 +49,10 @@
 
 #define RECONNECT_TRIES		10
 
+// These are static in dbg_client, here they are provided by dbg_client_proxy.c
+extern dbginvoke_t *	NewDbgInvoke(int, dbgclnt_proto *);
+extern void				FreeDbgInvoke(dbginvoke_t *);
+
 /*
 ** global variables
 */
@@ -813,7 +817,7 @@ DbgDispatchEvents(void)
 	if (FD_ISSET(PROXY_SESSION_CMDFD(sess), &dispatch_fds))
 	{
 		proxy_msg_header	msg_head;
-		char *				msg;
+		char *				msg = NULL;
 		proto_msg_set *		pmsg_set;
 		proto_message *		pmsg;
 		bitset *			set;
@@ -847,17 +851,19 @@ DbgDispatchEvents(void)
 			return;
 		}
 		
-		// Next recv the message
-		
-		// Create a string buffer to receive the message
-		msg = (char *)Alloc(msg_head.msg_len);
-		
-		// recv the message
-		if (recv(PROXY_SESSION_CMDFD(sess), msg, msg_head.msg_len, MSG_WAITALL) < 0)
+		// Next recv the message if there is one
+		if (msg_head.msg_len > 0)
 		{
-			PrintOutError("Failed to recv on event socket.\n");
-			Free(msg);
-			return;
+			// Create a string buffer to receive the message
+			msg = (char *)Alloc(msg_head.msg_len);
+		
+			// recv the message
+			if (recv(PROXY_SESSION_CMDFD(sess), msg, msg_head.msg_len, MSG_WAITALL) < 0)
+			{
+				PrintOutError("Failed to recv on event socket.\n");
+				Free(msg);
+				return;
+			}
 		}
 		
 		// switch on the msg_type
@@ -902,7 +908,7 @@ DbgDispatchEvents(void)
 				}
 				
 				// Send the command
-				set = DBG_PROTO_SW(di)->sw_send_cmd(di->d_proto_net, pmsg->group, pmsg->message);
+				set = DBG_PROTO_SW(di)->sw_send_cmd(di, pmsg->group, pmsg->message);
 				
 				// cleanup
 				FreeProtoMsg(pmsg);
@@ -973,7 +979,7 @@ DbgDispatchEvents(void)
 					return;
 				}
 			
-				pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di->d_proto_net, recv_set->target, recv_set->received);
+				pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di, recv_set->target, recv_set->received);
 				
 				// send the result back
 				
@@ -1088,22 +1094,26 @@ DbgDispatchEvents(void)
 					// Handle error
 					return;
 				}
+				
+				// Create the dbginvoke_t object to pass down, nproc is unknown since this
+				// is the attach case
+				di = NewDbgInvoke(0, ptab);
 	
 				// Call the protocol specific attach function
 				// TODO: This could be modified to allow for multiple proxy invocations,
 				//       to support multiple hops, but that is not required right now...
-				di = ptab->sw_attach(	ptab, NULL, att_args->pid, att_args->arch, att_args->backend,
+				if (ptab->sw_attach(	di, NULL, att_args->pid, att_args->arch, att_args->backend,
 										att_args->gpu_flag, att_args->debug_flag
-									);
+									))
+				{
+					// Handle error
+					FreeAttachArgs(att_args);
+					FreeDbgInvoke(di);
+					return;
+				}
 									
 				// cleanup attach args
 				FreeAttachArgs(att_args);
-									
-				if (di == NULL)
-				{
-					// Handle error
-					return;
-				}
 				
 				// set the proto id in the di
 				di->d_proto_id = PROXY_ID(inst);
@@ -1202,18 +1212,21 @@ DbgDispatchEvents(void)
 					// Handle error
 					return;
 				}
+				
+				// Create the dbginvoke_t object to pass down
+				di = NewDbgInvoke(inv_args->nproc, ptab);
 	
 				// Call the protocol specific invoke function
 				// TODO: This could be modified to allow for multiple proxy invocations,
 				//       to support multiple hops, but that is not required right now...
-				di = ptab->sw_invoke(	ptab, NULL, inv_args->prog, inv_args->argv, inv_args->nproc, inv_args->arch, 
+				if (ptab->sw_invoke(	di, NULL, inv_args->prog, inv_args->argv, inv_args->arch, 
 										inv_args->arch_args, inv_args->arch_input, inv_args->backend, inv_args->env, 
 										inv_args->cwd, inv_args->gpu_flag, inv_args->debug_flag
-									);
-									
-				if (di == NULL)
+									))
 				{
 					// Handle error
+					FreeInvokeArgs(inv_args);
+					FreeDbgInvoke(di);
 					return;
 				}
 				
@@ -1232,6 +1245,42 @@ DbgDispatchEvents(void)
 				pmsg_set = NewProtoMsgSet();
 				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent(DBG_OK))));
 				DbgDispatchProtoEvents(di, pmsg_set);
+				
+				break;
+				
+			case MSG_SAVE_SESSION:
+				// Set this session as valid
+				PROXY_SESSION_VALID(sess) = 1;
+				
+				// Send the MSG_OK response
+				msg_head.msg_id = -1;
+				msg_head.msg_len = 0;
+				msg_head.msg_type = MSG_OK;
+				
+				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
+				{
+					PrintOutError("Could not send header on cmd stream.\n");
+				}
+				
+				break;
+				
+			case MSG_CLEANUP_SESSION:
+				// Set this session as invalid
+				PROXY_SESSION_VALID(sess) = 0;
+				
+				// Send the MSG_OK response
+				msg_head.msg_id = -1;
+				msg_head.msg_len = 0;
+				msg_head.msg_type = MSG_OK;
+				
+				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
+				{
+					PrintOutError("Could not send header on cmd stream.\n");
+				}
+				
+				// Call the cleanup function to ensure it gets cleaned up if there are no longer
+				// any valid instances connected with the session. This might cause us to exit.
+				CleanupProxySession(sess);
 				
 				break;
 			
@@ -1412,7 +1461,6 @@ PrintOutMsg(char *format, ...)
 void
 ForceQuit(void)
 {
-	PrintOutError("Force quit.\n");
 	_exit(1);
 }
 

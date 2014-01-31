@@ -929,25 +929,29 @@ mrn_fe_delete_network(mrnet_type *mrnet)
 }
 
 static void
-mrnet_fe_failure_callback()
+mrnet_fe_failure_callback(void *cb_data)
 {
-	PrintOutError("ERROR: MRNet failure callback invoked.\n");
+	dbginvoke_t *	di = (dbginvoke_t *)cb_data;	
+	
+	PrintOutError("\nERROR: MRNet failure callback invoked.\n");
 	PrintOutError("Debugger is shutting down! Please file a bugreport.\n");
 	PrintOutError("Re-run with setting CRAY_DBG_LOG_DIR to a cross mounted location\n");
 	PrintOutError("and adding --debug to your launch/attach statement. Submit the\n");
-	PrintOutError("generated logs with the bugreport.\n");
+	PrintOutError("generated logs with the bugreport.\n\n");
+	
+	di->d_isShutdown = 1;
 	
 	// Force ccdb to shutdown
 	ForceQuit();
 }
 
 void
-mrn_fe_enable_failure_callback(mrnet_type *mrnet)
+mrn_fe_enable_failure_callback(mrnet_type *mrnet, dbginvoke_t *di)
 {
 	if (mrnet == NULL)
 		return;
 
-	network_register_Failure_event_callback(mrnet->network, mrnet_fe_failure_callback);
+	network_register_Failure_event_callback(mrnet->network, mrnet_fe_failure_callback, (void *)di);
 }
 
 static void

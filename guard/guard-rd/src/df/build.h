@@ -55,7 +55,7 @@ extern void		BuildMPWait(graph_t *, var_t *);
 extern void		BuildMPWaitProc(graph_t *, graph_inv *, var_t *, int);
 extern void		BuildUnused(graph_t *, var_t *);
 extern void		BuildUnusedProc(graph_t *, graph_inv *, var_t *, int);
-extern void		BuildUnusedProcSet(graph_t *, graph_inv *, var_t *, bitset *);
+extern void		BuildUnusedProcSet(graph_t *, graph_inv *, var_t *);
 extern int		BuildBlockMap(graph_t *, g_block_map_t *, var_t *, extrainfo *, int);
 extern void		BuildMerge(graph_t *, var_t *, int, int, int);
 extern int		BuildMergeProc(graph_t *, graph_inv *, var_t *, int, int, int, int);

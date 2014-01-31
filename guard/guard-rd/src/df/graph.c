@@ -33,7 +33,7 @@
 
 graph_procset *	NewGraphProcSet(graph_t *, invoke_group *, int);
 
-extern int		NodeEvent(dbgevent_t *, bitset*, bitset*, void *);
+extern int		NodeEvent(event_set_t *, bitset *);
 
 /*
 ** Create a new graph.
@@ -65,8 +65,8 @@ NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *, int), void
 	g->g_assert_info_tab = NewAssertInfoTable();
 	g->g_startnode = -1;
 	g->g_initnode = -1;
-	g->g_procs = NewList();
 	g->g_invoke_list = NewList();
+	g->g_bp_list = NewList();
 	g->g_assigns = NewList();
 	g->g_vars = NewList();
 	g->g_assert_cmds = NewList();
@@ -240,8 +240,8 @@ DestroyGraph(graph_t *g)
 	DestroyNodes(g->g_nodes);
 	HashDestroy(g->g_inv, destroyInv);
 	DestroyList(g->g_diff, destroyGDiff);
-	DestroyList(g->g_procs, (void (*)())NULL);
-	DestroyList(g->g_invoke_list, (void (*)())NULL);
+	DestroyList(g->g_invoke_list, NULL);
+	DestroyList(g->g_bp_list, FreeBP);
 	DestroyList(g->g_assigns, DestroyAssign);
 	DestroyList(g->g_vars, DestroyVar);
 	DestroyList(g->g_assert_cmds, Free);

@@ -39,7 +39,7 @@
 #include "dbgclnt_proto.h"
 #include "dbgoutp.h"
 #include "dbgclnt_debugfe.h"
-#include "dbg_set_async.h"
+#include "dbgevent.h"
 #include "dbg_set_sync.h"
 
 #define RPC_TIMEOUT	600
@@ -49,6 +49,9 @@
 /*
 ** debugger client struct and type definitions
 */
+
+// Forward declare event set
+struct event_set;
                                     
 // This is data used by the protocol layer for application output
 // Usually this will be a g_progoutp_t *, but it depends on the proto.
@@ -57,25 +60,27 @@ typedef void *	proto_outp;
 // This is the protocol callback function prototype
 typedef int	(*proto_ev_callback_func)(struct dbginvoke *, proto_msg_set *);
 // This is the client callback function prototype
-typedef int	(*clnt_ev_callback_func)(dbgevent_t *, bitset *, bitset *, void *);
+// Arguments are the event_set for this event and a bitset containing the new ranks to report this event
+typedef int	(*clnt_ev_callback_func)(struct event_set *, bitset *);
 // This is the proto program output callback function prototype
 typedef void(*proto_outp_callback_func)(struct dbginvoke *, FILE *);
 
 struct dbginvoke
 {
-	int							d_started;				/* indicates if this di has been started */
-	int							d_nproc;				/* number of processes */
-	int							d_pid;					/* pid of invoke process */
-	int							d_apid;					/* apid of invoke process for Cray platform */
-	int							d_stat;					/* exit/signal status of proc */
-	list_t *					d_evfds;				/* event notification fds specific to this instance */
-	bitset *					d_bitset_full;			/* represents all dbgsrvs*/
-	bitset *					d_bitset_launched;		/* for invoke cmd: represents dbgsrvs that has been launched */
+	int							d_started;				// indicates if this di has been started
+	int							d_isShutdown;			// Some networks can use this during error handling. If this is true, the network is already shutdown.
+	int							d_nproc;				// number of processes
+	int							d_pid;					// pid of invoke process
+	int							d_apid;					// apid of invoke process for Cray platform
+	int							d_stat;					// exit/signal status of proc
+	list_t *					d_evfds;				// event notification fds specific to this instance
+	bitset *					d_bitset_full;			// represents all dbgsrvs
+	bitset *					d_bitset_launched;		// for invoke cmd: represents dbgsrvs that has been launched
 	
-	int							d_proto_id;				/* di specific protocol id - optionally used by certain protocols */
-	proto_network				d_proto_net;			/* di specific protocol network object */
-	proto_outp					d_proto_outp;			/* di specific protocol output object */
-	dbgclnt_proto *				d_proto;				/* client protocol switch */
+	int							d_proto_id;				// di specific protocol id - optionally used by certain protocols
+	proto_network				d_proto_net;			// di specific protocol network object
+	proto_outp					d_proto_outp;			// di specific protocol output object
+	dbgclnt_proto *				d_proto;				// client protocol switch
 	
 	// The following two callbacks are for protocol event messages and for
 	// handling the actual events in the client layer.
@@ -84,27 +89,81 @@ struct dbginvoke
 	// This is the callback for handling application output in the client
 	proto_outp_callback_func	d_proto_outp_callback;
 	
-	dbgfrontend_sw *			d_frontend;				/* debug frontend object */
+	dbgfrontend_sw *			d_frontend;				// debug frontend object
+	
+	// Extensions for client support
+	list_t *					d_eventset_list;		// pending events
+	list_t *					d_bpset_list; 			// current breakpoints
+	int							d_global_bpset_id;		// PRIVATE TO DBG_CLIENT!!! Do not use!
 };
 typedef struct dbginvoke	dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
 
-// This defines the session interface. Sessions can be associated with launch/attach
-// commands. It's up to the protocol implementation of this interface to handle
-// the session object.
-struct dbgclnt_session
+// These are asynchronous events that were recv 
+struct event_set
 {
-	// determines if this session is still valid
-	int					isValid;
-	// number of dbginvoke_t objects that reference this session.
-	int					refCount;
-	// The protocol specific session implementation
-	proto_session		pSession;
+	dbginvoke_t *	e_di;
+	bitset *		e_group;
+	dbgevent_t *	e_ev;
 };
-typedef struct dbgclnt_session dbgclnt_session;
-#define DBG_SESS_VALID(p)			(p)->isValid
-#define DBG_SESS_REFCNT(p)			(p)->refCount
-#define DBG_SESS_PROTO_SESSION(p)	(p)->pSession
+typedef struct event_set event_set_t;
+
+// This is used to represent breakpoints and is accessible by the client layer.
+// It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
+// object.
+struct bp_set
+{
+	// Current bp num - This gets reset every time a bp_set is returned to the client.
+	// These numbers are issued per dbginvoke_t object. The dbg_client layer needs
+	// to remember to update these when returning the object to the client layer.
+	int				b_bp_id;		// The current breakpoint number
+
+	// group information
+	bitset *		b_group;		// All ranks that contain this breakpoint
+	
+	// breakpoint unique gdb id's
+	list_t *		b_bp_id_list;	// a list of bp_id_set_t - private to dbgclnt layer
+	
+	// breakpoint information
+	bitset *		b_bp_enabled;	// set representing enabled breakpoints, this can vary by rank.
+	list_t *		b_bp_disp;		// a list of bp_disp_set_t representing breakpoint disposition (i.e. keep, dis, del), this can vary by rank.
+	dbgbp_type		b_bp_type;		// breakpoint type (i.e. breakpoint, watchpoint)
+	
+	// breakpoint locale
+	char *			b_loc_addr;		// locale address
+	char *			b_loc_file;		// locale file
+	char *			b_loc_func;		// locale function
+	int				b_loc_line;		// locale line
+	
+	char *			b_bp_exp;		// watchpoint expression
+};
+typedef struct bp_set bp_set_t;
+
+// Only should be used in the dbg_client layer. This is used to map the client
+// breakpoint number onto gdb backend breakpoint numbers.
+struct bp_id_set
+{
+	bitset *		b_group;
+	int				b_bp_id; //unique bkpt id assigned by each gdb
+};
+typedef struct bp_id_set bp_id_set_t;
+
+// This is used when checking the disposition of the breakpoint (i.e. enabled, disabled, etc)
+struct bp_disp_set
+{
+	bitset *		b_group;	// bitset representing the ranks with this disposition
+	dbgbp_disp		b_bp_disp;	// disposition value
+};
+typedef struct bp_disp_set bp_disp_set_t;
+
+/*
+** Async client routines 
+*/
+extern bp_set_t *		FindBPSetByID(dbginvoke_t *, int);
+extern bp_set_t * 		FindBPSetForBP(dbginvoke_t *di, dbgbp_t* bp);
+extern void				ResetBPSetList(dbginvoke_t *di);
+extern bp_set_t *		GetNextBPSet(dbginvoke_t *di);
+extern int				EmptyBPSetList(dbginvoke_t *di);
 
 /*
 ** debugger client function prototypes
@@ -112,9 +171,6 @@ typedef struct dbgclnt_session dbgclnt_session;
 extern void				ForceQuit(void);
 extern void				HoldSignals(void);
 extern void				ReleaseSignals(void);
-extern dbginvoke_t *	NewDbgInvoke(int, dbgclnt_proto *);
-extern void				FreeDbgInvoke(dbginvoke_t *);
-extern SOCKET			ConnectIO(char *, int);
 
 /*
 ** interface prototypes
@@ -182,10 +238,13 @@ extern rep_set_t *		DbgSetWatch(rec_set_t *, int, char *);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *		DbgKill(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
+// Pass in bp_set num, 0 means everything
 extern rep_set_t *		DbgDeleteBreak(rec_set_t *, int);
 // Returns NULL on success, otherwise reply will contain error
+// Pass in bp_set num, 0 means everything
 extern rep_set_t *		DbgDisableBreak(rec_set_t *, int);
 // Returns NULL on success, otherwise reply will contain error
+// Pass in bp_set num, 0 means everything
 extern rep_set_t *		DbgEnableBreak(rec_set_t *, int, int, int);
 extern rep_set_t *		DbgList(rec_set_t *, char *);
 extern rep_set_t *		DbgGetSources(rec_set_t *);

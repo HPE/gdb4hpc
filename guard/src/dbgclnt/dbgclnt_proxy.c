@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgclnt_proxy.c - Debugger proxy interface routines
  *
- * © 2013 Cray Inc.  All Rights Reserved.
+ * © 2013-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -52,18 +52,18 @@
 // protocol prototypes
 static int				DbgPROXYInit(void);
 static void				DbgPROXYFinish(void);
-static bitset *			DbgPROXYSendCmd(proto_network, bitset *, char *);
-static proto_msg_set *	DbgPROXYRecvReply(proto_network, bitset *, bitset *);
+static bitset *			DbgPROXYSendCmd(dbginvoke_t *, bitset *, char *);
+static proto_msg_set *	DbgPROXYRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void				DbgPROXYDispatchEvents(dbginvoke_t *, int);
 static proto_session *	DbgPROXYCreateSession(	dbgclnt_proto *, WLM_type manager, 
 												char *batch_template, char *hostname, 
 												char *username);
 static void				DbgPROXYSaveSession(proto_session *);			
 static void				DbgPROXYCleanupSession(proto_session *);
-static dbginvoke_t *	DbgPROXYAttach(	dbgclnt_proto *, proto_session *, int, char *,
+static int				DbgPROXYAttach(	dbginvoke_t *, proto_session *, int, char *,
 										char *, int, int);
-static dbginvoke_t *	DbgPROXYInvoke(	dbgclnt_proto *, proto_session *, char *, char **, 
-										int, char *, char **, char *, char *, char **, 
+static int				DbgPROXYInvoke(	dbginvoke_t *, proto_session *, char *, char **, 
+										char *, char **, char *, char *, char **, 
 										char *, int, int);
 static int				DbgPROXYExit(dbginvoke_t *, int);
 static void				DbgPROXYDestroyClient(dbginvoke_t *);
@@ -1187,6 +1187,7 @@ static void
 DbgPROXYSaveSession(proto_session *session)
 {
 	proxy_session *		sess;
+	proxy_msg_header	msg_head;
 	
 	if ((session == NULL) || ((sess = (proxy_session *)session->sess_obj) == NULL))
 	{
@@ -1196,6 +1197,37 @@ DbgPROXYSaveSession(proto_session *session)
 	
 	// Set this session as valid
 	PROXY_SESSION_VALID(sess) = 1;
+	
+	// Send a command to the proxy daemon to keep the session alive
+	msg_head.msg_id = -1;	// No id since this command is for the session, not an instance
+	msg_head.msg_len = 0;	// No length, not actually forwarding a protocol command here
+	msg_head.msg_type = MSG_SAVE_SESSION;
+	
+	if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
+	{
+		PrintOutError("Could not send header on cmd stream.\n");
+		PrintOutError("Failed to save session.\n");
+		PROXY_SESSION_VALID(sess) = 0;
+		return;
+	}
+	
+	// Block until we recv the header, we expect an ok back at which point 
+	// we will cleanup
+	if (recv(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), MSG_WAITALL) < 0)
+	{
+		PrintOutError("Failed to recv header on event socket.\n");
+		PrintOutError("Failed to save session.\n");
+		PROXY_SESSION_VALID(sess) = 0;
+		return;
+	}
+	
+	// ensure we got an okay
+	if (msg_head.msg_type != MSG_OK)
+	{
+		PrintOutError("Failed to receive ok message during session save.\n");
+		PrintOutError("Failed to save session.\n");
+		PROXY_SESSION_VALID(sess) = 0;
+	}
 }
 
 /*
@@ -1205,6 +1237,7 @@ static void
 DbgPROXYCleanupSession(proto_session *session)
 {
 	proxy_session *		sess;
+	proxy_msg_header	msg_head;
 	
 	if ((session == NULL) || ((sess = (proxy_session *)session->sess_obj) == NULL))
 	{
@@ -1214,6 +1247,29 @@ DbgPROXYCleanupSession(proto_session *session)
 	
 	// Set this session as invalid
 	PROXY_SESSION_VALID(sess) = 0;
+	
+	// Send a command to the proxy daemon to keep the session alive
+	msg_head.msg_id = -1;	// No id since this command is for the session, not an instance
+	msg_head.msg_len = 0;	// No length, not actually forwarding a protocol command here
+	msg_head.msg_type = MSG_CLEANUP_SESSION;
+	
+	if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
+	{
+		PrintOutError("Could not send header on cmd stream.\n");
+	}
+	
+	// Block until we recv the header, we expect an ok back at which point 
+	// we will cleanup
+	if (recv(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), MSG_WAITALL) < 0)
+	{
+		PrintOutError("Failed to recv header on event socket.\n");
+	}
+	
+	// ensure we got an okay
+	if (msg_head.msg_type != MSG_OK)
+	{
+		PrintOutError("Failed to receive ok message during session cleanup.\n");
+	}
 	
 	// Call the cleanup function to ensure it gets cleaned up if there are no longer
 	// any valid instances connected with the session
@@ -1226,9 +1282,9 @@ DbgPROXYCleanupSession(proto_session *session)
 /*
 ** Attach to user program through proxy daemon
 */
-static dbginvoke_t *
+static int
 DbgPROXYAttach(
-	dbgclnt_proto *proto,
+	dbginvoke_t *di,
 	proto_session *session,
 	int pid,
 	char *arch,
@@ -1237,7 +1293,6 @@ DbgPROXYAttach(
 	int debug_flag
 )
 {
-	dbginvoke_t *		di;
 	proxy_session *		sess;
 	proxy_type *		net;
 	proxy_msg_header	msg_head;
@@ -1246,9 +1301,9 @@ DbgPROXYAttach(
 	int *				err_fd_ptr;
 	int *				msg_fd_ptr;
 	
-	// create the debug invoke object
-	// Note that the number of procs are unknown currently
-	di = NewDbgInvoke(0, proto);
+	// Ensure the dbginvoke_t object was passed in
+	if (di == NULL)
+		return 1;
 	
 	// Set the initial protocol event callback to use our custom event handler
 	// for launching
@@ -1258,8 +1313,7 @@ DbgPROXYAttach(
 	if ((session == NULL) || ((sess = (proxy_session *)session->sess_obj) == NULL))
 	{
 		PrintOutError("No valid session provided to attach!\n");
-		FreeDbgInvoke(di);
-		return NULL;
+		return 1;
 	}
 	
 	// Create a new proxy_type object
@@ -1279,18 +1333,16 @@ DbgPROXYAttach(
 	if (send(PROXY_CMDFD(net), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 	{
 		PrintOutError("Could not send header on cmd stream.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Send the msg
 	if (send(PROXY_CMDFD(net), msg, msg_head.msg_len, 0) != msg_head.msg_len)
 	{
 		PrintOutError("Could not send invoke args on cmd stream.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Done with msg
@@ -1302,9 +1354,8 @@ DbgPROXYAttach(
 	if ((PROXY_EVENTFD(net) = accept(PROXY_LISTENFD(net), (struct sockaddr *)&PROXY_EVENTSOCK(net), &PROXY_SLEN(net))) == -1)
 	{
 		PrintOutError("Unable to accept incoming event stream connection.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	DPRINT("DbgPROXYAttach: Event stream attached.\n");
@@ -1313,9 +1364,8 @@ DbgPROXYAttach(
 	if ((PROXY_OUTPUTFD(net) = accept(PROXY_LISTENFD(net), (struct sockaddr *)&PROXY_OUTPUTSOCK(net), &PROXY_SLEN(net))) == -1)
 	{
 		PrintOutError("Unable to accept incoming output stream connection.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	DPRINT("DbgPROXYAttach: Output stream attached.\n");
@@ -1327,9 +1377,8 @@ DbgPROXYAttach(
 	if ((PROXY_OUTPUTSTREAM(net) = fdopen(PROXY_OUTPUTFD(net), "r")) == NULL)
 	{
 		PrintOutError("Output stream fdopen failed.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Now set the stream for program output.
@@ -1384,13 +1433,12 @@ DbgPROXYAttach(
 		if (WaitForProtoStartupEvent(di) == -1 || callback_failure == 1)
 		{
 			PrintOutError("Could not receive attach callbacks!\n");
-			FreeDbgInvoke(di);
-			return NULL;
+			return 1;
 		}
 	}
 	
 	// All done. Everything is ready to go at this point.
-	return di;
+	return 0;
 }
 
 /*
@@ -1464,13 +1512,12 @@ cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set)
 /*
 ** Invoke user program through proxy daemon
 */
-static dbginvoke_t *
+static int
 DbgPROXYInvoke(
-	dbgclnt_proto *proto,
+	dbginvoke_t *di,
 	proto_session *session,
 	char *prog,
 	char **argv,
-	int nproc,
 	char *arch,
 	char **arch_args,
 	char *arch_input,
@@ -1481,7 +1528,6 @@ DbgPROXYInvoke(
 	int debug_flag
 )
 {
-	dbginvoke_t *		di;
 	proxy_session *		sess;
 	proxy_type *		net;
 	proxy_msg_header	msg_head;
@@ -1491,8 +1537,9 @@ DbgPROXYInvoke(
 	int *				msg_fd_ptr;
 	int *				outp_fd_ptr;
 	
-	// create the debug invoke object
-	di = NewDbgInvoke(nproc, proto);
+	// Ensure the dbginvoke_t object was passed in
+	if (di == NULL)
+		return 1;
 	
 	// Set the initial protocol event callback to use our custom event handler
 	// for launching
@@ -1502,8 +1549,7 @@ DbgPROXYInvoke(
 	if ((session == NULL) || ((sess = (proxy_session *)session->sess_obj) == NULL))
 	{
 		PrintOutError("No valid session provided to launch!\n");
-		FreeDbgInvoke(di);
-		return NULL;
+		return 1;
 	}
 	
 	// Create a new proxy_type object
@@ -1514,7 +1560,7 @@ DbgPROXYInvoke(
 	msg_head.msg_type = MSG_INVOKE;
 	
 	// Create the invoke args string
-	msg = InvokeArgsToSocProto(	prog, argv, nproc, arch, arch_args, arch_input,
+	msg = InvokeArgsToSocProto(	prog, argv, di->d_nproc, arch, arch_args, arch_input,
 								backend, env, cwd, gpu_flag, debug_flag);
 								
 	// set the length in the header
@@ -1524,18 +1570,16 @@ DbgPROXYInvoke(
 	if (send(PROXY_CMDFD(net), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 	{
 		PrintOutError("Could not send header on cmd stream.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Send the msg
 	if (send(PROXY_CMDFD(net), msg, msg_head.msg_len, 0) != msg_head.msg_len)
 	{
 		PrintOutError("Could not send invoke args on cmd stream.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Done with msg
@@ -1547,9 +1591,8 @@ DbgPROXYInvoke(
 	if ((PROXY_EVENTFD(net) = accept(PROXY_LISTENFD(net), (struct sockaddr *)&PROXY_EVENTSOCK(net), &PROXY_SLEN(net))) == -1)
 	{
 		PrintOutError("Unable to accept incoming event stream connection.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	DPRINT("DbgPROXYInvoke: Event stream attached.\n");
@@ -1558,9 +1601,8 @@ DbgPROXYInvoke(
 	if ((PROXY_OUTPUTFD(net) = accept(PROXY_LISTENFD(net), (struct sockaddr *)&PROXY_OUTPUTSOCK(net), &PROXY_SLEN(net))) == -1)
 	{
 		PrintOutError("Unable to accept incoming output stream connection.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	DPRINT("DbgPROXYInvoke: Output stream attached.\n");
@@ -1572,9 +1614,8 @@ DbgPROXYInvoke(
 	if ((PROXY_OUTPUTSTREAM(net) = fdopen(PROXY_OUTPUTFD(net), "r")) == NULL)
 	{
 		PrintOutError("Output stream fdopen failed.\n");
-		FreeDbgInvoke(di);
 		FreeProxyType(net);
-		return NULL;
+		return 1;
 	}
 	
 	// Set the stream to non-blocking
@@ -1589,11 +1630,11 @@ DbgPROXYInvoke(
 	DPRINT("Proxy connected.\n");
 	
 	// Create the full bitset based on the number of ranks
-	di->d_bitset_full = bitset_new(nproc);
+	di->d_bitset_full = bitset_new(di->d_nproc);
 	bitset_invert(di->d_bitset_full);
 	
 	// Create the empty launched bitset
-	di->d_bitset_launched = bitset_new(nproc);
+	di->d_bitset_launched = bitset_new(di->d_nproc);
 	
 	// Set the network object in the dbginvoke
 	di->d_proto_net = net;
@@ -1643,13 +1684,12 @@ DbgPROXYInvoke(
 		if (WaitForProtoStartupEvent(di) == -1 || callback_failure == 1)
 		{
 			PrintOutError("Could not receive launch callbacks!\n");
-			FreeDbgInvoke(di);
-			return NULL;
+			return 1;
 		}
 	}
 	
 	// All done. Everything is ready to go at this point.
-	return di;
+	return 0;
 }
 
 /*
@@ -1767,20 +1807,17 @@ DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd)
 	proto_msg_set *		ev_res;
 	char *				line;
 	
-	// Handle condition where network is null, user probably did a ctrl-c.
-	// We recover by deleting the dbginvoke_t object.
-	if (network == NULL)
-	{
-		FreeDbgInvoke(di);
-		return;
-	}
-	
 	// dispatch events
 	if (ev_fd == PROXY_EVENTFD(network))
 	{
 		// get the message
 		if ((ev_res = DbgPROXYRecvProtoMsg(PROXY_EVENTFD(network))) == NULL)
 		{
+			// If this happens, it means the proxy daemon died. We should force
+			// quit to happen here since it is unexpected. We expect that the
+			// proxy already sent us an error string, so print a brief one.
+			di->d_isShutdown = 1;
+			ForceQuit();
 			return;
 		}
 		
@@ -1852,9 +1889,9 @@ DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd)
 }
 
 static bitset *
-DbgPROXYSendCmd(proto_network net, bitset *target, char *request)
+DbgPROXYSendCmd(dbginvoke_t *di, bitset *target, char *request)
 {
-	proxy_type *		network = net;
+	proxy_type *		network = di->d_proto_net;
 	bitset *			received;
 	proto_msg_set *		pmsg_set;
 	proto_message *		pmsg;
@@ -1863,6 +1900,12 @@ DbgPROXYSendCmd(proto_network net, bitset *target, char *request)
 
 	if (request == NULL)
 		return NULL;
+		
+	// send command only if not already in a shutdown state
+	if (di->d_isShutdown)
+	{
+		return NULL;
+	}
 	
 	// Convert the arguments to a proto message
 	pmsg = NewProtoMsg(bitset_dup(target), strdup(request));
@@ -1918,15 +1961,21 @@ DbgPROXYSendCmd(proto_network net, bitset *target, char *request)
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
 static proto_msg_set *
-DbgPROXYRecvReply(proto_network net, bitset *target, bitset *received)
+DbgPROXYRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 {
-	proxy_type *		network = net;
+	proxy_type *		network = di->d_proto_net;
 	int					full = 0;
 	proto_msg_set *		pmsg_set = NULL;
 	proto_message *		pmsg;
 	proto_msg_set *		result = NULL;
 	proxy_msg_header	msg_head;
 	char *				msg;
+	
+	// recv reply only if not already in a shutdown state
+	if (di->d_isShutdown)
+	{
+		return NULL;
+	}
 	
 	// Convert the received bitset to a recv type message
 	msg = RecvToSocProto(target, received);
@@ -2005,40 +2054,41 @@ DbgPROXYExit(dbginvoke_t *di, int detach)
 	proxy_msg_header	msg_head;
 	char *				msg;
 
-	// Create a message containing the args
-	msg = ExitArgsToSocProto(detach);
+	// send exit only if not already in a shutdown state
+	if (!di->d_isShutdown)
+	{
+		// Create a message containing the args
+		msg = ExitArgsToSocProto(detach);
 
-	// send a recv command by sending the header with a recv type
-	msg_head.msg_id = PROXY_ID(network);
-	msg_head.msg_len = (int)strlen(msg) * sizeof(char);
-	msg_head.msg_type = MSG_EXIT;
+		// send a recv command by sending the header with a recv type
+		msg_head.msg_id = PROXY_ID(network);
+		msg_head.msg_len = (int)strlen(msg) * sizeof(char);
+		msg_head.msg_type = MSG_EXIT;
 	
-	if (send(PROXY_CMDFD(network), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
-	{
-		PrintOutError("Could not send header on cmd stream.\n");
-		return 1;
-	}
+		if (send(PROXY_CMDFD(network), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
+		{
+			PrintOutError("Could not send header on cmd stream.\n");
+		}
 	
-	// send the msg
-	if (send(PROXY_CMDFD(network), msg, msg_head.msg_len, 0) != msg_head.msg_len)
-	{
-		PrintOutError("Could not send msg on cmd stream.\n");
-		return 1;
-	}
+		// send the msg
+		if (send(PROXY_CMDFD(network), msg, msg_head.msg_len, 0) != msg_head.msg_len)
+		{
+			PrintOutError("Could not send msg on cmd stream.\n");
+		}
 
-	// Block until we recv the header, we expect an ok back at which point 
-	// we will cleanup
-	if (recv(PROXY_CMDFD(network), &msg_head, sizeof(proxy_msg_header), MSG_WAITALL) < 0)
-	{
-		PrintOutError("Failed to recv header on event socket.\n");
-		return 1;
-	}
+		// Block until we recv the header, we expect an ok back at which point 
+		// we will cleanup
+		if (recv(PROXY_CMDFD(network), &msg_head, sizeof(proxy_msg_header), MSG_WAITALL) < 0)
+		{
+			PrintOutError("Failed to recv header on event socket.\n");
+		}
 
-	// ensure we got an okay
-	if (msg_head.msg_type != MSG_OK)
-	{
-		// non-fatal error
-		PrintOutError("Failed to receive ok message during exit.\n");
+		// ensure we got an okay
+		if (msg_head.msg_type != MSG_OK)
+		{
+			// non-fatal error
+			PrintOutError("Failed to receive ok message during exit.\n");
+		}
 	}
 	
 	// cleanup the proxy instance

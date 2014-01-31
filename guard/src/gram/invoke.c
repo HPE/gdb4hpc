@@ -18,9 +18,6 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -36,9 +33,14 @@
 #include	"gram.h"
 #include	"dbg_set_sync.h"
 
+// static prototypes
+static invoke_t *		NewInvoke(char *, list_t *, char *, void *);
+static invoke_group *	NewInvokeGroup(hentry_t *, val_t *, int);
+static int				CreateInvokeGroup(list_t *, val_t *, rec_set_t *, int);
+
 static list_t *	InvokeList = (list_t *)NULL;
 
-invoke_t *
+static invoke_t *
 NewInvoke(char *cmd, list_t *igl, char *arch, void *exec)
 {
 	invoke_t *		i;
@@ -72,7 +74,7 @@ NewInvoke(char *cmd, list_t *igl, char *arch, void *exec)
 ** We use the size and shape information to define a new value that
 ** is used to store the invoke_proc_t values.
 */
-invoke_group *
+static invoke_group *
 NewInvokeGroup(hentry_t *sym, val_t *val, int offset)
 {
 	invoke_group *	ig;
@@ -179,7 +181,7 @@ FreeInvokeGroupList(list_t *igl)
 ** Create an invoke group given an internal variable with rval_none. This
 ** internal variable can contain slicing information.
 */
-int
+static int
 CreateInvokeGroup(list_t *igl, val_t *val, rec_set_t *rec_set, int offset)
 {
 	invoke_group *	ig;
@@ -307,17 +309,6 @@ AddInvoke(char *proc, list_t *igl, char *arch, void *exec, void* tree, bitset* f
 	AddToList(InvokeList, (void *)i);
 
 	return i;
-}
-
-invoke_t *
-FindInvoke(hentry_t *sym)
-{
-	invoke_group *	ig;
-
-	if ( (ig = FindInvokeGroup(sym)) == (invoke_group *)NULL )
-		return (invoke_t *)NULL;
-
-	return ig->ig_invoke;
 }
 
 invoke_group *

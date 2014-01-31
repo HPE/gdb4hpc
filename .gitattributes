@@ -200,8 +200,6 @@ guard/src/dbgclnt/dbg_client.c -text
 guard/src/dbgclnt/dbg_client.h -text
 guard/src/dbgclnt/dbg_mrn_fe.c -text
 guard/src/dbgclnt/dbg_mrn_fe.h -text
-guard/src/dbgclnt/dbg_set_async.c -text
-guard/src/dbgclnt/dbg_set_async.h -text
 guard/src/dbgclnt/dbg_set_sync.c -text
 guard/src/dbgclnt/dbg_set_sync.h -text
 guard/src/dbgclnt/dbgclnt_debugfe.c -text

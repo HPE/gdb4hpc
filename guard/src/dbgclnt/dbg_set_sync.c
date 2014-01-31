@@ -33,6 +33,12 @@
 // it being defined (see dbg_set_sync.c). This has been recorded in BUG 804428
 #include	"client_settings.h"
 
+// static prototypes
+static void				FreeGroupReply(group_reply_t *);
+static group_reply_t *	CopyGroupReply(group_reply_t *);
+static void				SetErrHeadInSet(rep_set_t *);
+static group_reply_t *	GetNextErrInSet(rep_set_t *);
+
 rec_set_t*
 NewRecSetByDbgInvoke(void* di, void* tree, bitset* full)
 {
@@ -112,17 +118,18 @@ FreeRecSet(rec_set_t* rec)
 */
 
 group_reply_t *
-NewGroupReply(bitset *src, dbgevent_t *reply)
+NewGroupReply(void *di, bitset *src, dbgevent_t *reply)
 {
 	group_reply_t *	rep = (group_reply_t *)Alloc(sizeof(group_reply_t));
 	
+	rep->rep_di = di;
 	rep->rep_event = reply;
 	rep->rep_group = src;
 
 	return rep;
 }
 
-void
+static void
 FreeGroupReply(group_reply_t* rep)
 {
 	FreeEvent(rep->rep_event);
@@ -130,7 +137,7 @@ FreeGroupReply(group_reply_t* rep)
 	Free(rep);
 }
 
-group_reply_t *
+static group_reply_t *
 CopyGroupReply(group_reply_t *rep)
 {
 	group_reply_t *	newrep;
@@ -151,11 +158,10 @@ CopyGroupReply(group_reply_t *rep)
 */
 
 rep_set_t* 		
-NewRepSet(void* tree)
+NewRepSet(void)
 {
 	rep_set_t* set = (rep_set_t*)Alloc(sizeof(rep_set_t));
 
-	set->tree = tree;
 	set->rep_list = NewList();
 	set->err_list = NewList();
 	
@@ -167,8 +173,6 @@ FreeRepSet(rep_set_t* set)
 {
 	if(set == NULL)
 		return;
-
-	set->tree = NULL;
 
 	DestroyList(set->rep_list, FreeGroupReply);
 
@@ -186,7 +190,7 @@ CopyRepSet(rep_set_t * set)
 	if (set == NULL)
 		return NULL;
 		
-	newset = NewRepSet(set->tree);
+	newset = NewRepSet();
 	
 	// copy the replies
 	SetList(set->rep_list);
@@ -203,6 +207,31 @@ CopyRepSet(rep_set_t * set)
 	}
 	
 	return newset;
+}
+
+rep_set_t *
+MergeRepSet(rep_set_t* set, rep_set_t *tmp_set)
+{
+	group_reply_t *	elem;
+
+	if (set == NULL || tmp_set == NULL)
+		return NULL;
+		
+	// merge the replies
+	while ((elem = RemoveFirst(tmp_set->rep_list)) != NULL)
+	{
+		AddReplyToSet(set, elem);
+	}
+	
+	// Merge the errors
+	while ((elem = RemoveFirst(tmp_set->err_list)) != NULL)
+	{
+		AddErrToSet(set, elem);
+	}
+	
+	FreeRepSet(tmp_set);
+	
+	return set;
 }
 
 int
@@ -245,14 +274,14 @@ ResetSet(rep_set_t *set)
 	SetList(set->err_list);
 }
 
-void
+static void
 SetErrHeadInSet(rep_set_t* set)
 {
 	if (set != NULL)
 		SetList(set->err_list);
 }
 
-group_reply_t *
+static group_reply_t *
 GetNextErrInSet(rep_set_t* set)
 {
 	if(set != NULL)
@@ -310,56 +339,6 @@ ProcessErrorInRepSet(rec_set_t* rec_set, rep_set_t* rep_set)
 	}
 
 	return 0;
-}
-
-// FIXME: Remove
-AIF*
-ConvertRepSetToAIF(rep_set_t* set)
-{
-	AIF*			res = NULL;
-	AIF*			value = NULL;
-	int				index = 0;
-	char			index_str[32];
-	group_reply_t*	rep = NULL;
-	int				num = 0;
-
-	if(set == NULL)
-		return NULL;
-
-	num = GetNumberOfReply(set);
-	
-	if(num == 0)
-		return NULL;
-
-	if(num == 1) /* only one AIF */
-	{
-		SetReplyHeadInSet(set);
-		rep = GetNextReplyInSet(set);
-		// Mark the event as save data to prevent the AIF data from being free'ed
-		// when the reply is cleaned up.
-		EVENT_SAVE_DATA(rep->rep_event);
-		// Point at the aif data
-		res = EVENT_DATA(rep->rep_event);
-	} else { /* an array of AIF. Impelementation is based on AIFStruct */
-		SetReplyHeadInSet(set);
-		while((rep = GetNextReplyInSet(set)) != NULL)
-		{
-			// point at the aif data
-			value = EVENT_DATA(rep->rep_event);
-
-			if(res == NULL)
-			{
-			  	res = EmptyStructToAIF("repset_struct");
-				AIFAddFieldToStruct(res, "size", IntToAIF(num));
-			}
-
-			snprintf(index_str, 32, "%d", index++);
-			// This will copy the AIF data, no need to save it.
-	        AIFAddFieldToStruct(res, index_str, value);
-		}
-	}
-
-	return res;
 }
 
 bitset*

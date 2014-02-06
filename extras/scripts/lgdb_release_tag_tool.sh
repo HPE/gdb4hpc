@@ -24,12 +24,12 @@
 #####################################################
 
 # SVN repostiory root for the release branches
-lgdb_RB_root="http://svn/svn/debugger-support/ccdb/branches/lgdb"
+lgdb_RB_root="http://svn/svn/debugger-support/lgdb/branches/lgdb"
 # externals RB are below
 cti_RB_root="http://svn/svn/debugger-support/tools_interface/branches/RB-"
 
 # SVN repository root for the release tags
-lgdb_RT_root="http://svn/svn/debugger-support/ccdb/tags/lgdb_release"
+lgdb_RT_root="http://svn/svn/debugger-support/lgdb/tags/lgdb_release"
 # externals RT are below
 cti_RT_root="http://svn/svn/debugger-support/tools_interface/tags/lgdb_release"
 

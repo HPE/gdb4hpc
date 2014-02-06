@@ -33,7 +33,6 @@ extras/scripts/lgdb_release_tag_tool.sh -text
 extras/scripts/merge_cray.sh -text
 extras/scripts/merge_monash.sh -text
 extras/scripts/svn-prop.template.1 -text
-extras/scripts/svn-prop.template.2 -text
 guard/.svnignore -text
 guard/Makefile.am -text
 guard/Makefile.in -text

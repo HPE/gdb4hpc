@@ -15,11 +15,18 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * LA-CC 04-115
+ *
+ * Copyright 2012-2014 Cray Inc. All Rights Reserved.
+ *
  ******************************************************************************/
 
 /*
  * NOTE: This list implementation is not thread safe.
  */
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>

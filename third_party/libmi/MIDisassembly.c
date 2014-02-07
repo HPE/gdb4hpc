@@ -7,7 +7,14 @@
  *
  * Contributors:
  * IBM Corporation - Initial API and implementation
+ *
+ * Copyright 2012-2014 Cray Inc. All Rights Reserved.
+ *
  *******************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>

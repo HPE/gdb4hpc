@@ -15,6 +15,9 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * LA-CC 04-115
+ *
+ * Copyright 2011-2014 Cray Inc. All Rights Reserved.
+ *
  ******************************************************************************/
 #ifndef _MISESSION_H_
 #define _MISESSION_H_

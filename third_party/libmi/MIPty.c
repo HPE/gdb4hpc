@@ -7,11 +7,14 @@
  *
  * Contributors:
  * IBM Corporation - Initial API and implementation
+ *
+ * Copyright 2012-2014 Cray Inc. All Rights Reserved.
+ *
  *******************************************************************************/
 
-#ifdef __gnu_linux__
-#define _GNU_SOURCE
-#endif /* __gnu_linux__ */
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <errno.h>

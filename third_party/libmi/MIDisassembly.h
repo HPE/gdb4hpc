@@ -7,6 +7,9 @@
  *
  * Contributors:
  * IBM Corporation - Initial API and implementation
+ *
+ * Copyright 2012-2014 Cray Inc. All Rights Reserved.
+ *
  *******************************************************************************/
  
 #ifndef _MIDISASSEMBLY_H_

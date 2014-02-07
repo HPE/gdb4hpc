@@ -15,6 +15,9 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * LA-CC 04-115
+ *
+ * Copyright 2010-2014 Cray Inc. All Rights Reserved.
+ *
  ******************************************************************************/
  
 #ifndef _MICOMMAND_H_

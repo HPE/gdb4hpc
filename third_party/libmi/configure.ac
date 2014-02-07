@@ -17,6 +17,9 @@ AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 
+dnl Turn on Posix extensions
+AC_USE_SYSTEM_EXTENSIONS
+
 AM_INIT_AUTOMAKE([foreign -Wall])
 LT_INIT
 

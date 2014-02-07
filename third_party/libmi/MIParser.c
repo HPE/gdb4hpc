@@ -15,6 +15,9 @@
  * http://www.eclipse.org/legal/epl-v10.html
  * 
  * LA-CC 04-115
+ *
+ * Copyright 2012-2014 Cray Inc. All Rights Reserved.
+ *
  ******************************************************************************/
  
  /*
@@ -95,6 +98,10 @@
      `""" SEVEN-BIT-ISO-C-STRING-CONTENT """'
 </pre>
  */
+
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <string.h>

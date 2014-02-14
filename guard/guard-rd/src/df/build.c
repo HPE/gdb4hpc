@@ -22,6 +22,9 @@
  * $Author$
  *
  **********************************************************************************/
+ 
+//FIXME: Get rid of the set specific functions, merge into a single function.
+//        This interface is f*cked up and hasn't been fixed from the Monash days.
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -42,113 +45,92 @@
 #define PROC_MERGE_NODE(p)	(p)->gp_node[2]
 #define PROC_GO_NODE(p)		(p)->gp_node[3]
 
-int	AsyncMode(graph_t *, list_t *, dfmode_t);
-int	build_expr(graph_t *, int *, int *, list_t *, expr_t *, rec_set_t *, func_t *, extrainfo *);
-int	build_func(graph_t *, hentry_t *, int *, int *, list_t *, expr_t *, rec_set_t *, func_t *, extrainfo *);
-int	BuildOp(graph_t *, expr_op , int , int , int , int , int );
+typedef struct extrainfo
+{
+	char hashinfo[BUFSIZ];
+	char blockmapinfo[BUFSIZ];
+}extrainfo;
+
+// static prototypes
+static int		BuildInvoke(graph_t *, var_t *);
+static int 		BuildSetBPSet(graph_t *, int, int, var_t *);
+static void		BuildGetVar(graph_t *, int *, int *, var_t *, int, extrainfo *);
+static void		BuildGetVarSet(graph_t *, int *, int *, var_t *, int, int, extrainfo *);
+static int		BuildCmp(graph_t *, int, int, int, int);
+static int		BuildBlockMap(graph_t *, g_block_map_t *, var_t *, extrainfo *, int);
+static void		BuildMerge(graph_t *, var_t *, int, int, int);
+static int		BuildMergeProc(graph_t *, graph_inv *, var_t *, int, int, int, int);
+static void		BuildSync(graph_t *, var_t *, int, int);
+static int		BuildReduce(graph_t *, var_t *, int *, extrainfo *);
+static int		BuildDisplayP2P(graph_t *, int, int, int, int);
+
+static int		AsyncMode(graph_t *, list_t *, dfmode_t);
+static int		build_expr(graph_t *, int *, int *, list_t *, expr_t *, rec_set_t *, func_t *, extrainfo *);
+static int		build_func(graph_t *, hentry_t *, int *, int *, list_t *, expr_t *, rec_set_t *, func_t *, extrainfo *);
+static int		BuildOp(graph_t *, expr_op , int , int , int , int , int );
+static int 		_validate_block_map(graph_t *, g_block_map_t *, var_t *);
 
 
 // Temp location to store assertid as a means of passing it down to DbgGetVar without adding
 // an extra parameter to build_expr.  Note: Can we pass assert id down through the vars?  
 // Look into this.
-int iAssertID = -1;
-int GetVarSyncNode = -1;
-dbgprocset_t *other_procset;
-
-#ifdef notdef
-/*
-** Set breakpoint at main, and wait for breakpoint to
-** to be hit. Passes input token when done.
-**
-** Not currently used. Debugger must handle stop at main().
-*/
-int
-buildbrkmain(graph_t *g, int n)
-{
-	int	t1;
-	int	t2;
-	int	t3;
-	int	t4;
-	int	t5;
-	
-	DPRINT("In buildbrkmain\n");
-
-	t1 = SCONST(g, "CONST", "main");
-	t2 = NODE(g, "DBGSETBRK");
-	t3 = NODE(g, "DBGGO");
-	t4 = NODE(g, "DBGWAITBRK");
-	t5 = NODE(g, "PIT");
-	EDGE(g, n, t1, 0);
-	EDGE(g, n, t2, 0);
-	EDGE(g, t1, t2, 1);
-	EDGE(g, t2, t3, 0);
-	EDGE(g, t3, t4, 0);
-	EDGE(g, t4, t5, 0);
-	EDGE(g, n, t5, 1);
-
-	return t5;
-}
-#endif /* notdef */
+static int iAssertID = -1;
+static dbgprocset_t *other_procset;	// TODO: Remove this, looks buggy
 
 /*
 ** If first time, output nodes and edges to invoke program.
 */
-void
+static int
 BuildInvoke(graph_t *g, var_t *v)
 {
-	graph_inv *	gi;
-
-	if ( (gi = FindGraphInv(g, SymLookup(v->v_isym))) == (graph_inv *)NULL )
-		gi = NewGraphInv(g, v->v_procset->s_ig);
-
-	BuildInvokeProcSet(g, gi, v); 
-}
-
-void
-BuildInvokeProcSet(graph_t *g, graph_inv *gi, var_t *v)
-//TODO: BuildInvokeProcSet -> BuildProcSet()
-//Building ProcSet called in var
-//old interface: BuildInvokeProcSet(graph_t *g, graph_inv *gi, var_t *v, int low_pid, int proc_count)
-{
-
-	int		xt1;
-	int		xt2;
-	int		xt3;
-	int		xt4;
-
-	bitset *	token_bit_set;
-	dbg_over_set_t* over_set = NULL;
-	dbgprocset_t* procset = NULL;
-	int	proc_count = 0;
-	int built_indiv = 1;
-	int	built_bp = 1;
-	file_t *	f = NULL;
-	graph_procset *	gp = NULL;
-
-	gp = gi->gi_procset;
-	procset = v->v_procset;
+	dbgprocset_t *	ps = v->v_procset;
+	graph_inv *		gi;
+	bitset *		token_bit_set;
+	int				xt1;
+	int				xt2;
+	int				xt3;
+	int				xt4;
+	int				t1;
+	int				t2;
+	int				t3;
+	file_t *		f = NULL;
+	int				built_bp = 1;
 	
-	DPRINT("In BuildInvokeProcSet\n");
-
-	SetList(procset->s_over_set_list);
-	over_set = GetListElement(procset->s_over_set_list);
-
-	proc_count = procset->s_nproc;
-
-	token_bit_set = bitset_new(proc_count);
-	if(v->v_indiv < 0)
-		bitset_invert(token_bit_set);
-	else
+	// FIXME: This only supports DBGSET_INVOKE for now
+	if (ps == NULL || ps->s_type != DBGSET_INVOKE)
 	{
-		bitset_set(token_bit_set, v->v_indiv);
-		built_indiv = bitset_test(gp->gp_builtinv_bs, v->v_indiv);
+		SetError("Cannot use custom procset in assert script!");
+		return -1;
 	}
 
-//	if ( !gp->gp_builtinv )
-	if ( !gp->gp_builtinv || !built_indiv)
+	// Try to find an existing graph_inv, otherwise create it for this di.
+	if ( (gi = FindGraphInv(g, ps->s_name)) == NULL )
+		gi = NewGraphInv(g, ps);
+		
+	// Create a new bitset to figure out if we need to create a PROC_SET node
+	// for this particular group
+	token_bit_set = bitset_new(gi->gp_di->d_nproc);
+	
+	// FIXME: The v_indiv stuff should go away.
+	if(v->v_indiv < 0)
 	{
+		// Set all ranks to 1
+		bitset_invert(token_bit_set);
+	} else
+	{
+		// set the requested rank to one, this should be fixed to use a range
+		bitset_set(token_bit_set, v->v_indiv);
+	}
+
+	// Check to see if we need to build any ranks
+	bitset_andeq(token_bit_set, gi->gp_unbuilt_bs);
+
+	// Only create the node if there are some ranks set
+	if (!bitset_isempty(token_bit_set))
+	{
+		// First build PROC_SET
 		xt1 = NODE(g, "PROC_SET");
-		xt2 = SCONST(g, "CONST", SymLookup(gi->gi_sym));
+		xt2 = SCONST(g, "CONST", gi->gp_di->d_handle);
 		EDGE(g, g->g_initnode, xt2, 0);
 		xt3 = BITSETCONST(g, "CONST", token_bit_set);
 		DPRINT("BuildInvokeProcSet token_bit_set[%s], length[%d]\n", bitset_to_set(token_bit_set), bitset_size(token_bit_set));
@@ -158,45 +140,59 @@ BuildInvokeProcSet(graph_t *g, graph_inv *gi, var_t *v)
 
 		xt4 = NODE(g, "SYNC");
 
-		PROC_PROC_NODE(gp) = xt1;
-		PROC_SYNC_NODE(gp) = xt4;
+		PROC_PROC_NODE(gi) = xt1;
+		PROC_SYNC_NODE(gi) = xt4;
+		
+		// Now build MERGE and DBGGO
+		xt1 = NODE(g, "MERGE");
+		xt2 = NODE(g, "DBGGO_SET");
+		
+		EDGE(g, PROC_SYNC_NODE(gi), xt1, 0);
+		EDGE(g, xt1, xt2, 0);
+		
+		/*
+		** Check if WaitBreak returns 0. This means the
+		** process has exited, so exit graph if it is.
+		*/
+		t1 = ICONST(g, "CONST", 0);
+		t2 = NODE(g, "PIEQ");
+		t3 = NODE(g, "EXIT");
 
-		gp->gp_builtinv = 1;
-		if(v->v_indiv < 0)
-			bitset_invert(gp->gp_builtinv_bs);
-		else
-			bitset_set(gp->gp_builtinv_bs, v->v_indiv);
+		EDGE(g, xt2, t1, 0);
+		EDGE(g, xt2, t2, 0);
+		EDGE(g, t1, t2, 1);
 
+		EDGE(g, xt1, t2, 2);
+		EDGE(g, t2, t3, 0);
+		
+		PROC_MERGE_NODE(gi) = xt1;
+		PROC_GO_NODE(gi) = xt2;
+
+		// Modify the gp_unbuilt_bs to no longer include the ranks we just built
+		bitset_andeqnot(gi->gp_unbuilt_bs, token_bit_set);
 	}
 	bitset_free(token_bit_set);
 
 	/*
 	** Save breakpoint info.
 	*/
-	if ( v->v_line == (line_t *)NULL )
+	if ( v->v_line == NULL )
 	{
 		v->v_line = (line_t *)Alloc(sizeof(line_t));
 	}
 
-	/*
-	** If this is the first time we have
-	** seen this process, add index.
-	*/
-
-	xt1 = PROC_PROC_NODE(gp);
-	xt4 = PROC_SYNC_NODE(gp);
-
-	f = AddFile(&gp->gp_files, v->v_fname);
+	f = AddFile(&gi->gp_files, v->v_fname);
 	v->v_line = AddLine(&f->f_lines, v->v_lno);
+	
 	if(v->v_bs == NULL)
-		v->v_bs = bitset_new(proc_count);	
+		v->v_bs = bitset_new(gi->gp_di->d_nproc);	
 	
 	if(v->v_indiv >= 0)
 		built_bp = bitset_test(v->v_bs, v->v_indiv);
 
 	if(v->v_bp < 0 || !built_bp)
 	{
-		v->v_bp = BuildSetBPSet(g, xt1, xt4, v);
+		v->v_bp = BuildSetBPSet(g, PROC_PROC_NODE(gi), PROC_SYNC_NODE(gi), v);
 		if(v->v_indiv < 0)
 			bitset_invert(v->v_bs);
 		else
@@ -205,9 +201,31 @@ BuildInvokeProcSet(graph_t *g, graph_inv *gi, var_t *v)
 			v->v_pid = -1;
 		}
 	}
+	
+	/*
+	** FIXME: I have no fucking clue what this does...
+	*/
+	if ( v->v_pid < 0 )
+	{
+		t1 = ICONST(g, "CONST", v->v_bp);
+		t2 = NODE(g, "RECALL");
+		t3 = NODE(g, "PIEQ");
+		v->v_pid = t3;
+
+		EDGE(g, PROC_GO_NODE(gi), t1, 0);
+		EDGE(g, t1, t2, 0);
+		EDGE(g, t2, t3, 0);
+		EDGE(g, PROC_GO_NODE(gi), t3, 1);
+		EDGE(g, PROC_MERGE_NODE(gi), t3, 2);
+
+		v->v_pid = t3;
+		v->v_sync = -1; //v->v_pid and v->v_sync should be consistent
+	}
+	
+	return 0;
 }
 
-int
+static int
 BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v)
 {
 	int		n1;
@@ -267,99 +285,6 @@ BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v)
 	return g->g_store++;
 }
 
-void
-BuildMPWait(graph_t *g, var_t *v)
-{
-	graph_inv *	gi;
-
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
-
-	BuildMPWaitProcSet(g, gi, v);
-}
-
-void
-//BuildMPWaitProcSet(graph_t *g, graph_inv *gi, var_t *v, int low_pid, int proc_count)
-BuildMPWaitProcSet(graph_t *g, graph_inv *gi, var_t *v)
-{
-	int		t1;
-	int		t2;
-	int		t3;
-	graph_procset *	gp;
-
-	int		xt1=0;
-	int		xt2=0;
-	int		built_indiv = 1;
-	
-	DPRINT("In BuildMPWaitProcSet\n");
-	if(v->v_indiv >= 0)
-	{
-		built_indiv = bitset_test(gi->gi_procset->gp_built_bs, v->v_indiv);
-	}
-
-//	if ( !gi->gi_procset->gp_built )
-	if ( !gi->gi_procset->gp_built || !built_indiv)
-	{
-		xt1 = NODE(g, "MERGE");
-		xt2 = NODE(g, "DBGGO_SET");
-		
-		EDGE(g, PROC_SYNC_NODE(gi->gi_procset), xt1, 0);
-		EDGE(g, xt1, xt2, 0);
-
-		/*
-		** Check if WaitBreak returns 0. This means the
-		** process has exited, so exit graph if it is.
-		*/
-		t1 = ICONST(g, "CONST", 0);
-		t2 = NODE(g, "PIEQ");
-		t3 = NODE(g, "EXIT");
-
-		EDGE(g, xt2, t1, 0);
-		EDGE(g, xt2, t2, 0);
-		EDGE(g, t1, t2, 1);
-
-		EDGE(g, xt1, t2, 2);
-		EDGE(g, t2, t3, 0);
-
-		PROC_MERGE_NODE(gi->gi_procset) = xt1;
-		PROC_GO_NODE(gi->gi_procset) = xt2;
-
-		gi->gi_procset->gp_built = 1;
-		if(v->v_indiv < 0)
-			bitset_invert(gi->gi_procset->gp_built_bs);
-		else
-	    	bitset_set(gi->gi_procset->gp_built_bs, v->v_indiv);
-	}
-
-	gp = gi->gi_procset;
-
-	xt1 = PROC_MERGE_NODE(gi->gi_procset);
-	xt2 = PROC_GO_NODE(gi->gi_procset);
-
-	if ( !gp->gp_built )
-	{
-		PROC_MERGE_NODE(gp) = xt1;
-		PROC_GO_NODE(gp) = xt2;
-		gp->gp_built = 1;
-	}
-
-	if ( v->v_pid < 0 || !built_indiv)
-	{
-		t1 = ICONST(g, "CONST", v->v_bp);
-		t2 = NODE(g, "RECALL");
-		t3 = NODE(g, "PIEQ");
-		v->v_pid = t3;
-
-		EDGE(g, xt2, t1, 0);
-		EDGE(g, t1, t2, 0);
-		EDGE(g, t2, t3, 0);
-		EDGE(g, xt2, t3, 1);
-		EDGE(g, xt1, t3, 2);
-
-		v->v_pid = t3;
-		v->v_sync = -1; //v->v_pid and v->v_sync should be consistent
-	}
-}
-
 /*
 ** This code is to start any remaining parallel processes
 ** that haven't been referenced in an assert. These consist of
@@ -367,257 +292,49 @@ BuildMPWaitProcSet(graph_t *g, graph_inv *gi, var_t *v)
 ** false.
 */
 void
-BuildUnused(graph_t *g, var_t *v)
+BuildUnused(graph_t *g)
 {
-	graph_inv *	gi;
-	invoke_t *	i;
-	invoke_group *	ig;
+	graph_inv *		gi;
+	dbginvoke_t *	di;
+	int				xt1;
+	int				xt2;
+	int				xt3;
+	int				xt4;
 	
 	//hard code to reset assert id to -1
+	// This is so, so, so, so, so stupidy broken
 	iAssertID = -1;
 	
 	DPRINT("In BuildUnused\n");
 	
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
-
-	/*
-	** Check if we've been here before...
-	*/
-	if ( gi->gi_builtunused )
-		return;
-
-	i = gi->gi_inv->ig_invoke;
-
-	/*
-	** Check all process belonging to the invoke.
-	*/
-
-	SetInvokeGroup(i);
-
-	while ( (ig = GetInvokeGroup(i)) != (invoke_group *)NULL )
+	SetList(g->g_di_list);
+	while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 	{
-		if ( (gi = FindGraphInv(g, SymLookup(ig->ig_sym))) == (graph_inv *)NULL )
-			gi = NewGraphInv(g, ig);
-			
-		BuildUnusedProcSet(g, gi, v);
-	}
-
-	gi->gi_builtunused = 1;
-}
-
-void
-//BuildUnusedProcSet(graph_t *g, graph_inv *gi, var_t *v, int low_pid, int proc_count)
-BuildUnusedProcSet(graph_t *g, graph_inv *gi, var_t *v)
-{
-	int		xt1;
-	int		xt2;
-	int		xt3;
-	int		xt4;
-	
-	DPRINT("In BuildUnusedProcSet\n");
-
-	if(gi->gi_procset->gp_built && bitset_isfull(gi->gi_procset->gp_built_bs))
-		return;
-
-	dbg_over_set_t* over_set = NULL;
-	SetList(v->v_procset->s_over_set_list);
-	over_set = GetListElement(v->v_procset->s_over_set_list);
-
-	bitset* internal_bs = bitset_dup(gi->gi_procset->gp_built_bs);
-	bitset_invert(internal_bs);
-	xt1 = NODE(g, "PROC_SET");
-	xt2 = SCONST(g, "CONST", SymLookup(gi->gi_sym));
-	EDGE(g, g->g_initnode, xt2, 0);
-	xt3 = BITSETCONST(g, "CONST", internal_bs);
-	DPRINT("BuildUnusedSet internal_bs[%s], length[%d]\n", bitset_to_set(internal_bs), bitset_size(internal_bs));
-	EDGE(g, g->g_initnode, xt3, 0);
-	EDGE(g, xt2, xt1, 0);
-	EDGE(g, xt3, xt1, 1);
-
-	xt4 = NODE(g, "DBGGO_SET");
-	EDGE(g, xt1, xt4, 0);
-
-	gi->gi_procset->gp_built = 1;
-	bitset_clear(gi->gi_procset->gp_built_bs);
-	bitset_invert(gi->gi_procset->gp_built_bs);
-	bitset_free(internal_bs);
-}
-
-void
-BuildGetVarSet_Sync(graph_t *g, int *inp, int *out, var_t *v, int low_pid, int proc_count, extrainfo *extra, int blockmap_required)
-{
-	int		n;
-	int		t1;
-	int		n4;
-	int		n5=0;
-	
-	int		a1;
-	
-	slice_t *	s;
-
-	char	finalexpr[BUFSIZ]="";
-	char	varexpr[BUFSIZ]="";
-	int		reducefunc, p2pmode;
-	
-	DPRINT("In BuildGetVarSet_Sync\n");
-
-	GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-	GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-
-	if ( (s = v->v_slice) != (slice_t *)NULL )
-	{
-		char sliceexpr[BUFSIZ]="|slice(";
-		for ( n = 0 ; n < s->s_rank ; n++ )
+		gi = FindGraphInv(g, di->d_handle);
+		
+		// check if there are any unbuilt ranks
+		if (!bitset_isempty(gi->gp_unbuilt_bs))
 		{
-			sprintf(sliceexpr, "%s%d,%d", sliceexpr, s->s_low[n], s->s_high[n]);
-			if (n<s->s_rank-1)
-				strcat(sliceexpr, ",");
+			xt1 = NODE(g, "PROC_SET");
+			xt2 = SCONST(g, "CONST", di->d_handle);
+			EDGE(g, g->g_initnode, xt2, 0);
+			xt3 = BITSETCONST(g, "CONST", gi->gp_unbuilt_bs);
+			DPRINT("BuildUnusedSet bitset[%s], length[%d]\n", bitset_to_set(gi->gp_unbuilt_bs), bitset_size(gi->gp_unbuilt_bs));
+			EDGE(g, g->g_initnode, xt3, 0);
+			EDGE(g, xt2, xt1, 0);
+			EDGE(g, xt3, xt1, 1);
+			
+			xt4 = NODE(g, "DBGGO_SET");
+			EDGE(g, xt1, xt4, 0);
+		
+			// clear the remaining ranks
+			bitset_clear(gi->gp_unbuilt_bs);
 		}
-		strcat(sliceexpr, ")");
-		sprintf(varexpr, "%s%s|", sliceexpr, v->v_var);
 	}
-	else
-		strcpy(varexpr, v->v_var);
-
-	/* check if reduce function is on
-	** Minh 09/06/2009
-	*/
-	if (reducefunc != EXPR_REDUCE_NONE)
-	{
-		char reduceexpr[BUFSIZ]="";
-		double lower_bound;
-		double upper_bound;
-		switch (reducefunc) {
-		case EXPR_SUM:
-			strcpy(reduceexpr, "`sum`");
-			break;
-		case EXPR_PRODUCT:
-			strcpy(reduceexpr, "`product`");
-			break;
-		case EXPR_AVERAGE:
-			strcpy(reduceexpr, "`average`");
-			break;
-		case EXPR_MIN:
-			strcpy(reduceexpr, "`min`");
-			break;
-		case EXPR_MAX:
-			strcpy(reduceexpr, "`max`");
-			break;
-		case EXPR_STDEV:
-			strcpy(reduceexpr, "`stdev`");
-			break;
-		case EXPR_COUNTELEM:
-			GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
-			GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-			sprintf(reduceexpr, "`countelem(%lf,%lf)`", lower_bound, upper_bound);
-			break;
-		case EXPR_HASH_BOB:
-			sprintf(reduceexpr, "`hash(%s)`", extra->hashinfo);
-			break;
-		default:
-			SetError("Unknown reduction function %d", reducefunc);
-			return;
-		}
-		sprintf(finalexpr, "%s%s", reduceexpr, varexpr);
-	}
-
-	// if there is p2p mode turn on, attach blockmap info
-	else if (p2pmode)
-	{
-		char p2pexpr[BUFSIZ]="";
-		sprintf(p2pexpr, "`ptop(%s-%s)`", SymLookup(v->v_isym), extra->blockmapinfo);
-		sprintf(finalexpr, "%s%s", p2pexpr, varexpr);
-	}
-	else
-		strcpy(finalexpr, varexpr);
-
-	t1 = SCONST(g, "CONST", finalexpr);
-
-	n4 = NODE(g, "DBGREQUESTVAR_SET");
-
-    *inp = NODE(g, "PIT");
-
-	// We use proc low_pid (0) as the "base".
-	EDGE(g, v->v_pid, *inp, 1);
-/*#else
-	EDGE(g, v->v_pid(low_pid), *inp, 1);
-#endif*/
-	/* MINH TODO : NEED TO REVIEW THIS BIT OF CODE */
-	/* Minh add here to implement blockmap and parallel vs parallel
-	** 19/05/2009
-	** Donny TODO: Probably we need to synchronize
-	*/
-	// We use proc low_pid (0) as the "base".
-   EDGE(g, v->v_pid, *inp, 0);
-/*#else
-   EDGE(g, v->v_pid(low_pid), *inp, 0);
-#endif*/
-
-	EDGE(g, *inp, t1, 0);
-    // Const for asserid
-    a1 = ICONST(g, "CONST", iAssertID);
-    EDGE(g, *inp, a1, 0);
-
-    EDGE(g, *inp, n4, 0);
-    EDGE(g, t1, n4, 1);
-
-	// Const for asserid
-	EDGE(g, a1, n4 , 2);
-
-	if (blockmap_required)
-	{
-		// now connect recvvar node
-		n5 = NODE(g, "DBGRECVVAR_SET");
-		EDGE(g, *inp, n5, 0);	// procset
-		EDGE(g, a1, n5, 1);		// asserid
-		EDGE(g, t1, n5, 2);		// expr string
-		EDGE(g, n4, n5, 3);		// bitset
-	}
-
-	// now connect to sync node
-	if (GetVarSyncNode < 0)
-	{
-		GetVarSyncNode = NODE(g, "SYNC");
-		EDGE(g, n4, GetVarSyncNode, 0);
-		if (blockmap_required)
-			EDGE(g, GetVarSyncNode, n5, 4);
-	}
-	else
-	{
-		EDGE(g, n4, GetVarSyncNode, 1);
-		if (blockmap_required)
-			EDGE(g, GetVarSyncNode, n5, 4);
-		GetVarSyncNode = -1;	// reset GetVarSyncNode
-	}
-	
-
-	/*
-    if ( v->v_perm != (list_t *)NULL )
-    {
-	n6 = NODE(g, "PERMUTE");
-	EDGE(g, n4, n6, 0);
-
-	SetPerm(v->v_perm);
-
-	n = 1;
-
-	while ( (p = GetPerm(v->v_perm)) != (perm_t *)NULL )
-	{
-	    t1 = ICONST(g, "CONST", p->p_to);
-
-	    EDGE(g, n4, t1, 0);
-	    EDGE(g, t1, n6, n++);
-	}
-
-	n4 = n6;
-    }
-	*/
-
-	*out = n5;
 }
 
 // Minh changed BuildGetVarSet() to include an extra parameters (extrainfo)
-void
+static void
 BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v, int low_pid, int proc_count, extrainfo *extra)
 //TODO: update signature. 
 {
@@ -710,7 +427,7 @@ BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v, int low_pid, int proc_c
 		else if (p2pmode)
 		{
 			char p2pexpr[BUFSIZ]="";
-			sprintf(p2pexpr, "`ptop(%s-%s)`", SymLookup(v->v_isym), extra->blockmapinfo);
+			sprintf(p2pexpr, "`ptop(%s-%s)`", v->v_pname, extra->blockmapinfo);
 			sprintf(finalexpr, "%s%s", p2pexpr, varexpr);
 		}
 		else
@@ -769,7 +486,7 @@ BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v, int low_pid, int proc_c
 }
 
 // Minh changed BuildGetVar() to include an extra parameters (extrainfo)
-void
+static void
 BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid, extrainfo *extra)
 {
 	int		n;
@@ -870,7 +587,7 @@ BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid, extrainfo *extra)
 		else if (p2pmode)
 		{
 			char p2pexpr[BUFSIZ]="";
-			sprintf(p2pexpr, "`ptop(%s-%s)`", SymLookup(v->v_isym), extra->blockmapinfo);
+			sprintf(p2pexpr, "`ptop(%s-%s)`", v->v_pname, extra->blockmapinfo);
 			sprintf(finalexpr, "%s%s", p2pexpr, varexpr);
 		}
 		else
@@ -926,7 +643,8 @@ BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid, extrainfo *extra)
 	*out = n4;
 }
 
-int _validate_block_map(graph_t *g, g_block_map_t* bm, var_t *v)
+static int 
+_validate_block_map(graph_t *g, g_block_map_t* bm, var_t *v)
 {
 	int rank = bm->m_rank;
 	int* size = (int*)Alloc(sizeof(int)*rank);
@@ -949,8 +667,8 @@ int _validate_block_map(graph_t *g, g_block_map_t* bm, var_t *v)
 	return 1;
 }
 
-// andrewg fixed implicit calls to free on 8/10/10
-int  _determine_hash_info(char* hashinfo, graph_t *g, g_block_map_t* bm1, g_block_map_t* bm2, int **data_size)
+static int  
+_determine_hash_info(char* hashinfo, graph_t *g, g_block_map_t* bm1, g_block_map_t* bm2, int **data_size)
 {
 	int rank;
 	int *final_size;
@@ -985,7 +703,8 @@ int  _determine_hash_info(char* hashinfo, graph_t *g, g_block_map_t* bm1, g_bloc
 	return 0;
 }
 
-int _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
+static int 
+_find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 {
 	expr_elt *      ep;
 	g_block_map_t * bm1 = (g_block_map_t *)NULL; // Minh
@@ -1045,16 +764,16 @@ int _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 	return res;
 }
 
-int
+static int
 _identify_p2p_receiver_procset(graph_t *g, var_t *v1, var_t *v2)
 {
 	graph_inv * gi;
 	int numprocs1, numprocs2;
 
-	gi = FindGraphInv(g, SymLookup(v1->v_isym));
-	numprocs1 = gi->gi_nproc;
-	gi = FindGraphInv(g, SymLookup(v2->v_isym));
-	numprocs2 = gi->gi_nproc;
+	gi = FindGraphInv(g, v1->v_pname);
+	numprocs1 = gi->gp_di->d_nproc;
+	gi = FindGraphInv(g, v2->v_pname);
+	numprocs2 = gi->gp_di->d_nproc;
 
 	return numprocs1>numprocs2? 1:0;
 }
@@ -1062,7 +781,7 @@ _identify_p2p_receiver_procset(graph_t *g, var_t *v1, var_t *v2)
 /* Minh add this function to implement block map
  * 15/05/2009
  */
-int
+static int
 BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blockmap_required)
 {
 	int     n1=0;
@@ -1078,7 +797,7 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 	
 	DPRINT("In BuildBlockMap\n");
 
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
+	gi = FindGraphInv(g, v->v_pname);
 
 	GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 	if (
@@ -1121,8 +840,7 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 		n2 = ICONST(g, "CONST", bm->m_actual->v_procset->s_nproc);
 		EDGE(g, n2, n3, 2);
 
-		BuildGetVarSet(g, &t1, &t2, v, 0, gi->gi_nproc, extra); //TODO: gi->gi_nproc is not used
-		//BuildGetVarSet_Sync(g, &t1, &t2, v, 0, gi->gi_nproc, extra, blockmap_required);
+		BuildGetVarSet(g, &t1, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
 		EDGE(g, t2, n3, 3);
 
@@ -1154,8 +872,7 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 			return n3;
 		}
 
-		BuildGetVarSet(g, &t1, &t2, v, 0, gi->gi_nproc, extra);
-		//BuildGetVarSet_Sync(g, &t1, &t2, v, 0, gi->gi_nproc, extra, blockmap_required);
+		BuildGetVarSet(g, &t1, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
 		/*
 		EDGE(g, t2, n2, 0);
@@ -1171,7 +888,7 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 
 /* Minh adds this function for more reduce functions
  */
-int
+static int
 BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
 {
 	int	n1;
@@ -1185,7 +902,7 @@ BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
 	
 	DPRINT("In BuildReduce\n");
 
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
+	gi = FindGraphInv(g, v->v_pname);
 
 	// now need to work out the reduce function
 	GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
@@ -1248,11 +965,11 @@ BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
 	n3 = NODE(g, "REDUCE_SET");
 	EDGE(g, n1, n3, 0);
 
-//	n2 = ICONST(g, "CONST", gi->gi_nproc);
+//	n2 = ICONST(g, "CONST", gi->gp_di->d_nproc);
 	n2 = ICONST(g, "CONST", v->v_procset->s_nproc);
 	EDGE(g, n2, n3, 1);
 
-	BuildGetVarSet(g, inp, &t2, v, 0, gi->gi_nproc, extra);
+	BuildGetVarSet(g, inp, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
 	EDGE(g, t2, n1, 0);
 	EDGE(g, t2, n2, 0);
@@ -1265,7 +982,7 @@ BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
  * Minh 29/06/2011
  */
 
-int
+static int
 BuildDisplayP2P(graph_t *g, int id, int receiver_data, int proc_set1, int proc_set2)
 {
 	int		n1;
@@ -1301,7 +1018,7 @@ BuildDisplayP2P(graph_t *g, int id, int receiver_data, int proc_set1, int proc_s
 	return n1;
 }
 
-int
+static int
 BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop)
 {
 	int		n1;
@@ -1450,7 +1167,7 @@ BuildExpr(graph_t *g, int *inp, int *out, list_t *res, expr_t *e, rec_set_t *rec
 **
 ** XXX Should only allow one debugger variable per exprsession.
 */
-int
+static int
 build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *rec_set, func_t *f, extrainfo *extra)
 {
 	int		out1;
@@ -1531,31 +1248,29 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 		/* drop through */
 
 	case EXPR_VAR:
-		if ( (v = ReadVarDecl(e, rec_set)) == (var_t *)NULL )
+		if ( (v = ReadVarDecl(e, rec_set)) == NULL )
 			return -1;
 
 		AddToList(vlist, (void *)v);
 
 		BuildInvoke(g, v);
-		BuildMPWait(g, v);
 		// Minh add here for reduce functions
 		GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 		if (
 			reducefunc != EXPR_REDUCE_NONE &&
 			reducefunc != EXPR_HASH_BOB
 			)
+		{
 			(*out) = BuildReduce(g, v, inp, extra);
-		else {
-			if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-				BuildGetVar(g, inp, out, v, v->v_indiv, extra);
-			}
-//			if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
-//				BuildGetVar(g, inp, out, v, v->v_procset->s_indiv_proc, extra);
-//			}
-			else
+		} else 
+		{
+			if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) 
 			{
-				gi = FindGraphInv(g, SymLookup(v->v_isym));
-				BuildGetVarSet(g, inp, out, v, 0, gi->gi_nproc, extra);
+				BuildGetVar(g, inp, out, v, v->v_indiv, extra);
+			} else
+			{
+				gi = FindGraphInv(g, v->v_pname);
+				BuildGetVarSet(g, inp, out, v, 0, gi->gp_di->d_nproc, extra);
 			}
 		}
 		return 0;
@@ -1617,7 +1332,7 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 /*
 ** Declarative function evaluation.
 */
-int
+static int
 build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vlist, expr_t *e, rec_set_t *rec_set, func_t *f, extrainfo *extra)
 {
 	int		n;
@@ -1734,7 +1449,7 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 /*
 ** Build unary, binary or tertiary operator.
 */
-int
+static int
 BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3, int o3)
 {
 	int	n;
@@ -1867,7 +1582,10 @@ BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3, int o3)
 	return n;
 }
 
-void
+/*
+** FIXME: I have no clue how to fix this.............................
+*/
+static void
 BuildMerge(graph_t *g, var_t *v, int from, int async, int force)
 {
 	int		r;
@@ -1875,10 +1593,9 @@ BuildMerge(graph_t *g, var_t *v, int from, int async, int force)
 	
 	DPRINT("In BuildMerge\n");
 
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
+	gi = FindGraphInv(g, v->v_pname);
 
-//	if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0)
-	if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0)
+	if ( v->v_procset != NULL && v->v_indiv >= 0)
 	{
 		r = BuildMergeProc(g, gi, v, v->v_indiv, from, async, force); 
 #ifdef DEBUG
@@ -1888,14 +1605,7 @@ BuildMerge(graph_t *g, var_t *v, int from, int async, int force)
 #ifdef DEBUG
 		DebugPrintGraph(g);
 #endif
-//		r = BuildMergeProc(g, gi, v, v->v_procset->s_indiv_proc, from, async, force); 
-//		BuildSync(g, v, v->v_procset->s_indiv_proc, r);
-/* old code
-		r = BuildMergeProc(g, gi, v, v->v_proc->p_pnum, from, async, force);
-		BuildSync(g, v, v->v_proc->p_pnum, r);
-*/
-	}
-	else
+	} else
 	{
 		// We use proc low_pid (0) as the "base".
 		r = BuildMergeProc(g, gi, v, 0, from, async, force);
@@ -1903,22 +1613,22 @@ BuildMerge(graph_t *g, var_t *v, int from, int async, int force)
 	}
 }
 
-int
+/*
+** FIXME: I have no clue how to fix this.............................
+*/
+static int
 BuildMergeProc(graph_t *g, graph_inv *gi, var_t *v, int pid, int from, int async, int force)
 {
 	int		t1;
 	int		t2;
-	graph_procset *	gp;
-
-	gp = gi->gi_procset;
 	
 	DPRINT("In BuildMergeProc\n");
 
 	/*
 	** Skip unused procs.
 	*/
-	if ( !gp->gp_builtinv )
-		return -1;
+	//if ( !gp->gp_builtinv )
+	//	return -1;
 
 	if ( !async )
 	{
@@ -2018,40 +1728,29 @@ BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist)
 ** error on any assertion will stop the graph. If we change this semantics
 ** then the sync graph will need to change.
 */
-void
+static void
 BuildSync(graph_t *g, var_t *v, int pid, int from)
 {
 	graph_inv *	gi;
-	graph_procset *	gp;
 	
 	DPRINT("In BuildSync\n");
 
-	gi = FindGraphInv(g, SymLookup(v->v_isym));
-
-	gp = gi->gi_procset;
+	gi = FindGraphInv(g, v->v_pname);
 
 	/*
 	** Skip unused procs.
+	** FIXME: I have no clue how to fix this....
 	*/
-	if ( !gp->gp_builtinv )
-		return;
+	//if ( !gp->gp_builtinv )
+	//	return;
 
 	if ( v->v_sync < 0 )
 	{
 		v->v_sync = NODE(g, "SYNC");
-		EDGE(g, v->v_sync, PROC_MERGE_NODE(gp), -1);
+		EDGE(g, v->v_sync, PROC_MERGE_NODE(gi), -1);
 	}
 
 	EDGE(g, from, v->v_sync, -1);
-/* old code
-	if ( v->v_sync(pid) < 0 )
-	{
-		v->v_sync(pid) = NODE(g, "SYNC");
-		EDGE(g, v->v_sync(pid), PROC_MERGE_NODE(gp), -1);
-	}
-
-	EDGE(g, from, v->v_sync(pid), -1);
-*/
 }
 
 /*
@@ -2339,7 +2038,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 	}
 
 	// Minh
-	if ( (bm != (g_block_map_t *)NULL) && (bm2 != (g_block_map_t *)NULL) )
+	if ( (bm != NULL) && (bm2 != NULL) )
 	{
 		if (p2pmode)
 			// set up the global var other_procset
@@ -2348,7 +2047,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		AddToList(vlist, (void *)tmp_v);
 
 		BuildInvoke(g, tmp_v);
-		BuildMPWait(g, tmp_v);
 
 		if (p2pmode)
 			// set up the global var other_procset
@@ -2357,7 +2055,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		AddToList(vlist, (void *)bm2->m_actual);
 
 		BuildInvoke(g, bm2->m_actual);
-		BuildMPWait(g, bm2->m_actual);
 
 		// check if the blockmap function is pplication for this program
 		if (bm != (g_block_map_t *)NULL) {
@@ -2376,13 +2073,13 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 			double graph_lower, graph_upper;
 			graph_inv * gi;
 
-			gi = FindGraphInv(g, SymLookup(tmp_v->v_isym));
-			numprocs = gi->gi_nproc;
+			gi = FindGraphInv(g, tmp_v->v_pname);
+			numprocs = gi->gp_di->d_nproc;
 			BlockMapToString(bm, tmp_v, numprocs, extra.blockmapinfo);
 			strcat(extra.blockmapinfo, "-");
 
-			gi = FindGraphInv(g, SymLookup(bm2->m_actual->v_isym));
-			numprocs = gi->gi_nproc;
+			gi = FindGraphInv(g, bm2->m_actual->v_pname);
+			numprocs = gi->gp_di->d_nproc;
 			BlockMapToString(bm2, bm2->m_actual, numprocs, tmpstr);
 			strcat(extra.blockmapinfo, tmpstr);
 
@@ -2391,9 +2088,9 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 
 			blockmap_required = _identify_p2p_receiver_procset(g, tmp_v, bm2->m_actual);
 			if (blockmap_required)
-				strcpy(tmpstr, SymLookup(bm2->m_actual->v_isym));
+				strcpy(tmpstr, bm2->m_actual->v_pname);
 			else
-				strcpy(tmpstr, SymLookup(tmp_v->v_isym));
+				strcpy(tmpstr, tmp_v->v_pname);
 			sprintf(tmpstr, "%s-%s-%f,%f", tmpstr, extra.blockmapinfo, graph_lower, graph_upper);
 			strcpy(extra.blockmapinfo, tmpstr);
 
@@ -2428,7 +2125,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		AddToList(vlist, (void *)bm->m_actual);
 
 		BuildInvoke(g, bm->m_actual);
-		BuildMPWait(g, bm->m_actual);
 
 		blockmap_node = BuildBlockMap(g, bm, bm->m_actual, &extra, 1);
 		if (blockmap_node == -1) {
@@ -2458,11 +2154,11 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		receiver_cmp = receiver_cmp? cmp1:cmp2;
 
 		// need to get the PROC_SET for both programs
-		gi = FindGraphInv(g, SymLookup(tmp_v->v_isym));
-		proc_set1 = PROC_PROC_NODE(gi->gi_procset);
+		gi = FindGraphInv(g, tmp_v->v_pname);
+		proc_set1 = PROC_PROC_NODE(gi);
 
-		gi = FindGraphInv(g, SymLookup(bm2->m_actual->v_isym));
-		proc_set2 = PROC_PROC_NODE(gi->gi_procset);
+		gi = FindGraphInv(g, bm2->m_actual->v_pname);
+		proc_set2 = PROC_PROC_NODE(gi);
 
 		cmp = BuildDisplayP2P(g, id, receiver_cmp, proc_set1, proc_set2);
 	}
@@ -2479,9 +2175,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 	SetList(vlist);
 	while ( (v = (var_t *)GetListElement(vlist)) != (var_t *)NULL )
 	{
-		//if ( async )
-		//	cmp = v->v_value(v->v_proc->p_pnum);
-			
 		BuildMerge(g, v, cmp, async, force);
 	}
 
@@ -2493,7 +2186,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 /*
 ** Determine mode of graph.
 */
-int
+static int
 AsyncMode(graph_t *g, list_t *vlist, dfmode_t dfmode)
 {
 	var_t *		v;
@@ -2511,11 +2204,11 @@ AsyncMode(graph_t *g, list_t *vlist, dfmode_t dfmode)
 
 		if ( gi == (graph_inv *)NULL )
 		{
-			gi = FindGraphInv(g, SymLookup(v->v_isym));
+			gi = FindGraphInv(g, v->v_pname);
 			continue;
 		}
 
-		if ( gi != FindGraphInv(g, SymLookup(v->v_isym)) )
+		if ( gi != FindGraphInv(g, v->v_pname) )
 			return 0;
 	}
 

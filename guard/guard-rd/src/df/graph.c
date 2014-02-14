@@ -31,7 +31,8 @@
 #include	"useful.h"
 #include	"df.h"
 
-graph_procset *	NewGraphProcSet(graph_t *, invoke_group *, int);
+// FIXME: I don't know how they came up with this number. Whatever.
+#define INVOKE_TABLE_SIZE       7   /* 2^7 = 128 */
 
 extern int		NodeEvent(event_set_t *, bitset *);
 
@@ -65,7 +66,7 @@ NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *, int), void
 	g->g_assert_info_tab = NewAssertInfoTable();
 	g->g_startnode = -1;
 	g->g_initnode = -1;
-	g->g_invoke_list = NewList();
+	g->g_di_list = NewList();
 	g->g_bp_list = NewList();
 	g->g_assigns = NewList();
 	g->g_vars = NewList();
@@ -92,50 +93,33 @@ NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *, int), void
 }
 
 graph_inv *
-NewGraphInv(graph_t *g, invoke_group *ig)
-//TODO: add var_t in the signature
+NewGraphInv(graph_t *g, dbgprocset_t *ps)
 {
-	int		c;
-	graph_inv *	gi;
+	graph_inv *			gi;
+	dbg_over_set_t *	over_set;
+	int					d;
 
 	gi = (graph_inv *)Alloc(sizeof(graph_inv));
-	gi->gi_inv = ig;
-	gi->gi_nproc = ig->ig_nproc;
-	gi->gi_builtinv = 0;
-	gi->gi_builtunused = 0;
+	
+	//FIXME: This assumes only a single dbginvoke
+	SetOverlaySetForProcSet(ps);
+	over_set = GetNextOverlaySetForProcSet(ps);
+	
+	gi->gp_di = over_set->s_di;
+	gi->gp_unbuilt_bs = bitset_new(over_set->s_di->d_nproc);
+	gi->gp_files = NULL;
+	
+	for ( d = 0 ; d < INVOKE_NODES ; d++ )
+		gi->gp_node[d] = -1;
+	
+	// Put this graph_inv in the global hash table
+	HashInsert(g->g_inv, over_set->s_di->d_handle, (void *)gi);
 
-	for ( c = 0 ; c < INVOKE_NODES ; c++ )
-		gi->gi_node[c] = -1;
-
-	gi->gi_procset = NewGraphProcSet(g, ig, ig->ig_nproc);
-
-	HashInsert(g->g_inv, SymLookup(ig->ig_sym), (void *)gi);
-
-	if(InList(g->g_invoke_list, ig->ig_invoke) == 0)
-		AddToList(g->g_invoke_list, ig->ig_invoke);
+	// Put this dbginvoke_t in the g_di_list
+	if(InList(g->g_di_list, over_set->s_di) == 0)
+		AddToList(g->g_di_list, over_set->s_di);
 
 	return gi;
-}
-
-graph_procset*
-NewGraphProcSet(graph_t *g, invoke_group *ig, int nproc)
-{
-	int		d;
-	graph_procset *	gp;
-
-	gp = (graph_procset *)Alloc(sizeof(graph_procset));
-	gp->gp_iproc = ig->ig_invoke;
-	gp->gp_builtinv = 0;
-	gp->gp_built = 0;
-	gp->gp_files = (list_t *)NULL;
-
-	gp->gp_builtinv_bs = bitset_new(nproc); //TODO: fix me
-	gp->gp_built_bs = bitset_new(nproc);	//TODO: fix me 
-
-	for ( d = 0 ; d < INVOKE_NODES ; d++ )
-		gp->gp_node[d] = -1;
-
-	return gp;
 }
 
 graph_diff *
@@ -194,25 +178,12 @@ FindGraphInv(graph_t *g, char *inv)
 }
 
 void
-destroyGProcset(graph_procset *p)
-{
-	DestroyList(p->gp_files, DestroyFile);
-
-	if(p->gp_builtinv_bs != NULL)
-		bitset_free(p->gp_builtinv_bs);
-
-	if(p->gp_built_bs != NULL)
-		bitset_free(p->gp_built_bs);
-
-	Free(p);
-}
-
-void
 destroyInv(char *key, void *arg)
 {
 	graph_inv *	gi = (graph_inv *)arg;
-
-	destroyGProcset(gi->gi_procset);
+	
+	bitset_free(gi->gp_unbuilt_bs);
+	DestroyList(gi->gp_files, DestroyFile);
 	
 	Free(gi);
 }
@@ -240,7 +211,7 @@ DestroyGraph(graph_t *g)
 	DestroyNodes(g->g_nodes);
 	HashDestroy(g->g_inv, destroyInv);
 	DestroyList(g->g_diff, destroyGDiff);
-	DestroyList(g->g_invoke_list, NULL);
+	DestroyList(g->g_di_list, NULL);
 	DestroyList(g->g_bp_list, FreeBP);
 	DestroyList(g->g_assigns, DestroyAssign);
 	DestroyList(g->g_vars, DestroyVar);

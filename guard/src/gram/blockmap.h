@@ -28,7 +28,7 @@
 #include	"hash.h"
 #include	"var.h"
 #include	"procset.h"
-#include	"dbg_set_sync.h"
+#include	"dbg_client.h"
 
 struct g_block_map_t
 {

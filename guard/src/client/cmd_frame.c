@@ -36,7 +36,7 @@
 void
 PrintFrameSet(char* setname, bitset* group, dbgframe_t *f)
 {
-	PrintMsgWithSetInfo(Client.cli_out_stream, setname, group, "#%-2d ", f->frame_level);
+	PrintMsgWithSetInfo(setname, group, "#%-2d ", f->frame_level);
 
 	if ( *f->frame_loc.loc_addr != '\0' )
 		PrintOutMsg("%s in ", f->frame_loc.loc_addr);

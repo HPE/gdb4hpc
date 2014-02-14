@@ -87,7 +87,7 @@ cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv)
 	{
 		type_str = EVENT_TYPE(reply->rep_event);
 		
-		PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "%s\n", type_str);
+		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%s\n", type_str);
 	}
 
 	FreeRepSet(rep_set);
@@ -123,7 +123,7 @@ class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc, char **argv)
 		
 		for ( ; v != (dbgvars_t *)NULL ; v = v->var_next )
 		{
-			PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 		}
 	}
 
@@ -171,7 +171,7 @@ class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc, char **argv)
 				PrintOutMsg("Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 			} else
 			{
-				PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
+				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 			}
 		}
 	}

@@ -20,5 +20,5 @@ expr.tab.c expr.tab.h: expr.y
 
 noinst_LIBRARIES	= libgram.a
 libgram_a_SOURCES	= assign.c blockmap.c blockmap_util.c cmdtoken.c expr.c expr.tab.c \
-			  file.c func.c invoke.c line.c perm.c procset.c \
+			  file.c func.c line.c perm.c procset.c \
 			  slice.c val.c var.c

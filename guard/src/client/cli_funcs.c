@@ -1025,11 +1025,7 @@ XMLPrintStartGraphMsg(char *set_name, char *set_str)
 static void
 ProgOutLine(dbginvoke_t *di, FILE *o_stream)
 {
-	char *			line;
-	invoke_t *		i;
-	invoke_group *	ig;
-	int 			first = 1;
-	char			*t1=NULL, *t2, *t3;
+	char *	line;
 	
 	// ensure that there is an output stream to print to in the current stream
 	if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL)
@@ -1041,66 +1037,14 @@ ProgOutLine(dbginvoke_t *di, FILE *o_stream)
 	
 	while (fgets(line, BUFSIZ, o_stream) > 0)
 	{
-		first = 1;
 		if (Client.XML_mode)
 		{
-			// FIXME: This is a terrible hack that eventually will get fixed
-			// when the global symbol table acts as an actual store...
-			SetInvoke();
-			while ((i = GetInvoke()) != NULL)
-			{
-				if (i->i_iexec == di)
-				{
-					SetInvokeGroup(i);
-					while ((ig = GetInvokeGroup(i)) != NULL)
-					{
-						if (first)
-						{
-							first = 0;
-							Asprintf(&t3, "$%s", SymLookup(ig->ig_sym));
-						} else
-						{
-							Asprintf(&t2, "%s,$%s", t3, SymLookup(ig->ig_sym));
-							Free(t3);
-							t3 = t2;
-							t2 = NULL;
-						}
-					}
-					t1 = t3;
-					break;
-				}
-			}
-			fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START, t1, (unsigned int)strlen(line));
-			Free(t1);
+			fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START, di->d_handle, (unsigned int)strlen(line));
 			fprintf(CurrentStream->cs_fpout, "%s", line);
 			fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
 		} else
 		{
-			// FIXME: This is a terrible hack that eventually will get fixed
-			// when the global symbol table acts as an actual store...
-			SetInvoke();
-			while ((i = GetInvoke()) != NULL)
-			{
-				if (i->i_iexec == di)
-				{
-					SetInvokeGroup(i);
-					while ((ig = GetInvokeGroup(i)) != NULL)
-					{
-						if (first)
-						{
-							first = 0;
-							fprintf(CurrentStream->cs_fpout, "<");
-						} else
-						{
-							fprintf(CurrentStream->cs_fpout, ",");
-						}
-						fprintf(CurrentStream->cs_fpout, "$%s", SymLookup(ig->ig_sym));
-					}
-					fprintf(CurrentStream->cs_fpout, ">: %s", line);
-					
-					break;
-				}
-			}
+			fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
 		}
 	}
 	
@@ -1143,20 +1087,26 @@ PrintOutError(char *format, ...)
 {
 	va_list arg_list;
 	
-	// we need to disable input processing while we are printing
-	DbgMaskInput();
-	
 	// setup the va_list
 	va_start(arg_list, format);
+	
+	vPrintOutError(format, arg_list);
+	
+	// end the va_list
+	va_end(arg_list);
+}
+
+void
+vPrintOutError(char *format, va_list arg_list)
+{
+	// we need to disable input processing while we are printing
+	DbgMaskInput();
 	
 	// ensure that there is an error stream to print to in the current stream
 	if (CurrentStream == NULL || CurrentStream->cs_fperr == NULL)
 	{
 		// otherwise default to stderr
 		vfprintf(stderr, format, arg_list);
-		
-		// end the va_list
-		va_end(arg_list);
 		
 		// restore input processing
 		DbgUnmaskInput();
@@ -1187,9 +1137,6 @@ PrintOutError(char *format, ...)
 		vfprintf(CurrentStream->cs_fperr, format, arg_list);
 	}
 	
-	// end the va_list
-	va_end(arg_list);
-	
 	// restore input processing
 	DbgUnmaskInput();
 }
@@ -1202,20 +1149,26 @@ PrintOutMsg(char *format, ...)
 {
 	va_list arg_list;
 	
-	// we need to disable input processing while we are printing
-	DbgMaskInput();
-	
 	// setup the va_list
 	va_start(arg_list, format);
+	
+	vPrintOutMsg(format, arg_list);
+	
+	// end the va_list
+	va_end(arg_list);
+}
+
+void
+vPrintOutMsg(char *format, va_list arg_list)
+{
+	// we need to disable input processing while we are printing
+	DbgMaskInput();
 	
 	// ensure that there is an output stream to print to in the current stream
 	if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL)
 	{
 		// otherwise default to stdout
 		vfprintf(stdout, format, arg_list);
-		
-		// end the va_list
-		va_end(arg_list);
 		
 		// restore input processing
 		DbgUnmaskInput();
@@ -1229,46 +1182,25 @@ PrintOutMsg(char *format, ...)
 	// vfprintf the line we recieved
 	vfprintf(CurrentStream->cs_fpout, format, arg_list);
 	
-	// end the va_list
-	va_end(arg_list);
-	
 	// restore input processing
 	DbgUnmaskInput();
 }
 
-/*
-** fprintf the current saved error string
-*/
-void
-PrintError()
-{
-	PrintOutError("%s\n", GetError());
-}
-
 // TODO: These are very kludge... Try to rewrite the functions that use this
 // to instead call the appropriate stream print functions.
+
 void
 PrintToFd(FILE *fd, char *format, ...)
 {
 	va_list arg_list;
 	
-	// we need to disable input processing while we are printing
-	DbgMaskInput();
-	
-	// clear the current line this should contain a prompt
-	cli_clear_line();
-	
 	// setup the va_list
 	va_start(arg_list, format);
 	
-	// vfprintf the line we recieved
-	vfprintf(fd, format, arg_list);
+	vPrintToFd(fd, format, arg_list);
 	
 	// end the va_list
 	va_end(arg_list);
-	
-	// restore input processing
-	DbgUnmaskInput();
 }
 
 void
@@ -1285,5 +1217,14 @@ vPrintToFd(FILE *fd, char *format, va_list arg_list)
 	
 	// restore input processing
 	DbgUnmaskInput();
+}
+
+/*
+** fprintf the current saved error string
+*/
+void
+PrintError()
+{
+	PrintOutError("%s\n", GetError());
 }
 

@@ -45,34 +45,18 @@ struct graph_diff
 typedef struct graph_diff graph_diff;
 
 /*
-** graph_procset and graph_inv are used when bulding a graph to 
-** retain state information.
+** graph_inv is used when bulding a graph to retain state information.
+** TODO: Allow this to be used with DBGSET_DEFSET
 */
-struct graph_procset
-{
-	list_t *	gp_files;		/* per process list of files */
-	int			gp_builtinv;	/* built invoke? */
-	int			gp_built;		/* build finished? */
-
-	bitset* 	gp_builtinv_bs;
-	bitset* 	gp_built_bs;
-
-	invoke_t *	gp_iproc;
-	int			gp_node[INVOKE_NODES];
-};
-typedef struct graph_procset	graph_procset;
-
 struct graph_inv
 {
-	int				gi_nproc;
-	invoke_group *	gi_inv;
-	int				gi_builtinv;		/* built invoke? */
-	int				gi_builtunused;		/* build unused? */
-	int				gi_node[INVOKE_NODES];
-	graph_procset *	gi_procset;
-#define gi_sym		gi_inv->ig_sym
-#define gi_rank	gi_inv->ig_rank
-#define gi_dims	gi_inv->ig_dims
+	// dbginvoke_t components
+	dbginvoke_t *	gp_di;				// dbginvoke_t pointer
+	
+	// procset support components
+	bitset *		gp_unbuilt_bs;	/* ranks that have yet to be built */
+	list_t *		gp_files;		/* per process list of files */
+	int				gp_node[INVOKE_NODES];
 };
 typedef struct graph_inv	graph_inv;
 
@@ -113,8 +97,8 @@ struct graph_t
 	** Per-invoke and per-process information needed when
 	** building the graph.
 	*/
-	htable_t *	g_inv;			//a list of procsets used in assert or assign. These procsets may be created by defset
-	ainfo_t **	g_assert_info_tab; // Assert info table
+	htable_t *	g_inv;				// All the procsets used in assert or assign.
+	ainfo_t **	g_assert_info_tab;	// Assert info table
 
 	/*
 	** Node number of start and init nodes.
@@ -125,14 +109,13 @@ struct graph_t
 	/*
 	** List of procs to check when removing bp's.
 	*/
-	list_t *	g_invoke_list;	// FIXME: This should hold dbginvoke_t, not invoke_t
+	list_t *	g_di_list;	// All of the dbginvoke_t * used by graph
 	list_t *	g_bp_list;	// list of bp_t * set by graph
 
 	/*
 	** Assertion and assign information used to generate graph.
 	*/
 	list_t *	g_assigns;
-	//list_t *	g_maps;	 // not currently used
 	list_t *	g_vars;
 	list_t *	g_assert_cmds;      // list of assertion command buffers
 

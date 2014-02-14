@@ -33,7 +33,6 @@
 #include	"dbg_client.h"
 #include	"defs.h"
 #include	"gram.h"
-#include	"dbg_set_sync.h"
 #include	"useful.h"
 #include	"xml_tag.h"
 
@@ -61,7 +60,7 @@ extern void		PrintFrameSet(char *, bitset*, dbgframe_t *);
 /*
 ** Functions defined in cmd_print.c
 */
-extern int      PrintVal(FILE *, val_t *, rec_set_t *);
+extern int      PrintVal(val_t *, rec_set_t *);
 
 /*
 ** Functions defined in cmd_proc.c

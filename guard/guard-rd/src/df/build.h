@@ -36,35 +36,9 @@
 #define GCHECK						g->g_checkGraph
 #define STARTNODE					g->g_setStartNode
 
-typedef struct extrainfo
-{
-	char hashinfo[BUFSIZ];
-	char blockmapinfo[BUFSIZ];
-}extrainfo;
-
-extern void		BuildInvokeProcSet(graph_t *, graph_inv *, var_t *);
-extern int 		BuildSetBPSet(graph_t *, int, int, var_t *);
-extern void		BuildMPWaitProcSet(graph_t *, graph_inv *, var_t *);
-extern void		BuildInvoke(graph_t *, var_t *);
-extern void		BuildInvokeProc(graph_t *, graph_inv *, var_t *, int); //TODO: remove it 
-extern int		BuildSetBP(graph_t *, int, int, var_t *); //TODO: remove it
-extern void		BuildGetVar(graph_t *, int *, int *, var_t *, int, extrainfo *);
-extern void		BuildGetVarSet(graph_t *, int *, int *, var_t *, int, int, extrainfo *);
-extern int		BuildCmp(graph_t *, int, int, int, int);
-extern void		BuildMPWait(graph_t *, var_t *);
-extern void		BuildMPWaitProc(graph_t *, graph_inv *, var_t *, int);
-extern void		BuildUnused(graph_t *, var_t *);
-extern void		BuildUnusedProc(graph_t *, graph_inv *, var_t *, int);
-extern void		BuildUnusedProcSet(graph_t *, graph_inv *, var_t *);
-extern int		BuildBlockMap(graph_t *, g_block_map_t *, var_t *, extrainfo *, int);
-extern void		BuildMerge(graph_t *, var_t *, int, int, int);
-extern int		BuildMergeProc(graph_t *, graph_inv *, var_t *, int, int, int, int);
-extern void		BuildSync(graph_t *, var_t *, int, int);
+extern void		BuildUnused(graph_t *);
 extern int		BuildAssert(graph_t *, int, expr_t *, rec_set_t *, list_t *);
 extern int		BuildAssign(graph_t *, char *, int, int, list_t *);
 extern int		BuildExpr(graph_t *, int *, int *, list_t *, expr_t *, rec_set_t *);
-extern int		BuildReduce(graph_t *, var_t *, int *, extrainfo *);
-extern int		BuildDisplayP2P(graph_t *, int, int, int, int);
-extern void		BuildGetVarSet_Sync(graph_t *, int *, int *, var_t *, int, int, extrainfo *, int);
 
 #endif /* _BUILD_H */

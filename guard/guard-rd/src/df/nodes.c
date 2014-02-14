@@ -71,7 +71,7 @@ int socket_on=0;
 /*
 ** Clean up on exit.
 */
-void
+static void
 Cleanup(int status)
 {
 	ExitDF();
@@ -233,9 +233,6 @@ IsEqual(token_t * t1, token_t *t2)
 
 	case TK_STR:
 		return strcmp(t1->t_str, t2->t_str) == 0;
-
-	case TK_INV:
-		return t1->t_inv == t2->t_inv;
 
 	case TK_PROC_SET:
 		return t1->t_proc_set == t2->t_proc_set;
@@ -1415,30 +1412,6 @@ NodeSearch(graph_t *g, node_t *n)
 }
 
 /*
-** Fetch an invoke from the global hash store.
-*/
-token_t *
-NodeLookupInvoke(graph_t *g, node_t *n)
-{
-	token_t	*	t;
-	token_t	*	t0;
-	hentry_t *	h;
-
-	t0 = GetTokenFromInput(n, 0);
-
-	if ( (h = HashSearch(InvokeStore, t0->t_str)) == (hentry_t *)NULL )
-	{
-		DFError(n, "No such process \"%s\"", t0->t_str);
-		return (token_t *)NULL;
-	}
-
-	t = NewToken(g, TK_INV);
-	t->t_inv = (invoke_t *)h->h_data;
-
-	return t;
-}
-
-/*
 ** Check if a token is in the global hash store.
 */
 token_t *
@@ -2123,24 +2096,23 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 	}
 
 	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgRequestVarSet cannot get Overlay Set for [%s]!\n", procset_name); 
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
-		
-//	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t1->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	result = DbgSendExpr(rec_set, t2->t_str, t3->t_int);
 	bitset_free(receiver);
@@ -2198,17 +2170,17 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t0->t_set_bits))
 	{
 		for(index = 0; index < t0->t_set_length; index++)
 		{
 			if(!bitset_test(t0->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
 	
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	rep_set = DbgGetExpr(rec_set, t3->t_set_bits, t1->t_int);
 	
@@ -2223,7 +2195,7 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 		// NOTE: I don't understand this - andrewg
 		for (i=0; i<set_length; ++i)
 		{
-			if (bitset_test(reply->rep_group, (i + over_set->s_offset)))
+			if (bitset_test(reply->rep_group, (i + over_set->s_ps_offset)))
 			{
 				// Save the AIF data into the ax
 				ax[i] = EVENT_DATA(reply->rep_event);
@@ -2319,17 +2291,17 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
 	
@@ -2344,7 +2316,7 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 		// NOTE: I don't understand this - andrewg
 		for (i=0; i<set_length; ++i)
 		{
-			if (bitset_test(reply->rep_group, (i + over_set->s_offset)))
+			if (bitset_test(reply->rep_group, (i + over_set->s_ps_offset)))
 			{
 				// Save the AIF data into the ax
 				ax[i] = EVENT_DATA(reply->rep_event);
@@ -2415,17 +2387,17 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
 
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 	
 	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
 
@@ -2617,19 +2589,19 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 	// FIXME: This call will alloc some memory and add the object to a list. I 
 	//         don't know how to clean this up...
 	//         I think it should be cleaned up in the NodeEvent function above.
-	AddNodeInfoByTree(over_set->s_invoke->i_tree, (void*)n, (void*)t->t_set_bits);
+	AddNodeInfoByTree(over_set->s_di->d_proto_net, (void*)n, (void*)t->t_set_bits);
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t->t_set_bits))
 	{
 		for(index = 0; index < t->t_set_length; index++)
 		{
 			if(!bitset_test(t->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
 		
-	rec_set = NewRecSetByOverSet(over_set, receiver);
+	rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
@@ -2717,18 +2689,17 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
-		
-//	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t1->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	rep_set = DbgOpenSocket(rec_set, opset_name, opset_size);
 
@@ -2741,7 +2712,7 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 		// point at the breakpoint
 		bp_t = EVENT_BP(reply->rep_event);
 		for(index = 0; index < set_length; index++)
-			if(bitset_test(reply->rep_group, (over_set->s_offset + index)))
+			if(bitset_test(reply->rep_group, (over_set->s_ps_offset + index)))
 				bi_set[index] = bp_t->bp_id;
 	}
 	FreeRepSet(rep_set);
@@ -2794,18 +2765,17 @@ _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 		return;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t->t_set_bits))
 	{
 		for(index = 0; index < t->t_set_length; index++)
 		{
 			if(!bitset_test(t->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
-		
-//	rec_set_t* rec_set = NewRecSetByOverSet(over_set, t->t_set_bits, -1);
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver);
+	
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
 
 	rep_set = DbgCloseSocket(rec_set);
 
@@ -2819,7 +2789,7 @@ _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 		// point at the breakpoint data
 		bp_t = EVENT_BP(reply->rep_event);
 		for(index = 0; index < set_length; index++)
-			if(bitset_test(reply->rep_group, (over_set->s_offset + index)))
+			if(bitset_test(reply->rep_group, (over_set->s_ps_offset + index)))
 				bi_set[index] = bp_t->bp_id;
 	}
 	FreeRepSet(rep_set);
@@ -2898,17 +2868,17 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_set_bs);
+	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
-				bitset_unset(receiver, over_set->s_offset + index);
+				bitset_unset(receiver, over_set->s_ps_offset + index);
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByOverSet(over_set, receiver); //TODO: extention for individual process
+	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver); //TODO: extention for individual process
 	switch ( t2->t_type )
 	{
 	case TK_INT:
@@ -2943,7 +2913,7 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		// right now...
 		for(index = 0; index < set_length; index++)
 		{
-			if(bitset_test(reply->rep_group, (over_set->s_offset + index)))
+			if(bitset_test(reply->rep_group, (over_set->s_ps_offset + index)))
 			{
 				bi_set[index] = bp_t->bp_id;
 			}
@@ -2973,7 +2943,6 @@ NodeDbgKill(graph_t *g, node_t *n)
 	dbg_over_set_t *	over_set;
 	char *				procset_name;
 	dbgprocset_t *		procset;
-	dbginvoke_t *		di;
 	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 
@@ -2994,11 +2963,8 @@ NodeDbgKill(graph_t *g, node_t *n)
 		return NULL;
 	}
 	
-	// Grab the dbginvoke_t from the i_iexec - note that this should be fixed its a hack
-	di = (dbginvoke_t *)over_set->s_invoke->i_iexec;
-	
 	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full);
+	rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di->d_bitset_full);
 
 	rep_set = DbgKill(rec_set);
 
@@ -3080,7 +3046,7 @@ NodeDbgSetVar(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	rec_set_t *	rec_set = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, procset->s_indiv_proc));
+	rec_set_t *	rec_set = NewRecSetByDbgInvoke(over_set->s_di, SetIndividualProcess(over_set->s_di_bs, 0, procset->s_indiv_proc));
 	rep_set_t *	rep_set = DbgSetVar(rec_set, t1->t_str, t2->t_data);
 	
 	if (ProcessErrorInRepSet(rec_set, rep_set))

@@ -178,10 +178,12 @@ extern void					DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 */
 extern void					PrintOutLine(char *, ...);
 extern void					PrintOutError(char *, ...);
+extern void					vPrintOutError(char *, va_list);
 extern void					PrintOutMsg(char *, ...);
-extern void					PrintError();
+extern void					vPrintOutMsg(char *, va_list);
 extern void					PrintToFd(FILE *, char *, ...);
 extern void					vPrintToFd(FILE *, char *, va_list);
+extern void					PrintError();
 
 /*
 ** CLI helper functions

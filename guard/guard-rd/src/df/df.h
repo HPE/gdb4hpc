@@ -33,7 +33,7 @@
 */
 extern graph_t *	NewGraph(int (*)(graph_t *, int, char *, AIF *, char *, AIF *, int), void (*)(char *, int, int, void *),
 								int (*)(graph_t *, int, char *, AIF *),	int);
-extern graph_inv *	NewGraphInv(graph_t *, invoke_group *);
+extern graph_inv *	NewGraphInv(graph_t *, dbgprocset_t *);
 extern graph_diff *	NewGraphDiff(graph_t *, int, AIF *, char *);
 extern void			AddActiveEvent(graph_t *);
 extern void			RemoveActiveEvent(graph_t *);

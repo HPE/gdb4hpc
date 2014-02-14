@@ -20,8 +20,7 @@
 #define _TYPE_CMD_H
 
 #include	"list.h"
-#include	"invoke.h"
-#include	"dbg_set_sync.h"
+#include	"dbg_client.h"
 
 enum cmdres
 {

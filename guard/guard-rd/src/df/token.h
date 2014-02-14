@@ -23,7 +23,6 @@
 
 #include	"aif.h"
 #include	"bitset.h"
-#include	"dbg_set_sync.h"
 
 #define T_CHUNK		128
 #define T_NCHUNKS		20
@@ -34,7 +33,7 @@
 
 #define	 TK_DATA		0x0001
 #define	 TK_BOOL		0x0002
-#define	 TK_INV			0x0004
+//#define	 TK_INV			0x0004
 #define	 TK_INT			0x0008
 #define	 TK_ADDR		0x0010
 #define	 TK_STR			0x0020
@@ -78,7 +77,6 @@ struct token_t
 		double			t_d_float;
 		char *			t_d_str;
 		void *			t_d_addr;
-		invoke_t *		t_d_inv;
 		dbgprocset_t * 	t_d_procset;
 		int *			t_d_int_set;
 		AIF **			t_d_data_set;
@@ -90,7 +88,6 @@ struct token_t
 #define t_float		t_d.t_d_float
 #define t_str			t_d.t_d_str
 #define t_addr			t_d.t_d_addr
-#define t_inv			t_d.t_d_inv
 #define t_proc_set	t_d.t_d_procset
 #define t_int_set		t_d.t_d_int_set
 #define t_data_set	t_d.t_d_data_set

@@ -42,7 +42,6 @@ struct tt_t	tokenType[] =
 {
 	{ TK_DATA,	"TK_DATA" },
 	{ TK_BOOL,	"TK_BOOL" },
-	{ TK_INV,	"TK_INV"  },
 	{ TK_INT,	"TK_INT"  },
 	{ TK_FLOAT,	"TK_FLOAT"},
 	{ TK_ADDR,	"TK_ADDR" },
@@ -172,7 +171,6 @@ DestroyToken(graph_t *g, token_t * t)
 	case TK_INT:
 	case TK_FLOAT:
 	case TK_ADDR:
-	case TK_INV:
 		break;
 
 	case TK_STR:
@@ -291,10 +289,6 @@ DumpToken(token_t *t)
 
 	switch ( t->t_type )
 	{
-	case TK_INV:
-		PrintOutError("<inv 0x%lx>", (long)t->t_inv);
-		break;
-
 	case TK_ADDR:
 		PrintOutError("<0x%lx>", (long)t->t_addr);
 		break;

@@ -22,7 +22,6 @@
 
 #include	"bitset.h"
 #include	"dbgevent.h"
-#include	"dbg_set_sync.h"
 #include	"list.h"
 
 typedef void *	dbgfrontend_sess;

@@ -1019,7 +1019,7 @@ BlockMapToString(g_block_map_t * m, var_t *v, int numprocs, char *str)
 	int i;
 	char buf[100];
 
-	sprintf(buf, "$%s,%d,%d,", SymLookup(v->v_isym), numprocs, m->m_rank);
+	sprintf(buf, "$%s,%d,%d,", v->v_pname, numprocs, m->m_rank);
 	strcat(str, buf);
 	for (i=0; i<m->m_rank; i++)
 	{
@@ -1098,7 +1098,7 @@ construct_blockmap_data(g_block_map_t *bm, dbgprocset_t* procset, int array_size
 		for (i=0; i < array_size; ++i)
 		{
 			// Check if this rank is in this reply
-			if(bitset_test(reply->rep_group, (i + over_set->s_offset)))
+			if(bitset_test(reply->rep_group, (i + over_set->s_ps_offset)))
 			{
 				da[i] = EVENT_DATA(reply->rep_event);
 			}

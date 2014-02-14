@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -36,91 +34,155 @@
 #include 	"dbg_client.h"
 
 // static prototypes
-static dbg_over_set_t *		NewOverlaySet(char *, invoke_t *, invoke_group *, bitset *, int, int, int, dbgset_type);
+static dbgprocset_t *		NewProcSet(char *, dbgset_type);
+static dbg_over_set_t *		NewOverlaySet(dbginvoke_t *, bitset *, int);
 static void					FreeOverlaySet(dbg_over_set_t *);
-static dbg_ori_set_info_t *	NewOriginalSetInfo(invoke_t *, invoke_group *);
-static void					FreeOriginalSetInfo(dbg_ori_set_info_t *);
-static void					AddOverlaySetToOrignalSet(dbg_over_set_t *);
-static void					RemoveOverlaySetFromOriginalSet(dbg_over_set_t *);
 static void					AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void					_free_procset(dbgprocset_t *);
+static void					_print_with_set_info(char *, bitset *, int, int, int, int, char *, va_list);
 
-list_t *	ProcSets = (list_t *)NULL;
-dbgprocset_t *	CurrProcSet = (dbgprocset_t *)NULL;
-dbgprocset_t *	AllProcSet = (dbgprocset_t *)NULL;
-list_t		*OriginalSetInfoList = (list_t*)NULL;
-
-void	_free_procset(dbgprocset_t *);
-void	FreeOriginalSetInfo(dbg_ori_set_info_t* info);
-void	RemoveOverlaySetFromOriginalSet(dbg_over_set_t* over_set);
+// Internal variables
+static list_t *			ProcSets = NULL;
+static dbgprocset_t *	CurrProcSet = NULL;
+static dbgprocset_t *	AllProcSet = NULL;
 
 void
 InitProcSet(void)
 {
+	expr_t *	ex;
+	val_t *		val;
+	
 	ProcSets = NewList();
-	AllProcSet = NewProcSet("all");
+	
+	// force all procset to be created
+	if ( (ex = ParseExpr("$all")) == NULL )
+	{
+		PrintError();
+		return;
+	}
+	
+	if( EvalExpr(&val, ex, NULL) < 0 )
+	{
+		PrintError();
+		FreeExpr(ex);
+		return;
+	}
+	
+	FreeExpr(ex);
+	
+	AllProcSet = NewProcSet("all", DBGSET_INTERNAL);
 	SetCurrentProcSet(AllProcSet);
-	OriginalSetInfoList = NewList();
+	
+	// Fixup the val
+	RVAL_TYPE(val) = rval_proc;
+	// Assign the procset directly
+	RVAL_PROCSET(val) = AllProcSet;
+	// Important! Set RVAL_DESTROY to false
+	RVAL_DESTROY(val) = 0;
 }
 
 void
 FinishProcSet(void)
 {
 	DestroyList(ProcSets, _free_procset);
-	DestroyList(OriginalSetInfoList, FreeOriginalSetInfo);
 }
 
 /*
-** Parse a process set.
+** Create a process set from a procset list.
 */
 int
-ParseProcSet(dbgprocset_t *s, char *str, rec_set_t *rec_set)
+CreateProcSet(expr_t *e_name, expr_t *e_set)
 {
-	list_t *	l;
-	val_t *		v;
-	expr_t *	e;
-	dbgprocset_t *	procset = NULL;
-	dbg_over_set_t*	over_set = NULL;
-	invoke_t *invoke = NULL;
-	invoke_group *ig = NULL;
-	invoke_group *one_ig = NULL;
-	bitset* group = (bitset *)NULL;
-	int index;
-	int	slice_min = -1, slice_max = -1;
-	int	min_index = -1,  max_index = -1;
-
-	if ( (e = ParseExpr(str)) == (expr_t *)NULL )
+	val_t *				v_name = NULL;
+	dbgprocset_t *		new_procset;
+	list_t *			l;
+	val_t *				v;
+	dbgprocset_t *		procset = NULL;
+	bitset *			di_mask = NULL;
+	dbg_over_set_t *	over_set = NULL;
+	dbg_over_set_t *	o_ptr = NULL;
+	int 				index;
+	int					useSlice = 0;
+	int					slice_min = -1, slice_max = -1;
+	int					ps_offset = 0;
+	
+	if (e_name == NULL || e_set == NULL)
 	{
-		PrintOutError("Error: Procset found null expr.\n");
+		PrintOutError("Error: Create Procset had null args.\n");
 		return 0;
 	}
-
-	if ( EvalExprList(&l, e, (rec_set_t *)NULL) < 0 )
+	
+	// Eval the name and make sure it is acceptable.
+	// After calling EvalExpr on the new procset, we need to call RemoveVal
+	// to ensure proper cleanup if something goes wrong and this creates a new
+	// dbg variable for us. We only do this if EvalExpr returns a rval_none val
+	// meaning that there was not a name collision.
+	if( EvalExpr(&v_name, e_name, NULL) < 0 )
+	{
+		PrintError();
+		return 0;
+	}
+	
+	if (LVAL_TYPE(v_name) != lval_internal)
+	{
+		PrintOutError("Must specify debugger variable for process handle.\n");
+		return 0;
+	}
+	
+	switch (RVAL_ACTUAL_TYPE(v_name))
+	{
+		case rval_ref:
+			// This shouldn't be handled technically since we are using RVAL_ACTUAL_TYPE
+		case rval_none:
+			// This is what we expect the val to be
+			break;
+			
+		case rval_aif:
+			PrintOutError("A debugger variable named %s is already defined.\n", SymLookup(LVAL_SYM(v_name)));
+			return 0;
+		
+		case rval_proc:
+			PrintOutError("A procset named %s is already defined.\n", SymLookup(LVAL_SYM(v_name)));
+			return 0;
+			
+		case rval_blockmap:
+			PrintOutError("A decomposition named %s is already defined.\n", SymLookup(LVAL_SYM(v_name)));
+			return 0;
+			
+		case rval_graph:
+			PrintOutError("An assertion script named %s is already defined.\n", SymLookup(LVAL_SYM(v_name)));
+			return 0;
+			
+		case rval_reply:
+			PrintOutError("An application variable symbol named %s already exists.\n", SymLookup(LVAL_SYM(v_name)));
+			return 0;
+	}
+	
+	// create the new procset
+	new_procset = NewProcSet(SymLookup(LVAL_SYM(v_name)), DBGSET_DEFSET);
+	
+	// Now eval the provided lists of procsets
+	if ( EvalExprList(&l, e_set, NULL) < 0 )
 	{
 		PrintOutError("Error: Procset eval expr failed.\n");
-		FreeExpr(e);
+		FreeProcSet(new_procset);
+		RemoveVal(LVAL_SYM(v_name));
+		DestroyVal(v_name);
 		return 0;
 	}
 
-	FreeExpr(e);
-
 	SetList(l);
-
-	while ( (v = (val_t *)GetListElement(l)) != (val_t *)NULL )
+	while ((v = (val_t *)GetListElement(l)) != NULL)
 	{
 		if ( RVAL_ACTUAL_TYPE(v) != rval_proc )
 		{
 			PrintOutError("Invalid process set argument.\n");
-			DestroyList(l, DestroyVal);
+			DestroyList(l, NULL);
+			FreeProcSet(new_procset);
+			RemoveVal(LVAL_SYM(v_name));
+			DestroyVal(v_name);
 			return 0;
 		}
-		
-		// null out procset
-		procset = NULL;
-		slice_min = -1;
-		slice_max = -1;
-		min_index = -1;
-		max_index = -1;
 		
 		// assign procset directly
 		procset = RVAL_ACTUAL_PROCSET(v);
@@ -131,86 +193,271 @@ ParseProcSet(dbgprocset_t *s, char *str, rec_set_t *rec_set)
 			// this might be changed.
 			slice_min = RVAL_REF_SLICE(v)->s_low[0];
 			slice_max = RVAL_REF_SLICE(v)->s_high[0];
+			useSlice = 1;
 		}
-		
 		
 		if (procset != NULL)
 		{
+			// We want to force this to only operate on invoke sets since those will only contain a single
+			// overlay set. It gets tricky to compute otherwise.
+			// TODO: If invoke sets ever allow an offset, this function will need to be fixed.
+			if( procset->s_type != DBGSET_INVOKE)
+			{
+				PrintOutError("ERROR: ParseProcset does not support DBGSET_DEFSET procset!\n");
+				DestroyList(l, NULL);
+				FreeProcSet(new_procset);
+				RemoveVal(LVAL_SYM(v_name));
+				DestroyVal(v_name);
+				return 0;
+			}
+			
 			DPRINT("ParseProcSet name:%s, slice:[%d..%d]\n", procset->s_name, slice_min, slice_max);
-			over_set = GetOverlaySetForProcSet(procset);
-			if(over_set == NULL)
+			
+			if ((over_set = GetOverlaySetForProcSet(procset)) == NULL)
 			{
-				PrintOutError("ERROR: ParseProcset cannot get OverlaySet for procset[%s]:[%p]\n", procset->s_name, procset);
-				DestroyList(l, DestroyVal);
+				PrintOutError("ERROR: ParseProcset cannot get OverlaySet for procset %s.\n", procset->s_name);
+				DestroyList(l, NULL);
+				FreeProcSet(new_procset);
+				RemoveVal(LVAL_SYM(v_name));
+				DestroyVal(v_name);
 				return 0;
 			}
-
-			if( over_set->s_type != DBGSET_INVOKE)
+			
+			// grab the procset for this invoke and clear it, we will recompute
+			di_mask = bitset_dup(over_set->s_di_bs);
+			
+			if (useSlice)
 			{
-				PrintOutError("ERROR: ParseProcset does not support DBGSET_DEFSET OverlaySet!\n");
-				DestroyList(l, DestroyVal);
-				return 0;
+				// The user provided a sliced definition for this rank, so we need to compute
+				bitset_clear(di_mask);
+				for (index = slice_min; index <= slice_max; ++index)
+				{
+					bitset_set(di_mask, index);
+				}
+				
 			}
-
-			if(group == (bitset*)NULL)
+			
+			// If the user didn't provide a slice, then we want to use the entire bitset "as is".
+			
+			// Check to see if an overlay set already exists for this di in the new_procset
+			SetOverlaySetForProcSet(new_procset);
+			while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL)
 			{
-				group = bitset_dup(over_set->s_set_bs);
-				bitset_clear(group);
-
-				min_index = slice_min + over_set->s_offset;
-				max_index = slice_max + over_set->s_offset;
+				if (o_ptr->s_di == over_set->s_di)
+				{
+					// found an existing overlay set for this di
+					break;
+				}
 			}
-			else
+			
+			// Update the existing overlay set if found
+			if (o_ptr != NULL)
 			{
-				if(max_index < (slice_max + over_set->s_offset))
-					max_index = slice_max + over_set->s_offset;
-
-				if((slice_min + over_set->s_offset) < min_index)
-					min_index = slice_min + over_set->s_offset;
-			}
-
-			invoke = over_set->s_invoke;
-			ig = over_set->s_ig;
-
-			if(one_ig == NULL)
-				one_ig = ig;
-			else if(ig != one_ig)
+				bitset_oreq(o_ptr->s_di_bs, di_mask);
+				bitset_free(di_mask);
+			} else
 			{
-				PrintOutError("defset only supports porcesses created by the same invoke group!");
-
-				DestroyList(l, DestroyVal);
-				return 0;
+				// Create a new overlay set for this invoke
+				// Note that the offset gets updated on the second pass
+				o_ptr = NewOverlaySet(over_set->s_di, di_mask, 0);
+				AddToList(new_procset->s_over_set_list, over_set);
 			}
-
-			for(index = slice_min; index <= slice_max; index++) 
-	           	bitset_set(group, index + over_set->s_offset);
 		} else
 		{
 			PrintOutError("ERROR: ParseProcset cannot get procset\n");
-			DestroyList(l, DestroyVal);
+			DestroyList(l, NULL);
+			FreeProcSet(new_procset);
+			RemoveVal(LVAL_SYM(v_name));
+			DestroyVal(v_name);
 			return 0;
 		}
 	}
-
-	AddOverlaySetToProcSet(s, invoke, ig, group, min_index, (max_index - min_index + 1), bitset_count(group), DBGSET_DEFSET); 
-	bitset_free(group);
-
-	DestroyList(l, (void (*)())NULL);
+	
+	// Free the list from the eval
+	DestroyList(l, NULL);
+	
+	// Second pass - need to update the offsets for each overlay set
+	ps_offset = 0;
+	SetOverlaySetForProcSet(new_procset);
+	while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL)
+	{
+		o_ptr->s_ps_offset = ps_offset;
+		ps_offset += bitset_numset(o_ptr->s_di_bs);
+	}
+	
+	// Update the nproc in the procset
+	new_procset->s_nproc = ps_offset;
+	
+	// Fixup the v_name val
+	RVAL_TYPE(v_name) = rval_proc;
+	// Assign the procset directly
+	RVAL_PROCSET(v_name) = new_procset;
+	// Important! Set RVAL_DESTROY to false
+	RVAL_DESTROY(v_name) = 0;
 
 	return 1;
 }
 
+/*
+** Create an invoke procset given an internal variable with rval_none. This internal
+** variable can contain slicing information. This is the first step for launching
+** or attaching. Use this to determine the handle name and number of ranks.
+**
+** This should be extended to support multi-dimensional procsets with the slice.
+** XXX: This only works for a single handle (i.e. $a), not a list of handles.
+*/
 dbgprocset_t *
-NewProcSet(char *name)
+CreateProcSetForInvoke(expr_t *e)
+{
+	val_t *			val;
+	dbgprocset_t *	rtn;
+	slice_t *		proc_slice;
+	int				i, nproc = 0;
+
+	if ( EvalExpr(&val, e, NULL) < 0 )
+	{
+		PrintError();
+		return NULL;
+	}
+	
+	if (LVAL_TYPE(val) != lval_internal)
+	{
+		PrintOutError("Must specify debugger variable for process handle.\n");
+		return NULL;
+	}
+	
+	switch ( RVAL_ACTUAL_TYPE(val) )
+	{
+		case rval_graph:
+			PrintOutError("An assertion script has already been defined using this name.\n");
+			return NULL;
+			
+		case rval_proc:
+			PrintOutError("A process set has already been defined using this name.\n");
+			return NULL;
+			
+		case rval_blockmap:
+			PrintOutError("A decomposition has already been defined using this name.\n");
+			return NULL;
+			
+		case rval_aif:
+			PrintOutError("A debugger variable has already been defined using this name.\n");
+			return NULL;
+			
+		case rval_reply:
+			PrintOutError("A reply has already been defined using this name.\n");
+			return NULL;
+			
+		case rval_ref:	// This shouldn't happen since we called actual type
+		case rval_none:
+			// we expect the type to be rval_none
+			break;
+	}
+	
+	// create the new procset
+	rtn = NewProcSet(SymLookup(LVAL_SYM(val)), DBGSET_INVOKE);
+	
+	// Calculate the number of ranks in the provided list
+	// TODO: Add in the ability to have multi-dimensional handles for threading
+	if (RVAL_TYPE(val) == rval_ref)
+	{
+		// Note that we only expect the user to be providing us with SLICE_POS
+		// type of slices, that is $a{n} where n is the number of ranks. This
+		// syntax is unique to launch only.
+		proc_slice = RVAL_REF_SLICE(val);
+		
+		// TODO: Remove the following when we allow multi-dimensional handles
+		if (proc_slice->s_rank > 1)
+		{
+			PrintOutError("Invalid proc handle syntax. Expected $handle{n} where n is the number of application ranks.\n");
+			FreeProcSet(rtn);
+			RemoveVal(LVAL_SYM(val));
+			DestroyVal(val);
+			return NULL;
+		}
+		
+		for (i=0; i < proc_slice->s_rank; ++i)
+		{
+			if (proc_slice->s_type[i] != SLICE_POS)
+			{
+				PrintOutError("Invalid proc handle syntax. Expected $handle{n} where n is the number of application ranks.\n");
+				FreeProcSet(rtn);
+				RemoveVal(LVAL_SYM(val));
+				DestroyVal(val);
+				return NULL;
+			}
+			nproc += proc_slice->s_high[i];
+		}
+		
+		rtn->s_nproc = nproc;
+	} else
+	{
+		// Always default to one rank
+		rtn->s_nproc = 1;
+	}
+	
+	// We are going to turn this debugger variable into a procset rval. Destroy
+	// the old value, including discarding any slicing info.
+	DestroyRval(RVAL_TYPE(val), RVAL_VAL(val));
+	// Now turn the rval into an rval_proc
+	RVAL_TYPE(val) = rval_proc;
+	// Set the procset in the val
+	RVAL_PROCSET(val) = rtn;
+	// Important! Set RVAL_DESTROY to false since it will be true here since
+	// the original rval was a ref type
+	RVAL_DESTROY(val) = 0;
+	
+	rtn->s_init = 0;
+
+	return rtn;
+}
+
+/*
+** Finish setting up the procset after the application has finished
+** launching/attaching in the dbg client layer.
+*/
+// TODO: Fix this when multidimensional handles are added for threading
+int
+FinalizeProcSetForInvoke(dbgprocset_t * ps, dbginvoke_t *di)
+{
+	dbg_over_set_t *	over_set = NULL;
+	
+	if (ps == NULL)
+	{
+		PrintOutError("Invalid procset_t in SetupInvoke()\n");
+		return 1;
+	}
+	
+	if (ps->s_init)
+	{
+		PrintOutError("Procset already initialized.\n");
+		return 1;
+	}
+	
+	// reconcile the nprocs with the di, it is our master
+	ps->s_nproc = di->d_nproc;
+	
+	over_set = NewOverlaySet(di, bitset_dup(di->d_bitset_full), 0);
+	AddToList(ps->s_over_set_list, over_set);
+	
+	AddOverlaySetToAllProcSet(over_set);
+	
+	ps->s_init = 1;
+	
+	return 0;
+}
+
+static dbgprocset_t *
+NewProcSet(char *name, dbgset_type type)
 {
 	dbgprocset_t *	s;
 
 	s = (dbgprocset_t *)Alloc(sizeof(dbgprocset_t));
 	s->s_name = strdup(name);
+	s->s_type = type;
 	s->s_nproc = 0;
 	s->s_over_set_list = NewList();
-	s->s_ig = NULL;
-	s->s_indiv_proc = -1;
+	s->s_indiv_proc = -1;	// TODO: Remove
 
 	AddToList(ProcSets, (void *)s);
 
@@ -218,247 +465,66 @@ NewProcSet(char *name)
 }
 
 static dbg_over_set_t*
-NewOverlaySet(char* name, invoke_t* invoke, invoke_group* ig, bitset* bs, int offset, int len, int nproc, dbgset_type type)
+NewOverlaySet(dbginvoke_t* di, bitset* bs, int offset)
 {
 	dbg_over_set_t* set = (dbg_over_set_t*)Alloc(sizeof(dbg_over_set_t));
 	memset(set, 0, sizeof(dbg_over_set_t));
 
-	set->s_setname = strdup(name);
-	set->s_type = type;
-	if(nproc > 0)
-		set->s_nproc = nproc;
-
-	set->s_invoke = invoke;
-	set->s_set_bs = bitset_dup(bs);
-
-	if(type == DBGSET_INVOKE)
-	{
-		set->s_ig = ig;
-		if(offset > 0)
-			set->s_offset = offset;
-
-		if(len > 0)
-			set->s_len = len;
-	}
-
-	if(type == DBGSET_DEFSET)
-	{
-		if(offset > 0)
-			set->s_offset = offset;
-
-		if(len > 0)
-			set->s_len = len;
-	}
-
+	set->s_di = di;
+	set->s_di_bs = bs;
+	set->s_ps_offset = offset;
+	
 	return set;
 }
 
 static void
 FreeOverlaySet(dbg_over_set_t* set)
 {
-	if(set != NULL)
-	{
-		Free(set->s_setname);
-		set->s_setname = NULL;
-		set->s_invoke = NULL;
-		if(set->s_set_bs != NULL)
-			bitset_free(set->s_set_bs);
-
-		RemoveOverlaySetFromOriginalSet(set);
-	}
-}
-
-static dbg_ori_set_info_t*
-NewOriginalSetInfo(invoke_t* ori_set, invoke_group* group)
-{
-	dbg_ori_set_info_t* info = (dbg_ori_set_info_t*)Alloc(sizeof(dbg_ori_set_info_t));
-	info->s_invoke = ori_set;
-	info->s_ig = group;
-	info->s_over_set_list = NewList();
-
-	return info;
-}
-
-static void
-FreeOriginalSetInfo(dbg_ori_set_info_t* info)
-{
-	if(info != NULL)
-	{
-		DestroyList(info->s_over_set_list, FreeOverlaySet);
-		info->s_invoke = NULL;
-		info->s_over_set_list = NULL;
-	}
-}
-
-static void
-AddOverlaySetToOrignalSet(dbg_over_set_t* over_set)
-{
-	dbg_ori_set_info_t *info = NULL;
-	list_t		*overSetList = NULL;
-
-	if(over_set == NULL || OriginalSetInfoList == NULL || over_set->s_type != DBGSET_INVOKE)
-		return;
-
-	SetList(OriginalSetInfoList);
-    while((info = (dbg_ori_set_info_t*)GetListElement(OriginalSetInfoList)) != (dbg_ori_set_info_t*)NULL)
-    {
-        if(info->s_invoke == over_set->s_invoke)
-            break;
-    }
-
-	if(info == NULL)
-	{
-		info = NewOriginalSetInfo(over_set->s_invoke, over_set->s_ig);
-		AddToList(OriginalSetInfoList, info);
-	}
-
-	overSetList = info->s_over_set_list;
-	AddToList(overSetList, over_set);
-}
-
-static void
-RemoveOverlaySetFromOriginalSet(dbg_over_set_t* over_set)
-{
-	dbg_ori_set_info_t *info = NULL;
-	list_t		*overSetList = NULL;
-
-	if(over_set == NULL || OriginalSetInfoList == NULL)
-		return;
-
-	SetList(OriginalSetInfoList);
-    while((info = (dbg_ori_set_info_t*)GetListElement(OriginalSetInfoList)) != (dbg_ori_set_info_t*)NULL)
-    {
-        if(info->s_ig == over_set->s_ig)
-            break;
-    }
-
-	if(info != NULL)
-	{
-		overSetList = info->s_over_set_list;
-		RemoveFromList(overSetList, over_set);
-	}
-}
-
-list_t*
-GetOverlaySetListByTree(void* tree)
-{
-	dbg_ori_set_info_t *info = NULL;
-
-	SetList(OriginalSetInfoList);
-    while((info = (dbg_ori_set_info_t*)GetListElement(OriginalSetInfoList)) != (dbg_ori_set_info_t*)NULL)
-    {
-        if(info->s_invoke->i_tree == tree)
-            break;
-    }
-
-	if(info != NULL)
-	{
-		return info->s_over_set_list;
-	}
-
-	return NULL;
-}
-
-// FIXME: Probably get rid of this.
-list_t*
-GetOverlaySetListByDbgInvoke(void* di)
-{
-	dbg_ori_set_info_t *info = NULL;
-
-	SetList(OriginalSetInfoList);
-    while((info = (dbg_ori_set_info_t*)GetListElement(OriginalSetInfoList)) != (dbg_ori_set_info_t*)NULL)
-    {
-        if(info->s_invoke->i_iexec == di)
-            break;
-    }
-
-	if(info != NULL)
-	{
-		return info->s_over_set_list;
-	}
-
-	return NULL;
+	set->s_di = NULL;
+	bitset_free(set->s_di_bs);
+	Free(set);
 }
 
 static void
 AddOverlaySetToAllProcSet(dbg_over_set_t* over_set)
 {
-	dbg_over_set_t *set = NULL;
-//	dbgprocset_t *procset = NULL;
-
-	if(over_set == NULL || AllProcSet == NULL || over_set->s_type != DBGSET_INVOKE)
-		return;
-
-	SetList(AllProcSet->s_over_set_list);
-	while( (set = (dbg_over_set_t*)GetListElement(AllProcSet->s_over_set_list)) != (dbg_over_set_t*)NULL )
-	{
-		if(set->s_ig == over_set->s_ig)
-			break;	
-	}
-
-	if(set == NULL)
-	{
-		AddToList(AllProcSet->s_over_set_list, over_set);
-		AllProcSet->s_nproc += over_set->s_nproc;
-	}
-}
-
-void
-AddOverlaySetToProcSet(dbgprocset_t *s, invoke_t* invoke, invoke_group* ig, bitset *p, int offset, int len, int nproc, dbgset_type type)
-{
-	dbg_over_set_t *over_set = NULL;
-
-	if(strcmp(s->s_name, "all") == 0)
-	{
-		PrintOutError("WARNING: \"all\" is a system procset!\n");
-		return;
-	}
-
-	if(SizeOfList(s->s_over_set_list) == 0)
-	{
-		over_set = NewOverlaySet(s->s_name, invoke, ig, p, offset, len, nproc, type);
-		AddToList(s->s_over_set_list, over_set);
-		AddOverlaySetToOrignalSet(over_set);
-		s->s_nproc += nproc;
-		s->s_ig = ig;	//TODO: remove me
-
-		AddOverlaySetToAllProcSet(over_set);
-	} else {
-		PrintOutError("WARNING: OverlaySet of %s has already been created!\n", s->s_name);
-	}
-
-	DPRINT("AddOverlaySetToProcSet: over_set[%p], [%s], invoke:[%p], offset[%d], procnum[%d], bs%s\n", over_set, s->s_name, invoke, offset, nproc, bitset_to_set(p));
+	AddToList(AllProcSet->s_over_set_list, over_set);
+	AllProcSet->s_nproc += bitset_numset(over_set->s_di_bs);
 }
 
 static void
 _free_procset(dbgprocset_t *s)
 {
+	// FIXME: Destroy the val!!!
 	DestroyList(s->s_over_set_list, FreeOverlaySet); 
-	s->s_over_set_list = NULL;
-	s->s_ig = NULL;
 
 	Free(s->s_name);
 	Free(s);
 }
 
+// Change this to only be used in val, if the val gets destroyed so does this.
 void
 FreeProcSet(dbgprocset_t *s)
 {
-	if ( s == (dbgprocset_t *)NULL || AllProcSet == (dbgprocset_t *)NULL )
+	dbg_over_set_t *over_set;
+	
+	if (s == NULL)
 		return;
-
-	dbg_over_set_t* over_set;
-	if(strcmp(s->s_name, "all") != 0)
+		
+	switch(s->s_type)
 	{
-		SetOverlaySetForProcSet(s);
-		while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
-		{
-			if(over_set->s_type == DBGSET_INVOKE)
+		case DBGSET_INVOKE:
+			SetOverlaySetForProcSet(s);
+			while((over_set = GetNextOverlaySetForProcSet(s)) != NULL)
 			{
 				RemoveFromList(AllProcSet->s_over_set_list, over_set);
-				AllProcSet->s_nproc -= s->s_nproc;
+				AllProcSet->s_nproc -= bitset_numset(over_set->s_di_bs);
 			}
-		}
+			break;
+		case DBGSET_DEFSET:
+		case DBGSET_INTERNAL:
+			// do nothing
+			break;
 	}
 
 	RemoveFromList(ProcSets, (void *)s);
@@ -466,6 +532,7 @@ FreeProcSet(dbgprocset_t *s)
 	_free_procset(s);
 }
 
+// TODO: Remove
 dbgprocset_t *
 FindProcSet(char *name)
 {
@@ -508,13 +575,11 @@ GetProcSet(void)
 }
 
 void
-PrintProcSet(FILE *fp, dbgprocset_t *s)
+PrintProcSet(dbgprocset_t *s)
 {
-	int		n = 0;
-	int	print_flag;
-	list_t* innerSetList = NULL;
+	int					n = 0;
 	dbg_over_set_t *	over_set;
-	dbg_over_set_t *	inner_set;
+	char *				setinfo;
 
 	if ( EmptyList(s->s_over_set_list) )
 	{
@@ -524,34 +589,23 @@ PrintProcSet(FILE *fp, dbgprocset_t *s)
 
 	SetList(s->s_over_set_list);
 
-	while ( (over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) != (dbg_over_set_t *)NULL )
+	// Here we want to print the "actual" ranks in the procset, not the "offset" ranks.
+	while ( (over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) != NULL )
 	{
-		if(over_set->s_type == DBGSET_INVOKE)
+		setinfo = bitset_to_set(over_set->s_di_bs);
+		
+		PrintOutMsg("%s", over_set->s_di->d_handle);
+		
+		if(setinfo != NULL)
 		{
-			PrintProcSetInfoByOffset(fp, over_set->s_setname, over_set->s_set_bs, over_set->s_offset, over_set->s_nproc);
+			PrintOutMsg("%s", setinfo);
+			Free(setinfo);
+			setinfo = NULL;
 		}
-		else if (over_set->s_type == DBGSET_DEFSET)
-		{
-			innerSetList = (list_t*)GetOverlaySetListByTree(over_set->s_invoke->i_tree);
-			print_flag = 0;
-			SetList(innerSetList);
-			while((inner_set = (dbg_over_set_t*)GetListElement(innerSetList)) != (dbg_over_set_t*)NULL)
-			{
-				if(bitset_compare(inner_set->s_set_bs, over_set->s_set_bs) != 0)
-				{
-					if(print_flag)
-						PrintToFd(fp, ",");
-					else
-						print_flag = 1;
-
-					PrintProcSetInfoByOffset(fp, inner_set->s_setname, over_set->s_set_bs, inner_set->s_offset, inner_set->s_nproc);
-				}
-			}
-		}
-			
-		n += bitset_count(over_set->s_set_bs);
+		
+		n += bitset_numset(over_set->s_di_bs);
 		if ( n < s->s_nproc )
-			PrintToFd(fp, ",");
+			PrintOutMsg(",");
 	}
 }
 
@@ -568,6 +622,7 @@ GetNextOverlaySetForProcSet(dbgprocset_t *s)
 	return set;
 }
 
+// TODO: Get rid of this, instead use the set and getnext above.
 dbg_over_set_t*
 GetOverlaySetForProcSet(dbgprocset_t *s)
 {
@@ -586,5 +641,103 @@ GetOverlaySetForProcSet(dbgprocset_t *s)
 	set = GetListElement(s->s_over_set_list);
 
 	return set;
+}
+
+static void
+_print_with_set_info(char *setname, bitset *group, int isOffset, int offset, int len, int isErr, char *f, va_list ap)
+{
+	char *	set_info = NULL;
+	
+	if (isOffset)
+	{
+		if (offset >= 0 && len > 0)
+		{
+			set_info = bitset_to_set_by_offset(group, offset, len);
+		}
+	}
+	
+	if (set_info == NULL)
+	{
+		set_info = bitset_to_set(group);
+	}
+	
+	if (setname != NULL && set_info != NULL)
+	{
+		if (isErr)
+		{
+			PrintOutError("%s%s: ", setname, set_info);
+		} else
+		{
+			PrintOutMsg("%s%s: ", setname, set_info);
+		}
+	}
+	
+	if (isErr)
+	{
+		vPrintOutError(f, ap);
+	} else
+	{
+		vPrintOutMsg(f, ap);
+	}
+	
+	Free(set_info);	
+}
+
+void
+PrintMsgWithSetInfo(char* setname, bitset* group, char *f, ...)
+{
+	va_list ap;
+	
+	// setup the va_list
+	va_start(ap, f);
+	
+	_print_with_set_info(setname, group, 0, 0, 0, 0, f, ap);
+	
+	// end the va_list
+	va_end(ap);
+}
+
+// TODO: Remove
+void
+PrintMsgWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...)
+{
+	va_list ap;
+	
+	// setup the va_list
+	va_start(ap, f);
+	
+	_print_with_set_info(setname, group, 1, offset, len, 0, f, ap);
+	
+	// end the va_list
+	va_end(ap);
+}
+
+void
+PrintErrorWithSetInfo(char* setname, bitset* group, char *f, ...)
+{
+	va_list ap;
+	
+	// setup the va_list
+	va_start(ap, f);
+	
+	_print_with_set_info(setname, group, 0, 0, 0, 1, f, ap);
+	
+	// end the va_list
+	va_end(ap);
+}
+
+// TODO: Remove
+void
+PrintErrorWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...)
+{
+	va_list ap;
+	
+	// setup the va_list
+	va_start(ap, f);
+	
+	_print_with_set_info(setname, group, 1, offset, len, 1, f, ap);
+	
+	// end the va_list
+	va_end(ap);
 }
 

@@ -33,14 +33,12 @@
 #include "var.h"
 #include "assign.h"
 #include "func.h"
-#include "invoke.h"
 #include "expr.h"
 #include "cmdtoken.h"
 #include "blockmap.h"
 #include "blockmap_util.h"
 #include "procset.h"
 #include "bitset.h"
-#include "dbg_set_sync.h"
 #include "hash.h"
 
 #define	 PROCSET_STRUCT	"procset_struct"
@@ -96,25 +94,6 @@ extern arg_t *			NewArg(int, ...);
 extern void				DestroyArg(arg_t *);
 extern int				FindArg(arg_t **, hentry_t *, func_t *);
 extern void				PrintFunc(FILE *, func_t *);
-
-/*
-** invoke.h
-*/
-extern int				CreateInvokeGroupList(expr_t *, list_t *, rec_set_t *);
-extern int				SetProcsetForInvokeGroup(invoke_group *, dbgprocset_t *);
-extern invoke_t *		AddInvoke(char *, list_t *, char *, void *, void*, bitset*, int);
-extern invoke_group *	FindInvokeGroup(hentry_t *);
-extern int				SetInvoke(void);
-extern invoke_t *		GetInvoke(void);
-extern void				SetInvokeGroup(invoke_t *);
-extern invoke_group *	GetInvokeGroup(invoke_t *);
-extern void				FreeInvoke(invoke_t *);
-extern void				FreeInvokeGroup(invoke_group *);
-extern void				FreeInvokeGroupList(list_t *);
-extern void				PrintProcSetInfo(FILE *fp, char *setname, bitset *set);
-extern void			 	PrintProcSetInfoByOffset(FILE *fp, char *setname, bitset *set, int offset, int len);
-extern void				PrintMsgWithSetInfo(FILE *fp, char* setname, bitset* group, char *f, ...);
-extern void				PrintMsgWithSetInfoByOffset(FILE *fp, char* setname, bitset* group, int offset, int len, char *f, ...);
 
 /*
 ** blockmap.h
@@ -173,21 +152,23 @@ extern void				FinishCmdToken(void);
 */
 extern void				InitProcSet(void);
 extern void				FinishProcSet(void);
+extern int				CreateProcSet(expr_t *, expr_t *);
+extern dbgprocset_t *	CreateProcSetForInvoke(expr_t *e);
+extern int				FinalizeProcSetForInvoke(dbgprocset_t * ps, dbginvoke_t *di);
 extern void				SetProcSet(void);
 extern dbgprocset_t *	GetProcSet(void);
-extern dbgprocset_t *	NewProcSet(char *);
 extern void				FreeProcSet(dbgprocset_t *);
 extern void				SetCurrentProcSet(dbgprocset_t *);
 extern dbgprocset_t *	FindProcSet(char *name);
 extern dbgprocset_t *	CurrentProcSet(void);
-extern int				ParseProcSet(dbgprocset_t *, char *, rec_set_t *);
-extern void				PrintProcSet(FILE *, dbgprocset_t *);
-extern void				AddOverlaySetToProcSet(dbgprocset_t *, invoke_t *, invoke_group*, bitset *, int, int, int, dbgset_type);
-extern list_t*			GetOverlaySetListByTree(void *);
-extern list_t*			GetOverlaySetListByDbgInvoke(void *);
+extern void				PrintProcSet(dbgprocset_t *);
 extern void				SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetNextOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetOverlaySetForProcSet(dbgprocset_t *);
+extern void				PrintMsgWithSetInfo(char* setname, bitset* group, char *f, ...);
+extern void				PrintMsgWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...);
+extern void				PrintErrorWithSetInfo(char* setname, bitset* group, char *f, ...);
+extern void				PrintErrorWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...);
  
 /* 
 **Output routines defined by client/server interface 
@@ -196,5 +177,6 @@ extern void				PrintOutError(char *, ...);
 extern void				PrintOutMsg(char *, ...);
 extern void				PrintToFd(FILE *, char *, ...);
 extern void				vPrintToFd(FILE *, char *, va_list);
+extern void				PrintError();
  
 #endif /* !_GRAM_H */

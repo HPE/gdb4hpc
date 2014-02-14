@@ -426,9 +426,9 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			over_set = GetOverlaySetForProcSet(target_procset);
 				
 			if(target_procset->s_indiv_proc >= 0)
-				target_recset = NewRecSetByOverSet(over_set, SetIndividualProcess(over_set->s_set_bs, 0, target_procset->s_indiv_proc));
+				target_recset = NewRecSetByDbgInvoke(over_set->s_di, SetIndividualProcess(over_set->s_di_bs, 0, target_procset->s_indiv_proc));
 			else
-				target_recset = NewRecSetByOverSet(over_set, over_set->s_set_bs);
+				target_recset = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
 				
 			// Save the recset into the lval
 			switch (LVAL_TYPE(val))
@@ -1042,7 +1042,7 @@ AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			}
 			
 			// Make sure that the hash entries data is not set, otherwise free it.
-			if ( h->h_data != (void *)NULL )
+			if ( h->h_data != NULL )
 			{
 				_destroy_val(h->h_key, h->h_data);
 			}

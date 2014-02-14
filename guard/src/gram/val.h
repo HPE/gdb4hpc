@@ -35,7 +35,6 @@
 #ifdef RD
 #include	"graph.h"
 #endif /* RD */
-#include	"dbg_set_sync.h"
 
 #define LVAL_SYM_VAL(sym)	(val_t *)MakeTransitoryLval((sym))
 

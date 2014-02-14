@@ -30,7 +30,7 @@
 struct var_t
 {
 	struct dbgprocset_t *	v_procset;	/* process number */
-	int						v_indiv;	/*extention for individual process */
+	int						v_indiv;	/*extention for individual process TODO: Remove*/
 	char *					v_var;		/* name of var */
 	char *					v_fname;	/* file name */
 	int						v_lno;		/* line number */
@@ -45,7 +45,7 @@ struct var_t
 	*/
 	line_t *				v_line;		/* break point line number */
 	
-#define v_isym		v_procset->s_ig->ig_sym
+#define v_pname	v_procset->s_name	/* procset name */
 #define v_bp		v_line->l_bp		/* break point id */
 #define v_pid		v_line->l_proc		/* proc once bp reached */
 #define v_sync		v_line->l_sync		/* rendezvous for procs */

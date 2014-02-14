@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #ifndef _DBG_CLIENT_H
 #define _DBG_CLIENT_H
@@ -40,7 +38,6 @@
 #include "dbgoutp.h"
 #include "dbgclnt_debugfe.h"
 #include "dbgevent.h"
-#include "dbg_set_sync.h"
 
 #define RPC_TIMEOUT	600
 #define WDT_TIMEOUT	100
@@ -65,8 +62,29 @@ typedef int	(*clnt_ev_callback_func)(struct event_set *, bitset *);
 // This is the proto program output callback function prototype
 typedef void(*proto_outp_callback_func)(struct dbginvoke *, FILE *);
 
+// Used to determine type of dbginvoke, currently there is either launched or attached
+// launched means the application was launched by the debugger, attached means it was
+// an existing application attached onto.
+enum dbgproc_type
+{
+	DBG_ATTACHED,
+	DBG_LAUNCHED
+};
+typedef enum dbgproc_type dbgproc_type;
+
+// Used with the DbgQuit command, can override the default behavior.
+enum dbgquit_type
+{
+	DBG_KILL,
+	DBG_DETACH,
+	DBG_DEFAULT
+};
+typedef enum dbgquit_type dbgquit_type;
+
 struct dbginvoke
 {
+	char *						d_handle;				// invoke handle used as identifier in client layer
+	dbgproc_type				d_type;					// launched or attached?
 	int							d_started;				// indicates if this di has been started
 	int							d_isShutdown;			// Some networks can use this during error handling. If this is true, the network is already shutdown.
 	int							d_nproc;				// number of processes
@@ -99,7 +117,50 @@ struct dbginvoke
 typedef struct dbginvoke	dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
 
-// These are asynchronous events that were recv 
+/*
+** This is used to describe which ranks to send a command to. The dbgclnt interface
+** will use this as inputs when executing commands.
+** TODO: Cleanup the names of this structure
+*/
+struct rec_set_t
+{
+	char *				s_setname;				//the name of its OverlaySet - Remove
+	dbginvoke_t *		s_dbginvoke_handler;	//a pointer to dbginvoke_t for switching protocol
+	bitset *			s_receiver_bs;			//the bitset representing the receivers - Change this name to s_group, it is the subset of the di that we should talk to
+};
+typedef struct rec_set_t rec_set_t;
+
+/*
+** A group reply is the actual element placed inside the rep_set_t lists.
+*/
+struct group_reply_t
+{
+	dbginvoke_t *	rep_di;
+	bitset *		rep_group;
+	dbgevent_t *	rep_event;
+};
+typedef struct group_reply_t group_reply_t;
+
+/* 
+** This is used to hold replies from commands in the dbgclnt interface. The error
+** list is maintained and handled internally and should not be used outside of
+** this layer. The client layer can call the ProcessErrorInRepSet() function to
+** print out any errors.
+** TODO: Add a setter for the error handler so we can get rid of the use of
+** the silly print calls.
+** A ReplySet(rep_set_t) keeps results replied by a number of BEs.
+** These results are aggregated into several unquie groups. 	
+** Each group maybe an error message (maintained by group_err_t),
+** or a normal message (maintained by group_reply_t).
+*/
+struct rep_set_t
+{
+	list_t *	rep_list;	// event replies of cmd
+	list_t *	err_list;	// error events
+};
+typedef struct rep_set_t rep_set_t;
+
+// These are used to describe asynchronous events to the client interface
 struct event_set
 {
 	dbginvoke_t *	e_di;
@@ -157,7 +218,32 @@ struct bp_disp_set
 typedef struct bp_disp_set bp_disp_set_t;
 
 /*
-** Async client routines 
+** Receiver routines
+** TODO: Get rid of NewRecSet and rename NewRecSetByDbgInvoke to NewRecSet
+*/
+extern rec_set_t *	NewRecSetByDbgInvoke(dbginvoke_t *di, bitset *receivers);
+extern rec_set_t *	NewRecSet(char* setname, dbginvoke_t *dbginvoke, bitset* receiver); // Probably remove, use ByDbgInvoke instead
+extern void			FreeRecSet(rec_set_t* act);
+
+/*
+** Reply routines
+*/
+extern group_reply_t *		NewGroupReply(void *di, bitset *src, dbgevent_t *reply); // Make static
+extern rep_set_t *			NewRepSet(void); // Make static
+extern void					FreeRepSet(rep_set_t* set);
+extern rep_set_t *			CopyRepSet(rep_set_t* set); // Only used once, consider alternative design
+extern void					AddReplyToSet(rep_set_t* set, group_reply_t * rep); // Make static
+extern void					ResetSet(rep_set_t *set); // Make static
+extern int					SetHasError(rep_set_t *set); // Maybe make static
+extern void					SetReplyHeadInSet(rep_set_t* set);
+extern int					GetNumberOfReply(rep_set_t* set);
+extern group_reply_t *		GetNextReplyInSet(rep_set_t* set);
+extern int					ProcessErrorInRepSet(rec_set_t *, rep_set_t *);
+// FIXME: This funciont is not rep_set-related. Remove
+extern bitset*				SetIndividualProcess(bitset* bs, int offset, int procnum); 
+
+/*
+** Async event routines 
 */
 extern bp_set_t *		FindBPSetByID(dbginvoke_t *, int);
 extern bp_set_t * 		FindBPSetForBP(dbginvoke_t *di, dbgbp_t* bp);
@@ -208,9 +294,9 @@ extern proto_session *	DbgSessionCreate(char *, WLM_type, char *, char *, char *
 extern void				DbgSetSession(proto_session *);
 extern proto_session *	DbgGetSession(void);
 
-extern dbginvoke_t *	DbgAttach(char *, proto_session *, int, char *, char *, int, int);
-extern dbginvoke_t *	DbgInvoke(	char *, proto_session *, char *, char **, int, char *, char **, 
-									char *, char *, char **, char *, int, int);
+extern dbginvoke_t *	DbgAttach(char *, proto_session *, char *, int, char *, char *, int, int);
+extern dbginvoke_t *	DbgInvoke(	char *, proto_session *, char *, char **, char *, int, char *,
+									char **, char *, char *, char **, char *, int, int);
 
 extern rep_set_t *		DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than rep_set_t *
@@ -260,7 +346,7 @@ extern rep_set_t *		DbgGetScope(rec_set_t *, char *);
 extern rep_set_t *		DbgDirectCmd(rec_set_t *, int, char **);
 extern rep_set_t *		DbgStatus(rec_set_t *, int);
 extern rep_set_t *		DbgInterrupt(rec_set_t *);
-extern rep_set_t *		DbgQuit(rec_set_t *, int);
+extern rep_set_t *		DbgQuit(rec_set_t *, dbgquit_type);
 extern rep_set_t *		DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *		DbgCloseSocket(rec_set_t *);
 

@@ -18,9 +18,6 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -49,9 +46,9 @@
 #include "df.h"
 #endif /* RD */
 
-// These async types are private to this interface, the client should not
-// have access to them
-
+/*
+** Internal types
+*/
 struct inpcb_t
 {
 	int	i_fd;
@@ -72,9 +69,15 @@ typedef struct outpcb_t outpcb_t;
 /*
 ** Internal prototypes
 */
-static dbginvoke_t *	NewDbgInvoke(int, dbgclnt_proto *);
+static dbginvoke_t *	NewDbgInvoke(char *, dbgproc_type, int, dbgclnt_proto *);
 static void				FreeDbgInvoke(dbginvoke_t *);
 static void				DbgFreeSignal(int *);
+static void				FreeGroupReply(group_reply_t *);
+static group_reply_t *	CopyGroupReply(group_reply_t *);
+static rep_set_t *		MergeRepSet(rep_set_t *, rep_set_t *);
+static void				AddErrToSet(rep_set_t *, group_reply_t *);
+static void				SetErrHeadInSet(rep_set_t *);
+static group_reply_t *	GetNextErrInSet(rep_set_t *);
 static event_set_t *	NewEventSet(dbginvoke_t *, bitset *, dbgevent_t *);
 static void 			FreeEventSet(event_set_t *);
 static void				DestroyEventSet(dbginvoke_t *, dbgev);
@@ -181,7 +184,7 @@ ReleaseSignals(void)
 ** Create a dbginvoke_t structure.
 */
 static dbginvoke_t *
-NewDbgInvoke(int nproc, dbgclnt_proto *proto)
+NewDbgInvoke(char *handle, dbgproc_type type, int nproc, dbgclnt_proto *proto)
 {
 	dbginvoke_t *		di;
 
@@ -189,6 +192,8 @@ NewDbgInvoke(int nproc, dbgclnt_proto *proto)
 	memset(di, 0, sizeof(dbginvoke_t));
 	
 	// Set non-zero members here
+	di->d_handle = (handle != NULL ) ? strdup(handle) : NULL;
+	di->d_type = type;
 	di->d_nproc = nproc;
 	di->d_proto = proto;
 	di->d_eventset_list = NewList();
@@ -234,9 +239,299 @@ FreeDbgInvoke(dbginvoke_t *di)
 	DestroyList(di->d_eventset_list, FreeEventSet);
 	DestroyList(di->d_bpset_list, FreeBPSet);
 
+	Free(di->d_handle);
 	Free(di);
 
 	ReleaseSignals();
+}
+
+/**************************
+** Receiver set functions
+**************************/
+
+rec_set_t*
+NewRecSetByDbgInvoke(dbginvoke_t *di, bitset *receivers)
+{
+	rec_set_t* rec = NULL;
+
+	if(di == NULL || receivers == NULL)
+		return NULL;
+	
+	rec = (rec_set_t*)Alloc(sizeof(rec_set_t));
+	rec->s_setname = di->d_handle;	// TODO: remove, use the di directly
+	rec->s_dbginvoke_handler = di;
+	rec->s_receiver_bs = receivers;
+	
+	return rec;
+}
+
+rec_set_t*
+NewRecSet(char* setname, dbginvoke_t *di, bitset* receiver)
+{
+	rec_set_t* rec = (rec_set_t*)Alloc(sizeof(rec_set_t));	
+
+	rec->s_setname = setname;
+
+	rec->s_dbginvoke_handler = di;
+
+	rec->s_receiver_bs = receiver;
+	
+	return rec;
+}
+
+void
+FreeRecSet(rec_set_t* rec)
+{
+	if(rec == NULL)
+		return;
+
+	rec->s_setname = NULL;
+	rec->s_receiver_bs = NULL;
+
+	Free(rec);
+}
+
+/**********************************
+** Reply set and related functions
+**********************************/
+
+/*
+* data structures for group replies from dbgsrv 
+*/
+group_reply_t *
+NewGroupReply(void *di, bitset *src, dbgevent_t *reply)
+{
+	group_reply_t *	rep = (group_reply_t *)Alloc(sizeof(group_reply_t));
+	
+	rep->rep_di = di;
+	rep->rep_event = reply;
+	rep->rep_group = src;
+
+	return rep;
+}
+
+static void
+FreeGroupReply(group_reply_t* rep)
+{
+	FreeEvent(rep->rep_event);
+	bitset_free(rep->rep_group);
+	Free(rep);
+}
+
+static group_reply_t *
+CopyGroupReply(group_reply_t *rep)
+{
+	group_reply_t *	newrep;
+	
+	if (rep == NULL)
+		return NULL;
+		
+	newrep = (group_reply_t *)Alloc(sizeof(group_reply_t));
+	
+	newrep->rep_event = DupEvent(rep->rep_event);
+	newrep->rep_group = bitset_dup(rep->rep_group);
+	
+	return newrep;
+}
+
+/*
+* data structures for sets of group replies from dbgsrv 
+*/
+
+rep_set_t* 		
+NewRepSet(void)
+{
+	rep_set_t* set = (rep_set_t*)Alloc(sizeof(rep_set_t));
+
+	set->rep_list = NewList();
+	set->err_list = NewList();
+	
+	return set;
+}
+
+void
+FreeRepSet(rep_set_t* set)
+{
+	if(set == NULL)
+		return;
+
+	DestroyList(set->rep_list, FreeGroupReply);
+
+	DestroyList(set->err_list, FreeGroupReply);
+	
+	Free(set);
+}
+
+rep_set_t *
+CopyRepSet(rep_set_t * set)
+{
+	rep_set_t *		newset;
+	group_reply_t *	elem;
+
+	if (set == NULL)
+		return NULL;
+		
+	newset = NewRepSet();
+	
+	// copy the replies
+	SetList(set->rep_list);
+	while ((elem = GetListElement(set->rep_list)) != NULL)
+	{
+		AddReplyToSet(newset, CopyGroupReply(elem));
+	}
+	
+	// copy the errors
+	SetList(set->err_list);
+	while ((elem = GetListElement(set->err_list)) != NULL)
+	{
+		AddErrToSet(newset, CopyGroupReply(elem));
+	}
+	
+	return newset;
+}
+
+static rep_set_t *
+MergeRepSet(rep_set_t* set, rep_set_t *tmp_set)
+{
+	group_reply_t *	elem;
+
+	if (set == NULL || tmp_set == NULL)
+		return NULL;
+		
+	// merge the replies
+	while ((elem = RemoveFirst(tmp_set->rep_list)) != NULL)
+	{
+		AddReplyToSet(set, elem);
+	}
+	
+	// Merge the errors
+	while ((elem = RemoveFirst(tmp_set->err_list)) != NULL)
+	{
+		AddErrToSet(set, elem);
+	}
+	
+	FreeRepSet(tmp_set);
+	
+	return set;
+}
+
+int
+SetHasError(rep_set_t *set)
+{
+	if (set == (rep_set_t *)NULL)
+		return 0;
+		
+	if (set->err_list == (list_t*)NULL)	
+		return 0;
+
+	return SizeOfList(set->err_list);
+}
+
+void
+AddReplyToSet(rep_set_t* set, group_reply_t * rep)
+{
+	if (rep == NULL || set == NULL)
+		return;
+
+	AddToList(set->rep_list, (void *)rep);
+}
+
+static void
+AddErrToSet(rep_set_t* set, group_reply_t * err_rep)
+{
+	if (err_rep == NULL || set == NULL)
+		return;
+
+	AddToList(set->err_list, (void *)err_rep);
+}
+
+void
+ResetSet(rep_set_t *set)
+{
+	if (set == NULL)
+		return;
+		
+	SetList(set->rep_list);
+	SetList(set->err_list);
+}
+
+static void
+SetErrHeadInSet(rep_set_t* set)
+{
+	if (set != NULL)
+		SetList(set->err_list);
+}
+
+static group_reply_t *
+GetNextErrInSet(rep_set_t* set)
+{
+	if(set != NULL)
+		return (void*)GetListElement(set->err_list);
+	else
+		return NULL;
+}
+
+void
+SetReplyHeadInSet(rep_set_t* set)
+{
+	if (set != NULL)
+		SetList(set->rep_list);
+}
+
+group_reply_t *
+GetNextReplyInSet(rep_set_t* set)
+{
+    if (set != NULL)
+		return (group_reply_t *)GetListElement(set->rep_list);
+	else
+		return NULL;
+}
+
+int
+GetNumberOfReply(rep_set_t* set)
+{
+    if(set == NULL)
+        return 0;
+    
+    return SizeOfList(set->rep_list);
+}
+
+// Used to print out an error from a rep_set
+int
+ProcessErrorInRepSet(rec_set_t* rec_set, rep_set_t* rep_set)
+{
+	group_reply_t *	err;
+	
+	if(rep_set == NULL)
+		return 0;
+
+	if(SetHasError(rep_set))
+	{
+		SetErrHeadInSet(rep_set);
+		while((err = GetNextErrInSet(rep_set)) != NULL)
+		{
+			// Print out the error
+			PrintErrorWithSetInfo(rec_set->s_setname, err->rep_group, "%s\n", DbgEventErrorStr(err->rep_event));
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
+bitset*
+SetIndividualProcess(bitset* bs, int offset, int procnum)
+{
+	bitset* res = NULL;
+
+	if((procnum + offset) > bitset_size(bs))	
+		return NULL;
+
+	res = bitset_dup(bs);
+	bitset_clear(res);
+	bitset_set(res, procnum + offset);
+	
+	return res;
 }
 
 /*****************************
@@ -1675,6 +1970,7 @@ DbgGetSession(void)
 dbginvoke_t *
 DbgAttach(	char *proto,
 			proto_session *sess,
+			char *handle,
 			int pid,
 			char *arch,
 			char *backend,
@@ -1699,7 +1995,7 @@ DbgAttach(	char *proto,
 	
 	// Create the dbginvoke_t object to pass down, nproc is unknown since this
 	// is the attach case
-	di = NewDbgInvoke(0, ptab);
+	di = NewDbgInvoke(handle, DBG_ATTACHED, 0, ptab);
 
 	if (ptab->sw_attach(di, sess, pid, arch, backend, gpu_flag, debug_flag))
 	{
@@ -1729,6 +2025,7 @@ DbgInvoke(	char *proto,
 			proto_session *sess,
 			char *prog,
 			char **argv,
+			char *handle,
 			int nproc,
 			char *arch,
 			char **arch_args,
@@ -1756,7 +2053,7 @@ DbgInvoke(	char *proto,
 	}
 	
 	// Create the dbginvoke_t object to pass down
-	di = NewDbgInvoke(nproc, ptab);
+	di = NewDbgInvoke(handle, DBG_LAUNCHED, nproc, ptab);
 
 	if (ptab->sw_invoke(di, sess, prog, argv, arch, arch_args, arch_input, backend, env, cwd, gpu_flag, debug_flag))
 	{
@@ -1795,13 +2092,10 @@ DbgInvoke(	char *proto,
 static bitset *
 DbgSendCmd(rec_set_t *set, char *request)
 {
-	dbginvoke_t * 	di;
+	dbginvoke_t * 	di = set->s_dbginvoke_handler;
 	
 	// TODO: Loop over each proto handler in the rec_set_t when multiple di's
 	// get added
-	
-	// Set the invoke handler
-	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
 	
 	// ensure the send_cmd function is implemented
 	if ( DBG_PROTO_SW(di)->sw_send_cmd == NULL )
@@ -1816,7 +2110,7 @@ DbgSendCmd(rec_set_t *set, char *request)
 static rep_set_t *
 DbgRecvReply(rec_set_t* set, bitset* received, dbgev req_type)
 {
-	dbginvoke_t * 		di;
+	dbginvoke_t * 		di = set->s_dbginvoke_handler;
 	proto_msg_set *		proto_res;
 	proto_message *		msg;
 	rep_set_t *			reply;
@@ -1826,9 +2120,6 @@ DbgRecvReply(rec_set_t* set, bitset* received, dbgev req_type)
 	
 	// TODO: Loop over each proto handler in the rec_set_t when multiple di's
 	// get added
-	
-	// Set the invoke handler
-	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
 	
 	// ensure the recv_reply function is implemented
 	if ( DBG_PROTO_SW(di)->sw_recv_reply == NULL )
@@ -2100,7 +2391,7 @@ DbgGetDebuggerVar(rec_set_t *set, char *var)
 rep_set_t *
 DbgSetSourcePath(rec_set_t *set, char *path)
 {
-	dbgfrontend_sw *	dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+	dbgfrontend_sw *	dbg_fe = set->s_dbginvoke_handler->d_frontend;
 	char *				request = NULL;
 	rep_set_t *			result;
 	dbgevent_t *		e;
@@ -2154,7 +2445,7 @@ DbgSetSourcePath(rec_set_t *set, char *path)
 rep_set_t *
 DbgGetSourcePath(rec_set_t *set)
 {
-	dbgfrontend_sw *	dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+	dbgfrontend_sw *	dbg_fe = set->s_dbginvoke_handler->d_frontend;
 	char *				request = NULL;
 	rep_set_t *			result;
 	dbgevent_t *		e;
@@ -2262,7 +2553,7 @@ DbgGo(rec_set_t *set)
 	// was no error
 	if(!SetHasError(result))
 	{
-		dbgfrontend_sw *dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+		dbgfrontend_sw *dbg_fe = set->s_dbginvoke_handler->d_frontend;
 		if (dbg_fe != NULL && dbg_fe->dbg_list_isPending)
 		{
 			ClearListState(dbg_fe);
@@ -2301,7 +2592,7 @@ DbgFinishFunc(rec_set_t *set)
 	// was no error
 	if (!SetHasError(result))
 	{
-		dbgfrontend_sw *dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+		dbgfrontend_sw *dbg_fe = set->s_dbginvoke_handler->d_frontend;
 		if (dbg_fe != NULL && dbg_fe->dbg_list_isPending)
 		{
 			ClearListState(dbg_fe);
@@ -2391,7 +2682,7 @@ DbgKill(rec_set_t *set)
 {
 	char *			request;
 	rep_set_t *		result; 
-	dbginvoke_t *	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
+	dbginvoke_t *	di = set->s_dbginvoke_handler;
 	int				res;
 	dbgevent_t *	e;
 	group_reply_t *	err_rep;
@@ -2445,7 +2736,7 @@ DbgKill(rec_set_t *set)
 rep_set_t *
 DbgDeleteBreak(rec_set_t *set, int bp_set_num)
 {
-	dbginvoke_t *		di;
+	dbginvoke_t *		di = set->s_dbginvoke_handler;
 	bp_set_t *			bp_set;
 	rep_set_t * 		tmp_result;
 	bitset *			group;
@@ -2453,9 +2744,6 @@ DbgDeleteBreak(rec_set_t *set, int bp_set_num)
 	char *				request;
 	rec_set_t *			new_rec_set;
 	rep_set_t * 		result = NULL;
-	
-	// Set the invoke handler
-	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
 	
 	// if bp_set_num is 0, we want this to apply to every breakpoint associated
 	// with this dbginvoke_t
@@ -2483,7 +2771,7 @@ DbgDeleteBreak(rec_set_t *set, int bp_set_num)
 				request = CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
 				
 				// Create the new rec set for this group
-				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 				tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 				
@@ -2551,7 +2839,7 @@ DbgDeleteBreak(rec_set_t *set, int bp_set_num)
 			request = CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
 			
 			// Create the new rec set for this group
-			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 			tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 			
@@ -2591,7 +2879,7 @@ DbgDeleteBreak(rec_set_t *set, int bp_set_num)
 rep_set_t *
 DbgDisableBreak(rec_set_t *set, int bp_set_num)
 {
-	dbginvoke_t *		di;
+	dbginvoke_t *		di = set->s_dbginvoke_handler;
 	bp_set_t *			bp_set;
 	rep_set_t * 		tmp_result;
 	bitset *			group;
@@ -2599,9 +2887,6 @@ DbgDisableBreak(rec_set_t *set, int bp_set_num)
 	char *				request;
 	rec_set_t *			new_rec_set;
 	rep_set_t * 		result = NULL;
-	
-	// Set the invoke handler
-	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
 	
 	// if bp_set_num is 0, we want this to apply to every breakpoint associated
 	// with this dbginvoke_t
@@ -2629,7 +2914,7 @@ DbgDisableBreak(rec_set_t *set, int bp_set_num)
 				request = CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
 				
 				// Create the new rec set for this group
-				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 				tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 				
@@ -2697,7 +2982,7 @@ DbgDisableBreak(rec_set_t *set, int bp_set_num)
 			request = CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
 			
 			// Create the new rec set for this group
-			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 			tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 			
@@ -2737,7 +3022,7 @@ DbgDisableBreak(rec_set_t *set, int bp_set_num)
 rep_set_t *
 DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del)
 {
-	dbginvoke_t *		di;
+	dbginvoke_t *		di = set->s_dbginvoke_handler;
 	bp_set_t *			bp_set;
 	rep_set_t * 		tmp_result;
 	bitset *			group;
@@ -2745,9 +3030,6 @@ DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del)
 	char *				request;
 	rec_set_t *			new_rec_set;
 	rep_set_t * 		result = NULL;
-	
-	// Set the invoke handler
-	di = (dbginvoke_t*)(set->s_dbginvoke_handler);
 	
 	// if bp_set_num is 0, we want this to apply to every breakpoint associated
 	// with this dbginvoke_t
@@ -2775,7 +3057,7 @@ DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del)
 				request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set->b_bp_id, once, del);
 				
 				// Create the new rec set for this group
-				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+				new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 				tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 				
@@ -2851,7 +3133,7 @@ DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del)
 			request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set->b_bp_id, once, del);
 			
 			// Create the new rec set for this group
-			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, set->s_proto_handler, group);
+			new_rec_set = NewRecSetByDbgInvoke(set->s_dbginvoke_handler, group);
 				
 			tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 			
@@ -2899,7 +3181,7 @@ DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del)
 rep_set_t *
 DbgList(rec_set_t *set, char *str)
 {
-	dbgfrontend_sw *dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+	dbgfrontend_sw *dbg_fe = set->s_dbginvoke_handler->d_frontend;
 	char *			request;
 	rep_set_t * 	result;
 	group_reply_t *	group_rep;
@@ -3184,7 +3466,7 @@ dbglist_call_backend:
 rep_set_t *
 DbgGetSources(rec_set_t *set)
 {
-	dbgfrontend_sw *dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+	dbgfrontend_sw *dbg_fe = set->s_dbginvoke_handler->d_frontend;
 	char *			request;
 	dbgevent_t *	e;
 	rep_set_t * 	result;
@@ -3317,7 +3599,7 @@ DbgMoveFrame(rec_set_t *set, int count, int up)
 	// modified the frame location. Only do it if it didn't have an error.
 	if (!SetHasError(result))
 	{
-		dbgfrontend_sw *dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+		dbgfrontend_sw *dbg_fe = set->s_dbginvoke_handler->d_frontend;
 		if (dbg_fe != NULL)
 		{
 			dbgframe_t *	fp;
@@ -3417,7 +3699,7 @@ DbgGetVars(rec_set_t *set, char *file)
 rep_set_t *
 DbgGetScope(rec_set_t *set, char *location)
 {
-	dbgfrontend_sw *	dbg_fe = ((dbginvoke_t *)(set->s_dbginvoke_handler))->d_frontend;
+	dbgfrontend_sw *	dbg_fe = set->s_dbginvoke_handler->d_frontend;
 	char *				request;
 	rep_set_t * 		result;
 	dbgevent_t *		e;
@@ -3538,17 +3820,41 @@ DbgInterrupt(rec_set_t *set)
 
 /*
 ** DBG_QUIT: Tell server to quit immediately.
-** If detach is true, then we detach from application instead of killing it.
+** Use the value of det to override the default behavior
 */
 rep_set_t *
-DbgQuit(rec_set_t *set, int detach)
+DbgQuit(rec_set_t *set, dbgquit_type det)
 {
+	int				detach = 0;
 	char *			request;
 	rep_set_t *		result;
-	dbginvoke_t *	di = (dbginvoke_t *)set->s_dbginvoke_handler;
+	dbginvoke_t *	di = set->s_dbginvoke_handler;
 	group_reply_t *	err_rep;
 	int				res;
 	dbgevent_t *	e;
+	
+	// set the detach value
+	switch (det)
+	{
+		case DBG_KILL:
+			detach = 0;
+			break;
+		case DBG_DETACH:
+			detach = 1;
+			break;
+		case DBG_DEFAULT:
+			// use default based on attach value
+			switch (di->d_type)
+			{
+				case DBG_ATTACHED:
+					detach = 1;
+					break;
+				case DBG_LAUNCHED:
+					detach = 0;
+					break;
+			}
+			break;
+	}
 	
 	request = CommandToSocProto(DBGCMD_QUIT, detach);
 

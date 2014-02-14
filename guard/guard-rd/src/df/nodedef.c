@@ -320,9 +320,6 @@ InitNodeDef(void)
 	/* int NodeHashEntry(str) */
 	(void)AddNodeDef("HENTRY", NodeHashEntry, TK_INT, 1, 1, TK_STR);
 
-	/* token NodeLookupInvoke(str) */
-	(void)AddNodeDef("LOOKUP", NodeLookupInvoke, TK_ANY, 1, 1, TK_STR);
-
 	/* token NodeExit(token) */
 	(void)AddNodeDef("EXIT", NodeExit, TK_ANY, 1, 1, TK_ANY);
 

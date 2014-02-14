@@ -51,8 +51,8 @@ libgram_a_LIBADD =
 am_libgram_a_OBJECTS = assign.$(OBJEXT) blockmap.$(OBJEXT) \
 	blockmap_util.$(OBJEXT) cmdtoken.$(OBJEXT) expr.$(OBJEXT) \
 	expr.tab.$(OBJEXT) file.$(OBJEXT) func.$(OBJEXT) \
-	invoke.$(OBJEXT) line.$(OBJEXT) perm.$(OBJEXT) \
-	procset.$(OBJEXT) slice.$(OBJEXT) val.$(OBJEXT) var.$(OBJEXT)
+	line.$(OBJEXT) perm.$(OBJEXT) procset.$(OBJEXT) \
+	slice.$(OBJEXT) val.$(OBJEXT) var.$(OBJEXT)
 libgram_a_OBJECTS = $(am_libgram_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
@@ -233,7 +233,7 @@ BUILT_SOURCES = expr.y expr.tab.c expr.tab.h
 CLEANFILES = $(BUILT_SOURCES) tokens
 noinst_LIBRARIES = libgram.a
 libgram_a_SOURCES = assign.c blockmap.c blockmap_util.c cmdtoken.c expr.c expr.tab.c \
-			  file.c func.c invoke.c line.c perm.c procset.c \
+			  file.c func.c line.c perm.c procset.c \
 			  slice.c val.c var.c
 
 all: $(BUILT_SOURCES)
@@ -292,7 +292,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/expr.tab.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/func.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/invoke.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/line.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/perm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procset.Po@am__quote@

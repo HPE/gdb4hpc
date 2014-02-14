@@ -680,7 +680,7 @@ evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 		return read_var_imm(e, 0, rec_set, f);
 
 	default:
-		SetError("Tried to evaluate an unknown expression: %d", ep->e_op);
+		SetError("Tried to evaluate an unknown expression: %s", getExprOpStr(ep->e_op));
 		return (val_t *)NULL;
 	}
 }
@@ -3324,9 +3324,10 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		
 		if (LVAL_GDB_PROCSET(lval) != NULL)
 		{
+			// FIXME: Use dbginvoke directly instead
 			over_set = GetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
 			
-			if (bitset_size(over_set->s_set_bs) != bitset_size(reply->rep_group))
+			if (bitset_size(over_set->s_di_bs) != bitset_size(reply->rep_group))
 			{
 				// The sizes do not match, we cannot complete the request
 				SetError("Rank mismatch between requested assignment. The application variable has multiple values.");
@@ -3336,11 +3337,11 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			// We can assign the rval to the lval since the number of ranks match
 			// loop over each reply
 			ResetSet(rep_set);
-			while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
 				// Create the rec_set for this reply from the lval overset using the bitset
 				// from the reply
-				target_recset = NewRecSetByOverSet(over_set, reply->rep_group);
+				target_recset = NewRecSetByDbgInvoke(over_set->s_di, reply->rep_group);
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);
 				// Send the command using the target_recset and the event data
@@ -3375,9 +3376,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 				// Create the rec_set for this reply from the rec_set and using the bitset
 				// from the reply
 				target_recset = NewRecSet(	rec_set->s_setname,
-											rec_set->s_invoke_handler,
 											rec_set->s_dbginvoke_handler,
-											rec_set->s_proto_handler,
 											reply->rep_group);
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);

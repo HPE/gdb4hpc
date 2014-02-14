@@ -36,7 +36,6 @@
 #endif
 #include	"dbgevent.h"
 #include	"bitset.h"
-#include	"dbg_set_sync.h"
 
 /*
 ** Internal global variables
@@ -259,7 +258,7 @@ _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
 	SetOverlaySetForProcSet(s);
 	while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
 	{
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
+		rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
 
 		if ( !(*c->c_cmd)(rec_set, argc, argv) )
 			res = 0;
@@ -289,13 +288,7 @@ _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
 				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 				{
 					// First create the bitset string
-					if (over_set->s_offset >= 0 && over_set->s_len > 0)
-					{
-						bitset_str = bitset_to_set_by_offset(reply->rep_group, over_set->s_offset, over_set->s_len);
-					} else
-					{
-						bitset_str = bitset_to_set(reply->rep_group);
-					}
+					bitset_str = bitset_to_set(reply->rep_group);
 					
 					// Next create the full set string
 					Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);

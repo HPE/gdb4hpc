@@ -522,7 +522,7 @@ class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 ** Implements the hashing interface.
 */
 static int
-class_set_subcmd_reduce_cmd(invoke_group *g, int argc, char **argv)
+class_set_subcmd_reduce_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
 	char *		buf;
@@ -1301,7 +1301,7 @@ cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv)
 	** Save vars so they are freed properly.
 	*/
 	AppendList(GraphPtr->g_vars, vlist);
-	DestroyList(vlist, (void (*)())NULL);
+	DestroyList(vlist, NULL);
 
 	if ((ai = NewAssertInfoEntry(GraphPtr->g_assert_info_tab, GraphPtr->g_assertions)) == (ainfo_t *)NULL)
 	{
@@ -1411,7 +1411,7 @@ cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 	** Save vars so they are freed properly.
 	*/
 	AppendList(GraphPtr->g_vars, vlist);
-	DestroyList(vlist, (void (*)())NULL);
+	DestroyList(vlist, NULL);
 
 	return 1;
 }
@@ -1420,7 +1420,6 @@ static int
 cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	val_t *		v;
-	var_t *		var;
 	size_t		assertbuf_size;
 
 	/*
@@ -1456,11 +1455,7 @@ cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)
 	/*
 	** Take care of any unused procs.
 	*/
-
-	SetList(GraphPtr->g_vars);
-
-	while ( (var = (var_t *)GetListElement(GraphPtr->g_vars)) != (var_t *)NULL )
-		BuildUnused(GraphPtr, var);
+	BuildUnused(GraphPtr);
 
 	/*
 	** Set the graph name. This corresponds to the GraphVal hashkey value.
@@ -1669,7 +1664,7 @@ FinishCmd_graph(void)
 	FinishGraphVars();
 	GraphCleanup(0);
 	DestroyCommandList(GraphCmds);
-	DestroyList(GraphList, (void (*)())NULL);	// destroyVal supposedly cleans up the graph
+	DestroyList(GraphList, NULL);	// destroyVal supposedly cleans up the graph
 }
 
 /**************************************

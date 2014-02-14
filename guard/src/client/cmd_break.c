@@ -18,10 +18,6 @@
  *
  *********************************************************************************/
 
-
-
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -41,7 +37,6 @@ cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv)
 	char *				s;
 	char *				file;
 	char *				arg;
-	dbg_over_set_t *	over_set = rec_set->s_over_set;
 	rep_set_t *			rep_set = NULL;
 	group_reply_t *		reply = NULL;
 	bp_set_t*			bpset;
@@ -101,7 +96,7 @@ cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 		if(bpset == NULL)//this is not supposed to happen
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_err_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintErrorWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"ERROR: cannot find breakpoint [%d: file %s, line %d] in BPSetList.\n",
 				bp->bp_id,
 				bp->bp_loc.loc_file,
@@ -110,13 +105,13 @@ cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv)
 		}
 
 		if ( bpset->b_loc_line >= 0 )
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"Breakpoint %d: file %s, line %d.\n",
 				bpset->b_bp_id, 
 				bpset->b_loc_file, 
 				bpset->b_loc_line);
 		else
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"Breakpoint %d in %s\n",
 				bpset->b_bp_id, 
 				bpset->b_loc_func, 
@@ -134,7 +129,6 @@ cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv)
 	char *				s;
 	char *				file;
 	char *				arg;
-	dbg_over_set_t *	over_set = rec_set->s_over_set;
 	rep_set_t *			rep_set;
 	rep_set_t *			enb_rep;
 	group_reply_t *		reply = NULL;
@@ -193,13 +187,13 @@ cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv)
 		bp = EVENT_BP(reply->rep_event);
 
 		// Now set this to a temporary breakpoint using the enable command for this reply group
-		new_rec = NewRecSet(rec_set->s_setname, rec_set->s_invoke_handler, rec_set->s_dbginvoke_handler, rec_set->s_proto_handler, reply->rep_group);
+		new_rec = NewRecSet(rec_set->s_setname, rec_set->s_dbginvoke_handler, reply->rep_group);
 		
 		bpset = FindBPSetForBP(reply->rep_di, bp);
 		
 		if(bpset == NULL)//this is not supposed to happen
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_err_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintErrorWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"ERROR: cannot find breakpoint [%d: file %s, line %d] in BPSetList.\n",
 				bp->bp_id,
 				bp->bp_loc.loc_file,
@@ -220,13 +214,13 @@ cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv)
 		
 		// Print out status
 		if ( bpset->b_loc_line >= 0 )
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"Temporary breakpoint %d: file %s, line %d.\n",
 				bpset->b_bp_id, 
 				bpset->b_loc_file, 
 				bpset->b_loc_line);
 		else
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 				"Temporary breakpoint %d in %s\n",
 				bpset->b_bp_id, 
 				bpset->b_loc_func, 
@@ -244,7 +238,6 @@ static int
 cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *				arg;
-	dbg_over_set_t *	over_set = rec_set->s_over_set;
 	rep_set_t *			rep_set = NULL;
 	group_reply_t *		reply = NULL;
 	bp_set_t *			bpset;
@@ -311,7 +304,7 @@ cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 		if(bpset == NULL)//this is not supposed to happen
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_err_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+			PrintErrorWithSetInfo(rec_set->s_setname, reply->rep_group,
 					"ERROR: cannot find watchpoint [%d: variable %s] in BPSetList.\n",
 					bp->bp_id, bp->bp_exp);
 		}
@@ -319,19 +312,19 @@ cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv)
 		switch (bpset->b_bp_type)
 		{
 			case DBGBP_WATCH_TYPE:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 						"Watchpoint %d: Set on variable %s\n", bpset->b_bp_id, bpset->b_bp_exp);
 				break;
 			case DBGBP_AWATCH_TYPE:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 						"Access Watchpoint %d: Set on variable %s\n", bpset->b_bp_id, bpset->b_bp_exp);
 				break;
 			case DBGBP_RWATCH_TYPE:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 						"Read Watchpoint %d: Set on variable %s\n", bpset->b_bp_id, bpset->b_bp_exp);
 				break;
 			default:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, over_set->s_offset, over_set->s_len, 
+				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group,
 						"Unknown Watchpoint %d: Set on variable %s\n", bpset->b_bp_id, bpset->b_bp_exp);
 		}
 	}
@@ -474,7 +467,6 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 	int					bid = 0;
 	bitset *			group, *disp_group, *enabled_group, *disabled_group;
 	bp_set_t *			bpset;
-	dbg_over_set_t *	over_set = rec_set->s_over_set;
 	bp_disp_set_t *		disp_set;
 
 	if ( argc > 1 )
@@ -490,7 +482,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	if ( EmptyBPSetList(rec_set->s_dbginvoke_handler) )
 	{
-		PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, rec_set->s_receiver_bs, "No breakpoints or watchpoints.\n");
+		PrintMsgWithSetInfo(rec_set->s_setname, rec_set->s_receiver_bs, "No breakpoints or watchpoints.\n");
 		return 1;
 	}
 
@@ -500,7 +492,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 			(bpset = FindBPSetByID(rec_set->s_dbginvoke_handler, bid)) == NULL
 		)
 	{
-		PrintMsgWithSetInfo(Client.cli_err_stream, rec_set->s_setname, rec_set->s_receiver_bs, "No breakpoint or watchpoint number %d.\n", bid);
+		PrintErrorWithSetInfo(rec_set->s_setname, rec_set->s_receiver_bs, "No breakpoint or watchpoint number %d.\n", bid);
 		return 0;
 	}
 
@@ -536,7 +528,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 					if (!bitset_isempty(enabled_group))
 					{
 						// First print out watchpoints that are enabled
-						PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, enabled_group, over_set->s_offset, over_set->s_len,
+						PrintMsgWithSetInfo(rec_set->s_setname, enabled_group,
 							"\t%-3d %-14s %-4s %-3s %s\n",
 							bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "y",
 							bpset->b_bp_exp);
@@ -549,7 +541,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 					if (!bitset_isempty(disabled_group))
 					{
 						// Next print out watchpoints that are disabled
-						PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, disabled_group, over_set->s_offset, over_set->s_len,
+						PrintMsgWithSetInfo(rec_set->s_setname, disabled_group,
 							"\t%-3d %-14s %-4s %-3s %s\n",
 							bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "n",
 							bpset->b_bp_exp);
@@ -576,7 +568,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 						if (!bitset_isempty(enabled_group))
 						{
 							// First print out breakpoints that are enabled
-							PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, enabled_group, over_set->s_offset, over_set->s_len,
+							PrintMsgWithSetInfo(rec_set->s_setname, enabled_group,
 								"\t%-3d %-14s %-4s %-3s in %s at %s:%d\n",
 								bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "y",
 								bpset->b_loc_func, 
@@ -590,7 +582,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 						if (!bitset_isempty(disabled_group))
 						{
 							// Next print out breakpoints that are disabled
-							PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, disabled_group, over_set->s_offset, over_set->s_len,
+							PrintMsgWithSetInfo(rec_set->s_setname, disabled_group,
 								"\t%-3d %-14s %-4s %-3s in %s at %s:%d\n",
 								bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "n",
 								bpset->b_loc_func, 
@@ -601,7 +593,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 						if (!bitset_isempty(enabled_group))
 						{
 							// First print out breakpoints that are enabled
-							PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, enabled_group, over_set->s_offset, over_set->s_len,
+							PrintMsgWithSetInfo(rec_set->s_setname, enabled_group,
 								"\t%-3d %-14s %-4s %-3s in %s\n",
 								bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "y",
 								bpset->b_loc_func);
@@ -614,7 +606,7 @@ class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc, char **argv)
 						if (!bitset_isempty(disabled_group))
 						{
 							// Next print out breakpoints that are disabled
-							PrintMsgWithSetInfoByOffset(Client.cli_out_stream, rec_set->s_setname, disabled_group, over_set->s_offset, over_set->s_len,
+							PrintMsgWithSetInfo(rec_set->s_setname, disabled_group,
 								"\t%-3d %-14s %-4s %-3s in %s\n",
 								bpset->b_bp_id, BPTypeToStr(bpset->b_bp_type), BPDispToStr(disp_set->b_bp_disp), "n",
 								bpset->b_loc_func);

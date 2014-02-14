@@ -33,8 +33,6 @@
  *
  *********************************************************************************/
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -105,15 +103,7 @@ int
 bitset_isfull(bitset *b)
 {
 	int	i;
-
-/*	for (i = 0; i < b->bs_size; i++)
-		if (b->bs_bits[i] != 1)
-			return 0;
-
-	for (i = 0; i < (b->bs_size - 1); i++)
-		if (b->bs_bits[i] != 1)
-			return 0;
-*/
+	
 	for(i = 0; i < b->bs_nbits; i++)
 		if(!bitset_test(b, i))
 			return 0;
@@ -314,6 +304,21 @@ bitset_test(bitset *b, int bit)
 		return 0;
 
 	return (b->bs_bits[BIT_INDEX(bit)] & mask) == mask;
+}
+
+int
+bitset_numset(bitset *b)
+{
+	int i;
+	int cnt = 0;
+	
+	for (i=0; i < b->bs_nbits; i++)
+	{
+		if (bitset_test(b, i))
+			++cnt;
+	}
+	
+	return cnt;
 }
 
 /*

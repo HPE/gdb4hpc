@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,9 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -46,7 +43,6 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 	int				print_diff = 0;
 	expr_t *		e;
 	char **			ap;
-	FILE *			fp = Client.cli_out_stream;
 	AIF *			a;
 
 	if ( argc < 2 )
@@ -57,34 +53,6 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 	}
 
 	ap = &argv[1];
-
-	while ( argc > 1 )
-	{
-		if ( strcmp(ap[0], "-output") == 0 )
-		{
-			if ( argc < 4 )
-			{
-				PrintOutError("Bad compare command\n");
-				return 1;
-			}
-
-			if
-			(
-				access(ap[1], W_OK) == 0
-				&&
-				!cli_query("File exists, overwrite?")
-			)
-				return 1;
-
-			fp = (FILE *)NULL;
-			ap += 2;
-			argc -= 2;
-
-			continue;
-		}
-
-		break;
-	}
 
 	if ( argc <= 0 )
 	{
@@ -114,17 +82,6 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	FreeExpr(e);
 
-	if
-	(
-		fp == (FILE *)NULL 
-		&&
-		(fp = fopen(argv[2], "w")) == (FILE *)NULL 
-	)
-	{
-		perror(argv[2]);
-		return 0;
-	}
-
 	/*
 	** The EvalCompare function will read the current values of Client.cmp_lower_eps
 	** and Client.cmp_upper_eps to implement epsilon tolerances for floating point
@@ -145,22 +102,22 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 			switch (res)
 			{
 				case 0:
-					PrintToFd(fp, "Comparison is true.\n");
+					PrintOutMsg("Comparison is true.\n");
 					break;
 				case -1:
 				case 1:
-					PrintToFd(fp, "Comparison is false. The difference delta is:\n");
-					if ( PrintVal(fp, val_diff, rec_set) < 0 )
+					PrintOutMsg("Comparison is false. The difference delta is:\n");
+					if ( PrintVal(val_diff, rec_set) < 0 )
 						PrintError();
 					break;
 				case -2:
 				case 2:
-					PrintToFd(fp, "Comparison is warn. The difference delta is:\n");
-					if ( PrintVal(fp, val_diff, rec_set) < 0 )
+					PrintOutMsg("Comparison is warn. The difference delta is:\n");
+					if ( PrintVal(val_diff, rec_set) < 0 )
 						PrintError();
 					break;
 				case 3:
-					PrintToFd(fp, "Comparison is indeterminate due to pointers.\n");
+					PrintOutMsg("Comparison is indeterminate due to pointers.\n");
 					break;
 			}
 			break;
@@ -180,20 +137,20 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 				switch (res)
 				{
 					case 0:
-						PrintMsgWithSetInfo(fp, rec_set->s_setname, reply->rep_group, "Comparison is true.\n");
+						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is true.\n");
 						break;
 					case -1:
 					case 1:
-						PrintMsgWithSetInfo(fp, rec_set->s_setname, reply->rep_group, "Comparison is false.\n");
+						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is false.\n");
 						print_diff++;
 						break;
 					case -2:
 					case 2:
-						PrintMsgWithSetInfo(fp, rec_set->s_setname, reply->rep_group, "Comparison is warn.\n");
+						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is warn.\n");
 						print_diff++;
 						break;
 					case 3:
-						PrintMsgWithSetInfo(fp, rec_set->s_setname, reply->rep_group, "Comparison is indeterminate due to pointers.\n");
+						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is indeterminate due to pointers.\n");
 						break;
 				}
 			}
@@ -201,8 +158,8 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 			// print out the difference deltas once
 			if (print_diff && val_diff != NULL)
 			{
-				PrintToFd(fp, "The difference delta is:\n");
-				if ( PrintVal(fp, val_diff, rec_set) < 0 )
+				PrintOutMsg("The difference delta is:\n");
+				if ( PrintVal(val_diff, rec_set) < 0 )
 					PrintError();
 			}
 			break;
@@ -217,9 +174,6 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 		
 	if (val_res != NULL)
 		DestroyVal(val_res);
-
-	if ( fp != Client.cli_out_stream )
-		fclose(fp);
 
 	return 1;
 }

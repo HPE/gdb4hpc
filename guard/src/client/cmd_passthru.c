@@ -57,7 +57,7 @@ class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 		if (strlen(cmd) == 0)
 			continue;
 		
-		PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
+		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
 	}
 
 	FreeRepSet(rep_set);
@@ -123,7 +123,7 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 			PrintOutMsg("%s\n", cmd);
 		} else
 		{
-			PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "%s\n", cmd);
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%s\n", cmd);
 		}
 	}
 
@@ -190,7 +190,7 @@ cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 		} else
 		{
 			PrintOutMsg("\n");
-			PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "\n%s\n", cmd);
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "\n%s\n", cmd);
 		}
 	}
 

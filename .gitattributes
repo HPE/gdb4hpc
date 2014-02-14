@@ -199,8 +199,6 @@ guard/src/dbgclnt/dbg_client.c -text
 guard/src/dbgclnt/dbg_client.h -text
 guard/src/dbgclnt/dbg_mrn_fe.c -text
 guard/src/dbgclnt/dbg_mrn_fe.h -text
-guard/src/dbgclnt/dbg_set_sync.c -text
-guard/src/dbgclnt/dbg_set_sync.h -text
 guard/src/dbgclnt/dbgclnt_debugfe.c -text
 guard/src/dbgclnt/dbgclnt_debugfe.h -text
 guard/src/dbgclnt/dbgclnt_gdbmi.c -text
@@ -288,8 +286,6 @@ guard/src/gram/file.h -text
 guard/src/gram/func.c -text
 guard/src/gram/func.h -text
 guard/src/gram/gram.h -text
-guard/src/gram/invoke.c -text
-guard/src/gram/invoke.h -text
 guard/src/gram/line.c -text
 guard/src/gram/line.h -text
 guard/src/gram/perm.c -text

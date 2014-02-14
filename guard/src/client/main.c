@@ -74,7 +74,6 @@ static int		started = 0;	// Is it alright to longjmp?
 static void		Banner(void);
 static void		SigHandler(int);
 static void		WaitForEvents(int);
-static void		PrintEventSet(dbg_over_set_t *, event_set_t *);
 
 /*
  * long opts
@@ -622,12 +621,12 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
+	InitVal();
 	InitProcSet();
 	InitCommands();
 #ifdef RD
 	InitDF();
 #endif /* RD */
-	InitVal();
 	InitCLI(Client.cli_mode, cli_args);
 
 	if ( !Client.silent )
@@ -705,9 +704,9 @@ SigHandler(int sig)
 	
 	dbg_over_set_t *	over_set = NULL;
 	
-	while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
+	while((over_set = GetNextOverlaySetForProcSet(s)) != NULL)
 	{
-		rec_set_t *			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
+		rec_set_t *			rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
 		rep_set_t *			rep_set = DbgInterrupt(rec_set);
 		group_reply_t *		reply;
 		dbgloc_t *			halt_loc;
@@ -761,23 +760,31 @@ WaitForEvents(int noblock)
 	}
 }
 
-static void
-PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
+// This is called each time an asynchronous reply is recieved. The entire event
+// set which contains the aggregated event is passed in as ev_set and the
+// individual reply that was just received is passed in as reply_set.
+int	
+EventCB(event_set_t *ev_set, bitset *reply_set)
 {
-	bp_set_t*	bpset;
-	dbgevent_t *e = ev_set->e_ev;
+	bp_set_t *		bpset;
+	
+	// need to do "special" things if we are currently reading from stdin
+	// for readline support.
+	cli_save_stream();
+	
+	DPRINT(	"INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s from:%s\n", 
+			EventToStr(ev_set->e_ev), bitset_to_set(ev_set->e_group), 
+			bitset_to_set(reply_set), ev_set->e_di->d_handle);
 
-	DPRINT("PrintEventSet over_set[%p], offset[%d], nproc[%d], setinfo:%s\n", over_set, over_set->s_offset, over_set->s_nproc, bitset_to_set(ev_set->e_group));
-
-	switch ( e->ev_event )
+	switch ( ev_set->e_ev->ev_event )
 	{
 	case DBGEV_EXIT:
-		if ( e->ev_exit == 0 )
+		if ( ev_set->e_ev->ev_exit == 0 )
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program exited normally.\n");
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Program exited normally.\n");
 		} else
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program exited with code 0%o.\n", e->ev_exit);
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Program exited with code 0%o.\n", ev_set->e_ev->ev_exit);
 		}
 		break;
 
@@ -786,24 +793,24 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 		// If its unknown either its a breakpoint encountered from ending the graph (graph breakpoints are hidden)
 		// or an exit breakpoint that was set by the dbg servers.
 		
-		if ((bpset = FindBPSetForBP(ev_set->e_di, e->ev_bp)) == NULL)
+		if ((bpset = FindBPSetForBP(ev_set->e_di, ev_set->e_ev->ev_bp)) == NULL)
 		{
-			if(e->ev_bp->bp_type == DBGBP_EXIT_TYPE)
+			if(ev_set->e_ev->ev_bp->bp_type == DBGBP_EXIT_TYPE)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "The application has reached an exit breakpoint.\n");
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "The application has reached an exit breakpoint.\n");
 			}
 			else
 			{
-				if (e->ev_bp->bp_loc.loc_line > 0)
+				if (ev_set->e_ev->ev_bp->bp_loc.loc_line > 0)
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
-						e->ev_bp->bp_loc.loc_func,
-						e->ev_bp->bp_loc.loc_file,
-						e->ev_bp->bp_loc.loc_line);
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s at %s:%d\n",
+						ev_set->e_ev->ev_bp->bp_loc.loc_func,
+						ev_set->e_ev->ev_bp->bp_loc.loc_file,
+						ev_set->e_ev->ev_bp->bp_loc.loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
-						e->ev_bp->bp_loc.loc_func);
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
+						ev_set->e_ev->ev_bp->bp_loc.loc_func);
 				}
 			}
 			break;
@@ -817,20 +824,20 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			case DBGBP_WATCH_TYPE:
 			case DBGBP_AWATCH_TYPE:
 			case DBGBP_RWATCH_TYPE:
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Watchpoint %d, variable expression: %s\n",
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Watchpoint %d, variable expression: %s\n",
 					bpset->b_bp_id,
 					bpset->b_bp_exp);
 				// We should also print out the updated locale information for the watchpoint.
 				// This was updated in EventCB before calling this function.
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s at %s:%d\n",
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
 						bpset->b_loc_func);
 				}
 				break;
@@ -838,14 +845,14 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			case DBGBP_BREAK_TYPE:
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Breakpoint %d, %s at %s:%d\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Breakpoint %d, %s at %s:%d\n",
 						bpset->b_bp_id,
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Breakpoint %d, in %s\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Breakpoint %d, in %s\n",
 						bpset->b_bp_id,
 						bpset->b_loc_func);
 				}
@@ -854,14 +861,14 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			default:
 				if ( bpset->b_loc_line > 0 )
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Unknown break type %d, %s at %s:%d\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Unknown break type %d, %s at %s:%d\n",
 						bpset->b_bp_id,
 						bpset->b_loc_func,
 						bpset->b_loc_file,
 						bpset->b_loc_line);
 				} else
 				{
-					PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Unknown break type %d, in %s\n",
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Unknown break type %d, in %s\n",
 						bpset->b_bp_id,
 						bpset->b_loc_func);
 				}
@@ -871,74 +878,74 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 		break;
 
 	case DBGEV_SIGNAL:
-		PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program received signal %s.\n", e->ev_sig_type);
+		PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Program received signal %s.\n", ev_set->e_ev->ev_sig_type);
 
-		if ( e->ev_sig_frame != (dbgframe_t *)NULL )
+		if ( ev_set->e_ev->ev_sig_frame != (dbgframe_t *)NULL )
 		{
-			if (e->ev_sig_frame->frame_loc.loc_file != NULL)
+			if (ev_set->e_ev->ev_sig_frame->frame_loc.loc_file != NULL)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s at %s:%d\n",
-					e->ev_sig_frame->frame_loc.loc_func, 
-					e->ev_sig_frame->frame_loc.loc_file, 
-					e->ev_sig_frame->frame_loc.loc_line
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s at %s:%d\n",
+					ev_set->e_ev->ev_sig_frame->frame_loc.loc_func, 
+					ev_set->e_ev->ev_sig_frame->frame_loc.loc_file, 
+					ev_set->e_ev->ev_sig_frame->frame_loc.loc_line
 					);
 			} else
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "In %s\n",
-					e->ev_sig_frame->frame_loc.loc_func
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
+					ev_set->e_ev->ev_sig_frame->frame_loc.loc_func
 					);
 			}
-		} else if (e->ev_sig_line != NULL)
+		} else if (ev_set->e_ev->ev_sig_line != NULL)
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s\n",
-				e->ev_sig_line
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "%s\n",
+				ev_set->e_ev->ev_sig_line
 				);
 		}
 		
 		break;
 
 	case DBGEV_STEP:
-		if ( e->ev_step_frame != (dbgframe_t *) NULL )
+		if ( ev_set->e_ev->ev_step_frame != (dbgframe_t *) NULL )
 		{
-			if(e->ev_step_frame->frame_loc.loc_line > 0)
+			if(ev_set->e_ev->ev_step_frame->frame_loc.loc_line > 0)
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s at %s:%d\n",
-					e->ev_step_frame->frame_loc.loc_func, 
-					e->ev_step_frame->frame_loc.loc_file, 
-					e->ev_step_frame->frame_loc.loc_line
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "%s at %s:%d\n",
+					ev_set->e_ev->ev_step_frame->frame_loc.loc_func, 
+					ev_set->e_ev->ev_step_frame->frame_loc.loc_file, 
+					ev_set->e_ev->ev_step_frame->frame_loc.loc_line
 					);
 			} else
 			{
-				PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "in %s\n",
-					e->ev_step_frame->frame_loc.loc_func
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "in %s\n",
+					ev_set->e_ev->ev_step_frame->frame_loc.loc_func
 					);
 			}
 			break;
 		}
 
-		if ( e->ev_step_lno < 0 )
+		if ( ev_set->e_ev->ev_step_lno < 0 )
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Single stepping until exit from function %s,\n", e->ev_step_line);
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "which has no line number information.\n");
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Single stepping until exit from function %s,\n", ev_set->e_ev->ev_step_line);
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "which has no line number information.\n");
 		}
-		else if(e->ev_step_lno == 0)
+		else if(ev_set->e_ev->ev_step_lno == 0)
 		{
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Program has reached the end.\n");
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Program has reached the end.\n");
 		} else
-			PrintMsgWithSetInfoByOffset(Client.cli_out_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%d\t%s\n", 
-				e->ev_step_lno, 
-				e->ev_step_line);
+			PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "%d\t%s\n", 
+				ev_set->e_ev->ev_step_lno, 
+				ev_set->e_ev->ev_step_line);
 		break;
 
 	case DBGEV_ERROR:
-		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "%s\n", DbgEventErrorStr(e));
+		PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "%s\n", DbgEventErrorStr(ev_set->e_ev));
 		break;
 		
 	case DBGEV_OK:
 		break;
 
 	default:
-		PrintMsgWithSetInfoByOffset(Client.cli_err_stream, over_set->s_setname, ev_set->e_group, over_set->s_offset, over_set->s_len, "Can't print event %d\n", e->ev_event);
+		PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Can't print event %d\n", ev_set->e_ev->ev_event);
 		break;
 	}
 	
@@ -951,7 +958,6 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 		rec_set_t *			rec_set;
 		rep_set_t *			rep_set;
 		group_reply_t *		reply;
-		char *				bitset_str;
 		char *				set_str;
 		dbgstatus_t *		s;
 		char *				status_block;
@@ -961,8 +967,9 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			// Status has changed. We need to generate updated status
 			// information
 			
-			// Create a new rec_set from the overset, using the full set.
-			rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
+			// Create a new rec_set from the overset, using the group from the event set
+			// TODO: Is this okay for the ccdb gui?
+			rec_set = NewRecSetByDbgInvoke(ev_set->e_di, ev_set->e_group);
 			
 			// Query the new status from the backends, note that for this we
 			// want to grab the location information
@@ -974,22 +981,10 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			status_block = XMLStartStatusBlock(rec_set->s_setname);
 			
 			// Process each status message and add it to the status block
-			while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
-				// First create the bitset string
-				if (over_set->s_offset >= 0 && over_set->s_len > 0)
-				{
-					bitset_str = bitset_to_set_by_offset(reply->rep_group, over_set->s_offset, over_set->s_len);
-				} else
-				{
-					bitset_str = bitset_to_set(reply->rep_group);
-				}
-					
-				// Next create the full set string
-				Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);
-					
-				// Done with the bitset_str
-				Free(bitset_str);
+				// Create the set string
+				Asprintf(&set_str, "%s%s", rec_set->s_setname, reply->rep_group);
 				
 				// point at the status data
 				s = EVENT_STATUS(reply->rep_event);
@@ -1014,46 +1009,9 @@ PrintEventSet(dbg_over_set_t *over_set, event_set_t *ev_set)
 			DbgResetStatusChange();
 		}
 	}
-}
-
-// This is called each time an asynchronous reply is recieved. The entire event
-// set which contains the aggregated event is passed in as e/ev_set and the
-// individual reply that was just received is passed in as reply_set.
-// FIXME: I think that this probably shouldn't be getting the over_set stuff,
-// but that is not fixed yet. This is currently in a hacked state.
-int	
-EventCB(event_set_t *ev_set, bitset *reply_set)
-{
-	dbg_over_set_t *	over_set = NULL;
-	
-	// need to do "special" things if we are currently reading from stdin
-	// for readline support.
-	cli_save_stream();
-
-	list_t* overSetList = (list_t*)GetOverlaySetListByDbgInvoke(ev_set->e_di);
-
-	DPRINT("INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s\n", EventToStr(ev_set->e_ev), bitset_to_set(ev_set->e_group), bitset_to_set(reply_set));	
-
-	if(overSetList == NULL)
-	{
-		PrintOutError("ERROR: no procset info is found for dbginvoke\n");
-	} else
-	{
-		SetList(overSetList);
-		// It does this in case the user used a procset like $a{2},$b{8}. This is going to go away
-		// so fix this when it does.
-		while((over_set = (dbg_over_set_t*)GetListElement(overSetList)) != NULL)
-		{
-			if(bitset_compare(over_set->s_set_bs, reply_set) != 0)
-			{
-				// print the event
-				PrintEventSet(over_set, ev_set);
-			}
-		}
-	}
 	
 	cli_restore_stream();
-
+	
 	return 1;
 }
 

@@ -63,7 +63,7 @@ cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv)
 			l->list_line = ReplaceStr(tmp_str, "\\n", "");
 			// Free the tmp_str
 			Free(tmp_str);
-			PrintMsgWithSetInfo(Client.cli_out_stream, rec_set->s_setname, reply->rep_group, "%d\t%s\n", l->list_lno, l->list_line);
+			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%d\t%s\n", l->list_lno, l->list_line);
 		}
 	}
 

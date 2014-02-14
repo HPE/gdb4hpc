@@ -43,9 +43,9 @@ static list_t *		_evhandlers;
 static list_t *		_iohandlers;
 static graph_t *	_active_graph = NULL;
 
-static void	_continue(invoke_t *);
-static void	_halt(invoke_t *, int);
-static void _delete_bp(graph_t *, invoke_t *);
+static void	_continue(dbginvoke_t *);
+static void	_halt(dbginvoke_t *, int);
+static void _delete_bp(graph_t *, dbginvoke_t *);
 void		DFDisplayMsg(char *);
 
 /*
@@ -75,6 +75,7 @@ FinishDF(void)
 void
 StartDF(graph_t *g)
 {
+	dbginvoke_t *	di;
 
 	ResetGraph(g);
 	
@@ -91,14 +92,13 @@ StartDF(graph_t *g)
 	_evhandlers = NewList();
 	_iohandlers = NewList();
 
-	invoke_t *invoke;
-	SetList(g->g_invoke_list);
-	while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+	SetList(g->g_di_list);
+	while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 	{
 		// Save the old callback
-		AddToList(_evhandlers, (void *)((dbginvoke_t *)invoke->i_iexec)->d_clnt_ev_callback);
+		AddToList(_evhandlers, (void *)di->d_clnt_ev_callback);
 		// Set the new callback
-		DbgHandleEvent(invoke->i_iexec, g->g_dbgevent);
+		DbgHandleEvent(di, g->g_dbgevent);
 	}
 
 	_active_graph = g;
@@ -112,51 +112,28 @@ StartDF(graph_t *g)
 	if (Client.XML_mode)
 	{
 		// used for checking status
-		invoke_group *		ig;
-		dbgprocset_t *		ps;
-		dbg_over_set_t *	over_set;
 		char *				bitset_str;
 		char *				set_str;
 		
 		// Need to print graph start for every invoke
-		SetList(g->g_invoke_list);
+		SetList(g->g_di_list);
 		
-		while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+		while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 		{
-			SetInvokeGroup(invoke);
+			bitset_str = bitset_to_set(di->d_bitset_full);
+		
+			// Create the full set string
+			Asprintf(&set_str, "%s%s", di->d_handle, bitset_str);
 			
-			while ((ig = GetInvokeGroup(invoke)) != (invoke_group *)NULL)
-			{
-				ps = FindProcSet(SymLookup(ig->ig_sym));
-				over_set = GetOverlaySetForProcSet(ps);
-				if (over_set == NULL)
-				{
-					// cannot generate xml output for this invoke group, continue
-					continue;
-				}
-				
-				// First create the bitset string
-				if (over_set->s_offset >= 0 && over_set->s_len > 0)
-				{
-					bitset_str = bitset_to_set_by_offset(over_set->s_set_bs, over_set->s_offset, over_set->s_len);
-				} else
-				{
-					bitset_str = bitset_to_set(over_set->s_set_bs);
-				}
-				
-				// Next create the full set string
-				Asprintf(&set_str, "%s%s", over_set->s_setname, bitset_str);
-					
-				// Done with the bitset_str
-				Free(bitset_str);
-				
-				// We want to create a new special status message indicating that
-				// we are starting a graph.
-				XMLPrintStartGraphMsg(over_set->s_setname, set_str);
-				
-				// Done with the set_str
-				Free(set_str);
-			}
+			// Done with the bitset_str
+			Free(bitset_str);
+			
+			// We want to create a new special status message indicating that
+			// we are starting a graph.
+			XMLPrintStartGraphMsg(di->d_handle, set_str);
+			
+			// Done with the set_str
+			Free(set_str);
 		}
 	}
 	
@@ -268,8 +245,8 @@ EndActiveDF(void)
 void
 EndDF(graph_t *g)
 {
-	int		halt, id;
-	invoke_t *invoke;
+	int				halt, id;
+	dbginvoke_t *	di;
 	
 	DPERFLOG(SetTimerStopAndLog("Graph total"));
 	
@@ -306,14 +283,14 @@ EndDF(graph_t *g)
 	/*
 	** Remove any breakpoints set by the graph.
 	*/
-	SetList(g->g_invoke_list);
-	while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+	SetList(g->g_di_list);
+	while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 	{
 		// In order to delete breakpoints, we need to ensure the process has halted first.
-		_halt(invoke, halt);
+		_halt(di, halt);
 		
 		// delete the breakpoints set by graph
-		_delete_bp(g, invoke);
+		_delete_bp(g, di);
 	}
 	
 	if (halt)
@@ -325,22 +302,22 @@ EndDF(graph_t *g)
 	SetList(_evhandlers);
 	SetList(_iohandlers);
 
-	SetList(g->g_invoke_list);
-	while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+	SetList(g->g_di_list);
+	while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 	{
-		DbgHandleEvent(invoke->i_iexec, GetListElement(_evhandlers));
+		DbgHandleEvent(di, GetListElement(_evhandlers));
 	}
 
-	DestroyList(_evhandlers, (void (*)())NULL);
-	DestroyList(_iohandlers, (void (*)())NULL);
+	DestroyList(_evhandlers, NULL);
+	DestroyList(_iohandlers, NULL);
 
 	if (!halt)
 	{
-		SetList(g->g_invoke_list);
+		SetList(g->g_di_list);
 
-		while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+		while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 		{
-			_continue(invoke);
+			_continue(di);
 		}
 	}
 	
@@ -349,9 +326,6 @@ EndDF(graph_t *g)
 	if (Client.XML_mode)
 	{
 		// used for checking status
-		invoke_group *		ig;
-		dbgprocset_t *		ps;
-		dbg_over_set_t *	over_set;
 		rec_set_t *			rec_set;
 		rep_set_t *			rep_set;
 		group_reply_t *		reply;
@@ -361,70 +335,52 @@ EndDF(graph_t *g)
 		char *				status_block;
 		
 		// Need to check status of every invoke
-		SetList(g->g_invoke_list);
+		SetList(g->g_di_list);
 		
-		while ( (invoke = (invoke_t *)GetListElement(g->g_invoke_list)) != (invoke_t *)NULL )
+		while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 		{
-			SetInvokeGroup(invoke);
+			// create the rec_set
+			rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+				
+			// Query the new status from the backends, note that for this we
+			// want to grab the location information
+			rep_set = DbgStatus(rec_set, 1);
 			
-			while ((ig = GetInvokeGroup(invoke)) != (invoke_group *)NULL)
+			ProcessErrorInRepSet(rec_set, rep_set);
+			
+			// Start a new status block
+			status_block = XMLStartStatusBlock(rec_set->s_setname);
+			
+			// Process each status message and add it to the status block
+			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
-				ps = FindProcSet(SymLookup(ig->ig_sym));
-				over_set = GetOverlaySetForProcSet(ps);
-				if (over_set == NULL)
-				{
-					// cannot generate xml output for this invoke group, continue
-					continue;
-				}
+				// First create the bitset string
+				bitset_str = bitset_to_set(reply->rep_group);
 				
-				rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
-				
-				// Query the new status from the backends, note that for this we
-				// want to grab the location information
-				rep_set = DbgStatus(rec_set, 1);
-			
-				ProcessErrorInRepSet(rec_set, rep_set);
-			
-				// Start a new status block
-				status_block = XMLStartStatusBlock(rec_set->s_setname);
-			
-				// Process each status message and add it to the status block
-				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-				{
-					// First create the bitset string
-					if (over_set->s_offset >= 0 && over_set->s_len > 0)
-					{
-						bitset_str = bitset_to_set_by_offset(reply->rep_group, over_set->s_offset, over_set->s_len);
-					} else
-					{
-						bitset_str = bitset_to_set(reply->rep_group);
-					}
+				// Next create the full set string
+				Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);
 					
-					// Next create the full set string
-					Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);
+				// Done with the bitset_str
+				Free(bitset_str);
+				
+				// point at the status data
+				s = EVENT_STATUS(reply->rep_event);
+				
+				// The XML status that is printed is based on the status value
+				XMLAddStatus(&status_block, set_str, s->stat, s->stat_loc);
 					
-					// Done with the bitset_str
-					Free(bitset_str);
-				
-					// point at the status data
-					s = EVENT_STATUS(reply->rep_event);
-				
-					// The XML status that is printed is based on the status value
-					XMLAddStatus(&status_block, set_str, s->stat, s->stat_loc);
-					
-					// Done with the set_str
-					Free(set_str);
-				}
-			
-				// Print the entire status block, this will free the string
-				XMLPrintStatusBlock(status_block);
-				
-				// Free the reply set
-				FreeRepSet(rep_set);
-			
-				// Done with the rec_set
-				FreeRecSet(rec_set);
+				// Done with the set_str
+				Free(set_str);
 			}
+			
+			// Print the entire status block, this will free the string
+			XMLPrintStatusBlock(status_block);
+				
+			// Free the reply set
+			FreeRepSet(rep_set);
+			
+			// Done with the rec_set
+			FreeRecSet(rec_set);
 		}
 	}
 }
@@ -540,19 +496,15 @@ DFDisplayMsg(char *msg)
 ** Internal helper routine to delete breakpoints.
 */
 static void
-_delete_bp(graph_t *g, invoke_t *i)
+_delete_bp(graph_t *g, dbginvoke_t *di)
 {
-	dbginvoke_t *		di;
 	dbgbp_t *			bp;
 	bp_set_t *			bpset;
 	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 	
-	// point at the dbginvoke_t for this invoke
-	di = (dbginvoke_t *)i->i_iexec;
-	
 	// create the rec_set
-	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full);
+	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
 	
 	SetList(g->g_bp_list);
 	while ((bp = (dbgbp_t *)GetListElement(g->g_bp_list)) != NULL)
@@ -577,120 +529,88 @@ _delete_bp(graph_t *g, invoke_t *i)
 ** Internal helper routine to halt a set.
 */
 static void
-_halt(invoke_t *i, int haltmode)
+_halt(dbginvoke_t *di, int haltmode)
 {
-	invoke_group *		ig;
-	dbgprocset_t *		ps;
-	dbg_over_set_t *	over_set;
 	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 	group_reply_t *		reply;
 	dbgloc_t *			halt_loc;
 	char *				set_info;
 	
-	SetInvokeGroup(i);
+	// create the rec_set
+	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
 	
-	while ((ig = GetInvokeGroup(i)) != (invoke_group *)NULL)
+	rep_set = DbgInterrupt(rec_set);
+	
+	// We only want to alert the user that the application has halted if 
+	// haltmode is true
+	if (haltmode)
 	{
-		ps = FindProcSet(SymLookup(ig->ig_sym));
-		over_set = GetOverlaySetForProcSet(ps);
-		if (over_set == NULL)
-		{
-			DFErrMsg("ERROR: _halt() cannot get Overlay Set for [%s]!", SymLookup(ig->ig_sym));
-			return;
-		}
-		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
-		
-		rep_set = DbgInterrupt(rec_set);
-		
-		// We only want to alert the user that the application has halted if 
-		// haltmode is true
-		if (haltmode)
-		{
-			//process error
-			ProcessErrorInRepSet(rec_set, rep_set);
+		//process error
+		ProcessErrorInRepSet(rec_set, rep_set);
 			
-			//process location
+		//process location
 			
-			//only print out the info if we have less than 3 replies!!!
-			// FIXME: Let this be user defined
-			if (GetNumberOfReply(rep_set) > 3)
-			{
-				set_info = bitset_to_set(rec_set->s_receiver_bs);
+		//only print out the info if we have less than 3 replies!!!
+		// FIXME: Let this be user defined
+		if (GetNumberOfReply(rep_set) > 3)
+		{
+			set_info = bitset_to_set(rec_set->s_receiver_bs);
 				
-				DFMsg("%s%s: Application halted at multiple locations.",
+			DFMsg("%s%s: Application halted at multiple locations.",
 					rec_set->s_setname,
 					set_info);
-			} else
+		} else
+		{
+			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
-				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
-				{
-					set_info = bitset_to_set(reply->rep_group);
-					// point at the location data
-					halt_loc = EVENT_LOC(reply->rep_event);
+				set_info = bitset_to_set(reply->rep_group);
+				// point at the location data
+				halt_loc = EVENT_LOC(reply->rep_event);
 				
-					if (halt_loc->loc_line > 0)
-					{
-						DFMsg("%s%s: Application halted in %s at %s:%d",
+				if (halt_loc->loc_line > 0)
+				{
+					DFMsg("%s%s: Application halted in %s at %s:%d",
 							rec_set->s_setname,
 							set_info,
 							halt_loc->loc_func,
 							halt_loc->loc_file,
 							halt_loc->loc_line);
-					} else
-					{
-						DFMsg("%s%s: Application halted in %s",
+				} else
+				{
+					DFMsg("%s%s: Application halted in %s",
 							rec_set->s_setname,
 							set_info,
 							halt_loc->loc_func);
-					}
-				
-					Free(set_info);
 				}
+				
+				Free(set_info);
 			}
 		}
-		
-		FreeRecSet(rec_set);
-		FreeRepSet(rep_set);
 	}
+		
+	FreeRecSet(rec_set);
+	FreeRepSet(rep_set);
 }
 
 /*
 ** Internal helper routine to continue a set.
 */
 static void
-_continue(invoke_t *i)
+_continue(dbginvoke_t *di)
 {
-	invoke_group *		ig;
-	dbgprocset_t *		ps;
-	dbg_over_set_t *	over_set;
-	rec_set_t *			rec_set;
-	rep_set_t *			rep_set;
+	rec_set_t *		rec_set;
+	rep_set_t *		rep_set;
 	
-	SetInvokeGroup(i);
+	// create the rec_set
+	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
 	
-	while ((ig = GetInvokeGroup(i)) != (invoke_group *)NULL)
+	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
-		ps = FindProcSet(SymLookup(ig->ig_sym));
-		over_set = GetOverlaySetForProcSet(ps);
-		if (over_set == NULL)
-		{
-			DFErrMsg("ERROR: _continue() cannot get Overlay Set for [%s]!", SymLookup(ig->ig_sym));
-			return;
-		}
-		
-		rec_set = NewRecSetByOverSet(over_set, over_set->s_set_bs);
-		
-		if ((rep_set = DbgGo(rec_set)) != NULL)
-		{
-			ProcessErrorInRepSet(rec_set, rep_set);
-			FreeRecSet(rec_set);
-			FreeRepSet(rep_set);
-			return;
-		}
-		
-		FreeRecSet(rec_set);
+		ProcessErrorInRepSet(rec_set, rep_set);
+		FreeRepSet(rep_set);
 	}
+	
+	FreeRecSet(rec_set);
 }
 

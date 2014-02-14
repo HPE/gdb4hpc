@@ -21,6 +21,9 @@
 #ifndef _NODES_H
 #define _NODES_H
 
+// FIXME: On a scale of 1 thru 10 the brokeness of the current design of this 
+//         interface is a 9001.
+
 extern token_t *	NodeAdd(graph_t *, node_t *);
 extern token_t *	NodeAnd(graph_t *, node_t *);
 extern token_t *	NodeAssign(graph_t *, node_t *);
@@ -50,7 +53,6 @@ extern token_t *	NodeInsert(graph_t *, node_t *);
 extern token_t *	NodeLess(graph_t *, node_t *);
 extern token_t *	NodeLessOrEqual(graph_t *, node_t *);
 extern token_t *	NodeLog(graph_t *, node_t *);
-extern token_t *	NodeLookupInvoke(graph_t *, node_t *);
 extern token_t *	NodeBlockMap(graph_t *, node_t *);
 extern token_t *	NodeReduce(graph_t *, node_t *);
 extern token_t *	NodeBlockMapSet(graph_t *, node_t *);
@@ -102,7 +104,6 @@ extern token_t *       NodeInsert(graph_t *, node_t *);
 extern token_t *       NodeLess(graph_t *, node_t *);
 extern token_t *       NodeLessOrEqual(graph_t *, node_t *);
 extern token_t *       NodeLog(graph_t *, node_t *);
-extern token_t *       NodeLookupInvoke(graph_t *, node_t *);
 extern token_t *       NodeBlockMap(graph_t *, node_t *);
 extern token_t *       NodeReduce(graph_t *, node_t *);
 extern token_t *       NodeBlockMapSet(graph_t *, node_t *);

@@ -85,6 +85,7 @@ int			bitset_test(bitset *b, int n);				/* return the value of bit 'n' */
 //extern "C" int bitset_test(bitset *b, int n);
 //#endif
 
+int			bitset_numset(bitset *b);					/* The number of bits set to 1 in the set */
 int			bitset_firstset(bitset *b);					/* find the first bit set to 1 (starting from LSB) */
 bitset *	bitset_and(bitset *b1, bitset *b2);			/* compute b3 = b1 & b2 */
 void		bitset_andeq(bitset *b1, bitset *b2);		/* compute b1 &= b2 */

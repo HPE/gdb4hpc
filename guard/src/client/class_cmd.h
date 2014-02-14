@@ -20,8 +20,7 @@
 #define _CLASS_CMD_H
 
 #include "type_cmd.h"
-#include "invoke.h"
-#include "dbg_set_sync.h"
+#include "dbg_client.h"
 
 /*
  * External class cmd objects

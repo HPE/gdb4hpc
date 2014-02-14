@@ -18,7 +18,6 @@
  *
  *********************************************************************************/
 
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -48,9 +47,9 @@ static int		gpu_flag = 0;
 /*
 ** static function prototypes
 */
-static int		DoInvoke(char *, proto_session *, char *, char **, int, list_t *, char *, char **, char *, char *, char **, char *);
-static int		DoAttach(char *, proto_session *, int, list_t *, char *, char *);
-static void		ReleaseInv(invoke_t *, int);
+static int		DoInvoke(char *, proto_session *, char *, char **, dbgprocset_t *, char *, char **, char *, char *, char **, char *);
+static int		DoAttach(char *, proto_session *, dbgprocset_t *, int, char *, char *);
+static void		ReleaseProc(dbgprocset_t *, dbgquit_type);
 
 /*
 ** long opts definitions
@@ -84,41 +83,54 @@ static const struct option attach_long_opts[] = {
 static int 
 class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	invoke_t *		i;
-	invoke_group *	ig;
-	dbgprocset_t *	ps;
+	dbgprocset_t *		ps;
+	int					num_ps = 0;
+	dbgprocset_t *		c_ps;
+	dbg_over_set_t *	over_set;
+	dbg_over_set_t *	c_over_set;
+	dbginvoke_t *		di;
+	
+	SetProcSet();
+	while ((ps = GetProcSet()) != NULL)
+	{
+		if (ps->s_type != DBGSET_INVOKE)
+			continue;
+			
+		++num_ps;
+		
+		PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus", "Command");
+	
+		// Get the current process set.
+		c_ps = CurrentProcSet();
+		
+		SetOverlaySetForProcSet(ps);
+		while ((over_set = GetNextOverlaySetForProcSet(ps)) != NULL)
+		{
+			// point at the di
+			di = over_set->s_di;
+			PrintOutMsg("$%-9s %-10d ", di->d_handle, di->d_nproc);
+			
+			SetOverlaySetForProcSet(c_ps);
+			while ((c_over_set = GetNextOverlaySetForProcSet(c_ps)) != NULL)
+			{
+				if (di == c_over_set->s_di)
+				{
+					PrintOutMsg("%-5s ", "y");
+				} else
+				{
+					PrintOutMsg("%-5s ", "n");
+				}
+			}
+			
+			//TODO PrintOutMsg("%s\n", i->i_cmd);
+		}
+	}
 
-	if ( !SetInvoke() || (i = GetInvoke()) == (invoke_t *)NULL )
+	if ( num_ps == 0 )
 	{
 		PrintOutError("There are currently no lauched/attached applications.\n");
 		return 1;
 	}
-
-	PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus", "Command");
-	
-	// Get the current process set.
-	ps = CurrentProcSet();
-
-	do
-	{
-		SetInvokeGroup(i);
-
-		while ( (ig = GetInvokeGroup(i)) != (invoke_group *)NULL )
-		{
-			PrintOutMsg("$%-9s %-10d ", SymLookup(ig->ig_sym), ig->ig_nproc);
-			
-			if ((strcmp(ps->s_name, "all") == 0) || (strcmp(SymLookup(ig->ig_sym), ps->s_name) == 0))
-			{
-				PrintOutMsg("%-5s ", "y");
-			} else
-			{
-				PrintOutMsg("%-5s ", "n");
-			}
-			
-			PrintOutMsg("%s\n", i->i_cmd);
-		}
-	}
-	while ( (i = GetInvoke()) != (invoke_t *)NULL );
 
 	return 1;
 }
@@ -246,7 +258,7 @@ static int
 cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	proto_session *	sess = NULL;
-	int				nproc = 0;
+	dbgprocset_t *	ps;
 	char *			prog = NULL;
 	char *			arch = Client.arch;
 	char *			proto = Client.proto;
@@ -265,7 +277,6 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// TODO: Allow the user to specify hostname/username
 	char *			hostname = NULL;
 	char *			username = NULL;
-	list_t *		ig = NULL;
 	expr_t *		e;
 	int				opt_ind = 0;
 	int				opt;
@@ -479,17 +490,15 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// parse the non-option arguments
 
 	// The first argument should be the name of the process set
-	if ( (e = ParseExpr(argv[optind++])) == (expr_t *)NULL )
+	if ( (e = ParseExpr(argv[optind++])) == NULL )
 	{
 		PrintError();
 		goto exit_with_error;
 	}
-
-	ig = NewList();
-
-	if ( (nproc = CreateInvokeGroupList(e, ig, rec_set)) < 0 )
+	
+	// Create the process set for invoke
+	if ((ps = CreateProcSetForInvoke(e)) == NULL)
 	{
-		PrintError();
 		FreeExpr(e);
 		goto exit_with_error;
 	}
@@ -620,23 +629,12 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 	//
 	// Invoke the application
 	//
-	if ( !DoInvoke(proto, sess, prog, args, nproc, ig, arch, arch_args, arch_input, backend, env_list, workdir) )
+	if ( !DoInvoke(proto, sess, prog, args, ps, arch, arch_args, arch_input, backend, env_list, workdir) )
 	{
 		// If XML mode is enabled, we want to print out a removed message. 
 		if (Client.XML_mode)
 		{
-			invoke_group *	inv;
-			char *			proc_name;
-		
-			SetList(ig);
-
-			/* Print a removed message for each invoke_group */
-			while ( (inv = (invoke_group *)GetListElement(ig)) != (invoke_group *)NULL )
-			{
-				proc_name = SymLookup(inv->ig_sym);
-			
-				XMLPrintRemovedMsg(proc_name);
-			}
+			XMLPrintRemovedMsg(ps->s_name);
 		}
 		goto exit_with_error;
 	}
@@ -668,8 +666,6 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 exit_with_error:
 
-	if (ig != NULL)
-		FreeInvokeGroupList(ig);
 	FreeArgv(args);
 	FreeArgv(arch_args);
 	if (prog != NULL)
@@ -704,8 +700,7 @@ DoInvoke(	char *proto,
 	 		proto_session *sess,
 	 		char *prog, 
 	 		char **args, 
-	 		int nproc, 
-	 		list_t *igl,
+	 		dbgprocset_t *ps,
 	 		char *arch, 
 	 		char **arch_args, 
 	 		char *arch_input,
@@ -714,26 +709,21 @@ DoInvoke(	char *proto,
 	 		char *cwd
 )
 {
-	int					c;
-	int					n;
-	int					offset;
 	dbginvoke_t *		di;
-	invoke_t *			i;
-	invoke_group *		ig;
-	dbgprocset_t *		p = NULL;
 	dbgframe_t *		f;
 	rec_set_t *			rec_set;
 	group_reply_t *		reply;
 	rep_set_t *			rep_set;
 	rep_set_t *			quit_rep;
-	bitset *			tmp_bset;
-	bitset *			bs_group;
-	char *				proc_name;
 	int					p2pmode=0;
 	
 	// Call the invoke in the dbg_client layer
 	
-	di = DbgInvoke(proto, sess, prog, args, nproc, arch, arch_args, arch_input, backend, Env, cwd, gpu_flag, debug_flag);
+	di = DbgInvoke(	proto, sess, prog, args, 
+					ps->s_name, ps->s_nproc, 
+					arch, arch_args, arch_input, 
+					backend, Env, cwd, 
+					gpu_flag, debug_flag);
 
 	if ( di == NULL )
 	{
@@ -742,123 +732,85 @@ DoInvoke(	char *proto,
 		return 0;
 	}
 	
-	// This is used below for dbg_client calls
-	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full);
+	// Create the rec_set based on the di
+	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+
+	// Finalize setup of the procset
+	if (FinalizeProcSetForInvoke(ps, di))
+	{
+		quit_rep = DbgQuit(rec_set, DBG_KILL);
+		ProcessErrorInRepSet(rec_set, quit_rep);
+		FreeRecSet(rec_set);
+		FreeRepSet(quit_rep);
+		return 0;
+	}
 	
+	// Set the client event callback handler
+	DbgHandleEvent(di, EventCB);
+	
+	// Issue the startup command
 	rep_set = DbgStartup(rec_set);
 	
 	//process error
 	if (ProcessErrorInRepSet(rec_set, rep_set))
 	{
 		PrintOutError("Could not startup application.\n");
-		quit_rep = DbgQuit(rec_set, PROC_CREATED);
+		quit_rep = DbgQuit(rec_set, DBG_KILL);
 		ProcessErrorInRepSet(rec_set, quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
  		FreeRepSet(rep_set);
 		return 0;
 	}
-
-	i = AddInvoke(prog, igl, arch, di, di->d_proto_net, di->d_bitset_full, PROC_CREATED);
-
-	SetList(igl);
-
-	/*Create a procset for each invoke_group*/
-	while ( (ig = (invoke_group *)GetListElement(igl)) != (invoke_group *)NULL )
+	
+	// Print the startup frames based on this bitset
+	SetReplyHeadInSet(rep_set);
+	while((reply = GetNextReplyInSet(rep_set)) != NULL)
 	{
-		bs_group = bitset_new(nproc);
-		proc_name = SymLookup(ig->ig_sym);
-		
-		p = NewProcSet(SymLookup(ig->ig_sym));
+		// point at the frame
+		f = EVENT_FRAME(reply->rep_event);
 
-		c = 0;
-		offset = 0;
-
-		// adjust the bitset based on the offset
-		for(n=ig->ig_offset; n < (ig->ig_offset + ig->ig_nproc); n++)
+		// print out the message
+		if ( f->frame_loc.loc_line > 0 )
 		{
-			bitset_set(bs_group, n);
-			c++;
-		}
-
-		// Set the client event callback handler
-		DbgHandleEvent(di, EventCB);
-
-		AddOverlaySetToProcSet(p, i, ig, bs_group, ig->ig_offset, c, ig->ig_nproc, DBGSET_INVOKE);
-		
-		// Print the startup frames based on this bitset
-		SetReplyHeadInSet(rep_set);
-		while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Initial breakpoint, %s at %s:%d\n",
+								f->frame_loc.loc_func,
+								f->frame_loc.loc_file,
+								f->frame_loc.loc_line);
+		} else
 		{
-			// AND the reply set with the calculated bs_group
-			tmp_bset = bitset_and(reply->rep_group, bs_group);
-			
-			// if the calculated bitset is empty, continue
-			if (bitset_isempty(tmp_bset))
-			{
-				bitset_free(tmp_bset);
-				continue;
-			}
-		
-			// point at the frame
-			f = EVENT_FRAME(reply->rep_event);
-
-			// print out the message based on the proc_name string and the calculated bitset
-			if ( f->frame_loc.loc_line > 0 )
-			{
-				PrintMsgWithSetInfo(Client.cli_out_stream, proc_name, tmp_bset, "Initial breakpoint, %s at %s:%d\n",
-									f->frame_loc.loc_func,
-									f->frame_loc.loc_file,
-									f->frame_loc.loc_line);
-			} else
-			{
-				PrintMsgWithSetInfo(Client.cli_out_stream, proc_name, tmp_bset, "Initial breakpoint, in %s\n",
-									f->frame_loc.loc_func);
-			}
-			
-			// If XML mode is enabled, we want to print out a status message. 
-			// We don't need to ask the backend for the status since this is 
-			// implied by printing out the initial breakpoint.
-			if (Client.XML_mode)
-			{
-				char *	set_str;
-				char *	status_block;
-				
-				status_block = XMLStartStatusBlock(proc_name);
-				
-				// Create the full set string
-				Asprintf(&set_str, "%s%s", proc_name, bitset_to_set(tmp_bset));
-				XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED, &(f->frame_loc));
-				Free(set_str);
-				
-				XMLPrintStatusBlock(status_block);
-			}
-			
-			// free the calculated bitset
-			bitset_free(tmp_bset);
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Initial breakpoint, in %s\n",
+								f->frame_loc.loc_func);
 		}
-		
-		// Free the adjusted bitset
-		bitset_free(bs_group);
- 		
- 		// Set the created procset to the val symbol for the invoke group.
- 		if (SetProcsetForInvokeGroup(ig, p))
- 		{
- 			quit_rep = DbgQuit(rec_set, PROC_CREATED);
- 			ProcessErrorInRepSet(rec_set, quit_rep);
- 			FreeRecSet(rec_set);
- 			FreeRepSet(quit_rep);
- 			FreeRepSet(rep_set);
- 			return 0;
- 		}
+			
+		// If XML mode is enabled, we want to print out a status message. 
+		// We don't need to ask the backend for the status since this is 
+		// implied by printing out the initial breakpoint.
+		if (Client.XML_mode)
+		{
+			char *	set_str;
+			char *	status_block;
+				
+			status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
+				
+			// Create the full set string
+			Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_to_set(reply->rep_group));
+			XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED, &(f->frame_loc));
+			Free(set_str);
+				
+			XMLPrintStatusBlock(status_block);
+		}
 	}
 	
 	// Done with the startup reply
 	FreeRepSet(rep_set);
-
-	GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
+	
+	// Free the created rec_set
+	FreeRecSet(rec_set);
 
 	// for P2P here
+	GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
+
 	if (p2pmode)
 	{
 		// FIXME: andrewg: the getenv call here can fail. This needs to be
@@ -870,7 +822,7 @@ DoInvoke(	char *proto,
 		char filerename[BUFSIZ];
 		char *filepath;
 		filepath = getenv("CRAY_DBG_LOG_DIR");
-		sprintf(filename, "%s/dbglog_netinfo_%s", filepath, p->s_name);
+		sprintf(filename, "%s/dbglog_netinfo_%s", filepath, ps->s_name);
 		sprintf(filerename, "%s/dbglog_netinfo.0.log", filepath);
 		if (rename(filerename, filename) < 0)
 		{
@@ -878,9 +830,6 @@ DoInvoke(	char *proto,
 		}
 	}
 	// end
-	
-	// Free the created rec_set
-	FreeRecSet(rec_set);
 
 	return 1;
 }
@@ -892,14 +841,13 @@ static int
 cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	proto_session *	sess = NULL;
-	int				nproc = 0;
+	dbgprocset_t *	ps;
 	int				pid;
 	char *			arch = Client.arch;
 	char *			proto = Client.proto;
 	char *			backend = Client.backend;
 	char *			hostname = NULL;
 	char *			username = NULL;
-	list_t *		ig;
 	expr_t *		e;
 	int				opt_ind = 0;
 	int				opt;
@@ -946,18 +894,15 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// parse the non-option arguments
 
 	// The first argument should be the name of the process set
-
-	ig = NewList();
-
 	if ( (e = ParseExpr(argv[optind++])) == (expr_t *)NULL )
 	{
 		PrintError();
 		return 0;
 	}
-
-	if ( (nproc = CreateInvokeGroupList(e, ig, rec_set)) < 0 )
+	
+	// Create the process set for invoke
+	if ((ps = CreateProcSetForInvoke(e)) == NULL)
 	{
-		PrintError();
 		FreeExpr(e);
 		return 0;
 	}
@@ -971,7 +916,6 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	if ( proto == NULL )
 	{
 		PrintOutError("Must specify a protocol.\n");
-		FreeInvokeGroupList(ig);
 		return 0;
 	}
 	
@@ -1007,7 +951,6 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 			if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname, username)) == NULL)
 			{
 				PrintOutError("Could not create session for eslogin!\n");
-				FreeInvokeGroupList(ig);
 				return 0;
 			}
 		
@@ -1016,9 +959,8 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 		}
 	}
 	
-	if ( !DoAttach(proto, sess, pid, ig, arch, backend) )
+	if ( !DoAttach(proto, sess, ps, pid, arch, backend) )
 	{
-		FreeInvokeGroupList(ig);
 		return 0;
 	}
 
@@ -1032,32 +974,23 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 DoAttach(	char *proto,
 			proto_session *sess,
+			dbgprocset_t *ps,
 	 		int	pid, 
-	 		list_t *igl,
 	 		char *arch, 
 	 		char *backend
 )
 {
-	int					c;
-	int					n;
-	int					offset;
 	dbginvoke_t *		di;
-	invoke_t *			i;
-	invoke_group *		ig;
-	dbgprocset_t *		p = NULL;
 	dbgframe_t *		f;
 	dbgframe_t *		fp;
 	rec_set_t *			rec_set;
 	group_reply_t *		reply;
 	rep_set_t *			rep_set;
 	rep_set_t *			quit_rep;
-	bitset *			tmp_bset;
-	bitset *			bs_group;
-	char *				proc_name;
 	int					p2pmode=0;
 	
 	// Note that we are reusing the invoke callback.
-	di = DbgAttach(proto, sess, pid, arch, backend, gpu_flag, debug_flag);
+	di = DbgAttach(proto, sess, ps->s_name, pid, arch, backend, gpu_flag, debug_flag);
 
 	if ( di == NULL )
 	{
@@ -1065,31 +998,21 @@ DoAttach(	char *proto,
 		return 0;
 	}
 	
-	// This is used below for dbg_client calls
-	rec_set = NewRecSet(NULL, NULL, di, di->d_proto_net, di->d_bitset_full);
-	
-	// Ensure the igl list has only one entry
-	// FIXME: This shouldn't be how this works, its a hack for now to ensure 
-	// the fixup can work, the fixup grabs the first ig and sets it to di->d_nprocs
-	if (SizeOfList(igl) != 1)
+	// Create the rec_set based on the di
+	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+
+	// Finalize setup of the procset
+	if (FinalizeProcSetForInvoke(ps, di))
 	{
-		PrintOutError("\nToo many procset handles given to attach command.\n");
-		PrintOutError("Expected only one handle such as $a.\n");
-		quit_rep = DbgQuit(rec_set, PROC_ATTACHED);
+		quit_rep = DbgQuit(rec_set, DBG_KILL);
 		ProcessErrorInRepSet(rec_set, quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
 		return 0;
 	}
 	
-	//fix the igl to be the size of di->d_nprocs 
-	//TODO: Add ability to attach to subset of ranks 
-	SetList(igl);
-	
-	if ( (ig = (invoke_group *)GetListElement(igl)) != (invoke_group *)NULL )
-	{
-		ig->ig_nproc = di->d_nproc;
-	}
+	// Set the client event callback handler
+	DbgHandleEvent(di, EventCB);
 	
 	// grab all the frames
 	rep_set = DbgShowFrame(rec_set, 0);
@@ -1099,7 +1022,7 @@ DoAttach(	char *proto,
 	{
 		// This is fatal as its an indication that things are broken (i.e. we cannot send commands)
 		PrintOutError("Could not communicate with application.\n");
-		quit_rep = DbgQuit(rec_set, PROC_CREATED);
+		quit_rep = DbgQuit(rec_set, DBG_DETACH);
 		ProcessErrorInRepSet(rec_set, quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
@@ -1107,101 +1030,52 @@ DoAttach(	char *proto,
 		return 0;
 	}
 
-	i = AddInvoke(NULL, igl, NULL, di, di->d_proto_net, di->d_bitset_full, PROC_ATTACHED);
-
 	// We print the frames below, but we need to print this message only once, so we do it here
 	PrintOutMsg("Current rank location:\n");
-
-	SetList(igl);
-	/*Create a procset for each invoke_group*/
-	while ( (ig = (invoke_group *)GetListElement(igl)) != (invoke_group *)NULL )
+		
+	// Print the current frame based on this bitset
+	// Print the startup frames based on this bitset
+	SetReplyHeadInSet(rep_set);
+	while((reply = GetNextReplyInSet(rep_set)) != NULL)
 	{
-		bs_group = bitset_new(ig->ig_nproc); 
-		proc_name = SymLookup(ig->ig_sym);
-		p = NewProcSet(proc_name);
-
-		c = 0;
-		offset = 0;
-
-		for(n=ig->ig_offset; n < (ig->ig_offset + ig->ig_nproc); n++)
+		// point at the frame
+		fp = EVENT_FRAME(reply->rep_event);
+			
+		// print the frame
+		for (f=fp; f != NULL ; f = f->frame_next)
 		{
-			bitset_set(bs_group, n);
-			c++;
+			PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
 		}
-
-		// Set the client event callback handler
-		DbgHandleEvent(di, EventCB);
-
-		AddOverlaySetToProcSet(p, i, ig, bs_group, ig->ig_offset, c, ig->ig_nproc, DBGSET_INVOKE);
-		
-		// Print the current frame based on this bitset
-		// Print the startup frames based on this bitset
-		SetReplyHeadInSet(rep_set);
-		while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
+			
+		// If XML mode is enabled, we want to print out a status message. 
+		// We don't need to ask the backend for the status since this is 
+		// implied by printing out the initial breakpoint.
+		if (Client.XML_mode)
 		{
-			// AND the reply set with the calculated bs_group
-			tmp_bset = bitset_and(reply->rep_group, bs_group);
-			
-			// if the calculated bitset is empty, continue
-			if (bitset_isempty(tmp_bset))
-			{
-				bitset_free(tmp_bset);
-				continue;
-			}
-		
-			// point at the frame
-			fp = EVENT_FRAME(reply->rep_event);
-			
-			// print the frame
-			for (f=fp; f != (dbgframe_t *)NULL ; f = f->frame_next)
-			{
-				PrintFrameSet(proc_name, tmp_bset, f);
-			}
-			
-			// If XML mode is enabled, we want to print out a status message. 
-			// We don't need to ask the backend for the status since this is 
-			// implied by printing out the initial breakpoint.
-			if (Client.XML_mode)
-			{
-				char *	set_str;
-				char *	status_block;
+			char *	set_str;
+			char *	status_block;
 				
-				status_block = XMLStartStatusBlock(proc_name);
+			status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
 				
-				// Create the full set string
-				Asprintf(&set_str, "%s%s", proc_name, bitset_to_set(tmp_bset));
-				// Set the location based on the top frame
-				XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED, (fp == NULL) ? NULL : &(fp->frame_loc));
-				Free(set_str);
+			// Create the full set string
+			Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_to_set(reply->rep_group));
+			// Set the location based on the top frame
+			XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED, (fp == NULL) ? NULL : &(fp->frame_loc));
+			Free(set_str);
 				
-				XMLPrintStatusBlock(status_block);
-			}
-			
-			// free the calculated bitset
-			bitset_free(tmp_bset);
+			XMLPrintStatusBlock(status_block);
 		}
-		
-		// Free the adjusted bitset
-		bitset_free(bs_group);
- 		
- 		// Set the created procset to the val symbol for the invoke group.
- 		if (SetProcsetForInvokeGroup(ig, p))
- 		{
- 			quit_rep = DbgQuit(rec_set, PROC_ATTACHED);
- 			ProcessErrorInRepSet(rec_set, quit_rep);
- 			FreeRecSet(rec_set);
- 			FreeRepSet(quit_rep);
- 			FreeRepSet(rep_set);
- 			return 0;
- 		}
 	}
 	
 	// Done with the frames reply
 	FreeRepSet(rep_set);
 	
+	// Free the created rec_set
+	FreeRecSet(rec_set);
+
+	// for P2P here	
 	GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
 
-	// for P2P here
 	if (p2pmode)
 	{
 		// FIXME: andrewg: the getenv call here can fail. This needs to be
@@ -1213,7 +1087,7 @@ DoAttach(	char *proto,
 		char filerename[BUFSIZ];
 		char *filepath;
 		filepath = getenv("CRAY_DBG_LOG_DIR");
-		sprintf(filename, "%s/dbglog_netinfo_%s", filepath, p->s_name);
+		sprintf(filename, "%s/dbglog_netinfo_%s", filepath, ps->s_name);
 		sprintf(filerename, "%s/dbglog_netinfo.0.log", filepath);
 		if (rename(filerename, filename) < 0)
 		{
@@ -1221,9 +1095,6 @@ DoAttach(	char *proto,
 		}
 	}
 	// end
-	
-	// Free the created rec_set
-	FreeRecSet(rec_set);
 
 	return 1;
 }
@@ -1259,14 +1130,14 @@ PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc)
 {
 	if (loc->loc_line > 0)
 	{
-		PrintMsgWithSetInfo(Client.cli_out_stream, setname, group, "Application halted in %s at %s:%d\n", 
+		PrintMsgWithSetInfo(setname, group, "Application halted in %s at %s:%d\n", 
 			loc->loc_func,
 			loc->loc_file,
 			loc->loc_line
 			);
 	} else
 	{
-		PrintMsgWithSetInfo(Client.cli_out_stream, setname, group, "Application halted in %s\n", 
+		PrintMsgWithSetInfo(setname, group, "Application halted in %s\n", 
 			loc->loc_func
 			);
 	}
@@ -1275,10 +1146,9 @@ PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc)
 static int 
 cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *			s;
 	expr_t *		e;
 	val_t *			val;
-	invoke_group *	ig;
+	dbgprocset_t *	ps;
 	
 	if ( argc < 2 )
 	{
@@ -1287,9 +1157,7 @@ cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 	
-	s = argv[1];
-	
-	if ( (e = ParseExpr(s)) == (expr_t *)NULL )
+	if ( (e = ParseExpr(argv[1])) == (expr_t *)NULL )
 	{
 		PrintError();
 		return 0;
@@ -1304,19 +1172,25 @@ cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 	FreeExpr(e);
 
-	if ( RVAL_ACTUAL_TYPE(val) != rval_proc )
+	if ( RVAL_TYPE(val) != rval_proc )
 	{
 		PrintOutError("Invalid process set argument.\n");
-		DestroyVal(val);
 		return 0;
 	}
-
-	if ( (ig = FindInvokeGroup(LVAL_SYM(val))) != (invoke_group *)NULL )
+	
+	// point at the procset
+	ps = RVAL_PROCSET(val);
+	
+	// Ensure this is a DBGSET_INVOKE type, otherwise fail
+	if (ps->s_type != DBGSET_INVOKE)
 	{
-		// We always want to kill, not detach, the application when the user
-		// issues the kill command.
-		ReleaseInv(ig->ig_invoke, PROC_CREATED);
+		PrintOutError("Cannot kill provided procset. Use the handle provided to launch/attach.\n");
+		return 0;
 	}
+	
+	// We always want to kill, not detach, the application when the user
+	// issues the kill command.
+	ReleaseProc(ps, DBG_KILL);
 
 	return 1;
 }
@@ -1324,10 +1198,9 @@ cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int 
 cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *			s;
 	expr_t *		e;
 	val_t *			val;
-	invoke_group *	ig;
+	dbgprocset_t *	ps;
 
 	if ( argc < 2 )
 	{
@@ -1336,9 +1209,7 @@ cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 
-	s = argv[1];
-
-	if ( (e = ParseExpr(s)) == (expr_t *)NULL )
+	if ( (e = ParseExpr(argv[1])) == (expr_t *)NULL )
 	{
 		PrintError();
 		return 0;
@@ -1353,92 +1224,96 @@ cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	FreeExpr(e);
 
-	if ( RVAL_ACTUAL_TYPE(val) != rval_proc )
+	if ( RVAL_TYPE(val) != rval_proc )
 	{
 		PrintOutError("Invalid process set argument.\n");
-		DestroyVal(val);
 		return 0;
 	}
-
-	if ( (ig = FindInvokeGroup(LVAL_SYM(val))) != (invoke_group *)NULL )
+	
+	// point at the procset
+	ps = RVAL_PROCSET(val);
+	
+	// Ensure this is a DBGSET_INVOKE type, otherwise fail
+	if (ps->s_type != DBGSET_INVOKE)
 	{
-		// We always want to detach, not kill, the application when the user
-		// issues the release command.
-		ReleaseInv(ig->ig_invoke, PROC_ATTACHED);
+		PrintOutError("Cannot release provided procset. Use the handle provided to launch/attach.\n");
+		return 0;
 	}
+	
+	// We always want to detach, not kill, the application when the user
+	// issues the release command.
+	ReleaseProc(ps, DBG_DETACH);
 
 	return 1;
 }
 
 static void
-ReleaseInv(invoke_t *i, int detach)
+ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type)
 {
-	dbgprocset_t *	ps;
-	invoke_group *	ig;
-	dbginvoke_t *	di;
-	rec_set_t *		rec_set;
-	rep_set_t *		rep_set;
-
-	/*
-	** Tell server to quit.
-	*/
-	DPRINT("Quitting invoke[%p]\n",i);
+	dbg_over_set_t *    over_set;
+	dbginvoke_t *		di;
+	rec_set_t *			rec_set;
+	rep_set_t *			rep_set;
 	
-	SetInvokeGroup(i);
-	
-	while ( (ig = GetInvokeGroup(i)) != (invoke_group *)NULL )
+	SetOverlaySetForProcSet(p);
+	while((over_set = GetNextOverlaySetForProcSet(p)) != NULL)
 	{
-		if (detach)
-			PrintOutMsg("Shutting down debugger and resuming application for \'%s\'.\n", SymLookup(ig->ig_sym));
-		else
-			PrintOutMsg("Shutting down debugger and killing application for \'%s\'.\n", SymLookup(ig->ig_sym));
-	}
-
-	// Grab the dbginvoke_t from the i_iexec - note that this should be fixed its a hack
-	// somewhere that I haven't fully understood yet (andrewg)
-	di = (dbginvoke_t *)i->i_iexec;
+		// point at the dbginvoke for this set
+		di = over_set->s_di;
 	
-	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(di, di->d_proto_net, di->d_bitset_full);
-
-	rep_set = DbgQuit(rec_set, detach);
-
-	ProcessErrorInRepSet(rec_set, rep_set);
-
-	FreeRecSet(rec_set);
-	FreeRepSet(rep_set);
-
-	SetInvokeGroup(i);
-
-	while ( (ig = GetInvokeGroup(i)) != (invoke_group *)NULL )
-	{
-		/*
-		** Remove procset entry.
-		*/
-		if ( (ps = FindProcSet(SymLookup(ig->ig_sym))) != (dbgprocset_t *)NULL )
+		switch (quit_type)
 		{
-			if ( ps == CurrentProcSet() )
-				SetCurrentProcSet((dbgprocset_t *)NULL);
-
-			FreeProcSet(ps);
+		case DBG_KILL:
+			PrintOutMsg("Shutting down debugger and killing application for \'%s\'.\n", di->d_handle);
+			break;
+		case DBG_DETACH:
+			PrintOutMsg("Shutting down debugger and resuming application for \'%s\'.\n", di->d_handle);
+			break;
+		case DBG_DEFAULT:
+			// use di instead
+			switch (di->d_type)
+			{
+			case DBG_ATTACHED:
+				PrintOutMsg("Shutting down debugger and resuming application for \'%s\'.\n", di->d_handle);
+				break;
+			case DBG_LAUNCHED:
+				PrintOutMsg("Shutting down debugger and killing application for \'%s\'.\n", di->d_handle);
+				break;
+			}
+			break;
 		}
-	}
+	
+		// Create the rec_set based on the di
+		rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
 
-	/*
-	** Cleanup invoke information.
-	*/
-	FreeInvoke(i);
+		rep_set = DbgQuit(rec_set, quit_type);
+
+		ProcessErrorInRepSet(rec_set, rep_set);
+
+		FreeRecSet(rec_set);
+		FreeRepSet(rep_set);
+	}
+	
+	if ( p == CurrentProcSet() )
+		SetCurrentProcSet(NULL);
+	
+	FreeProcSet(p);
 }
 
 // external exposure
 void
 EndAll(void)
 {
-	invoke_t *	i;
-	
-	SetInvoke();
-	while ((i = GetInvoke()) != (invoke_t *)NULL)
-		ReleaseInv(i, i->i_attached);
+	dbgprocset_t *ps;
+
+	SetProcSet();
+	while ((ps = GetProcSet()) != NULL)
+	{
+		if (ps->s_type != DBGSET_INVOKE)
+			continue;
+			
+		ReleaseProc(ps, DBG_DEFAULT);
+	}
 }
 
 void

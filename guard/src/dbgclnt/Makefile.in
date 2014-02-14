@@ -61,11 +61,10 @@ ARFLAGS = cru
 libdbgclnt_a_AR = $(AR) $(ARFLAGS)
 libdbgclnt_a_LIBADD =
 am__libdbgclnt_a_SOURCES_DIST = dbg_client.c dbgclnt_debugfe.c \
-	dbg_set_sync.c dbgclnt_gdbmi.c
+	dbgclnt_gdbmi.c
 @GDBMI_BACKEND_TRUE@am__objects_1 = dbgclnt_gdbmi.$(OBJEXT)
 am_libdbgclnt_a_OBJECTS = dbg_client.$(OBJEXT) \
-	dbgclnt_debugfe.$(OBJEXT) dbg_set_sync.$(OBJEXT) \
-	$(am__objects_1)
+	dbgclnt_debugfe.$(OBJEXT) $(am__objects_1)
 libdbgclnt_a_OBJECTS = $(am_libdbgclnt_a_OBJECTS)
 libdbgproto_a_AR = $(AR) $(ARFLAGS)
 libdbgproto_a_LIBADD =
@@ -289,12 +288,11 @@ AM_LIBTOOLFLAGS = --quiet
 ##############################
 noinst_LIBRARIES = libdbgclnt.a libdbgproto.a
 libdbgclnt_a_SOURCES = dbg_client.c dbgclnt_debugfe.c \
-			  dbg_set_sync.c \
-			  $(FRONTEND)
+						  $(FRONTEND)
 
 libdbgproto_a_SOURCES = dbgclnt_proto.c proto_message.c \
-			  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \
-			  $(MRN_PROTO) $(SOCK_PROTO)
+						  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \
+						  $(MRN_PROTO) $(SOCK_PROTO)
 
 @CRAY_FALSE@guard_starter_SOURCES = guard_starter.c
 @CRAY_FALSE@guard_starter_LDADD = $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a
@@ -383,7 +381,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbg_client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbg_mrn_fe.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbg_set_sync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_debugfe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_gdbmi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbgclnt_mrn.Po@am__quote@

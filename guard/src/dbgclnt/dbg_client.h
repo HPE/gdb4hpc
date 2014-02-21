@@ -235,7 +235,7 @@ extern rec_set_t *			NewRecSet(void);
 extern void					AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
 extern void					FreeRecSet(rec_set_t *set);
 extern void					SetReceiverHeadInSet(rec_set_t *set);
-extern group_recv_t *		GetNextReceiverInSet(rec_set_t* set);
+extern group_recv_t *		GetNextReceiverInSet(rec_set_t *set);
 
 /*
 ** Reply routines
@@ -243,7 +243,7 @@ extern group_recv_t *		GetNextReceiverInSet(rec_set_t* set);
 extern group_reply_t *		NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply); // Make static
 extern rep_set_t *			NewRepSet(void); // Make static
 extern void					FreeRepSet(rep_set_t* set);
-extern rep_set_t *			CopyRepSet(rep_set_t* set); // Only used once, consider alternative design
+extern rep_set_t *			CopyRepSet(rep_set_t* set);
 extern void					AddReplyToSet(rep_set_t* set, group_reply_t * rep); // Make static
 extern void					ResetSet(rep_set_t *set); // Make static
 extern int					SetHasError(rep_set_t *set); // Maybe make static

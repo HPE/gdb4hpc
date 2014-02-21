@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -424,8 +424,9 @@ CopyGroupReply(group_reply_t *rep)
 		
 	newrep = (group_reply_t *)Alloc(sizeof(group_reply_t));
 	
-	newrep->rep_event = DupEvent(rep->rep_event);
+	newrep->rep_di = rep->rep_di;
 	newrep->rep_group = bitset_dup(rep->rep_group);
+	newrep->rep_event = DupEvent(rep->rep_event);
 	
 	return newrep;
 }

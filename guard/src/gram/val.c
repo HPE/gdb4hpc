@@ -19,7 +19,8 @@
  *********************************************************************************/
 
 /*
-** TODO: The following is old. The entire interface was changed.
+** TODO: The following is old. The entire interface was changed. Please write
+**        updated documentation for this interface.
 **
 ** How vals work.
 **
@@ -979,9 +980,9 @@ AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		
 			// try to look up the symbol in the hash table, otherwise add it to
 			// the hash table
-			if ((h = HashSearch(_val_table, var)) == (hentry_t *)NULL)
+			if ((h = HashSearch(_val_table, var)) == NULL)
 			{
-				if ((h = HashInsert(_val_table, var, (void *)NULL)) == (hentry_t *)NULL)
+				if ((h = HashInsert(_val_table, var, NULL)) == NULL)
 				{
 					SetError("Internal error: Cannot add lval symbol to the val hash table!\n");
 					return -1;
@@ -1022,7 +1023,7 @@ AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set)
 					{
 						return -1;
 					}
-					val = NewVal(lval_internal, LVAL_SYM(lval), rval_reply, RVAL_REPLY(rval));
+					val = NewVal(lval_internal, LVAL_SYM(lval), rval_reply, CopyRepSet(RVAL_REPLY(rval)));
 					break;
 					
 				case rval_graph:
@@ -1033,10 +1034,14 @@ AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			}
 			
 			// Make sure that the hash entries data is not set, otherwise free it.
+			// FIXME: I don't know how to fix this, sometimes other code will try
+			// to cleanup and doing the following causes a segfault.
+			/*
 			if ( h->h_data != NULL )
 			{
 				_destroy_val(h->h_key, h->h_data);
 			}
+			*/
 
 			h->h_data = (void *)val;
 			return 0;

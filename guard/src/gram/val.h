@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,14 +18,8 @@
  *
  *********************************************************************************/
 
-
-
 #ifndef _VAL_H
 #define _VAL_H
-
-#ifdef HAVE_CONFIG_H
-#include        <config.h>
-#endif /* HAVE_CONFIG_H */
 
 #include	<stdarg.h>
 
@@ -111,6 +105,11 @@ typedef enum rval_type		rval_type;
 	((LVAL_TYPE((v)) == lval_none || LVAL_TYPE((v)) == lval_internal) && \
 	RVAL_TYPE((v)) == rval_aif)
 
+// Returns 1 if the val refers to something that is local to the client and is a
+// rep_set, we should already be holding onto the result
+#define VAL_IS_LOCAL_REPLY(v)		\
+	((LVAL_TYPE((v)) == lval_none || LVAL_TYPE((v)) == lval_internal) && \
+	RVAL_TYPE((v)) == rval_reply)
 
 struct val_gdb
 {

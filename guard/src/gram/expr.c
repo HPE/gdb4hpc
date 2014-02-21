@@ -3124,11 +3124,13 @@ static int
 assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 {
 	AIF *				na;
+	rec_set_t *			lval_rec_set = NULL;
 	rep_set_t *			rep_set;
 	group_reply_t *		reply;
-	dbg_over_set_t *	over_set = NULL;
-	int					ret = 0;
+	dbg_over_set_t *	over_set;
+	int					ret;
 	rec_set_t *			target_recset;
+	group_recv_t *		recv_ptr;
 	
 	DPRINT("In assign_expr_imm.\n");
 
@@ -3155,12 +3157,45 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 	case lval_gdb:
 	
 		// Make sure the lval gdb variable actually exists by asking for its
-		// type
-		rep_set = DbgGetType(rec_set, LVAL_GDB_EXPR(lval), 0);
+		// type. We need to use the LVAL_GDB_PROCSET if there is one.
+		if (LVAL_GDB_PROCSET(lval) != NULL)
+		{
+			// Ensure that there is only a single di in the procset, othwerwise
+			// this will fail
+			// TODO: We might be able to work around this by iterating over each
+			// di in the procset, but I am not implementing that right now.
+			if (LVAL_GDB_PROCSET(lval)->s_num_sets != 1)
+			{
+				// too many di in procset
+				SetError("Cannot process procsets with multiple launch/attach handles!");
+				return -1;
+			}
+			
+			// create the rec_set
+			lval_rec_set = NewRecSet();
+			
+			SetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
+			while((over_set = GetNextOverlaySetForProcSet(LVAL_GDB_PROCSET(lval))) != NULL)
+			{
+				// create a group_recv_t for the over_set and add it to the res
+				AddReceiverToSet(lval_rec_set, NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
+			}
+			
+			// get the type
+			rep_set = DbgGetType(lval_rec_set, LVAL_GDB_EXPR(lval), 0);
+		} else
+		{
+			// need to use the passed in rec_set here
+			rep_set = DbgGetType(rec_set, LVAL_GDB_EXPR(lval), 0);
+		}
 		
 		// process errors
 		if (ProcessErrorInRepSet(rep_set))
 		{
+			if (lval_rec_set != NULL)
+			{
+				FreeRecSet(lval_rec_set);
+			}
 			FreeRepSet(rep_set);
 			return -1;
 		}
@@ -3169,6 +3204,10 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		if (GetNumberOfReply(rep_set) == 0)
 		{
 			SetError("Missing definition for type %s", LVAL_GDB_EXPR(lval));
+			if (lval_rec_set != NULL)
+			{
+				FreeRecSet(lval_rec_set);
+			}
 			FreeRepSet(rep_set);
 			return -1;
 		}
@@ -3181,10 +3220,172 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		// one reply in the rep_set for the gdb var, or we need to ensure that
 		// the number of ranks in the gdb lval matches the number of ranks in 
 		// the gdb rval
-		if ( VAL_IS_LOCAL_CONST(rval) )
+		if (VAL_IS_LOCAL_CONST(rval))
 		{
 			// Send the command using the rval aif data
-			return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), RVAL_AIF(rval));
+			if (lval_rec_set != NULL)
+			{
+				ret = SendSetVarCmd(lval_rec_set, LVAL_GDB_EXPR(lval), RVAL_AIF(rval));
+				FreeRecSet(lval_rec_set);
+				return ret;
+			} else
+			{
+				return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), RVAL_AIF(rval));
+			}
+		}
+		
+		// If this is a local rep_set, we can assign directly. We should already
+		// be holding onto the rep_set in the val. This is only allowed for previous
+		// assigns that went into a debugger variable like $tmp that resulted in
+		// a reply type.
+		if (VAL_IS_LOCAL_REPLY(rval))
+		{
+			// Grab the result of evaluating the rval gdb expression
+			// DO NOT FREE THIS!!! This will get free'ed up when the val gets
+			// destroyed.
+			rep_set = RVAL_REPLY(rval);
+			
+			// check for error
+			if (rep_set == NULL)
+			{
+				SetError("Requested rval contained a null reply set!");
+				if (lval_rec_set != NULL)
+				{
+					FreeRecSet(lval_rec_set);
+				}
+				return -1;
+			}
+			
+			// Reset the linked list
+			ResetSet(rep_set);
+		
+			// Check to see if there is only one reply in the rep_set, if so
+			// we can assign the value directly since it is a constant across every
+			// rank
+			if (GetNumberOfReply(rep_set) == 1)
+			{
+				// grab the result
+				reply = GetNextReplyInSet(rep_set);
+				// point at the AIF data
+				na = EVENT_DATA(reply->rep_event);
+			
+				// Send the command using the event data
+				if (lval_rec_set != NULL)
+				{
+					ret = SendSetVarCmd(lval_rec_set, LVAL_GDB_EXPR(lval), na);
+					FreeRecSet(lval_rec_set);
+					return ret;
+				} else
+				{
+					ret = SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
+					return ret;
+				}
+			}
+			
+			// More than one reply, we can still handle this as long as
+			// the number of ranks in the lval gdb val match the number of
+			// ranks in the rval reply.
+			
+			// temporarily point at the first reply, make sure to reset the list
+			// when finished. Need to check one of the bitsets in the reply set
+			// to see if its the same size of the lval overset. 
+			reply = GetNextReplyInSet(rep_set);
+			
+			if (lval_rec_set != NULL)
+			{
+				// We already enforced the one di rule with the lval, so lets just
+				// operate on its procset directly.
+				SetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
+				over_set = GetNextOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
+			
+				// Check if the size of the lval overset bitset matches the size of the
+				// rep_set bitset
+				if (bitset_size(over_set->s_di_bs) != bitset_size(reply->rep_group))
+				{
+					// The sizes do not match, we cannot complete the request
+					SetError("Rank mismatch between requested assignment of application variable and reply.");
+					FreeRecSet(lval_rec_set);
+					return -1;
+				}
+			
+				// reset ret
+				ret = 0;
+			
+				// We can assign the rval to the lval since the number of ranks match
+				// loop over each reply
+				ResetSet(rep_set);
+				while((reply = GetNextReplyInSet(rep_set)) != NULL)
+				{
+					// Create the rec_set for this reply from the lval overset using the bitset
+					// from the reply
+					target_recset = NewRecSet();
+					AddReceiverToSet(target_recset, NewGroupReceiver(over_set->s_di, reply->rep_group));
+					// point at the AIF data
+					na = EVENT_DATA(reply->rep_event);
+					// Send the command using the target_recset and the event data
+					// Only set ret if this returns non-zero
+					if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
+					{
+						// error occured
+						ret = -1;
+						SetError("Warning: Assign partial failure, some data may have been assigned to the ranks.");
+					}
+					// cleanup recset
+					FreeRecSet(target_recset);
+				}
+			
+				// cleanup
+				FreeRecSet(lval_rec_set);
+			
+				return ret;
+			
+			} else
+			{
+				// Here the user provided something like assign ii $tmp where 
+				// $tmp corresponds to a previous assignment of a debugger variable.
+				// The lval_rec_set is NULL.
+			
+				// reset ret
+				ret = 0;
+			
+				// loop over each reply
+				ResetSet(rep_set);
+				while((reply = GetNextReplyInSet(rep_set)) != NULL)
+				{
+					// Loop over each di in the rec_set
+					SetReceiverHeadInSet(rec_set);
+					while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL)
+					{
+						// Check if the size of the di bitset matches the size of the
+						// rep_set bitset
+						if (bitset_size(recv_ptr->rec_group) != bitset_size(reply->rep_group))
+						{
+							// The sizes do not match, we cannot complete the request
+							SetError("Rank mismatch between requested assignment of application variable and reply.");
+							return -1;
+						}
+					
+						// Create the rec_set for this reply from the rec_set and using the bitset
+						// from the reply
+						target_recset = NewRecSet();
+						AddReceiverToSet(target_recset, NewGroupReceiver(recv_ptr->rec_di, reply->rep_group));
+						// point at the AIF data
+						na = EVENT_DATA(reply->rep_event);
+						// Send the command using the target_recset and the event data
+						// Only set ret if this returns non-zero
+						if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
+						{
+							// error occured
+							ret = -1;
+							SetError("Warning: Assign partial failure, some data may have been assigned to the ranks.");
+						}
+						// cleanup recset
+						FreeRecSet(target_recset);
+					}
+				}
+			
+				return ret;
+			}
 		}
 		
 		// Make sure the rval is a gdb variable
@@ -3197,14 +3398,19 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		if (LVAL_TYPE(rval) != lval_gdb)
 		{
 			SetError("Cannot assign requested type to application variable.");
+			if (lval_rec_set != NULL)
+			{
+				FreeRecSet(lval_rec_set);
+			}
 			return -1;
 		}
 			
 		// Check to see if the lval and rval doesn't have procset information
-		if (LVAL_GDB_PROCSET(lval) == NULL && LVAL_GDB_PROCSET(rval) == NULL)
+		if (lval_rec_set == NULL && LVAL_GDB_PROCSET(rval) == NULL)
 		{
 			// We can assign the gdb_name of the rval directly inside
-			// each rank.
+			// each rank. The caller requested something like assign ii jj where
+			// the default focus is used.
 			na = StringToAIF(LVAL_GDB_EXPR(rval));
 			// Send the command using the created AIF string
 			ret = SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
@@ -3213,67 +3419,105 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			return ret;
 		}
 			
-		// Fetch the contents of the rval
+		// Fetch the contents of the rval, note that this might use the rval procset
+		// if there is one.
 		if (VAL_RETRIEVE(rval, rec_set))
 		{
+			if (lval_rec_set != NULL)
+			{
+				FreeRecSet(lval_rec_set);
+			}
 			return -1;
 		}
 		
-		// Check to see if there is only one reply in the rep_set, if so
-		// we are good to go.
+		// Grab the result of evaluating the rval gdb expression
+		// DO NOT FREE THIS!!! This will get free'ed up when the val gets
+		// destroyed.
 		rep_set = RVAL_REPLY(rval);
 		
 		// check for error
 		if (rep_set == NULL)
 		{
+			if (lval_rec_set != NULL)
+			{
+				FreeRecSet(lval_rec_set);
+			}
 			return -1;
 		}
 		
 		// Reset the linked list
 		ResetSet(rep_set);
 		
+		// Check to see if there is only one reply in the rep_set, if so
+		// we can assign the value directly since it is a constant across every
+		// rank
 		if (GetNumberOfReply(rep_set) == 1)
 		{
 			// grab the result
 			reply = GetNextReplyInSet(rep_set);
 			// point at the AIF data
 			na = EVENT_DATA(reply->rep_event);
+			
 			// Send the command using the event data
-			return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
+			if (lval_rec_set != NULL)
+			{
+				ret = SendSetVarCmd(lval_rec_set, LVAL_GDB_EXPR(lval), na);
+				FreeRecSet(lval_rec_set);
+				return ret;
+			} else
+			{
+				ret = SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
+				return ret;
+			}
 		}
 					
 		// More than one reply, we can still handle this as long as
 		// the number of ranks in the lval gdb val match the number of
 		// ranks in the rval gdb val. 
 		
-		// Check if the size of the lval overset bitset matches the size of the
-		// rep_set bitset
+		// If there was an rval procset, we need to enforce the single di rule.
+		if (LVAL_GDB_PROCSET(rval) != NULL)
+		{
+			// Ensure that there is only a single di in the procset, othwerwise
+			// this will fail
+			// TODO: We might be able to work around this by iterating over each
+			// di in the procset, but I am not implementing that right now.
+			if (LVAL_GDB_PROCSET(rval)->s_num_sets != 1)
+			{
+				// too many di in procset
+				SetError("Cannot process procsets with multiple launch/attach handles!");
+				if (lval_rec_set != NULL)
+				{
+					FreeRecSet(lval_rec_set);
+				}
+				return -1;
+			}
+		}
 		
 		// temporarily point at the first reply, make sure to reset the list
 		// when finished. Need to check one of the bitsets in the reply set
 		// to see if its the same size of the lval overset. 
 		reply = GetNextReplyInSet(rep_set);
 		
-		if (LVAL_GDB_PROCSET(lval) != NULL)
+		if (lval_rec_set != NULL)
 		{
-			// Ensure that there is only a single di in the procset, othwerwise
-			// this will fail
-			if (LVAL_GDB_PROCSET(lval)->s_num_sets != 1)
-			{
-				// too many di in procset
-				SetError("Cannot process procsets with multiple launch/attach handles!");
-				return -1;
-			}
-			
+			// We already enforced the one di rule with the lval, so lets just
+			// operate on its procset directly.
 			SetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
 			over_set = GetNextOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
 			
+			// Check if the size of the lval overset bitset matches the size of the
+			// rep_set bitset
 			if (bitset_size(over_set->s_di_bs) != bitset_size(reply->rep_group))
 			{
 				// The sizes do not match, we cannot complete the request
 				SetError("Rank mismatch between requested assignment. The application variable has multiple values.");
+				FreeRecSet(lval_rec_set);
 				return -1;
 			}
+			
+			// reset ret
+			ret = 0;
 			
 			// We can assign the rval to the lval since the number of ranks match
 			// loop over each reply
@@ -3298,29 +3542,54 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 				FreeRecSet(target_recset);
 			}
 			
+			// cleanup
+			FreeRecSet(lval_rec_set);
+			
 			return ret;
+			
 		} else
 		{
+			// Here the user provided something like assign ii $a{..}::jj
+			// We already enforced the one di rule on the rval procset if there is one.
+			// The lval_rec_set is NULL.
+			
+			// reset ret
+			ret = 0;
+			
 			// loop over each reply
 			ResetSet(rep_set);
 			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
-				// Create the rec_set for this reply from the rec_set and using the bitset
-				// from the reply
-				target_recset = NewRecSet();
-				AddReceiverToSet(target_recset, NewGroupReceiver(reply->rep_di, reply->rep_group));
-				// point at the AIF data
-				na = EVENT_DATA(reply->rep_event);
-				// Send the command using the target_recset and the event data
-				// Only set ret if this returns non-zero
-				if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
+				// Loop over each di in the rec_set
+				SetReceiverHeadInSet(rec_set);
+				while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL)
 				{
-					// error occured
-					ret = -1;
-					SetError("Warning: Assign partial failure, some data may have been assigned to the ranks.");
+					// Check if the size of the di bitset matches the size of the
+					// rep_set bitset
+					if (bitset_size(recv_ptr->rec_group) != bitset_size(reply->rep_group))
+					{
+						// The sizes do not match, we cannot complete the request
+						SetError("Rank mismatch between requested assignment. The application variable has multiple values.");
+						return -1;
+					}
+					
+					// Create the rec_set for this reply from the rec_set and using the bitset
+					// from the reply
+					target_recset = NewRecSet();
+					AddReceiverToSet(target_recset, NewGroupReceiver(recv_ptr->rec_di, reply->rep_group));
+					// point at the AIF data
+					na = EVENT_DATA(reply->rep_event);
+					// Send the command using the target_recset and the event data
+					// Only set ret if this returns non-zero
+					if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
+					{
+						// error occured
+						ret = -1;
+						SetError("Warning: Assign partial failure, some data may have been assigned to the ranks.");
+					}
+					// cleanup recset
+					FreeRecSet(target_recset);
 				}
-				// cleanup recset
-				FreeRecSet(target_recset);
 			}
 			
 			return ret;

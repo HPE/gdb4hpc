@@ -18,8 +18,6 @@
  *
  ******************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -242,56 +240,66 @@ DoClassSubCommand(cmdlist_t *cmd_l, dbgprocset_t *s, cmdtype_t *c, int argc, cha
 static int
 _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
 {
-	dbg_over_set_t *	over_set = NULL;
-	int					res = 1;
 	rec_set_t *			rec_set;
+	int					res = 1;
 	// used for checking status
 	rep_set_t *			rep_set;
+	group_recv_t *		recv_ptr;
 	group_reply_t *		reply;
 	char *				bitset_str;
 	char *				set_str;
 	dbgstatus_t *		stat;
 	char *				status_block;
+	
+	// Create a new rec_set for this procset
+	rec_set = CreateRecSetForProcset(s);
 
-	ClearUserSpecProcSet();
-
-	SetOverlaySetForProcSet(s);
-	while((over_set = GetNextOverlaySetForProcSet(s)) != (dbg_over_set_t*)NULL)
-	{
-		rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
-
-		if ( !(*c->c_cmd)(rec_set, argc, argv) )
-			res = 0;
+	// Call the command
+	if ( !(*c->c_cmd)(rec_set, argc, argv) )
+		res = 0;
 			
-		// If XML mode is enabled, we need to ask the dbgclient layer if the
-		// command we just executed changed the status. If it did, we want to
-		// add the status information to the xml output. We also check to see
-		// if the command caused the inferior to exit. Inferior exit can only be
-		// caused by a command.
-		if (Client.XML_mode)
+	// If XML mode is enabled, we need to ask the dbgclient layer if the
+	// command we just executed changed the status. If it did, we want to
+	// add the status information to the xml output. We also check to see
+	// if the command caused the inferior to exit. Inferior exit can only be
+	// caused by a command.
+	if (Client.XML_mode)
+	{
+		if (DbgCheckForStatusChange())
 		{
-			if (DbgCheckForStatusChange())
+			// Status has changed. We need to generate updated status
+			// information
+			
+			// Query the new status from the backends, note that for this we
+			// want to grab the location information
+			rep_set = DbgStatus(rec_set, 1);
+				
+			ProcessErrorInRepSet(rep_set);
+			
+			// We need to loop over each di in the rec_set and process it one at
+			// a time. This is because we need to create a status block for each
+			// di.
+			SetReceiverHeadInSet(rec_set);
+			while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL)
 			{
-				// Status has changed. We need to generate updated status
-				// information
-				
-				// Query the new status from the backends, note that for this we
-				// want to grab the location information
-				rep_set = DbgStatus(rec_set, 1);
-				
-				ProcessErrorInRepSet(rec_set, rep_set);
-				
-				// Start a new status block
-				status_block = XMLStartStatusBlock(rec_set->s_setname);
-				
+				// Start a new status block for this di
+				status_block = XMLStartStatusBlock(recv_ptr->rec_di->d_handle);
+			
 				// Process each status message and add it to the status block
-				while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+				SetReplyHeadInSet(rep_set);
+				while((reply = GetNextReplyInSet(rep_set)) != NULL)
 				{
+					// Ensure the di match
+					if (recv_ptr->rec_di != reply->rep_di)
+					{
+						continue;
+					}
+				
 					// First create the bitset string
 					bitset_str = bitset_to_set(reply->rep_group);
-					
+				
 					// Next create the full set string
-					Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);
+					Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_str);
 					
 					// Done with the bitset_str
 					Free(bitset_str);
@@ -301,35 +309,25 @@ _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
 
 					// The XML status that is printed is based on the status value
 					XMLAddStatus(&status_block, set_str, stat->stat, stat->stat_loc);
-					
+				
 					// Done with the set_str
 					Free(set_str);
 				}
-				
+			
 				// Print the entire status block, this will free the string
 				XMLPrintStatusBlock(status_block);
-				
-				// Free the reply set
-				FreeRepSet(rep_set);
-				
-				// Reset the status change since we handled it
-				DbgResetStatusChange();
 			}
 			
-			if (DbgCheckForExit())
-			{
-				// Create a removed status change for the entire process handle
-				XMLPrintRemovedMsg(rec_set->s_setname);
-				DbgResetExitValue();
-			}
+			// Free the reply set
+			FreeRepSet(rep_set);
+				
+			// Reset the status change since we handled it
+			DbgResetStatusChange();
 		}
-		
-		// Done with the rec_set
-		FreeRecSet(rec_set);
-
-		if(CheckUserSpecProcSet() == 1)
-			break;
 	}
+	
+	// Done with the rec_set
+	FreeRecSet(rec_set);
 
 	return res;
 }

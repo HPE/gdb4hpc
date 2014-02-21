@@ -18,8 +18,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include        <config.h>
 #endif /* HAVE_CONFIG_H */
@@ -33,6 +31,7 @@
 #include	"useful.h"
 #include	"aif.h"
 #include	"gram.h"
+#include	"client_settings.h"
 
 #define DBG_FUNC_TABLE_SIZE   7
 

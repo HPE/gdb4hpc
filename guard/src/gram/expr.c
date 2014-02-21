@@ -18,8 +18,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -47,19 +45,15 @@ extern int	expr_parse(void);
 static expr_t *	OPList;
 static list_t *	_expr_list = (list_t *)NULL;
 static list_t *	_elt_list = (list_t *)NULL;
-/* when (userSepcProcSet == 1), users specify procset during expression, for example, print $a[1]::var*/
-// FIXME: Get rid of this...
-static	int	userSpecProcSet = 0;
 
 // Static function prototypes
 static expr_t *	do_parse(char **);
 static val_t *	evaluate_expr_imm(expr_t *, rec_set_t *, func_t *);
 static val_t *	evaluate_func_imm(hentry_t *, expr_t *, rec_set_t *, func_t *);
-static val_t *	read_var_imm(expr_t *, int, rec_set_t *, func_t *);
+static val_t *	read_var_imm(expr_t *, rec_set_t *, func_t *);
 static char *	apply_var_op(expr_elt *, expr_t *);
 static val_t *	apply_op(expr_op, val_t *, val_t *, val_t *, rec_set_t *, val_t **);
 static int 		assign_expr_imm(val_t *, val_t *, rec_set_t *);
-
 
 
 expr_t *
@@ -274,7 +268,6 @@ AddExpr(expr_op op, ...)
 
 	switch ( op )
 	{
-	case EXPR_SLICE:
 	case EXPR_INT:
 		OPList->e_expr[v].e_int = va_arg(args, int);
 		DPRINT("AddExpr: e_int is %d\n", OPList->e_expr[v].e_int);
@@ -457,6 +450,8 @@ EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set)
 	val_t *		v;
 	expr_elt *	ep;
 	list_t *	l;
+	
+	DPRINT("In EvalExprList\n");
 
 	if ( e->e_lval == 0 )
 	{
@@ -474,6 +469,8 @@ EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set)
 	// So lets evaluate any elements seperated by commas and leave one.
 	while ( ep->e_op == EXPR_OPCOMMA )
 	{
+		DPRINT("EvalExprList: Found EXPR_OPCOMMA!\n");
+		
 		(void)POP(e);
 
 		if ( (v = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
@@ -485,11 +482,16 @@ EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set)
 		AddFirst(l, (void *)v);
 
 		ep = TOP(e);
+		
+		DPRINT("EvalExprList: Adding val to list\n");
 	}
+	
+	DPRINT("EvalExprList: Eval final element\n");
 
 	// Evaluate the final element
 	if ( (v = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 	{
+		DPRINT("EvalExprList: Failed on final element\n");
 		DestroyList(l, DestroyVal);
 		return -1;
 	}
@@ -556,8 +558,7 @@ evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 	case EXPR_OPSUB:
 	case EXPR_OPMUL:
 	case EXPR_OPDIV:
-	// TODO: Broken to fix derived fortran types
-	case EXPR_OPREM:
+	case EXPR_OPREM:	// TODO: Broken to fix derived fortran types
 	case EXPR_OPEQUAL:
 	case EXPR_OPNOTEQUAL:
 	case EXPR_OPLEQ:
@@ -591,14 +592,6 @@ evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 			DestroyVal(v1);
 
 		return val;
-
-	case EXPR_OPSUBSCR:
-		PUSH(e);
-		DPRINT("evaluate_expr_imm: Pushed expr_op %s\n", getExprOpStr(*(TOP(e).e_op)));
-		return read_var_imm(e, 0, rec_set, f);
-
-	case EXPR_VAR:
-		return read_var_imm(e, 1, rec_set, f);
 
 	case EXPR_INT:
 		v1 = NewVal(lval_none, rval_aif, IntToAIF(ep->e_int));
@@ -668,6 +661,7 @@ evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 			}
 			// Must be a program var. Drop through...
 		} */
+	case EXPR_OPSUBSCR:
 	case EXPR_OPDREF:
 	case EXPR_OPADDROF:
 	case EXPR_OPELEMENTREF:
@@ -675,9 +669,10 @@ evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 	case EXPR_OPELEMENTACC:
 	case EXPR_OPCAST:
 	case EXPR_STRING:
+	case EXPR_VAR:
 		PUSH(e);
 		DPRINT("evaluate_expr_imm: Pushed expr_op %s\n", getExprOpStr(*(TOP(e).e_op)));
-		return read_var_imm(e, 0, rec_set, f);
+		return read_var_imm(e, rec_set, f);
 
 	default:
 		SetError("Tried to evaluate an unknown expression: %s", getExprOpStr(ep->e_op));
@@ -816,20 +811,18 @@ evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set, func_t *f)
 ** Internal variables are created if they don't already exist.
 */
 static val_t *
-read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
+read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 {
 	int				smn;
 	int				smx;
-	int				type;
 	hentry_t *		sym = NULL;
-	char *			var = NULL;
-	//arg_t *			ap;
-	val_t *			val = (val_t *)NULL;
-	val_t *			v1 = (val_t *)NULL;
+	char *			var_expr = NULL;
+	val_t *			val = NULL;
+	val_t *			ps_val = NULL;
+	val_t *			v1 = NULL;
 	slice_t *		slice = (slice_t *)NULL;
 	expr_elt *		ep;
 	expr_op			stype;
-	dbgprocset_t *	procset = (dbgprocset_t *)NULL;
 
 	DPRINT("In read_var_imm\n");
 
@@ -837,6 +830,7 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 	
 	DPRINT("read_var_imm: Popped expr_op %s\n", getExprOpStr(ep->e_op));
 
+	// Ensure a location wasn't provided.
 	if ( ep->e_op == EXPR_LOC )
 	{
 		SetError("Can't specify location in immediate mode");
@@ -872,75 +866,61 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 		if ( ep->e_op == EXPR_SLICE )
 		{
 			DPRINT("read_var_imm: Evaluating EXPR_SLICE\n");
-			(void)POP(e);
+			
+			(void)POP(e);	// pop the EXPR_SLICE off
 
 			smx = -1;
 			smn = -1;
 
-			switch ( type = ep->e_int )
+			if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
 			{
-			case SLICE_RANGE:
-				if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-			
+				SetError("Expression evaluated to bad type");
 				DestroyVal(val);
-
-				if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				DestroyVal(val);
-
-				if ( smn < 0 || smx < 0 )
-				{
-					SetError("Negative indices not allowed");
-					goto bad_var;
-				}
-
-				/*
-				** Correct for unit slices.
-				*/
-				if ( smn == smx )
-					type = SLICE_POS;
-
-				/*
-				** Drop through.
-				*/
-
-			case SLICE_ALL:
-				if ( slice == (slice_t *)NULL )
-					slice = NewSlice();
-				
-				AddSlice(slice, smn, smx, type);
-				DPRINT("read_var_imm: Added slice %d for range %d to %d\n", type, smn, smx);
+				goto bad_var;
 			}
+
+			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+			
+			DestroyVal(val);
+
+			if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
+			{
+				SetError("Expression evaluated to bad type");
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			DestroyVal(val);
+
+			if ( smn < 0 || smx < 0 )
+			{
+				SetError("Negative indices not allowed");
+				goto bad_var;
+			}
+
+			if ( slice == NULL )
+				slice = NewSlice();
+				
+			AddSlice(slice, smn, smx);
+			DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
 		}
 		else
 		{
@@ -975,33 +955,66 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 			if ( slice == (slice_t *)NULL )
 				slice = NewSlice();
 			
-			AddSlice(slice, smn, smx, SLICE_POS);
-			DPRINT("read_var_imm: Added slice SLICE_POS for range %d to %d\n", smn, smx);
+			AddSlice(slice, smn, smx);
+			DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
 		}
 
 		ep = POP(e);
 		DPRINT("read_var_imm: Popped expr_op %s\n", getExprOpStr(ep->e_op));
 	}
 
-	if ( slice != (slice_t *)NULL )
+	// We need to reverse because the stuff is added to the slice in reverse
+	// order than what was entered. This way we should have lower ranks first
+	// followed by higher ranks.
+	if ( slice != NULL )
 		ReverseSlice(slice);
 
 	switch ( stype = ep->e_op )
 	{
 	case EXPR_SYM:
-		var = strdup(ep->e_sym_str);
-		DPRINT("read_var_imm: sym var is \"%s\"\n", var);
+		var_expr = strdup(ep->e_sym_str);
+		DPRINT("read_var_imm: sym var_expr is \"%s\"\n", var_expr);
 		break;
 		
 	case EXPR_DSYM:
 		sym = ep->e_sym;
-		var = strdup(SymLookup(sym));
-		DPRINT("read_var_imm: dsym var is \"%s\"\n", var);
+		var_expr = strdup(SymLookup(sym));
+		DPRINT("read_var_imm: dsym var_expr is \"%s\"\n", var_expr);
 		break;
 
 	case EXPR_STRING:
-		var = strdup(ep->e_string);
-		DPRINT("read_var_imm: string var is \"%s\"\n", var);
+		var_expr = strdup(ep->e_string);
+		DPRINT("read_var_imm: string var_expr is \"%s\"\n", var_expr);
+		break;
+		
+	case EXPR_VAR:
+		//
+		// An EXPR_VAR means a process targeted command has been specified
+		//
+		// First evaluate the first part into a val, we expect this to be an 
+		// lval_gdb type, otherwise we don't want to do anything since we can
+		// only query the backends for lval_gdb types.
+		if ( (val = evaluate_expr_imm(e, rec_set, f)) == NULL )
+			goto bad_var;
+		
+		// Now evaluate the second part into a val, this is the procset
+		if ( (ps_val = evaluate_expr_imm(e, rec_set, f)) == NULL )
+			goto bad_var;
+		
+		// Ensure that the type is rval_proc, otherwise there was an error.
+		if ( RVAL_ACTUAL_TYPE(ps_val) != rval_proc )
+		{
+			SetError("No such process \"%s\"", SymLookup(LVAL_SYM(ps_val)));
+			goto bad_var;
+		}
+		
+		// Ensure that the procset actually has a procset assigned to it
+		if (RVAL_ACTUAL_PROCSET(ps_val) == NULL)
+		{
+			SetError("Invalid process set");
+			goto bad_var;
+		}
+		
 		break;
 		
 	case EXPR_OPDREF:
@@ -1010,49 +1023,15 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 	case EXPR_OPELEMENTPTR:
 	case EXPR_OPELEMENTACC:
 	case EXPR_OPCAST:
-		var = apply_var_op(ep, e);
-		if (var == NULL)
+		var_expr = apply_var_op(ep, e);
+		if (var_expr == NULL)
 			goto bad_var;
-		DPRINT("read_var_imm: var op is %s\n", var);
+		DPRINT("read_var_imm: var_expr op is %s\n", var_expr);
 		break;
 
 	default:
 		SetError("Symbol expected while evaluating variable");
 		goto bad_var;
-	}
-
-	/*
-	** If force == 1 then a process has been specified.
-	*/
-	if ( force )
-	{
-		DPRINT("read_var_imm: force is set\n");
-		userSpecProcSet = 1;
-
-		if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
-			goto bad_var;
-
-		if ( RVAL_ACTUAL_TYPE(val) != rval_proc )
-		{
-			SetError("No such process \"%s\"", SymLookup(LVAL_SYM(val)));
-			goto bad_var;
-		}
-		
-		// assign the procset directly
-		if ((procset = RVAL_ACTUAL_PROCSET(val)) == NULL)
-		{
-			SetError("Invalid process set");
-			goto bad_var;
-		}
-	
-		// FIXME: This should support a range now that it is using a slice_t.
-		// The var should be changed to hold a slice_t structure representing
-		// the subset info. Give it a better name too.
-		if (RVAL_TYPE(val) == rval_ref)
-		{
-			PrintOutError("Warning: Range use detected in procset for command. Only operating on a single rank!\n");
-			procset->s_indiv_proc = RVAL_REF_SLICE(val)->s_low[0];
-		}
 	}
 	
 	DPRINT("read_var_imm: stype is %s\n", getExprOpStr(stype));
@@ -1090,7 +1069,7 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 		// incredibly dangerous.
 		// FIXME: This should be a formal expression operator that is passed to the
 		// backend instead of hacking together a random string.
-		if ( slice != (slice_t *)NULL )
+		if ( slice != NULL )
 		{
 			char sliceexpr[BUFSIZ]="|slice(";
 			int n;
@@ -1102,18 +1081,20 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 					strcat(sliceexpr, ",");
 
 			}
-			sprintf(sliceexpr, "%s)%s|", sliceexpr, var);
-			Free(var);
-			var = strdup(sliceexpr);
+			sprintf(sliceexpr, "%s)%s|", sliceexpr, var_expr);
+			Free(var_expr);
+			var_expr = strdup(sliceexpr);
 		}
 		
-		val = NewVal(lval_gdb, procset, var);
-		DPRINT("read_var_imm: Created new val for %s\n", var);
+		// Always have procset be null here, the EXPR_VAR case above takes care
+		// of modifying this if need be.
+		val = NewVal(lval_gdb, NULL, var_expr);
+		DPRINT("read_var_imm: Created new val for %s\n", var_expr);
 		
 		break;
 
 	case EXPR_DSYM:
-		if ( (val = GetVal(sym)) != (val_t *)NULL )
+		if ( (val = GetVal(sym)) != NULL )
 		{
 			DPRINT("read_var_imm: Found previous val for dsym \"%s\"\n", SymLookup(sym));
 			
@@ -1131,7 +1112,7 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 		** Create new debugger var.
 		*/
 		DPRINT("read_var_imm: Creating new debugger var\n");
-		if ( slice != (slice_t *)NULL )
+		if ( slice != NULL )
 		{
 			DPRINT("read_var_imm: Slice is present\n");
 			
@@ -1153,24 +1134,48 @@ read_var_imm(expr_t *e, int force, rec_set_t *rec_set, func_t *f)
 
 		val = GetVal(sym);
 		break;
+		
+	case EXPR_VAR:
+		// Set the procset if the lval type is lval_gdb
+		if (LVAL_TYPE(val) == lval_gdb)
+		{
+			// Check to see if we need to create a new temporary procset
+			if (RVAL_TYPE(ps_val) == rval_ref)
+			{
+				// Create a temporary proc_set 
+				LVAL_GDB_PROCSET(val) = CreateTempProcSetSlice(RVAL_ACTUAL_PROCSET(ps_val), RVAL_REF_SLICE(ps_val));
+				
+				if (LVAL_GDB_PROCSET(val) == NULL)
+				{
+					PrintOutError("Failed to create temporary procset for expression!\n");
+					goto bad_var;
+				}
+				
+			} else
+			{
+				// Set the procset directly for the val
+				LVAL_GDB_PROCSET(val) = RVAL_ACTUAL_PROCSET(ps_val);
+			}
+		}
+		break;
 
 	default:
 		break;
 	}
 
-	Free(var);
+	Free(var_expr);
 
 	return val;
 
 bad_var:
 
-	if ( var != NULL )
-		Free(var);
+	if ( var_expr != NULL )
+		Free(var_expr);
 		
-	if ( slice != (slice_t *)NULL )
+	if ( slice != NULL )
 		DestroySlice(slice);
 
-	return (val_t *)NULL;
+	return NULL;
 }
 
 /*
@@ -2262,7 +2267,6 @@ ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 {
 	int				smn;
 	int				smx;
-	int				type;
 	hentry_t *		sym;
 	val_t *			val;
 	var_t *			var = (var_t *)NULL;
@@ -2345,74 +2349,58 @@ ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 
 		if ( ep->e_op == EXPR_SLICE )
 		{
-			(void)POP(e);
-
+			(void)POP(e);	// pop the EXPR_SLICE off
+		
 			smx = -1;
 			smn = -1;
 
-			switch ( type = ep->e_int )
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
 			{
-			case SLICE_RANGE:
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-			
+				SetError("Expression evaluated to bad type");
 				DestroyVal(val);
-
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				DestroyVal(val);
-
-				if ( smn < 0 || smx < 0 )
-				{
-					SetError("Negative indices not allowed");
-					goto bad_var;
-				}
-
-				/*
-				** Correct for unit slices.
-				*/
-				if ( smn == smx )
-					type = SLICE_POS;
-
-				/*
-				** Drop through.
-				*/
-
-			case SLICE_ALL:
-				AddSlice(var->v_slice, smn, smx, type);
+				goto bad_var;
 			}
 
-		}
-		else
+			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+			
+			DestroyVal(val);
+
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
+			{
+				SetError("Expression evaluated to bad type");
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			DestroyVal(val);
+
+			if ( smn < 0 || smx < 0 )
+			{
+				SetError("Negative indices not allowed");
+				goto bad_var;
+			}
+
+			AddSlice(var->v_slice, smn, smx);
+			
+		} else
 		{
 			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 				goto bad_var;
@@ -2441,7 +2429,7 @@ ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 
 			smn = smx;
 
-			AddSlice(var->v_slice, smn, smx, SLICE_POS);
+			AddSlice(var->v_slice, smn, smx);
 		}
 
 		ep = POP(e);
@@ -2626,7 +2614,6 @@ ReadVarImm(expr_t *e, rec_set_t *rec_set)
 {
 	int			smn;
 	int			smx;
-	int			type;
 	hentry_t *	sym;
 	val_t *		val;
 	var_t *		var = (var_t *)NULL;
@@ -2647,74 +2634,58 @@ ReadVarImm(expr_t *e, rec_set_t *rec_set)
 
 		if ( ep->e_op == EXPR_SLICE )
 		{
-			(void)POP(e);
-
+			(void)POP(e);	// pop the EXPR_SLICE off
+			
 			smx = -1;
 			smn = -1;
 
-			switch ( type = ep->e_int )
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
 			{
-			case SLICE_RANGE:
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-			
+				SetError("Expression evaluated to bad type");
 				DestroyVal(val);
-
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				DestroyVal(val);
-
-				if ( smn < 0 || smx < 0 )
-				{
-					SetError("Negative indices not allowed");
-					goto bad_var;
-				}
-
-				/*
-				** Correct for unit slices.
-				*/
-				if ( smn == smx )
-					type = SLICE_POS;
-
-				/*
-				** Drop through.
-				*/
-
-			case SLICE_ALL:
-				AddSlice(var->v_slice, smn, smx, type);
+				goto bad_var;
 			}
 
-		}
-		else
+			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+			
+			DestroyVal(val);
+
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
+			{
+				SetError("Expression evaluated to bad type");
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			DestroyVal(val);
+
+			if ( smn < 0 || smx < 0 )
+			{
+				SetError("Negative indices not allowed");
+				goto bad_var;
+			}
+
+			AddSlice(var->v_slice, smn, smx);
+			
+		} else
 		{
 			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 				goto bad_var;
@@ -2743,7 +2714,7 @@ ReadVarImm(expr_t *e, rec_set_t *rec_set)
 
 			smn = smx;
 
-			AddSlice(var->v_slice, smn, smx, SLICE_POS);
+			AddSlice(var->v_slice, smn, smx);
 		}
 
 		ep = POP(e);
@@ -2827,7 +2798,6 @@ ReadVarDecl(expr_t *e, rec_set_t *rec_set)
 {
 	int				smn;
 	int				smx;
-	int				type;
 	hentry_t *		sym;
 	val_t *			val;
 	var_t *			var = (var_t *)NULL;
@@ -2907,74 +2877,58 @@ ReadVarDecl(expr_t *e, rec_set_t *rec_set)
 
 		if ( ep->e_op == EXPR_SLICE )
 		{
-			(void)POP(e);
-
+			(void)POP(e);	// pop the EXPR_SLICE off
+		
 			smx = -1;
 			smn = -1;
 
-			switch ( type = ep->e_int )
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
+
+			if ( !VAL_IS_LOCAL_CONST(val) )
 			{
-			case SLICE_RANGE:
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
-
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
+				SetError("Expression evaluated to bad type");
+				DestroyVal(val);
+				goto bad_var;
+			}
 			
+			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
 				DestroyVal(val);
+				goto bad_var;
+			}
+			
+			DestroyVal(val);
 
-				if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-					goto bad_var;
+			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
+				goto bad_var;
 
-				if ( !VAL_IS_LOCAL_CONST(val) )
-				{
-					SetError("Expression evaluated to bad type");
-					DestroyVal(val);
-					goto bad_var;
-				}
-
-				if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
-				{
-					SetError("%s", AIFErrorStr());
-					DestroyVal(val);
-					goto bad_var;
-				}
-
+			if ( !VAL_IS_LOCAL_CONST(val) )
+			{
+				SetError("Expression evaluated to bad type");
 				DestroyVal(val);
-
-				if ( smn < 0 || smx < 0 )
-				{
-					SetError("Negative indices not allowed");
-					goto bad_var;
-				}
-
-				/*
-				** Correct for unit slices.
-				*/
-				if ( smn == smx )
-					type = SLICE_POS;
-
-				/*
-				** Drop through.
-				*/
-
-			case SLICE_ALL:
-				AddSlice(var->v_slice, smn, smx, type);
+				goto bad_var;
 			}
 
-		}
-		else
+			if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
+			{
+				SetError("%s", AIFErrorStr());
+				DestroyVal(val);
+				goto bad_var;
+			}
+
+			DestroyVal(val);
+
+			if ( smn < 0 || smx < 0 )
+			{
+				SetError("Negative indices not allowed");
+				goto bad_var;
+			}
+				
+			AddSlice(var->v_slice, smn, smx);
+
+		} else
 		{
 			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 				goto bad_var;
@@ -3003,7 +2957,7 @@ ReadVarDecl(expr_t *e, rec_set_t *rec_set)
 
 			smn = smx;
 
-			AddSlice(var->v_slice, smn, smx, SLICE_POS);
+			AddSlice(var->v_slice, smn, smx);
 		}
 
 		ep = POP(e);
@@ -3092,6 +3046,7 @@ ReadVarDecl(expr_t *e, rec_set_t *rec_set)
 	// the subset info. Give it a better name too.
 	if (RVAL_TYPE(val) == rval_ref)
 	{
+		PrintOutError("Warning: Range use detected in procset for command. Only operating on a single rank!\n");
 		var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
 	}
 	
@@ -3145,7 +3100,7 @@ SendSetVarCmd(rec_set_t *rec_set, char *var, AIF *val)
 	
 	if ((rep_set = DbgSetVar(rec_set, var, val)) != NULL)
 	{
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 		FreeRepSet(rep_set);
 		return -1;
 	}
@@ -3201,10 +3156,10 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 	
 		// Make sure the lval gdb variable actually exists by asking for its
 		// type
-		rep_set = DbgGetType(rec_set, LVAL_GDB_NAME(lval), 0);
+		rep_set = DbgGetType(rec_set, LVAL_GDB_EXPR(lval), 0);
 		
 		// process errors
-		if (ProcessErrorInRepSet(rec_set, rep_set))
+		if (ProcessErrorInRepSet(rep_set))
 		{
 			FreeRepSet(rep_set);
 			return -1;
@@ -3213,7 +3168,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		// ensure there was at least one reply
 		if (GetNumberOfReply(rep_set) == 0)
 		{
-			SetError("Missing definition for type %s", LVAL_GDB_NAME(lval));
+			SetError("Missing definition for type %s", LVAL_GDB_EXPR(lval));
 			FreeRepSet(rep_set);
 			return -1;
 		}
@@ -3229,7 +3184,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		if ( VAL_IS_LOCAL_CONST(rval) )
 		{
 			// Send the command using the rval aif data
-			return SendSetVarCmd(rec_set, LVAL_GDB_NAME(lval), RVAL_AIF(rval));
+			return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), RVAL_AIF(rval));
 		}
 		
 		// Make sure the rval is a gdb variable
@@ -3250,35 +3205,12 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		{
 			// We can assign the gdb_name of the rval directly inside
 			// each rank.
-			na = StringToAIF(LVAL_GDB_NAME(rval));
+			na = StringToAIF(LVAL_GDB_EXPR(rval));
 			// Send the command using the created AIF string
-			ret = SendSetVarCmd(rec_set, LVAL_GDB_NAME(lval), na);
+			ret = SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
 			// Make sure to free the AIF string before returning
 			AIFFree(na);
 			return ret;
-		}
-		
-		// Check to see if both have procsets
-		if (LVAL_GDB_PROCSET(lval) != NULL && LVAL_GDB_PROCSET(rval) != NULL)
-		{
-			// Check if both procsets have the same name
-			if (!strcmp(LVAL_GDB_PROCSET(lval)->s_name, LVAL_GDB_PROCSET(rval)->s_name))
-			{
-				// Check to see if they have the same value for s_indiv_proc, this is
-				// used for process targeted commands.
-				// FIXME: This may change at some point
-				if(LVAL_GDB_PROCSET(lval)->s_indiv_proc == LVAL_GDB_PROCSET(rval)->s_indiv_proc)
-				{
-					// We can assign the gdb_name of the rval directly inside
-					// each rank.
-					na = StringToAIF(LVAL_GDB_NAME(rval));
-					// Send the command using the created AIF string
-					ret = SendSetVarCmd(rec_set, LVAL_GDB_NAME(lval), na);
-					// Make sure to free the AIF string before returning
-					AIFFree(na);
-					return ret;
-				}
-			}
 		}
 			
 		// Fetch the contents of the rval
@@ -3307,7 +3239,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			// point at the AIF data
 			na = EVENT_DATA(reply->rep_event);
 			// Send the command using the event data
-			return SendSetVarCmd(rec_set, LVAL_GDB_NAME(lval), na);
+			return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
 		}
 					
 		// More than one reply, we can still handle this as long as
@@ -3324,8 +3256,17 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 		
 		if (LVAL_GDB_PROCSET(lval) != NULL)
 		{
-			// FIXME: Use dbginvoke directly instead
-			over_set = GetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
+			// Ensure that there is only a single di in the procset, othwerwise
+			// this will fail
+			if (LVAL_GDB_PROCSET(lval)->s_num_sets != 1)
+			{
+				// too many di in procset
+				SetError("Cannot process procsets with multiple launch/attach handles!");
+				return -1;
+			}
+			
+			SetOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
+			over_set = GetNextOverlaySetForProcSet(LVAL_GDB_PROCSET(lval));
 			
 			if (bitset_size(over_set->s_di_bs) != bitset_size(reply->rep_group))
 			{
@@ -3341,12 +3282,13 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			{
 				// Create the rec_set for this reply from the lval overset using the bitset
 				// from the reply
-				target_recset = NewRecSetByDbgInvoke(over_set->s_di, reply->rep_group);
+				target_recset = NewRecSet();
+				AddReceiverToSet(target_recset, NewGroupReceiver(over_set->s_di, reply->rep_group));
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);
 				// Send the command using the target_recset and the event data
 				// Only set ret if this returns non-zero
-				if (SendSetVarCmd(target_recset, LVAL_GDB_NAME(lval), na))
+				if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
 				{
 					// error occured
 					ret = -1;
@@ -3359,30 +3301,19 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 			return ret;
 		} else
 		{
-			// Check if the size of the bitset in the rec_set matches the size of
-			// the bitset in the reply
-			if (bitset_size(rec_set->s_receiver_bs) != bitset_size(reply->rep_group))
-			{
-				// The sizes do not match, we cannot complete the request
-				SetError("Rank mismatch between requested assignment. The application variable has multiple values.");
-				return -1;
-			}
-			
-			// We can assign the rval to the lval since the number of ranks match
 			// loop over each reply
 			ResetSet(rep_set);
-			while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
 				// Create the rec_set for this reply from the rec_set and using the bitset
 				// from the reply
-				target_recset = NewRecSet(	rec_set->s_setname,
-											rec_set->s_dbginvoke_handler,
-											reply->rep_group);
+				target_recset = NewRecSet();
+				AddReceiverToSet(target_recset, NewGroupReceiver(reply->rep_di, reply->rep_group));
 				// point at the AIF data
 				na = EVENT_DATA(reply->rep_event);
 				// Send the command using the target_recset and the event data
 				// Only set ret if this returns non-zero
-				if (SendSetVarCmd(target_recset, LVAL_GDB_NAME(lval), na))
+				if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na))
 				{
 					// error occured
 					ret = -1;
@@ -3604,18 +3535,5 @@ EndExprList(void)
 	DPRINT("EndExprList: Final list length is %d.\n", n);
 
 	return n;
-}
-
-// FIXME: Remove both of these with procset change
-void	
-ClearUserSpecProcSet()
-{
-	userSpecProcSet = 0;
-}
-
-int
-CheckUserSpecProcSet()
-{
-	return userSpecProcSet;
 }
 

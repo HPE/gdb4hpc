@@ -39,10 +39,6 @@
 #include "dbgclnt_debugfe.h"
 #include "dbgevent.h"
 
-#define RPC_TIMEOUT	600
-#define WDT_TIMEOUT	100
-#define STARTER		"guard_starter"
-
 /*
 ** debugger client struct and type definitions
 */
@@ -90,6 +86,7 @@ struct dbginvoke
 	int							d_nproc;				// number of processes
 	int							d_pid;					// pid of invoke process
 	int							d_apid;					// apid of invoke process for Cray platform
+	char *						d_cmd;					// application command argument - set to name of executable for invoke
 	int							d_stat;					// exit/signal status of proc
 	list_t *					d_evfds;				// event notification fds specific to this instance
 	bitset *					d_bitset_full;			// represents all dbgsrvs
@@ -118,28 +115,41 @@ typedef struct dbginvoke	dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
 
 /*
-** This is used to describe which ranks to send a command to. The dbgclnt interface
-** will use this as inputs when executing commands.
-** TODO: Cleanup the names of this structure
+** A group receiver is the actual dbginvoke_t/process mask for each di palced
+** inside the rec_set_t.
 */
-struct rec_set_t
+struct group_recv
 {
-	char *				s_setname;				//the name of its OverlaySet - Remove
-	dbginvoke_t *		s_dbginvoke_handler;	//a pointer to dbginvoke_t for switching protocol
-	bitset *			s_receiver_bs;			//the bitset representing the receivers - Change this name to s_group, it is the subset of the di that we should talk to
+	dbginvoke_t *	rec_di;
+	bitset *		rec_group;
+	bitset *		_cmd_sent;	// Internal to dbg_clnt layer - DO NOT USE!!!
 };
-typedef struct rec_set_t rec_set_t;
+typedef struct group_recv group_recv_t;
+
+/*
+** This is used to describe which ranks to send commands to in the dbgclnt interface.
+** If multiple di's are present in the list, the command will be sent to each di
+** according to the group mask. The rep_set will contain responses and errors for
+** each di involved in the command.
+*/
+struct rec_set
+{
+	list_t *		rec_list;	// recievers of command
+};
+typedef struct rec_set rec_set_t;
 
 /*
 ** A group reply is the actual element placed inside the rep_set_t lists.
+** All replies belong to a base dbginvoke_t struct, the mask of processes that
+** this reply belongs to, and an event. All replies must be an event.
 */
-struct group_reply_t
+struct group_reply
 {
 	dbginvoke_t *	rep_di;
 	bitset *		rep_group;
 	dbgevent_t *	rep_event;
 };
-typedef struct group_reply_t group_reply_t;
+typedef struct group_reply group_reply_t;
 
 /* 
 ** This is used to hold replies from commands in the dbgclnt interface. The error
@@ -153,12 +163,12 @@ typedef struct group_reply_t group_reply_t;
 ** Each group maybe an error message (maintained by group_err_t),
 ** or a normal message (maintained by group_reply_t).
 */
-struct rep_set_t
+struct rep_set
 {
 	list_t *	rep_list;	// event replies of cmd
 	list_t *	err_list;	// error events
 };
-typedef struct rep_set_t rep_set_t;
+typedef struct rep_set rep_set_t;
 
 // These are used to describe asynchronous events to the client interface
 struct event_set
@@ -219,16 +229,18 @@ typedef struct bp_disp_set bp_disp_set_t;
 
 /*
 ** Receiver routines
-** TODO: Get rid of NewRecSet and rename NewRecSetByDbgInvoke to NewRecSet
 */
-extern rec_set_t *	NewRecSetByDbgInvoke(dbginvoke_t *di, bitset *receivers);
-extern rec_set_t *	NewRecSet(char* setname, dbginvoke_t *dbginvoke, bitset* receiver); // Probably remove, use ByDbgInvoke instead
-extern void			FreeRecSet(rec_set_t* act);
+extern group_recv_t *		NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask);
+extern rec_set_t *			NewRecSet(void);
+extern void					AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
+extern void					FreeRecSet(rec_set_t *set);
+extern void					SetReceiverHeadInSet(rec_set_t *set);
+extern group_recv_t *		GetNextReceiverInSet(rec_set_t* set);
 
 /*
 ** Reply routines
 */
-extern group_reply_t *		NewGroupReply(void *di, bitset *src, dbgevent_t *reply); // Make static
+extern group_reply_t *		NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply); // Make static
 extern rep_set_t *			NewRepSet(void); // Make static
 extern void					FreeRepSet(rep_set_t* set);
 extern rep_set_t *			CopyRepSet(rep_set_t* set); // Only used once, consider alternative design
@@ -238,18 +250,16 @@ extern int					SetHasError(rep_set_t *set); // Maybe make static
 extern void					SetReplyHeadInSet(rep_set_t* set);
 extern int					GetNumberOfReply(rep_set_t* set);
 extern group_reply_t *		GetNextReplyInSet(rep_set_t* set);
-extern int					ProcessErrorInRepSet(rec_set_t *, rep_set_t *);
-// FIXME: This funciont is not rep_set-related. Remove
-extern bitset*				SetIndividualProcess(bitset* bs, int offset, int procnum); 
+extern int					ProcessErrorInRepSet(rep_set_t *);
 
 /*
 ** Async event routines 
 */
-extern bp_set_t *		FindBPSetByID(dbginvoke_t *, int);
-extern bp_set_t * 		FindBPSetForBP(dbginvoke_t *di, dbgbp_t* bp);
-extern void				ResetBPSetList(dbginvoke_t *di);
-extern bp_set_t *		GetNextBPSet(dbginvoke_t *di);
-extern int				EmptyBPSetList(dbginvoke_t *di);
+extern bp_set_t *			FindBPSetByID(dbginvoke_t *, int);
+extern bp_set_t * 			FindBPSetForBP(dbginvoke_t *di, dbgbp_t* bp);
+extern void					ResetBPSetList(dbginvoke_t *di);
+extern bp_set_t *			GetNextBPSet(dbginvoke_t *di);
+extern int					EmptyBPSetList(dbginvoke_t *di);
 
 /*
 ** debugger client function prototypes
@@ -286,10 +296,6 @@ extern void				DbgUnmaskSignal(int);
 extern int				DbgCheckForStatusChange(void);
 extern void				DbgResetStatusChange(void);
 
-// Used by higher layers to check if the inferior has exited
-extern int				DbgCheckForExit(void);
-extern void				DbgResetExitValue(void);
-
 extern proto_session *	DbgSessionCreate(char *, WLM_type, char *, char *, char *);
 extern void				DbgSetSession(proto_session *);
 extern proto_session *	DbgGetSession(void);
@@ -302,9 +308,10 @@ extern rep_set_t *		DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than rep_set_t *
 // I don't know how to fix it since its for sending a synchronous command asynchronously
 // TODO: This should probably be removed.
-extern bitset *			DbgSendExpr(rec_set_t *, char *, int);
-extern rep_set_t *		DbgGetExpr(rec_set_t *, bitset *, int);
-extern rep_set_t *		DbgEvalExpr(rec_set_t *, char *, int);
+extern void				DbgSendExpr(rec_set_t *, char *);
+// If the above is removed, get rid of this too.
+extern rep_set_t *		DbgGetExpr(rec_set_t *);
+extern rep_set_t *		DbgEvalExpr(rec_set_t *, char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
 extern rep_set_t *		DbgSetDebuggerVar(rec_set_t *, char *, AIF *);

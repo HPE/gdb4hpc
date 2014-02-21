@@ -64,8 +64,22 @@ cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 	
-	// assign procset directly
-	procset = RVAL_ACTUAL_PROCSET(val);
+	// Check to see if we need to create a new temporary procset
+	if (RVAL_TYPE(val) == rval_ref)
+	{
+		// Create a temporary proc_set 
+		procset = CreateTempProcSetSlice(RVAL_ACTUAL_PROCSET(val), RVAL_REF_SLICE(val));
+		
+		if (procset == NULL)
+		{
+			PrintOutError("Failed to create temporary procset for focus!\n");
+			return 0;
+		}
+	} else
+	{
+		// assign procset directly
+		procset = RVAL_ACTUAL_PROCSET(val);
+	}
 	
 	SetCurrentProcSet(procset);
 

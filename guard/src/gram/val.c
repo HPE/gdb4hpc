@@ -18,12 +18,6 @@
  *
  *********************************************************************************/
 
-
-
-
-
-
-
 /*
 ** TODO: The following is old. The entire interface was changed.
 **
@@ -390,9 +384,8 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			if (RVAL_ACTUAL_REPLY(val) != NULL)
 				return 0;
 				
-			target_expr = LVAL_GDB_NAME(val);
+			target_expr = LVAL_GDB_EXPR(val);
 			target_procset = LVAL_GDB_PROCSET(val);
-			target_recset = LVAL_GDB_RECSET(val);
 			break;
 			
 		case lval_blockmap:
@@ -406,9 +399,8 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			if (RVAL_ACTUAL_AIF(val) != NULL)
 				return 0;
 				
-			target_expr = LVAL_BM_GDB_NAME(val);
+			target_expr = LVAL_BM_GDB_EXPR(val);
 			target_procset = LVAL_BM_GDB_PROCSET(val);
-			target_recset = LVAL_BM_GDB_RECSET(val);
 			break;
 			
 		default:
@@ -421,30 +413,15 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 	if (target_procset != NULL)
 	{
 		DPRINT("RetrieveContents: target_procset was specified. Going to use process targeted method.\n");
-		if (target_recset == NULL)
+		
+		// This gets free'ed later
+		target_recset = NewRecSet();
+		
+		SetOverlaySetForProcSet(target_procset);
+		while((over_set = GetNextOverlaySetForProcSet(target_procset)) != NULL)
 		{
-			over_set = GetOverlaySetForProcSet(target_procset);
-				
-			if(target_procset->s_indiv_proc >= 0)
-				target_recset = NewRecSetByDbgInvoke(over_set->s_di, SetIndividualProcess(over_set->s_di_bs, 0, target_procset->s_indiv_proc));
-			else
-				target_recset = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
-				
-			// Save the recset into the lval
-			switch (LVAL_TYPE(val))
-			{
-				case lval_gdb:
-					LVAL_GDB_RECSET(val) = target_recset;
-					break;
-				
-				case lval_blockmap:
-					LVAL_BM_GDB_RECSET(val) = target_recset;
-					break;
-					
-				default:
-					// should not get here
-					break;
-			}
+			// create a group_recv_t for the over_set and add it to the res
+			AddReceiverToSet(target_recset, NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
 		}
 		
 		rec_set = target_recset;
@@ -458,20 +435,13 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 	}
 		
 	// Evaluate the expression	
-	rep_set = DbgEvalExpr(rec_set, target_expr, -1);
+	rep_set = DbgEvalExpr(rec_set, target_expr);
 
 	// Process errors - If there were no replies in the set we want to make sure
 	// the rval gets NULL'ed. I don't think this is ever possible without an 
 	// error being generated.
-	if ((ProcessErrorInRepSet(rec_set, rep_set) && GetNumberOfReply(rep_set) == 0) || (GetNumberOfReply(rep_set) == 0))
+	if ((ProcessErrorInRepSet(rep_set) && GetNumberOfReply(rep_set) == 0) || (GetNumberOfReply(rep_set) == 0))
 	{
-		/*The following is for specificed procset*/
-		if(target_procset != NULL)
-		{
-			// FIXME: This should not be modifying the original procset.
-			target_procset->s_indiv_proc = -1;
-		}
-		
 		// Free the rep_set, we are done with it
 		FreeRepSet(rep_set);
 		
@@ -481,25 +451,24 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			case lval_gdb:
 				RVAL_REPLY(val) = NULL;
 				SetError("Could not retrieve contents of val.");
+				if (target_recset != NULL)
+					FreeRecSet(target_recset);
 				return -1;
 				
 			case lval_blockmap:
 				RVAL_AIF(val) = NULL;
 				SetError("Could not retrieve contents of val.");
+				if (target_recset != NULL)
+					FreeRecSet(target_recset);
 				return -1;
 			
 			default:
 				// do nothing - shouldn't get here
 				SetError("Could not retrieve contents of val.");
+				if (target_recset != NULL)
+					FreeRecSet(target_recset);
 				return -1;
 		}
-	}
-
-	/*The following is for specificed procset*/
-	if(target_procset != NULL)
-	{
-		// FIXME: This should not be modifying the original procset.
-		target_procset->s_indiv_proc = -1;
 	}
 
 	// Set the RVAL based on its type.
@@ -525,6 +494,10 @@ RetrieveContents(val_t *val, rec_set_t *rec_set)
 			// do nothing
 			break;
 	}
+	
+	// cleanup
+	if (target_recset != NULL)
+		FreeRecSet(target_recset);
 	
 	return 0;
 }
@@ -565,9 +538,10 @@ NewVal(lval_type ltype, ...)
 			break;
 
 		case lval_gdb:
+			// This case should return, we don't allow the caller to specify an
+			// rval type. It must be a RVAL_REPLY.
 			LVAL_GDB_PROCSET(v) = va_arg(args, dbgprocset_t *);
-			LVAL_GDB_NAME(v) = strdup(va_arg(args, char *));
-			LVAL_GDB_RECSET(v) = NULL;
+			LVAL_GDB_EXPR(v) = strdup(va_arg(args, char *));
 			// The rval is assumed.
 			RVAL_TYPE(v) = rval_reply;
 			RVAL_REPLY(v) = (rep_set_t *)NULL;
@@ -575,9 +549,10 @@ NewVal(lval_type ltype, ...)
 			return v;
 			
 		case lval_blockmap:
+			// This case should return, we don't allow the caller to specify an
+			// rval type. It must be a RVAL_REPLY.
 			LVAL_BM_GDB_PROCSET(v) = va_arg(args, dbgprocset_t *);
-			LVAL_BM_GDB_NAME(v) = strdup(va_arg(args, char *));
-			LVAL_BM_GDB_RECSET(v) = NULL;
+			LVAL_BM_GDB_EXPR(v) = strdup(va_arg(args, char *));
 			LVAL_BM_BLOCKMAP(v) = va_arg(args, g_block_map_t *);
 			LVAL_BM_ARRAY_SIZE(v) = va_arg(args, int);
 			// The rval is assumed.
@@ -641,8 +616,6 @@ NewVal(lval_type ltype, ...)
 void
 DestroyVal(val_t *v)
 {
-	hentry_t *	hsym = NULL;
-
 	if ( v == (val_t *)NULL )
 		return;
 
@@ -657,22 +630,40 @@ DestroyVal(val_t *v)
 				return;
 			break;
 
-		case lval_blockmap:		
-			if ((hsym = FindSym(LVAL_BM_GDB_NAME(v))) != NULL)
+		case lval_blockmap:
+			// Check to see if the procset is DBGSET_TEMP, if so we destroy it
+			if (LVAL_BM_GDB_PROCSET(v) != NULL)
 			{
-				RemoveSym(hsym);
+				switch (LVAL_BM_GDB_PROCSET(v)->s_type)
+				{
+					case DBGSET_TEMP:
+						FreeProcSet(LVAL_GDB_PROCSET(v));
+						break;
+					
+					default:
+						// do nothing
+						break;
+				}
 			}
-			Free(LVAL_BM_GDB_NAME(v));
-			FreeRecSet(LVAL_BM_GDB_RECSET(v));
+			Free(LVAL_BM_GDB_EXPR(v));
 			break;
 		
 		case lval_gdb:
-			if ((hsym = FindSym(LVAL_GDB_NAME(v))) != NULL)
+			// Check to see if the procset is DBGSET_TEMP, if so we destroy it
+			if (LVAL_GDB_PROCSET(v) != NULL)
 			{
-				RemoveSym(hsym);
+				switch (LVAL_GDB_PROCSET(v)->s_type)
+				{
+					case DBGSET_TEMP:
+						FreeProcSet(LVAL_GDB_PROCSET(v));
+						break;
+					
+					default:
+						// do nothing
+						break;
+				}
 			}
-			Free(LVAL_GDB_NAME(v));
-			FreeRecSet(LVAL_GDB_RECSET(v));
+			Free(LVAL_GDB_EXPR(v));
 			break;
 	}
 	
@@ -924,7 +915,7 @@ CopyVal(val_t *val)
 		switch (RVAL_TYPE(val))
 		{
 			case rval_reply:
-				v = NewVal(lval_gdb, LVAL_GDB_PROCSET(val), LVAL_GDB_NAME(val));
+				v = NewVal(lval_gdb, LVAL_GDB_PROCSET(val), LVAL_GDB_EXPR(val));
 				if ( RVAL_AIF(val) != (AIF *)NULL )
 				{
 					RVAL_AIF(v) = CopyAIF(RVAL_AIF(val));

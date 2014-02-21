@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cmd_passthru.c - Command line interface routines.
  *
- * © 2012-2013 Cray Inc.  All Rights Reserved.
+ * © 2012-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -29,9 +29,6 @@
 #include	"client.h"
 #include	"useful.h"
 
-static int 			passthru_enabled = 0;
-static char *		valid_rec_set_name = NULL;
-
 static cmdlist_t *	DirectModeCmds;
 static cmdlist_t *	OldCmds;
 
@@ -45,7 +42,7 @@ class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgDirectCmd(rec_set, argc, argv);
 	
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	//process console messages
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -57,7 +54,7 @@ class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 		if (strlen(cmd) == 0)
 			continue;
 		
-		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
+		PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
 	}
 
 	FreeRepSet(rep_set);
@@ -73,28 +70,11 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 	char *			cmd;
 	char *			tmp_cmd[2] = {"show", "version"};
 
-	// We need to ensure that only one process set is able to actually start up the
-	// passthru mode, otherwise things will not reset properly. I am using a guard
-	// variable to ensure only one procset gets thru.
-	//
-	// Note that the way the _docmd function works is that it calls the command for
-	// every invoke_group in the current focus. If two invoke_groups are in focus,
-	// this command is called twice. We need to prevent that from working.
-	
-	if (passthru_enabled)
-	{
-		PrintOutError("\nWarning: Multiple process sets in focus. Only operating on first process set.\n\n");
-		return 1;
-	}
-
-	if ( rec_set == (rec_set_t *)NULL )
+	if ( rec_set == NULL )
 	{
 		PrintOutError("No processes in focus.\n");
 		return 0;
 	}
-
-	++passthru_enabled;
-	valid_rec_set_name = strdup(rec_set->s_setname);
 
 	OldCmds = SetCommands(DirectModeCmds);
 
@@ -106,7 +86,7 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgDirectCmd(rec_set, 2, tmp_cmd);
 	
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	//process console messages
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -123,7 +103,7 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 			PrintOutMsg("%s\n", cmd);
 		} else
 		{
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%s\n", cmd);
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n", cmd);
 		}
 	}
 
@@ -140,10 +120,6 @@ cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)
 	cli_dec_prompt();
 	SetCommands(OldCmds);
 	
-	passthru_enabled = 0;
-	Free(valid_rec_set_name);
-	valid_rec_set_name = NULL;
-	
 	return 1;
 }
 
@@ -154,23 +130,16 @@ cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set_t *		rep_set;
 	group_reply_t *	reply;
 	
-	if ( rec_set == (rec_set_t *)NULL )
+	if ( rec_set == NULL )
 	{
 		PrintOutError("No processes in focus.\n");
 		return 0;
 	}
 	
-	if (valid_rec_set_name == NULL)
-		return 1;
-	
-	// check to see if this rec_set is valid, if not then silently return.
-	if (strcmp(valid_rec_set_name, rec_set->s_setname))
-		return 1;
-	
 	rep_set = DbgDirectCmd(rec_set, argc, argv);
 	
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	//process console messages
 	SetReplyHeadInSet(rep_set);
@@ -190,7 +159,7 @@ cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
 		} else
 		{
 			PrintOutMsg("\n");
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "\n%s\n", cmd);
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "\n%s\n", cmd);
 		}
 	}
 

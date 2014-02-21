@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #ifndef _GRAM_H
 #define _GRAM_H
@@ -40,15 +38,12 @@
 #include "procset.h"
 #include "bitset.h"
 #include "hash.h"
-
-#define	 PROCSET_STRUCT	"procset_struct"
-#define	 PROCSET_SIZE		"procset_size"
-#define	 PROCSET_RANK		"procset_rank"
+#include "dbg_client.h"
 
 enum CMD_MODE
 {
-    CMD_MODE_INTERACTIVE, /*Interactive command*/
-    CMD_MODE_DEFERRED    /*Deferred command*/
+    CMD_MODE_INTERACTIVE,	// Interactive command
+    CMD_MODE_DEFERRED		// Deferred command
 };
 typedef enum CMD_MODE CMD_MODE;
 
@@ -76,8 +71,6 @@ extern void				StartExprList(void);
 extern void				IncExprList(void);
 extern void				SetExprList(int);
 extern int				EndExprList(void);
-extern void				ClearUserSpecProcSet();
-extern int				CheckUserSpecProcSet();
 
 /*
 ** func.h
@@ -152,9 +145,11 @@ extern void				FinishCmdToken(void);
 */
 extern void				InitProcSet(void);
 extern void				FinishProcSet(void);
+dbgprocset_t *			CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
 extern int				CreateProcSet(expr_t *, expr_t *);
 extern dbgprocset_t *	CreateProcSetForInvoke(expr_t *e);
 extern int				FinalizeProcSetForInvoke(dbgprocset_t * ps, dbginvoke_t *di);
+extern rec_set_t *		CreateRecSetForProcset(dbgprocset_t *ps);
 extern void				SetProcSet(void);
 extern dbgprocset_t *	GetProcSet(void);
 extern void				FreeProcSet(dbgprocset_t *);
@@ -164,19 +159,16 @@ extern dbgprocset_t *	CurrentProcSet(void);
 extern void				PrintProcSet(dbgprocset_t *);
 extern void				SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetNextOverlaySetForProcSet(dbgprocset_t *);
-extern dbg_over_set_t*	GetOverlaySetForProcSet(dbgprocset_t *);
 extern void				PrintMsgWithSetInfo(char* setname, bitset* group, char *f, ...);
-extern void				PrintMsgWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...);
 extern void				PrintErrorWithSetInfo(char* setname, bitset* group, char *f, ...);
-extern void				PrintErrorWithSetInfoByOffset(char* setname, bitset* group, int offset, int len, char *f, ...);
- 
-/* 
-**Output routines defined by client/server interface 
+
+/*
+** slice.h
 */
-extern void				PrintOutError(char *, ...);
-extern void				PrintOutMsg(char *, ...);
-extern void				PrintToFd(FILE *, char *, ...);
-extern void				vPrintToFd(FILE *, char *, va_list);
-extern void				PrintError();
+slice_t *				NewSlice(void);
+void					AddSlice(slice_t *, int, int);
+slice_t *				CopySlice(slice_t *);
+void					ReverseSlice(slice_t *);
+void					DestroySlice(slice_t *);
  
 #endif /* !_GRAM_H */

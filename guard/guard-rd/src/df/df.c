@@ -340,16 +340,19 @@ EndDF(graph_t *g)
 		while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 		{
 			// create the rec_set
-			rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+			rec_set = NewRecSet();
+			AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 				
 			// Query the new status from the backends, note that for this we
 			// want to grab the location information
 			rep_set = DbgStatus(rec_set, 1);
 			
-			ProcessErrorInRepSet(rec_set, rep_set);
+			ProcessErrorInRepSet(rep_set);
 			
 			// Start a new status block
-			status_block = XMLStartStatusBlock(rec_set->s_setname);
+			// Note that this is okay since we are only processing a single
+			// di in the rec_set at a time.
+			status_block = XMLStartStatusBlock(di->d_handle);
 			
 			// Process each status message and add it to the status block
 			while((reply = GetNextReplyInSet(rep_set)) != NULL)
@@ -358,7 +361,7 @@ EndDF(graph_t *g)
 				bitset_str = bitset_to_set(reply->rep_group);
 				
 				// Next create the full set string
-				Asprintf(&set_str, "%s%s", rec_set->s_setname, bitset_str);
+				Asprintf(&set_str, "%s%s", di->d_handle, bitset_str);
 					
 				// Done with the bitset_str
 				Free(bitset_str);
@@ -375,7 +378,7 @@ EndDF(graph_t *g)
 			
 			// Print the entire status block, this will free the string
 			XMLPrintStatusBlock(status_block);
-				
+			
 			// Free the reply set
 			FreeRepSet(rep_set);
 			
@@ -504,7 +507,8 @@ _delete_bp(graph_t *g, dbginvoke_t *di)
 	rep_set_t *			rep_set;
 	
 	// create the rec_set
-	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 	
 	SetList(g->g_bp_list);
 	while ((bp = (dbgbp_t *)GetListElement(g->g_bp_list)) != NULL)
@@ -515,7 +519,7 @@ _delete_bp(graph_t *g, dbginvoke_t *di)
 			// The dbg_client layer handles all the of the details here
 			if ((rep_set = DbgDeleteBreak(rec_set, bpset->b_bp_id)) != NULL)
 			{
-				ProcessErrorInRepSet(rec_set, rep_set);
+				ProcessErrorInRepSet(rep_set);
 				FreeRepSet(rep_set);	
 				DFErrMsg("ERROR: Could not delete graph breakpoint.");
 			}
@@ -538,7 +542,8 @@ _halt(dbginvoke_t *di, int haltmode)
 	char *				set_info;
 	
 	// create the rec_set
-	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 	
 	rep_set = DbgInterrupt(rec_set);
 	
@@ -547,18 +552,20 @@ _halt(dbginvoke_t *di, int haltmode)
 	if (haltmode)
 	{
 		//process error
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 			
 		//process location
 			
 		//only print out the info if we have less than 3 replies!!!
+		// Note that this is okay since we are only processing a single di in
+		// the rec_set.
 		// FIXME: Let this be user defined
 		if (GetNumberOfReply(rep_set) > 3)
 		{
-			set_info = bitset_to_set(rec_set->s_receiver_bs);
+			set_info = bitset_to_set(di->d_bitset_full);
 				
 			DFMsg("%s%s: Application halted at multiple locations.",
-					rec_set->s_setname,
+					di->d_handle,
 					set_info);
 		} else
 		{
@@ -571,7 +578,7 @@ _halt(dbginvoke_t *di, int haltmode)
 				if (halt_loc->loc_line > 0)
 				{
 					DFMsg("%s%s: Application halted in %s at %s:%d",
-							rec_set->s_setname,
+							reply->rep_di->d_handle,
 							set_info,
 							halt_loc->loc_func,
 							halt_loc->loc_file,
@@ -579,7 +586,7 @@ _halt(dbginvoke_t *di, int haltmode)
 				} else
 				{
 					DFMsg("%s%s: Application halted in %s",
-							rec_set->s_setname,
+							reply->rep_di->d_handle,
 							set_info,
 							halt_loc->loc_func);
 				}
@@ -603,11 +610,12 @@ _continue(dbginvoke_t *di)
 	rep_set_t *		rep_set;
 	
 	// create the rec_set
-	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 	
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 		FreeRepSet(rep_set);
 	}
 	

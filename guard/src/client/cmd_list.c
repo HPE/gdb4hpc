@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,9 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -47,7 +44,7 @@ cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	rep_set = DbgList(rec_set, s);
 
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
@@ -63,7 +60,7 @@ cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv)
 			l->list_line = ReplaceStr(tmp_str, "\\n", "");
 			// Free the tmp_str
 			Free(tmp_str);
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%d\t%s\n", l->list_lno, l->list_line);
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%d\t%s\n", l->list_lno, l->list_line);
 		}
 	}
 
@@ -75,30 +72,47 @@ cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	rep_set_t *		rep_set = NULL;
+	rep_set_t *		rep_set;
+	group_recv_t *	recv_ptr;
 	group_reply_t *	reply;
 	dbgsources_t *	s;
 	dbgsources_t *	sp;
+	int				print_header;
 	
 	rep_set = DbgGetSources(rec_set);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
-	// Only print this if there are actual replies
-	if (GetNumberOfReply(rep_set))
+	// Need to loop this over each di in the rec_set
+	SetReceiverHeadInSet(rec_set);
+	while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL)
 	{
-		PrintOutMsg("Source files for $%s:\n", rec_set->s_setname);
-	}
+		// reset print_header
+		print_header = 1;
 	
-	// process replies
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-	{
-		// point at the sources data
-		sp = EVENT_SOURCES(reply->rep_event);
-		
-		for (s=sp; s != NULL; s=s->sources_next)
+		// process replies
+		SetReplyHeadInSet(rep_set);
+		while((reply = GetNextReplyInSet(rep_set)) != NULL)
 		{
-			PrintOutMsg("%s\n", s->sources_file);
+			if (recv_ptr->rec_di != reply->rep_di)
+			{
+				continue;
+			}
+			
+			// Only want to print the header message once
+			if (print_header)
+			{
+				PrintOutMsg("\nSource files for $%s:\n", recv_ptr->rec_di->d_handle);
+				print_header = 0;
+			}
+		
+			// point at the sources data
+			sp = EVENT_SOURCES(reply->rep_event);
+		
+			for (s=sp; s != NULL; s=s->sources_next)
+			{
+				PrintOutMsg("%s\n", s->sources_file);
+			}
 		}
 	}
 	

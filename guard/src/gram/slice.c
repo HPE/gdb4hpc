@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -40,35 +38,32 @@ NewSlice(void)
 
 	s = (slice_t *)Alloc(sizeof(slice_t));
 
-	s->s_size = INIT_SLICE;
+	s->_s_size = INIT_SLICE;
+	
 	s->s_rank = 0;
-
 	s->s_low = (int *)Alloc(sizeof(int) * INIT_SLICE);
 	s->s_high = (int *)Alloc(sizeof(int) * INIT_SLICE);
-	s->s_type = (slice_type *)Alloc(sizeof(slice_type) * INIT_SLICE);
 
 	return s;
 }
 
-void
+static void
 ResizeSlice(slice_t *s)
 {
-	s->s_size *= 2;
+	s->_s_size *= 2;
 
-	s->s_low = (int *)Resize((void *)s->s_low, sizeof(int) * s->s_size);
-	s->s_high = (int *)Resize((void *)s->s_high, sizeof(int) * s->s_size);
-	s->s_type = (slice_type *)Resize((void *)s->s_type, sizeof(slice_type) * s->s_size);
+	s->s_low = (int *)Resize((void *)s->s_low, sizeof(int) * s->_s_size);
+	s->s_high = (int *)Resize((void *)s->s_high, sizeof(int) * s->_s_size);
 }
 
 void
-AddSlice(slice_t *s, int f, int t, slice_type st)
+AddSlice(slice_t *s, int f, int t)
 {
 	int	rank = s->s_rank;
 
-	if ( rank >= s->s_size )
+	if ( rank >= s->_s_size )
 		ResizeSlice(s);
 
-	s->s_type[rank] = st;
 	s->s_low[rank] = f;
 	s->s_high[rank]= t;
 
@@ -85,22 +80,19 @@ CopySlice(slice_t *s)
 
 	ns = (slice_t *)Alloc(sizeof(slice_t));
 
-	ns->s_size = s->s_size;
+	ns->_s_size = s->_s_size;
 	ns->s_rank = s->s_rank;
 
-	ns->s_low = (int *)Alloc(sizeof(int) * s->s_size);
-	memcpy(ns->s_low, s->s_low, sizeof(int) * s->s_size);
+	ns->s_low = (int *)Alloc(sizeof(int) * s->_s_size);
+	memcpy(ns->s_low, s->s_low, sizeof(int) * s->_s_size);
 
-	ns->s_high = (int *)Alloc(sizeof(int) * s->s_size);
-	memcpy(ns->s_high, s->s_high, sizeof(int) * s->s_size);
-
-	ns->s_type = (slice_type *)Alloc(sizeof(slice_type) * s->s_size);
-	memcpy(ns->s_type, s->s_type, sizeof(slice_type) * s->s_size);
+	ns->s_high = (int *)Alloc(sizeof(int) * s->_s_size);
+	memcpy(ns->s_high, s->s_high, sizeof(int) * s->_s_size);
 
 	return ns;
 }
 
-void
+static void
 _reverse_slice(int rank, int *ix)
 {
 	int	i;
@@ -120,7 +112,6 @@ _reverse_slice(int rank, int *ix)
 void
 ReverseSlice(slice_t *s)
 {
-	_reverse_slice(s->s_rank, (int *)s->s_type);
 	_reverse_slice(s->s_rank, s->s_low);
 	_reverse_slice(s->s_rank, s->s_high);
 }
@@ -133,6 +124,5 @@ DestroySlice(slice_t *s)
 
 	Free(s->s_low);
 	Free(s->s_high);
-	Free(s->s_type);
 	Free(s);
 }

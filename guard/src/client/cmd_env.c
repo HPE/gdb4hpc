@@ -292,7 +292,7 @@ class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// We do not want to get the location info with this status command
 	rep_set = DbgStatus(rec_set, 0);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
@@ -302,28 +302,28 @@ class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc, char **argv)
 		switch ( s->stat )
 		{
 		case DBGSTAT_INITIALISING:
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "The debugger is initialising.\n");
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is initialising.\n");
 			break;
 
 		case DBGSTAT_WAITING:
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "The debugger is waiting for a command.\n");
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is waiting for a command.\n");
 			break;
 
 		case DBGSTAT_RUNNING:
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "The application is running.\n");
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is running.\n");
 			break;
 
 		case DBGSTAT_STOPPED:
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "The application is stopped.\n");
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is stopped.\n");
 			break;
 
 		case DBGSTAT_EXIT:
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "The application is at an exit breakpoint.\n");
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is at an exit breakpoint.\n");
 			break;
 
 		case DBGSTAT_DBGERR:
 		case DBGSTAT_INTERR:
-			PrintErrorWithSetInfo(rec_set->s_setname, reply->rep_group, "The debugger is reporting an error status.\n");
+			PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is reporting an error status.\n");
 			break;
 		}
 	}
@@ -349,13 +349,13 @@ class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	rep_set = DbgSetSourcePath(rec_set, argv[1]);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
 		new_path =  EVENT_SOURCE_PATH(reply->rep_event);
 
-		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Source directory search path set to: %s\n", new_path);
+		PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Source directory search path set to: %s\n", new_path);
 	}
 
 	FreeRepSet(rep_set);
@@ -372,13 +372,13 @@ class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 	rep_set = DbgGetSourcePath(rec_set);
 		
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
 		path = EVENT_SOURCE_PATH(reply->rep_event);
 
-		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Source directories searched: %s\n", path);
+		PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Source directories searched: %s\n", path);
 	}
 
 	FreeRepSet(rep_set);

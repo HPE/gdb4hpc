@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,7 +18,6 @@
  *
  *********************************************************************************/
 
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -32,19 +31,6 @@
 #include	"client.h"
 #include	"df.h"
 #include	"useful.h"
-
-static void
-RealPrintVal(AIF* val, rec_set_t *rec_set, bitset* src)
-{
-	if(rec_set != NULL && src != NULL)
-	{
-		PrintMsgWithSetInfo(rec_set->s_setname, src, NULL);
-	}
-
-	// AIFPrint doesn't play nice with editline...
-	AIFPrint(Client.cli_out_stream, 0, val);
-	PrintOutMsg("\n");
-}
 
 // external exposure
 int
@@ -67,8 +53,12 @@ PrintVal(val_t *val, rec_set_t *rec_set)
 			return -1;
 		}
 		
+		//
 		// Print the result
-		RealPrintVal(RVAL_AIF(val), NULL, NULL);
+		//
+		// AIFPrint doesn't play nice with editline...
+		AIFPrint(Client.cli_out_stream, 0, RVAL_AIF(val));
+		PrintOutMsg("\n");
 		
 		break;
 	
@@ -79,19 +69,18 @@ PrintVal(val_t *val, rec_set_t *rec_set)
 			return -1;
 		}
 		
-		// If the gdb procset is set, replace the rec_set with the one created
-		// by calling VAL_RETRIEVE
-		if (LVAL_GDB_PROCSET(val) != NULL)
-		{
-			rec_set = LVAL_GDB_RECSET(val);
-		}
-		
 		// Print each reply
 		rep_set = RVAL_REPLY(val);
 		SetReplyHeadInSet(rep_set);
-		while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+		while((reply = GetNextReplyInSet(rep_set)) != NULL)
 		{
-			RealPrintVal(EVENT_DATA(reply->rep_event), rec_set, reply->rep_group);
+			// Print the set info
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, NULL);
+			
+			// Print the AIF value
+			// AIFPrint doesn't play nice with editline...
+			AIFPrint(Client.cli_out_stream, 0, EVENT_DATA(reply->rep_event));
+			PrintOutMsg("\n");
 		}
 		
 		break;

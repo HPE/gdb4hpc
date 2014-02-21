@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,9 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -68,7 +65,7 @@ movecmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgMoveFrame(rec_set, count, up);
 
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	//process frames
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -76,7 +73,7 @@ movecmd(rec_set_t *rec_set, int argc, char **argv)
 		// Point at the frame data
 		f = EVENT_FRAME(reply->rep_event);
 
-		PrintFrameSet(rec_set->s_setname, reply->rep_group, f);
+		PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
 	}
 	
 	FreeRepSet(rep_set);
@@ -99,7 +96,7 @@ cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgShowFrame(rec_set, count);
 
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	//process frames
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -109,7 +106,7 @@ cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv)
 		
 		for ( f = fp ; f != (dbgframe_t *)NULL ; f = f->frame_next)
 		{
-			PrintFrameSet(rec_set->s_setname, reply->rep_group, f);
+			PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
 		}
 	}
 
@@ -128,7 +125,7 @@ cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgGetFrame(rec_set);
 	
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	//process frame - there should only be one
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -136,7 +133,7 @@ cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv)
 		// Point at the frame data
 		fp = EVENT_FRAME(reply->rep_event);
 		
-		PrintFrameSet(rec_set->s_setname, reply->rep_group, fp);
+		PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
 	}
 	
 	FreeRepSet(rep_set);

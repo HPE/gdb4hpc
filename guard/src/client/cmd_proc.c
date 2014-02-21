@@ -89,6 +89,9 @@ class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc, char **argv)
 	dbg_over_set_t *	over_set;
 	dbg_over_set_t *	c_over_set;
 	dbginvoke_t *		di;
+	int					found;
+	
+	PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus", "Application");
 	
 	SetProcSet();
 	while ((ps = GetProcSet()) != NULL)
@@ -97,8 +100,6 @@ class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc, char **argv)
 			continue;
 			
 		++num_ps;
-		
-		PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus", "Command");
 	
 		// Get the current process set.
 		c_ps = CurrentProcSet();
@@ -110,19 +111,30 @@ class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc, char **argv)
 			di = over_set->s_di;
 			PrintOutMsg("$%-9s %-10d ", di->d_handle, di->d_nproc);
 			
+			// reset found, we only print n if the di is not in the over_set
+			found = 0;
 			SetOverlaySetForProcSet(c_ps);
 			while ((c_over_set = GetNextOverlaySetForProcSet(c_ps)) != NULL)
 			{
 				if (di == c_over_set->s_di)
 				{
 					PrintOutMsg("%-5s ", "y");
-				} else
-				{
-					PrintOutMsg("%-5s ", "n");
+					++found;
+					break;
 				}
 			}
+			if (!found)
+			{
+				PrintOutMsg("%-5s ", "n");
+			}
 			
-			//TODO PrintOutMsg("%s\n", i->i_cmd);
+			if (di->d_cmd != NULL)
+			{
+				PrintOutMsg("%s\n", di->d_cmd);
+			} else
+			{
+				PrintOutMsg("\n");
+			}
 		}
 	}
 
@@ -732,14 +744,15 @@ DoInvoke(	char *proto,
 		return 0;
 	}
 	
-	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+	// Create a rec_set based on the di
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 
 	// Finalize setup of the procset
 	if (FinalizeProcSetForInvoke(ps, di))
 	{
 		quit_rep = DbgQuit(rec_set, DBG_KILL);
-		ProcessErrorInRepSet(rec_set, quit_rep);
+		ProcessErrorInRepSet(quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
 		return 0;
@@ -752,11 +765,11 @@ DoInvoke(	char *proto,
 	rep_set = DbgStartup(rec_set);
 	
 	//process error
-	if (ProcessErrorInRepSet(rec_set, rep_set))
+	if (ProcessErrorInRepSet(rep_set))
 	{
 		PrintOutError("Could not startup application.\n");
 		quit_rep = DbgQuit(rec_set, DBG_KILL);
-		ProcessErrorInRepSet(rec_set, quit_rep);
+		ProcessErrorInRepSet(quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
  		FreeRepSet(rep_set);
@@ -961,6 +974,11 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 	if ( !DoAttach(proto, sess, ps, pid, arch, backend) )
 	{
+		// If XML mode is enabled, we want to print out a removed message. 
+		if (Client.XML_mode)
+		{
+			XMLPrintRemovedMsg(ps->s_name);
+		}
 		return 0;
 	}
 
@@ -999,13 +1017,14 @@ DoAttach(	char *proto,
 	}
 	
 	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 
 	// Finalize setup of the procset
 	if (FinalizeProcSetForInvoke(ps, di))
 	{
 		quit_rep = DbgQuit(rec_set, DBG_KILL);
-		ProcessErrorInRepSet(rec_set, quit_rep);
+		ProcessErrorInRepSet(quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
 		return 0;
@@ -1018,12 +1037,12 @@ DoAttach(	char *proto,
 	rep_set = DbgShowFrame(rec_set, 0);
 
 	//process error
-	if (ProcessErrorInRepSet(rec_set, rep_set))
+	if (ProcessErrorInRepSet(rep_set))
 	{
 		// This is fatal as its an indication that things are broken (i.e. we cannot send commands)
 		PrintOutError("Could not communicate with application.\n");
 		quit_rep = DbgQuit(rec_set, DBG_DETACH);
-		ProcessErrorInRepSet(rec_set, quit_rep);
+		ProcessErrorInRepSet(quit_rep);
 		FreeRecSet(rec_set);
 		FreeRepSet(quit_rep);
  		FreeRepSet(rep_set);
@@ -1109,14 +1128,14 @@ cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set = DbgInterrupt(rec_set);
 	
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	//process location
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
 	{
 		// point at location data
 		halt_loc = EVENT_LOC(reply->rep_event);
-		PrintHaltedLocationSet(rec_set->s_setname, reply->rep_group, halt_loc);
+		PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group, halt_loc);
 	}
 
 	FreeRepSet(rep_set);
@@ -1282,13 +1301,20 @@ ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type)
 			}
 			break;
 		}
+		
+		// If XML mode is enabled, we want to print out a removed message. 
+		if (Client.XML_mode)
+		{
+			XMLPrintRemovedMsg(di->d_handle);
+		}
 	
 		// Create the rec_set based on the di
-		rec_set = NewRecSetByDbgInvoke(di, di->d_bitset_full);
+		rec_set = NewRecSet();
+		AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 
 		rep_set = DbgQuit(rec_set, quit_type);
 
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 
 		FreeRecSet(rec_set);
 		FreeRepSet(rep_set);

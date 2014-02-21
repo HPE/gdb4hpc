@@ -2048,17 +2048,17 @@ NodeGetVar(graph_t *g, node_t *n)
 token_t *
 NodeDbgRequestVarSet(graph_t *g, node_t *n)
 {
-	token_t *	t;
-	token_t *	t1;
-	token_t *	t2;
-	token_t *	t3;
-	int		set_length;
-	dbgprocset_t *  procset;
-	dbg_over_set_t*  over_set;
-	bitset*		receiver = NULL;
-	bitset*		result = NULL;
-	int	     index;
-	char *	  procset_name;
+	token_t *			t;
+	token_t *			t1;
+	token_t *			t2;
+	token_t *			t3;
+	int					set_length;
+	dbgprocset_t *		procset;
+	dbg_over_set_t *	over_set;
+	bitset*				receiver;
+	rec_set_t *			rec_set;
+	int	     			index;
+	char *	  			procset_name;
 	
 #ifdef PERFLOG
 	char *envDir;
@@ -2095,13 +2095,16 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
 	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgRequestVarSet cannot get Overlay Set for [%s]!\n", procset_name); 
-		return (token_t *)NULL;
+		return NULL;
 	}
 
+	// What does this even do???
 	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
@@ -2109,17 +2112,20 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
 				bitset_unset(receiver, over_set->s_ps_offset + index);
-		}	
+		}
 	}
 	
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
-	result = DbgSendExpr(rec_set, t2->t_str, t3->t_int);
-	bitset_free(receiver);
+	// FIXME: This is assuming things works, probably remove this function
+	DbgSendExpr(rec_set, t2->t_str);
 
 	t = NewToken(g, TK_BIT_SET);
-	t->t_set_bits = bitset_dup(result);
-
+	t->t_set_bits = bitset_dup(receiver);
+	
+	bitset_free(receiver);
+	FreeRecSet(rec_set);
 
 	return t;
 }
@@ -2130,21 +2136,23 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 token_t *
 NodeDbgRecvVarSet(graph_t *g, node_t *n)
 {
-	token_t *		t;
-	token_t *		t0;
-	token_t *		t1;
-	token_t *		t2;
-	token_t *		t3;
-	AIF **			ax;
-	int				set_length;
-	rep_set_t *		rep_set;
-	group_reply_t *	reply;
-	dbgprocset_t *  procset;
-	dbg_over_set_t*	over_set;
-	bitset*			receiver = NULL;
-	int				i;
-	int	     		index;
-	char *			procset_name;
+	token_t *			t;
+	token_t *			t0;
+	token_t *			t1;
+	token_t *			t2;
+	token_t *			t3;
+	AIF **				ax;
+	int					set_length;
+	rep_set_t *			rep_set;
+	group_reply_t *		reply;
+	dbgprocset_t *		procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	int					i;
+	int	     			index;
+	char *				procset_name;
+	group_recv_t *		recv;
 
 	t0 = GetTokenFromInput(n, 0);	// procset
 	t1 = GetTokenFromInput(n, 1);	// iAssertID
@@ -2163,13 +2171,16 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
 	if(over_set == (dbg_over_set_t*)NULL)
 	{
 		DFError(n, "NodeDbgRecvVarSet cannot get Overlay Set for [%s]!\n", procset_name); 
 		return (token_t *)NULL;
 	}
 
+	// What does this even do???
 	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t0->t_set_bits))
 	{
@@ -2177,19 +2188,23 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 		{
 			if(!bitset_test(t0->t_set_bits, index))
 				bitset_unset(receiver, over_set->s_ps_offset + index);
-		}	
+		}
 	}
 	
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	// FIXME: This is a major major major major hack ER MAH GERD
+	recv = NewGroupReceiver(over_set->s_di, receiver);
+	recv->_cmd_sent = bitset_dup(receiver);
+	AddReceiverToSet(rec_set, recv);
 
-	rep_set = DbgGetExpr(rec_set, t3->t_set_bits, t1->t_int);
+	rep_set = DbgGetExpr(rec_set);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	// Process the data replies
 	// FIXME: Modify graph to understand rep_set_t * instead of making this
 	// strange array.
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+	while((reply = GetNextReplyInSet(rep_set)) != NULL)
 	{
 		// loop over the ax array
 		// NOTE: I don't understand this - andrewg
@@ -2232,20 +2247,21 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 token_t *
 NodeDbgGetVarSet(graph_t *g, node_t *n)
 {
-	token_t *	t;
-	token_t *	t1;
-	token_t *	t2;
-	token_t *	t3;
-	AIF **		ax;
-	int		set_length;
-	rep_set_t *     rep_set;
-	group_reply_t *	reply;
-	dbgprocset_t *  procset;
-	dbg_over_set_t*  over_set;
-	bitset*		receiver = NULL;
-	int			i;
-	int	     index;
-	char *	  procset_name;
+	token_t *			t;
+	token_t *			t1;
+	token_t *			t2;
+	token_t *			t3;
+	AIF **				ax;
+	int					set_length;
+	rep_set_t *			rep_set;
+	group_reply_t *		reply;
+	dbgprocset_t *		procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	int					i;
+	int					index;
+	char *				procset_name;
 	
 #ifdef PERFLOG
 	char *envDir;
@@ -2284,14 +2300,18 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgGetVarSet cannot get Overlay Set for [%s]!\n", procset_name); 
 		return (token_t *)NULL;
 	}
 
 	receiver = bitset_dup(over_set->s_di_bs);
+
+	// What does this even do???
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
@@ -2301,11 +2321,12 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
-	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
+	rep_set = DbgEvalExpr(rec_set, t2->t_str);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 	
 	// Process the data replies
 	// FIXME: Modify graph to understand rep_set_t * instead of making this
@@ -2351,19 +2372,20 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 token_t *
 NodeDbgGetVar(graph_t *g, node_t *n)
 {
-	token_t *	t;
-	token_t *	t1;
-	token_t *	t2;
-	token_t *	t3;
-	AIF *		a = NULL;
-	rep_set_t *     rep_set;
-	group_reply_t *	reply;
-	dbgprocset_t *  procset;
-	dbg_over_set_t * over_set;
-	bitset*		receiver = NULL;
-	int		index = 0;
-	char *			procset_name;
-	int				num = 0;
+	token_t *			t;
+	token_t *			t1;
+	token_t *			t2;
+	token_t *			t3;
+	AIF *				a = NULL;
+	rep_set_t *			rep_set;
+	group_reply_t *		reply;
+	dbgprocset_t *		procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	int					index = 0;
+	char *				procset_name;
+	int					num = 0;
 
 	t1 = GetTokenFromInput(n, 0);
 	t2 = GetTokenFromInput(n, 1);
@@ -2380,14 +2402,18 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgGetVar cannot get Overlay Set for [%s]!\n", procset_name);
-		return (token_t *)NULL;
+		return NULL;
 	}
 
 	receiver = bitset_dup(over_set->s_di_bs);
+	
+	// What does this even do???
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
@@ -2397,11 +2423,12 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 		}	
 	}
 
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 	
-	rep_set = DbgEvalExpr(rec_set, t2->t_str, t3->t_int);
+	rep_set = DbgEvalExpr(rec_set, t2->t_str);
 
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	num = GetNumberOfReply(rep_set);
 	
@@ -2451,7 +2478,6 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 */
 int
 NodeEvent(event_set_t *ev_set, bitset *reply_set)
-//NodeEvent(dbgevent_t *e, bitset* src_agg, bitset* src_indiv, void *arg)
 {
 	dbgevent_t *			e = ev_set->e_ev;
 	dbgnodesetinfo_t *		node_set;
@@ -2570,11 +2596,13 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgGoSet cannot get Overlay Set for [%s]!\n", procset_name); 
-		return (token_t *)NULL;
+		return NULL;
 	}
 
 	for(index = 0; index < set_length; index++)
@@ -2592,6 +2620,8 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 	AddNodeInfoByTree(over_set->s_di->d_proto_net, (void*)n, (void*)t->t_set_bits);
 
 	receiver = bitset_dup(over_set->s_di_bs);
+	
+	// What does this even do???
 	if(!bitset_isfull(t->t_set_bits))
 	{
 		for(index = 0; index < t->t_set_length; index++)
@@ -2601,11 +2631,12 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 
 		for(index = 0; index < set_length; index++)
 			RemoveActiveEvent(g);
@@ -2614,14 +2645,14 @@ NodeDbgGoSet(graph_t *g, node_t *n)
 		FreeRepSet(rep_set);
 		
 		DFError(n, "NodeDbgGoSet could not continue processes!\n"); 
-		return (token_t *)NULL;
+		return NULL;
 	}
 	
 	// cleanup
 	FreeRecSet(rec_set);
 	bitset_free(receiver);
 
-	return (token_t *)NULL;
+	return NULL;
 }
 
 /*
@@ -2647,20 +2678,23 @@ NodeDbgInit(graph_t *g, node_t *n)
 token_t *
 NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 {
-	token_t	*	t1;
-	token_t	*	t2;
-	token_t	*	t3;
-	token_t	*	t;
-	int *		bi_set;
-	int		set_length;
-	rep_set_t *rep_set;
-	int	index;
-	group_reply_t *reply;
-	bitset* receiver;
-	char	*procset_name;
-	char	*opset_name;
-	int	opset_size;
-	dbgbp_t *	bp_t;
+	token_t	*			t1;
+	token_t	*			t2;
+	token_t	*			t3;
+	token_t	*			t;
+	int *				bi_set;
+	int					set_length;
+	rep_set_t *			rep_set;
+	int					index;
+	group_reply_t *		reply;
+	dbgprocset_t *  	procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	char *				procset_name;
+	char *				opset_name;
+	int					opset_size;
+	dbgbp_t *			bp_t;
 
 	t1 = GetTokenFromInput(n, 0);
 	t2 = GetTokenFromInput(n, 1);
@@ -2674,22 +2708,25 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 	opset_name = t2->t_str;
 	opset_size = t3->t_int;
 
-	dbgprocset_t *  procset = FindProcSet(procset_name);
+	procset = FindProcSet(procset_name);
 	if(procset == NULL)
 	{
 		DFError(n, "NodeDbgOpenSocketSet cannot find procset for %s\n", procset_name);
 		return NULL;
 	}
 
-	dbg_over_set_t* over_set = NULL;
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgOpenSocketSet cannot get Overlay Set for [%s]!\n", procset_name);
-		return (token_t *)NULL;
+		return NULL;
 	}
 
 	receiver = bitset_dup(over_set->s_di_bs);
+	
+	// What does this even do???
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
@@ -2699,12 +2736,15 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 		}	
 	}
 	
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
 	rep_set = DbgOpenSocket(rec_set, opset_name, opset_size);
 
 	bitset_free(receiver);
-	ProcessErrorInRepSet(rec_set, rep_set);
+	FreeRecSet(rec_set);
+	
+	ProcessErrorInRepSet(rep_set);
 
 	// process results
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -2733,32 +2773,36 @@ NodeDbgOpenSocketSet(graph_t *g, node_t *n)
 ** FIXME: This function is returning void. But it can fail. That is a very
 **         bad idea...
 */
-void
+static void
 _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 {
-	int *		bi_set;
-	int		set_length;
-	rep_set_t *rep_set;
-	int	index;
-	group_reply_t *reply;
-	bitset* receiver;
-	char	*procset_name;
-	dbgbp_t* bp_t;
+	int *				bi_set;
+	int					set_length;
+	rep_set_t *			rep_set;
+	int					index;
+	group_reply_t *		reply;
+	dbgprocset_t *  	procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	char *				procset_name;
+	dbgbp_t *			bp_t;
 
 	set_length = t->t_set_length;
 
 	bi_set =  (int *)Alloc(set_length * sizeof(int));
 
 	procset_name = t->t_set_name;
-	dbgprocset_t *  procset = FindProcSet(procset_name);
+	procset = FindProcSet(procset_name);
 	if(procset == NULL)
 	{
 		DFError(n, "NodeDbgCloseSocketSet cannot find procset for %s\n", procset_name);
 		return;
 	}
-
-	dbg_over_set_t* over_set = NULL;
-	over_set = GetOverlaySetForProcSet(procset);
+	
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
 	if(over_set == (dbg_over_set_t*)NULL)
 	{
 		DFError(n, "NodeDbgCloseSocketSet cannot get Overlay Set for [%s]!\n", procset_name);
@@ -2766,6 +2810,8 @@ _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 	}
 
 	receiver = bitset_dup(over_set->s_di_bs);
+	
+	// What does this even do???
 	if(!bitset_isfull(t->t_set_bits))
 	{
 		for(index = 0; index < t->t_set_length; index++)
@@ -2775,12 +2821,13 @@ _close_socket_proc_set(graph_t *g, token_t *t, node_t *n)
 		}	
 	}
 	
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
 	rep_set = DbgCloseSocket(rec_set);
 
 	bitset_free(receiver);
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	// process results
 	SetReplyHeadInSet(rep_set);
@@ -2828,17 +2875,22 @@ NodeDbgCloseSocketSet(graph_t *g, node_t *n)
 token_t *
 NodeDbgSetBreakSet(graph_t *g, node_t *n)
 {
-	char *			file = NULL;
-	token_t	*		t1;
-	token_t	*		t2;
-	token_t	*		t3;
-	token_t	*		t;
-	int *			bi_set;
-	int				set_length;
-	rep_set_t *		rep_set;
-	int				index;
-	group_reply_t *	reply;
-	dbgbp_t *		bp_t;
+	char *				file = NULL;
+	token_t	*			t1;
+	token_t	*			t2;
+	token_t	*			t3;
+	token_t	*			t;
+	int *				bi_set;
+	int					set_length;
+	char *				procset_name;
+	dbgprocset_t *		procset;
+	dbg_over_set_t *	over_set;
+	bitset *			receiver;
+	rec_set_t *			rec_set;
+	rep_set_t *			rep_set;
+	int					index;
+	group_reply_t *		reply;
+	dbgbp_t *			bp_t;
 
 	t1 = GetTokenFromInput(n, 0);
 	t2 = GetTokenFromInput(n, 1);
@@ -2849,26 +2901,27 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 	set_length = t1->t_set_length;
 
 	bi_set =  (int *)Alloc(set_length * sizeof(int));
-
-	bitset* receiver;
-	char	*procset_name;
+	
 	procset_name = t1->t_set_name;
-	dbgprocset_t *  procset = FindProcSet(procset_name);
+	procset = FindProcSet(procset_name);
 	if(procset == NULL)
 	{
 		DFError(n, "NodeDbgSetBreakSet cannot find procset for %s\n", procset_name);
 		return NULL;
 	}
 
-	dbg_over_set_t* over_set = NULL;
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgSetBreakSet cannot get Overlay Set for [%s]!\n", procset_name);
-		return (token_t *)NULL;
+		return NULL;
 	}
 
 	receiver = bitset_dup(over_set->s_di_bs);
+	
+	// What does this even do???
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
@@ -2878,7 +2931,9 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		}	
 	}
 		
-	rec_set_t* rec_set = NewRecSetByDbgInvoke(over_set->s_di, receiver); //TODO: extention for individual process
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
+	
 	switch ( t2->t_type )
 	{
 	case TK_INT:
@@ -2891,12 +2946,12 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 
 	default:
 		DFError(n, "Invalid token type");
-		return (token_t *)NULL;
+		return NULL;
 	}
 
 	bitset_free(receiver);
 	
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	// process results
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -2956,7 +3011,9 @@ NodeDbgKill(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
 	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgKill cannot get Overlay Set for [%s]!\n", procset->s_name);
@@ -2964,11 +3021,12 @@ NodeDbgKill(graph_t *g, node_t *n)
 	}
 	
 	// Create the rec_set based on the di
-	rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di->d_bitset_full);
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, over_set->s_di->d_bitset_full));
 
 	rep_set = DbgKill(rec_set);
 
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	FreeRecSet(rec_set);
 	FreeRepSet(rep_set);
@@ -3024,6 +3082,8 @@ NodeDbgSetVar(graph_t *g, node_t *n)
 	token_t *	t0;
 	token_t *	t1;
 	token_t *	t2;
+	rec_set_t *	rec_set;
+	rep_set_t *	rep_set;
 
 	t0 = GetTokenFromInput(n, 0);
 	t1 = GetTokenFromInput(n, 1);
@@ -3039,20 +3099,25 @@ NodeDbgSetVar(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	over_set = GetOverlaySetForProcSet(procset);
-	if(over_set == (dbg_over_set_t*)NULL)
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
+	if(over_set == NULL)
 	{
 		DFError(n, "NodeDbgSetVar cannot get Overlay Set for [%s]!\n", procset->s_name);
-		return (token_t *)NULL;
+		return NULL;
 	}
 
-	rec_set_t *	rec_set = NewRecSetByDbgInvoke(over_set->s_di, SetIndividualProcess(over_set->s_di_bs, 0, procset->s_indiv_proc));
-	rep_set_t *	rep_set = DbgSetVar(rec_set, t1->t_str, t2->t_data);
+	// Create the rec_set based on the di
+	rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
 	
-	if (ProcessErrorInRepSet(rec_set, rep_set))
+	rep_set = DbgSetVar(rec_set, t1->t_str, t2->t_data);
+	
+	if (ProcessErrorInRepSet(rep_set))
 	{
 		DFError(n, "DbgSetVar failed.");
-		return (token_t *)NULL;
+		return NULL;
 	}
 	
 	FreeRecSet(rec_set);

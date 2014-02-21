@@ -261,7 +261,7 @@ expr_list	:	expr_list COMMA expr %prec ABOVE_COMMA
 		;
 
 expr		:	expr DOTDOT expr
-			{ $$ = AddExpr(EXPR_SLICE, SLICE_RANGE); }
+			{ $$ = AddExpr(EXPR_SLICE); }
 		;
 		
 /* binary operators according to precedence */

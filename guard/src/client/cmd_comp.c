@@ -137,20 +137,20 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 				switch (res)
 				{
 					case 0:
-						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is true.\n");
+						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is true.\n");
 						break;
 					case -1:
 					case 1:
-						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is false.\n");
+						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is false.\n");
 						print_diff++;
 						break;
 					case -2:
 					case 2:
-						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is warn.\n");
+						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is warn.\n");
 						print_diff++;
 						break;
 					case 3:
-						PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Comparison is indeterminate due to pointers.\n");
+						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is indeterminate due to pointers.\n");
 						break;
 				}
 			}

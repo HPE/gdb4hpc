@@ -65,14 +65,12 @@ typedef enum rval_type		rval_type;
 
 // LVAL val union accessors
 #define LVAL_SYM(v)				(v)->lval_u.lval_sym
-#define LVAL_GDB_NAME(v)			(v)->lval_u.lval_gdb.gdb_name
 #define LVAL_GDB_PROCSET(v)		(v)->lval_u.lval_gdb.gdb_procset
-#define LVAL_GDB_RECSET(v)		(v)->lval_u.lval_gdb.gdb_recset
-#define LVAL_BM_GDB_NAME(v)		(v)->lval_u.lval_blockmap.bm_gdb.gdb_name
-#define LVAL_BM_GDB_PROCSET(v)	(v)->lval_u.lval_blockmap.bm_gdb.gdb_procset
-#define LVAL_BM_GDB_RECSET(v)	(v)->lval_u.lval_blockmap.bm_gdb.gdb_recset
+#define LVAL_GDB_EXPR(v)			(v)->lval_u.lval_gdb.gdb_expr
 #define LVAL_BM_BLOCKMAP(v)		(v)->lval_u.lval_blockmap.bm_blockmap
 #define LVAL_BM_ARRAY_SIZE(v)	(v)->lval_u.lval_blockmap.bm_array_size
+#define LVAL_BM_GDB_PROCSET(v)	(v)->lval_u.lval_blockmap.bm_gdb.gdb_procset
+#define LVAL_BM_GDB_EXPR(v)		(v)->lval_u.lval_blockmap.bm_gdb.gdb_expr
 
 // RVAL defines
 #define RVAL_TYPE(v)				(v)->val_rval_type
@@ -116,16 +114,15 @@ typedef enum rval_type		rval_type;
 
 struct val_gdb
 {
-	char *					gdb_name;
 	dbgprocset_t *			gdb_procset;
-	rec_set_t *				gdb_recset;
+	char *					gdb_expr;
 };
 
 struct val_blockmap
 {
-	struct val_gdb	bm_gdb;
 	g_block_map_t *	bm_blockmap;
 	int				bm_array_size;
+	struct val_gdb	bm_gdb;
 };
 
 union lval_val

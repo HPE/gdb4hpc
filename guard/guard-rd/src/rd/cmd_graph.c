@@ -1330,6 +1330,7 @@ cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv)
 	return 1;
 }
 
+// FIXME: Disabled until BuildAssign is fixed in build.c
 static int 
 cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
@@ -1646,8 +1647,11 @@ InitCmd_graph(void)
 
 	AddAltCommand(GraphCmds, "assert", NULL, proc_ignore, 0, 
 		cmd_graph_alt_assert_cmd, cmd_graph_alt_assert_help, "Create an assertion.");
+	// FIXME: Disabled until BuildAssign is fixed in build.c
+#if 0
 	AddAltCommand(GraphCmds, "assign", NULL, proc_ignore, 0, 
 		cmd_graph_alt_assign_cmd, cmd_graph_alt_assign_help, "Assign a value to a debugger variable.");
+#endif
 	AddAltCommand(GraphCmds, "end", NULL, proc_ignore, 0, 
 		cmd_graph_alt_end_cmd, cmd_graph_alt_end_help, "Finish building the current assertion script.");
 	AddAltCommand(GraphCmds, "help", "h", proc_ignore, 0, cmd_help_cmd,

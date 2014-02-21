@@ -18,8 +18,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -38,6 +36,7 @@
 #include	"gvar.h"
 #include	"blockmap_util.h"
 #include	"bitset.h"
+#include	"client_settings.h"
 
 #define BLOCKMAP_TABLE_SIZE	7     /* 2^7 = 128 = number that can be active */
 
@@ -1067,7 +1066,7 @@ construct_blockmap_data(g_block_map_t *bm, dbgprocset_t* procset, int array_size
 	AIF *				a = (AIF *)NULL;
 	AIF **				da;
 	int					i;
-	dbg_over_set_t *	over_set = GetOverlaySetForProcSet(procset);
+	dbg_over_set_t *	over_set;
 	group_reply_t *		reply;
 	
 	if (rep_set==NULL)
@@ -1085,6 +1084,16 @@ construct_blockmap_data(g_block_map_t *bm, dbgprocset_t* procset, int array_size
 		PrintOutError("Cannot build blockmap due to empty reply!\n");
 		return NULL;
 	}
+	// FIXME: Currently this only works with sets that have only 1 over_set
+	if (procset->s_num_sets != 1)
+	{
+		PrintOutError("Cannot build blockmap due to multiple handles in procset!\n");
+		return NULL;
+	}
+	
+	// FIXME: This only works with procsets having a single over_set, i.e. DBGSET_INVOKE
+	SetOverlaySetForProcSet(procset);
+	over_set = GetNextOverlaySetForProcSet(procset);
 	
 	// Create an array of aif values
 	da = (AIF **)Alloc(sizeof(AIF *) * array_size);

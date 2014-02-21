@@ -80,14 +80,14 @@ cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv)
 	Free(type_str);
 
 	//process error
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	//process type strings
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
 		type_str = EVENT_TYPE(reply->rep_event);
 		
-		PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "%s\n", type_str);
+		PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n", type_str);
 	}
 
 	FreeRepSet(rep_set);
@@ -113,7 +113,7 @@ class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	rep_set = DbgGetVars(rec_set, file);
 
-	ProcessErrorInRepSet(rec_set, rep_set);
+	ProcessErrorInRepSet(rep_set);
 
 	// Process the replies
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -123,7 +123,7 @@ class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc, char **argv)
 		
 		for ( ; v != (dbgvars_t *)NULL ; v = v->var_next )
 		{
-			PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
+			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 		}
 	}
 
@@ -148,20 +148,20 @@ class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	rep_set = DbgGetScope(rec_set, argv[1]);
 
-	ProcessErrorInRepSet(rec_set, rep_set);
-	
-	// If only one response, print out the procset name
-	if (GetNumberOfReply(rep_set) == 1)
-	{
-		PrintOutMsg("Scope local variables for $%s:\n", rec_set->s_setname);
-	}
+	ProcessErrorInRepSet(rep_set);
 
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
+	while((reply = GetNextReplyInSet(rep_set)) != NULL)
 	{
 		// point at the vars data
 		v = EVENT_VARS(reply->rep_event);
 		
-		for ( ; v != (dbgvars_t *)NULL ; v = v->var_next )
+		// This only gets printed if there is one reply
+		if (GetNumberOfReply(rep_set) == 1)
+		{
+			PrintOutMsg("Scope local variables for $%s:\n", reply->rep_di->d_handle);
+		}
+		
+		for ( ; v != NULL ; v = v->var_next )
 		{
 			// We don't expect there to be a different result for each rank, since
 			// this command is relative to the entire application. But we will allow
@@ -171,7 +171,7 @@ class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc, char **argv)
 				PrintOutMsg("Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 			} else
 			{
-				PrintMsgWithSetInfo(rec_set->s_setname, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
+				PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Name:%-25s\tType:%s\n", v->var_name, v->var_type);
 			}
 		}
 	}

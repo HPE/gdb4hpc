@@ -820,13 +820,11 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 		EDGE(g, n1, n3, 0);
 		EDGE(g, t3, n3, 1);
 
-//		if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0)
 		if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0)
 		{
 			n2 = ICONST(g, "CONST", 1);
 			EDGE(g, n2, n3, 2);
 	
-//			BuildGetVar(g, &t1, &t2, v, v->v_procset->s_indiv_proc, extra);
 			BuildGetVar(g, &t1, &t2, v, v->v_indiv, extra);
 
 			EDGE(g, t2, n3, 3);
@@ -856,11 +854,9 @@ BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v, extrainfo *extra, int blo
 		n1 = NODE(g, "EXIT");
 		*/
 
-//		if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0)
 		if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0)
 		{
 
-//			BuildGetVar(g, &t1, &t2, v, v->v_procset->s_indiv_proc, extra);
 			BuildGetVar(g, &t1, &t2, v, v->v_indiv, extra);
 
 			EDGE(g, t2, n2, 0);
@@ -944,7 +940,6 @@ BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
 
 	n1 = SCONST(g, "CONST", name);
 
-//	if ( v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0)
 	if ( v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0)
 	{
 		n3 = NODE(g, "REDUCE");
@@ -952,7 +947,6 @@ BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra)
 		EDGE(g, n1, n3, 0);
 		EDGE(g, n2, n3, 1);
 
-//		BuildGetVar(g, inp, &t2, v, v->v_procset->s_indiv_proc, NULL);
 		BuildGetVar(g, inp, &t2, v, v->v_indiv, NULL);
 
 		EDGE(g, t2, n1, 0);
@@ -1664,11 +1658,16 @@ BuildMergeProc(graph_t *g, graph_inv *gi, var_t *v, int pid, int from, int async
 **  einp is the node number of the input to the expression graph
 **  eout is the node number of the output of the expression graph
 **  vlist is a list of variables used in the expression graph
+** FIXME: This is broken because s_indiv_proc is no longer part of the procset
+** This should be modified to understand bitsets since the procset will contain
+** a mask of ranks.
 */
 int
 BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist)
-//TODO: review this function.
 {
+
+#if 0
+
 	int	n1;
 	int	n2;
 	int	n3;
@@ -1709,8 +1708,11 @@ BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist)
 	** Connect a (any) proc to the input of the expression graph.
 	*/
 	EDGE(g, last->v_pid, einp, 0);
+	
+#endif
 
 	return 0;
+
 }
 
 /*
@@ -1951,7 +1953,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		*/
 		SetList(v2);
 		v = (var_t *)GetListElement(v2);
-//		if (v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
 		if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
 			EDGE(g, v->v_pid, i2, 0);
 
@@ -1981,7 +1982,6 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		*/
 		SetList(v1);
 		v = (var_t *)GetListElement(v1);
-//		if (v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
 		if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
 			EDGE(g, v->v_pid, i1, 0);
 			/*
@@ -2009,6 +2009,8 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		/*
 		** Connect first (any) proc to input of expression graphs.
 		*/
+		// TODO: How to fix this???
+#if 0
 		SetList(v1);
 		v = (var_t *)GetListElement(v1);
 		if (v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
@@ -2030,6 +2032,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 			*/
 			v->v_value = o2;
 		}
+#endif
 
 		AppendList(vlist, v1);
 		AppendList(vlist, v2);

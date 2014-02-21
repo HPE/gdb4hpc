@@ -676,7 +676,12 @@ ForceQuit(void)
 static void
 SigHandler(int sig)
 {
-	dbgprocset_t *	s;
+	dbgprocset_t *		s;
+	rec_set_t *			rec_set;
+	rep_set_t *			rep_set;
+	group_reply_t *		reply;
+	dbgloc_t *			halt_loc;
+	
 	
 	DPRINT("\n***In SigHandler\n");
 	
@@ -699,31 +704,25 @@ SigHandler(int sig)
 	}
 
 	s = CurrentProcSet();
-
-	SetOverlaySetForProcSet(s);
 	
-	dbg_over_set_t *	over_set = NULL;
+	// Create a rec_set for this procset
+	rec_set = CreateRecSetForProcset(s);
 	
-	while((over_set = GetNextOverlaySetForProcSet(s)) != NULL)
+	// Call the interupt command
+	rep_set = DbgInterrupt(rec_set);
+		
+	//process error
+	ProcessErrorInRepSet(rep_set);
+		
+	//process location
+	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
 	{
-		rec_set_t *			rec_set = NewRecSetByDbgInvoke(over_set->s_di, over_set->s_di_bs);
-		rep_set_t *			rep_set = DbgInterrupt(rec_set);
-		group_reply_t *		reply;
-		dbgloc_t *			halt_loc;
-		
-		//process error
-		ProcessErrorInRepSet(rec_set, rep_set);
-		
-		//process location
-		while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL)
-		{
-			halt_loc = EVENT_LOC(reply->rep_event);
-			PrintHaltedLocationSet(rec_set->s_setname, reply->rep_group, halt_loc);
-		}
-		
-		FreeRepSet(rep_set);
-		FreeRecSet(rec_set);
+		halt_loc = EVENT_LOC(reply->rep_event);
+		PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group, halt_loc);
 	}
+		
+	FreeRepSet(rep_set);
+	FreeRecSet(rec_set);
 	
 	// unmask the signal
 	DbgUnmaskSignal(sig);
@@ -965,26 +964,26 @@ EventCB(event_set_t *ev_set, bitset *reply_set)
 		if (DbgCheckForStatusChange())
 		{
 			// Status has changed. We need to generate updated status
-			// information
+			// information - this only impacts a single di
 			
-			// Create a new rec_set from the overset, using the group from the event set
-			// TODO: Is this okay for the ccdb gui?
-			rec_set = NewRecSetByDbgInvoke(ev_set->e_di, ev_set->e_group);
+			// create the rec_set
+			rec_set = NewRecSet();
+			AddReceiverToSet(rec_set, NewGroupReceiver(ev_set->e_di, ev_set->e_group));
 			
 			// Query the new status from the backends, note that for this we
 			// want to grab the location information
 			rep_set = DbgStatus(rec_set, 1);
 			
-			ProcessErrorInRepSet(rec_set, rep_set);
+			ProcessErrorInRepSet(rep_set);
 			
 			// Start a new status block
-			status_block = XMLStartStatusBlock(rec_set->s_setname);
+			status_block = XMLStartStatusBlock(ev_set->e_di->d_handle);
 			
 			// Process each status message and add it to the status block
 			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
 				// Create the set string
-				Asprintf(&set_str, "%s%s", rec_set->s_setname, reply->rep_group);
+				Asprintf(&set_str, "%s%s", ev_set->e_di->d_handle, reply->rep_group);
 				
 				// point at the status data
 				s = EVENT_STATUS(reply->rep_event);

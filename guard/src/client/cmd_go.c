@@ -18,8 +18,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
 #endif /* HAVE_CONFIG_H */
@@ -40,7 +38,7 @@ cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	if ((rep_set = DbgGo(rec_set)) != NULL)
 	{
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 		FreeRepSet(rep_set);
 		return 0;
 	}
@@ -59,7 +57,7 @@ cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	if ((rep_set = DbgFinishFunc(rec_set)) != NULL)
 	{
-		ProcessErrorInRepSet(rec_set, rep_set);
+		ProcessErrorInRepSet(rep_set);
 		FreeRepSet(rep_set);
 		return 0;
 	}

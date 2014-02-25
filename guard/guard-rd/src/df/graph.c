@@ -107,6 +107,8 @@ NewGraphInv(graph_t *g, dbgprocset_t *ps)
 	
 	gi->gp_di = over_set->s_di;
 	gi->gp_unbuilt_bs = bitset_new(over_set->s_di->d_nproc);
+	// Set every rank to 1, since everything is currently unbuilt.
+	bitset_invert(gi->gp_unbuilt_bs);
 	gi->gp_files = NULL;
 	
 	for ( d = 0 ; d < INVOKE_NODES ; d++ )

@@ -35,16 +35,15 @@
 #include	"fds.h"
 #include	"gram.h"
 
-// Global variables with external exposure
+// Global variables with external exposure - This is used in expr.y.in
 char **			ExprStr;
-
 // This function is created by the yacc parser - see expr.y.in
-extern int	expr_parse(void);
+extern int		expr_parse(void);
 
 // Static global variables
 static expr_t *	OPList;
-static list_t *	_expr_list = (list_t *)NULL;
-static list_t *	_elt_list = (list_t *)NULL;
+static list_t *	_expr_list = NULL;	// used in expr.y.in
+static list_t *	_elt_list = NULL;
 
 // Static function prototypes
 static expr_t *	do_parse(char **);
@@ -54,7 +53,11 @@ static val_t *	read_var_imm(expr_t *, rec_set_t *, func_t *);
 static char *	apply_var_op(expr_elt *, expr_t *);
 static val_t *	apply_op(expr_op, val_t *, val_t *, val_t *, rec_set_t *, val_t **);
 static int 		assign_expr_imm(val_t *, val_t *, rec_set_t *);
-
+static var_t *	ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
+// Only used with debug
+#ifdef DEBUG
+static void		DumpExpr(expr_t *);
+#endif
 
 expr_t *
 ParseExpr(char *str)
@@ -2262,7 +2265,7 @@ apply_op_aif_direct:
 	}
 }
 
-var_t *
+static var_t *
 ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 {
 	int				smn;
@@ -2605,192 +2608,6 @@ EvaluateBlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 }
 
 /*
-** Evaluate a variable in immediate mode. Return details in var_t.
-** 19/07/2010
-** TODO: PLASE MERGE THIS FUNCTION WITH THE FUNCTION BELOW SINCE THEY'RE MOSTLY IDENTICAL
-*/
-var_t *
-ReadVarImm(expr_t *e, rec_set_t *rec_set)
-{
-	int			smn;
-	int			smx;
-	hentry_t *	sym;
-	val_t *		val;
-	var_t *		var = (var_t *)NULL;
-	expr_elt *	ep;
-
-	DPRINT("In ReadVarImm.\n");
-
-	var = NewVar();
-
-	ep = POP(e);
-
-	while ( ep->e_op == EXPR_OPSUBSCR )
-	{
-		ep = TOP(e);
-
-		if ( var->v_slice == (slice_t *)NULL )
-			var->v_slice = NewSlice();
-
-		if ( ep->e_op == EXPR_SLICE )
-		{
-			(void)POP(e);	// pop the EXPR_SLICE off
-			
-			smx = -1;
-			smn = -1;
-
-			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-				goto bad_var;
-
-			if ( !VAL_IS_LOCAL_CONST(val) )
-			{
-				SetError("Expression evaluated to bad type");
-				DestroyVal(val);
-				goto bad_var;
-			}
-
-			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-			{
-				SetError("%s", AIFErrorStr());
-				DestroyVal(val);
-				goto bad_var;
-			}
-			
-			DestroyVal(val);
-
-			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-				goto bad_var;
-
-			if ( !VAL_IS_LOCAL_CONST(val) )
-			{
-				SetError("Expression evaluated to bad type");
-				DestroyVal(val);
-				goto bad_var;
-			}
-
-			if ( AIFToInt(RVAL_AIF(val), &smn) < 0 )
-			{
-				SetError("%s", AIFErrorStr());
-				DestroyVal(val);
-				goto bad_var;
-			}
-
-			DestroyVal(val);
-
-			if ( smn < 0 || smx < 0 )
-			{
-				SetError("Negative indices not allowed");
-				goto bad_var;
-			}
-
-			AddSlice(var->v_slice, smn, smx);
-			
-		} else
-		{
-			if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-				goto bad_var;
-
-			if ( !VAL_IS_LOCAL_CONST(val) )
-			{
-				SetError("Expression evaluated to bad type");
-				DestroyVal(val);
-				goto bad_var;
-			}
-
-			if ( AIFToInt(RVAL_AIF(val), &smx) < 0 )
-			{
-				SetError("%s", AIFErrorStr());
-				DestroyVal(val);
-				goto bad_var;
-			}
-			
-			DestroyVal(val);
-
-			if ( smx < 0 )
-			{
-				SetError("Negative indices not allowed");
-				goto bad_var;
-			}
-
-			smn = smx;
-
-			AddSlice(var->v_slice, smn, smx);
-		}
-
-		ep = POP(e);
-	}
-
-	if ( var->v_slice != (slice_t *)NULL )
-		ReverseSlice(var->v_slice);
-
-	switch ( ep->e_op )
-	{
-	case EXPR_SYM:
-		var->v_var = strdup(ep->e_sym_str);
-		break;
-
-	case EXPR_DSYM:
-		var->v_var = strdup(SymLookup(ep->e_sym));
-		var->v_internal = 1;
-		break;
-
-	case EXPR_STRING:
-		var->v_var = strdup(ep->e_string);
-		break;
-		
-	case EXPR_OPDREF:		
-	case EXPR_OPADDROF:	
-	case EXPR_OPELEMENTREF:	
-	case EXPR_OPELEMENTPTR:
-	case EXPR_OPELEMENTACC:
-	case EXPR_OPCAST:
-		var->v_var = apply_var_op(ep, e);
-		break;
-
-	default:
-		SetError("Symbol expected while evaluating variable");
-		goto bad_var;
-	}
-
-	ep = TOP(e);
-
-	sym = ep->e_sym;
-
-	if ( (val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
-		goto bad_var;
-
-	if ( RVAL_ACTUAL_TYPE(val) != rval_proc )
-	{
-		SetError("No such process \"%s\"", SymLookup(LVAL_SYM(val)));
-		goto bad_var;
-	}
-
-	// assign the procset directly
-	if ((var->v_procset = RVAL_ACTUAL_PROCSET(val)) == NULL)
-	{
-		SetError("Invalid process set");
-		goto bad_var;
-	}
-	
-	// FIXME: This should support a range now that it is using a slice_t.
-	// The var should be changed to hold a slice_t structure representing
-	// the subset info. Give it a better name too.
-	if (RVAL_TYPE(val) == rval_ref)
-	{
-		PrintOutError("Warning: Range use detected in procset for command. Only operating on a single rank!\n");
-		var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
-	}
-
-	return var;
-
-bad_var:
-	if ( var != (var_t *)NULL )
-		DestroyVar(var);
-
-	return (var_t *)NULL;
-}
-
-/*
 ** Evaluate a variable in declarative mode. Return details in var_t.
 */
 var_t *
@@ -3063,7 +2880,7 @@ bad_var:
 ** Assign expression (e2) to variable (e1).
 */
 int
-AssignExprImm(expr_t *e1, expr_t *e2, rec_set_t *rec_set)
+AssignExpr(expr_t *e1, expr_t *e2, rec_set_t *rec_set)
 {
 	int	ret;
 	val_t *	lval;
@@ -3674,7 +3491,9 @@ getExprOpStr(expr_op op)
 	return "<ERROR>";
 }
 
-void
+// Only used when debug is turned on
+#ifdef DEBUG
+static void
 DumpExpr(expr_t *e)
 {
 	int		i;
@@ -3726,6 +3545,9 @@ DumpExpr(expr_t *e)
 
 	PrintOutMsg("\n");
 }
+#endif
+
+// XXX: The following functions are used in expr.y.in.
 
 /*
 ** Start counting elements of a list

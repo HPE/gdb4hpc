@@ -19,6 +19,18 @@
  *
  *********************************************************************************/
 
+/*
+** XXX: This interface is tightly coupled with dbg_client.h. It really should be
+**       considered the same interface. We place all of this in a seperate file
+**       because each network type will create an implementation of this
+**       interface. The dbginvoke_t struct is defined in dbg_client, but is
+**       passed "down" to this interface. Yet the dbg_client interface relies
+**       on types defined here. This creates a circular dependency that typically
+**       is frowned upon, but in this instance is alright. We want to make it
+**       clear that new network types should only implement the dbgclnt_proto
+**       object.
+*/
+
 #ifndef _DBGCLNT_PROTO_H
 #define _DBGCLNT_PROTO_H
 
@@ -29,11 +41,9 @@
 // first encountered inside of a list of parameters for the function pointer, we
 // *must* forward declare it otherwise the compiler will mess up.
 struct dbginvoke;
-
-typedef void *	proto_network;	// This is data used by the protocol layer 
-                                // that is allocated on a per dbginvoke basis.
        
-// Used to keep track of sessions associated with the proxy based dbgclnt_proto implementation                             
+// Used to keep track of sessions associated with the proxy based dbgclnt_proto 
+// implementation                             
 struct proto_session
 {
 	struct dbgclnt_proto *	sess_proto;

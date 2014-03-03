@@ -50,6 +50,11 @@ struct event_set;
 // Usually this will be a g_progoutp_t *, but it depends on the proto.
 typedef void *	proto_outp;
 
+// This is instance data used by the protocol layer that is allocated on a per 
+// dbginvoke basis. It is stored in the di since the protocol object is reused
+// and is not suitable for storing instance data.
+typedef void *	proto_network;	
+
 // This is the protocol callback function prototype
 typedef int	(*proto_ev_callback_func)(struct dbginvoke *, proto_msg_set *);
 // This is the client callback function prototype

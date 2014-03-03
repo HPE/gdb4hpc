@@ -25,12 +25,8 @@
 #include "dbg_client.h"
 
 /* 
-** This defines the type of procsets. The DBGSET_INVOKE is used for invoked
-** applications and is created when calling the launch or attach commands. All
-** responses are in terms of the handles corresponding to the original 
-** DBGSET_INVOKE. The DBGSET_DEFSET is used when calling the defset command.
-** These procsets are permanent until explicitely removed. The DBGSET_TEMP 
-
+** The following describes each type of procset.
+**
 ** DBGSET_INVOKE:
 **   This procset is used for invoked applications. It is created when calling
 **   the launch or attach commands. All responses provided by the debugger will

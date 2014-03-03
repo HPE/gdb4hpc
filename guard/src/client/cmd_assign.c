@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,8 +17,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #ifdef HAVE_CONFIG_H
 #include	<config.h>
@@ -75,7 +73,7 @@ cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 	//done with buf
 	Free(buf);
 
-	if ( AssignExprImm(e1, e2, rec_set) < 0 )
+	if ( AssignExpr(e1, e2, rec_set) < 0 )
 	{
 		PrintError();
 		FreeExpr(e1);

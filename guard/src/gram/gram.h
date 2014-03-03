@@ -52,25 +52,22 @@ typedef enum CMD_MODE CMD_MODE;
 */
 extern expr_t *			ParseExpr(char *);
 extern void				FreeExpr(expr_t *);
-extern expr_t *			AddExpr(expr_op, ...);
-extern void				SaveTopElt(void);
-extern expr_op			GetTopEltOp(void);
-extern hentry_t *		GetTopEltSymVal(void);
-extern void				RemoveTopElt(void);
+extern expr_t *			AddExpr(expr_op, ...);	// called by yacc expr.y.in
+extern void				SaveTopElt(void);		// called by yacc expr.y.in
+extern expr_op			GetTopEltOp(void);		// called by yacc expr.y.in
+extern hentry_t *		GetTopEltSymVal(void);	// called by yacc expr.y.in
+extern void				RemoveTopElt(void);		// called by yacc expr.y.in
 extern int				EvalCompare(val_t **, val_t **, expr_t *, rec_set_t *);
 extern int				EvalExpr(val_t **, expr_t *, rec_set_t *);
 extern int				EvalExprList(list_t **, expr_t *, rec_set_t *);
 extern int				EvalFunc(val_t **, func_t *, list_t *, rec_set_t *);
 extern g_block_map_t *	EvaluateBlockMap(expr_t *, rec_set_t *, CMD_MODE);
-extern var_t *			ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode);
 extern var_t *			ReadVarDecl(expr_t *, rec_set_t *);
-extern var_t *			ReadVarImm(expr_t *, rec_set_t *);
-extern int				AssignExprImm(expr_t *, expr_t *, rec_set_t *);
-extern void				DumpExpr(expr_t *);
-extern void				StartExprList(void);
-extern void				IncExprList(void);
-extern void				SetExprList(int);
-extern int				EndExprList(void);
+extern int				AssignExpr(expr_t *, expr_t *, rec_set_t *);
+extern void				StartExprList(void);	// called by yacc expr.y.in
+extern void				IncExprList(void);		// called by yacc expr.y.in
+extern void				SetExprList(int);		// called by yacc expr.y.in
+extern int				EndExprList(void);		// called by yacc expr.y.in
 
 /*
 ** func.h

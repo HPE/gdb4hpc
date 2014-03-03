@@ -18,10 +18,6 @@
  *
  *********************************************************************************/
 
-
-
-
-
 /*
 ** The Guard GDB/MI interface.
 ** Now uses the Eclipse SDM libmi interface.

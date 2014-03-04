@@ -1,12 +1,12 @@
-lgdb 2.2 - Cray Line Mode Parallel Debugger
+lgdb 2.3 - Cray Line Mode Parallel Debugger
 With Cray Comparative Debugging Technology.
-Copyright 2007-2013 Cray Inc. All Rights Reserved.
-Copyright 1996-2013 Monash University. All Rights Reserved.
+Copyright 2007-2014 Cray Inc. All Rights Reserved.
+Copyright 1996-2013 University of Queensland. All Rights Reserved.
 
 Certain components, files or programs contained within this package or product 
-are Copyright 2007-2013 Cray Inc. All rights reserved.
+are Copyright 2007-2014 Cray Inc. All rights reserved.
 
-1. lgdb 2.2 uses components, files or programs covered by GNU or similar 
+1. lgdb 2.3 uses components, files or programs covered by GNU or similar 
 licenses. It is required that you accept the terms and conditions of these 
 licenses for these components, files or programs.
 
@@ -19,9 +19,61 @@ Copyright (C) 2010 Free Software Foundation, Inc.
 Portions of gdb are:
 
 Modified by Cray Inc.
-Copyright (C) 2012 Cray Inc.
+Copyright (C) 2013 Cray Inc.
 Modified by Allinea Software.
-Copyright (C) Allinea Software Ltd. 2012
+Copyright (C) Allinea Software Ltd. 2013
+
+
+The NVIDIA (R) CUDA Debugger, cuda-gdb, is covered by License GPLv3+: GNU 
+GPL version 3 or later.
+<See docs/GPLv3.txt>
+Copyright (C) 2010 Free Software Foundation, Inc.
+
+Portions of cuda-gdb are:
+
+Portions Copyright (C) 2007-2013 NVIDIA Corporation
+
+
+The uda-plugin library, uda-plugin-cray-upc, is covered by the following
+License:
+
+Copyright 2007 by Intrepid Technology, Inc.
+Copyright 2007 by Hewlett-Packard.
+
+Written by; Gary Funck <gary@intrepid.com>
+Reviewed by: Brian Wibecan and Tanya Klinchina, HP
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+(1) Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+(2) Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+(3) Neither the name of Intrepid Technology, or Hewlett-Packard
+nor the names of its contributors may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Portions of uda-plugin-cray-upc are:
+
+Copyright (c) 2013 Cray Inc. All rights reserved.
 
 
 The libmi library, libmi, is covered by the following License:
@@ -46,8 +98,7 @@ LA-CC 04-115
 
 Portions of libmi are:
 
-Modified by Cray Inc.
-Copyright (c) 2011-2012 Cray Inc.
+Copyright (c) 2011-2014 Cray Inc. All Rights Reserved.
 
 
 The libssh2 library, libssh2, is covered by the following License:
@@ -94,6 +145,62 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 OF SUCH DAMAGE.
 
 
+The archive library, libarchive, is covered by the following License:
+
+Copyright (c) 2003-2009 Tim Kientzle
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer
+   in this position and unchanged.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR(S) ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Portions of libarchive are:
+
+Copyright (c) 1993
+	The Regents of the University of California.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+4. Neither the name of the University nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+
 The editline library, libedit, is covered by the following License:
 
 Copyright (c) 1992, 1993
@@ -126,6 +233,10 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 
+Portions of libedit are:
+
+Copyright (c) 2011-2013 Cray Inc. All rights reserved.
+
 
 The MRNet library, libmrnet, is covered by License LGPLv2.1: GNU LESSER GENERAL 
 PUBLIC LICENSE Version 2.1. 
@@ -153,6 +264,10 @@ http://www.eclipse.org/legal/epl-v10.html
  
 LA-CC 04-115
 <See docs/epl-v10.txt>
+
+Portions of libbitset are:
+
+Copyright (c) 2011-2014 Cray Inc. All rights reserved.
 
 
 2. Under the terms of the GPL, LGPL and EPL licences the source code for the

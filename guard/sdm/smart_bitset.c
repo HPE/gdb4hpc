@@ -3,11 +3,10 @@
  *
  * © 2012-2013 Cray Inc.  All Rights Reserved.
  *
- * Unpublished Proprietary Information.
- * This unpublished work is protected to trade secret, copyright and other laws.
- * Except as permitted by contract or express written permission of Cray Inc.,
- * no part of this work or its content may be used, reproduced or disclosed
- * in any form.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
  *
  * $HeadURL$
  * $Date$
@@ -15,8 +14,6 @@
  * $Author$
  *
  *********************************************************************************/
-
-
 
 #include <stdio.h>
 #include <stdlib.h>

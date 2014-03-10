@@ -417,14 +417,17 @@ main(int argc, char **argv)
 	
 	// Ensure the environment has been setup, otherwise set it up and re-exec
 	// This is required because otherwise dlopen's will be fubared.
-	if (getenv(GUARD_ENV_SETUP) == NULL)
+	// This needs to use a different env var than the client, otherwise the
+	// env might have been forwarded but directories might not have been 
+	// created.
+	if (getenv(PROXY_ENV_SETUP) == NULL)
 	{
 		char *exe_path;
 	
 		SetupEnvironment();
 		// Done. Set the proper environment variable so that we don't have an infinite
 		// loop here.
-		setenv(GUARD_ENV_SETUP, "true", 1);
+		setenv(PROXY_ENV_SETUP, "true", 1);
 		exe_path = getexepath();
 		execve(exe_path, argv, environ);
 	}

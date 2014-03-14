@@ -164,13 +164,12 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 	{
 		switch (res)
 		{
-			case -1:
-				// do nothing
-				break;
-			case 0:
+			case -2:
+			case 2:
 				// display a warning
 				PrintOutLine("*** Tolerable difference found in AssertID %d ***\n", id+1);
 				break;
+			case -1:
 			case 1:
 				// display an error
 				PrintOutLine("*** Difference found in AssertID %d ***\n", id+1);
@@ -189,7 +188,7 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 */
 				break;
 			default:
-				// shouldn't get here.
+				// do nothing
 				break;
 		}
 

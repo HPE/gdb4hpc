@@ -70,11 +70,7 @@ void		bitset_clear(bitset *b);					/* set all bits to 0 */
 void		bitset_set(bitset *b, int n);				/* set bit 'n' (0 == LSB) to 1 */
 void		bitset_unset(bitset *b, int n);				/* set bit 'n' to 0 */
 
-//#ifndef __cplusplus
 int			bitset_test(bitset *b, int n);				/* return the value of bit 'n' */
-//#else
-//extern "C" int bitset_test(bitset *b, int n);
-//#endif
 
 int			bitset_numset(bitset *b);					/* The number of bits set to 1 in the set */
 int			bitset_firstset(bitset *b);					/* find the first bit set to 1 (starting from LSB) */
@@ -88,19 +84,11 @@ int			bitset_eq(bitset *b1, bitset *b2);			/* test if (b1 & b2) == b1 */
 int			bitset_compare(bitset *b1, bitset *b2);		/* test if (b1 & b2) != 0 */
 char *		bitset_to_str(bitset *b);					/* convert b to a portable string representation */
 
-//#ifndef	__cplusplus
 bitset *	str_to_bitset(char *str, char **end);		/* convert a portable string represetation to a bitset */
-//#else
-//extern "C" bitset*	str_to_bitset(char *str, char **end);		/* convert a portable string represetation to a bitset */
-//#endif
 
 int			bitset_count(bitset *b);					/* return the number of bits in the set */
 
-//#ifndef __cplusplus
 int			bitset_size(bitset *b);						/* number of bits this bitset can represent */
-//#else
-//extern "C" int bitset_size(bitset *b);
-//#endif
 
 char *		bitset_to_set(bitset *b);					/* convert b to set notation */
 char *		bitset_to_set_by_offset(bitset *b, int offset, int len);	/* convert b to set notation */

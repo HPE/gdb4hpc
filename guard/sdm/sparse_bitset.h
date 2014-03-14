@@ -30,9 +30,9 @@ typedef struct sparse_range sparse_range;
 
 struct sparse_bitset {
 	unsigned int	sb_num_bits;	/* total number of bits that are supposed to have in a sparse set */
-	unsigned int	sb_num_ranges; /* total number of ranges in a spare bitset*/
-	sparse_range*	sb_ranges;  /* an array of ranges in an asceinding order*/
-	unsigned int	sb_size; /* number of malloced space for ranges */
+	unsigned int	sb_num_ranges;	/* total number of ranges in a spare bitset*/
+	sparse_range*	sb_ranges;		/* an array of ranges in an asceinding order*/
+	unsigned int	sb_size;		/* number of malloced space for ranges */
 }; 
 typedef struct sparse_bitset sparse_bitset;
 

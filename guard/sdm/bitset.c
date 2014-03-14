@@ -27,6 +27,10 @@
  *
  *********************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include	<config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -336,7 +340,7 @@ bitset_firstset(bitset *b)
 	return (SIZE_TO_BYTES(i) << 3) + ffs(b->bs_bits[i]) - 1;
 }
 
-static char tohex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+static char tohex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
 #define NUM_BYTES(bits) (((bits-1) >> 3) + 1)	/* number of bytes required to store bits */
 #define NUM_LEN			8*2						/* number of characters required to store largest length */

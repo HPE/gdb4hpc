@@ -30,8 +30,6 @@
 #ifndef _COMPAT_H_
 #define _COMPAT_H_
 
-#include "config.h"
-
 #include <sys/types.h>
 #include <ctype.h>
 #include <unistd.h>

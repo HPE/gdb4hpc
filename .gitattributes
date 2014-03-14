@@ -22,10 +22,7 @@ extras/demos/mpi_example/hello_mpi.f90 -text
 extras/dev_docs/ccdb_info -text
 extras/dev_docs/ccdb_users_manual.docx -text
 extras/dev_docs/ccdb_users_manual.pdf -text svneol=unset#unset
-extras/docs/GPLv3.txt -text
-extras/docs/LGPLv21.txt -text
-extras/docs/LICENSE -text
-extras/docs/epl-v10.txt -text
+extras/docs/ATTRIBUTIONS_lgdb.txt -text
 extras/modulefiles/cray-lgdb/2.0_primer -text
 extras/scripts/clean_merge.sh -text
 extras/scripts/finish_cray_merge.sh -text

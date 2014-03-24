@@ -506,6 +506,26 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
+	// If running with gpu's, turn upc off. If we don't do this, things will break
+	if (gpu_flag)
+	{
+		cmd = MIGDBSet("upcsingle", "1");
+		SendMICommand(GDBMISession, cmd);
+		if (!MICommandResultOK(cmd)) 
+		{
+			MICommandFree(cmd);
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set upcsingle command failed.");
+			return e;
+		}
+		MICommandFree(cmd);
+	}
+	
+	// XXX: This actual does do something with the Allinea branch of gdb.
+	// DO NOT REMOVE! If removed, the backend will hang on gdb fatal errors.
+	cmd = MIGDBSet("continue-on-fatal-error", "on");
+	SendMICommand(GDBMISession, cmd);
+	MICommandFree(cmd);
+	
 	return NULL;
 }
 
@@ -1391,11 +1411,14 @@ DbgGDBMIStartup(void)
 		}
 	}
 	
-	// Initialize UPC, in case the app uses UPC
-	char *cmd_argv[1] = { "upc-init" };
-	cmd = CLIBypass(1, cmd_argv);
-	SendMICommand(GDBMISession, cmd);
-	MICommandFree(cmd);
+	// Initialize UPC, in case the app uses UPC - this will break gpu debugging
+	if (!gpu_flag)
+	{
+		char *cmd_argv[1] = { "upc-init" };
+		cmd = CLIBypass(1, cmd_argv);
+		SendMICommand(GDBMISession, cmd);
+		MICommandFree(cmd);
+	}
 
 	// call the showframe function with unlimited frame count and return
 	return DbgGDBMIShowFrame(0);

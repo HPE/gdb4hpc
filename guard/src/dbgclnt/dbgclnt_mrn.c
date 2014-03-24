@@ -495,6 +495,35 @@ DbgMRNAttach(
 		return 1;
 	}
 	
+#if 1	// RWM
+	// send over the uda plugin - only if gpu mode is currently turned off
+	if (!gpu_flag)
+	{
+		if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so"))
+		{
+			PrintOutError("CTI error: %s\n", cti_error_str());
+			PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
+			cti_killAprun(di->d_apid, SIGKILL);
+			sigrelse(SIGCHLD);
+		
+			return 1;
+		}
+	}
+// End upc addition
+#endif
+
+	// Add libthread_db otherwise gdb will be messed up with thread
+	// support
+	if (cti_addManifestLibrary(mid, "libthread_db.so.1"))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
+		cti_killAprun(di->d_apid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+	
 #ifdef BE_VALGRIND
 	// Add valgrind to the manifest
 	if (cti_addManifestBinary(mid, "valgrind"))
@@ -1239,15 +1268,18 @@ DbgMRNInvoke(
 	}
 
 #if 1	// RWM
-	// send over the uda plugin
-	if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so"))
+	// send over the uda plugin - only if gpu mode is currently turned off
+	if (!gpu_flag)
 	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
-		sigrelse(SIGCHLD);
+		if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so"))
+		{
+			PrintOutError("CTI error: %s\n", cti_error_str());
+			PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
+			cti_killAprun(di->d_apid, SIGKILL);
+			sigrelse(SIGCHLD);
 		
-		return 1;
+			return 1;
+		}
 	}
 // End upc addition
 #endif

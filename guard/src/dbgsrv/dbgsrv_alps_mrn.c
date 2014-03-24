@@ -258,29 +258,33 @@ main(int argc, char **argv)
 
 #define CRAY_CCE_UPC 1
 #ifdef CRAY_CCE_UPC
-	// Tell gdb where to find the UPC plugin 
-    scratch = getenv("CRAYTOOL_LIB_DIR");
-    if (!scratch)
-    {
-        fprintf(stderr, "CRAYTOOL_LIB_DIR getenv failed.\n");
-        return 1;
-    }
-        
-    len = strlen(scratch) + strlen(UDA_PLUGIN) + 2;
-    if ((uda_str = malloc(len)) == (void *)0)
-    {
-        fprintf(stderr, "UDA_PLUGIN malloc failed.\n");
-        return 1;
-    }
-	snprintf(uda_str, len, "%s/%s", scratch, UDA_PLUGIN);
-
-	if (setenv("UDA_GUPC_PLUGIN_LIBRARY", uda_str, 1) < 0)
+	// This only works with non-gpu mode
+	if (!gpu_flag)
 	{
-		// failure
-		fprintf(stderr, "UDA_GUPC_PLUGIN_LIBRARY setenv failed");
-		return 1;
+		// Tell gdb where to find the UPC plugin 
+		scratch = getenv("CRAYTOOL_LIB_DIR");
+		if (!scratch)
+		{
+		    fprintf(stderr, "CRAYTOOL_LIB_DIR getenv failed.\n");
+		    return 1;
+		}
+		    
+		len = strlen(scratch) + strlen(UDA_PLUGIN) + 2;
+		if ((uda_str = malloc(len)) == (void *)0)
+		{
+		    fprintf(stderr, "UDA_PLUGIN malloc failed.\n");
+		    return 1;
+		}
+		snprintf(uda_str, len, "%s/%s", scratch, UDA_PLUGIN);
+
+		if (setenv("UDA_GUPC_PLUGIN_LIBRARY", uda_str, 1) < 0)
+		{
+			// failure
+			fprintf(stderr, "UDA_GUPC_PLUGIN_LIBRARY setenv failed");
+			return 1;
+		}
+		free(uda_str);
 	}
-	free(uda_str);
 #endif
 	
 #if 0

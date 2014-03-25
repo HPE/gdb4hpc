@@ -29,7 +29,7 @@
 #####################################################
 
 # Build version
-ccdb_version="2.0"
+lgdb_build_version="2.0"
 
 # Current directory name where dependencies are located
 thirdparty_directory_name="third_party"
@@ -254,7 +254,7 @@ echo "H: gdb uda support"
 echo "I: editline"
 echo "J: libarchive"
 echo "K: Tools Interface"
-echo "L: ccdb"
+echo "L: lgdb"
 echo "M: cleanup"
 }
 
@@ -269,7 +269,7 @@ echo "M: cleanup"
 ##############################################
 
 # Display welcome message
-echo -e "\nlgdb build tool v$ccdb_version - By andrewg@cray.com"
+echo -e "\nlgdb build tool v$lgdb_build_version - By andrewg@cray.com"
 
 # Remove the install directory tree if it already exists
 if [ -d $inst_dir ]; then
@@ -393,7 +393,7 @@ if [ "$#" != "0" ] ; then
 					opt_libarchive=y;;
 				k | K ) echo "Building K: tools interface"
 					opt_interface=y;;
-				l | L )	echo "Building L: ccdb"
+				l | L )	echo "Building L: lgdb"
 					opt_ccdb=y;;
 				m | M ) echo "Running M: cleanup"
 					opt_cleanup=y;;
@@ -938,7 +938,7 @@ if [[ $opt_interface == n ]]; then
 fi
 
 # Ask if we should build ccdb/guard
-echo -n "B. Build ccdb?[y/n]: "
+echo -n "B. Build lgdb?[y/n]: "
 if [ $prompt_user -eq 1 ] ; then
 	while true; do
 		read opt_ccdb
@@ -986,7 +986,7 @@ fi
 ###############################################################
 
 if [[ $opt_advanced == y ]]; then
-	echo -n "D1. ccdb debug mode?[y/n]: "
+	echo -n "D1. lgdb debug mode?[y/n]: "
 	while true; do
 		read opt_debug
 		if [[ $opt_debug == y || $opt_debug == n ]]; then
@@ -1007,7 +1007,7 @@ if [[ $opt_advanced == y ]]; then
 		done
 	fi
 	
-	echo -n "D3. ccdb perf log mode?[y/n]: "
+	echo -n "D3. lgdb perf log mode?[y/n]: "
 	while true; do
 		read opt_perflog
 		if [[ $opt_perflog == y || $opt_perflog == n ]]; then
@@ -1028,7 +1028,7 @@ if [[ $opt_advanced == y ]]; then
 		done
 	fi
 
-	echo -n "D5. ccdb backend valgrind mode?[y/n]: "
+	echo -n "D5. lgdb backend valgrind mode?[y/n]: "
 	while true; do
 		read opt_valgrind
 		if [[ $opt_valgrind == y || $opt_valgrind == n ]]; then
@@ -1946,7 +1946,7 @@ fi
 
 # ccdb build
 if [[ $opt_ccdb == y ]]; then
-	echo -e "Starting ccdb build.\n"
+	echo -e "Starting lgdb build.\n"
 	echo -e "\nPrefixing $path_alps_lib to LD_LIBRARY_PATH for linking...\n"
 	export LD_LIBRARY_PATH=$path_alps_lib:$LD_LIBRARY_PATH
 	echo -e "Prefixing $path_xmlrpc_lib to LD_LIBRARY_PATH for linking..."
@@ -1955,7 +1955,7 @@ if [[ $opt_ccdb == y ]]; then
 	echo -e "Using guard source in $ccdb_src.\n"
 	cd $ccdb_src
 	# run ccdb configure
-	echo "Configuring ccdb..."
+	echo "Configuring lgdb..."
 	echo -n "./configure --with-aif=$path_aif --with-rd --with-mrnet=$stage_dir "
 	echo -n "--with-cray --with-alps-inc=$path_alps_inc --with-alps-lib=$path_alps_lib "
 	echo -n "--with-craytool-inc=$dep_includedir --with-craytool-lib=$dep_libdir --prefix=$inst_dir "
@@ -1969,28 +1969,28 @@ if [[ $opt_ccdb == y ]]; then
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag" \
 	CXXFLAGS="$opt_flag" $mrnet_conf_flags
 	# run ccdb make
-	echo -e "\nBuilding ccdb...\n"
+	echo -e "\nBuilding lgdb...\n"
 	make --silent
 	# run ccdb make install
-	echo -e "\nInstalling ccdb...\n"
+	echo -e "\nInstalling lgdb...\n"
 	make --silent install
-	echo -e "\nccdb installed to $inst_dir.\n"
+	echo -e "\nlgdb installed to $inst_dir.\n"
 	echo -e "Starting post build ops.\n"
 	# change the name of the guard binary to lgdb
 	if [ -e $bindir/guard ]; then
 		echo "Renaming guard to lgdb..."
 		mv $bindir/guard $bindir/lgdb
 	else
-	        echo "ERROR: guard not found in $bindir. The ccdb build failed."
+	        echo "ERROR: guard not found in $bindir. The lgdb build failed."
 	        ((++comp_error))
 	fi
 	# ensure the guard_proxy was built
 	if [ ! -e $libexecdir/guard_proxy ]; then
-		echo "ERROR: guard_proxy not found in $libexecdir. The ccdb build failed."
+		echo "ERROR: guard_proxy not found in $libexecdir. The lgdb build failed."
 		((++comp_error))
 	fi
 	# deliver the modulefiles
-	echo -e "\nDelivering ccdb modulefile..."
+	echo -e "\nDelivering lgdb modulefile..."
 	if [ ! -e $module_primer ]; then
 		echo -e "\tWARNING: Defined module primer not found. Modulefile will not be delivered."
 		((++warning))
@@ -2115,7 +2115,7 @@ if [[ $opt_cleanup == y ]]; then
 	fi
 	# make clean ccdb
 	if [[ $opt_ccdb == y ]]; then
-		echo "Cleaning ccdb..."
+		echo "Cleaning lgdb..."
 		cd $ccdb_rd_src
 		make --silent clean
 		cd $ccdb_src
@@ -2127,7 +2127,7 @@ if [[ $opt_cleanup == y ]]; then
 	echo -e "########################################################\n"
 fi
 
-echo "Done. The ccdb distribution was installed to $inst_dir."
+echo "Done. The lgdb distribution was installed to $inst_dir."
 
 if [ "$error" -eq "0" ] && [ "$warning" -eq "0" ]; then
         echo -e "Finished without warnings or errors.\n"    

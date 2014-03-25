@@ -31,7 +31,7 @@
 #define XML_RESPONSE_ERROR		"<error>\n"
 #define XML_RESPONSE_ERROR_END	"</error>\n"
 
-#define XML_PROG_OUTPUT_START	"<output app=\"%s\" len=\"%u\">\n"
+#define XML_PROG_OUTPUT_START	"<output app=\"$%s\" len=\"%u\">\n"
 #define XML_PROG_OUTPUT_END		"</output>\n"
 
 #define XML_RESULT				"<result script=\"%s\" id=\"%d\" Pass: %d Warn: %d Fail: %d />\n"

@@ -45,7 +45,7 @@ ccdb_package_directory_name="lgdb_install"
 ccdb_staging_directory_name="lgdb_tmp"
 
 # Third party source tree names. 
-mrnet_directory_name="mrnet-HEAD-2b1d607"
+mrnet_directory_name="mrnet_4.1.0"
 gdb_directory_name="ddt_gdb-7.2"
 cuda50_gdb_directory_name="ddt_cuda_gdb_50"
 cuda55_gdb_directory_name="ddt_cuda_gdb_55"

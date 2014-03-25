@@ -47,6 +47,7 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -493,18 +494,23 @@ setup_gdbmi_environment(void)
 		MICommandFree(cmd);
 	}
 	
-	// set an alternative system root for /dsl and dso lookup
-	// FIXME: If the toolhelper ever puts us inside the shared root, then this
-	// should be fixed.
-	cmd = MIGDBSet("solib-absolute-prefix", "/dsl");
-	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	// Need to set an alternative system root for /dsl and dso lookup if the
+	// /dsl directory exists.
+	struct stat		st;
+	
+	if (stat("/dsl", &st) == 0)
 	{
+		// The directory exists
+		cmd = MIGDBSet("solib-absolute-prefix", "/dsl");
+		SendMICommand(GDBMISession, cmd);
+		if (!MICommandResultOK(cmd)) 
+		{
+			MICommandFree(cmd);
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set solib-absolute-prefix command failed.");
+			return e;
+		}
 		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set solib-absolute-prefix command failed.");
-		return e;
 	}
-	MICommandFree(cmd);
 	
 	// If running with gpu's, turn upc off. If we don't do this, things will break
 	if (gpu_flag)

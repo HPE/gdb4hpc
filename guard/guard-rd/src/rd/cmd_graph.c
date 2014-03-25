@@ -1331,6 +1331,7 @@ cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 // FIXME: Disabled until BuildAssign is fixed in build.c
+#if 0
 static int 
 cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
@@ -1416,6 +1417,7 @@ cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 	return 1;
 }
+#endif
 
 static int
 cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)

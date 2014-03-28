@@ -39,6 +39,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "defs.h"
 #include "dbgproxy.h"
 #include "dbg_client.h"
 #include "useful.h"
@@ -336,6 +337,8 @@ SetupEnvironment(void)
 				// Create the directory name string
 				Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
 				
+				DPRINT("Using %s as proxy staging area.\n", cfg_dir);
+				
 				// Setup/create this directory
 				setupCfgDir(cfg_dir);
 				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
@@ -347,6 +350,8 @@ SetupEnvironment(void)
 				
 				// Create the directory name string
 				Asprintf(&cfg_dir, "/tmp/.cray_lgdb-%s", pw->pw_name);
+				
+				DPRINT("Using %s as proxy staging area.\n", cfg_dir);
 				
 				// Setup/create this directory
 				setupCfgDir(cfg_dir);
@@ -360,6 +365,8 @@ SetupEnvironment(void)
 			
 			// Create the directory name string
 			Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+			
+			DPRINT("Using %s as proxy staging area.\n", cfg_dir);
 			
 			// Setup/create this directory
 			setupCfgDir(cfg_dir);
@@ -383,6 +390,8 @@ SetupEnvironment(void)
 		tmp_dir = cfg_dir;
 		cfg_dir = NULL;
 		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+		
+		DPRINT("Using %s as proxy staging area.\n", cfg_dir);
 		
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
@@ -432,12 +441,26 @@ main(int argc, char **argv)
 		execve(exe_path, argv, environ);
 	}
 	
+	// Close stdin/stdout/stderr for the non-debug case
+#ifndef DEBUG
 	close(0);
 	close(1);
 	close(2);
 	open("/dev/null", O_RDONLY);
 	open("/dev/null", O_WRONLY);
 	open("/dev/null", O_WRONLY);
+#endif
+	
+	DPRINT("Proxy daemon started.\n");
+	
+#ifdef DEBUG
+	char	lhost[MAXHOSTNAMELEN];
+	
+	if (gethostname(lhost, MAXHOSTNAMELEN-1) == 0)
+	{
+		DPRINT("I am running on %s.\n", lhost);
+	}
+#endif
 	
 	memset(&hints, 0, sizeof(hints));	// ensure the hints struct is cleared
 	hints.ai_family = AF_UNSPEC;		// use AF_INET6 to force IPv6

@@ -206,7 +206,11 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 			// found the start keyword! 
 			++found;
 			//Print out the argv string - note that the newline is needed here
+#ifdef DEBUG
+			fprintf(ofp, "%s &> proxy_debug.out\n", launcher_argv_str);
+#else
 			fprintf(ofp, "%s\n", launcher_argv_str);
+#endif
 			Free(line);
 			line = NULL;
 			// ignore every line until the end keyword is found or EOF
@@ -704,7 +708,11 @@ mismatch_exit:
 	}
 	
 	// write the proxy start command to the file
+#ifdef DEBUG
+	fprintf(ofp, "%s -h %s -p %s &> proxy_debug.out\n", guard_proxy_loc, lhost, lport);
+#else
 	fprintf(ofp, "%s -h %s -p %s\n", guard_proxy_loc, lhost, lport);
+#endif
 	
 	// flush the output file
 	fflush(ofp);
@@ -1149,7 +1157,7 @@ DbgPROXYCreateSession(dbgclnt_proto *proto, WLM_type manager, char *batch_templa
 		return NULL;
 	}
 	
-	DPRINT("Error stream attached.\n");
+	DPRINT("Msg stream attached.\n");
 	
 	// Setup the error stream
 	

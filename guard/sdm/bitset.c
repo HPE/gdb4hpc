@@ -308,12 +308,19 @@ int
 bitset_numset(bitset *b)
 {
 	int i;
+	bits curBits;
 	int cnt = 0;
 	
-	for (i=0; i < b->bs_nbits; i++)
+	// Need to loop over each bs_bits
+	for (i = 0; i < b->bs_size; i++)
 	{
-		if (bitset_test(b, i))
-			++cnt;
+		// set this bit
+		curBits = b->bs_bits[i];
+		for(; curBits; ++cnt)
+		{
+			// This clears the LSB set in curBits - we loop until curBits is 0
+			curBits &= curBits - 1;
+		}
 	}
 	
 	return cnt;

@@ -111,7 +111,7 @@ static void
 Banner(void)
 {
 #ifdef ALPS
-	PrintOutMsg("lgdb 2.2 - Cray Line Mode Parallel Debugger\n");
+	PrintOutMsg("lgdb 2.3 - Cray Line Mode Parallel Debugger\n");
 	PrintOutMsg("With Cray Comparative Debugging Technology.\n");
 	PrintOutMsg("Copyright 2007-2014 Cray Inc. All Rights Reserved.\n");
 #else		

@@ -1,5 +1,5 @@
 /******************************************************************************\
- * help_dict.c - Command help string defintion dictionary.
+ * help_dict.c - Command help string definition dictionary.
  *
  * © 2011-2013 Cray Inc.  All Rights Reserved.
  *
@@ -64,7 +64,7 @@ const char *cmd_assign_help[] = {
         "",
         "The target can include a list of application ranks such as $a{1..3,5,10}.",
         "The assignment will occur as long as the expr evaluates into a single scalar,",
-        "or the number of ranks in the expr relsult match the number of ranks in the",
+        "or the number of ranks in the expr result match the number of ranks in the",
         "target.",
         "",
         "For example, if the value 10 is to be assigned myVar in ranks 1,3,4,5,10",
@@ -130,7 +130,7 @@ const char *cmd_compare_help[] = {
         "compare $a{0}::\"sizeof(i)\" = $b{0}::\"sizeof(i)\"",
         "",
         "The app_handle can be subsets of ranks using the process set notation. When",
-        "a subset of ranks are targeted, individual ranks are separated with a comma",
+        "a subset of ranks is targeted, individual ranks are separated with a comma",
         "and a range of ranks is denoted with \"..\". For example, if we wish to",
         "compare ranks 1,3,4,5,10 in $a, we would provide an app_handle of",
         "$a{1,3..5,10}.",
@@ -209,10 +209,10 @@ const char *cmd_directmode_help[] = {
         "Arguments: None.",
         "",
         "Description:",
-        "This command will put the debugger into a gdb direct passthru mode. This",
-        "mode has the look and feel of an actual gdb session across multiple parallel",
-        "processes. Command results will be aggregated, and results that are different",
-        "will be denoted with rank information.",
+        "This command puts the debugger into a gdb direct passthru mode. This mode has",
+        "the look and feel of an actual gdb session across multiple parallel processes.",
+        "Command results will be aggregated, and results that are different will be",
+        "denoted with rank information.",
         "",
         "To exit gdbmode, type \"end\". The \"quit\" command will cause the debugger",
         "to exit and behave in the same way it does outside of gdbmode.",
@@ -487,7 +487,7 @@ const char *cmd_print_help[] = {
         "",
         "Application ranks can be targeted using the process set notation for the",
         "desired app_handle. For example, to print variable myVar in ranks 1,3,4,5,10",
-        "of application $a you would issue print $a{1,3..5,10}::myVar.",
+        "of application $a, issue: print $a{1,3..5,10}::myVar.",
         0};
 
 const char *cmd_quit_help[] = {
@@ -832,8 +832,8 @@ const char *class_info_subcmd_sources_help[] = {
         "Summary: Source file information.",
         "",
         "Description:",
-        "Display the source files in the application. This command will only display",
-        "the source files that have been located and are available to be used in conjunction",
+        "Display the source files in the application. This command only displays the",
+        "source files that have been located and are available to be used in conjunction",
         "with the list command. Try \"set directory\" to improve the results.",
         0};
 
@@ -881,7 +881,7 @@ const char *class_maint_subcmd_system_help[] = {
         "Arguments: command (shell command)",
         "",
         "Description:",
-        "Run a command in the shell envrionment of the client. This can be used",
+        "Run a command in the shell environment of the client. This can be used",
         "to enumerate information about the system the client is running on. The",
         "stderr of the command will be redirected to stdout and printed in the result.",
         0};

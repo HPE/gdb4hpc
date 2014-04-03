@@ -99,7 +99,7 @@ usage(char *name)
 	
 	PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
 	PrintOutMsg("  --help, -h           Display this text\n");
-	PrintOutMsg("  --output, -o         Redirect stdout/stderr to file. Must be used with --batch.\n");
+	PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
 	PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
 	PrintOutMsg("  --version, -v        Display version\n");
 	

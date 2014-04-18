@@ -72,6 +72,8 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 	// done with buf
 	Free(buf);
+	
+	DPERFLOG(SetTimerStart("compare"));
 
 	if ( EvalCompare(&val_res, &val_diff, e, rec_set) < 0 )
 	{
@@ -79,6 +81,8 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 		FreeExpr(e);
 		return 0;
 	}
+	
+	DPERFLOG(SetTimerStopAndLog("compare"));
 
 	FreeExpr(e);
 

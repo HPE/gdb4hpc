@@ -84,6 +84,7 @@ extern const char *class_info_subcmd_status_help[];
 /*
  * Class maint subcommands
  */
+extern const char *class_maint_subcmd_echo_help[];
 extern const char *class_maint_subcmd_sleep_help[];
 extern const char *class_maint_subcmd_direct_help[];
 extern const char *class_maint_subcmd_system_help[];

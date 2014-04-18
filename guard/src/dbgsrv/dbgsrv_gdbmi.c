@@ -4177,15 +4177,44 @@ CheckBreak(MICommand *cmd)
 		bp->bp_disp = DBGBP_UNKNOWN_DISP;
 	}
 	
-	bp->bp_loc.loc_line = bpt->line;
-	if (bpt->file != NULL)
-		bp->bp_loc.loc_file = strdup(bpt->file);
-	if (bpt->func != NULL)
-		bp->bp_loc.loc_func = strdup(bpt->func);
-	if (bpt->address != NULL)
-		bp->bp_loc.loc_addr = strdup(bpt->address);
-	if (bpt->what != NULL)
-		bp->bp_exp = strdup(bpt->what);
+	// If this breakpoint has multiple locations, fake the information based
+	// on the original location.
+	if (bpt->hasMultiple)
+	{
+		DVPRINT("bpt has multiple locations.\n");
+		if (bpt->origLoc != NULL)
+		{
+			DVPRINT("bpt original location is present.\n");
+			char *loc_str = strdup(bpt->origLoc);
+			char *loc_ptr;
+			// try to split based on "file:line"
+			if ((loc_ptr = strstr(loc_str, ":")) != NULL)
+			{
+				DVPRINT("Faking line location\n");
+				// set needle to null
+				*loc_ptr++ = '\0';
+				bp->bp_loc.loc_file = strdup(loc_str);
+				bp->bp_loc.loc_line = atoi(loc_ptr);
+				Free(loc_str);
+			} else
+			{
+				DVPRINT("Faking func location\n");
+				// The entire string is a function.
+				bp->bp_loc.loc_func = loc_str;
+			}
+		}
+	} else
+	{
+		bp->bp_loc.loc_line = bpt->line;
+		if (bpt->file != NULL)
+			bp->bp_loc.loc_file = strdup(bpt->file);
+		if (bpt->func != NULL)
+			bp->bp_loc.loc_func = strdup(bpt->func);
+		if (bpt->address != NULL)
+			bp->bp_loc.loc_addr = strdup(bpt->address);
+		if (bpt->what != NULL)
+			bp->bp_exp = strdup(bpt->what);
+	}
 	
 	/*
 	** Link a copy of the breakpoint onto BP.

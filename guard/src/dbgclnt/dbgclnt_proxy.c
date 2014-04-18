@@ -1324,6 +1324,31 @@ DbgPROXYAttach(
 		return 1;
 	}
 	
+	// if PERFLOG is turned on, we need to create a string to the location to 
+	// create the log file.
+#ifdef PERFLOG
+	char *envDir;
+	char logfile[PATH_MAX];
+	
+	if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL)
+	{
+		// user didn't set the environment variable, so lets
+		// read the HOME variable
+		if ((envDir = getenv("HOME")) == (char *)NULL)
+		{
+			// couldn't read HOME, so lets default to tmp
+			envDir = "/tmp";
+		}
+	}
+	
+	// create the fullpath string to the log file using PATH_MAX plus a null term
+	snprintf(logfile, PATH_MAX+1, "%s/proxy_perf_frontend.log", envDir);
+	
+	DPERFLOG(CreateTimerLog(logfile));
+	DPERFLOG(SetLogInfo("Attaching to processes\n"));
+	DPERFLOG(SetTimerStart("Attach total"));
+#endif /* PERFLOG */
+	
 	// Create a new proxy_type object
 	net = NewProxyType(sess);
 	
@@ -1432,6 +1457,8 @@ DbgPROXYAttach(
 	AddToList(di->d_evfds, (void *)msg_fd_ptr);
 	
 	PrintOutMsg("Waiting to attach to application, please wait...\n");
+	
+	DPERFLOG(SetTimerStopAndLog("Attach total"));
 	
 	// Here we want to wait for the dbginvoke to start as long as the callback
 	// is still valid
@@ -1560,6 +1587,30 @@ DbgPROXYInvoke(
 		return 1;
 	}
 	
+	// if PERFLOG is turned on, we need to create a string to the location to 
+	// create the log file.
+#ifdef PERFLOG
+	char *envDir;
+	char logfile[PATH_MAX];
+	
+	if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL)
+	{
+		// user didn't set the environment variable, so lets
+		// read the HOME variable
+		if ((envDir = getenv("HOME")) == (char *)NULL)
+		{
+			// couldn't read HOME, so lets default to tmp
+			envDir = "/tmp";
+		}
+	}
+	
+	// create the fullpath string to the log file using PATH_MAX plus a null term
+	snprintf(logfile, PATH_MAX+1, "%s/proxy_perf_frontend.log", envDir);
+	
+	DPERFLOG(CreateTimerLog(logfile));
+	DPERFLOG(SetTimerStart("Invoke total"));
+#endif /* PERFLOG */
+	
 	// Create a new proxy_type object
 	net = NewProxyType(sess);
 	
@@ -1683,6 +1734,8 @@ DbgPROXYInvoke(
 	AddToList(di->d_evfds, (void *)outp_fd_ptr);
 	
 	PrintOutMsg("Waiting for job to start, please wait...\n");
+	
+	DPERFLOG(SetTimerStopAndLog("Invoke total"));
 	
 	// Here we want to wait for the dbginvoke to start as long as the callback
 	// is still valid

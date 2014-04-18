@@ -45,10 +45,6 @@
 #include "cray_tools_fe.h"
 #endif /* ALPS */
 
-#ifdef PERFLOG 
-struct timeval	tv_clnt_srv, tv_clnt_att;
-#endif
-
 // Static global variables
 static char *	wrapper_name = NULL;				// temporary mrnet commnode wrapper script that gets created
 static char *	mrnet_port_base = NULL;				// Port base that MRNet should use - this is the default override with env var
@@ -408,7 +404,7 @@ DbgMRNAttach(
 	}
 	
 	// create the fullpath string to the log file using PATH_MAX plus a null term
-	snprintf(logfile, PATH_MAX+1, "%s/ccdb_perf_frontend.log", envDir);
+	snprintf(logfile, PATH_MAX+1, "%s/mrnet_perf_frontend.log", envDir);
 	
 	DPERFLOG(CreateTimerLog(logfile));
 	DPERFLOG(SetLogInfo("Attaching to processes\n"));
@@ -703,9 +699,6 @@ DbgMRNAttach(
 #endif /* DEBUG */
 
 	// launch dbgsrv_alps onto the compute nodes
-#ifdef PERFLOG
-	gettimeofday(&tv_clnt_srv, NULL);
-#endif
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
@@ -789,9 +782,6 @@ DbgMRNAttach(
 		return 1;
 	}
 	
-#ifdef PERFLOG
-	gettimeofday(&tv_clnt_att, NULL);
-#endif
 	DPERFLOG(SetTimerStopAndLog("mrnet backend attach"));
 	
 	DPRINT("Debug server launch completed.\n");
@@ -1065,10 +1055,10 @@ DbgMRNInvoke(
 	}
 	
 	// create the fullpath string to the log file using PATH_MAX plus a null term
-	snprintf(logfile, PATH_MAX+1, "%s/ccdb_perf_frontend.log", envDir);
+	snprintf(logfile, PATH_MAX+1, "%s/mrnet_perf_frontend.log", envDir);
 	
 	DPERFLOG(CreateTimerLog(logfile));
-	DPERFLOG(SetLogInfo("Invoking %d processes\n", di->d_nproc));
+	DPERFLOG(SetLogInfo("Invoking %d processes, GPU is %s\n", di->d_nproc, gpu_flag ? "on":"off"));
 	DPERFLOG(SetTimerStart("Invoke total"));
 #endif /* PERFLOG */
 	
@@ -1481,9 +1471,6 @@ DbgMRNInvoke(
 #endif /* DEBUG */
 
 	// launch dbgsrv_alps onto the compute nodes
-#ifdef PERFLOG
-	gettimeofday(&tv_clnt_srv, NULL);
-#endif
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
@@ -1525,9 +1512,6 @@ DbgMRNInvoke(
 		return 1;
 	}
 	
-#ifdef PERFLOG
-	gettimeofday(&tv_clnt_att, NULL);
-#endif
 	DPERFLOG(SetTimerStopAndLog("mrnet backend attach"));
 	
 	DPRINT("Debug server launch completed.\n");

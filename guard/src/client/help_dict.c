@@ -847,6 +847,17 @@ const char *class_info_subcmd_status_help[] = {
 /*
  * Class maint subcommands
  */
+ 
+const char *class_maint_subcmd_echo_help[] = {
+        "Summary: Echo command.",
+        "Usage: maint echo <string>",
+        "Example command: maint echo print this string",
+        "",
+        "Arguments: string (string to echo)",
+        "",
+        "Description:",
+        "Echo a string as output.",
+        0};
 
 const char *class_maint_subcmd_sleep_help[] = {
         "Summary: Sleep command.",

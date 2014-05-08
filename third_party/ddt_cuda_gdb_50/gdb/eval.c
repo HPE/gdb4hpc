@@ -1,8 +1,5 @@
 /* Evaluate expressions for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008,
    2009, 2010 Free Software Foundation, Inc.
@@ -2341,8 +2338,8 @@ evaluate_subexp_standard (struct type *expect_type,
 	LONGEST oldlowerbound, lowerbound, upperbound;	
 	const gdb_byte *valaddr = NULL;
 
-        if (noside == EVAL_NORMAL
-            && VALUE_LVAL (array) == lval_memory
+	if (noside == EVAL_NORMAL
+	    && VALUE_LVAL (array) == lval_memory
 	    && !value_address (array))
 	  error (_("cannot subscript an array that is not allocated"));
 

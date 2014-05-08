@@ -1,8 +1,5 @@
 /* Print values for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
    2009, 2010 Free Software Foundation, Inc.
@@ -39,14 +36,13 @@
 #include "dfp.h"
 #include "python/python.h"
 #include "ada-lang.h"
-#include "regcache.h"
 
 #include <errno.h>
 
 /* Prototypes for local functions */
 
 static int partial_memory_read (CORE_ADDR memaddr, gdb_byte *myaddr,
-				int len, int *errnoptr, struct type *type);
+				int len, int *errnoptr);
 
 static void show_print (char *, int);
 
@@ -1311,29 +1307,14 @@ val_print_array_elements (struct type *type, const gdb_byte *valaddr,
 /* FIXME: cagney/1999-10-14: Only used by val_print_string.  Can this
    function be eliminated.  */
 
-/* CUDA - Fix read_string */
-/* Added the type parameter so that this function, which is called only
-   by read_string, can correctly read the device memory.
- */
 static int
-partial_memory_read (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int *errnoptr,
-                     struct type *type)
+partial_memory_read (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int *errnoptr)
 {
   int nread;			/* Number of bytes actually read. */
   int errcode;			/* Error from last read. */
-  CORE_ADDR pc = regcache_read_pc (get_current_regcache ());
-  bool is_device_address = cuda_is_device_code_address (pc);
-
-  /* CUDA - Fix read_string */
-  /* Call cuda_read_memory_partial if it's device code.
-   */
 
   /* First try a complete read. */
-  if (is_device_address)
-    errcode = cuda_read_memory_partial (memaddr, myaddr, len, type);
-  else
-    errcode = target_read_memory (memaddr, myaddr, len);
-
+  errcode = target_read_memory (memaddr, myaddr, len);
   if (errcode == 0)
     {
       /* Got it all. */
@@ -1344,10 +1325,7 @@ partial_memory_read (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int *errnoptr
       /* Loop, reading one byte at a time until we get as much as we can. */
       for (errcode = 0, nread = 0; len > 0 && errcode == 0; nread++, len--)
 	{
-          if (is_device_address)
-            errcode = cuda_read_memory_partial (memaddr++, myaddr++, 1, type);
-          else
-	    errcode = target_read_memory (memaddr++, myaddr++, 1);
+	  errcode = target_read_memory (memaddr++, myaddr++, 1);
 	}
       /* If an error, the last read was unsuccessful, so adjust count. */
       if (errcode != 0)
@@ -1384,14 +1362,9 @@ partial_memory_read (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int *errnoptr
    so it is more tested.  Perhaps callers of target_read_string should use
    this function instead?  */
 
-/* CUDA - Fix read_string */
-/* Rename read_string to read_string_by_type and add a type param so that
-   read_string can wrap around it.
- */
-static int
-read_string_by_type (CORE_ADDR addr, int len, int width, unsigned int fetchlimit,
-	     enum bfd_endian byte_order, gdb_byte **buffer, int *bytes_read,
-	     struct type *type)
+int
+read_string (CORE_ADDR addr, int len, int width, unsigned int fetchlimit,
+	     enum bfd_endian byte_order, gdb_byte **buffer, int *bytes_read)
 {
   int found_nul;		/* Non-zero if we found the nul char.  */
   int errcode;			/* Errno returned from bad reads.  */
@@ -1425,7 +1398,7 @@ read_string_by_type (CORE_ADDR addr, int len, int width, unsigned int fetchlimit
       *buffer = (gdb_byte *) xmalloc (len * width);
       bufptr = *buffer;
 
-      nfetch = partial_memory_read (addr, bufptr, len * width, &errcode, type)
+      nfetch = partial_memory_read (addr, bufptr, len * width, &errcode)
 	/ width;
       addr += nfetch * width;
       bufptr += nfetch * width;
@@ -1449,7 +1422,7 @@ read_string_by_type (CORE_ADDR addr, int len, int width, unsigned int fetchlimit
 	  bufsize += nfetch;
 
 	  /* Read as much as we can.  */
-	  nfetch = partial_memory_read (addr, bufptr, nfetch * width, &errcode, type)
+	  nfetch = partial_memory_read (addr, bufptr, nfetch * width, &errcode)
 		    / width;
 
 	  /* Scan this chunk for the null character that terminates the string
@@ -1498,17 +1471,6 @@ read_string_by_type (CORE_ADDR addr, int len, int width, unsigned int fetchlimit
   return errcode;
 }
 
-/* CUDA - Fix read_string */
-/* This function now wraps around read_string_by_type
- */
-int
-read_string (CORE_ADDR addr, int len, int width, unsigned int fetchlimit,
-	     enum bfd_endian byte_order, gdb_byte **buffer, int *bytes_read)
-{
-  return read_string_by_type (addr, len, width, fetchlimit, byte_order, buffer,
-                              bytes_read, NULL);
-}
-
 /* Print a string from the inferior, starting at ADDR and printing up to LEN
    characters, of WIDTH bytes a piece, to STREAM.  If LEN is -1, printing
    stops at the first null byte, otherwise printing proceeds (including null
@@ -1541,8 +1503,8 @@ val_print_string (struct type *elttype, CORE_ADDR addr, int len,
 
   fetchlimit = (len == -1 ? options->print_smax : min (len, options->print_smax));
 
-  errcode = read_string_by_type (addr, len, width, fetchlimit, byte_order,
-			 &buffer, &bytes_read, elttype);
+  errcode = read_string (addr, len, width, fetchlimit, byte_order,
+			 &buffer, &bytes_read);
   old_chain = make_cleanup (xfree, buffer);
 
   addr += bytes_read;

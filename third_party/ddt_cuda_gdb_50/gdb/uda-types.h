@@ -39,9 +39,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  */
  *
  * This data types used to define the API for the dynamically
  * loaded UDA library are derived from the Etnus upc_assistant.h
- * header file [Modified by Allinea Software.
- * header file [
- * header file [Copyright (C) Allinea Software Ltd. 2013
  * header file [Copyright (C) 2001-2002 Etnus, LLC] originally
  * developed by James Cownie.
  * See: http://www.etnus.com/Support/developers/upc_assistant.h

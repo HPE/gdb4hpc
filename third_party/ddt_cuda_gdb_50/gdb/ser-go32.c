@@ -1,7 +1,4 @@
 /* Remote serial interface for local (hardwired) serial ports for GO32.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1992, 1993, 2000, 2001, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 

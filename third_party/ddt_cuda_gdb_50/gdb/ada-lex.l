@@ -1,7 +1,4 @@
 /* FLEX lexer for Ada expressions, for GDB.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1994, 1997, 1998, 2000, 2001, 2002, 2003, 2007, 2008, 2009,
    2010 Free Software Foundation, Inc.
 

@@ -1,8 +1,5 @@
 /* Everything about breakpoints, for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
@@ -3144,13 +3141,14 @@ bpstat_find_breakpoint (bpstat bsp, struct breakpoint *breakpoint)
    Return 1 otherwise.  */
 
 int
-bpstat_num (bpstat *bsp, int *num)
+bpstat_num (bpstat *bsp, int *num, char *stop)
 {
   struct breakpoint *b;
 
   if ((*bsp) == NULL)
     return 0;			/* No more breakpoint values */
 
+  *stop = (*bsp)->stop;
   /* We assume we'll never have several bpstats that
      correspond to a single breakpoint -- otherwise, 
      this function might return the same number more

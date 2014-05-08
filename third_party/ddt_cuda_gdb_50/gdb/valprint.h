@@ -1,8 +1,5 @@
 /* Declarations for value printing routines for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1991, 1992, 1993, 1994, 2000, 2005, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
 

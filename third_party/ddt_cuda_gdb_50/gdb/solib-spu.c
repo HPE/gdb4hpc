@@ -1,7 +1,4 @@
 /* Cell SPU GNU/Linux support -- shared library handling.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
    Contributed by Ulrich Weigand <uweigand@de.ibm.com>.

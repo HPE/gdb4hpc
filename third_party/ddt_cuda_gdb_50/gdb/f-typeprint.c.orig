@@ -1,8 +1,5 @@
 /* Support for printing Fortran types for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1991, 1993, 1994, 1995, 1996, 1998, 2000,
    2001, 2002, 2003, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.

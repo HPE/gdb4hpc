@@ -41,9 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  */
  * the dynamically loaded UDA plugin is derived from
  * the Etnus upc_assistant.h header file originally
  * developed by James Cownie.
- * [Modified by Allinea Software.
- * [
- * [Copyright (C) Allinea Software Ltd. 2013
  * [Copyright (C) 2001-2002 Etnus, LLC]
  * See: http://www.etnus.com/Support/developers/upc_assistant.h
  *

@@ -2,9 +2,6 @@
    Written by Fred Fish <fnf@cygnus.com>
    Rewritten by Jim Blandy <jimb@cygnus.com>
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1999, 2000, 2002, 2003, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 

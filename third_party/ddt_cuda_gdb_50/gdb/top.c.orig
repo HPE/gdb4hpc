@@ -1,8 +1,5 @@
 /* Top level stuff for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
@@ -85,7 +82,6 @@
 #include <ctype.h>
 #include "ui-out.h"
 #include "cli-out.h"
-#include <setjmp.h>
 
 /* Default command line prompt.  This is overriden in some configs. */
 
@@ -298,9 +294,6 @@ void (*deprecated_set_hook) (struct cmd_list_element * c);
 
 void (*deprecated_context_hook) (int id);
 
-static int recover_on_fatal_error_p = 0;
-static sigjmp_buf recover_jmp_buf;
-
 /* Handler for SIGHUP.  */
 
 #ifdef SIGHUP
@@ -375,38 +368,6 @@ prepare_execute_command (void)
     target_dcache_invalidate ();
 }
 
-static void
-handle_recovery (int sig)
-{
-  signal (sig, SIG_DFL);
-  printf_unfiltered (_("%s\n"), strsignal (sig));  
-  siglongjmp (recover_jmp_buf, sig);
-}
-
-static void
-init_recovery_signals ()
-{
-  signal (SIGABRT, handle_recovery);
-#ifdef SIGSEGV
-  signal (SIGSEGV, handle_recovery);
-#endif
-#ifdef SIGBUS
-  signal (SIGBUS, handle_recovery);
-#endif
-}
-
-static void
-restore_recovery_signals (void *arg)
-{
-  signal (SIGABRT, SIG_DFL);
-#ifdef SIGSEGV
-  signal (SIGSEGV, SIG_DFL);
-#endif
-#ifdef SIGBUS
-  signal (SIGBUS, SIG_DFL);
-#endif
-}
-
 /* Execute the line P as a command, in the current user context.
    Pass FROM_TTY as second argument to the defining function.  */
 
@@ -417,21 +378,8 @@ execute_command (char *p, int from_tty)
   enum language flang;
   static int warned = 0;
   char *line;
-  struct cleanup *old_chain = make_cleanup (null_cleanup, NULL);
 
   prepare_execute_command ();
-
-  if (recover_on_fatal_error_p)
-    {
-      init_recovery_signals ();
-      make_cleanup (restore_recovery_signals, NULL);
-      if (sigsetjmp (recover_jmp_buf, 1))
-        {
-	  restore_recovery_signals (NULL);
-          do_cleanups (old_chain);
-          return;
-        }
-   }
 
   /* Force cleanup of any alloca areas if using C alloca instead of
      a builtin alloca.  */
@@ -500,8 +448,6 @@ execute_command (char *p, int from_tty)
 
     }
 
-  do_cleanups (old_chain);
-
   /* Tell the user if the language has changed (except first time).
      First make sure that a new frame has been selected, in case this
      command or the hooks changed the program state.  */
@@ -531,7 +477,7 @@ execute_command (char *p, int from_tty)
 	  printf_filtered ("%s\n", lang_frame_mismatch_warn);
 	  warned = 1;
 	}
-    }   
+    }
 }
 
 /* Run execute_command for P and FROM_TTY.  Capture its output into the
@@ -1116,7 +1062,7 @@ print_gdb_version (struct ui_file *stream)
 
   /* Second line is a copyright notice. */
 
-  fprintf_filtered (stream, "Modified by Allinea Software.\nCopyright (C) Allinea Software Ltd. 2013\nCopyright (C) 2010 Free Software Foundation, Inc.\n");
+  fprintf_filtered (stream, "Copyright (C) 2010 Free Software Foundation, Inc.\n");
 
   /* Following the copyright is a brief statement that the program is
      free software, that users are free to copy and change it on
@@ -1574,16 +1520,6 @@ show_exec_done_display_p (struct ui_file *file, int from_tty,
 Notification of completion for asynchronous execution commands is %s.\n"),
 		    value);
 }
-
-static void
-show_recover_on_fatal_error_p (struct ui_file *file, int from_tty,
-			       struct cmd_list_element *c, const char *value)
-{
-  fprintf_filtered (file, _("\
-Continue after fatal error is %s.\n"),
-		    value);
-}
-
 static void
 init_main (void)
 {
@@ -1716,16 +1652,6 @@ When set, GDB uses the specified path to search for data files."),
                            NULL, NULL,
                            &setlist,
                            &showlist);
-  
-  add_setshow_boolean_cmd ("continue-on-fatal-error", class_maintenance,
-			   &recover_on_fatal_error_p, _("\
-Set whether GDB should continue after a fatal error"), _("\
-Show whether GDB should continue after a fatal error"), _("\
-If on GDB will return the command prompt after an abort, segmentation fault or\
-bus error.  If off (the default) GDB will terminate."),
-			   NULL,
-			   show_recover_on_fatal_error_p,
-			   &setlist, &showlist);
 }
 
 void

@@ -1,8 +1,5 @@
 /* GNU/Linux native-dependent code common to multiple platforms.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
@@ -1801,42 +1798,45 @@ linux_nat_detach (struct target_ops *ops, char *args, int from_tty)
 
   iterate_over_lwps (pid_to_ptid (pid), detach_callback, NULL);
 
-  /* Only the initial process should be left right now.  */
-  gdb_assert (num_lwps (GET_PID (inferior_ptid)) == 1);
-
   main_lwp = find_lwp_pid (pid_to_ptid (pid));
+  if (main_lwp)
+  {
+    /* Only the initial process should be left right now.  */
+    gdb_assert (num_lwps (GET_PID (inferior_ptid)) == 1);
 
-  /* Pass on any pending signal for the last LWP.  */
-  if ((args == NULL || *args == '\0')
-      && get_pending_status (main_lwp, &status) != -1
-      && WIFSTOPPED (status))
-    {
-      /* Put the signal number in ARGS so that inf_ptrace_detach will
-	 pass it along with PTRACE_DETACH.  */
-      args = alloca (8);
-      sprintf (args, "%d", (int) WSTOPSIG (status));
-      if (debug_linux_nat)
-	fprintf_unfiltered (gdb_stdlog,
-			    "LND: Sending signal %s to %s\n",
-			    args,
-			    target_pid_to_str (main_lwp->ptid));
-    }
 
-  delete_lwp (main_lwp->ptid);
+    /* Pass on any pending signal for the last LWP.  */
+    if ((args == NULL || *args == '\0')
+        && get_pending_status (main_lwp, &status) != -1
+        && WIFSTOPPED (status))
+      {
+        /* Put the signal number in ARGS so that inf_ptrace_detach will
+	   pass it along with PTRACE_DETACH.  */
+        args = alloca (8);
+        sprintf (args, "%d", (int) WSTOPSIG (status));
+        if (debug_linux_nat)
+	  fprintf_unfiltered (gdb_stdlog,
+			      "LND: Sending signal %s to %s\n",
+			      args,
+			      target_pid_to_str (main_lwp->ptid));
+      }
 
-  if (forks_exist_p ())
-    {
-      /* Multi-fork case.  The current inferior_ptid is being detached
-	 from, but there are other viable forks to debug.  Detach from
-	 the current fork, and context-switch to the first
-	 available.  */
-      linux_fork_detach (args, from_tty);
+    delete_lwp (main_lwp->ptid);
 
-      if (non_stop && target_can_async_p ())
- 	target_async (inferior_event_handler, 0);
-    }
-  else
-    linux_ops->to_detach (ops, args, from_tty);
+    if (forks_exist_p ())
+      {
+        /* Multi-fork case.  The current inferior_ptid is being detached
+	   from, but there are other viable forks to debug.  Detach from
+	   the current fork, and context-switch to the first
+	   available.  */
+        linux_fork_detach (args, from_tty);
+
+        if (non_stop && target_can_async_p ())
+ 	  target_async (inferior_event_handler, 0);
+      }
+    else
+      linux_ops->to_detach (ops, args, from_tty);
+  }
 }
 
 /* Resume LP.  */

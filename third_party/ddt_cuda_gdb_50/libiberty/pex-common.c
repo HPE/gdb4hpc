@@ -1,7 +1,4 @@
 /* Common code for executing a program in a sub-process.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2005 Free Software Foundation, Inc.
    Written by Ian Lance Taylor <ian@airs.com>.
 

@@ -3,16 +3,10 @@
    Contributed by: Gary Funck <gary@intrepid.com>
 
    Derived from the upc_assistant.h header file, developed by
-   James Cownie [Modified by Allinea Software.
-   James Cownie [
-   James Cownie [Copyright (C) Allinea Software Ltd. 2013
    James Cownie [Copyright (C) 2001-2002 Etnus, LLC, Permission
    is granted to use, reproduce, prepare derivative works,
    and to redistribute to others.]
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2007 Free Software Foundation, Inc.
 
    This file is part of GDB.

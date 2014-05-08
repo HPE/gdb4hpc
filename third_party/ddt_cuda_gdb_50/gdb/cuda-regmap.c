@@ -1,7 +1,4 @@
 /*
- * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
- * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 

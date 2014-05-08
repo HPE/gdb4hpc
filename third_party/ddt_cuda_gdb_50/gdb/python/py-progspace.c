@@ -1,8 +1,5 @@
 /* Python interface to program spaces.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2010 Free Software Foundation, Inc.
 
    This file is part of GDB.

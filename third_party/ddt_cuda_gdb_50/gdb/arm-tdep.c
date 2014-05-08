@@ -1,8 +1,5 @@
 /* Common target dependent code for GDB on ARM systems.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1988, 1989, 1991, 1992, 1993, 1995, 1996, 1998, 1999, 2000,
    2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -1817,23 +1814,15 @@ arm_analyze_prologue (struct gdbarch *gdbarch,
       else if (arm_instruction_changes_pc (insn))
 	/* Don't scan past anything that might change control flow.  */
 	break;
-      else if ((insn & 0xfe500000) == 0xe8100000)	/* ldm */
-	{
-	  /* Ignore block loads from the stack, potentially copying
-	     parameters from memory.  */
-	  if (pv_is_register (regs[bits (insn, 16, 19)], ARM_SP_REGNUM))
-	    continue;
-	  else
-	    break;
-	}
-      else if ((insn & 0xfc500000) == 0xe4100000)
-	{
-	  /* Similarly ignore single loads from the stack.  */
-	  if (pv_is_register (regs[bits (insn, 16, 19)], ARM_SP_REGNUM))
-	    continue;
-	  else
-	    break;
-	}
+      else if ((insn & 0xfe500000) == 0xe8100000	/* ldm */
+	       && pv_is_register (regs[bits (insn, 16, 19)], ARM_SP_REGNUM))
+	/* Ignore block loads from the stack, potentially copying
+	   parameters from memory.  */
+	continue;
+      else if ((insn & 0xfc500000) == 0xe4100000
+	       && pv_is_register (regs[bits (insn, 16, 19)], ARM_SP_REGNUM))
+	/* Similarly ignore single loads from the stack.  */
+	continue;
       else if ((insn & 0xffff0ff0) == 0xe1a00000)
 	/* MOV Rd, Rm.  Skip register copies, i.e. saves to another
 	   register instead of the stack.  */

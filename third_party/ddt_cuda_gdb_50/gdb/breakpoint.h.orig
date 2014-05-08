@@ -1,7 +1,4 @@
 /* Data structures associated with breakpoints in GDB.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
    2002, 2003, 2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
@@ -802,7 +799,7 @@ extern enum print_stop_action bpstat_print (bpstat);
    Return -1 if stopped at a breakpoint that has been deleted since
    we set it.
    Return 1 otherwise.  */
-extern int bpstat_num (bpstat *, int *);
+extern int bpstat_num (bpstat *, int *, char *stop);
 
 /* Perform actions associated with the stopped inferior.  Actually, we
    just use this for breakpoint commands.  Perhaps other actions will

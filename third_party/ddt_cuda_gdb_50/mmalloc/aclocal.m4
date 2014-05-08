@@ -1,8 +1,5 @@
 dnl aclocal.m4 generated automatically by aclocal 1.4
 
-dnl Modified by Allinea Software.
-dnl 
-dnl Copyright (C) Allinea Software Ltd. 2013
 dnl Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,

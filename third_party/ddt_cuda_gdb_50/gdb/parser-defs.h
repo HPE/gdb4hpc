@@ -1,8 +1,5 @@
 /* Parser definitions for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
    1998, 1999, 2000, 2002, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.

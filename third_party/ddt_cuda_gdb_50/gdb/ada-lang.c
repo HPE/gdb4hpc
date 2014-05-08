@@ -1,6 +1,3 @@
-/* Ada language support routines for GDB, the GNU debugger.  Modified by Allinea Software.
-/* Ada language support routines for GDB, the GNU debugger.  
-/* Ada language support routines for GDB, the GNU debugger.  Copyright (C) Allinea Software Ltd. 2013
 /* Ada language support routines for GDB, the GNU debugger.  Copyright (C)
 
    1992, 1993, 1994, 1997, 1998, 1999, 2000, 2003, 2004, 2005, 2007, 2008,

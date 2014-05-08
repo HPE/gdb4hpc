@@ -11,9 +11,6 @@ END-INFO-DIR-ENTRY
 This file documents the GNU mmalloc (mapped-malloc) package, written by
 fnf@@cygnus.com, based on GNU malloc written by mike@@ai.mit.edu.
 
-Modified by Allinea Software.
-
-Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1992 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of

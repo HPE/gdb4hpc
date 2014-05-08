@@ -1,8 +1,5 @@
 /* Objective-C language support routines for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 

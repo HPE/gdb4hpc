@@ -1,8 +1,5 @@
 /* General utility routines for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
    2009, 2010 Free Software Foundation, Inc.
@@ -21,24 +18,6 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
-
-/*
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2011 NVIDIA Corporation
- * Modified from the original GDB file referenced above by the CUDA-GDB 
- * team at NVIDIA <cudatools@nvidia.com>.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 3 as
- * published by the Free Software Foundation.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "defs.h"
 #include "gdb_assert.h"
@@ -95,10 +74,6 @@
 #include "gdb_usleep.h"
 #include "interps.h"
 
-#ifdef USE_MMALLOC
-#include "mmalloc.h"
-#endif
-
 #if !HAVE_DECL_MALLOC
 extern PTR malloc ();		/* ARI: PTR */
 #endif
@@ -122,10 +97,6 @@ static void vfprintf_maybe_filtered (struct ui_file *, const char *,
 static void fputs_maybe_filtered (const char *, struct ui_file *, int);
 
 static void do_my_cleanups (struct cleanup **, struct cleanup *);
-
-#if defined (USE_MMALLOC) && !defined (NO_MMCHECK)
-static void malloc_botch (void);
-#endif
 
 static void prompt_for_continue (void);
 
@@ -752,29 +723,12 @@ discard_all_inferior_continuations (struct inferior *inf)
   inf->continuations = NULL;
 }
 
-/* CUDA - focus */
-struct thread_cleanup
-{
-  ptid_t ptid;
-  cuda_coords_t cuda_coords;
-};
-
 static void
 restore_thread_cleanup (void *arg)
 {
-  struct thread_cleanup *old = arg;
+  ptid_t *ptid_p = arg;
 
-  /* CUDA - focus */
-  /* If the focus was previously set on a CUDA device, restore it there.
-     Otherwise, restore it on the host thread. */
-  if (old->cuda_coords.valid)
-    {
-      cuda_coords_set_current (&old->cuda_coords);
-      switch_to_cuda_thread (NULL);
-      return;
-    }
-
-  switch_to_thread (old->ptid);
+  switch_to_thread (*ptid_p);
 }
 
 /* Walk down the continuation list of PTID, and execute all the
@@ -790,14 +744,13 @@ do_all_continuations_ptid (ptid_t ptid,
 			   struct continuation **continuations_p)
 {
   struct cleanup *old_chain;
+  ptid_t current_thread;
   struct cleanup *as_cleanup;
-  struct thread_cleanup save;
 
   if (*continuations_p == NULL)
     return;
 
-  save.ptid = inferior_ptid;
-  cuda_coords_get_current (&save.cuda_coords);
+  current_thread = inferior_ptid;
 
   /* Restore selected thread on exit.  Don't try to restore the frame
      as well, because:
@@ -808,7 +761,7 @@ do_all_continuations_ptid (ptid_t ptid,
       change the frame layout (frame ids change), which would trigger
       a warning if we used make_cleanup_restore_current_thread.  */
 
-  old_chain = make_cleanup (restore_thread_cleanup, &save);
+  old_chain = make_cleanup (restore_thread_cleanup, &current_thread);
 
   /* Let the continuation see this thread as selected.  */
   switch_to_thread (ptid);
@@ -1437,94 +1390,6 @@ quit (void)
 }
 
 
-/* Memory management stuff (malloc friends).  */	 
-
-#if !defined (USE_MMALLOC)
-
-static void *
-mmalloc (void *md, size_t size)	 
-{
-   return xmalloc (size);
-}
-
-static void *
-mrealloc (void *md, void *ptr, size_t size)	 
-{
-  if (ptr == 0)                 /* Guard against old realloc's */	 
-    return mmalloc (md, size);	 
-  else	 
-    return xrealloc (ptr, size);
-}
-
-static void *
-mcalloc (void *md, size_t number, size_t size)	 
-{
-   return xcalloc (number, size);
-}
-
-static void
-mfree (void *md, void *ptr)	 
-{
-  xfree (ptr);
-}
-
-#endif /* USE_MMALLOC */
-
-#if !defined (USE_MMALLOC) || defined (NO_MMCHECK)
-
-void
-init_malloc (void *md)
-{
-}
-
-#else /* Have mmalloc and want corruption checking */
-
-static void
-malloc_botch (void)
-{
-  fprintf_unfiltered (gdb_stderr, "Memory corruption\n");
-  internal_error (__FILE__, __LINE__, "failed internal consistency check");
-}
-
-/* Attempt to install hooks in mmalloc/mrealloc/mfree for the heap specified
-   by MD, to detect memory corruption.  Note that MD may be NULL to specify
-   the default heap that grows via sbrk.
-
-   Note that for freshly created regions, we must call mmcheckf prior to any
-   mallocs in the region.  Otherwise, any region which was allocated prior to
-   installing the checking hooks, which is later reallocated or freed, will
-   fail the checks!  The mmcheck function only allows initial hooks to be
-   installed before the first mmalloc.  However, anytime after we have called
-   mmcheck the first time to install the checking hooks, we can call it again
-   to update the function pointer to the memory corruption handler.
-
-   Returns zero on failure, non-zero on success. */
-
-#ifndef MMCHECK_FORCE
-#define MMCHECK_FORCE 0
-#endif
-
-void
-init_malloc (void *md)
-{
-  if (!mmcheckf (md, malloc_botch, MMCHECK_FORCE))
-    {
-      /* Don't use warning(), which relies on current_target being set
-         to something other than dummy_target, until after
-         initialize_all_files(). */
-
-      fprintf_unfiltered
-	(gdb_stderr,
-	 "warning: failed to install memory consistency checks; ");
-      fprintf_unfiltered (gdb_stderr,
-			  "configuration should define NO_MMCHECK or MMCHECK_FORCE\n");
-    }
-
-  mmtrace ();
-}
-
-#endif /* Have mmalloc and want corruption checking  */
-
 /* Called when a memory allocation fails, with the number of bytes of
    memory requested in SIZE. */
 
@@ -1544,100 +1409,6 @@ nomem (long size)
 }
 
 /* The xmalloc() (libiberty.h) family of memory management routines.
-
-   These are like the ISO-C malloc() family except that they implement
-   consistent semantics and guard against typical memory management
-   problems.  */
-
-/* NOTE: These are declared using PTR to ensure consistency with
-   "libiberty.h".  xfree() is GDB local.  */
-
-PTR				/* ARI: PTR */
-xmmalloc (void *md, size_t size)
-{
-  void *val;
-
-  if (md == NULL)
-    return xmalloc (size);
-  
-  /* See libiberty/xmalloc.c.  This function need's to match that's
-     semantics.  It never returns NULL.  */
-  if (size == 0)
-    size = 1;
-
-  val = mmalloc (md, size);		/* ARI: mmalloc */
-  if (val == NULL)
-    nomem (size);
-
-  return (val);
-}
-
-void *
-xmzalloc (void *md, size_t size)
-{
-  if (md == NULL)
-    return xcalloc (1, size);
-  
-  return xmcalloc (md, 1, size);
-}
-
-PTR				/* ARI: PTR */
-xmrealloc (void *md, PTR ptr, size_t size)	/* ARI: PTR */
-{
-  void *val;
-
-  if (md == NULL)
-    return xrealloc (ptr, size);
-  
-  /* See libiberty/xmalloc.c.  This function need's to match that's
-     semantics.  It never returns NULL.  */
-  if (size == 0)
-    size = 1;
-
-  if (ptr != NULL)
-    val = mrealloc (md, ptr, size);	/* ARI: mrealloc */
-  else
-    val = mmalloc (md, size);		/* ARI: mmalloc */
-  if (val == NULL)
-    nomem (size);
-
-  return (val);
-}
-
-PTR				/* ARI: PTR */
-xmcalloc (void *md, size_t number, size_t size)
-{
-  void *mem;
-
-  if (md == NULL)
-    return xcalloc (number, size);
-  
-  /* See libiberty/xmalloc.c.  This function need's to match that's
-     semantics.  It never returns NULL.  */
-  if (number == 0 || size == 0)
-    {
-      number = 1;
-      size = 1;
-    }
-
-  mem = mcalloc (md, number, size);		/* ARI: mcalloc */
-  if (mem == NULL)
-    nomem (number * size);
-
-  return mem;
-}
-
-void
-xmfree (void *md, void *ptr)
-{
-  if (md == NULL)
-    return xfree (ptr);
-  
-  if (ptr != NULL)
-    mfree (md, ptr);		/* ARI: mfree */
-}
-
-/* The xmalloc() (libiberty) family of memory management routines.
 
    These are like the ISO-C malloc() family except that they implement
    consistent semantics and guard against typical memory management
@@ -1811,21 +1582,6 @@ savestring (const char *ptr, size_t size)
   memcpy (p, ptr, size);
   p[size] = 0;
   return p;
-}
-  
-char *
-msavestring (void *md, const char *ptr, size_t size)
-{
-  char *p = (char *) xmmalloc (md, size + 1);
-  memcpy (p, ptr, size);
-  p[size] = 0;
-  return p;
-}
-
-char *
-mstrsave (void *md, const char *ptr)
-{
-  return (msavestring (md, ptr, strlen (ptr)));
 }
 
 void
@@ -3143,11 +2899,7 @@ strcmp_iw (const char *string1, const char *string2)
 	  string2++;
 	}
     }
-  while (isspace (*string1))
-    {
-      string1++;
-    }
-  return (*string1 != '\0' && *string1 != '(' && !isstartoftemplate (string1)) || (*string2 != '\0');
+  return (*string1 != '\0' && *string1 != '(') || (*string2 != '\0');
 }
 
 /* This is like strcmp except that it ignores whitespace and treats
@@ -3222,40 +2974,12 @@ strcmp_iw_ordered (const char *string1, const char *string2)
 	return 1;
       else
 	return -1;
-    case '<':
-      if (isstartoftemplate (string1))
-	{
-	  if (*string2 == '\0')
-	    return 1;
-	  else
-	    return -1;
-	}
     default:
-      if (*string2 == '(' || isstartoftemplate (string2))
+      if (*string2 == '(')
 	return 1;
       else
 	return *string1 - *string2;
     }
-}
-
-static int
-isidentstartchar (char c)
-{
-  return (c >= 'A' && c <= 'Z')
-	 || (c >= 'a' && c <= 'z')
-	 || c == '_';
-}
-
-int
-isstartoftemplate (const char *s)
-{
-  if (*s++ != '<')
-    return 0;  
-  while (isspace (*s))
-    {
-      s++;
-    }
-  return isidentstartchar (*s);
 }
 
 /* A simple comparison function with opposite semantics to strcmp.  */
@@ -3305,14 +3029,6 @@ show_debug_timestamp (struct ui_file *file, int from_tty,
 		      struct cmd_list_element *c, const char *value)
 {
   fprintf_filtered (file, _("Timestamping debugging messages is %s.\n"), value);
-}
-
-static void
-sleep_command (char *arg, int from_tty)
-{
-  int n = atoi(arg);
-  if (n)
-    sleep (n);
 }
 
 
@@ -3381,10 +3097,6 @@ When set, debugging messages will be marked with seconds and microseconds."),
 			   NULL,
 			   show_debug_timestamp,
 			   &setdebuglist, &showdebuglist);
-
-  add_cmd ("sleep", class_support, sleep_command,
-	   _("Sleep for the given number of seconds."),
-	   &cmdlist);
 }
 
 /* Machine specific function to handle SIGWINCH signal. */
@@ -3821,28 +3533,50 @@ gdb_realpath (const char *filename)
   return xstrdup (filename);
 }
 
-/* Return the full path of FILENAME.  */
+/* Return a copy of FILENAME, with its directory prefix canonicalized
+   by gdb_realpath.  */
 
 char *
 xfullpath (const char *filename)
 {
-  char cwd[PATH_MAX];
-  char *fullpath;
+  const char *base_name = lbasename (filename);
+  char *dir_name;
+  char *real_path;
+  char *result;
 
-  if (IS_ABSOLUTE_PATH (filename))
+  /* Extract the basename of filename, and return immediately 
+     a copy of filename if it does not contain any directory prefix. */
+  if (base_name == filename)
+    return xstrdup (filename);
+
+  dir_name = alloca ((size_t) (base_name - filename + 2));
+  /* Allocate enough space to store the dir_name + plus one extra
+     character sometimes needed under Windows (see below), and
+     then the closing \000 character */
+  strncpy (dir_name, filename, base_name - filename);
+  dir_name[base_name - filename] = '\000';
+
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+  /* We need to be careful when filename is of the form 'd:foo', which
+     is equivalent of d:./foo, which is totally different from d:/foo.  */
+  if (strlen (dir_name) == 2 && isalpha (dir_name[0]) && dir_name[1] == ':')
     {
-      fullpath = xstrdup (filename);
+      dir_name[2] = '.';
+      dir_name[3] = '\000';
     }
+#endif
+
+  /* Canonicalize the directory prefix, and build the resulting
+     filename. If the dirname realpath already contains an ending
+     directory separator, avoid doubling it.  */
+  real_path = gdb_realpath (dir_name);
+  if (IS_DIR_SEPARATOR (real_path[strlen (real_path) - 1]))
+    result = concat (real_path, base_name, (char *) NULL);
   else
-    {
-      if (getcwd (cwd, PATH_MAX))
-        fullpath = concat (cwd, SLASH_STRING, filename, NULL);
-      else
-        fullpath = xstrdup (filename);
-    }
-  simplify_path (fullpath);
+    result = concat (real_path, SLASH_STRING, base_name, (char *) NULL);
 
-  return fullpath;
+  xfree (real_path);
+  return result;
 }
 
 

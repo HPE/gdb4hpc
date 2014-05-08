@@ -1,8 +1,5 @@
 /* Target-dependent definitions for K1OM.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2012 Free Software Foundation, Inc.
 
    Contributed by Intel Corporation.

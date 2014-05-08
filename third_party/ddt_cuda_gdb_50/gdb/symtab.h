@@ -1,8 +1,5 @@
 /* Symbol table definitions for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -154,6 +151,7 @@ struct general_symbol_info
   /* The section associated with this symbol.  It can be NULL.  */
 
   struct obj_section *obj_section;
+
 };
 
 extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, struct obj_section *);
@@ -626,6 +624,8 @@ struct symbol
 
   void *aux_value;
 
+  void* xml_cu;
+
   struct symbol *hash_next;
 };
 
@@ -640,6 +640,8 @@ struct symbol
 #define SYMBOL_COMPUTED_OPS(symbol)     (symbol)->ops.ops_computed
 #define SYMBOL_REGISTER_OPS(symbol)     (symbol)->ops.ops_register
 #define SYMBOL_LOCATION_BATON(symbol)   (symbol)->aux_value
+#define SYMBOL_XML_CU(symbol)           (symbol)->xml_cu
+
 
 /* Each item represents a line-->pc (or the reverse) mapping.  This is
    somewhat more wasteful of space than one might wish, but since only
@@ -849,6 +851,11 @@ int symbol_matches_domain (enum language symbol_language,
 /* lookup a symbol table by source file name */
 
 extern struct symtab *lookup_symtab (const char *);
+
+extern struct symbol *lookup_symbol_aux_local (const char *name,
+					const struct block *block,
+					const domain_enum domain,
+					enum language language);
 
 /* lookup a symbol by name (optional block) in language.  */
 

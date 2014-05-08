@@ -1,7 +1,4 @@
 /* Allocate memory on a page boundary.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1991 Free Software Foundation, Inc.
 
 The GNU C Library is free software; you can redistribute it and/or

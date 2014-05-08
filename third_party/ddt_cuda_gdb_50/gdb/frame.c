@@ -1,8 +1,5 @@
 /* Cache and manage frames for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1989, 1991, 1994, 1995, 1996, 1998, 2000, 2001,
    2002, 2003, 2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
@@ -67,6 +64,8 @@
 #include  "tracepoint.h"
 #include "cuda-tdep.h"
 #include "cuda-frame.h"
+
+#include "xml-source-to-source.h"
 
 struct frame_info *get_prev_frame_1 (struct frame_info *this_frame);
 static struct frame_info *get_prev_frame_raw (struct frame_info *this_frame);
@@ -1322,7 +1321,26 @@ select_frame (struct frame_info *fi)
      the event notification can be moved here, since this function will only
      be called when the user's selected frame is being changed. */
 
-  /* Ensure that symbols for this frame are read in.  Also, determine the
+  /*
+    Ensure that symbols for this frame are read in and switch to source language
+    of frame. First, try new CAPS methods for frame-foolery  */
+
+  if (fi)
+    {
+      CORE_ADDR frame_pc;
+      /* Allinea: CAPS v3.2 onwards - more DWARF-like frame info */
+      struct block* block;
+      frame_pc = get_frame_address_in_block (fi);
+      block = block_for_pc (frame_pc);
+      if (is_caps_v32_symbols_enabled (block))
+        {
+          enum language lang = caps_v32_language (block);
+          set_language (lang);
+          return;
+        }
+    }
+
+  /* Also, determine the
      source language of this frame, and switch to it if desired.  */
   if (fi)
     {

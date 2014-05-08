@@ -1,8 +1,5 @@
 /* DWARF 2 location expression support for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2003, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 

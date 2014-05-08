@@ -1,7 +1,4 @@
 /* Shared library declarations for GDB, the GNU Debugger.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
    2001, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 

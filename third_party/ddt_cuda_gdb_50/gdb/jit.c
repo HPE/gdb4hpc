@@ -1,8 +1,5 @@
 /* Handle JIT code generation in the inferior for GDB, the GNU Debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
    This file is part of GDB.

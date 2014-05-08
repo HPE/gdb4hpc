@@ -1,8 +1,5 @@
 /* Perform arithmetic and other operations on values, for GDB.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009,
    2010 Free Software Foundation, Inc.
@@ -260,6 +257,7 @@ value_subscript (struct value *array, LONGEST index)
       if (TYPE_CODE (tarray) == TYPE_CODE_ARRAY
 	  && upc_shared_type_p (tarray))
 	return upc_value_subscript (array, index);
+      array = value_coerce_array (array);
     }
 
   if (c_style)
@@ -1613,6 +1611,10 @@ int
 value_equal_contents (struct value *arg1, struct value *arg2)
 {
   struct type *type1, *type2;
+
+  /* make sure the the contents are not of a capped length due to lazy fetching */
+  value_contents_ensure_unlimited(arg1);
+  value_contents_ensure_unlimited(arg2);
 
   type1 = check_typedef (value_type (arg1));
   type2 = check_typedef (value_type (arg2));

@@ -1,8 +1,5 @@
 /* Private partial symbol table definitions.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2009 Free Software Foundation, Inc.
 
    This file is part of GDB.

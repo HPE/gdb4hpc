@@ -1,5 +1,8 @@
 /* Symbol table lookup for the GNU debugger, GDB.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008, 2009,
    2010 Free Software Foundation, Inc.
@@ -20,6 +23,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -1386,30 +1392,6 @@ lookup_symbol_aux_symtabs (int block_index, const char *name,
   const struct block *block;
   struct symtab *s;
 
-  /* CUDA - duplicate extern symbols */
-  /* When the CUDA application is compiled in separate compilation mode, the
-     same device extern global appears in both the host and device code. The
-     device variable symbol should have priority.
-    
-     It is safe to do so because if there was an actual host global variable
-     with the same name, the host linker would have complained about it. */
-  if (domain == VAR_DOMAIN)
-    {
-      ALL_PRIMARY_SYMTABS (objfile_instance, s)
-        {
-          if (!objfile_instance->objfile->cuda_objfile)
-            continue;
-          bv = BLOCKVECTOR (s);
-          block = BLOCKVECTOR_BLOCK (bv, block_index);
-          sym = lookup_block_symbol (block, name, domain);
-          if (sym)
-            {
-              block_found = block;
-              return fixup_symbol_section (sym, objfile_instance->objfile);
-            }
-        }
-    }
-
   ALL_OBJFILES (objfile_instance)
   {
     struct objfile *objfile = objfile_instance->objfile;
@@ -1875,22 +1857,12 @@ find_pc_sect_symtab (CORE_ADDR pc, struct obj_section *section)
 
      It also happens for objfiles that have their functions reordered.
      For these, the symtab we are looking for is not necessarily read in.  */
+
   ALL_PRIMARY_SYMTABS (objfile_instance, s)
   {
     struct objfile *objfile = objfile_instance->objfile;
     bv = BLOCKVECTOR (s);
     b = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
-
-    /* CUDA - interleaving */
-    /* CUDA objfiles are not allocated as a single block of memory. Instead of
-       erroneously getting the GLOBAL_BLOCK for those objfiles, we find the
-       innermost block containing the PC for that symtab. */
-    if (objfile->cuda_objfile)
-      {
-        struct blockvector *found = blockvector_for_pc_sect (pc, section, &b, s);
-        if (!found)
-          continue;
-      }
 
     /* CUDA - overlapping objfiles */
     /* For reasons yet not fully understood, it sometimes happens that the PC
@@ -1963,16 +1935,10 @@ find_pc_sect_symtab (CORE_ADDR pc, struct obj_section *section)
 
     if (!objfile->sf)
       continue;
-
-    /* CUDA - no psymtab-based optimization */
-    /* Because the optimization above has been turned off for CUDA objfiles,
-       it is now possible to call this function when the partial symbol table
-       has already been read in. We must take it into account when deciding to
-       emit a warning about it. */
     result = objfile->sf->qf->find_pc_sect_symtab (objfile,
 						   msymbol,
 						   pc, section,
-						   !objfile->cuda_objfile);
+						   1);
     if (result)
       return result;
   }
@@ -2146,19 +2112,8 @@ find_pc_sect_line (CORE_ADDR pc, struct obj_section *section, int notcurrent)
      They all have the same apriori range, that we found was right;
      but they have different line tables.  */
 
-  /* CUDA - symtabs */
-  /* The for loop below is wrong. We have to iterate over all the symtabs, not
-     just the symtabs after 's' in the list of symtabs. Otherwise, we may miss
-     some entries. */
-#if 0
   for (; s && BLOCKVECTOR (s) == bv; s = s->next)
     {
-#else
-  ALL_OBJFILE_SYMTABS (s->objfile, s)
-    {
-      if (BLOCKVECTOR (s) != bv)
-        continue;
-#endif
       /* Find the best line in this symtab.  */
       l = LINETABLE (s);
       if (!l)
@@ -4833,16 +4788,6 @@ expand_line_sal (struct symtab_and_line sal)
                debug information is missing)
          */
         global_block = block_global_block (blocks[i]);
-
-        /* CUDA - line info */
-        /* If the global block has not start/end address, we are debugging a
-         * binary that has no debug information. In that situation, we do not
-         * want to eliminate the duplicate sals. */
-        if (ret.sals->symtab->objfile->cuda_objfile &&
-            global_block->startaddr == 0 &&
-            global_block->endaddr == 0)
-          continue;
-
         if (ret.sals->symtab->objfile->cuda_objfile &&
             blocks[i]->startaddr == global_block->startaddr &&
             blocks[i]->endaddr == global_block->endaddr)

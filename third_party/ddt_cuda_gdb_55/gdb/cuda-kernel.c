@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -121,6 +124,8 @@ kernel_new (uint32_t dev_id, uint64_t grid_id, uint64_t virt_code_base,
   uint32_t   name_len;
   char      *name_copy;
   kernel_t   parent_kernel;
+
+
 
   parent_kernel = kernels_find_kernel_by_grid_id (dev_id, parent_grid_id);
   if (!parent_kernel && origin == CUDBG_KNL_ORIGIN_GPU)
@@ -536,8 +541,16 @@ kernels_add_parent_kernel (uint32_t dev_id, uint64_t grid_id, uint64_t *parent_g
 {
   CUDBGGridInfo grid_info;
   CUDBGGridInfo parent_grid_info;
+  CUDBGGridStatus grid_status;
+
+  cuda_api_get_grid_status (dev_id, grid_id, &grid_status);
+  if (grid_status != CUDBG_GRID_STATUS_ACTIVE && grid_status != CUDBG_GRID_STATUS_SLEEPING) return;
 
   cuda_api_get_grid_info (dev_id, grid_id, &grid_info);
+
+  cuda_api_get_grid_status (dev_id, grid_info.parentGridId, &grid_status);
+  if (grid_status != CUDBG_GRID_STATUS_ACTIVE && grid_status != CUDBG_GRID_STATUS_SLEEPING) return;
+
   cuda_api_get_grid_info (dev_id, grid_info.parentGridId, &parent_grid_info);
   *parent_grid_id = parent_grid_info.gridId64;
   kernels_start_kernel (parent_grid_info.dev, parent_grid_info.gridId64,

@@ -68,6 +68,9 @@ OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
 
 The author of this software is David M. Gay.
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1998-2001 by Lucent Technologies
 All Rights Reserved
 
@@ -119,6 +122,9 @@ Austin, TX 78741
 
 (5) C.W. Sandmann
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1993 C.W. Sandmann
 
 This file may be freely distributed as long as the author's name remains.
@@ -132,6 +138,9 @@ left intact.  There is no warrantee on this software.
 
 (7) Sun Microsystems
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
 
 Developed at SunPro, a Sun Microsystems, Inc. business.
@@ -155,6 +164,9 @@ suitability of this software for any purpose.
 
 (9) Hans-Peter Nilsson
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 2001 Hans-Peter Nilsson
 
 Permission to use, copy, modify, and distribute this software is
@@ -168,6 +180,9 @@ PURPOSE.
 
 (10) Stephane Carrez (m68hc11-elf/m68hc12-elf targets only)
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1999, 2000, 2001, 2002 Stephane Carrez (stcarrez@nerim.fr)
 
 The authors hereby grant permission to use, copy, modify, distribute,
@@ -292,6 +307,9 @@ SUCH DAMAGE.
 
 (15) Andrey A. Chernov
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1997 by Andrey A. Chernov, Moscow, Russia.
 All rights reserved.
 
@@ -413,6 +431,9 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (20) DJ Delorie (i386)
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1991 DJ Delorie
 All rights reserved.
 
@@ -425,6 +446,9 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 (21) Free Software Foundation LGPL License (*-linux* targets only)
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1990-1999, 2000, 2001    Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Contributed by Mark Kettenis <kettenis@phys.uva.nl>, 1997.
@@ -446,6 +470,9 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 (22) Xavier Leroy LGPL License (i[3456]86-*-linux* targets only)
 
+Modified by Allinea Software.
+
+Copyright (C) Allinea Software Ltd. 2013
 Copyright (C) 1996 Xavier Leroy (Xavier.Leroy@inria.fr)
 
 This program is free software; you can redistribute it and/or
@@ -692,6 +719,9 @@ SUCH DAMAGE.
 
 (32) - Andrey A. Chernov (targets using libc/posix)
 
+  Modified by Allinea Software.
+  
+  Copyright (C) Allinea Software Ltd. 2013
   Copyright (C) 1996 by Andrey A. Chernov, Moscow, Russia.
   All rights reserved.
  

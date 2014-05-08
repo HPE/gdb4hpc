@@ -1,5 +1,8 @@
 /* TUI display source/assembly window.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006, 2007, 2008,
    2009, 2010 Free Software Foundation, Inc.
 

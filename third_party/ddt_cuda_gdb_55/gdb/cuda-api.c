@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -809,6 +812,29 @@ cuda_api_read_virtual_return_address (uint32_t dev, uint32_t sm, uint32_t wp, ui
         error (_("Error: Could not read virtual return address for level %u "
                  "(dev=%u, sm=%u, warp=%u, lane=%u, error=%u).\n"),
                api_call_level, dev, sm, wp, ln, res);
+    }
+}
+
+void
+cuda_api_read_device_exception_state (uint32_t dev, uint64_t *exceptionSMMask)
+{
+  CUDBGResult res;
+
+  gdb_assert (exceptionSMMask);
+
+  if (!api_initialized)
+    return;
+
+  if (cuda_remote)
+    res = cuda_remote_api_read_device_exception_state (dev, exceptionSMMask);
+  else
+    res = cudbgAPI->readDeviceExceptionState (dev, exceptionSMMask);
+  cuda_api_print_api_call_result(res);
+  if (res != CUDBG_SUCCESS)
+    {
+      error (_("Error: Could not read device exception state"
+               "(dev=%u, error=%u).\n"),
+             dev, res);
     }
 }
 

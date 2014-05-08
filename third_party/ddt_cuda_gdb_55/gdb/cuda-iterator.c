@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -108,6 +111,9 @@ cuda_iterator_create (cuda_iterator_type type, cuda_coords_t *filter, cuda_selec
         break;
       if (filter && filter->dev != CUDA_WILDCARD && filter->dev != dev)
         continue;
+
+      if (at_exception)
+        device_filter_exception_state (dev);
 
       for (sm = 0; sm < device_get_num_sms (dev); ++sm)
         {

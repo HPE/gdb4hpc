@@ -1,3 +1,6 @@
+# Modified by Allinea Software.
+# 
+# Copyright (C) Allinea Software Ltd. 2013
 # Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
 # 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 # Free Software Foundation, Inc.
@@ -190,7 +193,7 @@ clean-info:
 gdbserver$(EXEEXT): $(OBS) ${ADD_DEPS} ${CDEPS}
 	rm -f gdbserver$(EXEEXT)
 	${CC-LD} $(INTERNAL_CFLAGS) $(INTERNAL_LDFLAGS) -o gdbserver$(EXEEXT) $(OBS) \
-	  $(GDBSERVER_LIBS) $(XM_CLIBS)
+	  $(GDBSERVER_LIBS) $(XM_CLIBS) $(LD_FLAGS)
 
 gdbreplay$(EXEEXT): $(GDBREPLAY_OBS)
 	rm -f gdbreplay$(EXEEXT)

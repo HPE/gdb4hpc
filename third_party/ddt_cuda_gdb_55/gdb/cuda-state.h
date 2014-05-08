@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -47,6 +50,7 @@ uint32_t    device_get_num_warps           (uint32_t dev_id);
 uint32_t    device_get_num_lanes           (uint32_t dev_id);
 uint32_t    device_get_num_registers       (uint32_t dev_id);
 uint32_t    device_get_num_kernels         (uint32_t dev_id);
+void        device_filter_exception_state  (uint32_t dev_id);
 
 bool        device_is_valid                (uint32_t dev_id);
 bool        device_is_any_context_present  (uint32_t dev_id);

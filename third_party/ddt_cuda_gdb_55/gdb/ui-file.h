@@ -1,4 +1,7 @@
 /* UI_FILE - a generic STDIO like output stream.
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1999, 2000, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 

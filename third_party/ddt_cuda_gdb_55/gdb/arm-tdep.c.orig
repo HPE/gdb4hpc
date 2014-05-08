@@ -1,5 +1,8 @@
 /* Common target dependent code for GDB on ARM systems.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1988, 1989, 1991, 1992, 1993, 1995, 1996, 1998, 1999, 2000,
    2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -3907,7 +3910,7 @@ arm_register_type (struct gdbarch *gdbarch, int regnum)
    number.  */
 
 static int
-arm_dwarf_reg_to_regnum (struct gdbarch *gdbarch, int reg)
+arm_dwarf_reg_to_regnum (struct gdbarch *gdbarch, reg_t reg)
 {
   /* Core integer regs.  */
   if (reg >= 0 && reg <= 15)
@@ -3946,7 +3949,7 @@ arm_dwarf_reg_to_regnum (struct gdbarch *gdbarch, int reg)
     {
       char name_buf[4];
 
-      sprintf (name_buf, "s%d", reg - 64);
+      sprintf (name_buf, "s%lld", reg - 64);
       return user_reg_map_name_to_regnum (gdbarch, name_buf,
 					  strlen (name_buf));
     }
@@ -3957,7 +3960,7 @@ arm_dwarf_reg_to_regnum (struct gdbarch *gdbarch, int reg)
     {
       char name_buf[4];
 
-      sprintf (name_buf, "d%d", reg - 256);
+      sprintf (name_buf, "d%lld", reg - 256);
       return user_reg_map_name_to_regnum (gdbarch, name_buf,
 					  strlen (name_buf));
     }

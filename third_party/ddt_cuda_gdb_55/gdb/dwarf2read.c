@@ -1,5 +1,8 @@
 /* DWARF 2 debugging format support for GDB.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
                  2004, 2005, 2006, 2007, 2008, 2009, 2010
                  Free Software Foundation, Inc.
@@ -27,6 +30,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -7140,7 +7146,7 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
       baton->data = DW_BLOCK(attr)->data;
     }
   else 
-    if (attr->form == DW_FORM_ref4)
+    if (is_ref_attr (attr))
       {
 	int size;
 	struct die_info *ref_die =
@@ -7150,7 +7156,7 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
 	  {
 	    attr = dwarf2_attr(ref_die, DW_AT_location, cu);
 	    
-	    if (attr && attr->form == DW_FORM_block1)
+	    if (attr && attr_form_is_block (attr))
 	      {
 		baton = obstack_alloc (&cu->objfile->objfile_obstack,
 				       sizeof (struct dwarf2_loclist_baton));
@@ -7160,7 +7166,17 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
 		baton->per_cu = cu->per_cu;
 		baton->base_address = cu->base_address;
 
-		if (cu->producer && strstr (cu->producer, "GNU"))
+		// This GNU bug fixed in GCC 4.8
+		if (cu->producer
+		    && (strstr (cu->producer, "GNU 3")
+		     || strstr (cu->producer, "GNU 4.0")
+		     || strstr (cu->producer, "GNU 4.1")
+		     || strstr (cu->producer, "GNU 4.2")
+		     || strstr (cu->producer, "GNU 4.3")
+		     || strstr (cu->producer, "GNU 4.4")
+		     || strstr (cu->producer, "GNU 4.5")
+		     || strstr (cu->producer, "GNU 4.6")
+		     || strstr (cu->producer, "GNU 4.7")))
 		  {
 		    baton->size = size;
 		    baton->data = obstack_alloc (&cu->objfile->objfile_obstack,
@@ -10637,7 +10653,7 @@ wellformed:
 	 namespaces based on the demangled name.  */
       if (!processing_has_namespace_info
 	  && cu->language == language_cplus)
-	cp_scan_for_anonymous_namespaces (sym);
+	cp_scan_for_anonymous_namespaces (sym, objfile);
       
       if (bupc_context)
 	{
@@ -11225,7 +11241,29 @@ dwarf2_name (struct die_info *die, struct dwarf2_cu *cu)
 
   attr = dwarf2_attr (die, DW_AT_name, cu);
   if (!attr || !DW_STRING (attr))
-    return NULL;
+  {
+      /* Compiler support for some features such as OpenMP generates unnamed artificial
+       * subprograms. If GDB does not have an internal name for them, their local variables
+       * etc. will be invisible to GDB.
+       */
+      if ((die->tag == DW_TAG_subprogram) && dwarf2_attr (die, DW_AT_artificial, cu))
+      {
+          /* Look up the name used by the linker for the artificial subprogram to use
+           * internally.
+           */
+          CORE_ADDR lowpc, highpc;
+          if (dwarf2_get_pc_bounds (die, &lowpc, &highpc, cu, NULL))
+          {
+              struct minimal_symbol* minsym = lookup_minimal_symbol_by_pc (lowpc);
+              if (minsym)
+              {
+                  return SYMBOL_LINKAGE_NAME(minsym);
+              }
+          }
+      }
+
+      return NULL;
+  }
 
   switch (die->tag)
     {

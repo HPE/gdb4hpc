@@ -1,4 +1,7 @@
 /* Helper routines for C++ support in GDB.
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2003, 2004, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
@@ -74,7 +77,8 @@ static void maintenance_cplus_namespace (char *args, int from_tty);
 #define ANONYMOUS_NAMESPACE_LEN 21
 
 void
-cp_scan_for_anonymous_namespaces (const struct symbol *symbol)
+cp_scan_for_anonymous_namespaces (const struct symbol *symbol,
+				  struct objfile *objfile)
 {
   if (SYMBOL_DEMANGLED_NAME (symbol) != NULL &&
       SYMBOL_SYMTAB (symbol) != NULL &&
@@ -117,7 +121,7 @@ cp_scan_for_anonymous_namespaces (const struct symbol *symbol)
 		 namespace given by the previous component if there is
 		 one, or to the global namespace if there isn't.  */
 	      cp_add_using_directive (dest, src, NULL, NULL,
-	                              &SYMBOL_SYMTAB (symbol)->objfile->objfile_obstack);
+	                              &objfile->objfile_obstack);
 	    }
 	  /* The "+ 2" is for the "::".  */
 	  previous_component = next_component + 2;

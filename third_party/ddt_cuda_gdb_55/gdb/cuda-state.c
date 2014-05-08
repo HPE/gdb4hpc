@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -78,6 +81,7 @@ typedef struct {
   bool num_registers_p;
   bool dev_type_p;
   bool sm_type_p;
+  bool filter_exception_state_p;
   bool valid;             // at least one active lane
   /* the above fields are invalidated on resume */
   bool suspended;         // true if the device is suspended
@@ -108,8 +112,10 @@ static void device_cleanup_breakpoints (uint32_t dev_id);
 static void device_resolve_breakpoints (uint32_t dev_id);
 static void device_flush_disasm_cache  (uint32_t dev_id);
 static void sm_invalidate   (uint32_t dev_id, uint32_t sm_id, recursion_t);
+static void sm_set_exception_none (uint32_t dev_id, uint32_t sm_id);
 static void warp_invalidate (uint32_t dev_id, uint32_t sm_id, uint32_t wp_id);
 static void lane_invalidate (uint32_t dev_id, uint32_t sm_id, uint32_t wp_id, uint32_t ln_id);
+static void lane_set_exception_none (uint32_t dev_id, uint32_t sm_id, uint32_t wp_id, uint32_t ln_id);
 
 
 /******************************************************************************
@@ -385,6 +391,7 @@ device_invalidate (uint32_t dev_id)
 
   dev = &cuda_system_info.dev[dev_id];
   dev->valid_p   = false;
+  dev->filter_exception_state_p = false;
 }
 
 static void
@@ -772,7 +779,33 @@ device_suspend (uint32_t dev_id)
   cuda_system_info.suspended_devices_mask |= (1 << dev_id);
 }
 
+void
+device_filter_exception_state (uint32_t dev_id)
+{
+  uint64_t sm_mask;
+  device_state_t *dev;
+  uint32_t sm_id;
 
+  cuda_trace ("device %u: Looking for exception SMs\n");
+  gdb_assert (dev_id < cuda_system_get_num_devices ());
+
+  if (!device_is_any_context_present (dev_id))
+    return;
+
+  dev = &cuda_system_info.dev[dev_id];
+
+  if (dev->filter_exception_state_p)
+    return;
+
+  sm_mask = 0;
+  cuda_api_read_device_exception_state (dev_id, &sm_mask);
+
+  for (sm_id = 0; sm_id < device_get_num_sms (dev_id); ++sm_id)
+    if (!((1ULL << sm_id) & sm_mask))
+      sm_set_exception_none (dev_id, sm_id);
+
+  dev->filter_exception_state_p = true;
+}
 
 /******************************************************************************
  *
@@ -852,6 +885,25 @@ sm_get_broken_warps_mask (uint32_t dev_id, uint32_t sm_id)
   return broken_warps_mask;
 }
 
+static void
+sm_set_exception_none (uint32_t dev_id, uint32_t sm_id)
+{
+  sm_state_t *sm;
+  uint32_t wp_id;
+  uint32_t ln_id;
+
+  gdb_assert (dev_id < cuda_system_get_num_devices ());
+  gdb_assert (sm_id < device_get_num_sms (dev_id));
+
+  cuda_trace ("device %u sm %u: setting no exceptions", dev_id, sm_id);
+
+  sm = &cuda_system_info.dev[dev_id].sm[sm_id];
+
+  for (wp_id = 0; wp_id < device_get_num_warps (dev_id); ++wp_id)
+    for (ln_id = 0; ln_id < device_get_num_lanes (dev_id); ++ln_id)
+      lane_set_exception_none (dev_id, sm_id, wp_id, ln_id);
+
+}
 
 /******************************************************************************
  *
@@ -1582,4 +1634,21 @@ lane_set_thread_idx (uint32_t dev_id, uint32_t sm_id,
   ln = &cuda_system_info.dev[dev_id].sm[sm_id].wp[wp_id].ln[ln_id];
   ln->thread_idx = *thread_idx;
   ln->thread_idx_p = true;
+}
+
+static void
+lane_set_exception_none (uint32_t dev_id, uint32_t sm_id, uint32_t wp_id,
+                         uint32_t ln_id)
+{
+  lane_state_t *ln;
+
+  gdb_assert (dev_id < cuda_system_get_num_devices ());
+  gdb_assert (sm_id < device_get_num_sms (dev_id));
+  gdb_assert (wp_id < device_get_num_warps (dev_id));
+  gdb_assert (ln_id < device_get_num_lanes (dev_id));
+
+  ln = &cuda_system_info.dev[dev_id].sm[sm_id].wp[wp_id].ln[ln_id];
+
+  ln->exception = CUDBG_EXCEPTION_NONE;
+  ln->exception_p = true;
 }

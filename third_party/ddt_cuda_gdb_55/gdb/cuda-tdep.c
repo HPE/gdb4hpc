@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -1150,7 +1153,7 @@ cuda_address_class_type_flags (int byte_size, int addr_class)
 static const char *
 cuda_address_class_type_flags_to_name (struct gdbarch *gdbarch, int type_flags)
 {
-  switch (type_flags)
+  switch (type_flags & TYPE_INSTANCE_FLAG_CUDA_ALL)
     {
     case TYPE_INSTANCE_FLAG_CUDA_CODE:    return "code";
     case TYPE_INSTANCE_FLAG_CUDA_CONST:   return "constant";

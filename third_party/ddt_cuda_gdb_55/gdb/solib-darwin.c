@@ -1,5 +1,8 @@
 /* Handle Darwin shared libraries for GDB, the GNU Debugger.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -18,6 +21,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -88,7 +94,7 @@ struct gdb_dyld_all_image_infos
 /* Current all_image_infos version.  */
 /* CUDA - Support static linker on Mac OS X 10.7 */
 #define DYLD_VERSION_MIN 1
-#define DYLD_VERSION_MAX 12
+#define DYLD_VERSION_MAX 14
 
 /* Address of structure dyld_all_image_infos in inferior.  */
 static CORE_ADDR dyld_all_image_addr;

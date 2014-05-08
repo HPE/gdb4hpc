@@ -1,21 +1,34 @@
-OVERVIEW
+		     README for CUDA-GDB release
 
-This package contains the sources of GDB 7.2 extended with CUDA support.
+This is CUDA-GDB, the NVIDIA CUDA source-level debugger for Linux and Mac OS, based on GDB-7.2, the GNU source-level debugger.
 
+For more information about gdb, please refer to README.GNU file in this folder or check the GDB home page at http://www.gnu.org/software/gdb
 
 CUDA-GDB BUILD INSTRUCTIONS (example only, adjust as needed)
+===========================
 
 First, make sure that libtermcap and other required dependent packages are
 installed (try sudo yum install ncurses-devel). The configure command will
-issue an error if some packages are missing. Then issue the following commands:
+issue an error if some packages are missing.
 
-$ tar -xjf cuda-gdb_<version>_src_<build_number>_<os>.tar.bz2
-$ cd cuda-gdb_<version>
-$ export CFLAGS='-O -I/usr/local/cuda/include'
-$ export LDFLAGS='-lpthread'
-$ ./configure --prefix=/usr/local/cuda \
-              --program-prefix=cuda- \
-              --enable-cuda \
-              --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu
-$ make
-$ sudo make install
+Please note that the libexpat development headers must be present if cuda-gdb is to be used for cross-platform debugging.
+
+Issue the following commands to build cuda-gdb:
+    ./configure --program-prefix=cuda- \
+        --enable-cuda \
+        --enable-targets="x86_64-apple-darwin,x86_64-unknown-linux-gnu,\
+        arm-elf-linux-gnu,m68k-unknown-linux-gnu" \
+        CFLAGS='-I/usr/local/cuda/include' \
+        LDFLAGS='-lpthread'
+    make
+
+USING CUDA-GDB
+==============
+All standard GDB commands could be used both for CPU and GPU code debugging. In addition to that, cuda-gdb provides CUDA-specific command families like "info cuda ..." to query GPU states, "cuda .." to control debugger focus on GPU and "[get|set] cuda .." to alter/query CUDA dbeugger configuration.
+
+For more information please check http://docs.nvidia.com/cuda/cuda-gdb/
+
+
+REPORTING BUGS
+==============
+Send e-mail to cuda-debugger-bugs@nvidia.com or fill an issue report form at NVIDIA registered developers portal.

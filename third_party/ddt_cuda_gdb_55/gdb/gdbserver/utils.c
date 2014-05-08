@@ -1,4 +1,7 @@
 /* General utility routines for the remote server for GDB.
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1989, 1993, 1995, 1996, 1997, 1999, 2000, 2002, 2003,
    2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 

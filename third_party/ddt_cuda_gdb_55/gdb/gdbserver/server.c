@@ -1,4 +1,7 @@
 /* Main code for remote server for GDB.
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1989, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2002, 2003,
    2004, 2005, 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
@@ -2231,7 +2234,7 @@ gdbserver_version (void)
           "5.5 release\n"
           "Portions Copyright (C) 2013 NVIDIA Corporation\n"
           "GNU gdbserver %s%s\n"
-	  "Copyright (C) 2010 Free Software Foundation, Inc.\n"
+	  "Modified by Allinea Software.\nCopyright (C) Allinea Software Ltd. 2013\nCopyright (C) 2010 Free Software Foundation, Inc.\n"
 	  "gdbserver is free software, covered by the GNU General Public License.\n"
 	  "This gdbserver was configured as \"%s\"\n",
 	  PKGVERSION, version, host_name);

@@ -89,7 +89,7 @@ typedef unsigned char bool;
 
 #define CUDBG_API_VERSION_MAJOR      5  /* Major release version number */
 #define CUDBG_API_VERSION_MINOR      5  /* Minor release version number */
-#define CUDBG_API_VERSION_REVISION  95  /* Revision (build) number */
+#define CUDBG_API_VERSION_REVISION  98  /* Revision (build) number */
 
 /*---------------------------------- Constants -------------------------------*/
 
@@ -151,7 +151,7 @@ typedef enum {
 /*----------------------------- API Return Types -----------------------------*/
 
 typedef enum {
-    CUDBG_SUCCESS                           = 0x0000,  /* Succesful execution */
+    CUDBG_SUCCESS                           = 0x0000,  /* Successful execution */
     CUDBG_ERROR_UNKNOWN                     = 0x0001,  /* Error type not listed below */
     CUDBG_ERROR_BUFFER_TOO_SMALL            = 0x0002,  /* Cannot copy all the queried data into the buffer argument */
     CUDBG_ERROR_UNKNOWN_FUNCTION            = 0x0003,  /* Function cannot be found in the CUDA kernel */
@@ -190,6 +190,7 @@ typedef enum {
     CUDBG_ERROR_OS_RESOURCES                = 0x0025,  /* Error while allocating resources from the OS */
     CUDBG_ERROR_FORK_FAILED                 = 0x0026,  /* Error while forking the debugger process */
     CUDBG_ERROR_NO_DEVICE_AVAILABLE         = 0x0027,  /* No CUDA capable device was found */
+    CUDBG_ERROR_ATTACH_NOT_POSSIBLE         = 0x0028,  /* Attaching to the CUDA program is not possible */
 } CUDBGResult;
 
 /*------------------------------ Grid Attributes -----------------------------*/
@@ -706,7 +707,8 @@ struct CUDBGAPI_st {
     CUDBGResult (*readGridId)(uint32_t dev, uint32_t sm, uint32_t wp, uint64_t *gridId64);
     CUDBGResult (*getGridStatus)(uint32_t dev, uint64_t gridId64, CUDBGGridStatus *status);
     CUDBGResult (*setKernelLaunchNotificationMode) (CUDBGKernelLaunchNotifyMode mode);
-    CUDBGResult (*getDevicePCIBusInfo) (uint32_t devIdId, uint32_t *pciBusId, uint32_t *pciDevId);
+    CUDBGResult (*getDevicePCIBusInfo) (uint32_t devId, uint32_t *pciBusId, uint32_t *pciDevId);
+    CUDBGResult (*readDeviceExceptionState) (uint32_t devId, uint64_t *exceptionSMMask);
 };
 
 #ifdef __cplusplus

@@ -1,5 +1,8 @@
 /* Header file for command-reading library command.c.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1999, 2000,
    2002, 2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
@@ -17,6 +20,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.

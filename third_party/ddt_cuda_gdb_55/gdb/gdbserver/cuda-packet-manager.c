@@ -1,4 +1,7 @@
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  *
@@ -1226,6 +1229,22 @@ cuda_process_set_async_launch_notifications (char *buf)
 }
 
 void
+cuda_process_api_read_device_exception_state (char *buf)
+{
+  CUDBGResult res;
+  uint32_t dev;
+  uint64_t smMask = 0;
+  char *p;
+
+  extract_bin (NULL, (unsigned char*) &dev, sizeof (dev));
+
+  res = cudbgAPI->readDeviceExceptionState (dev, &smMask);
+
+  p = append_bin ((unsigned char*) &res, buf, sizeof (res), true);
+  append_bin ((unsigned char*) &smMask, p, sizeof (smMask), false);
+}
+
+void
 cuda_process_query_trace_message (char *buf)
 {
   struct cuda_trace_msg *msg;
@@ -1690,6 +1709,9 @@ handle_cuda_packet (char *buf)
       break;
     case SET_ASYNC_LAUNCH_NOTIFICATIONS:
       cuda_process_set_async_launch_notifications (buf);
+      break;
+    case READ_DEVICE_EXCEPTION_STATE:
+      cuda_process_api_read_device_exception_state (buf);
       break;
     default:
       error ("unknown cuda packet.\n");

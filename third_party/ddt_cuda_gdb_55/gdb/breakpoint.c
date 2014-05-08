@@ -1,5 +1,8 @@
 /* Everything about breakpoints, for GDB.
 
+   Modified by Allinea Software.
+   
+   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
@@ -20,6 +23,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
+ * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
+ * NVIDIA CUDA Debugger CUDA-GDB 
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -3187,13 +3193,14 @@ bpstat_find_breakpoint (bpstat bsp, struct breakpoint *breakpoint)
    Return 1 otherwise.  */
 
 int
-bpstat_num (bpstat *bsp, int *num)
+bpstat_num (bpstat *bsp, int *num, char *stop)
 {
   struct breakpoint *b;
 
   if ((*bsp) == NULL)
     return 0;			/* No more breakpoint values */
 
+  *stop = (*bsp)->stop;
   /* We assume we'll never have several bpstats that
      correspond to a single breakpoint -- otherwise, 
      this function might return the same number more
@@ -3517,7 +3524,8 @@ print_it_typical (bpstat bs)
       else
         error (_("The CUDA driver has hit an internal error.\n"
                  "Error code: 0x%"PRIx64"\n"
-                 "Further execution or debugging is unreliable.\n"), res);
+                 "Further execution or debugging is unreliable.\n"
+                 "Please ensure that your temporary directory is mounted with write and exec permissions.\n"), res);
 
       result = PRINT_NOTHING;
       break;
@@ -4250,7 +4258,6 @@ bpstat_check_watchpoint (bpstat bs)
 		     the value hasn't changed.  */
 		  bs->print_it = print_it_noop;
 		  bs->stop = 0;
-		  b->watchpoint_triggered = watch_triggered_no;
 		}
 	      /* Stop.  */
 	      break;
@@ -4449,8 +4456,6 @@ bpstat_stop_status (struct address_space *aspace,
   struct bpstats root_bs[1];
   /* Pointer to the last thing in the chain currently.  */
   bpstat bs = root_bs;
-  /* Pointer to the nex-to-last thing in the chain currently. */
-  bpstat old_bs = NULL;
   int ix;
   int need_remove_insert;
 
@@ -4494,7 +4499,6 @@ bpstat_stop_status (struct address_space *aspace,
 
 	  /* Come here if it's a watchpoint, or if the break address matches */
 
-	  old_bs = bs;
 	  bs = bpstat_alloc (bl, bs);	/* Alloc a bpstat to explain stop */
 
 	  /* Assume we stop.  Should we find watchpoint that is not actually
@@ -4505,18 +4509,7 @@ bpstat_stop_status (struct address_space *aspace,
 
 	  bpstat_check_watchpoint (bs);
 	  if (!bs->stop)
-	    {
-	      /* Watchpoint did not cause a stop. Remove this bpstat from the
-	       * chain to avoid the no-stop watchpoint appearing as a stop
-	       * in the output of 'info programs' */
-	      if (old_bs)
-	        {
-	          bpstat_free(bs);
-	          bs = old_bs;
-	          bs->next = NULL;
-	        }
-	      continue;
-	    }
+	    continue;
 
 	  if (b->type == bp_thread_event || b->type == bp_overlay_event
 	      || b->type == bp_longjmp_master

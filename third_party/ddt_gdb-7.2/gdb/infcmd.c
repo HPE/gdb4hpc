@@ -818,8 +818,8 @@ Can't resume all threads and specify proceed count simultaneously."));
 	}
       if (tp != NULL)
 	bs = tp->stop_bpstat;
-
-      while ((stat = bpstat_num (&bs, &num)) != 0)
+    char stop;
+      while ((stat = bpstat_num (&bs, &num, &stop)) != 0)
 	if (stat > 0)
 	  {
 	    set_ignore_count (num,
@@ -1807,7 +1807,8 @@ program_info (char *args, int from_tty)
 
   tp = find_thread_ptid (ptid);
   bs = tp->stop_bpstat;
-  stat = bpstat_num (&bs, &num);
+  char stop;
+  stat = bpstat_num (&bs, &num, &stop);
 
   target_files_info ();
   printf_filtered (_("Program stopped at %s.\n"),
@@ -1825,9 +1826,9 @@ program_info (char *args, int from_tty)
 	      printf_filtered (_("\
 It stopped at a breakpoint that has since been deleted.\n"));
 	    }
-	  else
-	    printf_filtered (_("It stopped at breakpoint %d.\n"), num);
-	  stat = bpstat_num (&bs, &num);
+      else if( stop) // fixes #33774 when non-stopping watchpoints (like software watchpoints on same value assignments) were printed in 'info program'
+        printf_filtered (_("It stopped at breakpoint %d.\n"), num);
+      stat = bpstat_num (&bs, &num, &stop);
 	}
     }
   else if (tp->stop_signal != TARGET_SIGNAL_0)

@@ -3066,13 +3066,14 @@ bpstat_find_breakpoint (bpstat bsp, struct breakpoint *breakpoint)
    Return 1 otherwise.  */
 
 int
-bpstat_num (bpstat *bsp, int *num)
+bpstat_num (bpstat *bsp, int *num, char *stop)
 {
   struct breakpoint *b;
 
   if ((*bsp) == NULL)
     return 0;			/* No more breakpoint values */
 
+  *stop = (*bsp)->stop;
   /* We assume we'll never have several bpstats that
      correspond to a single breakpoint -- otherwise, 
      this function might return the same number more
@@ -3977,7 +3978,6 @@ bpstat_check_watchpoint (bpstat bs)
 		     the value hasn't changed.  */
 		  bs->print_it = print_it_noop;
 		  bs->stop = 0;
-		  b->watchpoint_triggered = watch_triggered_no;
 		}
 	      /* Stop.  */
 	      break;
@@ -4156,8 +4156,6 @@ bpstat_stop_status (struct address_space *aspace,
   struct bpstats root_bs[1];
   /* Pointer to the last thing in the chain currently.  */
   bpstat bs = root_bs;
-  /* Pointer to the nex-to-last thing in the chain currently. */
-  bpstat old_bs = NULL;
   int ix;
   int need_remove_insert;
 
@@ -4188,7 +4186,6 @@ bpstat_stop_status (struct address_space *aspace,
 
 	  /* Come here if it's a watchpoint, or if the break address matches */
 
-	  old_bs = bs;
 	  bs = bpstat_alloc (bl, bs);	/* Alloc a bpstat to explain stop */
 
 	  /* Assume we stop.  Should we find watchpoint that is not actually
@@ -4199,18 +4196,7 @@ bpstat_stop_status (struct address_space *aspace,
 
 	  bpstat_check_watchpoint (bs);
 	  if (!bs->stop)
-	    {
-	      /* Watchpoint did not cause a stop. Remove this bpstat from the
-	       * chain to avoid the no-stop watchpoint appearing as a stop
-	       * in the output of 'info programs' */
-	      if (old_bs)
-	        {
-	          bpstat_free(bs);
-	          bs = old_bs;
-	          bs->next = NULL;
-	        }
-	      continue;
-	    }
+	    continue;
 
 	  if (b->type == bp_thread_event || b->type == bp_overlay_event
 	      || b->type == bp_longjmp_master

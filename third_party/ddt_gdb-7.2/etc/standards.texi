@@ -2258,6 +2258,10 @@ If you need a new slot for your GNU package, write
 @email{maintainers@@gnu.org}.  Here is a list of arcs currently
 assigned:
 
+@example
+@include gnu-oids.texi
+@end example
+
 
 @node Memory Usage
 @section Memory Usage

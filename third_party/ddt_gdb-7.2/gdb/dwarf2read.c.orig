@@ -4453,17 +4453,23 @@ dwarf2_get_pc_bounds (struct die_info *die, CORE_ADDR *lowpc,
 		      struct partial_symtab *pst)
 {
   struct attribute *attr;
+  struct attribute *attr_high;
   CORE_ADDR low = 0;
   CORE_ADDR high = 0;
   int ret = 0;
 
-  attr = dwarf2_attr (die, DW_AT_high_pc, cu);
-  if (attr)
+  attr_high = dwarf2_attr (die, DW_AT_high_pc, cu);
+  if (attr_high)
     {
-      high = DW_ADDR (attr);
       attr = dwarf2_attr (die, DW_AT_low_pc, cu);
       if (attr)
-	low = DW_ADDR (attr);
+        {
+	  low = DW_ADDR (attr);
+	  if (attr_high->form == DW_FORM_addr)
+	    high = DW_ADDR (attr_high);
+	  else
+	    high = low + DW_UNSND (attr_high);
+	}
       else
 	/* Found high w/o low attribute.  */
 	return 0;
@@ -4631,16 +4637,20 @@ dwarf2_record_block_ranges (struct die_info *die, struct block *block,
                             CORE_ADDR baseaddr, struct dwarf2_cu *cu)
 {
   struct attribute *attr;
+  struct attribute *attr_high;
 
-  attr = dwarf2_attr (die, DW_AT_high_pc, cu);
-  if (attr)
+  attr_high = dwarf2_attr (die, DW_AT_high_pc, cu);
+  if (attr_high)
     {
-      CORE_ADDR high = DW_ADDR (attr);
-
       attr = dwarf2_attr (die, DW_AT_low_pc, cu);
       if (attr)
         {
           CORE_ADDR low = DW_ADDR (attr);
+	  CORE_ADDR high;
+	  if (attr_high->form == DW_FORM_addr)
+	    high = DW_ADDR (attr_high);
+	  else
+	    high = low + DW_UNSND (attr_high);
 
           record_block_range (block, baseaddr + low, baseaddr + high - 1);
         }
@@ -6999,7 +7009,7 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
       baton->data = DW_BLOCK(attr)->data;
     }
   else 
-    if (attr->form == DW_FORM_ref4)
+    if (is_ref_attr (attr))
       {
 	int size;
 	struct die_info *ref_die =
@@ -7009,7 +7019,7 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
 	  {
 	    attr = dwarf2_attr(ref_die, DW_AT_location, cu);
 	    
-	    if (attr && attr->form == DW_FORM_block1)
+	    if (attr && attr_form_is_block (attr))
 	      {
 		baton = obstack_alloc (&cu->objfile->objfile_obstack,
 				       sizeof (struct dwarf2_loclist_baton));
@@ -7019,7 +7029,17 @@ create_bound_baton (struct die_info *die, struct attribute *attr, struct dwarf2_
 		baton->per_cu = cu->per_cu;
 		baton->base_address = cu->base_address;
 
-		if (cu->producer && strstr (cu->producer, "GNU"))
+		// This GNU bug fixed in GCC 4.8
+		if (cu->producer
+		    && (strstr (cu->producer, "GNU 3")
+		     || strstr (cu->producer, "GNU 4.0")
+		     || strstr (cu->producer, "GNU 4.1")
+		     || strstr (cu->producer, "GNU 4.2")
+		     || strstr (cu->producer, "GNU 4.3")
+		     || strstr (cu->producer, "GNU 4.4")
+		     || strstr (cu->producer, "GNU 4.5")
+		     || strstr (cu->producer, "GNU 4.6")
+		     || strstr (cu->producer, "GNU 4.7")))
 		  {
 		    baton->size = size;
 		    baton->data = obstack_alloc (&cu->objfile->objfile_obstack,
@@ -7055,8 +7075,8 @@ read_subrange_type (struct die_info *die, struct dwarf2_cu *cu)
   struct dwarf2_loclist_baton *soffset_compute = 0;
   struct dwarf2_loclist_baton *lstride_compute = 0;
 
-  LONGEST low = 0;
-  LONGEST high = -1;
+  LONGEST low, high;
+  int low_default_is_valid;
   int stride = 1;
   int soffset = 0;
   int lstride = 0;  
@@ -7072,11 +7092,36 @@ read_subrange_type (struct die_info *die, struct dwarf2_cu *cu)
   if (range_type)
     return range_type;
 
-  if (cu->language == language_fortran)
+  /* Set LOW_DEFAULT_IS_VALID if current language and DWARF version allow
+     omitting DW_AT_lower_bound.  */
+  switch (cu->language)
     {
-      /* FORTRAN implies a lower bound of 1, if not given.  */
-      high = 0;
+    case language_c:
+    case language_cplus:
+    case language_upc:
+      low = 0;
+      low_default_is_valid = 1;
+      break;
+    case language_fortran:
       low = 1;
+      low_default_is_valid = 1;
+      break;
+    case language_d:
+    case language_java:
+    case language_objc:
+      low = 0;
+      low_default_is_valid = (cu->header.version >= 4);
+      break;
+    case language_ada:
+    case language_m2:
+    case language_pascal:
+      low = 1;
+      low_default_is_valid = (cu->header.version >= 4);
+      break;
+    default:
+      low = 0;
+      low_default_is_valid = 0;
+      break;
     }
 
   /* FIXME: For variable sized arrays either of these could be
@@ -7094,6 +7139,10 @@ read_subrange_type (struct die_info *die, struct dwarf2_cu *cu)
       if (!low_compute)
 	low = (int) dwarf2_get_attr_constant_value (attr, 0);
     }
+  else if (!low_default_is_valid)
+    complaint (&symfile_complaints, _("Missing DW_AT_lower_bound "
+				      "- DIE at 0x%x [in module %s]"),
+	       die->offset, cu->objfile->name);
 
   high = low - 1;
   attr = dwarf2_attr (die, DW_AT_upper_bound, cu);
@@ -7873,7 +7922,8 @@ read_partial_die (struct partial_die_info *part_die,
   struct attribute attr;
   int has_low_pc_attr = 0;
   int has_high_pc_attr = 0;
-  int has_program_calling_convention = 0;
+  int high_pc_relative = 0;
+  int main_subprogram = 0;
 
   memset (part_die, 0, sizeof (struct partial_die_info));
 
@@ -7931,7 +7981,13 @@ read_partial_die (struct partial_die_info *part_die,
 	  break;
 	case DW_AT_high_pc:
 	  has_high_pc_attr = 1;
-	  part_die->highpc = DW_ADDR (&attr);
+	  if (attr.form == DW_FORM_addr)
+	    part_die->highpc = DW_ADDR (&attr);
+	  else
+	    {
+	      high_pc_relative = 1;
+	      part_die->highpc = DW_UNSND (&attr);
+	    }
 	  break;
 	case DW_AT_location:
           /* Support the .debug_loc offsets */
@@ -7992,15 +8048,23 @@ read_partial_die (struct partial_die_info *part_die,
 	     practice.  */
 	  if (DW_UNSND (&attr) == DW_CC_program
 	      && cu->language == language_fortran)
-	    has_program_calling_convention = 1;
+	    main_subprogram = 1;
 	  break;
+	case DW_AT_main_subprogram:
+	  /* Treat DWARF 4 DW_AT_main_subprogram like
+	     DW_AT_calling_convention == DW_CC_program.  */
+	  main_subprogram = main_subprogram ||
+	                    DW_UNSND (&attr);
 	default:
 	  break;
 	}
     }
 
-  if (has_program_calling_convention)
+  if (main_subprogram)
     set_main_name (part_die->linkage_name ? part_die->linkage_name : part_die->name);
+
+  if (high_pc_relative)
+    part_die->highpc += part_die->lowpc; 
 
   /* When using the GNU linker, .gnu.linkonce. sections are used to
      eliminate duplicate copies of functions and vtables and such.
@@ -10779,7 +10843,29 @@ dwarf2_name (struct die_info *die, struct dwarf2_cu *cu)
 
   attr = dwarf2_attr (die, DW_AT_name, cu);
   if (!attr || !DW_STRING (attr))
-    return NULL;
+  {
+      /* Compiler support for some features such as OpenMP generates unnamed artificial
+       * subprograms. If GDB does not have an internal name for them, their local variables
+       * etc. will be invisible to GDB.
+       */
+      if ((die->tag == DW_TAG_subprogram) && dwarf2_attr (die, DW_AT_artificial, cu))
+      {
+          /* Look up the name used by the linker for the artificial subprogram to use
+           * internally.
+           */
+          CORE_ADDR lowpc, highpc;
+          if (dwarf2_get_pc_bounds (die, &lowpc, &highpc, cu, NULL))
+          {
+              struct minimal_symbol* minsym = lookup_minimal_symbol_by_pc (lowpc);
+              if (minsym)
+              {
+                  return SYMBOL_LINKAGE_NAME(minsym);
+              }
+          }
+      }
+
+      return NULL;
+  }
 
   switch (die->tag)
     {

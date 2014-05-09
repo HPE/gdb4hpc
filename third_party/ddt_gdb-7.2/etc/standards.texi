@@ -2259,7 +2259,6 @@ If you need a new slot for your GNU package, write
 assigned:
 
 @example
-@include gnu-oids.texi
 @end example
 
 

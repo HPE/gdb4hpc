@@ -108,7 +108,7 @@
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 64 "cuda-parser.exp.y"
+#line 67 "cuda-parser.exp.y"
 {
     uint32_t  value;
     compare_t cmp;

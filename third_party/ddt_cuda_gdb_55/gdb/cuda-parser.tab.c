@@ -142,7 +142,7 @@
 
 
 /* Copy the first part of user declarations.  */
-#line 18 "cuda-parser.exp.y"
+#line 21 "cuda-parser.exp.y"
 
 
 #include <stdio.h>
@@ -208,7 +208,7 @@ void cuda_parser_reset_lexer (void);
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 64 "cuda-parser.exp.y"
+#line 67 "cuda-parser.exp.y"
 {
     uint32_t  value;
     compare_t cmp;
@@ -538,14 +538,14 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    85,    85,    86,    87,    88,    89,    90,    93,    94,
-      97,    98,    99,   100,   101,   102,   103,   104,   105,   108,
-     110,   112,   114,   116,   118,   120,   122,   124,   126,   129,
-     130,   133,   134,   135,   136,   137,   138,   139,   140,   143,
-     144,   147,   148,   148,   151,   152,   153,   154,   155,   156,
-     159,   160,   163,   164,   165,   166,   167,   168,   169,   170,
-     173,   174,   177,   178,   181,   182,   183,   186,   187,   188,
-     189,   192,   193,   194,   195,   198,   199,   200,   201
+       0,    88,    88,    89,    90,    91,    92,    93,    96,    97,
+     100,   101,   102,   103,   104,   105,   106,   107,   108,   111,
+     113,   115,   117,   119,   121,   123,   125,   127,   129,   132,
+     133,   136,   137,   138,   139,   140,   141,   142,   143,   146,
+     147,   150,   151,   151,   154,   155,   156,   157,   158,   159,
+     162,   163,   166,   167,   168,   169,   170,   171,   172,   173,
+     176,   177,   180,   181,   184,   185,   186,   189,   190,   191,
+     192,   195,   196,   197,   198,   201,   202,   203,   204
 };
 #endif
 
@@ -1531,267 +1531,267 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-#line 85 "cuda-parser.exp.y"
+#line 88 "cuda-parser.exp.y"
     { handle_command (CMD_QUERY); }
     break;
 
   case 3:
-#line 86 "cuda-parser.exp.y"
+#line 89 "cuda-parser.exp.y"
     { handle_command (CMD_COND_AND); }
     break;
 
   case 4:
-#line 87 "cuda-parser.exp.y"
+#line 90 "cuda-parser.exp.y"
     { handle_command (CMD_COND_OR); }
     break;
 
   case 5:
-#line 88 "cuda-parser.exp.y"
+#line 91 "cuda-parser.exp.y"
     { handle_command (CMD_SWITCH); }
     break;
 
   case 6:
-#line 89 "cuda-parser.exp.y"
+#line 92 "cuda-parser.exp.y"
     { handle_command (CMD_FILTER); }
     break;
 
   case 7:
-#line 90 "cuda-parser.exp.y"
+#line 93 "cuda-parser.exp.y"
     { handle_command (CMD_FILTER_KERNEL); }
     break;
 
   case 19:
-#line 108 "cuda-parser.exp.y"
+#line 111 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_DEVICE); }
     break;
 
   case 20:
-#line 110 "cuda-parser.exp.y"
+#line 113 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_SM); }
     break;
 
   case 21:
-#line 112 "cuda-parser.exp.y"
+#line 115 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_WARP); }
     break;
 
   case 22:
-#line 114 "cuda-parser.exp.y"
+#line 117 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_LANE); }
     break;
 
   case 23:
-#line 116 "cuda-parser.exp.y"
+#line 119 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_KERNEL); }
     break;
 
   case 24:
-#line 118 "cuda-parser.exp.y"
+#line 121 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_GRID); }
     break;
 
   case 25:
-#line 120 "cuda-parser.exp.y"
+#line 123 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_BLOCK); }
     break;
 
   case 26:
-#line 122 "cuda-parser.exp.y"
+#line 125 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_THREAD); }
     break;
 
   case 27:
-#line 124 "cuda-parser.exp.y"
+#line 127 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_BREAKPOINT); handle_scalar (0, 0); }
     break;
 
   case 28:
-#line 126 "cuda-parser.exp.y"
+#line 129 "cuda-parser.exp.y"
     { handle_filter (FILTER_TYPE_BREAKPOINT); }
     break;
 
   case 31:
-#line 133 "cuda-parser.exp.y"
+#line 136 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_DEVICE); }
     break;
 
   case 32:
-#line 134 "cuda-parser.exp.y"
+#line 137 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_SM); }
     break;
 
   case 33:
-#line 135 "cuda-parser.exp.y"
+#line 138 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_WARP); }
     break;
 
   case 34:
-#line 136 "cuda-parser.exp.y"
+#line 139 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_LANE); }
     break;
 
   case 35:
-#line 137 "cuda-parser.exp.y"
+#line 140 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_KERNEL); }
     break;
 
   case 36:
-#line 138 "cuda-parser.exp.y"
+#line 141 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_GRID); }
     break;
 
   case 37:
-#line 139 "cuda-parser.exp.y"
+#line 142 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_BLOCK); }
     break;
 
   case 38:
-#line 140 "cuda-parser.exp.y"
+#line 143 "cuda-parser.exp.y"
     { handle_query (FILTER_TYPE_THREAD); }
     break;
 
   case 44:
-#line 151 "cuda-parser.exp.y"
+#line 154 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_BLOCKIDX_X, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 45:
-#line 152 "cuda-parser.exp.y"
+#line 155 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_BLOCKIDX_Y, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 46:
-#line 153 "cuda-parser.exp.y"
+#line 156 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_BLOCKIDX_Z, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 47:
-#line 154 "cuda-parser.exp.y"
+#line 157 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_THREADIDX_X, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 48:
-#line 155 "cuda-parser.exp.y"
+#line 158 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_THREADIDX_Y, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 49:
-#line 156 "cuda-parser.exp.y"
+#line 159 "cuda-parser.exp.y"
     { handle_condition (FILTER_TYPE_THREADIDX_Z, (yyvsp[(2) - (3)].cmp)); }
     break;
 
   case 52:
-#line 163 "cuda-parser.exp.y"
+#line 166 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_DEVICE); }
     break;
 
   case 53:
-#line 164 "cuda-parser.exp.y"
+#line 167 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_SM); }
     break;
 
   case 54:
-#line 165 "cuda-parser.exp.y"
+#line 168 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_WARP); }
     break;
 
   case 55:
-#line 166 "cuda-parser.exp.y"
+#line 169 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_LANE); }
     break;
 
   case 56:
-#line 167 "cuda-parser.exp.y"
+#line 170 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_KERNEL); }
     break;
 
   case 57:
-#line 168 "cuda-parser.exp.y"
+#line 171 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_GRID); }
     break;
 
   case 58:
-#line 169 "cuda-parser.exp.y"
+#line 172 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_BLOCK); }
     break;
 
   case 59:
-#line 170 "cuda-parser.exp.y"
+#line 173 "cuda-parser.exp.y"
     { handle_switch (FILTER_TYPE_THREAD); }
     break;
 
   case 64:
-#line 181 "cuda-parser.exp.y"
+#line 184 "cuda-parser.exp.y"
     { ; }
     break;
 
   case 65:
-#line 182 "cuda-parser.exp.y"
+#line 185 "cuda-parser.exp.y"
     { handle_scalar (2, default_value); }
     break;
 
   case 66:
-#line 183 "cuda-parser.exp.y"
+#line 186 "cuda-parser.exp.y"
     { handle_scalar (1, default_value); handle_scalar (2, default_value); }
     break;
 
   case 67:
-#line 186 "cuda-parser.exp.y"
+#line 189 "cuda-parser.exp.y"
     { handle_scalar (0, (yyvsp[(1) - (1)].value)); }
     break;
 
   case 68:
-#line 187 "cuda-parser.exp.y"
+#line 190 "cuda-parser.exp.y"
     { handle_scalar (0, CUDA_CURRENT); }
     break;
 
   case 69:
-#line 188 "cuda-parser.exp.y"
+#line 191 "cuda-parser.exp.y"
     { handle_scalar (0, CUDA_WILDCARD); }
     break;
 
   case 70:
-#line 189 "cuda-parser.exp.y"
+#line 192 "cuda-parser.exp.y"
     { handle_scalar (0, CUDA_WILDCARD); }
     break;
 
   case 71:
-#line 192 "cuda-parser.exp.y"
+#line 195 "cuda-parser.exp.y"
     { handle_scalar (1, (yyvsp[(1) - (1)].value)); }
     break;
 
   case 72:
-#line 193 "cuda-parser.exp.y"
+#line 196 "cuda-parser.exp.y"
     { handle_scalar (1, CUDA_CURRENT); }
     break;
 
   case 73:
-#line 194 "cuda-parser.exp.y"
+#line 197 "cuda-parser.exp.y"
     { handle_scalar (1, CUDA_WILDCARD); }
     break;
 
   case 74:
-#line 195 "cuda-parser.exp.y"
+#line 198 "cuda-parser.exp.y"
     { handle_scalar (1, CUDA_WILDCARD); }
     break;
 
   case 75:
-#line 198 "cuda-parser.exp.y"
+#line 201 "cuda-parser.exp.y"
     { handle_scalar (2, (yyvsp[(1) - (1)].value)); }
     break;
 
   case 76:
-#line 199 "cuda-parser.exp.y"
+#line 202 "cuda-parser.exp.y"
     { handle_scalar (2, CUDA_CURRENT); }
     break;
 
   case 77:
-#line 200 "cuda-parser.exp.y"
+#line 203 "cuda-parser.exp.y"
     { handle_scalar (2, CUDA_WILDCARD); }
     break;
 
   case 78:
-#line 201 "cuda-parser.exp.y"
+#line 204 "cuda-parser.exp.y"
     { handle_scalar (2, CUDA_WILDCARD); }
     break;
 
@@ -2011,7 +2011,7 @@ yyreturn:
 }
 
 
-#line 204 "cuda-parser.exp.y"
+#line 207 "cuda-parser.exp.y"
 
 
 static void

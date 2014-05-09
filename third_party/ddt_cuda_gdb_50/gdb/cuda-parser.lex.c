@@ -535,9 +535,6 @@ int cuda_parser__flex_debug = 0;
 char *cuda_parser_text;
 #line 1 "cuda-parser.lex.l"
 /*
- * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
- * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -553,7 +550,7 @@ char *cuda_parser_text;
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#line 30 "cuda-parser.lex.l"
+#line 27 "cuda-parser.lex.l"
 
 #include <stdlib.h>
 #include "defs.h"
@@ -577,7 +574,7 @@ int  cuda_parser_get_next_input (char *buf, int max_size);
 #define YY_NO_INPUT 1
 /* uncomment to debug the parser */
 /* %option debug */
-#line 581 "cuda-parser.lex.c"
+#line 578 "cuda-parser.lex.c"
 
 #define INITIAL 0
 
@@ -757,7 +754,7 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 64 "cuda-parser.lex.l"
+#line 61 "cuda-parser.lex.l"
 
 
 
@@ -784,7 +781,7 @@ YY_DECL
 
 
 
-#line 788 "cuda-parser.lex.c"
+#line 785 "cuda-parser.lex.c"
 
 	if ( !(yy_init) )
 		{
@@ -865,176 +862,176 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 90 "cuda-parser.lex.l"
+#line 87 "cuda-parser.lex.l"
 { return DEVICE; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 91 "cuda-parser.lex.l"
+#line 88 "cuda-parser.lex.l"
 { return SM; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 92 "cuda-parser.lex.l"
+#line 89 "cuda-parser.lex.l"
 { return WARP; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 93 "cuda-parser.lex.l"
+#line 90 "cuda-parser.lex.l"
 { return LANE; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 95 "cuda-parser.lex.l"
+#line 92 "cuda-parser.lex.l"
 { return KERNEL; }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 96 "cuda-parser.lex.l"
+#line 93 "cuda-parser.lex.l"
 { return GRID; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 97 "cuda-parser.lex.l"
+#line 94 "cuda-parser.lex.l"
 { return BLOCK; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 98 "cuda-parser.lex.l"
+#line 95 "cuda-parser.lex.l"
 { return THREAD; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 100 "cuda-parser.lex.l"
+#line 97 "cuda-parser.lex.l"
 { return THREADIDX_X; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 101 "cuda-parser.lex.l"
+#line 98 "cuda-parser.lex.l"
 { return THREADIDX_Y; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 102 "cuda-parser.lex.l"
+#line 99 "cuda-parser.lex.l"
 { return THREADIDX_Z; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 103 "cuda-parser.lex.l"
+#line 100 "cuda-parser.lex.l"
 { return BLOCKIDX_X; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 104 "cuda-parser.lex.l"
+#line 101 "cuda-parser.lex.l"
 { return BLOCKIDX_Y; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 105 "cuda-parser.lex.l"
+#line 102 "cuda-parser.lex.l"
 { return BLOCKIDX_Z; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 107 "cuda-parser.lex.l"
+#line 104 "cuda-parser.lex.l"
 { cuda_parser_lval.value = strtol (cuda_parser_text, NULL, 10); return VALUE; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 108 "cuda-parser.lex.l"
+#line 105 "cuda-parser.lex.l"
 { cuda_parser_lval.value = strtol (cuda_parser_text, NULL, 16); return VALUE; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 109 "cuda-parser.lex.l"
+#line 106 "cuda-parser.lex.l"
 { cuda_parser_lval.value = value_as_long (parse_to_comma_and_eval (&cuda_parser_text)); return VALUE; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 111 "cuda-parser.lex.l"
+#line 108 "cuda-parser.lex.l"
 { return CURRENT; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 112 "cuda-parser.lex.l"
+#line 109 "cuda-parser.lex.l"
 { return WILDCARD; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 113 "cuda-parser.lex.l"
+#line 110 "cuda-parser.lex.l"
 { return ALL; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 115 "cuda-parser.lex.l"
+#line 112 "cuda-parser.lex.l"
 { return LOGICAL_AND; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 116 "cuda-parser.lex.l"
+#line 113 "cuda-parser.lex.l"
 { return LOGICAL_OR; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 118 "cuda-parser.lex.l"
+#line 115 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_EQ; return CMP; }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 119 "cuda-parser.lex.l"
+#line 116 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_NE; return CMP; }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 120 "cuda-parser.lex.l"
+#line 117 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_LT; return CMP; }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 121 "cuda-parser.lex.l"
+#line 118 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_GT; return CMP; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 122 "cuda-parser.lex.l"
+#line 119 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_LE; return CMP; }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 123 "cuda-parser.lex.l"
+#line 120 "cuda-parser.lex.l"
 { cuda_parser_lval.cmp = CMP_GE; return CMP; }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 125 "cuda-parser.lex.l"
+#line 122 "cuda-parser.lex.l"
 { return OPENPAR; }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 126 "cuda-parser.lex.l"
+#line 123 "cuda-parser.lex.l"
 { return CLOSEPAR; }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 127 "cuda-parser.lex.l"
+#line 124 "cuda-parser.lex.l"
 { return COMMA; }
 	YY_BREAK
 case 32:
 /* rule 32 can match eol */
 YY_RULE_SETUP
-#line 129 "cuda-parser.lex.l"
+#line 126 "cuda-parser.lex.l"
 { /* ignore */ }
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 131 "cuda-parser.lex.l"
+#line 128 "cuda-parser.lex.l"
 { return PARSING_ERROR; }
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 133 "cuda-parser.lex.l"
+#line 130 "cuda-parser.lex.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 1038 "cuda-parser.lex.c"
+#line 1035 "cuda-parser.lex.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1992,7 +1989,7 @@ void cuda_parser_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 133 "cuda-parser.lex.l"
+#line 130 "cuda-parser.lex.l"
 
 
 

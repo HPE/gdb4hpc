@@ -329,7 +329,7 @@ DbgMRNAttach(
 	int debug_flag
 )
 {
-	char				root[MAXPATHLEN];
+	char *				root;
 	char *				cfg_dir;
 	char				topology_name[MAXPATHLEN];
 	char				connections[MAXPATHLEN];
@@ -349,10 +349,10 @@ DbgMRNAttach(
 	int					event_fd;
 	int *				ev_fd_ptr;
 #ifdef ALPS
-	int					nid, dbg=debug_flag;
+	int					dbg=debug_flag;
 	char **				machine_hosts;
-	cti_manifest_id_t		mid;
-	cti_session_id_t		sid;
+	cti_manifest_id_t	mid;
+	cti_session_id_t	sid;
 #endif /* ALPS */
 
 #ifdef DEBUG
@@ -366,9 +366,6 @@ DbgMRNAttach(
 	// Set the initial protocol event callback to use our custom event handler
 	// for launching
 	di->d_proto_ev_callback = cbMRNAttach;
-	
-	// set the aprun pid
-	di->d_apid = pid;
 
 	// get mrnet configuration information
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
@@ -412,7 +409,7 @@ DbgMRNAttach(
 #endif /* PERFLOG */
 
 	// Register the aprun pid with the tool interface
-	if (cti_registerApid(di->d_apid))
+	if ((di->d_appid = cti_registerApid(pid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to register aprun pid with CTI.\n");
@@ -497,7 +494,7 @@ DbgMRNAttach(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 		
 			return 1;
@@ -512,7 +509,7 @@ DbgMRNAttach(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -542,7 +539,7 @@ DbgMRNAttach(
 	
 	// Stage this manifest on the compute node, we need to remember the sid for
 	// later.
-	if ((sid = cti_sendManifest(di->d_apid, mid, dbg)) == 0)
+	if ((sid = cti_sendManifest(di->d_appid, mid, dbg)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to ship the manifest!\n");
@@ -558,7 +555,7 @@ DbgMRNAttach(
 	DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
 	
 	// get the number of processes associated with this aprun
-	if ((di->d_nproc = cti_getNumAppPEs(di->d_apid)) == 0)
+	if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to retrieve nproc.\n");
@@ -567,22 +564,20 @@ DbgMRNAttach(
 		return 1;
 	}
 	
-	// get the root nid for mrnet
-	if ((nid = cti_getNodeNid()) == -1)
+	// create the root hostname for mrnet
+	if ((root = cti_getHostname()) == NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to retrieve nid.\n");
+		PrintOutError("Failed to retrieve node hostname.\n");
 		
 		return 1;
 	}
-	// create the root hostname from the nid
-	snprintf(root, MAXPATHLEN, "nid%05d", nid);
 	
-	DPRINT("Application has apid[%d]\n", di->d_apid);
+	DPRINT("Application has apid[%d]\n", di->d_appid);
 	DPRINT("Root has a hostname of [%s]\n", root);
 	
 	// get a list of the nid hostnames for topology creation
-	if ((machine_hosts = cti_getAppHostsList(di->d_apid)) == (char **)NULL)
+	if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to retrieve nid hostname list.\n");
@@ -621,7 +616,7 @@ DbgMRNAttach(
 	
 	DPERFLOG(SetTimerStart("Create mrnet network"));
 	
-	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, di->d_apid);
+	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, pid);
 	
 	DPERFLOG(SetTimerStopAndLog("Create mrnet network"));
 	
@@ -744,7 +739,7 @@ DbgMRNAttach(
 		}
 	}
 	
-	if ((sid = cti_execToolDaemon(di->d_apid, mid, sid, "dbgsrv_alps", ap, env_vars, dbg)) == 0)
+	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, env_vars, dbg)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
@@ -976,7 +971,7 @@ DbgMRNInvoke(
 )
 {
 	char				sn[80];
-	char				root[MAXPATHLEN];
+	char *				root;
 	char *				cfg_dir;
 	char				topology_name[MAXPATHLEN];
 	char				connections[MAXPATHLEN];
@@ -992,9 +987,9 @@ DbgMRNInvoke(
 	g_progoutp_t *		po = NULL;
 	int					prog_outp = -1;
 	unsigned long int	mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
+	cti_aprunProc_t *	aprun_info;
 	char *				env_var_str;
-	cti_aprunProc_t *	approc;
-	int					nid, dbg=debug_flag;
+	int					dbg=debug_flag;
 	char **				machine_hosts;
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
@@ -1133,7 +1128,7 @@ DbgMRNInvoke(
 
 	// launch aprun using the tool interface
 	// Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-	if ((approc = cti_launchAprunBarrier(ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, env)) == NULL)
+	if ((di->d_appid = cti_launchAppBarrier(ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, env)) == 0)
 	{
 		int 	n=0, r;
 		char *	read_buf;
@@ -1175,9 +1170,6 @@ DbgMRNInvoke(
 		return 1;
 	}
 	
-	di->d_pid = approc->aprunPid;
-	di->d_apid = approc->apid;
-	
 	DPERFLOG(SetTimerStopAndLog("aprun launch"));
 	
 	// done with this ap
@@ -1191,7 +1183,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to create a cti_manifest_id_t.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1202,7 +1194,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add gdb-guard to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1217,7 +1209,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to add cuda50-gdb-guard to manifest.\n");
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 			
 			return 1;
@@ -1226,7 +1218,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to add cuda55-gdb-guard to manifest.\n");
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 			
 			return 1;
@@ -1238,7 +1230,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add dbgsrv to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1249,7 +1241,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add mrnet_commnode to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1263,7 +1255,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 		
 			return 1;
@@ -1278,7 +1270,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1290,7 +1282,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add valgrind to manifest.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1302,7 +1294,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1310,10 +1302,12 @@ DbgMRNInvoke(
 	
 	// Stage this manifest on the compute node, we need to remember the sid for
 	// later.
-	if ((sid = cti_sendManifest(di->d_apid, mid, dbg)) == 0)
+	if ((sid = cti_sendManifest(di->d_appid, mid, dbg)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to ship the manifest!\n");
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
 		
 		return 1;
 	}
@@ -1323,31 +1317,28 @@ DbgMRNInvoke(
 	DPRINT("Aprun session initialized.\n");
 	PrintOutMsg("Creating MRNet communication network...\n"); 
 	
-	DPRINT("aprun has pid [%d]\n", di->d_pid);
 	DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
 	
-	// get the root nid for mrnet
-	if ((nid = cti_getNodeNid()) == -1)
+	// create the root hostname for mrnet
+	if ((root = cti_getHostname()) == NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to retrieve nid.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		PrintOutError("Failed to retrieve node hostname.\n");
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
 	}
-	// create the root hostname from the nid
-	snprintf(root, MAXPATHLEN, "nid%05d", nid);
 	
-	DPRINT("Application has apid[%d]\n", (int)di->d_apid);
+	DPRINT("Application has apid[%d]\n", (int)di->d_appid);
 	DPRINT("Root has a hostname of [%s]\n", root);
 	
 	// get a list of the nid hostnames for topology creation
-	if ((machine_hosts = cti_getAppHostsList(di->d_apid)) == (char **)NULL)
+	if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to retrieve nid hostname list.\n");
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1367,6 +1358,8 @@ DbgMRNInvoke(
 	if (create_mrnet_commnode_wrapper(sid))
 	{
 		PrintOutError("ERROR: DbgMRNAttach failed to create MRNet topology file!\n"); 
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
 		
 		return 1;
 	}
@@ -1375,7 +1368,18 @@ DbgMRNInvoke(
 	if(create_mrnet_topology(di->d_nproc, root, machine_hosts, 1))
 	{
 		PrintOutError("ERROR: DbgMRNInvoke failed to create MRNet topology file!\n"); 
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+	
+	// get the apid for MRNet
+	if ((aprun_info = cti_getAprunInfo(di->d_appid)) == NULL)
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("ERROR: DbgMRNInvoke failed to query the apid!\n"); 
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1385,7 +1389,9 @@ DbgMRNInvoke(
 	
 	DPERFLOG(SetTimerStart("Create mrnet network"));
 	
-	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, di->d_apid);
+	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, aprun_info->apid);
+	
+	Free(aprun_info);
 	
 	DPERFLOG(SetTimerStopAndLog("Create mrnet network"));
 	
@@ -1396,7 +1402,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1410,7 +1416,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1424,7 +1430,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1474,7 +1480,7 @@ DbgMRNInvoke(
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
-	if ((sid = cti_execToolDaemon(di->d_apid, mid, sid, "dbgsrv_alps", ap, (char **)NULL, dbg)) == 0)
+	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, (char **)NULL, dbg)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
@@ -1482,7 +1488,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1506,7 +1512,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("ERROR: DbgMRNInvoke had null network information!\n");
 		}
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1523,7 +1529,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1542,7 +1548,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1608,7 +1614,7 @@ DbgMRNInvoke(
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
-		cti_killAprun(di->d_apid, SIGKILL);
+		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
@@ -1637,7 +1643,7 @@ DbgMRNInvoke(
 			mrn_fe_delete_network(network);
 			// clear the network pointer
 			di->d_proto_net = NULL;
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			
 			return 1;
 		}
@@ -1704,11 +1710,11 @@ cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set)
 			
 #ifdef ALPS
 		// tell aprun to release the application from the startup barrier
-		if (cti_releaseAprunBarrier(di->d_apid))
+		if (cti_releaseAppBarrier(di->d_appid))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Could not release application from the startup barrier.\n");
-			cti_killAprun(di->d_apid, SIGKILL);
+			cti_killApp(di->d_appid, SIGKILL);
 			return 1;
 		}
 #endif
@@ -1878,7 +1884,7 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 	if (!detach)
 	{
 		// send a kill signal using apkill to the apid of the aprun pid
-		if (cti_killAprun(di->d_apid, SIGKILL))
+		if (cti_killApp(di->d_appid, SIGKILL))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to kill aprun process!\n");

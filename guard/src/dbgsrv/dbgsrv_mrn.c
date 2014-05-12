@@ -153,7 +153,13 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	unsigned my_mrnrank;
 
 	//gethostname(hostname, MAXPATHLEN);
-	hostname = cti_getNodeNidName();
+	if ((hostname = cti_getNodeHostname()) == NULL)
+	{
+		fprintf(stderr, "DbgSRVMRNInitProto cannot get hostname\n");
+		++Shutdown;
+		
+		return -1;
+	}
 	DVPRINT("INFO: hostname[%s] is attaching to MRNet network\n", hostname);
 
 	//get parent information

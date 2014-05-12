@@ -1821,14 +1821,36 @@ DbgHandleSignal(int sig, void (*hand)(int))
 {
 	int *				l_sig;
 	struct sigaction	handler;
-
-	l_sig = Alloc(sizeof(int));
-	memcpy(l_sig, &sig, sizeof(int));
 	
 	if ( hand == SIG_DFL || hand == SIG_IGN )
-		RemoveFromList(DbgSigList, (void *) l_sig);
-	else if ( !InList(DbgSigList, (void *) l_sig) )
-		AddToList(DbgSigList, (void *) l_sig);
+	{
+		// ensure the signal is not in the list
+		SetList(DbgSigList);
+		while ( (l_sig = (int *) GetListElement(DbgSigList)) != NULL )
+		{
+			if (*l_sig == sig)
+			{
+				RemoveFromList(DbgSigList, (void *) l_sig);
+				break;
+			}
+		}
+	} else
+	{
+		// Search the list, if the signal isn't in the list, then add it.
+		SetList(DbgSigList);
+		while ( (l_sig = (int *) GetListElement(DbgSigList)) != NULL )
+		{
+			if (*l_sig == sig)
+				break;
+		}
+		if (l_sig == NULL)
+		{
+			// add this signal to the list
+			l_sig = Alloc(sizeof(int));
+			memcpy(l_sig, &sig, sizeof(int));
+			AddToList(DbgSigList, (void *) l_sig);
+		}
+	}
 		
 	// make sure to initialize the handler
 	memset(&handler, 0, sizeof(handler));

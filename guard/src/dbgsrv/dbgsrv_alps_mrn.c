@@ -248,9 +248,9 @@ main(int argc, char **argv)
 	if (debug_flag)
 	{
 		// get this nodes nidName
-		if ((nidName = cti_getNodeNidName()) == NULL)
+		if ((nidName = cti_getNodeHostname()) == NULL)
 		{
-			fprintf(stderr, "cti_getNodeNidName failed.\n");
+			fprintf(stderr, "cti_getNodeHostname failed.\n");
 			return 1;
 		}
 		DVPRINT("My nidName: %s\n", nidName);

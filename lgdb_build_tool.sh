@@ -59,8 +59,8 @@ libarchive_directory_name="libarchive"
 openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # cudatoolkit include files to build cuda-gdb against
-cuda50_include_dir="/opt/nvidia/cudatoolkit/5.0.35/include"
-cuda55_include_dir="/opt/nvidia/cudatoolkit/5.5.20-1.0000.7700.8.1/include"
+cuda50_include_dir="/opt/nvidia/cudatoolkit/5.5.20-1.0000.7945.9.2/include"
+cuda55_include_dir="/opt/nvidia/cudatoolkit/5.5.20-1.0000.7945.9.2/include"
 
 # Current dependency source trees that are directly maintained in ccdb
 aif_directory_name="libaif"
@@ -88,12 +88,12 @@ libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
 libcraytool_backend_dso="libcraytools_be.so"
-libcraytool_backend_major="libcraytools_be.so.4"
-libcraytool_backend_minor="libcraytools_be.so.4.0.0"
+libcraytool_backend_major="libcraytools_be.so.5"
+libcraytool_backend_minor="libcraytools_be.so.5.0.0"
 
 libcraytool_frontend_dso="libcraytools_fe.so"
-libcraytool_frontend_major="libcraytools_fe.so.4"
-libcraytool_frontend_minor="libcraytools_fe.so.4.0.0"
+libcraytool_frontend_major="libcraytools_fe.so.5"
+libcraytool_frontend_minor="libcraytools_fe.so.5.0.0"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"

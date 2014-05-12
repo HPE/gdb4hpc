@@ -85,12 +85,11 @@ typedef enum dbgquit_type dbgquit_type;
 struct dbginvoke
 {
 	char *						d_handle;				// invoke handle used as identifier in client layer
+	uint64_t					d_appid;				// app identifier - this should be generic
 	dbgproc_type				d_type;					// launched or attached?
 	int							d_started;				// indicates if this di has been started
 	int							d_isShutdown;			// Some networks can use this during error handling. If this is true, the network is already shutdown.
 	int							d_nproc;				// number of processes
-	int							d_pid;					// pid of invoke process
-	int							d_apid;					// apid of invoke process for Cray platform
 	char *						d_cmd;					// application command argument - set to name of executable for invoke
 	int							d_stat;					// exit/signal status of proc
 	list_t *					d_evfds;				// event notification fds specific to this instance

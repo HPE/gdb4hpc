@@ -5,10 +5,18 @@ contained within this package or product are Copyright 2001-2013
 Cray Inc. All rights reserved.
 ------------------------------------------------------------------------
 
+Bob Jenkins Hash Function
+------
+Public Domain
+
+By Bob Jenkins, 1996.  bob_jenkins@burtleburtle.net.  You may use this
+code any way you wish, private, educational, or commercial.
+
+
 The GNU Project Debugger - gdb 7.2
 ------
 http://www.allinea.com/products/source-code
-GPLv3+: GNU GPL version 3 or later
+GPLv3+: GNU General Public License v3.0 or later
 
 Copyright (C) 2010 Free Software Foundation, Inc.
 Copyright (C) Allinea Software Ltd. 2013
@@ -20,7 +28,7 @@ License text appended to this file.
 The NVIDIA (R) CUDA Debugger - cuda-gdb-50
 ------
 http://www.allinea.com/products/source-code
-GPLv3+: GNU GPL version 3 or later
+GPLv3+: GNU General Public License v3.0 or later
 
 Copyright (C) 2010 Free Software Foundation, Inc.
 Portions Copyright (C) 2007-2013 NVIDIA Corporation
@@ -32,7 +40,7 @@ License text appended to this file.
 The NVIDIA (R) CUDA Debugger - cuda-gdb-55
 ------
 http://www.allinea.com/products/source-code
-GPLv3+: GNU GPL version 3 or later
+GPLv3+: GNU General Public License v3.0 or later
 
 Copyright (C) 2010 Free Software Foundation, Inc.
 Portions Copyright (C) 2007-2012 NVIDIA Corporation
@@ -86,7 +94,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 gdb/mi interface library - libmi
 ------
 https://www.eclipse.org/ptp/
-Eclipse Public License v1.0
+Eclipse Public License 1.0
 
 Derivative work based on PTP libmi implementation
 Copyright (c) 2011-2014 Cray Inc. All Rights Reserved.
@@ -114,7 +122,7 @@ License text appended to this file.
 libssh2 1.4.3
 ------
 http://www.libssh2.org/
-BSD
+BSD 3-clause "New" or "Revised" License
 
 Contains various copyrights and authors
 Copyright (c) 2004-2007 Sara Golemon <sarag@libssh2.org>
@@ -162,7 +170,7 @@ OF SUCH DAMAGE.
 libarchive 3.1.2
 ------
 http://www.libarchive.org/
-New BSD License
+BSD 2-clause "Simplified" License
 
 Contains various copyrights and authors
 Copyright (c) 2003-2009 Tim Kientzle
@@ -220,7 +228,7 @@ SUCH DAMAGE.
 Editline Library - libedit 0:41:0
 ------
 http://thrysoee.dk/editline/
-Modified BSD license
+BSD 3-clause "New" or "Revised" License
 
 Copyright (c) 2011-2013 Cray Inc. All rights reserved.
 
@@ -258,7 +266,7 @@ SUCH DAMAGE.
 MRNet - libmrnet
 ------
 http://git.dyninst.org/
-LGPLv2.1: GNU LESSER GENERAL PUBLIC LICENSE Version 2.1
+LGPLv2.1+: GNU Lesser General Public License v2.1 or later
 
 Copyright © 2003-2012 Dorian C. Arnold, Philip C. Roth, Barton P. Miller
 
@@ -291,6 +299,57 @@ http://www.eclipse.org/legal/epl-v10.html
 LA-CC 04-115
 
 License text appended to this file.
+
+
+HPC Challenge Benchmark Suite HPL
+------
+http://www.netlib.org/benchmark/hpl/
+BSD 1.0 - Historical Permission License
+
+-- High Performance Computing Linpack Benchmark (HPL)
+   HPL - 2.0 - September 10, 2008
+   Antoine P. Petitet
+   University of Tennessee, Knoxville
+   Innovative Computing Laboratory
+   (C) Copyright 2000-2008 All Rights Reserved
+
+-- Copyright notice and Licensing terms:
+
+Redistribution  and  use in  source and binary forms, with or without
+modification, are  permitted provided  that the following  conditions
+are met:
+
+1. Redistributions  of  source  code  must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce  the above copyright
+notice, this list of conditions,  and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+3. All  advertising  materials  mentioning  features  or  use of this
+software must display the following acknowledgement:
+This  product  includes  software  developed  at  the  University  of
+Tennessee, Knoxville, Innovative Computing Laboratory.
+
+4. The name of the  University,  the name of the  Laboratory,  or the
+names  of  its  contributors  may  not  be used to endorse or promote
+products  derived   from   this  software  without  specific  written
+permission.
+
+-- Disclaimer:
+
+THIS  SOFTWARE  IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,  INCLUDING,  BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY
+OR  CONTRIBUTORS  BE  LIABLE FOR ANY  DIRECT,  INDIRECT,  INCIDENTAL,
+SPECIAL,  EXEMPLARY,  OR  CONSEQUENTIAL DAMAGES  (INCLUDING,  BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA OR PROFITS; OR BUSINESS INTERRUPTION)  HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT,  STRICT LIABILITY,  OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 
 
 

@@ -211,7 +211,10 @@ static void
 rl_handle_line(char *line)
 {
 	if (!line)
+	{
+		ForceQuit();
 		return;
+	}
 	
 	if (*line)
 		add_history(line);

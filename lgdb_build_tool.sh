@@ -93,7 +93,7 @@ libcraytool_backend_minor="libcraytools_be.so.5.0.1"
 
 libcraytool_frontend_dso="libcraytools_fe.so"
 libcraytool_frontend_major="libcraytools_fe.so.5"
-libcraytool_frontend_minor="libcraytools_fe.so.5.0.1"
+libcraytool_frontend_minor="libcraytools_fe.so.5.0.2"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"

@@ -1484,6 +1484,16 @@ PrintOutMsg(char *format, ...)
 	va_end(arg_list);
 }
 
+/*
+** get a line from stdin - We want to force this to fail here...
+*/
+char *
+cli_get_line(void)
+{
+	PrintOutError("cli_get_line should not be called from proxy interface.\n");
+	return NULL;
+}
+
 void
 ForceQuit(void)
 {

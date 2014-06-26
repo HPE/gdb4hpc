@@ -767,6 +767,29 @@ cli_query(char *s)
 	return 1;
 }
 
+char *
+cli_get_line(void)
+{
+	char *res = NULL;
+	size_t n;
+	
+	// Make sure we currently have a stream, otherwise reading is impossible
+	if (CurrentStream == NULL || CurrentStream->cs_fpin == NULL)
+	{
+		return NULL;
+	}
+	
+	// read a line of input
+	if (getline(&res, &n, CurrentStream->cs_fpin) < 0)
+	{
+		PrintOutError("getline failed.\n");
+		perror("getline");
+		return NULL;
+	}
+	
+	return res;
+}
+
 int
 cli_start_response(int seq)
 {

@@ -207,6 +207,9 @@ extern void					cli_reset_stream(void);
 extern void					cli_clear_line(void);
 // Used to confirm dangerous instructions
 extern int					cli_query(char *);
+// Used to get a line of input. This should be avoided. It is needed for ssh 
+// keyboard-interactive authentication
+extern char *				cli_get_line(void);
 // Used to start and end a response for XML output
 extern int					cli_start_response(int);
 extern void					cli_end_response(void);

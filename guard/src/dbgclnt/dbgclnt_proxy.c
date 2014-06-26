@@ -261,9 +261,51 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 	return script_name;
 }
 
+extern char *				cli_get_line(void);
+
+static void interactive_auth_callback(	const char *name, int name_len, const char *instruction,
+										int instruction_len, int num_prompts, const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+										LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses, void **abstract)
+{
+	int i;
+	char *prompt;
+	char *pw = NULL;
+	(void)name;
+	(void)name_len;
+	(void)instruction;
+	(void)instruction_len;
+	(void)abstract;
+	
+	if (num_prompts <=0 )
+	{
+		return;
+	}
+	
+	for (i=0; i < num_prompts; ++i)
+	{
+		// print out the prompt
+		prompt = (char *)Alloc(prompts[i].length+1);
+		memset(prompt, 0, prompts[i].length+1);
+		strncpy(prompt, prompts[i].text, prompts[i].length);
+		PrintOutMsg("\n%s", prompt);
+		Free(prompt);
+		
+		if ((pw = cli_get_line()) == NULL)
+		{
+			return;
+		}
+		responses[i].text = pw;
+		responses[i].length = strlen(pw);
+	}
+	
+	// Print out final newlines to keep things clean
+	PrintOutMsg("\n\n");
+}
+
 static int
 ssh_start_proxy(char *hostname, char *username, char *lhost, char *lport)
 {
+	int						auth = 0;
 	struct addrinfo			hints;
 	struct addrinfo	 *		host = NULL;
 	int						rc, ssh_sock;
@@ -363,9 +405,6 @@ ssh_start_proxy(char *hostname, char *username, char *lhost, char *lport)
 	// read all hosts from here
 	libssh2_knownhost_readfile(nh, "known_hosts", LIBSSH2_KNOWNHOST_FILE_OPENSSH);
 	
-	// store all known hosts to here
-	//libssh2_knownhost_writefile(nh, "dumpfile", LIBSSH2_KNOWNHOST_FILE_OPENSSH);
-	
 	fingerprint = libssh2_session_hostkey(session, &len, &type);
 	
 	if (fingerprint)
@@ -428,41 +467,26 @@ mismatch_exit:
 	// we can use interactive login
 	if (strstr(userauthlist, "publickey") != NULL)
 	{
+		// Start by trying to use the ssh-agent mechanism
 		struct libssh2_agent_publickey *identity, *prev_identity = NULL;
 	
 		// Connect to the ssh-agent
 		if ((agent = libssh2_agent_init(session)) == NULL)
 		{
 			PrintOutError("Failure initializing ssh-agent support.\n");
-			libssh2_session_disconnect(session, "Error occured.");
-			libssh2_session_free(session);
-			close(ssh_sock);
-			libssh2_exit();
-			return 1;
+			goto keyfile_fallback;
 		}
 		
 		if (libssh2_agent_connect(agent))
 		{
 			PrintOutError("Failure connecting to ssh-agent.\n");
-			libssh2_agent_disconnect(agent);
-			libssh2_agent_free(agent);
-			libssh2_session_disconnect(session, "Error occured.");
-			libssh2_session_free(session);
-			close(ssh_sock);
-			libssh2_exit();
-			return 1;
+			goto keyfile_fallback;
 		}
 		
 		if (libssh2_agent_list_identities(agent))
 		{
 			PrintOutError("Failure requesting identities to ssh-agent.\n");
-			libssh2_agent_disconnect(agent);
-			libssh2_agent_free(agent);
-			libssh2_session_disconnect(session, "Error occured.");
-			libssh2_session_free(session);
-			close(ssh_sock);
-			libssh2_exit();
-			return 1;
+			goto keyfile_fallback;
 		}
 		
 		while (1)
@@ -485,11 +509,17 @@ mismatch_exit:
 			prev_identity = identity;
 		}
 		
+		// Done with the agent so we can close it
+		libssh2_agent_disconnect(agent);
+		libssh2_agent_free(agent);
+		
 		if (rc)
-		{		
+		{
 			// Failed to use the ssh-agent, try to use the default keyfiles instead.
 			char *	priv_path;
 			char *	pub_path;
+		
+keyfile_fallback:
 			
 			// Get the home directory name
 			pw = getpwuid(getuid());
@@ -511,15 +541,8 @@ mismatch_exit:
 				{
 					// Failed to find either rsa or dsa mechanism. Failure
 					Free(priv_path);
-					PrintOutError("Could not authenticate.\n");
-					PrintOutError("Ensure passwordless login has been setup!\n");
-					libssh2_agent_disconnect(agent);
-					libssh2_agent_free(agent);
-					libssh2_session_disconnect(session, "Error occured.");
-					libssh2_session_free(session);
-					close(ssh_sock);
-					libssh2_exit();
-					return 1;
+					PrintOutError("Could not authenticate via publickey method.\n");
+					goto publickey_failure;
 				}
 				
 				// Found the private key, create the public key file and try to stat it
@@ -530,15 +553,8 @@ mismatch_exit:
 					Free(priv_path);
 					Free(pub_path);
 					PrintOutError("Located id_dsa, failed to locate id_dsa.pub!\n");
-					PrintOutError("Could not authenticate.\n");
-					PrintOutError("Ensure passwordless login has been setup!\n");
-					libssh2_agent_disconnect(agent);
-					libssh2_agent_free(agent);
-					libssh2_session_disconnect(session, "Error occured.");
-					libssh2_session_free(session);
-					close(ssh_sock);
-					libssh2_exit();
-					return 1;
+					PrintOutError("Could not authenticate via publickey method.\n");
+					goto publickey_failure;
 				}
 				
 				// Try authenticating with an empty passphrase - TODO: Do all sites only use empty passphrases???
@@ -546,13 +562,8 @@ mismatch_exit:
 				{
 					// Failed to authenticate
 					PrintOutError("id_dsa authentication failed.\n");
-					libssh2_agent_disconnect(agent);
-					libssh2_agent_free(agent);
-					libssh2_session_disconnect(session, "Error occured.");
-					libssh2_session_free(session);
-					close(ssh_sock);
-					libssh2_exit();
-					return 1;
+					PrintOutError("Could not authenticate via publickey method.\n");
+					goto publickey_failure;
 				}
 			} else
 			{
@@ -564,15 +575,8 @@ mismatch_exit:
 					Free(priv_path);
 					Free(pub_path);
 					PrintOutError("Located id_rsa, failed to locate id_rsa.pub!\n");
-					PrintOutError("Could not authenticate.\n");
-					PrintOutError("Ensure passwordless login has been setup!\n");
-					libssh2_agent_disconnect(agent);
-					libssh2_agent_free(agent);
-					libssh2_session_disconnect(session, "Error occured.");
-					libssh2_session_free(session);
-					close(ssh_sock);
-					libssh2_exit();
-					return 1;
+					PrintOutError("Could not authenticate via publickey method.\n");
+					goto publickey_failure;
 				}
 				
 				// Try authenticating with an empty passphrase - TODO: Do all sites only use empty passphrases???
@@ -580,13 +584,8 @@ mismatch_exit:
 				{
 					// Failed to authenticate
 					PrintOutError("id_rsa authentication failed.\n");
-					libssh2_agent_disconnect(agent);
-					libssh2_agent_free(agent);
-					libssh2_session_disconnect(session, "Error occured.");
-					libssh2_session_free(session);
-					close(ssh_sock);
-					libssh2_exit();
-					return 1;
+					PrintOutError("Could not authenticate via publickey method.\n");
+					goto publickey_failure;
 				}
 			}
 			
@@ -596,10 +595,33 @@ mismatch_exit:
 		}
 		
 		// We're authenticated now
-	} else
+		++auth;
+	}
+
+publickey_failure:
+
+	// Try to use keyboard-interactive if not already authed
+	if (!auth && strstr(userauthlist, "keyboard-interactive") != NULL)
+	{
+		PrintOutMsg("Performing keyboard-interactive authentication.\n");
+		
+		if (libssh2_userauth_keyboard_interactive(session, username, &interactive_auth_callback))
+		{
+			// Failed to authenticate
+			PrintOutError("keybaord-interactive authentication failed.\n");
+			goto keyinter_failure;
+		}
+
+		// we're authenticated now
+		++auth;
+	}
+	
+keyinter_failure:
+
+	// Ensure we are now authed
+	if (!auth)
 	{
 		// No known authentication methods found!
-		PrintOutError("publickey method not supported by system.\n");
 		PrintOutError("No supported ssh authentication method found.\n");
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
@@ -612,8 +634,6 @@ mismatch_exit:
 	if ((proxy_script = pathFind("start_proxy.sh", NULL)) == NULL)
 	{
 		PrintOutError("Could not locate the start_proxy.sh script in path.\n");
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -626,8 +646,6 @@ mismatch_exit:
 	{
 		PrintOutError("ERROR: Cannot open %s.\n", proxy_script);
 		Free(proxy_script);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -646,8 +664,6 @@ mismatch_exit:
 	{
 		PrintOutError("ERROR: Cannot find %s. Please set MRNet environment variables!\n", GUARD_CFG_DIRECTORY);
 		Free(script_name);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -661,8 +677,6 @@ mismatch_exit:
 	{
 		PrintOutError("ERROR: mkstemp failed with %s.\n", script_name);
 		Free(script_name);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -675,8 +689,6 @@ mismatch_exit:
 	{
 		PrintOutError("ERROR: Could not fdopen on output script.\n");
 		Free(script_name);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -698,8 +710,6 @@ mismatch_exit:
 	{
 		PrintOutError("ERROR: Could not locate guard_proxy in PATH.\n");
 		Free(script_name);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -726,8 +736,6 @@ mismatch_exit:
 		PrintOutError("ERROR: Could not fclose output script.\n");
 		unlink(script_name);
 		Free(script_name);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -759,8 +767,6 @@ mismatch_exit:
 		unlink(script_name);
 		Free(script_name);
 		Free(remote_file);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -775,8 +781,6 @@ mismatch_exit:
 		unlink(script_name);
 		Free(script_name);
 		Free(remote_file);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -803,8 +807,6 @@ mismatch_exit:
 				unlink(script_name);
 				Free(script_name);
 				Free(remote_file);
-				libssh2_agent_disconnect(agent);
-				libssh2_agent_free(agent);
 				libssh2_session_disconnect(session, "Error occured.");
 				libssh2_session_free(session);
 				close(ssh_sock);
@@ -839,8 +841,6 @@ mismatch_exit:
 	{
 		PrintOutError("Could not open ssh channel.\n");
 		Free(remote_file);
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -858,8 +858,6 @@ mismatch_exit:
 	if (libssh2_channel_exec(channel, cmd_str))
 	{
 		PrintOutError("Failed to launch guard_proxy.\n");
-		libssh2_agent_disconnect(agent);
-		libssh2_agent_free(agent);
 		libssh2_session_disconnect(session, "Error occured.");
 		libssh2_session_free(session);
 		close(ssh_sock);
@@ -870,8 +868,6 @@ mismatch_exit:
 	
 	libssh2_channel_close(channel);
 	libssh2_channel_free(channel);
-	libssh2_agent_disconnect(agent);
-	libssh2_agent_free(agent);
 	libssh2_session_disconnect(session, "Normal shutdown.");
 	libssh2_session_free(session);
 	close(ssh_sock);

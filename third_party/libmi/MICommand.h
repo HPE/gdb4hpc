@@ -94,6 +94,8 @@ extern MICommand *MIExecFinish(void);
 extern MICommand *MIExecInterrupt(void);
 extern MICommand *MIExecUtil(char*);
 extern MICommand *MIExecStepInstruction(void);
+extern MICommand *MIExecContinueAll(void);
+extern MICommand *MIExecInterruptAll(void);
 
 /*
  * -file-* commands

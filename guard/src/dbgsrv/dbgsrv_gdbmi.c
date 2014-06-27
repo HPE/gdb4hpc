@@ -1106,7 +1106,10 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				DVPRINT("Detected Nvidia driver %s\n", vers_str);
 				
 				// Now strcmp the driver version with a list of supported versions
-				if (!strncmp(vers_str, "319.82", 6))
+				if (!strncmp(vers_str, "319.91", 6))
+				{
+					vers_num = CUDA_55;
+				} else if (!strncmp(vers_str, "319.82", 6))
 				{
 					vers_num = CUDA_55;
 				} else if (!strncmp(vers_str, "319.72", 6))

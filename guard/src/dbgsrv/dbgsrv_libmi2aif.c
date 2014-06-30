@@ -44,6 +44,9 @@
 #define CSAPRINT(...)
 #endif /* CreateSimpleAIF_PRINT */
 
+// Used to fix infinite loop issue for recursive calls to whatis
+#define LOOP_PREVENTION 20
+
 /*
 ** Types
 */
@@ -102,6 +105,7 @@ static AIF *				GetStructAIF(MISession *, MIVar *);
 static AIF *				GetArrayAIF(MISession *, MIVar *);
 static AIF *				GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
 static AIF *				GetPointerAIF(MISession *, MIVar *);
+static void					fixTypeString(char *, char *, char *);
 
 // Internal globals
 static dbgevent_t *	dbg_error = NULL;
@@ -185,6 +189,7 @@ GetAIFVarHash(MISession *session, char *var, AIF **val, char *hashinfo,
 	MIVar *	mivar;
 	int		id;
 	char *	pt;
+	int		cnt = 0;
 	
 	// reset the error var
 	reset_err();
@@ -218,8 +223,11 @@ GetAIFVarHash(MISession *session, char *var, AIF **val, char *hashinfo,
 				free(mivar->type);
 			}
 			mivar->type = pt;
-			// FIXME: How to fix infinite loop here? I don't have a testcase that
-			// will cause it, but its certainly possible. This is not good...
+			if (++cnt >= LOOP_PREVENTION)
+			{
+				EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetArrayAIFHash failed.");
+				return get_err();
+			}
 		} else
 			break;
 	}
@@ -415,31 +423,161 @@ GetMIWhatisValue(MISession *session, char *expr, MIVar *var)
 	return type;
 }
 
+static void
+fixTypeString(char *p, char *s, char *orig)
+{
+	int	extra_char = 0;	// used for extra characters to account for
+
+	if (p == NULL || s == NULL || orig == NULL)
+	{
+		DVPRINT("fixTypeString: bad args\n");
+		return;
+	}
+	
+	DVPRINT("fixTypeString: p is \"%s\"\n", p);
+	DVPRINT("fixTypeString: s is \"%s\"\n", s);
+
+	// If this is the last stuff in the string, we simply null terminate.
+	if (strlen(p) == strlen(s))
+	{
+		DVPRINT("fixTypeString: null terminate method.\n");
+		// Check for a preceeding " "
+		if (*(p-1) == ' ')
+		{
+			*--p = '\0';
+		} else				
+		{
+			*p = '\0';
+		}
+	} else
+	{
+		DVPRINT("fixTypeString: memmove method.\n");
+		// If we are not at the start of the string, there might be a
+		// preceeding space to deal with
+		if (p > orig)
+		{
+			// check for a preceeding " "
+			if (*(p-1) == ' ')
+			{
+				// decrement p to pick up the space
+				--p;
+				++extra_char;
+			}
+		}
+		
+		// Check for space after string
+		if (*(p+strlen(s)) == ' ')
+		{
+			// point past the ' ' character
+			memmove(p, p+(strlen(s)+extra_char+1), (strlen(p)+1)-(strlen(s)+extra_char+1));
+		} else
+		{
+			// no ' ' character
+			memmove(p, p+strlen(s)+extra_char, (strlen(p)+1)-(strlen(s)+extra_char));
+		}
+	}
+	
+	DVPRINT("fixTypeString: New string is \"%s\"\n", p);
+}
+
 static int
 GetTypeLength(MISession *session, char *base_type)
 {
 	char *		res;
-	MICommand *	 cmd;
+	MICommand *	cmd;
 	char *		buf;
-	size_t		len;
-	int		 type_len;		// in bytes
+	int			type_len;		// in bytes
+	char *		p;
+	char *		clean_str;		// string without nvidia crap
+	int			found;
 	
 	DVPRINT("GetTypeLength: Resolving length of %s\n", base_type);
 	
+	// sanity
 	if (base_type == NULL)
 		return 0;
-	
-	// first figure out the length of the base_type along with the necessary
-	// extras for the gdb command
-	len = strlen(base_type) + strlen("\"sizeof(") + strlen(")\"") + 1;
-	
-	// malloc the buffer and create the command string
-	if ((buf = malloc(len)) == (void *)0)
+		
+	// first we need to sanitize the stupid string if gpu debugging is turned on
+	// I don't know why Nvidia decided to be dumb by putting the address space
+	// idents in but then making the gdb parser not understand them...
+	if (gpu_flag)
 	{
-		DVPRINT("GetTypeLength: ERROR: Malloc Failed.\n");
-		return 0;
+		clean_str = strdup(base_type);
+		while ((p = strchr(clean_str, '@')) != NULL)
+		{
+			// reset found
+			found = 0;
+			if (NV_CHECK_ADDR_IDENT(p, CODE_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", CODE_S);
+				++found;
+				fixTypeString(p, CODE_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, CONSTANT_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", CONSTANT_S);
+				++found;
+				fixTypeString(p, CONSTANT_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, GENERIC_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", GENERIC_S);
+				++found;
+				fixTypeString(p, GENERIC_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, GLOBAL_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", GLOBAL_S);
+				++found;
+				fixTypeString(p, GLOBAL_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, PARAMETER_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", PARAMETER_S);
+				++found;
+				fixTypeString(p, PARAMETER_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, SHARED_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", SHARED_S);
+				++found;
+				fixTypeString(p, SHARED_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, TEXTURE_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", TEXTURE_S);
+				++found;
+				fixTypeString(p, TEXTURE_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, LOCAL_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", LOCAL_S);
+				++found;
+				fixTypeString(p, LOCAL_S, clean_str);
+			}
+			if (NV_CHECK_ADDR_IDENT(p, REGISTER_S))
+			{
+				DVPRINT("GetTypeLength: Found %s address space identifier\n", REGISTER_S);
+				++found;
+				fixTypeString(p, REGISTER_S, clean_str);
+			}
+			
+			// ensure found triggered, otherwise just break to avoid infinite loop
+			// this will cause an error later on though.
+			if (!found)
+			{
+				DVPRINT("GetTypeLength: Avoiding infinite loop!\n");
+				break;
+			}
+		}
+		
+		// replace base_type pointer with clean_str, we will free this at the end
+		base_type = clean_str;
+		DVPRINT("GetTypeLength: New type string is \"%s\"\n", base_type);
 	}
-	snprintf(buf, len, "\"sizeof(%s)\"", base_type);
+		
+	// create the command string
+	Asprintf(&buf, "\"sizeof(%s)\"", base_type);
 	
 	DBEPERFLOG(SetTimerStart("GetTypeLength: -data-evaluate-expression"));
 	cmd = MIDataEvaluateExpression(buf);
@@ -458,6 +596,12 @@ GetTypeLength(MISession *session, char *base_type)
 	type_len = (int)strtol(res, NULL, 10);
 	
 	free(res);
+	
+	// free the base_type if gpu flag is turned on
+	if (gpu_flag)
+	{
+		free(base_type);
+	}
 	
 	return type_len;
 }
@@ -531,6 +675,7 @@ GetSimpleAIF(MISession *session, MIVar *var)
 	int	 argc;
 	char *	rtn;
 	char *	name;
+	int		cnt = 0;
 
 	DVPRINT("GetSimpleAIF: %s\n", var->type);
 	
@@ -545,8 +690,10 @@ GetSimpleAIF(MISession *session, MIVar *var)
 				free(var->type);
 			}
 			var->type = pt;
-			// FIXME: How to fix infinite loop here? I don't have a testcase that
-			// will cause it, but its certainly possible. This is not good...
+			if (++cnt >= LOOP_PREVENTION)
+			{
+				break;
+			}
 		} else
 			break;
 	}
@@ -608,9 +755,10 @@ GetSimpleAIF(MISession *session, MIVar *var)
 static AIF *
 GetComplexAIF(MISession *session, MIVar *var)
 {
-	int	 id;
+	int	 	id;
 	char *	pt;
 	AIF *	a = NULL;
+	int		cnt = 0;
 
 	while ((id = GetComplexType(var->type)) == T_UNKNOWN) 
 	{
@@ -622,8 +770,10 @@ GetComplexAIF(MISession *session, MIVar *var)
 				free(var->type);
 			}
 			var->type = pt;
-			// FIXME: How to fix infinite loop here? I don't have a testcase that
-			// will cause it, but its certainly possible. This is not good...
+			if (++cnt >= LOOP_PREVENTION)
+			{
+				break;
+			}
 		} else
 			break;
 	}
@@ -686,6 +836,181 @@ GetSimpleType(char *type)
 start:
 	switch (*t++)
 	{
+// This is for Nvidia address space identifiers that may or may not be present
+// case "@"
+	case '@':
+		switch (*t++)
+		{
+	// case "@c"
+		case 'c':
+		case 'C':
+			switch (*t++)
+			{
+		// case "@co"
+			case 'o':
+			case 'O':
+				switch (*t++)
+				{
+			// case "@cod"
+				case 'd':
+				case 'D':
+					if (strncasecmp(t, "e ", 2) == 0)
+					{
+					// string "@code "
+					DVPRINT("GetSimpleType: Found @code address space identifier!\n");
+					t += 2;
+					// we ignore these address space identifiers, so simply 
+					// return the value of the recursive call to this function
+					return GetSimpleType(t);
+					}
+					// case "@cod" unknown
+					goto unknown;
+			
+			// case "@con"
+				case 'n':
+				case 'N':
+					if (strncasecmp(t, "stant ", 6) == 0)
+					{
+					// string "@constant "
+					DVPRINT("GetSimpleType: Found @constant address space identifier!\n");
+					t += 6;
+					// we ignore these address space identifiers, so simply 
+					// return the value of the recursive call to this function
+					return GetSimpleType(t);
+					}
+					// case "@con" unknown
+					goto unknown;
+					
+		// case "@co" unknown
+				default:
+					goto unknown;
+				}
+			
+	// case "@c" unknown
+			default:
+				goto unknown;
+			}
+			
+	// case "@g"
+		case 'g':
+		case 'G':
+			switch (*t++)
+			{
+		// case "@ge"
+			case 'e':
+			case 'E':
+				if (strncasecmp(t, "neric ", 6) == 0)
+				{
+				// string "@generic "
+				DVPRINT("GetSimpleType: Found @generic address space identifier!\n");
+				t += 6;
+				// we ignore these address space identifiers, so simply 
+				// return the value of the recursive call to this function
+				return GetSimpleType(t);
+				}
+				// case "@ge" unknown
+				goto unknown;
+				
+		// case "@gl"
+			case 'l':
+			case 'L':
+				if (strncasecmp(t, "obal ", 5) == 0)
+				{
+				// string "@global "
+				DVPRINT("GetSimpleType: Found @global address space identifier!\n");
+				t += 5;
+				// we ignore these address space identifiers, so simply 
+				// return the value of the recursive call to this function
+				return GetSimpleType(t);
+				}
+				// case "@gl" unknown
+				goto unknown;
+				
+	// case "@g" unknown
+			default:
+				goto unknown;
+			}
+			
+	// case "@p"
+		case 'p':
+		case 'P':
+			if (strncasecmp(t, "arameter ", 9) == 0)
+			{
+			// string "@parameter "
+			DVPRINT("GetSimpleType: Found @parameter address space identifier!\n");
+			t += 9;
+			// we ignore these address space identifiers, so simply 
+			// return the value of the recursive call to this function
+			return GetSimpleType(t);
+			}
+	// case "@p" unknown
+			goto unknown;
+			
+	// case "@s"
+		case 's':
+		case 'S':
+			if (strncasecmp(t, "hared ", 6) == 0)
+			{
+			// string "@shared "
+			DVPRINT("GetSimpleType: Found @shared address space identifier!\n");
+			t += 6;
+			// we ignore these address space identifiers, so simply 
+			// return the value of the recursive call to this function
+			return GetSimpleType(t);
+			}
+	// case "@s" unknown
+			goto unknown;
+			
+	// case "@t"
+		case 't':
+		case 'T':
+			if (strncasecmp(t, "exture ", 7) == 0)
+			{
+			// string "@texture "
+			DVPRINT("GetSimpleType: Found @texture address space identifier!\n");
+			t += 7;
+			// we ignore these address space identifiers, so simply 
+			// return the value of the recursive call to this function
+			return GetSimpleType(t);
+			}
+	// case "@t" unknown
+			goto unknown;
+			
+	// case "@l"
+		case 'l':
+		case 'L':
+			if (strncasecmp(t, "ocal ", 5) == 0)
+			{
+			// string "@local "
+			DVPRINT("GetSimpleType: Found @local address space identifier!\n");
+			t += 5;
+			// we ignore these address space identifiers, so simply 
+			// return the value of the recursive call to this function
+			return GetSimpleType(t);
+			}
+	// case "@l" unknown
+			goto unknown;
+			
+	// case "@r"
+		case 'r':
+		case 'R':
+			if (strncasecmp(t, "egister ", 8) == 0)
+			{
+			// string "@register "
+			DVPRINT("GetSimpleType: Found @register address space identifier!\n");
+			t += 8;
+			// we ignore these address space identifiers, so simply 
+			// return the value of the recursive call to this function
+			return GetSimpleType(t);
+			}
+	// case "@r" unknown
+			goto unknown;
+			
+// case "@" unknown
+		default:
+			goto unknown;
+		}
+					
 // case "b"
 	case 'b':
 	case 'B':
@@ -1496,8 +1821,66 @@ static int
 GetComplexType(char *type)
 {
 	int len = strlen(type);
+	char *t = &type[len - 1];
+	char *p;
+	
+	// Check for nvidia address space identifiers, we want to ignore these.
+	if (gpu_flag && ((p = strrchr(type, '@')) != NULL))
+	{
+		DVPRINT("GetComplexType: Pointing at \"%s\"\n", p);
+		
+		// ensure that the @... business is the last part of the string, otherwise something else is
+		// going on
+		if (NV_CHECK_ADDR_IDENT_L(p, CODE_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", CODE_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, CONSTANT_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", CONSTANT_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, GENERIC_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", GENERIC_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, GLOBAL_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", GLOBAL_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, PARAMETER_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", PARAMETER_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, SHARED_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", SHARED_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, TEXTURE_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", TEXTURE_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, LOCAL_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", LOCAL_S);
+			t = p-2;
+		}
+		if (NV_CHECK_ADDR_IDENT_L(p, REGISTER_S))
+		{
+			DVPRINT("GetComplexType: Found %s address space identifier\n", REGISTER_S);
+			t = p-2;
+		}
+		
+		DVPRINT("GetComplexType: Pointing at \'%c\'\n", *t);
+	}
 
-	switch (type[len - 1]) 
+	switch (*t) 
 	{
 		case ']':
 			DVPRINT("GetComplexType: Found array\n");

@@ -122,6 +122,25 @@
  */
 #define VOID_FUNCTION_STR		"(*)"
 
+/* 
+** Nvidia extensions
+*/
+#define CODE_S						"@code"
+#define CONSTANT_S				"@constant"
+#define GENERIC_S					"@generic"
+#define GLOBAL_S					"@global"
+#define PARAMETER_S				"@parameter"
+#define SHARED_S					"@shared"
+#define TEXTURE_S					"@texture"
+#define LOCAL_S					"@local"
+#define REGISTER_S				"@register"
+
+#define NV_CHECK_ADDR_IDENT(a, b) \
+	(strncmp(a, b, strlen(b)) == 0)
+	
+#define NV_CHECK_ADDR_IDENT_L(a, b) \
+	((strncmp(a, b, strlen(b)) == 0) && (strlen(a) == strlen(b)))
+
 /*
  * Function prototypes
  */

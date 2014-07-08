@@ -486,6 +486,17 @@ DbgMRNAttach(
 		return 1;
 	}
 	
+	if (cti_addManifestLibDir(mid, "/cray/css/users/azahdeh/pylib62"))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add pylib62 to manifest.\n");
+		cti_destroyManifest(mid);
+		
+		return 1;
+	}
+	
+	PrintOutError("added pylib62");
+	
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -1246,7 +1257,17 @@ DbgMRNInvoke(
 		
 		return 1;
 	}
+	
+	if (cti_addManifestLibDir(mid, "/cray/css/users/azahdeh/pylib62"))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add pylib62 to manifest.\n");
+		cti_destroyManifest(mid);
+		
+		return 1;
+	}
 
+	
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -1480,7 +1501,16 @@ DbgMRNInvoke(
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
-	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, (char **)NULL, dbg)) == 0)
+	char ** args = malloc(2*sizeof(char*));
+	char * libDirStr = cti_getSessionLibDir(sid);
+	args[0] = malloc(strlen("PYTHONHOME=")+strlen(libDirStr)+strlen("/pylib62")+1);
+	strcpy(args[0], "PYTHONHOME=");
+	strcat(args[0], libDirStr);
+	strcat(args[0], "/pylib62");
+	args[1] = (char *) NULL;
+	PrintOutError("got args[1]");
+	
+	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, args, dbg)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
@@ -1493,6 +1523,9 @@ DbgMRNInvoke(
 		
 		return 1;
 	}
+	
+	free(args[0]);
+	free(args);
 	
 	// done with the argv array
 	FreeArgv(ap);

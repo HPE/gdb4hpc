@@ -29,6 +29,8 @@
 // addArrayDimensionDef is there is not enough room in the list for the
 // new dimension definition. 
 #define DIMDEF_SIZE             5
+#include "aif.h"
+//
 
 // used for returning shape of arrays
 typedef struct

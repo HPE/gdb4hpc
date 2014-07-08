@@ -332,6 +332,8 @@ guard/src/useful/str.c -text
 guard/src/useful/str.h -text
 guard/src/useful/test.c -text
 guard/src/useful/useful.h -text
+guard/src/useful/vector.c -text
+guard/src/useful/vector.h -text
 guard/testsuite/Makefile.am -text
 guard/testsuite/boards/cray.exp -text
 guard/testsuite/config/cray_stubs.exp -text

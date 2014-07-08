@@ -52,7 +52,7 @@ am_libuseful_a_OBJECTS = alloc.$(OBJEXT) args.$(OBJEXT) \
 	array.$(OBJEXT) debug.$(OBJEXT) error.$(OBJEXT) exec.$(OBJEXT) \
 	hash.$(OBJEXT) hashfunctions.$(OBJEXT) list.$(OBJEXT) \
 	log.$(OBJEXT) maths.$(OBJEXT) path.$(OBJEXT) queue.$(OBJEXT) \
-	str.$(OBJEXT)
+	str.$(OBJEXT) vector.$(OBJEXT)
 libuseful_a_OBJECTS = $(am_libuseful_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
@@ -229,7 +229,7 @@ AM_LIBTOOLFLAGS = --quiet
 noinst_LIBRARIES = libuseful.a
 libuseful_a_SOURCES = alloc.c args.c array.c debug.c error.c exec.c \
 			  hash.c hashfunctions.c list.c log.c maths.c \
-			  path.c queue.c str.c
+			  path.c queue.c str.c vector.c
 
 all: all-am
 
@@ -292,6 +292,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/path.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/queue.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/str.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vector.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

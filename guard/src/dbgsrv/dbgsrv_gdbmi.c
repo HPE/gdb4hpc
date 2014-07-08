@@ -480,6 +480,26 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
+	
+
+	//pretty print C++ stl contatiners
+	char * manifestLibDir = cti_getLibDir();
+    char * args[2];
+    args[0] = "source";
+	char * fopenStr2 = malloc(strlen(manifestLibDir)+strlen("/pylib62/prettyPrinters/prettyPrinter.py")+1);
+	strcpy(fopenStr2, manifestLibDir);
+	strcat(fopenStr2, "/pylib62/prettyPrinters/prettyPrinter.py");
+    args[1] = fopenStr2;
+	cmd = CLIBypass(2, args);
+	SendMICommand(GDBMISession, cmd);
+	if (!MICommandResultOK(cmd)) 
+	{
+		MICommandFree(cmd);
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb source command failed.");
+		return e;
+	}
+	MICommandFree(cmd);
+	
 	// Don't look for auxillary symbol files - this *must* be turned off for gpu's
 	if (!gpu_flag)
 	{

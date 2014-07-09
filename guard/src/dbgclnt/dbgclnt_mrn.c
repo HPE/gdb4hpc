@@ -1508,7 +1508,6 @@ DbgMRNInvoke(
 	strcat(args[0], libDirStr);
 	strcat(args[0], "/pylib62");
 	args[1] = (char *) NULL;
-	PrintOutError("got args[1]");
 	
 	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, args, dbg)) == 0)
 	{

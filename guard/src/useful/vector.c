@@ -208,7 +208,7 @@ void printVectorLikeDimension(vectorLikeDimension_t * shape){
 }
 
 void freeVectorLikeDimension(vectorLikeDimension_t * shape){
-	if(!shape || shape->_size == 0)
+	if(!shape)
 		return;
 	vectorLikeDimension_t * child = NULL;
 

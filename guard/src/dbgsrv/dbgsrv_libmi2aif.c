@@ -36,7 +36,7 @@
 ** It generates a ton of output for large arrays, which is why we want to
 ** normally leave it off.
 */
-//#define CreateSimpleAIF_PRINT
+#define CreateSimpleAIF_PRINT
 
 #ifdef CreateSimpleAIF_PRINT
 #define CSAPRINT(...) fprintf(stderr, __VA_ARGS__)
@@ -2012,6 +2012,7 @@ GetArrayBaseType(	MISession *session,
 	int	 done = 0;
 	char *	p;
 	char *	str = strdup(var->type);
+	char * newStr = NULL;
 	
 	DVPRINT("GetArrayBaseType: %s\n", str);
 	
@@ -2036,6 +2037,10 @@ GetArrayBaseType(	MISession *session,
 			}
 
 		}
+		if (type_str != NULL)
+			*type_str = strdup(str);
+		if (type_len != NULL)
+			*type_len = GetTypeLength(session, str);
 		return GetType(str);	
 	
 	}
@@ -3161,8 +3166,13 @@ CreateSimpleAIF(int id,
 				CSAPRINT("CreateSimpleAIF: type_str NULL! Creating void\n");
 				return VoidToAIF(0, 0);
 			}
+			CSAPRINT("1\n");
 			long long int addr_loc = strtoll(res, NULL, 0);
+			CSAPRINT("2\n");
 			void *addr = (void *)addr_loc;
+			CSAPRINT("addr: $%p$\n", addr);
+			CSAPRINT("type_len: $%d$\n", type_len);
+			CSAPRINT("type_str: $%p$\n", type_str);
 			return GenericPointerToAIF(AddressToAIF(addr, type_len), type_str);	
 		
 		case T_FUNCTION:
@@ -3925,18 +3935,19 @@ static AIF * parseMIVectorLikeContToAIF(
 				}
 		buf1++;
 	}
-
+	DVPRINT("Attempting to build simple AIF with $%s$", currElemShort);
 	//Now have the representative element (currElemShort) to pass in
 	//when building empty arrays
 	ac = CreateSimpleAIF(id, currElemShort, type_str, type_len, type_struct, type_func);
+	DVPRINT("Built simple AIF");
 	
 	//Build empty arrays with all the right coordinates using the shape of the array
 	createDummyAIF(shape, ac);
+	DVPRINT("parseMIVectorLikeContToAIF: Built the dummies\n");
 	
 	depth=0;
 	DVPRINT("maxDepth is: %d\n", maxDepth);
 	
-	DVPRINT("parseMIVectorLikeContToAIF: Built the dummies\n");
 	printVectorLikeDimension(shape);
 	while(*buf2){
 		//DVPRINT("buf2: %s\n", buf2);
@@ -4695,7 +4706,7 @@ GetVectorLikeAIF(MISession *session, MIVar *var)
 		DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
 		return (AIF *)NULL;
 	}
-
+	DVPRINT("id: %d\n", id);
 	if (var->numchild <= 0) 
 	{
 		DVPRINT("GetArrayAIF: No children detected.\n");

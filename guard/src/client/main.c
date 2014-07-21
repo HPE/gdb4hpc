@@ -957,6 +957,7 @@ EventCB(event_set_t *ev_set, bitset *reply_set)
 		rec_set_t *			rec_set;
 		rep_set_t *			rep_set;
 		group_reply_t *		reply;
+		char *				bitset_str;
 		char *				set_str;
 		dbgstatus_t *		s;
 		char *				status_block;
@@ -966,9 +967,10 @@ EventCB(event_set_t *ev_set, bitset *reply_set)
 			// Status has changed. We need to generate updated status
 			// information - this only impacts a single di
 			
-			// create the rec_set
+			// create the rec_set - FOR THE ENTIRE DI!!!
+			// Bugfix for BUG 814782
 			rec_set = NewRecSet();
-			AddReceiverToSet(rec_set, NewGroupReceiver(ev_set->e_di, ev_set->e_group));
+			AddReceiverToSet(rec_set, NewGroupReceiver(ev_set->e_di, ev_set->e_di->d_bitset_full));
 			
 			// Query the new status from the backends, note that for this we
 			// want to grab the location information
@@ -982,8 +984,14 @@ EventCB(event_set_t *ev_set, bitset *reply_set)
 			// Process each status message and add it to the status block
 			while((reply = GetNextReplyInSet(rep_set)) != NULL)
 			{
+				// First create the bitset string
+				bitset_str = bitset_to_set(reply->rep_group);
+				
 				// Create the set string
-				Asprintf(&set_str, "%s%s", ev_set->e_di->d_handle, reply->rep_group);
+				Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_str);
+				
+				// Done with the bitset_str
+				Free(bitset_str);
 				
 				// point at the status data
 				s = EVENT_STATUS(reply->rep_event);

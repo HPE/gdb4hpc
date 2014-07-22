@@ -514,6 +514,18 @@ DbgMRNAttach(
 // End upc addition
 #endif
 
+#if 0	// use with strace for libmi
+	if (cti_addManifestBinary(mid, "strace"))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add strace to manifest.\n");
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+#endif
+
 	// Add libthread_db otherwise gdb will be messed up with thread
 	// support
 	if (cti_addManifestLibrary(mid, "libthread_db.so.1"))
@@ -1283,6 +1295,18 @@ DbgMRNInvoke(
 		}
 	}
 // End upc addition
+#endif
+
+#if 0	// use with strace for libmi
+	if (cti_addManifestBinary(mid, "strace"))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add strace to manifest.\n");
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
 #endif
 
 	// Add libthread_db otherwise gdb will be messed up with thread

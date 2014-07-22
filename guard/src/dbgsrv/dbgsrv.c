@@ -98,7 +98,7 @@ int				exit_sleep_time = 0;
 int				WDT = 0;
 int				my_rank;
 int				sock_fd;
-dbgevent_t *	(*AsyncRtn)() = (dbgevent_t * (*)())NULL;
+dbgevent_t *	(*AsyncRtn)() = NULL;
 dbgevent_t *	AsyncEvent;
 int				DbgFD;
 int				IOBackendFD = -1;
@@ -588,7 +588,7 @@ Server(void)
 
 		// Wait for an asynchronous event if a asynch handler has been
 		// installed
-		if ( AsyncRtn != (dbgevent_t * (*)())NULL )
+		if ( AsyncRtn != NULL )
 		{
 			if 
 			( 
@@ -606,7 +606,7 @@ Server(void)
 				DbgEventCB(e);
 				DVPRINT("Asynch callback finished.\n");
 
-				AsyncRtn = (dbgevent_t * (*)())NULL;
+				AsyncRtn = NULL;
 			}
 		}
 
@@ -822,7 +822,7 @@ FindMPArch(char *arch)
 void
 AsyncCheck(dbgevent_t * (*rtn)(), dbgevent_t *event)
 {
-	if ( AsyncRtn != (dbgevent_t * (*)())NULL )
+	if ( AsyncRtn != NULL )
 		/* XXX */
 		return;
 

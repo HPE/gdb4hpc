@@ -229,6 +229,7 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	int				n;
 	ssize_t 		num;
 	cli_stream_t *	cs;
+	char *			cmd_buf;
 	
 	if (stream == NULL)
 		return 1;
@@ -285,10 +286,13 @@ cli_socket_handle_input(cli_stream_t ** stream)
 		// increment the completed line
 		cs->cs_line++;
 		// Finished reading in a whole line, call the handler function
-		ExecuteCommand(cs->cs_buf);
-		// Free the buf
+		cmd_buf = strdup(cs->cs_buf);
+		// Cleanup the existing buffer, in case this gets interrupted.
 		Free(cs->cs_buf);
 		cs->cs_buf = NULL;
+		ExecuteCommand(cmd_buf);
+		// Free the cmd_buf
+		Free(cmd_buf);
 		if (cs->cs_nprom > 0)
 		{
 			PrintOutLine("%s", cli_get_prompt());

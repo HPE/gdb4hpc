@@ -697,13 +697,10 @@ ExecuteCommand(char *line)
 		// Make sure that the user didn't type the needle in their command.
 		// Its unlikely that they would do this, but we should still guard
 		// against it.
-		do
+		while ((haystack = strrstr(haystack, XML_REQUEST_END)) != NULL)
 		{
-			if ((haystack = strstr(haystack, XML_REQUEST_END)) != NULL)
-			{
-				needle = haystack;
-			}
-		} while (haystack != NULL && strlen(haystack) != strlen(XML_REQUEST_END));
+			needle = haystack;
+		}
 		
 		// turn the start of the needle into a newline followed by a null term
 		*needle = '\n';

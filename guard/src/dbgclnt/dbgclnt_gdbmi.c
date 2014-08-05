@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "defs.h"
 #include "dbgclnt_debugfe.h"
 #include "useful.h"
 
@@ -207,6 +208,26 @@ setup_gdbmi_environment(MISession *sess)
 	}
 	MICommandFree(cmd);
 	
+	// set data-directory to where the pretty printers reside
+	char * libDir = getenv(GUARD_LIB_DIRECTORY);
+	char * gdbDataDir;
+	if (libDir == NULL)
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_LIB_DIRECTORY);
+		return e;
+	}
+	Asprintf(&gdbDataDir, "%s/gdb", libDir);
+	cmd = MIGDBSet("data-directory", gdbDataDir);
+	SendMICommand_fe(sess, cmd);
+	if (!MICommandResultOK(cmd))
+	{
+		MICommandFree(cmd);
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set data-directory command failed.");
+		return e;
+	}
+	MICommandFree(cmd);
+	Free(gdbDataDir);
+	
 	return NULL;
 }
 
@@ -215,6 +236,10 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 {
 	dbgevent_t *	e;
 	MISession * 	sess = (MISession *)fe_obj->dbg_session;
+	char *			str;
+	char *			old_pyhome = NULL;
+	char *			old_pystartup = NULL;
+	char *			env_lib_dir;
 	
 	DPRINT("*** DbgGDBMIInit_fe\n");
 
@@ -223,6 +248,32 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	MISessionRegisterLogCallback(sess, log_callback);
 	MISessionRegisterTargetCallback(sess, target_callback);*/
 	
+	// get the old value for PYTHONHOME
+	if ((str = getenv("PYTHONHOME")) != NULL)
+	{
+		old_pyhome = strdup(str);
+	}
+	
+	// get the old value for PYTHONSTARTUP
+	if ((str = getenv("PYTHONSTARTUP")) != NULL)
+	{
+		old_pystartup = strdup(str);
+	}
+	
+	// Get the libdir env var
+	if ((env_lib_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_INST_DIRECTORY);
+		return e;
+	}
+	
+	// setup new python env
+	setenv("PYTHONHOME", env_lib_dir, 1);
+	if (old_pystartup != NULL)
+	{
+		unsetenv("PYTHONSTARTUP");
+	}
+	
 	// set the gdb path to use gdb-guard
 	MISessionSetGDBPath(sess, "gdb-guard");
 	
@@ -230,6 +281,21 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not start the debugger.");
 		return e;
+	}
+	
+	// Reset the python env
+	if (old_pyhome != NULL)
+	{
+		setenv("PYTHONHOME", old_pyhome, 1);
+		Free(old_pyhome);
+	} else
+	{
+		unsetenv("PYTHONHOME");
+	}
+	if (old_pystartup != NULL)
+	{
+		setenv("PYTHONSTARTUP", old_pystartup, 1);
+		Free(old_pystartup);
 	}
 	
 	if ((e = setup_gdbmi_environment(sess)) != NULL)

@@ -274,6 +274,7 @@ SetupEnvironment(void)
 	char *				cfg_dir;
 	char *				tmp_dir;
 	char *				cti_ld_val_path;
+	char *				env_lib_dir;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
@@ -290,6 +291,18 @@ SetupEnvironment(void)
 	// Set the environment variables
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
+	// Ensure CRAY_LGDB_LIB_DIR is set, otherwise set it to lib_dir
+	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
+	{
+		// Not found, we should set this to our lib_dir
+		setenv(GUARD_LIB_DIRECTORY, lib_dir, 1);
+	}
+	// Ensure GUARD_INST_DIRECTORY is set, otherwise set it to inst_base
+	if ((env_lib_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
+	{
+		// Not found, we should set this to our lib_dir
+		setenv(GUARD_INST_DIRECTORY, inst_base, 1);
+	}
 	
 	// Get the pw info, this is used in the unique name part of cfg directories
 	if ((pw = getpwuid(getuid())) == NULL)
@@ -395,6 +408,7 @@ SetupEnvironment(void)
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(cti_ld_val_path);
+	Free(inst_base);
 }
 
 int 

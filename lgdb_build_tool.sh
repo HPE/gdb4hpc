@@ -9,7 +9,7 @@
 #       when the debugger was known as ccdb. These ccdb references really
 #       mean lgdb.
 #
-# ©2010-2013 Cray Inc.  All Rights Reserved.
+# ©2010-2014 Cray Inc.  All Rights Reserved.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -54,6 +54,16 @@ editline_directory_name="editline"
 libmi_directory_name="libmi"
 libssh2_directory_name="libssh2"
 libarchive_directory_name="libarchive"
+python_directory_name="Python-2.6.2"
+
+# Python extras name
+python_extras_name="python_extras"
+# File containing list of python dependences
+python_depmod_name="python_files"
+# Directory containing gdb pretty printers
+python_gdb_name="gdb"
+# Directory to install python dependencies to
+python_inst_name="python2.6"
 
 # libssh2 openssl path
 openssl_path="/opt/cpkg/current/openssl/0.9.8k"
@@ -155,6 +165,12 @@ libssh2_src="$thirdparty_dir/$libssh2_directory_name"
 # Define where to find the MRNet source tree
 mrnet_src="$thirdparty_dir/$mrnet_directory_name"
 
+# Define where to find the python source tree
+python_src="$thirdparty_dir/$python_directory_name"
+python_extras="$thirdparty_dir/$python_extras_name"
+python_gdb="$python_extras/$python_gdb_name"
+python_depmod="$python_extras/$python_depmod_name"
+
 # Define where to find the gdb source tree
 gdb_src="$thirdparty_dir/$gdb_directory_name"
 
@@ -213,8 +229,9 @@ libssh2_opt_flag=" -I$openssl_path/include"
 libssh2_ld_flag=" -L$openssl_path/lib"
 libarchive_args="--disable-shared --with-pic --without-expat --without-xml2 --without-openssl --without-nettle --without-lzo2 --without-lzma --without-libiconv-prefix --without-iconv --without-lzmadec --without-bz2lib --without-zlib --disable-bsdtar --disable-bsdcpio --disable-rpath"
 mrnet_args=""
-gdb_args="--disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-mmalloc --without-python"
-cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --without-python"
+python_args=""
+gdb_args="--disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-mmalloc --with-python=$stage_dir/bin/python"
+cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=$stage_dir/bin/python"
 cuda50_gdb_opt_flag=" -I$cuda50_include_dir"
 cuda55_gdb_opt_flag=" -I$cuda55_include_dir"
 perf_flag=""
@@ -229,6 +246,7 @@ opt_aif=n
 opt_libmi=n
 opt_libssh2=n
 opt_mrnet=n
+opt_python=n
 opt_gdb=n
 opt_cuda50_gdb=n
 opt_cuda55_gdb=n
@@ -242,20 +260,21 @@ opt_advanced=n
 prompt_user=1
 
 function print_help {
-echo "Usage: `basename $0` options (-ABCDEFGHIJKLM | --all)"
+echo "Usage: `basename $0` options (-ABCDEFGHIJKLMN | --all)"
 echo "A: libaif"
 echo "B: libmi"
 echo "C: libssh2"
 echo "D: MRNet"
-echo "E: gdb"
-echo "F: cuda-gdb for CUDA_50"
-echo "G: cuda-gdb for CUDA_55"
-echo "H: gdb uda support"
-echo "I: editline"
-echo "J: libarchive"
-echo "K: Tools Interface"
-echo "L: lgdb"
-echo "M: cleanup"
+echo "E: Python"
+echo "F: gdb"
+echo "G: cuda-gdb for CUDA_50"
+echo "H: cuda-gdb for CUDA_55"
+echo "I: gdb uda support"
+echo "J: editline"
+echo "K: libarchive"
+echo "L: Tools Interface"
+echo "M: lgdb"
+echo "N: cleanup"
 }
 
 
@@ -316,7 +335,9 @@ dep_lib64dir="$stage_dir/lib64"
 # Ensure that a PrgEnv module is not loaded. #
 ##############################################
 
-. ${MODULESHOME}/init/sh
+if [ -e /opt/modules/default/init/bash ]; then 
+	source /opt/modules/default/init/bash
+fi
 
 if test "x`module list -l 2>&1 > /dev/null | grep 'PrgEnv'`" != "x"; then
 	echo "!!!!!!!!!!WARNING!!!!!!!!!!"
@@ -355,6 +376,7 @@ if [ "$#" != "0" ] ; then
 		opt_libmi=y
 		opt_libssh2=y
 		opt_mrnet=y
+		opt_python=y
 		opt_gdb=y
 		opt_cuda50_gdb=y
 		opt_cuda55_gdb=y
@@ -379,23 +401,25 @@ if [ "$#" != "0" ] ; then
 					opt_libssh2=y;;
 				d | D ) echo "Building D: MRNet"
 					opt_mrnet=y;;
-				e | E ) echo "Building E: gdb"
+				e | E ) echo "Building E: Python"
+					opt_python=y;;
+				f | F ) echo "Building E: gdb"
 					opt_gdb=y;;
-				f | F ) echo "Building F: cuda-gdb for CUDA_50"
+				g | G ) echo "Building F: cuda-gdb for CUDA_50"
 					opt_cuda50_gdb=y;;
-				g | G ) echo "Building G: cuda-gdb for CUDA_55"
+				h | H ) echo "Building G: cuda-gdb for CUDA_55"
 					opt_cuda55_gdb=y;;
-				h | H ) echo "Building H: gdb uda support"
+				i | I ) echo "Building H: gdb uda support"
 					opt_gdb_uda=y;;	
-				i | I ) echo "Building I: editline"
+				j | J ) echo "Building I: editline"
 					opt_editline=y;;
-				j | J ) echo "Building J: libarchive"
+				k | K ) echo "Building J: libarchive"
 					opt_libarchive=y;;
-				k | K ) echo "Building K: tools interface"
+				l | L ) echo "Building K: tools interface"
 					opt_interface=y;;
-				l | L )	echo "Building L: lgdb"
+				m | M )	echo "Building L: lgdb"
 					opt_ccdb=y;;
-				m | M ) echo "Running M: cleanup"
+				n | N ) echo "Running M: cleanup"
 					opt_cleanup=y;;
 				? ) 	print_help
 					exit 0;;
@@ -608,8 +632,48 @@ if [[ $opt_mrnet == n ]]; then
         fi
 fi
 
+# Ask if we should build python.
+echo -n "A5. Build python?[y/n]: "
+if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
+	while true; do
+		read opt_python
+		if [[ $opt_python == y || $opt_python == n ]]; then
+			break
+		fi
+		echo -ne "\tEnter y or n: "
+	done
+else
+	echo "$opt_python "
+fi
+
+# Process the python build option. If we do not build python, ensure that it
+# exists so that we can continue building.
+if [[ $opt_python == n ]]; then
+	# Check to see if python exists in the dep_bindir
+	if [ -e $dep_bindir/python ]; then
+		echo -e "\tUsing python in $dep_bindir."
+	else
+		echo -e "\tWARNING: Could not find python in $dep_bindir."
+		if [ $prompt_user -eq 1 ]; then
+			echo -ne "\tAre you sure you want to continue?[c/q]: "
+			while true; do
+				read opt_undef
+				if [[ $opt_undef == c || $opt_undef == q ]]; then
+					break
+				fi
+				echo -ne "\tEnter c or q: "
+			done
+			if [[ $opt_undef == q ]]; then
+				exit
+			else
+				echo -e "\tContinuing. Your build may fail!\n"
+			fi
+		fi
+	fi
+fi
+
 # Ask if we should build gdb.
-echo -n "A5. Build gdb?[y/n]: "
+echo -n "A6. Build gdb?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_gdb
@@ -649,7 +713,7 @@ if [[ $opt_gdb == n ]]; then
 fi
 
 # Ask if we should build cuda-gdb for CUDA_50
-echo -n "A6. Build cuda-gdb for CUDA_50?[y/n]: " 
+echo -n "A7. Build cuda-gdb for CUDA_50?[y/n]: " 
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then 
 	while true; do 
 		read opt_cuda50_gdb 
@@ -689,7 +753,7 @@ if [[ $opt_cuda50_gdb == n ]]; then
 fi
 
 # Ask if we should build cuda-gdb for CUDA_55
-echo -n "A7. Build cuda-gdb for CUDA_55?[y/n]: "
+echo -n "A8. Build cuda-gdb for CUDA_55?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_cuda55_gdb
@@ -729,7 +793,7 @@ if [[ $opt_cuda55_gdb == n ]]; then
 fi
 
 # Ask if we should build the gdb uda support library
-echo -n "A8. Build gdb uda support?[y/n]: "
+echo -n "A9. Build gdb uda support?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_gdb_uda
@@ -769,7 +833,7 @@ if [[ $opt_gdb_uda == n ]]; then
 fi
 
 # Ask if we should build editline.
-echo -n "A9. Build editline?[y/n]: "
+echo -n "A10. Build editline?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_editline
@@ -818,7 +882,7 @@ if [[ $opt_editline == n ]]; then
 fi
 
 # Ask if we should build libarchive
-echo -n "A10. Build libarchive?[y/n]: "
+echo -n "A11. Build libarchive?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_libarchive
@@ -858,7 +922,7 @@ if [[ $opt_libarchive == n ]]; then
 fi
 
 # Ask if we should build the cray tools interface
-echo -n "A11. Build tools interface?[y/n]: "
+echo -n "A12. Build tools interface?[y/n]: "
 if [[ $prompt_user == 1 && $opt_ask_deps == y ]] ; then
 	while true; do
 		read opt_interface
@@ -1514,9 +1578,85 @@ fi
 # reset comp_error
 ((comp_error=0))
 
+function install_python {
+	# Ensure the dependency modules list exists
+	if [[ ! -e $python_depmod ]]; then
+		echo "ERROR: Could not find python dependency list at $python_depmod. The python install failed."
+		((++comp_error))
+		return
+	fi
+
+	# create the python install directory
+	if [[ ! -d $inst_dir/lib/$python_inst_name ]]; then
+		mkdir $inst_dir/lib/$python_inst_name
+	fi
+
+	while read py_mod; do
+		# Ensure the file exists in the dep_libdir
+		if [[ -e $dep_libdir/$python_inst_name/$py_mod ]]; then
+			echo "Delivering $py_mod to $inst_dir/lib/$python_inst_name/$py_mod."
+			cp -r $dep_libdir/$python_inst_name/$py_mod $inst_dir/lib/$python_inst_name/$py_mod
+		else		
+			echo "ERROR: Could not find $py_mod in $dep_libdir/$python_inst_name. The python install failed."
+			((++comp_error))
+		fi
+	done <$python_depmod
+
+	# copy python pretty printers for gdb
+	if [[ ! -d $python_gdb ]]; then
+		echo "ERROR: Could not find the python pretty printers at $python_gdb. The python install failed."
+		((++comp_error))
+		return
+	fi
+	echo "Delivering $python_gdb_name to $inst_dir/lib/$python_gdb_name."
+	cp -r $python_gdb $inst_dir/lib/$python_gdb_name
+}
+
+# python build
+if [[ $opt_python == y ]]; then
+	echo "Starting python build."
+	# change directories
+	cd $python_src
+	echo -e "\nUsing python source $python_src.\n"
+	# run python configure
+	echo -e "Configuring python..."
+	echo -e "./configure --prefix=$stage_dir $python_args\n"
+	# This is a hack to get python to build. I found it in a python bug report.
+	# It seems to work...
+	export SVNVERSION="Unversioned directory"
+	./configure --prefix=$stage_dir "$python_args"
+	# run python make
+	echo -e "\nBuilding python...\n"
+	make --silent
+	# run python make install
+	echo -e "\nInstalling python...\n"
+	make --silent install
+	echo -e "\npython installed to $stage_dir.\n"
+	echo -e "Starting post build ops.\n"
+	# Deliver the necessary modules to the python install location
+	install_python
+	# return home
+	cd $cur_dir
+	echo -e "########################################################\n"
+else
+	# We still need the python modules for use in the final ccdb package
+	echo -e "Starting python install.\n"
+	# Always use the python modules in the dep_libdir
+	install_python
+	echo -e "########################################################\n"
+fi
+
+# check for errors in component
+if [ "$comp_error" -ne "0" ]; then
+	((++error))
+fi
+
+# reset comp_error
+((comp_error=0))
+
 # gdb build
 if [[ $opt_gdb == y ]]; then
-        echo "Starting gdb build."
+	echo "Starting gdb build."
 	# change directories
 	cd $gdb_src
 	echo -e "\nUsing gdb source $gdb_src.\n"
@@ -2065,6 +2205,13 @@ if [[ $opt_cleanup == y ]]; then
 		make --silent clean
 		make --silent distclean
 	fi	
+	# make clean python
+	if [[ $opt_python == y ]]; then
+		cd $python_src
+		echo "Cleaning python..."
+		make --silent clean
+		make --silent distclean
+	fi
 	# make clean gdb
 	if [[ $opt_gdb == y ]]; then
 		cd $gdb_src

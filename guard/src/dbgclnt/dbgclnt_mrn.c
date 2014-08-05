@@ -340,7 +340,7 @@ DbgMRNAttach(
 	char *				request;
 	char *				env_var_str;
 	// Set this to the number of environment variables we need to ship over.
-	char *				env_vars[4] = {NULL,NULL,NULL,NULL};
+	char *				env_vars[5] = {NULL,NULL,NULL,NULL,NULL};
 	int					env_var_cnt = 0;
 	int					i;
 	// init this to the default timeout
@@ -354,6 +354,9 @@ DbgMRNAttach(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 #endif /* ALPS */
+	char * 				env_lib_dir;
+	char *				python_lib_dir;
+	char *				gdb_lib_dir;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -486,16 +489,40 @@ DbgMRNAttach(
 		return 1;
 	}
 	
-	if (cti_addManifestLibDir(mid, "/cray/css/users/azahdeh/pylib62"))
+	// Get the libdir env var
+	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
 	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add pylib62 to manifest.\n");
+		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
 		cti_destroyManifest(mid);
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
 		
 		return 1;
 	}
 	
-	PrintOutError("added pylib62");
+	// Add the python modules
+	Asprintf(&python_lib_dir, "%s/python2.6", env_lib_dir);
+	if (cti_addManifestLibDir(mid, python_lib_dir))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add python2.6 to manifest.\n");
+		cti_destroyManifest(mid);
+		
+		return 1;
+	}
+	Free(python_lib_dir);
+	
+	// Now add the gdb pretty printers
+	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
+	if (cti_addManifestLibDir(mid, gdb_lib_dir))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add gdb pretty printers to manifest.\n");
+		cti_destroyManifest(mid);
+		
+		return 1;
+	}
+	Free(gdb_lib_dir);
 	
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
@@ -726,26 +753,14 @@ DbgMRNAttach(
 	// interface to be set to this value.
 	if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL)
 	{
-		if (asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_ATTRIBS_TIMEOUT_ENV_VAR, strdup(env_var_str)) < 0)
-		{
-			// reset the env_vars to null
-			env_vars[--env_var_cnt] = NULL;
-		} else
-		{
-			// also set the mrnet_timeout value to this
-			mrnet_timeout = strtoul(env_var_str, NULL, 10);
-		}
+		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str);
 	}
 	
 	// ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
 	// inside the cray tool interface again.
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
-		if (asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_EXTRA_SLEEP_ENV_VAR, strdup(env_var_str)) < 0)
-		{
-			// reset the env_vars to null
-			env_vars[--env_var_cnt] = NULL;
-		}
+		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_EXTRA_SLEEP_ENV_VAR, env_var_str);
 	}
 	
 	// We should set the DBG_LOG_ENV_VAR only if debug flag is true
@@ -753,14 +768,25 @@ DbgMRNAttach(
 	{
 		if ((env_var_str = getenv(DBG_LOG_ENV_VAR)) != NULL)
 		{
-			// The following can fail, if so just default to not send the string
-			if (asprintf(&env_vars[env_var_cnt++], "%s=%s", DBG_LOG_ENV_VAR, strdup(env_var_str)) < 0)
-			{
-				// reset the env_vars to null
-				env_vars[--env_var_cnt] = NULL;
-			}
+			Asprintf(&env_vars[env_var_cnt++], "%s=%s", DBG_LOG_ENV_VAR, env_var_str);
 		}
 	}
+	
+	// Setup PYTHONHOME
+	char * beDirStr = cti_getSessionRootDir(sid);
+	if (beDirStr == NULL)
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
+		FreeArgv(ap);
+		mrn_fe_delete_network(network);
+		// clear the network pointer
+		di->d_proto_net = NULL;
+		
+		return 1;
+	}
+	Asprintf(&env_vars[env_var_cnt++], "PYTHONHOME=%s", beDirStr);
+	Free(beDirStr);
 	
 	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, env_vars, dbg)) == 0)
 	{
@@ -1017,6 +1043,9 @@ DbgMRNInvoke(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 	int					redirectInput = 0;
+	char * 				env_lib_dir;
+	char *				python_lib_dir;
+	char *				gdb_lib_dir;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -1217,6 +1246,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add gdb-guard to manifest.\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1232,6 +1262,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to add cuda50-gdb-guard to manifest.\n");
+			cti_destroyManifest(mid);
 			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 			
@@ -1241,6 +1272,7 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to add cuda55-gdb-guard to manifest.\n");
+			cti_destroyManifest(mid);
 			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 			
@@ -1253,6 +1285,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add dbgsrv to manifest.\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1264,21 +1297,49 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add mrnet_commnode to manifest.\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
 		return 1;
 	}
 	
-	if (cti_addManifestLibDir(mid, "/cray/css/users/azahdeh/pylib62"))
+	// Get the libdir env var
+	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
+	{
+		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
+		cti_destroyManifest(mid);
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+	
+	// Add the python modules
+	Asprintf(&python_lib_dir, "%s/python2.6", env_lib_dir);
+	if (cti_addManifestLibDir(mid, python_lib_dir))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add pylib62 to manifest.\n");
+		PrintOutError("Failed to add python2.6 to manifest.\n");
+		cti_destroyManifest(mid);
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+	Free(python_lib_dir);
+	
+	// Now add the gdb pretty printers
+	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
+	if (cti_addManifestLibDir(mid, gdb_lib_dir))
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to add gdb pretty printers to manifest.\n");
 		cti_destroyManifest(mid);
 		
 		return 1;
 	}
-
+	Free(gdb_lib_dir);
 	
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
@@ -1287,7 +1348,8 @@ DbgMRNInvoke(
 		if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so"))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
+			PrintOutError("Failed to add uda-plugin-cray-upc.so to manifest.\n");
+			cti_destroyManifest(mid);
 			cti_killApp(di->d_appid, SIGKILL);
 			sigrelse(SIGCHLD);
 		
@@ -1315,6 +1377,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1327,6 +1390,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add valgrind to manifest.\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1339,6 +1403,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1351,6 +1416,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to ship the manifest!\n");
+		cti_destroyManifest(mid);
 		cti_killApp(di->d_appid, SIGKILL);
 		sigrelse(SIGCHLD);
 		
@@ -1525,13 +1591,25 @@ DbgMRNInvoke(
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
+	// Setup PYTHONHOME
 	char ** args = malloc(2*sizeof(char*));
-	char * libDirStr = cti_getSessionLibDir(sid);
-	args[0] = malloc(strlen("PYTHONHOME=")+strlen(libDirStr)+strlen("/pylib62")+1);
-	strcpy(args[0], "PYTHONHOME=");
-	strcat(args[0], libDirStr);
-	strcat(args[0], "/pylib62");
-	args[1] = (char *) NULL;
+	char * beDirStr = cti_getSessionRootDir(sid);
+	if (beDirStr == NULL)
+	{
+		PrintOutError("CTI error: %s\n", cti_error_str());
+		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
+		FreeArgv(ap);
+		mrn_fe_delete_network(network);
+		// clear the network pointer
+		di->d_proto_net = NULL;
+		cti_killApp(di->d_appid, SIGKILL);
+		sigrelse(SIGCHLD);
+		
+		return 1;
+	}
+	Asprintf(&args[0], "PYTHONHOME=%s", beDirStr);
+	Free(beDirStr);
+	args[1] = (char *)NULL;
 	
 	if ((sid = cti_execToolDaemon(di->d_appid, mid, sid, "dbgsrv_alps", ap, args, dbg)) == 0)
 	{

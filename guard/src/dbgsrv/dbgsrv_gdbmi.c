@@ -554,25 +554,26 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
-	
-
-	//pretty print C++ stl contatiners
+	// set data-directory to where the pretty printers reside
 	char * manifestLibDir = cti_getLibDir();
-    char * args[2];
-    args[0] = "source";
-	char * fopenStr2 = malloc(strlen(manifestLibDir)+strlen("/pylib62/prettyPrinters/prettyPrinter.py")+1);
-	strcpy(fopenStr2, manifestLibDir);
-	strcat(fopenStr2, "/pylib62/prettyPrinters/prettyPrinter.py");
-    args[1] = fopenStr2;
-	cmd = CLIBypass(2, args);
+	char * gdbDataDir;
+	if (manifestLibDir == NULL)
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "cti_getLibDir call failed.");
+		return e;
+	}
+	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
+	Free(manifestLibDir);
+	cmd = MIGDBSet("data-directory", gdbDataDir);
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb source command failed.");
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set data-directory command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
+	Free(gdbDataDir);
 	
 	// Don't look for auxillary symbol files - this *must* be turned off for gpu's
 	if (!gpu_flag)
@@ -1331,6 +1332,12 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	} else
 	{
 		MISessionSetGDBPath(GDBMISession, "gdb-guard");
+	}
+	
+	// Ensure PYTHONSTARTUP isn't set
+	if (getenv("PYTHONSTARTUP") != NULL)
+	{
+		unsetenv("PYTHONSTARTUP");
 	}
 
 	DBEPERFLOG(SetTimerStart("DbgInitBackend: MISessionStartLocal"));

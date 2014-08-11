@@ -2007,27 +2007,22 @@ GetArrayBaseType(	MISession *session,
 					struct_info_t **type_struct,
 					func_info_t **type_func)
 {
-	int	id;
-	int	 index;
+	char *	vecStr = strdup(var->type);
 	int	 done = 0;
-	char *	p;
-	char *	str = strdup(var->type);
-	char * newStr = NULL;
+	//DVPRINT("GetArrayBaseType: %s\n", str);
 	
-	DVPRINT("GetArrayBaseType: %s\n", str);
-	
-	if(strncmp(str, "std::",5)==0)
+	if(strncmp(vecStr, "std::",5)==0)
 	{
-		str+=5;
+		vecStr+=5;
 		while(!done){
-			switch((*str++)){
+			switch((*vecStr++)){
 				case '<':
-					if(strncmp(str, "std",3)==0){
+					if(strncmp(vecStr, "std",3)==0){
 							break;
 					}
 					
 					else{
-						str = strtok(str, ",");
+						vecStr = strtok(vecStr, ",");
 						done++;
 						break;
 					}
@@ -2038,13 +2033,17 @@ GetArrayBaseType(	MISession *session,
 
 		}
 		if (type_str != NULL)
-			*type_str = strdup(str);
+			*type_str = strdup(vecStr);
 		if (type_len != NULL)
-			*type_len = GetTypeLength(session, str);
-		return GetType(str);	
+			*type_len = GetTypeLength(session, vecStr);
+		return GetType(vecStr);	
 	
 	}
-	
+
+	char *	str = strdup(var->type);
+	int	id;
+	int	 index;
+	char *	p;
 	done=0;
 	// grab the length of the string
 	index = strlen(str)-1;
@@ -2284,7 +2283,7 @@ GetArrayDimensionShape(MISession *session, MIVar *var)
 	int			len = 0;
 	int			min = 0;
 	int			max = 0;
-	char *		p = NULL;
+	char *		p;
 	char *		str = strdup(var->type);
 	
 	DVPRINT("GetArrayDimensionShape: %s\n", var->type);
@@ -4119,8 +4118,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 			default:
 				break;
 		}
-
-// now that we have the string and array shape, we need to start
+	// now that we have the string and array shape, we need to start
 		// parsing it, find the first array member, and create a simple
 		// aif object out of it.
 		p1 = buf;
@@ -4154,7 +4152,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 				// Create the string directly
 				a = StringToAIF(p1);
 				// free the buf string
-				free(buf); 
+				free(buf);
 				// free the array dimension info
 				freeArrayDimension(shape);	
 				return a;
@@ -4301,6 +4299,15 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		// zeroeth index for each dimension
 		memset(mcnt, 0, sizeof(int) * shape->dim);
 			
+		// now that we have adequate space to hold our aif array pointers
+		// for each dimension, we can create the aif arrays.
+		
+		// !!!IMPORTANT!!! Fortran is col-major, meaning we need to transpose the array.
+		
+		// we start by creating the innermost array first, since this
+		// is going to have entries of type ac
+		if (isFortran)
+		{
 			DVPRINT("GetArrayAIF: building inner array of size %d at abuild index %d\n", getArrayDimension(shape, 1), shape->dim - 1);
 			if ((abuild[shape->dim - 1] = EmptyFtnArrayToAIF(getArrayDimensionRangeMin(shape, 1), getArrayDimensionRangeMax(shape, 1), ac)) == (AIF *)NULL)
 			{
@@ -4340,50 +4347,30 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 				}
 			}
 			
-		// set the mcnt array to the actual min range value for each dimension. Fortran allows for custom ranges to be used
-		for (dcnt = 1; dcnt <= shape->dim; ++dcnt)
-		{
-			mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
-			DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt, mcnt[shape->dim - dcnt]);
-		}
-		
-		// since we already created the first data member, lets add it
-		// to the abuild array at the previous depth if depth is non-zero
-		// or else at zero, meaning we had only one element in our array.
-		if (0 < depth)
-		{
-			AIFAddFtnArrayElement(abuild[depth-1], mcnt[depth-1]++, ac);
+			// set the mcnt array to the actual min range value for each dimension. Fortran allows for custom ranges to be used
+			for (dcnt = 1; dcnt <= shape->dim; ++dcnt)
+			{
+				mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
+				DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt, mcnt[shape->dim - dcnt]);
+			}
+			
+			// since we already created the first data member, lets add it
+			// to the abuild array at the previous depth if depth is non-zero
+			// or else at zero, meaning we had only one element in our array.
+			if (0 < depth)
+			{
+				AIFAddFtnArrayElement(abuild[depth-1], mcnt[depth-1]++, ac);
+			} else
+			{
+				// we are done building the array. There is only 1 element.
+				AIFAddFtnArrayElement(abuild[0], mcnt[0]++, ac);
+			}
 		} else
-		{
-			// we are done building the array. There is only 1 element.
-			AIFAddFtnArrayElement(abuild[0], mcnt[0]++, ac);
-		}	
-		DVPRINT("GetArrayAIF: building inner array of size %d at abuild index %d\n", getArrayDimension(shape, shape->dim), shape->dim - 1);
-		if ((abuild[shape->dim - 1] = EmptyArrayToAIF(0, getArrayDimension(shape, shape->dim)-1, ac)) == (AIF *)NULL)
-		{
-			DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-			free(abuild);
-			free(buf);
-			freeArrayDimension(shape);
-			AIFFree(ac);
-			AIFFree(a);
-			return (AIF *)NULL;
-		}
-	
-		// now we create each of the outer dimensions using its inner dimension
-		// child as its aif ref type. This will ensure that we have enough space
-		// in our aif object the the child arrays.
-		for (dcnt=shape->dim - 2; dcnt >= 0; --dcnt)
-		{
-			DVPRINT("GetArrayAIF: building outter array of size %d at abuild index %d\n", getArrayDimension(shape, dcnt+1), dcnt);
-			// the abuild index at dcnt is a 0..n array of type abuild[dcnt+1]
-			if ((abuild[dcnt] = EmptyArrayToAIF(0, getArrayDimension(shape, dcnt+1)-1, abuild[dcnt+1])) == (AIF *)NULL)
+		{		
+			DVPRINT("GetArrayAIF: building inner array of size %d at abuild index %d\n", getArrayDimension(shape, shape->dim), shape->dim - 1);
+			if ((abuild[shape->dim - 1] = EmptyArrayToAIF(0, getArrayDimension(shape, shape->dim)-1, ac)) == (AIF *)NULL)
 			{
 				DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-				while (--dcnt >= 0)
-				{
-					AIFFree(abuild[dcnt]);
-				}
 				free(abuild);
 				free(buf);
 				freeArrayDimension(shape);
@@ -4391,18 +4378,41 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 				AIFFree(a);
 				return (AIF *)NULL;
 			}
-		}
 		
-		// since we already created the first data member, lets add it
-		// to the abuild array at the previous depth if depth is non-zero
-		// or else at zero, meaning we had only one element in our array.
-		if (0 < depth)
-		{
-			AIFAddArrayElement(abuild[depth-1], mcnt[depth-1]++, ac);
-		} else
-		{
-			// we are done building the array. There is only 1 element.
-			AIFAddArrayElement(abuild[0], mcnt[0]++, ac);
+			// now we create each of the outer dimensions using its inner dimension
+			// child as its aif ref type. This will ensure that we have enough space
+			// in our aif object the the child arrays.
+			for (dcnt=shape->dim - 2; dcnt >= 0; --dcnt)
+			{
+				DVPRINT("GetArrayAIF: building outter array of size %d at abuild index %d\n", getArrayDimension(shape, dcnt+1), dcnt);
+				// the abuild index at dcnt is a 0..n array of type abuild[dcnt+1]
+				if ((abuild[dcnt] = EmptyArrayToAIF(0, getArrayDimension(shape, dcnt+1)-1, abuild[dcnt+1])) == (AIF *)NULL)
+				{
+					DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
+					while (--dcnt >= 0)
+					{
+						AIFFree(abuild[dcnt]);
+					}
+					free(abuild);
+					free(buf);
+					freeArrayDimension(shape);
+					AIFFree(ac);
+					AIFFree(a);
+					return (AIF *)NULL;
+				}
+			}
+			
+			// since we already created the first data member, lets add it
+			// to the abuild array at the previous depth if depth is non-zero
+			// or else at zero, meaning we had only one element in our array.
+			if (0 < depth)
+			{
+				AIFAddArrayElement(abuild[depth-1], mcnt[depth-1]++, ac);
+			} else
+			{
+				// we are done building the array. There is only 1 element.
+				AIFAddArrayElement(abuild[0], mcnt[0]++, ac);
+			}
 		}
 		
 		// free the first member, we are done with it
@@ -4620,25 +4630,21 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		
 		// our final return array is going to be contained in abuild[0]
 		a = abuild[0];
-
-
 		
 		// cleanup the other abuild entries, we are done with them
 		for (dcnt = 1; dcnt < shape->dim; ++dcnt)
 		{
 			AIFFree(abuild[dcnt]);
 		}
-
 		// free abuild
 		free(abuild);
 		// free mcnt
 		free(mcnt);
 		// free the buf string
-		//free(buf); FIXME temporary fix to comment this out. Causes segfault with vectors
+		free(buf);
 		// free the array dimension info
-		freeArrayDimension(shape);
-	
-		return a;
+		freeArrayDimension(shape);		
+	return a;
 }
 
 static AIF *
@@ -4725,7 +4731,8 @@ GetVectorLikeAIF(MISession *session, MIVar *var)
 		{
 			// error already set
 			DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-			return NULL;
+		
+	return NULL;
 		}
 	}
 	buf = strtok(buf, "=");

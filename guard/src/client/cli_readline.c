@@ -24,6 +24,7 @@
 #include	<stdio.h>
 #include	<string.h>
 #include	<unistd.h>
+#include    <stdlib.h>
 
 #ifdef HAVE_LIBEDITLINE
 // These are required for editline support
@@ -38,6 +39,8 @@
 #include	"client.h"
 #include	"useful.h"
 
+//History *myhistory;
+//HistEvent ev;
 /*
  * Internal prototypes
  */
@@ -111,6 +114,20 @@ cli_readline_init(cli_stream_t ** stream)
 	*/
 	rl_callback_handler_install(cli_get_prompt(), rl_handle_line);    // Setup the readline callback handler.
 	
+	/* Initialize the history 
+	myhistory = history_init();
+  	if (myhistory == 0) {
+		fprintf(stderr, "history could not be initialized\n");
+		return 1;
+  	}*/
+  	
+  	 /* Set the size of the history 
+	 history(myhistory, &ev, H_SETSIZE, 800);*/
+	 
+	 
+ 	 /* This sets up the call back functions for history functionality 
+  	el_set(el, EL_HIST, history, myhistory);*/
+	
 	return 0;
 }
 
@@ -128,6 +145,7 @@ cli_readline_destroy(cli_stream_t ** stream)
 	
 	// Remove the readline callback handler
 	rl_callback_handler_remove();
+	//history_end(myhistory);
 	
 	return 0;
 }
@@ -218,9 +236,17 @@ rl_handle_line(char *line)
 	
 	if (*line)
 		add_history(line);
-	
+	fprintf(stderr, "%s\n", "got here");
+	char * guardCFGLoc = getenv(GUARD_CFG_DIRECTORY);
+	if(guardCFGLoc)
+	{
+		int historyLocSize =strlen(guardCFGLoc)+10; 	
+		char * historyLoc = malloc(historyLocSize);
+		strcpy(historyLoc, guardCFGLoc);
+		strcat(historyLoc, "/.history");
+		write_history(historyLoc);
+	}
 	rl_replace_line("", 0);
-	
 	ExecuteCommand(line);
 	Free(line);
 	

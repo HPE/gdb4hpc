@@ -126,12 +126,19 @@ cli_readline_init(cli_stream_t ** stream)
 	}
 	stifle_history(800);
 	struct passwd *pw = getpwuid(getuid());
-	const char *homedir = pw->pw_dir;
-	char * init_file_loc=malloc(strlen(homedir)+9);
-	strcpy(init_file_loc, homedir);
-	strcat(init_file_loc, "/.editrc");
-	rl_read_init_file(init_file_loc);
-	return 0;
+	if(pw)
+		{
+			const char *homedir = pw->pw_dir;
+			char *init_file_loc;
+			Asprintf(&init_file_loc, "%s/.editrc", homedir);
+			rl_read_init_file(init_file_loc);
+			Free(init_file_loc);
+			return 0;
+		}
+	else
+		{
+			fprintf(stderr, "%s", "getpwuid failed!");
+		}
 }
 
 static int

@@ -25,6 +25,8 @@
 #include	<string.h>
 #include	<unistd.h>
 #include	<stdlib.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 #ifdef HAVE_LIBEDITLINE
 // These are required for editline support
@@ -122,7 +124,13 @@ cli_readline_init(cli_stream_t ** stream)
 		read_history(histfile);
 		Free(histfile);
 	}
-	
+	stifle_history(800);
+	struct passwd *pw = getpwuid(getuid());
+	const char *homedir = pw->pw_dir;
+	char * init_file_loc=malloc(strlen(homedir)+9);
+	strcpy(init_file_loc, homedir);
+	strcat(init_file_loc, "/.editrc");
+	rl_read_init_file(init_file_loc);
 	return 0;
 }
 

@@ -219,6 +219,8 @@ NewDbgInvoke(char *handle, dbgproc_type type, int nproc, dbgclnt_proto *proto)
 static void
 FreeDbgInvoke(dbginvoke_t *di)
 {
+	dbgevent_t * 	e;
+
 	HoldSignals();
 
 	RemoveFromList(DbgInvokeList, (void *)di);
@@ -227,6 +229,13 @@ FreeDbgInvoke(dbginvoke_t *di)
 	if ( DBG_PROTO_SW(di)->sw_destroyclnt != NULL )
 	{
 		DBG_PROTO_SW(di)->sw_destroyclnt(di);
+	}
+
+	// Quit the debug frontend if there is one
+	if (di->d_frontend != NULL)
+	{
+		e = DbgDestroyFE(di->d_frontend);
+		FreeEvent(e);
 	}
 
 	if( di->d_bitset_full != NULL )
@@ -2128,6 +2137,7 @@ DbgInvoke(	char *proto,
 	char **			ap;
 	char **			ptr;
 	int				ap_argc = 0;
+	dbgevent_t * 	e;
 
 	if ( (ptab = FindClntProto(proto)) == (dbgclnt_proto *)NULL )
 	{
@@ -2144,6 +2154,52 @@ DbgInvoke(	char *proto,
 	// Create the dbginvoke_t object to pass down
 	di = NewDbgInvoke(handle, DBG_LAUNCHED, nproc, ptab);
 	
+	// Start out by creating the frontend gdb instance. We want to do some pre
+	// checks on the a.out 
+	
+	// The frontend debug presence can fail silently
+	di->d_frontend = DbgInstantiateFE(backend);
+	
+	// Set the debug frontend a.out directly.
+	if (di->d_frontend != NULL)
+	{
+		e = DbgFESetFile(di->d_frontend, prog);
+		
+		// handle the error case
+		if (e->ev_event == DBGEV_ERROR)
+		{
+			// We want to tear down the frontend since it has no way of reading
+			// symbols since loading the binary failed.
+			FreeEvent(e);
+			e = DbgDestroyFE(di->d_frontend);
+			di->d_frontend = NULL;
+		}
+		
+		FreeEvent(e);
+	}
+	
+	// Check for startup function presence
+	if (di->d_frontend != NULL)
+	{
+		e = DbgFECheckStartupFunc(di->d_frontend);
+		
+		// handle the error case
+		if (e->ev_event == DBGEV_ERROR)
+		{
+			// If this fails, we want to return with error since the user application
+			// does not contain a required startup function.
+			PrintOutError("%s\n", DbgEventErrorStr(e));
+			PrintOutError("Application is missing required function for startup.\n");
+		
+			FreeEvent(e);
+			FreeDbgInvoke(di);
+			
+			return NULL;
+		}
+		
+		FreeEvent(e);
+	}
+	
 	// Create the cmd str and set it
 	ap = NewArgv(prog, NULL);
 	ap = AppendArgv(ap, argv);
@@ -2159,28 +2215,6 @@ DbgInvoke(	char *proto,
 	{
 		FreeDbgInvoke(di);
 		return NULL;
-	}
-	
-	// The frontend debug presence can fail silently
-	di->d_frontend = DbgInstantiateFE(backend);
-	
-	// Set the debug frontend a.out directly.
-	if (di->d_frontend != NULL)
-	{
-		dbgevent_t * e;
-		e = DbgFESetFile(di->d_frontend, prog);
-		
-		// handle the error case
-		if (e->ev_event == DBGEV_ERROR)
-		{
-			// We want to tear down the frontend since it has no way of reading
-			// symbols since loading the binary failed.
-			FreeEvent(e);
-			e = DbgDestroyFE(di->d_frontend);
-			di->d_frontend = NULL;
-		}
-		
-		FreeEvent(e);
 	}
 	
 	// This command changes the status
@@ -2981,15 +3015,6 @@ DbgKill(rec_set_t *set)
 		{
 			// We always want to kill the application, so hardcode detatch to 0
 			res = DBG_PROTO_SW(di)->sw_exit(di, 0);
-		}
-	
-		// Quit the debug frontend if there is one
-		if (di->d_frontend != NULL)
-		{
-			e = DbgDestroyFE(di->d_frontend);
-			// FIXME: How to error check here?
-			FreeEvent(e);
-			di->d_frontend = NULL;
 		}
 	
 		FreeDbgInvoke(di);
@@ -4398,15 +4423,6 @@ uniform_exit:
 					res = DBG_PROTO_SW(di)->sw_exit(di, detach);
 				}
 				
-				// Quit the debug frontend if there is one
-				if (di->d_frontend != NULL)
-				{
-					e = DbgDestroyFE(di->d_frontend);
-					// FIXME: How to error check here?
-					FreeEvent(e);
-					di->d_frontend = NULL;
-				}
-				
 				// cleanup the di object
 				FreeDbgInvoke(di);
 			}
@@ -4460,15 +4476,6 @@ uniform_exit:
 				{
 					// FIXME: How to handle error case?
 					res = DBG_PROTO_SW(di)->sw_exit(di, detach);
-				}
-				
-				// Quit the debug frontend if there is one
-				if (di->d_frontend != NULL)
-				{
-					e = DbgDestroyFE(di->d_frontend);
-					// FIXME: How to error check here?
-					FreeEvent(e);
-					di->d_frontend = NULL;
 				}
 				
 				// cleanup the di object

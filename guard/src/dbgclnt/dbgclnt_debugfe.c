@@ -216,6 +216,16 @@ DbgFESetFile(dbgfrontend_sw *fe_obj, char *file)
 }
 
 dbgevent_t *
+DbgFECheckStartupFunc(dbgfrontend_sw *fe_obj)
+{
+	dbgevent_t * e;
+	
+	DBG_IMP(e, fe_obj->dbg_checkstartupfunc);
+	
+	return fe_obj->dbg_checkstartupfunc(fe_obj);
+}
+
+dbgevent_t *
 DbgFEList(dbgfrontend_sw *fe_obj, char *str)
 {
 	dbgevent_t * e;

@@ -45,6 +45,7 @@ struct dbgfrontend_sw
 	dbgevent_t *		(*dbg_init)(struct dbgfrontend_sw *);
 	dbgevent_t *		(*dbg_quit)(struct dbgfrontend_sw *);
 	dbgevent_t *		(*dbg_set_file)(struct dbgfrontend_sw *, char *);
+	dbgevent_t *		(*dbg_checkstartupfunc)(struct dbgfrontend_sw *);
 	dbgevent_t *		(*dbg_list)(struct dbgfrontend_sw *, char *);
 	dbgevent_t *		(*dbg_getsources)(struct dbgfrontend_sw *);
 	dbgevent_t *		(*dbg_setsourcepath)(struct dbgfrontend_sw *, char *);
@@ -70,6 +71,7 @@ extern void				ClearListState(dbgfrontend_sw *);
 extern dbgfrontend_sw *	DbgInstantiateFE(char *);
 extern dbgevent_t *		DbgDestroyFE(dbgfrontend_sw *);
 extern dbgevent_t *		DbgFESetFile(dbgfrontend_sw *, char *);
+extern dbgevent_t *		DbgFECheckStartupFunc(dbgfrontend_sw *);
 extern dbgevent_t *		DbgFEList(dbgfrontend_sw *, char *);
 extern dbgevent_t *		DbgFEGetSources(dbgfrontend_sw *);
 extern dbgevent_t *		DbgFESetSourcePath(dbgfrontend_sw *, char *);

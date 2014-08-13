@@ -44,6 +44,7 @@ static dbgevent_t *	DbgGDBMISetFile_fe(dbgfrontend_sw *, char *);
 static dbgevent_t *	DbgGDBMISetSourcePath_fe(dbgfrontend_sw *, char *);
 static dbgevent_t *	DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *);
 static dbgevent_t *	DbgGDBMIGetScope_fe(dbgfrontend_sw *, char *);
+static dbgevent_t *	DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
 
 /* auxiliary functions */
 /*
@@ -68,6 +69,7 @@ DbgInstantiateGDBMI(dbgfrontend_sw *fe_obj)
 	fe_obj->dbg_init = DbgGDBMIInit_fe;
 	fe_obj->dbg_quit = DbgGDBMIQuit_fe;
 	fe_obj->dbg_set_file = DbgGDBMISetFile_fe;
+	fe_obj->dbg_checkstartupfunc = DbgGDBMICheckStartupFunc_fe;
 	fe_obj->dbg_list = DbgGDBMIList_fe;
 	fe_obj->dbg_getsources = DbgGDBMIGetSources_fe;
 	fe_obj->dbg_setsourcepath = DbgGDBMISetSourcePath_fe;
@@ -708,5 +710,30 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 	e->ev_vars = result;
 	
 	return e;
+}
+
+static dbgevent_t *	
+DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
+{
+	MISession *		sess = (MISession *)fe_obj->dbg_session;
+	MICommand * 	cmd;
+	dbgevent_t *	e;
+
+	DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
+	
+	// On Cray systems, we require PMI_Init to exist otherwise the pmi_attribs
+	// file will never be created and the user will hang upon startup.
+	cmd = CLIWhatis("PMI_Init");
+	
+	SendMICommand_fe(sess, cmd);
+	if (!MICommandResultOK(cmd))
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI_Init symbol!");
+		MICommandFree(cmd);
+		return e;
+	}
+	MICommandFree(cmd);
+	
+	return NewEvent(DBGEV_OK);;
 }
 

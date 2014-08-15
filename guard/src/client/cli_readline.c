@@ -116,8 +116,15 @@ cli_readline_init(cli_stream_t ** stream)
 	rl_callback_handler_install(cli_get_prompt(), rl_handle_line);    // Setup the readline callback handler.
 	
 	// Get the default configuration location and read in the history file if possible.
-	// We do not care if this fails.
-	if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
+	// We do not care if this fails. Default to /tmp
+	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
+	{
+		char *	histfile;
+		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		read_history(histfile);
+		Free(histfile);
+	}
+	else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
 		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
@@ -139,6 +146,7 @@ cli_readline_init(cli_stream_t ** stream)
 		{
 			fprintf(stderr, "%s", "getpwuid failed!");
 		}
+	return 0;
 }
 
 static int
@@ -158,7 +166,14 @@ cli_readline_destroy(cli_stream_t ** stream)
 	rl_callback_handler_remove();
 	
 	// Get the default configuration location and write the history out to file
-	if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
+	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
+	{
+		char *	histfile;
+		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		write_history(histfile);
+		Free(histfile);
+	}
+	else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
 		Asprintf(&histfile, "%s/.lgdb_history", config_loc);

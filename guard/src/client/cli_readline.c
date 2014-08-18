@@ -115,6 +115,9 @@ cli_readline_init(cli_stream_t ** stream)
 	*/
 	rl_callback_handler_install(cli_get_prompt(), rl_handle_line);    // Setup the readline callback handler.
 	
+	// Setup the history
+	using_history();
+	
 	// Get the default configuration location and read in the history file if possible.
 	// We do not care if this fails. Default to /tmp
 	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
@@ -123,29 +126,28 @@ cli_readline_init(cli_stream_t ** stream)
 		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
-	}
-	else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
+	} else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
 		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
 	}
+
+	// Set history size to 800
 	stifle_history(800);
+	
+	// Read in the editline rc file, this will fail silently.
 	struct passwd *pw = getpwuid(getuid());
 	if(pw)
-		{
-			const char *homedir = pw->pw_dir;
-			char *init_file_loc;
-			Asprintf(&init_file_loc, "%s/.editrc", homedir);
-			rl_read_init_file(init_file_loc);
-			Free(init_file_loc);
-			return 0;
-		}
-	else
-		{
-			fprintf(stderr, "%s", "getpwuid failed!");
-		}
+	{
+		const char *homedir = pw->pw_dir;
+		char *init_file_loc;
+		Asprintf(&init_file_loc, "%s/.editrc", homedir);
+		rl_read_init_file(init_file_loc);
+		Free(init_file_loc);
+	}
+	
 	return 0;
 }
 
@@ -262,19 +264,57 @@ cli_readline_clear_line(cli_stream_t ** stream)
 static void
 rl_handle_line(char *line)
 {
+	// If line is NULL, something went very very wrong as readline triggered
+	// that there was a complete line of text, but it returned nothing to us.
 	if (!line)
 	{
 		ForceQuit();
 		return;
 	}
 	
+	// If there is something other than a null terminator, maybe add it to the
+	// history. Note that we do not want to allow repeat history entries.
 	if (*line)
-		add_history(line);
+	{
+		HIST_ENTRY *entry;
+		// Get the current history and check if it matches current line
+		if ((entry = current_history()) != NULL)
+		{
+			// If line is not the same length and entry->line, they are different
+			// strings
+			if (strlen(line) != strlen(entry->line))
+			{
+				// Add the line to the history
+				add_history(line);
+			} else
+			{
+				// compare line to the history line, if true the two differ
+				// If they match, do nothing. We don't want repeat history
+				// entries since that is annoying to key through.
+				if (strncmp(line, entry->line, strlen(entry->line)))
+				{
+					// Add the line to the history
+					add_history(line);
+				}
+			}
+		} else
+		{
+			// Add the line to the history
+			add_history(line);
+		}
+	}
 	
+	// replace the current line entry with a blank line. This is so that output
+	// will look correct.
 	rl_replace_line("", 0);
+	
+	// execute the command
 	ExecuteCommand(line);
+	
+	// done with line
 	Free(line);
 	
+	// Check for quit condition, on quit we reset prompt to empty.
 	if (!Client.quit)
 	{
 		rl_set_prompt(cli_get_prompt());

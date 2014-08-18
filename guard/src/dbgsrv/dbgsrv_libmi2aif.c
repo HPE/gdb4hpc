@@ -727,7 +727,15 @@ GetSimpleAIF(MISession *session, MIVar *var)
 		case T_FUNCTION:
 			DVPRINT("GetSimpleAIF: Creating AIF function.\n");			
 			argc = GetFunctionArguments(session, var->type, &argv);
-			DVPRINT("GetSimpleAIF: Num args: %d\n", argc);
+			if (debug_flag)
+			{
+				int i;
+				DVPRINT("GetSimpleAIF: Num args: %d\n", argc);
+				for (i=0; i<argc; ++i)
+				{
+					DVPRINT("GetSimpleAIF: argv[%d]=\"%s\"\n", i, argv[i]);
+				}
+			}
 			rtn = GetFunctionReturnType(session, var->type);
 			DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
 			if ((v = GetVarValue(session, var->name)) == NULL)
@@ -739,7 +747,23 @@ GetSimpleAIF(MISession *session, MIVar *var)
 			name = GetFunctionName(v);
 			DVPRINT("GetSimpleAIF: Function name: %s\n", name);
 			addr = GetFunctionAddress(session, v);
+			if (debug_flag)
+			{
+				char *aif_str;
+				AIFToStr(&aif_str, 0, addr);
+				DVPRINT("GetSimpleAIF: Function address: %s\n", aif_str);
+				Free(aif_str);
+			}
 			ac = FunctionToAIF(addr, name, rtn, argc, argv);
+			if (debug_flag)
+			{
+				char *aif_str;
+				AIFToStr(&aif_str, 0, ac);
+				DVPRINT("GetSimpleAIF: FDS string is: %s\n", AIF_FORMAT(ac));
+				DVPRINT("GetSimpleAIF: Function AIF size is: %d\n", AIF_LEN(ac));
+				DVPRINT("GetSimpleAIF: Function AIF type is: %s\n", aif_str);
+				Free(aif_str);
+			}
 			free(v);
 			free(rtn);
 			free(name);
@@ -2670,7 +2694,9 @@ GetFunctionArguments(MISession *session, char *type, char **argv[])
 		
 		// get the FDS string, this needs to be strdup'ed since the
 		// string is returned in a private buffer
-		*argv[i] = strdup(arg);
+		(*argv)[i] = strdup(arg);
+		
+		DVPRINT("GetFunctionArguments: Added arg %s\n", *argv[i]);
 		
 		// point p 1 past q and continue
 		if (q != NULL)

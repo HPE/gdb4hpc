@@ -389,12 +389,13 @@ GenericPointerToAIF(AIF *addr, char *ptr_type)
 AIF *
 FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, char *argv[])
 {
-	AIF *	   a;
-	int	     i;
-	int	     data_len = 0;
-	int	     args_fmt_len = 0;
-	char *	  args_fmt_string = NULL;
-	int	     func_name_len;
+	AIF *	a;
+	int		i;
+	int		data_len = 0;
+	int		args_fmt_len = 0;
+	int		cpy_len;
+	char *	args_fmt_string = NULL;
+	int		func_name_len;
 	
 	ResetAIFError();
 	
@@ -426,10 +427,12 @@ FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, cha
 		}
 		// copy the first argument to the format string
 		snprintf(args_fmt_string, args_fmt_len, "%s", argv[0]);
+		cpy_len = strlen(argv[0]);
 		// copy the rest of the arguments to the format string
 		for (i=1; i<argc; ++i)
 		{
-			snprintf(args_fmt_string, args_fmt_len, "%s,%s", args_fmt_string, argv[i]);
+			snprintf(args_fmt_string+cpy_len, args_fmt_len, ",%s", argv[i]);
+			cpy_len += strlen(argv[i])+1;
 		}
 	} else
 	{
@@ -4007,7 +4010,7 @@ _aif_function_to_str(int depth, char **fds, char **data)
 	// first item in the fds string is the start of the args
 	args_start = *fds;
 	// advance to '/'
-	_fds_skipto(*fds, end);
+	*fds = _fds_skipto(*fds, end);
 	(*fds)++; /* past '/' */
 	
 	// we start by advancing the data past the stuff we expect to be defined

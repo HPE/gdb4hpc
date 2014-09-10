@@ -1007,7 +1007,14 @@ read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f)
 		// Ensure that the type is rval_proc, otherwise there was an error.
 		if ( RVAL_ACTUAL_TYPE(ps_val) != rval_proc )
 		{
-			SetError("No such process \"%s\"", SymLookup(LVAL_SYM(ps_val)));
+			// Fix for BUG 816870
+			if (LVAL_SYM(ps_val) == NULL)
+			{
+				SetError("Invalid process set syntax");
+			} else
+			{
+				SetError("No such process \"%s\"", SymLookup(LVAL_SYM(ps_val)));
+			}
 			goto bad_var;
 		}
 		

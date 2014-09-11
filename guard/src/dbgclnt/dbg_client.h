@@ -300,13 +300,16 @@ extern void				DbgUnmaskSignal(int);
 extern int				DbgCheckForStatusChange(void);
 extern void				DbgResetStatusChange(void);
 
+// Used by higher layers to check if we are currently waiting on an asynchronous event
+extern int				DbgCheckForAsyncPending(void);
+
 extern proto_session *	DbgSessionCreate(char *, WLM_type, char *, char *, char *);
 extern void				DbgSetSession(proto_session *);
 extern proto_session *	DbgGetSession(void);
 
 extern dbginvoke_t *	DbgAttach(char *, proto_session *, char *, int, char *, char *, int, int);
 extern dbginvoke_t *	DbgInvoke(	char *, proto_session *, char *, char **, char *, int, char *,
-									char **, char *, char *, char **, char *, int, int);
+									char **, char *, char *, char **, char *, int, int, int);
 
 extern rep_set_t *		DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than rep_set_t *

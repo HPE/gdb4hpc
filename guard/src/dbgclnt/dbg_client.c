@@ -87,7 +87,8 @@ static void 			FreeEventSet(event_set_t *);
 static void				DestroyEventSet(dbginvoke_t *, dbgev);
 static event_set_t *	AddEvent(dbginvoke_t *, bitset *, dbgevent_t *);
 static void				CheckForFullEventSet(dbginvoke_t *, bitset *, dbgev);
-static void				RemoveGroupFromEventSet(dbginvoke_t *, bitset *, dbgev);
+static void				ResetForAsyncCmd(rec_set_t *);
+static void				RemoveGroupFromAsyncSet(dbginvoke_t *, bitset *);
 static bp_set_t *		NewBPSet(bitset *, dbgbp_t *);
 static bp_disp_set_t *	NewBPDispSet(bitset *, dbgbp_disp);
 static bp_id_set_t *	NewBPIDSet(bitset *, int);
@@ -105,20 +106,22 @@ static int				CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
 /*
 ** Internal Variables
 */
-static proto_session *	DbgCurrSess = NULL;
-static list_t *			DbgInvokeList = (list_t *)NULL;
-static list_t *			DbgSigList = (list_t *)NULL;
-static list_t *			DbgMaskedSigList = (list_t *)NULL;
+static proto_session *	DbgCurrSess;
+static list_t *			DbgInvokeList;
+static list_t *			DbgSigList;
+static list_t *			DbgMaskedSigList;
 static fd_set			dispatch_fds;
 static int				high_fd;
 static inpcb_t			InputCB;
 static outpcb_t			OutputCB;
-static int				_mask_cnt = 0;
+static int				_mask_cnt;
 static int				_mask_fd;
 #if defined (RD)
-static int				_df_ready = 0;
+static int				_df_ready;
 #endif /* RD */
-static int				inferior_status_change = 0;
+static int				inferior_status_change;
+static int				async_pending;	// used to track completion of async events
+static rec_set_t *		async_set;		// full set of async receivers
 
 /*
 ** Hold any pending signals.
@@ -755,28 +758,82 @@ CheckForFullEventSet(dbginvoke_t *di, bitset *fullset, dbgev ev)
 }
 
 static void
-RemoveGroupFromEventSet(dbginvoke_t *di, bitset *group, dbgev ev)
+ResetForAsyncCmd(rec_set_t *set)
 {
+	group_recv_t *	recv_ptr;
 	event_set_t *	eventset;
-
-	if (di == NULL)
+	
+	if (set == NULL)
 		return;
-
-	SetList(di->d_eventset_list);
-	while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) != NULL)
+	
+	// Remove the old async_set if there is one
+	if (async_set != NULL)
+		FreeRecSet(async_set);
+		
+	async_set = NewRecSet();
+	
+	// Remove any old events for this group, and add each one to the async_set
+	SetReceiverHeadInSet(set);
+	while ((recv_ptr = GetNextReceiverInSet(set)) != NULL)
 	{
-		if (EVENT_EV(eventset->e_ev) == ev)
+		// Clear any pending events for the group we are sending an async command to
+		SetList(recv_ptr->rec_di->d_eventset_list);
+		while ((eventset = (event_set_t *)GetListElement(recv_ptr->rec_di->d_eventset_list)) != NULL)
 		{
-			// Remove it from the bitset
-			bitset_andeqnot(eventset->e_group, group);
-			
+			// Remove the group from the bitset
+			bitset_andeqnot(eventset->e_group, recv_ptr->rec_group);
+		
 			// Make sure the e_group isn't empty, otherwise remove it
-			if(bitset_isempty(eventset->e_group))
+			if (bitset_isempty(eventset->e_group))
 			{
-				RemoveFromList(di->d_eventset_list, (void *)eventset);
+				RemoveFromList(recv_ptr->rec_di->d_eventset_list, (void *)eventset);
 				FreeEventSet(eventset);
 			}
 		}
+		
+		// Add this group to the async_set
+		AddReceiverToSet(async_set, NewGroupReceiver(recv_ptr->rec_di, recv_ptr->rec_group));
+	}
+}
+
+static void
+RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group)
+{
+	group_recv_t *	recv_ptr;
+	
+	if (di == NULL || group == NULL || async_set == NULL)
+		return;
+		
+	// Find entry for this di in the async_set
+	SetReceiverHeadInSet(async_set);
+	while ((recv_ptr = GetNextReceiverInSet(async_set)) != NULL)
+	{
+		if (recv_ptr->rec_di == di)
+		{
+			// Remove the group from the bitset
+			bitset_andeqnot(recv_ptr->rec_group, group);
+			
+			// Check to see if the rec_group is now empty
+			if (bitset_isempty(recv_ptr->rec_group))
+			{
+				RemoveFromList(async_set->rec_list, (void *)recv_ptr);
+				FreeGroupReceiver(recv_ptr);
+			}
+			
+			// We are done, there is only one group per di in the async_set
+			break;
+		}
+	}
+	
+	// Check to see if we have an empty async_set, if so the async events are
+	// no longer pending
+	if (SizeOfList(async_set->rec_list) == 0)
+	{
+		// The async event is no longer pending
+		async_pending = 0;
+		// cleanup the async_set
+		FreeRecSet(async_set);
+		async_set = NULL;
 	}
 }
 
@@ -1600,6 +1657,9 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 				break;
 		}
 		
+		// Handle async_set status for this message.
+		RemoveGroupFromAsyncSet(di, msg->group);
+		
 		eventset = AddEvent(di, msg->group, event);
 		
 		// This is the callback that was set by calling DbgHandleEvent
@@ -1899,6 +1959,15 @@ DbgResetStatusChange(void)
 	inferior_status_change = 0;
 }
 
+/*
+** Used to check if we are currently waiting for an async command to complete.
+*/
+int
+DbgCheckForAsyncPending(void)
+{
+	return async_pending;
+}
+
 /************************************
 ** dbgclnt_proto command functions **
 ************************************/
@@ -2129,7 +2198,8 @@ DbgInvoke(	char *proto,
 			char **env,
 			char *cwd,
 			int gpu_flag,
-			int debug_flag
+			int debug_flag,
+			int unsafe_flag // Used in this function only...
 )
 {
 	dbginvoke_t *	di;
@@ -2178,26 +2248,32 @@ DbgInvoke(	char *proto,
 		FreeEvent(e);
 	}
 	
-	// Check for startup function presence
-	if (di->d_frontend != NULL)
+	// Check for startup function presence if unsafe is false
+	if (!unsafe_flag)
 	{
-		e = DbgFECheckStartupFunc(di->d_frontend);
-		
-		// handle the error case
-		if (e->ev_event == DBGEV_ERROR)
+		if (di->d_frontend != NULL)
 		{
-			// If this fails, we want to return with error since the user application
-			// does not contain a required startup function.
-			PrintOutError("%s\n", DbgEventErrorStr(e));
-			PrintOutError("Application is missing required function for startup.\n");
+			e = DbgFECheckStartupFunc(di->d_frontend);
+		
+			// handle the error case
+			if (e->ev_event == DBGEV_ERROR)
+			{
+				// If this fails, we want to return with error since the user application
+				// does not contain a required startup function.
+				PrintOutError("%s\n", DbgEventErrorStr(e));
+				PrintOutError("Application is missing required function for startup.\n\n");
+				PrintOutError("This is usually MPI_Init()/shmem_init()/etc. To bypass this check,\n");
+				PrintOutError("use the command \"maint set unsafe on\". Note that your application\n");
+				PrintOutError("may hang during startup.\n");
+		
+				FreeEvent(e);
+				FreeDbgInvoke(di);
+			
+				return NULL;
+			}
 		
 			FreeEvent(e);
-			FreeDbgInvoke(di);
-			
-			return NULL;
 		}
-		
-		FreeEvent(e);
 	}
 	
 	// Create the cmd str and set it
@@ -2752,13 +2828,7 @@ DbgGo(rec_set_t *set)
 	group_reply_t *		err;
 	
 	// Remove any old events for this group
-	SetReceiverHeadInSet(set);
-	while ((recv_ptr = GetNextReceiverInSet(set))!= NULL)
-	{
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_BPHIT);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_STEP);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_SIGNAL);
-	}
+	ResetForAsyncCmd(set);
 	
 	request = CommandToSocProto(DBGCMD_GO);
 
@@ -2815,6 +2885,9 @@ DbgGo(rec_set_t *set)
 	// This command changes the status
 	inferior_status_change = 1;
 	
+	// An async event is now pending
+	async_pending = 1;
+	
 	ResetSet(result);
 	return result;
 }
@@ -2833,15 +2906,7 @@ DbgFinishFunc(rec_set_t *set)
 	group_reply_t *		err;
 	
 	// Remove any old events for this group
-	// The finish function generates a DBGEV_STEP event. If this ever changes
-	// make sure to update this.
-	SetReceiverHeadInSet(set);
-	while ((recv_ptr = GetNextReceiverInSet(set))!= NULL)
-	{
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_BPHIT);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_STEP);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_SIGNAL);
-	}
+	ResetForAsyncCmd(set);
 	
 	request = CommandToSocProto(DBGCMD_FINISH);
 
@@ -2897,6 +2962,9 @@ DbgFinishFunc(rec_set_t *set)
 	
 	// This command changes the status
 	inferior_status_change = 1;
+	
+	// An async event is now pending
+	async_pending = 1;
 
 	ResetSet(result);
 	return result; 
@@ -3917,13 +3985,7 @@ DbgStep(rec_set_t *set, int count, int in)
 	group_reply_t *		err;
 	
 	// Remove any old events for this group
-	SetReceiverHeadInSet(set);
-	while ((recv_ptr = GetNextReceiverInSet(set))!= NULL)
-	{
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_BPHIT);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_STEP);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_SIGNAL);
-	}
+	ResetForAsyncCmd(set);
 
 	request = CommandToSocProto(DBGCMD_STEP, count, in);
 
@@ -3979,6 +4041,9 @@ DbgStep(rec_set_t *set, int count, int in)
 	
 	// This command changes the status
 	inferior_status_change = 1;
+	
+	// An async event is now pending
+	async_pending = 1;
 
 	ResetSet(result);
 	return result;
@@ -4295,13 +4360,7 @@ DbgInterrupt(rec_set_t *set)
 	group_reply_t *		err;
 	
 	// Remove any old events for this group
-	SetReceiverHeadInSet(set);
-	while ((recv_ptr = GetNextReceiverInSet(set))!= NULL)
-	{
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_BPHIT);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_STEP);
-		RemoveGroupFromEventSet(recv_ptr->rec_di, recv_ptr->rec_group, DBGEV_SIGNAL);
-	}
+	ResetForAsyncCmd(set);
 	
 	request = CommandToSocProto(DBGCMD_INTERRUPT);
 
@@ -4357,6 +4416,9 @@ DbgInterrupt(rec_set_t *set)
 	
 	// This command changes the status
 	inferior_status_change = 1;
+	
+	// An async event is now pending
+	async_pending = 1;
 	
 	ResetSet(result);
 	return result;

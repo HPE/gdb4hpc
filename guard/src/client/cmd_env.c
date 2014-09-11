@@ -301,6 +301,103 @@ class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 static int
+class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	char *	s;
+	ct_val	cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Not enough command arguments.\n");
+		PrintOutError("Expected: maint set unsafe [on|off]\n");
+		return 0;
+	}
+	
+	// only look at the first arg
+	s = argv[1];
+	
+	switch( ScanString(&cv, &s) )
+	{
+		case CT_TRUE:
+			Client.unsafe = 1;
+			break;
+		case CT_FALSE:
+			Client.unsafe = 0;
+			break;
+		default:
+			PrintOutError("Encountered something other than on or off.\n");
+			PrintOutError("See \"help maint set unsafe\" for more information.\n");
+			return 0;
+	}
+	
+	return 1;
+}
+
+static int
+class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	if (Client.unsafe)
+		PrintOutMsg("Unsafe mode enabled.\n");
+	else
+		PrintOutMsg("Unsafe mode disabled.\n");
+		
+	return 1;
+}
+
+static int
+class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	char *	s;
+	ct_val	cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Not enough command arguments.\n");
+		PrintOutError("Expected: maint set sync [on|off]\n");
+		return 0;
+	}
+	
+	// only look at the first arg
+	s = argv[1];
+	
+	switch( ScanString(&cv, &s) )
+	{
+		case CT_TRUE:
+			Client.sync_wait = 1;
+			break;
+		case CT_FALSE:
+			// Possibly reset if we are currently blocking
+			// Note that this is probably unecessary since I don't know how this
+			// command could possibly execute without being unblocked, but it is
+			// good practice I suppose.
+			if (Client.sync_blocked)
+			{
+				DbgUnmaskInput();
+				Client.sync_blocked = 0;
+			}
+			Client.sync_wait = 0;
+			break;
+		default:
+			PrintOutError("Encountered something other than on or off.\n");
+			PrintOutError("See \"help maint set sync\" for more information.\n");
+			return 0;
+	}
+	
+	return 1;
+}
+
+static int
+class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	if (Client.sync_wait)
+		PrintOutMsg("Synchronous event mode enabled.\n");
+	else
+		PrintOutMsg("Synchronous event mode disabled.\n");
+		
+	return 1;
+}
+
+static int
 class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	rep_set_t *		rep_set;
@@ -524,7 +621,6 @@ InitCmd_env(void)
 		class_maint_subcmd_sleep_help, "Pause the debugger.");
 	AddMaintCommand("system", proc_ignore, 0, class_maint_subcmd_system_cmd,
 		class_maint_subcmd_system_help, "Run a shell command.");
-	
 
 	// info commands
 	AddInfoCommand("status", proc_required, 0, class_info_subcmd_status_cmd,
@@ -538,6 +634,12 @@ InitCmd_env(void)
 	AddSetCommand("environment", proc_ignore, 0, class_set_subcmd_environment_cmd,
 		class_set_subcmd_environment_help, "Set environment variable value for launching applications.");
 
+	// maint set commands
+	AddMaintSetCommand("unsafe", proc_ignore, 0, class_maint_set_subcmd_unsafe_cmd,
+		class_maint_set_subcmd_unsafe_help, "Enable unsafe functionality.");
+	AddMaintSetCommand("sync", proc_ignore, 0, class_maint_set_subcmd_sync_cmd,
+		class_maint_set_subcmd_sync_help, "Enable synchronous event mode.");
+
 	// show commands
 	AddShowCommand("directories", proc_required, 0, class_show_subcmd_directories_cmd,
 		class_show_subcmd_directories_help, "Show current search path for finding source files.");
@@ -547,6 +649,12 @@ InitCmd_env(void)
 		class_show_subcmd_environment_help, "Show environment variables that were set.");
 	AddShowCommand("version", proc_ignore, 0, class_show_subcmd_version_cmd,
 		class_show_subcmd_version_help, "Show the debugger version number.");
+		
+	// maint show commands
+	AddMaintShowCommand("unsafe", proc_ignore, 0, class_maint_show_subcmd_unsafe_cmd,
+		class_maint_show_subcmd_unsafe_help, "Show setting of unsafe mode.");
+	AddMaintShowCommand("sync", proc_ignore, 0, class_maint_show_subcmd_sync_cmd,
+		class_maint_show_subcmd_sync_help, "Show setting of synchronous event mode.");
 		
 	// unset commands
 	AddUnsetCommand("environment", proc_ignore, 0, class_unset_subcmd_environment_cmd,

@@ -1,7 +1,7 @@
 /******************************************************************************\
  * help_dict.c - Command help string definition dictionary.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * © 2011-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -969,6 +969,32 @@ const char *class_set_subcmd_function_help[] = {
         "supplied to the function. Recursive function expression calls are not",
         "allowed.",
         0};
+        
+/*
+ * Class maint set subcommands
+ */
+
+const char *class_maint_set_subcmd_unsafe_help[] = {
+        "Summary: Set unsafe execution mode.",
+        "Usage: maint set unsafe [on|off]",
+        "Example command: maint set unsafe on",
+        "",
+        "Description:",
+        "Set debugger to bypass certain internal checks. This mode should only",
+        "be modified by maintainers.",
+        0};
+        
+const char *class_maint_set_subcmd_sync_help[] = {
+        "Summary: Set synchronous event mode.",
+        "Usage: maint set sync [on|off]",
+        "Example command: maint set sync on",
+        "",
+        "Description:",
+        "Set debugger to treat asynchronous events as synchronous. This will cause",
+        "commands such as continue to block input until all ranks affected by the",
+        "command to report an asynchronous event. Use with caution! If a rank is",
+        "not expected to reach a breakpoint, a deadlock can occur.",
+        0};
 
 /*
  * Class show subcommands
@@ -1014,8 +1040,27 @@ const char *class_show_subcmd_version_help[] = {
         0};
         
 /*
+ * Class maint show subcommands
+ */
+
+const char *class_maint_show_subcmd_unsafe_help[] = {
+        "Summary: Unsafe mode information.",
+        "",
+        "Description:",
+        "Display the current setting of unsafe mode.",
+        0};
+        
+const char *class_maint_show_subcmd_sync_help[] = {
+        "Summary: Synchronous event mode information.",
+        "",
+        "Description:",
+        "Display the current setting of synchronous event mode.",
+        0};
+        
+/*
  * Class unset subcommands
  */
+ 
 const char *class_unset_subcmd_environment_help[] = {
         "Summary: Unset environment variable value.",
         "Usage: unset environment <name>",

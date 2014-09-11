@@ -1727,19 +1727,8 @@ DbgMRNInvoke(
 	// Add the event_stream fd to the d_evfds list
 	// This allows DbgCheckEvents to select on MRNet protocol events
 	AddToList(di->d_evfds, (void *)ev_fd_ptr);
-	
-	// setup the program output stream handler if we are handling output
-	if (po != NULL)
-	{
-		ev_fd_ptr = (int *)Alloc(sizeof(int));
-		*ev_fd_ptr = po->p_o_rfd;
-		
-		// Add the p_o_rfd to the d_evfds list
-		// This allows DbgCheckEvents to select on application output events
-		AddToList(di->d_evfds, (void *)ev_fd_ptr);
-	}
 
-	/*broadcast an INVOKE command to complete the invoke callback*/
+	// broadcast an INVOKE command to complete the invoke callback
 	request = CommandToSocProto(DBGCMD_INVOKE, num_be);
 
 	if(mrn_fe_setup_streams(network, request))
@@ -1781,6 +1770,19 @@ DbgMRNInvoke(
 			
 			return 1;
 		}
+	}
+	
+	// setup the program output stream handler if we are handling output - Note
+	// we need to do this after the startup event completes. Otherwise the proxy
+	// might segfault...
+	if (po != NULL)
+	{
+		ev_fd_ptr = (int *)Alloc(sizeof(int));
+		*ev_fd_ptr = po->p_o_rfd;
+		
+		// Add the p_o_rfd to the d_evfds list
+		// This allows DbgCheckEvents to select on application output events
+		AddToList(di->d_evfds, (void *)ev_fd_ptr);
 	}
 	
 	// cleanup wrapper_name
@@ -1877,8 +1879,10 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 	proto_message *		msg;
 	char *				set_str;
 	
-	// dispatch application output
-	if ((po != NULL) && (po->p_o_rfd == ev_fd))
+	// dispatch application output if started
+	// Note that the proxy would segfault here if we tried to handle program
+	// output before the startup event completes...
+	if (di->d_started && (po != NULL) && (po->p_o_rfd == ev_fd))
 	{
 		// Call the protocol specific callback function to handle the output on the stream
 		(*(di->d_proto_outp_callback))(di, po->p_o_stream);
@@ -1889,7 +1893,7 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 	// FIXME: This isn't used on a Cray, but if it is this should be calling
 	// a callback registered in the dbginvoke instead of handling it here. It's
 	// not appropriate to handle client events in this layer.
-	if ((io_res = mrn_fe_dispatch_io(network, ev_fd)) != NULL)
+	if (di->d_started && ((io_res = mrn_fe_dispatch_io(network, ev_fd)) != NULL))
 	{
 		// process each io message in the list
 		while ((msg = NextProtoMsgInSet(io_res)) != NULL)

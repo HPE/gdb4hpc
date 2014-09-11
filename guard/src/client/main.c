@@ -61,19 +61,18 @@ extern int		optind;
 /*
  * Global Variables
  */
-clnt_settings_t		Client;		// global settings store - initialized in main
+clnt_settings_t		Client;			// global settings store - initialized in main
 
 // static globals
-static jmp_buf	Top;			// Where to go when restoring upon signal
-static int 		debug_flag = 0;	// Debug flag - TODO: not used yet
-static int		started = 0;	// Is it alright to longjmp?
+static jmp_buf	Top;				// Where to go when restoring upon signal
+static int 		debug_flag;			// Debug flag - TODO: not used yet
+static int		started;			// Is it alright to longjmp?
 
 /*
  * Static Function Prototypes
  */
 static void		Banner(void);
 static void		SigHandler(int);
-static void		WaitForEvents(int);
 
 /*
  * long opts
@@ -119,7 +118,8 @@ Banner(void)
 #endif /* ALPS */
 	PrintOutMsg("Copyright 1996-2013 University of Queensland. All Rights Reserved.\n");
 	PrintOutMsg("\n");
-	PrintOutMsg("Type \"help\" for a list of commands.\n");
+	PrintOutMsg("Type \"help\" for a list of commands.\n"); 
+	PrintOutMsg("Type \"help <cmd>\" for detailed help about a command.\n");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -443,6 +443,10 @@ main(int argc, char *argv[])
 	Client.confirm		= 1;				// Confirm dangerous commands?
 	Client.quit			= 0;				// Quit the debugger?
 	Client.interactive	= 1;				// Interactive mode?
+	Client.silent		= 0;				// Be quiet?
+	Client.unsafe		= 0;				// Be unsafe?
+	Client.sync_wait	= 0;				// Treat asynchronous cmds as sync?
+	Client.sync_blocked	= 0;				// Current blocked on async cmd?
 	Client.proto		= DBG_PROTO;		// Default debugger protocol
 	Client.arch			= DBG_ARCH;			// Default starter achitecture
 	Client.backend		= DBG_BACKEND;		// Default debug backend
@@ -656,11 +660,53 @@ main(int argc, char *argv[])
 	(void)setjmp(Top);
 	started = 1;
 
+	// Main event loop
 	for ( ;; )
 	{
+		// Check this first in case we got here after a signal arrived, that
+		// might have set Client.quit.
 		if ( Client.quit )
 			break;
-		WaitForEvents(0);
+	
+		// Check to see if we should block on an async event
+		if (Client.sync_wait)
+		{
+			// get current async pending status
+			int astatus = DbgCheckForAsyncPending();
+			
+			// If we are currently blocking on async command and the async pending
+			// is false, we can unblock.
+			if (Client.sync_blocked && !astatus)
+			{
+				// Block signals here because there is a race condition otherwise
+				HoldSignals();
+				DbgUnmaskInput();
+				Client.sync_blocked = 0;
+				ReleaseSignals();
+				
+			// If we are not currently blocking on an async command and the async
+			// pending is true, we need to block
+			} else if (!Client.sync_blocked && astatus)
+			{
+				// Block signals here because there is a race condition otherwise
+				HoldSignals();
+				DbgMaskInput();
+				Client.sync_blocked = 1;
+				ReleaseSignals();
+			}
+		}
+
+		switch ( DbgCheckEvents() )
+		{
+			case -1:
+				Client.quit = 1;
+
+			case 0:
+				continue;
+			
+			default:
+				DbgDispatchEvents();
+		}
 	}
 
 #ifdef RD
@@ -746,30 +792,6 @@ SigHandler(int sig)
 		// Reset the stream to default
 		SetDefaultCLIStream();
 		longjmp(Top, sig);
-	}
-}
-
-static void
-WaitForEvents(int noblock)
-{
-	for ( ;; )
-	{
-		switch ( DbgCheckEvents() )
-		{
-			case -1:
-				Client.quit = 1;
-
-			case 0:
-				// we only want to continue if we haven't triggered the Quit condition.
-				if ( !noblock && !Client.quit)
-					continue;
-				break;
-			
-			default:
-				DbgDispatchEvents();
-		}
-
-		break;
 	}
 }
 

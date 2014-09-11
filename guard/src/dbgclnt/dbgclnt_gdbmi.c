@@ -718,6 +718,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
 	MICommand * 	cmd;
 	dbgevent_t *	e;
+	int				found = 0;
 
 	DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
 	
@@ -726,14 +727,164 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 	cmd = CLIWhatis("PMI_Init");
 	
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd))
+	if (MICommandResultOK(cmd))
 	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI_Init symbol!");
-		MICommandFree(cmd);
-		return e;
+		found = 1;
 	}
 	MICommandFree(cmd);
 	
+	// We should also check for other startup function names as well
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI_Init");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI_INIT_THREAD__");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI_INIT__");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("mpi_init__");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("mpi_init_thread__");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI_INIT_THREAD_");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI_INIT_");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("mpi_init_thread_");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("mpi_init_");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("MPI::Init");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("PMPI_Init");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("start_pes");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	if (!found)
+	{
+		cmd = CLIWhatis("shmem_init");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
+	
+	// If we get here, no known startup function was found.
+	if (!found)
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI_Init symbol!");
+		return e;
+	}
+	
+	// startup function was found
 	return NewEvent(DBGEV_OK);;
 }
 

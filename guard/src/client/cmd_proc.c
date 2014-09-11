@@ -735,7 +735,7 @@ DoInvoke(	char *proto,
 					ps->s_name, ps->s_nproc, 
 					arch, arch_args, arch_input, 
 					backend, Env, cwd, 
-					gpu_flag, debug_flag);
+					gpu_flag, debug_flag, Client.unsafe);
 
 	if ( di == NULL )
 	{

@@ -30,6 +30,9 @@ struct	clnt_settings
 	int					quit;			/* Quit the debugger? */
 	int					interactive;	/* Interactive mode? */
 	int					silent;			/* Be quiet? */
+	int					unsafe;			/* Be unsafe? */
+	int					sync_wait;		/* Treat asynchronous cmds as sync? */
+	int					sync_blocked;	/* Current blocked on async cmd? */
 	char *				proto;			/* Default debugger protocol */
 	char *				arch;			/* Default starter achitecture */
 	char *				backend;		/* Default debug backend*/

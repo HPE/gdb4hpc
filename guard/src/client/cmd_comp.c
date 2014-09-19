@@ -40,15 +40,19 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 	int				res;
 	rep_set_t *		rep_set;
 	group_reply_t *	reply;
-	int				print_diff = 0;
 	expr_t *		e;
 	char **			ap;
 	AIF *			a;
+	int				print_diff = 0;
+	bitset *		true_bitset = NULL;
+	bitset *		false_bitset = NULL;
+	bitset *		warn_bitset = NULL;
+	bitset *		indet_bitset = NULL;
 
 	if ( argc < 2 )
 	{
 		PrintOutError("Not enough command arguments.\n");
-		PrintOutError("Expected: compare expr1 = expr2\n");
+		PrintOutError("Expected: compare expr1 == expr2\n");
 		return 1;
 	}
 
@@ -57,7 +61,7 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 	if ( argc <= 0 )
 	{
 		PrintOutError("Not enough command arguments.\n");
-		PrintOutError("Expected: compare expr1 = expr2\n");
+		PrintOutError("Expected: compare expr1 == expr2\n");
 		return 1;
 	}
 
@@ -130,6 +134,10 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 			// Point at the reply set
 			rep_set = RVAL_REPLY(val_res);
 		
+			// Fix for BUG 817334 - This used to print the results of the comp operation directly,
+			// but now it will try to group like messages together and only print a summary over all
+			// the ranks.
+			
 			// Need to loop over the reply
 			SetReplyHeadInSet(rep_set);
 			while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
@@ -141,22 +149,77 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 				switch (res)
 				{
 					case 0:
-						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is true.\n");
+						if (true_bitset == NULL)
+						{
+							// create a new true bitset based off the reply group. Note that
+							// every reply will have the same set size.
+							true_bitset = bitset_new(bitset_size(reply->rep_group));
+						}
+						// Add this group to the true_bitset
+						bitset_oreq(true_bitset, reply->rep_group);
 						break;
 					case -1:
 					case 1:
-						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is false.\n");
+						if (false_bitset == NULL)
+						{
+							// create a new false bitset based off the reply group. Note that
+							// every reply will have the same set size.
+							false_bitset = bitset_new(bitset_size(reply->rep_group));
+						}
+						// Add this group to the false_bitset
+						bitset_oreq(false_bitset, reply->rep_group);
 						print_diff++;
 						break;
 					case -2:
 					case 2:
-						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is warn.\n");
+						if (warn_bitset == NULL)
+						{
+							// create a new warn bitset based off the reply group. Note that
+							// every reply will have the same set size.
+							warn_bitset = bitset_new(bitset_size(reply->rep_group));
+						}
+						// Add this group to the warn_bitset
+						bitset_oreq(warn_bitset, reply->rep_group);
 						print_diff++;
 						break;
 					case 3:
-						PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Comparison is indeterminate due to pointers.\n");
+						if (indet_bitset == NULL)
+						{
+							// create a new indeterminate bitset based off the reply group. Note that
+							// every reply will have the same set size.
+							indet_bitset = bitset_new(bitset_size(reply->rep_group));
+						}
+						// Add this group to the warn_bitset
+						bitset_oreq(indet_bitset, reply->rep_group);
 						break;
 				}
+			}
+			
+			// XXX: Note that for the PrintMsgWithSetInfo command we don't want to use the handle in the set,
+			//      since that is not really a valid representation of what we are looking at. What we have is a delta
+			//      between the two sets, and since a di needed to be set the reply, it just arbitrarily chose the first
+			//      one. This is a flaw and someday should be fixed. For now just use the string ""
+			
+			// print the result summary
+			if (true_bitset != NULL)
+			{
+				PrintMsgWithSetInfo("", true_bitset, "Comparison is true.\n");
+				bitset_free(true_bitset);
+			}
+			if (false_bitset != NULL)
+			{
+				PrintMsgWithSetInfo("", false_bitset, "Comparison is false.\n");
+				bitset_free(false_bitset);
+			}
+			if (warn_bitset != NULL)
+			{
+				PrintMsgWithSetInfo("", warn_bitset, "Comparison is warn.\n");
+				bitset_free(warn_bitset);
+			}
+			if (indet_bitset != NULL)
+			{
+				PrintMsgWithSetInfo("", indet_bitset, "Comparison is indeterminate due to pointers.\n");
+				bitset_free(indet_bitset);
 			}
 			
 			// print out the difference deltas once

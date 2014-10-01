@@ -156,6 +156,7 @@ extern MICommand *MIThreadSelect(int threadNum);
  */
 extern MICommand *MITargetAttach(int pgid);
 extern MICommand *MITargetDetach(int pgid);
+extern MICommand *MITargetDetachAll(void);
 
 /*
  * -data-* commands

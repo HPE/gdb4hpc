@@ -46,7 +46,7 @@
 
 static MIList *			MISessionList = NULL;
 static struct timeval		MISessionDefaultSelectTimeout = {0, 1000};
-static int			MISessionDebug = 1;
+static int			MISessionDebug = 0;
 
 static void DoOOBCallbacks(MISession *sess, MIList *oobs);
 //static void HandleChild(int sig);

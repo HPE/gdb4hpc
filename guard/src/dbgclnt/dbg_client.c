@@ -1707,6 +1707,9 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 				// do nothing
 				break;
 		}
+		
+		// cleanup this event
+		FreeEvent(event);
 
 		/* If all events have been received, remove the eventset*/
 		// I looked into this and it appears that right before calling step, 

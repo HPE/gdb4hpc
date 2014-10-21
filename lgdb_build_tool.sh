@@ -98,12 +98,12 @@ libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
 libcraytool_backend_dso="libcraytools_be.so"
-libcraytool_backend_major="libcraytools_be.so.5"
-libcraytool_backend_minor="libcraytools_be.so.5.0.1"
+libcraytool_backend_major="libcraytools_be.so.6"
+libcraytool_backend_minor="libcraytools_be.so.6.0.0"
 
 libcraytool_frontend_dso="libcraytools_fe.so"
-libcraytool_frontend_major="libcraytools_fe.so.5"
-libcraytool_frontend_minor="libcraytools_fe.so.5.0.2"
+libcraytool_frontend_major="libcraytools_fe.so.6"
+libcraytool_frontend_minor="libcraytools_fe.so.6.0.0"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"
@@ -328,6 +328,7 @@ fi
 dep_bindir="$stage_dir/bin"
 dep_sbindir="$stage_dir/sbin"
 dep_includedir="$stage_dir/include"
+dep_libexecdir="$stage_dir/libexec"
 dep_libdir="$stage_dir/lib"
 dep_lib64dir="$stage_dir/lib64"
 
@@ -1970,8 +1971,8 @@ if [[ $opt_interface == y ]]; then
 	echo -e "\nUsing tools interface source $interface_src.\n" 
 	# run tools interface configure 
 	echo "Configuring tools interface..." 
-	echo -e "./configure --prefix=$stage_dir --with-libarchive=$stage_dir CFLAGS=$opt_flag\n" 
-	./configure --prefix=$stage_dir --with-libarchive=$stage_dir CFLAGS="$opt_flag"
+	echo -e "./configure --prefix=$stage_dir --with-libarchive=$stage_dir --with-libmi=$stage_dir CFLAGS=$opt_flag\n" 
+	./configure --prefix=$stage_dir --with-libarchive=$stage_dir --with-libmi=$stage_dir CFLAGS="$opt_flag"
 	# run tools interface make 
 	echo -e "\nBuilding tools interface...\n" 
 	make --silent 
@@ -1981,12 +1982,20 @@ if [[ $opt_interface == y ]]; then
 	echo -e "\nTools interface installed to $stage_dir.\n" 
 	echo -e "Starting post build ops.\n" 
 	# deliver dlaunch
-	if [ -e $dep_bindir/dlaunch ]; then 
+	if [ -e $dep_libexecdir/dlaunch ]; then 
 		echo "Delivering dlaunch to $libexecdir..."
-		cp $dep_bindir/dlaunch $libexecdir 
+		cp $dep_libexecdir/dlaunch $libexecdir 
 	else 
-		echo "ERROR: Could not find dlaunch in $dep_bindir. The tools interface build failed." 
+		echo "ERROR: Could not find dlaunch in $dep_libexecdir. The tools interface build failed." 
 		((++comp_error)) 
+	fi
+	# deliver cti_starter
+	if [ -e $dep_libexecdir/cti_starter ]; then
+		echo "Delivering cti_starter to $libexecdir..."
+		cp $dep_libexecdir/cti_starter $libexecdir
+	else
+		echo "ERROR: Could not find cti_starter in $dep_libexecdir. The tools interface build failed."
+		((++comp_error))
 	fi
 	# deliver libaudit.so
 	if [ -e $dep_libdir/libaudit.so ]; then
@@ -2031,13 +2040,21 @@ else
 	# We still need to deliver the tools interface libraries for use in the final ccdb package
 	echo -e "Starting tools interface install.\n"
 	# deliver dlaunch 
-	if [ -e $dep_bindir/dlaunch ]; then 
+	if [ -e $dep_libexecdir/dlaunch ]; then 
 		echo "Delivering dlaunch to $libexecdir..." 
-		cp $dep_bindir/dlaunch $libexecdir 
+		cp $dep_libexecdir/dlaunch $libexecdir 
 	else 
-		echo "ERROR: Could not find dlaunch in $dep_bindir. Manually add this to $inst_dir." 
+		echo "ERROR: Could not find dlaunch in $dep_libexecdir. Manually add this to $inst_dir." 
 		((++comp_error)) 
 	fi 
+	# deliver cti_starter
+	if [ -e $dep_libexecdir/cti_starter ]; then
+		echo "Delivering cti_starter to $libexecdir..."
+		cp $dep_libexecdir/cti_starter $libexecdir
+	else
+		echo "ERROR: Could not find cti_starter in $dep_libexecdir. Manually add this to $inst_dir."
+		((++comp_error))
+	fi
 	# deliver libaudit.so 
 	if [ -e $dep_libdir/libaudit.so ]; then 
 		echo "Delivering libaudit.so to $libdir..." 

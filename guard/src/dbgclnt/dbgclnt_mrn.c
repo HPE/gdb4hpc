@@ -412,7 +412,7 @@ DbgMRNAttach(
 #endif /* PERFLOG */
 
 	// Register the aprun pid with the tool interface
-	if ((di->d_appid = cti_registerApid(pid)) == 0)
+	if ((di->d_appid = cti_alps_registerApid(pid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to register aprun pid with CTI.\n");
@@ -1486,7 +1486,7 @@ DbgMRNInvoke(
 	}
 	
 	// get the apid for MRNet
-	if ((aprun_info = cti_getAprunInfo(di->d_appid)) == NULL)
+	if ((aprun_info = cti_alps_getAprunInfo(di->d_appid)) == NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("ERROR: DbgMRNInvoke failed to query the apid!\n"); 
@@ -2028,6 +2028,9 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 			PrintOutError("Failed to kill aprun process!\n");
 			return -1;
 		}
+	} else
+	{
+		cti_deregisterApp(di->d_appid);
 	}
 #endif
 

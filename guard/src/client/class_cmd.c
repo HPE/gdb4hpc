@@ -43,49 +43,49 @@ cmdlist_t *	UsageCmds;		/* Usage command list */
  */
  
 void
-AddInfoCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddInfoCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(InfoCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddMaintCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(MaintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddMaintSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(MaintSetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddMaintShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(MaintShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(SetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(ShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddUnsetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddUnsetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(UnsetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddUsageCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char *help[], char *desc)
+AddUsageCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
 {
 	AddClassSubCommand(UsageCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }

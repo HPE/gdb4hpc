@@ -473,19 +473,19 @@ mismatch_exit:
 		// Connect to the ssh-agent
 		if ((agent = libssh2_agent_init(session)) == NULL)
 		{
-			PrintOutError("Failure initializing ssh-agent support.\n");
+			PrintOutError("Warning: Could not init ssh-agent support.\n");
 			goto keyfile_fallback;
 		}
 		
 		if (libssh2_agent_connect(agent))
 		{
-			PrintOutError("Failure connecting to ssh-agent.\n");
+			PrintOutError("Warning: Could not connect to ssh-agent.\n");
 			goto keyfile_fallback;
 		}
 		
 		if (libssh2_agent_list_identities(agent))
 		{
-			PrintOutError("Failure requesting identities to ssh-agent.\n");
+			PrintOutError("Warning: Could not request identities from ssh-agent.\n");
 			goto keyfile_fallback;
 		}
 		
@@ -497,7 +497,7 @@ mismatch_exit:
 			
 			if (rc < 0)
 			{
-				PrintOutError("Failure obtaining identity from ssh-agent support.\n");
+				PrintOutError("Warning: Could not obtain identity from ssh-agent support.\n");
 				rc = 1;
 				break;
 			}

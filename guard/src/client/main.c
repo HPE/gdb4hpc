@@ -61,7 +61,7 @@ extern int		optind;
 /*
  * Global Variables
  */
-clnt_settings_t		Client;			// global settings store - initialized in main
+clnt_settings_t	Client;				// global settings store - initialized in main
 
 // static globals
 static jmp_buf	Top;				// Where to go when restoring upon signal

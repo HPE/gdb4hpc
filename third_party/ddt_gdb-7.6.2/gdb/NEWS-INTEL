@@ -1,0 +1,19 @@
+               What has changed in GDB?
+            (Organized release by release)
+
+*** Changes since GDB 7.5
+
+ * GDB now has support for the Intel(R) Many Integrated Core (MIC) architecture
+
+ * GDB now supports data race detection based on Intel(R)'s PDBX data race
+   detector for IA32, Intel64, and Intel(R) Many Integrated Core (MIC)
+   architecture. See the "Debugging data races" chapter in the user manual for
+   more details.
+
+   Please make sure that the environment is setup correctly and that GDB finds
+   the correct version of the Intel compiler's run-time support libraries. See
+   PROBLEMS-INTEL for help on troubleshooting.
+
+ * GDB now supports the Cilk offloading model
+
+ * Two new MI commands have been added: -catch-load and -catch-unload.

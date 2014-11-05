@@ -1,0 +1,76 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Test goals: stack memory can be evaluated and does not crash the debugger
+#        Ported from td/tct/nocrash/tct_x_mem_stack
+
+load_lib "offload.exp"
+
+standard_testfile "dummy.c" "myo_attach_default.c"
+set rsp "\$rsp"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} ${srcdir}/${subdir}/${srcfile2}" "${binfile}" executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+# force to stay in the endless loop
+#
+send_gdb "set var loop = 1\n"
+
+gdb_test "x /16w $rsp" "0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: \[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+" \
+         "1st: x /16w $rsp == <address>:   <number>   <number>   <number>   <number> ..."
+
+gdb_test "next" ".*while \\(loop\\).*" "next 1"
+gdb_test "next" ".*volatile int bp = 1.*" "next 2"
+gdb_test "next" ".*while \\(loop\\).*" "next 3"
+gdb_test "next" ".*volatile int bp = 1.*" "next 4"
+
+gdb_test "x /16w $rsp" "0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: \[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+" \
+         "2nd: x /16w $rsp == <address>:   <number>   <number>   <number>   <number> ..."
+
+gdb_test "next" ".*while \\(loop\\).*" "next 5"
+gdb_test "next" ".*volatile int bp = 1.*" "next 6"
+gdb_test "next" ".*while \\(loop\\).*" "next 7"
+gdb_test "next" ".*volatile int bp = 1.*" "next 8"
+
+gdb_test "x /16w $rsp" "0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: 0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\\\t\]0x\[0-9a-f\]+\[\r\n\]
+\0x\[0-9a-f\]+: \[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+\[\\\t\]\[0-9a-f\]+" \
+         "3rd: x /16w $rsp == <address>:   <number>   <number>   <number>   <number> ..."
+
+gdb_test "break" "Breakpoint 2 .*$srcfile2, line 4." "set BP2"
+gdb_test "continue" ".*Breakpoint 2, .*$srcfile2:4.*" "continue to BP2"
+
+gdb_exit
+offload_cleanup

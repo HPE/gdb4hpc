@@ -1,0 +1,48 @@
+# Modified by Allinea Software.
+# 
+# Copyright (C) Allinea Software Ltd. 2014
+# Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+standard_testfile
+if {[build_executable ${testfile}.exp ${testfile} ${srcfile} {nodebug}] == -1} {
+    return -1
+}
+
+# We need those symbols global to access them from the .S file.
+set test "strip stub symbols"
+set objcopy_program [transform objcopy]
+set result [catch "exec $objcopy_program -N symless ${binfile}" output]
+verbose "result is $result"
+verbose "output is $output"
+if {$result != 0} {
+    fail $test
+    return
+}
+pass $test
+
+clean_restart $testfile
+
+if ![runto_main] {
+    return -1
+}
+
+gdb_breakpoint symful
+
+# 01810_16933-dwarf2-unwind-sniffer.patch breaks this test because we can't unwind the first instruction
+# of a function without symbol information. It is a price worth paying for being able to unwind when we
+# do have symbols and the compiler generates bad unwind info for the first instruction.
+setup_xfail "*-*-*"
+gdb_test "step" "Single stepping until exit.*no line number information.*\r\nBreakpoint \[^\r\n\]* in \\.?symful \\(\\)"

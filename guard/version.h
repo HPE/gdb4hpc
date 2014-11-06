@@ -19,6 +19,6 @@
 #ifndef _VERSION_H
 #define _VERSION_H
 
-#define GUARD_VERSION	        "2.3.2"
+#define GUARD_VERSION	        "2.4.0"
 
 #endif /* _VERSION_H */

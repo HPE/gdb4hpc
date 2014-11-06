@@ -54,7 +54,7 @@ typedef struct clnt_settings		clnt_settings_t;
 /*
 ** External global variables defined in main.c
 */
-extern volatile clnt_settings_t	Client;		/* global settings store */
+extern clnt_settings_t	Client;		/* global settings store */
 
 #endif /* _CLIENT_SETTINGS_H */
 

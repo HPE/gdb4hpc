@@ -406,7 +406,7 @@ main(int argc, char **argv)
 		DVPRINT("\n");
 	}
 	
-	// Launch a dbgsrv for each pid
+	// start numPids dbgsrv instances.
 	for (i=0; i < myPids->numPids; ++i)
 	{
 		this_argv = CopyArgv(dbgsrv_argv);
@@ -466,8 +466,17 @@ main(int argc, char **argv)
 		valgrind_argv = AppendArgv(valgrind_argv, this_argv);
 #endif
 		
-		// fork and exec
-		mypid = fork();
+		// fork and exec -- the final time through we don't want to fork since we only
+		// want numPids processes to exist.
+		if (i < (myPids->numPids - 1))
+		{
+			mypid = fork();
+		} else
+		{
+			DVPRINT("Done launching dbgsrv...\n");
+			DVPRINT("%d dbgsrv's launched in total.\n", i);
+			mypid = 1;
+		}
 		
 		// error case
 		if (mypid < 0)
@@ -496,40 +505,44 @@ main(int argc, char **argv)
 			return 1;
 		}
 		
-		// child case
+		// child case - We want the child to be responsible for starting the n
+		// processes. Otherwise WLM's such as slurm will fail since the WLM sees
+		// the parent exit and assumes the srun is complete.
 		if (mypid == 0)
 		{
-			if (debug_flag)
+			FreeArgv(this_argv);
+			continue;
+		}
+		
+		// parent case, or final time through
+		
+		if (debug_flag)
+		{
+			// if debug is on, hook into the logfile
+			if (log != NULL)
 			{
-				// if debug is on, hook into the logfile
-				if (log != NULL)
-				{
-					hook_stdoe(log);
-				} else
-				{
-					DVPRINT("Could not call hook_stdoe\n");
-				}
-				DVPRINT("Exec'ing dbgsrv...\n");
+				hook_stdoe(log);
+			} else
+			{
+				DVPRINT("Could not call hook_stdoe\n");
 			}
+			DVPRINT("Exec'ing dbgsrv...\n");
+		}
 #ifdef BE_VALGRIND	
-			// exec valgrind
-			execvp("valgrind", valgrind_argv);
+		// exec valgrind
+		execvp("valgrind", valgrind_argv);
 #else
-			// exec dbgsrv
-			execvp(DBGSRV, this_argv);
+		// exec dbgsrv
+		execvp(DBGSRV, this_argv);
 #endif
 			
-			// exec shouldn't return
-			fprintf(stderr, "Return from exec.\n");
-			exit(1);
-		}
-	
-		// parent case
-		FreeArgv(this_argv);
+		// exec shouldn't return
+		fprintf(stderr, "Return from exec.\n");
+		exit(1);
 	}
 	
-	DVPRINT("Done launching dbgsrv...\n");
-	DVPRINT("%d dbgsrv's launched in total.\n", i);
+	// shouldn't get here
+	fprintf(stderr, "dbgsrv_alps_mrn: At impossible part of code!\n");
 	
 	// cleanup static argv
 	FreeArgv(dbgsrv_argv);
@@ -548,6 +561,6 @@ main(int argc, char **argv)
 	// cleanup pid list
 	cti_destroyPidList(myPids);
 	
-	return 0;
+	return 1;
 }
 

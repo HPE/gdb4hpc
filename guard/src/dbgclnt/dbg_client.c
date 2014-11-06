@@ -2038,16 +2038,17 @@ DbgFinish(void)
 	}
 
 	DestroyList(DbgSigList, DbgFreeSignal);
+	DbgSigList = NULL;
+	
 	DestroyList(DbgMaskedSigList, DbgFreeSignal);
+	DbgMaskedSigList = NULL;
+	
 	// Manually free the elements in the dbginvoke list
 	while ((di=RemoveFirst(DbgInvokeList)) != NULL)
 	{
 		FreeDbgInvoke(di);
 	}
 	DestroyList(DbgInvokeList, NULL);
-
-	DbgSigList = NULL;
-	DbgMaskedSigList = NULL;
 	DbgInvokeList = NULL;
 	
 	InputCB.i_fd = -1;

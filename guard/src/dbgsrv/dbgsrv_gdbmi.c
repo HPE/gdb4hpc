@@ -554,41 +554,6 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
-	// set data-directory to where the pretty printers reside
-	char * manifestLibDir = cti_getLibDir();
-	char * gdbDataDir;
-	if (manifestLibDir == NULL)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "cti_getLibDir call failed.");
-		return e;
-	}
-	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
-	Free(manifestLibDir);
-	cmd = MIGDBSet("data-directory", gdbDataDir);
-	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd))
-	{
-		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set data-directory command failed.");
-		return e;
-	}
-	MICommandFree(cmd);
-	Free(gdbDataDir);
-	
-	// Don't look for auxillary symbol files - this *must* be turned off for gpu's
-	if (!gpu_flag)
-	{
-		cmd = MIGDBSet("mapped-directory", "/dev/null");
-		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set mapped-directory command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-	}
-	
 	// Need to set an alternative system root for /dsl and dso lookup if the
 	// /dsl directory exists.
 	struct stat		st;
@@ -1334,6 +1299,19 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		MISessionSetGDBPath(GDBMISession, "gdb-guard");
 	}
 	
+	// set data-directory
+	char * manifestLibDir = cti_getLibDir();
+	char * gdbDataDir;
+	if (manifestLibDir == NULL)
+	{
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
+		return e;
+	}
+	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
+	Free(manifestLibDir);
+	MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
+	Free(gdbDataDir);
+	
 	// Ensure PYTHONSTARTUP isn't set
 	if (getenv("PYTHONSTARTUP") != NULL)
 	{
@@ -1410,6 +1388,7 @@ DbgGDBMIStartup(void)
 	MIEvent * 		evt;
 	dbgbp_t *		bp = NULL;
 	int				finish = 1;
+	int				attempt = 0;
 
 	DVPRINT("*** DbgStartup\n");
 	
@@ -1433,6 +1412,9 @@ DbgGDBMIStartup(void)
 	// we only want to issue a continue if the entry_BP list is not empty.
 	if ( !EmptyList(entry_BP))
 	{
+recover_for_slurm:
+		// counter for recover
+		++attempt;
 		// issue a continue command
 		cmd = MIExecContinueAll();
 		SendMICommand(GDBMISession, cmd);
@@ -1459,6 +1441,15 @@ DbgGDBMIStartup(void)
 		AsynchEventWaiting = 0;
 		PendingEvent = NULL;
 		Status = DBGSTAT_STOPPED;
+		
+		// slurm will send a SIGSTOP for some reason, try to recover from that
+		if (evt->type == MIEventTypeSignal && attempt < 10)
+		{
+			DVPRINT("DbgStartup: Received signal, trying to recover.\n");
+			MIEventFree(evt);
+			evt = NULL;
+			goto recover_for_slurm;
+		}
 		
 		// ensure we hit the breakpoint
 		if (evt->type != MIEventTypeBreakpointHit)
@@ -3882,6 +3873,8 @@ InitDbgAttach(int pid, char *prog)
 
 	MICommandFree(cmd);
 	
+	DVPRINT("InitDbgAttach: -target-attach sent.\n");
+	
 	/*
 	** -target-attach is a *asynch* command that will generate a MI event.
 	** we must grab it or it will fubar everything else up.
@@ -3892,6 +3885,8 @@ InitDbgAttach(int pid, char *prog)
 	// wait for the asynch command to complete
 	while (!DbgGDBMIEventReady())
 		MISessionProgress(GDBMISession);
+	
+	DVPRINT("InitDbgAttach: Event ready!\n");
 	
 	e = WaitEvent(NULL);
 	FreeEvent(e);

@@ -1,5 +1,5 @@
 #
-# © 2010-2012 Cray Inc. All Rights Reserved
+# © 2010-2014 Cray Inc. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
@@ -17,7 +17,7 @@
 AC_PREREQ([2.63])
 
 AC_INIT([guard],[1.2],[andrewg@cray.com])
-AC_COPYRIGHT([© 2010-2013 Cray Inc. All Rights Reserved.])
+AC_COPYRIGHT([© 2010-2014 Cray Inc. All Rights Reserved.])
 
 AC_CONFIG_SRCDIR([defs.h])
 AC_CONFIG_AUX_DIR([config])
@@ -107,35 +107,12 @@ AC_ARG_WITH([cray],
 			    [Enable Cray APRUN support in Guard.]
 			    )
 	    ],
-	    [with_aprun=yes],
-	    [with_aprun=no]
+	    [with_cray=yes],
+	    [with_cray=no]
 	    )
 
 dnl check for --with-cray sub-arguments
-if test "x$with_aprun" != xno; then
-	dnl Check for --with-alps-lib
-	AC_ARG_WITH([alps-lib], 
-		    [AS_HELP_STRING([--with-alps-lib], 
-				    [Location of the Cray ALPS library.]
-				    )
-		    ],
-		    [LDFLAGS="$LDFLAGS -L$withval" 
-		     AC_SUBST([alps_path], ["$withval"]) 
-		     libalps_path="$withval" 
-		    ], 
-		    [AC_MSG_WARN([Using default path to alps lib.])]
-		    )
-	
-	dnl Check for --with-alps-inc
-	AC_ARG_WITH([alps-inc], 
-		    [AS_HELP_STRING([--with-alps-inc], 
-				    [Location of the Cray ALPS header files.]
-				    )
-		    ], 
-		    [CPPFLAGS="$CPPFLAGS -I$withval"], 
-		    [AC_MSG_WARN([Using default path to alps headers.])]
-		    )
-	
+if test "x$with_cray" != xno; then
 	dnl Check for --with-craytool-inc
 	AC_ARG_WITH([craytool-inc],
 		    [AS_HELP_STRING([--with-craytool-inc],
@@ -447,7 +424,7 @@ if test "x$with_poe" != xno; then
 fi
 
 dnl Check for Cray's Parallel Environment
-if test "x$with_aprun" != xno; then
+if test "x$with_cray" != xno; then
 	dnl This now always works for build machines that lack the aprun binary
 	AC_DEFINE([ALPS], [1], [Enable ALPS support in Guard.])
 fi
@@ -699,42 +676,7 @@ if test "x$mrnet_mode" = xyes; then
 fi
 
 dnl Conditional check for cray aprun libs
-if test "x$with_aprun" = xyes; then
-	dnl Check for libalpsutil.so 
-	AC_MSG_CHECKING([for libalpsutil.so]) 
-	if test -f "$libalps_path/libalpsutil.so"; then 
-		alps_libs="-lalpsutil $alps_libs" 
-		AC_MSG_RESULT([found]) 
-	else 
-		AC_MSG_RESULT([not found]) 
-		AC_MSG_ERROR([libalpsutil.so not found.]) 
-	fi 
-	
-	#AC_CHECK_LIB([alpsutil], 
-	#	     [alps_get_placement_info], 
-	#	     [], 
-	#	     [AC_MSG_ERROR([libalps not found.])]
-	#	     )
-
-	dnl Check for libalps.so
-	AC_MSG_CHECKING([for libalps.so]) 
-	if test -f "$libalps_path/libalps.so"; then 
-		alps_libs="-lalps $alps_libs" 
-		AC_MSG_RESULT([found]) 
-	else 
-		AC_MSG_RESULT([not found]) 
-		AC_MSG_ERROR([libalps.so not found.]) 
-	fi
-
-	#AC_CHECK_LIB([alps], 
-	#	     [alpsGetMyNid],
-	#	     [], 
-	#	     [AC_MSG_ERROR([libalps not found.])]
-	#	     )
-	
-	dnl do the final variable subst
-	AC_SUBST([alps_libs], ["$alps_libs"]) 
-
+if test "x$with_cray" = xyes; then
 	dnl Check for libcraytools_fe.so
 	AC_MSG_CHECKING([for libcraytools_fe.so])
 	if test -f "$libcraytool_path/libcraytools_fe.so"; then
@@ -952,7 +894,7 @@ AC_CHECK_FUNCS([asprintf bzero dup2 floor gethostbyname gethostname gettimeofday
 ### Set AM characteristics ###
 ##############################
 dnl Generic conds
-AM_CONDITIONAL([CRAY], [test "x$with_aprun" != xno])
+AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
 AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 
 dnl DbgSrv proto conds

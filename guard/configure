@@ -9,7 +9,7 @@
 # This configure script is free software; the Free Software Foundation
 # gives unlimited permission to copy, distribute and modify it.
 #
-# © 2010-2013 Cray Inc. All Rights Reserved.
+# © 2010-2014 Cray Inc. All Rights Reserved.
 ## --------------------- ##
 ## M4sh Initialization.  ##
 ## --------------------- ##
@@ -812,7 +812,6 @@ LIBOBJS
 ALLOCA
 craytool_be_libs
 craytool_fe_libs
-alps_libs
 mrn_root
 ssh2_libs
 mi_libs
@@ -847,7 +846,6 @@ rd_dir
 VALGRIND
 guard_srcdir
 craytool_path
-alps_path
 OTOOL64
 OTOOL
 LIPO
@@ -969,8 +967,6 @@ with_ompi
 with_p4
 with_ibm
 with_cray
-with_alps_lib
-with_alps_inc
 with_craytool_inc
 with_craytool_lib
 with_mrnet
@@ -1661,10 +1657,6 @@ Optional Packages:
 
   --with-cray             Enable Cray APRUN support in Guard.
 
-  --with-alps-lib         Location of the Cray ALPS library.
-
-  --with-alps-inc         Location of the Cray ALPS header files.
-
   --with-craytool-inc     Location of the craytool header files.
 
   --with-craytool-lib     Location of the craytool libraries.
@@ -1785,7 +1777,7 @@ Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
 This configure script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it.
 
-© 2010-2013 Cray Inc. All Rights Reserved.
+© 2010-2014 Cray Inc. All Rights Reserved.
 _ACEOF
   exit
 fi
@@ -5191,13 +5183,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:5194: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:5186: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:5197: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:5189: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:5200: output\"" >&5)
+  (eval echo "\"\$as_me:5192: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -6402,7 +6394,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 6405 "configure"' > conftest.$ac_ext
+  echo '#line 6397 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -7771,11 +7763,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7774: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7766: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:7778: \$? = $ac_status" >&5
+   echo "$as_me:7770: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -8110,11 +8102,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8113: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8105: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:8117: \$? = $ac_status" >&5
+   echo "$as_me:8109: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -8215,11 +8207,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8218: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8210: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:8222: \$? = $ac_status" >&5
+   echo "$as_me:8214: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -8270,11 +8262,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8273: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8265: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:8277: \$? = $ac_status" >&5
+   echo "$as_me:8269: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -11070,7 +11062,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11073 "configure"
+#line 11065 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11166,7 +11158,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11169 "configure"
+#line 11161 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11464,40 +11456,14 @@ fi
 
 # Check whether --with-cray was given.
 if test "${with_cray+set}" = set; then
-  withval=$with_cray; with_aprun=yes
+  withval=$with_cray; with_cray=yes
 else
-  with_aprun=no
+  with_cray=no
 
 fi
 
 
-if test "x$with_aprun" != xno; then
-
-# Check whether --with-alps-lib was given.
-if test "${with_alps_lib+set}" = set; then
-  withval=$with_alps_lib; LDFLAGS="$LDFLAGS -L$withval"
-		     alps_path="$withval"
-
-		     libalps_path="$withval"
-
-else
-  { $as_echo "$as_me:$LINENO: WARNING: Using default path to alps lib." >&5
-$as_echo "$as_me: WARNING: Using default path to alps lib." >&2;}
-
-fi
-
-
-
-# Check whether --with-alps-inc was given.
-if test "${with_alps_inc+set}" = set; then
-  withval=$with_alps_inc; CPPFLAGS="$CPPFLAGS -I$withval"
-else
-  { $as_echo "$as_me:$LINENO: WARNING: Using default path to alps headers." >&5
-$as_echo "$as_me: WARNING: Using default path to alps headers." >&2;}
-
-fi
-
-
+if test "x$with_cray" != xno; then
 
 # Check whether --with-craytool-inc was given.
 if test "${with_craytool_inc+set}" = set; then
@@ -15577,11 +15543,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15580: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15546: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:15584: \$? = $ac_status" >&5
+   echo "$as_me:15550: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -15676,11 +15642,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15679: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15645: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:15683: \$? = $ac_status" >&5
+   echo "$as_me:15649: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -15728,11 +15694,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15731: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15697: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:15735: \$? = $ac_status" >&5
+   echo "$as_me:15701: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -17638,7 +17604,7 @@ $as_echo "$as_me: error: You must have poe to enable ibm support in GUARD." >&2;
 	fi
 fi
 
-if test "x$with_aprun" != xno; then
+if test "x$with_cray" != xno; then
 
 cat >>confdefs.h <<\_ACEOF
 #define ALPS 1
@@ -19409,50 +19375,7 @@ $as_echo "$as_me: error: libxplat.a not found in given path." >&2;}
 
 fi
 
-if test "x$with_aprun" = xyes; then
-		{ $as_echo "$as_me:$LINENO: checking for libalpsutil.so" >&5
-$as_echo_n "checking for libalpsutil.so... " >&6; }
-	if test -f "$libalps_path/libalpsutil.so"; then
-		alps_libs="-lalpsutil $alps_libs"
-		{ $as_echo "$as_me:$LINENO: result: found" >&5
-$as_echo "found" >&6; }
-	else
-		{ $as_echo "$as_me:$LINENO: result: not found" >&5
-$as_echo "not found" >&6; }
-		{ { $as_echo "$as_me:$LINENO: error: libalpsutil.so not found." >&5
-$as_echo "$as_me: error: libalpsutil.so not found." >&2;}
-   { (exit 1); exit 1; }; }
-	fi
-
-	#AC_CHECK_LIB([alpsutil],
-	#	     [alps_get_placement_info],
-	#	     [],
-	#	     [AC_MSG_ERROR([libalps not found.])]
-	#	     )
-
-		{ $as_echo "$as_me:$LINENO: checking for libalps.so" >&5
-$as_echo_n "checking for libalps.so... " >&6; }
-	if test -f "$libalps_path/libalps.so"; then
-		alps_libs="-lalps $alps_libs"
-		{ $as_echo "$as_me:$LINENO: result: found" >&5
-$as_echo "found" >&6; }
-	else
-		{ $as_echo "$as_me:$LINENO: result: not found" >&5
-$as_echo "not found" >&6; }
-		{ { $as_echo "$as_me:$LINENO: error: libalps.so not found." >&5
-$as_echo "$as_me: error: libalps.so not found." >&2;}
-   { (exit 1); exit 1; }; }
-	fi
-
-	#AC_CHECK_LIB([alps],
-	#	     [alpsGetMyNid],
-	#	     [],
-	#	     [AC_MSG_ERROR([libalps not found.])]
-	#	     )
-
-		alps_libs="$alps_libs"
-
-
+if test "x$with_cray" = xyes; then
 		{ $as_echo "$as_me:$LINENO: checking for libcraytools_fe.so" >&5
 $as_echo_n "checking for libcraytools_fe.so... " >&6; }
 	if test -f "$libcraytool_path/libcraytools_fe.so"; then
@@ -25994,7 +25917,7 @@ done
 ##############################
 ### Set AM characteristics ###
 ##############################
- if test "x$with_aprun" != xno; then
+ if test "x$with_cray" != xno; then
   CRAY_TRUE=
   CRAY_FALSE='#'
 else

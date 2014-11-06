@@ -241,7 +241,8 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	char *			str;
 	char *			old_pyhome = NULL;
 	char *			old_pystartup = NULL;
-	char *			env_lib_dir;
+	char *			env_base_dir;
+	char *			data_dir;
 	
 	DPRINT("*** DbgGDBMIInit_fe\n");
 
@@ -262,15 +263,15 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 		old_pystartup = strdup(str);
 	}
 	
-	// Get the libdir env var
-	if ((env_lib_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
+	// Get the base dir env var
+	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_INST_DIRECTORY);
 		return e;
 	}
 	
 	// setup new python env
-	setenv("PYTHONHOME", env_lib_dir, 1);
+	setenv("PYTHONHOME", env_base_dir, 1);
 	if (old_pystartup != NULL)
 	{
 		unsetenv("PYTHONSTARTUP");
@@ -278,6 +279,11 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	
 	// set the gdb path to use gdb-guard
 	MISessionSetGDBPath(sess, "gdb-guard");
+	
+	// set the data directory to use the installed data dir
+	Asprintf(&data_dir, "%s/lib/gdb", env_base_dir);
+	MISessionSetGDBDataDirectory(sess, data_dir);
+	Free(data_dir);
 	
 	if (MISessionStartLocal(sess, NULL) < 0) 
 	{

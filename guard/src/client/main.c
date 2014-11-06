@@ -110,7 +110,7 @@ static void
 Banner(void)
 {
 #ifdef ALPS
-	PrintOutMsg("lgdb 2.3 - Cray Line Mode Parallel Debugger\n");
+	PrintOutMsg("lgdb 2.4 - Cray Line Mode Parallel Debugger\n");
 	PrintOutMsg("With Cray Comparative Debugging Technology.\n");
 	PrintOutMsg("Copyright 2007-2014 Cray Inc. All Rights Reserved.\n");
 #else		
@@ -121,80 +121,6 @@ Banner(void)
 	PrintOutMsg("Type \"help\" for a list of commands.\n"); 
 	PrintOutMsg("Type \"help <cmd>\" for detailed help about a command.\n");
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// TODO: This was added due to my absolute stupidity with not cleaning up tar
-// files in the users home directory on crash. At some date in the future
-// remove it.
-// Added January 2014 - probably safe to remove in a year
-// This will just remove/cleanup the old directories
-// This function doesn't do any error checking, it is just cleaning things up
-////////////////////////////////////////////////////////////////////////////////
-static void
-fixAndrewsStupidMistake(void)
-{
-	char *			home_dir;
-	char *			cfg_dir;
-	struct dirent *	d;
-	DIR *			dir;
-	char *			name_path;
-	
-	if ((home_dir = getenv("HOME")) == NULL)
-	{
-		return;
-	}
-	
-	// First try removing every file from ~/.cray_lgdb
-	
-	// Create the directory name string
-	Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
-	
-	if ((dir = opendir(cfg_dir)) != NULL)
-	{
-		do {
-			// get the next dirent entry in the directory
-			if ((d = readdir(dir)) != NULL)
-			{
-				// create the full path name
-				Asprintf(&name_path, "%s/%s", cfg_dir, d->d_name);
-				// remove the file
-				remove(name_path);
-				Free(name_path);
-			}
-		} while (d != NULL);
-	
-		closedir(dir);
-	}
-	
-	Free(cfg_dir);
-	
-	// Now do the same for ~/.ccdb
-	
-	// Create the directory name string
-	Asprintf(&cfg_dir, "%s/.ccdb", home_dir);
-	
-	if ((dir = opendir(cfg_dir)) != NULL)
-	{
-		do {
-			// get the next dirent entry in the directory
-			if ((d = readdir(dir)) != NULL)
-			{
-				// create the full path name
-				Asprintf(&name_path, "%s/%s", cfg_dir, d->d_name);
-				// remove the file
-				remove(name_path);
-				Free(name_path);
-			}
-		} while (d != NULL);
-	
-		closedir(dir);
-	}
-	
-	Free(cfg_dir);
-	
-	return;
-}
-////////////////////////////////////////////////////////////////////////////////
 
 static int
 checkDirPerms(const char *dir)
@@ -405,6 +331,9 @@ SetupEnvironment(void)
 	// set the ld_val path for the cti
 	setenv(CTI_LIBAUDIT_ENV_VAR, cti_ld_val_path, 1);
 	
+	// set the gdb_path for the cti
+	setenv(CTI_GDB_LOC_ENV_VAR, "gdb-guard", 1);
+	
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(cti_ld_val_path);
@@ -420,10 +349,6 @@ main(int argc, char *argv[])
 	cli_stream_args_t *	cli_args = NULL;	// CLI args
 	char *				in_file = NULL;
 	char *				out_file = NULL;
-	
-	// TODO: Remove me at some point. Added January 2014. 
-	// See definition above for more info.
-	fixAndrewsStupidMistake();
 	
 	// Ensure the environment has been setup, otherwise set it up and re-exec
 	// This is required because otherwise dlopen's will be fubared.

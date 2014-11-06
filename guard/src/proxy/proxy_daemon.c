@@ -416,6 +416,9 @@ SetupEnvironment(void)
 	// set the ld_val path for the cti
 	setenv(CTI_LIBAUDIT_ENV_VAR, cti_ld_val_path, 1);
 	
+	// set the gdb_path for the cti
+	setenv(CTI_GDB_LOC_ENV_VAR, "gdb-guard", 1);
+	
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(cti_ld_val_path);

@@ -21544,21 +21544,9 @@ third_party/ddt_gdb-7.6.2/gdb/doc/Makefile.in -text
 third_party/ddt_gdb-7.6.2/gdb/doc/a4rc.sed -text
 third_party/ddt_gdb-7.6.2/gdb/doc/agentexpr.texi -text
 third_party/ddt_gdb-7.6.2/gdb/doc/all-cfg.texi -text
-third_party/ddt_gdb-7.6.2/gdb/doc/annotate.info -text
 third_party/ddt_gdb-7.6.2/gdb/doc/annotate.texinfo -text
 third_party/ddt_gdb-7.6.2/gdb/doc/fdl.texi -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-1 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-2 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-3 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-4 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-5 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-6 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdb.info-7 -text svneol=unset#unset
 third_party/ddt_gdb-7.6.2/gdb/doc/gdb.texinfo -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdbint.info -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdbint.info-1 -text
-third_party/ddt_gdb-7.6.2/gdb/doc/gdbint.info-2 -text
 third_party/ddt_gdb-7.6.2/gdb/doc/gdbint.texinfo -text
 third_party/ddt_gdb-7.6.2/gdb/doc/gpl.texi -text
 third_party/ddt_gdb-7.6.2/gdb/doc/lpsrc.sed -text

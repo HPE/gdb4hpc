@@ -83,6 +83,9 @@ third_party/ddt_cuda_gdb_55/gdb/observer.h
 third_party/ddt_cuda_gdb_55/gdb/observer.inc
 third_party/ddt_cuda_gdb_55/gdb/p-exp.c
 third_party/ddt_cuda_gdb_55/gdb/uda-rmt-client-cmd.c
+third_party/ddt_gdb-7.6.2/gdb/data-directory/no
+third_party/ddt_gdb-7.6.2/gdb/gdbserver/.deps
+third_party/ddt_gdb-7.6.2/gdb/no
 third_party/gdb_uda/plugin/tags
 third_party/gdb_uda/tags
 third_party/libmi/.deps

@@ -114,11 +114,9 @@ libmrnet_dso="libmrnet.so"
 libmrnet_major="libmrnet.so.4"
 libmrnet_minor="libmrnet.so.4.1.0"
 
-#libxplat_dso="libxplat.so"
-#libxplat_major="libxplat.so.4"
-# This is horibly broken by an MRNet bug. This should be named
-# libxplat.so.4.0.0 like every other library on the face of the planet.
-libxplat_minor="libxplat.4.1.0.so"
+libxplat_dso="libxplat.so"
+libxplat_major="libxplat.so.4"
+libxplat_minor="libxplat.so.4.1.0"
 
 ########################################################
 # Setup the build layout. The following variables are  #
@@ -1319,170 +1317,6 @@ fi
 # reset comp_error
 ((comp_error=0))
 
-# mrnet build
-if [[ $opt_mrnet == y ]]; then
-	echo "Starting MRNet build."
-	# change directories
-	cd $mrnet_src
-	echo -e "\nUsing MRNet source in $mrnet_src.\n"
-	# run mrnet configure
-	echo "Configuring MRNet..."
-	echo -n "./configure --prefix=$stage_dir --with-startup=cray "
-	echo -n "--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir "
-	echo -e "$mrnet_args CFLAGS=$opt_flag CXXFLAGS=$opt_flag\n"
-	./configure --prefix=$stage_dir --with-startup=cray --enable-shared \
-	--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag"
-	# run mrnet make
-	echo -e "\nBuilding MRNet...\n"
-	make --silent
-	# run mrnet make install
-	echo -e "\nInstalling MRNet...\n"
-	make --silent install
-	echo -e "\nMRNet installed to $stage_dir\n"
-	echo -e "Starting post build ops.\n"
-	# deliver the boost headers included with mrnet source if not done already
-	if [ ! -d $dep_includedir/boost ]; then
-	        if [ -d $mrnet_src/include/boost ]; then
-		        echo "Delivering boost headers to $dep_includedir..."
-		        cp -r $mrnet_src/include/boost $dep_includedir
-	        else
-		        echo "WARNING: Could not find the boost include files. Build may be incomplete."
-			echo "The system is probably already providing these for free."
-	        fi
-	fi
-	# Deliver the mrnet binaries
-	if [ -e $dep_bindir/mrnet_commnode ]; then
-	        echo "Delivering mrnet_commnode to $libexecdir..."
-	        cp $dep_bindir/mrnet_commnode $libexecdir
-	else
-	        echo "ERROR: Could not find mrnet_commnode in $dep_bindir. MRNet build failed."
-	        ((++comp_error))
-	fi
-	# Deliver the commnode wrapper
-	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
-		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
-		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
-	else
-	        echo "WARNING: Could not find lgdb_mrnet_commnode_wrapper. Build may be incomplete."
-	        ((++warning))
-	fi
-	# Deliver the mrnet topology generator 
-	if [ -e $dep_bindir/mrnet_topgen ]; then
-	        echo "Delivering mrnet_topgen to $libexecdir..."
-	        cp $dep_bindir/mrnet_topgen $libexecdir
-	else
-	        echo "ERROR: Could not find mrnet_topgen in $dep_bindir. MRNet cannot create k-nomial tree."
-	        ((++comp_error))
-	fi
-	# Deliver the mrnet dso's to libdir
-	if [ -e $dep_libdir/$libmrnet_minor ]; then
-		echo "Delivering $libmrnet_minor to $libdir..."
-		cp $dep_libdir/$libmrnet_minor $libdir
-		echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..."
-		# cd to libdir to create the symlinks
-		cd $libdir
-		ln -s $libmrnet_minor $libmrnet_dso
-		ln -s $libmrnet_minor $libmrnet_major
-	else
-		echo "ERROR: Could not find $libmrnet_minor in $dep_libdir. The mrnet build failed."
-		((++comp_error))
-	fi
-	# Deliver the xplat dso's to libdir
-	if [ -e $dep_libdir/$libxplat_minor ]; then
-		echo "Delivering $libxplat_minor to $libdir..." 
-		cp $dep_libdir/$libxplat_minor $libdir 
-		# if/when mrnet gets fixed uncomment the below
-		#echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
-		# cd to libdir to create the symlinks 
-		#cd $libdir 
-		#ln -s $libxplat_minor $libxplat_dso 
-		#ln -s $libxplat_minor $libxplat_major 
-	else 
-		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. The mrnet build failed." 
-		((++comp_error)) 
-	fi
-	# Deliver the mrnet_config.h file
-	if [ -e $mrnet_src/build/x86_64-unknown-linux-gnu/mrnet_config.h ]; then
-		echo "Delivering mrnet_config.h to $dep_includedir..."
-		cp $mrnet_src/build/x86_64-unknown-linux-gnu/mrnet_config.h $dep_includedir
-	else
-		echo "WARNING: Could not find mrnet_config.h in $mrnet_src/build/x86_64-unknown-linux-gnu."
-		echo "Build may be incomplete."
-		((++warning))
-	fi
-	# Deliver the xplat_config.h file
-	if [ -e $mrnet_src/build/x86_64-unknown-linux-gnu/xplat_config.h ]; then
-		echo "Delivering xplat_config.h to $dep_includedir..."
-		cp $mrnet_src/build/x86_64-unknown-linux-gnu/xplat_config.h $dep_includedir
-	else
-		echo "WARNING: Could not find xplat_config.h in $mrnet_src/build/x86_64-unknown-linux-gnu."
-		echo "Build may be incomplete."
-		((++warning))
-	fi
-	# return home
-	cd $cur_dir
-	echo -e "########################################################\n"
-else
-# We still need to deliver MRNet binaries for use in the final ccdb package
-        echo -e "Starting MRNet install.\n"
-        echo -e "Using MRNet package in $stage_dir."
-	# Deliver the mrnet binaries
-	if [ -f $dep_bindir/mrnet_commnode ]; then
-	        echo "Delivering mrnet_commnode to $libexecdir..."
-	        cp $dep_bindir/mrnet_commnode $libexecdir
-	else
-	        echo "ERROR: mrnet_commnode was not found. Manually add this to $inst_dir."
-	        ((++comp_error))
-	fi
-	# Deliver the commnode wrapper
-	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
-		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
-		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
-        else
-                echo "ERROR: lgdb_mrnet_commnode_wrapper was not found. Manually add this to $inst_dir."
-                ((++comp_error))
-	fi
-	# Deliver the mrnet dso's to libdir 
-	if [ -e $dep_libdir/$libmrnet_minor ]; then 
-		echo "Delivering $libmrnet_minor to $libdir..." 
-		cp $dep_libdir/$libmrnet_minor $libdir 
-		echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..." 
-		# cd to libdir to create the symlinks 
-		cd $libdir 
-		ln -s $libmrnet_minor $libmrnet_dso 
-		ln -s $libmrnet_minor $libmrnet_major 
-	else 
-		echo "ERROR: Could not find $libmrnet_minor in $dep_libdir. Manually add this to $inst_dir." 
-		((++comp_error)) 
-	fi 
-	# Deliver the xplat dso's to libdir 
-	if [ -e $dep_libdir/$libxplat_minor ]; then 
-		echo "Delivering $libxplat_minor to $libdir..." 
-		cp $dep_libdir/$libxplat_minor $libdir 
-		# if/when mrnet gets fixed uncomment the below
-		#echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
-		# cd to libdir to create the symlinks 
-		#cd $libdir 
-		#ln -s $libxplat_minor $libxplat_dso 
-		#ln -s $libxplat_minor $libxplat_major 
-	else 
-		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. Manually add this to $inst_dir." 
-		((++comp_error)) 
-	fi
-	# return home
-	cd $cur_dir
-	echo -e "########################################################\n"
-fi
-
-# check for errors in component
-if [ "$comp_error" -ne "0" ]; then
-	((++error))
-fi
-
-# reset comp_error
-((comp_error=0))
-
 function install_python {
 	# Ensure the dependency modules list exists
 	if [[ ! -e $python_depmod ]]; then
@@ -2059,6 +1893,169 @@ else
 	fi 
 	# return home
 	cd $cur_dir 
+	echo -e "########################################################\n"
+fi
+
+# check for errors in component
+if [ "$comp_error" -ne "0" ]; then
+	((++error))
+fi
+
+# reset comp_error
+((comp_error=0))
+
+# mrnet build - This *must* happen after the cti library build now since mrnet
+# depends on cti components.
+if [[ $opt_mrnet == y ]]; then
+	echo "Starting MRNet build."
+	# change directories
+	cd $mrnet_src
+	echo -e "\nUsing MRNet source in $mrnet_src.\n"
+	# run mrnet configure
+	echo "Configuring MRNet..."
+	echo -n "./configure --prefix=$stage_dir --with-startup=cray "
+	echo -n "--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir "
+	echo -e "$mrnet_args CFLAGS=$opt_flag CXXFLAGS=$opt_flag\n"
+	./configure --prefix=$stage_dir --with-startup=cray --enable-shared \
+	--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir \
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag"
+	# run mrnet make
+	echo -e "\nBuilding MRNet...\n"
+	make --silent
+	# run mrnet make install
+	echo -e "\nInstalling MRNet...\n"
+	make --silent install
+	echo -e "\nMRNet installed to $stage_dir\n"
+	echo -e "Starting post build ops.\n"
+	# deliver the boost headers included with mrnet source if not done already
+	if [ ! -d $dep_includedir/boost ]; then
+	        if [ -d $mrnet_src/include/boost ]; then
+		        echo "Delivering boost headers to $dep_includedir..."
+		        cp -r $mrnet_src/include/boost $dep_includedir
+	        else
+		        echo "WARNING: Could not find the boost include files. Build may be incomplete."
+			echo "The system is probably already providing these for free."
+	        fi
+	fi
+	# Deliver the mrnet binaries
+	if [ -e $dep_bindir/mrnet_commnode ]; then
+	        echo "Delivering mrnet_commnode to $libexecdir..."
+	        cp $dep_bindir/mrnet_commnode $libexecdir
+	else
+	        echo "ERROR: Could not find mrnet_commnode in $dep_bindir. MRNet build failed."
+	        ((++comp_error))
+	fi
+	# Deliver the commnode wrapper
+	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
+		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
+		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
+	else
+	        echo "WARNING: Could not find lgdb_mrnet_commnode_wrapper. Build may be incomplete."
+	        ((++warning))
+	fi
+	# Deliver the mrnet topology generator 
+	if [ -e $dep_bindir/mrnet_topgen ]; then
+	        echo "Delivering mrnet_topgen to $libexecdir..."
+	        cp $dep_bindir/mrnet_topgen $libexecdir
+	else
+	        echo "ERROR: Could not find mrnet_topgen in $dep_bindir. MRNet cannot create k-nomial tree."
+	        ((++comp_error))
+	fi
+	# Deliver the mrnet dso's to libdir
+	if [ -e $dep_libdir/$libmrnet_minor ]; then
+		echo "Delivering $libmrnet_minor to $libdir..."
+		cp $dep_libdir/$libmrnet_minor $libdir
+		echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..."
+		# cd to libdir to create the symlinks
+		cd $libdir
+		ln -s $libmrnet_minor $libmrnet_dso
+		ln -s $libmrnet_minor $libmrnet_major
+	else
+		echo "ERROR: Could not find $libmrnet_minor in $dep_libdir. The mrnet build failed."
+		((++comp_error))
+	fi
+	# Deliver the xplat dso's to libdir
+	if [ -e $dep_libdir/$libxplat_minor ]; then
+		echo "Delivering $libxplat_minor to $libdir..." 
+		cp $dep_libdir/$libxplat_minor $libdir 
+		echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
+		# cd to libdir to create the symlinks 
+		cd $libdir 
+		ln -s $libxplat_minor $libxplat_dso 
+		ln -s $libxplat_minor $libxplat_major 
+	else 
+		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. The mrnet build failed." 
+		((++comp_error)) 
+	fi
+	# Deliver the mrnet_config.h file
+	if [ -e $mrnet_src/build/x86_64-unknown-linux-gnu/mrnet_config.h ]; then
+		echo "Delivering mrnet_config.h to $dep_includedir..."
+		cp $mrnet_src/build/x86_64-unknown-linux-gnu/mrnet_config.h $dep_includedir
+	else
+		echo "WARNING: Could not find mrnet_config.h in $mrnet_src/build/x86_64-unknown-linux-gnu."
+		echo "Build may be incomplete."
+		((++warning))
+	fi
+	# Deliver the xplat_config.h file
+	if [ -e $mrnet_src/build/x86_64-unknown-linux-gnu/xplat_config.h ]; then
+		echo "Delivering xplat_config.h to $dep_includedir..."
+		cp $mrnet_src/build/x86_64-unknown-linux-gnu/xplat_config.h $dep_includedir
+	else
+		echo "WARNING: Could not find xplat_config.h in $mrnet_src/build/x86_64-unknown-linux-gnu."
+		echo "Build may be incomplete."
+		((++warning))
+	fi
+	# return home
+	cd $cur_dir
+	echo -e "########################################################\n"
+else
+# We still need to deliver MRNet binaries for use in the final ccdb package
+        echo -e "Starting MRNet install.\n"
+        echo -e "Using MRNet package in $stage_dir."
+	# Deliver the mrnet binaries
+	if [ -f $dep_bindir/mrnet_commnode ]; then
+	        echo "Delivering mrnet_commnode to $libexecdir..."
+	        cp $dep_bindir/mrnet_commnode $libexecdir
+	else
+	        echo "ERROR: mrnet_commnode was not found. Manually add this to $inst_dir."
+	        ((++comp_error))
+	fi
+	# Deliver the commnode wrapper
+	if [ -f $thirdparty_dir/lgdb_mrnet_commnode_wrapper ]; then
+		echo "Delivering lgdb_mrnet_commnode_wrapper to $libexecdir..."
+		cp $thirdparty_dir/lgdb_mrnet_commnode_wrapper $libexecdir
+        else
+                echo "ERROR: lgdb_mrnet_commnode_wrapper was not found. Manually add this to $inst_dir."
+                ((++comp_error))
+	fi
+	# Deliver the mrnet dso's to libdir 
+	if [ -e $dep_libdir/$libmrnet_minor ]; then 
+		echo "Delivering $libmrnet_minor to $libdir..." 
+		cp $dep_libdir/$libmrnet_minor $libdir 
+		echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..." 
+		# cd to libdir to create the symlinks 
+		cd $libdir 
+		ln -s $libmrnet_minor $libmrnet_dso 
+		ln -s $libmrnet_minor $libmrnet_major 
+	else 
+		echo "ERROR: Could not find $libmrnet_minor in $dep_libdir. Manually add this to $inst_dir." 
+		((++comp_error)) 
+	fi 
+	# Deliver the xplat dso's to libdir 
+	if [ -e $dep_libdir/$libxplat_minor ]; then 
+		echo "Delivering $libxplat_minor to $libdir..." 
+		cp $dep_libdir/$libxplat_minor $libdir 
+		echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..." 
+		# cd to libdir to create the symlinks 
+		cd $libdir 
+		ln -s $libxplat_minor $libxplat_dso 
+		ln -s $libxplat_minor $libxplat_major 
+	else 
+		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. Manually add this to $inst_dir." 
+		((++comp_error)) 
+	fi
+	# return home
+	cd $cur_dir
 	echo -e "########################################################\n"
 fi
 

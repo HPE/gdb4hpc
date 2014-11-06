@@ -29,7 +29,7 @@
 #####################################################
 
 # Build version
-lgdb_build_version="2.0"
+lgdb_build_version="2.4"
 
 # Current directory name where dependencies are located
 thirdparty_directory_name="third_party"
@@ -45,8 +45,8 @@ ccdb_package_directory_name="lgdb_install"
 ccdb_staging_directory_name="lgdb_tmp"
 
 # Third party source tree names. 
-mrnet_directory_name="mrnet_4.1.0"
-gdb_directory_name="ddt_gdb-7.2"
+mrnet_directory_name="mrnet-4.1.0a-2992b89"
+gdb_directory_name="ddt_gdb-7.6.2"
 cuda50_gdb_directory_name="ddt_cuda_gdb_50"
 cuda55_gdb_directory_name="ddt_cuda_gdb_55"
 uda_directory_name="gdb_uda"
@@ -64,6 +64,13 @@ python_depmod_name="python_files"
 python_gdb_name="gdb"
 # Directory to install python dependencies to
 python_inst_name="python2.6"
+
+# extra python directory build by gdb
+gdb_extra_python_path="gdb/data-directory/python"
+# extra syscalls directory build by gdb
+gdb_extra_syscalls_path="gdb/data-directory/syscalls"
+# bad file name that we need to remove
+gdb_bad_file="python/gdb/command/pdbx.py"
 
 # libssh2 openssl path
 openssl_path="/opt/cpkg/current/openssl/0.9.8k"
@@ -86,12 +93,6 @@ demo_directory_name="demos"
 # Docs directory name
 docs_directory_name="docs"
 
-# ALPS rpm information
-alps_directory_name="alps_base"
-cle_rpm_vers="4.2"
-alps_rpm_dir="/cray/css/release/cray/build/alps_gemini/sles11sp1/x86_64/RB-4.2UP00/published/latest/RPMS/x86_64/"
-xmlrpc_rpm_dir="/cray/css/release/cray/build/xt/sles11sp1/x86_64/RB-4.2-gem/working/latest-RB-4.2UP00/3rd-party/x86_64/"
-
 # Current dependency dso revision information
 libedit_dso="libedit.so"
 libedit_major="libedit.so.0"
@@ -111,13 +112,13 @@ libssh2_minor="libssh2.so.1.0.1"
 
 libmrnet_dso="libmrnet.so"
 libmrnet_major="libmrnet.so.4"
-libmrnet_minor="libmrnet.so.4.0.0"
+libmrnet_minor="libmrnet.so.4.1.0"
 
 #libxplat_dso="libxplat.so"
 #libxplat_major="libxplat.so.4"
 # This is horibly broken by an MRNet bug. This should be named
 # libxplat.so.4.0.0 like every other library on the face of the planet.
-libxplat_minor="libxplat.4.0.0.so"
+libxplat_minor="libxplat.4.1.0.so"
 
 ########################################################
 # Setup the build layout. The following variables are  #
@@ -135,9 +136,6 @@ libxplat_minor="libxplat.4.0.0.so"
 # Assume that we are based at PWD
 cur_dir=$(pwd)
 build_dir="$cur_dir" # Placeholder for a seperate build tree (not used)
-
-# Grab the current LD_LIBRARY_PATH, we will be modifying it
-cur_libpath="$LD_LIBRARY_PATH"
 
 # This defines where the dependency packages are located
 thirdparty_dir="$cur_dir/$thirdparty_directory_name"
@@ -173,6 +171,8 @@ python_depmod="$python_extras/$python_depmod_name"
 
 # Define where to find the gdb source tree
 gdb_src="$thirdparty_dir/$gdb_directory_name"
+gdb_python_dir="$gdb_src/$gdb_extra_python_path"
+gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
 
 # Define where to find the cuda-gdb source tree
 cuda50_gdb_src="$thirdparty_dir/$cuda50_gdb_directory_name"
@@ -190,14 +190,6 @@ libarchive_src="$thirdparty_dir/$libarchive_directory_name"
 # Define where to find the tools interface source tree
 interface_src="$cur_dir/$craytool_directory_name"
 
-# Define where to find the alps package tree
-alps_base="$cur_dir/$alps_directory_name/$cle_rpm_vers"
-
-# Set the path_alps_inc and path_alps_lib vars
-path_alps_inc="$alps_base/usr/include"
-path_alps_lib="$alps_base/usr/lib/alps"
-path_xmlrpc_lib="$alps_base/usr/lib64"
-
 # Define where to find the guard source tree
 ccdb_src="$cur_dir/$guard_directory_name"
 
@@ -207,7 +199,7 @@ ccdb_rd_src="$ccdb_src/$guard_rd_directory_name"
 
 # Define where to find the module primer
 module_primer="$extras_dir/modulefiles/cray-lgdb/2.0_primer"
-module_version="2.2.3"
+module_version="2.4.0"
 
 # Define where to find the demos
 demo_dir="$extras_dir/$demo_directory_name"
@@ -218,9 +210,6 @@ docs_dir="$extras_dir/$docs_directory_name"
 ###############################
 # Advanced settings CAREFUL!! #
 ###############################
-
-# Define configure flags - careful here. Know what you're doing.
-mrnet_conf_flags="LDFLAGS=-L$path_xmlrpc_lib"
 
 # Define compiler options - careful here. Know what you're doing.
 dbg_backend_args=""
@@ -1149,76 +1138,6 @@ if [[ $opt_advanced == y ]]; then
 	fi
 fi
 
-# The build script now extracts the required alps libraries and its deps from a
-# css location if they do not already exist within the top level directory
-if [ ! -d $alps_base ]; then
-	echo -e "\n########################################################"
-	echo    "Grabbing ALPS library deps from RPMS..."
-	echo -e "########################################################\n"
-	# Ensure we can access the directory that contains the rpms
-	if [ ! -d $alps_rpm_dir ]; then
-		echo "ERROR: Directory $alps_rpm_dir not found."
-		echo "Please check the value of alps_rpm_dir in this script and"
-		echo "ensure that the directory exists."
-		exit 1
-	fi
-	# Resolve the names of the ALPS rpms
-	alps_rpm_1=$(find $alps_rpm_dir/alps-$cle_rpm_vers.[0-9\.\-]*.gem.x86_64.rpm)
-	if [ ! -e $alps_rpm_1 ]; then
-		echo "ALPS RPM alps-$cle_rpm_vers not found."
-		exit 1
-	fi
-	alps_rpm_2=$(find $alps_rpm_dir/alps-app-devel-$cle_rpm_vers.[0-9\.\-]*.gem.x86_64.rpm)
-	if [ ! -e $alps_rpm_2 ]; then
-		echo "ALPS RPM alps-app-devel-$cle_rpm_vers not found."
-		exit 1
-	fi
-	alps_rpm_3=$(find $alps_rpm_dir/alps-devel-$cle_rpm_vers.[0-9\.\-]*.gem.x86_64.rpm)
-	if [ ! -e $alps_rpm_3 ]; then
-		echo "ALPS RPM alps-devel-$cle_rpm_vers not found."
-		exit 1
-	fi
-	# Ensure we can access the directory that contains the rpms
-	if [ ! -d $xmlrpc_rpm_dir ]; then
-		echo "ERROR: Directory $xmlrpc_rpm_dir not found."
-		echo "Please check the value of xmlrpc_rpm_dir in this script and"
-		echo "ensure that the directory exists."
-		exit 1
-	fi
-	# Resolve the names of the xmlrpc rpms
-	xmlrpc_rpm_1=$(find $xmlrpc_rpm_dir/cray-libxmlrpc-epi0-[0-9\.\-]*.x86_64.rpm)
-	if [ ! -e $xmlrpc_rpm_1 ]; then
-		echo "XMLRPC RPM cray-libxmlrpc-epi0 not found."
-		exit 1
-	fi
-	xmlrpc_rpm_2=$(find $xmlrpc_rpm_dir/cray-libxmlrpc-epi-devel-[0-9\.\-]*.x86_64.rpm)
-	if [ ! -e $xmlrpc_rpm_2 ]; then
-		echo "XMLRPC RPM cray-libxmlrpc-epi-devel not found."
-		exit 1
-	fi
-	# Create the directory and cd to it
-	mkdir -p $alps_base
-	cd $alps_base
-	rpm2cpio $alps_rpm_1 | cpio -idv
-	rpm2cpio $alps_rpm_2 | cpio -idv
-	rpm2cpio $alps_rpm_3 | cpio -idv
-	rpm2cpio $xmlrpc_rpm_1 | cpio -idv
-	rpm2cpio $xmlrpc_rpm_2 | cpio -idv
-	cd $cur_dir
-	echo "Created ALPS staging directory at $alps_base."
-fi
-
-# final sanity checks. We must find these files in the specified layout in order to build
-if [ ! -e $path_alps_inc/alps/alps.h ]; then
-        echo "ERROR: Could not find $path_alps_inc/alps/alps.h."
-        echo "Please verify that this file exists. It is required to build."
-        exit 1
-elif [ ! -e $path_alps_lib/libalps.so ]; then
-        echo "ERROR: Could not find $path_alps_lib/libalps.so."
-        echo "Please verify that this file exists. It is required to build."
-        exit 1
-fi
-
 ########################################################
 # Done processing options. Prepare to start the build. #
 ########################################################
@@ -1233,10 +1152,6 @@ echo -e "\tInstall directory: $inst_dir"
 echo -e "\tStaging directory: $stage_dir"
 echo -e "\tThirdParty directory: $thirdparty_dir"
 echo -e "\tExtras directory: $extras_dir"
-echo -e "\nUsing the following paths to dependencies:"
-echo -e "\tpath_alps_inc: $path_alps_inc"
-echo -e "\tpath_alps_lib: $path_alps_lib"
-echo -e "\tpath_xmlrpc_lib: $path_xmlrpc_lib"
 
 echo -e "\n########################################################"
 echo    "Starting build process..."
@@ -1251,7 +1166,7 @@ echo -e "########################################################\n"
 
 # libaif build
 if [[ $opt_aif == y ]]; then
-        echo -e "Starting AIF build.\n"
+	echo -e "Starting AIF build.\n"
 	# change directories
 	cd $aif_src
 	echo -e "Using AIF source in $aif_src.\n"
@@ -1406,24 +1321,18 @@ fi
 
 # mrnet build
 if [[ $opt_mrnet == y ]]; then
-        echo "Starting MRNet build."
-	echo -e "\nPrefixing $dep_libdir to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$dep_libdir:$LD_LIBRARY_PATH
-	echo -e "Prefixing $path_alps_lib to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$path_alps_lib:$LD_LIBRARY_PATH
-	echo -e "Prefixing $path_xmlrpc_lib to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$path_xmlrpc_lib:$LD_LIBRARY_PATH
+	echo "Starting MRNet build."
 	# change directories
 	cd $mrnet_src
 	echo -e "\nUsing MRNet source in $mrnet_src.\n"
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	echo -n "./configure --prefix=$stage_dir --with-startup=cray "
-	echo -n "--with-alpstoolhelp-inc=$path_alps_inc --with-alpstoolhelp-lib=$path_alps_lib "
-	echo -e ""$mrnet_args" CFLAGS=$opt_flag CXXFLAGS=$opt_flag $mrnet_conf_flags\n"
+	echo -n "--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir "
+	echo -e "$mrnet_args CFLAGS=$opt_flag CXXFLAGS=$opt_flag\n"
 	./configure --prefix=$stage_dir --with-startup=cray --enable-shared \
-	--with-alpstoolhelp-inc=$path_alps_inc --with-alpstoolhelp-lib=$path_alps_lib \
-	"$mrnet_args" CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" $mrnet_conf_flags
+	--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir \
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag"
 	# run mrnet make
 	echo -e "\nBuilding MRNet...\n"
 	make --silent
@@ -1493,8 +1402,6 @@ if [[ $opt_mrnet == y ]]; then
 		echo "ERROR: Could not find $libxplat_minor in $dep_libdir. The mrnet build failed." 
 		((++comp_error)) 
 	fi
-	# return home
-	cd $cur_dir
 	# Deliver the mrnet_config.h file
 	if [ -e $mrnet_src/build/x86_64-unknown-linux-gnu/mrnet_config.h ]; then
 		echo "Delivering mrnet_config.h to $dep_includedir..."
@@ -1513,9 +1420,6 @@ if [[ $opt_mrnet == y ]]; then
 		echo "Build may be incomplete."
 		((++warning))
 	fi
-	# Restore LD_LIBRARY_PATH
-	echo "Restoring LD_LIBRARY_PATH..."
-	export LD_LIBRARY_PATH=$cur_libpath
 	# return home
 	cd $cur_dir
 	echo -e "########################################################\n"
@@ -1588,15 +1492,15 @@ function install_python {
 	fi
 
 	# create the python install directory
-	if [[ ! -d $inst_dir/lib/$python_inst_name ]]; then
-		mkdir $inst_dir/lib/$python_inst_name
+	if [[ ! -d $libdir/$python_inst_name ]]; then
+		mkdir $libdir/$python_inst_name
 	fi
 
 	while read py_mod; do
 		# Ensure the file exists in the dep_libdir
 		if [[ -e $dep_libdir/$python_inst_name/$py_mod ]]; then
-			echo "Delivering $py_mod to $inst_dir/lib/$python_inst_name/$py_mod."
-			cp -r $dep_libdir/$python_inst_name/$py_mod $inst_dir/lib/$python_inst_name/$py_mod
+			echo "Delivering $py_mod to $libdir/$python_inst_name/$py_mod."
+			cp -r $dep_libdir/$python_inst_name/$py_mod $libdir/$python_inst_name/$py_mod
 		else		
 			echo "ERROR: Could not find $py_mod in $dep_libdir/$python_inst_name. The python install failed."
 			((++comp_error))
@@ -1609,8 +1513,8 @@ function install_python {
 		((++comp_error))
 		return
 	fi
-	echo "Delivering $python_gdb_name to $inst_dir/lib/$python_gdb_name."
-	cp -r $python_gdb $inst_dir/lib/$python_gdb_name
+	echo "Delivering $python_gdb_name to $libdir/$python_gdb_name."
+	cp -r $python_gdb $libdir/$python_gdb_name
 }
 
 # python build
@@ -1673,8 +1577,40 @@ if [[ $opt_gdb == y ]]; then
 	make --silent install
 	echo -e "\ngdb installed to $stage_dir.\n"
 	echo -e "Starting post build ops.\n"
+	# ensure the old staging location for gdb files is removed
+	if [[ -d $dep_libdir/$python_gdb_name ]]; then
+		rm -rf $dep_libdir/$python_gdb_name
+	fi
+	mkdir $dep_libdir/$python_gdb_name
+	# save the built files into the stage_dir for later
+	if [[ -d $gdb_python_dir ]]; then
+		echo "Delivering built python files to $dep_libdir/$python_gdb_name..."
+		cp -r $gdb_python_dir $dep_libdir/$python_gdb_name/
+	else
+		echo "ERROR: Could not find built python files. The gdb build failed."
+		((++comp_error))
+	fi
+	if [[ -d $gdb_syscalls_dir ]]; then
+		echo "Delivering built syscall files to $dep_libdir/$python_gdb_name..."
+		cp -r $gdb_syscalls_dir $dep_libdir/$python_gdb_name/
+	else
+		echo "ERROR: Could not find built syscall files. The gdb build failed."
+		((++comp_error))
+	fi
+	# remove the bad python file that causes errors
+	if [[ -e $dep_libdir/$python_gdb_name/$gdb_bad_file ]]; then
+		rm $dep_libdir/$python_gdb_name/$gdb_bad_file
+	fi
+	# deliver the built files
+	if [[ -d $dep_libdir/$python_gdb_name ]]; then
+		echo "Delivering built gdb files to $libdir..."
+		cp -r $dep_libdir/$python_gdb_name $libdir
+	else
+		echo "ERROR: Could not find built gdb files in $dep_libdir. The gdb build failed."
+		((++comp_error))
+	fi
 	# rename gdb to gdb-guard and deliver
-	if [ -e $dep_bindir/gdb ]; then
+	if [[ -e $dep_bindir/gdb ]]; then
 	        echo "Renaming gdb to gdb-guard..."
 	        mv $dep_bindir/gdb $dep_bindir/gdb-guard
 	        # deliver gdb-guard to the install dir
@@ -1688,18 +1624,26 @@ if [[ $opt_gdb == y ]]; then
 	cd $cur_dir
 	echo -e "########################################################\n"
 else
-# We still need to deliver gdb binaries for use in the final ccdb package
-        echo -e "Starting gdb install.\n"
-        # Always use the gdb in the dep_bindir
-        if [[ -e $dep_bindir/gdb-guard ]]; then
-                # deliver gdb-guard to the install dir
-                echo "Delivering gdb-guard to $libexecdir..."
-                cp $dep_bindir/gdb-guard $libexecdir
-        else
-		echo "ERROR: gdb-guard was not found in $dep_bindir. Manually add this to $inst_dir."
+	# We still need to deliver gdb binaries for use in the final ccdb package
+	echo -e "Starting gdb install.\n"
+	# deliver the build files
+	if [[ -d $dep_libdir/$python_gdb_name ]]; then
+		echo "Delivering built gdb files to $libdir..."
+		cp -r $dep_libdir/$python_gdb_name $libdir
+	else
+		echo "ERROR: Could not find built gdb files in $dep_libdir. Manually add this to $inst_dir."
 		((++comp_error))
 	fi
-        echo -e "########################################################\n"
+	# Always use the gdb in the dep_bindir 
+	if [[ -e $dep_bindir/gdb-guard ]]; then
+	   	# deliver gdb-guard to the install dir
+	   	echo "Delivering gdb-guard to $libexecdir..."
+	   	cp $dep_bindir/gdb-guard $libexecdir
+   	else
+	   	echo "ERROR: gdb-guard was not found in $dep_bindir. Manually add this to $inst_dir."
+	   	((++comp_error))
+   	fi
+   	echo -e "########################################################\n"
 fi
 
 # check for errors in component
@@ -1962,10 +1906,6 @@ fi
 # tools interface build
 if [[ $opt_interface == y ]]; then
 	echo -e "Starting tools interface build.\n" 
-	echo -e "Prefixing $path_alps_lib to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$path_alps_lib:$LD_LIBRARY_PATH
-	echo -e "Prefixing $path_xmlrpc_lib to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$path_xmlrpc_lib:$LD_LIBRARY_PATH
 	# change directories 
 	cd $interface_src 
 	echo -e "\nUsing tools interface source $interface_src.\n" 
@@ -1981,12 +1921,12 @@ if [[ $opt_interface == y ]]; then
 	make --silent install 
 	echo -e "\nTools interface installed to $stage_dir.\n" 
 	echo -e "Starting post build ops.\n" 
-	# deliver dlaunch
-	if [ -e $dep_libexecdir/dlaunch ]; then 
-		echo "Delivering dlaunch to $libexecdir..."
-		cp $dep_libexecdir/dlaunch $libexecdir 
+	# deliver cti_dlaunch
+	if [ -e $dep_libexecdir/cti_dlaunch ]; then 
+		echo "Delivering cti_dlaunch to $libexecdir..."
+		cp $dep_libexecdir/cti_dlaunch $libexecdir 
 	else 
-		echo "ERROR: Could not find dlaunch in $dep_libexecdir. The tools interface build failed." 
+		echo "ERROR: Could not find cti_dlaunch in $dep_libexecdir. The tools interface build failed." 
 		((++comp_error)) 
 	fi
 	# deliver cti_starter
@@ -1995,6 +1935,22 @@ if [[ $opt_interface == y ]]; then
 		cp $dep_libexecdir/cti_starter $libexecdir
 	else
 		echo "ERROR: Could not find cti_starter in $dep_libexecdir. The tools interface build failed."
+		((++comp_error))
+	fi
+	# deliver cti_slurm_util
+	if [ -e $dep_libexecdir/cti_slurm_util ]; then
+		echo "Delivering cti_slurm_util to $libexecdir..."
+		cp $dep_libexecdir/cti_slurm_util $libexecdir
+	else
+		echo "ERROR: Could not find cti_slurm_util in $dep_libexecdir. The tools interface build failed."
+		((++comp_error))
+	fi
+	# deliver cti_overwatch
+	if [ -e $dep_libexecdir/cti_overwatch ]; then
+		echo "Delivering cti_overwatch to $libexecdir..."
+		cp $dep_libexecdir/cti_overwatch $libexecdir
+	else
+		echo "ERROR: Could not find cti_overwatch in $dep_libexecdir. The tools interface build failed."
 		((++comp_error))
 	fi
 	# deliver libaudit.so
@@ -2030,21 +1986,18 @@ if [[ $opt_interface == y ]]; then
 		echo "ERROR: Could not find $libcraytool_frontend_minor in $dep_libdir. The tools interface build failed." 
 		((++comp_error)) 
 	fi
-	# Restore LD_LIBRARY_PATH
-	echo "Restoring LD_LIBRARY_PATH..."
-	export LD_LIBRARY_PATH=$cur_libpath
 	# return home 
 	cd $cur_dir 
 	echo -e "########################################################\n"
 else
 	# We still need to deliver the tools interface libraries for use in the final ccdb package
 	echo -e "Starting tools interface install.\n"
-	# deliver dlaunch 
-	if [ -e $dep_libexecdir/dlaunch ]; then 
-		echo "Delivering dlaunch to $libexecdir..." 
-		cp $dep_libexecdir/dlaunch $libexecdir 
+	# deliver cti_dlaunch 
+	if [ -e $dep_libexecdir/cti_dlaunch ]; then 
+		echo "Delivering cti_dlaunch to $libexecdir..." 
+		cp $dep_libexecdir/cti_dlaunch $libexecdir 
 	else 
-		echo "ERROR: Could not find dlaunch in $dep_libexecdir. Manually add this to $inst_dir." 
+		echo "ERROR: Could not find cti_dlaunch in $dep_libexecdir. Manually add this to $inst_dir." 
 		((++comp_error)) 
 	fi 
 	# deliver cti_starter
@@ -2053,6 +2006,22 @@ else
 		cp $dep_libexecdir/cti_starter $libexecdir
 	else
 		echo "ERROR: Could not find cti_starter in $dep_libexecdir. Manually add this to $inst_dir."
+		((++comp_error))
+	fi
+	# deliver cti_slurm_util
+	if [ -e $dep_libexecdir/cti_slurm_util ]; then
+		echo "Delivering cti_slurm_util to $libexecdir..."
+		cp $dep_libexecdir/cti_slurm_util $libexecdir
+	else
+		echo "ERROR: Could not find cti_slurm_util in $dep_libexecdir. Manually add this to $inst_dir."
+		((++comp_error))
+	fi
+	# deliver cti_overwatch
+	if [ -e $dep_libexecdir/cti_overwatch ]; then
+		echo "Delivering cti_overwatch to $libexecdir..."
+		cp $dep_libexecdir/cti_overwatch $libexecdir
+	else
+		echo "ERROR: Could not find cti_overwatch in $dep_libexecdir. Manually add this to $inst_dir."
 		((++comp_error))
 	fi
 	# deliver libaudit.so 
@@ -2104,27 +2073,21 @@ fi
 # ccdb build
 if [[ $opt_ccdb == y ]]; then
 	echo -e "Starting lgdb build.\n"
-	echo -e "\nPrefixing $path_alps_lib to LD_LIBRARY_PATH for linking...\n"
-	export LD_LIBRARY_PATH=$path_alps_lib:$LD_LIBRARY_PATH
-	echo -e "Prefixing $path_xmlrpc_lib to LD_LIBRARY_PATH for linking..."
-	export LD_LIBRARY_PATH=$path_xmlrpc_lib:$LD_LIBRARY_PATH
 	# change directories
 	echo -e "Using guard source in $ccdb_src.\n"
 	cd $ccdb_src
 	# run ccdb configure
 	echo "Configuring lgdb..."
-	echo -n "./configure --with-aif=$path_aif --with-rd --with-mrnet=$stage_dir "
-	echo -n "--with-cray --with-alps-inc=$path_alps_inc --with-alps-lib=$path_alps_lib "
+	echo -n "./configure --with-aif=$path_aif --with-rd --with-mrnet=$stage_dir --with-cray"
 	echo -n "--with-craytool-inc=$dep_includedir --with-craytool-lib=$dep_libdir --prefix=$inst_dir "
 	echo -n "--with-editline=$stage_dir --with-gdbmi=$dbg_backend_args --with-libssh2=$libssh2_args "
 	echo -n ""$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS=$opt_flag "
-	echo -e "CXXFLAGS=$opt_flag $mrnet_conf_flags\n"
-	./configure --with-aif=$path_aif --with-rd --with-mrnet=$stage_dir \
-	--with-cray --with-alps-inc=$path_alps_inc --with-alps-lib=$path_alps_lib \
+	echo -e "CXXFLAGS=$opt_flag\n"
+	./configure --with-aif=$path_aif --with-rd --with-mrnet=$stage_dir --with-cray \
 	--with-craytool-inc=$dep_includedir --with-craytool-lib=$dep_libdir --prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$dbg_backend_args --with-libssh2=$libssh2_args \
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag" \
-	CXXFLAGS="$opt_flag" $mrnet_conf_flags
+	CXXFLAGS="$opt_flag"
 	# run ccdb make
 	echo -e "\nBuilding lgdb...\n"
 	make --silent
@@ -2179,8 +2142,6 @@ if [[ $opt_ccdb == y ]]; then
 		cp -r $docs_dir $inst_dir/$docs_directory_name
 	fi
 	
-	echo "Restoring LD_LIBRARY_PATH..."
-	export LD_LIBRARY_PATH=$cur_libpath
 	# return home
 	cd $cur_dir
 	echo -e "########################################################\n"

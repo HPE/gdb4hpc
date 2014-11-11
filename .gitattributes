@@ -20526,7 +20526,6 @@ third_party/ddt_gdb-7.6.2/bfd/doc/Makefile.in -text
 third_party/ddt_gdb-7.6.2/bfd/doc/aoutx.texi -text
 third_party/ddt_gdb-7.6.2/bfd/doc/archive.texi -text
 third_party/ddt_gdb-7.6.2/bfd/doc/archures.texi -text
-third_party/ddt_gdb-7.6.2/bfd/doc/bfd.info -text
 third_party/ddt_gdb-7.6.2/bfd/doc/bfd.texinfo -text
 third_party/ddt_gdb-7.6.2/bfd/doc/bfdint.texi -text
 third_party/ddt_gdb-7.6.2/bfd/doc/bfdio.texi -text
@@ -21035,7 +21034,6 @@ third_party/ddt_gdb-7.6.2/etc/configdev.jin -text
 third_party/ddt_gdb-7.6.2/etc/configdev.tin -text
 third_party/ddt_gdb-7.6.2/etc/configure -text
 third_party/ddt_gdb-7.6.2/etc/configure.in -text
-third_party/ddt_gdb-7.6.2/etc/configure.info -text
 third_party/ddt_gdb-7.6.2/etc/configure.texi -text
 third_party/ddt_gdb-7.6.2/etc/fdl.texi -text
 third_party/ddt_gdb-7.6.2/etc/gnu-oids.texi -text
@@ -21229,11 +21227,9 @@ third_party/ddt_gdb-7.6.2/gdb/aarch64-tdep.h -text
 third_party/ddt_gdb-7.6.2/gdb/acinclude.m4 -text
 third_party/ddt_gdb-7.6.2/gdb/aclocal.m4 -text
 third_party/ddt_gdb-7.6.2/gdb/acx_configure_dir.m4 -text
-third_party/ddt_gdb-7.6.2/gdb/ada-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/ada-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/ada-lang.c -text
 third_party/ddt_gdb-7.6.2/gdb/ada-lang.h -text
-third_party/ddt_gdb-7.6.2/gdb/ada-lex.c -text
 third_party/ddt_gdb-7.6.2/gdb/ada-lex.l -text
 third_party/ddt_gdb-7.6.2/gdb/ada-operator.def -text
 third_party/ddt_gdb-7.6.2/gdb/ada-tasks.c -text
@@ -21507,7 +21503,6 @@ third_party/ddt_gdb-7.6.2/gdb/corefile.c -text
 third_party/ddt_gdb-7.6.2/gdb/corelow.c -text
 third_party/ddt_gdb-7.6.2/gdb/cp-abi.c -text
 third_party/ddt_gdb-7.6.2/gdb/cp-abi.h -text
-third_party/ddt_gdb-7.6.2/gdb/cp-name-parser.c -text
 third_party/ddt_gdb-7.6.2/gdb/cp-name-parser.y -text
 third_party/ddt_gdb-7.6.2/gdb/cp-namespace.c -text
 third_party/ddt_gdb-7.6.2/gdb/cp-namespace.c.orig -text
@@ -21553,7 +21548,6 @@ third_party/ddt_gdb-7.6.2/gdb/doc/lpsrc.sed -text
 third_party/ddt_gdb-7.6.2/gdb/doc/observer.texi -text
 third_party/ddt_gdb-7.6.2/gdb/doc/psrc.sed -text
 third_party/ddt_gdb-7.6.2/gdb/doc/refcard.tex -text
-third_party/ddt_gdb-7.6.2/gdb/doc/stabs.info -text
 third_party/ddt_gdb-7.6.2/gdb/doc/stabs.texinfo -text
 third_party/ddt_gdb-7.6.2/gdb/doc/stack_frame.eps -text
 third_party/ddt_gdb-7.6.2/gdb/doc/stack_frame.pdf -text
@@ -21590,7 +21584,6 @@ third_party/ddt_gdb-7.6.2/gdb/exec.c -text
 third_party/ddt_gdb-7.6.2/gdb/exec.h -text
 third_party/ddt_gdb-7.6.2/gdb/expprint.c -text
 third_party/ddt_gdb-7.6.2/gdb/expression.h -text
-third_party/ddt_gdb-7.6.2/gdb/f-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/f-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/f-exp.y.orig -text
 third_party/ddt_gdb-7.6.2/gdb/f-lang.c -text
@@ -22037,7 +22030,6 @@ third_party/ddt_gdb-7.6.2/gdb/gnulib/import/wchar.in.h -text
 third_party/ddt_gdb-7.6.2/gdb/gnulib/import/wctype-h.c -text
 third_party/ddt_gdb-7.6.2/gdb/gnulib/import/wctype.in.h -text
 third_party/ddt_gdb-7.6.2/gdb/gnulib/update-gnulib.sh -text
-third_party/ddt_gdb-7.6.2/gdb/go-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/go-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/go-lang.c -text
 third_party/ddt_gdb-7.6.2/gdb/go-lang.h -text
@@ -22124,7 +22116,6 @@ third_party/ddt_gdb-7.6.2/gdb/irix5-nat.c -text
 third_party/ddt_gdb-7.6.2/gdb/jit-reader.in -text
 third_party/ddt_gdb-7.6.2/gdb/jit.c -text
 third_party/ddt_gdb-7.6.2/gdb/jit.h -text
-third_party/ddt_gdb-7.6.2/gdb/jv-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/jv-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/jv-lang.c -text
 third_party/ddt_gdb-7.6.2/gdb/jv-lang.h -text
@@ -22148,7 +22139,6 @@ third_party/ddt_gdb-7.6.2/gdb/linux-tdep.h -text
 third_party/ddt_gdb-7.6.2/gdb/linux-thread-db.c -text
 third_party/ddt_gdb-7.6.2/gdb/linux-thread-db.c.orig -text
 third_party/ddt_gdb-7.6.2/gdb/lm32-tdep.c -text
-third_party/ddt_gdb-7.6.2/gdb/m2-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/m2-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/m2-lang.c -text
 third_party/ddt_gdb-7.6.2/gdb/m2-lang.h -text
@@ -22273,7 +22263,6 @@ third_party/ddt_gdb-7.6.2/gdb/osabi.c -text
 third_party/ddt_gdb-7.6.2/gdb/osabi.h -text
 third_party/ddt_gdb-7.6.2/gdb/osdata.c -text
 third_party/ddt_gdb-7.6.2/gdb/osdata.h -text
-third_party/ddt_gdb-7.6.2/gdb/p-exp.c -text
 third_party/ddt_gdb-7.6.2/gdb/p-exp.y -text
 third_party/ddt_gdb-7.6.2/gdb/p-lang.c -text
 third_party/ddt_gdb-7.6.2/gdb/p-lang.h -text
@@ -25116,7 +25105,6 @@ third_party/ddt_gdb-7.6.2/gdb/uda-plugin-iface.c -text
 third_party/ddt_gdb-7.6.2/gdb/uda-plugin-iface.h -text
 third_party/ddt_gdb-7.6.2/gdb/uda-plugin.c -text
 third_party/ddt_gdb-7.6.2/gdb/uda-plugin.h -text
-third_party/ddt_gdb-7.6.2/gdb/uda-rmt-client-cmd.c -text
 third_party/ddt_gdb-7.6.2/gdb/uda-rmt-client-cmd.y -text
 third_party/ddt_gdb-7.6.2/gdb/uda-rmt-utils.c -text
 third_party/ddt_gdb-7.6.2/gdb/uda-rmt-utils.h -text

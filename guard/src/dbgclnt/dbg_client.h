@@ -307,7 +307,7 @@ extern proto_session *	DbgSessionCreate(char *, WLM_type, char *, char *, char *
 extern void				DbgSetSession(proto_session *);
 extern proto_session *	DbgGetSession(void);
 
-extern dbginvoke_t *	DbgAttach(char *, proto_session *, char *, int, char *, char *, int, int);
+extern dbginvoke_t *	DbgAttach(char *, proto_session *, char *, char *, char *, char *, int, int);
 extern dbginvoke_t *	DbgInvoke(	char *, proto_session *, char *, char **, char *, int, char *,
 									char **, char *, char *, char **, char *, int, int, int);
 

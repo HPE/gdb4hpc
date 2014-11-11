@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgproxy.c - proxy interface routines
  *
- * © 2013 Cray Inc.  All Rights Reserved.
+ * © 2013-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -348,7 +348,8 @@ FreeAttachArgs(attach_args *args)
 {
 	if (args == NULL)
 		return;
-		
+	
+	Free(args->app_ident);
 	Free(args->arch);
 	Free(args->backend);
 	
@@ -478,7 +479,7 @@ SocProtoToAttachArgs(char *s)
 	rtn = NewAttachArgs();
 	
 	// process the message
-	rtn->pid = getint(&s);
+	rtn->app_ident = getstring(&s);
 	rtn->arch = getstring(&s);
 	FMT_MAKE_NULL_STR(rtn->arch);
 	rtn->backend = getstring(&s);
@@ -596,7 +597,7 @@ RecvToSocProto(bitset *target, bitset *recv)
 }
 
 char *
-AttachArgsToSocProto(int pid, char *arch, char *backend, int gpu_flag, int debug_flag)
+AttachArgsToSocProto(char *app_ident, char *arch, char *backend, int gpu_flag, int debug_flag)
 {
 	char *	stres = NULL;
 	
@@ -605,8 +606,9 @@ AttachArgsToSocProto(int pid, char *arch, char *backend, int gpu_flag, int debug
 	FMT_CHECK_NULL_STR(backend);
 	
 	// Create the res
-	Asprintf(	&stres, "%d %d %s %d %s %d %d",
-				pid,
+	Asprintf(	&stres, "%d %s %d %s %d %s %d %d",
+				(int)strlen(app_ident),
+				app_ident,
 				(int)strlen(arch),
 				arch,
 				(int)strlen(backend),

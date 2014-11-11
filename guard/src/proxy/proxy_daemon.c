@@ -1145,7 +1145,7 @@ DbgDispatchEvents(void)
 				// Call the protocol specific attach function
 				// TODO: This could be modified to allow for multiple proxy invocations,
 				//       to support multiple hops, but that is not required right now...
-				if (ptab->sw_attach(	di, NULL, att_args->pid, att_args->arch, att_args->backend,
+				if (ptab->sw_attach(	di, NULL, att_args->app_ident, att_args->arch, att_args->backend,
 										att_args->gpu_flag, att_args->debug_flag
 									))
 				{

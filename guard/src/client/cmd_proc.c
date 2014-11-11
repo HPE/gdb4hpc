@@ -48,35 +48,35 @@ static int		gpu_flag = 0;
 ** static function prototypes
 */
 static int		DoInvoke(char *, proto_session *, char *, char **, dbgprocset_t *, char *, char **, char *, char *, char **, char *);
-static int		DoAttach(char *, proto_session *, dbgprocset_t *, int, char *, char *);
+static int		DoAttach(char *, proto_session *, dbgprocset_t *, char *, char *, char *);
 static void		ReleaseProc(dbgprocset_t *, dbgquit_type);
 
 /*
 ** long opts definitions
 */
 static const struct option session_long_opts[] = {
-			{"qsub",		optional_argument, 0, 'q'},
-			{"sbatch",		optional_argument, 0, 's'},
-			{"end",			optional_argument, 0, 'e'},
+			{"qsub",			optional_argument, 0, 'q'},
+			{"sbatch",			optional_argument, 0, 's'},
+			{"end",				optional_argument, 0, 'e'},
 			{0, 0, 0, 0}
 			};
 
 static const struct option launch_long_opts[] = {
-			{"args",		optional_argument,	0, 'a'},
-			{"aprun-args",	optional_argument,	0, 'g'},
-			{"aprun-input",	optional_argument,	0, 'i'},
-			{"workdir",		optional_argument,	0, 'd'},
-			{"env",			optional_argument,	0, 'e'},
-			{"qsub",		optional_argument,	0, 'q'},
-			{"sbatch",		optional_argument,	0, 's'},
-			{"gpu",			no_argument, 		&gpu_flag, 1},
-			{"debug",		no_argument, 		&debug_flag, 1},
+			{"args",			optional_argument,	0, 'a'},
+			{"launcher-args",	optional_argument,	0, 'g'},
+			{"launcher-input",	optional_argument,	0, 'i'},
+			{"workdir",			optional_argument,	0, 'd'},
+			{"env",				optional_argument,	0, 'e'},
+			{"qsub",			optional_argument,	0, 'q'},
+			{"sbatch",			optional_argument,	0, 's'},
+			{"gpu",				no_argument, 		&gpu_flag, 1},
+			{"debug",			no_argument, 		&debug_flag, 1},
 			{0, 0, 0, 0}
 			};
 			
 static const struct option attach_long_opts[] = {
-			{"gpu",			no_argument, 		&gpu_flag, 1},
-			{"debug",		no_argument, 		&debug_flag, 1},
+			{"gpu",				no_argument, 		&gpu_flag, 1},
+			{"debug",			no_argument, 		&debug_flag, 1},
 			{0, 0, 0, 0}
 			};
 
@@ -378,7 +378,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			case 'g':
 				if (optarg == (char *)NULL)
 				{
-					PrintOutError("Error: --aprun-args provided, but missing arguments.\n");
+					PrintOutError("Error: --launcher-args provided, but missing arguments.\n");
 					goto exit_with_error;
 				}
 				arch_args = Str2Argv(StripQuotes(optarg));
@@ -429,7 +429,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			case 'i':
 				if (optarg == (char *)NULL)
 				{
-					PrintOutError("Error: --aprun-input provided, but missing arguments.\n");
+					PrintOutError("Error: --launcher-input provided, but missing arguments.\n");
 					goto exit_with_error;
 				}
 				arch_input = strdup(StripQuotes(optarg));
@@ -855,7 +855,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	proto_session *	sess = NULL;
 	dbgprocset_t *	ps;
-	int				pid;
+	char *			app_ident;
 	char *			arch = Client.arch;
 	char *			proto = Client.proto;
 	char *			backend = Client.backend;
@@ -873,7 +873,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	if ( argc < 3 )
 	{
 		PrintOutError("Not enough command arguments.\n");
-		PrintOutError("Expected: attach $handle <pid>\n");
+		PrintOutError("Expected: attach $handle <app_ident>\n");
 		return 0;
 	}
 	
@@ -921,14 +921,15 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	}
 
 	FreeExpr(e);
-
-	pid = atoi(argv[optind++]);
+	
+	app_ident = strdup(argv[optind++]);
 	
 	// Verify that the arguments are correct
 
 	if ( proto == NULL )
 	{
 		PrintOutError("Must specify a protocol.\n");
+		Free(app_ident);
 		return 0;
 	}
 	
@@ -964,6 +965,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 			if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname, username)) == NULL)
 			{
 				PrintOutError("Could not create session for eslogin!\n");
+				Free(app_ident);
 				return 0;
 			}
 		
@@ -972,15 +974,18 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 		}
 	}
 	
-	if ( !DoAttach(proto, sess, ps, pid, arch, backend) )
+	if ( !DoAttach(proto, sess, ps, app_ident, arch, backend) )
 	{
 		// If XML mode is enabled, we want to print out a removed message. 
 		if (Client.XML_mode)
 		{
 			XMLPrintRemovedMsg(ps->s_name);
 		}
+		Free(app_ident);
 		return 0;
 	}
+	
+	Free(app_ident);
 
 	return 1;
 }
@@ -993,7 +998,7 @@ static int
 DoAttach(	char *proto,
 			proto_session *sess,
 			dbgprocset_t *ps,
-	 		int	pid, 
+	 		char *app_ident, 
 	 		char *arch, 
 	 		char *backend
 )
@@ -1008,7 +1013,7 @@ DoAttach(	char *proto,
 	int					p2pmode=0;
 	
 	// Note that we are reusing the invoke callback.
-	di = DbgAttach(proto, sess, ps->s_name, pid, arch, backend, gpu_flag, debug_flag);
+	di = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gpu_flag, debug_flag);
 
 	if ( di == NULL )
 	{

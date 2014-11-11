@@ -89,7 +89,7 @@ struct dbgclnt_proto
 	void					(*sw_cleanup_session)(proto_session *);						/* protocol cleanup session function - called when a session is no longer valid */
 	int						(*sw_attach)(	struct dbginvoke *,
 											proto_session *,
-											int,
+											char *,
 											char *, 
 											char *, 
 											int,

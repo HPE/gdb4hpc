@@ -60,7 +60,7 @@ static proto_session *	DbgPROXYCreateSession(	dbgclnt_proto *, WLM_type manager,
 												char *username);
 static void				DbgPROXYSaveSession(proto_session *);			
 static void				DbgPROXYCleanupSession(proto_session *);
-static int				DbgPROXYAttach(	dbginvoke_t *, proto_session *, int, char *,
+static int				DbgPROXYAttach(	dbginvoke_t *, proto_session *, char *, char *,
 										char *, int, int);
 static int				DbgPROXYInvoke(	dbginvoke_t *, proto_session *, char *, char **, 
 										char *, char **, char *, char *, char **, 
@@ -1290,7 +1290,7 @@ static int
 DbgPROXYAttach(
 	dbginvoke_t *di,
 	proto_session *session,
-	int pid,
+	char *app_ident,
 	char *arch,
 	char *backend,
 	int gpu_flag,
@@ -1353,7 +1353,7 @@ DbgPROXYAttach(
 	msg_head.msg_type = MSG_ATTACH;
 	
 	// Create the attach args string
-	msg = AttachArgsToSocProto(pid, arch, backend, gpu_flag, debug_flag);
+	msg = AttachArgsToSocProto(app_ident, arch, backend, gpu_flag, debug_flag);
 	
 	// set the length in the header
 	msg_head.msg_len = (int)strlen(msg) * sizeof(char);

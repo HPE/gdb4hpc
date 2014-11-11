@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgproxy.h - proxy interface routines
  *
- * © 2013 Cray Inc.  All Rights Reserved.
+ * © 2013-2014 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -131,7 +131,7 @@ typedef struct recv_type recv_type;
 
 struct attach_args
 {
-	int		pid;
+	char *	app_ident;
 	char *	arch;
 	char *	backend;
 	int		gpu_flag;
@@ -177,7 +177,7 @@ extern int					SocProtoToExitArgs(char *);
 
 extern char *				ProtoMsgToSocProto(proto_message *);
 extern char *				RecvToSocProto(bitset *target, bitset *recv);
-extern char *				AttachArgsToSocProto(	int pid, char *arch, char *backend, 
+extern char *				AttachArgsToSocProto(	char *app_ident, char *arch, char *backend, 
 													int gpu_flag, int debug_flag
 												);
 extern char *				InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch, 

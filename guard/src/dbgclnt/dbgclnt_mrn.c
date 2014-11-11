@@ -22,6 +22,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +59,7 @@ static bitset *			DbgMRNSendCmd(dbginvoke_t *, bitset *, char *);
 static proto_msg_set *	DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void				DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
 static int				DbgMRNAttach(	dbginvoke_t *, proto_session *, 
-										int, char *, char *, int, int);
+										char *, char *, char *, int, int);
 static int				DbgMRNInvoke(	dbginvoke_t *, proto_session *, 
 										char *, char **, char *, char **, char *, 
 										char *, char **, char *, int, int);
@@ -322,7 +325,7 @@ static int
 DbgMRNAttach(
 	dbginvoke_t *di,
 	proto_session *sess,
-	int pid,
+	char *app_ident,
 	char *arch,
 	char *backend,
 	int gpu_flag,
@@ -348,15 +351,14 @@ DbgMRNAttach(
 	char **				ap;
 	int					event_fd;
 	int *				ev_fd_ptr;
-#ifdef ALPS
 	int					dbg=debug_flag;
 	char **				machine_hosts;
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
-#endif /* ALPS */
 	char * 				env_lib_dir;
 	char *				python_lib_dir;
 	char *				gdb_lib_dir;
+	cti_wlm_type		wlm;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -411,18 +413,115 @@ DbgMRNAttach(
 	DPERFLOG(SetTimerStart("Attach total"));
 #endif /* PERFLOG */
 
-	// Register the aprun pid with the tool interface
-	if ((di->d_appid = cti_alps_registerApid(pid)) == 0)
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to register aprun pid with CTI.\n");
-		
-		return 1;
-	}
+	// get the wlm type
+	wlm = cti_current_wlm();
 
+	switch (wlm)
+	{
+		case CTI_WLM_ALPS:
+		{
+			uint64_t 	apid;
+			char *		eptr;
+			
+			// convert the string to an int
+			errno = 0;
+			apid = (uint64_t)strtoull(app_ident, &eptr, 10);
+			
+			// check for error
+			if ((errno == ERANGE && (apid == ULLONG_MAX)) || (errno != 0 && apid == 0))
+			{
+				PrintOutError("Invalid apid argument.\n");
+				return 1;
+			}
+			
+			// check for invalid input
+			if (eptr == app_ident)
+			{
+				PrintOutError("Invalid apid argument.\n");
+				return 1;
+			}
+			
+			// Register the aprun pid with the tool interface
+			if ((di->d_appid = cti_alps_registerApid(apid)) == 0)
+			{
+				PrintOutError("CTI error: %s\n", cti_error_str());
+				PrintOutError("Failed to register apid with CTI.\n");
+				return 1;
+			}
+		}
+			break;
+			
+		case CTI_WLM_CRAY_SLURM:
+		{
+			char *		sep;
+			uint32_t 	jobid;
+			uint32_t	stepid;
+			char *		eptr;
+			
+			// find '.' in app_ident
+			if ((sep = strchr(app_ident, '.')) == NULL)
+			{
+				PrintOutError("Invalid slurm job step argument. Expected <job_id>.<step_id>\n");
+				return 1;
+			}
+			// turn it into null term and point past
+			*sep++ = '\0';
+			
+			// convert the jobid
+			errno = 0;
+			jobid = (uint32_t)strtoul(app_ident, &eptr, 10);
+			
+			// check for error
+			if ((errno == ERANGE && (jobid == ULONG_MAX)) || (errno != 0 && jobid == 0))
+			{
+				PrintOutError("Invalid slurm jobid argument.\n");
+				return 1;
+			}
+			
+			// check for invalid input
+			if (eptr == app_ident)
+			{
+				PrintOutError("Invalid slurm jobid argument.\n");
+				return 1;
+			}
+			
+			// convert the stepid
+			errno = 0;
+			stepid = (uint32_t)strtoul(sep, &eptr, 10);
+			
+			// check for error
+			if ((errno == ERANGE && (stepid == ULONG_MAX)) || (errno != 0 && stepid == 0))
+			{
+				PrintOutError("Invalid slurm stepid argument.\n");
+				return 1;
+			}
+			
+			// check for invalid input
+			if (eptr == sep)
+			{
+				PrintOutError("Invalid slurm stepid argument.\n");
+				return 1;
+			}
+			
+			// Register the slurm job step with the tool interface
+			if ((di->d_appid = cti_cray_slurm_registerJobStep(jobid, stepid)) == 0)
+			{
+				PrintOutError("CTI error: %s\n", cti_error_str());
+				PrintOutError("Failed to register slurm job step with CTI.\n");
+				return 1;
+			}
+		}
+			break;
+			
+		default:
+			PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
+			return 1;
+	}
+	
 	// TODO: If we really wanted to, we could attach to the existing aprun
 	// process here and redirect its /proc stdout and stderr to our output stream
-	// handler.
+	// handler. Slurm should be trivial to implement this with sattach. If this
+	// is ever done, put it in the CTI library.
 	
 	// ship over the binaries to the compute nodes
 	DPERFLOG(SetTimerStart("transfer binaries"));
@@ -595,12 +694,12 @@ DbgMRNAttach(
 	
 	DPERFLOG(SetTimerStopAndLog("transfer binaries"));
 	
-	DPRINT("Aprun session initialized.\n");
+	DPRINT("Application launcher initialized.\n");
 	PrintOutMsg("Creating MRNet communication network...\n"); 
 	
 	DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
 	
-	// get the number of processes associated with this aprun
+	// get the number of processes associated with this application
 	if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1095,15 +1194,15 @@ DbgMRNInvoke(
 	DPERFLOG(SetTimerStart("Invoke total"));
 #endif /* PERFLOG */
 	
-	// create the argv for aprun note that here argv[0] should not be the program name
+	// create the argv for the app launcher note that here argv[0] should not be the program name
 	// this is to address the fact that guard should be ignorant of the starter applications
 	// real name.
 	snprintf(sn, sizeof(sn), "%d", di->d_nproc);
 #ifdef DEBUG
 	ap = NewArgv("-n", sn, NULL);
 #else
-	// we want aprun to be silent when not in debug mode.
-	ap = NewArgv("-q", "-n", sn, NULL);
+	// we want the application to be silent when not in debug mode.
+	ap = NewArgv("--quiet", "-n", sn, NULL);
 #endif /* DEBUG */
 
 	// add the launcher args if present
@@ -1120,7 +1219,7 @@ DbgMRNInvoke(
 	ap = AppendArgv(ap, argv); // plus its args
 
 #ifdef DEBUG
-	DPRINT("aprun args: ");
+	DPRINT("application launcher args: ");
 	tmp = ap;
 	while (*tmp != (char *)NULL)
 	{
@@ -1140,7 +1239,7 @@ DbgMRNInvoke(
 	}
 	
 	// check to see if arch_input is null, if not we need to try and redirect
-	// aprun stdin to it.
+	// the application launcher stdin to it.
 	if ( arch_input != (char *)NULL )
 	{
 		redirectInput = 1;
@@ -1162,16 +1261,16 @@ DbgMRNInvoke(
 		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
 	}
 	
-	DPERFLOG(SetTimerStart("aprun launch"));
+	DPERFLOG(SetTimerStart("application launch"));
 
-	// launch aprun using the tool interface
+	// launch the application using the tool interface
 	// Note that the prog_outp is the WRITE END OF THE PIPE!!!!
 	if ((di->d_appid = cti_launchAppBarrier((const char * const *)ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, (const char * const *)env)) == 0)
 	{
 		int 	n=0, r;
 		char *	read_buf;
 		
-		PrintOutError("Aprun launch failed.\n");
+		PrintOutError("Application launch failed.\n");
 		
 		// Check to see if we can read from the p_o_rfd fd. If we can, lets
 		// print each line out as an error since it might contain useful
@@ -1187,7 +1286,7 @@ DbgMRNInvoke(
 				if (r > 0)
 				{
 					// TODO: Make the GUI parse for this since it is important.
-					PrintOutError("\nThe following error was returned from aprun:\n%s\n", read_buf);
+					PrintOutError("\nThe following error was returned from the application launcher:\n%s\n", read_buf);
 				} else
 				{
 					PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1207,7 +1306,7 @@ DbgMRNInvoke(
 		return 1;
 	}
 	
-	DPERFLOG(SetTimerStopAndLog("aprun launch"));
+	DPERFLOG(SetTimerStopAndLog("application launch"));
 	
 	// done with this ap
 	FreeArgv(ap);
@@ -1396,7 +1495,7 @@ DbgMRNInvoke(
 	
 	DPERFLOG(SetTimerStopAndLog("transfer binaries"));
 	
-	DPRINT("Aprun session initialized.\n");
+	DPRINT("Application launch initialized.\n");
 	PrintOutMsg("Creating MRNet communication network...\n"); 
 	
 	DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
@@ -1789,7 +1888,7 @@ cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set)
 		DPRINT("Releasing application from the startup barrier...\n");
 			
 #ifdef ALPS
-		// tell aprun to release the application from the startup barrier
+		// tell CTI to release the application from the startup barrier
 		if (cti_releaseAppBarrier(di->d_appid))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1965,11 +2064,11 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 #ifdef ALPS
 	if (!detach)
 	{
-		// send a kill signal using apkill to the apid of the aprun pid
+		// send a kill signal using the CTI
 		if (cti_killApp(di->d_appid, SIGKILL))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to kill aprun process!\n");
+			PrintOutError("Failed to kill application process!\n");
 			return -1;
 		}
 	} else

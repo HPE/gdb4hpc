@@ -2139,7 +2139,7 @@ dbginvoke_t *
 DbgAttach(	char *proto,
 			proto_session *sess,
 			char *handle,
-			int pid,
+			char *app_ident,
 			char *arch,
 			char *backend,
 			int gpu_flag,
@@ -2165,7 +2165,7 @@ DbgAttach(	char *proto,
 	// is the attach case
 	di = NewDbgInvoke(handle, DBG_ATTACHED, 0, ptab);
 
-	if (ptab->sw_attach(di, sess, pid, arch, backend, gpu_flag, debug_flag))
+	if (ptab->sw_attach(di, sess, app_ident, arch, backend, gpu_flag, debug_flag))
 	{
 		FreeDbgInvoke(di);
 		return NULL;

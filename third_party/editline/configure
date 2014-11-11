@@ -742,7 +742,7 @@ SHELL=${CONFIG_SHELL-/bin/sh}
 
 # Identity of this package.
 PACKAGE_NAME='libedit'
-PACKAGE_TARNAME='libedit-20140124'
+PACKAGE_TARNAME='libedit-20141106'
 PACKAGE_VERSION='3.0'
 PACKAGE_STRING='libedit 3.0'
 PACKAGE_BUGREPORT=''
@@ -1517,7 +1517,7 @@ Fine tuning of the installation directories:
   --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]
   --mandir=DIR            man documentation [DATAROOTDIR/man]
   --docdir=DIR            documentation root
-                          [DATAROOTDIR/doc/libedit-20140124]
+                          [DATAROOTDIR/doc/libedit-20141106]
   --htmldir=DIR           html documentation [DOCDIR]
   --dvidir=DIR            dvi documentation [DOCDIR]
   --pdfdir=DIR            pdf documentation [DOCDIR]
@@ -4221,7 +4221,7 @@ fi
 
 
 # Define the identity of the package.
- PACKAGE='libedit-20140124'
+ PACKAGE='libedit-20141106'
  VERSION='3.0'
 
 

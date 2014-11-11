@@ -101,6 +101,7 @@ third_party/ddt_gdb-7.6.2/gdb/m2-exp.c
 third_party/ddt_gdb-7.6.2/gdb/no
 third_party/ddt_gdb-7.6.2/gdb/p-exp.c
 third_party/ddt_gdb-7.6.2/gdb/uda-rmt-client-cmd.c
+third_party/editline/autom4te.cache
 third_party/gdb_uda/plugin/tags
 third_party/gdb_uda/tags
 third_party/libmi/.deps

@@ -1335,6 +1335,11 @@ function install_python {
 		if [[ -e $dep_libdir/$python_inst_name/$py_mod ]]; then
 			echo "Delivering $py_mod to $libdir/$python_inst_name/$py_mod."
 			cp -r $dep_libdir/$python_inst_name/$py_mod $libdir/$python_inst_name/$py_mod
+			# If this is a directory, we need to ensure .pyc and .pyo files do not get installed
+			if [[ -d $libdir/$python_inst_name/$py_mod ]]; then
+				rm -f $libdir/$python_inst_name/$py_mod/*.pyc
+				rm -f $libdir/$python_inst_name/$py_mod/*.pyo
+			fi
 		else		
 			echo "ERROR: Could not find $py_mod in $dep_libdir/$python_inst_name. The python install failed."
 			((++comp_error))

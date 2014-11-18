@@ -1,7 +1,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -35,8 +35,6 @@
 #include "cuda-modules.h"
 #include "progspace.h"
 
-bool is_caps_hmpp_debugging(); /* Allinea */
-
 extern bool cuda_elf_path; /* REMOVE THIS ONCE CUDA ELF PATH IS COMPLETE! */
 
 /* CUDA - skip prologue
@@ -56,7 +54,8 @@ extern bool cuda_producer_is_open64;
 #define CUDA_ELFOSABIV_ABI           3  /* ELFOSABIV_RELOC + Calling Convention */
 #define CUDA_ELFOSABIV_SYSCALL       4  /* ELFOSABIV_ABI + Improved syscall relocation */
 #define CUDA_ELFOSABIV_SEPCOMP       5  /* ELFOSABIV_SYSCALL + new caller-callee save conventions */
-#define CUDA_ELFOSABIV_LATEST        CUDA_ELFOSABIV_SEPCOMP
+#define CUDA_ELFOSABIV_ABI3          6  /* ELFOSABIV_SEPCOMP + fixes */
+#define CUDA_ELFOSABIV_LATEST        CUDA_ELFOSABIV_ABI3
 #define CUDA_ELF_TEXT_PREFIX  ".text."  /* CUDA ELF text section format: ".text.KERNEL" */
 
 /*Return values that exceed 384-bits in size are returned in memory.

@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008,
    2009, 2010 Free Software Foundation, Inc.
@@ -25,7 +25,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -71,7 +71,7 @@
 #include "cp-support.h"
 #include "disasm.h"
 #include "inline-frame.h"
-#include "xml-source-to-source.h"
+
 #include "gdb_assert.h"
 #include <ctype.h>
 #include "gdb_string.h"
@@ -140,6 +140,11 @@ static int
 frame_show_address (struct frame_info *frame,
 		    struct symtab_and_line sal)
 {
+  if (backtrace_addresses == AUTO_BOOLEAN_TRUE)
+      return 1;
+  else if (backtrace_addresses == AUTO_BOOLEAN_FALSE)
+      return 0;
+
   /* If there is a line number, but no PC, then there is no location
      information associated with this sal.  The only way that should
      happen is for the call sites of inlined functions (SAL comes from
@@ -904,7 +909,13 @@ print_frame (struct frame_info *frame, int print_level,
 	}      
 
       args.frame = frame;
-      args.func = find_pc_function (get_frame_address_in_block (frame));
+      /* CUDA - inlining */
+      /* find_pc_function() is blind when it comes to inlined frames. Using
+         get_frame_function instead solves that problem. */
+      if (cuda_frame_p (get_next_frame (frame)))
+        args.func = get_frame_function (frame);
+      else
+        args.func = find_pc_function (get_frame_address_in_block (frame));
       args.stream = gdb_stdout;
       args_list_chain = make_cleanup_ui_out_list_begin_end (uiout, "args");
       catch_errors (print_args_stub, &args, "", RETURN_MASK_ERROR);
@@ -1728,11 +1739,6 @@ print_frame_local_vars (struct frame_info *frame, int num_tabs,
   cb_data.num_tabs = 4 * num_tabs;
   cb_data.stream = stream;
   cb_data.values_printed = 0;
-
-  if (is_caps_v32_symbols_enabled (block)) {
-    LONGEST scope = caps_v32_current_scope (block);
-    block = xml_source_to_source_block (scope, block);
-  }
 
   iterate_over_block_local_vars (block,
 				 do_print_variable_and_value,

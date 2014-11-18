@@ -13632,7 +13632,6 @@ third_party/ddt_cuda_gdb_55/gdb/features/arm-with-vfpv2.c -text
 third_party/ddt_cuda_gdb_55/gdb/features/arm-with-vfpv2.xml -text
 third_party/ddt_cuda_gdb_55/gdb/features/arm-with-vfpv3.c -text
 third_party/ddt_cuda_gdb_55/gdb/features/arm-with-vfpv3.xml -text
-third_party/ddt_cuda_gdb_55/gdb/features/caps.dtd -text
 third_party/ddt_cuda_gdb_55/gdb/features/feature_to_c.sh -text
 third_party/ddt_cuda_gdb_55/gdb/features/gdb-target.dtd -text
 third_party/ddt_cuda_gdb_55/gdb/features/gdbserver-regs.xsl -text
@@ -16137,8 +16136,6 @@ third_party/ddt_cuda_gdb_55/gdb/xcoffread.c.orig -text
 third_party/ddt_cuda_gdb_55/gdb/xcoffread.h -text
 third_party/ddt_cuda_gdb_55/gdb/xcoffsolib.c -text
 third_party/ddt_cuda_gdb_55/gdb/xcoffsolib.h -text
-third_party/ddt_cuda_gdb_55/gdb/xml-source-to-source.c -text
-third_party/ddt_cuda_gdb_55/gdb/xml-source-to-source.h -text
 third_party/ddt_cuda_gdb_55/gdb/xml-support.c -text
 third_party/ddt_cuda_gdb_55/gdb/xml-support.h -text
 third_party/ddt_cuda_gdb_55/gdb/xml-syscall.c -text

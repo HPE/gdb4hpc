@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
@@ -25,7 +25,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -1481,6 +1481,23 @@ value_coerce_to_target (struct value *val)
 
   if (!value_must_coerce_to_target (val))
     return val;
+
+  length = value_length (val);
+  addr = allocate_space_in_inferior (length);
+  write_memory (addr, value_contents (val), length);
+  return value_at_lazy (value_type (val), addr);
+}
+
+/* Make sure that VAL always lives in target memory.  */
+
+struct value *
+value_force_coerce_to_target (struct value *val)
+{
+  LONGEST length;
+  CORE_ADDR addr;
+
+  if (VALUE_LVAL (val) == lval_memory)
+      return val;
 
   length = value_length (val);
   addr = allocate_space_in_inferior (length);

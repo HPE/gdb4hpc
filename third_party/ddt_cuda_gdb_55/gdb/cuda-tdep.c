@@ -1,7 +1,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -93,9 +93,6 @@ bool cuda_is_target_mourn_pending = false;
 static bool inferior_in_debug_mode = false;
 static char cuda_gdb_session_dir[CUDA_GDB_TMP_BUF_SIZE] = {0};
 static uint32_t cuda_gdb_session_id = 0;
-
-/* whether we are in a caps hmpp program */
-static bool caps_hmpp_debugging_enabled = false;
 
 /* For Mac OS X */
 bool cuda_platform_supports_tid (void)
@@ -497,6 +494,8 @@ cuda_reg_to_regnum (struct gdbarch *gdbarch, reg_t reg)
 
   /* At this point, we know that the register is encoded as PTX register string */
   regmap = cuda_get_physical_register (reg_name);
+  if (regmap == NULL)
+      return -1;
   num_regs = regmap_get_num_entries (regmap);
 
   /* If we found a single SASS register, then we let cuda-gdb handle it
@@ -1052,14 +1051,12 @@ cuda_initialize_target ()
   if (!debugFlagAddr)
     return;
 
-  /* Allinea: Check for CAPS hmpp */
   if (!inferior_in_debug_mode)
   {
       enum language prev_language = set_language (language_c);
-      caps_hmpp_debugging_enabled = 0!=cuda_get_symbol_address("hmpprti::SymbolTable::SymbolTable()");
-
       set_language (prev_language);
   }
+
   /* When attaching or detaching, cuda_nat_attach() and
      cuda_nat_detach() control the setting of this flag,
      so don't touch it here. */
@@ -1088,7 +1085,6 @@ cuda_initialize_target ()
       error (_("CUDA application cannot be debugged. The CUDA driver is not compatible."));
       return;
      }
-
   target_write_memory (gdbPidAddr             , (char*)&pid, sizeof (pid));
   target_write_memory (rpcFlagAddr            , &one, 1);
   target_write_memory (apiClientRevAddr       , (char*)&apiClientRev, sizeof(apiClientRev));
@@ -2645,9 +2641,3 @@ cuda_gdb_session_get_dir (void)
     return cuda_gdb_session_dir;
 }
 
-/* Allinea */
-bool
-is_caps_hmpp_debugging()
-{
-  return caps_hmpp_debugging_enabled;
-}

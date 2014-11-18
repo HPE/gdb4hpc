@@ -27,7 +27,7 @@
 
 ;; Modified by Allinea Software.
 ;; 
-;; Copyright (C) Allinea Software Ltd. 2013
+;; Copyright (C) Allinea Software Ltd. 2014
 ;; Copyright (C) 1985, 1986, 1988, 1993, 1994 Free Software Foundation, Inc.
 
 ;; Keywords: maint

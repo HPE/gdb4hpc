@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008, 2009,
    2010 Free Software Foundation, Inc.
@@ -25,7 +25,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -643,8 +643,6 @@ read_var_value_1 (struct symbol *var, struct frame_info *frame)
   return v;
 }
 
-void f_caps_fudge(struct symbol *var, struct frame_info *frame);
-
 struct value *
 read_var_value (struct symbol *var, struct frame_info *frame) 
 {
@@ -654,8 +652,6 @@ read_var_value (struct symbol *var, struct frame_info *frame)
      pushed upwards to the callers.  */
   if (frame == NULL)
     frame = deprecated_safe_get_selected_frame ();
-
-  f_caps_fudge(var, frame); 
 
   v = read_var_value_1 (var, frame);
   return f_fixup_value (v, frame);

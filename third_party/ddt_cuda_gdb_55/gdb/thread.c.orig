@@ -1,8 +1,5 @@
 /* Multi-process/thread control for GDB, the GNU debugger.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 1986, 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
    2000, 2001, 2002, 2003, 2004, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -25,9 +22,6 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
- * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
- * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -68,11 +62,6 @@
 #include "annotate.h"
 #include "cli/cli-decode.h"
 #include "upc-thread.h"
-#include "block.h"
-#include "dictionary.h"
-#include "gdbtypes.h"
-#include "language.h"
-#include "valprint.h"
 
 /* Definition of struct thread_info exported to gdbthread.h */
 
@@ -1242,15 +1231,23 @@ thread_apply_all_command (char *cmd, int from_tty)
       if (upcmode && !is_upc_thread(tp)) continue;
       if (thread_alive (tp))
         {
-	  switch_to_thread (tp->ptid);
+            volatile struct gdb_exception ex;
+            switch_to_thread (tp->ptid);
 
-          if (upcmode)
-	    printf_filtered (_("\nUPC thread %d:\n"), tp->unum);
-          else
-	    printf_filtered (_("\nThread %d (%s):\n"),
-			 tp->num, target_pid_to_str (inferior_ptid));
-	  execute_command (cmd, from_tty);
-	  strcpy (cmd, saved_cmd);	/* Restore exact command used previously */
+            if (upcmode)
+                printf_filtered (_("\nUPC thread %d:\n"), tp->unum);
+            else
+                printf_filtered (_("\nThread %d (%s):\n"),
+                                 tp->num, target_pid_to_str (inferior_ptid));
+            TRY_CATCH (ex, RETURN_MASK_ALL)
+                {
+                    execute_command (cmd, from_tty);
+                }
+            if (ex.reason < 0)
+                {
+                    printf_filtered("<%s>\n", ex.message);
+                }
+            strcpy (cmd, saved_cmd);	/* Restore exact command used previously */
         }
     }
 
@@ -1551,267 +1548,4 @@ Show printing of thread events (such as thread start and exit)."), NULL,
          &setprintlist, &showprintlist);
 
   create_internalvar_type_lazy ("_thread", thread_id_make_value);
-}
-
-
-/* Allinea. Search through the frame stack, look for frame with
- * hmpp_codelet_. Start from the currently selected frame (if we
- * have just switch to this thread, current frame will be at the
- * top of the frame stack) */
-static struct frame_info*
-caps_hmpp_find_codelet_frame()
-{
-  struct symtab_and_line sal;
-  struct frame_info *frame = get_selected_frame (NULL);
-
-  while(frame)
-    {
-      /* Find name of the function we are in */
-      struct symbol *func;
-      func = find_pc_function (get_frame_address_in_block (frame));
-
-      if (func) /* If we can find the function */
-        {
-          struct minimal_symbol *msymbol =
-              lookup_minimal_symbol_by_pc (get_frame_address_in_block (frame));
-
-          if (msymbol != NULL) /* If we can get a symbol for the function */
-            {
-              char* funname = SYMBOL_LINKAGE_NAME (msymbol);
-              if (funname!=NULL && strncmp("hmpp_codelet_",funname,13)==0)
-                {
-                  /* We have found that 'frame' is in function starting with 'hmpp_codelet_' */
-                  if (strncmp("hmpp_codelet_",funname,13)==0)
-                    {
-                      return frame;
-                    }
-                }
-            }
-        }
-      frame = get_prev_frame(frame);
-    }
-
-  /* Failed to find codelet frame */
-  return NULL;
-}
-
-
-/* Allinea. Cache the thread identifier that contains caps hmpp metadata */
-static ptid_t caps_hmpp_metadata_thread;
-/* Allinea. Flag used to prevent caps_hmpp_metadata_thread being used before
- * it is set a real value. False if caps_hmpp_metadata_thread is unset, true
- * once it has been set. */
-static bool caps_hmpp_metadata_thread_set = false;
-
-
-/* Allinea. Search through the non-cuda threads for a frame
- * beginning with hmpp_codelet. If found select this frame
- * and return true, otherwise return false.
- *
- * Note: Whatever the return value, this function will change
- * the currently selected thread and frame. */
-static bool
-caps_hmpp_switch_to_metadata_thread_and_frame()
-{
-  struct thread_info *tp;
-  prune_threads ();
-
-  if (caps_hmpp_metadata_thread_set && in_thread_list(caps_hmpp_metadata_thread)) /* Check cached thread ptid is still valid */
-    {
-      struct frame_info* frame;
-      switch_to_thread(caps_hmpp_metadata_thread);
-
-      frame = caps_hmpp_find_codelet_frame();
-      if (frame)
-        {
-          select_frame(frame);
-          return true;
-        }
-    }
-
-  /* caps_hmpp_metadata_thread is either NULL or does not contain
-   * a codelet frame. Search through all threads for one containing
-   * hmpp_codelet. */
-  target_find_new_threads ();
-
-  for (tp = thread_list; tp; tp = tp->next)
-    {
-      struct frame_info* frame;
-      switch_to_thread (tp->ptid);
-      frame = caps_hmpp_find_codelet_frame();
-      if (frame)
-        {
-          caps_hmpp_metadata_thread = tp->ptid;
-          caps_hmpp_metadata_thread_set = true;
-          select_frame(frame);
-          return true;
-        }
-    }
-
-  /* Failed to find thread containing a codelet frame */
-  return false;
-}
-
-
-/* Allinea. Takes as input a struct val pointer to an array
- * containing a hmpp array's shape metadata, and the type
- * of the array the metadata refers to. Returns the type
- * created from the metadata, or NULL if *val does not have
- * the expected contents. */
-static struct type*
-caps_hmpp_read_metadata(struct value *val,struct type *target_type)
-{
-  /* Check the type of this metadata variable */
-  struct type *type = value_type(val);
-  if (type!=NULL && TYPE_CODE(type)==TYPE_CODE_ARRAY)
-    {
-      struct type *elttype = check_typedef (TYPE_TARGET_TYPE (type));
-      if (TYPE_LENGTH (type) > 0 && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
-        {
-          enum bfd_endian order;
-          unsigned eltlen = TYPE_LENGTH (elttype);
-          unsigned length = TYPE_LENGTH (type) / eltlen;
-          int dim;
-          const gdb_byte *valaddr = value_contents (val) + value_embedded_offset (val);
-
-          /* First index of array is number of dimensions, remaining elements in pairs, giving
-           * the lower and upper bounds */
-          int number_dims;
-          order = gdbarch_byte_order (get_current_arch());
-          number_dims = (int) extract_signed_integer(valaddr,eltlen, order);
-          if (length != number_dims*2 +1)
-            {
-              warning("caps_hmpp_read_metadata: unexpected length of metadata array. length=%i, dimensions (first element)=%i, expected length=%i\n",
-                  length, number_dims, number_dims*2+1);
-              return NULL;
-            }
-
-          struct type *result_type = check_typedef(target_type);
-
-          /* Create type for multidimensional array */
-          for (dim=0; dim<number_dims; ++dim)
-            {
-              int low_bound  = (int) extract_signed_integer(valaddr + (1 + dim*2) * eltlen,eltlen, order);
-              int high_bound = (int) extract_signed_integer(valaddr + (2 + dim*2) * eltlen,eltlen, order);
-
-              struct type *range_type = create_range_type(NULL,elttype,low_bound,high_bound);
-              result_type = create_array_type(NULL,result_type,range_type);
-            }
-
-          return result_type;
-        }
-      else
-        {
-          /* Can't get the length of the array of metadata - give up */
-          warning("caps_hmpp_read_metadata: cannot get length of metadata array");
-          return NULL;
-        }
-    }
-  else
-    {
-      /* *val does not refer to an array */
-      warning("caps_hmpp_read_metadata: Not an array");
-      return NULL;
-    }
-}
-
-
-/* Allinea. Searches through the non-cuda threads for a frame
- * in a method beginning with hmpp_codelet, and extracts
- * the requested variable (metadata_name) from the locals.
- * This is then converted into a type that is returned.
- *
- * Based on info_threads_command. As with that command, this
- * has the drawback that it _really_ switches threads, which
- * frees the frame cache.  A no-side effects implementation
- * would be nicer.  */
-struct type*
-caps_hmpp_create_type_from_metadata(char* metadata_name, struct type *target_type)
-{
-  struct value_print_options user_options;
-  unsigned int old_print_max;
-  unsigned int old_print_smax;
-  struct type *result_type;
-  struct frame_id saved_frame_id;
-  ptid_t current_ptid;
-  cuda_coords_t current_cuda_coords;
-  bool foundMetadata;
-  get_user_print_options(&user_options);
-  old_print_max = user_options.print_max;
-  old_print_smax = user_options.print_smax;
-
-  result_type = NULL;
-
-  saved_frame_id = get_frame_id (get_selected_frame (NULL));
-  current_ptid = inferior_ptid;
-
-  current_cuda_coords = CUDA_INVALID_COORDS;
-  cuda_coords_get_current (&current_cuda_coords);
-
-  foundMetadata = caps_hmpp_switch_to_metadata_thread_and_frame();
-  if (!foundMetadata)
-    {
-      warning (_("caps_hmpp_create_type_from_metadata: Unable to find hmpp_codelet_ thread/frame"));
-    }
-  else
-    {
-      struct frame_info *frame = get_selected_frame (NULL);
-      struct block *block = get_frame_block (frame, 0);
-      if (block != NULL) /* If NULL, then symbol table not available */
-        {
-          struct dict_iterator iter;
-          struct symbol *sym;
-
-          while (block)
-            {
-              ALL_BLOCK_SYMBOLS (block, iter, sym)
-                {
-                  if(strcmp(SYMBOL_PRINT_NAME (sym),metadata_name)==0)
-                    {
-                      /* Found metadata symbol. Extract data and break out of
-                       * loop if successful. */
-                      result_type = caps_hmpp_read_metadata(read_var_value (sym, frame),target_type);
-                      if (result_type!=NULL)
-                        break;
-                    }
-                }
-              /* After handling the function's top-level block, stop.  Don't
-               * continue to its superblock, the block of per-file symbols.  */
-              if (BLOCK_FUNCTION (block))
-                break;
-              block = BLOCK_SUPERBLOCK (block);
-            }
-        }
-    }
-
-  /* If the current focus is on a CUDA kernel, make sure we save off
-     the current device frame id so that it can be properly restored
-     after the 'info cuda threads' command has executed. */
-  if (current_cuda_coords.valid)
-    {
-      cuda_coords_set_current (&current_cuda_coords);
-      switch_to_cuda_thread (NULL);
-      saved_frame_id = get_frame_id (get_selected_frame (NULL));
-    }
-  else
-    switch_to_thread (current_ptid);
-
-  /* Restores the frame set by the user. Switching back to the current thread has
-   * put us at the top of the stack (leaf frame).  */
-  struct frame_info *cur_frame = frame_find_by_id (saved_frame_id);
-  if (cur_frame == NULL)
-    {
-      /* Ooops, can't restore, tell user where we are.  */
-      warning (_("caps_hmpp_create_type_from_metadata: Couldn't restore frame in current thread, at frame 0"));
-      print_stack_frame (get_selected_frame (NULL), 0, LOCATION);
-    }
-  else
-    {
-      select_frame (cur_frame);
-    }
-
-  user_options.print_max = old_print_max;
-  user_options.print_smax = old_print_smax;
-
-  return result_type;
 }

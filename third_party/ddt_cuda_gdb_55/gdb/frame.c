@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1987, 1989, 1991, 1994, 1995, 1996, 1998, 2000, 2001,
    2002, 2003, 2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
@@ -24,7 +24,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -70,8 +70,6 @@
 #include  "tracepoint.h"
 #include "cuda-tdep.h"
 #include "cuda-frame.h"
-
-#include "xml-source-to-source.h"
 
 struct frame_info *get_prev_frame_1 (struct frame_info *this_frame);
 static struct frame_info *get_prev_frame_raw (struct frame_info *this_frame);
@@ -241,6 +239,17 @@ show_backtrace_limit (struct ui_file *file, int from_tty,
   fprintf_filtered (file, _("\
 An upper bound on the number of backtrace levels is %s.\n"),
 		    value);
+}
+
+
+int backtrace_addresses = AUTO_BOOLEAN_AUTO;
+static void
+show_backtrace_addresses (struct ui_file *file, int from_tty,
+                          struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Whether addresses are shown in backtraces is %s.\n"),
+                    value);
 }
 
 
@@ -1327,47 +1336,10 @@ select_frame (struct frame_info *fi)
      the event notification can be moved here, since this function will only
      be called when the user's selected frame is being changed. */
 
-  /*
-    Ensure that symbols for this frame are read in and switch to source language
-    of frame. First, try new CAPS methods for frame-foolery  */
-
-  if (fi)
-    {
-      CORE_ADDR frame_pc;
-      /* Allinea: CAPS v3.2 onwards - more DWARF-like frame info */
-      struct block* block;
-      frame_pc = get_frame_address_in_block (fi);
-      block = block_for_pc (frame_pc);
-      if (is_caps_v32_symbols_enabled (block))
-        {
-          enum language lang = caps_v32_language (block);
-          set_language (lang);
-          return;
-        }
-    }
-
-  /* Also, determine the
+  /* Ensure that symbols for this frame are read in.  Also, determine the
      source language of this frame, and switch to it if desired.  */
   if (fi)
     {
-      /* Allinea: For CAPS hmpp code, override default language of the frame and set to fortran. */
-      if (is_caps_hmpp_debugging() && cuda_focus_is_device()    /* CUDA and caps */
-          && language_mode == language_mode_auto)               /* Auto-select language enabled */
-        {
-          struct symtab_and_line sal = find_pc_line(get_frame_address_in_block(fi),0);
-          if (sal.symtab && sal.symtab->language == language_fortran)
-            {
-              if (current_language->la_language != language_fortran)
-                {
-                  set_language (language_fortran);
-                }
-
-              /* Return statement here assumes no other work is done in
-               * this function by stock gdb other than setting the language */
-              return;
-            }
-        }
-
       /* We retrieve the frame's symtab by using the frame PC.  However
          we cannot use the frame PC as-is, because it usually points to
          the instruction following the "call", which is sometimes the
@@ -2484,6 +2456,19 @@ Zero is unlimited."),
 			   show_backtrace_limit,
 			   &set_backtrace_cmdlist,
 			   &show_backtrace_cmdlist);
+  
+  add_setshow_auto_boolean_cmd ("addresses", class_obscure,
+                                &backtrace_addresses, _("\
+Sets whether addresses are shown in backtraces."), _("\
+Shows whether addresses are shown in backtraces."), _("\
+If ON, addresses are always shown in backtraces.\n\
+If OFF, addresses are never shown in backtraces.\n\
+If AUTO (the default), addresses are shown in backtraces only if not at the\n\
+start of a line."),
+                                NULL,
+                                show_backtrace_addresses,
+                                &set_backtrace_cmdlist,
+                                &show_backtrace_cmdlist);
 
   /* Debug this files internals. */
   add_setshow_zinteger_cmd ("frame", class_maintenance, &frame_debug,  _("\

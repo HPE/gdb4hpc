@@ -814,7 +814,7 @@ free_objfile_instance1 (struct objfile_instance *objfile_instance)
     {
       if (*objpp == objfile_instance)
 	{
-	  *objpp = (*objpp)->next;
+	  *objpp = (*objpp)->instance_link;
 	  break;
 	}
     }

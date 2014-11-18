@@ -1,6 +1,6 @@
 # Modified by Allinea Software.
 # 
-# Copyright (C) Allinea Software Ltd. 2013
+# Copyright (C) Allinea Software Ltd. 2014
 # Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
 # 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 # Free Software Foundation, Inc.
@@ -23,7 +23,7 @@
 #
 # NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
 # NVIDIA CUDA Debugger CUDA-GDB 
-# NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+# NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
 # NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
 # Modified from the original GDB file referenced above by the CUDA-GDB 
 # team at NVIDIA <cudatools@nvidia.com>.
@@ -504,7 +504,7 @@ RUNTESTFLAGS=
 # XML files to build in to GDB.
 XMLFILES = $(srcdir)/features/gdb-target.dtd $(srcdir)/features/xinclude.dtd \
 	$(srcdir)/features/library-list.dtd $(srcdir)/features/osdata.dtd \
-	$(srcdir)/features/threads.dtd $(srcdir)/features/caps.dtd
+	$(srcdir)/features/threads.dtd
 
 # This is ser-unix.o for any system which supports a v7/BSD/SYSV/POSIX
 # interface to the serial port.  Hopefully if get ported to OS/2, VMS,
@@ -545,11 +545,12 @@ ALL_TARGET_OBS = \
 	arm-tdep.o arm-wince-tdep.o \
 	avr-tdep.o \
 	cris-tdep.o \
-	cuda-api.o cuda-autostep.o cuda-asm.o cuda-commands.o cuda-context.o cuda-coords.o \
-	cuda-elf-image.o cuda-events.o cuda-gdb.o cuda-iterator.o cuda-kernel.o \
-	cuda-linux-nat.o cuda-modules.o cuda-notifications.o cuda-options.o \
-	cuda-regmap.o cuda-state.o cuda-tdep.o cuda-textures.o cuda-utils.o \
-        libcudbg.o libcudbgipc.o \
+	cuda-api.o cuda-autostep.o cuda-asm.o cuda-commands.o cuda-context.o \
+	cuda-coords.o cuda-elf-image.o cuda-events.o cuda-frame.o cuda-gdb.o \
+        cuda-iterator.o cuda-kernel.o  cuda-linux-nat.o cuda-modules.o \
+        cuda-notifications.o cuda-options.o cuda-regmap.o \
+        cuda-special-register.o cuda-state.o cuda-tdep.o cuda-textures.o \
+	cuda-utils.o libcudbg.o libcudbgipc.o \
 	dicos-tdep.o \
 	frv-linux-tdep.o frv-tdep.o \
 	h8300-tdep.o \
@@ -754,7 +755,6 @@ SFILES = ada-exp.y ada-lang.c ada-typeprint.c ada-valprint.c ada-tasks.c \
 	user-regs.c \
 	valarith.c valops.c valprint.c value.c varobj.c vec.c \
 	wrapper.c \
-	xml-source-to-source.c \
 	xml-tdesc.c xml-support.c \
 	inferior.c gdb_usleep.c \
 	record.c gcore.c \
@@ -831,11 +831,11 @@ sentinel-frame.h bcache.h symfile.h windows-tdep.h linux-tdep.h \
 gdb_usleep.h jit.h xml-syscall.h ada-operator.inc microblaze-tdep.h \
 psymtab.h psympriv.h \
 cuda-api.h  cuda-autostep.h cuda-builtins.h cuda-context.h cuda-defs.h \
-cuda-events.h cuda-gdb.h cuda-kernel.h cuda-notifications.h cuda-parser.h \
-cuda-tdep.h cuda-asm.h cuda-commands.h cuda-coords.h cuda-elf-image.h \
-cuda-iterator.h cuda-modules.h cuda-options.h cuda-regmap.h cuda-state.h \
-cuda-textures.h cuda-utils.h \
-libcudbg.h libcudbgipc.h
+cuda-events.h cuda-frame.h cuda-gdb.h cuda-kernel.h cuda-notifications.h \
+cuda-parser.h cuda-tdep.h cuda-asm.h cuda-commands.h cuda-coords.h \
+cuda-elf-image.h cuda-iterator.h cuda-modules.h cuda-options.h \
+cuda-regmap.h cuda-special-register.h cuda-state.h cuda-textures.h \
+cuda-utils.h libcudbg.h libcudbgipc.h
 
 # Header files that already have srcdir in them, or which are in objdir.
 
@@ -925,7 +925,7 @@ COMMON_OBS = $(DEPFILES) $(CONFIG_OBS) $(YYOBJ) \
 	prologue-value.o memory-map.o xml-support.o xml-syscall.o \
 	target-descriptions.o target-memory.o xml-tdesc.o xml-builtin.o \
 	inferior.o osdata.o gdb_usleep.o record.o gcore.o \
-	jit.o progspace.o xml-source-to-source.o \
+	jit.o progspace.o \
 	cuda-parser.lex.o cuda-parser.tab.o
 
 # Definitions for the syscall's XML files and dir
@@ -1505,11 +1505,12 @@ ALLDEPFILES = \
 	avr-tdep.c \
 	bsd-uthread.c bsd-kvm.c \
 	core-regset.c corelow.c \
-	cuda-api.c cuda-autostep.c cuda-asm.c cuda-commands.c cuda-context.c cuda-coords.c \
-	cuda-elf-image.c cuda-events.c cuda-gdb.c cuda-iterator.c cuda-kernel.c \
-	cuda-linux-nat.c cuda-modules.c cuda-notifications.c cuda-options.c \
-	cuda-regmap.c cuda-state.c cuda-tdep.c  cuda-textures.c cuda-utils.c \
-        libcudbg.c libcudbgipc.c \
+	cuda-api.c cuda-autostep.c cuda-asm.c cuda-commands.c cuda-context.c \
+        cuda-coords.c cuda-elf-image.c cuda-events.c cuda-frame.c cuda-gdb.c \
+        cuda-iterator.c cuda-kernel.c cuda-linux-nat.c cuda-modules.c \
+        cuda-notifications.c cuda-options.c cuda-regmap.c \
+        cuda-special-register.c cuda-state.c cuda-tdep.c  cuda-textures.c \
+        cuda-utils.c libcudbg.c libcudbgipc.c \
 	dcache.c dicos-tdep.c darwin-nat.c \
 	exec.c \
 	fbsd-nat.c \

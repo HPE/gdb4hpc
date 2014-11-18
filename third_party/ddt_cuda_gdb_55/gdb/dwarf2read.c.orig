@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
                  2004, 2005, 2006, 2007, 2008, 2009, 2010
                  Free Software Foundation, Inc.
@@ -32,7 +32,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -93,8 +93,6 @@
 #endif
 #include <ctype.h>
 
-
-#include <xml-source-to-source.h>
 /* PGI Extensions */
 
 #define DW_AT_lbase 0x3a00
@@ -5316,7 +5314,18 @@ dwarf2_add_member_fn (struct field_info *fip, struct die_info *die,
 	    dwarf2_complex_location_expr_complaint ();
 
 	  if (!fnp->fcontext)
-	    fnp->fcontext = TYPE_TARGET_TYPE (TYPE_FIELD_TYPE (this_type, 0));
+	    {
+	      if (TYPE_MAIN_TYPE(this_type)->nfields != 0)
+	        {
+	          fnp->fcontext = TYPE_TARGET_TYPE (TYPE_FIELD_TYPE (this_type, 0));
+	        }
+	      else
+	        {
+	          complaint(&symfile_complaints,
+	                    _("Member function \"%s\" has 0 fields and no <this>!"), 
+	                    physname);
+	        }
+	    }
 	}
       else if (attr_form_is_section_offset (attr))
         {
@@ -10598,12 +10607,6 @@ wellformed:
 	  using_directives = bupc_context->using_directives;
 	}
     }
-
-  if (name && strncmp (name, "__hmpp_dwarf_xml", 16) == 0)
-    {
-      read_xml_source_to_source (sym, cu->objfile);
-    }
-
   return (sym);
 }
 

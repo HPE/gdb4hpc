@@ -1,7 +1,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2013
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2012 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -92,9 +92,6 @@ bool cuda_is_target_mourn_pending = false;
 static bool inferior_in_debug_mode = false;
 static char cuda_gdb_session_dir[CUDA_GDB_TMP_BUF_SIZE] = {0};
 static uint32_t cuda_gdb_session_id = 0;
-
-/* whether we are in a caps hmpp program */
-static bool caps_hmpp_debugging_enabled = false;
 
 /* For Mac OS X */
 bool cuda_platform_supports_tid (void)
@@ -984,6 +981,8 @@ cuda_reg_to_regnum (struct gdbarch *gdbarch, reg_t reg)
 
   /* At this point, we know that the register is encoded as PTX register string */
   regmap = cuda_get_physical_register (reg_name);
+  if (regmap == NULL)
+      return -1;
   num_regs = regmap_get_num_entries (regmap);
 
   /* If we found a single SASS register, then we let cuda-gdb handle it
@@ -1563,10 +1562,6 @@ cuda_initialize_target ()
           cuda_initialize_driver_api_error_report ();
           cuda_initialize_driver_internal_error_report ();
         }
-
-      /* Allinea: Check for CAPS hmpp */
-      caps_hmpp_debugging_enabled = 0!=cuda_get_symbol_address("hmpprti::SymbolTable::SymbolTable()");
-
       set_language (prev_language);
     }
 
@@ -3003,7 +2998,7 @@ cuda_gdb_session_create (void)
             "%s/session%d", cuda_gdb_tmpdir_getdir (),
             cuda_gdb_session_id);
 
-  cuda_trace ("new session %d created", cuda_gdb_session_id);
+  cuda_trace ("creating new session %d", cuda_gdb_session_id);
 
   ret = cuda_gdb_dir_create (cuda_gdb_session_dir, S_IRWXU | S_IRWXG,
                              override_umask, &dir_exists);
@@ -3011,6 +3006,8 @@ cuda_gdb_session_create (void)
   if (!ret && dir_exists)
     error (_("A stale CUDA session directory was found. "
              "Try deleting %s and retrying."), cuda_gdb_session_dir);
+  else if (ret)
+    error (_("Failed to create session directory: %s (ret=%d)."), cuda_gdb_session_dir, ret);
 
   return ret;
 }
@@ -3037,9 +3034,3 @@ cuda_gdb_session_get_dir (void)
     return cuda_gdb_session_dir;
 }
 
-/* Allinea */
-bool
-is_caps_hmpp_debugging()
-{
-  return caps_hmpp_debugging_enabled;
-}

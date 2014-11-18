@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
    1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
    2008, 2009, 2010 Free Software Foundation, Inc.
@@ -880,7 +880,7 @@ get_value_at (struct type *type, CORE_ADDR addr, int lazy)
   else
     {
       val = allocate_value (type);
-      read_memory (addr, value_contents_all_raw (val), TYPE_LENGTH (type));
+      read_memory (addr, value_contents_all_raw (val), value_length (val));
     }
 
   VALUE_LVAL (val) = lval_memory;
@@ -950,7 +950,7 @@ value_fetch_lazy (struct value *val)
 					  + offset),
 					 value_bitpos (val),
 					 value_bitsize (val));
-      int length = TYPE_LENGTH (type);
+      int length = value_length (val);
 
       if (!value_bits_valid (val,
 			     TARGET_CHAR_BIT * offset + value_bitpos (val),
@@ -966,8 +966,11 @@ value_fetch_lazy (struct value *val)
   else if (VALUE_LVAL (val) == lval_memory)
     {
       CORE_ADDR addr = value_address (val);
-      int length = get_limited_length (check_typedef (value_enclosing_type (val)));
-      if (length)
+      int length = value_length (val);
+      struct type *type = check_typedef (value_type (val));
+      if (length && (addr
+		     || current_language->la_language != language_fortran
+		     || TYPE_CODE (type) != TYPE_CODE_ARRAY))
 	{
 	  if (value_stack (val))
 	    read_stack (addr, value_contents_all_raw (val), length);
@@ -1013,8 +1016,7 @@ value_fetch_lazy (struct value *val)
       if (value_optimized_out (new_val))
 	set_value_optimized_out (val, 1);
       else
-	memcpy (value_contents_raw (val), value_contents (new_val),
-		TYPE_LENGTH (type));
+	value_copy_contents (val, new_val);
 
       if (frame_debug)
 	{
@@ -1080,27 +1082,16 @@ value_assign (struct value *toval, struct value *fromval)
   struct value *val;
   struct frame_id old_frame;
 
-  /* Assignments to/from UPC shared memory, currently unimplemented.  */
-  gdb_assert (VALUE_LVAL(toval) != lval_upc_shared);
-  gdb_assert (VALUE_LVAL(fromval) != lval_upc_shared);
-
   if (!deprecated_value_modifiable (toval))
     error (_("Left operand of assignment is not a modifiable lvalue."));
 
-  toval = coerce_ref (toval);
+  if (!VALUE_INTERNALVAR (toval))
+    toval = coerce_ref (toval);
 
   type = value_type (toval);
-  if (VALUE_LVAL (toval) != lval_internalvar)
+  if (!VALUE_INTERNALVAR (toval))
     {
-      toval = value_coerce_to_target (toval);
       fromval = value_cast (type, fromval);
-    }
-  else
-    {
-      /* Coerce arrays and functions to pointers, except for arrays
-	 which only live in GDB's storage.  */
-      if (!value_must_coerce_to_target (fromval))
-	fromval = coerce_array (fromval);
     }
 
   CHECK_TYPEDEF (type);
@@ -1110,24 +1101,17 @@ value_assign (struct value *toval, struct value *fromval)
      and then restore the new frame afterwards.  */
   old_frame = get_frame_id (deprecated_safe_get_selected_frame ());
 
+  if (VALUE_INTERNALVAR (toval))
+    {
+      set_internalvar (VALUE_INTERNALVAR (toval), fromval);
+      return value_of_internalvar (get_type_arch (type),
+                                   VALUE_INTERNALVAR (toval));
+    }
+  
   switch (VALUE_LVAL (toval))
     {
-    case lval_internalvar:
-      set_internalvar (VALUE_INTERNALVAR (toval), fromval);
-      val = value_copy (fromval);
-      val = value_change_enclosing_type (val, 
-					 value_enclosing_type (fromval));
-      set_value_embedded_offset (val, value_embedded_offset (fromval));
-      set_value_pointed_to_offset (val, 
-				   value_pointed_to_offset (fromval));
-      return val;
-
-    case lval_internalvar_component:
-      set_internalvar_component (VALUE_INTERNALVAR (toval),
-				 value_offset (toval),
-				 value_bitpos (toval),
-				 value_bitsize (toval),
-				 fromval);
+    case lval_upc_shared:
+      upc_value_assign (toval, fromval);
       break;
 
     case lval_memory:
@@ -1307,8 +1291,7 @@ value_assign (struct value *toval, struct value *fromval)
     }
 
   val = value_copy (toval);
-  memcpy (value_contents_raw (val), value_contents (fromval),
-	  TYPE_LENGTH (type));
+  value_copy_contents (val, fromval);
   deprecated_set_value_type (val, type);
   val = value_change_enclosing_type (val, 
 				     value_enclosing_type (fromval));
@@ -1333,6 +1316,7 @@ value_repeat (struct value *arg1, int count)
 
   val = allocate_repeat_value (value_enclosing_type (arg1), count);
 
+  set_value_repeated (val, 1);
   if (VALUE_LVAL (arg1) == lval_upc_shared)
     {
       VALUE_LVAL (val) = lval_upc_shared;
@@ -1343,11 +1327,10 @@ value_repeat (struct value *arg1, int count)
     {
       read_memory (value_address (arg1),
 		   value_contents_all_raw (val),
-		   TYPE_LENGTH (value_enclosing_type (val)));
+		   value_length (val));
       VALUE_LVAL (val) = lval_memory;
       set_value_address (val, value_address (arg1));
     }
-  set_value_repeated (val, 1);    
 
   return val;
 }
@@ -1441,8 +1424,7 @@ value_must_coerce_to_target (struct value *val)
   struct type *valtype;
 
   /* The only lval kinds which do not live in target memory.  */
-  if (VALUE_LVAL (val) != not_lval
-      && VALUE_LVAL (val) != lval_internalvar)
+  if (VALUE_LVAL (val) != not_lval)
     return 0;
 
   valtype = check_typedef (value_type (val));
@@ -1470,7 +1452,24 @@ value_coerce_to_target (struct value *val)
   if (!value_must_coerce_to_target (val))
     return val;
 
-  length = TYPE_LENGTH (check_typedef (value_type (val)));
+  length = value_length (val);
+  addr = allocate_space_in_inferior (length);
+  write_memory (addr, value_contents (val), length);
+  return value_at_lazy (value_type (val), addr);
+}
+
+/* Make sure that VAL always lives in target memory.  */
+
+struct value *
+value_force_coerce_to_target (struct value *val)
+{
+  LONGEST length;
+  CORE_ADDR addr;
+
+  if (VALUE_LVAL (val) == lval_memory)
+      return val;
+
+  length = value_length (val);
   addr = allocate_space_in_inferior (length);
   write_memory (addr, value_contents (val), length);
   return value_at_lazy (value_type (val), addr);
@@ -1506,7 +1505,6 @@ value_coerce_array (struct value *arg1)
   struct type *type = check_typedef (value_type (arg1));
   struct type *tt   = check_typedef (TYPE_TARGET_TYPE (type));
   struct type *pt   = lookup_pointer_type (tt);
-  enum lval_type lval = VALUE_LVAL (arg1);
   struct value *retval;
 
   /* If the user tries to do something requiring a pointer with an
@@ -1514,7 +1512,7 @@ value_coerce_array (struct value *arg1)
      be a good time to do so.  */
   arg1 = value_coerce_to_target (arg1);
 
-  switch (lval)
+  switch (VALUE_LVAL (arg1))
     {
     case lval_memory:
       retval = value_from_pointer (lookup_pointer_type (TYPE_TARGET_TYPE (type)),
@@ -1554,7 +1552,6 @@ value_addr (struct value *arg1)
   struct value *arg2;
   struct type *type = check_typedef (value_type (arg1));
   struct type *pt   = lookup_pointer_type (type);
-  enum lval_type lval = VALUE_LVAL (arg1);  
 
   if (TYPE_CODE (type) == TYPE_CODE_REF)
     {
@@ -1573,7 +1570,7 @@ value_addr (struct value *arg1)
      then this would be a good time to force it to memory.  */
   arg1 = value_coerce_to_target (arg1);
 
-  switch (lval)
+  switch (VALUE_LVAL (arg1))
     {
     case lval_memory:
       /* Get target memory address */
@@ -1687,7 +1684,7 @@ value_array (int lowbound, int highbound, struct value **elemvec)
 {
   int nelem;
   int idx;
-  unsigned int typelength;
+  unsigned int typelength, vallength;
   struct value *val;
   struct type *arraytype;
 
@@ -1718,7 +1715,7 @@ value_array (int lowbound, int highbound, struct value **elemvec)
 	{
 	  memcpy (value_contents_all_raw (val) + (idx * typelength),
 		  value_contents_all (elemvec[idx]),
-		  typelength);
+		  min (typelength, value_length (elemvec[idx])));
 	}
       return val;
     }
@@ -1730,7 +1727,7 @@ value_array (int lowbound, int highbound, struct value **elemvec)
   for (idx = 0; idx < nelem; idx++)
     memcpy (value_contents_writeable (val) + (idx * typelength),
 	    value_contents_all (elemvec[idx]),
-	    typelength);
+	    min (typelength, value_length (elemvec[idx])));
   return val;
 }
 
@@ -2795,7 +2792,7 @@ find_oload_champ_namespace_loop (struct type **arg_types, int nargs,
      function symbol to start off with.)  */
 
   old_cleanups = make_cleanup (xfree, *oload_syms);
-  old_cleanups = make_cleanup (xfree, *oload_champ_bv);
+  make_cleanup (xfree, *oload_champ_bv);
   new_namespace = alloca (namespace_len + 1);
   strncpy (new_namespace, qualified_name, namespace_len);
   new_namespace[namespace_len] = '\0';
@@ -3624,7 +3621,7 @@ value_slice (struct value *array, int lowbound, int length)
 	  slice = allocate_value (slice_type);
 	  memcpy (value_contents_writeable (slice),
 		  value_contents (array) + offset,
-		  TYPE_LENGTH (slice_type));
+		  value_length (slice));
 	}
 
       set_value_component_location (slice, array);
@@ -3653,9 +3650,9 @@ value_literal_complex (struct value *arg1,
   arg2 = value_cast (real_type, arg2);
 
   memcpy (value_contents_raw (val),
-	  value_contents (arg1), TYPE_LENGTH (real_type));
+	  value_contents (arg1), value_length (arg1));
   memcpy (value_contents_raw (val) + TYPE_LENGTH (real_type),
-	  value_contents (arg2), TYPE_LENGTH (real_type));
+	  value_contents (arg2), value_length (arg2));
   return val;
 }
 
@@ -3673,10 +3670,10 @@ cast_into_complex (struct type *type, struct value *val)
       struct value *im_val = allocate_value (val_real_type);
 
       memcpy (value_contents_raw (re_val),
-	      value_contents (val), TYPE_LENGTH (val_real_type));
+	      value_contents (val), value_length (re_val));
       memcpy (value_contents_raw (im_val),
 	      value_contents (val) + TYPE_LENGTH (val_real_type),
-	      TYPE_LENGTH (val_real_type));
+	      value_length (im_val));
 
       return value_literal_complex (re_val, im_val, type);
     }
@@ -3699,7 +3696,7 @@ value_real (struct value *val)
       struct value *re_val = allocate_value(val_real_type);
 
       memcpy (value_contents_raw (re_val),
-	      value_contents (val), TYPE_LENGTH (val_real_type));
+	      value_contents (val), value_length (re_val));
 
       return re_val;
     }
@@ -3718,7 +3715,7 @@ value_imag (struct value *val)
 
       memcpy (value_contents_raw (im_val),
 	      value_contents (val) + TYPE_LENGTH (val_real_type),
-	      TYPE_LENGTH (val_real_type));
+	      value_length (im_val));
 
       return im_val;
     }

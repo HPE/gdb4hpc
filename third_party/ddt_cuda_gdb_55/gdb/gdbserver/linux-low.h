@@ -1,7 +1,4 @@
 /* Internal interfaces for the GNU/Linux specific target code for gdbserver.
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2013
    Copyright (C) 2002, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
@@ -23,9 +20,9 @@
 #ifdef HAVE_THREAD_DB_H
 #include <thread_db.h>
 #endif
+#include <signal.h>
 
 #include "gdb_proc_service.h"
-#include <signal.h>
 
 #ifdef HAVE_LINUX_REGSETS
 typedef void (*regset_fill_func) (struct regcache *, void *);
@@ -49,7 +46,6 @@ struct regset_info
 };
 extern struct regset_info target_regsets[];
 #endif
-
 
 struct process_info_private
 {

@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -203,9 +203,9 @@ extern void symbol_set_names (struct general_symbol_info *symbol,
 
 /* CUDA - set CUDA symbol name */
 #define SYMBOL_SET_CUDA_NAME(symbol,name,len,objfile)	\
-  symbol_set_cuda_name (&(symbol)->ginfo, name, len, objfile)
+    symbol_set_cuda_name (&(symbol)->ginfo, name, len, objfile)
 extern void symbol_set_cuda_name (struct general_symbol_info *symbol,
-                 const char *name, int len, struct objfile *objfile);
+                                  const char *name, int len, struct objfile *objfile);
 
 /* Now come lots of name accessor macros.  Short version as to when to
    use which: Use SYMBOL_NATURAL_NAME to refer to the name of the
@@ -224,16 +224,16 @@ extern void symbol_set_cuda_name (struct general_symbol_info *symbol,
   (symbol_natural_name (&(symbol)->ginfo))
 extern char *symbol_natural_name (const struct general_symbol_info *symbol);
 
+/* Return CUDA symbol name */
+#define SYMBOL_CUDA_NAME(symbol) ((symbol)->ginfo.cuda_name ? \
+                                  (symbol)->ginfo.cuda_name : (symbol)->ginfo.name)
+
 /* Return SYMBOL's name from the point of view of the linker.  In
    languages like C++ where symbols may be mangled for ease of
    manipulation by the linker, this is the mangled name; otherwise,
    it's the same as SYMBOL_NATURAL_NAME.  */
 
 #define SYMBOL_LINKAGE_NAME(symbol)	(symbol)->ginfo.name
-
-/* Return CUDA symbol name */
-#define SYMBOL_CUDA_NAME(symbol) ((symbol)->ginfo.cuda_name ? \
-                (symbol)->ginfo.cuda_name : (symbol)->ginfo.name)
 
 /* Return the demangled name for a symbol based on the language for
    that symbol.  If no demangled name exists, return NULL. */
@@ -639,8 +639,6 @@ struct symbol
 
   void *aux_value;
 
-  void* xml_cu;
-
   struct symbol *hash_next;
 };
 
@@ -655,8 +653,6 @@ struct symbol
 #define SYMBOL_COMPUTED_OPS(symbol)     (symbol)->ops.ops_computed
 #define SYMBOL_REGISTER_OPS(symbol)     (symbol)->ops.ops_register
 #define SYMBOL_LOCATION_BATON(symbol)   (symbol)->aux_value
-#define SYMBOL_XML_CU(symbol)           (symbol)->xml_cu
-
 
 /* Each item represents a line-->pc (or the reverse) mapping.  This is
    somewhat more wasteful of space than one might wish, but since only
@@ -817,6 +813,8 @@ struct symtab
 
   struct objfile *objfile;
 
+  /* CUDA - mangled symbol name */
+  char *cuda_name;
 };
 
 #define BLOCKVECTOR(symtab)	(symtab)->blockvector
@@ -866,11 +864,6 @@ int symbol_matches_domain (enum language symbol_language,
 /* lookup a symbol table by source file name */
 
 extern struct symtab *lookup_symtab (const char *);
-
-extern struct symbol *lookup_symbol_aux_local (const char *name,
-					const struct block *block,
-					const domain_enum domain,
-					enum language language);
 
 /* lookup a symbol by name (optional block) in language.  */
 

@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2013
+   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
@@ -388,8 +388,7 @@ typedef enum domain_enum_tag
 
   STRUCT_DOMAIN,
 
-  /* LABEL_DOMAIN may be used for names of labels (for gotos);
-     currently it is not used and labels are not recorded at all.  */
+  /* LABEL_DOMAIN may be used for names of labels (for gotos).  */
 
   LABEL_DOMAIN,
 
@@ -805,7 +804,7 @@ struct symtab
 
 #define BLOCKVECTOR(symtab)	(symtab)->blockvector
 #define LINETABLE(symtab)	(symtab)->linetable
-#define SYMTAB_PSPACE(symtab)	(symtab)->objfile->pspace
+#define SYMTAB_PSPACE(symtab)	(symtab)->objfile->instances->pspace
 
 
 /* The virtual function table is now an array of structures which have the
@@ -1077,6 +1076,7 @@ struct symtab_and_line
 
   CORE_ADDR pc;
   CORE_ADDR end;
+  struct program_space *explicit_pspace;  
   int explicit_pc;
   int explicit_line;
   

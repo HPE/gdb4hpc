@@ -62,7 +62,7 @@
 #include "upc-lang.h"
 #include "p-lang.h"
 #include "addrmap.h"
-#include "xml-source-to-source.h"
+
 #include "hashtab.h"
 
 #include "gdb_obstack.h"
@@ -111,6 +111,12 @@ static struct symbol *lookup_symbol_aux (const char *name,
 					 const domain_enum domain,
 					 enum language language,
 					 int *is_a_field_of_this);
+
+static
+struct symbol *lookup_symbol_aux_local (const char *name,
+					const struct block *block,
+					const domain_enum domain,
+					enum language language);
 
 static
 struct symbol *lookup_symbol_aux_symtabs (int block_index,
@@ -1137,11 +1143,6 @@ lookup_symbol_aux (const char *name, const struct block *block,
 
   /* Search specified block and its superiors.  Don't search
      STATIC_BLOCK or GLOBAL_BLOCK.  */
-  if (is_caps_v32_symbols_enabled(block))
-    {
-      sym = caps_lookup_symbol (name, block, domain, language, is_a_field_of_this);
-      if (sym) return sym;
-    }
 
   sym = lookup_symbol_aux_local (name, block, domain, language);
   if (sym != NULL)
@@ -1242,7 +1243,7 @@ lookup_static_symbol_aux (const char *name, const domain_enum domain)
 /* Check to see if the symbol is defined in BLOCK or its superiors.
    Don't search STATIC_BLOCK or GLOBAL_BLOCK.  */
 
-struct symbol *
+static struct symbol *
 lookup_symbol_aux_local (const char *name, const struct block *block,
                          const domain_enum domain,
                          enum language language)

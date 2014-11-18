@@ -593,7 +593,7 @@ call_function_by_hand (struct value *function, int nargs, struct value **args)
      the first argument is passed in out0 but the hidden structure
      return pointer would normally be passed in r8.  */
 
-  if (language_pass_by_reference (values_type))
+  if (language_return_by_reference (values_type))
     {
       lang_struct_return = 1;
 
@@ -695,7 +695,7 @@ call_function_by_hand (struct value *function, int nargs, struct value **args)
 				    param_type, prototyped, &sp);
 
 	if (param_type != NULL && language_pass_by_reference (param_type))
-	  args[i] = value_addr (args[i]);
+	  args[i] = value_addr (value_force_coerce_to_target (args[i]));
       }
   }
 

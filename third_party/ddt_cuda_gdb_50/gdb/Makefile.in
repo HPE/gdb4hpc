@@ -498,7 +498,7 @@ RUNTESTFLAGS=
 # XML files to build in to GDB.
 XMLFILES = $(srcdir)/features/gdb-target.dtd $(srcdir)/features/xinclude.dtd \
 	$(srcdir)/features/library-list.dtd $(srcdir)/features/osdata.dtd \
-	$(srcdir)/features/threads.dtd $(srcdir)/features/caps.dtd
+	$(srcdir)/features/threads.dtd
 
 # This is ser-unix.o for any system which supports a v7/BSD/SYSV/POSIX
 # interface to the serial port.  Hopefully if get ported to OS/2, VMS,
@@ -749,7 +749,6 @@ SFILES = ada-exp.y ada-lang.c ada-typeprint.c ada-valprint.c ada-tasks.c \
 	user-regs.c \
 	valarith.c valops.c valprint.c value.c varobj.c vec.c \
 	wrapper.c \
-	xml-source-to-source.c \
 	xml-tdesc.c xml-support.c \
 	inferior.c gdb_usleep.c \
 	record.c gcore.c \
@@ -920,7 +919,7 @@ COMMON_OBS = $(DEPFILES) $(CONFIG_OBS) $(YYOBJ) \
 	prologue-value.o memory-map.o xml-support.o xml-syscall.o \
 	target-descriptions.o target-memory.o xml-tdesc.o xml-builtin.o \
 	inferior.o osdata.o gdb_usleep.o record.o gcore.o \
-	jit.o progspace.o xml-source-to-source.o \
+	jit.o progspace.o \
 	cuda-parser.lex.o cuda-parser.tab.o
 
 # Definitions for the syscall's XML files and dir

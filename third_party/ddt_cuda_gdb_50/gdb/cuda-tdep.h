@@ -32,8 +32,6 @@
 #include "cuda-modules.h"
 #include "progspace.h"
 
-bool is_caps_hmpp_debugging(); /* Allinea */
-
 extern bool cuda_elf_path; /* REMOVE THIS ONCE CUDA ELF PATH IS COMPLETE! */
 
 /* CUDA - skip prologue

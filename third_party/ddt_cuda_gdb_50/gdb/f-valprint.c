@@ -259,8 +259,7 @@ f77_print_array (struct type *type, const gdb_byte *valaddr,
       return;
     }
   else if (VALUE_LVAL ((struct value *) val) == lval_memory
-      && value_address ((struct value *) val) == 0
-           && !(is_caps_hmpp_debugging() && cuda_focus_is_device())) /* Allinea: Don't do this check if in caps hmpp - its faking fortran, actual variable will be c */
+      && value_address ((struct value *) val) == 0)
     {
       fprintf_filtered (stream, "<not allocated>");
       return;

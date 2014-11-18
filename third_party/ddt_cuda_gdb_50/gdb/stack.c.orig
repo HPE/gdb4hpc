@@ -65,7 +65,7 @@
 #include "cp-support.h"
 #include "disasm.h"
 #include "inline-frame.h"
-#include "xml-source-to-source.h"
+
 #include "gdb_assert.h"
 #include <ctype.h>
 #include "gdb_string.h"
@@ -134,6 +134,11 @@ static int
 frame_show_address (struct frame_info *frame,
 		    struct symtab_and_line sal)
 {
+  if (backtrace_addresses == AUTO_BOOLEAN_TRUE)
+      return 1;
+  else if (backtrace_addresses == AUTO_BOOLEAN_FALSE)
+      return 0;
+
   /* If there is a line number, but no PC, then there is no location
      information associated with this sal.  The only way that should
      happen is for the call sites of inlined functions (SAL comes from
@@ -1722,11 +1727,6 @@ print_frame_local_vars (struct frame_info *frame, int num_tabs,
   cb_data.num_tabs = 4 * num_tabs;
   cb_data.stream = stream;
   cb_data.values_printed = 0;
-
-  if (is_caps_v32_symbols_enabled (block)) {
-    LONGEST scope = caps_v32_current_scope (block);
-    block = xml_source_to_source_block (scope, block);
-  }
 
   iterate_over_block_local_vars (block,
 				 do_print_variable_and_value,

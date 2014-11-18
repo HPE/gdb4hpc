@@ -195,9 +195,6 @@ enum type_flag_value
   TYPE_FLAG_MIN = TYPE_FLAG_UNSIGNED
 };
 
-#define TYPE_CAPS_HMPP_METADATA_CHECKED(t) (TYPE_INSTANCE_FLAGS(t) \
-                              & TYPE_INSTANCE_FLAG_CAPS_HMPP_METADATA_CHECKED)
-
 /* Some bits for the type's instance_flags word.  See the macros below
    for documentation on each bit.  Note that if you add a value here,
    you must update the enum type_flag_value as well.  */
@@ -226,12 +223,6 @@ enum type_instance_flag_value
   TYPE_INSTANCE_FLAG_CUDA_TEX = (1 << 17),
   TYPE_INSTANCE_FLAG_CUDA_LOCAL = (1 << 18),
   TYPE_INSTANCE_FLAG_CUDA_REG = (1 << 19),
-
-  /* Allinea - flag to test if a type has been checked to see if caps hmpp
-   * metadata is available. Used to avoid repeatedly checking for metadata
-   * for 'normal' variables that don't have such metadata */
-  TYPE_INSTANCE_FLAG_CAPS_HMPP_METADATA_CHECKED = (1 << 20)
-
 };
 
 /* Unsigned integer type.  If this is not set for a TYPE_CODE_INT, the

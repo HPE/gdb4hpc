@@ -90,9 +90,6 @@ static bool inferior_in_debug_mode = false;
 static char cuda_gdb_session_dir[CUDA_GDB_TMP_BUF_SIZE] = {0};
 static uint32_t cuda_gdb_session_id = 0;
 
-/* whether we are in a caps hmpp program */
-static bool caps_hmpp_debugging_enabled = false;
-
 /* For Mac OS X */
 bool cuda_platform_supports_tid (void)
 {
@@ -981,6 +978,8 @@ cuda_reg_to_regnum (struct gdbarch *gdbarch, reg_t reg)
 
   /* At this point, we know that the register is encoded as PTX register string */
   regmap = cuda_get_physical_register (reg_name);
+  if (regmap == NULL)
+      return -1;
   num_regs = regmap_get_num_entries (regmap);
 
   /* If we found a single SASS register, then we let cuda-gdb handle it
@@ -1560,10 +1559,6 @@ cuda_initialize_target ()
           cuda_initialize_driver_api_error_report ();
           cuda_initialize_driver_internal_error_report ();
         }
-
-      /* Allinea: Check for CAPS hmpp */
-      caps_hmpp_debugging_enabled = 0!=cuda_get_symbol_address("hmpprti::SymbolTable::SymbolTable()");
-
       set_language (prev_language);
     }
 
@@ -3036,9 +3031,3 @@ cuda_gdb_session_get_dir (void)
     return cuda_gdb_session_dir;
 }
 
-/* Allinea */
-bool
-is_caps_hmpp_debugging()
-{
-  return caps_hmpp_debugging_enabled;
-}

@@ -637,8 +637,6 @@ read_var_value_1 (struct symbol *var, struct frame_info *frame)
   return v;
 }
 
-void f_caps_fudge(struct symbol *var, struct frame_info *frame);
-
 struct value *
 read_var_value (struct symbol *var, struct frame_info *frame) 
 {
@@ -648,8 +646,6 @@ read_var_value (struct symbol *var, struct frame_info *frame)
      pushed upwards to the callers.  */
   if (frame == NULL)
     frame = deprecated_safe_get_selected_frame ();
-
-  f_caps_fudge(var, frame); 
 
   v = read_var_value_1 (var, frame);
   return f_fixup_value (v, frame);

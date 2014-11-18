@@ -377,6 +377,4 @@ extern int upc_sync_ok;
 extern int upc_thread_active;
 #define CLEAR_ALL_COLLECTIVE_BPS -1
 
-extern struct type* caps_hmpp_create_type_from_metadata(char* metadata_name, struct type *target_type);
-
 #endif /* GDBTHREAD_H */

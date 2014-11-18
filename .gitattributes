@@ -13495,7 +13495,6 @@ third_party/ddt_cuda_gdb_55/gdb/cuda-packet-manager.c -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-packet-manager.h -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-parser.exp.y -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-parser.h -text
-third_party/ddt_cuda_gdb_55/gdb/cuda-parser.lex.c -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-parser.lex.l -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-parser.tab.c -text
 third_party/ddt_cuda_gdb_55/gdb/cuda-parser.tab.h -text

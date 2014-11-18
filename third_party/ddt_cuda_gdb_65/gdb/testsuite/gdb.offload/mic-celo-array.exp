@@ -1,0 +1,76 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: evaluation and modification of a shared array
+
+load_lib "offload.exp"
+
+standard_testfile "msample06.c" "myo_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP1" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP1"
+
+# we don't check first array value, go to the next
+gdb_continue_to_breakpoint "BP1"
+gdb_test "p data\[i\]" "\\\$\\d+ = 1.0" "print member 1 of array data"
+
+# jump to the end of the array population
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP2" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP2"
+
+# check again for the second array
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP1" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP1"
+gdb_continue_to_breakpoint "BP2"
+
+gdb_test "p data\[i\]" "\\\$\\d+ = 2.0" "print member 2 of array data"
+
+# modify second element of the second array, then check the results
+# in the next offload, so we see if the changes propagate to the
+# host and back in MIC
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP2" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP2"
+gdb_test_no_output "set data\[1\]=41.0" "set data\[1\]=41.0"
+
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP3" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP3"
+
+gdb_test "p res\[1\]" "\\\$\\d+ = 42.0" "print member 1 of array res"
+gdb_test "p res\[2\]" "\\\$\\d+ = 6.0" "print member 2 of array res"
+
+gdb_exit
+offload_cleanup

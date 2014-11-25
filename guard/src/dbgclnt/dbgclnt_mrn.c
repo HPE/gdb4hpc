@@ -1202,7 +1202,8 @@ DbgMRNInvoke(
 	ap = NewArgv("-n", sn, NULL);
 #else
 	// we want the application to be silent when not in debug mode.
-	ap = NewArgv("--quiet", "-n", sn, NULL);
+	//ap = NewArgv("--quiet", "-n", sn, NULL);
+	ap = NewArgv("-n", sn, NULL);
 #endif /* DEBUG */
 
 	// add the launcher args if present

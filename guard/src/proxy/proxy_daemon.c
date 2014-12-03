@@ -314,13 +314,15 @@ SetupEnvironment(void)
 		exit(1);
 	}
 	
-	// get the cfg dir settings
+	// get the cfg dir settings - note that slurm can put us on an actual
+	// compute node, meaning that we might need to reset the cfg dir.
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
 		// Not found.
 		// Ideally we want to use TMPDIR or /tmp, the directory name should be 
 		// unique to the user.
-		
+
+reinit_directory:
 		// Check to see if TMPDIR is set
 		tmp_dir = getenv("TMPDIR");
 		
@@ -394,8 +396,8 @@ SetupEnvironment(void)
 		// Check to see if we can write to this directory
 		if (checkDirPerms(cfg_dir))
 		{
-			PrintOutError("Bad permissions on directory specified by env var %s. Aborting...\n", GUARD_CFG_DIRECTORY);
-			exit(1);
+			// fix for slurm
+			goto reinit_directory;
 		}
 		
 		// Lets create a unique directory just in case the user gave us some
@@ -1475,6 +1477,10 @@ PrintOutError(char *format, ...)
 {
 	va_list arg_list;
 	
+	// sanity
+	if (PROXY_SESSION_ERRORSTREAM(sess) == NULL)
+		return;
+	
 	va_start(arg_list, format);
 	
 	// vfprintf the line we recieved
@@ -1491,6 +1497,10 @@ void
 PrintOutMsg(char *format, ...)
 {
 	va_list arg_list;
+	
+	// sanity
+	if (PROXY_SESSION_MSGSTREAM(sess) == NULL)
+		return;
 	
 	va_start(arg_list, format);
 	

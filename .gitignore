@@ -1,6 +1,6 @@
-/alps_base
 /cray.rev
 /cscope.out
+/external
 guard/Makefile
 guard/autom4te.cache
 guard/config.h

@@ -77,7 +77,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 cuda_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/trunk-ari/working/latest/3rd-party/x86_64"
 cuda55_basename="cray-cudatoolkit-5.5"
 cuda65_basename="cray-cudatoolkit6.5-6.5"
-cuda_inc_path="opt/nvidia/cudatoolkit/*/include"
+cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in lgdb
 aif_directory_name="libaif"
@@ -1528,7 +1528,8 @@ if [[ $opt_cuda55_gdb == y ]]; then
 	fi
 	# change directories
 	cd $cuda55_gdb_src
-	echo -e "\nUsing cuda-gdb 55 source $cuda55_gdb_src.\n"
+	echo -e "\nUsing cuda-gdb 55 source $cuda55_gdb_src."
+	echo -e "Using cuda 55 headers in $cuda55_include_dir.\n"
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	echo -e "./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS=\"-I$cuda55_include_dir $opt_flag\" LDFLAGS=-lpthread\n"
@@ -1603,7 +1604,8 @@ if [[ $opt_cuda65_gdb == y ]]; then
 	fi
 	# change directories
 	cd $cuda65_gdb_src
-	echo -e "\nUsing cuda-gdb 65 source $cuda65_gdb_src.\n"
+	echo -e "\nUsing cuda-gdb 65 source $cuda65_gdb_src."
+	echo -e "Using cuda 65 headers in $cuda65_include_dir.\n"
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	echo -e "./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS=\"-I$cuda65_include_dir $opt_flag\" LDFLAGS=-lpthread\n"

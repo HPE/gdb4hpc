@@ -77,8 +77,8 @@
 enum cuda_vers
 {
 	CUDA_UNKNOWN,
-	CUDA_50,
-	CUDA_55
+	CUDA_55,
+	CUDA_65
 };
 typedef enum cuda_vers		cuda_vers;
 
@@ -1191,45 +1191,16 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				DVPRINT("Detected Nvidia driver %s\n", vers_str);
 				
 				// Now strcmp the driver version with a list of supported versions
-				if (!strncmp(vers_str, "319.91", 6))
+				// Note that according to Larry Tordsen the known driver mappings
+				// are:
+				// nvidia 319.* ==> CTK 5.5
+				// nvidia 340.* ==> CTK 6.5
+				if (strncmp(vers_str, "340", 3) == 0)
+				{
+					vers_num = CUDA_65;
+				} else if (strncmp(vers_str, "319", 3) == 0)
 				{
 					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "319.82", 6))
-				{
-					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "319.72", 6))
-				{
-					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "319.62", 6))
-				{
-					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "319.37", 6))
-				{
-					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "319.15", 6))
-				{
-					vers_num = CUDA_55;
-				} else if (!strncmp(vers_str, "304.47.05", 9))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.47.04", 9))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.47.01", 9))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.47", 6))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.37", 6))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.24", 6))
-				{
-					vers_num = CUDA_50;
-				} else if (!strncmp(vers_str, "304.08", 6))
-				{
-					vers_num = CUDA_UNKNOWN;
 				}
 				
 				// force tmpdir to /tmp if GPU mode is on.
@@ -1277,13 +1248,13 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				
 				switch (vers_num)
 				{
-					case CUDA_50:
-						DVPRINT("Using cuda50-gdb-guard\n");
-						MISessionSetGDBPath(GDBMISession, "cuda50-gdb-guard");
-						break;
 					case CUDA_55:
 						DVPRINT("Using cuda55-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda55-gdb-guard");
+						break;
+					case CUDA_65:
+						DVPRINT("Using cuda65-gdb-guard\n");
+						MISessionSetGDBPath(GDBMISession, "cuda65-gdb-guard");
 						break;
 					case CUDA_UNKNOWN:
 						DVPRINT("Unsupported driver version.\n");

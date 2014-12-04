@@ -23,26 +23,28 @@ Copyright (C) 2013 Free Software Foundation, Inc.
 License text appended to this file.
 
 
-The NVIDIA (R) CUDA Debugger - cuda-gdb-50
-------
-http://www.allinea.com/products/source-code
-GPLv3+: GNU General Public License v3.0 or later
-
-Copyright (C) 2010 Free Software Foundation, Inc.
-Portions Copyright (C) 2007-2013 NVIDIA Corporation
-Copyright (C) Allinea Software Ltd. 2013
-
-License text appended to this file.
-
-
 The NVIDIA (R) CUDA Debugger - cuda-gdb-55
 ------
 http://www.allinea.com/products/source-code
 GPLv3+: GNU General Public License v3.0 or later
 
+Portions Copyright (C) 2007-2013 NVIDIA Corporation
+GNU gdb (GDB) 7.2-4.2.2
+Modified by Allinea Software.
+Copyright (C) Allinea Software Ltd. 2014
 Copyright (C) 2010 Free Software Foundation, Inc.
-Portions Copyright (C) 2007-2012 NVIDIA Corporation
-Copyright (C) Allinea Software Ltd. 2013
+
+License text appended to this file.
+
+
+The NVIDIA (R) CUDA Debugger - cuda-gdb-65
+------
+http://www.allinea.com/products/source-code
+GPLv3+: GNU General Public License v3.0 or later
+
+Portions Copyright (C) 2007-2014 NVIDIA Corporation
+GNU gdb (GDB) 7.6.2-4.2.2
+Copyright (C) 2013 Free Software Foundation, Inc.
 
 License text appended to this file.
 

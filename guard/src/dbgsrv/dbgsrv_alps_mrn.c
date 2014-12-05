@@ -473,8 +473,9 @@ main(int argc, char **argv)
 			mypid = fork();
 		} else
 		{
-			DVPRINT("Done launching dbgsrv...\n");
-			DVPRINT("%d dbgsrv's launched in total.\n", i);
+			DVPRINT("Done forking dbgsrv...\n");
+			DVPRINT("%d dbgsrv's forked in total.\n", i);
+			DVPRINT("%d dbgsrv's launched in total.\n", i+1);
 			mypid = 1;
 		}
 		

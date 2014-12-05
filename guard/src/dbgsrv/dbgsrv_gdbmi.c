@@ -1115,11 +1115,9 @@ static dbgevent_t *
 DbgGDBMIInit(int *dfd, int *iofd, char **env)
 {
 	dbgevent_t *	e;
+	cuda_vers		vers_num = CUDA_UNKNOWN;
 	
 	DVPRINT("*** DbgGDBMIInit\n");
-	
-	
-	
 	
 	/**************DEBUG Start*****************/
     sigset_t debug_mask;
@@ -1161,7 +1159,6 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		// Need to determine the version of the driver to start the proper gdb
 		FILE *		vers;
 		char *		vers_str = NULL;
-		cuda_vers	vers_num = CUDA_UNKNOWN;
 		
 		// Open the driver version file, if this fails we are not on a gpu node
 		// and should default to using the regular gdb.
@@ -1270,18 +1267,21 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		MISessionSetGDBPath(GDBMISession, "gdb-guard");
 	}
 	
-	// set data-directory
-	char * manifestLibDir = cti_getLibDir();
-	char * gdbDataDir;
-	if (manifestLibDir == NULL)
+	// set data-directory if we are not using CUDA_55
+	if (vers_num != CUDA_55)
 	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
-		return e;
+		char * manifestLibDir = cti_getLibDir();
+		char * gdbDataDir;
+		if (manifestLibDir == NULL)
+		{
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
+			return e;
+		}
+		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
+		Free(manifestLibDir);
+		MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
+		Free(gdbDataDir);
 	}
-	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
-	Free(manifestLibDir);
-	MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
-	Free(gdbDataDir);
 	
 	// Ensure PYTHONSTARTUP isn't set
 	if (getenv("PYTHONSTARTUP") != NULL)
@@ -1320,6 +1320,33 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	// ALPS already forwards the stdout to the frontend for us.
 	*iofd = -1;
 #endif
+
+	// We need to set the data-directory here if we are using CUDA_55 using the old mechanism
+	if (vers_num == CUDA_55)
+	{
+		char * 		manifestLibDir = cti_getLibDir();
+		char * 		gdbDataDir;
+		MICommand *	cmd;
+		
+		if (manifestLibDir == NULL)
+		{
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
+			return e;
+		}
+		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
+		Free(manifestLibDir);
+		cmd = MIGDBSet("data-directory", gdbDataDir);
+		SendMICommand(GDBMISession, cmd);
+		if (!MICommandResultOK(cmd)) 
+		{
+			Free(gdbDataDir);
+			MICommandFree(cmd);
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set confirm command failed.");
+			return e;
+		}
+		Free(gdbDataDir);
+		MICommandFree(cmd);
+	}
 
 	Status = DBGSTAT_INITIALISING;
 

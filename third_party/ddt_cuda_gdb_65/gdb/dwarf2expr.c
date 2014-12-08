@@ -1083,6 +1083,7 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	  }
 
 	/* 3-7-12 andrewg@cray.com: Contributed by Cray Inc. */
+	/* 12-4-14 andrewg@cray.com: Contributed by Cray Inc. */
 	case DW_OP_xderef:
 	case DW_OP_xderef_size:
 	  {
@@ -1090,6 +1091,7 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	    gdb_byte *buf = alloca (addr_size);
 	    CORE_ADDR addr;
 	    ULONGEST addr_ident;
+	    struct type *type;
 
 	    /* Get the address from the stack */
 	    addr = dwarf_expr_fetch_address (ctx, 0);
@@ -1098,9 +1100,24 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	    /* Get the address space identifier from the stack */
 	    addr_ident = value_as_long (dwarf_expr_fetch (ctx, 0));
 	    dwarf_expr_pop (ctx);
+	    
+	    type = address_type;
 
 	    (ctx->funcs->read_mem_space) (ctx->baton, buf, addr_ident, addr, addr_size);
-	    result = extract_unsigned_integer (buf, addr_size, byte_order);
+	    
+	     /* If the size of the object read from memory is different
+	       from the type length, we need to zero-extend it.  */
+	    if (TYPE_LENGTH (type) != addr_size)
+	      {
+		ULONGEST result =
+		  extract_unsigned_integer (buf, addr_size, byte_order);
+
+		buf = alloca (TYPE_LENGTH (type));
+		store_unsigned_integer (buf, TYPE_LENGTH (type),
+					byte_order, result);
+	      }
+	    
+	    result_val = value_from_contents_and_address (type, buf, TYPE_LENGTH (type), addr);
 	    break;
 	  }
 

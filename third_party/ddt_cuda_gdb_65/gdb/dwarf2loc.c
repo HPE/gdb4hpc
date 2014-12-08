@@ -369,14 +369,14 @@ dwarf_expr_read_mem (void *baton, gdb_byte *buf, CORE_ADDR addr, size_t len)
 }
 
 /* 3-7-12 andrewg@cray.com: Contributed by Cray Inc. */
+/* 12-4-14 andrewg@cray.com: Contributed by Cray Inc. */
 /* Read memory at ADDR (length LEN) for address class addr_space into BUF.  */
 static void
 dwarf_expr_read_mem_space (void *baton, gdb_byte *buf, ULONGEST addr_space,
 			 CORE_ADDR addr, size_t len)
 {
   /* FIXME: andrewg@cray.com: Note that so far we only know about CUDA 
-     architectures that implement the concept of seperate address spaces. This 
-     is probably a flawed way of doing things...  */
+     architectures that implement the concept of seperate address spaces. */
   struct dwarf_expr_baton *debaton = (struct dwarf_expr_baton *) baton;
   struct gdbarch *gdbarch = get_frame_arch (debaton->frame);
 
@@ -384,34 +384,24 @@ dwarf_expr_read_mem_space (void *baton, gdb_byte *buf, ULONGEST addr_space,
     {
       struct type *data_ptr_type;
       int instance_flags = 0;
-
+      
       data_ptr_type = builtin_type (gdbarch)->builtin_data_ptr;
       data_ptr_type->length = len;
-      /* We need to set the TYPE_INSTANCE_FLAGS for the requested address
-         class so that the cuda_read_memory_partial function can call the
-         correct cuda_api_read_* function.  */
       instance_flags = TYPE_INSTANCE_FLAGS (data_ptr_type);
       instance_flags &= ~TYPE_INSTANCE_FLAG_ADDRESS_CLASS_ALL;
-      /* Assume that the addr_space identifier cooresponds to either byte_size
-         or the addr_class depending on the arch. 
-         FIXME: andrewg@cray.com: This assumes that the target architecture 
-         doesn't use both byte_size and addr_class to define a address class. */
-      instance_flags |= gdbarch_address_class_type_flags (gdbarch, addr_space, 
+      instance_flags |= gdbarch_address_class_type_flags (gdbarch, len, 
       											addr_space);
       TYPE_INSTANCE_FLAGS (data_ptr_type) = instance_flags;
-
-      /* FIXME: andrewg@cray.com: At this point things are borked. We should be
-         calling the gdbarch_integer_to_address function to convert the addr to
-         its proper address based on the instance_flags of the type, and then we
-         should be calling the read_memory function for the target after that.
-         Since we do not handle reading memory in the target layer for cuda, we
-         need to call cuda_read_memory_partial here. This breaks other 
-         architectures that might be using this function.  */
-      cuda_read_memory_partial (addr, buf, len, data_ptr_type);
+      
+      if (cuda_is_cuda_gdbarch (gdbarch))
+        cuda_read_memory_partial (addr, buf, len, data_ptr_type);
+      else
+        error (_("dwarf_expr_read_mem_space not supported for target architecture."));
+        
       return;
     }
 
-  read_memory (addr, buf, len);
+  error (_("dwarf_expr_read_mem_space not supported for target architecture."));
 }
 
 /* Using the frame specified in BATON, find the location expression

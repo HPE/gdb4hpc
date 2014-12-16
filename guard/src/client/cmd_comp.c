@@ -197,8 +197,8 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 			
 			// XXX: Note that for the PrintMsgWithSetInfo command we don't want to use the handle in the set,
 			//      since that is not really a valid representation of what we are looking at. What we have is a delta
-			//      between the two sets, and since a di needed to be set the reply, it just arbitrarily chose the first
-			//      one. This is a flaw and someday should be fixed. For now just use the string ""
+			//      between the two sets, and since a di was needed to be set in the reply, it just arbitrarily chose the
+			//      first one. This is a flaw and someday should be fixed. For now just use the string ""
 			
 			// print the result summary
 			if (true_bitset != NULL)

@@ -74,8 +74,9 @@ PrintVal(val_t *val, rec_set_t *rec_set)
 		SetReplyHeadInSet(rep_set);
 		while((reply = GetNextReplyInSet(rep_set)) != NULL)
 		{
-			// Print the set info
-			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, NULL);
+			// Print the set info - Note that the rep_di can be null here if the reply set was the result of an operation on
+			// two different sets.
+			PrintMsgWithSetInfo(((reply->rep_di == NULL) ? "" : reply->rep_di->d_handle), reply->rep_group, NULL);
 			
 			// Print the AIF value
 			// AIFPrint doesn't play nice with editline...

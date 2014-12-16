@@ -2121,7 +2121,11 @@ apply_op_aif_direct:
 								// Make a new event out of the AIF data
 								ev = NewEvent(DBGEV_DATA);
 								ev->ev_data = aif_res;
-								new_reply = NewGroupReply(reply->rep_di, tset, ev);
+								// XXX: Note that we don't want to use the handle in the set, since that is not really a valid 
+								//		representation of what we are looking at. What we have is a delta between the two sets,
+								//		and since a di was needed to be set in the reply, it just arbitrarily chose the
+								//      first one. Now we set the di to NULL and ensure the print routines can handle it.
+								new_reply = NewGroupReply(NULL, tset, ev);
 								AddReplyToSet(new_rep_set, new_reply);
 								
 								// Check the aif_diff
@@ -2129,7 +2133,7 @@ apply_op_aif_direct:
 								{
 									ev = NewEvent(DBGEV_DATA);
 									ev->ev_data = aif_diff;
-									new_reply = NewGroupReply(reply->rep_di, bitset_dup(tset), ev);
+									new_reply = NewGroupReply(NULL, bitset_dup(tset), ev);
 									AddReplyToSet(diff_rep_set, new_reply);
 								}
 							}

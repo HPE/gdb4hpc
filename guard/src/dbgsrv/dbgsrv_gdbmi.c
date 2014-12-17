@@ -1270,11 +1270,11 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	// set data-directory if we are not using CUDA_55
 	if (vers_num != CUDA_55)
 	{
-		char * manifestLibDir = cti_getLibDir();
+		char * manifestLibDir = cti_be_getLibDir();
 		char * gdbDataDir;
 		if (manifestLibDir == NULL)
 		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
 			return e;
 		}
 		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
@@ -1324,13 +1324,13 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	// We need to set the data-directory here if we are using CUDA_55 using the old mechanism
 	if (vers_num == CUDA_55)
 	{
-		char * 		manifestLibDir = cti_getLibDir();
+		char * 		manifestLibDir = cti_be_getLibDir();
 		char * 		gdbDataDir;
 		MICommand *	cmd;
 		
 		if (manifestLibDir == NULL)
 		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_getLibDir failed.");
+			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
 			return e;
 		}
 		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);

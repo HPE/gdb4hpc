@@ -98,8 +98,8 @@ libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
 libcraytool_backend_dso="libcraytools_be.so"
-libcraytool_backend_major="libcraytools_be.so.6"
-libcraytool_backend_minor="libcraytools_be.so.6.0.0"
+libcraytool_backend_major="libcraytools_be.so.7"
+libcraytool_backend_minor="libcraytools_be.so.7.0.0"
 
 libcraytool_frontend_dso="libcraytools_fe.so"
 libcraytool_frontend_major="libcraytools_fe.so.6"

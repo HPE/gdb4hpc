@@ -151,9 +151,8 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	char *	be_argv[6];
 	unsigned par_port, par_rank;
 	unsigned my_mrnrank;
-
-	//gethostname(hostname, MAXPATHLEN);
-	if ((hostname = cti_getNodeHostname()) == NULL)
+	
+	if ((hostname = cti_be_getNodeHostname()) == NULL)
 	{
 		fprintf(stderr, "DbgSRVMRNInitProto cannot get hostname\n");
 		++Shutdown;

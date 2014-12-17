@@ -248,9 +248,9 @@ main(int argc, char **argv)
 	if (debug_flag)
 	{
 		// get this nodes nidName
-		if ((nidName = cti_getNodeHostname()) == NULL)
+		if ((nidName = cti_be_getNodeHostname()) == NULL)
 		{
-			fprintf(stderr, "cti_getNodeHostname failed.\n");
+			fprintf(stderr, "cti_be_getNodeHostname failed.\n");
 			return 1;
 		}
 		DVPRINT("My nidName: %s\n", nidName);
@@ -373,7 +373,7 @@ main(int argc, char **argv)
 #endif
 	
 	// get the app pids for this node
-	if ((myPids = cti_findAppPids()) == NULL)
+	if ((myPids = cti_be_findAppPids()) == NULL)
 	{
 		fprintf(stderr, "findAppPids failed.\n");
 		return 1;
@@ -487,7 +487,7 @@ main(int argc, char **argv)
 			FreeArgv(this_argv);
 			
 			// cleanup pid list
-			cti_destroyPidList(myPids);
+			cti_be_destroyPidList(myPids);
 
 			if (debug_flag)
 			{
@@ -560,7 +560,7 @@ main(int argc, char **argv)
 	}
 	
 	// cleanup pid list
-	cti_destroyPidList(myPids);
+	cti_be_destroyPidList(myPids);
 	
 	return 1;
 }

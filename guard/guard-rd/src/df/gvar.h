@@ -35,6 +35,7 @@
 #define GRAPH_OUTPUT				"Output"
 #define GRAPH_LOGGING				"Logging"
 #define GRAPH_LOGFILE				"Log File"
+#define GRAPH_DFBLOCK				"DF Block"
 #define GRAPH_DFMODE				"DF Mode"
 #define GRAPH_REDUCE				"Reduce"
 #define GRAPH_HASH_LOWER 		"Lower hashing precision"

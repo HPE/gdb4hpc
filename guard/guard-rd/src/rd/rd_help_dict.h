@@ -58,6 +58,7 @@ extern const char *class_maint_subcmd_dump_help[];
 /*
  * Class set subcommands
  */
+extern const char *class_set_subcmd_dfblock_help[];
 extern const char *class_set_subcmd_dfmode_help[];
 extern const char *class_set_subcmd_display_help[];
 extern const char *class_set_subcmd_force_help[];
@@ -72,6 +73,7 @@ extern const char *class_set_subcmd_p2p_help[];
 /*
  * Class show subcommands
  */
+extern const char *class_show_subcmd_dfblock_help[];
 extern const char *class_show_subcmd_dfmode_help[];
 extern const char *class_show_subcmd_display_help[];
 extern const char *class_show_subcmd_force_help[];

@@ -373,6 +373,22 @@ const char *class_maint_subcmd_dump_help[] = {
 /*
  * Class set subcommands
  */
+ 
+const char *class_set_subcmd_dfblock_help[] = {
+	"Summary: Dataflow command blocking mode.",
+	"Usage: set dfblock [on|off]",
+	"Example command: set dfblock on",
+	"",
+	"Scope: Assertion script",
+	"Default setting: off",
+	"Arguments: on or off",
+	"",
+	"Description:",
+	"Set the dataflow command blocking mode to on or off. If on, commands will not",
+	"be allowed to be entered until after the assertion script finishes execution.",
+	"There is no way to interrupt an executing assertion script when on. The default",
+	"setting is off.",
+	0};
 
 const char *class_set_subcmd_dfmode_help[] = {
 	"Summary: Dataflow processing mode.",
@@ -546,6 +562,16 @@ const char *class_set_subcmd_p2p_help[] = {
 /*
  * Class show subcommands
  */
+
+const char *class_show_subcmd_dfblock_help[] = {
+	"Summary: Assertion script command blocking setting.",
+	"",
+	"Description:",
+	"Display the current assertion script command blocking mode setting. If on,",
+	"commands will not be allowed to be entered until after the assertion script",
+	"finishes execution. There is no way to interrupt an executing assertion script",
+	"when on. The default setting is off.",
+	0};
 
 const char *class_show_subcmd_dfmode_help[] = {
 	"Summary: Assertion script processing setting.",

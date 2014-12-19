@@ -58,6 +58,7 @@ InitGraphVars(void)
 	SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&one);
 	SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&zero);
 	SetGraphVar(GRAPH_LOGFILE, VAR_STRING, (void *)"");
+	SetGraphVar(GRAPH_DFBLOCK, VAR_INT, (void *)&zero);
 	i = DF_DEFAULT;
 	SetGraphVar(GRAPH_DFMODE, VAR_INT, (void *)&i);
 	SetGraphVar(GRAPH_DISPLAY, VAR_STRING, (void *)"text");

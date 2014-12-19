@@ -711,6 +711,42 @@ class_set_subcmd_logfile_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 static int
+class_set_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	char *		s;
+	int			b;
+	ct_val		cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Not enough command arguments.\n");
+		PrintOutError("Expected: set dfblock [on|off]\n");
+		return 0;
+	}
+	
+	// only look at the first arg
+	s = argv[1];
+
+	switch ( ScanString(&cv, &s) )
+	{
+		case CT_TRUE:
+			b = 1;
+			break;
+		case CT_FALSE:
+			b = 0;
+			break;
+		default:
+			PrintOutError("Encountered something other than on or off.\n");
+			PrintOutError("See \"help set dfblock\" for more information.\n");
+			return 0;
+	}
+
+	SetGraphVar(GRAPH_DFBLOCK, VAR_INT, (void *)&b);
+
+	return 1;
+}
+
+static int
 class_set_subcmd_dfmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
@@ -901,6 +937,18 @@ class_show_subcmd_logfile_cmd(rec_set_t *rec_set, int argc, char **argv)
 		PrintOutMsg("Assertion script event logging filename: %s\n", s);
 	else
 		PrintOutMsg("Assertion script event logging filename has not been set.\n");
+
+	return 1;
+}
+
+static int
+class_show_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	int	block;
+
+	GetGraphVar(GRAPH_DFBLOCK, &block);
+
+	PrintOutMsg("Assertion script dataflow command blocking: %s\n", block ? "on" : "off");
 
 	return 1;
 }
@@ -1589,6 +1637,8 @@ InitCmd_graph(void)
 		class_set_subcmd_logging_help, "Enable/disable logging.");
 	AddSetCommand("logfile", proc_ignore, 0, class_set_subcmd_logfile_cmd,
 		class_set_subcmd_logfile_help, "Set log file name.");
+	AddSetCommand("dfblock", proc_ignore, 0, class_set_subcmd_dfblock_cmd,
+		class_set_subcmd_dfblock_help, "Set dataflow command blocking.");
 	AddSetCommand("dfmode", proc_ignore, 0, class_set_subcmd_dfmode_cmd,
 		class_set_subcmd_dfmode_help, "Set dataflow mode.");
 	AddSetCommand("reduce", proc_ignore, 0, class_set_subcmd_reduce_cmd,
@@ -1615,6 +1665,8 @@ InitCmd_graph(void)
 		class_show_subcmd_logging_help, "Show logging status.");
 	AddShowCommand("logfile", proc_ignore, 0, class_show_subcmd_logfile_cmd,
 		class_show_subcmd_logfile_help, "Show log file name.");
+	AddShowCommand("dfblock", proc_ignore, 0, class_show_subcmd_dfblock_cmd,
+		class_show_subcmd_dfblock_help, "Show dataflow command blocking.");
 	AddShowCommand("dfmode", proc_ignore, 0, class_show_subcmd_dfmode_cmd,
 		class_show_subcmd_dfmode_help, "Show dataflow mode.");
 	AddShowCommand("reduce", proc_ignore, 0, class_show_subcmd_reduce_cmd,

@@ -76,8 +76,7 @@ void
 StartDF(graph_t *g)
 {
 	dbginvoke_t *	di;
-
-	ResetGraph(g);
+	int				block = 0;
 	
 	// ensure only one graph is active at a time
 	if (_active_graph != NULL)
@@ -85,6 +84,13 @@ StartDF(graph_t *g)
 		DFErrMsg("ERROR: Graph %s is already active! Stop the active graph or wait for completion.\n", _active_graph->g_valname);
 		return;
 	}
+	
+	// get the value of the dfblock, if this is true, we need to mask input
+	GetGraphVar(GRAPH_DFBLOCK, &block);
+	if (block)
+		DbgMaskInput();
+	
+	ResetGraph(g);
 	
 	/*
 	** Set event and i/o handlers
@@ -246,6 +252,7 @@ void
 EndDF(graph_t *g)
 {
 	int				halt, id;
+	int				block = 0;
 	dbginvoke_t *	di;
 	
 	DPERFLOG(SetTimerStopAndLog("Graph total"));
@@ -386,6 +393,12 @@ EndDF(graph_t *g)
 			FreeRecSet(rec_set);
 		}
 	}
+	
+	// get the value of the dfblock, if this is true, we need to unmask input
+	// since we are done with the graph
+	GetGraphVar(GRAPH_DFBLOCK, &block);
+	if (block)
+		DbgUnmaskInput();
 }
 
 /*

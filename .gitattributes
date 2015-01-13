@@ -32726,7 +32726,6 @@ third_party/gdb_uda/uda-server-plugin.h -text
 third_party/gdb_uda/uda-server.c -text
 third_party/gdb_uda/uda-server.h -text
 third_party/gdb_uda/uda-types.h -text
-third_party/lgdb_mrnet_commnode_wrapper -text
 third_party/libarchive/CMakeLists.txt -text
 third_party/libarchive/COPYING -text
 third_party/libarchive/INSTALL -text

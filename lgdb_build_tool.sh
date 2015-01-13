@@ -3,7 +3,7 @@
 # lgdb build tool
 # A bootstrap script to automagically build guard and all of its dependencies
 #
-# Copyright 2010-2014 Cray Inc.  All Rights Reserved.
+# Copyright 2010-2015 Cray Inc.  All Rights Reserved.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -1052,8 +1052,6 @@ fi
 echo -e "Starting MRNet install.\n"
 # Deliver the mrnet binaries
 copy_file "${dep_bindir}/mrnet_commnode" $libexecdir "MRNet"
-# Deliver the commnode wrapper
-copy_file "${thirdparty_dir}/lgdb_mrnet_commnode_wrapper" $libexecdir "MRNet"
 # Deliver the mrnet dso's to libdir 
 copy_file "${dep_libdir}/${libmrnet_minor}" $libdir "MRNet"
 if [[ $? == 0 ]]; then

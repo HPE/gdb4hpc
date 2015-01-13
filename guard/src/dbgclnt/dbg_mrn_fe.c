@@ -303,7 +303,7 @@ mrn_fe_launch(char *topology, char *backend_exe, char *backend_args[])
 */
 #ifdef ALPS
 mrnet_type *
-mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **p_topology, int apid)
+mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **p_topology, int ctiAppid, int ctiMid)
 {
 	MRNet_Network *network = NULL;
 	int rtn;
@@ -314,11 +314,11 @@ mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **p_topology, in
 		return NULL;
 	}
 
-	network = network_create_FE_with_apid(topology_file, apid);
+	network = network_create_FE_with_cti(topology_file, ctiAppid, ctiMid);
 
-	if( network_has_error(network) ) 
+	if( network_has_error(network) )
 	{
-		network_print_error(network, "ERROR: mrn_fe_create_network_no_be failed to create MRNet network!\n");
+		PrintOutError("ERROR: mrn_fe_create_network_no_be failed to create MRNet network!\n");
 		return NULL;
 	}
 	
@@ -327,7 +327,7 @@ mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **p_topology, in
 	
 	if (rtn)
 	{
-		network_print_error(network, "ERROR: mrn_fe_create_network_no_be failed to enable event callbacks!\n");
+		PrintOutError("ERROR: mrn_fe_create_network_no_be failed to enable event callbacks!\n");
 		network_delete(network);
 		return NULL;
 	}

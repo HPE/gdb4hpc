@@ -47,7 +47,7 @@ extern mrnet_type * 	mrn_fe_launch(char *topology, char *backend_exe, char *back
 
 /* launch MRNet fontend and attach backend. Currently, it is only available for ALPS */
 #ifdef ALPS
-extern mrnet_type * 	mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **ptopology, int apid);
+extern mrnet_type * 	mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **ptopology, int ctiAppid, int ctiMid);
 #else
 extern mrnet_type * 	mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **ptopology);
 #endif

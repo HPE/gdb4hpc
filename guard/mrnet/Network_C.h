@@ -33,9 +33,7 @@ extern "C"
 // create mrnet network front end
 MRNet_Network* network_create_FE(char * itopology, char * ibackend_exe, char **ibackend_argv);
 
-//#ifdef ALPS
-MRNet_Network* network_create_FE_with_apid(char * itopology, int apid);
-//#endif /* ALPS */
+MRNet_Network* network_create_FE_with_cti(char * itopology, int ctiAppid, int ctiMid);
 
 // create mrnet network back end
 MRNet_Network* network_create_BE( int argc, char **argv );

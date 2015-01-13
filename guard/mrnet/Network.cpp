@@ -88,15 +88,18 @@ extern "C" MRNet_Network* network_create_FE(char * itopology, char * ibackend_ex
 }
 
 /*
-* This is just for MRNet attaching. 
-* Spedifying apid makes MRNet XT co-locate the tree with debugging application/dbgsrvs. 
+* MRNet now uses the CTI interface to launch the CP processes.
 */
-extern "C" MRNet_Network* network_create_FE_with_apid(char * itopology, int apid)
+extern "C" MRNet_Network* network_create_FE_with_cti(char * itopology, int ctiAppid, int ctiMid)
 {
-	std::map<std::string, std::string> mrnet_attrs;	
-	std::ostringstream apidStr;
-	apidStr << apid;
-	mrnet_attrs.insert(std::make_pair("apid", apidStr.str()));
+	std::map<std::string, std::string> mrnet_attrs;
+	std::ostringstream appidStr;
+	std::ostringstream midStr;
+	
+	appidStr << ctiAppid;
+	midStr << ctiMid;
+	mrnet_attrs.insert(std::make_pair("CRAY_CTI_APPID", appidStr.str()));
+	mrnet_attrs.insert(std::make_pair("CRAY_CTI_MID", midStr.str()));
 
 	Network *network = Network::CreateNetworkFE(itopology, NULL, NULL, &mrnet_attrs);
 

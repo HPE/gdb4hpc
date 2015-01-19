@@ -913,7 +913,6 @@ DbgMRNInvoke(
 	char **				machine_hosts = NULL;
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
-	int					redirectInput = 0;
 	char * 				env_lib_dir;
 	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
@@ -1016,13 +1015,6 @@ DbgMRNInvoke(
 		di->d_proto_outp_callback = DbgDispatchProtoOutput;
 	}
 	
-	// check to see if arch_input is null, if not we need to try and redirect
-	// the application launcher stdin to it.
-	if ( arch_input != (char *)NULL )
-	{
-		redirectInput = 1;
-	}
-	
 	// Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate 
 	// CTI environment variables for the application.
 	if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL)
@@ -1043,7 +1035,7 @@ DbgMRNInvoke(
 
 	// launch the application using the tool interface
 	// Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-	if ((di->d_appid = cti_launchAppBarrier((const char * const *)ap, 1, redirectInput, prog_outp, prog_outp, arch_input, cwd, (const char * const *)env)) == 0)
+	if ((di->d_appid = cti_launchAppBarrier((const char * const *)ap, prog_outp, prog_outp, arch_input, cwd, (const char * const *)env)) == 0)
 	{
 		int 	n=0, r;
 		char *	read_buf;

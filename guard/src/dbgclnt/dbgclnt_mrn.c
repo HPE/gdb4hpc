@@ -1519,6 +1519,7 @@ invoke_error:
 	if (di->d_appid != 0)
 	{
 		cti_killApp(di->d_appid, SIGKILL);
+		cti_deregisterApp(di->d_appid);
 		di->d_appid = 0;
 	}
 	
@@ -1784,10 +1785,11 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 			PrintOutError("Failed to kill application process!\n");
 			return -1;
 		}
-	} else
-	{
-		cti_deregisterApp(di->d_appid);
 	}
+	
+	cti_deregisterApp(di->d_appid);
+	
+	di->d_appid = 0;
 #endif
 
 	// Destroy the program output object

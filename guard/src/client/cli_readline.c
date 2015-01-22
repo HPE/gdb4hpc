@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_readline.c - External readline CLI routines.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * © 2011-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -123,13 +123,13 @@ cli_readline_init(cli_stream_t ** stream)
 	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/lgdb_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
 	} else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/lgdb_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
 	}
@@ -171,14 +171,14 @@ cli_readline_destroy(cli_stream_t ** stream)
 	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/lgdb_history", config_loc);
 		write_history(histfile);
 		Free(histfile);
 	}
 	else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/.lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/lgdb_history", config_loc);
 		write_history(histfile);
 		Free(histfile);
 	}

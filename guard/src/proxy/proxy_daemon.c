@@ -1,7 +1,7 @@
 /******************************************************************************\
  * proxy_daemon.c - Debugger proxy daemon
  *
- * © 2013-2014 Cray Inc.  All Rights Reserved.
+ * © 2013-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -273,11 +273,10 @@ SetupEnvironment(void)
 	char *				inst_base;
 	char *				lib_dir;
 	char *				libexec_dir;
-	struct passwd *		pw;
 	char *				cfg_dir;
-	char *				tmp_dir;
 	char *				cti_ld_val_path;
 	char *				env_lib_dir;
+	char *				home_dir;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
@@ -307,91 +306,43 @@ SetupEnvironment(void)
 		setenv(GUARD_INST_DIRECTORY, inst_base, 1);
 	}
 	
-	// Get the pw info, this is used in the unique name part of cfg directories
-	if ((pw = getpwuid(getuid())) == NULL)
-	{
-		PrintOutError("getpwuid() failed. Aborting...\n");
-		exit(1);
-	}
-	
 	// get the cfg dir settings - note that slurm can put us on an actual
 	// compute node, meaning that we might need to reset the cfg dir.
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
 	{
 		// Not found.
-		// Ideally we want to use TMPDIR or /tmp, the directory name should be 
-		// unique to the user.
-
-reinit_directory:
-		// Check to see if TMPDIR is set
-		tmp_dir = getenv("TMPDIR");
+		// We now want to use $HOME since this will contain guard only files
+		// like editline history files.
 		
-		// check if can write to tmp_dir
-		if (checkDirPerms(tmp_dir))
+reinit_directory:
+		
+		if ((home_dir = getenv("HOME")) == NULL)
 		{
-			// We couldn't write to tmp_dir, so lets try using /tmp
-			if (checkDirPerms("/tmp"))
-			{
-				// We couldn't write to /tmp, so lets use the home directory
-				char *home_dir;
-				
-				if ((home_dir = getenv("HOME")) == NULL)
-				{
-					PrintOutError("Could not read $HOME. Aborting...\n");
-					exit(1);
-				}
-				
-				// Check if we can write to HOME
-				if (checkDirPerms(home_dir))
-				{
-					// We have no where to create a temporary directory...
-					PrintOutError("No write permission for $HOME. Aborting...\n");
-					exit(1);
-				}
-				
-				// Create the directory name string
-				Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
-				
-				DPRINT("Using %s as proxy staging area.\n", cfg_dir);
-				
-				// Setup/create this directory
-				setupCfgDir(cfg_dir);
-				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
-				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
-				Free(cfg_dir);
-			} else
-			{
-				// We can write to /tmp, so lets use that
-				
-				// Create the directory name string
-				Asprintf(&cfg_dir, "/tmp/.cray_lgdb-%s", pw->pw_name);
-				
-				DPRINT("Using %s as proxy staging area.\n", cfg_dir);
-				
-				// Setup/create this directory
-				setupCfgDir(cfg_dir);
-				setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
-				setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
-				Free(cfg_dir);
-			}
-		} else
-		{
-			// We can write to TMPDIR, so lets use that
-			
-			// Create the directory name string
-			Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
-			
-			DPRINT("Using %s as proxy staging area.\n", cfg_dir);
-			
-			// Setup/create this directory
-			setupCfgDir(cfg_dir);
-			setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
-			setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
-			Free(cfg_dir);
+			PrintOutError("Could not read $HOME. Aborting...\n");
+			exit(1);
 		}
+		
+		// Check if we can write to HOME
+		if (checkDirPerms(home_dir))
+		{
+			// We have no where to create a temporary directory...
+			PrintOutError("No write permission for $HOME. Aborting...\n");
+			exit(1);
+		}
+		
+		// Create the directory name string
+		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		
+		// Setup/create this directory
+		setupCfgDir(cfg_dir);
+		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
+		Free(cfg_dir);
+		
 	} else
 	{
 		// The user set GUARD_CFG_DIRECTORY, so we *ALWAYS* want to use that
+		struct passwd *		pw;
+		char *				tmp_dir;
 		
 		// Check to see if we can write to this directory
 		if (checkDirPerms(cfg_dir))
@@ -402,6 +353,14 @@ reinit_directory:
 		
 		// Lets create a unique directory just in case the user gave us some
 		// weird location that others can access
+		
+		// Get the pw info, this is used in the unique name part of cfg directories
+		if ((pw = getpwuid(getuid())) == NULL)
+		{
+			PrintOutError("getpwuid() failed. Aborting...\n");
+			exit(1);
+		}
+	
 		tmp_dir = cfg_dir;
 		cfg_dir = NULL;
 		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
@@ -411,19 +370,17 @@ reinit_directory:
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
-		setenv(CTI_CFG_DIR_ENV_VAR, cfg_dir, 1);
 		Free(cfg_dir);
 	}
 	
-	// set the ld_val path for the cti
-	setenv(CTI_LIBAUDIT_ENV_VAR, cti_ld_val_path, 1);
+	// set the base dir for CTI
+	setenv(CTI_BASE_DIR_ENV_VAR, inst_base, 1);
 	
 	// set the gdb_path for the cti
 	setenv(CTI_GDB_LOC_ENV_VAR, "gdb-guard", 1);
 	
 	Free(lib_dir);
 	Free(libexec_dir);
-	Free(cti_ld_val_path);
 	Free(inst_base);
 }
 

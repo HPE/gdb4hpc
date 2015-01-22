@@ -1292,13 +1292,10 @@ AIF *
 ArrayToAIF(int rank, int *min, int *max, char *data, int len, char *btype)
 {
 	int	i;
-	int	bsize;
 	AIF *	a;
 	char *	itype; /* index type */
 	char *	rtype; /* range type */
 	char *	fds=NULL;
-
-	bsize = FDSTypeSize(btype);
 
 	a = NewAIF(0, len);
 
@@ -1446,13 +1443,10 @@ AIF *
 FtnArrayToAIF(int rank, int *min, int *max, char *data, int len, char *btype)
 {
 	int	i;
-	int	bsize;
 	AIF *	a;
 	char *	itype; /* index type */
 	char *	rtype; /* range type */
 	char *	fds=NULL;
-
-	bsize = FDSTypeSize(btype);
 
 	a = NewAIF(0, len);
 

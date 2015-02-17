@@ -1034,9 +1034,9 @@ if [[ $opt_mrnet == y ]]; then
 	# deliver the boost headers included with mrnet source if not done already
 	# we don't want to error on failure to copy, so we do things in place here
 	if [[ ! -d $dep_includedir/boost ]]; then
-		if [[ -d $mrnet_src/include/boost ]]; then
+		if [[ -d $mrnet_src/external/boost/include/boost ]]; then
 			echo "Delivering boost headers to $dep_includedir..."
-			cp -r $mrnet_src/include/boost $dep_includedir
+			cp -r $mrnet_src/external/boost/include/boost $dep_includedir
 		else
 			echo "WARNING: Could not find the boost include files. Build may be incomplete."
 			echo "The system is probably already providing these for free."

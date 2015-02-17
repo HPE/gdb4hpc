@@ -68,15 +68,6 @@ token_t *	binop_aif(graph_t *, node_t *, arith_op, char *, AIF *, char *, AIF *)
 
 int socket_on=0;
 
-/*
-** Clean up on exit.
-*/
-static void
-Cleanup(int status)
-{
-	ExitDF();
-}
-
 /*************************************************************
 **************************************************************
 **															**
@@ -2664,10 +2655,6 @@ NodeDbgInit(graph_t *g, node_t *n)
 	token_t	*	t;
 
 	t = GetTokenFromInput(n, 0);
-
-	DbgHandleSignal(SIGINT, Cleanup);
-	DbgHandleSignal(SIGTERM, Cleanup);
-	DbgHandleSignal(SIGHUP, Cleanup);
 
 	return DupToken(t);
 }

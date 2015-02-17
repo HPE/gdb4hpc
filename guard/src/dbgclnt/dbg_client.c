@@ -109,7 +109,7 @@ static int				CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
 static proto_session *	DbgCurrSess;
 static list_t *			DbgInvokeList;
 static list_t *			DbgSigList;
-static list_t *			DbgMaskedSigList;
+static list_t *			DbgUnblockableSigList;
 static fd_set			dispatch_fds;
 static int				high_fd;
 static inpcb_t			InputCB;
@@ -138,7 +138,6 @@ HoldSignals(void)
 	if ( !EmptyList(DbgSigList) )
 	{
 		SetList(DbgSigList);
-
 		while ( (sig = (int *) GetListElement(DbgSigList)) != (int *)NULL )
 			sigaddset(&mask, *sig);
 
@@ -153,8 +152,6 @@ void
 ReleaseSignals(void)
 {
 	int *		sig;
-	int *		masked_sig;
-	int			found = 0;
 	sigset_t	mask;
 
 	// initialize data
@@ -163,25 +160,9 @@ ReleaseSignals(void)
 	if ( !EmptyList(DbgSigList) )
 	{
 		SetList(DbgSigList);
-
 		while ( (sig = (int *) GetListElement(DbgSigList)) != (int *)NULL )
-		{
-			// If the signal is currently masked by a call to DbgMaskSignal,
-			// WE DON'T WANT TO UNMASK IT!!!!!
-			if ( !EmptyList(DbgMaskedSigList) )
-			{
-				SetList(DbgMaskedSigList);
-				
-				while ( (masked_sig = (int *) GetListElement(DbgMaskedSigList)) != (int *)NULL )
-				{
-					if (*sig == *masked_sig)
-						found = 1;
-				}
-			}
-			if (!found)
-				sigaddset(&mask, *sig);
-		}
-
+			sigaddset(&mask, *sig);
+		
 		sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 	}
 }
@@ -1843,42 +1824,13 @@ DbgUnmaskInput(void)
 	pthread_mutex_unlock(&InputCB.i_lock);
 }
 
-void
-DbgMaskSignal(int sig)
-{
-	int *		l_sig;
-	sigset_t	mask;
-
-	sigemptyset(&mask);
-	sigaddset(&mask, sig);
-	sigprocmask(SIG_BLOCK, &mask, (sigset_t *)NULL);
-	
-	// We want to block the signal before adding it to the masked list to avoid
-	// a race condition.
-	l_sig = Alloc(sizeof(int));
-	memcpy(l_sig, &sig, sizeof(int));
-	
-	AddToList(DbgMaskedSigList, (void *)l_sig);
-}
-
+/*
+** Unblock signal from within a signal handler
+*/
 void
 DbgUnmaskSignal(int sig)
 {
-	int *		l_sig;
 	sigset_t	mask;
-	
-	SetList(DbgMaskedSigList);
-	
-	// We want to remove the signal from the masked list before unblocking it to
-	// avoid a race condition.
-	while ( (l_sig = (int *) GetListElement(DbgMaskedSigList)) != (int *)NULL )
-	{
-		if (*l_sig == sig)
-		{
-			RemoveFromList(DbgMaskedSigList, (void *)l_sig);
-			Free(l_sig);
-		}
-	}
 	
 	sigemptyset(&mask);
 	sigaddset(&mask, sig);
@@ -1889,41 +1841,86 @@ DbgUnmaskSignal(int sig)
 ** Set signal handler.
 */
 void
-DbgHandleSignal(int sig, void (*hand)(int))
+DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type)
 {
 	int *				l_sig;
 	struct sigaction	handler;
 	
 	if ( hand == SIG_DFL || hand == SIG_IGN )
 	{
-		// ensure the signal is not in the list
+		// ensure the signal is not in the normal or unblockable list
 		SetList(DbgSigList);
 		while ( (l_sig = (int *) GetListElement(DbgSigList)) != NULL )
 		{
 			if (*l_sig == sig)
 			{
 				RemoveFromList(DbgSigList, (void *) l_sig);
+				Free(l_sig);
+				break;
+			}
+		}
+		SetList(DbgUnblockableSigList);
+		while ( (l_sig = (int *) GetListElement(DbgUnblockableSigList)) != NULL )
+		{
+			if (*l_sig == sig)
+			{
+				RemoveFromList(DbgUnblockableSigList, (void *) l_sig);
+				Free(l_sig);
 				break;
 			}
 		}
 	} else
 	{
+		dbgsig_type cur_type;
 		// Search the list, if the signal isn't in the list, then add it.
 		SetList(DbgSigList);
 		while ( (l_sig = (int *) GetListElement(DbgSigList)) != NULL )
 		{
 			if (*l_sig == sig)
+			{
+				cur_type = DBG_SIG_MASKABLE;
 				break;
+			}
 		}
-		if (l_sig == NULL)
+		SetList(DbgUnblockableSigList);
+		while ( (l_sig = (int *) GetListElement(DbgUnblockableSigList)) != NULL )
 		{
-			// add this signal to the list
+			if (*l_sig == sig)
+			{
+				cur_type = DBG_SIG_NOMASK;
+				break;
+			}
+		}
+		
+		// if the signal is already present, make sure it is in the proper list
+		if (l_sig != NULL)
+		{
+			if (mask_type == DBG_SIG_NOMASK && cur_type == DBG_SIG_MASKABLE)
+			{
+				// signal is in wrong list
+				RemoveFromList(DbgSigList, (void *) l_sig);
+				AddToList(DbgUnblockableSigList, (void *) l_sig);
+			} else if (mask_type == DBG_SIG_MASKABLE && cur_type == DBG_SIG_NOMASK)
+			{
+				// signal is in wrong list
+				RemoveFromList(DbgUnblockableSigList, (void *) l_sig);
+				AddToList(DbgSigList, (void *) l_sig);
+			}
+		} else
+		{
+			// signal isn't present, so create it and add to the proper list
 			l_sig = Alloc(sizeof(int));
 			memcpy(l_sig, &sig, sizeof(int));
-			AddToList(DbgSigList, (void *) l_sig);
+			if (mask_type == DBG_SIG_NOMASK)
+			{
+				AddToList(DbgUnblockableSigList, (void *) l_sig);
+			} else
+			{
+				AddToList(DbgSigList, (void *) l_sig);
+			}
 		}
 	}
-		
+	
 	// make sure to initialize the handler
 	memset(&handler, 0, sizeof(handler));
 	sigemptyset(&handler.sa_mask);
@@ -1992,8 +1989,8 @@ DbgInit(void)
 	if ( DbgSigList == NULL )
 		DbgSigList = NewList();
 		
-	if ( DbgMaskedSigList == NULL )
-		DbgMaskedSigList = NewList();
+	if (DbgUnblockableSigList == NULL)
+		DbgUnblockableSigList = NewList();
 
 	// Initialize the mutex lock for the InputCB
 	InputCB.i_fd = -1;
@@ -2040,8 +2037,8 @@ DbgFinish(void)
 	DestroyList(DbgSigList, DbgFreeSignal);
 	DbgSigList = NULL;
 	
-	DestroyList(DbgMaskedSigList, DbgFreeSignal);
-	DbgMaskedSigList = NULL;
+	DestroyList(DbgUnblockableSigList, DbgFreeSignal);
+	DbgUnblockableSigList = NULL;
 	
 	// Manually free the elements in the dbginvoke list
 	while ((di=RemoveFirst(DbgInvokeList)) != NULL)

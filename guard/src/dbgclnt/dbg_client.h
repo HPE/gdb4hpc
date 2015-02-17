@@ -231,6 +231,14 @@ struct bp_disp_set
 };
 typedef struct bp_disp_set bp_disp_set_t;
 
+// Used when calling DbgHandleSignal to determine if the signal should be maskable
+enum dbgsig_type
+{
+	DBG_SIG_MASKABLE,
+	DBG_SIG_NOMASK
+};
+typedef enum dbgsig_type dbgsig_type;
+
 /*
 ** Receiver routines
 */
@@ -289,10 +297,8 @@ extern void				DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream);
 extern void				DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
 extern void				DbgHandleOutput(void (*)(dbginvoke_t *di, FILE *p_o_stream));
 extern void				DbgHandleInput(int, void (*)(void));
-extern void				DbgHandleSignal(int, void (*)(int));
-
+extern void				DbgHandleSignal(int, void (*)(int), dbgsig_type);
 extern void				DbgMaskInput(void);
-extern void				DbgMaskSignal(int);
 extern void				DbgUnmaskInput(void);
 extern void				DbgUnmaskSignal(int);
 

@@ -350,10 +350,10 @@ main(int argc, char *argv[])
 	** In the future, if a signal handler needs to be added it should happen early
 	** on before InitCLI.
 	*/
-	DbgHandleSignal(SIGINT, SigHandler);
-	DbgHandleSignal(SIGHUP, SigHandler);
-	DbgHandleSignal(SIGTERM, SigHandler);
-	DbgHandleSignal(SIGQUIT, SigHandler);
+	DbgHandleSignal(SIGINT, SigHandler, DBG_SIG_MASKABLE);
+	DbgHandleSignal(SIGHUP, SigHandler, DBG_SIG_NOMASK);
+	DbgHandleSignal(SIGTERM, SigHandler, DBG_SIG_NOMASK);
+	DbgHandleSignal(SIGQUIT, SigHandler, DBG_SIG_NOMASK);
 
 	while ((c = getopt_long(argc, argv, "b:hi:o:sv", long_opts, &opt_ind)) != -1)
 	{
@@ -641,6 +641,7 @@ SigHandler(int sig)
 	}
 #endif /* RD */
 
+	// Any signals that should cause lgdb to quit should be handled here.
 	if ( sig == SIGHUP || sig == SIGTERM || sig == SIGQUIT )
 	{
 		Client.quit = 1;

@@ -105,6 +105,8 @@ libcraytool_frontend_dso="libcraytools_fe.so"
 libcraytool_frontend_major="libcraytools_fe.so.7"
 libcraytool_frontend_minor="libcraytools_fe.so.7.0.0"
 
+libcraytool_dlaunch="cti_dlaunch7.0"
+
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"
 libssh2_minor="libssh2.so.1.0.1"
@@ -989,7 +991,7 @@ fi
 	
 # tools interface install
 echo -e "Starting tools interface install.\n"
-copy_file "${dep_libexecdir}/cti_dlaunch" $libexecdir "tools interface"
+copy_file "${dep_libexecdir}/${libcraytool_dlaunch}" $libexecdir "tools interface"
 copy_file "${dep_libexecdir}/cti_starter" $libexecdir "tools interface"
 copy_file "${dep_libexecdir}/cti_slurm_util" $libexecdir "tools interface"
 copy_file "${dep_libexecdir}/cti_overwatch" $libexecdir "tools interface"

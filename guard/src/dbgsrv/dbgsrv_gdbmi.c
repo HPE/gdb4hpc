@@ -258,6 +258,9 @@ get_dbgbp(MICommand *cmd)
 		} else if (bpt->isRWpt)
 		{
 			bp->bp_type = DBGBP_RWATCH_TYPE;
+		} else
+		{
+			bp->bp_type = DBGBP_WATCH_TYPE;
 		}
 	} else
 	{
@@ -4282,6 +4285,9 @@ CheckBreak(MICommand *cmd)
 		} else if (bpt->isRWpt)
 		{
 			bp->bp_type = DBGBP_RWATCH_TYPE;
+		} else
+		{
+			bp->bp_type = DBGBP_WATCH_TYPE;
 		}
 	} else
 	{

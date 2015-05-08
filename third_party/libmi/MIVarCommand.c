@@ -58,6 +58,16 @@ MIVarDelete(char *name)
 }
 
 MICommand *
+MIVarAssign(char *name, char *expr)
+{
+	MICommand *	cmd;
+	
+	cmd = MICommandNew("-var-assign", MIResultRecordDONE);
+	MICommandAddOption(cmd, name, expr);
+	return cmd;
+}
+
+MICommand *
 MIVarListChildren(char *name)
 {
 	MICommand *	cmd;

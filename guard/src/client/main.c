@@ -354,6 +354,8 @@ main(int argc, char *argv[])
 	DbgHandleSignal(SIGHUP, SigHandler, DBG_SIG_NOMASK);
 	DbgHandleSignal(SIGTERM, SigHandler, DBG_SIG_NOMASK);
 	DbgHandleSignal(SIGQUIT, SigHandler, DBG_SIG_NOMASK);
+	// we want to ignore SIGPIPE
+	DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
 	while ((c = getopt_long(argc, argv, "b:hi:o:sv", long_opts, &opt_ind)) != -1)
 	{

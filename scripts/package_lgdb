@@ -1,0 +1,323 @@
+#!/usr/bin/env python
+
+import sys, os, distutils.dir_util, distutils.file_util, tarfile, fnmatch
+from optparse import OptionParser
+
+#check if running from cron, act accordingly...
+if not sys.stdout.isatty():
+  os.chdir("/cray/css/ulib/lgdb/scripts")
+
+#lgdb specific modules
+import definitions
+import lgdb_spec
+import lgdb_module
+import set_default_lgdb
+
+#handle any user passed options
+parser = OptionParser()
+parser.add_option("-b","--builddir",dest="builddir",help="the directory containing the build")
+parser.add_option("-s","--sles",dest="sles_version",default="11")
+parser.add_option("-f","--final",dest="is_final",default=False)
+(options, args) = parser.parse_args()
+
+is_final   = options.is_final
+sles_level = options.sles_version
+
+#retrieve some package details
+primary_version               = definitions.primary_version
+package_dir                   = definitions.packages_dir(sles_level)
+build_version                 = definitions.fetch_version(primary_version, is_final, package_dir)
+lgdb_build_dir                = definitions.build_dir(sles_level)
+revision_number               = definitions.fetch_revision(lgdb_build_dir)
+release_number                = definitions.fetch_release(build_version, sles_level, revision_number)
+build_version_two_digit       = definitions.ver_two_dig
+build_version_two_digit_nodot = definitions.ver_two_dig_nodot
+release_date                  = definitions.release_date() 
+script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
+rpm_name                      = "cray-lgdb-%s-%s_%s.x86_64.rpm" % (build_version, release_number, revision_number)
+
+# are we assembling a sles12 package?
+if sles_level == "11":
+  sles_sub = ""
+elif sles_level == "12":
+  sles_sub = "_sles12"
+
+
+if options.builddir == None:
+  print "Using lastest build from Buildbot: " + lgdb_build_dir
+  #lets make sure we haven't spun a package for this LGDB revision previously before continuing.
+  if is_final:
+    rev_str = '*'+build_version+'-*'+revision_number+'*rpm'
+  else:
+    rev_str = '*'+primary_version+'*'+revision_number+'*rpm'
+
+  print "is_final is %s" % is_final
+  print "rev_str is %s" % rev_str
+ 
+  for file in os.listdir(package_dir):
+    if fnmatch.fnmatch(file, rev_str):
+      print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
+      sys.exit(1)
+else:
+  #verify that the folders that should be in the build dir, are present  
+  lgdb_build_dir = options.builddir 
+  for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
+    t_dir = lgdb_build_dir+directory
+    if not os.path.exists(t_dir):
+      print "the build dir you specified is missing: " + t_dir 
+      print "Exiting!"
+      exit()
+
+#define some paths
+top_dir         = os.getcwd()
+work_dir        = top_dir + "/tmp"
+rpm_build_dir   = work_dir + "/package"
+rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version
+rpm_module_dir  = rpm_install_dir + "/modulefile"
+rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
+man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
+notes_path      = "http://svn/svn/debugger-support/lgdb/branches/lgdb/" + build_version_two_digit + "/release_info" 
+
+#spec file
+spec_file = "cray-lgdb.spec"
+#modulefile
+module_dest = rpm_module_dir + "/" + build_version
+#set_default script
+set_default_script_dest = rpm_install_dir + "/set_default_cray-lgdb_" + build_version
+
+#the source tarball
+folder_name = "cray-lgdb-" + build_version
+tar_name = folder_name + ".tar.gz"
+tar_dest = rpm_build_dir + "/rpm/SOURCES"
+
+#begin the work
+
+#destroy the previous working directory 
+if os.path.exists(work_dir):
+  distutils.dir_util.remove_tree(work_dir)
+
+#create the rpm_build_dir and child directories
+for directory in [work_dir, rpm_build_dir, rpm_install_dir, rpm_module_dir, rpm_lgdb_dir]:
+  os.mkdir(directory)
+
+#generate the modulefile
+module_content = lgdb_module.content.replace('<version>', build_version)
+new_mod = open(module_dest, 'w+')
+new_mod.write(module_content)
+new_mod.close()
+
+#generate the spec file
+spec_dest = "lgdb.spec"
+spec_content = lgdb_spec.content.replace("[namespace]", "cray")
+spec_content = spec_content.replace( "[intranamespace_name]", "lgdb")
+spec_content = spec_content.replace( "[package_branch_two_digit]", build_version_two_digit)
+spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_version_two_digit_nodot)
+spec_content = spec_content.replace( "[version]", build_version)
+spec_content = spec_content.replace( "[rpm_release]", release_number)
+spec_content = spec_content.replace( "[package_revision]", revision_number)
+spec_content = spec_content.replace("[tarball]",tar_name)
+spec_content = spec_content.replace("[script_dir]", script_dir)
+spec_content = spec_content.replace("[sles_sub]", sles_sub)
+
+spec_file = open(spec_dest, 'w+')
+spec_file.write(spec_content)
+spec_file.close()
+
+#copy bin/ lib/ etc dirs from the build dir to rpm_install_dir+/cray-lgdb/lib (etc)
+#source: lgdb_build_dir  | contents bin/ demos/ docs/ lib/ modulefiles/
+for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
+  distutils.dir_util.copy_tree(lgdb_build_dir+dir, rpm_lgdb_dir+dir)
+
+#remove some svn cruft
+try:
+  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/docs/.svn")
+  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/hpcc_scripts/.svn")
+  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/.svn")
+  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/mpi_example/.svn")
+  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/.svn")
+except:
+  print "no .svn dirs to remove..."
+
+
+#take care of the set_default script
+set_def_content = set_default_lgdb.content.replace('<version>', build_version)
+new_set_def = open(set_default_script_dest, "w+")
+new_set_def.write(set_def_content)
+new_set_def.close()
+
+cur_dir = os.getcwd()
+
+#release notes
+os.chdir(rpm_lgdb_dir)
+os.system("svn export " + notes_path)
+with open("out.txt", "w+") as out:
+  for line in open("release_info"):
+    a = line.replace("%VERSION%", build_version)
+    b = a.replace("%RELEASE%", release_number)
+    c = b.replace("%REVISION%", revision_number)
+    d = c.replace("%RELEASEDATE%", release_date)
+    out.write(d)
+
+os.remove("release_info")
+outpath = rpm_lgdb_dir + "/release_info"
+distutils.file_util.move_file("out.txt",outpath)
+
+
+#man pages 
+man_dir = rpm_lgdb_dir+'/man'
+distutils.dir_util.copy_tree(man_path+"/man1", man_dir+"/man1")
+distutils.file_util.copy_file(man_path+"/whatis", man_dir)
+
+os.chdir(cur_dir)
+
+#setup the RPM directories
+for path in ['/rpm/SOURCES','/rpm/BUILD','/rpm/RPMS/x86_64']:
+  distutils.dir_util.mkpath(rpm_build_dir+path)
+
+#tar up the package source 
+cur_dir = os.getcwd()
+os.chdir(rpm_build_dir)
+tar = tarfile.open(tar_name, "w:gz")
+tar.add(folder_name)
+tar.close()
+distutils.file_util.copy_file(tar_name,tar_dest)
+os.chdir(cur_dir)
+ 
+#build the rpm
+rpmbuild_dest = rpm_build_dir + "/rpm"
+os.chdir(rpmbuild_dest)
+buildcall = "rpmbuild -bb --define \"_tmppath %s\" --define \"_topdir `pwd`\" %s/%s" % (rpm_build_dir,cur_dir,spec_dest)
+os.system(buildcall)
+
+#now lets put together the install manifest
+os.chdir(rpm_build_dir+"/rpm/RPMS/x86_64")
+yaml_template='''---
+#----------------------------------------------------------------------------
+# IMPORTANT: do not rename sections! The installer uses section names
+# to detect changes made to sections, using the MD5 algorithm.
+#----------------------------------------------------------------------------
+section-1:
+    ACCELERATOR           : NONE
+    EFFECTIVE_DATE        : NONE
+    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAIL_BUILDER         : NO
+    HOSTS                 : ALL 
+    INSTALL_DEFAULT_HOSTS : NONE
+    NETWORK_TYPE:
+        ALL_EXCEPT:
+            - SEASTAR
+    OPERATION             : INSTALL
+    OS_VERSION:
+        ALL_EXCEPT:
+            - 2.2
+            - 2.1
+            - 3.0
+            - 3.1
+            - 6.0
+    RPM_LIST              : NONE
+    SYSTEM_TYPE           : HARDWARE
+
+section-2:
+    ACCELERATOR           : NONE
+    EFFECTIVE_DATE        : NONE
+    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAIL_BUILDER         : NO
+    HOSTS:
+        ALL_EXCEPT:
+            - chpbld01
+            - chpbld02
+    INSTALL_DEFAULT_HOSTS : NONE
+    NETWORK_TYPE          : NONE
+    OPERATION             : INSTALL
+    OS_VERSION:
+        ALL_EXCEPT:
+            - SLES10
+            - SLES12
+    RPM_LIST              : NONE
+    SYSTEM_TYPE           : WHITEBOX
+
+section-3:
+    ACCELERATOR           : NONE
+    EFFECTIVE_DATE        : NONE
+    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAIL_BUILDER         : NO
+    HOSTS                 : ALL
+    INSTALL_DEFAULT_HOSTS : NONE
+    NETWORK_TYPE:
+        ALL_EXCEPT:
+            - SEASTAR
+    OPERATION             : UPDATE
+    OS_VERSION:
+        ALL_EXCEPT:
+            - 2.2
+            - 2.1
+            - 3.0
+            - 3.1
+            - 6.0
+    RPM_LIST              : NONE
+    SYSTEM_TYPE           : HARDWARE
+    COMMANDS: |
+        /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+
+section-4:
+    ACCELERATOR           : NONE
+    EFFECTIVE_DATE        : NONE
+    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAIL_BUILDER         : NO
+    HOSTS:
+        ALL_EXCEPT:
+            - chpbld01
+            - chpbld02
+    INSTALL_DEFAULT_HOSTS : NONE
+    NETWORK_TYPE          : NONE
+    OPERATION             : UPDATE
+    OS_VERSION:
+        ALL_EXCEPT:
+            - SLES10
+            - SLES12
+    RPM_LIST              : NONE
+    SYSTEM_TYPE           : WHITEBOX
+    COMMANDS: |
+        /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+
+section-5:
+    ACCELERATOR           : NONE
+    EFFECTIVE_DATE        : 2017-09-19
+    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAIL_BUILDER         : NO
+    HOSTS                 : ALL
+    INSTALL_DEFAULT_HOSTS : NONE
+    NETWORK_TYPE          : NONE
+    OPERATION             : REMOVE
+    OS_VERSION            : ALL
+    RPM_LIST              : NONE
+    SYSTEM_TYPE           : ALL
+    COMMANDS: |
+        rpm -e cray-lgdb-<version>-<release>_<revision>
+
+--- |
+#Remove previous versions of this rpm
+#for package in  $(rpm -qa | grep cray-lgdb | grep <version>)
+#do
+#  rpm -e $package
+#done
+
+rpm -hiv --oldpackage cray-lgdb-<version>-<release>_<revision>.x86_64.rpm
+
+'''
+manifest_dest = rpm_name + ".yaml"
+
+manifest_content = yaml_template.replace("<version>", build_version)
+manifest_content = manifest_content.replace("<release>", release_number)
+manifest_content = manifest_content.replace("<revision>", revision_number)
+
+manifest_yaml = open(manifest_dest, "w+")
+manifest_yaml.write(manifest_content)
+manifest_yaml.close()
+
+#copy rpm and yaml to pkgs_dir
+rpm_folder = "%s/rpm/RPMS/x86_64/" % rpm_build_dir
+os.chdir(rpm_folder)
+for f in [rpm_name, rpm_name+".yaml"]:
+  distutils.file_util.copy_file(f, package_dir)
+

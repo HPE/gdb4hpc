@@ -1,0 +1,54 @@
+CRAY-LGDB TESTME
+
+#load the cray-lgdb module
+module load cray-lgdb
+
+#most content borrowed from the cray-lgdb man pages
+man lgdb
+
+#the hello_mpi_c file mentioned below is located:
+/opt/cray/lgdb/2.0.0/demos/mpi_example/
+
+
+EXAMPLES
+       A demo directory with sample codes is included in the lgdb release. The following example uses the executable created by entering the command: make hello_mpi_c.
+
+       Launch one instance of hello_mpi_c with 8 ranks.
+
+         dbg all> launch $tst{8} hello_mpi_c
+         Starting alps application, please wait...
+         Creating MRNet communication network...
+         Waiting for debug servers to attach to MRNet communications network...
+         Timeout in 60 seconds. Please wait for the attach to complete.
+         Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+         Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+         Number of dbgsrvs connected: [8];  Timeout Counter: [0]
+         Finalizing setup...
+         Launch complete.
+         [0..7]Initial breakpoint, main at /lus/nid00030/sgage/ccdb/tests/mpi_example/hello_mpi.c:16
+         dbg all>
+
+
+       Set a breakpoint at line 21 of source file hello_mpi.c and continue execution.
+
+         dbg all> break hello_mpi.c:21
+         dbg all> tst[0..7]: Breakpoint 1: file hello_mpi.c, line 21.
+         dbg all> continue
+         tst[0..7]: Breakpoint 1, main at hello_mpi.c
+         dbg all>
+
+
+       Print the value of myRank for each rank in the current process set.
+
+         dbg all> print $tst::myRank
+         tst[0]: 0
+         tst[1]: 1
+         tst[2]: 2
+         tst[3]: 3
+         tst[4]: 4
+         tst[5]: 5
+         tst[6]: 6
+         tst[7]: 7
+
+
+

@@ -1,0 +1,19 @@
+CRAY LGDB BUILDME
+
+Package version is specified in the definitions.mk file, via the PACKAGE_BRANCH variable
+
+To build RPM run the following command:
+  make rpm
+
+If this is a final release:
+  make rpm FINAL=1
+
+To generate the install manifest:
+  make manifest
+
+To deploy rpm to pkgs dir on css:
+  make deploy_rpm
+
+To have rpm and install manifest placed in the dropoff dir on css:
+  make install_rpm
+

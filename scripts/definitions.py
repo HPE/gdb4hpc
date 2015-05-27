@@ -3,7 +3,7 @@ import sys, os, re
 from os import listdir
 from os.path import isfile, join
 
-primary_version     = "2.4.3" 
+primary_version     = "2.4.4" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]])
 ver_three_dig       = ".".join([primary_version[0],primary_version[2],primary_version[4]]) 

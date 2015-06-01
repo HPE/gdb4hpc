@@ -7,3 +7,6 @@
 [submodule "third_party/mrnet"]
 	path = third_party/mrnet
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet_cti.git
+[submodule "third_party/libarchive"]
+	path = third_party/libarchive
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libarchive.git

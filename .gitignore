@@ -1,5 +1,4 @@
 /cray.rev
-/cscope.out
 /external
 guard/Makefile
 guard/autom4te.cache
@@ -120,3 +119,6 @@ third_party/libmi/config.status
 third_party/libmi/cscope.out
 third_party/libmi/stamp-h1
 third_party/libmi/test_mi
+third_party/Python-2.6.2/Lib/plat-linux3
+*~
+cscope.out

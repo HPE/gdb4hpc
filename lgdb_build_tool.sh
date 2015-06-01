@@ -42,7 +42,7 @@ lgdb_staging_directory_name="lgdb_tmp"
 lgdb_externals_directory_name="external"
 
 # Third party source tree names. 
-mrnet_directory_name="mrnet-4.1.0a-2992b89"
+mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-7.6.2"
 cuda55_gdb_directory_name="ddt_cuda_gdb_55"
 cuda65_gdb_directory_name="ddt_cuda_gdb_65"

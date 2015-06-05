@@ -1,7 +1,7 @@
 /* Tracepoint code for remote server for GDB.
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
    This file is part of GDB.

@@ -1,7 +1,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2015
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Written by CUDA-GDB team at NVIDIA <cudatools@nvidia.com>
  * 
@@ -494,8 +494,9 @@ cuda_reg_to_regnum (struct gdbarch *gdbarch, reg_t reg)
 
   /* At this point, we know that the register is encoded as PTX register string */
   regmap = cuda_get_physical_register (reg_name);
-  if (regmap == NULL)
-      return -1;
+  /* #38540: assert in regmap_get_num_entries, when switching to non-existing frame */
+  if (!regmap)
+    return -1;
   num_regs = regmap_get_num_entries (regmap);
 
   /* If we found a single SASS register, then we let cuda-gdb handle it

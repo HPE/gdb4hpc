@@ -1,0 +1,71 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: evaluation and modification of a shared struct using a shared pointer
+
+load_lib "offload.exp"
+
+standard_testfile "msample09.c" "myo_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+proc check_ptr { num } {
+    gdb_test "p sci_ptr->sc" "\\\$\\d+ = 0x6e" "$num: sci_ptr->sc == 0x6e"
+    gdb_test "p sci_ptr->si" "\\\$\\d+ = 0x6e45f1a8" "$num: sci_ptr->si == 0x6e45f1a8"
+    gdb_test "p sci_ptr->sl" "\\\$\\d+ = 0x25bff4832b74cc1dl" "$num: sci_ptr->sl == 0x25bff4832b74cc1dl"
+    gdb_test "p sci_ptr->sll" "\\\$\\d+ = 0x32b74cc1de45f177l" "$num: sci_ptr->sll == 0x32b74cc1de45f177l"
+    gdb_test "p sci_ptr->f" "\\\$\\d+ = 42.0" "$num: sci_ptr->f == 42.0"
+    gdb_test "p sci_ptr->d" "\\\$\\d+ = 42422424.0" "$num: sci_ptr->d == 42422424.0"
+    gdb_test "p sci_ptr->ld" "\\\$\\d+ = 1972191120080412.0" "$num: sci_ptr->ld == 1972191120080412.0"
+}
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP2" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP2"
+
+gdb_test_no_output "set sci_ptr->sc=0x6e" "set sci_ptr->sc == 0x6e"
+gdb_test_no_output "set sci_ptr->si=0x6e45f1a8" "set sci_ptr->si=0x6e45f1a8"
+gdb_test_no_output "set sci_ptr->sl=0x25bff4832b74cc1dl" "set sci_ptr->sl=0x25bff4832b74cc1dl"
+gdb_test_no_output "set sci_ptr->sll=0x32b74cc1de45f177l" "set sci_ptr->sll=0x32b74cc1de45f177l"
+gdb_test_no_output "set sci_ptr->f=42.0" "sci_ptr->f=42.0"
+gdb_test_no_output "set sci_ptr->d=42422424.0" "set sci_ptr->d=42422424.0"
+gdb_test_no_output "set sci_ptr->ld=1972191120080412.0" "set sci_ptr->ld=1972191120080412.0"
+
+# check the changes in the same offload region
+check_ptr "1st check"
+
+# go back to host and check again
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP3" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP3"
+check_ptr "2nd check"
+
+gdb_exit
+offload_cleanup

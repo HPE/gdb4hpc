@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 1986-2013 Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -23,7 +23,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2015
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -3772,6 +3772,15 @@ detach_breakpoints (ptid_t ptid)
   ALL_BP_LOCATIONS (bl, blp_tmp)
   {
     if (bl->pspace != inf->pspace)
+      continue;
+
+    /* This function must physically remove breakpoints locations
+       from the specified ptid, without modifying the breakpoint
+       package's state.  Locations of type bp_loc_other are only
+       maintained at GDB side.  So, there is no need to remove
+       these bp_loc_other locations.  Moreover, removing these
+       would modify the breakpoint package's state.  */
+    if (bl->loc_type == bp_loc_other)
       continue;
 
     if (bl->inserted)

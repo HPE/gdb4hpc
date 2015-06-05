@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -23,7 +23,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2015
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -3832,7 +3832,10 @@ retry:
 	 Otherwise, signals in pass_mask may be short-circuited.  */
       if (!lp->step
 	  && WSTOPSIG (status) && sigismember (&pass_mask, WSTOPSIG (status))
-	  && WSTOPSIG (status) != SIGSTOP)
+	  && WSTOPSIG (status) != SIGSTOP
+          && WSTOPSIG (status) != SIGSEGV
+          && WSTOPSIG (status) != SIGILL
+          && WSTOPSIG (status) != SIGTRAP)
 	{
 	  /* FIMXE: kettenis/2001-06-06: Should we resume all threads
 	     here?  It is not clear we should.  GDB may not expect

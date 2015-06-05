@@ -1,8 +1,5 @@
 /* Native-dependent code for GNU/Linux AArch64.
 
-   Modified by Allinea Software.
-   
-   Copyright (C) Allinea Software Ltd. 2014
    Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
@@ -321,16 +318,16 @@ aarch64_linux_set_debug_regs (const struct aarch64_debug_reg_state *state,
   addr = watchpoint ? state->dr_addr_wp : state->dr_addr_bp;
   ctrl = watchpoint ? state->dr_ctrl_wp : state->dr_ctrl_bp;
   if (count == 0)
-    return;
+	return;
   iov.iov_len = (offsetof (struct user_hwdebug_state, dbg_regs[count - 1])
-		 + sizeof (regs.dbg_regs [count - 1]));
+				 + sizeof (regs.dbg_regs [count - 1]));
 
   for (i = 0; i < count; i++)
     {
       regs.dbg_regs[i].addr = addr[i];
       regs.dbg_regs[i].ctrl = ctrl[i];
     }
-
+  
   if (ptrace (PTRACE_SETREGSET, tid,
 	      watchpoint ? NT_ARM_HW_WATCH : NT_ARM_HW_BREAK,
 	      (void *) &iov))

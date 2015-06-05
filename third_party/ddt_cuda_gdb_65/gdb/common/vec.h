@@ -1,7 +1,7 @@
 /* Vector API for GDB.
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
 

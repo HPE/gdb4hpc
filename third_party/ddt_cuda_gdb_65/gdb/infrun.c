@@ -3,7 +3,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 1986-2013 Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -24,7 +24,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2015
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -7572,12 +7572,19 @@ save_infcall_suspend_state (void)
 void
 restore_infcall_suspend_state (struct infcall_suspend_state *inf_state)
 {
-  struct thread_info *tp = inferior_thread ();
+  struct regcache *regcache;
+  struct gdbarch *gdbarch;
+  struct thread_info *tp = find_thread_ptid (inferior_ptid);
+  if (!tp)
+    {
+      /* The inferior has unexpectedly gone away.  */
+      return;
+    }
 #if 0
   struct inferior *inf = current_inferior ();
 #endif
-  struct regcache *regcache = get_current_regcache ();
-  struct gdbarch *gdbarch = get_regcache_arch (regcache);
+  regcache = get_current_regcache ();
+  gdbarch = get_regcache_arch (regcache);
 
   tp->suspend = inf_state->thread_suspend;
 #if 0 /* Currently unused and empty structures are not valid C.  */
@@ -7707,8 +7714,14 @@ restore_selected_frame (void *args)
 void
 restore_infcall_control_state (struct infcall_control_state *inf_status)
 {
-  struct thread_info *tp = inferior_thread ();
-  struct inferior *inf = current_inferior ();
+  struct inferior *inf;
+  struct thread_info *tp = find_thread_ptid (inferior_ptid);
+  if (!tp)
+    {
+      /* The inferior has unexpectedly gone away.  */
+      return;
+    }
+  inf = current_inferior ();
 
   if (tp->control.step_resume_breakpoint)
     tp->control.step_resume_breakpoint->disposition = disp_del_at_next_stop;

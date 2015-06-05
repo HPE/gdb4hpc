@@ -1146,7 +1146,7 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
     }
   if (ex.reason < 0)
     {
-      if (ex.error == NOT_AVAILABLE_ERROR)
+      if ((ex.error == NOT_AVAILABLE_ERROR) || (ex.error == OPTIMIZED_OUT_ERROR)) 
 	{
 	  cache->unavailable_retaddr = 1;
 	  do_cleanups (old_chain);
@@ -1292,12 +1292,6 @@ dwarf2_frame_this_id (struct frame_info *this_frame, void **this_cache,
 {
   struct dwarf2_frame_cache *cache =
     dwarf2_frame_cache (this_frame, this_cache);
-
-  if (cache->unavailable_retaddr)
-    return;
-
-  if (cache->undefined_retaddr)
-    return;
 
   (*this_id) = frame_id_build (cache->cfa, get_frame_func (this_frame));
 }

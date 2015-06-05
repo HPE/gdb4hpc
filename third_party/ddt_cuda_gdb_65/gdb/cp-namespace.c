@@ -1,7 +1,7 @@
 /* Helper routines for C++ support in GDB.
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
    Contributed by David Carlton and by Kealia, Inc.
@@ -667,14 +667,20 @@ lookup_symbol_file (const char *name,
 	  struct symbol *this;
 
 	  this = lookup_language_this (language_def (language_cplus), block);
-	  if (this == NULL)
+	  if (this == NULL || SYMBOL_TYPE (this) == NULL || TYPE_TARGET_TYPE (SYMBOL_TYPE (this)) == NULL)
 	    {
 	      do_cleanups (cleanup);
 	      return NULL;
 	    }
 
 	  type = check_typedef (TYPE_TARGET_TYPE (SYMBOL_TYPE (this)));
-	  klass = xstrdup (TYPE_NAME (type));
+          if (type == NULL || TYPE_NAME (type) == NULL)
+            {
+              do_cleanups (cleanup);
+              return NULL;
+            }
+
+          klass = xstrdup (TYPE_NAME (type));
 	  nested = xstrdup (name);
 	}
       else

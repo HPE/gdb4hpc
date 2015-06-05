@@ -1,7 +1,7 @@
 /*  armemu.c -- Main instruction emulation:  ARM7 Instruction Emulator.
     Modified by Allinea Software.
     
-    Copyright (C) Allinea Software Ltd. 2014
+    Copyright (C) Allinea Software Ltd. 2015
     Copyright (C) 1994 Advanced RISC Machines Ltd.
     Modifications to add arch. v4 support by <jsmith@cygnus.com>.
  

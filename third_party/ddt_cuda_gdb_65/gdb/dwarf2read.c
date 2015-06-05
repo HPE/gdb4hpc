@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
    Adapted by Gary Funck (gary@intrepid.com), Intrepid Technology,
@@ -30,7 +30,7 @@
 /*
  * NVIDIA CUDA Debugger CUDA-GDB Modified by Allinea Software.
  * NVIDIA CUDA Debugger CUDA-GDB 
- * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2014
+ * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) Allinea Software Ltd. 2015
  * NVIDIA CUDA Debugger CUDA-GDB Copyright (C) 2007-2013 NVIDIA Corporation
  * Modified from the original GDB file referenced above by the CUDA-GDB 
  * team at NVIDIA <cudatools@nvidia.com>.
@@ -7774,6 +7774,33 @@ dwarf2_physname (const char *name, struct die_info *die, struct dwarf2_cu *cu)
 	  need_copy = 0;
 	}
     }
+  else if (die && die->tag == DW_TAG_subprogram && cu->language == language_cplus)
+    {
+      /* PRECONDITION: DW_AT_linkage_name is absent or empty.
+       *
+       * Workaround for bug when using GCC OpenMP compiled binary where the DW_AT_name
+       * field incorrectly holds what should be the DW_AT_linkage_name value and the
+       * DW_AT_linkage_name field is not present at all. This occurs in the compiler
+       * generated functions implementing GCC OpenMP regions. If this appears to be
+       * the case, attempt to provide the correct demangled name despite the incorrect
+       * DWARF info. */
+      char *demangled = NULL;
+      attr = dwarf2_attr (die, DW_AT_name, cu);
+      if(attr)
+	  {
+      		mangled = DW_STRING (attr);
+            if (mangled)
+			{
+	          demangled = cplus_demangle (mangled, DMGL_PARAMS | DMGL_ANSI);
+              if (demangled)
+	          {
+	            make_cleanup (xfree, demangled);
+	            canon = demangled;
+              }
+		   }
+	   }
+    }
+
 
   if (canon == NULL || check_physname)
     {

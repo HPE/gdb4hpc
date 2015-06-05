@@ -2,7 +2,7 @@
 
    Modified by Allinea Software.
    
-   Copyright (C) Allinea Software Ltd. 2014
+   Copyright (C) Allinea Software Ltd. 2015
    Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
    Contributed by Hewlett-Packard Company.

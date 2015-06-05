@@ -1632,14 +1632,14 @@ maybe_print_array_index (struct type *index_type, LONGEST index,
     return; 
     
   if (TYPE_CODE(index_type) == TYPE_CODE_UNDEF)
-    {
-      index_value = value_from_longest (builtin_type (get_type_arch (index_type))->builtin_int, index);
-    }
+	{
+	  index_value = value_from_longest (builtin_type (get_type_arch (index_type))->builtin_int, index);
+	}
   else
-    {
-      index_value = value_from_longest (index_type, index);
-    }
- 
+	{
+	  index_value = value_from_longest (index_type, index);
+	}
+
   LA_PRINT_ARRAY_INDEX (index_value, stream, options);
 }
 

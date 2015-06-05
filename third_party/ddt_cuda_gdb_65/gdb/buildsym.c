@@ -127,14 +127,29 @@ static char *subfile_fullname (const struct subfile *subfile)
 static int
 htab_eq_subfile(const void* s, const void* t)
 {
-  char *fullname1 = subfile_fullname ((const struct subfile *) s);
-  char *fullname2 = subfile_fullname ((const struct subfile *) t);
   int ret;
-  simplify_path (fullname1);
-  simplify_path (fullname2);
-  ret = !strcmp (fullname1, fullname2);
-  xfree (fullname1);
-  xfree (fullname2);
+  /* emulate strcmp() return values extended to handle null values, so
+	 s, t both null => s == t => return 0
+	 s null, t not null => s < t => return -1
+	 s not null, t null => s > t => return +1 */
+  if (!s)
+	{
+	  ret = t ? -1 : 0; 
+	}
+  else if (!t)
+	{
+	  ret = 1;
+	}
+  else
+	{
+	  char *fullname1 = subfile_fullname ((const struct subfile *) s);
+	  char *fullname2 = subfile_fullname ((const struct subfile *) t);
+	  simplify_path (fullname1);
+	  simplify_path (fullname2);
+	  ret = !strcmp (fullname1, fullname2);
+	  xfree (fullname1);
+	  xfree (fullname2);
+	}
   return ret;
 }
 
@@ -497,6 +512,21 @@ record_pending_block (struct objfile *objfile, struct block *block,
     }
 }
 
+static unsigned int
+block_depth (const struct block *b)
+{
+  unsigned int result;
+  for (result = 0; b != NULL; ++result, b = b->superblock);
+  return result;
+}
+
+static int
+block_has_precedence (void *a1, void *a2)
+{
+  const struct block  *b1 = (struct block *)a1,
+                      *b2 = (struct block *)a2;
+  return block_depth (b1) >= block_depth (b2);
+}
 
 /* Record that the range of addresses from START to END_INCLUSIVE
    (inclusive, like it says) belongs to BLOCK.  BLOCK's start and end
@@ -525,6 +555,7 @@ record_block_range (struct block *block,
       pending_addrmap = addrmap_create_mutable (&pending_addrmap_obstack);
     }
 
+  addrmap_assign_precedence_fn (pending_addrmap, &block_has_precedence);
   addrmap_set_empty (pending_addrmap, start, end_inclusive, block);
 }
 

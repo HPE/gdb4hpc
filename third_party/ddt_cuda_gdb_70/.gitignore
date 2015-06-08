@@ -1,0 +1,9 @@
+bfd/doc/bfd.info
+gdb/doc/annotate.info
+gdb/doc/gdb.info
+gdb/doc/gdbint.info
+gdb/cuda-parser.lex.c
+gdb/cuda-parser.tab.c
+gdb/cuda-parser.tab.h
+gdb/data-directory/no/
+gdb/gdbserver/.deps/

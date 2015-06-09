@@ -46,6 +46,7 @@ mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-7.6.2"
 cuda55_gdb_directory_name="ddt_cuda_gdb_55"
 cuda65_gdb_directory_name="ddt_cuda_gdb_65"
+cuda70_gdb_directory_name="ddt_cuda_gdb_70"
 uda_directory_name="gdb_uda"
 editline_directory_name="editline"
 libmi_directory_name="libmi"
@@ -76,6 +77,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 cuda_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/trunk-ari/working/latest/3rd-party/x86_64"
 cuda55_basename="cray-cudatoolkit-5.5"
 cuda65_basename="cray-cudatoolkit6.5-6.5"
+cuda70_basename="cray-cudatoolkit7.0-7.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in lgdb
@@ -179,10 +181,12 @@ gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
 # Define where to find the cuda-gdb source tree
 cuda55_gdb_src="$thirdparty_dir/$cuda55_gdb_directory_name"
 cuda65_gdb_src="$thirdparty_dir/$cuda65_gdb_directory_name"
+cuda70_gdb_src="$thirdparty_dir/$cuda70_gdb_directory_name"
 
 # Define where to find the cuda-gdb external components
 cuda55_ext="$external_dir/cuda55_base"
 cuda65_ext="$external_dir/cuda65_base"
+cuda70_ext="$external_dir/cuda70_base"
 
 # Define where to find the gdb source tree
 gdb_uda_src="$thirdparty_dir/$uda_directory_name"
@@ -229,7 +233,7 @@ perf_flag=""
 be_perf_flag=""
 valgrind_flag=""
 dbg_flag=""
-opt_flag="-g -O2 -Wall"
+opt_flag="-g -O2"
 
 # Flags used later on
 opt_ask_deps=n
@@ -241,6 +245,7 @@ opt_python=n
 opt_gdb=n
 opt_cuda55_gdb=n
 opt_cuda65_gdb=n
+opt_cuda70_gdb=n
 opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
@@ -263,21 +268,22 @@ opt_sub_num=1
 ########################
 
 function print_help {
-	echo "Usage: `basename $0` options (ABCDEFGHIJKLMN | --all)"
+	echo "Usage: `basename $0` options (ABCDEFGHIJKLMNO | --all)"
 	echo "A: libaif"
 	echo "B: libmi"
 	echo "C: libssh2"
 	echo "D: MRNet"
 	echo "E: Python"
 	echo "F: gdb"
-	echo "G: cuda-gdb for CUDA_50"
-	echo "H: cuda-gdb for CUDA_55"
-	echo "I: gdb uda support"
-	echo "J: editline"
-	echo "K: libarchive"
-	echo "L: Tools Interface"
-	echo "M: lgdb"
-	echo "N: cleanup"
+	echo "G: cuda-gdb for CUDA_55"
+	echo "H: cuda-gdb for CUDA_65"
+	echo "I: cuda-gdb for CUDA_70"
+	echo "J: gdb uda support"
+	echo "K: editline"
+	echo "L: libarchive"
+	echo "M: Tools Interface"
+	echo "N: lgdb"
+	echo "O: cleanup"
 }
 
 function check_error {
@@ -491,6 +497,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_gdb=y
 		opt_cuda55_gdb=y
 		opt_cuda65_gdb=y
+		opt_cuda70_gdb=y
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
@@ -499,7 +506,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_cleanup=y
 		opt_advanced=n
 		#for release builds, we don't want to build with -g
-		opt_flag="-O2 -Wall"
+		opt_flag="-O2"
  	else
 		while getopts "aAbBcCdDeEfFgGhHiIjJkKlLmM" Option
 		do
@@ -520,17 +527,19 @@ if [[ "$#" != "0" ]] ; then
 					opt_cuda55_gdb=y;;
 				h | H ) echo "Building H: cuda-gdb for CUDA_65"
 					opt_cuda65_gdb=y;;
-				i | I ) echo "Building I: gdb uda support"
+				i | I ) echo "Building I: cuda-gdb for CUDA_70"
+					opt_cuda70_gdb=y;;
+				j | J ) echo "Building J: gdb uda support"
 					opt_gdb_uda=y;;
-				j | J ) echo "Building J: editline"
+				k | K ) echo "Building K: editline"
 					opt_editline=y;;
-				k | K ) echo "Building K: libarchive"
+				l | L ) echo "Building L: libarchive"
 					opt_libarchive=y;;
-				l | L ) echo "Building L: tools interface"
+				m | M )	echo "Building M: tools interface"
 					opt_cti=y;;
-				m | M )	echo "Building M: lgdb"
+				n | N ) echo "Building N: lgdb"
 					opt_lgdb=y;;
-				n | N ) echo "Running N: cleanup"
+				o | O ) echo "Running O: cleanup"
 					opt_cleanup=y;;
 				? ) 	print_help
 					exit 0;;
@@ -554,6 +563,7 @@ if [[ $opt_ask_deps == y ]]; then
 	ask_sub_build "Build gdb" opt_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_55" opt_cuda55_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_65" opt_cuda65_gdb
+	ask_sub_build "Build cuda-gdb for CUDA_70" opt_cuda70_gdb
 	ask_sub_build "Build gdb uda support" opt_gdb_uda
 	ask_sub_build "Build editline" opt_editline
 	ask_sub_build "Build libarchive" opt_libarchive
@@ -587,7 +597,7 @@ if [[ $opt_advanced == y ]]; then
 				echo -ne "\tEnter 0, 1, 2, or 3: "
 			done
 			# Setup the cflag option for the call to configure
-			opt_flag="-g -O$opt_lvl -Wall"
+			opt_flag="-g -O$opt_lvl"
 		fi
 	fi
 	ask_sub_build "lgdb perf log mode" opt_perflog
@@ -603,7 +613,7 @@ if [[ $opt_advanced == y ]]; then
 	if [[ $opt_debug == y ]]; then
 		# This is the debug option for the call to configure
 		dbg_flag="--with-debug"
-		opt_flag="-g -O0 -Wall"
+		opt_flag="-g -O0"
 		mrnet_args="--enable-debug"
 	fi
 
@@ -654,7 +664,7 @@ if [[ $opt_aif == y ]]; then
 	# run aif configure
 	echo "Configuring libaif..."
 	set -x
-	./configure --prefix=$stage_dir CFLAGS="$opt_flag"
+	./configure --prefix=$stage_dir CFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "libaif"
 	echo -e "\nlibaif staged to $stage_dir.\n"
@@ -675,7 +685,7 @@ if [[ $opt_libmi == y ]]; then
 	# run libmi configure
 	echo "Configuring libmi..."
 	set -x
-	./configure --prefix=$stage_dir CFLAGS="$opt_flag"
+	./configure --prefix=$stage_dir CFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "libmi"
 	echo -e "\nlibmi staged to $stage_dir.\n"
@@ -891,13 +901,61 @@ if [[ $opt_cuda65_gdb == y ]]; then
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
 	echo -e "Starting post build ops.\n"
 	# rename cuda-gdb to cuda65-gdb-guard
-	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda65-gdb-guard" "cuda-gdb 55"
+	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda65-gdb-guard" "cuda-gdb 65"
 fi
 
 # cuda-gdb 65 install
 echo -e "Starting cuda-gdb 65 install.\n"
 # Deliver the cuda65-gdb-guard binary
 copy_file "${dep_bindir}/cuda65-gdb-guard" $libexecdir "cuda-gdb 65"
+echo -e "########################################################\n"
+
+# Check for errors in component
+check_error
+
+# cuda-gdb 70 build
+if [[ $opt_cuda70_gdb == y ]]; then
+	echo "Starting cuda-gdb 70 build."
+	# Unpack the rpm if we haven't done so already
+	if [[ ! -d $cuda70_ext ]]; then
+		# find the cuda70 rpm
+		cuda70_rpm=$(ls --reverse --sort=version $cuda_rpm_dir/$cuda70_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda70_basename[0-9\.\-]*")
+		if [[ -e $cuda70_rpm ]]; then
+			# rpm found, so extract it
+			mkdir $cuda70_ext
+			cd $cuda70_ext
+			rpm2cpio $cuda70_rpm | cpio -idv
+		else
+			echo "ERROR: Could not find $cuda70_basename rpm in $cuda_rpm_dir. The cuda-gdb 70 build failed."
+			((++comp_error))
+		fi
+	fi
+	# Get the location of the include files
+	cuda70_include_dir=$(cd $cuda70_ext/$cuda_inc_path; pwd)
+	if [[ ! -d $cuda70_include_dir ]]; then
+		echo "ERROR: Missing required $cuda70_basename headers. The cuda-gdb 70 build failed."
+		((++comp_error))
+	fi
+	# change directories
+	cd $cuda70_gdb_src
+	echo -e "\nUsing cuda-gdb 70 source $cuda70_gdb_src."
+	echo -e "Using cuda 70 headers in $cuda70_include_dir.\n"
+	# run cuda-gdb confiugre
+	echo "Configuring cuda-gdb..."
+	set -x
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda70_include_dir $opt_flag" LDFLAGS="-lpthread"
+	set +x
+	do_build "cuda-gdb"
+	echo -e "\ncuda-gdb staged to $stage_dir.\n"
+	echo -e "Starting post build ops.\n"
+	# rename cuda-gdb to cuda65-gdb-guard
+	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda70-gdb-guard" "cuda-gdb 70"
+fi
+
+# cuda-gdb 70 install
+echo -e "Starting cuda-gdb 70 install.\n"
+# Deliver the cuda70-gdb-guard binary
+copy_file "${dep_bindir}/cuda70-gdb-guard" $libexecdir "cuda-gdb 70"
 echo -e "########################################################\n"
 
 # Check for errors in component
@@ -983,7 +1041,7 @@ if [[ $opt_cti == y ]]; then
 	# run tools interface configure 
 	echo "Configuring tools interface..." 
 	set -x
-	./configure --prefix=$stage_dir --with-libarchive=$stage_dir --with-libmi=$stage_dir CFLAGS="$opt_flag"
+	./configure --prefix=$stage_dir --with-libarchive=$stage_dir --with-libmi=$stage_dir CFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "tools interface"
 	echo -e "\nTools interface staged to $stage_dir.\n" 
@@ -1087,8 +1145,8 @@ if [[ $opt_lgdb == y ]]; then
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
 	--with-craytool-inc=$dep_includedir --with-craytool-lib=$dep_libdir --prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \
-	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag" \
-	CXXFLAGS="$opt_flag"
+	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
+	CXXFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "lgdb"
 	echo -e "\nlgdb installed to $inst_dir.\n"
@@ -1129,6 +1187,7 @@ if [[ $opt_cleanup == y ]]; then
 	do_clean $opt_gdb $gdb_src "gdb"
 	do_clean $opt_cuda55_gdb $cuda55_gdb_src "cuda-gdb 55"
 	do_clean $opt_cuda65_gdb $cuda65_gdb_src "cuda-gdb 65"
+	do_clean $opt_cuda70_gdb $cuda70_gdb_src "cuda-gdb 70"
 	do_clean $opt_gdb_uda $gdb_uda_src "gdb uda support library"
 	do_clean $opt_editline $editline_src "editline"
 	do_clean $opt_libarchive $libarchive_src "libarchive"

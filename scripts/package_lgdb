@@ -78,10 +78,7 @@ rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version
 rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
-
-print "rpm lgdb dir: " + rpm_lgdb_dir
-print "top_dir" + top_dir
-parent_dir     = top_dir.rsplit('/',1)[0]
+parent_dir      = top_dir.rsplit('/',1)[0]
 
 
 #spec file
@@ -157,8 +154,6 @@ cur_dir = os.getcwd()
 #release notes - are in parent directory
 os.chdir(rpm_lgdb_dir)
 
-#os.system("svn export " + notes_path)
-
 with open("out.txt", "w+") as out:
   for line in open(parent_dir + "/release_info"):
     a = line.replace("%VERSION%", build_version)
@@ -167,7 +162,6 @@ with open("out.txt", "w+") as out:
     d = c.replace("%RELEASEDATE%", release_date)
     out.write(d)
 
-#os.remove("release_info")
 outpath = rpm_lgdb_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
 print "outpath: " + outpath

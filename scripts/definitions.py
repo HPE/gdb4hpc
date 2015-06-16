@@ -82,12 +82,9 @@ def fetch_version(primary_ver, final, pkgs_dir):
   return new_version_str
 
 def fetch_revision(bld_dir):
-  rev_command = "/opt/cpkg/current/subversion/current/bin/svn info %sdemos" % bld_dir
-  rev_info       = os.popen(rev_command).read()
-  svn_list       = rev_info.split("\n")
-  for i in svn_list:
-    if i.find("Revision:") != -1:
-      rev_number = i.replace("Revision: ","")
-      break
+  rev_command = "git rev-parse HEAD"
+  rev_number  = os.popen(rev_command).read()
+  rev_number  = rev_number.rstrip()
   return rev_number
+
 

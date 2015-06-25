@@ -97,7 +97,11 @@ BuildInvoke(graph_t *g, var_t *v)
 	int				built_bp = 1;
 	
 	// FIXME: This only supports DBGSET_INVOKE for now
-	if (ps == NULL || ps->s_type != DBGSET_INVOKE)
+	// Update: This will break when a process set contains multiple dbginvoke objects
+	// in it. The graph layer doesn't play nicely when multiple applications belonging 
+	// to a process set are used in an assertion. We now do nothing to check for this
+	// condition.
+	if (ps == NULL)
 	{
 		SetError("Cannot use custom procset in assert script!");
 		return -1;

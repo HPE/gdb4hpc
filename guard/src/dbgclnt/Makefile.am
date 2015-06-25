@@ -5,9 +5,7 @@ DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
-# FIXME: CLIENT shouldn't be used here, but it is a hack until
-# BUG 804428 is fixed...
-AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(CLIENT)
+AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
 
 ######################

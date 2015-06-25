@@ -263,11 +263,8 @@ GRAM = @guard_srcdir@/src/gram
 DBGCOMM = @guard_srcdir@/src/dbgcomm
 MRNET = @guard_srcdir@/mrnet
 SDM = @guard_srcdir@/sdm
-
-# FIXME: CLIENT shouldn't be used here, but it is a hack until
-# BUG 804428 is fixed...
-AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(CLIENT) \
-	$(am__append_1) $(am__append_2)
+AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) $(am__append_1) \
+	$(am__append_2)
 AM_LIBTOOLFLAGS = --quiet
 @MRN_TRUE@MRN_PROTO = dbgclnt_mrn.c dbg_mrn_fe.c mrn_topgen.c
 

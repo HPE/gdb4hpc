@@ -101,7 +101,8 @@ NewGraphInv(graph_t *g, dbgprocset_t *ps)
 
 	gi = (graph_inv *)Alloc(sizeof(graph_inv));
 	
-	//FIXME: This assumes only a single dbginvoke
+	//FIXME: This assumes only a single dbginvoke - this might not be the case
+	//We don't have any checks here to fail if so.
 	SetOverlaySetForProcSet(ps);
 	over_set = GetNextOverlaySetForProcSet(ps);
 	
@@ -114,7 +115,15 @@ NewGraphInv(graph_t *g, dbgprocset_t *ps)
 	for ( d = 0 ; d < INVOKE_NODES ; d++ )
 		gi->gp_node[d] = -1;
 	
+	// FIXME: This won't work well for user defined process sets...
 	// Put this graph_inv in the global hash table
+	if (strcmp(over_set->s_di->d_handle, ps->s_name) != 0)
+	{
+		HashInsert(g->g_inv, ps->s_name, (void *)gi);
+	}
+	
+	// FIXME: We still need to insert the di handle since the graph uses it. It
+	// should be modified to use the process set name instead.
 	HashInsert(g->g_inv, over_set->s_di->d_handle, (void *)gi);
 
 	// Put this dbginvoke_t in the g_di_list

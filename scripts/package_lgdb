@@ -36,6 +36,8 @@ release_date                  = definitions.release_date()
 script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
 rpm_name                      = "cray-lgdb-%s-%s_%s.x86_64.rpm" % (build_version, release_number, revision_number)
 
+print "rpm name" + rpm_name
+
 # are we assembling a sles12 package?
 if sles_level == "11":
   sles_sub = ""
@@ -76,7 +78,8 @@ rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version
 rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
-notes_path      = "http://svn/svn/debugger-support/lgdb/branches/lgdb/" + build_version_two_digit + "/release_info" 
+parent_dir      = top_dir.rsplit('/',1)[0]
+
 
 #spec file
 spec_file = "cray-lgdb.spec"
@@ -98,6 +101,7 @@ if os.path.exists(work_dir):
 
 #create the rpm_build_dir and child directories
 for directory in [work_dir, rpm_build_dir, rpm_install_dir, rpm_module_dir, rpm_lgdb_dir]:
+  print "making directory" + directory
   os.mkdir(directory)
 
 #generate the modulefile
@@ -147,21 +151,20 @@ new_set_def.close()
 
 cur_dir = os.getcwd()
 
-#release notes
+#release notes - are in parent directory
 os.chdir(rpm_lgdb_dir)
-os.system("svn export " + notes_path)
+
 with open("out.txt", "w+") as out:
-  for line in open("release_info"):
+  for line in open(parent_dir + "/release_info"):
     a = line.replace("%VERSION%", build_version)
     b = a.replace("%RELEASE%", release_number)
     c = b.replace("%REVISION%", revision_number)
     d = c.replace("%RELEASEDATE%", release_date)
     out.write(d)
 
-os.remove("release_info")
 outpath = rpm_lgdb_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
-
+print "outpath: " + outpath
 
 #man pages 
 man_dir = rpm_lgdb_dir+'/man'
@@ -199,7 +202,7 @@ yaml_template='''---
 section-1:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL 
     INSTALL_DEFAULT_HOSTS : NONE
@@ -213,14 +216,13 @@ section-1:
             - 2.1
             - 3.0
             - 3.1
-            - 6.0
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
 
 section-2:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS:
         ALL_EXCEPT:
@@ -232,14 +234,13 @@ section-2:
     OS_VERSION:
         ALL_EXCEPT:
             - SLES10
-            - SLES12
     RPM_LIST              : NONE
     SYSTEM_TYPE           : WHITEBOX
 
 section-3:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL
     INSTALL_DEFAULT_HOSTS : NONE
@@ -253,7 +254,6 @@ section-3:
             - 2.1
             - 3.0
             - 3.1
-            - 6.0
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
     COMMANDS: |
@@ -262,7 +262,7 @@ section-3:
 section-4:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS:
         ALL_EXCEPT:
@@ -283,7 +283,7 @@ section-4:
 section-5:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : 2017-09-19
-    EMAILS                : claustin@cray.com,kdavis@cray.com
+    EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL
     INSTALL_DEFAULT_HOSTS : NONE

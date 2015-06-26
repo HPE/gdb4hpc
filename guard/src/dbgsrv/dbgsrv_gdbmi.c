@@ -78,7 +78,8 @@ enum cuda_vers
 {
 	CUDA_UNKNOWN,
 	CUDA_55,
-	CUDA_65
+	CUDA_65,
+	CUDA_70
 };
 typedef enum cuda_vers		cuda_vers;
 
@@ -1195,7 +1196,11 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				// are:
 				// nvidia 319.* ==> CTK 5.5
 				// nvidia 340.* ==> CTK 6.5
-				if (strncmp(vers_str, "340", 3) == 0)
+				// nvidia 346.* ==> CTK 7.0
+				if (strncmp(vers_str, "346", 3) == 0)
+				{
+					vers_num = CUDA_70;
+				} if (strncmp(vers_str, "340", 3) == 0)
 				{
 					vers_num = CUDA_65;
 				} else if (strncmp(vers_str, "319", 3) == 0)
@@ -1255,6 +1260,10 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 					case CUDA_65:
 						DVPRINT("Using cuda65-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda65-gdb-guard");
+						break;
+					case CUDA_70:
+						DVPRINT("Using cuda70-gdb-guard\n");
+						MISessionSetGDBPath(GDBMISession, "cuda70-gdb-guard");
 						break;
 					case CUDA_UNKNOWN:
 						DVPRINT("Unsupported driver version.\n");

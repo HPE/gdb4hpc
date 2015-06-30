@@ -2317,7 +2317,12 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 
 	rep_set = DbgEvalExpr(rec_set, t2->t_str);
 	
-	ProcessErrorInRepSet(rep_set);
+	// TODO: Adding error handling here, but not sure what the right thing to do is.
+	if (ProcessErrorInRepSet(rep_set))
+	{
+		// Error already printed
+		return (token_t *)NULL;
+	}
 	
 	// Process the data replies
 	// FIXME: Modify graph to understand rep_set_t * instead of making this

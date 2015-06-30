@@ -36,7 +36,7 @@ release_date                  = definitions.release_date()
 script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
 rpm_name                      = "cray-lgdb-%s-%s_%s.x86_64.rpm" % (build_version, release_number, revision_number)
 
-print "rpm name" + rpm_name
+
 
 # are we assembling a sles12 package?
 if sles_level == "11":
@@ -56,10 +56,10 @@ if options.builddir == None:
   print "is_final is %s" % is_final
   print "rev_str is %s" % rev_str
  
-  for file in os.listdir(package_dir):
-    if fnmatch.fnmatch(file, rev_str):
-      print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
-      sys.exit(1)
+  #for file in os.listdir(package_dir):
+    #if fnmatch.fnmatch(file, rev_str):
+     # print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
+     # sys.exit(1)
 else:
   #verify that the folders that should be in the build dir, are present  
   lgdb_build_dir = options.builddir 
@@ -69,6 +69,7 @@ else:
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
       exit()
+
 
 #define some paths
 top_dir         = os.getcwd()
@@ -316,8 +317,8 @@ manifest_yaml.write(manifest_content)
 manifest_yaml.close()
 
 #copy rpm and yaml to pkgs_dir
-rpm_folder = "%s/rpm/RPMS/x86_64/" % rpm_build_dir
-os.chdir(rpm_folder)
-for f in [rpm_name, rpm_name+".yaml"]:
-  distutils.file_util.copy_file(f, package_dir)
+#rpm_folder = "%s/rpm/RPMS/x86_64/" % rpm_build_dir
+#os.chdir(rpm_folder)
+#for f in [rpm_name, rpm_name+".yaml"]:
+#  distutils.file_util.copy_file(f, package_dir)
 

@@ -37,23 +37,40 @@ script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17",
 if options.builddir == None:
   print "Using lastest build from Buildbot: " + lgdb_build_dir
   package_info = definitions.fetch_revision()
+  revision_number = package_info[0]
+  build_version = package_info[1]
+  release_number = package_info[2]
+  rpm_name = package_info[3]
 
+  if is_final:
+    rev_str = '*'+build_version+'-*'+revision_number+'*rpm'
+  else:
+    rev_str = '*'+primary_version+'*'+revision_number+'*rpm'
+
+  print "is_final is %s" % is_final
+  print "rev_str is %s" % rev_str
+ 
   for file in os.listdir(package_dir):
     if fnmatch.fnmatch(file, rev_str):
-    print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
-    sys.exit(1)
+      print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
+      sys.exit(1)
 
 else:
   #force packaging from oldbuild directory for test purposes only
   option.test = "True"
   #verify that the folders that should be in the build dir, are present  
   lgdb_build_dir = options.builddir 
-  last_char=atp_biuld_dir[-1]
+  last_char=lgdb_build_dir[-1]
   if [last_char != "/" ]:
-    atp_biuld_dir = atp_build_dir + "/"
+    lgdb_build_dir = lgdb_build_dir + "/"
 
-  package_info = defintions.fetch_revision()
-  print "using --build arg: " + atp_build_dir
+  package_info = definitions.fetch_revision()
+  revision_number = package_info[0]
+  build_version = package_info[1]
+  release_number = package_info[2]
+  rpm_name = package_info[3]
+
+  print "using --build arg: " + lgdb_build_dir
   for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
     t_dir = lgdb_build_dir+directory
     if not os.path.exists(t_dir):
@@ -61,10 +78,6 @@ else:
       print "Exiting!"
       exit()
 
-revision_number = package_info[0]
-build_version = package_info[1]
-release_number = package_info[2]
-rpm_name = package_info[3]
 
 #sles version is required for lgdb_spec.py
 with open("/etc/SuSE-release", "r") as f:
@@ -74,15 +87,6 @@ with open("/etc/SuSE-release", "r") as f:
       break
 
 
-#lets make sure we haven't spun a package for this LGDB revision previously before continuing.
-if is_final:
-  rev_str = '*'+build_version+'-*'+revision_number+'*rpm'
-else:
-  rev_str = '*'+primary_version+'*'+revision_number+'*rpm'
-
-print "is_final is %s" % is_final
-print "rev_str is %s" % rev_str
-
 #define some paths
 top_dir         = os.getcwd()
 work_dir        = top_dir + "/tmp"
@@ -91,8 +95,7 @@ rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version
 rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
-parent_dir     = top_dir.rsplit('/',1)[0]
-
+parent_dir      = top_dir.rsplit('/',1)[0]
 
 
 #spec file

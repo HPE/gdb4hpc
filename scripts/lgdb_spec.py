@@ -15,7 +15,7 @@ Group: Development/System
 URL: [url]
 Source: [tarball]
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
-Prefix: /opt/cray
+Prefix: /opt/cray/pe
 
 #BuildRequires: gcc-fortran
 

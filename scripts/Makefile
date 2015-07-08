@@ -26,8 +26,6 @@ $(PACKAGE_NAME).spec: $(PACKAGE_NAME).spec.template.new
 set_default_$(NAMESPACE)-$(INTRANAMESPACE_NAME)_$(PACKAGE_VERSION):
 	sed -e 's/\[product_name\]/$(INTRANAMESPACE_NAME)/g' \
             -e 's/\[version_string\]/$(PACKAGE_VERSION)/g' \
-            -e 's|\[install_dir\]|/opt/cray|g' \
-            -e 's|\[module_dir\]|/opt/cray/modulefiles/|g' \
             -e 's/\[module_name_list\]/$(NAMESPACE)-$(INTRANAMESPACE_NAME)/g' \
             set_default_template > $@
 

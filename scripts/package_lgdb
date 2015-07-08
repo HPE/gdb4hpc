@@ -162,7 +162,7 @@ except:
 
 
 #take care of the set_default script
-set_def_content = set_default_lgdb.content.replace('<version>', build_version)
+set_def_content = set_default_lgdb.content.replace('[version_string]', build_version)
 new_set_def = open(set_default_script_dest, "w+")
 new_set_def.write(set_def_content)
 new_set_def.close()

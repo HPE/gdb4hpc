@@ -116,7 +116,14 @@ rm -rf $RPM_BUILD_ROOT
 %post
 
 #Set the install path in the modulefile
-sed -i "s,\[BASE_INSTALL_DIR\],$RPM_INSTALL_PREFIX,g" $RPM_INSTALL_PREFIX/modulefiles/%{namespace}-%{intranamespace_name}/%{version}
+sed -i "s,\[BASE_INSTALL_DIR\],$RPM_INSTALL_PREFIX,g" $RPM_INSTALL_PREFIX/modulefiles/%{namespace}-%{intranamespace_name}/%{version} 
+
+sed -i \
+-e"s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
+-e"s,\[module_dir\],$RPM_INSTALL_PREFIX/modulefiles,g" \
+$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version} \
+$RPM_INSTALL_PREFIX/%{name}_%{version}
+
 
 #
 # Set as default if no default exists either because this is first install of

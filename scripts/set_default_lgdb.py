@@ -13,14 +13,17 @@ content='''#!/bin/ksh
 #    You can invoke your finished script with "--help" or with "-cray_links_only"
 
 export CRAY_product=lgdb
-export CRAY_version=<version>
-export CRAY_inst_dir=/opt/cray
-export CRAY_mod_dir=/opt/cray/modulefiles
+export CRAY_version=[version_string]
+export CRAY_inst_dir=[install_dir]
+export CRAY_mod_dir=[module_dir]
 export CRAY_mod_names=cray-lgdb
 
 if [ -L /opt/cray/bin/set_default ] ; then
   /opt/cray/bin/set_default "$@"
+elif [ -L /opt/cray/pe/bin/set_default ] ; then
+  /opt/cray/pe/bin/set_default "$@"
 else
-  echo "The set_default script is not installed in /opt/cray/bin. A newer version of xt-asyncpe must be installed."
+  echo "The set_default script is not installed in /opt/cray/bin,"
+  echo "or /opt/cray/pe/bin. CrayPE must be installed."
   exit 1
 fi'''

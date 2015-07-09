@@ -78,6 +78,8 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_name_prefix}
 %dir %{_version_prefix}
 %dir %{_version_prefix}/bin
+%dir %{_version_prefix}/docs
+
 %{_version_prefix}/bin/%{intranamespace_name}
 %dir %{_version_prefix}/libexec
 %{_version_prefix}/libexec/dbgsrv
@@ -115,15 +117,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 
-#Set the install path in the modulefile
-sed -i "s,\[BASE_INSTALL_DIR\],$RPM_INSTALL_PREFIX,g" $RPM_INSTALL_PREFIX/modulefiles/%{namespace}-%{intranamespace_name}/%{version} 
-
-sed -i \
--e"s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
--e"s,\[module_dir\],$RPM_INSTALL_PREFIX/modulefiles,g" \
-$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version} \
-$RPM_INSTALL_PREFIX/%{name}_%{version}
-
+#Set the install path in the modulefile & set_default script(s)
+sed -i "s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
+$RPM_INSTALL_PREFIX/modulefiles/%{name}/%{version} \
+$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{name}_%{version} \
+$RPM_INSTALL_PREFIX/%{intranamespace_name}/%{version}/set_default_%{name}_%{version}
 
 #
 # Set as default if no default exists either because this is first install of
@@ -131,38 +129,37 @@ $RPM_INSTALL_PREFIX/%{name}_%{version}
 #
 
 # prevent echo of new directory as it messes up install output
-if [ $RPM_INSTALL_PREFIX = "/opt/cray" ]
+if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
   then
     if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ] || [ ! -f $RPM_INSTALL_PREFIX/modulefiles/cray-lgdb/.version ]
       then
-        $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version}
+        $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{name}_%{version}
      else
-      echo "%{namespace}-%{intranamespace_name}_%{version} has been installed as non-default."
+      echo "%{name}_%{version} has been installed as non-default."
     fi
 fi
 
 %preun
 # Cleanup default link if it point to this version
-default_link="%{_name_prefix}/default"
-if [ -f ${default_link} -a "$(stat -c "%%d:%%i" ${default_link})" == "$(stat -c "%%d:%%i" %{_version_prefix})" ]
+default_link="${RPM_INSTALL_PREFIX}/%{name}/default"
+if [ -f ${default_link} -a "$(readlink $default_link)" == "%{version}" ]
 then
   rm -f ${default_link}
 fi
 
 cd %{_name_moduledir}
-version="%{version}"
 
 # Cleanup module .version if it points to this version
-pushd %{_name_moduledir} 1> /dev/null
-if [ $RPM_INSTALL_PREFIX = "/opt/cray" ]
+pushd $RPM_INSTALL_PREFIX/modulefiles/%{name} 1> /dev/null
+if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
   then
 	if [ -f .version ]
 	then
 	  dotversion=$(grep ModulesVersion .version | awk 'BEGIN { FS="\\"" } {print $2 }')
 	  
-	  if [ "${dotversion}" = "${version}" ]
+	  if [ "${dotversion}" = "%{version}" ]
 	  then
-	    echo "Uninstalled version and .version file match = ${version}."
+	    echo "Uninstalled version and .version file match = %{version}."
 	    echo "Removing %{intranamespace_name} .version file."
 	    rm .version
 	  fi

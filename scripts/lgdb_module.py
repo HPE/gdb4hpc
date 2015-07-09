@@ -7,7 +7,7 @@ content='''#%Module#############################################################
  #
  
  set CRAY_LGDB_LEVEL   <version> 
- set CRAY_LGDB_CURPATH  [BASE_INSTALL_DIR]/lgdb/$CRAY_LGDB_LEVEL
+ set CRAY_LGDB_CURPATH  [install_dir]/lgdb/$CRAY_LGDB_LEVEL
  
  setenv CRAY_LGDB_VERSION  $CRAY_LGDB_LEVEL
  setenv CRAY_LGDB_DIR $CRAY_LGDB_CURPATH

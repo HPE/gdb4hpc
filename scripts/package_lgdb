@@ -41,6 +41,7 @@ if options.builddir == None:
   build_version = package_info[1]
   release_number = package_info[2]
   rpm_name = package_info[3]
+  sles_ver = package_info[4]
 
   if is_final:
     rev_str = '*'+build_version+'-*'+revision_number+'*rpm'
@@ -69,6 +70,7 @@ else:
   build_version = package_info[1]
   release_number = package_info[2]
   rpm_name = package_info[3]
+  sles_ver = package_info[4]
 
   print "using --build arg: " + lgdb_build_dir
   for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
@@ -77,14 +79,6 @@ else:
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
       exit()
-
-
-#sles version is required for lgdb_spec.py
-with open("/etc/SuSE-release", "r") as f:
-  for line in f:
-    if line.find("VERSION") != -1:
-      sles_sub = line.replace("VERSION = ", "")
-      break
 
 
 #define some paths
@@ -136,9 +130,9 @@ spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_v
 spec_content = spec_content.replace( "[version]", build_version)
 spec_content = spec_content.replace( "[rpm_release]", release_number)
 spec_content = spec_content.replace( "[package_revision]", revision_number)
+spec_content = spec_content.replace( "[sles_sub]", sles_ver)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
-spec_content = spec_content.replace("[sles_sub]", sles_sub)
 
 spec_file = open(spec_dest, 'w+')
 spec_file.write(spec_content)

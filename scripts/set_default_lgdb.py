@@ -15,7 +15,7 @@ content='''#!/bin/ksh
 export CRAY_product=lgdb
 export CRAY_version=[version_string]
 export CRAY_inst_dir=[install_dir]
-export CRAY_mod_dir=[module_dir]
+export CRAY_mod_dir=[install_dir]/modulefiles
 export CRAY_mod_names=cray-lgdb
 
 if [ -L /opt/cray/bin/set_default ] ; then

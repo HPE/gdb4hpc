@@ -31,6 +31,18 @@ def fetch_release(bld_version, rev_num):
       break
   return str(rval)  
 
+def fetch_sles_level():
+  with open("/etc/SuSE-release", "r") as f:
+    for line in f:
+      if line.find("VERSION") != -1:
+        sles_sub = line.replace("VERSION = ", "")
+        break
+  if sles_sub == "12":
+    return "_SLES12"
+  else:
+    return '' 
+
+
 def release_date():
   rd = os.popen('/cray/css/ulib/utilities/find_release_date','r').readline()
   rd = rd.replace('"','').replace('\n','')
@@ -94,10 +106,12 @@ def fetch_revision():
   base_name = "cray-lgdb-" + version
 
   release_number = fetch_release(base_name, rev_number)
+  sles_ver = fetch_sles_level()
+
   package_name = base_name + "-" + release_number + "_" + rev_number
   rpm_name = package_name + "." + arch + ".rpm"
 
-  contents = [rev_number, version, release_number, rpm_name]
+  contents = [rev_number, version, release_number, rpm_name, sles_ver]
   return contents
 
 

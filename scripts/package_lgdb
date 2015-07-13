@@ -5,8 +5,8 @@ from optparse import OptionParser
 
 
 #check if running from cron, act accordingly...
-if not sys.stdout.isatty():
-  os.chdir("/cray/css/ulib/lgdb/scripts")
+#if not sys.stdout.isatty():
+#  os.chdir("/cray/css/ulib/lgdb/scripts")
 
 #lgdb specific modules
 import definitions
@@ -31,7 +31,8 @@ lgdb_build_dir                = definitions.bld_dir
 build_version_two_digit       = definitions.ver_two_dig
 build_version_two_digit_nodot = definitions.ver_two_dig_nodot
 release_date                  = definitions.release_date() 
-script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
+#script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
+script_dir                   = os.getcwd()
 
 
 if options.builddir == None:
@@ -51,6 +52,7 @@ if options.builddir == None:
   print "is_final is %s" % is_final
   print "rev_str is %s" % rev_str
  
+
   for file in os.listdir(package_dir):
     if fnmatch.fnmatch(file, rev_str):
       print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
@@ -79,6 +81,7 @@ else:
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
       exit(1)
+
 
 
 #define some paths
@@ -138,6 +141,8 @@ spec_file = open(spec_dest, 'w+')
 spec_file.write(spec_content)
 spec_file.close()
 
+
+
 #copy bin/ lib/ etc dirs from the build dir to rpm_install_dir+/cray-lgdb/lib (etc)
 #source: lgdb_build_dir  | contents bin/ demos/ docs/ lib/ modulefiles/
 for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
@@ -145,14 +150,14 @@ for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
 
 
 #remove some svn cruft
-try:
-  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/docs/.svn")
-  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/hpcc_scripts/.svn")
-  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/.svn")
-  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/mpi_example/.svn")
-  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/.svn")
-except:
-  print "no .svn dirs to remove..."
+#try:
+#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/docs/.svn")
+#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/hpcc_scripts/.svn")
+#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/.svn")
+#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/mpi_example/.svn")
+#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/.svn")
+#except:
+#  print "no .svn dirs to remove..."
 
 
 #take care of the set_default script

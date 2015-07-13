@@ -78,7 +78,7 @@ else:
     if not os.path.exists(t_dir):
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
-      exit()
+      exit(1)
 
 
 #define some paths

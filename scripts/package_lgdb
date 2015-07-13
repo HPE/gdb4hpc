@@ -5,8 +5,8 @@ from optparse import OptionParser
 
 
 #check if running from cron, act accordingly...
-if not sys.stdout.isatty():
-  os.chdir("/cray/css/ulib/lgdb/scripts")
+#if not sys.stdout.isatty():
+#  os.chdir("/cray/css/ulib/lgdb/scripts")
 
 #lgdb specific modules
 import definitions

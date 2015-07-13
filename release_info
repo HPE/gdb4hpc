@@ -1,7 +1,8 @@
-lgdb 2.0
+lgdb %VERSION% 
 =========
 
 Release Date:
+
 
 Purpose:
 ---------
@@ -41,13 +42,21 @@ Simple usage examples are provided at the end.
 
 Also, type `help` at the lgdb 2.0 command line for more information on commands.
 
-Installation instructions:
---------------------------
-To install the lgdb:
+Installation:
+-------------
+Installation instructions for CLE 6.0 and later:
+ ================================================
   rpm -ivh cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
 
-To make lgdb %VERSION% the default version of lgdb, execute:
-  /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
+  To make lgdb %VERSION% the default version of lgdb, execute:
+    /opt/cray/pe/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
+
+Installation instructions for CLE 5.2 or 5.1:
+ =============================================
+  rpm -ivh --prefix=/opt/cray cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
+
+  To make lgdb %VERSION% the default version of lgdb, execute:
+    /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
 
  Certain components, files or programs contained within this package or
-  product are Copyright 2012 Cray Inc. All rights reserved.
+  product are Copyright 2015 Cray Inc. All rights reserved.

@@ -59,8 +59,6 @@ if options.builddir == None:
       sys.exit(1)
 
 else:
-  #force packaging from oldbuild directory for test purposes only
-  options.test = "True"
   #verify that the folders that should be in the build dir, are present  
   lgdb_build_dir = options.builddir 
   last_char=lgdb_build_dir[-1]

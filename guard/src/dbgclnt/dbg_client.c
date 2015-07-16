@@ -1510,6 +1510,10 @@ DbgDispatchEvents(void)
 		// Loop through each dbginvoke entry and check for events.
 		while ( (di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != (dbginvoke_t *)NULL )
 		{
+			// if the proto is shutting down, don't dispatch further pending events
+			if (di->d_isShutdown)
+				continue;
+		
 			// Ensure there is a protocol specific dispatch function
 			if (DBG_PROTO_SW(di)->sw_dispatchevents != NULL)
 			{
@@ -1522,6 +1526,10 @@ DbgDispatchEvents(void)
 				
 					while ((ev_fd = (int *) GetListElement(di->d_evfds)) != (int *)NULL )
 					{
+						// if the previous event caused a shutdown, don't continue processing events
+						if (di->d_isShutdown)
+							break;
+						
 						if ( FD_ISSET(*ev_fd, &dispatch_fds) )
 						{
 							// dispatch each of the set notification fds one at a time.

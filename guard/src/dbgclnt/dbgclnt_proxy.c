@@ -1864,6 +1864,15 @@ DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd)
 	proto_msg_set *		ev_res;
 	char *				line;
 	
+	// fix segfault
+	if (ev_fd == -1 || di->d_proto_net == NULL)
+	{
+		// Something is seriously wrong, force quit
+		di->d_isShutdown = 1;
+		ForceQuit();
+		return;
+	}
+	
 	// dispatch events
 	if (ev_fd == PROXY_EVENTFD(network))
 	{

@@ -803,7 +803,7 @@ AIF *
 PerformSlicing(AIF *a, char *sliceinfo, int is_revert)
 {
 	int	i=0,j=0;
-	int	nd;
+	int	nd, nds;
 	int *	min;
 	int *	max;
 	char *	tok;
@@ -832,8 +832,19 @@ PerformSlicing(AIF *a, char *sliceinfo, int is_revert)
 	if ( is_revert )
 		i = nd - 1;
 
+	nds = 0;
 	while(tok != NULL)
 	{
+		// if nds is equal to nd, then there are too many dimensions in the slicing information
+		// we need to do this check here to avoid a heap corruption.
+		if (nds++ == nd)
+		{
+			Free(min);
+			Free(max);
+			DVPRINT("*** Invalid slice: %d, Out of bounds", i);
+			SetPerformSlicingErrorMsg("Invalid slice: Too many subscripts");
+			return (AIF *)NULL;
+		}
 		min[i] = atoi(TrimStr(tok));
 		tok = strtok(NULL, ",");
 		max[i] = atoi(TrimStr(tok));

@@ -1,16 +1,22 @@
-lgdb %VERSION% 
-=========
+LGDB %VERSION%
+==========
 
 Release Date:
+--------------
+%RELEASEDATE%
 
+Product Description:
+--------------------
+  lgdb is a GDB-based parallel debugger used to debug applications compiled with 
+  CCE, PGI, GNU, and Intel Fortran, C and C++ compilers. It allows programmers to 
+  either launch an application or attach to an already running application that 
+  was launched with aprun. Additionally, it provides comparative debugging
+  technology that enables programmers to compare data structures between two 
+  executing applications. Comparative debugging should be used in conjunction
+  with the CCDB GUI tool accessed by loading the cray-ccdb module.
 
-Purpose:
----------
+  Some features of lgdb include:
 
-  lgdb 2.0 feature release. This release introduces the new lgdb interface which
-  provides a true line mode parallel debugging experience. This release also
-  implements prototype Cray Comparative Debugging technology.
-  
   * Command line parallel debugger allows for launching/attaching applications
     via aprun.
     
@@ -18,21 +24,26 @@ Purpose:
   
   * gdb like feel, also implements a gdbmode to enable a true parallel gdb.
   
-  * Prototype of Cray Comparative Debugging Technology.
-  
-  Note that this version of lgdb invalidates all of the previous lgdb syntax.
-  
-  Batch system is supported through the use of interactive batch (i.e. qsub -I).
-  
-Bugs Closed with this release:
-------------------------------
+  * OpenACC debugging support.
+ 
+  * Workload manager support. Alps, Cray hybrid slurm, and native slurm is
+    supported.
 
-  784447 - when debugging a live process, 'target remote' on second gdb fails
-  784446 - when attaching to live app process with lgdb, killing lgdb kills
-  
+Purpose:
+---------
+  This is feature release.
+
+  1. Added support for CUDA 70.
+
+  2. Upgraded gdb to latest versions containing multiple bugfixes.
+
 Product and OS Dependencies:
 -----------------------------
-CLE 4.0 or greater
+  The Cray lgdb %VERSION% release is supported on the following Cray systems
+  running Cray Linux Environment(CLE) operating system
+    - Cray XE and XK systems running CLE 5.1 or later
+    - Cray XC series systems with CLE version 5.1 or later
+    - Native SLURM is supported with version 14.11.0 or later
 
 Documentation:
 ---------------
@@ -40,10 +51,11 @@ Type `man lgdb` with the cray-lgdb module loaded to read the lgdb(1) man page.
 
 Simple usage examples are provided at the end.
 
-Also, type `help` at the lgdb 2.0 command line for more information on commands.
+Also, type `help` at the lgdb command line for more information on commands.
 
-Installation:
--------------
+Installation instructions:
+--------------------------
+
 Installation instructions for CLE 6.0 and later:
  ================================================
   rpm -ivh cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
@@ -59,4 +71,4 @@ Installation instructions for CLE 5.2 or 5.1:
     /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
 
  Certain components, files or programs contained within this package or
-  product are Copyright 2015 Cray Inc. All rights reserved.
+  product are Copyright 2007-2015 Cray Inc. All rights reserved.

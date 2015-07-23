@@ -265,7 +265,7 @@ EndDF(graph_t *g)
 	
 	DFMsg("\n*** The interpreter has halted. ***");
 	DFMsg("Assertion script $%s complete.", g->g_valname);
-	DFMsg("Successful Assertion Set Iterations: %d", ((g->g_iterations - g->g_fail)/g->g_assertions));
+	DFMsg("Successful Assertion Set Iterations: %d", g->g_assertions ? ((g->g_iterations - g->g_fail)/g->g_assertions) : 0);
 	DFMsg("Total Passed Assertions: %d", g->g_pass);
 	DFMsg("Total Warned Assertions: %d", g->g_warn);
 	DFMsg("Total Failed Assertions: %d", g->g_fail);

@@ -160,6 +160,10 @@ CleanupOnSocketClose(void)
 {
 	dbginvoke_t *		di = NULL;
 	proxy_instance *	obj = NULL;
+	int					detach = 0;
+	char *				request;
+	bitset *			recv_set;
+	proto_msg_set *		pmsg_set;
 
 	// find the dbginvoke_t associated with this id
 	if (!EmptyList(DbgInvokeList))
@@ -170,16 +174,57 @@ CleanupOnSocketClose(void)
 		// Loop through each dbginvoke entry and call its exit function
 		while ( (di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != (dbginvoke_t *)NULL )
 		{
+			// use default based on attach value
+			switch (di->d_type)
+			{
+				case DBG_ATTACHED:
+					detach = 1;
+					break;
+				case DBG_LAUNCHED:
+					detach = 0;
+					break;
+			}
+			
+			// ensure the send_cmd function is implemented
+			if ( DBG_PROTO_SW(di)->sw_send_cmd != NULL )
+			{
+				// TODO: how to handle error?
+				
+				// Create the quit command
+				request = CommandToSocProto(DBGCMD_QUIT, detach);
+				
+				// send the command to every rank
+				recv_set = DBG_PROTO_SW(di)->sw_send_cmd(di, di->d_bitset_full, request);
+				
+				Free(request);
+				
+				// ensure the recv_reply function is implemented
+				if ( DBG_PROTO_SW(di)->sw_recv_reply != NULL )
+				{
+					// TODO: how to handle error?
+				
+					pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di, di->d_bitset_full, recv_set);
+					
+					// We don't care about actually processing the reply, since this is the
+					// cleanup on error case. We want to ensure that we received an asynch
+					// reply.
+					
+					// cleanup
+					FreeProtoMsgSet(pmsg_set);
+				}
+				
+				bitset_free(recv_set);
+			}
+			
+			// It is now safe to exit
+			
 			// ensure the exit function is implemented
 			if (DBG_PROTO_SW(di)->sw_exit != NULL)
 			{
 				// call the exit function
-				// FIXME: This forces things to quit instead of detach. I think
-				// the dbginvoke should probably hold onto information if we attached
-				// or launched the application.
-				DBG_PROTO_SW(di)->sw_exit(di, 0);
+				DBG_PROTO_SW(di)->sw_exit(di, detach);
 			}
-				
+			
 			// Cleanup the dbginvoke, we are done with it.
 			FreeDbgInvoke(di);
 		}

@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-import sys, os, re
+import sys, os, re, datetime, time
 from os import listdir
 from os.path import isfile, join
 from distutils.version import LooseVersion
+from datetime import date
+from datetime import datetime
+
 
 primary_version     = "2.4.4" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
@@ -101,6 +104,15 @@ def fetch_revision():
   rev_command = "git rev-parse HEAD"
   rev_number  = os.popen(rev_command).read()
   rev_number  = rev_number.rstrip()
+
+  dt_time = datetime.utcnow()
+  dt_time = str(dt_time).replace(":","")
+  dt_time = str(dt_time).replace("-","")
+  dt_time = str(dt_time).replace(" ","")
+  dt_time = str(dt_time)[0:12]
+
+  rev_number = rev_number[0:13]
+  rev_number = str(dt_time) + "." + str(rev_number)
 
   version = fetch_version(primary_version,final,rev_number)
   base_name = "cray-lgdb-" + version

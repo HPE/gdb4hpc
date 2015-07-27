@@ -1200,7 +1200,7 @@ apply_var_op(expr_elt *ep, expr_t *e)
 	char *		v3 = NULL;
 	char *		v4 = NULL;
 	char *		v_res = NULL;
-	int	 		len, tmp;
+	int	 		len, tmp, i;
 	
 	DPRINT("In apply_var_op\n");
 	
@@ -1248,13 +1248,73 @@ apply_var_op(expr_elt *ep, expr_t *e)
 	case EXPR_OPSUBSCR:
 		ep_next = POP(e);
 		DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
-		v1 = apply_var_op(ep_next, e);
-		if (v1 == NULL)
-			return NULL;
-		len = strlen(v1) + strlen("[") + strlen("]") + 1;
-		v2 = (char *)Alloc(len);
-		snprintf(v2, len, "%s%s%s", "[", v1, "]");
-		Free(v1);
+		
+		// Handle fortran array syntax
+		if (ep_next->e_op == EXPR_LIST_START)
+		{
+			// next element must be the length of the list
+			ep_next = POP(e);
+			DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
+			if (ep_next->e_op != EXPR_INT)
+			{
+				SetError("apply_var_op: Unknown Symbol %s encountered", getExprOpStr(ep->e_op));
+				return NULL;
+			}
+			
+			tmp = ep_next->e_int;
+			
+			// Handle the first element in the list
+			if (tmp == 0)
+			{
+				// there are no elements in the list, we can return
+				len = strlen("(") + strlen(")") + 1;
+				v_res = (char *)Alloc(len);
+				snprintf(v_res, len, "()");
+				break;
+			}
+			
+			// length is at least one, so create the first element
+			ep_next = POP(e);
+			DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
+			v1 = apply_var_op(ep_next, e);
+			if (v1 == NULL)
+				return NULL;
+			
+			// Handle the rest of the elements
+			for (i = 1; i < tmp; ++i)
+			{
+				// Remember that this is in LALR notation
+				ep_next = POP(e);
+				DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
+				v2 = apply_var_op(ep_next, e);
+				if (v2 == NULL)
+					return NULL;
+				len = strlen(v2) + strlen(",") + strlen(v1) + 1;
+				v3 = (char *)Alloc(len);
+				snprintf(v3, len, "%s,%s", v2, v1);
+				Free(v1);
+				Free(v2);
+				v1 = v3;
+			}
+			
+			// Create the final array string
+			len = strlen("(") + strlen(v1) + strlen(")") + 1;
+			v2 = (char *)Alloc(len);
+			snprintf(v2, len, "(%s)", v1);
+			Free(v1);
+		} else
+		{
+			// This is C array syntax
+			v1 = apply_var_op(ep_next, e);
+			if (v1 == NULL)
+				return NULL;
+			len =  strlen("[") + strlen(v1) + strlen("]") + 1;
+			v2 = (char *)Alloc(len);
+			snprintf(v2, len, "%s%s%s", "[", v1, "]");
+			Free(v1);
+		}
+		
+		// get the symbol name
 		ep_next = POP(e);
 		DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
 		v1 = apply_var_op(ep_next, e);
@@ -1263,6 +1323,8 @@ apply_var_op(expr_elt *ep, expr_t *e)
 			Free(v2);
 			return NULL;
 		}
+		
+		// Create the final array string
 		len = strlen(v1) + strlen(v2) + 1;
 		v_res = (char *)Alloc(len);
 		snprintf(v_res, len, "%s%s", v1, v2);
@@ -1417,6 +1479,13 @@ apply_var_op(expr_elt *ep, expr_t *e)
 		snprintf(v_res, len, "%s%s%s", v1, "%", v2);
 		Free(v1);
 		Free(v2);
+		break;
+		
+	case EXPR_LIST:
+		// list element, ignore this token.
+		ep_next = POP(e);
+		DPRINT("apply_var_op: popped expr_op %s\n", getExprOpStr(ep_next->e_op));
+		v_res = apply_var_op(ep_next, e);
 		break;
 		
 	default:

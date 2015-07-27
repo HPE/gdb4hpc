@@ -35,6 +35,8 @@ release_date                  = definitions.release_date()
 script_dir                   = os.getcwd()
 
 
+
+
 if options.builddir == None:
   print "Using lastest build from Buildbot: " + lgdb_build_dir
   package_info = definitions.fetch_revision()
@@ -44,20 +46,7 @@ if options.builddir == None:
   rpm_name = package_info[3]
   sles_ver = package_info[4]
 
-  if is_final:
-    rev_str = '*'+build_version+'-*'+revision_number+'*rpm'
-  else:
-    rev_str = '*'+primary_version+'*'+revision_number+'*rpm'
-
-  print "is_final is %s" % is_final
-  print "rev_str is %s" % rev_str
- 
-
-  for file in os.listdir(package_dir):
-    if fnmatch.fnmatch(file, rev_str):
-      print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
-      sys.exit(1)
-
+  
 else:
   #verify that the folders that should be in the build dir, are present  
   lgdb_build_dir = options.builddir 
@@ -82,6 +71,22 @@ else:
 
 
 
+if is_final:
+  rev_str = '*'+primary_version+'-*'+revision_number+'*rpm'
+  build_version = primary_version
+else:
+  rev_str = '*'+build_version+'*'+revision_number+'*rpm'
+
+  print "is_final is %s" % is_final
+  print "rev_str is %s" % rev_str
+
+
+for file in os.listdir(package_dir):
+  if fnmatch.fnmatch(file, rev_str):
+    print "a package for this revision of LGDB has already been packaged, stopping the build/package process...."
+    sys.exit(1)
+
+
 #define some paths
 top_dir         = os.getcwd()
 work_dir        = top_dir + "/tmp"
@@ -91,6 +96,9 @@ rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
 parent_dir      = top_dir.rsplit('/',1)[0]
+
+print top_dir
+print parent_dir
 
 
 #spec file
@@ -147,17 +155,6 @@ for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
   distutils.dir_util.copy_tree(lgdb_build_dir+dir, rpm_lgdb_dir+dir)
 
 
-#remove some svn cruft
-#try:
-#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/docs/.svn")
-#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/hpcc_scripts/.svn")
-#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/hpcc_demo/.svn")
-#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/mpi_example/.svn")
-#  distutils.dir_util.remove_tree(rpm_lgdb_dir+"/demos/.svn")
-#except:
-#  print "no .svn dirs to remove..."
-
-
 #take care of the set_default script
 set_def_content = set_default_lgdb.content.replace('[version_string]', build_version)
 new_set_def = open(set_default_script_dest, "w+")
@@ -170,7 +167,7 @@ cur_dir = os.getcwd()
 os.chdir(rpm_lgdb_dir)
 
 with open("out.txt", "w+") as out:
-  for line in open(top_dir + "/release_info"):
+  for line in open(parent_dir + "/release_info"):
     a = line.replace("%VERSION%", build_version)
     b = a.replace("%RELEASE%", release_number)
     c = b.replace("%REVISION%", revision_number)
@@ -329,10 +326,10 @@ section-5:
 
 --- |
 #Remove previous versions of this rpm
-#for package in  $(rpm -qa | grep cray-lgdb | grep <version>)
-#do
-#  rpm -e $package
-#done
+for package in  $(rpm -qa | grep cray-lgdb | grep <version>)
+do
+  rpm -e $package
+done
 
 SLES_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
 if [[ $SLES_VER -lt 12 ]]

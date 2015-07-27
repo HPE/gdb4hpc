@@ -147,7 +147,7 @@ then
   rm -f ${default_link}
 fi
 
-cd %{_name_moduledir}
+cd $RPM_INSTALL_PREFIX/modulefiles/%{name}
 
 # Cleanup module .version if it points to this version
 pushd $RPM_INSTALL_PREFIX/modulefiles/%{name} 1> /dev/null

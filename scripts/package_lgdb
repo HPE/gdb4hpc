@@ -77,8 +77,8 @@ if is_final:
 else:
   rev_str = '*'+build_version+'*'+revision_number+'*rpm'
 
-  print "is_final is %s" % is_final
-  print "rev_str is %s" % rev_str
+print "is_final is %s" % is_final
+print "rev_str is %s" % rev_str
 
 
 for file in os.listdir(package_dir):

@@ -17,8 +17,8 @@ import set_default_lgdb
 #handle any user passed options
 parser = OptionParser()
 parser.add_option("-b","--builddir",dest="builddir",help="the directory containing the build")
-parser.add_option("-t", "--test", action="store_true",dest="test")
-parser.add_option("-f","--final",dest="is_final",default=False)
+parser.add_option("-t", "--test", action="store_true", dest="test")
+parser.add_option("-f","--final", action="store_true", dest="is_final",default=False)
 (options, args) = parser.parse_args()
 
 is_final   = options.is_final
@@ -77,8 +77,8 @@ if is_final:
 else:
   rev_str = '*'+build_version+'*'+revision_number+'*rpm'
 
-  print "is_final is %s" % is_final
-  print "rev_str is %s" % rev_str
+print "is_final is %s" % is_final
+print "rev_str is %s" % rev_str
 
 
 for file in os.listdir(package_dir):

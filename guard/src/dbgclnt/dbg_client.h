@@ -315,7 +315,7 @@ extern proto_session *	DbgGetSession(void);
 
 extern dbginvoke_t *	DbgAttach(char *, proto_session *, char *, char *, char *, char *, int, int);
 extern dbginvoke_t *	DbgInvoke(	char *, proto_session *, char *, char **, char *, int, char *,
-									char **, char *, char *, char **, char *, int, int, int);
+									char **, char *, char *, char **, char *, int, int, int, int);
 
 extern rep_set_t *		DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than rep_set_t *

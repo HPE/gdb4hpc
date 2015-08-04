@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2014 Cray Inc.  All Rights Reserved.
+ * © 2010-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -297,6 +297,50 @@ class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// close the file pointer
 	pclose(cmd_out);
 	
+	return 1;
+}
+
+static int
+class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	char *	s;
+	ct_val	cv;
+
+	if ( argc < 2 )
+	{
+		PrintOutError("Not enough command arguments.\n");
+		PrintOutError("Expected: maint set earlyentry [on|off]\n");
+		return 0;
+	}
+	
+	// only look at the first arg
+	s = argv[1];
+	
+	switch( ScanString(&cv, &s) )
+	{
+		case CT_TRUE:
+			Client.early_entry = 1;
+			break;
+		case CT_FALSE:
+			Client.early_entry = 0;
+			break;
+		default:
+			PrintOutError("Encountered something other than on or off.\n");
+			PrintOutError("See \"help maint set earlyentry\" for more information.\n");
+			return 0;
+	}
+	
+	return 1;
+}
+
+static int
+class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+	if (Client.early_entry)
+		PrintOutMsg("Early entry mode enabled.\n");
+	else
+		PrintOutMsg("Early entry mode disabled.\n");
+		
 	return 1;
 }
 
@@ -635,6 +679,8 @@ InitCmd_env(void)
 		class_set_subcmd_environment_help, "Set environment variable value for launching applications.");
 
 	// maint set commands
+	AddMaintSetCommand("earlyentry", proc_ignore, 0, class_maint_set_subcmd_earlyentry_cmd,
+		class_maint_set_subcmd_earlyentry_help, "Enable early entry mode.");
 	AddMaintSetCommand("unsafe", proc_ignore, 0, class_maint_set_subcmd_unsafe_cmd,
 		class_maint_set_subcmd_unsafe_help, "Enable unsafe functionality.");
 	AddMaintSetCommand("sync", proc_ignore, 0, class_maint_set_subcmd_sync_cmd,
@@ -651,6 +697,8 @@ InitCmd_env(void)
 		class_show_subcmd_version_help, "Show the debugger version number.");
 		
 	// maint show commands
+	AddMaintShowCommand("earlyentry", proc_ignore, 0, class_maint_show_subcmd_earlyentry_cmd,
+		class_maint_show_subcmd_earlyentry_help, "Show setting of early entry mode.");
 	AddMaintShowCommand("unsafe", proc_ignore, 0, class_maint_show_subcmd_unsafe_cmd,
 		class_maint_show_subcmd_unsafe_help, "Show setting of unsafe mode.");
 	AddMaintShowCommand("sync", proc_ignore, 0, class_maint_show_subcmd_sync_cmd,

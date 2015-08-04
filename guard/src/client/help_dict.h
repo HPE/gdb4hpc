@@ -1,7 +1,7 @@
 /******************************************************************************\
  * help_dict.h - Command help string defintion dictionary interface.
  *
- * © 2011-2014 Cray Inc.  All Rights Reserved.
+ * © 2011-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -100,6 +100,7 @@ extern const char * const class_set_subcmd_function_help[];
 /*
  * Class maint set subcommands
  */
+extern const char * const class_maint_set_subcmd_earlyentry_help[];
 extern const char * const class_maint_set_subcmd_unsafe_help[];
 extern const char * const class_maint_set_subcmd_sync_help[];
 
@@ -115,6 +116,7 @@ extern const char * const class_show_subcmd_version_help[];
 /*
  * Class maint show subcommands
  */
+extern const char * const class_maint_show_subcmd_earlyentry_help[];
 extern const char * const class_maint_show_subcmd_unsafe_help[];
 extern const char * const class_maint_show_subcmd_sync_help[];
 

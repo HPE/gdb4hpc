@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgproxy.c - proxy interface routines
  *
- * © 2013-2014 Cray Inc.  All Rights Reserved.
+ * © 2013-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -523,6 +523,7 @@ SocProtoToInvokeArgs(char *s)
 	FMT_MAKE_NULL_STR(rtn->cwd);
 	rtn->gpu_flag = getint(&s);
 	rtn->debug_flag = getint(&s);
+	rtn->early_entry_flag = getint(&s);
 	
 	return rtn;
 }
@@ -622,7 +623,8 @@ AttachArgsToSocProto(char *app_ident, char *arch, char *backend, int gpu_flag, i
 char *				
 InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch, 
 						char **arch_args, char *arch_input, char *backend, 
-						char **env, char *cwd, int gpu_flag, int debug_flag)
+						char **env, char *cwd, int gpu_flag, int debug_flag,
+						int early_entry_flag)
 {
 	char *	stres = NULL;
 	char *	argv_str;
@@ -645,7 +647,7 @@ InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch,
 	FMT_CHECK_NULL_STR(cwd);
 	
 	// Create the res
-	Asprintf(	&stres, "%d %s %d %d %s %d %d %s %d %d %s %d %s %d %s %d %d %s %d %s %d %d",
+	Asprintf(	&stres, "%d %s %d %d %s %d %d %s %d %d %s %d %s %d %s %d %d %s %d %s %d %d %d",
 				(int)strlen(prog),
 				prog,
 				argv_num,
@@ -667,7 +669,8 @@ InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch,
 				(int)strlen(cwd),
 				cwd,
 				gpu_flag,
-				debug_flag);
+				debug_flag,
+				early_entry_flag);
 				
 	// Cleanup
 	Free(argv_str);

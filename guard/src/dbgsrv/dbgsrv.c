@@ -54,6 +54,7 @@
 
 int debug_flag = 0;
 int gpu_flag = 0;
+int early_entry_flag = 0;
 
 const struct option long_opts[] = {
 				{"callbackHost",	required_argument,	0, 'h'},
@@ -66,6 +67,7 @@ const struct option long_opts[] = {
 				{"jobkey",			required_argument,	0, 'k'},
 				{"gpu",				no_argument,		&gpu_flag, 1},
 				{"debug",			no_argument,		&debug_flag, 1},
+				{"early-entry",		no_argument,		&early_entry_flag, 1},
 				{0, 0, 0, 0}
 				};
 

@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgproxy.h - proxy interface routines
  *
- * © 2013-2014 Cray Inc.  All Rights Reserved.
+ * © 2013-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -152,6 +152,7 @@ struct invoke_args
 	char *	cwd;
 	int		gpu_flag;
 	int		debug_flag;
+	int		early_entry_flag;
 };
 typedef struct invoke_args invoke_args;
 
@@ -182,7 +183,8 @@ extern char *				AttachArgsToSocProto(	char *app_ident, char *arch, char *backen
 												);
 extern char *				InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch, 
 													char **arch_args, char *arch_input, char *backend, 
-													char **env, char *cwd, int gpu_flag, int debug_flag
+													char **env, char *cwd, int gpu_flag, int debug_flag,
+													int early_entry_flag
 												);
 extern char *				ExitArgsToSocProto(int detach);
 

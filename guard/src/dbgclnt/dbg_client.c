@@ -2208,7 +2208,8 @@ DbgInvoke(	char *proto,
 			char *cwd,
 			int gpu_flag,
 			int debug_flag,
-			int unsafe_flag // Used in this function only...
+			int unsafe_flag,
+			int early_entry_flag
 )
 {
 	dbginvoke_t *	di;
@@ -2296,7 +2297,7 @@ DbgInvoke(	char *proto,
 	di->d_cmd = ArgsToBuf(ap, ap_argc);
 	FreeArgv(ap);
 
-	if (ptab->sw_invoke(di, sess, prog, argv, arch, arch_args, arch_input, backend, env, cwd, gpu_flag, debug_flag))
+	if (ptab->sw_invoke(di, sess, prog, argv, arch, arch_args, arch_input, backend, env, cwd, gpu_flag, debug_flag, early_entry_flag))
 	{
 		FreeDbgInvoke(di);
 		return NULL;

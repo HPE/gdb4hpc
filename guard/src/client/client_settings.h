@@ -1,7 +1,7 @@
 /******************************************************************************\
  * client_settings.h - Client settings interface definitions.
  *
- * © 2013-2014 Cray Inc.  All Rights Reserved.
+ * © 2013-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -31,6 +31,7 @@ struct	clnt_settings
 	int					interactive;	/* Interactive mode? */
 	int					silent;			/* Be quiet? */
 	int					unsafe;			/* Be unsafe? */
+	int					early_entry;	/* Enter at pmi_init? */
 	int					sync_wait;		/* Treat asynchronous cmds as sync? */
 	int					sync_blocked;	/* Current blocked on async cmd? */
 	char *				proto;			/* Default debugger protocol */

@@ -334,6 +334,7 @@ main(int argc, char *argv[])
 	Client.interactive	= 1;				// Interactive mode?
 	Client.silent		= 0;				// Be quiet?
 	Client.unsafe		= 0;				// Be unsafe?
+	Client.early_entry	= 0;				// Enter at pmi_init?
 	Client.sync_wait	= 0;				// Treat asynchronous cmds as sync?
 	Client.sync_blocked	= 0;				// Current blocked on async cmd?
 	Client.proto		= DBG_PROTO;		// Default debugger protocol

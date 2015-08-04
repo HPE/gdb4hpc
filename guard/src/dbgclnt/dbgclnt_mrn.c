@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2014 Cray Inc.  All Rights Reserved.
+ * © 2010-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -57,7 +57,7 @@ static int				DbgMRNAttach(	dbginvoke_t *, proto_session *,
 										char *, char *, char *, int, int);
 static int				DbgMRNInvoke(	dbginvoke_t *, proto_session *, 
 										char *, char **, char *, char **, char *, 
-										char *, char **, char *, int, int);
+										char *, char **, char *, int, int, int);
 static int				DbgMRNExit(dbginvoke_t *, int);
 static void				DbgMRNDestroyClient(dbginvoke_t *);
 
@@ -894,7 +894,8 @@ DbgMRNInvoke(
 	char **env,
 	char *cwd,
 	int gpu_flag,
-	int debug_flag
+	int debug_flag,
+	int early_entry_flag
 )
 {
 	char				sn[80];
@@ -1325,23 +1326,49 @@ DbgMRNInvoke(
 	// dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend> prog
 	// first create the argv for dbgsrv_alps
 	// This now also depends on gpu_flag
+	// This now adds the early entry flag...
+	// TODO: Clean this ugly thing up
 	if (dbg)
 	{
 		if (gpu_flag)
 		{
-			ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--debug", "--", prog, NULL);
+			if (early_entry_flag)
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--debug", "--early-entry", "--", prog, NULL);
+			} else
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--debug", "--", prog, NULL);
+			}
 		} else
 		{
-			ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--debug", "--", prog, NULL);
+			if (early_entry_flag)
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--debug", "--early-entry", "--", prog, NULL);
+			} else
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--debug", "--", prog, NULL);
+			}
 		}
 	} else
 	{
 		if (gpu_flag)
 		{
-			ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--", prog, NULL);
+			if (early_entry_flag)
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--early-entry", "--", prog, NULL);
+			} else
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--gpu", "--", prog, NULL);
+			}
 		} else
 		{
-			ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--", prog, NULL);
+			if (early_entry_flag)
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--early-entry", "--", prog, NULL);
+			} else
+			{
+				ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, "--", prog, NULL);
+			}
 		}
 	}
 	

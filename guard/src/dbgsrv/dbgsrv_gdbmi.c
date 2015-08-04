@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1402,132 +1402,51 @@ DbgGDBMIStartup(void)
 
 	DVPRINT("*** DbgStartup\n");
 	
-	// setup default entry points
-	if ((e = setup_gdbmi_entry_points()) != NULL)
-		return e;
-		
-	// if the entry_BP list is empty, we want to setup the last chance entry
-	// breakpoints. If this still fails to set a breakpoint, then we are unable
-	// to release the application from the startup barrier. The user will have
-	// to intervene manually. We also do not want to call the finish command.
-	// The last chance entry points place us directly into main.
-	if ( EmptyList(entry_BP) )
+	// Only setup entry points if we are not running with the special early
+	// entry mode
+	if (!early_entry_flag)
 	{
-		if ((e = setup_gdbmi_lastchance_entry_points()) != NULL)
+		// setup default entry points
+		if ((e = setup_gdbmi_entry_points()) != NULL)
 			return e;
 		
-		finish = 0;
-	}
-		
-	// we only want to issue a continue if the entry_BP list is not empty.
-	if ( !EmptyList(entry_BP))
-	{
-recover_for_slurm:
-		// counter for recover
-		++attempt;
-		// issue a continue command
-		cmd = MIExecContinueAll();
-		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) {
-			EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-			MICommandFree(cmd);
-			return e;	
-		}
-		MICommandFree(cmd);
-
-		// set the status to running
-		Status = DBGSTAT_RUNNING;
-		
-		// wait for the asynch command to complete
-		while (!DbgGDBMIEventReady())
+		// if the entry_BP list is empty, we want to setup the last chance entry
+		// breakpoints. If this still fails to set a breakpoint, then we are unable
+		// to release the application from the startup barrier. The user will have
+		// to intervene manually. We also do not want to call the finish command.
+		// The last chance entry points place us directly into main.
+		if ( EmptyList(entry_BP) )
 		{
-			MISessionProgress(GDBMISession);
-		}
-			
-		// grab the pending asynch 
-		evt = PendingEvent;
-		
-		// set the state back to default
-		AsynchEventWaiting = 0;
-		PendingEvent = NULL;
-		Status = DBGSTAT_STOPPED;
-		
-		// slurm will send a SIGSTOP for some reason, try to recover from that
-		if (evt->type == MIEventTypeSignal && attempt < 10)
-		{
-			DVPRINT("DbgStartup: Received signal, trying to recover.\n");
-			MIEventFree(evt);
-			evt = NULL;
-			goto recover_for_slurm;
-		}
-		
-		// ensure we hit the breakpoint
-		if (evt->type != MIEventTypeBreakpointHit)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to hit entry breakpoint.");
-			return e;
-		}
-		
-		// ensure we hit a known entry breakpoint
-		if ((bp=FindBPByID(entry_BP, evt->bkptno)) == (dbgbp_t *)NULL)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Hit unknown entry breakpoint.");
-			return e;
-		}
-		
-		// Free the event
-		MIEventFree(evt);
-		
-		// remove all of the entry breakpoints. We are done with them.
-		if ((e = delete_internal_breakpoints(entry_BP)) != NULL)
-			return e;
-			
-		// We want to set MPIR_debug_gate=1. This is an old MPIR standard.
-		cmd = MIGDBSet("lang", "c");
-		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-		
-		// This can fail if the symbol doesn't exist. We want to silently fail.
-		cmd = MIGDBSet("MPIR_debug_gate=1", NULL);
-		SendMICommand(GDBMISession, cmd);
-		MICommandFree(cmd);
-		
-		// set the lang back to auto.
-		cmd = MIGDBSet("lang", "auto");
-		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-		
-		if (finish)
-		{
-			// now we want to issue the finish command to get back to main.
-			cmd = MIExecFinish();
-			SendMICommand(GDBMISession, cmd);
-			if (!MICommandResultOK(cmd)) 
-			{
-				MICommandFree(cmd);
-				EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
+			if ((e = setup_gdbmi_lastchance_entry_points()) != NULL)
 				return e;
+		
+			finish = 0;
+		}
+		
+		// we only want to issue a continue if the entry_BP list is not empty.
+		if ( !EmptyList(entry_BP))
+		{
+recover_for_slurm:
+			// counter for recover
+			++attempt;
+			// issue a continue command
+			cmd = MIExecContinueAll();
+			SendMICommand(GDBMISession, cmd);
+			if (!MICommandResultOK(cmd)) {
+				EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+				MICommandFree(cmd);
+				return e;	
 			}
 			MICommandFree(cmd);
-			
+
 			// set the status to running
 			Status = DBGSTAT_RUNNING;
-			
+		
 			// wait for the asynch command to complete
 			while (!DbgGDBMIEventReady())
+			{
 				MISessionProgress(GDBMISession);
+			}
 			
 			// grab the pending asynch 
 			evt = PendingEvent;
@@ -1537,15 +1456,101 @@ recover_for_slurm:
 			PendingEvent = NULL;
 			Status = DBGSTAT_STOPPED;
 		
-			// ensure we finished the function
-			if (evt->type != MIEventTypeFunctionFinished)
+			// slurm will send a SIGSTOP for some reason, try to recover from that
+			if (evt->type == MIEventTypeSignal && attempt < 10)
 			{
-				EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to finish the entry function.");
+				DVPRINT("DbgStartup: Received signal, trying to recover.\n");
+				MIEventFree(evt);
+				evt = NULL;
+				goto recover_for_slurm;
+			}
+		
+			// ensure we hit the breakpoint
+			if (evt->type != MIEventTypeBreakpointHit)
+			{
+				EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to hit entry breakpoint.");
+				return e;
+			}
+		
+			// ensure we hit a known entry breakpoint
+			if ((bp=FindBPByID(entry_BP, evt->bkptno)) == (dbgbp_t *)NULL)
+			{
+				EVENT_ERROR(e, DBGERR_DEBUGGER, "Hit unknown entry breakpoint.");
 				return e;
 			}
 		
 			// Free the event
 			MIEventFree(evt);
+		
+			// remove all of the entry breakpoints. We are done with them.
+			if ((e = delete_internal_breakpoints(entry_BP)) != NULL)
+				return e;
+			
+			// We want to set MPIR_debug_gate=1. This is an old MPIR standard.
+			cmd = MIGDBSet("lang", "c");
+			SendMICommand(GDBMISession, cmd);
+			if (!MICommandResultOK(cmd)) 
+			{
+				MICommandFree(cmd);
+				EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
+				return e;
+			}
+			MICommandFree(cmd);
+		
+			// This can fail if the symbol doesn't exist. We want to silently fail.
+			cmd = MIGDBSet("MPIR_debug_gate=1", NULL);
+			SendMICommand(GDBMISession, cmd);
+			MICommandFree(cmd);
+		
+			// set the lang back to auto.
+			cmd = MIGDBSet("lang", "auto");
+			SendMICommand(GDBMISession, cmd);
+			if (!MICommandResultOK(cmd)) 
+			{
+				MICommandFree(cmd);
+				EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
+				return e;
+			}
+			MICommandFree(cmd);
+		
+			if (finish)
+			{
+				// now we want to issue the finish command to get back to main.
+				cmd = MIExecFinish();
+				SendMICommand(GDBMISession, cmd);
+				if (!MICommandResultOK(cmd)) 
+				{
+					MICommandFree(cmd);
+					EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
+					return e;
+				}
+				MICommandFree(cmd);
+			
+				// set the status to running
+				Status = DBGSTAT_RUNNING;
+			
+				// wait for the asynch command to complete
+				while (!DbgGDBMIEventReady())
+					MISessionProgress(GDBMISession);
+			
+				// grab the pending asynch 
+				evt = PendingEvent;
+		
+				// set the state back to default
+				AsynchEventWaiting = 0;
+				PendingEvent = NULL;
+				Status = DBGSTAT_STOPPED;
+		
+				// ensure we finished the function
+				if (evt->type != MIEventTypeFunctionFinished)
+				{
+					EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to finish the entry function.");
+					return e;
+				}
+		
+				// Free the event
+				MIEventFree(evt);
+			}
 		}
 	}
 	

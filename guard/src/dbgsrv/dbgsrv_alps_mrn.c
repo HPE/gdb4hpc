@@ -2,7 +2,7 @@
  * dbgsrv_alps.c - A wrapper program to launch guard dbgsrv's onto the compute
  *		 nodes.
  *
- * © 2011-2014 Cray Inc.	All Rights Reserved.
+ * © 2011-2015 Cray Inc.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -45,6 +45,7 @@
 #define DBGSRV_OPT_PROC			"-n"
 #define DBGSRV_OPT_GPU			"--gpu"
 #define DBGSRV_OPT_DEBUG			"--debug"
+#define DBGSRV_OPT_EARLY_ENTRY	"--early-entry"
 
 #define UDASRV						"udaserver"
 #define UDASRV_ARGC				2
@@ -60,6 +61,7 @@
 
 static int debug_flag = 0;
 static int gpu_flag = 0;
+static int early_entry_flag = 0;
 
 const struct option long_opts[] = {
 				{"callbackHost",	required_argument,	0, 'h'},
@@ -70,6 +72,7 @@ const struct option long_opts[] = {
 				{"help",			no_argument,		0, 'x'},
 				{"gpu",				no_argument,		&gpu_flag, 1},
 				{"debug",			no_argument,		&debug_flag, 1},
+				{"early-entry",			no_argument,		&early_entry_flag, 1},
 				{0, 0, 0, 0}
 				};
 
@@ -108,6 +111,7 @@ usage(char *name)
 	fprintf(stdout, "\t-p, --networkProtocol  Network protocol\n");
 	fprintf(stdout, "\t-e, --dbgBackend       Debugging program backend\n");
 	fprintf(stdout, "\t    --gpu              Turn on gpu mode.\n");
+	fprintf(stdout, "\t    --early-entry      Turn on early entry mode.\n");
 	fprintf(stdout, "\t    --debug            Turn on debug logging.\n");
 	fprintf(stdout, "\t-x, --help             Display this text and exit\n");
 }
@@ -393,6 +397,11 @@ main(int argc, char **argv)
 	if (debug_flag)
 	{
 		dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_DEBUG, NULL);
+	}
+	
+	if (early_entry_flag)
+	{
+		dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, NULL);
 	}
 	
 	if (debug_flag)

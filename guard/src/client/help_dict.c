@@ -1,7 +1,7 @@
 /******************************************************************************\
  * help_dict.c - Command help string definition dictionary.
  *
- * © 2011-2014 Cray Inc.  All Rights Reserved.
+ * © 2011-2015 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -976,6 +976,16 @@ const char * const class_set_subcmd_function_help[] = {
  * Class maint set subcommands
  */
 
+const char * const class_maint_set_subcmd_earlyentry_help[] = {
+        "Summary: Set early entry mode.",
+        "Usage: maint set earlyentry [on|off]",
+        "Example command: maint set earlyentry on",
+        "",
+        "Description:",
+        "Set debugger to bypass continuing to application code on launch/attach. The",
+        "application will be left in the PMI_Init() function upon startup.",
+        0};
+
 const char * const class_maint_set_subcmd_unsafe_help[] = {
         "Summary: Set unsafe execution mode.",
         "Usage: maint set unsafe [on|off]",
@@ -1044,6 +1054,13 @@ const char * const class_show_subcmd_version_help[] = {
 /*
  * Class maint show subcommands
  */
+
+const char * const class_maint_show_subcmd_earlyentry_help[] = {
+        "Summary: Early entry mode information.",
+        "",
+        "Description:",
+        "Display the current setting of early entry mode.",
+        0};
 
 const char * const class_maint_show_subcmd_unsafe_help[] = {
         "Summary: Unsafe mode information.",

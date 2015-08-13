@@ -665,8 +665,10 @@ ExecuteCommand(char *line)
 	cmdtype_t *		c = NULL;
 	dbgprocset_t *	s = CurrentProcSet();
 	
+	DPRINT("In ExecuteCommand\n");
+	
 	if (line == NULL)
-		return;
+		goto ExecuteCommand_exit;
 	
 	cmd = strdup(line);
 	
@@ -677,7 +679,7 @@ ExecuteCommand(char *line)
 		{
 			PrintOutError("XML request parse error.\n");
 			cli_set_error();
-			return;
+			goto ExecuteCommand_exit;
 		}
 		
 		Free(cmd);
@@ -690,7 +692,7 @@ ExecuteCommand(char *line)
 			PrintOutError("XML request parse error.\n");
 			cli_set_error();
 			Free(cmd);
-			return;
+			goto ExecuteCommand_exit;
 		}
 		needle = haystack;
 		
@@ -710,14 +712,17 @@ ExecuteCommand(char *line)
 		// turn the start of the needle into a newline followed by a null term
 		*needle = '\n';
 		*(needle+1) = '\0';
+		DPRINT("ExecuteCommand: seq is %d\n", seq);
 	}
+	
+	DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
 
 	if ( (argv = Str2Argv(cmd)) == (char **)NULL )
 	{
 		Free(cmd);
 		PrintOutError("Could not build command list!\n");
 		cli_set_error();
-		return;
+		goto ExecuteCommand_exit;
 	}
 
 	for ( ap = argv ; *ap != NULL ; ap++ )
@@ -729,7 +734,7 @@ ExecuteCommand(char *line)
 		// Sequence number mismatch, so silently fail
 		Free(cmd);
 		FreeArgv(argv);
-		return;
+		goto ExecuteCommand_exit;
 	}
 
 	// These are not considered to be errors
@@ -739,7 +744,7 @@ ExecuteCommand(char *line)
 		FreeArgv(argv);
 		// Inform the cli layer that we are done executing a command
 		cli_end_response();
-		return;
+		goto ExecuteCommand_exit;
 	}
 
 	if (argc < 1 || ((c = _findcmd(CurrentCmds, argv[0])) == (cmdtype_t *)NULL))
@@ -751,7 +756,7 @@ ExecuteCommand(char *line)
 		cli_end_response();
 		// set an error for the cli stream
 		cli_set_error();
-		return;
+		goto ExecuteCommand_exit;
 	}
 
 	// do the command
@@ -763,7 +768,7 @@ ExecuteCommand(char *line)
 		cli_end_response();
 		// set an error for the cli stream
 		cli_set_error();
-		return;
+		goto ExecuteCommand_exit;
 	}
 	
 	// Inform the cli layer that we are done executing a command
@@ -777,4 +782,10 @@ ExecuteCommand(char *line)
 
 	Free(cmd);
 	FreeArgv(argv);
+
+	DPRINT("ExecuteCommand: Command ok!\n");
+
+ExecuteCommand_exit:
+	DPRINT("Exit ExecuteCommand\n");
+	return;
 }

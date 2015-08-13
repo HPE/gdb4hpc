@@ -435,7 +435,7 @@ EvalExpr(val_t **res, expr_t *e, rec_set_t *rec_set)
 	}
 
 #ifdef DEBUG
-	PrintOutError("EvalExpr: DumpExpr(e) as the following\n");
+	PrintOutMsg("EvalExpr: DumpExpr(e) as the following\n");
 	DumpExpr(e);
 #endif
 

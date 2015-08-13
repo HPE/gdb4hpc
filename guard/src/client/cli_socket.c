@@ -231,8 +231,10 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	cli_stream_t *	cs;
 	char *			cmd_buf;
 	
+	DPRINT("In cli_socket_handle_input\n");
+	
 	if (stream == NULL)
-		return 1;
+		goto cli_socket_handle_input_error;
 		
 	// set the cli stream
 	cs = (*stream);
@@ -246,12 +248,12 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	{
 		PrintOutError("ioctl failed.\n");
 		Client.quit = 1;
-		return 1;
+		goto cli_socket_handle_input_error;
 	}
 	if (n < 1)
 	{
 		Client.quit = 1;
-		return 1;
+		goto cli_socket_handle_input_error;
 	}
 	
 	// Allocate a new buffer or else ensure there is enough room to read another
@@ -276,13 +278,16 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	{
 		// socket closed on us, we need to quit
 		Client.quit = 1;
-		return 1;
+		goto cli_socket_handle_input_error;
 	}
+	
+	DPRINT("cli_socket_handle_input: cs_buf is \"%s\"\n", cs->cs_buf);
 	
 	// Check to see if we just read in a newline character
 	// also increment the point
 	if (cs->cs_buf[cs->cs_buf_point++] == '\n')
 	{
+		DPRINT("cli_socket_handle_input: Found newline.\n");
 		// increment the completed line
 		cs->cs_line++;
 		// Finished reading in a whole line, call the handler function
@@ -290,6 +295,7 @@ cli_socket_handle_input(cli_stream_t ** stream)
 		// Cleanup the existing buffer, in case this gets interrupted.
 		Free(cs->cs_buf);
 		cs->cs_buf = NULL;
+		DPRINT("cli_socket_handle_input: line is \"%s\"\n", cmd_buf);
 		ExecuteCommand(cmd_buf);
 		// Free the cmd_buf
 		Free(cmd_buf);
@@ -304,6 +310,12 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	// cli layer
 	cs->cs_err = 0;
 	
+	DPRINT("Exit cli_socket_handle_input\n");
+	
 	return 0;
+	
+cli_socket_handle_input_error:
+	DPRINT("Error exit cli_socket_handle_input\n");
+	return 1;
 }
 

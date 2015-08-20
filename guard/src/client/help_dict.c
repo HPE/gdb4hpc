@@ -1099,4 +1099,7 @@ const char * const class_unset_subcmd_environment_help[] = {
  */
 
 
-
+// Dummy help
+const char * const dummy_help[] = {
+        0};
+        

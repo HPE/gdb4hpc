@@ -125,4 +125,9 @@ extern const char * const class_maint_show_subcmd_sync_help[];
  */
 extern const char * const class_unset_subcmd_environment_help[];
 
+/*
+ * Dummy help - used when a help cmd isn't actually required
+ */
+extern const char * const dummy_help[];
+
 #endif /* _HELP_DICT_H */

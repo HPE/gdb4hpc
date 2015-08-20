@@ -167,7 +167,7 @@ cur_dir = os.getcwd()
 os.chdir(rpm_lgdb_dir)
 
 with open("out.txt", "w+") as out:
-  for line in open(top_dir + "/release_info"):
+  for line in open(parent_dir + "/release_info"):
     a = line.replace("%VERSION%", build_version)
     b = a.replace("%RELEASE%", release_number)
     c = b.replace("%REVISION%", revision_number)

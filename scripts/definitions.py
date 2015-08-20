@@ -7,7 +7,7 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "2.5" 
+primary_version     = "2.4.5" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]])
 #ver_three_dig       = ".".join([primary_version[0],primary_version[2],primary_version[4]]) 

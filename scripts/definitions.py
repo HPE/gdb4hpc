@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os, re, datetime, time
+import sys, os, re, datetime, time, fnmatch, glob
 from os import listdir
 from os.path import isfile, join
 from distutils.version import LooseVersion
@@ -21,15 +21,16 @@ else:
   final = False
 
 
-def fetch_release(bld_version, rev_num):
-  rpm_base = "cray-lgdb-" + bld_version
+def fetch_release(base_name, rev_num):
   rpm_tail = ".x86_64.rpm"
   itt_list = range(20)
   itt_list.reverse()
   rval = 0
   for i in itt_list:
-    tmp_name = pkgs_dir + "/" + rpm_base + "-" + str(i) + "_" + rev_num  + rpm_tail
-    if os.path.isfile(tmp_name):
+    tmp_name = pkgs_dir + "/" + base_name + "-" + str(i) + "_" + "*" + "." + rev_num + rpm_tail
+    print tmp_name
+    #myfile.extend(glob.glob(tmp_name)
+    if glob.glob(tmp_name):
       rval = i + 1
       break
   return str(rval)  
@@ -83,11 +84,11 @@ def fetch_version(primary_ver, final, revision_number):
       last_package_ver = last_package.replace("cray-lgdb-","")
       last_package_ver = last_package_ver.split("-")[0]
       version_list = last_package_ver.split(".")
-
+   
       oldrev = last_package.split("_")[1]
       oldrev=oldrev.split(".")
       oldrev=oldrev[0]
-
+      
       if oldrev != revision_number:
         #increment 4th digit
         #figure out the new last digit, regex above ensures 4 digits
@@ -100,6 +101,7 @@ def fetch_version(primary_ver, final, revision_number):
         new_version_str = ".".joint(version_list)
 
   return new_version_str
+         
 
 def fetch_revision():
   rev_command = "git rev-parse HEAD"
@@ -113,7 +115,7 @@ def fetch_revision():
   dt_time = str(dt_time)[0:12]
 
   rev_number = rev_number[0:13]
-  rev_number = str(dt_time) + "." + str(rev_number)
+  timestmp_revnbr = str(dt_time) + "." + str(rev_number)
 
   version = fetch_version(primary_version,final,rev_number)
   base_name = "cray-lgdb-" + version
@@ -121,10 +123,10 @@ def fetch_revision():
   release_number = fetch_release(base_name, rev_number)
   sles_ver = fetch_sles_level()
 
-  package_name = base_name + "-" + release_number + "_" + rev_number
+  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr
   rpm_name = package_name + "." + arch + ".rpm"
 
-  contents = [rev_number, version, release_number, rpm_name, sles_ver]
+  contents = [timestmp_revnbr, version, release_number, rpm_name, sles_ver]
   return contents
 
 

@@ -9,8 +9,7 @@ from datetime import datetime
 
 primary_version     = "2.4.5" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
-ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]])
-#ver_three_dig       = ".".join([primary_version[0],primary_version[2],primary_version[4]]) 
+ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
@@ -28,8 +27,6 @@ def fetch_release(base_name, rev_num):
   rval = 0
   for i in itt_list:
     tmp_name = pkgs_dir + "/" + base_name + "-" + str(i) + "_" + "*" + "." + rev_num + rpm_tail
-    print tmp_name
-    #myfile.extend(glob.glob(tmp_name)
     if glob.glob(tmp_name):
       rval = i + 1
       break

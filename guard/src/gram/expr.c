@@ -2601,7 +2601,7 @@ ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode)
 	// the subset info. Give it a better name too.
 	if (RVAL_TYPE(val) == rval_ref)
 	{
-		PrintOutError("Warning: Range use detected in procset for command. Only operating on a single rank!\n");
+		PrintOutError("Warning: Range use detected in procset for command. Only operating on rank %d.\n", RVAL_REF_SLICE(val)->s_low[0]);
 		var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
 	}
 
@@ -2943,7 +2943,7 @@ ReadVarDecl(expr_t *e, rec_set_t *rec_set)
 	// the subset info. Give it a better name too.
 	if (RVAL_TYPE(val) == rval_ref)
 	{
-		PrintOutError("Warning: Range use detected in procset for command. Only operating on a single rank!\n");
+		PrintOutError("Warning: Range use detected in procset for command. Only operating on rank %d.\n", RVAL_REF_SLICE(val)->s_low[0]);
 		var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
 	}
 	

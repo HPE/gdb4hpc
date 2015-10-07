@@ -270,7 +270,7 @@ static int
 cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	proto_session *	sess = NULL;
-	dbgprocset_t *	ps;
+	dbgprocset_t *	ps = NULL;
 	char *			prog = NULL;
 	char *			arch = Client.arch;
 	char *			proto = Client.proto;
@@ -680,6 +680,8 @@ exit_with_error:
 
 	FreeArgv(args);
 	FreeArgv(arch_args);
+	if (ps != NULL)
+		FreeProcSet(ps);
 	if (prog != NULL)
 		Free(prog);
 	if (batch_script != NULL)

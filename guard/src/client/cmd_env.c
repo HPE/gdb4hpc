@@ -626,8 +626,10 @@ class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
 	
 #ifdef RD
 	// FIXME: Modify graph to use the common client interface instead...
-	SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&lower);
-	SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&upper);
+	double lower_d = (double)lower;
+	double upper_d = (double)upper;
+	SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&lower_d);
+	SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&upper_d);
 #endif
 
 	// Free the old aif values

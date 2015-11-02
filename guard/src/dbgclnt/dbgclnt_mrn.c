@@ -643,7 +643,13 @@ DbgMRNAttach(
 	
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 	
-	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)env_vars, dbg))
+	// Set CTI debug env var if debug is on
+	if (dbg)
+	{
+	    setenv(CTI_DBG_ENV_VAR, "1", 1);
+	}
+	
+	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)env_vars))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
@@ -1400,9 +1406,14 @@ DbgMRNInvoke(
 	
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 	
-	// launch dbgsrv_alps onto the compute nodes
+	// Set CTI debug env var if debug is on
+	if (dbg)
+	{
+	    setenv(CTI_DBG_ENV_VAR, "1", 1);
+	}
 	
-	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)args, dbg))
+	// launch dbgsrv_alps onto the compute nodes
+	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)args))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");

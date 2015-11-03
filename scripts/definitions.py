@@ -7,7 +7,7 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "2.4.5" 
+primary_version     = "2.4.6" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig

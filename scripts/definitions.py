@@ -84,7 +84,7 @@ def fetch_version(primary_ver, final, revision_number):
    
       oldrev = last_package.split("_")[1]
       oldrev=oldrev.split(".")
-      oldrev=oldrev[0]
+      oldrev=oldrev[1]
       
       if oldrev != revision_number:
         #increment 4th digit
@@ -95,7 +95,7 @@ def fetch_version(primary_ver, final, revision_number):
         version_list.append(new_last_digit)
         new_version_str = ".".join(version_list)
       else:
-        new_version_str = ".".joint(version_list)
+        new_version_str = ".".join(version_list)
 
   return new_version_str
          

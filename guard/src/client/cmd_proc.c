@@ -587,9 +587,12 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			//
 			// If so, we want to create a new session on the service node using the proxy
 			// protocol and forward every command through that.
+			//
+			// For the cluster system, this is not the case. We do not need a proxy.
+			// FIXME: The same is also true for native slurm.
 			
 			// Are we on an eslogin node?
-			if (stat("/proc/cray_xt/nid", &sb) == -1)
+			if (stat("/etc/redhat-release") == -1 && stat("/proc/cray_xt/nid", &sb) == -1)
 			{
 				// We are on an eslogin node since the file did not exist
 				char * tmp;
@@ -941,8 +944,11 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// If so, we want to create a new session on the service node using the proxy
 	// protocol and forward every command through that.
 	//
+	// For the cluster system, this is not the case. We do not need a proxy.
+	// FIXME: The same is also true for native slurm.
+	//
 	// Are we on an eslogin node?
-	if (stat("/proc/cray_xt/nid", &sb) == -1)
+	if (stat("/etc/redhat-release") == -1 && stat("/proc/cray_xt/nid", &sb) == -1)
 	{
 		// We are on an eslogin node since the file did not exist
 		char * tmp;

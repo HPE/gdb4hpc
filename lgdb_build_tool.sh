@@ -74,7 +74,7 @@ gdb_bad_file="python/gdb/command/pdbx.py"
 openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
-cuda_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/trunk-ari/working/latest/3rd-party/x86_64"
+cuda_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-gem/working/latest/3rd-party/x86_64"
 cuda55_basename="cray-cudatoolkit-5.5"
 cuda65_basename="cray-cudatoolkit6.5-6.5"
 cuda70_basename="cray-cudatoolkit7.0-7.0"

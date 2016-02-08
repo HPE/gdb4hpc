@@ -29,7 +29,7 @@
 #define XML_RESPONSE_START		"<response seq=\"%d\">\n"
 #define XML_RESPONSE_END			"</response>\n"
 #define XML_RESPONSE_ERROR		"<error>\n"
-#define XML_RESPONSE_ERROR_END	"</error>\n"
+#define XML_RESPONSE_ERROR_END	"\n</error>\n"
 
 #define XML_PROG_OUTPUT_START	"<output app=\"$%s\" len=\"%u\">\n"
 #define XML_PROG_OUTPUT_END		"</output>\n"

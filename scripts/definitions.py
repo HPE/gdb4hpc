@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os, re, datetime, time, fnmatch, glob
+import sys, os, re, datetime, time, fnmatch, glob, commands
 from os import listdir
 from os.path import isfile, join
 from distutils.version import LooseVersion
@@ -7,7 +7,7 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "2.4.6" 
+primary_version     = "3.0" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
@@ -45,8 +45,9 @@ def fetch_sles_level():
 
 
 def release_date():
-  rd = os.popen('/cray/css/ulib/utilities/find_release_date','r').readline()
-  rd = rd.replace('"','').replace('\n','')
+  cmd = 'source /cray/css/ulib/utilities/find_release_date.sh'
+  str(os.system(cmd))
+  status, rd = commands.getstatusoutput(cmd)
   return rd
 
 def fetch_version(primary_ver, final, revision_number):

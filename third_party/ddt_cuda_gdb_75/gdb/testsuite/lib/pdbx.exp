@@ -1,0 +1,117 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Return compile flags needed for pdbx C/C++ tests.
+#
+proc pdbx_cflags {} {
+	set f_omp   "additional_flags=-openmp"
+	set f_pdbx  "additional_flags=-debug additional_flags=parallel"
+	set f_debug "{debug}"
+
+	return "$f_omp $f_pdbx $f_debug"
+}
+
+# Return compile flags needed for pdbx C/C++ tests without OpenMP.
+#
+proc pdbx_cflags_noomp {} {
+	set f_pdbx  "additional_flags=-debug additional_flags=parallel"
+	set f_debug "{debug}"
+
+	return "$f_pdbx $f_debug"
+}
+
+# Return compile flags needed for pdbx Fortran tests.
+#
+proc pdbx_fflags {} {
+	set f_omp   "additional_flags=-openmp"
+	set f_pdbx  "additional_flags=-debug additional_flags=parallel"
+	set f_debug "{debug}"
+	set f_fort  "{f90}"
+
+	return "$f_omp $f_pdbx $f_debug $f_fort"
+}
+
+# Clear the selected filter set and check that it is indeed empty.
+#
+proc pdbx_clear_fset {} {
+	gdb_test_no_output "pdbx fset remove" "clear fset.1"
+	gdb_test_no_output "pdbx fset show" "clear fset.2"
+}
+
+# Add a new filter to the selected filter set.
+#
+# filter.....the arguments given to the pdbx filter command
+# expected...the expected filter string as shown in pdbx fset show
+#
+proc pdbx_add_filter { filter expected } {
+	gdb_test "pdbx filter $filter" ".*" "add filter.1"
+	gdb_test "pdbx fset show" ".*$expected" "add filter.2"
+}
+
+# Evaluate a filter.
+#
+proc pdbx_eval_filter { index expected } {
+	gdb_test "pdbx fset eval $index" ".*" "eval filter.1"
+	gdb_test "pdbx fset show" ".*$index: $expected\r.*" "eval filter.2"
+}
+
+# Enable a filter.
+#
+proc pdbx_enable_filter { index expected } {
+	gdb_test "pdbx fset enable $index" ".*" "eval filter.1"
+	gdb_test "pdbx fset show" ".*$index: $expected\r.*" "eval filter.2"
+}
+
+# Disable a filter.
+#
+proc pdbx_disable_filter { index expected } {
+	gdb_test "pdbx fset disable $index" ".*" "eval filter.1"
+	gdb_test "pdbx fset show" ".*$index: $expected \\\(disabled\\\)\r.*" "eval filter.2"
+}
+
+# Turn automatic filter re-evaluation off.
+#
+proc pdbx_eval_filters_off {} {
+	gdb_test_no_output "pdbx eval-filters off" "eval-filters.1"
+	gdb_test "pdbx eval-filters" "off" "eval-filters.2"
+}
+
+# Set automatic filter re-evaluation to on-library-load.
+#
+proc pdbx_eval_filters_on_load {} {
+	gdb_test_no_output "pdbx eval-filters load" "eval-filters.1"
+	gdb_test "pdbx eval-filters" "load" "eval-filters.2"
+}
+
+# Run or continue the debuggee and do not expect any (further) race.
+#
+proc pdbx_expect_no_race { cmd test } {
+	global gdb_prompt
+
+	send_gdb "$cmd\n"
+	gdb_expect {
+		-re "Inferior \[0-9\]+ \\\(process \[0-9\]+\\\) exited normally.*$gdb_prompt $" {
+			pass "$test"
+		}
+		-re "$gdb_prompt $" {
+			fail "$test"
+		}
+		timeout {
+			fail "$test (timeout)"
+		}
+	}
+}

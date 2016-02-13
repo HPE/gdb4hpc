@@ -1,0 +1,67 @@
+linux-cuda-low.o: linux-cuda-low.c server.h config.h \
+  build-gnulib-gdbserver/config.h ../../include/libiberty.h \
+  ../../include/ansidecl.h ../../include/ansidecl.h \
+  build-gnulib-gdbserver/import/string.h ../common/ptid.h \
+  ../common/buffer.h ../common/xml-utils.h ../common/gdb_locale.h \
+  regcache.h ../../include/gdb/signals.h ../../include/gdb/signals.def \
+  ../common/gdb_signals.h target.h mem-break.h gdbthread.h \
+  ../common/common-utils.h config.h ../common/gdb_assert.h \
+  cuda-tdep-server.h ../cuda-utils.h ../cuda-defs.h \
+  ../../include/cudadebugger.h ../../include/cuda_stdint.h \
+  build-gnulib-gdbserver/import/inttypes.h ../cuda-notifications.h
+
+server.h:
+
+config.h:
+
+build-gnulib-gdbserver/config.h:
+
+../../include/libiberty.h:
+
+../../include/ansidecl.h:
+
+../../include/ansidecl.h:
+
+build-gnulib-gdbserver/import/string.h:
+
+../common/ptid.h:
+
+../common/buffer.h:
+
+../common/xml-utils.h:
+
+../common/gdb_locale.h:
+
+regcache.h:
+
+../../include/gdb/signals.h:
+
+../../include/gdb/signals.def:
+
+../common/gdb_signals.h:
+
+target.h:
+
+mem-break.h:
+
+gdbthread.h:
+
+../common/common-utils.h:
+
+config.h:
+
+../common/gdb_assert.h:
+
+cuda-tdep-server.h:
+
+../cuda-utils.h:
+
+../cuda-defs.h:
+
+../../include/cudadebugger.h:
+
+../../include/cuda_stdint.h:
+
+build-gnulib-gdbserver/import/inttypes.h:
+
+../cuda-notifications.h:

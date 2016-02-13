@@ -1,0 +1,54 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: modification of a value in a different page than the most recent one accessed
+
+load_lib "offload.exp"
+
+standard_testfile "msample06.c" "myo_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP4" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP4"
+
+# a page is 4k on MIC, we will access at least 4096*4+1 bytes away (4 pages)
+gdb_test_no_output "set in1\[4096\]=42.0" "set in1\[4096\]=42.0"
+gdb_test_no_output "set in2\[4096\]=17.0" "set in1\[4096\]=17.0"
+
+delete_breakpoints
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "BP3" "${srcfile}"]"
+gdb_continue_to_breakpoint "BP3"
+
+gdb_test "p res\[4096\]" "\\\$\\d+ = 59.0" "print member 4096 of array res"
+
+gdb_exit
+offload_cleanup

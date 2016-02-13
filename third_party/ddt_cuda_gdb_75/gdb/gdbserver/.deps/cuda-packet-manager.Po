@@ -1,0 +1,74 @@
+cuda-packet-manager.o: cuda-packet-manager.c server.h config.h \
+  build-gnulib-gdbserver/config.h ../../include/libiberty.h \
+  ../../include/ansidecl.h ../../include/ansidecl.h \
+  build-gnulib-gdbserver/import/string.h ../common/ptid.h \
+  ../common/buffer.h ../common/xml-utils.h ../common/gdb_locale.h \
+  regcache.h ../../include/gdb/signals.h ../../include/gdb/signals.def \
+  ../common/gdb_signals.h target.h mem-break.h gdbthread.h \
+  ../common/common-utils.h config.h ../common/gdb_assert.h \
+  ../../include/cudadebugger.h ../../include/cuda_stdint.h \
+  build-gnulib-gdbserver/import/inttypes.h cuda-tdep-server.h \
+  ../cuda-utils.h ../cuda-defs.h ../cuda-notifications.h \
+  ../cuda-packet-manager.h ../cuda-events.h ../libcudbgipc.h
+
+server.h:
+
+config.h:
+
+build-gnulib-gdbserver/config.h:
+
+../../include/libiberty.h:
+
+../../include/ansidecl.h:
+
+../../include/ansidecl.h:
+
+build-gnulib-gdbserver/import/string.h:
+
+../common/ptid.h:
+
+../common/buffer.h:
+
+../common/xml-utils.h:
+
+../common/gdb_locale.h:
+
+regcache.h:
+
+../../include/gdb/signals.h:
+
+../../include/gdb/signals.def:
+
+../common/gdb_signals.h:
+
+target.h:
+
+mem-break.h:
+
+gdbthread.h:
+
+../common/common-utils.h:
+
+config.h:
+
+../common/gdb_assert.h:
+
+../../include/cudadebugger.h:
+
+../../include/cuda_stdint.h:
+
+build-gnulib-gdbserver/import/inttypes.h:
+
+cuda-tdep-server.h:
+
+../cuda-utils.h:
+
+../cuda-defs.h:
+
+../cuda-notifications.h:
+
+../cuda-packet-manager.h:
+
+../cuda-events.h:
+
+../libcudbgipc.h:

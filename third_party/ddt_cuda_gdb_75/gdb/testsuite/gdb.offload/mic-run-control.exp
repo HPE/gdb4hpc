@@ -1,0 +1,73 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check most basic run control and print breakpoint info
+
+load_lib "offload.exp"
+
+standard_testfile "dummy.c" "myo_attach_default.c"
+
+if {! [is_remote target]} {
+    return
+}
+
+if { [skip_offload_test] } {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+# force to stay in the endless loop
+gdb_test_no_output "set var loop = 1" "set var loop = 1"
+
+gdb_test "break" ".*Breakpoint 2 at .*:.*${srcfile2}, line 4.*" "set break"
+gdb_test "info break" ".*2\[\\\s\]+breakpoint.* at .*$srcfile2:4" "info break 1"
+
+gdb_test "cont" ".*volatile int bp = 1.*" "cont"
+gdb_test "info break" ".*2\[\\\s\]+breakpoint.* at .*$srcfile2:4.*breakpoint already hit 1 time" "info break 2"
+
+#
+# delete all breakpoints
+#
+send_gdb "delete breakpoints\n"
+gdb_expect {
+    -re "Delete all breakpoints.* $" {
+        send_gdb "y\n"
+        gdb_expect {
+            -re ".*$gdb_prompt $" {
+                pass "delete all breakpoints"
+            }
+            timeout {
+                fail "delete all breakpoints (timeout)"
+            }
+        }
+    }
+    timeout {
+        fail "delete all breakpoints (timeout)"
+    }
+}
+
+gdb_test "info break" "No breakpoints or watchpoints." "info break 3"
+
+gdb_exit
+offload_cleanup

@@ -110,13 +110,13 @@ static void
 Banner(void)
 {
 #ifdef ALPS
-	PrintOutMsg("lgdb 2.4 - Cray Line Mode Parallel Debugger\n");
+	PrintOutMsg("lgdb 3.0 - Cray Line Mode Parallel Debugger\n");
 	PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-	PrintOutMsg("Copyright 2007-2015 Cray Inc. All Rights Reserved.\n");
+	PrintOutMsg("Copyright 2007-2016 Cray Inc. All Rights Reserved.\n");
 #else		
 	PrintOutMsg("GUARD Parallel Relative Debugger\n");
 #endif /* ALPS */
-	PrintOutMsg("Copyright 1996-2015 University of Queensland. All Rights Reserved.\n");
+	PrintOutMsg("Copyright 1996-2016 University of Queensland. All Rights Reserved.\n");
 	PrintOutMsg("\n");
 	PrintOutMsg("Type \"help\" for a list of commands.\n"); 
 	PrintOutMsg("Type \"help <cmd>\" for detailed help about a command.\n");

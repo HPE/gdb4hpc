@@ -1,0 +1,71 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: double values on the stack can be evaluated correctly.
+
+load_lib "offload.exp"
+
+standard_testfile "psample01.c" "pragma_attach_default.c"
+
+if {! [is_remote target]} {
+    return
+}
+
+if { [skip_offload_test] } {
+    return
+}
+
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "psample_01_d2_call" "${srcfile}"]"
+gdb_continue_to_breakpoint "psample_01_d2_call"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "breakpoint_psample01_d1" "${srcfile}"]"
+gdb_continue_to_breakpoint "breakpoint_psample01_d1"
+
+gdb_test "print x == 1.0" "\\\$1 = 1" "x == 1.0"
+
+set expected_line [gdb_get_line_number "breakpoint_psample01_d2" "${srcfile}"]
+gdb_test "up" "#1 .* psample01_d2 \\(x=2, y=1\\) at .*${srcfile}:${expected_line}.*" "up1"
+gdb_test "print x == 2.0" "\\\$2 = 1" "x == 2.0 after up1"
+
+set expected_line [gdb_get_line_number "psample_01_d2_call" "${srcfile}"]
+gdb_test "up" "#2 .*psample01 .* at .*${srcfile}:${expected_line}.*" "up2"
+gdb_test "print x == 1.0" "\\\$3 = 1" "x == 1.0 after up2"
+
+set expected_line [gdb_get_line_number "breakpoint_psample01_d2" "${srcfile}"]
+gdb_test "down" "#1 .* psample01_d2 \\(x=2, y=1\\) at .*${srcfile}:${expected_line}.*" "down1"
+set expected_line [gdb_get_line_number "breakpoint_psample01_d1" "${srcfile}"]
+gdb_test "down" "#0  psample01_d1 \\(x=1\\) at .*${srcfile}:${expected_line}.*" "down2"
+gdb_test "print x == 1.0" "\\\$4 = 1" "x == 1.0 after two times down"
+
+# going down more levels than what currently exists must not hurt
+gdb_test "down" "Bottom .* frame selected; you cannot go down." "down3"
+gdb_test "down" "Bottom .* frame selected; you cannot go down." "down4"
+gdb_test "down" "Bottom .* frame selected; you cannot go down." "down5"
+
+gdb_test "print x == 1.0" "\\\$5 = 1" "x == 1.0 after three times down"
+
+gdb_exit
+offload_cleanup

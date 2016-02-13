@@ -1,0 +1,193 @@
+set sink_ld_library_path    "/usr/linux-l1om-4.7/linux-l1om/lib64:/opt/intel/mic/myo/lib"
+set micnativeloadex         "/opt/intel/mic/bin/micnativeloadex"
+set offload_main_bin        "/opt/intel/composerxe/lib/mic/offload_main"
+set gdbserver_bin           ""
+set gdbserver_port          "2000"
+set mic_card_address        "mic0"
+set mic_card_id             "0"
+if { [ info exists env(MIC_LD_LIBRARY_PATH) ] } {
+    set mic_lib             $env(MIC_LD_LIBRARY_PATH)
+} else {
+    set mic_lib             ""
+}
+set load_lib                ""
+
+# internal variables
+set debuggee_pid            "0"
+set gdbserver_pid           "0"
+
+if [target_info exists gdb_server_prog] {
+    set gdbserver_bin [target_info gdb_server_prog]
+}
+if [target_info exists gdb,socketport] {
+    set gdbserver_port [target_info gdb,socketport]
+}
+if [target_info exists hostname] {
+    set mic_card_address [target_info hostname]
+}
+if [target_info exists offload_main_bin] {
+    set offload_main_bin [target_info offload_main_bin]
+}
+if [target_info exists micnativeloadex] {
+    set micnativeloadex [target_info micnativeloadex]
+}
+
+# Get the PID of the offload_main process
+proc get_offloadmain_pid {} {
+    global mic_card_address
+    global mic_card_id
+    return [ exec ssh -q $mic_card_address ps aux | gawk "{ if (\$4 ~/offload_main/) { print \$1; } }" ]
+}
+
+# Attaches the gdbserver to the offload_main process
+proc attach_micnativeloadex_gdbserver { offload_pid card_id } {
+    global micnativeloadex
+    global gdbserver_bin
+    global gdbserver_port
+    global sink_ld_library_path
+    set env(SINK_LD_LIBRARY_PATH) $sink_ld_library_path
+    set cmd "${micnativeloadex} ${gdbserver_bin} -d ${card_id} -a \":${gdbserver_port} --attach ${offload_pid}\""
+    return [eval exec $cmd &]
+}
+
+# Cleanup at the end of the test to ensure no offload debuggee or gdbserver
+# is left running on the system.
+proc offload_cleanup { } {
+    global debuggee_pid
+    global gdbserver_pid
+
+    # Kill the debuggee if still exists
+    set exists [ exec ps | gawk "{ if (\$1 == ${debuggee_pid}) { print 1; } }" ]
+    if {$exists == 1} {
+        eval exec "kill -9 ${debuggee_pid}"
+    }
+
+    # Give the gdbserver some time to quit by himself
+    sleep 1
+
+    # Kill the gdbserver if still exists
+    set exists [ exec ps | gawk "{ if (\$1 == ${gdbserver_pid}) { print 1; } }" ]
+    if {$exists == 1} {
+        eval exec "kill -9 ${gdbserver_pid}"
+    }
+}
+
+# This function does an initial cleanup of remaining processes from
+# the previous run. A separate debuggee is required because the offload
+# proceses run under micuser credentials on the card. The micnativeloadex
+# tool will run the cleanup tool also under micuser credentials and the
+# cleanup will work.
+proc target_cleanup { } {
+    global srcdir
+    global micnativeloadex
+    global mic_card_id
+
+    set offload_suite_dir "${srcdir}/gdb.offload"
+    set cleaner_bin "cleanup"
+
+    set binfile [standard_output_file ${cleaner_bin}]
+    if {![file exists $binfile]} {
+        gdb_compile "${offload_suite_dir}/cleanup.c" "${binfile}" executable "additional_flags=-mmic"
+    }
+
+    if {[file exists $binfile]} {
+        puts "offload.exp: doing cleanup on target"
+        set cmd "${micnativeloadex} ${binfile} -d ${mic_card_id}"
+        eval exec "${cmd}"
+        sleep 2
+    }
+}
+
+# Checks if there is a skip.list for offload tests
+# If a skip list was found, the entries will be
+# compared and decided if the current test should
+# run or not.
+proc skip_offload_test { } {
+    global srcdir
+    global gdb_test_file_name
+    set skip_list "${srcdir}/gdb.offload/skip.list"
+
+    if {![file exists $skip_list]} {
+        return 0
+    }
+
+    set fp [open "${skip_list}" r]
+    fconfigure $fp -buffering line
+    gets $fp data
+    while {$data != ""} {
+        if {$data == "${gdb_test_file_name}"} {
+            return 1
+        }
+        gets $fp data
+    }
+    close $fp
+
+    return 0
+}
+
+# This function
+# - starts the offload debuggee
+# - gets the target PID of the offload debuggee
+# - starts the gdbserver on the target side and
+#   attaches to the offload debuggee.
+proc offload_initialize { binfile } {
+    global mic_card_id
+    global gdbserver_pid
+    global debuggee_pid
+    global load_lib
+
+    target_cleanup
+
+    # Start the MYO offload debuggee. It will stay in an offloaded endless loop to
+    # wait for the debugger being attached.
+    set debuggee_pid [eval exec $binfile &]
+    sleep 1
+
+    # get the target pid of the offload_main process.
+    set target_pid [get_offloadmain_pid]
+
+    # check if more than one offload_main process was found
+    if { [llength $target_pid] > 1 } {
+        untested "offload-library: more than one offload process found on target"
+    }
+    # check if a single offload_main process was found
+    if { [llength $target_pid] == 0 } {
+        untested "offload-library: no offload process found on target"
+    }
+
+    # start gdbserver using micnativeloadex
+    set gdbserver_pid [attach_micnativeloadex_gdbserver $target_pid $mic_card_id]
+    sleep 2
+
+    set load_lib "/tmp/coi_procs/[expr $mic_card_id + 1]/$target_pid/load_lib"
+}
+
+# This function handles the initial debugger sequence, which
+# sets the library directories on the target side
+# as well as prepare to endless attach loop to be exited.
+proc offload_attach_sequence { mode } {
+    global srcdir
+    global subdir
+    global offload_main_bin
+    global load_lib
+    global mic_lib
+    global mic_card_address
+    global gdbserver_port
+
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load ${offload_main_bin}
+    gdb_test_no_output "set solib-search-path ${load_lib}:${mic_lib}:/usr/linux-k1om-4.7/linux-k1om/lib64" "offload-library: set solib-search-path"
+    gdb_test "target remote ${mic_card_address}:${gdbserver_port}" ".*Remote debugging using mic.*" "offload-library: target remote"
+    sleep 1
+    if {$mode == "myo"} {
+        gdb_test "break myo_attach_default.c:[gdb_get_line_number "endless_loop_breakpoint" "myo_attach_default.c"]" ".*" "offload-library: set bp @ myo_attach_loop"
+    }
+    if {$mode == "pragma"} {
+        gdb_test "break pragma_attach_default.c:[gdb_get_line_number "endless_loop_breakpoint" "pragma_attach_default.c"]" ".*" "offload-library: set bp @ pragma_attach_loop"
+    }
+    gdb_test "continue" ".*" "offload-library: cont"
+    gdb_test_no_output "set loop=0" "offload-library: set loop = 0"
+    gdb_test_no_output "delete 1" "offload-library: delete"
+}

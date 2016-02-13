@@ -7,7 +7,7 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "3.0" 
+primary_version     = "3.0.0" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
@@ -63,7 +63,10 @@ def fetch_version(primary_ver, final, revision_number):
     reg_x = re.compile(reg_str)
     pkgs_dir = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig + "/"
 
-
+    if os.path.exists(pkgs_dir) == 0:
+        print "path exists"
+    	os.mkdir(pkgs_dir)
+    
     #only grab 4 digit version numbers / pre-releases
     onlyfiles = [ f for f in listdir(pkgs_dir) if isfile(join(pkgs_dir,f)) and reg_x.search(f) and f[-3:] == "rpm"]
 

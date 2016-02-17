@@ -103,7 +103,7 @@ for f in "${liblist[@]}" "${exelist[@]}" ; do
 	/^Dynamic Section:$/ { START=1; }
 	(START==1) && /NEEDED/ {
             if (needed) {
-                if ("'$lib64'" != "" && ! -z $2 && $2 != "libslurm.so.28" && \
+                if ("'$lib64'" != "" && ! -z $2 && \
                      $2 != "libgdbm_compat.so.3" && \
                      $2 != "libgdbm.so.3" && \
                      $2 != "libreadline.so.5" && \

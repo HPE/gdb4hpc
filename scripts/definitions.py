@@ -14,7 +14,7 @@ pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
 
-if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f"):
+if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f" or sys.argv[2].lower() == "-f"):
   final = True
 else:
   final = False
@@ -72,11 +72,13 @@ def fetch_version(primary_ver, final, revision_number):
     
     #only grab 4 digit version numbers / pre-releases
     onlyfiles = [ f for f in listdir(pkgs_dir) if isfile(join(pkgs_dir,f)) and reg_x.search(f) and f[-3:] == "rpm"]
-
+    print onlyfiles
     #if this is the first in this branch
     if len(onlyfiles) == 0:
       new_version_str = primary_ver + ".1"
+      print "inside first"
     else: 
+      print "inside second"
       #sort the file list, grab the last one
       convert = lambda text: int(text) if text.isdigit() else text
       alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]

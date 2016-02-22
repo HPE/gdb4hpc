@@ -3,11 +3,6 @@
 import sys, os, distutils.dir_util, distutils.file_util, tarfile, fnmatch
 from optparse import OptionParser
 
-
-#check if running from cron, act accordingly...
-#if not sys.stdout.isatty():
-#  os.chdir("/cray/css/ulib/lgdb/scripts")
-
 #lgdb specific modules
 import definitions
 import lgdb_spec
@@ -23,7 +18,6 @@ parser.add_option("-f","--final", action="store_true", dest="is_final",default=F
 
 is_final   = options.is_final
 
-
 #retrieve some package details
 primary_version               = definitions.primary_version
 package_dir                   = definitions.pkgs_dir
@@ -33,8 +27,6 @@ build_version_two_digit_nodot = definitions.ver_two_dig_nodot
 release_date                  = definitions.release_date() 
 #script_dir                    = os.getcwd().replace("/.AUTO","").replace(".u17","/users")
 script_dir                   = os.getcwd()
-
-
 
 
 if options.builddir == None:
@@ -68,7 +60,6 @@ else:
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
       exit(1)
-
 
 
 if is_final:

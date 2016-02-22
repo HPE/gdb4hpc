@@ -14,7 +14,7 @@ pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
 
-if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f" or sys.argv[2].lower() == "-f"):
+if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f" or sys.argv[3].lower() == "-f"):
   final = True
 else:
   final = False

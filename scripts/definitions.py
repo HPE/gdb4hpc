@@ -7,18 +7,19 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "3.0.0" 
+primary_version     = "3.0.1" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
 
-if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f" or sys.argv[3].lower() == "-f"):
-  final = True
-else:
+#if its a pre-release
+if len(sys.argv) == 3:
   final = False
-
+#else its a final release
+elif len(sys.argv) == 4 and (sys.argv[3].lower() == "-f"):
+  final = True
 
 def fetch_release(base_name, rev_num):
   rpm_tail = ".x86_64.rpm"

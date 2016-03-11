@@ -201,9 +201,12 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	gettimeofday(&tv_att, NULL);
 #endif
 
+DVPRINT("Creating be network");
 	res = mrn_be_create_network( be_argc, be_argv );
+  DVPRINT("Done Creating network");
 	my_mrn_rank = pmi_rank; //my_mrn_rank is not rank in mrnet, but is used by client to identifiy dbgsrv 
 	mrn_be_set_localrank(my_mrn_rank);
+  DVPRINT("Done setting local rank");
 #else /*end of ALPS*/
 
 	int		c;

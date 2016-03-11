@@ -49,6 +49,8 @@
 #define GUARD_MRNET_PORT			"GUARD_MRNET_PORT_BASE"
 #define DEFAULT_MRNET_PORT_BASE	"20000"
 
+#define ALPS_XT_NID				"/proc/cray_xt/nid"								// file where nid info is located
+
 #ifdef ZPL
 #define LANG_ZPL        7
 #define ZPL_TAG         "zcmap"

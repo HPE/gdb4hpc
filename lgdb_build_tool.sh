@@ -1118,7 +1118,7 @@ fi
 echo -e "Starting tools interface install.\n"
 copy_file "${dep_libexecdir}/${libcraytool_dlaunch}" $libexecdir "tools interface"
 copy_file "${dep_libexecdir}/cti_starter" $libexecdir "tools interface"
-copy_file "${dep_libexecdir}/cti_slurm_util" $libexecdir "tools interface"
+copy_file "${dep_libexecdir}/cti_slurm_step_util.sh" $libexecdir "tools interface"
 copy_file "${dep_libexecdir}/cti_overwatch" $libexecdir "tools interface"
 copy_file "${dep_libdir}/libaudit.so" $libdir "tools interface"
 copy_file "${dep_libdir}/${libcraytool_backend_minor}" $libdir "tools interface"

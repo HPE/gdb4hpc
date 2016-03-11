@@ -7,18 +7,19 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "3.0.0" 
+primary_version     = "3.0.1" 
 ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
 ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
 
-if len(sys.argv) >= 1 and (sys.argv[1].lower() == "-f"):
-  final = True
-else:
+#if its a pre-release
+if len(sys.argv) == 3:
   final = False
-
+#else its a final release
+elif len(sys.argv) == 4 and (sys.argv[3].lower() == "-f"):
+  final = True
 
 def fetch_release(base_name, rev_num):
   rpm_tail = ".x86_64.rpm"
@@ -72,11 +73,13 @@ def fetch_version(primary_ver, final, revision_number):
     
     #only grab 4 digit version numbers / pre-releases
     onlyfiles = [ f for f in listdir(pkgs_dir) if isfile(join(pkgs_dir,f)) and reg_x.search(f) and f[-3:] == "rpm"]
-
+    print onlyfiles
     #if this is the first in this branch
     if len(onlyfiles) == 0:
       new_version_str = primary_ver + ".1"
+      print "inside first"
     else: 
+      print "inside second"
       #sort the file list, grab the last one
       convert = lambda text: int(text) if text.isdigit() else text
       alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]

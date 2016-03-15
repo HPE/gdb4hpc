@@ -108,9 +108,11 @@ get_myparent_info(int id, char *host, char *par_host, unsigned *par_port, unsign
 	// advance the file stream to our current rank's position in the file
 	// this will greatly reduce read times for large numbers of runs
 #ifdef ALPS
-	if (fseek(conn, id*ATTACH_FILE_LINE_LEN, SEEK_SET))
-	{
-	        perror("fseek");
+	if( access( ALPS_XT_NID, F_OK ) != -1 ) {
+		if (fseek(conn, id*ATTACH_FILE_LINE_LEN, SEEK_SET))
+		{
+		        perror("fseek");
+		}
 	}
 
 	do{

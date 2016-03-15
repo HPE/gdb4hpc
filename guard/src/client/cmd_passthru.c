@@ -227,9 +227,14 @@ InitCmd_passthru(void)
 		cmd_directmode_alt_end_cmd, dummy_help, "");
 	AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
 		cmd_quit_cmd, dummy_help, "");
-	AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
+	
+  AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
 		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
-		
+  AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
+		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+  AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
+		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+    	
 	SetDefaultCommand(DirectModeCmds, "_default_cmd");
 }
 

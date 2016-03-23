@@ -26,23 +26,21 @@ Product Description:
   
   * OpenACC debugging support.
  
-  * Workload manager support. Alps, Cray hybrid slurm, and native slurm is
-    supported.
+  * Workload manager support. SLURM 15 and SLURM 16 ONLY.
 
 Purpose:
 ---------
   This is feature release.
 
-  1. Added support for CUDA 7.5.
+  1. Provides support for CS.
 
-  2. Upgraded gdb to latest versions containing multiple bugfixes.
+  2. Provides support for both SLURM 15 and SLURM 16.
+
 
 Product and OS Dependencies:
 -----------------------------
   The Cray lgdb %VERSION% release is supported on the following Cray systems
   running Cray Linux Environment(CLE) operating system
-    - Cray XE and XK systems running CLE 5.2 or later
-    - Cray XC series systems with CLE version 5.2 or later
     - Native SLURM is supported with version 15 or later
 
 Documentation:
@@ -58,14 +56,14 @@ Installation instructions:
 
 Installation instructions for CLE 6.0 and later:
  ================================================
-  rpm -ivh cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
+  rpm -ivh cray-lgdb-%VERSION%-%RELEASE%_%REVISION%%os%.x86_64.rpm
 
   To make lgdb %VERSION% the default version of lgdb, execute:
     /opt/cray/pe/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
 
 Installation instructions for CLE 5.2:
  =============================================
-  rpm -ivh --prefix=/opt/cray cray-lgdb-%VERSION%-%RELEASE%.x86_64.rpm
+  rpm -ivh --prefix=/opt/cray cray-lgdb-%VERSION%-%RELEASE%_%REVISION%%os%.x86_64.rpm
 
   To make lgdb %VERSION% the default version of lgdb, execute:
     /opt/cray/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%

@@ -13,6 +13,7 @@ ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]])
 pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
 bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
 arch                ="x86_64"
+final		    = False
 
 #if its a pre-release
 if len(sys.argv) == 3:
@@ -33,16 +34,26 @@ def fetch_release(base_name, rev_num):
       break
   return str(rval)  
 
-def fetch_sles_level():
-  with open("/etc/SuSE-release", "r") as f:
-    for line in f:
-      if line.find("VERSION") != -1:
-        sles_sub = line.replace("VERSION = ", "")
-        break
-  if sles_sub == "12":
-    return "_SLES12"
+def fetch_os():
+  if os.path.isfile("/etc/SuSE-release"):
+    with open("/etc/SuSE-release", "r") as f:
+      for line in f:
+        if line.find("VERSION") != -1:
+          os_sub = line.replace("VERSION = ", "")
+          break
+  elif os.path.isfile("/etc/redhat-release"):
+    with open("/etc/redhat-release", "r") as f:
+      for line in f:
+        if line.find("CentOS release") != -1:
+          os_sub = 'el6'
+          break
+
+  os_sub = os_sub.strip()
+  print "slesver " + os_sub
+  if os_sub == "el6":
+    return "_el6"
   else:
-    return '' 
+    return ''
 
 
 def release_date():
@@ -124,16 +135,17 @@ def fetch_revision():
   rev_number = rev_number[0:13]
   timestmp_revnbr = str(dt_time) + "." + str(rev_number)
 
+  os_ver = fetch_os()
+
   version = fetch_version(primary_version,final,rev_number)
   base_name = "cray-lgdb-" + version
 
   release_number = fetch_release(base_name, rev_number)
-  sles_ver = fetch_sles_level()
 
-  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr
+  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr + os_ver
   rpm_name = package_name + "." + arch + ".rpm"
 
-  contents = [timestmp_revnbr, version, release_number, rpm_name, sles_ver]
+  contents = [timestmp_revnbr, version, release_number, rpm_name, os_ver]
   return contents
 
 

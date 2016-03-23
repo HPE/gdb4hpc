@@ -19,7 +19,9 @@ Prefix: /opt/cray/pe
 
 #BuildRequires: gcc-fortran
 
+%define _use_internal_dependency_generator 0
 %define __find_requires [script_dir]/find-requires 
+%define debug_package%{nil}
 
 %description
 CCDB is a comparative debugger.
@@ -39,18 +41,7 @@ CCDB is a comparative debugger.
 
 %prep
 %setup
-
 %build
-#./ccdb_build_tool.sh --all
-#
-#pushd ccdb_install
-#  mkdir man
-#  pushd man
-#    cpio -idm < %{man_source}
-#    find . -type d -exec chmod 755 {} \;
-#    find . -type f -exec chmod 644 {} \;
-#  popd
-#popd
 
 %install
 mkdir -p %{buildroot}%{_version_prefix}
@@ -66,7 +57,7 @@ install -D set_default_%{namespace}-%{intranamespace_name}_%{version} %{buildroo
 mv cray-lgdb/docs/ATTRIBUTIONS_lgdb.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_lgdb.%{version}.txt
 
 # hardlink duplicate files to save space
-%fdupes %{buildroot}
+#%fdupes %{buildroot}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,7 +85,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/cuda70-gdb-guard
 %{_version_prefix}/libexec/cuda75-gdb-guard
 %{_version_prefix}/libexec/cti_overwatch
-%{_version_prefix}/libexec/cti_slurm_util
+%{_version_prefix}/libexec/cti_slurm_step_util.sh
 %{_version_prefix}/libexec/cti_starter
 %{_version_prefix}/libexec/cti_dlaunch7.0
 

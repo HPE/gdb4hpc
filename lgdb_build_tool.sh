@@ -104,14 +104,14 @@ libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
 libcraytool_backend_dso="libcraytools_be.so"
-libcraytool_backend_major="libcraytools_be.so.7"
-libcraytool_backend_minor="libcraytools_be.so.7.0.0"
+libcraytool_backend_major="libcraytools_be.so.1"
+libcraytool_backend_minor="libcraytools_be.so.1.0.0"
 
 libcraytool_frontend_dso="libcraytools_fe.so"
-libcraytool_frontend_major="libcraytools_fe.so.7"
-libcraytool_frontend_minor="libcraytools_fe.so.7.0.0"
+libcraytool_frontend_major="libcraytools_fe.so.1"
+libcraytool_frontend_minor="libcraytools_fe.so.1.0.0"
 
-libcraytool_dlaunch="cti_dlaunch7.0"
+libcraytool_dlaunch="cti_dlaunch1.0"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"

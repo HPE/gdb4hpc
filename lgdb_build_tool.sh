@@ -92,6 +92,11 @@ guard_rd_directory_name="guard-rd"
 # External dependency source trees that are imported directly in lgdb
 craytool_directory_name="craytool_interface"
 
+#Installed library locations
+cti_base_dir="/opt/cray/cti/default"
+cti_include_directory="$cti_base_dir/include"
+cti_lib_directory="$cti_base_dir/lib"
+
 # Demos directory name
 demo_directory_name="demos"
 
@@ -102,14 +107,6 @@ docs_directory_name="docs"
 libedit_dso="libedit.so"
 libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
-
-libcraytool_backend_dso="libcraytools_be.so"
-libcraytool_backend_major="libcraytools_be.so.1"
-libcraytool_backend_minor="libcraytools_be.so.1.0.0"
-
-libcraytool_frontend_dso="libcraytools_fe.so"
-libcraytool_frontend_major="libcraytools_fe.so.1"
-libcraytool_frontend_minor="libcraytools_fe.so.1.0.0"
 
 libcraytool_dlaunch="cti_dlaunch1.0"
 
@@ -203,9 +200,6 @@ editline_src="$thirdparty_dir/$editline_directory_name"
 # Define where to find the libarchive source tree
 libarchive_src="$thirdparty_dir/$libarchive_directory_name"
 
-# Define where to find the tools interface source tree
-cti_src="$cur_dir/$craytool_directory_name"
-
 # Define where to find the guard source tree
 lgdb_src="$cur_dir/$guard_directory_name"
 
@@ -256,7 +250,7 @@ opt_cuda75_gdb=n
 opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
-opt_cti=n
+opt_cti_install=n
 opt_lgdb=n
 opt_cleanup=n
 opt_advanced=n
@@ -289,7 +283,7 @@ function print_help {
 	echo "K: gdb uda support"
 	echo "L: editline"
 	echo "M: libarchive"
-	echo "N: Tools Interface"
+	echo "N: Set non standard CTI install directory"
 	echo "O: lgdb"
 	echo "P: cleanup"
 }
@@ -546,8 +540,8 @@ if [[ "$#" != "0" ]] ; then
 					opt_editline=y;;
 				m | M ) echo "Building M: libarchive"
 					opt_libarchive=y;;
-				n | N )	echo "Building N: tools interface"
-					opt_cti=y;;
+				n | N ) echo "Starting N: Set CTI install directory"
+					opt_cti_install=y;;
 				o | O ) echo "Building O: lgdb"
 					opt_lgdb=y;;
 				p | P ) echo "Running P: cleanup"
@@ -579,7 +573,20 @@ if [[ $opt_ask_deps == y ]]; then
 	ask_sub_build "Build gdb uda support" opt_gdb_uda
 	ask_sub_build "Build editline" opt_editline
 	ask_sub_build "Build libarchive" opt_libarchive
-	ask_sub_build "Build tools interface" opt_cti
+	ask_sub_build "Set non standard CTI install directory" opt_cti_install
+
+	if [[ $opt_cti_install == y ]]; then
+		echo -e "Enter CTI install location (return for default):"
+		read line
+
+		if [ -n "$line" ]; then
+	    	cti_base_dir=$line
+			cti_include_directory=$line/include
+			cti_lib_directory=$line/lib
+		else
+			echo "Using default: " $cti_base_dir
+		fi
+	fi
 fi
 
 # Ask if we should build lgdb
@@ -1099,48 +1106,6 @@ fi
 # Check for errors in component
 check_error
 
-# tools interface build
-if [[ $opt_cti == y ]]; then
-	echo -e "Starting tools interface build.\n" 
-	# change directories 
-	cd $cti_src 
-	echo -e "\nUsing tools interface source $cti_src.\n" 
-	# run tools interface configure 
-	echo "Configuring tools interface..." 
-	set -x
-	./configure --prefix=$stage_dir --with-libarchive=$stage_dir --with-libmi=$stage_dir CFLAGS="$opt_flag -Wall"
-	set +x
-	do_build "tools interface"
-	echo -e "\nTools interface staged to $stage_dir.\n" 
-fi
-	
-# tools interface install
-echo -e "Starting tools interface install.\n"
-copy_file "${dep_libexecdir}/${libcraytool_dlaunch}" $libexecdir "tools interface"
-copy_file "${dep_libexecdir}/cti_starter" $libexecdir "tools interface"
-copy_file "${dep_libexecdir}/cti_slurm_step_util.sh" $libexecdir "tools interface"
-copy_file "${dep_libexecdir}/cti_overwatch" $libexecdir "tools interface"
-copy_file "${dep_libdir}/libaudit.so" $libdir "tools interface"
-copy_file "${dep_libdir}/${libcraytool_backend_minor}" $libdir "tools interface"
-# create the symlinks
-if [[ $? == 0 ]]; then
-	echo "Creating libcraytool symlinks for $libcraytool_backend_dso and $libcraytool_backend_major..." 
-	cd $libdir 
-	ln -s $libcraytool_backend_minor $libcraytool_backend_dso 
-	ln -s $libcraytool_backend_minor $libcraytool_backend_major
-fi
-copy_file "${dep_libdir}/${libcraytool_frontend_minor}" $libdir "tools interface"
-if [[ $? == 0 ]]; then
-	echo "Creating libcraytool symlinks for $libcraytool_frontend_dso and $libcraytool_frontend_major..."
-	cd $libdir 
-	ln -s $libcraytool_frontend_minor $libcraytool_frontend_dso
-	ln -s $libcraytool_frontend_minor $libcraytool_frontend_major
-fi
-echo -e "########################################################\n"
-
-# Check for errors in component
-check_error
-
 # mrnet build - This *must* happen after the cti library build now since mrnet
 # depends on cti components.
 if [[ $opt_mrnet == y ]]; then
@@ -1152,7 +1117,7 @@ if [[ $opt_mrnet == y ]]; then
 	echo "Configuring MRNet..."
 	set -x
 	./configure --prefix=$stage_dir --with-startup=cray --enable-shared \
-	--with-cti-inc=$dep_includedir --with-cti-lib=$dep_libdir \
+	--with-cti-inc=$cti_include_directory --with-cti-lib=$cti_lib_directory \
 	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag"
 	set +x
 	do_build "MRNet"
@@ -1210,7 +1175,7 @@ if [[ $opt_lgdb == y ]]; then
 	echo "Configuring lgdb..."
 	set -x
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
-	--with-craytool-inc=$dep_includedir --with-craytool-lib=$dep_libdir --prefix=$inst_dir \
+	--with-craytool-inc=$cti_include_directory --with-craytool-lib=$cti_lib_directory --prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
 	CXXFLAGS="$opt_flag -Wall"
@@ -1259,7 +1224,6 @@ if [[ $opt_cleanup == y ]]; then
 	do_clean $opt_gdb_uda $gdb_uda_src "gdb uda support library"
 	do_clean $opt_editline $editline_src "editline"
 	do_clean $opt_libarchive $libarchive_src "libarchive"
-	do_clean $opt_cti $cti_src "tools interface"
 	# make clean lgdb
 	if [[ $opt_lgdb == y ]]; then
 		echo "Cleaning lgdb..."

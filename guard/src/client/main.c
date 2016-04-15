@@ -291,9 +291,6 @@ SetupEnvironment(void)
 		Free(cfg_dir);
 	}
 	
-	// set the base dir for CTI
-	setenv(CTI_BASE_DIR_ENV_VAR, inst_base, 1);
-	
 	// set the gdb_path for CTI
 	Asprintf(&gdb_dir, "%s/gdb-guard", libexec_dir);
 	setenv(CTI_GDB_LOC_ENV_VAR, gdb_dir, 1);

@@ -97,9 +97,9 @@ xc_release_file="/etc/SuSE-release"
 cs_release_file="/etc/redhat-release"
 
 if [ -f $xc_release_file ]; then
-	cti_buildbot_dir="/cray/css/ulib/cti/builds_xc/install"
+	cti_buildbot_dir="/cray/css/ulib/cti/builds_xc/latest/install"
 else
-	cti_buildbot_dir="/cray/css/ulib/cti/builds_cs/install"
+	cti_buildbot_dir="/cray/css/ulib/cti/builds_cs/latest/install"
 fi
 
 if [ -n $(module list 2>&1 | grep cray-cti) ]; then

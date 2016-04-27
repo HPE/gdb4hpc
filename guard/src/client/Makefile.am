@@ -15,7 +15,8 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for Cray libraries
 if CRAY
-CRAYTOOL_LIBS	= @craytool_fe_libs@
+CRAYTOOL_LIBS	= $(CRAY_CTI_FE_LIBS)
+AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
 endif
 
 # Check for relative debugging libraries

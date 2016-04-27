@@ -32,9 +32,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@CRAY_TRUE@am__append_1 = $(CRAY_CTI_FE_CFLAGS)
 
 # Check for MRNet libraries
-@MRN_TRUE@am__append_1 = -I$(MRNET) -I$(SDM)
+@MRN_TRUE@am__append_2 = -I$(MRNET) -I$(SDM)
 libexec_PROGRAMS = guard_proxy$(EXEEXT)
 subdir = src/proxy
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
@@ -55,9 +56,10 @@ am_guard_proxy_OBJECTS = proxy_daemon.$(OBJEXT) \
 	dbg_client_proxy.$(OBJEXT)
 guard_proxy_OBJECTS = $(am_guard_proxy_OBJECTS)
 am__DEPENDENCIES_1 =
+@CRAY_TRUE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
 guard_proxy_DEPENDENCIES = $(DBGCLNT)/libdbgproto.a \
 	$(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
 guard_proxy_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
@@ -93,6 +95,10 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CRAY_CTI_BE_CFLAGS = @CRAY_CTI_BE_CFLAGS@
+CRAY_CTI_BE_LIBS = @CRAY_CTI_BE_LIBS@
+CRAY_CTI_FE_CFLAGS = @CRAY_CTI_FE_CFLAGS@
+CRAY_CTI_FE_LIBS = @CRAY_CTI_FE_LIBS@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -145,6 +151,9 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POE = @POE@
 POW_LIB = @POW_LIB@
 RANLIB = @RANLIB@
@@ -180,8 +189,6 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
-craytool_be_libs = @craytool_be_libs@
-craytool_fe_libs = @craytool_fe_libs@
 craytool_path = @craytool_path@
 datadir = @datadir@
 datarootdir = @datarootdir@
@@ -233,7 +240,7 @@ DBGCOMM = @guard_srcdir@/src/dbgcomm
 MRNET = @guard_srcdir@/mrnet
 SDM = @guard_srcdir@/sdm
 AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) \
-	-I$(DBGCOMM) $(am__append_1)
+	-I$(DBGCOMM) $(am__append_1) $(am__append_2)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -241,7 +248,7 @@ AM_LIBTOOLFLAGS = --quiet
 #################################
 
 # Check for Cray libraries
-@CRAY_TRUE@CRAYTOOL_LIBS = @craytool_fe_libs@
+@CRAY_TRUE@CRAYTOOL_LIBS = $(CRAY_CTI_FE_LIBS)
 
 # Check for relative debugging libraries
 @WITH_RD_TRUE@GUARD_RD_LIBS = @rd_libs@

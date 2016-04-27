@@ -49,7 +49,8 @@ endif
 
 # Check for Cray
 if CRAY
-CRAYTOOL_LIBS	= @craytool_be_libs@
+CRAYTOOL_LIBS = $(CRAY_CTI_BE_LIBS)
+AM_CFLAGS += $(CRAY_CTI_BE_CFLAGS)
 CRAY_PROGS	= dbgsrv_alps
 
 if MRN

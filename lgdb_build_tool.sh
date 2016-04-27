@@ -93,9 +93,21 @@ guard_rd_directory_name="guard-rd"
 craytool_directory_name="craytool_interface"
 
 #Installed library locations
-cti_base_dir="/opt/cray/cti/default"
-cti_include_directory="$cti_base_dir/include"
-cti_lib_directory="$cti_base_dir/lib"
+xc_release_file="/etc/SuSE-release"
+cs_release_file="/etc/redhat-release"
+
+if [ -f $xc_release_file ]; then
+	cti_buildbot_dir="/cray/css/ulib/cti/builds_xc/install"
+else
+	cti_buildbot_dir="/cray/css/ulib/cti/builds_cs/install"
+fi
+
+if [ -n $(module list 2>&1 | grep cray-cti) ]; then
+	module load cray-cti
+fi
+
+pkgconfig_postfix="/lib/pkgconfig"
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_buildbot_dir$pkgconfig_postfix
 
 # Demos directory name
 demo_directory_name="demos"
@@ -580,11 +592,9 @@ if [[ $opt_ask_deps == y ]]; then
 		read line
 
 		if [ -n "$line" ]; then
-	    	cti_base_dir=$line
-			cti_include_directory=$line/include
-			cti_lib_directory=$line/lib
+			cti_nonstandard_dir=$line
 		else
-			echo "Using default: " $cti_base_dir
+			echo "Using pkgconfig default location:" $(pkg-config --libs-only-L craytools_fe)
 		fi
 	fi
 fi
@@ -1106,6 +1116,17 @@ fi
 # Check for errors in component
 check_error
 
+export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
+
+cti_pkgconfig_L_dir=$(pkg-config --libs-only-L craytools_fe)
+if [ $? -ne 0 ]; then
+	echo "Could not find CTI in pkgconfig path. CTI may not be installed."
+fi
+
+cti_base_dir=`echo $cti_pkgconfig_L_dir | cut -c 3- | awk '{print $1"/.."}'` 
+cti_include_directory="$cti_base_dir/include"
+cti_lib_directory="$cti_base_dir/lib"
+
 # mrnet build - This *must* happen after the cti library build now since mrnet
 # depends on cti components.
 if [[ $opt_mrnet == y ]]; then
@@ -1175,7 +1196,7 @@ if [[ $opt_lgdb == y ]]; then
 	echo "Configuring lgdb..."
 	set -x
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
-	--with-craytool-inc=$cti_include_directory --with-craytool-lib=$cti_lib_directory --prefix=$inst_dir \
+	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
 	CXXFLAGS="$opt_flag -Wall"

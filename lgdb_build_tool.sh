@@ -96,18 +96,16 @@ craytool_directory_name="craytool_interface"
 xc_release_file="/etc/SuSE-release"
 cs_release_file="/etc/redhat-release"
 
-if [ -f $xc_release_file ]; then
-	cti_buildbot_dir="/cray/css/ulib/cti/builds_xc/latest/install"
-else
-	cti_buildbot_dir="/cray/css/ulib/cti/builds_cs/latest/install"
-fi
+cti_install_dir="/opt/cray/cti/default"
 
-if [ -n $(module list 2>&1 | grep cray-cti) ]; then
+source /opt/modules/default/init/bash
+
+if [ $(echo $LOADEDMODULES | grep cray-cti) ]; then
 	module load cray-cti
 fi
 
 pkgconfig_postfix="/lib/pkgconfig"
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_buildbot_dir$pkgconfig_postfix
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
 
 # Demos directory name
 demo_directory_name="demos"

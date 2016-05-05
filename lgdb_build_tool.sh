@@ -93,9 +93,6 @@ guard_rd_directory_name="guard-rd"
 craytool_directory_name="craytool_interface"
 
 #Installed library locations
-xc_release_file="/etc/SuSE-release"
-cs_release_file="/etc/redhat-release"
-
 cti_install_dir="/opt/cray/cti/default"
 
 source /opt/modules/default/init/bash

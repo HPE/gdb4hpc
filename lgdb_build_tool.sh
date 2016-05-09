@@ -511,7 +511,6 @@ if [[ "$#" != "0" ]] ; then
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
-		opt_cti=y
 		opt_lgdb=y
 		opt_cleanup=y
 		opt_advanced=n
@@ -1111,11 +1110,14 @@ fi
 # Check for errors in component
 check_error
 
-export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
+if [ -n "$cti_nonstandard_dir" ]; then
+	export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
+fi
 
 cti_pkgconfig_L_dir=$(pkg-config --libs-only-L craytools_fe)
 if [ $? -ne 0 ]; then
-	echo "Could not find CTI in pkgconfig path. CTI may not be installed."
+	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
+	exit 1
 fi
 
 cti_base_dir=`echo $cti_pkgconfig_L_dir | cut -c 3- | awk '{print $1"/.."}'` 

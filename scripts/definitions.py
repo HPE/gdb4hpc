@@ -19,7 +19,7 @@ final		    = False
 if len(sys.argv) == 3:
   final = False
 #else its a final release
-elif len(sys.argv) == 4 and (sys.argv[3].lower() == "-f"):
+elif len(sys.argv) >= 4 and (sys.argv[3].lower() == "-f"):
   final = True
 
 def fetch_release(base_name, rev_num):

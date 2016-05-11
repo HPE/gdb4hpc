@@ -40,9 +40,10 @@ host_triplet = @host@
 
 # Check for MRNet
 @MRN_TRUE@am__append_1 = -I$(MRNET) -I$(SDM)
+@CRAY_TRUE@am__append_2 = $(CRAY_CTI_FE_CFLAGS)
 
 # Cray ALPS does not need guard_starter
-@CRAY_FALSE@am__append_2 = -DBINDIR=\"$(bindir)\"
+@CRAY_FALSE@am__append_3 = -DBINDIR=\"$(bindir)\"
 @CRAY_FALSE@bin_PROGRAMS = guard_starter$(EXEEXT)
 subdir = src/dbgclnt
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
@@ -267,7 +268,7 @@ DBGCOMM = @guard_srcdir@/src/dbgcomm
 MRNET = @guard_srcdir@/mrnet
 SDM = @guard_srcdir@/sdm
 AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) $(am__append_1) \
-	$(am__append_2)
+	$(am__append_2) $(am__append_3)
 AM_LIBTOOLFLAGS = --quiet
 @MRN_TRUE@MRN_PROTO = dbgclnt_mrn.c dbg_mrn_fe.c mrn_topgen.c
 

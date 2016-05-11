@@ -106,9 +106,7 @@ for f in "${liblist[@]}" "${exelist[@]}" ; do
                 if ("'$lib64'" != "" && ! -z $2 && \
                      $2 != "libgdbm_compat.so.3" && \
                      $2 != "libgdbm.so.3" && \
-                     $2 != "libreadline.so.5" && \
-                     $2 != "libslurm.so.29" && \
-		     $2 != "libslurm.so.30"){ 
+                     $2 != "libreadline.so.5"){ 
                     sub(/$/, "()'$lib64'", $2) ;
                     print $2;
                 }

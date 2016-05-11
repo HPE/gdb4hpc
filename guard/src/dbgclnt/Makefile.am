@@ -32,6 +32,10 @@ if GDBMI_BACKEND
 FRONTEND	= dbgclnt_gdbmi.c
 endif
 
+if CRAY
+AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
+endif
+
 ##############################
 # Build debug client library #
 ##############################

@@ -92,10 +92,25 @@ guard_rd_directory_name="guard-rd"
 # External dependency source trees that are imported directly in lgdb
 craytool_directory_name="craytool_interface"
 
-#Installed library locations
-cti_install_dir="/opt/cray/cti/default"
+function source_module_script() {
+	redhat_release_file="/etc/redhat-release"
 
-source /opt/modules/default/init/bash
+	if [ -e "$redhat_release_file" ]; then
+		if [[ -e /usr/share/Modules/init/bash ]]; then 
+			source /usr/share/Modules/init/bash
+		fi
+	else
+		if [[ -e /opt/modules/default/init/bash ]]; then 
+			source /opt/modules/default/init/bash
+		fi
+	fi
+}
+
+#Installed library locations
+supported_cti_version="1.0.1.3"
+cti_install_dir="/opt/cray/cti/$supported_cti_version"
+
+source_module_script
 
 if [ $(echo $LOADEDMODULES | grep cray-cti) ]; then
 	module load cray-cti
@@ -474,9 +489,7 @@ dep_lib64dir="$stage_dir/lib64"
 # Ensure that a PrgEnv module is not loaded. #
 ##############################################
 
-if [[ -e /opt/modules/default/init/bash ]]; then 
-	source /opt/modules/default/init/bash
-fi
+source_module_script
 
 if test "x`module list -l 2>&1 > /dev/null | grep 'PrgEnv'`" != "x"; then
 	echo "!!!!!!!!!!ERROR!!!!!!!!!!"

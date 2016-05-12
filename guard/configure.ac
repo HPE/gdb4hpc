@@ -675,28 +675,15 @@ if test "x$mrnet_mode" = xyes; then
 	AC_SUBST([mrn_root], ["$mrnet_root"])
 fi
 
-dnl Conditional check for cray aprun libs
-if test "x$with_cray" = xyes; then
-	dnl Check for libcraytools_fe.so
-	AC_MSG_CHECKING([for libcraytools_fe.so])
-	if test -f "$libcraytool_path/libcraytools_fe.so"; then
-		AC_SUBST([craytool_fe_libs], ["-lcraytools_fe"])
-		AC_MSG_RESULT([found])
-	else
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libcraytools_fe.so not found.])
-	fi
+dnl Conditional check for CTI libs
 
-	dnl Check for libcraytools_be.so
-	AC_MSG_CHECKING([for libcraytools_be.so])
-	if test -f "$libcraytool_path/libcraytools_be.so"; then
-		AC_SUBST([craytool_be_libs], ["-lcraytools_be"])
-		AC_MSG_RESULT([found])
-	else
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libcraytools_be.so not found.])
-	fi
-fi
+dnl
+dnl Check for pkg-config
+dnl
+PKG_PROG_PKG_CONFIG
+
+PKG_CHECK_MODULES([CRAY_CTI_FE], [craytools_fe],[],[AC_MSG_ERROR([libcraytools_fe.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_BE], [craytools_be],[],[AC_MSG_ERROR([libcraytools_be.so not found.])])
 
 ###############################
 ### Check for header files. ###
@@ -834,7 +821,7 @@ if test "x$mrnet_mode" = xyes; then
                 fi
         fi
 fi
-	
+
 #####################################################################
 ### Check for typedefs, structures, and compiler characteristics. ###
 #####################################################################

@@ -84,11 +84,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/cuda55-gdb-guard
 %{_version_prefix}/libexec/cuda70-gdb-guard
 %{_version_prefix}/libexec/cuda75-gdb-guard
-%{_version_prefix}/libexec/cti_overwatch
-%{_version_prefix}/libexec/cti_slurm_step_util.sh
-%{_version_prefix}/libexec/cti_starter
-%{_version_prefix}/libexec/cti_dlaunch7.0
-
 
 %{_version_prefix}/demos
 %{_version_prefix}/lib

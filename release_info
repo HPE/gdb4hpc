@@ -33,9 +33,7 @@ Purpose:
 ---------
   This is feature release.
 
-  1. Provides support for Cray CS machines.
-
-  2. Provides support for SLURM 14.
+  1. Initial support for KNL (officially known as Intel's Xeon Phi Processor codenamed Knights Landing)
 
 
 Product and OS Dependencies:

@@ -113,7 +113,7 @@ cti_install_dir="/opt/cray/cti/$supported_cti_version"
 source_module_script
 
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
-	echo LOADING_CTI
+	echo "WARNING: Loading default CTI module"
 	module load cray-cti
 fi
 

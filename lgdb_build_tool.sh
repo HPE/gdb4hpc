@@ -107,12 +107,13 @@ function source_module_script() {
 }
 
 #Installed library locations
-supported_cti_version="1.0.1.3"
+supported_cti_version="1.0.1"
 cti_install_dir="/opt/cray/cti/$supported_cti_version"
 
 source_module_script
 
-if [ $(echo $LOADEDMODULES | grep cray-cti) ]; then
+if ! echo $LOADEDMODULES | grep -q cray-cti; then
+	echo LOADING_CTI
 	module load cray-cti
 fi
 
@@ -349,10 +350,10 @@ function ask_sub_build {
 function do_build {
 	# run make
 	echo -e "\nBuilding ${1}...\n"
-	make --silent
+	make
 	# run make install
 	echo -e "Installing ${1}...\n"
-	make --silent install
+	make install
 }
 
 function do_clean {

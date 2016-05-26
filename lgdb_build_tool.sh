@@ -350,10 +350,10 @@ function ask_sub_build {
 function do_build {
 	# run make
 	echo -e "\nBuilding ${1}...\n"
-	make
+	make --silent
 	# run make install
 	echo -e "Installing ${1}...\n"
-	make install
+	make --silent install
 }
 
 function do_clean {

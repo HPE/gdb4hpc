@@ -107,12 +107,13 @@ function source_module_script() {
 }
 
 #Installed library locations
-supported_cti_version="1.0.1.3"
+supported_cti_version="1.0.1"
 cti_install_dir="/opt/cray/cti/$supported_cti_version"
 
 source_module_script
 
-if [ $(echo $LOADEDMODULES | grep cray-cti) ]; then
+if ! echo $LOADEDMODULES | grep -q cray-cti; then
+	echo "WARNING: Loading default CTI module"
 	module load cray-cti
 fi
 

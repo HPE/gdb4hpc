@@ -823,7 +823,7 @@ if [[ $opt_gdb == y ]]; then
 	# run gdb configure
 	echo "Configuring gdb..."
 	set -x
-	./configure --prefix=$stage_dir $gdb_args CFLAGS="$opt_flag"
+	./configure --disable-werror --prefix=$stage_dir $gdb_args CFLAGS="$opt_flag"
 	set +x
 	do_build "gdb"
 	echo -e "\ngdb staged to $stage_dir.\n"

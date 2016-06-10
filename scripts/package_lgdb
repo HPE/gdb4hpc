@@ -210,13 +210,11 @@ section-1:
             - SEASTAR
     OPERATION             : INSTALL
     OS_VERSION:
-        ALL_EXCEPT:
-            - 2.2
-            - 2.1
-            - 3.0
-            - 3.1
-            - 4.2
-            - 5.1
+            - 5.2
+            - 6.0
+            - 6.1
+            - 6.2
+            - 6.3
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
 
@@ -233,11 +231,8 @@ section-2:
     NETWORK_TYPE          : NONE
     OPERATION             : INSTALL
     OS_VERSION:
-        ALL_EXCEPT:
-            - SLES10
-            - sles11sp0
-            - sles11sp1
-            - sles11sp2
+            - sles11sp3
+            - sles12
     RPM_LIST              : NONE
     SYSTEM_TYPE           : WHITEBOX
 
@@ -253,18 +248,14 @@ section-3:
             - SEASTAR
     OPERATION             : UPDATE
     OS_VERSION:
-        ALL_EXCEPT:
-            - 2.2
-            - 2.1
-            - 3.0
-            - 3.1
-            - 4.2
-            - 5.1
+            - 5.2
+            - 6.0
+            - 6.1
+            - 6.2
+            - 6.3
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
     COMMANDS: |
-          if [ -f /etc/SuSE-release ]
-          then
             OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
             if [[ $OS_VER -lt 12 ]]
             then
@@ -272,15 +263,7 @@ section-3:
             else
               pref=/opt/cray/pe
             fi
-          elif [ -f /etc/redhat-release ]
-          then
-            OS_VER=$(cat /etc/redhat-release | grep CentOS | cut -f1 -d" "
-            if [[ "$OS_VER" == "CentOS" ]]
-            then
-              pref=/opt/cray
-            fi
-          fi
-          $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
 
 section-4:
     ACCELERATOR           : NONE
@@ -295,16 +278,11 @@ section-4:
     NETWORK_TYPE          : NONE
     OPERATION             : UPDATE
     OS_VERSION:
-        ALL_EXCEPT:
-            - SLES10
-            - sles11sp0
-            - sles11sp1
-            - sles11sp2
+            - sles11sp3
+            - sles12
     RPM_LIST              : NONE
     SYSTEM_TYPE           : WHITEBOX
     COMMANDS: |
-          if [ -f /etc/SuSE-release ]
-          then
             OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
             if [[ $OS_VER -lt 12 ]]
             then
@@ -312,15 +290,7 @@ section-4:
             else
               pref=/opt/cray/pe
             fi
-          elif [ -f /etc/redhat-release ]
-          then
-            OS_VER=$(cat /etc/redhat-release | grep CentOS | cut -f1 -d" "
-            if [[ "$OS_VER" == "CentOS" ]]
-            then
-              pref=/opt/cray
-            fi
-          fi
-          $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
 
 section-5:
     ACCELERATOR           : NONE
@@ -331,7 +301,14 @@ section-5:
     INSTALL_DEFAULT_HOSTS : NONE
     NETWORK_TYPE          : NONE
     OPERATION             : REMOVE
-    OS_VERSION            : ALL
+    OS_VERSION:
+        - 5.2
+        - 6.0
+        - 6.1
+        - 6.2
+        - 6.3
+        - sles11sp3
+        - sles12
     RPM_LIST              : NONE
     SYSTEM_TYPE           : ALL
     COMMANDS: |
@@ -339,27 +316,17 @@ section-5:
 
 --- |
 #Remove previous versions of this rpm
-for package in  $(rpm -qa | grep cray-lgdb | grep <version>)
+for package in  $(rpm -qa | grep cray-lgdb-<version>-)
 do
   rpm -e $package
 done
 
-if [ -f /etc/SuSE-release ]
+OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
+if [[ $OS_VER -lt 12 ]]
 then
-  OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
-  if [[ $OS_VER -lt 12 ]]
-  then
-    pref="--prefix=/opt/cray"
-  else
-    pref=
-  fi
-elif [ -f /etc/redhat-release ]
-then
-  OS_VER=$(cat /etc/redhat-release | grep CentOS | cut -f1 -d" "
-  if [[ "$OS_VER" == "CentOS" ]]
-  then
-    pref="--prefix=/opt/cray"
-  fi
+  pref="--prefix=/opt/cray"
+else
+  pref=
 fi
 
 rpm -hiv $pref --oldpackage cray-lgdb-<version>-<release>_<revision><os>.x86_64.rpm

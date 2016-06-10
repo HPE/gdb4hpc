@@ -319,10 +319,8 @@ SetupEnvironment(void)
 	char *				lib_dir;
 	char *				libexec_dir;
 	char *				cfg_dir;
-	char *				cti_ld_val_path;
 	char *				env_lib_dir;
 	char *				home_dir;
-	char *				gdb_dir;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
@@ -334,7 +332,6 @@ SetupEnvironment(void)
 	// create the path strings
 	Asprintf(&lib_dir, "%s/lib", inst_base);
 	Asprintf(&libexec_dir, "%s/libexec", inst_base);
-	Asprintf(&cti_ld_val_path, "%s/libaudit.so", lib_dir);
 	
 	// Set the environment variables
 	adjustLibPath(lib_dir);
@@ -419,14 +416,6 @@ reinit_directory:
 		Free(cfg_dir);
 	}
 	
-	// set the base dir for CTI
-	setenv(CTI_BASE_DIR_ENV_VAR, inst_base, 1);
-	
-	// set the gdb_path for the cti
-	Asprintf(&gdb_dir, "%s/gdb-guard", libexec_dir);
-	setenv(CTI_GDB_LOC_ENV_VAR, gdb_dir, 1);
-	
-	Free(gdb_dir);
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(inst_base);

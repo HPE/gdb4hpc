@@ -16,4 +16,4 @@ AM_LIBTOOLFLAGS = --quiet
 libbitset_la_SOURCES 	= 	bitset.c compat.c conversion.c sparse_bitset.c \
 				smart_bitset.c varstr.c
 libbitset_la_CFLAGS	=	$(CFLAGS) -fPIC
-libbitset_la_LDFLAGS	=	$(LDFLAGS) -shared -avoid-version
+libbitset_la_LDFLAGS	=	$(LDFLAGS) -shared -avoid-version -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN

@@ -877,6 +877,8 @@ AC_CHECK_FUNCS([asprintf bzero dup2 floor gethostbyname gethostname gettimeofday
 		strchr strdup strerror strncasecmp strndup strpbrk \
 		strrchr strstr strtol strtoul strtoull])
 
+AC_SUBST(LIBS,"")
+
 ##############################
 ### Set AM characteristics ###
 ##############################

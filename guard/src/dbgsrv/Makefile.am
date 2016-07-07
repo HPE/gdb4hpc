@@ -58,7 +58,7 @@ dbgsrv_alps_SOURCES 	= dbgsrv_alps_mrn.c
 endif
 
 dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS)
-dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN
+dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags
 endif
 
 ################
@@ -70,5 +70,5 @@ dbgsrv_SOURCES	= dbgsrv.c dbgfn.c dbgsrv_proto.c dbgsrv_cmds.c \
 		$(BACKEND) $(MRN_SRV) $(SOCK_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
 		$(MI_LIBS) $(MRN_LIBS) -laif $(CRAYTOOL_LIBS)
-dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN
+dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags
 

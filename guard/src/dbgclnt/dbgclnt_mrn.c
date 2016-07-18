@@ -118,6 +118,15 @@ DbgMRNInit()
 	// Set the MRNET_PORT_BASE env var
 	setenv("MRNET_PORT_BASE", mrnet_port_base, 1);
 
+	//Set DSL by default unless overridden by an environment variable
+	setenv(LIBALPS_ENABLE_DSL, "1", 1);
+	char* guard_libalps_enable_dsl = getenv(GUARD_LIBALPS_ENABLE_DSL);
+	if(guard_libalps_enable_dsl != NULL){
+		if( strcmp(guard_libalps_enable_dsl,"0") == 0 ){
+			unsetenv(LIBALPS_ENABLE_DSL);
+		}		
+	}
+
 	return 1;
 }
 
@@ -1049,15 +1058,6 @@ DbgMRNInvoke(
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
 		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
-	}
-
-	//Set DSL by default unless overridden by an environment variable
-	setenv(LIBALPS_ENABLE_DSL, "1", 1);
-	char* guard_libalps_enable_dsl = getenv(GUARD_LIBALPS_ENABLE_DSL);
-	if(guard_libalps_enable_dsl != NULL){
-		if( strcmp(guard_libalps_enable_dsl,"0") == 0 ){
-			unsetenv(LIBALPS_ENABLE_DSL);
-		}		
 	}
 	
 	DPERFLOG(SetTimerStart("application launch"));

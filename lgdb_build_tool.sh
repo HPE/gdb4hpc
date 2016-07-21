@@ -1135,6 +1135,8 @@ if [ $? -ne 0 ]; then
 fi
 
 cti_base_dir=`echo $cti_pkgconfig_L_dir | cut -c 3- | awk '{print $1"/.."}'` 
+echo "Using CTI in: ${cti_base_dir}"
+
 cti_include_directory="$cti_base_dir/include"
 cti_lib_directory="$cti_base_dir/lib"
 

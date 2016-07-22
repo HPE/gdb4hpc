@@ -118,6 +118,15 @@ DbgMRNInit()
 	// Set the MRNET_PORT_BASE env var
 	setenv("MRNET_PORT_BASE", mrnet_port_base, 1);
 
+	//Set DSL by default unless overridden by an environment variable
+	setenv(LIBALPS_ENABLE_DSL, "1", 1);
+	char* guard_libalps_enable_dsl = getenv(GUARD_LIBALPS_ENABLE_DSL);
+	if(guard_libalps_enable_dsl != NULL){
+		if( strcmp(guard_libalps_enable_dsl,"0") == 0 ){
+			unsetenv(LIBALPS_ENABLE_DSL);
+		}		
+	}
+
 	return 1;
 }
 

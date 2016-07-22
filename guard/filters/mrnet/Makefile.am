@@ -11,4 +11,4 @@ lib_LTLIBRARIES		= libdbgagg.la
 libdbgagg_la_SOURCES	= Aggregation.cpp
 libdbgagg_la_CXXFLAGS	= $(CXXFLAGS) -fPIC
 libdbgagg_la_LIBADD	= $(LIB_SDM)/libbitset.la $(LIB_DMR)/libdmr.la
-libdbgagg_la_LDFLAGS	= $(LDFLAGS) -shared -avoid-version
+libdbgagg_la_LDFLAGS	= $(LDFLAGS) -shared -avoid-version -Wl,--enable-new-dtags

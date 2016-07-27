@@ -53,8 +53,8 @@ def fetch_os():
   print "slesver " + os_sub
   if os_sub == "el6":
     return "_el6"
-  else:
-    return ''
+  elif os_sub == "11":
+    return "_sles11"
 
 
 def release_date():

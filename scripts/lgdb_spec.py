@@ -80,9 +80,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/mrnet_commnode 
 %{_version_prefix}/libexec/guard_proxy
 %{_version_prefix}/libexec/start_proxy.sh
-%{_version_prefix}/libexec/cuda65-gdb-guard
-%{_version_prefix}/libexec/cuda55-gdb-guard
-%{_version_prefix}/libexec/cuda70-gdb-guard
 %{_version_prefix}/libexec/cuda75-gdb-guard
 
 %{_version_prefix}/demos

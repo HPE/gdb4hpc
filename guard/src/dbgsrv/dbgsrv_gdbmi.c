@@ -76,10 +76,7 @@
 // Enum for supported cuda versions
 enum cuda_vers
 {
-	CUDA_UNKNOWN,
-	CUDA_55,
-	CUDA_65,
-	CUDA_70,
+	CUDA_UNKNOWN,	
 	CUDA_75
 };
 typedef enum cuda_vers		cuda_vers;
@@ -1203,16 +1200,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				if (strncmp(vers_str, "352", 3) == 0)
 				{
 					vers_num = CUDA_75;
-				} else if (strncmp(vers_str, "346", 3) == 0)
-				{
-					vers_num = CUDA_70;
-				} else if (strncmp(vers_str, "340", 3) == 0)
-				{
-					vers_num = CUDA_65;					
-				} else if (strncmp(vers_str, "319", 3) == 0)
-				{
-					vers_num = CUDA_55;
-				}
+				} 
 				
 				// force tmpdir to /tmp if GPU mode is on.
 				// This is a stupid Nvidia requirement. They utilize unix pipes
@@ -1259,18 +1247,6 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				
 				switch (vers_num)
 				{
-					case CUDA_55:
-						DVPRINT("Using cuda55-gdb-guard\n");
-						MISessionSetGDBPath(GDBMISession, "cuda55-gdb-guard");
-						break;
-					case CUDA_65:
-						DVPRINT("Using cuda65-gdb-guard\n");
-						MISessionSetGDBPath(GDBMISession, "cuda65-gdb-guard");
-						break;
-					case CUDA_70:
-						DVPRINT("Using cuda70-gdb-guard\n");
-						MISessionSetGDBPath(GDBMISession, "cuda70-gdb-guard");
-						break;	
 					case CUDA_75:
 						DVPRINT("Using cuda75-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda75-gdb-guard");
@@ -1290,20 +1266,19 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	}
 	
 	// set data-directory if we are not using CUDA_55
-	if (vers_num != CUDA_55)
+	char * manifestLibDir = cti_be_getLibDir();
+	char * gdbDataDir;
+	if (manifestLibDir == NULL)
 	{
-		char * manifestLibDir = cti_be_getLibDir();
-		char * gdbDataDir;
-		if (manifestLibDir == NULL)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
-			return e;
-		}
-		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
-		Free(manifestLibDir);
-		MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
-		Free(gdbDataDir);
+		EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
+		return e;
 	}
+	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
+	Free(manifestLibDir);
+	MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
+	Free(gdbDataDir);
+        // end set-datadirectory
+	
 	
 	// Ensure PYTHONSTARTUP isn't set
 	if (getenv("PYTHONSTARTUP") != NULL)
@@ -1343,32 +1318,6 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	*iofd = -1;
 #endif
 
-	// We need to set the data-directory here if we are using CUDA_55 using the old mechanism
-	if (vers_num == CUDA_55)
-	{
-		char * 		manifestLibDir = cti_be_getLibDir();
-		char * 		gdbDataDir;
-		MICommand *	cmd;
-		
-		if (manifestLibDir == NULL)
-		{
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
-			return e;
-		}
-		Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
-		Free(manifestLibDir);
-		cmd = MIGDBSet("data-directory", gdbDataDir);
-		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
-		{
-			Free(gdbDataDir);
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set confirm command failed.");
-			return e;
-		}
-		Free(gdbDataDir);
-		MICommandFree(cmd);
-	}
 
 	Status = DBGSTAT_INITIALISING;
 

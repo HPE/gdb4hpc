@@ -366,24 +366,6 @@ DbgMRNAttach(
 	if (gpu_flag)
 	{
 		// The backend code will determine which version of cuda-gdb to use
-		if (cti_addManifestBinary(mid, "cuda55-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda55-gdb-guard to manifest.\n");
-			goto attach_error;
-		}
-		if (cti_addManifestBinary(mid, "cuda65-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda65-gdb-guard to manifest.\n");
-			goto attach_error;
-		}
-		if (cti_addManifestBinary(mid, "cuda70-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda70-gdb-guard to manifest.\n");
-			goto attach_error;
-		}
 		if (cti_addManifestBinary(mid, "cuda75-gdb-guard"))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1140,24 +1122,6 @@ DbgMRNInvoke(
 	if (gpu_flag)
 	{
 		// The backend code will determine which version of cuda-gdb to use
-		if (cti_addManifestBinary(mid, "cuda55-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda55-gdb-guard to manifest.\n");
-			goto invoke_error;
-		}
-		if (cti_addManifestBinary(mid, "cuda65-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda65-gdb-guard to manifest.\n");
-			goto invoke_error;
-		}
-		if (cti_addManifestBinary(mid, "cuda70-gdb-guard"))
-		{
-			PrintOutError("CTI error: %s\n", cti_error_str());
-			PrintOutError("Failed to add cuda70-gdb-guard to manifest.\n");
-			goto invoke_error;
-		}
 		if (cti_addManifestBinary(mid, "cuda75-gdb-guard"))
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());

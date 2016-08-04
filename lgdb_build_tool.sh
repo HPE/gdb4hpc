@@ -45,6 +45,7 @@ lgdb_externals_directory_name="external"
 mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-7.6.2"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
+cuda80_gdb_directory_name="ddt_cuda_gdb_80"
 uda_directory_name="gdb_uda"
 editline_directory_name="editline"
 libmi_directory_name="libmi"
@@ -73,7 +74,9 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
+cuda_pascal_dir="/cray/css/release/cray/build/xc/RR-DV/6.1.153DV/3rd-party:master/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
+cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in lgdb
@@ -196,9 +199,11 @@ gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
 
 # Define where to find the cuda-gdb source tree
 cuda75_gdb_src="$thirdparty_dir/$cuda75_gdb_directory_name"
+cuda80_gdb_src="$thirdparty_dir/$cuda80_gdb_directory_name"
 
 # Define where to find the cuda-gdb external components
 cuda75_ext="$external_dir/cuda75_base"
+cuda80_ext="$external_dir/cuda80_base"
 
 # Define where to find the gdb source tree
 gdb_uda_src="$thirdparty_dir/$uda_directory_name"
@@ -253,6 +258,7 @@ opt_mrnet=n
 opt_python=n
 opt_gdb=n
 opt_cuda75_gdb=n
+opt_cuda80_gdb=n
 opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
@@ -283,12 +289,13 @@ function print_help {
 	echo "E: Python"
 	echo "F: gdb"
 	echo "G: cuda-gdb for CUDA_75"
-	echo "H: gdb uda support"
-	echo "I: editline"
-	echo "J: libarchive"
-	echo "K: Set non standard CTI install directory"
-	echo "L: lgdb"
-	echo "M: cleanup"
+	echo "H: cuda-gdb for CUDA_80"
+	echo "I: gdb uda support"
+	echo "J: editline"
+	echo "K: libarchive"
+	echo "L: Set non standard CTI install directory"
+	echo "M: lgdb"
+	echo "N: cleanup"
 }
 
 function check_error {
@@ -499,6 +506,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_python=y
 		opt_gdb=y
 		opt_cuda75_gdb=y
+		opt_cuda80_gdb=y
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
@@ -525,17 +533,19 @@ if [[ "$#" != "0" ]] ; then
 					opt_gdb=y;;
 				g | G ) echo "Building G: cuda-gdb for CUDA_75"
 					opt_cuda75_gdb=y;;
-				h | H ) echo "Building H: gdb uda support"
+				h | H ) echo "Building H: cuda-gdb for CUDA_80"
+				        opt_cuda80_gdb=y;;
+				i | I ) echo "Building H: gdb uda support"
 					opt_gdb_uda=y;;
-				i | I ) echo "Building I: editline"
+				j | J ) echo "Building I: editline"
 					opt_editline=y;;
-				j | J ) echo "Building J: libarchive"
+				k | K ) echo "Building J: libarchive"
 					opt_libarchive=y;;
-				k | K ) echo "Starting K: Set CTI install directory"
+				l | L ) echo "Starting K: Set CTI install directory"
 					opt_cti_install=y;;
-				l | L ) echo "Building L: lgdb"
+				m | M ) echo "Building L: lgdb"
 					opt_lgdb=y;;
-				m | M ) echo "Running M: cleanup"
+				n | N ) echo "Running M: cleanup"
 					opt_cleanup=y;;
 				? ) 	print_help
 					exit 0;;
@@ -558,6 +568,7 @@ if [[ $opt_ask_deps == y ]]; then
 	ask_sub_build "Build python" opt_python
 	ask_sub_build "Build gdb" opt_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_75" opt_cuda75_gdb
+	ask_sub_build "Build cuda-gdb for CUDA_80" opt_cuda80_gdb
 	ask_sub_build "Build gdb uda support" opt_gdb_uda
 	ask_sub_build "Build editline" opt_editline
 	ask_sub_build "Build libarchive" opt_libarchive
@@ -873,6 +884,59 @@ echo -e "########################################################\n"
 
 # Check for errors in component
 check_error
+
+
+echo "#######################################################################"
+echo "#######################################################################"
+# cuda-gdb 80 build
+if [[ $opt_cuda80_gdb == y ]]; then
+
+	echo "Starting cuda-gdb 80 build."
+	# Unpack the rpm if we haven't done so already
+	if [[ ! -d $cuda80_ext ]]; then
+		# find the cuda80 rpm
+		cuda80_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda80_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda80_basename[0-9\.\-]*")
+		if [[ -e $cuda80_rpm ]]; then
+			# rpm found, so extract it
+			mkdir $cuda80_ext
+			cd $cuda80_ext
+			rpm2cpio $cuda80_rpm | cpio -idv
+		else
+			echo "ERROR: Could not find $cuda80_basename rpm in $cuda_pascal_dir. The cuda-gdb 80 build failed."
+			((++comp_error))
+		fi
+	fi
+	# Get the location of the include files
+	cuda80_include_dir=$(cd $cuda80_ext/$cuda_inc_path; pwd)
+	if [[ ! -d $cuda80_include_dir ]]; then
+		echo "ERROR: Missing required $cuda80_basename headers. The cuda-gdb 80 build failed."
+		((++comp_error))
+	fi
+	# change directories
+	cd $cuda80_gdb_src
+	echo -e "\nUsing cuda-gdb 80 source $cuda80_gdb_src."
+	echo -e "Using cuda 80 headers in $cuda80_include_dir.\n"
+	# run cuda-gdb confiugre
+	echo "Configuring cuda-gdb..."
+	set -x
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
+	set +x
+	do_build "cuda-gdb"
+	echo -e "\ncuda-gdb staged to $stage_dir.\n"
+	echo -e "Starting post build ops.\n"
+	# rename cuda-gdb to cuda80-gdb-guard
+	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
+fi
+
+# cuda-gdb 80 install
+echo -e "Starting cuda-gdb 80 install.\n"
+# Deliver the cuda80-gdb-guard binary
+copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
+echo -e "########################################################\n"
+
+# Check for errors in component
+check_error
+
 
 echo "#######################################################################"
 echo "#######################################################################"

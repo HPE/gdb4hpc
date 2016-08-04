@@ -77,7 +77,8 @@
 enum cuda_vers
 {
 	CUDA_UNKNOWN,	
-	CUDA_75
+	CUDA_75,
+	CUDA_80
 };
 typedef enum cuda_vers		cuda_vers;
 
@@ -1170,6 +1171,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 			DVPRINT("Defaulting to non-gpu mode.\n");
 			MISessionSetGDBPath(GDBMISession, "gdb-guard");
 			gpu_flag = 0;
+
 		} else
 		{
 			// We can open the driver version file, so now we need to grab the
@@ -1196,11 +1198,16 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				// nvidia 340.* ==> CTK 6.5
 				// nvidia 346.* ==> CTK 7.0
 				// nvidia 352.* ==> CTK 7.5
+				// nvidia 361.* ==> CTK 8.0
 
-				if (strncmp(vers_str, "352", 3) == 0)
+				if (strncmp(vers_str, "361", 3) == 0)
+				{
+					vers_num = CUDA_80;
+				}
+				else if (strncmp(vers_str, "352", 3) == 0)
 				{
 					vers_num = CUDA_75;
-				} 
+				}
 				
 				// force tmpdir to /tmp if GPU mode is on.
 				// This is a stupid Nvidia requirement. They utilize unix pipes
@@ -1250,6 +1257,10 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 					case CUDA_75:
 						DVPRINT("Using cuda75-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda75-gdb-guard");
+						break;
+					case CUDA_80:
+						DVPRINT("Using cuda80-gdb-guard\n");
+						MISessionSetGDBPath(GDBMISession, "cuda80-gdb-guard");
 						break;
 					case CUDA_UNKNOWN:
 						DVPRINT("Unsupported driver version.\n");

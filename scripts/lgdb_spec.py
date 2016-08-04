@@ -81,7 +81,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/guard_proxy
 %{_version_prefix}/libexec/start_proxy.sh
 %{_version_prefix}/libexec/cuda75-gdb-guard
-
+%{_version_prefix}/libexec/cuda80-gdb-guard
 %{_version_prefix}/demos
 %{_version_prefix}/lib
 %{_version_prefix}/man

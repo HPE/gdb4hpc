@@ -1,0 +1,55 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check breakpoints on functions which are not completely offloaded.
+#             The first breakpoint is not a valid position for the target side,
+#             as there is no target code available. The test should ensure that
+#             the target debugger finds the next available target code location,
+#             which is available.
+
+load_lib "offload.exp"
+
+standard_testfile "psample01.c" "pragma_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+# this breakpoint should not be hit at all as it was set on
+# the host side. Since we are debugging the target part
+# the target debugger part should not stop here.
+gdb_breakpoint "psample01"
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "breakpoint_psample01_init" "${srcfile}"]"
+gdb_test "continue" ".*Breakpoint 2.*#pragma offload target\\\(mic\\\).*" "continued to the offloaded region"
+
+# check that we can reach bp3
+gdb_test "continue" ".*Breakpoint 3.*d = 0.0.*" "continued to breakpoint in offload region"
+
+gdb_exit
+offload_cleanup

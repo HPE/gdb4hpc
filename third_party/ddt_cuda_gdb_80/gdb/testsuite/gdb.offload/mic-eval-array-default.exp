@@ -1,0 +1,84 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check evaluations on arrays being in/out copied by default.
+#             Two different checks will be done using the i/j variable
+#             inside and outside the offloaded region.
+
+load_lib "offload.exp"
+
+standard_testfile "psample05.c" "pragma_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+# we can't use 1000, continuing to 1000 bkps will almost certainly timeout
+set num_iterations 100
+
+# CHECK 1: with i outside the offload region
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "inside_offload_loop_1" "${srcfile}"]"
+gdb_continue_to_breakpoint "inside_offload_loop_1"
+# skip the first iteration, we need res[0] assigned before we can check it
+gdb_continue_to_breakpoint "inside_offload_loop_1"
+
+gdb_test "display i" "\\\d+:\\s+i = 1" "print i"
+gdb_test "display res_02\[i-1\]" "\\\d+:\\s+res_02\\\[i-1\\\] = 0" "res_02\\\[i-1\\\] = 0"
+gdb_test "display in1_02\[i-1\]" "\\\d+:\\s+in1_02\\\[i-1\\\] = 0" "in1_02\\\[i-1\\\] = 0"
+gdb_test "display in2_02\[i-1\]" "\\\d+:\\s+in2_02\\\[i-1\\\] = 0" "in2_02\\\[i-1\\\] = 0"
+
+for {set i 1} {$i < $num_iterations} {incr i} {
+    gdb_test "print res_02\[$i\] == [expr "$i*2"]" "\\\$\\d+ = 1" "res_02\[$i\] has correct value: [expr "$i*2"]"
+    gdb_test "print in1_02\[$i\] == $i" "\\\$\\d+ = 1" "in1_02\[$i\] has correct value: $i"
+    gdb_test "print in2_02\[$i\] == $i" "\\\$\\d+ = 1" "in2_02\[$i\] has correct value: $i"
+    gdb_continue_to_breakpoint "inside_offload_loop_1"
+}
+
+delete_breakpoints
+
+# CHECK 2: with j inside the offload region
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "inside_offload_loop_2" "${srcfile}"]"
+gdb_continue_to_breakpoint "inside_offload_loop_2"
+# skip the first iteration, we need res[0] assigned before we can check it
+gdb_continue_to_breakpoint "inside_offload_loop_2"
+
+gdb_test "display j" "\\\d+:\\s+j = 1" "print j"
+gdb_test "display res_02\[j-1\]" "\\\d+:\\s+res_02\\\[j-1\\\] = 0" "res_02\\\[j-1\\\] = 0"
+gdb_test "display in1_02\[j-1\]" "\\\d+:\\s+in1_02\\\[j-1\\\] = 0" "in1_02\\\[j-1\\\] = 0"
+gdb_test "display in2_02\[j-1\]" "\\\d+:\\s+in2_02\\\[j-1\\\] = 0" "in2_02\\\[j-1\\\] = 0"
+
+for {set i 1} {$i < $num_iterations} {incr i} {
+    gdb_test "print res_02\[$i\] == [expr "$i*2"]" "\\\$\\d+ = 1" "res_02\[$i\] has correct value: [expr "$i*2"]"
+    gdb_test "print in1_02\[$i\] == $i" "\\\$\\d+ = 1" "in1_02\[$i\] has correct value: $i"
+    gdb_test "print in2_02\[$i\] == $i" "\\\$\\d+ = 1" "in2_02\[$i\] has correct value: $i"
+    gdb_continue_to_breakpoint "inside_offload_loop_2"
+}
+
+gdb_exit
+offload_cleanup

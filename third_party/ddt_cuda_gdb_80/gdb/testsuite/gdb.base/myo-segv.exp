@@ -1,0 +1,122 @@
+set testfile myo-segv
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+if [get_compiler_info ${binfile}] {
+    return -1;
+}
+
+# Only run with Intel compiler(s)
+if ![test_compiler_info "icc-*"] {
+    unsupported "myo-segv-handling.exp: not using an Intel compiler"
+    return -1;
+}
+
+if  {[gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != ""} {
+    untested "myo-segv-handling.exp: could not compile"
+    return -1
+}
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $binfile
+
+if ![runto_main] then {
+    fail "Can't run to main"
+    return 0
+}
+
+### Start test 1 - raise segv
+
+# Set the first breakpoint before writing to a shared variable
+set bp_loc [gdb_get_line_number "breakpoint1"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-1"
+gdb_continue_to_breakpoint "continue to breakpoint before write to shared var"
+
+# Set the second breakpoint to a location after the write to a
+# shared variable. The special SEGV should be catched by GDB
+# and not reported to the user.
+set bp_loc [gdb_get_line_number "breakpoint2"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-2"
+gdb_continue_to_breakpoint "continue to breakpoint after write to shared var"
+
+# Set the first breakpoint before forcing a SEGV
+set bp_loc [gdb_get_line_number "breakpoint3-1"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-3-1"
+gdb_continue_to_breakpoint "continue to breakpoint before forcing a SEGV"
+
+# Make sure a "normal" SEGV will be reported to the user
+set bp_loc [gdb_get_line_number "breakpoint4"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-4"
+gdb_test "continue" ".*Program received signal SIGSEGV.*at.*${srcfile}:[gdb_get_line_number "breakpoint3"].*" "SIGSEGV was not reported to user"
+
+# Make sure GDB/debuggee quits probably now
+gdb_test "continue" ".*Inferior.*exited with code.*"
+
+
+### Start test 2 - raise segv using 'raise' command
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $binfile
+
+if ![runto_main] then {
+    fail "Can't run to main"
+    return 0
+}
+
+# Set the first breakpoint before writing to a shared variable
+set bp_loc [gdb_get_line_number "breakpoint2"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-2"
+gdb_continue_to_breakpoint "continue to breakpoint before switching to 'raise' function"
+
+gdb_test_no_output "set segv_switch = 2" "set segv_switch to 2"
+
+# Set the first breakpoint before raising a SEGV
+set bp_loc [gdb_get_line_number "breakpoint3-2"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-3-2"
+gdb_continue_to_breakpoint "continue to breakpoint before raising a SEGV"
+
+# Make sure a "normal" SEGV will be reported to the user
+set bp_loc [gdb_get_line_number "breakpoint4"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-4"
+gdb_test "continue" ".*Program received signal SIGSEGV.*at.*${srcfile}:[gdb_get_line_number "breakpoint3"].*" "SIGSEGV was not reported to user"
+
+# Make sure GDB/debuggee quits probably now
+gdb_test "continue" ".*Inferior.*exited with code.*"
+
+
+### Start test 3 - check that MYO segv will be catched by GDB and not reported to the user when steping over
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $binfile
+
+if ![runto_main] then {
+    fail "Can't run to main"
+    return 0
+}
+
+set bp_loc [gdb_get_line_number "breakpoint1"]
+gdb_test "break ${srcfile}:${bp_loc}" \
+            "Breakpoint .* at .*${srcfile}.*" \
+            "myo-segv-breakpoint-1"
+gdb_continue_to_breakpoint "continue to breakpoint before write to shared var"
+gdb_test "next" ".*}.*"
+
+return 0

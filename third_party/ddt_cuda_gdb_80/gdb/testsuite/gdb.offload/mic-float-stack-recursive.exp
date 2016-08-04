@@ -1,0 +1,60 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: float values on the stack can be evaluated correctly also
+#             for deep recursive openmp calls.
+
+load_lib "offload.exp"
+
+standard_testfile "psample04.c" "pragma_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "dummy_bp_1" "${srcfile}"]"
+gdb_continue_to_breakpoint "dummy_bp_1"
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "recursive_f_return" "${srcfile}"]"
+gdb_continue_to_breakpoint "recursive_f_return"
+
+gdb_test "print f" "\\\$1 = 1" "f == 1.0"
+
+for {set i 0} {$i < 99} {incr i} {
+    set expected_val [expr "$i + 2"]
+    gdb_test "up" "\#\\d+\\s+0x\[0-9a-f\]+ in psub_f\\s+\\(val_f=$expected_val\\).*" "up $i"
+    gdb_test "print f" "\\\$\\d+ = $expected_val" "print f $i"
+}
+
+set expected_line [gdb_get_line_number "psub_f_call" "${srcfile}"]
+gdb_test "up" "\#\\d+\\s+0x\[0-9a-f\]+ in .* at.*${srcfile}:${expected_line}.*" "up to caller"
+gdb_test "print f" "No symbol \"f\" in current context." "check if f is still in context"
+
+gdb_exit
+offload_cleanup

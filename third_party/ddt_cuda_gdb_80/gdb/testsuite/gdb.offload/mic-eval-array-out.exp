@@ -1,0 +1,55 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check evaluations on arrays being copied "out".
+
+load_lib "offload.exp"
+
+standard_testfile "psample06.c" "pragma_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+# we can't use 1000, continuing to 1000 bkps will almost certainly timeout
+set num_iterations 100
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "inside_offload_loop" "${srcfile}"]"
+gdb_continue_to_breakpoint "inside_offload_loop"
+gdb_continue_to_breakpoint "inside_offload_loop"
+gdb_test "p i" ".*" "p i"
+gdb_test "display res_02\[i-1\]" "\\\d+:\\s+res_02\\\[i-1\\\] = 0" "res_02\\\[i-1\\\] = 0"
+
+for {set i 0} {$i < $num_iterations} {incr i} {
+    gdb_test "print res_02\[$i\] == [expr "$i*2"]" "\\\$\\d+ = 1" "in1_02\[$i\] has correct value: [expr "$i*2"]"
+    gdb_test "continue" "?:Breakpoint .* at .*${srcfile}:25\r\n25.*res_02\\\[i\\\] = in1_02\\\[i\\\] .* in2_02\\\[i\\\].*inside_offload_loop.*\r\n1: res_02\\\[i-1\\\] = [expr "$i*2+2"].*" "continue and check that display value is [expr "$i*2+2"]"
+}
+
+gdb_exit
+offload_cleanup

@@ -1,0 +1,54 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Check that no further races are reported when pdbx is disabled.
+
+load_lib pdbx.exp
+
+gdb_exit
+gdb_start
+
+if { [skip_python_tests] } { return 0 }
+
+set srcfile "disable.c"
+set testfile "disable.x"
+set binfile "${objdir}/${subdir}/${testfile}"
+
+if { [prepare_for_testing attach.exp $testfile $srcfile [pdbx_cflags]] } {
+	untested "compilation failed. requires icc 12.1 or later."
+	return -1
+}
+
+# Enable pdbx.
+#
+gdb_test_no_output "pdbx enable" "disable, 1"
+
+# We should see a race.
+#
+if ![runto "test"] {
+	untested "disable, 2-"
+	return
+}
+gdb_test "cont" ".*data race detected\r.*" "disable, 2"
+
+# The test will produce more races. Some of them might already have been
+# detected or even reported to gdb. We need to discard those reports when
+# pdbx is disabled.
+#
+gdb_test_no_output "pdbx disable" "disable, 3"
+pdbx_expect_no_race "cont" "disable, 4"

@@ -1,0 +1,117 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Check "pdbx check" command.
+
+load_lib pdbx.exp
+
+gdb_exit
+gdb_start
+
+if { [skip_python_tests] } { continue }
+
+standard_testfile
+
+# Check without a file.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.failed\..*" "check, 1"
+
+# Compile without -debug parallel
+#
+if { [prepare_for_testing attach.exp $testfile $srcfile {debug}] } {
+	untested "compilation failed. requires icc 12.1 or later."
+	return -1
+}
+
+# Check without an inferior.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.failed\..*" "check, 2"
+
+if ![runto_main] {
+	untested "check, 3-"
+	return -1
+}
+
+# Check without -debug parallel.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.passed\.\r
+checking libpdbx\.\.\.failed\..*" "check, 3"
+
+# Compile with -debug parallel without OpenMP
+#
+if { [prepare_for_testing attach.exp $testfile $srcfile [pdbx_cflags_noomp]] } {
+	untested "compilation failed. requires icc 12.1 or later."
+	return -1
+}
+
+if ![runto_main] {
+	untested "check, 4-"
+	return -1
+}
+
+# Check with -debug parallel without OpenMP.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.passed\.\r
+checking libpdbx\.\.\.passed\.\r
+\r
+There are no obvious setup problems\..*" "check, 4"
+
+# Compile with -debug parallel with OpenMP
+#
+if { [prepare_for_testing attach.exp $testfile $srcfile [pdbx_cflags]] } {
+	untested "compilation failed. requires icc 12.1 or later."
+	return -1
+}
+
+# Set the environment.
+#
+gdb_test_no_output "unset env INTEL_ITTNOTIFY_GROUPS" "check, 5.1"
+
+if ![runto_main] {
+	untested "check, 5.2-"
+	return -1
+}
+
+# Check with -debug parallel with OpenMP, bad env.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.passed\.\r
+checking libpdbx\.\.\.passed\.\r
+checking environment\.\.\.failed\..*" "check, 5.2"
+
+# Same again, this time with the correct environment.
+#
+clean_restart $testfile
+
+# Set the environment.
+#
+gdb_test_no_output "set env INTEL_ITTNOTIFY_GROUPS=sync" "check, 6.1"
+gdb_test_no_output "set env INTEL_LIBITTNOTIFY64=\"\"" "check, 6.2"
+gdb_test_no_output "set env INTEL_LIBITTNOTIFY32=\"\"" "check, 6.3"
+
+if ![runto_main] {
+	untested "check, 6.4-"
+	return -1
+}
+
+# Check with -debug parallel with OpenMP, bad env.
+#
+gdb_test "pdbx check" "checking inferior\.\.\.passed\.\r
+checking libpdbx\.\.\.passed\.\r
+checking environment\.\.\.passed\.\r
+\r
+There are no obvious setup problems\..*" "check, 6.4"

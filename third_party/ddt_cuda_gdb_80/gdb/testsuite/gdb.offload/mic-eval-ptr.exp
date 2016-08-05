@@ -1,0 +1,61 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check evaluations on array pointers.
+
+load_lib "offload.exp"
+
+standard_testfile "psample08.c" "pragma_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "pragma"
+
+# we can't use 1000, continuing to 1000 bkps will almost certainly timeout
+set num_iterations 100
+
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "calculation_in_offload_loop" "${srcfile}"]"
+gdb_continue_to_breakpoint "calculation_in_offload_loop"
+# skip the first iteration, we need res_04[0] assigned before we can check it
+gdb_continue_to_breakpoint "calculation_in_offload_loop"
+
+gdb_test "display i" "1: i = 1" "display i"
+gdb_test "display res_04\[i-1\]" "2: res_04\\\[i-1\\\] = 0" "display res_04\[i-1\]"
+gdb_test "display p1\[i-1\]" "3: p1\\\[i-1\\\] = 0" "display p1\[i-1\]"
+gdb_test "display p2\[i-1\]" "4: p2\\\[i-1\\\] = 0" "display p2\[i-1\]"
+
+for {set i 0} {$i < $num_iterations} {incr i} {
+    gdb_test "print res_04\[$i\] == [expr "$i*2"]" "\\\$\\d+ = 1" "res_04\[$i\] has correct value: [expr "$i*2"]"
+    gdb_test "print p1\[$i\] == $i" "\\\$\\d+ = 1" "p1\[$i\] has correct value: $i"
+    gdb_test "print p2\[$i\] == $i" "\\\$\\d+ = 1" "p2\[$i\] has correct value: $i"
+    gdb_continue_to_breakpoint "calculation_in_offload_loop"
+}
+
+gdb_exit
+offload_cleanup

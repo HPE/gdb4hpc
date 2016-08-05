@@ -1,0 +1,57 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: simple breakpoint handling in a cilk for region
+
+load_lib "offload.exp"
+
+standard_testfile "csample01.c" "myo_attach_default.c"
+
+if {! [is_remote target]} {
+    return
+}
+
+if { [skip_offload_test] } {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+set loc1 [gdb_get_line_number "before_delay_trick" "${srcfile}"]
+set loc2 [gdb_get_line_number "if_use_delay_trick" "${srcfile}"]
+
+gdb_breakpoint "${srcfile}:$loc1"
+gdb_breakpoint "${srcfile}:$loc2"
+
+for {set i 0} {$i < 32} {incr i} {
+    gdb_continue_to_breakpoint "continue multiple $i" ".*${srcfile}:($loc1|$loc2).*"
+}
+
+delete_breakpoints
+
+# now check we still have proper run control
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "delay_trick_set_0" "${srcfile}"]"
+gdb_continue_to_breakpoint "delay_trick_set_0"
+
+gdb_exit
+offload_cleanup

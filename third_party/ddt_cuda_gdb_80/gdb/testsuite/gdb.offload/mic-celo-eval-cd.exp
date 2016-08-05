@@ -1,0 +1,60 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test goals: check evaluations inside constructors/destructors
+
+load_lib "offload.exp"
+
+standard_testfile "msample07.cpp" "myo_attach_default.c"
+
+if { [skip_offload_test] } {
+    return
+}
+
+if {! [is_remote target]} {
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile} \
+        ${srcdir}/${subdir}/${srcfile2}" "${binfile}" \
+        executable {debug}] != "" } {
+    untested "${testfile}.exp"
+    return -1
+}
+
+offload_initialize $binfile
+offload_attach_sequence "myo"
+
+# check the constructor values
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "fielddummy_breakpoint_constructor" "${srcfile}"]"
+gdb_continue_to_breakpoint "fielddummy_breakpoint_constructor"
+
+gdb_test "print fieldi" "\\\$\\d+ = 5" "constructor - print fieldi == 5"
+gdb_test "print fieldd" "\\\$\\d+ = 8888.3" "constructor - print fieldd == 8888.3"
+gdb_test "print fieldf" "\\\$\\d+ = 9.3" "constructor - print fieldf == 9.3"
+gdb_test "print fieldc" "\\\$\\d+ = 65 'A'" "constructor - print fieldc == 'A'"
+gdb_test "print fields" "\\\$\\d+ = 127" "constructor - print fields == 172"
+
+# check the destructor values
+gdb_breakpoint "${srcfile}:[gdb_get_line_number "fielddummy_breakpoint_destructor" "${srcfile}"]"
+gdb_continue_to_breakpoint "fielddummy_breakpoint_destructor"
+gdb_test "print fieldi" "\\\$\\d+ = -45" "destructor - print fieldi == -45"
+gdb_test "print fieldd" "\\\$\\d+ = 29.3" "destructor - print fieldd == 29.3"
+gdb_test "print fieldf" "\\\$\\d+ = 42.3" "destructor - print fieldf == 42.3"
+gdb_test "print fieldc" "\\\$\\d+ = 66 'B'" "destructor - print fieldc == 'B'"
+gdb_test "print fields" "\\\$\\d+ = 13" "destructor - print fields == 13"
+
+gdb_exit
+offload_cleanup

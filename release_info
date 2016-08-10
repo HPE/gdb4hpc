@@ -33,7 +33,8 @@ Purpose:
 ---------
   This is feature release.
 
-  1. Initial support for KNL (officially known as Intel's Xeon Phi Processor codenamed Knights Landing)
+  1. Support for CUDA 8.0 which allows for debugging on Nvidia Pascal GPUs for
+  Cray Cluster Systems
 
 
 Product and OS Dependencies:

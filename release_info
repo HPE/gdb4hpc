@@ -41,7 +41,7 @@ Product and OS Dependencies:
 -----------------------------
   The Cray lgdb %VERSION% release is supported on the following Cray systems
   running CentOS operating system on CS.
-    - Native SLURM is supported with version 14
+    - Native SLURM is supported with version 16
 
 
 Documentation:
@@ -56,7 +56,7 @@ Also, type `help` at the lgdb command line for more information on commands.
 Installation instructions:
 --------------------------
 
-Installation instructions for CS:
+Installation instructions for %os_string%:
 =============================================
   rpm -ivh --prefix=/opt/cray cray-lgdb-%VERSION%-%RELEASE%_%REVISION%%os%.x86_64.rpm
 

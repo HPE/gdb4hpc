@@ -61,6 +61,12 @@ else:
       exit(1)
 
 
+if os_ver == '_sles11':
+  os_string = 'XC'
+elif os_ver == '_el6':
+  os_string = 'CS'
+
+
 if is_final:
   rev_str = '*'+primary_version+'-*'+revision_number+'*rpm'
   build_version = primary_version
@@ -157,7 +163,8 @@ with open("out.txt", "w+") as out:
     c = b.replace("%REVISION%", revision_number)
     d = c.replace("%RELEASEDATE%", release_date)
     e = d.replace("%os%",os_ver)
-    out.write(e)
+    f = e.replace("%os_string%",os_string)
+    out.write(f)
 
 outpath = rpm_lgdb_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)

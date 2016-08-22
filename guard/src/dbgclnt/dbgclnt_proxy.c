@@ -188,6 +188,8 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 		Free(script_name);
 		return NULL;
 	}
+
+	chmod(ofd, S_IRUSR | S_IWUSR | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)
@@ -683,6 +685,8 @@ keyinter_failure:
 		libssh2_exit();
 		return 1;
 	}
+
+	chmod(ofd, S_IRUSR | S_IWUSR | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)

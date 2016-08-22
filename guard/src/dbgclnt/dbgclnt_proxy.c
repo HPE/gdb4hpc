@@ -189,7 +189,14 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 		return NULL;
 	}
 
-	chmod(ofd, S_IRUSR | S_IWUSR | S_IXUSR);
+	struct stat sb;
+	if( fstat(ofd, &sb) == -1){
+	  PrintOutError("ERROR: mkstemp failed with %s.\n", script_name);
+	  Free(script_name);
+	  return NULL;
+	}
+	mode_t tempFileMode = sb.st_mode;
+	fchmod(ofd, tempFileMode | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)
@@ -686,7 +693,14 @@ keyinter_failure:
 		return 1;
 	}
 
-	chmod(ofd, S_IRUSR | S_IWUSR | S_IXUSR);
+        struct stat sb;
+	if( fstat(ofd, &sb) == -1){
+          PrintOutError("ERROR: mkstemp failed with %s.\n", script_name);
+          Free(script_name);
+          return 1;
+        }
+        mode_t tempFileMode = sb.st_mode;
+	fchmod(ofd, tempFileMode | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)

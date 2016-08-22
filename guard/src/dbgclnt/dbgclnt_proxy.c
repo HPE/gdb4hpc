@@ -188,6 +188,15 @@ parseBatchScript(char *script_file, char *launcher_argv_str)
 		Free(script_name);
 		return NULL;
 	}
+
+	struct stat sb;
+	if( fstat(ofd, &sb) == -1){
+	  PrintOutError("ERROR: mkstemp failed with %s.\n", script_name);
+	  Free(script_name);
+	  return NULL;
+	}
+	mode_t tempFileMode = sb.st_mode;
+	fchmod(ofd, tempFileMode | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)
@@ -683,6 +692,15 @@ keyinter_failure:
 		libssh2_exit();
 		return 1;
 	}
+
+        struct stat sb;
+	if( fstat(ofd, &sb) == -1){
+          PrintOutError("ERROR: mkstemp failed with %s.\n", script_name);
+          Free(script_name);
+          return 1;
+        }
+        mode_t tempFileMode = sb.st_mode;
+	fchmod(ofd, tempFileMode | S_IXUSR);
 	
 	// Create a FILE * for this fd
 	if ((ofp = fdopen(ofd, "w")) == NULL)

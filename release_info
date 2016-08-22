@@ -35,7 +35,7 @@ Purpose:
 
   1. Support for CUDA 8.0 which allows for debugging on Nvidia Pascal GPUs for
   Cray Cluster Systems
-  2. Fix a bug in which lgdb created a bash script without the permission bit set which caused issues on Cobalt
+  2. Fix a bug in which lgdb created a bash script without the execute permission bit set which caused issues on Cobalt
 
 
 Product and OS Dependencies:

@@ -74,7 +74,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
-cuda_pascal_dir="/cray/css/release/cray/build/xc/RR-DV/6.1.153DV/3rd-party:master/SLE_12/x86_64"
+cuda_pascal_dir="/cray/css/release/cray/build/xc/latest-RB/3rd-party:6.0up02/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
@@ -102,7 +102,7 @@ function source_module_script() {
 }
 
 #Installed library locations
-supported_cti_version="1.0.1"
+supported_cti_version="1.0.2"
 cti_install_dir="/opt/cray/cti/$supported_cti_version"
 
 source_module_script

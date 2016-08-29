@@ -275,6 +275,7 @@ opt_sub_num=1
 ((error=0))
 ((warning=0))
 ((comp_error=0))
+declare -a error_components
 
 ########################
 # Function definitions #
@@ -302,7 +303,9 @@ function check_error {
 	# check for errors in component
 	if [[ "$comp_error" -ne "0" ]]; then
 		((++error))
+		error_components+=($1)
 	fi
+
 	# reset comp_error
 	((comp_error=0))
 }
@@ -690,7 +693,7 @@ if [[ $opt_aif == y ]]; then
 fi
 
 # Check for errors in component
-check_error
+check_error "libaif"
 
 # libmi build
 if [[ $opt_libmi == y ]]; then
@@ -714,7 +717,7 @@ copy_file "${dep_libdir}/libmi.so" $libdir "libmi"
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "libmi"
 
 # libssh2 build
 if [[ $opt_libssh2 == y ]]; then
@@ -745,7 +748,7 @@ fi
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "libssh2"
 
 # python build
 if [[ $opt_python == y ]]; then
@@ -791,7 +794,7 @@ fi
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "python"
 
 # gdb build
 if [[ $opt_gdb == y ]]; then
@@ -831,7 +834,7 @@ copy_file "${dep_bindir}/gdb-guard" $libexecdir "gdb"
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "gdb"
 
 
 echo "#######################################################################"
@@ -883,7 +886,7 @@ copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "cuda75"
 
 
 echo "#######################################################################"
@@ -935,7 +938,7 @@ copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "cuda80"
 
 
 echo "#######################################################################"
@@ -958,7 +961,7 @@ copy_file "${dep_libdir}/uda-plugin-cray-upc.so" $libdir "uda plugin"
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "gdb_uda"
 
 # editline build
 if [[ $opt_editline == y ]]; then
@@ -989,7 +992,7 @@ fi
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "editline"
 
 # libarchive build
 if [[ $opt_libarchive == y ]]; then
@@ -1010,7 +1013,7 @@ if [[ $opt_libarchive == y ]]; then
 fi
 
 # Check for errors in component
-check_error
+check_error "libarchive"
 
 if [ -n "$cti_nonstandard_dir" ]; then
 	export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
@@ -1083,7 +1086,7 @@ fi
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error
+check_error "mrnet"
 
 # lgdb build
 if [[ $opt_lgdb == y ]]; then
@@ -1126,7 +1129,7 @@ if [[ $opt_lgdb == y ]]; then
 fi
 
 # Check for errors in component
-check_error
+check_error "lgdb"
 
 # cleanup
 if [[ $opt_cleanup == y ]]; then
@@ -1159,7 +1162,7 @@ if [ "$error" -eq "0" ] && [ "$warning" -eq "0" ]; then
 	echo -e "Finished without warnings or errors.\n"
 else
 	echo "Finished with $warning warnings."
-	echo -e "Finished with errors in $error components.\n"
+	echo -e "Finished with errors in $error components: ${error_components[@]}\n"
 	exit 1
 fi
 

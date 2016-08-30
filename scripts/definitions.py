@@ -8,34 +8,31 @@ from datetime import date
 from datetime import datetime
 
 
-primary_version     = "3.0.5"
-ver_two_dig         = ".".join([primary_version[0],primary_version[2]])
-ver_two_dig_nodot   = "".join([primary_version[0],primary_version[2]]) 
-pkgs_dir            = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig
-bld_dir             = "/cray/css/ulib/lgdb/builds/latest/lgdb_install/"
+
 arch                ="x86_64"
 final		    = False
+product_dir         = "/cray/css/pe/pkgs/cray-lgdb"
+bld_dir             = ""
 
-#if its a pre-release
-if len(sys.argv) == 3:
-  final = False
-#else its a final release
-elif len(sys.argv) >= 4 and (sys.argv[3].lower() == "-f"):
-  final = True
 
-def fetch_release(base_name, rev_num):
+for arg in sys.argv:
+  if arg == '-f':
+    final = True
+
+def fetch_release(base_name, rev_num,pkgs_dir):
   rpm_tail = ".x86_64.rpm"
   itt_list = range(20)
   itt_list.reverse()
   rval = 0
   for i in itt_list:
-    tmp_name = pkgs_dir + "/" + base_name + "-" + str(i) + "_" + "*" + "." + rev_num + rpm_tail
+    tmp_name = pkgs_dir + "/" + base_name + "-" + str(i) + "_" + "*" + "." + rev_num + osver + rpm_tail
     if glob.glob(tmp_name):
       rval = i + 1
       break
   return str(rval)  
 
 def fetch_os():
+  global bld_dir
   if os.path.isfile("/etc/SuSE-release"):
     with open("/etc/SuSE-release", "r") as f:
       for line in f:
@@ -50,10 +47,12 @@ def fetch_os():
           break
 
   os_sub = os_sub.strip()
-  print "slesver " + os_sub
+  print "OS VER: " + os_sub
   if os_sub == "el6":
+    bld_dir = "/cray/css/ulib/lgdb/builds/builds_cs"
     return "_el6"
   elif os_sub == "11":
+    bld_dir = "/cray/css/ulib/lgdb/builds/builds_xc"
     return "_sles11"
 
 
@@ -63,69 +62,144 @@ def release_date():
   status, rd = commands.getstatusoutput(cmd)
   return rd
 
-def fetch_version(primary_ver, final, revision_number):
 
-  if final:
-    new_version_str = primary_ver
-    print "this is the final package"
-  else:
-    #need to escape the decimal points in the version string
-    primary_list = primary_ver.split(".")
-    clean_version = "\.".join(primary_list)
-    reg_str = clean_version + '\.[0-9]{1}'
-    reg_x = re.compile(reg_str)
-    pkgs_dir = "/cray/css/pe/pkgs/cray-lgdb/" + ver_two_dig + "/"
-
-    if os.path.exists(pkgs_dir) == 0:
-      print "Creating " + pkgs_dir
-      os.mkdir(pkgs_dir)
-      #os.chmod(pkgs_dir, 775)
-      cmd = 'chmod 775 ' +  pkgs_dir
-      os.system(cmd)
-    
-    #only grab 4 digit version numbers / pre-releases
-    onlyfiles = [ f for f in listdir(pkgs_dir) if isfile(join(pkgs_dir,f)) and reg_x.search(f) and f[-3:] == "rpm"]
-    print onlyfiles
-    #if this is the first in this branch
-    if len(onlyfiles) == 0:
-      new_version_str = primary_ver + ".1"
-      print "inside first"
-    else: 
-      print "inside second"
+def fetch_packageDir():
+    #get a list of sub directories representing the products 2 digit release version
+    onlyDirs = os.listdir(product_dir)
+    if len(onlyDirs) == 0:
+       print "There are no product subdirectories."
+       exit(1)
+    else:
+      #get the latest directory
       #sort the file list, grab the last one
       convert = lambda text: int(text) if text.isdigit() else text
-      alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]
-      onlyfiles.sort(key=alphanum_key)
-      
-      last_package = onlyfiles.pop()
-      
-      #determine the 4 digit version number
-      last_package_ver = last_package.replace("cray-lgdb-","")
-      last_package_ver = last_package_ver.split("-")[0]
-      version_list = last_package_ver.split(".")
-   
-      oldrev = last_package.split("_")[1]
-      oldrev=oldrev.split(".")
-      oldrev=oldrev[1]
-      
-      if oldrev != revision_number:
-        #increment 4th digit
-        #figure out the new last digit, regex above ensures 4 digits
-        new_last_digit = str(int(version_list[3]) + 1)
-        #replace the last digit of the version number
+      alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key)]
+      onlyDirs.sort(key=alphanum_key)
+      last_Dir = onlyDirs.pop()
+
+    return last_Dir
+
+
+
+
+def fetch_latest_version(final, revision, pkgs_dir):
+
+
+  #get a list of sub directories representing the products 2 digit release version
+  onlyfiles = glob.glob(pkgs_dir + "/*.rpm")
+
+  if len(onlyfiles) == 0:
+    #there aren't any pkgs for this new two digit version yet.
+    #build the version from the 2 digit version
+    if final:
+      version = two_digit_ver + "." + 0-0
+    else:
+      version = two_digit_ver + "." + 0.0-0
+
+  else:
+
+    #sort the file list, grab the last one
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]
+    onlyfiles.sort(key=os.path.getmtime)
+    last_package = onlyfiles.pop()
+    
+    #determine the 4 digit version number
+    last_package_ver = last_package.replace("cray-lgdb-","")
+    last_package_ver = last_package_ver.split("-")[1]
+
+    #get latest version number
+    version = last_package_ver.split("/")[2]
+    version_list = last_package_ver.split(".")
+
+    #get old revision
+    oldrev = last_package.split("_")[1]
+    oldrev=oldrev.split(".")
+    oldrev=oldrev[1]
+    #determine if latest package was a pre-release or a release
+    if len(version) == 5:
+       latest_ver = "release"
+    elif len(version) == 7:
+       latest_ver = "pre-release"
+
+    print "The latest package created was a: " + latest_ver
+    
+    #create new version based on old version
+    if latest_ver == "release":
+      if final == False:
+        #then there is a new revision
+        #get third digit and increment
+        third_digit = version_list[3]
+
+	#increment third digit
+	third_digit = str(int(third_digit) + 1)
+
+        #postpend a .1
         version_list.pop()
-        version_list.append(new_last_digit)
-        new_version_str = ".".join(version_list)
-      else:
+        version_list.append(third_digit)
+        version_list.append("1")
+	new_version_str = ".".join(version_list)
+      elif final == True:
+         #then repackaging, same revision
+          new_version_str = ".".join(version_list)
+     
+    elif latest_ver == "pre-release":
+      #if branch is master
+      if final == False:
+        if oldrev != revision:
+	  #increment 4th digit
+	  #figure out the new last digit
+          new_last_digit = str(int(version_list[4]) + 1)
+
+          #replace the last digit of the version number
+          version_list.pop()
+          version_list.append(new_last_digit)
+          new_version_str = ".".join(version_list)
+	else:
+	  new_version_str = ".".join(version_list)
+      elif final == True:
+        #remove 4th digit
+        version_list.pop()
         new_version_str = ".".join(version_list)
 
+  	
+  new_version_str = new_version_str.split("/")[2]
   return new_version_str
          
 
-def fetch_revision():
+def fetch_newData():
+
+  global ver_two_dig
+  global timestmp_revnbr
+  global pkgs_dir
+  global three_digit_version
+  global version
+  global release_number
+  global rpm_name
+  global osver
+  global ver_two_dig_nodot
+
   rev_command = "git rev-parse HEAD"
   rev_number  = os.popen(rev_command).read()
   rev_number  = rev_number.rstrip()
+
+  branch = "git branch"
+  branch = os.popen(branch).read()
+  branch = branch.rstrip()
+  ar_branches = re.split('\n',branch)
+
+  if ar_branches[0].find('*') > -1:
+    branch = "master"
+  else:
+    branch = "release"
+  
+  branch = "release"
+  print "Packaging from: " + branch
+
+  if final == True and branch == 'master':
+    print "You indicated this should be a final build, but you are packaging from " + branch
+    print "Exiting. . ."
+    exit(1)
 
   dt_time = datetime.utcnow()
   dt_time = str(dt_time).replace(":","")
@@ -136,17 +210,20 @@ def fetch_revision():
   rev_number = rev_number[0:13]
   timestmp_revnbr = str(dt_time) + "." + str(rev_number)
 
-  os_ver = fetch_os()
+  osver = fetch_os()
 
-  version = fetch_version(primary_version,final,rev_number)
+  ver_two_dig = fetch_packageDir()
+  pkgs_dir = product_dir + "/" + ver_two_dig
+  version = fetch_latest_version(final,rev_number,pkgs_dir)
+  three_digit_version = version[0:5]
+  ver_two_dig_nodot = version[0] + version[2]
+
   base_name = "cray-lgdb-" + version
+  release_number = fetch_release(base_name, rev_number,pkgs_dir)
 
-  release_number = fetch_release(base_name, rev_number)
-
-  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr + os_ver
+  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr + osver
   rpm_name = package_name + "." + arch + ".rpm"
 
-  contents = [timestmp_revnbr, version, release_number, rpm_name, os_ver]
-  return contents
+  return
 
 

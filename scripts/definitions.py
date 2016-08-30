@@ -193,7 +193,7 @@ def fetch_newData():
   else:
     branch = "release"
   
-  branch = "release"
+ 
   print "Packaging from: " + branch
 
   if final == True and branch == 'master':

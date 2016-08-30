@@ -38,7 +38,7 @@ os_ver                        = definitions.osver
 
 if options.builddir == None:
   print "Using lastest build from Buildbot: " + lgdb_build_dir
-
+  lgdb_build_dir = lgdb_build_dir + "/default/lgdb_install"
 else:
   #verify that the folders that should be in the build dir, are present  
   lgdb_build_dir = options.builddir 

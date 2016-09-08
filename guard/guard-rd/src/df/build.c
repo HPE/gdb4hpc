@@ -661,7 +661,7 @@ _validate_block_map(graph_t *g, g_block_map_t* bm, var_t *v)
 
 	if (_get_hash_block_size(rank, bm->m_data, bm->m_distribute, bm->m_blockcyclic_val, bm->m_procs, size)!=1) {
 		char err_message[BUFSIZ];
-		sprintf(err_message, "BlockMap %s decomposition is not feasiable with the given array shape", SymLookup(bm->m_sym));
+		sprintf(err_message, "BlockMap %s decomposition is not feasible with the given array shape", SymLookup(bm->m_sym));
 		SetError(err_message);
 		Free(size);
 		return 0;
@@ -733,7 +733,7 @@ _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 
 				if (_get_hash_block_size(bm1->m_rank, bm1->m_data, bm1->m_distribute, bm1->m_blockcyclic_val, bm1->m_procs, data_size[0])!=1) {
 					char err_message[BUFSIZ];
-					sprintf(err_message, "BlockMap %s decomposition is not feasiable with the given array shape", SymLookup(bm1->m_sym));
+					sprintf(err_message, "BlockMap %s decomposition is not feasible with the given array shape", SymLookup(bm1->m_sym));
 					SetError(err_message);
 		    if(data_size[0])    Free(data_size[0]);
 		    if(data_size[1])    Free(data_size[1]);
@@ -747,7 +747,7 @@ _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 				data_size[1] = (int*)Alloc(sizeof(int)*bm2->m_rank);
 				if (_get_hash_block_size(bm2->m_rank, bm2->m_data, bm2->m_distribute, bm2->m_blockcyclic_val, bm2->m_procs, data_size[1])!=1) {
 					char err_message[BUFSIZ];
-					sprintf(err_message, "BlockMap %s decomposition is not feasiable with the given array shape", SymLookup(bm2->m_sym));
+					sprintf(err_message, "BlockMap %s decomposition is not feasible with the given array shape", SymLookup(bm2->m_sym));
 					SetError(err_message);
 		    if(data_size[0])    Free(data_size[0]);
 		    if(data_size[1])    Free(data_size[1]);

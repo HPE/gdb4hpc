@@ -133,12 +133,12 @@ libssh2_major="libssh2.so.1"
 libssh2_minor="libssh2.so.1.0.1"
 
 libmrnet_dso="libmrnet.so"
-libmrnet_major="libmrnet.so.4"
-libmrnet_minor="libmrnet.so.4.1.0"
+libmrnet_major="libmrnet.so.5"
+libmrnet_minor="libmrnet.so.5.0.1"
 
 libxplat_dso="libxplat.so"
-libxplat_major="libxplat.so.4"
-libxplat_minor="libxplat.so.4.1.0"
+libxplat_major="libxplat.so.5"
+libxplat_minor="libxplat.so.5.0.1"
 
 ########################################################
 # Setup the build layout. The following variables are  #
@@ -1039,9 +1039,9 @@ if [[ $opt_mrnet == y ]]; then
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
-	./configure --prefix=$stage_dir --with-startup=cray --enable-shared \
-	--with-cti-inc=$cti_include_directory --with-cti-lib=$cti_lib_directory \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag"
+	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
+	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'
 	set +x
 	do_build "MRNet"
 	echo -e "\nMRNet staged to $stage_dir\n"
@@ -1058,9 +1058,9 @@ if [[ $opt_mrnet == y ]]; then
 		fi
 	fi
 	# Deliver the mrnet_config.h file
-	copy_file "${mrnet_src}/build/x86_64-unknown-linux-gnu/mrnet_config.h" $dep_includedir "MRNet"
+	copy_file "${mrnet_src}/build/"*"/mrnet_config.h" $dep_includedir "MRNet"
 	# Deliver the xplat_config.h file
-	copy_file "${mrnet_src}/build/x86_64-unknown-linux-gnu/xplat_config.h" $dep_includedir "MRNet"
+	copy_file "${mrnet_src}/build/"*"/xplat_config.h" $dep_includedir "MRNet"
 fi
 
 # mrnet install

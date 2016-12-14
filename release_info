@@ -33,9 +33,8 @@ Purpose:
 ---------
   This is feature release.
 
-  1. Support for CUDA 8.0 which allows for debugging on Nvidia Pascal GPUs for
-  Cray Cluster Systems
-  2. Fix a bug in which lgdb created a bash script without the execute permission bit set which caused issues on Cobalt
+  1. Update the MRNet communication library component of lgdb to the latest
+  release (5.0)
 
 
 Product and OS Dependencies:

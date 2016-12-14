@@ -44,4 +44,4 @@ libexec_PROGRAMS	= guard_proxy
 guard_proxy_SOURCES	= proxy_daemon.c dbg_client_proxy.c
 guard_proxy_LDFLAGS   	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags
 guard_proxy_LDADD	= $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-			  $(CRAYTOOL_LIBS) $(MRN_LIBS) $(SSH2_LIBS) -lpthread -laif
+			  $(CRAYTOOL_LIBS) $(MRN_LIBS) $(SSH2_LIBS) -lpthread -laif -lm -lstdc++

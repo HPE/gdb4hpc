@@ -52,7 +52,7 @@ WFLAGS = -W -Wall -Wwrite-strings -Wstrict-prototypes \
          -Wmissing-prototypes -Wno-long-long \
 	 -Wno-variadic-macros -Wold-style-definition \
 	 -Wmissing-format-attribute -Wno-unused-parameter \
-	 -Werror
+#	 -Werror
 YYWFLAGS = -Wno-old-style-definition
 CFLAGS = $(OFLAGS) $(WFLAGS) $(DFLAGS)
 LDFLAGS = -ldl -Wl,-rpath=`pwd`/plugin

@@ -53,7 +53,7 @@ WFLAGS = -W -Wall -Wwrite-strings -Wstrict-prototypes \
          -Wmissing-prototypes -Wno-long-long \
 	 -Wno-variadic-macros -Wold-style-definition \
 	 -Wmissing-format-attribute -Wno-unused-parameter \
-	 -Werror
+#	 -Werror
 CFLAGS= $(OFLAGS) -fPIC $(WFLAGS) $(SPTRFLAGS) $(DFLAGS) -D__GCC_UPC__=1
 IFLAGS = -I..
 CPPFLAGS = $(IFLAGS)

@@ -8,7 +8,7 @@
 .nh 
 .shc *
 .SH "NAME"
-\fBlgdb\fP \(em line mode parallel debugger
+\fBlgdb\fP - line mode parallel debugger
 .SH "SYNOPSIS"
 .PP
 .nf
@@ -370,7 +370,7 @@ In c - $b{2}::xval[2][3]
 .sp
 .SS "Launching an Application"
 .PP
-The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%lgdb\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&.
+The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%lgdb\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&. Launching on systems whose default workload manager is not SLURM or ALPS, or launching an application using a non default launcher requires passwordless (public key) ssh to the compute nodes of active jobs\&. Contact a system administrator or the system usage guide for details on whether this is supported and how to set this up\&.
 .PP
 The simplest form of the \fB\%launch\fP command is:
 .nf
@@ -391,6 +391,9 @@ dbg all> \fBlaunch $b{1024} tstapp\fP
 .sp
 .PP
 The \fB\%launch\fP command also accepts the following optional arguments\&. Option values must be enclosed within quotation marks, such as "args\&."
+.TP 10
+\fB--launcher=\fP "\fIlauncher_name\fP" | \fB-l\fP ``\fIlauncher_name\fP''
+Launches the job with the launcher specified by \fIlauncher_name\fP\&.
 .TP 10
 \fB--launcher-args=\fP "\fIlauncher_args\fP" | \fB-g\fP ``\fIlauncher_args\fP''
 Passes \fIlauncher_args\fP to the WLM job launch command\&.

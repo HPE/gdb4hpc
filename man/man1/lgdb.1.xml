@@ -246,11 +246,16 @@ In c - $b{2}::xval[2][3]</literallayout>
 </refsect2>
 <refsect2>
 <title>Launching an Application</title>
-<para>The <command>launch</command> command transparently invokes the WLM job launch command (i.e., <command>aprun</command> or <command>srun</command>) to launch an application. Following the launch, the application is held immediately before execution is passed to its <literal>MPI_init()</literal>, <literal>shmem_init()</literal>, or <literal>main()</literal> routine and is ready for further <command>lgdb</command> commands. Integration with <command>qsub</command> and <command>sbatch</command> is also supported as described in <xref linkend="refsect2-kqvsgs25-sgage-workloadmanagersupport"/>.</para>
+<para>The <command>launch</command> command transparently invokes the WLM job launch command (i.e., <command>aprun</command> or <command>srun</command>) to launch an application. Following the launch, the application is held immediately before execution is passed to its <literal>MPI_init()</literal>, <literal>shmem_init()</literal>, or <literal>main()</literal> routine and is ready for further <command>lgdb</command> commands. Integration with <command>qsub</command> and <command>sbatch</command> is also supported as described in <xref linkend="refsect2-kqvsgs25-sgage-workloadmanagersupport"/>. Launching on systems whose default workload manager is not SLURM or ALPS, or launching an application using a non default launcher requires passwordless (public key) ssh to the compute nodes of active jobs. Contact a system administrator or the system usage guide for details on whether this is supported and how to set this up.</para>
 <para>The simplest form of the <command>launch</command> command is:<literallayout><command>launch</command> $<replaceable>proc_set</replaceable> <replaceable>application</replaceable></literallayout></para>
 <para>$<replaceable>proc_set</replaceable> is a single debugger variable array that specifies the number of application ranks to be launched. For example, the following will launch the application <literal>tstapp</literal> via the WLM job launcher with 1024 ranks (<literal>-n1024</literal>) assigned to the process set <literal>$b</literal>:<screen>dbg all> <userinput>launch $b{1024} tstapp</userinput></screen></para>
 <para>The <command>launch</command> command also accepts the following optional arguments. Option values must be enclosed within quotation marks, such as "args."</para>
 <variablelist>
+	<varlistentry>
+<term><literal>--launcher=</literal> "<replaceable>launcher_name</replaceable>" | <literal>-l</literal> &ldquo;<replaceable>launcher_name</replaceable>&rdquo;</term>
+<listitem><para>Launches the job with the launcher specified by <replaceable>launcher_name</replaceable>.</para>
+</listitem>
+</varlistentry>
 <varlistentry>
 <term><literal>--launcher-args=</literal> "<replaceable>launcher_args</replaceable>" | <literal>-g</literal> &ldquo;<replaceable>launcher_args</replaceable>&rdquo;</term>
 <listitem><para>Passes <replaceable>launcher_args</replaceable> to the WLM job launch command.</para>

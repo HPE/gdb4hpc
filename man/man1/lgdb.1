@@ -453,7 +453,7 @@ dgb all> \fB\%attach $\fIproc_set\fP \fIapp_ident\fP\fR
 .fi
 .sp
 .PP
-Where $\fIproc_set\fP is the debugger variable to be associated with the application, and \fIapp_ident\fP is the WLM-specific application identifier of the running application\&. $\fIproc_set\fP \fImust not\fP include array syntax; the size of the $\fIproc_set\fP array is automatically set to the number of ranks in the job\&. For ALPS, \fIapp_ident\fP is the application process ID (\fBapid\fP); for native SLURM, \fIapp_ident\fP is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP) and must be provided as \fIjob_id\fP\&.\fIstep_id\fP\&.
+Where $\fIproc_set\fP is the debugger variable to be associated with the application, and \fIapp_ident\fP is the WLM-specific application identifier of the running application\&. $\fIproc_set\fP \fImust not\fP include array syntax; the size of the $\fIproc_set\fP array is automatically set to the number of ranks in the job\&. For ALPS, \fIapp_ident\fP is the application process ID (\fBapid\fP); for native SLURM on Cray XC systems, \fIapp_ident\fP is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP) and must be provided as \fIjob_id\fP\&.\fIstep_id\fP\&. For Cray clusters and all other systems, app_ident should be the pid of the launcher process that started the application\&. This can be obtained using ps\&.
 .PP
 The following command instructs \fB\%lgdb\fP to associate the debugger variable \fB$tst42\fP with the application that has \fBapid\fP 651486\&.
 .nf

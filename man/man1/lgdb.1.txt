@@ -467,9 +467,11 @@ DESCRIPTION
        of the running application. $proc_set must not include array syntax;
        the size of the $proc_set array is automatically set to the number of
        ranks in the job. For ALPS, app_ident is the application process ID
-       (apid); for native SLURM, app_ident is a combination of the job ID
-       (job_id) and the job step ID (step_id) and must be provided as
-       job_id.step_id.
+       (apid); for native SLURM on Cray XC systems, app_ident is a combination
+       of the job ID (job_id) and the job step ID (step_id) and must be
+       provided as job_id.step_id. For Cray clusters and all other systems,
+       app_ident should be the pid of the launcher process that started the
+       application. This can be obtained using ps.
 
        The following command instructs lgdb to associate the debugger variable
        $tst42 with the application that has apid 651486.

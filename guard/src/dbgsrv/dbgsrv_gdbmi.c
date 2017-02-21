@@ -891,6 +891,15 @@ setup_gdbmi_entry_points(void)
 			AddToList(entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
+
+	cmd = MIBreakInsert(0, 0, NULL, 0, "PMI2_Init", 0);
+	SendMICommand(GDBMISession, cmd);
+	if (MICommandResultOK(cmd)) 
+	{
+		if ((bp_res = get_dbgbp(cmd)) != NULL)
+			AddToList(entry_BP, (void *)bp_res);
+	}
+	MICommandFree(cmd);
 	
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*&(PMPI_Init)", 0);
 	SendMICommand(GDBMISession, cmd);

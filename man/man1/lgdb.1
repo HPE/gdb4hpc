@@ -393,7 +393,7 @@ dbg all> \fBlaunch $b{1024} tstapp\fP
 The \fB\%launch\fP command also accepts the following optional arguments\&. Option values must be enclosed within quotation marks, such as "args\&."
 .TP 10
 \fB--launcher=\fP "\fIlauncher_name\fP" | \fB-l\fP ``\fIlauncher_name\fP''
-Launches the job with the launcher specified by \fIlauncher_name\fP\&.
+Launches the job with the launcher specified by \fIlauncher_name\fP\&. Currently this switch is not supported on Cray XC machines since it uses an ssh based mechanism to launch the job to the compute nodes which is not available on those machines\&.
 .TP 10
 \fB--launcher-args=\fP "\fIlauncher_args\fP" | \fB-g\fP ``\fIlauncher_args\fP''
 Passes \fIlauncher_args\fP to the WLM job launch command\&.

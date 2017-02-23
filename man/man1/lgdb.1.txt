@@ -391,7 +391,10 @@ DESCRIPTION
 
        --launcher= "launcher_name" | -l ``launcher_name''
                  Launches the job with the launcher specified by
-                 launcher_name.
+                 launcher_name. Currently this switch is not supported on Cray
+                 XC machines since it uses an ssh based mechanism to launch
+                 the job to the compute nodes which is not available on those
+                 machines.
 
        --launcher-args= "launcher_args" | -g ``launcher_args''
                  Passes launcher_args to the WLM job launch command.

@@ -253,7 +253,10 @@ In c - $b{2}::xval[2][3]</literallayout>
 <variablelist>
 	<varlistentry>
 <term><literal>--launcher=</literal> "<replaceable>launcher_name</replaceable>" | <literal>-l</literal> &ldquo;<replaceable>launcher_name</replaceable>&rdquo;</term>
-<listitem><para>Launches the job with the launcher specified by <replaceable>launcher_name</replaceable>.</para>
+<listitem><para>Launches the job with the launcher specified
+    by <replaceable>launcher_name</replaceable>. Currently this switch is not
+    supported on Cray XC machines since it uses an ssh based mechanism to
+    launch the job to the compute nodes which is not available on those machines.</para>
 </listitem>
 </varlistentry>
 <varlistentry>

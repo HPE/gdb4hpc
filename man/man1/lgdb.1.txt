@@ -558,6 +558,11 @@ ENVIRONMENT VARIABLES
 
                  Default: not set
 
+       CRAY_LGDB_STARTUP_TIMEOUT
+                 Sets the MRNet startup timeout in seconds.
+
+                 Default: not set
+
        CRAY_CTI_WLM
                  Sets the workload manager that lgdb will use to launch or
                  attach to an application. Accepts one of three values:

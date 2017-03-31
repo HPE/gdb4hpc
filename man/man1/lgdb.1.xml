@@ -353,6 +353,12 @@ dgb all> <userinput>launch $a{128} --launcher-args="-N32" a.out</userinput></scr
 </listitem>
 </varlistentry>
 <varlistentry>
+<term><envar>CRAY_LGDB_STARTUP_TIMEOUT</envar></term>
+<listitem><para>Sets the MRNet startup timeout in seconds.</para>
+<para>Default: not set</para>
+</listitem>
+</varlistentry>
+<varlistentry>
 <term><envar>CRAY_CTI_WLM</envar></term>
 <listitem><para>Sets the workload manager that lgdb will use to launch or attach to an application. Accepts one of three values: "alps", "slurm", or "generic". "generic" uses a more portable launch system that can be used on many types of systems and application launchers but can be less performant. Using "generic" requires setting up paswordless ssh to the compute nodes as it uses ssh to launch the debuggers. Use of "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to the name of the application launcher to use.</para>
 <para>Default: not set</para>

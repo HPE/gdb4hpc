@@ -521,6 +521,11 @@ Sets extra time (in seconds) to sleep after finding the \fB\%pmi_attribs\fP file
 .IP "" 10
 Default: not set
 .TP 10
+\fBCRAY_LGDB_STARTUP_TIMEOUT\fP
+Sets the MRNet startup timeout in seconds\&.
+.IP "" 10
+Default: not set
+.TP 10
 \fBCRAY_CTI_WLM\fP
 Sets the workload manager that lgdb will use to launch or attach to an application\&. Accepts one of three values: "alps", "slurm", or "generic"\&. "generic" uses a more portable launch system that can be used on many types of systems and application launchers but can be less performant\&. Using "generic" requires setting up paswordless ssh to the compute nodes as it uses ssh to launch the debuggers\&. Use of "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to the name of the application launcher to use\&.
 .IP "" 10

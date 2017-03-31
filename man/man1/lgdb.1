@@ -8,7 +8,7 @@
 .nh 
 .shc *
 .SH "NAME"
-\fBlgdb\fP \(em line mode parallel debugger
+\fBlgdb\fP - line mode parallel debugger
 .SH "SYNOPSIS"
 .PP
 .nf
@@ -370,7 +370,7 @@ In c - $b{2}::xval[2][3]
 .sp
 .SS "Launching an Application"
 .PP
-The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%lgdb\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&.
+The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%lgdb\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&. Launching on systems whose default workload manager is not SLURM or ALPS, or launching an application using a non default launcher requires passwordless (public key) ssh to the compute nodes of active jobs\&. Contact a system administrator or the system usage guide for details on whether this is supported and how to set this up\&.
 .PP
 The simplest form of the \fB\%launch\fP command is:
 .nf
@@ -391,6 +391,9 @@ dbg all> \fBlaunch $b{1024} tstapp\fP
 .sp
 .PP
 The \fB\%launch\fP command also accepts the following optional arguments\&. Option values must be enclosed within quotation marks, such as "args\&."
+.TP 10
+\fB--launcher=\fP "\fIlauncher_name\fP" | \fB-l\fP ``\fIlauncher_name\fP''
+Launches the job with the launcher specified by \fIlauncher_name\fP\&. This option is not commonly needed and should be used with care\&. This option specifies the name of the application launcher executable as either an absolute path or the name of an executable reachable in PATH\&. Setting this option only affects the name of the launcher executable itself and does not change the launch system\&. To launch with a non default launcher that is not related to the default running workload manager (such as mpiexec\&.hydra on a slurm system), this variable should be using in conjunction with setting CRAY_CTI_WLM to "generic" to ensure the launch mechanisms work with the specified launcher\&.
 .TP 10
 \fB--launcher-args=\fP "\fIlauncher_args\fP" | \fB-g\fP ``\fIlauncher_args\fP''
 Passes \fIlauncher_args\fP to the WLM job launch command\&.
@@ -450,7 +453,7 @@ dgb all> \fB\%attach $\fIproc_set\fP \fIapp_ident\fP\fR
 .fi
 .sp
 .PP
-Where $\fIproc_set\fP is the debugger variable to be associated with the application, and \fIapp_ident\fP is the WLM-specific application identifier of the running application\&. $\fIproc_set\fP \fImust not\fP include array syntax; the size of the $\fIproc_set\fP array is automatically set to the number of ranks in the job\&. For ALPS, \fIapp_ident\fP is the application process ID (\fBapid\fP); for native SLURM, \fIapp_ident\fP is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP) and must be provided as \fIjob_id\fP\&.\fIstep_id\fP\&.
+Where $\fIproc_set\fP is the debugger variable to be associated with the application, and \fIapp_ident\fP is the WLM-specific application identifier of the running application\&. $\fIproc_set\fP \fImust not\fP include array syntax; the size of the $\fIproc_set\fP array is automatically set to the number of ranks in the job\&. For ALPS, \fIapp_ident\fP is the application process ID (\fBapid\fP); for native SLURM on Cray XC systems, \fIapp_ident\fP is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP) and must be provided as \fIjob_id\fP\&.\fIstep_id\fP\&. For Cray clusters and all other systems, app_ident should be the pid of the launcher process that started the application\&. This can be obtained using ps\&.
 .PP
 The following command instructs \fB\%lgdb\fP to associate the debugger variable \fB$tst42\fP with the application that has \fBapid\fP 651486\&.
 .nf
@@ -520,6 +523,16 @@ Default: not set
 .TP 10
 \fBCRAY_LGDB_STARTUP_TIMEOUT\fP
 Sets the MRNet startup timeout in seconds\&.
+.IP "" 10
+Default: not set
+.TP 10
+\fBCRAY_CTI_WLM\fP
+Sets the workload manager that lgdb will use to launch or attach to an application\&. Accepts one of three values: "alps", "slurm", or "generic"\&. "generic" uses a more portable launch system that can be used on many types of systems and application launchers but can be less performant\&. Using "generic" requires setting up paswordless ssh to the compute nodes as it uses ssh to launch the debuggers\&. Use of "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to the name of the application launcher to use\&.
+.IP "" 10
+Default: not set
+.TP 10
+\fBCRAY_CTI_LAUNCHER_NAME\fP
+Sets the launcher executable to use for application launch\&. This can be the name of an executable reachable in PATH or an absolute path\&. Setting this option only affects the name of the launcher executable itself and does not change the launch system\&. To launch with a non default launcher that is not related to the default running workload manager (such as mpiexec\&.hydra on a slurm system), this variable should be used in conjunction with setting CRAY_CTI_WLM to "generic" to ensure the launch mechanisms work with the specified launcher\&.
 .IP "" 10
 Default: not set
 .SH "EXAMPLES"

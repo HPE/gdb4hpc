@@ -1025,9 +1025,14 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-cti_base_dir=`echo $cti_pkgconfig_L_dir | cut -c 3- | awk '{print $1"/.."}'` 
-cti_include_directory="$cti_base_dir/include"
-cti_lib_directory="$cti_base_dir/lib"
+cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I craytools_fe)
+if [ $? -ne 0 ]; then
+	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
+	exit 1
+fi
+
+cti_lib_directory=`echo $cti_pkgconfig_L_dir | cut -c 3-` 
+cti_include_directory=`echo $cti_pkgconfig_I_dir | cut -c 3-` 
 
 # mrnet build - This *must* happen after the cti library build now since mrnet
 # depends on cti components.

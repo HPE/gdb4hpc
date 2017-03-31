@@ -116,7 +116,11 @@ static char * 				GetArrayDataString(MISession *, MIVar *);
 static vectorLikeDimension_t * 	GetVectorLikeDimensionShape(char *);
 static void					fixTypeString(char *, char *, char *);
 
-
+const char * _aif_ignored_type_specifiers[] = {
+	"const",
+	"restrict",
+	NULL
+};
 
 
 // Internal globals
@@ -503,29 +507,17 @@ fixTypeString(char *p, char *s, char *orig)
 	DVPRINT("fixTypeString: New string is \"%s\"\n", p);
 }
 
-static int
-GetTypeLength(MISession *session, char *base_type)
-{
-	char *		res;
-	MICommand *	cmd;
-	char *		buf;
-	int			type_len;		// in bytes
-	char *		p;
-	char *		clean_str;		// string without nvidia crap
-	int			found;
-	
-	DVPRINT("GetTypeLength: Resolving length of %s\n", base_type);
-	
-	// sanity
-	if (base_type == NULL)
-		return 0;
-		
+static char* sanitize_type_string(char* input){
 	// first we need to sanitize the stupid string if gpu debugging is turned on
 	// I don't know why Nvidia decided to be dumb by putting the address space
 	// idents in but then making the gdb parser not understand them...
+	char* clean_str;
+	char* p;
+	int found;
+	clean_str = strdup(input);
+	
 	if (gpu_flag)
 	{
-		clean_str = strdup(base_type);
 		while ((p = strchr(clean_str, '@')) != NULL)
 		{
 			// reset found
@@ -593,11 +585,38 @@ GetTypeLength(MISession *session, char *base_type)
 				break;
 			}
 		}
-		
-		// replace base_type pointer with clean_str, we will free this at the end
-		base_type = clean_str;
-		DVPRINT("GetTypeLength: New type string is \"%s\"\n", base_type);
 	}
+
+	char** current = _aif_ignored_type_specifiers;
+
+	while(*current != NULL){
+		while ((p = strstr(clean_str, *current)) != NULL){
+			fixTypeString(p, *current, clean_str);
+		}
+		current++;
+	}
+
+	return clean_str;
+}
+
+static int
+GetTypeLength(MISession *session, char *base_type)
+{
+	char *		res;
+	MICommand *	cmd;
+	char *		buf;
+	int			type_len;		// in bytes
+	char *		p;
+	char *		clean_str;		// string without nvidia crap
+	int			found;
+	
+	DVPRINT("GetTypeLength: Resolving length of %s\n", base_type);
+	
+	// sanity
+	if (base_type == NULL)
+		return 0;
+		
+	base_type = sanitize_type_string(base_type);
 		
 	// create the command string
 	Asprintf(&buf, "\"sizeof(%s)\"", base_type);
@@ -891,7 +910,7 @@ GetComplexAIF(MISession *session, MIVar *var)
 static int
 GetSimpleType(char *type)
 {
-	char *	t = type;
+	char *	t = sanitize_type_string(type);
 	int	len = strlen(type);
 	
 	DVPRINT("GetSimpleType: %s\n", type);
@@ -1886,6 +1905,7 @@ unknown_invalid:
 static int
 GetComplexType(char *type)
 {
+	type = sanitize_type_string(type);
 	int len = strlen(type);
 	if(strncmp(type, "std::",5)==0)
 	{
@@ -1911,8 +1931,7 @@ GetComplexType(char *type)
 	
 	}
 	char *t = &type[len - 1];
-	char *p;
-	
+	char* p;	
 	// Check for nvidia address space identifiers, we want to ignore these.
 	if (gpu_flag && ((p = strrchr(type, '@')) != NULL))
 	{
@@ -2010,6 +2029,7 @@ GetComplexType(char *type)
 static int
 GetType(char *type)
 {
+	type = sanitize_type_string(type);
 	int id = GetSimpleType(type);
 	if (id == T_UNKNOWN) 
 	{

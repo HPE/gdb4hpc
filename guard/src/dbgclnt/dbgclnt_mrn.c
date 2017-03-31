@@ -263,7 +263,7 @@ DbgMRNAttach(
 			}
 		}
 		break;
-			
+	
 		case CTI_WLM_CRAY_SLURM:
 		{
 			char *		sep;
@@ -322,10 +322,75 @@ DbgMRNAttach(
 				PrintOutError("CTI error: %s\n", cti_error_str());
 				PrintOutError("Failed to register slurm job step with CTI.\n");
 				goto attach_error;
+			}				
+
+		}
+		break;
+
+		case CTI_WLM_SLURM:
+		{
+			pid_t 		launcher_pid;
+			char *		eptr;
+			
+			// convert the string to an int
+			errno = 0;
+			launcher_pid = strtol(app_ident, &eptr, 10);
+			
+			// check for error
+			if ( (launcher_pid < 0) || (errno != 0) )
+			{
+				PrintOutError("Invalid launcher pid argument.\n");
+				goto attach_error;
+			}
+			
+			// check for invalid input
+			if (eptr == app_ident)
+			{
+				PrintOutError("Invalid launcher pid argument.\n");
+				goto attach_error;
+			}
+			
+			// Register the aprun pid with the tool interface
+			if ((di->d_appid = cti_slurm_registerJobStep(launcher_pid)) == 0)
+			{
+				PrintOutError("CTI error: %s\n", cti_error_str());
+				PrintOutError("Failed to register launcher pid with CTI.\n");
+				goto attach_error;
 			}
 		}
 		break;
+		case CTI_WLM_SSH:
+		{
+			pid_t 		launcher_pid;
+			char *		eptr;
 			
+			// convert the string to an int
+			errno = 0;
+			launcher_pid = strtol(app_ident, &eptr, 10);
+			
+			// check for error
+			if ( (launcher_pid < 0) || (errno != 0) )
+			{
+				PrintOutError("Invalid launcher pid argument.\n");
+				goto attach_error;
+			}
+			
+			// check for invalid input
+			if (eptr == app_ident)
+			{
+				PrintOutError("Invalid launcher pid argument.\n");
+				goto attach_error;
+			}
+			
+			// Register the aprun pid with the tool interface
+			if ((di->d_appid = cti_ssh_registerJob(launcher_pid)) == 0)
+			{
+				PrintOutError("CTI error: %s\n", cti_error_str());
+				PrintOutError("Failed to register launcher pid with CTI.\n");
+				goto attach_error;
+			}
+		}
+		break;
 		default:
 			PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
 			goto attach_error;

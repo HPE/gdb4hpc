@@ -71,6 +71,7 @@ static const struct option launch_long_opts[] = {
 			{"sbatch",			optional_argument,	0, 's'},
 			{"gpu",				no_argument, 		&gpu_flag, 1},
 			{"debug",			no_argument, 		&debug_flag, 1},
+			{"launcher",		optional_argument,	0, 'l'},
 			{0, 0, 0, 0}
 			};
 			
@@ -484,7 +485,15 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 				// set the new entry
 				env_list[env_list_num++] = strdup(StripQuotes(optarg));
 				break;
-		
+			case 'l':
+				if (optarg == (char *)NULL)
+				{
+					PrintOutError("Error: --launcher provided, but missing arguments.\n");
+					goto exit_with_error;
+				}
+
+				setenv(CTI_LAUNCHER_NAME, optarg, 1);
+				break;
 			default:
 				PrintOutError("Invalid launch argument provided. See \"help launch\" for usage.\n");
 				goto exit_with_error;

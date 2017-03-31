@@ -50,6 +50,7 @@
 #define GUARD_LIBALPS_ENABLE_DSL "CRAY_LGDB_LIBALPS_ENABLE_DSL"
 #define GUARD_MRNET_PORT			"GUARD_MRNET_PORT_BASE"
 #define DEFAULT_MRNET_PORT_BASE	"20000"
+#define CTI_LAUNCHER_NAME		"CRAY_CTI_LAUNCHER_NAME"
 
 #define ALPS_XT_NID				"/proc/cray_xt/nid"								// file where nid info is located
 

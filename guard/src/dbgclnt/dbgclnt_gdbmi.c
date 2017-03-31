@@ -750,6 +750,17 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
+
+	if (!found)
+	{
+		cmd = CLIWhatis("PMI2_Init");
+		SendMICommand_fe(sess, cmd);
+		if (MICommandResultOK(cmd))
+		{
+			found = 1;
+		}
+		MICommandFree(cmd);
+	}
 	
 	if (!found)
 	{

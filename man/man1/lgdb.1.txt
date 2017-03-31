@@ -391,10 +391,17 @@ DESCRIPTION
 
        --launcher= "launcher_name" | -l ``launcher_name''
                  Launches the job with the launcher specified by
-                 launcher_name. Currently this switch is not supported on Cray
-                 XC machines since it uses an ssh based mechanism to launch
-                 the job to the compute nodes which is not available on those
-                 machines.
+                 launcher_name. This option is not commonly needed and should
+                 be used with care. This option specifies the name of the
+                 application launcher executable as either an absolute path or
+                 the name of an executable reachable in PATH. Setting this
+                 option only affects the name of the launcher executable
+                 itself and does not change the launch system. To launch with
+                 a non default launcher that is not related to the default
+                 running workload manager (such as mpiexec.hydra on a slurm
+                 system), this variable should be using in conjunction with
+                 setting CRAY_CTI_WLM to "generic" to ensure the launch
+                 mechanisms work with the specified launcher.
 
        --launcher-args= "launcher_args" | -g ``launcher_args''
                  Passes launcher_args to the WLM job launch command.
@@ -551,8 +558,30 @@ ENVIRONMENT VARIABLES
 
                  Default: not set
 
-       CRAY_LGDB_STARTUP_TIMEOUT
-                 Sets the MRNet startup timeout in seconds.
+       CRAY_CTI_WLM
+                 Sets the workload manager that lgdb will use to launch or
+                 attach to an application. Accepts one of three values:
+                 "alps", "slurm", or "generic". "generic" uses a more portable
+                 launch system that can be used on many types of systems and
+                 application launchers but can be less performant. Using
+                 "generic" requires setting up paswordless ssh to the compute
+                 nodes as it uses ssh to launch the debuggers. Use of
+                 "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to
+                 the name of the application launcher to use.
+
+                 Default: not set
+
+       CRAY_CTI_LAUNCHER_NAME
+                 Sets the launcher executable to use for application launch.
+                 This can be the name of an executable reachable in PATH or an
+                 absolute path. Setting this option only affects the name of
+                 the launcher executable itself and does not change the launch
+                 system. To launch with a non default launcher that is not
+                 related to the default running workload manager (such as
+                 mpiexec.hydra on a slurm system), this variable should be
+                 used in conjunction with setting CRAY_CTI_WLM to "generic" to
+                 ensure the launch mechanisms work with the specified
+                 launcher.
 
                  Default: not set
 

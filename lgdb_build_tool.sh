@@ -74,7 +74,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
-cuda_pascal_dir="/cray/css/release/cray/build/xc/latest-RB/3rd-party:master/SLE_12/x86_64"
+cuda_pascal_dir="/cray/css/release/cray/build/xc/RB-6.0/201611171137/3rd-party:master/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
@@ -100,17 +100,64 @@ function source_module_script() {
 		fi
 	fi
 }
+function find_cti_module(){
+
+  #what is the latest installed version of cti?
+  latest_cti_module=$(readlink -f $pref/cti/default)
+
+  #check that the latest installed version of cti is 1.0.5 or newer
+  if [ "$latest_cti_module" != "$pref/cti/$supported_cti_version"* ]
+  then
+     echo  $latest_cti_module " is the latest cray-cti module installed."
+     echo "cray-cti/1.0.5 or later is required."
+     echo "exiting. . ."
+     exit 1
+  else
+     latest_cti_version=`echo $latest_cti_module | cut -d'/' -f$delim`
+     module load cray-cti/$latest_cti_version
+     module list
+  fi
+}
+
+SLES_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
+if [ $SLES_VER -lt 12 ]
+then
+  pref="/opt/cray"
+  delim=5
+else
+  pref="/opt/cray/pe"
+  delim=6
+fi
 
 #Installed library locations
-supported_cti_version="1.0.2"
-cti_install_dir="/opt/cray/cti/$supported_cti_version"
+supported_cti_version=1.0.5
+supported_cti_release_range=1.0.[5-9]
 
 source_module_script
+#module purge
 
+#check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
-	echo "WARNING: Loading default CTI module"
-	module load cray-cti
+
+  echo "WARNING: cray-cti is not loaded."
+  echo "Attempting to load cray-cti/1.0.5 or newer"
+  find_cti_module 
+else
+
+  #check if version of cti module loaded is 1.0.[5-9] or newer
+  if ! echo $LOADEDMODULES | grep -q cray-cti/$supported_cti_release_range; then
+    echo "WARNING: cray-cti/1.0.5 or newer must be loaded"
+    echo "Attempting to load cray-cti/1.0.5 or newer"
+    module unload cray-cti
+    find_cti_module
+  else
+    find_cti_module
+  fi
 fi
+
+
+cti_install_dir="$pref/cti/$latest_cti_version"
+echo "Using $cti_install_dir to build lgdb"
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
@@ -1106,7 +1153,7 @@ if [[ $opt_lgdb == y ]]; then
 	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
-	CXXFLAGS="$opt_flag -Wall"
+	CXXFLAGS="$opt_flag -Wall" LDFLAGS=-lpthread
 	set +x
 	do_build "lgdb"
 	echo -e "\nlgdb installed to $inst_dir.\n"

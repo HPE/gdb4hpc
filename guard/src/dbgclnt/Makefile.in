@@ -294,7 +294,7 @@ libdbgproto_a_SOURCES = dbgclnt_proto.c proto_message.c \
 						  $(MRN_PROTO) $(SOCK_PROTO)
 
 @CRAY_FALSE@guard_starter_SOURCES = guard_starter.c
-@CRAY_FALSE@guard_starter_LDADD = $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a
+@CRAY_FALSE@guard_starter_LDADD = $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a -lpthread
 @CRAY_FALSE@guard_starter_LDFLAGS = $(LDFLAGS)
 all: all-am
 

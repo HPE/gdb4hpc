@@ -104,9 +104,9 @@ function find_cti_module(){
 
   #what is the latest installed version of cti?
   latest_cti_module=$(readlink -f $pref/cti/default)
-
+  result=`echo $latest_cti_module | grep $supported_cti_release_range`
   #check that the latest installed version of cti is 1.0.5 or newer
-  if [ "$latest_cti_module" != "$pref/cti/$supported_cti_version"* ]
+  if [ "$result" == "" ]
   then
      echo  $latest_cti_module " is the latest cray-cti module installed."
      echo "cray-cti/1.0.5 or later is required."
@@ -134,7 +134,6 @@ supported_cti_version=1.0.5
 supported_cti_release_range=1.0.[5-9]
 
 source_module_script
-#module purge
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then

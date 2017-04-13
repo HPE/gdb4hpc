@@ -88,23 +88,25 @@ guard_rd_directory_name="guard-rd"
 craytool_directory_name="craytool_interface"
 
 function source_module_script() {
-	redhat_release_file="/etc/redhat-release"
+  redhat_release_file="/etc/redhat-release"
 
-	if [ -e "$redhat_release_file" ]; then
-		if [[ -e /usr/share/Modules/init/bash ]]; then 
-			source /usr/share/Modules/init/bash
-		fi
-	else
-		if [[ -e /opt/modules/default/init/bash ]]; then 
-			source /opt/modules/default/init/bash
-		fi
-	fi
+  if [ -e "$redhat_release_file" ]; then
+    if [[ -e /usr/share/Modules/init/bash ]]; then 
+	source /usr/share/Modules/init/bash
+    fi
+  else
+    if [[ -e /opt/modules/default/init/bash ]]; then 
+	source /opt/modules/default/init/bash
+    fi
+  fi
 }
+
 function find_cti_module(){
 
   #what is the latest installed version of cti?
   latest_cti_module=$(readlink -f $pref/cti/default)
   result=`echo $latest_cti_module | grep $supported_cti_release_range`
+
   #check that the latest installed version of cti is 1.0.5 or newer
   if [ "$result" == "" ]
   then

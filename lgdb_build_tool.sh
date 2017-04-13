@@ -100,23 +100,32 @@ function source_module_script() {
     fi
   fi
 }
-
 function load_cti_module(){
+    #what is the latest installed version of cti?
+    latest_cti_module=$(readlink -f $1/cti/default)
+    result=`echo $latest_cti_module | grep $supported_cti_release_range`
 
-  #what is the latest installed version of cti?
-  latest_cti_module=$(readlink -f $1/cti/default)
-  result=`echo $latest_cti_module | grep $supported_cti_release_range`
+    #check that the latest installed version of cti is 1.0.5 or newer
+    if [[ "$result" == "" ]]
+    then
+	echo  $latest_cti_module " is the latest cray-cti module installed."
+	echo "WARNING: cray-cti/1.0.5 or later is required."
+    fi
+    using_cti_version=`echo $latest_cti_module | cut -d'/' -f$2`
+    module load cray-cti/$using_cti_version
+    module list
+}
 
-  #check that the latest installed version of cti is 1.0.5 or newer
-  if [[ "$result" == "" ]]
-  then
-     echo  $latest_cti_module " is the latest cray-cti module installed."
-     echo "WARNING: cray-cti/1.0.5 or later is required."
-  else
-     using_cti_version=`echo $latest_cti_module | cut -d'/' -f$2`
-     module load cray-cti/$using_cti_version
-     module list
-  fi
+function get_cti_version(){
+    for loaded_module in $(echo $LOADEDMODULES | grep cray-cti | sed -e 's/:/\n/g')
+    do
+      # capture the version of the currently loaded cray-cti module
+      if echo $loaded_module | grep -q cray-cti 
+      then
+      	using_cti_version=`echo $loaded_module | cut -d'/' -f2`
+	module list
+      fi
+    done
 }
 
 SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
@@ -136,41 +145,24 @@ source_module_script
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
-
   # cray-cti module is not loaded
   echo "WARNING: cray-cti is not loaded."
-  echo "Attempting to load cray-cti/1.0.5 or newer"
+  echo "Attempting to load default module."
   load_cti_module $pref $delim
 else
   # cray-cti module is loaded
   # check if version of cti module loaded is 1.0.[5-9] or newer
   if ! echo $LOADEDMODULES | grep -q cray-cti/$supported_cti_release_range; then
-
     # the loaded cray-cti module is not a version 1.0.5 or newer
+    echo "WARNING: An older version of cray-cti is loaded." 
     echo "WARNING: cray-cti/1.0.5 or newer must be loaded"
-    echo "Attempting to load cray-cti/1.0.5 or newer"
-    module unload cray-cti
-    load_cti_module $pref $delim
-  else
-
-    # the loaded cray-cti module is a version 1.0.5 or newer
-    # Do not override this module with the default module 
-    for loaded_module in $(echo $LOADEDMODULES | grep cray-cti/$supported_cti_release_range | sed -e 's/:/\n/g')
-    do
-
-      # capture the version of the currently loaded cray-cti module
-      if echo $loaded_module | grep -q cray-cti 
-      then
-      	using_cti_version=`echo $loaded_module | cut -d'/' -f2`
-	module list
-      fi
-
-    done
   fi
+  get_cti_version $delim
 fi
 
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"
+exit
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
@@ -1166,7 +1158,7 @@ if [[ $opt_lgdb == y ]]; then
 	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
-	CXXFLAGS="$opt_flag -Wall" LDFLAGS=-lpthread
+	CXXFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "lgdb"
 	echo -e "\nlgdb installed to $inst_dir.\n"

@@ -162,7 +162,6 @@ fi
 
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"
-exit
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix

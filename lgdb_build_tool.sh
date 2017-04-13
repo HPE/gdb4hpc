@@ -111,7 +111,7 @@ function find_cti_module(){
   if [ "$result" == "" ]
   then
      echo  $latest_cti_module " is the latest cray-cti module installed."
-     echo "WARNIGN: cray-cti/1.0.5 or later is required."
+     echo "WARNING: cray-cti/1.0.5 or later is required."
   else
      latest_cti_version=`echo $latest_cti_module | cut -d'/' -f$delim`
      module load cray-cti/$latest_cti_version

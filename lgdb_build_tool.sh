@@ -109,9 +109,7 @@ function find_cti_module(){
   if [ "$result" == "" ]
   then
      echo  $latest_cti_module " is the latest cray-cti module installed."
-     echo "cray-cti/1.0.5 or later is required."
-     echo "exiting. . ."
-     exit 1
+     echo "WARNIGN: cray-cti/1.0.5 or later is required."
   else
      latest_cti_version=`echo $latest_cti_module | cut -d'/' -f$delim`
      module load cray-cti/$latest_cti_version
@@ -119,14 +117,14 @@ function find_cti_module(){
   fi
 }
 
-SLES_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
-if [ $SLES_VER -lt 12 ]
+SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+if [ "$SLES_VER" == "12" ]
 then
-  pref="/opt/cray"
-  delim=5
-else
   pref="/opt/cray/pe"
   delim=6
+else
+  pref="/opt/cray"
+  delim=5
 fi
 
 #Installed library locations
@@ -153,7 +151,6 @@ else
     find_cti_module
   fi
 fi
-
 
 cti_install_dir="$pref/cti/$latest_cti_version"
 echo "Using $cti_install_dir to build lgdb"

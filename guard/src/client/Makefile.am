@@ -49,5 +49,5 @@ guard_SOURCES	= main.c class_cmd.c cli_funcs.c cmd.c help_dict.c cmd_assign.c cm
 guard_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags
 guard_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++
+		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++ -lpthread
 

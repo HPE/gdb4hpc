@@ -143,6 +143,11 @@ supported_cti_release_range=1.0.[5-9]
 
 source_module_script
 
+if ! echo $LOADEDMODULES | grep -q gcc; then
+  # gcc module is not loaded
+  module load gcc
+fi
+
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
   # cray-cti module is not loaded

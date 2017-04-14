@@ -74,7 +74,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
-cuda_pascal_dir="/cray/css/release/cray/build/xc/latest-RB/3rd-party:master/SLE_12/x86_64"
+cuda_pascal_dir="/cray/css/release/cray/build/xc/RB-6.0/201611171137/3rd-party:master/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
@@ -88,29 +88,80 @@ guard_rd_directory_name="guard-rd"
 craytool_directory_name="craytool_interface"
 
 function source_module_script() {
-	redhat_release_file="/etc/redhat-release"
+  redhat_release_file="/etc/redhat-release"
 
-	if [ -e "$redhat_release_file" ]; then
-		if [[ -e /usr/share/Modules/init/bash ]]; then 
-			source /usr/share/Modules/init/bash
-		fi
-	else
-		if [[ -e /opt/modules/default/init/bash ]]; then 
-			source /opt/modules/default/init/bash
-		fi
-	fi
+  if [ -e "$redhat_release_file" ]; then
+    if [[ -e /usr/share/Modules/init/bash ]]; then 
+	source /usr/share/Modules/init/bash
+    fi
+  else
+    if [[ -e /opt/modules/default/init/bash ]]; then 
+	source /opt/modules/default/init/bash
+    fi
+  fi
+}
+function load_cti_module(){
+    #what is the latest installed version of cti?
+    latest_cti_module=$(readlink -f $1/cti/default)
+    result=`echo $latest_cti_module | grep $supported_cti_release_range`
+
+    #check that the latest installed version of cti is 1.0.5 or newer
+    if [[ "$result" == "" ]]
+    then
+	echo  $latest_cti_module " is the latest cray-cti module installed."
+	echo "WARNING: cray-cti/1.0.5 or later is required."
+    fi
+    using_cti_version=`echo $latest_cti_module | cut -d'/' -f$2`
+    module load cray-cti/$using_cti_version
+    module list
 }
 
-#Installed library locations
-supported_cti_version="1.0.2"
-cti_install_dir="/opt/cray/cti/$supported_cti_version"
+function get_cti_version(){
+    for loaded_module in $(echo $LOADEDMODULES | grep cray-cti | sed -e 's/:/\n/g')
+    do
+      # capture the version of the currently loaded cray-cti module
+      if echo $loaded_module | grep -q cray-cti 
+      then
+      	using_cti_version=`echo $loaded_module | cut -d'/' -f2`
+	module list
+      fi
+    done
+}
+
+SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+if [[ "$SLES_VER" == "12" ]]
+then
+  pref="/opt/cray/pe"
+  delim=6
+else
+  pref="/opt/cray"
+  delim=5
+fi
+
+supported_cti_version=1.0.5
+supported_cti_release_range=1.0.[5-9]
 
 source_module_script
 
+#check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
-	echo "WARNING: Loading default CTI module"
-	module load cray-cti
+  # cray-cti module is not loaded
+  echo "WARNING: cray-cti is not loaded."
+  echo "Attempting to load default module."
+  load_cti_module $pref $delim
+else
+  # cray-cti module is loaded
+  # check if version of cti module loaded is 1.0.[5-9] or newer
+  if ! echo $LOADEDMODULES | grep -q cray-cti/$supported_cti_release_range; then
+    # the loaded cray-cti module is not a version 1.0.5 or newer
+    echo "WARNING: An older version of cray-cti is loaded." 
+    echo "WARNING: cray-cti/1.0.5 or newer must be loaded"
+  fi
+  get_cti_version $delim
 fi
+
+cti_install_dir="$pref/cti/$using_cti_version"
+echo "Using $cti_install_dir to build lgdb"
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix

@@ -53,6 +53,6 @@ else
 AM_CFLAGS += -DBINDIR=\"$(bindir)\"
 bin_PROGRAMS 	= guard_starter
 guard_starter_SOURCES	= guard_starter.c
-guard_starter_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a
+guard_starter_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a -lpthread
 guard_starter_LDFLAGS	= $(LDFLAGS)
 endif

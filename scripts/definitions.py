@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#1
 import sys, os, re, datetime, time, fnmatch, glob, commands, stat
 from os import listdir
 from os.path import isfile, join
@@ -7,17 +6,18 @@ from distutils.version import LooseVersion
 from datetime import date
 from datetime import datetime
 
-
-
 arch                ="x86_64"
 final		    = False
+athena              = False
 product_dir         = "/cray/css/pe/pkgs/cray-lgdb"
 bld_dir             = ""
-
+os_sub              = ""
 
 for arg in sys.argv:
   if arg == '-f':
     final = True
+  if arg == '-a':
+    athena = True
 
 def fetch_release(base_name, rev_num,pkgs_dir):
   rpm_tail = ".x86_64.rpm"
@@ -25,14 +25,16 @@ def fetch_release(base_name, rev_num,pkgs_dir):
   itt_list.reverse()
   rval = 0
   for i in itt_list:
-    tmp_name = pkgs_dir + "/" + base_name + "-" + str(i) + "_" + "*" + "." + rev_num + osver + rpm_tail
+    tmp_name = pkgs_dir + "/" + base_name + "-" + "*" + "." + rev_num + "-" + str(i) + osver + rpm_tail
     if glob.glob(tmp_name):
       rval = i + 1
       break
   return str(rval)  
 
+
 def fetch_os():
   global bld_dir
+  global os_sub
   if os.path.isfile("/etc/SuSE-release"):
     with open("/etc/SuSE-release", "r") as f:
       for line in f:
@@ -42,18 +44,24 @@ def fetch_os():
   elif os.path.isfile("/etc/redhat-release"):
     with open("/etc/redhat-release", "r") as f:
       for line in f:
-        if line.find("CentOS release") != -1:
-          os_sub = 'el6'
+        if line.find("CentOS ") != -1:
+          os_sub = 'el7'
           break
 
   os_sub = os_sub.strip()
   print "OS VER: " + os_sub
-  if os_sub == "el6":
+  if os_sub == "el7" and athena == False:
     bld_dir = "/cray/css/ulib/lgdb/builds/builds_cs"
-    return "_el6"
+    return ".el7"
+  elif os_sub == "el7" and athena == True:
+    bld_dir = "/cray/css/ulib/lgdb/builds/athena"
+    return ".el7"
   elif os_sub == "11":
     bld_dir = "/cray/css/ulib/lgdb/builds/builds_xc"
-    return "_sles11"
+    return ".sles11"
+  elif os_sub =="12":
+    bld_dir = "/cray/css/ulib/lgdb/builds/builds_xc"
+    return ".sles12"
 
 
 def release_date():
@@ -105,17 +113,16 @@ def fetch_latest_version(final, revision, pkgs_dir):
     last_package = onlyfiles.pop()
     
     #determine the 4 digit version number
-    last_package_ver = last_package.replace("cray-lgdb-","")
-    last_package_ver = last_package_ver.split("-")[1]
-
+    last_package_ver = last_package.split("cray-lgdb-")[1]
     #get latest version number
-    version = last_package_ver.split("/")[2]
-    version_list = last_package_ver.split(".")
-
+    version = last_package_ver.split("-")[0]
+    version_list = version.split(".")
+    
     #get old revision
-    oldrev = last_package.split("_")[1]
+    oldrev = last_package.split("-")[4]
     oldrev=oldrev.split(".")
     oldrev=oldrev[1]
+
     #determine if latest package was a pre-release or a release
     if len(version) == 5:
        latest_ver = "release"
@@ -147,23 +154,25 @@ def fetch_latest_version(final, revision, pkgs_dir):
       #if branch is master
       if final == False:
         if oldrev != revision:
+  	  print "revs are not the same"
 	  #increment 4th digit
 	  #figure out the new last digit
           new_last_digit = str(int(version_list[4]) + 1)
-
+         
           #replace the last digit of the version number
           version_list.pop()
           version_list.append(new_last_digit)
           new_version_str = ".".join(version_list)
 	else:
 	  new_version_str = ".".join(version_list)
+	  print new_version_str
       elif final == True:
         #remove 4th digit
         version_list.pop()
         new_version_str = ".".join(version_list)
 
   	
-  new_version_str = new_version_str.split("/")[2]
+  #new_version_str = new_version_str.split("/")[2]
   return new_version_str
          
 
@@ -211,7 +220,6 @@ def fetch_newData():
   timestmp_revnbr = str(dt_time) + "." + str(rev_number)
 
   osver = fetch_os()
-
   ver_two_dig = fetch_packageDir()
   pkgs_dir = product_dir + "/" + ver_two_dig
   version = fetch_latest_version(final,rev_number,pkgs_dir)
@@ -221,7 +229,7 @@ def fetch_newData():
   base_name = "cray-lgdb-" + version
   release_number = fetch_release(base_name, rev_number,pkgs_dir)
 
-  package_name = base_name + "-" + release_number + "_" + timestmp_revnbr + osver
+  package_name = base_name + "-" + timestmp_revnbr + "-" + release_number + osver
   rpm_name = package_name + "." + arch + ".rpm"
 
   return

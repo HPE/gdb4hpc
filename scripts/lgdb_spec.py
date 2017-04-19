@@ -3,37 +3,37 @@ content='''%define namespace [namespace]
 %define intranamespace_name [intranamespace_name]
 %define two_dig_version [package_branch_two_digit]
 %define two_dig_nodot_version [package_branch_two_digit_nodot]
-
+%define build_version [version]
+%define scripts_d [script_dir]
 %define man_source /cray/css/compiler/comp_rel/pubs/manpages/lgdb/%{two_dig_version}/xt_lgdb_%{two_dig_nodot_version}.cpio
 
 Summary: Performance Application Programming Interface
-Name: %{namespace}-%{intranamespace_name} 
-Version: [version] 
-Release: [rpm_release]_[package_revision][sles_sub]
+Name: %{namespace}-%{intranamespace_name}-%{build_version} 
+Version: [revision]
+Release: [release][sles_sub]
 License: BSD
 Group: Development/System
 URL: [url]
 Source: [tarball]
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
-
-#BuildRequires: gcc-fortran
+Requires: cray-cti >= 1.0.5
 
 %define _use_internal_dependency_generator 0
-%define __find_requires [script_dir]/find-requires 
+%define __find_requires %{scripts_d}/find-requires 
 %define debug_package%{nil}
 
 %description
 CCDB is a comparative debugger.
 
 # version
-%define major_version %(echo %{version} | awk -v n=1 'BEGIN { FS = "." } ; { print $n }')
-%define minor_version %(echo %{version} | awk -v n=2 'BEGIN { FS = "." } ; { print $n }')
+%define major_version %(echo %{build_version} | awk -v n=1 'BEGIN { FS = "." } ; { print $n }')
+%define minor_version %(echo %{build_version} | awk -v n=2 'BEGIN { FS = "." } ; { print $n }')
 
 # _prefix
 %define _namespace_prefix %{prefix}
 %define _name_prefix %{_namespace_prefix}/%{intranamespace_name}
-%define _version_prefix %{_name_prefix}/%{version}
+%define _version_prefix %{_name_prefix}/%{build_version}
 
 # _moduledir
 %define _namespace_moduledir %{prefix}/modulefiles
@@ -48,13 +48,13 @@ mkdir -p %{buildroot}%{_version_prefix}
 cp -r cray-lgdb/* %{buildroot}%{_version_prefix}/
 rm -rf %{buildroot}%{_version_prefix}/modulefiles
 
-install -D modulefile/%{version} %{buildroot}%{_name_moduledir}/%{version}
+install -D modulefile/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
 install -D cray-lgdb/release_info %{buildroot}%{_version_prefix}/
-echo "%{version}-%{release}" > %{buildroot}%{_version_prefix}/.%{namespace}_rpm_release
+echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.%{namespace}_rpm_release
 mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
-install -D set_default_%{namespace}-%{intranamespace_name}_%{version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version}
-install -D set_default_%{namespace}-%{intranamespace_name}_%{version} %{buildroot}%{_version_prefix}/
-mv cray-lgdb/docs/ATTRIBUTIONS_lgdb.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_lgdb.%{version}.txt
+install -D set_default_%{namespace}-%{intranamespace_name}_%{build_version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+install -D set_default_%{namespace}-%{intranamespace_name}_%{build_version} %{buildroot}%{_version_prefix}/
+mv cray-lgdb/docs/ATTRIBUTIONS_lgdb.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_lgdb.%{build_version}.txt
 
 # hardlink duplicate files to save space
 #%fdupes %{buildroot}
@@ -86,12 +86,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/lib
 %{_version_prefix}/man
 
-%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{version}
-%{_name_moduledir}/%{version}
+%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+%{_name_moduledir}/%{build_version}
 %{_version_prefix}/.cray_rpm_release
-%{_version_prefix}/set_default_%{namespace}-%{intranamespace_name}_%{version}
+%{_version_prefix}/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
 %{_version_prefix}/release_info
-%{_version_prefix}/ATTRIBUTIONS_lgdb.%{version}.txt
+%{_version_prefix}/ATTRIBUTIONS_lgdb.%{build_version}.txt
 #%{_version_prefix}/docs/GPLv3.txt
 #%{_version_prefix}/docs/LGPLv21.txt
 #%{_version_prefix}/docs/LICENSE
@@ -110,25 +110,25 @@ rm -rf $RPM_BUILD_ROOT
 
 #Set the install path in the modulefile & set_default script(s)
 sed -i "s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
-$RPM_INSTALL_PREFIX/modulefiles/%{name}/%{version} \
-$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{name}_%{version} \
-$RPM_INSTALL_PREFIX/%{intranamespace_name}/%{version}/set_default_%{name}_%{version}
+$RPM_INSTALL_PREFIX/modulefiles/%{namespace}-%{intranamespace_name}/%{build_version} \
+$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version} \
+$RPM_INSTALL_PREFIX/%{intranamespace_name}/%{build_version}/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
 
 # prevent echo of new directory as it messes up install output
 if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
   then
     if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ] || [ ! -f $RPM_INSTALL_PREFIX/modulefiles/cray-lgdb/.version ]
     then
-      $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{name}_%{version}
+      $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
     else
-      echo "%{name}_%{version} has been installed as non-default."
+      echo "%{namespace}-%{intranamespace_name}_%{build_version} has been installed as non-default."
     fi
 fi
 
 %preun
 # Cleanup default link if it point to this version
 default_link="${RPM_INSTALL_PREFIX}/%{intranamespace_name}/default"
-version="%{version}"
+version="%{build_version}"
 
 # Cleanup module .version if it points to this version
 if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}/.version ]

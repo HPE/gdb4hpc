@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#3
+
 import sys, os, distutils.dir_util, distutils.file_util, tarfile, fnmatch
 from optparse import OptionParser
 
@@ -7,17 +7,20 @@ from optparse import OptionParser
 import definitions
 import lgdb_spec
 import lgdb_module
+import lgdb_module_athena
 import set_default_lgdb
 
 #handle any user passed options
 parser = OptionParser()
-parser.add_option("-v","--version",dest="static_version",default=False,help="The user specified version number")
-parser.add_option("-b","--builddir",dest="builddir",help="the directory containing the build")
+parser.add_option("-v","--version", dest="static_version", default=False, help="The user specified version number")
+parser.add_option("-b","--builddir", dest="builddir", help="the directory containing the build")
 parser.add_option("-t", "--test", action="store_true", dest="test")
-parser.add_option("-f","--final", action="store_true", dest="is_final",default=False)
+parser.add_option("-f","--final", action="store_true", dest="is_final", default=False)
+parser.add_option("-a","--athena", action="store_true", dest="is_athena", default=False)
 (options, args) = parser.parse_args()
 
 is_final   = options.is_final
+is_athena  = options.is_athena
 
 #retrieve some package details
 package_info                  = definitions.fetch_newData()
@@ -33,7 +36,6 @@ build_version                 = definitions.version
 release_number                = definitions.release_number
 rpm_name                      = definitions.rpm_name
 os_ver                        = definitions.osver
-
 
 
 if options.builddir == None:
@@ -58,7 +60,7 @@ else:
 if options.static_version != False:
   build_version = options.static_version
   release_number = str(0)
-  rpm_name = "cray-lgdb-" + build_version + "-" + release_number + "_" + revision_number + os_ver + ".x86_64.rpm"
+  rpm_name = "cray-lgdb-" + build_version + "-" + revision_number + "-" + release_number + os_ver + ".x86_64.rpm"
   if is_final:
     if len(build_version) <= 4 or len(build_version) > 5:
       print "Ensure your release version has 3 digits. Exiting..."
@@ -70,17 +72,27 @@ if options.static_version != False:
 
 print "Packaging: " + rpm_name
 
-if os_ver == '_sles11':
-  os_string = 'XC'
-elif os_ver == '_el6':
+pref='--prefix=/opt/cray'
+os_string = ""
+os_prefix = '/opt/cray'
+
+if os_ver == '.sles11':
+  os_string = 'sles11'
+elif os_ver == '.sles12':
+  os_string = 'sles12'
+  os_prefix = '/opt/cray/pe'
+  pref=''
+elif os_ver == '.el7' and is_athena == False:
   os_string = 'CS'
+elif os_ver == '.el7' and is_athena == True:
+  os_string = 'Athena'
 
-
+ 
 #define some paths
 top_dir         = os.getcwd()
 work_dir        = top_dir + "/tmp"
 rpm_build_dir   = work_dir + "/package"
-rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version
+rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version + "-" + revision_number
 rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
@@ -95,7 +107,7 @@ module_dest = rpm_module_dir + "/" + build_version
 set_default_script_dest = rpm_install_dir + "/set_default_cray-lgdb_" + build_version
 
 #the source tarball
-folder_name = "cray-lgdb-" + build_version
+folder_name = "cray-lgdb-" + build_version + "-" + revision_number
 tar_name = folder_name + ".tar.gz"
 tar_dest = rpm_build_dir + "/rpm/SOURCES"
 
@@ -111,7 +123,11 @@ for directory in [work_dir, rpm_build_dir, rpm_install_dir, rpm_module_dir, rpm_
   os.mkdir(directory)
 
 #generate the modulefile
-module_content = lgdb_module.content.replace('<version>', build_version)
+if is_athena:
+  module_content = lgdb_module_athena.content.replace('<version>', build_version)
+else:
+  module_content = lgdb_module.content.replace('<version>', build_version)
+
 new_mod = open(module_dest, 'w+')
 new_mod.write(module_content)
 new_mod.close()
@@ -123,8 +139,8 @@ spec_content = spec_content.replace( "[intranamespace_name]", "lgdb")
 spec_content = spec_content.replace( "[package_branch_two_digit]", build_version_two_digit)
 spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_version_two_digit_nodot)
 spec_content = spec_content.replace( "[version]", build_version)
-spec_content = spec_content.replace( "[rpm_release]", release_number)
-spec_content = spec_content.replace( "[package_revision]", revision_number)
+spec_content = spec_content.replace( "[release]", release_number)
+spec_content = spec_content.replace( "[revision]", revision_number)
 spec_content = spec_content.replace( "[sles_sub]", os_ver)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
@@ -158,9 +174,11 @@ with open("out.txt", "w+") as out:
     b = a.replace("%RELEASE%", release_number)
     c = b.replace("%REVISION%", revision_number)
     d = c.replace("%RELEASEDATE%", release_date)
-    e = d.replace("%os%",os_ver)
-    f = e.replace("%os_string%",os_string)
-    out.write(f)
+    e = d.replace("%os%", os_ver)
+    f = e.replace("%os_string%", os_string)
+    g = f.replace("%OSPREFIX%", os_prefix)
+    h = g.replace("%PREFIX%", pref)
+    out.write(h)
 
 outpath = rpm_lgdb_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
@@ -259,14 +277,7 @@ section-3:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
     COMMANDS: |
-            OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
-            if [[ $OS_VER -lt 12 ]]
-            then
-              pref=/opt/cray
-            else
-              pref=/opt/cray/pe
-            fi
-            $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            <osprefix>/admin-pe/set_default_files/set_default_cray-lgdb_<version>
 
 section-4:
     ACCELERATOR           : NONE
@@ -286,18 +297,11 @@ section-4:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : WHITEBOX
     COMMANDS: |
-            OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
-            if [[ $OS_VER -lt 12 ]]
-            then
-              pref=/opt/cray
-            else
-              pref=/opt/cray/pe
-            fi
-            $pref/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            <osprefix>/admin-pe/set_default_files/set_default_cray-lgdb_<version>
 
 section-5:
     ACCELERATOR           : NONE
-    EFFECTIVE_DATE        : 2017-09-19
+    EFFECTIVE_DATE        : 2020-09-19
     EMAILS                : kdavis@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL
@@ -315,7 +319,7 @@ section-5:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : ALL
     COMMANDS: |
-        rpm -e cray-lgdb-<version>-<release>_<revision>
+        rpm -e cray-lgdb-<version>-<revision>-<release>
 
 --- |
 #Remove previous versions of this rpm
@@ -324,15 +328,7 @@ do
   rpm -e $package
 done
 
-OS_VER=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
-if [[ $OS_VER -lt 12 ]]
-then
-  pref="--prefix=/opt/cray"
-else
-  pref=
-fi
-
-rpm -hiv $pref --oldpackage cray-lgdb-<version>-<release>_<revision><os>.x86_64.rpm
+rpm -hiv <pref> --oldpackage cray-lgdb-<version>-<revision>-<release><os>.x86_64.rpm
 
 '''
 manifest_dest = rpm_name + ".yaml"
@@ -340,6 +336,8 @@ manifest_content = yaml_template.replace("<version>", build_version)
 manifest_content = manifest_content.replace("<release>", release_number)
 manifest_content = manifest_content.replace("<revision>", revision_number)
 manifest_content = manifest_content.replace("<os>", os_ver)
+manifest_content = manifest_content.replace("<pref>", pref)
+manifest_content = manifest_content.replace("<osprefix>", os_prefix)
 manifest_yaml = open(manifest_dest, "w+")
 manifest_yaml.write(manifest_content)
 manifest_yaml.close()

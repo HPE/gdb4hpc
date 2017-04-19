@@ -33,8 +33,9 @@ Purpose:
 ---------
   This is feature release.
 
-  1. Update the MRNet communication library component of lgdb to the latest
-  release (5.0)
+  1. Add support for the --launcher argument which allows for launching using non standard application launchers in certain scenarios
+  2. Add support for attaching to a running job on CS systems by providing the pid of srun
+  3. Add support for PMI2_Init as a debugger entry point
 
 
 Product and OS Dependencies:

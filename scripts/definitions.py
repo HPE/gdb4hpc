@@ -111,7 +111,7 @@ def fetch_latest_version(final, revision, pkgs_dir):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]
     onlyfiles.sort(key=os.path.getmtime)
     last_package = onlyfiles.pop()
-    
+
     #determine the 4 digit version number
     last_package_ver = last_package.split("cray-lgdb-")[1]
     #get latest version number
@@ -136,9 +136,9 @@ def fetch_latest_version(final, revision, pkgs_dir):
       if final == False:
         #then there is a new revision
         #get third digit and increment
-        third_digit = version_list[3]
-
-	#increment third digit
+        third_digit = version_list[2]
+	
+        #increment third digit
 	third_digit = str(int(third_digit) + 1)
 
         #postpend a .1
@@ -170,9 +170,7 @@ def fetch_latest_version(final, revision, pkgs_dir):
         #remove 4th digit
         version_list.pop()
         new_version_str = ".".join(version_list)
-
-  	
-  #new_version_str = new_version_str.split("/")[2]
+	
   return new_version_str
          
 
@@ -192,25 +190,17 @@ def fetch_newData():
   rev_number  = os.popen(rev_command).read()
   rev_number  = rev_number.rstrip()
 
-  branch = "git branch"
+  branch = "git rev-parse --abbrev-ref HEAD"
   branch = os.popen(branch).read()
-  branch = branch.rstrip()
-  ar_branches = re.split('\n',branch)
-
-  if ar_branches[0].find('*') > -1:
-    branch = "master"
-  else:
-    branch = "release"
-  
- 
+  branch = branch.rstrip() 
   print "Packaging from: " + branch
-
   if final == True and branch == 'master':
     print "You indicated this should be a final build, but you are packaging from " + branch
     print "Exiting. . ."
     exit(1)
 
-  dt_time = datetime.utcnow()
+  time_command = "git log -s -1 --format=%ci | tail -n1 | cut -d' ' -f1-2"
+  dt_time = os.popen(time_command).read()
   dt_time = str(dt_time).replace(":","")
   dt_time = str(dt_time).replace("-","")
   dt_time = str(dt_time).replace(" ","")

@@ -95,9 +95,8 @@ rpm_build_dir   = work_dir + "/package"
 rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version + "-" + revision_number
 rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
-man_path        = "/cray/css/ulib/pubs/lgdb/man/xt_lgdbm/trunk/newest/"
 parent_dir      = top_dir.rsplit('/',1)[0]
-
+man_dir         = parent_dir + "/man"
 
 #spec file
 spec_file = "cray-lgdb.spec"
@@ -184,16 +183,34 @@ outpath = rpm_lgdb_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
 print "outpath: " + outpath
 
-#man pages 
-man_dir = rpm_lgdb_dir+'/man'
-distutils.dir_util.copy_tree(man_path+"/man1", man_dir+"/man1")
-distutils.file_util.copy_file(man_path+"/whatis", man_dir)
 
 os.chdir(cur_dir)
 
 #setup the RPM directories
 for path in ['/rpm/SOURCES','/rpm/BUILD','/rpm/RPMS/x86_64']:
   distutils.dir_util.mkpath(rpm_build_dir+path)
+
+distutils.dir_util.copy_tree(man_dir, rpm_lgdb_dir+"/man")
+fileList = os.listdir(rpm_lgdb_dir+"/man/man1/")
+for f in fileList:
+  extension = os.path.splitext(f)[1]
+  if extension == ".txt":
+    os.remove(os.path.join(rpm_lgdb_dir+'/man/man1/', f))
+  elif extension == ".xml":
+    os.remove(os.path.join(rpm_lgdb_dir+'/man/man1/', f))
+
+
+for dirpath, dirnames, filenames in os.walk(rpm_lgdb_dir):
+     for filename in filenames:
+       if fnmatch.fnmatch(filename,'.git*'):
+	   print "Removing. . . " + dirpath + "/" + filename
+	   os.remove(os.path.join(dirpath, filename))
+     for dirname in dirnames:
+	 if fnmatch.fnmatch(dirname,'.git*'):
+	     print "Removing. . . " + dirpath + "/" + dirname
+	     distutils.dir_util.remove_tree(dirpath + "/" + dirname)
+
+
 
 #tar up the package source 
 cur_dir = os.getcwd()

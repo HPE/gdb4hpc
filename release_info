@@ -33,7 +33,7 @@ Purpose:
 ---------
   This is a bugfix release.
 
-  1. Fix support for launching with Intel MPI and mpiexec.hydra so that no workaround is required for a successful launch under these conditions
+  1. Fix support for launching with Intel MPI and mpiexec.hydra (BUG 846503)
 
 
 Product and OS Dependencies:

@@ -86,6 +86,7 @@ guard_rd_directory_name="guard-rd"
 
 # External dependency source trees that are imported directly in lgdb
 craytool_directory_name="craytool_interface"
+pref=""
 
 function source_module_script() {
   redhat_release_file="/etc/redhat-release"
@@ -95,8 +96,8 @@ function source_module_script() {
 	source /usr/share/Modules/init/bash
     fi
   else
-    if [[ -e /opt/modules/default/init/bash ]]; then 
-	source /opt/modules/default/init/bash
+    if [[ -e $pref/modules/default/init/bash ]]; then 
+	source $pref/modules/default/init/bash
     fi
   fi
 }
@@ -164,7 +165,7 @@ else
   fi
   get_cti_version $delim
 fi
-
+exit
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"
 

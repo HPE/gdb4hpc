@@ -165,7 +165,7 @@ else
   fi
   get_cti_version $delim
 fi
-exit
+
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"
 

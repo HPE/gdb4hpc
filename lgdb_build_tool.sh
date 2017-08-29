@@ -114,7 +114,6 @@ function load_cti_module(){
     fi
     using_cti_version=`echo $latest_cti_module | cut -d'/' -f$2`
     module load cray-cti/$using_cti_version
-    module list
 }
 
 function get_cti_version(){
@@ -124,7 +123,6 @@ function get_cti_version(){
       if echo $loaded_module | grep -q cray-cti 
       then
       	using_cti_version=`echo $loaded_module | cut -d'/' -f2`
-	module list
       fi
     done
 }
@@ -144,9 +142,9 @@ supported_cti_release_range=1.0.[5-9]
 
 source_module_script
 
-if ! echo $LOADEDMODULES | grep -q gcc; then
+if ! echo $LOADEDMODULES | grep -q gcc/4.8.1; then
   # gcc module is not loaded
-  module load gcc
+  module load gcc/4.8.1
 fi
 
 #check if cti module is loaded
@@ -165,6 +163,8 @@ else
   fi
   get_cti_version $delim
 fi
+
+module list
 
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"

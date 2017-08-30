@@ -96,8 +96,8 @@ function source_module_script() {
 	source /usr/share/Modules/init/bash
     fi
   else
-    if [[ -e $pref/modules/default/init/bash ]]; then 
-	source $pref/modules/default/init/bash
+    if [[ -e $module_pref/modules/default/init/bash ]]; then 
+	source $module_pref/modules/default/init/bash
     fi
   fi
 }
@@ -131,9 +131,11 @@ SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
 if [[ "$SLES_VER" == "12" ]]
 then
   pref="/opt/cray/pe"
+  module_pref="/opt/cray/pe"
   delim=6
 else
   pref="/opt/cray"
+  module_pref="/opt"
   delim=5
 fi
 

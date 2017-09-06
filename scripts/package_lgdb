@@ -8,7 +8,6 @@ import definitions
 import lgdb_spec
 import lgdb_module
 import lgdb_module_athena
-import set_default_lgdb
 
 #handle any user passed options
 parser = OptionParser()
@@ -97,11 +96,14 @@ rpm_module_dir  = rpm_install_dir + "/modulefile"
 rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
 parent_dir      = top_dir.rsplit('/',1)[0]
 man_dir         = parent_dir + "/man"
+set_default_lgdb = top_dir + "/set_default/set_default_template"
 
 #spec file
 spec_file = "cray-lgdb.spec"
+
 #modulefile
 module_dest = rpm_module_dir + "/" + build_version
+
 #set_default script
 set_default_script_dest = rpm_install_dir + "/set_default_cray-lgdb_" + build_version
 
@@ -156,8 +158,13 @@ for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
   distutils.dir_util.copy_tree(lgdb_build_dir+dir, rpm_lgdb_dir+dir)
 
 
-#take care of the set_default script
-set_def_content = set_default_lgdb.content.replace('[version_string]', build_version)
+#take care of the set_default sciript
+fin = open(set_default_lgdb,'r')
+set_def_content = fin.read()
+set_def_content = set_def_content.replace('[version_string]', build_version)
+set_def_content = set_def_content.replace('[product_name]', "lgdb")
+set_def_content = set_def_content.replace('[module_dir]', "[install_dir]/modulefiles")
+set_def_content = set_def_content.replace('[module_name_list]', "cray-lgdb")
 new_set_def = open(set_default_script_dest, "w+")
 new_set_def.write(set_def_content)
 new_set_def.close()

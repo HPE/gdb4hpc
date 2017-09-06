@@ -18,6 +18,8 @@ Source: [tarball]
 BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
 Requires: cray-cti >= 1.0.5
+Vendor: Cray Inc.
+Requires: set_default_2
 
 %define _use_internal_dependency_generator 0
 %define __find_requires %{scripts_d}/find-requires 

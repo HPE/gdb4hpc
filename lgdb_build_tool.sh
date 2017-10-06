@@ -174,6 +174,12 @@ echo "Using $cti_install_dir to build lgdb"
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
 
+
+echo "cti_install_dir: $cti_install_dir"
+echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+
+
+
 # Demos directory name
 demo_directory_name="demos"
 
@@ -1092,6 +1098,12 @@ fi
 
 cti_lib_directory=`echo $cti_pkgconfig_L_dir | cut -c 3-` 
 cti_include_directory=`echo $cti_pkgconfig_I_dir | cut -c 3-` 
+
+echo "cti_pkgconfig_L_dir:    $cti_pkgconfig_L_dir"
+echo "cti_pkgconfig_I_dir:    $cti_pkgconfig_I_dir"
+echo "cti_lib_directory:      $cti_lib_directory"
+echo "cti_include_directory:  $cti_include_directory"
+
 
 # mrnet build - This *must* happen after the cti library build now since mrnet
 # depends on cti components.

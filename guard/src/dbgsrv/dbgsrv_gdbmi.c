@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include <string.h>
 #include <sys/types.h>
@@ -89,7 +90,10 @@ static int			MPArch;
 static char *		RunArgs = NULL;
 static dbgbp_t *	CurrBP = (dbgbp_t *)NULL;
 static list_t *		BP;
-static list_t *		entry_BP;
+
+static list_t *		main_entry_BP;
+static list_t *		parallel_entry_BP;
+
 static list_t *		exit_BP;
 static char *		ProgMain;
 static int			AsynchEventWaiting = 0;
@@ -163,7 +167,7 @@ static dbgevent_t *	delete_internal_breakpoints(list_t *);
 static dbgevent_t *	setup_gdbmi_environment(void);
 static dbgevent_t *	setup_gdbmi_signals(void);
 static dbgevent_t *	setup_gdbmi_entry_points(void);
-static dbgevent_t *	setup_gdbmi_lastchance_entry_points(void);
+static dbgevent_t *	setup_gdbmi_main_entry_points(void);
 static dbgevent_t *	setup_gdbmi_exit_points(void);
 static dbgevent_t *	ResetBeforeDirectCmd(void);
 static dbgevent_t *	RestoreAfterDirectCmd(void);
@@ -749,7 +753,7 @@ setup_gdbmi_entry_points(void)
 	}
 	MICommandFree(cmd);
 	
-	entry_BP = NewList();
+	parallel_entry_BP = NewList();
 	
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Init)", 0);
 	SendMICommand(GDBMISession, cmd);
@@ -758,7 +762,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -767,7 +771,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -776,7 +780,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -785,7 +789,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -794,7 +798,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -803,7 +807,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -812,7 +816,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -821,7 +825,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -830,7 +834,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -839,7 +843,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -848,7 +852,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -857,7 +861,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -866,7 +870,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -875,7 +879,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -884,7 +888,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 
@@ -893,7 +897,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -902,7 +906,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -911,7 +915,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -920,7 +924,7 @@ setup_gdbmi_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -939,12 +943,14 @@ setup_gdbmi_entry_points(void)
 }
 
 static dbgevent_t *
-setup_gdbmi_lastchance_entry_points(void)
+setup_gdbmi_main_entry_points(void)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
 	dbgbp_t *		bp_res;
-	
+
+	main_entry_BP = NewList();
+
 	// set the lang to c. We always want to do this!!
 	cmd = MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
@@ -963,7 +969,7 @@ setup_gdbmi_lastchance_entry_points(void)
 	if (MICommandResultOK(cmd)) 
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
-			AddToList(entry_BP, (void *)bp_res);
+			AddToList(main_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
 	
@@ -1381,25 +1387,16 @@ DbgGDBMIStartup(void)
 	// entry mode
 	if (!early_entry_flag)
 	{
-		// setup default entry points
+
+		//setup main entry points
+		if ((e = setup_gdbmi_main_entry_points()) != NULL)
+			return e;
+		// setup parallel entry points
 		if ((e = setup_gdbmi_entry_points()) != NULL)
 			return e;
 		
-		// if the entry_BP list is empty, we want to setup the last chance entry
-		// breakpoints. If this still fails to set a breakpoint, then we are unable
-		// to release the application from the startup barrier. The user will have
-		// to intervene manually. We also do not want to call the finish command.
-		// The last chance entry points place us directly into main.
-		if ( EmptyList(entry_BP) )
-		{
-			if ((e = setup_gdbmi_lastchance_entry_points()) != NULL)
-				return e;
-		
-			finish = 0;
-		}
-		
-		// we only want to issue a continue if the entry_BP list is not empty.
-		if ( !EmptyList(entry_BP))
+		// we only want to issue a continue if one of the breakpoint lists is not empty.
+		if ( !EmptyList(parallel_entry_BP) || !EmptyList(main_entry_BP))
 		{
 recover_for_slurm:
 			// counter for recover
@@ -1447,18 +1444,26 @@ recover_for_slurm:
 				return e;
 			}
 		
-			// ensure we hit a known entry breakpoint
-			if ((bp=FindBPByID(entry_BP, evt->bkptno)) == (dbgbp_t *)NULL)
+			// If we hit a main breakpoint, we are done (unset finish). Otherwise check parallel breakpoints
+			if ((bp=FindBPByID(main_entry_BP, evt->bkptno)) == (dbgbp_t *)NULL)
 			{
-				EVENT_ERROR(e, DBGERR_DEBUGGER, "Hit unknown entry breakpoint.");
-				return e;
+				// If we hit a parallel breakpoint, we need to finish, otherwise unkown
+				if((bp=FindBPByID(parallel_entry_BP, evt->bkptno)) == (dbgbp_t *)NULL){
+					EVENT_ERROR(e, DBGERR_DEBUGGER, "Hit unknown entry breakpoint.");
+					return e;
+				}
+			}
+			else{
+				finish = 0;
 			}
 		
 			// Free the event
 			MIEventFree(evt);
 		
 			// remove all of the entry breakpoints. We are done with them.
-			if ((e = delete_internal_breakpoints(entry_BP)) != NULL)
+			if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
+				return e;
+			if ((e = delete_internal_breakpoints(parallel_entry_BP)) != NULL)
 				return e;
 			
 			// We want to set MPIR_debug_gate=1. This is an old MPIR standard.

@@ -751,6 +751,13 @@ DoInvoke(	char *proto,
 	  Client.early_entry = 1;
 	}
 	
+	// Launches with generic wlm and non srun/aprun launchers use early entry
+	char* launcher_name = getenv(CTI_LAUNCHER_NAME);
+	cti_wlm_type current_wlm = cti_current_wlm();
+	if( current_wlm == CTI_WLM_SSH && launcher_name!= NULL && strcmp(launcher_name,"srun") != 0 && strcmp(launcher_name,"aprun") != 0){
+		Client.early_entry = 1;
+	}
+
 	di = DbgInvoke(	proto, sess, prog, args, 
 					ps->s_name, ps->s_nproc, 
 					arch, arch_args, arch_input, 

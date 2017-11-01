@@ -157,7 +157,7 @@ def fetch_latest_version(final, revision, pkgs_dir):
   	  print "revs are not the same"
 	  #increment 4th digit
 	  #figure out the new last digit
-          new_last_digit = str(int(version_list[4]) + 1)
+          new_last_digit = str(int(version_list[3]) + 1)
          
           #replace the last digit of the version number
           version_list.pop()

@@ -86,6 +86,7 @@ guard_rd_directory_name="guard-rd"
 
 # External dependency source trees that are imported directly in lgdb
 craytool_directory_name="craytool_interface"
+pref=""
 
 function source_module_script() {
   redhat_release_file="/etc/redhat-release"
@@ -95,8 +96,8 @@ function source_module_script() {
 	source /usr/share/Modules/init/bash
     fi
   else
-    if [[ -e /opt/modules/default/init/bash ]]; then 
-	source /opt/modules/default/init/bash
+    if [[ -e $module_pref/modules/default/init/bash ]]; then 
+	source $module_pref/modules/default/init/bash
     fi
   fi
 }
@@ -113,7 +114,6 @@ function load_cti_module(){
     fi
     using_cti_version=`echo $latest_cti_module | cut -d'/' -f$2`
     module load cray-cti/$using_cti_version
-    module list
 }
 
 function get_cti_version(){
@@ -123,7 +123,6 @@ function get_cti_version(){
       if echo $loaded_module | grep -q cray-cti 
       then
       	using_cti_version=`echo $loaded_module | cut -d'/' -f2`
-	module list
       fi
     done
 }
@@ -132,9 +131,11 @@ SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
 if [[ "$SLES_VER" == "12" ]]
 then
   pref="/opt/cray/pe"
+  module_pref="/opt/cray/pe"
   delim=6
 else
   pref="/opt/cray"
+  module_pref="/opt"
   delim=5
 fi
 
@@ -143,10 +144,10 @@ supported_cti_release_range=1.0.[5-9]
 
 source_module_script
 
-#if ! echo $LOADEDMODULES | grep -q gcc; then
-#  # gcc module is not loaded
-#  module load gcc
-#fi
+if ! echo $LOADEDMODULES | grep -q gcc/4.8.1; then
+  # gcc module is not loaded
+  module load gcc/4.8.1
+fi
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
@@ -165,11 +166,19 @@ else
   get_cti_version $delim
 fi
 
+module list
+
 cti_install_dir="$pref/cti/$using_cti_version"
 echo "Using $cti_install_dir to build lgdb"
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
+
+
+echo "cti_install_dir: $cti_install_dir"
+echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+
+
 
 # Demos directory name
 demo_directory_name="demos"
@@ -1089,6 +1098,12 @@ fi
 
 cti_lib_directory=`echo $cti_pkgconfig_L_dir | cut -c 3-` 
 cti_include_directory=`echo $cti_pkgconfig_I_dir | cut -c 3-` 
+
+echo "cti_pkgconfig_L_dir:    $cti_pkgconfig_L_dir"
+echo "cti_pkgconfig_I_dir:    $cti_pkgconfig_I_dir"
+echo "cti_lib_directory:      $cti_lib_directory"
+echo "cti_include_directory:  $cti_include_directory"
+
 
 # mrnet build - This *must* happen after the cti library build now since mrnet
 # depends on cti components.

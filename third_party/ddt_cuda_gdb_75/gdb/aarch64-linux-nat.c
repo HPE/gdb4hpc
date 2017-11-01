@@ -33,7 +33,9 @@
 
 #include <sys/ptrace.h>
 #include <sys/utsname.h>
-
+#ifdef __aarch64__
+#include <asm/ptrace.h>
+#endif
 #if __ANDROID__ && __aarch64__
 #include <fake-aarch64-elf.h>  /* for elf_greg_set_t */
 #include <linux/uio.h> /* for iovec */

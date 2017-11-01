@@ -43,7 +43,7 @@ lgdb_externals_directory_name="external"
 
 # Third party source tree names. 
 mrnet_directory_name="mrnet"
-gdb_directory_name="ddt_gdb-7.6.2"
+gdb_directory_name="ddt_gdb-7.12.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
 cuda80_gdb_directory_name="ddt_cuda_gdb_80"
 uda_directory_name="gdb_uda"
@@ -51,7 +51,7 @@ editline_directory_name="editline"
 libmi_directory_name="libmi"
 libssh2_directory_name="libssh2"
 libarchive_directory_name="libarchive"
-python_directory_name="Python-2.6.2"
+python_directory_name="Python-2.7.14"
 
 # Python extras name
 python_extras_name="python_extras"
@@ -60,7 +60,7 @@ python_depmod_name="python_files"
 # Directory containing gdb pretty printers
 python_gdb_name="gdb"
 # Directory to install python dependencies to
-python_inst_name="python2.6"
+python_inst_name="python2.7"
 
 # extra python directory build by gdb
 gdb_extra_python_path="gdb/data-directory/python"
@@ -143,10 +143,10 @@ supported_cti_release_range=1.0.[5-9]
 
 source_module_script
 
-if ! echo $LOADEDMODULES | grep -q gcc; then
-  # gcc module is not loaded
-  module load gcc
-fi
+#if ! echo $LOADEDMODULES | grep -q gcc; then
+#  # gcc module is not loaded
+#  module load gcc
+#fi
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
@@ -297,7 +297,7 @@ libssh2_ld_flag=" -L$openssl_path/lib"
 libarchive_args="--disable-shared --with-pic --without-expat --without-xml2 --without-openssl --without-nettle --without-lzo2 --without-lzma --without-libiconv-prefix --without-iconv --without-lzmadec --without-bz2lib --without-zlib --disable-bsdtar --disable-bsdcpio --disable-rpath"
 mrnet_args=""
 python_args=""
-gdb_args="--disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-mmalloc --with-python=$stage_dir/bin/python"
+gdb_args="--without-guile --disable-rpath --without-separate-debug-dir --with-mmalloc --with-python=$stage_dir/bin/python"
 cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=$stage_dir/bin/python"
 perf_flag=""
 be_perf_flag=""

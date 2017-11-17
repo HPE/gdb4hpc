@@ -126,28 +126,40 @@ function get_cti_version(){
       fi
     done
 }
+function set_OS(){
+  OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
+  if [[ $OS == "aarch64" ]]
+  then
+    gccVer=4.8.5
+  elif [[ $OS == "x86_64" ]]
+  then
+    gccVer=4.9.3
+    module load $gccVer
+  fi
+}
 
-SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
-if [[ "$SLES_VER" == "12" ]]
-then
-  pref="/opt/cray/pe"
-  module_pref="/opt/cray/pe"
-  delim=6
-else
-  pref="/opt/cray"
-  module_pref="/opt"
-  delim=5
-fi
+function set_prefix(){
+
+  SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+  if [[ "$SLES_VER" == "12" ]]
+  then
+    pref="/opt/cray/pe"
+    module_pref="/opt/cray/pe"
+    delim=6
+  else
+    pref="/opt/cray"
+    module_pref="/opt"
+    delim=5
+  fi
+}
 
 supported_cti_version=1.0.5
 supported_cti_release_range=1.0.[5-9]
 
+set_prefix
 source_module_script
+set_OS
 
-if ! echo $LOADEDMODULES | grep -q gcc/4.8.1; then
-  # gcc module is not loaded
-  module load gcc/4.8.1
-fi
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then

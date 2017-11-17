@@ -107,17 +107,19 @@ for f in "${liblist[@]}" "${exelist[@]}" ; do
                      $2 != "libgdbm_compat.so.3" && \
                      $2 != "libgdbm.so.3" && \
                      $2 != "libreadline.so.5"){ 
-                    sub(/$/, "()'$lib64'", $2) ;
+		    sub(/$/, "()'$lib64'", $2) ;
                     print $2;
                 }
             }
 	}
 	/^Version References:$/ { START=2; }
 	(START==2) && /required from/ {
-	    sub(/:/, "", $3);
+	    sub(/:/, "", $3) ;
 	    LIBNAME=$3;
 	}
+ 
 	(START==2) && (LIBNAME!="") && ($4!="") {
+	    sub(/(0:)/, "", $4) ;
 	    print LIBNAME "(" $4 ")'$lib64'";
 	}
     '

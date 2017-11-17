@@ -55,9 +55,9 @@ Also, type `help` at the lgdb command line for more information on commands.
 Installation instructions:
 --------------------------
 
-Installation instructions for %os_string%:
+Installation instructions for %os_name%:
 =============================================
-  rpm -ivh %PREFIX% cray-lgdb-%VERSION%-%REVISION%-%RELEASE%%os%.x86_64.rpm
+  rpm -ivh %PREFIX% cray-lgdb-%VERSION%-%REVISION%-%RELEASE%%os%.%ARCH%.rpm
 
   To make lgdb %VERSION% the default version of lgdb, execute:
   %OSPREFIX%/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%

@@ -1,12 +1,12 @@
-lgdb(1)                                                                lgdb(1)
+gdb4hpc(1)                                                          gdb4hpc(1)
 
 
 
 NAME
-       lgdb - line mode parallel debugger
+       gdb4hpc -- line mode parallel debugger
 
 SYNOPSIS
-       lgdb
+       gdb4hpc
        [-b file | --batch=file]
        [-h | --help]
        [-o file | --output=file]
@@ -17,21 +17,21 @@ IMPLEMENTATION
        Cray Linux Environment (CLE)
 
 DESCRIPTION
-       lgdb is a GDB-based parallel debugger used to debug applications
+       gdb4hpc is a GDB-based parallel debugger used to debug applications
        compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers. It
        allows programmers to either launch an application or attach to an
        already-running application.
 
-       lgdb also includes comparative debugger technology that enables
+       gdb4hpc also includes comparative debugger technology that enables
        programmers to compare data structures between two executing
        applications. Cray, however, recommends accessing the comparative
        debugger technology through the new Cray Comparative Debugger (CCDB)
        with graphical user interface (GUI) that enhances the parallel
-       debugging capabilities of lgdb. For further information on CCDB, see
+       debugging capabilities of gdb4hpc. For further information on CCDB, see
        ccdb(1).
 
    Options
-       The lgdb debugger accepts the following options:
+       The gdb4hpc debugger accepts the following options:
 
        -b file
        --batch=file
@@ -50,17 +50,17 @@ DESCRIPTION
        -v
        --version Displays version.
 
-   lgdb Usage
-       Procedure 1. To begin using lgdb
+   gdb4hpc Usage
+       Procedure 1. To begin using gdb4hpc
 
-       Step 1.  Load the cray-lgdb module if it is not already loaded.
+       Step 1.  Load the gdb4hpc module if it is not already loaded.
 
-         % module load cray-lgdb
+         % module load gdb4hpc
 
 
        Step 2.  Compile the application using either the -g or -Gn option of
        the relevant compiler to include additional debugger information
-       required by lgdb. For example, if compiling the Fortran application
+       required by gdb4hpc. For example, if compiling the Fortran application
        myprog42.f90, enter this command:
 
          % ftn -g -o myapp_42 myprog42.f90
@@ -73,27 +73,29 @@ DESCRIPTION
                  comparing uninitialized memory.
 
        Step 3.  For systems that normally operate in batch mode only, Cray
-       lgdb has three methods for interacting with the supported WLM systems
-       (ALPS, hybrid SLURM, and native SLURM):
+       gdb4hpc has three methods for interacting with the supported WLM
+       systems (ALPS, hybrid SLURM, and native SLURM):
 
-       Â·  Interactive batch: Prior to launching lgdb, request the compute node
-          resources required for the debugging session. For example, if PBS
-          Pro is the site's batch system, enter this command:
+       ·  Interactive batch: Prior to launching gdb4hpc, request the compute
+          node resources required for the debugging session. For example, if
+          PBS Pro is the site's batch system, enter this command:
 
           % qsub -IV -l mppwidth=w
 
 
-          Where w is the number of ranks required. Then after initiating lgdb,
-          subsequent use of lgdb commands will employ these resources.
+          Where w is the number of ranks required. Then after initiating
+          gdb4hpc, subsequent use of gdb4hpc commands will employ these
+          resources.
 
-       Â·  The launch command's --qsub or --sbatch options will cause a batch
+       ·  The launch command's --qsub or --sbatch options will cause a batch
           job to be submitted. See Workload Manager Support for more
-          information about modifying existing job scripts to work with lgdb.
+          information about modifying existing job scripts to work with
+          gdb4hpc.
 
-       Â·  The session command creates a new WLM session that will be
+       ·  The session command creates a new WLM session that will be
           associated with all future launch commands. See Workload Manager
           Support for more information about modifying existing job scripts to
-          work with lgdb.
+          work with gdb4hpc.
 
               Note:  If using the launch command multiple times to launch
               applications with either the interactive batch method or the
@@ -109,7 +111,7 @@ DESCRIPTION
 
        Step 4.  The application's WLM-specific application identifier is
        needed to attach to an application that was previously launched outside
-       of lgdb. For ALPS, this is the application process ID (apid); for
+       of gdb4hpc. For ALPS, this is the application process ID (apid); for
        native SLURM, this is a combination of the job ID (job_id) and the job
        step ID (step_id).
 
@@ -151,14 +153,14 @@ DESCRIPTION
                    453282.0  226136K    nid00013       30             204001K    9936K  ...
 
 
-       Step 5.  Use the lgdb command to launch the parallel debugger.
+       Step 5.  Use the gdb4hpc command to launch the parallel debugger.
 
-         % lgdb
+         % gdb4hpc
 
 
                  The system responds as follows:
 
-                   lgdb 2.4 - Cray Line Mode Parallel Debugger
+                   gdb4hpc 2.4 - Cray Line Mode Parallel Debugger
                    With Cray Comparative Debugging Technology.
                    Copyright 2007-2014 Cray Inc. All Rights Reserved.
                    Copyright 1996-2013 University of Queensland. All rights Reserved.
@@ -168,7 +170,7 @@ DESCRIPTION
                    dbg all>
 
 
-       Step 6.  Once lgdb is launched and the dbg all> prompt is displayed,
+       Step 6.  Once gdb4hpc is launched and the dbg all> prompt is displayed,
        the program uses a command-line interface similar to that used by gdb.
        Enter help for more information about supported commands.
 
@@ -235,23 +237,23 @@ DESCRIPTION
                    at address 0x400693.
 
 
-       Step 7.  When finished using lgdb, enter quit to exit the debugger.
+       Step 7.  When finished using gdb4hpc, enter quit to exit the debugger.
        Upon exit, launched applications are killed (execution terminated) and
        attached applications are released from the debugger's control but are
        allowed to continue execution. Applications can be killed or released
-       from within lgdb, prior to exiting, with the kill or release commands,
-       respectively.
+       from within gdb4hpc, prior to exiting, with the kill or release
+       commands, respectively.
 
     Process Sets and Variables
-       When an application is debugged using lgdb, the application ranks are
-       arranged into a group called a process set. The default process set is
-       named all and contains the ranks of every application that is currently
-       being debugged. Debugger variables are used to reference process sets
-       and are defined by the attach and launch commands. Debugger variables
-       are denoted by a dollar sign ($) followed by the variable name, such as
-       $a, to represent a scalar variable, or $b{1024}, with required squiggly
-       braces, to represent an array variable. $a and $b are referred to as
-       application handles.
+       When an application is debugged using gdb4hpc, the application ranks
+       are arranged into a group called a process set. The default process set
+       is named all and contains the ranks of every application that is
+       currently being debugged. Debugger variables are used to reference
+       process sets and are defined by the attach and launch commands.
+       Debugger variables are denoted by a dollar sign ($) followed by the
+       variable name, such as $a, to represent a scalar variable, or $b{1024},
+       with required squiggly braces, to represent an array variable. $a and
+       $b are referred to as application handles.
 
        A user can refer to specific application ranks and to ranks from
        multiple invoked applications by using the defset command to define a
@@ -309,7 +311,7 @@ DESCRIPTION
        Example 4: Focus on a temporary process set
 
        By using the focus command, a user can focus explicitly on a subset of
-       ranks without defining a new process set. lgdb creates a temporary
+       ranks without defining a new process set. gbd4hpc creates a temporary
        process set that can subsequently be used in process targeted commands.
        The temporary process set is removed when the focus is changed. Unlike
        defined process sets, a temporary process set can only contain ranks
@@ -365,7 +367,7 @@ DESCRIPTION
        (i.e., aprun or srun) to launch an application. Following the launch,
        the application is held immediately before execution is passed to its
        MPI_init(), shmem_init(), or main() routine and is ready for further
-       lgdb commands. Integration with qsub and sbatch is also supported as
+       gbd4hpc commands. Integration with qsub and sbatch is also supported as
        described in Workload Manager Support. Launching on systems whose
        default workload manager is not SLURM or ALPS, or launching an
        application using a non default launcher requires passwordless (public
@@ -436,8 +438,8 @@ DESCRIPTION
 
        --workdir= "work_path" | -d ``work_path''
                  Changes the current working directory, relative to its
-                 present setting where lgdb was invoked, to work_path. This is
-                 useful for applications that write files to the current
+                 present setting where gbd4hpc was invoked, to work_path. This
+                 is useful for applications that write files to the current
                  working directory. By default, if the --workdir= option is
                  specified without a path, the current working directory will
                  be changed to the location of the application's executable
@@ -445,11 +447,11 @@ DESCRIPTION
 
    Caveat for Launching a Serial Application
        Parallel applications contain a communication mechanism that causes a
-       startup barrier code to be pulled in during compilation. lgdb uses the
-       barrier code to hold the application at its entry point in preparation
-       to begin the debugging process. Typically, serial applications do not
-       have a barrier code and, therefore, must be modified in order to be
-       debugged using lgdb.
+       startup barrier code to be pulled in during compilation. gbd4hpc uses
+       the barrier code to hold the application at its entry point in
+       preparation to begin the debugging process. Typically, serial
+       applications do not have a barrier code and, therefore, must be
+       modified in order to be debugged using gbd4hpc.
 
        Users can add either an MPI_Init() call or a fake startup barrier at
        the beginning of their code. For example, using C code:
@@ -457,8 +459,8 @@ DESCRIPTION
          int dummyBarrier = 1;
          while (dummyBarrier);
 
-       After attaching to the application in lgdb, issue the following command
-       and proceed to debug as usual:
+       After attaching to the application in gbd4hpc, issue the following
+       command and proceed to debug as usual:
 
          dbg all> assign dummyBarrier 0
 
@@ -467,7 +469,7 @@ DESCRIPTION
 
    Attaching to a Previously Launched Application
        Use the attach command to attach to an executing application that was
-       launched outside of lgdb.
+       launched outside of gbd4hpc.
 
          dgb all> attach $proc_set app_ident
 
@@ -483,8 +485,8 @@ DESCRIPTION
        app_ident should be the pid of the launcher process that started the
        application. This can be obtained using ps.
 
-       The following command instructs lgdb to associate the debugger variable
-       $tst42 with the application that has apid 651486.
+       The following command instructs gbd4hpc to associate the debugger
+       variable $tst42 with the application that has apid 651486.
 
          dbg all> attach $tst42 651486
 
@@ -492,11 +494,11 @@ DESCRIPTION
    Workload Manager Support
        Two methods exist for submitting batch jobs directly to a WLM:
 
-       Â·  The launch command's --qsub or --sbatch options can be used to
+       ·  The launch command's --qsub or --sbatch options can be used to
           submit a PBS or SLURM job, respectively, from within which an
           application will be launched for debugging.
 
-       Â·  The session command will create a new WLM session to which all
+       ·  The session command will create a new WLM session to which all
           future launch or attach commands will be associated. This allows
           multiple launch commands to be used in the same batch session.
           session accepts the same --qsub or --sbatch options as launch.
@@ -506,8 +508,8 @@ DESCRIPTION
           #cray_debug_end around the job launch command (i.e., aprun or srun)
           that is to be debugged. Everything between the comment lines will be
           ignored; the original WLM job launch command must be recreated
-          through lgdb's launch command arguments. For example, the job script
-          sample.pbs is modified with the lgdb comments, for ALPS:
+          through gbd4hpc's launch command arguments. For example, the job
+          script sample.pbs is modified with the gbd4hpc comments, for ALPS:
 
           #cray_debug_start
           aprun -n128 -N32 a.out
@@ -544,27 +546,27 @@ ENVIRONMENT VARIABLES
 
                  Default: not defined
 
-       CRAY_LGDB_HIST_DIR
-                 Defines the directory into which the .lgdb_history file is
+       GDB4HPC_HIST_DIR
+                 Defines the directory into which the .gbd4hpc_history file is
                  located.
 
                  Default: not set
 
-       CRAY_LGDB_PMI_INIT_SLEEP
+       GDB4HPC_PMI_INIT_SLEEP
                  Sets extra time (in seconds) to sleep after finding the
                  pmi_attribs file during early attach. This should only be set
-                 if lgdb is attaching to the application during the pmi_init
-                 function and causing the debugger to hang.
+                 if gbd4hpc is attaching to the application during the
+                 pmi_init function and causing the debugger to hang.
 
                  Default: not set
 
-       CRAY_LGDB_STARTUP_TIMEOUT
+       GDB4HPC_STARTUP_TIMEOUT
                  Sets the MRNet startup timeout in seconds.
 
                  Default: not set
 
        CRAY_CTI_WLM
-                 Sets the workload manager that lgdb will use to launch or
+                 Sets the workload manager that gbd4hpc will use to launch or
                  attach to an application. Accepts one of three values:
                  "alps", "slurm", or "generic". "generic" uses a more portable
                  launch system that can be used on many types of systems and
@@ -591,9 +593,9 @@ ENVIRONMENT VARIABLES
                  Default: not set
 
 EXAMPLES
-       A demo directory with sample codes is included in the lgdb release. The
-       following example uses the executable created by entering the command:
-       make hello_mpi_c.
+       A demo directory with sample codes is included in the gbd4hpc release.
+       The following example uses the executable created by entering the
+       command: make hello_mpi_c.
 
        Launch one instance of hello_mpi_c with 8 ranks.
 
@@ -640,4 +642,4 @@ SEE ALSO
 
 
 
-                                  12-16-2014                           lgdb(1)
+                                  01-19-2018                        gdb4hpc(1)

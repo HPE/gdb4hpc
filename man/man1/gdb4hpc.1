@@ -1,18 +1,16 @@
-.\"  Copyright (c) 2014 Cray Inc.
-.\"  $HeadURL: http://svn.us.cray.com/svn/pubs/man/xt_lgdbm/trunk/man1/lgdb.1.xml $ 
-.\"  $LastChangedRevision: 32638 $ 
-.\"  $LastChangedDate: 2014-12-16 11:48:45 -0600 (Tue, 16 Dec 2014) $ 
-.ds ]v Last changed: 12-16-2014
-.TH "lgdb" "1" "12-16-2014" 
+.\"  Copyright (c) 2018 Cray Inc.
+.\"  $LastChangedDate: 2018-01-19 $ 
+.ds ]v Last changed: 01-19-2018
+.TH "gdb4hpc" "1" "01-19-2018" 
 .ad l 
 .nh 
 .shc *
 .SH "NAME"
-\fBlgdb\fP - line mode parallel debugger
+\fBgdb4hpc\fP \(em line mode parallel debugger
 .SH "SYNOPSIS"
 .PP
 .nf
-\fB\%lgdb\fP
+\fB\%gdb4hpc\fP
 [\fB-b\fP \fIfile\fP | \fB--batch\fP=\fIfile\fP]
 [\fB-h\fP | \fB--help\fP]
 [\fB-o\fP \fIfile\fP | \fB--output\fP=\fIfile\fP]
@@ -21,15 +19,15 @@
 .fi
 .SH "IMPLEMENTATION"
 .PP
-Cray\ Linux\ Environment (CLE)
+Cray Linux Environment (CLE)
 .SH "DESCRIPTION"
 .PP
-\fB\%lgdb\fP is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers\&. It allows programmers to either launch an application or attach to an already-running application\&.
+\fB\%gdb4hpc\fP is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers\&. It allows programmers to either launch an application or attach to an already-running application\&.
 .PP
-\fB\%lgdb\fP also includes \fIcomparative debugger\fR technology that enables programmers to compare data structures between two executing applications\&. Cray, however, recommends accessing the comparative debugger technology through the new Cray Comparative Debugger (CCDB) with graphical user interface (GUI) that enhances the parallel debugging capabilities of \fB\%lgdb\fP\&. For further information on CCDB, see \fB\%ccdb\fR(1)\&.
+\fB\%gdb4hpc\fP also includes \fIcomparative debugger\fR technology that enables programmers to compare data structures between two executing applications\&. Cray, however, recommends accessing the comparative debugger technology through the new Cray Comparative Debugger (CCDB) with graphical user interface (GUI) that enhances the parallel debugging capabilities of \fB\%gdb4hpc\fP\&. For further information on CCDB, see \fB\%ccdb\fR(1)\&.
 .SS "Options"
 .PP
-The \fB\%lgdb\fP debugger accepts the following options:
+The \fB\%gdb4hpc\fP debugger accepts the following options:
 .TP 10
 \fB-b\fP \fIfile\fP
 .PD 0
@@ -65,20 +63,20 @@ Suppresses version banner on startup\&.
 \fB--version\fP
 .PD
 Displays version\&.
-.SS "\fB\%lgdb\fP Usage"
+.SS "\fB\%gdb4hpc\fP Usage"
 .PP
-\fBProcedure 1\&. To begin using \fB\%lgdb\fP\fR
+\fBProcedure 1\&. To begin using \fB\%gdb4hpc\fP\fR
 .PP
-\fIStep 1\fR.  Load the \fBcray-lgdb\fP module if it is not already loaded\&.
+\fIStep 1\fR.  Load the \fBgdb4hpc\fP module if it is not already loaded\&.
 .nf
 .sp
 .po +2
-% \fBmodule load cray-lgdb\fP
+% \fBmodule load gdb4hpc\fP
 .po -2
 .fi
 .sp
 .PP
-\fIStep 2\fR.  Compile the application using either the \fB-g\fP or \fB-G\fP\fIn\fP option of the relevant compiler to include additional debugger information required by \fB\%lgdb\fP\&. For example, if compiling the Fortran application \fB\%myprog42\&.f90\fP, enter this command:
+\fIStep 2\fR.  Compile the application using either the \fB-g\fP or \fB-G\fP\fIn\fP option of the relevant compiler to include additional debugger information required by \fB\%gdb4hpc\fP\&. For example, if compiling the Fortran application \fB\%myprog42\&.f90\fP, enter this command:
 .nf
 .sp
 .po +2
@@ -89,26 +87,26 @@ Displays version\&.
 .IP "" 10
 If using the comparative debugging features with CCE, it is recommended to add \fB-e0 -ez\fP to the \fB\%ftn\fP compile line or \fB-h zero\fP to the \fB\%cc\fP compile line to force memory initialization to zero\&. This helps to avoid false positive differences due to comparing uninitialized memory\&.
 .PP
-\fIStep 3\fR.  For systems that normally operate in batch mode only, Cray \fB\%lgdb\fP has three methods for interacting with the supported WLM systems (ALPS, hybrid SLURM, and native SLURM):
+\fIStep 3\fR.  For systems that normally operate in batch mode only, Cray \fB\%gdb4hpc\fP has three methods for interacting with the supported WLM systems (ALPS, hybrid SLURM, and native SLURM):
 .IP "\(bu" 3
-Interactive batch: Prior to launching \fB\%lgdb\fP, request the compute node resources required for the debugging session\&. For example, if PBS Pro is the site\&'s batch system, enter this command:
+Interactive batch: Prior to launching \fB\%gdb4hpc\fP, request the compute node resources required for the debugging session\&. For example, if PBS Pro is the site\&'s batch system, enter this command:
 .nf
 .sp
 % \fB\%qsub -IV -l mppwidth=\fIw\fP\fR
 .fi
 .sp
 .IP "" 3
-Where \fIw\fP is the number of ranks required\&. Then after initiating \fB\%lgdb\fP, subsequent use of \fB\%lgdb\fP commands will employ these resources\&.
+Where \fIw\fP is the number of ranks required\&. Then after initiating \fB\%gdb4hpc\fP, subsequent use of \fB\%gdb4hpc\fP commands will employ these resources\&.
 .IP "\(bu" 3
-The \fB\%launch\fP command\&'s \fB--qsub\fP or \fB--sbatch\fP options will cause a batch job to be submitted\&. See \fIWorkload Manager Support\fR for more information about modifying existing job scripts to work with \fB\%lgdb\fP\&.
+The \fB\%launch\fP command\&'s \fB--qsub\fP or \fB--sbatch\fP options will cause a batch job to be submitted\&. See \fIWorkload Manager Support\fR for more information about modifying existing job scripts to work with \fB\%gdb4hpc\fP\&.
 .IP "\(bu" 3
-The \fB\%session\fP command creates a new WLM session that will be associated with all future \fB\%launch\fP commands\&. See \fIWorkload Manager Support\fR for more information about modifying existing job scripts to work with \fB\%lgdb\fP\&.
+The \fB\%session\fP command creates a new WLM session that will be associated with all future \fB\%launch\fP commands\&. See \fIWorkload Manager Support\fR for more information about modifying existing job scripts to work with \fB\%gdb4hpc\fP\&.
 .PP
 .RS
 \fBNote:\fR  If using the \fB\%launch\fP command multiple times to launch applications with either the interactive batch method or the \fB\%session\fP command method under the ALPS reservation system, keep the following in mind when determining the number of PEs to request - ALPS will allocate whole increments of compute nodes to the applications regardless of the number of PEs (\fB\%aprun -n\fP argument) requested\&. For example, if running on a system with 32 PEs per compute node and using process handles \fB$a{8}\fP and \fB$b{8}\fP, the user should request 64 PEs, or 8 PEs per node, using WLM arguments to ensure enough PEs are allocated to satisfy both \fB\%launch\fP commands\&.
 .RE
 .PP
-\fIStep 4\fR.  The application\&'s WLM-specific application identifier is needed to attach to an application that was previously launched outside of \fB\%lgdb\fP\&. For ALPS, this is the application process ID (\fBapid\fP); for native SLURM, this is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP)\&.
+\fIStep 4\fR.  The application\&'s WLM-specific application identifier is needed to attach to an application that was previously launched outside of \fB\%gdb4hpc\fP\&. For ALPS, this is the application process ID (\fBapid\fP); for native SLURM, this is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP)\&.
 .IP "" 10
 For ALPS, use the \fB\%apstat\fP command to determine the application\&'s \fBapid\fP\&. For example, if the application \fBmyapp_42\fP was launched using \fB\%aprun\fP, the following \fB\%apstat\fP output shows the application\&'s \fBapid\fP is \fB651486\fP\&.
 .nf
@@ -147,11 +145,11 @@ JobID     MaxVMSize  MaxVMSizeNode  MaxVMSizeTask  AveVMSize  MaxRSS \&.\&.\&.
 .fi
 .sp
 .PP
-\fIStep 5\fR.  Use the \fB\%lgdb\fP command to launch the parallel debugger\&.
+\fIStep 5\fR.  Use the \fB\%gdb4hpc\fP command to launch the parallel debugger\&.
 .nf
 .sp
 .po +2
-% \fBlgdb\fP
+% \fBgdb4hpc\fP
 .po -2
 .fi
 .sp
@@ -160,7 +158,7 @@ The system responds as follows:
 .nf
 .sp
 .po +2
-lgdb 2\&.4 - Cray Line Mode Parallel Debugger 
+gdb4hpc 2\&.4 - Cray Line Mode Parallel Debugger 
 With Cray Comparative Debugging Technology\&.
 Copyright 2007-2014 Cray Inc\&. All Rights Reserved\&.
 Copyright 1996-2013 University of Queensland\&. All rights Reserved\&.
@@ -172,7 +170,7 @@ dbg all>
 .fi
 .sp
 .PP
-\fIStep 6\fR.  Once \fB\%lgdb\fP is launched and the \fBdbg all>\fP prompt is displayed, the program uses a command-line interface similar to that used by \fB\%gdb\fP\&. Enter \fBhelp\fP for more information about supported commands\&.
+\fIStep 6\fR.  Once \fB\%gdb4hpc\fP is launched and the \fBdbg all>\fP prompt is displayed, the program uses a command-line interface similar to that used by \fB\%gdb\fP\&. Enter \fBhelp\fP for more information about supported commands\&.
 .nf
 .sp
 .po +2
@@ -244,10 +242,10 @@ at address 0x400693\&.
 .fi
 .sp
 .PP
-\fIStep 7\fR.  When finished using \fB\%lgdb\fP, enter \fBquit\fP to exit the debugger\&. Upon exit, launched applications are killed (execution terminated) and attached applications are released from the debugger\&'s control but are allowed to continue execution\&. Applications can be killed or released from within \fB\%lgdb\fP, prior to exiting, with the \fB\%kill\fP or \fB\%release\fP commands, respectively\&.
+\fIStep 7\fR.  When finished using \fB\%gdb4hpc\fP, enter \fBquit\fP to exit the debugger\&. Upon exit, launched applications are killed (execution terminated) and attached applications are released from the debugger\&'s control but are allowed to continue execution\&. Applications can be killed or released from within \fB\%gdb4hpc\fP, prior to exiting, with the \fB\%kill\fP or \fB\%release\fP commands, respectively\&.
 .SS " Process Sets and Variables"
 .PP
-When an application is debugged using \fB\%lgdb\fP, the application ranks are arranged into a group called a \fIprocess set\fR\&. The default process set is named \fIall\fR and contains the ranks of every application that is currently being debugged\&. Debugger variables are used to reference process sets and are defined by the \fB\%attach\fP and \fB\%launch\fP commands\&. Debugger variables are denoted by a dollar sign (\fB$\fP) followed by the variable name, such as \fB$a\fP, to represent a scalar variable, or \fB$b{1024}\fP, with required squiggly braces, to represent an array variable\&. \fB$a\fP and \fB$b\fP are referred to as application \fIhandles\fR\&.
+When an application is debugged using \fB\%gdb4hpc\fP, the application ranks are arranged into a group called a \fIprocess set\fR\&. The default process set is named \fIall\fR and contains the ranks of every application that is currently being debugged\&. Debugger variables are used to reference process sets and are defined by the \fB\%attach\fP and \fB\%launch\fP commands\&. Debugger variables are denoted by a dollar sign (\fB$\fP) followed by the variable name, such as \fB$a\fP, to represent a scalar variable, or \fB$b{1024}\fP, with required squiggly braces, to represent an array variable\&. \fB$a\fP and \fB$b\fP are referred to as application \fIhandles\fR\&.
 .PP
 A user can refer to specific application ranks and to ranks from multiple invoked applications by using the \fB\%defset\fP command to define a new process set containing the desired ranks and then \fB\%focus\fP on that set\&. The expression defining the process set must be a comma-separated list of valid application handles and valid ranks\&. In the following examples, assume that \fB$a{64}\fP and \fB$b{64}\fP represent two launched applications\&.
 .PP
@@ -306,7 +304,7 @@ dbg e>
 .PP
 \fBExample 4: Focus on a temporary process set\fR
 .PP
-By using the \fB\%focus\fP command, a user can focus explicitly on a subset of ranks without defining a new process set\&. \fB\%lgdb\fP creates a temporary process set that can subsequently be used in process targeted commands\&. The temporary process set is removed when the focus is changed\&. Unlike defined process sets, a temporary process set can only contain ranks from one application\&.
+By using the \fB\%focus\fP command, a user can focus explicitly on a subset of ranks without defining a new process set\&. \fB\%gbd4hpc\fP creates a temporary process set that can subsequently be used in process targeted commands\&. The temporary process set is removed when the focus is changed\&. Unlike defined process sets, a temporary process set can only contain ranks from one application\&.
 .nf
 .sp
 .po +2
@@ -370,7 +368,7 @@ In c - $b{2}::xval[2][3]
 .sp
 .SS "Launching an Application"
 .PP
-The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%lgdb\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&. Launching on systems whose default workload manager is not SLURM or ALPS, or launching an application using a non default launcher requires passwordless (public key) ssh to the compute nodes of active jobs\&. Contact a system administrator or the system usage guide for details on whether this is supported and how to set this up\&.
+The \fB\%launch\fP command transparently invokes the WLM job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) to launch an application\&. Following the launch, the application is held immediately before execution is passed to its \fBMPI_init()\fP, \fBshmem_init()\fP, or \fBmain()\fP routine and is ready for further \fB\%gbd4hpc\fP commands\&. Integration with \fB\%qsub\fP and \fB\%sbatch\fP is also supported as described in \fIWorkload Manager Support\fR\&. Launching on systems whose default workload manager is not SLURM or ALPS, or launching an application using a non default launcher requires passwordless (public key) ssh to the compute nodes of active jobs\&. Contact a system administrator or the system usage guide for details on whether this is supported and how to set this up\&.
 .PP
 The simplest form of the \fB\%launch\fP command is:
 .nf
@@ -419,10 +417,10 @@ Submits \fIbatch_template\fP as a PBS job from which an application will launch 
 Submits \fIbatch_template\fP as a SLURM job from which an application will launch for debugging\&.
 .TP 10
 \fB--workdir=\fP "\fIwork_path\fP" | \fB-d\fP ``\fIwork_path\fP''
-Changes the current working directory, relative to its present setting where \fB\%lgdb\fP was invoked, to \fIwork_path\fP\&. This is useful for applications that write files to the current working directory\&. By default, if the \fB--workdir=\fP option is specified without a path, the current working directory will be changed to the location of the application\&'s executable file\&.
+Changes the current working directory, relative to its present setting where \fB\%gbd4hpc\fP was invoked, to \fIwork_path\fP\&. This is useful for applications that write files to the current working directory\&. By default, if the \fB--workdir=\fP option is specified without a path, the current working directory will be changed to the location of the application\&'s executable file\&.
 .SS "Caveat for Launching a Serial Application"
 .PP
-Parallel applications contain a communication mechanism that causes a startup barrier code to be pulled in during compilation\&. \fB\%lgdb\fP uses the barrier code to hold the application at its entry point in preparation to begin the debugging process\&. Typically, serial applications do not have a barrier code and, therefore, must be modified in order to be debugged using \fB\%lgdb\fP\&.
+Parallel applications contain a communication mechanism that causes a startup barrier code to be pulled in during compilation\&. \fB\%gbd4hpc\fP uses the barrier code to hold the application at its entry point in preparation to begin the debugging process\&. Typically, serial applications do not have a barrier code and, therefore, must be modified in order to be debugged using \fB\%gbd4hpc\fP\&.
 .PP
 Users can add either an \fBMPI_Init()\fP call or a fake startup barrier at the beginning of their code\&. For example, using C code:
 .nf
@@ -433,7 +431,7 @@ while (dummyBarrier);
 .po -2
 .fi
 .sp
-After attaching to the application in \fB\%lgdb\fP, issue the following command and proceed to debug as usual:
+After attaching to the application in \fB\%gbd4hpc\fP, issue the following command and proceed to debug as usual:
 .nf
 .sp
 .po +2
@@ -444,7 +442,7 @@ dbg all> \fBassign dummyBarrier 0\fP
 If the fake startup barrier method is utilized, the user must use the \fB\%attach\fP command; the \fB\%launch\fP is unavailable and will hang indefinitely\&.
 .SS "Attaching to a Previously Launched Application"
 .PP
-Use the \fB\%attach\fP command to attach to an executing application that was launched outside of \fB\%lgdb\fP\&.
+Use the \fB\%attach\fP command to attach to an executing application that was launched outside of \fB\%gbd4hpc\fP\&.
 .nf
 .sp
 .po +2
@@ -455,7 +453,7 @@ dgb all> \fB\%attach $\fIproc_set\fP \fIapp_ident\fP\fR
 .PP
 Where $\fIproc_set\fP is the debugger variable to be associated with the application, and \fIapp_ident\fP is the WLM-specific application identifier of the running application\&. $\fIproc_set\fP \fImust not\fP include array syntax; the size of the $\fIproc_set\fP array is automatically set to the number of ranks in the job\&. For ALPS, \fIapp_ident\fP is the application process ID (\fBapid\fP); for native SLURM on Cray XC systems, \fIapp_ident\fP is a combination of the job ID (\fBjob_id\fP) and the job step ID (\fBstep_id\fP) and must be provided as \fIjob_id\fP\&.\fIstep_id\fP\&. For Cray clusters and all other systems, app_ident should be the pid of the launcher process that started the application\&. This can be obtained using ps\&.
 .PP
-The following command instructs \fB\%lgdb\fP to associate the debugger variable \fB$tst42\fP with the application that has \fBapid\fP 651486\&.
+The following command instructs \fB\%gbd4hpc\fP to associate the debugger variable \fB$tst42\fP with the application that has \fBapid\fP 651486\&.
 .nf
 .sp
 .po +2
@@ -471,7 +469,7 @@ The \fB\%launch\fP command\&'s \fB\%--qsub\fP or \fB\%--sbatch\fP options can be
 .IP "\(bu" 3
 The \fB\%session\fP command will create a new WLM session to which all future \fB\%launch\fP or \fB\%attach\fP commands will be associated\&. This allows multiple \fB\%launch\fP commands to be used in the same batch session\&. \fB\%session\fP accepts the same \fB\%--qsub\fP or \fB\%--sbatch\fP options as \fB\%launch\fP\&. 
 .IP "" 3
-For either method, the existing application job script is first modified by placing the comments \fB#cray_debug_start\fP and \fB#cray_debug_end\fP around the job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) that is to be debugged\&. Everything between the comment lines will be ignored; the original WLM job launch command must be recreated through \fB\%lgdb\fP\&'s \fB\%launch\fP command arguments\&. For example, the job script \fB\%sample\&.pbs\fP is modified with the \fB\%lgdb\fP comments, for ALPS:
+For either method, the existing application job script is first modified by placing the comments \fB#cray_debug_start\fP and \fB#cray_debug_end\fP around the job launch command (i\&.e\&., \fB\%aprun\fP or \fB\%srun\fP) that is to be debugged\&. Everything between the comment lines will be ignored; the original WLM job launch command must be recreated through \fB\%gbd4hpc\fP\&'s \fB\%launch\fP command arguments\&. For example, the job script \fB\%sample\&.pbs\fP is modified with the \fB\%gbd4hpc\fP comments, for ALPS:
 .nf
 .sp
 #cray_debug_start
@@ -511,23 +509,23 @@ Defines the location of the Cray-provided \fB\%aprun\fP binary\&. Used if the \f
 .IP "" 10
 Default: not defined
 .TP 10
-\fBCRAY_LGDB_HIST_DIR\fP
-Defines the directory into which the \fB\%\&.lgdb_history\fP file is located\&.
+\fBGDB4HPC_HIST_DIR\fP
+Defines the directory into which the \fB\%\&.gbd4hpc_history\fP file is located\&.
 .IP "" 10
 Default: not set
 .TP 10
-\fBCRAY_LGDB_PMI_INIT_SLEEP\fP
-Sets extra time (in seconds) to sleep after finding the \fB\%pmi_attribs\fP file during early attach\&. This should only be set if \fB\%lgdb\fP is attaching to the application during the \fBpmi_init\fP function and causing the debugger to hang\&.
+\fBGDB4HPC_PMI_INIT_SLEEP\fP
+Sets extra time (in seconds) to sleep after finding the \fB\%pmi_attribs\fP file during early attach\&. This should only be set if \fB\%gbd4hpc\fP is attaching to the application during the \fBpmi_init\fP function and causing the debugger to hang\&.
 .IP "" 10
 Default: not set
 .TP 10
-\fBCRAY_LGDB_STARTUP_TIMEOUT\fP
+\fBGDB4HPC_STARTUP_TIMEOUT\fP
 Sets the MRNet startup timeout in seconds\&.
 .IP "" 10
 Default: not set
 .TP 10
 \fBCRAY_CTI_WLM\fP
-Sets the workload manager that lgdb will use to launch or attach to an application\&. Accepts one of three values: "alps", "slurm", or "generic"\&. "generic" uses a more portable launch system that can be used on many types of systems and application launchers but can be less performant\&. Using "generic" requires setting up paswordless ssh to the compute nodes as it uses ssh to launch the debuggers\&. Use of "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to the name of the application launcher to use\&.
+Sets the workload manager that gbd4hpc will use to launch or attach to an application\&. Accepts one of three values: "alps", "slurm", or "generic"\&. "generic" uses a more portable launch system that can be used on many types of systems and application launchers but can be less performant\&. Using "generic" requires setting up paswordless ssh to the compute nodes as it uses ssh to launch the debuggers\&. Use of "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to the name of the application launcher to use\&.
 .IP "" 10
 Default: not set
 .TP 10
@@ -537,7 +535,7 @@ Sets the launcher executable to use for application launch\&. This can be the na
 Default: not set
 .SH "EXAMPLES"
 .PP
-A demo directory with sample codes is included in the \fB\%lgdb\fP release\&. The following example uses the executable created by entering the command: \fBmake hello_mpi_c\fP\&.
+A demo directory with sample codes is included in the \fB\%gbd4hpc\fP release\&. The following example uses the executable created by entering the command: \fBmake hello_mpi_c\fP\&.
 .PP
 Launch one instance of \fB\%hello_mpi_c\fP with 8 ranks\&.
 .nf

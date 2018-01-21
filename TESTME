@@ -1,17 +1,17 @@
-CRAY-LGDB TESTME
+GDB4HPC TESTME
 
-#load the cray-lgdb module
-module load cray-lgdb
+#load the gdb4hpc module
+module load gdb4hpc
 
-#most content borrowed from the cray-lgdb man pages
-man lgdb
+#most content borrowed from the gdb4hpc man pages
+man gdb4hpc
 
 #the hello_mpi_c file mentioned below is located:
-/opt/cray/lgdb/2.0.0/demos/mpi_example/
+/opt/cray/gdb4hpc/2.0.0/demos/mpi_example/
 
 
 EXAMPLES
-       A demo directory with sample codes is included in the lgdb release. The following example uses the executable created by entering the command: make hello_mpi_c.
+       A demo directory with sample codes is included in the gdb4hpc release. The following example uses the executable created by entering the command: make hello_mpi_c.
 
        Launch one instance of hello_mpi_c with 8 ranks.
 

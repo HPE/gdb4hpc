@@ -794,7 +794,7 @@ _aif_cmp_hashed(int *res, char *d1, int l1, char *d2, int l2)
 **       The above rules are applied to each field or element in the object.
 **
 **
-** TODO: This no longer supports AIF_POINTER or AIF_UNION. In lgdb, these types
+** TODO: This no longer supports AIF_POINTER or AIF_UNION. In gdb4hpc, these types
 **       are never used. If they are, fix this function!!!
 **
 */

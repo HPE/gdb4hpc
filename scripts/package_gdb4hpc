@@ -3,11 +3,10 @@
 import sys, os, distutils.dir_util, distutils.file_util, tarfile, fnmatch
 from optparse import OptionParser
 
-#lgdb specific modules
+#gdb4hpc specific modules
 import definitions
-import lgdb_spec
-import lgdb_module
-import lgdb_module_athena
+import gdb4hpc_spec
+import gdb4hpc_module
 
 #handle any user passed options
 parser = OptionParser()
@@ -15,17 +14,15 @@ parser.add_option("-v","--version", dest="static_version", default=False, help="
 parser.add_option("-b","--builddir", dest="builddir", help="the directory containing the build")
 parser.add_option("-t", "--test", action="store_true", dest="test")
 parser.add_option("-f","--final", action="store_true", dest="is_final", default=False)
-parser.add_option("-a","--athena", action="store_true", dest="is_athena", default=False)
 (options, args) = parser.parse_args()
 
 is_final   = options.is_final
-is_athena  = options.is_athena
 
 #retrieve some package details
 package_info                  = definitions.fetch_newData()
 primary_version               = definitions.three_digit_version
 package_dir                   = definitions.pkgs_dir
-lgdb_build_dir                = definitions.bld_dir
+gdb4hpc_build_dir             = definitions.bld_dir
 build_version_two_digit       = definitions.ver_two_dig
 build_version_two_digit_nodot = definitions.ver_two_dig_nodot
 release_date                  = definitions.release_date() 
@@ -38,18 +35,18 @@ os_ver                        = definitions.osver
 
 
 if options.builddir == None:
-  print "Using lastest build from Buildbot: " + lgdb_build_dir
-  lgdb_build_dir = lgdb_build_dir + "/latest/lgdb_install"
+  print "Using lastest build from Buildbot: " + gdb4hpc_build_dir
+  gdb4hpc_build_dir = gdb4hpc_build_dir + "/latest/gdb4hpc_install"
 else:
   #verify that the folders that should be in the build dir, are present  
-  lgdb_build_dir = options.builddir 
-  last_char=lgdb_build_dir[-1]
+  gdb4hpc_build_dir = options.builddir 
+  last_char=gdb4hpc_build_dir[-1]
   if [last_char != "/" ]:
-    lgdb_build_dir = lgdb_build_dir + "/"
+    gdb4hpc_build_dir = gdb4hpc_build_dir + "/"
 
-  print "using --build arg: " + lgdb_build_dir
+  print "using --build arg: " + gdb4hpc_build_dir
   for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
-    t_dir = lgdb_build_dir+directory
+    t_dir = gdb4hpc_build_dir+directory
     if not os.path.exists(t_dir):
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
@@ -59,7 +56,7 @@ else:
 if options.static_version != False:
   build_version = options.static_version
   release_number = str(0)
-  rpm_name = "cray-lgdb-" + build_version + "-" + revision_number + "-" + release_number + os_ver + ".x86_64.rpm"
+  rpm_name = "gdb4hpc-" + build_version + "-" + revision_number + "-" + release_number + os_ver + ".x86_64.rpm"
   if is_final:
     if len(build_version) <= 4 or len(build_version) > 5:
       print "Ensure your release version has 3 digits. Exiting..."
@@ -81,34 +78,32 @@ elif os_ver == '.sles12':
   os_string = 'sles12'
   os_prefix = '/opt/cray/pe'
   pref=''
-elif os_ver == '.el7' and is_athena == False:
+elif os_ver == '.el7':
   os_string = 'CS'
-elif os_ver == '.el7' and is_athena == True:
-  os_string = 'Athena'
 
  
 #define some paths
 top_dir         = os.getcwd()
 work_dir        = top_dir + "/tmp"
 rpm_build_dir   = work_dir + "/package"
-rpm_install_dir = rpm_build_dir + "/cray-lgdb-" + build_version + "-" + revision_number
+rpm_install_dir = rpm_build_dir + "/gdb4hpc-" + build_version + "-" + revision_number
 rpm_module_dir  = rpm_install_dir + "/modulefile"
-rpm_lgdb_dir    = rpm_install_dir + "/cray-lgdb"
+rpm_gdb4hpc_dir    = rpm_install_dir + "/gdb4hpc"
 parent_dir      = top_dir.rsplit('/',1)[0]
 man_dir         = parent_dir + "/man"
-set_default_lgdb = top_dir + "/set_default/set_default_template"
+set_default_gdb4hpc = top_dir + "/set_default/set_default_template"
 
 #spec file
-spec_file = "cray-lgdb.spec"
+spec_file = "gdb4hpc.spec"
 
 #modulefile
 module_dest = rpm_module_dir + "/" + build_version
 
 #set_default script
-set_default_script_dest = rpm_install_dir + "/set_default_cray-lgdb_" + build_version
+set_default_script_dest = rpm_install_dir + "/set_default_gdb4hpc_" + build_version
 
 #the source tarball
-folder_name = "cray-lgdb-" + build_version + "-" + revision_number
+folder_name = "gdb4hpc-" + build_version + "-" + revision_number
 tar_name = folder_name + ".tar.gz"
 tar_dest = rpm_build_dir + "/rpm/SOURCES"
 
@@ -119,24 +114,20 @@ if os.path.exists(work_dir):
   distutils.dir_util.remove_tree(work_dir)
 
 #create the rpm_build_dir and child directories
-for directory in [work_dir, rpm_build_dir, rpm_install_dir, rpm_module_dir, rpm_lgdb_dir]:
+for directory in [work_dir, rpm_build_dir, rpm_install_dir, rpm_module_dir, rpm_gdb4hpc_dir]:
   print "making directory" + directory
   os.mkdir(directory)
 
 #generate the modulefile
-if is_athena:
-  module_content = lgdb_module_athena.content.replace('<version>', build_version)
-else:
-  module_content = lgdb_module.content.replace('<version>', build_version)
+module_content = gdb4hpc_module.content.replace('<version>', build_version)
 
 new_mod = open(module_dest, 'w+')
 new_mod.write(module_content)
 new_mod.close()
 
 #generate the spec file
-spec_dest = "lgdb.spec"
-spec_content = lgdb_spec.content.replace("[namespace]", "cray")
-spec_content = spec_content.replace( "[intranamespace_name]", "lgdb")
+spec_dest = "gdb4hpc.spec"
+spec_content = gdb4hpc_spec.content.replace( "[namespace]", "gdb4hpc")
 spec_content = spec_content.replace( "[package_branch_two_digit]", build_version_two_digit)
 spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_version_two_digit_nodot)
 spec_content = spec_content.replace( "[version]", build_version)
@@ -152,19 +143,19 @@ spec_file.close()
 
 
 
-#copy bin/ lib/ etc dirs from the build dir to rpm_install_dir+/cray-lgdb/lib (etc)
-#source: lgdb_build_dir  | contents bin/ demos/ docs/ lib/ modulefiles/
+#copy bin/ lib/ etc dirs from the build dir to rpm_install_dir+/gdb4hpc/lib (etc)
+#source: gdb4hpc_build_dir  | contents bin/ demos/ docs/ lib/ modulefiles/
 for dir in ['/bin','/demos','/docs','/lib','/modulefiles','/libexec']:
-  distutils.dir_util.copy_tree(lgdb_build_dir+dir, rpm_lgdb_dir+dir)
+  distutils.dir_util.copy_tree(gdb4hpc_build_dir+dir, rpm_gdb4hpc_dir+dir)
 
 
 #take care of the set_default sciript
-fin = open(set_default_lgdb,'r')
+fin = open(set_default_gdb4hpc,'r')
 set_def_content = fin.read()
 set_def_content = set_def_content.replace('[version_string]', build_version)
-set_def_content = set_def_content.replace('[product_name]', "lgdb")
+set_def_content = set_def_content.replace('[product_name]', "gdb4hpc")
 set_def_content = set_def_content.replace('[module_dir]', "[install_dir]/modulefiles")
-set_def_content = set_def_content.replace('[module_name_list]', "cray-lgdb")
+set_def_content = set_def_content.replace('[module_name_list]', "gdb4hpc")
 new_set_def = open(set_default_script_dest, "w+")
 new_set_def.write(set_def_content)
 new_set_def.close()
@@ -172,7 +163,7 @@ new_set_def.close()
 cur_dir = os.getcwd()
 
 #release notes - are in parent directory
-os.chdir(rpm_lgdb_dir)
+os.chdir(rpm_gdb4hpc_dir)
 
 with open("out.txt", "w+") as out:
   for line in open(parent_dir + "/release_info"):
@@ -186,7 +177,7 @@ with open("out.txt", "w+") as out:
     h = g.replace("%PREFIX%", pref)
     out.write(h)
 
-outpath = rpm_lgdb_dir + "/release_info"
+outpath = rpm_gdb4hpc_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
 print "outpath: " + outpath
 
@@ -197,17 +188,17 @@ os.chdir(cur_dir)
 for path in ['/rpm/SOURCES','/rpm/BUILD','/rpm/RPMS/x86_64']:
   distutils.dir_util.mkpath(rpm_build_dir+path)
 
-distutils.dir_util.copy_tree(man_dir, rpm_lgdb_dir+"/man")
-fileList = os.listdir(rpm_lgdb_dir+"/man/man1/")
+distutils.dir_util.copy_tree(man_dir, rpm_gdb4hpc_dir+"/man")
+fileList = os.listdir(rpm_gdb4hpc_dir+"/man/man1/")
 for f in fileList:
   extension = os.path.splitext(f)[1]
   if extension == ".txt":
-    os.remove(os.path.join(rpm_lgdb_dir+'/man/man1/', f))
+    os.remove(os.path.join(rpm_gdb4hpc_dir+'/man/man1/', f))
   elif extension == ".xml":
-    os.remove(os.path.join(rpm_lgdb_dir+'/man/man1/', f))
+    os.remove(os.path.join(rpm_gdb4hpc_dir+'/man/man1/', f))
 
 
-for dirpath, dirnames, filenames in os.walk(rpm_lgdb_dir):
+for dirpath, dirnames, filenames in os.walk(rpm_gdb4hpc_dir):
      for filename in filenames:
        if fnmatch.fnmatch(filename,'.git*'):
 	   print "Removing. . . " + dirpath + "/" + filename
@@ -301,7 +292,7 @@ section-3:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : HARDWARE
     COMMANDS: |
-            <osprefix>/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            <osprefix>/admin-pe/set_default_files/set_default_gdb4hpc_<version>
 
 section-4:
     ACCELERATOR           : NONE
@@ -321,7 +312,7 @@ section-4:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : WHITEBOX
     COMMANDS: |
-            <osprefix>/admin-pe/set_default_files/set_default_cray-lgdb_<version>
+            <osprefix>/admin-pe/set_default_files/set_default_gdb4hpc_<version>
 
 section-5:
     ACCELERATOR           : NONE
@@ -343,16 +334,16 @@ section-5:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : ALL
     COMMANDS: |
-        rpm -e cray-lgdb-<version>-<revision>-<release>
+        rpm -e gdb4hpc-<version>-<revision>-<release>
 
 --- |
 #Remove previous versions of this rpm
-for package in  $(rpm -qa | grep cray-lgdb-<version>-)
+for package in  $(rpm -qa | grep gdb4hpc-<version>-)
 do
   rpm -e $package
 done
 
-rpm -hiv <pref> --oldpackage cray-lgdb-<version>-<revision>-<release><os>.x86_64.rpm
+rpm -hiv <pref> --oldpackage gdb4hpc-<version>-<revision>-<release><os>.x86_64.rpm
 
 '''
 manifest_dest = rpm_name + ".yaml"

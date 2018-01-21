@@ -1,4 +1,4 @@
-CRAY LGDB BUILDME
+LGDB4HPC BUILDME
 
 Package version is specified in the definitions.mk file, via the PACKAGE_BRANCH variable
 

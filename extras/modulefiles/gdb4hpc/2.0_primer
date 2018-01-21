@@ -3,9 +3,9 @@ set 	home 		%HOME%
 set	level		%VERSION%.DEV
 
 prepend-path	PATH 				$home/bin
-setenv          CRAY_LGDB_VERSION               $level
+setenv          GDB4HPC_VERSION                 $level
 
 proc ModulesHelp { } {
-	puts stderr "lgdb: The Cray line mode Debugger"
+	puts stderr "gdb4hpc: The Cray line mode Debugger"
 }
 

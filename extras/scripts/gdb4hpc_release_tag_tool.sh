@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Release tag tool
-# A script to atuomagically create a release tag for ccdb/lgdb and all of
+# A script to atuomagically create a release tag for ccdb/gdb4hpc and all of
 # its dependencies.
 #
 # ©2013-2014 Cray Inc.  All Rights Reserved.
@@ -81,7 +81,7 @@ while [[ $confirmed == n ]]; do
 	read cti_minor
 
 	# Ask the user to confirm
-	echo -e "\nCreating tags for lgdb release $major.$minor.$rev"
+	echo -e "\nCreating tags for gdb4hpc release $major.$minor.$rev"
 	echo -e "Using cti branch $cti_major.$cti_minor"
 	echo -n "Is the entered release numbers correct?[y/n]: "
 	while true; do
@@ -94,9 +94,9 @@ while [[ $confirmed == n ]]; do
 done
 
 # Create a conformant message for the cray svn commits
-echo "Subject: Auto tag for lgdb $major.$minor.$rev release" > ci.log
+echo "Subject: Auto tag for gdb4hpc $major.$minor.$rev release" > ci.log
 echo "Author: $user_name" >> ci.log
-echo "Description: This is an automatic tag for lgdb $major.$minor.$rev release" >> ci.log
+echo "Description: This is an automatic tag for gdb4hpc $major.$minor.$rev release" >> ci.log
 echo "using the release tag tool." >> ci.log
 
 # Create the release tag for the external components
@@ -109,12 +109,12 @@ svn mkdir $cti_RT_root/$major.$minor.$rev/ --file ci.log
 echo "Creating tag from branch..."
 svn copy $cti_RB_root$cti_major.$cti_minor/ $cti_RT_root/$major.$minor.$rev/$cti_dir_base/ --file ci.log
 
-# Temporarily change the lgdb branch externals to point at the proper release tags
+# Temporarily change the gdb4hpc branch externals to point at the proper release tags
 
-# Checkout empty top level lgdb branch
+# Checkout empty top level gdb4hpc branch
 echo -e "########################################################\n"
-echo "Changing svn:externals for lgdb branch"
-echo "Checking out empty top level lgdb branch."
+echo "Changing svn:externals for gdb4hpc branch"
+echo "Checking out empty top level gdb4hpc branch."
 svn co $lgdb_RB_root/$major.$minor/ $temprepo --depth empty
 
 # Backup original svn:externals prop
@@ -122,7 +122,7 @@ echo "Backing up current svn:externals to svn-prop.orig.1"
 svn propget svn:externals $temprepo > svn-prop.orig.1
 
 # Create a temp svn-prop file from template
-echo "Changing svn:externals for top level lgdb branch"
+echo "Changing svn:externals for top level gdb4hpc branch"
 cat $svnprop_1 | sed -e "s@%CTI%@$cti_RT_root/$major.$minor.$rev/$cti_dir_base/@" > svn-prop.tmp
 svn propset svn:externals $temprepo --file svn-prop.tmp
 svn ci $temprepo --file ci.log
@@ -131,20 +131,20 @@ svn ci $temprepo --file ci.log
 rm -rf $temprepo
 rm svn-prop.tmp
 
-# Create the release tag of the lgdb release branch
+# Create the release tag of the gdb4hpc release branch
 echo -e "########################################################\n"
-echo "Creating release tag for lgdb in $lgdb_RT_root/$major.$minor.$rev/"
+echo "Creating release tag for gdb4hpc in $lgdb_RT_root/$major.$minor.$rev/"
 svn copy $lgdb_RB_root/$major.$minor/ $lgdb_RT_root/$major.$minor.$rev/ --file ci.log
 
 # Restore original svn:externals prop
 echo -e "########################################################\n"
-echo "Restore svn:externals for lgdb branch"
+echo "Restore svn:externals for gdb4hpc branch"
 
 # Restore the top level branch
-echo "Checking out empty top level lgdb branch."
+echo "Checking out empty top level gdb4hpc branch."
 svn co $lgdb_RB_root/$major.$minor/ $temprepo --depth empty
 
-echo "Restoring svn:externals for top level lgdb branch"
+echo "Restoring svn:externals for top level gdb4hpc branch"
 svn propset svn:externals $temprepo --file svn-prop.orig.1
 svn ci $temprepo --file ci.log
 

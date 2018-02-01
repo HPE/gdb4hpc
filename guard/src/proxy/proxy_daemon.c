@@ -336,7 +336,7 @@ SetupEnvironment(void)
 	// Set the environment variables
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
-	// Ensure CRAY_LGDB_LIB_DIR is set, otherwise set it to lib_dir
+	// Ensure GDB4HPC_LIB_DIR is set, otherwise set it to lib_dir
 	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
 	{
 		// Not found, we should set this to our lib_dir
@@ -374,7 +374,7 @@ reinit_directory:
 		}
 		
 		// Create the directory name string
-		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		Asprintf(&cfg_dir, "%s/.gdb4hpc", home_dir);
 		
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
@@ -406,7 +406,7 @@ reinit_directory:
 	
 		tmp_dir = cfg_dir;
 		cfg_dir = NULL;
-		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+		Asprintf(&cfg_dir, "%s/.gdb4hpc-%s", tmp_dir, pw->pw_name);
 		
 		DPRINT("Using %s as proxy staging area.\n", cfg_dir);
 		

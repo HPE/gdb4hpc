@@ -120,16 +120,16 @@ cli_readline_init(cli_stream_t ** stream)
 	
 	// Get the default configuration location and read in the history file if possible.
 	// We do not care if this fails. Default to /tmp
-	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
+	if ((config_loc = getenv("GDB4HPC_HIST_DIR")) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/gdb4hpc_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
 	} else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/gdb4hpc_history", config_loc);
 		read_history(histfile);
 		Free(histfile);
 	}
@@ -168,17 +168,17 @@ cli_readline_destroy(cli_stream_t ** stream)
 	rl_callback_handler_remove();
 	
 	// Get the default configuration location and write the history out to file
-	if ((config_loc = getenv("CRAY_LGDB_HIST_DIR")) != NULL)
+	if ((config_loc = getenv("GDB4HPC_HIST_DIR")) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/gdb4hpc_history", config_loc);
 		write_history(histfile);
 		Free(histfile);
 	}
 	else if ((config_loc = getenv(GUARD_CFG_DIRECTORY)) != NULL)
 	{
 		char *	histfile;
-		Asprintf(&histfile, "%s/lgdb_history", config_loc);
+		Asprintf(&histfile, "%s/gdb4hpc_history", config_loc);
 		write_history(histfile);
 		Free(histfile);
 	}

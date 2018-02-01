@@ -118,9 +118,9 @@ def fetch_latest_version(final, revision, pkgs_dir):
     #get latest version number
     version = last_package_ver.split("-")[0]
     version_list = version.split(".")
-    
+   
     #get old revision
-    oldrev = last_package.split("-")[4]
+    oldrev = last_package.split("-")[2]
     oldrev=oldrev.split(".")
     oldrev=oldrev[1]
 
@@ -150,30 +150,24 @@ def fetch_latest_version(final, revision, pkgs_dir):
       elif final == True:
          #then repackaging, same revision
           new_version_str = ".".join(version_list)
-      print "branch 1"
     elif latest_ver == "pre-release":
       #if branch is master
-      print "branch2"
       if final == False:
         if oldrev != revision:
-  	  print "revs are not the same"
 	  #increment 4th digit
 	  #figure out the new last digit
           new_last_digit = str(int(version_list[3]) + 1)
-          print new_last_digit 
           #replace the last digit of the version number
           version_list.pop()
           version_list.append(new_last_digit)
           new_version_str = ".".join(version_list)
 	else:
 	  new_version_str = ".".join(version_list)
-	  print new_version_str
       elif final == True:
         #remove 4th digit
         version_list.pop()
         new_version_str = ".".join(version_list)
 
-  print new_version_str
   return new_version_str
          
 

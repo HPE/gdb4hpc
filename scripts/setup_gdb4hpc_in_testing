@@ -2,9 +2,9 @@
 
 top_dir=../
 script_dir=$PWD
-test_dir=$top_dir/lgdb_in_testing
-test_pkg=$script_dir/tmp/package/rpm/RPMS/x86_64/cray-lgdb*rpm
-#test_pkg=/cray/css/pe/pkgs/cray-lgdb/2.3/cray-lgdb-2.3.2.1*rpm
+test_dir=$top_dir/gdb4hpc_in_testing
+test_pkg=$script_dir/tmp/package/rpm/RPMS/x86_64/gdb4hpc*rpm
+#test_pkg=/cray/css/pe/pkgs/gdb4hpc/2.3/gdb4hpc-2.3.2.1*rpm
 
 #recreate the test dir if present
 if [ -d $test_dir ]
@@ -29,7 +29,7 @@ pushd $test_dir
     then
       echo "a package exists!, lets install that ..... sucka!"
       cp $test_pkg .
-      rpm -ivh --dbpath $PWD --prefix $PWD --oldpackage cray-lgdb-*x86_64.rpm
+      rpm -ivh --dbpath $PWD --prefix $PWD --oldpackage gdb4hpc-*x86_64.rpm
      else
      echo "shart, you need to spin a package."
   fi

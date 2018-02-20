@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lgdb build tool
+# gdb4hpc build tool
 # A bootstrap script to automagically build guard and all of its dependencies
 #
 # Copyright 2010-2015 Cray Inc.  All Rights Reserved.
@@ -23,23 +23,23 @@
 #####################################################
 
 # Build version
-lgdb_build_version="3.0"
+gdb4hpc_build_version="3.0"
 
 # Current directory name where dependencies are located
 thirdparty_directory_name="third_party"
 extras_directory_name="extras"
 
-# Directory name where the final lgdb package will be placed
-lgdb_package_directory_name="lgdb_install"
+# Directory name where the final gdb4hpc package will be placed
+gdb4hpc_package_directory_name="gdb4hpc_install"
 
 # Directory name that will be used as a "staging" directory, that is
 # dependency packages will be installed to the staging directory and only things
-# that are needed in the final lgdb package will be included in the lgdb package
+# that are needed in the final gdb4hpc package will be included in the gdb4hpc package
 # directory.
-lgdb_staging_directory_name="lgdb_tmp"
+gdb4hpc_staging_directory_name="gdb4hpc_tmp"
 
 # Directory name where rpms are extracted to
-lgdb_externals_directory_name="external"
+gdb4hpc_externals_directory_name="external"
 
 # Third party source tree names. 
 mrnet_directory_name="mrnet"
@@ -79,12 +79,12 @@ cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
-# Current dependency source trees that are directly maintained in lgdb
+# Current dependency source trees that are directly maintained in gdb4hpc
 aif_directory_name="libaif"
 guard_directory_name="guard"
 guard_rd_directory_name="guard-rd"
 
-# External dependency source trees that are imported directly in lgdb
+# External dependency source trees that are imported directly in gdb4hpc
 craytool_directory_name="craytool_interface"
 pref=""
 
@@ -181,7 +181,7 @@ fi
 module list
 
 cti_install_dir="$pref/cti/$using_cti_version"
-echo "Using $cti_install_dir to build lgdb"
+echo "Using $cti_install_dir to build gdb4hpc"
 
 pkgconfig_postfix="/lib/pkgconfig"
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cti_install_dir$pkgconfig_postfix
@@ -220,7 +220,7 @@ libxplat_minor="libxplat.so.5.0.1"
 ########################################################
 # Setup the build layout. The following variables are  #
 # used to define where to find dependecies, where to   #
-# place built sources, where to place the lgdb install #
+# place built sources, where to place the gdb4hpc install #
 # etc...                                               #
 # I assume that the build tree is rooted at the PWD    #
 # that I was called from.                              #
@@ -238,14 +238,14 @@ build_dir="$cur_dir" # Placeholder for a seperate build tree (not used)
 thirdparty_dir="$cur_dir/$thirdparty_directory_name"
 extras_dir="$cur_dir/$extras_directory_name"
 
-# Define where to place the final lgdb install
-inst_dir="$build_dir/$lgdb_package_directory_name"
+# Define where to place the final gdb4hpc install
+inst_dir="$build_dir/$gdb4hpc_package_directory_name"
 
 # Define where to temporarily install dependency packages to
-stage_dir="$build_dir/$lgdb_staging_directory_name"
+stage_dir="$build_dir/$gdb4hpc_staging_directory_name"
 
 # Define where rpms are extracted to
-external_dir="$build_dir/$lgdb_externals_directory_name"
+external_dir="$build_dir/$gdb4hpc_externals_directory_name"
 
 ########################################################
 # The following variables define source tree locations #
@@ -292,14 +292,14 @@ editline_src="$thirdparty_dir/$editline_directory_name"
 libarchive_src="$thirdparty_dir/$libarchive_directory_name"
 
 # Define where to find the guard source tree
-lgdb_src="$cur_dir/$guard_directory_name"
+gdb4hpc_src="$cur_dir/$guard_directory_name"
 
 # Define where to find the guard-rd source tree
 # Note that this typically resides inside of the guard source tree
-lgdb_rd_src="$lgdb_src/$guard_rd_directory_name"
+gdb4hpc_rd_src="$gdb4hpc_src/$guard_rd_directory_name"
 
 # Define where to find the module primer
-module_primer="$extras_dir/modulefiles/cray-lgdb/2.0_primer"
+module_primer="$extras_dir/modulefiles/gdb4hpc/2.0_primer"
 module_version="3.0.0"
 
 # Define where to find the demos
@@ -340,7 +340,7 @@ opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
 opt_cti_install=n
-opt_lgdb=n
+opt_gdb4hpc=n
 opt_cleanup=n
 opt_advanced=n
 prompt_user=1
@@ -372,7 +372,7 @@ function print_help {
 	echo "J: editline"
 	echo "K: libarchive"
 	echo "L: Set non standard CTI install directory"
-	echo "M: lgdb"
+	echo "M: gdb4hpc"
 	echo "N: cleanup"
 }
 
@@ -504,7 +504,7 @@ function rename_file {
 ##############################################
 
 # Display welcome message
-echo -e "\nlgdb build tool v$lgdb_build_version - By andrewg@cray.com"
+echo -e "\ngdb4hpc build tool v$gdb4hpc_build_version - By andrewg@cray.com"
 
 # Remove the install directory tree if it already exists
 if [[ -d $inst_dir ]]; then
@@ -590,7 +590,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
-		opt_lgdb=y
+		opt_gdb4hpc=y
 		opt_cleanup=y
 		opt_advanced=n
 		#for release builds, we don't want to build with -g
@@ -623,8 +623,8 @@ if [[ "$#" != "0" ]] ; then
 					opt_libarchive=y;;
 				l | L ) echo "Starting K: Set CTI install directory"
 					opt_cti_install=y;;
-				m | M ) echo "Building L: lgdb"
-					opt_lgdb=y;;
+				m | M ) echo "Building L: gdb4hpc"
+					opt_gdb4hpc=y;;
 				n | N ) echo "Running M: cleanup"
 					opt_cleanup=y;;
 				? ) 	print_help
@@ -666,9 +666,9 @@ if [[ $opt_ask_deps == y ]]; then
 	fi
 fi
 
-# Ask if we should build lgdb
+# Ask if we should build gdb4hpc
 opt_sub="B"
-ask_build "Build lgdb" opt_lgdb
+ask_build "Build gdb4hpc" opt_gdb4hpc
 
 # Ask if we should cleanup after build.
 opt_sub="C"
@@ -679,7 +679,7 @@ opt_sub="D"
 ask_build "Advanced mode" opt_advanced
 if [[ $opt_advanced == y ]]; then
 	opt_sub_num=1
-	ask_sub_build "lgdb debug mode" opt_debug
+	ask_sub_build "gdb4hpc debug mode" opt_debug
 	# only allow optimization level if not using debug mode.
 	if [[ $opt_debug == n ]]; then
 		ask_sub_build "Specify optimization level" opt_optimization
@@ -696,16 +696,16 @@ if [[ $opt_advanced == y ]]; then
 			opt_flag="-g -O$opt_lvl"
 		fi
 	fi
-	ask_sub_build "lgdb perf log mode" opt_perflog
+	ask_sub_build "gdb4hpc perf log mode" opt_perflog
 	# only ask for backend perf mode if using perf log mode.
 	if [[ $opt_perflog == y ]]; then
 		ask_sub_build "Extended backend perf log mode (gathers extra data to lustre files)" opt_beperflog
 	fi
-	ask_sub_build "lgdb backend valgrind mode" opt_valgrind
+	ask_sub_build "gdb4hpc backend valgrind mode" opt_valgrind
 
 	# Now process the sub selections
 
-	# Process debug mode. This turns on debug printing options inside of lgdb. 
+	# Process debug mode. This turns on debug printing options inside of gdb4hpc. 
 	if [[ $opt_debug == y ]]; then
 		# This is the debug option for the call to configure
 		dbg_flag="--with-debug"
@@ -748,7 +748,7 @@ echo	"Starting build process..."
 echo -e	"########################################################\n"
 
 ######################################################
-# Start building lgdb, beginning  with dependencies. #
+# Start building gdb4hpc, beginning  with dependencies. #
 ######################################################
 
 # libaif build
@@ -1176,14 +1176,14 @@ echo -e "########################################################\n"
 # Check for errors in component
 check_error "mrnet"
 
-# lgdb build
-if [[ $opt_lgdb == y ]]; then
-	echo -e "Starting lgdb build.\n"
+# gdb4hpc build
+if [[ $opt_gdb4hpc == y ]]; then
+	echo -e "Starting gdb4hpc build.\n"
 	# change directories
-	echo -e "Using guard source in $lgdb_src.\n"
-	cd $lgdb_src
-	# run lgdb configure
-	echo "Configuring lgdb..."
+	echo -e "Using guard source in $gdb4hpc_src.\n"
+	cd $gdb4hpc_src
+	# run gdb4hpc configure
+	echo "Configuring gdb4hpc..."
 	set -x
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
 	--prefix=$inst_dir \
@@ -1191,33 +1191,33 @@ if [[ $opt_lgdb == y ]]; then
 	"$perf_flag" "$be_perf_flag" "$dbg_flag" "$valgrind_flag" CFLAGS="$opt_flag -Wall" \
 	CXXFLAGS="$opt_flag -Wall"
 	set +x
-	do_build "lgdb"
-	echo -e "\nlgdb installed to $inst_dir.\n"
+	do_build "gdb4hpc"
+	echo -e "\ngdb4hpc installed to $inst_dir.\n"
 	echo -e "Starting post build ops.\n"
-	# change the name of the guard binary to lgdb
-	rename_file "${bindir}/guard" "${bindir}/lgdb" "lgdb"
+	# change the name of the guard binary to gdb4hpc
+	rename_file "${bindir}/guard" "${bindir}/gdb4hpc" "gdb4hpc"
 	# ensure the guard_proxy was built
-	check_file "${libexecdir}/guard_proxy" "lgdb"
-	echo -e "\nDelivering lgdb modulefile..."
-	check_file $module_primer "lgdb"
+	check_file "${libexecdir}/guard_proxy" "gdb4hpc"
+	echo -e "\nDelivering gdb4hpc modulefile..."
+	check_file $module_primer "gdb4hpc"
 	if [[ $? == 0 ]]; then
 		if [[ ! -d $inst_dir/modulefiles ]]; then
 			mkdir $inst_dir/modulefiles
 		fi
-		if [[ ! -d $inst_dir/modulefiles/cray-lgdb ]]; then
-			mkdir $inst_dir/modulefiles/cray-lgdb
+		if [[ ! -d $inst_dir/modulefiles/gdb4hpc ]]; then
+			mkdir $inst_dir/modulefiles/gdb4hpc
 		fi
 		# deliver the fixed modulefile. Sed, you amaze me.
 		cat $module_primer | sed -e "s@%HOME%@$inst_dir@" | sed -e "s@%VERSION%@$module_version@" \
-		> $inst_dir/modulefiles/cray-lgdb/$module_version.DEV
+		> $inst_dir/modulefiles/gdb4hpc/$module_version.DEV
 	fi
-	copy_file $demo_dir ${inst_dir} "lgdb"
-	copy_file $docs_dir ${inst_dir} "lgdb"
+	copy_file $demo_dir ${inst_dir} "gdb4hpc"
+	copy_file $docs_dir ${inst_dir} "gdb4hpc"
 	echo -e "########################################################\n"
 fi
 
 # Check for errors in component
-check_error "lgdb"
+check_error "gdb4hpc"
 
 # cleanup
 if [[ $opt_cleanup == y ]]; then
@@ -1232,19 +1232,19 @@ if [[ $opt_cleanup == y ]]; then
 	do_clean $opt_gdb_uda $gdb_uda_src "gdb uda support library"
 	do_clean $opt_editline $editline_src "editline"
 	do_clean $opt_libarchive $libarchive_src "libarchive"
-	# make clean lgdb
-	if [[ $opt_lgdb == y ]]; then
-		echo "Cleaning lgdb..."
-		cd $lgdb_rd_src
+	# make clean gdb4hpc
+	if [[ $opt_gdb4hpc == y ]]; then
+		echo "Cleaning gdb4hpc..."
+		cd $gdb4hpc_rd_src
 		make --silent clean
-		cd $lgdb_src
+		cd $gdb4hpc_src
 		make --silent clean
 		make --silent distclean
 	fi
 	echo -e "########################################################\n"
 fi
 
-echo "Done. The lgdb distribution was installed to $inst_dir."
+echo "Done. The gdb4hpc distribution was installed to $inst_dir."
 
 if [ "$error" -eq "0" ] && [ "$warning" -eq "0" ]; then
 	echo -e "Finished without warnings or errors.\n"

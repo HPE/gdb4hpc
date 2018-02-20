@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 content='''%define namespace [namespace]
-%define intranamespace_name [intranamespace_name]
 %define two_dig_version [package_branch_two_digit]
 %define two_dig_nodot_version [package_branch_two_digit_nodot]
 %define build_version [version]
 %define scripts_d [script_dir]
-%define man_source /cray/css/compiler/comp_rel/pubs/manpages/lgdb/%{two_dig_version}/xt_lgdb_%{two_dig_nodot_version}.cpio
+#%define man_source /cray/css/compiler/comp_rel/pubs/manpages/gdb4hpc/%{two_dig_version}/xt_gdb4hpc_%{two_dig_nodot_version}.cpio
 
 Summary: Performance Application Programming Interface
-Name: %{namespace}-%{intranamespace_name}-%{build_version} 
+Name: %{namespace}-%{build_version} 
 Version: [revision]
 Release: [release][sles_sub]
 License: BSD
@@ -26,7 +25,7 @@ Requires: set_default_2
 %define debug_package%{nil}
 
 %description
-CCDB is a comparative debugger.
+LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers.
 
 # version
 %define major_version %(echo %{build_version} | awk -v n=1 'BEGIN { FS = "." } ; { print $n }')
@@ -34,12 +33,12 @@ CCDB is a comparative debugger.
 
 # _prefix
 %define _namespace_prefix %{prefix}
-%define _name_prefix %{_namespace_prefix}/%{intranamespace_name}
+%define _name_prefix %{_namespace_prefix}/%{namespace}
 %define _version_prefix %{_name_prefix}/%{build_version}
 
 # _moduledir
 %define _namespace_moduledir %{prefix}/modulefiles
-%define _name_moduledir %{_namespace_moduledir}/%{namespace}-%{intranamespace_name}
+%define _name_moduledir %{_namespace_moduledir}/%{namespace}
 
 %prep
 %setup
@@ -47,16 +46,16 @@ CCDB is a comparative debugger.
 
 %install
 mkdir -p %{buildroot}%{_version_prefix}
-cp -r cray-lgdb/* %{buildroot}%{_version_prefix}/
+cp -r gdb4hpc/* %{buildroot}%{_version_prefix}/
 rm -rf %{buildroot}%{_version_prefix}/modulefiles
 
 install -D modulefile/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
-install -D cray-lgdb/release_info %{buildroot}%{_version_prefix}/
-echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.%{namespace}_rpm_release
+install -D gdb4hpc/release_info %{buildroot}%{_version_prefix}/
+echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.cray_rpm_release
 mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
-install -D set_default_%{namespace}-%{intranamespace_name}_%{build_version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
-install -D set_default_%{namespace}-%{intranamespace_name}_%{build_version} %{buildroot}%{_version_prefix}/
-mv cray-lgdb/docs/ATTRIBUTIONS_lgdb.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_lgdb.%{build_version}.txt
+install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
+install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_version_prefix}/
+mv gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
 
 # hardlink duplicate files to save space
 #%fdupes %{buildroot}
@@ -73,7 +72,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_version_prefix}/bin
 %dir %{_version_prefix}/docs
 
-%{_version_prefix}/bin/%{intranamespace_name}
+%{_version_prefix}/bin/%{namespace}
 %dir %{_version_prefix}/libexec
 %{_version_prefix}/libexec/dbgsrv
 %{_version_prefix}/libexec/dbgsrv_alps
@@ -88,72 +87,72 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/lib
 %{_version_prefix}/man
 
-%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 %{_name_moduledir}/%{build_version}
 %{_version_prefix}/.cray_rpm_release
-%{_version_prefix}/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+%{_version_prefix}/set_default_%{namespace}_%{build_version}
 %{_version_prefix}/release_info
-%{_version_prefix}/ATTRIBUTIONS_lgdb.%{build_version}.txt
+%{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
 #%{_version_prefix}/docs/GPLv3.txt
 #%{_version_prefix}/docs/LGPLv21.txt
 #%{_version_prefix}/docs/LICENSE
 #%{_version_prefix}/docs/epl-v10.txt
-%{_version_prefix}/docs/ATTRIBUTIONS_lgdb.txt
+%{_version_prefix}/docs/ATTRIBUTIONS_gdb4hpc.txt
 
 
 %post
 
 #
 # Set as default if no default exists either because this is first install of
-# cray-lgdb or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
+# gdb4hpc or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
 #
 
 
 
 #Set the install path in the modulefile & set_default script(s)
 sed -i "s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
-$RPM_INSTALL_PREFIX/modulefiles/%{namespace}-%{intranamespace_name}/%{build_version} \
-$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version} \
-$RPM_INSTALL_PREFIX/%{intranamespace_name}/%{build_version}/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+$RPM_INSTALL_PREFIX/modulefiles/%{namespace}/%{build_version} \
+$RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version} \
+$RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/set_default_%{namespace}_%{build_version}
 
 # prevent echo of new directory as it messes up install output
 if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
   then
-    if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ] || [ ! -f $RPM_INSTALL_PREFIX/modulefiles/cray-lgdb/.version ]
+    if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ] || [ ! -f $RPM_INSTALL_PREFIX/modulefiles/gdb4hpc/.version ]
     then
-      $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}-%{intranamespace_name}_%{build_version}
+      $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
     else
-      echo "%{namespace}-%{intranamespace_name}_%{build_version} has been installed as non-default."
+      echo "%{namespace}_%{build_version} has been installed as non-default."
     fi
 fi
 
 %preun
 # Cleanup default link if it point to this version
-default_link="${RPM_INSTALL_PREFIX}/%{intranamespace_name}/default"
+default_link="${RPM_INSTALL_PREFIX}/%{namespace}/default"
 version="%{build_version}"
 
 # Cleanup module .version if it points to this version
-if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}/.version ]
+if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}/.version ]
 then
-  dotversion=`grep ModulesVersion ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}/.version | cut -f2 -d'"'`
+  dotversion=`grep ModulesVersion ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}/.version | cut -f2 -d'"'`
   
   if [ "$dotversion" = "$version" ]
   then
-    /bin/rm -f ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}/.version
+    /bin/rm -f ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}/.version
     echo "Uninstalled version and .version file match = ${version}."
-    echo "Removing %{intranamespace_name} .version file."
+    echo "Removing %{namespace} .version file."
     rm -f ${default_link}
   fi
 fi
 
-if [[ -z `ls ${RPM_INSTALL_PREFIX}/%{intranamespace_name}` ]]
+if [[ -z `ls ${RPM_INSTALL_PREFIX}/%{namespace}` ]]
 then
-  rm -rf ${RPM_INSTALL_PREFIX}/%{intranamespace_name}
+  rm -rf ${RPM_INSTALL_PREFIX}/%{namespace}
 fi
 
-if [[ -z `ls ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}`/ ]]
+if [[ -z `ls ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}`/ ]]
 then
-  rm -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}-%{intranamespace_name}
+  rm -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}
 fi
 
 %changelog

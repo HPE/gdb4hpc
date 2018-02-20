@@ -102,17 +102,17 @@ usage(char *name)
 	PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
 	PrintOutMsg("  --version, -v        Display version\n");
 	
-	PrintOutMsg("\nFor more information, type \"help\" inside lgdb, or consult the\n");
-	PrintOutMsg("lgdb manpage. (man lgdb)\n");
+	PrintOutMsg("\nFor more information, type \"help\" inside gdb4hpc, or consult the\n");
+	PrintOutMsg("gdb4hpc manpage. (man gdb4hpc)\n");
 }
 
 static void
 Banner(void)
 {
 #ifdef ALPS
-	PrintOutMsg("lgdb 3.0 - Cray Line Mode Parallel Debugger\n");
+	PrintOutMsg("gdb4hpc 3.0 - Cray Line Mode Parallel Debugger\n");
 	PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-	PrintOutMsg("Copyright 2007-2016 Cray Inc. All Rights Reserved.\n");
+	PrintOutMsg("Copyright 2007-2018 Cray Inc. All Rights Reserved.\n");
 #else		
 	PrintOutMsg("GUARD Parallel Relative Debugger\n");
 #endif /* ALPS */
@@ -214,7 +214,7 @@ SetupEnvironment(void)
 	// Set the environment variables
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
-	// Ensure CRAY_LGDB_LIB_DIR is set, otherwise set it to lib_dir
+	// Ensure GDB4HPC_LIB_DIR is set, otherwise set it to lib_dir
 	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
 	{
 		// Not found, we should set this to our lib_dir
@@ -252,7 +252,7 @@ SetupEnvironment(void)
 		}
 				
 		// Create the directory name string
-		Asprintf(&cfg_dir, "%s/.cray_lgdb", home_dir);
+		Asprintf(&cfg_dir, "%s/.gdb4hpc", home_dir);
 				
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
@@ -283,7 +283,7 @@ SetupEnvironment(void)
 	
 		tmp_dir = cfg_dir;
 		cfg_dir = NULL;
-		Asprintf(&cfg_dir, "%s/.cray_lgdb-%s", tmp_dir, pw->pw_name);
+		Asprintf(&cfg_dir, "%s/.gdb4hpc-%s", tmp_dir, pw->pw_name);
 		
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
@@ -474,7 +474,7 @@ main(int argc, char *argv[])
 				Client.silent = 1;
 				break;
 			case 'v':
-				PrintOutMsg("lgdb-%s\n", GUARD_VERSION);
+				PrintOutMsg("gdb4hpc-%s\n", GUARD_VERSION);
 				exit(0);
 			case 'h':
 				usage(argv[0]);
@@ -644,7 +644,7 @@ SigHandler(int sig)
 	}
 #endif /* RD */
 
-	// Any signals that should cause lgdb to quit should be handled here.
+	// Any signals that should cause gdb4hpc to quit should be handled here.
 	if ( sig == SIGHUP || sig == SIGTERM || sig == SIGQUIT )
 	{
 		Client.quit = 1;

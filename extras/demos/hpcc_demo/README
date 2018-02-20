@@ -1,4 +1,4 @@
-Using the lgdb Comparative Debugging Feature demo sources
+Using the gdb4hpc Comparative Debugging Feature demo sources
 
 Certain components, files or programs contained within this package or product 
 are Copyright 2013 Cray Inc. All rights reserved.
@@ -11,12 +11,12 @@ To run the demos, do the following:
 2. Run the provided build_demo.sh build script. This will ensure a properly
    setup environment and automatically build all the necessary binaries.
 
-3. Load the cray-lgdb module and start lgdb.
+3. Load the gdb4hpc module and start gdb4hpc.
 
-4. Follow the steps described in the "Using the lgdb Comparative Debugging
+4. Follow the steps described in the "Using the gdb4hpc Comparative Debugging
    Feature" white paper or use the provided scripts in the hpcc_scripts
-   directory. The script can be used inside lgdb using the source command. For
-   example, if lgdb is started from the parent directory, you would issue the
+   directory. The script can be used inside gdb4hpc using the source command. For
+   example, if gdb4hpc is started from the parent directory, you would issue the
    following command:
 
       source hpcc_scripts/hpcc_script_1.rc

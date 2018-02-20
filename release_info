@@ -1,4 +1,4 @@
-LGDB %VERSION%
+LGDB4HPC %VERSION%
 ==========
 
 Release Date:
@@ -7,7 +7,7 @@ Release Date:
 
 Product Description:
 --------------------
-  lgdb is a GDB-based parallel debugger used to debug applications compiled with 
+  gdb4hpc is a GDB-based parallel debugger used to debug applications compiled with 
   CCE, PGI, GNU, and Intel Fortran, C and C++ compilers. It allows programmers to 
   either launch an application or attach to an already running application that 
   was launched with aprun. Additionally, it provides comparative debugging
@@ -15,7 +15,7 @@ Product Description:
   executing applications. Comparative debugging should be used in conjunction
   with the CCDB GUI tool accessed by loading the cray-ccdb module.
 
-  Some features of lgdb include:
+  Some features of gdb include:
 
   * Command line parallel debugger allows for launching/attaching applications
     via aprun.
@@ -38,18 +38,18 @@ Purpose:
 
 Product and OS Dependencies:
 -----------------------------
-  The Cray lgdb %VERSION% release is supported on the following Cray systems
+  The Cray gdb4hpc %VERSION% release is supported on the following Cray systems
   running CentOS operating system on CS.
     - Native SLURM is supported with version 16
 
 
 Documentation:
 ---------------
-Type `man lgdb` with the cray-lgdb module loaded to read the lgdb(1) man page.
+Type `man gdb4hpc` with the gdb4hpc module loaded to read the gdb4hpc(1) man page.
 
 Simple usage examples are provided at the end.
 
-Also, type `help` at the lgdb command line for more information on commands.
+Also, type `help` at the gdb4hpc command line for more information on commands.
 
 
 Installation instructions:
@@ -57,11 +57,11 @@ Installation instructions:
 
 Installation instructions for %os_name%:
 =============================================
-  rpm -ivh %PREFIX% cray-lgdb-%VERSION%-%REVISION%-%RELEASE%%os%.%ARCH%.rpm
+  rpm -ivh %PREFIX% gdb4hpc-%VERSION%-%REVISION%-%RELEASE%%os%.%ARCH%.rpm
 
-  To make lgdb %VERSION% the default version of lgdb, execute:
-  %OSPREFIX%/admin-pe/set_default_files/set_default_cray-lgdb_%VERSION%
+  To make gdb4hpc %VERSION% the default version of gdb4hpc, execute:
+  %OSPREFIX%/admin-pe/set_default_files/set_default_gdb4hpc_%VERSION%
 
 
  Certain components, files or programs contained within this package or
- product are Copyright 2007-2017 Cray Inc. All rights reserved.
+ product are Copyright 2007-2018 Cray Inc. All rights reserved.

@@ -9,7 +9,7 @@ from datetime import datetime
 arch                ="x86_64"
 final		    = False
 athena              = False
-product_dir         = "/cray/css/pe/pkgs/cray-lgdb"
+product_dir         = "/cray/css/pe/pkgs/gdb4hpc"
 bld_dir             = ""
 os_sub              = ""
 prefix              = "/opt/cray"
@@ -69,13 +69,13 @@ def fetch_os():
   
   os_sub = os_sub.strip()
   if os_sub == "el7" and athena == False:
-    bld_dir = "/cray/css/ulib/lgdb/builds/builds_cs"
+    bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_cs"
     
   elif os_sub == "el7" and athena == True:
-    bld_dir = "/cray/css/ulib/lgdb/builds/athena"
+    bld_dir = "/cray/css/ulib/gdb4hpc/builds/athena"
     
   elif os_sub == "11":
-    bld_dir = "/cray/css/ulib/lgdb/builds/builds_xc"
+    bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
     os_name = "sles11"
     prefix_cmd = "--prefix=/opt/cray"
 
@@ -84,10 +84,10 @@ def fetch_os():
     prefix = "/opt/cray/pe"
 
     if arch == "x86_64":
-      bld_dir = "/cray/css/ulib/lgdb/builds/builds_xc"
+      bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
     
     elif arch == "aarch64":
-      bld_dir = "/cray/css/ulib/lgdb/builds/aarch64"
+      bld_dir = "/cray/css/ulib/gdb4hpc/builds/aarch64"
     
   return "." + os_name
 
@@ -129,8 +129,9 @@ def fetch_latest_version(final, revision, pkgs_dir):
     if final:
       version = two_digit_ver + "." + 0-0
     else:
-      version = two_digit_ver + "." + 0.0-0
-
+      #version = two_digit_ver + "." + 0.0-0
+      version = "3.0.8.9"
+      new_version_str = version
   else:
 
     #sort the file list, grab the last one
@@ -140,13 +141,13 @@ def fetch_latest_version(final, revision, pkgs_dir):
     last_package = onlyfiles.pop()
 
     #determine the 4 digit version number
-    last_package_ver = last_package.split("cray-lgdb-")[1]
+    last_package_ver = last_package.split("gdb4hpc-")[1]
     #get latest version number
     version = last_package_ver.split("-")[0]
     version_list = version.split(".")
-    
+   
     #get old revision
-    oldrev = last_package.split("-")[4]
+    oldrev = last_package.split("-")[2]
     oldrev=oldrev.split(".")
     oldrev=oldrev[1]
 
@@ -176,28 +177,24 @@ def fetch_latest_version(final, revision, pkgs_dir):
       elif final == True:
          #then repackaging, same revision
           new_version_str = ".".join(version_list)
-     
     elif latest_ver == "pre-release":
       #if branch is master
       if final == False:
         if oldrev != revision:
-  	  print "revs are not the same"
 	  #increment 4th digit
 	  #figure out the new last digit
           new_last_digit = str(int(version_list[3]) + 1)
-         
           #replace the last digit of the version number
           version_list.pop()
           version_list.append(new_last_digit)
           new_version_str = ".".join(version_list)
 	else:
 	  new_version_str = ".".join(version_list)
-	  print new_version_str
       elif final == True:
         #remove 4th digit
         version_list.pop()
         new_version_str = ".".join(version_list)
-	
+
   return new_version_str
          
 
@@ -243,7 +240,7 @@ def fetch_newData():
   three_digit_version = version[0:5]
   ver_two_dig_nodot = version[0] + version[2]
 
-  base_name = "cray-lgdb-" + version
+  base_name = "gdb4hpc-" + version
   release_number = fetch_release(base_name, rev_number,pkgs_dir)
 
   package_name = base_name + "-" + timestmp_revnbr + "-" + release_number + osver

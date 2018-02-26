@@ -139,7 +139,7 @@ function set_OS(){
   then
     gccVer=6.1.0
   fi
-  module load $gccVer
+  module load gcc/$gccVer
 }
 
 function set_prefix(){

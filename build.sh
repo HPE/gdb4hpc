@@ -85,8 +85,11 @@ guard_directory_name="guard"
 guard_rd_directory_name="guard-rd"
 
 # External dependency source trees that are imported directly in gdb4hpc
+extern_boost="/cray/css/ulib/boost/1_66/boost_1_66_0/install"
+extern_boost_aarch64="/cray/css/ulib/boost/1_66_aarch64/boost_1_66_0/install"
 craytool_directory_name="craytool_interface"
 pref=""
+isArm=false
 
 function source_module_script() {
   redhat_release_file="/etc/redhat-release"
@@ -130,12 +133,13 @@ function set_OS(){
   OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
   if [[ $OS == "aarch64" ]]
   then
-    gccVer=4.8.5
+    gccVer=6.1.0
+    isArm=true
   elif [[ $OS == "x86_64" ]]
   then
-    gccVer=4.9.3
-    module load $gccVer
+    gccVer=6.1.0
   fi
+  module load $gccVer
 }
 
 function set_prefix(){
@@ -1124,11 +1128,17 @@ if [[ $opt_mrnet == y ]]; then
 	# change directories
 	cd $mrnet_src
 	echo -e "\nUsing MRNet source in $mrnet_src.\n"
+    boost_inst_loc=extern_boost
+    if [[ isArm == true ]]; then
+        boost_inst_loc=extern_boost_aarch64
+    fi
+    echo "Using boost $boost_inst_loc.\n"
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
+    --with-boost=$boost_inst_loc \
 	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'
 	set +x
 	do_build "MRNet"
@@ -1137,13 +1147,10 @@ if [[ $opt_mrnet == y ]]; then
 	# deliver the boost headers included with mrnet source if not done already
 	# we don't want to error on failure to copy, so we do things in place here
 	if [[ ! -d $dep_includedir/boost ]]; then
-		if [[ -d $mrnet_src/external/boost/include/boost ]]; then
-			echo "Delivering boost headers to $dep_includedir..."
-			cp -r $mrnet_src/external/boost/include/boost $dep_includedir
-		else
-			echo "WARNING: Could not find the boost include files. Build may be incomplete."
-			echo "The system is probably already providing these for free."
-		fi
+        if [[ -d $boost_inst_loc/include/boost ]]; then
+            echo "Linking to $boost_inst_loc/include/boost for mrnet boost headers..."
+            ln -s boost_inst_loc/include/boost $dep_includedir/boost 
+        fi
 	fi
 	# Deliver the mrnet_config.h file
 	copy_file "${mrnet_src}/build/"*"/mrnet_config.h" $dep_includedir "MRNet"

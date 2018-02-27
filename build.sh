@@ -1117,7 +1117,7 @@ if [[ $opt_mrnet == y ]]; then
 	cd $mrnet_src
 	echo -e "\nUsing MRNet source in $mrnet_src.\n"
     boost_inst_loc=$extern_boost
-    if [[ isArm == true ]]; then
+    if [[ $isArm == true ]]; then
         boost_inst_loc=$extern_boost_aarch64
     fi
     echo "Using boost $boost_inst_loc.\n"

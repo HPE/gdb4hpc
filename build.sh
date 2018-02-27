@@ -1121,13 +1121,20 @@ if [[ $opt_mrnet == y ]]; then
         boost_inst_loc=$extern_boost_aarch64
     fi
     echo "Using boost $boost_inst_loc.\n"
+    # Check if we should force a rpath for the gcc libs
+    gcc_rpath_link_opt=""
+    if [[ "x$GCC_PATH" != "x" ]]; then
+        if [[ -d $GCC_PATH/snos/lib64 ]]; then 
+            gcc_rpath_link_opt="-Wl,-rpath,$GCC_PATH/snos/lib64"
+        fi
+    fi
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
     --with-boost=$boost_inst_loc \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'" $gcc_rpath_link_opt"
 	set +x
 	do_build "MRNet"
 	echo -e "\nMRNet staged to $stage_dir\n"

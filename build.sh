@@ -91,19 +91,6 @@ craytool_directory_name="craytool_interface"
 pref=""
 isArm=false
 
-function source_module_script() {
-  redhat_release_file="/etc/redhat-release"
-
-  if [ -e "$redhat_release_file" ]; then
-    if [[ -e /usr/share/Modules/init/bash ]]; then 
-	source /usr/share/Modules/init/bash
-    fi
-  else
-    if [[ -e $module_pref/modules/default/init/bash ]]; then 
-	source $module_pref/modules/default/init/bash
-    fi
-  fi
-}
 function load_cti_module(){
     #what is the latest installed version of cti?
     latest_cti_module=$(readlink -f $1/cti/default)
@@ -129,41 +116,44 @@ function get_cti_version(){
       fi
     done
 }
-function set_OS(){
-  OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
-  if [[ $OS == "aarch64" ]]
-  then
-    gccVer=6.1.0
-    isArm=true
-  elif [[ $OS == "x86_64" ]]
-  then
-    gccVer=6.1.0
-  fi
-  module load gcc/$gccVer
-}
-
-function set_prefix(){
-
-  SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
-  if [[ "$SLES_VER" == "12" ]]
-  then
-    pref="/opt/cray/pe"
-    module_pref="/opt/cray/pe"
-    delim=6
-  else
-    pref="/opt/cray"
-    module_pref="/opt"
-    delim=5
-  fi
-}
 
 supported_cti_version=1.0.5
 supported_cti_release_range=1.0.[5-9]
 
-set_prefix
-source_module_script
-set_OS
+# set prefix
+SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+if [[ "$SLES_VER" == "12" ]]; then
+    pref="/opt/cray/pe"
+    module_pref="/opt/cray/pe"
+    delim=6
+else
+    pref="/opt/cray"
+    module_pref="/opt"
+    delim=5
+fi
 
+# source module script - this needs to be done early on before using any module commands
+redhat_release_file="/etc/redhat-release"
+
+if [ -e "$redhat_release_file" ]; then
+    if [[ -e /usr/share/Modules/init/bash ]]; then
+        source /usr/share/Modules/init/bash
+    fi
+else
+    if [[ -e $module_pref/modules/default/init/bash ]]; then
+        source $module_pref/modules/default/init/bash
+    fi
+fi
+
+# Set OS level
+OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
+if [[ $OS == "aarch64" ]]; then
+    gccVer=6.1.0
+    isArm=true
+elif [[ $OS == "x86_64" ]]; then
+    gccVer=6.1.0
+fi
+module load gcc/$gccVer
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
@@ -560,8 +550,6 @@ dep_lib64dir="$stage_dir/lib64"
 ##############################################
 # Ensure that a PrgEnv module is not loaded. #
 ##############################################
-
-source_module_script
 
 if test "x`module list -l 2>&1 > /dev/null | grep 'PrgEnv'`" != "x"; then
 	echo "!!!!!!!!!!ERROR!!!!!!!!!!"
@@ -1149,7 +1137,7 @@ if [[ $opt_mrnet == y ]]; then
 	if [[ ! -d $dep_includedir/boost ]]; then
         if [[ -d $boost_inst_loc/include/boost ]]; then
             echo "Linking to $boost_inst_loc/include/boost for mrnet boost headers..."
-            ln -s boost_inst_loc/include/boost $dep_includedir/boost 
+            ln -s $boost_inst_loc/include/boost $dep_includedir/boost 
         fi
 	fi
 	# Deliver the mrnet_config.h file

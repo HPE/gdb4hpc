@@ -964,10 +964,12 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda75-gdb-guard" "cuda-gdb 75"
 fi
 
-# cuda-gdb 75 install
-echo -e "Starting cuda-gdb 75 install.\n"
-# Deliver the cuda75-gdb-guard binary
-copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
+# cuda-gdb 75 install - bypass install for arm
+if [[ $isArm == false ]]; then
+    echo -e "Starting cuda-gdb 75 install.\n"
+    # Deliver the cuda75-gdb-guard binary
+    copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
+fi
 echo -e "########################################################\n"
 
 # Check for errors in component
@@ -1017,10 +1019,12 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
 fi
 
-# cuda-gdb 80 install
-echo -e "Starting cuda-gdb 80 install.\n"
-# Deliver the cuda80-gdb-guard binary
-copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
+# cuda-gdb 80 install - bypass install for arm
+if [[ $isArm == false ]]; then
+    echo -e "Starting cuda-gdb 80 install.\n"
+    # Deliver the cuda80-gdb-guard binary
+    copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
+fi
 echo -e "########################################################\n"
 
 # Check for errors in component

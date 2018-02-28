@@ -723,6 +723,16 @@ if [[ $opt_advanced == y ]]; then
 	fi
 fi
 
+# Disable cuda_gdb options for arm. Cray does not have plans to support GPUs 
+# with ARM CPUs.
+if [[ $isArm == true ]]; then
+    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y ]]; then
+        echo "Building of cuda_gdb is not supported on the aarch64 architecture!"
+        opt_cuda75_gdb=n
+        opt_cuda80_gdb=n
+    fi
+fi
+
 ########################################################
 # Done processing options. Prepare to start the build. #
 ########################################################

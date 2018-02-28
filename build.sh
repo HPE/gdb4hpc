@@ -955,7 +955,7 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	echo "Configuring cuda-gdb..."
 	set -x
     autoreconf -ifv
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1010,7 +1010,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	echo "Configuring cuda-gdb..."
 	set -x
     autoreconf -ifv
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"

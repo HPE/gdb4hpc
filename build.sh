@@ -727,7 +727,7 @@ fi
 # with ARM CPUs.
 if [[ $isArm == true ]]; then
     if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y ]]; then
-        echo "Building of cuda_gdb is not supported on the aarch64 architecture!"
+        echo -e "\nBuilding of cuda_gdb is not supported on the aarch64 architecture!"
         opt_cuda75_gdb=n
         opt_cuda80_gdb=n
     fi

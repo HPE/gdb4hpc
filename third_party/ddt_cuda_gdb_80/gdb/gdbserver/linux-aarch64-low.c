@@ -29,7 +29,9 @@
 #include <sys/user.h>
 #include <sys/ptrace.h>
 #include <sys/uio.h>
-
+#ifdef __aarch64__
+#include <asm/ptrace.h>
+#endif
 #include "gdb_proc_service.h"
 
 /* Defined in auto-generated files.  */

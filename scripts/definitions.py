@@ -12,6 +12,11 @@ athena              = False
 product_dir         = "/cray/css/pe/pkgs/gdb4hpc"
 bld_dir             = ""
 os_sub              = ""
+prefix              = "/opt/cray"
+prefix_cmd          = ""
+osver               = ""
+os_name             = ""
+arch                = ""
 
 for arg in sys.argv:
   if arg == '-f':
@@ -20,12 +25,12 @@ for arg in sys.argv:
     athena = True
 
 def fetch_release(base_name, rev_num,pkgs_dir):
-  rpm_tail = ".x86_64.rpm"
+  rpm_tail = ".rpm"
   itt_list = range(20)
   itt_list.reverse()
   rval = 0
   for i in itt_list:
-    tmp_name = pkgs_dir + "/" + base_name + "-" + "*" + "." + rev_num + "-" + str(i) + osver + rpm_tail
+    tmp_name = pkgs_dir + "/" + base_name + "-*." + rev_num + "-" + str(i) + osver + "." + arch + rpm_tail
     if glob.glob(tmp_name):
       rval = i + 1
       break
@@ -35,9 +40,21 @@ def fetch_release(base_name, rev_num,pkgs_dir):
 def fetch_os():
   global bld_dir
   global os_sub
+  global prefix
+  global prefix_cmd
+  global arch
+  global os_name
+
+
   if os.path.isfile("/etc/SuSE-release"):
     with open("/etc/SuSE-release", "r") as f:
       for line in f:
+        if line.find("aarch64") != -1:
+          arch = "aarch64"
+          arch_name = "ARM"
+        elif line.find("x86_64") != -1:
+          arch = "x86_64"
+
         if line.find("VERSION") != -1:
           os_sub = line.replace("VERSION = ", "")
           break
@@ -46,22 +63,33 @@ def fetch_os():
       for line in f:
         if line.find("CentOS ") != -1:
           os_sub = 'el7'
+          os_name = "CS"
+          arch = "x86_64"
           break
-
+  
   os_sub = os_sub.strip()
-  print "OS VER: " + os_sub
   if os_sub == "el7" and athena == False:
     bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_cs"
-    return ".el7"
+    
   elif os_sub == "el7" and athena == True:
     bld_dir = "/cray/css/ulib/gdb4hpc/builds/athena"
-    return ".el7"
+    
   elif os_sub == "11":
     bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
-    return ".sles11"
-  elif os_sub =="12":
-    bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
-    return ".sles12"
+    os_name = "sles11"
+    prefix_cmd = "--prefix=/opt/cray"
+
+  elif os_sub == "12":
+    os_name = "sles12"
+    prefix = "/opt/cray/pe"
+
+    if arch == "x86_64":
+      bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
+    
+    elif arch == "aarch64":
+      bld_dir = "/cray/css/ulib/gdb4hpc/builds/aarch64"
+    
+  return "." + os_name
 
 
 def release_date():
@@ -86,7 +114,6 @@ def fetch_packageDir():
       last_Dir = onlyDirs.pop()
 
     return last_Dir
-
 
 
 

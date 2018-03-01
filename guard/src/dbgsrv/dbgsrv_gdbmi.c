@@ -71,9 +71,6 @@
 
 #include "MI.h"
 
-#define	 GDB_MIN_VERS 7.2
-#define GDB_EXPECTED_ARCH "x86_64"
-
 // Enum for supported cuda versions
 enum cuda_vers
 {
@@ -161,7 +158,6 @@ static dbgevent_t *	InitDbgAttach(int, char *);
 static dbgevent_t *	WaitEvent(dbgevent_t *e);
 static dbgevent_t *	CheckBreak(MICommand *);
 static void			Finish(int);
-static dbgevent_t *	CheckVers(void);
 static void			event_callback(MIEvent *);
 static void			console_callback(char *);
 static void			log_callback(char *);
@@ -3726,9 +3722,6 @@ InitDbg(char *prog, char *args)
 	CLIInfoProcInfo *procInfo;
 	int breakpointNumberAtMain = 0;
 
-	if ( (e = CheckVers()) != (dbgevent_t *)NULL )
-		return e;
-
 	cmd = MICommandNew("-file-exec-and-symbols", MIResultRecordDONE);
 	MICommandAddOption(cmd, prog, NULL);
 	SendMICommand(GDBMISession, cmd);
@@ -3850,11 +3843,6 @@ InitDbgAttach(int pid, char *prog)
 	CLIInfoProcInfo *	procInfo;
 	
 	DVPRINT("*** InitDbgAttach\n");
-
-	DBEPERFLOG(SetTimerStart("DbgAttach: CheckVers"));
-	if ((e = CheckVers()) != (dbgevent_t *)NULL)
-		return e;
-	DBEPERFLOG(SetTimerStopAndLog("DbgAttach: CheckVers"));
 
 	cmd = MITargetAttach(pid);
 	
@@ -4374,60 +4362,6 @@ Finish(int sig)
 {
 	DVPRINT("*** In Finish.\n");
 	Shutdown++;
-}
-
-/*
-** Check for correct debugger version.
-*/
-static dbgevent_t *
-CheckVers(void)
-{
-	dbgevent_t *	e = NULL;
-	MICommand * 	cmd;
-	double			gdb_version = -1.0;
-	char *			gdb_arch = NULL;
-	int				vers_err = 0;
-	int				arch_err = 0;
-	
-	DVPRINT("*** CheckVers\n");
-
-	cmd = MIGDBVersion();
-	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) {
-		gdb_version = CLIGetGDBVersion(cmd);
-		gdb_arch = CLIGetGDBArch(cmd);
-	}
-	
-	DVPRINT("CheckVers: Debugger vers=%f arch=%s\n", gdb_version, gdb_arch);
-
-	MICommandFree(cmd);
-	
-	if (gdb_version < GDB_MIN_VERS)
-		++vers_err;
-		
-	if (gdb_arch == NULL)
-	{
-		gdb_arch = strdup("unknown");
-		++arch_err;
-	} else if (strncmp(gdb_arch, GDB_EXPECTED_ARCH, strlen(GDB_EXPECTED_ARCH)))
-		++arch_err;
-	
-	if (arch_err && vers_err)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid gdb version %f and arch %s. Expected at least version %f and arch %s.", 
-						gdb_version, 
-						gdb_arch, 
-						GDB_MIN_VERS, 
-						GDB_EXPECTED_ARCH);
-	} else if (arch_err)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid gdb arch %s. Expected arch %s.", gdb_arch, GDB_EXPECTED_ARCH);
-	} else if (vers_err)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid gdb version %f. Expected at least version %f.", gdb_version, GDB_MIN_VERS);
-	}
-
-	return e;
 }
 
 /*

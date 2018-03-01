@@ -592,6 +592,9 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 				break;
 			}
 		
+			// Get the value of the ESWRAP_LOGIN environment variable
+			char * tmp = getenv("ESWRAP_LOGIN");
+
 			// If on a Cray system, check to see if we are currently on an eslogin node if
 			// using WLM_none.
 			//
@@ -602,21 +605,16 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			// FIXME: The same is also true for native slurm.
 			
 			// Are we on an eslogin node?
-			if (stat("/etc/redhat-release", &sb) == -1 && stat("/proc/cray_xt/nid", &sb) == -1)
+			if (tmp!= NULL)
 			{
 				// We are on an eslogin node since the file did not exist
-				char * tmp;
+				
 				
 				// set proto to proxy since we are required to use the proxy in conjunction
 				// with eslogin nodes
 				proto = "proxy";
-				
-				// Get the value of the ESWRAP_LOGIN environment variable
-				tmp = getenv("ESWRAP_LOGIN");
-				if (tmp != NULL)
-				{
-					hostname = strdup(tmp);
-				}
+	
+				hostname = strdup(tmp);
 				
 				// Create a new session
 				if ((sess = DbgSessionCreate(proto, manager, NULL, hostname, username)) == NULL)
@@ -955,6 +953,9 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 	
+	// Get the value of the ESWRAP_LOGIN environment variable
+	char * tmp = getenv("ESWRAP_LOGIN");
+
 	// If on a Cray system, check to see if we are currently on an eslogin node if
 	// using WLM_none.
 	//
@@ -963,12 +964,10 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	//
 	// For the cluster system, this is not the case. We do not need a proxy.
 	// FIXME: The same is also true for native slurm.
-	//
+	
 	// Are we on an eslogin node?
-	if (stat("/etc/redhat-release", &sb) == -1 && stat("/proc/cray_xt/nid", &sb) == -1)
-	{
+	if(tmp != NULL){
 		// We are on an eslogin node since the file did not exist
-		char * tmp;
 		
 		// set proto to proxy since we are required to use the proxy in conjunction
 		// with eslogin nodes
@@ -979,12 +978,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 		{
 			// There is no open session, so we need to create one.
 			
-			// Get the value of the ESWRAP_LOGIN environment variable
-			tmp = getenv("ESWRAP_LOGIN");
-			if (tmp != NULL)
-			{
-				hostname = strdup(tmp);
-			}
+			hostname = strdup(tmp);
 		
 			// Create a new session
 			if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname, username)) == NULL)

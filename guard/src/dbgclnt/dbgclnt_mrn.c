@@ -463,11 +463,11 @@ DbgMRNAttach(
 	}
 	
 	// Add the python modules
-	Asprintf(&python_lib_dir, "%s/python2.6", env_lib_dir);
+	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
 	if (cti_addManifestLibDir(mid, python_lib_dir))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add python2.6 to manifest.\n");
+		PrintOutError("Failed to add python2.7 to manifest.\n");
 		goto attach_error;
 	}
 	Free(python_lib_dir);
@@ -1225,11 +1225,11 @@ DbgMRNInvoke(
 	}
 	
 	// Add the python modules
-	Asprintf(&python_lib_dir, "%s/python2.6", env_lib_dir);
+	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
 	if (cti_addManifestLibDir(mid, python_lib_dir))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add python2.6 to manifest.\n");
+		PrintOutError("Failed to add python2.7 to manifest.\n");
 		goto invoke_error;
 	}
 	Free(python_lib_dir);

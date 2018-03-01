@@ -1,9 +1,9 @@
 [submodule "craytool_interface"]
 	path = craytool_interface
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/cti.git
-[submodule "third_party/ddt_gdb-7.6.2"]
-	path = third_party/ddt_gdb-7.6.2
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-7.6.2_avx512.git
+[submodule "third_party/ddt_gdb-7.12.1"]
+	path = third_party/ddt_gdb-7.12.1
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-7.12.1_beta.git
 [submodule "third_party/libarchive"]
 	path = third_party/libarchive
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libarchive.git
@@ -12,7 +12,7 @@
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libmi.git
 [submodule "third_party/mrnet"]
 	path = third_party/mrnet
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet-5.0.git
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
 [submodule "scripts/set_default"]
 	path = scripts/set_default
 	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git

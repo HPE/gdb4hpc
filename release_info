@@ -55,9 +55,9 @@ Also, type `help` at the gdb4hpc command line for more information on commands.
 Installation instructions:
 --------------------------
 
-Installation instructions for %os_string%:
+Installation instructions for %os_name%:
 =============================================
-  rpm -ivh %PREFIX% gdb4hpc-%VERSION%-%REVISION%-%RELEASE%%os%.x86_64.rpm
+  rpm -ivh %PREFIX% gdb4hpc-%VERSION%-%REVISION%-%RELEASE%%os%.%ARCH%.rpm
 
   To make gdb4hpc %VERSION% the default version of gdb4hpc, execute:
   %OSPREFIX%/admin-pe/set_default_files/set_default_gdb4hpc_%VERSION%

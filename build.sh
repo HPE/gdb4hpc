@@ -43,7 +43,7 @@ gdb4hpc_externals_directory_name="external"
 
 # Third party source tree names. 
 mrnet_directory_name="mrnet"
-gdb_directory_name="ddt_gdb-7.6.2"
+gdb_directory_name="ddt_gdb-7.12.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
 cuda80_gdb_directory_name="ddt_cuda_gdb_80"
 uda_directory_name="gdb_uda"
@@ -51,7 +51,7 @@ editline_directory_name="editline"
 libmi_directory_name="libmi"
 libssh2_directory_name="libssh2"
 libarchive_directory_name="libarchive"
-python_directory_name="Python-2.6.2"
+python_directory_name="Python-2.7.14"
 
 # Python extras name
 python_extras_name="python_extras"
@@ -60,7 +60,7 @@ python_depmod_name="python_files"
 # Directory containing gdb pretty printers
 python_gdb_name="gdb"
 # Directory to install python dependencies to
-python_inst_name="python2.6"
+python_inst_name="python2.7"
 
 # extra python directory build by gdb
 gdb_extra_python_path="gdb/data-directory/python"
@@ -85,22 +85,12 @@ guard_directory_name="guard"
 guard_rd_directory_name="guard-rd"
 
 # External dependency source trees that are imported directly in gdb4hpc
+extern_boost="/cray/css/ulib/boost/1_66/boost_1_66_0/install"
+extern_boost_aarch64="/cray/css/ulib/boost/1_66_aarch64/boost_1_66_0/install"
 craytool_directory_name="craytool_interface"
 pref=""
+isArm=false
 
-function source_module_script() {
-  redhat_release_file="/etc/redhat-release"
-
-  if [ -e "$redhat_release_file" ]; then
-    if [[ -e /usr/share/Modules/init/bash ]]; then 
-	source /usr/share/Modules/init/bash
-    fi
-  else
-    if [[ -e $module_pref/modules/default/init/bash ]]; then 
-	source $module_pref/modules/default/init/bash
-    fi
-  fi
-}
 function load_cti_module(){
     #what is the latest installed version of cti?
     latest_cti_module=$(readlink -f $1/cti/default)
@@ -127,27 +117,43 @@ function get_cti_version(){
     done
 }
 
-SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
-if [[ "$SLES_VER" == "12" ]]
-then
-  pref="/opt/cray/pe"
-  module_pref="/opt/cray/pe"
-  delim=6
-else
-  pref="/opt/cray"
-  module_pref="/opt"
-  delim=5
-fi
-
 supported_cti_version=1.0.5
 supported_cti_release_range=1.0.[5-9]
 
-source_module_script
-
-if ! echo $LOADEDMODULES | grep -q gcc/4.8.1; then
-  # gcc module is not loaded
-  module load gcc/4.8.1
+# set prefix
+SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+if [[ "$SLES_VER" == "12" ]]; then
+    pref="/opt/cray/pe"
+    module_pref="/opt/cray/pe"
+    delim=6
+else
+    pref="/opt/cray"
+    module_pref="/opt"
+    delim=5
 fi
+
+# source module script - this needs to be done early on before using any module commands
+redhat_release_file="/etc/redhat-release"
+
+if [ -e "$redhat_release_file" ]; then
+    if [[ -e /usr/share/Modules/init/bash ]]; then
+        source /usr/share/Modules/init/bash
+    fi
+else
+    if [[ -e $module_pref/modules/default/init/bash ]]; then
+        source $module_pref/modules/default/init/bash
+    fi
+fi
+
+# Set OS level
+OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
+if [[ $OS == "aarch64" ]]; then
+    gccVer=6.1.0
+    isArm=true
+elif [[ $OS == "x86_64" ]]; then
+    gccVer=6.1.0
+fi
+module load gcc/$gccVer
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
@@ -306,7 +312,7 @@ libssh2_ld_flag=" -L$openssl_path/lib"
 libarchive_args="--disable-shared --with-pic --without-expat --without-xml2 --without-openssl --without-nettle --without-lzo2 --without-lzma --without-libiconv-prefix --without-iconv --without-lzmadec --without-bz2lib --without-zlib --disable-bsdtar --disable-bsdcpio --disable-rpath"
 mrnet_args=""
 python_args=""
-gdb_args="--disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-mmalloc --with-python=$stage_dir/bin/python"
+gdb_args="--without-guile --disable-rpath --without-separate-debug-dir --with-mmalloc --with-python=$stage_dir/bin/python"
 cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=$stage_dir/bin/python"
 perf_flag=""
 be_perf_flag=""
@@ -405,7 +411,7 @@ function ask_sub_build {
 function do_build {
 	# run make
 	echo -e "\nBuilding ${1}...\n"
-	make --silent
+	make -j8 --silent
 	# run make install
 	echo -e "Installing ${1}...\n"
 	make --silent install
@@ -544,8 +550,6 @@ dep_lib64dir="$stage_dir/lib64"
 ##############################################
 # Ensure that a PrgEnv module is not loaded. #
 ##############################################
-
-source_module_script
 
 if test "x`module list -l 2>&1 > /dev/null | grep 'PrgEnv'`" != "x"; then
 	echo "!!!!!!!!!!ERROR!!!!!!!!!!"
@@ -719,6 +723,16 @@ if [[ $opt_advanced == y ]]; then
 	fi
 fi
 
+# Disable cuda_gdb options for arm. Cray does not have plans to support GPUs 
+# with ARM CPUs.
+if [[ $isArm == true ]]; then
+    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y ]]; then
+        echo -e "\nBuilding of cuda_gdb is not supported on the aarch64 architecture!"
+        opt_cuda75_gdb=n
+        opt_cuda80_gdb=n
+    fi
+fi
+
 ########################################################
 # Done processing options. Prepare to start the build. #
 ########################################################
@@ -748,6 +762,7 @@ if [[ $opt_aif == y ]]; then
 	# run aif configure
 	echo "Configuring libaif..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "libaif"
@@ -769,6 +784,7 @@ if [[ $opt_libmi == y ]]; then
 	# run libmi configure
 	echo "Configuring libmi..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag -Wall"
 	set +x
 	do_build "libmi"
@@ -793,6 +809,7 @@ if [[ $opt_libssh2 == y ]]; then
 	# run libssh2 configure
 	echo "Configuring libssh2..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag$libssh2_opt_flag" LDFLAGS="$libssh2_ld_flag"
 	set +x
 	do_build "libssh2"
@@ -827,6 +844,7 @@ if [[ $opt_python == y ]]; then
 	# It seems to work...
 	export SVNVERSION="Unversioned directory"
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir "$python_args"
 	set +x
 	do_build "python"
@@ -870,6 +888,7 @@ if [[ $opt_gdb == y ]]; then
 	# run gdb configure
 	echo "Configuring gdb..."
 	set -x
+    autoreconf -ifv
 	./configure --disable-werror --prefix=$stage_dir $gdb_args CFLAGS="$opt_flag"
 	set +x
 	do_build "gdb"
@@ -935,7 +954,8 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
+    autoreconf -ifv
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -944,10 +964,12 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda75-gdb-guard" "cuda-gdb 75"
 fi
 
-# cuda-gdb 75 install
-echo -e "Starting cuda-gdb 75 install.\n"
-# Deliver the cuda75-gdb-guard binary
-copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
+# cuda-gdb 75 install - bypass install for arm
+if [[ $isArm == false ]]; then
+    echo -e "Starting cuda-gdb 75 install.\n"
+    # Deliver the cuda75-gdb-guard binary
+    copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
+fi
 echo -e "########################################################\n"
 
 # Check for errors in component
@@ -987,7 +1009,8 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
+    autoreconf -ifv
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -996,10 +1019,12 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
 fi
 
-# cuda-gdb 80 install
-echo -e "Starting cuda-gdb 80 install.\n"
-# Deliver the cuda80-gdb-guard binary
-copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
+# cuda-gdb 80 install - bypass install for arm
+if [[ $isArm == false ]]; then
+    echo -e "Starting cuda-gdb 80 install.\n"
+    # Deliver the cuda80-gdb-guard binary
+    copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
+fi
 echo -e "########################################################\n"
 
 # Check for errors in component
@@ -1037,6 +1062,7 @@ if [[ $opt_editline == y ]]; then
 	# run editline configure
 	echo "Configuring editline..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag"
 	set +x
 	do_build "editline"
@@ -1068,6 +1094,7 @@ if [[ $opt_libarchive == y ]]; then
 	# run libarchive configure
 	echo "Configuring libarchive..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir $libarchive_args CFLAGS="$opt_flag"
 	set +x
 	do_build "libarchive"
@@ -1112,12 +1139,26 @@ if [[ $opt_mrnet == y ]]; then
 	# change directories
 	cd $mrnet_src
 	echo -e "\nUsing MRNet source in $mrnet_src.\n"
+    boost_inst_loc=$extern_boost
+    if [[ $isArm == true ]]; then
+        boost_inst_loc=$extern_boost_aarch64
+    fi
+    echo "Using boost $boost_inst_loc.\n"
+    # Check if we should force a rpath for the gcc libs
+    gcc_rpath_link_opt=""
+    if [[ "x$GCC_PATH" != "x" ]]; then
+        if [[ -d $GCC_PATH/snos/lib64 ]]; then 
+            gcc_rpath_link_opt="-Wl,-rpath,$GCC_PATH/snos/lib64"
+        fi
+    fi
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'
+    --with-boost=$boost_inst_loc \
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'" $gcc_rpath_link_opt"
 	set +x
 	do_build "MRNet"
 	echo -e "\nMRNet staged to $stage_dir\n"
@@ -1125,13 +1166,10 @@ if [[ $opt_mrnet == y ]]; then
 	# deliver the boost headers included with mrnet source if not done already
 	# we don't want to error on failure to copy, so we do things in place here
 	if [[ ! -d $dep_includedir/boost ]]; then
-		if [[ -d $mrnet_src/external/boost/include/boost ]]; then
-			echo "Delivering boost headers to $dep_includedir..."
-			cp -r $mrnet_src/external/boost/include/boost $dep_includedir
-		else
-			echo "WARNING: Could not find the boost include files. Build may be incomplete."
-			echo "The system is probably already providing these for free."
-		fi
+        if [[ -d $boost_inst_loc/include/boost ]]; then
+            echo "Linking to $boost_inst_loc/include/boost for mrnet boost headers..."
+            ln -s $boost_inst_loc/include/boost $dep_includedir/boost 
+        fi
 	fi
 	# Deliver the mrnet_config.h file
 	copy_file "${mrnet_src}/build/"*"/mrnet_config.h" $dep_includedir "MRNet"
@@ -1173,6 +1211,7 @@ if [[ $opt_gdb4hpc == y ]]; then
 	# run gdb4hpc configure
 	echo "Configuring gdb4hpc..."
 	set -x
+    autoreconf -ifv
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
 	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \

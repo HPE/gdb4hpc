@@ -32,6 +32,10 @@ build_version                 = definitions.version
 release_number                = definitions.release_number
 rpm_name                      = definitions.rpm_name
 os_ver                        = definitions.osver
+prefix                        = definitions.prefix
+prefix_cmd                    = definitions.prefix_cmd
+os_name                       = definitions.os_name
+arch                          = definitions.arch
 
 
 if options.builddir == None:
@@ -56,7 +60,7 @@ else:
 if options.static_version != False:
   build_version = options.static_version
   release_number = str(0)
-  rpm_name = "gdb4hpc-" + build_version + "-" + revision_number + "-" + release_number + os_ver + ".x86_64.rpm"
+  rpm_name = "gdb4hpc-" + build_version + "-" + revision_number + "-" + release_number + os_ver + "." + arch + ".rpm"
   if is_final:
     if len(build_version) <= 4 or len(build_version) > 5:
       print "Ensure your release version has 3 digits. Exiting..."
@@ -134,9 +138,9 @@ spec_content = spec_content.replace( "[version]", build_version)
 spec_content = spec_content.replace( "[release]", release_number)
 spec_content = spec_content.replace( "[revision]", revision_number)
 spec_content = spec_content.replace( "[sles_sub]", os_ver)
+spec_content = spec_content.replace( "[arch]", arch)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
-
 spec_file = open(spec_dest, 'w+')
 spec_file.write(spec_content)
 spec_file.close()
@@ -172,20 +176,20 @@ with open("out.txt", "w+") as out:
     c = b.replace("%REVISION%", revision_number)
     d = c.replace("%RELEASEDATE%", release_date)
     e = d.replace("%os%", os_ver)
-    f = e.replace("%os_string%", os_string)
-    g = f.replace("%OSPREFIX%", os_prefix)
-    h = g.replace("%PREFIX%", pref)
-    out.write(h)
+    f = e.replace("%os_name%", os_name)
+    g = f.replace("%OSPREFIX%", prefix)
+    h = g.replace("%PREFIX%", prefix_cmd)
+    i = h.replace("%ARCH%", arch)
+    out.write(i)
 
 outpath = rpm_gdb4hpc_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
-print "outpath: " + outpath
 
 
 os.chdir(cur_dir)
 
 #setup the RPM directories
-for path in ['/rpm/SOURCES','/rpm/BUILD','/rpm/RPMS/x86_64']:
+for path in ['/rpm/SOURCES','/rpm/BUILD','/rpm/RPMS/' + arch + '/']:
   distutils.dir_util.mkpath(rpm_build_dir+path)
 
 distutils.dir_util.copy_tree(man_dir, rpm_gdb4hpc_dir+"/man")
@@ -228,7 +232,7 @@ print buildcall
 os.system(buildcall)
 
 #now lets put together the install manifest
-os.chdir(rpm_build_dir+"/rpm/RPMS/x86_64")
+os.chdir(rpm_build_dir+"/rpm/RPMS/" + arch + "/")
 yaml_template='''---
 #----------------------------------------------------------------------------
 # IMPORTANT: do not rename sections! The installer uses section names
@@ -343,7 +347,7 @@ do
   rpm -e $package
 done
 
-rpm -hiv <pref> --oldpackage gdb4hpc-<version>-<revision>-<release><os>.x86_64.rpm
+rpm -hiv <pref> --oldpackage gdb4hpc-<version>-<revision>-<release><os>.<arch>.rpm
 
 '''
 manifest_dest = rpm_name + ".yaml"
@@ -351,8 +355,9 @@ manifest_content = yaml_template.replace("<version>", build_version)
 manifest_content = manifest_content.replace("<release>", release_number)
 manifest_content = manifest_content.replace("<revision>", revision_number)
 manifest_content = manifest_content.replace("<os>", os_ver)
-manifest_content = manifest_content.replace("<pref>", pref)
-manifest_content = manifest_content.replace("<osprefix>", os_prefix)
+manifest_content = manifest_content.replace("<pref>", prefix_cmd)
+manifest_content = manifest_content.replace("<osprefix>", prefix)
+manifest_content = manifest_content.replace("<arch>", arch)
 manifest_yaml = open(manifest_dest, "w+")
 manifest_yaml.write(manifest_content)
 manifest_yaml.close()
@@ -361,7 +366,7 @@ manifest_yaml.close()
 if options.test == None:
   print "Packaging to release location."
   #copy rpm and yaml to pkgs_dir
-  rpm_folder = "%s/rpm/RPMS/x86_64/" % rpm_build_dir
+  rpm_folder = "%s/rpm/RPMS/" + arch + "/" + rpm_build_dir
   os.chdir(rpm_folder)
   for f in [rpm_name, rpm_name+".yaml"]:
     distutils.file_util.copy_file(f, package_dir)

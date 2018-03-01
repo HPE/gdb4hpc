@@ -1592,6 +1592,10 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 	{
 		// convert this protocol msg string to an event
 		event = SocProtoToEvent(msg->message);
+
+		if(event == NULL){
+			continue;
+		}
 		
 		// switch on the event to check if the event changed the status or if
 		// we need to do any special pre-processing

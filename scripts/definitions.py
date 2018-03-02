@@ -154,7 +154,7 @@ def fetch_latest_version(final, revision, pkgs_dir):
     #determine if latest package was a pre-release or a release
     if len(version) == 5:
        latest_ver = "release"
-    elif len(version) == 7:
+    elif len(version) >= 7:
        latest_ver = "pre-release"
 
     print "The latest package created was a: " + latest_ver

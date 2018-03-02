@@ -62,16 +62,16 @@ def fetch_os():
     with open("/etc/redhat-release", "r") as f:
       for line in f:
         if line.find("CentOS ") != -1:
-          os_sub = 'el7'
-          os_name = "CS"
+          os_sub = 'CS'
+          os_name = "el7"
           arch = "x86_64"
           break
   
   os_sub = os_sub.strip()
-  if os_sub == "el7" and athena == False:
+  if os_sub == "CS" and athena == False:
     bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_cs"
     
-  elif os_sub == "el7" and athena == True:
+  elif os_sub == "CS" and athena == True:
     bld_dir = "/cray/css/ulib/gdb4hpc/builds/athena"
     
   elif os_sub == "11":

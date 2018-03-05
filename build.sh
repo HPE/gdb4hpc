@@ -809,7 +809,6 @@ if [[ $opt_libssh2 == y ]]; then
 	# run libssh2 configure
 	echo "Configuring libssh2..."
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag$libssh2_opt_flag" LDFLAGS="$libssh2_ld_flag"
 	set +x
 	do_build "libssh2"
@@ -844,7 +843,6 @@ if [[ $opt_python == y ]]; then
 	# It seems to work...
 	export SVNVERSION="Unversioned directory"
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir "$python_args"
 	set +x
 	do_build "python"
@@ -888,7 +886,6 @@ if [[ $opt_gdb == y ]]; then
 	# run gdb configure
 	echo "Configuring gdb..."
 	set -x
-    autoreconf -ifv
 	./configure --disable-werror --prefix=$stage_dir $gdb_args CFLAGS="$opt_flag"
 	set +x
 	do_build "gdb"
@@ -954,7 +951,6 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
@@ -1009,7 +1005,6 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
@@ -1094,7 +1089,6 @@ if [[ $opt_libarchive == y ]]; then
 	# run libarchive configure
 	echo "Configuring libarchive..."
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir $libarchive_args CFLAGS="$opt_flag"
 	set +x
 	do_build "libarchive"
@@ -1154,7 +1148,6 @@ if [[ $opt_mrnet == y ]]; then
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
-    autoreconf -ifv
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
     --with-boost=$boost_inst_loc \

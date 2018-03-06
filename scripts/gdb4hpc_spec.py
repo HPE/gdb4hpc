@@ -4,6 +4,7 @@ content='''%define namespace [namespace]
 %define two_dig_nodot_version [package_branch_two_digit_nodot]
 %define build_version [version]
 %define scripts_d [script_dir]
+%define arch [ARCH]
 #%define man_source /cray/css/compiler/comp_rel/pubs/manpages/gdb4hpc/%{two_dig_version}/xt_gdb4hpc_%{two_dig_nodot_version}.cpio
 
 Summary: Performance Application Programming Interface
@@ -22,7 +23,7 @@ Requires: set_default_2
 
 %define _use_internal_dependency_generator 0
 %define __find_requires %{scripts_d}/find-requires 
-%define debug_package%{nil}
+%define debug_package %{nil}
 
 %description
 LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers.
@@ -43,6 +44,8 @@ LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled wi
 %prep
 %setup
 %build
+%define is_valid %(if [ "%{arch}" == "x86_64" ]; then echo "1"; else echo "0"; fi)
+
 
 %install
 mkdir -p %{buildroot}%{_version_prefix}
@@ -55,7 +58,9 @@ echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.cray_rpm_re
 mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
 install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_version_prefix}/
-mv gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
+cp gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
+
+
 
 # hardlink duplicate files to save space
 #%fdupes %{buildroot}
@@ -81,8 +86,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/mrnet_commnode 
 %{_version_prefix}/libexec/guard_proxy
 %{_version_prefix}/libexec/start_proxy.sh
-%{_version_prefix}/libexec/cuda75-gdb-guard
-%{_version_prefix}/libexec/cuda80-gdb-guard
+
+%if %is_valid
+  %{_version_prefix}/libexec/cuda75-gdb-guard
+  %{_version_prefix}/libexec/cuda80-gdb-guard
+%endif
+
 %{_version_prefix}/demos
 %{_version_prefix}/lib
 %{_version_prefix}/man

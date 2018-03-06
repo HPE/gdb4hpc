@@ -45,12 +45,13 @@ else:
   #verify that the folders that should be in the build dir, are present  
   gdb4hpc_build_dir = options.builddir 
   last_char=gdb4hpc_build_dir[-1]
-  if [last_char != "/" ]:
-    gdb4hpc_build_dir = gdb4hpc_build_dir + "/"
+  #if [last_char != "/" ]:
+   # gdb4hpc_build_dir = gdb4hpc_build_dir + "/"
 
   print "using --build arg: " + gdb4hpc_build_dir
   for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
-    t_dir = gdb4hpc_build_dir+directory
+    print directory
+    t_dir = gdb4hpc_build_dir + directory
     if not os.path.exists(t_dir):
       print "the build dir you specified is missing: " + t_dir 
       print "Exiting!"
@@ -138,7 +139,7 @@ spec_content = spec_content.replace( "[version]", build_version)
 spec_content = spec_content.replace( "[release]", release_number)
 spec_content = spec_content.replace( "[revision]", revision_number)
 spec_content = spec_content.replace( "[sles_sub]", os_ver)
-spec_content = spec_content.replace( "[arch]", arch)
+spec_content = spec_content.replace( "[ARCH]", arch)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
 spec_file = open(spec_dest, 'w+')

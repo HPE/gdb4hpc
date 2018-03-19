@@ -513,6 +513,17 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
+    // CCDB can ask for some pretty large printing
+    cmd = MIGDBSet("max-value-size", "unlimited");
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd))
+    {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set max-value-size command failed.");
+        return e;
+    }
+    MICommandFree(cmd);
+
 	// don't allow pending breakpoints
 	cmd = MIGDBSet("breakpoint pending", "off");
 	SendMICommand(GDBMISession, cmd);

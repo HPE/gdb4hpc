@@ -31,9 +31,19 @@ Product Description:
 
 Purpose:
 ---------
-  This is a bugfix release.
+  - With this release the tool formally known as 'lgdb' has
+    been renamed to 'gdb4hpc'. Along with this change the module name
+    'cray-lgdb' has changed to 'gdb4hpc'. It is probably best not to load
+    both cray-lgdb and gdb4hpc at the same time.
 
-  1. Fix support for launching with Intel MPI and mpiexec.hydra (BUG 846503)
+  - gdb4hpc now supports the ARM archetecture.
+
+  Fixes:
+  -------
+
+   - PE-17326 Launch Failure with Statically Compiled UPC Code (was Bugz 853284)
+
+   - PE-17025 Running upc application in lgeb throws Miss PMI_Init sympbol! (was Bugz 817372)
 
 
 Product and OS Dependencies:

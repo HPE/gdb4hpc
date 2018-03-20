@@ -31,13 +31,12 @@ Product Description:
 
 Purpose:
 ---------
-  - With this release the tool formally known as 'lgdb' has
-    been renamed to 'gdb4hpc'. Along with this change the module name
-    'cray-lgdb' has changed to 'gdb4hpc'. It is probably best not to load
-    both cray-lgdb and gdb4hpc at the same time.
+  - Cray gdb4hpc support for ARM architecture
 
-  - gdb4hpc now supports the ARM archetecture.
+  - lgdb rename to gdb4hpc
 
+  - Module name 'cray-lgdb' rename to 'gdb4hpc'. 
+  
   Fixes:
   -------
 
@@ -48,9 +47,13 @@ Purpose:
 
 Product and OS Dependencies:
 -----------------------------
-  The Cray gdb4hpc %VERSION% release is supported on the following Cray systems
-  running CentOS operating system on CS.
+  The Cray gdb4hpc %VERSION% release is supported on the following Cray systems:
+    - Cray XC systems with CLE release 6.0 or later
+    - CentOS operating system on CS.
     - Native SLURM is supported with version 16
+
+  Product Dependencies:
+    - craype 2.5.14 or later is required on Cray XC ARM systems running CLE 6.0.
 
 
 Documentation:

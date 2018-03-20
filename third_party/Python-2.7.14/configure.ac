@@ -4491,7 +4491,7 @@ fi
 ac_save_cppflags="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -I/usr/include/ncursesw"
 
-AC_CHECK_HEADERS(curses.h ncurses.h)
+AC_CHECK_HEADERS(curses.h ncurses.h panel.h ncursesw/panel.h)
 
 # On Solaris, term.h requires curses.h
 AC_CHECK_HEADERS(term.h,,,[

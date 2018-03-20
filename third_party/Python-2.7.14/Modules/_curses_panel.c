@@ -14,7 +14,11 @@ static char *PyCursesVersion = "2.1";
 
 #include "py_curses.h"
 
-#include <panel.h>
+#ifdef HAVE_NCURSESW_PANEL_H
+    #include <ncursesw/panel.h>
+#else
+    #include <panel.h>
+#endif
 
 static PyObject *PyCursesError;
 

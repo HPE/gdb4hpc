@@ -1221,14 +1221,9 @@ if [[ $opt_gdb4hpc == y ]]; then
 	echo -e "\nDelivering gdb4hpc modulefile..."
 	check_file $module_primer "gdb4hpc"
 	if [[ $? == 0 ]]; then
-		if [[ ! -d $inst_dir/modulefiles ]]; then
-			mkdir $inst_dir/modulefiles
-		fi
-		if [[ ! -d $inst_dir/modulefiles/gdb4hpc ]]; then
-			mkdir $inst_dir/modulefiles/gdb4hpc
-		fi
+        mkdir -p $inst_dir/modulefiles/gdb4hpc
 		# deliver the fixed modulefile. Sed, you amaze me.
-		cat $module_primer | sed -e "s@%HOME%@$inst_dir@" | sed -e "s@%VERSION%@$module_version@" \
+		cat $module_primer | sed -e "s@%VERSION%@$module_version@" \
 		> $inst_dir/modulefiles/gdb4hpc/$module_version.DEV
 	fi
 	copy_file $demo_dir ${inst_dir} "gdb4hpc"

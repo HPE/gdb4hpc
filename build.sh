@@ -843,7 +843,6 @@ if [[ $opt_python == y ]]; then
 	# It seems to work...
 	export SVNVERSION="Unversioned directory"
 	set -x
-	autoreconf -ifv
 	./configure --prefix=$stage_dir "$python_args"
 	set +x
 	do_build "python"

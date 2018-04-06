@@ -1148,7 +1148,6 @@ if [[ $opt_mrnet == y ]]; then
 	# run mrnet configure
 	echo "Configuring MRNet..."
 	set -x
-    autoreconf -ifv # Create Makefile.in
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
     --with-boost=$boost_inst_loc \

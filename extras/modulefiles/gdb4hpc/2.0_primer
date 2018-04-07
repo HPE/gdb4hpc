@@ -1,5 +1,5 @@
 #%Module
-set 	home 		[file dirname ${ModulesCurrentModulefile}]/../../..
+set 	home 		[file dirname ${ModulesCurrentModulefile}]/../..
 set	level		%VERSION%.DEV
 
 prepend-path	PATH 				$home/bin

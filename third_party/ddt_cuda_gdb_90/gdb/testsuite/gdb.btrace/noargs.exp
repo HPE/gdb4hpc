@@ -1,0 +1,21 @@
+# Test to see if the noargs parameter to info stack indeed prints and empty argument
+# list. Additionally check that a non-empty argument list is printed when the noargs
+# parameter is not there.
+
+# check for btrace support
+if { [skip_btrace_tests] } { return -1 }
+
+standard_testfile
+if { [prepare_for_testing ${testfile}.exp ${testfile} ${srcfile} {debug}] } {
+    return -1
+}
+
+if ![runto_main] {
+    return -1
+}
+
+# match "()" i.e. an empty argument list.
+gdb_test "info stack noargs" "#0  main \\\(\\\) at.*\[0-9\]*"
+
+# match an argument list containing characters.
+gdb_test "info stack" "#0  main \\\(\[^)\].*\\\) at.*\[0-9\]*"

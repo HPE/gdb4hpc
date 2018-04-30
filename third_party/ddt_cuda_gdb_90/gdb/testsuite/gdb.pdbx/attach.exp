@@ -1,0 +1,79 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Check that we're able to communicate with pdbx if we have not seen the
+# libpdbx load.
+
+load_lib pdbx.exp
+
+gdb_exit
+gdb_start
+
+# This attach test does not work with remote targets.
+#
+#if { [is_remote target] } {
+#	unsupported attach.exp
+#	return 0
+#}
+if { [skip_python_tests] } { return 0 }
+
+set srcfile "race_attach.c"
+set testfile "race_attach.x"
+set binfile "${objdir}/${subdir}/${testfile}"
+
+if { [prepare_for_testing attach.exp $testfile $srcfile [pdbx_cflags]] } {
+	untested "compilation failed. requires icc 12.1 or later."
+	return -1
+}
+
+set ln_write  [gdb_get_line_number "bp.write"  $srcfile]
+set ln_read   [gdb_get_line_number "bp.read"   $srcfile]
+
+set loc_write  "$srcfile:$ln_write"
+set loc_read   "$srcfile:$ln_read"
+
+set dec  "\[0-9\]+"
+
+set expected "
+ *$dec: write shared, $dec bytes from .*$loc_write\r
+ *$dec: read shared, $dec bytes from .*$loc_read"
+
+# Start the test program.
+#
+set pid [eval exec $binfile &]
+
+# Make sure we don't attach too early.
+#
+exec sleep 1
+
+gdb_file_cmd "$binfile"
+gdb_test "attach $pid" "Attaching to.*$pid.*" "attach, 1"
+
+# Let the test go.
+#
+gdb_test_no_output "set go=1" "attach, 2"
+
+# When we now enable pdbx, we should see a race.
+#
+gdb_test_no_output "pdbx enable" "attach, 3"
+gdb_test "cont" ".*data race detected\r$expected.*" "attach, 4"
+
+# When we disable pdbx, we shouldn't see any more races.
+#
+gdb_test_no_output "pdbx disable" "attach, 5"
+pdbx_expect_no_race "cont" "attach, 6"

@@ -1,0 +1,51 @@
+# Copyright 2017 Free Software Foundation, Inc.
+#
+# Contributed by Embecosm  <andrew.burgess@embecosm.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+standard_testfile ".f90"
+load_lib "fortran.exp"
+
+if { [prepare_for_testing ${testfile}.exp ${testfile} ${srcfile} \
+    {debug f90 quiet}] } {
+    return -1
+}
+
+if ![fortran_gdb_start] {
+    untested "could not run to main in: $testfile"
+    return -1
+}
+
+gdb_breakpoint [gdb_get_line_number "Break here"]
+gdb_continue_to_breakpoint "Break here"
+
+gdb_test_no_output "set \$a=some_var" "set \$a internal variable"
+
+foreach var { "\$a" "some_var" } {
+    with_test_prefix "print $var" {
+	gdb_test "print $var" \
+	    " = \\( array_var = \\(\\( 1, 1\\) \\( 1, 1\\) \\), a_field = 5 \\)" \
+	    "print full contents"
+
+	gdb_test "print $var%array_var" \
+	    " = \\(\\( 1, 1\\) \\( 1, 1\\) \\)" \
+	    "print array_var field"
+
+	gdb_test "print $var%a_field" \
+	    " = 5" \
+	    "print a_field field"
+    }
+}
+

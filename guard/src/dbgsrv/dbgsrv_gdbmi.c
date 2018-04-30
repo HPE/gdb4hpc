@@ -76,7 +76,8 @@ enum cuda_vers
 {
 	CUDA_UNKNOWN,	
 	CUDA_75,
-	CUDA_80
+	CUDA_80,
+	CUDA_90
 };
 typedef enum cuda_vers		cuda_vers;
 
@@ -513,17 +514,6 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 	
-    // CCDB can ask for some pretty large printing
-    cmd = MIGDBSet("max-value-size", "unlimited");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd))
-    {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set max-value-size command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
 	// don't allow pending breakpoints
 	cmd = MIGDBSet("breakpoint pending", "off");
 	SendMICommand(GDBMISession, cmd);
@@ -1214,15 +1204,19 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				DVPRINT("Detected Nvidia driver %s\n", vers_str);
 				
 				// Now strcmp the driver version with a list of supported versions
-				// Note that according to Larry Tordsen the known driver mappings
-				// are:
+				// The known driver mappings are:
 				// nvidia 319.* ==> CTK 5.5
 				// nvidia 340.* ==> CTK 6.5
 				// nvidia 346.* ==> CTK 7.0
 				// nvidia 352.* ==> CTK 7.5
 				// nvidia 361.* ==> CTK 8.0
+				// nvidia 384*  ==> CTK 9.0
 
-				if (strncmp(vers_str, "361", 3) == 0)
+				if (strncmp(vers_str, "384", 3) == 0)
+				{
+					vers_num = CUDA_90;
+				}
+				else if (strncmp(vers_str, "361", 3) == 0)
 				{
 					vers_num = CUDA_80;
 				}
@@ -1283,6 +1277,10 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 					case CUDA_80:
 						DVPRINT("Using cuda80-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda80-gdb-guard");
+						break;
+					case CUDA_90:
+						DVPRINT("Using cuda90-gdb-guard\n");
+						MISessionSetGDBPath(GDBMISession, "cuda90-gdb-guard");
 						break;
 					case CUDA_UNKNOWN:
 						DVPRINT("Unsupported driver version.\n");

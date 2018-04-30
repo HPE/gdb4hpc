@@ -1,0 +1,46 @@
+
+if { [skip_fortran_tests] } { return -1 }
+load_lib "fortran.exp"
+
+standard_testfile ".f90"
+
+if { [prepare_for_testing ${testfile}.exp ${testfile} ${srcfile} \
+    {debug f90 quiet}] } {
+    return -1
+}
+
+# check that all fortran standard datatinner_vlapes will be
+# handled correctlinner_vla when using as VLA's
+
+gdb_breakpoint [gdb_get_line_number "bp 1"]
+gdb_breakpoint [gdb_get_line_number "bp 2"]
+
+if ![fortran_gdb_start] {
+    untested "could not run to main in: $testfile"
+    return -1
+}
+
+gdb_continue_to_breakpoint "bp 1"
+
+gdb_test "print outer(1)" "= \\\( ident = 1, inner = \\\(101, 102\\\) \\\)"\
+    "Print first element of the VLA"
+gdb_test "print outer(2)" "= \\\( ident = 2, inner = \\\(201, 202, 203\\\) \\\)"\
+    "Print second element of the VLA"
+gdb_test "print outer" "= \\\(\\\( ident = 1, inner = \\\(101, 102\\\)\
+    \\\), \\\( ident = 2, inner = \\\(201, 202, 203\\\) \\\), \\\( ident = 3, inner =\
+    \\\(301, 302\\\) \\\)\\\)"\
+    "Print all elements of the VLA"
+
+gdb_continue_to_breakpoint "bp 2"
+
+gdb_test "print outer_nested(1)" "= \\\( ident = 1, nested = \\\(\\\( ident = 11,\
+    inner = \\\(111, 112\\\) \\\), \\\( ident = 12, inner = \\\(121, 122, 123\\\) \\\)\\\) \\\)"\
+    "Print first element of the VLA"
+gdb_test "print outer_nested(2)%nested(2)%inner(3)" "= 223"\
+    "Print inner element of the VLA"
+gdb_test "print outer_nested" "= \\\(\\\( ident = 1, nested = \\\(\\\( ident = 11,\
+    inner = \\\(111, 112\\\) \\\), \\\( ident = 12, inner = \\\(121, 122, 123\\\) \\\)\\\)\
+    \\\), \\\( ident = 2, nested = \\\(\\\( ident = 21, inner = \\\(211\\\) \\\), \\\(\
+    ident = 22, inner = \\\(221, 222, 223, 224\\\) \\\), \\\( ident = 23, inner = \\\(231,\
+    232\\\) \\\)\\\) \\\)\\\)"\
+    "Print all element of the VLA"

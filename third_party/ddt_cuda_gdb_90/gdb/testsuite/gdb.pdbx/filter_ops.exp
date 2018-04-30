@@ -1,0 +1,324 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Check filter and filter set operations.
+# Does not check that filters are actually working.
+
+load_lib pdbx.exp
+
+gdb_exit
+gdb_start
+
+if { [skip_python_tests] } { continue }
+
+# Switch filter set mode.
+#
+gdb_test "pdbx fset" "suppress filter set default, 0 filters" "fops, 1.1"
+gdb_test_no_output "pdbx fset focus" "fops, 1.2"
+gdb_test "pdbx fset" "focus filter set default, 0 filters" "fops, 1.3"
+gdb_test_no_output "pdbx fset suppress" "fops, 1.4"
+gdb_test "pdbx fset" "suppress filter set default, 0 filters" "fops, 1.5"
+
+proc test_add_remove_filter { filter expected test } {
+	gdb_test_no_output "pdbx fset show" "fops, $test.1"
+	gdb_test "pdbx filter $filter" ".*" "fops, $test.2"
+	gdb_test "pdbx fset show" " *0: $expected" "fops, $test.3"
+	gdb_test_no_output "pdbx fset remove 0" "fops, $test.4"
+	gdb_test_no_output "pdbx fset show" "fops, $test.5"
+}
+
+# Add and remove a single filter of each type.
+#
+test_add_remove_filter "code 0xa" "code: 0xa, 1 bytes" "2"
+test_add_remove_filter "code 0xa-0xf" "code: 0xa, 5 bytes" "3"
+test_add_remove_filter "data 0xa" "data: 0xa, 1 bytes" "4"
+test_add_remove_filter "data 0xa-0xf" "data: 0xa, 5 bytes" "5"
+test_add_remove_filter "var no_such_var" "var: no_such_var \\\(pending\\\)" "6"
+test_add_remove_filter "line no_such_file:42" "line: no_such_file:42 \\\(pending\\\)" "7"
+test_add_remove_filter "reads" "global: reads" "8"
+
+# Clear a filter set.
+#
+gdb_test_no_output "pdbx filter reads" "fops, 9.1"
+gdb_test_no_output "pdbx filter reads" "fops, 9.2"
+gdb_test_no_output "pdbx filter reads" "fops, 9.3"
+gdb_test "pdbx fset show" "
+0: *global: reads\r
+1: *global: reads\r
+2: *global: reads" "fops, 9.4"
+gdb_test_no_output "pdbx fset remove" "fops, 9.5"
+gdb_test_no_output "pdbx fset show" "fops, 9.6"
+
+# Remove from the middle.
+#
+gdb_test_no_output "pdbx fset show" "fops, 10.1"
+gdb_test_no_output "pdbx filter code 0x1" "fops, 10.2"
+gdb_test_no_output "pdbx filter code 0x2" "fops, 10.3"
+gdb_test_no_output "pdbx filter code 0x3" "fops, 10.4"
+gdb_test_no_output "pdbx filter code 0x4" "fops, 10.5"
+gdb_test "pdbx fset show" "
+0: code: 0x1, 1 bytes\r
+1: code: 0x2, 1 bytes\r
+2: code: 0x3, 1 bytes\r
+3: code: 0x4, 1 bytes" "fops, 10.6"
+
+proc test_enable_disable_filter { filter disp test } {
+	set expected "0: *$disp"
+
+	pdbx_clear_fset
+	pdbx_add_filter $filter $expected
+
+	# Not all filters can be evaluated. We ignore any output of the enable command.
+
+	gdb_test_no_output "pdbx fset disable 0" "fops, $test.1"
+	gdb_test "pdbx fset show" "$expected *\\\(disabled\\\)" "fops, $test.2"
+	gdb_test "pdbx fset enable 0" ".*" "fops, $test.3"
+	gdb_test "pdbx fset show" "$expected" "fops, $test.4"
+}
+
+# Enable and disable a single filter of each type.
+#
+# Variable and line filters cannot be evaluated and will thus be marked "pending".
+# Since "pending" will be replaced by "disabled", we hide the suffix.
+#
+test_enable_disable_filter "code 0xa" "code: 0xa, 1 bytes" "11"
+test_enable_disable_filter "data 0xa" "data: 0xa, 1 bytes" "12"
+test_enable_disable_filter "var no_such_var" "var: no_such_var.*" "13"
+test_enable_disable_filter "line no_such_line:42" "line: no_such_line:42.*" "14"
+test_enable_disable_filter "reads" "global: reads" "15"
+
+# Test filter set operations:
+#
+pdbx_clear_fset
+pdbx_add_filter "code 0xa" "code: 0xa, 1 bytes"
+pdbx_add_filter "code 0xaa" "code: 0xaa, 1 bytes"
+pdbx_add_filter "code 0xaaa" "code: 0xaaa, 1 bytes"
+#
+# - show (selected)
+#
+gdb_test "pdbx fset show" "
+ *0: *code: *0xa, 1 bytes\r
+ *1: *code: *0xaa, 1 bytes\r
+ *2: *code: *0xaaa, 1 bytes" "fops, 16.1"
+gdb_test "pdbx fset show 1" "
+ *1: *code: *0xaa, 1 bytes" "fops, 16.2"
+gdb_test "pdbx fset show 0-1" "
+ *0: *code: *0xa, 1 bytes\r
+ *1: *code: *0xaa, 1 bytes" "fops, 16.3"
+gdb_test "pdbx fset show 1-2" "
+ *1: *code: *0xaa, 1 bytes\r
+ *2: *code: *0xaaa, 1 bytes" "fops, 16.4"
+gdb_test "pdbx fset show 4" "ERROR: no such filter: 4\." "fops, 16.5"
+gdb_test "pdbx fset show 2-8" "
+ *2: *code: *0xaaa, 1 bytes\r
+ERROR: no such filter: 3\." "fops, 16.6"
+gdb_test "pdbx fset show /r" "
+ *0: *code: *0xa\.\.0xb\r
+ *1: *code: *0xaa\.\.0xab\r
+ *2: *code: *0xaaa\.\.0xaab" "fops, 16.7"
+gdb_test "pdbx fset show /r 2" "
+ *2: *code: *0xaaa\.\.0xaab" "fops, 16.8"
+gdb_test "pdbx fset show /r 1-2" "
+ *1: *code: *0xaa\.\.0xab\r
+ *2: *code: *0xaaa\.\.0xaab" "fops, 16.9"
+gdb_test "pdbx fset show /m" "ERROR: bad modifier: m\." "fops, 16.10"
+gdb_test "pdbx fset show /m 4" "ERROR: bad modifier: m\." "fops, 16.11"
+gdb_test "pdbx fset show /m 2-8" "ERROR: bad modifier: m\." "fops, 16.12"
+#
+# - creation
+#
+gdb_test_no_output "pdbx fset new fs1" "fops, 17.1"
+gdb_test "pdbx fset list" "
+suppress filter set default, 3 filters\r
+suppress filter set fs1, 0 filters" "fops, 17.2"
+gdb_test_no_output "pdbx fset new fs2" "fops, 17.3"
+gdb_test "pdbx fset list" "
+suppress filter set default, 3 filters\r
+suppress filter set fs1, 0 filters\r
+suppress filter set fs2, 0 filters" "fops, 17.4"
+gdb_test "pdbx fset" "suppress filter set fs2, 0 filters" "fops, 17.5"
+gdb_test "pdbx fset new" "ERROR: expected filter set name\." "fops, 17.6"
+gdb_test "pdbx fset new fs2" "ERROR: filter set fs2 already exists\." "fops, 17.7"
+gdb_test "pdbx fset new 0" "ERROR: name must start with a letter\." "fops, 17.8"
+#
+# - show (other)
+#
+gdb_test_no_output "pdbx fset show" "fops, 18.1"
+gdb_test "pdbx fset show default" "
+ *0: *code: *0xa, 1 bytes\r
+ *1: *code: *0xaa, 1 bytes\r
+ *2: *code: *0xaaa, 1 bytes" "fops, 18.2"
+gdb_test "pdbx fset show default:1" "
+ *1: *code: *0xaa, 1 bytes" "fops, 18.3"
+gdb_test "pdbx fset show default:0-1" "
+ *0: *code: *0xa, 1 bytes\r
+ *1: *code: *0xaa, 1 bytes" "fops, 18.4"
+gdb_test "pdbx fset show default:1-2" "
+ *1: *code: *0xaa, 1 bytes\r
+ *2: *code: *0xaaa, 1 bytes" "fops, 18.5"
+gdb_test "pdbx fset show default:4" "ERROR: no such filter: 4\." "fops, 18.6"
+gdb_test "pdbx fset show default:2-8" "
+ *2: *code: *0xaaa, 1 bytes\r
+ERROR: no such filter: 3\." "fops, 18.7"
+gdb_test "pdbx fset show /r default" "
+ *0: *code: *0xa\.\.0xb\r
+ *1: *code: *0xaa\.\.0xab\r
+ *2: *code: *0xaaa\.\.0xaab" "fops, 18.8"
+gdb_test "pdbx fset show /r default:2" "
+ *2: *code: *0xaaa\.\.0xaab" "fops, 18.9"
+gdb_test "pdbx fset show /r default:1-2" "
+ *1: *code: *0xaa\.\.0xab\r
+ *2: *code: *0xaaa\.\.0xaab" "fops, 18.10"
+gdb_test "pdbx fset show /m default" "ERROR: bad modifier: m\." "fops, 18.11"
+gdb_test "pdbx fset show /m default:4" "ERROR: bad modifier: m\." "fops, 18.12"
+gdb_test "pdbx fset show /m default:2-8" "ERROR: bad modifier: m\." "fops, 18.13"
+#
+# - import
+#
+gdb_test_no_output "pdbx fset import fs1" "fops, 19.1"
+gdb_test_no_output "pdbx fset show" "fops, 19.2"
+gdb_test_no_output "pdbx fset import default" "fops, 19.3"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xa, 1 bytes\r
+ *1: *code: *0xaa, 1 bytes\r
+ *2: *code: *0xaaa, 1 bytes" "fops, 19.4"
+pdbx_clear_fset
+gdb_test_no_output "pdbx fset import default:1" "fops, 19.5"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xaa, 1 bytes" "fops, 19.6"
+gdb_test_no_output "pdbx fset import default:0" "fops, 19.7"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xaa, 1 bytes\r
+ *1: *code: *0xa, 1 bytes" "fops, 19.8"
+pdbx_clear_fset
+gdb_test_no_output "pdbx fset import default:1-2" "fops, 19.9"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xaa, 1 bytes\r
+ *1: *code: *0xaaa, 1 bytes" "fops, 19.10"
+gdb_test_no_output "pdbx fset import default:0-1" "fops, 19.11"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xaa, 1 bytes\r
+ *1: *code: *0xaaa, 1 bytes\r
+ *2: *code: *0xa, 1 bytes\r
+ *3: *code: *0xaa, 1 bytes" "fops, 19.12"
+gdb_test_no_output "pdbx fset import fs1" "fops, 19.13"
+gdb_test "pdbx fset show" "
+ *0: *code: *0xaa, 1 bytes\r
+ *1: *code: *0xaaa, 1 bytes\r
+ *2: *code: *0xa, 1 bytes\r
+ *3: *code: *0xaa, 1 bytes" "fops, 19.14"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 19.15"
+gdb_test "pdbx fset import fs1:0" "ERROR: no such filter: 0\." "fops, 19.16"
+gdb_test "pdbx fset import fs1:0-4" "ERROR: no such filter: 0\." "fops, 19.17"
+gdb_test "pdbx fset import" "ERROR: cannot import selected filter set\." "fops, 19.18"
+gdb_test "pdbx fset import 0" "ERROR: cannot import selected filter set\." "fops, 19.19"
+gdb_test "pdbx fset import 0-1" "ERROR: cannot import selected filter set\." "fops, 19.20"
+gdb_test "pdbx fset import fs2" "ERROR: cannot import selected filter set\." "fops, 19.21"
+gdb_test "pdbx fset import fs2:0" "ERROR: cannot import selected filter set\." "fops, 19.22"
+gdb_test "pdbx fset import fs2:0-1" "ERROR: cannot import selected filter set\." "fops, 19.23"
+gdb_test "pdbx fset import no_such_fset" "ERROR: no such filter set: no_such_fset\." "fops, 19.24"
+gdb_test "pdbx fset import no_such_fset:0" "ERROR: no such filter set: no_such_fset\." "fops, 19.25"
+gdb_test "pdbx fset import no_such_fset:0-1" "ERROR: no such filter set: no_such_fset\." "fops, 19.26"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 19.27"
+#
+# - switching
+#
+gdb_test_no_output "pdbx fset select fs1" "fops, 20.1"
+gdb_test "pdbx fset" "suppress filter set fs1, 0 filters" "fops, 20.2"
+gdb_test_no_output "pdbx fset select default" "fops, 20.3"
+gdb_test "pdbx fset" "suppress filter set default, 3 filters" "fops, 20.4"
+gdb_test_no_output "pdbx fset select fs2" "fops, 20.5"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 20.6"
+gdb_test "pdbx fset select no_such_fset" "ERROR: no such filter set: no_such_fset\." "fops, 20.7"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 20.8"
+#
+# - deletion
+#
+gdb_test "pdbx fset delete no_such_fset" "ERROR: no such filter set: no_such_fset\." "fops, 21.1"
+gdb_test "pdbx fset delete fs2" "ERROR: cannot delete selected filter set\." "fops, 21.2"
+gdb_test "pdbx fset list" "
+suppress filter set default, 3 filters\r
+suppress filter set fs1, 0 filters\r
+suppress filter set fs2, 4 filters" "fops, 21.3"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 21.4"
+gdb_test_no_output "pdbx fset delete fs1" "fops, 21.5"
+gdb_test "pdbx fset list" "
+suppress filter set default, 3 filters\r
+suppress filter set fs2, 4 filters" "fops, 21.6"
+gdb_test "pdbx fset" "suppress filter set fs2, 4 filters" "fops, 21.7"
+gdb_test_no_output "pdbx fset delete default" "fops, 21.8"
+gdb_test "pdbx fset list" "
+suppress filter set fs2, 4 filters" "fops, 21.9"
+#
+# Re-create default to not confuse the remaining tests.
+#
+gdb_test_no_output "pdbx fset new default" "fops, 21.10"
+gdb_test_no_output "pdbx fset delete fs2" "fops, 21.11"
+gdb_test "pdbx fset list" "
+suppress filter set default, 0 filters" "fops, 21.12"
+
+# Switch filter evaluation settings.
+#
+gdb_test "pdbx eval-filters" "load" "fops, 22.1"
+gdb_test_no_output "pdbx eval-filters off" "fops, 22.2"
+gdb_test "pdbx eval-filters" "off" "fops, 22.3"
+gdb_test_no_output "pdbx eval-filters load" "fops, 22.4"
+gdb_test "pdbx eval-filters" "load" "fops, 22.5"
+gdb_test "pdbx eval-filters bad_arg" "ERROR: bad argument: bad_arg\." "fops, 22.6"
+gdb_test "pdbx eval-filters" "load" "fops, 22.7"
+
+# Add invalid filters.
+#
+pdbx_clear_fset
+gdb_test "pdbx filter var no_such_var" "Warning: not all filters could be evaluated\." "fops, 23.1"
+gdb_test "pdbx fset show" " *0: var: no_such_var *\\\(pending\\\)" "fops, 23.2"
+pdbx_clear_fset
+gdb_test "pdbx filter line no_such_file:42" "Warning: not all filters could be evaluated\." "fops, 23.3"
+gdb_test "pdbx fset show" " *0: line: no_such_file:42 *\\\(pending\\\)" "fops, 23.4"
+gdb_test_no_output "pdbx fset remove" "fops, 23.5"
+
+proc test_enable_disable_remove_other_filter { filter disp test } {
+	set expected "0: *$disp"
+	set fset "other"
+
+	gdb_test_no_output "pdbx fset new $fset" "fops, $test.1"
+	pdbx_add_filter $filter $expected
+	gdb_test_no_output "pdbx fset select default" "fops, $test.2"
+
+	# Not all filters can be evaluated. We ignore any output of the enable command.
+
+	gdb_test_no_output "pdbx fset disable $fset:0" "fops, $test.3"
+	gdb_test "pdbx fset show $fset" "$expected *\\\(disabled\\\)" "fops, $test.4"
+	gdb_test "pdbx fset enable $fset:0" ".*" "fops, $test.5"
+	gdb_test "pdbx fset show $fset" "$expected" "fops, $test.6"
+	gdb_test "pdbx fset remove $fset:0" ".*" "fops, $test.7"
+	gdb_test "pdbx fset show $fset" "" "fops, $test.8"
+
+	gdb_test_no_output "pdbx fset delete $fset" "fops, $test.9"
+}
+
+# Enable and disable a single filter of each type in another filter set.
+#
+# Variable and line filters cannot be evaluated and will thus be marked "pending".
+# Since "pending" will be replaced by "disabled", we hide the suffix.
+#
+test_enable_disable_remove_other_filter "code 0xa" "code: 0xa, 1 bytes" "24"
+test_enable_disable_remove_other_filter "data 0xa" "data: 0xa, 1 bytes" "25"
+test_enable_disable_remove_other_filter "var no_such_var" "var: no_such_var.*" "26"
+test_enable_disable_remove_other_filter "line no_such_line:42" "line: no_such_line:42.*" "27"
+test_enable_disable_remove_other_filter "reads" "global: reads" "28"

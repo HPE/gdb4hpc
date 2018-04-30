@@ -1,0 +1,23 @@
+
+#
+# ALL-2084: Tests that GDB gets the length right when printing Fortran strings.
+#
+
+if { [skip_fortran_tests] } { return -1 }
+load_lib "fortran.exp"
+
+standard_testfile .f90
+
+if {[prepare_for_testing ${testfile}.exp ${testfile} \
+	 $srcfile {debug f90 quiet}]} {
+    return -1
+}
+
+if ![fortran_gdb_start] {
+    untested "could not run to main in: $testfile"
+    return -1
+}
+
+gdb_breakpoint [gdb_get_line_number "stop-here"]
+gdb_continue_to_breakpoint "stop-here"
+gdb_test "print my_string"  "\\'Hello, world!\\'"

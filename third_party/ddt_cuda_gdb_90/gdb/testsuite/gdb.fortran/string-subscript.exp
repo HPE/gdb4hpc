@@ -1,0 +1,31 @@
+if $tracelevel then {
+	strace $tracelevel
+}
+
+if { [skip_fortran_tests] } { return -1 }
+load_lib "fortran.exp"
+
+standard_testfile ".f90"
+
+if { [prepare_for_testing ${testfile}.exp ${testfile} ${srcfile} \
+     {debug f90}] } {
+    return -1
+}
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+if ![fortran_gdb_start] {
+    untested "could not run to main in: $testfile"
+    return -1
+}
+
+if ![runto [gdb_get_line_number "breakpoint1"] ] then {
+    perror "couldn't run to breakpoint "
+    continue
+}
+
+gdb_test "print test(3)" "'i'"
+gdb_test "print test(3:7)" "'is is'"

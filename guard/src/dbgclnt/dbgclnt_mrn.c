@@ -443,6 +443,12 @@ DbgMRNAttach(
 			PrintOutError("Failed to add cuda80-gdb-guard to manifest.\n");
 			goto attach_error;
 		}
+		else if (cti_addManifestBinary(mid, "cuda90-gdb-guard"))
+		{
+			PrintOutError("CTI error: %s\n", cti_error_str());
+			PrintOutError("Failed to add cuda90-gdb-guard to manifest.\n");
+			goto attach_error;
+		}
                 
 
 	}
@@ -1204,6 +1210,12 @@ DbgMRNInvoke(
 		{
 			PrintOutError("CTI error: %s\n", cti_error_str());
 			PrintOutError("Failed to add cuda80-gdb-guard to manifest.\n");
+			goto invoke_error;
+		}
+		else if (cti_addManifestBinary(mid, "cuda90-gdb-guard"))
+		{
+			PrintOutError("CTI error: %s\n", cti_error_str());
+			PrintOutError("Failed to add cuda90-gdb-guard to manifest.\n");
 			goto invoke_error;
 		}
 

@@ -46,7 +46,7 @@ mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-7.12.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
 cuda80_gdb_directory_name="ddt_cuda_gdb_80"
-cuda90_gdb_directory_name="ddt_cuda_gdb_90"
+cuda91_gdb_directory_name="ddt_cuda_gdb_91"
 uda_directory_name="gdb_uda"
 editline_directory_name="editline"
 libmi_directory_name="libmi"
@@ -78,7 +78,7 @@ cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/pu
 cuda_pascal_dir="/cray/css/release/cray/build/xc/RB-6.0/latest/3rd-party:master/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
-cuda90_basename="cray-cudatoolkit9.0-9.0"
+cuda91_basename="cray-cudatoolkit9.0-9.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in gdb4hpc
@@ -274,12 +274,12 @@ gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
 # Define where to find the cuda-gdb source tree
 cuda75_gdb_src="$thirdparty_dir/$cuda75_gdb_directory_name"
 cuda80_gdb_src="$thirdparty_dir/$cuda80_gdb_directory_name"
-cuda90_gdb_src="$thirdparty_dir/$cuda90_gdb_directory_name"
+cuda91_gdb_src="$thirdparty_dir/$cuda91_gdb_directory_name"
 
 # Define where to find the cuda-gdb external components
 cuda75_ext="$external_dir/cuda75_base"
 cuda80_ext="$external_dir/cuda80_base"
-cuda90_ext="$external_dir/cuda90_base"
+cuda91_ext="$external_dir/cuda91_base"
 
 # Define where to find the gdb source tree
 gdb_uda_src="$thirdparty_dir/$uda_directory_name"
@@ -335,7 +335,7 @@ opt_python=n
 opt_gdb=n
 opt_cuda75_gdb=n
 opt_cuda80_gdb=n
-opt_cuda90_gdb=n
+opt_cuda91_gdb=n
 opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
@@ -368,7 +368,7 @@ function print_help {
 	echo "F: gdb"
 	echo "G: cuda-gdb for CUDA_75"
 	echo "H: cuda-gdb for CUDA_80"
-	echo "I: cuda-gdb for CUDA_90"
+	echo "I: cuda-gdb for CUDA_91"
 	echo "J: gdb uda support"
 	echo "K: editline"
 	echo "L: libarchive"
@@ -586,7 +586,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_gdb=y
 		opt_cuda75_gdb=y
 		opt_cuda80_gdb=y
-		opt_cuda90_gdb=y
+		opt_cuda91_gdb=y
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
@@ -596,7 +596,7 @@ if [[ "$#" != "0" ]] ; then
 		#for release builds, we don't want to build with -g
 		opt_flag="-O2"
  	else
-		while getopts "aAbBcCdDeEfFgGhHiIjJkKlLmMoO" Option
+		while getopts "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoO" Option
 		do
 			case $Option in
 				a | A ) echo "Building A: libaif"
@@ -615,8 +615,8 @@ if [[ "$#" != "0" ]] ; then
 					opt_cuda75_gdb=y;;
 				h | H ) echo "Building H: cuda-gdb for CUDA_80"
 				        opt_cuda80_gdb=y;;
-				i | I ) echo "Building I: cuda-gdb for CUDA_90"
-				        opt_cuda90_gdb=y;;
+				i | I ) echo "Building I: cuda-gdb for CUDA_91"
+				        opt_cuda91_gdb=y;;
 				j | J ) echo "Building J: gdb uda support"
 					opt_gdb_uda=y;;
 				k | K ) echo "Building K: editline"
@@ -651,7 +651,7 @@ if [[ $opt_ask_deps == y ]]; then
 	ask_sub_build "Build gdb" opt_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_75" opt_cuda75_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_80" opt_cuda80_gdb
-	ask_sub_build "Build cuda-gdb for CUDA_90" opt_cuda90_gdb
+	ask_sub_build "Build cuda-gdb for CUDA_91" opt_cuda91_gdb
 	ask_sub_build "Build gdb uda support" opt_gdb_uda
 	ask_sub_build "Build editline" opt_editline
 	ask_sub_build "Build libarchive" opt_libarchive
@@ -737,11 +737,11 @@ fi
 # Disable cuda_gdb options for arm. Cray does not have plans to support GPUs 
 # with ARM CPUs.
 if [[ $isArm == true ]]; then
-    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y  || $opt_cuda90_gdb == y ]]; then
+    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y  || $opt_cuda91_gdb == y ]]; then
         echo -e "\nBuilding of cuda_gdb is not supported on the aarch64 architecture!"
         opt_cuda75_gdb=n
         opt_cuda80_gdb=n
-	opt_cuda90_gdb=n
+	opt_cuda91_gdb=n
     fi
 fi
 
@@ -1040,56 +1040,56 @@ check_error "cuda80"
 
 echo "#######################################################################"
 echo "#######################################################################"
-# cuda-gdb 90 build
-if [[ $opt_cuda90_gdb == y ]]; then
+# cuda-gdb 91 build
+if [[ $opt_cuda91_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 90 build."
 	# Unpack the rpm if we haven't done so already
-	if [[ ! -d $cuda90_ext ]]; then
-		# find the cuda90 rpm
-		cuda90_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda90_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda90_basename[0-9\.\-]*")
-		if [[ -e $cuda90_rpm ]]; then
+	if [[ ! -d $cuda91_ext ]]; then
+		# find the cuda91 rpm
+		cuda91_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda91_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda91_basename[0-9\.\-]*")
+		if [[ -e $cuda91_rpm ]]; then
 			# rpm found, so extract it
-			mkdir $cuda90_ext
-			cd $cuda90_ext
-			rpm2cpio $cuda90_rpm | cpio -idv
+			mkdir $cuda91_ext
+			cd $cuda91_ext
+			rpm2cpio $cuda91_rpm | cpio -idv
 		else
-			echo "ERROR: Could not find $cuda90_basename rpm in $cuda_pascal_dir. The cuda-gdb 90 build failed."
+			echo "ERROR: Could not find $cuda91_basename rpm in $cuda_pascal_dir. The cuda-gdb 91 build failed."
 			((++comp_error))
 		fi
 	fi
 	# Get the location of the include files
-	cuda90_include_dir=$(cd $cuda90_ext/$cuda_inc_path; pwd)
-	if [[ ! -d $cuda90_include_dir ]]; then
-		echo "ERROR: Missing required $cuda90_basename headers. The cuda-gdb 90 build failed."
+	cuda91_include_dir=$(cd $cuda91_ext/$cuda_inc_path; pwd)
+	if [[ ! -d $cuda91_include_dir ]]; then
+		echo "ERROR: Missing required $cuda91_basename headers. The cuda-gdb 91 build failed."
 		((++comp_error))
 	fi
 	# change directories
-	cd $cuda90_gdb_src
-	echo -e "\nUsing cuda-gdb 90 source $cuda90_gdb_src."
-	echo -e "Using cuda 90 headers in $cuda90_include_dir.\n"
+	cd $cuda91_gdb_src
+	echo -e "\nUsing cuda-gdb 91 source $cuda91_gdb_src."
+	echo -e "Using cuda 91 headers in $cuda91_include_dir.\n"
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda90_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
 	echo -e "Starting post build ops.\n"
-	# rename cuda-gdb to cuda90-gdb-guard
-	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda90-gdb-guard" "cuda-gdb 90"
+	# rename cuda-gdb to cuda91-gdb-guard
+	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda91-gdb-guard" "cuda-gdb 91"
 fi
 
-# cuda-gdb 90 install - bypass install for arm
+# cuda-gdb 91 install - bypass install for arm
 if [[ $isArm == false ]]; then
-    echo -e "Starting cuda-gdb 90 install.\n"
-    # Deliver the cuda90-gdb-guard binary
-    copy_file "${dep_bindir}/cuda90-gdb-guard" $libexecdir "cuda-gdb 90"
+    echo -e "Starting cuda-gdb 91 install.\n"
+    # Deliver the cuda91-gdb-guard binary
+    copy_file "${dep_bindir}/cuda91-gdb-guard" $libexecdir "cuda-gdb 91"
 fi
 echo -e "########################################################\n"
 
 # Check for errors in component
-check_error "cuda90"
+check_error "cuda91"
 
 echo "#######################################################################"
 echo "#######################################################################"

@@ -77,7 +77,7 @@ enum cuda_vers
 	CUDA_UNKNOWN,	
 	CUDA_75,
 	CUDA_80,
-	CUDA_90
+	CUDA_91
 };
 typedef enum cuda_vers		cuda_vers;
 
@@ -1210,11 +1210,11 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				// nvidia 346.* ==> CTK 7.0
 				// nvidia 352.* ==> CTK 7.5
 				// nvidia 361.* ==> CTK 8.0
-				// nvidia 384*  ==> CTK 9.0
+				// nvidia 390*  ==> CTK 9.1
 
-				if (strncmp(vers_str, "384", 3) == 0)
+				if (strncmp(vers_str, "390", 3) == 0)
 				{
-					vers_num = CUDA_90;
+					vers_num = CUDA_91;
 				}
 				else if (strncmp(vers_str, "361", 3) == 0)
 				{
@@ -1278,9 +1278,9 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 						DVPRINT("Using cuda80-gdb-guard\n");
 						MISessionSetGDBPath(GDBMISession, "cuda80-gdb-guard");
 						break;
-					case CUDA_90:
-						DVPRINT("Using cuda90-gdb-guard\n");
-						MISessionSetGDBPath(GDBMISession, "cuda90-gdb-guard");
+					case CUDA_91:
+						DVPRINT("Using cuda91-gdb-guard\n");
+						MISessionSetGDBPath(GDBMISession, "cuda91-gdb-guard");
 						break;
 					case CUDA_UNKNOWN:
 						DVPRINT("Unsupported driver version.\n");

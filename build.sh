@@ -46,6 +46,7 @@ mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-7.12.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
 cuda80_gdb_directory_name="ddt_cuda_gdb_80"
+cuda91_gdb_directory_name="ddt_cuda_gdb_91"
 uda_directory_name="gdb_uda"
 editline_directory_name="editline"
 libmi_directory_name="libmi"
@@ -77,6 +78,7 @@ cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/pu
 cuda_pascal_dir="/cray/css/release/cray/build/xc/RB-6.0/latest/3rd-party:master/SLE_12/x86_64"
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
+cuda91_basename="cray-cudatoolkit9.0-9.0"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in gdb4hpc
@@ -145,15 +147,16 @@ else
     fi
 fi
 
+gccVer=6.1.0
 # Set OS level
 OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
 if [[ $OS == "aarch64" ]]; then
-    gccVer=6.1.0
     isArm=true
-elif [[ $OS == "x86_64" ]]; then
-    gccVer=6.1.0
 fi
 module load gcc/$gccVer
+gcc_cmd=/opt/gcc/$gccVer/bin/gcc
+echo "Building with: gcc/$gccVer"
+echo "             : $gcc_cmd"
 
 #check if cti module is loaded
 if ! echo $LOADEDMODULES | grep -q cray-cti; then
@@ -271,10 +274,12 @@ gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
 # Define where to find the cuda-gdb source tree
 cuda75_gdb_src="$thirdparty_dir/$cuda75_gdb_directory_name"
 cuda80_gdb_src="$thirdparty_dir/$cuda80_gdb_directory_name"
+cuda91_gdb_src="$thirdparty_dir/$cuda91_gdb_directory_name"
 
 # Define where to find the cuda-gdb external components
 cuda75_ext="$external_dir/cuda75_base"
 cuda80_ext="$external_dir/cuda80_base"
+cuda91_ext="$external_dir/cuda91_base"
 
 # Define where to find the gdb source tree
 gdb_uda_src="$thirdparty_dir/$uda_directory_name"
@@ -330,6 +335,7 @@ opt_python=n
 opt_gdb=n
 opt_cuda75_gdb=n
 opt_cuda80_gdb=n
+opt_cuda91_gdb=n
 opt_gdb_uda=n
 opt_editline=n
 opt_libarchive=n
@@ -353,7 +359,7 @@ declare -a error_components
 ########################
 
 function print_help {
-	echo "Usage: `basename $0` options (ABCDEFGHIJKLMNOP | --all)"
+	echo "Usage: `basename $0` options (ABCDEFGHIJKLMNO | --all)"
 	echo "A: libaif"
 	echo "B: libmi"
 	echo "C: libssh2"
@@ -362,12 +368,13 @@ function print_help {
 	echo "F: gdb"
 	echo "G: cuda-gdb for CUDA_75"
 	echo "H: cuda-gdb for CUDA_80"
-	echo "I: gdb uda support"
-	echo "J: editline"
-	echo "K: libarchive"
-	echo "L: Set non standard CTI install directory"
-	echo "M: gdb4hpc"
-	echo "N: cleanup"
+	echo "I: cuda-gdb for CUDA_91"
+	echo "J: gdb uda support"
+	echo "K: editline"
+	echo "L: libarchive"
+	echo "M: Set non standard CTI install directory"
+	echo "N: gdb4hpc"
+	echo "O: cleanup"
 }
 
 function check_error {
@@ -579,6 +586,7 @@ if [[ "$#" != "0" ]] ; then
 		opt_gdb=y
 		opt_cuda75_gdb=y
 		opt_cuda80_gdb=y
+		opt_cuda91_gdb=y
 		opt_gdb_uda=y
 		opt_editline=y
 		opt_libarchive=y
@@ -588,7 +596,7 @@ if [[ "$#" != "0" ]] ; then
 		#for release builds, we don't want to build with -g
 		opt_flag="-O2"
  	else
-		while getopts "aAbBcCdDeEfFgGhHiIjJkKlLmMoOpP" Option
+		while getopts "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoO" Option
 		do
 			case $Option in
 				a | A ) echo "Building A: libaif"
@@ -607,17 +615,19 @@ if [[ "$#" != "0" ]] ; then
 					opt_cuda75_gdb=y;;
 				h | H ) echo "Building H: cuda-gdb for CUDA_80"
 				        opt_cuda80_gdb=y;;
-				i | I ) echo "Building H: gdb uda support"
+				i | I ) echo "Building I: cuda-gdb for CUDA_91"
+				        opt_cuda91_gdb=y;;
+				j | J ) echo "Building J: gdb uda support"
 					opt_gdb_uda=y;;
-				j | J ) echo "Building I: editline"
+				k | K ) echo "Building K: editline"
 					opt_editline=y;;
-				k | K ) echo "Building J: libarchive"
+				l | L ) echo "Building L: libarchive"
 					opt_libarchive=y;;
-				l | L ) echo "Starting K: Set CTI install directory"
+				m | M ) echo "Starting M: Set CTI install directory"
 					opt_cti_install=y;;
-				m | M ) echo "Building L: gdb4hpc"
+				n | N ) echo "Building N: gdb4hpc"
 					opt_gdb4hpc=y;;
-				n | N ) echo "Running M: cleanup"
+				o | O ) echo "Running O: cleanup"
 					opt_cleanup=y;;
 				? ) 	print_help
 					exit 0;;
@@ -641,6 +651,7 @@ if [[ $opt_ask_deps == y ]]; then
 	ask_sub_build "Build gdb" opt_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_75" opt_cuda75_gdb
 	ask_sub_build "Build cuda-gdb for CUDA_80" opt_cuda80_gdb
+	ask_sub_build "Build cuda-gdb for CUDA_91" opt_cuda91_gdb
 	ask_sub_build "Build gdb uda support" opt_gdb_uda
 	ask_sub_build "Build editline" opt_editline
 	ask_sub_build "Build libarchive" opt_libarchive
@@ -726,10 +737,11 @@ fi
 # Disable cuda_gdb options for arm. Cray does not have plans to support GPUs 
 # with ARM CPUs.
 if [[ $isArm == true ]]; then
-    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y ]]; then
+    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y  || $opt_cuda91_gdb == y ]]; then
         echo -e "\nBuilding of cuda_gdb is not supported on the aarch64 architecture!"
         opt_cuda75_gdb=n
         opt_cuda80_gdb=n
+	opt_cuda91_gdb=n
     fi
 fi
 
@@ -1028,6 +1040,60 @@ check_error "cuda80"
 
 echo "#######################################################################"
 echo "#######################################################################"
+# cuda-gdb 91 build
+if [[ $opt_cuda91_gdb == y ]]; then
+
+	echo "Starting cuda-gdb 90 build."
+	# Unpack the rpm if we haven't done so already
+	if [[ ! -d $cuda91_ext ]]; then
+		# find the cuda91 rpm
+		cuda91_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda91_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda91_basename[0-9\.\-]*")
+		if [[ -e $cuda91_rpm ]]; then
+			# rpm found, so extract it
+			mkdir $cuda91_ext
+			cd $cuda91_ext
+			rpm2cpio $cuda91_rpm | cpio -idv
+		else
+			echo "ERROR: Could not find $cuda91_basename rpm in $cuda_pascal_dir. The cuda-gdb 91 build failed."
+			((++comp_error))
+		fi
+	fi
+	# Get the location of the include files
+	cuda91_include_dir=$(cd $cuda91_ext/$cuda_inc_path; pwd)
+	if [[ ! -d $cuda91_include_dir ]]; then
+		echo "ERROR: Missing required $cuda91_basename headers. The cuda-gdb 91 build failed."
+		((++comp_error))
+	fi
+	# change directories
+	cd $cuda91_gdb_src
+	echo -e "\nUsing cuda-gdb 91 source $cuda91_gdb_src."
+	echo -e "Using cuda 91 headers in $cuda91_include_dir.\n"
+	# run cuda-gdb confiugre
+	echo "Configuring cuda-gdb..."
+	set -x
+	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
+	set +x
+	do_build "cuda-gdb"
+	echo -e "\ncuda-gdb staged to $stage_dir.\n"
+	echo -e "Starting post build ops.\n"
+	# rename cuda-gdb to cuda91-gdb-guard
+	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda91-gdb-guard" "cuda-gdb 91"
+fi
+
+# cuda-gdb 91 install - bypass install for arm
+if [[ $isArm == false ]]; then
+    echo -e "Starting cuda-gdb 91 install.\n"
+    # Deliver the cuda91-gdb-guard binary
+    copy_file "${dep_bindir}/cuda91-gdb-guard" $libexecdir "cuda-gdb 91"
+fi
+echo -e "########################################################\n"
+
+# Check for errors in component
+check_error "cuda91"
+
+echo "#######################################################################"
+echo "#######################################################################"
+
 
 # gdb uda support library build
 if [[ $opt_gdb_uda == y ]]; then
@@ -1221,7 +1287,7 @@ if [[ $opt_gdb4hpc == y ]]; then
 	echo -e "\nDelivering gdb4hpc modulefile..."
 	check_file $module_primer "gdb4hpc"
 	if [[ $? == 0 ]]; then
-        mkdir -p $inst_dir/modulefiles/gdb4hpc
+	        mkdir -p $inst_dir/modulefiles/gdb4hpc
 		# deliver the fixed modulefile. Sed, you amaze me.
 		cat $module_primer | sed -e "s@%VERSION%@$module_version@" \
 		> $inst_dir/modulefiles/gdb4hpc/$module_version.DEV
@@ -1235,7 +1301,7 @@ fi
 check_error "gdb4hpc"
 
 # cleanup
-if [[ $opt_cleanup == y ]]; then
+if [[ $opt_cleanup == y  && "$error" -eq "0" ]]; then
 	echo -e "Starting build cleanup.\n"
 	do_clean $opt_aif $aif_src "libaif"
 	do_clean $opt_libmi $libmi_src "libmi"

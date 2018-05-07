@@ -1,0 +1,94 @@
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <christoph.t.weinmann@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+## Reduced form of static-arrays.exp to match what Alliena GDB currently supports.
+## It's not much but it should be pinned down and tested.
+
+if { [skip_fortran_tests] } { return -1 }
+load_lib "fortran.exp"
+
+standard_testfile static-arrays.f90
+
+if { [prepare_for_testing $testfile.exp $testfile $srcfile {debug f90}] } {
+    return -1
+}
+
+if ![fortran_gdb_start] {
+    untested "could not run to main in: $testfile"
+    return -1
+}
+
+gdb_breakpoint [gdb_get_line_number "BP1"]
+gdb_continue_to_breakpoint "BP1" ".*BP1.*"
+
+# Tests subarrays of one dimensional arrays with subrange variations
+gdb_test "print ar1" "\\$\[0-9\]+ = \\(1, 2, 3, 4, 5, 6, 7, 8, 9\\)" \
+"print ar1."
+gdb_test "print ar1\(4:7\)" "\\$\[0-9\]+ = \\(4, 5, 6, 7\\)" \
+"print ar1\(4:7\)"
+gdb_test "print ar1\(8:\)" "\\$\[0-9\]+ = \\(8, 9\\).*" \
+"print ar1\(8:\)"
+gdb_test "print ar1\(:3\)" "\\$\[0-9\]+ = \\(1, 2, 3\\).*" \
+"print ar1\(:3\)"
+gdb_test "print ar1\(:\)" "\\$\[0-9\]+ = \\(1, 2, 3, 4, 5, 6, 7, 8, 9\\)" \
+"print ar1\(:\)"
+
+# Check assignment
+gdb_test_no_output "set \$my_ary = ar1\(3:8\)"
+gdb_test "print \$my_ary" \
+"\\$\[0-9\]+ = \\(3, 4, 5, 6, 7, 8\\)" \
+"Assignment of subarray to variable"
+gdb_test_no_output "set ar1\(5\) = 42"
+gdb_test "print ar1\(3:8\)" \
+"\\$\[0-9\]+ = \\(3, 4, 42, 6, 7, 8\\)" \
+"print ar1\(3:8\) after assignment"
+gdb_test "print \$my_ary" \
+"\\$\[0-9\]+ = \\(3, 4, 5, 6, 7, 8\\)" \
+"Assignment of subarray to variable after original array changed"
+
+# Test for subarrays of one dimensional arrays with literals
+gdb_test "print ar1\(3\)" "\\$\[0-9\]+ = 3" \
+"print ar1\(3\)"
+
+# Test what two dimensional support we have
+gdb_test "print ar2\(2:3,3\)" "\\$\[0-9\]+ = \\(\\( 23, 33\\) \\)" \"print ar2\(2:3,3\)"
+
+# Test what three dimensional support we have
+gdb_test "print ar3\(2:4,9,9\)" "\\$\[0-9\]+ = \\(\\( \\( 299, 399, 499\\) \\) \\)" \"print ar3\(2:3,3\)"
+
+# Provoke error messages for bad user input
+gdb_test "print ar1\(0:4\)" \
+"array subscript out of bounds" \
+"print ar1\(0:4\)"
+gdb_test "print ar1\(8:12\)" \
+"array subscript out of bounds" \
+"print ar1\(8:12\)"
+gdb_test "print ar1\(8:2:\)" \
+"A syntax error in expression, near `\\)'." \
+"print ar1\(8:2:\)"
+gdb_test "print ar1\(8:2:2\)" \
+"Upper bound must be less than lower bound" \
+"print ar1\(8:2:2\)"
+gdb_test "print ar1\(2:8:-2\)" \
+"GDB does not \\(yet\\) support array strides" \
+"print ar1\(2:8:-2\)"
+gdb_test "print ar1\(2:7:0\)" \
+"GDB does not \\(yet\\) support array strides" \
+"print ar1\(2:7:0\)"
+gdb_test "print ar1\(3:7\) = 42" \
+"Invalid cast." \
+"Assignment of value to subarray"

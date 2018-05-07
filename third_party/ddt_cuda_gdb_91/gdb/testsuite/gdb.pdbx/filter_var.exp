@@ -1,0 +1,392 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <markus.t.metzger@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Check that filters on variables are working.
+#
+# Test programs have been constructed such that they produce a single
+# read/write race on each test iteration.
+
+load_lib pdbx.exp
+
+gdb_exit
+gdb_start
+
+if { [skip_python_tests] } { continue }
+
+# Test applying a single filter after a race detection.
+#
+# The filter is being set (and thus evaluated) in the context of the race.
+#
+#   srcfile ... the source file to use
+#   fexpr   ... the filter expression
+#   fdisp   ... the filter as displayed
+#   var     ... the variable as reported in the race
+#   test    ... the name of the test
+#
+proc pdbx_test_filter_var_after_detection { srcfile flags fexpr fdisp var test } {
+
+	if { [prepare_for_testing filter_var.exp "$srcfile.x" $srcfile $flags] } {
+		untested "compilation failed. requires icc 12.1 or later."
+		return -1
+	}
+
+	set ln_thread [gdb_get_line_number "bp.thread" $srcfile]
+	set ln_write  [gdb_get_line_number "bp.write"  $srcfile]
+	set ln_read   [gdb_get_line_number "bp.read"   $srcfile]
+
+	set loc_thread "$srcfile:$ln_thread"
+	set loc_write  "$srcfile:$ln_write"
+	set loc_read   "$srcfile:$ln_read"
+
+	set dec  "\[0-9\]+"
+	set hex  "0x\[0-9a-f\]+"
+
+	set expected "
+ *$dec: write $var, $dec bytes from .*$loc_write\r
+ *$dec: read $var, $dec bytes from .*$loc_read"
+
+	# For this test, we disable automatic filter evaluation.
+	#
+	pdbx_eval_filters_off
+
+	# Enable pdbx.
+	#
+	gdb_test_no_output "pdbx enable" "$test.1"
+
+	# An empty suppress filter should produce a race.
+	#
+	if ![runto "test"] {
+		untested "$test.2-"
+		return
+	}
+	gdb_test "cont" ".*data race detected\r$expected.*" "$test.2"
+
+	# Apply the filter to suppress further races.
+	#
+	pdbx_add_filter "var $fexpr" "var: $fdisp"
+	pdbx_expect_no_race "cont" "$test.3"
+
+	# Re-runnnig with the filter should not produce races.
+	#
+	if ![runto "test"] {
+		untested "$test.4-"
+		return
+	}
+	pdbx_eval_filter "0" "var: $fdisp"
+	pdbx_expect_no_race "cont" "$test.4"
+
+	# If we now swith to focus, we should see the race again.
+	#
+	if ![runto "test"] {
+		untested "$test.6-"
+		return
+	}
+	pdbx_eval_filter "0" "var: $fdisp"
+	gdb_test_no_output "pdbx fset focus" "$test.5"
+	gdb_test "cont" ".*data race detected\r$expected.*" "$test.6"
+
+	# If we disable the filter, we shouldn't see further races.
+	#
+	pdbx_disable_filter "0" "var: $fdisp"
+	pdbx_expect_no_race "cont" "$test.7"
+
+	# If we switch back to suppress, we should see the race again.
+	#
+	# For the sake of consistency, we re-evaluate the filter as before.
+	#
+	if ![runto "test"] {
+		untested "$test.8-"
+		return
+	}
+	pdbx_eval_filter "0" "var: $fdisp \\\(disabled\\\)"
+	gdb_test_no_output "pdbx fset suppress" "$test.8"
+	gdb_test "cont" ".*data race detected\r$expected.*" "$test.9"
+
+	# If we now enable the filter again, we shouldn't see further races.
+	#
+	pdbx_enable_filter "0" "var: $fdisp"
+	pdbx_expect_no_race "cont" "$test.10"
+}
+
+pdbx_test_filter_var_after_detection "race_glob_rw.c" [pdbx_cflags] "*var" "\\\*var" "shared" "filter var, 1"
+pdbx_test_filter_var_after_detection "race_stack_rw.c" [pdbx_cflags] "*var" "\\\*var" "0x\[0-9a-f\]+" "filter var, 2"
+pdbx_test_filter_var_after_detection "race_heap_rw.c" [pdbx_cflags] "*var" "\\\*var" "0x\[0-9a-f\]+" "filter var, 3"
+pdbx_test_filter_var_after_detection "race_arr_rw.c" [pdbx_cflags] "shared" "shared" "shared.*" "filter var, 4"
+pdbx_test_filter_var_after_detection "race_struct_rw.c" [pdbx_cflags] "var->second" "var->second" "shared \\\+ 4" "filter var, 5"
+pdbx_test_filter_var_after_detection "race_merge.c" [pdbx_cflags] "*var" "\\\*var" "shared" "filter var, 6"
+
+if { ![skip_fortran_tests] } {
+	pdbx_test_filter_var_after_detection "race_fort_rw.f90" [pdbx_fflags] "shared" "shared" "0x\[0-9a-f\]+" "filter var, 7"
+	pdbx_test_filter_var_after_detection "race_fort_arr_rw.f90" [pdbx_fflags] "shared" "shared" "0x\[0-9a-f\]+" "filter var, 8"
+	pdbx_test_filter_var_after_detection "race_fort_type_rw.f90" [pdbx_fflags] "shared%second" "shared%second" "0x\[0-9a-f\]+" "filter var, 9"
+}
+
+# Test a single variable filter wrt. repeated evaluation.
+#
+# The filter is initially set with the debuggee not running.
+# The filter is re-evaluated in the context of the data race.
+#
+# This filter expression should not evaluate without an inferior.
+#
+#   srcfile ... the source file to use
+#   fexpr   ... the filter expression
+#   fdisp   ... the filter as displayed
+#   var     ... the variable as reported in the race
+#   test    ... the name of the test
+#
+proc pdbx_test_filter_var_eval { srcfile flags fexpr fdisp var test } {
+
+	if { [prepare_for_testing filter_var.exp "$srcfile.x" $srcfile $flags] } {
+		untested "compilation failed. requires icc 12.1 or later."
+		return -1
+	}
+
+	set ln_thread [gdb_get_line_number "bp.thread" $srcfile]
+	set ln_write  [gdb_get_line_number "bp.write"  $srcfile]
+	set ln_read   [gdb_get_line_number "bp.read"   $srcfile]
+
+	set loc_thread "$srcfile:$ln_thread"
+	set loc_write  "$srcfile:$ln_write"
+	set loc_read   "$srcfile:$ln_read"
+
+	set dec  "\[0-9\]+"
+	set hex  "0x\[0-9a-f\]+"
+
+	set expected "
+ *$dec: write $var, $dec bytes from .*$loc_write\r
+ *$dec: read $var, $dec bytes from .*$loc_read"
+
+	# Enable pdbx.
+	#
+	gdb_test_no_output "pdbx enable" "$test.1"
+
+	# We're in the wrong context to evaluate the filter expression.
+	#
+	gdb_test "pdbx filter var $fexpr" "Warning: not all filters could be evaluated\." "$test.2"
+	gdb_test "pdbx fset show" " *0: var: $fdisp \\\(pending\\\)" "$test.3"
+
+	# With the filter pending, we should see the race.
+	#
+	# Even if we try to evaluate the filters on load, we're in the wrong
+	# context.
+	#
+	pdbx_eval_filters_on_load
+	if ![runto "test"] {
+		untested "$test.4-"
+		return
+	}
+	gdb_test "cont" ".*data race detected\r$expected.*" "$test.4"
+
+	# In this context, we should be able to evaluate the filter expression.
+	#
+	gdb_test_no_output "pdbx fset eval 0" "$test.5"
+	gdb_test "pdbx fset show" " *0: var: $fdisp" "$test.6"
+
+	# With the filter enabled, we shouldn't see races, anymore.
+	#
+	pdbx_expect_no_race "cont" "$test.7"
+}
+
+pdbx_test_filter_var_eval "race_glob_rw.c" [pdbx_cflags] "*var" "\\\*var" "shared" "filter var, 10"
+pdbx_test_filter_var_eval "race_stack_rw.c" [pdbx_cflags] "*var" "\\\*var" "0x\[0-9a-f\]+" "filter var, 11"
+pdbx_test_filter_var_eval "race_heap_rw.c" [pdbx_cflags] "*var" "\\\*var" "0x\[0-9a-f\]+" "filter var, 12"
+pdbx_test_filter_var_eval "race_struct_rw.c" [pdbx_cflags] "var->second" "var->second" "shared \\\+ 4" "filter var, 13"
+pdbx_test_filter_var_eval "race_merge.c" [pdbx_cflags] "*var" "\\\*var" "shared" "filter var, 14"
+
+if { ![skip_fortran_tests] } {
+	pdbx_test_filter_var_eval "race_fort_rw.f90" [pdbx_fflags] "shared" "shared" "0x\[0-9a-f\]+" "filter var, 15"
+	pdbx_test_filter_var_eval "race_fort_arr_rw.f90" [pdbx_fflags] "shared" "shared" "0x\[0-9a-f\]+" "filter var, 16"
+	pdbx_test_filter_var_eval "race_fort_type_rw.f90" [pdbx_fflags] "shared%second" "shared%second" "0x\[0-9a-f\]+" "filter var, 17"
+}
+
+# Test focus filters.
+#
+# Make sure that no adjacent variables are filtered.
+#
+#   srcfile ... the source file to use
+#   fexpr   ... the filter expression
+#   fdisp   ... the filter as displayed
+#   var     ... the variable as reported in the race
+#   test    ... the name of the test
+#
+proc pdbx_test_focus_adj_var { srcfile flags fexpr fdisp var test } {
+	global gdb_prompt
+
+	if { [prepare_for_testing filter_var.exp "$srcfile.x" $srcfile $flags] } {
+		untested "compilation failed. requires icc 12.1 or later."
+		return -1
+	}
+
+	set ln_thread [gdb_get_line_number "bp.thread" $srcfile]
+	set ln_write  [gdb_get_line_number "bp.write"  $srcfile]
+	set ln_read   [gdb_get_line_number "bp.read"   $srcfile]
+
+	set loc_thread "$srcfile:$ln_thread"
+	set loc_write  "$srcfile:$ln_write"
+	set loc_read   "$srcfile:$ln_read"
+
+	set dec  "\[0-9\]+"
+	set hex  "0x\[0-9a-f\]+"
+
+	set expected "
+ *$dec: write $var, $dec bytes from .*$loc_write\r
+ *$dec: read $var, $dec bytes from .*$loc_read"
+
+	# Enable pdbx.
+	#
+	gdb_test_no_output "pdbx enable" "$test.1"
+
+	if ![runto "test"] {
+		untested "$test.2-"
+		return
+	}
+
+	# Set a focus filter on the variable.
+	#
+	pdbx_add_filter "var $fexpr" "var: $fdisp"
+	gdb_test_no_output "pdbx fset focus" "$test.2"
+
+	# We should see exactly the one race we focused on.
+	#
+	# Unfortunately, this race may be reported either once or twice.
+	#
+	set seen 0
+	send_gdb "cont\n"
+	gdb_expect {
+		-re "$expected.*$gdb_prompt $" {
+			set seen [expr $seen + 1]
+			send_gdb "cont\n"
+			exp_continue
+		}
+		-re "Inferior \[0-9\]+ \\\(process \[0-9\]+\\\) exited normally.*$gdb_prompt $" {
+			if [expr $seen == 0] {
+				fail "$test.3 (race missing)"
+			} elseif [expr $seen > 2]  {
+				fail "$test.3 (too many races)"
+			} else {
+				pass "$test.3"
+			}
+		}
+		-re "$gdb_prompt $" {
+			fail "$test.3"
+		}
+		timeout {
+			fail "$test.3 (timeout)"
+		}
+	}
+}
+
+pdbx_test_focus_adj_var "race_arr_rw.c" [pdbx_cflags] "var\[1\]" "var\\\[1\\\]" "shared \\\+ 4" "filter var, 18"
+
+# A focus filter on a subset of the accessed memmory suffices.
+#
+pdbx_test_focus_adj_var "race_union_rw.c" [pdbx_cflags] "var->arr1\[1\]" "var->arr1\\\[1\\\]" "shared" "filter var, 19"
+
+# Test suppress filters.
+#
+# Make sure that no adjacent variables are filtered.
+#
+#   srcfile ... the source file to use
+#   fexpr   ... the filter expression
+#   fdisp   ... the filter as displayed
+#   var     ... the variable as reported in the race
+#   test    ... the name of the test
+#
+proc pdbx_test_suppress_adj_var { srcfile flags fexpr fdisp var1 var2 test } {
+	global gdb_prompt
+
+	if { [prepare_for_testing filter_var.exp "$srcfile.x" $srcfile $flags] } {
+		untested "compilation failed. requires icc 12.1 or later."
+		return -1
+	}
+
+	set ln_thread [gdb_get_line_number "bp.thread" $srcfile]
+	set ln_write  [gdb_get_line_number "bp.write"  $srcfile]
+	set ln_read   [gdb_get_line_number "bp.read"   $srcfile]
+
+	set loc_thread "$srcfile:$ln_thread"
+	set loc_write  "$srcfile:$ln_write"
+	set loc_read   "$srcfile:$ln_read"
+
+	set dec  "\[0-9\]+"
+	set hex  "0x\[0-9a-f\]+"
+
+	set expected1 "
+ *$dec: write $var1, $dec bytes from .*$loc_write\r
+ *$dec: read $var1, $dec bytes from .*$loc_read"
+	set expected2 "
+ *$dec: write $var2, $dec bytes from .*$loc_write\r
+ *$dec: read $var2, $dec bytes from .*$loc_read"
+
+	# Enable pdbx.
+	#
+	gdb_test_no_output "pdbx enable" "$test.1"
+
+	if ![runto "test"] {
+		untested "$test.2-"
+		return
+	}
+
+	# Set a suppress filter on the variable.
+	#
+	pdbx_add_filter "var $fexpr" "var: $fdisp"
+	gdb_test_no_output "pdbx fset suppress" "$test.2"
+
+	# We should see exactly the other races we did not suppress.
+	#
+	# Unfortunately, those races may be reported either once or twice.
+	#
+	set seen1 0
+	set seen2 0
+	send_gdb "cont\n"
+	gdb_expect {
+		-re "$expected1.*$gdb_prompt $" {
+			set seen1 [expr $seen1 + 1]
+			send_gdb "cont\n"
+			exp_continue
+		}
+		-re "$expected2.*$gdb_prompt $" {
+			set seen2 [expr $seen2 + 2]
+			send_gdb "cont\n"
+			exp_continue
+		}
+		-re "Inferior \[0-9\]+ \\\(process \[0-9\]+\\\) exited normally.*$gdb_prompt $" {
+			if [expr $seen1 == 0] {
+				fail "$test.3 (race missing)"
+			} elseif [expr $seen2 == 0] {
+				fail "$test.3 (race missing)"
+			} elseif [expr $seen1 > 2]  {
+				fail "$test.3 (too many races)"
+			} elseif [expr $seen2 > 2]  {
+				fail "$test.3 (too many races)"
+			} else { pass "$test.3" }
+		}
+		-re "$gdb_prompt $" {
+			fail "$test.3"
+		}
+		timeout {
+			fail "$test.3 (timeout)"
+		}
+	}
+}
+
+pdbx_test_suppress_adj_var "race_arr_rw.c" [pdbx_cflags] "var\[1\]" "var\\\[1\\\]" "shared" "shared \\\+ 8" "filter var, 20"
+
+# A suppress filter on a subset of the accessed memory does not have an effect.
+#
+pdbx_test_suppress_adj_var "race_union_rw.c" [pdbx_cflags] "var->arr1\[1\]" "var->arr1\\\[1\\\]" "shared" "shared \\\+ 4" "filter var, 21"

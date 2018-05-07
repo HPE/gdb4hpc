@@ -90,6 +90,7 @@ rm -rf $RPM_BUILD_ROOT
 %if %is_valid
   %{_version_prefix}/libexec/cuda75-gdb-guard
   %{_version_prefix}/libexec/cuda80-gdb-guard
+  %{_version_prefix}/libexec/cuda91-gdb-guard
 %endif
 
 %{_version_prefix}/demos

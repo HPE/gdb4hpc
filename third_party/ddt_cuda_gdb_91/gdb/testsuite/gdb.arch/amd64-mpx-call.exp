@@ -1,0 +1,90 @@
+# Copyright 2012 Free Software Foundation, Inc.
+#
+# Contributed by Intel Corp. <walfred.tedeschi@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+if { ![istarget i?86-*-*] && ![istarget x86_64-*-* ] } {
+    verbose "Skipping x86 MPX tests."
+    return
+}
+
+standard_testfile
+
+set comp_flags "-mmpx -fcheck-pointer-bounds -I${srcdir}/../nat"
+
+if { [prepare_for_testing ${testfile}.exp ${testfile} ${srcfile} \
+ [list debug nowarnings additional_flags=${comp_flags}]] } {
+    return -1
+}
+
+if ![runto_main] {
+    untested "could not run to main"
+    return -1
+}
+
+send_gdb "print have_mpx ()\r"
+gdb_expect {
+    -re ".. = 1\r\n$gdb_prompt " {
+        pass "check whether processor supports MPX"
+    }
+    -re ".. = 0\r\n$gdb_prompt " {
+        verbose "processor does not support MPX; skipping MPX tests"
+        return
+    }
+    -re ".*$gdb_prompt $" {
+        fail "check whether processor supports MPX"
+    }
+    timeout {
+        fail "check whether processor supports MPX (timeout)"
+    }
+}
+
+gdb_test_no_output "set confirm off"
+
+set break "bkpt 1."
+gdb_breakpoint [ gdb_get_line_number "${break}" ]
+gdb_continue_to_breakpoint "${break}" ".*${break}.*"
+gdb_test "p upper (x, a, b, c, d, 0)" "" "test the call of a function"
+gdb_test "p upper_ptr (x, a, b, c, d, 0)" "" "test the call of a function"
+
+set break "bkpt 2."
+gdb_breakpoint [ gdb_get_line_number "${break}" ]
+gdb_continue_to_breakpoint "${break}" ".*${break}.*"
+set break "bkpt 3."
+gdb_breakpoint [ gdb_get_line_number "${break}" ]
+gdb_test "p \$bound0 = \$bnd0" "" "nm"
+gdb_test "return a"
+gdb_test "p \(\$bnd0\.ubound == \$bound0\.ubound\ && \$bnd0\.lbound ==\
+\$bound0\.lbound\ \)" "0" "after return with initialization off"
+
+runto_main
+gdb_test_no_output "set mpx-bnd-init-on-return off" "Turn off initialization on\
+return"
+
+set break "bkpt 2."
+gdb_breakpoint [ gdb_get_line_number "${break}" ]
+gdb_continue_to_breakpoint "${break}" ".*${break}.*"
+set break "bkpt 3."
+gdb_breakpoint [ gdb_get_line_number "${break}" ]
+gdb_test "p \$bound0 = \$bnd0" "" "nm"
+gdb_test "return a"
+gdb_test "p \(\$bnd0\.ubound == \$bound0\.ubound\ && \$bnd0\.lbound ==\
+\$bound0\.lbound\ \)" "1" "after return with initialization on"
+
+gdb_test "show mpx-bnd-init-on-return" "BND registers will not be initialized\
+on return." "double check of initialization on return"
+
+send_gdb "quit\n"

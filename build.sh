@@ -75,10 +75,11 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
-cuda_pascal_dir="/cray/css/release/cray/build/xc/RB-6.0/latest/3rd-party:master/SLE_12/x86_64"
+cuda80_91_rpm_dir="/cray/css/release/cray/build/xc/6.0.UP07/201804051312/repos/3rd-party:/master/SLE_12_SP3/x86_64"
+
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"
-cuda91_basename="cray-cudatoolkit9.0-9.0"
+cuda91_basename="cray-cudatoolkit9.1-9.1"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 # Current dependency source trees that are directly maintained in gdb4hpc
@@ -993,14 +994,14 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# Unpack the rpm if we haven't done so already
 	if [[ ! -d $cuda80_ext ]]; then
 		# find the cuda80 rpm
-		cuda80_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda80_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda80_basename[0-9\.\-]*")
+		cuda80_rpm=$(ls --reverse --sort=version $cuda80_91_rpm_dir/$cuda80_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda80_basename[0-9\.\-]*")
 		if [[ -e $cuda80_rpm ]]; then
 			# rpm found, so extract it
 			mkdir $cuda80_ext
 			cd $cuda80_ext
 			rpm2cpio $cuda80_rpm | cpio -idv
 		else
-			echo "ERROR: Could not find $cuda80_basename rpm in $cuda_pascal_dir. The cuda-gdb 80 build failed."
+			echo "ERROR: Could not find $cuda80_basename rpm in $cuda80_91_rpm_dir. The cuda-gdb 80 build failed."
 			((++comp_error))
 		fi
 	fi
@@ -1047,14 +1048,14 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	# Unpack the rpm if we haven't done so already
 	if [[ ! -d $cuda91_ext ]]; then
 		# find the cuda91 rpm
-		cuda91_rpm=$(ls --reverse --sort=version $cuda_pascal_dir/$cuda91_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda91_basename[0-9\.\-]*")
+		cuda91_rpm=$(ls --reverse --sort=version $cuda80_91_rpm_dir/$cuda91_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda91_basename[0-9\.\-]*")
 		if [[ -e $cuda91_rpm ]]; then
 			# rpm found, so extract it
 			mkdir $cuda91_ext
 			cd $cuda91_ext
 			rpm2cpio $cuda91_rpm | cpio -idv
 		else
-			echo "ERROR: Could not find $cuda91_basename rpm in $cuda_pascal_dir. The cuda-gdb 91 build failed."
+			echo "ERROR: Could not find $cuda91_basename rpm in $cuda80_91_rpm_dir. The cuda-gdb 91 build failed."
 			((++comp_error))
 		fi
 	fi

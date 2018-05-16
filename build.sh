@@ -1218,7 +1218,7 @@ if [[ $opt_mrnet == y ]]; then
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
     --with-boost=$boost_inst_loc \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'" $gcc_rpath_link_opt"
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'" $gcc_rpath_link_opt" SOFLAGS="$SOFLAGS $gcc_rpath_link_opt"
 	set +x
 	do_build "MRNet"
 	echo -e "\nMRNet staged to $stage_dir\n"

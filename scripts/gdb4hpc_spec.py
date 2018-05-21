@@ -48,11 +48,17 @@ LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled wi
 
 
 %install
+
 mkdir -p %{buildroot}%{_version_prefix}
+mkdir -p %{buildroot}/%{_namespace_moduledir}/cray-lgdb
 cp -r gdb4hpc/* %{buildroot}%{_version_prefix}/
 rm -rf %{buildroot}%{_version_prefix}/modulefiles
 
-install -D modulefile/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
+pushd %{buildroot}%{_namespace_moduledir}/cray-lgdb
+ln -s ../%{namespace}/%{build_version}
+popd
+
+install -D modulefiles/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
 install -D gdb4hpc/release_info %{buildroot}%{_version_prefix}/
 echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.cray_rpm_release
 mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
@@ -99,6 +105,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 %{_name_moduledir}/%{build_version}
+%{_namespace_moduledir}/cray-lgdb/%{build_version}
 %{_version_prefix}/.cray_rpm_release
 %{_version_prefix}/set_default_%{namespace}_%{build_version}
 %{_version_prefix}/release_info

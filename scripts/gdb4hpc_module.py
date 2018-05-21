@@ -12,10 +12,12 @@ content='''#%Module#############################################################
  setenv GDB4HPC_VERSION  $GDB4HPC_LEVEL
  setenv GDB4HPC_DIR $GDB4HPC_CURPATH
  setenv GDB4HPC_LIB_DIR $GDB4HPC_CURPATH/lib
- 
+
  append-path	PE_PRODUCT_LIST   GDB4HPC
  prepend-path	PATH $GDB4HPC_CURPATH/bin
  prepend-path	MANPATH $GDB4HPC_CURPATH/man
+
+ global env
 
  if { [ file exists ${GDB4HPC_CURPATH}/release_info ] } {
        set REL_INFO [ exec cat ${GDB4HPC_CURPATH}/release_info ]
@@ -38,7 +40,31 @@ content='''#%Module#############################################################
     puts stderr ""
  }
 
-
 module-whatis   "Loads the Cray Line Mode Parallel Debugger."
 
+set _module_name [module-info name]
+
+if { [ module-info mode load ] } {
+    if { ! [ catch {exec tty -s} result ] } {
+
+        if { [info exists env(LOADEDMODULES)] } {
+           set mods $env(LOADEDMODULES)
+    
+           if { [string match *cray-lgdb* $_module_name] && [string match *gdb4hpc* $mods] } {
+              module unload gdb4hpc
+           }
+           if { [string match *gdb4hpc* $_module_name] && [string match *cray-lgdb* $mods] } {
+              module unload cray-lgdb
+           }
+        }
+
+	if { [string match *lgdb* $_module_name] } {
+	    puts stderr ""
+	    puts stderr "The cray-lgdb module is now deprecated and will be removed in a future release."
+            puts stderr "The cray-lgdb module is no longer supported for versions >= 3.0.9"
+            puts stderr "Please use the gdb4hpc module. The new launch command is: gdb4hpc"
+	    puts stderr ""
+        }
+    }
+}
 '''

@@ -31,7 +31,7 @@ Product Description:
 
 Purpose:
 ---------
-  - Cray gdb4hpc support for ARM architecture
+  - Cray gdb4hpc support ARM processors on XC50.
 
   - lgdb rename to gdb4hpc
 
@@ -48,9 +48,10 @@ Purpose:
 Product and OS Dependencies:
 -----------------------------
   The Cray gdb4hpc %VERSION% release is supported on the following Cray systems:
-    - Cray XC systems with CLE release 6.0 or later
-    - CentOS operating system on CS.
-    - Native SLURM is supported with version 16
+    - Cray CE/XK with CLE 5.2 or later
+    - Cray XC with CLE 6.0 or later
+    - CentOS 7.x operating system on CS.
+    - Native SLURM is supported with version 17
 
   Product Dependencies:
     - craype 2.5.14 or later is required on Cray XC ARM systems running CLE 6.0.

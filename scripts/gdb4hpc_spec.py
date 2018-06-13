@@ -110,21 +110,14 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/set_default_%{namespace}_%{build_version}
 %{_version_prefix}/release_info
 %{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
-#%{_version_prefix}/docs/GPLv3.txt
-#%{_version_prefix}/docs/LGPLv21.txt
-#%{_version_prefix}/docs/LICENSE
-#%{_version_prefix}/docs/epl-v10.txt
 %{_version_prefix}/docs/ATTRIBUTIONS_gdb4hpc.txt
 
 
 %post
-
 #
 # Set as default if no default exists either because this is first install of
 # gdb4hpc or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
 #
-
-
 
 #Set the install path in the modulefile & set_default script(s)
 sed -i "s,\[install_dir\],$RPM_INSTALL_PREFIX,g" \
@@ -142,6 +135,9 @@ if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cra
       echo "%{namespace}_%{build_version} has been installed as non-default."
     fi
 fi
+
+#for XE/XK CLE5.2 create lgdb link pointing to gdb4hpc in bin dir.
+ln -s $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/%{namespace} $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/lgdb
 
 %preun
 # Cleanup default link if it point to this version

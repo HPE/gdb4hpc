@@ -75,7 +75,7 @@ openssl_path="/opt/cpkg/current/openssl/0.9.8k"
 
 # base location of cudatoolkit rpms
 cuda_new_rpm_dir="/cray/css/release/cray/build/xt/sles11sp3/x86_64/RB-5.2-ari/published/5.2UP04_PS191"
-cuda80_91_rpm_dir="/cray/css/release/cray/build/xc/6.0.UP07/201804051312/repos/3rd-party:/master/SLE_12_SP3/x86_64"
+cuda80_91_rpm_dir="/cray/css/release/cray/build/xc/6.0.UP07/latest/repos/3rd-party:/master/SLE_12_SP3/x86_64"
 
 cuda75_basename="cray-cudatoolkit7.5-7.5"
 cuda80_basename="cray-cudatoolkit8.0-8.0"

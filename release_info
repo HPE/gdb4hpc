@@ -31,27 +31,27 @@ Product Description:
 
 Purpose:
 ---------
-  - Cray gdb4hpc support ARM processors on XC50.
 
-  - lgdb rename to gdb4hpc
-
-  - Module name 'cray-lgdb' rename to 'gdb4hpc'. 
-  
-  Fixes:
+  - Feature release: Provides support for cuda90/91 on all supported
+    architectures and OS's with the exception of CLE 6.0 UP07.
+ 
+  Bug Fixes:
   -------
 
-   - PE-17326 Launch Failure with Statically Compiled UPC Code (was Bugz 853284)
-
-   - PE-17025 Running upc application in lgeb throws Miss PMI_Init sympbol! (was Bugz 817372)
-
+   - PE-22857:lgdb/gdb4hpc modules on CLE 5.2 Cray XC systems is confusing
+   
+   - PE-22777:ccdb fails on CLE 5.x systems with: /bin/bash: line 6: lgdb:
+     command not found
 
 Product and OS Dependencies:
 -----------------------------
   The Cray gdb4hpc %VERSION% release is supported on the following Cray systems:
-    - Cray CE/XK with CLE 5.2 or later
+    - Cray CE/XK & XC with CLE 5.2 or later
     - Cray XC with CLE 6.0 or later
     - CentOS 7.x operating system on CS.
     - Native SLURM is supported with version 17
+    - Cray XC ARM with CLE 6.0
+      
 
   Product Dependencies:
     - craype 2.5.14 or later is required on Cray XC ARM systems running CLE 6.0.

@@ -17,6 +17,8 @@ prefix_cmd          = ""
 osver               = ""
 os_name             = ""
 arch                = ""
+latest_ver          = ""
+new_version_str     = ""
 
 for arg in sys.argv:
   if arg == '-f':
@@ -119,9 +121,10 @@ def fetch_packageDir():
 
 def fetch_latest_version(final, revision, pkgs_dir):
 
-
+  global latest_ver
+  global new_version_str
   #get a list of sub directories representing the products 2 digit release version
-  onlyfiles = glob.glob(pkgs_dir + "/*.rpm")
+  onlyfiles = glob.glob(pkgs_dir + "/*" + osver + "." + arch + ".rpm")
 
   if len(onlyfiles) == 0:
     #there aren't any pkgs for this new two digit version yet.
@@ -145,14 +148,14 @@ def fetch_latest_version(final, revision, pkgs_dir):
     #get latest version number
     version = last_package_ver.split("-")[0]
     version_list = version.split(".")
-   
+    print version_list 
     #get old revision
     oldrev = last_package.split("-")[2]
     oldrev=oldrev.split(".")
     oldrev=oldrev[1]
 
     #determine if latest package was a pre-release or a release
-    if len(version) == 5:
+    if len(version) >= 5 and len(version) <= 6:
        latest_ver = "release"
     elif len(version) >= 7:
        latest_ver = "pre-release"
@@ -237,7 +240,7 @@ def fetch_newData():
   ver_two_dig = fetch_packageDir()
   pkgs_dir = product_dir + "/" + ver_two_dig
   version = fetch_latest_version(final,rev_number,pkgs_dir)
-  three_digit_version = version[0:5]
+  three_digit_version = version[0:6]
   ver_two_dig_nodot = version[0] + version[2]
 
   base_name = "gdb4hpc-" + version

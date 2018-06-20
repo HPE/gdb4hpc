@@ -32,8 +32,7 @@ Product Description:
 Purpose:
 ---------
 
-  - Feature release: Provides support for cuda90/91 on all supported
-    architectures and OS's with the exception of CLE 6.0 UP07.
+  - Feature release: Provides support for cuda90/91.
  
   Bug Fixes:
   -------

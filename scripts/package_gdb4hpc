@@ -13,6 +13,7 @@ import gdb4hpc_module
 parser = OptionParser()
 parser.add_option("-v","--version", dest="static_version", default=False, help="The user specified version number")
 parser.add_option("-b","--builddir", dest="builddir", help="the directory containing the build")
+parser.add_option("-d","--date", dest="date", help="the user selected release date")
 parser.add_option("-t", "--test", action="store_true", dest="test")
 parser.add_option("-f","--final", action="store_true", dest="is_final", default=False)
 (options, args) = parser.parse_args()
@@ -63,6 +64,9 @@ else:
       print "Exiting!"
       exit(1)
 
+if options.date != None:
+  release_date = options.date
+  print "Overriding Release date: " + release_date
 
 if options.static_version != False:
   build_version = options.static_version

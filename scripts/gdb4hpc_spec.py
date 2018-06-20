@@ -137,7 +137,7 @@ if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cra
 fi
 
 #for XE/XK CLE5.2 create lgdb link pointing to gdb4hpc in bin dir.
-ln -s $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/%{namespace} $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/lgdb
+ln -sf $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/%{namespace} $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/lgdb
 
 %preun
 # Cleanup default link if it point to this version

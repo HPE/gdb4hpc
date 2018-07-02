@@ -19,6 +19,7 @@ os_name             = ""
 arch                = ""
 latest_ver          = ""
 new_version_str     = ""
+release_date        = ""
 
 for arg in sys.argv:
   if arg == '-f':
@@ -148,7 +149,6 @@ def fetch_latest_version(final, revision, pkgs_dir):
     #get latest version number
     version = last_package_ver.split("-")[0]
     version_list = version.split(".")
-    print version_list 
     #get old revision
     oldrev = last_package.split("-")[2]
     oldrev=oldrev.split(".")
@@ -212,6 +212,9 @@ def fetch_newData():
   global rpm_name
   global osver
   global ver_two_dig_nodot
+  global release_date
+
+  release_date = release_date()
 
   rev_command = "git rev-parse HEAD"
   rev_number  = os.popen(rev_command).read()
@@ -221,10 +224,15 @@ def fetch_newData():
   branch = os.popen(branch).read()
   branch = branch.rstrip() 
   print "Packaging from: " + branch
+
   if final == True and branch == 'master':
     print "You indicated this should be a final build, but you are packaging from " + branch
     print "Exiting. . ."
     exit(1)
+  elif final == True and branch[0:7] == 'release':
+    release_date = branch.split('_')[1]
+    release_date = release_date[:2] + "-" + release_date[2:4] + "-" + release_date[4:]
+    print "Release Date: " + release_date
 
   time_command = "git log -s -1 --format=%ci | tail -n1 | cut -d' ' -f1-2"
   dt_time = os.popen(time_command).read()

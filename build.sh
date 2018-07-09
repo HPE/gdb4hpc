@@ -1069,7 +1069,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 90 build."
 	
-	cudamodule=`module avail $cuda91_module 2>/dev/nulli`
+	cudamodule=`module avail $cuda91_module 2>/dev/null`
 	if [ -z $cudamodule ]
 	then
 	  cudamodule=`module avail $cuda90_module 2>/dev/null`

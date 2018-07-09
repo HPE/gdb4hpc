@@ -83,9 +83,9 @@ cuda91_basename="cray-cudatoolkit9.1-9.1"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
 cuda75_module="cudatoolkit/7.5"
-cuda80_module"cudatoolkit/8.0"
+cuda80_module="cudatoolkit/8.0"
 cuda90_module="cudatoolkit/9.0"
-cuda91_module"cudatoolkit/9.1"
+cuda91_module="cudatoolkit/9.1"
 
 
 # Current dependency source trees that are directly maintained in gdb4hpc

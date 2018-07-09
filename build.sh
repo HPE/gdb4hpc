@@ -82,6 +82,12 @@ cuda80_basename="cray-cudatoolkit8.0-8.0"
 cuda91_basename="cray-cudatoolkit9.1-9.1"
 cuda_inc_path="opt/nvidia/cudatoolkit*/*/include"
 
+cuda75_module="cudatoolkit/7.5"
+cuda80_module"cudatoolkit/8.0"
+cuda90_module="cudatoolkit/9.0"
+cuda91_module"cudatoolkit/9.1"
+
+
 # Current dependency source trees that are directly maintained in gdb4hpc
 aif_directory_name="libaif"
 guard_directory_name="guard"
@@ -930,15 +936,21 @@ echo -e "########################################################\n"
 # Check for errors in component
 check_error "gdb"
 
-
+cudamodule=""
 echo "#######################################################################"
 echo "#######################################################################"
 # cuda-gdb 75 build
 if [[ $opt_cuda75_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 75 build."
-	# Unpack the rpm if we haven't done so already
-	if [[ ! -d $cuda75_ext ]]; then
+
+	cudamodule=`module avail $cuda75_module`
+	if [ ! -z $cudamodule ]
+	then
+	  module load $cuda75_module
+	else
+	  # Unpack the rpm if we haven't done so already
+	  if [[ ! -d $cuda75_ext ]]; then
 		# find the cuda75 rpm
 		cuda75_rpm=$(ls --reverse --sort=version $cuda_new_rpm_dir/$cuda75_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda75_basename[0-9\.\-]*")
 		if [[ -e $cuda75_rpm ]]; then
@@ -950,7 +962,9 @@ if [[ $opt_cuda75_gdb == y ]]; then
 			echo "ERROR: Could not find $cuda75_basename rpm in $cuda_new_rpm_dir. The cuda-gdb 75 build failed."
 			((++comp_error))
 		fi
+	  fi
 	fi
+
 	# Get the location of the include files
 	cuda75_include_dir=$(cd $cuda75_ext/$cuda_inc_path; pwd)
 	if [[ ! -d $cuda75_include_dir ]]; then
@@ -971,6 +985,7 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	echo -e "Starting post build ops.\n"
 	# rename cuda-gdb to cuda75-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda75-gdb-guard" "cuda-gdb 75"
+	module unload $cudamodule 2>/dev/null
 fi
 
 # cuda-gdb 75 install - bypass install for arm
@@ -984,15 +999,21 @@ echo -e "########################################################\n"
 # Check for errors in component
 check_error "cuda75"
 
-
+cudamodule=""
 echo "#######################################################################"
 echo "#######################################################################"
 # cuda-gdb 80 build
 if [[ $opt_cuda80_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 80 build."
-	# Unpack the rpm if we haven't done so already
-	if [[ ! -d $cuda80_ext ]]; then
+	
+	cudamodule=`module avail $cuda80_module`
+	if [ ! -z $cudamodule ]
+	then
+	  module load $cuda80_module
+	else
+	  # Unpack the rpm if we haven't done so already
+	  if [[ ! -d $cuda80_ext ]]; then
 		# find the cuda80 rpm
 		cuda80_rpm=$(ls --reverse --sort=version $cuda80_91_rpm_dir/$cuda80_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda80_basename[0-9\.\-]*")
 		if [[ -e $cuda80_rpm ]]; then
@@ -1004,7 +1025,8 @@ if [[ $opt_cuda80_gdb == y ]]; then
 			echo "ERROR: Could not find $cuda80_basename rpm in $cuda80_91_rpm_dir. The cuda-gdb 80 build failed."
 			((++comp_error))
 		fi
-	fi
+	  fi
+        fi
 	# Get the location of the include files
 	cuda80_include_dir=$(cd $cuda80_ext/$cuda_inc_path; pwd)
 	if [[ ! -d $cuda80_include_dir ]]; then
@@ -1025,6 +1047,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	echo -e "Starting post build ops.\n"
 	# rename cuda-gdb to cuda80-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
+	module unload $cudamodule 2>/dev/null
 fi
 
 # cuda-gdb 80 install - bypass install for arm
@@ -1038,15 +1061,26 @@ echo -e "########################################################\n"
 # Check for errors in component
 check_error "cuda80"
 
-
+cudamodule=""
 echo "#######################################################################"
 echo "#######################################################################"
 # cuda-gdb 91 build
 if [[ $opt_cuda91_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 90 build."
-	# Unpack the rpm if we haven't done so already
-	if [[ ! -d $cuda91_ext ]]; then
+	
+	cudamodule=`module avail $cuda91_module 2>/dev/nulli`
+	if [ -z $cudamodule ]
+	then
+	  cudamodule=`module avail $cuda90_module 2>/dev/null`
+	fi
+
+	if [ ! -z $cudamodule ]
+	then
+	  module load $cudamodule
+	else 
+	  # Unpack the rpm if we haven't done so already
+	  if [[ ! -d $cuda91_ext ]]; then
 		# find the cuda91 rpm
 		cuda91_rpm=$(ls --reverse --sort=version $cuda80_91_rpm_dir/$cuda91_basename[0-9\.\-]*.x86_64.rpm | grep -m 1 -E "$cuda91_basename[0-9\.\-]*")
 		if [[ -e $cuda91_rpm ]]; then
@@ -1058,6 +1092,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 			echo "ERROR: Could not find $cuda91_basename rpm in $cuda80_91_rpm_dir. The cuda-gdb 91 build failed."
 			((++comp_error))
 		fi
+	  fi
 	fi
 	# Get the location of the include files
 	cuda91_include_dir=$(cd $cuda91_ext/$cuda_inc_path; pwd)
@@ -1079,6 +1114,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	echo -e "Starting post build ops.\n"
 	# rename cuda-gdb to cuda91-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda91-gdb-guard" "cuda-gdb 91"
+	module unload $cudamodule 2>/dev/null
 fi
 
 # cuda-gdb 91 install - bypass install for arm

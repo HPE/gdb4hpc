@@ -1,4 +1,4 @@
-LGDB4HPC %VERSION%
+GDB4HPC %VERSION%
 ==========
 
 Release Date:
@@ -45,7 +45,7 @@ Purpose:
 Product and OS Dependencies:
 -----------------------------
   The Cray gdb4hpc %VERSION% release is supported on the following Cray systems:
-    - Cray CE/XK & XC with CLE 5.2 or later
+    - Cray XE/XK & XC with CLE 5.2 or later
     - Cray XC with CLE 6.0 or later
     - CentOS 7.x operating system on CS.
     - Native SLURM is supported with version 17

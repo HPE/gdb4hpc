@@ -13,7 +13,7 @@
 %graphics.ent;
 ]>
 <?Pub Inc?>
-<!-- $LastChangedDate: 2018-01-19 $ -->
+<!-- $LastChangedDate: 2018-10-30 $ -->
 <refentry id="gdb4hpc.1">
 <refmeta><refentrytitle>gdb4hpc</refentrytitle><manvolnum>1</manvolnum><refmiscinfo class="copyright">&mancopyright;</refmiscinfo><refmiscinfo class="package">xt_lgdb_trunk</refmiscinfo><refmiscinfo class="pl">xt_lgdbm</refmiscinfo><refmiscinfo class="rel">trunk</refmiscinfo></refmeta>
 <refnamediv><refname>gdb4hpc</refname><refpurpose>line mode parallel debugger</refpurpose></refnamediv>
@@ -320,7 +320,7 @@ while (dummyBarrier);</literallayout>After attaching to the application in <comm
 <para>For either method, the existing application job script is first modified by placing the comments <literal>#cray_debug_start</literal> and <literal>#cray_debug_end</literal> around the job launch command (i.e., <command>aprun</command> or <command>srun</command>) that is to be debugged. Everything between the comment lines will be ignored; the original WLM job launch command must be recreated through <command>gbd4hpc</command>'s <command>launch</command> command arguments. For example, the job script <filename>sample.pbs</filename> is modified with the <command>gbd4hpc</command> comments, for ALPS:<literallayout>#cray_debug_start
 aprun -n128 -N32 a.out
 #cray_debug_end</literallayout>For SLURM:<literallayout>#cray_debug_start
-srun -n128 -nstacks-per-node=32 a.out
+srun -n128 -ntasks-per-node=32 a.out
 #cray_debug_end</literallayout></para>
 <para>The following <command>launch</command> command will then submit <filename>sample.pbs</filename> as a PBS job from within which the application <filename>a.out</filename> will be launched:<screen>dgb all> <userinput>launch $a{128} --launcher-args="-N32" --qsub=sample.pbs a.out</userinput></screen></para>
 <para>Using the <command>session</command> command, this would be accomplished as follows:<screen>dgb all> <userinput>session --qsub=sample.pbs</userinput>

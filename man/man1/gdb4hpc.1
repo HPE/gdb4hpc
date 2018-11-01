@@ -1,7 +1,7 @@
 .\"  Copyright (c) 2018 Cray Inc.
-.\"  $LastChangedDate: 2018-01-19 $ 
-.ds ]v Last changed: 01-19-2018
-.TH "gdb4hpc" "1" "01-19-2018" 
+.\"  $LastChangedDate: 2018-10-30 $ 
+.ds ]v Last changed: 10-30-2018
+.TH "gdb4hpc" "1" "10-30-2018" 
 .ad l 
 .nh 
 .shc *
@@ -481,7 +481,7 @@ For SLURM:
 .nf
 .sp
 #cray_debug_start
-srun -n128 -nstacks-per-node=32 a\&.out
+srun -n128 -ntasks-per-node=32 a\&.out
 #cray_debug_end
 .fi
 .sp

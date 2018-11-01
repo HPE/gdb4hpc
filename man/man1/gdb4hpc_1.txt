@@ -1,0 +1,645 @@
+gdb4hpc(1)                                                          gdb4hpc(1)
+
+
+
+NAME
+       gdb4hpc -- line mode parallel debugger
+
+SYNOPSIS
+       gdb4hpc
+       [-b file | --batch=file]
+       [-h | --help]
+       [-o file | --output=file]
+       [-s | --silent]
+       [-v | --version]
+
+IMPLEMENTATION
+       Cray Linux Environment (CLE)
+
+DESCRIPTION
+       gdb4hpc is a GDB-based parallel debugger used to debug applications
+       compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers. It
+       allows programmers to either launch an application or attach to an
+       already-running application.
+
+       gdb4hpc also includes comparative debugger technology that enables
+       programmers to compare data structures between two executing
+       applications. Cray, however, recommends accessing the comparative
+       debugger technology through the new Cray Comparative Debugger (CCDB)
+       with graphical user interface (GUI) that enhances the parallel
+       debugging capabilities of gdb4hpc. For further information on CCDB, see
+       ccdb(1).
+
+   Options
+       The gdb4hpc debugger accepts the following options:
+
+       -b file
+       --batch=file
+                 Executes debugger commands from file, then exits.
+
+       -h
+       --help    Displays command line help.
+
+       -o file
+       --output=file
+                 Redirects stdout/stderr to file. Must be used with --batch.
+
+       -s
+       --silent  Suppresses version banner on startup.
+
+       -v
+       --version Displays version.
+
+   gdb4hpc Usage
+       Procedure 1. To begin using gdb4hpc
+
+       Step 1.  Load the gdb4hpc module if it is not already loaded.
+
+         % module load gdb4hpc
+
+
+       Step 2.  Compile the application using either the -g or -Gn option of
+       the relevant compiler to include additional debugger information
+       required by gdb4hpc. For example, if compiling the Fortran application
+       myprog42.f90, enter this command:
+
+         % ftn -g -o myapp_42 myprog42.f90
+
+
+                 If using the comparative debugging features with CCE, it is
+                 recommended to add -e0 -ez to the ftn compile line or -h zero
+                 to the cc compile line to force memory initialization to
+                 zero. This helps to avoid false positive differences due to
+                 comparing uninitialized memory.
+
+       Step 3.  For systems that normally operate in batch mode only, Cray
+       gdb4hpc has three methods for interacting with the supported WLM
+       systems (ALPS, hybrid SLURM, and native SLURM):
+
+       �  Interactive batch: Prior to launching gdb4hpc, request the compute
+          node resources required for the debugging session. For example, if
+          PBS Pro is the site's batch system, enter this command:
+
+          % qsub -IV -l mppwidth=w
+
+
+          Where w is the number of ranks required. Then after initiating
+          gdb4hpc, subsequent use of gdb4hpc commands will employ these
+          resources.
+
+       �  The launch command's --qsub or --sbatch options will cause a batch
+          job to be submitted. See Workload Manager Support for more
+          information about modifying existing job scripts to work with
+          gdb4hpc.
+
+       �  The session command creates a new WLM session that will be
+          associated with all future launch commands. See Workload Manager
+          Support for more information about modifying existing job scripts to
+          work with gdb4hpc.
+
+              Note:  If using the launch command multiple times to launch
+              applications with either the interactive batch method or the
+              session command method under the ALPS reservation system, keep
+              the following in mind when determining the number of PEs to
+              request - ALPS will allocate whole increments of compute nodes
+              to the applications regardless of the number of PEs (aprun -n
+              argument) requested. For example, if running on a system with 32
+              PEs per compute node and using process handles $a{8} and $b{8},
+              the user should request 64 PEs, or 8 PEs per node, using WLM
+              arguments to ensure enough PEs are allocated to satisfy both
+              launch commands.
+
+       Step 4.  The application's WLM-specific application identifier is
+       needed to attach to an application that was previously launched outside
+       of gdb4hpc. For ALPS, this is the application process ID (apid); for
+       native SLURM, this is a combination of the job ID (job_id) and the job
+       step ID (step_id).
+
+                 For ALPS, use the apstat command to determine the
+                 application's apid. For example, if the application myapp_42
+                 was launched using aprun, the following apstat output shows
+                 the application's apid is 651486.
+
+                   % apstat
+                   Compute node summary
+                      arch config     up    use   held  avail   down
+                        XT   1072   1066     24     49    993      6
+
+                   No pending applications are present
+
+                   Total placed applications: 3
+                   Placed  Apid ResId     User   PEs Nodes    Age   State Command
+                         651486    60  user123    64     8   0h27m  run   myapp_42
+                         651488    61  user123    64     8   0h27m  run   app_LIB
+                         651490    62  user124     8     8   0h06m  run   IOR
+
+                 For native SLURM, use the qstat and sstat commands to obtain
+                 the job_id and step_id, respectively. The SLURM application
+                 identifier should be provided as job_id.step_id. For example,
+                 if the application a.out was launched using qsub, the
+                 following qstat output shows the application's job_id is
+                 453282, and the sstat output shows the application's step_id
+                 is 0.
+
+                   % qstat
+                   Job id              Name             Username        Time Use S Queue
+                   ------------------- ---------------- --------------- -------- - ---------------
+                   453224              sst              user123         00:01:59 R share
+                   453282              a.out            user124         00:00:00 R share
+                   453283              Chpl-lulesh-den  user125         00:00:00 R share
+
+                   % sstat 453282
+                   JobID     MaxVMSize  MaxVMSizeNode  MaxVMSizeTask  AveVMSize  MaxRSS ...
+                   453282.0  226136K    nid00013       30             204001K    9936K  ...
+
+
+       Step 5.  Use the gdb4hpc command to launch the parallel debugger.
+
+         % gdb4hpc
+
+
+                 The system responds as follows:
+
+                   gdb4hpc 2.4 - Cray Line Mode Parallel Debugger
+                   With Cray Comparative Debugging Technology.
+                   Copyright 2007-2014 Cray Inc. All Rights Reserved.
+                   Copyright 1996-2013 University of Queensland. All rights Reserved.
+
+                   Type "help" for a list of commands.
+                   Type "help <cmd>" for detailed help about a command.
+                   dbg all>
+
+
+       Step 6.  Once gdb4hpc is launched and the dbg all> prompt is displayed,
+       the program uses a command-line interface similar to that used by gdb.
+       Enter help for more information about supported commands.
+
+         dbg all> help
+         assign          Change the value of an application or debugger variable.
+         attach          Attach to an application.
+         backtrace       Print backtrace of all stack frames.
+         break           Set breakpoint at specified line or function.
+         build           Build an assertion script.
+         compare         Compare the contents of two variables.
+         continue        Continue execution of application.
+         decomposition   Define a decomposition scheme.
+         defset          Create a set of processes.
+         delete          Delete a breakpoint.
+         disable         Disable a breakpoint.
+         down            Move down one or more stack frames.
+         enable          Enable a breakpoint.
+         finish          Execute application until each rank's current function returns.
+         focus           Set the current process set.
+         frame           Print the currently selected stack frame.
+         gdbmode         Enter direct dgb mode (experimental).
+         halt            Halt execution of attached/launched application.
+         help            Display help information about commands.
+         info            Display information about the application being debugged.
+         kill            Kill attached/launched application.
+         launch          Launch an application.
+         list            List source for specified function or line.
+         maint           Commands for use by debugger maintainers.
+         next            Step application, proceeding through subroutine calls.
+         print           Print the value of an expression.
+         quit            Exit the debugger.
+         release         Release attached/launched application from debugger control.
+         session         Create a new WLM session.
+         set             Set information about the debugger environment.
+         show            Show information about the debugger environment.
+         source          Read debugger commands from a file.
+         start           Start executing an assertion script.
+         step            Step application until it reaches a different source line.
+         stop            Stop the currently executing assertion script.
+         tbreak          Set a temporary breakpoint at a specified line or function.
+         unset           Unset information in the debugger environment.
+         up              Move up one or more stack frames.
+         usage           Display usage information about script mode commands.
+         viewset         Display information about process sets.
+         watch           Set watchpoint on specified expression.
+         whatis          Print the data type of an expression.
+
+
+                 To view detailed information about a specific command, enter
+                 help command. For example:
+
+                   dbg all> help break
+
+                   Summary: Set breakpoint command.
+                   Usage: break [location]
+                   Example command: break main.c:20
+
+                   Arguments: location(line number, function name, or address)
+
+                   Set a breakpoint in every application rank in the current process set.
+                   The location of the breakpoint can be defined as a line number, a function
+                   name, or "*" and an address. If an address is specified, it must begin
+                   with an asterix (*). For example, break *0x0000000000400693 would break
+                   at address 0x400693.
+
+
+       Step 7.  When finished using gdb4hpc, enter quit to exit the debugger.
+       Upon exit, launched applications are killed (execution terminated) and
+       attached applications are released from the debugger's control but are
+       allowed to continue execution. Applications can be killed or released
+       from within gdb4hpc, prior to exiting, with the kill or release
+       commands, respectively.
+
+    Process Sets and Variables
+       When an application is debugged using gdb4hpc, the application ranks
+       are arranged into a group called a process set. The default process set
+       is named all and contains the ranks of every application that is
+       currently being debugged. Debugger variables are used to reference
+       process sets and are defined by the attach and launch commands.
+       Debugger variables are denoted by a dollar sign ($) followed by the
+       variable name, such as $a, to represent a scalar variable, or $b{1024},
+       with required squiggly braces, to represent an array variable. $a and
+       $b are referred to as application handles.
+
+       A user can refer to specific application ranks and to ranks from
+       multiple invoked applications by using the defset command to define a
+       new process set containing the desired ranks and then focus on that
+       set. The expression defining the process set must be a comma-separated
+       list of valid application handles and valid ranks. In the following
+       examples, assume that $a{64} and $b{64} represent two launched
+       applications.
+
+       Example 1: Reference ranks from a single application
+
+       To reference ranks 0 through 31 and 63 from $a, define a new process
+       set $c. Note that ".." denotes a range of ranks.
+
+         dbg all> defset $c $a{0..31,63}
+         dbg all> focus $c
+         dbg c>
+
+
+       Example 2: Reference ranks from an existing process set
+
+       To reference ranks 0 through 2 and 63 based on process set $c defined
+       in Example 1: Reference ranks from a single application, define a new
+       process set $d. Note that ".." denotes a range of ranks.
+
+         dbg all> defset $d $c{0..2,32}
+         dbg all> focus $d
+         dbg d>
+
+       The viewset command can be used to view which application ranks are in
+       a defined process set. After issuing the commands from Example 1:
+       Reference ranks from a single application and Example 2: Reference
+       ranks from an existing process set, viewset shows:
+
+         dbg d> viewset
+         Name     Procs
+         all     a{0..63),b{0..63}
+         a       a{0..63}
+         b       b{0..63}
+         c       a{0..31,63}
+         d       a{0..2,63}
+
+
+       Example 3: Reference ranks from multiple applications
+
+       To reference ranks 0 through 31 and 63 from $a and ranks 31 and 63 from
+       $b, define a new process set $e. Note that ".." denotes a range of
+       ranks.
+
+         dbg all> defset $e $a{0..31,63},$b{31,63}
+         dbg all> focus $e
+         dbg e>
+
+
+       Example 4: Focus on a temporary process set
+
+       By using the focus command, a user can focus explicitly on a subset of
+       ranks without defining a new process set. gbd4hpc creates a temporary
+       process set that can subsequently be used in process targeted commands.
+       The temporary process set is removed when the focus is changed. Unlike
+       defined process sets, a temporary process set can only contain ranks
+       from one application.
+
+         dbg all> focus $b{0,2,5..8,31}
+         dbg b_temp> bt
+         b{0,2,5..8,31}: #0 0x00000000004010ff in main at /tmp/usr/test/c_test.c:132
+         dbg b_temp> focus $all
+         dbg all>
+
+
+       Finally, a user can refer to every rank of an application by focusing
+       on the process handle that was specified when the application was first
+       attached or launched. When a user focuses on a process set, it becomes
+       the current set.
+
+   Application Variables
+       Application variables are referenced as follows:
+
+         [$proc_set::]var
+
+
+       Where $proc_set is an optional process set identifier, and var is the
+       desired application variable. If no process set is declared, the
+       executing command will act on all ranks in the current set. To
+       reference variable max in all ranks of the process set $b, use:
+
+         $b::max
+
+
+       To reference a rank-specific element, use:
+
+         $b{4}::max
+
+
+       To reference multiple rank-specific elements, use:
+
+         $b{0..3,12}::max
+
+       Note that ".." denotes a range of ranks.
+
+       To reference application variable arrays, use the application's coding
+       language syntax. For example, to reference elements of the array xval
+       in rank 2 of process set $b, use:
+
+         In Fortran - $b{2}::xval(3,2)
+         In c - $b{2}::xval[2][3]
+
+
+   Launching an Application
+       The launch command transparently invokes the WLM job launch command
+       (i.e., aprun or srun) to launch an application. Following the launch,
+       the application is held immediately before execution is passed to its
+       MPI_init(), shmem_init(), or main() routine and is ready for further
+       gbd4hpc commands. Integration with qsub and sbatch is also supported as
+       described in Workload Manager Support. Launching on systems whose
+       default workload manager is not SLURM or ALPS, or launching an
+       application using a non default launcher requires passwordless (public
+       key) ssh to the compute nodes of active jobs. Contact a system
+       administrator or the system usage guide for details on whether this is
+       supported and how to set this up.
+
+       The simplest form of the launch command is:
+
+         launch $proc_set application
+
+
+       $proc_set is a single debugger variable array that specifies the number
+       of application ranks to be launched. For example, the following will
+       launch the application tstapp via the WLM job launcher with 1024 ranks
+       (-n1024) assigned to the process set $b:
+
+         dbg all> launch $b{1024} tstapp
+
+
+       The launch command also accepts the following optional arguments.
+       Option values must be enclosed within quotation marks, such as "args."
+
+       --launcher= "launcher_name" | -l ``launcher_name''
+                 Launches the job with the launcher specified by
+                 launcher_name. This option is not commonly needed and should
+                 be used with care. This option specifies the name of the
+                 application launcher executable as either an absolute path or
+                 the name of an executable reachable in PATH. Setting this
+                 option only affects the name of the launcher executable
+                 itself and does not change the launch system. To launch with
+                 a non default launcher that is not related to the default
+                 running workload manager (such as mpiexec.hydra on a slurm
+                 system), this variable should be using in conjunction with
+                 setting CRAY_CTI_WLM to "generic" to ensure the launch
+                 mechanisms work with the specified launcher.
+
+       --launcher-args= "launcher_args" | -g ``launcher_args''
+                 Passes launcher_args to the WLM job launch command.
+
+       --launcher-input= "input_file" | -i ``input_file''
+                 Redirects the stdin of the WLM job launch command to be
+                 input_file. This is useful for applications requiring input
+                 from stdin.
+
+       --args= "app_args" | -a "app_args"
+                 Passes app_args to the application executable.
+
+       --env=''name=value'',--env=''name=value'',...
+                 Sets the environment variable (defined by name) to value, for
+                 this job session instance. Note that --env= can be used more
+                 than once to set multiple environment variables.
+
+       --gpu     Enables the use of an OpenACC supported version of gdb for
+                 debugging on a Nvidia CUDA 5.5 or above GPU. Sets several
+                 environment variables for debugging.
+
+                 Note:  OpenACC debugging is only supported through the launch
+                 command.
+
+       --qsub=''batch_template''
+                 Submits batch_template as a PBS job from which an application
+                 will launch for debugging.
+
+       --sbatch=''batch_template''
+                 Submits batch_template as a SLURM job from which an
+                 application will launch for debugging.
+
+       --workdir= "work_path" | -d ``work_path''
+                 Changes the current working directory, relative to its
+                 present setting where gbd4hpc was invoked, to work_path. This
+                 is useful for applications that write files to the current
+                 working directory. By default, if the --workdir= option is
+                 specified without a path, the current working directory will
+                 be changed to the location of the application's executable
+                 file.
+
+   Caveat for Launching a Serial Application
+       Parallel applications contain a communication mechanism that causes a
+       startup barrier code to be pulled in during compilation. gbd4hpc uses
+       the barrier code to hold the application at its entry point in
+       preparation to begin the debugging process. Typically, serial
+       applications do not have a barrier code and, therefore, must be
+       modified in order to be debugged using gbd4hpc.
+
+       Users can add either an MPI_Init() call or a fake startup barrier at
+       the beginning of their code. For example, using C code:
+
+         int dummyBarrier = 1;
+         while (dummyBarrier);
+
+       After attaching to the application in gbd4hpc, issue the following
+       command and proceed to debug as usual:
+
+         dbg all> assign dummyBarrier 0
+
+       If the fake startup barrier method is utilized, the user must use the
+       attach command; the launch is unavailable and will hang indefinitely.
+
+   Attaching to a Previously Launched Application
+       Use the attach command to attach to an executing application that was
+       launched outside of gbd4hpc.
+
+         dgb all> attach $proc_set app_ident
+
+
+       Where $proc_set is the debugger variable to be associated with the
+       application, and app_ident is the WLM-specific application identifier
+       of the running application. $proc_set must not include array syntax;
+       the size of the $proc_set array is automatically set to the number of
+       ranks in the job. For ALPS, app_ident is the application process ID
+       (apid); for native SLURM on Cray XC systems, app_ident is a combination
+       of the job ID (job_id) and the job step ID (step_id) and must be
+       provided as job_id.step_id. For Cray clusters and all other systems,
+       app_ident should be the pid of the launcher process that started the
+       application. This can be obtained using ps.
+
+       The following command instructs gbd4hpc to associate the debugger
+       variable $tst42 with the application that has apid 651486.
+
+         dbg all> attach $tst42 651486
+
+
+   Workload Manager Support
+       Two methods exist for submitting batch jobs directly to a WLM:
+
+       �  The launch command's --qsub or --sbatch options can be used to
+          submit a PBS or SLURM job, respectively, from within which an
+          application will be launched for debugging.
+
+       �  The session command will create a new WLM session to which all
+          future launch or attach commands will be associated. This allows
+          multiple launch commands to be used in the same batch session.
+          session accepts the same --qsub or --sbatch options as launch.
+
+          For either method, the existing application job script is first
+          modified by placing the comments #cray_debug_start and
+          #cray_debug_end around the job launch command (i.e., aprun or srun)
+          that is to be debugged. Everything between the comment lines will be
+          ignored; the original WLM job launch command must be recreated
+          through gbd4hpc's launch command arguments. For example, the job
+          script sample.pbs is modified with the gbd4hpc comments, for ALPS:
+
+          #cray_debug_start
+          aprun -n128 -N32 a.out
+          #cray_debug_end
+
+          For SLURM:
+
+          #cray_debug_start
+          srun -n128 -ntasks-per-node=32 a.out
+          #cray_debug_end
+
+
+          The following launch command will then submit sample.pbs as a PBS
+          job from within which the application a.out will be launched:
+
+          dgb all> launch $a{128} --launcher-args="-N32" --qsub=sample.pbs a.out
+
+
+          Using the session command, this would be accomplished as follows:
+
+          dgb all> session --qsub=sample.pbs
+          dgb all> launch $a{128} --launcher-args="-N32" a.out
+
+
+                 Note:  If either the launch or session command is interrupted
+                 before completion, the job reservation must be manually
+                 deleted from the queueing system.
+
+ENVIRONMENT VARIABLES
+       CRAY_APRUN_PATH
+                 Defines the location of the Cray-provided aprun binary. Used
+                 if the aprun binary has been renamed or moved from its
+                 default location.
+
+                 Default: not defined
+
+       GDB4HPC_HIST_DIR
+                 Defines the directory into which the .gbd4hpc_history file is
+                 located.
+
+                 Default: not set
+
+       GDB4HPC_PMI_INIT_SLEEP
+                 Sets extra time (in seconds) to sleep after finding the
+                 pmi_attribs file during early attach. This should only be set
+                 if gbd4hpc is attaching to the application during the
+                 pmi_init function and causing the debugger to hang.
+
+                 Default: not set
+
+       GDB4HPC_STARTUP_TIMEOUT
+                 Sets the MRNet startup timeout in seconds.
+
+                 Default: not set
+
+       CRAY_CTI_WLM
+                 Sets the workload manager that gbd4hpc will use to launch or
+                 attach to an application. Accepts one of three values:
+                 "alps", "slurm", or "generic". "generic" uses a more portable
+                 launch system that can be used on many types of systems and
+                 application launchers but can be less performant. Using
+                 "generic" requires setting up paswordless ssh to the compute
+                 nodes as it uses ssh to launch the debuggers. Use of
+                 "generic" also requires CRAY_CTI_LAUNCHER_NAME to be set to
+                 the name of the application launcher to use.
+
+                 Default: not set
+
+       CRAY_CTI_LAUNCHER_NAME
+                 Sets the launcher executable to use for application launch.
+                 This can be the name of an executable reachable in PATH or an
+                 absolute path. Setting this option only affects the name of
+                 the launcher executable itself and does not change the launch
+                 system. To launch with a non default launcher that is not
+                 related to the default running workload manager (such as
+                 mpiexec.hydra on a slurm system), this variable should be
+                 used in conjunction with setting CRAY_CTI_WLM to "generic" to
+                 ensure the launch mechanisms work with the specified
+                 launcher.
+
+                 Default: not set
+
+EXAMPLES
+       A demo directory with sample codes is included in the gbd4hpc release.
+       The following example uses the executable created by entering the
+       command: make hello_mpi_c.
+
+       Launch one instance of hello_mpi_c with 8 ranks.
+
+         dbg all> launch $tst{8} hello_mpi_c
+         Starting alps application, please wait...
+         Creating MRNet communication network...
+         Waiting for debug servers to attach to MRNet communications network...
+         Timeout in 60 seconds. Please wait for the attach to complete.
+         Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+         Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+         Number of dbgsrvs connected: [8];  Timeout Counter: [0]
+         Finalizing setup...
+         Launch complete.
+         tst{0..7}: Initial breakpoint, main at /lus/nid/user/tests/hello_mpi.c:16
+         dbg all>
+
+
+       Set a breakpoint at line 21 of source file hello_mpi.c and continue
+       execution.
+
+         dbg all> break hello_mpi.c:21
+         tst{0..7}: Breakpoint 1: file hello_mpi.c, line 21.
+         dbg all> continue
+         tst{0..7}: Breakpoint 1, main at hello_mpi.c
+         dbg all>
+
+
+       Print the value of myRank for each rank in the current process set.
+
+         dbg all> print myRank
+         tst{0}: 0
+         tst{1}: 1
+         tst{2}: 2
+         tst{3}: 3
+         tst{4}: 4
+         tst{5}: 5
+         tst{6}: 6
+         tst{7}: 7
+
+
+SEE ALSO
+       aprun(1), apstat(1), CC(1), cc(1), ccdb(1), ftn(1), gdb(1), qstat(1),
+       srun(1)
+
+
+
+                                  10-30-2018                        gdb4hpc(1)

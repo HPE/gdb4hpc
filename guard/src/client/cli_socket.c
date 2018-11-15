@@ -238,6 +238,10 @@ cli_socket_handle_input(cli_stream_t ** stream)
 		
 	// set the cli stream
 	cs = (*stream);
+
+	// This prevents command output from saving or restoring the stream, since
+	// we don't allow input to happen while processing a command.
+	cs->cs_handling++;
 	
 	// ensure there is data to read on the input socket. If there isn't, that means
 	// the socket was closed. In which case we should force things to quit since we lost
@@ -305,7 +309,10 @@ cli_socket_handle_input(cli_stream_t ** stream)
 			fflush(cs->cs_fpout);
 		}
 	}
-	
+
+	// Indicate command handling finished, reenable input
+	cs->cs_handling = 0;
+
 	// Ignore stream errors for socket - we don't want to handle them in the
 	// cli layer
 	cs->cs_err = 0;
@@ -316,6 +323,10 @@ cli_socket_handle_input(cli_stream_t ** stream)
 	
 cli_socket_handle_input_error:
 	DPRINT("Error exit cli_socket_handle_input\n");
+
+	// Reenable input
+	cs->cs_handling = 0;
+
 	return 1;
 }
 

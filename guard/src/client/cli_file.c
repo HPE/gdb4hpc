@@ -178,6 +178,10 @@ static int
 cli_file_get_line(cli_stream_t ** stream)
 {
 	cli_stream_t *	cs = (*stream);
+
+	// This prevents command output from saving or restoring the stream, since
+	// we don't allow input to happen while processing a command.
+	cs->cs_handling++;
 	
 	// Ensure the buffer is null
 	if (cs->cs_buf != NULL)
@@ -188,25 +192,33 @@ cli_file_get_line(cli_stream_t ** stream)
 	
 	if (getline(&(cs->cs_buf), &(cs->cs_buf_size), cs->cs_fpin) < 0)
 	{
-		// reached EOF
+		// Reached EOF, reenable input
+		cs->cs_handling = 0;
 		return 1;
 	}
-	
+
 	ExecuteCommand(cs->cs_buf);
 	
 	// print an error if the err flag is set
 	if (cs->cs_err)
 	{
 		PrintOutMsg("Line: %d Text: %s\n", cs->cs_line, cs->cs_buf);
+
+		// Reenable input
+		cs->cs_handling = 0;
+
 		return 1;
 	}
 	
 	Free(cs->cs_buf);
 	cs->cs_buf = NULL;
-	
+
+	// Indicate command handling finished, reenable input
+	cs->cs_handling = 0;
+
 	// increment the line count
 	cs->cs_line++;
-	
+
 	return 0;
 }
 

@@ -37,6 +37,9 @@ Purpose:
   Bug Fixes:
   -------
 
+   - CAST-19745: read next command from batch file / socket only when
+     previous command has completed
+
    - PE-22857:lgdb/gdb4hpc modules on CLE 5.2 Cray XC systems is confusing
    
    - PE-22777:ccdb fails on CLE 5.x systems with: /bin/bash: line 6: lgdb:

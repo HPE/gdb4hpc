@@ -978,7 +978,7 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1040,7 +1040,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable  -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1107,7 +1107,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable  -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"

@@ -154,7 +154,7 @@ else
     fi
 fi
 
-gccVer=8.2.0
+gccVer=6.1.0
 # Set OS level
 OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
 if [[ $OS == "aarch64" ]]; then

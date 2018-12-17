@@ -978,7 +978,7 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda75_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1040,7 +1040,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable  -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir $cuda_gdb_args CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda80_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1107,7 +1107,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	# run cuda-gdb confiugre
 	echo "Configuring cuda-gdb..."
 	set -x
-	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable  -Wimplicit-fallthrough=0 -Wno-cast-function-type -Wno-format-overflow -Wno-int-in-bool-context -Wno-format-truncation -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
+	./configure --prefix=$stage_dir --enable-gdbserver=no $cuda_gdb_args CC=$gcc_cmd CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I$cuda91_include_dir $opt_flag" LDFLAGS="-lpthread"
 	set +x
 	do_build "cuda-gdb"
 	echo -e "\ncuda-gdb staged to $stage_dir.\n"
@@ -1192,7 +1192,6 @@ if [[ $opt_libarchive == y ]]; then
 	# run libarchive configure
 	echo "Configuring libarchive..."
 	set -x
-	autoreconf -i -f -v
 	./configure --prefix=$stage_dir $libarchive_args CFLAGS="$opt_flag"
 	set +x
 	do_build "libarchive"
@@ -1255,7 +1254,7 @@ if [[ $opt_mrnet == y ]]; then
 	./configure --prefix=$stage_dir --with-startup=cray-cti --enable-shared \
 	--with-craycti-inc=$cti_include_directory --with-craycti-lib=$cti_lib_directory \
     --with-boost=$boost_inst_loc \
-	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS -Wl,-rpath,\\\$\$ORIGIN -Wl,--enable-new-dtags $gcc_rpath_link_opt" SOFLAGS="$SOFLAGS $gcc_rpath_link_opt"
+	$mrnet_args CFLAGS="$opt_flag" CXXFLAGS="$opt_flag" LDFLAGS="$LDFLAGS "'-Wl,-rpath,\$$ORIGIN -Wl,--enable-new-dtags'" $gcc_rpath_link_opt" SOFLAGS="$SOFLAGS $gcc_rpath_link_opt"
 	set +x
 	do_build "MRNet"
 	echo -e "\nMRNet staged to $stage_dir\n"
@@ -1308,11 +1307,7 @@ if [[ $opt_gdb4hpc == y ]]; then
 	# run gdb4hpc configure
 	echo "Configuring gdb4hpc..."
 	set -x
-	if [[ -e "/usr/share/aclocal/pkg.m4" ]]; then
-		ACLOCAL_PATH=/usr/share/aclocal autoreconf -ifv
-	else
-		autoreconf -ifv
-	fi
+    autoreconf -ifv
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
 	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \

@@ -1307,7 +1307,11 @@ if [[ $opt_gdb4hpc == y ]]; then
 	# run gdb4hpc configure
 	echo "Configuring gdb4hpc..."
 	set -x
-    autoreconf -ifv
+	if [[ -e "/usr/share/aclocal/pkg.m4" ]]; then
+		ACLOCAL_PATH=/usr/share/aclocal autoreconf -ifv
+	else
+		autoreconf -ifv
+	fi
 	./configure --with-aif=$stage_dir --with-rd --with-mrnet=$stage_dir --with-cray \
 	--prefix=$inst_dir \
 	--with-editline=$stage_dir --with-gdbmi=$stage_dir --with-libssh2=$stage_dir \

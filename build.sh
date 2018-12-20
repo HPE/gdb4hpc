@@ -130,15 +130,22 @@ supported_cti_version=1.0.5
 supported_cti_release_range=1.0.[5-9]
 
 # set prefix
-SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
-if [[ "$SLES_VER" == "12" ]]; then
-    pref="/opt/cray/pe"
-    module_pref="/opt/cray/pe"
-    delim=6
-else
+if [ -f /etc/SuSE-release ]
+then
+  SLES_VER=$(cat /etc/SuSE-release 2>/dev/null | grep VERSION | cut -f3 -d" ")
+elif [ -f /etc/os-release ]
+then
+  SLES_VER=$(cat /etc/os-release 2>/dev/null| grep VERSION= | cut -d'"' -f2)
+fi
+
+if [[ $SLES_VER -lt 12 ]]; then
     pref="/opt/cray"
     module_pref="/opt"
     delim=5
+else
+    pref="/opt/cray/pe"
+    module_pref="/opt/cray/pe"
+    delim=6
 fi
 
 # source module script - this needs to be done early on before using any module commands
@@ -156,7 +163,7 @@ fi
 
 gccVer=6.1.0
 # Set OS level
-OS=$(cat /etc/SuSE-release | head -1 | cut -d'(' -f2 | cut -d')' -f1)
+OS=`uname -m`
 if [[ $OS == "aarch64" ]]; then
     isArm=true
 fi

@@ -9,7 +9,7 @@
 [submodule "third_party/libarchive"]
 	path = third_party/libarchive
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libarchive.git
-	branch = master
+	branch = cti-external
 [submodule "third_party/libmi"]
 	path = third_party/libmi
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libmi.git

@@ -835,6 +835,7 @@ if [[ $opt_libssh2 == y ]]; then
 	# run libssh2 configure
 	echo "Configuring libssh2..."
 	set -x
+    autoreconf -ifv
 	./configure --prefix=$stage_dir CFLAGS="$opt_flag$libssh2_opt_flag" LDFLAGS="$libssh2_ld_flag"
 	set +x
 	do_build "libssh2"

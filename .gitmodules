@@ -21,3 +21,7 @@
 [submodule "scripts/set_default"]
 	path = scripts/set_default
 	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git
+[submodule "third_party/libssh2"]
+	path = third_party/libssh2
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libssh2.git
+	branch = gdb4hpc-external

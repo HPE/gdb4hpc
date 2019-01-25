@@ -755,8 +755,15 @@ if [[ $isArm == true ]]; then
         echo -e "\nBuilding of cuda_gdb is not supported on the aarch64 architecture!"
         opt_cuda75_gdb=n
         opt_cuda80_gdb=n
-	opt_cuda91_gdb=n
+	    opt_cuda91_gdb=n
     fi
+elif [[ $SLES_VER -eq 15 ]]
+then
+    if [[ $opt_cuda75_gdb == y || $opt_cuda80_gdb == y ]]; then
+        echo -e "\nBuilding of cuda_gdb 75 & 80 are not supported on sles15 OS!"
+        opt_cuda75_gdb=n
+        opt_cuda80_gdb=n
+    fi  
 fi
 
 ########################################################
@@ -997,7 +1004,7 @@ if [[ $opt_cuda75_gdb == y ]]; then
 fi
 
 # cuda-gdb 75 install - bypass install for arm
-if [[ $isArm == false ]]; then
+if [[ $isArm == false || $SLES_VER -lt 15 ]]; then
     echo -e "Starting cuda-gdb 75 install.\n"
     # Deliver the cuda75-gdb-guard binary
     copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
@@ -1059,7 +1066,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 fi
 
 # cuda-gdb 80 install - bypass install for arm
-if [[ $isArm == false ]]; then
+if [[ $isArm == false || $SLES_VER -lt 15 ]]; then
     echo -e "Starting cuda-gdb 80 install.\n"
     # Deliver the cuda80-gdb-guard binary
     copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
@@ -1199,7 +1206,7 @@ if [[ $opt_libarchive == y ]]; then
 	echo -e "Using libarchive source in $libarchive_src.\n"
 	# run libarchive configure
 	echo "Configuring libarchive..."
-	set -x
+    set -x
     autoreconf -ifv
 	./configure --prefix=$stage_dir $libarchive_args CFLAGS="$opt_flag"
 	set +x

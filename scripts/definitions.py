@@ -6,13 +6,12 @@ from distutils.version import LooseVersion
 from datetime import date
 from datetime import datetime
 
-arch                ="x86_64"
-final		    = False
-athena              = False
-product_dir         = "/cray/css/pe/pkgs/gdb4hpc"
-bld_dir             = ""
+final   		    = False
+product             = "gdb4hpc"
+product_dir         = "/cray/css/pe/pkgs/" + product
+ulib_dir            = "/cray/css/ulib/" + product + "/builds"
 os_sub              = ""
-prefix              = "/opt/cray"
+prefix              = "/opt/cray/pe"
 prefix_cmd          = ""
 osver               = ""
 os_name             = ""
@@ -20,12 +19,15 @@ arch                = ""
 latest_ver          = ""
 new_version_str     = ""
 release_date        = ""
+three_digit_version = ""
+two_digit_version   = ""
+ver_two_dig_nodot   = ""
+
+
 
 for arg in sys.argv:
   if arg == '-f':
     final = True
-  if arg == '-a':
-    athena = True
 
 def fetch_release(base_name, rev_num,pkgs_dir):
   rpm_tail = ".rpm"
@@ -45,19 +47,12 @@ def fetch_os():
   global os_sub
   global prefix
   global prefix_cmd
-  global arch
   global os_name
 
 
   if os.path.isfile("/etc/SuSE-release"):
     with open("/etc/SuSE-release", "r") as f:
       for line in f:
-        if line.find("aarch64") != -1:
-          arch = "aarch64"
-          arch_name = "ARM"
-        elif line.find("x86_64") != -1:
-          arch = "x86_64"
-
         if line.find("VERSION") != -1:
           os_sub = line.replace("VERSION = ", "")
           break
@@ -67,33 +62,39 @@ def fetch_os():
         if line.find("CentOS ") != -1:
           os_sub = 'CS'
           os_name = "el7"
-          arch = "x86_64"
+          break
+  elif os.path.isfile("/etc/os-release"):
+    with open("/etc/os-release", "r") as f:
+      for line in f:
+        if line.find('VERSION="15"') != -1:
+          os_sub = '15'
           break
   
   os_sub = os_sub.strip()
-  if os_sub == "CS" and athena == False:
-    bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_cs"
-    
-  elif os_sub == "CS" and athena == True:
-    bld_dir = "/cray/css/ulib/gdb4hpc/builds/athena"
-    
+  if os_sub == "CS":
+    bld_dir = ulib_dir + "/builds_cs"
   elif os_sub == "11":
-    bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
+    bld_dir = ulib_dir + "/builds_xc"
+    prefix = "/opt/cray"
     os_name = "sles11"
-    prefix_cmd = "--prefix=/opt/cray"
-
+    prefix_cmd = "--prefix=/opt/cray" 
   elif os_sub == "12":
     os_name = "sles12"
-    prefix = "/opt/cray/pe"
-
     if arch == "x86_64":
-      bld_dir = "/cray/css/ulib/gdb4hpc/builds/builds_xc"
-    
+      bld_dir = ulib_dir + "/builds_xc"
     elif arch == "aarch64":
-      bld_dir = "/cray/css/ulib/gdb4hpc/builds/aarch64"
+      bld_dir = ulib_dir + "/aarch64"
+  elif os_sub == "15":
+    bld_dir = ulib_dir + "/builds_xc"
+    os_name = "sles15"
     
   return "." + os_name
 
+def getARCH():
+  cmd = 'uname -m'
+  str(os.system(cmd))
+  status, rd = commands.getstatusoutput(cmd)
+  return rd
 
 def release_date():
   cmd = 'source /cray/css/ulib/utilities/find_release_date.sh'
@@ -102,103 +103,102 @@ def release_date():
   return rd
 
 
-def fetch_packageDir():
+def fetch_packageDir(branch):
     #get a list of sub directories representing the products 2 digit release version
     onlyDirs = os.listdir(product_dir)
     if len(onlyDirs) == 0:
        print "There are no product subdirectories."
        exit(1)
     else:
-      #get the latest directory
-      #sort the file list, grab the last one
-      convert = lambda text: int(text) if text.isdigit() else text
-      alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key)]
-      onlyDirs.sort(key=alphanum_key)
-      last_Dir = onlyDirs.pop()
+       if branch == 'master':
+         last_dir = '4.0'
+       elif branch == 'legacy':
+         last_dir = '3.0'
+       return last_dir
 
-    return last_Dir
+
+def get_three_digit_version():
+
+
+    global two_digit_version
+    global three_digit_version
+    global ver_two_dig_nodot
+
+    parent_dir = os.path.abspath(os.path.join(os.getcwd(),os.pardir))
+    if os.path.isfile(parent_dir + "/release_versioning"):
+      with open(parent_dir + "/release_versioning", "r") as f:
+        for line in f:
+          line = line.strip('\n')
+          if line.find("major") != -1:
+            temp = line.split("=",1)
+            major = temp[1]
+          elif line.find("minor") != -1:
+            temp = line.split("=",1)
+            minor = temp[1]
+          elif line.find("fix") != -1:
+            temp = line.split("=",1)
+            fix = temp[1]
+            break
+
+      two_digit_version = [major,minor]
+      ver_two_dig_nodot = "".join(two_digit_version)
+      two_digit_version = ".".join(two_digit_version)
+      three_digit_version = [major,minor,fix]
+      three_digit_version = ".".join(three_digit_version)
+    return three_digit_version
+
 
 
 
 def fetch_latest_version(final, revision, pkgs_dir):
 
-  global latest_ver
-  global new_version_str
-  #get a list of sub directories representing the products 2 digit release version
   onlyfiles = glob.glob(pkgs_dir + "/*" + osver + "." + arch + ".rpm")
-
   if len(onlyfiles) == 0:
-    #there aren't any pkgs for this new two digit version yet.
-    #build the version from the 2 digit version
-    if final:
-      version = two_digit_ver + "." + 0-0
+    if final == True:
+      version = three_digit_version
     else:
-      #version = two_digit_ver + "." + 0.0-0
-      version = "3.0.8.9"
-      new_version_str = version
+      version = three_digit_version + ".1"
+    return version
   else:
+    if final == False:
+      convert = lambda text: int(text) if text.isdigit() else text
+      alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]
+      onlyfiles.sort(key=os.path.getmtime)
+      last_package = onlyfiles.pop()
+      last_package_ver = last_package.split(product + "-")[1]
+      version = last_package_ver.split("-")[0]
+      version_list = version.split(".")
+      oldrev = last_package.split("-")[2]
+      oldrev=oldrev.split(".")
+      oldrev=oldrev[1]
 
-    #sort the file list, grab the last one
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)',key) ]
-    onlyfiles.sort(key=os.path.getmtime)
-    last_package = onlyfiles.pop()
+      if len(version) >= 5 and len(version) <= 6:
+        latest_ver = "release"
+      elif len(version) >= 7:
+        latest_ver = "pre-release"
 
-    #determine the 4 digit version number
-    last_package_ver = last_package.split("gdb4hpc-")[1]
-    #get latest version number
-    version = last_package_ver.split("-")[0]
-    version_list = version.split(".")
-    #get old revision
-    oldrev = last_package.split("-")[2]
-    oldrev=oldrev.split(".")
-    oldrev=oldrev[1]
-
-    #determine if latest package was a pre-release or a release
-    if len(version) >= 5 and len(version) <= 6:
-       latest_ver = "release"
-    elif len(version) >= 7:
-       latest_ver = "pre-release"
-
-    print "The latest package created was a: " + latest_ver
+      print "The latest package created was a: " + latest_ver
     
-    #create new version based on old version
-    if latest_ver == "release":
-      if final == False:
-        #then there is a new revision
-        #get third digit and increment
-        third_digit = version_list[2]
-	
-        #increment third digit
-	third_digit = str(int(third_digit) + 1)
-
-        #postpend a .1
+      if latest_ver == "release":
+        third_digit = version_list[2]	
+        third_digit = str(int(third_digit) + 1)
         version_list.pop()
         version_list.append(third_digit)
         version_list.append("1")
-	new_version_str = ".".join(version_list)
-      elif final == True:
-         #then repackaging, same revision
-          new_version_str = ".".join(version_list)
-    elif latest_ver == "pre-release":
-      #if branch is master
-      if final == False:
+        new_version_str = ".".join(version_list)
+      elif latest_ver == "pre-release": 
         if oldrev != revision:
-	  #increment 4th digit
-	  #figure out the new last digit
+          print "This is a new revision"
           new_last_digit = str(int(version_list[3]) + 1)
-          #replace the last digit of the version number
           version_list.pop()
           version_list.append(new_last_digit)
           new_version_str = ".".join(version_list)
-	else:
-	  new_version_str = ".".join(version_list)
-      elif final == True:
-        #remove 4th digit
-        version_list.pop()
-        new_version_str = ".".join(version_list)
+        else:
+          new_version_str = ".".join(version_list)
 
-  return new_version_str
+      return new_version_str
+    elif final == True:
+      return three_digit_version
          
 
 def fetch_newData():
@@ -213,6 +213,7 @@ def fetch_newData():
   global osver
   global ver_two_dig_nodot
   global release_date
+  global arch
 
   release_date = release_date()
 
@@ -244,14 +245,13 @@ def fetch_newData():
   rev_number = rev_number[0:13]
   timestmp_revnbr = str(dt_time) + "." + str(rev_number)
 
+  arch = getARCH()
   osver = fetch_os()
-  ver_two_dig = fetch_packageDir()
+  three_digit_version = get_three_digit_version()
+  ver_two_dig = fetch_packageDir(branch)
   pkgs_dir = product_dir + "/" + ver_two_dig
   version = fetch_latest_version(final,rev_number,pkgs_dir)
-  three_digit_version = version[0:6]
-  ver_two_dig_nodot = version[0] + version[2]
-
-  base_name = "gdb4hpc-" + version
+  base_name = product + "-" + version
   release_number = fetch_release(base_name, rev_number,pkgs_dir)
 
   package_name = base_name + "-" + timestmp_revnbr + "-" + release_number + osver

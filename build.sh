@@ -148,6 +148,7 @@ else
     delim=6
 fi
 
+
 # source module script - this needs to be done early on before using any module commands
 redhat_release_file="/etc/redhat-release"
 
@@ -1001,18 +1002,16 @@ if [[ $opt_cuda75_gdb == y ]]; then
 	# rename cuda-gdb to cuda75-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda75-gdb-guard" "cuda-gdb 75"
 	module unload $cudamodule 2>/dev/null
-fi
 
-# cuda-gdb 75 install - bypass install for arm
-if [[ $isArm == false || $SLES_VER -lt 15 ]]; then
     echo -e "Starting cuda-gdb 75 install.\n"
     # Deliver the cuda75-gdb-guard binary
     copy_file "${dep_bindir}/cuda75-gdb-guard" $libexecdir "cuda-gdb 75"
-fi
-echo -e "########################################################\n"
 
-# Check for errors in component
-check_error "cuda75"
+    echo -e "########################################################\n"
+
+    # Check for errors in component
+    check_error "cuda75"
+fi
 
 cudamodule=""
 echo "#######################################################################"
@@ -1063,18 +1062,16 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# rename cuda-gdb to cuda80-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
 	module unload $cudamodule 2>/dev/null
-fi
-
-# cuda-gdb 80 install - bypass install for arm
-if [[ $isArm == false || $SLES_VER -lt 15 ]]; then
+    
     echo -e "Starting cuda-gdb 80 install.\n"
     # Deliver the cuda80-gdb-guard binary
     copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
-fi
-echo -e "########################################################\n"
 
-# Check for errors in component
-check_error "cuda80"
+    echo -e "########################################################\n"
+
+    # Check for errors in component
+    check_error "cuda80"
+fi
 
 cudamodule=""
 echo "#######################################################################"
@@ -1130,18 +1127,16 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	# rename cuda-gdb to cuda91-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda91-gdb-guard" "cuda-gdb 91"
 	module unload $cudamodule 2>/dev/null
-fi
-
-# cuda-gdb 91 install - bypass install for arm
-if [[ $isArm == false ]]; then
+    
     echo -e "Starting cuda-gdb 91 install.\n"
     # Deliver the cuda91-gdb-guard binary
     copy_file "${dep_bindir}/cuda91-gdb-guard" $libexecdir "cuda-gdb 91"
-fi
-echo -e "########################################################\n"
 
-# Check for errors in component
-check_error "cuda91"
+    echo -e "########################################################\n"
+
+    # Check for errors in component
+    check_error "cuda91"
+fi
 
 echo "#######################################################################"
 echo "#######################################################################"

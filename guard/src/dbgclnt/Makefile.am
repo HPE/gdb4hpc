@@ -14,7 +14,7 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for MRNet
 if MRN
-AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
 endif
 
@@ -33,7 +33,7 @@ FRONTEND	= dbgclnt_gdbmi.cpp
 endif
 
 if CRAY
-AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
+AM_CXXFLAGS += $(CRAY_CTI_FE_CFLAGS)
 endif
 
 ##############################
@@ -50,7 +50,7 @@ libdbgproto_a_SOURCES	= dbgclnt_proto.cpp proto_message.cpp \
 if CRAY
 # Cray ALPS does not need guard_starter
 else
-AM_CFLAGS += -DBINDIR=\"$(bindir)\"
+AM_CXXFLAGS += -DBINDIR=\"$(bindir)\"
 bin_PROGRAMS 	= guard_starter
 guard_starter_SOURCES	= guard_starter.cpp
 guard_starter_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a -lpthread

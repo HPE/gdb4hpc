@@ -16,7 +16,7 @@ AM_LIBTOOLFLAGS = --quiet
 # Check for Cray libraries
 if CRAY
 CRAYTOOL_LIBS	= $(CRAY_CTI_FE_LIBS)
-AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
+AM_CXXFLAGS += $(CRAY_CTI_FE_CFLAGS)
 endif
 
 # Check for relative debugging libraries
@@ -26,7 +26,7 @@ endif
 
 # Check for MRNet libraries
 if MRN
-AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_LIBS 	= -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 endif
 

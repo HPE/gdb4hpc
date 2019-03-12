@@ -13,7 +13,7 @@ AM_LIBTOOLFLAGS = --silent
 
 # Check for MRNet
 if MRN
-AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet 
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
@@ -50,7 +50,7 @@ endif
 # Check for Cray
 if CRAY
 CRAYTOOL_LIBS = $(CRAY_CTI_BE_LIBS)
-AM_CFLAGS += $(CRAY_CTI_BE_CFLAGS)
+AM_CXXFLAGS += $(CRAY_CTI_BE_CFLAGS)
 CRAY_PROGS	= dbgsrv_alps
 
 if MRN

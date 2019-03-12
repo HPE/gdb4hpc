@@ -17,7 +17,7 @@ endif
 
 # Check for MRNet
 if MRN
-AM_CFLAGS       += -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
 endif
 
 ##############################

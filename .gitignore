@@ -1,3 +1,29 @@
+# autotools
+Makefile
+Makefile.in
+autom4te.cache
+config.h
+config.h.*
+config.log
+config.cache
+config.status
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+.deps/
+.dirstamp
+.libs/
+
+# libtool
+*.lo
+*.la
+*.a
+
+# gcc
+*.o
+
 /cray.rev
 /external
 guard/Makefile

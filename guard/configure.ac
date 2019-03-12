@@ -309,13 +309,15 @@ fi
 ###########################
 ### Check for programs. ###
 ###########################
-AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_YACC
 AC_PROG_SED
+
+AC_LANG([C++])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
+AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
 
 dnl Check for GDB
 AC_PATH_PROG([GDB_GUARD], [gdb-guard], [no])

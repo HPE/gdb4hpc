@@ -6,7 +6,7 @@ MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 EDITLINE_LIBS	= @editline_libs@
 
-AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -42,10 +42,10 @@ SSH2_LIBS	= @ssh2_libs@
 ###############
 
 bin_PROGRAMS	= guard
-guard_SOURCES	= main.c class_cmd.c cli_funcs.c cmd.c help_dict.c cmd_assign.c cmd_break.c cmd_comp.c \
-		  cmd_env.c cmd_frame.c cmd_func.c cmd_go.c cmd_list.c cmd_print.c cmd_proc.c \
-		  cmd_procset.c cmd_source.c cmd_step.c cmd_whatis.c cli_readline.c cli_socket.c cli_file.c \
-		  cmd_passthru.c
+guard_SOURCES	= main.cpp class_cmd.cpp cli_funcs.cpp cmd.cpp help_dict.cpp cmd_assign.cpp cmd_break.cpp cmd_comp.cpp \
+		  cmd_env.cpp cmd_frame.cpp cmd_func.cpp cmd_go.cpp cmd_list.cpp cmd_print.cpp cmd_proc.cpp \
+		  cmd_procset.cpp cmd_source.cpp cmd_step.cpp cmd_whatis.cpp cli_readline.cpp cli_socket.cpp cli_file.cpp \
+		  cmd_passthru.cpp
 guard_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
 guard_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \

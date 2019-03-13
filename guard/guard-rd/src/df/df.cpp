@@ -312,7 +312,7 @@ EndDF(graph_t *g)
 	SetList(g->g_di_list);
 	while ( (di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL )
 	{
-		DbgHandleEvent(di, GetListElement(_evhandlers));
+		DbgHandleEvent(di, (int(*)(event_set*, bitset*))GetListElement(_evhandlers));
 	}
 
 	DestroyList(_evhandlers, NULL);

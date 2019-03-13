@@ -744,12 +744,12 @@ DumpActiveNodes(graph_t* g, node_t* current, FILE* log)
 }
 
 dbgnodesetinfo_t*
-NewNodeSetInfo(void* node, void* bitset)
+NewNodeSetInfo(void* node, void* bs)
 {
 	dbgnodesetinfo_t* info = (dbgnodesetinfo_t*)Alloc(sizeof(dbgnodesetinfo_t)); 
 	info->t_node = node;
-	info->t_bitset = bitset_dup(bitset);
-	DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bitset, bitset_to_set(bitset));
+	info->t_bitset = bitset_dup((bitset*)bs);
+	DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bs, bitset_to_set(bs));
 	
 	return info;
 }
@@ -779,7 +779,7 @@ FreeTreeNodesInfo(dbgtreenodesinfo_t* info)
 	if(info != NULL)
 	{
 		info->t_tree = NULL;
-		DestroyList(info->t_node_list, FreeNodeSetInfo);
+		DestroyList(info->t_node_list, (void (*)(void*))FreeNodeSetInfo);
 	}
 }
 
@@ -853,6 +853,6 @@ CleanTreeNodesList()
 {
 	if(TreeNodesList != NULL)
 	{
-		DestroyList(TreeNodesList, FreeTreeNodesInfo);
+		DestroyList(TreeNodesList, (void (*)(void*))FreeTreeNodesInfo);
 	}
 }

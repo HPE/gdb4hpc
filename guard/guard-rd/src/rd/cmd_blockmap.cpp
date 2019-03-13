@@ -906,37 +906,37 @@ void
 InitCmd_blockmap(void)
 {
 	// info commands
-	AddInfoCommand("decomposition", proc_ignore, 0, class_info_subcmd_blockmap_cmd,
+	AddInfoCommand("decomposition", proc_ignore, 0, (int(*)())class_info_subcmd_blockmap_cmd,
 		class_info_subcmd_blockmap_help, "Display currently defined decomposition schemes.");
 
 	// usage commands
-	AddUsageCommand("dimension", proc_ignore, 0, class_usage_subcmd_dimension_cmd,
+	AddUsageCommand("dimension", proc_ignore, 0, (int(*)())class_usage_subcmd_dimension_cmd,
 		class_usage_subcmd_decomposition_help, "Display help about using decomposition \"dimension\" command.");
-	AddUsageCommand("distribute", proc_ignore, 0, class_usage_subcmd_distribute_cmd,
+	AddUsageCommand("distribute", proc_ignore, 0, (int(*)())class_usage_subcmd_distribute_cmd,
 		class_usage_subcmd_decomposition_help, "Display help about using decomposition \"distribute\" command.");
-	AddUsageCommand("proc_grid", proc_ignore, 0, class_usage_subcmd_proc_grid_cmd,
+	AddUsageCommand("proc_grid", proc_ignore, 0, (int(*)())class_usage_subcmd_proc_grid_cmd,
 		class_usage_subcmd_decomposition_help, "Display help about using decomposition \"proc_grid\" command.");
-	AddUsageCommand("dim_order", proc_ignore, 0, class_usage_subcmd_dim_order_cmd,
+	AddUsageCommand("dim_order", proc_ignore, 0, (int(*)())class_usage_subcmd_dim_order_cmd,
 		class_usage_subcmd_decomposition_help, "Display help about using decomposition \"dim_order\" command.");
 
 	// regular commands
-	AddCommand("decomposition", NULL, proc_ignore, 0, cmd_blockmap_cmd,
+	AddCommand("decomposition", NULL, proc_ignore, 0, (int(*)())cmd_blockmap_cmd,
 		cmd_blockmap_help, "Define a decomposition scheme.");
 
 	// blockmap alt commands
 	BlockMapCmds = NewCommandList(blockmapnotfound, blockmapambig, blockmapfailed);
 
 	AddAltCommand(BlockMapCmds, "dimension", NULL, proc_ignore, 0, 
-		cmd_blockmap_alt_dimension_cmd, cmd_blockmap_alt_dimension_help, "Provide a dimension definition.");
+		(int(*)())cmd_blockmap_alt_dimension_cmd, cmd_blockmap_alt_dimension_help, "Provide a dimension definition.");
 	AddAltCommand(BlockMapCmds, "distribute", NULL, proc_ignore, 0, 
-		cmd_blockmap_alt_distribute_cmd, cmd_blockmap_alt_distribute_help, "Provide a distribute definition.");
+		(int(*)())cmd_blockmap_alt_distribute_cmd, cmd_blockmap_alt_distribute_help, "Provide a distribute definition.");
 	AddAltCommand(BlockMapCmds, "proc_grid", NULL, proc_ignore, 0, 
-		cmd_blockmap_alt_proc_grid_cmd, cmd_blockmap_alt_proc_grid_help, "Provide a process grid definition.");
+		(int(*)())cmd_blockmap_alt_proc_grid_cmd, cmd_blockmap_alt_proc_grid_help, "Provide a process grid definition.");
 	AddAltCommand(BlockMapCmds, "dim_order", NULL, proc_ignore, 0, 
-		cmd_blockmap_alt_dim_order_cmd, cmd_blockmap_alt_dim_order_help, "Provide a dimension order definition.");
+		(int(*)())cmd_blockmap_alt_dim_order_cmd, cmd_blockmap_alt_dim_order_help, "Provide a dimension order definition.");
 	AddAltCommand(BlockMapCmds, "end", NULL, proc_ignore, 0, 
-		cmd_blockmap_alt_end_cmd, cmd_blockmap_alt_end_help, "Finish defining the current decomposition scheme.");
-	AddAltCommand(BlockMapCmds, "help", "h", proc_ignore, 0, cmd_help_cmd,
+		(int(*)())cmd_blockmap_alt_end_cmd, cmd_blockmap_alt_end_help, "Finish defining the current decomposition scheme.");
+	AddAltCommand(BlockMapCmds, "help", "h", proc_ignore, 0, (int(*)())cmd_help_cmd,
 		cmd_help_help, "Display help information about decomposition script mode commands.");
 }
 

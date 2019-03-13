@@ -195,7 +195,7 @@ destroyInv(char *key, void *arg)
 	graph_inv *	gi = (graph_inv *)arg;
 	
 	bitset_free(gi->gp_unbuilt_bs);
-	DestroyList(gi->gp_files, DestroyFile);
+	DestroyList(gi->gp_files, (void (*)(void*))DestroyFile);
 	
 	Free(gi);
 }
@@ -222,12 +222,12 @@ DestroyGraph(graph_t *g)
 
 	DestroyNodes(g->g_nodes);
 	HashDestroy(g->g_inv, destroyInv);
-	DestroyList(g->g_diff, destroyGDiff);
-	DestroyList(g->g_di_list, NULL);
-	DestroyList(g->g_bp_list, FreeBP);
-	DestroyList(g->g_assigns, DestroyAssign);
-	DestroyList(g->g_vars, DestroyVar);
-	DestroyList(g->g_assert_cmds, Free);
+	DestroyList(g->g_diff, (void (*)(void*))destroyGDiff);
+	DestroyList(g->g_di_list, (void (*)(void*))NULL);
+	DestroyList(g->g_bp_list, (void (*)(void*))FreeBP);
+	DestroyList(g->g_assigns, (void (*)(void*))DestroyAssign);
+	DestroyList(g->g_vars, (void (*)(void*))DestroyVar);
+	DestroyList(g->g_assert_cmds, (void (*)(void*))Free);
 	DestroyAssertInfo(g->g_assert_info_tab, g->g_assertions);
 	
 	if (g->g_assert_pass != NULL)

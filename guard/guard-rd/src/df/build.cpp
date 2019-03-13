@@ -1196,7 +1196,7 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 			return -1;
 
 		AppendList(vlist, vl);
-		DestroyList(vl, (void (*)())NULL);
+		DestroyList(vl, (void (*)(void*))NULL);
 
 		/* drop through */
 
@@ -1219,7 +1219,7 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 			return -1;
 
 		AppendList(vlist, vl);
-		DestroyList(vl, (void (*)())NULL);
+		DestroyList(vl, (void (*)(void*))NULL);
 
 		/* drop through */
 
@@ -1236,7 +1236,7 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 		*inp = inp3;
 
 		AppendList(vlist, vl);
-		DestroyList(vl, (void (*)())NULL);
+		DestroyList(vl, (void (*)(void*))NULL);
 
 		return 0;
 
@@ -1294,7 +1294,7 @@ build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e, rec_set_t *
 			return -1;
 
 		AppendList(vlist, vl);
-		DestroyList(vl, (void (*)())NULL);
+		DestroyList(vl, (void (*)(void*))NULL);
 		return 0;
 
 	case EXPR_SYM:
@@ -1386,7 +1386,7 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 		if ( ep->e_op != EXPR_LIST )
 		{
 			SetError("Internal error: expected EXPR_LIST");
-			DestroyList(aarg, DestroyArg);
+			DestroyList(aarg, (void (*)(void*))DestroyArg);
 			return -1;
 		}
 
@@ -1394,7 +1394,7 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 
 		if ( build_expr(g, &inp, &out, vlist, e, rec_set, f, extra) < 0 )
 		{
-			DestroyList(aarg, DestroyArg);
+			DestroyList(aarg, (void (*)(void*))DestroyArg);
 			return -1;
 		}
 
@@ -1410,7 +1410,7 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 	if ( fp->f_builtin != (int (*)(list_t *, val_t **))NULL )
 	{
 		SetError("Can't use builtin function in delarative mode");
-		DestroyList(aarg, DestroyArg);
+		DestroyList(aarg, (void (*)(void*))DestroyArg);
 		return -1;
 	}
 
@@ -1426,7 +1426,7 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 
 	if ( build_expr(g, &inp, &out, vlist, fp->f_def, rec_set, fp, extra) < 0 )
 	{
-		DestroyList(aarg, DestroyArg);
+		DestroyList(aarg, (void (*)(void*))DestroyArg);
 		return -1;
 	}
 
@@ -1434,12 +1434,12 @@ build_func(graph_t *g, hentry_t *sym, int *res_inp, int *res_out, list_t *res_vl
 	** Restore args.
 	*/
 	fp->f_actual = sarg;
-	DestroyList(aarg, DestroyArg);
+	DestroyList(aarg, (void (*)(void*))DestroyArg);
 
 	*res_inp = inp;
 	*res_out = out;
 	AppendList(res_vlist, vlist);
-	DestroyList(vlist, (void (*)())NULL);
+	DestroyList(vlist, (void (*)(void*))NULL);
 
 	return 0;
 }
@@ -1894,7 +1894,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 			tmp_v = bm->m_actual;
 			if ( (bm2 = EvaluateBlockMap(e, rec_set, CMD_MODE_DEFERRED)) == (g_block_map_t *)NULL )
 			{
-				DestroyList(v1, (void (*)())NULL);
+				DestroyList(v1, (void (*)(void*))NULL);
 				return -1;
 			}
 			break;
@@ -1902,7 +1902,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 
 		if ( (bm = EvaluateBlockMap(e, rec_set, CMD_MODE_DEFERRED)) == (g_block_map_t *)NULL )
 		{
-			DestroyList(v1, (void (*)())NULL);
+			DestroyList(v1, (void (*)(void*))NULL);
 			return -1;
 		}
 
@@ -1931,7 +1931,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 			if( bm != (g_block_map_t *)NULL ) // Minh
 				DestroyBlockMap(bm);
 			else
-				DestroyList(v1, (void (*)())NULL);
+				DestroyList(v1, (void (*)(void*))NULL);
 
 			return -1;
 		}
@@ -1967,7 +1967,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		}
 
 		AppendList(vlist, v2);
-		DestroyList(v2, (void (*)())NULL);
+		DestroyList(v2, (void (*)(void*))NULL);
 
 		// check if there is constant
 		if ( bm == (g_block_map_t *)NULL ) {
@@ -1995,7 +1995,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		}
 
 		AppendList(vlist, v1);
-		DestroyList(v1, (void (*)())NULL);
+		DestroyList(v1, (void (*)(void*))NULL);
 
 		// check if there is constant
 		if ( bm == (g_block_map_t *)NULL ) {
@@ -2040,8 +2040,8 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 
 		AppendList(vlist, v1);
 		AppendList(vlist, v2);
-		DestroyList(v1, (void (*)())NULL);
-		DestroyList(v2, (void (*)())NULL);
+		DestroyList(v1, (void (*)(void*))NULL);
+		DestroyList(v2, (void (*)(void*))NULL);
 	}
 
 	// Minh

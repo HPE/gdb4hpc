@@ -366,7 +366,7 @@ static int
 class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
-	int		bool;
+	int		force_flag;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -382,11 +382,11 @@ class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc, char **argv)
 	switch ( ScanString(&cv, &s) )
 	{
 		case CT_TRUE:
-			bool = 1;
+			force_flag = 1;
 			break;
 
 		case CT_FALSE:
-			bool = 0;
+			force_flag = 0;
 			break;
 
 		default:
@@ -395,7 +395,7 @@ class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc, char **argv)
 			return 0;
 	}
 
-	SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&bool);
+	SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&force_flag);
 
 	return 1;
 }
@@ -404,7 +404,7 @@ static int
 class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
-	int		bool;
+	int		halt_flag;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -420,11 +420,11 @@ class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 	switch (ScanString(&cv, &s))
 	{
 	case CT_TRUE:
-		bool = 1;
+		halt_flag = 1;
 		break;
 
 	case CT_FALSE:
-		bool = 0;
+		halt_flag = 0;
 		break;
 
 	default:
@@ -433,7 +433,7 @@ class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 
-	SetGraphVar(GRAPH_HALT, VAR_INT, (void *)&bool);
+	SetGraphVar(GRAPH_HALT, VAR_INT, (void *)&halt_flag);
 
 	return 1;
 }
@@ -442,7 +442,7 @@ static int
 class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
-	int			bool;
+	int			stop_flag;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -458,11 +458,11 @@ class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 	switch (ScanString(&cv, &s))
 	{
 	case CT_TRUE:
-		bool = 1;
+		stop_flag = 1;
 		break;
 
 	case CT_FALSE:
-		bool = 0;
+		stop_flag = 0;
 		break;
 
 	default:
@@ -471,7 +471,7 @@ class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 		return 0;
 	}
 
-	SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&bool);
+	SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&stop_flag);
 
 	return 1;
 }
@@ -483,7 +483,7 @@ static int
 class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *	s;
-	int		bool;
+	int		p2p_flag;
 	ct_val	cv;
 
 	if ( argc < 2 )
@@ -499,11 +499,11 @@ class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 	switch (ScanString(&cv, &s))
 	{
 		case CT_TRUE:
-			bool = 1;
+			p2p_flag = 1;
 			break;
 
 		case CT_FALSE:
-			bool = 0;
+			p2p_flag = 0;
 			break;
 
 		default:
@@ -512,7 +512,7 @@ class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 			return 0;
 	}
 
-	SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&bool);
+	SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&p2p_flag);
 
 	return 1;
 }
@@ -650,7 +650,7 @@ static int
 class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
 	char *		s;
-	int		bool;
+	int		logging_flag;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -666,10 +666,10 @@ class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv)
 	switch ( ScanString(&cv, &s) )
 	{
 		case CT_TRUE:
-			bool = 1;
+			logging_flag = 1;
 			break;
 		case CT_FALSE:
-			bool = 0;
+			logging_flag = 0;
 			break;
 		default:
 			PrintOutError("Encountered something other than on or off.\n");
@@ -677,7 +677,7 @@ class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv)
 			return 0;
 	}
 
-	SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&bool);
+	SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&logging_flag);
 
 	return 1;
 }
@@ -1611,85 +1611,85 @@ InitCmd_graph(void)
 	GraphList = NewList();
 	
 	// info commands
-	AddInfoCommand("diff", proc_ignore, 0, class_info_subcmd_diff_cmd,
+	AddInfoCommand("diff", proc_ignore, 0, (int(*)())class_info_subcmd_diff_cmd,
 		class_info_subcmd_diff_help, "Display saved deltas from assertion script execution.");
-	AddInfoCommand("build", proc_ignore, 0, class_info_subcmd_build_cmd,
+	AddInfoCommand("build", proc_ignore, 0, (int(*)())class_info_subcmd_build_cmd,
 		class_info_subcmd_build_help, "Display built assertion scripts.");
-	AddInfoCommand("script", proc_ignore, 0, class_info_subcmd_script_cmd,
+	AddInfoCommand("script", proc_ignore, 0, (int(*)())class_info_subcmd_script_cmd,
 		class_info_subcmd_script_help, "Display active assertion script status.");
 	
 	// maint commands
-	AddMaintCommand("dump", proc_ignore, 0, class_maint_subcmd_dump_cmd,
+	AddMaintCommand("dump", proc_ignore, 0, (int(*)())class_maint_subcmd_dump_cmd,
 		class_maint_subcmd_dump_help, "Dump an assertion script in digraph format."); 
 
 	// set commands
-	AddSetCommand("display", proc_ignore, 0, class_set_subcmd_display_cmd,
+	AddSetCommand("display", proc_ignore, 0, (int(*)())class_set_subcmd_display_cmd,
 		class_set_subcmd_display_help, "Set how to display output of assert.");
-	AddSetCommand("output", proc_ignore, 0, class_set_subcmd_output_cmd,
+	AddSetCommand("output", proc_ignore, 0, (int(*)())class_set_subcmd_output_cmd,
 		class_set_subcmd_output_help, "Set name of output file for assert.");
-	AddSetCommand("force", proc_ignore, 0, class_set_subcmd_force_cmd,
+	AddSetCommand("force", proc_ignore, 0, (int(*)())class_set_subcmd_force_cmd,
 		class_set_subcmd_force_help, "Enable/disable forcing of assertion values.");
-	AddSetCommand("halt", proc_ignore, 0, class_set_subcmd_halt_cmd,
+	AddSetCommand("halt", proc_ignore, 0, (int(*)())class_set_subcmd_halt_cmd,
 		class_set_subcmd_halt_help, "Enable/disable halting of processes on termination.");
-	AddSetCommand("stop", proc_ignore, 0, class_set_subcmd_stop_cmd,
+	AddSetCommand("stop", proc_ignore, 0, (int(*)())class_set_subcmd_stop_cmd,
 		class_set_subcmd_stop_help, "Enable/disable stopping on assertion failure.");
-	AddSetCommand("logging", proc_ignore, 0, class_set_subcmd_logging_cmd,
+	AddSetCommand("logging", proc_ignore, 0, (int(*)())class_set_subcmd_logging_cmd,
 		class_set_subcmd_logging_help, "Enable/disable logging.");
-	AddSetCommand("logfile", proc_ignore, 0, class_set_subcmd_logfile_cmd,
+	AddSetCommand("logfile", proc_ignore, 0, (int(*)())class_set_subcmd_logfile_cmd,
 		class_set_subcmd_logfile_help, "Set log file name.");
-	AddSetCommand("dfblock", proc_ignore, 0, class_set_subcmd_dfblock_cmd,
+	AddSetCommand("dfblock", proc_ignore, 0, (int(*)())class_set_subcmd_dfblock_cmd,
 		class_set_subcmd_dfblock_help, "Set dataflow command blocking.");
-	AddSetCommand("dfmode", proc_ignore, 0, class_set_subcmd_dfmode_cmd,
+	AddSetCommand("dfmode", proc_ignore, 0, (int(*)())class_set_subcmd_dfmode_cmd,
 		class_set_subcmd_dfmode_help, "Set dataflow mode.");
-	AddSetCommand("reduce", proc_ignore, 0, class_set_subcmd_reduce_cmd,
+	AddSetCommand("reduce", proc_ignore, 0, (int(*)())class_set_subcmd_reduce_cmd,
 		class_set_subcmd_reduce_help, "Set reduce function.");
 		
 	/* FIXME: andrewg: Once P2P has been fully tested, we can add this to the normal set
 	**         commands. But for now only support this feature as experimental.
 	*/
-	AddMaintSetCommand("p2p", proc_ignore, 0, class_set_subcmd_p2p_cmd,
+	AddMaintSetCommand("p2p", proc_ignore, 0, (int(*)())class_set_subcmd_p2p_cmd,
 		class_set_subcmd_p2p_help, "Set p2p mode.");
 		
 	// show commands
-	AddShowCommand("display", proc_ignore, 0, class_show_subcmd_display_cmd,
+	AddShowCommand("display", proc_ignore, 0, (int(*)())class_show_subcmd_display_cmd,
 		class_show_subcmd_display_help, "Show how output of assert is displayed.");
-	AddShowCommand("output", proc_ignore, 0, class_show_subcmd_output_cmd,
+	AddShowCommand("output", proc_ignore, 0, (int(*)())class_show_subcmd_output_cmd,
 		class_show_subcmd_output_help, "Show name of output file for assert.");
-	AddShowCommand("force", proc_ignore, 0, class_show_subcmd_force_cmd,
+	AddShowCommand("force", proc_ignore, 0, (int(*)())class_show_subcmd_force_cmd,
 		class_show_subcmd_force_help, "Show status of forcing of assertion values.");
-	AddShowCommand("halt", proc_ignore, 0, class_show_subcmd_halt_cmd,
+	AddShowCommand("halt", proc_ignore, 0, (int(*)())class_show_subcmd_halt_cmd,
 		class_show_subcmd_halt_help, "Show status of halting of processes on termination.");
-	AddShowCommand("stop", proc_ignore, 0, class_show_subcmd_stop_cmd,
+	AddShowCommand("stop", proc_ignore, 0, (int(*)())class_show_subcmd_stop_cmd,
 		class_show_subcmd_stop_help, "Show status of stopping on assertion failure.");
-	AddShowCommand("logging", proc_ignore, 0, class_show_subcmd_logging_cmd,
+	AddShowCommand("logging", proc_ignore, 0, (int(*)())class_show_subcmd_logging_cmd,
 		class_show_subcmd_logging_help, "Show logging status.");
-	AddShowCommand("logfile", proc_ignore, 0, class_show_subcmd_logfile_cmd,
+	AddShowCommand("logfile", proc_ignore, 0, (int(*)())class_show_subcmd_logfile_cmd,
 		class_show_subcmd_logfile_help, "Show log file name.");
-	AddShowCommand("dfblock", proc_ignore, 0, class_show_subcmd_dfblock_cmd,
+	AddShowCommand("dfblock", proc_ignore, 0, (int(*)())class_show_subcmd_dfblock_cmd,
 		class_show_subcmd_dfblock_help, "Show dataflow command blocking.");
-	AddShowCommand("dfmode", proc_ignore, 0, class_show_subcmd_dfmode_cmd,
+	AddShowCommand("dfmode", proc_ignore, 0, (int(*)())class_show_subcmd_dfmode_cmd,
 		class_show_subcmd_dfmode_help, "Show dataflow mode.");
-	AddShowCommand("reduce", proc_ignore, 0, class_show_subcmd_reduce_cmd,
+	AddShowCommand("reduce", proc_ignore, 0, (int(*)())class_show_subcmd_reduce_cmd,
 		class_show_subcmd_reduce_help, "Show reduce function.");
 		
 	/* FIXME: andrewg: Once P2P has been fully tested, we can add this to the normal show
 	**         commands. But for now only support this feature as experimental.
 	*/
-	AddMaintShowCommand("p2p", proc_ignore, 0, class_show_subcmd_p2p_cmd,
+	AddMaintShowCommand("p2p", proc_ignore, 0, (int(*)())class_show_subcmd_p2p_cmd,
 		class_show_subcmd_p2p_help, "Show p2p mode.");
 
 	// usage commands
-	AddUsageCommand("assert", proc_ignore, 0, class_usage_subcmd_assert_cmd,
+	AddUsageCommand("assert", proc_ignore, 0, (int(*)())class_usage_subcmd_assert_cmd,
 		class_usage_subcmd_assert_help, "Display help about using build \"assert\" commands.");
-	AddUsageCommand("assign", proc_ignore, 0, class_usage_subcmd_assign_cmd,
+	AddUsageCommand("assign", proc_ignore, 0, (int(*)())class_usage_subcmd_assign_cmd,
 		class_usage_subcmd_assign_help, "Display help about using build \"assign\" commands.");
 
 	// regular commands
-	AddCommand("build", NULL, proc_ignore, 0, cmd_build_cmd,
+	AddCommand("build", NULL, proc_ignore, 0, (int(*)())cmd_build_cmd,
 		cmd_build_help, "Build an assertion script.");
-	AddCommand("start", NULL, proc_ignore, 0, cmd_start_cmd,
+	AddCommand("start", NULL, proc_ignore, 0, (int(*)())cmd_start_cmd,
 		cmd_start_help, "Start executing an assertion script.");
-	AddCommand("stop", NULL, proc_ignore, 0, cmd_stop_cmd,
+	AddCommand("stop", NULL, proc_ignore, 0, (int(*)())cmd_stop_cmd,
 		cmd_stop_help, "Stop the currently executing assertion script.");
 	/* FIXME: This is currently broken on cray systems
 	AddCommand("restart", NULL, proc_ignore, 0, cmd_restart_cmd,
@@ -1700,19 +1700,19 @@ InitCmd_graph(void)
 	GraphCmds = NewCommandList(graphnotfound, graphambig, graphfailed);
 
 	AddAltCommand(GraphCmds, "assert", NULL, proc_ignore, 0, 
-		cmd_graph_alt_assert_cmd, cmd_graph_alt_assert_help, "Create an assertion.");
+		(int(*)())cmd_graph_alt_assert_cmd, cmd_graph_alt_assert_help, "Create an assertion.");
 	// FIXME: Disabled until BuildAssign is fixed in build.c
 #if 0
 	AddAltCommand(GraphCmds, "assign", NULL, proc_ignore, 0, 
 		cmd_graph_alt_assign_cmd, cmd_graph_alt_assign_help, "Assign a value to a debugger variable.");
 #endif
 	AddAltCommand(GraphCmds, "end", NULL, proc_ignore, 0, 
-		cmd_graph_alt_end_cmd, cmd_graph_alt_end_help, "Finish building the current assertion script.");
-	AddAltCommand(GraphCmds, "help", "h", proc_ignore, 0, cmd_help_cmd,
+		(int(*)())cmd_graph_alt_end_cmd, cmd_graph_alt_end_help, "Finish building the current assertion script.");
+	AddAltCommand(GraphCmds, "help", "h", proc_ignore, 0, (int(*)())cmd_help_cmd,
 		cmd_help_help, "Display help information about build script mode commands.");
-	AddAltCommand(GraphCmds, "set", NULL, proc_ignore, 1, class_set_cmd,
+	AddAltCommand(GraphCmds, "set", NULL, proc_ignore, 1, (int(*)())class_set_cmd,
 		class_set_help, "Set information about the debugger environment.");
-	AddAltCommand(GraphCmds, "show", NULL, proc_ignore, 1, class_show_cmd,
+	AddAltCommand(GraphCmds, "show", NULL, proc_ignore, 1, (int(*)())class_show_cmd,
 		class_show_help, "Show information about the debugger environment.");
 }
 

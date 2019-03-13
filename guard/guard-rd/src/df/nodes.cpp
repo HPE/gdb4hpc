@@ -1149,7 +1149,7 @@ NodePermute(graph_t *g, node_t *n)
 {
 	int		i;
 	int		nd;
-	int *		new;
+	int *		new_ids;
 	token_t	*	t;
 	token_t	*	t0;
 	AIF *		a;
@@ -1171,24 +1171,24 @@ NodePermute(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 
-	new = (int *)Alloc(nd * sizeof(int));
+	new_ids = (int *)Alloc(nd * sizeof(int));
 
 	for ( i = 0 ; i < nd ; i++ )
 	{
 		t = GetTokenFromInput(n, i + 1);
-		new[i] = t->t_int;
+		new_ids[i] = t->t_int;
 
-		if ( new[i] >= nd )
+		if ( new_ids[i] >= nd )
 		{
-			Free(new);
-			DFError(n, "Invalid permutation, %d -> %d", i, new[i]);
+			Free(new_ids);
+			DFError(n, "Invalid permutation, %d -> %d", i, new_ids[i]);
 			return (token_t *)NULL;
 		}
 	}
 
-	if ( (na = AIFArrayPerm(a, new)) == (AIF *)NULL )
+	if ( (na = AIFArrayPerm(a, new_ids)) == (AIF *)NULL )
 	{
-		Free(new);
+		Free(new_ids);
 		DFError(n, "AIFArraySlice: %s", AIFErrorStr());
 		return (token_t *)NULL;
 	}
@@ -1197,7 +1197,7 @@ NodePermute(graph_t *g, node_t *n)
 	t->t_data = na;
 	t->t_name = strdup(t0->t_name);
 
-	Free(new);
+	Free(new_ids);
 
 	return t;
 }
@@ -1374,7 +1374,7 @@ NodeInsert(graph_t *g, node_t *n)
 	if ( (h = HashSearch(HashStore, t0->t_str)) != (hentry_t *)NULL )
 		DestroyToken(g, (token_t *)h->h_data);
 
-	t = (void *)DupToken(t1);
+	t = (token_t*)DupToken(t1);
 
 	if ( HashInsert(HashStore, t0->t_str, (void *)t) == (hentry_t *)NULL )
 	{
@@ -1983,7 +1983,7 @@ NodeGetVar(graph_t *g, node_t *n)
 	(
 		(sym = FindSym(t1->t_str)) == (void *)NULL
 		||
-		(v = GetVal(sym)) == (val_t *)NULL
+		(v = GetVal((hentry_t*)sym)) == (val_t *)NULL
 	)
 	{
 		DFError(n, "No such variable: \"%s\"", t1->t_str);
@@ -2496,7 +2496,7 @@ NodeEvent(event_set_t *ev_set, bitset *reply_set)
 	SetList(info->t_node_list);
 	if((node_set = (dbgnodesetinfo_t*)GetListElement(info->t_node_list)) != (dbgnodesetinfo_t*)NULL)
 	{
-		n = node_set->t_node;
+		n = (node_t*)node_set->t_node;
 		for(index = 0; index < number; ++index)
 			RemoveActiveEvent(n->n_graph);
 	}
@@ -2516,7 +2516,7 @@ NodeEvent(event_set_t *ev_set, bitset *reply_set)
 		{
 			if(bitset_compare((bitset*)node_set->t_bitset, reply_set) != 0)
 			{
-				n = node_set->t_node;
+				n = (node_t*)node_set->t_node;
 
 				if (!strcmp(n->n_name, "DBGGO")) {
 					t = NewToken(n->n_graph, TK_INT);

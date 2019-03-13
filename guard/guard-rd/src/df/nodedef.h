@@ -46,4 +46,5 @@ extern nodedef_t *	AddNodeDef(char *, token_t *(*)(graph_t *, node_t *), token_t
 extern void			InitNodeDef(void);
 extern void			FinishNodeDef(void);
 extern nodedef_t *	FindNodeDef(char *);
+
 #endif /* !_NODEDEF_H */

@@ -19,7 +19,7 @@ AC_PREREQ([2.63])
 AC_INIT([guard-rd],[1.2],[andrewg@cray.com])
 AC_COPYRIGHT([© 2010-2013 Cray Inc. All Rights Reserved.])
 
-AC_CONFIG_SRCDIR([src/df/df.c])
+AC_CONFIG_SRCDIR([src/df/df.cpp])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -130,11 +130,14 @@ AC_SUBST([GUARD_SRC])
 ###########################
 ### Check for programs. ###
 ###########################
-AC_PROG_CC
-AM_PROG_CC_C_O
+AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PROG_LN_S
+
+AC_LANG([C++])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
+AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
 
 ##################################
 ### Check for DbgSrv protocols ###

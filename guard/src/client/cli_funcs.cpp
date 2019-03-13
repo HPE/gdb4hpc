@@ -108,7 +108,7 @@ void
 DestroyCLI(void)
 {
 	// Destroy the stream queue
-	DestroyList(StreamQueue, DestroyCLIStream);
+	DestroyList(StreamQueue, (void (*)(void*))DestroyCLIStream);
 	
 	// Destroy the CurrentStream
 	DestroyCLIStream(CurrentStream);
@@ -420,7 +420,7 @@ DestroyCLIStream(cli_stream_t *cs)
 	}
 	
 	// Destroy the deferred list
-	DestroyList(cs->cs_deferred, Free);
+	DestroyList(cs->cs_deferred, (void (*)(void*))Free);
 	
 	DestroyCLIArgs(cs->cs_type, cs->cs_args);
 

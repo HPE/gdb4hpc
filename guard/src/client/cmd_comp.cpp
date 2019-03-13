@@ -248,6 +248,6 @@ cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv)
 void
 InitCmd_comp(void)
 {
-	AddCommand("compare", NULL, proc_optional, 0, cmd_compare_cmd,
+	AddCommand("compare", NULL, proc_optional, 0, (int (*)())cmd_compare_cmd,
 		cmd_compare_help, "Compare the contents of two variables.");
 }

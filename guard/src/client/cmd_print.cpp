@@ -76,7 +76,7 @@ PrintVal(val_t *val, rec_set_t *rec_set)
 		{
 			// Print the set info - Note that the rep_di can be null here if the reply set was the result of an operation on
 			// two different sets.
-			PrintMsgWithSetInfo(((reply->rep_di == NULL) ? "" : reply->rep_di->d_handle), reply->rep_group, NULL);
+			PrintMsgWithSetInfo(((reply->rep_di == NULL) ? (char*)"" : reply->rep_di->d_handle), reply->rep_group, NULL);
 			
 			// Print the AIF value
 			// AIFPrint doesn't play nice with editline...
@@ -190,6 +190,6 @@ cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv)
 void
 InitCmd_print(void)
 {
-	AddCommand("print", "p", proc_optional, 0, cmd_print_cmd,
+	AddCommand("print", "p", proc_optional, 0, (int (*)())cmd_print_cmd,
 		cmd_print_help, "Print the value of an expression.");
 }

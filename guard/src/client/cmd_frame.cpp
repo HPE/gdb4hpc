@@ -144,12 +144,12 @@ cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv)
 void
 InitCmd_frame(void)
 {
-	AddCommand("up", NULL, proc_required, 0, movecmd,
+	AddCommand("up", NULL, proc_required, 0, (int (*)())movecmd,
 		cmd_up_help, "Move up one or more stack frames.");
-	AddCommand("down", NULL, proc_required, 0, movecmd,
+	AddCommand("down", NULL, proc_required, 0, (int (*)())movecmd,
 		cmd_down_help, "Move down one or more stack frames.");
-	AddCommand("backtrace", "bt", proc_required, 0, cmd_backtrace_cmd,
+	AddCommand("backtrace", "bt", proc_required, 0, (int (*)())cmd_backtrace_cmd,
 		cmd_backtrace_help, "Print backtrace of all stack frames.");
-	AddCommand("frame", NULL, proc_required, 0, cmd_frame_cmd,
+	AddCommand("frame", NULL, proc_required, 0, (int (*)())cmd_frame_cmd,
 		cmd_frame_help, "Print the currently selected stack frame.");
 }

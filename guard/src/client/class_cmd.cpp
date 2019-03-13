@@ -524,23 +524,23 @@ InitCmd_class(void)
 	UsageCmds = NewCommandList(UsageCmdNotFound, AmbiguousUsageCmd, (void (*)(void))NULL);
 
 	// class commands
-	AddClassCommand("info", NULL, proc_ignore, 1, class_info_cmd, FindInfoCommand,
+	AddClassCommand("info", NULL, proc_ignore, 1, (int (*)())class_info_cmd, FindInfoCommand,
 		class_info_help, "Display information about the application being debugged.");
-	AddClassCommand("maint", NULL, proc_ignore, 1, class_maint_cmd, FindMaintCommand,
+	AddClassCommand("maint", NULL, proc_ignore, 1, (int (*)())class_maint_cmd, FindMaintCommand,
 		class_maint_help, "Commands for use by debugger maintainers.");
-	AddClassCommand("set", NULL, proc_ignore, 1, class_set_cmd, FindSetCommand,
+	AddClassCommand("set", NULL, proc_ignore, 1, (int (*)())class_set_cmd, FindSetCommand,
 		class_set_help, "Set information about the debugger environment.");
-	AddClassCommand("show", NULL, proc_ignore, 1, class_show_cmd, FindShowCommand,
+	AddClassCommand("show", NULL, proc_ignore, 1, (int (*)())class_show_cmd, FindShowCommand,
 		class_show_help, "Show information about the debugger environment.");
-	AddClassCommand("unset", NULL, proc_ignore, 1, class_unset_cmd, FindUnsetCommand,
+	AddClassCommand("unset", NULL, proc_ignore, 1, (int (*)())class_unset_cmd, FindUnsetCommand,
 		class_unset_help, "Unset information in the debugger environment.");
-	AddClassCommand("usage", NULL, proc_ignore, 1, class_usage_cmd, FindUsageCommand,
+	AddClassCommand("usage", NULL, proc_ignore, 1, (int (*)())class_usage_cmd, FindUsageCommand,
 		class_usage_help, "Display usage information about script mode commands.");
 		
 	// Maint class commands
-	AddMaintCommand("set", proc_ignore, 1, class_maint_set_cmd, 
+	AddMaintCommand("set", proc_ignore, 1, (int (*)())class_maint_set_cmd, 
 		class_maint_set_help, "Set information about the debugger environment.");
-	AddMaintCommand("show", proc_ignore, 1, class_maint_show_cmd, 
+	AddMaintCommand("show", proc_ignore, 1, (int (*)())class_maint_show_cmd, 
 		class_maint_show_help, "Show information about the debugger environment.");
 }
 

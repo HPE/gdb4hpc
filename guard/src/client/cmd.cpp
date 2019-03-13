@@ -467,7 +467,7 @@ _ambigcmd(list_t *cmds, char *cmd)
 
 	PrintOutError("\n");
 			
-	DestroyList(l, (void (*)())NULL);
+	DestroyList(l, (void (*)(void*))NULL);
 }
 
 static void
@@ -587,7 +587,7 @@ InitCommands(int tty)
 	InitCmd_class();
 	
 	// add the help command
-	AddCommand("help", "h", proc_ignore, 0, cmd_help_cmd,
+	AddCommand("help", "h", proc_ignore, 0, (int (*)())cmd_help_cmd,
 		cmd_help_help, "Display help information about commands.");
 	
 	// Begin init of every other command

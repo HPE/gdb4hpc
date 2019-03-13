@@ -209,11 +209,11 @@ void
 InitCmd_passthru(void)
 {
 	// regular commands
-	AddCommand("gdbmode", NULL, proc_required, 0, cmd_directmode_cmd,
+	AddCommand("gdbmode", NULL, proc_required, 0, (int (*)())cmd_directmode_cmd,
 		cmd_directmode_help, "Enter direct gdb mode (experimental).");
 
 	// maint commands
-	AddMaintCommand("passthru", proc_required, 0, class_maint_subcmd_direct_cmd,
+	AddMaintCommand("passthru", proc_required, 0, (int (*)())class_maint_subcmd_direct_cmd,
 		class_maint_subcmd_direct_help, "Pass command to gdb backend.");
 		
 	// gdbmode alt commands
@@ -222,18 +222,18 @@ InitCmd_passthru(void)
 	// XXX: The help strings below are not viewable. The help command is passed
 	// to the gdb backend while in gdbmode.
 	AddAltCommand(DirectModeCmds, "_default_cmd", NULL, proc_required, 0, 
-		cmd_directmode_alt_direct_cmd, dummy_help, "");
+		(int (*)())cmd_directmode_alt_direct_cmd, dummy_help, "");
 	AddAltCommand(DirectModeCmds, "end", NULL, proc_ignore, 0, 
-		cmd_directmode_alt_end_cmd, dummy_help, "");
+		(int (*)())cmd_directmode_alt_end_cmd, dummy_help, "");
 	AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
-		cmd_quit_cmd, dummy_help, "");
+		(int (*)())cmd_quit_cmd, dummy_help, "");
 	
   AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
-		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
   AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
-		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
   AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
-		cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
     	
 	SetDefaultCommand(DirectModeCmds, "_default_cmd");
 }

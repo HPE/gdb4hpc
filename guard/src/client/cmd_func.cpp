@@ -49,7 +49,7 @@ ParseFuncDef(char *str)
 		return (func_t *)NULL;
 	}
 
-	if ( (f = FindFunc(sym = cv.cv_sym)) != (func_t *)NULL )
+	if ( (f = FindFunc((hentry_t*)(sym = cv.cv_sym))) != (func_t *)NULL )
 		FreeFunc(f);
 
 	if ( ScanString(&cv, &str) != CT_LPAREN )
@@ -65,14 +65,14 @@ ParseFuncDef(char *str)
 		if ( ScanString(&cv, &str) != CT_SYM )
 		{
 			PrintOutError("argument expected");
-			DestroyList(args, (void (*)())NULL);
+			DestroyList(args, (void (*)(void*))NULL);
 			return (func_t *)NULL;
 		}
 
 		if ( InList(args, cv.cv_sym) )
 		{
 			PrintOutError("duplicate argument");
-			DestroyList(args, (void (*)())NULL);
+			DestroyList(args, (void (*)(void*))NULL);
 			return (func_t *)NULL;
 		}
 
@@ -84,7 +84,7 @@ ParseFuncDef(char *str)
 		if ( t != CT_COMMA )
 		{
 			PrintOutError("'(' or ',' expected");
-			DestroyList(args, (void (*)())NULL);
+			DestroyList(args, (void (*)(void*))NULL);
 			return (func_t *)NULL;
 		}
 	}
@@ -101,7 +101,7 @@ ParseFuncDef(char *str)
 		return (func_t *)NULL;
 	}
 
-	if ( (f = NewFunc(sym, args, e, (int (*)(list_t *, val_t **))NULL, str, 1)) == (func_t *)NULL )
+	if ( (f = NewFunc((hentry_t*)sym, args, e, (int (*)(list_t *, val_t **))NULL, str, 1)) == (func_t *)NULL )
 	{
 		PrintError();
 		return (func_t *)NULL;
@@ -160,9 +160,9 @@ class_show_subcmd_function_cmd(rec_set_t *rec_set, int argc, char **argv)
 void
 InitCmd_func(void)
 {
-	AddSetCommand("function", proc_ignore, 0, class_set_subcmd_function_cmd,
+	AddSetCommand("function", proc_ignore, 0, (int (*)())class_set_subcmd_function_cmd,
 		class_set_subcmd_function_help, "Define a function.");
-	AddShowCommand("function", proc_ignore, 0, class_show_subcmd_function_cmd,
+	AddShowCommand("function", proc_ignore, 0, (int (*)())class_show_subcmd_function_cmd,
 		class_show_subcmd_function_help, "Show information about defined functions.");
 }
 

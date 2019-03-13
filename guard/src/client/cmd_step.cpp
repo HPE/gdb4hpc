@@ -62,8 +62,8 @@ StepCmd(rec_set_t *rec_set, int argc, char **argv)
 void
 InitCmd_step(void)
 {
-	AddCommand("step", "s", proc_required, 0, StepCmd,
+	AddCommand("step", "s", proc_required, 0, (int (*)())StepCmd,
 		cmd_step_help, "Step application until it reaches a different source line.");
-	AddCommand("next", "n", proc_required, 0, StepCmd,
+	AddCommand("next", "n", proc_required, 0, (int (*)())StepCmd,
 		cmd_next_help, "Step application, proceeding through subroutine calls.");
 }

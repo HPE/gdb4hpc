@@ -577,7 +577,7 @@ PrintHelpEntry(char **helpStrArray)
  */
 
 void
-InitCommands(int tty)
+InitCommands()
 {
 	// init the internal command lists
 	Cmds = NewCommandList(CmdNotFound, AmbiguousCmd, (void (*)(void))NULL);

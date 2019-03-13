@@ -1172,7 +1172,7 @@ DbgDispatchEvents(void)
 				set = bitset_new(di->d_nproc);
 				bitset_invert(set);
 				pmsg_set = NewProtoMsgSet();
-				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent(DBG_OK))));
+				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
 				DbgDispatchProtoEvents(di, pmsg_set);
 				
 				break;
@@ -1290,7 +1290,7 @@ DbgDispatchEvents(void)
 				set = bitset_new(di->d_nproc);
 				bitset_invert(set);
 				pmsg_set = NewProtoMsgSet();
-				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent(DBG_OK))));
+				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
 				DbgDispatchProtoEvents(di, pmsg_set);
 				
 				break;

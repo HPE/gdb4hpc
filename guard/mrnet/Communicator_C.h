@@ -23,6 +23,14 @@
 
 #include "MRNet_C.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int communicator_get_endpoints_size(MRNet_Communicator* communicator);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _GUARD_MRNET_COMMUNICATOR_H */

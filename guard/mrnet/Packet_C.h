@@ -22,7 +22,15 @@
 
 #include "MRNet_C.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int packet_unpack(MRNet_Packet* packet, char *ifmt, ... );
 void packet_delete(MRNet_Packet* packet);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _GUARD_MRNET_PACKET_H */

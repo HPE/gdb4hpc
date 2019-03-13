@@ -274,7 +274,7 @@ main(int argc, char **argv)
 		}
 		    
 		len = strlen(scratch) + strlen(UDA_PLUGIN) + 2;
-		if ((uda_str = malloc(len)) == (void *)0)
+		if ((uda_str = (char*)malloc(len)) == (void *)0)
 		{
 		    fprintf(stderr, "UDA_PLUGIN malloc failed.\n");
 		    return 1;

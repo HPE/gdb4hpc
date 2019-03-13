@@ -22,6 +22,10 @@
 
 #include "mrnet_lightweight/Types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 ** NOTE: Any change here should also be reflected in MRNet_type_wrapper.h.
 ** 
@@ -67,5 +71,9 @@ struct MRNet_Node
 	Rank 	rank;
 };
 typedef struct MRNet_Node MRNet_Node_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_GUARD_MRNET_H*/

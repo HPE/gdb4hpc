@@ -22,6 +22,9 @@
 
 #include "MRNet_C.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void stream_delete(MRNet_Stream *stream);
 
@@ -36,5 +39,9 @@ int stream_recv(MRNet_Stream* stream, int *otag, MRNet_Packet** packet, int bloc
 int stream_get_DataNotificationFd(MRNet_Stream *stream);
 void stream_clear_DataNotificationFd(MRNet_Stream *stream);
 void stream_close_DataNotificationFd(MRNet_Stream *stream);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _GUARD_MRNET_STREAM_H */

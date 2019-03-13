@@ -24,10 +24,18 @@
 #include <stdio.h>
 #include "MRNet_C.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 unsigned int topology_get_nodes_number(MRNet_Topology *topology);
 int topology_get_leaves(MRNet_Topology *topology, MRNet_Node_t **nodes);
 int topology_print_leaves(MRNet_Topology *topology, char *file);
 void topology_print(MRNet_Topology *topology, FILE *file);
 void release_nodes(MRNet_Node_t* nodes, int num);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _GUARD_MRNET_TOPOLOGY_H */

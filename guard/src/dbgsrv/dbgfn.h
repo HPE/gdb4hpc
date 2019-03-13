@@ -27,7 +27,7 @@
 
 #define ASYNC_FORCE	(dbgevent_t * (*)(dbgevent_t*))-1
 
-extern void		AsyncCheck(dbgevent_t * (*)(), dbgevent_t *);
+extern void		AsyncCheck(dbgevent_t * (*)(dbgevent_t*), dbgevent_t *);
 
 struct dbgbackend_sw
 {

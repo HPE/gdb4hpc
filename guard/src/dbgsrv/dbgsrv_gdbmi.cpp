@@ -2221,7 +2221,7 @@ DbgGDBMIGo(void)
 
 	MICommandFree(cmd);
 
-	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -2259,7 +2259,7 @@ DbgGDBMIFinishFunc(void)
 
 	MICommandFree(cmd);
 
-	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -2320,7 +2320,7 @@ DbgGDBMIStep(int count, int in)
 
 	MICommandFree(cmd);
 
-	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -3361,7 +3361,7 @@ DbgGDBMIInvoke(char *host, int cb, char *proto, char *prog, char *args, char **e
 
 	Status = DBGSTAT_STOPPED;
 
-	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	return e;
 }
@@ -3667,7 +3667,7 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			restore = 0;
 			DirectCmdAsyncRestore = 1;
 			// FIXME: Use a custom WaitEvent
-			AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
+			AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 			break;
 			
 		case MIResultRecordERROR:

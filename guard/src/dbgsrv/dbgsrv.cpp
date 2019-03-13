@@ -100,7 +100,7 @@ int				exit_sleep_time = 0;
 int				WDT = 0;
 int				my_rank;
 int				sock_fd;
-dbgevent_t *	(*AsyncRtn)() = NULL;
+dbgevent_t *	(*AsyncRtn)(dbgevent_t*) = NULL;
 dbgevent_t *	AsyncEvent;
 int				DbgFD;
 int				IOBackendFD = -1;
@@ -822,7 +822,7 @@ FindMPArch(char *arch)
 ** Enable async reading from debugger.
 */
 void
-AsyncCheck(dbgevent_t * (*rtn)(), dbgevent_t *event)
+AsyncCheck(dbgevent_t * (*rtn)(dbgevent_t*), dbgevent_t *event)
 {
 	if ( AsyncRtn != NULL )
 		/* XXX */

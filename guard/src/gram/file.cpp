@@ -85,7 +85,7 @@ DestroyFile(file_t *f)
 	if(f->f_ref >= 0)
 		return;
 
-	DestroyList(f->f_lines, DestroyLine);
+	DestroyList(f->f_lines, (void (*)(void*))DestroyLine);
 	Free(f->f_name);
 	Free(f);
 }

@@ -449,7 +449,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 	        }
 	        
 	        // allocate space for the pHostID
-	        if ((pHostID = calloc(num_machines, sizeof(hostID_t))) == (void *)0)
+	        if ((pHostID = (hostID_t*)calloc(num_machines, sizeof(hostID_t))) == (void *)0)
 	        {
 	                PrintOutError("ERROR: calloc failed.\n");
 	                return -1;
@@ -516,7 +516,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 
 		CreateLevelList(num_level);
 		SetLevelInfo(0, 1);
-		char *node_str = malloc(sizeof(char)*MAXPATHLEN);
+		char *node_str = (char*)malloc(sizeof(char)*MAXPATHLEN);
 		if(root == NULL)
 			snprintf(node_str, MAXPATHLEN-1, "%s:%d", "localhost", GetHostID("localhost"));
 		else
@@ -549,7 +549,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 
 				for(node_index = 0; node_index < real_fanout; ++node_index)
 				{
-					node_str = malloc(sizeof(char)*MAXPATHLEN);
+					node_str = (char*)malloc(sizeof(char)*MAXPATHLEN);
 					GetNextHost(&nextHost, &nextID);
 					snprintf(node_str, MAXPATHLEN-1, "%s:%d", nextHost, nextID);
 

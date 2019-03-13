@@ -24,6 +24,10 @@
 #ifndef _USEFUL_QUEUE_H
 #define _USEFUL_QUEUE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct qel_t
 {
 	void *		q_el;
@@ -47,5 +51,9 @@ void *		HeadOfQueue(tkqueue_t *);
 void		AddToQueue(tkqueue_t *, void *);
 int		EmptyQueue(tkqueue_t *);
 int		FullQueue(tkqueue_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_QUEUE_H */

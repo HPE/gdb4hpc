@@ -101,6 +101,6 @@ FreeProtoMsgSet(proto_msg_set *set)
 	if (set == NULL)
 		return;
 		
-	DestroyList(set->msg_list, FreeProtoMsg);
+	DestroyList(set->msg_list, (void (*)(void*))FreeProtoMsg);
 	Free(set);
 }

@@ -232,8 +232,8 @@ FreeDbgInvoke(dbginvoke_t *di)
 	DestroyList(di->d_evfds, Free);
 	
 	// remove the async lists
-	DestroyList(di->d_eventset_list, FreeEventSet);
-	DestroyList(di->d_bpset_list, FreeBPSet);
+	DestroyList(di->d_eventset_list, (void (*)(void*))FreeEventSet);
+	DestroyList(di->d_bpset_list, (void (*)(void*))FreeBPSet);
 
 	Free(di->d_handle);
 	Free(di);
@@ -321,7 +321,7 @@ FreeRecSet(rec_set_t *set)
 	if(set == NULL)
 		return;
 
-	DestroyList(set->rec_list, FreeGroupReceiver);
+	DestroyList(set->rec_list, (void (*)(void*))FreeGroupReceiver);
 
 	Free(set);
 }
@@ -445,9 +445,9 @@ FreeRepSet(rep_set_t* set)
 	if(set == NULL)
 		return;
 
-	DestroyList(set->rep_list, FreeGroupReply);
+	DestroyList(set->rep_list, (void (*)(void*))FreeGroupReply);
 
-	DestroyList(set->err_list, FreeGroupReply);
+	DestroyList(set->err_list, (void (*)(void*))FreeGroupReply);
 	
 	Free(set);
 }
@@ -465,14 +465,14 @@ CopyRepSet(rep_set_t * set)
 	
 	// copy the replies
 	SetList(set->rep_list);
-	while ((elem = GetListElement(set->rep_list)) != NULL)
+	while ((elem = (group_reply_t*)GetListElement(set->rep_list)) != NULL)
 	{
 		AddReplyToSet(newset, CopyGroupReply(elem));
 	}
 	
 	// copy the errors
 	SetList(set->err_list);
-	while ((elem = GetListElement(set->err_list)) != NULL)
+	while ((elem = (group_reply_t*)GetListElement(set->err_list)) != NULL)
 	{
 		AddErrToSet(newset, CopyGroupReply(elem));
 	}
@@ -489,13 +489,13 @@ MergeRepSet(rep_set_t* set, rep_set_t *tmp_set)
 		return NULL;
 		
 	// merge the replies
-	while ((elem = RemoveFirst(tmp_set->rep_list)) != NULL)
+	while ((elem = (group_reply_t*)RemoveFirst(tmp_set->rep_list)) != NULL)
 	{
 		AddReplyToSet(set, elem);
 	}
 	
 	// Merge the errors
-	while ((elem = RemoveFirst(tmp_set->err_list)) != NULL)
+	while ((elem = (group_reply_t*)RemoveFirst(tmp_set->err_list)) != NULL)
 	{
 		AddErrToSet(set, elem);
 	}
@@ -556,7 +556,7 @@ static group_reply_t *
 GetNextErrInSet(rep_set_t* set)
 {
 	if(set != NULL)
-		return (void*)GetListElement(set->err_list);
+		return (group_reply_t*)GetListElement(set->err_list);
 	else
 		return NULL;
 }
@@ -919,13 +919,13 @@ FreeBPSet(bp_set_t *bp_set)
 		bitset_free(bp_set->b_group);
 		
 	if(bp_set->b_bp_id_list != NULL)
-		DestroyList(bp_set->b_bp_id_list, FreeBPIDSet);
+		DestroyList(bp_set->b_bp_id_list, (void (*)(void*))FreeBPIDSet);
 		
 	if (bp_set->b_bp_enabled != NULL)
 		bitset_free(bp_set->b_bp_enabled);
 		
 	if (bp_set->b_bp_disp != NULL)
-		DestroyList(bp_set->b_bp_disp, FreeBPDispSet);
+		DestroyList(bp_set->b_bp_disp, (void (*)(void*))FreeBPDispSet);
 
 	if(bp_set->b_loc_addr != NULL)
 		Free(bp_set->b_loc_addr);
@@ -1921,7 +1921,7 @@ DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type)
 		} else
 		{
 			// signal isn't present, so create it and add to the proper list
-			l_sig = Alloc(sizeof(int));
+			l_sig = (int*)Alloc(sizeof(int));
 			memcpy(l_sig, &sig, sizeof(int));
 			if (mask_type == DBG_SIG_NOMASK)
 			{
@@ -2046,14 +2046,14 @@ DbgFinish(void)
 		}
 	}
 
-	DestroyList(DbgSigList, DbgFreeSignal);
+	DestroyList(DbgSigList, (void (*)(void*))DbgFreeSignal);
 	DbgSigList = NULL;
 	
-	DestroyList(DbgUnblockableSigList, DbgFreeSignal);
+	DestroyList(DbgUnblockableSigList, (void (*)(void*))DbgFreeSignal);
 	DbgUnblockableSigList = NULL;
 	
 	// Manually free the elements in the dbginvoke list
-	while ((di=RemoveFirst(DbgInvokeList)) != NULL)
+	while ((di=(dbginvoke_t*)RemoveFirst(DbgInvokeList)) != NULL)
 	{
 		FreeDbgInvoke(di);
 	}

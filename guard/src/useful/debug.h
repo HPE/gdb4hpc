@@ -26,6 +26,10 @@
 
 #include	<stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void	PrintDebugTime(char *, ...);
 extern void	PrintDebugTimeLog(char *, ...);
 
@@ -48,5 +52,9 @@ extern guard_timer_t*	SetTimerStop(char* name);
 extern void				SetTimerStopAndLog(char* name);
 extern void				SetLogInfo(char* fmt, ...);
 #endif /* PERFLOG */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_DEBUG_H */

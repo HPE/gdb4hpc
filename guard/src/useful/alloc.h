@@ -24,6 +24,10 @@
 
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char *	Argv0;
 
 extern void *	Alloc(int size);
@@ -31,5 +35,9 @@ extern void		Asprintf(char **strp, const char *fmt, ...);
 extern void		VAsprintf(char **strp, const char *fmt, va_list ap);
 extern void *	Resize(void *, int);
 extern void		Free(void *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_ALLOC_H */

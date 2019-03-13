@@ -25,6 +25,10 @@
 
 #include        <pthread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct list_t
 {
 	int						l_nel;
@@ -49,7 +53,7 @@ extern void		AddFirst(list_t *, void *);
 extern void		AppendList(list_t *, list_t *);
 extern void		RemoveFromList(list_t *, void *);
 extern void *	RemoveFirst(list_t *);
-extern void		DestroyList(list_t *, void (*)());
+extern void		DestroyList(list_t *, void (*)(void*));
 extern void		SetList(list_t *);
 extern void *	GetListElement(list_t *);
 extern void *   GetListNumElement(list_t *, int);
@@ -57,4 +61,9 @@ extern int		EmptyList(list_t *);
 extern int		InList(list_t *, void *);
 extern int		SizeOfList(list_t *);
 extern void		SwapWithNextNeighbor(list_t *, void *);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* !_USEFUL_LIST_H */

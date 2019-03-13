@@ -322,7 +322,7 @@ PrintDebugTimeLog(char *fmt, ...)
 	time_t curtime;
 
 	char *	envDir;
-	char *	rootDir;
+	const char *	rootDir;
 	char 	filePath[MAXPATHLEN + 1];
 	char	hostname[MAXHOSTNAMELEN + 1];
 	uid_t	userid;

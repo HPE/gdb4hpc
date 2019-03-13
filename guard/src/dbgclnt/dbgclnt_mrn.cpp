@@ -172,6 +172,7 @@ DbgMRNAttach(
 	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
 	cti_wlm_type		wlm;
+	char * beDirStr = NULL;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -705,7 +706,7 @@ DbgMRNAttach(
 	}
 	
 	// Setup PYTHONHOME
-	char * beDirStr = cti_getSessionRootDir(sid);
+	beDirStr = cti_getSessionRootDir(sid);
 	if (beDirStr == NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1005,6 +1006,8 @@ DbgMRNInvoke(
 	char * 				env_lib_dir;
 	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
+	char **				args = NULL;
+	char *				beDirStr = NULL;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -1469,14 +1472,14 @@ DbgMRNInvoke(
 #endif /* DEBUG */
 
 	// Setup PYTHONHOME
-	char * beDirStr = cti_getSessionRootDir(sid);
+	beDirStr = cti_getSessionRootDir(sid);
 	if (beDirStr == NULL)
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
 		goto invoke_error;
 	}
-	char ** args = malloc(2*sizeof(char*));
+	args = (char**)malloc(2*sizeof(char*));
 	Asprintf(&args[0], "PYTHONHOME=%s", beDirStr);
 	Free(beDirStr);
 	args[1] = (char *)NULL;

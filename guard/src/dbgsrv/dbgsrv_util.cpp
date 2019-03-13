@@ -1003,11 +1003,11 @@ returnblock:
 int
 ReceiverSetSocketPort(void)
 {
-	int true = 1;  
+	int true_bool = 1;  
 	struct sockaddr_in server_addr;
 	int port = my_rank+10000;
 
-	if (setsockopt(sock_fd,SOL_SOCKET,SO_REUSEADDR,&true,sizeof(int)) == -1)
+	if (setsockopt(sock_fd,SOL_SOCKET,SO_REUSEADDR,&true_bool,sizeof(int)) == -1)
 	{
 		DVPRINT("in SliceSocketReceive: Setsockopt\n");
 		return -1;

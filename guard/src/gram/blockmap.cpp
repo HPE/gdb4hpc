@@ -699,19 +699,20 @@ ApplyBlockMap(g_block_map_t *m, char * type, int nd, AIF **data, char * hashinfo
 			}
 
 			// we also need to reverse the distribute and procs array
-			int *distribute_trans=NULL;
-			distribute_trans = (int *)Alloc(m->m_rank * sizeof(int));
+			{ int *distribute_trans=NULL;
+				distribute_trans = (int *)Alloc(m->m_rank * sizeof(int));
 
-			j=0;
-			for (i=m->m_rank-1; 0<=i; --i)
-			{
-				distribute_trans[j] = m->m_distribute[i];
-				proc_grid[j] = m->m_procs[i];
-				dim_order[j] = m->m_dim_order[i];
-				++j;
+				j=0;
+				for (i=m->m_rank-1; 0<=i; --i)
+				{
+					distribute_trans[j] = m->m_distribute[i];
+					proc_grid[j] = m->m_procs[i];
+					dim_order[j] = m->m_dim_order[i];
+					++j;
+				}
+				_get_block_size(m->m_rank, local_data, distribute_trans, blockcyclic_val, proc_grid, block_size);
+				Free(distribute_trans);
 			}
-			_get_block_size(m->m_rank, local_data, distribute_trans, blockcyclic_val, proc_grid, block_size);
-			Free(distribute_trans);
 			
 finish_blockmap:
 			_get_order_map(m->m_rank, dim_order, order_map);
@@ -1005,7 +1006,7 @@ FinishBlockMap(void)
 	while ( (m = (g_block_map_t *)GetListElement(_block_map_list)) != (g_block_map_t *)NULL )
 		DestroyBlockMap(m);
 	
-	DestroyList(_block_map_list, (void (*)())NULL);
+	DestroyList(_block_map_list, (void (*)(void*))NULL);
 	HashDestroy(_block_map_table, (void (*)(char *, void *))NULL);
 }
 

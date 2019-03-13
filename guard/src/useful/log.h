@@ -23,11 +23,19 @@
 
 #define DBG_LOG_ENV_VAR "CRAY_DBG_LOG_DIR"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 FILE *  create_log(int, char *);
 FILE *  open_log(int, char *);
 int     write_log(FILE *, char *);
 int     write_log2(FILE *, char *);
 int     close_log(FILE *);
 int     hook_stdoe(FILE *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LOG_H */

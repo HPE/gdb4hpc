@@ -24,6 +24,10 @@
 #ifndef _USEFUL_ARGS_H
 #define _USEFUL_ARGS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char **	Str2Argv(char *);
 extern char **	NewArgv(char *, ...);
 extern char **	CopyArgv(char **);
@@ -31,5 +35,9 @@ extern char **	AppendArgv(char **, char **);
 extern char **	AppendArgs(char **, ...);
 extern char *	ArgsToBuf(char **, int);
 extern void	FreeArgv(char **);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_ARGS_H */

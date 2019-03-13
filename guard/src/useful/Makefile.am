@@ -7,6 +7,6 @@ CLIENT	= @guard_srcdir@/src/client
 AM_LIBTOOLFLAGS = --quiet
 
 noinst_LIBRARIES	= libuseful.a
-libuseful_a_SOURCES 	= alloc.c args.c array.c debug.c error.c exec.c \
-			  hash.c hashfunctions.c list.c log.c maths.c \
-			  path.c queue.c str.c vector.c
+libuseful_a_SOURCES 	= alloc.cpp args.cpp array.cpp debug.cpp error.cpp exec.cpp \
+			  hash.cpp hashfunctions.cpp list.cpp log.cpp maths.cpp \
+			  path.cpp queue.cpp str.cpp vector.cpp

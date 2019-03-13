@@ -330,7 +330,7 @@ mrn_be_send_io(char* msg)
 }
 
 void
-mrn_be_set_callback(void (*callback)())
+mrn_be_set_callback(void (*callback)(char*))
 {
 	dbgsrv_callback = callback;
 	return;

@@ -50,7 +50,7 @@ InitFunc(void)
 void
 FinishFunc(void)
 {
-	DestroyList(_func_list, _free_func);
+	DestroyList(_func_list, (void (*)(void*))_free_func);
 	HashDestroy(_func_table, (void (*)(char *, void *))NULL);
 }
 
@@ -89,7 +89,7 @@ void
 _free_func(func_t *f)
 {
 	if ( f->f_args != (list_t *)NULL )
-		DestroyList(f->f_args, (void (*)())NULL);
+		DestroyList(f->f_args, (void (*)(void*))NULL);
 
 	if ( f->f_def != (expr_t *)NULL )
 		FreeExpr(f->f_def);
@@ -208,7 +208,7 @@ DestroyArg(arg_t *a)
 		break;
 
 	case ARG_GRAPH:
-		DestroyList(a->a_vlist, (void (*)())NULL);
+		DestroyList(a->a_vlist, (void (*)(void*))NULL);
 		break;
 	}
 

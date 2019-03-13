@@ -32,47 +32,47 @@ static int              resizeArrayDimension(arrayDimension_t *);
 arrayDimension_t *
 newArrayDimension()
 {
-        arrayDimension_t *      this;
+        arrayDimension_t *      arr_dim;
         
         // create the object
-        if ((this = malloc(sizeof(arrayDimension_t))) == (void *)0)
+        if ((arr_dim = (arrayDimension_t*)malloc(sizeof(arrayDimension_t))) == (void *)0)
         {
                 PrintOutError("newArrayDimension: malloc error!\n");
                 return (arrayDimension_t *)NULL;
         }
-        memset(this, 0, sizeof(arrayDimension_t));     // clear it to NULL
+        memset(arr_dim, 0, sizeof(arrayDimension_t));     // clear it to NULL
         
         // allocate the default dimdef size
-        if ((this->dimdef = malloc(sizeof(unsigned int) * DIMDEF_SIZE)) == (void *)0)
+        if ((arr_dim->dimdef = (unsigned int*)malloc(sizeof(unsigned int) * DIMDEF_SIZE)) == (void *)0)
         {
                 PrintOutError("newArrayDimension: malloc error!\n");
-                freeArrayDimension(this);
+                freeArrayDimension(arr_dim);
                 return (arrayDimension_t *)NULL;
         }
-        memset(this->dimdef, 0, sizeof(unsigned int) * DIMDEF_SIZE);     // clear it to NULL
+        memset(arr_dim->dimdef, 0, sizeof(unsigned int) * DIMDEF_SIZE);     // clear it to NULL
         
         // allocate the default dimdef size for the min range
-        if ((this->dimmin = malloc(sizeof(int) * DIMDEF_SIZE)) == (void *)0)
+        if ((arr_dim->dimmin = (int*)malloc(sizeof(int) * DIMDEF_SIZE)) == (void *)0)
         {
                 PrintOutError("newArrayDimension: malloc error!\n");
-                freeArrayDimension(this);
+                freeArrayDimension(arr_dim);
                 return (arrayDimension_t *)NULL;
         }
-        memset(this->dimmin, 0, sizeof(int) * DIMDEF_SIZE);     // clear it to NULL
+        memset(arr_dim->dimmin, 0, sizeof(int) * DIMDEF_SIZE);     // clear it to NULL
         
         // allocate the default dimdef size for the max range
-        if ((this->dimmax = malloc(sizeof(int) * DIMDEF_SIZE)) == (void *)0)
+        if ((arr_dim->dimmax = (int*)malloc(sizeof(int) * DIMDEF_SIZE)) == (void *)0)
         {
                 PrintOutError("newArrayDimension: malloc error!\n");
-                freeArrayDimension(this);
+                freeArrayDimension(arr_dim);
                 return (arrayDimension_t *)NULL;
         }
-        memset(this->dimmax, 0, sizeof(int) * DIMDEF_SIZE);     // clear it to NULL
+        memset(arr_dim->dimmax, 0, sizeof(int) * DIMDEF_SIZE);     // clear it to NULL
         
         // set the hidden len value
-        this->_len = DIMDEF_SIZE;
+        arr_dim->_len = DIMDEF_SIZE;
         
-        return this;
+        return arr_dim;
 }
 
 // resize an arrayDimension_t object
@@ -90,7 +90,7 @@ resizeArrayDimension(arrayDimension_t *myArray)
         }
         
         // resize the dimdef
-        if ((temp = realloc(myArray->dimdef, sizeof(unsigned int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
+        if ((temp = (unsigned int*)realloc(myArray->dimdef, sizeof(unsigned int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
         {
                 PrintOutError("resizeArrayDimension: realloc error!\n");
                 return 1;
@@ -102,7 +102,7 @@ resizeArrayDimension(arrayDimension_t *myArray)
         myArray->dimdef = temp;
         
         // resize the dimmin
-        if ((temp_range = realloc(myArray->dimmin, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
+        if ((temp_range = (int*)realloc(myArray->dimmin, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
         {
                 PrintOutError("resizeArrayDimension: realloc error!\n");
                 return 1;
@@ -114,7 +114,7 @@ resizeArrayDimension(arrayDimension_t *myArray)
         myArray->dimmin = temp_range;
         
         // resize the dimmax
-        if ((temp_range = realloc(myArray->dimmax, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
+        if ((temp_range = (int*)realloc(myArray->dimmax, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) == (void *)0)
         {
                 PrintOutError("resizeArrayDimension: realloc error!\n");
                 return 1;

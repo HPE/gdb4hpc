@@ -255,7 +255,7 @@ adjustLibPath(const char *path)
 	if ((oldpath = getenv("LD_LIBRARY_PATH")) == NULL)
 	{
 		len = strlen(path) + 1;
-		if ((newpath = malloc(len*sizeof(char))) == NULL)
+		if ((newpath = (char*)malloc(len*sizeof(char))) == NULL)
 		{
 			return 1;
 		}
@@ -263,7 +263,7 @@ adjustLibPath(const char *path)
 	} else
 	{
 		len = strlen(oldpath) + strlen(":") + strlen(path) + 1;
-		if ((newpath = malloc(len*sizeof(char))) == NULL)
+		if ((newpath = (char*)malloc(len*sizeof(char))) == NULL)
 		{
 			return 1;
 		}
@@ -298,7 +298,7 @@ adjustExecPath(const char *path)
 	if ((oldpath = getenv("PATH")) == NULL)
 	{
 		len = strlen(path) + 1;
-		if ((newpath = malloc(len*sizeof(char))) == NULL)
+		if ((newpath = (char*)malloc(len*sizeof(char))) == NULL)
 		{
 			return 1;
 		}
@@ -306,7 +306,7 @@ adjustExecPath(const char *path)
 	} else
 	{
 		len = strlen(oldpath) + strlen(":") + strlen(path) + 1;
-		if ((newpath = malloc(len*sizeof(char))) == NULL)
+		if ((newpath = (char*)malloc(len*sizeof(char))) == NULL)
 		{
 			return 1;
 		}
@@ -341,7 +341,7 @@ getinstallbase(void)
 	
 	snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
 	
-	if ((exe_path = malloc(PATH_MAX + 1)) == NULL)
+	if ((exe_path = (char*)malloc(PATH_MAX + 1)) == NULL)
 	{
 		return NULL;
 	}
@@ -413,7 +413,7 @@ getexepath(void)
 	
 	snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
 	
-	if ((exe_path = malloc(PATH_MAX + 1)) == NULL)
+	if ((exe_path = (char*)malloc(PATH_MAX + 1)) == NULL)
 	{
 		return NULL;
 	}

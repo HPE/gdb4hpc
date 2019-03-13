@@ -26,9 +26,17 @@
 
 #include	<stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char *	Argv0;
 extern char *	GetError();
 extern void	SetError(char *, ...);
 extern void	SetSysError(char *, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_ERROR_H */

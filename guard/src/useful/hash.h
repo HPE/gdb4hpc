@@ -23,6 +23,10 @@
 #ifndef _USEFUL_HASH_H
 #define _USEFUL_HASH_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct hentry
 {
 	unsigned int		h_hval;	/* actual hash value */
@@ -49,5 +53,9 @@ extern void			HashDestroy(htable_t *, void (*)(char *,void *));
 extern hentry_t *	HashSearch(htable_t *, char *);
 extern hentry_t *	HashInsert(htable_t *, char *, void *);
 extern void			HashRemove(htable_t *, hentry_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_HASH_H */

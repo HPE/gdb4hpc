@@ -24,6 +24,10 @@
 #ifndef _USEFUL_STR_H
 #define _USEFUL_STR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char *	skipspace(char *);
 extern char *	StripQuotes(char *);
 extern char *	SkipTo(char *, char);
@@ -34,5 +38,9 @@ extern char *	TrimStrWithTarget(char *, char);
 extern int		CountOccurence(char, char *);
 extern char *	ReplaceStr(const char *, const char *, const char *);
 extern int		IsInteger(char *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_STR_H */

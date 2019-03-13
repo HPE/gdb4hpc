@@ -26,37 +26,37 @@
 extern void	PrintOutError(char *, ...);
 
 vectorLikeDimension_t * newVectorLikeDimension(void){
-		vectorLikeDimension_t *      this;
+		vectorLikeDimension_t *      vec_dim;
         
         // create the object
-        if ((this = malloc(sizeof(vectorLikeDimension_t))) == (void *)0)
+        if ((vec_dim = (vectorLikeDimension_t*)malloc(sizeof(vectorLikeDimension_t))) == (void *)0)
         {
                 printf("newVectorLikeDimension: malloc error!\n");
                 return (vectorLikeDimension_t *)NULL;
         }
-        memset(this, 0, sizeof(vectorLikeDimension_t));     // clear it to NULL
-        this->myPointer = this;
+        memset(vec_dim, 0, sizeof(vectorLikeDimension_t));     // clear it to NULL
+        vec_dim->myPointer = vec_dim;
         // allocate the default dimdef size
-        if ((this->dimdef = malloc(sizeof(vectorLikeDimension_t) * DIMDEF_SIZE)) == (void *)0)
+        if ((vec_dim->dimdef = (vectorLikeDimension_t*)malloc(sizeof(vectorLikeDimension_t) * DIMDEF_SIZE)) == (void *)0)
         {
                 printf("newArrayDimension: malloc error!\n");
-                freeVectorLikeDimension(this);
+                freeVectorLikeDimension(vec_dim);
                 return (vectorLikeDimension_t *)NULL;
         }
-        memset(this->dimdef, 0, sizeof(vectorLikeDimension_t) * DIMDEF_SIZE);     // clear it to NULL
+        memset(vec_dim->dimdef, 0, sizeof(vectorLikeDimension_t) * DIMDEF_SIZE);     // clear it to NULL
         // set the hidden capacity value
-		this->_capacity = DIMDEF_SIZE;
+		vec_dim->_capacity = DIMDEF_SIZE;
 		
-        if ((this->sizes = malloc(sizeof(unsigned int) * DIMDEF_SIZE)) == (void *)0)
+        if ((vec_dim->sizes = (unsigned int*)malloc(sizeof(unsigned int) * DIMDEF_SIZE)) == (void *)0)
         {
                 printf("newArrayDimension: malloc error!\n");
-                freeVectorLikeDimension(this);
+                freeVectorLikeDimension(vec_dim);
                 return (vectorLikeDimension_t *)NULL;
         }	
-        memset(this->sizes, 0, sizeof(unsigned int)*DIMDEF_SIZE);
-        this->sizesSize = 0;
+        memset(vec_dim->sizes, 0, sizeof(unsigned int)*DIMDEF_SIZE);
+        vec_dim->sizesSize = 0;
         
-        return this;
+        return vec_dim;
 
 
 }
@@ -71,7 +71,7 @@ int addVectorLikeDimensionDef(vectorLikeDimension_t * myArray, int* atCoords,int
                 return 1;
         }
         
-        myArray->sizes = realloc(myArray->sizes, (myArray->sizesSize+1)*sizeof(unsigned int));
+        myArray->sizes = (unsigned int*)realloc(myArray->sizes, (myArray->sizesSize+1)*sizeof(unsigned int));
         myArray->sizes[myArray->sizesSize++] = 0;
         
 		//Traverse the vectorLikeDimension structure using atcoords until
@@ -92,7 +92,7 @@ int addVectorLikeDimensionDef(vectorLikeDimension_t * myArray, int* atCoords,int
 		curr->_size = size;
 		
 		//Malloc dimdef and memset it to zero based on size
-		curr->dimdef = realloc(curr->dimdef,  size*sizeof(vectorLikeDimension_t));
+		curr->dimdef = (vectorLikeDimension_t*)realloc(curr->dimdef,  size*sizeof(vectorLikeDimension_t));
 		memset(curr->dimdef,0,size*sizeof(vectorLikeDimension_t));
 
 		

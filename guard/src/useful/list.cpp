@@ -74,7 +74,7 @@ AddToList(list_t *l, void *v)
 	if ( l == (list_t *)NULL)
 		return;
 
-	e = Alloc(sizeof(liste_t));
+	e = (liste_t*)Alloc(sizeof(liste_t));
 
 	e->l_value = v;
 	e->l_next = (liste_t *)NULL;
@@ -102,7 +102,7 @@ AddFirst(list_t *l, void *v)
 	if ( l == (list_t *)NULL)
 		return;
 
-	e = Alloc(sizeof(liste_t));
+	e = (liste_t*)Alloc(sizeof(liste_t));
 
         // thread safe
 	pthread_mutex_lock(&l->l_lock);
@@ -232,7 +232,7 @@ RemoveFirst(list_t *l)
 }
 
 void		
-DestroyList(list_t *l, void (*destroy)())
+DestroyList(list_t *l, void (*destroy)(void*))
 {
 	liste_t *	ep;
 	liste_t *	en;
@@ -249,7 +249,7 @@ DestroyList(list_t *l, void (*destroy)())
 	{
 		en = ep->l_next;
 
-		if ( destroy != (void (*)())NULL )
+		if ( destroy != NULL )
 			destroy(ep->l_value);
 
 		Free(ep);
@@ -309,7 +309,7 @@ GetListElement(list_t *l)
 void *
 GetListNumElement(list_t *l, int num)
 {
-        liste_t *       le = (void *)NULL;
+        liste_t *       le = (liste_t *)NULL;
         int             i;
         
         if ( l == (list_t *)NULL )

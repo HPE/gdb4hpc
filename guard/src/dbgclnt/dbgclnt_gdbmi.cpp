@@ -369,7 +369,7 @@ DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, char *str)
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
 	MIList *		lines;
 	CLILineInfo *	line;
-	dbglist_t *		this;
+	dbglist_t *		line_list;
 	dbglist_t *		list_ptr = NULL;
 	dbglist_t *		list = NULL;
 	
@@ -390,23 +390,23 @@ DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, char *str)
 	// Convert the MI list of CLILineInfo into a dbglist_t
 	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; ) 
 	{
-		this = (dbglist_t *)Alloc(sizeof(dbglist_t));
-		this->list_lno = line->line_no;
-		this->list_line = strdup(line->line);
-		this->list_next = (dbglist_t *)NULL;
+		line_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
+		line_list->list_lno = line->line_no;
+		line_list->list_line = strdup(line->line);
+		line_list->list_next = (dbglist_t *)NULL;
 
 		if (list == NULL)
 		{
-			list = this;
-			list_ptr = this;
+			list = line_list;
+			list_ptr = line_list;
 		} else
 		{
-			list_ptr->list_next = this;
-			list_ptr = this;
+			list_ptr->list_next = line_list;
+			list_ptr = line_list;
 		}
 	}
 	
-	MIListFree(lines, CLILineInfoFree);
+	MIListFree(lines, (void (*)())CLILineInfoFree);
 	MICommandFree(cmd);
 
 	e = NewEvent(DBGEV_LIST);
@@ -426,7 +426,7 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
 	MIList *		sources;
 	MISources *		source;
-	dbgsources_t *	this;
+	dbgsources_t *	dbg_sources;
 	dbgsources_t *	sources_ptr = NULL;
 	dbgsources_t *	head = NULL;
 	
@@ -449,32 +449,32 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 		if (source->fullname == NULL)
 			continue;
 		
-		this = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
+		dbg_sources = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
 		
 		DPRINT("DbgGDBMIGetSources_fe: fullname is %s\n", source->fullname);
 		
 		// Ensure that this source file actually exists
-		this->sources_file = realpath(source->fullname, NULL);
-		if (this->sources_file == NULL)
+		dbg_sources->sources_file = realpath(source->fullname, NULL);
+		if (dbg_sources->sources_file == NULL)
 		{
-			Free(this);
+			Free(dbg_sources);
 			continue;
 		}
 		
-		this->sources_next = (dbgsources_t *)NULL;
+		dbg_sources->sources_next = (dbgsources_t *)NULL;
 
 		if (head == NULL)
 		{
-			head = this;
-			sources_ptr = this;
+			head = dbg_sources;
+			sources_ptr = dbg_sources;
 		} else
 		{
-			sources_ptr->sources_next = this;
-			sources_ptr = this;
+			sources_ptr->sources_next = dbg_sources;
+			sources_ptr = dbg_sources;
 		}
 	}
 	
-	MIListFree(sources, MISourcesFree);
+	MIListFree(sources, (void (*)())MISourcesFree);
 	MICommandFree(cmd);
 	
 	e = NewEvent(DBGEV_SOURCES);
@@ -622,7 +622,7 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 	}
 	
 	// free the name list
-	MIListFree(vars, Free);
+	MIListFree(vars, (void (*)())Free);
 	
 	// Create the event to hold the var information
 	e = NewEvent(DBGEV_VARS);
@@ -672,7 +672,7 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 	
 	bpfunc = strdup(bpt->func);
 	
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void (*)())MIBreakpointFree);
 	MICommandFree(cmd);
 	
 	// Delete the breakpoint, we have the information we need

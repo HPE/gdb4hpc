@@ -157,7 +157,15 @@ and these came close:
   c ^= b; c -= rot(b,24); \
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint32_t DJBHash(const char *, size_t, uint32_t);
 uint32_t BJHash(const char *, size_t, uint32_t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

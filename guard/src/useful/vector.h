@@ -24,6 +24,10 @@
 #ifndef _VECTOR_H
 #define _VECTOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // default size of the dimdef list
 // note that the size of this is automatically increased when calling
 // addArrayDimensionDef is there is not enough room in the list for the
@@ -115,5 +119,9 @@ void 					printVectorLikeDimension(vectorLikeDimension_t * shape);
 	@param shape: the vectorLikeDimension_t object to connect up
 **/
 void 					connectAIFArrays(vectorLikeDimension_t * shape);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _VECTOR_H */

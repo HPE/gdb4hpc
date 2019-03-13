@@ -24,6 +24,10 @@
 #ifndef _ARRAY_H
 #define _ARRAY_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // default size of the dimdef list
 // note that the size of this is automatically increased when calling
 // addArrayDimensionDef is there is not enough room in the list for the
@@ -50,5 +54,9 @@ unsigned int            getArrayDimension(arrayDimension_t *, int);
 int                     getArrayDimensionRangeMin(arrayDimension_t *, int);
 int                     getArrayDimensionRangeMax(arrayDimension_t *, int);
 void                    freeArrayDimension(arrayDimension_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ARRAY_H */

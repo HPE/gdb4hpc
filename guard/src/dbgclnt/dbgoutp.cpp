@@ -38,7 +38,7 @@ DbgCreateGenericProgOutp()
 {
 	g_progoutp_t *	po;
 	
-	po = Alloc(sizeof(g_progoutp_t));
+	po = (g_progoutp_t*)Alloc(sizeof(g_progoutp_t));
 	
 	// create the program output pipe
 	if (pipe(po->pipefd))

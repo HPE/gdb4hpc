@@ -291,7 +291,7 @@ get_dbgbp(MICommand *cmd)
 		
 	DVPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
 	
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void (*)())MIBreakpointFree);
 	
 	return bp;
 }
@@ -1635,13 +1635,13 @@ DbgGDBMISetLineBreak(char *file, int lno)
 	{
 		// 1 for null term
 		++len;
-		where = Alloc(len);
+		where = (char*)Alloc(len);
 		snprintf(where, len, "%d", lno);
 	} else
 	{
 		// strlen of file plus null term and :
 		len += strlen(file) + 2;
-		where = Alloc(len);
+		where = (char*)Alloc(len);
 		snprintf(where, len, "%s:%d", file, lno);
 	}
 
@@ -1661,7 +1661,7 @@ DbgGDBMISetLineBreak(char *file, int lno)
 		if (file != NULL && *file != '\0')
 		{
 			opt2 = basename(file);
-			where = Alloc(len);
+			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%d", opt2, lno);
 			
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
@@ -1717,7 +1717,7 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 	} else
 	{
 		len = strlen(file) + strlen(func) + 2; // 2 for null term and :
-		where = Alloc(len);
+		where = (char*)Alloc(len);
 		snprintf(where, len, "%s:%s", file, func);
 	}
 	
@@ -1737,7 +1737,7 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 		if (file != NULL && *file != '\0')
 		{
 			opt2 = basename(file);
-			where = Alloc(len);
+			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%s", opt2, func);
 			
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
@@ -1832,7 +1832,7 @@ DbgGDBMISetWatch(int type, char *expr)
 	
 	id = bpt->number;
 	
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void (*)())MIBreakpointFree);
 	MICommandFree(cmd);
 	
 	// Now send the MIBreakInfo command
@@ -2050,7 +2050,7 @@ DbgGDBMIList(char *str)
 	MICommand *		cmd;
 	MIList *		lines;
 	CLILineInfo *	line;
-	dbglist_t *		this;
+	dbglist_t *		dbg_list;
 	dbglist_t *		list_ptr = NULL;
 	dbglist_t *		list = NULL;
 
@@ -2090,23 +2090,23 @@ DbgGDBMIList(char *str)
 	// Convert the MI list of CLILineInfo into a dbglist_t
 	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; ) 
 	{
-		this = (dbglist_t *)Alloc(sizeof(dbglist_t));
-		this->list_lno = line->line_no;
-		this->list_line = strdup(line->line);
-		this->list_next = (dbglist_t *)NULL;
+		dbg_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
+		dbg_list->list_lno = line->line_no;
+		dbg_list->list_line = strdup(line->line);
+		dbg_list->list_next = (dbglist_t *)NULL;
 
 		if (list == NULL)
 		{
-			list = this;
-			list_ptr = this;
+			list = dbg_list;
+			list_ptr = dbg_list;
 		} else
 		{
-			list_ptr->list_next = this;
-			list_ptr = this;
+			list_ptr->list_next = dbg_list;
+			list_ptr = dbg_list;
 		}
 	}
 	
-	MIListFree(lines, CLILineInfoFree);
+	MIListFree(lines, (void (*)())CLILineInfoFree);
 	MICommandFree(cmd);
 	
 	// do not open source files
@@ -2136,7 +2136,7 @@ DbgGDBMIGetSources(void)
 	MICommand *		cmd;
 	MIList *		sources;
 	MISources *		source;
-	dbgsources_t *	this;
+	dbgsources_t *	dbg_sources;
 	dbgsources_t *	sources_ptr = NULL;
 	dbgsources_t *	head = NULL;
 
@@ -2158,30 +2158,30 @@ DbgGDBMIGetSources(void)
 		if (source->fullname == NULL)
 			continue;
 	
-		this = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
+		dbg_sources = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
 		
 		// Ensure that this source file actually exists
-		this->sources_file = realpath(source->fullname, NULL);
-		if (this->sources_file == NULL)
+		dbg_sources->sources_file = realpath(source->fullname, NULL);
+		if (dbg_sources->sources_file == NULL)
 		{
-			Free(this);
+			Free(dbg_sources);
 			continue;
 		}
 		
-		this->sources_next = (dbgsources_t *)NULL;
+		dbg_sources->sources_next = (dbgsources_t *)NULL;
 
 		if (head == NULL)
 		{
-			head = this;
-			sources_ptr = this;
+			head = dbg_sources;
+			sources_ptr = dbg_sources;
 		} else
 		{
-			sources_ptr->sources_next = this;
-			sources_ptr = this;
+			sources_ptr->sources_next = dbg_sources;
+			sources_ptr = dbg_sources;
 		}
 	}
 	
-	MIListFree(sources, MISourcesFree);
+	MIListFree(sources, (void (*)())MISourcesFree);
 	MICommandFree(cmd);
 
 	e = NewEvent(DBGEV_SOURCES);
@@ -2221,7 +2221,7 @@ DbgGDBMIGo(void)
 
 	MICommandFree(cmd);
 
-	AsyncCheck(WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -2259,7 +2259,7 @@ DbgGDBMIFinishFunc(void)
 
 	MICommandFree(cmd);
 
-	AsyncCheck(WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -2320,7 +2320,7 @@ DbgGDBMIStep(int count, int in)
 
 	MICommandFree(cmd);
 
-	AsyncCheck(WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
 	
@@ -2416,7 +2416,7 @@ DbgGDBMIMoveFrame(int count, int up)
 	cur_level = mi_frame->level;
 	
 	// free the MIFrame list
-	MIListFree(mi_frame_list, MIFrameFree);
+	MIListFree(mi_frame_list, (void(*)())MIFrameFree);
 	MICommandFree(cmd);
 	
 	// now we need to get the depth of the stack
@@ -2539,7 +2539,7 @@ DbgGDBMIMoveFrame(int count, int up)
 	result->frame_loc.loc_line = mi_frame->line;
 	
 	// free the MIFrame list
-	MIListFree(mi_frame_list, MIFrameFree);
+	MIListFree(mi_frame_list, (void(*)())MIFrameFree);
 	
 	// create the event with the frame information
 	e = NewEvent(DBGEV_FRAME);
@@ -2694,7 +2694,7 @@ DbgGDBMIShowFrame(int count)
 	e->ev_frame = result;
 	
 	// free the MIFrame list
-	MIListFree(frames, MIFrameFree);
+	MIListFree(frames, (void(*)())MIFrameFree);
 
 	return e;
 }
@@ -2777,7 +2777,7 @@ DbgGDBMIGetFrame(void)
 	result->frame_loc.loc_line = mi_frame->line;
 	
 	// free the MIFrame list
-	MIListFree(mi_frame_list, MIFrameFree);
+	MIListFree(mi_frame_list, (void (*)())MIFrameFree);
 	MICommandFree(cmd);
 	
 	// create the event with the frame information
@@ -2832,7 +2832,7 @@ DbgGDBMISetVar(char *var, AIF *a)
 	
 	// create the assignment string
 	len = strlen(var) + strlen(data) + 2;
-	expr = Alloc(len);
+	expr = (char*)Alloc(len);
 	snprintf(expr, len, "%s=%s", var, data);
 	
 	DVPRINT("DbgSetVar: expr is %s\n", expr);
@@ -2983,7 +2983,7 @@ DbgGDBMIGetVars(char *file)
 	e->ev_vars = result;
 	
 	// free the MIArg list
-	MIListFree(vars, MIArgFree);
+	MIListFree(vars, (void (*)())MIArgFree);
 	
 	return e;
 }
@@ -3056,7 +3056,7 @@ DbgGDBMIGetScope(char *location)
 	}
 	
 	// free the name list
-	MIListFree(vars, Free);
+	MIListFree(vars, (void(*)())Free);
 	
 	// create the event with the var information
 	e = NewEvent(DBGEV_VARS);
@@ -3106,7 +3106,7 @@ DbgGDBMIGetScope(char *location)
 	
 	bpfunc = strdup(bpt->func);
 	
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void(*)())MIBreakpointFree);
 	MICommandFree(cmd);
 	
 	// Delete the breakpoint, we have the information we need
@@ -3361,7 +3361,7 @@ DbgGDBMIInvoke(char *host, int cb, char *proto, char *prog, char *args, char **e
 
 	Status = DBGSTAT_STOPPED;
 
-	AsyncCheck(WaitEvent, (dbgevent_t *)NULL);
+	AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
 
 	return e;
 }
@@ -3667,7 +3667,7 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			restore = 0;
 			DirectCmdAsyncRestore = 1;
 			// FIXME: Use a custom WaitEvent
-			AsyncCheck(WaitEvent, (dbgevent_t *)NULL);
+			AsyncCheck((dbgevent_t* (*)())WaitEvent, (dbgevent_t *)NULL);
 			break;
 			
 		case MIResultRecordERROR:
@@ -3789,7 +3789,7 @@ InitDbg(char *prog, char *args)
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
 	breakpointNumberAtMain = bpt->number;
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void (*)())MIBreakpointFree);
 
 	if ( RunArgs != NULL ) {
 		cmd = MICommandNew("-exec-arguments", MIResultRecordDONE);
@@ -4364,7 +4364,7 @@ CheckBreak(MICommand *cmd)
 	e = NewEvent(DBGEV_BPSET);
 	e->ev_bp = DupBP(bp);
 
-	MIListFree(bpts, MIBreakpointFree);
+	MIListFree(bpts, (void(*)())MIBreakpointFree);
 
 	return e;
 }

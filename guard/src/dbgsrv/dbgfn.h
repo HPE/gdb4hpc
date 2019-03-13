@@ -25,7 +25,7 @@
 #include	"aif.h"
 #include	"dbgevent.h"
 
-#define ASYNC_FORCE	(dbgevent_t * (*)())-1
+#define ASYNC_FORCE	(dbgevent_t * (*)(dbgevent_t*))-1
 
 extern void		AsyncCheck(dbgevent_t * (*)(), dbgevent_t *);
 

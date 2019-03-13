@@ -113,7 +113,7 @@ free_mrnet_type(mrnet_type* mrnet)
 	mrnet->io_stream = NULL;
 	bitset_free(mrnet->bitset_full);
 	if(mrnet->mc_streams != NULL)
-		DestroyList(mrnet->mc_streams, free_multicast_type);
+		DestroyList(mrnet->mc_streams, (void (*)(void*))free_multicast_type);
 
 	Free(mrnet);
 }
@@ -951,7 +951,7 @@ mrn_fe_enable_failure_callback(mrnet_type *mrnet, dbginvoke_t *di)
 	if (mrnet == NULL)
 		return;
 
-	network_register_Failure_event_callback(mrnet->network, mrnet_fe_failure_callback, (void *)di);
+	network_register_Failure_event_callback(mrnet->network, (void (*)())mrnet_fe_failure_callback, (void *)di);
 }
 
 static void

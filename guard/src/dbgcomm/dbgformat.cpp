@@ -1360,7 +1360,7 @@ SocProtoToErr(char *s)
 	}
 	
 	// Get the errno
-	res.err_errno = getint(&s);
+	res.err_errno = (dbgerr)getint(&s);
 	
 	// Get the errstr
 	res.err_str = getstring(&s);
@@ -1559,8 +1559,8 @@ SocProtoToBP(char *s)
 	}
 	
 	res->bp_enabled = getint(&s);
-	res->bp_disp = getint(&s);
-	res->bp_type = getint(&s);
+	res->bp_disp = (dbgbp_disp)getint(&s);
+	res->bp_type = (dbgbp_type)getint(&s);
 	res->bp_loc.loc_file = getstring(&s);
 	res->bp_loc.loc_func = getstring(&s);
 	
@@ -1712,7 +1712,7 @@ SocProtoToStatus(char *s)
 	// allocate the res
 	res = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
 	
-	res->stat = getint(&s);
+	res->stat = (dbgstat)getint(&s);
 	
 	// get the location string and convert it to a loc pointer
 	lstr = getstring(&s);
@@ -1815,7 +1815,7 @@ SocProtoToEvent(char *s)
 	}
 	
 	// We expect the first entry to be an int which is the dbgev
-	ev = getint(&s);
+	ev = (dbgev)getint(&s);
 	
 	// Create the event
 	e = NewEvent(ev);
@@ -2357,7 +2357,7 @@ SocProtoToCommand(char *s)
 	}
 	
 	// We expect the first entry to be an int which is the dbgcmd
-	cmd = getint(&s);
+	cmd = (dbgcmd)getint(&s);
 	
 	// Create the command
 	c = NewCommand(cmd);

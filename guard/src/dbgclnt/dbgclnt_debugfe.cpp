@@ -57,33 +57,33 @@ dbgfrontend_sw *
 DbgInstantiateFE(char *debug_def)
 {
 	frontend_tab *		p;
-	dbgfrontend_sw *	this;
+	dbgfrontend_sw *	fe_obj;
 	
 	for ( p = DbgFrontendTab; p->frontend_name != NULL; ++p )
 	{
 		if ( strcmp(p->frontend_name, debug_def) == 0 )
 		{
 			// allocate a new object
-			this = (dbgfrontend_sw *)Alloc(sizeof(dbgfrontend_sw));
-			memset(this, 0, sizeof(dbgfrontend_sw));
+			fe_obj = (dbgfrontend_sw *)Alloc(sizeof(dbgfrontend_sw));
+			memset(fe_obj, 0, sizeof(dbgfrontend_sw));
 			
 			// Set the stuff we are responsible for
-			this->dbg_name = p->frontend_name;
-			this->dbg_status = DBGSTAT_INITIALISING;
-			this->dbg_list_locs = NewList();
+			fe_obj->dbg_name = p->frontend_name;
+			fe_obj->dbg_status = DBGSTAT_INITIALISING;
+			fe_obj->dbg_list_locs = NewList();
 			
 			// instantiate the object usings its create function, this function
 			// *MUST* be provided 
-			p->frontend_create->dbg_instantiate(this);
+			p->frontend_create->dbg_instantiate(fe_obj);
 			
 			// init the frontend if it has an init function defined
-			if (this->dbg_init != NULL)
+			if (fe_obj->dbg_init != NULL)
 			{
-				this->dbg_init(this);
+				fe_obj->dbg_init(fe_obj);
 			}
 		
 			// return the object
-			return this;
+			return fe_obj;
 		}
 	}
 	
@@ -106,7 +106,7 @@ DbgDestroyFE(dbgfrontend_sw *fe_obj)
 	}
 	
 	// Free the list state
-	DestroyList(fe_obj->dbg_list_locs, FreeSetLocation);
+	DestroyList(fe_obj->dbg_list_locs, (void (*)(void*))FreeSetLocation);
 	
 	// cleanup memory
 	Free(fe_obj);
@@ -172,7 +172,7 @@ ClearListState(dbgfrontend_sw *fe_obj)
 	fe_obj->dbg_list_isPending = 0;
 	
 	// free the list locations
-	while ((loc = RemoveFirst(fe_obj->dbg_list_locs)) != NULL)
+	while ((loc = (set_location*)RemoveFirst(fe_obj->dbg_list_locs)) != NULL)
 	{
 		FreeSetLocation(loc);
 	}

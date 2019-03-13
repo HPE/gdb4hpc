@@ -1976,7 +1976,7 @@ DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd)
 static bitset *
 DbgPROXYSendCmd(dbginvoke_t *di, bitset *target, char *request)
 {
-	proxy_type *		network = di->d_proto_net;
+	proxy_type *		network = (proxy_type*)di->d_proto_net;
 	bitset *			received;
 	proto_msg_set *		pmsg_set;
 	proto_message *		pmsg;
@@ -2048,7 +2048,7 @@ DbgPROXYSendCmd(dbginvoke_t *di, bitset *target, char *request)
 static proto_msg_set *
 DbgPROXYRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 {
-	proxy_type *		network = di->d_proto_net;
+	proxy_type *		network = (proxy_type*)di->d_proto_net;
 	int					full = 0;
 	proto_msg_set *		pmsg_set = NULL;
 	proto_message *		pmsg;
@@ -2135,7 +2135,7 @@ DbgPROXYRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 static int
 DbgPROXYExit(dbginvoke_t *di, int detach)
 {
-	proxy_type *		network = di->d_proto_net;
+	proxy_type *		network = (proxy_type*)di->d_proto_net;
 	proxy_msg_header	msg_head;
 	char *				msg;
 
@@ -2188,7 +2188,7 @@ DbgPROXYExit(dbginvoke_t *di, int detach)
 static void
 DbgPROXYDestroyClient(dbginvoke_t *di)
 {
-	proxy_type *	network = di->d_proto_net;
+	proxy_type *	network = (proxy_type*)di->d_proto_net;
 	
 	// Check to see if the network type has been destroyed
 	if (network != NULL)

@@ -85,7 +85,7 @@ InitProcSet(void)
 void
 FinishProcSet(void)
 {
-	DestroyList(ProcSets, _free_procset);
+	DestroyList(ProcSets, (void (*)(void*))_free_procset);
 }
 
 /*
@@ -707,7 +707,7 @@ static void
 _free_procset(dbgprocset_t *s)
 {
 	// FIXME: Destroy the val!!!
-	DestroyList(s->s_over_set_list, FreeOverlaySet); 
+	DestroyList(s->s_over_set_list, (void (*)(void*))FreeOverlaySet); 
 
 	Free(s->s_name);
 	Free(s);
@@ -847,7 +847,7 @@ SetOverlaySetForProcSet(dbgprocset_t *s)
 dbg_over_set_t*
 GetNextOverlaySetForProcSet(dbgprocset_t *s)
 {
-	dbg_over_set_t* set = GetListElement(s->s_over_set_list);
+	dbg_over_set_t* set = (dbg_over_set_t*)GetListElement(s->s_over_set_list);
 	return set;
 }
 

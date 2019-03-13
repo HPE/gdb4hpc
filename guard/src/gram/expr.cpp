@@ -239,7 +239,7 @@ RemoveTopElt(void)
 	
 	if (EmptyList(_elt_list))
 	{
-		DestroyList(_elt_list, (void (*)())NULL);
+		DestroyList(_elt_list, (void (*)(void*))NULL);
 		_elt_list = (list_t *)NULL;
 	}
 }
@@ -478,7 +478,7 @@ EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set)
 
 		if ( (v = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 		{
-			DestroyList(l, DestroyVal);
+			DestroyList(l, (void (*)(void*))DestroyVal);
 			return -1;
 		}
 
@@ -495,7 +495,7 @@ EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set)
 	if ( (v = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL )
 	{
 		DPRINT("EvalExprList: Failed on final element\n");
-		DestroyList(l, DestroyVal);
+		DestroyList(l, (void (*)(void*))DestroyVal);
 		return -1;
 	}
 
@@ -739,13 +739,13 @@ evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set, func_t *f)
 		if ( ep->e_op != EXPR_LIST )
 		{
 			SetError("Internal error: expected EXPR_LIST");
-			DestroyList(aarg, DestroyArg);
+			DestroyList(aarg, (void (*)(void*))DestroyArg);
 			return (val_t *)NULL;
 		}
 
 		if ( (val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL )
 		{
-			DestroyList(aarg, DestroyArg);
+			DestroyList(aarg, (void (*)(void*))DestroyArg);
 			return (val_t *)NULL;
 		}
 
@@ -762,11 +762,11 @@ evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set, func_t *f)
 	{
 		if ( fp->f_builtin(aarg, &val) < 0 )
 		{
-			DestroyList(aarg, DestroyArg);
+			DestroyList(aarg, (void (*)(void*))DestroyArg);
 			return (val_t *)NULL;
 		}
 
-		DestroyList(aarg, DestroyArg);
+		DestroyList(aarg, (void (*)(void*))DestroyArg);
 
 		return val;
 	}
@@ -785,7 +785,7 @@ evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set, func_t *f)
 	if ( (val = evaluate_expr_imm(fp->f_def, rec_set, fp)) == (val_t *)NULL )
 	{
 		fp->f_actual = sarg;
-		DestroyList(aarg, DestroyArg);
+		DestroyList(aarg, (void (*)(void*))DestroyArg);
 		return (val_t *)NULL;
 	}
 
@@ -793,7 +793,7 @@ evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set, func_t *f)
 	** Restore args.
 	*/
 	fp->f_actual = sarg;
-	DestroyList(aarg, DestroyArg);
+	DestroyList(aarg, (void (*)(void*))DestroyArg);
 
 	return val;
 }
@@ -3691,7 +3691,7 @@ EndExprList(void)
 	int	n;
 	int *	cnt;
 
-	if ( (cnt = RemoveFirst(_expr_list)) == (int *)NULL )
+	if ( (cnt = (int*)RemoveFirst(_expr_list)) == (int *)NULL )
 		return -1;
 
 	n = *cnt;
@@ -3699,7 +3699,7 @@ EndExprList(void)
 
 	if ( EmptyList(_expr_list) )
 	{
-		DestroyList(_expr_list, (void (*)())NULL);
+		DestroyList(_expr_list, (void (*)(void*))NULL);
 		_expr_list = (list_t *)NULL;
 	}
 	

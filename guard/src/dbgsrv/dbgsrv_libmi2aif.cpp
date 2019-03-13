@@ -114,7 +114,7 @@ static AIF *				GetPointerAIF(MISession *, MIVar *);
 static char * 				GetArrayDataString(MISession *, MIVar *);
 //static arrayDimension_t *   oneDArray(int, int, int);
 static vectorLikeDimension_t * 	GetVectorLikeDimensionShape(char *);
-static void					fixTypeString(char *, char *, char *);
+static void					fixTypeString(char *, const char *, char *);
 
 const char * _aif_ignored_type_specifiers[] = {
 	"const",
@@ -451,7 +451,7 @@ GetMIWhatisValue(MISession *session, char *expr, MIVar *var)
 }
 
 static void
-fixTypeString(char *p, char *s, char *orig)
+fixTypeString(char *p, const char *s, char *orig)
 {
 	int	extra_char = 0;	// used for extra characters to account for
 
@@ -587,7 +587,7 @@ static char* sanitize_type_string(char* input){
 		}
 	}
 
-	char** current = _aif_ignored_type_specifiers;
+	const char** current = _aif_ignored_type_specifiers;
 
 	while(*current != NULL){
 		while ((p = strstr(clean_str, *current)) != NULL){
@@ -2260,7 +2260,7 @@ vectorLikeDimension_t * GetVectorLikeDimensionShape(char * buf){
 				break;
 			//Make the current coordinates (atCoords) have another dimension, starting at 0
 			case '{':
-				atCoords = realloc(atCoords, (atCoordsSize+1)*sizeof(int));
+				atCoords = (int*)realloc(atCoords, (atCoordsSize+1)*sizeof(int));
 				atCoords[atCoordsSize] = 0;
 				atCoordsSize++;
 				depth++;
@@ -2275,7 +2275,7 @@ vectorLikeDimension_t * GetVectorLikeDimensionShape(char * buf){
 						result->sizes[depth] = atCoords[atCoordsSize-1]+1;
 					}
 				}
-				atCoords = realloc(atCoords, (atCoordsSize-1)*sizeof(int));
+				atCoords = (int*)realloc(atCoords, (atCoordsSize-1)*sizeof(int));
 				atCoordsSize--;		
 				--depth;		
 				break;
@@ -2587,7 +2587,7 @@ GetFunctionInfo(MISession *session, char *type_str)
 	DVPRINT("GetFunctionInfo: %s\n", type_str);
 	
 	// malloc the return type
-	if ((result = malloc(sizeof(func_info_t))) == (void *)0)
+	if ((result = (func_info_t*)malloc(sizeof(func_info_t))) == (void *)0)
 	{
 		DVPRINT("GetFunctionInfo: Malloc Failed.\n");
 		return NULL;
@@ -2682,7 +2682,7 @@ GetFunctionArguments(MISession *session, char *type, char **argv[])
 	}
 	
 	// allocate the argv buffer
-	if ((*argv = malloc(sizeof(char *) * num_args)) == (void *)0)
+	if ((*argv = (char**)malloc(sizeof(char *) * num_args)) == (void *)0)
 	{
 		DVPRINT("GetFunctionArguments: malloc error\n");
 		free(res);
@@ -3003,6 +3003,9 @@ CreateSimpleAIF(int id,
 	char *s1, *s2;
 	char *t1, *t2;
 	char *name;
+	long double real, img;
+	long long int addr_loc;
+	void *addr;
 
 	CSAPRINT("CreateSimpleAIF: %s\n", res);
 
@@ -3147,8 +3150,8 @@ CreateSimpleAIF(int id,
 			pch++;
 			CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
 			CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
-			long double real = strtold(res, NULL);
-			long double img = strtold(pch, NULL);
+			real = strtold(res, NULL);
+			img = strtold(pch, NULL);
 			return COMPLEX16ToAIF(real, img);
 #endif
 		case T_LOGICAL_1:
@@ -3212,9 +3215,9 @@ CreateSimpleAIF(int id,
 				return VoidToAIF(0, 0);
 			}
 			CSAPRINT("1\n");
-			long long int addr_loc = strtoll(res, NULL, 0);
+			addr_loc = strtoll(res, NULL, 0);
 			CSAPRINT("2\n");
-			void *addr = (void *)addr_loc;
+			addr = (void *)addr_loc;
 			CSAPRINT("addr: $%p$\n", addr);
 			CSAPRINT("type_len: $%d$\n", type_len);
 			CSAPRINT("type_str: $%p$\n", type_str);
@@ -3503,7 +3506,7 @@ GetStructInfo(MISession *session, char *type_str)
 	MICommandFree(cmd);
 	
 	// malloc the return type
-	if ((result = malloc(sizeof(struct_info_t))) == (void *)0)
+	if ((result = (struct_info_t*)malloc(sizeof(struct_info_t))) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
@@ -3521,25 +3524,25 @@ GetStructInfo(MISession *session, char *type_str)
 	result->name = strdup(GetTypeName(type_str));
 	
 	// malloc each of the arrays inside the struct_info_t
-	if ((result->id = malloc(sizeof(int) * result->numFields)) == (void *)0)
+	if ((result->id = (int*)malloc(sizeof(int) * result->numFields)) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
 	}
 	
-	if ((result->type_str = malloc(sizeof(char *) * result->numFields)) == (void *)0)
+	if ((result->type_str = (char**)malloc(sizeof(char *) * result->numFields)) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
 	}
 	
-	if ((result->type_len = malloc(sizeof(int) * result->numFields)) == (void *)0)
+	if ((result->type_len = (int*)malloc(sizeof(int) * result->numFields)) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
 	}
 	
-	if ((result->type_func = malloc(sizeof(func_info_t *) * result->numFields)) == (void *)0)
+	if ((result->type_func = (func_info_t**)malloc(sizeof(func_info_t *) * result->numFields)) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
@@ -3547,7 +3550,7 @@ GetStructInfo(MISession *session, char *type_str)
 	// memset this to 0
 	memset(result->type_func, 0, sizeof(func_info_t *) * result->numFields);
 	
-	if ((result->inner_struct = malloc(sizeof(struct_info_t *) * result->numFields)) == (void *)0)
+	if ((result->inner_struct = (struct_info_t**)malloc(sizeof(struct_info_t *) * result->numFields)) == (void *)0)
 	{
 		DVPRINT("GetStructInfo: Malloc Failed.\n");
 		return NULL;
@@ -3673,7 +3676,7 @@ GetStructInfo(MISession *session, char *type_str)
 	
 	// Remember to free the MIList and tmp_field.
 	Free(tmp_field);
-	MIListFree(field_list, Free);
+	MIListFree(field_list, (void (*)())Free);
 	
 	return result;
 }
@@ -3954,7 +3957,7 @@ static AIF * parseMIVectorLikeContToAIF(
 				break;
 			//Carve out only the relevant part of the string into currElemShort and exit
 			case '}':
-				currElemShort=realloc(currElemShort, currElemLength+1);
+				currElemShort=(char*)realloc(currElemShort, currElemLength+1);
 				strncpy(currElemShort,  currElem, currElemLength);
 				currElemShort[currElemLength] = '\0';
 				DVPRINT("parseMIVectorLikeContToAIF: Got the representative element (%s)\n", currElemShort);
@@ -3966,7 +3969,7 @@ static AIF * parseMIVectorLikeContToAIF(
 				break;
 			//Carve out only the relevant part of the string into currElemShort and exit
 			case ',':
-				currElemShort=realloc(currElemShort, currElemLength+1);
+				currElemShort=(char*)realloc(currElemShort, currElemLength+1);
 				strncpy(currElemShort,  currElem, currElemLength);
 				currElemShort[currElemLength] = '\0';
 				DVPRINT("parseMIVectorLikeContToAIF: Got the representative element (%s)\n", currElemShort);
@@ -4016,7 +4019,7 @@ static AIF * parseMIVectorLikeContToAIF(
 			case '{':	
 				DVPRINT("parseMIVectorLikeContToAIF: Open bracket\n");	
 				//Append a 0 to atCoords
-				atCoords = realloc(atCoords, (atCoordsSize+1)*sizeof(int));
+				atCoords = (int*)realloc(atCoords, (atCoordsSize+1)*sizeof(int));
 				atCoords[atCoordsSize] = 0;
 				atCoordsSize++;
 
@@ -4030,7 +4033,7 @@ static AIF * parseMIVectorLikeContToAIF(
 				DVPRINT("parseMIVectorLikeContToAIF: Closing bracket.\n");
 				if(depth==maxDepth){
 					//currElemShort is the relevant base type element string
-					currElemShort=realloc(currElemShort, currElemLength+1);
+					currElemShort=(char*)realloc(currElemShort, currElemLength+1);
 					strncpy(currElemShort,  currElem, currElemLength);
 					currElemShort[currElemLength] = '\0';
 
@@ -4047,7 +4050,7 @@ static AIF * parseMIVectorLikeContToAIF(
 					}
 				}
 				if(atCoordsSize >= 1)
-					atCoords = realloc(atCoords, (atCoordsSize-1)*sizeof(int));
+					atCoords = (int*)realloc(atCoords, (atCoordsSize-1)*sizeof(int));
 				atCoordsSize--;
 
 				currElem = buf2+1;
@@ -4060,7 +4063,7 @@ static AIF * parseMIVectorLikeContToAIF(
 				if(depth==maxDepth)
 				{
 					//currElemShort is the relevant base type element string
-					currElemShort=realloc(currElemShort, currElemLength+1);
+					currElemShort=(char*)realloc(currElemShort, currElemLength+1);
 					strncpy(currElemShort,  currElem, currElemLength);
 					currElemShort[currElemLength] = '\0';
 
@@ -4318,7 +4321,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		// we need to allocate space for the abuild array
 		// this will hold a list of each of our array dimensions which
 		// are used while building the aif representation of the array
-		if ((abuild = malloc(sizeof(AIF *) * shape->dim)) == (void *)0)
+		if ((abuild = (AIF**)malloc(sizeof(AIF *) * shape->dim)) == (void *)0)
 		{
 			DVPRINT("GetArrayAIF: malloc error\n");
 			free(buf);
@@ -4331,7 +4334,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		// we need to allocate space for the mcnt array
 		// this will hold a list of ints which is used to keep track of
 		// the next open member index for each dimension
-		if ((mcnt = malloc(sizeof(int) * shape->dim)) == (void *)0)
+		if ((mcnt = (int*)malloc(sizeof(int) * shape->dim)) == (void *)0)
 		{
 			DVPRINT("GetArrayAIF: malloc error\n");
 			free(abuild);

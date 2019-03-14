@@ -749,7 +749,7 @@ NewNodeSetInfo(void* node, void* bs)
 	dbgnodesetinfo_t* info = (dbgnodesetinfo_t*)Alloc(sizeof(dbgnodesetinfo_t)); 
 	info->t_node = node;
 	info->t_bitset = bitset_dup((bitset*)bs);
-	DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bs, bitset_to_set(bs));
+	DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bs, bitset_to_set((bitset*)bs));
 	
 	return info;
 }
@@ -799,10 +799,10 @@ GetNodesInfoByTree(void* tree)
 }
 
 void
-AddNodeInfoByTree(void* tree, void* node, void* bitset)
+AddNodeInfoByTree(void* tree, void* node, void* bs)
 {
 	dbgtreenodesinfo_t* info = NULL;
-	dbgnodesetinfo_t* 	nodes_set = NewNodeSetInfo(node, bitset);
+	dbgnodesetinfo_t* 	nodes_set = NewNodeSetInfo(node, bs);
 
 	if(TreeNodesList == (list_t*)NULL)
 	{
@@ -817,7 +817,7 @@ AddNodeInfoByTree(void* tree, void* node, void* bitset)
 	}
 
 	AddToList(info->t_node_list, nodes_set);
-	DPRINT("INFO[AddNodeInfoByTree]: node[%d], bitset[%s]\n", ((node_t*)node)->n_id, bitset_to_set(bitset));
+	DPRINT("INFO[AddNodeInfoByTree]: node[%d], bitset[%s]\n", ((node_t*)node)->n_id, bitset_to_set((bitset*)bs));
 }
 
 void

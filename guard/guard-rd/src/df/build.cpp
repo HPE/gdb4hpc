@@ -1818,7 +1818,7 @@ BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set, list_t *vlist)
 		GetGraphVar(GRAPH_HASH_LOWER, (int *)&precision_lower);
 		GetGraphVar(GRAPH_HASH_UPPER, (int *)&precision_upper);
 		DPRINT("BuildAssert: hashinfo is %s\n", extra.hashinfo);
-		DPRINT("BuildAssert: Reduce function is %s\n", getExprOpStr(reducefunc));
+		DPRINT("BuildAssert: Reduce function is %s\n", getExprOpStr((expr_op)reducefunc));
 		DPRINT("BuildAssert: lower precision is %d\n", precision_lower);
 		DPRINT("BuildAssert: upper precision is %d\n", precision_upper);
 		// now pass the hashinfo into the BlockMap node

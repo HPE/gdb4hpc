@@ -1,18 +1,13 @@
 /*********************************************************************************\
  * <MRNet_C.h>
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -21,6 +16,10 @@
 #define _GUARD_MRNET_H
 
 #include "mrnet_lightweight/Types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
 ** NOTE: Any change here should also be reflected in MRNet_type_wrapper.h.
@@ -67,5 +66,9 @@ struct MRNet_Node
 	Rank 	rank;
 };
 typedef struct MRNet_Node MRNet_Node_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_GUARD_MRNET_H*/

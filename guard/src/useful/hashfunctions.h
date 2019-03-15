@@ -1,18 +1,13 @@
 /*********************************************************************************\
  * hashfunctions.h
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -157,7 +152,15 @@ and these came close:
   c ^= b; c -= rot(b,24); \
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint32_t DJBHash(const char *, size_t, uint32_t);
 uint32_t BJHash(const char *, size_t, uint32_t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

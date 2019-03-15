@@ -3,7 +3,7 @@ GRAM	= @guard_srcdir@/src/gram
 MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
-AM_CFLAGS = -I$(USEFUL) -I$(GRAM)
+AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -12,12 +12,12 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for Socket proto
 if SOCK
-SOCK_COMM       = dbg_soc.c
+SOCK_COMM       = dbg_soc.cpp
 endif
 
 # Check for MRNet
 if MRN
-AM_CFLAGS       += -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
 endif
 
 ##############################
@@ -25,6 +25,6 @@ endif
 ##############################
 
 noinst_LIBRARIES = libdbg.a
-libdbg_a_SOURCES = dbgbp.c dbgcmd.c dbgevent.c dbgformat.c \
+libdbg_a_SOURCES = dbgbp.cpp dbgcmd.cpp dbgevent.cpp dbgformat.cpp \
 		   $(SOC_COMM)
 

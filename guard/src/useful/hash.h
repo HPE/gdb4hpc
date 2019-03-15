@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2001 by GuardSoft Pty. Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -11,17 +11,16 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 
 
 #ifndef _USEFUL_HASH_H
 #define _USEFUL_HASH_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct hentry
 {
@@ -49,5 +48,9 @@ extern void			HashDestroy(htable_t *, void (*)(char *,void *));
 extern hentry_t *	HashSearch(htable_t *, char *);
 extern hentry_t *	HashInsert(htable_t *, char *, void *);
 extern void			HashRemove(htable_t *, hentry_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_HASH_H */

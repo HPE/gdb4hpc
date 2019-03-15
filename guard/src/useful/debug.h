@@ -3,18 +3,13 @@
  *
  *Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -25,6 +20,10 @@
 #define _USEFUL_DEBUG_H
 
 #include	<stdarg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern void	PrintDebugTime(char *, ...);
 extern void	PrintDebugTimeLog(char *, ...);
@@ -48,5 +47,9 @@ extern guard_timer_t*	SetTimerStop(char* name);
 extern void				SetTimerStopAndLog(char* name);
 extern void				SetLogInfo(char* fmt, ...);
 #endif /* PERFLOG */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_DEBUG_H */

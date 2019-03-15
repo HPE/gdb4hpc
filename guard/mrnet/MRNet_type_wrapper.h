@@ -23,6 +23,10 @@
 
 #include "mrnet/Types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 ** NOTE: Any change here should also be reflected in MRNet_C.h.
 ** 
@@ -74,5 +78,9 @@ typedef struct MRNet_Node MRNet_Node_t;
 //        on the face of the planet. This is a major cleanup task that should
 //        be done. All error printing in this library is disabled for now.
 //extern FILE **			err_stream_ptr;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MRNET_TYPE_WRAPPER_H */

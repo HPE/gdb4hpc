@@ -3,18 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * © 2011-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -25,9 +20,9 @@
 #include	"aif.h"
 #include	"dbgevent.h"
 
-#define ASYNC_FORCE	(dbgevent_t * (*)())-1
+#define ASYNC_FORCE	(dbgevent_t * (*)(dbgevent_t*))-1
 
-extern void		AsyncCheck(dbgevent_t * (*)(), dbgevent_t *);
+extern void		AsyncCheck(dbgevent_t * (*)(dbgevent_t*), dbgevent_t *);
 
 struct dbgbackend_sw
 {

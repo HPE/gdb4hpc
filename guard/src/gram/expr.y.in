@@ -39,9 +39,9 @@
 }
 
 %{
-int	expr_error(char *);
+int	expr_error(const char *);
 #ifdef notdef
-int	expr_verror(char *, ...);
+int	expr_verror(const char *, ...);
 #endif /* notdef */
 int	expr_lex(YYSTYPE *);
 #ifdef DEBUG
@@ -411,15 +411,15 @@ type1		:	basetype
 %%
 
 int
-expr_error(char *fmt)
+expr_error(const char *fmt)
 {
-	SetError(fmt);
+	SetError((char*)fmt);
 	return 0;
 }
 
 #ifdef notdef
 int
-expr_verror(char *fmt, ...)
+expr_verror(const char *fmt, ...)
 {
 	va_list	args;
 

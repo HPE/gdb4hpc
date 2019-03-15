@@ -1,18 +1,13 @@
 /*********************************************************************************\
  * dbg_mrn_be.h
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -31,7 +26,7 @@ extern void			mrn_be_set_size(int size);
 extern void			mrn_be_set_localrank(int rank);
 extern int			mrn_be_get_localrank();
 
-extern void			mrn_be_set_callback(void (*callback)());
+extern void			mrn_be_set_callback(void (*callback)(char*));
 extern void			mrn_be_handle_msg();
 
 extern void			mrn_be_set_cmd_stream(MRNet_Stream *stream);

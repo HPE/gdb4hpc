@@ -1,18 +1,13 @@
 /******************************************************************************\
  * vector.h - Header file for the vector interface.
  *
- * © 2014 Cray Inc.  All Rights Reserved.
+ * © 2014-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  ******************************************************************************/
 
@@ -23,6 +18,10 @@
  
 #ifndef _VECTOR_H
 #define _VECTOR_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // default size of the dimdef list
 // note that the size of this is automatically increased when calling
@@ -115,5 +114,9 @@ void 					printVectorLikeDimension(vectorLikeDimension_t * shape);
 	@param shape: the vectorLikeDimension_t object to connect up
 **/
 void 					connectAIFArrays(vectorLikeDimension_t * shape);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _VECTOR_H */

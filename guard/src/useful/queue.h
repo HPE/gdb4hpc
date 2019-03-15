@@ -3,18 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -23,6 +18,10 @@
 
 #ifndef _USEFUL_QUEUE_H
 #define _USEFUL_QUEUE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct qel_t
 {
@@ -47,5 +46,9 @@ void *		HeadOfQueue(tkqueue_t *);
 void		AddToQueue(tkqueue_t *, void *);
 int		EmptyQueue(tkqueue_t *);
 int		FullQueue(tkqueue_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_USEFUL_QUEUE_H */

@@ -13,6 +13,10 @@
 #ifndef _AIF_H
 #define _AIF_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //#include <gsl/gsl_histogram.h>
 
 #ifdef WINNT
@@ -495,6 +499,10 @@ extern int		AIFFtnIntegerToStr(char **, int, AIF *);
 extern int		AIFFtnRealToStr(char **, int, AIF *);
 extern int		AIFFtnComplexToStr(char **, int, AIF *);
 extern int		AIFFtnLogicalToStr(char **, int, AIF *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_AIF_H */
 

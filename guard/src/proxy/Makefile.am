@@ -5,7 +5,7 @@ DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
-AM_CFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -15,7 +15,7 @@ AM_LIBTOOLFLAGS = --quiet
 # Check for Cray libraries
 if CRAY
 CRAYTOOL_LIBS	= $(CRAY_CTI_FE_LIBS)
-AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
+AM_CXXFLAGS += $(CRAY_CTI_FE_CFLAGS)
 endif
 
 # Check for relative debugging libraries
@@ -25,7 +25,7 @@ endif
 
 # Check for MRNet libraries
 if MRN
-AM_CFLAGS       += -I$(MRNET) -I$(SDM)
+AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
 MRN_LIBS        = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 endif
 
@@ -41,7 +41,7 @@ SSH2_LIBS       = @ssh2_libs@
 ######################
 
 libexec_PROGRAMS	= guard_proxy
-guard_proxy_SOURCES	= proxy_daemon.c dbg_client_proxy.c
+guard_proxy_SOURCES	= proxy_daemon.cpp dbg_client_proxy.cpp
 guard_proxy_LDFLAGS   	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
 guard_proxy_LDADD	= $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
 			  $(CRAYTOOL_LIBS) $(MRN_LIBS) $(SSH2_LIBS) -lpthread -laif -lm -lstdc++

@@ -5,7 +5,7 @@ DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
 
-AM_CFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
+AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
 
 ######################
@@ -14,13 +14,13 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for MRNet
 if MRN
-AM_CFLAGS	+= -I$(MRNET) -I$(SDM)
-MRN_PROTO	= dbgclnt_mrn.c dbg_mrn_fe.c mrn_topgen.c
+AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
+MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
 endif
 
 # Check for Socket
 if SOCK
-SOCK_PROTO	= dbgclnt_soc.c
+SOCK_PROTO	= dbgclnt_soc.cpp
 endif
 
 ############################
@@ -29,11 +29,11 @@ endif
 
 # Check for gdb-mi
 if GDBMI_BACKEND
-FRONTEND	= dbgclnt_gdbmi.c
+FRONTEND	= dbgclnt_gdbmi.cpp
 endif
 
 if CRAY
-AM_CFLAGS += $(CRAY_CTI_FE_CFLAGS)
+AM_CXXFLAGS += $(CRAY_CTI_FE_CFLAGS)
 endif
 
 ##############################
@@ -41,18 +41,18 @@ endif
 ##############################
 
 noinst_LIBRARIES	= libdbgclnt.a libdbgproto.a
-libdbgclnt_a_SOURCES	= dbg_client.c dbgclnt_debugfe.c \
+libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp \
 						  $(FRONTEND)
-libdbgproto_a_SOURCES	= dbgclnt_proto.c proto_message.c \
-						  dbgclnt_proxy.c dbgproxy.c dbgoutp.c \
+libdbgproto_a_SOURCES	= dbgclnt_proto.cpp proto_message.cpp \
+						  dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
 						  $(MRN_PROTO) $(SOCK_PROTO)
 
 if CRAY
 # Cray ALPS does not need guard_starter
 else
-AM_CFLAGS += -DBINDIR=\"$(bindir)\"
+AM_CXXFLAGS += -DBINDIR=\"$(bindir)\"
 bin_PROGRAMS 	= guard_starter
-guard_starter_SOURCES	= guard_starter.c
+guard_starter_SOURCES	= guard_starter.cpp
 guard_starter_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a -lpthread
 guard_starter_LDFLAGS	= $(LDFLAGS)
 endif

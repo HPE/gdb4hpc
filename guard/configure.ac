@@ -1,5 +1,5 @@
 #
-# © 2010-2014 Cray Inc. All Rights Reserved
+# © 2010-2019 Cray Inc. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
@@ -7,11 +7,6 @@
 # Except as permitted by contract or express written permission of Cray Inc.,
 # no part of this work or its content may be used, reproduced or disclosed
 # in any form.
-#
-# $HeadURL$
-# $Date$
-# $Rev$
-# $Author$
 #
 
 AC_PREREQ([2.63])
@@ -309,13 +304,15 @@ fi
 ###########################
 ### Check for programs. ###
 ###########################
-AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_YACC
 AC_PROG_SED
+
+AC_LANG([C++])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
+AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
 
 dnl Check for GDB
 AC_PATH_PROG([GDB_GUARD], [gdb-guard], [no])

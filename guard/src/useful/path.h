@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * path.h - Header file for the path interface.
  *
- * © 2011-2014 Cray Inc.  All Rights Reserved.
+ * © 2011-2019 Cray Inc.  All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -9,15 +9,14 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifndef _PATH_H
 #define _PATH_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define EXTRA_LIBRARY_PATH  "/lib64:/usr/lib64:/lib:/usr/lib"
 
@@ -28,5 +27,9 @@ int		adjustLibPath(const char *);
 int		adjustExecPath(const char *);
 char *	getinstallbase(void);
 char *	getexepath(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _PATH_H */

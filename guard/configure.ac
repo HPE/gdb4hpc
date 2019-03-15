@@ -1,5 +1,5 @@
 #
-# © 2010-2014 Cray Inc. All Rights Reserved
+# © 2010-2019 Cray Inc. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
@@ -7,11 +7,6 @@
 # Except as permitted by contract or express written permission of Cray Inc.,
 # no part of this work or its content may be used, reproduced or disclosed
 # in any form.
-#
-# $HeadURL$
-# $Date$
-# $Rev$
-# $Author$
 #
 
 AC_PREREQ([2.63])

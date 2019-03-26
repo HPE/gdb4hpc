@@ -1199,6 +1199,7 @@ if [[ $opt_libarchive == y ]]; then
 	# run libarchive configure
 	echo "Configuring libarchive..."
 	set -x
+	autoreconf -ifv
 	./configure --prefix=$stage_dir $libarchive_args CFLAGS="$opt_flag"
 	set +x
 	do_build "libarchive"

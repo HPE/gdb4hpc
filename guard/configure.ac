@@ -631,13 +631,6 @@ fi
 
 dnl Conditional check for mrnet libs
 if test "x$mrnet_mode" = xyes; then
-	dnl Check for fl
-	AC_CHECK_LIB([fl], 
-		     [yywrap], 
-		     [], 
-		     [AC_MSG_ERROR([libfl not found.])]
-		     )
-
 	dnl Check for stdc++
 	AC_CHECK_LIB([stdc++],
 		     [main],

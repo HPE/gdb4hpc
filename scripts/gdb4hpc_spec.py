@@ -5,7 +5,7 @@ content='''%define namespace [namespace]
 %define build_version [version]
 %define scripts_d [script_dir]
 %define arch [ARCH]
-#%define man_source /cray/css/compiler/comp_rel/pubs/manpages/gdb4hpc/%{two_dig_version}/xt_gdb4hpc_%{two_dig_nodot_version}.cpio
+%define os_ver [sles_sub]
 
 Summary: Performance Application Programming Interface
 Name: %{namespace}-%{build_version} 
@@ -17,7 +17,7 @@ URL: [url]
 Source: [tarball]
 BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
-Requires: cray-cti >= 1.0.5
+Requires: cray-cti >= 1.0.7
 Vendor: Cray Inc.
 Requires: set_default_2
 
@@ -26,7 +26,7 @@ Requires: set_default_2
 %define debug_package %{nil}
 
 %description
-LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers.
+GDB4HPC is a GDB-based parallel debugger used to debug applications compiled with CCE, PGI, GNU and Intel Fortran, C and C++ compilers.
 
 # version
 %define major_version %(echo %{build_version} | awk -v n=1 'BEGIN { FS = "." } ; { print $n }')
@@ -44,8 +44,8 @@ LGDB4HPC is a GDB-based parallel debugger used to debug applications compiled wi
 %prep
 %setup
 %build
-%define is_valid %(if [ "%{arch}" == "x86_64" ]; then echo "1"; else echo "0"; fi)
-
+%define is_x86_64 %(if [ "%{arch}" == "x86_64" ]; then echo "1"; else echo "0"; fi)
+%define is_sles15 %(if [ "%{os_ver}" == ".sles15" ]; then echo "1"; else echo "0"; fi)
 
 %install
 
@@ -87,16 +87,19 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_version_prefix}/libexec
 %{_version_prefix}/libexec/dbgsrv
 %{_version_prefix}/libexec/dbgsrv_alps
-#%{_version_prefix}/libexec/dlaunch 
 %{_version_prefix}/libexec/gdb-guard
 %{_version_prefix}/libexec/mrnet_commnode 
 %{_version_prefix}/libexec/guard_proxy
 %{_version_prefix}/libexec/start_proxy.sh
 
-%if %is_valid
+%if %is_x86_64
+ %if %is_sles15
+  %{_version_prefix}/libexec/cuda91-gdb-guard
+ %else
   %{_version_prefix}/libexec/cuda75-gdb-guard
   %{_version_prefix}/libexec/cuda80-gdb-guard
   %{_version_prefix}/libexec/cuda91-gdb-guard
+ %endif
 %endif
 
 %{_version_prefix}/demos

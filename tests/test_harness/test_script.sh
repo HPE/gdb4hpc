@@ -908,10 +908,6 @@ fi
 }
 
 
-
-cd test_harness
-
-
 newline="      "
 node_type=""
 DIFF=0

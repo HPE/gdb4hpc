@@ -1,0 +1,202 @@
+#!/bin/bash
+#loop through all files in current directory and 
+#remove all executables
+
+excount=0
+othcount=0
+ind=0
+
+#read from given test suite
+#all the directories containing source files
+#and put into array
+
+tlist=$(<./$1)
+
+while IFS=$'\n' read -ra line
+do
+	if [[ $ind -gt 0 ]]
+	then
+		location=`echo $line | awk -F\| '{print $2}' | sed 's/[ \t]*$//'`
+		arlocation[$ind]="${location}"
+	fi
+	ind=$((ind+1))
+done<<<"$tlist"
+
+#determine unique elements in the array
+arlocation=($(printf "%s\n" "${arlocation[@]}" | sort -u))
+
+
+
+#for each directory make sure the only executable is
+#cleanup and sig_test
+for p in "${arlocation[@]}"; do
+
+	skip="false"
+
+	#get into that directory
+	nm=`echo $p | sed 's#\./##g'`
+
+	freq=`echo $nm | tr -dc '/' | wc -c`
+
+	cd $nm
+
+	#get a list of executable files	
+	exec=`find . -type f -executable`
+
+	#echo "Checking permissions . . ."
+	#echo `pwd`
+
+	#if there are executable files
+	while IFS=$'\n' read -ra ADDR; do
+
+            #for each executable file
+            for i in "${ADDR[@]}";do
+
+		    	tx=`echo $i | sed 's#\./##g'`	
+		    	
+		   		if [[ $tx != "cleanup" && $tx != "sig_test" ]]
+		   		then
+		   			chmod a-x $tx
+		    	fi
+	    	done
+	done <<<"$exec"
+
+
+	#if two // in path, make sure go back cd ../..
+	#else go back cd ..
+	if [[ $freq == 1 ]]
+	then
+		cd ../..
+	else
+		cd ..
+	fi
+	#echo
+	#echo
+done
+
+#for current directory make sure the only executable is
+#cleanup and sig_test
+
+exec=`find . -type f -executable`
+
+	#echo "Checking permissions . . ."
+	#echo `pwd`
+
+	#if there are executable files
+	while IFS=$'\n' read -ra ADDR; do
+
+            #for each executable file
+            for i in "${ADDR[@]}";do
+
+		    	tx=`echo $i | sed 's#\./##g'`	
+		    	
+		   		if [[ $tx != "cleanup" && $tx != "sig_test" ]]
+		   		then
+		   			chmod a-x $tx
+		    	fi
+	    	done
+	done <<<"$exec"
+
+
+echo
+
+#for each directory in the test suite/array
+for p in "${arlocation[@]}"; do
+
+	skip="false"
+
+	#get into that directory
+	nm=`echo $p | sed 's#\./##g'`
+
+	freq=`echo $nm | tr -dc '/' | wc -c`
+
+	cd $nm
+
+	#get a list of executable files	
+	#exec=`find . -type f -executable`
+
+	echo "Cleaning . . ."
+	echo `pwd`
+
+	#get list of all files
+	other=`find . -type f`
+	
+
+	#if there are files in the subdirectory
+	while IFS=$'\n' read -ra newADDR; do
+
+		#for each file in the subdirectory
+	    for x in "${newADDR[@]}"; do
+	
+			#delete it if its extension is as below
+			
+			if [[ $x == *.cub || $x == *.ptx  || $x == *.o*  || $x == *core*  || $x == *.rep*  || $x == *.out  || $x = *.x ]]
+			then	
+			   
+			    rx=`echo $x | sed 's#\./##g'`
+			    var=`rm $rx`
+			    if [ "$?" -eq "0" ]
+			    then
+					echo "$rx" deleted
+					othcount=$((othcount+1))
+			    else
+					echo An error occurred: "$x" was not deleted.
+			    fi
+		      fi
+	     done
+
+
+	done<<<"$other"
+
+	#if two // in path, make sure go back cd ../..
+	#else go back cd ..
+	if [[ $freq == 1 ]]
+	then
+		cd ../..
+	else
+		cd ..
+	fi
+	echo
+	echo
+done
+
+
+#now remove all none essential files in the current directory
+cFiles=`find . -type f`
+echo `pwd`
+
+#if there are files in the subdirectory
+while IFS=$'\n' read -ra curFILES; do
+
+    #for each file in the subdirectory
+    for p in "${curFILES[@]}"; do
+
+		#delete it if its extension is as below
+		if [[ $p == *.cub || $p == *.ptx  || $p == *.o*  || $p == *core*  || $p == *.log || $p == *.rep* ]]
+		then	
+			rx=""
+		    rx=`echo $p | sed 's#\./##g'`
+		    var=`rm $rx`
+		    if [ "$?" -eq "0" ]
+		    then
+				echo "$rx" deleted
+				othcount=$((othcount+1))
+		    else
+				echo An error occurred: "$p" was not deleted.
+		    fi
+	       fi
+    done
+
+
+done<<<"$cFiles"
+
+echo 
+echo
+echo $othcount " files deleted."
+echo
+echo "DONE"
+echo
+echo
+
+
+

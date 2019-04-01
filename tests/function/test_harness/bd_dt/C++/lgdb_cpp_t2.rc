@@ -1,0 +1,124 @@
+#
+# lgdb_cpp_t2.rc script is runs commands automatically in lgdb
+#               this script compares two executables files
+#				to determine if variable content is the same.
+#			    the output of this file should result in compare = true
+#				for all variables   
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: 
+# $Date:
+# $Rev: 
+# $Author: 
+#
+
+# This source files tests lgdb's compare command - all results should be TRUE
+# for C++ source code
+
+maint set sync on
+
+# launch 3 instances of the application
+launch $a{3} --launcher-args="--exclusive"  bd_dt/C++/cpp_bd_test.x --debug
+
+launch $b{3} --launcher-args="--exclusive"  bd_dt/C++/cpp_bd_test.x --debug
+
+# Set a breakpoint at specified line numbers:
+
+break cpp_bd_test.cpp:136
+
+continue
+
+
+# run compare command on all data types
+print ret
+compare $a{0}::ret=$b{0}::ret
+
+#float
+print u
+compare $a{0}::u=$b{0}::u
+
+#int
+print x
+compare $a{0}::x=$b{0}::x
+
+
+#char - dissabled as lgdb compare command is not working for strings or chars
+#print a
+#compare $a{0}::a=$b{0}::a
+
+
+#string - dissabled as lgdb compare command is not working for strings or chars
+#print word
+#compare $a{0}::word=$b{0}::word
+
+
+#boolean
+print tf
+compare $a{0}::tf=$b{0}::tf
+
+#signed int
+print si
+compare $a{0}::si=$b{0}::si
+
+#unsigned int
+print usi
+compare $a{0}::usi=$b{0}::usi 
+ 
+#signed short int
+print sshi
+compare $a{0}::sshi=$b{0}::sshi   
+
+#unsinged short int
+print ushi
+compare $a{0}::ushi=$b{0}::ushi
+
+#int pointer
+print *test
+compare $a{0}::*test=$b{0}::*test
+
+#long double
+print ld
+compare $a{0}::ld=$b{0}::ld
+
+
+#double
+print dbl
+compare $a{0}::dbl=$b{0}::dbl
+ 
+
+#unsigned long int
+print uli
+compare $a{0}::uli=$b{0}::uli       
+    
+      
+#signed long int
+print sli
+compare $a{0}::sli=$b{0}::sli
+
+#unsigned char
+print uc
+compare $a{0}::uc=$b{0}::uc
+
+    
+#signed char
+print sc
+compare $a{0}::sc=$b{0}::sc
+
+#struct object data member - dissabled as lgdb compare command is not working for strings or chars
+#print myself.name      
+#compare $a{0}::myself.name=$b{0}::myself.name    
+
+
+#continue to end
+#continue
+
+
+#quit lgdb
+q
+
+

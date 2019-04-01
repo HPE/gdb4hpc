@@ -1,0 +1,31 @@
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..5}: Initial breakpoint, main at /cray/css/users/kdavis/lgdb_test_harness_svn/v2.0/lgdb_test_harness/bd_dt/c/c_type_test.c:55
+Entering gdb pass-thru mode. Type "end" to exit mode...
+
+GNU gdb (GDB) 7.12.1-18.1.1
+Modified by Arm. Copyright (C) 2002-2018 Arm Limited (or its affiliates). All rights reserved.
+Copyright (C) 2017 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-pc-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".
+Type "apropos word" to search for commands related to "word".
+
+
+Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
+Shutting down debugger and killing application for 'a'.

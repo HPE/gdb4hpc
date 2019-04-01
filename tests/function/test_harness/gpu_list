@@ -1,0 +1,2 @@
+testname	|location	|run_command					
+open_acc1	|open_acc	|lgdb_openacc_t1.rc --output=open_acc_t1.out

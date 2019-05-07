@@ -2,10 +2,6 @@
 	path = craytool_interface
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/cti.git
 	branch = master
-[submodule "third_party/ddt_gdb-7.12.1"]
-	path = third_party/ddt_gdb-7.12.1
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-7.12.1.git
-	branch = master
 [submodule "third_party/libarchive"]
 	path = third_party/libarchive
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libarchive.git
@@ -25,3 +21,7 @@
 	path = third_party/libssh2
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libssh2.git
 	branch = gdb4hpc-external
+[submodule "third_party/ddt_gdb-8.1"]
+	path = third_party/ddt_gdb-8.1
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-8.1.git
+	branch = master

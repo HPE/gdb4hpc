@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH --job-name=gdb4hpc_test
+#SBATCH --ntasks=6
+#SBATCH --ntasks-per-node=3
+
+#cray_debug_start
+srun -N1 -n 6 --ntasks-per-node=3 echo test &
+srun -N1 -n 6 --ntasks-per-node=3 echo test &
+wait
+#cray_debug_end
+
+

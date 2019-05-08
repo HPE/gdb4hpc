@@ -141,7 +141,10 @@ create_regression_report(){
 handle_reports(){
     
    mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4
-   mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id
+   if [ ! -d $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id ]
+   then
+     mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id
+   fi
    #echo *.rep $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id
    cp *.rep $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id
 
@@ -153,8 +156,14 @@ handle_reports(){
       then
         parent_dir=`echo $p | cut -d'/' -f1`
         child_dir=`echo $p | cut -d'/' -f2`
-	    mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir
-        mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir/$child_dir
+        if [ ! -d  $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir ]
+        then
+          mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir
+        fi
+        if [ ! -d $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir/$child_dir ]
+        then
+          mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir/$child_dir
+        fi
       else
 	    parent_dir=$p
         mkdir $mstr_reports_dir/$lgdb_version"_"$bucket"_"$runnr"_"$t4/"test_id_"$test_id/$parent_dir
@@ -553,8 +562,22 @@ compare_output_linebyline(){
 	echo "Test list: " $bucket
 
     echo 2>&1 | tee -a $tresults
-	#printf "%-40s%-20s%-20s%-5s\n" "output_file" "npes" "bucket" "pass" >> $tblFile
-    echo -e "output_file\tnpes\tbucket\tpass" >> $tblFile
+
+    #Send system info to tblFile
+    echo -e "GDB4HPC Nigthly Functional Testing:\t$lgdb_version" >> $tblFile
+    echo -e " " >> $tblFile
+    echo -e "HOST:\t$MACHINE" >> $tblFile
+    echo -e "Test Type:\tCPU Sanity Test Suite" >> $tblFile
+    echo -e "Bucket:\t$bucket" >> $tblFile
+    echo -e "Workload Manager:\t$wlm_ver" >> $tblFile
+    echo -e "Architecture:\t$arch" >> $tblFile
+    echo -e "Operating System:\t$os" >> $tblFile
+    echo -e "CLE:\t$cle\tcompiler" >> $tblFile
+    echo -e "Targeted CPU:\t$cpu\t$cce" >> $tblFile
+    
+
+	#printf "%-40s%-20s%-20s%-5s\n" "output_file" "npes" "pass" >> $tblFile
+    echo -e "output_file\tnpes\tpass" >> $tblFile
         
     if [[ ${#failures[@]} -gt 0 ]]
     then
@@ -574,9 +597,7 @@ compare_output_linebyline(){
 		    tst_type=`echo $tstNm | grep "SIG"`
 		    if [[ $tst_type == "" ]]
 		    then
-			   echo -e "$tstNm\t$tstpes\t$bucket\tN" >> $tblFile
-		       else
-			   echo -e "$tstNm\t$tstpes\tNA\tN" >> $tblFile
+			   echo -e "$tstNm\t$tstpes\tN" >> $tblFile
 		    fi
 		       
         done
@@ -603,9 +624,7 @@ compare_output_linebyline(){
 		    tst_type=`echo $tstNm | grep "SIG"`
 		    if [[ $tst_type == "" ]]
 		    then
-			   echo -e "$tstNm\t$tstpes\t$bucket\tY" >> $tblFile
-		       else
-			   echo -e "$tstNm\t$tstpes\tNA\tY" >> $tblFile
+			   echo -e "$tstNm\t$tstpes\tY" >> $tblFile
 		    fi
         done
         
@@ -907,6 +926,44 @@ fi
 
 }
 
+get_system_info() {
+
+  arch=`uname -m`
+  if [ -f /etc/SuSE-release ]
+  then
+    os=$(cat /etc/SuSE-release | grep VERSION | cut -f3 -d" ")
+  elif [ -f /etc/redhat-release ]
+  then
+    cs_ver=`cat /etc/redhat-release | cut -d' ' -f7`
+    os="CS $cs_ver"
+  elif [ -f /etc/os-release ]
+  then
+    os=$(cat /etc/os-release | grep 'VERSION_ID="15"' | cut -d'"' -f2)
+  fi
+  cpu=` echo $CRAY_CPU_TARGET`
+  if [ -z $cpu ]
+  then 
+    cpu="Not loaded"
+  fi
+  if [ -f /etc/opt/cray/release/cle-release ]
+  then
+    cle=`cat /etc/opt/cray/release/cle-release | awk -F\= '{print $2}' | head -1`
+    cle_date=`cat /etc/opt/cray/release/cle-release | awk -F\= '{print $2}' | head -3 | tail -1`
+    cle=$cle-$cle_date
+  else
+    cle=""
+  fi
+  cce=`echo $CRAY_PRGENVCRAY`
+  if [ $cce == 'loaded' ]
+  then
+    cce_ver=`echo $CRAY_CC_VERSION`
+    cce="cce/$cce_ver"
+  else
+    cce='Not loaded'
+  fi
+
+}
+
 
 newline="      "
 node_type=""
@@ -945,6 +1002,7 @@ exec_count=0
 compileErrorCount=0
 testErrorCount=0
 wlm=""
+wlm_ver=""
 lgdb_version=""
 runnr=""
 user=`echo $USER`
@@ -964,9 +1022,15 @@ tblFile="aesop.rep"
 blog="build_log.rep"
 tlog="test_log.rep"
 tresults="results_log.rep"
-test_id=1235
+test_id=`date '+%Y-%m-%d-%H%M%S'`
 who=`whoami`
-
+arch=""
+os=""
+cle=""
+cle_date=""
+cpu=""
+cce=""
+cce_ver=""
 
 
 if [[ $2 == "build" ]]
@@ -1019,10 +1083,12 @@ then
 
         if  [[ $wlm == "ALPS" ]]
         then
-	      runnr="aprun"
+          wlm_ver=`echo $CRAY_ALPS_INCLUDE_OPTS | cut -d'/' -f5`
+	  runnr="aprun"
         elif [[ $wlm == "SLURM" ]]
         then
-	      runnr="srun"
+          wlm_ver=`srun --version`
+	  runnr="srun"
         fi
 
 	    check_bucket_type
@@ -1058,8 +1124,9 @@ then
         if [ -d /opt/modules/default/init ] ; then
            source /opt/modules/default/init/bash
         fi
+    
+        get_system_info
         
-
         echo
         echo "TESTING. . . " 2>&1 | tee -a $tlog
         index=0

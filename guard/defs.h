@@ -114,4 +114,7 @@ typedef double DOUBLEST;
 #define INVALID_SOCKET	-1
 #define SOCKET_ERROR	-1
 
+// maximum length of an IPv6 address string
+#define MAXIPADDRLEN 46
+
 #endif /* !_DEFS_H */

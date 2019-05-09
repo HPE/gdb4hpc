@@ -26,6 +26,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <arpa/inet.h>
+
 #include "defs.h"
 #include "dbg_client.h"
 #include "mrn_cfg.h"
@@ -744,12 +746,27 @@ create_parents_info_with_balanced_top(MRNet_Topology *topology, int num_be)
 
 		for(inner = 0; inner < loop; ++inner)	
 		{
-		        // we should make this a constant width so we can speed up the parsing of the be_attach.dat file
-		        // 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
-		        // 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
-		        // 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-		        // the hostname is always constant (nidXXXXX) on cray systems
-			fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, leaf_nodes[index].hostname, leaf_nodes[index].port, leaf_nodes[index].rank);
+			// resolve the node hostname to its IPv4 address
+			struct addrinfo hints;
+			hints.ai_family = AF_INET;
+			struct addrinfo *infoptr = NULL;
+			if (getaddrinfo(leaf_nodes[index].hostname, NULL, &hints, &infoptr) || !infoptr) {
+				PrintOutError("ERROR: failed to resolve frontend hostname %s\n", leaf_nodes[index].hostname);
+				perror("getaddrinfo");
+				return -1;
+			}
+
+			// extract the IP address string
+			char node_ipaddr[MAXIPADDRLEN];
+			getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, node_ipaddr, sizeof(node_ipaddr), NULL, 0, NI_NUMERICHOST);
+			freeaddrinfo(infoptr);
+
+			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
+			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
+			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
+			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
+			// the hostname is always constant (nidXXXXX) on cray systems
+			fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
 			++dbgsrv_id;
 		}
 	}
@@ -815,13 +832,28 @@ create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be)
 
 		for(inner = 0; inner < loop; ++inner)
 		{
-        // we should make this a constant width so we can speed up the parsing of the be_attach.dat file
-        // 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
-        // 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
-        // 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-        // the hostname is always constant (nidXXXXX) on cray systems
-		fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, leaf_nodes[index].hostname, leaf_nodes[index].port, leaf_nodes[index].rank);
-		++dbgsrv_id;
+			// resolve the node hostname to its IPv4 address
+			struct addrinfo hints;
+			hints.ai_family = AF_INET;
+			struct addrinfo *infoptr = NULL;
+			if (getaddrinfo(leaf_nodes[index].hostname, NULL, &hints, &infoptr) || !infoptr) {
+				PrintOutError("ERROR: failed to resolve frontend hostname %s\n", leaf_nodes[index].hostname);
+				perror("getaddrinfo");
+				return -1;
+			}
+
+			// extract the IP address string
+			char node_ipaddr[MAXIPADDRLEN];
+			getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, node_ipaddr, sizeof(node_ipaddr), NULL, 0, NI_NUMERICHOST);
+			freeaddrinfo(infoptr);
+
+			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
+			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
+			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
+			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
+			// the hostname is always constant (nidXXXXX) on cray systems
+			fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
+			++dbgsrv_id;
 		}
 	}
 

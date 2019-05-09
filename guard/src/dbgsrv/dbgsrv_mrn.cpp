@@ -144,7 +144,7 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	int		pmi_rank = procnum;
 	int		be_argc = 6;
 	char	* hostname;
-	char	par_hostname[MAXPATHLEN];
+	char	par_ipaddr[MAXIPADDRLEN];
 	char	par_port_str[64];
 	char	par_rank_str[64];
 	char	my_rank_str[64];
@@ -162,7 +162,7 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	DVPRINT("INFO: hostname[%s] is attaching to MRNet network\n", hostname);
 
 	//get parent information
-	res = get_myparent_info(pmi_rank, hostname, par_hostname, &par_port, &par_rank);
+	res = get_myparent_info(pmi_rank, hostname, par_ipaddr, &par_port, &par_rank);
 	if(res < 0)
 	{
 		fprintf(stderr, "DbgSRVMRNInitProto cannot find parent to attach!\n");
@@ -179,13 +179,13 @@ DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, in
 	sprintf(my_rank_str, "%d", my_mrnrank);
 
 	be_argv[0] = argv[0];
-	be_argv[1] = par_hostname;
+	be_argv[1] = par_ipaddr;
 	be_argv[2] = par_port_str;
 	be_argv[3] = par_rank_str;
 	be_argv[4] = hostname;
 	be_argv[5] = my_rank_str;
 
-	DVPRINT("DbgSRVMRNInitProto is attaching to: par_name[%s] par_port[%d] par_rank[%d] my_rank[%d]\n", par_hostname, par_port, par_rank, my_mrnrank);
+	DVPRINT("DbgSRVMRNInitProto is attaching to: par_ipaddr[%s] par_port[%d] par_rank[%d] my_rank[%d]\n", par_ipaddr, par_port, par_rank, my_mrnrank);
 
 	if (debug_flag)
 	{
@@ -216,7 +216,7 @@ DVPRINT("Creating be network");
 	char 	single_rank[16];
 	int		be_argc = 6;
 	char	hostname[MAXPATHLEN];
-	char	par_hostname[MAXPATHLEN];
+	char	par_ipaddr[MAXIPADDRLEN];
 	char	par_port_str[64];
 	char	par_rank_str[64];
 	char	my_rank_str[64];
@@ -279,7 +279,7 @@ DVPRINT("Creating be network");
 	DVPRINT("INFO: hostname[%s]:mpirank[%d] is attaching to MRNet network\n", hostname, mpi_rank);
 
 	//get parent information
-	res = get_myparent_info(mpi_rank, hostname, par_hostname, &par_port, &par_rank);
+	res = get_myparent_info(mpi_rank, hostname, par_ipaddr, &par_port, &par_rank);
 	if(res < 0)
 	{
 		fprintf(stderr, "dbgsrv[%d]: DbgSRVMRNInitProto cannot find parent to attach!\n", mpi_rank);
@@ -296,13 +296,13 @@ DVPRINT("Creating be network");
 	sprintf(my_rank_str, "%d", my_mrnrank);
 
 	be_argv[0] = argv[0];
-	be_argv[1] = par_hostname;
+	be_argv[1] = par_ipaddr;
 	be_argv[2] = par_port_str;
 	be_argv[3] = par_rank_str;
 	be_argv[4] = hostname;
 	be_argv[5] = my_rank_str;
 
-	DVPRINT("DbgSRVMRNInitProto is attaching to: par_name[%s] par_port[%d] par_rank[%d] my_rank[%d]\n", par_hostname, par_port, par_rank, my_mrnrank);
+	DVPRINT("DbgSRVMRNInitProto is attaching to: par_ipaddr[%s] par_port[%d] par_rank[%d] my_rank[%d]\n", par_ipaddr, par_port, par_rank, my_mrnrank);
 
 	res = mrn_be_create_network( be_argc, be_argv );
 	my_mrn_rank = mpi_rank; //my_mrn_rank is not rank in mrnet, but is used by client to identifiy dbgsrv 

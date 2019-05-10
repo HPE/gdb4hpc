@@ -43,7 +43,7 @@ gdb4hpc_externals_directory_name="external"
 
 # Third party source tree names. 
 mrnet_directory_name="mrnet"
-gdb_directory_name="ddt_gdb-7.12.1"
+gdb_directory_name="ddt_gdb-8.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
 cuda80_gdb_directory_name="ddt_cuda_gdb_80"
 cuda91_gdb_directory_name="ddt_cuda_gdb_91"

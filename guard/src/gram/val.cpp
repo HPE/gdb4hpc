@@ -564,7 +564,7 @@ NewVal(lval_type ltype, ...)
 	}
 
 	// set the rval
-	switch ( RVAL_TYPE(v) = va_arg(args, rval_type) )
+	switch ( RVAL_TYPE(v) = (rval_type)va_arg(args, int) )
 	{
 		case rval_none:
 			// ensure it gets nulled
@@ -588,7 +588,7 @@ NewVal(lval_type ltype, ...)
 			RVAL_REF(v) = NewRvalRef();
 			
 			RVAL_REF_SLICE(v) = va_arg(args, slice_t *);
-			RVAL_REF_TYPE(v) = va_arg(args, rval_type);
+			RVAL_REF_TYPE(v) = (rval_type)va_arg(args, int);
 			RVAL_REF_VAL(v) = va_arg(args, rval_val);
 			// we want to mark the ref rval for destruction
 			RVAL_DESTROY(v) = 1;

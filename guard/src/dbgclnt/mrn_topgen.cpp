@@ -763,10 +763,10 @@ create_parents_info_with_balanced_top(MRNet_Topology *topology, int num_be)
 
 			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
 			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
+			// 15 character width for ip address - XXX.XXX.XXX.XXX
 			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
 			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-			// the hostname is always constant (nidXXXXX) on cray systems
-			fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
+			fprintf(pfile, "%-7d %15s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
 			++dbgsrv_id;
 		}
 	}
@@ -849,10 +849,10 @@ create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be)
 
 			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
 			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
+			// 15 character width for ip address - XXX.XXX.XXX.XXX
 			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
 			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-			// the hostname is always constant (nidXXXXX) on cray systems
-			fprintf(pfile, "%-7d %s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
+			fprintf(pfile, "%-7d %15s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
 			++dbgsrv_id;
 		}
 	}

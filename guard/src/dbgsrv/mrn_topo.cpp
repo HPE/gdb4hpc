@@ -38,7 +38,8 @@
 #include "Topology_C.h"
 #include "dbgsrv_defs.h"
 
-#define ATTACH_FILE_LINE_LEN            30
+// line format string: "%-7d %15s %-5d %-6d\n"
+#define ATTACH_FILE_LINE_LEN            37
 #define NUM_TIMEOUT_RETRY               1000
 
 /*

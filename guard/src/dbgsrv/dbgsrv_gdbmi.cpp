@@ -592,6 +592,11 @@ setup_gdbmi_environment(void)
 	SendMICommand(GDBMISession, cmd);
 	MICommandFree(cmd);
 	
+	// Set maximum variable size to unlimited to allow gdb to print large values
+	cmd = MIGDBSet("max-value-size", "unlimited");
+	SendMICommand(GDBMISession, cmd);
+	MICommandFree(cmd);
+
 	return NULL;
 }
 

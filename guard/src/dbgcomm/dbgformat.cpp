@@ -651,6 +651,12 @@ EventToSocProto(dbgevent_t *e)
 		Free(evdata);
 		break;
 
+	case DBGEV_BPDEL:
+		evdata = EventBPToSocProto(e->ev_bp, 1);
+		Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
+		Free(evdata);
+		break;
+
 	case DBGEV_SIGNAL:
 		evdata = EventSigToSocProto(e->ev_sig);
 		Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
@@ -1856,6 +1862,7 @@ SocProtoToEvent(char *s)
 
 	case DBGEV_BPINFO:
 	case DBGEV_BPSET:
+	case DBGEV_BPDEL:
 	case DBGEV_BPHIT:
 		// Get the string and convert to dbgbp_t * and set directly
 		evdata = getstring(&s);

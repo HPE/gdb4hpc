@@ -146,6 +146,7 @@ DupEvent(dbgevent_t *event)
 	case DBGEV_BPHIT:
 	case DBGEV_BPINFO:
 	case DBGEV_BPSET:
+	case DBGEV_BPDEL:
 		e->ev_bp = DupBP(event->ev_bp);
 		break;
 
@@ -513,6 +514,7 @@ FreeEvent(dbgevent_t *event)
 	case DBGEV_BPHIT:
 	case DBGEV_BPINFO:
 	case DBGEV_BPSET:
+	case DBGEV_BPDEL:
 		FreeBP(event->ev_bp);
 		break;
 
@@ -916,6 +918,7 @@ PrintDbgEvent(dbgevent_t *event)
 		case DBGEV_STEP: PrintOutMsg("DBGEV_STEP"); break;
 		case DBGEV_BPINFO: PrintOutMsg("DBGEV_BPINFO"); break;
 		case DBGEV_BPSET: PrintOutMsg("DBGEV_BPSET"); break;
+		case DBGEV_BPDEL: PrintOutMsg("DBGEV_BPDEL"); break;
 		case DBGEV_FRAME: PrintOutMsg("DBGEV_FRAME"); break;
 		case DBGEV_LOC: PrintOutMsg("DBGEV_LOC"); break;
 		case DBGEV_VARS: PrintOutMsg("DBGEV_VARS"); break;
@@ -944,6 +947,7 @@ EventToStr(dbgevent_t *event)
 		case DBGEV_STEP: return "DBGEV_STEP";
 		case DBGEV_BPINFO: return "DBGEV_BPINFO";
 		case DBGEV_BPSET: return "DBGEV_BPSET";
+		case DBGEV_BPDEL: return "DBGEV_BPDEL";
 		case DBGEV_FRAME: return "DBGEV_FRAME";
 		case DBGEV_LOC: return "DBGEV_LOC";
 		case DBGEV_VARS: return "DBGEV_VARS";
@@ -974,6 +978,7 @@ DbgevToStr(dbgev ev)
 		case DBGEV_STEP: return "DBGEV_STEP";
 		case DBGEV_BPINFO: return "DBGEV_BPINFO";
 		case DBGEV_BPSET: return "DBGEV_BPSET";
+		case DBGEV_BPDEL: return "DBGEV_BPDEL";
 		case DBGEV_FRAME: return "DBGEV_FRAME";
 		case DBGEV_LOC: return "DBGEV_LOC";
 		case DBGEV_VARS: return "DBGEV_VARS";

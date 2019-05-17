@@ -1690,7 +1690,29 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 					}
 				}
 				break;
-				
+
+			case DBGEV_BPDEL:
+				bp = EVENT_BP(event);
+				if ((bp_set = FindBPSetForBP(di, bp)) != NULL)
+				{
+					// Need to delete the breakpoint.
+					SetList(bp_set->b_bp_disp);
+					while((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) != NULL)
+					{
+						group = bitset_and(disp_set->b_group, msg->group);
+						if(bitset_isempty(group))
+						{
+							bitset_free(group);
+							continue;
+						}
+						// remove the breakpoint
+						// NOTE: The breakpoint has already been removed by the backend.
+						RemoveBPSet(di, bp_set, group);
+						bitset_free(group);
+					}
+				}
+				break;
+
 			default:
 				// do nothing
 				break;

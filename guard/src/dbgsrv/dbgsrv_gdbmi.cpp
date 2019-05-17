@@ -591,7 +591,7 @@ setup_gdbmi_environment(void)
 	cmd = MIGDBSet("continue-on-fatal-error", "1");
 	SendMICommand(GDBMISession, cmd);
 	MICommandFree(cmd);
-	
+
 	// Set maximum variable size to unlimited to allow gdb to print large values
 	cmd = MIGDBSet("max-value-size", "unlimited");
 	SendMICommand(GDBMISession, cmd);
@@ -4120,6 +4120,29 @@ WaitEvent(dbgevent_t *e)
 				// do nothing
 				break;
 		}
+
+		Status = DBGSTAT_STOPPED;
+		MIEventFree(evt);
+		return e;
+
+	case MIEventTypeWatchpointScope:
+		DVPRINT("MIEventTypeWatchpointScope\n");
+		DVPRINT("Breakpoint id is %d\n", evt->number);
+		
+		bp = FindBPByID(BP, evt->number);
+
+		// If bp is null, we have a problem.
+		if ( bp == NULL )
+		{
+			e = ChangeEvent(e, DBGEV_ERROR);
+			e->ev_errno = DBGERR_DEBUGGER;
+			EventErrStr(e, "Hit unknown watchpoint!");
+			return e;
+		}
+
+		// event type: breakpoint deleted
+		e->ev_event = DBGEV_BPDEL;
+		e->ev_bp = DupBP(bp);
 
 		Status = DBGSTAT_STOPPED;
 		MIEventFree(evt);

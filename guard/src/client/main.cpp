@@ -802,6 +802,76 @@ EventCB(event_set_t *ev_set, bitset *reply_set)
 		
 		break;
 
+	case DBGEV_BPDEL:
+		// ensure the recv bp has a cooresponding bp_set. If not, this is an unknown breakpoint.
+		// If its unknown either its a breakpoint encountered from ending the graph (graph breakpoints are hidden)
+		// or an exit breakpoint that was set by the dbg servers.
+		if ((bpset = FindBPSetForBP(ev_set->e_di, ev_set->e_ev->ev_bp)) == NULL)
+		{
+			PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+				"ERROR: cannot find breakpoint in BPSetList.\n");
+			return 0;
+		}
+
+		// ranks removed from breakpoint bitset in src/dbgclnt/dbg_client.cpp
+
+		// What we print out is based on if we are at a watchpoint or breakpoint
+		switch (bpset->b_bp_type)
+		{
+			case DBGBP_WATCH_TYPE:
+			case DBGBP_AWATCH_TYPE:
+			case DBGBP_RWATCH_TYPE:
+				PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Watchpoint %d deleted because the program has left the block in which its expression is valid.\n",
+					bpset->b_bp_id);
+				// We should also print out the updated locale information for the watchpoint.
+				if ( bpset->b_loc_line > 0 )
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s at %s:%d\n",
+						bpset->b_loc_func,
+						bpset->b_loc_file,
+						bpset->b_loc_line);
+				} else
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
+						bpset->b_loc_func);
+				}
+				break;
+				
+			case DBGBP_BREAK_TYPE:
+				if ( bpset->b_loc_line > 0 )
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Breakpoint %d deleted, %s at %s:%d\n",
+						bpset->b_bp_id,
+						bpset->b_loc_func,
+						bpset->b_loc_file,
+						bpset->b_loc_line);
+				} else
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Breakpoint %d deleted, in %s\n",
+						bpset->b_bp_id,
+						bpset->b_loc_func);
+				}
+				break;
+				
+			default:
+				if ( bpset->b_loc_line > 0 )
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Unknown break type %d deleted, %s at %s:%d\n",
+						bpset->b_bp_id,
+						bpset->b_loc_func,
+						bpset->b_loc_file,
+						bpset->b_loc_line);
+				} else
+				{
+					PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Unknown break type %d deleted, in %s\n",
+						bpset->b_bp_id,
+						bpset->b_loc_func);
+				}
+				break;
+		}
+
+		break;
+
 	case DBGEV_SIGNAL:
 		PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group, "Program received signal %s.\n", ev_set->e_ev->ev_sig_type);
 

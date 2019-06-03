@@ -198,7 +198,6 @@ SetupEnvironment(void)
 	char *				libexec_dir;
 	char *				cfg_dir;
 	char *				env_lib_dir;
-	char *				gdb_dir;
 	
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
@@ -290,12 +289,7 @@ SetupEnvironment(void)
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
 		Free(cfg_dir);
 	}
-	
-	// set the gdb_path for CTI
-	Asprintf(&gdb_dir, "%s/gdb-guard", libexec_dir);
-	setenv(CTI_GDB_LOC_ENV_VAR, gdb_dir, 1);
-	
-	Free(gdb_dir);
+
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(inst_base);

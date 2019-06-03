@@ -227,39 +227,6 @@ DbgMRNAttach(
 
 	switch (wlm)
 	{
-		case CTI_WLM_ALPS:
-		{
-			uint64_t 	apid;
-			char *		eptr;
-			
-			// convert the string to an int
-			errno = 0;
-			apid = (uint64_t)strtoull(app_ident, &eptr, 10);
-			
-			// check for error
-			if ((errno == ERANGE && (apid == ULLONG_MAX)) || (errno != 0 && apid == 0))
-			{
-				PrintOutError("Invalid apid argument.\n");
-				goto attach_error;
-			}
-			
-			// check for invalid input
-			if (eptr == app_ident)
-			{
-				PrintOutError("Invalid apid argument.\n");
-				goto attach_error;
-			}
-			
-			// Register the aprun pid with the tool interface
-			if ((di->d_appid = cti_alps_registerApid(apid)) == 0)
-			{
-				PrintOutError("CTI error: %s\n", cti_error_str());
-				PrintOutError("Failed to register apid with CTI.\n");
-				goto attach_error;
-			}
-		}
-		break;
-	
 		case CTI_WLM_CRAY_SLURM:
 		{
 			char *		sep;
@@ -320,39 +287,6 @@ DbgMRNAttach(
 				goto attach_error;
 			}				
 
-		}
-		break;
-
-		case CTI_WLM_SLURM:
-		{
-			pid_t 		launcher_pid;
-			char *		eptr;
-			
-			// convert the string to an int
-			errno = 0;
-			launcher_pid = strtol(app_ident, &eptr, 10);
-			
-			// check for error
-			if ( (launcher_pid < 0) || (errno != 0) )
-			{
-				PrintOutError("Invalid launcher pid argument.\n");
-				goto attach_error;
-			}
-			
-			// check for invalid input
-			if (eptr == app_ident)
-			{
-				PrintOutError("Invalid launcher pid argument.\n");
-				goto attach_error;
-			}
-			
-			// Register the aprun pid with the tool interface
-			if ((di->d_appid = cti_slurm_registerJobStep(launcher_pid)) == 0)
-			{
-				PrintOutError("CTI error: %s\n", cti_error_str());
-				PrintOutError("Failed to register launcher pid with CTI.\n");
-				goto attach_error;
-			}
 		}
 		break;
 		case CTI_WLM_SSH:

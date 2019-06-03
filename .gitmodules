@@ -13,7 +13,7 @@
 [submodule "third_party/mrnet"]
 	path = third_party/mrnet
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
-	branch = master
+	branch = gdb4hpc-external
 [submodule "scripts/set_default"]
 	path = scripts/set_default
 	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git

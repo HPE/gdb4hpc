@@ -748,6 +748,7 @@ create_parents_info_with_balanced_top(MRNet_Topology *topology, int num_be)
 		{
 			// resolve the node hostname to its IPv4 address
 			struct addrinfo hints;
+			memset(&hints, 0, sizeof(hints));
 			hints.ai_family = AF_INET;
 			struct addrinfo *infoptr = NULL;
 			if (getaddrinfo(leaf_nodes[index].hostname, NULL, &hints, &infoptr) || !infoptr) {

@@ -290,7 +290,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 	int				opt_ind = 0;
 	int				opt;
 	int				i;
-	char *			tmp;
+	char *			elogin_env;
 	
 	// reset optind and flags
 	optind = 0;
@@ -589,7 +589,11 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			}
 		
 			// Get the value of the ESWRAP_LOGIN environment variable
-			tmp = getenv("ESWRAP_LOGIN");
+			elogin_env = getenv("ESWRAP_LOGIN");
+            if (elogin_env == NULL) {
+                // Also check value of new EPROXY_LOGIN var
+                elogin_env = getenv("EPROXY_LOGIN");
+            }
 
 			// If on a Cray system, check to see if we are currently on an eslogin node if
 			// using WLM_none.
@@ -601,7 +605,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 			// FIXME: The same is also true for native slurm.
 			
 			// Are we on an eslogin node?
-			if (tmp!= NULL)
+			if (elogin_env != NULL)
 			{
 				// We are on an eslogin node since the file did not exist
 				
@@ -610,7 +614,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
 				// with eslogin nodes
 				proto = "proxy";
 	
-				hostname = strdup(tmp);
+				hostname = strdup(elogin_env);
 				
 				// Create a new session
 				if ((sess = DbgSessionCreate(proto, manager, NULL, hostname, username)) == NULL)
@@ -950,7 +954,11 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	}
 	
 	// Get the value of the ESWRAP_LOGIN environment variable
-	char * tmp = getenv("ESWRAP_LOGIN");
+	char * elogin_env = getenv("ESWRAP_LOGIN");
+    if (elogin_env == NULL) {
+        // Also check value of new EPROXY_LOGIN var
+        elogin_env = getenv("EPROXY_LOGIN");
+    }
 
 	// If on a Cray system, check to see if we are currently on an eslogin node if
 	// using WLM_none.
@@ -962,7 +970,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 	// FIXME: The same is also true for native slurm.
 	
 	// Are we on an eslogin node?
-	if(tmp != NULL){
+	if(elogin_env != NULL){
 		// We are on an eslogin node since the file did not exist
 		
 		// set proto to proxy since we are required to use the proxy in conjunction
@@ -974,7 +982,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 		{
 			// There is no open session, so we need to create one.
 			
-			hostname = strdup(tmp);
+			hostname = strdup(elogin_env);
 		
 			// Create a new session
 			if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname, username)) == NULL)

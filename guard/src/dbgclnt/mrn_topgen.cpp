@@ -37,14 +37,13 @@
 #define DEFAULT_TOP_FANOUT_DEGREE       32
 #define DEFAULT_FILTER_TIMEOUT	        500
 #define NUM_TIMEOUT_RETRY               1000
-// line format is "%-7d %s %-5d %-6d\n"
+// line format is "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n"
 // 3 bytes from ' ' seperators
 // 7 bytes first field
-// 8 bytes second field from "nidXXXXX"
+// MAXADDRLEN bytes second field for hostname / IP address
 // 5 bytes third field
 // 6 bytes fourth field
 // 1 byte from '\n'
-// 30 bytes total
 
 enum MRN_TOP_TYPE{
 	MRN_TOP_BALANCED,
@@ -395,6 +394,32 @@ load_machines(char *machines_name, hostID_t **pHostID)
 	return count; 
 }
 
+char*
+resolve_hostname(char const* hostname) {
+	// create buffer
+	char *ip_addr = (char*)malloc(MAXADDRLEN + 1);
+
+	// resolve the node hostname to its IPv4 address
+	struct addrinfo hints;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	struct addrinfo *infoptr = NULL;
+	if (getaddrinfo(hostname, NULL, &hints, &infoptr) || !infoptr) {
+		free(ip_addr);
+		PrintOutError("ERROR: failed to resolve frontend hostname %s\n", hostname);
+		perror("getaddrinfo");
+		return NULL;
+	}
+
+	// extract the IP address string
+	char node_addr[MAXADDRLEN];
+	getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, ip_addr, MAXADDRLEN-1, NULL, 0, NI_NUMERICHOST);
+	freeaddrinfo(infoptr);
+	ip_addr[MAXADDRLEN] = '\0';
+
+	return ip_addr;
+}
+
 int
 create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 {
@@ -501,12 +526,17 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 		return -1;
 	}
 
+	// look up IP address of root hostname, use for topology file
+	char const* root_hostname = (root == NULL) ? "localhost" : root;
+	char* root_ip_addr = resolve_hostname(root_hostname);
+	if (root_ip_addr == NULL) {
+		PrintOutError("ERROR: failed to resolve hostname: %s\n", root_hostname);
+		return -1;
+	}
+
 	if(num_level == 1 && attaching)
 	{
-		if(root == NULL)
-			fprintf(topology, "\t%s:%d ;", "localhost", 0);
-		else
-			fprintf(topology, "\t%s:%d ;", root, 0);
+		fprintf(topology, "\t%s:%d ;", root_ip_addr, 0);
 	}
 	else{
 		SetHostList(pHostID, num_machines);
@@ -514,10 +544,7 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 		CreateLevelList(num_level);
 		SetLevelInfo(0, 1);
 		char *node_str = (char*)malloc(sizeof(char)*MAXPATHLEN);
-		if(root == NULL)
-			snprintf(node_str, MAXPATHLEN-1, "%s:%d", "localhost", GetHostID("localhost"));
-		else
-			snprintf(node_str, MAXPATHLEN-1, "%s:%d", root, GetHostID(root));
+		snprintf(node_str, MAXPATHLEN-1, "%s:%d", root_ip_addr, GetHostID((char*)root_hostname));
 		SetLevelNodeInfo(0, 0, node_str);
 
 		int num_parent, parent_index, node_index;
@@ -562,6 +589,8 @@ create_balanced_topology(int num_be, char *root, char **hosts, int attaching)
 		}
 		DestroyLevelList(attaching);
 	}
+
+	free(root_ip_addr);
 
 	fclose(topology);
 		
@@ -626,7 +655,15 @@ create_knominal_topology(int num_be, char *root, char **hosts, int attaching)
 	while (*tmp++ != (char *)NULL)
 		num_machines++;
 
-	fprintf(machines, "%s\n", root);
+	// look up IP address of root hostname, use for topology file
+	char const* root_hostname = (root == NULL) ? "localhost" : root;
+	char* root_ip_addr = resolve_hostname(root_hostname);
+	if (root_ip_addr == NULL) {
+		PrintOutError("ERROR: failed to resolve hostname: %s\n", root_hostname);
+		return -1;
+	}
+
+	fprintf(machines, "%s\n", root_ip_addr);
 	num_procs = ceil((float)N / num_machines);
 	tmp = hosts;
 	while (*tmp != (char *)NULL)
@@ -634,6 +671,8 @@ create_knominal_topology(int num_be, char *root, char **hosts, int attaching)
 		fprintf(machines, "%s:%d\n", *tmp++, num_procs);
 	}
 	fclose(machines);
+
+	free(root_ip_addr);
 
 	//invoke mrnet_topgen to create k-nomial topology
 	sprintf(topgen_cmd, "%s --host=%s --topology=k:%d@%d -o %s", "mrnet_topgen", machines_file, K, N, topology_file);
@@ -746,28 +785,12 @@ create_parents_info_with_balanced_top(MRNet_Topology *topology, int num_be)
 
 		for(inner = 0; inner < loop; ++inner)	
 		{
-			// resolve the node hostname to its IPv4 address
-			struct addrinfo hints;
-			memset(&hints, 0, sizeof(hints));
-			hints.ai_family = AF_INET;
-			struct addrinfo *infoptr = NULL;
-			if (getaddrinfo(leaf_nodes[index].hostname, NULL, &hints, &infoptr) || !infoptr) {
-				PrintOutError("ERROR: failed to resolve frontend hostname %s\n", leaf_nodes[index].hostname);
-				perror("getaddrinfo");
-				return -1;
-			}
-
-			// extract the IP address string
-			char node_ipaddr[MAXIPADDRLEN];
-			getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, node_ipaddr, sizeof(node_ipaddr), NULL, 0, NI_NUMERICHOST);
-			freeaddrinfo(infoptr);
-
 			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
 			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
-			// 15 character width for ip address - XXX.XXX.XXX.XXX
+			// max character width for ip address - XXX.XXX.XXX.XXX
 			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
 			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-			fprintf(pfile, "%-7d %15s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
+			fprintf(pfile, "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n", dbgsrv_id, leaf_nodes[index].hostname, leaf_nodes[index].port, leaf_nodes[index].rank);
 			++dbgsrv_id;
 		}
 	}
@@ -833,27 +856,12 @@ create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be)
 
 		for(inner = 0; inner < loop; ++inner)
 		{
-			// resolve the node hostname to its IPv4 address
-			struct addrinfo hints;
-			hints.ai_family = AF_INET;
-			struct addrinfo *infoptr = NULL;
-			if (getaddrinfo(leaf_nodes[index].hostname, NULL, &hints, &infoptr) || !infoptr) {
-				PrintOutError("ERROR: failed to resolve frontend hostname %s\n", leaf_nodes[index].hostname);
-				perror("getaddrinfo");
-				return -1;
-			}
-
-			// extract the IP address string
-			char node_ipaddr[MAXIPADDRLEN];
-			getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, node_ipaddr, sizeof(node_ipaddr), NULL, 0, NI_NUMERICHOST);
-			freeaddrinfo(infoptr);
-
 			// we should make this a constant width so we can speed up the parsing of the be_attach.dat file
 			// 7 digit width for dbgsrv_id - meaning we can have up to 9,999,999 nodes, should be good enough into the distant future
-			// 15 character width for ip address - XXX.XXX.XXX.XXX
+			// max character width for ip address - XXX.XXX.XXX.XXX
 			// 5 digit width for portnum - ok as long as they don't change the standard on us (65535)
 			// 6 digit mrnet rank - this is highest dbgsrv_id divided by fanout
-			fprintf(pfile, "%-7d %15s %-5d %-6d\n", dbgsrv_id, node_ipaddr, leaf_nodes[index].port, leaf_nodes[index].rank);
+			fprintf(pfile, "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n", dbgsrv_id, leaf_nodes[index].hostname, leaf_nodes[index].port, leaf_nodes[index].rank);
 			++dbgsrv_id;
 		}
 	}

@@ -38,8 +38,8 @@
 #include "Topology_C.h"
 #include "dbgsrv_defs.h"
 
-// line format string: "%-7d %15s %-5d %-6d\n"
-#define ATTACH_FILE_LINE_LEN            37
+// line format string: "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n"
+#define ATTACH_FILE_LINE_LEN            (8 + MAXADDRLEN + 1 + 6 + 7)
 #define NUM_TIMEOUT_RETRY               1000
 
 /*
@@ -54,12 +54,12 @@ ProcRankToMRNRank(int procRank)
 }
 
 int
-get_myparent_info(int id, char *host, char *par_ipaddr, unsigned *par_port, unsigned *par_rank)
+get_myparent_info(int id, char *host, char *par_addr, unsigned *par_port, unsigned *par_rank)
 {
 	FILE *          conn;
 	int             dbgsrv_id;
 	char            connections[MAXPATHLEN];
-	char            ipaddr[MAXIPADDRLEN];
+	char         addr[MAXADDRLEN+1];
 	unsigned        port;
 	unsigned        rank;
 	int	        found = 0;
@@ -117,8 +117,9 @@ get_myparent_info(int id, char *host, char *par_ipaddr, unsigned *par_port, unsi
 	}
 
 	do{
-		retval = fscanf(conn, "%d %s %d %d", &dbgsrv_id, ipaddr, &port, &rank);
-		DVPRINT("INFO: get_myparent_info read %d:%s:%d:%d\n", dbgsrv_id, ipaddr, port, rank);
+		retval = fscanf(conn, "%d %s %d %d", &dbgsrv_id, addr, &port, &rank);
+		addr[MAXADDRLEN] = '\0';
+		DVPRINT("INFO: get_myparent_info read %d:%s:%d:%d\n", dbgsrv_id, addr, port, rank);
 		if(id == dbgsrv_id)
 		{
 			found = 1;
@@ -127,8 +128,9 @@ get_myparent_info(int id, char *host, char *par_ipaddr, unsigned *par_port, unsi
 	} while(retval != EOF);
 #else
 	do{
-		retval = fscanf(conn, "%d %s %d %d\n", &dbgsrv_id, ipaddr, &port, &rank);
-		DVPRINT("INFO: get_myparent_info read %d:%s:%d:%d\n", dbgsrv_id, ipaddr, port, rank);
+		retval = fscanf(conn, "%d %s %d %d\n", &dbgsrv_id, addr, &port, &rank);
+		addr[MAXADDRLEN] = '\0';
+		DVPRINT("INFO: get_myparent_info read %d:%s:%d:%d\n", dbgsrv_id, addr, port, rank);
 		if(id == dbgsrv_id)
 		{
 			found = 1;
@@ -141,7 +143,7 @@ get_myparent_info(int id, char *host, char *par_ipaddr, unsigned *par_port, unsi
 
 	if(found)
 	{
-		sprintf(par_ipaddr, "%s", ipaddr);
+		sprintf(par_addr, "%s", addr);
 		*par_port = port;
 		*par_rank = rank;
 

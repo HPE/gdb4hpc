@@ -9,23 +9,11 @@ import definitions
 import gdb4hpc_spec
 import gdb4hpc_module
 
-#handle any user passed options
-parser = OptionParser()
-parser.add_option("-v","--version", dest="static_version", default=False, help="The user specified version number")
-parser.add_option("-b","--builddir", dest="builddir", help="the directory containing the build")
-parser.add_option("-d","--date", dest="date", help="the user selected release date")
-parser.add_option("-t", "--test", action="store_true", dest="test")
-parser.add_option("-f","--final", action="store_true", dest="is_final", default=False)
-(options, args) = parser.parse_args()
-
-is_final   = options.is_final
 
 #retrieve some package details
 package_info                  = definitions.fetch_newData()
 primary_version               = definitions.three_digit_version
-package_dir                   = definitions.pkgs_dir
-gdb4hpc_build_dir             = definitions.bld_dir
-build_version_two_digit       = definitions.ver_two_dig
+build_version_two_digit       = definitions.two_digit_version
 build_version_two_digit_nodot = definitions.ver_two_dig_nodot
 release_date                  = definitions.release_date 
 script_dir                    = os.getcwd()
@@ -38,73 +26,33 @@ prefix                        = definitions.prefix
 prefix_cmd                    = definitions.prefix_cmd
 os_name                       = definitions.os_name
 arch                          = definitions.arch
-arSles11_WB                   = "sles11sp3"
-arSles11_HW                   = "5.2"
-arSles12_WB                   = "sles12"
-arSles12_HW                   = "6.0,6.1,6.2,6.3"
 arSles15_WB                   = "sles15"
 arSles15_HW                   = "7.0"
 arSYSTEM_TYPE                 = ['HARDWARE','WHITEBOX','AARCH64']
+parent_dir                    = definitions.parent_dir
+cti_version                   = definitions.cti_version
 
 
-if options.builddir == None:
-  print "Using lastest build from Buildbot: " + gdb4hpc_build_dir
-  gdb4hpc_build_dir = gdb4hpc_build_dir + "/latest/gdb4hpc_install"
-else:
-  #verify that the folders that should be in the build dir, are present  
-  gdb4hpc_build_dir = options.builddir 
-  last_char=gdb4hpc_build_dir[-1]
-  #if [last_char != "/" ]:
-   # gdb4hpc_build_dir = gdb4hpc_build_dir + "/"
+#define some paths
+top_dir             = os.getcwd()
+work_dir            = top_dir + "/tmp"
+rpm_build_dir       = work_dir + "/package"
+rpm_install_dir     = rpm_build_dir + "/gdb4hpc-" + build_version + "-" + revision_number
+rpm_module_dir      = rpm_install_dir + "/modulefiles"
+rpm_gdb4hpc_dir     = rpm_install_dir + "/gdb4hpc"
+parent_dir          = top_dir.rsplit('/',1)[0]
+man_dir             = parent_dir + "/man"
+set_default_gdb4hpc = top_dir + "/set_default/set_default_template"
+gdb4hpc_build_dir   = parent_dir + "/gdb4hpc_install"
 
-  print "using --build arg: " + gdb4hpc_build_dir
-  for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
-    print directory
-    t_dir = gdb4hpc_build_dir + directory
-    if not os.path.exists(t_dir):
-      print "the build dir you specified is missing: " + t_dir 
-      print "Exiting!"
-      exit(1)
-
-if options.date != None:
-  release_date = options.date
-  print "Overriding Release date: " + release_date
-
-if options.static_version != False:
-  build_version = options.static_version
-  release_number = str(0)
-  rpm_name = "gdb4hpc-" + build_version + "-" + revision_number + "-" + release_number + os_ver + "." + arch + ".rpm"
-  if is_final:
-    if len(build_version) <= 4 or len(build_version) > 5:
-      print "Ensure your release version has 3 digits. Exiting..."
-      exit(1)
-  else:
-    if len(build_version) <= 6 or len(build_version) > 7:
-      print "Ensure your pre-release version has 4 digits.  Exiting..."
-      exit(1)
+for directory in ["/bin","/demos","/docs","/lib","/libexec","/modulefiles"]:
+  t_dir = gdb4hpc_build_dir + directory
+  if not os.path.exists(t_dir):
+    print "the build dir you specified is missing: " + t_dir 
+    print "Exiting!"
+    exit(1)
 
 print "Packaging: " + rpm_name
-os_string = ""
-
-if os_ver == '.sles11':
-  os_string = 'sles11'
-elif os_ver == '.sles12':
-  os_string = 'sles12'
-elif os_ver == '.el7':
-  os_string = 'CS'
-elif os_ver == 'sles15':
-  os_string = 'sles15'
- 
-#define some paths
-top_dir         = os.getcwd()
-work_dir        = top_dir + "/tmp"
-rpm_build_dir   = work_dir + "/package"
-rpm_install_dir = rpm_build_dir + "/gdb4hpc-" + build_version + "-" + revision_number
-rpm_module_dir  = rpm_install_dir + "/modulefiles"
-rpm_gdb4hpc_dir    = rpm_install_dir + "/gdb4hpc"
-parent_dir      = top_dir.rsplit('/',1)[0]
-man_dir         = parent_dir + "/man"
-set_default_gdb4hpc = top_dir + "/set_default/set_default_template"
 
 #spec file
 spec_file = "gdb4hpc.spec"
@@ -147,10 +95,11 @@ spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_v
 spec_content = spec_content.replace( "[version]", build_version)
 spec_content = spec_content.replace( "[release]", release_number)
 spec_content = spec_content.replace( "[revision]", revision_number)
-spec_content = spec_content.replace( "[sles_sub]", os_ver)
+spec_content = spec_content.replace( "[sles_sub]", "." + os_ver)
 spec_content = spec_content.replace( "[ARCH]", arch)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
+spec_content = spec_content.replace("[cti-version]", cti_version)
 spec_file = open(spec_dest, 'w+')
 spec_file.write(spec_content)
 spec_file.close()
@@ -346,35 +295,12 @@ system_type_hw=""
 system_type_wb=""
 system_type_remove=""
 
-if os_ver == ".sles11":
-  os_list_hw=arSles11_HW
-  os_list_wb=arSles11_WB
+if os_ver == "sles15":
+  os_list_hw=arSles15_HW
+  os_list_wb=arSles15_WB
   system_type_hw=arSYSTEM_TYPE[0]
   system_type_wb=arSYSTEM_TYPE[1]
   system_type_remove=system_type_hw + "," + system_type_wb
-elif os_ver == ".sles12":
-  os_list_hw=arSles12_HW
-  os_list_wb=arSles12_WB
-  if arch == "x64_64":
-    system_type_hw=arSYSTEM_TYPE[0]
-    system_type_wb=arSYSTEM_TYPE[1]
-    system_type_remove=system_type_hw + "," + system_type_wb
-  elif arch == "aarch64":
-    system_type_hw=arSYSTEM_TYPE[2]
-    system_type_wb=arSYSTEM_TYPE[2]
-    system_type_remove=arSYSTEM_TYPE[2]
-elif os_ver == ".sles15":
-  os_list_hw=arSles15_HW
-  os_list_wb=arSles15_WB
-  if arch == "x86_64":
-    system_type_hw=arSYSTEM_TYPE[0]
-    system_type_wb=arSYSTEM_TYPE[1]
-    system_type_remove=system_type_hw + "," + system_type_wb
-  elif arch == "aarch64":
-    system_type_hw=arSYSTEM_TYPE[2]
-    system_type_wb=arSYSTEM_TYPE[2]
-    system_type_remove=arSYSTEM_TYPE[2]
-
 
 print "os_list_hw: " + os_list_hw
 print "os_list_wb: " +  os_list_wb
@@ -407,14 +333,3 @@ manifest_yaml.write(manifest_content)
 manifest_yaml.close()
 
 
-if options.test == None:
-  print "Packaging to release location."
-  #copy rpm and yaml to pkgs_dir
-  rpm_folder = rpm_build_dir + "/rpm/RPMS/" + arch 
-  print rpm_folder
-  os.chdir(rpm_folder)
-  for f in [rpm_name, rpm_name+".yaml"]:
-    distutils.file_util.copy_file(f, package_dir)
-else:
-  print "Packaging to sandbox."
-  

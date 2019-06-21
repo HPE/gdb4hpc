@@ -6,6 +6,7 @@ content='''%define namespace [namespace]
 %define scripts_d [script_dir]
 %define arch [ARCH]
 %define os_ver [sles_sub]
+%define cti_version [cti-version]
 
 Summary: Performance Application Programming Interface
 Name: %{namespace}-%{build_version} 
@@ -17,9 +18,8 @@ URL: [url]
 Source: [tarball]
 BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
-Requires: cray-cti >= 1.0.7
 Vendor: Cray Inc.
-Requires: set_default_2
+Requires: set_default_2 cray-gcc-8.1.0 cray-cti-%{cti_version}
 
 %define _use_internal_dependency_generator 0
 %define __find_requires %{scripts_d}/find-requires 
@@ -59,14 +59,23 @@ ln -s ../%{namespace}/%{build_version}
 popd
 
 install -D modulefiles/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
+
 install -D gdb4hpc/release_info %{buildroot}%{_version_prefix}/
 echo "%{build_version}-%{release}" > %{buildroot}%{_version_prefix}/.cray_rpm_release
+
 mkdir -p %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/
+
 install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
+
 install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_version_prefix}/
-cp gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
 
+cp gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_%{namespace}.%{build_version}.txt
 
+mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d
+echo %{_namespace_prefix}/%{namespace} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
+
+mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d
+echo %{_name_moduledir} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
 
 # hardlink duplicate files to save space
 #%fdupes %{buildroot}
@@ -92,16 +101,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/libexec/guard_proxy
 %{_version_prefix}/libexec/start_proxy.sh
 
-%if %is_x86_64
- %if %is_sles15
-  %{_version_prefix}/libexec/cuda91-gdb-guard
- %else
-  %{_version_prefix}/libexec/cuda75-gdb-guard
-  %{_version_prefix}/libexec/cuda80-gdb-guard
-  %{_version_prefix}/libexec/cuda91-gdb-guard
- %endif
-%endif
-
 %{_version_prefix}/demos
 %{_version_prefix}/lib
 %{_version_prefix}/man
@@ -115,6 +114,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
 %{_version_prefix}/docs/ATTRIBUTIONS_gdb4hpc.txt
 
+/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
+/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
 
 %post
 #

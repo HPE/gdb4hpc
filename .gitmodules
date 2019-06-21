@@ -1,7 +1,3 @@
-[submodule "craytool_interface"]
-	path = craytool_interface
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/cti.git
-	branch = master
 [submodule "third_party/libarchive"]
 	path = third_party/libarchive
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libarchive.git

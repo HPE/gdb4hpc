@@ -989,7 +989,7 @@ AllocFifo(int *fd, char **master, char **slave)
 		return -1;
 	}
 
-	*slave = Alloc(strlen(*master) + 2);
+	*slave = (char*)Alloc(strlen(*master) + 2);
 	strcpy(*slave, ">");
 	strcat((*slave)+1, *master);
 

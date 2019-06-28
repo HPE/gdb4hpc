@@ -1315,6 +1315,8 @@ if [[ $opt_gdb4hpc == y ]]; then
 	# change directories
 	echo -e "Using guard source in $gdb4hpc_src.\n"
 	cd $gdb4hpc_src
+    # set PATH to locate pre-built binaries
+    export PATH=$PATH:$libexecdir
 	# run gdb4hpc configure
 	echo "Configuring gdb4hpc..."
 	set -x

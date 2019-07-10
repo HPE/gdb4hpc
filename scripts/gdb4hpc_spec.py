@@ -19,6 +19,7 @@ Source: [tarball]
 BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
 Vendor: Cray Inc.
+Provides: %{namespace} = %{build_version}
 Requires: set_default_2 cray-gcc-8.1.0 cray-cti-%{cti_version}
 
 %define _use_internal_dependency_generator 0

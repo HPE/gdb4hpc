@@ -166,7 +166,7 @@ DbgMRNAttach(
 	char * 				env_lib_dir = NULL;
 	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
-	cti_wlm_type		wlm;
+	cti_wlm_type_t		wlm;
 	char * beDirStr = NULL;
 
 #ifdef DEBUG

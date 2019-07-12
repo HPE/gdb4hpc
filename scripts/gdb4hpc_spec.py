@@ -131,14 +131,9 @@ $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_
 $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/set_default_%{namespace}_%{build_version}
 
 # prevent echo of new directory as it messes up install output
-if [[ $RPM_INSTALL_PREFIX = "/opt/cray" ]] || [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
-  then
-    if [ ${CRAY_INSTALL_DEFAULT:-0} -eq 1 ] || [ ! -f $RPM_INSTALL_PREFIX/modulefiles/gdb4hpc/.version ]
-    then
-      $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
-    else
-      echo "%{namespace}_%{build_version} has been installed as non-default."
-    fi
+if [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
+then
+  $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 fi
 
 #for XE/XK CLE5.2 create lgdb link pointing to gdb4hpc in bin dir.

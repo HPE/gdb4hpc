@@ -280,13 +280,19 @@ DbgMRNAttach(
 			}
 			
 			// Register the slurm job step with the tool interface
-			if ((di->d_appid = cti_cray_slurm_registerJobStep(jobid, stepid)) == 0)
+            cti_cray_slurm_ops_t *ops = NULL;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_CRAY_SLURM)
+            {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                goto attach_error;
+            }
+			if ((di->d_appid = ops->registerJobStep(jobid, stepid)) == 0)
 			{
 				PrintOutError("CTI error: %s\n", cti_error_str());
 				PrintOutError("Failed to register slurm job step with CTI.\n");
 				goto attach_error;
-			}				
-
+			}
 		}
 		break;
 		case CTI_WLM_SSH:

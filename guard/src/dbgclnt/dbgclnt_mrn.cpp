@@ -48,10 +48,10 @@ static int				DbgMRNInit();
 static bitset *			DbgMRNSendCmd(dbginvoke_t *, bitset *, char *);
 static proto_msg_set *	DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void				DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
-static int				DbgMRNAttach(	dbginvoke_t *, proto_session *, 
+static int				DbgMRNAttach(	dbginvoke_t *, proto_session *,
 										char *, char *, char *, int, int);
-static int				DbgMRNInvoke(	dbginvoke_t *, proto_session *, 
-										char *, char **, char *, char **, char *, 
+static int				DbgMRNInvoke(	dbginvoke_t *, proto_session *,
+										char *, char **, char *, char **, char *,
 										char *, char **, char *, int, int, int);
 static int				DbgMRNExit(dbginvoke_t *, int);
 static void				DbgMRNDestroyClient(dbginvoke_t *);
@@ -87,14 +87,14 @@ DbgMRNInit()
 	struct stat		st;
 	char *			mrnet_cfg_dir;
 	char *			mrnet_port_base;
-	
+
 	// grab the config dir environment variable
 	if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
 	{
 		PrintOutError("Could not retrieve %s env var! Please check your environment settings.\n", GUARD_CFG_DIRECTORY);
 		return 0;
 	}
-	
+
 	// try to stat the directory
 	if (stat(mrnet_cfg_dir, &st))
 	{
@@ -102,14 +102,14 @@ DbgMRNInit()
 		PrintOutError("Could not find the config directory! Ensure you have write permissions in the %s path.\n", mrnet_cfg_dir);
 		return 0;
 	}
-	
+
 	// Try to grab the port base environment variable
 	if ((mrnet_port_base = getenv(GUARD_MRNET_PORT)) == NULL)
 	{
 		// Use the default choice
 		mrnet_port_base = DEFAULT_MRNET_PORT_BASE;
 	}
-	
+
 	// Set the MRNET_PORT_BASE env var
 	setenv("MRNET_PORT_BASE", mrnet_port_base, 1);
 
@@ -119,7 +119,7 @@ DbgMRNInit()
 	if(guard_libalps_enable_dsl != NULL){
 		if( strcmp(guard_libalps_enable_dsl,"0") == 0 ){
 			unsetenv(LIBALPS_ENABLE_DSL);
-		}		
+		}
 	}
 
 	return 1;
@@ -176,7 +176,7 @@ DbgMRNAttach(
 	// ensure the dbginvoke_t object was passed down
 	if (di == NULL)
 		goto attach_error;
-	
+
 	// Set the initial protocol event callback to use our custom event handler
 	// for launching
 	di->d_proto_ev_callback = cbMRNAttach;
@@ -196,13 +196,13 @@ DbgMRNAttach(
 	** front end.
 	*/
 	PrintOutMsg("Attaching to application, please wait...\n");
-	
-	// if PERFLOG is turned on, we need to create a string to the location to 
+
+	// if PERFLOG is turned on, we need to create a string to the location to
 	// create the log file.
 #ifdef PERFLOG
 	char *envDir;
 	char logfile[PATH_MAX];
-	
+
 	if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL)
 	{
 		// user didn't set the environment variable, so lets
@@ -213,10 +213,10 @@ DbgMRNAttach(
 			envDir = "/tmp";
 		}
 	}
-	
+
 	// create the fullpath string to the log file using PATH_MAX plus a null term
 	snprintf(logfile, PATH_MAX+1, "%s/mrnet_perf_frontend.log", envDir);
-	
+
 	DPERFLOG(CreateTimerLog(logfile));
 	DPERFLOG(SetLogInfo("Attaching to processes\n"));
 	DPERFLOG(SetTimerStart("Attach total"));
@@ -233,7 +233,7 @@ DbgMRNAttach(
 			uint32_t 	jobid;
 			uint32_t	stepid;
 			char *		eptr;
-			
+
 			// find '.' in app_ident
 			if ((sep = strchr(app_ident, '.')) == NULL)
 			{
@@ -242,43 +242,43 @@ DbgMRNAttach(
 			}
 			// turn it into null term and point past
 			*sep++ = '\0';
-			
+
 			// convert the jobid
 			errno = 0;
 			jobid = (uint32_t)strtoul(app_ident, &eptr, 10);
-			
+
 			// check for error
 			if ((errno == ERANGE && (jobid == ULONG_MAX)) || (errno != 0 && jobid == 0))
 			{
 				PrintOutError("Invalid slurm jobid argument.\n");
 				goto attach_error;
 			}
-			
+
 			// check for invalid input
 			if (eptr == app_ident)
 			{
 				PrintOutError("Invalid slurm jobid argument.\n");
 				goto attach_error;
 			}
-			
+
 			// convert the stepid
 			errno = 0;
 			stepid = (uint32_t)strtoul(sep, &eptr, 10);
-			
+
 			// check for error
 			if ((errno == ERANGE && (stepid == ULONG_MAX)) || (errno != 0 && stepid == 0))
 			{
 				PrintOutError("Invalid slurm stepid argument.\n");
 				goto attach_error;
 			}
-			
+
 			// check for invalid input
 			if (eptr == sep)
 			{
 				PrintOutError("Invalid slurm stepid argument.\n");
 				goto attach_error;
 			}
-			
+
 			// Register the slurm job step with the tool interface
             cti_cray_slurm_ops_t *ops = NULL;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
@@ -299,27 +299,34 @@ DbgMRNAttach(
 		{
 			pid_t 		launcher_pid;
 			char *		eptr;
-			
+
 			// convert the string to an int
 			errno = 0;
 			launcher_pid = strtol(app_ident, &eptr, 10);
-			
+
 			// check for error
 			if ( (launcher_pid < 0) || (errno != 0) )
 			{
 				PrintOutError("Invalid launcher pid argument.\n");
 				goto attach_error;
 			}
-			
+
 			// check for invalid input
 			if (eptr == app_ident)
 			{
 				PrintOutError("Invalid launcher pid argument.\n");
 				goto attach_error;
 			}
-			
-			// Register the aprun pid with the tool interface
-			if ((di->d_appid = cti_ssh_registerJob(launcher_pid)) == 0)
+
+			// Register the pid with the tool interface
+            cti_ssh_ops_t *ops = NULL;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_SSH)
+            {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                goto attach_error;
+            }
+			if ((di->d_appid = ops->registerJob(launcher_pid)) == 0)
 			{
 				PrintOutError("CTI error: %s\n", cti_error_str());
 				PrintOutError("Failed to register launcher pid with CTI.\n");
@@ -331,12 +338,12 @@ DbgMRNAttach(
 			PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
 			goto attach_error;
 	}
-	
+
 	// TODO: If we really wanted to, we could attach to the existing aprun
 	// process here and redirect its /proc stdout and stderr to our output stream
 	// handler. Slurm should be trivial to implement this with sattach. If this
 	// is ever done, put it in the CTI library.
-	
+
 	// Create a new session based on the appid. We need to remember this for
 	// later
 	if ((sid = cti_createSession(di->d_appid)) == 0)
@@ -345,7 +352,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to create a cti_session_id_t.\n");
 		goto attach_error;
 	}
-	
+
 	// Create a manifest to hold the stuff we want to ship
 	if ((mid = cti_createManifest(sid)) == 0)
 	{
@@ -353,7 +360,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		goto attach_error;
 	}
-	
+
 	// Add gdb-guard to the manifest
 	if (cti_addManifestBinary(mid, "gdb-guard"))
 	{
@@ -361,7 +368,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to add gdb-guard to manifest.\n");
 		goto attach_error;
 	}
-	
+
 	// This checks the setting of gpu_flag to figure out if cuda-gdb should be
 	// sent over
 	if (gpu_flag)
@@ -385,7 +392,7 @@ DbgMRNAttach(
 			PrintOutError("Failed to add cuda91-gdb-guard to manifest.\n");
 			goto attach_error;
 		}
-                
+
 
 	}
 
@@ -396,14 +403,14 @@ DbgMRNAttach(
 		PrintOutError("Failed to add dbgsrv to manifest.\n");
 		goto attach_error;
 	}
-	
+
 	// Get the libdir env var
 	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
 	{
 		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
 		goto attach_error;
 	}
-	
+
 	// Add the python modules
 	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
 	if (cti_addManifestLibDir(mid, python_lib_dir))
@@ -414,7 +421,7 @@ DbgMRNAttach(
 	}
 	Free(python_lib_dir);
 	python_lib_dir = NULL;
-	
+
 	// Now add the gdb pretty printers
 	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
 	if (cti_addManifestLibDir(mid, gdb_lib_dir))
@@ -425,7 +432,7 @@ DbgMRNAttach(
 	}
 	Free(gdb_lib_dir);
 	gdb_lib_dir = NULL;
-	
+
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -445,7 +452,7 @@ DbgMRNAttach(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add strace to manifest.\n");
-		
+
 		goto attach_error;
 	}
 #endif
@@ -458,7 +465,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
 		goto attach_error;
 	}
-	
+
 #ifdef BE_VALGRIND
 	// Add valgrind to the manifest
 	if (cti_addManifestBinary(mid, "valgrind"))
@@ -468,7 +475,7 @@ DbgMRNAttach(
 		goto attach_error;
 	}
 #endif
-	
+
 	// Add the aggregation filter to the manifest
 	if (cti_addManifestLibrary(mid, AGGREGATION_FILTER))
 	{
@@ -476,9 +483,9 @@ DbgMRNAttach(
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
 		goto attach_error;
 	}
-	
-	PrintOutMsg("Creating MRNet communication network...\n"); 
-	
+
+	PrintOutMsg("Creating MRNet communication network...\n");
+
 	// get the number of processes associated with this application
 	if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0)
 	{
@@ -486,7 +493,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to retrieve nproc.\n");
 		goto attach_error;
 	}
-	
+
 	// create the root hostname for mrnet
 	if ((root = cti_getHostname()) == NULL)
 	{
@@ -494,10 +501,10 @@ DbgMRNAttach(
 		PrintOutError("Failed to retrieve node hostname.\n");
 		goto attach_error;
 	}
-	
+
 	DPRINT("Application has apid[%d]\n", di->d_appid);
 	DPRINT("Root has a hostname of [%s]\n", root);
-	
+
 	// get a list of the nid hostnames for topology creation
 	if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == NULL)
 	{
@@ -505,7 +512,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to retrieve nid hostname list.\n");
 		goto attach_error;
 	}
-	
+
 #ifdef DEBUG
 	DPRINT("Application has the following nid hostnames list:\n");
 	tmp = machine_hosts;
@@ -519,10 +526,10 @@ DbgMRNAttach(
 	// create the topology file used to create the mrnet front end network
 	if(create_mrnet_topology(di->d_nproc, root, machine_hosts, 1))
 	{
-		PrintOutError("ERROR: DbgMRNAttach failed to create MRNet topology file!\n"); 
+		PrintOutError("ERROR: DbgMRNAttach failed to create MRNet topology file!\n");
 		goto attach_error;
 	}
-	
+
 	// cleanup
 	Free(root);
 	root = NULL;
@@ -535,9 +542,9 @@ DbgMRNAttach(
 	machine_hosts = NULL;
 
 	DPRINT("MRNet is going to create a tree with topology[%s]\n", topology_name);
-	
+
 	DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
-	
+
 	// We let MRNet send the contents of the manifest for us
 	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, di->d_appid, mid);
 	if (network == NULL)
@@ -545,18 +552,18 @@ DbgMRNAttach(
 		// error already printed
 		goto attach_error;
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("Create mrnet network and ship dependencies"));
-	
+
 	DPRINT("MRNet network initialized.\n");
-	
+
 	// create the backend attach file which the compute nodes will use to hook up to the network
 	if (create_parents_info(mrn_topology, di->d_nproc) < 1)
 	{
 		PrintOutError("ERROR: DbgMRNAttach cannot create infomation for MRNet attachment!\n");
 		goto attach_error;
 	}
-	
+
 	// Test if MRNet sent the manifest, if so create a new one.
 	// MRNet will not ship the manifest if there are no commnodes spawned.
 	if (!cti_manifestIsValid(mid))
@@ -569,7 +576,7 @@ DbgMRNAttach(
 			goto attach_error;
 		}
 	}
-	
+
 	// Add the be_attach.dat file to the manifest
 	if (cti_addManifestFile(mid, connections))
 	{
@@ -577,7 +584,7 @@ DbgMRNAttach(
 		PrintOutError("Failed to add backend attach information to manifest.\n");
 		goto attach_error;
 	}
-	
+
 	// Transfer and execute dbgsrv_alps with call line info:
 	// dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend>
 	// first create the argv for dbgsrv_alps
@@ -601,8 +608,8 @@ DbgMRNAttach(
 			ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p", di->d_proto->sw_name, "-e", backend, NULL);
 		}
 	}
-	
-#ifdef DEBUG 
+
+#ifdef DEBUG
 	DPRINT("Starting dbgsrv_alps with argv: \n");
 	tmp = ap;
 	while (*tmp != (char *)NULL)
@@ -610,12 +617,12 @@ DbgMRNAttach(
 		DPRINT("%s ", *tmp++);
 	}
 	DPRINT("\n");
-	
+
 	// set dbg to 1 if debug is on
 	dbg = 1;
 #endif /* DEBUG */
 
-	// For the attach case, we might need to send over the current value of 
+	// For the attach case, we might need to send over the current value of
 	// GUARD_MRNET_STARTUP_TIMEOUT in case it isn't set in the environment of
 	// the application. Note that we want the environment inside the cray tool
 	// interface to be set to this value.
@@ -623,14 +630,14 @@ DbgMRNAttach(
 	{
 		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str);
 	}
-	
+
 	// ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
 	// inside the cray tool interface again.
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
 		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_EXTRA_SLEEP_ENV_VAR, env_var_str);
 	}
-	
+
 	// We should set the DBG_LOG_ENV_VAR only if debug flag is true
 	if (dbg)
 	{
@@ -639,7 +646,7 @@ DbgMRNAttach(
 			Asprintf(&env_vars[env_var_cnt++], "%s=%s", DBG_LOG_ENV_VAR, env_var_str);
 		}
 	}
-	
+
 	// Setup PYTHONHOME
 	beDirStr = cti_getSessionRootDir(sid);
 	if (beDirStr == NULL)
@@ -650,24 +657,24 @@ DbgMRNAttach(
 	}
 	Asprintf(&env_vars[env_var_cnt++], "PYTHONHOME=%s", beDirStr);
 	Free(beDirStr);
-	
+
 	DPRINT("Launching debug servers onto compute nodes.\n");
-	
+
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
-	
+
 	// Set CTI debug env var if debug is on
 	if (dbg)
 	{
 	    setenv(CTI_DBG_ENV_VAR, "1", 1);
 	}
-	
+
 	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)env_vars))
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
 		goto attach_error;
 	}
-	
+
 	// done with the argv array and env_vars
 	FreeArgv(ap);
 	ap = NULL;
@@ -676,7 +683,7 @@ DbgMRNAttach(
 		Free(env_vars[i]);
 	}
 	env_var_cnt = 0;
-	
+
 	// wait for the debug servers to connect to the mrnet tree
 	rtn = mrn_fe_attach_be(network, di->d_nproc, mrnet_timeout);
 	if (rtn)
@@ -690,31 +697,31 @@ DbgMRNAttach(
 		}
 		goto attach_error;
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("mrnet backend attach"));
-	
+
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
-	
+
 	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
 	{
 		PrintOutError("ERROR: DbgMRNAttach failed to load filter functions and create streams for MRNet!\n");
 		goto attach_error;
 	}
-	
+
 	DPRINT("Debugging network startup completed.\n");
-	
+
 	PrintOutMsg("Finalizing setup...\n");
-	
+
 	mrn_fe_enable_failure_callback(network, di);
-	
+
 	if ((num_be = mrn_fe_get_num_of_be(network)) != di->d_nproc)
 	{
 		PrintOutError("ERROR: MRNet has an incorrect number of debug servers.\n");
 		PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
 		goto attach_error;
 	}
-	
+
 	DPRINT("num_be is %d\n", num_be);
 
 	di->d_bitset_full = bitset_new(num_be);
@@ -725,29 +732,29 @@ DbgMRNAttach(
 	di->d_proto_net = network;
 
 	DPRINT("DbgMRNAttach: MRNet initialization succeded! network:[%p]\n", network);
-	
+
 	// create the d_evfds list for the di
 	di->d_evfds = NewList();
-	
+
 	// setup the event notification fd for the io stream
 	event_fd = mrn_fe_get_io_notificationfd(network);
-	
+
 	// create an int to hold the io stream fd. Note that this will get free'ed
 	// later on when the dbg invoke gets cleaned up.
 	ev_fd_ptr = (int *)Alloc(sizeof(int));
 	*ev_fd_ptr = event_fd;
-	
+
 	// Add the io_stream fd to the d_evfds list
 	// This allows DbgCheckEvents to select on MRNet protocol events
 	AddToList(di->d_evfds, (void *)ev_fd_ptr);
-	
+
 	// setup the event notification fd for the event stream
 	event_fd = mrn_fe_get_event_notificationfd(network);
-	
+
 	// create an int to hold the event stream fd.
 	ev_fd_ptr = (int *)Alloc(sizeof(int));
 	*ev_fd_ptr = event_fd;
-	
+
 	// Add the event_stream fd to the d_evfds list
 	// This allows DbgCheckEvents to select on MRNet protocol events
 	AddToList(di->d_evfds, (void *)ev_fd_ptr);
@@ -760,19 +767,19 @@ DbgMRNAttach(
 		PrintOutError("ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
 		goto attach_error;
 	}
-	
+
 	// wait for the DBG_OK response from the dbgsrv's indicating they have finished
 	// starting up
-	
+
 	DPRINT("MRNet setup finalized.\n");
 	DPRINT("Waiting for dbgsrv callbacks...\n");
 
 	// final cleanup
 	Free(request);
 	request = NULL;
-	
+
 	DPERFLOG(SetTimerStart("Attach finalize"));
-	
+
 	// Here we want to wait for the dbginvoke to start as long as the callback
 	// is still valid
 	while ( di->d_started == 0 )
@@ -783,16 +790,16 @@ DbgMRNAttach(
 			goto attach_error;
 		}
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("Attach finalize"));
-	
+
 	// All done. Everything is ready to go at this point.
-	
+
 	DPERFLOG(SetTimerStopAndLog("Attach total"));
 	DPRINT("DbgMRNAttach completed!\n");
 
 	return 0;
-	
+
 attach_error:
 
 	if (di->d_appid != 0)
@@ -800,26 +807,26 @@ attach_error:
 		cti_deregisterApp(di->d_appid);
 		di->d_appid = 0;
 	}
-	
+
 	if (python_lib_dir != NULL)
 		Free(python_lib_dir);
-		
+
 	if (gdb_lib_dir != NULL)
 		Free(gdb_lib_dir);
-		
+
 	if (network != NULL)
 	{
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
 	}
-	
+
 	if (ap != NULL)
 		FreeArgv(ap);
-	
+
 	if (root != NULL)
 		Free(root);
-		
+
 	if (machine_hosts != NULL)
 	{
 		tmp = machine_hosts;
@@ -829,12 +836,12 @@ attach_error:
 		}
 		Free(machine_hosts);
 	}
-	
+
 	for (i=0; i < env_var_cnt; ++i)
 	{
 		Free(env_vars[i]);
 	}
-	
+
 	if (request != NULL)
 		Free(request);
 
@@ -866,7 +873,7 @@ cbMRNAttach(dbginvoke_t *di, proto_msg_set *set)
 			err = 1;
 			PrintOutError("Received unknown event %s.\n", DbgevToStr(e->ev_event));
 		}
-		
+
 		// Done with the event, free it
 		FreeEvent(e);
 	}
@@ -881,12 +888,12 @@ cbMRNAttach(dbginvoke_t *di, proto_msg_set *set)
 	{
 		// Reset the protocol event callback to the dbgclient default
 		di->d_proto_ev_callback = DbgDispatchProtoEvents;
-		
+
 		// Set the started bit in the di
 		di->d_started = 1;
-		
+
 		DPERFLOG(SetTimerStopAndLog("stream_init"));
-		
+
 		DPRINT("dbgsrv callback complete.\n");
 		DPRINT("Releasing application from the startup barrier...\n");
 
@@ -971,13 +978,13 @@ DbgMRNInvoke(
 	** front end.
 	*/
 	PrintOutMsg("Starting application, please wait...\n");
-	
-	// if PERFLOG is turned on, we need to create a string to the location to 
+
+	// if PERFLOG is turned on, we need to create a string to the location to
 	// create the log file.
 #ifdef PERFLOG
 	char *envDir;
 	char logfile[PATH_MAX];
-	
+
 	if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL)
 	{
 		// user didn't set the environment variable, so lets
@@ -988,15 +995,15 @@ DbgMRNInvoke(
 			envDir = "/tmp";
 		}
 	}
-	
+
 	// create the fullpath string to the log file using PATH_MAX plus a null term
 	snprintf(logfile, PATH_MAX+1, "%s/mrnet_perf_frontend.log", envDir);
-	
+
 	DPERFLOG(CreateTimerLog(logfile));
 	DPERFLOG(SetLogInfo("Invoking %d processes, GPU is %s\n", di->d_nproc, gpu_flag ? "on":"off"));
 	DPERFLOG(SetTimerStart("Invoke total"));
 #endif /* PERFLOG */
-	
+
 	// create the argv for the app launcher note that here argv[0] should not be the program name
 	// this is to address the fact that guard should be ignorant of the starter applications
 	// real name.
@@ -1018,8 +1025,8 @@ DbgMRNInvoke(
 			ap = AppendArgs(ap, *tmp++, NULL);
 		}
 	}
-	
-	ap = AppendArgs(ap, prog, NULL); // and the prog 
+
+	ap = AppendArgs(ap, prog, NULL); // and the prog
 	ap = AppendArgv(ap, argv); // plus its args
 
 #ifdef DEBUG
@@ -1041,8 +1048,8 @@ DbgMRNInvoke(
 		// Set the protocol program output stream callback
 		di->d_proto_outp_callback = DbgDispatchProtoOutput;
 	}
-	
-	// Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate 
+
+	// Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate
 	// CTI environment variables for the application.
 	if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL)
 	{
@@ -1050,14 +1057,14 @@ DbgMRNInvoke(
 		// set the pmi_attribs parser timeout to the same value as mrnet timeout.
 		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
 	}
-	
+
 	// ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
 	// inside the cray tool interface again.
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
 		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
 	}
-	
+
 	DPERFLOG(SetTimerStart("application launch"));
 
 	// launch the application using the tool interface
@@ -1066,9 +1073,9 @@ DbgMRNInvoke(
 	{
 		int 	n=0, r;
 		char *	read_buf;
-		
+
 		PrintOutError("Application launch failed.\n");
-		
+
 		// Check to see if we can read from the p_o_rfd fd. If we can, lets
 		// print each line out as an error since it might contain useful
 		// information for the user.
@@ -1099,15 +1106,15 @@ DbgMRNInvoke(
 		}
 		goto invoke_error;
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("application launch"));
-	
+
 	// done with this ap
 	FreeArgv(ap);
 	ap = NULL;
-	
+
 	// ship over the binaries to the compute nodes
-	
+
 	// Create a new session based on the appid. We need to remember this for
 	// later
 	if ((sid = cti_createSession(di->d_appid)) == 0)
@@ -1116,7 +1123,7 @@ DbgMRNInvoke(
 		PrintOutError("Failed to create a cti_session_id_t.\n");
 		goto invoke_error;
 	}
-	
+
 	// Create a new manifest to hold the stuff we want to ship
 	if ((mid = cti_createManifest(sid)) == 0)
 	{
@@ -1124,7 +1131,7 @@ DbgMRNInvoke(
 		PrintOutError("Failed to create a cti_manifest_id_t.\n");
 		goto invoke_error;
 	}
-	
+
 	// first add gdb-guard to manifest
 	if (cti_addManifestBinary(mid, "gdb-guard"))
 	{
@@ -1132,7 +1139,7 @@ DbgMRNInvoke(
 		PrintOutError("Failed to add gdb-guard to manifest.\n");
 		goto invoke_error;
 	}
-	
+
 	// This checks the setting of gpu_flag to figure out if cuda-gdb should be
 	// sent over
 	if (gpu_flag)
@@ -1166,14 +1173,14 @@ DbgMRNInvoke(
 		PrintOutError("Failed to add dbgsrv to manifest.\n");
 		goto invoke_error;
 	}
-	
+
 	// Get the libdir env var
 	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
 	{
 		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
 		goto invoke_error;
 	}
-	
+
 	// Add the python modules
 	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
 	if (cti_addManifestLibDir(mid, python_lib_dir))
@@ -1184,7 +1191,7 @@ DbgMRNInvoke(
 	}
 	Free(python_lib_dir);
 	python_lib_dir = NULL;
-	
+
 	// Now add the gdb pretty printers
 	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
 	if (cti_addManifestLibDir(mid, gdb_lib_dir))
@@ -1195,7 +1202,7 @@ DbgMRNInvoke(
 	}
 	Free(gdb_lib_dir);
 	gdb_lib_dir = NULL;
-	
+
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -1215,7 +1222,7 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to add strace to manifest.\n");
-		
+
 		goto invoke_error;
 	}
 #endif
@@ -1228,7 +1235,7 @@ DbgMRNInvoke(
 		PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
 		goto invoke_error;
 	}
-	
+
 #ifdef BE_VALGRIND
 	// add valgrind
 	if (cti_addManifestBinary(mid, "valgrind"))
@@ -1238,7 +1245,7 @@ DbgMRNInvoke(
 		goto invoke_error;
 	}
 #endif
-	
+
 	// add the aggregation filter
 	if (cti_addManifestLibrary(mid, AGGREGATION_FILTER))
 	{
@@ -1246,12 +1253,12 @@ DbgMRNInvoke(
 		PrintOutError("Failed to add %s to manifest.\n", AGGREGATION_FILTER);
 		goto invoke_error;
 	}
-	
+
 	DPRINT("Application launch initialized.\n");
-	PrintOutMsg("Creating MRNet communication network...\n"); 
-	
+	PrintOutMsg("Creating MRNet communication network...\n");
+
 	DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
-	
+
 	// create the root hostname for mrnet
 	if ((root = cti_getHostname()) == NULL)
 	{
@@ -1259,10 +1266,10 @@ DbgMRNInvoke(
 		PrintOutError("Failed to retrieve node hostname.\n");
 		goto invoke_error;
 	}
-	
+
 	DPRINT("Application has apid[%d]\n", (int)di->d_appid);
 	DPRINT("Root has a hostname of [%s]\n", root);
-	
+
 	// get a list of the nid hostnames for topology creation
 	if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)NULL)
 	{
@@ -1270,7 +1277,7 @@ DbgMRNInvoke(
 		PrintOutError("Failed to retrieve nid hostname list.\n");
 		goto invoke_error;
 	}
-	
+
 #ifdef DEBUG
 	DPRINT("Application has the following nid hostnames list:\n");
 	tmp = machine_hosts;
@@ -1287,7 +1294,7 @@ DbgMRNInvoke(
 		PrintOutError("ERROR: DbgMRNInvoke failed to create MRNet topology file!\n");
 		goto invoke_error;
 	}
-	
+
 	// cleanup
 	Free(root);
 	root = NULL;
@@ -1298,27 +1305,27 @@ DbgMRNInvoke(
 	}
 	Free(machine_hosts);
 	machine_hosts = NULL;
-	
+
 	DPRINT("MRNet is going to create a tree with topology[%s]\n", topology_name);
-	
+
 	DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
-	
+
 	network = mrn_fe_create_network_no_be(topology_name, &mrn_topology, di->d_appid, mid);
 	if (network == NULL)
 	{
 		// error already printed
 		goto invoke_error;
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("Create mrnet network and ship dependencies"));
-	
+
 	// create the backend attach file which the compute nodes will use to hook up to the network
 	if (create_parents_info(mrn_topology, di->d_nproc) < 1)
 	{
 		PrintOutError("ERROR: DbgMRNInvoke cannot create infomation for MRNet attachment!\n");
 		goto invoke_error;
 	}
-	
+
 	// Test if MRNet sent the manifest, if so create a new one.
 	// MRNet will not ship the manifest if there are no commnodes spawned.
 	if (!cti_manifestIsValid(mid))
@@ -1331,7 +1338,7 @@ DbgMRNInvoke(
 			goto invoke_error;
 		}
 	}
-	
+
 	// Add the be_attach.dat file to the manifest
 	if (cti_addManifestFile(mid, connections))
 	{
@@ -1339,10 +1346,10 @@ DbgMRNInvoke(
 		PrintOutError("Failed to transfer backend attach information.\n");
 		goto invoke_error;
 	}
-	
+
 	DPRINT("MRNet network initialized.\n");
 	DPRINT("Launching debug servers onto compute nodes.\n");
-	
+
 	// Transfer and execute dbgsrv_alps with call line info:
 	// dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend> prog
 	// first create the argv for dbgsrv_alps
@@ -1392,8 +1399,8 @@ DbgMRNInvoke(
 			}
 		}
 	}
-	
-#ifdef DEBUG 
+
+#ifdef DEBUG
 	DPRINT("Starting dbgsrv_alps with argv: \n");
 	tmp = ap;
 	while (*tmp != (char *)NULL)
@@ -1401,7 +1408,7 @@ DbgMRNInvoke(
 		DPRINT("%s ", *tmp++);
 	}
 	DPRINT("\n");
-	
+
 	// set dbg to 1 if debug is on
 	dbg = 1;
 #endif /* DEBUG */
@@ -1418,15 +1425,15 @@ DbgMRNInvoke(
 	Asprintf(&args[0], "PYTHONHOME=%s", beDirStr);
 	Free(beDirStr);
 	args[1] = (char *)NULL;
-	
+
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
-	
+
 	// Set CTI debug env var if debug is on
 	if (dbg)
 	{
 	    setenv(CTI_DBG_ENV_VAR, "1", 1);
 	}
-	
+
 	// launch dbgsrv_alps onto the compute nodes
 	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)args))
 	{
@@ -1436,10 +1443,10 @@ DbgMRNInvoke(
 		Free(args);
 		goto invoke_error;
 	}
-	
+
 	free(args[0]);
 	free(args);
-	
+
 	// done with the argv array
 	FreeArgv(ap);
 	ap = NULL;
@@ -1455,33 +1462,33 @@ DbgMRNInvoke(
 		{
 			PrintOutError("ERROR: DbgMRNInvoke had null network information!\n");
 		}
-		
+
 		goto invoke_error;
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("mrnet backend attach"));
-	
+
 	DPRINT("Debug server launch completed.\n");
 	DPRINT("MRNet is going to create communication streams for the debugging network...\n");
-	
+
 	if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER, AGGREGATION_FUNC))
 	{
 		PrintOutError("ERROR: DbgMRNInvoke failed to load filter functions and create streams for MRNet!\n");
 		goto invoke_error;
 	}
-	
+
 	DPRINT("Debugging network startup completed.\n");
 	PrintOutMsg("Finalizing setup...\n");
-	
+
 	mrn_fe_enable_failure_callback(network, di);
-	
+
 	if ((num_be = mrn_fe_get_num_of_be(network)) != di->d_nproc)
 	{
 		PrintOutError("ERROR: MRNet has an incorrect number of debug servers.\n");
 		PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
 		goto invoke_error;
 	}
-	
+
 	DPRINT("num_be is %d\n", num_be);
 
 	// Create the full bitset based on the number of ranks
@@ -1490,34 +1497,34 @@ DbgMRNInvoke(
 
 	// Create the empty launched bitset
 	di->d_bitset_launched = bitset_new(num_be);
-	
+
 	// Set the network object in the dbginvoke
 	di->d_proto_net = network;
 
 	DPRINT("DbgMRNInvoke: MRNet initialization succeded! network:[%p]\n", network);
-	
+
 	// create the d_evfds list for the di
 	di->d_evfds = NewList();
-	
+
 	// setup the event notification fd for the io stream
 	event_fd = mrn_fe_get_io_notificationfd(network);
-	
+
 	// create an int to hold the io stream fd. Note that this will get free'ed
 	// later on when the dbg invoke gets cleaned up.
 	ev_fd_ptr = (int *)Alloc(sizeof(int));
 	*ev_fd_ptr = event_fd;
-	
+
 	// Add the io_stream fd to the d_evfds list
 	// This allows DbgCheckEvents to select on MRNet protocol events
 	AddToList(di->d_evfds, (void *)ev_fd_ptr);
-	
+
 	// setup the event notification fd for the event stream
 	event_fd = mrn_fe_get_event_notificationfd(network);
-	
+
 	// create an int to hold the event stream fd.
 	ev_fd_ptr = (int *)Alloc(sizeof(int));
 	*ev_fd_ptr = event_fd;
-	
+
 	// Add the event_stream fd to the d_evfds list
 	// This allows DbgCheckEvents to select on MRNet protocol events
 	AddToList(di->d_evfds, (void *)ev_fd_ptr);
@@ -1530,19 +1537,19 @@ DbgMRNInvoke(
 		PrintOutError("ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
 		goto invoke_error;
 	}
-	
+
 	// wait for the DBG_OK response from the dbgsrv's indicating they have finished
 	// starting up
-	
+
 	DPRINT("MRNet setup finalized.\n");
 	DPRINT("Waiting for dbgsrv callbacks...\n");
 
 	// final cleanup
 	Free(request);
 	request = NULL;
-	
+
 	DPERFLOG(SetTimerStart("Launch finalize"));
-	
+
 	// Here we want to wait for the dbginvoke to start as long as the callback
 	// is still valid
 	while ( di->d_started == 0 )
@@ -1553,9 +1560,9 @@ DbgMRNInvoke(
 			goto invoke_error;
 		}
 	}
-	
+
 	DPERFLOG(SetTimerStopAndLog("Launch finalize"));
-	
+
 	// setup the program output stream handler if we are handling output - Note
 	// we need to do this after the startup event completes. Otherwise the proxy
 	// might segfault...
@@ -1563,19 +1570,19 @@ DbgMRNInvoke(
 	{
 		ev_fd_ptr = (int *)Alloc(sizeof(int));
 		*ev_fd_ptr = po->p_o_rfd;
-		
+
 		// Add the p_o_rfd to the d_evfds list
 		// This allows DbgCheckEvents to select on application output events
 		AddToList(di->d_evfds, (void *)ev_fd_ptr);
 	}
-	
+
 	// All done. Everything is ready to go at this point.
-	
+
 	DPERFLOG(SetTimerStopAndLog("Invoke total"));
 	DPRINT("DbgMRNInvoke completed!\n");
 
 	return 0;
-	
+
 invoke_error:
 
 	if (ap != NULL)
@@ -1587,20 +1594,20 @@ invoke_error:
 		cti_deregisterApp(di->d_appid);
 		di->d_appid = 0;
 	}
-	
+
 	if (network != NULL)
 	{
 		mrn_fe_delete_network(network);
 		// clear the network pointer
 		di->d_proto_net = NULL;
 	}
-	
+
 	if (python_lib_dir != NULL)
 		Free(python_lib_dir);
-		
+
 	if (gdb_lib_dir != NULL)
 		Free(gdb_lib_dir);
-		
+
 	if (machine_hosts != NULL)
 	{
 		tmp = machine_hosts;
@@ -1610,7 +1617,7 @@ invoke_error:
 		}
 		Free(machine_hosts);
 	}
-	
+
 	if (request != NULL)
 		Free(request);
 
@@ -1642,11 +1649,11 @@ cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set)
 			err = 1;
 			PrintOutError("Received unknown event %s.\n", DbgevToStr(e->ev_event));
 		}
-		
+
 		// Done with the event, free it
 		FreeEvent(e);
 	}
-	
+
 	if (err)
 		return 1;
 
@@ -1657,15 +1664,15 @@ cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set)
 	{
 		// Reset the protocol event callback to the dbgclient default
 		di->d_proto_ev_callback = DbgDispatchProtoEvents;
-		
+
 		// Set the started bit in the di
 		di->d_started = 1;
-		
+
 		DPERFLOG(SetTimerStopAndLog("stream_init"));
-			
+
 		DPRINT("dbgsrv callback complete.\n");
 		DPRINT("Releasing application from the startup barrier...\n");
-			
+
 #ifdef ALPS
 		// tell CTI to release the application from the startup barrier
 		if (cti_releaseAppBarrier(di->d_appid))
@@ -1700,7 +1707,7 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 	proto_msg_set *		ev_res;
 	proto_message *		msg;
 	char *				set_str;
-	
+
 	// dispatch application output if started
 	// Note that the proxy would segfault here if we tried to handle program
 	// output before the startup event completes...
@@ -1710,7 +1717,7 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 		(*(di->d_proto_outp_callback))(di, po->p_o_stream);
 		return;
 	}
-	
+
 	// dispatch io
 	// FIXME: This isn't used on a Cray, but if it is this should be calling
 	// a callback registered in the dbginvoke instead of handling it here. It's
@@ -1724,17 +1731,17 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 			PrintOutMsg("IO from %s: %s\n", set_str, msg->message);
 			Free(set_str);
 		}
-		
+
 		FreeProtoMsgSet(io_res);
 		return;
 	}
-	
+
 	// dispatch events
 	if ((ev_res = mrn_fe_dispatch_event(network, ev_fd)) != NULL)
 	{
 		// Call the protocol specific callback function to handle this event msg
 		(*(di->d_proto_ev_callback))(di, ev_res);
-		
+
 		// Free the message set
 		FreeProtoMsgSet(ev_res);
 		return;
@@ -1746,17 +1753,17 @@ DbgMRNSendCmd(dbginvoke_t *di, bitset *target, char *request)
 {
 	proto_network	network = di->d_proto_net;
 	bitset *		received = NULL;
-	
+
 	// send command only if not already in a shutdown state
 	if (di->d_isShutdown)
 	{
 		return NULL;
 	}
-	
+
 	mrn_fe_send_command((mrnet_type *)network, target, request);
 
 	received = bitset_new(bitset_size(target));
-	
+
 	DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
 
 	return received;
@@ -1772,7 +1779,7 @@ DbgMRNRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 	proto_msg_set *		msg_set = NULL;
 	proto_message *		msg;
 	proto_msg_set *		result = NULL;
-	
+
 	// recv reply only if not already in a shutdown state
 	if (di->d_isShutdown)
 	{
@@ -1787,7 +1794,7 @@ DbgMRNRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 			ResetProtoMsgSet(result);
 			return result;
 		}
-		
+
 		// If this is the first message set, then use this as our return type,
 		// otherwise merge the set with our return type.
 		if (result == NULL)
@@ -1809,15 +1816,15 @@ DbgMRNRecvReply(dbginvoke_t *di, bitset *target, bitset *received)
 				AddProtoMsgSet(result, msg);
 			}
 		}
-		
+
 		DPRINT("INFO: Recieved replies from set[%s]\n", bitset_to_str(received));
-		
+
 		// Check to see if we have received all responses
 		full = bitset_eq(target, received);
 	}
-	
+
 	ResetProtoMsgSet(result);
-	
+
 	return result;
 }
 
@@ -1836,10 +1843,10 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 	{
 		mrn_fe_delete_network(network);
 	}
-	
+
 	// clear the network pointer
 	di->d_proto_net = NULL;
-	
+
 #ifdef ALPS
 	if (!detach)
 	{
@@ -1851,15 +1858,15 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 			return -1;
 		}
 	}
-	
+
 	cti_deregisterApp(di->d_appid);
-	
+
 	di->d_appid = 0;
 #endif
 
 	// Destroy the program output object
 	DbgFreeGenericProgOutp(po);
-	
+
 	// clear the program output object
 	di->d_proto_outp = NULL;
 
@@ -1869,25 +1876,25 @@ DbgMRNExit(dbginvoke_t *di, int detach)
 static void
 DbgMRNDestroyClient(dbginvoke_t *di)
 {
-	mrnet_type *	network = (mrnet_type *)di->d_proto_net;	
+	mrnet_type *	network = (mrnet_type *)di->d_proto_net;
 	g_progoutp_t *	po;
-	
+
 	// Check to see if the network type has been destroyed
 	if (network != NULL)
 	{
 		// call the exit function to force the application to quit
 		DbgMRNExit(di, 0);
 	}
-	
+
 	// need to set po now since DbgMRNExit can modify it
 	po = (g_progoutp_t *)di->d_proto_outp;
-	
+
 	// Check to see if the output stream has been destroyed
 	if (po != NULL)
 	{
 		// Destroy the program output object
 		DbgFreeGenericProgOutp(po);
-	
+
 		// clear the program output object
 		di->d_proto_outp = NULL;
 	}

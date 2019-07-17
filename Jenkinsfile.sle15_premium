@@ -11,7 +11,7 @@
  *
  ******************************************************************************/
 
-@Library("dst-shared@bugfix/pe-rpm-build") _
+@Library("dst-shared@master") _
 
 sles15PremiumPE {
     specfile = "gdb4hpc.spec"

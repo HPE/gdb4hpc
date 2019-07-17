@@ -23,6 +23,9 @@ ver_two_dig_nodot   = ""
 parent_dir          = ""
 cti_version         = ""
 scripts_dir         = ""
+cti_lowerBound      = ""
+cti_upperBound      = ""
+
 
 def fetch_os():
   global bld_dir
@@ -62,9 +65,13 @@ def get_three_digit_version():
     global ver_two_dig_nodot
     global parent_dir
     global scripts_dir
+    global cti_lowerBound
+    global cti_upperBound
+
     major=''
     minor=''
     revision=''
+    upperBound=''
 
     parent_dir = os.path.abspath(os.path.join(os.getcwd(),os.pardir))
     scripts_dir = parent_dir + "/scripts"
@@ -85,6 +92,9 @@ def get_three_digit_version():
       two_digit_version = [major,minor]
       ver_two_dig_nodot = "".join(two_digit_version)
       two_digit_version = ".".join(two_digit_version)
+      cti_lowerBound = major + ".0.0"
+      upperBound = int(major) + 1
+      cti_upperBound = str(upperBound) + ".0.0"
       three_digit_version = [major,minor,revision]
       three_digit_version = ".".join(three_digit_version)
     return three_digit_version

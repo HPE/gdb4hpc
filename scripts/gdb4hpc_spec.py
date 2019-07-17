@@ -6,7 +6,8 @@ content='''%define namespace [namespace]
 %define scripts_d [script_dir]
 %define arch [ARCH]
 %define os_ver [sles_sub]
-%define cti_version [cti-version]
+%define ctiVersion_lowerBound [cti_lowerBound]
+%define ctiVersion_upperBound [cti_upperBound]
 
 Summary: Performance Application Programming Interface
 Name: %{namespace}-%{build_version} 
@@ -20,7 +21,7 @@ BuildRoot: %{_tmppath}/%{name}-root
 Prefix: /opt/cray/pe
 Vendor: Cray Inc.
 Provides: %{namespace} = %{build_version}
-Requires: set_default_2 cray-gcc-8.1.0 cray-cti-%{cti_version}
+Requires: set_default_2, cray-gcc-8.1.0, cray-cti >= %{ctiVersion_lowerBound}, cray-cti < %{ctiVersion_upperBound}
 
 %define _use_internal_dependency_generator 0
 %define __find_requires %{scripts_d}/find-requires 

@@ -31,7 +31,8 @@ arSles15_HW                   = "7.0"
 arSYSTEM_TYPE                 = ['HARDWARE','WHITEBOX','AARCH64']
 parent_dir                    = definitions.parent_dir
 cti_version                   = definitions.cti_version
-
+cti_lowerBound                = definitions.cti_lowerBound
+cti_upperBound                = definitions.cti_upperBound
 
 #define some paths
 top_dir             = os.getcwd()
@@ -99,7 +100,8 @@ spec_content = spec_content.replace( "[sles_sub]", "." + os_ver)
 spec_content = spec_content.replace( "[ARCH]", arch)
 spec_content = spec_content.replace("[tarball]",tar_name)
 spec_content = spec_content.replace("[script_dir]", script_dir)
-spec_content = spec_content.replace("[cti-version]", cti_version)
+spec_content = spec_content.replace("[cti_lowerBound]", cti_lowerBound)
+spec_content = spec_content.replace("[cti_upperBound]", cti_upperBound)
 spec_file = open(spec_dest, 'w+')
 spec_file.write(spec_content)
 spec_file.close()

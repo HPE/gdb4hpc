@@ -66,7 +66,7 @@ def get_three_digit_version():
     global parent_dir
     global scripts_dir
     global cti_lowerBound
-    global cit_upperBound
+    global cti_upperBound
 
     major=''
     minor=''

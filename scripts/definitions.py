@@ -65,13 +65,10 @@ def get_three_digit_version():
     global ver_two_dig_nodot
     global parent_dir
     global scripts_dir
-    global cti_lowerBound
-    global cti_upperBound
 
     major=''
     minor=''
     revision=''
-    upperBound=''
 
     parent_dir = os.path.abspath(os.path.join(os.getcwd(),os.pardir))
     scripts_dir = parent_dir + "/scripts"
@@ -92,14 +89,16 @@ def get_three_digit_version():
       two_digit_version = [major,minor]
       ver_two_dig_nodot = "".join(two_digit_version)
       two_digit_version = ".".join(two_digit_version)
-      cti_lowerBound = major + ".0.0"
-      upperBound = int(major) + 1
-      cti_upperBound = str(upperBound) + ".0.0"
       three_digit_version = [major,minor,revision]
       three_digit_version = ".".join(three_digit_version)
     return three_digit_version
 
 def get_ctiVersion():
+
+    global cti_lowerBound
+    global cti_upperBound
+    upperBound = ""
+
     #The latest CTI version was installed and gdb4hpc was built against it.
     #Get the CTI version
     print "Building gdb4hpc against . . ."
@@ -108,6 +107,12 @@ def get_ctiVersion():
     status, rd = commands.getstatusoutput(cmd)
     cti_version_list = re.split('/',rd)
     cti_ver = cti_version_list[5]
+    cti_major = cti_ver[0]
+    cti_minor = cti_ver[2]
+    cti_lowerBound = cti_major + "." + cti_minor + ".0"
+    upperBound = int(cti_major) + 1
+    cti_upperBound = str(upperBound) + ".0.0"
+    
     return cti_ver
 
 def fetch_newData():

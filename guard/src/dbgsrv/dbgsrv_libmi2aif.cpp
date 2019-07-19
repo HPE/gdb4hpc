@@ -765,7 +765,7 @@ GetSimpleAIF(MISession *session, MIVar *var)
 			{
 				char *aif_str;
 				AIFToStr(&aif_str, 0, addr);
-				DVPRINT("GetSimpleAIF: Function address: %s\n", aif_str);
+				DVPRINT("GetSimpleAIF: Function address: %s func_name %s func_rtn_fmt %p argc %d\n", aif_str, name, rtn, argc);
 				Free(aif_str);
 			}
 			ac = FunctionToAIF(addr, name, rtn, argc, argv);
@@ -1447,8 +1447,19 @@ start:
  				return T_INTEGER_8;
  				
 			default:
-			// case "int" unknown
-			goto unknown;
+				// check for stdint int*_t types including null terminator
+				if (strncasecmp(t, "8_t", 4) == 0) {
+					return T_CHAR;
+				} else if (strncasecmp(t, "16_t", 5) == 0) {
+					return T_SHORT;
+				} else if (strncasecmp(t, "32_t", 5) == 0) {
+					return T_INT;
+				} else if (strncasecmp(t, "64_t", 5) == 0) {
+					return T_LONGLONG;
+				}
+
+				// case "int" unknown
+				goto unknown;
 		}
 		}
 // case "i" unknown
@@ -1793,6 +1804,21 @@ start:
 				goto unknown;
 		}
 		}
+
+		if (strncasecmp(t, "int", 3) == 0) {
+			t += 3;
+			// check for stdint uint*_t types including null terminator
+			if (strncasecmp(t, "8_t", 4) == 0) {
+				return T_UCHAR;
+			} else if (strncasecmp(t, "16_t", 5) == 0) {
+				return T_USHORT;
+			} else if (strncasecmp(t, "32_t", 5) == 0) {
+				return T_UINT;
+			} else if (strncasecmp(t, "64_t", 5) == 0) {
+				return T_ULONGLONG;
+			}
+		}
+
 // case "u" unknown
 		goto unknown;
 
@@ -2556,10 +2582,23 @@ RemoveWhitespace(char *str)
 {
 	char *p1 = str;
 	char *p2 = str;
-	
+
+	if (*p1 == '\0')
+	{
+		return;
+	}
+
+	// blanket remove all leading spaces
+	while (isspace(*p1) && (*p1 != '\0'))
+	{
+		++p1;
+	}
+
 	while (*p1 != '\0')
 	{
-		if (isspace(*p1))
+		if (isspace(*p1)
+		// don't remove spaces between keywords (assume type doesn't seperate with more than one space)
+		 && ((p1[1] == '\0') || !(isalnum(*(p1 - 1)) && isalnum(*(p1 + 1)))))
 		{
 			++p1;
 		} else
@@ -2919,16 +2958,6 @@ MIToFDS(MISession *session, int type_id, char *base_type)
 			fds_type = AIF_BOOLEAN_TYPE();
 			DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
 			break;
-			
-		case T_POINTER:		
-		case T_UNION:
-		case T_ENUM:
-		case T_ARRAY:
-		case T_STRUCT:
-		case T_CLASS:
-		case T_FTNARRAY:
-			/* FIXME */
-			break;
 		
 		case T_INTEGER_1:
 		case T_INTEGER_2:
@@ -2977,6 +3006,14 @@ MIToFDS(MISession *session, int type_id, char *base_type)
 			DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
 			break;
 		
+		case T_POINTER:
+		case T_UNION:
+		case T_ENUM:
+		case T_ARRAY:
+		case T_STRUCT:
+		case T_CLASS:
+		case T_FTNARRAY:
+			/* FIXME */
 		case T_UNKNOWN:
 		default:
 			DVPRINT("MIToFDS: unknown type.\n");

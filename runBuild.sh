@@ -52,6 +52,24 @@ editline_directory_name="editline"
 libmi_directory_name="libmi"
 libssh2_directory_name="libssh2"
 libarchive_directory_name="libarchive"
+python_directory_name="Python-2.7.14"
+
+# Python extras name
+python_extras_name="python_extras"
+# File containing list of python dependences
+python_depmod_name="python_files"
+# Directory containing gdb pretty printers
+python_gdb_name="gdb"
+# Directory to install python dependencies to
+python_inst_name="python2.7"
+
+# extra python directory build by gdb
+gdb_extra_python_path="gdb/data-directory/python"
+# extra syscalls directory build by gdb
+gdb_extra_syscalls_path="gdb/data-directory/syscalls"
+# bad file name that we need to remove
+gdb_bad_file="python/gdb/command/pdbx.py"
+
 
 # libssh2 openssl path
 openssl_path="/opt/cpkg/current/openssl/0.9.8k"
@@ -194,6 +212,18 @@ libssh2_src="$thirdparty_dir/$libssh2_directory_name"
 # Define where to find the MRNet source tree
 mrnet_src="$thirdparty_dir/$mrnet_directory_name"
 
+# Define where to find the python source tree
+python_src="$thirdparty_dir/$python_directory_name"
+python_extras="$thirdparty_dir/$python_extras_name"
+python_gdb="$python_extras/$python_gdb_name"
+python_depmod="$python_extras/$python_depmod_name"
+
+# Define where to find the gdb source tree
+gdb_src="$thirdparty_dir/$gdb_directory_name"
+gdb_python_dir="$gdb_src/$gdb_extra_python_path"
+gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
+
+
 # Define where to find the gdb source tree
 gdb_src="$thirdparty_dir/$gdb_directory_name"
 gdb_syscalls_dir="$gdb_src/$gdb_extra_syscalls_path"
@@ -243,8 +273,9 @@ libssh2_opt_flag=" -I$openssl_path/include"
 libssh2_ld_flag=" -L$openssl_path/lib"
 libarchive_args="--disable-shared --with-pic --without-expat --without-xml2 --without-openssl --without-nettle --without-lzo2 --without-lzma --without-libiconv-prefix --without-iconv --without-lzmadec --without-bz2lib --without-zlib --disable-bsdtar --disable-bsdcpio --disable-rpath"
 mrnet_args=""
-gdb_args="--without-guile --disable-rpath --without-separate-debug-dir --with-mmalloc"
-cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir"
+python_args=""
+gdb_args="--without-guile --disable-rpath --without-separate-debug-dir --with-mmalloc --with-python=$stage_dir/bin/python"
+cuda_gdb_args="--program-prefix=cuda- --enable-cuda --enable-targets=x86_64-apple-darwin,x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=$stage_dir/bin/python"
 perf_flag=""
 be_perf_flag=""
 valgrind_flag=""
@@ -256,6 +287,7 @@ opt_aif=y
 opt_libmi=y
 opt_libssh2=y
 opt_mrnet=y
+opt_python=y
 opt_gdb=y
 opt_cuda75_gdb=y
 opt_cuda80_gdb=y
@@ -546,6 +578,53 @@ echo -e "########################################################\n"
 # Check for errors in component
 check_error "libssh2"
 
+# python build
+if [[ $opt_python == y ]]; then
+	echo "Starting python build."
+	# change directories
+	cd $python_src
+	echo -e "\nUsing python source $python_src.\n"
+	# run python configure
+	echo -e "Configuring python..."
+	# This is a hack to get python to build. I found it in a python bug report.
+	# It seems to work...
+	export SVNVERSION="Unversioned directory"
+	set -x
+	./configure --prefix=$stage_dir "$python_args"
+	set +x
+	do_build "python"
+	echo -e "\npython staged to $stage_dir.\n"
+fi
+
+# python install
+echo -e "Starting python install.\n"
+# Ensure the dependency modules list exists
+check_file $python_depmod "python"
+if [[ $? == 0 ]]; then
+	# create the python install directory
+	if [[ ! -d ${libdir}/${python_inst_name} ]]; then
+		mkdir ${libdir}/${python_inst_name}
+	fi
+	
+	# copy all of the required python modules
+	while read py_mod; do
+		copy_file "${dep_libdir}/${python_inst_name}/${py_mod}" "${libdir}/${python_inst_name}" "python"
+		# If this was a directory, we need to ensure .pyc and .pyo files do not get installed
+		if [[ -d ${libdir}/${python_inst_name}/${py_mod} ]]; then
+			rm -f ${libdir}/${python_inst_name}/${py_mod}/*.pyc
+			rm -f ${libdir}/${python_inst_name}/${py_mod}/*.pyo
+		fi
+	done <$python_depmod
+
+	# copy python pretty printers for gdb
+	copy_file $python_gdb $libdir "python"
+fi
+echo -e "########################################################\n"
+
+# Check for errors in component
+check_error "python"
+
+
 # gdb build
 if [[ $opt_gdb == y ]]; then
 	echo "Starting gdb build."
@@ -560,16 +639,20 @@ if [[ $opt_gdb == y ]]; then
 	do_build "gdb"
 	echo -e "\ngdb staged to $stage_dir.\n"
 	echo -e "Starting post build ops.\n"
-
-    ls -al ${dep_bindir}
-    rename_file "${dep_bindir}/gdb" "${dep_bindir}/gdb-guard" "gdb"
-
-    if [[ -e $dep_bindir/gdb-guard ]]; then
-		echo -e "\tUsing gdb-guard in $dep_bindir."
-    else
-        echo -e "\tWARNING: Could not find gdb-guard in $dep_bindir."
-        exit 1
-    fi
+	# ensure the old staging location for gdb files is removed
+	if [[ -d $dep_libdir/$python_gdb_name ]]; then
+		rm -rf $dep_libdir/$python_gdb_name
+	fi
+	mkdir $dep_libdir/$python_gdb_name
+	# save the built files into the stage_dir for later
+	copy_file $gdb_python_dir "${dep_libdir}/${python_gdb_name}/" "gdb"
+	copy_file $gdb_syscalls_dir "${dep_libdir}/${python_gdb_name}/" "gdb"
+	# remove the bad python file that causes errors
+	if [[ -e ${dep_libdir}/${python_gdb_name}/${gdb_bad_file} ]]; then
+		rm ${dep_libdir}/${python_gdb_name}/${gdb_bad_file}
+	fi
+	# rename gdb to gdb-guard
+	rename_file "${dep_bindir}/gdb" "${dep_bindir}/gdb-guard" "gdb"
 fi
 
 # gdb install
@@ -581,6 +664,7 @@ echo -e "########################################################\n"
 
 # Check for errors in component
 check_error "gdb"
+
 
 cudamodule=""
 echo "#######################################################################"

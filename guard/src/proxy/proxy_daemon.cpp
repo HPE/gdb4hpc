@@ -41,7 +41,7 @@
 
 #include "proxy.h"
 
-#include "cray_tools_fe.h"
+#include "common_tools_fe.h"
 
 #define RECONNECT_TRIES		10
 

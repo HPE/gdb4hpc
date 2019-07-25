@@ -152,8 +152,6 @@ libedit_dso="libedit.so"
 libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
-libcommon_tool_dlaunch="cti_fe_daemon$CRAY_CTI_LEVEL"
-
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"
 libssh2_minor="libssh2.so.1.0.1"

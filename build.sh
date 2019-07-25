@@ -96,7 +96,7 @@ guard_rd_directory_name="guard-rd"
 # External dependency source trees that are imported directly in gdb4hpc
 extern_boost="/cray/css/ulib/boost/1_66/boost_1_66_0/install"
 extern_boost_aarch64="/cray/css/ulib/boost/1_66_aarch64/boost_1_66_0/install"
-craytool_directory_name="craytool_interface"
+common_tool_directory_name="common_tool_interface"
 pref=""
 isArm=false
 
@@ -215,7 +215,7 @@ libedit_dso="libedit.so"
 libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
-libcraytool_dlaunch="cti_dlaunch1.0"
+libcommon_tool_dlaunch="cti_fe_daemon$CRAY_CTI_LEVEL"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"
@@ -679,7 +679,7 @@ if [[ $opt_ask_deps == y ]]; then
 		if [ -n "$line" ]; then
 			cti_nonstandard_dir=$line
 		else
-			echo "Using pkgconfig default location:" $(pkg-config --libs-only-L craytools_fe)
+			echo "Using pkgconfig default location:" $(pkg-config --libs-only-L common_tools_fe)
 		fi
 	fi
 fi
@@ -1219,13 +1219,13 @@ if [ -n "$cti_nonstandard_dir" ]; then
 	export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
 fi
 
-cti_pkgconfig_L_dir=$(pkg-config --libs-only-L craytools_fe)
+cti_pkgconfig_L_dir=$(pkg-config --libs-only-L common_tools_fe)
 if [ $? -ne 0 ]; then
 	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
 	exit 1
 fi
 
-cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I craytools_fe)
+cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I common_tools_fe)
 if [ $? -ne 0 ]; then
 	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
 	exit 1

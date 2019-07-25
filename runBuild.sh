@@ -94,7 +94,7 @@ aif_directory_name="libaif"
 guard_directory_name="guard"
 guard_rd_directory_name="guard-rd"
 
-craytool_directory_name="craytool_interface"
+common_tool_directory_name="common_tool_interface"
 
 function load_cti_module(){
     #what is the latest installed version of cti?
@@ -152,7 +152,7 @@ libedit_dso="libedit.so"
 libedit_major="libedit.so.0"
 libedit_minor="libedit.so.0.0.41"
 
-libcraytool_dlaunch="cti_dlaunch1.0"
+libcommon_tool_dlaunch="cti_fe_daemon$CRAY_CTI_LEVEL"
 
 libssh2_dso="libssh2.so"
 libssh2_major="libssh2.so.1"
@@ -933,13 +933,13 @@ if [ -n "$cti_nonstandard_dir" ]; then
 	export PKG_CONFIG_PATH=$cti_nonstandard_dir$pkgconfig_postfix:$PKG_CONFIG_PATH
 fi
 
-cti_pkgconfig_L_dir=$(pkg-config --libs-only-L craytools_fe)
+cti_pkgconfig_L_dir=$(pkg-config --libs-only-L common_tools_fe)
 if [ $? -ne 0 ]; then
 	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
 	exit 1
 fi
 
-cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I craytools_fe)
+cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I common_tools_fe)
 if [ $? -ne 0 ]; then
 	echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
 	exit 1

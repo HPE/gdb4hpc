@@ -26,7 +26,7 @@
 
 #include "defs.h"
 #include "useful.h"
-#include "cray_tools_be.h"
+#include "common_tools_be.h"
 
 #define DBGSRV						"dbgsrv"
 #define PID_BUFSIZ				64

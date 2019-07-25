@@ -32,7 +32,7 @@
 #include "client.h"
 #include "useful.h"
 #include "gvar.h"
-#include "cray_tools_fe.h"
+#include "common_tools_fe.h"
 
 /*
 ** Static global variables

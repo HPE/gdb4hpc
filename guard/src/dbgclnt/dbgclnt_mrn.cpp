@@ -40,7 +40,7 @@
 #include "dbg_mrn_fe.h"
 
 #ifdef ALPS
-#include "cray_tools_fe.h"
+#include "common_tools_fe.h"
 #endif /* ALPS */
 
 // Static function prototypes
@@ -227,7 +227,7 @@ DbgMRNAttach(
 
 	switch (wlm)
 	{
-		case CTI_WLM_CRAY_SLURM:
+		case CTI_WLM_SLURM:
 		{
 			char *		sep;
 			uint32_t 	jobid;
@@ -280,9 +280,9 @@ DbgMRNAttach(
 			}
 
 			// Register the slurm job step with the tool interface
-            cti_cray_slurm_ops_t *ops = NULL;
+            cti_slurm_ops_t *ops = NULL;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
-            if (ret != CTI_WLM_CRAY_SLURM)
+            if (ret != CTI_WLM_SLURM)
             {
                 PrintOutError("cti_open_ops returned invalid wlm!\n");
                 goto attach_error;
@@ -628,14 +628,14 @@ DbgMRNAttach(
 	// interface to be set to this value.
 	if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL)
 	{
-		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str);
+		Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_MRNET_STARTUP_TIMEOUT, env_var_str);
 	}
 
 	// ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
 	// inside the cray tool interface again.
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
-		Asprintf(&env_vars[env_var_cnt++], "%s=%s", CTI_EXTRA_SLEEP_ENV_VAR, env_var_str);
+		Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_ADDITIONAL_SLEEP, env_var_str);
 	}
 
 	// We should set the DBG_LOG_ENV_VAR only if debug flag is true
@@ -665,7 +665,9 @@ DbgMRNAttach(
 	// Set CTI debug env var if debug is on
 	if (dbg)
 	{
-	    setenv(CTI_DBG_ENV_VAR, "1", 1);
+		if (cti_setAttribute(CTI_DEBUG, "1")) {
+			PrintOutError("Setting CTI_DEBUG failed: %s\n", cti_error_str());
+		}
 	}
 
 	if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char * const *)ap, (const char * const *)env_vars))
@@ -1055,14 +1057,18 @@ DbgMRNInvoke(
 	{
 		mrnet_timeout = strtoul(env_var_str, NULL, 10);
 		// set the pmi_attribs parser timeout to the same value as mrnet timeout.
-		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
+		if (cti_setAttribute(CTI_PMI_FOPEN_TIMEOUT, env_var_str)) {
+			PrintOutError("Setting CTI_PMI_FOPEN_TIMEOUT failed: %s\n", cti_error_str());
+		}
 	}
 
 	// ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
 	// inside the cray tool interface again.
 	if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL)
 	{
-		setenv(CTI_ATTRIBS_TIMEOUT_ENV_VAR, env_var_str, 1);
+		if (cti_setAttribute(CTI_PMI_FOPEN_TIMEOUT, env_var_str)) {
+			PrintOutError("Setting CTI_PMI_FOPEN_TIMEOUT failed: %s\n", cti_error_str());
+		}
 	}
 
 	DPERFLOG(SetTimerStart("application launch"));
@@ -1431,7 +1437,9 @@ DbgMRNInvoke(
 	// Set CTI debug env var if debug is on
 	if (dbg)
 	{
-	    setenv(CTI_DBG_ENV_VAR, "1", 1);
+		if (cti_setAttribute(CTI_DEBUG, "1")) {
+			PrintOutError("Setting CTI_DEBUG failed: %s\n", cti_error_str());
+		}
 	}
 
 	// launch dbgsrv_alps onto the compute nodes

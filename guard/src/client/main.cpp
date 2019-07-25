@@ -49,7 +49,7 @@
 #endif /* RD */
 
 #ifdef ALPS
-#include "cray_tools_fe.h"
+#include "common_tools_fe.h"
 #endif /* ALPS */
 
 /*

@@ -48,7 +48,7 @@
 #include	"bitset.h"
 
 #ifdef ALPS
-#include	"cray_tools_be.h"
+#include	"common_tools_be.h"
 #endif
 
 /*

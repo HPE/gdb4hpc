@@ -62,7 +62,7 @@
 #include "dbgsrv_p2p.h"
 #include "dbgsrv_defs.h"
 
-#include "cray_tools_be.h"
+#include "common_tools_be.h"
 
 #include "MI.h"
 

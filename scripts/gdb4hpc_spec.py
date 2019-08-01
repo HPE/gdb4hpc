@@ -73,12 +73,6 @@ install -D set_default_%{namespace}_%{build_version} %{buildroot}%{_version_pref
 
 cp gdb4hpc/docs/ATTRIBUTIONS_gdb4hpc.txt %{buildroot}%{_version_prefix}/ATTRIBUTIONS_%{namespace}.%{build_version}.txt
 
-mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d
-echo %{_namespace_prefix}/%{namespace} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
-
-mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d
-echo %{_name_moduledir} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
-
 # hardlink duplicate files to save space
 #%fdupes %{buildroot}
 
@@ -116,9 +110,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_version_prefix}/ATTRIBUTIONS_gdb4hpc.%{build_version}.txt
 %{_version_prefix}/docs/ATTRIBUTIONS_gdb4hpc.txt
 
-/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
-/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
-
 %post
 #
 # Set as default if no default exists either because this is first install of
@@ -135,6 +126,19 @@ $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/set_default_%{namespace}_%{bui
 if [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
 then
   $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
+
+  if [ ! -d /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d ]
+  then
+    mkdir -p /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d
+  fi
+  echo %{_namespace_prefix}/%{namespace} > /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
+
+  if [ ! -d /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d ]
+  then
+    mkdir -p /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d
+  fi
+  echo %{_name_moduledir} > /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
+
 fi
 
 #for XE/XK CLE5.2 create lgdb link pointing to gdb4hpc in bin dir.
@@ -159,9 +163,18 @@ then
   fi
 fi
 
+
+%postun
+if [ $1 == 1 ]
+then
+  exit 0
+fi
+
 if [[ -z `ls ${RPM_INSTALL_PREFIX}/%{namespace}` ]]
 then
   rm -rf ${RPM_INSTALL_PREFIX}/%{namespace}
+  rm -rf /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf 
+  rm -rf /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
 fi
 
 if [[ -z `ls ${RPM_INSTALL_PREFIX}/modulefiles/%{namespace}`/ ]]

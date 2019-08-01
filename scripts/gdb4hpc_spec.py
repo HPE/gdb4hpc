@@ -127,17 +127,17 @@ if [[ $RPM_INSTALL_PREFIX = "/opt/cray/pe" ]]
 then
   $RPM_INSTALL_PREFIX/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 
-  if [ ! -d %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d ]
+  if [ ! -d /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d ]
   then
-    mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d
+    mkdir -p /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d
   fi
-  echo %{_namespace_prefix}/%{namespace} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
+  echo %{_namespace_prefix}/%{namespace} > /etc%{_namespace_prefix}/admin-pe/bindmount.conf.d/%{namespace}.conf
 
-  if [ ! -d %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d ]
+  if [ ! -d /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d ]
   then
-    mkdir -p %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d
+    mkdir -p /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d
   fi
-  echo %{_name_moduledir} > %{buildroot}/etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
+  echo %{_name_moduledir} > /etc%{_namespace_prefix}/admin-pe/modulepaths.conf.d/%{namespace}.conf
 
 fi
 

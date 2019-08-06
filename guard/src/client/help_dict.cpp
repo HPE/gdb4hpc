@@ -36,14 +36,15 @@ const char * const cmd_attach_help[] = {
         "For example, app_handle should only be a scalar debugger variable such as $a.",
         "",
         "The apid can be obtained by using the apstat utility. For slurm, the job_id",
-        "can be optained from qstat and the step_id can be obtained from sstat. The",
-        "slurm app_ident should be provided as <job_id>.<step_id> on Cray XC machines.",
-        "For Cray clusters and all other systems, app_ident should be the pid of",
-        "the launcher process that started the application. This can be obtained using ps.",
+        "can be optained from squeue and the step_id can be obtained from sstat. The",
+        "slurm app_ident should be provided as <job_id>.<step_id> on Cray systems.",
         "",
-        "If you wish to enable OpenACC debugging on a supported Nvidia GPU, add --gpu",
-        "to your attach command. This will enable the use of an OpenACC supported",
-        "version of gdb and set several environment variables for debugging.",
+        "For Cray clusters, app_ident should be the pid of the launcher process that",
+        "started the application. This can be obtained using ps.",
+        "",
+        "If you wish to enable GPU debugging, add --gpu to your attach command.",
+        "This will enable the use of a GPU supported version of gdb and set several",
+        "environment variables for debugging.",
         0};
 
 const char * const cmd_assign_help[] = {
@@ -87,7 +88,7 @@ const char * const cmd_backtrace_help[] = {
         "current process set. If num is supplied, the innermost num frames are",
         "displayed. If num is negative, the outermost num frames are displayed.",
         0};
-        
+
 const char * const cmd_break_help[] = {
         "Summary: Set breakpoint command.",
         "Usage: break <location>",
@@ -103,7 +104,7 @@ const char * const cmd_break_help[] = {
         "with an asterix (*). For example, break *0x0000000000400693 would break",
         "at address 0x400693.",
         0};
-        
+
 const char * const cmd_compare_help[] = {
         "Summary: Compare command.",
         "Usage: compare <expr1> = <expr2>",
@@ -201,7 +202,7 @@ const char * const cmd_delete_help[] = {
         "every application rank in the current process set. If no argument is",
         "supplied, all breakpoints in the current process set are deleted.",
         0};
-        
+
 const char * const cmd_directmode_help[] = {
         "Summary: Direct gdb mode command.",
         "Usage: gdbmode",
@@ -261,7 +262,7 @@ const char * const cmd_enable_help[] = {
         "to be deleted when it is hit. The -once argument will cause the breakpoint",
         "to be disabled when it is hit.",
         0};
-        
+
 const char * const cmd_finish_help[] = {
         "Summary: Finish function execution command.",
         "Usage: finish",
@@ -295,7 +296,7 @@ const char * const cmd_focus_help[] = {
         "process set name cannot be subsequently used in process targeted commands in",
         "the same way a defined process set can.",
         0};
-        
+
 const char * const cmd_frame_help[] = {
         "Summary: Print selected stack frame command.",
         "Usage: frame",
@@ -319,7 +320,7 @@ const char * const cmd_halt_help[] = {
         "Halt all executing ranks in the current process set. This is equivalent",
         "to sending a SIGINT to the ranks.",
         0};
-        
+
 const char * const cmd_help_help[] = {
         "Summary: Help command.",
         "Usage: help [<command>]",
@@ -337,7 +338,7 @@ const char * const cmd_invoke_help[] = {
         "Summary: Launch an application.",
         "Usage: launch <app_handle> <application>",
         "              [--args=\"<args>\" OR -a \"<args>\"]",
-        "              [--launcher=\"<launcher_name>\" OR -l \"<launcher_name>\"]",        
+        "              [--launcher=\"<launcher_name>\" OR -l \"<launcher_name>\"]",
         "              [--launcher-args=\"<launcher_args>\" OR -g \"<launcher_args>\"]",
         "              [--launcher-input=<path_to_file> OR -i <path_to_file>]",
         "              [--workdir=<path> OR -d<path>]",
@@ -367,9 +368,9 @@ const char * const cmd_invoke_help[] = {
         "The application launcher is system dependent and is automatically determined.",
         "The aprun and srun application launchers are supported.",
         "",
-        "If you wish to enable OpenACC debugging on a supported Nvidia GPU, add --gpu",
-        "to your launch command. This will enable the use of an OpenACC supported",
-        "version of gdb and set several environment variables for debugging.",
+        "If you wish to enable GPU debugging, add --gpu to your launch command.",
+        "This will enable the use of a GPU supported version of gdb and set several",
+        "environment variables for debugging.",
         "",
         "The optional args, launcher_args, and name=value arguments should be enclosed",
         "with quotes. The args argument is used to pass arguments directly to the",
@@ -590,7 +591,7 @@ const char * const cmd_step_help[] = {
         "Advance the program to the next source line, following into subroutine",
         "calls. If the argument num is supplied, then advance num lines.",
         0};
-        
+
 const char * const cmd_tbreak_help[] = {
         "Summary: Set temporary breakpoint command.",
         "Usage: tbreak <location>",
@@ -632,7 +633,7 @@ const char * const cmd_viewset_help[] = {
         "Display information about defined process sets. With no argument",
         "provided, information about all defined process sets is displayed.",
         0};
-        
+
 const char * const cmd_watch_help[] = {
         "Summary: Set watchpoint command.",
         "Usage: watch [-a|-w] <expression>",
@@ -650,7 +651,7 @@ const char * const cmd_watch_help[] = {
         "specifies that an access watchpoint should be created. Access watchpoints",
         "will cause the program to break when the address defined by the expression",
         "is read or written to. To set a watchpoint on an address, ",
-        "use an expression of the form *0xXXXXXX with the -a option.", 
+        "use an expression of the form *0xXXXXXX with the -a option.",
         "The -w option specifies that a write watchpoint",
         "should be created. Write watchpoints will cause the program to break",
         "when the address defined by the expression is written to. Currently there",
@@ -701,7 +702,7 @@ const char * const class_info_help[] = {
         "Display information relating to the application being debugged. If no",
         "argument is given, display a list of all valid info subcommands.",
         0};
-        
+
 const char * const class_maint_help[] = {
         "Summary: Maint command.",
         "Usage: maint [<subcommand>]",
@@ -713,7 +714,7 @@ const char * const class_maint_help[] = {
         "Commands that are useful only to maintainers or are experimental.",
         "If no argument is given, display a list of all valid maint subcommands.",
         0};
-        
+
 const char * const class_maint_set_help[] = {
         "Summary: Maint set command.",
         "Usage: maint set [<subcommand>]",
@@ -726,7 +727,7 @@ const char * const class_maint_set_help[] = {
         "is useful only to maintainers or is experimental. If no argument is",
         "given, display a list of all valid maint set subcommands.",
         0};
-        
+
 const char * const class_maint_show_help[] = {
         "Summary: Maint show command.",
         "Usage: maint show [<subcommand>]",
@@ -736,7 +737,7 @@ const char * const class_maint_show_help[] = {
         "",
         "Description:",
         "Show information relating to environment settings and behavior that",
-        "is useful only to maintainers or is experimental. If no argument is", 
+        "is useful only to maintainers or is experimental. If no argument is",
         "given, display a list of all valid maint show subcommands.",
         0};
 
@@ -763,7 +764,7 @@ const char * const class_show_help[] = {
         "Show information relating to environment settings and behavior. If",
         "no argument is given, display a list of all valid show subcommands.",
         0};
-        
+
 const char * const class_unset_help[] = {
         "Summary: Unset command.",
         "Usage: unset [<subcommand>]",
@@ -776,7 +777,7 @@ const char * const class_unset_help[] = {
         "previously set. If no argument is given, display a list of all valid set",
         "subcommands.",
         0};
-        
+
 const char * const class_usage_help[] = {
         "Summary: Usage command.",
         "Usage: usage [<subcommand>]",
@@ -834,7 +835,7 @@ const char * const class_info_subcmd_application_help[] = {
         "focused upon. The command column identifies the command that was passed",
         "to the application launcher in order to launch the application.",
         0};
-        
+
 const char * const class_info_subcmd_scope_help[] = {
         "Summary: Local symbol information relative to a scope.",
         "Usage: info scope <location>",
@@ -847,7 +848,7 @@ const char * const class_info_subcmd_scope_help[] = {
         "The provided argument can either be a function name, a line number in a source",
         "file, or an address prefixed with *.",
         0};
-        
+
 const char * const class_info_subcmd_sources_help[] = {
         "Summary: Source file information.",
         "",
@@ -867,7 +868,7 @@ const char * const class_info_subcmd_status_help[] = {
 /*
  * Class maint subcommands
  */
- 
+
 const char * const class_maint_subcmd_echo_help[] = {
         "Summary: Echo command.",
         "Usage: maint echo <string>",
@@ -903,7 +904,7 @@ const char * const class_maint_subcmd_direct_help[] = {
         "the current process set. This can be used to talk directly to gdb. Console",
         "output will be aggregated and returned.",
         0};
-        
+
 const char * const class_maint_subcmd_system_help[] = {
         "Summary: System command.",
         "Usage: maint system <command>",
@@ -916,7 +917,7 @@ const char * const class_maint_subcmd_system_help[] = {
         "to enumerate information about the system the client is running on. The",
         "stderr of the command will be redirected to stdout and printed in the result.",
         0};
-        
+
 /*
  * Class set subcommands
  */
@@ -937,7 +938,7 @@ const char * const class_set_subcmd_directory_help[] = {
         "cause cached information about source file locations and line positions",
         "to be lost.",
         0};
-        
+
 const char * const class_set_subcmd_error_help[] = {
         "Summary: Warn and error epsilon for floating point comparison.",
         "Usage: set error <warn limit> <error limit>",
@@ -957,7 +958,7 @@ const char * const class_set_subcmd_error_help[] = {
         "displayed using the current display mode setting and reported as an error.",
         "Error differences will halt the assertion script execution if stop mode is true.",
         0};
-        
+
 const char * const class_set_subcmd_environment_help[] = {
         "Summary: Set environment variable value.",
         "Usage: set environment <name> <value>",
@@ -989,7 +990,7 @@ const char * const class_set_subcmd_function_help[] = {
         "supplied to the function. Recursive function expression calls are not",
         "allowed.",
         0};
-        
+
 /*
  * Class maint set subcommands
  */
@@ -1013,7 +1014,7 @@ const char * const class_maint_set_subcmd_unsafe_help[] = {
         "Set debugger to bypass certain internal checks. This mode should only",
         "be modified by maintainers.",
         0};
-        
+
 const char * const class_maint_set_subcmd_sync_help[] = {
         "Summary: Set synchronous event mode.",
         "Usage: maint set sync [on|off]",
@@ -1053,7 +1054,7 @@ const char * const class_show_subcmd_function_help[] = {
         "Description:",
         "Display a list of the currently defined function macros.",
         0};
-        
+
 const char * const class_show_subcmd_environment_help[] = {
         "Summary: Environment variable information.",
         "",
@@ -1068,7 +1069,7 @@ const char * const class_show_subcmd_version_help[] = {
         "Description:",
         "Display the debugger version number.",
         0};
-        
+
 /*
  * Class maint show subcommands
  */
@@ -1086,18 +1087,18 @@ const char * const class_maint_show_subcmd_unsafe_help[] = {
         "Description:",
         "Display the current setting of unsafe mode.",
         0};
-        
+
 const char * const class_maint_show_subcmd_sync_help[] = {
         "Summary: Synchronous event mode information.",
         "",
         "Description:",
         "Display the current setting of synchronous event mode.",
         0};
-        
+
 /*
  * Class unset subcommands
  */
- 
+
 const char * const class_unset_subcmd_environment_help[] = {
         "Summary: Unset environment variable value.",
         "Usage: unset environment <name>",
@@ -1120,4 +1121,4 @@ const char * const class_unset_subcmd_environment_help[] = {
 // Dummy help
 const char * const dummy_help[] = {
         0};
-        
+

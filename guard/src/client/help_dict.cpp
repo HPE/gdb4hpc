@@ -407,7 +407,7 @@ const char * const cmd_invoke_help[] = {
         "used in conjunction with setting CRAY_CTI_WLM to \"generic\" to ensure the launch mechanisms work with ",
         "the specified launcher. Note that setting CRAY_CTI_WLM to \"generic\" requires",
         "passwordless SSH to the compute nodes.",
-	"Specify the name of the launcher to use as the argument to the launcher option.",
+    "Specify the name of the launcher to use as the argument to the launcher option.",
         "",
         "For example, launch $a{10} --launcher=\"myrun\"",
         "",
@@ -753,6 +753,18 @@ const char * const class_set_help[] = {
         "no argument is given, display a list of all valid set subcommands.",
         0};
 
+const char * const class_set_print_help[] = {
+        "Summary: Set print command.",
+        "Usage: set print [<subcommand>]",
+        "Example command: set print",
+        "",
+        "Arguments: subcommand (set print subcommand)",
+        "",
+        "Description:",
+        "Settings relating to the way things are printed. If no argument",
+        "is given, display a list of all valid set print subcommands.",
+        0};
+
 const char * const class_show_help[] = {
         "Summary: Show command.",
         "Usage: show [<subcommand>]",
@@ -763,6 +775,18 @@ const char * const class_show_help[] = {
         "Description:",
         "Show information relating to environment settings and behavior. If",
         "no argument is given, display a list of all valid show subcommands.",
+        0};
+
+const char * const class_show_print_help[] = {
+        "Summary: Show print command.",
+        "Usage: show print [<subcommand>]",
+        "Example command: show print",
+        "",
+        "Arguments: subcommand (show print subcommand)",
+        "",
+        "Description:",
+        "Show information relating to the way things are printed. If no argument",
+        "is given, display a list of all valid show print subcommands.",
         0};
 
 const char * const class_unset_help[] = {
@@ -992,6 +1016,21 @@ const char * const class_set_subcmd_function_help[] = {
         0};
 
 /*
+ * Class set print subcommands
+ */
+const char * const class_set_print_subcmd_entryframe_help[] = {
+        "Summary: Set printing of frame on entry mode.",
+        "Usage: set print entry-frame [true|false]",
+        "Example command: set print entry-frame false",
+        "",
+        "Default setting: true",
+        "Arguments: true or false",
+        "",
+        "Description:",
+        "Determines if the frames of the application ranks are printed on launch/attach.",
+        0};
+
+/*
  * Class maint set subcommands
  */
 
@@ -1041,7 +1080,7 @@ const char * const class_show_subcmd_directories_help[] = {
         0};
 
 const char * const class_show_subcmd_error_help[] = {
-		"Summary: Warn and error epsilon for floating point comparison.",
+        "Summary: Warn and error epsilon for floating point comparison.",
         "",
         "Description:",
         "Display the current tolerance level setting for compare/assert command",
@@ -1068,6 +1107,16 @@ const char * const class_show_subcmd_version_help[] = {
         "",
         "Description:",
         "Display the debugger version number.",
+        0};
+
+/*
+ * Class show print subcommands
+ */
+const char * const class_show_print_subcmd_entryframe_help[] = {
+        "Summary: Printing of frame on entry mode information.",
+        "",
+        "Description:",
+        "Display if the frames of the application ranks are printed on launch/attach.",
         0};
 
 /*
@@ -1119,6 +1168,5 @@ const char * const class_unset_subcmd_environment_help[] = {
 
 
 // Dummy help
-const char * const dummy_help[] = {
-        0};
+const char * const dummy_help[] = {0};
 

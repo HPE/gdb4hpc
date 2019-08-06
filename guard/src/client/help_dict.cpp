@@ -1026,7 +1026,7 @@ const char * const class_set_print_subcmd_entryframe_help[] = {
         "Arguments: true or false",
         "",
         "Description:",
-        "Determines if the frames of the application ranks are printed on launch/attach."
+        "Determines if the frames of the application ranks are printed on launch/attach.",
         0};
 
 /*

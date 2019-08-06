@@ -36,14 +36,15 @@ const char * const cmd_attach_help[] = {
         "For example, app_handle should only be a scalar debugger variable such as $a.",
         "",
         "The apid can be obtained by using the apstat utility. For slurm, the job_id",
-        "can be optained from qstat and the step_id can be obtained from sstat. The",
-        "slurm app_ident should be provided as <job_id>.<step_id> on Cray XC machines.",
-        "For Cray clusters and all other systems, app_ident should be the pid of",
-        "the launcher process that started the application. This can be obtained using ps.",
+        "can be optained from squeue and the step_id can be obtained from sstat. The",
+        "slurm app_ident should be provided as <job_id>.<step_id> on Cray systems.",
         "",
-        "If you wish to enable OpenACC debugging on a supported Nvidia GPU, add --gpu",
-        "to your attach command. This will enable the use of an OpenACC supported",
-        "version of gdb and set several environment variables for debugging.",
+        "For Cray clusters, app_ident should be the pid of the launcher process that",
+        "started the application. This can be obtained using ps.",
+        "",
+        "If you wish to enable GPU debugging, add --gpu to your attach command.",
+        "This will enable the use of a GPU supported version of gdb and set several",
+        "environment variables for debugging.",
         0};
 
 const char * const cmd_assign_help[] = {
@@ -367,9 +368,9 @@ const char * const cmd_invoke_help[] = {
         "The application launcher is system dependent and is automatically determined.",
         "The aprun and srun application launchers are supported.",
         "",
-        "If you wish to enable OpenACC debugging on a supported Nvidia GPU, add --gpu",
-        "to your launch command. This will enable the use of an OpenACC supported",
-        "version of gdb and set several environment variables for debugging.",
+        "If you wish to enable GPU debugging, add --gpu to your launch command.",
+        "This will enable the use of a GPU supported version of gdb and set several",
+        "environment variables for debugging.",
         "",
         "The optional args, launcher_args, and name=value arguments should be enclosed",
         "with quotes. The args argument is used to pass arguments directly to the",
@@ -1168,3 +1169,4 @@ const char * const class_unset_subcmd_environment_help[] = {
 
 // Dummy help
 const char * const dummy_help[] = {0};
+

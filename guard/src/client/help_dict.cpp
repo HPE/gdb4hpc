@@ -1115,7 +1115,7 @@ const char * const class_show_print_subcmd_entryframe_help[] = {
         "Summary: Printing of frame on entry mode information.",
         "",
         "Description:",
-        "Display if the frames of the application ranks are printed on launch/attach."
+        "Display if the frames of the application ranks are printed on launch/attach.",
         0};
 
 /*

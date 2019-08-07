@@ -69,7 +69,7 @@
 // Enum for supported cuda versions
 enum cuda_vers
 {
-	CUDA_UNKNOWN,	
+	CUDA_UNKNOWN,
 	CUDA_75,
 	CUDA_80,
 	CUDA_90,
@@ -232,13 +232,13 @@ get_dbgbp(MICommand *cmd)
 
 	if (cmd == NULL)
 		return NULL;
-	
+
 	bpts = MIBreakpointGetBreakInsertInfo(cmd);
 
 	if (bpts == NULL) {
 		return NULL;
 	}
-	
+
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
 
@@ -263,9 +263,9 @@ get_dbgbp(MICommand *cmd)
 	{
 		bp->bp_type = DBGBP_BREAK_TYPE;
 	}
-	
+
 	bp->bp_enabled = bpt->enabled;
-	
+
 	// set the breakpoint disposition
 	if (strncmp(bpt->disp, "keep", 4) == 0)
 		bp->bp_disp = DBGBP_KEEP_DISP;
@@ -275,7 +275,7 @@ get_dbgbp(MICommand *cmd)
 		bp->bp_disp = DBGBP_DISABLE_DISP;
 	else
 		bp->bp_disp = DBGBP_UNKNOWN_DISP;
-	
+
 	bp->bp_loc.loc_line = bpt->line;
 	if (bpt->file != NULL)
 		bp->bp_loc.loc_file = strdup(bpt->file);
@@ -283,11 +283,11 @@ get_dbgbp(MICommand *cmd)
 		bp->bp_loc.loc_func = strdup(bpt->func);
 	if (bpt->address != NULL)
 		bp->bp_loc.loc_addr = strdup(bpt->address);
-		
+
 	DVPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
-	
+
 	MIListFree(bpts, (void (*)())MIBreakpointFree);
-	
+
 	return bp;
 }
 
@@ -297,31 +297,31 @@ delete_internal_breakpoints(list_t *bplist)
 	dbgevent_t *	e;
 	MICommand *		cmd;
 	dbgbp_t *		bp;
-	
+
 	SetList(bplist);
-	
+
 	while( (bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL)
 	{
 		// send the delete command
 		cmd = MIBreakDelete(1, &bp->bp_id);
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_NOBP, "Delete internal breakpoint failed.");
 			return e;
 		}
 		MICommandFree(cmd);
-		
+
 		// remove the breakpoint from the internal list and delete it
 		RemoveFromList(bplist, (void *)bp);
 		FreeBP(bp);
 	}
-	
+
 	return (dbgevent_t *)NULL;
 }
 
-static dbgevent_t *	
+static dbgevent_t *
 setup_gdbmi_environment(void)
 {
 	dbgevent_t *	e;
@@ -333,29 +333,29 @@ setup_gdbmi_environment(void)
 		// set debug infrun mode on
 		cmd = MIGDBSet("debug infrun", "1");
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug infrun command failed.");
 			return e;
 		}
 		MICommandFree(cmd);
-		
+
 		// set debug lin-lwp mode on
 		cmd = MIGDBSet("debug lin-lwp", "1");
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug lin-lwp command failed.");
 			return e;
 		}
 		MICommandFree(cmd);
-		
+
 		// set debug lin-lwp-async mode on
 		cmd = MIGDBSet("debug lin-lwp-async", "1");
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug lin-lwp-async command failed.");
@@ -364,206 +364,206 @@ setup_gdbmi_environment(void)
 		MICommandFree(cmd);
 	}
 #endif
-	
+
 #if 0
 	// set target-async mode on
 	cmd = MIGDBSet("target-async", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set target-async command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// set pagination off
 	cmd = MIGDBSet("pagination", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set pagination command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// set non-stop mode on
 	cmd = MIGDBSet("non-stop", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set non-stop command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 #endif
-	
+
 	cmd = MIGDBSet("confirm", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set confirm command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// turn history off
 	cmd = MIGDBSet("history size", "0");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set history size command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// do not open source files
 	cmd = MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
-	// we need gdb to set print elements and print repeats to 0 so 
+
+	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
 	cmd = MIGDBSet("print elements", "0");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print elements command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("print repeats", "0");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print repeats command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// stop printing strings on the first null character
 	cmd = MIGDBSet("print null-stop", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print null-stop command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// demangle c++ names
 	cmd = MIGDBSet("print demangle", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print demangle command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("print asm-demangle", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print asm-demangle command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// print derived types from the vtable
 	cmd = MIGDBSet("print object", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print object command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// limit strings to 200 characters
 	cmd = MIGDBSet("print characters", "200");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print characters command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// don't allow pending breakpoints
 	cmd = MIGDBSet("breakpoint pending", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set breakpoint pending command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// limit backtrace size to 1000
 	cmd = MIGDBSet("backtrace limit", "1000");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set backtrace limit command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// unwind signals triggered by gdb
 	cmd = MIGDBSet("unwindonsignal", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set unwindonsignal command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// set can-use-hw-watchpoints to 1
 	cmd = MIGDBSet("can-use-hw-watchpoints", "1");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set can-use-hw-watchpoints command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// Need to set an alternative system root for /dsl and dso lookup if the
 	// /dsl directory exists.
 	struct stat		st;
-	
+
 	if (stat("/dsl", &st) == 0)
 	{
 		// The directory exists
 		cmd = MIGDBSet("solib-absolute-prefix", "/dsl");
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set solib-absolute-prefix command failed.");
@@ -571,13 +571,13 @@ setup_gdbmi_environment(void)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	// If running with gpu's, turn upc off. If we don't do this, things will break
 	if (gpu_flag)
 	{
 		cmd = MIGDBSet("upcsingle", "1");
 		SendMICommand(GDBMISession, cmd);
-		if (!MICommandResultOK(cmd)) 
+		if (!MICommandResultOK(cmd))
 		{
 			MICommandFree(cmd);
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set upcsingle command failed.");
@@ -585,7 +585,7 @@ setup_gdbmi_environment(void)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	// XXX: This actual does do something with the Allinea branch of gdb.
 	// DO NOT REMOVE! If removed, the backend will hang on gdb fatal errors.
 	cmd = MIGDBSet("continue-on-fatal-error", "1");
@@ -600,18 +600,18 @@ setup_gdbmi_environment(void)
 	return NULL;
 }
 
-static dbgevent_t *	
+static dbgevent_t *
 setup_gdbmi_signals(void)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
-	
+
 	cmd = CLIHandle("SIG64 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG64 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
 
@@ -620,55 +620,55 @@ setup_gdbmi_signals(void)
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG63 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIG39 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG39 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIG33 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG33 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIG32 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG32 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGUSR1 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGUSR1 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGUSR2 nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGUSR2 command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// We use this signal to interrupt the application. SIGINT is blocked and
 	// won't work (I can't figure out why...).
 	cmd = CLIHandle("SIGSTOP stop print nopass");
@@ -676,61 +676,61 @@ setup_gdbmi_signals(void)
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGSTOP command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGCONT nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGCONT command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGTSTP nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGTSTP command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGCHLD nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGCHLD command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGPROF nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGPROF command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGALRM nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGALRM command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = CLIHandle("SIGVTALRM nostop noprint pass");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd)) {
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGVTALRM command failed.");
-		return e;	
+		return e;
 	}
 	MICommandFree(cmd);
 
@@ -743,151 +743,151 @@ setup_gdbmi_entry_points(void)
 	dbgevent_t *	e;
 	MICommand *		cmd;
 	dbgbp_t *		bp_res;
-	
+
 	// set the lang to c. We always want to do this!!
 	cmd = MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	parallel_entry_BP = NewList();
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Init)", 0);
 	SendMICommand(GDBMISession, cmd);
 	// Note we only want to insert the breakpoint into our internal list if the
 	// command succeeded. We expect many of these to fail.
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "athos_mpi_init", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD__", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT__", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init__", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread__", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD_", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread_", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*&(MPI_Init_thread)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init()", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init(int&, char**&)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
@@ -896,44 +896,44 @@ setup_gdbmi_entry_points(void)
 
 	cmd = MIBreakInsert(0, 0, NULL, 0, "PMI2_Init", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*&(PMPI_Init)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*&(start_pes)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*&(shmem_init)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(parallel_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	// set the lang back to auto. We always want to do this!!
 	cmd = MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
@@ -956,36 +956,36 @@ setup_gdbmi_main_entry_points(void)
 	// set the lang to c. We always want to do this!!
 	cmd = MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "main", 0);
 	SendMICommand(GDBMISession, cmd);
 	// Note we only want to insert the breakpoint into our internal list if the
 	// command succeeded.
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 			AddToList(main_entry_BP, (void *)bp_res);
 	}
 	MICommandFree(cmd);
-	
+
 	// set the lang back to auto. We always want to do this!!
 	cmd = MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	return NULL;
 }
 
@@ -995,29 +995,29 @@ setup_gdbmi_exit_points(void)
 	dbgevent_t *	e;
 	MICommand *		cmd;
 	dbgbp_t *		bp_res;
-	
+
 	// set the lang to c. We always want to do this!!
 	cmd = MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	exit_BP = NewList();
-	
+
 	// Try to set a breakpoint at all of the regular exit points.
 	// If any command fails, don't worry about it. We expect many of these
 	// breakpoints to not exist.
 	// FIXME: Figure out what the proper behavior should be. Should we warn if
 	//        no exit point is found??
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&exit)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1027,11 +1027,11 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&_exit)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1041,10 +1041,10 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&abort)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1054,10 +1054,10 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPIR_Errors_are_fatal)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1067,10 +1067,10 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPID_Abort)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1080,10 +1080,10 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Abort)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1093,10 +1093,10 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, "*(&ompi_mpi_errors_are_fatal_comm_handler)", 0);
 	SendMICommand(GDBMISession, cmd);
-	if (MICommandResultOK(cmd)) 
+	if (MICommandResultOK(cmd))
 	{
 		if ((bp_res = get_dbgbp(cmd)) != NULL)
 		{
@@ -1106,11 +1106,11 @@ setup_gdbmi_exit_points(void)
 		}
 	}
 	MICommandFree(cmd);
-	
+
 	// set the lang back to auto. We always want to do this!!
 	cmd = MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
@@ -1132,9 +1132,9 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 {
 	dbgevent_t *	e;
 	cuda_vers		vers_num = CUDA_UNKNOWN;
-	
+
 	DVPRINT("*** DbgGDBMIInit\n");
-	
+
 	/**************DEBUG Start*****************/
     sigset_t debug_mask;
     if (sigprocmask(0, NULL, &debug_mask) < 0)
@@ -1155,7 +1155,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
             DVPRINT("InitGDBMI(): sigprocmask SIGCHLD is NOT blocked!\n");
     }
 	/**************DEBUG End*****************/
-	
+
 
 	GDBMISession = MISessionNew();
 
@@ -1175,7 +1175,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		// Need to determine the version of the driver to start the proper gdb
 		FILE *		vers;
 		char *		vers_str = NULL;
-		
+
 		// Open the driver version file, if this fails we are not on a gpu node
 		// and should default to using the regular gdb.
 		if ((vers = fopen("/proc/driver/nvidia/version", "r")) == NULL)
@@ -1201,9 +1201,9 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 			{
 				// We now have the version string, close the vers file
 				fclose(vers);
-			
+
 				DVPRINT("Detected Nvidia driver %s\n", vers_str);
-				
+
 				// Now strcmp the driver version with a list of supported versions
 				// The known driver mappings are:
 				// nvidia 319.* ==> CTK 5.5
@@ -1230,7 +1230,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				{
 					vers_num = CUDA_75;
 				}
-				
+
 				// force tmpdir to /tmp if GPU mode is on.
 				// This is a stupid Nvidia requirement. They utilize unix pipes
 				// that are writen in TMPDIR and this value *MUST* match the value
@@ -1239,9 +1239,9 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 				{
 					char *			old_tmpdir;
 					struct stat		st;
-					
+
 					// Get the applications setting of TMPDIR
-					if ((old_tmpdir = getenv("CRAYTOOL_OLD_TMPDIR")) != NULL)
+					if ((old_tmpdir = getenv("CTI_OLD_TMPDIR")) != NULL)
 					{
 						DVPRINT("Using application TMPDIR setting of %s\n", old_tmpdir);
 						if (setenv("TMPDIR", old_tmpdir, 1) < 0)
@@ -1265,7 +1265,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 						}
 					} else
 					{
-						DVPRINT("CRAYTOOL_OLD_TMPDIR env var not set. Defaulting to /tmp.\n");
+						DVPRINT("CTI_OLD_TMPDIR env var not set. Defaulting to /tmp.\n");
 						if (setenv("TMPDIR", "/tmp", 1) < 0)
 						{
 							// failure
@@ -1273,7 +1273,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 						}
 					}
 				}
-				
+
 				switch (vers_num)
 				{
 					case CUDA_75:
@@ -1301,7 +1301,7 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	{
 		MISessionSetGDBPath(GDBMISession, "gdb-guard");
 	}
-	
+
 	// set data-directory if we are not using CUDA_55
 	char * manifestLibDir = cti_be_getLibDir();
 	char * gdbDataDir;
@@ -1315,8 +1315,8 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
 	Free(gdbDataDir);
         // end set-datadirectory
-	
-	
+
+
 	// Ensure PYTHONSTARTUP isn't set
 	if (getenv("PYTHONSTARTUP") != NULL)
 	{
@@ -1329,16 +1329,16 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not start the debugger.");
 		return e;
 	}
-	
+
 	DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: MISessionStartLocal"));
-	
+
 	// this allows dbgsrv to monitor gdb's output fd to find out when we should
 	// have libmi service the output.
 	*dfd = GDBMISession->out_fd;
-	
+
 #ifndef ALPS
 	int	progio_pipe[2];
-	
+
 	// We might want to forward output to the frontend
 	// Create a pipe to use as a control channel
 	if (pipe(progio_pipe))
@@ -1367,17 +1367,17 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	BP = NewList();
 
 	DBEPERFLOG(SetTimerStart("DbgInitBackend: setup_gdbmi_environment"));
-	
+
 	if ((e = setup_gdbmi_environment()) != NULL)
 		return e;
 
 	DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: setup_gdbmi_environment"));
-	
+
 	DBEPERFLOG(SetTimerStart("DbgInitBackend: setup_gdbmi_signals"));
-	
+
 	if ((e = setup_gdbmi_signals()) != NULL)
 		return e;
-	
+
 	DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: setup_gdbmi_signals"));
 
 	return (dbgevent_t *)NULL;
@@ -1397,7 +1397,7 @@ DbgGDBMIStartup(void)
 	int				attempt = 0;
 
 	DVPRINT("*** DbgStartup\n");
-	
+
 	// Only setup entry points if we are not running with the special early
 	// entry mode
 	if (!early_entry_flag)
@@ -1409,7 +1409,7 @@ DbgGDBMIStartup(void)
 		// setup parallel entry points
 		if ((e = setup_gdbmi_entry_points()) != NULL)
 			return e;
-		
+
 		// we only want to issue a continue if one of the breakpoint lists is not empty.
 		if ( !EmptyList(parallel_entry_BP) || !EmptyList(main_entry_BP))
 		{
@@ -1422,27 +1422,27 @@ recover_for_slurm:
 			if (!MICommandResultOK(cmd)) {
 				EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 				MICommandFree(cmd);
-				return e;	
+				return e;
 			}
 			MICommandFree(cmd);
 
 			// set the status to running
 			Status = DBGSTAT_RUNNING;
-		
+
 			// wait for the asynch command to complete
 			while (!DbgGDBMIEventReady())
 			{
 				MISessionProgress(GDBMISession);
 			}
-			
-			// grab the pending asynch 
+
+			// grab the pending asynch
 			evt = PendingEvent;
-		
+
 			// set the state back to default
 			AsynchEventWaiting = 0;
 			PendingEvent = NULL;
 			Status = DBGSTAT_STOPPED;
-		
+
 			// slurm will send a SIGSTOP for some reason, try to recover from that
 			if (evt->type == MIEventTypeSignal && attempt < 10)
 			{
@@ -1451,14 +1451,14 @@ recover_for_slurm:
 				evt = NULL;
 				goto recover_for_slurm;
 			}
-		
+
 			// ensure we hit the breakpoint
 			if (evt->type != MIEventTypeBreakpointHit)
 			{
 				EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to hit entry breakpoint.");
 				return e;
 			}
-		
+
 			// If we hit a main breakpoint, we are done (unset finish). Otherwise check parallel breakpoints
 			if ((bp=FindBPByID(main_entry_BP, evt->bkptno)) == (dbgbp_t *)NULL)
 			{
@@ -1471,84 +1471,84 @@ recover_for_slurm:
 			else{
 				finish = 0;
 			}
-		
+
 			// Free the event
 			MIEventFree(evt);
-		
+
 			// remove all of the entry breakpoints. We are done with them.
 			if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
 				return e;
 			if ((e = delete_internal_breakpoints(parallel_entry_BP)) != NULL)
 				return e;
-			
+
 			// We want to set MPIR_debug_gate=1. This is an old MPIR standard.
 			cmd = MIGDBSet("lang", "c");
 			SendMICommand(GDBMISession, cmd);
-			if (!MICommandResultOK(cmd)) 
+			if (!MICommandResultOK(cmd))
 			{
 				MICommandFree(cmd);
 				EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 				return e;
 			}
 			MICommandFree(cmd);
-		
+
 			// This can fail if the symbol doesn't exist. We want to silently fail.
 			cmd = MIGDBSet("MPIR_debug_gate=1", NULL);
 			SendMICommand(GDBMISession, cmd);
 			MICommandFree(cmd);
-		
+
 			// set the lang back to auto.
 			cmd = MIGDBSet("lang", "auto");
 			SendMICommand(GDBMISession, cmd);
-			if (!MICommandResultOK(cmd)) 
+			if (!MICommandResultOK(cmd))
 			{
 				MICommandFree(cmd);
 				EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
 				return e;
 			}
 			MICommandFree(cmd);
-		
+
 			if (finish)
 			{
 				// now we want to issue the finish command to get back to main.
 				cmd = MIExecFinish();
 				SendMICommand(GDBMISession, cmd);
-				if (!MICommandResultOK(cmd)) 
+				if (!MICommandResultOK(cmd))
 				{
 					MICommandFree(cmd);
 					EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
 					return e;
 				}
 				MICommandFree(cmd);
-			
+
 				// set the status to running
 				Status = DBGSTAT_RUNNING;
-			
+
 				// wait for the asynch command to complete
 				while (!DbgGDBMIEventReady())
 					MISessionProgress(GDBMISession);
-			
-				// grab the pending asynch 
+
+				// grab the pending asynch
 				evt = PendingEvent;
-		
+
 				// set the state back to default
 				AsynchEventWaiting = 0;
 				PendingEvent = NULL;
 				Status = DBGSTAT_STOPPED;
-		
+
 				// ensure we finished the function
 				if (evt->type != MIEventTypeFunctionFinished)
 				{
 					EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to finish the entry function.");
 					return e;
 				}
-		
+
 				// Free the event
 				MIEventFree(evt);
 			}
 		}
 	}
-	
+
 	// Initialize UPC, in case the app uses UPC - this will break gpu debugging
 	if (!gpu_flag)
 	{
@@ -1582,28 +1582,28 @@ DbgGDBMIConsume(int fd)
 		DVPRINT("DbgGDBMIConsume: MISessionProgress returned -1!\n");
 		++error;
 	}
-	
-	if (GDBMISession->out_fd == -1) 
+
+	if (GDBMISession->out_fd == -1)
 	{
 		DVPRINT("DbgGDBMIConsume: sess->out_fd = -1\n");
 		++error;
 	}
-	
+
 	if (error)
 	{
 		// Trigger the AsynchEventWaiting condition. WaitEvent will detect that
 		// MIErrorNum is set and will return an error event.
 		AsynchEventWaiting = 1;
 		PendingEvent = NULL;
-		
+
 		return 0;
 	}
-	
+
 	return 1;
 }
 
 /*
-** The main Server loop of dbgsrv.c calls this function to check whether we 
+** The main Server loop of dbgsrv.c calls this function to check whether we
 ** are ready to process the registered asynch event or not.
 */
 static int
@@ -1648,12 +1648,12 @@ DbgGDBMISetLineBreak(char *file, int lno)
 	cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		Free(where);
-		
+
 		// If this error's out, try using the basename of the file instead
 		// XXX: This will not work properly if there are two source files in the
 		//      application with the same name. The full path based on the source
@@ -1663,18 +1663,18 @@ DbgGDBMISetLineBreak(char *file, int lno)
 			opt2 = basename(file);
 			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%d", opt2, lno);
-			
+
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 			SendMICommand(GDBMISession, cmd);
-			
-			if (!MICommandResultOK(cmd)) 
+
+			if (!MICommandResultOK(cmd))
 			{
 				MICommandFree(cmd);
 				Free(where);
 				// return the original error event
 				return event;
 			}
-			
+
 			// This worked, so free the error event and continue on with the
 			// original code
 			FreeEvent(event);
@@ -1683,17 +1683,17 @@ DbgGDBMISetLineBreak(char *file, int lno)
 			return event;
 		}
 	}
-	
+
 	event = CheckBreak(cmd);
-	
-	if (event == NULL) 
+
+	if (event == NULL)
 	{
 		EVENT_ERROR(event, DBGERR_DEBUGGER, "Cannot create internal breakpoint.");
 	}
-	
+
 	Free(where);
 	MICommandFree(cmd);
-	
+
 	return event;
 }
 
@@ -1720,16 +1720,16 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 		where = (char*)Alloc(len);
 		snprintf(where, len, "%s:%s", file, func);
 	}
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		Free(where);
-		
+
 		// If this error's out, try using the basename of the file instead
 		// XXX: This will not work properly if there are two source files in the
 		//      application with the same name. The full path based on the source
@@ -1739,18 +1739,18 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 			opt2 = basename(file);
 			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%s", opt2, func);
-			
+
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 			SendMICommand(GDBMISession, cmd);
-			
-			if (!MICommandResultOK(cmd)) 
+
+			if (!MICommandResultOK(cmd))
 			{
 				MICommandFree(cmd);
 				Free(where);
 				// return the original error event
 				return event;
 			}
-			
+
 			// This worked, so free the error event and continue on with the
 			// original code
 			FreeEvent(event);
@@ -1759,16 +1759,16 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 			return event;
 		}
 	}
-	
+
 	event = CheckBreak(cmd);
-	
+
 	if (event == NULL) {
 		EVENT_ERROR(event, DBGERR_DEBUGGER, "Cannot create internal breakpoint.");
 	}
-	
+
 	Free(where);
 	MICommandFree(cmd);
-	
+
 	return event;
 }
 
@@ -1786,7 +1786,7 @@ DbgGDBMISetWatch(int type, char *expr)
 	int				id;
 
 	DVPRINT("*** DbgSetWatch\n");
-	
+
 	// set the command based on the type
 	switch (bp_type)
 	{
@@ -1803,7 +1803,7 @@ DbgGDBMISetWatch(int type, char *expr)
 			EVENT_ERROR(event, DBGERR_NOSYM, expr);
 			return event;
 	}
-	
+
 	SendMICommand(GDBMISession, cmd);
 
 	if (!MICommandResultOK(cmd)) {
@@ -1811,7 +1811,7 @@ DbgGDBMISetWatch(int type, char *expr)
 		MICommandFree(cmd);
 		return event;
 	}
-	
+
 	/*
 	** The MIBreakWatch command returns a limited amount of information when
 	** inserting the watchpoint. Much less info is returned than the MIBreakInsert
@@ -1826,37 +1826,37 @@ DbgGDBMISetWatch(int type, char *expr)
 		MICommandFree(cmd);
 		return event;
 	}
-	
+
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
-	
+
 	id = bpt->number;
-	
+
 	MIListFree(bpts, (void (*)())MIBreakpointFree);
 	MICommandFree(cmd);
-	
+
 	// Now send the MIBreakInfo command
 	cmd = MIBreakInfo(id);
-	
+
 	SendMICommand(GDBMISession, cmd);
-	
+
 	if (!MICommandResultOK(cmd)) {
 		EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		return event;
 	}
-	
+
 	// Now check the breakpoint. It has all the info we need.
 
 	event = CheckBreak(cmd);
-	
+
 	if (event == NULL)
 	{
 		EVENT_ERROR(event, DBGERR_DEBUGGER, "Cannot create internal breakpoint.");
 	}
-	
+
 	MICommandFree(cmd);
-	
+
 	return event;
 }
 
@@ -1872,9 +1872,9 @@ DbgGDBMIDeleteBreak(int bid)
 	int				bpid;
 
 	DVPRINT("*** DbgDeleteBreak\n");
-	
+
 	bp = FindBPByID(BP, bid);
-	
+
 	if ( bp == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_NOBP, "Invalid breakpoint id.");
@@ -1886,17 +1886,17 @@ DbgGDBMIDeleteBreak(int bid)
 	cmd = MIBreakDelete(1, &bpid);
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Delete breakpoint failed.");
-		return e;	
+		return e;
 	}
-	
+
 	RemoveBP(BP, bid);
 
 	e = NewEvent(DBGEV_OK);
-	
+
 	MICommandFree(cmd);
 
 	return e;
@@ -1916,7 +1916,7 @@ DbgGDBMIDisableBreak(int bid)
 	DVPRINT("*** DbgDisableBreak\n");
 
 	bp = FindBPByID(BP, bid);
-	
+
 	if ( bp == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_NOBP, "Invalid breakpoint id.");
@@ -1928,17 +1928,17 @@ DbgGDBMIDisableBreak(int bid)
 	cmd = MIBreakDisable(1, &bpid);
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Disable breakpoint failed.");
-		return e;	
+		return e;
 	}
-	
+
 	bp->bp_enabled = 0;
 
 	e = NewEvent(DBGEV_OK);
-	
+
 	MICommandFree(cmd);
 
 	return e;
@@ -1960,13 +1960,13 @@ DbgGDBMIEnableBreak(int bid, int once, int del)
 	DVPRINT("*** DbgEnableBreak\n");
 
 	bp = FindBPByID(BP, bid);
-	
+
 	if ( bp == NULL )
 	{
 		EVENT_ERROR(e, DBGERR_NOBP, "Invalid breakpoint id.");
 		return e;
 	}
-	
+
 	// cannot set once and del at the same time
 	if ( once && del )
 	{
@@ -1994,25 +1994,25 @@ DbgGDBMIEnableBreak(int bid, int once, int del)
 		bpid = bid;
 		cmd = MIBreakEnable(1, &bpid);
 	}
-	
+
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Enable breakpoint failed.");
-		return e;	
+		return e;
 	}
-	
+
 	bp->bp_enabled = 1;
-	
+
 	if (once)
 		bp->bp_disp = DBGBP_DISABLE_DISP;
 	else if (del)
 		bp->bp_disp = DBGBP_DELETE_DISP;
 
 	e = NewEvent(DBGEV_OK);
-	
+
 	MICommandFree(cmd);
 
 	return e;
@@ -2055,21 +2055,21 @@ DbgGDBMIList(char *str)
 	dbglist_t *		list = NULL;
 
 	DVPRINT("*** DbgList\n");
-	
-	// We currently turn off opening of source files to avoid performance 
-	// penalties of accessing the cross mounted file system. But the user 
+
+	// We currently turn off opening of source files to avoid performance
+	// penalties of accessing the cross mounted file system. But the user
 	// explicitly wanted to list the source and our frontend failed, so we need
 	// to turn it back on and take the penalty. We turn this feature back off
 	// when we are finished. The frontend handles most list commands to avoid
 	// these issues, but sometimes it can fail or for the attach case it couldn't
-	// find the a.out. 
+	// find the a.out.
 	// TODO: It may be better to do it on the backend rather than the frontend
 	// if there are hundreds of thousands of ranks and they are all at different
 	// locations.
-	
+
 	cmd = MIGDBSet("source open", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
@@ -2086,9 +2086,9 @@ DbgGDBMIList(char *str)
 	}
 
 	lines = CLIGetListInfo(cmd);
-	
+
 	// Convert the MI list of CLILineInfo into a dbglist_t
-	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; ) 
+	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; )
 	{
 		dbg_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
 		dbg_list->list_lno = line->line_no;
@@ -2105,14 +2105,14 @@ DbgGDBMIList(char *str)
 			list_ptr = dbg_list;
 		}
 	}
-	
+
 	MIListFree(lines, (void (*)())CLILineInfoFree);
 	MICommandFree(cmd);
-	
+
 	// do not open source files
 	cmd = MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
@@ -2151,15 +2151,15 @@ DbgGDBMIGetSources(void)
 	}
 
 	sources = MIGetFileListExecSourceFilesInfo(cmd);
-	
+
 	// Convert the MI list of MISources into a dbgsources_t
-	for (MIListSet(sources); (source = (MISources *)MIListGet(sources)) != NULL; ) 
+	for (MIListSet(sources); (source = (MISources *)MIListGet(sources)) != NULL; )
 	{
 		if (source->fullname == NULL)
 			continue;
-	
+
 		dbg_sources = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
-		
+
 		// Ensure that this source file actually exists
 		dbg_sources->sources_file = realpath(source->fullname, NULL);
 		if (dbg_sources->sources_file == NULL)
@@ -2167,7 +2167,7 @@ DbgGDBMIGetSources(void)
 			Free(dbg_sources);
 			continue;
 		}
-		
+
 		dbg_sources->sources_next = (dbgsources_t *)NULL;
 
 		if (head == NULL)
@@ -2180,7 +2180,7 @@ DbgGDBMIGetSources(void)
 			sources_ptr = dbg_sources;
 		}
 	}
-	
+
 	MIListFree(sources, (void (*)())MISourcesFree);
 	MICommandFree(cmd);
 
@@ -2192,7 +2192,7 @@ DbgGDBMIGetSources(void)
 
 /*
 ** Start/continue executing program. If we are starting,
-** then we must plant a breakpoint at main() so that we 
+** then we must plant a breakpoint at main() so that we
 ** can find out the process id of the program.
 */
 static dbgevent_t *
@@ -2202,7 +2202,7 @@ DbgGDBMIGo(void)
 	MICommand *		cmd;
 
 	DVPRINT("*** DbgGo()\n");
-	
+
 	if (Status == DBGSTAT_EXIT)
 	{
 		EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2212,11 +2212,11 @@ DbgGDBMIGo(void)
 	cmd = MIExecContinue();
 
 	SendMICommand(GDBMISession, cmd);
-	
+
 	if (!MICommandResultOK(cmd)) {
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
-		return e;	
+		return e;
 	}
 
 	MICommandFree(cmd);
@@ -2224,7 +2224,7 @@ DbgGDBMIGo(void)
 	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
-	
+
 	e = NewEvent(DBGEV_OK);
 
 	return e;
@@ -2240,7 +2240,7 @@ DbgGDBMIFinishFunc(void)
 	MICommand *		cmd;
 
 	DVPRINT("*** DbgFinishFunc()\n");
-	
+
 	if (Status == DBGSTAT_EXIT)
 	{
 		EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2250,11 +2250,11 @@ DbgGDBMIFinishFunc(void)
 	cmd = MIExecFinish();
 
 	SendMICommand(GDBMISession, cmd);
-	
+
 	if (!MICommandResultOK(cmd)) {
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
-		return e;	
+		return e;
 	}
 
 	MICommandFree(cmd);
@@ -2262,7 +2262,7 @@ DbgGDBMIFinishFunc(void)
 	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
-	
+
 	e = NewEvent(DBGEV_OK);
 
 	return e;
@@ -2298,7 +2298,7 @@ DbgGDBMIStep(int count, int in)
 	MICommand *		cmd;
 
 	DVPRINT("*** DbgStep()\n");
-	
+
 	if (Status == DBGSTAT_EXIT)
 	{
 		EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2323,7 +2323,7 @@ DbgGDBMIStep(int count, int in)
 	AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 
 	Status = DBGSTAT_RUNNING;
-	
+
 	e = NewEvent(DBGEV_OK);
 
 	return e;
@@ -2339,7 +2339,7 @@ DbgGDBMIKill(void)
 
 	DVPRINT("*** DbgKill\n");
 
-#ifndef ALPS	
+#ifndef ALPS
 	// Note that if we are on a cray platform, we don't want to send the kill
 	// command. The ALPS interface will cleanup for us on the front-end. Killing
 	// the application process causes an "unclean" exit in the viewpoint of alps.
@@ -2352,7 +2352,7 @@ DbgGDBMIKill(void)
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		Status = DBGSTAT_WAITING;
-		return e;	
+		return e;
 	}
 
 	Pid = 0;
@@ -2373,11 +2373,11 @@ DbgGDBMIMoveFrame(int count, int up)
 {
 	dbgevent_t *		e;
 	dbgframe_t *		result = NULL;
-	
+
 	int			cur_level;
 	int			max_depth;
 	int			frame_number;
-	
+
 	MICommand *		cmd;
 	MIList *		mi_frame_list;
 	MIFrame *		mi_frame;
@@ -2393,7 +2393,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// process the result
 	mi_frame_list = MIGetFrameInfo(cmd);
 
@@ -2402,7 +2402,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// get the frame
 	MIListSet(mi_frame_list);
 	if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL)
@@ -2414,21 +2414,21 @@ DbgGDBMIMoveFrame(int count, int up)
 	}
 	// save the level of the current frame
 	cur_level = mi_frame->level;
-	
+
 	// free the MIFrame list
 	MIListFree(mi_frame_list, (void(*)())MIFrameFree);
 	MICommandFree(cmd);
-	
+
 	// now we need to get the depth of the stack
 	cmd = MIStackInfoDepth();
 	SendMICommand(GDBMISession, cmd);
-	
+
 	if (!MICommandResultOK(cmd)) {
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// process the result
 	if ((max_depth = MIGetStackInfoDepth(cmd)) < 0)
 	{
@@ -2437,7 +2437,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// the frame we want to select is based on an offset of the current
 	// frame. We must ensure that this is between a min of 0 and a max of
 	// max_depth
@@ -2450,7 +2450,7 @@ DbgGDBMIMoveFrame(int count, int up)
 				return e;
 			}
 			break;
-			
+
 		default:
 			if ((frame_number = cur_level + count) >= max_depth)
 			{
@@ -2458,12 +2458,12 @@ DbgGDBMIMoveFrame(int count, int up)
 				return e;
 			}
 	}
-	
+
 	// now we know which frame we should select
 	cmd = MIStackSelectFrame(frame_number);
 	SendMICommand(GDBMISession, cmd);
 	MICommandFree(cmd);
-	
+
 	// now query information about the frame we changed to and return it
 	cmd = MIStackInfoFrame();
 	SendMICommand(GDBMISession, cmd);
@@ -2473,7 +2473,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// process the result
 	mi_frame_list = MIGetFrameInfo(cmd);
 
@@ -2482,7 +2482,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// get the frame
 	MIListSet(mi_frame_list);
 	if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL)
@@ -2493,7 +2493,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// parse the frame into a dbgframe_t object
 	result = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
 
@@ -2511,7 +2511,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		DVPRINT("frame_addr: NULL\n");
 		result->frame_loc.loc_addr = (char *)NULL;
 	}
-		
+
 	// set frame function
 	if (mi_frame->func != NULL)
 	{
@@ -2522,7 +2522,7 @@ DbgGDBMIMoveFrame(int count, int up)
 		DVPRINT("frame_func: NULL\n");
 		result->frame_loc.loc_func = (char *)NULL;
 	}
-		
+
 	// set frame file
 	if (mi_frame->file != NULL)
 	{
@@ -2533,14 +2533,14 @@ DbgGDBMIMoveFrame(int count, int up)
 		DVPRINT("frame_file: NULL\n");
 		result->frame_loc.loc_file = (char *)NULL;
 	}
-	
+
 	// set frame line
 	DVPRINT("frame_line: %d\n", mi_frame->line);
 	result->frame_loc.loc_line = mi_frame->line;
-	
+
 	// free the MIFrame list
 	MIListFree(mi_frame_list, (void(*)())MIFrameFree);
-	
+
 	// create the event with the frame information
 	e = NewEvent(DBGEV_FRAME);
 	e->ev_frame = result;
@@ -2561,13 +2561,13 @@ DbgGDBMIShowFrame(int count)
 	dbgframe_t *	result = NULL;
 	dbgframe_t *	new_f = NULL;
 	dbgframe_t *	old_f = NULL;
-	
+
 	MICommand * cmd;
 	MIList * frames;
 	MIFrame * frame;
 
 	DVPRINT("*** DbgShowFrame\n");
-	
+
 	// We need to do different things depending on the value of count
 	if (count < 0)
 	{
@@ -2575,10 +2575,10 @@ DbgGDBMIShowFrame(int count)
 		// We need to figure out the depth of the stack and ask for depth-count
 		// to depth frames.
 		int depth;
-		
+
 		// Get the depth of the stack
 		cmd = MIStackInfoDepth();
-	
+
 		SendMICommand(GDBMISession, cmd);
 
 		if (!MICommandResultOK(cmd)) {
@@ -2586,7 +2586,7 @@ DbgGDBMIShowFrame(int count)
 			MICommandFree(cmd);
 			return e;
 		}
-		
+
 		if ((depth = MIGetStackInfoDepth(cmd)) == -1)
 		{
 			MICommandFree(cmd);
@@ -2594,10 +2594,10 @@ DbgGDBMIShowFrame(int count)
 			return e;
 		}
 		MICommandFree(cmd);
-		
+
 		// Ask for the outermost count frames
-		// Remember that count is a negative number, so adding is really 
-		// subtracting a positive. 
+		// Remember that count is a negative number, so adding is really
+		// subtracting a positive.
 		// Note that depth is *not* zero offset, so we need to subtract one from
 		// it when asking for the high. We don't need to fix for the low.
 		cmd = MIStackListFrames(depth+count, depth-1);
@@ -2611,7 +2611,7 @@ DbgGDBMIShowFrame(int count)
 		// if count is zero, ask for all the frames
 		cmd = MIStackListAllFrames();
 	}
-	
+
 	// Send the command that was created by the above logic.
 	SendMICommand(GDBMISession, cmd);
 
@@ -2621,7 +2621,7 @@ DbgGDBMIShowFrame(int count)
 		return e;
 	}
 
-	if ((frames = MIGetStackListFramesInfo(cmd))== NULL) 
+	if ((frames = MIGetStackListFramesInfo(cmd))== NULL)
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_NOSTACK, "");
@@ -2632,7 +2632,7 @@ DbgGDBMIShowFrame(int count)
 	// parse over the frame list
 	// increment the frames count each time through
 	for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL; )
-	{		
+	{
 		// create the new frame
 		new_f = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
 
@@ -2659,7 +2659,7 @@ DbgGDBMIShowFrame(int count)
 			DVPRINT("frame_addr: NULL\n");
 			new_f->frame_loc.loc_addr = (char *)NULL;
 		}
-		
+
 		// set frame function
 		if (frame->func != NULL)
 		{
@@ -2670,7 +2670,7 @@ DbgGDBMIShowFrame(int count)
 			DVPRINT("frame_func: NULL\n");
 			new_f->frame_loc.loc_func = (char *)NULL;
 		}
-		
+
 		// set frame file
 		if (frame->file != NULL)
 		{
@@ -2681,7 +2681,7 @@ DbgGDBMIShowFrame(int count)
 			DVPRINT("frame_file: NULL\n");
 			new_f->frame_loc.loc_file = (char *)NULL;
 		}
-		
+
 		// set frame line
 		DVPRINT("frame_line: %d\n", frame->line);
 		new_f->frame_loc.loc_line = frame->line;
@@ -2692,7 +2692,7 @@ DbgGDBMIShowFrame(int count)
 	// create the event with the frame information
 	e = NewEvent(DBGEV_FRAME);
 	e->ev_frame = result;
-	
+
 	// free the MIFrame list
 	MIListFree(frames, (void(*)())MIFrameFree);
 
@@ -2708,13 +2708,13 @@ DbgGDBMIGetFrame(void)
 {
 	dbgevent_t *	e;
 	dbgframe_t *	result = NULL;
-	
+
 	MICommand * cmd;
 	MIList * 	mi_frame_list;
 	MIFrame *	mi_frame;
 
 	DVPRINT("*** DbgShowFrame\n");
-	
+
 	// Get the selected frame
 	cmd = MIStackInfoFrame();
 	SendMICommand(GDBMISession, cmd);
@@ -2724,7 +2724,7 @@ DbgGDBMIGetFrame(void)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// process the result
 	mi_frame_list = MIGetFrameInfo(cmd);
 
@@ -2733,7 +2733,7 @@ DbgGDBMIGetFrame(void)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// get the frame
 	MIListSet(mi_frame_list);
 	if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL)
@@ -2743,43 +2743,43 @@ DbgGDBMIGetFrame(void)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// create the result
 	result = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
 	memset((void *)result, 0, sizeof(dbgframe_t));
-	
+
 	// set frame level
 	result->frame_level = mi_frame->level;
-	
+
 	// set frame address
 	if (mi_frame->addr != NULL)
 	{
 		DVPRINT("frame_addr: %s\n", mi_frame->addr);
 		result->frame_loc.loc_addr = strdup(mi_frame->addr);
 	}
-		
+
 	// set frame function
 	if (mi_frame->func != NULL)
 	{
 		DVPRINT("frame_func: %s\n", mi_frame->func);
 		result->frame_loc.loc_func = strdup(mi_frame->func);
 	}
-		
+
 	// set frame file
 	if (mi_frame->file != NULL)
 	{
 		DVPRINT("frame_file: %s\n", mi_frame->file);
 		result->frame_loc.loc_file = strdup(mi_frame->file);
 	}
-		
+
 	// set frame line
 	DVPRINT("frame_line: %d\n", mi_frame->line);
 	result->frame_loc.loc_line = mi_frame->line;
-	
+
 	// free the MIFrame list
 	MIListFree(mi_frame_list, (void (*)())MIFrameFree);
 	MICommandFree(cmd);
-	
+
 	// create the event with the frame information
 	e = NewEvent(DBGEV_FRAME);
 	e->ev_frame = result;
@@ -2803,44 +2803,44 @@ DbgGDBMISetVar(char *var, AIF *a)
 	char *			data;
 	char *			expr;
 	int				len;
-	
+
 	DVPRINT("*** DbgSetVar\n");
-	
+
 	if ( a == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_SETVAR, "Invalid input. AIF is null.");
 		return e;
 	}
-	
+
 	if ( AIF_LEN(a) <= 0)
 	{
 		EVENT_ERROR(e, DBGERR_SETVAR, "Attempt to set var with data of null length.");
 		return e;
 	}
-	
+
 	// get type info about var to make sure it exists
 	if (((e = DbgGDBMIGetType(var, 0))->ev_event) != DBGEV_TYPE)
 		return e;
 	FreeEvent(e);
-	
+
 	// convert the aif type to string form
 	if (AIFToStr(&data, 0, a))
 	{
 		EVENT_ERROR(e, DBGERR_SETVAR, "Could not convert AIF data to string.");
 		return e;
 	}
-	
+
 	// create the assignment string
 	len = strlen(var) + strlen(data) + 2;
 	expr = (char*)Alloc(len);
 	snprintf(expr, len, "%s=%s", var, data);
-	
+
 	DVPRINT("DbgSetVar: expr is %s\n", expr);
-	
+
 	// set the var to the val of the aif var
 	cmd = MIGDBSet(expr, NULL);
 	SendMICommand(GDBMISession, cmd);
-	
+
 	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(e, DBGERR_SETVAR, MICommandResultErrorMessage(cmd));
@@ -2849,7 +2849,7 @@ DbgGDBMISetVar(char *var, AIF *a)
 	}
 	MICommandFree(cmd);
 	Free(expr);
-	
+
 	return NewEvent(DBGEV_OK);
 }
 
@@ -2870,7 +2870,7 @@ DbgGDBMIGetType(char *var, int isType)
 		cmd = CLIPtype(var);
 	else
 		cmd = CLIWhatis(var);
-	
+
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -2878,12 +2878,12 @@ DbgGDBMIGetType(char *var, int isType)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	if (isType)
 		type = CLIGetPtypeInfo(cmd);
 	else
 		type = CLIGetWhatisInfo(cmd);
-	
+
 	if (type == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_NOSYM, var);
@@ -2910,7 +2910,7 @@ DbgGDBMIGetVars(char *file)
 	dbgvars_t *	result = NULL;
 	dbgvars_t *	cur_var = NULL;
 	dbgvars_t *	new_var = NULL;
-	
+
 	MICommand *	cmd;
 	MIList *	vars;
 	MIArg *	 var;
@@ -2933,25 +2933,25 @@ DbgGDBMIGetVars(char *file)
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// parse over the vars list
-	for (MIListSet(vars); (var = (MIArg *)MIListGet(vars)) != NULL; ) 
+	for (MIListSet(vars); (var = (MIArg *)MIListGet(vars)) != NULL; )
 	{
 		// create the new var
 		new_var = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
-		
+
 		// first time through we want to set the root var as the result
 		if (result == NULL)
 			result = new_var;
-		
+
 		// set the cur_var var_next pointer to the new var if this isn't
 		// the first time through
 		if (cur_var != NULL)
 			cur_var->var_next = new_var;
-			
+
 		// set the var_next to null
 		new_var->var_next = (dbgvars_t *)NULL;
-		
+
 		// set the name
 		if (var->name != NULL)
 		{
@@ -2962,7 +2962,7 @@ DbgGDBMIGetVars(char *file)
 			DVPRINT("var_name: NULL\n");
 			new_var->var_name = (char *)NULL;
 		}
-		
+
 		// set the type
 		if (var->type != NULL)
 		{
@@ -2973,18 +2973,18 @@ DbgGDBMIGetVars(char *file)
 			DVPRINT("var_type: NULL\n");
 			new_var->var_type = NULL;
 		}
-		
+
 		// set the cur_var pointer to the new_var
 		cur_var = new_var;
 	}
-	
+
 	// create the event with the var information
 	e = NewEvent(DBGEV_VARS);
 	e->ev_vars = result;
-	
+
 	// free the MIArg list
 	MIListFree(vars, (void (*)())MIArgFree);
-	
+
 	return e;
 }
 
@@ -3006,19 +3006,19 @@ DbgGDBMIGetScope(char *location)
 	char *			var_str;
 	char *			type;
 	dbgevent_t *	e;
-	
+
 	DVPRINT("*** DbgGetScope\n");
-	
+
 	cmd = CLIInfoScope(location);
-	
+
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		return e;
 	}
-	
+
 	// Get the names of the vars
 	if ((vars = CLIGetVariablesFromInfoScopeInfo(cmd)) == NULL)
 	{
@@ -3027,15 +3027,15 @@ DbgGDBMIGetScope(char *location)
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// Create the dbgvars_t for each of the named variables
 	vp = &result;
-	for (MIListSet(vars); (name = (char *)MIListGet(vars)) != NULL; ) 
+	for (MIListSet(vars); (name = (char *)MIListGet(vars)) != NULL; )
 	{
 		// create the new var
 		*vp = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
 		memset(*vp, 0, sizeof(dbgvars_t));
-		
+
 		// set the name
 		if (name != NULL)
 		{
@@ -3050,26 +3050,26 @@ DbgGDBMIGetScope(char *location)
 		}
 		// set the var_next to null
 		(*vp)->var_next = (dbgvars_t *)NULL;
-		
+
 		// increment the var pointer
 		vp = &(*vp)->var_next;
 	}
-	
+
 	// free the name list
 	MIListFree(vars, (void(*)())Free);
-	
+
 	// create the event with the var information
 	e = NewEvent(DBGEV_VARS);
 	e->ev_vars = result;
-	
+
 	// Now we need to get the type information based on the scope. First figure
 	// out what function the scope referrs to by setting a breakpoint to get
 	// the function name.
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, location, 0);
 	SendMICommand(GDBMISession, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		// free existing event
 		FreeEvent(e);
@@ -3077,7 +3077,7 @@ DbgGDBMIGetScope(char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	if ((bpts = MIBreakpointGetBreakInsertInfo(cmd)) == NULL)
 	{
 		// free existing event
@@ -3087,12 +3087,12 @@ DbgGDBMIGetScope(char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
-	
+
 	bpid = bpt->number;
-	
+
 	// Make sure that there is a function, otherwise whatis will fail. We need
 	// the function scope in order for this to work
 	if (bpt->func == NULL)
@@ -3103,12 +3103,12 @@ DbgGDBMIGetScope(char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	bpfunc = strdup(bpt->func);
-	
+
 	MIListFree(bpts, (void(*)())MIBreakpointFree);
 	MICommandFree(cmd);
-	
+
 	// Delete the breakpoint, we have the information we need
 	cmd = MIBreakDelete(1, &bpid);
 	SendMICommand(GDBMISession, cmd);
@@ -3116,14 +3116,14 @@ DbgGDBMIGetScope(char *location)
 	// do since it won't cause anything to break. This assumption might be
 	// wrong though.
 	MICommandFree(cmd);
-	
+
 	// Now loop through the vars and get the type for each name
 	for (vp = &result; *vp != NULL; vp = &(*vp)->var_next)
 	{
 		Asprintf(&var_str, "%s::%s", bpfunc, (*vp)->var_name);
 		cmd = CLIWhatis(var_str);
 		Free(var_str);
-		
+
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -3131,20 +3131,20 @@ DbgGDBMIGetScope(char *location)
 			MICommandFree(cmd);
 			continue;
 		}
-		
+
 		if ((type = CLIGetWhatisInfo(cmd)) == NULL)
 		{
 			MICommandFree(cmd);
 			continue;
 		}
 		MICommandFree(cmd);
-		
+
 		// I don't know if the strdup is actually necessary, dbgsrv was doing it
 		// for the whatis command though.
 		(*vp)->var_type = strdup(type);
 		Free(type);
 	}
-	
+
 	return e;
 }
 
@@ -3161,13 +3161,13 @@ DbgGDBMIStatus(int getLocation)
 	e = NewEvent(DBGEV_STAT);
 
 	DVPRINT("*** DbgStatus\n");
-	
+
 	// Create the new status object
 	s = e->ev_status = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
-	
+
 	// Assign the status
 	s->stat = Status;
-	
+
 	// If getLocation is 1, we need to populate the location information if its
 	// available
 	if (getLocation)
@@ -3181,8 +3181,8 @@ DbgGDBMIStatus(int getLocation)
 			case DBGSTAT_EXIT:
 				// Reuse DbgGDBMIShowFrame to get the bottommost frame
 				async_e = DbgGDBMIShowFrame(1);
-			
-				if (async_e->ev_frame != NULL) 
+
+				if (async_e->ev_frame != NULL)
 				{
 					s->stat_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
 					s->stat_loc->loc_file = (async_e->ev_frame->frame_loc.loc_file == NULL ? NULL : strdup(async_e->ev_frame->frame_loc.loc_file));
@@ -3190,10 +3190,10 @@ DbgGDBMIStatus(int getLocation)
 					s->stat_loc->loc_addr = NULL; // We don't care about the address
 					s->stat_loc->loc_line = async_e->ev_frame->frame_loc.loc_line;
 				}
-			
+
 				FreeEvent(async_e);
 				break;
-		
+
 			// These do not generate location information
 			case DBGSTAT_INITIALISING:
 			case DBGSTAT_RUNNING:
@@ -3238,11 +3238,11 @@ DbgGDBMIQuit(int detach)
 		e = WaitEvent(NULL);
 		FreeEvent(e);
 	}
-	
+
 	DVPRINT("DbgQuit: Detaching from process.\n");
-	
+
 	cmd = MITargetDetach(Pid);
-	
+
 	SendMICommand(GDBMISession, cmd);
 
 #ifdef ALPS
@@ -3253,9 +3253,9 @@ DbgGDBMIQuit(int detach)
 	** and often cause a segfault. Detatching and then sending SIGSTOP fixes the
 	** issue.
 	*/
-	
+
 	// If the command completed ok, we need to send SIGSTOP ASAP!!!
-	if (MICommandResultOK(cmd) && !detach) 
+	if (MICommandResultOK(cmd) && !detach)
 	{
 		(void)kill(Pid, SIGSTOP);
 		DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
@@ -3265,7 +3265,7 @@ DbgGDBMIQuit(int detach)
 	MICommandFree(cmd);
 
 	DVPRINT("DbgQuit: Signal shutdown state.\n");
-	
+
 	// signal the shutdown state
 	Shutdown++;
 
@@ -3280,7 +3280,7 @@ DbgGDBMIInterrupt(void)
 {
 	dbgevent_t *	e;
 	dbgevent_t *	async_e;
-	
+
 	DVPRINT("*** DbgInterrupt\n");
 
 	if ( Status == DBGSTAT_RUNNING )
@@ -3302,19 +3302,19 @@ DbgGDBMIInterrupt(void)
 					EVENT_ERROR(e, DBGERR_DEBUGGER, "Unknown kill() error.");
 					break;
 			}
-			
+
 			return e;
 		}
-		
+
 		// wait for the asynch command to complete
 		while (!DbgGDBMIEventReady())
 			MISessionProgress(GDBMISession);
-			
+
 		async_e = WaitEvent(NULL);
-			
+
 		e = NewEvent(DBGEV_HALT);
 		e->ev_loc = (dbgloc_t *)NULL;
-		
+
 		if (async_e->ev_sig_frame != NULL) {
 			e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
 			e->ev_loc->loc_file = (async_e->ev_sig_frame->frame_loc.loc_file == NULL ? NULL : strdup(async_e->ev_sig_frame->frame_loc.loc_file));
@@ -3322,19 +3322,19 @@ DbgGDBMIInterrupt(void)
 			e->ev_loc->loc_addr = NULL; // We don't care about the address
 			e->ev_loc->loc_line = async_e->ev_sig_frame->frame_loc.loc_line;
 		}
-		
+
 		FreeEvent(async_e);
-		
+
 		return e;
 	}
-	
-	// If we are already stopped, we will reuse DbgGDBMIShowFrame to get the 
+
+	// If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
 	// bottommost frame
 	async_e = DbgGDBMIShowFrame(1);
-	
+
 	e = NewEvent(DBGEV_HALT);
 	e->ev_loc = (dbgloc_t *)NULL;
-	
+
 	if (async_e->ev_frame != NULL) {
 		e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
 		e->ev_loc->loc_file = (async_e->ev_frame->frame_loc.loc_file == NULL ? NULL : strdup(async_e->ev_frame->frame_loc.loc_file));
@@ -3342,7 +3342,7 @@ DbgGDBMIInterrupt(void)
 		e->ev_loc->loc_addr = NULL; // We don't care about the address
 		e->ev_loc->loc_line = async_e->ev_frame->frame_loc.loc_line;
 	}
-	
+
 	FreeEvent(async_e);
 
 	return e;
@@ -3461,25 +3461,25 @@ DbgGDBMISetSourcePath(char *path)
 	dbgevent_t *	e;
 
 	DVPRINT("*** DbgSetSourcePath\n");
-	
+
 	pathdirs[0] = path;
 	pathdirs[1] = NULL;
-	
+
 	cmd = MIEnvironmentDirectory(0, pathdirs);
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb -environment-directory command failed.");
 		return e;
 	}
-	
+
 	cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
-	
+
 	e = NewEvent(DBGEV_SOURCEPATH);
 	res = MIStringToCString(cmd_result);
 	e->ev_source_path = (res == NULL) ? NULL : strdup(res);
-	
+
 	MICommandFree(cmd);
 	MIStringFree(cmd_result);
 
@@ -3496,24 +3496,24 @@ DbgGDBMIGetSourcePath(void)
 	dbgevent_t *	e;
 
 	DVPRINT("*** DbgSetSourcePath\n");
-	
+
 	pathdirs[0] = NULL;
-	
+
 	cmd = MIEnvironmentDirectory(0, pathdirs);
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb -environment-directory command failed.");
 		return e;
 	}
-	
+
 	cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
-	
+
 	e = NewEvent(DBGEV_SOURCEPATH);
 	res = MIStringToCString(cmd_result);
 	e->ev_source_path = (res == NULL) ? NULL : strdup(res);
-	
+
 	MICommandFree(cmd);
 	MIStringFree(cmd_result);
 
@@ -3544,39 +3544,39 @@ ResetBeforeDirectCmd(void)
 	MICommand *		cmd;
 	dbgevent_t *	e;
 
-	// we need gdb to set print elements and print repeats to 0 so 
+	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
 	cmd = MIGDBSet("print elements", "200");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print elements command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("print repeats", "10");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print repeats command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("source open", "on");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	return NULL;
 }
 
@@ -3586,39 +3586,39 @@ RestoreAfterDirectCmd(void)
 	MICommand *		cmd;
 	dbgevent_t *	e;
 
-	// we need gdb to set print elements and print repeats to 0 so 
+	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
 	cmd = MIGDBSet("print elements", "0");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print elements command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("print repeats", "0");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print repeats command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	return NULL;
 }
 
@@ -3635,17 +3635,17 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 	int				restore = 1;
 
 	DVPRINT("*** DbgDirectCmd\n");
-	
+
 	// Reset some of the print settings to default, otherwise the user might
 	// not get a response
 	e = ResetBeforeDirectCmd();
-	
+
 	if (e!=NULL)
 		return e;
 
 	cmd = CLIBypass(cmd_argc, cmd_argv);
 	SendMICommand(GDBMISession, cmd);
-	
+
 	// Sometimes a command can cause the debugger to start running
 	// If so the expected result record from CLIBypass would be wrong.
 	// We don't want to use the MICommandResultOK command, rather we want to
@@ -3660,7 +3660,7 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid command returned by MI layer.");
 			MICommandFree(cmd);
 			return e;
-			
+
 		case MIResultRecordRUNNING:
 			Status = DBGSTAT_RUNNING;
 			// We can't restore if the status changes to running
@@ -3669,7 +3669,7 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			// FIXME: Use a custom WaitEvent
 			AsyncCheck((dbgevent_t* (*)(dbgevent_t*))WaitEvent, (dbgevent_t *)NULL);
 			break;
-			
+
 		case MIResultRecordERROR:
 			e = RestoreAfterDirectCmd();
 			if (e!=NULL)
@@ -3677,14 +3677,14 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 			MICommandFree(cmd);
 			return e;
-			
+
 		case MIResultRecordEXIT:
 			// The user shouldn't be allowed to exit directly!!!
 			Status = DBGSTAT_DBGERR;
 			EVENT_ERROR(e, DBGERR_DEBUGGER, "GDB reported exit! Things are likely broken.");
 			MICommandFree(cmd);
 			return e;
-			
+
 		case MIResultRecordCONNECTED:
 			// TODO: How to handle this case.
 		case MIResultRecordDONE:
@@ -3692,16 +3692,16 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 			// Command is ok - do nothing here
 			break;
 	}
-	
+
 	e = NewEvent(DBGEV_CMD);
 	e->ev_cmd = MICommandConsoleOOBMessages(cmd);
-	
+
 	MICommandFree(cmd);
-	
+
 	if (restore)
 	{
 		e2 = RestoreAfterDirectCmd();
-		
+
 		if (e2!=NULL)
 		{
 			FreeEvent(e);
@@ -3748,7 +3748,7 @@ InitDbg(char *prog, char *args)
 
 		if ( e->ev_event != DBGEV_OK )
 			return e;
-			
+
 		FreeEvent(e);
 	}
 
@@ -3849,24 +3849,24 @@ InitDbg(char *prog, char *args)
 /*
 ** Attach debugger. Added specifically for Cray XT / ALPS, but it might
 ** work for other platforms as well.
-*/	
+*/
 static dbgevent_t *
 InitDbgAttach(int pid, char *prog)
-{	
+{
 	dbgevent_t *		e;
 	MICommand *			cmd;
 	CLIInfoProcInfo *	procInfo;
-	
+
 	DVPRINT("*** InitDbgAttach\n");
 
 	cmd = MITargetAttach(pid);
-	
+
 	DBEPERFLOG(SetTimerStart("DbgAttach: -target-attach"));
 	SendMICommand(GDBMISession, cmd);
 	DBEPERFLOG(SetTimerStopAndLog("DbgAttach: -target-attach"));
 
 	// Check for success/failure
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Attach failed: %s", MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
@@ -3874,25 +3874,25 @@ InitDbgAttach(int pid, char *prog)
 	}
 
 	MICommandFree(cmd);
-	
+
 	DVPRINT("InitDbgAttach: -target-attach sent.\n");
-	
+
 	/*
 	** -target-attach is a *asynch* command that will generate a MI event.
 	** we must grab it or it will fubar everything else up.
 	*/
 	// grab the "temporary" breakpoint - we want to ignore it
 	// this is always generated by an attach command.
-	
+
 	// wait for the asynch command to complete
 	while (!DbgGDBMIEventReady())
 		MISessionProgress(GDBMISession);
-	
+
 	DVPRINT("InitDbgAttach: Event ready!\n");
-	
+
 	e = WaitEvent(NULL);
 	FreeEvent(e);
-	
+
 	/*
 	** Find out pid.
 	*/
@@ -3914,7 +3914,7 @@ InitDbgAttach(int pid, char *prog)
 	MICommandFree(cmd);
 
 	DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", Pid);
-	
+
 	// setup default exit points
 	if ((e = setup_gdbmi_exit_points()) != NULL)
 		return e;
@@ -3941,7 +3941,7 @@ WaitEvent(dbgevent_t *e)
 
 	AsynchEventWaiting = 0;
 	PendingEvent = NULL;
-	
+
 	// check if we should reset due to a direct command triggering the run state
 	if (DirectCmdAsyncRestore)
 	{
@@ -3953,7 +3953,7 @@ WaitEvent(dbgevent_t *e)
 			return e2;
 		}
 	}
-	
+
 	// check for MI error condition
 	if (MIGetError())
 	{
@@ -3962,7 +3962,7 @@ WaitEvent(dbgevent_t *e)
 		EventErrStr(e, MIGetErrorStr());
 		return e;
 	}
-	
+
 	// check for null evt
 	if (evt == NULL)
 	{
@@ -3986,12 +3986,12 @@ WaitEvent(dbgevent_t *e)
 
 			return e;
 		}
-		
+
 		// set the status to stopped
 		Status = DBGSTAT_STOPPED;
-		
+
 		bp = FindBPByID(BP, evt->bkptno);
-		
+
 		// We want to check for an exit breakpoint if we didn't find it in the
 		// normal BP list.
 		if ( bp == NULL)
@@ -4018,7 +4018,7 @@ WaitEvent(dbgevent_t *e)
 
 		e->ev_event = DBGEV_BPHIT;
 		e->ev_bp = DupBP(bp);
-		
+
 		// Check to see if disposition was set to disable or delete
 		// We have to do this now because if the bp was set to delete we wouldn't
 		// be able to do a DupBP on it...
@@ -4045,11 +4045,11 @@ WaitEvent(dbgevent_t *e)
 
 		MIEventFree(evt);
 		return e;
-		
+
 	case MIEventTypeWatchpointTrigger:
 		DVPRINT("MIEventTypeWatchpointTrigger\n");
 		DVPRINT("Breakpoint id is %d\n", evt->number);
-		
+
 		bp = FindBPByID(BP, evt->number);
 
 		// If bp is null, we have a problem.
@@ -4062,7 +4062,7 @@ WaitEvent(dbgevent_t *e)
 		}
 
 		bp->bp_hits++;
-		
+
 		// We need to update the breakpoint information with the evt frame.
 		// This will change every time the breakpoint is hit.
 		// First free the old information
@@ -4082,7 +4082,7 @@ WaitEvent(dbgevent_t *e)
 			bp->bp_loc.loc_addr = NULL;
 		}
 		bp->bp_loc.loc_line = -1;
-		
+
 		// Now update it with the new info
 		if (evt->frame != NULL)
 		{
@@ -4094,12 +4094,12 @@ WaitEvent(dbgevent_t *e)
 				bp->bp_loc.loc_addr = strdup(evt->frame->addr);
 			bp->bp_loc.loc_line = evt->frame->line;
 		}
-		
+
 		CurrBP = bp;
 
 		e->ev_event = DBGEV_BPHIT;
 		e->ev_bp = DupBP(bp);
-		
+
 		// Check to see if disposition was set to disable or delete
 		// We have to do this now because if the bp was set to delete we wouldn't
 		// be able to do a DupBP on it...
@@ -4128,7 +4128,7 @@ WaitEvent(dbgevent_t *e)
 	case MIEventTypeWatchpointScope:
 		DVPRINT("MIEventTypeWatchpointScope\n");
 		DVPRINT("Breakpoint id is %d\n", evt->number);
-		
+
 		bp = FindBPByID(BP, evt->number);
 
 		// If bp is null, we have a problem.
@@ -4150,7 +4150,7 @@ WaitEvent(dbgevent_t *e)
 
 	case MIEventTypeSuspended:
 		DVPRINT("MIEventTypeSuspended\n");
-		
+
 		// FIXME: This should be using its own event type
 		e->ev_event = DBGEV_STEP;
 		e->ev_step_frame = (dbgframe_t *)NULL;
@@ -4168,14 +4168,14 @@ WaitEvent(dbgevent_t *e)
 			e->ev_step_frame->frame_loc.loc_line = evt->frame->line;
 			e->ev_step_frame->frame_next = NULL;
 		}
-		
+
 		Status = DBGSTAT_STOPPED;
 		MIEventFree(evt);
 		return e;
 
 	case MIEventTypeFunctionFinished:
 		DVPRINT("MIEventTypeFunctionFinished\n");
-		
+
 		// FIXME: This should be using its own event type
 		e->ev_event = DBGEV_STEP;
 		e->ev_step_frame = (dbgframe_t *)NULL;
@@ -4229,7 +4229,7 @@ WaitEvent(dbgevent_t *e)
 		e->ev_sig_type = (evt->sigName == NULL ? NULL : strdup(evt->sigName));
 		e->ev_sig_line = NULL;
 		e->ev_sig_frame = (dbgframe_t *)NULL;
-		
+
 		if (evt->frame != NULL) {
 			e->ev_sig_frame = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
 			e->ev_sig_frame->frame_level = evt->frame->level;
@@ -4282,7 +4282,7 @@ CheckBreak(MICommand *cmd)
 	dbgevent_t *	e;
 	MIBreakpoint *	bpt;
 	MIList *		bpts;
-	
+
 	DVPRINT("*** CheckBreak\n");
 
 	bpts = MIBreakpointGetBreakInsertInfo(cmd);
@@ -4290,7 +4290,7 @@ CheckBreak(MICommand *cmd)
 	if (bpts == NULL) {
 		return NULL;
 	}
-	
+
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
 
@@ -4317,9 +4317,9 @@ CheckBreak(MICommand *cmd)
 	{
 		bp->bp_type = DBGBP_BREAK_TYPE;
 	}
-	
+
 	bp->bp_enabled = bpt->enabled;
-	
+
 	// set the breakpoint disposition
 	if (bpt->disp != NULL)
 	{
@@ -4335,7 +4335,7 @@ CheckBreak(MICommand *cmd)
 	{
 		bp->bp_disp = DBGBP_UNKNOWN_DISP;
 	}
-	
+
 	// If this breakpoint has multiple locations, fake the information based
 	// on the original location.
 	if (bpt->hasMultiple)
@@ -4374,7 +4374,7 @@ CheckBreak(MICommand *cmd)
 		if (bpt->what != NULL)
 			bp->bp_exp = strdup(bpt->what);
 	}
-	
+
 	/*
 	** Link a copy of the breakpoint onto BP.
 	*/
@@ -4419,7 +4419,7 @@ SendMICommand(MISession *sess, MICommand *cmd)
 			{
 				DVPRINT("SendMICommand: Debugger error: %s\n", buf);
 				free(buf);
-			} else 
+			} else
 			{
 				DVPRINT("SendMICommand: Error from GDB, but no message\n");
 			}
@@ -4427,7 +4427,7 @@ SendMICommand(MISession *sess, MICommand *cmd)
 			break;
 		}
 
-		if (sess->out_fd == -1) 
+		if (sess->out_fd == -1)
 		{
 			DVPRINT("SendMICommand: sess->out_fd = -1\n");
 			break;
@@ -4461,9 +4461,9 @@ log_callback(char *str)
 static void
 target_callback(char *str)
 {
-	
+
 	DVPRINT("NEWGDBMI target> %s\n", str);
-	
+
 }
 
 
@@ -4501,12 +4501,12 @@ PerformExtEvalExpr(char *exp)
 		int hashfunc=0, precision_lower, precision_upper;
 		char hashinfo[BUFSIZ]="";
 		ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper, hashinfo);
-		
+
 		if ((e = GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id, precision_lower, precision_upper)) != NULL)
 		{
 			return e;
 		}
-		
+
 		e = NewEvent(DBGEV_DATA);
 		e->ev_data = a;
 
@@ -4518,7 +4518,7 @@ PerformExtEvalExpr(char *exp)
 			DVPRINT("Final AIF type is: %s\n", aif_str);
 			Free(aif_str);
 		}
-			
+
 		return e;
 	}
 
@@ -4526,7 +4526,7 @@ PerformExtEvalExpr(char *exp)
 	{
 		return e;
 	}
-	
+
 	e = NewEvent(DBGEV_DATA);
 
 	// if slice info found, perform slicing first
@@ -4539,14 +4539,14 @@ PerformExtEvalExpr(char *exp)
 
 			e->ev_data = PerformSlicing(a, sliceinfo, is_revert);
 			AIFFree(a);
-				
+
 			if (e->ev_data == NULL)
 			{
 				// an error occured.
 				FreeEvent(e);
 				e = NULL;
 				EVENT_ERROR(e, DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
-				
+
 				return e;
 			}
 	} else
@@ -4575,8 +4575,8 @@ PerformExtEvalExpr(char *exp)
 	else if (func_id > 0)
 	{
 		double lower_bound, upper_bound;
-		
-		switch (func_id) 
+
+		switch (func_id)
 		{
 			case EXPR_SUM:		// sum
 				tmp = AIFSum(e->ev_data);
@@ -4607,7 +4607,7 @@ PerformExtEvalExpr(char *exp)
 
 		AIFFree(e->ev_data);
 		e->ev_data = tmp;
-		
+
 		if (debug_flag)
 		{
 			char *aif_str = NULL;
@@ -4631,9 +4631,9 @@ DbgGDBMIEvalExpr(char *exp)
 	DVPRINT("*** DbgEvalExpr(%s-%d)\n", exp, my_rank);
 
 	// Check whether it has hashing/slicing
-	if (strpbrk(exp, "`") || strpbrk(exp, "|")) 
+	if (strpbrk(exp, "`") || strpbrk(exp, "|"))
 	{
-		// TODO: we don't want to parse this if the user escaped the input	
+		// TODO: we don't want to parse this if the user escaped the input
 		DVPRINT("DbgEvalExpr: Found reduction/slicing info.\n");
 		e = PerformExtEvalExpr(exp);
 		if (e == NULL) {
@@ -4659,7 +4659,7 @@ DbgGDBMIEvalExpr(char *exp)
 	{
 		return e;
 	}
-	
+
 	e = NewEvent(DBGEV_NONE);
 	e->ev_event = DBGEV_DATA;
 	e->ev_data = a;
@@ -4684,7 +4684,7 @@ DbgGDBMIOpenSocket(char *opset_name, int opset_size)
 	if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("Socket");
 	}
-	
+
 	// load the network info for the other procset
 	other_app.id = strdup(opset_name);
 	other_app.nrank = opset_size;

@@ -75,16 +75,16 @@ void
 DVPRINT(char *format, ...)
 {
 	va_list	 arg_list;
-	
+
 	if (!debug_flag)
 		return;
-	
+
 	// setup the va_list
 	va_start(arg_list, format);
-	
+
 	// vfprintf the line we recieved.
 	vfprintf(stderr, format, arg_list);
-	
+
 	// end the va_list
 	va_end(arg_list);
 }
@@ -145,14 +145,14 @@ main(int argc, char **argv)
 // End UPC addition
 #endif
 
-#ifdef DEBUG	
-	debug_flag = 1;	
+#ifdef DEBUG
+	debug_flag = 1;
 #endif
 
 	// Set the streams
 	out_stream = stdout;
 	err_stream = stderr;
-	
+
 	if (debug_flag)
 	{
 		// print out the argv
@@ -165,9 +165,9 @@ main(int argc, char **argv)
 		}
 		DVPRINT("\n");
 	}
-	
+
 	DVPRINT("Parsing longopts...\n");
-	
+
 	while ((c = getopt_long(argc, argv, "h:c:a:p:e:x", long_opts, &opt_ind)) != -1)
 	{
 		switch (c)
@@ -184,7 +184,7 @@ main(int argc, char **argv)
 				callbackHost = strdup(optarg);
 				DVPRINT("callbackHost: %s\n", callbackHost);
 				break;
-				
+
 			case 'c':
 				if (optarg == NULL || *optarg == '\0')
 				{
@@ -194,7 +194,7 @@ main(int argc, char **argv)
 				callbackPort = strdup(optarg);
 				DVPRINT("callbackPort: %s\n", callbackPort);
 				break;
-				
+
 			case 'a':
 				if (optarg == NULL || *optarg == '\0')
 				{
@@ -204,7 +204,7 @@ main(int argc, char **argv)
 				networkArch = strdup(optarg);
 				DVPRINT("networkArch: %s\n", networkArch);
 				break;
-				
+
 			case 'p':
 				if (optarg == NULL || *optarg == '\0')
 				{
@@ -214,7 +214,7 @@ main(int argc, char **argv)
 				networkProto = strdup(optarg);
 				DVPRINT("networkProtocol: %s\n", networkProto);
 				break;
-				
+
 			case 'e':
 				if (optarg == NULL || *optarg == '\0')
 				{
@@ -224,26 +224,26 @@ main(int argc, char **argv)
 				dbgBackend = strdup(optarg);
 				DVPRINT("dbgBackend: %s\n", dbgBackend);
 				break;
-				
+
 			case 'x':
 				usage(argv[0]);
 				return 1;
-				
+
 			default:
 				usage(argv[0]);
 				return 1;
 		}
 	}
-	
+
 	DVPRINT("Done parsing longopts.\n");
-	
+
 	// get the final optional program argument
 	if (optind < argc)
 	{
 		prog = strdup(argv[optind++]);
 		DVPRINT("program name: %s\n", prog);
 	}
-	
+
 	if (debug_flag)
 	{
 		// get this nodes nidName
@@ -260,14 +260,14 @@ main(int argc, char **argv)
 	// This only works with non-gpu mode
 	if (!gpu_flag)
 	{
-		// Tell gdb where to find the UPC plugin 
-		scratch = getenv("CRAYTOOL_LIB_DIR");
+		// Tell gdb where to find the UPC plugin
+		scratch = cti_be_getLibDir();
 		if (!scratch)
 		{
-		    fprintf(stderr, "CRAYTOOL_LIB_DIR getenv failed.\n");
+		    fprintf(stderr, "cti_be_getLibDir failed\n");
 		    return 1;
 		}
-		    
+
 		len = strlen(scratch) + strlen(UDA_PLUGIN) + 2;
 		if ((uda_str = (char*)malloc(len)) == (void *)0)
 		{
@@ -285,7 +285,7 @@ main(int argc, char **argv)
 		free(uda_str);
 	}
 #endif
-	
+
 #if 0
 // TODO: UPC addition here
 
@@ -295,26 +295,26 @@ main(int argc, char **argv)
 		fprintf(stderr, "calloc failed.\n");
 		return 1;
 	}
-	
+
 	// set the static members of dbgsrv_argv
 	udasrv_argv[UDASRV_ARGV_NAME] = strdup(UDASRV);
 	udasrv_argv[UDASRV_ARGV_NULL] = NULL;
-	
+
 	// get the value of TMPDIR, this should be set by dlaunch
 	scratch = getenv("TMPDIR");
 	if (!scratch)
 		scratch = "/tmp";
-		
+
 	len = strlen(scratch) + strlen(UDA_SERVICE) + 1;
-	
+
 	if ((uda_str = malloc(len)) == (void *)0)
 	{
 		fprintf(stderr, "malloc failed.\n");
 		return 1;
 	}
-	
+
 	snprintf(uda_str, len, "%s%s", scratch, UDA_SERVICE);
-	
+
 	// set the actual environment variable
 	if (setenv(UDASRV_ENV_SERVICE, uda_str, 1) < 0)
 	{
@@ -322,7 +322,7 @@ main(int argc, char **argv)
 		fprintf(stderr, "setenv failed");
 		return 1;
 	}
-	
+
 	// set the actual environment variable
 	if (setenv(UDASRV_ENV_PLUGIN, UDA_PLUGIN, 1) < 0)
 	{
@@ -330,9 +330,9 @@ main(int argc, char **argv)
 		fprintf(stderr, "setenv failed");
 		return 1;
 	}
-	
+
 	free(uda_str);
-	
+
 #ifdef DEBUG
 	FILE *log = NULL;
 	// create a log if debug is turned on
@@ -344,14 +344,14 @@ main(int argc, char **argv)
 
 	// fork and exec
 	mypid = fork();
-		
+
 	// error case
 	if (mypid < 0)
 	{
 		fprintf(stderr, "Fatal fork error.\n");
 		return 1;
 	}
-		
+
 	// child case
 	if (mypid == 0)
 	{
@@ -362,7 +362,7 @@ main(int argc, char **argv)
 #endif
 		// exec dbgsrv
 		execvp(UDASRV, udasrv_argv);
-		
+
 		// exec shouldn't return
 		fprintf(stderr, "Return from exec.\n");
 		exit(1);
@@ -370,7 +370,7 @@ main(int argc, char **argv)
 
 // End UPC addition
 #endif
-	
+
 	// get the app pids for this node
 	if ((myPids = cti_be_findAppPids()) == NULL)
 	{
@@ -378,27 +378,27 @@ main(int argc, char **argv)
 		return 1;
 	}
 	DVPRINT("Number of app pid_t's detected on this node: %d\n", myPids->numPids);
-	
+
 	// set the static members of dbgsrv_argv
-	dbgsrv_argv = NewArgv(	DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT, callbackPort, 
+	dbgsrv_argv = NewArgv(	DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT, callbackPort,
 							DBGSRV_OPT_ARCH, networkArch, DBGSRV_OPT_PROTO, networkProto,
 							DBGSRV_OPT_DBG, dbgBackend, NULL);
-							
+
 	if (gpu_flag)
 	{
 		dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GPU, NULL);
 	}
-	
+
 	if (debug_flag)
 	{
 		dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_DEBUG, NULL);
 	}
-	
+
 	if (early_entry_flag)
 	{
 		dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, NULL);
 	}
-	
+
 	if (debug_flag)
 	{
 		DVPRINT("dbgsrv argv is: \n");
@@ -409,7 +409,7 @@ main(int argc, char **argv)
 		}
 		DVPRINT("\n");
 	}
-	
+
 	// start numPids dbgsrv instances.
 	for (i=0; i < myPids->numPids; ++i)
 	{
@@ -419,13 +419,13 @@ main(int argc, char **argv)
 		this_argv = AppendArgs(this_argv, DBGSRV_OPT_PROC, pidbuff, NULL);
 		DVPRINT("app rank: %s\n", pidbuff);
 		memset(pidbuff, 0, PID_BUFSIZ);
-		
+
 		// write this instances pid into the pidbuff and create the str
 		snprintf(pidbuff, PID_BUFSIZ, "%d", myPids->pids[i].pid);
 		this_argv = AppendArgs(this_argv, DBGSRV_OPT_PID, pidbuff, NULL);
 		DVPRINT("app pid: %s\n", pidbuff);
 		memset(pidbuff, 0, PID_BUFSIZ);
-		
+
 		if (debug_flag)
 		{
 			DVPRINT("Starting dbgsrv with argv: \n");
@@ -436,13 +436,13 @@ main(int argc, char **argv)
 			}
 			DVPRINT("\n");
 		}
-		
+
 		// append the prog, this is always last
 		if (prog != NULL)
 		{
 			this_argv = AppendArgs(this_argv, prog, NULL);
 		}
-		
+
 		if (debug_flag)
 		{
 			log = NULL;
@@ -457,19 +457,19 @@ main(int argc, char **argv)
 		FILE *valgrind_log = NULL;
 		char valgrind_log_str[BUFSIZ];
 		char **valgrind_argv;
-			
+
 		// create a log if valgrind is turned on
 		if ((valgrind_log = create_log(i, "valgrind")) == NULL)
 		{
 			fprintf(stderr, "Could not create valgrind logfile.\n");
 		}
 		snprintf(valgrind_log_str, BUFSIZ, "--log-fd=%d", fileno(valgrind_log));
-		
+
 		// create an argv for valgrind
 		valgrind_argv = NewArgv("valgrind", "--read-var-info=yes", "--track-origins=yes", "--leak-check=full", valgrind_log_str, NULL);
 		valgrind_argv = AppendArgv(valgrind_argv, this_argv);
 #endif
-		
+
 		// fork and exec -- the final time through we don't want to fork since we only
 		// want numPids processes to exist.
 		if (i < (myPids->numPids - 1))
@@ -482,14 +482,14 @@ main(int argc, char **argv)
 			DVPRINT("%d dbgsrv's launched in total.\n", i+1);
 			mypid = 1;
 		}
-		
+
 		// error case
 		if (mypid < 0)
 		{
 			fprintf(stderr, "Fatal fork error.\n");
 			// cleanup this_argv array
 			FreeArgv(this_argv);
-			
+
 			// cleanup pid list
 			cti_be_destroyPidList(myPids);
 
@@ -506,10 +506,10 @@ main(int argc, char **argv)
 			// cleanup argv
 			FreeArgv(valgrind_argv);
 #endif
-			
+
 			return 1;
 		}
-		
+
 		// child case - We want the child to be responsible for starting the n
 		// processes. Otherwise WLM's such as slurm will fail since the WLM sees
 		// the parent exit and assumes the srun is complete.
@@ -518,9 +518,9 @@ main(int argc, char **argv)
 			FreeArgv(this_argv);
 			continue;
 		}
-		
+
 		// parent case, or final time through
-		
+
 		if (debug_flag)
 		{
 			// if debug is on, hook into the logfile
@@ -533,25 +533,25 @@ main(int argc, char **argv)
 			}
 			DVPRINT("Exec'ing dbgsrv...\n");
 		}
-#ifdef BE_VALGRIND	
+#ifdef BE_VALGRIND
 		// exec valgrind
 		execvp("valgrind", valgrind_argv);
 #else
 		// exec dbgsrv
 		execvp(DBGSRV, this_argv);
 #endif
-			
+
 		// exec shouldn't return
 		fprintf(stderr, "Return from exec.\n");
 		exit(1);
 	}
-	
+
 	// shouldn't get here
 	fprintf(stderr, "dbgsrv_alps_mrn: At impossible part of code!\n");
-	
+
 	// cleanup static argv
 	FreeArgv(dbgsrv_argv);
-	
+
 	// cleanup strdup'ed stuff
 	Free(callbackHost);
 	Free(callbackPort);
@@ -562,10 +562,10 @@ main(int argc, char **argv)
 	{
 		Free(prog);
 	}
-	
+
 	// cleanup pid list
 	cti_be_destroyPidList(myPids);
-	
+
 	return 1;
 }
 

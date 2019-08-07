@@ -489,7 +489,7 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
                     goto exit_with_error;
                 }
 
-                setenv(CTI_LAUNCHER_NAME, optarg, 1);
+                setenv(CTI_LAUNCHER_NAME_ENV_VAR, optarg, 1);
                 break;
             default:
                 PrintOutError("Invalid launch argument provided. See \"help launch\" for usage.\n");
@@ -745,7 +745,7 @@ DoInvoke(   char *proto,
     // Call the invoke in the dbg_client layer
 
     // Launches with generic wlm and non srun/aprun launchers use early entry
-    char* launcher_name = getenv(CTI_LAUNCHER_NAME);
+    char* launcher_name = getenv(CTI_LAUNCHER_NAME_ENV_VAR);
     cti_wlm_type_t current_wlm = cti_current_wlm();
     if( current_wlm == CTI_WLM_SSH && launcher_name!= NULL && strcmp(launcher_name,"srun") != 0 && strcmp(launcher_name,"aprun") != 0){
         Client.early_entry = 1;

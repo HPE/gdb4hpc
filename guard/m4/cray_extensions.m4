@@ -39,7 +39,7 @@ AC_DEFUN([CRAY_DEFINE_SUBSTRINGS_AS], [
 
 AC_DEFUN([CRAY_PARSE_VERSION], [
     CRAY_DEFINE_SUBSTRINGS_AS(
-        m4_include([$1]),
+        m4_builtin([include], $1),
         [revision="\([0-9]+\)"\s*\n*\s*\n*major="\([0-9]+\)"\s*\n*\s*\n*minor="\([0-9]+\)"],
         [], [CRAY_REVISION], [CRAY_MAJOR], [CRAY_MINOR]
     )

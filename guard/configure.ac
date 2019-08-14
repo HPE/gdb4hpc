@@ -254,7 +254,7 @@ AC_ARG_WITH([valgrind],
 ### Setup env options ###
 #########################
 dnl Set the directory path
-AC_SUBST([guard_srcdir], ["`pwd`"])
+AC_SUBST([guard_srcdir], ["$(cd $srcdir && pwd)"])
 
 dnl Check for non-default library paths
 if test -d "/lib"; then
@@ -309,6 +309,7 @@ fi
 ###########################
 ### Check for programs. ###
 ###########################
+AM_PROG_AR
 AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LN_S
@@ -902,7 +903,6 @@ if test "x$mrnet_mode" != xno; then
 fi
 
 AC_CONFIG_FILES([Makefile
-		 doc/Makefile
 		 sdm/Makefile
 		 scripts/Makefile
 		 filters/Makefile

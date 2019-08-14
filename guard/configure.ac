@@ -30,7 +30,7 @@ LT_INIT
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-CRAY_PARSE_VERSION([./../release_versioning]))
+CRAY_PARSE_VERSION([./../release_versioning])
 AC_DEFINE([GUARD_VERSION], ["CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION"], [Version number of gdb4hpc])
 AC_DEFINE([GUARD_MAJOR], ["CRAY_MAJOR"], [Major version number of gdb4hpc])
 AC_DEFINE([GUARD_MINOR], ["CRAY_MINOR"], [Minor version number of gdb4hpc])

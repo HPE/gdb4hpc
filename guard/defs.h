@@ -16,8 +16,6 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
-#include "version.h"
-
 #ifdef MRNET
 #define DBG_PROTO   "mrnet"
 #else

@@ -1,4 +1,0 @@
-# This file is used to keep track of the current monash revision
-# that was merged with the cray repository.
-PRE_REV=956
-CUR_REV=960

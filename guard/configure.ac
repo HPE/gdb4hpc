@@ -898,7 +898,6 @@ if test "x$mrnet_mode" != xno; then
 fi
 
 AC_CONFIG_FILES([Makefile
-		 doc/Makefile
 		 sdm/Makefile
 		 scripts/Makefile
 		 filters/Makefile

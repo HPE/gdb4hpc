@@ -30,11 +30,8 @@ LT_INIT
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-CRAY_PARSE_VERSION(
-	m4_include([./../release_versioning]),
-	[revision=\([0-9]+\)],
-	[CRAY_REVISION]
-)
+CRAY_PARSE_VERSION([./../release_versioning]))
+AC_DEFINE([GUARD_VERSION], ["CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION"], [Version number of gdb4hpc])
 
 #############################
 ### Check for --with tags ###

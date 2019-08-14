@@ -249,7 +249,7 @@ AC_ARG_WITH([valgrind],
 ### Setup env options ###
 #########################
 dnl Set the directory path
-AC_SUBST([guard_srcdir], ["`pwd`"])
+AC_SUBST([guard_srcdir], ["$(cd $srcdir && pwd)"])
 
 dnl Check for non-default library paths
 if test -d "/lib"; then

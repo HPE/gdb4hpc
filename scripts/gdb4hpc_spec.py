@@ -10,9 +10,9 @@ content='''%define namespace [namespace]
 %define ctiVersion_upperBound [cti_upperBound]
 
 Summary: Performance Application Programming Interface
-Name: %{namespace}-%{build_version} 
-Version: [revision]
-Release: [release][sles_sub]
+Name: %{namespace}
+Version: %{build_version}
+Release: %(echo ${BUILD_METADATA})
 License: BSD
 Group: Development/System
 URL: [url]

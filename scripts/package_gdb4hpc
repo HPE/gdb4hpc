@@ -17,9 +17,7 @@ build_version_two_digit       = definitions.two_digit_version
 build_version_two_digit_nodot = definitions.ver_two_dig_nodot
 release_date                  = definitions.release_date 
 script_dir                    = os.getcwd()
-revision_number               = definitions.timestmp_revnbr
 build_version                 = definitions.version
-release_number                = definitions.release_number
 rpm_name                      = definitions.rpm_name
 os_ver                        = definitions.osver
 prefix                        = definitions.prefix
@@ -33,12 +31,13 @@ parent_dir                    = definitions.parent_dir
 cti_version                   = definitions.cti_version
 cti_lowerBound                = definitions.cti_lowerBound
 cti_upperBound                = definitions.cti_upperBound
+build_metadata                = definitions.build_metadata
 
 #define some paths
 top_dir             = os.getcwd()
 work_dir            = top_dir + "/tmp"
 rpm_build_dir       = work_dir + "/package"
-rpm_install_dir     = rpm_build_dir + "/gdb4hpc-" + build_version + "-" + revision_number
+rpm_install_dir     = rpm_build_dir + "/gdb4hpc-" + build_version
 rpm_module_dir      = rpm_install_dir + "/modulefiles"
 rpm_gdb4hpc_dir     = rpm_install_dir + "/gdb4hpc"
 parent_dir          = top_dir.rsplit('/',1)[0]
@@ -65,7 +64,7 @@ module_dest = rpm_module_dir + "/" + build_version
 set_default_script_dest = rpm_install_dir + "/set_default_gdb4hpc_" + build_version
 
 #the source tarball
-folder_name = "gdb4hpc-" + build_version + "-" + revision_number
+folder_name = "gdb4hpc-" + build_version
 tar_name = folder_name + ".tar.gz"
 tar_dest = rpm_build_dir + "/rpm/SOURCES"
 
@@ -94,8 +93,7 @@ spec_content = gdb4hpc_spec.content.replace( "[namespace]", "gdb4hpc")
 spec_content = spec_content.replace( "[package_branch_two_digit]", build_version_two_digit)
 spec_content = spec_content.replace( "[package_branch_two_digit_nodot]", build_version_two_digit_nodot)
 spec_content = spec_content.replace( "[version]", build_version)
-spec_content = spec_content.replace( "[release]", release_number)
-spec_content = spec_content.replace( "[revision]", revision_number)
+spec_content = spec_content.replace( "[build_metadata]", build_metadata)
 spec_content = spec_content.replace( "[sles_sub]", "." + os_ver)
 spec_content = spec_content.replace( "[ARCH]", arch)
 spec_content = spec_content.replace("[tarball]",tar_name)
@@ -133,15 +131,14 @@ os.chdir(rpm_gdb4hpc_dir)
 with open("out.txt", "w+") as out:
   for line in open(parent_dir + "/release_info"):
     a = line.replace("%VERSION%", build_version)
-    b = a.replace("%RELEASE%", release_number)
-    c = b.replace("%REVISION%", revision_number)
-    d = c.replace("%RELEASEDATE%", release_date)
-    e = d.replace("%os%", os_ver)
-    f = e.replace("%os_name%", os_name)
-    g = f.replace("%OSPREFIX%", prefix)
-    h = g.replace("%PREFIX%", prefix_cmd)
-    i = h.replace("%ARCH%", arch)
-    out.write(i)
+    b = a.replace("%BUILD_METADATA%", build_metadata)
+    c = b.replace("%RELEASEDATE%", release_date)
+    d = c.replace("%os%", os_ver)
+    e = d.replace("%os_name%", os_name)
+    f = e.replace("%OSPREFIX%", prefix)
+    g = f.replace("%PREFIX%", prefix_cmd)
+    h = g.replace("%ARCH%", arch)
+    out.write(h)
 
 outpath = rpm_gdb4hpc_dir + "/release_info"
 distutils.file_util.move_file("out.txt",outpath)
@@ -202,7 +199,7 @@ yaml_template='''---
 section-1:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : kdavis@cray.com
+    EMAILS                : kglaser@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL 
     INSTALL_DEFAULT_HOSTS : NONE
@@ -217,7 +214,7 @@ section-1:
 section-2:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : kdavis@cray.com
+    EMAILS                : kglaser@cray.com
     EMAIL_BUILDER         : NO
     HOSTS:
         ALL_EXCEPT:
@@ -233,7 +230,7 @@ section-2:
 section-3:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : kdavis@cray.com
+    EMAILS                : kglaser@cray.com
     EMAIL_BUILDER         : NO
     HOSTS                 : ALL
     INSTALL_DEFAULT_HOSTS : NONE
@@ -250,7 +247,7 @@ section-3:
 section-4:
     ACCELERATOR           : NONE
     EFFECTIVE_DATE        : NONE
-    EMAILS                : kdavis@cray.com
+    EMAILS                : kglaser@cray.com
     EMAIL_BUILDER         : NO
     HOSTS:
         ALL_EXCEPT:
@@ -278,7 +275,7 @@ section-5:
     RPM_LIST              : NONE
     SYSTEM_TYPE           : [SYSTEM_TYPE_REMOVE]
     COMMANDS: |
-        rpm -e gdb4hpc-<version>-<revision>-<release>
+        rpm -e gdb4hpc-<version>-<build_metadata>
 
 --- |
 #Remove previous versions of this rpm
@@ -287,7 +284,7 @@ do
   rpm -e $package
 done
 
-rpm -hiv <pref> --oldpackage gdb4hpc-<version>-<revision>-<release><os>.<arch>.rpm
+rpm -hiv --oldpackage gdb4hpc-<version>-<build_metadata>.<arch>.rpm
 
 '''
 #determine what to use for [OS_WB], [OS_HW], [SYSTEM_TYPE]
@@ -318,10 +315,6 @@ print "removal date: " + str(removal_date)
 
 manifest_dest = rpm_name + ".yaml"
 manifest_content = yaml_template.replace("<version>", build_version)
-manifest_content = manifest_content.replace("<release>", release_number)
-manifest_content = manifest_content.replace("<revision>", revision_number)
-manifest_content = manifest_content.replace("<os>", os_ver)
-manifest_content = manifest_content.replace("<pref>", prefix_cmd)
 manifest_content = manifest_content.replace("<osprefix>", prefix)
 manifest_content = manifest_content.replace("<arch>", arch)
 manifest_content = manifest_content.replace("[OS_HW]", os_list_hw)
@@ -329,6 +322,7 @@ manifest_content = manifest_content.replace("[OS_WB]", os_list_wb)
 manifest_content = manifest_content.replace("[SYSTEM_TYPE_WB]", system_type_wb)
 manifest_content = manifest_content.replace("[SYSTEM_TYPE_HW]", system_type_hw)
 manifest_content = manifest_content.replace("[SYSTEM_TYPE_REMOVE]", system_type_remove)
+manifest_content = manifest_content.replace("<build_metadata>", build_metadata)
 manifest_content = manifest_content.replace("[REMOVAL_DATE]", removal_date)
 manifest_yaml = open(manifest_dest, "w+")
 manifest_yaml.write(manifest_content)

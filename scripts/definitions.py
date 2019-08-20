@@ -25,6 +25,7 @@ cti_version         = ""
 scripts_dir         = ""
 cti_lowerBound      = ""
 cti_upperBound      = ""
+build_metadata      = ""
 
 
 def fetch_os():
@@ -58,6 +59,14 @@ def getReleaseDate():
   str(os.system(cmd))
   status, rd = commands.getstatusoutput(cmd)
   return rd
+
+    
+def getBuildMetaData():
+  cmd = 'echo $BUILD_METADATA'
+  str(os.system(cmd))
+  status, rd = commands.getstatusoutput(cmd)
+  return rd
+    
 
 def get_three_digit_version():
     global two_digit_version
@@ -115,6 +124,8 @@ def get_ctiVersion():
     
     return cti_ver
 
+
+
 def fetch_newData():
 
   global two_digit_version
@@ -122,34 +133,20 @@ def fetch_newData():
   global pkgs_dir
   global three_digit_version
   global version
-  global release_number
   global rpm_name
   global osver
   global ver_two_dig_nodot
   global release_date
   global arch
   global cti_version
-
-
-  rev_command = "git rev-parse HEAD"
-  rev_number  = os.popen(rev_command).read()
-  rev_number  = rev_number.rstrip()
+  global build_metadata
 
   branch = "git rev-parse --abbrev-ref HEAD"
   branch = os.popen(branch).read()
   branch = branch.rstrip() 
   print "Packaging from: " + branch
 
-  time_command = "git log -s -1 --format=%ci | tail -n1 | cut -d' ' -f1-2"
-  dt_time = os.popen(time_command).read()
-  dt_time = str(dt_time).replace(":","")
-  dt_time = str(dt_time).replace("-","")
-  dt_time = str(dt_time).replace(" ","")
-  dt_time = str(dt_time)[0:12]
-
-  rev_number = rev_number[0:13]
-  timestmp_revnbr = str(dt_time) + "." + str(rev_number)
-
+  build_metadata = getBuildMetaData()
   arch = getARCH()
   osver = fetch_os()
   three_digit_version = get_three_digit_version()
@@ -157,9 +154,8 @@ def fetch_newData():
   base_name = product + "-" + version
   release_date = getReleaseDate() 
   cti_version = get_ctiVersion()
-  release_number='0'
 
-  package_name = base_name + "-" + timestmp_revnbr + "-" + release_number + "." + osver
+  package_name = base_name + "-" + build_metadata
   rpm_name = package_name + "." + arch + ".rpm"
 
   return

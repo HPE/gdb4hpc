@@ -72,11 +72,11 @@ Installation instructions:
 
 Installation instructions for %os_name%:
 =============================================
-  rpm -ivh %PREFIX% gdb4hpc-%VERSION%-%REVISION%-%RELEASE%%os%.%ARCH%.rpm
+  rpm -ivh %PREFIX% gdb4hpc-%VERSION%-%BUILD_METADATA%.%ARCH%.rpm
 
   To make gdb4hpc %VERSION% the default version of gdb4hpc, execute:
   %OSPREFIX%/admin-pe/set_default_files/set_default_gdb4hpc_%VERSION%
 
 
  Certain components, files or programs contained within this package or
- product are Copyright 2007-2018 Cray Inc. All rights reserved.
+ product are Copyright 2007-2019 Cray Inc. All rights reserved.

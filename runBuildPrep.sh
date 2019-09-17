@@ -18,47 +18,52 @@ gcc_ver=8.1.0
 return_code=0
 
 function check_exit_status(){
-
     if [ $1 -ne 0 ]
     then
         echo "There was an error installing $2"
-        exit $1
+        return_code=$1
     fi
 }
 
 echo "############################################"
 echo "#             Installing deps              #"
 echo "############################################"
-zypper --non-interactive --no-gpg-check install python-devel \
-						make \
-						makeinfo \
-						flex \
-						ncurses \
-						ncurses-devel \
-						bison \
-						binutils-devel \
-						mksh \
-						bzip2 \
-						libbz2-devel \
-						liblzma5 \
-						xz-devel \
-						tcl \
-						ctags
+#   If you add pkgs, please insert them in alphabetical order.
+zypper --non-interactive install autoconf \
+				 automake \
+				 binutils-devel \
+				 bison \
+				 bzip2 \
+				 ctags \
+				 flex \
+				 m4 \
+				 make \
+				 makeinfo \
+				 mksh \
+				 ncurses \
+				 ncurses-devel \
+				 libbz2-devel \
+				 liblzma5 \
+				 libtool \
+				 tcl \
+				 python-devel \
+				 which \
+				 xz-devel
+
 check_exit_status $? sys-pkgs
 
-zypper rr CAR
-zypper rr car-internal-pe-cdst car-shasta-premium
 zypper addrepo http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ car-shasta-premium
 check_exit_status $? car-shasta-premium-zypper-add-repo
 
-zypper --non-interactive --no-gpg-check install craype \
-						cray-set-gcc-libs \
-						cray-gcc-$gcc_ver \
-						cray-modules
+zypper --non-interactive --no-gpg-check install cray-gcc-$gcc_ver \
+					cray-modules \
+					cray-set-gcc-libs \
+					craype
 check_exit_status $? car-shasta-premium-install-modules
 
 zypper addrepo http://car.dev.cray.com/artifactory/internal/PE-CDST/sle15_premium/x86_64/dev/master/ car-internal-pe-cdst
 check_exit_status $? car-internal-pe-cdst-zypper-addrepo
+
 zypper --non-interactive --no-gpg-check install cray-cti
 check_exit_status $? cray-cti
 

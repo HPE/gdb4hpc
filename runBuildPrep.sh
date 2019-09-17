@@ -47,6 +47,7 @@ zypper --non-interactive --no-gpg-check install python-devel \
 check_exit_status $? sys-pkgs
 
 zypper rr CAR
+zypper rr car-internal-pe-cdst car-shasta-premium
 zypper addrepo http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ car-shasta-premium
 check_exit_status $? car-shasta-premium-zypper-add-repo
 
@@ -60,6 +61,8 @@ zypper addrepo http://car.dev.cray.com/artifactory/internal/PE-CDST/sle15_premiu
 check_exit_status $? car-internal-pe-cdst-zypper-addrepo
 zypper --non-interactive --no-gpg-check install cray-cti
 check_exit_status $? cray-cti
+
+zypper rr car-internal-pe-cdst car-shasta-premium
 
 export SHELL=/bin/sh
 

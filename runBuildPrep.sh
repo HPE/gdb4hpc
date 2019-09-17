@@ -29,69 +29,35 @@ function check_exit_status(){
 echo "############################################"
 echo "#             Installing deps              #"
 echo "############################################"
-zypper --non-interactive --no-gpg-check install python-devel
-check_exit_status $? python-devel
+zypper --non-interactive --no-gpg-check install python-devel \
+						make \
+						makeinfo \
+						flex \
+						ncurses \
+						ncurses-devel \
+						bison \
+						binutils-devel \
+						mksh \
+						bzip2 \
+						libbz2-devel \
+						liblzma5 \
+						xz-devel \
+						tcl \
+						ctags
+check_exit_status $? sys-pkgs
 
-zypper --non-interactive --no-gpg-check install make
-check_exit_status $? make
+zypper rr CAR
+zypper addrepo http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ car-shasta-premium
+check_exit_status $? car-shasta-premium-zypper-add-repo
 
-zypper --non-interactive --no-gpg-check install makeinfo
-check_exit_status $? makeinfo
+zypper --non-interactive --no-gpg-check install craype \
+						cray-set-gcc-libs \
+						cray-gcc-$gcc_ver \
+						cray-modules
+check_exit_status $? car-shasta-premium-install-modules
 
-zypper --non-interactive --no-gpg-check install flex
-check_exit_status $? flex
-
-zypper --non-interactive --no-gpg-check install ncurses
-check_exit_status $? ncurses
-
-zypper --non-interactive --no-gpg-check install ncurses-devel
-check_exit_status $? ncurses-devel
-
-zypper --non-interactive --no-gpg-check install bison
-check_exit_status $? bison
-
-zypper --non-interactive --no-gpg-check install binutils-devel
-check_exit_status $? binutils-devel
-
-zypper --non-interactive --no-gpg-check install mksh
-check_exit_status $? mksh
-    
-zypper --non-interactive --no-gpg-check install bzip2
-check_exit_status $? bzip2
-
-zypper --non-interactive --no-gpg-check install libbz2-devel
-check_exit_status $? libbz2-devel
-
-zypper --non-interactive --no-gpg-check install liblzma5
-check_exit_status $? liblzma5
-
-zypper --non-interactive --no-gpg-check install xz-devel
-check_exit_status $? xz-devel
-
-zypper --non-interactive --no-gpg-check install tcl
-check_exit_status $? tcl
-
-zypper --non-interactive --no-gpg-check install ctags
-check_exit_status $? ctags
-
-zypper addrepo http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ CAR
-check_exit_status $? CAR
-
-zypper --non-interactive --no-gpg-check install craype
-check_exit_status $? craype
-
-zypper --non-interactive --no-gpg-check install cray-set-gcc-libs
-check_exit_status $? cray-set-gcc-libs
-
-zypper --non-interactive --no-gpg-check install cray-gcc-$gcc_ver
-check_exit_status $? cray-gcc-$gcc_ver
-
-zypper --non-interactive --no-gpg-check install cray-modules
-check_exit_status $? cray-modules
-
-zypper rr http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ CAR
-
-zypper addrepo http://car.dev.cray.com/artifactory/internal/PE-CDST/sle15_premium/x86_64/dev/master/ CAR
+zypper addrepo http://car.dev.cray.com/artifactory/internal/PE-CDST/sle15_premium/x86_64/dev/master/ car-internal-pe-cdst
+check_exit_status $? car-internal-pe-cdst-zypper-addrepo
 zypper --non-interactive --no-gpg-check install cray-cti
 check_exit_status $? cray-cti
 

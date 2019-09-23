@@ -1,5 +1,5 @@
 #
-# © 2010-2019 Cray Inc. All Rights Reserved
+# Copyright 2010-2019 Cray Inc. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
@@ -11,8 +11,8 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([guard],[1.2],[andrewg@cray.com])
-AC_COPYRIGHT([© 2010-2014 Cray Inc. All Rights Reserved.])
+AC_INIT([guard],[4.0],[andrewg@cray.com])
+AC_COPYRIGHT([Copyright 2010-2019 Cray Inc. All Rights Reserved.])
 
 AC_CONFIG_SRCDIR([defs.h])
 AC_CONFIG_AUX_DIR([config])
@@ -30,42 +30,47 @@ LT_INIT
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+CRAY_PARSE_VERSION([./../release_versioning])
+AC_DEFINE([GUARD_VERSION], ["CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION"], [Version number of gdb4hpc])
+AC_DEFINE([GUARD_MAJOR], ["CRAY_MAJOR"], [Major version number of gdb4hpc])
+AC_DEFINE([GUARD_MINOR], ["CRAY_MINOR"], [Minor version number of gdb4hpc])
+
 #############################
 ### Check for --with tags ###
 #############################
-dnl Check for --with-editline	   
-AC_ARG_WITH([editline], 
-	    [AS_HELP_STRING([--with-editline=dir], 
+dnl Check for --with-editline
+AC_ARG_WITH([editline],
+	    [AS_HELP_STRING([--with-editline=dir],
 			    [Use editline library. Optional dir argument to override system location.]
 			    )
 	    ],
-	    [with_editline=$withval], 
+	    [with_editline=$withval],
 	    [with_editline=no]
 	    )
 
 dnl Check for --with-aif
-AC_ARG_WITH([aif], 
-	    [AS_HELP_STRING([--with-aif=dir], 
+AC_ARG_WITH([aif],
+	    [AS_HELP_STRING([--with-aif=dir],
 			    [Use libaif install located in dir. Libaif is required to build guard.]
 			    )
-	    ], 
-	    [with_aif=$withval], 
+	    ],
+	    [with_aif=$withval],
 	    [with_aif=check]
 	    )
 
 dnl Check for --with-mpi
-AC_ARG_WITH([mpi], 
-	    [AS_HELP_STRING([--with-mpi], 
+AC_ARG_WITH([mpi],
+	    [AS_HELP_STRING([--with-mpi],
 			    [Enable standard MPICH support in Guard.]
 			    )
-	    ], 
-	    [with_mpirun=yes], 
+	    ],
+	    [with_mpirun=yes],
 	    [with_mpirun=no]
 	    )
 
 dnl Check for --with-ompi
-AC_ARG_WITH([ompi], 
-	    [AS_HELP_STRING([--with-ompi], 
+AC_ARG_WITH([ompi],
+	    [AS_HELP_STRING([--with-ompi],
 			    [Enable open mpi support in Guard.]
 			    )
 	    ],
@@ -74,31 +79,31 @@ AC_ARG_WITH([ompi],
 	    )
 
 dnl Check for --with-p4 (P4 Parallel Programming system from ANL)
-AC_ARG_WITH([p4], 
-	    [AS_HELP_STRING([--with-p4], 
+AC_ARG_WITH([p4],
+	    [AS_HELP_STRING([--with-p4],
 			    [Enable ANL P4 Parallel Programming System support in Guard.]
 			    )
-	    ], 
-	    [AC_DEFINE([P4], 
-		       [1], 
+	    ],
+	    [AC_DEFINE([P4],
+		       [1],
 		       [Enable P4 support in Guard.]
 		       )
-	    ], 
+	    ],
 	    [])
 
 dnl Check for --with-ibm
-AC_ARG_WITH([ibm], 
-	    [AS_HELP_STRING([--with-ibm], 
+AC_ARG_WITH([ibm],
+	    [AS_HELP_STRING([--with-ibm],
 			    [Enable IBM POE support in Guard.]
 			    )
-	    ], 
+	    ],
 	    [with_poe=yes],
 	    [with_poe=no]
 	    )
 
 dnl Check for --with-cray
-AC_ARG_WITH([cray], 
-	    [AS_HELP_STRING([--with-cray], 
+AC_ARG_WITH([cray],
+	    [AS_HELP_STRING([--with-cray],
 			    [Enable Cray APRUN support in Guard.]
 			    )
 	    ],
@@ -133,85 +138,85 @@ if test "x$with_cray" != xno; then
 fi
 
 dnl Check for --with-mrnet
-AC_ARG_WITH([mrnet], 
-	    [AS_HELP_STRING([--with-mrnet], 
+AC_ARG_WITH([mrnet],
+	    [AS_HELP_STRING([--with-mrnet],
 			    [Enable MRNet support in Guard.]
 			    )
-	    ], 
+	    ],
 	    [mrnet_mode=yes
 	     mrnet_root=$withval
-	    ], 
+	    ],
 	    [mrnet_mode=no]
 	    )
 
 dnl Check for --with-socket
-AC_ARG_WITH([socket], 
-	    [AS_HELP_STRING([--with-socket], 
+AC_ARG_WITH([socket],
+	    [AS_HELP_STRING([--with-socket],
 			    [Enable legacy socket support in Guard.]
 			    )
-	    ], 
-	    [socket_mode=yes], 
+	    ],
+	    [socket_mode=yes],
 	    [socket_mode=no]
 	    )
 
 dnl Check for --with-idb
-AC_ARG_WITH([idb], 
-	    [AS_HELP_STRING([--with-idb], 
+AC_ARG_WITH([idb],
+	    [AS_HELP_STRING([--with-idb],
 			    [Enable IDB backend support in Guard.]
 			    )
-	    ], 
-	    [idb_mode=yes], 
+	    ],
+	    [idb_mode=yes],
 	    [idb_mode=no]
 	    )
 
 dnl Check for --with-gdb
-AC_ARG_WITH([gdb], 
-	    [AS_HELP_STRING([--with-gdb], 
+AC_ARG_WITH([gdb],
+	    [AS_HELP_STRING([--with-gdb],
 			    [Enable GDB regex backend support in Guard.]
 			    )
-	    ], 
-	    [gdb_mode=yes], 
+	    ],
+	    [gdb_mode=yes],
 	    [gdb_mode=no]
 	    )
 
 dnl Check for --with-gdbmi
-AC_ARG_WITH([gdbmi], 
-	    [AS_HELP_STRING([--with-gdbmi], 
+AC_ARG_WITH([gdbmi],
+	    [AS_HELP_STRING([--with-gdbmi],
 			    [Enable GDB/MI backend support in Guard.]
 			    )
-	    ], 
-	    [mi_mode=yes 
+	    ],
+	    [mi_mode=yes
 	     libmi_path=$withval
-	    ], 
+	    ],
 	    [mi_mode=no]
 	    )
-	    
+
 dnl Check for --with-libssh2
-AC_ARG_WITH([libssh2], 
-	    [AS_HELP_STRING([--with-libssh2], 
+AC_ARG_WITH([libssh2],
+	    [AS_HELP_STRING([--with-libssh2],
 			    [Specify path to libssh2 library.]
 			    )
-	    ], 
+	    ],
 	    [libssh2_path=$withval]
 	    )
 
 dnl Check for --with-rd
-AC_ARG_WITH([rd], 
-	    [AS_HELP_STRING([--with-rd], 
+AC_ARG_WITH([rd],
+	    [AS_HELP_STRING([--with-rd],
 			   [include relative debugging support.]
 			   )
-	    ], 
+	    ],
 	    [with_rd=yes],
 	    [with_rd=no]
 	    )
 
 dnl Check for --with-debug
-AC_ARG_WITH([debug], 
-	    [AS_HELP_STRING([--with-debug], 
+AC_ARG_WITH([debug],
+	    [AS_HELP_STRING([--with-debug],
 			    [Enable debug mode options.]
 			    )
-	    ], 
-	    [debug_mode=yes], 
+	    ],
+	    [debug_mode=yes],
 	    [debug_mode=no]
 	    )
 
@@ -224,7 +229,7 @@ AC_ARG_WITH([perf],
 	    [perf_mode=yes],
 	    [perf_mode=no]
 	    )
-	    
+
 dnl Check for --with-backend-perf
 AC_ARG_WITH([backend-perf],
 	    [AS_HELP_STRING([--with-backend-perf],
@@ -249,22 +254,22 @@ AC_ARG_WITH([valgrind],
 ### Setup env options ###
 #########################
 dnl Set the directory path
-AC_SUBST([guard_srcdir], ["`pwd`"])
+AC_SUBST([guard_srcdir], ["$(cd $srcdir && pwd)"])
 
 dnl Check for non-default library paths
-if test -d "/lib"; then 
-	LDFLAGS="$LDFLAGS -L/lib" 
-fi 
-if test -d "/lib64"; then 
-	LDFLAGS="$LDFLAGS -L/lib64" 
-fi 
+if test -d "/lib"; then
+	LDFLAGS="$LDFLAGS -L/lib"
+fi
+if test -d "/lib64"; then
+	LDFLAGS="$LDFLAGS -L/lib64"
+fi
 
-dnl Define --as-needed to the linker.  
-dnl This makes it so that only the dso's that we actually need are pulled in.  
+dnl Define --as-needed to the linker.
+dnl This makes it so that only the dso's that we actually need are pulled in.
 LDFLAGS="$LDFLAGS -Wl,--as-needed"
 
 dnl Check for debug settings
-if test "x$debug_mode" = xyes; then 
+if test "x$debug_mode" = xyes; then
 	AC_DEFINE([DEBUG], [1], [Building guard with debug mode.])
 fi
 
@@ -292,18 +297,19 @@ fi
 ### Check for relative debugging build ###
 ##########################################
 dnl Setup rd build environment
-if test "x$with_rd" = xyes; then 
-	AC_DEFINE([RD], [1], [Enable relative debugging support]) 
-	AC_SUBST([rd_dir], ["$guard_srcdir/guard-rd/src/rd"]) 
-	AC_SUBST([df_dir], ["$guard_srcdir/guard-rd/src/df"]) 
-	AC_SUBST([rd_libs], ["$rd_dir/librd.a $df_dir/libdf.a"]) 
-	CPPFLAGS="$CPPFLAGS -I$rd_dir" 
-	CPPFLAGS="$CPPFLAGS -I$df_dir" 
+if test "x$with_rd" = xyes; then
+	AC_DEFINE([RD], [1], [Enable relative debugging support])
+	AC_SUBST([rd_dir], ["$guard_srcdir/guard-rd/src/rd"])
+	AC_SUBST([df_dir], ["$guard_srcdir/guard-rd/src/df"])
+	AC_SUBST([rd_libs], ["$rd_dir/librd.a $df_dir/libdf.a"])
+	CPPFLAGS="$CPPFLAGS -I$rd_dir"
+	CPPFLAGS="$CPPFLAGS -I$df_dir"
 fi
 
 ###########################
 ### Check for programs. ###
 ###########################
+AM_PROG_AR
 AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LN_S
@@ -382,39 +388,39 @@ fi
 ### Check for MP Starters. ###
 ##############################
 dnl Check for mpirun
-if test "x$with_mpirun" != xno ; then 
+if test "x$with_mpirun" != xno ; then
 	AC_PATH_PROG([MPIRUN], [mpirun], [no])
 	if test "x$MPIRUN" != xno; then
-		AC_DEFINE([MPICH], [1], [Enable MPICH support in Guard]) 
-		AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.]) 
-		AC_PATH_PROG([MPDTRACE], [mpdtrace], [no]) 
+		AC_DEFINE([MPICH], [1], [Enable MPICH support in Guard])
+		AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
+		AC_PATH_PROG([MPDTRACE], [mpdtrace], [no])
 		if test "x$MPDTRACE" != xno; then
-			AC_DEFINE([MPICH_MPD], [1], [Enable MPICH support in Guard with mpd]) 
-			AC_DEFINE_UNQUOTED([MPDTRACE], ["$ac_cv_path_MPDTRACE"], [Location of mpdtrace command.]) 
+			AC_DEFINE([MPICH_MPD], [1], [Enable MPICH support in Guard with mpd])
+			AC_DEFINE_UNQUOTED([MPDTRACE], ["$ac_cv_path_MPDTRACE"], [Location of mpdtrace command.])
 		fi
 	else
 		AC_MSG_ERROR([You must have mpirun to enable mpich support in GUARD.])
 	fi
 fi
 
-dnl Check for ompi_info 
+dnl Check for ompi_info
 if test "x$with_ompi_info" != xno; then
 	AC_PATH_PROG([OMPI_INFO], [ompi_info], [no])
-	if test "x$OMPI_INFO" != xno; then 
-		AC_PATH_PROG(MPIRUN, mpirun, no) 
+	if test "x$OMPI_INFO" != xno; then
+		AC_PATH_PROG(MPIRUN, mpirun, no)
 		if test "x$ac_cv_path_MPIRUN" != xno; then
-			AC_DEFINE([OMPI], [1], [Enable Open MPI support in Guard.]) 
-			AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.]) 
-		fi 
+			AC_DEFINE([OMPI], [1], [Enable Open MPI support in Guard.])
+			AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
+		fi
 	fi
 fi
 
 dnl Check for IBM's Parallel Environment
 if test "x$with_poe" != xno; then
 	AC_PATH_PROG([POE], [poe], [no])
-	if test "x$POE" != xno; then 
-		AC_DEFINE([AIX_POE], [1], [Enable POE support in Guard.]) 
-		AC_DEFINE_UNQUOTED([POE], ["$ac_cv_path_POE"], [Location of poe command.]) 
+	if test "x$POE" != xno; then
+		AC_DEFINE([AIX_POE], [1], [Enable POE support in Guard.])
+		AC_DEFINE_UNQUOTED([POE], ["$ac_cv_path_POE"], [Location of poe command.])
 	else
 		AC_MSG_ERROR([You must have poe to enable ibm support in GUARD.])
 	fi
@@ -530,9 +536,9 @@ if test "x$with_editline" != xno; then
 			AC_MSG_RESULT([not found])
 			AC_MSG_ERROR([libedit.a not found in given path.])
 		fi
-		
+
 		dnl if we get here, we have passed the checks.
-		AC_SUBST([editline_libs], ["-ledit $EDITLINE_DEPLIB"])		
+		AC_SUBST([editline_libs], ["-ledit $EDITLINE_DEPLIB"])
 	fi
 else
 	dnl For now, editline support is required. This check is in place when
@@ -558,7 +564,7 @@ if test "x$with_aif" != xcheck; then
 			AC_MSG_RESULT([not found])
 			AC_MSG_ERROR([libaif.a not found in given path.])
 		fi
-		
+
 		LDFLAGS="$LDFLAGS -L$with_aif/lib"
 
 		AC_CHECK_LIB([aif],
@@ -568,23 +574,23 @@ if test "x$with_aif" != xcheck; then
 			     )
 	fi
 else
-	AC_CHECK_LIB([aif], 
-		     [NewAIF], 
-		     [AC_SUBST([aif_libs], ["-laif"])], 
+	AC_CHECK_LIB([aif],
+		     [NewAIF],
+		     [AC_SUBST([aif_libs], ["-laif"])],
 		     [AC_MSG_ERROR([You must have libaif to compile GUARD.])]
 		     )
 fi
 
 dnl Check for libmi
-if test "x$GDB" != xno && test "x$mi_mode" != xno; then 	
-	if test -f "$libmi_path/libmi.so"; then 
-		LDFLAGS="$LDFLAGS -L$libmi_path" 
+if test "x$GDB" != xno && test "x$mi_mode" != xno; then
+	if test -f "$libmi_path/libmi.so"; then
+		LDFLAGS="$LDFLAGS -L$libmi_path"
 		AC_CHECK_LIB([mi],
 					[MIVarDelete],
 					[AC_SUBST([mi_libs], ["-lmi"])],
 					[AC_MSG_ERROR([You must have libmi.so to compile GUARD.])]
 					)
-	else	
+	else
 		if test -f "$libmi_path/lib/libmi.so"; then
 			LDFLAGS="$LDFLAGS -L$libmi_path/lib"
 			AC_CHECK_LIB([mi],
@@ -605,14 +611,14 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 fi
 
 dnl Check for libssh2
-if test -f "$libssh2_path/libssh2.so"; then 
-	LDFLAGS="$LDFLAGS -L$libssh2_path" 
+if test -f "$libssh2_path/libssh2.so"; then
+	LDFLAGS="$LDFLAGS -L$libssh2_path"
 	AC_CHECK_LIB(	[ssh2],
 					[libssh2_init],
 					[AC_SUBST([ssh2_libs], ["-lssh2"])],
 					[AC_MSG_ERROR([You must have libssh2.so to compile GUARD.])]
 					)
-else	
+else
 	if test -f "$libssh2_path/lib/libssh2.so"; then
 		LDFLAGS="$LDFLAGS -L$libssh2_path/lib"
 		AC_CHECK_LIB(	[ssh2],
@@ -646,11 +652,11 @@ if test "x$mrnet_mode" = xyes; then
 		AC_MSG_RESULT([not found])
 		AC_MSG_ERROR([libmrnet.a not found in given path.])
 	fi
-	
+
 	# NOTE: AC_CHECK_LIB doesn't handle c++ name mangling. So attempting to
-	#       test for the mrnet stuff seems a bit futile. Just assume that 
+	#       test for the mrnet stuff seems a bit futile. Just assume that
 	#       if we can find the .a that it is valid.
-	
+
 	AC_MSG_CHECKING([for libxplat.a])
 	if test -f "$mrnet_root/lib/libxplat.a"; then
 		AC_MSG_RESULT([$mrnet_root/lib/libxplat.a])
@@ -660,7 +666,7 @@ if test "x$mrnet_mode" = xyes; then
 	fi
 
 	LDFLAGS="$LDFLAGS -L$mrnet_root/lib"
-	
+
 	dnl add the mrnet libs to MRN_LIBS
 	AC_SUBST([mrn_root], ["$mrnet_root"])
 fi
@@ -716,48 +722,48 @@ if test "x$with_aif" != xcheck; then
 	fi
 else
 	dnl Error condition. Check default system location.
-	AC_CHECK_HEADER([aif.h], 
-			[], 
+	AC_CHECK_HEADER([aif.h],
+			[],
 			[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
 			)
-	
-	AC_CHECK_HEADER([fds.h], 
+
+	AC_CHECK_HEADER([fds.h],
 			[],
 			[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
 			)
 fi
 
 dnl Check for libmi headers
-if test "x$GDB" != xno && test "x$mi_mode" != xno; then 
-	AC_MSG_CHECKING([for MI.h]) 
-	if test -f "$libmi_path/MI.h"; then 
-		CPPFLAGS="$CPPFLAGS -I$libmi_path" 
-		AC_MSG_RESULT([$libmi_path/MI.h]) 
+if test "x$GDB" != xno && test "x$mi_mode" != xno; then
+	AC_MSG_CHECKING([for MI.h])
+	if test -f "$libmi_path/MI.h"; then
+		CPPFLAGS="$CPPFLAGS -I$libmi_path"
+		AC_MSG_RESULT([$libmi_path/MI.h])
 	else
 		if test -f "$libmi_path/include/MI.h"; then
 			CPPFLAGS="$CPPFLAGS -I$libmi_path/include"
 			AC_MSG_RESULT([$libmi_path/include/MI.h])
 		else
-			AC_MSG_RESULT([not found]) 
-			AC_MSG_ERROR([MI.h not found. Please provide install location of libmi to --with-gdbmi]) 
+			AC_MSG_RESULT([not found])
+			AC_MSG_ERROR([MI.h not found. Please provide install location of libmi to --with-gdbmi])
 		fi
-	fi	
+	fi
 fi
 
 dnl Check for libssh2 headers
-AC_MSG_CHECKING([for libssh2.h]) 
-if test -f "$libssh2_path/libssh2.h"; then 
-	CPPFLAGS="$CPPFLAGS -I$libssh2_path" 
-	AC_MSG_RESULT([$libssh2_path/libssh2.h]) 
+AC_MSG_CHECKING([for libssh2.h])
+if test -f "$libssh2_path/libssh2.h"; then
+	CPPFLAGS="$CPPFLAGS -I$libssh2_path"
+	AC_MSG_RESULT([$libssh2_path/libssh2.h])
 else
 	if test -f "$libssh2_path/include/libssh2.h"; then
 		CPPFLAGS="$CPPFLAGS -I$libssh2_path/include"
 		AC_MSG_RESULT([$libssh2_path/include/libssh2.h])
 	else
-		AC_MSG_RESULT([not found]) 
-		AC_MSG_ERROR([libssh2.h not found. Please provide install location of libssh2 to --with-libssh2]) 
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([libssh2.h not found. Please provide install location of libssh2 to --with-libssh2])
 	fi
-fi	
+fi
 
 
 dnl Check for editline headers
@@ -768,8 +774,8 @@ if test "x$with_editline" != xno; then
         dnl check if the user provided a withval
         if test "x$with_editline" = x; then
 		AC_CHECK_HEADER([editline/readline.h],
-				[AC_DEFINE([HAVE_LIBEDITLINE], 
-					   [1], 
+				[AC_DEFINE([HAVE_LIBEDITLINE],
+					   [1],
 					   [Define if you have libeditline]
 					   )
 				],
@@ -897,7 +903,6 @@ if test "x$mrnet_mode" != xno; then
 fi
 
 AC_CONFIG_FILES([Makefile
-		 doc/Makefile
 		 sdm/Makefile
 		 scripts/Makefile
 		 filters/Makefile

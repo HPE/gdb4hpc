@@ -14,13 +14,14 @@
 # TODO: Once we move away from monolithic builds, point at the proper repositories
 # ./add_rpm_repo.sh http://car.dev.cray.com/artifactory/internal/PE-CDST/ /x86_64/dev/master/
 
+gcc_ver=8.1.0
 return_code=0
 
 function check_exit_status(){
     if [ $1 -ne 0 ]
     then
-        echo "runBuildPrep.sh: error code of $1 from $2"
-	return_code=$1
+        echo "There was an error installing $2"
+        return_code=$1
     fi
 }
 
@@ -68,6 +69,14 @@ check_exit_status $? cray-cti
 
 zypper rr car-internal-pe-cdst car-shasta-premium
 
+export SHELL=/bin/sh
+
+#Ensure we can use modules
+source /opt/cray/pe/modules/default/init/bash
+
+#Ensure CTI is build with $gcc_ver
+module load gcc/$gcc_ver
+
 echo "############################################"
 echo "#      Capturing Jenkins Env Vars          #"
 echo "############################################"
@@ -83,7 +92,11 @@ else
   return_code=1
 fi
 
+
 echo "############################################"
 echo "#          Done with build prep            #"
 echo "############################################"
+# We want to capture the config.log in the jenkins output on error.
+# But we also want to return with the return code from the configure
+# call. So do that below.
 exit $return_code

@@ -15,6 +15,7 @@
 # ./add_rpm_repo.sh http://car.dev.cray.com/artifactory/internal/PE-CDST/ /x86_64/dev/master/
 
 return_code=0
+gcc_ver=8.1.0
 
 function check_exit_status(){
     if [ $1 -ne 0 ]

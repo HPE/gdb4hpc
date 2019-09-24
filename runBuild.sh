@@ -41,7 +41,7 @@ gdb4hpc_staging_directory_name="gdb4hpc_tmp"
 # Directory name where rpms are extracted to
 gdb4hpc_externals_directory_name="external"
 
-# Third party source tree names. 
+# Third party source tree names.
 mrnet_directory_name="mrnet"
 gdb_directory_name="ddt_gdb-8.1"
 cuda75_gdb_directory_name="ddt_cuda_gdb_75"
@@ -337,14 +337,14 @@ function copy_file {
 
 	local base_name=$(basename $1)
 	local dir_name=$(dirname $1)
-	
+
 	# ensure $2 exists
 	if [[ ! -d $2 ]]; then
 		echo "ERROR: $2 is not a directory. The $3 build failed."
 		((++comp_error))
 		return 1
 	fi
-	
+
 	# copy $1 to $2, ensuring $1 exists
 	if [[ -e $1 ]]; then
 		# deliver to the install dir
@@ -355,12 +355,12 @@ function copy_file {
 		((++comp_error))
 		return 1
 	fi
-	
+
 	return 0
 }
 
 function check_file {
-	
+
 	local base_name=$(basename $1)
 	local dir_name=$(dirname $1)
 
@@ -369,7 +369,7 @@ function check_file {
 		((++comp_error))
 		return 1
 	fi
-	
+
 	return 0
 }
 
@@ -379,7 +379,7 @@ function rename_file {
 	local base_name_2=$(basename $2)
 	local dir_name_1=$(dirname $1)
 	local dir_name_2=$(dirname $2)
-	
+
 	# ensure $2 exists
 	if [[ ! -d $dir_name_2 ]]; then
 		echo "ERROR: $dir_name_2 is not a directory. The $3 build failed."
@@ -396,7 +396,7 @@ function rename_file {
 		((++comp_error))
 		return 1
 	fi
-	
+
 	return 0
 }
 
@@ -474,7 +474,7 @@ then
         opt_cuda75_gdb=n
         opt_cuda80_gdb=n
 	    opt_cuda91_gdb=n
-    fi  
+    fi
 fi
 
 ########################################################
@@ -537,7 +537,7 @@ fi
 
 #libmi install
 echo -e "Starting libmi install.\n"
-# deliver libmi.so 
+# deliver libmi.so
 copy_file "${dep_libdir}/libmi.so" $libdir "libmi"
 echo -e "########################################################\n"
 
@@ -603,7 +603,7 @@ if [[ $? == 0 ]]; then
 	if [[ ! -d ${libdir}/${python_inst_name} ]]; then
 		mkdir ${libdir}/${python_inst_name}
 	fi
-	
+
 	# copy all of the required python modules
 	while read py_mod; do
 		copy_file "${dep_libdir}/${python_inst_name}/${py_mod}" "${libdir}/${python_inst_name}" "python"
@@ -732,7 +732,7 @@ echo "#######################################################################"
 if [[ $opt_cuda80_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 80 build."
-	
+
 	cudamodule=`module avail $cuda80_module`
 	if [ ! -z $cudamodule ]
 	then
@@ -774,7 +774,7 @@ if [[ $opt_cuda80_gdb == y ]]; then
 	# rename cuda-gdb to cuda80-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda80-gdb-guard" "cuda-gdb 80"
 	module unload $cudamodule 2>/dev/null
-    
+
     echo -e "Starting cuda-gdb 80 install.\n"
     # Deliver the cuda80-gdb-guard binary
     copy_file "${dep_bindir}/cuda80-gdb-guard" $libexecdir "cuda-gdb 80"
@@ -792,7 +792,7 @@ echo "#######################################################################"
 if [[ $opt_cuda91_gdb == y ]]; then
 
 	echo "Starting cuda-gdb 90 build."
-	
+
 	cudamodule=`module avail $cuda91_module 2>/dev/null`
 	if [ -z $cudamodule ]
 	then
@@ -802,7 +802,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	if [ ! -z $cudamodule ]
 	then
 	  module load $cudamodule
-	else 
+	else
 	  # Unpack the rpm if we haven't done so already
 	  if [[ ! -d $cuda91_ext ]]; then
 		# find the cuda91 rpm
@@ -839,7 +839,7 @@ if [[ $opt_cuda91_gdb == y ]]; then
 	# rename cuda-gdb to cuda91-gdb-guard
 	rename_file "${dep_bindir}/cuda-gdb" "${dep_bindir}/cuda91-gdb-guard" "cuda-gdb 91"
 	module unload $cudamodule 2>/dev/null
-    
+
     echo -e "Starting cuda-gdb 91 install.\n"
     # Deliver the cuda91-gdb-guard binary
     copy_file "${dep_bindir}/cuda91-gdb-guard" $libexecdir "cuda-gdb 91"
@@ -860,7 +860,7 @@ if [[ $opt_gdb_uda == y ]]; then
 	# change directories
 	cd $gdb_uda_src
 	# run gdb uda library make
-	make --silent
+	make --silent CC=gcc
 	# deliver the gdb uda support library to libdir
 	copy_file "${gdb_uda_src}/plugin/uda-plugin-cray-upc.so" $dep_libdir "uda plugin"
 fi
@@ -943,8 +943,8 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-cti_lib_directory=`echo $cti_pkgconfig_L_dir | cut -c 3-` 
-cti_include_directory=`echo $cti_pkgconfig_I_dir | cut -c 3-` 
+cti_lib_directory=`echo $cti_pkgconfig_L_dir | cut -c 3-`
+cti_include_directory=`echo $cti_pkgconfig_I_dir | cut -c 3-`
 
 echo "cti_pkgconfig_L_dir:    $cti_pkgconfig_L_dir"
 echo "cti_pkgconfig_I_dir:    $cti_pkgconfig_I_dir"
@@ -967,7 +967,7 @@ if [[ $opt_mrnet == y ]]; then
     # Check if we should force a rpath for the gcc libs
     gcc_rpath_link_opt=""
     if [[ "x$GCC_PATH" != "x" ]]; then
-        if [[ -d $GCC_PATH/snos/lib64 ]]; then 
+        if [[ -d $GCC_PATH/snos/lib64 ]]; then
             gcc_rpath_link_opt="-Wl,-rpath,$GCC_PATH/snos/lib64"
         fi
     fi
@@ -987,7 +987,7 @@ if [[ $opt_mrnet == y ]]; then
 	if [[ ! -d $dep_includedir/boost ]]; then
         if [[ -d $boost_inst_loc/include/boost ]]; then
             echo "Linking to $boost_inst_loc/include/boost for mrnet boost headers..."
-            ln -s $boost_inst_loc/include/boost $dep_includedir/boost 
+            ln -s $boost_inst_loc/include/boost $dep_includedir/boost
         fi
 	fi
 	# Deliver the mrnet_config.h file
@@ -1000,15 +1000,15 @@ fi
 echo -e "Starting MRNet install.\n"
 # Deliver the mrnet binaries
 copy_file "${dep_bindir}/mrnet_commnode" $libexecdir "MRNet"
-# Deliver the mrnet dso's to libdir 
+# Deliver the mrnet dso's to libdir
 copy_file "${dep_libdir}/${libmrnet_minor}" $libdir "MRNet"
 if [[ $? == 0 ]]; then
-	echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..." 
+	echo "Creating mrnet symlinks for $libmrnet_dso and $libmrnet_major..."
 	cd $libdir
 	ln -s $libmrnet_minor $libmrnet_dso
 	ln -s $libmrnet_minor $libmrnet_major
-fi 
-# Deliver the xplat dso's to libdir 
+fi
+# Deliver the xplat dso's to libdir
 copy_file "${dep_libdir}/${libxplat_minor}" $libdir "MRNet"
 if [[ $? == 0 ]]; then
 	echo "Creating xplat symlinks for $libxplat_dso and $libxplat_major..."

@@ -52,13 +52,8 @@ GDB4HPC is a GDB-based parallel debugger used to debug applications compiled wit
 %install
 
 mkdir -p %{buildroot}%{_version_prefix}
-mkdir -p %{buildroot}/%{_namespace_moduledir}/cray-lgdb
 cp -r gdb4hpc/* %{buildroot}%{_version_prefix}/
 rm -rf %{buildroot}%{_version_prefix}/modulefiles
-
-pushd %{buildroot}%{_namespace_moduledir}/cray-lgdb
-ln -s ../%{namespace}/%{build_version}
-popd
 
 install -D modulefiles/%{build_version} %{buildroot}%{_name_moduledir}/%{build_version}
 
@@ -103,7 +98,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %{_namespace_prefix}/admin-pe/set_default_files/set_default_%{namespace}_%{build_version}
 %{_name_moduledir}/%{build_version}
-%{_namespace_moduledir}/cray-lgdb/%{build_version}
 %{_version_prefix}/.cray_rpm_release
 %{_version_prefix}/set_default_%{namespace}_%{build_version}
 %{_version_prefix}/release_info
@@ -141,8 +135,6 @@ then
 
 fi
 
-#for XE/XK CLE5.2 create lgdb link pointing to gdb4hpc in bin dir.
-ln -sf $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/%{namespace} $RPM_INSTALL_PREFIX/%{namespace}/%{build_version}/bin/lgdb
 
 %preun
 # Cleanup default link if it point to this version

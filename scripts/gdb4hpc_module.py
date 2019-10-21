@@ -48,22 +48,7 @@ if { [ module-info mode load ] } {
     if { ! [ catch {exec tty -s} result ] } {
 
         if { [info exists env(LOADEDMODULES)] } {
-           set mods $env(LOADEDMODULES)
-    
-           if { [string match *cray-lgdb* $_module_name] && [string match *gdb4hpc* $mods] } {
-              module unload gdb4hpc
-           }
-           if { [string match *gdb4hpc* $_module_name] && [string match *cray-lgdb* $mods] } {
-              module unload cray-lgdb
-           }
-        }
-
-	if { [string match *lgdb* $_module_name] } {
-	    puts stderr ""
-	    puts stderr "The cray-lgdb module is now deprecated and will be removed in a future release."
-            puts stderr "The cray-lgdb module is no longer supported for versions >= 3.0.9"
-            puts stderr "Please use the gdb4hpc module. The new launch command is: gdb4hpc"
-	    puts stderr ""
+           set mods $env(LOADEDMODULES) 
         }
     }
 }

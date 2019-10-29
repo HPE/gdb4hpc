@@ -23,10 +23,8 @@ AC_MSG_NOTICE([Configuring Guard])
 
 dnl Turn on Posix extensions
 AC_USE_SYSTEM_EXTENSIONS
-#AC_GNU_SOURCE
 
 AM_INIT_AUTOMAKE([foreign -Wall])
-LT_INIT
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
@@ -315,6 +313,8 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_YACC
 AC_PROG_SED
+
+LT_INIT
 
 AC_LANG([C++])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
@@ -653,10 +653,6 @@ if test "x$mrnet_mode" = xyes; then
 		AC_MSG_ERROR([libmrnet.a not found in given path.])
 	fi
 
-	# NOTE: AC_CHECK_LIB doesn't handle c++ name mangling. So attempting to
-	#       test for the mrnet stuff seems a bit futile. Just assume that
-	#       if we can find the .a that it is valid.
-
 	AC_MSG_CHECKING([for libxplat.a])
 	if test -f "$mrnet_root/lib/libxplat.a"; then
 		AC_MSG_RESULT([$mrnet_root/lib/libxplat.a])
@@ -686,7 +682,7 @@ PKG_CHECK_MODULES([CRAY_CTI_BE], [common_tools_be],[],[AC_MSG_ERROR([libcommonto
 ###############################
 AC_FUNC_ALLOCA
 AC_HEADER_STDC
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h libintl.h limits.h malloc.h memory.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/param.h sys/socket.h sys/time.h unistd.h values.h wchar.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h libintl.h limits.h malloc.h memory.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h unistd.h values.h wchar.h])
 
 dnl Check for aif headers
 if test "x$with_aif" != xcheck; then
@@ -829,6 +825,7 @@ AC_TYPE_INT64_T
 AC_TYPE_INT32_T
 AC_TYPE_INT16_T
 AC_TYPE_INT8_T
+AC_TYPE_MODE_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT16_T
@@ -837,8 +834,6 @@ AC_CHECK_TYPES([ptrdiff_t])
 AC_STRUCT_TM
 AC_HEADER_TIME
 AC_HEADER_STDBOOL
-
-AC_C_INLINE
 
 # Check if compiler supports "long long" type.
 AC_CHECK_SIZEOF(long long)
@@ -868,8 +863,8 @@ AC_FUNC_MMAP
 AC_FUNC_VPRINTF
 AC_FUNC_ERROR_AT_LINE
 AC_CHECK_FUNCS([asprintf bzero dup2 floor gethostbyname gethostname gettimeofday \
-		inet_ntoa memset mkfifo mkdir munmap pow regcomp select \
-		setenv sigset sighold sigrelse socket sqrt strcasecmp \
+		inet_ntoa localtime_r memset memmove mkfifo mkdir munmap pow realpath \
+		regcomp select setenv sigset sighold sigrelse socket sqrt strcasecmp \
 		strchr strdup strerror strncasecmp strndup strpbrk \
 		strrchr strstr strtol strtoul strtoull])
 

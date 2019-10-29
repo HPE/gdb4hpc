@@ -46,7 +46,7 @@ static dbgevent_t *	DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
 static void		event_callback(MIEvent *);
 static void		console_callback(char *);
 static void		log_callback(char *);
-static void		target_callback(char *); 
+static void		target_callback(char *);
 */
 static dbgevent_t *	setup_gdbmi_environment(MISession *);
 static void 		SendMICommand_fe(MISession *sess, MICommand *cmd);
@@ -70,7 +70,7 @@ DbgInstantiateGDBMI(dbgfrontend_sw *fe_obj)
 	fe_obj->dbg_setsourcepath = DbgGDBMISetSourcePath_fe;
 	fe_obj->dbg_getsourcepath = DbgGDBMIGetSourcePath_fe;
 	fe_obj->dbg_getscope = DbgGDBMIGetScope_fe;
-	
+
 	// only set debug for gdbmi if compiled with debug mode
 #ifdef DEBUG
 	MISessionSetDebug(1);
@@ -96,7 +96,7 @@ SendMICommand_fe(MISession *sess, MICommand *cmd)
 			{
 				DPRINT("SendMICommand: Debugger error: %s\n", buf);
 				free(buf);
-			} else 
+			} else
 			{
 				DPRINT("SendMICommand: Error from GDB, but no message\n");
 			}
@@ -104,7 +104,7 @@ SendMICommand_fe(MISession *sess, MICommand *cmd)
 			break;
 		}
 
-		if (sess->out_fd == -1) 
+		if (sess->out_fd == -1)
 		{
 			DPRINT("SendMICommand: sess->out_fd = -1\n");
 			break;
@@ -113,98 +113,98 @@ SendMICommand_fe(MISession *sess, MICommand *cmd)
 	} while (!MICommandCompleted(cmd));
 }
 
-static dbgevent_t *	
+static dbgevent_t *
 setup_gdbmi_environment(MISession *sess)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
-	
+
 	cmd = MIGDBSet("confirm", "off");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set confirm command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// stop printing strings on the first null character
 	cmd = MIGDBSet("print null-stop", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print null-stop command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// demangle c++ names
 	cmd = MIGDBSet("print demangle", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print demangle command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	cmd = MIGDBSet("print asm-demangle", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print asm-demangle command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// print derived types from the vtable
 	cmd = MIGDBSet("print object", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print object command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// limit backtrace size to 1000
 	cmd = MIGDBSet("backtrace limit", "1000");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set backtrace limit command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// unwind signals triggered by gdb
 	cmd = MIGDBSet("unwindonsignal", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set unwindonsignal command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// always continue on fatal errors
 	cmd = MIGDBSet("continue-on-fatal-error", "on");
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set continue-on-fatal-error command failed.");
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// set data-directory to where the pretty printers reside
 	char * libDir = getenv(GUARD_LIB_DIRECTORY);
 	char * gdbDataDir;
@@ -224,7 +224,7 @@ setup_gdbmi_environment(MISession *sess)
 	}
 	MICommandFree(cmd);
 	Free(gdbDataDir);
-	
+
 	return NULL;
 }
 
@@ -234,79 +234,43 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	dbgevent_t *	e;
 	MISession * 	sess = (MISession *)fe_obj->dbg_session;
 	char *			str;
-	char *			old_pyhome = NULL;
-	char *			old_pystartup = NULL;
 	char *			env_base_dir;
 	char *			data_dir;
-	
+
 	DPRINT("*** DbgGDBMIInit_fe\n");
 
 	/*MISessionRegisterEventCallback(sess, event_callback);
 	MISessionRegisterConsoleCallback(sess, console_callback);
 	MISessionRegisterLogCallback(sess, log_callback);
 	MISessionRegisterTargetCallback(sess, target_callback);*/
-	
-	// get the old value for PYTHONHOME
-	if ((str = getenv("PYTHONHOME")) != NULL)
-	{
-		old_pyhome = strdup(str);
-	}
-	
-	// get the old value for PYTHONSTARTUP
-	if ((str = getenv("PYTHONSTARTUP")) != NULL)
-	{
-		old_pystartup = strdup(str);
-	}
-	
+
 	// Get the base dir env var
 	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_INST_DIRECTORY);
 		return e;
 	}
-	
-	// setup new python env
-	setenv("PYTHONHOME", env_base_dir, 1);
-	if (old_pystartup != NULL)
-	{
-		unsetenv("PYTHONSTARTUP");
-	}
-	
+
 	// set the gdb path to use gdb-guard
 	MISessionSetGDBPath(sess, "gdb-guard");
-	
+
 	// set the data directory to use the installed data dir
 	Asprintf(&data_dir, "%s/lib/gdb", env_base_dir);
 	MISessionSetGDBDataDirectory(sess, data_dir);
 	Free(data_dir);
-	
-	if (MISessionStartLocal(sess, NULL) < 0) 
+
+	if (MISessionStartLocal(sess, NULL) < 0)
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not start the debugger.");
 		return e;
 	}
-	
-	// Reset the python env
-	if (old_pyhome != NULL)
-	{
-		setenv("PYTHONHOME", old_pyhome, 1);
-		Free(old_pyhome);
-	} else
-	{
-		unsetenv("PYTHONHOME");
-	}
-	if (old_pystartup != NULL)
-	{
-		setenv("PYTHONSTARTUP", old_pystartup, 1);
-		Free(old_pystartup);
-	}
-	
+
 	if ((e = setup_gdbmi_environment(sess)) != NULL)
 		return e;
-	
+
 	// no need to startup debugger, we are not attaching onto anything.
 	fe_obj->dbg_status = DBGSTAT_STOPPED;
-	
+
 	return (dbgevent_t *)NULL;
 }
 
@@ -324,7 +288,7 @@ DbgGDBMISetFile_fe(dbgfrontend_sw *fe_obj, char *file)
 
 	cmd = MIFileExecAndSymbols(file);
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
@@ -347,7 +311,7 @@ DbgGDBMIQuit_fe(dbgfrontend_sw *fe_obj)
 	cmd = MIGDBExit();
 	SendMICommand_fe(sess, cmd);
 	MICommandFree(cmd);
-	
+
 	return NewEvent(DBGEV_OK);;
 }
 
@@ -367,23 +331,23 @@ DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, char *str)
 	dbglist_t *		line_list;
 	dbglist_t *		list_ptr = NULL;
 	dbglist_t *		list = NULL;
-	
+
 
 	DPRINT("*** DbgGDBMIList_fe\n");
 
 	cmd = CLIList(str);
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	lines = CLIGetListInfo(cmd);
-	
+
 	// Convert the MI list of CLILineInfo into a dbglist_t
-	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; ) 
+	for (MIListSet(lines); (line = (CLILineInfo *)MIListGet(lines)) != NULL; )
 	{
 		line_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
 		line_list->list_lno = line->line_no;
@@ -400,7 +364,7 @@ DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, char *str)
 			list_ptr = line_list;
 		}
 	}
-	
+
 	MIListFree(lines, (void (*)())CLILineInfoFree);
 	MICommandFree(cmd);
 
@@ -424,11 +388,11 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 	dbgsources_t *	dbg_sources;
 	dbgsources_t *	sources_ptr = NULL;
 	dbgsources_t *	head = NULL;
-	
+
 	DPRINT("*** DbgGDBMIGetSources_fe\n");
 
 	cmd = MIFileListExecSourceFiles();
-	
+
 	SendMICommand_fe(sess, cmd);
 	if (!MICommandResultOK(cmd)) {
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
@@ -437,17 +401,17 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 	}
 
 	sources = MIGetFileListExecSourceFilesInfo(cmd);
-	
+
 	// Convert the MI list of MISources into a dbgsources_t
-	for (MIListSet(sources); (source = (MISources *)MIListGet(sources)) != NULL; ) 
+	for (MIListSet(sources); (source = (MISources *)MIListGet(sources)) != NULL; )
 	{
 		if (source->fullname == NULL)
 			continue;
-		
+
 		dbg_sources = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
-		
+
 		DPRINT("DbgGDBMIGetSources_fe: fullname is %s\n", source->fullname);
-		
+
 		// Ensure that this source file actually exists
 		dbg_sources->sources_file = realpath(source->fullname, NULL);
 		if (dbg_sources->sources_file == NULL)
@@ -455,7 +419,7 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 			Free(dbg_sources);
 			continue;
 		}
-		
+
 		dbg_sources->sources_next = (dbgsources_t *)NULL;
 
 		if (head == NULL)
@@ -468,13 +432,13 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 			sources_ptr = dbg_sources;
 		}
 	}
-	
+
 	MIListFree(sources, (void (*)())MISourcesFree);
 	MICommandFree(cmd);
-	
+
 	e = NewEvent(DBGEV_SOURCES);
 	e->ev_sources = head;
-	
+
 	return e;
 }
 
@@ -489,26 +453,26 @@ DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj, char *path)
 	dbgevent_t *	e;
 
 	DPRINT("*** DbgGDBMISetSourcePath_fe\n");
-	
+
 	pathdirs[0] = path;
 	pathdirs[1] = NULL;
-	
+
 	cmd = MIEnvironmentDirectory(0, pathdirs);
-	
+
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb -environment-directory command failed.");
 		return e;
 	}
-	
+
 	cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
-	
+
 	e = NewEvent(DBGEV_SOURCEPATH);
 	res = MIStringToCString(cmd_result);
 	e->ev_source_path = (res == NULL) ? NULL : strdup(res);
-	
+
 	MICommandFree(cmd);
 	MIStringFree(cmd_result);
 
@@ -526,25 +490,25 @@ DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *fe_obj)
 	dbgevent_t *	e;
 
 	DPRINT("*** DbgGDBMIGetSourcePath_fe\n");
-	
+
 	pathdirs[0] = NULL;
-	
+
 	cmd = MIEnvironmentDirectory(0, pathdirs);
-	
+
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		MICommandFree(cmd);
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb -environment-directory command failed.");
 		return e;
 	}
-	
+
 	cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
-	
+
 	e = NewEvent(DBGEV_SOURCEPATH);
 	res = MIStringToCString(cmd_result);
 	e->ev_source_path = (res == NULL) ? NULL : strdup(res);
-	
+
 	MICommandFree(cmd);
 	MIStringFree(cmd_result);
 
@@ -567,19 +531,19 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 	char *			var_str;
 	char *			type;
 	dbgevent_t *	e;
-	
+
 	DPRINT("*** DbgGDBMIGetScope_fe\n");
-	
+
 	cmd = CLIInfoScope(location);
-	
+
 	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	// Get the names of the vars
 	if ((vars = CLIGetVariablesFromInfoScopeInfo(cmd)) == NULL)
 	{
@@ -588,15 +552,15 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 		return e;
 	}
 	MICommandFree(cmd);
-	
+
 	// Create the dbgvars_t for each of the named variables
 	vp = &result;
-	for (MIListSet(vars); (name = (char *)MIListGet(vars)) != NULL; ) 
+	for (MIListSet(vars); (name = (char *)MIListGet(vars)) != NULL; )
 	{
 		// create the new var
 		*vp = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
 		memset(*vp, 0, sizeof(dbgvars_t));
-		
+
 		// set the name
 		if (name != NULL)
 		{
@@ -611,26 +575,26 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 		}
 		// set the var_next to null
 		(*vp)->var_next = (dbgvars_t *)NULL;
-		
+
 		// increment the var pointer
 		vp = &(*vp)->var_next;
 	}
-	
+
 	// free the name list
 	MIListFree(vars, (void (*)())Free);
-	
+
 	// Create the event to hold the var information
 	e = NewEvent(DBGEV_VARS);
 	e->ev_vars = result;
-	
+
 	// Now we need to get the type information based on the scope. First figure
 	// out what function the scope referrs to by setting a breakpoint to get
 	// the function name.
-	
+
 	cmd = MIBreakInsert(0, 0, NULL, 0, location, 0);
 	SendMICommand_fe(sess, cmd);
 
-	if (!MICommandResultOK(cmd)) 
+	if (!MICommandResultOK(cmd))
 	{
 		// free existing event
 		FreeEvent(e);
@@ -638,7 +602,7 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	if ((bpts = MIBreakpointGetBreakInsertInfo(cmd)) == NULL)
 	{
 		// If we can't get the breakpoint info, we error out
@@ -648,12 +612,12 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	MIListSet(bpts);
 	bpt = (MIBreakpoint *)MIListGet(bpts);
-	
+
 	bpid = bpt->number;
-	
+
 	// Make sure that there is a function, otherwise whatis will fail. We need
 	// the function scope in order for this to work
 	if (bpt->func == NULL)
@@ -664,12 +628,12 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 		MICommandFree(cmd);
 		return e;
 	}
-	
+
 	bpfunc = strdup(bpt->func);
-	
+
 	MIListFree(bpts, (void (*)())MIBreakpointFree);
 	MICommandFree(cmd);
-	
+
 	// Delete the breakpoint, we have the information we need
 	cmd = MIBreakDelete(1, &bpid);
 	SendMICommand_fe(sess, cmd);
@@ -677,14 +641,14 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 	// do since it won't cause anything to break. This assumption might be
 	// wrong though.
 	MICommandFree(cmd);
-	
+
 	// Now loop through the vars and get the type for each name
 	for (vp = &result; *vp != NULL; vp = &(*vp)->var_next)
 	{
 		Asprintf(&var_str, "%s::%s", bpfunc, (*vp)->var_name);
 		cmd = CLIWhatis(var_str);
 		Free(var_str);
-		
+
 		SendMICommand_fe(sess, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -692,28 +656,28 @@ DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
 			MICommandFree(cmd);
 			continue;
 		}
-		
+
 		if ((type = CLIGetWhatisInfo(cmd)) == NULL)
 		{
 			MICommandFree(cmd);
 			continue;
 		}
 		MICommandFree(cmd);
-		
+
 		// I don't know if the strdup is actually necessary, dbgsrv was doing it
 		// for the whatis command though.
 		(*vp)->var_type = strdup(type);
 		Free(type);
 	}
-	
+
 	// create the event with the var information
 	e = NewEvent(DBGEV_VARS);
 	e->ev_vars = result;
-	
+
 	return e;
 }
 
-static dbgevent_t *	
+static dbgevent_t *
 DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 {
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
@@ -722,18 +686,18 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 	int				found = 0;
 
 	DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
-	
+
 	// On Cray systems, we require PMI_Init to exist otherwise the pmi_attribs
 	// file will never be created and the user will hang upon startup.
 	cmd = CLIWhatis("PMI_Init");
-	
+
 	SendMICommand_fe(sess, cmd);
 	if (MICommandResultOK(cmd))
 	{
 		found = 1;
 	}
 	MICommandFree(cmd);
-	
+
 	// We should also check for other startup function names as well
 	if (!found)
 	{
@@ -765,7 +729,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("MPI_INIT_THREAD__");
@@ -776,7 +740,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("MPI_INIT__");
@@ -787,7 +751,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("mpi_init__");
@@ -798,7 +762,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("mpi_init_thread__");
@@ -809,7 +773,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("MPI_INIT_THREAD_");
@@ -820,7 +784,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("MPI_INIT_");
@@ -831,7 +795,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("mpi_init_thread_");
@@ -842,7 +806,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("mpi_init_");
@@ -853,7 +817,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("MPI::Init");
@@ -864,7 +828,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("PMPI_Init");
@@ -875,7 +839,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("start_pes");
@@ -886,7 +850,7 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	if (!found)
 	{
 		cmd = CLIWhatis("shmem_init");
@@ -897,14 +861,14 @@ DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj)
 		}
 		MICommandFree(cmd);
 	}
-	
+
 	// If we get here, no known startup function was found.
 	if (!found)
 	{
 		EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI_Init symbol!");
 		return e;
 	}
-	
+
 	// startup function was found
 	return NewEvent(DBGEV_OK);;
 }

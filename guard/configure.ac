@@ -467,6 +467,9 @@ fi
 ### Check for libraries. ###
 ############################
 
+dnl Check for editline
+
+
 dnl Check for editline libraries
 if test "x$with_editline" != xno; then
         dnl We can use the editline library to provide readline wrappers. Note

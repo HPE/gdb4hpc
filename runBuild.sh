@@ -136,6 +136,13 @@ check_exit_status $? "make install"
 cp -a $top_level/third_party/gdb $install_dir/share/.
 check_exit_status $? "cp -a python_extras"
 
+# deliver gdb-guard to libexec dir
+mkdir -p $install_dir/libexec
+check_exit_status $? mkdir
+
+cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
+check_exit_status $? cp
+
 echo "############################################"
 echo "#           Building uda plugin            #"
 echo "############################################"
@@ -237,7 +244,7 @@ check_exit_status $? cd
 autoreconf -ifv
 check_exit_status $? autoreconf
 
-CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir --with-aif=$inst_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-cray --with-editline=$inst_dir
+CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir --with-aif=$inst_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-editline=$inst_dir
 check_exit_status $? configure
 
 make $j_flags

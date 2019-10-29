@@ -46,28 +46,30 @@ zypper --non-interactive install autoconf \
 				 liblzma5 \
 				 libtool \
 				 tcl \
-				 python-devel \
+				 python3-devel \
 				 which \
 				 xz-devel
 
 check_exit_status $? sys-pkgs
 
-zypper addrepo http://car.dev.cray.com/artifactory/shasta-premium/SHASTA-OS/sle15_premium/x86_64/cray/sles15-premium/ car-shasta-premium
-check_exit_status $? car-shasta-premium-zypper-add-repo
+zypper addrepo http://car.dev.cray.com/artifactory/pe/DST/sle15_pe/x86_64/dev/master/ car-pe-base
+check_exit_status $? "zypper addrepo car-pe-base"
 
 zypper --non-interactive --no-gpg-check install cray-gcc-$gcc_ver \
 					cray-modules \
 					cray-set-gcc-libs \
 					craype
-check_exit_status $? car-shasta-premium-install-modules
+check_exit_status $? "zypper install cray-deps"
 
-zypper addrepo http://car.dev.cray.com/artifactory/internal/PE-CDST/sle15_premium/x86_64/dev/master/ car-internal-pe-cdst
-check_exit_status $? car-internal-pe-cdst-zypper-addrepo
+zypper rr car-pe-base
 
-zypper --non-interactive --no-gpg-check install cray-cti
-check_exit_status $? cray-cti
+zypper addrepo http://car.dev.cray.com/artifactory/pe-base/PE-CDST/sle15_premium/x86_64/dev/master/ car-cdst-master
+check_exit_status $? "zypper addrepo car-cdst-master"
 
-zypper rr car-internal-pe-cdst car-shasta-premium
+zypper --non-interactive --no-gpg-check install cray-cdst-support-devel cray-cti-devel
+check_exit_status $? "zypper install cray-cdst-deps"
+
+zypper rr car-cdst-master
 
 echo "############################################"
 echo "#      Capturing Jenkins Env Vars          #"

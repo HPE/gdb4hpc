@@ -237,7 +237,7 @@ check_exit_status $? cd
 autoreconf -ifv
 check_exit_status $? autoreconf
 
-CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir --with-aif=$inst_dir --with-rd --with-mrnet=$install_dir --with-cray --with-editline=$inst_dir
+CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir --with-aif=$inst_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-cray --with-editline=$inst_dir
 check_exit_status $? configure
 
 make $j_flags

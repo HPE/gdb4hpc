@@ -228,11 +228,16 @@ echo "mrnet_soflags:    $mrnet_soflags"
 CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_ldflags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CRAY_CDST_SUPPORT_INSTALL_DIR}
 check_exit_status $? configure
 
-make $j_flags
+# parallel builds are broken with mrnet
+make
 check_exit_status $? make
 
-make $j_flags install
+make install
 check_exit_status $? "make install"
+
+# deliver extra config files
+cp -a $top_level/third_party/mrnet/build/*/xplat_config.h $install_dir/include/.
+cp -a $top_level/third_party/mrnet/build/*/mrnet_config.h $install_dir/include/.
 
 echo "############################################"
 echo "#             Building gdb4hpc             #"
@@ -244,7 +249,7 @@ check_exit_status $? cd
 autoreconf -ifv
 check_exit_status $? autoreconf
 
-CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir --with-aif=$inst_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-editline=$inst_dir
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-editline=$install_dir
 check_exit_status $? configure
 
 make $j_flags

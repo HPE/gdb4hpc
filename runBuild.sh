@@ -133,7 +133,7 @@ make $j_flags install
 check_exit_status $? "make install"
 
 # deliver pretty-printers
-cp -a $top_level/third_party/gdb $install_dir/share/.
+cp -a $top_level/third_party/python_extras/gdb $install_dir/share/.
 check_exit_status $? "cp -a python_extras"
 
 # deliver gdb-guard to libexec dir

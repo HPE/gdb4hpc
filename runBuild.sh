@@ -216,7 +216,7 @@ cd $top_level/third_party/mrnet
 check_exit_status $? cd
 
 mrnet_cflags=$(pkg-config --cflags cray-cdst-support)
-mrnet_cxxflags=$(mrnet_cflags)
+mrnet_cxxflags=${mrnet_cflags}
 mrnet_ldflags="$(pkg-config --libs cray-cdst-support) "'-Wl,-rpath,\$$ORIGIN'
 mrnet_soflags="-Wl,-rpath,/opt/cray/pe/gcc-libs"
 

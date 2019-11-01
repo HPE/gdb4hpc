@@ -237,7 +237,9 @@ check_exit_status $? "make install"
 
 # deliver extra config files
 cp -a $top_level/third_party/mrnet/build/*/xplat_config.h $install_dir/include/.
+check_exit_status $? cp
 cp -a $top_level/third_party/mrnet/build/*/mrnet_config.h $install_dir/include/.
+check_exit_status $? cp
 
 echo "############################################"
 echo "#             Building gdb4hpc             #"

@@ -2,7 +2,7 @@
 #
 # runPostBuild.sh - Build delivery steps for gdb4hpc
 #
-# Copyright 2019 Cray Inc.  All Rights Reserved.
+# Copyright 2019 Cray Inc. All Rights Reserved.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -12,7 +12,7 @@
 #
 arch=$(uname -m)
 mkdir -p /home/jenkins/rpmbuild/RPMS
-cp $PWD/scripts/tmp/package/rpm/RPMS/$arch/gdb4hpc*.rpm /home/jenkins/rpmbuild/RPMS
+cp -a $PWD/rpmbuild/RPMS/$arch/* /home/jenkins/rpmbuild/RPMS
 return_code=$?
 
 exit $return_code

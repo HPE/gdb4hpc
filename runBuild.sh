@@ -260,6 +260,12 @@ check_exit_status $? make
 make $j_flags install
 check_exit_status $? "make install"
 
+# deliver manpage
+mkdir -p $install_dir/share/man/man1
+check_exit_status $? mkdir
+cp -a $top_level/man/man1/gdb4hpc.1 $install_dir/share/man/man1/.
+check_exit_status $? cp
+
 echo "############################################"
 echo "#              Done with build             #"
 echo "############################################"

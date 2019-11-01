@@ -6,9 +6,6 @@
 	path = third_party/mrnet
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
 	branch = gdb4hpc-external
-[submodule "scripts/set_default"]
-	path = scripts/set_default
-	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git
 [submodule "third_party/ddt_gdb-8.1"]
 	path = third_party/ddt_gdb-8.1
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-8.1.git

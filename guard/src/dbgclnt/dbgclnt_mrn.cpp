@@ -164,7 +164,6 @@ DbgMRNAttach(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 	char * 				env_lib_dir = NULL;
-	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
 	cti_wlm_type_t		wlm;
 	char * beDirStr = NULL;
@@ -410,17 +409,6 @@ DbgMRNAttach(
 		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
 		goto attach_error;
 	}
-
-	// Add the python modules
-	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
-	if (cti_addManifestLibDir(mid, python_lib_dir))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add python2.7 to manifest.\n");
-		goto attach_error;
-	}
-	Free(python_lib_dir);
-	python_lib_dir = NULL;
 
 	// Now add the gdb pretty printers
 	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
@@ -810,9 +798,6 @@ attach_error:
 		di->d_appid = 0;
 	}
 
-	if (python_lib_dir != NULL)
-		Free(python_lib_dir);
-
 	if (gdb_lib_dir != NULL)
 		Free(gdb_lib_dir);
 
@@ -948,7 +933,6 @@ DbgMRNInvoke(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 	char * 				env_lib_dir;
-	char *				python_lib_dir = NULL;
 	char *				gdb_lib_dir = NULL;
 	char **				args = NULL;
 	char *				beDirStr = NULL;
@@ -1186,17 +1170,6 @@ DbgMRNInvoke(
 		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
 		goto invoke_error;
 	}
-
-	// Add the python modules
-	Asprintf(&python_lib_dir, "%s/python2.7", env_lib_dir);
-	if (cti_addManifestLibDir(mid, python_lib_dir))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add python2.7 to manifest.\n");
-		goto invoke_error;
-	}
-	Free(python_lib_dir);
-	python_lib_dir = NULL;
 
 	// Now add the gdb pretty printers
 	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
@@ -1609,9 +1582,6 @@ invoke_error:
 		// clear the network pointer
 		di->d_proto_net = NULL;
 	}
-
-	if (python_lib_dir != NULL)
-		Free(python_lib_dir);
 
 	if (gdb_lib_dir != NULL)
 		Free(gdb_lib_dir);

@@ -1,0 +1,66 @@
+gdb4hpc <VERSION>:
+======================================
+
+Release Date:
+--------------
+  <RELEASE_DATE>
+
+
+Product Description:
+--------------------
+  gdb4hpc is a GDB-based parallel debugger used to debug applications compiled with
+  CCE, AOCC, GNU, and Intel Fortran, C and C++ compilers. It allows programmers to
+  either launch an application or attach to an already running application that
+  was launched on the system. Additionally, it provides comparative debugging
+  technology that enables programmers to compare data structures between two
+  executing applications. Comparative debugging should be used in conjunction
+  with the CCDB GUI tool accessed by loading the cray-ccdb module.
+
+  Some features of gdb include:
+
+  * Command line parallel debugger allows for launching/attaching applications.
+
+  * Utilizes process sets to operate on a subset of application ranks.
+
+  * GDB-like feel, also implements a gdbmode to enable a true parallel gdb.
+
+  * GPU debugging is supported for OpenMP 4.0+ GPU directives.
+
+  * Workload manager support via Common Tools Interface (cray-cti).
+
+Purpose:
+---------
+  This is a feature release.
+
+  - Initial support for Shasta systems
+
+Product and OS Dependencies:
+-----------------------------
+  The Cray CTI <VERSION> release is supported on the following Cray systems:
+    - Cray Shasta systems
+
+  Product Dependencies:
+    - Cray cti rpm installed
+    - Cray cdst-support rpm installed
+
+Documentation:
+---------------
+Type `man gdb4hpc` with the gdb4hpc module loaded to read the gdb4hpc(1) man page.
+
+Simple usage examples are provided at the end.
+
+Also, type `help` at the gdb4hpc command line for more information on commands.
+
+Installation instructions:
+--------------------------
+
+   Installation instructions for <ARCH>:
+   =============================================
+      rpm -ivh gdb4hpc-<VERSION>-<RELEASE>.<ARCH>.rpm
+
+      To make gdb4hpc <VERSION> the default version of gdb4hpc, execute:
+      /opt/cray/admin-pe/set_default_files/set_default_gdb4hpc-<VERSION>
+
+
+ Certain components, files or programs contained within this package or
+ product are Copyright 2007-2019 Cray Inc. All rights reserved.

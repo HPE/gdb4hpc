@@ -1,4 +1,0 @@
-Note: this software has been modified by Arm.
-2015-11-24  Nick Clifton  <nickc@redhat.com>
-
-	* pass.s, allinsn.exp, testutils.inc: New files.

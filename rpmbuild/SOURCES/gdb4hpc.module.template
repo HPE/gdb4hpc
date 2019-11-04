@@ -1,0 +1,45 @@
+#%Module######################################################################
+ #
+ #       Module <CRAY_NAME>
+ #       (C) COPYRIGHT CRAY INC.
+ #       UNPUBLISHED PROPRIETARY INFORMATION.
+ #       ALL RIGHTS RESERVED.
+ #
+
+ set GDB4HPC_LEVEL      <VERSION>
+ set GDB4HPC_BASEDIR    <PREFIX>
+
+ setenv GDB4HPC_VERSION     $GDB4HPC_LEVEL
+ setenv GDB4HPC_INSTALL_DIR $GDB4HPC_BASEDIR
+ setenv GDB4HPC_DIR         $GDB4HPC_BASEDIR
+ setenv GDB4HPC_LIB_DIR     $GDB4HPC_BASEDIR/lib
+
+ append-path    PE_PRODUCT_LIST   GDB4HPC
+ prepend-path   PATH $GDB4HPC_BASEDIR/bin
+ prepend-path   MANPATH $GDB4HPC_BASEDIR/man
+
+ global env
+
+ conflict <CRAY_NAME>
+
+ if { [ file exists ${GDB4HPC_BASEDIR}/release_info ] } {
+       set REL_INFO [ exec cat ${GDB4HPC_BASEDIR}/release_info ]
+    } else {
+       set REL_INFO ""
+    }
+
+ proc ModulesHelp { } {
+    global GDB4HPC_BASEDIR
+    global GDB4HPC_LEVEL
+    global REL_INFO
+    puts stderr "The modulefile defines the system paths and"
+    puts stderr "variables for the product <CRAY_NAME>."
+    puts stderr "$REL_INFO"
+    puts stderr "============================================="
+    puts stderr "To re-display <CRAY_NAME>/$GDB4HPC_LEVEL release information,"
+    puts stderr "type:    less $GDB4HPC_BASEDIR/release_info"
+    puts stderr "==============================================\n"
+    puts stderr ""
+ }
+
+module-whatis   "Loads the Cray Line Mode Parallel Debugger."

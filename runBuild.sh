@@ -40,7 +40,7 @@ module load gcc/$gcc_ver
 check_exit_status $? "module load gcc/$gcc_ver"
 
 module load cray-cdst-support
-check_exit_status $? "module load-cray-cdst-support"
+check_exit_status $? "module load cray-cdst-support"
 
 module load cray-cti-devel
 check_exit_status $? "module load cray-cti-devel"
@@ -208,7 +208,7 @@ fi
 # ensure submodule is checked out
 if [ ! -f $top_level/third_party/mrnet/README ]
 then
-    echo "gdb submodule not checked out..."
+    echo "MRNet submodule not checked out..."
     exit 1
 fi
 

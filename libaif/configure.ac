@@ -4,7 +4,7 @@ AC_INIT([libaif],
 	[http://messagelab.monash.edu.au/Guard])
 AC_CONFIG_SRCDIR([aif.h])
 AC_CONFIG_AUX_DIR([config])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 AC_MSG_NOTICE([Configuring libaif])
 
@@ -14,6 +14,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_AR
 AC_PROG_RANLIB
 AC_PROG_INSTALL
 
@@ -40,6 +41,7 @@ fi
 
 # Checks for header files.
 AC_HEADER_STDC
+AC_CHECK_HEADER_STDBOOL
 AC_CHECK_HEADERS([fcntl.h memory.h stdlib.h string.h sys/param.h unistd.h values.h strings.h sys/time.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -53,7 +55,7 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([memmove memset strchr strdup strerror strrchr strstr strtol strtoul strdup])
+AC_CHECK_FUNCS([memmove memset sqrt strchr strdup strerror strrchr strstr strtol strtoul strdup])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

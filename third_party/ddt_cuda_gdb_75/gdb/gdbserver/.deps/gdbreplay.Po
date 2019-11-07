@@ -1,8 +1,0 @@
-gdbreplay.o: gdbreplay.c config.h build-gnulib-gdbserver/config.h \
-  build-gnulib-gdbserver/import/string.h
-
-config.h:
-
-build-gnulib-gdbserver/config.h:
-
-build-gnulib-gdbserver/import/string.h:

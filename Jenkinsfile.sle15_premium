@@ -16,4 +16,5 @@
 sles15PremiumPE {
     specfile = "gdb4hpc.spec"
     timeout = 60
+    product = "pe-base"
 }

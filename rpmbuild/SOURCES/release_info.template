@@ -36,7 +36,7 @@ Purpose:
 
 Product and OS Dependencies:
 -----------------------------
-  The Cray CTI <VERSION> release is supported on the following Cray systems:
+  The gdb4hpc <VERSION> is supported on the following Cray systems:
     - Cray Shasta systems
 
   Product Dependencies:
@@ -59,8 +59,8 @@ Installation instructions:
       rpm -ivh gdb4hpc-<VERSION>-<RELEASE>.<ARCH>.rpm
 
       To make gdb4hpc <VERSION> the default version of gdb4hpc, execute:
-      /opt/cray/admin-pe/set_default_files/set_default_gdb4hpc-<VERSION>
+      <CRAY_PREFIX>/admin-pe/set_default_files/set_default_gdb4hpc_<VERSION>
 
 
- Certain components, files or programs contained within this package or
- product are Copyright 2007-2019 Cray Inc. All rights reserved.
+Certain components, files or programs contained within this package or product are
+<COPYRIGHT>

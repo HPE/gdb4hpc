@@ -255,7 +255,7 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	MISessionSetGDBPath(sess, "gdb-guard");
 
 	// set the data directory to use the installed data dir
-	Asprintf(&data_dir, "%s/lib/gdb", env_base_dir);
+	Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
 	MISessionSetGDBDataDirectory(sess, data_dir);
 	Free(data_dir);
 

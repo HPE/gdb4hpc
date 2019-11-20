@@ -121,7 +121,7 @@ fi
 cd $top_level/third_party/ddt_gdb-8.1
 check_exit_status $? cd
 
-./configure --disable-werror --prefix=$install_dir --without-guile --disable-rpath --without-separate-debug-dir --with-mmalloc --with-python=$python_loc --without-babeltrace
+./configure --disable-werror --prefix=$install_dir --with-gdb-datadir=$install_dir/share/gdb --without-guile --without-separate-debug-dir --with-mmalloc --with-python=$python_loc --without-babeltrace
 check_exit_status $? configure
 
 make $j_flags

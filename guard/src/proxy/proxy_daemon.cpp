@@ -87,21 +87,21 @@ NewProxyInstance(int id, proxy_type *inst)
 	proxy_instance *	obj = (proxy_instance *)Alloc(sizeof(proxy_instance));
 	// memset everything to 0
 	memset(obj, 0, sizeof(proxy_instance));
-	
+
 	obj->clnt_id = id;
 	obj->inst = inst;
-	
+
 	AddToList(instances, obj);
 }
 
 static void
 FreeProxyInstance(proxy_type *inst)
 {
-	proxy_instance *	obj;	
-	
+	proxy_instance *	obj;
+
 	if (inst == NULL)
 		return;
-		
+
 	// find the obj associated with this instance
 	SetList(instances);
 	while ((obj = (proxy_instance *)GetListElement(instances)) != NULL)
@@ -109,10 +109,10 @@ FreeProxyInstance(proxy_type *inst)
 		if (obj->inst == inst)
 		{
 			RemoveFromList(instances, obj);
-			
+
 			FreeProxyType(obj->inst);
 			Free(obj);
-			
+
 			return;
 		}
 	}
@@ -124,13 +124,13 @@ GetProxyTypeFromClntId(int id)
 	proxy_instance *	obj;
 
 	SetList(instances);
-	
+
 	while ((obj = (proxy_instance *)GetListElement(instances)) != NULL)
 	{
 		if (obj->clnt_id == id)
 			return obj->inst;
 	}
-	
+
 	return NULL;
 }
 
@@ -138,15 +138,15 @@ static proxy_type *
 GetProxyTypeFromInstId(int id)
 {
 	proxy_instance *	obj;
-	
+
 	SetList(instances);
-	
+
 	while ((obj = (proxy_instance *)GetListElement(instances)) != NULL)
 	{
 		if (PROXY_ID(obj->inst) == id)
 			return obj->inst;
 	}
-	
+
 	return NULL;
 }
 
@@ -165,7 +165,7 @@ CleanupOnSocketClose(void)
 	{
 		// Reset the DbgInvokeList
 		SetList(DbgInvokeList);
-		
+
 		// Loop through each dbginvoke entry and call its exit function
 		while ( (di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != (dbginvoke_t *)NULL )
 		{
@@ -179,57 +179,57 @@ CleanupOnSocketClose(void)
 					detach = 0;
 					break;
 			}
-			
+
 			// ensure the send_cmd function is implemented
 			if ( DBG_PROTO_SW(di)->sw_send_cmd != NULL )
 			{
 				// TODO: how to handle error?
-				
+
 				// Create the quit command
 				request = CommandToSocProto(DBGCMD_QUIT, detach);
-				
+
 				// send the command to every rank
 				recv_set = DBG_PROTO_SW(di)->sw_send_cmd(di, di->d_bitset_full, request);
-				
+
 				Free(request);
-				
+
 				// ensure the recv_reply function is implemented
 				if ( DBG_PROTO_SW(di)->sw_recv_reply != NULL )
 				{
 					// TODO: how to handle error?
-				
+
 					pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di, di->d_bitset_full, recv_set);
-					
+
 					// We don't care about actually processing the reply, since this is the
 					// cleanup on error case. We want to ensure that we received an asynch
 					// reply.
-					
+
 					// cleanup
 					FreeProtoMsgSet(pmsg_set);
 				}
-				
+
 				bitset_free(recv_set);
 			}
-			
+
 			// It is now safe to exit
-			
+
 			// ensure the exit function is implemented
 			if (DBG_PROTO_SW(di)->sw_exit != NULL)
 			{
 				// call the exit function
 				DBG_PROTO_SW(di)->sw_exit(di, detach);
 			}
-			
+
 			// Cleanup the dbginvoke, we are done with it.
 			FreeDbgInvoke(di);
 		}
 	}
-	
+
 	// Free all the instances
 	if (!EmptyList(instances))
 	{
 		SetList(instances);
-	
+
 		while ((obj = (proxy_instance *)GetListElement(instances)) != NULL)
 		{
 			FreeProxyInstance(obj->inst);
@@ -245,31 +245,31 @@ static int
 checkDirPerms(const char *dir)
 {
 	struct stat		st;
-	
+
 	if (dir == NULL)
 		return -1;
-	
+
 	// Stat the tmp_dir
 	if (stat(dir, &st))
 	{
 		// could not stat the directory
 		return -1;
 	}
-	
+
 	// check to see if the user id is the same as this directory
 	if (st.st_uid == getuid())
 	{
 		// Check the user perms
 		return ((st.st_mode & S_IRWXU) ? 0:-1);
 	}
-	
+
 	// check to see if the group id is the same as the directory
 	if (st.st_gid == getgid())
 	{
 		// Check the group perms
 		return ((st.st_mode & S_IRWXG) ? 0:-1);
 	}
-	
+
 	// Check the other perms
 	return ((st.st_mode & S_IRWXO) ? 0:-1);
 }
@@ -278,10 +278,10 @@ static void
 setupCfgDir(const char *dir)
 {
 	struct stat		st;
-	
+
 	if (dir == NULL)
 		return;
-		
+
 	// try to stat the directory
 	if (stat(dir, &st))
 	{
@@ -316,7 +316,7 @@ SetupEnvironment(void)
 	char *				cfg_dir;
 	char *				env_lib_dir;
 	char *				home_dir;
-	
+
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH
 	// of our process
 	if ((inst_base = getinstallbase()) == NULL)
@@ -327,23 +327,11 @@ SetupEnvironment(void)
 	// create the path strings
 	Asprintf(&lib_dir, "%s/lib", inst_base);
 	Asprintf(&libexec_dir, "%s/libexec", inst_base);
-	
+
 	// Set the environment variables
 	adjustLibPath(lib_dir);
 	adjustExecPath(libexec_dir);
-	// Ensure GDB4HPC_LIB_DIR is set, otherwise set it to lib_dir
-	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
-	{
-		// Not found, we should set this to our lib_dir
-		setenv(GUARD_LIB_DIRECTORY, lib_dir, 1);
-	}
-	// Ensure GUARD_INST_DIRECTORY is set, otherwise set it to inst_base
-	if ((env_lib_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
-	{
-		// Not found, we should set this to our lib_dir
-		setenv(GUARD_INST_DIRECTORY, inst_base, 1);
-	}
-	
+
 	// get the cfg dir settings - note that slurm can put us on an actual
 	// compute node, meaning that we might need to reset the cfg dir.
 	if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)
@@ -351,15 +339,15 @@ SetupEnvironment(void)
 		// Not found.
 		// We now want to use $HOME since this will contain guard only files
 		// like editline history files.
-		
+
 reinit_directory:
-		
+
 		if ((home_dir = getenv("HOME")) == NULL)
 		{
 			PrintOutError("Could not read $HOME. Aborting...\n");
 			exit(1);
 		}
-		
+
 		// Check if we can write to HOME
 		if (checkDirPerms(home_dir))
 		{
@@ -367,50 +355,50 @@ reinit_directory:
 			PrintOutError("No write permission for $HOME. Aborting...\n");
 			exit(1);
 		}
-		
+
 		// Create the directory name string
 		Asprintf(&cfg_dir, "%s/.gdb4hpc", home_dir);
-		
+
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
 		Free(cfg_dir);
-		
+
 	} else
 	{
 		// The user set GUARD_CFG_DIRECTORY, so we *ALWAYS* want to use that
 		struct passwd *		pw;
 		char *				tmp_dir;
-		
+
 		// Check to see if we can write to this directory
 		if (checkDirPerms(cfg_dir))
 		{
 			// fix for slurm
 			goto reinit_directory;
 		}
-		
+
 		// Lets create a unique directory just in case the user gave us some
 		// weird location that others can access
-		
+
 		// Get the pw info, this is used in the unique name part of cfg directories
 		if ((pw = getpwuid(getuid())) == NULL)
 		{
 			PrintOutError("getpwuid() failed. Aborting...\n");
 			exit(1);
 		}
-	
+
 		tmp_dir = cfg_dir;
 		cfg_dir = NULL;
 		Asprintf(&cfg_dir, "%s/.gdb4hpc-%s", tmp_dir, pw->pw_name);
-		
+
 		DPRINT("Using %s as proxy staging area.\n", cfg_dir);
-		
+
 		// Setup/create this directory
 		setupCfgDir(cfg_dir);
 		setenv(GUARD_CFG_DIRECTORY, cfg_dir, 1);
 		Free(cfg_dir);
 	}
-	
+
 	Free(lib_dir);
 	Free(libexec_dir);
 	Free(inst_base);
@@ -429,18 +417,18 @@ main(int argc, char **argv)
 	struct addrinfo		hints;	// hints object for call to getaddrinfo
 	int					tries = 0;
 	dbgclnt_proto *		ptab;
-	
+
 	// Setup
-	
+
 	// Ensure the environment has been setup, otherwise set it up and re-exec
 	// This is required because otherwise dlopen's will be fubared.
 	// This needs to use a different env var than the client, otherwise the
-	// env might have been forwarded but directories might not have been 
+	// env might have been forwarded but directories might not have been
 	// created.
 	if (getenv(PROXY_ENV_SETUP) == NULL)
 	{
 		char *exe_path;
-	
+
 		SetupEnvironment();
 		// Done. Set the proper environment variable so that we don't have an infinite
 		// loop here.
@@ -448,7 +436,7 @@ main(int argc, char **argv)
 		exe_path = getexepath();
 		execve(exe_path, argv, environ);
 	}
-	
+
 	// Close stdin/stdout/stderr for the non-debug case
 #ifndef DEBUG
 	close(0);
@@ -458,23 +446,23 @@ main(int argc, char **argv)
 	open("/dev/null", O_WRONLY);
 	open("/dev/null", O_WRONLY);
 #endif
-	
+
 	DPRINT("Proxy daemon started.\n");
-	
+
 #ifdef DEBUG
 	char	lhost[MAXHOSTNAMELEN];
-	
+
 	if (gethostname(lhost, MAXHOSTNAMELEN-1) == 0)
 	{
 		DPRINT("I am running on %s.\n", lhost);
 	}
 #endif
-	
+
 	memset(&hints, 0, sizeof(hints));	// ensure the hints struct is cleared
 	hints.ai_family = AF_UNSPEC;		// use AF_INET6 to force IPv6
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_NUMERICSERV;
-	
+
 	//
 	// Process user provided arguments
 	//
@@ -493,7 +481,7 @@ main(int argc, char **argv)
 				}
 				hostname = strdup(optarg);
 				break;
-				
+
 			case 'p':
 				if (optarg == (char *)NULL)
 				{
@@ -502,26 +490,26 @@ main(int argc, char **argv)
 				}
 				port = strdup(optarg);
 				break;
-			
+
 			default:
 				PrintOutError("Invalid argument provided.\n");
 				return 1;
 		}
 	}
-	
+
 	// ensure arguments were provided
 	if (hostname == NULL)
 	{
 		PrintOutError("Error: Missing argument --hostname.\n");
 		return 1;
 	}
-	
+
 	if (port == NULL)
 	{
 		PrintOutError("Error: Missing argument --port.\n");
 		return 1;
 	}
-	
+
 	// get the addrinfo of the hostname
 	if ((rc = getaddrinfo(hostname, port, &hints, &host)) != 0)
 	{
@@ -529,7 +517,7 @@ main(int argc, char **argv)
 		// Handle error
 		return 1;
 	}
-	
+
 	// Create a new session
 	sess = NewProxySession();
 
@@ -540,17 +528,17 @@ main(int argc, char **argv)
 		// Handle error
 		return 1;
 	}
-	
+
 	// Set the command socket to TCP_NODELAY
 	sopt = 1;
-	if (setsockopt(PROXY_SESSION_CMDFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+	if (setsockopt(PROXY_SESSION_CMDFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 	{
 		// Non-fatal error
 		perror("setsockopt(TCP_NODELAY)");
 	}
-	
+
 	// Connect the cmd socket to host
-	while (connect(PROXY_SESSION_CMDFD(sess), host->ai_addr, host->ai_addrlen)) 
+	while (connect(PROXY_SESSION_CMDFD(sess), host->ai_addr, host->ai_addrlen))
 	{
 		perror("connect");
 		sleep(1);
@@ -560,26 +548,26 @@ main(int argc, char **argv)
 			return 1;
 		}
 	}
-	
+
 	tries = 0;
-	
+
 	// Create the error socket
 	if ((PROXY_SESSION_ERRORFD(sess) = socket(host->ai_family, host->ai_socktype, host->ai_protocol)) < 0)
 	{
 		perror("socket");
 		return 1;
 	}
-	
+
 	// Set the error socket to TCP_NODELAY
 	sopt = 1;
-	if (setsockopt(PROXY_SESSION_ERRORFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+	if (setsockopt(PROXY_SESSION_ERRORFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 	{
 		// Non-fatal error
 		perror("setsockopt(TCP_NODELAY)");
 	}
-				
+
 	// Connect the error socket to host
-	while (connect(PROXY_SESSION_ERRORFD(sess), host->ai_addr, host->ai_addrlen)) 
+	while (connect(PROXY_SESSION_ERRORFD(sess), host->ai_addr, host->ai_addrlen))
 	{
 		perror("connect");
 		sleep(1);
@@ -588,33 +576,33 @@ main(int argc, char **argv)
 			return 1;
 		}
 	}
-	
+
 	// Create a file stream for the error socket.
 	PROXY_SESSION_ERRORSTREAM(sess) = fdopen(PROXY_SESSION_ERRORFD(sess), "w");
-	
+
 	// Set the stream to be line buffered
 	setlinebuf(PROXY_SESSION_ERRORSTREAM(sess));
-	
+
 	// set the global error stream
 	err_stream = PROXY_SESSION_ERRORSTREAM(sess);
-	
+
 	// Create the message socket
 	if ((PROXY_SESSION_MSGFD(sess) = socket(host->ai_family, host->ai_socktype, host->ai_protocol)) < 0)
 	{
 		perror("socket");
 		return 1;
 	}
-	
+
 	// Set the message socket to TCP_NODELAY
 	sopt = 1;
-	if (setsockopt(PROXY_SESSION_MSGFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+	if (setsockopt(PROXY_SESSION_MSGFD(sess), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 	{
 		// Non-fatal error
 		perror("setsockopt(TCP_NODELAY)");
 	}
-	
+
 	// Connect the message socket to host
-	while (connect(PROXY_SESSION_MSGFD(sess), host->ai_addr, host->ai_addrlen)) 
+	while (connect(PROXY_SESSION_MSGFD(sess), host->ai_addr, host->ai_addrlen))
 	{
 		perror("connect");
 		sleep(1);
@@ -623,16 +611,16 @@ main(int argc, char **argv)
 			return 1;
 		}
 	}
-	
+
 	// Create a file stream for the message socket.
 	PROXY_SESSION_MSGSTREAM(sess) = fdopen(PROXY_SESSION_MSGFD(sess), "w");
-	
+
 	// Set the stream to be line buffered
 	setlinebuf(PROXY_SESSION_MSGSTREAM(sess));
-	
+
 	// create a new instance list to hold onto proxy_type instances
 	instances = NewList();
-	
+
 	// initialize the protocols
 	// TODO: Allow this to select any protocol, other than the hardcoded
 	//       mrnet we see now.
@@ -641,14 +629,14 @@ main(int argc, char **argv)
 		// Handle error
 		return 1;
 	}
-	
+
 	// call the init function
 	if ( ptab->sw_init != NULL && !ptab->sw_init() )
 	{
 		// Handle error
 		return 1;
 	}
-	
+
 	for ( ;; )
 	{
 		switch ( DbgCheckEvents() )
@@ -663,27 +651,27 @@ main(int argc, char **argv)
 					continue;
 				}
 				break;
-			
+
 			default:
 				DbgDispatchEvents();
 		}
-		
+
 		if (Quit)
 			break;
 	}
-	
+
 	// call the finish function
 	// TODO: Allow this to select any protocol.
 	if (ptab->sw_finish != NULL)
 	{
 		ptab->sw_finish();
 	}
-	
+
 	return 0;
 }
 
 /*
-** Main debugger event handler. 
+** Main debugger event handler.
 **
 ** Returns: -1 if an error occurred
 **		0 if there is nothing to do
@@ -707,7 +695,7 @@ DbgCheckEvents(void)
 	/*
 	** Check if any events are ready.
 	*/
-	
+
 	// Check the protocols for each dbginvoke if there are any.
 	if (!EmptyList(DbgInvokeList))
 	{
@@ -730,7 +718,7 @@ DbgCheckEvents(void)
 				DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
 				return 1;	// there is a proto event to handle. Return immediately.
 			}
-			
+
 			/*
 			** If there is a d_evfds fd set, we want to add it to the fd_set to select on.
 			** This enables protocol events.
@@ -738,7 +726,7 @@ DbgCheckEvents(void)
 			if ( di->d_evfds != NULL )
 			{
 				SetList(di->d_evfds);
-			
+
 				while ( (ev_fd = (int *) GetListElement(di->d_evfds)) != (int *)NULL )
 				{
 					if (high_fd < *ev_fd)
@@ -750,7 +738,7 @@ DbgCheckEvents(void)
 			}
 		}
 	}
-	
+
 	/*
 	** Add the cmd stream fd of the main proxy object to the fd_set to select on. This enables commands.
 	*/
@@ -758,7 +746,7 @@ DbgCheckEvents(void)
 	{
 		high_fd = PROXY_SESSION_CMDFD(sess);
 	}
-	
+
 	FD_SET(PROXY_SESSION_CMDFD(sess), &dispatch_fds);
 
 	/*
@@ -766,7 +754,7 @@ DbgCheckEvents(void)
 	*/
 	for ( ;; )
 	{
-		// from the select manpage, nfds is the highest-numbered file descriptor in any of the three sets, plus 1. 
+		// from the select manpage, nfds is the highest-numbered file descriptor in any of the three sets, plus 1.
 		status = select(high_fd+1, &dispatch_fds, NULL, NULL, &tv);
 
 		switch ( status )
@@ -777,21 +765,21 @@ DbgCheckEvents(void)
 					case EINTR:
 						DPRINT("DbgCheckEvents: EINTR\n");
 						continue;
-					
+
 					default:
 						//DbgSetClntErr(DBGERR_SELECT, strerror(errno));
 						return -1;
 				}
 				break;
-				
+
 			case 0:
 				return 0;
-				
+
 			default:
 				return 1;
 		}
 	}
-	
+
 	// We should never reach here...
 	DPRINT("DbgCheckEvents: At final return\n");
 	return 1;
@@ -805,7 +793,7 @@ DbgDispatchEvents(void)
 {
 	dbginvoke_t *	di;
 	int *			ev_fd;
-	
+
 	/*
 	** Now dispatch any callback routines that are active.
 	*/
@@ -820,7 +808,7 @@ DbgDispatchEvents(void)
 			// if the proto is shutting down, don't dispatch further pending events
 			if (di->d_isShutdown)
 				continue;
-		
+
 			// Ensure there is a protocol specific dispatch function
 			if (DBG_PROTO_SW(di)->sw_dispatchevents != NULL)
 			{
@@ -830,13 +818,13 @@ DbgDispatchEvents(void)
 				if (di->d_evfds != NULL)
 				{
 					SetList(di->d_evfds);
-				
+
 					while ((ev_fd = (int *) GetListElement(di->d_evfds)) != (int *)NULL )
 					{
 						// if the previous event caused a shutdown, don't continue processing events
 						if (di->d_isShutdown)
 							break;
-					
+
 						if ( FD_ISSET(*ev_fd, &dispatch_fds) )
 						{
 							// dispatch each of the set notification fds one at a time.
@@ -852,7 +840,7 @@ DbgDispatchEvents(void)
 			}
 		}
 	}
-	
+
 	/*
 	** Process any commands
 	*/
@@ -871,7 +859,7 @@ DbgDispatchEvents(void)
 		int					sopt, tries=0;
 		int					detach;
 		int					n = 0;
-		
+
 		// ensure there is data to read on the cmd session socket. If there isn't, that means
 		// the socket was closed. In which case we should force things to quit since we lost
 		// our communication mechanism with the client.
@@ -885,20 +873,20 @@ DbgDispatchEvents(void)
 		{
 			CleanupOnSocketClose();
 		}
-	
+
 		// First recv the header
 		if (recv(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), MSG_WAITALL) < 0)
 		{
 			PrintOutError("Failed to recv on event socket.\n");
 			return;
 		}
-		
+
 		// Next recv the message if there is one
 		if (msg_head.msg_len > 0)
 		{
 			// Create a string buffer to receive the message
 			msg = (char *)Alloc(msg_head.msg_len);
-		
+
 			// recv the message
 			if (recv(PROXY_SESSION_CMDFD(sess), msg, msg_head.msg_len, MSG_WAITALL) < 0)
 			{
@@ -907,7 +895,7 @@ DbgDispatchEvents(void)
 				return;
 			}
 		}
-		
+
 		// switch on the msg_type
 		switch (msg_head.msg_type)
 		{
@@ -919,10 +907,10 @@ DbgDispatchEvents(void)
 					Free(msg);
 					return;
 				}
-		
+
 				// cleanup
 				Free(msg);
-				
+
 				// find the dbginvoke_t associated with this id
 				inst = GetProxyTypeFromClntId(msg_head.msg_id);
 				di = NULL;
@@ -938,9 +926,9 @@ DbgDispatchEvents(void)
 							break;
 					}
 				}
-				
+
 				// TODO: Handle error
-				
+
 				// ensure the send_cmd function is implemented
 				if ( DBG_PROTO_SW(di)->sw_send_cmd == NULL )
 				{
@@ -948,41 +936,41 @@ DbgDispatchEvents(void)
 					PrintOutError("send cmd not implemented.\n");
 					return;
 				}
-				
+
 				// Send the command
 				set = DBG_PROTO_SW(di)->sw_send_cmd(di, pmsg->group, pmsg->message);
-				
+
 				// cleanup
 				FreeProtoMsg(pmsg);
-				
+
 				// send a response back containing the set
-				
+
 				pmsg = NewProtoMsg(set, strdup(""));
 				msg = ProtoMsgToSocProto(pmsg);
-				
+
 				msg_head.msg_type = MSG_OK;
 				msg_head.msg_len = (int)strlen(msg) * sizeof(char);
-				
+
 				// Send the header
 				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 				{
 					PrintOutError("Could not send header on cmd stream.\n");
 					return;
 				}
-				
+
 				// Send the msg
 				if (send(PROXY_SESSION_CMDFD(sess), msg, msg_head.msg_len, 0) != msg_head.msg_len)
 				{
 					PrintOutError("Could not send msg on cmd stream.\n");
 					return;
 				}
-				
+
 				// cleanup
 				FreeProtoMsg(pmsg);
 				Free(msg);
-				
+
 				break;
-			
+
 			case MSG_RECV_REPLY:
 				// convert msg to a recv type
 				if ((recv_set = SocProtoToRecv(msg)) == NULL)
@@ -991,10 +979,10 @@ DbgDispatchEvents(void)
 					Free(msg);
 					return;
 				}
-				
+
 				// cleanup
 				Free(msg);
-				
+
 				// find the dbginvoke_t associated with this id
 				inst = GetProxyTypeFromClntId(msg_head.msg_id);
 				di = NULL;
@@ -1010,9 +998,9 @@ DbgDispatchEvents(void)
 							break;
 					}
 				}
-				
+
 				// TODO: Handle error
-				
+
 				// ensure the recv_reply function is implemented
 				if ( DBG_PROTO_SW(di)->sw_recv_reply == NULL )
 				{
@@ -1020,11 +1008,11 @@ DbgDispatchEvents(void)
 					PrintOutError("recv reply not implemented.\n");
 					return;
 				}
-			
+
 				pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di, recv_set->target, recv_set->received);
-				
+
 				// send the result back
-				
+
 				ResetProtoMsgSet(pmsg_set);
 				while ((pmsg = NextProtoMsgInSet(pmsg_set)) != NULL)
 				{
@@ -1032,28 +1020,28 @@ DbgDispatchEvents(void)
 					msg_head.msg_type = MSG_OK;
 					msg = ProtoMsgToSocProto(pmsg);
 					msg_head.msg_len = (int)strlen(msg) * sizeof(char);
-					
+
 					if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 					{
 						PrintOutError("Could not send header on cmd stream.\n");
 						return;
 					}
-					
+
 					// Send the msg
 					if (send(PROXY_SESSION_CMDFD(sess), msg, msg_head.msg_len, 0) != msg_head.msg_len)
 					{
 						PrintOutError("Could not send msg on cmd stream.\n");
 						return;
 					}
-					
+
 					// cleanup
 					Free(msg);
 				}
-				
+
 				// cleanup
 				FreeProtoMsgSet(pmsg_set);
 				break;
-				
+
 			case MSG_ATTACH:
 				// convert msg to an attach_args type
 				if ((att_args = SocProtoToAttachArgs(msg)) == NULL)
@@ -1072,34 +1060,34 @@ DbgDispatchEvents(void)
 					perror("socket");
 					return;
 				}
-				
+
 				// Set the event socket to TCP_NODELAY
 				sopt = 1;
-				if (setsockopt(PROXY_EVENTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+				if (setsockopt(PROXY_EVENTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 				{
 					// Non-fatal error
 					perror("setsockopt(TCP_NODELAY)");
 				}
-				
+
 				// Create the output socket
 				if ((PROXY_OUTPUTFD(inst) = socket(host->ai_family, host->ai_socktype, host->ai_protocol)) < 0)
 				{
 					perror("socket");
 					return;
 				}
-	
+
 				// Set the output socket to TCP_NODELAY since this will output fstream data
 				sopt = 1;
-				if (setsockopt(PROXY_OUTPUTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+				if (setsockopt(PROXY_OUTPUTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 				{
 					// Non-fatal error
 					perror("setsockopt(TCP_NODELAY)");
 				}
-	
+
 				/* Connect the sockets */
-	
+
 				// Connect the event socket to host
-				while (connect(PROXY_EVENTFD(inst), host->ai_addr, host->ai_addrlen)) 
+				while (connect(PROXY_EVENTFD(inst), host->ai_addr, host->ai_addrlen))
 				{
 					perror("connect");
 					sleep(1);
@@ -1108,11 +1096,11 @@ DbgDispatchEvents(void)
 						return;
 					}
 				}
-				
+
 				tries = 0;
-	
+
 				// Connect the output socket to host
-				while (connect(PROXY_OUTPUTFD(inst), host->ai_addr, host->ai_addrlen)) 
+				while (connect(PROXY_OUTPUTFD(inst), host->ai_addr, host->ai_addrlen))
 				{
 					perror("connect");
 					sleep(1);
@@ -1121,13 +1109,13 @@ DbgDispatchEvents(void)
 						return;
 					}
 				}
-	
+
 				// Create a file stream for the output socket.
 				PROXY_OUTPUTSTREAM(inst) = fdopen(PROXY_OUTPUTFD(inst), "w");
-	
+
 				// Set the stream to be line buffered
 				setlinebuf(PROXY_OUTPUTSTREAM(inst));
-	
+
 				// Set the protocol based on the proto arg
 				// TODO: Allow this to select any protocol, other than the hardcoded
 				//       mrnet we see now.
@@ -1136,11 +1124,11 @@ DbgDispatchEvents(void)
 					// Handle error
 					return;
 				}
-				
+
 				// Create the dbginvoke_t object to pass down, nproc is unknown since this
 				// is the attach case
 				di = NewDbgInvoke(0, ptab);
-	
+
 				// Call the protocol specific attach function
 				// TODO: This could be modified to allow for multiple proxy invocations,
 				//       to support multiple hops, but that is not required right now...
@@ -1153,25 +1141,25 @@ DbgDispatchEvents(void)
 					FreeDbgInvoke(di);
 					return;
 				}
-									
+
 				// cleanup attach args
 				FreeAttachArgs(att_args);
-				
+
 				// set the proto id in the di
 				di->d_proto_id = PROXY_ID(inst);
-				
+
 				// Create a proxy_instance object to associate the client id with our id
 				NewProxyInstance(msg_head.msg_id, inst);
-				
+
 				// Send the DBG_OK event for the entire set
 				set = bitset_new(di->d_nproc);
 				bitset_invert(set);
 				pmsg_set = NewProtoMsgSet();
 				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
 				DbgDispatchProtoEvents(di, pmsg_set);
-				
+
 				break;
-			
+
 			case MSG_INVOKE:
 				// convert msg to an invoke_args type
 				if ((inv_args = SocProtoToInvokeArgs(msg)) == NULL)
@@ -1190,34 +1178,34 @@ DbgDispatchEvents(void)
 					perror("socket");
 					return;
 				}
-				
+
 				// Set the event socket to TCP_NODELAY
 				sopt = 1;
-				if (setsockopt(PROXY_EVENTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+				if (setsockopt(PROXY_EVENTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 				{
 					// Non-fatal error
 					perror("setsockopt(TCP_NODELAY)");
 				}
-	
+
 				// Create the output socket
 				if ((PROXY_OUTPUTFD(inst) = socket(host->ai_family, host->ai_socktype, host->ai_protocol)) < 0)
 				{
 					perror("socket");
 					return;
 				}
-	
+
 				// Set the output socket to TCP_NODELAY since this will output fstream data
 				sopt = 1;
-				if (setsockopt(PROXY_OUTPUTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0) 
+				if (setsockopt(PROXY_OUTPUTFD(inst), IPPROTO_TCP, TCP_NODELAY, &sopt, sizeof(sopt)) < 0)
 				{
 					// Non-fatal error
 					perror("setsockopt(TCP_NODELAY)");
 				}
-	
+
 				/* Connect the sockets */
-	
+
 				// Connect the event socket to host
-				while (connect(PROXY_EVENTFD(inst), host->ai_addr, host->ai_addrlen)) 
+				while (connect(PROXY_EVENTFD(inst), host->ai_addr, host->ai_addrlen))
 				{
 					perror("connect");
 					sleep(1);
@@ -1226,11 +1214,11 @@ DbgDispatchEvents(void)
 						return;
 					}
 				}
-				
+
 				tries = 0;
-	
+
 				// Connect the output socket to host
-				while (connect(PROXY_OUTPUTFD(inst), host->ai_addr, host->ai_addrlen)) 
+				while (connect(PROXY_OUTPUTFD(inst), host->ai_addr, host->ai_addrlen))
 				{
 					perror("connect");
 					sleep(1);
@@ -1239,13 +1227,13 @@ DbgDispatchEvents(void)
 						return;
 					}
 				}
-	
+
 				// Create a file stream for the output socket.
 				PROXY_OUTPUTSTREAM(inst) = fdopen(PROXY_OUTPUTFD(inst), "w");
-	
+
 				// Set the stream to be line buffered
 				setlinebuf(PROXY_OUTPUTSTREAM(inst));
-	
+
 				// Set the protocol based on the proto arg
 				// TODO: Allow this to select any protocol, other than the hardcoded
 				//       mrnet we see now.
@@ -1254,15 +1242,15 @@ DbgDispatchEvents(void)
 					// Handle error
 					return;
 				}
-				
+
 				// Create the dbginvoke_t object to pass down
 				di = NewDbgInvoke(inv_args->nproc, ptab);
-	
+
 				// Call the protocol specific invoke function
 				// TODO: This could be modified to allow for multiple proxy invocations,
 				//       to support multiple hops, but that is not required right now...
-				if (ptab->sw_invoke(	di, NULL, inv_args->prog, inv_args->argv, inv_args->arch, 
-										inv_args->arch_args, inv_args->arch_input, inv_args->backend, inv_args->env, 
+				if (ptab->sw_invoke(	di, NULL, inv_args->prog, inv_args->argv, inv_args->arch,
+										inv_args->arch_args, inv_args->arch_input, inv_args->backend, inv_args->env,
 										inv_args->cwd, inv_args->gpu_flag, inv_args->debug_flag, inv_args->early_entry_flag
 									))
 				{
@@ -1271,68 +1259,68 @@ DbgDispatchEvents(void)
 					FreeDbgInvoke(di);
 					return;
 				}
-				
+
 				// set the proto id in the di
 				di->d_proto_id = PROXY_ID(inst);
-				
+
 				// Create a proxy_instance object to associate the client id with our id
 				NewProxyInstance(msg_head.msg_id, inst);
-				
+
 				// cleanup invoke args
 				FreeInvokeArgs(inv_args);
-				
+
 				// Send the DBG_OK event for the entire set
 				set = bitset_new(di->d_nproc);
 				bitset_invert(set);
 				pmsg_set = NewProtoMsgSet();
 				AddProtoMsgSet(pmsg_set, NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
 				DbgDispatchProtoEvents(di, pmsg_set);
-				
+
 				break;
-				
+
 			case MSG_SAVE_SESSION:
 				// Set this session as valid
 				PROXY_SESSION_VALID(sess) = 1;
-				
+
 				// Send the MSG_OK response
 				msg_head.msg_id = -1;
 				msg_head.msg_len = 0;
 				msg_head.msg_type = MSG_OK;
-				
+
 				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 				{
 					PrintOutError("Could not send header on cmd stream.\n");
 				}
-				
+
 				break;
-				
+
 			case MSG_CLEANUP_SESSION:
 				// Set this session as invalid
 				PROXY_SESSION_VALID(sess) = 0;
-				
+
 				// Send the MSG_OK response
 				msg_head.msg_id = -1;
 				msg_head.msg_len = 0;
 				msg_head.msg_type = MSG_OK;
-				
+
 				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 				{
 					PrintOutError("Could not send header on cmd stream.\n");
 				}
-				
+
 				// Call the cleanup function to ensure it gets cleaned up if there are no longer
 				// any valid instances connected with the session. This might cause us to exit.
 				CleanupProxySession(sess);
-				
+
 				break;
-			
+
 			case MSG_EXIT:
 				// convert msg to exit args
 				detach = SocProtoToExitArgs(msg);
-				
+
 				// cleanup
 				Free(msg);
-				
+
 				// find the dbginvoke_t associated with this id
 				inst = GetProxyTypeFromClntId(msg_head.msg_id);
 				di = NULL;
@@ -1348,9 +1336,9 @@ DbgDispatchEvents(void)
 							break;
 					}
 				}
-				
+
 				// TODO: Handle error
-				
+
 				// ensure the exit function is implemented
 				if ( di != NULL && DBG_PROTO_SW(di)->sw_exit != NULL )
 				{
@@ -1374,24 +1362,24 @@ DbgDispatchEvents(void)
 						msg_head.msg_type = MSG_ERROR;
 					}
 				}
-				
+
 				// Send just the header back in response
 				msg_head.msg_len = 0;
-				
+
 				// Send the header
 				if (send(PROXY_SESSION_CMDFD(sess), &msg_head, sizeof(proxy_msg_header), 0) != sizeof(proxy_msg_header))
 				{
 					PrintOutError("Could not send header on cmd stream.\n");
 					return;
 				}
-				
+
 				// Cleanup the proxy instance, we are done with it.
 				if (di != NULL)
 					FreeDbgInvoke(di);
 				FreeProxyInstance(inst);
-				
+
 				break;
-				
+
 			case MSG_OK:
 			case MSG_ERROR:
 				// These should not be called!
@@ -1407,19 +1395,19 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 	char *				msg;
 	proxy_msg_header	msg_head;
 	proxy_type *		inst;
-	
+
 	if (set == NULL)
 		return 0;
-		
+
 	// get the proxy_type from the instance id
 	inst = GetProxyTypeFromInstId(di->d_proto_id);
-	
+
 	ResetProtoMsgSet(set);
 	while((pmsg = NextProtoMsgInSet(set)) != NULL)
 	{
 		// Convert this to a string
 		msg = ProtoMsgToSocProto(pmsg);
-	
+
 		// Send the header
 		msg_head.msg_len = (int)strlen(msg) * sizeof(char);
 		msg_head.msg_type = MSG_OK;
@@ -1428,41 +1416,41 @@ DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set)
 			PrintOutError("Could not send header on event stream.\n");
 			return 0;
 		}
-		
+
 		// Send the msg
 		if (send(PROXY_EVENTFD(inst), msg, msg_head.msg_len, 0) != msg_head.msg_len)
 		{
 			PrintOutError("Could not send msg on event stream.\n");
 			return 0;
 		}
-		
+
 		// Done with msg
 		Free(msg);
 	}
-	
+
 	return 1;
 }
 
-void		
+void
 DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream)
 {
 	proxy_type *	inst;
 	char *			line;
-	
+
 	if (di == NULL || p_o_stream == NULL)
 		return;
-	
+
 	// get the proxy_type from the instance id
 	inst = GetProxyTypeFromInstId(di->d_proto_id);
-	
+
 	// Output a program line recieved on the program output pipe
 	line = (char *)Alloc(BUFSIZ);
-	
+
 	while (fgets(line, BUFSIZ, p_o_stream) > 0)
 	{
 		fprintf(PROXY_OUTPUTSTREAM(inst), "%s", line);
 	}
-				
+
 	Free(line);
 }
 
@@ -1473,16 +1461,16 @@ void
 PrintOutError(char *format, ...)
 {
 	va_list arg_list;
-	
+
 	// sanity
 	if (PROXY_SESSION_ERRORSTREAM(sess) == NULL)
 		return;
-	
+
 	va_start(arg_list, format);
-	
+
 	// vfprintf the line we recieved
 	vfprintf(PROXY_SESSION_ERRORSTREAM(sess), format, arg_list);
-	
+
 	// end the va_list
 	va_end(arg_list);
 }
@@ -1494,16 +1482,16 @@ void
 PrintOutMsg(char *format, ...)
 {
 	va_list arg_list;
-	
+
 	// sanity
 	if (PROXY_SESSION_MSGSTREAM(sess) == NULL)
 		return;
-	
+
 	va_start(arg_list, format);
-	
+
 	// vfprintf the line we recieved
 	vfprintf(PROXY_SESSION_MSGSTREAM(sess), format, arg_list);
-	
+
 	// end the va_list
 	va_end(arg_list);
 }

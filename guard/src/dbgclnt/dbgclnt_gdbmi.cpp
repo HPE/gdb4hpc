@@ -205,26 +205,6 @@ setup_gdbmi_environment(MISession *sess)
 	}
 	MICommandFree(cmd);
 
-	// set data-directory to where the pretty printers reside
-	char * libDir = getenv(GUARD_LIB_DIRECTORY);
-	char * gdbDataDir;
-	if (libDir == NULL)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_LIB_DIRECTORY);
-		return e;
-	}
-	Asprintf(&gdbDataDir, "%s/gdb", libDir);
-	cmd = MIGDBSet("data-directory", gdbDataDir);
-	SendMICommand_fe(sess, cmd);
-	if (!MICommandResultOK(cmd))
-	{
-		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set data-directory command failed.");
-		return e;
-	}
-	MICommandFree(cmd);
-	Free(gdbDataDir);
-
 	return NULL;
 }
 
@@ -234,8 +214,6 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	dbgevent_t *	e;
 	MISession * 	sess = (MISession *)fe_obj->dbg_session;
 	char *			str;
-	char *			env_base_dir;
-	char *			data_dir;
 
 	DPRINT("*** DbgGDBMIInit_fe\n");
 
@@ -244,20 +222,17 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	MISessionRegisterLogCallback(sess, log_callback);
 	MISessionRegisterTargetCallback(sess, target_callback);*/
 
-	// Get the base dir env var
-	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not getenv %s.", GUARD_INST_DIRECTORY);
-		return e;
-	}
-
 	// set the gdb path to use gdb-guard
 	MISessionSetGDBPath(sess, "gdb-guard");
 
-	// set the data directory to use the installed data dir
-	Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
-	MISessionSetGDBDataDirectory(sess, data_dir);
-	Free(data_dir);
+	// Get the base dir env var and setup data-dir if the env var is set
+	char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
+	if (env_base_dir != NULL) {
+		char *			data_dir;
+		Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
+		MISessionSetGDBDataDirectory(sess, data_dir);
+		Free(data_dir);
+	}
 
 	if (MISessionStartLocal(sess, NULL) < 0)
 	{

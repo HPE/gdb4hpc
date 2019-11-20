@@ -163,10 +163,9 @@ DbgMRNAttach(
 	char **				tmp;
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
-	char * 				env_lib_dir = NULL;
-	char *				gdb_lib_dir = NULL;
 	cti_wlm_type_t		wlm;
-	char * beDirStr = NULL;
+	char *				env_base_dir = NULL;
+
 
 #ifdef DEBUG
 	dbg = 1;
@@ -403,24 +402,6 @@ DbgMRNAttach(
 		goto attach_error;
 	}
 
-	// Get the libdir env var
-	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
-	{
-		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
-		goto attach_error;
-	}
-
-	// Now add the gdb pretty printers
-	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
-	if (cti_addManifestLibDir(mid, gdb_lib_dir))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add gdb pretty printers to manifest.\n");
-		goto attach_error;
-	}
-	Free(gdb_lib_dir);
-	gdb_lib_dir = NULL;
-
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -635,16 +616,10 @@ DbgMRNAttach(
 		}
 	}
 
-	// Setup PYTHONHOME
-	beDirStr = cti_getSessionRootDir(sid);
-	if (beDirStr == NULL)
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
-		goto attach_error;
+	// Forward GUARD_INST_DIRECTORY if set
+	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+		Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_INST_DIRECTORY, env_base_dir);
 	}
-	Asprintf(&env_vars[env_var_cnt++], "PYTHONHOME=%s", beDirStr);
-	Free(beDirStr);
 
 	DPRINT("Launching debug servers onto compute nodes.\n");
 
@@ -798,9 +773,6 @@ attach_error:
 		di->d_appid = 0;
 	}
 
-	if (gdb_lib_dir != NULL)
-		Free(gdb_lib_dir);
-
 	if (network != NULL)
 	{
 		mrn_fe_delete_network(network);
@@ -932,10 +904,9 @@ DbgMRNInvoke(
 	char **				machine_hosts = NULL;
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
-	char * 				env_lib_dir;
-	char *				gdb_lib_dir = NULL;
 	char **				args = NULL;
 	char *				beDirStr = NULL;
+	char *				env_base_dir = NULL;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -1164,24 +1135,6 @@ DbgMRNInvoke(
 		goto invoke_error;
 	}
 
-	// Get the libdir env var
-	if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
-	{
-		PrintOutError("Failed to getenv on %s. Please check your environment setup.\n", GUARD_LIB_DIRECTORY);
-		goto invoke_error;
-	}
-
-	// Now add the gdb pretty printers
-	Asprintf(&gdb_lib_dir, "%s/gdb", env_lib_dir);
-	if (cti_addManifestLibDir(mid, gdb_lib_dir))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add gdb pretty printers to manifest.\n");
-		goto invoke_error;
-	}
-	Free(gdb_lib_dir);
-	gdb_lib_dir = NULL;
-
 #if 1	// RWM
 	// send over the uda plugin - only if gpu mode is currently turned off
 	if (!gpu_flag)
@@ -1392,18 +1345,12 @@ DbgMRNInvoke(
 	dbg = 1;
 #endif /* DEBUG */
 
-	// Setup PYTHONHOME
-	beDirStr = cti_getSessionRootDir(sid);
-	if (beDirStr == NULL)
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
-		goto invoke_error;
+	// Forward GUARD_INST_DIRECTORY if set
+	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+		args = (char**)malloc(2*sizeof(char*));
+		Asprintf(&args[0], "%s=%s", GUARD_INST_DIRECTORY, env_base_dir);
+		args[1] = (char *)NULL;
 	}
-	args = (char**)malloc(2*sizeof(char*));
-	Asprintf(&args[0], "PYTHONHOME=%s", beDirStr);
-	Free(beDirStr);
-	args[1] = (char *)NULL;
 
 	DPERFLOG(SetTimerStart("mrnet backend attach"));
 
@@ -1582,9 +1529,6 @@ invoke_error:
 		// clear the network pointer
 		di->d_proto_net = NULL;
 	}
-
-	if (gdb_lib_dir != NULL)
-		Free(gdb_lib_dir);
 
 	if (machine_hosts != NULL)
 	{

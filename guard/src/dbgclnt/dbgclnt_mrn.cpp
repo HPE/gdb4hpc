@@ -164,6 +164,7 @@ DbgMRNAttach(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 	cti_wlm_type_t		wlm;
+	char *				env_base_dir = NULL;
 
 
 #ifdef DEBUG
@@ -616,7 +617,6 @@ DbgMRNAttach(
 	}
 
 	// Forward GUARD_INST_DIRECTORY if set
-	char *env_base_dir = NULL;
 	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
 		Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_INST_DIRECTORY, env_base_dir);
 	}
@@ -906,6 +906,7 @@ DbgMRNInvoke(
 	cti_session_id_t	sid;
 	char **				args = NULL;
 	char *				beDirStr = NULL;
+	char *				env_base_dir = NULL;
 
 #ifdef DEBUG
 	dbg = 1;
@@ -1345,7 +1346,6 @@ DbgMRNInvoke(
 #endif /* DEBUG */
 
 	// Forward GUARD_INST_DIRECTORY if set
-	char *env_base_dir = NULL;
 	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
 		args = (char**)malloc(2*sizeof(char*));
 		Asprintf(&args[0], "%s=%s", GUARD_INST_DIRECTORY, env_base_dir);

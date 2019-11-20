@@ -1302,20 +1302,14 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 		MISessionSetGDBPath(GDBMISession, "gdb-guard");
 	}
 
-	// set data-directory if we are not using CUDA_55
-	char * manifestLibDir = cti_be_getLibDir();
-	char * gdbDataDir;
-	if (manifestLibDir == NULL)
-	{
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "DbgInitBackend: cti_be_getLibDir failed.");
-		return e;
+	// Get the base dir env var if it was set and use that for data-directory
+	char *env_base_dir = NULL;
+	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+		char * gdbDataDir;
+		Asprintf(&gdbDataDir, "%s/share/gdb", env_base_dir);
+		MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
+		Free(gdbDataDir);
 	}
-	Asprintf(&gdbDataDir, "%s/gdb", manifestLibDir);
-	Free(manifestLibDir);
-	MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
-	Free(gdbDataDir);
-        // end set-datadirectory
-
 
 	// Ensure PYTHONSTARTUP isn't set
 	if (getenv("PYTHONSTARTUP") != NULL)

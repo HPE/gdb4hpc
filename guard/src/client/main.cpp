@@ -209,20 +209,6 @@ SetupEnvironment(void)
     // Set the environment variables
     adjustLibPath(lib_dir);
     adjustExecPath(libexec_dir);
-    // Ensure GDB4HPC_LIB_DIR is set, otherwise set it to lib_dir
-    if ((env_lib_dir = getenv(GUARD_LIB_DIRECTORY)) == NULL)
-    {
-        // Not found, we should set this to our lib_dir
-        setenv(GUARD_LIB_DIRECTORY, lib_dir, 1);
-    }
-    // Ensure GUARD_INST_DIRECTORY is set, otherwise set it to inst_base
-    if ((env_lib_dir = getenv(GUARD_INST_DIRECTORY)) == NULL)
-    {
-        // Not found, we should set this to our lib_dir
-        setenv(GUARD_INST_DIRECTORY, inst_base, 1);
-    }
-
-
 
     // get the cfg dir settings
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == NULL)

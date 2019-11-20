@@ -46,7 +46,7 @@ gdb4hpc_SOURCES	= main.cpp class_cmd.cpp cli_funcs.cpp cmd.cpp help_dict.cpp cmd
 		  cmd_env.cpp cmd_frame.cpp cmd_func.cpp cmd_go.cpp cmd_list.cpp cmd_print.cpp cmd_proc.cpp \
 		  cmd_procset.cpp cmd_source.cpp cmd_step.cpp cmd_whatis.cpp cli_readline.cpp cli_socket.cpp cli_file.cpp \
 		  cmd_passthru.cpp
-gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
+gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/gcc-libs -Wl,--enable-new-dtags
 gdb4hpc_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
 		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++ -lpthread

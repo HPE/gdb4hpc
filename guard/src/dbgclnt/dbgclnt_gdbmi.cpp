@@ -226,8 +226,8 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 	MISessionSetGDBPath(sess, "gdb-guard");
 
 	// Get the base dir env var and setup data-dir if the env var is set
-	char *env_base_dir;
-	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+	char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
+	if (env_base_dir != NULL) {
 		char *			data_dir;
 		Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
 		MISessionSetGDBDataDirectory(sess, data_dir);

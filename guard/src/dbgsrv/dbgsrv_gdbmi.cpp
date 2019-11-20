@@ -1303,8 +1303,8 @@ DbgGDBMIInit(int *dfd, int *iofd, char **env)
 	}
 
 	// Get the base dir env var if it was set and use that for data-directory
-	char *env_base_dir = NULL;
-	if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+	char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
+	if (env_base_dir != NULL) {
 		char * gdbDataDir;
 		Asprintf(&gdbDataDir, "%s/share/gdb", env_base_dir);
 		MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);

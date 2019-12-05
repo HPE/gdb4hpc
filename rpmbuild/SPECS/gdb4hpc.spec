@@ -63,7 +63,7 @@ License:    %{copyright}
 Vendor:     Cray Inc.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
-Requires:   cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}
+Requires:   set_default_2, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}
 Source0:    %{module_template_name}
 Source1:    %{set_default_template_name}
 Source2:    %{release_info_template_name}

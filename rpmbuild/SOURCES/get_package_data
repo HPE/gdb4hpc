@@ -9,8 +9,8 @@ cdstsupportversionmin=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1
 tmpver=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1 }')
 cdstsupportversionmax=$(($tmpver+1))
 
-ctiversionmin=$(echo ${CRAY_CTI_VERSION} | awk -F . '{ print $1"."$2 }')
-tmpver=$(echo ${CRAY_CTI_VERSION} | awk -F . '{ print $1 }')
+ctiversionmin=$(echo ${CTI_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${CTI_VERSION} | awk -F . '{ print $1 }')
 ctiversionmax=$(($tmpver+1))
 
 arguments=$(getopt -o csmtx --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax -n ${0} -- "$@")

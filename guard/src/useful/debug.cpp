@@ -36,7 +36,7 @@
 #endif /*PERFLOG*/
 
 // external error printing function
-extern void	PrintOutError(char *, ...);
+extern void	PrintOutError(const char *, ...);
 
 #ifdef PERFLOG
 static FILE* _timer_log = NULL;

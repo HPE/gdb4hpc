@@ -81,7 +81,7 @@ InitGraphVars(void)
 // Removing va_args until this function is actually called with
 // variable arguments
 void
-SetGraphVar(char *var, int type, void *val)
+SetGraphVar(const char *var, int type, void *val)
 {
 	graphvar_t *	gv;
 	hentry_t *	h = (hentry_t *)NULL;
@@ -121,7 +121,7 @@ SetGraphVar(char *var, int type, void *val)
 // If you are just going to do a memcpy on the guy you pass in,
 // you shouldn't use varargs. 
 void
-GetGraphVar(char *var, void *val)
+GetGraphVar(const char *var, void *val)
 {
 	int		len = 0;
 	graphvar_t *	gv;

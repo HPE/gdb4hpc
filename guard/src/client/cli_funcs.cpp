@@ -730,7 +730,7 @@ cli_get_prompt(void)
 }
 
 int
-cli_query(char *s)
+cli_query(const char *s)
 {
 	int	resp;
 	
@@ -1075,7 +1075,7 @@ ProgOutLine(dbginvoke_t *di, FILE *o_stream)
 ** fprintf a line to stdout.
 */
 void
-PrintOutLine(char *format, ...)
+PrintOutLine(const char *format, ...)
 {
 	va_list	 arg_list;
 	
@@ -1101,7 +1101,7 @@ PrintOutLine(char *format, ...)
 ** fprintf a line to stderr.
 */
 void
-PrintOutError(char *format, ...)
+PrintOutError(const char *format, ...)
 {
 	va_list arg_list;
 	
@@ -1115,7 +1115,7 @@ PrintOutError(char *format, ...)
 }
 
 void
-vPrintOutError(char *format, va_list arg_list)
+vPrintOutError(const char *format, va_list arg_list)
 {
 	// we need to disable input processing while we are printing
 	DbgMaskInput();
@@ -1163,7 +1163,7 @@ vPrintOutError(char *format, va_list arg_list)
 ** fprintf a line to stdout without saving input
 */
 void
-PrintOutMsg(char *format, ...)
+PrintOutMsg(const char *format, ...)
 {
 	va_list arg_list;
 	
@@ -1177,7 +1177,7 @@ PrintOutMsg(char *format, ...)
 }
 
 void
-vPrintOutMsg(char *format, va_list arg_list)
+vPrintOutMsg(const char *format, va_list arg_list)
 {
 	// we need to disable input processing while we are printing
 	DbgMaskInput();
@@ -1208,7 +1208,7 @@ vPrintOutMsg(char *format, va_list arg_list)
 // to instead call the appropriate stream print functions.
 
 void
-PrintToFd(FILE *fd, char *format, ...)
+PrintToFd(FILE *fd, const char *format, ...)
 {
 	va_list arg_list;
 	
@@ -1222,7 +1222,7 @@ PrintToFd(FILE *fd, char *format, ...)
 }
 
 void
-vPrintToFd(FILE *fd, char *format, va_list arg_list)
+vPrintToFd(FILE *fd, const char *format, va_list arg_list)
 {
 	// we need to disable input processing while we are printing
 	DbgMaskInput();

@@ -27,7 +27,7 @@ extern int		gpu_flag;
 extern int		early_entry_flag;
 extern int		debug_flag;
 
-extern void		_dvprint(char *format, ...);
+extern void		_dvprint(const char *format, ...);
 extern void		ResetWDT(void);
 
 #define DVPRINT(...) if (debug_flag) _dvprint(__VA_ARGS__); 

@@ -91,7 +91,7 @@ GetClntProto(void)
 }
 
 dbgclnt_proto *
-FindClntProto(char *proto)
+FindClntProto(const char *proto)
 {
 	dbgclnt_proto **	p;
 

@@ -29,7 +29,7 @@
 #include "path.h"
 
 // external error printing function
-extern void	PrintOutError(char *, ...);
+extern void	PrintOutError(const char *, ...);
 
 /*
  * Try to locate 'file' using PATH.

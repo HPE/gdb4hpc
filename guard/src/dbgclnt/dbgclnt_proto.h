@@ -117,7 +117,7 @@ typedef struct dbgclnt_proto		dbgclnt_proto;
 */
 extern void				SetClntProto(void);
 extern dbgclnt_proto *	GetClntProto(void);
-extern dbgclnt_proto *	FindClntProto(char *);
+extern dbgclnt_proto *	FindClntProto(const char *);
 
 extern int				WaitForProtoStartupEvent(struct dbginvoke *);
 

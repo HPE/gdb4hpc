@@ -39,16 +39,16 @@ extern cmdlist_t *  UsageCmds;      /* Usage command list */
 /*
  * External AddClassCommand interface
  */
-extern void     AddInfoCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddMaintCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddMaintSetCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddMaintShowCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddSetCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddSetPrintCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddShowCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddShowPrintCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddUnsetCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
-extern void     AddUsageCommand(char *, cmdptype_t, int, int (*)(), const char * const[], char *);
+extern void     AddInfoCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddMaintCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddMaintSetCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddMaintShowCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddSetCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddSetPrintCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddShowCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddShowPrintCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddUnsetCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
+extern void     AddUsageCommand(const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
 
 /*
  * External class cmd interface

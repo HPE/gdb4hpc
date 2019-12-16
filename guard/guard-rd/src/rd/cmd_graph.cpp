@@ -61,12 +61,12 @@ static graph_t *	GraphPtr;
 static void	GraphCleanup(int);
 static int	SetStart(graph_t *, int);
 static int	CheckGraph(graph_t *);
-static int	OutNode(graph_t *, char *);
-static int	OutConstInt(graph_t *, char *, int);
-static int	OutConstFloat(graph_t *, char *, double);
-static int	OutConstStr(graph_t *, char *, char *);
-static int	OutConstAIF(graph_t *, char *, double, int);
-static int	OutConstBitSet(graph_t *, char *, bitset *);
+static int	OutNode(graph_t *, const char *);
+static int	OutConstInt(graph_t *, const char *, int);
+static int	OutConstFloat(graph_t *, const char *, double);
+static int	OutConstStr(graph_t *, const char *, const char *);
+static int	OutConstAIF(graph_t *, const char *, double, int);
+static int	OutConstBitSet(graph_t *, const char *, bitset *);
 static void	OutEdge(graph_t *, int, int, int);
 
 /********************************
@@ -1785,7 +1785,7 @@ CheckGraph(graph_t *g)
 }
 
 static int
-gennode(graph_t *g, char *node, token_t *t)
+gennode(graph_t *g, const char *node, token_t *t)
 {
 	nodedef_t *	nd;
 
@@ -1801,13 +1801,13 @@ gennode(graph_t *g, char *node, token_t *t)
 }
 
 static int
-OutNode(graph_t *g, char *node)
+OutNode(graph_t *g, const char *node)
 {
 	return gennode(g, node, (token_t *)NULL);
 }
 
 static int
-OutConstInt(graph_t *g, char *node, int val)
+OutConstInt(graph_t *g, const char *node, int val)
 {
 	token_t *	t;
 	char		buf[BUFSIZ];
@@ -1822,7 +1822,7 @@ OutConstInt(graph_t *g, char *node, int val)
 }
 
 static int
-OutConstFloat(graph_t *g, char *node, double val)
+OutConstFloat(graph_t *g, const char *node, double val)
 {
 	token_t *	t;
 	char		buf[BUFSIZ];
@@ -1837,7 +1837,7 @@ OutConstFloat(graph_t *g, char *node, double val)
 }
 
 static int
-OutConstStr(graph_t *g, char *node, char *val)
+OutConstStr(graph_t *g, const char *node, const char *val)
 {
 	token_t *	t;
 
@@ -1848,7 +1848,7 @@ OutConstStr(graph_t *g, char *node, char *val)
 }
 
 static int
-OutConstAIF(graph_t *g, char *node, double val, int type)	// just int for now
+OutConstAIF(graph_t *g, const char *node, double val, int type)	// just int for now
 {
 	token_t *	t;
 	char		buf[BUFSIZ];
@@ -1870,7 +1870,7 @@ OutConstAIF(graph_t *g, char *node, double val, int type)	// just int for now
 }
 
 static int
-OutConstBitSet(graph_t *g, char *node, bitset *val)
+OutConstBitSet(graph_t *g, const char *node, bitset *val)
 {
 	token_t *	t;
 

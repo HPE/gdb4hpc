@@ -18,7 +18,7 @@
 #include "vector.h"
 
 // external error printing function
-extern void	PrintOutError(char *, ...);
+extern void	PrintOutError(const char *, ...);
 
 vectorLikeDimension_t * newVectorLikeDimension(void){
 		vectorLikeDimension_t *      vec_dim;

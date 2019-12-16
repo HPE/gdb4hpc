@@ -130,7 +130,7 @@ NewGraphInv(graph_t *g, dbgprocset_t *ps)
 }
 
 graph_diff *
-NewGraphDiff(graph_t *g, int id, AIF *res, char *stat)
+NewGraphDiff(graph_t *g, int id, AIF *res, const char *stat)
 {
 	graph_diff *	gd;
 	char *			res_name = NULL;

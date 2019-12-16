@@ -34,7 +34,7 @@
 extern graph_t *	NewGraph(int (*)(graph_t *, int, char *, AIF *, char *, AIF *, int), void (*)(char *, int, int, void *),
 								int (*)(graph_t *, int, char *, AIF *),	int);
 extern graph_inv *	NewGraphInv(graph_t *, dbgprocset_t *);
-extern graph_diff *	NewGraphDiff(graph_t *, int, AIF *, char *);
+extern graph_diff *	NewGraphDiff(graph_t *, int, AIF *, const char *);
 extern void			AddActiveEvent(graph_t *);
 extern void			RemoveActiveEvent(graph_t *);
 extern int			ActiveEvents(graph_t *);
@@ -74,7 +74,7 @@ extern void			DumpNode(node_t *);
 /*
 ** token.h
 */
-extern char *		TokenTypeStr(token_type);
+extern const char *		TokenTypeStr(token_type);
 extern int			SpaceForTokens(void);
 extern token_t *	NewToken(graph_t *, token_type);
 extern token_t *	DupToken(token_t *);
@@ -101,8 +101,8 @@ extern void			EndDF(graph_t *);
 extern void			ExitDF(void);
 extern int			ActiveDF(void);
 extern graph_t *	StatusDF(void);
-extern void			DFError(node_t *, char *, ...);
-extern void			DFMsg(char *, ...);
-extern void			DFErrMsg(char *, ...);
+extern void			DFError(node_t *, const char *, ...);
+extern void			DFMsg(const char *, ...);
+extern void			DFErrMsg(const char *, ...);
 
 #endif /* !_DF_H */

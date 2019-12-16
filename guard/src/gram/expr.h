@@ -102,7 +102,7 @@ enum expr_op
 typedef enum expr_op	expr_op;
 
 // use the following to stringize the above enumeration
-extern char *	getExprOpStr(expr_op);
+extern const char *	getExprOpStr(expr_op);
 
 union expr_val
 {

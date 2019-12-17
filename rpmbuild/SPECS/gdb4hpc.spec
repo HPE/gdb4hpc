@@ -165,7 +165,6 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
-# Set default script into admin-pe
 # set_default scripts
 %{__sed} 's|<PREFIX>|%{prefix}|g;s|<CRAY_PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<MODULEFILE_NAME>|%{modulefile_name}|g' %{SOURCE1} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 # set_default into admin-pe
@@ -173,7 +172,6 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__install} -D ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion} ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
 
 %post
-
 # Add Shasta configuration files for PE content projection
 if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
     %{__mkdir_p} /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/
@@ -190,18 +188,8 @@ then
     # set default command
     %{__sed} -i "s|^\(export CRAY_inst_dir=\).*|\1${RPM_INSTALL_PREFIX}|" ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 else
-    # Only call set_default if we are not relocating the rpm
-    # Set as default if no default exists either because this is first install
-    # or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
-    # Only call set_default if we are not relocating the rpm
-    # Set as default if no default exists either because this is first install
-    # or CRAY_INSTALL_DEFAULT=1 and previous default was deleted
-    if [ "${CRAY_INSTALL_DEFAULT}" = "1" ] || [ ! -f ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version ]
-    then
-        ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
-    else
-        ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion} -cray_links_only
-    fi
+    ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
+    
     # Don't want to set LD_LIBRARY_PATH or GDB4HPC_DIR if we are not relocating since rpath was set properly
     %{__sed} -i "/^[[:space:]]*prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/%{pkgversion}
     %{__sed} -i "/^[[:space:]]*setenv[[:space:]]*GDB4HPC_DIR.*/d" ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/%{pkgversion}
@@ -209,7 +197,7 @@ fi
 
 %preun
 # Cleanup module .version if it points to this version
-if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
+if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
     if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}/.version ]
     then
         %define dotversion %(grep ModulesVersion ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}/.version | cut -f2 -d'"')
@@ -228,13 +216,13 @@ then
   exit 0
 fi
 
-if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
+if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
     %define other_vers %(ls ${RPM_INSTALL_PREFIX}/%{cray_product})
     if [ -z "%{other_vers}" ]
     then
       %{__rm} -rf ${RPM_INSTALL_PREFIX}/%{cray_product}
-      %{__rm} -rf /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
-      %{__rm} -rf /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{cray_name}.conf
+      %{__rm} -rf /etc/%{prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
+      %{__rm} -rf /etc/%{prefix}/admin-pe/modulepaths.conf.d/%{cray_name}.conf
     fi
     %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product})
     if [ -z "%{other_mods}" ]

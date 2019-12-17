@@ -42,12 +42,12 @@ typedef enum cmdptype		cmdptype_t;
 
 struct cmdtype
 {
-	char *		c_name;
-	char *		c_alias;
+	const char *		c_name;
+	const char *		c_alias;
 	cmdptype_t	c_ptype;
 	int			c_hassub;
 	int			c_multi;
-	char *		c_desc;
+	const char *		c_desc;
 	char **		c_help;
 	int			(*c_cmd)(rec_set_t *, int, char **);
 };
@@ -65,7 +65,7 @@ typedef struct cmdlist		cmdlist_t;
 
 struct cmdhelp
 {
-	char *		c_name;
+	const char *		c_name;
 	cmdtype_t *	(*c_find)(char *);
 };
 typedef struct cmdhelp		cmdhelp_t;

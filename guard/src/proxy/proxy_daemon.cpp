@@ -1458,7 +1458,7 @@ DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream)
 ** fprintf a line to stderr.
 */
 void
-PrintOutError(char *format, ...)
+PrintOutError(const char *format, ...)
 {
 	va_list arg_list;
 
@@ -1479,7 +1479,7 @@ PrintOutError(char *format, ...)
 ** fprintf a line to stdout.
 */
 void
-PrintOutMsg(char *format, ...)
+PrintOutMsg(const char *format, ...)
 {
 	va_list arg_list;
 

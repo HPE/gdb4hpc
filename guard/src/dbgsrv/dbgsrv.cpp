@@ -1001,7 +1001,7 @@ AllocFifo(int *fd, char **master, char **slave)
 ** fprintf a line to stderr.
 */
 void
-PrintOutError(char *format, ...)
+PrintOutError(const char *format, ...)
 {
 	va_list arg_list;
 	
@@ -1016,7 +1016,7 @@ PrintOutError(char *format, ...)
 ** fprintf a line to stdout.
 */
 void
-PrintOutMsg(char *format, ...)
+PrintOutMsg(const char *format, ...)
 {
 	va_list arg_list;
 	
@@ -1031,7 +1031,7 @@ PrintOutMsg(char *format, ...)
 ** debug print routine that depends on debug_flag variable
 */
 void
-_dvprint(char *format, ...)
+_dvprint(const char *format, ...)
 {
 	va_list	 arg_list;
 	

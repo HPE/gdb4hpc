@@ -37,7 +37,7 @@
 
 struct mp_arch
 {
-	char *	mp_str;
+	const char *	mp_str;
 	int	mp_arch;
 };
 

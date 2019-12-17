@@ -437,7 +437,7 @@ StatusDF(void)
 ** message. This routine will depend on the particular environment being used.
 */
 void
-DFError(node_t *n, char *err, ...)
+DFError(node_t *n, const char *err, ...)
 {
 	int	l;
 	char *	p;
@@ -465,7 +465,7 @@ DFError(node_t *n, char *err, ...)
 ** for DFError().
 */
 void
-DFErrMsg(char *fmt, ...)
+DFErrMsg(const char *fmt, ...)
 {
 	va_list	ap;
 	char *	buf;
@@ -482,7 +482,7 @@ DFErrMsg(char *fmt, ...)
 ** for DFError().
 */
 void
-DFMsg(char *fmt, ...)
+DFMsg(const char *fmt, ...)
 {
 	va_list	ap;
 	char *	buf;

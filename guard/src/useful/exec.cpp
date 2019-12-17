@@ -45,7 +45,7 @@
 #include	"alloc.h"
 
 // external error printing function
-extern void	PrintOutError(char *, ...);
+extern void	PrintOutError(const char *, ...);
 
 static void     pathexec(char *, char **, char **);
 static int	do_exec(int, char *, char **, char **);

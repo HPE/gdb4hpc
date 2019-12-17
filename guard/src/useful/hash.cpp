@@ -161,7 +161,7 @@ HashDestroy(htable_t *htab,  void (*destroy)(char *, void *))
 */
 
 unsigned int
-findentry(htable_t *htab, char *key, int hv)
+findentry(htable_t *htab, const char *key, int hv)
 {
 	unsigned int	a;
 	unsigned int	b;
@@ -215,7 +215,7 @@ findentry(htable_t *htab, char *key, int hv)
 }
 
 hentry_t *
-HashSearch(htable_t *htab, char *key)
+HashSearch(htable_t *htab, const char *key)
 {
 	unsigned int	idx;
 	hentry_t *		h;
@@ -242,7 +242,7 @@ HashSearch(htable_t *htab, char *key)
 }
 
 hentry_t *
-HashInsert(htable_t *htab, char *key, void *data)
+HashInsert(htable_t *htab, const char *key, void *data)
 {
 	unsigned int	idx;
 	unsigned int	len = strlen(key);

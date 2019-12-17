@@ -45,8 +45,8 @@ typedef struct htable	htable_t;
 
 extern htable_t *	HashCreate(int);
 extern void			HashDestroy(htable_t *, void (*)(char *,void *));
-extern hentry_t *	HashSearch(htable_t *, char *);
-extern hentry_t *	HashInsert(htable_t *, char *, void *);
+extern hentry_t *	HashSearch(htable_t *, const char *);
+extern hentry_t *	HashInsert(htable_t *, const char *, void *);
 extern void			HashRemove(htable_t *, hentry_t *);
 
 #ifdef __cplusplus

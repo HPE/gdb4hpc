@@ -3499,7 +3499,7 @@ assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set)
 	return -1;
 }
 
-char *
+const char *
 getExprOpStr(expr_op op)
 {
 	switch (op)

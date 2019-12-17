@@ -18,7 +18,7 @@
 #include "array.h"
 
 // external error printing function
-extern void	PrintOutError(char *, ...);
+extern void	PrintOutError(const char *, ...);
 
 /* static prototypes */
 static int              resizeArrayDimension(arrayDimension_t *);

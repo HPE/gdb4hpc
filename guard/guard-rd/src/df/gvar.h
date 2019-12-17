@@ -73,7 +73,7 @@ typedef struct graphvar	graphvar_t;
 
 extern void	InitGraphVars(void);
 extern void	FinishGraphVars(void);
-extern void	SetGraphVar(char *, int, void *);
-extern void	GetGraphVar(char *, void *);
+extern void	SetGraphVar(const char *, int, void *);
+extern void	GetGraphVar(const char *, void *);
 
 #endif /* !_GVAR_H */

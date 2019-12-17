@@ -40,61 +40,61 @@ cmdlist_t * UsageCmds;      /* Usage command list */
  */
 
 void
-AddInfoCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddInfoCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(InfoCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddMaintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(MaintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddMaintSetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(MaintSetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddMaintShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddMaintShowCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(MaintShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddSetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddSetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(SetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddSetPrintCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddSetPrintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(SetPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddShowCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddShowCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(ShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddShowPrintCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddShowPrintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(ShowPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddUnsetCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddUnsetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(UnsetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void
-AddUsageCommand(char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], char *desc)
+AddUsageCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(), const char * const help[], const char *desc)
 {
     AddClassSubCommand(UsageCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }

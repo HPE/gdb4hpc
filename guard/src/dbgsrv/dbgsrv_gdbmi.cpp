@@ -321,6 +321,11 @@ delete_internal_breakpoints(list_t *bplist)
 	return (dbgevent_t *)NULL;
 }
 
+static MICommand*
+_MIGDBSet(const char* var, const char* val) {
+	return MIGDBSet(const_cast<char*>(var), const_cast<char*>(val));
+}
+
 static dbgevent_t *
 setup_gdbmi_environment(void)
 {
@@ -331,7 +336,7 @@ setup_gdbmi_environment(void)
 	if (debug_flag)
 	{
 		// set debug infrun mode on
-		cmd = MIGDBSet("debug infrun", "1");
+		cmd = _MIGDBSet("debug infrun", "1");
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -342,7 +347,7 @@ setup_gdbmi_environment(void)
 		MICommandFree(cmd);
 
 		// set debug lin-lwp mode on
-		cmd = MIGDBSet("debug lin-lwp", "1");
+		cmd = _MIGDBSet("debug lin-lwp", "1");
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -353,7 +358,7 @@ setup_gdbmi_environment(void)
 		MICommandFree(cmd);
 
 		// set debug lin-lwp-async mode on
-		cmd = MIGDBSet("debug lin-lwp-async", "1");
+		cmd = _MIGDBSet("debug lin-lwp-async", "1");
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -367,7 +372,7 @@ setup_gdbmi_environment(void)
 
 #if 0
 	// set target-async mode on
-	cmd = MIGDBSet("target-async", "on");
+	cmd = _MIGDBSet("target-async", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -378,7 +383,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// set pagination off
-	cmd = MIGDBSet("pagination", "off");
+	cmd = _MIGDBSet("pagination", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -389,7 +394,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// set non-stop mode on
-	cmd = MIGDBSet("non-stop", "on");
+	cmd = _MIGDBSet("non-stop", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -401,7 +406,7 @@ setup_gdbmi_environment(void)
 
 #endif
 
-	cmd = MIGDBSet("confirm", "off");
+	cmd = _MIGDBSet("confirm", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -412,7 +417,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// turn history off
-	cmd = MIGDBSet("history size", "0");
+	cmd = _MIGDBSet("history size", "0");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -423,7 +428,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// do not open source files
-	cmd = MIGDBSet("source open", "off");
+	cmd = _MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -436,7 +441,7 @@ setup_gdbmi_environment(void)
 	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
-	cmd = MIGDBSet("print elements", "0");
+	cmd = _MIGDBSet("print elements", "0");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -446,7 +451,7 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("print repeats", "0");
+	cmd = _MIGDBSet("print repeats", "0");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -457,7 +462,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// stop printing strings on the first null character
-	cmd = MIGDBSet("print null-stop", "on");
+	cmd = _MIGDBSet("print null-stop", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -468,7 +473,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// demangle c++ names
-	cmd = MIGDBSet("print demangle", "on");
+	cmd = _MIGDBSet("print demangle", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -478,7 +483,7 @@ setup_gdbmi_environment(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("print asm-demangle", "on");
+	cmd = _MIGDBSet("print asm-demangle", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -489,7 +494,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// print derived types from the vtable
-	cmd = MIGDBSet("print object", "on");
+	cmd = _MIGDBSet("print object", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -500,7 +505,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// limit strings to 200 characters
-	cmd = MIGDBSet("print characters", "200");
+	cmd = _MIGDBSet("print characters", "200");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -511,7 +516,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// don't allow pending breakpoints
-	cmd = MIGDBSet("breakpoint pending", "off");
+	cmd = _MIGDBSet("breakpoint pending", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -522,7 +527,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// limit backtrace size to 1000
-	cmd = MIGDBSet("backtrace limit", "1000");
+	cmd = _MIGDBSet("backtrace limit", "1000");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -533,7 +538,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// unwind signals triggered by gdb
-	cmd = MIGDBSet("unwindonsignal", "on");
+	cmd = _MIGDBSet("unwindonsignal", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -544,7 +549,7 @@ setup_gdbmi_environment(void)
 	MICommandFree(cmd);
 
 	// set can-use-hw-watchpoints to 1
-	cmd = MIGDBSet("can-use-hw-watchpoints", "1");
+	cmd = _MIGDBSet("can-use-hw-watchpoints", "1");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -561,7 +566,7 @@ setup_gdbmi_environment(void)
 	if (stat("/dsl", &st) == 0)
 	{
 		// The directory exists
-		cmd = MIGDBSet("solib-absolute-prefix", "/dsl");
+		cmd = _MIGDBSet("solib-absolute-prefix", "/dsl");
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -575,7 +580,7 @@ setup_gdbmi_environment(void)
 	// If running with gpu's, turn upc off. If we don't do this, things will break
 	if (gpu_flag)
 	{
-		cmd = MIGDBSet("upcsingle", "1");
+		cmd = _MIGDBSet("upcsingle", "1");
 		SendMICommand(GDBMISession, cmd);
 		if (!MICommandResultOK(cmd))
 		{
@@ -588,12 +593,12 @@ setup_gdbmi_environment(void)
 
 	// XXX: This actual does do something with the Allinea branch of gdb.
 	// DO NOT REMOVE! If removed, the backend will hang on gdb fatal errors.
-	cmd = MIGDBSet("continue-on-fatal-error", "1");
+	cmd = _MIGDBSet("continue-on-fatal-error", "1");
 	SendMICommand(GDBMISession, cmd);
 	MICommandFree(cmd);
 
 	// Set maximum variable size to unlimited to allow gdb to print large values
-	cmd = MIGDBSet("max-value-size", "unlimited");
+	cmd = _MIGDBSet("max-value-size", "unlimited");
 	SendMICommand(GDBMISession, cmd);
 	MICommandFree(cmd);
 
@@ -745,7 +750,7 @@ setup_gdbmi_entry_points(void)
 	dbgbp_t *		bp_res;
 
 	// set the lang to c. We always want to do this!!
-	cmd = MIGDBSet("lang", "c");
+	cmd = _MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -931,7 +936,7 @@ setup_gdbmi_entry_points(void)
 	MICommandFree(cmd);
 
 	// set the lang back to auto. We always want to do this!!
-	cmd = MIGDBSet("lang", "auto");
+	cmd = _MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -954,7 +959,7 @@ setup_gdbmi_main_entry_points(void)
 	main_entry_BP = NewList();
 
 	// set the lang to c. We always want to do this!!
-	cmd = MIGDBSet("lang", "c");
+	cmd = _MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -976,7 +981,7 @@ setup_gdbmi_main_entry_points(void)
 	MICommandFree(cmd);
 
 	// set the lang back to auto. We always want to do this!!
-	cmd = MIGDBSet("lang", "auto");
+	cmd = _MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -997,7 +1002,7 @@ setup_gdbmi_exit_points(void)
 	dbgbp_t *		bp_res;
 
 	// set the lang to c. We always want to do this!!
-	cmd = MIGDBSet("lang", "c");
+	cmd = _MIGDBSet("lang", "c");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -1108,7 +1113,7 @@ setup_gdbmi_exit_points(void)
 	MICommandFree(cmd);
 
 	// set the lang back to auto. We always want to do this!!
-	cmd = MIGDBSet("lang", "auto");
+	cmd = _MIGDBSet("lang", "auto");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -1476,7 +1481,7 @@ recover_for_slurm:
 				return e;
 
 			// We want to set MPIR_debug_gate=1. This is an old MPIR standard.
-			cmd = MIGDBSet("lang", "c");
+			cmd = _MIGDBSet("lang", "c");
 			SendMICommand(GDBMISession, cmd);
 			if (!MICommandResultOK(cmd))
 			{
@@ -1487,12 +1492,12 @@ recover_for_slurm:
 			MICommandFree(cmd);
 
 			// This can fail if the symbol doesn't exist. We want to silently fail.
-			cmd = MIGDBSet("MPIR_debug_gate=1", NULL);
+			cmd = _MIGDBSet("MPIR_debug_gate=1", NULL);
 			SendMICommand(GDBMISession, cmd);
 			MICommandFree(cmd);
 
 			// set the lang back to auto.
-			cmd = MIGDBSet("lang", "auto");
+			cmd = _MIGDBSet("lang", "auto");
 			SendMICommand(GDBMISession, cmd);
 			if (!MICommandResultOK(cmd))
 			{
@@ -2061,7 +2066,7 @@ DbgGDBMIList(char *str)
 	// if there are hundreds of thousands of ranks and they are all at different
 	// locations.
 
-	cmd = MIGDBSet("source open", "on");
+	cmd = _MIGDBSet("source open", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -2104,7 +2109,7 @@ DbgGDBMIList(char *str)
 	MICommandFree(cmd);
 
 	// do not open source files
-	cmd = MIGDBSet("source open", "off");
+	cmd = _MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -2832,7 +2837,7 @@ DbgGDBMISetVar(char *var, AIF *a)
 	DVPRINT("DbgSetVar: expr is %s\n", expr);
 
 	// set the var to the val of the aif var
-	cmd = MIGDBSet(expr, NULL);
+	cmd = _MIGDBSet(expr, NULL);
 	SendMICommand(GDBMISession, cmd);
 
 	if (!MICommandResultOK(cmd))
@@ -3541,7 +3546,7 @@ ResetBeforeDirectCmd(void)
 	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
-	cmd = MIGDBSet("print elements", "200");
+	cmd = _MIGDBSet("print elements", "200");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -3551,7 +3556,7 @@ ResetBeforeDirectCmd(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("print repeats", "10");
+	cmd = _MIGDBSet("print repeats", "10");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -3561,7 +3566,7 @@ ResetBeforeDirectCmd(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("source open", "on");
+	cmd = _MIGDBSet("source open", "on");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -3583,7 +3588,7 @@ RestoreAfterDirectCmd(void)
 	// we need gdb to set print elements and print repeats to 0 so
 	// that when we resolve the data it gives us the entire contents
 	// of the data type.
-	cmd = MIGDBSet("print elements", "0");
+	cmd = _MIGDBSet("print elements", "0");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -3593,7 +3598,7 @@ RestoreAfterDirectCmd(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("print repeats", "0");
+	cmd = _MIGDBSet("print repeats", "0");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{
@@ -3603,7 +3608,7 @@ RestoreAfterDirectCmd(void)
 	}
 	MICommandFree(cmd);
 
-	cmd = MIGDBSet("source open", "off");
+	cmd = _MIGDBSet("source open", "off");
 	SendMICommand(GDBMISession, cmd);
 	if (!MICommandResultOK(cmd))
 	{

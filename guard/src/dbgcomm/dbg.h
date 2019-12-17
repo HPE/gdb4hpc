@@ -29,7 +29,7 @@
 /* 
 **Output routines defined by client/server interface
 */
-extern void	PrintOutError(char *, ...);
-extern void	PrintOutMsg(char *, ...);
+extern void	PrintOutError(const char *, ...);
+extern void	PrintOutMsg(const char *, ...);
 
 #endif /* _DBG_H */

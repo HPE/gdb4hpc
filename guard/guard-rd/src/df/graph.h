@@ -69,7 +69,7 @@ struct graph_t
 	/*
 	** Graph information
 	*/
-	char *		g_valname;      // String name stored in hashtable
+	const char *		g_valname;      // String name stored in hashtable
 	int			g_isactive;     // is currently active bool
 	int			g_qlen;
 	
@@ -148,12 +148,12 @@ struct graph_t
 	void	(*g_endGraph)(struct graph_t *);
 	int		(*g_setStartNode)(struct graph_t *, int);
 	int		(*g_checkGraph)(struct graph_t *);
-	int		(*g_outNode)(struct graph_t *, char *);
-	int		(*g_outConstInt)(struct graph_t *, char *, int);
-	int		(*g_outConstFloat)(struct graph_t *, char *, double);
-	int		(*g_outConstStr)(struct graph_t *, char *, char *);
-	int		(*g_outConstAIF)(struct graph_t *, char *, double, int);
-	int		(*g_outConstBitSet)(struct graph_t *, char *, bitset *);
+	int		(*g_outNode)(struct graph_t *, const char *);
+	int		(*g_outConstInt)(struct graph_t *, const char *, int);
+	int		(*g_outConstFloat)(struct graph_t *, const char *, double);
+	int		(*g_outConstStr)(struct graph_t *, const char *, const char *);
+	int		(*g_outConstAIF)(struct graph_t *, const char *, double, int);
+	int		(*g_outConstBitSet)(struct graph_t *, const char *, bitset *);
 	void	(*g_outEdge)(struct graph_t *, int, int, int);
 
 	/*

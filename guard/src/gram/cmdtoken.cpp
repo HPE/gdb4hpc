@@ -130,7 +130,7 @@ convnum(ct_val *cv, char **str)
 }
 
 static int
-AddCmdToken(char *str, ct_type pt)
+AddCmdToken(const char *str, ct_type pt)
 {
 	hentry_t *	h;
 	int * 		ptr;
@@ -159,7 +159,7 @@ AddCmdToken(char *str, ct_type pt)
 }
 
 static int
-AddTypeSpecifierToken(char *str, ct_type pt)
+AddTypeSpecifierToken(const char *str, ct_type pt)
 {
 	hentry_t *	h;
 	int * 		ptr;
@@ -188,7 +188,7 @@ AddTypeSpecifierToken(char *str, ct_type pt)
 }
 
 static int
-AddTypeIdentifierToken(char *str, ct_type pt)
+AddTypeIdentifierToken(const char *str, ct_type pt)
 {
 	hentry_t *	h;
 	int * 		ptr;

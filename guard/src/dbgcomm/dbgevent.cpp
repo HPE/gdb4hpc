@@ -580,7 +580,7 @@ FreeEvent(dbgevent_t *event)
 }
 
 void
-EventErrStr(dbgevent_t *e, char *fmt, ...)
+EventErrStr(dbgevent_t *e, const char *fmt, ...)
 {
 	va_list	ap;
 	

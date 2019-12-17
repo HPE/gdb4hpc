@@ -34,7 +34,7 @@
 static htable_t *	NodeTypes = (htable_t *)NULL;
 
 nodedef_t *
-AddNodeDef(char *name, token_t *(*func)(graph_t *, node_t *), token_type res, int min, int max, ...)
+AddNodeDef(const char *name, token_t *(*func)(graph_t *, node_t *), token_type res, int min, int max, ...)
 {
 	int		a;
 	int		last;
@@ -115,7 +115,7 @@ FinishNodeDef(void)
 ** Utility routine to convert a string to a nodedef entry.
 */
 nodedef_t *
-FindNodeDef(char *s)
+FindNodeDef(const char *s)
 {
 	hentry_t *	h;
 

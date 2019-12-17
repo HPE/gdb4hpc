@@ -72,7 +72,7 @@ const struct option long_opts[] = {
 				};
 
 void
-DVPRINT(char *format, ...)
+DVPRINT(const char *format, ...)
 {
 	va_list	 arg_list;
 

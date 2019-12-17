@@ -47,7 +47,7 @@ GetError()
 }
 
 void
-SetError(char *fmt, ...)
+SetError(const char *fmt, ...)
 {
 	va_list args;
 
@@ -59,7 +59,7 @@ SetError(char *fmt, ...)
 }
 
 void
-SetSysError(char *fmt, ...)
+SetSysError(const char *fmt, ...)
 {
 	va_list args;
 	char	buf[BUFSIZ];

@@ -309,7 +309,7 @@ extern void				DbgResetStatusChange(void);
 // Used by higher layers to check if we are currently waiting on an asynchronous event
 extern int				DbgCheckForAsyncPending(void);
 
-extern proto_session *	DbgSessionCreate(char *, WLM_type, char *, char *, char *);
+extern proto_session *	DbgSessionCreate(const char *, WLM_type, char *, char *, char *);
 extern void				DbgSetSession(proto_session *);
 extern proto_session *	DbgGetSession(void);
 

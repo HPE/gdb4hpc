@@ -176,13 +176,13 @@ extern void					DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 /*
 ** Output functions
 */
-extern void					PrintOutLine(char *, ...);
-extern void					PrintOutError(char *, ...);
-extern void					vPrintOutError(char *, va_list);
-extern void					PrintOutMsg(char *, ...);
-extern void					vPrintOutMsg(char *, va_list);
-extern void					PrintToFd(FILE *, char *, ...);
-extern void					vPrintToFd(FILE *, char *, va_list);
+extern void					PrintOutLine(const char *, ...);
+extern void					PrintOutError(const char *, ...);
+extern void					vPrintOutError(const char *, va_list);
+extern void					PrintOutMsg(const char *, ...);
+extern void					vPrintOutMsg(const char *, va_list);
+extern void					PrintToFd(FILE *, const char *, ...);
+extern void					vPrintToFd(FILE *, const char *, va_list);
 extern void					PrintError();
 
 /*
@@ -206,7 +206,7 @@ extern void					cli_reset_stream(void);
 // Used to clear the current line of its input
 extern void					cli_clear_line(void);
 // Used to confirm dangerous instructions
-extern int					cli_query(char *);
+extern int					cli_query(const char *);
 // Used to get a line of input. This should be avoided. It is needed for ssh 
 // keyboard-interactive authentication
 extern char *				cli_get_line(void);

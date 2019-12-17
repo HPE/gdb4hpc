@@ -2086,7 +2086,7 @@ DbgFinish(void)
 ** Create a new session
 */
 proto_session *
-DbgSessionCreate(	char *proto, 
+DbgSessionCreate(	const char *proto, 
 					WLM_type manager, 
 					char *batch_template, 
 					char *hostname, 

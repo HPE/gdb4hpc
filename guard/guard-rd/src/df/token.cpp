@@ -35,7 +35,7 @@
 struct tt_t
 {
 	token_type	tt_type;
-	char *		tt_str;
+	const char *		tt_str;
 };
 
 struct tt_t	tokenType[] =
@@ -54,7 +54,7 @@ struct tt_t	tokenType[] =
 	{ TK_BAD,	"TK_BAD"  }
 };
 
-char *
+const char *
 TokenTypeStr(token_type t)
 {
 	struct tt_t *	tt;

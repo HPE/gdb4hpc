@@ -1367,13 +1367,19 @@ DbgMRNInvoke(
 	{
 		PrintOutError("CTI error: %s\n", cti_error_str());
 		PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
-		free(args[0]);
-		Free(args);
+		if (args != NULL) {
+			free(args[0]);
+			free(args);
+			args = NULL;
+		}
 		goto invoke_error;
 	}
 
-	free(args[0]);
-	free(args);
+	if (args != NULL) {
+		free(args[0]);
+		free(args);
+		args = NULL;
+	}
 
 	// done with the argv array
 	FreeArgv(ap);

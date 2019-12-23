@@ -714,8 +714,9 @@ GetSimpleAIF(MISession *session, MIVar *var)
 	char *	name;
 	int		cnt = 0;
 
-	DVPRINT("GetSimpleAIF: %s\n", var->type);
-	
+	DVPRINT("GetSimpleAIF: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, value %s, thread_id %d\n",
+			var->expr, var->name, var->exp, var->numchild, var->type, var->value, var->thread_id);
+
 	while ((id = GetSimpleType(var->type)) == T_UNKNOWN)
 	{
 		// default to using whatis
@@ -751,6 +752,13 @@ GetSimpleAIF(MISession *session, MIVar *var)
 				}
 			}
 			rtn = GetFunctionReturnType(session, var->type);
+			if (rtn==NULL){
+				// see PE-17307:
+				// to prevent segfault, check the rtn value for null, return null if rtn== NULL
+				// TODO: create test case for fortran real named "TIME"
+				DVPRINT("GetSimpleAIF: GetFunctionReturnType returned: %s, returning NULL!\n", rtn);
+				return NULL;
+			}
 			DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
 			if ((v = GetVarValue(session, var->name)) == NULL)
 			{

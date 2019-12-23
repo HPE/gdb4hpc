@@ -2498,7 +2498,9 @@ FDSGetIdentifier(char *fds)
 		fds = strchr(fds, FDS_ID);
 
 		id_len = fds - temp;
-		id = _aif_alloc( id_len + 1 );
+		if ((id = _aif_alloc( id_len + 1 )) == NULL) {
+			return NULL;
+		}
 		*id = '\0';
 		strncat(id, temp, id_len);
 		return id;

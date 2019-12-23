@@ -36,15 +36,6 @@ AC_DEFINE([GUARD_MINOR], ["CRAY_MINOR"], [Minor version number of gdb4hpc])
 #############################
 ### Check for --with tags ###
 #############################
-dnl Check for --with-editline
-AC_ARG_WITH([editline],
-	    [AS_HELP_STRING([--with-editline=dir],
-			    [Use editline library. Optional dir argument to override system location.]
-			    )
-	    ],
-	    [with_editline=$withval],
-	    [with_editline=no]
-	    )
 
 dnl Check for --with-aif
 AC_ARG_WITH([aif],
@@ -467,90 +458,6 @@ fi
 ### Check for libraries. ###
 ############################
 
-dnl Check for editline
-
-
-dnl Check for editline libraries
-if test "x$with_editline" != xno; then
-        dnl We can use the editline library to provide readline wrappers. Note
-        dnl that editline is under a BSD license whereas readline is GPL.
-        dnl
-	dnl check if the user provided a withval
-	if test "x$with_editline" = x; then
-		dnl default to the system location
-		dnl first check if editline needs any deplibs
-		AC_CHECK_FUNC([tgetstr],
-			      [EDITLINE_DEPLIB=""],
-			      [AC_CHECK_LIB([curses],
-					    [tgetstr],
-					    [EDITLINE_DEPLIB="-lcurses"],
-					    [AC_CHECK_LIB([ncurses],
-							  [tgetstr],
-							  [EDITLINE_DEPLIB="-lncurses"],
-							  [AC_CHECK_LIB([termcap],
-									[tgetstr],
-									[EDITLINE_DEPLIB="-ltermcap"],
-									[AC_MSG_ERROR([No curses or termcap library found!])]
-									)
-							  ])
-					    ])
-			      ])
-		dnl now try to check for editline
-		AC_CHECK_LIB([edit],
-			     [readline],
-			     [AC_SUBST([editline_libs],
-				       ["-ledit $EDITLINE_DEPLIB"]
-				       )
-			     ],
-			     [AC_MSG_ERROR([Editline library not found in system path.])],
-			     [$EDITLINE_DEPLIB]
-			     )
-	else
-		dnl first add the given location to the LDFLAGS
-		LDFLAGS="$LDFLAGS -L$with_editline/lib"
-		dnl check to see if we need any deplibs
-		AC_CHECK_FUNC([tgetstr],
-			      [EDITLINE_DEPLIB=""],
-			      [AC_CHECK_LIB([curses],
-					    [tgetstr],
-					    [EDITLINE_DEPLIB="-lcurses"],
-					    [AC_CHECK_LIB([ncurses],
-							  [tgetstr],
-							  [EDITLINE_DEPLIB="-lncurses"],
-							  [AC_CHECK_LIB([termcap],
-								        [tgetstr],
-								        [EDITLINE_DEPLIB="-ltermcap"],
-								        [AC_MSG_ERROR([No curses or termcap library found!])]
-								        )
-							  ])
-					    ])
-			      ])
-		dnl make sure that libedit.a exists
-		AC_MSG_CHECKING([for libedit.a])
-		if test -f "$with_editline/lib/libedit.a"; then
-			AC_MSG_RESULT([$with_editline/lib/libeditline.a])
-			AC_CHECK_LIB([edit],
-				     [readline],
-				     [],
-				     [AC_MSG_ERROR([Editline library is missing readline()!])],
-				     [$EDITLINE_DEPLIB]
-				     )
-		else
-			AC_MSG_RESULT([not found])
-			AC_MSG_ERROR([libedit.a not found in given path.])
-		fi
-
-		dnl if we get here, we have passed the checks.
-		AC_SUBST([editline_libs], ["-ledit $EDITLINE_DEPLIB"])
-	fi
-else
-	dnl For now, editline support is required. This check is in place when
-	dnl code is added to disable editline support. Note that GNU readline
-	dnl is released under the gpl but editline is under a BSD license.
-	AC_MSG_WARN([editline support is required to build guard.])
-fi
-
-
 dnl Check for AIF
 if test "x$with_aif" != xcheck; then
 	if test "x$with_aif" = x; then
@@ -670,15 +577,16 @@ if test "x$mrnet_mode" = xyes; then
 	AC_SUBST([mrn_root], ["$mrnet_root"])
 fi
 
-dnl Conditional check for CTI libs
+dnl Conditional check for pkg-config libs
 
 dnl
 dnl Check for pkg-config
 dnl
 PKG_PROG_PKG_CONFIG
 
-PKG_CHECK_MODULES([CRAY_CTI_FE], [common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
-PKG_CHECK_MODULES([CRAY_CTI_BE], [common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_FE], 	[common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_BE], 	[common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
+PKG_CHECK_MODULES([EDITLINE], 		[libedit],[],[AC_MSG_ERROR([libedit.so not found.])])
 
 ###############################
 ### Check for header files. ###
@@ -762,42 +670,6 @@ else
 		AC_MSG_RESULT([not found])
 		AC_MSG_ERROR([libssh2.h not found. Please provide install location of libssh2 to --with-libssh2])
 	fi
-fi
-
-
-dnl Check for editline headers
-if test "x$with_editline" != xno; then
-        dnl We can use the editline library to provide readline wrappers. Note
-        dnl that editline is under a BSD license whereas readline is GPL.
-        dnl
-        dnl check if the user provided a withval
-        if test "x$with_editline" = x; then
-		AC_CHECK_HEADER([editline/readline.h],
-				[AC_DEFINE([HAVE_LIBEDITLINE],
-					   [1],
-					   [Define if you have libeditline]
-					   )
-				],
-				[AC_MSG_ERROR([You must have editline/readline.h to enable editline support in GUARD.])]
-				)
-	else
-		AC_MSG_CHECKING([for readline.h])
-		if test -f "$with_editline/include/editline/readline.h"; then
-			AC_MSG_RESULT([$with_editline/include/editline/readline.h])
-		else
-			AC_MSG_RESULT([not found])
-			AC_MSG_ERROR([readline.h not found in given path.])
-		fi
-
-		dnl if we get here, we have passed the checks.
-		CPPFLAGS="$CPPFLAGS -I$with_editline/include"
-
-		AC_DEFINE([HAVE_LIBEDITLINE], [1], [Define if you have libeditline])
-		AC_DEFINE([CUSTOM_EDITLINE], [1], [Define if you have libeditline source])
-	fi
-else
-	dnl For now editline support is required.
-	AC_MSG_ERROR([You must have editline/readline.h to build GUARD.])
 fi
 
 dnl Check for mrnet headers

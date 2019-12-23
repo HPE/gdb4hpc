@@ -28,15 +28,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 
-#ifdef HAVE_LIBEDITLINE
-// These are required for editline support
-#ifdef CUSTOM_EDITLINE
-#include	"editline/readline.h"
-/* CUSTOM_EDITLINE */
-#else
 #include	<editline/readline.h>
-#endif /* !defined(CUSTOM_EDITLINE) */
-#endif /* HAVE_LIBEDITLINE */
 
 #include	"client.h"
 #include	"useful.h"

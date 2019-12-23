@@ -4,7 +4,6 @@ DBGCLNT	= @guard_srcdir@/src/dbgclnt
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
 SDM	= @guard_srcdir@/sdm
-EDITLINE_LIBS	= @editline_libs@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
@@ -16,7 +15,7 @@ AM_LIBTOOLFLAGS = --quiet
 # Check for Cray libraries
 if CRAY
 CRAYTOOL_LIBS	= $(CRAY_CTI_FE_LIBS)
-AM_CXXFLAGS += $(CRAY_CTI_FE_CFLAGS)
+AM_CXXFLAGS 	+= $(CRAY_CTI_FE_CFLAGS)
 endif
 
 # Check for relative debugging libraries
@@ -26,8 +25,8 @@ endif
 
 # Check for MRNet libraries
 if MRN
-AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
-MRN_LIBS 	= -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
+AM_CXXFLAGS		+= -I$(MRNET) -I$(SDM)
+MRN_LIBS 		= -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
 endif
 
 # Check for gdb-mi libraries
@@ -35,7 +34,11 @@ if GDBMI_BACKEND
 MI_LIBS         = @mi_libs@
 endif
 
-SSH2_LIBS	= @ssh2_libs@
+SSH2_LIBS		= @ssh2_libs@
+
+EDITLINE_LIBS	= $(EDITLINE_LIBS)
+AM_CXXFLAGS		+= $(EDITLINE_CFLAGS)
+
 
 ###############
 # Build guard #

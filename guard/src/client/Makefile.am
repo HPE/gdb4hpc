@@ -36,7 +36,7 @@ endif
 
 SSH2_LIBS		= @ssh2_libs@
 
-EDITLINE_LIBS	= $(EDITLINE_LIBS)
+# add editline compile flags
 AM_CXXFLAGS		+= $(EDITLINE_CFLAGS)
 
 

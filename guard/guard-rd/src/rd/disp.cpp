@@ -38,8 +38,47 @@ extern void	HDFDump(char *, char *, AIF *);
 extern void	HDF5Dump(char *, char *, AIF *); 
 #endif /* HDF5 */
 
+enum class ComparisonResult { PASS, FAIL, WARN, INDETERMINATE, UNKNOWN };
+
+static ComparisonResult OpResult(int aifResult, int cmpop)
+{
+	if (aifResult == 3)
+		return ComparisonResult::INDETERMINATE;
+	else if (aifResult == -2 || aifResult == 2)
+		return ComparisonResult::WARN;
+
+	// the aifResult is reversed from the expected:
+	// -1: A > B
+	//  0: A == B
+	//  1: A < B
+	bool pass = true;
+	switch (cmpop) {
+	case EXPR_OPNOTEQUAL:
+		pass = (aifResult != 0);
+		break;
+	case EXPR_OPLEQ:
+		pass = (aifResult != -1);
+		break;
+	case EXPR_OPGEQ:
+		pass = (aifResult != 1);
+		break;
+	case EXPR_OPLT:
+		pass = (aifResult == 1);
+		break;
+	case EXPR_OPGT:
+		pass = (aifResult == -1);
+		break;
+	case EXPR_OPEQUAL:
+		pass = (aifResult == 0);
+		break;
+	default:
+		return ComparisonResult::UNKNOWN;
+	}
+	return (pass ? ComparisonResult::PASS : ComparisonResult::FAIL);
+}
+
 /*
-** Called to perform a comparison and display the result when the
+** Called to perform a comParison and display the result when the
 ** dataflow interpreter is executing.
 **
 ** Returns 1 if interpreter is to continue, 0 to stop the interpreter.
@@ -61,7 +100,7 @@ int
 CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2, int cmpop)
 {
 	int			rtn = 1;
-	int			res;
+	int			aifResult;
 	AIF *		ar = NULL;
 	ainfo_t *	ai;
 
@@ -88,7 +127,7 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 	}
 	
 	// Call the compare function. This handles EPS/diff calculation for us.
-	if (AIFCompare(data1, data2, &res, &ar, ai->a_aiflower, ai->a_aifupper))
+	if (AIFCompare(data1, data2, &aifResult, &ar, ai->a_aiflower, ai->a_aifupper))
 	{
 		PrintOutError("AIFCompare Error: %s\n", AIFErrorStr());
 		if (ai->a_stop)
@@ -100,17 +139,17 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 	/* 
 	** save result information that is independent from display type.
 	*/ 
+	ComparisonResult res = OpResult(aifResult, cmpop);
 	switch (res)
 	{
-		case 0:
+		case ComparisonResult::PASS:
 			// no differences
 			g->g_pass++;
 			g->g_assert_pass[id]++;
 			// continue on pass
 			rtn = 1;
 			break;
-		case -2:
-		case 2:
+		case ComparisonResult::WARN:
 			// between lo and hi
 			g->g_warn++;
 			g->g_assert_warn[id]++;
@@ -118,8 +157,7 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 			// continue on warning
 			rtn = 1;
 			break;
-		case -1:
-		case 1:
+		case ComparisonResult::FAIL:
 			// fatal difference
 			g->g_fail++;
 			g->g_assert_fail[id]++;
@@ -130,12 +168,12 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 			else
 				rtn = 1;
 			break;
-		case 3:
+		case ComparisonResult::INDETERMINATE:
 			PrintOutError("Warning: A function type, pointer, or some other type that has an \n");
 			PrintOutError("         indeterminate comparison result was encountered.\n");
 			PrintOutError("No comparison took place. Continuing graph execution.\n");
 			break;
-		default:
+		case ComparisonResult::UNKNOWN:
 			PrintOutError("Unknown difference result.\n");
 			AIFFree(ar);
 			if (ai->a_stop)
@@ -164,13 +202,11 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 	{
 		switch (res)
 		{
-			case -2:
-			case 2:
+			case ComparisonResult::WARN:
 				// display a warning
 				PrintOutLine("*** Tolerable difference found in AssertID %d ***\n", id+1);
 				break;
-			case -1:
-			case 1:
+			case ComparisonResult::FAIL:
 				// display an error
 				PrintOutLine("*** Difference found in AssertID %d ***\n", id+1);
 /*
@@ -413,7 +449,6 @@ DisplayP2P(graph_t *g, int id, char *name, AIF *data)
 
 	return 0;
 }
-
 /*
 ** Called to display the result of a comparison when the
 ** dataflow interpreter is executing.

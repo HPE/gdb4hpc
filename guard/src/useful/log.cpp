@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <execinfo.h>
 
 #include <linux/limits.h>
 
@@ -28,7 +29,7 @@ FILE *
 create_log(int suffix, char *nodeName)
 {
         char logfile[PATH_MAX];
-        char *envDir;
+        const char *envDir;
         FILE *logfd;
         
         // sanity checks
@@ -59,7 +60,7 @@ FILE *
 open_log(int suffix, char *nodeName)
 {
         char logfile[PATH_MAX];
-        char *envDir;
+        const char *envDir;
         FILE *logfd;
         
         // sanity checks
@@ -129,4 +130,24 @@ hook_stdoe(FILE *log)
                 
         return 0;
 }
+
+// Print the stacktace at the current location to file
+// log.
+void 
+print_backtrace(FILE* log, const char* message)
+{
+	void* trace[20];
+	int trace_size = backtrace(trace,20);
+	char** frames = backtrace_symbols(trace, trace_size);
+	if (frames) {
+		fprintf(log, "%s: stack trace\n", (message?message:""));
+		for (int i=0; i<trace_size; ++i) {
+			fprintf(log, "%s\n", frames[i]);
+		}
+		free(frames);
+	} else {
+		fprintf(log, "%s: could not get strack trace\n", (message?message:""));
+	}
+}
+
 

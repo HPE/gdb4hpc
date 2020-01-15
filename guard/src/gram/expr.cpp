@@ -1566,14 +1566,70 @@ apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diff)
 		break;
 
 	case EXPR_OPNOTEQUAL:
+		if ( AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps, Client.cmp_upper_eps) < 0 )
+		{
+			SetError("%s", AIFErrorStr());
+			return NULL;
+		} else if ( r1 == 3) {
+			SetError("Operator not supported for comparison.");
+			return NULL;
+		}
+
+		ar = IntToAIF(r1 == 0);
+		break;
+
+
 	case EXPR_OPLEQ:
+		if ( AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps, Client.cmp_upper_eps) < 0 )
+		{
+			SetError("%s", AIFErrorStr());
+			return NULL;
+		} else if ( r1 == 3) {
+			SetError("Operator not supported for comparison.");
+			return NULL;
+		}
+
+		ar = IntToAIF(r1 > 0); // note a value of 0 means the condition passes
+		break;
+
 	case EXPR_OPGEQ:
+		if ( AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps, Client.cmp_upper_eps) < 0 )
+		{
+			SetError("%s", AIFErrorStr());
+			return NULL;
+		} else if ( r1 == 3) {
+			SetError("Operator not supported for comparison.");
+			return NULL;
+		}
+
+		ar = IntToAIF(r1 < 0); // note a value of 0 means the condition passes
+		break;
+
 	case EXPR_OPLT:
+		if ( AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps, Client.cmp_upper_eps) < 0 )
+		{
+			SetError("%s", AIFErrorStr());
+			return NULL;
+		} else if ( r1 == 3) {
+			SetError("Operator not supported for comparison.");
+			return NULL;
+		}
+
+		ar = IntToAIF(r1 >= 0); // note: a value of 0 means the condition passes
+		break;
+
 	case EXPR_OPGT:
-		// FIXME: extend the AIFCompare function to accept other operators than
-		//         simple equality.
-		SetError("Operator not supported for comparison.");
-		return NULL;
+		if ( AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps, Client.cmp_upper_eps) < 0 )
+		{
+			SetError("%s", AIFErrorStr());
+			return NULL;
+		} else if ( r1 == 3) {
+			SetError("Operator not supported for comparison.");
+			return NULL;
+		}
+
+		ar = IntToAIF(r1 <= 0); // note: a value of 0 means the condition passes
+		break;
 
 	case EXPR_OPAND:
 		if ( AIFIsZero(a1, &r1) < 0 || AIFIsZero(a2, &r2) )

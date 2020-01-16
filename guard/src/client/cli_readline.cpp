@@ -28,15 +28,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 
-#ifdef HAVE_LIBEDITLINE
-// These are required for editline support
-#ifdef CUSTOM_EDITLINE
-#include	"editline/readline.h"
-/* CUSTOM_EDITLINE */
-#else
 #include	<editline/readline.h>
-#endif /* !defined(CUSTOM_EDITLINE) */
-#endif /* HAVE_LIBEDITLINE */
 
 #include	"client.h"
 #include	"useful.h"
@@ -162,7 +154,7 @@ cli_readline_destroy(cli_stream_t ** stream)
 	// remove the prompt
 	rl_set_prompt("");
 	rl_replace_line("", 0);
-	rl_redisplay();
+	rl_forced_update_display();
 	
 	// Remove the readline callback handler
 	rl_callback_handler_remove();
@@ -218,7 +210,7 @@ cli_readline_save_stream(cli_stream_t ** stream)
 	cs->cs_buf = rl_copy_text(0, rl_end);
 	rl_set_prompt("");
 	rl_replace_line("", 0);
-	rl_redisplay();
+	rl_forced_update_display();
 	
 	return 0;
 }
@@ -233,7 +225,7 @@ cli_readline_restore_stream(cli_stream_t ** stream)
 	rl_set_prompt(cs->cs_prompt);
 	rl_replace_line(cs->cs_buf, 0);
 	rl_point = cs->cs_buf_point;
-	rl_redisplay();
+	rl_forced_update_display();
 	
 	Free(cs->cs_buf);
 	
@@ -246,7 +238,7 @@ cli_readline_reset_stream(cli_stream_t ** stream)
 	rl_prep_terminal(0);
 	rl_set_prompt(cli_get_prompt());
 	rl_replace_line("", 0);
-	rl_redisplay();
+	rl_forced_update_display();
 	
 	return 0;
 }
@@ -256,7 +248,7 @@ cli_readline_clear_line(cli_stream_t ** stream)
 {
 	rl_set_prompt("");
 	rl_replace_line("", 0);
-	rl_redisplay();
+	rl_forced_update_display();
 	
 	return 0;
 }
@@ -318,11 +310,10 @@ rl_handle_line(char *line)
 	if (!Client.quit)
 	{
 		rl_set_prompt(cli_get_prompt());
-		rl_redisplay();
 	} else
 	{
 		rl_set_prompt("");
-		rl_redisplay();
 	}
+	rl_forced_update_display();
 }
 

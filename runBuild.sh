@@ -158,25 +158,6 @@ cp -a $top_level/third_party/gdb_uda/plugin/uda-plugin-cray-upc.so $install_dir/
 check_exit_status $? cp
 
 echo "############################################"
-echo "#            Building editline             #"
-echo "############################################"
-
-cd $top_level/third_party/editline
-check_exit_status $? cd
-
-autoreconf -ifv
-check_exit_status $? autoreconf
-
-./configure --prefix=$install_dir
-check_exit_status $? configure
-
-make $j_flags
-check_exit_status $? make
-
-make $j_flags install
-check_exit_status $? "make install"
-
-echo "############################################"
 echo "#              Building MRNet              #"
 echo "############################################"
 
@@ -251,7 +232,7 @@ check_exit_status $? cd
 autoreconf -ifv
 check_exit_status $? autoreconf
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-editline=$install_dir
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
 check_exit_status $? configure
 
 make $j_flags

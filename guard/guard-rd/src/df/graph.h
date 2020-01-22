@@ -111,6 +111,7 @@ struct graph_t
 	*/
 	list_t *	g_di_list;	// All of the dbginvoke_t * used by graph
 	list_t *	g_bp_list;	// list of bp_t * set by graph
+	list_t *        g_bp_di_list;   // the dbginvoke_t* corresp. to each element of g_bp_list
 
 	/*
 	** Assertion and assign information used to generate graph.

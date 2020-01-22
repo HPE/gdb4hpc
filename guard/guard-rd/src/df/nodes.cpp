@@ -2872,6 +2872,7 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 	char *				procset_name;
 	dbgprocset_t *		procset;
 	dbg_over_set_t *	over_set;
+	dbginvoke_t * 		di;
 	bitset *			receiver;
 	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
@@ -2906,6 +2907,7 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		return NULL;
 	}
 
+	di = over_set->s_di;
 	receiver = bitset_dup(over_set->s_di_bs);
 	
 	// What does this even do???
@@ -2945,22 +2947,40 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 	{
 		// Point at the bp
 		bp_t = EVENT_BP(reply->rep_event);
+		int bp_id = bp_t->bp_id;
+
+		// PE-16767 the graph can possibly contain source file locationt that are 
+		// textually different, but that resolve to the same address.  gdb will
+		// create multiple breakpoints but will only stop once, so we need to have the 
+		// graph refer to the first installed breakpoint
+		SetList(g->g_bp_list);
+		SetList(g->g_bp_di_list);
+		for (dbgbp_t* obp; (obp=(dbgbp_t*)GetListElement(g->g_bp_list)); ) {
+     			dbginvoke_t* odi = (dbginvoke_t*)GetListElement(g->g_bp_di_list);
+     			if (di == odi && strcmp(obp->bp_loc.loc_addr, bp_t->bp_loc.loc_addr) == 0) {
+				bp_id = obp->bp_id;
+				break;
+     			}
+		}
 		
 		// Add the bp_t to the g_bp_list so that cleanup of breakpoints can happen
-		// at graph exit
+		// at graph exit.   g_bp_list and g_bp_di_list need to remain in sync.
 		AddToList(g->g_bp_list, (void *)DupBP(bp_t));
+		AddToList(g->g_bp_di_list, (void *)di);
 		
 		// FIXME: This looks broken. I don't think it should be using the bp ids
 		// instead it should be using the bpset stuff. I am not looking into this
 		// right now...
+		// JV: the code is probably correct; the token is referring to the each process 
+		// independently via bi_set, so the per-process pb_id makes sense.
 		for(index = 0; index < set_length; index++)
 		{
 			if(bitset_test(reply->rep_group, (over_set->s_ps_offset + index)))
 			{
-				bi_set[index] = bp_t->bp_id;
+				bi_set[index] = bp_id;
 			}
 		}
-		DPRINT("[GRAPH DEBUG] NodeDbgSetBreakSet[%d] bp_id[%d]\n", n->n_id, bp_t->bp_id);
+		DPRINT("[GRAPH DEBUG] NodeDbgSetBreakSet[%d] bp_id[%d]\n", n->n_id, bp_id);
 	}
 	FreeRepSet(rep_set);
 

@@ -517,10 +517,16 @@ _delete_bp(graph_t *g, dbginvoke_t *di)
 	// create the rec_set
 	rec_set = NewRecSet();
 	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
-	
+
 	SetList(g->g_bp_list);
+	SetList(g->g_bp_di_list);
 	while ((bp = (dbgbp_t *)GetListElement(g->g_bp_list)) != NULL)
 	{
+		if ((dbginvoke_t *)GetListElement(g->g_bp_di_list) != di)
+		{
+			continue;
+		}
+	
 		// Check to see if this di has this breakpoint
 		if ((bpset = FindBPSetForBP(di, bp)) != NULL)
 		{

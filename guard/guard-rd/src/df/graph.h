@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2013 Cray Inc.  All Rights Reserved.
+ * © 2010-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -110,8 +110,7 @@ struct graph_t
 	** List of procs to check when removing bp's.
 	*/
 	list_t *	g_di_list;	// All of the dbginvoke_t * used by graph
-	list_t *	g_bp_list;	// list of bp_t * set by graph
-	list_t *        g_bp_di_list;   // the dbginvoke_t* corresp. to each element of g_bp_list
+	list_t *	g_bp_reply_list;	// list of group_reply for the breakpoint sets
 
 	/*
 	** Assertion and assign information used to generate graph.

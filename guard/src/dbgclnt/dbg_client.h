@@ -253,6 +253,8 @@ extern group_recv_t *		GetNextReceiverInSet(rec_set_t *set);
 ** Reply routines
 */
 extern group_reply_t *		NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply); // Make static
+extern group_reply_t * 		CopyGroupReply(group_reply_t* reply);
+extern void 			FreeGroupReply(group_reply_t *reply);
 extern rep_set_t *			NewRepSet(void); // Make static
 extern void					FreeRepSet(rep_set_t* set);
 extern rep_set_t *			CopyRepSet(rep_set_t* set);

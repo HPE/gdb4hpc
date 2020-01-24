@@ -59,7 +59,7 @@ setenv (           "GDB4HPC_BASEDIR",            PE_DIR                      )
 setenv (           "PE_GDB4HPC_MODULE_NAME",     myModuleName()              )
 setenv (           "GDB4HPC_VERSION",            MOD_LEVEL                   )
 setenv (           "GDB4HPC_INSTALL_DIR",        PE_DIR                      )
-setenv (           "GDB4HPC_DIR",                PE_DIR                      )
+setenv (           "GDB4HPC_INSTALL_DIR",                PE_DIR                      )
 
 append_path   (    "PE_PRODUCT_LIST",            NICKNAME                    )
 

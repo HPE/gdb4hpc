@@ -181,7 +181,7 @@ echo "cti_pkgconfig_I_dir:    $cti_pkgconfig_I_dir"
 echo "cti_lib_directory:      $cti_lib_directory"
 echo "cti_include_directory:  $cti_include_directory"
 
-if [ ! -d ${CRAY_CDST_SUPPORT_INSTALL_DIR} ]; then
+if [ ! -d ${CDST_SUPPORT_INSTALL_DIR} ]; then
     echo "Could not find cray-cdst-support install path."
     exit 1
 fi
@@ -206,7 +206,7 @@ echo "mrnet_cxxflags:   $mrnet_cxxflags"
 echo "mrnet_ldflags:    $mrnet_ldflags"
 echo "mrnet_soflags:    $mrnet_soflags"
 
-CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_ldflags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CRAY_CDST_SUPPORT_INSTALL_DIR}
+CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_ldflags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CDST_SUPPORT_INSTALL_DIR}
 check_exit_status $? configure
 
 # parallel builds are broken with mrnet
@@ -232,7 +232,7 @@ check_exit_status $? cd
 autoreconf -ifv
 check_exit_status $? autoreconf
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CDST_SUPPORT_INSTALL_DIR} --with-cray
 check_exit_status $? configure
 
 make $j_flags

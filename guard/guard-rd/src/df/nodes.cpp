@@ -2858,21 +2858,24 @@ NodeDbgCloseSocketSet(graph_t *g, node_t *n)
 }
 
 // Add breakpoint indices from reply to the per-process table in bi_set.
-// Only update elements of bi_set that are negative; i.e. we are keeping the 
-// the first breakpoint for each location.   offset is the overlap offset 
-// from the bi_set into the process set.
+// bi_set[set_length] (I/O): the array the gdb breakpoint index for each process in the 
+//     process set.     The values are non-negative if that breakpoint has already been 
+//     defined during a previous call.   
+// offset: is the offset apply by the overlap_set to map the bi_set into the process
+//     set.
+// reply: is the reply structure from the breakpoint set command, it has the breakpoint and
+//     the process set to which it applies. 
 static void AddToBPIndices(int* bi_set, int set_length, int offset, group_reply_t* reply) 
 {
 	dbgbp_t* bp = EVENT_BP(reply->rep_event);
 	int bp_id = bp->bp_id;
 	bitset* rep_group = reply->rep_group;
 	
-	// FIXME: This looks broken. I don't think it should be using the bp ids
-	// instead it should be using the bpset stuff. I am not looking into this
-	// right now...
 	// JV: the code is probably correct; the token is referring to the each process 
-	// independently via bi_set, so the per-process pb_id makes sense.   graph here
-	// is duplicating some of the work of the BPSet logic
+	// independently via bi_set, so the per-process bp_id makes sense.   graph here
+	// is duplicating some of the work of the BPSet logic.   This could/should be 
+	// merged into dbgclient level BPSet logic, but the visibility of the assertion 
+	// generated breakpoints could use a little thought...
 	for(int i = 0; i < set_length; ++i) {
 		if(bi_set[i] < 0 && bitset_test(rep_group,i+offset)) {
 			bi_set[i] = bp_id;

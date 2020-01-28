@@ -5,7 +5,7 @@
 **
 */
 
-%pure_parser
+%pure-parser
 
 %{
 #ifdef HAVE_CONFIG_H

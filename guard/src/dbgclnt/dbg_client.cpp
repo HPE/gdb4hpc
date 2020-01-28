@@ -71,8 +71,6 @@ static void				FreeGroupReceiver(group_recv_t *);
 static void				ClearCmdSent(group_recv_t *);
 static group_recv_t *	CopyGroupReceiver(group_recv_t *);
 static int				GetNumberOfReceivers(rec_set_t *);
-static void				FreeGroupReply(group_reply_t *);
-static group_reply_t *	CopyGroupReply(group_reply_t *);
 static rep_set_t *		MergeRepSet(rep_set_t *, rep_set_t *);
 static void				AddErrToSet(rep_set_t *, group_reply_t *);
 static void				SetErrHeadInSet(rep_set_t *);
@@ -394,7 +392,7 @@ NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply)
 	return rep;
 }
 
-static void
+void
 FreeGroupReply(group_reply_t* rep)
 {
 	FreeEvent(rep->rep_event);
@@ -402,7 +400,7 @@ FreeGroupReply(group_reply_t* rep)
 	Free(rep);
 }
 
-static group_reply_t *
+group_reply_t *
 CopyGroupReply(group_reply_t *rep)
 {
 	group_reply_t *	newrep;

@@ -646,7 +646,7 @@ EventToSocProto(dbgevent_t *e)
 		break;
 
 	case DBGEV_BPSET:
-		evdata = EventBPToSocProto(e->ev_bp, 1);
+		evdata = EventBPToSocProto(e->ev_bp, 0);
 		Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
 		Free(evdata);
 		break;

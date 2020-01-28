@@ -63,7 +63,7 @@ NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *, int), void
 	g->g_startnode = -1;
 	g->g_initnode = -1;
 	g->g_di_list = NewList();
-	g->g_bp_list = NewList();
+	g->g_bp_reply_list = NewList();
 	g->g_assigns = NewList();
 	g->g_vars = NewList();
 	g->g_assert_cmds = NewList();
@@ -219,7 +219,7 @@ DestroyGraph(graph_t *g)
 	HashDestroy(g->g_inv, destroyInv);
 	DestroyList(g->g_diff, (void (*)(void*))destroyGDiff);
 	DestroyList(g->g_di_list, (void (*)(void*))NULL);
-	DestroyList(g->g_bp_list, (void (*)(void*))FreeBP);
+	DestroyList(g->g_bp_reply_list, (void (*)(void*))FreeGroupReply);
 	DestroyList(g->g_assigns, (void (*)(void*))DestroyAssign);
 	DestroyList(g->g_vars, (void (*)(void*))DestroyVar);
 	DestroyList(g->g_assert_cmds, (void (*)(void*))Free);

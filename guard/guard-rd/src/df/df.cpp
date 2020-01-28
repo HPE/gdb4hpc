@@ -510,17 +510,24 @@ static void
 _delete_bp(graph_t *g, dbginvoke_t *di)
 {
 	dbgbp_t *			bp;
-	bp_set_t *			bpset;
+	bp_set_t *		        bpset;   
+	group_reply_t*			bp_reply;
 	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 	
 	// create the rec_set
 	rec_set = NewRecSet();
 	AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
-	
-	SetList(g->g_bp_list);
-	while ((bp = (dbgbp_t *)GetListElement(g->g_bp_list)) != NULL)
+
+	SetList(g->g_bp_reply_list);
+	while ((bp_reply = (group_reply_t*)GetListElement(g->g_bp_reply_list)) != NULL)
 	{
+		if (bp_reply->rep_di != di)
+		{
+			continue;
+		}
+		bp = EVENT_BP(bp_reply->rep_event);
+	
 		// Check to see if this di has this breakpoint
 		if ((bpset = FindBPSetForBP(di, bp)) != NULL)
 		{

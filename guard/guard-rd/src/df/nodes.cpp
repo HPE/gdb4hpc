@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * © 2010-2019 Cray Inc.  All Rights Reserved.
+ * © 2010-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -455,7 +455,7 @@ NodePassIfGreaterOrEqual(graph_t *g, node_t *n)
 token_t *
 NodePassIfToken(graph_t *g, node_t *n)
 {
-	token_t *	t1;
+	token_t *	t1 [[maybe_unused]];
 	token_t *	t2;
 
 	t1 = GetTokenFromInput(n, 0);
@@ -1967,7 +1967,7 @@ NodeGetVar(graph_t *g, node_t *n)
 {
 	void *		sym;
 	val_t *		v;
-	token_t	*	t0;
+	token_t	*	t0 [[maybe_unused]];
 	token_t	*	t1;
 	token_t	*	t;
 
@@ -2037,7 +2037,7 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 	token_t *			t;
 	token_t *			t1;
 	token_t *			t2;
-	token_t *			t3;
+	token_t *			t3 [[maybe_unused]];
 	int					set_length;
 	dbgprocset_t *		procset;
 	dbg_over_set_t *	over_set;
@@ -2094,7 +2094,7 @@ NodeDbgRequestVarSet(graph_t *g, node_t *n)
 	receiver = bitset_dup(over_set->s_di_bs);
 	if(!bitset_isfull(t1->t_set_bits))
 	{
-		for(index = 0; index < t1->t_set_length; index++)
+		for(index = 0; index < set_length; index++)
 		{
 			if(!bitset_test(t1->t_set_bits, index))
 				bitset_unset(receiver, over_set->s_ps_offset + index);
@@ -2124,9 +2124,9 @@ NodeDbgRecvVarSet(graph_t *g, node_t *n)
 {
 	token_t *			t;
 	token_t *			t0;
-	token_t *			t1;
+	token_t *			t1 [[maybe_unused]];
 	token_t *			t2;
-	token_t *			t3;
+	token_t *			t3 [[maybe_unused]];
 	AIF **				ax;
 	int					set_length;
 	rep_set_t *			rep_set;
@@ -2236,7 +2236,7 @@ NodeDbgGetVarSet(graph_t *g, node_t *n)
 	token_t *			t;
 	token_t *			t1;
 	token_t *			t2;
-	token_t *			t3;
+	token_t *			t3 [[maybe_unused]];
 	AIF **				ax;
 	int					set_length;
 	rep_set_t *			rep_set;
@@ -2366,7 +2366,7 @@ NodeDbgGetVar(graph_t *g, node_t *n)
 	token_t *			t;
 	token_t *			t1;
 	token_t *			t2;
-	token_t *			t3;
+	token_t *			t3 [[maybe_unused]];
 	AIF *				a = NULL;
 	rep_set_t *			rep_set;
 	group_reply_t *		reply;
@@ -2856,6 +2856,33 @@ NodeDbgCloseSocketSet(graph_t *g, node_t *n)
 		return (token_t *)NULL;
 	}
 }
+
+// Add breakpoint indices from reply to the per-process table in bi_set.
+// bi_set[set_length] (I/O): the array the gdb breakpoint index for each process in the 
+//     process set.     The values are non-negative if that breakpoint has already been 
+//     defined during a previous call.   
+// offset: is the offset apply by the overlap_set to map the bi_set into the process
+//     set.
+// reply: is the reply structure from the breakpoint set command, it has the breakpoint and
+//     the process set to which it applies. 
+static void AddToBPIndices(int* bi_set, int set_length, int offset, group_reply_t* reply) 
+{
+	dbgbp_t* bp = EVENT_BP(reply->rep_event);
+	int bp_id = bp->bp_id;
+	bitset* rep_group = reply->rep_group;
+	
+	// JV: the code is probably correct; the token is referring to the each process 
+	// independently via bi_set, so the per-process bp_id makes sense.   graph here
+	// is duplicating some of the work of the BPSet logic.   This could/should be 
+	// merged into dbgclient level BPSet logic, but the visibility of the assertion 
+	// generated breakpoints could use a little thought...
+	for(int i = 0; i < set_length; ++i) {
+		if(bi_set[i] < 0 && bitset_test(rep_group,i+offset)) {
+			bi_set[i] = bp_id;
+		}
+	}
+}
+	
 /*
 ** Set a breakpoint in program.
 */
@@ -2863,34 +2890,27 @@ token_t *
 NodeDbgSetBreakSet(graph_t *g, node_t *n)
 {
 	char *				file = NULL;
-	token_t	*			t1;
-	token_t	*			t2;
 	token_t	*			t3;
 	token_t	*			t;
-	int *				bi_set;
-	int					set_length;
-	char *				procset_name;
-	dbgprocset_t *		procset;
 	dbg_over_set_t *	over_set;
-	bitset *			receiver;
-	rec_set_t *			rec_set;
 	rep_set_t *			rep_set;
 	int					index;
 	group_reply_t *		reply;
-	dbgbp_t *			bp_t;
 
-	t1 = GetTokenFromInput(n, 0);
-	t2 = GetTokenFromInput(n, 1);
+	token_t* t1 = GetTokenFromInput(n, 0);
+	token_t* t2 = GetTokenFromInput(n, 1);
 
 	if ( (t3 = GetTokenFromInput(n, 2)) != (token_t *)NULL )
 		file = t3->t_str;
 
-	set_length = t1->t_set_length;
+	int set_length = t1->t_set_length;
 
-	bi_set =  (int *)Alloc(set_length * sizeof(int));
+	int* bi_set =  (int *)Alloc(set_length * sizeof(int));
+	for (int i=0; i<set_length; ++i)
+		bi_set[i] = -1;
 	
-	procset_name = t1->t_set_name;
-	procset = FindProcSet(procset_name);
+	char* procset_name = t1->t_set_name;
+	dbgprocset_t *	procset = FindProcSet(procset_name);
 	if(procset == NULL)
 	{
 		DFError(n, "NodeDbgSetBreakSet cannot find procset for %s\n", procset_name);
@@ -2906,20 +2926,23 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 		return NULL;
 	}
 
-	receiver = bitset_dup(over_set->s_di_bs);
+	dbginvoke_t* di = over_set->s_di;
+	bitset* receiver = bitset_dup(over_set->s_di_bs);
 	
-	// What does this even do???
+	// Mask out receivers that are not referenced by the token.
 	if(!bitset_isfull(t1->t_set_bits))
 	{
 		for(index = 0; index < t1->t_set_length; index++)
 		{
-			if(!bitset_test(t1->t_set_bits, index))
+			if(!bitset_test(t1->t_set_bits, index)) {
 				bitset_unset(receiver, over_set->s_ps_offset + index);
+				bi_set[index] = 0;  // flags that breakpoint is not in proc set
+			}
 		}	
 	}
 		
-	rec_set = NewRecSet();
-	AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
+	rec_set_t* rec_set = NewRecSet();
+	AddReceiverToSet(rec_set, NewGroupReceiver(di, receiver));
 	
 	switch ( t2->t_type )
 	{
@@ -2937,31 +2960,44 @@ NodeDbgSetBreakSet(graph_t *g, node_t *n)
 	}
 
 	bitset_free(receiver);
-	
+
 	ProcessErrorInRepSet(rep_set);
 
 	// process results
 	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
 	{
 		// Point at the bp
-		bp_t = EVENT_BP(reply->rep_event);
-		
-		// Add the bp_t to the g_bp_list so that cleanup of breakpoints can happen
-		// at graph exit
-		AddToList(g->g_bp_list, (void *)DupBP(bp_t));
-		
-		// FIXME: This looks broken. I don't think it should be using the bp ids
-		// instead it should be using the bpset stuff. I am not looking into this
-		// right now...
-		for(index = 0; index < set_length; index++)
-		{
-			if(bitset_test(reply->rep_group, (over_set->s_ps_offset + index)))
-			{
-				bi_set[index] = bp_t->bp_id;
+		dbgbp_t* bp = EVENT_BP(reply->rep_event);
+		const char* addr = bp->bp_loc.loc_addr;
+
+		// PE-16767 the graph can possibly contain source file locationt that are 
+		// textually different, but that resolve to the same address.  gdb will
+		// create multiple breakpoints but will only stop once, so we need to have the 
+		// graph refer to the first installed breakpoint
+		SetList(g->g_bp_reply_list);
+		for (group_reply_t* oreply; (oreply=(group_reply_t*)GetListElement(g->g_bp_reply_list)); ) {
+     			dbgbp_t* obp = EVENT_BP(oreply->rep_event);
+			if (oreply->rep_di == di && addr && !strcmp(addr,obp->bp_loc.loc_addr)) {
+				// Existing breakpoint at the same location
+				AddToBPIndices(bi_set, set_length, over_set->s_ps_offset, oreply);
 			}
 		}
-		DPRINT("[GRAPH DEBUG] NodeDbgSetBreakSet[%d] bp_id[%d]\n", n->n_id, bp_t->bp_id);
+
+		// Now add any breakpoint to the existing set
+		AddToBPIndices(bi_set, set_length, over_set->s_ps_offset, reply);
+		
+		DPRINT("[GRAPH DEBUG] NodeDbgSetBreakSet[%d] bp_id[%d]\n", n->n_id, bp->bp_id);
 	}
+
+	// Add the breakpoint to the g_bp_list so that cleanup of breakpoints can happen
+	// at graph exit.
+	// We could potentially avoid copying the replies since the originals are about to be deleted,
+	// but it does seem worth breaking the abstraction...
+	SetReplyHeadInSet(rep_set);
+	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL) {
+		AddToList(g->g_bp_reply_list, (void*)CopyGroupReply(reply));
+	}
+
 	FreeRepSet(rep_set);
 
 	t = NewToken(g, TK_INT_SET);

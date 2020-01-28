@@ -405,6 +405,7 @@ FreeCommand(dbgcommand_t *cmd)
 	case DBGCMD_GETLOCATION:
 	case DBGCMD_INTERRUPT:
 	case DBGCMD_CLOSESOCKET:
+	case DBGCMD_SETCOMMPARAM:
 		break;
 	}
 	

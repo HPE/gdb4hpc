@@ -35,6 +35,8 @@ int stream_get_DataNotificationFd(MRNet_Stream *stream);
 void stream_clear_DataNotificationFd(MRNet_Stream *stream);
 void stream_close_DataNotificationFd(MRNet_Stream *stream);
 
+unsigned int stream_get_Id(MRNet_Stream *stream);
+
 #ifdef __cplusplus
 }
 #endif

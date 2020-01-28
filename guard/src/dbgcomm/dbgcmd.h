@@ -58,6 +58,7 @@ enum dbgcmd
 	DBGCMD_INTERRUPT,
 	DBGCMD_OPENSOCKET,
 	DBGCMD_CLOSESOCKET,
+	DBGCMD_SETCOMMPARAM,   // send parameter to the communication layer
 };
 typedef enum dbgcmd dbgcmd;
 

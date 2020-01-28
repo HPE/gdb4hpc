@@ -229,6 +229,10 @@ dbgsrv_dispatch_cmds(char *msg)
 	case DBGCMD_CLOSESOCKET:
 		e = DbgCloseSocket();
 		break;
+
+	case DBGCMD_SETCOMMPARAM:
+		e = NULL; // this command should be caught by the communication level
+		break;
 	}
 	
 	FreeCommand(cmd);

@@ -31,6 +31,7 @@ extern void			mrn_be_handle_msg();
 
 extern void			mrn_be_set_cmd_stream(MRNet_Stream *stream);
 extern void			mrn_be_set_event_stream(MRNet_Stream *stream);
+extern void			mrn_be_set_event_stream_from_id(unsigned int streamId);
 extern void			mrn_be_set_io_stream(MRNet_Stream *stream);
 extern int			mrn_be_get_event_fd();
 extern void			mrn_be_clear_event_fd();

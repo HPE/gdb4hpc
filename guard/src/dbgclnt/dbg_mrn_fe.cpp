@@ -191,20 +191,25 @@ get_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto, bitset *target)
 }
 
 static MRNet_Stream *
-create_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto, bitset *target, int be_rank)
+create_stream(mrnet_type *mrnet, bitset *target, MRNet_Stream** event_stream)
 {
-	multicast_type	*mc_type = NULL;
-	MRNet_Stream 	*stream = NULL;
-	MRNet_Communicator *comm = NULL;
-
-	if(mrnet == NULL || target == NULL || proto != DBG_MRNet_PRO_COMMAND)
+	if(mrnet == NULL || target == NULL) {
+		*event_stream = NULL;
 		return NULL;
+	}
 
-	comm = network_create_communicator(mrnet->network, target, ATTACHBE_RANK_SKEW);
-	stream = network_create_stream_syncfilter(mrnet->network, comm, mrnet->filter_id);
+	MRNet_Communicator *comm = network_create_communicator(mrnet->network, target, ATTACHBE_RANK_SKEW);
+	
+	// Create the broadcast stream
+	MRNet_Stream *stream = network_create_stream_syncfilter(mrnet->network, comm, mrnet->filter_id);
 
-	mc_type = new_multicast_type(comm, stream, target);
+	multicast_type *mc_type = new_multicast_type(comm, stream, target);
 	AddToList(mrnet->mc_streams, mc_type);
+
+	// Create the event stream for handling asynchronous output from the debugger
+	int filter_timeout = get_mrn_filter_timeout();
+	*event_stream = network_create_stream_timefilter(mrnet->network, comm, mrnet->filter_id, 
+							filter_timeout);
 
 	return stream;
 }
@@ -612,11 +617,25 @@ mrn_fe_send_command(mrnet_type *mrnet, bitset *target, char *msg)
 	stream = get_stream(mrnet, DBG_MRNet_PRO_COMMAND, target);
 	if(stream == NULL)
 	{
-		stream = create_stream(mrnet, DBG_MRNet_PRO_COMMAND, target, -1);
+		MRNet_Stream *event_stream = NULL;
+		stream = create_stream(mrnet, target, &event_stream);
 		if(stream == NULL)
 		{
 			PrintOutError("ERROR: mrn_fe_send_command_to_group cannot create stream for network target[%s]\n", bitset_to_set(target));
 			return -1;
+		}
+
+		if (event_stream != NULL) {
+			// Send an initializer command along the command stream to register it's
+			// matching event stream.
+			fprintf(stderr, "Sending command to link streams %u to event stream %u\n",
+				stream_get_Id(stream), stream_get_Id(event_stream));
+			char* linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u", 
+						MRNCMD_SETEVENTSTREAM, stream_get_Id(event_stream));
+			if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", linkMsg) == -1 ) {
+				PrintOutError("Could not connect event stream to command stream");
+			}
+			Free(linkMsg);
 		}
 	}
 

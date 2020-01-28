@@ -61,10 +61,8 @@ setenv (           "GDB4HPC_VERSION",            MOD_LEVEL                   )
 setenv (           "GDB4HPC_INSTALL_DIR",        PE_DIR                      )
 setenv (           "GDB4HPC_DIR",                PE_DIR                      )
 
-append_path   (    "PE_PRODUCT_LIST",            NICKNAME                    )
+append_path   (    "PE_PRODUCT_LIST",            "GDB4HPC"                   )
 
 prepend_path  (    "LD_LIBRARY_PATH",          PE_DIR .. "/lib"              )
-prepend_path  (    "PE_PKGCONFIG_PRODUCTS",    "PE_GDB4HPC"                  )
-prepend_path  (    "PKG_CONFIG_PATH",          PE_DIR .. "/lib/pkgconfig"    )
 prepend_path  (    "PATH",                     PE_DIR .. "/bin"              )
 prepend_path  (    "MANPATH",                  PE_DIR .. "/man"              )

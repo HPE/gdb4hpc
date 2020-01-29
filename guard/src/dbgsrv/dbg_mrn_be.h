@@ -26,7 +26,7 @@ extern void			mrn_be_set_size(int size);
 extern void			mrn_be_set_localrank(int rank);
 extern int			mrn_be_get_localrank();
 
-extern void			mrn_be_set_callback(void (*callback)(char*));
+extern void			mrn_be_set_callback(void (*callback)(char*,const dbgcomm_info*));
 extern void			mrn_be_handle_msg();
 
 extern void			mrn_be_set_cmd_stream(MRNet_Stream *stream);

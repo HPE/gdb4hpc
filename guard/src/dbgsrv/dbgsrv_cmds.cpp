@@ -40,7 +40,7 @@
 	}
 
 void
-dbgsrv_dispatch_cmds(char *msg)
+dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci)
 {
 	dbgcommand_t *	cmd;
 	dbgevent_t *	e = NULL;
@@ -67,19 +67,19 @@ dbgsrv_dispatch_cmds(char *msg)
 	case DBGCMD_SETLINEBREAK:
 		CHECK_ARGS(e, cmd->cmd_arg_setlinebreak);
 		e = DbgSetLineBreak(cmd->cmd_setlinebreak_file, 
-							cmd->cmd_setlinebreak_lno);
+							cmd->cmd_setlinebreak_lno, ci);
 		break;
 		
 	case DBGCMD_SETFUNCBREAK:
 		CHECK_ARGS(e, cmd->cmd_arg_setfuncbreak);
 		e = DbgSetFuncBreak(cmd->cmd_setfuncbreak_file, 
-							cmd->cmd_setfuncbreak_func);
+							cmd->cmd_setfuncbreak_func, ci);
 		break;
 		
 	case DBGCMD_SETWATCH:
 		CHECK_ARGS(e, cmd->cmd_arg_setwatch);
 		e = DbgSetWatch(cmd->cmd_setwatch_type, 
-						cmd->cmd_setwatch_expr);
+						cmd->cmd_setwatch_expr, ci);
 		break;
 		
 	case DBGCMD_DELETEBREAK:

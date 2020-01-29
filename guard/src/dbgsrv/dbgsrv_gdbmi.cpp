@@ -110,9 +110,9 @@ static dbgevent_t *	DbgGDBMIInit(int *, int *, char **);
 static dbgevent_t *	DbgGDBMIStartup(void);
 static int			DbgGDBMIConsume(int);
 static int			DbgGDBMIEventReady(void);
-static dbgevent_t *	DbgGDBMISetLineBreak(char *, int);
-static dbgevent_t *	DbgGDBMISetFuncBreak(char *, char *);
-static dbgevent_t *	DbgGDBMISetWatch(int, char *);
+static dbgevent_t *	DbgGDBMISetLineBreak(char *, int, const dbgcomm_info *);
+static dbgevent_t *	DbgGDBMISetFuncBreak(char *, char *, const dbgcomm_info *);
+static dbgevent_t *	DbgGDBMISetWatch(int, char *, const dbgcomm_info *);
 static dbgevent_t *	DbgGDBMIDeleteBreak(int);
 static dbgevent_t *	DbgGDBMIDisableBreak(int);
 static dbgevent_t *	DbgGDBMIEnableBreak(int, int, int);
@@ -1615,7 +1615,7 @@ DbgGDBMIEventReady(void)
 ** Set breakpoint at specified line.
 */
 static dbgevent_t *
-DbgGDBMISetLineBreak(char *file, int lno)
+DbgGDBMISetLineBreak(char *file, int lno, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1700,7 +1700,7 @@ DbgGDBMISetLineBreak(char *file, int lno)
 ** Set breakpoint at start of specified function.
 */
 static dbgevent_t *
-DbgGDBMISetFuncBreak(char *file, char *func)
+DbgGDBMISetFuncBreak(char *file, char *func, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1775,7 +1775,7 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 ** Set watchpoint at specified expression.
 */
 static dbgevent_t *
-DbgGDBMISetWatch(int type, char *expr)
+DbgGDBMISetWatch(int type, char *expr, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;

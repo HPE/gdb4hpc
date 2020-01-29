@@ -36,6 +36,8 @@
 #include	"dbgsrv_defs.h"
 #include	"dbgcmd.h"
 
+class dbgcomm_info;
+
 /*
 * data structures for MRNet backend 
 */
@@ -69,7 +71,7 @@ typedef struct mrnet_be_type mrnet_be_type;
 static mrnet_be_type*	mrnet_be = NULL;
 static list_t*  	msg_list = NULL;
 
-void (*dbgsrv_callback)(char* msg) = NULL;
+void (*dbgsrv_callback)(char* msg,const dbgcomm_info*) = NULL;
 
 mrnet_be_type*
 new_mrnet_be_type()
@@ -425,7 +427,7 @@ mrn_be_send_io(char* msg)
 }
 
 void
-mrn_be_set_callback(void (*callback)(char*))
+mrn_be_set_callback(void (*callback)(char*,const dbgcomm_info*))
 {
 	dbgsrv_callback = callback;
 	return;
@@ -449,7 +451,7 @@ mrn_be_handle_msg()
 			DbgSRVMRNSetParam(submsg);
 		} else {
 			// push all other commands to the back-end.
-			dbgsrv_callback(msg);
+			dbgsrv_callback(msg, NULL);
 		}
 	}
 

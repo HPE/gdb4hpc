@@ -61,6 +61,7 @@
 #include "dbgsrv_util.h"
 #include "dbgsrv_p2p.h"
 #include "dbgsrv_defs.h"
+#include "dbgcomm_info.h"
 
 #include "common_tools_be.h"
 
@@ -153,7 +154,7 @@ static dbgevent_t *	DbgGDBMIDirectCmd(int, char **);
 static dbgevent_t *	InitDbg(char *, char *);
 static dbgevent_t *	InitDbgAttach(int, char *);
 static dbgevent_t *	WaitEvent(dbgevent_t *e);
-static dbgevent_t *	CheckBreak(MICommand *);
+static dbgevent_t *	CheckBreak(MICommand *, const dbgcomm_info*);
 static void			Finish(int);
 static void			event_callback(MIEvent *);
 static void			console_callback(char *);
@@ -1683,7 +1684,7 @@ DbgGDBMISetLineBreak(char *file, int lno, const dbgcomm_info *commInfo)
 		}
 	}
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL)
 	{
@@ -1759,7 +1760,7 @@ DbgGDBMISetFuncBreak(char *file, char *func, const dbgcomm_info *commInfo)
 		}
 	}
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL) {
 		EVENT_ERROR(event, DBGERR_DEBUGGER, "Cannot create internal breakpoint.");
@@ -1847,7 +1848,7 @@ DbgGDBMISetWatch(int type, char *expr, const dbgcomm_info *commInfo)
 
 	// Now check the breakpoint. It has all the info we need.
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL)
 	{
@@ -4274,7 +4275,7 @@ WaitEvent(dbgevent_t *e)
 ** id in bid. Adds to breakpoint list if necessary.
 */
 static dbgevent_t *
-CheckBreak(MICommand *cmd)
+CheckBreak(MICommand *cmd, const dbgcomm_info* commInfo)
 {
 	int				id;
 	dbgbp_t *		bp;
@@ -4372,6 +4373,10 @@ CheckBreak(MICommand *cmd)
 			bp->bp_loc.loc_addr = strdup(bpt->address);
 		if (bpt->what != NULL)
 			bp->bp_exp = strdup(bpt->what);
+	}
+
+	if (commInfo) {
+		bp->bp_comminfo = commInfo->clone();
 	}
 
 	/*

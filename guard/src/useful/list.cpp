@@ -196,7 +196,6 @@ RemoveFirst(list_t *l)
 {
 	void *		v;
 	liste_t *	e;
-	liste_t *	ep;
 
 	if ( l == (list_t *)NULL || l->l_nel == 0 )
 		return (void *)NULL;
@@ -204,7 +203,7 @@ RemoveFirst(list_t *l)
         // thread safe
 	pthread_mutex_lock(&l->l_lock);
 
-	ep = e = l->l_head;
+	e = l->l_head;
 
 	if ( l->l_scan == e )
 		l->l_scan = e->l_next;
@@ -304,33 +303,23 @@ GetListElement(list_t *l)
 void *
 GetListNumElement(list_t *l, int num)
 {
-        liste_t *       le = (liste_t *)NULL;
-        int             i;
-        
         if ( l == (list_t *)NULL )
 		return (void *)NULL;
 
         // thread safe
 	pthread_mutex_lock(&l->l_lock);
 	
-	l->l_scan = l->l_head;
+	liste_t* le = l->l_head;
 	
-	for (i=0; i<num; i++)
-	{
-	        le = l->l_scan;
-	        l->l_scan = le->l_next;
-	        
-	        if (l->l_scan == (liste_t *)NULL)
-	        {
-	                pthread_mutex_unlock(&l->l_lock);
-	                return (void *)NULL;
-	        }
-	}
+	for (int i=0; le && i<num; ++i)
+	        le = le->l_next;
+
+	void* v = (le ? le->l_value : NULL);
 	
 	// thread safe
 	pthread_mutex_unlock(&l->l_lock);
 
-        return le->l_value;
+        return v;
 }
 
 int

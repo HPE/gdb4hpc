@@ -35,8 +35,7 @@
 #include	"dbg_mrn.h"
 #include	"dbgsrv_defs.h"
 #include	"dbgcmd.h"
-
-class dbgcomm_info;
+#include	"dbgcomm_info.h"
 
 /*
 * data structures for MRNet backend 
@@ -67,6 +66,19 @@ struct mrnet_be_type
 	list_t *	event_streams; // asynch return streams for each of cmd_streams
 };
 typedef struct mrnet_be_type mrnet_be_type;
+
+// class to associate the event call-back stream for the asynch response of
+// breakpoint/watchpoints
+class mrncomm_info : public dbgcomm_info
+{
+public:
+	mrncomm_info(MRNet_Stream * inStream) : stream(inStream) {}
+	dbgcomm_info *clone() const { return new mrncomm_info(*this); }
+	
+	MRNet_Stream *getStream() const { return stream; }
+private:
+	MRNet_Stream *stream;
+};
 
 static mrnet_be_type*	mrnet_be = NULL;
 static list_t*  	msg_list = NULL;
@@ -372,28 +384,43 @@ mrn_be_send_reply(MRNet_Stream *stream, char* msg)
 }
 
 int 
-mrn_be_send_event(char* msg)
+mrn_be_send_event(char* msg, const dbgcomm_info* commInfo)
 {
 	if(mrnet_be->stream_event == NULL)
 		return -1;
-
-	DVPRINT("INFO: [dbgsrv] mrn_be_send_event [%s] via stream[%u]\n", msg, 
-				stream_get_Id(mrnet_be->stream_event));
 
 	char* strArr[2];
 	strArr[0] = msg;
 	strArr[1] = mrnet_be->rank_bs_str;
 
-	if( stream_send(mrnet_be->stream_event, DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1 )
+	MRNet_Stream * stream = mrnet_be->stream_event;
+
+	// a breakpoint should have passed the stream back so be can send it back
+	// on the same communicator.  This lets MRNet know exactly which end-points
+	// can be sending this event keeping it from waiting for a response from 
+	// an uninvolved node.	(otherwise, just use the big pipe)
+	if (const mrncomm_info* ci = dynamic_cast<const mrncomm_info*>(commInfo)) {
+		if (ci->getStream()) {
+			stream = ci->getStream();
+			DVPRINT("got stream %u from event\n", stream_get_Id(stream));
+		}
+	}
+
+	DVPRINT("INFO: [dbgsrv] mrn_be_send_event [%s] via stream[%u]%s\n", msg, 
+				stream_get_Id(stream), commInfo ? " from comm_info" : " no comm_info");
+
+
+
+	if( stream_send(stream, DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1 )
 	{
 		fprintf(stderr, "ERROR: mrn_be_send_event stream_send(%s) failed!\n", msg);
 		return -1;
 	}
 
-	if( stream_flush(mrnet_be->stream_event) == -1 ){
+	if( stream_flush(stream) == -1 ){
 		fprintf(stderr, "ERROR: mrn_be_send_event stream_flush() failed!\n");
 		return -1;
-    }
+	}
 
 	return 0;
 }
@@ -451,7 +478,8 @@ mrn_be_handle_msg()
 			DbgSRVMRNSetParam(submsg);
 		} else {
 			// push all other commands to the back-end.
-			dbgsrv_callback(msg, NULL);
+			mrncomm_info ci(mrnet_be->stream_event);
+			dbgsrv_callback(msg, &ci);
 		}
 	}
 

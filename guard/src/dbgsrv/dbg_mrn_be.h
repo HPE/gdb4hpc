@@ -42,7 +42,7 @@ extern void			mrn_be_clear_events();
 extern int			mrn_be_recv(struct MRNet_Stream **stream, int *tag, int blocking);
 
 extern int			mrn_be_send_reply(MRNet_Stream *stream, char* msg);
-extern int			mrn_be_send_event(char* msg);
+extern int			mrn_be_send_event(char* msg,const dbgcomm_info* commInfo);
 extern int			mrn_be_send_io(char* msg);
 
 extern int			mrn_be_is_shutdown();

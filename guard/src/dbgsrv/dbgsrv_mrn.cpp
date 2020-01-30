@@ -41,6 +41,7 @@
 #include	"dbgfn.h"
 #include	"dbgsrv_defs.h"
 #include	"dbgsrv_cmds.h"
+#include	"dbgcomm_info.h"
 #include 	"dbg_mrn_be.h"
 #include	"mrn_cfg.h"
 #include	"mrn_topo.h"
@@ -123,15 +124,19 @@ InvokeMRNCallBack(char *chost, int cport, char *host, int prog, int pnum, int po
 static int
 EventMRNCallBack(dbgevent_t *ev)
 {
-	int		res;
-	char *	st_dres;
+	// find the communication info - now because EventToSocProto deletes the event
+	const dbgcomm_info* comm_info = nullptr;
+	if (ev->ev_event == DBGEV_BPHIT && ev->ev_bp->bp_comminfo) {
+		comm_info = ev->ev_bp->bp_comminfo->clone();
+	}
 	
-	st_dres = EventToSocProto(ev);
+	char *st_dres = EventToSocProto(ev);
 
 	DVPRINT("EventMRNCallBack is invoked: %s!\n", st_dres);
 
-	res = mrn_be_send_event(st_dres);
+	int res = mrn_be_send_event(st_dres, comm_info);
 	Free(st_dres);
+	delete comm_info;
 	
 	return res;
 }
@@ -451,7 +456,7 @@ DbgSRVMRNInvokeNetwork(int numbe)
 		e = NewEvent(DBGEV_OK);
 		resp = EventToSocProto(e);
 		
-		mrn_be_send_event(resp);
+		mrn_be_send_event(resp, NULL /*defaults to the stream we just set*/);
 		Free(resp);
 		
 		return NULL;

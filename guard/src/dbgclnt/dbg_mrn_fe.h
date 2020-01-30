@@ -30,11 +30,11 @@ struct mrnet_type
 	MRNet_Network			*network;
 	MRNet_Communicator		*comm_bc;
 	MRNet_Stream			*cmd_stream;
-	MRNet_Stream			*event_stream;
+	list_t				*event_streams;
 	MRNet_Stream			*io_stream;
 	list_t					*mc_streams;	// list of multicast streams
 	int						io_nfd;
-	int						event_nfd;
+	list_t						*event_nfds;
 	int						filter_id;
 	int						num_be;			// number of dbgsrvs
 	bitset					*bitset_full;
@@ -66,7 +66,8 @@ extern int				mrn_fe_get_num_of_be(mrnet_type *);
 extern int				mrn_fe_setup_streams(mrnet_type *, char *msg);
 
 /* send commands to backends via the command stream*/
-extern int				mrn_fe_send_command(mrnet_type *, bitset *target, char *msg);
+extern int				mrn_fe_send_command(mrnet_type *, bitset *target, char *msg,
+							MRNet_Stream **event_stream_ptr);
 
 /* collect replies from backends via the command stream*/
 extern proto_msg_set * 	mrn_fe_recv_reply(mrnet_type *, bitset *target);

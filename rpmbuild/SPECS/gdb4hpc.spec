@@ -28,7 +28,6 @@
 
 # lmod modulefiles
 %global lmod_template_gdb4hpc template_%{product}.lua
-%global lmod_template_gdb4hpc_pkgconfig template_set_pkgconfig_default_%{cray_name}.lua
 
 # release info
 %global release_info_name release_info
@@ -73,7 +72,6 @@ Source1:    %{set_default_template_name}
 Source2:    %{release_info_template_name}
 Source3:    %{attributions_name}
 Source4:    %{lmod_template_gdb4hpc}
-Source5:    %{lmod_template_gdb4hpc_pkgconfig}
 
 %description
 Cray gdb4hpc %{pkgversion}
@@ -171,11 +169,8 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
 # lmod modulefile
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/%{cray_name}
-%{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/%{cray_name}/%{pkgversion}.lua 
-# lmod pkgconfig modulefile
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lmod
-%{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE5} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lmod/set_pkgconfig_default_%{cray_name}_%{pkgversion}.lua
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}
+%{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua 
 # set_default scripts
 %{__sed} 's|<PREFIX>|%{prefix}|g;s|<CRAY_PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<MODULEFILE_NAME>|%{modulefile_name}|g' %{SOURCE1} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 # set_default into admin-pe
@@ -189,16 +184,8 @@ if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
     %{__mkdir_p} /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/
     echo "%{cray_prefix}/%{product}/%{pkgversion}" > /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
     echo "%{cray_prefix}/modulefiles/%{modulefile_name}" > /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
-    
-    mkdir -p %{prefix}/admin-pe/lmod_pkgconfig_default_files/
-    # Create a link to the lmod set default pkgconfig
-    if [ -L %{prefix}/admin-pe/lmod_pkgconfig_default_files/set_pkgconfig_default_%{cray_name}.lua ]
-    then
-      rm %{prefix}/admin-pe/lmod_pkgconfig_default_files/set_pkgconfig_default_%{cray_name}.lua
-    fi
-    /usr/bin/ln -s %{prefix}/%{cray_product}/%{pkgversion}/lmod/set_pkgconfig_default_%{cray_name}_%{pkgversion}.lua %{prefix}/admin-pe/lmod_pkgconfig_default_files/set_pkgconfig_default_%{cray_name}.lua
-    
-    echo -e '#%Modulefile\r\nset  ModulesVersion "%{pkgversion}"' > %{prefix}/lmod/modulefiles/%{cray_name}/.version
+     
+    echo -e '#%Modulefile\r\nset  ModulesVersion "%{pkgversion}"' > %{prefix}/lmod/modulefiles/core/%{cray_name}/.version
 fi
 
 # Process relocations
@@ -245,10 +232,10 @@ if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
       %{__rm} -rf /etc/%{prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
       %{__rm} -rf /etc/%{prefix}/admin-pe/modulepaths.conf.d/%{cray_name}.conf
     fi
-    %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product})
+    %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product})
     if [ -z "%{other_mods}" ]
     then
-        %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}
+        %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product}
     fi
 fi
 
@@ -307,6 +294,4 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
-%attr(644, root, root) %{prefix}/lmod/modulefiles/%{cray_name}/%{pkgversion}.lua
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lmod/set_pkgconfig_default_%{cray_name}_%{pkgversion}.lua
-
+%attr(644, root, root) %{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua

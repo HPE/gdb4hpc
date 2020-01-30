@@ -232,10 +232,10 @@ if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
       %{__rm} -rf /etc/%{prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
       %{__rm} -rf /etc/%{prefix}/admin-pe/modulepaths.conf.d/%{cray_name}.conf
     fi
-    %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product})
+    %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product})
     if [ -z "%{other_mods}" ]
     then
-        %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}
+        %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product}
     fi
 fi
 

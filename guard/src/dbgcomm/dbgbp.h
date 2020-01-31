@@ -46,6 +46,8 @@ enum dbgbp_disp
 };
 typedef enum dbgbp_disp dbgbp_disp;
 
+class dbgcomm_info;
+
 struct dbgbp_t
 {
 	int					bp_id;
@@ -59,6 +61,7 @@ struct dbgbp_t
 	int					bp_hits;
 	char *				bp_stmt;
 	char **				bp_commands;
+	dbgcomm_info *			bp_comminfo;   // owned by this object
 	struct dbgbp_t *	bp_next;
 };
 typedef struct dbgbp_t dbgbp_t;

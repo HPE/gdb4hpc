@@ -20,6 +20,8 @@
 #include	"aif.h"
 #include	"dbgevent.h"
 
+class dbgcomm_info;
+
 #define ASYNC_FORCE	(dbgevent_t * (*)(dbgevent_t*))-1
 
 extern void		AsyncCheck(dbgevent_t * (*)(dbgevent_t*), dbgevent_t *);
@@ -31,9 +33,9 @@ struct dbgbackend_sw
 	int				(*dbg_read)(int);
 	int				(*dbg_bufferready)(void);
 	int				(*dbg_progio_hook)(int);
-	dbgevent_t *	(*dbg_setlinebreak)(char *, int);
-	dbgevent_t *	(*dbg_setfuncbreak)(char *, char *);
-	dbgevent_t *	(*dbg_setwatch)(int, char *);
+	dbgevent_t *	(*dbg_setlinebreak)(char *, int, const dbgcomm_info*);
+	dbgevent_t *	(*dbg_setfuncbreak)(char *, char *, const dbgcomm_info*);
+	dbgevent_t *	(*dbg_setwatch)(int, char *, const dbgcomm_info*);
 	dbgevent_t *	(*dbg_deletebreak)(int);
 	dbgevent_t *	(*dbg_disablebreak)(int);
 	dbgevent_t *	(*dbg_enablebreak)(int, int, int);
@@ -82,9 +84,9 @@ extern int				DbgProgIOHook(int);
 extern int				DbgRead(int);
 extern int				DbgBufferReady(void);
 extern dbgevent_t *		DbgStartup(void);
-extern dbgevent_t *		DbgSetLineBreak(char *, int);
-extern dbgevent_t *		DbgSetFuncBreak(char *, char *);
-extern dbgevent_t *		DbgSetWatch(int, char *);
+extern dbgevent_t *		DbgSetLineBreak(char *, int, const dbgcomm_info *);
+extern dbgevent_t *		DbgSetFuncBreak(char *, char *, const dbgcomm_info *);
+extern dbgevent_t *		DbgSetWatch(int, char *, const dbgcomm_info *);
 extern dbgevent_t *		DbgDeleteBreak(int);
 extern dbgevent_t *		DbgDisableBreak(int);
 extern dbgevent_t *		DbgEnableBreak(int, int, int);

@@ -70,6 +70,19 @@ free_multicast_type(multicast_type* mc)
 
 	Free(mc);
 }
+inline int ptr_to_int(void* p) { return (char*)p - (char*)0; }
+inline void* int_to_ptr(int i) { return (char*)0 + i; }
+
+static void mrn_add_event_stream(mrnet_type *mrnet, MRNet_Stream* event)
+{
+	if (event) {
+		int eventFd = stream_get_DataNotificationFd(event);
+		AddToList(mrnet->event_streams, event);
+		AddToList(mrnet->event_nfds, int_to_ptr(eventFd));
+	}
+}
+
+
 
 static mrnet_type *
 new_mrnet_type(MRNet_Network* network, MRNet_Communicator* comm, MRNet_Stream* cmd, MRNet_Stream* event, MRNet_Stream* io, int num_be, int filter)
@@ -79,10 +92,12 @@ new_mrnet_type(MRNet_Network* network, MRNet_Communicator* comm, MRNet_Stream* c
 	mrnet->network = network;
 	mrnet->comm_bc = comm;
 	mrnet->cmd_stream = cmd;
-	mrnet->event_stream = event;
+	mrnet->event_streams = NewList();
+	mrnet->event_nfds = NewList();
+	mrn_add_event_stream(mrnet, event);
 	mrnet->io_stream = io;
 	mrnet->io_nfd = -1;
-	mrnet->event_nfd = -1;
+
 	mrnet->filter_id = filter;
 	mrnet->num_be = num_be;
 	if (num_be > 0)
@@ -104,11 +119,12 @@ free_mrnet_type(mrnet_type* mrnet)
 	mrnet->network = NULL;
 	mrnet->comm_bc = NULL;
 	mrnet->cmd_stream = NULL;
-	mrnet->event_stream = NULL;
+	DestroyList(mrnet->event_streams,NULL);
 	mrnet->io_stream = NULL;
 	bitset_free(mrnet->bitset_full);
 	if(mrnet->mc_streams != NULL)
 		DestroyList(mrnet->mc_streams, (void (*)(void*))free_multicast_type);
+	DestroyList(mrnet->event_nfds, NULL);
 
 	Free(mrnet);
 }
@@ -122,8 +138,9 @@ release_mrnet_resource(mrnet_type* mrnet) /*TODO: how about communicator ? */
 	if(mrnet->cmd_stream != NULL)
 		stream_delete(mrnet->cmd_stream);
 
-	if(mrnet->event_stream != NULL)
-		stream_delete(mrnet->event_stream);
+	SetList(mrnet->event_streams);
+	while (MRNet_Stream* s = (MRNet_Stream*) GetListElement(mrnet->event_streams))
+		stream_delete(s);
 	
 	if(mrnet->io_stream != NULL)
 		stream_delete(mrnet->io_stream);
@@ -178,7 +195,8 @@ get_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto, bitset *target)
 			}
 			break;
 		case DBG_MRNet_PRO_EVENT:
-			stream = mrnet->event_stream;
+			stream = (MRNet_Stream*) (EmptyList(mrnet->event_streams) ? NULL :
+						 GetListNumElement(mrnet->event_streams,0));
 			break;	
 		case DBG_MRNet_PRO_IO:
 			stream = mrnet->io_stream;
@@ -191,20 +209,27 @@ get_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto, bitset *target)
 }
 
 static MRNet_Stream *
-create_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto, bitset *target, int be_rank)
+create_stream(mrnet_type *mrnet, bitset *target, MRNet_Stream** event_stream)
 {
-	multicast_type	*mc_type = NULL;
-	MRNet_Stream 	*stream = NULL;
-	MRNet_Communicator *comm = NULL;
-
-	if(mrnet == NULL || target == NULL || proto != DBG_MRNet_PRO_COMMAND)
+	if(mrnet == NULL || target == NULL) {
+		*event_stream = NULL;
 		return NULL;
+	}
 
-	comm = network_create_communicator(mrnet->network, target, ATTACHBE_RANK_SKEW);
-	stream = network_create_stream_syncfilter(mrnet->network, comm, mrnet->filter_id);
+	MRNet_Communicator *comm = network_create_communicator(mrnet->network, target, ATTACHBE_RANK_SKEW);
+	
+	// Create the broadcast stream
+	MRNet_Stream *stream = network_create_stream_syncfilter(mrnet->network, comm, mrnet->filter_id);
 
-	mc_type = new_multicast_type(comm, stream, target);
+	multicast_type *mc_type = new_multicast_type(comm, stream, target);
 	AddToList(mrnet->mc_streams, mc_type);
+
+	// Create the event stream for handling asynchronous output from the debugger
+	int filter_timeout = get_mrn_filter_timeout();
+	*event_stream = network_create_stream_timefilter(mrnet->network, comm, mrnet->filter_id, 
+							filter_timeout);
+
+	mrn_add_event_stream(mrnet, *event_stream);
 
 	return stream;
 }
@@ -482,7 +507,7 @@ mrn_fe_create_streams_and_load_filter(mrnet_type *mrnet, char *filter_file, char
 	// set the mrnet members
 	mrnet->comm_bc = comm_bc;
 	mrnet->cmd_stream = stream_bc;
-	mrnet->event_stream = stream_event;
+	mrn_add_event_stream(mrnet, stream_event);
 	mrnet->io_stream = stream_io;
 	mrnet->num_be = num_be;
 	mrnet->bitset_full = bitset_new(num_be);
@@ -512,7 +537,7 @@ mrn_fe_create_streams(mrnet_type *mrnet)
     // set the mrnet members
 	mrnet->comm_bc = comm_bc;
 	mrnet->cmd_stream = stream_bc;
-	mrnet->event_stream = stream_event;
+	mrn_add_event_stream(mrnet, stream_event);
 	mrnet->io_stream = stream_io;
 	mrnet->num_be = num_be;
 	mrnet->bitset_full = bitset_new(num_be);
@@ -602,7 +627,7 @@ mrn_fe_setup_streams(mrnet_type *mrnet, char *msg)
 
 
 int 
-mrn_fe_send_command(mrnet_type *mrnet, bitset *target, char *msg)
+mrn_fe_send_command(mrnet_type *mrnet, bitset *target, char *msg, MRNet_Stream **event_stream_ptr)
 {
 	if (mrnet == NULL)
 		return -1;
@@ -612,11 +637,25 @@ mrn_fe_send_command(mrnet_type *mrnet, bitset *target, char *msg)
 	stream = get_stream(mrnet, DBG_MRNet_PRO_COMMAND, target);
 	if(stream == NULL)
 	{
-		stream = create_stream(mrnet, DBG_MRNet_PRO_COMMAND, target, -1);
+		MRNet_Stream *event_stream = NULL;
+		stream = create_stream(mrnet, target, &event_stream);
+		*event_stream_ptr = event_stream;
+
 		if(stream == NULL)
 		{
 			PrintOutError("ERROR: mrn_fe_send_command_to_group cannot create stream for network target[%s]\n", bitset_to_set(target));
 			return -1;
+		}
+
+		if (event_stream != NULL) {
+			// Send an initializer command along the command stream to register it's
+			// matching event stream.
+			char* linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u", 
+						MRNCMD_SETEVENTSTREAM, stream_get_Id(event_stream));
+			if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", linkMsg) == -1 ) {
+				PrintOutError("Could not connect event stream to command stream");
+			}
+			Free(linkMsg);
 		}
 	}
 
@@ -727,17 +766,7 @@ mrn_fe_get_io_notificationfd(mrnet_type *mrnet)
 int	
 mrn_fe_get_event_notificationfd(mrnet_type *mrnet)
 {
-	MRNet_Stream *event_stream = NULL;
-	
-	if (mrnet == NULL)
-		return -1;
-		
-	event_stream = get_stream(mrnet, DBG_MRNet_PRO_EVENT, NULL);
-	
-	// set the notification fd for the mrnet_type
-	mrnet->event_nfd = stream_get_DataNotificationFd(event_stream);
-	
-	return mrnet->event_nfd;
+	return ptr_to_int(GetListNumElement(mrnet->event_nfds,0));
 }
 
 proto_msg_set *
@@ -833,13 +862,18 @@ mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd)
 	
 	if (mrnet == NULL)
 		return NULL;
-	
-	if (mrnet->event_nfd == notification_fd)
+
+	void* notification_fdptr = int_to_ptr(notification_fd);
+	if (InList(mrnet->event_nfds, notification_fdptr))
 	{
 		DPRINT("mrn_fe_check_io_and_event: handle EVENT_MESSAGE.\n");
-		
-		event_stream = get_stream(mrnet, DBG_MRNet_PRO_EVENT, NULL);
-		
+	
+		// find the event_stream corresponding to the event_fd	
+		SetList(mrnet->event_nfds);
+		SetList(mrnet->event_streams);
+		while ( (event_stream=(MRNet_Stream*)GetListElement(mrnet->event_streams)), 
+			(GetListElement(mrnet->event_nfds)!=notification_fdptr)) {}
+
 		// clear the event_stream notification fd
 		stream_clear_DataNotificationFd(event_stream);
 		

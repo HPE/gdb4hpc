@@ -248,7 +248,7 @@ DbgStartup(void)
 }
 
 dbgevent_t *
-DbgSetLineBreak(char *file, int line)
+DbgSetLineBreak(char *file, int line, const dbgcomm_info* ci)
 {
 	dbgevent_t *	e;
 
@@ -258,11 +258,11 @@ DbgSetLineBreak(char *file, int line)
 	
 	DBG_IMP(e, DbgBackendSW->dbg_setlinebreak);
 
-	return DbgBackendSW->dbg_setlinebreak(file, line);
+	return DbgBackendSW->dbg_setlinebreak(file, line, ci);
 }
 
 dbgevent_t *
-DbgSetFuncBreak(char *file, char *func)
+DbgSetFuncBreak(char *file, char *func, const dbgcomm_info* ci)
 {
 	dbgevent_t *	e;
 
@@ -272,11 +272,11 @@ DbgSetFuncBreak(char *file, char *func)
 	
 	DBG_IMP(e, DbgBackendSW->dbg_setfuncbreak);
 
-	return DbgBackendSW->dbg_setfuncbreak(file, func);
+	return DbgBackendSW->dbg_setfuncbreak(file, func, ci);
 }
 
 dbgevent_t *
-DbgSetWatch(int type, char *expr)
+DbgSetWatch(int type, char *expr, const dbgcomm_info* ci)
 {
 	dbgevent_t *	e;
 
@@ -286,7 +286,7 @@ DbgSetWatch(int type, char *expr)
 	
 	DBG_IMP(e, DbgBackendSW->dbg_setwatch);
 
-	return DbgBackendSW->dbg_setwatch(type, expr);
+	return DbgBackendSW->dbg_setwatch(type, expr, ci);
 }
 
 dbgevent_t *

@@ -33,6 +33,10 @@
 %global release_info_name release_info
 %global release_info_template_name %{release_info_name}.template
 
+# yaml file
+%global yaml_template yaml.template
+%global removal_date %(date '+%Y-%m-%d' -d "+5 years")
+
 # attributions file
 %global attributions_name ATTRIBUTIONS_gdb4hpc.txt
 
@@ -72,6 +76,7 @@ Source1:    %{set_default_template_name}
 Source2:    %{release_info_template_name}
 Source3:    %{attributions_name}
 Source4:    %{lmod_template_gdb4hpc}
+Source5:    %{yaml_template}
 
 %description
 Cray gdb4hpc %{pkgversion}
@@ -176,6 +181,9 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 # set_default into admin-pe
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}
 %{__install} -D ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion} ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
+# yaml file
+%{__mkdir} -p %{_rpmdir}/%{_arch}
+%{__sed} 's|<PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_product}-%{pkgversion}-%{release}.%{_arch}.rpm.yaml
 
 %post
 # Add Shasta configuration files for PE content projection

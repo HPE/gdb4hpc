@@ -66,14 +66,13 @@ typedef enum WLM_type WLM_type;
 // main protocol definition
 struct dbgclnt_proto
 {
-	char *					sw_name;													/* Name of the protocol */
+	const char *			sw_name;													/* Name of the protocol */
 	
 	int						(*sw_init)(void);											/* protocol init function */
 	void					(*sw_finish)(void);											/* protocol finish function */
 	
-	bitset *				(*sw_send_cmd)(struct dbginvoke *, bitset *, char *);		/* protocol send command function */
+	bitset *				(*sw_send_cmd)(struct dbginvoke *, bitset *, const char *);		/* protocol send command function */
 	struct proto_msg_set *	(*sw_recv_reply)(struct dbginvoke *, bitset *, bitset *);	/* protocol receive reply function */
-	
 	int						(*sw_checkevents)(struct dbginvoke *);						/* protocol check for ready event function */
 	void					(*sw_dispatchevents)(struct dbginvoke *, int);				/* protocol event dispatch function */
 
@@ -82,28 +81,28 @@ struct dbgclnt_proto
 	*/
 	proto_session *			(*sw_create_session)(	struct dbgclnt_proto *, 
 													WLM_type, 
-													char *, 
-													char *, 
-													char *);							/* protocol create session function */
+													const char *, 
+													const char *, 
+													const char *);							/* protocol create session function */
 	void					(*sw_save_session)(proto_session *);	
 	void					(*sw_cleanup_session)(proto_session *);						/* protocol cleanup session function - called when a session is no longer valid */
 	int						(*sw_attach)(	struct dbginvoke *,
 											proto_session *,
-											char *,
-											char *, 
-											char *, 
+											const char *,
+											const char *, 
+											const char *, 
 											int,
 											int);										/* protocol attach function */
 	int						(*sw_invoke)(	struct dbginvoke *,
 											proto_session *,
-											char *,
+											const char *,
 											char **,
-											char *,
+											const char *,
 											char **,
-											char *,
-											char *,
+											const char *,
+											const char *,
 											char **,
-											char *,
+											const char *,
 											int,
 											int,
 											int);										/* protocol launch function */

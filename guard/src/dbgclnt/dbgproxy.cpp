@@ -30,7 +30,7 @@
 #include "useful.h"
 
 // Used for checking null strings
-static char *	__fmt_null_str = "";
+static const char *	__fmt_null_str = "";
 
 #define FMT_CHECK_NULL_STR(s) \
 	if (s == NULL) \
@@ -598,7 +598,7 @@ RecvToSocProto(bitset *target, bitset *recv)
 }
 
 char *
-AttachArgsToSocProto(char *app_ident, char *arch, char *backend, int gpu_flag, int debug_flag)
+AttachArgsToSocProto(const char *app_ident, const char *arch, const char *backend, int gpu_flag, int debug_flag)
 {
 	char *	stres = NULL;
 	
@@ -621,9 +621,9 @@ AttachArgsToSocProto(char *app_ident, char *arch, char *backend, int gpu_flag, i
 }
 
 char *				
-InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch, 
-						char **arch_args, char *arch_input, char *backend, 
-						char **env, char *cwd, int gpu_flag, int debug_flag,
+InvokeArgsToSocProto(	const char *prog, char **argv, int nproc, const char *arch, 
+						char **arch_args, const char *arch_input, const char *backend, 
+						char **env, const char *cwd, int gpu_flag, int debug_flag,
 						int early_entry_flag)
 {
 	char *	stres = NULL;

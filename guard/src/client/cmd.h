@@ -66,23 +66,23 @@ extern void			DestroyCommands(void);
 /*
 ** Function prototypes
 */
-extern cmdlist_t *	NewCommandList(void (*)(char *), void (*)(char *), void (*)(void));
+extern cmdlist_t *	NewCommandList(void (*)(const char *), void (*)(const char *), void (*)(void));
 extern void			AddCommand(const char *, const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
-extern void			AmbiguousAltCmd(cmdlist_t *, char *);
-extern void			CmdNotFound(char *);
+extern void			AmbiguousAltCmd(cmdlist_t *, const char *);
+extern void			CmdNotFound(const char *);
 extern void			DestroyCommandList(cmdlist_t *);
 extern void			AddAltCommand(cmdlist_t *, const char *, const char *, cmdptype_t , int , int (*)(), const char * const[], const char *);
 extern cmdlist_t *	SetCommands(cmdlist_t *);
-extern void			SetDefaultCommand(cmdlist_t *, char *);
-extern cmdtype_t *	FindCommand(char *);
-extern cmdtype_t *	FindSubCommand(cmdlist_t *, char *);
-extern void			ExecuteCommand(char *);
+extern void			SetDefaultCommand(cmdlist_t *, const char *);
+extern cmdtype_t *	FindCommand(const char *);
+extern cmdtype_t *	FindSubCommand(cmdlist_t *, const char *);
+extern void			ExecuteCommand(const char *);
 
 // The following prototypes are used for adding Class commands (i.e. help, set, show, etc)
 extern void			AddClassCommand(const char *, const char *, cmdptype_t, int, int (*)(), cmdtype_t *(*)(char *), const char * const[], const char *);
 extern void			AddClassSubCommand(list_t *, const char *, cmdptype_t, int, int (*)(), const char * const[], const char *);
 extern int			DoClassSubCommand(cmdlist_t *, dbgprocset_t *, cmdtype_t *, int, char *[], int);
-extern void			AmbiguousClassSubCmd(list_t *, char *);
+extern void			AmbiguousClassSubCmd(list_t *, const char *);
 
 // external access to the help command
 extern void			PrintHelpEntry(char **);

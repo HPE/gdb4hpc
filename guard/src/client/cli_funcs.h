@@ -109,7 +109,7 @@ struct cli_stream
 	int						cs_nprom;		/* number of prompt levels */
 	int						cs_plevel;		/* current prompt level */
 	char **					cs_prompts;		/* prompts to display */
-	char *					cs_prompt;		/* current prompt */
+    char *					cs_prompt;		/* current prompt */
 	char *					cs_tmp_prompt;	/* used to temporarily save a prompt */
 	char *					cs_buf;			/* current line buffer */
 	size_t					cs_buf_size;	/* size of current line buffer in elements */

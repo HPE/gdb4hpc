@@ -141,10 +141,10 @@ main(int argc, char *argv[], char *env[])
 	int				port = -1;
 	int				pnum;
 	int				pid = -1;
-	char *			proto = NULL;
-	char *			backend = DBG_BACKEND;
-	char *			prog = NULL;
-	char *			jobKey = NULL;
+	const char *			proto = NULL;
+	const char *			backend = DBG_BACKEND;
+	const char *			prog = NULL;
+	const char *			jobKey = NULL;
 	char *			args = NULL;
 	dbgevent_t *	e;
 #ifdef SOCKETS

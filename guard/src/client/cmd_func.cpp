@@ -29,7 +29,7 @@
 ** Parse a function definition.
 */
 static func_t *
-ParseFuncDef(char *str)
+ParseFuncDef(const char *str)
 {
 	list_t *	args;
 	func_t *	f;

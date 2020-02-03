@@ -178,12 +178,12 @@ extern int					SocProtoToExitArgs(char *);
 
 extern char *				ProtoMsgToSocProto(proto_message *);
 extern char *				RecvToSocProto(bitset *target, bitset *recv);
-extern char *				AttachArgsToSocProto(	char *app_ident, char *arch, char *backend, 
+extern char *				AttachArgsToSocProto(	const char *app_ident, const char *arch, const char *backend, 
 													int gpu_flag, int debug_flag
 												);
-extern char *				InvokeArgsToSocProto(	char *prog, char **argv, int nproc, char *arch, 
-													char **arch_args, char *arch_input, char *backend, 
-													char **env, char *cwd, int gpu_flag, int debug_flag,
+extern char *				InvokeArgsToSocProto(	const char *prog, char **argv, int nproc, const char *arch, 
+													char **arch_args, const char *arch_input, const char *backend, 
+													char **env, const char *cwd, int gpu_flag, int debug_flag,
 													int early_entry_flag
 												);
 extern char *				ExitArgsToSocProto(int detach);

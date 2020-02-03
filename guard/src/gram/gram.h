@@ -50,7 +50,7 @@ typedef enum CMD_MODE CMD_MODE;
 /*
 ** expr.h
 */
-extern expr_t *			ParseExpr(char *);
+extern expr_t *			ParseExpr(const char *);
 extern void				FreeExpr(expr_t *);
 extern expr_t *			AddExpr(expr_op, ...);	// called by yacc expr.y.in
 extern void				SaveTopElt(void);		// called by yacc expr.y.in
@@ -74,7 +74,7 @@ extern int				EndExprList(void);		// called by yacc expr.y.in
 */
 extern void				InitFunc(void);
 extern void				FinishFunc(void);
-extern func_t *			NewFunc(hentry_t *, list_t *, expr_t *, int (*)(list_t *, val_t **), char *, int);
+extern func_t *			NewFunc(hentry_t *, list_t *, expr_t *, int (*)(list_t *, val_t **), const char *, int);
 extern void				FreeFunc(func_t *);
 extern func_t *			FindFunc(hentry_t *);
 extern int				CheckFunc(hentry_t *);
@@ -95,7 +95,7 @@ extern void				SetBlockMap(void);
 extern g_block_map_t *	GetBlockMap(void);
 extern g_block_map_t *	NewBlockMap(hentry_t *);
 extern void				DestroyBlockMap(g_block_map_t *);
-extern AIF *			ApplyBlockMap(g_block_map_t *, char *, int, AIF **, char *);
+extern AIF *			ApplyBlockMap(g_block_map_t *, const char *, int, AIF **, const char *);
 extern void				PrintBlockMap(FILE *, g_block_map_t *);
 extern void				FinishBlockMap(void);
 
@@ -133,7 +133,7 @@ extern void				RemoveSym(hentry_t *);
 extern hentry_t *		FindSym(char *);
 extern ct_type			FindCmdToken(char *);
 extern ct_type			FindCmdTokenStr(char *, ct_val *);
-extern ct_type			ScanString(ct_val *, char **);
+extern ct_type			ScanString(ct_val *, const char **);
 extern int				InitCmdToken(void);
 extern void				FinishCmdToken(void);
 
@@ -156,8 +156,8 @@ extern dbgprocset_t *	CurrentProcSet(void);
 extern void				PrintProcSet(dbgprocset_t *);
 extern void				SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t*	GetNextOverlaySetForProcSet(dbgprocset_t *);
-extern void				PrintMsgWithSetInfo(char* setname, bitset* group, const char *f, ...);
-extern void				PrintErrorWithSetInfo(char* setname, bitset* group, const char *f, ...);
+extern void				PrintMsgWithSetInfo(const char* setname, bitset* group, const char *f, ...);
+extern void				PrintErrorWithSetInfo(const char* setname, bitset* group, const char *f, ...);
 
 /*
 ** slice.h

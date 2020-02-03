@@ -62,12 +62,12 @@ static int				SocProtoToInt(char *);
 static dbgsources_t *	SocProtoToSources(char *);
 
 // Used for checking null strings
-static char *	__fmt_null_str = "";
+static const char *	__fmt_null_str = "";
 
 #define FMT_CHECK_NULL_STR(s) \
 	if (s == NULL) \
 	{ \
-		s = __fmt_null_str; \
+        s = const_cast<char*>(__fmt_null_str);  \
 	}
 	
 #define NULL_GUARD(s) \

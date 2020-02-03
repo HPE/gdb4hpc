@@ -42,7 +42,7 @@ struct mrnet_type
 typedef struct mrnet_type mrnet_type;
 
 /* launch MRNet frontend and backend */
-extern mrnet_type *		mrn_fe_launch_with_filter(char *topology, char *filter_file, char* filter_name, char *backend_exe, char *backend_args[]);
+extern mrnet_type *		mrn_fe_launch_with_filter(const char *topology, const char *filter_file, const char* filter_name, const char *backend_exe, char *backend_args[]);
 extern mrnet_type * 	mrn_fe_launch(char *topology, char *backend_exe, char *backend_args[]);
 
 /* launch MRNet fontend and attach backend. Currently, it is only available for ALPS */
@@ -52,7 +52,7 @@ extern mrnet_type * 	mrn_fe_create_network_no_be(char *topology_file, MRNet_Topo
 extern mrnet_type * 	mrn_fe_create_network_no_be(char *topology_file, MRNet_Topology **ptopology);
 #endif
 extern int 				mrn_fe_attach_be(mrnet_type *, int num_be, int timeout);
-extern int 				mrn_fe_create_streams_and_load_filter(mrnet_type *, char *filter_file, char* filter_name);
+extern int 				mrn_fe_create_streams_and_load_filter(mrnet_type *, const char *filter_file, const char* filter_name);
 extern int				mrn_fe_create_streams(mrnet_type *);
 
 /*--------------------------------------------------------------------------*/
@@ -66,7 +66,7 @@ extern int				mrn_fe_get_num_of_be(mrnet_type *);
 extern int				mrn_fe_setup_streams(mrnet_type *, char *msg);
 
 /* send commands to backends via the command stream*/
-extern int				mrn_fe_send_command(mrnet_type *, bitset *target, char *msg);
+extern int				mrn_fe_send_command(mrnet_type *, bitset *target, const char *msg);
 
 /* collect replies from backends via the command stream*/
 extern proto_msg_set * 	mrn_fe_recv_reply(mrnet_type *, bitset *target);

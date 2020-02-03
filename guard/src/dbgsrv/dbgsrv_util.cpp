@@ -45,11 +45,11 @@ extern appInfo_t	other_app;
 
 char *				PerformSlicingErr = NULL;
 
-static void	SetPerformSlicingErrorMsg(char *, ...);
+static void	SetPerformSlicingErrorMsg(const char *, ...);
 
 // this function parse the big dbg expression into gdb_var name, reduction function_id and a list of args for such function
 void
-ParseDBGExpr(char *expr, int *func_id, char *sliceinfo, char *var, char *args)
+ParseDBGExpr(const char *expr, int *func_id, char *sliceinfo, char *var, char *args)
 {
 	char *tok;
 	char buf[BUFSIZ];
@@ -780,7 +780,7 @@ PerformHash(AIF *data, char *hashinfo, int hashfunc, int precision_lower, int pr
 }
 
 void
-SetPerformSlicingErrorMsg(char *fmt, ...)
+SetPerformSlicingErrorMsg(const char *fmt, ...)
 {
 	va_list	ap;
 

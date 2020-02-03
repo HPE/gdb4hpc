@@ -45,14 +45,14 @@
 
 // Static function prototypes
 static int				DbgMRNInit();
-static bitset *			DbgMRNSendCmd(dbginvoke_t *, bitset *, char *);
+static bitset *			DbgMRNSendCmd(dbginvoke_t *, bitset *, const char *);
 static proto_msg_set *	DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void				DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
 static int				DbgMRNAttach(	dbginvoke_t *, proto_session *,
-										char *, char *, char *, int, int);
+										const char *, const char *, const char *, int, int);
 static int				DbgMRNInvoke(	dbginvoke_t *, proto_session *,
-										char *, char **, char *, char **, char *,
-										char *, char **, char *, int, int, int);
+										const char *, char **, const char *, char **, const char *,
+										const char *, char **, const char *, int, int, int);
 static int				DbgMRNExit(dbginvoke_t *, int);
 static void				DbgMRNDestroyClient(dbginvoke_t *);
 
@@ -86,7 +86,7 @@ DbgMRNInit()
 {
 	struct stat		st;
 	char *			mrnet_cfg_dir;
-	char *			mrnet_port_base;
+	const char *			mrnet_port_base;
 
 	// grab the config dir environment variable
 	if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL)
@@ -132,9 +132,9 @@ static int
 DbgMRNAttach(
 	dbginvoke_t *di,
 	proto_session *sess,
-	char *app_ident,
-	char *arch,
-	char *backend,
+	const char *app_ident,
+	const char *arch,
+	const char *backend,
 	int gpu_flag,
 	int debug_flag
 )
@@ -227,7 +227,7 @@ DbgMRNAttach(
 	{
 		case CTI_WLM_SLURM:
 		{
-			char *		sep;
+			const char *		sep;
 			uint32_t 	jobid;
 			uint32_t	stepid;
 			char *		eptr;
@@ -239,7 +239,8 @@ DbgMRNAttach(
 				goto attach_error;
 			}
 			// turn it into null term and point past
-			*sep++ = '\0';
+			//*sep++ = '\0';
+            ++sep;   // point to second digit (no need to modify string, strtol will stop at '.'
 
 			// convert the jobid
 			errno = 0;
@@ -869,14 +870,14 @@ static int
 DbgMRNInvoke(
 	dbginvoke_t *di,
 	proto_session *sess,
-	char *prog,
+	const char *prog,
 	char **argv,
-	char *arch,
+	const char *arch,
 	char **arch_args,
-	char *arch_input,
-	char *backend,
+	const char *arch_input,
+	const char *backend,
 	char **env,
-	char *cwd,
+	const char *cwd,
 	int gpu_flag,
 	int debug_flag,
 	int early_entry_flag
@@ -1677,7 +1678,7 @@ DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd)
 }
 
 static bitset *
-DbgMRNSendCmd(dbginvoke_t *di, bitset *target, char *request)
+DbgMRNSendCmd(dbginvoke_t *di, bitset *target, const char *request)
 {
 	proto_network	network = di->d_proto_net;
 	bitset *		received = NULL;

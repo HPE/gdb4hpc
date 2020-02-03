@@ -56,8 +56,8 @@ typedef struct cmdtype		cmdtype_t;
 struct cmdlist
 {
 	list_t *			cmd_list;
-	void				(*cmd_notfound)(char *);
-	void				(*cmd_ambig)(char *);
+	void				(*cmd_notfound)(const char *);
+	void				(*cmd_ambig)(const char *);
 	void				(*cmd_failed)(void);
 	struct cmdtype *	cmd_default;
 };

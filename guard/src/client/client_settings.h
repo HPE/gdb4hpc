@@ -35,9 +35,9 @@ struct  clnt_settings
     int                 print_entry_frame;  /* Print frame locations at startup? */
     int                 sync_wait;          /* Treat asynchronous cmds as sync? */
     int                 sync_blocked;       /* Current blocked on async cmd? */
-    char *              proto;              /* Default debugger protocol */
-    char *              arch;               /* Default starter achitecture */
-    char *              backend;            /* Default debug backend*/
+    const char *        proto;              /* Default debugger protocol */
+    const char *        arch;               /* Default starter achitecture */
+    const char *        backend;            /* Default debug backend*/
     cli_type_t          cli_mode;           /* CLI mode */
     // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
     FILE *              cli_in_stream;      /* input stream */

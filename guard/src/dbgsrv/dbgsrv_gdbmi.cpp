@@ -66,6 +66,12 @@
 
 #include "MI.h"
 
+static MICommand*
+CLIBypassc(int cmd_argc, const char*cmd_argv[])
+{
+	return CLIBypass(cmd_argc, (char**)cmd_argv);
+}
+
 // Enum for supported cuda versions
 enum cuda_vers
 {
@@ -92,7 +98,7 @@ static list_t *		main_entry_BP;
 static list_t *		parallel_entry_BP;
 
 static list_t *		exit_BP;
-static char *		ProgMain;
+static const char *	ProgMain;
 static int			AsynchEventWaiting = 0;
 static MIEvent *	PendingEvent = NULL;
 static int			DirectCmdAsyncRestore = 0;
@@ -110,48 +116,48 @@ static dbgevent_t *	DbgGDBMIInit(int *, int *, char **);
 static dbgevent_t *	DbgGDBMIStartup(void);
 static int			DbgGDBMIConsume(int);
 static int			DbgGDBMIEventReady(void);
-static dbgevent_t *	DbgGDBMISetLineBreak(char *, int);
-static dbgevent_t *	DbgGDBMISetFuncBreak(char *, char *);
-static dbgevent_t *	DbgGDBMISetWatch(int, char *);
+static dbgevent_t *	DbgGDBMISetLineBreak(const char *, int);
+static dbgevent_t *	DbgGDBMISetFuncBreak(const char *, const char *);
+static dbgevent_t *	DbgGDBMISetWatch(int, const char *);
 static dbgevent_t *	DbgGDBMIDeleteBreak(int);
 static dbgevent_t *	DbgGDBMIDisableBreak(int);
 static dbgevent_t *	DbgGDBMIEnableBreak(int, int, int);
 static dbgevent_t *	DbgGDBMILastBreak(void);
-static dbgevent_t *	DbgGDBMIList(char *);
+static dbgevent_t *	DbgGDBMIList(const char *);
 static dbgevent_t *	DbgGDBMIGetSources(void);
 static dbgevent_t *	DbgGDBMIGo(void);
 static dbgevent_t *	DbgGDBMIFinishFunc(void);
-static dbgevent_t *	DbgGDBMISetArgs(char *);
+static dbgevent_t *	DbgGDBMISetArgs(const char *);
 static dbgevent_t *	DbgGDBMIStep(int, int);
 static dbgevent_t *	DbgGDBMIKill(void);
 static dbgevent_t *	DbgGDBMIMoveFrame(int, int);
 static dbgevent_t *	DbgGDBMIShowFrame(int);
 static dbgevent_t *	DbgGDBMIGetFrame(void);
-static dbgevent_t *	DbgGDBMISetVar(char *, AIF *);
-static dbgevent_t *	DbgGDBMIEvalExpr(char *);
-static dbgevent_t *	DbgGDBMIGetType(char *, int);
-static dbgevent_t *	DbgGDBMIGetVars(char *);
-static dbgevent_t *	DbgGDBMIGetScope(char *);
+static dbgevent_t *	DbgGDBMISetVar(const char *, AIF *);
+static dbgevent_t *	DbgGDBMIEvalExpr(const char *);
+static dbgevent_t *	DbgGDBMIGetType(const char *, int);
+static dbgevent_t *	DbgGDBMIGetVars(const char *);
+static dbgevent_t *	DbgGDBMIGetScope(const char *);
 static dbgevent_t *	DbgGDBMIStatus(int);
 static dbgevent_t *	DbgGDBMIQuit(int);
 static dbgevent_t *	DbgGDBMIInterrupt(void);
-static dbgevent_t *	DbgGDBMIInvoke(char *, int, char *, char *, char *, char **, int);
-static dbgevent_t *	DbgGDBMIAttach(int, char *, char *, char **, int);
-static dbgevent_t *	DbgGDBMIOpenSocket(char *, int);
+static dbgevent_t *	DbgGDBMIInvoke(const char *, int, const char *, const char *, const char *, char **, int);
+static dbgevent_t *	DbgGDBMIAttach(int, const char *, const char *, char **, int);
+static dbgevent_t *	DbgGDBMIOpenSocket(const char *, int);
 static dbgevent_t *	DbgGDBMICloseSocket(void);
 static void			DbgGDBMIFinish(void);
 static int			DbgGDBMIReadyForCmd(void);
 static int			DbgGDBMIOK(void);
 static int			DbgGDBMIStopped(void);
-static dbgevent_t *	DbgGDBMISetDebuggerVar(char *, AIF *);
-static dbgevent_t *	DbgGDBMISetSourcePath(char *);
+static dbgevent_t *	DbgGDBMISetDebuggerVar(const char *, AIF *);
+static dbgevent_t *	DbgGDBMISetSourcePath(const char *);
 static dbgevent_t *	DbgGDBMIGetSourcePath(void);
-static dbgevent_t *	DbgGDBMIGetDebuggerVar(char *);
+static dbgevent_t *	DbgGDBMIGetDebuggerVar(const char *);
 static dbgevent_t *	DbgGDBMIDirectCmd(int, char **);
 
 /* auxiliary functions */
-static dbgevent_t *	InitDbg(char *, char *);
-static dbgevent_t *	InitDbgAttach(int, char *);
+static dbgevent_t *	InitDbg(const char *, const char *);
+static dbgevent_t *	InitDbgAttach(int, const char *);
 static dbgevent_t *	WaitEvent(dbgevent_t *e);
 static dbgevent_t *	CheckBreak(MICommand *);
 static void			Finish(int);
@@ -170,7 +176,7 @@ static dbgevent_t *	ResetBeforeDirectCmd(void);
 static dbgevent_t *	RestoreAfterDirectCmd(void);
 
 /* hashing and slicing functions */
-static dbgevent_t *	PerformExtEvalExpr(char *);
+static dbgevent_t *	PerformExtEvalExpr(const char *);
 
 /* debugger definition */
 dbgbackend_sw	DbgBackendGDBMI =
@@ -1551,8 +1557,8 @@ recover_for_slurm:
 	// Initialize UPC, in case the app uses UPC - this will break gpu debugging
 	if (!gpu_flag)
 	{
-		char *cmd_argv[1] = { "upc-init" };
-		cmd = CLIBypass(1, cmd_argv);
+		const char *cmd_argv[1] = { "upc-init" };
+		cmd = CLIBypassc(1, cmd_argv);
 		SendMICommand(GDBMISession, cmd);
 		MICommandFree(cmd);
 	}
@@ -1615,7 +1621,7 @@ DbgGDBMIEventReady(void)
 ** Set breakpoint at specified line.
 */
 static dbgevent_t *
-DbgGDBMISetLineBreak(char *file, int lno)
+DbgGDBMISetLineBreak(const char *file, int lno)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1659,12 +1665,15 @@ DbgGDBMISetLineBreak(char *file, int lno)
 		//      tree should be used in that case.
 		if (file != NULL && *file != '\0')
 		{
-			opt2 = basename(file);
+            char* file_cp = strdup(file);
+			opt2 = basename(file_cp);
 			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%d", opt2, lno);
 
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 			SendMICommand(GDBMISession, cmd);
+
+            Free(file_cp);
 
 			if (!MICommandResultOK(cmd))
 			{
@@ -1700,7 +1709,7 @@ DbgGDBMISetLineBreak(char *file, int lno)
 ** Set breakpoint at start of specified function.
 */
 static dbgevent_t *
-DbgGDBMISetFuncBreak(char *file, char *func)
+DbgGDBMISetFuncBreak(const char *file, const char *func)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1735,12 +1744,15 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 		//      tree should be used in that case.
 		if (file != NULL && *file != '\0')
 		{
-			opt2 = basename(file);
+            char* file_cp = strdup(file);
+			opt2 = basename(file_cp);
 			where = (char*)Alloc(len);
 			snprintf(where, len, "%s:%s", opt2, func);
 
 			cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
 			SendMICommand(GDBMISession, cmd);
+
+            Free(file_cp);
 
 			if (!MICommandResultOK(cmd))
 			{
@@ -1775,7 +1787,7 @@ DbgGDBMISetFuncBreak(char *file, char *func)
 ** Set watchpoint at specified expression.
 */
 static dbgevent_t *
-DbgGDBMISetWatch(int type, char *expr)
+DbgGDBMISetWatch(int type, const char *expr)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1951,7 +1963,7 @@ DbgGDBMIEnableBreak(int bid, int once, int del)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
-	char *			cmd_args[3];
+	const char *	cmd_args[3];
 	char 			cmd_bpid[30];
 	dbgbp_t *		bp;
 	int				bpid;
@@ -1979,14 +1991,14 @@ DbgGDBMIEnableBreak(int bid, int once, int del)
 		cmd_args[1] = "once";
 		snprintf(cmd_bpid, 30, "%d", bid);
 		cmd_args[2] = cmd_bpid;
-		cmd = CLIBypass(3, cmd_args);
+		cmd = CLIBypassc(3, cmd_args);
 	} else if (del)
 	{
 		cmd_args[0] = "enable";
 		cmd_args[1] = "delete";
 		snprintf(cmd_bpid, 30, "%d", bid);
 		cmd_args[2] = cmd_bpid;
-		cmd = CLIBypass(3, cmd_args);
+		cmd = CLIBypassc(3, cmd_args);
 	} else
 	{
 		// this is needed...
@@ -2043,7 +2055,7 @@ DbgGDBMILastBreak(void)
 ** GDB does not have a MI command for this; we use the CLI command.
 */
 static dbgevent_t *
-DbgGDBMIList(char *str)
+DbgGDBMIList(const char *str)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
@@ -2271,7 +2283,7 @@ DbgGDBMIFinishFunc(void)
 ** Set run arguments.
 */
 static dbgevent_t *
-DbgGDBMISetArgs(char *arg)
+DbgGDBMISetArgs(const char *arg)
 {
 	DVPRINT("*** DbgSetArgs\n");
 
@@ -2795,7 +2807,7 @@ DbgGDBMIGetFrame(void)
 ** this is a better implementation (andrewg).
 */
 static dbgevent_t *
-DbgGDBMISetVar(char *var, AIF *a)
+DbgGDBMISetVar(const char *var, AIF *a)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
@@ -2857,7 +2869,7 @@ DbgGDBMISetVar(char *var, AIF *a)
 ** If isType is true, then we are finding type information for a type.
 */
 static dbgevent_t *
-DbgGDBMIGetType(char *var, int isType)
+DbgGDBMIGetType(const char *var, int isType)
 {
 	dbgevent_t *	e;
 	MICommand *	cmd;
@@ -2903,7 +2915,7 @@ DbgGDBMIGetType(char *var, int isType)
 ** List variables in the current stack frame
 */
 static dbgevent_t *
-DbgGDBMIGetVars(char *file)
+DbgGDBMIGetVars(const char *file)
 {
 	dbgevent_t *	e;
 	dbgvars_t *	result = NULL;
@@ -2991,7 +3003,7 @@ DbgGDBMIGetVars(char *file)
 ** List local variables relative to a scope
 */
 static dbgevent_t *
-DbgGDBMIGetScope(char *location)
+DbgGDBMIGetScope(const char *location)
 {
 	MICommand * 	cmd;
 	MIList *		vars;
@@ -3348,7 +3360,7 @@ DbgGDBMIInterrupt(void)
 }
 
 static dbgevent_t *
-DbgGDBMIInvoke(char *host, int cb, char *proto, char *prog, char *args, char **env, int arch)
+DbgGDBMIInvoke(const char *host, int cb, const char *proto, const char *prog, const char *args, char **env, int arch)
 {
 	dbgevent_t *	e;
 
@@ -3369,7 +3381,7 @@ DbgGDBMIInvoke(char *host, int cb, char *proto, char *prog, char *args, char **e
 ** Attach debugger to running process.
 */
 static dbgevent_t *
-DbgGDBMIAttach(int pid, char *prog, char *args, char **env, int arch)
+DbgGDBMIAttach(int pid, const char *prog, const char *args, char **env, int arch)
 {
 	dbgevent_t *	e;
 
@@ -3433,7 +3445,7 @@ DbgGDBMIStopped(void)
 ** Set contents of GDB debug variable var.
 */
 static dbgevent_t *
-DbgGDBMISetDebuggerVar(char *var, AIF *val)
+DbgGDBMISetDebuggerVar(const char *var, AIF *val)
 {
 	MICommand *	cmd;
 	int 		intVal;
@@ -3451,7 +3463,7 @@ DbgGDBMISetDebuggerVar(char *var, AIF *val)
 }
 
 static dbgevent_t *
-DbgGDBMISetSourcePath(char *path)
+DbgGDBMISetSourcePath(const char *path)
 {
 	char *			pathdirs[2];
 	MICommand * 	cmd;
@@ -3461,7 +3473,7 @@ DbgGDBMISetSourcePath(char *path)
 
 	DVPRINT("*** DbgSetSourcePath\n");
 
-	pathdirs[0] = path;
+	pathdirs[0] = const_cast<char*>(path);
 	pathdirs[1] = NULL;
 
 	cmd = MIEnvironmentDirectory(0, pathdirs);
@@ -3523,7 +3535,7 @@ DbgGDBMIGetSourcePath(void)
 ** Get contents of GDB debug variable var.
 */
 static dbgevent_t *
-DbgGDBMIGetDebuggerVar(char *var)
+DbgGDBMIGetDebuggerVar(const char *var)
 {
 	MICommand *	cmd;
 
@@ -3726,7 +3738,7 @@ DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv)
 ** the correct version, etc.
 */
 static dbgevent_t *
-InitDbg(char *prog, char *args)
+InitDbg(const char *prog, const char *args)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
@@ -3850,7 +3862,7 @@ InitDbg(char *prog, char *args)
 ** work for other platforms as well.
 */
 static dbgevent_t *
-InitDbgAttach(int pid, char *prog)
+InitDbgAttach(int pid, const char *prog)
 {
 	dbgevent_t *		e;
 	MICommand *			cmd;
@@ -4475,7 +4487,7 @@ target_callback(char *str)
 
 // rather than coded in DbgGDBMIEvalExpr()
 static dbgevent_t *
-PerformExtEvalExpr(char *exp)
+PerformExtEvalExpr(const char *exp)
 {
 	dbgevent_t *	e;
 	AIF *	a;
@@ -4621,7 +4633,7 @@ PerformExtEvalExpr(char *exp)
 }
 
 dbgevent_t *
-DbgGDBMIEvalExpr(char *exp)
+DbgGDBMIEvalExpr(const char *exp)
 {
 	char *			type;
 	AIF *			a;
@@ -4676,7 +4688,7 @@ DbgGDBMIEvalExpr(char *exp)
 }
 
 dbgevent_t *
-DbgGDBMIOpenSocket(char *opset_name, int opset_size)
+DbgGDBMIOpenSocket(const char *opset_name, int opset_size)
 {
 	int i;
 

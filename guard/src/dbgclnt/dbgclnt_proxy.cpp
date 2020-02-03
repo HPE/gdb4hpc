@@ -47,19 +47,19 @@
 // protocol prototypes
 static int				DbgPROXYInit(void);
 static void				DbgPROXYFinish(void);
-static bitset *			DbgPROXYSendCmd(dbginvoke_t *, bitset *, char *);
+static bitset *			DbgPROXYSendCmd(dbginvoke_t *, bitset *, const char *);
 static proto_msg_set *	DbgPROXYRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void				DbgPROXYDispatchEvents(dbginvoke_t *, int);
 static proto_session *	DbgPROXYCreateSession(	dbgclnt_proto *, WLM_type manager, 
-												char *batch_template, char *hostname, 
-												char *username);
+												const char *batch_template, const char *hostname, 
+												const char *username);
 static void				DbgPROXYSaveSession(proto_session *);			
 static void				DbgPROXYCleanupSession(proto_session *);
-static int				DbgPROXYAttach(	dbginvoke_t *, proto_session *, char *, char *,
-										char *, int, int);
-static int				DbgPROXYInvoke(	dbginvoke_t *, proto_session *, char *, char **, 
-										char *, char **, char *, char *, char **, 
-										char *, int, int, int);
+static int				DbgPROXYAttach(	dbginvoke_t *, proto_session *, const char *, const char *,
+										const char *, int, int);
+static int				DbgPROXYInvoke(	dbginvoke_t *, proto_session *, const char *, char **, 
+										const char *, char **, const char *, const char *, char **, 
+										const char *, int, int, int);
 static int				DbgPROXYExit(dbginvoke_t *, int);
 static void				DbgPROXYDestroyClient(dbginvoke_t *);
 
@@ -84,8 +84,8 @@ dbgclnt_proto DbgClntPROXYProtoSW =
 
 // Internal prototypes
 static int				setupPROXYCfgDir(void);
-static char *			parseBatchScript(char *, char *);
-static int				ssh_start_proxy(char *, char *, char *, char *);
+static char *			parseBatchScript(const char *, const char *);
+static int				ssh_start_proxy(const char *, const char *, const char *, const char *);
 static proto_msg_set *	DbgPROXYRecvProtoMsg(int);
 static int				cbPROXYAttach(dbginvoke_t *, proto_msg_set *);
 static int				cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
@@ -147,7 +147,7 @@ DbgPROXYFinish(void)
 ** Parse a batch job script
 */
 static char *
-parseBatchScript(char *script_file, char *launcher_argv_str)
+parseBatchScript(const char *script_file, const char *launcher_argv_str)
 {
 	FILE *	sfp;
 	char *	cfg_dir;
@@ -307,7 +307,7 @@ static void interactive_auth_callback(	const char *name, int name_len, const cha
 }
 
 static int
-ssh_start_proxy(char *hostname, char *username, char *lhost, char *lport)
+ssh_start_proxy(const char *hostname, const char *username, const char *lhost, const char *lport)
 {
 	int						auth = 0;
 	struct addrinfo			hints;
@@ -896,7 +896,7 @@ keyinter_failure:
 ** All arguments are optional dependent on manager.
 */
 static proto_session *
-DbgPROXYCreateSession(dbgclnt_proto *proto, WLM_type manager, char *batch_template, char *hostname, char *username)
+DbgPROXYCreateSession(dbgclnt_proto *proto, WLM_type manager, const char *batch_template, const char *hostname, const char *username)
 {
 	proto_session *		rtn;
 	proxy_session *		sess;
@@ -1303,9 +1303,9 @@ static int
 DbgPROXYAttach(
 	dbginvoke_t *di,
 	proto_session *session,
-	char *app_ident,
-	char *arch,
-	char *backend,
+	const char *app_ident,
+	const char *arch,
+	const char *backend,
 	int gpu_flag,
 	int debug_flag
 )
@@ -1560,14 +1560,14 @@ static int
 DbgPROXYInvoke(
 	dbginvoke_t *di,
 	proto_session *session,
-	char *prog,
+	const char *prog,
 	char **argv,
-	char *arch,
+	const char *arch,
 	char **arch_args,
-	char *arch_input,
-	char *backend,
+	const char *arch_input,
+	const char *backend,
 	char **env,
-	char *cwd,
+	const char *cwd,
 	int gpu_flag,
 	int debug_flag,
 	int early_entry_flag
@@ -1969,7 +1969,7 @@ DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd)
 }
 
 static bitset *
-DbgPROXYSendCmd(dbginvoke_t *di, bitset *target, char *request)
+DbgPROXYSendCmd(dbginvoke_t *di, bitset *target, const char *request)
 {
 	proxy_type *		network = (proxy_type*)di->d_proto_net;
 	bitset *			received;

@@ -44,8 +44,8 @@ static cmdtype_t *	_addcmd(list_t *, const char *, const char *, cmdptype_t, int
 static cmdhelp_t *	_addhelpclasscmd(const char *, cmdtype_t *(*)(char *));
 static void			_alphabetize_cmd_list(list_t *);
 static int			_docmd(cmdlist_t *, dbgprocset_t *, cmdtype_t *, int, char *[], int);
-static cmdtype_t *	_findcmd(cmdlist_t *, char *);
-static void			_ambigcmd(list_t *, char *);
+static cmdtype_t *	_findcmd(cmdlist_t *, const char *);
+static void			_ambigcmd(list_t *, const char *);
 static int			_apply_command(dbgprocset_t *, cmdtype_t *, int, char *[]);
 
 /*
@@ -53,7 +53,7 @@ static int			_apply_command(dbgprocset_t *, cmdtype_t *, int, char *[]);
  */
  
 cmdlist_t *
-NewCommandList(void (*notfound)(char *), void (*ambig)(char *), void (*failed)(void))
+NewCommandList(void (*notfound)(const char *), void (*ambig)(const char *), void (*failed)(void))
 {
 	cmdlist_t *	c;
 
@@ -332,7 +332,7 @@ _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[])
  */
 
 static cmdtype_t *
-_findcmd(cmdlist_t *cmds, char *cmd)
+_findcmd(cmdlist_t *cmds, const char *cmd)
 {
 	int		cnt = 0;
 	cmdtype_t *	c;
@@ -402,13 +402,13 @@ FindHelpClassCommand(char **cmd_argv)
 }
 
 cmdtype_t *
-FindCommand(char *cmd)
+FindCommand(const char *cmd)
 {
 	return _findcmd(CurrentCmds, cmd);
 }
 
 cmdtype_t *
-FindSubCommand(cmdlist_t *cmd_l, char *cmd)
+FindSubCommand(cmdlist_t *cmd_l, const char *cmd)
 {
 	return _findcmd(cmd_l, cmd);
 }
@@ -418,7 +418,7 @@ FindSubCommand(cmdlist_t *cmd_l, char *cmd)
  */
 
 void
-CmdNotFound(char *cmd)
+CmdNotFound(const char *cmd)
 {
 	PrintOutError("Undefined command: \"%s\".  Try \"help\".\n", cmd);
 }
@@ -428,7 +428,7 @@ CmdNotFound(char *cmd)
  */
 
 static void
-_ambigcmd(list_t *cmds, char *cmd)
+_ambigcmd(list_t *cmds, const char *cmd)
 {
 	int		cnt = 0;
 	cmdtype_t *	c;
@@ -466,21 +466,21 @@ _ambigcmd(list_t *cmds, char *cmd)
 }
 
 static void
-AmbiguousCmd(char *cmd)
+AmbiguousCmd(const char *cmd)
 {
 	PrintOutError("Ambiguous command \"%s\": ", cmd);
 	_ambigcmd(CurrentCmds->cmd_list, cmd);
 }
 
 void
-AmbiguousAltCmd(cmdlist_t *cmds, char *cmd)
+AmbiguousAltCmd(cmdlist_t *cmds, const char *cmd)
 {
 	PrintOutError("Ambiguous command \"%s\": ", cmd);
 	_ambigcmd(cmds->cmd_list, cmd);
 }
 
 void
-AmbiguousClassSubCmd(list_t *l, char *cmd)
+AmbiguousClassSubCmd(list_t *l, const char *cmd)
 {
 	_ambigcmd(l, cmd);
 }
@@ -499,7 +499,7 @@ SetCommands(cmdlist_t *cmds)
 }
 
 void
-SetDefaultCommand(cmdlist_t *cmds, char *cmd)
+SetDefaultCommand(cmdlist_t *cmds, const char *cmd)
 {
 	if (cmds == NULL)
 		return;
@@ -647,7 +647,7 @@ DestroyCommands(void)
 */
 
 void
-ExecuteCommand(char *line)
+ExecuteCommand(const char *line)
 {
 	int				argc = 0;
 	int				seq = 0;

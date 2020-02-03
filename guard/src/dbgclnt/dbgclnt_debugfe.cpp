@@ -29,7 +29,7 @@ static void	FreeSetLocation(set_location *);
 */
 struct frontend_tab
 {
-	char *					frontend_name;
+	const char *			frontend_name;
 	dbgfrontend_sw_create *	frontend_create;
 };
 typedef struct frontend_tab	frontend_tab;
@@ -49,7 +49,7 @@ static frontend_tab DbgFrontendTab[] =
 };
 
 dbgfrontend_sw *
-DbgInstantiateFE(char *debug_def)
+DbgInstantiateFE(const char *debug_def)
 {
 	frontend_tab *		p;
 	dbgfrontend_sw *	fe_obj;
@@ -201,7 +201,7 @@ DbgFEInit(dbgfrontend_sw *fe_obj)
 
 
 dbgevent_t *
-DbgFESetFile(dbgfrontend_sw *fe_obj, char *file)
+DbgFESetFile(dbgfrontend_sw *fe_obj, const char *file)
 {
 	dbgevent_t * e;
 	
@@ -221,7 +221,7 @@ DbgFECheckStartupFunc(dbgfrontend_sw *fe_obj)
 }
 
 dbgevent_t *
-DbgFEList(dbgfrontend_sw *fe_obj, char *str)
+DbgFEList(dbgfrontend_sw *fe_obj, const char *str)
 {
 	dbgevent_t * e;
 	
@@ -241,7 +241,7 @@ DbgFEGetSources(dbgfrontend_sw *fe_obj)
 }
 
 dbgevent_t *
-DbgFESetSourcePath(dbgfrontend_sw *fe_obj, char *path)
+DbgFESetSourcePath(dbgfrontend_sw *fe_obj, const char *path)
 {
 	dbgevent_t * e;
 	

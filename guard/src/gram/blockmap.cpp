@@ -38,7 +38,7 @@
 static htable_t *	_block_map_table = (htable_t *)NULL;
 static list_t *		_block_map_list = (list_t *)NULL;
 //int	EvalBlockMapFunc(int *, g_block_map_t *, func_t *, int);
-
+                                 
 /*
 ** Find a map.
 */
@@ -263,7 +263,7 @@ DestroyBlockMap(g_block_map_t *m)
 }
 
 char *
-_find_result_type(g_block_map_t *m, char *type, char *hashinfo, int *min, int *max, int *d_max, int num_procs)
+_find_result_type(g_block_map_t *m, char *type, const char *hashinfo, int *min, int *max, int *d_max, int num_procs)
 {
 	char *	basetype;
 	char *	tok;
@@ -362,7 +362,7 @@ _find_result_type(g_block_map_t *m, char *type, char *hashinfo, int *min, int *m
 }
 
 AIF *
-ApplyBlockMap(g_block_map_t *m, char * type, int nd, AIF **data, char * hashinfo)
+ApplyBlockMap(g_block_map_t *m, char * type, int nd, AIF **data, const char * hashinfo)
 {
 	int		i,j;
 
@@ -393,7 +393,7 @@ ApplyBlockMap(g_block_map_t *m, char * type, int nd, AIF **data, char * hashinfo
 		basetype = type;
 
 	GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-	hashmode = (FDSType(FDSBaseType(type)) == AIF_HASHED_SIGNATURE) ? 1 : 0;
+	hashmode = (FDSType(basetype) == AIF_HASHED_SIGNATURE) ? 1 : 0;
 
 
 /*#ifdef DEBUG

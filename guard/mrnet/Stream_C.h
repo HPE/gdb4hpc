@@ -23,9 +23,9 @@ extern "C" {
 
 void stream_delete(MRNet_Stream *stream);
 
-int stream_send(MRNet_Stream* stream, int tag, char *format_str, ... );
+int stream_send(MRNet_Stream* stream, int tag, const char *format_str, ... );
 
-int stream_send_with_data(MRNet_Stream* stream, int tag, void **data, char *format_str);
+int stream_send_with_data(MRNet_Stream* stream, int tag, void **data, const char *format_str);
 
 int stream_flush(MRNet_Stream* stream );
 

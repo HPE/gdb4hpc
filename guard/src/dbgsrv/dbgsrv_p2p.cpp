@@ -50,7 +50,7 @@ LoadAppInfo(appInfo_t *myapp)
 	char line[BUFSIZ];
 	int rank, port;
 	FILE * netinfo_fd;
-	char *envDir;
+	const char *envDir;
 
 	DPRINT("In LoadAppInfo\n");
 

@@ -33,12 +33,12 @@
 static void			DbgInstantiateGDBMI(dbgfrontend_sw *);
 static dbgevent_t *	DbgGDBMIInit_fe(dbgfrontend_sw *);
 static dbgevent_t *	DbgGDBMIQuit_fe(dbgfrontend_sw *);
-static dbgevent_t *	DbgGDBMIList_fe(dbgfrontend_sw *, char *);
+static dbgevent_t *	DbgGDBMIList_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t * DbgGDBMIGetSources_fe(dbgfrontend_sw *);
-static dbgevent_t *	DbgGDBMISetFile_fe(dbgfrontend_sw *, char *);
-static dbgevent_t *	DbgGDBMISetSourcePath_fe(dbgfrontend_sw *, char *);
+static dbgevent_t *	DbgGDBMISetFile_fe(dbgfrontend_sw *, const char *);
+static dbgevent_t *	DbgGDBMISetSourcePath_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t *	DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *);
-static dbgevent_t *	DbgGDBMIGetScope_fe(dbgfrontend_sw *, char *);
+static dbgevent_t *	DbgGDBMIGetScope_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t *	DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
 
 /* auxiliary functions */
@@ -253,7 +253,7 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 ** Set a.out inferior file for symbol reading.
 */
 static dbgevent_t *
-DbgGDBMISetFile_fe(dbgfrontend_sw *fe_obj, char *file)
+DbgGDBMISetFile_fe(dbgfrontend_sw *fe_obj, const char *file)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
@@ -296,7 +296,7 @@ DbgGDBMIQuit_fe(dbgfrontend_sw *fe_obj)
 ** GDB does not have a MI command for this; we use the CLI command.
 */
 static dbgevent_t *
-DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, char *str)
+DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char *str)
 {
 	dbgevent_t *	e;
 	MICommand *		cmd;
@@ -418,7 +418,7 @@ DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj)
 }
 
 static dbgevent_t *
-DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj, char *path)
+DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj, const char *path)
 {
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
 	char *			pathdirs[2];
@@ -429,7 +429,7 @@ DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj, char *path)
 
 	DPRINT("*** DbgGDBMISetSourcePath_fe\n");
 
-	pathdirs[0] = path;
+	pathdirs[0] = const_cast<char*>(path);
 	pathdirs[1] = NULL;
 
 	cmd = MIEnvironmentDirectory(0, pathdirs);
@@ -491,7 +491,7 @@ DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *fe_obj)
 }
 
 static dbgevent_t *
-DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, char *location)
+DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj, const char *location)
 {
 	MISession *		sess = (MISession *)fe_obj->dbg_session;
 	MICommand * 	cmd;

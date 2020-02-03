@@ -31,7 +31,7 @@
 #include	"gram.h"
 
 // Global variables with external exposure - This is used in expr.y.in
-char **			ExprStr;
+const char **			ExprStr;
 // This function is created by the yacc parser - see expr.y.in
 extern int		expr_parse(void);
 
@@ -41,7 +41,7 @@ static list_t *	_expr_list = NULL;	// used in expr.y.in
 static list_t *	_elt_list = NULL;
 
 // Static function prototypes
-static expr_t *	do_parse(char **);
+static expr_t *	do_parse(const char **);
 static val_t *	evaluate_expr_imm(expr_t *, rec_set_t *, func_t *);
 static val_t *	evaluate_func_imm(hentry_t *, expr_t *, rec_set_t *, func_t *);
 static val_t *	read_var_imm(expr_t *, rec_set_t *, func_t *);
@@ -55,13 +55,13 @@ static void		DumpExpr(expr_t *);
 #endif
 
 expr_t *
-ParseExpr(char *str)
+ParseExpr(const char *str)
 {
 	return do_parse(&str);
 }
 	
 static expr_t *
-do_parse(char **str)
+do_parse(const char **str)
 {
 	OPList = (expr_t *)Alloc(sizeof(expr_t) + sizeof(expr_elt) * 10);
 	OPList->e_len = 10;

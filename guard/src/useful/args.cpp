@@ -151,7 +151,7 @@ FreeArgv (char **args)
 }
 
 char **
-NewArgv(char *a0, ...)
+NewArgv(const char *a0, ...)
 {
 	int	n = 1;
 	char **	ap;

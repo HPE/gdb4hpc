@@ -43,8 +43,9 @@ static int      gpu_flag = 0;
 /*
 ** static function prototypes
 */
-static int      DoInvoke(char *, proto_session *, char *, char **, dbgprocset_t *, char *, char **, char *, char *, char **, char *);
-static int      DoAttach(char *, proto_session *, dbgprocset_t *, char *, char *, char *);
+static int      DoInvoke(const char *, proto_session *, const char *, char **, dbgprocset_t *, const char *, char **, const char *, const char *, char **, const char *);
+static int      DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
+                         const char *, const char *);
 static void     ReleaseProc(dbgprocset_t *, dbgquit_type);
 
 /*
@@ -148,7 +149,7 @@ static int
 cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     proto_session * sess = NULL;
-    char *          proto = Client.proto;
+    const char *    proto = Client.proto;
     WLM_type        manager = WLM_none;
     char *          batch_script = NULL;
     int             opt_ind = 0;
@@ -269,9 +270,9 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
     proto_session * sess = NULL;
     dbgprocset_t *  ps = NULL;
     char *          prog = NULL;
-    char *          arch = Client.arch;
-    char *          proto = Client.proto;
-    char *          backend = Client.backend;
+    const char *    arch = Client.arch;
+    const char *    proto = Client.proto;
+    const char *    backend = Client.backend;
     char *          arch_input = NULL;
     int             set_default_workdir = 0;
     char *          workdir = NULL;
@@ -721,17 +722,17 @@ exit_with_error:
 ** Note that the invoke process always operates synchronously.
 */
 static int
-DoInvoke(   char *proto,
+DoInvoke(   const char *proto,
             proto_session *sess,
-            char *prog,
+            const char *prog,
             char **args,
             dbgprocset_t *ps,
-            char *arch,
+            const char *arch,
             char **arch_args,
-            char *arch_input,
-            char *backend,
+            const char *arch_input,
+            const char *backend,
             char **Env,
-            char *cwd
+            const char *cwd
 )
 {
     dbginvoke_t *       di;
@@ -873,9 +874,9 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
     proto_session * sess = NULL;
     dbgprocset_t *  ps;
     char *          app_ident;
-    char *          arch = Client.arch;
-    char *          proto = Client.proto;
-    char *          backend = Client.backend;
+    const char *    arch = Client.arch;
+    const char *    proto = Client.proto;
+    const char *    backend = Client.backend;
     char *          hostname = NULL;
     char *          username = NULL;
     expr_t *        e;
@@ -1015,12 +1016,12 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
 ** Note that the attach process always operates synchronously.
 */
 static int
-DoAttach(   char *proto,
+DoAttach(   const char *proto,
             proto_session *sess,
             dbgprocset_t *ps,
-            char *app_ident,
-            char *arch,
-            char *backend
+            const char *app_ident,
+            const char *arch,
+            const char *backend
 )
 {
     dbginvoke_t *       di;

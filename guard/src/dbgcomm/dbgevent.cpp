@@ -837,7 +837,7 @@ FreeStatus(dbgstatus_t *stat)
 /*
 ** Return last event error string.
 */
-char *
+const char *
 DbgEventErrorStr(dbgevent_t *e)
 {
 	static char	buf[BUFSIZ];

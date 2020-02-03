@@ -78,7 +78,8 @@ free_packet()
 	}
 }
 
-extern "C" MRNet_Network* network_create_FE(char * itopology, char * ibackend_exe, const char **ibackend_argv)
+
+extern "C" MRNet_Network* network_create_FE(const char * itopology, const char * ibackend_exe, const char **ibackend_argv)
 {
 	Network *network = Network::CreateNetworkFE(itopology, ibackend_exe, ibackend_argv);
 
@@ -90,7 +91,7 @@ extern "C" MRNet_Network* network_create_FE(char * itopology, char * ibackend_ex
 /*
 * MRNet now uses the CTI interface to launch the CP processes.
 */
-extern "C" MRNet_Network* network_create_FE_with_cti(char * itopology, int ctiAppid, int ctiMid)
+extern "C" MRNet_Network* network_create_FE_with_cti(const char * itopology, int ctiAppid, int ctiMid)
 {
 	std::map<std::string, std::string> mrnet_attrs;
 	std::ostringstream appidStr;
@@ -171,7 +172,8 @@ extern "C" MRNet_Communicator* network_create_communicator(MRNet_Network* networ
 	return (MRNet_Communicator*)communicator;
 }
 
-extern "C" int network_load_filter_func(MRNet_Network* network, char * so_file, char * func )
+
+extern "C" int network_load_filter_func(MRNet_Network* network, const char * so_file, const char * func )
 {
 	Network* pNetwork = (Network*)network;
 	return pNetwork->load_FilterFunc(so_file, func);
@@ -293,7 +295,7 @@ extern "C" int network_has_error(MRNet_Network* network)
 	return 0;
 }
 
-extern "C" void network_print_error(MRNet_Network* network, char* error)
+extern "C" void network_print_error(MRNet_Network* network, const char* error)
 {
 	Network* pNetwork = (Network*)network;
 	pNetwork->perror(error);

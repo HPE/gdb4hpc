@@ -67,9 +67,9 @@
 #include "MI.h"
 
 static MICommand*
-CLIBypassc(int cmd_argc, const char*cmd_argv[])
+CLIBypassc(int cmd_argc, const char* cmd_argv[])
 {
-	return CLIBypass(cmd_argc, (char**)cmd_argv);
+	return CLIBypass(cmd_argc, const_cast<char**>(cmd_argv));
 }
 
 // Enum for supported cuda versions

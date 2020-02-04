@@ -906,7 +906,6 @@ DbgMRNInvoke(
 	cti_manifest_id_t	mid;
 	cti_session_id_t	sid;
 	char **				args = NULL;
-	char *				beDirStr = NULL;
 	char *				env_base_dir = NULL;
 
 #ifdef DEBUG

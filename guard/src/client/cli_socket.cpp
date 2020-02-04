@@ -269,7 +269,7 @@ cli_socket_handle_input(cli_stream_t ** stream)
 		memset(cs->cs_buf, 0, sizeof(char) * LINEBUF_BLOCK_SIZE);
 		cs->cs_buf_point = 0;
 		cs->cs_buf_size = LINEBUF_BLOCK_SIZE;
-	} else if (cs->cs_buf_size  < cs->cs_buf_point + 1)
+	} else if (int(cs->cs_buf_size)  < cs->cs_buf_point + 1)
 	{
 		cs->cs_buf_size = cs->cs_buf_size + LINEBUF_BLOCK_SIZE;
 		Resize((void *)cs->cs_buf, cs->cs_buf_size);

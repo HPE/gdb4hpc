@@ -83,7 +83,7 @@ HashCreate(int logsize)
 	/*
 	** Maximum size is 2^31
 	*/
-	if ( logsize > BITSPERBYTE * sizeof(unsigned int) - 1 )
+	if ( logsize > int(BITSPERBYTE * sizeof(unsigned int) - 1) )
 		logsize = BITSPERBYTE * sizeof(unsigned int) - 1;
 
 	htab->logsize = logsize;

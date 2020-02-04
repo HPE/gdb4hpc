@@ -213,7 +213,6 @@ DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj)
 {
 	dbgevent_t *	e;
 	MISession * 	sess = (MISession *)fe_obj->dbg_session;
-	char *			str;
 
 	DPRINT("*** DbgGDBMIInit_fe\n");
 

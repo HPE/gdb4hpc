@@ -601,9 +601,6 @@ GetTypeLength(MISession *session, const char *in_base_type)
 	MICommand *	cmd;
 	char *		buf;
 	int			type_len;		// in bytes
-	char *		p;
-	char *		clean_str;		// string without nvidia crap
-	int			found;
 	
 	DVPRINT("GetTypeLength: Resolving length of %s\n", in_base_type);
 	
@@ -2299,7 +2296,7 @@ vectorLikeDimension_t * GetVectorLikeDimensionShape(char * buf){
 			//If so, store this size in the parent. Shrink our coordinates.
 			case '}':
 				if(atCoordsSize >=1){
-					if(result && result->sizes && ((atCoords[atCoordsSize-1]+1) > result->sizes[depth]))
+					if(result && result->sizes && ((atCoords[atCoordsSize-1]+1) > int(result->sizes[depth])))
 					{
 						result->sizes[depth] = atCoords[atCoordsSize-1]+1;
 					}
@@ -4412,7 +4409,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 			// now we create each of the outer dimensions using its inner dimension
 			// child as its aif ref type. This will ensure that we have enough space
 			// in our aif object the the child arrays.
-			for (dcnt=2; dcnt <= shape->dim; ++dcnt)
+			for (dcnt=2; dcnt <= int(shape->dim); ++dcnt)
 			{
 				DVPRINT("GetArrayAIF: building outter array of size %d at abuild index %d\n", getArrayDimension(shape, dcnt), shape->dim - dcnt);
 				// the abuild index at dcnt is a 0..n array of type abuild[shape->dim-dcnt+1]
@@ -4437,7 +4434,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 			}
 			
 			// set the mcnt array to the actual min range value for each dimension. Fortran allows for custom ranges to be used
-			for (dcnt = 1; dcnt <= shape->dim; ++dcnt)
+			for (dcnt = 1; dcnt <= int(shape->dim); ++dcnt)
 			{
 				mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
 				DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt, mcnt[shape->dim - dcnt]);
@@ -4721,7 +4718,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		a = abuild[0];
 		
 		// cleanup the other abuild entries, we are done with them
-		for (dcnt = 1; dcnt < shape->dim; ++dcnt)
+		for (dcnt = 1; dcnt < int(shape->dim); ++dcnt)
 		{
 			AIFFree(abuild[dcnt]);
 		}

@@ -578,8 +578,6 @@ cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv)
     // Check to see if we need to handle a session for this invoke
     switch (manager)
     {
-        struct stat sb;
-
         case WLM_none:
             // First check to see if we currently have an open session
             if ((sess = DbgGetSession()) != NULL)
@@ -882,7 +880,7 @@ cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv)
     expr_t *        e;
     int             opt_ind = 0;
     int             opt;
-    struct stat     sb;
+
     // reset optind and flags
     optind = 0;
     debug_flag = 0;

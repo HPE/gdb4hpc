@@ -730,8 +730,10 @@ _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 					char err_message[BUFSIZ];
 					sprintf(err_message, "BlockMap %s decomposition is not feasible with the given array shape", SymLookup(bm1->m_sym));
 					SetError(err_message);
-		    if(data_size[0])    Free(data_size[0]);
-		    if(data_size[1])    Free(data_size[1]);
+					if(data_size[0])
+						Free(data_size[0]);
+					if(data_size[1])
+						Free(data_size[1]);
 					return -1;
 				}
 			}
@@ -744,8 +746,10 @@ _find_hash_info(char *hashinfo, graph_t *g, expr_t *e, rec_set_t *rec_set)
 					char err_message[BUFSIZ];
 					sprintf(err_message, "BlockMap %s decomposition is not feasible with the given array shape", SymLookup(bm2->m_sym));
 					SetError(err_message);
-		    if(data_size[0])    Free(data_size[0]);
-		    if(data_size[1])    Free(data_size[1]);
+					if(data_size[0])
+						Free(data_size[0]);
+					if(data_size[1])
+						Free(data_size[1]);
 					return -1;
 				}
 				break;

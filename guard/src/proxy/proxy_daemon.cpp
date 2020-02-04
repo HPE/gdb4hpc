@@ -314,7 +314,6 @@ SetupEnvironment(void)
 	char *				lib_dir;
 	char *				libexec_dir;
 	char *				cfg_dir;
-	char *				env_lib_dir;
 	char *				home_dir;
 
 	// Adjust the environment to add our install base to LD_LIBRARY_PATH and PATH

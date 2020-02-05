@@ -46,4 +46,11 @@ typedef enum
 	ERROR_MESSAGE
 }	dbg_mrnet_event_id;
 
+enum mrn_dbgcmd
+{
+	MRNCMD_SETEVENTSTREAM
+};
+
+extern void DbgSRVMRNSetParam(const char* msg);
+
 #endif /* _GUARD_MRNET_TYPES_H */

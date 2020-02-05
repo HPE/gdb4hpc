@@ -31,6 +31,7 @@
 #include "dbg.h"
 #include "useful.h"
 #include "dbgbp.h"
+#include "dbgcomm_info.h"
 
 const char * dbgbp_type_str[] = {
 	"breakpoint",
@@ -73,6 +74,7 @@ NewBP(int id)
 	bp->bp_hits = 0;
 	bp->bp_stmt = NULL;
 	bp->bp_commands = (char **)NULL;
+	bp->bp_comminfo = NULL;
 	bp->bp_next = (dbgbp_t *)NULL;
 
 	return bp;
@@ -137,6 +139,8 @@ DupBP(dbgbp_t *bp)
 
 		*p = NULL;
 	}
+	
+	b->bp_comminfo = (bp->bp_comminfo ? bp->bp_comminfo->clone() : NULL);
 
 	return b;
 }
@@ -167,6 +171,8 @@ FreeBP(dbgbp_t *bp)
 	if ( bp->bp_commands != (char **)NULL )
 		for ( s = bp->bp_commands ; *s != (char *)NULL ; s++ )
 			Free(*s);
+
+	delete bp->bp_comminfo;
 
 	Free(bp);
 }

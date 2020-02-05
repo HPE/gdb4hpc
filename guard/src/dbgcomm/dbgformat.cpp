@@ -1154,6 +1154,19 @@ CmdArgsOpenSocketToSocProto(va_list ap)
 	return res;
 }
 
+static char *
+CmdArgsSetCommParamToSocProto(va_list ap)
+{
+	// for flexibility, the communicator subcommands are specified by
+	// passing a format string which is used to interpret the rest of the 
+	// parameters
+	char * res;
+	const char * subformat = va_arg(ap, char *);
+	FMT_CHECK_NULL_STR(subformat);
+	VAsprintf(&res, subformat, ap);
+	return res;
+}
+
 /*
 ** This is the main function that converts a command to network protocol
 */
@@ -1309,6 +1322,12 @@ CommandToSocProto(dbgcmd cmd, ...)
 		
 	case DBGCMD_OPENSOCKET:
 		cmdargs = CmdArgsOpenSocketToSocProto(ap);
+		Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
+		Free(cmdargs);
+		break;
+
+	case DBGCMD_SETCOMMPARAM:
+		cmdargs = CmdArgsSetCommParamToSocProto(ap);
 		Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
 		Free(cmdargs);
 		break;
@@ -2509,7 +2528,7 @@ SocProtoToCommand(char *s)
 		c->cmd_arg_opensocket = SocProtoToOpenSocketArgs(cmdargs);
 		Free(cmdargs);
 		break;
-		
+
 	// Commands without arguments go here
 	case DBGCMD_STARTUP:
 	case DBGCMD_LASTBREAK:
@@ -2522,6 +2541,7 @@ SocProtoToCommand(char *s)
 	case DBGCMD_GETLOCATION:
 	case DBGCMD_INTERRUPT:
 	case DBGCMD_CLOSESOCKET:
+	case DBGCMD_SETCOMMPARAM:
 		break;
 	}
 	

@@ -38,6 +38,7 @@
 #include "list.h"
 
 #include "dbg_mrn_fe.h"
+#include "Stream_C.h"
 
 #ifdef ALPS
 #include "common_tools_fe.h"
@@ -1688,11 +1689,20 @@ DbgMRNSendCmd(dbginvoke_t *di, bitset *target, const char *request)
 		return NULL;
 	}
 
-	mrn_fe_send_command((mrnet_type *)network, target, request);
+	MRNet_Stream* newEventStream = NULL;
+	mrn_fe_send_command((mrnet_type *)network, target, request, &newEventStream);
 
 	received = bitset_new(bitset_size(target));
 
 	DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
+
+	if (newEventStream) {
+		int eventFd = stream_get_DataNotificationFd(newEventStream);
+
+		int* eventFdPtr = (int*)Alloc(sizeof(int));
+		*eventFdPtr = eventFd;
+		AddToList(di->d_evfds, eventFdPtr);
+	}
 
 	return received;
 }

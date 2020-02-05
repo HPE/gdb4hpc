@@ -61,6 +61,7 @@
 #include "dbgsrv_util.h"
 #include "dbgsrv_p2p.h"
 #include "dbgsrv_defs.h"
+#include "dbgcomm_info.h"
 
 #include "common_tools_be.h"
 
@@ -116,9 +117,9 @@ static dbgevent_t *	DbgGDBMIInit(int *, int *, char **);
 static dbgevent_t *	DbgGDBMIStartup(void);
 static int			DbgGDBMIConsume(int);
 static int			DbgGDBMIEventReady(void);
-static dbgevent_t *	DbgGDBMISetLineBreak(const char *, int);
-static dbgevent_t *	DbgGDBMISetFuncBreak(const char *, const char *);
-static dbgevent_t *	DbgGDBMISetWatch(int, const char *);
+static dbgevent_t *	DbgGDBMISetLineBreak(const char *, int, const dbgcomm_info *);
+static dbgevent_t *	DbgGDBMISetFuncBreak(const char *, char *, const dbgcomm_info *);
+static dbgevent_t *	DbgGDBMISetWatch(int, const char *, const dbgcomm_info *);
 static dbgevent_t *	DbgGDBMIDeleteBreak(int);
 static dbgevent_t *	DbgGDBMIDisableBreak(int);
 static dbgevent_t *	DbgGDBMIEnableBreak(int, int, int);
@@ -159,7 +160,7 @@ static dbgevent_t *	DbgGDBMIDirectCmd(int, char **);
 static dbgevent_t *	InitDbg(const char *, const char *);
 static dbgevent_t *	InitDbgAttach(int, const char *);
 static dbgevent_t *	WaitEvent(dbgevent_t *e);
-static dbgevent_t *	CheckBreak(MICommand *);
+static dbgevent_t *	CheckBreak(MICommand *, const dbgcomm_info*);
 static void			Finish(int);
 static void			event_callback(MIEvent *);
 static void			console_callback(char *);
@@ -1621,7 +1622,7 @@ DbgGDBMIEventReady(void)
 ** Set breakpoint at specified line.
 */
 static dbgevent_t *
-DbgGDBMISetLineBreak(const char *file, int lno)
+DbgGDBMISetLineBreak(const char *file, int lno, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1692,7 +1693,7 @@ DbgGDBMISetLineBreak(const char *file, int lno)
 		}
 	}
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL)
 	{
@@ -1709,7 +1710,7 @@ DbgGDBMISetLineBreak(const char *file, int lno)
 ** Set breakpoint at start of specified function.
 */
 static dbgevent_t *
-DbgGDBMISetFuncBreak(const char *file, const char *func)
+DbgGDBMISetFuncBreak(const char *file, char *func, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1771,7 +1772,7 @@ DbgGDBMISetFuncBreak(const char *file, const char *func)
 		}
 	}
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL) {
 		EVENT_ERROR(event, DBGERR_DEBUGGER, "Cannot create internal breakpoint.");
@@ -1787,7 +1788,7 @@ DbgGDBMISetFuncBreak(const char *file, const char *func)
 ** Set watchpoint at specified expression.
 */
 static dbgevent_t *
-DbgGDBMISetWatch(int type, const char *expr)
+DbgGDBMISetWatch(int type, const char *expr, const dbgcomm_info *commInfo)
 {
 	dbgevent_t *	event;
 	MICommand *		cmd;
@@ -1859,7 +1860,7 @@ DbgGDBMISetWatch(int type, const char *expr)
 
 	// Now check the breakpoint. It has all the info we need.
 
-	event = CheckBreak(cmd);
+	event = CheckBreak(cmd, commInfo);
 
 	if (event == NULL)
 	{
@@ -4286,7 +4287,7 @@ WaitEvent(dbgevent_t *e)
 ** id in bid. Adds to breakpoint list if necessary.
 */
 static dbgevent_t *
-CheckBreak(MICommand *cmd)
+CheckBreak(MICommand *cmd, const dbgcomm_info* commInfo)
 {
 	int				id;
 	dbgbp_t *		bp;
@@ -4384,6 +4385,10 @@ CheckBreak(MICommand *cmd)
 			bp->bp_loc.loc_addr = strdup(bpt->address);
 		if (bpt->what != NULL)
 			bp->bp_exp = strdup(bpt->what);
+	}
+
+	if (commInfo) {
+		bp->bp_comminfo = commInfo->clone();
 	}
 
 	/*

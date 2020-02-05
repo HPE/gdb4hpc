@@ -20,6 +20,7 @@
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<string.h>
+#include	<ctype.h>
 
 #include 	"defs.h"
 #include	"alloc.h"
@@ -33,6 +34,8 @@
 #include 	"Packet_C.h"
 #include	"dbg_mrn.h"
 #include	"dbgsrv_defs.h"
+#include	"dbgcmd.h"
+#include	"dbgcomm_info.h"
 
 /*
 * data structures for MRNet backend 
@@ -41,6 +44,9 @@
 struct mrnet_be_type
 {
 	MRNet_Network * network;
+
+	MRNet_Stream *  bc_stream_cmd;
+	MRNet_Stream *  bc_stream_event;
 
 	MRNet_Stream *  stream_cmd;
 	MRNet_Stream *  stream_event;
@@ -55,13 +61,29 @@ struct mrnet_be_type
 	char *          rank_bs_str;
 
 	int		network_size;
+
+	list_t * 	cmd_streams;   // procset streams created for working with subset
+	list_t *	event_streams; // asynch return streams for each of cmd_streams
 };
 typedef struct mrnet_be_type mrnet_be_type;
+
+// class to associate the event call-back stream for the asynch response of
+// breakpoint/watchpoints
+class mrncomm_info : public dbgcomm_info
+{
+public:
+	mrncomm_info(MRNet_Stream * inStream) : stream(inStream) {}
+	dbgcomm_info *clone() const { return new mrncomm_info(*this); }
+	
+	MRNet_Stream *getStream() const { return stream; }
+private:
+	MRNet_Stream *stream;
+};
 
 static mrnet_be_type*	mrnet_be = NULL;
 static list_t*  	msg_list = NULL;
 
-void (*dbgsrv_callback)(char* msg) = NULL;
+void (*dbgsrv_callback)(char* msg,const dbgcomm_info*) = NULL;
 
 mrnet_be_type*
 new_mrnet_be_type()
@@ -69,6 +91,9 @@ new_mrnet_be_type()
 	mrnet_be_type* mrnet = (mrnet_be_type*)Alloc(sizeof(mrnet_be_type));
 
 	mrnet->network = NULL;
+
+	mrnet->bc_stream_cmd = NULL;
+	mrnet->bc_stream_event = NULL;
 
 	mrnet->stream_cmd = NULL;
 	mrnet->stream_event = NULL;
@@ -78,6 +103,9 @@ new_mrnet_be_type()
 
 	mrnet->rank_bs = NULL;
 	mrnet->rank_bs_str = NULL;
+
+	mrnet->cmd_streams = NewList();
+	mrnet->event_streams = NewList();
 	
 	return mrnet;
 }
@@ -94,6 +122,8 @@ free_mrnet_be_type(mrnet_be_type* mrnet)
 	Free(mrnet->rank_bs_str);
 
 	Free(mrnet);
+	DestroyList(mrnet->cmd_streams, NULL);
+	DestroyList(mrnet->event_streams, NULL);
 }
 
 /*
@@ -147,19 +177,102 @@ mrn_be_set_localrank(int rank)
 	DVPRINT("INFO: [dbgsrv] mrnet_be->stream_single is set [%p].\n", single);
 }
 
-
+// Set the current command stream for the backend.
+// The first call is part of the bootstrapping and is given the broadcast communicator 
+// that is attached to every back-end.
+// New streams are created whenever the user sends a command using a new procset or focus.
+// For performance reasons, we want to be sure all responses go back on the same stream, 
+// and any asynchronous events are triggered on the same communicator - by restricting the 
+// focus, we know that MRNet won't be waiting on any rank not involved in the command.
 void
 mrn_be_set_cmd_stream(MRNet_Stream *stream)
 {
-	mrnet_be->stream_cmd = stream;	
-	DVPRINT("INFO: [dbgsrv] mrnet_be->stream_cmd is set.\n");
-}
+	if (stream == mrnet_be->stream_cmd)
+		return;
 
+	unsigned int streamId = stream_get_Id(stream);
+	
+	MRNet_Stream* event_stream = NULL;
+	if (!mrnet_be->bc_stream_cmd) {
+		// the first registered stream is broadcast stream connected
+		// to every rank
+		DVPRINT("INFO: [dbgsrv] mrnet_be->stream_cmd is set to %u.\n", streamId);
+		mrnet_be->bc_stream_cmd = stream;
+	} else if (mrnet_be->stream_cmd == mrnet_be->bc_stream_cmd) {
+		DVPRINT("INFO: [dbgsrv] mrnet_be->stream_event set back to broadcast stream\n");
+		event_stream = mrnet_be->bc_stream_event;
+	} else {
+		list_t* cs = mrnet_be->cmd_streams;
+		list_t* es = mrnet_be->event_streams;
+		SetList(cs);
+		SetList(es);
+		for (MRNet_Stream* cmd, *event; (cmd=(MRNet_Stream*)GetListElement(cs)) &&
+						(event=(MRNet_Stream*)GetListElement(es)); ) {
+			if (cmd == stream) {
+				event_stream = event;
+				break;
+			}
+		}
+
+		if (event_stream == NULL) {
+			DVPRINT("INFO: [dbgsrv] no event stream for %u, using default\n", streamId);
+			event_stream = mrnet_be->bc_stream_event;
+		} else {
+			DVPRINT("INFO: [dbgsrv] found event stream for command stream %u,%u\n",
+				streamId, stream_get_Id(event_stream));
+		}
+			
+		mrnet_be->stream_event = event_stream;
+	}
+	if (event_stream != NULL)
+		mrnet_be->stream_event = event_stream;
+
+	mrnet_be->stream_cmd = stream;	
+	}
+
+// the first call to this function sets the default event stream for the back-end, 
+// which is connected to all of back ends.
+// Any additional calls are setting an event stream that matches the current procSet.
+// Note that "event" in this case is not the same as the MRNet events, this stream
+// is for sending asynchronous debugger events (e.g. breakpoint-hit) 
 void
 mrn_be_set_event_stream(MRNet_Stream *stream)
 {
+	if (!stream || stream == mrnet_be->stream_event)
+		return;
+	
+	// current command stream
+	MRNet_Stream* cmd = mrnet_be->stream_cmd;
+
+	if (!mrnet_be->bc_stream_event) {
+		// the first registered stream is the default (broadcast) stream
+		mrnet_be->bc_stream_event = stream;
+		DVPRINT("INFO: [dbgsrv] mrnet_be->event_stream is set %u.\n", stream_get_Id(stream));
+
+	} else if (cmd && !InList(mrnet_be->cmd_streams, (void*)cmd)) {
+		DVPRINT("INFO: [dbgsrv] creating cmd/event stream pair %d, %d\n",
+			stream_get_Id(cmd), stream_get_Id(stream));
+
+		AddToList(mrnet_be->cmd_streams, cmd);
+		AddToList(mrnet_be->event_streams, stream);
+	}
 	mrnet_be->stream_event = stream;	
-	DVPRINT("INFO: [dbgsrv] mrnet_be->event_stream is set.\n");
+}
+
+void
+mrn_be_set_event_stream_from_id(unsigned int streamId)
+{
+	MRNet_Network* network = mrnet_be->network;
+	if (!network) {
+		DVPRINT("Network on server side is not set\n");
+		return;
+	}
+
+	if (MRNet_Stream* event_stream = network_get_stream(network, streamId)) {
+		mrn_be_set_event_stream(event_stream);
+	} else {
+		DVPRINT("Could not get event stream from event stream id!\n");
+	}
 }
 
 void 
@@ -247,7 +360,7 @@ mrn_be_send_reply(MRNet_Stream *stream, char* msg)
 	if(mrnet_be->stream_cmd == NULL)
 		return -1;
 
-	DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%s], via stream[%p]\n", msg, stream);
+	DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%s], via stream[%u]\n", msg, stream_get_Id(stream));
 
 	char* strArr[2];
 	strArr[0] = msg;
@@ -271,27 +384,43 @@ mrn_be_send_reply(MRNet_Stream *stream, char* msg)
 }
 
 int 
-mrn_be_send_event(char* msg)
+mrn_be_send_event(char* msg, const dbgcomm_info* commInfo)
 {
 	if(mrnet_be->stream_event == NULL)
 		return -1;
-
-	DVPRINT("INFO: [dbgsrv] mrn_be_send_event [%s] via stream[%p]\n", msg, mrnet_be->stream_event);
 
 	char* strArr[2];
 	strArr[0] = msg;
 	strArr[1] = mrnet_be->rank_bs_str;
 
-	if( stream_send(mrnet_be->stream_event, DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1 )
+	MRNet_Stream * stream = mrnet_be->stream_event;
+
+	// a breakpoint should have passed the stream back so be can send it back
+	// on the same communicator.  This lets MRNet know exactly which end-points
+	// can be sending this event keeping it from waiting for a response from 
+	// an uninvolved node.	(otherwise, just use the big pipe)
+	if (const mrncomm_info* ci = dynamic_cast<const mrncomm_info*>(commInfo)) {
+		if (ci->getStream()) {
+			stream = ci->getStream();
+			DVPRINT("got stream %u from event\n", stream_get_Id(stream));
+		}
+	}
+
+	DVPRINT("INFO: [dbgsrv] mrn_be_send_event [%s] via stream[%u]%s\n", msg, 
+				stream_get_Id(stream), commInfo ? " from comm_info" : " no comm_info");
+
+
+
+	if( stream_send(stream, DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1 )
 	{
 		fprintf(stderr, "ERROR: mrn_be_send_event stream_send(%s) failed!\n", msg);
 		return -1;
 	}
 
-	if( stream_flush(mrnet_be->stream_event) == -1 ){
+	if( stream_flush(stream) == -1 ){
 		fprintf(stderr, "ERROR: mrn_be_send_event stream_flush() failed!\n");
 		return -1;
-    }
+	}
 
 	return 0;
 }
@@ -325,7 +454,7 @@ mrn_be_send_io(char* msg)
 }
 
 void
-mrn_be_set_callback(void (*callback)(char*))
+mrn_be_set_callback(void (*callback)(char*,const dbgcomm_info*))
 {
 	dbgsrv_callback = callback;
 	return;
@@ -336,8 +465,23 @@ mrn_be_handle_msg()
 {
 	char* msg = (char*)RemoveFirst(msg_list);	
 	
-	if(msg != NULL)
-		dbgsrv_callback(msg);
+	if(msg != NULL) {
+		int cmdIdx = 0;
+		if (sscanf(msg, "%d", &cmdIdx) == 1 && cmdIdx == DBGCMD_SETCOMMPARAM) {
+			// strip off the command number and toss it back into the mrn
+			// specific processing.  I don't think we need to fire up 
+			// regex or strtok to pull of one number.
+			char* submsg = msg;
+			for ( ; *submsg && isspace(*submsg); ++submsg) {}
+			for ( ; *submsg && isdigit(*submsg); ++submsg) {}
+			for ( ; *submsg && isspace(*submsg); ++submsg) {}
+			DbgSRVMRNSetParam(submsg);
+		} else {
+			// push all other commands to the back-end.
+			mrncomm_info ci(mrnet_be->stream_event);
+			dbgsrv_callback(msg, &ci);
+		}
+	}
 
 	return;
 }

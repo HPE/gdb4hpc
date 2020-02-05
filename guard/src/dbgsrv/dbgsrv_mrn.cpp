@@ -41,11 +41,13 @@
 #include	"dbgfn.h"
 #include	"dbgsrv_defs.h"
 #include	"dbgsrv_cmds.h"
+#include	"dbgcomm_info.h"
 #include 	"dbg_mrn_be.h"
 #include	"mrn_cfg.h"
 #include	"mrn_topo.h"
 #include	"smart_bitset.h"
 #include	"bitset.h"
+#include	"Stream_C.h"
 
 #ifdef ALPS
 #include	"common_tools_be.h"
@@ -122,15 +124,19 @@ InvokeMRNCallBack(char *chost, int cport, char *host, int prog, int pnum, int po
 static int
 EventMRNCallBack(dbgevent_t *ev)
 {
-	int		res;
-	char *	st_dres;
+	// find the communication info - now because EventToSocProto deletes the event
+	const dbgcomm_info* comm_info = nullptr;
+	if (ev->ev_event == DBGEV_BPHIT && ev->ev_bp->bp_comminfo) {
+		comm_info = ev->ev_bp->bp_comminfo->clone();
+	}
 	
-	st_dres = EventToSocProto(ev);
+	char *st_dres = EventToSocProto(ev);
 
 	DVPRINT("EventMRNCallBack is invoked: %s!\n", st_dres);
 
-	res = mrn_be_send_event(st_dres);
+	int res = mrn_be_send_event(st_dres, comm_info);
 	Free(st_dres);
+	delete comm_info;
 	
 	return res;
 }
@@ -403,7 +409,10 @@ DbgSRVMRNRunProto(fd_set *fds)
 			}
 		if(res > 0)	
 		{
-			DVPRINT("Recieved event on stream[%d]\n", tag);
+			DVPRINT("Recieved message on stream %u[%d]\n", stream_get_Id(stream), tag);
+			if (tag == DBG_MRNet_PRO_COMMAND)
+				mrn_be_set_cmd_stream(stream);
+			
 			mrn_be_handle_msg();
 		}
 		
@@ -447,7 +456,7 @@ DbgSRVMRNInvokeNetwork(int numbe)
 		e = NewEvent(DBGEV_OK);
 		resp = EventToSocProto(e);
 		
-		mrn_be_send_event(resp);
+		mrn_be_send_event(resp, NULL /*defaults to the stream we just set*/);
 		Free(resp);
 		
 		return NULL;
@@ -462,3 +471,20 @@ DbgSRVMRNSendReply(char* response)
 	return mrn_be_send_reply(stream, response);
 }
 
+void DbgSRVMRNSetParam(const char* msg)
+{
+	// note: the prototype always puts length of the remainder of the message before
+	// the message itself.
+	// Since at this point we only support a single special command, we can 
+	// keep the handling pretty simple.
+	int len, subCommand; unsigned int eventStreamId;
+	if (sscanf(msg, "%d %d %u", &len, &subCommand, &eventStreamId) != 3) {
+		DVPRINT("Could not parse MRNSetParam\n");
+	} else if (subCommand != MRNCMD_SETEVENTSTREAM) {
+		DVPRINT("Unrecognized MRNSetParam command\n");
+	} else {
+		unsigned int commandStreamId = stream_get_Id(stream);
+		DVPRINT("Stream pair %u %u\n", commandStreamId, eventStreamId);
+		mrn_be_set_event_stream_from_id(eventStreamId);
+	}
+}

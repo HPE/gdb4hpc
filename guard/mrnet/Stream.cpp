@@ -111,3 +111,10 @@ extern "C" void stream_close_DataNotificationFd(MRNet_Stream *stream)
 	pStream->close_DataNotificationFd();
 }
 
+extern "C" unsigned int stream_get_Id(MRNet_Stream *stream)
+{
+	Stream *pStream = (Stream *)stream;
+	return pStream->get_Id();
+}
+
+

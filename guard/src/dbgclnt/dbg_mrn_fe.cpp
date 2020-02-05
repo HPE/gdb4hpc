@@ -244,7 +244,7 @@ create_stream(mrnet_type *mrnet, bitset *target, MRNet_Stream** event_stream)
 ** Currently not called by Cray
 */
 mrnet_type *
-mrn_fe_launch_with_filter(char *topology, char *filter_file, char* filter_name, char *backend_exe, char *backend_args[])
+mrn_fe_launch_with_filter(const char *topology, const char *filter_file, const char* filter_name, const char *backend_exe, char *backend_args[])
 {
 	MRNet_Network *network = network_create_FE(topology, backend_exe, backend_args);
 
@@ -481,7 +481,7 @@ mrn_fe_attach_be(mrnet_type *mrnet, int num_be, int timeout)
 * This is how streams are created on a Cray
 */
 int
-mrn_fe_create_streams_and_load_filter(mrnet_type *mrnet, char *filter_file, char* filter_name)
+mrn_fe_create_streams_and_load_filter(mrnet_type *mrnet, const char *filter_file, const char* filter_name)
 {
 	if (mrnet == NULL)
 		return 1;
@@ -627,7 +627,7 @@ mrn_fe_setup_streams(mrnet_type *mrnet, char *msg)
 
 
 int 
-mrn_fe_send_command(mrnet_type *mrnet, bitset *target, char *msg, MRNet_Stream **event_stream_ptr)
+mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg, MRNet_Stream **event_stream_ptr)
 {
 	if (mrnet == NULL)
 		return -1;

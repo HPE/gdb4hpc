@@ -87,7 +87,7 @@ struct timeval			tv_att;
 #endif
 
 // Prototypes
-static int			DbgSRVMRNInitProto(int, int, char **, char*, char*, int);
+static int			DbgSRVMRNInitProto(int, int, char **, const char*, const char*, int);
 static void			DbgSRVMRNEndProto(void);
 static fd_set *		DbgSRVMRNGetFDSet(void);
 static void			DbgSRVMRNRunProto(fd_set *);
@@ -142,7 +142,7 @@ EventMRNCallBack(dbgevent_t *ev)
 }
 
 static int
-DbgSRVMRNInitProto(int procnum, int argc, char **argv, char* key, char* host, int port)
+DbgSRVMRNInitProto(int procnum, int argc, char **argv, const char* key, const char* host, int port)
 {
 	int	res;
 

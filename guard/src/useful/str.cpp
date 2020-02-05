@@ -120,7 +120,7 @@ TrimStr(char *str)
     
     if(i>0)
     {   
-        for(j=0;j<strlen(str);j++)
+        for(j=0;j<int(strlen(str));j++)
             str[j]=str[j+i];
         str[j]='\0';
     }
@@ -130,7 +130,7 @@ TrimStr(char *str)
     while((str[i]==' ')||(str[i]=='\t')) {
         i--;
     }
-    if(i<(strlen(str)-1)) {
+    if(i<int(strlen(str)-1)) {
         str[i+1]='\0';
     }
     return str;
@@ -154,7 +154,7 @@ TrimStrWithTarget(char *str, char target)
 	}
     if(i>0)
     {   
-        for(j=0;j<strlen(str);j++)
+        for(j=0;j<int(strlen(str));j++)
             str[j]=str[j+i];
         str[j]='\0';
     }
@@ -171,7 +171,7 @@ TrimStrWithTarget(char *str, char target)
     	while((str[i]==' ')||(str[i]=='\t')||(str[i]==target))
         	i--;
 	}
-    if(i<(strlen(str)-1)) {
+    if(i<int(strlen(str)-1)) {
         str[i+1]='\0';
     }
     return str;
@@ -181,7 +181,7 @@ int
 CountOccurence(char val, char *str)
 {
 	int i, result=0;
-	for(i=0; i<strlen(str); i++)
+	for(i=0; i<int(strlen(str)); i++)
 		if (str[i] == val)	result++;
 	return result;
 }

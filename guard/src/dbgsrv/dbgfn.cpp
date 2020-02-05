@@ -36,7 +36,7 @@
 */
 struct backend_tab
 {
-	char *			backend_name;
+	const char *	backend_name;
 	dbgbackend_sw *	backend_def;
 };
 typedef struct backend_tab		backend_tab;
@@ -86,7 +86,7 @@ static dbgbackend_sw * DbgBackendSW = &DbgBackendIDB;		/* Default to IDB */
 //       multiple protocols at once, and the server doesn't.
 
 int
-DbgSetBackend(char *backend)
+DbgSetBackend(const char *backend)
 {
 	backend_tab *	p;
 
@@ -136,7 +136,7 @@ DbgInit(int *dfd, int *iofd, char **env)
 }
 
 dbgevent_t *
-DbgAttach(int pid, char *prog, char *args, char **env, int arch)
+DbgAttach(int pid, const char *prog, const char *args, char **env, int arch)
 {
 	dbgevent_t *	e;
 
@@ -148,7 +148,7 @@ DbgAttach(int pid, char *prog, char *args, char **env, int arch)
 }
 
 dbgevent_t *
-DbgInvoke(char *host, int cb, char *proto, char *prog, char *args, char **env, int arch)
+DbgInvoke(const char *host, int cb, const char *proto, const char *prog, const char *args, char **env, int arch)
 {
 	dbgevent_t *	e;
 

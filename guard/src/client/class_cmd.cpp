@@ -236,61 +236,61 @@ FindUsageCommand(char *cmd)
  */
 
 static void
-InfoCmdNotFound(char *cmd)
+InfoCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined info command: \"%s\".  Try \"help info\".\n", cmd);
 }
 
 static void
-MaintCmdNotFound(char *cmd)
+MaintCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined maint command: \"%s\". Try \"help maint\".\n", cmd);
 }
 
 static void
-MaintSetCmdNotFound(char *cmd)
+MaintSetCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined maint set command: \"%s\". Try \"help maint set\".\n", cmd);
 }
 
 static void
-MaintShowCmdNotFound(char *cmd)
+MaintShowCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined maint show command: \"%s\". Try \"help maint show\".\n", cmd);
 }
 
 static void
-SetCmdNotFound(char *cmd)
+SetCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined set command: \"%s\".  Try \"help set\".\n", cmd);
 }
 
 static void
-SetPrintCmdNotFound(char *cmd)
+SetPrintCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined set print command: \"%s\".  Try \"help set print\".\n", cmd);
 }
 
 static void
-ShowCmdNotFound(char *cmd)
+ShowCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined show command: \"%s\". Try \"help show\".\n", cmd);
 }
 
 static void
-ShowPrintCmdNotFound(char *cmd)
+ShowPrintCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined show print command: \"%s\". Try \"help show print\".\n", cmd);
 }
 
 static void
-UnsetCmdNotFound(char *cmd)
+UnsetCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined unset command: \"%s\".  Try \"help unset\".\n", cmd);
 }
 
 static void
-UsageCmdNotFound(char *cmd)
+UsageCmdNotFound(const char *cmd)
 {
     PrintOutError("Undefined usage command: \"%s\". Try \"help usage\".\n", cmd);
 }
@@ -301,70 +301,70 @@ UsageCmdNotFound(char *cmd)
  */
 
 static void
-AmbiguousInfoCmd(char *cmd)
+AmbiguousInfoCmd(const char *cmd)
 {
     PrintOutError("Ambiguous info command \"%s\": ", cmd);
     AmbiguousClassSubCmd(InfoCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousMaintCmd(char *cmd)
+AmbiguousMaintCmd(const char *cmd)
 {
     PrintOutError("Ambiguous maint command \"%s\": ", cmd);
     AmbiguousClassSubCmd(MaintCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousMaintSetCmd(char *cmd)
+AmbiguousMaintSetCmd(const char *cmd)
 {
     PrintOutError("Ambiguous maint set command \"%s\": ", cmd);
     AmbiguousClassSubCmd(MaintSetCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousMaintShowCmd(char *cmd)
+AmbiguousMaintShowCmd(const char *cmd)
 {
     PrintOutError("Ambiguous maint show command \"%s\": ", cmd);
     AmbiguousClassSubCmd(MaintShowCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousSetCmd(char *cmd)
+AmbiguousSetCmd(const char *cmd)
 {
     PrintOutError("Ambiguous set command \"%s\": ", cmd);
     AmbiguousClassSubCmd(SetCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousSetPrintCmd(char *cmd)
+AmbiguousSetPrintCmd(const char *cmd)
 {
     PrintOutError("Ambiguous set print command \"%s\": ", cmd);
     AmbiguousClassSubCmd(SetPrintCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousShowCmd(char *cmd)
+AmbiguousShowCmd(const char *cmd)
 {
     PrintOutError("Ambiguous show command \"%s\": ", cmd);
     AmbiguousClassSubCmd(ShowCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousShowPrintCmd(char *cmd)
+AmbiguousShowPrintCmd(const char *cmd)
 {
     PrintOutError("Ambiguous show print command \"%s\": ", cmd);
     AmbiguousClassSubCmd(ShowPrintCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousUnsetCmd(char *cmd)
+AmbiguousUnsetCmd(const char *cmd)
 {
     PrintOutError("Ambiguous unset command \"%s\": ", cmd);
     AmbiguousClassSubCmd(UnsetCmds->cmd_list, cmd);
 }
 
 static void
-AmbiguousUsageCmd(char *cmd)
+AmbiguousUsageCmd(const char *cmd)
 {
     PrintOutError("Ambiguous usage command \"%s\": ", cmd);
     AmbiguousClassSubCmd(UsageCmds->cmd_list, cmd);

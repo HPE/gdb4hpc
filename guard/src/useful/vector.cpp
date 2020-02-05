@@ -92,7 +92,7 @@ int addVectorLikeDimensionDef(vectorLikeDimension_t * myArray, int* atCoords,int
 
 		
 		//Create new nodes at each allocated spot in dimdef and set parents
-		for(i=0; i<size; i++){
+		for(i=0; i<int(size); i++){
 			curr->dimdef[i] = *newVectorLikeDimension();
 			curr->dimdef[i].parent = curr;
 		}

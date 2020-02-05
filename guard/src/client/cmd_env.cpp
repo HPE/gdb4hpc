@@ -298,7 +298,7 @@ class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-    char *  s;
+    const char *  s;
     ct_val  cv;
 
     if ( argc < 2 )
@@ -342,7 +342,7 @@ class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv
 static int
 class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-    char *  s;
+    const char *  s;
     ct_val  cv;
 
     if ( argc < 2 )
@@ -386,7 +386,7 @@ class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-    char *  s;
+    const char *  s;
     ct_val  cv;
 
     if ( argc < 2 )
@@ -550,7 +550,7 @@ class_show_subcmd_version_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-    char *      s;
+    const char *      s;
     char *      buf;
     long double lower;
     long double upper;
@@ -651,7 +651,7 @@ class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-    char *  s;
+    const char *  s;
     int     entryframe_flag;
     ct_val  cv;
 

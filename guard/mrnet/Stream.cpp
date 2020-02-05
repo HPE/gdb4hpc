@@ -34,7 +34,7 @@ extern "C" void stream_delete(MRNet_Stream *stream)
 	}
 }
 
-extern "C" int stream_send(MRNet_Stream* stream, int tag, char *format_str, ... )
+extern "C" int stream_send(MRNet_Stream* stream, int tag, const char *format_str, ... )
 {
 //	fprintf(*err_stream_ptr, "[%d] entering stream_send()! stream: [%p]\n", getpid(), stream);
 	Stream *pStream = (Stream*)stream;

@@ -45,11 +45,11 @@ extern appInfo_t	other_app;
 
 char *				PerformSlicingErr = NULL;
 
-static void	SetPerformSlicingErrorMsg(char *, ...);
+static void	SetPerformSlicingErrorMsg(const char *, ...);
 
 // this function parse the big dbg expression into gdb_var name, reduction function_id and a list of args for such function
 void
-ParseDBGExpr(char *expr, int *func_id, char *sliceinfo, char *var, char *args)
+ParseDBGExpr(const char *expr, int *func_id, char *sliceinfo, char *var, char *args)
 {
 	char *tok;
 	char buf[BUFSIZ];
@@ -780,7 +780,7 @@ PerformHash(AIF *data, char *hashinfo, int hashfunc, int precision_lower, int pr
 }
 
 void
-SetPerformSlicingErrorMsg(char *fmt, ...)
+SetPerformSlicingErrorMsg(const char *fmt, ...)
 {
 	va_list	ap;
 
@@ -972,13 +972,13 @@ SliceSocketSend(int opset_rank, AIF *tosend)
 	// now send how much data will be sent
 	data_len = strlen(str_data);
 	bytes_sent = send(sock_fd, (void *)&data_len, sizeof(int), 0);
-	if (bytes_sent < sizeof(int)) {
+	if (bytes_sent < int(sizeof(int))) {
 		DVPRINT("bad send: %d\n", (int)sizeof(int));
 		goto returnblock;
 	}
 	// now send the data
 	bytes_sent = send(sock_fd, str_data, strlen(str_data), 0);
-	if (bytes_sent<strlen(str_data)) {
+	if (bytes_sent<int(strlen(str_data))) {
 		DVPRINT("bad send: %d\n", (int)strlen(str_data));
 		goto returnblock;
 	}

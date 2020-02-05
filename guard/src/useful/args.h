@@ -24,7 +24,7 @@ extern "C" {
 #endif
 
 extern char **	Str2Argv(char *);
-extern char **	NewArgv(char *, ...);
+extern char **	NewArgv(const char *, ...);
 extern char **	CopyArgv(char **);
 extern char **	AppendArgv(char **, char **);
 extern char **	AppendArgs(char **, ...);

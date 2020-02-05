@@ -282,7 +282,7 @@ CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2, AIF *data2
 			return rtn;
 		}
 
-		AIFWriteSet(af, ar, "");
+		AIFWriteSet(af, ar, const_cast<char*>(""));
 		AIFCloseSet(af);
 
 		AIFFree(ar);
@@ -439,7 +439,7 @@ DisplayP2P(graph_t *g, int id, char *name, AIF *data)
 			return 0;
 		}
 
-		AIFWriteSet(af, data, "");
+		AIFWriteSet(af, data, const_cast<char*>(""));
 		AIFCloseSet(af);
 
 		return res;

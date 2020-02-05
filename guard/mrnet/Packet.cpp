@@ -22,7 +22,7 @@
 
 using namespace MRN;
 
-extern "C" int packet_unpack(MRNet_Packet* packet, char *ifmt, ... )
+extern "C" int packet_unpack(MRNet_Packet* packet, const char *ifmt, ... )
 {
 //	fprintf(*err_stream_ptr, "[%d] entering packet_unpack()!\n", getpid());
 

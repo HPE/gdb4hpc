@@ -135,6 +135,6 @@ struct expr_t
 };
 typedef struct expr_t		expr_t;
 
-extern char **	ExprStr;
+extern const char **	ExprStr;
 #endif /* !_EXPR_H */
 

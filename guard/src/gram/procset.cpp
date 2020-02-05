@@ -30,12 +30,12 @@
 #include	"client_settings.h"
 
 // static prototypes
-static dbgprocset_t *		NewProcSet(char *, dbgset_type);
+static dbgprocset_t *		NewProcSet(const char *, dbgset_type);
 static dbg_over_set_t *		NewOverlaySet(dbginvoke_t *, bitset *, int);
 static void					FreeOverlaySet(dbg_over_set_t *);
 static void					AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void					_free_procset(dbgprocset_t *);
-static void					_print_with_set_info(char *, bitset *, int, int, int, int, const char *, va_list);
+static void					_print_with_set_info(const char *, bitset *, int, int, int, int, const char *, va_list);
 
 // Internal variables
 static list_t *			ProcSets = NULL;	// TODO: Try to get rid of this
@@ -654,7 +654,7 @@ CreateRecSetForProcset(dbgprocset_t *ps)
 }
 
 static dbgprocset_t *
-NewProcSet(char *name, dbgset_type type)
+NewProcSet(const char *name, dbgset_type type)
 {
 	dbgprocset_t *	s;
 
@@ -847,7 +847,7 @@ GetNextOverlaySetForProcSet(dbgprocset_t *s)
 }
 
 static void
-_print_with_set_info(char *setname, bitset *group, int isOffset, int offset, int len, int isErr, const char *f, va_list ap)
+_print_with_set_info(const char *setname, bitset *group, int isOffset, int offset, int len, int isErr, const char *f, va_list ap)
 {
 	char *	set_info = NULL;
 	
@@ -887,7 +887,7 @@ _print_with_set_info(char *setname, bitset *group, int isOffset, int offset, int
 }
 
 void
-PrintMsgWithSetInfo(char* setname, bitset* group, const char *f, ...)
+PrintMsgWithSetInfo(const char* setname, bitset* group, const char *f, ...)
 {
 	va_list ap;
 	
@@ -901,7 +901,7 @@ PrintMsgWithSetInfo(char* setname, bitset* group, const char *f, ...)
 }
 
 void
-PrintErrorWithSetInfo(char* setname, bitset* group, const char *f, ...)
+PrintErrorWithSetInfo(const char* setname, bitset* group, const char *f, ...)
 {
 	va_list ap;
 	

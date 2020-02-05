@@ -63,7 +63,7 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 	rep_set_t *		rep_set;
 	group_reply_t *	reply;
 	char *			cmd;
-	char *			tmp_cmd[2] = {"show", "version"};
+	const char *	tmp_cmd[2] = {"show", "version"};
 
 	if ( rec_set == NULL )
 	{
@@ -78,7 +78,7 @@ cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 	PrintOutMsg("Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
 	
 	// This won't work with a "generic" debug backend, but works with gdb.
-	rep_set = DbgDirectCmd(rec_set, 2, tmp_cmd);
+	rep_set = DbgDirectCmd(rec_set, 2, const_cast<char**>(tmp_cmd));
 	
 	//process error
 	ProcessErrorInRepSet(rep_set);
@@ -182,13 +182,13 @@ cmd_directmode_alt_blacklist_cmd(rec_set_t *rec_set, int argc, char **argv)
  ********************************/
 
 static void
-directmodenotfound(char *cmd)
+directmodenotfound(const char *cmd)
 {
 	CmdNotFound(cmd);
 }
 
 static void
-directmodeambig(char *cmd)
+directmodeambig(const char *cmd)
 {
 	AmbiguousAltCmd(DirectModeCmds, cmd);
 }

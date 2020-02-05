@@ -875,13 +875,13 @@ cmd_blockmap_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)
  ********************************/
 
 static void
-blockmapnotfound(char *cmd)
+blockmapnotfound(const char *cmd)
 {
 	CmdNotFound(cmd);
 }
 
 static void
-blockmapambig(char *cmd)
+blockmapambig(const char *cmd)
 {
 	AmbiguousAltCmd(BlockMapCmds, cmd);
 }

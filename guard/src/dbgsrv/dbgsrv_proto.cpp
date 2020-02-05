@@ -35,7 +35,7 @@
 */
 struct proto_tab
 {
-	char *			proto_name;
+    const char *	proto_name;
 	dbgsrv_proto *	proto_def;
 };
 typedef struct proto_tab	proto_tab;
@@ -96,7 +96,7 @@ static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvSocProtoSW;	/* Default to SOC */
 //       multiple protocols at once, and the server doesn't.
 
 int
-DbgSetSrvProto(char *proto)
+DbgSetSrvProto(const char *proto)
 {
 	proto_tab *	p;
 
@@ -113,7 +113,7 @@ DbgSetSrvProto(char *proto)
 }
 
 int
-DbgInitProto(int procnum, int argc, char **argv, char* key, char* host, int port)
+DbgInitProto(int procnum, int argc, char **argv, const char* key, const char* host, int port)
 {
     return DbgSrvProtoSW->sw_initproto(procnum, argc, argv, key, host, port);
 }

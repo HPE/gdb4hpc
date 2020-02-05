@@ -81,7 +81,7 @@ class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc, char **argv)
 	graph_t *		g;
 	graph_diff *	gd;
 	ct_val			cv;
-	char *			s;
+	const char *			s;
 	int		 		num=0,req=0;
 	char *			gname;
 
@@ -298,7 +298,7 @@ class_info_subcmd_script_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_display_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -332,7 +332,7 @@ class_set_subcmd_display_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_output_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -360,7 +360,7 @@ class_set_subcmd_output_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	int		force_flag;
 	ct_val		cv;
 
@@ -398,7 +398,7 @@ class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	int		halt_flag;
 	ct_val		cv;
 
@@ -436,7 +436,7 @@ class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	int			stop_flag;
 	ct_val		cv;
 
@@ -477,7 +477,7 @@ class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *	s;
+	const char *	s;
 	int		p2p_flag;
 	ct_val	cv;
 
@@ -519,7 +519,7 @@ class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_reduce_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	char *		buf;
 	ct_val		cv;
 	int			reducefunc;
@@ -644,7 +644,7 @@ class_set_subcmd_reduce_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	int		logging_flag;
 	ct_val		cv;
 
@@ -680,7 +680,7 @@ class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_logfile_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	ct_val		cv;
 
 	if ( argc < 2 )
@@ -708,7 +708,7 @@ class_set_subcmd_logfile_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *	s;
 	int			b;
 	ct_val		cv;
 
@@ -744,7 +744,7 @@ class_set_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc, char **argv)
 static int
 class_set_subcmd_dfmode_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
-	char *		s;
+	const char *		s;
 	ct_val		cv;
 	int			i;
 
@@ -1577,13 +1577,13 @@ GraphCleanup(int keep)
 }
 
 static void
-graphnotfound(char *cmd)
+graphnotfound(const char *cmd)
 {
 	CmdNotFound(cmd);
 }
 
 static void
-graphambig(char *cmd)
+graphambig(const char *cmd)
 {
 	AmbiguousAltCmd(GraphCmds, cmd);
 }

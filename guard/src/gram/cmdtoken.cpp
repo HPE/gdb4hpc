@@ -43,10 +43,10 @@ static htable_t *	_type_identifier_table;
 static htable_t *	_symtab = (htable_t *)NULL;
 
 // Prototypes
-static ct_type	convnum(ct_val *, char **);
+static ct_type	convnum(ct_val *, const char **);
 
 static void
-skipwhite(char **s)
+skipwhite(const char **s)
 {
 	while ( **s != '\0' && **s != '\n' && isspace((int)**s) )
 		(*s)++;
@@ -63,10 +63,10 @@ isid(char c)
 }
 
 static ct_type
-convnum(ct_val *cv, char **str)
+convnum(ct_val *cv, const char **str)
 {
 	ct_type	res;
-	char *	s = *str;
+	const char *	s = *str;
 	int		is_float = 0;
 
 	/*
@@ -107,13 +107,13 @@ convnum(ct_val *cv, char **str)
 	
 	if ( is_float )
 	{
-		cv->cv_float = strtold(*str, &s);
+		cv->cv_float = strtold(*str, const_cast<char**>(&s));
 		DPRINT("convnum: res is CT_FLOAT\n");
 		res = CT_FLOAT;
 	}
 	else
 	{
-		cv->cv_int = strtol(*str, &s, 10);
+		cv->cv_int = strtol(*str, const_cast<char**>(&s), 10);
 		DPRINT("convnum: res is CT_INT\n");
 		res = CT_INT;
 	}
@@ -518,7 +518,7 @@ RemoveSym(hentry_t *sym)
 }
 
 ct_type
-ScanString(ct_val *cv, char **str)
+ScanString(ct_val *cv, const char **str)
 {
 	// FIXME: I hacked this so that a CT_SYM is returning a string instead of
 	// an actual symbol.

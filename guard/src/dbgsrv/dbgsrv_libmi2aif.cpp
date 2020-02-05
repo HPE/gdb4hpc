@@ -48,14 +48,14 @@
 typedef struct func_info
 {
 	int		addr_len;
-	char *	rtn_type;
+	char *rtn_type;
 	int		argc;
 	char **	argv;
 } func_info_t;
 
 typedef struct struct_info
 {
-	char *					name;
+	char *			name;
 	int 					numFields;
 	// The following are arrays of size numFields
 	int *					id;
@@ -71,13 +71,13 @@ extern void			 		SendMICommand(MISession *, MICommand *);
 /*
 ** Static prototypes
 */
-static MIVar *				CreateMIVar(MISession *, char *);
-static void					DeleteMIVar(MISession *, char *);
+static MIVar *				CreateMIVar(MISession *, const char *);
+static void					DeleteMIVar(MISession *, const char *);
 static int					MIVarGetChildren(MISession *, MIVar *);
 static char *				GetMIWhatisValue(MISession *, char *, MIVar *);
-static int					GetTypeLength(MISession *, char *);
-static int					GetSimpleType(char *);
-static int					GetComplexType(char *);
+static int					GetTypeLength(MISession *, const char *);
+static int					GetSimpleType(const char *);
+static int					GetComplexType(const char *);
 static int					GetType(char *);
 static int					GetArrayBaseType(MISession *, MIVar *, char **, int *, struct_info_t **, func_info_t **);
 static arrayDimension_t *	GetArrayDimensionShape(MISession *, MIVar *);
@@ -159,7 +159,7 @@ get_err(void)
 // This is the "main" function that should be called in this interface...
 // It returns NULL on success, otherwise it returns an error event.
 dbgevent_t *
-GetAIFVar(MISession *session, char *var, AIF **val, char **type)
+GetAIFVar(MISession *session, const char *var, AIF **val, char **type)
 {
 	AIF * res;
 	MIVar *mivar;
@@ -289,7 +289,7 @@ GetAIFVarHash(MISession *session, char *var, AIF **val, char *hashinfo,
  * Returns null on error.
  */
 static MIVar *
-CreateMIVar(MISession *session, char *expr)
+CreateMIVar(MISession *session, const char *expr)
 {
 	MICommand *	cmd;
 	MIVar *		var;
@@ -338,7 +338,7 @@ CreateMIVar(MISession *session, char *expr)
 }
 
 static void
-DeleteMIVar(MISession *session, char *name)
+DeleteMIVar(MISession *session, const char *name)
 {
 	MICommand *cmd;
 	
@@ -502,7 +502,7 @@ fixTypeString(char *p, const char *s, char *orig)
 	DVPRINT("fixTypeString: New string is \"%s\"\n", p);
 }
 
-static char* sanitize_type_string(char* input){
+static char* sanitize_type_string(const char* input){
 	// first we need to sanitize the stupid string if gpu debugging is turned on
 	// I don't know why Nvidia decided to be dumb by putting the address space
 	// idents in but then making the gdb parser not understand them...
@@ -595,23 +595,20 @@ static char* sanitize_type_string(char* input){
 }
 
 static int
-GetTypeLength(MISession *session, char *base_type)
+GetTypeLength(MISession *session, const char *in_base_type)
 {
 	char *		res;
 	MICommand *	cmd;
 	char *		buf;
 	int			type_len;		// in bytes
-	char *		p;
-	char *		clean_str;		// string without nvidia crap
-	int			found;
 	
-	DVPRINT("GetTypeLength: Resolving length of %s\n", base_type);
+	DVPRINT("GetTypeLength: Resolving length of %s\n", in_base_type);
 	
 	// sanity
-	if (base_type == NULL)
+	if (in_base_type == NULL)
 		return 0;
 		
-	base_type = sanitize_type_string(base_type);
+	char* base_type = sanitize_type_string(in_base_type);
 		
 	// create the command string
 	Asprintf(&buf, "\"sizeof(%s)\"", base_type);
@@ -911,7 +908,7 @@ GetComplexAIF(MISession *session, MIVar *var)
 }
 
 static int
-GetSimpleType(char *type)
+GetSimpleType(const char *type)
 {
 	char *	t = sanitize_type_string(type);
 	int	len = strlen(type);
@@ -1932,7 +1929,7 @@ unknown_invalid:
  * 	T_UNKNOWN
  */
 static int
-GetComplexType(char *type)
+GetComplexType(const char *type)
 {
 	type = sanitize_type_string(type);
 	int len = strlen(type);
@@ -1959,8 +1956,8 @@ GetComplexType(char *type)
 		}	
 	
 	}
-	char *t = &type[len - 1];
-	char* p;	
+	const char *t = &type[len - 1];
+	const char* p;	
 	// Check for nvidia address space identifiers, we want to ignore these.
 	if (gpu_flag && ((p = strrchr(type, '@')) != NULL))
 	{
@@ -2299,7 +2296,7 @@ vectorLikeDimension_t * GetVectorLikeDimensionShape(char * buf){
 			//If so, store this size in the parent. Shrink our coordinates.
 			case '}':
 				if(atCoordsSize >=1){
-					if(result && result->sizes && ((atCoords[atCoordsSize-1]+1) > result->sizes[depth]))
+					if(result && result->sizes && ((atCoords[atCoordsSize-1]+1) > int(result->sizes[depth])))
 					{
 						result->sizes[depth] = atCoords[atCoordsSize-1]+1;
 					}
@@ -4412,7 +4409,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 			// now we create each of the outer dimensions using its inner dimension
 			// child as its aif ref type. This will ensure that we have enough space
 			// in our aif object the the child arrays.
-			for (dcnt=2; dcnt <= shape->dim; ++dcnt)
+			for (dcnt=2; dcnt <= int(shape->dim); ++dcnt)
 			{
 				DVPRINT("GetArrayAIF: building outter array of size %d at abuild index %d\n", getArrayDimension(shape, dcnt), shape->dim - dcnt);
 				// the abuild index at dcnt is a 0..n array of type abuild[shape->dim-dcnt+1]
@@ -4437,7 +4434,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 			}
 			
 			// set the mcnt array to the actual min range value for each dimension. Fortran allows for custom ranges to be used
-			for (dcnt = 1; dcnt <= shape->dim; ++dcnt)
+			for (dcnt = 1; dcnt <= int(shape->dim); ++dcnt)
 			{
 				mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
 				DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt, mcnt[shape->dim - dcnt]);
@@ -4721,7 +4718,7 @@ static AIF * parseMIArrayToAIF(	MISession *session,
 		a = abuild[0];
 		
 		// cleanup the other abuild entries, we are done with them
-		for (dcnt = 1; dcnt < shape->dim; ++dcnt)
+		for (dcnt = 1; dcnt < int(shape->dim); ++dcnt)
 		{
 			AIFFree(abuild[dcnt]);
 		}

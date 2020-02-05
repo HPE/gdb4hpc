@@ -53,7 +53,7 @@ FinishFunc(void)
 ** Create a new function.
 */
 func_t *
-NewFunc(hentry_t *sym, list_t *args, expr_t *def, int (*bin)(list_t *, val_t **), char *str, int hash)
+NewFunc(hentry_t *sym, list_t *args, expr_t *def, int (*bin)(list_t *, val_t **), const char *str, int hash)
 {
 	func_t *	f;
 	hentry_t *	h;

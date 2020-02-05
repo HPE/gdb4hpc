@@ -28,7 +28,7 @@
 
 struct dbgsrv_proto
 {
-	int				(*sw_initproto)(int, int, char**, char*, char*, int);
+	int				(*sw_initproto)(int, int, char**, const char*, const char*, int);
 	void			(*sw_endproto)(void);
 	fd_set *		(*sw_getfdset)(void);
 	void			(*sw_runproto)(fd_set *);
@@ -41,8 +41,8 @@ struct dbgsrv_proto
 };
 typedef struct dbgsrv_proto	dbgsrv_proto;
 
-extern int				DbgSetSrvProto(char *);
-extern int				DbgInitProto(int, int, char**, char*, char*, int);
+extern int				DbgSetSrvProto(const char *);
+extern int				DbgInitProto(int, int, char**, const char*, const char*, int);
 extern fd_set *			DbgGetFDSet(void);
 extern void				DbgRunProto(fd_set *);
 extern void				DbgEndProto(void);

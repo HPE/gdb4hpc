@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-int packet_unpack(MRNet_Packet* packet, char *ifmt, ... );
+int packet_unpack(MRNet_Packet* packet, const char *ifmt, ... );
 void packet_delete(MRNet_Packet* packet);
 
 #ifdef __cplusplus

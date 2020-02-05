@@ -26,9 +26,9 @@ extern "C"
 
 
 // create mrnet network front end
-MRNet_Network* network_create_FE(char * itopology, char * ibackend_exe, char **ibackend_argv);
+MRNet_Network* network_create_FE(const char * itopology, const char * ibackend_exe, char **ibackend_argv);
 
-MRNet_Network* network_create_FE_with_cti(char * itopology, int ctiAppid, int ctiMid);
+MRNet_Network* network_create_FE_with_cti(const char * itopology, int ctiAppid, int ctiMid);
 
 // create mrnet network back end
 MRNet_Network* network_create_BE( int argc, char **argv );
@@ -47,7 +47,7 @@ MRNet_Communicator* network_get_broadcast_communicator(MRNet_Network* network);
 
 MRNet_Communicator* network_create_communicator(MRNet_Network* network, bitset* target, int skew);
 
-int network_load_filter_func(MRNet_Network* network, char * so_file, char * func );
+int network_load_filter_func(MRNet_Network* network, const char * so_file, const char * func );
 
 //MRNet_Stream* network_create_stream(MRNet_Network* network, MRNet_Communicator* communicator, int us_filter_id);
 
@@ -73,7 +73,7 @@ int network_recv(MRNet_Network* network, int *otag, MRNet_Packet** packet, MRNet
 
 int network_has_error(MRNet_Network* network);
 
-void network_print_error(MRNet_Network* network, char* error);
+void network_print_error(MRNet_Network* network, const char* error);
 
 char* network_get_local_host( MRNet_Network* network );
 

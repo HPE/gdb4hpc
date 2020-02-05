@@ -1944,7 +1944,7 @@ ConvertRepSetToAIF(rep_set_t* set)
 
 			if(res == NULL)
 			{
-			  	res = EmptyStructToAIF("repset_struct");
+			  	res = EmptyStructToAIF(const_cast<char*>("repset_struct"));
 				AIFAddFieldToStruct(res, "size", IntToAIF(num));
 			}
 

@@ -58,7 +58,7 @@ extern int				CheckBlockMap(hentry_t *);
 extern int				VerifyBlockMap(hentry_t *);
 extern g_block_map_t *	NewBlockMap(hentry_t *);
 extern void				DestroyBlockMap(g_block_map_t *);
-extern AIF *			ApplyBlockMap(g_block_map_t *, char *, int, AIF **, char *);
+extern AIF *			ApplyBlockMap(g_block_map_t *, char *, int, AIF **, const char *);
 extern void				PrintBlockMap(FILE *, g_block_map_t *);
 extern void             FinishBlockMap(void);
 extern void				BlockMapToString(g_block_map_t *, var_t *, int, char *);

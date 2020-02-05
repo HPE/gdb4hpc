@@ -699,7 +699,7 @@ cli_get_prompt(void)
 {
 	cli_stream_t *	cs = CurrentStream;
 	dbgprocset_t *	s = CurrentProcSet();
-	char *			set_name;
+	const char *	set_name;
 	int				plen = 0;
 	
 	if (cs == NULL)
@@ -889,8 +889,8 @@ XMLPrintStatusBlock(char *status_block)
 void
 XMLAddStatus(char **status_block, char *set, dbgstat stat, dbgloc_t *location)
 {
-	char *	func = NULL;
-	char *	file = NULL;
+	const char *func = NULL;
+	const char *file = NULL;
 	int		line = 0;
 	char *	status_str = NULL;
 	char *	new_status_block = NULL;

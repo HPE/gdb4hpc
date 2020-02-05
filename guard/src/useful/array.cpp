@@ -138,7 +138,7 @@ addArrayDimensionDef(arrayDimension_t *myArray, unsigned int size, int min_range
         }
         
         // ensure we have enough room in the dimdef array for a new entry
-        if (myArray->_len <= myArray->dim + 1)
+        if (myArray->_len <= int(myArray->dim) + 1)
         {
                 if (resizeArrayDimension(myArray))
                 {
@@ -169,7 +169,7 @@ getArrayDimension(arrayDimension_t *myArray, int index)
                 return -1;
         }
         
-        if (index <= 0 || index > myArray->dim)
+        if (index <= 0 || index > int(myArray->dim))
         {
                 PrintOutError("getArrayDimension: index %d boundary error!\n", index);
                 return -1;
@@ -191,7 +191,7 @@ getArrayDimensionRangeMin(arrayDimension_t *myArray, int index)
                 return -1;
         }
         
-        if (index <= 0 || index > myArray->dim)
+        if (index <= 0 || index > int(myArray->dim))
         {
                 PrintOutError("getArrayDimensionRangeMin: index %d boundary error!\n", index);
                 return -1;
@@ -213,7 +213,7 @@ getArrayDimensionRangeMax(arrayDimension_t *myArray, int index)
                 return -1;
         }
         
-        if (index <= 0 || index > myArray->dim)
+        if (index <= 0 || index > int(myArray->dim))
         {
                 PrintOutError("getArrayDimensionRangeMax: index %d boundary error!\n", index);
                 return -1;

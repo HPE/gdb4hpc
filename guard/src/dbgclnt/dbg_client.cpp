@@ -64,7 +64,7 @@ typedef struct outpcb_t outpcb_t;
 /*
 ** Internal prototypes
 */
-static dbginvoke_t *	NewDbgInvoke(char *, dbgproc_type, int, dbgclnt_proto *);
+static dbginvoke_t *	NewDbgInvoke(const char *, dbgproc_type, int, dbgclnt_proto *);
 static void				FreeDbgInvoke(dbginvoke_t *);
 static void				DbgFreeSignal(int *);
 static void				FreeGroupReceiver(group_recv_t *);
@@ -164,7 +164,7 @@ ReleaseSignals(void)
 ** Create a dbginvoke_t structure.
 */
 static dbginvoke_t *
-NewDbgInvoke(char *handle, dbgproc_type type, int nproc, dbgclnt_proto *proto)
+NewDbgInvoke(const char *handle, dbgproc_type type, int nproc, dbgclnt_proto *proto)
 {
 	dbginvoke_t *		di;
 
@@ -2160,12 +2160,12 @@ DbgGetSession(void)
 ** Attach to running program.
 */
 dbginvoke_t *
-DbgAttach(	char *proto,
+DbgAttach(	const char *proto,
 			proto_session *sess,
-			char *handle,
-			char *app_ident,
-			char *arch,
-			char *backend,
+			const char *handle,
+			const char *app_ident,
+			const char *arch,
+			const char *backend,
 			int gpu_flag,
 			int debug_flag
 )
@@ -2213,18 +2213,18 @@ DbgAttach(	char *proto,
 ** Invoke user program.
 */
 dbginvoke_t *
-DbgInvoke(	char *proto,
+DbgInvoke(	const char *proto,
 			proto_session *sess,
-			char *prog,
+			const char *prog,
 			char **argv,
-			char *handle,
+			const char *handle,
 			int nproc,
-			char *arch,
+			const char *arch,
 			char **arch_args,
-			char *arch_input,
-			char *backend,
+			const char *arch_input,
+			const char *backend,
 			char **env,
-			char *cwd,
+			const char *cwd,
 			int gpu_flag,
 			int debug_flag,
 			int unsafe_flag,

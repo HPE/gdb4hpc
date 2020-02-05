@@ -412,7 +412,6 @@ resolve_hostname(char const* hostname) {
 	}
 
 	// extract the IP address string
-	char node_addr[MAXADDRLEN];
 	getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, ip_addr, MAXADDRLEN-1, NULL, 0, NI_NUMERICHOST);
 	freeaddrinfo(infoptr);
 	ip_addr[MAXADDRLEN] = '\0';

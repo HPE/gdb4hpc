@@ -36,7 +36,7 @@ typedef struct set_location set_location;
 
 struct dbgfrontend_sw
 {
-	char *				dbg_name;
+	const char *		dbg_name;
 	dbgfrontend_sess	dbg_session;
 	dbgstat				dbg_status;
 	int					dbg_list_isPending;
@@ -44,13 +44,13 @@ struct dbgfrontend_sw
 
 	dbgevent_t *		(*dbg_init)(struct dbgfrontend_sw *);
 	dbgevent_t *		(*dbg_quit)(struct dbgfrontend_sw *);
-	dbgevent_t *		(*dbg_set_file)(struct dbgfrontend_sw *, char *);
+	dbgevent_t *		(*dbg_set_file)(struct dbgfrontend_sw *, const char *);
 	dbgevent_t *		(*dbg_checkstartupfunc)(struct dbgfrontend_sw *);
-	dbgevent_t *		(*dbg_list)(struct dbgfrontend_sw *, char *);
+	dbgevent_t *		(*dbg_list)(struct dbgfrontend_sw *, const char *);
 	dbgevent_t *		(*dbg_getsources)(struct dbgfrontend_sw *);
-	dbgevent_t *		(*dbg_setsourcepath)(struct dbgfrontend_sw *, char *);
+	dbgevent_t *		(*dbg_setsourcepath)(struct dbgfrontend_sw *, const char *);
 	dbgevent_t *		(*dbg_getsourcepath)(struct dbgfrontend_sw *);
-	dbgevent_t *		(*dbg_getscope)(struct dbgfrontend_sw *, char *);
+	dbgevent_t *		(*dbg_getscope)(struct dbgfrontend_sw *, const char *);
 };
 typedef struct dbgfrontend_sw	dbgfrontend_sw;
 
@@ -68,13 +68,13 @@ extern void				SetListStateLocation(dbgfrontend_sw *);
 extern void				ClearListState(dbgfrontend_sw *);
 
 // Interface functions
-extern dbgfrontend_sw *	DbgInstantiateFE(char *);
+extern dbgfrontend_sw *	DbgInstantiateFE(const char *);
 extern dbgevent_t *		DbgDestroyFE(dbgfrontend_sw *);
-extern dbgevent_t *		DbgFESetFile(dbgfrontend_sw *, char *);
+extern dbgevent_t *		DbgFESetFile(dbgfrontend_sw *, const char *);
 extern dbgevent_t *		DbgFECheckStartupFunc(dbgfrontend_sw *);
-extern dbgevent_t *		DbgFEList(dbgfrontend_sw *, char *);
+extern dbgevent_t *		DbgFEList(dbgfrontend_sw *, const char *);
 extern dbgevent_t *		DbgFEGetSources(dbgfrontend_sw *);
-extern dbgevent_t *		DbgFESetSourcePath(dbgfrontend_sw *, char *);
+extern dbgevent_t *		DbgFESetSourcePath(dbgfrontend_sw *, const char *);
 extern dbgevent_t *		DbgFEGetSourcePath(dbgfrontend_sw *);
 extern dbgevent_t *		DbgFEGetScope(dbgfrontend_sw *, char *);
 

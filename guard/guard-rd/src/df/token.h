@@ -23,6 +23,7 @@
 
 #include "aif.h"
 #include "bitset.h"
+#include "procset.h"
 
 #define T_CHUNK 128
 #define T_NCHUNKS 20

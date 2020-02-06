@@ -22,6 +22,8 @@
 #define _BUILD_H
 
 #include "bitset.h"
+#include "expr.h"
+#include "graph.h"
 #include "list.h"
 
 #define EDGE(g, n1, n2, p) (g)->g_outEdge(g, n1, n2, p)

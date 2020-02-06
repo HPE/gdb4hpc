@@ -22,6 +22,7 @@
 #define _NODE_H
 
 #include "queue.h"
+#include "token.h"
 
 struct input_t {
     struct tkqueue_t* i_tokens;

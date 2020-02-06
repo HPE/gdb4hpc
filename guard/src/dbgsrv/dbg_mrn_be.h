@@ -17,6 +17,8 @@
 
 #include "dbg_mrn.h"
 
+class dbgcomm_info;
+
 extern int mrn_be_create_network(int argc, char *argv[]);
 
 extern void mrn_be_set_size(int size);

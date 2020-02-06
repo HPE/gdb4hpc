@@ -22,6 +22,7 @@
 #define _ASSIGN_H
 
 #include "list.h"
+#include "var.h"
 
 struct assign_t {
     char *a_lstr;

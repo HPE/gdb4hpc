@@ -23,6 +23,7 @@
 
 #include "hash.h"
 #include "list.h"
+#include "val.h"
 
 #define ARG_SYM 1
 #define ARG_VAL 2

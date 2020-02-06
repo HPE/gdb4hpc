@@ -21,6 +21,7 @@
 #ifndef _AINFO_H
 #define _AINFO_H
 
+#include "aif.h"
 #include "gvar.h"
 #include "list.h"
 

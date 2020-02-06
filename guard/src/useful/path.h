@@ -18,15 +18,15 @@
 extern "C" {
 #endif
 
-#define EXTRA_LIBRARY_PATH  "/lib64:/usr/lib64:/lib:/usr/lib"
+#define EXTRA_LIBRARY_PATH "/lib64:/usr/lib64:/lib:/usr/lib"
 
-char *	pathFind(const char *, const char *);
-char *	libFind(const char *, const char *);
-int		adjustPaths(const char *);
-int		adjustLibPath(const char *);
-int		adjustExecPath(const char *);
-char *	getinstallbase(void);
-char *	getexepath(void);
+char *pathFind(const char *, const char *);
+char *libFind(const char *, const char *);
+int adjustPaths(const char *);
+int adjustLibPath(const char *);
+int adjustExecPath(const char *);
+char *getinstallbase(void);
+char *getexepath(void);
 
 #ifdef __cplusplus
 }

@@ -25,19 +25,18 @@
 
 /*
 ** These includes define a common interface that many of the functions which
-** interface with the debugger client need to access. We place them here to 
+** interface with the debugger client need to access. We place them here to
 ** ensure that the function that is interfacing with the debugger client has the
 ** definitions it needs through including a single header.
 */
-#include "defs.h"
-#include "dbg.h"
-
 #include "aif.h"
 #include "bitset.h"
-#include "dbgclnt_proto.h"
-#include "dbgoutp.h"
+#include "dbg.h"
 #include "dbgclnt_debugfe.h"
+#include "dbgclnt_proto.h"
 #include "dbgevent.h"
+#include "dbgoutp.h"
+#include "defs.h"
 
 /*
 ** debugger client struct and type definitions
@@ -45,100 +44,95 @@
 
 // Forward declare event set
 struct event_set;
-                                    
+
 // This is data used by the protocol layer for application output
 // Usually this will be a g_progoutp_t *, but it depends on the proto.
-typedef void *	proto_outp;
+typedef void *proto_outp;
 
-// This is instance data used by the protocol layer that is allocated on a per 
+// This is instance data used by the protocol layer that is allocated on a per
 // dbginvoke basis. It is stored in the di since the protocol object is reused
 // and is not suitable for storing instance data.
-typedef void *	proto_network;	
+typedef void *proto_network;
 
 // This is the protocol callback function prototype
-typedef int	(*proto_ev_callback_func)(struct dbginvoke *, proto_msg_set *);
+typedef int (*proto_ev_callback_func)(struct dbginvoke *, proto_msg_set *);
 // This is the client callback function prototype
-// Arguments are the event_set for this event and a bitset containing the new ranks to report this event
-typedef int	(*clnt_ev_callback_func)(struct event_set *, bitset *);
+// Arguments are the event_set for this event and a bitset containing the new
+// ranks to report this event
+typedef int (*clnt_ev_callback_func)(struct event_set *, bitset *);
 // This is the proto program output callback function prototype
-typedef void(*proto_outp_callback_func)(struct dbginvoke *, FILE *);
+typedef void (*proto_outp_callback_func)(struct dbginvoke *, FILE *);
 
-// Used to determine type of dbginvoke, currently there is either launched or attached
-// launched means the application was launched by the debugger, attached means it was
-// an existing application attached onto.
-enum dbgproc_type
-{
-	DBG_ATTACHED,
-	DBG_LAUNCHED
-};
+// Used to determine type of dbginvoke, currently there is either launched or
+// attached launched means the application was launched by the debugger,
+// attached means it was an existing application attached onto.
+enum dbgproc_type { DBG_ATTACHED, DBG_LAUNCHED };
 typedef enum dbgproc_type dbgproc_type;
 
 // Used with the DbgQuit command, can override the default behavior.
-enum dbgquit_type
-{
-	DBG_KILL,
-	DBG_DETACH,
-	DBG_DEFAULT
-};
+enum dbgquit_type { DBG_KILL, DBG_DETACH, DBG_DEFAULT };
 typedef enum dbgquit_type dbgquit_type;
 
-struct dbginvoke
-{
-	char *						d_handle;				// invoke handle used as identifier in client layer
-	uint64_t					d_appid;				// app identifier - this should be generic
-	dbgproc_type				d_type;					// launched or attached?
-	int							d_started;				// indicates if this di has been started
-	int							d_isShutdown;			// Some networks can use this during error handling. If this is true, the network is already shutdown.
-	int							d_nproc;				// number of processes
-	char *						d_cmd;					// application command argument - set to name of executable for invoke
-	int							d_stat;					// exit/signal status of proc
-	list_t *					d_evfds;				// event notification fds specific to this instance
-	bitset *					d_bitset_full;			// represents all dbgsrvs
-	bitset *					d_bitset_launched;		// for invoke cmd: represents dbgsrvs that has been launched
-	
-	int							d_proto_id;				// di specific protocol id - optionally used by certain protocols
-	proto_network				d_proto_net;			// di specific protocol network object
-	proto_outp					d_proto_outp;			// di specific protocol output object
-	dbgclnt_proto *				d_proto;				// client protocol switch
-	
-	// The following two callbacks are for protocol event messages and for
-	// handling the actual events in the client layer.
-	proto_ev_callback_func		d_proto_ev_callback;
-	clnt_ev_callback_func		d_clnt_ev_callback;
-	// This is the callback for handling application output in the client
-	proto_outp_callback_func	d_proto_outp_callback;
-	
-	dbgfrontend_sw *			d_frontend;				// debug frontend object
-	
-	// Extensions for client support
-	list_t *					d_eventset_list;		// pending events
-	list_t *					d_bpset_list; 			// current breakpoints
-	int							d_global_bpset_id;		// PRIVATE TO DBG_CLIENT!!! Do not use!
+struct dbginvoke {
+    char *d_handle;       // invoke handle used as identifier in client layer
+    uint64_t d_appid;     // app identifier - this should be generic
+    dbgproc_type d_type;  // launched or attached?
+    int d_started;        // indicates if this di has been started
+    int d_isShutdown;  // Some networks can use this during error handling. If
+                       // this is true, the network is already shutdown.
+    int d_nproc;       // number of processes
+    char *d_cmd;  // application command argument - set to name of executable
+                  // for invoke
+    int d_stat;   // exit/signal status of proc
+    list_t *d_evfds;        // event notification fds specific to this instance
+    bitset *d_bitset_full;  // represents all dbgsrvs
+    bitset *d_bitset_launched;  // for invoke cmd: represents dbgsrvs that has
+                                // been launched
+
+    int d_proto_id;  // di specific protocol id - optionally used by certain
+                     // protocols
+    proto_network d_proto_net;  // di specific protocol network object
+    proto_outp d_proto_outp;    // di specific protocol output object
+    dbgclnt_proto *d_proto;     // client protocol switch
+
+    // The following two callbacks are for protocol event messages and for
+    // handling the actual events in the client layer.
+    proto_ev_callback_func d_proto_ev_callback;
+    clnt_ev_callback_func d_clnt_ev_callback;
+    // This is the callback for handling application output in the client
+    proto_outp_callback_func d_proto_outp_callback;
+
+    dbgfrontend_sw *d_frontend;  // debug frontend object
+
+    // Extensions for client support
+    list_t *d_eventset_list;  // pending events
+    list_t *d_bpset_list;     // current breakpoints
+    int d_global_bpset_id;    // PRIVATE TO DBG_CLIENT!!! Do not use!
 };
-typedef struct dbginvoke	dbginvoke_t;
+typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
 
 /*
 ** A group receiver is the actual dbginvoke_t/process mask for each di palced
 ** inside the rec_set_t.
 */
-struct group_recv
-{
-	dbginvoke_t *	rec_di;
-	bitset *		rec_group;
-	bitset *		_cmd_sent;	// Internal to dbg_clnt layer - DO NOT USE!!!
+struct group_recv {
+    dbginvoke_t *rec_di;
+    bitset *rec_group;
+    bitset *_cmd_sent;  // Internal to dbg_clnt layer - DO NOT USE!!!
 };
 typedef struct group_recv group_recv_t;
 
 /*
-** This is used to describe which ranks to send commands to in the dbgclnt interface.
+** This is used to describe which ranks to send commands to in the dbgclnt
+*interface.
 ** If multiple di's are present in the list, the command will be sent to each di
-** according to the group mask. The rep_set will contain responses and errors for
+** according to the group mask. The rep_set will contain responses and errors
+*for
 ** each di involved in the command.
 */
-struct rec_set
-{
-	list_t *		rec_list;	// recievers of command
+struct rec_set {
+    list_t *rec_list;  // recievers of command
 };
 typedef struct rec_set rec_set_t;
 
@@ -147,232 +141,234 @@ typedef struct rec_set rec_set_t;
 ** All replies belong to a base dbginvoke_t struct, the mask of processes that
 ** this reply belongs to, and an event. All replies must be an event.
 */
-struct group_reply
-{
-	dbginvoke_t *	rep_di;
-	bitset *		rep_group;
-	dbgevent_t *	rep_event;
+struct group_reply {
+    dbginvoke_t *rep_di;
+    bitset *rep_group;
+    dbgevent_t *rep_event;
 };
 typedef struct group_reply group_reply_t;
 
-/* 
-** This is used to hold replies from commands in the dbgclnt interface. The error
+/*
+** This is used to hold replies from commands in the dbgclnt interface. The
+*error
 ** list is maintained and handled internally and should not be used outside of
 ** this layer. The client layer can call the ProcessErrorInRepSet() function to
 ** print out any errors.
 ** TODO: Add a setter for the error handler so we can get rid of the use of
 ** the silly print calls.
 ** A ReplySet(rep_set_t) keeps results replied by a number of BEs.
-** These results are aggregated into several unquie groups. 	
+** These results are aggregated into several unquie groups.
 ** Each group maybe an error message (maintained by group_err_t),
 ** or a normal message (maintained by group_reply_t).
 */
-struct rep_set
-{
-	list_t *	rep_list;	// event replies of cmd
-	list_t *	err_list;	// error events
+struct rep_set {
+    list_t *rep_list;  // event replies of cmd
+    list_t *err_list;  // error events
 };
 typedef struct rep_set rep_set_t;
 
 // These are used to describe asynchronous events to the client interface
-struct event_set
-{
-	dbginvoke_t *	e_di;
-	bitset *		e_group;
-	dbgevent_t *	e_ev;
+struct event_set {
+    dbginvoke_t *e_di;
+    bitset *e_group;
+    dbgevent_t *e_ev;
 };
 typedef struct event_set event_set_t;
 
 // This is used to represent breakpoints and is accessible by the client layer.
 // It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
 // object.
-struct bp_set
-{
-	// Current bp num - This gets reset every time a bp_set is returned to the client.
-	// These numbers are issued per dbginvoke_t object. The dbg_client layer needs
-	// to remember to update these when returning the object to the client layer.
-	int				b_bp_id;		// The current breakpoint number
+struct bp_set {
+    // Current bp num - This gets reset every time a bp_set is returned to the
+    // client. These numbers are issued per dbginvoke_t object. The dbg_client
+    // layer needs to remember to update these when returning the object to the
+    // client layer.
+    int b_bp_id;  // The current breakpoint number
 
-	// group information
-	bitset *		b_group;		// All ranks that contain this breakpoint
-	
-	// breakpoint unique gdb id's
-	list_t *		b_bp_id_list;	// a list of bp_id_set_t - private to dbgclnt layer
-	
-	// breakpoint information
-	bitset *		b_bp_enabled;	// set representing enabled breakpoints, this can vary by rank.
-	list_t *		b_bp_disp;		// a list of bp_disp_set_t representing breakpoint disposition (i.e. keep, dis, del), this can vary by rank.
-	dbgbp_type		b_bp_type;		// breakpoint type (i.e. breakpoint, watchpoint)
-	
-	// breakpoint locale
-	char *			b_loc_addr;		// locale address
-	char *			b_loc_file;		// locale file
-	char *			b_loc_func;		// locale function
-	int				b_loc_line;		// locale line
-	
-	char *			b_bp_exp;		// watchpoint expression
+    // group information
+    bitset *b_group;  // All ranks that contain this breakpoint
+
+    // breakpoint unique gdb id's
+    list_t *b_bp_id_list;  // a list of bp_id_set_t - private to dbgclnt layer
+
+    // breakpoint information
+    bitset *b_bp_enabled;  // set representing enabled breakpoints, this can
+                           // vary by rank.
+    list_t *
+        b_bp_disp;  // a list of bp_disp_set_t representing breakpoint
+                    // disposition (i.e. keep, dis, del), this can vary by rank.
+    dbgbp_type b_bp_type;  // breakpoint type (i.e. breakpoint, watchpoint)
+
+    // breakpoint locale
+    char *b_loc_addr;  // locale address
+    char *b_loc_file;  // locale file
+    char *b_loc_func;  // locale function
+    int b_loc_line;    // locale line
+
+    char *b_bp_exp;  // watchpoint expression
 };
 typedef struct bp_set bp_set_t;
 
 // Only should be used in the dbg_client layer. This is used to map the client
 // breakpoint number onto gdb backend breakpoint numbers.
-struct bp_id_set
-{
-	bitset *		b_group;
-	int				b_bp_id; //unique bkpt id assigned by each gdb
+struct bp_id_set {
+    bitset *b_group;
+    int b_bp_id;  // unique bkpt id assigned by each gdb
 };
 typedef struct bp_id_set bp_id_set_t;
 
-// This is used when checking the disposition of the breakpoint (i.e. enabled, disabled, etc)
-struct bp_disp_set
-{
-	bitset *		b_group;	// bitset representing the ranks with this disposition
-	dbgbp_disp		b_bp_disp;	// disposition value
+// This is used when checking the disposition of the breakpoint (i.e. enabled,
+// disabled, etc)
+struct bp_disp_set {
+    bitset *b_group;  // bitset representing the ranks with this disposition
+    dbgbp_disp b_bp_disp;  // disposition value
 };
 typedef struct bp_disp_set bp_disp_set_t;
 
-// Used when calling DbgHandleSignal to determine if the signal should be maskable
-enum dbgsig_type
-{
-	DBG_SIG_MASKABLE,
-	DBG_SIG_NOMASK
-};
+// Used when calling DbgHandleSignal to determine if the signal should be
+// maskable
+enum dbgsig_type { DBG_SIG_MASKABLE, DBG_SIG_NOMASK };
 typedef enum dbgsig_type dbgsig_type;
 
 /*
 ** Receiver routines
 */
-extern group_recv_t *		NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask);
-extern rec_set_t *			NewRecSet(void);
-extern void					AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
-extern void					FreeRecSet(rec_set_t *set);
-extern void					SetReceiverHeadInSet(rec_set_t *set);
-extern group_recv_t *		GetNextReceiverInSet(rec_set_t *set);
+extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask);
+extern rec_set_t *NewRecSet(void);
+extern void AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
+extern void FreeRecSet(rec_set_t *set);
+extern void SetReceiverHeadInSet(rec_set_t *set);
+extern group_recv_t *GetNextReceiverInSet(rec_set_t *set);
 
 /*
 ** Reply routines
 */
-extern group_reply_t *		NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply); // Make static
-extern group_reply_t * 		CopyGroupReply(group_reply_t* reply);
-extern void 			FreeGroupReply(group_reply_t *reply);
-extern rep_set_t *			NewRepSet(void); // Make static
-extern void					FreeRepSet(rep_set_t* set);
-extern rep_set_t *			CopyRepSet(rep_set_t* set);
-extern void					AddReplyToSet(rep_set_t* set, group_reply_t * rep); // Make static
-extern void					ResetSet(rep_set_t *set); // Make static
-extern int					SetHasError(rep_set_t *set); // Maybe make static
-extern void					SetReplyHeadInSet(rep_set_t* set);
-extern int					GetNumberOfReply(rep_set_t* set);
-extern group_reply_t *		GetNextReplyInSet(rep_set_t* set);
-extern int					ProcessErrorInRepSet(rep_set_t *);
+extern group_reply_t *NewGroupReply(dbginvoke_t *di, bitset *src,
+                                    dbgevent_t *reply);  // Make static
+extern group_reply_t *CopyGroupReply(group_reply_t *reply);
+extern void FreeGroupReply(group_reply_t *reply);
+extern rep_set_t *NewRepSet(void);  // Make static
+extern void FreeRepSet(rep_set_t *set);
+extern rep_set_t *CopyRepSet(rep_set_t *set);
+extern void AddReplyToSet(rep_set_t *set, group_reply_t *rep);  // Make static
+extern void ResetSet(rep_set_t *set);                           // Make static
+extern int SetHasError(rep_set_t *set);  // Maybe make static
+extern void SetReplyHeadInSet(rep_set_t *set);
+extern int GetNumberOfReply(rep_set_t *set);
+extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
+extern int ProcessErrorInRepSet(rep_set_t *);
 
 /*
-** Async event routines 
+** Async event routines
 */
-extern bp_set_t *			FindBPSetByID(dbginvoke_t *, int);
-extern bp_set_t * 			FindBPSetForBP(dbginvoke_t *di, dbgbp_t* bp);
-extern void					ResetBPSetList(dbginvoke_t *di);
-extern bp_set_t *			GetNextBPSet(dbginvoke_t *di);
-extern int					EmptyBPSetList(dbginvoke_t *di);
+extern bp_set_t *FindBPSetByID(dbginvoke_t *, int);
+extern bp_set_t *FindBPSetForBP(dbginvoke_t *di, dbgbp_t *bp);
+extern void ResetBPSetList(dbginvoke_t *di);
+extern bp_set_t *GetNextBPSet(dbginvoke_t *di);
+extern int EmptyBPSetList(dbginvoke_t *di);
 
 /*
 ** debugger client function prototypes
 */
-extern void				ForceQuit(void);
-extern void				HoldSignals(void);
-extern void				ReleaseSignals(void);
+extern void ForceQuit(void);
+extern void HoldSignals(void);
+extern void ReleaseSignals(void);
 
 /*
 ** interface prototypes
 */
-extern int				DbgInit(void);
-extern void				DbgFinish(void);
+extern int DbgInit(void);
+extern void DbgFinish(void);
 
-extern int				DbgCheckEvents(void);
-extern void				DbgDispatchEvents(void);
+extern int DbgCheckEvents(void);
+extern void DbgDispatchEvents(void);
 // DbgDispatchProtoEvent is the dbginvoke callback used to handle any protocol
 // specific events received during the DbgDispatchEvents proto level call. Note
 // that the msg is the unprocessed event network protocol string that will be
 // converted to an actual event.
-extern int				DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set);
-extern void				DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream);
-extern void				DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
-extern void				DbgHandleOutput(void (*)(dbginvoke_t *di, FILE *p_o_stream));
-extern void				DbgHandleInput(int, void (*)(void));
-extern void				DbgHandleSignal(int, void (*)(int), dbgsig_type);
-extern void				DbgMaskInput(void);
-extern void				DbgUnmaskInput(void);
-extern void				DbgUnmaskSignal(int);
+extern int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set);
+extern void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream);
+extern void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
+extern void DbgHandleOutput(void (*)(dbginvoke_t *di, FILE *p_o_stream));
+extern void DbgHandleInput(int, void (*)(void));
+extern void DbgHandleSignal(int, void (*)(int), dbgsig_type);
+extern void DbgMaskInput(void);
+extern void DbgUnmaskInput(void);
+extern void DbgUnmaskSignal(int);
 
 // Used by higher layers to check if the inferior status has changed
-extern int				DbgCheckForStatusChange(void);
-extern void				DbgResetStatusChange(void);
+extern int DbgCheckForStatusChange(void);
+extern void DbgResetStatusChange(void);
 
-// Used by higher layers to check if we are currently waiting on an asynchronous event
-extern int				DbgCheckForAsyncPending(void);
+// Used by higher layers to check if we are currently waiting on an asynchronous
+// event
+extern int DbgCheckForAsyncPending(void);
 
-extern proto_session *	DbgSessionCreate(const char *, WLM_type, char *, char *, char *);
-extern void				DbgSetSession(proto_session *);
-extern proto_session *	DbgGetSession(void);
+extern proto_session *DbgSessionCreate(const char *, WLM_type, char *, char *,
+                                       char *);
+extern void DbgSetSession(proto_session *);
+extern proto_session *DbgGetSession(void);
 
-extern dbginvoke_t *	DbgAttach(const char *, proto_session *, const char *, const char *,
-                                  const char *, const char *, int, int);
-extern dbginvoke_t *	DbgInvoke(	const char *, proto_session *, const char *, char **,
-                                    const char *, int, const char *,
-									char **, const char *, const char *, char **, const char *,
-                                    int, int, int, int);
+extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
+                              const char *, const char *, const char *, int,
+                              int);
+extern dbginvoke_t *DbgInvoke(const char *, proto_session *, const char *,
+                              char **, const char *, int, const char *, char **,
+                              const char *, const char *, char **, const char *,
+                              int, int, int, int);
 
-extern rep_set_t *		DbgStartup(rec_set_t *);
-// This is the only thing that should be returning something other than rep_set_t *
-// I don't know how to fix it since its for sending a synchronous command asynchronously
+extern rep_set_t *DbgStartup(rec_set_t *);
+// This is the only thing that should be returning something other than
+// rep_set_t * I don't know how to fix it since its for sending a synchronous
+// command asynchronously
 // TODO: This should probably be removed.
-extern void				DbgSendExpr(rec_set_t *, char *);
+extern void DbgSendExpr(rec_set_t *, char *);
 // If the above is removed, get rid of this too.
-extern rep_set_t *		DbgGetExpr(rec_set_t *);
-extern rep_set_t *		DbgEvalExpr(rec_set_t *, char *);
+extern rep_set_t *DbgGetExpr(rec_set_t *);
+extern rep_set_t *DbgEvalExpr(rec_set_t *, char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
-extern rep_set_t *		DbgSetDebuggerVar(rec_set_t *, char *, AIF *);
-extern rep_set_t *		DbgGetDebuggerVar(rec_set_t *, char *);
-extern rep_set_t *		DbgSetSourcePath(rec_set_t *, char *);
-extern rep_set_t *		DbgGetSourcePath(rec_set_t *);
+extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, char *, AIF *);
+extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, char *);
+extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
+extern rep_set_t *DbgGetSourcePath(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *		DbgSetVar(rec_set_t *, char *, AIF *);
-extern rep_set_t *		DbgGetType(rec_set_t *, char *, int);
+extern rep_set_t *DbgSetVar(rec_set_t *, char *, AIF *);
+extern rep_set_t *DbgGetType(rec_set_t *, char *, int);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *		DbgGo(rec_set_t *);
+extern rep_set_t *DbgGo(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *		DbgFinishFunc(rec_set_t *);
-extern rep_set_t *		DbgSetLineBreak(rec_set_t *, char *, int);
-extern rep_set_t *		DbgSetFuncBreak(rec_set_t *, char *, char *);
-extern rep_set_t *		DbgSetWatch(rec_set_t *, int, char *);
+extern rep_set_t *DbgFinishFunc(rec_set_t *);
+extern rep_set_t *DbgSetLineBreak(rec_set_t *, char *, int);
+extern rep_set_t *DbgSetFuncBreak(rec_set_t *, char *, char *);
+extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *		DbgKill(rec_set_t *);
-// Returns NULL on success, otherwise reply will contain error
-// Pass in bp_set num, 0 means everything
-extern rep_set_t *		DbgDeleteBreak(rec_set_t *, int);
+extern rep_set_t *DbgKill(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *		DbgDisableBreak(rec_set_t *, int);
+extern rep_set_t *DbgDeleteBreak(rec_set_t *, int);
 // Returns NULL on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *		DbgEnableBreak(rec_set_t *, int, int, int);
-extern rep_set_t *		DbgList(rec_set_t *, char *);
-extern rep_set_t *		DbgGetSources(rec_set_t *);
+extern rep_set_t *DbgDisableBreak(rec_set_t *, int);
+// Returns NULL on success, otherwise reply will contain error
+// Pass in bp_set num, 0 means everything
+extern rep_set_t *DbgEnableBreak(rec_set_t *, int, int, int);
+extern rep_set_t *DbgList(rec_set_t *, char *);
+extern rep_set_t *DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though
-extern rep_set_t *		DbgSetArgs(rec_set_t *, char *);
+extern rep_set_t *DbgSetArgs(rec_set_t *, char *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *		DbgStep(rec_set_t *, int, int);
-extern rep_set_t *		DbgMoveFrame(rec_set_t *, int, int);
-extern rep_set_t *		DbgShowFrame(rec_set_t *, int);
-extern rep_set_t *		DbgGetFrame(rec_set_t *);
-extern rep_set_t *		DbgGetVars(rec_set_t *, char *);
-extern rep_set_t *		DbgGetScope(rec_set_t *, char *);
-extern rep_set_t *		DbgDirectCmd(rec_set_t *, int, char **);
-extern rep_set_t *		DbgStatus(rec_set_t *, int);
-extern rep_set_t *		DbgInterrupt(rec_set_t *);
-extern rep_set_t *		DbgQuit(rec_set_t *, dbgquit_type);
-extern rep_set_t *		DbgOpenSocket(rec_set_t *, char *, int);
-extern rep_set_t *		DbgCloseSocket(rec_set_t *);
+extern rep_set_t *DbgStep(rec_set_t *, int, int);
+extern rep_set_t *DbgMoveFrame(rec_set_t *, int, int);
+extern rep_set_t *DbgShowFrame(rec_set_t *, int);
+extern rep_set_t *DbgGetFrame(rec_set_t *);
+extern rep_set_t *DbgGetVars(rec_set_t *, char *);
+extern rep_set_t *DbgGetScope(rec_set_t *, char *);
+extern rep_set_t *DbgDirectCmd(rec_set_t *, int, char **);
+extern rep_set_t *DbgStatus(rec_set_t *, int);
+extern rep_set_t *DbgInterrupt(rec_set_t *);
+extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
+extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
+extern rep_set_t *DbgCloseSocket(rec_set_t *);
 
 #endif /* !_DBG_CLIENT_H */

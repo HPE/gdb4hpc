@@ -22,13 +22,13 @@
 extern "C" {
 #endif
 
-FILE *  create_log(int, char *);
-FILE *  open_log(int, char *);
-int     write_log(FILE *, char *);
-int     write_log2(FILE *, char *);
-int     close_log(FILE *);
-int     hook_stdoe(FILE *);
-void 	print_backtrace(FILE* log, const char* message);
+FILE *create_log(int, char *);
+FILE *open_log(int, char *);
+int write_log(FILE *, char *);
+int write_log2(FILE *, char *);
+int close_log(FILE *);
+int hook_stdoe(FILE *);
+void print_backtrace(FILE *log, const char *message);
 
 #ifdef __cplusplus
 }

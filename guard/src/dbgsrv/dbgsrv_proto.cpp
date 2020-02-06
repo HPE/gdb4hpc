@@ -18,72 +18,68 @@
  *
  *********************************************************************************/
 
-
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdlib.h>
-#include	<string.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include	"defs.h"
-#include	"dbgsrv_proto.h"
-#include	"useful.h"
+#include "dbgsrv_proto.h"
+#include "defs.h"
+#include "useful.h"
 
 /*
 ** Setup protocol defs
 */
-struct proto_tab
-{
-    const char *	proto_name;
-	dbgsrv_proto *	proto_def;
+struct proto_tab {
+    const char *proto_name;
+    dbgsrv_proto *proto_def;
 };
-typedef struct proto_tab	proto_tab;
+typedef struct proto_tab proto_tab;
 
 // external proto defs
 #ifdef SUN_RPC
-extern dbgsrv_proto	DbgSrvRPCProtoSW;
+extern dbgsrv_proto DbgSrvRPCProtoSW;
 #endif /* SUN_RPC */
 #ifdef SOCKETS
-extern dbgsrv_proto	DbgSrvSocProtoSW;
+extern dbgsrv_proto DbgSrvSocProtoSW;
 #endif /* SOCKETS */
 #ifdef MRNET
-extern dbgsrv_proto	DbgSrvMRNProtoSW;
+extern dbgsrv_proto DbgSrvMRNProtoSW;
 #endif /* MRNET */
-#ifdef SCI 
-extern dbgsrv_proto	DbgSrvSCIProtoSW;
+#ifdef SCI
+extern dbgsrv_proto DbgSrvSCIProtoSW;
 #endif /* SCI */
 
 // table of proto defs
-static proto_tab DbgProtoTab[] =
-{
+static proto_tab DbgProtoTab[] = {
 #ifdef SUN_RPC
-	{	"rpc",		&DbgSrvRPCProtoSW },
+    {"rpc", &DbgSrvRPCProtoSW},
 #endif /* SUN_RPC */
 #ifdef SOCKETS
-	{	"socket",	&DbgSrvSocProtoSW },
+    {"socket", &DbgSrvSocProtoSW},
 #endif /* SOCKETS */
 #ifdef MRNET
-	{	"mrnet",	&DbgSrvMRNProtoSW },
+    {"mrnet", &DbgSrvMRNProtoSW},
 #endif /* MRNET */
 #ifdef SCI
-	{	"sci",	&DbgSrvSCIProtoSW },
+    {"sci", &DbgSrvSCIProtoSW},
 #endif /* SCI */
-	{	NULL,		(dbgsrv_proto *)NULL }
-};
+    {NULL, (dbgsrv_proto *)NULL}};
 
 /*
 ** Set default proto.
 ** This defines the current protocol in use
 */
 #if defined(MRNET)
-static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvMRNProtoSW;	/* Default to MRNET */
+static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvMRNProtoSW; /* Default to MRNET */
 #elif defined(SCI)
-static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvSCIProtoSW;	/* Default to SCI */
+static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvSCIProtoSW; /* Default to SCI */
 #elif defined(SUN_RPC)
-static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvRPCProtoSW;	/* Default to RPC */
+static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvRPCProtoSW; /* Default to RPC */
 #elif defined(SOCKETS)
-static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvSocProtoSW;	/* Default to SOC */
+static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvSocProtoSW; /* Default to SOC */
 #endif
 
 /*
@@ -95,86 +91,55 @@ static dbgsrv_proto * DbgSrvProtoSW = &DbgSrvSocProtoSW;	/* Default to SOC */
 //       talk to many different debug servers. Hence why the client handles
 //       multiple protocols at once, and the server doesn't.
 
-int
-DbgSetSrvProto(const char *proto)
-{
-	proto_tab *	p;
+int DbgSetSrvProto(const char *proto) {
+    proto_tab *p;
 
-	for ( p = DbgProtoTab ; p->proto_name != NULL ; p++ )
-	{
-		if ( strcmp(p->proto_name, proto) == 0 )
-		{
-			// Set the current protocol 
-			DbgSrvProtoSW = p->proto_def;
-			return 0;
-		}
-	}
-	return 1;
+    for (p = DbgProtoTab; p->proto_name != NULL; p++) {
+        if (strcmp(p->proto_name, proto) == 0) {
+            // Set the current protocol
+            DbgSrvProtoSW = p->proto_def;
+            return 0;
+        }
+    }
+    return 1;
 }
 
-int
-DbgInitProto(int procnum, int argc, char **argv, const char* key, const char* host, int port)
-{
+int DbgInitProto(int procnum, int argc, char **argv, const char *key,
+                 const char *host, int port) {
     return DbgSrvProtoSW->sw_initproto(procnum, argc, argv, key, host, port);
 }
 
-fd_set *
-DbgGetFDSet(void)
-{
-	return DbgSrvProtoSW->sw_getfdset();
+fd_set *DbgGetFDSet(void) { return DbgSrvProtoSW->sw_getfdset(); }
+
+void DbgRunProto(fd_set *fds) { DbgSrvProtoSW->sw_runproto(fds); }
+
+void DbgEndProto(void) { DbgSrvProtoSW->sw_endproto(); }
+
+int DbgSetupIO(int *fd, int *port) {
+    return DbgSrvProtoSW->sw_setupio(fd, port);
 }
 
-void
-DbgRunProto(fd_set *fds)
-{
-	DbgSrvProtoSW->sw_runproto(fds);
+int DbgTransferIO(int fd, char *buffer, int size) {
+    return DbgSrvProtoSW->sw_transferio(fd, buffer, size);
 }
 
-void
-DbgEndProto(void)
-{
-	DbgSrvProtoSW->sw_endproto();
+dbgevent_t *DbgInvokeNetwork(int numbe) {
+    return DbgSrvProtoSW->sw_invokenetwork(numbe);
 }
 
-int
-DbgSetupIO(int *fd, int *port)
-{
-	return DbgSrvProtoSW->sw_setupio(fd, port);
+int DbgSendReply(char *response) {
+    int res;
+
+    res = DbgSrvProtoSW->sw_sendreply(response);
+
+    Free(response);
+
+    return res;
 }
 
-int
-DbgTransferIO(int fd, char* buffer, int size)
-{
-	return DbgSrvProtoSW->sw_transferio(fd, buffer, size);
+int DbgInvokeCB(char *chost, int cprog, char *host, int prog, int pnum,
+                int port, dbgevent_t *ev) {
+    return DbgSrvProtoSW->sw_invokecb(chost, cprog, host, prog, pnum, port, ev);
 }
 
-dbgevent_t *
-DbgInvokeNetwork(int numbe)
-{
-	return DbgSrvProtoSW->sw_invokenetwork(numbe);
-}
-
-int
-DbgSendReply(char *response)
-{
-	int res;
-	
-	res = DbgSrvProtoSW->sw_sendreply(response);
-
-	Free(response);
-	
-	return res;
-}
-
-int
-DbgInvokeCB(char *chost, int cprog, char *host, int prog, int pnum, int port, dbgevent_t *ev)
-{
-	return DbgSrvProtoSW->sw_invokecb(chost, cprog, host, prog, pnum, port, ev);
-}
-
-int
-DbgEventCB(dbgevent_t *ev)
-{
-	return DbgSrvProtoSW->sw_eventcb(ev);
-}
-
+int DbgEventCB(dbgevent_t *ev) { return DbgSrvProtoSW->sw_eventcb(ev); }

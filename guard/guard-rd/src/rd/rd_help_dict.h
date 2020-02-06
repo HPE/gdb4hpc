@@ -15,7 +15,7 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 #ifndef _RD_HELP_DICT_H
 #define _RD_HELP_DICT_H
 
@@ -35,7 +35,7 @@ extern const char *cmd_blockmap_alt_distribute_help[];
 extern const char *cmd_blockmap_alt_proc_grid_help[];
 extern const char *cmd_blockmap_alt_dim_order_help[];
 extern const char *cmd_blockmap_alt_end_help[];
-extern const char *cmd_graph_alt_assert_help[]; 
+extern const char *cmd_graph_alt_assert_help[];
 extern const char *cmd_graph_alt_assign_help[];
 extern const char *cmd_graph_alt_end_help[];
 

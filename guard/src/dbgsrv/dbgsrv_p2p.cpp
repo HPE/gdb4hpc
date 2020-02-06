@@ -16,92 +16,80 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
-#include        <config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "defs.h"
-#include "useful.h"
 #include "cmdtoken.h"
-#include "expr.h"
-
 #include "dbgsrv_p2p.h"
+#include "defs.h"
+#include "expr.h"
+#include "useful.h"
 
-/* this function takes a procset name and load the netinfo from file to appInfo_t
-**/
-int
-LoadAppInfo(appInfo_t *myapp)
-{
-	char filename[BUFSIZ];
-	char nid[BUFSIZ];
-	char line[BUFSIZ];
-	int rank, port;
-	FILE * netinfo_fd;
-	const char *envDir;
+/* this function takes a procset name and load the netinfo from file to
+  *appInfo_t
+ **/
+int LoadAppInfo(appInfo_t *myapp) {
+    char filename[BUFSIZ];
+    char nid[BUFSIZ];
+    char line[BUFSIZ];
+    int rank, port;
+    FILE *netinfo_fd;
+    const char *envDir;
 
-	DPRINT("In LoadAppInfo\n");
+    DPRINT("In LoadAppInfo\n");
 
-	if ((envDir = getenv("CRAY_DBG_LOG_DIR")) == (char *)NULL)
-	{
-		// user didn't set the environment variable, so lets
-		// default to tmp
-		envDir = "/tmp";
-	}
-	sprintf(filename, "%s/dbglog_netinfo_%s", envDir, myapp->id);
+    if ((envDir = getenv("CRAY_DBG_LOG_DIR")) == (char *)NULL) {
+        // user didn't set the environment variable, so lets
+        // default to tmp
+        envDir = "/tmp";
+    }
+    sprintf(filename, "%s/dbglog_netinfo_%s", envDir, myapp->id);
 
-	netinfo_fd = fopen(filename, "r");
-	if (netinfo_fd == (FILE *)NULL)
-	{
-		// do something here maybe
-		return 0;
-	}
+    netinfo_fd = fopen(filename, "r");
+    if (netinfo_fd == (FILE *)NULL) {
+        // do something here maybe
+        return 0;
+    }
 
-	if (myapp->rank != NULL)
-	{
-		while (fscanf(netinfo_fd, "%s", line) != EOF)
-		{
-			char *tok;
-			tok = strtok(line, ":");
-			rank = atoi(tok);
-			tok = strtok(NULL, ":");
-			strcpy(nid, tok);
-			tok = strtok(NULL, ":");
-			port = atoi(tok);
-			// create a new rankInfoEntry_t
-			myapp->rank[rank]->nid = strdup(nid);
-			myapp->rank[rank]->port = port;
-		}
-		
-	}
+    if (myapp->rank != NULL) {
+        while (fscanf(netinfo_fd, "%s", line) != EOF) {
+            char *tok;
+            tok = strtok(line, ":");
+            rank = atoi(tok);
+            tok = strtok(NULL, ":");
+            strcpy(nid, tok);
+            tok = strtok(NULL, ":");
+            port = atoi(tok);
+            // create a new rankInfoEntry_t
+            myapp->rank[rank]->nid = strdup(nid);
+            myapp->rank[rank]->port = port;
+        }
+    }
 
-	fclose(netinfo_fd);
+    fclose(netinfo_fd);
 
-	return 1;
+    return 1;
 }
 
-int
-UnloadAppInfo(appInfo_t *myapp)
-{
-	int i;
-	for (i=0; i<myapp->nrank; i++)
-	{
-		Free(myapp->rank[i]->nid);
-		Free(myapp->rank[i]);
-	}
-	Free(myapp->rank);
-	
-	return 0;
+int UnloadAppInfo(appInfo_t *myapp) {
+    int i;
+    for (i = 0; i < myapp->nrank; i++) {
+        Free(myapp->rank[i]->nid);
+        Free(myapp->rank[i]);
+    }
+    Free(myapp->rank);
+
+    return 0;
 }

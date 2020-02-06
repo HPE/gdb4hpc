@@ -18,10 +18,8 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
 #include <stdarg.h>
@@ -31,74 +29,58 @@
 #include "alloc.h"
 #include "error.h"
 
-void *
-Alloc(int size)
-{
-	void *	m = malloc(size);
+void *Alloc(int size) {
+    void *m = malloc(size);
 
-	if ( m == (void *)NULL )
-	{
-		SetError("Memory allocation failed");
-		abort();
-	}
+    if (m == (void *)NULL) {
+        SetError("Memory allocation failed");
+        abort();
+    }
 
-	return m;
+    return m;
 }
 
-void
-Asprintf(char **strp, const char *fmt, ...)
-{
-	va_list	ap;
-	
-	va_start(ap, fmt);
-	
-	if (vasprintf(strp, fmt, ap) == -1)
-	{
-		SetError("Memory allocation failed");
-		abort();
-	}
-	
-	va_end(ap);
+void Asprintf(char **strp, const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);
+
+    if (vasprintf(strp, fmt, ap) == -1) {
+        SetError("Memory allocation failed");
+        abort();
+    }
+
+    va_end(ap);
 }
 
-void
-VAsprintf(char **strp, const char *fmt, va_list ap)
-{
-	if (vasprintf(strp, fmt, ap) == -1)
-	{
-		SetError("Memory allocation failed");
-		abort();
-	}
+void VAsprintf(char **strp, const char *fmt, va_list ap) {
+    if (vasprintf(strp, fmt, ap) == -1) {
+        SetError("Memory allocation failed");
+        abort();
+    }
 }
 
-void *
-Resize(void *m, int s)
-{
-	if ( m == (void *)NULL )
-		return Alloc(s);
+void *Resize(void *m, int s) {
+    if (m == (void *)NULL) return Alloc(s);
 
-	m = realloc(m, s);
+    m = realloc(m, s);
 
-	if ( m == (void *)NULL )
-	{
-		SetError("Memory allocation failed");
-		abort();
-	}
+    if (m == (void *)NULL) {
+        SetError("Memory allocation failed");
+        abort();
+    }
 
-	return m;
+    return m;
 }
 
-void
-Free(void *m)
-{
-	if ( m == (void *)NULL )
-	{
-		if ( Argv0 != NULL )
-			SetError("%s: Warning: freeing NULL pointer.", Argv0);
-		else
-			SetError("Warning: freeing NULL pointer.");
-		return;
-	}
+void Free(void *m) {
+    if (m == (void *)NULL) {
+        if (Argv0 != NULL)
+            SetError("%s: Warning: freeing NULL pointer.", Argv0);
+        else
+            SetError("Warning: freeing NULL pointer.");
+        return;
+    }
 
-	free(m);
+    free(m);
 }

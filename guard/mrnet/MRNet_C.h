@@ -11,7 +11,6 @@
  *
  *********************************************************************************/
 
-
 #ifndef _GUARD_MRNET_H
 #define _GUARD_MRNET_H
 
@@ -23,7 +22,7 @@ extern "C" {
 
 /*
 ** NOTE: Any change here should also be reflected in MRNet_type_wrapper.h.
-** 
+**
 ** This header file is meant to be seen by the c source files interfacing with
 ** this wrapper.
 **
@@ -53,17 +52,16 @@ struct MRNet_Stream;
 typedef struct MRNet_Stream MRNet_Stream;
 
 typedef enum {
-	MRNet_EVENT_ERROR = 0,
-	MRNet_EVENT_DATA,
-	MRNet_EVENT_TOPOLOGY,
-	MRNet_EVENT_UNKNOWN
+    MRNet_EVENT_ERROR = 0,
+    MRNet_EVENT_DATA,
+    MRNet_EVENT_TOPOLOGY,
+    MRNet_EVENT_UNKNOWN
 } MRNEventType;
 
-struct MRNet_Node
-{
-	char 	*hostname;
-	Port 	port;
-	Rank 	rank;
+struct MRNet_Node {
+    char *hostname;
+    Port port;
+    Rank rank;
 };
 typedef struct MRNet_Node MRNet_Node_t;
 

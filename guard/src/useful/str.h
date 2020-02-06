@@ -13,9 +13,6 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifndef _USEFUL_STR_H
 #define _USEFUL_STR_H
 
@@ -23,16 +20,16 @@
 extern "C" {
 #endif
 
-extern char *	skipspace(char *);
-extern char *	StripQuotes(char *);
-extern char *	SkipTo(char *, char);
-extern char *	SkipNum(char *);
-extern int		StrToNum(char *);
-extern char *	TrimStr(char *);
-extern char *	TrimStrWithTarget(char *, char);
-extern int		CountOccurence(char, char *);
-extern char *	ReplaceStr(const char *, const char *, const char *);
-extern int		IsInteger(char *);
+extern char *skipspace(char *);
+extern char *StripQuotes(char *);
+extern char *SkipTo(char *, char);
+extern char *SkipNum(char *);
+extern int StrToNum(char *);
+extern char *TrimStr(char *);
+extern char *TrimStrWithTarget(char *, char);
+extern int CountOccurence(char, char *);
+extern char *ReplaceStr(const char *, const char *, const char *);
+extern int IsInteger(char *);
 
 #ifdef __cplusplus
 }

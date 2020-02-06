@@ -19,162 +19,141 @@
  **********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<math.h>
-#include	<stdio.h>
-#include	<stdarg.h>
-#include	<string.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
-#include	"defs.h"
-#include	"useful.h"
-#include	"df.h"
+#include "defs.h"
+#include "df.h"
+#include "useful.h"
 
-#define MAX_GRAPHVARS	7	/* 2^7 = 128 */
+#define MAX_GRAPHVARS 7 /* 2^7 = 128 */
 
-static htable_t *	GraphVarTab = (htable_t *)NULL;
+static htable_t *GraphVarTab = (htable_t *)NULL;
 
-void
-InitGraphVars(void)
-{
-	double ulp;
-	int zero,one,i;
-	
-	if ( GraphVarTab != (htable_t *)NULL )
-		return;
+void InitGraphVars(void) {
+    double ulp;
+    int zero, one, i;
 
-	ulp = nextafter(0.0, 0.1);      // get the unit of least precision for this machine
-	zero = 0;
-	one = 1;
+    if (GraphVarTab != (htable_t *)NULL) return;
 
-	GraphVarTab = HashCreate(MAX_GRAPHVARS);
+    ulp = nextafter(0.0,
+                    0.1);  // get the unit of least precision for this machine
+    zero = 0;
+    one = 1;
 
-	SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&ulp);
-	SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&ulp);
-	SetGraphVar(GRAPH_RELATIVE, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_HALT, VAR_INT, (void *)&one);
-	SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&one);
-	SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_LOGFILE, VAR_STRING, (void *)"");
-	SetGraphVar(GRAPH_DFBLOCK, VAR_INT, (void *)&zero);
-	i = DF_DEFAULT;
-	SetGraphVar(GRAPH_DFMODE, VAR_INT, (void *)&i);
-	SetGraphVar(GRAPH_DISPLAY, VAR_STRING, (void *)"text");
-	SetGraphVar(GRAPH_OUTPUT, VAR_STRING, (void *)"guard.out");
-	// Minh add here to implement reduce interface
-	i = EXPR_REDUCE_NONE;
-	SetGraphVar(GRAPH_REDUCE, VAR_INT, (void *)&i);
-	SetGraphVar(GRAPH_HASH_LOWER, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_HASH_UPPER, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_LOWER_BOUND, VAR_DOUBLE, (void *)&ulp);
-	SetGraphVar(GRAPH_UPPER_BOUND, VAR_DOUBLE, (void *)&ulp);
-	SetGraphVar(GRAPH_HISTOGRAM_NUMBINS, VAR_INT, (void *)&zero);
-	SetGraphVar(GRAPH_HISTOGRAM_START, VAR_DOUBLE, (void *)&ulp);
-	SetGraphVar(GRAPH_HISTOGRAM_END, VAR_DOUBLE, (void *)&ulp);
-	// Minh adds here to implement the p2p comparison function
-	SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&zero);
+    GraphVarTab = HashCreate(MAX_GRAPHVARS);
 
+    SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&ulp);
+    SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&ulp);
+    SetGraphVar(GRAPH_RELATIVE, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_HALT, VAR_INT, (void *)&one);
+    SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&one);
+    SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_LOGFILE, VAR_STRING, (void *)"");
+    SetGraphVar(GRAPH_DFBLOCK, VAR_INT, (void *)&zero);
+    i = DF_DEFAULT;
+    SetGraphVar(GRAPH_DFMODE, VAR_INT, (void *)&i);
+    SetGraphVar(GRAPH_DISPLAY, VAR_STRING, (void *)"text");
+    SetGraphVar(GRAPH_OUTPUT, VAR_STRING, (void *)"guard.out");
+    // Minh add here to implement reduce interface
+    i = EXPR_REDUCE_NONE;
+    SetGraphVar(GRAPH_REDUCE, VAR_INT, (void *)&i);
+    SetGraphVar(GRAPH_HASH_LOWER, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_HASH_UPPER, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_LOWER_BOUND, VAR_DOUBLE, (void *)&ulp);
+    SetGraphVar(GRAPH_UPPER_BOUND, VAR_DOUBLE, (void *)&ulp);
+    SetGraphVar(GRAPH_HISTOGRAM_NUMBINS, VAR_INT, (void *)&zero);
+    SetGraphVar(GRAPH_HISTOGRAM_START, VAR_DOUBLE, (void *)&ulp);
+    SetGraphVar(GRAPH_HISTOGRAM_END, VAR_DOUBLE, (void *)&ulp);
+    // Minh adds here to implement the p2p comparison function
+    SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&zero);
 }
 
 // Removing va_args until this function is actually called with
 // variable arguments
-void
-SetGraphVar(const char *var, int type, void *val)
-{
-	graphvar_t *	gv;
-	hentry_t *	h = (hentry_t *)NULL;
+void SetGraphVar(const char *var, int type, void *val) {
+    graphvar_t *gv;
+    hentry_t *h = (hentry_t *)NULL;
 
-	InitGraphVars();
+    InitGraphVars();
 
-	if ( (h = HashSearch(GraphVarTab, var)) == (hentry_t *)NULL )
-		gv = (graphvar_t *)Alloc(sizeof(graphvar_t));
-	else
-		gv = (graphvar_t *)h->h_data;
+    if ((h = HashSearch(GraphVarTab, var)) == (hentry_t *)NULL)
+        gv = (graphvar_t *)Alloc(sizeof(graphvar_t));
+    else
+        gv = (graphvar_t *)h->h_data;
 
-	switch ( type )
-	{
-	case VAR_DOUBLE:
-		gv->gv_dval = *(double *)(val);
-		break;
-		
-	case VAR_INT:
-		gv->gv_ival = *(int *)(val);
-		break;
-		
-	case VAR_STRING:
-		if ( h != (hentry_t *)NULL && gv->gv_type == VAR_STRING )
-			Free(gv->gv_sval);
+    switch (type) {
+        case VAR_DOUBLE:
+            gv->gv_dval = *(double *)(val);
+            break;
 
-		gv->gv_sval = strdup((char *)val);
-		break;
-	}
+        case VAR_INT:
+            gv->gv_ival = *(int *)(val);
+            break;
 
-	gv->gv_type = type;
+        case VAR_STRING:
+            if (h != (hentry_t *)NULL && gv->gv_type == VAR_STRING)
+                Free(gv->gv_sval);
 
-	if ( h == (hentry_t *)NULL )
-		HashInsert(GraphVarTab, var, (void *)gv);
+            gv->gv_sval = strdup((char *)val);
+            break;
+    }
+
+    gv->gv_type = type;
+
+    if (h == (hentry_t *)NULL) HashInsert(GraphVarTab, var, (void *)gv);
 }
 
 // andrewg added on 8/10/10
 // If you are just going to do a memcpy on the guy you pass in,
-// you shouldn't use varargs. 
-void
-GetGraphVar(const char *var, void *val)
-{
-	int		len = 0;
-	graphvar_t *	gv;
-	hentry_t *	h;
+// you shouldn't use varargs.
+void GetGraphVar(const char *var, void *val) {
+    int len = 0;
+    graphvar_t *gv;
+    hentry_t *h;
 
-	InitGraphVars();
+    InitGraphVars();
 
-	if ( (h = HashSearch(GraphVarTab, var)) == (hentry_t *)NULL )
-		return;
+    if ((h = HashSearch(GraphVarTab, var)) == (hentry_t *)NULL) return;
 
-	gv = (graphvar_t *)h->h_data;
+    gv = (graphvar_t *)h->h_data;
 
-	switch ( gv->gv_type )
-	{
-	case VAR_DOUBLE:
-		len = sizeof(double);
-		break;
-		
-	case VAR_INT:
-		len = sizeof(int);
-		break;
-		
-	case VAR_STRING:
-		len = sizeof(char *);
-		break;
-	
-	default:
-		break;
-	}
+    switch (gv->gv_type) {
+        case VAR_DOUBLE:
+            len = sizeof(double);
+            break;
 
-	if ( val == (void *)NULL )
-		return;
+        case VAR_INT:
+            len = sizeof(int);
+            break;
 
-	memcpy(val, (void *)&gv->gv_u, len);
+        case VAR_STRING:
+            len = sizeof(char *);
+            break;
+
+        default:
+            break;
+    }
+
+    if (val == (void *)NULL) return;
+
+    memcpy(val, (void *)&gv->gv_u, len);
 }
 
+void _destroy_gvar(char *var, void *v) {
+    graphvar_t *gv = (graphvar_t *)v;
 
-void
-_destroy_gvar(char *var, void *v)
-{
-	graphvar_t *	gv = (graphvar_t *)v;
+    if (gv == (graphvar_t *)NULL) return;
 
-	if ( gv == (graphvar_t *)NULL )
-		return;
+    if (gv->gv_type == VAR_STRING) Free(gv->gv_sval);
 
-	if ( gv->gv_type == VAR_STRING )
-		Free(gv->gv_sval);
-
-	Free(v);
+    Free(v);
 }
 
-void 
-FinishGraphVars(void)
-{
-	HashDestroy(GraphVarTab, _destroy_gvar);
-}
+void FinishGraphVars(void) { HashDestroy(GraphVarTab, _destroy_gvar); }

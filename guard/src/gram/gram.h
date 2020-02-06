@@ -23,149 +23,152 @@
 
 #include <stdarg.h>
 
-#include "slice.h"
-#include "perm.h"
-#include "line.h"
-#include "file.h"
-#include "val.h"
-#include "var.h"
 #include "assign.h"
-#include "func.h"
-#include "expr.h"
-#include "cmdtoken.h"
+#include "bitset.h"
 #include "blockmap.h"
 #include "blockmap_util.h"
-#include "procset.h"
-#include "bitset.h"
-#include "hash.h"
+#include "cmdtoken.h"
 #include "dbg_client.h"
+#include "expr.h"
+#include "file.h"
+#include "func.h"
+#include "hash.h"
+#include "line.h"
+#include "perm.h"
+#include "procset.h"
+#include "slice.h"
+#include "val.h"
+#include "var.h"
 
-enum CMD_MODE
-{
-    CMD_MODE_INTERACTIVE,	// Interactive command
-    CMD_MODE_DEFERRED		// Deferred command
+enum CMD_MODE {
+    CMD_MODE_INTERACTIVE,  // Interactive command
+    CMD_MODE_DEFERRED      // Deferred command
 };
 typedef enum CMD_MODE CMD_MODE;
 
 /*
 ** expr.h
 */
-extern expr_t *			ParseExpr(const char *);
-extern void				FreeExpr(expr_t *);
-extern expr_t *			AddExpr(expr_op, ...);	// called by yacc expr.y.in
-extern void				SaveTopElt(void);		// called by yacc expr.y.in
-extern expr_op			GetTopEltOp(void);		// called by yacc expr.y.in
-extern hentry_t *		GetTopEltSymVal(void);	// called by yacc expr.y.in
-extern void				RemoveTopElt(void);		// called by yacc expr.y.in
-extern int				EvalCompare(val_t **, val_t **, expr_t *, rec_set_t *);
-extern int				EvalExpr(val_t **, expr_t *, rec_set_t *);
-extern int				EvalExprList(list_t **, expr_t *, rec_set_t *);
-extern int				EvalFunc(val_t **, func_t *, list_t *, rec_set_t *);
-extern g_block_map_t *	EvaluateBlockMap(expr_t *, rec_set_t *, CMD_MODE);
-extern var_t *			ReadVarDecl(expr_t *, rec_set_t *);
-extern int				AssignExpr(expr_t *, expr_t *, rec_set_t *);
-extern void				StartExprList(void);	// called by yacc expr.y.in
-extern void				IncExprList(void);		// called by yacc expr.y.in
-extern void				SetExprList(int);		// called by yacc expr.y.in
-extern int				EndExprList(void);		// called by yacc expr.y.in
+extern expr_t *ParseExpr(const char *);
+extern void FreeExpr(expr_t *);
+extern expr_t *AddExpr(expr_op, ...);    // called by yacc expr.y.in
+extern void SaveTopElt(void);            // called by yacc expr.y.in
+extern expr_op GetTopEltOp(void);        // called by yacc expr.y.in
+extern hentry_t *GetTopEltSymVal(void);  // called by yacc expr.y.in
+extern void RemoveTopElt(void);          // called by yacc expr.y.in
+extern int EvalCompare(val_t **, val_t **, expr_t *, rec_set_t *);
+extern int EvalExpr(val_t **, expr_t *, rec_set_t *);
+extern int EvalExprList(list_t **, expr_t *, rec_set_t *);
+extern int EvalFunc(val_t **, func_t *, list_t *, rec_set_t *);
+extern g_block_map_t *EvaluateBlockMap(expr_t *, rec_set_t *, CMD_MODE);
+extern var_t *ReadVarDecl(expr_t *, rec_set_t *);
+extern int AssignExpr(expr_t *, expr_t *, rec_set_t *);
+extern void StartExprList(void);  // called by yacc expr.y.in
+extern void IncExprList(void);    // called by yacc expr.y.in
+extern void SetExprList(int);     // called by yacc expr.y.in
+extern int EndExprList(void);     // called by yacc expr.y.in
 
 /*
 ** func.h
 */
-extern void				InitFunc(void);
-extern void				FinishFunc(void);
-extern func_t *			NewFunc(hentry_t *, list_t *, expr_t *, int (*)(list_t *, val_t **), const char *, int);
-extern void				FreeFunc(func_t *);
-extern func_t *			FindFunc(hentry_t *);
-extern int				CheckFunc(hentry_t *);
-extern void				SetFunc(void);
-extern func_t *			GetFunc(void);
-extern arg_t *			NewArg(int, ...);
-extern void				DestroyArg(arg_t *);
-extern int				FindArg(arg_t **, hentry_t *, func_t *);
-extern void				PrintFunc(FILE *, func_t *);
+extern void InitFunc(void);
+extern void FinishFunc(void);
+extern func_t *NewFunc(hentry_t *, list_t *, expr_t *,
+                       int (*)(list_t *, val_t **), const char *, int);
+extern void FreeFunc(func_t *);
+extern func_t *FindFunc(hentry_t *);
+extern int CheckFunc(hentry_t *);
+extern void SetFunc(void);
+extern func_t *GetFunc(void);
+extern arg_t *NewArg(int, ...);
+extern void DestroyArg(arg_t *);
+extern int FindArg(arg_t **, hentry_t *, func_t *);
+extern void PrintFunc(FILE *, func_t *);
 
 /*
 ** blockmap.h
 */
-extern g_block_map_t *	FindBlockMap(char *);
-extern int				CheckBlockMap(hentry_t *);
-extern int				VerifyBlockMap(hentry_t *);
-extern void				SetBlockMap(void);
-extern g_block_map_t *	GetBlockMap(void);
-extern g_block_map_t *	NewBlockMap(hentry_t *);
-extern void				DestroyBlockMap(g_block_map_t *);
-extern AIF *			ApplyBlockMap(g_block_map_t *, const char *, int, AIF **, const char *);
-extern void				PrintBlockMap(FILE *, g_block_map_t *);
-extern void				FinishBlockMap(void);
+extern g_block_map_t *FindBlockMap(char *);
+extern int CheckBlockMap(hentry_t *);
+extern int VerifyBlockMap(hentry_t *);
+extern void SetBlockMap(void);
+extern g_block_map_t *GetBlockMap(void);
+extern g_block_map_t *NewBlockMap(hentry_t *);
+extern void DestroyBlockMap(g_block_map_t *);
+extern AIF *ApplyBlockMap(g_block_map_t *, const char *, int, AIF **,
+                          const char *);
+extern void PrintBlockMap(FILE *, g_block_map_t *);
+extern void FinishBlockMap(void);
 
 /*
 ** val.h
 */
-extern void				InitVal(void);
-extern void				FinishVal(void);
-extern val_t *			MakeTransitoryLval(hentry_t *);
-extern int				RetrieveContents(val_t *, rec_set_t *);
-extern rval_type		GetActualRvalType(val_t *);
-extern AIF *			GetActualAIF(val_t *);
-extern dbgprocset_t *	GetActualProcset(val_t *);
-extern val_t *			NewVal(lval_type, ...);
-extern void				DestroyRval(rval_type, rval_val);
-extern void				DestroyVal(val_t *);
-extern void				DestroyInternalVal(val_t *);
-extern rval_val			CopyRval(rval_type, rval_val);
-extern val_t *			CopyVal(val_t *);
-extern val_t *			GetVal(hentry_t *);
-extern int				AssignVal(val_t *, val_t *, rec_set_t *);
-extern void				RemoveVal(hentry_t *);
+extern void InitVal(void);
+extern void FinishVal(void);
+extern val_t *MakeTransitoryLval(hentry_t *);
+extern int RetrieveContents(val_t *, rec_set_t *);
+extern rval_type GetActualRvalType(val_t *);
+extern AIF *GetActualAIF(val_t *);
+extern dbgprocset_t *GetActualProcset(val_t *);
+extern val_t *NewVal(lval_type, ...);
+extern void DestroyRval(rval_type, rval_val);
+extern void DestroyVal(val_t *);
+extern void DestroyInternalVal(val_t *);
+extern rval_val CopyRval(rval_type, rval_val);
+extern val_t *CopyVal(val_t *);
+extern val_t *GetVal(hentry_t *);
+extern int AssignVal(val_t *, val_t *, rec_set_t *);
+extern void RemoveVal(hentry_t *);
 
 /*
 ** cmdtoken.h
 */
-extern char *			SymLookup(hentry_t *);
+extern char *SymLookup(hentry_t *);
 // andrewg: The data types in the hash table really should be void *. The hash
 // table implementation is a common interface used with many different types of
-// data. 
-extern void *			SymLookupData(hentry_t *);
-extern void				SetSymData(hentry_t *, void *);
-extern hentry_t *		AddSym(char *);
-extern void				RemoveSym(hentry_t *);
-extern hentry_t *		FindSym(char *);
-extern ct_type			FindCmdToken(char *);
-extern ct_type			FindCmdTokenStr(char *, ct_val *);
-extern ct_type			ScanString(ct_val *, const char **);
-extern int				InitCmdToken(void);
-extern void				FinishCmdToken(void);
+// data.
+extern void *SymLookupData(hentry_t *);
+extern void SetSymData(hentry_t *, void *);
+extern hentry_t *AddSym(char *);
+extern void RemoveSym(hentry_t *);
+extern hentry_t *FindSym(char *);
+extern ct_type FindCmdToken(char *);
+extern ct_type FindCmdTokenStr(char *, ct_val *);
+extern ct_type ScanString(ct_val *, const char **);
+extern int InitCmdToken(void);
+extern void FinishCmdToken(void);
 
 /*
 ** procset.h
 */
-extern void				InitProcSet(void);
-extern void				FinishProcSet(void);
-dbgprocset_t *			CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
-extern int				CreateProcSet(expr_t *, expr_t *);
-extern dbgprocset_t *	CreateProcSetForInvoke(expr_t *e);
-extern int				FinalizeProcSetForInvoke(dbgprocset_t * ps, dbginvoke_t *di);
-extern rec_set_t *		CreateRecSetForProcset(dbgprocset_t *ps);
-extern void				SetProcSet(void);
-extern dbgprocset_t *	GetProcSet(void);
-extern void				FreeProcSet(dbgprocset_t *);
-extern void				SetCurrentProcSet(dbgprocset_t *);
-extern dbgprocset_t *	FindProcSet(char *name);
-extern dbgprocset_t *	CurrentProcSet(void);
-extern void				PrintProcSet(dbgprocset_t *);
-extern void				SetOverlaySetForProcSet(dbgprocset_t *);
-extern dbg_over_set_t*	GetNextOverlaySetForProcSet(dbgprocset_t *);
-extern void				PrintMsgWithSetInfo(const char* setname, bitset* group, const char *f, ...);
-extern void				PrintErrorWithSetInfo(const char* setname, bitset* group, const char *f, ...);
+extern void InitProcSet(void);
+extern void FinishProcSet(void);
+dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
+extern int CreateProcSet(expr_t *, expr_t *);
+extern dbgprocset_t *CreateProcSetForInvoke(expr_t *e);
+extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di);
+extern rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps);
+extern void SetProcSet(void);
+extern dbgprocset_t *GetProcSet(void);
+extern void FreeProcSet(dbgprocset_t *);
+extern void SetCurrentProcSet(dbgprocset_t *);
+extern dbgprocset_t *FindProcSet(char *name);
+extern dbgprocset_t *CurrentProcSet(void);
+extern void PrintProcSet(dbgprocset_t *);
+extern void SetOverlaySetForProcSet(dbgprocset_t *);
+extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *);
+extern void PrintMsgWithSetInfo(const char *setname, bitset *group,
+                                const char *f, ...);
+extern void PrintErrorWithSetInfo(const char *setname, bitset *group,
+                                  const char *f, ...);
 
 /*
 ** slice.h
 */
-slice_t *				NewSlice(void);
-void					AddSlice(slice_t *, int, int);
-slice_t *				CopySlice(slice_t *);
-void					ReverseSlice(slice_t *);
-void					DestroySlice(slice_t *);
- 
+slice_t *NewSlice(void);
+void AddSlice(slice_t *, int, int);
+slice_t *CopySlice(slice_t *);
+void ReverseSlice(slice_t *);
+void DestroySlice(slice_t *);
+
 #endif /* !_GRAM_H */

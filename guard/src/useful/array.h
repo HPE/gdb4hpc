@@ -15,7 +15,7 @@
  * of an array. This is useful when we wish to pre-allocate an aif array
  * using type information before we create each individual aif entry.
  */
- 
+
 #ifndef _ARRAY_H
 #define _ARRAY_H
 
@@ -26,29 +26,28 @@ extern "C" {
 // default size of the dimdef list
 // note that the size of this is automatically increased when calling
 // addArrayDimensionDef is there is not enough room in the list for the
-// new dimension definition. 
-#define DIMDEF_SIZE             5
+// new dimension definition.
+#define DIMDEF_SIZE 5
 #include "aif.h"
 //
 
 // used for returning shape of arrays
-typedef struct
-{
-        unsigned int    dim;            // dimension of array
-        unsigned int *  dimdef;         // indicies in each dimension
-        int *           dimmin;         // min range value in each dimension
-        int *           dimmax;         // max range value in each dimension
-        int             _len;           // *hidden* allocated size of the dimdef array
+typedef struct {
+    unsigned int dim;      // dimension of array
+    unsigned int *dimdef;  // indicies in each dimension
+    int *dimmin;           // min range value in each dimension
+    int *dimmax;           // max range value in each dimension
+    int _len;              // *hidden* allocated size of the dimdef array
 } arrayDimension_t;
 
 /* arrayDimension_t operator prototypes */
 
-arrayDimension_t *      newArrayDimension(void);
-int                     addArrayDimensionDef(arrayDimension_t *, unsigned int, int, int);
-unsigned int            getArrayDimension(arrayDimension_t *, int);
-int                     getArrayDimensionRangeMin(arrayDimension_t *, int);
-int                     getArrayDimensionRangeMax(arrayDimension_t *, int);
-void                    freeArrayDimension(arrayDimension_t *);
+arrayDimension_t *newArrayDimension(void);
+int addArrayDimensionDef(arrayDimension_t *, unsigned int, int, int);
+unsigned int getArrayDimension(arrayDimension_t *, int);
+int getArrayDimensionRangeMin(arrayDimension_t *, int);
+int getArrayDimensionRangeMax(arrayDimension_t *, int);
+void freeArrayDimension(arrayDimension_t *);
 
 #ifdef __cplusplus
 }

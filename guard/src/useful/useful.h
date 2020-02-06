@@ -18,23 +18,21 @@
  *
  *********************************************************************************/
 
-
-
 #ifndef _USEFUL_H
 #define _USEFUL_H
-#include	"alloc.h"
-#include	"args.h"
-#include    "array.h"
-#include 	"vector.h"
-#include	"debug.h"
-#include	"error.h"
-#include	"exec.h"
-#include	"hash.h"
-#include	"list.h"
-#include    "log.h"
-#include    "path.h"
-#include	"queue.h"
-#include	"str.h"
-#include	"hashfunctions.h"
-#include	"maths.h"
+#include "alloc.h"
+#include "args.h"
+#include "array.h"
+#include "debug.h"
+#include "error.h"
+#include "exec.h"
+#include "hash.h"
+#include "hashfunctions.h"
+#include "list.h"
+#include "log.h"
+#include "maths.h"
+#include "path.h"
+#include "queue.h"
+#include "str.h"
+#include "vector.h"
 #endif /* !_USEFUL_H */

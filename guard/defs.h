@@ -17,9 +17,9 @@
 #define _DEFS_H
 
 #ifdef MRNET
-#define DBG_PROTO   "mrnet"
+#define DBG_PROTO "mrnet"
 #else
-#define DBG_PROTO   "socket" /* "socket" or "mrnet" */
+#define DBG_PROTO "socket" /* "socket" or "mrnet" */
 #endif
 
 // I don't think this is used anymore - pretty sure it related to the old
@@ -34,37 +34,37 @@
 #define DBG_BACKEND "idb"
 #endif
 
-#define GUARD_ENV_SETUP             "GDB4HPC_IS_SETUP"
-#define PROXY_ENV_SETUP             "GDB4HPC_PROXY_IS_SETUP"
-#define  GUARD_CFG_DIRECTORY        "GDB4HPC_CFG_DIRECTORY"
-#define GUARD_INST_DIRECTORY        "GDB4HPC_INSTALL_DIR"
-#define LIBALPS_ENABLE_DSL          "LIBALPS_ENABLE_DSL"
-#define GUARD_LIBALPS_ENABLE_DSL    "GDB4HPC_LIBALPS_ENABLE_DSL"
-#define GUARD_MRNET_PORT            "GUARD_MRNET_PORT_BASE"
-#define DEFAULT_MRNET_PORT_BASE     "20000"
+#define GUARD_ENV_SETUP "GDB4HPC_IS_SETUP"
+#define PROXY_ENV_SETUP "GDB4HPC_PROXY_IS_SETUP"
+#define GUARD_CFG_DIRECTORY "GDB4HPC_CFG_DIRECTORY"
+#define GUARD_INST_DIRECTORY "GDB4HPC_INSTALL_DIR"
+#define LIBALPS_ENABLE_DSL "LIBALPS_ENABLE_DSL"
+#define GUARD_LIBALPS_ENABLE_DSL "GDB4HPC_LIBALPS_ENABLE_DSL"
+#define GUARD_MRNET_PORT "GUARD_MRNET_PORT_BASE"
+#define DEFAULT_MRNET_PORT_BASE "20000"
 
 #ifdef ZPL
-#define LANG_ZPL        7
-#define ZPL_TAG         "zcmap"
+#define LANG_ZPL 7
+#define ZPL_TAG "zcmap"
 #endif /* ZPL */
 
 #ifdef PERFLOG
 #define DPERFLOG(s) s
-#else /* PERFLOG */
+#else               /* PERFLOG */
 #define DPERFLOG(s) /**/
-#endif /* PERFLOG */
+#endif              /* PERFLOG */
 
 #ifdef BE_PERFLOG
 #define DBEPERFLOG(s) s
-#else /* BE_PERFLOG */
+#else                 /* BE_PERFLOG */
 #define DBEPERFLOG(s) /**/
-#endif /* BE_PERFLOG */
+#endif                /* BE_PERFLOG */
 
 #ifdef DEBUG
 #define DPRINT(...) fprintf(stderr, __VA_ARGS__)
-#else /* DEBUG */
+#else               /* DEBUG */
 #define DPRINT(...) /**/
-#endif /* DEBUG */
+#endif              /* DEBUG */
 
 /*
 ** Include for MIN & MAX
@@ -84,7 +84,7 @@
 #endif
 
 /* !WIN32 && !APPLE */
-#include        <values.h>
+#include <values.h>
 
 #ifdef CC_HAS_LONG_LONG
 typedef long long int LONGEST;
@@ -98,13 +98,13 @@ typedef long double DOUBLEST;
 typedef double DOUBLEST;
 #endif /* HAVE_LONG_DOUBLE */
 
-#define SOCKET      int
+#define SOCKET int
 #define CLOSE_SOCKET(s) (void)close(s)
-#define INVALID_SOCKET  -1
-#define SOCKET_ERROR    -1
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
 
 // can hold maximum length of IPv4 address, hostname
-#define MAXADDRLEN      15
+#define MAXADDRLEN 15
 #define MAXADDRLEN_FMT "15"
 
 #endif /* !_DEFS_H */

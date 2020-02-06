@@ -13,22 +13,19 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifndef _USEFUL_ERROR_H
 #define _USEFUL_ERROR_H
 
-#include	<stdarg.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern char *	Argv0;
-extern char *	GetError();
-extern void	SetError(const char *, ...);
-extern void	SetSysError(const char *, ...);
+extern char *Argv0;
+extern char *GetError();
+extern void SetError(const char *, ...);
+extern void SetSysError(const char *, ...);
 
 #ifdef __cplusplus
 }

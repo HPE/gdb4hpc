@@ -16,84 +16,74 @@
  *
  ******************************************************************************/
 
-// TODO: These routines are copy-pasta from dbg_client.c. The proxy daemon 
+// TODO: These routines are copy-pasta from dbg_client.c. The proxy daemon
 //       requires these functions to be linked in, and until I design a better
 //       interface it works for now. It's a bad idea though since both versions
 //       need to be maintained.
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <string.h>
-#include <errno.h>
+#include <unistd.h>
 
 #include "dbg_client.h"
-#include "useful.h"
-
 #include "proxy.h"
+#include "useful.h"
 
 /*
 ** Global variables
 */
-list_t *		DbgInvokeList = (list_t *)NULL;
+list_t *DbgInvokeList = (list_t *)NULL;
 
 /*
 ** Create a dbginvoke_t structure.
 */
-dbginvoke_t *
-NewDbgInvoke(int nproc, dbgclnt_proto *proto)
-{
-	dbginvoke_t *		di;
+dbginvoke_t *NewDbgInvoke(int nproc, dbgclnt_proto *proto) {
+    dbginvoke_t *di;
 
-	di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
-	memset(di, 0, sizeof(dbginvoke_t));
-	
-	// Set non-zero members here
-	di->d_nproc = nproc;
-	di->d_proto = proto;
-	// XXX: This interface doesn't make use of the d_eventset_list or d_pbset_list
-	// All of that gets forwarded to the client side.
-	
-	if ( DbgInvokeList == NULL )
-		DbgInvokeList = NewList();
+    di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
+    memset(di, 0, sizeof(dbginvoke_t));
 
-	/*
-	** Add to DbgInvokeList
-	*/
-	AddToList(DbgInvokeList, (void *)di);
+    // Set non-zero members here
+    di->d_nproc = nproc;
+    di->d_proto = proto;
+    // XXX: This interface doesn't make use of the d_eventset_list or
+    // d_pbset_list All of that gets forwarded to the client side.
 
-	return di;
+    if (DbgInvokeList == NULL) DbgInvokeList = NewList();
+
+    /*
+    ** Add to DbgInvokeList
+    */
+    AddToList(DbgInvokeList, (void *)di);
+
+    return di;
 }
 
 /*
 ** Free a dbginvoke_t structure.
 */
-void
-FreeDbgInvoke(dbginvoke_t *di)
-{
-	RemoveFromList(DbgInvokeList, (void *)di);
-	
-	// Call the protocol destructor if there is one
-	if ( DBG_PROTO_SW(di)->sw_destroyclnt != NULL )
-	{
-		DBG_PROTO_SW(di)->sw_destroyclnt(di);
-	}
+void FreeDbgInvoke(dbginvoke_t *di) {
+    RemoveFromList(DbgInvokeList, (void *)di);
 
-	if( di->d_bitset_full != NULL )
-		bitset_free(di->d_bitset_full);
+    // Call the protocol destructor if there is one
+    if (DBG_PROTO_SW(di)->sw_destroyclnt != NULL) {
+        DBG_PROTO_SW(di)->sw_destroyclnt(di);
+    }
 
-	if( di->d_bitset_launched != NULL )
-		bitset_free(di->d_bitset_launched);
-		
-	// remove any event fds from the proto
-	DestroyList(di->d_evfds, Free);
-	
-	// XXX: This interface doesn't make use of the d_eventset_list or d_pbset_list
-	// All of that gets forwarded to the client side.
+    if (di->d_bitset_full != NULL) bitset_free(di->d_bitset_full);
 
-	Free(di);
+    if (di->d_bitset_launched != NULL) bitset_free(di->d_bitset_launched);
+
+    // remove any event fds from the proto
+    DestroyList(di->d_evfds, Free);
+
+    // XXX: This interface doesn't make use of the d_eventset_list or
+    // d_pbset_list All of that gets forwarded to the client side.
+
+    Free(di);
 }
-

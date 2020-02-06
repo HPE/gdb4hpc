@@ -18,309 +18,249 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<stdarg.h>
-#include	<string.h>
-#include	<ctype.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
-#include	"alloc.h"
-#include	"args.h"
+#include "alloc.h"
+#include "args.h"
 
-#define INITIAL_MAXARGC	8
+#define INITIAL_MAXARGC 8
 
-char **
-Str2Argv(char *s)
-{
-	int	squote = 0;
-	int	dquote = 0;
-	int	bsquote = 0;
-	int	argc = 0;
-	int	maxargc = 0;
-	char *	arg;
-	char *	copybuf;
-	char **	argv = NULL;
-	char **	nargv;
+char **Str2Argv(char *s) {
+    int squote = 0;
+    int dquote = 0;
+    int bsquote = 0;
+    int argc = 0;
+    int maxargc = 0;
+    char *arg;
+    char *copybuf;
+    char **argv = NULL;
+    char **nargv;
 
-	if ( s == NULL )
-		return argv;
+    if (s == NULL) return argv;
 
-	copybuf = (char *)Alloc(strlen(s) + 1);
+    copybuf = (char *)Alloc(strlen(s) + 1);
 
-	do
-	{
-		while (isspace ((int)*s))
-			s++;
+    do {
+        while (isspace((int)*s)) s++;
 
-		if ( (maxargc == 0) || (argc >= (maxargc - 1)) )
-		{
-			if ( argv == NULL )
-			{
-				maxargc = INITIAL_MAXARGC;
-				nargv = (char **)Alloc(maxargc * sizeof (char *));
-			}
-			else
-			{
-				maxargc *= 2;
-				nargv = (char **)Resize(argv, maxargc * sizeof (char *));
-			}
+        if ((maxargc == 0) || (argc >= (maxargc - 1))) {
+            if (argv == NULL) {
+                maxargc = INITIAL_MAXARGC;
+                nargv = (char **)Alloc(maxargc * sizeof(char *));
+            } else {
+                maxargc *= 2;
+                nargv = (char **)Resize(argv, maxargc * sizeof(char *));
+            }
 
-			argv = nargv;
-			argv[argc] = NULL;
-		}
+            argv = nargv;
+            argv[argc] = NULL;
+        }
 
-		arg = copybuf;
+        arg = copybuf;
 
-		while ( *s != '\0' )
-		{
-			if ( isspace((int)*s) && !squote && !dquote && !bsquote )
-				break;
+        while (*s != '\0') {
+            if (isspace((int)*s) && !squote && !dquote && !bsquote) break;
 
-			if ( bsquote )
-			{
-				bsquote = 0;
-			}
-			else if ( *s == '\\' )
-			{
-				bsquote = 1;
-			}
-			else if ( squote )
-			{
-				if ( *s == '\'' )
-					squote = 0;
-			}
-			else if ( dquote )
-			{
-				if ( *s == '"' )
-					dquote = 0;
-			}
-			else
-			{
-				if ( *s == '\'' )
-					squote = 1;
-				else if ( *s == '"' )
-					dquote = 1;
-			}
+            if (bsquote) {
+                bsquote = 0;
+            } else if (*s == '\\') {
+                bsquote = 1;
+            } else if (squote) {
+                if (*s == '\'') squote = 0;
+            } else if (dquote) {
+                if (*s == '"') dquote = 0;
+            } else {
+                if (*s == '\'')
+                    squote = 1;
+                else if (*s == '"')
+                    dquote = 1;
+            }
 
-			*arg++ = *s;
+            *arg++ = *s;
 
-			s++;
-		}
+            s++;
+        }
 
-		*arg = '\0';
+        *arg = '\0';
 
-		if ( (argv[argc] = strdup(copybuf)) == NULL )
-		{
-			Free(copybuf);
-			FreeArgv(argv);
-			argv = NULL;
-			return argv;
-		}
+        if ((argv[argc] = strdup(copybuf)) == NULL) {
+            Free(copybuf);
+            FreeArgv(argv);
+            argv = NULL;
+            return argv;
+        }
 
-		argc++;
-		argv[argc] = NULL;
+        argc++;
+        argv[argc] = NULL;
 
-		while ( isspace ((int)*s) )
-			s++;
+        while (isspace((int)*s)) s++;
 
-	}
-	while ( *s != '\0' );
+    } while (*s != '\0');
 
-	Free(copybuf);
+    Free(copybuf);
 
-	return argv;
+    return argv;
 }
 
-void
-FreeArgv (char **args)
-{
-	char **	ap;
+void FreeArgv(char **args) {
+    char **ap;
 
-	if ( args == (char **)NULL )
-		return;
+    if (args == (char **)NULL) return;
 
-	for ( ap = args ; *ap != NULL ; ap++ )
-		Free(*ap);
+    for (ap = args; *ap != NULL; ap++) Free(*ap);
 
-	Free(args);
+    Free(args);
 }
 
-char **
-NewArgv(const char *a0, ...)
-{
-	int	n = 1;
-	char **	ap;
-	char **	app;
-	va_list args;
+char **NewArgv(const char *a0, ...) {
+    int n = 1;
+    char **ap;
+    char **app;
+    va_list args;
 
-	if ( a0 == NULL )
-	{
-		ap = (char **)Alloc(sizeof(char *));
-		*ap = NULL;
-		return ap;
-	}
+    if (a0 == NULL) {
+        ap = (char **)Alloc(sizeof(char *));
+        *ap = NULL;
+        return ap;
+    }
 
-	va_start(args, a0);
+    va_start(args, a0);
 
-	while ( va_arg(args, char *) != NULL )
-		n++;
+    while (va_arg(args, char *) != NULL) n++;
 
-	va_end(args);
+    va_end(args);
 
-	app = ap = (char **)Alloc((n + 1) * sizeof(char *));
-	*app++ = strdup(a0);
+    app = ap = (char **)Alloc((n + 1) * sizeof(char *));
+    *app++ = strdup(a0);
 
-	va_start(args, a0);
+    va_start(args, a0);
 
-	while ( --n > 0 )
-		*app++ = strdup(va_arg(args, char *));
+    while (--n > 0) *app++ = strdup(va_arg(args, char *));
 
-	va_end(args);
+    va_end(args);
 
-	*app = NULL;
+    *app = NULL;
 
-	return ap;
+    return ap;
 }
 
-char **
-CopyArgv(char **args)
-{
-	char **	ap;
-	int		len = 0;
-	int		i = 0;
-	char ** res;
-	
-	if (args == NULL || *args == NULL)
-	{
-		res = (char **)Alloc(sizeof(char *));
-		*res = NULL;
-		return res;
-	}
-		
-	for (ap=args; *ap != NULL; ++ap)
-	{
-		++len;
-	}
-	
-	res = (char **)Alloc((len + 1) * sizeof(char *));
-	
-	for (ap=args; *ap != NULL; ++ap)
-	{
-		res[i++] = strdup(*ap);
-	}
-	
-	// set final entry
-	res[i] = NULL;
+char **CopyArgv(char **args) {
+    char **ap;
+    int len = 0;
+    int i = 0;
+    char **res;
 
-	return res;
+    if (args == NULL || *args == NULL) {
+        res = (char **)Alloc(sizeof(char *));
+        *res = NULL;
+        return res;
+    }
+
+    for (ap = args; *ap != NULL; ++ap) {
+        ++len;
+    }
+
+    res = (char **)Alloc((len + 1) * sizeof(char *));
+
+    for (ap = args; *ap != NULL; ++ap) {
+        res[i++] = strdup(*ap);
+    }
+
+    // set final entry
+    res[i] = NULL;
+
+    return res;
 }
 
-char **
-AppendArgv(char **ap, char **ep)
-{
-	int	n = 0;
-	char **	na;
-	char **	nap;
-	char **	app;
+char **AppendArgv(char **ap, char **ep) {
+    int n = 0;
+    char **na;
+    char **nap;
+    char **app;
 
-	if ( ep == NULL || *ep == NULL )
-		return ap;
+    if (ep == NULL || *ep == NULL) return ap;
 
-	for ( app = ap ; *app != NULL ; app++ )
-		n++;
+    for (app = ap; *app != NULL; app++) n++;
 
-	for ( app = ep ; *app != NULL ; app++ )
-		n++;
+    for (app = ep; *app != NULL; app++) n++;
 
-	nap = na = (char **)Alloc((n + 1) * sizeof(char *));
+    nap = na = (char **)Alloc((n + 1) * sizeof(char *));
 
-	for ( app = ap ; *app != NULL ; app++, nap++ )
-		*nap = strdup(*app);
+    for (app = ap; *app != NULL; app++, nap++) *nap = strdup(*app);
 
-	for ( app = ep ; *app != NULL ; app++, nap++ )
-		*nap = strdup(*app);
+    for (app = ep; *app != NULL; app++, nap++) *nap = strdup(*app);
 
-	*nap = NULL;
+    *nap = NULL;
 
-	FreeArgv(ap);
+    FreeArgv(ap);
 
-	return na;
+    return na;
 }
 
-char **
-AppendArgs(char **ap, ...)
-{
-	int	n = 1;
-	char *	a;
-	char **	na;
-	char **	nap;
-	char **	app;
-	va_list args;
+char **AppendArgs(char **ap, ...) {
+    int n = 1;
+    char *a;
+    char **na;
+    char **nap;
+    char **app;
+    va_list args;
 
-	for ( app = ap ; *app != NULL ; app++ )
-		n++;
+    for (app = ap; *app != NULL; app++) n++;
 
-	va_start(args, ap);
+    va_start(args, ap);
 
-	while ( va_arg(args, char *) != NULL )
-		n++;
+    while (va_arg(args, char *) != NULL) n++;
 
-	va_end(args);
+    va_end(args);
 
-	nap = na = (char **)Alloc((n + 1) * sizeof(char *));
+    nap = na = (char **)Alloc((n + 1) * sizeof(char *));
 
-	for ( app = ap ; *app != NULL ; app++, nap++ )
-		*nap = strdup(*app);
+    for (app = ap; *app != NULL; app++, nap++) *nap = strdup(*app);
 
-	va_start(args, ap);
+    va_start(args, ap);
 
-	while ( (a = va_arg(args, char *)) != NULL )
-		*nap++ = strdup(a);
+    while ((a = va_arg(args, char *)) != NULL) *nap++ = strdup(a);
 
-	va_end(args);
+    va_end(args);
 
-	*nap = NULL;
+    *nap = NULL;
 
-	FreeArgv(ap);
+    FreeArgv(ap);
 
-	return na;
+    return na;
 }
 
 /*
 ** Convert arguments into a string.
 */
-char *
-ArgsToBuf(char *argv[], int argc)
-{
-	int	i;
-	char *	buf_1 = NULL;
-	char *	buf_2 = NULL;
-	
-	
-	if (argc < 1)
-	{
-		return NULL;
-	}
-	
-	// create a string containing arg 0
-	asprintf(&buf_1, "%s", argv[0]);
-	
-	for (i=1; i<argc; ++i)
-	{
-		// concat the previous arg with the next one
-		asprintf(&buf_2, "%s %s", buf_1, argv[i]);
-		// cleanup for this iteration
-		Free(buf_1);
-		buf_1 = buf_2;
-		buf_2 = NULL;
-	}
+char *ArgsToBuf(char *argv[], int argc) {
+    int i;
+    char *buf_1 = NULL;
+    char *buf_2 = NULL;
 
-	// return the concat'ed result	
-	return buf_1;
+    if (argc < 1) {
+        return NULL;
+    }
+
+    // create a string containing arg 0
+    asprintf(&buf_1, "%s", argv[0]);
+
+    for (i = 1; i < argc; ++i) {
+        // concat the previous arg with the next one
+        asprintf(&buf_2, "%s %s", buf_1, argv[i]);
+        // cleanup for this iteration
+        Free(buf_1);
+        buf_1 = buf_2;
+        buf_2 = NULL;
+    }
+
+    // return the concat'ed result
+    return buf_1;
 }
-

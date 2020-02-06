@@ -15,16 +15,15 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 #ifndef _RD_H
 #define _RD_H
 
 /*
  * disp prototypes
  */
-extern int	CompareData(graph_t *, int, char *, AIF *, char *, AIF *, int);
-extern int	DisplayData(char *, char *, char *, AIF *);
-extern int	DisplayP2P(graph_t *, int, char *, AIF *);
+extern int CompareData(graph_t *, int, char *, AIF *, char *, AIF *, int);
+extern int DisplayData(char *, char *, char *, AIF *);
+extern int DisplayP2P(graph_t *, int, char *, AIF *);
 
 #endif /* _RD_H */
-

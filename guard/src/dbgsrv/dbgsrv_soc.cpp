@@ -18,877 +18,760 @@
  *
  *********************************************************************************/
 
-
-
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<sys/types.h>
-#include	<sys/time.h>
-#include	<sys/socket.h>
-#include	<stdlib.h>
-#include	<string.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
-#include	<netdb.h>
+#include "aif.h"
+#include "alloc.h"
+#include "dbg_soc.h"
+#include "dbgevent.h"
+#include "dbgfn.h"
+#include "dbgsrv_proto.h"
+#include "defs.h"
 
-#include	"alloc.h"
-#include	"defs.h"
-#include	"aif.h"
-#include	"dbgevent.h"
-#include	"dbgsrv_proto.h"
-#include	"dbgfn.h"
-#include	"dbg_soc.h"
+static SOCPRT *SocPtr;
+static SOCPRT *DataSocPtr = NULL;
+extern int Shutdown;
+extern void dbgsrv_soc();
+extern char *dbg_setlinebreak_soc(char *);
+extern char *dbg_setfuncbreak_soc(char *);
+extern char *dbg_deletebreak_soc(char *);
+extern char *dbg_lastbreak_soc();
+extern char *dbg_list_soc(char *);
+extern char *dbg_go_soc(char *);
+extern char *dbg_setargs_soc(char *);
+extern char *dbg_step_soc(char *);
+extern char *dbg_kill_soc();
+extern char *dbg_moveframe_soc(char *);
+extern char *dbg_showframe_soc();
+extern char *dbg_setdebuggervar_soc(char *);
+extern char *dbg_setsourcepath_soc(char *);
+extern char *dbg_getsourcepath_soc();
+extern char *dbg_getdebuggervar_soc(char *);
+extern char *dbg_setvar_soc(char *);
+extern char *dbg_evalexpr_soc(char *);
+extern char *dbg_gettype_soc(char *);
+extern char *dbg_getlocation_soc();
+extern char *dbg_getvars_soc(char *);
+extern char *dbg_status_soc();
+extern char *dbg_getevent_soc();
+extern char *dbg_quit_soc();
+extern char *dbg_interrupt_soc(char *);
 
-static SOCPRT *	SocPtr;
-static SOCPRT *	DataSocPtr = NULL;
-extern int      Shutdown;
-extern void     dbgsrv_soc();
-extern char *	dbg_setlinebreak_soc(char *);
-extern char *	dbg_setfuncbreak_soc(char *);
-extern char *	dbg_deletebreak_soc(char *);
-extern char *	dbg_lastbreak_soc();
-extern char *	dbg_list_soc(char *);
-extern char *	dbg_go_soc(char *);
-extern char *	dbg_setargs_soc(char *);
-extern char *	dbg_step_soc(char *);
-extern char *	dbg_kill_soc();
-extern char *	dbg_moveframe_soc(char *);
-extern char *	dbg_showframe_soc();
-extern char *   dbg_setdebuggervar_soc(char *);
-extern char *   dbg_setsourcepath_soc(char *);
-extern char *	dbg_getsourcepath_soc();
-extern char *   dbg_getdebuggervar_soc(char *);
-extern char *   dbg_setvar_soc(char *);
-extern char *   dbg_evalexpr_soc(char *);
-extern char *   dbg_gettype_soc(char *);
-extern char *   dbg_getlocation_soc();
-extern char *   dbg_getvars_soc(char *);
-extern char *	dbg_status_soc();
-extern char *	dbg_getevent_soc();
-extern char *	dbg_quit_soc();
-extern char *	dbg_interrupt_soc(char *);
+int DbgSRVSocInitProto(int, int, char **, char *, char *, int);
+void DbgSRVSocEndProto(void);
+fd_set *DbgSRVSocGetFDSet(void);
+void DbgSRVSocRunProto(fd_set *);
+extern int InvokeSocCallBack(char *, int, char *, int, int, int, dbgevent_t *);
+extern int EventSocCallBack(char *, int, dbgevent_t *);
+int DbgSRVSocTransferIO(int fd, char *buffer, int size);
 
-int		DbgSRVSocInitProto(int, int, char **, char*, char*, int);
-void		DbgSRVSocEndProto(void);
-fd_set *	DbgSRVSocGetFDSet(void);
-void		DbgSRVSocRunProto(fd_set *);
-extern int	InvokeSocCallBack(char *, int, char *, int, int, int, dbgevent_t *);
-extern int	EventSocCallBack(char *, int, dbgevent_t *);
-int			DbgSRVSocTransferIO(int fd, char* buffer, int size);
-
-dbgsrv_proto	DbgSrvSocProtoSW =
-{
-	DbgSRVSocInitProto,
-	DbgSRVSocEndProto,
-	DbgSRVSocGetFDSet,
-	DbgSRVSocRunProto,
-	InvokeSocCallBack,
-	EventSocCallBack,
-	DbgSRVSocTransferIO,
+dbgsrv_proto DbgSrvSocProtoSW = {
+    DbgSRVSocInitProto,  DbgSRVSocEndProto, DbgSRVSocGetFDSet,
+    DbgSRVSocRunProto,   InvokeSocCallBack, EventSocCallBack,
+    DbgSRVSocTransferIO,
 };
 
-int
-DbgSRVSocInitProto(int procnum, int argc, char **argv, char* key, char* host, int port)
-{
-/*        int             pnum; */
+int DbgSRVSocInitProto(int procnum, int argc, char **argv, char *key,
+                       char *host, int port) {
+    /*        int             pnum; */
 
-        if ( CreateSoc(&SocPtr, dbgsrv_soc) < 0 )
-                return -1;
+    if (CreateSoc(&SocPtr, dbgsrv_soc) < 0) return -1;
 
-        return SocPtr->soc_port;
+    return SocPtr->soc_port;
 }
 
-void
-DbgSRVSocEndProto(void)
-{
-        soc_unregister(SocPtr);
-        soc_destroy(SocPtr);
-	/* !!! manjka: is soc_destroy missing ??? */
+void DbgSRVSocEndProto(void) {
+    soc_unregister(SocPtr);
+    soc_destroy(SocPtr);
+    /* !!! manjka: is soc_destroy missing ??? */
 }
 
-fd_set *
-DbgSRVSocGetFDSet(void)
-{
-	static fd_set	fds;
+fd_set *DbgSRVSocGetFDSet(void) {
+    static fd_set fds;
 
-	fds = soc_fdset;
+    fds = soc_fdset;
 
-	return &fds;
+    return &fds;
 }
 
-int
-DbgSRVSocTransferIO(int fd, char* buffer, int size)
-{
-	int n;
+int DbgSRVSocTransferIO(int fd, char *buffer, int size) {
+    int n;
 
-	if ( fd < 0 )
-		return -1;
+    if (fd < 0) return -1;
 
-	if ( (n = write(fd, bufffer, size)) < 0 )
-	{
-		perror("DoProgIO: write");
-		return -1;
-	}
+    if ((n = write(fd, bufffer, size)) < 0) {
+        perror("DoProgIO: write");
+        return -1;
+    }
 
-	return 0;
+    return 0;
 }
 
 /*
 void
 DbgSRVSocRunProto(fd_set *fds)
 {
-	soc_getreqset(fds);
+        soc_getreqset(fds);
 }
 
 void
 dbgsrv_soc(int fd, SOCPRT *tp)
 {
-	int n;
+        int n;
         struct sockaddr sockaddr;
         socklen_t fromlen;
         int ns;
         SOCPRT *np;
-	char *result;
-	char *response;
+        char *result;
+        char *response;
         char command[1024];
-	char * tail;
+        char * tail;
 /*	dbgevent_t * e; */
 
-	if ( fd == SocPtr->soc_fd ) {
+if (fd == SocPtr->soc_fd) {
+    fromlen = sizeof(sockaddr);
+    ns = accept(fd, &sockaddr, &fromlen);
+    if (ns < 0) {
+        fprintf(stderr, "dbgsrv accept failed\n");
+        exit(1);
+    }
 
-                fromlen = sizeof(sockaddr);
-                ns = accept(fd, &sockaddr, &fromlen);
-                if (ns < 0) {
-                        fprintf(stderr,"dbgsrv accept failed\n");
-                        exit(1);
-                }
+    np = (SOCPRT *)Alloc(sizeof(SOCPRT));
+    np->soc_fd = ns;
+    np->soc_port = -1;
+    np->soc_ofd = fd;
 
-                np = (SOCPRT *) Alloc(sizeof(SOCPRT));
-                np->soc_fd = ns;
-                np->soc_port = -1;
-                np->soc_ofd = fd;
+    if (soc_register(ns, np, dbgsrv_soc) < 0) {
+        fprintf(stderr, "dbgsrv soc_register error\n");
+        exit(1);
+    }
 
-                if ( soc_register(ns, np, dbgsrv_soc ) < 0 )
-                {
-                        fprintf(stderr, "dbgsrv soc_register error\n");
-                        exit(1);
-                }
+    if (DataSocPtr != NULL) {
+        fprintf(stderr, "dbgsrv dbgsrv_soc: two connections\n");
+    }
 
-		if ( DataSocPtr != NULL ) {
-                        fprintf(stderr, "dbgsrv dbgsrv_soc: two connections\n");
-			
-		}
+    DataSocPtr = np;
 
-		DataSocPtr = np;
-		
-		return;
-	}
+    return;
+}
 
-        n = soc_read(fd,&result);
-        if (n <= 0) {
-		soc_unregister(tp);
-		soc_destroy(tp);
-                return;
-        }
+n = soc_read(fd, &result);
+if (n <= 0) {
+    soc_unregister(tp);
+    soc_destroy(tp);
+    return;
+}
 
-	tail = getword(result,command);
+tail = getword(result, command);
 
-	response = NULL;
+response = NULL;
 
-	if (strcmp(command,"SETLINEBREAK") == 0)
-	{
-		response = dbg_setlinebreak_soc(tail);
-	}
-	else if (strcmp(command,"SETFUNCBREAK") == 0) 
-	{
-		response = dbg_setfuncbreak_soc(tail);
-	}
-	else if (strcmp(command,"DELETEBREAK") == 0) 
-	{
-		response = dbg_deletebreak_soc(tail);
-	}
-	else if (strcmp(command,"LASTBREAK") == 0) 
-	{
-		response = dbg_lastbreak_soc();
-	}
-	else if (strcmp(command,"LIST") == 0) 
-	{
-		response = dbg_list_soc(tail);
-	}
-	else if (strcmp(command,"GO") == 0) 
-	{
-		response = dbg_go_soc(tail);
-	}
-	else if (strcmp(command,"SETARGS") == 0) 
-	{
-		response = dbg_setargs_soc(tail);
-	}
-	else if (strcmp(command,"STEP") == 0) 
-	{
-		response = dbg_step_soc(tail);
-	}
-	else if (strcmp(command,"KILL") == 0) 
-	{
-		response = dbg_kill_soc();
-	}
-	else if (strcmp(command,"MOVEFRAME") == 0) 
-	{
-		response = dbg_moveframe_soc(tail);
-	}
-	else if (strcmp(command,"SHOWFRAME") == 0) 
-	{
-		response = dbg_showframe_soc();
-	}
-	else if (strcmp(command,"SETDEBUGGERVAR") == 0) 
-	{
-		response = dbg_setdebuggervar_soc(tail);
-	}
-	else if (strcmp(command,"SETSOURCEPATH") == 0)
-	{
-	        response = dbg_setsourcepath_soc(tail);
-	}
-	else if (strcmp(command,"GETSOURCEPATH") == 0)
-	{
-		response = dbg_getsourcepath_soc();
-	}
-	else if (strcmp(command,"GETDEBUGGERVAR") == 0) 
-	{
-		response = dbg_getdebuggervar_soc(tail);
-	}
-	else if (strcmp(command,"SETVAR") == 0) 
-	{
-		response = dbg_setvar_soc(tail);
-	}
-	else if (strcmp(command,"EVALEXPR") == 0) 
-	{
-		response = dbg_evalexpr_soc(tail);
-	}
-	else if (strcmp(command,"GETTYPE") == 0) 
-	{
-		response = dbg_gettype_soc(tail);
-	}
-	else if (strcmp(command,"GETLOCATION") == 0) 
-	{
-		response = dbg_getlocation_soc();
-	}
-	else if (strcmp(command,"GETVARS") == 0) 
-	{
-		response = dbg_getvars_soc(tail);
-	}
-	else if (strcmp(command,"STATUS") == 0) 
-	{
-		response = dbg_status_soc();
-	}
+if (strcmp(command, "SETLINEBREAK") == 0) {
+    response = dbg_setlinebreak_soc(tail);
+} else if (strcmp(command, "SETFUNCBREAK") == 0) {
+    response = dbg_setfuncbreak_soc(tail);
+} else if (strcmp(command, "DELETEBREAK") == 0) {
+    response = dbg_deletebreak_soc(tail);
+} else if (strcmp(command, "LASTBREAK") == 0) {
+    response = dbg_lastbreak_soc();
+} else if (strcmp(command, "LIST") == 0) {
+    response = dbg_list_soc(tail);
+} else if (strcmp(command, "GO") == 0) {
+    response = dbg_go_soc(tail);
+} else if (strcmp(command, "SETARGS") == 0) {
+    response = dbg_setargs_soc(tail);
+} else if (strcmp(command, "STEP") == 0) {
+    response = dbg_step_soc(tail);
+} else if (strcmp(command, "KILL") == 0) {
+    response = dbg_kill_soc();
+} else if (strcmp(command, "MOVEFRAME") == 0) {
+    response = dbg_moveframe_soc(tail);
+} else if (strcmp(command, "SHOWFRAME") == 0) {
+    response = dbg_showframe_soc();
+} else if (strcmp(command, "SETDEBUGGERVAR") == 0) {
+    response = dbg_setdebuggervar_soc(tail);
+} else if (strcmp(command, "SETSOURCEPATH") == 0) {
+    response = dbg_setsourcepath_soc(tail);
+} else if (strcmp(command, "GETSOURCEPATH") == 0) {
+    response = dbg_getsourcepath_soc();
+} else if (strcmp(command, "GETDEBUGGERVAR") == 0) {
+    response = dbg_getdebuggervar_soc(tail);
+} else if (strcmp(command, "SETVAR") == 0) {
+    response = dbg_setvar_soc(tail);
+} else if (strcmp(command, "EVALEXPR") == 0) {
+    response = dbg_evalexpr_soc(tail);
+} else if (strcmp(command, "GETTYPE") == 0) {
+    response = dbg_gettype_soc(tail);
+} else if (strcmp(command, "GETLOCATION") == 0) {
+    response = dbg_getlocation_soc();
+} else if (strcmp(command, "GETVARS") == 0) {
+    response = dbg_getvars_soc(tail);
+} else if (strcmp(command, "STATUS") == 0) {
+    response = dbg_status_soc();
+}
 #ifdef notdef
-	else if (strcmp(command,"GETEVENT") == 0) 
-	{
-		response = dbg_getevent_soc();
-	}
+else if (strcmp(command, "GETEVENT") == 0) {
+    response = dbg_getevent_soc();
+}
 #endif
-	else if (strcmp(command,"QUIT") == 0) 
-	{
-		response = dbg_quit_soc();
-	}
-	else if (strcmp(command,"INTERRUPT") == 0) 
-	{
-		response = dbg_interrupt_soc(tail);
-	}
-	else
-	{
-		fprintf(stderr,"dbgsrv: unknown command .%s.\n",command);
-	}
-
-	Free(result);
-
-	if ( response != NULL ) 
-	{
-		if ( soc_sendreply(DataSocPtr,response) < 0 ) {
-                        fprintf(stderr, "dbgsrv dbgsrv_soc soc_sendreply failed\n");
-		}
-		Free(response);
-	}
+else if (strcmp(command, "QUIT") == 0) {
+    response = dbg_quit_soc();
+} else if (strcmp(command, "INTERRUPT") == 0) {
+    response = dbg_interrupt_soc(tail);
+} else {
+    fprintf(stderr, "dbgsrv: unknown command .%s.\n", command);
 }
 
-char *
-dbg_setlinebreak_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		par[1024];
-	char *		file;
-	int		line;
-	char *		st_event;
-	char *		response;
+Free(result);
 
-	s = getword(s,par);
-	file = StrSocEventDup(par);
-
-	s = getword(s,par);
-	line = atoi(par);
-
-	e = DbgSetLineBreak(file,line);
-
-	Free(file);
-
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-	
-	return response;
+if (response != NULL) {
+    if (soc_sendreply(DataSocPtr, response) < 0) {
+        fprintf(stderr, "dbgsrv dbgsrv_soc soc_sendreply failed\n");
+    }
+    Free(response);
+}
 }
 
-char *
-dbg_setfuncbreak_soc(char *s)
-{
-	int		len;
-        dbgevent_t *    e;
-        /* char *          tail; */
-	char		par[1024];
-        char *          file;
-        char *          func;
-        char *          st_event;
-        char *          response;
+char *dbg_setlinebreak_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    char *file;
+    int line;
+    char *st_event;
+    char *response;
 
-        s = getword(s,par);
-        file = StrSocEventDup(par);
+    s = getword(s, par);
+    file = StrSocEventDup(par);
 
-        s = getword(s,par);
-        func = StrSocEventDup(par);
+    s = getword(s, par);
+    line = atoi(par);
 
-        e = DbgSetFuncBreak(file,func);
+    e = DbgSetLineBreak(file, line);
 
-	Free(file);
-	Free(func);
+    Free(file);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-        return response;
+    return response;
 }
 
-char *
-dbg_deletebreak_soc(char *s)
-{
-	int		len;
-        dbgevent_t *    e;
-        char            par[1024];
-	int		bp;
-        char *          st_event;
-        char *          response;
+char *dbg_setfuncbreak_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    /* char *          tail; */
+    char par[1024];
+    char *file;
+    char *func;
+    char *st_event;
+    char *response;
 
-        s = getword(s,par);
-	bp = atoi(par);
+    s = getword(s, par);
+    file = StrSocEventDup(par);
 
-        e = DbgDeleteBreak(bp);
+    s = getword(s, par);
+    func = StrSocEventDup(par);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    e = DbgSetFuncBreak(file, func);
 
-        return response;
+    Free(file);
+    Free(func);
+
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_lastbreak_soc()
-{
-	int		len;
-        dbgevent_t *    e;
-        char *          st_event;
-        char *          response;
+char *dbg_deletebreak_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    int bp;
+    char *st_event;
+    char *response;
 
-        e = DbgLastBreak();
+    s = getword(s, par);
+    bp = atoi(par);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    e = DbgDeleteBreak(bp);
 
-        return response;
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_list_soc(char *s)
-{
-	int		len;
-        dbgevent_t *    e;
-	char		par[1024];
-	char *		list;
-        char *          st_event;
-        char *          response;
+char *dbg_lastbreak_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-        s = getword(s,par);
-	list = StrSocEventDup(par);
+    e = DbgLastBreak();
 
-        e = DbgList(list);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
-
-        return response;
+    return response;
 }
 
-char *
-dbg_go_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		par[1024];
-	char *		host;
-	int		cb;
-	char *		st_event;
-	char *		response;
+char *dbg_list_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    char *list;
+    char *st_event;
+    char *response;
 
-	s = getword(s,par);
-        host = StrSocEventDup(par);
+    s = getword(s, par);
+    list = StrSocEventDup(par);
 
-	s = getword(s,par);
-	cb = atoi(par);
+    e = DbgList(list);
 
-	e = DbgGo(host,cb);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	Free(host);
-
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-	
-	return response;
+    return response;
 }
 
-char *
-dbg_setargs_soc(char *s)
-{
-	int		len;
-        dbgevent_t *    e;
-        char *          args;
-        char *          st_event;
-        char *          response;
+char *dbg_go_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    char *host;
+    int cb;
+    char *st_event;
+    char *response;
 
-        //s = getword(s,par);
-	//args = StrSocEventDup(par);
-	args = StrSocEventDup(s);
+    s = getword(s, par);
+    host = StrSocEventDup(par);
 
-        e = DbgSetArgs(args);
+    s = getword(s, par);
+    cb = atoi(par);
 
-	Free(args);
+    e = DbgGo(host, cb);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    Free(host);
 
-        return response;
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_step_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		par[1024];
-	int		count;
-	int		in;
-	char *		host;
-	int		cb;
-	char *		st_event;
-	char *		response;
+char *dbg_setargs_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char *args;
+    char *st_event;
+    char *response;
 
-	s = getword(s,par);
-	count = atoi(par);
+    // s = getword(s,par);
+    // args = StrSocEventDup(par);
+    args = StrSocEventDup(s);
 
-	s = getword(s,par);
-	in = atoi(par);
+    e = DbgSetArgs(args);
 
-	s = getword(s,par);
-	host = StrSocEventDup(par);
+    Free(args);
 
-	s = getword(s,par);
-	cb = atoi(par);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	e = DbgStep(count,in,host,cb);
-
-	Free(host);
-
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-	
-	return response;
+    return response;
 }
 
-char *
-dbg_kill_soc()
-{
-	int		len;
-        dbgevent_t *    e;
-        char *          st_event;
-        char *          response;
+char *dbg_step_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    int count;
+    int in;
+    char *host;
+    int cb;
+    char *st_event;
+    char *response;
 
-        e = DbgKill();
+    s = getword(s, par);
+    count = atoi(par);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    s = getword(s, par);
+    in = atoi(par);
 
-        return response;
+    s = getword(s, par);
+    host = StrSocEventDup(par);
+
+    s = getword(s, par);
+    cb = atoi(par);
+
+    e = DbgStep(count, in, host, cb);
+
+    Free(host);
+
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_moveframe_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		par[1024];
-	int		count;
-	int		up;
-	char *		st_event;
-	char *		response;
+char *dbg_kill_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-	s = getword(s,par);
-	count = atoi(par);
+    e = DbgKill();
 
-	s = getword(s,par);
-	up = atoi(par);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	e = DbgMoveFrame(count,up);
-
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-	
-	return response;
+    return response;
 }
 
-char *
-dbg_showframe_soc()
-{
-	int		len;
-	dbgevent_t *	e;
-	char *		st_frame;
-	char *		response;
+char *dbg_moveframe_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    int count;
+    int up;
+    char *st_event;
+    char *response;
 
-	e = DbgShowFrame();
-	
-	st_frame = EventToSocProto(e);
-	len = strlen(st_frame) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n", st_frame);
-	Free(st_frame);
+    s = getword(s, par);
+    count = atoi(par);
 
-	return response;
+    s = getword(s, par);
+    up = atoi(par);
+
+    e = DbgMoveFrame(count, up);
+
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_setdebuggervar_soc(char *s)
-{
-	int		len;
-	dbgevent_t *    e;
-	char		var[1024];
-	AIF *           aif;
-	char *          st_event;
-	char *          response;
+char *dbg_showframe_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_frame;
+    char *response;
 
-	s = getword(s,var);
-	s = skipspace(s);
-	aif = SocProtoToAIF(s);
+    e = DbgShowFrame();
 
-	e = DbgSetDebuggerVar(&var[0],aif);
-	Free(aif);
+    st_frame = EventToSocProto(e);
+    len = strlen(st_frame) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_frame);
+    Free(st_frame);
 
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-
-	return response;
+    return response;
 }
 
-char *
-dbg_setsourcepath_soc(char *s)
-{
-	int		len;
-	dbgevent_t *    e;
-	AIF *           aif;
-	char *          st_event;
-	char *          response;
+char *dbg_setdebuggervar_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char var[1024];
+    AIF *aif;
+    char *st_event;
+    char *response;
 
-	aif = SocProtoToAIF(s);
+    s = getword(s, var);
+    s = skipspace(s);
+    aif = SocProtoToAIF(s);
 
-	e = DbgSetSourcePath(aif);
-	Free(aif);
-	
-	e = DbgGetSourcePath();
+    e = DbgSetDebuggerVar(&var[0], aif);
+    Free(aif);
 
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	return response;
+    return response;
 }
 
-char *
-dbg_getsourcepath_soc()
-{
-        int len;
-  	dbgevent_t *    e;
-	char *          st_event;
-	char *          response;
+char *dbg_setsourcepath_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    AIF *aif;
+    char *st_event;
+    char *response;
 
-	e = DbgGetSourcePath();
+    aif = SocProtoToAIF(s);
 
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
+    e = DbgSetSourcePath(aif);
+    Free(aif);
 
-	return response;
+    e = DbgGetSourcePath();
+
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_getdebuggervar_soc(char *s)
-{
-	int		len;
-	dbgevent_t *    e;
-	char *          st_event;
-	char *          response;
+char *dbg_getsourcepath_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-	s = skipspace(s);
+    e = DbgGetSourcePath();
 
-	e = DbgGetDebuggerVar(s);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-
-	return response;
+    return response;
 }
 
-char *
-dbg_setvar_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		var[1024];
-	AIF *		aif;
-	char *		st_event;
-	char *		response;
+char *dbg_getdebuggervar_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-	s = getword(s,var);
-        s = skipspace(s);
-	aif = SocProtoToAIF(s);
+    s = skipspace(s);
 
-	e = DbgSetVar(var,aif);
-	Free(aif);
+    e = DbgGetDebuggerVar(s);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	return response;
+    return response;
 }
 
-char *
-dbg_evalexpr_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char *		st_event;
-	char *		response;
+char *dbg_setvar_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char var[1024];
+    AIF *aif;
+    char *st_event;
+    char *response;
 
-        s = skipspace(s);
+    s = getword(s, var);
+    s = skipspace(s);
+    aif = SocProtoToAIF(s);
 
-	e = DbgEvalExpr(s);
+    e = DbgSetVar(var, aif);
+    Free(aif);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	return response;
+    return response;
 }
 
-char *
-dbg_gettype_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char *		st_event;
-	char *		response;
+char *dbg_evalexpr_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-        s = skipspace(s);
+    s = skipspace(s);
 
-	e = DbgGetType(s);
+    e = DbgEvalExpr(s);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	return response;
+    return response;
 }
 
-char *
-dbg_getlocation_soc()
-{
-	int		len;
-	dbgevent_t *	e;
-	char *		st_event;
-	char *		response;
+char *dbg_gettype_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-	e = DbgGetLocation();
+    s = skipspace(s);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    e = DbgGetType(s);
 
-	return response;
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }
 
-char *
-dbg_getvars_soc(char *s)
-{
-	int		len;
-        dbgevent_t *    e;
-	char		par[1024];
-        char *          file;
-        char *          st_event;
-        char *          response;
+char *dbg_getlocation_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-        s = getword(s,par);
-	file = StrSocEventDup(par);
+    e = DbgGetLocation();
 
-        e = DbgGetVars(file);
-        
-        Free(file);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
-
-        return response;
+    return response;
 }
 
-char *
-dbg_status_soc()
-{
-	int		len;
-	dbgevent_t *    e;
-	char *		st_status;
-	char *		response;
-	
-	e = DbgStatus();
-	st_status = EventToSocProto(e);
-	len = strlen(st_status) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_status);
-	Free(st_status);
+char *dbg_getvars_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    char *file;
+    char *st_event;
+    char *response;
 
-	return response;
+    s = getword(s, par);
+    file = StrSocEventDup(par);
+
+    e = DbgGetVars(file);
+
+    Free(file);
+
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
+}
+
+char *dbg_status_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_status;
+    char *response;
+
+    e = DbgStatus();
+    st_status = EventToSocProto(e);
+    len = strlen(st_status) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_status);
+    Free(st_status);
+
+    return response;
 }
 
 #ifdef notdef
-char *
-dbg_getevent_soc()
-{
-	int		len;
-	dbgevent_t *	e;
-	char *		st_event;
-	char *		response;
+char *dbg_getevent_soc() {
+    int len;
+    dbgevent_t *e;
+    char *st_event;
+    char *response;
 
-	e = DbgGetEvent();
+    e = DbgGetEvent();
 
-        st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-        snprintf(response, len-1, "%s\n",st_event);
-        Free(st_event);
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
 
-	return response;
+    return response;
 }
 #endif
 
-char *
-dbg_quit_soc()
-{
-	int		len;
-	char *		st_event;
-	char *		response;
-	
-	st_event = EventToSocProto(DbgQuit());
+char *dbg_quit_soc() {
+    int len;
+    char *st_event;
+    char *response;
 
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
+    st_event = EventToSocProto(DbgQuit());
 
-	Free(st_event);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
 
-	Shutdown++;
+    Free(st_event);
 
-	return response;
+    Shutdown++;
+
+    return response;
 }
 
-char *
-dbg_interrupt_soc(char *s)
-{
-	int		len;
-	dbgevent_t *	e;
-	char		par[1024];
-	char *		host;
-	int		cb;
-	char *		st_event;
-	char *		response;
+char *dbg_interrupt_soc(char *s) {
+    int len;
+    dbgevent_t *e;
+    char par[1024];
+    char *host;
+    int cb;
+    char *st_event;
+    char *response;
 
-	s = getword(s,par);
+    s = getword(s, par);
 
-	host = StrSocEventDup(par);
+    host = StrSocEventDup(par);
 
-	s = getword(s,par);
-	cb = atoi(par);
+    s = getword(s, par);
+    cb = atoi(par);
 
-	e = DbgInterrupt(host,cb);
+    e = DbgInterrupt(host, cb);
 
-	Free(host);
+    Free(host);
 
-	st_event = EventToSocProto(e);
-	len = strlen(st_event) + 16;
-	response = (char *) Alloc(len);
-	snprintf(response, len-1, "%s\n",st_event);
-	Free(st_event);
-	
-	return response;
+    st_event = EventToSocProto(e);
+    len = strlen(st_event) + 16;
+    response = (char *)Alloc(len);
+    snprintf(response, len - 1, "%s\n", st_event);
+    Free(st_event);
+
+    return response;
 }

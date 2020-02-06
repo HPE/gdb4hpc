@@ -10,170 +10,156 @@
  * in any form.
  *
  ******************************************************************************/
- 
+
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<stdarg.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<unistd.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include	"client.h"
-#include	"useful.h"
+#include "client.h"
+#include "useful.h"
 
-static cmdlist_t *	DirectModeCmds;
-static cmdlist_t *	OldCmds;
+static cmdlist_t *DirectModeCmds;
+static cmdlist_t *OldCmds;
 
-static int 
-class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	rep_set_t *		rep_set;
-	group_reply_t *	reply;
-	char *			cmd;
-	
-	rep_set = DbgDirectCmd(rec_set, argc, argv);
-	
-	//process error
-	ProcessErrorInRepSet(rep_set);
-	
-	//process console messages
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-	{
-		// Point at the cmd data
-		cmd = EVENT_CMD(reply->rep_event);
-		
-		// make sure the cmd is not empty
-		if (strlen(cmd) == 0)
-			continue;
-		
-		PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
-	}
+static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
+                                         char **argv) {
+    rep_set_t *rep_set;
+    group_reply_t *reply;
+    char *cmd;
 
-	FreeRepSet(rep_set);
-	
-	return 1;
+    rep_set = DbgDirectCmd(rec_set, argc, argv);
+
+    // process error
+    ProcessErrorInRepSet(rep_set);
+
+    // process console messages
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+        // Point at the cmd data
+        cmd = EVENT_CMD(reply->rep_event);
+
+        // make sure the cmd is not empty
+        if (strlen(cmd) == 0) continue;
+
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                            "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
+    }
+
+    FreeRepSet(rep_set);
+
+    return 1;
 }
 
-static int 
-cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	rep_set_t *		rep_set;
-	group_reply_t *	reply;
-	char *			cmd;
-	const char *	tmp_cmd[2] = {"show", "version"};
+static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    rep_set_t *rep_set;
+    group_reply_t *reply;
+    char *cmd;
+    const char *tmp_cmd[2] = {"show", "version"};
 
-	if ( rec_set == NULL )
-	{
-		PrintOutError("No processes in focus.\n");
-		return 0;
-	}
+    if (rec_set == NULL) {
+        PrintOutError("No processes in focus.\n");
+        return 0;
+    }
 
-	OldCmds = SetCommands(DirectModeCmds);
+    OldCmds = SetCommands(DirectModeCmds);
 
-	cli_inc_prompt();
-	
-	PrintOutMsg("Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
-	
-	// This won't work with a "generic" debug backend, but works with gdb.
-	rep_set = DbgDirectCmd(rec_set, 2, const_cast<char**>(tmp_cmd));
-	
-	//process error
-	ProcessErrorInRepSet(rep_set);
-	
-	//process console messages
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-	{
-		// Point at the cmd data
-		cmd = EVENT_CMD(reply->rep_event);
-		
-		// make sure the cmd is not empty
-		if (strlen(cmd) == 0)
-			continue;
-		
-		if (GetNumberOfReply(rep_set) == 1)
-		{
-			PrintOutMsg("%s\n", cmd);
-		} else
-		{
-			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n", cmd);
-		}
-	}
+    cli_inc_prompt();
 
-	FreeRepSet(rep_set);
-	
-	return 1;
+    PrintOutMsg(
+        "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
+
+    // This won't work with a "generic" debug backend, but works with gdb.
+    rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
+
+    // process error
+    ProcessErrorInRepSet(rep_set);
+
+    // process console messages
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+        // Point at the cmd data
+        cmd = EVENT_CMD(reply->rep_event);
+
+        // make sure the cmd is not empty
+        if (strlen(cmd) == 0) continue;
+
+        if (GetNumberOfReply(rep_set) == 1) {
+            PrintOutMsg("%s\n", cmd);
+        } else {
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                "%s\n", cmd);
+        }
+    }
+
+    FreeRepSet(rep_set);
+
+    return 1;
 }
 
-static int 
-cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	PrintOutMsg("\nEnding gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.\n");
+static int cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc,
+                                      char **argv) {
+    PrintOutMsg(
+        "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
+        "continue) debugger is in an unknown state.\n");
 
-	cli_dec_prompt();
-	SetCommands(OldCmds);
-	
-	return 1;
+    cli_dec_prompt();
+    SetCommands(OldCmds);
+
+    return 1;
 }
 
-static int
-cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	char *			cmd;
-	rep_set_t *		rep_set;
-	group_reply_t *	reply;
-	
-	if ( rec_set == NULL )
-	{
-		PrintOutError("No processes in focus.\n");
-		return 0;
-	}
-	
-	rep_set = DbgDirectCmd(rec_set, argc, argv);
-	
-	//process error
-	ProcessErrorInRepSet(rep_set);
-	
-	//process console messages
-	SetReplyHeadInSet(rep_set);
-	
-	while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-	{
-		// Point at the cmd data
-		cmd = EVENT_CMD(reply->rep_event);
-		
-		// make sure the cmd is not empty
-		if (strlen(cmd) == 0)
-			continue;
-		
-		if (GetNumberOfReply(rep_set) == 1)
-		{
-			PrintOutMsg("%s\n", cmd);
-		} else
-		{
-			PrintOutMsg("\n");
-			PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "\n%s\n", cmd);
-		}
-	}
+static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
+                                         char **argv) {
+    char *cmd;
+    rep_set_t *rep_set;
+    group_reply_t *reply;
 
-	FreeRepSet(rep_set);
-	
-	return 1;
+    if (rec_set == NULL) {
+        PrintOutError("No processes in focus.\n");
+        return 0;
+    }
+
+    rep_set = DbgDirectCmd(rec_set, argc, argv);
+
+    // process error
+    ProcessErrorInRepSet(rep_set);
+
+    // process console messages
+    SetReplyHeadInSet(rep_set);
+
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+        // Point at the cmd data
+        cmd = EVENT_CMD(reply->rep_event);
+
+        // make sure the cmd is not empty
+        if (strlen(cmd) == 0) continue;
+
+        if (GetNumberOfReply(rep_set) == 1) {
+            PrintOutMsg("%s\n", cmd);
+        } else {
+            PrintOutMsg("\n");
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                "\n%s\n", cmd);
+        }
+    }
+
+    FreeRepSet(rep_set);
+
+    return 1;
 }
 
-static int
-cmd_directmode_alt_blacklist_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    if (argc > 0)
-    {
+static int cmd_directmode_alt_blacklist_cmd(rec_set_t *rec_set, int argc,
+                                            char **argv) {
+    if (argc > 0) {
         PrintOutError("%s is unsupported.\n", argv[0]);
-    } else
-    {
+    } else {
         PrintOutError("This command is unsupported.\n");
     }
-    
+
     return 1;
 }
 
@@ -181,55 +167,46 @@ cmd_directmode_alt_blacklist_cmd(rec_set_t *rec_set, int argc, char **argv)
  * Helper functions
  ********************************/
 
-static void
-directmodenotfound(const char *cmd)
-{
-	CmdNotFound(cmd);
+static void directmodenotfound(const char *cmd) { CmdNotFound(cmd); }
+
+static void directmodeambig(const char *cmd) {
+    AmbiguousAltCmd(DirectModeCmds, cmd);
 }
 
-static void
-directmodeambig(const char *cmd)
-{
-	AmbiguousAltCmd(DirectModeCmds, cmd);
+static void directmodefailed(void) {
+    cli_dec_prompt();
+    SetCommands(OldCmds);
 }
 
-static void
-directmodefailed(void)
-{
-	cli_dec_prompt();
-	SetCommands(OldCmds);
+void InitCmd_passthru(void) {
+    // regular commands
+    AddCommand("gdbmode", NULL, proc_required, 0, (int (*)())cmd_directmode_cmd,
+               cmd_directmode_help, "Enter direct gdb mode (experimental).");
+
+    // maint commands
+    AddMaintCommand(
+        "passthru", proc_required, 0, (int (*)())class_maint_subcmd_direct_cmd,
+        class_maint_subcmd_direct_help, "Pass command to gdb backend.");
+
+    // gdbmode alt commands
+    DirectModeCmds =
+        NewCommandList(directmodenotfound, directmodeambig, directmodefailed);
+
+    // XXX: The help strings below are not viewable. The help command is passed
+    // to the gdb backend while in gdbmode.
+    AddAltCommand(DirectModeCmds, "_default_cmd", NULL, proc_required, 0,
+                  (int (*)())cmd_directmode_alt_direct_cmd, dummy_help, "");
+    AddAltCommand(DirectModeCmds, "end", NULL, proc_ignore, 0,
+                  (int (*)())cmd_directmode_alt_end_cmd, dummy_help, "");
+    AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
+                  (int (*)())cmd_quit_cmd, dummy_help, "");
+
+    AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
+                  (int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+    AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
+                  (int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+    AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
+                  (int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+
+    SetDefaultCommand(DirectModeCmds, "_default_cmd");
 }
-
-void
-InitCmd_passthru(void)
-{
-	// regular commands
-	AddCommand("gdbmode", NULL, proc_required, 0, (int (*)())cmd_directmode_cmd,
-		cmd_directmode_help, "Enter direct gdb mode (experimental).");
-
-	// maint commands
-	AddMaintCommand("passthru", proc_required, 0, (int (*)())class_maint_subcmd_direct_cmd,
-		class_maint_subcmd_direct_help, "Pass command to gdb backend.");
-		
-	// gdbmode alt commands
-	DirectModeCmds = NewCommandList(directmodenotfound, directmodeambig, directmodefailed);
-	
-	// XXX: The help strings below are not viewable. The help command is passed
-	// to the gdb backend while in gdbmode.
-	AddAltCommand(DirectModeCmds, "_default_cmd", NULL, proc_required, 0, 
-		(int (*)())cmd_directmode_alt_direct_cmd, dummy_help, "");
-	AddAltCommand(DirectModeCmds, "end", NULL, proc_ignore, 0, 
-		(int (*)())cmd_directmode_alt_end_cmd, dummy_help, "");
-	AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
-		(int (*)())cmd_quit_cmd, dummy_help, "");
-	
-  AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
-		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
-  AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
-		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
-  AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
-		(int (*)())cmd_directmode_alt_blacklist_cmd, dummy_help, "");
-    	
-	SetDefaultCommand(DirectModeCmds, "_default_cmd");
-}
-

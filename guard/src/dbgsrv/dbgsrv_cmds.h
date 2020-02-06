@@ -18,11 +18,10 @@
  *
  *********************************************************************************/
 
-
 #ifndef _DBGSRV_CMDS_H
 #define _DBGSRV_CMDS_H
 
 class dbgcomm_info;
-extern void	dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci);
+extern void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci);
 
 #endif /*_DBGSRV_CMDS_H*/

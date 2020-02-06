@@ -19,110 +19,92 @@
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<string.h>
+#include <stdio.h>
+#include <string.h>
 
-#include	"defs.h"
-#include	"useful.h"
-#include	"gram.h"
+#include "defs.h"
+#include "gram.h"
+#include "useful.h"
 
-#define INIT_SLICE	4
+#define INIT_SLICE 4
 
-slice_t *
-NewSlice(void)
-{
-	slice_t *	s;
+slice_t *NewSlice(void) {
+    slice_t *s;
 
-	s = (slice_t *)Alloc(sizeof(slice_t));
+    s = (slice_t *)Alloc(sizeof(slice_t));
 
-	s->_s_size = INIT_SLICE;
-	
-	s->s_rank = 0;
-	s->s_low = (int *)Alloc(sizeof(int) * INIT_SLICE);
-	s->s_high = (int *)Alloc(sizeof(int) * INIT_SLICE);
+    s->_s_size = INIT_SLICE;
 
-	return s;
+    s->s_rank = 0;
+    s->s_low = (int *)Alloc(sizeof(int) * INIT_SLICE);
+    s->s_high = (int *)Alloc(sizeof(int) * INIT_SLICE);
+
+    return s;
 }
 
-static void
-ResizeSlice(slice_t *s)
-{
-	s->_s_size *= 2;
+static void ResizeSlice(slice_t *s) {
+    s->_s_size *= 2;
 
-	s->s_low = (int *)Resize((void *)s->s_low, sizeof(int) * s->_s_size);
-	s->s_high = (int *)Resize((void *)s->s_high, sizeof(int) * s->_s_size);
+    s->s_low = (int *)Resize((void *)s->s_low, sizeof(int) * s->_s_size);
+    s->s_high = (int *)Resize((void *)s->s_high, sizeof(int) * s->_s_size);
 }
 
-void
-AddSlice(slice_t *s, int f, int t)
-{
-	int	rank = s->s_rank;
+void AddSlice(slice_t *s, int f, int t) {
+    int rank = s->s_rank;
 
-	if ( rank >= s->_s_size )
-		ResizeSlice(s);
+    if (rank >= s->_s_size) ResizeSlice(s);
 
-	s->s_low[rank] = f;
-	s->s_high[rank]= t;
+    s->s_low[rank] = f;
+    s->s_high[rank] = t;
 
-	s->s_rank++;
+    s->s_rank++;
 }
 
-slice_t *
-CopySlice(slice_t *s)
-{
-	slice_t *	ns;
-	
-	if (s == NULL)
-		return NULL;
+slice_t *CopySlice(slice_t *s) {
+    slice_t *ns;
 
-	ns = (slice_t *)Alloc(sizeof(slice_t));
+    if (s == NULL) return NULL;
 
-	ns->_s_size = s->_s_size;
-	ns->s_rank = s->s_rank;
+    ns = (slice_t *)Alloc(sizeof(slice_t));
 
-	ns->s_low = (int *)Alloc(sizeof(int) * s->_s_size);
-	memcpy(ns->s_low, s->s_low, sizeof(int) * s->_s_size);
+    ns->_s_size = s->_s_size;
+    ns->s_rank = s->s_rank;
 
-	ns->s_high = (int *)Alloc(sizeof(int) * s->_s_size);
-	memcpy(ns->s_high, s->s_high, sizeof(int) * s->_s_size);
+    ns->s_low = (int *)Alloc(sizeof(int) * s->_s_size);
+    memcpy(ns->s_low, s->s_low, sizeof(int) * s->_s_size);
 
-	return ns;
+    ns->s_high = (int *)Alloc(sizeof(int) * s->_s_size);
+    memcpy(ns->s_high, s->s_high, sizeof(int) * s->_s_size);
+
+    return ns;
 }
 
-static void
-_reverse_slice(int rank, int *ix)
-{
-	int	i;
-	int	tmp;
+static void _reverse_slice(int rank, int *ix) {
+    int i;
+    int tmp;
 
-	for ( i = 0 ; i < rank/2 ; i++ )
-	{
-		tmp = ix[rank - i - 1];
-		ix[rank - i - 1] = ix[i];
-		ix[i] = tmp;
-	}
+    for (i = 0; i < rank / 2; i++) {
+        tmp = ix[rank - i - 1];
+        ix[rank - i - 1] = ix[i];
+        ix[i] = tmp;
+    }
 }
 
 /*
 ** Reverse order of slices.
 */
-void
-ReverseSlice(slice_t *s)
-{
-	_reverse_slice(s->s_rank, s->s_low);
-	_reverse_slice(s->s_rank, s->s_high);
+void ReverseSlice(slice_t *s) {
+    _reverse_slice(s->s_rank, s->s_low);
+    _reverse_slice(s->s_rank, s->s_high);
 }
 
-void
-DestroySlice(slice_t *s)
-{
-	if(s == NULL)
-		return;
+void DestroySlice(slice_t *s) {
+    if (s == NULL) return;
 
-	Free(s->s_low);
-	Free(s->s_high);
-	Free(s);
+    Free(s->s_low);
+    Free(s->s_high);
+    Free(s);
 }

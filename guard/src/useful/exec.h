@@ -13,8 +13,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifndef _USEFUL_EXEC_H
 #define _USEFUL_EXEC_H
 
@@ -22,10 +20,10 @@
 extern "C" {
 #endif
 
-extern int      CheckStatus(int);
-extern void	Exec(char *, char **, char **);
-extern int	ForkAndExec(char *, char **, char **);
-extern void	Reap(int);
+extern int CheckStatus(int);
+extern void Exec(char *, char **, char **);
+extern int ForkAndExec(char *, char **, char **);
+extern void Reap(int);
 
 #ifdef __cplusplus
 }

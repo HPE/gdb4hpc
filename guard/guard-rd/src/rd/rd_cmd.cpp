@@ -15,29 +15,25 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	"rd_cmd.h"
+#include "rd_cmd.h"
 
-extern void	InitCmd_blockmap(void);
-extern void	InitCmd_graph(void);
-extern void	FinishCmd_blockmap(void);
-extern void	FinishCmd_graph(void);
+extern void InitCmd_blockmap(void);
+extern void InitCmd_graph(void);
+extern void FinishCmd_blockmap(void);
+extern void FinishCmd_graph(void);
 
-void
-InitCmd_rd(void)
-{
-	// setup the regular rd commands
-	InitCmd_graph();
-	InitCmd_blockmap();
+void InitCmd_rd(void) {
+    // setup the regular rd commands
+    InitCmd_graph();
+    InitCmd_blockmap();
 }
 
-void
-FinishCmd_rd(void)
-{
-	FinishCmd_graph();
-	FinishCmd_blockmap();
+void FinishCmd_rd(void) {
+    FinishCmd_graph();
+    FinishCmd_blockmap();
 }

@@ -14,59 +14,53 @@
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<signal.h>
-#include	<stdarg.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
 
-#include	"client.h"
-#include	"useful.h"
+#include "client.h"
+#include "useful.h"
 
-static int 
-cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	rep_set_t *	rep_set;
+static int cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    rep_set_t *rep_set;
 
-	DPERFLOG(SetTimerStart("cont"));
+    DPERFLOG(SetTimerStart("cont"));
 
-	if ((rep_set = DbgGo(rec_set)) != NULL)
-	{
-		ProcessErrorInRepSet(rep_set);
-		FreeRepSet(rep_set);
-		return 0;
-	}
-	
-	DPERFLOG(SetTimerStopAndLog("cont"));
+    if ((rep_set = DbgGo(rec_set)) != NULL) {
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return 0;
+    }
 
-	return 1;
+    DPERFLOG(SetTimerStopAndLog("cont"));
+
+    return 1;
 }
 
-static int 
-cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	rep_set_t *	rep_set;
+static int cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    rep_set_t *rep_set;
 
-	DPERFLOG(SetTimerStart("finish"));
+    DPERFLOG(SetTimerStart("finish"));
 
-	if ((rep_set = DbgFinishFunc(rec_set)) != NULL)
-	{
-		ProcessErrorInRepSet(rep_set);
-		FreeRepSet(rep_set);
-		return 0;
-	}
-	
-	DPERFLOG(SetTimerStopAndLog("finish"));
+    if ((rep_set = DbgFinishFunc(rec_set)) != NULL) {
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return 0;
+    }
 
-	return 1;
+    DPERFLOG(SetTimerStopAndLog("finish"));
+
+    return 1;
 }
 
-void
-InitCmd_go(void)
-{
-	AddCommand("continue", "c", proc_required, 0, (int (*)())cmd_continue_cmd,
-		cmd_continue_help, "Continue execution of application.");
-	AddCommand("finish", NULL, proc_required, 0, (int (*)())cmd_finish_cmd,
-		cmd_finish_help, "Execute application until each rank's current function returns.");
+void InitCmd_go(void) {
+    AddCommand("continue", "c", proc_required, 0, (int (*)())cmd_continue_cmd,
+               cmd_continue_help, "Continue execution of application.");
+    AddCommand(
+        "finish", NULL, proc_required, 0, (int (*)())cmd_finish_cmd,
+        cmd_finish_help,
+        "Execute application until each rank's current function returns.");
 }

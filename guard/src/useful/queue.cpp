@@ -18,119 +18,90 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include	"defs.h"
-#include	"queue.h"
-#include	"alloc.h"
+#include "alloc.h"
+#include "defs.h"
+#include "queue.h"
 
-tkqueue_t *
-NewQueue(int size)
-{
-	tkqueue_t *	q;
+tkqueue_t *NewQueue(int size) {
+    tkqueue_t *q;
 
-	q = (tkqueue_t *)Alloc(sizeof(tkqueue_t));
+    q = (tkqueue_t *)Alloc(sizeof(tkqueue_t));
 
-	q->q_nel = 0;
-	q->q_head = (qel_t *)NULL;
-	q->q_tail = (qel_t *)NULL;
-	q->q_qlen = size;
+    q->q_nel = 0;
+    q->q_head = (qel_t *)NULL;
+    q->q_tail = (qel_t *)NULL;
+    q->q_qlen = size;
 
-	return q;
+    return q;
 }
 
-void
-DestroyQueue(tkqueue_t *q)
-{
-	qel_t *	qen;
-	qel_t *	qep;
+void DestroyQueue(tkqueue_t *q) {
+    qel_t *qen;
+    qel_t *qep;
 
-	if ( q == (tkqueue_t *)NULL )
-		return;
+    if (q == (tkqueue_t *)NULL) return;
 
-	if ( q->q_nel > 0 )
-	{
-		qep = q->q_head;
+    if (q->q_nel > 0) {
+        qep = q->q_head;
 
-		while ( q->q_nel-- > 0 )
-		{
-			qen = qep->q_next;
-			Free(qep);
-			qep = qen;
-		}
-	}
+        while (q->q_nel-- > 0) {
+            qen = qep->q_next;
+            Free(qep);
+            qep = qen;
+        }
+    }
 
-	Free(q);
+    Free(q);
 }
 
-void *
-RemoveFromQueue(tkqueue_t *q)
-{
-	void *	e;
-	qel_t *	qe;
+void *RemoveFromQueue(tkqueue_t *q) {
+    void *e;
+    qel_t *qe;
 
-	if ( q->q_nel == 0 )
-		return NULL;
+    if (q->q_nel == 0) return NULL;
 
-	q->q_nel--;
+    q->q_nel--;
 
-	qe = q->q_head;
+    qe = q->q_head;
 
-	q->q_head = qe->q_next;
+    q->q_head = qe->q_next;
 
-	e = qe->q_el;
+    e = qe->q_el;
 
-	Free(qe);
+    Free(qe);
 
-	return e;
+    return e;
 }
 
-void
-AddToQueue(tkqueue_t *q, void *e)
-{
-	qel_t *	qe;
+void AddToQueue(tkqueue_t *q, void *e) {
+    qel_t *qe;
 
-	if ( q->q_nel == q->q_qlen )
-		return; /* queue full */
+    if (q->q_nel == q->q_qlen) return; /* queue full */
 
-	qe = (qel_t *)Alloc(sizeof(qel_t));
-	qe->q_el = e;
-	qe->q_next = (qel_t *)NULL;
+    qe = (qel_t *)Alloc(sizeof(qel_t));
+    qe->q_el = e;
+    qe->q_next = (qel_t *)NULL;
 
-	if ( q->q_nel++ > 0 )
-	{
-		q->q_tail->q_next = qe;
-		q->q_tail = qe;
-	}
-	else
-		q->q_head = q->q_tail = qe;
+    if (q->q_nel++ > 0) {
+        q->q_tail->q_next = qe;
+        q->q_tail = qe;
+    } else
+        q->q_head = q->q_tail = qe;
 }
 
-int
-EmptyQueue(tkqueue_t *q)
-{
-	return (int)(q->q_nel == 0);
-}
+int EmptyQueue(tkqueue_t *q) { return (int)(q->q_nel == 0); }
 
-int
-FullQueue(tkqueue_t *q)
-{
-	return (int)(q->q_nel == q->q_qlen);
-}
+int FullQueue(tkqueue_t *q) { return (int)(q->q_nel == q->q_qlen); }
 
-void *
-HeadOfQueue(tkqueue_t *q)
-{
-	if ( q->q_nel == 0 )
-		return (void *)NULL;
+void *HeadOfQueue(tkqueue_t *q) {
+    if (q->q_nel == 0) return (void *)NULL;
 
-	return q->q_head->q_el;
+    return q->q_head->q_el;
 }

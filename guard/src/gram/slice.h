@@ -21,14 +21,12 @@
 #ifndef _SLICE_H
 #define _SLICE_H
 
-struct slice
-{
-	int				s_rank;
-	int *			s_low;
-	int *			s_high;
-	int				_s_size;	// Internal, do not use.
+struct slice {
+    int s_rank;
+    int* s_low;
+    int* s_high;
+    int _s_size;  // Internal, do not use.
 };
-typedef struct slice	slice_t;
+typedef struct slice slice_t;
 
 #endif /* !_SLICE_H */
-

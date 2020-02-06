@@ -11,7 +11,6 @@
  *
  *********************************************************************************/
 
-
 #ifndef _GUARD_MRNET_PACKET_H
 #define _GUARD_MRNET_PACKET_H
 
@@ -21,7 +20,7 @@
 extern "C" {
 #endif
 
-int packet_unpack(MRNet_Packet* packet, const char *ifmt, ... );
+int packet_unpack(MRNet_Packet* packet, const char* ifmt, ...);
 void packet_delete(MRNet_Packet* packet);
 
 #ifdef __cplusplus

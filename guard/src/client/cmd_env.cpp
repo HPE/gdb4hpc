@@ -14,34 +14,32 @@
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include    <config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include    <stdio.h>
-#include    <stdarg.h>
-#include    <stdlib.h>
-#include    <string.h>
-#include    <unistd.h>
-#include    <math.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include    "client.h"
-#include    "useful.h"
+#include "client.h"
+#include "useful.h"
 
 #ifdef RD
 extern void SetGraphVar(char *, int, void *);
 #endif
 
-static int
-class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    int     putenv_str_size;
-    char *  putenv_str;
-    char *  str;
-    char *  name;
-    char *  value;
+static int class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+                                            char **argv) {
+    int putenv_str_size;
+    char *putenv_str;
+    char *str;
+    char *name;
+    char *value;
 
-    if (argc != 3)
-    {
+    if (argc != 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set environment name value\n");
         return 0;
@@ -55,12 +53,11 @@ class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     SetList(Client.set_env_list);
 
     // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) != (char *)NULL)
-    {
+    while ((str = (char *)GetListElement(Client.set_env_list)) !=
+           (char *)NULL) {
         // compare only the number of chars in the name, this should get us up
         // to the "=" part
-        if (!strncmp(str, name, strlen(name)))
-        {
+        if (!strncmp(str, name, strlen(name))) {
             // name found, so lets remove the old value
             RemoveFromList(Client.set_env_list, (void *)str);
             Free(str);
@@ -82,22 +79,19 @@ class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    char *  str;
-    char *  name;
+static int class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+                                              char **argv) {
+    char *str;
+    char *name;
 
     // ensure that there are entries in the list
-    if (SizeOfList(Client.set_env_list) < 1)
-    {
+    if (SizeOfList(Client.set_env_list) < 1) {
         PrintOutError("There are no environment variables set.\n");
         return 1;
     }
 
     // ensure the user gave us a single name
-    if (argc != 2)
-    {
+    if (argc != 2) {
         PrintOutError("Incorrect number of command arguments.\n");
         PrintOutError("Expected: unset environment name\n");
         return 0;
@@ -109,12 +103,11 @@ class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     name = argv[1];
 
     // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) != (char *)NULL)
-    {
+    while ((str = (char *)GetListElement(Client.set_env_list)) !=
+           (char *)NULL) {
         // compare only the number of chars in the name, this should get us up
         // to the "=" part
-        if (!strncmp(str, name, strlen(name)))
-        {
+        if (!strncmp(str, name, strlen(name))) {
             RemoveFromList(Client.set_env_list, (void *)str);
             Free(str);
             // return here so that we can do error handling below
@@ -128,15 +121,13 @@ class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    char *  str;
-    char *  name;
+static int class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+                                             char **argv) {
+    char *str;
+    char *name;
 
     // ensure that there are entries in the list
-    if (SizeOfList(Client.set_env_list) < 1)
-    {
+    if (SizeOfList(Client.set_env_list) < 1) {
         PrintOutError("There are no environment variables set.\n");
         return 1;
     }
@@ -144,11 +135,10 @@ class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     SetList(Client.set_env_list);
 
     // if the user didn't provide an argument, print out the entire list
-    if (argc < 2)
-    {
+    if (argc < 2) {
         // loop through the list
-        while ((str = (char *)GetListElement(Client.set_env_list)) != (char *)NULL)
-        {
+        while ((str = (char *)GetListElement(Client.set_env_list)) !=
+               (char *)NULL) {
             PrintOutMsg("%s\n", str);
         }
         return 1;
@@ -160,12 +150,11 @@ class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
     name = argv[1];
 
     // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) != (char *)NULL)
-    {
+    while ((str = (char *)GetListElement(Client.set_env_list)) !=
+           (char *)NULL) {
         // compare only the number of chars in the name, this should get us up
         // to the "=" part
-        if (!strncmp(str, name, strlen(name)))
-        {
+        if (!strncmp(str, name, strlen(name))) {
             PrintOutMsg("%s\n", str);
             // we return here so that we can do error handling below
             return 1;
@@ -183,9 +172,7 @@ class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc, char **argv)
 ** the passthru to prevent someone from typing quit and having things die
 ** ungracefully.
 */
-int
-cmd_quit_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+int cmd_quit_cmd(rec_set_t *rec_set, int argc, char **argv) {
     Client.quit = 1;
     DbgMaskInput();
 
@@ -195,16 +182,14 @@ cmd_quit_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    char * echo_str;
+static int class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc,
+                                       char **argv) {
+    char *echo_str;
 
-    if (argc < 2)
-        return 0;
+    if (argc < 2) return 0;
 
     // create the message string to echo
-    echo_str = ArgsToBuf(&argv[1], argc-1);
+    echo_str = ArgsToBuf(&argv[1], argc - 1);
 
     PrintOutMsg("%s\n", echo_str);
 
@@ -213,9 +198,8 @@ class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc,
+                                        char **argv) {
     int time = 5;
 
     if (argc > 1) time = atoi(argv[1]);
@@ -224,29 +208,27 @@ class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    FILE *  cmd_out;
-    char *  cmd = NULL;
-    char *  tmp_cmd;
-    char    result[BUFSIZ];
-    char *  line = NULL;
-    char *  tmp_line = NULL;
+static int class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc,
+                                         char **argv) {
+    FILE *cmd_out;
+    char *cmd = NULL;
+    char *tmp_cmd;
+    char result[BUFSIZ];
+    char *line = NULL;
+    char *tmp_line = NULL;
 
     // clear the buffer
     memset((void *)&result[0], '\0', BUFSIZ);
 
     // Create the command string
-    tmp_cmd = ArgsToBuf(&argv[1], argc-1);
+    tmp_cmd = ArgsToBuf(&argv[1], argc - 1);
 
     // Append a redirection of stderr to stdout to the command
     asprintf(&cmd, "%s 2>&1", tmp_cmd);
     Free(tmp_cmd);
 
     // Open the command for reading
-    if ((cmd_out = popen(cmd, "r")) == NULL)
-    {
+    if ((cmd_out = popen(cmd, "r")) == NULL) {
         PrintOutError("Failed to run command.\n");
         Free(cmd);
         return 0;
@@ -256,18 +238,15 @@ class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
     Free(cmd);
 
     // Now read the result
-    while (fgets(result, BUFSIZ, cmd_out) != NULL)
-    {
+    while (fgets(result, BUFSIZ, cmd_out) != NULL) {
         // copy the result into the line buffer and clear the result buf
         asprintf(&line, "%s", result);
         memset((void *)result, '\0', BUFSIZ);
         // ensure the last character is a newline, otherwise we need to keep
         // reading
-        while (line[strlen(line)-1] != '\n')
-        {
+        while (line[strlen(line) - 1] != '\n') {
             // read in another line
-            if (fgets(result, BUFSIZ, cmd_out) == NULL)
-            {
+            if (fgets(result, BUFSIZ, cmd_out) == NULL) {
                 // could not read an entire line, so print what we have and
                 // return
                 PrintOutMsg("%s", line);
@@ -295,14 +274,12 @@ class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    const char *  s;
-    ct_val  cv;
+static int class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
+                                                 char **argv) {
+    const char *s;
+    ct_val cv;
 
-    if ( argc < 2 )
-    {
+    if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set earlyentry [on|off]\n");
         return 0;
@@ -311,8 +288,7 @@ class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
     // only look at the first arg
     s = argv[1];
 
-    switch( ScanString(&cv, &s) )
-    {
+    switch (ScanString(&cv, &s)) {
         case CT_TRUE:
             Client.early_entry = 1;
             break;
@@ -321,16 +297,16 @@ class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
             break;
         default:
             PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError("See \"help maint set earlyentry\" for more information.\n");
+            PrintOutError(
+                "See \"help maint set earlyentry\" for more information.\n");
             return 0;
     }
 
     return 1;
 }
 
-static int
-class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
+                                                  char **argv) {
     if (Client.early_entry)
         PrintOutMsg("Early entry mode enabled.\n");
     else
@@ -339,14 +315,12 @@ class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc, char **argv
     return 1;
 }
 
-static int
-class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    const char *  s;
-    ct_val  cv;
+static int class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
+                                             char **argv) {
+    const char *s;
+    ct_val cv;
 
-    if ( argc < 2 )
-    {
+    if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set unsafe [on|off]\n");
         return 0;
@@ -355,8 +329,7 @@ class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
     // only look at the first arg
     s = argv[1];
 
-    switch( ScanString(&cv, &s) )
-    {
+    switch (ScanString(&cv, &s)) {
         case CT_TRUE:
             Client.unsafe = 1;
             break;
@@ -365,16 +338,16 @@ class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
             break;
         default:
             PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError("See \"help maint set unsafe\" for more information.\n");
+            PrintOutError(
+                "See \"help maint set unsafe\" for more information.\n");
             return 0;
     }
 
     return 1;
 }
 
-static int
-class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
+                                              char **argv) {
     if (Client.unsafe)
         PrintOutMsg("Unsafe mode enabled.\n");
     else
@@ -383,14 +356,12 @@ class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    const char *  s;
-    ct_val  cv;
+static int class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
+                                           char **argv) {
+    const char *s;
+    ct_val cv;
 
-    if ( argc < 2 )
-    {
+    if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set sync [on|off]\n");
         return 0;
@@ -399,8 +370,7 @@ class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
     // only look at the first arg
     s = argv[1];
 
-    switch( ScanString(&cv, &s) )
-    {
+    switch (ScanString(&cv, &s)) {
         case CT_TRUE:
             Client.sync_wait = 1;
             break;
@@ -409,8 +379,7 @@ class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
             // Note that this is probably unecessary since I don't know how this
             // command could possibly execute without being unblocked, but it is
             // good practice I suppose.
-            if (Client.sync_blocked)
-            {
+            if (Client.sync_blocked) {
                 DbgUnmaskInput();
                 Client.sync_blocked = 0;
             }
@@ -418,16 +387,16 @@ class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
             break;
         default:
             PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError("See \"help maint set sync\" for more information.\n");
+            PrintOutError(
+                "See \"help maint set sync\" for more information.\n");
             return 0;
     }
 
     return 1;
 }
 
-static int
-class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
+                                            char **argv) {
     if (Client.sync_wait)
         PrintOutMsg("Synchronous event mode enabled.\n");
     else
@@ -436,49 +405,54 @@ class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    rep_set_t *     rep_set;
-    group_reply_t * reply;
-    dbgstatus_t *   s;
+static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
+                                        char **argv) {
+    rep_set_t *rep_set;
+    group_reply_t *reply;
+    dbgstatus_t *s;
 
     // We do not want to get the location info with this status command
     rep_set = DbgStatus(rec_set, 0);
 
     ProcessErrorInRepSet(rep_set);
 
-    while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-    {
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
         // point at the status data
         s = EVENT_STATUS(reply->rep_event);
 
-        switch ( s->stat )
-        {
-        case DBGSTAT_INITIALISING:
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is initialising.\n");
-            break;
+        switch (s->stat) {
+            case DBGSTAT_INITIALISING:
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "The debugger is initialising.\n");
+                break;
 
-        case DBGSTAT_WAITING:
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is waiting for a command.\n");
-            break;
+            case DBGSTAT_WAITING:
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "The debugger is waiting for a command.\n");
+                break;
 
-        case DBGSTAT_RUNNING:
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is running.\n");
-            break;
+            case DBGSTAT_RUNNING:
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "The application is running.\n");
+                break;
 
-        case DBGSTAT_STOPPED:
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is stopped.\n");
-            break;
+            case DBGSTAT_STOPPED:
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "The application is stopped.\n");
+                break;
 
-        case DBGSTAT_EXIT:
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The application is at an exit breakpoint.\n");
-            break;
+            case DBGSTAT_EXIT:
+                PrintMsgWithSetInfo(
+                    reply->rep_di->d_handle, reply->rep_group,
+                    "The application is at an exit breakpoint.\n");
+                break;
 
-        case DBGSTAT_DBGERR:
-        case DBGSTAT_INTERR:
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "The debugger is reporting an error status.\n");
-            break;
+            case DBGSTAT_DBGERR:
+            case DBGSTAT_INTERR:
+                PrintErrorWithSetInfo(
+                    reply->rep_di->d_handle, reply->rep_group,
+                    "The debugger is reporting an error status.\n");
+                break;
         }
     }
 
@@ -487,15 +461,13 @@ class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    rep_set_t *     rep_set;
-    group_reply_t * reply;
-    char *          new_path;
+static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
+                                          char **argv) {
+    rep_set_t *rep_set;
+    group_reply_t *reply;
+    char *new_path;
 
-    if (argc < 2)
-    {
+    if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set directory /path/to/dir\n");
         return 0;
@@ -505,11 +477,12 @@ class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv)
 
     ProcessErrorInRepSet(rep_set);
 
-    while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-    {
-        new_path =  EVENT_SOURCE_PATH(reply->rep_event);
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+        new_path = EVENT_SOURCE_PATH(reply->rep_event);
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Source directory search path set to: %s\n", new_path);
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                            "Source directory search path set to: %s\n",
+                            new_path);
     }
 
     FreeRepSet(rep_set);
@@ -517,22 +490,21 @@ class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    rep_set_t *     rep_set;
-    group_reply_t * reply;
-    char *          path;
+static int class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc,
+                                             char **argv) {
+    rep_set_t *rep_set;
+    group_reply_t *reply;
+    char *path;
 
     rep_set = DbgGetSourcePath(rec_set);
 
     ProcessErrorInRepSet(rep_set);
 
-    while((reply = GetNextReplyInSet(rep_set)) != (group_reply_t*)NULL)
-    {
+    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
         path = EVENT_SOURCE_PATH(reply->rep_event);
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "Source directories searched: %s\n", path);
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                            "Source directories searched: %s\n", path);
     }
 
     FreeRepSet(rep_set);
@@ -540,37 +512,33 @@ class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_show_subcmd_version_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_show_subcmd_version_cmd(rec_set_t *rec_set, int argc,
+                                         char **argv) {
     PrintOutMsg("Version %s\n", GUARD_VERSION);
     return 1;
 }
 
-static int
-class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    const char *      s;
-    char *      buf;
+static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
+                                      char **argv) {
+    const char *s;
+    char *buf;
     long double lower;
     long double upper;
     long double ulp;
-    ct_val      cv;
+    ct_val cv;
 
-    if ( argc < 3 )
-    {
+    if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set error [warn] [error]\n");
         PrintOutError("Example command: set error 1e-16 2e-15\n");
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[1], argc-1);
+    buf = ArgsToBuf(&argv[1], argc - 1);
 
     s = buf;
 
-    switch( ScanString(&cv, &s) )
-    {
+    switch (ScanString(&cv, &s)) {
         case CT_FLOAT:
             lower = cv.cv_float;
             break;
@@ -578,14 +546,15 @@ class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
             lower = (long double)cv.cv_int;
             break;
         default:
-            PrintOutError("Encountered a non-numeric value for the warning epsilon argument.\n");
+            PrintOutError(
+                "Encountered a non-numeric value for the warning epsilon "
+                "argument.\n");
             PrintOutError("Must be a numeric value. Example: 1e-16\n");
             Free(buf);
             return 0;
     }
 
-    switch( ScanString(&cv, &s) )
-    {
+    switch (ScanString(&cv, &s)) {
         case CT_FLOAT:
             upper = cv.cv_float;
             break;
@@ -593,7 +562,9 @@ class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
             upper = (long double)cv.cv_int;
             break;
         default:
-            PrintOutError("Encountered a non-numeric value for the error epsilon argument.\n");
+            PrintOutError(
+                "Encountered a non-numeric value for the error epsilon "
+                "argument.\n");
             PrintOutError("Must be a numeric value. Example: 2e-15\n");
             Free(buf);
             return 0;
@@ -603,17 +574,14 @@ class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
     Free(buf);
 
     // ensure upper and lower are ever so slightly greater than zero.
-    if ((lower == 0.0) || (upper == 0.0))
-    {
-        ulp = nextafterl(0.0, 0.1); // get the unit of least precision for this machine
-        if (lower == 0.0)
-            lower = ulp;
-        if (upper == 0.0)
-            upper = ulp;
+    if ((lower == 0.0) || (upper == 0.0)) {
+        ulp = nextafterl(
+            0.0, 0.1);  // get the unit of least precision for this machine
+        if (lower == 0.0) lower = ulp;
+        if (upper == 0.0) upper = ulp;
     }
 
-    if (lower > upper)
-    {
+    if (lower > upper) {
         PrintOutError("The lower value must be less than the upper value.\n");
         PrintOutError("See \"help set error\" for more information.\n");
         return 0;
@@ -636,9 +604,8 @@ class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc,
+                                       char **argv) {
     PrintOutMsg("Warning epsilon: ");
     AIFPrint(Client.cli_out_stream, 0, Client.cmp_lower_eps);
     PrintOutMsg("\nError epsilon: ");
@@ -648,15 +615,13 @@ class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-    const char *  s;
-    int     entryframe_flag;
-    ct_val  cv;
+static int class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
+                                                 char **argv) {
+    const char *s;
+    int entryframe_flag;
+    ct_val cv;
 
-    if ( argc < 2 )
-    {
+    if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set print entry-frame [true|false]\n");
         return 0;
@@ -665,20 +630,20 @@ class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv)
     // only look at the first arg
     s = argv[1];
 
-    switch (ScanString(&cv, &s))
-    {
-    case CT_TRUE:
-        entryframe_flag = 1;
-        break;
+    switch (ScanString(&cv, &s)) {
+        case CT_TRUE:
+            entryframe_flag = 1;
+            break;
 
-    case CT_FALSE:
-        entryframe_flag = 0;
-        break;
+        case CT_FALSE:
+            entryframe_flag = 0;
+            break;
 
-    default:
-        PrintOutError("Encountered something other than true or false.\n");
-        PrintOutError("See \"help set print entry-frame\" for more information.\n");
-        return 0;
+        default:
+            PrintOutError("Encountered something other than true or false.\n");
+            PrintOutError(
+                "See \"help set print entry-frame\" for more information.\n");
+            return 0;
     }
 
     Client.print_entry_frame = entryframe_flag;
@@ -686,9 +651,8 @@ class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int
-class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
+static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
+                                                  char **argv) {
     if (Client.print_entry_frame)
         PrintOutMsg("print entry-frame enabled.\n");
     else
@@ -697,69 +661,100 @@ class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc, char **argv
     return 1;
 }
 
-void
-InitCmd_env(void)
-{
+void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, (int (*)())cmd_quit_cmd,
-        cmd_quit_help, "Exit the debugger.");
+               cmd_quit_help, "Exit the debugger.");
 
     // maint commands
-    AddMaintCommand("echo", proc_ignore, 0, (int (*)())class_maint_subcmd_echo_cmd,
-        class_maint_subcmd_echo_help, "Echo a string.");
-    AddMaintCommand("sleep", proc_ignore, 0, (int (*)())class_maint_subcmd_sleep_cmd,
-        class_maint_subcmd_sleep_help, "Pause the debugger.");
-    AddMaintCommand("system", proc_ignore, 0, (int (*)())class_maint_subcmd_system_cmd,
-        class_maint_subcmd_system_help, "Run a shell command.");
+    AddMaintCommand("echo", proc_ignore, 0,
+                    (int (*)())class_maint_subcmd_echo_cmd,
+                    class_maint_subcmd_echo_help, "Echo a string.");
+    AddMaintCommand("sleep", proc_ignore, 0,
+                    (int (*)())class_maint_subcmd_sleep_cmd,
+                    class_maint_subcmd_sleep_help, "Pause the debugger.");
+    AddMaintCommand("system", proc_ignore, 0,
+                    (int (*)())class_maint_subcmd_system_cmd,
+                    class_maint_subcmd_system_help, "Run a shell command.");
 
     // info commands
-    AddInfoCommand("status", proc_required, 0, (int (*)())class_info_subcmd_status_cmd,
-        class_info_subcmd_status_help, "Display the status of the debug servers.");
+    AddInfoCommand("status", proc_required, 0,
+                   (int (*)())class_info_subcmd_status_cmd,
+                   class_info_subcmd_status_help,
+                   "Display the status of the debug servers.");
 
     // set commands
-    AddSetCommand("directory", proc_required, 0, (int (*)())class_set_subcmd_directory_cmd,
-        class_set_subcmd_directory_help, "Add directory to search path for source files.");
-    AddSetCommand("error", proc_ignore, 0, (int (*)())class_set_subcmd_error_cmd,
-        class_set_subcmd_error_help, "Set warn and error epsilon for floating point comparison.");
-    AddSetCommand("environment", proc_ignore, 0, (int (*)())class_set_subcmd_environment_cmd,
-        class_set_subcmd_environment_help, "Set environment variable value for launching applications.");
+    AddSetCommand("directory", proc_required, 0,
+                  (int (*)())class_set_subcmd_directory_cmd,
+                  class_set_subcmd_directory_help,
+                  "Add directory to search path for source files.");
+    AddSetCommand("error", proc_ignore, 0,
+                  (int (*)())class_set_subcmd_error_cmd,
+                  class_set_subcmd_error_help,
+                  "Set warn and error epsilon for floating point comparison.");
+    AddSetCommand("environment", proc_ignore, 0,
+                  (int (*)())class_set_subcmd_environment_cmd,
+                  class_set_subcmd_environment_help,
+                  "Set environment variable value for launching applications.");
 
     // set print commands
-    AddSetPrintCommand("entry-frame", proc_ignore, 0, (int (*)())class_set_print_subcmd_entryframe_cmd,
-        class_set_print_subcmd_entryframe_help, "Enable/disable printing of entry frames on launch/attach.");
+    AddSetPrintCommand(
+        "entry-frame", proc_ignore, 0,
+        (int (*)())class_set_print_subcmd_entryframe_cmd,
+        class_set_print_subcmd_entryframe_help,
+        "Enable/disable printing of entry frames on launch/attach.");
 
     // maint set commands
-    AddMaintSetCommand("earlyentry", proc_ignore, 0, (int (*)())class_maint_set_subcmd_earlyentry_cmd,
-        class_maint_set_subcmd_earlyentry_help, "Enable early entry mode.");
-    AddMaintSetCommand("unsafe", proc_ignore, 0, (int (*)())class_maint_set_subcmd_unsafe_cmd,
+    AddMaintSetCommand("earlyentry", proc_ignore, 0,
+                       (int (*)())class_maint_set_subcmd_earlyentry_cmd,
+                       class_maint_set_subcmd_earlyentry_help,
+                       "Enable early entry mode.");
+    AddMaintSetCommand(
+        "unsafe", proc_ignore, 0, (int (*)())class_maint_set_subcmd_unsafe_cmd,
         class_maint_set_subcmd_unsafe_help, "Enable unsafe functionality.");
-    AddMaintSetCommand("sync", proc_ignore, 0, (int (*)())class_maint_set_subcmd_sync_cmd,
+    AddMaintSetCommand(
+        "sync", proc_ignore, 0, (int (*)())class_maint_set_subcmd_sync_cmd,
         class_maint_set_subcmd_sync_help, "Enable synchronous event mode.");
 
     // show commands
-    AddShowCommand("directories", proc_required, 0, (int (*)())class_show_subcmd_directories_cmd,
-        class_show_subcmd_directories_help, "Show current search path for finding source files.");
-    AddShowCommand("error", proc_ignore, 0, (int (*)())class_show_subcmd_error_cmd,
-        class_show_subcmd_error_help, "Show warn and error epsilon for floating point comparison.");
-    AddShowCommand("environment", proc_ignore, 0, (int (*)())class_show_subcmd_environment_cmd,
-        class_show_subcmd_environment_help, "Show environment variables that were set.");
-    AddShowCommand("version", proc_ignore, 0, (int (*)())class_show_subcmd_version_cmd,
+    AddShowCommand("directories", proc_required, 0,
+                   (int (*)())class_show_subcmd_directories_cmd,
+                   class_show_subcmd_directories_help,
+                   "Show current search path for finding source files.");
+    AddShowCommand(
+        "error", proc_ignore, 0, (int (*)())class_show_subcmd_error_cmd,
+        class_show_subcmd_error_help,
+        "Show warn and error epsilon for floating point comparison.");
+    AddShowCommand("environment", proc_ignore, 0,
+                   (int (*)())class_show_subcmd_environment_cmd,
+                   class_show_subcmd_environment_help,
+                   "Show environment variables that were set.");
+    AddShowCommand(
+        "version", proc_ignore, 0, (int (*)())class_show_subcmd_version_cmd,
         class_show_subcmd_version_help, "Show the debugger version number.");
 
     // show print commands
-    AddShowPrintCommand("entry-frame", proc_ignore, 0, (int (*)())class_show_print_subcmd_entryframe_cmd,
-        class_show_print_subcmd_entryframe_help, "Show setting of print entry-frame mode.");
+    AddShowPrintCommand("entry-frame", proc_ignore, 0,
+                        (int (*)())class_show_print_subcmd_entryframe_cmd,
+                        class_show_print_subcmd_entryframe_help,
+                        "Show setting of print entry-frame mode.");
 
     // maint show commands
-    AddMaintShowCommand("earlyentry", proc_ignore, 0, (int (*)())class_maint_show_subcmd_earlyentry_cmd,
-        class_maint_show_subcmd_earlyentry_help, "Show setting of early entry mode.");
-    AddMaintShowCommand("unsafe", proc_ignore, 0, (int (*)())class_maint_show_subcmd_unsafe_cmd,
+    AddMaintShowCommand("earlyentry", proc_ignore, 0,
+                        (int (*)())class_maint_show_subcmd_earlyentry_cmd,
+                        class_maint_show_subcmd_earlyentry_help,
+                        "Show setting of early entry mode.");
+    AddMaintShowCommand(
+        "unsafe", proc_ignore, 0, (int (*)())class_maint_show_subcmd_unsafe_cmd,
         class_maint_show_subcmd_unsafe_help, "Show setting of unsafe mode.");
-    AddMaintShowCommand("sync", proc_ignore, 0, (int (*)())class_maint_show_subcmd_sync_cmd,
-        class_maint_show_subcmd_sync_help, "Show setting of synchronous event mode.");
+    AddMaintShowCommand("sync", proc_ignore, 0,
+                        (int (*)())class_maint_show_subcmd_sync_cmd,
+                        class_maint_show_subcmd_sync_help,
+                        "Show setting of synchronous event mode.");
 
     // unset commands
-    AddUnsetCommand("environment", proc_ignore, 0, (int (*)())class_unset_subcmd_environment_cmd,
-        class_unset_subcmd_environment_help, "Remove a previously set environment variable.");
+    AddUnsetCommand("environment", proc_ignore, 0,
+                    (int (*)())class_unset_subcmd_environment_cmd,
+                    class_unset_subcmd_environment_help,
+                    "Remove a previously set environment variable.");
 }
-

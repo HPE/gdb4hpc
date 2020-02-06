@@ -23,29 +23,28 @@
 
 #include "aif.h"
 #include "dbgbp.h"
+#include "dbgcmd.h"
 #include "dbgevent.h"
 #include "dbgloc.h"
-#include "dbgcmd.h"
 
 /*
 ** The following define function for converting to network protocol
 */
 // TODO: Make this static, everything should be an event or a command
-extern char *		AIFToSocProto(AIF *);
+extern char *AIFToSocProto(AIF *);
 // Event to network proto string functions
-extern char *		EventToSocProto(dbgevent_t *);
+extern char *EventToSocProto(dbgevent_t *);
 // Command to network proto string function
-extern char *		CommandToSocProto(dbgcmd cmd, ...);
-
+extern char *CommandToSocProto(dbgcmd cmd, ...);
 
 /*
 ** The following define functions for converting from network protocol
 */
 // TODO: Make this static, everything should be an event or a command
-extern AIF *			SocProtoToAIF(char *);
+extern AIF *SocProtoToAIF(char *);
 // Network proto string to event functions.
-extern dbgevent_t *		SocProtoToEvent(char *);
+extern dbgevent_t *SocProtoToEvent(char *);
 // Network proto string to command functions.
-extern dbgcommand_t *	SocProtoToCommand(char *s);
+extern dbgcommand_t *SocProtoToCommand(char *s);
 
 #endif /* ! _DBGFORMAT_H */

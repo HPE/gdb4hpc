@@ -25,18 +25,18 @@
 #define _VARSTR_H_
 
 struct varstr {
-	char *	str_buf;
-	char *	str_pos;
-	int		buf_len;
+    char *str_buf;
+    char *str_pos;
+    int buf_len;
 };
-typedef struct varstr	varstr;
+typedef struct varstr varstr;
 
-varstr *	varstr_new(int initial_size);
-varstr *	varstr_fromstr(char *str);
-varstr *	varstr_cat(varstr *v, char *str);
-varstr *	varstr_add(varstr *v, char ch);
-varstr *	varstr_sprintf(varstr *v, char *fmt, ...);
-char *		varstr_tostr(varstr *v);
-void		varstr_free(varstr *v);
+varstr *varstr_new(int initial_size);
+varstr *varstr_fromstr(char *str);
+varstr *varstr_cat(varstr *v, char *str);
+varstr *varstr_add(varstr *v, char ch);
+varstr *varstr_sprintf(varstr *v, char *fmt, ...);
+char *varstr_tostr(varstr *v);
+void varstr_free(varstr *v);
 
 #endif /* !_VARSTR_H_ */

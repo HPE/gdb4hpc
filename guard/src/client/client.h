@@ -27,20 +27,20 @@
 ** the function that is interfacing with the client has the definitions it needs
 ** through including a single header.
 */
-#include	"cli_funcs.h"
-#include	"client_settings.h"
-#include	"cmd.h"
-#include	"dbg_client.h"
-#include	"defs.h"
-#include	"gram.h"
-#include	"useful.h"
-#include	"xml_tag.h"
+#include "cli_funcs.h"
+#include "client_settings.h"
+#include "cmd.h"
+#include "dbg_client.h"
+#include "defs.h"
+#include "gram.h"
+#include "useful.h"
+#include "xml_tag.h"
 
 /*
 ** Functions defined in main.c
 */
-extern int		EventCB(event_set_t *, bitset *);
-extern void		ForceQuit(void);
+extern int EventCB(event_set_t *, bitset *);
+extern void ForceQuit(void);
 
 /*
 ** Functions defined in cmd_env.c
@@ -50,22 +50,22 @@ extern void		ForceQuit(void);
 // call the FindCommand function, but that requires that the env init be called
 // before the passthru init. I don't like this requirement, so I am exposing the
 // cmd_quit_cmd directly.
-extern int		cmd_quit_cmd(rec_set_t *, int, char **);
+extern int cmd_quit_cmd(rec_set_t *, int, char **);
 
 /*
 ** Functions defined in cmd_frame.c
 */
-extern void		PrintFrameSet(char *, bitset*, dbgframe_t *);
+extern void PrintFrameSet(char *, bitset *, dbgframe_t *);
 
 /*
 ** Functions defined in cmd_print.c
 */
-extern int      PrintVal(val_t *, rec_set_t *);
+extern int PrintVal(val_t *, rec_set_t *);
 
 /*
 ** Functions defined in cmd_proc.c
 */
-extern void		PrintHaltedLocationSet(char *, bitset *, dbgloc_t *);
-extern void		EndAll(void);
+extern void PrintHaltedLocationSet(char *, bitset *, dbgloc_t *);
+extern void EndAll(void);
 
 #endif /* _CLIENT_H */

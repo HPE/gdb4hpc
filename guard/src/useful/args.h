@@ -13,9 +13,6 @@
  *
  *********************************************************************************/
 
-
-
-
 #ifndef _USEFUL_ARGS_H
 #define _USEFUL_ARGS_H
 
@@ -23,13 +20,13 @@
 extern "C" {
 #endif
 
-extern char **	Str2Argv(char *);
-extern char **	NewArgv(const char *, ...);
-extern char **	CopyArgv(char **);
-extern char **	AppendArgv(char **, char **);
-extern char **	AppendArgs(char **, ...);
-extern char *	ArgsToBuf(char **, int);
-extern void	FreeArgv(char **);
+extern char **Str2Argv(char *);
+extern char **NewArgv(const char *, ...);
+extern char **CopyArgv(char **);
+extern char **AppendArgv(char **, char **);
+extern char **AppendArgs(char **, ...);
+extern char *ArgsToBuf(char **, int);
+extern void FreeArgv(char **);
 
 #ifdef __cplusplus
 }

@@ -14,73 +14,61 @@
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
-#include	<config.h>
+#include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include	<stdio.h>
-#include	<string.h>
+#include <stdio.h>
+#include <string.h>
 
-#include	"defs.h"
-#include	"useful.h"
-#include	"gram.h"
+#include "defs.h"
+#include "gram.h"
+#include "useful.h"
 
-file_t *	FindFile(list_t *, char *);
+file_t *FindFile(list_t *, char *);
 
-file_t *
-NewFile(char *fn)
-{
-	file_t *	f;
+file_t *NewFile(char *fn) {
+    file_t *f;
 
-	f = (file_t *)Alloc(sizeof(file_t));
+    f = (file_t *)Alloc(sizeof(file_t));
 
-	f->f_name = strdup(fn);
-	f->f_lines = (list_t *)NULL;
-	f->f_ref = 0;
+    f->f_name = strdup(fn);
+    f->f_lines = (list_t *)NULL;
+    f->f_ref = 0;
 
-	return f;
+    return f;
 }
 
-file_t *
-AddFile(list_t **fl, char *fn)
-{
-	file_t *	f;
-	
-	if ( *fl == (list_t *)NULL )
-		*fl = NewList();
+file_t *AddFile(list_t **fl, char *fn) {
+    file_t *f;
 
-	if ( (f = FindFile(*fl, fn)) == (file_t *)NULL )
-	{
-		f = NewFile(fn);
-		AddToList(*fl, (void *)f);
-	}
-	f->f_ref++;
+    if (*fl == (list_t *)NULL) *fl = NewList();
 
-	return f;
+    if ((f = FindFile(*fl, fn)) == (file_t *)NULL) {
+        f = NewFile(fn);
+        AddToList(*fl, (void *)f);
+    }
+    f->f_ref++;
+
+    return f;
 }
 
-file_t *
-FindFile(list_t *fl, char *fn)
-{
-	file_t *	f;
+file_t *FindFile(list_t *fl, char *fn) {
+    file_t *f;
 
-	SetList(fl);
+    SetList(fl);
 
-	while ( (f = (file_t *)GetListElement(fl)) != (file_t *)NULL )
-		if ( strcmp(f->f_name, fn) == 0 )
-			return f;
+    while ((f = (file_t *)GetListElement(fl)) != (file_t *)NULL)
+        if (strcmp(f->f_name, fn) == 0) return f;
 
-	return (file_t *)NULL;
+    return (file_t *)NULL;
 }
 
-void
-DestroyFile(file_t *f)
-{
-	f->f_ref--;
+void DestroyFile(file_t *f) {
+    f->f_ref--;
 
-	if(f->f_ref >= 0)
-		return;
+    if (f->f_ref >= 0) return;
 
-	DestroyList(f->f_lines, (void (*)(void*))DestroyLine);
-	Free(f->f_name);
-	Free(f);
+    DestroyList(f->f_lines, (void (*)(void *))DestroyLine);
+    Free(f->f_name);
+    Free(f);
 }

@@ -15,11 +15,10 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 #ifndef _PROXY_H
 #define _PROXY_H
 
-extern list_t *		DbgInvokeList;
+extern list_t* DbgInvokeList;
 
 #endif /* !_PROXY_H */
-

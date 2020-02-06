@@ -11,8 +11,6 @@
  *
  *********************************************************************************/
 
-
-
 #ifndef _GUARD_MRNET_COMMUNICATOR_H
 #define _GUARD_MRNET_COMMUNICATOR_H
 

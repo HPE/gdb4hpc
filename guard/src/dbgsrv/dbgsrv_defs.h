@@ -15,21 +15,22 @@
  * $Author$
  *
  ******************************************************************************/
- 
+
 #ifndef _DBGSRV_DEFS_H
 #define _DBGSRV_DEFS_H
 
-extern int		Shutdown;
-extern int		exit_sleep_time;
-extern int		my_rank;
-extern int		sock_fd;
-extern int		gpu_flag;
-extern int		early_entry_flag;
-extern int		debug_flag;
+extern int Shutdown;
+extern int exit_sleep_time;
+extern int my_rank;
+extern int sock_fd;
+extern int gpu_flag;
+extern int early_entry_flag;
+extern int debug_flag;
 
-extern void		_dvprint(const char *format, ...);
-extern void		ResetWDT(void);
+extern void _dvprint(const char *format, ...);
+extern void ResetWDT(void);
 
-#define DVPRINT(...) if (debug_flag) _dvprint(__VA_ARGS__); 
+#define DVPRINT(...) \
+    if (debug_flag) _dvprint(__VA_ARGS__);
 
 #endif /* _DBGSRV_DEFS_H */

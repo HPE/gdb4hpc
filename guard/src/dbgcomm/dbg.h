@@ -21,15 +21,15 @@
 #ifndef _DBG_H
 #define _DBG_H
 
-#include "defs.h"
 #include "dbgcmd.h"
 #include "dbgevent.h"
 #include "dbgformat.h"
+#include "defs.h"
 
-/* 
+/*
 **Output routines defined by client/server interface
 */
-extern void	PrintOutError(const char *, ...);
-extern void	PrintOutMsg(const char *, ...);
+extern void PrintOutError(const char *, ...);
+extern void PrintOutMsg(const char *, ...);
 
 #endif /* _DBG_H */

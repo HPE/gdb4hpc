@@ -21,85 +21,81 @@
 #ifndef _TOKEN_H
 #define _TOKEN_H
 
-#include	"aif.h"
-#include	"bitset.h"
+#include "aif.h"
+#include "bitset.h"
 
-#define T_CHUNK		128
-#define T_NCHUNKS		20
+#define T_CHUNK 128
+#define T_NCHUNKS 20
 
-#define	 TK_BAD			0x0000
-#define	 TK_ANY			0xffff
-#define	 TK_VALID		0x0fff
+#define TK_BAD 0x0000
+#define TK_ANY 0xffff
+#define TK_VALID 0x0fff
 
-#define	 TK_DATA		0x0001
-#define	 TK_BOOL		0x0002
+#define TK_DATA 0x0001
+#define TK_BOOL 0x0002
 //#define	 TK_INV			0x0004
-#define	 TK_INT			0x0008
-#define	 TK_ADDR		0x0010
-#define	 TK_STR			0x0020
+#define TK_INT 0x0008
+#define TK_ADDR 0x0010
+#define TK_STR 0x0020
 //#define	 TK_PROC		0x0040
-#define	 TK_FLOAT		0x0080
+#define TK_FLOAT 0x0080
 
-#define TK_PROC_SET	0x0100
-#define TK_INT_SET	0x0200
-#define TK_DATA_SET	0x0400
-#define TK_BIT_SET	0x0800
+#define TK_PROC_SET 0x0100
+#define TK_INT_SET 0x0200
+#define TK_DATA_SET 0x0400
+#define TK_BIT_SET 0x0800
 
-typedef unsigned int	token_type;
+typedef unsigned int token_type;
 
-struct exec_t
-{
-	void *	e_exec;
-	int	e_lang;
+struct exec_t {
+    void* e_exec;
+    int e_lang;
 };
 
-struct token_t
-{
-	int					t_id;
-	int					t_ref;
-	struct node_t *		t_node;
+struct token_t {
+    int t_id;
+    int t_ref;
+    struct node_t* t_node;
 
-	token_type			t_type;
-	struct token_t *	t_prev;
-	struct token_t *	t_next;
+    token_type t_type;
+    struct token_t* t_prev;
+    struct token_t* t_next;
 
-	char *				t_name;
+    char* t_name;
 
-	// Set-related data member
-	char *				t_set_name;
-	int					t_set_length;
-	bitset *			t_set_bits;
+    // Set-related data member
+    char* t_set_name;
+    int t_set_length;
+    bitset* t_set_bits;
 
-	union
-	{
-		AIF *			t_d_data;
-		int				t_d_int;
-		double			t_d_float;
-		char *			t_d_str;
-		void *			t_d_addr;
-		dbgprocset_t * 	t_d_procset;
-		int *			t_d_int_set;
-		AIF **			t_d_data_set;
-		bitset *		t_d_bit_set;
-		int				t_d_bool;
-	} t_d;
-#define t_data			t_d.t_d_data
-#define t_int			t_d.t_d_int
-#define t_float		t_d.t_d_float
-#define t_str			t_d.t_d_str
-#define t_addr			t_d.t_d_addr
-#define t_proc_set	t_d.t_d_procset
-#define t_int_set		t_d.t_d_int_set
-#define t_data_set	t_d.t_d_data_set
-#define t_bit_set		t_d.t_d_bit_set
-#define t_bool			t_d.t_d_bool
+    union {
+        AIF* t_d_data;
+        int t_d_int;
+        double t_d_float;
+        char* t_d_str;
+        void* t_d_addr;
+        dbgprocset_t* t_d_procset;
+        int* t_d_int_set;
+        AIF** t_d_data_set;
+        bitset* t_d_bit_set;
+        int t_d_bool;
+    } t_d;
+#define t_data t_d.t_d_data
+#define t_int t_d.t_d_int
+#define t_float t_d.t_d_float
+#define t_str t_d.t_d_str
+#define t_addr t_d.t_d_addr
+#define t_proc_set t_d.t_d_procset
+#define t_int_set t_d.t_d_int_set
+#define t_data_set t_d.t_d_data_set
+#define t_bit_set t_d.t_d_bit_set
+#define t_bool t_d.t_d_bool
 
-	/* keep unique memory addersses in t_d_data_set for release */
-	// FIXME: This is a temporary hack until graph is modified to understand
-	// either reply_set_t or val_t.
-	rep_set_t *			t_d_shadow_reply;
+    /* keep unique memory addersses in t_d_data_set for release */
+    // FIXME: This is a temporary hack until graph is modified to understand
+    // either reply_set_t or val_t.
+    rep_set_t* t_d_shadow_reply;
 };
-typedef struct token_t	token_t;
+typedef struct token_t token_t;
 
 #endif /* !_TOKEN_H */
-

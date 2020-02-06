@@ -13,7 +13,6 @@
  *
  *********************************************************************************/
 
-
 #ifndef _USEFUL_ALLOC_H
 #define _USEFUL_ALLOC_H
 
@@ -23,13 +22,13 @@
 extern "C" {
 #endif
 
-extern char *	Argv0;
+extern char *Argv0;
 
-extern void *	Alloc(int size);
-extern void		Asprintf(char **strp, const char *fmt, ...);
-extern void		VAsprintf(char **strp, const char *fmt, va_list ap);
-extern void *	Resize(void *, int);
-extern void		Free(void *);
+extern void *Alloc(int size);
+extern void Asprintf(char **strp, const char *fmt, ...);
+extern void VAsprintf(char **strp, const char *fmt, va_list ap);
+extern void *Resize(void *, int);
+extern void Free(void *);
 
 #ifdef __cplusplus
 }

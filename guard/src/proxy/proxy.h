@@ -1,7 +1,7 @@
 /******************************************************************************\
  * proxy.h - Debugger proxy daemon common include file
  *
- * © 2013 Cray Inc.  All Rights Reserved.
+ * © 2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

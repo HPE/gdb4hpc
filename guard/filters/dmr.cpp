@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * <dmr.cpp>
  *
- * © 2012-2013 Cray Inc.  All Rights Reserved.
+ * © 2012-2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

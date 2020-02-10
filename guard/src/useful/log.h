@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * log.h - Header file for the log interface.
  *
- * © 2011-2019 Cray Inc.  All Rights Reserved.
+ * © 2011-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

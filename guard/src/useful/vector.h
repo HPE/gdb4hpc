@@ -1,7 +1,7 @@
 /******************************************************************************\
  * vector.h - Header file for the vector interface.
  *
- * © 2014-2019 Cray Inc.  All Rights Reserved.
+ * © 2014-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

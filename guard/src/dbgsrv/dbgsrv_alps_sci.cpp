@@ -2,7 +2,7 @@
  * dbgsrv_alps.c - A wrapper program to launch guard dbgsrv's onto the compute
  *                 nodes.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * © 2011-2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

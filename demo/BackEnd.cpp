@@ -1,7 +1,7 @@
 #include "BackEnd.h"
 #include "Error.h"
-#include "ReadDataStream.h"
-#include "WriteDataStream.h"
+#include "IStream.h"
+#include "OStream.h"
 #include "Debugger.h"
 
 #include <iostream>
@@ -10,8 +10,8 @@
 #include <sstream>
 
 BackEnd::BackEnd(std::shared_ptr<Debugger> debugger, 
-                 std::shared_ptr<ReadDataStream> in,
-                 std::shared_ptr<WriteDataStream> out)
+                 std::shared_ptr<IStream> in,
+                 std::shared_ptr<OStream> out)
     : m_debugger(debugger), m_in(in), m_out(out)
 {}
 
@@ -47,8 +47,10 @@ void BackEnd::evalExpression()
     bool isDouble = (type == "double");
 
     // give the array type and dimension
-    m_out->putInt((isDouble ? DataStream::DOUBLE : DataStream::INT));
+    /*
+    m_out->putInt((isDouble ? Stream::DOUBLE : Stream::INT));
     m_out->putInt(numElems);
+    */
 
     const int QUERY_SIZE = 1000;
     for (int minIdx = 0; minIdx < numElems; minIdx += QUERY_SIZE) {
@@ -66,11 +68,12 @@ void BackEnd::evalExpression()
             m_out->putInts(buf,n);
         }
     }
+    m_out->eof();
 }
 
 void BackEnd::start(std::shared_ptr<Debugger> debugger, 
-                    std::shared_ptr<ReadDataStream> in,
-                    std::shared_ptr<WriteDataStream> out)
+                    std::shared_ptr<IStream> in,
+                    std::shared_ptr<OStream> out)
 {
     std::thread beTA([debugger,in,out]() {
             auto beA = std::make_shared<BackEnd>(debugger, in, out);

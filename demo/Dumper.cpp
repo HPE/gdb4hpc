@@ -1,10 +1,10 @@
 #include "Dumper.h"
-#include "WriteDataStream.h"
-#include "ReadDataStream.h"
+#include "OStream.h"
+#include "IStream.h"
 #include "Error.h"
 #include <iostream>
 
-Dumper::Dumper(std::shared_ptr<ReadDataStream> dataIn, std::shared_ptr<WriteDataStream> commandOut)
+Dumper::Dumper(std::shared_ptr<IStream> dataIn, std::shared_ptr<OStream> commandOut)
     : m_dataIn(dataIn), m_commandOut(commandOut)
 {}
 
@@ -14,11 +14,11 @@ void Dumper::dumpVals()
     m_commandOut->putInt(12);
     
     int type = m_dataIn->getInt();
-    if (type != DataStream::DOUBLE && type != DataStream::INT) {
+    if (type != Stream::DOUBLE && type != Stream::INT) {
         throw Error("unrecognized type index " + std::to_string(type));
     }
 
-    bool isDouble = (type == DataStream::DOUBLE);
+    bool isDouble = (type == Stream::DOUBLE);
     int numElems = m_dataIn->getInt();
 
     if (isDouble) {

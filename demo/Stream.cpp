@@ -1,8 +1,8 @@
 
 
-#include "DataStream.h"
+#include "Stream.h"
 
-DataStream::DataStream(std::shared_ptr<ByteStream> byteStream)
+Stream::Stream(std::shared_ptr<ByteStream> byteStream)
     : m_byteStream(byteStream)
 {}
 

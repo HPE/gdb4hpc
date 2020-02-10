@@ -1,15 +1,23 @@
-#include "ReadDataStream.h"
+#include "IStream.h"
+#include "OStream.h"
 #include "ByteStream.h"
 #include "Error.h"
+#include <iostream>
 
-ReadDataStream::ReadDataStream(std::shared_ptr<ByteStream> byteStream)
-    : DataStream(byteStream), m_currentType(UNKNOWN), m_remainingOfType(0)
+IStream::IStream(std::shared_ptr<ByteStream> byteStream)
+    : Stream(byteStream), m_currentType(UNKNOWN), m_remainingOfType(0), 
+      m_headIsClosed(false)
 {}
 
-double ReadDataStream::getDouble() 
+double IStream::getDouble() 
 {
-    if (!m_remainingOfType)
+    if (!m_remainingOfType) {
         readType();
+    }
+
+    if (m_currentType == END) {
+        throw Error("unexpected EOF");
+    }
 
     if (m_currentType != DOUBLE) {
         throw Error("expected a double");
@@ -22,10 +30,14 @@ double ReadDataStream::getDouble()
     return val;
 }
 
-int ReadDataStream::getInt()
+int IStream::getInt()
 {
     if (!m_remainingOfType)
         readType();
+
+    if (m_currentType == END) {
+        throw Error("unexpected EOF");
+    }
 
     if (m_currentType != INT) {
         throw Error("expected an int");
@@ -37,30 +49,69 @@ int ReadDataStream::getInt()
     return val;
 }
 
-bool ReadDataStream::hasData() const
+bool IStream::read(std::any& val)
+{
+    if (!m_remainingOfType)
+        readType();
+    
+    if (m_currentType == INT) 
+        val = getInt();
+    else if (m_currentType == DOUBLE)
+        val = getDouble();
+    else if (m_currentType == END)
+        return false;
+    else
+        throw Error("unknown type");
+
+    return true;
+}
+
+bool IStream::hasData() const
 {
     return m_byteStream->hasData();
 }
 
-void ReadDataStream::readType()
+void IStream::readType()
 {
     int sentinal = getIntL();
     if (sentinal != SENTINAL) {
         throw Error("record mis-match on read");
     }
+
     int ttype = getIntL();
-    if (ttype < 0 || ttype > DOUBLE) {
+    if (ttype <= UNKNOWN || ttype > DOUBLE) {
         throw Error("expected a type index, got " + std::to_string(ttype));
     }
-
     m_currentType = Type(ttype);
+
     m_remainingOfType = getIntL();
 }
 
-int ReadDataStream::getIntL()
+void IStream::setNotifier(std::shared_ptr<Notifier> notifier)
+{
+    m_notifier = notifier;
+}
+
+int IStream::getIntL()
 {
     int val;
     m_byteStream->read(sizeof(int), reinterpret_cast<char*>(&val));    
     return val;
+}
+
+void IStream::connectToHead(OStream& head)
+{
+    head.setNotifier(std::make_shared<HeadNotifier>(this));
+}
+
+void IStream::notifyFromHead(Stream::State state)
+{
+    if (m_notifier)
+        m_notifier->notify(state);
+}
+
+IStream::HeadNotifier::HeadNotifier(IStream* stream) : m_stream(stream) {}
+void IStream::HeadNotifier::notify(Stream::State state) {
+    m_stream->notifyFromHead(state);
 }
 

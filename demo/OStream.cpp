@@ -1,39 +1,60 @@
-#include "WriteDataStream.h"
+#include "OStream.h"
 #include "ByteStream.h"
 #include "Error.h"
+#include "Notifier.h"
+#include <iostream>
 
-WriteDataStream::WriteDataStream(std::shared_ptr<ByteStream> byteStream)
-    : DataStream(byteStream)
+OStream::OStream(std::shared_ptr<ByteStream> byteStream)
+    : Stream(byteStream)
 {
 }
 
-void WriteDataStream::putDouble(double val)
+void OStream::putDouble(double val)
 {
     putDoubles(&val, 1);
 }
 
-void WriteDataStream::putDoubles(const double* val, size_t cnt)
+void OStream::putDoubles(const double* val, size_t cnt)
 {
     writeType(DOUBLE, cnt);
     m_byteStream->write(cnt*sizeof(double), reinterpret_cast<const char*>(val));
+    if (m_notifier)
+        m_notifier->notify(Stream::DATA_READY);
 }
 
-void WriteDataStream::putInt(int val)
+void OStream::putInt(int val)
 {
     putInts(&val, 1);
 }
 
-void WriteDataStream::putInts(const int* val, size_t cnt) {
+void OStream::putInts(const int* val, size_t cnt) {
     writeType(INT, cnt);
     m_byteStream->write(cnt*sizeof(int), reinterpret_cast<const char*>(val));
+    if (m_notifier)
+        m_notifier->notify(Stream::DATA_READY);
 }
 
-void WriteDataStream::putIntL(int val)
+void OStream::eof() {
+    writeType(END,0);
+    if (m_notifier)
+        m_notifier->notify(Stream::END_OF_FILE);
+}
+
+void OStream::cancel() {
+    std::cerr << "OStream::cancel is not implemented\n";
+}
+
+void OStream::setNotifier(std::shared_ptr<Notifier> notifier)
+{
+    m_notifier = notifier;
+}
+
+void OStream::putIntL(int val)
 {
     m_byteStream->write(sizeof(int), reinterpret_cast<const char*>(&val));
 }
 
-void WriteDataStream::writeType(Type type, size_t repeat)
+void OStream::writeType(Type type, size_t repeat)
 {
     // write out a little sentinal for sanity checking
     putIntL(SENTINAL);

@@ -4,14 +4,16 @@
 
 class ByteStream;
 
-class DataStream
+class Stream
 {
 public:
-    enum Type { UNKNOWN, INT, DOUBLE };
+    enum Type { UNKNOWN, END, INT, DOUBLE };
 
-    DataStream(std::shared_ptr<ByteStream> byteStream);
+    enum State { DATA_READY, END_OF_FILE, CANCEL };
 
-    virtual ~DataStream() = default;
+    Stream(std::shared_ptr<ByteStream> byteStream);
+
+    virtual ~Stream() = default;
     
 protected:
 

@@ -1,28 +1,39 @@
 #include "Comparator.h"
-#include "ReadDataStream.h"
-#include "WriteDataStream.h"
+#include "IStream.h"
+#include "OStream.h"
 #include "Error.h"
+#include "Compare.h"
+#include "OneWayConnection.h"
+
 #include <iostream>
 
-Comparator::Comparator(std::shared_ptr<ReadDataStream> fromA, std::shared_ptr<WriteDataStream> toA,
-                       std::shared_ptr<ReadDataStream> fromB, std::shared_ptr<WriteDataStream> toB)
+Comparator::Comparator(std::shared_ptr<IStream> fromA, std::shared_ptr<OStream> toA,
+                       std::shared_ptr<IStream> fromB, std::shared_ptr<OStream> toB)
     : m_fromA(fromA), m_toA(toA), m_fromB(fromB), m_toB(toB)
 {
+    
 }
 
 void Comparator::compare(const std::string& expression)
 {
+    OneWayConnection output;
+    Compare compare(m_fromA, m_fromB, output.getWriter());
+
     // send out the clowns
     m_toA->putInt(12);
     m_toB->putInt(12);
 
+    std::any val;
+    while (output.getReader()->read(val)) {}
+
+    /*
     int typeA = m_fromA->getInt();
-    if (typeA != DataStream::DOUBLE && typeA != DataStream::INT) {
+    if (typeA != Stream::DOUBLE && typeA != Stream::INT) {
         throw Error("unrecognized type index " + std::to_string(typeA));
     }
 
     int typeB = m_fromB->getInt();
-    if (typeB != DataStream::DOUBLE && typeB != DataStream::INT) {
+    if (typeB != Stream::DOUBLE && typeB != Stream::INT) {
         throw Error("unrecognized type index " + std::to_string(typeB));
     }
 
@@ -30,7 +41,7 @@ void Comparator::compare(const std::string& expression)
         throw Error("not handling mismatched types");
     }
 
-    bool isDouble = (typeA == DataStream::DOUBLE);
+    bool isDouble = (typeA == Stream::DOUBLE);
     
     int numElemsA = m_fromA->getInt();
     int numElemsB = m_fromB->getInt();
@@ -53,5 +64,6 @@ void Comparator::compare(const std::string& expression)
         }
 
     }
+    */
 }
 

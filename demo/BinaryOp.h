@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Notifier.h"
+#include <mutex>
+
 class IStream; class OStream;
 
 class BinaryOp
@@ -34,6 +36,7 @@ private:
     std::shared_ptr<BinaryOpNotifier> m_notifier1;
     std::shared_ptr<BinaryOpNotifier> m_notifier2;
 
-    std::atomic_uchar m_ready;
-    std::atomic_uchar m_eof;
+    std::mutex m_mutex;
+    bool m_ready[2];
+    bool m_eof[2];
 };

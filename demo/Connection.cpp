@@ -1,9 +1,9 @@
-#include "OneWayConnection.h"
+#include "Connection.h"
 #include "IStream.h"
 #include "OStream.h"
 #include "ByteStream.h"
 
-OneWayConnection::OneWayConnection()
+Connection::Connection()
 {
     auto byteStream = std::make_shared<ByteStream>();
     m_reader = std::make_shared<IStream>(byteStream);

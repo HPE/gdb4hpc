@@ -7,22 +7,26 @@ BinaryOp::BinaryOp(std::shared_ptr<IStream> in1, std::shared_ptr<IStream> in2,
                    std::shared_ptr<OStream> out)
     : m_in1(in1), m_in2(in2), m_out(out), 
       m_notifier1(new BinaryOpNotifier(this,0)),
-      m_notifier2(new BinaryOpNotifier(this,1)),
-      m_ready('\0'), m_eof('\0')
+      m_notifier2(new BinaryOpNotifier(this,1))
 {
+    m_ready[0] = m_ready[1] = false;
+    m_eof[0] = m_eof[1] = false;
+
     in1->setNotifier(m_notifier1);
     in2->setNotifier(m_notifier2);
 }
 
 void BinaryOp::inputNotify(int which, Stream::State state)
 {
+    std::unique_lock<std::mutex> lock(m_mutex);
+
     switch (state) {
     case Stream::DATA_READY:
         notifyReady(which);
         break;
     case Stream::END_OF_FILE:
-        m_eof |= 1<<which;
-        if (m_eof == '\3')
+        m_eof[which] = true;
+        if (m_eof[0] && m_eof[1])
             m_out->eof();
         break;
     case Stream::CANCEL:
@@ -33,20 +37,13 @@ void BinaryOp::inputNotify(int which, Stream::State state)
 
 void BinaryOp::notifyReady(int which)
 {
-    m_ready |= (1<<which);
-    while (m_ready == '\3') {
-        m_ready = '\0';
+    m_ready[which] = true;
+    while (m_ready[0] && m_ready[1]) {
         apply();
 
-        // apply might have exhausted one of the streams and not the other.
-        // Use |= because another notifyRead might have happened during apply
-        // (that's also why we reset the flag to zero beforehand.  Also it's
-        // we loop on m_ready == 3 - we might have gotten the last notification
-        // from either one
-        if (m_in1->hasData()) 
-            m_ready |= '\1';
-        if (m_in2->hasData())
-            m_ready |= '\2';
+        // apply might have exhausted one of the streams and not the other
+        m_ready[0] = m_in1->hasData();
+        m_ready[1] = m_in2->hasData();
     }
 }
 

@@ -1,10 +1,9 @@
 #include <string>
 #include <iostream>
-#include <thread>
 
 #include "Debugger.h"
 #include "Comparator.h"
-#include "OneWayConnection.h"
+#include "AsyncConnection.h"
 #include "BackEnd.h"
 #include "Dumper.h"
 
@@ -35,19 +34,22 @@ int main(int argc, char* argv[])
     auto debB = std::make_shared<Debugger>(type, size, diffs, -1.0);
     //Comparator comparator(a, b);
 
-    auto toA = OneWayConnection::make();
-    auto fromA = OneWayConnection::make();
-    
+    auto toA = AsyncConnection::make();
+    auto fromA = AsyncConnection::make();
+
     BackEnd::start(debA, toA->getReader(), fromA->getWriter());
 
     if (false) {
       auto feA = std::make_shared<Dumper>(fromA->getReader(), toA->getWriter());
       feA->dumpVals();
     } else {
-        auto toB = OneWayConnection::make();
-        auto fromB = OneWayConnection::make();
+        auto toB = AsyncConnection::make();
+        auto fromB = AsyncConnection::make();
 
         BackEnd::start(debB, toB->getReader(), fromB->getWriter());
+
+        fromA->start();
+        fromB->start();
         
         Comparator compare(fromA->getReader(), toA->getWriter(), 
                            fromB->getReader(), toB->getWriter());

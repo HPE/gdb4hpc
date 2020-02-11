@@ -3,11 +3,16 @@
 
 ByteStream::ByteStream() {}
     
-void ByteStream::read(size_t elems, char* val)
+void ByteStream::wait(size_t elems) const
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     while (m_data.size() < elems)
         m_ready.wait(lock);
+}
+
+void ByteStream::read(size_t elems, char* val)
+{
+    wait(elems);
 
     auto de = m_data.begin()+elems;
     copy(m_data.begin(), de, val);

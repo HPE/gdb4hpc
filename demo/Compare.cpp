@@ -13,20 +13,25 @@ Compare::Compare(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::sh
 void Compare::apply() 
 {
     std::any v1, v2;
+
+    // lookat: IStream is just looking at ByteStream->hasData which isn't smart enough to 
+    // know the next thing is EOF.   I.e. we've read the last available data and the *next*
+    // read will fail.   So for now, handle the read failure here.
     if (!getIn1()->read(v1) || !getIn2()->read(v2)) {
-        throw Error("unexpected EOF during read");
+        getOut()->eof();
+        return;
     }
 
     if (v1.type() == typeid(double) || v2.type() == typeid(double)) {
         double d1 = std::any_cast<double>(v1);
         double d2 = std::any_cast<double>(v2);
-        std::cout << "Compare is outputting " << d1-d2 << " from " << d1 << "," << d2 << "\n";
-        //getOut()->putDouble(d1 - d2);
+        //std::cout << "Compare is outputting " << d1-d2 << " from " << d1 << "," << d2 << "\n";
+        getOut()->putDouble(d1 - d2);
     } else if (v1.type() == typeid(int) || v2.type() == typeid(int)) {
         int i1 = std::any_cast<int>(v1);
         int i2 = std::any_cast<int>(v2);
-        std::cout << "Compare is outputting " << i1-i2 << " from " << i1 << "," << i2 << "\n";
-        //getOut()->putDouble(i1 - i2);
+        //std::cout << "Compare is outputting " << i1-i2 << " from " << i1 << "," << i2 << "\n";
+        getOut()->putInt(i1 - i2);
     } else {
         throw Error("unhandled types in compare");
     }

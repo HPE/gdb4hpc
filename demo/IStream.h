@@ -20,7 +20,14 @@ public:
 
     void setNotifier(std::shared_ptr<Notifier> notifier);
 
+    std::shared_ptr<Notifier> getNotifier();
+
     void connectToHead(OStream& ostream);
+
+    void close();
+
+    void wait();
+    void waitAndNotify();
 
 private:
     class HeadNotifier : public Notifier {

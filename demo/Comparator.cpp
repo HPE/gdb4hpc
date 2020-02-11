@@ -3,7 +3,8 @@
 #include "OStream.h"
 #include "Error.h"
 #include "Compare.h"
-#include "OneWayConnection.h"
+#include "Connection.h"
+#include "More.h"
 
 #include <iostream>
 
@@ -16,15 +17,21 @@ Comparator::Comparator(std::shared_ptr<IStream> fromA, std::shared_ptr<OStream> 
 
 void Comparator::compare(const std::string& expression)
 {
-    OneWayConnection output;
+    Connection output;
     Compare compare(m_fromA, m_fromB, output.getWriter());
+
+    More more(output.getReader(), 5);
 
     // send out the clowns
     m_toA->putInt(12);
     m_toB->putInt(12);
 
+    while (true) {}
+
+    /*
     std::any val;
     while (output.getReader()->read(val)) {}
+    */
 
     /*
     int typeA = m_fromA->getInt();

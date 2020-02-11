@@ -13,8 +13,10 @@ public:
     void write(size_t elems, const char* val);
 
     bool hasData() const;
+    
+    void wait(size_t minElems) const;
 private:
     mutable std::mutex m_mutex;
-    std::condition_variable m_ready;
+    mutable std::condition_variable m_ready;
     std::deque<char> m_data;
 };

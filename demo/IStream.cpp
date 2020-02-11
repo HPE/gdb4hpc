@@ -92,6 +92,8 @@ void IStream::setNotifier(std::shared_ptr<Notifier> notifier)
     m_notifier = notifier;
 }
 
+std::shared_ptr<Notifier> IStream::getNotifier() { return m_notifier; }
+
 int IStream::getIntL()
 {
     int val;
@@ -109,6 +111,25 @@ void IStream::notifyFromHead(Stream::State state)
     if (m_notifier)
         m_notifier->notify(state);
 }
+
+void IStream::close()
+{
+    std::cerr << "IStream::close is unimplemented\n";
+}
+
+void IStream::wait()
+{
+    m_byteStream->wait(1);
+}
+
+void IStream::waitAndNotify()
+{
+    m_byteStream->wait(1);
+    if (m_notifier) {
+        m_notifier->notify(DATA_READY);
+    }
+}
+
 
 IStream::HeadNotifier::HeadNotifier(IStream* stream) : m_stream(stream) {}
 void IStream::HeadNotifier::notify(Stream::State state) {

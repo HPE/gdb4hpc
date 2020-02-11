@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Notifier.h"
+#include <mutex>
 class IStream;
 
 class UnaryTerminator
@@ -10,6 +11,8 @@ public:
     virtual void apply() = 0;
 
     std::shared_ptr<IStream> getIn() { return m_in; }
+    
+    void wait();
 private:
     class UnaryTerminatorNotifier : public Notifier {
     public:
@@ -23,8 +26,13 @@ private:
 
     void inputNotify(Stream::State state);
     void notifyReady();
+    void notifyDone();
 
     std::shared_ptr<IStream> m_in;
 
     std::shared_ptr<UnaryTerminatorNotifier> m_notifier;
+
+    std::mutex m_waitMutex;
+    std::condition_variable m_doneCondition;
+    bool m_isDone;
 };

@@ -4,7 +4,8 @@
 
 UnaryTerminator::UnaryTerminator(std::shared_ptr<IStream> in)
     : m_in(in),
-      m_notifier(new UnaryTerminatorNotifier(this))
+      m_notifier(new UnaryTerminatorNotifier(this)),
+      m_isDone(false)
 {
     in->setNotifier(m_notifier);
 }
@@ -16,6 +17,7 @@ void UnaryTerminator::inputNotify(Stream::State state)
         notifyReady();
         break;
     case Stream::END_OF_FILE:
+        notifyDone();
         break;
     case Stream::CANCEL:
         throw Error("not handling cancel");
@@ -31,9 +33,23 @@ void UnaryTerminator::notifyReady()
     }
 }
 
+void UnaryTerminator::notifyDone()
+{
+    m_isDone = true;
+    m_doneCondition.notify_all();
+}
+
 UnaryTerminator::UnaryTerminatorNotifier::UnaryTerminatorNotifier(UnaryTerminator* op) : m_op(op) {}
 
 void UnaryTerminator::UnaryTerminatorNotifier::notify(Stream::State state)
 {
     m_op->inputNotify(state);
+}
+
+void UnaryTerminator::wait()
+{
+    std::unique_lock<std::mutex> lock(m_waitMutex);
+    while (!m_isDone) {
+        m_doneCondition.wait(lock);
+    }
 }

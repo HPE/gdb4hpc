@@ -26,7 +26,7 @@ void Comparator::compare(const std::string& expression)
     m_toA->putInt(12);
     m_toB->putInt(12);
 
-    while (true) {}
+    more.wait();
 
     /*
     std::any val;

@@ -1,6 +1,7 @@
 #include "More.h"
 #include "IStream.h"
 #include "Error.h"
+#include "Value.h"
 #include <iostream>
 
 More::More(std::shared_ptr<IStream> in, size_t numItems)
@@ -9,7 +10,7 @@ More::More(std::shared_ptr<IStream> in, size_t numItems)
 
 void More::apply()
 {
-    std::any val;
+    Value val;
     if (!getIn()->read(val)) {
         throw Error("unexpected EOF during read");
     }
@@ -17,13 +18,7 @@ void More::apply()
     if (m_quit)
         return;
 
-    if (val.type() == typeid(double)) {
-        std::cout << std::any_cast<double>(val) << "\n";
-    } else if (val.type() == typeid(int)) {
-        std::cout << std::any_cast<int>(val) << "\n";
-    } else {
-        std::cout << "unrecognized type\n";
-    }
+    std::cout << val << "\n";
 
     if (++m_numPrinted == m_maxItems) {
         std::cerr << "----- more? -----\n";

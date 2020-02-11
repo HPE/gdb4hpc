@@ -2,6 +2,7 @@
 #include "ByteStream.h"
 #include "Error.h"
 #include "Notifier.h"
+#include "Value.h"
 #include <iostream>
 
 OStream::OStream(std::shared_ptr<ByteStream> byteStream)
@@ -25,6 +26,17 @@ void OStream::putDoubles(const double* val, size_t cnt)
 void OStream::putInt(int val)
 {
     putInts(&val, 1);
+}
+
+void OStream::putValue(const Value& val) {
+    int iv; double dv;
+    if (val.to(iv))
+        putInt(iv);
+    else if (val.to(dv))
+        putDouble(dv);
+    else
+        throw Error("unrecognized type");
+
 }
 
 void OStream::putInts(const int* val, size_t cnt) {

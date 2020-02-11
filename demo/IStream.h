@@ -2,9 +2,8 @@
 
 #include "Stream.h"
 #include "Notifier.h"
-#include <any>
 
-class Notifier; class OStream;
+class Notifier; class OStream; class Value;
 
 class IStream : public Stream
 {
@@ -14,7 +13,7 @@ public:
     double getDouble();
     int getInt();
 
-    bool read(std::any& val);
+    bool read(Value& val);
 
     bool hasData() const; // temporary?
 

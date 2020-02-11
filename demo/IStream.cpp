@@ -2,6 +2,7 @@
 #include "OStream.h"
 #include "ByteStream.h"
 #include "Error.h"
+#include "Value.h"
 #include <iostream>
 
 IStream::IStream(std::shared_ptr<ByteStream> byteStream)
@@ -49,7 +50,7 @@ int IStream::getInt()
     return val;
 }
 
-bool IStream::read(std::any& val)
+bool IStream::read(Value& val)
 {
     if (!m_remainingOfType)
         readType();

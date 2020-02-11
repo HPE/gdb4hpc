@@ -3,7 +3,7 @@
 #include "Stream.h"
 #include <memory>
 
-class Notifier;
+class Notifier; class Value;
 
 class OStream : public Stream
 {
@@ -15,6 +15,8 @@ public:
 
     void putInt(int val);
     void putInts(const int* vals, size_t cnt);
+
+    void putValue(const Value& val);
 
     void eof();
     void eor();

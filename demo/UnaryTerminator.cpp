@@ -10,6 +10,16 @@ UnaryTerminator::UnaryTerminator(std::shared_ptr<IStream> in)
     in->setNotifier(m_notifier);
 }
 
+UnaryTerminator::~UnaryTerminator()
+{
+    detach();
+}
+
+void UnaryTerminator::detach()
+{
+    m_in->setNotifier(nullptr);
+}
+
 void UnaryTerminator::inputNotify(Stream::State state)
 {
     switch (state) {

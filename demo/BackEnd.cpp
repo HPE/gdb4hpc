@@ -3,6 +3,7 @@
 #include "IStream.h"
 #include "OStream.h"
 #include "Debugger.h"
+#include "Value.h"
 
 #include <iostream>
 #include <thread>
@@ -34,9 +35,13 @@ void BackEnd::dispatchLoop()
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        int dummyVal = m_in->getInt();
+        int commandVal = m_in->getInt();
 
-        evalExpression();
+        if (commandVal == 12) 
+            evalExpression();
+        else if (commandVal == 13) {
+            evalSetParams();
+        }
     }
 }
 
@@ -69,6 +74,27 @@ void BackEnd::evalExpression()
         }
     }
     m_out->eof();
+}
+
+void BackEnd::evalSetParams()
+{
+    Value typeVal, sizeVal, diffVal;     
+    int typeId, size, diff;
+    int retVal = -1;
+    if (!m_in->read(typeVal) || !m_in->read(sizeVal) || !m_in->read(diffVal)) {
+        std::cerr << "could not read debugger parameters\n";
+    } else if (!typeVal.to(typeId) || !sizeVal.to(size) || !diffVal.to(diff)) {
+        std::cerr << "expected integral parameter values";
+    } else if (typeId < 0 || typeId > 1) {
+        std::cerr << "unexpected type " + std::to_string(typeId);
+    } else {
+        m_debugger->setParams( typeId == 0 ? "int" : "double", size, diff);
+        retVal = 0;
+    }
+
+    m_out->putInt(retVal);
+    m_out->eof();
+        
 }
 
 void BackEnd::start(std::shared_ptr<Debugger> debugger, 

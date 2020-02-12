@@ -9,6 +9,10 @@ class Compare : public BinaryOp
 public:
     Compare(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs);
 
-    virtual void apply();
+    void apply() override;
+
+private:
+    bool m_eof[2];
+    
 };
 

@@ -20,6 +20,7 @@ public:
 private:
     void dispatchLoop();
     void evalExpression();
+    void evalSetParams();
 
     std::shared_ptr<Debugger> m_debugger;
     std::shared_ptr<IStream> m_in;

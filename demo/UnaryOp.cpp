@@ -11,6 +11,9 @@ UnaryOp::UnaryOp(std::shared_ptr<IStream> in,
     in->setNotifier(m_notifier);
 }
 
+UnaryOp::~UnaryOp() {
+    m_in->setNotifier(nullptr);
+}
 void UnaryOp::inputNotify(Stream::State state)
 {
     switch (state) {

@@ -3,10 +3,20 @@
 #include <sstream>
 
 Debugger::Debugger(const std::string& type, size_t size, size_t numDiffs, double diffMult)
-    : m_type(type), m_sizeString(std::to_string(size)), m_isDouble(type == "double"), 
-      m_hasDiffs(numDiffs>0), m_size(size), 
-      m_diffMult(diffMult), m_rand_cutoff(m_rand.max())
+    : m_diffMult(diffMult)
 {
+    setParams(type, size, numDiffs);
+}
+
+void Debugger::setParams(const std::string& type, size_t size, size_t numDiffs)
+{
+    m_type = type;
+    m_sizeString = std::to_string(size);
+    m_isDouble = (type == "double");
+    m_hasDiffs = (numDiffs>0);
+    m_size = size;
+    m_rand_cutoff = m_rand.max();
+
     if (numDiffs > 0) {
         double bc = double(numDiffs) / size;
         m_rand_cutoff = std::minstd_rand::result_type(m_rand.min() * bc + m_rand.max() * (1-bc));

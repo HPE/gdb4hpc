@@ -1,10 +1,12 @@
 #include <string>
 #include <iostream>
+#include <vector>
 
 #include "Debugger.h"
 #include "Comparator.h"
 #include "AsyncConnection.h"
 #include "BackEnd.h"
+#include "FrontEnd.h"
 #include "Dumper.h"
 
 static void usage(const std::string& exec);
@@ -39,24 +41,37 @@ int main(int argc, char* argv[])
 
     BackEnd::start(debA, toA->getReader(), fromA->getWriter());
 
-    if (false) {
-      auto feA = std::make_shared<Dumper>(fromA->getReader(), toA->getWriter());
-      feA->dumpVals();
-    } else {
-        auto toB = AsyncConnection::make();
-        auto fromB = AsyncConnection::make();
+    auto toB = AsyncConnection::make();
+    auto fromB = AsyncConnection::make();
 
-        BackEnd::start(debB, toB->getReader(), fromB->getWriter());
+    BackEnd::start(debB, toB->getReader(), fromB->getWriter());
 
-        fromA->start();
-        fromB->start();
-        
-        Comparator compare(fromA->getReader(), toA->getWriter(), 
-                           fromB->getReader(), toB->getWriter());
-        
-        compare.compare("shazbot");
+    fromA->start();
+    fromB->start();
+
+    std::vector<std::string> userCommands = { 
+        "p $a::a",
+        "set int 40 0",
+        "p $a::a $| $more(10)",
+        "quit"
+    };
+
+    FrontEnd frontEnd(fromA->getReader(), toA->getWriter(),
+                      fromB->getReader(), toB->getWriter());
+
+    bool doQuit = false;
+    for (std::string userCommand : userCommands) {
+        frontEnd.execute(userCommand, doQuit);
+        if (doQuit)
+            break;
     }
-
+    
+    /*
+    Comparator compare(fromA->getReader(), toA->getWriter(), 
+                       fromB->getReader(), toB->getWriter());
+        
+    compare.compare("shazbot");
+    */
     //comparator.compare("a == b");
 }
 

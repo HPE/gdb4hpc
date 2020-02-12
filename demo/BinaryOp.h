@@ -9,7 +9,10 @@ class BinaryOp
 {
 public:
     BinaryOp(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs);
+    virtual ~BinaryOp();
+
     virtual void apply() = 0;
+    virtual void detach();
 
     std::shared_ptr<IStream> getIn1() { return m_in1; }
     std::shared_ptr<IStream> getIn2() { return m_in2; }

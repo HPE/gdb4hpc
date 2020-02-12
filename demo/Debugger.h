@@ -8,6 +8,8 @@ class Debugger {
 public:
     Debugger(const std::string& type, size_t size, size_t numDiffs, double diffMult);
 
+    void setParams(const std::string& type, size_t size, size_t numDiffs);
+
     // first version, we're simulating a 
     std::string getType() const;
     std::string getNumElems() const;

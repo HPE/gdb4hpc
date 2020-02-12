@@ -5,6 +5,7 @@
 #include "Error.h"
 
 #include <thread>
+#include <iostream>
 
 AsyncConnection::AsyncConnection()
 {
@@ -26,8 +27,14 @@ void AsyncConnection::start()
     */
 
     std::thread t([reader]() {
-            while (true) {
-                reader->waitAndNotify();
+            try {
+                while (true) {
+                    reader->waitAndNotify();
+                }
+            } catch (Error& e) {
+                std::cerr << "reading thread caught exception " << e.str() << "\n";
+            } catch (...) {
+                std::cerr << "reading thread caught system exception\n";
             }
         });
     

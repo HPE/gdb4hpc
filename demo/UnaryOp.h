@@ -7,6 +7,8 @@ class UnaryOp
 {
 public:
     UnaryOp(std::shared_ptr<IStream> in, std::shared_ptr<OStream> out);
+    virtual ~UnaryOp();
+
     virtual void apply() = 0;
 
     std::shared_ptr<IStream> getIn() { return m_in; }
@@ -16,7 +18,7 @@ private:
         UnaryOpNotifier(UnaryOp* op);
         virtual void notify(Stream::State state);
     private:
-        UnaryOp* m_op;
+	UnaryOp* m_op;
     };
 
     friend class UnaryOpNotifier;

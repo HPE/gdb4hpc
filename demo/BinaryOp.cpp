@@ -16,6 +16,15 @@ BinaryOp::BinaryOp(std::shared_ptr<IStream> in1, std::shared_ptr<IStream> in2,
     in2->setNotifier(m_notifier2);
 }
 
+BinaryOp::~BinaryOp() {
+    detach();
+}
+
+void BinaryOp::detach() {
+    m_in1->setNotifier(nullptr);
+    m_in2->setNotifier(nullptr);
+}    
+
 void BinaryOp::inputNotify(int which, Stream::State state)
 {
     std::unique_lock<std::mutex> lock(m_mutex);

@@ -8,7 +8,10 @@ class UnaryTerminator
 {
 public:
     UnaryTerminator(std::shared_ptr<IStream> in);
+    virtual ~UnaryTerminator();
+
     virtual void apply() = 0;
+    virtual void detach();
 
     std::shared_ptr<IStream> getIn() { return m_in; }
     

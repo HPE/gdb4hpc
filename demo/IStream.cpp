@@ -90,10 +90,14 @@ void IStream::readType()
 
 void IStream::setNotifier(std::shared_ptr<Notifier> notifier)
 {
+    std::lock_guard<std::mutex> lock(m_notifierMutex);
     m_notifier = notifier;
 }
 
-std::shared_ptr<Notifier> IStream::getNotifier() { return m_notifier; }
+std::shared_ptr<Notifier> IStream::getNotifier() { 
+    std::lock_guard<std::mutex> lock(m_notifierMutex);
+    return m_notifier; 
+}
 
 int IStream::getIntL()
 {
@@ -109,8 +113,9 @@ void IStream::connectToHead(OStream& head)
 
 void IStream::notifyFromHead(Stream::State state)
 {
-    if (m_notifier)
-        m_notifier->notify(state);
+    if (auto notifier = getNotifier()) {
+        notifier->notify(state);
+    }
 }
 
 void IStream::close()
@@ -126,8 +131,8 @@ void IStream::wait()
 void IStream::waitAndNotify()
 {
     m_byteStream->wait(1);
-    if (m_notifier) {
-        m_notifier->notify(DATA_READY);
+    if (auto notifier = getNotifier()) {
+        notifier->notify(DATA_READY);
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include "Stream.h"
 #include "Notifier.h"
+#include <mutex>
 
 class Notifier; class OStream; class Value;
 
@@ -46,5 +47,6 @@ private:
     size_t m_remainingOfType;
     bool m_headIsClosed;
 
+    std::mutex m_notifierMutex;
     std::shared_ptr<Notifier> m_notifier;
 };

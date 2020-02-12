@@ -27,7 +27,8 @@ void More::apply()
         std::cin >> resp;
         
         if (resp.size() && resp[0] == 'q') {
-            getIn()->close();
+            //getIn()->close();
+            m_quit = true;
         } else {
             m_numPrinted = 0;
         }

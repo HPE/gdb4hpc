@@ -2,7 +2,7 @@
  * Frontend debugger interface definition
  * TODO: This does not support asynchronous commands.
  *
- * © 2013 Cray Inc.	All Rights Reserved.
+ * Copyright 2013 Cray Inc.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

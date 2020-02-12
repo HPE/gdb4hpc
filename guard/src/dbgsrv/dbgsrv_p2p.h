@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbgsrv_p2p.h
  *
- * © 2012-2013,2020 Cray Inc.
+ * Copyright 2012-2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

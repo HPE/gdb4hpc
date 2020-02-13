@@ -53,6 +53,9 @@ int main(int argc, char* argv[])
         "p $a::a",
         "set int 40 0",
         "p $a::a $| $more(10)",
+        "set double 500 100",
+        "p $a::a - $b::a $| $range()",
+        "p $a::a - $b::a $| $gt(30.0) $| $more(10)",
         "quit"
     };
 
@@ -61,6 +64,12 @@ int main(int argc, char* argv[])
 
     bool doQuit = false;
     for (std::string userCommand : userCommands) {
+        std::cout << "execute " << userCommand << "?";
+        std::string resp;
+        std::cin >> resp;
+        if (!resp.empty() && resp[0] == 'n')
+            continue;
+
         frontEnd.execute(userCommand, doQuit);
         if (doQuit)
             break;

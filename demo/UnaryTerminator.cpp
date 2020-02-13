@@ -2,8 +2,10 @@
 #include "IStream.h"
 #include "Error.h"
 
-UnaryTerminator::UnaryTerminator(std::shared_ptr<IStream> in)
-    : m_in(in),
+UnaryTerminator::UnaryTerminator(const std::string& name,
+                                 std::shared_ptr<IStream> in)
+    : Op(name),
+      m_in(in),
       m_notifier(new UnaryTerminatorNotifier(this)),
       m_isDone(false)
 {
@@ -45,8 +47,10 @@ void UnaryTerminator::notifyReady()
 
 void UnaryTerminator::notifyDone()
 {
-    m_isDone = true;
-    m_doneCondition.notify_all();
+    if (!m_isDone) {
+        m_isDone = true;
+        m_doneCondition.notify_all();
+    }
 }
 
 UnaryTerminator::UnaryTerminatorNotifier::UnaryTerminatorNotifier(UnaryTerminator* op) : m_op(op) {}
@@ -62,4 +66,9 @@ void UnaryTerminator::wait()
     while (!m_isDone) {
         m_doneCondition.wait(lock);
     }
+}
+
+bool UnaryTerminator::isTerminator() const
+{
+    return true;
 }

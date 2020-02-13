@@ -28,6 +28,9 @@ std::string Debugger::getType() const { return m_type; }
 std::string Debugger::getNumElems() const { return m_sizeString; }
 std::string Debugger::getSomeElements(size_t minIdx, size_t numElems)
 {
+    if (minIdx == 0)
+        m_rand.seed(0);
+
     bool first = true;
     std::ostringstream os;
     if (m_isDouble) {

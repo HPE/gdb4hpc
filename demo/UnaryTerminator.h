@@ -1,21 +1,29 @@
 #pragma once
 
+#include "Op.h"
 #include "Notifier.h"
 #include <mutex>
 class IStream;
 
-class UnaryTerminator
+class UnaryTerminator : public Op
 {
 public:
-    UnaryTerminator(std::shared_ptr<IStream> in);
+    UnaryTerminator(const std::string& name, std::shared_ptr<IStream> in);
     virtual ~UnaryTerminator();
 
     virtual void apply() = 0;
     virtual void detach();
+    
+    bool isTerminator() const override;
+    
 
     std::shared_ptr<IStream> getIn() { return m_in; }
     
     void wait();
+
+protected:
+    void notifyDone();
+
 private:
     class UnaryTerminatorNotifier : public Notifier {
     public:
@@ -29,7 +37,6 @@ private:
 
     void inputNotify(Stream::State state);
     void notifyReady();
-    void notifyDone();
 
     std::shared_ptr<IStream> m_in;
 

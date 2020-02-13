@@ -1,14 +1,16 @@
 #pragma once
 
+#include "Op.h"
 #include "Notifier.h"
 #include <mutex>
 
 class IStream; class OStream;
 
-class BinaryOp
+class BinaryOp : public Op
 {
 public:
-    BinaryOp(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs);
+    BinaryOp(const std::string& name,
+             std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs);
     virtual ~BinaryOp();
 
     virtual void apply() = 0;

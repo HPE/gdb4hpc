@@ -15,6 +15,8 @@ public:
     bool to(int& ival) const;
     bool to(double& dval) const;
 
+    bool isDefined() const { return m_type != NONE; }
+
     ~Value();
     Value(const Value& rhs);
     Value& operator=(const Value& rhs);

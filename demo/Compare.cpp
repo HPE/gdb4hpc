@@ -2,15 +2,35 @@
 #include "Compare.h"
 #include "IStream.h"
 #include "OStream.h"
+#include "OpFactory.h"
 #include "Error.h"
 #include "Value.h"
+#include "OpBuilder.h"
 #include <iostream>
 
+static OpFactory factory("compare", Compare::make);
+
 Compare::Compare(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs)
-    : BinaryOp(a, b, diffs)
+    : BinaryOp("compare", a, b, diffs)
 {
     m_eof[0] = m_eof[1] = false;
 }
+
+std::shared_ptr<Op> Compare::make(OpBuilder& builder)
+{
+    if (builder.getNumIStreams() != 2) {
+        std::cerr << "$compare needs two input streams\n";
+        return nullptr;
+    }
+
+    if (!builder.getOpArgs().empty()) {
+        std::cerr << "unexpected arguments to $compare\n";
+    }
+
+    return std::make_shared<Compare>(builder.getNthIStream(0), builder.getNthIStream(1),
+                                     builder.makeOStream());
+}
+
 
 void Compare::apply() 
 {

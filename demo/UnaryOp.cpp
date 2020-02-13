@@ -3,9 +3,11 @@
 #include "OStream.h"
 #include "Error.h"
 
-UnaryOp::UnaryOp(std::shared_ptr<IStream> in,
+UnaryOp::UnaryOp(const std::string& name,
+                 std::shared_ptr<IStream> in,
                  std::shared_ptr<OStream> out)
-    : m_in(in), m_out(out), 
+    : Op(name),
+      m_in(in), m_out(out), 
       m_notifier(new UnaryOpNotifier(this))
 {
     in->setNotifier(m_notifier);
@@ -21,7 +23,8 @@ void UnaryOp::inputNotify(Stream::State state)
         notifyReady();
         break;
     case Stream::END_OF_FILE:
-        m_out->eof();
+        //m_out->eof();
+        notifyReady();
         break;
     case Stream::CANCEL:
         throw Error("not handling cancel");

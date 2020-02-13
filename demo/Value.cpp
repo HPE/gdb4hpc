@@ -96,9 +96,9 @@ bool operator<=(const Value& a, const Value& b) {
 bool operator>(const Value& a, const Value& b) {
     int ia, ib; double da, db;
     if (a.to(ia) && b.to(ib))
-        return ia < ib;
+        return ia > ib;
     else if (a.to(da) && b.to(db))
-        return da < db;
+        return da > db;
     else
         return false;
 }

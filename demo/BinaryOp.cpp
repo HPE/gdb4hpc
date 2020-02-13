@@ -3,9 +3,11 @@
 #include "OStream.h"
 #include "Error.h"
 
-BinaryOp::BinaryOp(std::shared_ptr<IStream> in1, std::shared_ptr<IStream> in2, 
+BinaryOp::BinaryOp(const std::string& name,
+                   std::shared_ptr<IStream> in1, std::shared_ptr<IStream> in2, 
                    std::shared_ptr<OStream> out)
-    : m_in1(in1), m_in2(in2), m_out(out), 
+    : Op(name),
+      m_in1(in1), m_in2(in2), m_out(out), 
       m_notifier1(new BinaryOpNotifier(this,0)),
       m_notifier2(new BinaryOpNotifier(this,1))
 {

@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * vector.c - Functions relating to maintaining the shape/size of a vector.
  *
- * © 2014-2019 Cray Inc.  All Rights Reserved.
+ * Copyright 2014-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

@@ -12,7 +12,7 @@
  * 	Guardsoft Pty Ltd - initial API and implementation (from libaif)
  * 	Greg Watson - stand alone implementation
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2013,2020 Cray Inc.
  *
  * $HeadURL$
  * $Date$

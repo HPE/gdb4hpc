@@ -1,7 +1,7 @@
 /******************************************************************************\
  * rd_help_dict.h - RD command help string defintion dictionary interface.
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

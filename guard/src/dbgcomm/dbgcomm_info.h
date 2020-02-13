@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * Encapsulated communication level information
  *
- * © 2020 Cray Inc.
+ * Copyright 2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

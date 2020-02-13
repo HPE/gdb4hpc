@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_readline.c - External readline CLI routines.
  *
- * © 2011-2015 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2015,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

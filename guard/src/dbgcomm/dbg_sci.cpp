@@ -2,7 +2,7 @@
 /*********************************************************************************\
  * dbg_sci.c
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2013,2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

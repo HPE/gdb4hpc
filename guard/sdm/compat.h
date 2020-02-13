@@ -18,7 +18,7 @@
  *
  * LA-CC 04-115
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2013,2020 Cray Inc.
  *
  * $HeadURL$
  * $Date$

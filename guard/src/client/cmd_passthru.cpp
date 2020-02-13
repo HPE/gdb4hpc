@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cmd_passthru.c - Command line interface routines.
  *
- * © 2012-2019 Cray Inc.  All Rights Reserved.
+ * Copyright 2012-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

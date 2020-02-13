@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbgsrv_util.c
  *
- * © 2011-2019 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2020 Cray Inc.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.

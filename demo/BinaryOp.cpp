@@ -3,64 +3,74 @@
 #include "OStream.h"
 #include "Error.h"
 
-BinaryOp::BinaryOp(const std::string& name,
-                   std::shared_ptr<IStream> in1, std::shared_ptr<IStream> in2, 
-                   std::shared_ptr<OStream> out)
-    : Op(name),
-      m_in1(in1), m_in2(in2), m_out(out), 
-      m_notifier1(new BinaryOpNotifier(this,0)),
-      m_notifier2(new BinaryOpNotifier(this,1))
+BinaryOp::BinaryOp(const std::string& name)
+    : Op(name), 
+      m_lhs(new HandSide(*this, 0)),
+      m_rhs(new HandSide(*this, 1)),
+      m_queue_w(0)
 {
-    m_ready[0] = m_ready[1] = false;
-    m_eof[0] = m_eof[1] = false;
-
-    in1->setNotifier(m_notifier1);
-    in2->setNotifier(m_notifier2);
+    m_isDone[0] = m_isDone[1] = false;
 }
 
-BinaryOp::~BinaryOp() {
-    detach();
-}
+BinaryOp::~BinaryOp() {}
 
-void BinaryOp::detach() {
-    m_in1->setNotifier(nullptr);
-    m_in2->setNotifier(nullptr);
-}    
-
-void BinaryOp::inputNotify(int which, Stream::State state)
+void BinaryOp::apply1(const Value& v, int w)
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
 
-    switch (state) {
-    case Stream::DATA_READY:
-        notifyReady(which);
-        break;
-    case Stream::END_OF_FILE:
-        m_eof[which] = true;
-        if (m_eof[0] && m_eof[1])
-            m_out->eof();
-        break;
-    case Stream::CANCEL:
-        throw Error("not handling cancel");
-        break;
-    } 
-}
+    bool didPop = true;
+    {
+        // wait until I have a spot to store this value
+        std::unique_lock<std::mutex> lock(m_valueMutex);
+        while (m_queue_w == w && 
+               m_queue.size() == MAX_QUEUE_SIZE && 
+               !m_isDone[1-w]) {
+            m_canTakeValue.wait(lock);
+        }
 
-void BinaryOp::notifyReady(int which)
-{
-    m_ready[which] = true;
-    while (m_ready[0] && m_ready[1]) {
-        apply();
-
-        // apply might have exhausted one of the streams and not the other
-        m_ready[0] = m_in1->hasData();
-        m_ready[1] = m_in2->hasData();
+        if (m_queue_w == w) {
+            // We don't have a value for the other argument
+            m_queue.push_back(v);
+            return;
+        } else if (m_queue.empty()) {
+            // We don't have a value for either argument
+            m_queue.push_back(v);
+            m_queue_w = w;
+        } else { 
+            // We not have v for argument w and and at 
+            // least one available for the other
+            const Value& a = (!w ? v : m_queue.front());
+            const Value& b = ( w ? v : m_queue.front());
+            apply(a,b);
+            
+            m_queue.pop_front();
+            didPop = true;
+        }
     }
+    
+    if (didPop)
+        m_canTakeValue.notify_all();
 }
 
-BinaryOp::BinaryOpNotifier::BinaryOpNotifier(BinaryOp* op, int w) : m_op(op), m_w(w) {}
-
-void BinaryOp::BinaryOpNotifier::notify(Stream::State state)
+void BinaryOp::done1(int w)
 {
-    m_op->inputNotify(m_w, state);
+    {
+        std::unique_lock<std::mutex> lock(m_valueMutex);
+        m_isDone[w] = true;
+        if (m_isDone[1-w])
+            Op::done();
+    }
+    m_canTakeValue.notify_all();
+}
+
+BinaryOp::HandSide::HandSide(BinaryOp& binOp, int w) 
+    : UnaryOp("BinaryOp::HandSide"), m_binOp(binOp), m_w(w) {}
+
+void BinaryOp::HandSide::apply(const Value& val)
+{
+    m_binOp.apply1(val, m_w);
+}
+
+void BinaryOp::HandSide::done()
+{
+    m_binOp.done1(m_w);
 }

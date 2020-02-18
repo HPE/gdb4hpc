@@ -1,54 +1,22 @@
 
 #include "Compare.h"
-#include "IStream.h"
-#include "OStream.h"
 #include "OpFactory.h"
-#include "Error.h"
 #include "Value.h"
 #include "OpBuilder.h"
+#include "UnaryOp.h"
 #include <iostream>
 
 static OpFactory factory("compare", Compare::make);
 
-Compare::Compare(std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs)
-    : BinaryOp("compare", a, b, diffs)
-{
-    m_eof[0] = m_eof[1] = false;
-}
+Compare::Compare() : BinaryOp("compare") {}
 
 std::shared_ptr<Op> Compare::make(OpBuilder& builder)
 {
-    if (builder.getNumIStreams() != 2) {
-        std::cerr << "$compare needs two input streams\n";
-        return nullptr;
-    }
-
-    if (!builder.getOpArgs().empty()) {
-        std::cerr << "unexpected arguments to $compare\n";
-    }
-
-    return std::make_shared<Compare>(builder.getNthIStream(0), builder.getNthIStream(1),
-                                     builder.makeOStream());
+    return std::make_shared<Compare>();
 }
 
-
-void Compare::apply() 
+void Compare::apply(const Value& a, const Value& b) 
 {
-    Value v1, v2;
-
-    // lookat: IStream is just looking at ByteStream->hasData which isn't smart enough to 
-    // know the next thing is EOF.   I.e. we've read the last available data and the *next*
-    // read will fail.   So for now, handle the read failure here.
-    bool in1 = !m_eof[0] && getIn1()->read(v1);
-    bool in2 = !m_eof[1] && getIn2()->read(v2);
-
-    m_eof[0] = !in1;
-    m_eof[1] = !in2;
-
-    if (in1 && in2) {
-        getOut()->putValue(v1-v2);
-        return;
-    } else if (m_eof[0] && m_eof[1]) {
-        getOut()->eof();
-    }
+    getOutput()->apply(a-b);
 }
+

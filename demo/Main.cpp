@@ -3,11 +3,9 @@
 #include <vector>
 
 #include "Debugger.h"
-#include "Comparator.h"
 #include "AsyncConnection.h"
 #include "BackEnd.h"
 #include "FrontEnd.h"
-#include "Dumper.h"
 
 static void usage(const std::string& exec);
 
@@ -34,7 +32,6 @@ int main(int argc, char* argv[])
     
     auto debA = std::make_shared<Debugger>(type, size, diffs, 1.0);
     auto debB = std::make_shared<Debugger>(type, size, diffs, -1.0);
-    //Comparator comparator(a, b);
 
     auto toA = AsyncConnection::make();
     auto fromA = AsyncConnection::make();
@@ -74,14 +71,6 @@ int main(int argc, char* argv[])
         if (doQuit)
             break;
     }
-    
-    /*
-    Comparator compare(fromA->getReader(), toA->getWriter(), 
-                       fromB->getReader(), toB->getWriter());
-        
-    compare.compare("shazbot");
-    */
-    //comparator.compare("a == b");
 }
 
 static void usage(const std::string& exec)

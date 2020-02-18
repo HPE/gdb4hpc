@@ -2,62 +2,25 @@
 #include "IStream.h"
 #include "Error.h"
 
-UnaryTerminator::UnaryTerminator(const std::string& name,
-                                 std::shared_ptr<IStream> in)
-    : Op(name),
-      m_in(in),
-      m_notifier(new UnaryTerminatorNotifier(this)),
-      m_isDone(false)
+UnaryTerminator::UnaryTerminator(const std::string& name)
+    : UnaryOp(name), m_isDone(false)
+{}
+
+bool UnaryTerminator::isTerminator() const
 {
-    in->setNotifier(m_notifier);
+    return true;
 }
 
-UnaryTerminator::~UnaryTerminator()
+void UnaryTerminator::pipeTo(std::shared_ptr<UnaryOp> dest)
 {
-    detach();
+    throw Error("piping from a terminator");
 }
 
-void UnaryTerminator::detach()
+void UnaryTerminator::done()
 {
-    m_in->setNotifier(nullptr);
-}
-
-void UnaryTerminator::inputNotify(Stream::State state)
-{
-    switch (state) {
-    case Stream::DATA_READY:
-        notifyReady();
-        break;
-    case Stream::END_OF_FILE:
-        notifyDone();
-        break;
-    case Stream::CANCEL:
-        throw Error("not handling cancel");
-        break;
-    } 
-}
-
-void UnaryTerminator::notifyReady()
-{
-    // lookat : I probably have a race condition here in the multi-thread case
-    while (m_in->hasData()) {
-        apply();
-    }
-}
-
-void UnaryTerminator::notifyDone()
-{
-    if (!m_isDone) {
-        m_isDone = true;
-        m_doneCondition.notify_all();
-    }
-}
-
-UnaryTerminator::UnaryTerminatorNotifier::UnaryTerminatorNotifier(UnaryTerminator* op) : m_op(op) {}
-
-void UnaryTerminator::UnaryTerminatorNotifier::notify(Stream::State state)
-{
-    m_op->inputNotify(state);
+    std::unique_lock<std::mutex> lock(m_waitMutex);
+    m_isDone = true;
+    m_doneCondition.notify_all();
 }
 
 void UnaryTerminator::wait()
@@ -68,7 +31,3 @@ void UnaryTerminator::wait()
     }
 }
 
-bool UnaryTerminator::isTerminator() const
-{
-    return true;
-}

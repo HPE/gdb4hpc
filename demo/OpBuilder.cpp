@@ -1,7 +1,6 @@
 #include "OpBuilder.h"
 #include "OpFactory.h"
 #include "VariableEval.h"
-#include "Connection.h"
 #include "FrontEnd.h"
 #include "More.h"
 #include "Compare.h"
@@ -14,25 +13,6 @@ OpBuilder::OpBuilder(const FrontEnd& frontEnd)
 {
 }
 
-int OpBuilder::getNumIStreams() const
-{
-    return m_from ? 1 : 0;
-}
-
-std::shared_ptr<IStream> OpBuilder::getNthIStream(int n) const
-{
-    if (n <= 1)
-        return m_from;
-    else
-        return nullptr;
-}
-std::shared_ptr<OStream> OpBuilder::makeOStream()
-{
-    auto connect = Connection::make();
-    m_nextFrom = connect->getReader();
-    return connect->getWriter();
-}
-
 std::shared_ptr<OStream> OpBuilder::getCommandStreamForProcSet(const std::string& procSet) const
 {
     return m_frontEnd.getCommandStreamForProcSet(procSet);
@@ -43,7 +23,8 @@ std::shared_ptr<IStream> OpBuilder::getResultStreamForProcSet(const std::string&
     return m_frontEnd.getResultStreamForProcSet(procSet);
 }
 
-bool OpBuilder::parse(const std::string& expression)
+bool OpBuilder::parse(const std::string& expression, std::shared_ptr<UnaryOp>& head,
+                      std::shared_ptr<Op>& tail)
 {
     std::cerr << "expression is: \"" << expression << "\"\n";
 
@@ -53,19 +34,26 @@ bool OpBuilder::parse(const std::string& expression)
     std::regex diffRE("\\s*([$a-b:]+)\\s*-\\s*([$a-b:]+)\\s*");
 
     std::shared_ptr<IStream> nostream;
-    std::shared_ptr<Op> noop;
+    std::shared_ptr<UnaryOp> noop;
     
     std::smatch match;
     if (std::regex_match(expression, match, pipeRE)) {
         std::cerr << "matched $|\n";
-        
-        if (!parse(match[1]))
+
+        std::shared_ptr<UnaryOp> head1, head2;
+        std::shared_ptr<Op> tail1, tail2;
+
+        if (!parse(match[1], head1, tail1))
             return false;
 
-        if (!parse(match[2]))
+        if (!parse(match[2], head2, tail2))
             return false;
 
-        return true;
+        tail1->pipeTo(head2);
+        head = head1;
+        tail = tail2;
+
+        return true; 
 
     } else if (std::regex_match(expression, match, funcRE)) {
         std::string func = match[1];
@@ -77,11 +65,21 @@ bool OpBuilder::parse(const std::string& expression)
 
         m_opArgs = args;
         auto op = OpFactory::make(func, *this);
-
-        if (op) {
-            addOp(op);
-            return true;
+        if (!op) {
+            std::cerr << "did not recognize function " << func;
+            return false;
         }
+
+        auto uop = std::dynamic_pointer_cast<UnaryOp>(op);
+        
+        if (!uop) {
+            std::cerr << "not handling non unary funcs yet";
+            return false;
+        }
+
+        tail = head = uop;
+        addOp(op);
+        return true;
 
     } else if (std::regex_match(expression, match, varRE)) {
         std::cerr << "got a variable reference on procset " << match[1] << "\n";
@@ -90,36 +88,36 @@ bool OpBuilder::parse(const std::string& expression)
         std::shared_ptr<OStream> commandStream = getCommandStreamForProcSet(procSet);
         std::shared_ptr<IStream> resultStream = getResultStreamForProcSet(procSet);
         
-        auto op = std::make_shared<VariableEval>(procSet + "::a", commandStream);
+        auto op = std::make_shared<VariableEval>(procSet + "::a", commandStream,
+                                                 resultStream);
         
-        m_nextFrom = resultStream;
         if (op) {
+            head = noop;
+            tail = op;
             addOp(op);
             return true;
         }
+
     } else if (std::regex_match(expression, match, diffRE)) {
         std::string var1 = match[1];
         std::string var2 = match[2];
         std::cerr << "got a difference " << var1 << " and " << var2 << "\n";
         
-        if (!parse(var1))
+        std::shared_ptr<UnaryOp> head1, head2;
+        std::shared_ptr<Op> tail1, tail2;
+
+        if (!parse(var1, head1, tail1))
             return false;
 
-        auto in1 = getNthIStream(0);
-        
-        if (!parse(var2))
+        if (!parse(var2, head2, tail2))
             return false;
 
-        auto in2 = getNthIStream(1);
+        auto op = std::make_shared<Compare>();
+        tail1->pipeTo(op->getLHS());
+        tail2->pipeTo(op->getRHS());
 
-        if (!in1 || !in2) {
-            std::cerr << "using a terminator for input to difference\n";
-        }
-        
-        auto conn = Connection::make();
-        auto op = std::make_shared<Compare>(in1, in2, conn->getWriter());
-        m_nextFrom = conn->getReader();
-
+        head = noop;
+        tail = op;
         addOp(op);
 
         return true;
@@ -134,23 +132,15 @@ void OpBuilder::addOp(std::shared_ptr<Op> op)
         throw Error("passing a null op to addOp");
     }
     
-    if (!m_nextFrom && !op->isTerminator()) {
-        throw Error("no input stream for next operation");
-    }
-    if (m_nextFrom && op->isTerminator()) {
-        throw  Error("output stram from a terminating operation");
-    }
-
     m_ops.push_back(op);
-    m_from = m_nextFrom;
-    m_nextFrom = nullptr;
 }
 
 void OpBuilder::addDefaultTerminator()
 {
-    if (m_from) {
+    if (!m_ops.empty() && !m_ops.back()->isTerminator()) {
         // we have a dangling result stream -- add a dumper for output
-        auto op = std::make_shared<More>(m_from,0);
+        auto op = std::make_shared<More>(0);
+        m_ops.back()->pipeTo(op);
         addOp(op);
     }
 }
@@ -158,7 +148,7 @@ void OpBuilder::addDefaultTerminator()
 void OpBuilder::evaluate()
 {
     bool didStart = false;
-    for (auto op : m_ops) {
+    for (auto& op : m_ops) {
         if (op->start()) {
             // only does something for source operations
             didStart = true;

@@ -106,11 +106,6 @@ int IStream::getIntL()
     return val;
 }
 
-void IStream::connectToHead(OStream& head)
-{
-    head.setNotifier(std::make_shared<HeadNotifier>(this));
-}
-
 void IStream::notifyFromHead(Stream::State state)
 {
     if (auto notifier = getNotifier()) {

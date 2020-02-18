@@ -8,8 +8,8 @@ class Value;
 class Collect : public UnaryTerminator
 {
 public:
-    Collect(std::shared_ptr<IStream> in, size_t maxNumItems);
-    void apply() override;
+    Collect(size_t maxNumItems);
+    void apply(const Value& val) override;
 
     const std::vector<Value>& getValues() const { return m_values; }
 

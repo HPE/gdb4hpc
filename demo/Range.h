@@ -5,14 +5,17 @@
 
 class OpBuilder;
 
-class Gt : public UnaryOp
+class Range : public UnaryOp
 {
 public:
-    Gt(std::shared_ptr<IStream> in, std::shared_ptr<OStream> out, Value limit);
+    Range();
 
     static std::shared_ptr<Op> make(OpBuilder& builder);
 
-    virtual void apply();
+    void apply(const Value& val) override;
+    void done() override;
+    
 private:
-    Value m_limit;
+    Value m_min;
+    Value m_max;
 };

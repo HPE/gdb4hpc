@@ -7,17 +7,12 @@
 
 static OpFactory factory("gt", Gt::make);
 
-Gt::Gt(std::shared_ptr<IStream> in, std::shared_ptr<OStream> out, Value limit)
-    : UnaryOp("gt", in, out), m_limit(limit)
+Gt::Gt(const Value& limit)
+    : UnaryOp("gt"), m_limit(limit)
 {}
 
 std::shared_ptr<Op> Gt::make(OpBuilder& builder)
 {
-    if (builder.getNumIStreams() != 1) {
-        std::cerr << "$gt needs an input\n";
-        return nullptr;
-    }
-
     Value limit;
     std::string args = builder.getOpArgs();
     if (!args.empty()) {
@@ -28,17 +23,12 @@ std::shared_ptr<Op> Gt::make(OpBuilder& builder)
         }
     }
 
-    return std::make_shared<Gt>(builder.getNthIStream(0), builder.makeOStream(), limit);
+    return std::make_shared<Gt>(limit);
 }
 
-void Gt::apply()
+void Gt::apply(const Value& val)
 {
-    Value val;
-    if (getIn()->read(val)) {
-        if (val > m_limit)
-            getOut()->putValue(val);
-    } else {
-        getOut()->eof();
-    }
+    if (val > m_limit)
+        getOutput()->apply(val);
 }
 

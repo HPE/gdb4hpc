@@ -22,8 +22,6 @@ public:
 
     std::shared_ptr<Notifier> getNotifier();
 
-    void connectToHead(OStream& ostream);
-
     void close();
 
     void wait();

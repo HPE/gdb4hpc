@@ -1,47 +1,47 @@
 #pragma once
 
 #include "Op.h"
-#include "Notifier.h"
+#include "UnaryOp.h"
+#include "Value.h"
 #include <mutex>
+#include <deque>
 
-class IStream; class OStream;
+class Value;
 
 class BinaryOp : public Op
 {
 public:
-    BinaryOp(const std::string& name,
-             std::shared_ptr<IStream> a, std::shared_ptr<IStream> b, std::shared_ptr<OStream> diffs);
+    BinaryOp(const std::string& name);
     virtual ~BinaryOp();
 
-    virtual void apply() = 0;
-    virtual void detach();
+    virtual void apply(const Value& a, const Value& b) = 0;
 
-    std::shared_ptr<IStream> getIn1() { return m_in1; }
-    std::shared_ptr<IStream> getIn2() { return m_in2; }
-    std::shared_ptr<OStream> getOut() { return m_out; }
+    std::shared_ptr<UnaryOp> getLHS() { return m_lhs; }
+    std::shared_ptr<UnaryOp> getRHS() { return m_rhs; }
 private:
-    class BinaryOpNotifier : public Notifier {
+    static const size_t MAX_QUEUE_SIZE = 10000;
+
+    class HandSide : public UnaryOp {
     public:
-        BinaryOpNotifier(BinaryOp* op, int w);
-        virtual void notify(Stream::State state);
+        HandSide(BinaryOp& binOp, int w);
+        void apply(const Value& val) override;
+        void done() override;
     private:
-        BinaryOp* m_op;
+        BinaryOp& m_binOp;
         int m_w;
     };
+    friend class HandSide;
+    
+    void apply1(const Value& v, int w);
+    void done1(int w);
 
-    friend class BinaryOpNotifier;
+    std::shared_ptr<HandSide> m_lhs;
+    std::shared_ptr<HandSide> m_rhs;
 
-    void inputNotify(int which, Stream::State state);
-    void notifyReady(int which);
+    std::mutex m_valueMutex;
+    std::condition_variable m_canTakeValue;
 
-    std::shared_ptr<IStream> m_in1;
-    std::shared_ptr<IStream> m_in2;
-    std::shared_ptr<OStream> m_out;
-
-    std::shared_ptr<BinaryOpNotifier> m_notifier1;
-    std::shared_ptr<BinaryOpNotifier> m_notifier2;
-
-    std::mutex m_mutex;
-    bool m_ready[2];
-    bool m_eof[2];
+    std::deque<Value> m_queue;
+    int m_queue_w;
+    bool m_isDone[2];
 };

@@ -3,11 +3,11 @@
 #include "OStream.h"
 #include "Error.h"
 #include "Compare.h"
-#include "Connection.h"
 #include "More.h"
 #include "Collect.h"
 #include "Value.h"
 #include "OpBuilder.h"
+#include "StreamReader.h"
 
 #include <iostream>
 #include <sstream>
@@ -25,7 +25,8 @@ void FrontEnd::execute(const std::string& command, bool& isQuit)
     isQuit = false;
     if (command.substr(0,2) == "p ") {
         OpBuilder opBuilder(*this);
-        if (opBuilder.parse(command.substr(2))) {
+        std::shared_ptr<UnaryOp> head; std::shared_ptr<Op> tail;
+        if (opBuilder.parse(command.substr(2), head, tail)) {
             opBuilder.addDefaultTerminator();
             opBuilder.evaluate();
         } else {
@@ -43,33 +44,8 @@ void FrontEnd::execute(const std::string& command, bool& isQuit)
 
     std::cerr << "did not recognized command in\"" << command << "\"\n";
     std::cerr << "supported commands are p|set|quit\n";
-    /*
-    Connection output;
-    Compare compare(m_fromA, m_fromB, output.getWriter());
-
-    More more(output.getReader(), 5);
-
-    // send out the clowns
-    m_toA->putInt(12);
-    m_toB->putInt(12);
-
-    more.wait();
-    */
 }
 
-void FrontEnd::execPrint(const std::string& expression) {
-    std::cerr << "print the value of " << expression << "\n";
-
-    Connection output;
-
-    Compare compare(m_fromA, m_fromB, output.getWriter());
-    More more(output.getReader(), 30);
-
-    m_toA->putInt(12);
-    m_toB->putInt(12);
-    more.wait();
-    compare.detach();
-}
 void FrontEnd::execSet(const std::string& expression) {
     std::cerr << "set the debug parameters\n";
     
@@ -91,43 +67,50 @@ void FrontEnd::execSet(const std::string& expression) {
         return;
     }
 
-    Collect collectA(m_fromA,2), collectB(m_fromB,2);
+    StreamReader fromA(m_fromA), fromB(m_fromB);
+
+    auto collectA = std::make_shared<Collect>(2);
+    auto collectB = std::make_shared<Collect>(2);
+
+    fromA.pipeTo(collectA);
+    fromB.pipeTo(collectB);
 
     int vals[4] = { 13, typeId, num, numDiff };
     m_toA->putInts(vals, 4);
     m_toB->putInts(vals, 4);
+    
+    fromA.start();
+    fromB.start();
 
-    collectA.wait();
-    collectB.wait();
+    collectA->wait();
+    collectB->wait();
 
-    collectA.detach();
-    collectB.detach();
+    auto valsA = collectA->getValues();
+    auto valsB = collectB->getValues();
 
-    if (collectA.getValues().empty()) {
+    if (valsA.empty()) {
         throw Error("did not get response from $a\n");
     }
-    if (collectB.getValues().empty()) {
+    if (valsB.empty()) {
         throw Error("did not get response from $b\n");
     }
 
-    if (collectA.getValues().size() != 1) {
+    if (valsA.size() != 1) {
         throw Error("got extraneous response from $a\n");
     }
-    if (collectB.getValues().size() != 1) {
+    if (valsB.size() != 1) {
         throw Error("got extraneous response from $b\n");
     }
     
     Value expectedValue(int(0));
-    if (collectA.getValues()[0] != expectedValue) {
+    if (valsA[0] != expectedValue) {
         throw Error("got an error value from $a\n");
     }
 
-    if (collectB.getValues()[0] != expectedValue) {
+    if (valsB[0] != expectedValue) {
         throw Error("got an error value from $a\n");
     }
 }
-
-
 
 std::shared_ptr<OStream> FrontEnd::getCommandStreamForProcSet(const std::string& procSet) const
 {

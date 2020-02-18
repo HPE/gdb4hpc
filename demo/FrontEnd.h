@@ -17,7 +17,6 @@ public:
     std::shared_ptr<IStream> getResultStreamForProcSet(const std::string& procSet) const;
 
 private:
-    void execPrint(const std::string& expression);
     void execSet(const std::string& params);
     
     std::shared_ptr<IStream> m_fromA;

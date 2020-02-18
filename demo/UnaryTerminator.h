@@ -1,7 +1,6 @@
 #pragma once
 
 #include "UnaryOp.h"
-#include "Notifier.h"
 #include <mutex>
 class IStream;
 

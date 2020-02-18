@@ -88,29 +88,11 @@ void IStream::readType()
     m_remainingOfType = getIntL();
 }
 
-void IStream::setNotifier(std::shared_ptr<Notifier> notifier)
-{
-    std::lock_guard<std::mutex> lock(m_notifierMutex);
-    m_notifier = notifier;
-}
-
-std::shared_ptr<Notifier> IStream::getNotifier() { 
-    std::lock_guard<std::mutex> lock(m_notifierMutex);
-    return m_notifier; 
-}
-
 int IStream::getIntL()
 {
     int val;
     m_byteStream->read(sizeof(int), reinterpret_cast<char*>(&val));    
     return val;
-}
-
-void IStream::notifyFromHead(Stream::State state)
-{
-    if (auto notifier = getNotifier()) {
-        notifier->notify(state);
-    }
 }
 
 void IStream::close()
@@ -121,19 +103,5 @@ void IStream::close()
 void IStream::wait()
 {
     m_byteStream->wait(1);
-}
-
-void IStream::waitAndNotify()
-{
-    m_byteStream->wait(1);
-    if (auto notifier = getNotifier()) {
-        notifier->notify(DATA_READY);
-    }
-}
-
-
-IStream::HeadNotifier::HeadNotifier(IStream* stream) : m_stream(stream) {}
-void IStream::HeadNotifier::notify(Stream::State state) {
-    m_stream->notifyFromHead(state);
 }
 

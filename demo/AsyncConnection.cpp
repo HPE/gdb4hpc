@@ -18,16 +18,10 @@ void AsyncConnection::start()
 {
     std::shared_ptr<IStream> reader = m_reader;
 
-    /*
-    if (!reader->getNotifier()) {
-        throw Error("reader has to have a notifier");
-    }
-    */
-
     std::thread t([reader]() {
             try {
                 while (true) {
-                    reader->waitAndNotify();
+                    reader->wait();
                 }
             } catch (Error& e) {
                 std::cerr << "reading thread caught exception " << e.str() << "\n";

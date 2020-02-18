@@ -1,7 +1,6 @@
 #include "OStream.h"
 #include "ByteStream.h"
 #include "Error.h"
-#include "Notifier.h"
 #include "Value.h"
 #include <iostream>
 
@@ -19,8 +18,6 @@ void OStream::putDoubles(const double* val, size_t cnt)
 {
     writeType(DOUBLE, cnt);
     m_byteStream->write(cnt*sizeof(double), reinterpret_cast<const char*>(val));
-    if (m_notifier)
-        m_notifier->notify(Stream::DATA_READY);
 }
 
 void OStream::putInt(int val)
@@ -42,23 +39,14 @@ void OStream::putValue(const Value& val) {
 void OStream::putInts(const int* val, size_t cnt) {
     writeType(INT, cnt);
     m_byteStream->write(cnt*sizeof(int), reinterpret_cast<const char*>(val));
-    if (m_notifier)
-        m_notifier->notify(Stream::DATA_READY);
 }
 
 void OStream::eof() {
     writeType(END,0);
-    if (m_notifier)
-        m_notifier->notify(Stream::END_OF_FILE);
 }
 
 void OStream::cancel() {
     std::cerr << "OStream::cancel is not implemented\n";
-}
-
-void OStream::setNotifier(std::shared_ptr<Notifier> notifier)
-{
-    m_notifier = notifier;
 }
 
 void OStream::putIntL(int val)

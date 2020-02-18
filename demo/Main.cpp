@@ -43,8 +43,8 @@ int main(int argc, char* argv[])
 
     BackEnd::start(debB, toB->getReader(), fromB->getWriter());
 
-    fromA->start();
-    fromB->start();
+    //fromA->start();
+    //fromB->start();
 
     std::vector<std::string> userCommands = { 
         "p $a::a",

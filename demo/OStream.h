@@ -3,7 +3,7 @@
 #include "Stream.h"
 #include <memory>
 
-class Notifier; class Value;
+class Value;
 
 class OStream : public Stream
 {
@@ -22,13 +22,9 @@ public:
     void eor();
     void cancel();
 
-    void setNotifier(std::shared_ptr<Notifier> notifier);
-
 private:
     void writeType(Type type, size_t repeat);
     void putIntL(int val);
-
-    std::shared_ptr<Notifier> m_notifier;
 };
 
 

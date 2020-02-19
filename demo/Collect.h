@@ -5,6 +5,10 @@
 
 class Value;
 
+//! Operator to collect the stream input into a vector in memory.
+/*! Store up to the first maxNumItems values from the input
+  into memory.
+*/
 class Collect : public UnaryTerminator
 {
 public:

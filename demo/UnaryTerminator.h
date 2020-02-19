@@ -4,6 +4,11 @@
 #include <mutex>
 class IStream;
 
+//! Base class for operations that take one input and produce no data
+//! output.   
+/*! One key extension for the UnaryTerminator operations is that they
+  support wait() so support asynchronous operation.
+*/
 class UnaryTerminator : public UnaryOp
 {
 public:

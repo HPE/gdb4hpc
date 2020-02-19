@@ -6,10 +6,13 @@
 #include <string>
 #include <map>
 
-class OpBuilder;
+class Op; class OpBuilder;
 
-class Op;
-
+//! Abstract fatory for mapping a string name to operator constructor.
+/*! When creating a new operator, it just needs a line like this:
+  static OpFactory factory("more", More::make);
+  to register the operator with the parsing system.
+*/
 class OpFactory 
 {
 public:

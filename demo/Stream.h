@@ -4,6 +4,7 @@
 
 class ByteStream;
 
+//! Base class for the type data streams.  
 class Stream
 {
 public:

@@ -3,23 +3,22 @@
 #include "Stream.h"
 #include <mutex>
 
-class OStream; class Value;
+class Value;
 
+//! Stream for reading typed data.
+/*! The protocol is trivial, so it only supports
+  ints and doubles. */
 class IStream : public Stream
 {
 public:
     IStream(std::shared_ptr<ByteStream> byteStream);
 
+    // lookat: keep these or not?
     double getDouble();
     int getInt();
 
+    // Block until data is ready.  Return false if eof.
     bool read(Value& val);
-
-    bool hasData() const; // temporary?
-
-    void close();
-
-    void wait();
 
 private:
     void readType();

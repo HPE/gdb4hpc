@@ -2,6 +2,21 @@
 
 #include <iostream>
 
+//! Wrap a single value of arbitary type.  
+/*! This class only currently handles ints and doubles but it
+  anticipates either a C++ wrapper for AIF or a full C++ replacement
+  for AIF.   
+
+  This class is similar to std::any but I anticipate we will need
+  more specialized processing than that provided by std::any.   So 
+  it makes sense to start with a customized form.
+
+  I could potentially see a possibility of providing type specialized 
+  operators, but in general it seems like a combinatorial nightmare.
+  This leads to the conclusion - apparently the same one as the original
+  guard-rd - that the sensible approach is push more inteligence into
+  the data type.
+*/
 class Value
 {
 public:

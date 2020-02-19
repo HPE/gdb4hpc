@@ -31,10 +31,6 @@ void BackEnd::operator()()
 void BackEnd::dispatchLoop()
 {
     while (true) {
-        while (!m_in->hasData()) { // temporary - I'll thread this up later
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-
         int commandVal = m_in->getInt();
 
         if (commandVal == 12) 
@@ -101,9 +97,9 @@ void BackEnd::start(std::shared_ptr<Debugger> debugger,
                     std::shared_ptr<IStream> in,
                     std::shared_ptr<OStream> out)
 {
-    std::thread beTA([debugger,in,out]() {
-            auto beA = std::make_shared<BackEnd>(debugger, in, out);
-            (*beA)();
+    auto be = std::unique_ptr<BackEnd>(new BackEnd(debugger,in,out));
+    std::thread beTA([be = std::move(be)]() {
+            (*be)();
         });
 
     beTA.detach();

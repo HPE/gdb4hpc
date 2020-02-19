@@ -2,6 +2,8 @@
 
 #include <string>
 
+//! Error class
+/* lookat: derive from std::exception */
 class Error {
 public:
     Error(const std::string& message) : m_message(message) {}

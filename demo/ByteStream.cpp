@@ -26,9 +26,4 @@ void ByteStream::write(size_t elems, const char* val)
     m_ready.notify_all();
 }
 
-bool ByteStream::hasData() const
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return !m_data.empty();
-}
 

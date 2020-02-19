@@ -67,11 +67,6 @@ bool IStream::read(Value& val)
     return true;
 }
 
-bool IStream::hasData() const
-{
-    return m_byteStream->hasData();
-}
-
 void IStream::readType()
 {
     int sentinal = getIntL();
@@ -93,15 +88,5 @@ int IStream::getIntL()
     int val;
     m_byteStream->read(sizeof(int), reinterpret_cast<char*>(&val));    
     return val;
-}
-
-void IStream::close()
-{
-    std::cerr << "IStream::close is unimplemented\n";
-}
-
-void IStream::wait()
-{
-    m_byteStream->wait(1);
 }
 

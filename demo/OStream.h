@@ -5,6 +5,8 @@
 
 class Value;
 
+//! Output stream to a typed data pipe.
+/*! The protocol is trivial - just doubles and ints */
 class OStream : public Stream
 {
 public:
@@ -19,7 +21,6 @@ public:
     void putValue(const Value& val);
 
     void eof();
-    void eor();
     void cancel();
 
 private:

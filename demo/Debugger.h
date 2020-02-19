@@ -3,14 +3,19 @@
 #include <string>
 #include <random>
 
-// Class to simulate the working of a gdb back-end connected to a real process
+//! Class to simulate the working of a gdb back-end connected to a real process
+/*! Currently it pretty much is a generator function for simulationg a large array
+  tied with a string based approach that looks enough like MI to get the idea.
+*/
 class Debugger {
 public:
     Debugger(const std::string& type, size_t size, size_t numDiffs, double diffMult);
 
+    // first version, we're simulating an array of type ("int" or "double") with size
+    // elements - approximately numDiff of which deviate from the main value by 
+    // diffMult
     void setParams(const std::string& type, size_t size, size_t numDiffs);
 
-    // first version, we're simulating a 
     std::string getType() const;
     std::string getNumElems() const;
     std::string getSomeElements(size_t minIdx, size_t numElems);

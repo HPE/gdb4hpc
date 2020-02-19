@@ -2,8 +2,12 @@
 #pragma once
 #include "BinaryOp.h"
 
-class IStream; class OStream; class OpBuilder;
+class OpBuilder;
 
+//! Create the difference of two streams
+/*! For each pair of input values, create the output
+  a-b.   This operator should probably be renamed diff.
+*/
 class Compare : public BinaryOp
 {
 public:

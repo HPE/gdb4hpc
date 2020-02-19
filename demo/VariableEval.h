@@ -6,6 +6,11 @@
 
 class IStream; class OStream;
 
+//! Operator for accessing the value of a program variable
+/*! A program variable value is just an operator that acts
+  as a "source" pumping out the values of an array one by one
+  so they can be processed in sequence.
+*/
 class VariableEval : public Op
 {
 public:

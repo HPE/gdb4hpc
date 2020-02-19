@@ -5,6 +5,9 @@
 
 class OpBuilder;
 
+//! Greater than filter.
+/*! Output only the input values that are greater than \a limit.
+ */
 class Gt : public UnaryOp
 {
 public:

@@ -14,12 +14,21 @@ BinaryOp::BinaryOp(const std::string& name)
 
 BinaryOp::~BinaryOp() {}
 
+// Accept an value from one of the inputs to this operator.
+// w is 0 for lhs and 1 for rhs.
 void BinaryOp::apply1(const Value& v, int w)
 {
-
+    // Data may arrive from the inputs at different rates. 
+    // For the stream that is ahead, we keep a fixed sized
+    // queue of results in m_queue which is storing values 
+    // for w = m_queue_w.
     bool didPop = true;
     {
-        // wait until I have a spot to store this value
+        // wait until I have a spot to store this value.
+        // If we have to block, wait on the condition variable
+        // m_canTakeValue until input from the other argment arrives 
+        // which will allow us to process a pair and free up 
+        // space in the buffer
         std::unique_lock<std::mutex> lock(m_valueMutex);
         while (m_queue_w == w && 
                m_queue.size() == MAX_QUEUE_SIZE && 
@@ -36,7 +45,7 @@ void BinaryOp::apply1(const Value& v, int w)
             m_queue.push_back(v);
             m_queue_w = w;
         } else { 
-            // We not have v for argument w and and at 
+            // We now have v for argument w and and at 
             // least one available for the other
             const Value& a = (!w ? v : m_queue.front());
             const Value& b = ( w ? v : m_queue.front());
@@ -46,11 +55,21 @@ void BinaryOp::apply1(const Value& v, int w)
             didPop = true;
         }
     }
-    
+
+    // unblock the other thread once we've popped off a value
+    // lookat: not sure if there is a performance penalty for 
+    // notifying when no one is waiting.
+    // lookat: I'm also not sure if this will behave very poorly 
+    // once the buffer fills up because it reverts to blocking 
+    // after accepting every input.  We might instead allow the 
+    // buffer to - e.g. get half empty before we start accepting
+    // input again...
     if (didPop)
         m_canTakeValue.notify_all();
 }
 
+// register the end of input from one of the input streams.
+// w = 0 is lhs, w = 1 rhs
 void BinaryOp::done1(int w)
 {
     {

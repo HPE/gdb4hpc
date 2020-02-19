@@ -13,22 +13,3 @@ AsyncConnection::AsyncConnection()
     m_reader = std::make_shared<IStream>(byteStream);
     m_writer = std::make_shared<OStream>(byteStream);
 }
-
-void AsyncConnection::start()
-{
-    std::shared_ptr<IStream> reader = m_reader;
-
-    std::thread t([reader]() {
-            try {
-                while (true) {
-                    reader->wait();
-                }
-            } catch (Error& e) {
-                std::cerr << "reading thread caught exception " << e.str() << "\n";
-            } catch (...) {
-                std::cerr << "reading thread caught system exception\n";
-            }
-        });
-    
-    t.detach();
-}

@@ -92,11 +92,10 @@ check_exit_status $? autoreconf
 CFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir
 check_exit_status $? configure
 
-# parallel builds are broken with libmi
-make
+make $j_flags
 check_exit_status $? make
 
-make install
+make $j_flags install
 check_exit_status $? "make install"
 
 echo "############################################"

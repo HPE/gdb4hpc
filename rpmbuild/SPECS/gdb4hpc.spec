@@ -54,6 +54,28 @@
 # System strip command may be too old, use current path
 %global __strip strip
 
+# Filter requires - these all come from the cdst-support rpm
+# These should match what is excluded in the cdst-support rpm specfile!
+%global privlibs             libboost.*
+%global privlibs %{privlibs}|libmrnet
+%global privlibs %{privlibs}|libbitset
+%global privlibs %{privlibs}|libmi
+%global privlibs %{privlibs}|libssh2
+%global privlibs %{privlibs}|libarchive
+%global privlibs %{privlibs}|libsymtabAPI
+%global privlibs %{privlibs}|libpcontrol
+%global privlibs %{privlibs}|libdynElf
+%global privlibs %{privlibs}|libdynDwarf
+%global privlibs %{privlibs}|libcommon
+%global privlibs %{privlibs}|libxplat
+%global privlibs %{privlibs}|libedit
+%global privlibs %{privlibs}|libdw
+%global privlibs %{privlibs}|libebl.*
+%global privlibs %{privlibs}|libelf
+%global privlibs %{privlibs}|libtbbmalloc*
+%global privlibs %{privlibs}|libtbb.*
+%global __requires_exclude ^(%{privlibs})\\.so*
+
 # Check for the dist tag and set if not populated
 # Note: for now sles 15 is the only supported OS without a dist tag, this will need updating if that changes
 %{!?dist:

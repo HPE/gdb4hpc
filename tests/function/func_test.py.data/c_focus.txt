@@ -15,8 +15,11 @@ Finalizing setup...
 Launch complete.
 b{0..2}: Initial breakpoint, main at %testdir/bd_dt/c/c_type_test.c:55
 a{0..2}: Breakpoint 1: file %testdir/bd_dt/c/c_type_test.c, line 193.
+%<
 b{0..2}: Breakpoint 1: file %testdir/bd_dt/c/c_type_test.c, line 193.
+%-
 b{0..2}: Breakpoint 1, main at %testdir/bd_dt/c/c_type_test.c:193
+%>
 <$b>: Hello World! from process 0
 <$b>: Hello World! from process 1
 <$b>: Hello World! from process 2

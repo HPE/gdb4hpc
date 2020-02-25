@@ -20,8 +20,11 @@ Launch complete.
 b{0..1}: Initial breakpoint, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:138
 a{0..1}: Breakpoint 1: file %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c, line 193.
 b{0..1}: Breakpoint 1: file %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c, line 193.
+%<
 a{0..1}: Breakpoint 1, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:193
+%-
 b{0..1}: Breakpoint 1, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:193
+%>
 a{0..1}: 193		for (ii=0; ii<10; ++ii)
 a{0..1}: 194		{
 a{0..1}: 195			one_d_i[ii] = one_d_i_cnt++;

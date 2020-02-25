@@ -150,7 +150,6 @@ def compareLine(refline, outline):
 Return true if the outline matches a pattern that is ignored for comparison
 '''
 def ignoreLine(outline, ignores):
-    print("ignores = " + ';'.join(ignores))
     for ignore in ignores:
         if compareLine(ignore, outline)[0]:
             return True

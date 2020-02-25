@@ -86,8 +86,11 @@ b{0..2}: Breakpoint 1: file %testdir/bd_dt/fortran/ftn_bd_dt.f90, line 64.
 <$a>:  Struct member= Cray
 <$a>:  Struct member=          100
 <$a>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+%<
 b{0..2}: Breakpoint 1, ftn_dt at %testdir/bd_dt/fortran/ftn_bd_dt.f90:64
+%-
 a{0..2}: Breakpoint 1, ftn_dt at %testdir/bd_dt/fortran/ftn_bd_dt.f90:64
+%>
 a{0..2}: .TRUE.
 b{0..2}: .TRUE.
 {0}: Comparison is true.

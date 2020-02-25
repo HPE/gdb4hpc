@@ -1,0 +1,112 @@
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_ds_test1.cpp:13
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_ds_test1.cpp, line 61.
+<$b>: i=1
+<$b>: rect area: 20
+<$b>: rectb area: 30
+<$b>: i=2
+<$b>: rect area: 30
+<$b>: rectb area: 30
+<$b>: i=3
+<$b>: rect area: 42
+<$b>: rectb area: 30
+<$b>: i=4
+<$b>: rect area: 56
+<$b>: rectb area: 30
+<$b>: i=5
+<$b>: rect area: 72
+<$b>: rectb area: 30
+<$b>: i=6
+<$b>: rect area: 90
+<$b>: rectb area: 30
+<$b>: i=7
+<$b>: rect area: 110
+<$b>: rectb area: 30
+<$b>: i=8
+<$b>: rect area: 132
+<$b>: rectb area: 30
+<$b>: i=9
+<$b>: rect area: 156
+<$b>: rectb area: 30
+<$b>: i=10
+<$b>: rect area: 182
+<$b>: rectb area: 30
+<$b>: i=1
+<$b>: rect area: 20
+<$b>: rectb area: 30
+<$b>: i=2
+<$b>: rect area: 30
+<$b>: rectb area: 30
+<$b>: i=3
+<$b>: rect area: 42
+<$b>: rectb area: 30
+<$b>: i=4
+<$b>: rect area: 56
+<$b>: rectb area: 30
+<$b>: i=5
+<$b>: rect area: 72
+<$b>: rectb area: 30
+<$b>: i=6
+<$b>: rect area: 90
+<$b>: rectb area: 30
+<$b>: i=1
+<$b>: rect area: 20
+<$b>: rectb area: 30
+<$b>: i=2
+<$b>: rect area: 30
+<$b>: rectb area: 30
+<$b>: i=3
+<$b>: rect area: 42
+<$b>: rectb area: 30
+<$b>: i=4
+<$b>: rect area: 56
+<$b>: rectb area: 30
+<$b>: i=5
+<$b>: rect area: 72
+<$b>: rectb area: 30
+<$b>: i=6
+<$b>: rect area: 90
+<$b>: rectb area: 30
+<$b>: i=7
+<$b>: rect area: 110
+<$b>: rectb area: 30
+<$b>: i=8
+<$b>: i=7
+<$b>: rect area: 110
+<$b>: rectb area: 30
+<$b>: i=8
+<$b>: rect area: 132
+<$b>: rectb area: 30
+<$b>: i=9
+<$b>: rect area: 156
+<$b>: rectb area: 30
+<$b>: i=10
+<$b>: rect area: 182
+<$b>: rectb area: 30
+<$b>: rect area: 132
+<$b>: rectb area: 30
+<$b>: i=9
+<$b>: rect area: 156
+<$b>: rectb area: 30
+<$b>: i=10
+<$b>: rect area: 182
+<$b>: rectb area: 30
+b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_ds_test1.cpp:61
+b{0..2}: 10
+b{0..2}: 9
+b{0..2}: 9
+b{0..2}: 9
+b{0..2}: 9
+b{0..2}: 9
+b{0..2}: 9.5
+b{0..2}: 9.5
+b{0..2}: The application has reached an exit breakpoint.
+Shutting down debugger and killing application for 'b'.

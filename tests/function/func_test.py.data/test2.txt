@@ -1,0 +1,119 @@
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at %testdir/bd_dt/fortran/ftn_bd_dt.f90:65
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/fortran/ftn_bd_dt.f90:65
+a{0..2}: Breakpoint 1: file %testdir/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+<$b>:  string= Testing
+<$b>:  Integer=            1
+<$b>:  char= t
+<$b>:  real=    30.3199997    
+<$b>:  real8=    1.0000000000000000     
+<$b>:  complex=        (327.670013,-6.500000134E-03)
+<$b>:  Integer multiplication=            2
+<$b>:  Boolean=  T
+<$b>:  Struct member= Cray
+<$b>:  Struct member=          100
+<$b>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+<$b>:  string= Testing
+<$b>:  Integer=            1
+<$b>:  char= t
+<$b>:  real=    30.3199997    
+<$b>:  real8=    1.0000000000000000     
+<$b>:  complex=        (327.670013,-6.500000134E-03)
+<$b>:  Integer multiplication=            2
+<$b>:  Boolean=  T
+<$b>:  Struct member= Cray
+<$b>:  Struct member=          100
+<$b>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+<$b>:  string= Testing
+<$b>:  Integer=            1
+<$b>:  char= t
+<$b>:  real=    30.3199997    
+<$b>:  real8=    1.0000000000000000     
+<$b>:  complex=        (327.670013,-6.500000134E-03)
+<$b>:  Integer multiplication=            2
+<$b>:  Boolean=  T
+<$b>:  Struct member= Cray
+<$b>:  Struct member=          100
+<$b>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+<$a>:  string= Testing
+<$a>:  Integer=            1
+<$a>:  char= t
+<$a>:  real=    30.3199997    
+<$a>:  real8=    1.0000000000000000     
+<$a>:  complex=        (327.670013,-6.500000134E-03)
+<$a>:  Integer multiplication=            2
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Struct member=          100
+<$a>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+<$a>:  string= Testing
+<$a>:  Integer=            1
+<$a>:  char= t
+<$a>:  real=    30.3199997    
+<$a>:  real8=    1.0000000000000000     
+<$a>:  complex=        (327.670013,-6.500000134E-03)
+<$a>:  Integer multiplication=            2
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Struct member=          100
+<$a>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+<$a>:  string= Testing
+<$a>:  Integer=            1
+<$a>:  char= t
+<$a>:  real=    30.3199997    
+<$a>:  real8=    1.0000000000000000     
+<$a>:  complex=        (327.670013,-6.500000134E-03)
+<$a>:  Integer multiplication=            2
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Struct member=          100
+<$a>:  Contents of array from subroutine=            1           2           3           4           5           6           7           8           9          10
+b{0..2}: Breakpoint 1, ftn_dt at %testdir/bd_dt/fortran/ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1, ftn_dt at %testdir/bd_dt/fortran/ftn_bd_dt.f90:64
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: 't'
+b{0..2}: 't'
+{0}: Comparison is true.
+a{0..2}: 30.32
+b{0..2}: 30.32
+{0}: Comparison is true.
+a{0..2}: 'Testing'
+b{0..2}: 'Testing'
+{0}: Comparison is true.
+a{0..2}: (327.67001, -0.0065000001)
+b{0..2}: (327.67001, -0.0065000001)
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+{0}: Comparison is true.
+a{0..2}: 'Cray'
+b{0..2}: 'Cray'
+{0}: Comparison is true.
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

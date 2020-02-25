@@ -1,0 +1,55 @@
+#
+# lgdb_c_t1.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+
+maint sleep 15
+maint set sync on
+
+
+# launch 3 instances of the application
+launch $a{3} --launcher-args="--exclusive" bd_dt/c/c_type_test.x --debug
+
+launch $b{3} --launcher-args="--exclusive" bd_dt/c/c_type_test.x --debug
+
+
+# Set a breakpoint at specified line numbers:
+break c_type_test.c:193
+
+
+# Run to breakpoint 1:  
+continue
+
+p si
+
+
+#test assign command (changes only procset b)
+assign $b::si -12
+
+#print si
+p si
+
+#Test assign command (changes both procsets)
+assign si -13
+
+p si 
+
+
+#exit lgdb
+q
+
+
+
+
+

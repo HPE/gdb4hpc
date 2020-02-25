@@ -1,0 +1,26 @@
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at %testdir/bd_dt/c/c_type_test.c:55
+a{0..2}: Breakpoint 1: file %testdir/bd_dt/c/c_type_test.c, line 227.
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/c/c_cmp_diff.c:55
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/c/c_cmp_diff.c, line 227.
+%<
+b{0..2}: Breakpoint 1, main at %testdir/bd_dt/c/c_cmp_diff.c:227
+%-
+a{0..2}: Breakpoint 1, main at %testdir/bd_dt/c/c_type_test.c:227
+%>
+{1}: Comparison is true.
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

@@ -32,9 +32,18 @@ import re
 '''
 Get the name of the work load manager
 '''
+theWLM = None
 def getWLM():
-    wlm = subprocess.check_output("module load wlm_detect; wlm_detect", shell=True)
+    global theWLM
+    if theWLM:
+        return theWLM
+    
+    wlm = subprocess.check_output("module load wlm_detect; wlm_detect", shell=True).rstrip()
+    theWLM = wlm
     return wlm
+
+def isSlurm():
+    return ( getWLM() == "SLURM")
 
 '''
 Return a writeable directory for saving the output result for the tests.
@@ -49,7 +58,7 @@ def getTmpDir():
 
 def makeBatchScript(test, application, numJobs):
     wlm = getWLM()
-    if (wlm == "SLURM"):
+    if isSlurm():
         return None
 
     templateFile = test.get_data("qsub.template", must_exist=True)
@@ -225,7 +234,7 @@ def readRef(ref, ignores):
     refline = ref.readline()
 
     if re.match(r"^%session\s*$", refline):
-        if getWLM() == "SLURM":
+        if isSlurm():
             refline = ref.readline()
         else:
             return [ alpsSession.split('|') ]
@@ -241,7 +250,7 @@ def readRef(ref, ignores):
     if not refline:
         return []  # end of file
     elif re.match(r"^%Starting.*$", refline):
-        if getWLM() == "SLURM":
+        if isSlurm():
             return [ [ refline[1:] ] ]
         else:
             return [ alpsStarting.split('|') ]

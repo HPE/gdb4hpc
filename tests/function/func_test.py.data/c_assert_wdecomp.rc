@@ -13,8 +13,9 @@
 # $Author: kdavis $
 #
 
+#maint set sync on
+
 # This source file tests lgdb's decomposition and assertion command
-maint set sync on
 #when using assertion (dataflow) commands, turn on dfblock
 set dfblock on
 

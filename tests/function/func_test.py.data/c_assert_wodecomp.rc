@@ -18,10 +18,9 @@
 # 2.  defset command
 # 3.  Work with defset, print var, compare newset
 
-
+#maint set sync on
 
 #for assertion (dataflow) commands, turn dfblock on
-maint set sync on
 set dfblock on
 
 # launch 3 instances of the application

@@ -21,6 +21,7 @@
 
 
 #for assertion (dataflow) commands, turn dfblock on
+maint set sync on
 set dfblock on
 
 # launch 3 instances of the application

@@ -47,6 +47,28 @@ def getTmpDir():
         pass
     return tmpdir
 
+def makeBatchScript(test, application, numJobs):
+    wlm = getWLM()
+    if (wlm == "SLURM"):
+        return None
+
+    templateFile = test.get_data("qsub.template", must_exist=True)
+    if not templateFile:
+        return None
+
+    tmpDir = getTmpDir()
+    batchfile = tmpDir + "/batch.script"
+    npes = numJobs
+    ranks = 1
+    with open(batchfile, "w") as batch:
+        for line in open(templateFile,"r"):
+            line = line.replace("[pes]", str(npes))
+            line = line.replace("[ppn]", str(ranks))
+            line = line.replace("[application]", application)
+            batch.write(line)
+
+    return "--qsub=" + batchfile
+
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
@@ -57,8 +79,38 @@ def makeRunFile(test):
     if (not rcfile):
         test.fail("could not get rc file")
     runfile = tmpdir + '/' + testName + ".rc"
-    subprocess.call(['cp', rcfile, runfile]);
+
+    launchRE = re.compile(r"^\s*launch\s+\$\S+{([0-9]+)\}.*\s([^-]\S+)")
+    application = None
+    numProcs = 1
+    totNumProcs = 0
+    for line in open(rcfile,"r"):
+        match = launchRE.search(line)
+        if match:
+            numProcs = int(match.group(1))
+            application = match.group(2)
+            totNumProcs += numProcs
+
+    if not application:
+        test.error("could not find launch in " + rcfile)
+
+    exclusive = "--exclusive"
+    session = makeBatchScript(test, application, totNumProcs)
+    if (session):
+        session = "session " + session
+        exclusive = "-n" + str(numProcs)
+
+    syncrc = re.compile(r"maint\s+set\s+sync\s+on")
+
+    with open(runfile,"w") as run:
+        for line in open(rcfile, "r"):
+            if session and syncrc.search(line):
+                run.write(session + "\n")
+                run.write("maint sleep 15\n")
+            run.write(line.replace("--exclusive",exclusive))
+
     return runfile
+
 
 '''
 Return the location to save the output from a test
@@ -155,6 +207,9 @@ def ignoreLine(outline, ignores):
             return True
     return False
 
+alpsSession = "Submitting job to the batch system.\n|Session ready.\n"
+alpsStarting = "Waiting for job to start, please wait...\n|Starting application, please wait...\n"
+
 '''
 Read the next line or lines of reference input.   Some output from gdb4phc can 
 be generated in an undefined order which is indicated in the .ref file with the 
@@ -169,6 +224,12 @@ Return an empty list if there are no more lines in the reference file
 def readRef(ref, ignores):
     refline = ref.readline()
 
+    if re.match(r"^%session\s*$", refline):
+        if getWLM() == "SLURM":
+            refline = ref.readline()
+        else:
+            return [ alpsSession.split('|') ]
+
     # handle ignores definitions which are delimited by %[  %]
     while len(refline) >= 2 and refline[0:2] == "%[":
         refline = ref.readline()
@@ -179,8 +240,13 @@ def readRef(ref, ignores):
 
     if not refline:
         return []  # end of file
+    elif re.match(r"^%Starting.*$", refline):
+        if getWLM() == "SLURM":
+            return [ [ refline[1:] ] ]
+        else:
+            return [ alpsStarting.split('|') ]
     elif len(refline) < 2 or refline[0:2] != "%<":
-        return [ [ refline ] ]  # a single next line to match
+         return [ [ refline ] ]  # a single next line to match
 
     # read in the set of section until we get to the ending %>
     refLines = []
@@ -191,7 +257,7 @@ def readRef(ref, ignores):
         if not refline:
             break
         elif len(refline) >= 2 and refline[0:2] == "%-":
-            if section > 0:
+            if section:
                 refLines.append(section)
                 section = []
         elif len(refline) >= 2 and refline[0:2] == "%>":
@@ -250,7 +316,7 @@ def compareResults(test):
 
             if not matched:
                 refline = '|'.join([ opt[0].rstrip() for opt in refLines ])
-                test.fail("mismatch at %s:%d vs reference %s, got %s expected %s" % (shortOutfile, outln, shortReffile, outline, refline))
+                test.fail("mismatch %s:%d vs ref %s, got %s vs %s" % (shortOutfile, outln, shortReffile, outline, refline))
                 return
             elif consumed:
                 refLines.remove([])

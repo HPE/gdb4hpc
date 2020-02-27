@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#PBS -N gdb4hpc_test
+#PBS -l nodes=[pes]:ppn=[ppn]
+#PBS -l walltime=00:01:00
+#PBS -V
+#PBS -o tmp/qout
+#PBS -e tmp/qerr
+
+#cray_debug_start
+aprun -n [pes] -N [ppn] [application]
+#cray_debug_end
+
+

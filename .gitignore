@@ -25,7 +25,6 @@ ltmain.sh
 *.o
 
 /cray.rev
-/external
 guard/Makefile
 guard/autom4te.cache
 guard/config.h

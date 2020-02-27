@@ -1,12 +1,16 @@
 [submodule "third_party/libmi"]
-	path = third_party/libmi
+	path = external/libmi
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libmi.git
 	branch = master
 [submodule "third_party/mrnet"]
-	path = third_party/mrnet
+	path = external/mrnet
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
 	branch = gdb4hpc-external
 [submodule "third_party/ddt_gdb-8.1"]
-	path = third_party/ddt_gdb-8.1
+	path = external/ddt_gdb-8.1
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-8.1.git
+	branch = master
+[submodule "external/cdst_build_library"]
+	path = external/cdst_build_library
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/cdst_build_library.git
 	branch = master

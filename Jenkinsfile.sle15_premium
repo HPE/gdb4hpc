@@ -1,7 +1,7 @@
 /******************************************************************************\
  * Jenkinsfile.sle15_premium - DST Jenkins pipeline for Sles 15 Shasta premium
  *
- * Copyright 2019 Cray Inc.  All Rights Reserved.
+ * Copyright 2019-2020 Cray Inc. All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -14,7 +14,6 @@
 @Library("dst-shared@master") _
 
 sles15PremiumPE {
-    specfile = "gdb4hpc.spec"
     timeout = 60
     product = "pe-base"
     receiveEvent = ["cti-complete"]

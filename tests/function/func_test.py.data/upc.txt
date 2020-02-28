@@ -1,0 +1,64 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 60 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [5];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..4}: Initial breakpoint, main at /cray/css/u18/kdavis/dev_sanity_tests/upc/upc_test.c:78
+a{0..4}: 78	main()
+a{0..4}: 79	{
+a{0..4}: 80	  test05 ();
+a{0..4}: 81	  return 0;
+a{0..4}: 82	}
+a{0..4}: Breakpoint 1: file /cray/css/u18/kdavis/dev_sanity_tests/upc/upc_test.c, line 81.
+a{0..4}: Breakpoint 1, main at /cray/css/u18/kdavis/dev_sanity_tests/upc/upc_test.c:81
+a{0..4}: 81	  return 0;
+a{0..4}: 82	}
+<$a>: test05: access structured shared array element
+<$a>: 		using a local pointer - passed.
+Entering gdb pass-thru mode. Type "end" to exit mode...
+
+GNU gdb (GDB) 7.2-modified
+Copyright (C) 2013 Cray Inc.
+Modified by Allinea Software.
+Copyright (C) Allinea Software Ltd. 2013
+Copyright (C) 2010 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-unknown-linux-gnu".
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+
+The current source language is "auto; currently upc".
+
+$1 = (shared struct data_struct *) (0x942500,0)
+
+
+a{0}: 
+$2 = {x1 = 1 '001', x2 = 2, x3 = 3, x4 = 4}
+
+
+a{1}: 
+$2 = {x1 = 5 '005', x2 = 6, x3 = 7, x4 = 8}
+
+
+a{2}: 
+$2 = {x1 = 9 '	', x2 = 10, x3 = 11, x4 = 12}
+
+
+a{3}: 
+$2 = {x1 = 13 'r', x2 = 14, x3 = 15, x4 = 16}
+
+
+a{4}: 
+$2 = {x1 = 17 '021', x2 = 18, x3 = 19, x4 = 20}
+
+
+Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
+Shutting down debugger and killing application for 'a'.

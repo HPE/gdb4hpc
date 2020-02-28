@@ -1,0 +1,19 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..5}: Initial breakpoint, main at %testdir/bd_dt/c/c_type_test.c:55
+a{0..5}: Breakpoint 1: file %testdir/bd_dt/c/c_type_test.c, line 247.
+%[
+<$a>:%.*%
+%]
+a{0..5}: Breakpoint 1, test_stack at %testdir/bd_dt/c/c_type_test.c:247
+a{0..5}: #1  %0x[0-9a-f]+% in main at %testdir/bd_dt/c/c_type_test.c:223
+a{0..5}: #0  %0x[0-9a-f]+% in test_stack at %testdir/bd_dt/c/c_type_test.c:248
+Shutting down debugger and killing application for 'a'.

@@ -1,0 +1,50 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 60 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..1}: Initial breakpoint, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:138
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 60 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..1}: Initial breakpoint, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:138
+a{0..1}: Breakpoint 1: file %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c, line 193.
+b{0..1}: Breakpoint 1: file %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c, line 193.
+%<
+a{0..1}: Breakpoint 1, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:193
+%-
+b{0..1}: Breakpoint 1, main at %testdir_v1.6/trunk/v1.6/bd_dt/c/c_type_test.c:193
+%>
+a{0..1}: 193		for (ii=0; ii<10; ++ii)
+a{0..1}: 194		{
+a{0..1}: 195			one_d_i[ii] = one_d_i_cnt++;
+a{0..1}: 196			one_d_l[ii] = one_d_l_cnt++;
+a{0..1}: 197			one_d_f[ii] = one_d_f_cnt;
+a{0..1}: 198			one_d_f_cnt += 1.0;
+a{0..1}: 199			one_d_d[ii] = one_d_d_cnt;
+a{0..1}: 200			one_d_d_cnt += 1.0;
+a{0..1}: 201			one_d_ld[ii] = one_d_ld_cnt;
+a{0..1}: 202			one_d_ld_cnt += 1.0;
+b{0..1}: 193		for (ii=0; ii<10; ++ii)
+b{0..1}: 194		{
+b{0..1}: 195			one_d_i[ii] = one_d_i_cnt++;
+b{0..1}: 196			one_d_l[ii] = one_d_l_cnt++;
+b{0..1}: 197			one_d_f[ii] = one_d_f_cnt;
+b{0..1}: 198			one_d_f_cnt += 1.0;
+b{0..1}: 199			one_d_d[ii] = one_d_d_cnt;
+b{0..1}: 200			one_d_d_cnt += 1.0;
+b{0..1}: 201			one_d_ld[ii] = one_d_ld_cnt;
+b{0..1}: 202			one_d_ld_cnt += 1.0;
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

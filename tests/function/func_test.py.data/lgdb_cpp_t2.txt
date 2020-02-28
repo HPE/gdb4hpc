@@ -1,0 +1,74 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_bd_test.cpp:24
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_bd_test.cpp:24
+a{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_bd_test.cpp, line 136.
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_bd_test.cpp, line 136.
+%[
+%<\$[ab]>:.*
+%]
+%<
+b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_bd_test.cpp:136
+%-
+a{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_bd_test.cpp:136
+%>
+a{0..2}: 4
+b{0..2}: 4
+{0}: Comparison is true.
+a{0..2}: 2.3306999
+b{0..2}: 2.3306999
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: true
+b{0..2}: true
+{0}: Comparison is true.
+a{0..2}: -44
+b{0..2}: -44
+{0}: Comparison is true.
+a{0..2}: 44
+b{0..2}: 44
+{0}: Comparison is true.
+a{0..2}: -32767
+b{0..2}: -32767
+{0}: Comparison is true.
+a{0..2}: 32767
+b{0..2}: 32767
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: -0.9999999998477852
+b{0..2}: -0.9999999998477852
+{0}: Comparison is true.
+a{0..2}: 4294967295
+b{0..2}: 4294967295
+{0}: Comparison is true.
+a{0..2}: -2147483648
+b{0..2}: -2147483648
+{0}: Comparison is true.
+a{0..2}: 236
+b{0..2}: 236
+{0}: Comparison is true.
+a{0..2}: -20
+b{0..2}: -20
+{0}: Comparison is true.
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

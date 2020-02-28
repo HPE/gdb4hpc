@@ -190,3 +190,19 @@ third_party/editline/stamp-h1
 third_party/gdb_uda/plugin/uda-plugin-cray-upc.so
 third_party/gdb_uda/udaserver
 
+# tests
+tests/aclocal.m4
+tests/compile
+tests/function/__pycache__
+tests/function/avocado-virtual-environment
+tests/function/bd_dt/C++/cpp_bd_test.x
+tests/function/bd_dt/C++/cpp_cmp_diff.x
+tests/function/bd_dt/C++/cpp_ds_test1.x
+tests/function/bd_dt/c/c_cmp_diff.x
+tests/function/bd_dt/c/c_time.x
+tests/function/bd_dt/c/c_type_test.x
+tests/function/bd_dt/fortran/ftn_bd_dt.x
+tests/function/bd_dt/fortran/ftn_cmp_diff.x
+tests/function/tmp
+tests/missing
+

@@ -1,0 +1,86 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at %testdir/bd_dt/c/c_type_test.c:55
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/c/c_cmp_diff.c:55
+
+Summary: Assertion script assert command.
+Usage: assert <expr1> = <expr2>
+Example command:
+assert $app1::var1@"app1.c":10 = $app2::var2@"app2.c":20
+
+Arguments: expr1 (assert expr syntax), expr2 (assert expr syntax)
+
+Assert expression syntax
+
+Expr Usage: <procset>::<var>@"<source file>":<line>
+Expr arguments: procset (defined process set name), var (application
+                variable), source file (quoted source file name), line (line
+                in source file to reference var)
+Expr example: $my_app::my_var@"my_source.c":10
+
+Description:
+Assert that the variable var defined in expr1 is equivalent to the
+variable var defined in expr2. Variables are specified using the assert
+expression syntax, which declares both spatial and temporal references
+for a variable.
+
+Define the spatial locality with $procset::var to specify the particular
+variable of interest within a set of application ranks. This is followed
+with the temporal reference of "source file":line to define the point
+within application execution where to examine the value of the variable.
+
+The result of the assertion command depends on the current settings of
+error, display, output, and logging.
+
+Assertion script $mine compiled.
+%[
+<$%[ab]>:.*%
+%]
+*** Starting execution of application ***
+*** Difference found in AssertID 1 ***
+
+*** The interpreter has halted. ***
+Assertion script $mine complete.
+Successful Assertion Set Iterations: 0
+Total Passed Assertions: 0
+Total Warned Assertions: 0
+Total Failed Assertions: 1
+
+Assertion summary:
+AssertID 1:  Pass: 0 Warn: 0 Fail: 1
+***********************************
+
+Current location:
+b{0..2}: Application halted in main at %testdir/bd_dt/c/c_cmp_diff.c:160
+a{0..2}: Application halted in main at %testdir/bd_dt/c/c_type_test.c:160
+
+
+There is currently no assertion script executing.
+Defined decompositions:
+$myComp:
+	dimension 3
+	distribute block
+	proc_grid 3
+	dim_order 1
+
+Script $mine
+AssertID:1  $myComp{$a::assertTest@"c_type_test.c":160}=$myComp{$b::assertTest@"c_cmp_diff.c":160}
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

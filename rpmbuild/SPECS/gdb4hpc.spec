@@ -1,7 +1,7 @@
 # Packaging definitions
 %global pkgversion %(%{_sourcedir}/get_package_data --crayversion)
 %global pkgversion_separator -
-%global copyright Copyright 2007-2019 Cray Inc. All rights reserved.
+%global copyright Copyright 2007-2020 Cray Inc. All rights reserved.
 
 # RPM build time
 %global release_date %(date +%%B\\ %%Y)
@@ -76,11 +76,33 @@
 %global privlibs %{privlibs}|libtbb.*
 %global __requires_exclude ^(%{privlibs})\\.so*
 
-# Check for the dist tag and set if not populated
-# Note: for now sles 15 is the only supported OS without a dist tag, this will need updating if that changes
-%{!?dist:
+# Dist tags for SuSE need to be manually set
+%if 0%{?suse_version}
+%if 0%{?suse_version} == 1315
+%global dist .sles12
+%endif
+%if 0%{?sle_version} == 120000
+%global dist .sles12
+%endif
+%if 0%{?sle_version} == 120100
+%global dist .sles12sp1
+%endif
+%if 0%{?sle_version} == 120200
+%global dist .sles12sp2
+%endif
+%if 0%{?sle_version} == 120300
+%global dist .sles12sp3
+%endif
+%if 0%{?sle_version} == 120400
+%global dist .sles12sp4
+%endif
+%if 0%{?sle_version} == 150000
 %global dist .sles15
-}
+%endif
+%if 0%{?sle_version} == 150100
+%global dist .sles15sp1
+%endif
+%endif
 
 Summary:    Cray gdb4hpc parallel debugger
 Name:       %{cray_name}
@@ -197,7 +219,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
 # lmod modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}
-%{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua 
+%{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 # set_default scripts
 %{__sed} 's|<PREFIX>|%{prefix}|g;s|<CRAY_PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<MODULEFILE_NAME>|%{modulefile_name}|g' %{SOURCE1} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 # set_default into admin-pe
@@ -214,7 +236,7 @@ if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
     %{__mkdir_p} /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/
     echo "%{cray_prefix}/%{product}/%{pkgversion}" > /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
     echo "%{cray_prefix}/modulefiles/%{modulefile_name}" > /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
-     
+
     echo -e '#%Modulefile\r\nset  ModulesVersion "%{pkgversion}"' > %{prefix}/lmod/modulefiles/core/%{cray_name}/.version
 fi
 

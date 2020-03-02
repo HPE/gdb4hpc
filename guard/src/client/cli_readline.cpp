@@ -282,5 +282,11 @@ static void rl_handle_line(char *line) {
     } else {
         rl_set_prompt("");
     }
-    rl_forced_update_display();
+
+    // PE-29468 : this function is called in a call-back from editline and 
+    // calling rl_forced_update_display at this point causes a double print of
+    // prompt.   I believe it's related to editline switching between buffered
+    // and unbuffered - in any case, the next call when the callback returns is
+    // a refresh so the call here is unnecessary.
+    //rl_forced_update_display();
 }

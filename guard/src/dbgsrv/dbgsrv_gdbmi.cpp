@@ -65,7 +65,7 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported cuda versions
-enum cuda_vers { CUDA_UNKNOWN, CUDA_75, CUDA_80, CUDA_90, CUDA_91 };
+enum cuda_vers { CUDA_UNKNOWN, CUDA_75, CUDA_80, CUDA_90, CUDA_91, CUDA_101};
 typedef enum cuda_vers cuda_vers;
 
 // functions with external visibility
@@ -1130,7 +1130,9 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 // nvidia 384.* ==> CTK 9.0
                 // nvidia 390*  ==> CTK 9.1
 
-                if (strncmp(vers_str, "390", 3) == 0) {
+                if (strncmp(vers_str, "400", 3) == 0) {
+                    vers_num = CUDA_101;
+                } else if (strncmp(vers_str, "390", 3) == 0) {
                     vers_num = CUDA_91;
                 } else if (strncmp(vers_str, "384", 3) == 0) {
                     vers_num = CUDA_90;
@@ -1194,6 +1196,10 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                     case CUDA_91:
                         DVPRINT("Using cuda91-gdb-guard\n");
                         MISessionSetGDBPath(GDBMISession, "cuda91-gdb-guard");
+                        break;
+                    case CUDA_101:
+                        DVPRINT("Using cuda101-gdb-guard\n");
+                        MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
                         break;
                     case CUDA_UNKNOWN:
                         DVPRINT("Unsupported driver version.\n");

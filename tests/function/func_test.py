@@ -287,6 +287,7 @@ def compareResults(test):
     outfile = getOutFile(testName, rm=False)
     reffile = test.get_data(testName + ".txt", must_exist=True)
     if not reffile:
+        test.error("could not open " + testName + ".txt")
         return
 
     testdir = os.getcwd()
@@ -484,3 +485,7 @@ class c_assert_wdecomp(Test):
     def test(self):
         runTest(self)
         
+class ftn_arrays(Test):
+    def test(self):
+        runTest(self)
+

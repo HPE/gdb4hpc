@@ -50,11 +50,19 @@ print vec_float
 
 print vec_double
 
-
 # run compare command
 compare $b{0}::area1=$b{1}::area1
 
 compare $b{0}::area2=$b{1}::area2
+
+# print the containers to verify the pretty printing
+print l
+print pq
+print s
+print q
+print d
+print vf
+print vd
 
 continue
 

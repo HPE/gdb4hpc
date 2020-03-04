@@ -43,6 +43,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string>
+#include <fstream>
 
 #include "MI.h"
 #include "aif.h"
@@ -59,6 +61,7 @@
 #include "expr.h"
 #include "mparch.h"
 #include "useful.h"
+#include "common_tools_be.h"
 
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
@@ -300,6 +303,60 @@ static dbgevent_t *delete_internal_breakpoints(list_t *bplist) {
 
 static MICommand *_MIGDBSet(const char *var, const char *val) {
     return MIGDBSet(const_cast<char *>(var), const_cast<char *>(val));
+}
+
+static void setup_pretty_printing() {
+    // setup the pretty printing for C++ types
+    char* ctiFileDir = cti_be_getFileDir();
+    if (!ctiFileDir) {
+        DVPRINT("no CTIFile dir\n");
+        return;
+    }
+
+    std::string prettyDir = ctiFileDir;
+    std::string prettyFile = prettyDir + "/printers.py";
+    free(ctiFileDir);
+
+    FILE *pf = fopen(prettyFile.c_str(), "r");
+    if (!pf) {
+       DVPRINT("could not open printers.py\n");
+       return;
+    }
+
+    fclose(pf);
+
+    char* tmpDir = cti_be_getTmpDir();
+    if (!tmpDir) {
+        DVPRINT("could not get tmpDir");
+        return;
+    }
+
+    std::string scriptFile = std::string(tmpDir) + "/initpretty";
+    free(tmpDir);
+ 
+    std::ofstream script(scriptFile.c_str());
+    if (!script) {
+        DVPRINT("could not open %s\n", scriptFile.c_str());
+        return;
+    }
+
+    script << "python\n";
+    script << "import sys\n";
+    script << "sys.path.insert(0,'" << ctiFileDir << "')\n";
+    script << "from libstdcxx.v6.printers import register_libstdcxx_printers\n";
+    script << "register_libstdcxx_printers (None)\n";
+    script << "end\n";
+
+    script.close();
+
+    const char* cmd_args[2] = {"source", scriptFile.c_str() };
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Loading pretty printers failed\n");
+    }
+    remove(scriptFile.c_str());
+    MICommandFree(cmd);
 }
 
 static dbgevent_t *setup_gdbmi_environment(void) {
@@ -570,6 +627,9 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     cmd = _MIGDBSet("max-value-size", "unlimited");
     SendMICommand(GDBMISession, cmd);
     MICommandFree(cmd);
+
+    // manually set up pretty printing for relocated installs
+    setup_pretty_printing();
 
     return NULL;
 }

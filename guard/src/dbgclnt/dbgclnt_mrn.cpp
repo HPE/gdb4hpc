@@ -29,6 +29,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string>
+#include <initializer_list>
 
 #include "Stream_C.h"
 #include "aif.h"
@@ -1191,6 +1193,23 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
         PrintOutError("Failed to transfer backend attach information.\n");
         goto invoke_error;
     }
+
+    // Add the pretty printers
+    if (getenv("GDB4HPC_INSTALL_DIR")) {
+        // this is a local install, ship over the pretty-printing via the
+        // manifest
+        std::string pdir(getenv("GDB4HPC_INSTALL_DIR"));
+        pdir += "/share/gdb/python/libstdcxx/v6/";
+        for (auto s : { "__init__.py", "printers.py" }) {
+            auto f = pdir + s;
+            if (cti_addManifestFile(mid, f.c_str())) {
+                 PrintOutError("CTI warning: %s\n", cti_error_str());
+                 PrintOutError("Could not add pretty print file %s to manifest\n",
+                               f.c_str());
+            }
+        }
+    }
+        
 
     DPRINT("MRNet network initialized.\n");
     DPRINT("Launching debug servers onto compute nodes.\n");

@@ -331,7 +331,8 @@ static void setup_pretty_printing() {
         return;
     }
 
-    std::string scriptFile = std::string(tmpDir) + "/initpretty";
+    std::string scriptFile = std::string(tmpDir) + "/initpretty" + 
+                                std::to_string(getpid());
     free(tmpDir);
  
     std::ofstream script(scriptFile.c_str());
@@ -342,7 +343,7 @@ static void setup_pretty_printing() {
 
     script << "python\n";
     script << "import sys\n";
-    script << "sys.path.insert(0,'" << ctiFileDir << "')\n";
+    script << "sys.path.insert(0,'" << prettyDir << "')\n";
     script << "from libstdcxx.v6.printers import register_libstdcxx_printers\n";
     script << "register_libstdcxx_printers (None)\n";
     script << "end\n";

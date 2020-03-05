@@ -27,6 +27,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             bzip2 \
             ctags \
             flex \
+            libtool \
             m4 \
             make \
             makeinfo \
@@ -36,8 +37,9 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             libbz2-devel \
             liblzma5 \
             libtool \
-            tcl \
             python3-devel \
+            rpm-build \
+            tcl \
             which \
             xz-devel
     check_exit_status
@@ -49,23 +51,23 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             binutils-devel \
             bison \
             bzip2 \
+            bzip2-devel \
             ctags \
             environment-modules \
             flex \
+            libtool \
             m4 \
             make \
             mksh \
             ncurses \
             ncurses-devel \
-            xz-devel \
-            bzip2-devel \
-            libtool \
-            tcl \
             python3-devel \
-            which \
-            xz-devel \
+            rpm-build \
+            tcl \
             texi2html \
-            texinfo
+            texinfo \
+            which \
+            xz-devel
     check_exit_status
 else
     # Unknown OS! Exit with error.

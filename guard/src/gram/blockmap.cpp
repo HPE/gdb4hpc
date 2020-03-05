@@ -410,13 +410,22 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
 
     // now check if expect number of elements is the same with the actual number
     // of elements
+    bool isDegenerate = true;
+    for (i = 0; i < m->m_rank; ++i) {
+        if (m->m_distribute[i] != CT_STAR)
+            isDegenerate = false;
+    }
+       
     if (p2pmode)
-        expect_num_elems = max[0] + 1;
+        expect_num_elems = max[0] - min[0] + 1;
     else {
         for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] + 1;
     }
 
     for (i = 0; i < nd; i++) {
+        if (isDegenerate)
+            actual_num_elems = 0;
+
         switch (FDSType(AIF_FORMAT(data[i]))) {
             case AIF_ARRAY:
             case AIF_FTN_ARRAY:
@@ -427,6 +436,9 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
                 actual_num_elems++;
                 break;
         }
+
+        if (isDegenerate && expect_num_elems != actual_num_elems)
+            break;
     }
     if (expect_num_elems != actual_num_elems) {
         SetError(

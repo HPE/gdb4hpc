@@ -50,6 +50,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             bison \
             bzip2 \
             ctags \
+            environment-modules \
             flex \
             m4 \
             make \

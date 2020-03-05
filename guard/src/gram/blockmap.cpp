@@ -234,7 +234,7 @@ void DestroyBlockMap(g_block_map_t *m) {
 }
 
 char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
-                        int *min, int *max, int *d_max, int num_procs) {
+                        int *min, int *max, int *d_min, int *d_max, int num_procs) {
     char *basetype;
     char *tok;
     char *result;
@@ -291,7 +291,7 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
         rank = 1;
         min[0] = 0;
         // need to work out the number of result elements for P2P
-        max[0] = (num_procs * (d_max[0] + 1)) - 1;  // assume just 1 for now
+        max[0] = (num_procs * (d_max[0] - d_min[0] + 1)) - 1;  // assume just 1 for now
     } else {
         rank = m->m_rank;
         for (i = 0; i < rank; i++) {
@@ -406,7 +406,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
 
     // It is sort of confusing to not use a temporary pointer for type, but
     // since we only free type after this point it technically is valid.
-    type = _find_result_type(m, type, hashinfo, min, max, d_max, nd);
+    type = _find_result_type(m, type, hashinfo, min, max, d_min, d_max, nd);
 
     // now check if expect number of elements is the same with the actual number
     // of elements
@@ -463,9 +463,8 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
         for (i = 0; i < m->m_rank; ++i) {
             switch (m->m_distribute[i]) {
                 case CT_STAR:
-                    // Is this really the case??
                     d_min[i] = 0;
-                    d_max[i] = m->m_data[i];
+                    d_max[i] = m->m_data[i]-1;
                     break;
                 case CT_BLOCK:
                 case CT_CYCLIC:
@@ -474,7 +473,9 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
                     // Determine the block size. This is global data size
                     // divided by the number of ranks in the proc_grid
                     // FIXME: This doesn't handle remainder problems...
-                    d_max[i] = m->m_data[i] / m->m_procs[i];
+                    d_max[i] = m->m_data[i] / m->m_procs[i] - 1;
+                    if (d_max[i] < 0)
+                        d_max[i] = 0;	
                     break;
                 case CT_BLOCK_CYCLIC:
                     // FIXME: Not implemented yet.
@@ -586,7 +587,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
                 if (hashmode) {
                     for (i = 0; i < m->m_rank; i++) {
                         global_data[i] = m->m_data[i] / hash_vals[i];
-                        local_data[i] = d_max[i] + 1;
+                        local_data[i] = d_max[i] - d_min[i] + 1;
                         blockcyclic_val[i] =
                             m->m_blockcyclic_val[i] / hash_vals[i];
                         proc_grid[i] = m->m_procs[i];
@@ -617,7 +618,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
                         global_data[j] = m->m_data[i] / hash_vals[i];
                         blockcyclic_val[j] =
                             m->m_blockcyclic_val[i] / hash_vals[i];
-                        local_data[i] = d_max[i] + 1;
+                        local_data[i] = d_max[i] - d_min[i] + 1;
                         ++j;
                     }
                 } else {
@@ -625,7 +626,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
                     for (i = m->m_rank - 1; 0 <= i; --i) {
                         global_data[j] = m->m_data[i];
                         blockcyclic_val[j] = m->m_blockcyclic_val[i];
-                        local_data[i] = d_max[i];
+                        local_data[i] = d_max[i] - d_min[i] + 1;
                         ++j;
                     }
                 }

@@ -16,30 +16,64 @@ source ./external/cdst_build_library/build_lib
 echo "############################################"
 echo "#             Installing deps              #"
 echo "############################################"
-#   If you add pkgs, please insert them in alphabetical order.
-zypper --non-interactive install \
-                autoconf \
-				automake \
-				binutils-devel \
-				bison \
-				bzip2 \
-				ctags \
-				flex \
-				m4 \
-				make \
-				makeinfo \
-				mksh \
-				ncurses \
-				ncurses-devel \
-				libbz2-devel \
-				liblzma5 \
-				libtool \
-				tcl \
-				python3-devel \
-				which \
-				xz-devel
-check_exit_status
-
+target_pm=$(get_pm)
+if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
+    # Install zypper based dependencies
+    zypper --non-interactive install \
+            autoconf \
+            automake \
+            binutils-devel \
+            bison \
+            bzip2 \
+            ctags \
+            flex \
+            libtool \
+            m4 \
+            make \
+            makeinfo \
+            mksh \
+            ncurses \
+            ncurses-devel \
+            libbz2-devel \
+            liblzma5 \
+            libtool \
+            python3-devel \
+            rpm-build \
+            tcl \
+            which \
+            xz-devel
+    check_exit_status
+elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
+    # Install yum based components
+    yum --assumeyes --enablerepo=PowerTools install \
+            autoconf \
+            automake \
+            binutils-devel \
+            bison \
+            bzip2 \
+            bzip2-devel \
+            ctags \
+            environment-modules \
+            flex \
+            libtool \
+            m4 \
+            make \
+            mksh \
+            ncurses \
+            ncurses-devel \
+            python3-devel \
+            rpm-build \
+            tcl \
+            texi2html \
+            texinfo \
+            which \
+            xz-devel
+    check_exit_status
+else
+    # Unknown OS! Exit with error.
+    echo "Unsupported Package Manager detected!"
+    exit 1
+fi
 
 # Install the common PE components
 install_common_pe

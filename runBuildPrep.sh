@@ -51,14 +51,6 @@ install_cti
 echo "############################################"
 echo "#          Installing cudatoolkit          #"
 echo "############################################"
-# Note that cudatoolkit rpms depend on readelf; there may be other pkgs it
-# requires; we can get everything we need from the various zypper installs
-# currently preceding this script, but maybe we should document its
-# dependencies...
-# TODO: figure out what packages cudatoolkit depends on
-# TODO: eventually add cudatoolkit to cdst_build_library
-
-# Install cudatoolkit 10.1
 # ensure submodule is checked out
 if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
     echo "$top_level/external/pebuildenv submodule not checked out..."

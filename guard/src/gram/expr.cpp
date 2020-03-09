@@ -2569,7 +2569,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
         goto bad_var;
 
     if (RVAL_ACTUAL_TYPE(val) != rval_proc) {
-        SetError("No such process \"%s\"", SymLookup(LVAL_SYM(val)));
+        SetError("No such process \"%s\"", LVAL_GDB_EXPR(val));
         goto bad_var;
     }
 

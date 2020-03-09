@@ -142,7 +142,8 @@ check_exit_status
 # prior art.  Also applies to the --with-python directive, and if someone can
 # explain what the gdb-datadir stuff is, that'd be great; note I'm building
 # without here in contrast to the gdb-8.1 above.
-./configure --prefix=$install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=/usr/bin/python3 CC=/opt/gcc/8.1.0/bin/gcc CXX=/opt/gcc/8.1.0/bin/g++ CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
+cuda_install_dir=$install_dir/cuda_gdb_install
+./configure --prefix=$cuda_install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=/usr/bin/python3 CC=/opt/gcc/8.1.0/bin/gcc CXX=/opt/gcc/8.1.0/bin/g++ CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
 check_exit_status
 
 make $cdst_j_flags
@@ -161,7 +162,7 @@ check_exit_status
 #check_exit_status
 
 # deliver cuda gdb to libexec dir
-cp -a $install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
+cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
 check_exit_status
 
 

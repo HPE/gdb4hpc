@@ -124,6 +124,48 @@ cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
 check_exit_status
 
 echo "############################################"
+echo "#          Building cuda gdb 10.1          #"
+echo "############################################"
+
+# we've already ensured python3 exists, just noting it's necessary here too.
+# ensure submodule is checked out
+if [[ ! -f $top_level/external/ddt_cuda-gdb-101/README ]]; then
+    echo "cuda gdb 10.1 submodule not checked out..."
+    exit 1
+fi
+
+cd $top_level/external/ddt_gdb-cuda-gdb-101
+check_exit_status
+
+# NOTE: I have the gcc and g++ locations hardcoded here; hoping a reviewer in
+# the PR will call me on this, not sure what we're doing here, but I'll look for
+# prior art.  Also applies to the --with-python directive, and if someone can
+# explain what the gdb-datadir stuff is, that'd be great; note I'm building
+# without here in contrast to the gdb-8.1 above.
+./configure --prefix=$install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --without-gdb-datadir --with-python=/usr/bin/python3 CC=/opt/gcc/8.1.0/bin/gcc CXX=/opt/gcc/8.1.0/bin/g++ CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
+check_exit_status
+
+make $cdst_j_flags
+check_exit_status
+
+# as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: Pretty
+# sure we don't want all of cuda gdb to install, so I'm following prior art, and
+# only installing from the gdb directory.
+cd $top_level/external/ddt_cuda-gdb-101/gdb
+make $cdst_j_flags install
+check_exit_status
+
+# not sure what I need to do here with the python_extras.  I'm going to lean on
+# feedback in the PR here as well.
+#cp -a $top_level/external/python_extras/gdb $install_dir/share/.
+#check_exit_status
+
+# deliver cuda gdb to libexec dir
+cp -a $install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
+check_exit_status
+
+
+echo "############################################"
 echo "#           Building uda plugin            #"
 echo "############################################"
 

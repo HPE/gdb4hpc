@@ -47,6 +47,26 @@ install_common_pe
 # Install CTI and CDST support
 install_cti
 
+echo "############################################"
+echo "#          Installing cudatoolkit          #"
+echo "############################################"
+# Note that cudatoolkit rpms depend on readelf; there may be other pkgs it
+# requires; we can get everything we need from the various zypper installs
+# currently preceding this script, but maybe we should document its
+# dependencies...
+# TODO: figure out what packages cudatoolkit depends on
+# TODO: eventually add cudatoolkit to cdst_build_library
+
+# Install cudatoolkit 10.1
+# ensure submodule is checked out
+if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
+    echo "pebuildenv submodule not checked out..."
+    exit 1
+fi
+export product_version="10.1"
+./external/pebuildenv/src/cuda-local.sh
+check_exit_status
+
 capture_jenkins_build
 check_exit_status
 

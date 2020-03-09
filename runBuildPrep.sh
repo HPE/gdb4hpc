@@ -11,6 +11,7 @@
 # in any form.
 #
 
+top_level=$PWD
 source ./external/cdst_build_library/build_lib
 
 echo "############################################"
@@ -60,11 +61,12 @@ echo "############################################"
 # Install cudatoolkit 10.1
 # ensure submodule is checked out
 if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
-    echo "pebuildenv submodule not checked out..."
+    echo "$top_level/external/pebuildenv submodule not checked out..."
     exit 1
 fi
 export product_version="10.1"
-./external/pebuildenv/src/cuda-local.sh
+export pebuildenv_path=$top_level/external/pebuildenv
+$top_level/external/pebuildenv/src/cuda-local.sh
 check_exit_status
 
 capture_jenkins_build

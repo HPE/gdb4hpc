@@ -134,7 +134,7 @@ if [[ ! -f $top_level/external/ddt_cuda-gdb-101/README ]]; then
     exit 1
 fi
 
-cd $top_level/external/ddt_gdb-cuda-gdb-101
+cd $top_level/external/ddt_cuda-gdb-101
 check_exit_status
 
 # NOTE: I have the gcc and g++ locations hardcoded here; hoping a reviewer in

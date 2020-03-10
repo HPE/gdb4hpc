@@ -84,6 +84,13 @@ check_exit_status
 echo "############################################"
 echo "#               Building gdb               #"
 echo "############################################"
+#TODO:  Both the gdb abd cuda gdb builds take longer than we need; however,
+#       because of a non-recursive configure, both require make to run from the
+#       top in order to generate the makefiles for the gdb directory.  This is
+#       an area we could signficiantly speed up the build, but we're waiting on
+#       the release process to be defined properly; at that juncture it may be
+#       possible that we replace the gdb backend builds here with a separate rpm
+#       of gdb backends included in the build prep.
 
 # ensure python3 exists
 python_loc=$(command -v python3)
@@ -109,6 +116,7 @@ check_exit_status
 
 # gdb is part of binutils. We don't want all of binutils to install, only gdb.
 cd $top_level/external/ddt_gdb-8.1/gdb
+check_exit_status
 make $cdst_j_flags install
 check_exit_status
 
@@ -144,10 +152,10 @@ check_exit_status
 make $cdst_j_flags
 check_exit_status
 
-# as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: Pretty
-# sure we don't want all of cuda gdb to install, so I'm following prior art, and
-# only installing from the gdb directory.
+# as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: we don't
+# want all of cuda gdb to install, so we only install from the gdb directory.
 cd $top_level/external/ddt_cuda-gdb-101/gdb
+check_exit_status
 make $cdst_j_flags install
 check_exit_status
 

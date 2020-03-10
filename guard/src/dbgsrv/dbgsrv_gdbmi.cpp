@@ -65,7 +65,7 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported cuda versions
-enum cuda_vers { CUDA_UNKNOWN, CUDA_75, CUDA_80, CUDA_90, CUDA_91, CUDA_101};
+enum cuda_vers { CUDA_UNKNOWN, CUDA_101};
 typedef enum cuda_vers cuda_vers;
 
 // functions with external visibility
@@ -1123,23 +1123,18 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 DVPRINT("Detected Nvidia driver %s\n", vers_str);
 
                 // Now strcmp the driver version with a list of supported
-                // versions The known driver mappings are: nvidia 319.* ==>
-                // CTK 5.5 nvidia 340.* ==> CTK 6.5 nvidia 346.* ==> CTK 7.0
-                // nvidia 352.* ==> CTK 7.5
-                // nvidia 361.* ==> CTK 8.0
-                // nvidia 384.* ==> CTK 9.0
-                // nvidia 390*  ==> CTK 9.1
+                // versions The known driver mappings are:
+                // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
+                // nvidia 340.* ==> CTK 6.5     ; deprecated, unsupported
+                // nvidia 346.* ==> CTK 7.0     ; deprecated, unsupported
+                // nvidia 352.* ==> CTK 7.5     ; deprecated, unsupported
+                // nvidia 361.* ==> CTK 8.0     ; deprecated, unsupported
+                // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
+                // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
+                // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
 
-                if (strncmp(vers_str, "400", 3) == 0) {
+                if (strncmp(vers_str, "440", 3) == 0) {
                     vers_num = CUDA_101;
-                } else if (strncmp(vers_str, "390", 3) == 0) {
-                    vers_num = CUDA_91;
-                } else if (strncmp(vers_str, "384", 3) == 0) {
-                    vers_num = CUDA_90;
-                } else if (strncmp(vers_str, "361", 3) == 0) {
-                    vers_num = CUDA_80;
-                } else if (strncmp(vers_str, "352", 3) == 0) {
-                    vers_num = CUDA_75;
                 }
 
                 // force tmpdir to /tmp if GPU mode is on.
@@ -1184,19 +1179,6 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 }
 
                 switch (vers_num) {
-                    case CUDA_75:
-                        DVPRINT("Using cuda75-gdb-guard\n");
-                        MISessionSetGDBPath(GDBMISession, "cuda75-gdb-guard");
-                        break;
-                    case CUDA_80:
-                        DVPRINT("Using cuda80-gdb-guard\n");
-                        MISessionSetGDBPath(GDBMISession, "cuda80-gdb-guard");
-                        break;
-                    case CUDA_90:
-                    case CUDA_91:
-                        DVPRINT("Using cuda91-gdb-guard\n");
-                        MISessionSetGDBPath(GDBMISession, "cuda91-gdb-guard");
-                        break;
                     case CUDA_101:
                         DVPRINT("Using cuda101-gdb-guard\n");
                         MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");

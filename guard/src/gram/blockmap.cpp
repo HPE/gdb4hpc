@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include <algorithm>
 
 #include "aif.h"
 #include "bitset.h"
@@ -934,11 +935,15 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
         Free(d_max);
     d_min = d_max = nullptr;
 
+    std::vector<std::pair<int,int>> sortedDirs;
+    for (int i=0; i<rank; ++i)
+        sortedDirs.push_back(std::make_pair(m->m_dim_order[i],i));
+    std::sort(sortedDirs.begin(), sortedDirs.end());
 
     std::vector<dimension_data> dimMaps(rank);
     // I want the list from slowest to fastest
     for (int i=rank; i--; ) {
-        dimension_data d(m, m->m_dim_order[rank-i],i+1==rank ? nullptr : &dimMaps[i+1]);
+        dimension_data d(m, sortedDirs[i].second,i+1==rank ? nullptr : &dimMaps[i+1]);
         dimMaps[i] = d;
     }
 

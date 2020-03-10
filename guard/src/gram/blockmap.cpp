@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #include "aif.h"
 #include "bitset.h"
@@ -320,7 +321,7 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
     return result;
 }
 
-AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
+static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
                    const char *hashinfo) {
     int i, j;
 
@@ -419,7 +420,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
     if (p2pmode)
         expect_num_elems = max[0] - min[0] + 1;
     else {
-        for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] + 1;
+        for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] - min[i] + 1;
     }
 
     for (i = 0; i < nd; i++) {
@@ -817,6 +818,191 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
     if (max != NULL) Free(max);
     if (hash_vals != NULL) Free(hash_vals);
 
+    return res;
+}
+
+namespace {
+    class dimension_data {
+    public:
+        dimension_data(const g_block_map_t* m, int dimIdx,
+                       const dimension_data* prev);
+        dimension_data() : m_dimIdx(0), m_len(0) {}
+        void map(size_t idx, size_t& procIdx, size_t& dataIdx, size_t& repeat) const;
+        size_t getTotalProcSize() const { return m_procScale * m_numProcs; }
+        size_t getTotalDataSize() const { return m_dataScale * m_len / m_numProcs; }
+        int getDimIdx() const { return m_dimIdx; }
+
+    private:
+        int m_dimIdx;
+        int m_distribute;
+        size_t m_len;
+        size_t m_numProcs;
+        size_t m_blockCyclic;
+
+        size_t m_blockLen;
+        size_t m_procScale;
+        size_t m_dataScale;
+    };
+
+    dimension_data::dimension_data(const g_block_map_t* m, int d,
+                                   const dimension_data* prev) :
+        m_dimIdx(d),
+        m_distribute(m->m_distribute[d]),
+        m_len(m->m_data[d]),
+        m_numProcs(m->m_procs[d]),
+        m_blockCyclic(m->m_blockcyclic_val[d]),
+        m_blockLen(m_len / m_numProcs),
+        m_procScale(prev ? prev->getTotalProcSize() : 1),
+        m_dataScale(prev ? prev->getTotalDataSize() : 1)
+    {
+    }
+
+    void dimension_data::map(size_t idx, size_t& procIdx, size_t& dataIdx,
+                             size_t& repeat) const {
+        repeat = 1;
+        size_t dproc = 0, ddata = 0;
+
+        switch (m_distribute) {
+        case CT_BLOCK:
+            dproc = idx / m_blockLen;
+            ddata = idx % m_blockLen;
+            repeat = m_blockLen;
+            break;
+        case CT_CYCLIC:
+            dproc = idx % m_numProcs;
+            ddata = idx / m_numProcs;
+            break;
+        case CT_STAR:
+            dproc = 0;
+            ddata = idx;
+            repeat = m_len;
+            break;
+        case CT_BLOCK_CYCLIC:
+            dproc = (idx / m_blockCyclic) % m_numProcs;
+            ddata =
+                m_blockCyclic * (idx / (m_blockCyclic * m_numProcs)) +
+                idx % m_blockCyclic;
+            repeat = m_blockCyclic;
+            break;
+        default:  // checked at construction time
+            break;
+        }
+
+        procIdx += dproc * m_procScale;
+        dataIdx += ddata * m_dataScale;
+    }
+}
+
+AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
+                   const char *hashinfo) {
+
+    if (nd <= 0) {
+        SetError("Bad number of processes: %d", nd);
+        return nullptr;
+    }
+
+    char* basetype = FDSBaseType(d_type);
+    if (!basetype) basetype = d_type;
+
+    int p2pmode;
+    GetGraphVar(GRAPH_P2PMODE, &p2pmode);
+
+    if (p2pmode || (FDSType(basetype) == AIF_HASHED_SIGNATURE))
+        return ApplyBlockMap_old(m, d_type, nd, data, hashinfo);
+
+    int d_rank = FDSArrayRank(d_type);
+    int* d_min = nullptr, *d_max = nullptr;
+
+    switch (FDSType(d_type)) {
+        case AIF_ARRAY:
+        case AIF_FTN_ARRAY:
+            FDSArrayBounds(d_type, d_rank, &d_min, &d_max, nullptr);
+            break;
+
+        default:
+            break;
+    }
+
+    int rank = m->m_rank;
+    std::vector<int>  min(rank);
+    std::vector<int>  max(rank);
+    char* type = _find_result_type(m, d_type, hashinfo, &min[0], &max[0], d_min, d_max, nd);
+
+    if (d_min)
+        Free(d_min);
+    if (d_max)
+        Free(d_max);
+    d_min = d_max = nullptr;
+
+
+    std::vector<dimension_data> dimMaps(rank);
+    // I want the list from slowest to fastest
+    for (int i=rank; i--; ) {
+        dimension_data d(m, m->m_dim_order[rank-i],i+1==rank ? nullptr : &dimMaps[i+1]);
+        dimMaps[i] = d;
+    }
+
+    size_t totalProcs = dimMaps[0].getTotalProcSize();
+    size_t expect_num_elems = totalProcs * dimMaps[0].getTotalDataSize();
+    size_t actual_num_elems = 0;
+
+    for (int i = 0; i < nd; i++) {
+        if (totalProcs == 1)
+            actual_num_elems = 0;
+
+        switch (FDSType(AIF_FORMAT(data[i]))) {
+            case AIF_ARRAY:
+            case AIF_FTN_ARRAY:
+                actual_num_elems += AIFArraySize(data[i]);
+                break;
+
+            default:
+                actual_num_elems++;
+                break;
+        }
+
+        if (totalProcs == 1 && expect_num_elems != actual_num_elems)
+            break;
+    }
+
+    if (expect_num_elems != actual_num_elems) {
+        SetError(
+            "Wrong number of elements to map %d vs %d. Please check "
+            "decomposition function '%s'",
+            expect_num_elems, actual_num_elems, SymLookup(m->m_sym));
+        if (type) Free(type);
+        return nullptr;
+    }
+
+
+    AIF* res = MakeAIF(strdup(type), NULL);
+    size_t bsize = m->m_ix->i_bsize;
+
+    // And copy in the values
+    std::vector<size_t> globalIdx(rank, size_t(0));
+    std::vector<size_t> globalLen(m->m_data, m->m_data+rank);
+
+    size_t repeat = 1;
+    for (size_t globalCnt = 0; globalCnt < expect_num_elems; globalCnt += repeat ) {
+        size_t procIdx = 0, dataIdx = 0;
+        for (const auto& dd : dimMaps) {
+            dd.map( globalIdx[dd.getDimIdx()], procIdx, dataIdx, repeat);
+        }
+
+        void * g_ptr = AIF_DATA(res) + globalCnt * bsize;
+        void * d_ptr = AIF_DATA(data[procIdx]) + dataIdx * bsize;
+        memcpy(g_ptr, d_ptr, bsize * repeat);
+
+        size_t inc = repeat;
+        for (int i=rank; i--; ) {
+            if (globalIdx[i] += inc < globalLen[i])
+                break;
+            globalIdx[0] = 0;
+            inc = 1;
+        }
+    }
+
+    Free(type);
     return res;
 }
 

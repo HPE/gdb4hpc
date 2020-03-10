@@ -35,7 +35,7 @@ struct g_block_map_t {
     int *m_distribute;       // store the mode of the block, cyclic
     int *m_data;             // store the upperbound of the dimensions
     int *m_procs;            // store the process grid
-    int *m_blockcyclic_val;  // store clock-cyclic value
+    int *m_blockcyclic_val;  // store block-cyclic value
     int *m_dim_order;        // store dimension order of mapping
     int m_rank;              // store the rank of the blockmap function
     int (*m_builtin)(list_t *);

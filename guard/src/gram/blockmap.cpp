@@ -922,10 +922,12 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
 
     int d_rank = FDSArrayRank(d_type);
     int* d_min = nullptr, *d_max = nullptr;
+    bool isFortran = false;
 
     switch (FDSType(d_type)) {
-        case AIF_ARRAY:
         case AIF_FTN_ARRAY:
+            isFortran = true;   // intentionally falling through
+        case AIF_ARRAY:
             FDSArrayBounds(d_type, d_rank, &d_min, &d_max, nullptr);
             break;
 
@@ -948,11 +950,23 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
     std::vector<dimension_data> dimMaps(rank);
     // I want the list from slowest to fastest
     for (int i=rank; i--; ) {
-        dimension_data d(m, i, i+1==rank ? nullptr : &dimMaps[i+1]);
+        dimension_data d(m, (isFortran ? rank-i : i),
+                         i+1==rank ? nullptr : &dimMaps[i+1]);
         dimMaps[i] = d;
     }
 
     size_t totalProcs = dimMaps[0].getTotalProcSize();
+    if (int(totalProcs) != nd ) {
+        SetError(
+            "Wrong number of PEs to map %d vs %d. Please check "
+            "decomposition function '%s'",
+            totalProcs, nd, SymLookup(m->m_sym));
+        if (type) Free(type);
+        return nullptr;
+
+    }
+
+    
     size_t expect_num_elems = totalProcs * dimMaps[0].getTotalDataSize();
     size_t actual_num_elems = 0;
 
@@ -1239,7 +1253,7 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
 
     if ((a = ApplyBlockMap(bm, AIF_FORMAT(da[0]), array_size, da, "")) ==
         (AIF *)NULL) {
-        PrintOutError("Cannot construct decomposition data\n");
+        PrintOutError("Cannot construct decomposition data: %s\n", GetError());
     }
 
     // Cleanup

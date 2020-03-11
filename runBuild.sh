@@ -146,7 +146,7 @@ cd $top_level/external/ddt_cuda-gdb-101
 check_exit_status
 
 cuda_install_dir=$install_dir/cuda_gdb_install
-./configure --prefix=$cuda_install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --with-gdb-datadir=$install_dir/share/gdb --with-python=$python_loc CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
+./configure --prefix=$cuda_install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --with-gdb-datadir=$install_dir/share/cuda-gdb --with-python=$python_loc CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
 check_exit_status
 
 make $cdst_j_flags

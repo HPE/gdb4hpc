@@ -166,7 +166,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 # Binaries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
 %{__cp} -a %{external_build_dir}/bin/gdb4hpc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
-# Share
+# ddt-gdb Share
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python
@@ -212,6 +212,43 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/share/gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/share/gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
+# cuda-gdb Share
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/FrameDecorator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/FrameIterator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/frames.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/printing.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/types.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/unwinder.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/xmethod.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/explore.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/frame_filters.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/pretty_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/tsx.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/type_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/unwinders.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/command/xmethods.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/function/as_string.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/function/caller_is.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/function/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/function/strfns.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/printer/bound_registers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/python/gdb/printer/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/syscalls/*.xml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/syscalls/gdb-syscalls.dtd ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
+%{__cp} -a %{external_build_dir}/share/cuda-gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
 %{__cp} -a %{external_build_dir}/share/man/man1/gdb4hpc.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
@@ -311,6 +348,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_topgen
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
+#gdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/printers.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/FrameDecorator.py
@@ -344,6 +382,36 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit/wrs-linux.py
+#cuda-gdb share
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/FrameDecorator.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/FrameIterator.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/frames.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printing.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/prompt.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/types.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/unwinder.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/xmethod.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/explore.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/frame_filters.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/pretty_printers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/prompt.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/tsx.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/type_printers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/unwinders.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command/xmethods.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function/as_string.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function/caller_is.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function/strfns.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer/bound_registers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/*.xml
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/gdb-syscalls.dtd
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/elinos.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/wrs-linux.py
+#end share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}

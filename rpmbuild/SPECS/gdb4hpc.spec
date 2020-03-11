@@ -158,6 +158,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
+%{__cp} -a %{external_build_dir}/libexec/cuda101-gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/guard_proxy ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/start_proxy.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/bin/mrnet_commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
@@ -304,6 +305,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda101-gdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_commnode

@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include <algorithm>
 
 #include "aif.h"
 #include "bitset.h"
@@ -829,7 +828,7 @@ namespace {
                        const dimension_data* prev);
         dimension_data() : m_dimIdx(0), m_len(0) {}
         void map(size_t idx, size_t& procIdx, size_t& dataIdx, size_t& repeat) const;
-        size_t getTotalProcSize() const { return m_procScale * m_numProcs; }
+        size_t getTotalProcSize() const { return m_totalProcSize; }
         size_t getTotalDataSize() const { return m_dataScale * m_len / m_numProcs; }
         int getDimIdx() const { return m_dimIdx; }
 
@@ -841,8 +840,9 @@ namespace {
         size_t m_blockCyclic;
 
         size_t m_blockLen;
-        size_t m_procScale;
+        size_t m_totalProcSize;
         size_t m_dataScale;
+        size_t m_procScale;
     };
 
     dimension_data::dimension_data(const g_block_map_t* m, int d,
@@ -853,9 +853,18 @@ namespace {
         m_numProcs(m->m_procs[d]),
         m_blockCyclic(m->m_blockcyclic_val[d]),
         m_blockLen(m_len / m_numProcs),
-        m_procScale(prev ? prev->getTotalProcSize() : 1),
-        m_dataScale(prev ? prev->getTotalDataSize() : 1)
+        m_totalProcSize(m_numProcs * (prev ? prev->getTotalProcSize() : 1)),
+        m_dataScale(prev ? prev->getTotalDataSize() : 1),
+        m_procScale(1)
     {
+        // the decomposition allows the distributed dimension to be reordered
+        if (m_distribute != CT_STAR) {
+            int dimOrder = m->m_dim_order[d];
+            for (int i=0; i<m->m_rank; ++i) {
+                if (m->m_distribute[i] != CT_STAR && m->m_dim_order[i] < dimOrder)
+                    m_procScale *= m->m_procs[i];
+            }
+        }
     }
 
     void dimension_data::map(size_t idx, size_t& procIdx, size_t& dataIdx,
@@ -935,15 +944,11 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
         Free(d_max);
     d_min = d_max = nullptr;
 
-    std::vector<std::pair<int,int>> sortedDirs;
-    for (int i=0; i<rank; ++i)
-        sortedDirs.push_back(std::make_pair(m->m_dim_order[i],i));
-    std::sort(sortedDirs.begin(), sortedDirs.end());
 
     std::vector<dimension_data> dimMaps(rank);
     // I want the list from slowest to fastest
     for (int i=rank; i--; ) {
-        dimension_data d(m, sortedDirs[i].second,i+1==rank ? nullptr : &dimMaps[i+1]);
+        dimension_data d(m, i, i+1==rank ? nullptr : &dimMaps[i+1]);
         dimMaps[i] = d;
     }
 
@@ -981,7 +986,7 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
 
 
     AIF* res = MakeAIF(strdup(type), NULL);
-    size_t bsize = m->m_ix->i_bsize;
+    size_t bsize = FDSTypeSize(basetype);
 
     // And copy in the values
     std::vector<size_t> globalIdx(rank, size_t(0));
@@ -1000,9 +1005,9 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
 
         size_t inc = repeat;
         for (int i=rank; i--; ) {
-            if (globalIdx[i] += inc < globalLen[i])
+            if ((globalIdx[i] += inc) < globalLen[i])
                 break;
-            globalIdx[0] = 0;
+            globalIdx[i] = 0;
             inc = 1;
         }
     }

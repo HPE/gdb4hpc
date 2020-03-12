@@ -8,7 +8,7 @@ program ftn_decomp
    integer :: ierror, application, exponent
    integer array_size, sizeI, sizeJ, sliceN, sliceJ, decomp_cycle
    integer bcSizeI, bcSizeJ, bcSliceJ, cycle2, sliceIT, sizeIT, sizeJT
-   integer modIdx, modValue, idx, i, j
+   integer modIdx, modValue, idx, i, j, k, sliceK
    integer(kind=4), allocatable :: block1(:)
    integer(kind=4), allocatable :: cyclic1(:)
    integer(kind=4), allocatable :: blockCyclic1(:)
@@ -18,6 +18,7 @@ program ftn_decomp
    integer(kind=4), allocatable :: block2T(:,:)
    integer(kind=4), allocatable :: offsetBlock1(:)
    integer(kind=4), allocatable :: offsetCyclic1(:)
+   integer(kind=4), allocatable :: block3(:,:,:)
    character(len=10) :: arg_application, arg_exponent
 
    integer :: rank, num_ranks;
@@ -55,6 +56,7 @@ program ftn_decomp
 
     sliceN = array_size / num_ranks
     sliceJ = sizeJ / num_ranks
+    sliceK = 12 / num_ranks
 
     allocate(block1(sliceN))
     allocate(cyclic1(sliceN))
@@ -65,6 +67,7 @@ program ftn_decomp
     allocate(block2T(sliceIT, sizeJT))
     allocate(offsetBlock1(5:sliceN+4))
     allocate(offsetCyclic1(5:sliceN+4))
+    allocate(block3(5, 4, sliceK))
     
 
     do idx=1,sliceN
@@ -95,6 +98,13 @@ program ftn_decomp
         end do
     end do
 
+    do k=1,sliceK
+       do j=1,4
+          do i=1,5
+             block3(i,j,k) = getValue3(i,j,rank * sliceK + k)
+          end do
+       end do
+    end do
 
     modIdx = sliceN/2
     modValue = -100
@@ -108,6 +118,7 @@ program ftn_decomp
         cyclic2(1,1) = modValue
         blockCyclic2(1,1) = modValue
         block2T(1,1) = modValue
+        block3(2,2,1) = modValue
     end if
 
     deallocate(block1)
@@ -119,6 +130,7 @@ program ftn_decomp
     deallocate(cyclic2)
     deallocate(blockCyclic2)
     deallocate(block2T)
+    deallocate(block3)
 
     call MPI_Finalize(ierror)
     
@@ -136,5 +148,13 @@ program ftn_decomp
         integer             :: val
         val = getValue1(i + 100*j)
     end function getValue2
+
+    function getValue3(i,j,k) result(val)  
+        integer, intent(in) :: i
+        integer, intent(in) :: j
+        integer, intent(in) :: k
+        integer             :: val
+        val = getValue1(i + 10*j + 100*k)
+    end function getValue3
 
 end program ftn_decomp

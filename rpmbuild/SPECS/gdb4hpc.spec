@@ -303,10 +303,10 @@ then
 
   if [ "$dotversion" == "%{pkgversion}" ]
   then
-    /bin/rm -f ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version
+    %{__rm} -f ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version
     echo "Uninstalled version and .version file match = ${default_version}."
     echo "Removing %{modulefile_name} .version file."
-    rm -f ${default_link}
+    %{__rm} -f ${default_link}
   fi
 fi
 
@@ -318,18 +318,18 @@ fi
 
 # If the install dir exists
 if [[ -z `ls ${RPM_INSTALL_PREFIX}/%{cray_product}` ]]; then
-  rm -rf ${RPM_INSTALL_PREFIX}/%{cray_product}
+  %{__rm} -rf ${RPM_INSTALL_PREFIX}/%{cray_product}
   if [ -f /etc%{prefix}/admin-pe/bindmount.conf.d/%{cray_product}.conf ]; then
-    rm -rf /etc%{prefix}/admin-pe/bindmount.conf.d/%{cray_product}.conf
+    %{__rm} -rf /etc%{prefix}/admin-pe/bindmount.conf.d/%{cray_product}.conf
   fi
   if [ -f /etc%{prefix}/admin-pe/modulepaths.conf.d/%{cray_product}.conf ]; then
-    rm -rf /etc%{prefix}/admin-pe/modulepaths.conf.d/%{cray_product}.conf
+    %{__rm} -rf /etc%{prefix}/admin-pe/modulepaths.conf.d/%{cray_product}.conf
   fi
   if [ -d ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_product} ]; then
-    rm -rf ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_product}
+    %{__rm} -rf ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_product}
   fi
   if [ -d ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product} ]; then
-    rm -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}
+    %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}
   fi
 fi
 

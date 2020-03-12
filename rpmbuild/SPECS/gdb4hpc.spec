@@ -294,18 +294,20 @@ else
 fi
 
 %preun
+default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
+
 # Cleanup module .version if it points to this version
-if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
-    if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}/.version ]
-    then
-        %define dotversion %(grep ModulesVersion ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}/.version | cut -f2 -d'"')
-        if [ "%{dotversion}" = "%{pkgversion}" ]
-        then
-            %{__rm} -f ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}/.version
-            echo "Uninstalled default module for %{cray_product}/%{pkgversion}"
-            %{__rm} -f ${RPM_INSTALL_PREFIX}/%{cray_product}/default
-        fi
-    fi
+if [ -f ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version ]
+then
+  dotversion=`grep ModulesVersion ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version | cut -f2 -d'"'`
+
+  if [ "$dotversion" == "%{pkgversion}" ]
+  then
+    /bin/rm -f ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/.version
+    echo "Uninstalled version and .version file match = ${default_version}."
+    echo "Removing %{modulefile_name} .version file."
+    rm -f ${default_link}
+  fi
 fi
 
 %postun
@@ -314,23 +316,51 @@ then
   exit 0
 fi
 
-if [ "${RPM_INSTALL_PREFIX}" = "%{prefix}" ]; then
-    %define other_vers %(ls ${RPM_INSTALL_PREFIX}/%{cray_product})
-    if [ -z "%{other_vers}" ]
-    then
-      %{__rm} -rf ${RPM_INSTALL_PREFIX}/%{cray_product}
-      %{__rm} -rf /etc/%{prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
-      %{__rm} -rf /etc/%{prefix}/admin-pe/modulepaths.conf.d/%{cray_name}.conf
-    fi
-    %define other_mods %(ls ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product})
-    if [ -z "%{other_mods}" ]
-    then
-        %{__rm} -rf ${RPM_INSTALL_PREFIX}/modulefiles/core/%{cray_product}
-    fi
+# If the install dir exists
+if [[ -z `ls ${RPM_INSTALL_PREFIX}/%{cray_product}` ]]; then
+  rm -rf ${RPM_INSTALL_PREFIX}/%{cray_product}
+  if [ -f /etc%{prefix}/admin-pe/bindmount.conf.d/%{cray_product}.conf ]; then
+    rm -rf /etc%{prefix}/admin-pe/bindmount.conf.d/%{cray_product}.conf
+  fi
+  if [ -f /etc%{prefix}/admin-pe/modulepaths.conf.d/%{cray_product}.conf ]; then
+    rm -rf /etc%{prefix}/admin-pe/modulepaths.conf.d/%{cray_product}.conf
+  fi
+  if [ -d ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_product} ]; then
+    rm -rf ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_product}
+  fi
+  if [ -d ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product} ]; then
+    rm -rf ${RPM_INSTALL_PREFIX}/modulefiles/%{cray_product}
+  fi
 fi
 
 %files
 %defattr(755, root, root)
+%dir %{prefix}/%{cray_product}/%{pkgversion}
+%dir %{prefix}/%{cray_product}/%{pkgversion}/lib
+%dir %{prefix}/%{cray_product}/%{pkgversion}/libexec
+%dir %{prefix}/%{cray_product}/%{pkgversion}/bin
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/man
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost 
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/command
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/function
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/function
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/printer
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_info_name}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so

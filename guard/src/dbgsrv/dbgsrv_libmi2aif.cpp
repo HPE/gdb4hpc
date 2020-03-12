@@ -143,6 +143,29 @@ static dbgevent_t *get_err(void) {
     return rtn;
 }
 
+// Get the size of the virtual data segment of the current process
+// in megabytes.
+static unsigned long getProcSize() {
+    if (!debug_flag)
+         return 0l;
+    FILE* stat = fopen("/proc/self/status","r");
+    if (!stat) {
+        DVPRINT("memory: could not open /proc/self/status\n");
+        return 0;
+    }
+    char line[128];
+    while (fgets(line,128,stat)) {
+        int size;
+        if (sscanf(line, "VmData: %d kB", &size) == 1) {
+            fclose(stat);
+            return size >> 10;  // return in megabytes
+        }
+    }
+    DVPRINT("memory: could not find size in /proc/self/status\n");
+    fclose(stat);
+    return 0;
+}
+
 // This is the "main" function that should be called in this interface...
 // It returns NULL on success, otherwise it returns an error event.
 dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
@@ -2477,8 +2500,8 @@ static arrayDimension_t *GetArrayDimensionShape(MISession *session,
     // free the str we were using
     free(str);
 
-    DVPRINT("GetArrayDimensionShape: Total dimensions detected %d\n",
-            shape->dim);
+    DVPRINT("GetArrayDimensionShape: Total dimensions detected %d (%s)\n",
+            shape->dim, isFortran?"fortran":"C");
 
     return shape;
 }
@@ -4618,22 +4641,31 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
                              type_func);
         a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-    } else {
-        DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
-
-        // first we need to get the data string
-        buf = GetArrayDataString(session, var);
-
-        // Now lets get the shape of this array
-        if ((shape = GetArrayDimensionShape(session, var)) ==
-            (arrayDimension_t *)NULL) {
-            // error already set
-            DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-            return NULL;
-        }
+	return a;
     }
-    return parseMIArrayToAIF(session, var, type_str, type_len, type_struct,
-                             type_func, buf, id, shape, a, ac);
+    DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
+
+    unsigned long origSize = getProcSize();
+
+    // first we need to get the data string
+    buf = GetArrayDataString(session, var);
+
+    unsigned long miSize = getProcSize();
+
+    // Now lets get the shape of this array
+    if ((shape = GetArrayDimensionShape(session, var)) ==
+        (arrayDimension_t *)NULL) {
+        // error already set
+        DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
+        return NULL;
+    }
+    a = parseMIArrayToAIF(session, var, type_str, type_len, type_struct,
+                          type_func, buf, id, shape, a, ac);
+
+    unsigned long aifSize = getProcSize();
+    DVPRINT("memory: sizes %lu, %lu, %lu\n", origSize, miSize, aifSize);
+
+    return a;
 }
 
 static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
@@ -4661,6 +4693,7 @@ static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
                              type_func);
         a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
+	return a;
     } else {
         DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
 

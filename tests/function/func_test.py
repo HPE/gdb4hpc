@@ -489,3 +489,21 @@ class ftn_arrays(Test):
     def test(self):
         runTest(self)
 
+class cpp_arrays_compare(Test):
+    def test(self):
+        runTest(self)
+
+class cpp_decomp(Test):
+    def test(self):
+        runTest(self)
+
+class ftn_decomp(Test):
+    def test(self):
+        runTest(self)
+
+class cpp_decomp2(Test):
+    def test(self):
+        runTest(self)
+
+        
+

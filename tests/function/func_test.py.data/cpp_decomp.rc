@@ -1,0 +1,149 @@
+#
+# cpp_decomp.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+
+maint set sync on
+
+# launch 3 instances of one application and 4 of another to test decomp
+launch $a{3} --launcher-args="--exclusive" --args="0" bd_dt/C++/cpp_decomp.x
+launch $b{4} --launcher-args="--exclusive" --args="1" bd_dt/C++/cpp_decomp.x
+
+# run until the arrays are initialized
+b 82
+c
+
+#define the buttload of possible decompositions
+decomposition $block1_3
+dimension 120
+distribute block
+proc_grid 3
+end
+
+decomposition $block1_4
+dimension 120
+distribute block
+proc_grid 4
+end
+
+decomposition $cyclic1_3
+dimension 120
+distribute cyclic
+proc_grid 3
+end
+
+decomposition $cyclic1_4
+dimension 120
+distribute cyclic
+proc_grid 4
+end
+
+decomposition $blockCyclic1_3
+dimension 120
+distribute 5
+proc_grid 3
+end
+
+decomposition $blockCyclic1_4
+dimension 120
+distribute 5
+proc_grid 4
+end
+
+decomposition $block2_3
+dimension 12,10
+distribute block,*
+proc_grid 3,*
+end
+
+decomposition $block2_4
+dimension 12,10
+distribute block,*
+proc_grid 4,*
+end
+
+decomposition $cyclic2_3
+dimension 12,10
+distribute cyclic,*
+proc_grid 3,*
+end
+
+decomposition $cyclic2_4
+dimension 12,10
+distribute cyclic,*
+proc_grid 4,*
+end
+
+decomposition $blockCyclic2_3
+dimension 24,5
+distribute 2,*
+proc_grid 3,*
+end
+
+decomposition $blockCyclic2_4
+dimension 24,5
+distribute 2,*
+proc_grid 4,*
+end
+
+decomposition $blockT_3
+dimension 10,12
+distribute *,block
+proc_grid *,3
+end
+
+decomposition $blockT_4
+dimension 10,12
+distribute *,block
+proc_grid *,4
+end
+
+# lets just print out the values so we can verify the locations are correct
+p $block1_3{$a::block}
+p $block1_4{$b::block}
+p $cyclic1_3{$a::cyclic}
+p $cyclic1_4{$b::cyclic}
+p $blockCyclic1_3{$a::blockCyclic}
+p $blockCyclic1_4{$b::blockCyclic}
+p $block2_3{$a::block2}
+p $block2_4{$b::block2}
+p $cyclic2_3{$a::cyclic2}
+p $cyclic2_4{$b::cyclic2}
+p $blockCyclic2_3{$a::blockCyclic2}
+p $blockCyclic2_4{$b::blockCyclic2}
+p $blockT_3{$a::block2T}
+p $blockT_4{$b::block2T}
+
+# at this point in the the comparisons should succeed
+compare $block1_3{$a::block} == $block1_4{$b::block}
+compare $cyclic1_3{$a::cyclic} == $cyclic1_4{$b::cyclic}
+compare $blockCyclic1_3{$a::blockCyclic} == $blockCyclic1_4{$b::blockCyclic}
+
+compare $block2_3{$a::block2} == $block2_4{$b::block2}
+compare $cyclic2_3{$a::cyclic2} == $cyclic2_4{$b::cyclic2}
+compare $blockCyclic2_3{$a::blockCyclic2} == $blockCyclic2_4{$b::blockCyclic2}
+
+compare $blockT_3{$a::block2T} == $blockT_4{$b::block2T}
+
+# continue to a point where the same comparisons should fail
+b 91
+c
+
+# at this point in the the comparisons should fail
+compare $block1_3{$a::block} == $block1_4{$b::block}
+compare $cyclic1_3{$a::cyclic} == $cyclic1_4{$b::cyclic}
+compare $blockCyclic1_3{$a::blockCyclic} == $blockCyclic1_4{$b::blockCyclic}
+
+compare $block2_3{$a::block2} == $block2_4{$b::block2}
+compare $cyclic2_3{$a::cyclic2} == $cyclic2_4{$b::cyclic2}
+compare $blockCyclic2_3{$a::blockCyclic2} == $blockCyclic2_4{$b::blockCyclic2}
+
+compare $blockT_3{$a::block2T} == $blockT_4{$b::block2T}
+
+quit
+

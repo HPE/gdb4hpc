@@ -1,0 +1,54 @@
+#
+# cpp_arrays_decomp2.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+maint set sync on
+
+launch $a{6} --launcher-args="--exclusive" --args="0" bd_dt/C++/cpp_decomp2.x
+launch $b{6} --launcher-args="--exclusive" --args="1" bd_dt/C++/cpp_decomp2.x
+
+decomposition $block2_12
+dimension 12,10
+distribute block,block
+proc_grid 3,2
+dim_order 1,2
+end
+
+decomposition $block2_21
+dimension 12,10
+distribute block,block
+proc_grid 3,2
+dim_order 2,1
+end
+
+b 76
+c
+
+#print the joined up data
+p $block2_12{$a::block12}
+p $block2_21{$a::block21}
+
+# compare the values
+compare $block2_12{$a::block12} == $block2_12{$b::block12}
+compare $block2_21{$a::block21} == $block2_21{$b::block21}
+
+# the cross one should match up too
+compare $block2_12{$a::block12} == $block2_21{$b::block21}
+compare $block2_21{$a::block21} == $block2_12{$b::block12}
+
+b 81
+c
+
+# at the point, teh arrays should have been modified, so these
+# comparisons will fail
+compare $block2_12{$a::block12} == $block2_12{$b::block12}
+compare $block2_21{$a::block21} == $block2_21{$b::block21}
+
+q
+
+

@@ -4067,18 +4067,19 @@ static AIF *parseMIVectorLikeContToAIF(char *type_str, int type_len,
     return retval;
 }
 
-static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
-                              int type_len, struct_info_t *type_struct,
-                              func_info_t *type_func, char *buf, int id,
-                              arrayDimension_t *shape, AIF *a, AIF *ac) {
-    int isComplex = 0;
+// translate the text output for an array coming form gdb into an AIF
+// representation
+static AIF *parseMIArrayToAIF(char *type_str, int type_len,
+                              struct_info_t *type_struct, func_info_t *type_func,
+                              char *buf, int id,
+                              arrayDimension_t *shape) {
     int dcnt;
     int *mcnt;
     int depth = 0;
     int done = 0;
-    int isFortran = 0;
+    bool isFortran = false;
     int endCnt = 0;
-    AIF **abuild;
+    AIF **abuild, *a = nullptr, *ac = nullptr;
     char *p1, *p2;
 
     // check if we are dealing with complex types here, by complex we mean
@@ -4086,13 +4087,14 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
     // This presents a problem because these curly braces are indistinguishable
     // from the start of a new array. If the type is complex, then we use a
     // lookahead to ensure we have a base type.
+    bool isComplex = false;
     switch (id) {
         case T_COMPLEX_4:
         case T_COMPLEX_8:
         case T_COMPLEX_16:
         case T_UNION:
         case T_STRUCT:
-            ++isComplex;
+            isComplex = true;
         default:
             break;
     }
@@ -4112,7 +4114,7 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
     switch (*p1++) {
         // Fortran uses row major ordering
         case ARRAY_FTN_START:
-            ++isFortran;
+            isFortran = true;
         case ARRAY_C_START:
             break;
 
@@ -4127,15 +4129,10 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
             }
             // Create the string directly
             a = StringToAIF(p1);
-            // free the buf string
-            free(buf);
-            // free the array dimension info
-            freeArrayDimension(shape);
             return a;
 
         default:
             DVPRINT("GetArrayAIF: unknown array format.\n");
-            freeArrayDimension(shape);
             return (AIF *)NULL;
     }
     ++depth;
@@ -4198,7 +4195,7 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
                 // only if we are complex
                 if (isComplex) {
                     // if we have not seen a ')' or '}' which ends the
-                    // complex type, ignore the seperator.
+                    // complex type, ignore the separator.
                     if (endCnt == 0) {
                         // ignore it
                         ++p2;
@@ -4243,8 +4240,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
     // are used while building the aif representation of the array
     if ((abuild = (AIF **)malloc(sizeof(AIF *) * shape->dim)) == (void *)0) {
         DVPRINT("GetArrayAIF: malloc error\n");
-        free(buf);
-        freeArrayDimension(shape);
         AIFFree(ac);
         AIFFree(a);
         return (AIF *)NULL;
@@ -4256,8 +4251,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
     if ((mcnt = (int *)malloc(sizeof(int) * shape->dim)) == (void *)0) {
         DVPRINT("GetArrayAIF: malloc error\n");
         free(abuild);
-        free(buf);
-        freeArrayDimension(shape);
         AIFFree(ac);
         AIFFree(a);
         return (AIF *)NULL;
@@ -4283,8 +4276,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
                  getArrayDimensionRangeMax(shape, 1), ac)) == (AIF *)NULL) {
             DVPRINT("GetArrayAIF: EmptyFtnArrayToAIF error\n");
             free(abuild);
-            free(buf);
-            freeArrayDimension(shape);
             AIFFree(ac);
             AIFFree(a);
             return (AIF *)NULL;
@@ -4311,8 +4302,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
                     AIFFree(abuild[dcnt]);
                 }
                 free(abuild);
-                free(buf);
-                freeArrayDimension(shape);
                 AIFFree(ac);
                 AIFFree(a);
                 return (AIF *)NULL;
@@ -4345,8 +4334,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
             (AIF *)NULL) {
             DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
             free(abuild);
-            free(buf);
-            freeArrayDimension(shape);
             AIFFree(ac);
             AIFFree(a);
             return (AIF *)NULL;
@@ -4369,8 +4356,6 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
                     AIFFree(abuild[dcnt]);
                 }
                 free(abuild);
-                free(buf);
-                freeArrayDimension(shape);
                 AIFFree(ac);
                 AIFFree(a);
                 return (AIF *)NULL;
@@ -4609,10 +4594,7 @@ static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
     free(abuild);
     // free mcnt
     free(mcnt);
-    // free the buf string
-    free(buf);
-    // free the array dimension info
-    freeArrayDimension(shape);
+
     return a;
 }
 
@@ -4622,11 +4604,6 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     int type_len;
     struct_info_t *type_struct;
     func_info_t *type_func;
-    char *buf = NULL;
-    arrayDimension_t *shape = NULL;
-    AIF *a = NULL;
-    AIF *ac = NULL;
-
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
     if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
@@ -4637,33 +4614,38 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
-        ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
+        AIF *ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
                              type_func);
-        a = EmptyArrayToAIF(0, 0, ac);
+        AIF *a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
 	return a;
     }
-    DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
+    
+    DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n", id, var->numchild, type_str, type_len);
+
+    // Get the shape of this array
+    arrayDimension_t *shape = GetArrayDimensionShape(session, var);
+    if (!shape) {
+        // error already set
+        DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
+        return nullptr;
+    }
 
     unsigned long origSize = getProcSize();
 
     // first we need to get the data string
-    buf = GetArrayDataString(session, var);
+    char* buf = GetArrayDataString(session, var);
 
     unsigned long miSize = getProcSize();
 
-    // Now lets get the shape of this array
-    if ((shape = GetArrayDimensionShape(session, var)) ==
-        (arrayDimension_t *)NULL) {
-        // error already set
-        DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-        return NULL;
-    }
-    a = parseMIArrayToAIF(session, var, type_str, type_len, type_struct,
-                          type_func, buf, id, shape, a, ac);
+    AIF* a = parseMIArrayToAIF(type_str, type_len, type_struct,
+                               type_func, buf, id, shape);
 
     unsigned long aifSize = getProcSize();
     DVPRINT("memory: sizes %lu, %lu, %lu\n", origSize, miSize, aifSize);
+
+    free(buf);
+    freeArrayDimension(shape);
 
     return a;
 }

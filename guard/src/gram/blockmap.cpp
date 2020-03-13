@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #include "aif.h"
 #include "bitset.h"
@@ -320,7 +321,7 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
     return result;
 }
 
-AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
+static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
                    const char *hashinfo) {
     int i, j;
 
@@ -419,7 +420,7 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
     if (p2pmode)
         expect_num_elems = max[0] - min[0] + 1;
     else {
-        for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] + 1;
+        for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] - min[i] + 1;
     }
 
     for (i = 0; i < nd; i++) {
@@ -820,6 +821,249 @@ AIF *ApplyBlockMap(g_block_map_t *m, char *type, int nd, AIF **data,
     return res;
 }
 
+namespace {
+// handle the data distribution in a single dimension
+class indexer1D {
+public:
+    indexer1D(const g_block_map_t* m, int dimIdx, const indexer1D* prev);
+    indexer1D() : m_dimIdx(0), m_len(0) {}
+    void map(size_t idx, size_t& procIdx, size_t& dataIdx, size_t& repeat) const;
+    size_t getTotalProcSize() const { return m_totalProcSize; }
+    size_t getTotalDataSize() const { return m_dataScale * m_len / m_numProcs; }
+    int getDimIdx() const { return m_dimIdx; }
+
+private:
+    int m_dimIdx;               // dimension represented
+    int m_distribute;           // distribute scheme (from cmdtoken.h)
+    size_t m_len;               // number of elements in this dimension
+    size_t m_numProcs;          // number of process for distibuting 
+    size_t m_blockCyclic;       // cycle count for the CT_BLOCK_CYCLIC
+
+    size_t m_blockLen;          // number of elements in each block
+    size_t m_totalProcSize;     // total processes from this and faster varying dims
+    size_t m_dataScale;         // step in the data array for each subsequent element
+    size_t m_procScale;         // step in the rank for each subsequent element
+};
+
+// define the distribution in single dimension
+// \param m is the block map definition
+// \param d is the index for this dimension, starting at 0
+// \param prev if given is the distribution for the next faster dimension
+indexer1D::indexer1D(const g_block_map_t* m, int d,
+                               const indexer1D* prev) :
+    m_dimIdx(d),
+    m_distribute(m->m_distribute[d]),
+    m_len(m->m_data[d]),
+    m_numProcs(m->m_procs[d]),
+    m_blockCyclic(m->m_blockcyclic_val[d]),
+    m_blockLen(m_len / m_numProcs),
+    m_totalProcSize(m_numProcs * (prev ? prev->getTotalProcSize() : 1)),
+    m_dataScale(prev ? prev->getTotalDataSize() : 1),
+    m_procScale(1)
+{
+    // the decomposition allows the distributed dimension to be reordered
+    if (m_distribute != CT_STAR) {
+        int dimOrder = m->m_dim_order[d];
+        for (int i=0; i<m->m_rank; ++i) {
+            if (m->m_distribute[i] != CT_STAR && m->m_dim_order[i] < dimOrder)
+                m_procScale *= m->m_procs[i];
+        }
+    }
+}
+
+// map an index int the global array into the offsets into the
+// array of process ranks and the data array from that rank
+// \param idx is the index of the global array in this dimension,
+//      it always has origin 0
+// \param procIdx i/o is updated with the offset into the array of ranks
+//      it is unchanged if this dimension is not decomposed
+// \param repeat will contain on exit the number of elements in to row.
+//      note that the result will only be used for the fastest varying
+//      dimension because \a repeat elements will be contiguously stored
+//      in the data result for that rank so they can be copied in one shot
+void indexer1D::map(size_t idx, size_t& procIdx, size_t& dataIdx,
+                         size_t& repeat) const {
+    repeat = 1;
+    size_t dproc = 0, ddata = 0;
+
+    switch (m_distribute) {
+    case CT_BLOCK:
+        dproc = idx / m_blockLen;
+        ddata = idx % m_blockLen;
+        repeat = m_blockLen;
+        break;
+    case CT_CYCLIC:
+        dproc = idx % m_numProcs;
+        ddata = idx / m_numProcs;
+        break;
+    case CT_STAR:
+        dproc = 0;
+        ddata = idx;
+        repeat = m_len;
+        break;
+    case CT_BLOCK_CYCLIC:
+        dproc = (idx / m_blockCyclic) % m_numProcs;
+        ddata =
+            m_blockCyclic * (idx / (m_blockCyclic * m_numProcs)) +
+            idx % m_blockCyclic;
+        repeat = m_blockCyclic;
+        break;
+    default:  // checked at construction time
+        break;
+    }
+
+    procIdx += dproc * m_procScale;
+    dataIdx += ddata * m_dataScale;
+}
+}
+
+// create a single unified AIF value for a decomposed data element
+// \param m is the block map definition
+// \param d_type is the datatype of the data elements
+// \param nd is the number of results, i.e. ranks
+// \param data is result from evalating each rank, in order
+// \param hashinfo used for hash reduction of the result
+AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
+                   const char *hashinfo) {
+
+    if (nd <= 0) {
+        SetError("Bad number of processes: %d", nd);
+        return nullptr;
+    }
+
+    // p2p and hash mode are indifferently supported at the moment.
+    // Just let these fall back into the old implemnetation until
+    // we can revisit them.
+    char* basetype = FDSBaseType(d_type);
+    if (!basetype) basetype = d_type;
+
+    int p2pmode;
+    GetGraphVar(GRAPH_P2PMODE, &p2pmode);
+
+    if (p2pmode || (FDSType(basetype) == AIF_HASHED_SIGNATURE))
+        return ApplyBlockMap_old(m, d_type, nd, data, hashinfo);
+
+    int d_rank = FDSArrayRank(d_type);
+    int* d_min = nullptr, *d_max = nullptr;
+    bool isFortran = false;
+
+    // get the array limits - compute d_min and d_max for each dimension
+    switch (FDSType(d_type)) {
+        case AIF_FTN_ARRAY:
+            isFortran = true;   // intentionally falling through
+        case AIF_ARRAY:
+            FDSArrayBounds(d_type, d_rank, &d_min, &d_max, nullptr);
+            break;
+
+        default:
+            break;
+    }
+
+    // get the result type - note that this call maps all min[i] to 0 and
+    // reverses the order for fortan.  (though it doesn't matter because
+    // min and max are unused - we get dimension directly from the block map
+    int rank = m->m_rank;
+    std::vector<int>  min(rank);
+    std::vector<int>  max(rank);
+    char* type = _find_result_type(m, d_type, hashinfo, &min[0], &max[0], d_min, d_max, nd);
+
+    if (d_min)
+        Free(d_min);
+    if (d_max)
+        Free(d_max);
+    d_min = d_max = nullptr;
+
+
+    // the decomposition is handled indendently in each dimension, so we create
+    // a little class object to handle the decomposition in a single dimension.
+    // We want the list ordered from slowest chaning to fastest changing
+    std::vector<indexer1D> dimMaps(rank);
+    for (int i=rank; i--; ) {
+        indexer1D d(m, (isFortran ? rank-1-i : i),
+                         i+1==rank ? nullptr : &dimMaps[i+1]);
+        dimMaps[i] = d;
+    }
+
+    // check that the actual number of ranks matches the decomposition.
+    // totalProcs == 1 is the special case where the data is not decomposed;
+    // the blockmap is just potentially redefining the shape of distributed data
+    size_t totalProcs = dimMaps[0].getTotalProcSize();
+    if (totalProcs > 1 && int(totalProcs) != nd ) {
+        SetError(
+            "Wrong number of PEs to map %d vs %d. Please check "
+            "decomposition function '%s'",
+            totalProcs, nd, SymLookup(m->m_sym));
+        if (type) Free(type);
+        return nullptr;
+
+    }
+
+    // check that the data sizes match up
+    size_t expect_num_elems = totalProcs * dimMaps[0].getTotalDataSize();
+    size_t actual_num_elems = 0;
+
+    for (int i = 0; i < nd; i++) {
+        if (totalProcs == 1)
+            actual_num_elems = 0;
+
+        switch (FDSType(AIF_FORMAT(data[i]))) {
+            case AIF_ARRAY:
+            case AIF_FTN_ARRAY:
+                actual_num_elems += AIFArraySize(data[i]);
+                break;
+
+            default:
+                actual_num_elems++;
+                break;
+        }
+
+        if (totalProcs == 1 && expect_num_elems != actual_num_elems)
+            break;
+    }
+
+    if (expect_num_elems != actual_num_elems) {
+        SetError(
+            "Wrong number of elements to map %d vs %d. Please check "
+            "decomposition function '%s'",
+            expect_num_elems, actual_num_elems, SymLookup(m->m_sym));
+        if (type) Free(type);
+        return nullptr;
+    }
+
+
+    // Looks good, create the result
+    AIF* res = MakeAIF(strdup(type), NULL);
+    size_t bsize = FDSTypeSize(basetype);
+
+    // And copy in the values
+    std::vector<size_t> globalIdx(rank, size_t(0));
+    std::vector<size_t> globalLen(m->m_data, m->m_data+rank);
+
+    size_t repeat = 1;
+    for (size_t globalCnt = 0; globalCnt < expect_num_elems; globalCnt += repeat ) {
+        size_t procIdx = 0, dataIdx = 0;
+        for (const auto& dd : dimMaps) {
+            dd.map( globalIdx[dd.getDimIdx()], procIdx, dataIdx, repeat);
+        }
+
+        void * g_ptr = AIF_DATA(res) + globalCnt * bsize;
+        void * d_ptr = AIF_DATA(data[procIdx]) + dataIdx * bsize;
+        memcpy(g_ptr, d_ptr, bsize * repeat);
+
+        size_t inc = repeat;
+        for (int i=rank; i--; ) {
+            int d = dimMaps[i].getDimIdx();
+            if ((globalIdx[d] += inc) < globalLen[d])
+                break;
+            globalIdx[d] = 0;
+            inc = 1;
+        }
+    }
+
+    Free(type);
+    return res;
+}
+
 // for now remove EvalMapFunc, when need, copy from map.c
 
 void PrintBlockMap(FILE *fp, g_block_map_t *m) {
@@ -1043,7 +1287,7 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
 
     if ((a = ApplyBlockMap(bm, AIF_FORMAT(da[0]), array_size, da, "")) ==
         (AIF *)NULL) {
-        PrintOutError("Cannot construct decomposition data\n");
+        PrintOutError("Cannot construct decomposition data: %s\n", GetError());
     }
 
     // Cleanup

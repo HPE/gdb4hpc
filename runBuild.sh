@@ -154,14 +154,12 @@ check_exit_status
 
 cuda_install_dir=$install_dir/cuda_gdb_install
 ./configure --prefix=$cuda_install_dir \
-            --with-gdb-datadir=$install_dir/cuda_gdb_install/share/gdb \
+            --with-gdb-datadir=$install_dir/cuda_gdb_install/share/cuda-gdb \
             --with-python=$python_loc \
             --program-prefix=cuda- \
             --enable-cuda \
             --enable-gdbserver=no \
-            --enable-targets=x86_64-unknown-linux-gnu,\
-                             arm-elf-linux-gnu,\
-                             m68k-unknown-linux-gnu \
+            --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
             CFLAGS="-Wno-shift-negative-value \
                 -Wno-unused-const-variable \
                 -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" \

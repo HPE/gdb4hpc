@@ -154,7 +154,7 @@ check_exit_status
 
 cuda_install_dir=$install_dir/cuda_gdb_install
 ./configure --prefix=$cuda_install_dir \
-            --with-gdb-datadir=$install_dir/cuda_gdb_install/share/cuda-gdb \
+            --with-gdb-datadir=$cuda_install_dir/share/cuda-gdb \
             --with-python=$python_loc \
             --program-prefix=cuda- \
             --enable-cuda \

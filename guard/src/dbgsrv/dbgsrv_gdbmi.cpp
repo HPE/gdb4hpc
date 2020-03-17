@@ -1239,10 +1239,19 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                     }
                 }
 
+                char *env_base_dir = NULL;
                 switch (vers_num) {
                     case CUDA_101:
                         DVPRINT("Using cuda101-gdb-guard\n");
                         MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
+                        // Get the base dir env var and setup data-dir if the env var is set
+                        env_base_dir = getenv(GUARD_INST_DIRECTORY);
+                        if (env_base_dir != NULL) {
+                            char *data_dir;
+                            Asprintf(&data_dir, "%s/share/cuda-gdb", env_base_dir);
+                            MISessionSetGDBDataDirectory(GDBMISession, data_dir);
+                            Free(data_dir);
+                        }
                         break;
                     case CUDA_UNKNOWN:
                         DVPRINT("Unsupported driver version.\n");

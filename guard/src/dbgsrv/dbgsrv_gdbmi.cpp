@@ -1149,6 +1149,11 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     MISessionRegisterConsoleCallback(GDBMISession, console_callback);
     MISessionRegisterLogCallback(GDBMISession, log_callback);
     MISessionRegisterTargetCallback(GDBMISession, target_callback);
+    //set the default gdb type here for both the binary and the share directory,
+    //overwrite it if we're using a non standard backend gdb.
+    MISessionSetGDBPath(GDBMISession, "gdb-guard");
+    char gdb_type[32];
+    sprintf(gdb_type, "gdb");
 
     // set the gdb path to use gdb-guard or cuda-gdb-guard
     if (gpu_flag) {
@@ -1161,9 +1166,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
         if ((vers = fopen("/proc/driver/nvidia/version", "r")) == NULL) {
             DVPRINT("Failed to open /proc/driver/nvidia/version\n");
             DVPRINT("Defaulting to non-gpu mode.\n");
-            MISessionSetGDBPath(GDBMISession, "gdb-guard");
             gpu_flag = 0;
-
         } else {
             // We can open the driver version file, so now we need to grab the
             // driver number
@@ -1175,7 +1178,6 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 fclose(vers);
                 DVPRINT("Failed to determine driver version.\n");
                 DVPRINT("Defaulting to non-gpu mode.\n");
-                MISessionSetGDBPath(GDBMISession, "gdb-guard");
                 gpu_flag = 0;
             } else {
                 // We now have the version string, close the vers file
@@ -1244,35 +1246,27 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                     case CUDA_101:
                         DVPRINT("Using cuda101-gdb-guard\n");
                         MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
-                        // Get the base dir env var and setup data-dir if the env var is set
-                        env_base_dir = getenv(GUARD_INST_DIRECTORY);
-                        if (env_base_dir != NULL) {
-                            char *data_dir;
-                            Asprintf(&data_dir, "%s/share/cuda-gdb", env_base_dir);
-                            MISessionSetGDBDataDirectory(GDBMISession, data_dir);
-                            Free(data_dir);
-                        }
+                        // We have defined a different share directory for the
+                        // cuda gdb 10.1 binary's data-directory:
+                        sprintf(gdb_type, "cuda-gdb");
                         break;
                     case CUDA_UNKNOWN:
                         DVPRINT("Unsupported driver version.\n");
                         DVPRINT("Defaulting to non-gpu mode.\n");
-                        MISessionSetGDBPath(GDBMISession, "gdb-guard");
                         gpu_flag = 0;
                         break;
                 }
             }
         }
-    } else {
-        MISessionSetGDBPath(GDBMISession, "gdb-guard");
     }
 
     // Get the base dir env var if it was set and use that for data-directory
     char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
     if (env_base_dir != NULL) {
-        char *gdbDataDir;
-        Asprintf(&gdbDataDir, "%s/share/gdb", env_base_dir);
-        MISessionSetGDBDataDirectory(GDBMISession, gdbDataDir);
-        Free(gdbDataDir);
+        char *gdb_data_dir;
+        Asprintf(&gdb_data_dir, "%s/share/%s", env_base_dir, gdb_type);
+        MISessionSetGDBDataDirectory(GDBMISession, gdb_data_dir);
+        Free(gdb_data_dir);
     }
 
     // Ensure PYTHONSTARTUP isn't set

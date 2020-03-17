@@ -26,6 +26,8 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
+#include <vector>
+#include <string>
 
 /* The following is used to turn on debug printing for the CreateSimpleAIF func.
 ** It generates a ton of output for large arrays, which is why we want to
@@ -4067,536 +4069,219 @@ static AIF *parseMIVectorLikeContToAIF(char *type_str, int type_len,
     return retval;
 }
 
-// translate the text output for an array coming form gdb into an AIF
-// representation
-static AIF *parseMIArrayToAIF(char *type_str, int type_len,
-                              struct_info_t *type_struct, func_info_t *type_func,
-                              char *buf, int id,
-                              arrayDimension_t *shape) {
-    int dcnt;
-    int *mcnt;
-    int depth = 0;
-    int done = 0;
-    bool isFortran = false;
-    int endCnt = 0;
-    AIF **abuild, *a = nullptr, *ac = nullptr;
-    char *p1, *p2;
+namespace {
+class MIArrayToAIFParser {
+public:
+    MIArrayToAIFParser(char* type_str, int type_len,
+                       struct_info_t *type_struct, func_info_t *type_func,
+                       int type_id, arrayDimension_t *shape);
 
-    // check if we are dealing with complex types here, by complex we mean
-    // that gdb is going to enclose the basetype with curly braces (i.e. {...})
-    // This presents a problem because these curly braces are indistinguishable
-    // from the start of a new array. If the type is complex, then we use a
-    // lookahead to ensure we have a base type.
-    bool isComplex = false;
-    switch (id) {
-        case T_COMPLEX_4:
-        case T_COMPLEX_8:
-        case T_COMPLEX_16:
-        case T_UNION:
-        case T_STRUCT:
-            isComplex = true;
-        default:
-            break;
-    }
-    // now that we have the string and array shape, we need to start
-    // parsing it, find the first array member, and create a simple
-    // aif object out of it.
-    p1 = buf;
+    void parseSome(const char* str);
 
-    /*
-     * Note that in the below switch statements we are going to check for
-     * any of the START, SEP, or END delimiters that are defined. We do this
-     * because switch statements require constant integers in their case
-     * definitions, so we must check for any of the valid cases.
-     */
+    AIF* getResult();
+    
+private:
+    class Error {};
+    
+    AIF* createSimpleAIF();
+    AIF* makeEmptyArrayAIF(int i, AIF* ac);
+    void addArrayElement(int i, AIF* ac);
 
-    // ensure the first character is a start delimiter
-    switch (*p1++) {
-        // Fortran uses row major ordering
-        case ARRAY_FTN_START:
-            isFortran = true;
-        case ARRAY_C_START:
-            break;
+    void addElement();
+    void openBracket(char bracket);
+    void closeBracket(char bracket);
+    void error(const std::string& message);
+    
+    char* m_type_str;
+    int m_type_len;
+    struct_info_t* m_type_struct;
+    func_info_t* m_type_func;
+    int m_type_id;
+    arrayDimension_t* m_shape;
 
-        case C_STRING_START:
-            /*
-             * This is to handle the way gdb prints out arrays of chars. It will
-             * try to print it out in string format i.e. \"blah\". We need to
-             * handle this case.
-             */
-            if (buf[strlen(buf) - 1] == C_STRING_END) {
-                buf[strlen(buf) - 1] = '\0';
-            }
-            // Create the string directly
-            a = StringToAIF(p1);
-            return a;
+    int m_dim;
+    std::vector<int> m_mins;
+    std::vector<int> m_maxs;
 
-        default:
-            DVPRINT("GetArrayAIF: unknown array format.\n");
-            return (AIF *)NULL;
-    }
-    ++depth;
+    int m_depth;
+    bool m_isC;
+    bool m_isFortran;
+    bool m_hasError;
+    std::vector<AIF*> m_abuild;
+    std::vector<int> m_idcs;
+    std::string m_element;
+};
 
-    // now lets proceed into the string, ignoring ' ' and counting
-    // depth along the way
-    while (!done) {
-        switch (*p1) {
-            case ' ':
-                // ignore it
-                ++p1;
-                break;
-
-            case ARRAY_C_START:
-            case ARRAY_FTN_START:
-                // Note that complex data values printed by gdb are of the form
-                // (r,i) and the start delimiter is indistinguishable from the
-                // ARRAY_FTN_START delimiter. Therefore we need to have a
-                // look-ahead to see if the next character is not
-                // ARRAY_FTN_START. The same is true for c with structs, unions,
-                // etc but it is in the form {...}
-                if (isComplex) {
-                    switch (*(p1 + 1)) {
-                        case ARRAY_C_START:
-                        case ARRAY_FTN_START:
-                        case ' ':
-                            // still need to go deeper
-                            ++depth;
-                            ++p1;
-                            break;
-
-                        default:
-                            // we are pointing to the start of the (r,i) pair
-                            ++done;
-                            break;
-                    }
-                    break;
-                }
-
-                // increment depth and continue
-                ++depth;
-                ++p1;
-                break;
-
-            default:
-                // something other than ' ' or start_delim so we are done
-                ++done;
-                break;
-        }
-    }
-
-    // we now need to iterate through with p2 until we find a ',' or end
-    // delimiter
-    p2 = p1 + 1;
-    done = 0;
-
-    while (!done) {
-        switch (*p2) {
-            case ARRAY_SEP:
-                // only if we are complex
-                if (isComplex) {
-                    // if we have not seen a ')' or '}' which ends the
-                    // complex type, ignore the separator.
-                    if (endCnt == 0) {
-                        // ignore it
-                        ++p2;
-                        break;
-                    }
-                }
-                // at the end of this member...
-                *p2 = '\0';
-                ++done;
-                break;
-
-            case ARRAY_C_END:
-            case ARRAY_FTN_END:
-                // special case if we are complex
-                if (isComplex) {
-                    ++endCnt;
-                    if (endCnt == 1) {
-                        // ignore it
-                        ++p2;
-                        break;
-                    }
-                }
-                // at the end of this member and dimension
-                *p2 = '\0';
-                --depth;
-                ++done;
-                break;
-
-            default:
-                // ignore it
-                ++p2;
-                break;
-        }
-    }
-
-    // we can now create the first data member's aif object and use
-    // it to create our entire array regardless of dimension.
-    ac = CreateSimpleAIF(id, p1, type_str, type_len, type_struct, type_func);
-
-    // we need to allocate space for the abuild array
-    // this will hold a list of each of our array dimensions which
-    // are used while building the aif representation of the array
-    if ((abuild = (AIF **)malloc(sizeof(AIF *) * shape->dim)) == (void *)0) {
-        DVPRINT("GetArrayAIF: malloc error\n");
-        AIFFree(ac);
-        AIFFree(a);
-        return (AIF *)NULL;
-    }
-
-    // we need to allocate space for the mcnt array
-    // this will hold a list of ints which is used to keep track of
-    // the next open member index for each dimension
-    if ((mcnt = (int *)malloc(sizeof(int) * shape->dim)) == (void *)0) {
-        DVPRINT("GetArrayAIF: malloc error\n");
-        free(abuild);
-        AIFFree(ac);
-        AIFFree(a);
-        return (AIF *)NULL;
-    }
-    // set the mcnt array to zero since we are currently at the
-    // zeroeth index for each dimension
-    memset(mcnt, 0, sizeof(int) * shape->dim);
-
-    // now that we have adequate space to hold our aif array pointers
-    // for each dimension, we can create the aif arrays.
-
-    // !!!IMPORTANT!!! Fortran is col-major, meaning we need to transpose the
-    // array.
-
-    // we start by creating the innermost array first, since this
-    // is going to have entries of type ac
-    if (isFortran) {
-        DVPRINT(
-            "GetArrayAIF: building inner array of size %d at abuild index %d\n",
-            getArrayDimension(shape, 1), shape->dim - 1);
-        if ((abuild[shape->dim - 1] = EmptyFtnArrayToAIF(
-                 getArrayDimensionRangeMin(shape, 1),
-                 getArrayDimensionRangeMax(shape, 1), ac)) == (AIF *)NULL) {
-            DVPRINT("GetArrayAIF: EmptyFtnArrayToAIF error\n");
-            free(abuild);
-            AIFFree(ac);
-            AIFFree(a);
-            return (AIF *)NULL;
-        }
-
-        // now we create each of the outer dimensions using its inner dimension
-        // child as its aif ref type. This will ensure that we have enough space
-        // in our aif object the the child arrays.
-        for (dcnt = 2; dcnt <= int(shape->dim); ++dcnt) {
-            DVPRINT(
-                "GetArrayAIF: building outter array of size %d at abuild index "
-                "%d\n",
-                getArrayDimension(shape, dcnt), shape->dim - dcnt);
-            // the abuild index at dcnt is a 0..n array of type
-            // abuild[shape->dim-dcnt+1]
-            abuild[shape->dim - dcnt] =
-                EmptyFtnArrayToAIF(getArrayDimensionRangeMin(shape, dcnt),
-                                   getArrayDimensionRangeMax(shape, dcnt),
-                                   abuild[shape->dim - dcnt + 1]);
-            if (abuild[shape->dim - dcnt] == (AIF *)NULL) {
-                DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-                dcnt = shape->dim;
-                while (--dcnt >= 0) {
-                    AIFFree(abuild[dcnt]);
-                }
-                free(abuild);
-                AIFFree(ac);
-                AIFFree(a);
-                return (AIF *)NULL;
-            }
-        }
-
-        // set the mcnt array to the actual min range value for each dimension.
-        // Fortran allows for custom ranges to be used
-        for (dcnt = 1; dcnt <= int(shape->dim); ++dcnt) {
-            mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
-            DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt,
-                    mcnt[shape->dim - dcnt]);
-        }
-
-        // since we already created the first data member, lets add it
-        // to the abuild array at the previous depth if depth is non-zero
-        // or else at zero, meaning we had only one element in our array.
-        if (0 < depth) {
-            AIFAddFtnArrayElement(abuild[depth - 1], mcnt[depth - 1]++, ac);
-        } else {
-            // we are done building the array. There is only 1 element.
-            AIFAddFtnArrayElement(abuild[0], mcnt[0]++, ac);
-        }
-    } else {
-        DVPRINT(
-            "GetArrayAIF: building inner array of size %d at abuild index %d\n",
-            getArrayDimension(shape, shape->dim), shape->dim - 1);
-        if ((abuild[shape->dim - 1] = EmptyArrayToAIF(
-                 0, getArrayDimension(shape, shape->dim) - 1, ac)) ==
-            (AIF *)NULL) {
-            DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-            free(abuild);
-            AIFFree(ac);
-            AIFFree(a);
-            return (AIF *)NULL;
-        }
-
-        // now we create each of the outer dimensions using its inner dimension
-        // child as its aif ref type. This will ensure that we have enough space
-        // in our aif object the the child arrays.
-        for (dcnt = shape->dim - 2; dcnt >= 0; --dcnt) {
-            DVPRINT(
-                "GetArrayAIF: building outter array of size %d at abuild index "
-                "%d\n",
-                getArrayDimension(shape, dcnt + 1), dcnt);
-            // the abuild index at dcnt is a 0..n array of type abuild[dcnt+1]
-            if ((abuild[dcnt] =
-                     EmptyArrayToAIF(0, getArrayDimension(shape, dcnt + 1) - 1,
-                                     abuild[dcnt + 1])) == (AIF *)NULL) {
-                DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-                while (--dcnt >= 0) {
-                    AIFFree(abuild[dcnt]);
-                }
-                free(abuild);
-                AIFFree(ac);
-                AIFFree(a);
-                return (AIF *)NULL;
-            }
-        }
-
-        // since we already created the first data member, lets add it
-        // to the abuild array at the previous depth if depth is non-zero
-        // or else at zero, meaning we had only one element in our array.
-        if (0 < depth) {
-            AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++, ac);
-        } else {
-            // we are done building the array. There is only 1 element.
-            AIFAddArrayElement(abuild[0], mcnt[0]++, ac);
-        }
-    }
-
-    // free the first member, we are done with it
-    AIFFree(ac);
-
-    while (0 < depth) {
-        // point p1 one past p2
-        // p2 points to the '\0' at the end of the last string
-        p1 = ++p2;
-        done = 0;
-
-        while (!done) {
-            switch (*p1) {
-                case ' ':
-                    // ignore it
-                    ++p1;
-                    break;
-
-                case ARRAY_SEP:
-                    // ignore it
-                    ++p1;
-                    break;
-
-                case ARRAY_C_START:
-                case ARRAY_FTN_START:
-                    // special case for complex
-                    if (isComplex) {
-                        switch (*(p1 + 1)) {
-                            case ARRAY_C_START:
-                            case ARRAY_FTN_START:
-                            case ' ':
-                                // still need to go deeper
-                                ++depth;
-                                ++p1;
-                                break;
-
-                            default:
-                                // we are pointing to the start of (r,i) or
-                                // {...}
-                                ++done;
-                                break;
-                        }
-                        break;
-                    }
-                    // increment depth and continue
-                    ++depth;
-                    ++p1;
-                    break;
-
-                case ARRAY_C_END:
-                case ARRAY_FTN_END:
-                    // we just finished adding the final entry for the
-                    // current dimension
-
-                    // ensure that depth is greater than 0
-                    if (--depth == 0) {
-                        DVPRINT("GetArrayAIF: Done building.\n");
-                        ++done;
-                        break;
-                    }
-
-                    //						DVPRINT("GetArrayAIF: Done with %d\n",
-                    //mcnt[depth-1]);
-
-                    if (isFortran) {
-                        // lets add it to its parent
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, abuild[depth]);
-
-                        // reset the current depth mcnt
-                        // note that fortran needs to reverse the dimensionality
-                        // hence the dim minus current depth
-                        //							DVPRINT("GetArrayAIF:
-                        //p1 depth is %d\n", depth);
-                        mcnt[depth] = getArrayDimensionRangeMin(
-                            shape, shape->dim - depth);
-                    } else {
-                        // lets add it to its parent
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           abuild[depth]);
-
-                        // reset the current depths mcnt
-                        mcnt[depth] = 0;
-                    }
-
-                    // continue parsing
-                    ++p1;
-                    break;
-
-                default:
-                    // something other than ' ' ',' start_delim or end_delim
-                    // start of a new value
-                    ++done;
-                    break;
-            }
-        }
-
-        // ensure depth is not zero
-        if (depth == 0) continue;
-
-        // reset done and set p2 to p1+1
-        p2 = p1 + 1;
-        done = 0;
-
-        // reset the complex counters
-        endCnt = 0;
-
-        while (!done) {
-            switch (*p2) {
-                case ARRAY_SEP:
-                    // only if we are complex
-                    if (isComplex) {
-                        if (endCnt == 0) {
-                            // ignore it
-                            ++p2;
-                            break;
-                        }
-                    }
-                    // at the end of this member
-                    *p2 = '\0';
-
-                    // lets create the simple aif variable from it
-                    ac = CreateSimpleAIF(id, p1, type_str, type_len,
-                                         type_struct, type_func);
-
-                    // now we add it to the current abuild at mcnt
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, ac);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           ac);
-                    }
-
-                    // free the temporary aif object
-                    AIFFree(ac);
-
-                    // we are done
-                    ++done;
-                    break;
-
-                case ARRAY_C_END:
-                case ARRAY_FTN_END:
-                    // special case if we are complex
-                    if (isComplex) {
-                        ++endCnt;
-                        if (endCnt == 1) {
-                            // ignore it
-                            ++p2;
-                            break;
-                        }
-                    }
-                    // at the last member in the current dimension
-                    *p2 = '\0';
-
-                    // lets create the simple aif variable from it
-                    ac = CreateSimpleAIF(id, p1, type_str, type_len,
-                                         type_struct, type_func);
-
-                    // now we add it to the current abuild at mcnt
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1], ac);
-
-                        // reset mcnt for this dimension since we are done with
-                        // it note that fortran can have non-standard ranges
-                        //							DVPRINT("GetArrayAIF:
-                        //p2 depth is %d\n", depth);
-                        mcnt[depth - 1] = getArrayDimensionRangeMin(
-                            shape, shape->dim - depth + 1);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1],
-                                           ac);
-
-                        // reset mcnt for this dimension since we are done with
-                        // it
-                        mcnt[depth - 1] = 0;
-                    }
-
-                    // free the temporary aif object
-                    AIFFree(ac);
-
-                    // ensure that depth is greater than 0
-                    if (--depth == 0) {
-                        ++done;
-                        break;
-                    }
-
-                    // lets add it to its parent
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, abuild[depth]);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           abuild[depth]);
-                    }
-
-                    //						DVPRINT("GetArrayAIF: Done with %d\n",
-                    //mcnt[depth-1]);
-
-                    // we are done
-                    ++done;
-                    break;
-
-                default:
-                    // ignore it
-                    ++p2;
-                    break;
-            }
-        }
-    }
-
-    // our final return array is going to be contained in abuild[0]
-    a = abuild[0];
-
-    // cleanup the other abuild entries, we are done with them
-    for (dcnt = 1; dcnt < int(shape->dim); ++dcnt) {
-        AIFFree(abuild[dcnt]);
-    }
-    // free abuild
-    free(abuild);
-    // free mcnt
-    free(mcnt);
-
-    return a;
+MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
+                                       struct_info_t *type_struct,
+                                       func_info_t *type_func,
+                                       int type_id, arrayDimension_t *shape)
+    : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
+      m_type_func(type_func), m_type_id(type_id), m_shape(shape),
+      m_dim(shape->dim), m_mins(), m_maxs(),
+      m_depth(0), m_isC(false), m_isFortran(false),
+      m_hasError(false), m_abuild(m_dim), m_idcs(m_dim, 0)
+{
 }
+
+void MIArrayToAIFParser::parseSome(const char* str) {
+    if (m_hasError)
+        return;
+
+    try {
+        for (const char* p = str; *p; ++p) {
+            if (*p == '(' || *p == '{') {
+                openBracket(*p);
+            } else if (*p == ')' || *p == '}') {
+                closeBracket(*p);
+            } else if (m_depth == m_dim && *p == ',') {
+                addElement();
+            } else if (!isspace(*p) || !m_element.empty()) {
+                m_element += *p;
+            }
+        }
+    } catch (Error&) {
+        m_hasError = true;
+    }
+}
+
+void MIArrayToAIFParser::openBracket(char bracket)
+{
+    if (bracket == '{' && !m_isFortran) {
+        m_isC = true;
+    } else if (bracket == '(' && !m_isC) {
+        m_isFortran = true;
+    } else {
+        m_element += bracket;
+        return;
+    }
+
+    if (m_depth >= m_dim) {
+        m_element += bracket;
+        ++m_depth;
+        return;
+    }
+
+    if (m_mins.empty()) {
+        for (int i=0; i<m_dim; ++i) {
+            int d = (m_isFortran ? m_dim-i : i+1);
+            m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
+            m_maxs.push_back(getArrayDimensionRangeMax(m_shape,d));
+            
+            DVPRINT("range in %d [%d,%d]\n", i, m_mins.back(), m_maxs.back());
+        }
+    }
+
+    if (m_depth < m_dim)
+        m_idcs[m_depth] = m_mins[m_depth];
+    ++m_depth;
+    m_element.clear();
+}
+
+
+void MIArrayToAIFParser::closeBracket(char bracket)
+{
+    if ((bracket == '}' && !m_isC) ||
+        (bracket == ')' && !m_isFortran)) {
+        m_element += bracket;
+    } else if (m_depth <= 0) {
+        error("found a closing bracket with no matching open");
+    } else if (m_depth > m_dim) {
+        m_element += bracket;
+        --m_depth;
+    } else {
+        if (!m_element.empty())
+            addElement();
+
+        --m_depth;
+
+        if (m_idcs[m_depth] != m_maxs[m_depth] + 1)
+            error("insufficient data items in direction");
+    }
+}
+
+void MIArrayToAIFParser::addElement()
+{
+    if (m_depth != m_dim) {
+        error("trying to add an element at the wrong depth");
+        return;
+    }
+
+    AIF* aif = createSimpleAIF();
+    if (!aif)
+        error("could not create element for " + m_element);
+
+    m_element.clear();
+
+    addArrayElement(m_depth-1, aif);
+}
+
+AIF* MIArrayToAIFParser::makeEmptyArrayAIF(int i, AIF* ac)
+{
+    AIF* aif = nullptr;
+    if (m_isFortran) {
+        aif = EmptyFtnArrayToAIF(m_mins[i], m_maxs[i], ac);
+    } else {
+        aif = EmptyArrayToAIF(m_mins[i], m_maxs[i], ac);
+    }
+    if (!aif)
+        error("create empty AIF array failed");
+    return aif;
+}
+
+void MIArrayToAIFParser::addArrayElement(int i, AIF* ac)
+{
+    if (m_idcs[i] > m_maxs[i]) {
+        error("too many elements returned for direction");
+        return;
+    }
+
+    if (m_idcs[i] == m_mins[i]) {
+        m_abuild[i] = makeEmptyArrayAIF(i,ac);
+    }
+
+    if (m_isFortran) {
+        AIFAddFtnArrayElement(m_abuild[i], m_idcs[i]++, ac);
+    } else {
+        AIFAddArrayElement(m_abuild[i], m_idcs[i]++, ac);
+    }
+
+    if (i && m_idcs[i] == m_maxs[i]+1)
+        addArrayElement(i-1, m_abuild[i]);
+}
+
+AIF* MIArrayToAIFParser::createSimpleAIF() {
+    return CreateSimpleAIF(m_type_id, const_cast<char*>(m_element.c_str()),
+                           m_type_str, m_type_len, m_type_struct, m_type_func);
+}
+
+AIF* MIArrayToAIFParser::getResult() {
+    if (m_hasError)
+        return nullptr;
+    
+    try {
+        if (m_depth != 0)
+            error("missing end bracket for array");
+        else if (!m_abuild[0])
+            error("expression ends prematurely");
+        
+    } catch (Error&) {}
+
+    if (!m_hasError) {
+        return m_abuild[0];
+    }
+    if (m_abuild[0])
+        AIFFree(m_abuild[0]);
+    return nullptr;
+}
+
+void MIArrayToAIFParser::error(const std::string& message) {
+    m_hasError = true;
+    DVPRINT("Parsing error %s\n", message.c_str());
+    throw Error();
+}
+} // namespace
+
 
 static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     int id;
@@ -4638,8 +4323,10 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 
     unsigned long miSize = getProcSize();
 
-    AIF* a = parseMIArrayToAIF(type_str, type_len, type_struct,
-                               type_func, buf, id, shape);
+    MIArrayToAIFParser parser(type_str, type_len, type_struct,
+                              type_func, id, shape);
+    parser.parseSome(buf);
+    AIF* a = parser.getResult();
 
     unsigned long aifSize = getProcSize();
     DVPRINT("memory: sizes %lu, %lu, %lu\n", origSize, miSize, aifSize);

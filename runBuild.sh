@@ -108,7 +108,14 @@ fi
 cd $top_level/external/ddt_gdb-8.1
 check_exit_status
 
-./configure --disable-werror --prefix=$install_dir --with-gdb-datadir=$install_dir/share/gdb --without-guile --without-separate-debug-dir --with-mmalloc --with-python=$python_loc --without-babeltrace
+./configure --prefix=$install_dir \
+            --with-gdb-datadir=$install_dir/share/gdb \
+            --with-python=$python_loc \
+            --disable-werror \
+            --with-mmalloc \
+            --without-babeltrace \
+            --without-guile \
+            --without-separate-debug-dir
 check_exit_status
 
 make $cdst_j_flags
@@ -146,7 +153,17 @@ cd $top_level/external/ddt_cuda-gdb-101
 check_exit_status
 
 cuda_install_dir=$install_dir/cuda_gdb_install
-./configure --prefix=$cuda_install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --with-gdb-datadir=$install_dir/share/cuda-gdb --with-python=$python_loc CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
+./configure --prefix=$cuda_install_dir \
+            --with-gdb-datadir=$cuda_install_dir/share/cuda-gdb \
+            --with-python=$python_loc \
+            --program-prefix=cuda- \
+            --enable-cuda \
+            --enable-gdbserver=no \
+            --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
+            CFLAGS="-Wno-shift-negative-value \
+                -Wno-unused-const-variable \
+                -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" \
+            LDFLAGS="-lpthread"
 check_exit_status
 
 make $cdst_j_flags
@@ -161,6 +178,43 @@ check_exit_status
 
 # deliver cuda gdb to libexec dir
 cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
+check_exit_status
+
+
+echo "############################################"
+echo "#          Building ROCgdb alpha           #"
+echo "############################################"
+
+# we've already ensured python3 exists, just noting it's necessary here too.
+# ensure submodule is checked out
+if [[ ! -f $top_level/external/ddt_roc-gdb-alpha/README ]]; then
+    echo "ddt_roc-gdb-alpha submodule not checked out..."
+    exit 1
+fi
+
+cd $top_level/external/ddt_roc-gdb-alpha
+check_exit_status
+
+rocgdb_install_dir=$install_dir/roc_gdb_install
+./configure --prefix=$rocgdb_install_dir \
+            --with-gdb-datadir=$rocgdb_install_dir/share/roc-gdb \
+            --with-python=$python_loc \
+            --program-prefix=roc- \
+            --enable-gdbserver=no
+check_exit_status
+
+make $cdst_j_flags
+check_exit_status
+
+# as in ddt_gdb-8.1, the ROCgdb build comes with LOTS of extra stuff: we don't
+# want all of it, so we only install from the gdb directory.
+cd $top_level/external/ddt_roc-gdb-alpha/gdb
+check_exit_status
+make $cdst_j_flags install
+check_exit_status
+
+# deliver roc-gdb to libexec dir
+cp -a $rocgdb_install_dir/bin/roc-gdb $install_dir/libexec/roc_alpha-gdb-guard
 check_exit_status
 
 

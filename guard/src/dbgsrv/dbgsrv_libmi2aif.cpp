@@ -101,16 +101,10 @@ static AIF *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
 static AIF *GetArrayAIF(MISession *, MIVar *);
 static AIF *GetVectorLikeAIF(MISession *, MIVar *);
-static AIF *GetVectorAIF(MISession *, MIVar *);
-static AIF *GetDequeAIF(MISession *, MIVar *);
-static AIF *GetStackAIF(MISession *, MIVar *);
-static AIF *GetPQueueAIF(MISession *, MIVar *);
-static AIF *GetQueueAIF(MISession *, MIVar *);
 static AIF *GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
 static AIF *GetPointerAIF(MISession *, MIVar *);
 static char *GetArrayDataString(MISession *, MIVar *);
 // static arrayDimension_t *   oneDArray(int, int, int);
-static vectorLikeDimension_t *GetVectorLikeDimensionShape(char *);
 static void fixTypeString(char *, const char *, char *);
 
 const char *_aif_ignored_type_specifiers[] = {"const", "restrict", NULL};
@@ -824,26 +818,16 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
             a = GetStructAIF(session, var);
             break;
+
         case T_STD_VECTOR:
-            DVPRINT("GetComplexAIF: Creating AIF Vector.\n");
-            a = GetVectorAIF(session, var);
-            break;
         case T_STD_DEQUE:
-            DVPRINT("GetComplexAIF: Creating AIF Deque.\n");
-            a = GetDequeAIF(session, var);
-            break;
         case T_STD_STACK:
-            DVPRINT("GetComplexAIF: Creating AIF Stack.\n");
-            a = GetStackAIF(session, var);
-            break;
         case T_STD_QUEUE:
-            DVPRINT("GetComplexAIF: Creating AIF Queue.\n");
-            a = GetQueueAIF(session, var);
-            break;
         case T_STD_PQUEUE:
-            DVPRINT("GetComplexAIF: Creating AIF Priority Queue.\n");
-            a = GetPQueueAIF(session, var);
+            DVPRINT("GetComplexAIF: Creating AIF Vector.\n");
+            a = GetVectorLikeAIF(session, var);
             break;
+
         default:
             /*
              * Maybe it was simple all alongg
@@ -2224,105 +2208,6 @@ static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
     free(str);
 
     return id;
-}
-
-static vectorLikeDimension_t *GetVectorLikeDimensionShape(char *buf) {
-    char *buf1 = strdup(buf);
-    char *bufOrig = buf1;
-    int *atCoords = NULL;
-    int atCoordsSize = 0;
-    vectorLikeDimension_t *result = newVectorLikeDimension();
-    int lengthToAdd = 0;
-    char *lengthStr = NULL;
-    int depth = -1;
-    char *newBuf1 = NULL;
-    char *newBuf1Orig = NULL;
-
-    // Error null args
-    if (!buf1) {
-        DVPRINT("GetVectorLikeDimensionShape: buf is NULL");
-        return NULL;
-    }
-
-    // Main loop to parse the data string into the dimension object
-    while (*buf1) {
-        switch (*buf1) {
-            // Get the length, add it to the dimension object and skip the comma
-            case 'l':
-                if (strncmp(buf1, "length", 6) == 0) {
-                    buf1 = buf1 + 7;
-                    newBuf1 = strdup(buf1);
-                    newBuf1Orig = newBuf1;
-                    lengthStr = strtok(newBuf1, ",");
-                    DVPRINT("lengthStr: $%s$", lengthStr);
-                    buf1 = buf1 + strlen(lengthStr);
-                    lengthToAdd = atoi(lengthStr);
-                    addVectorLikeDimensionDef(result, atCoords, atCoordsSize,
-                                              lengthToAdd);
-                    free(newBuf1Orig);
-                }
-                break;
-            // Make the current coordinates (atCoords) have another dimension,
-            // starting at 0
-            case '{':
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize + 1) * sizeof(int));
-                atCoords[atCoordsSize] = 0;
-                atCoordsSize++;
-                depth++;
-                break;
-
-            // Check if the array being closed is the biggest of its parent's
-            // children. If so, store this size in the parent. Shrink our
-            // coordinates.
-            case '}':
-                if (atCoordsSize >= 1) {
-                    if (result && result->sizes &&
-                        ((atCoords[atCoordsSize - 1] + 1) >
-                         int(result->sizes[depth]))) {
-                        result->sizes[depth] = atCoords[atCoordsSize - 1] + 1;
-                    }
-                }
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize - 1) * sizeof(int));
-                atCoordsSize--;
-                --depth;
-                break;
-
-            // Commas increment the latest coordinate
-            case ',':
-                atCoords[atCoordsSize - 1]++;
-                break;
-
-            // Handle containers that use 'with' in their string to describe
-            // length
-            case 'w':
-                if (strncmp(buf1, "with", 4) == 0) {
-                    buf1 = buf1 + 5;
-                    newBuf1 = strdup(buf1);
-                    newBuf1Orig = newBuf1;
-                    lengthStr = strtok(newBuf1, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    lengthToAdd = atoi(lengthStr);
-                    addVectorLikeDimensionDef(result, atCoords, atCoordsSize,
-                                              lengthToAdd);
-                    free(newBuf1Orig);
-                }
-                break;
-
-            // Otherwise just skip the character
-            default:
-                break;
-        }
-        // Go to the next character
-        buf1++;
-    }
-    // free memory
-    free(atCoords);
-    free(bufOrig);
-
-    // return the dimension object we just constructed
-    return result;
 }
 
 // get the shape of an array
@@ -3791,284 +3676,6 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
     return buf;
 }
 
-static AIF *parseMIVectorLikeContToAIF(char *type_str, int type_len,
-                                       struct_info_t *type_struct,
-                                       func_info_t *type_func, char *dataBuf,
-                                       int id, vectorLikeDimension_t *shape) {
-    char *buf1 = strdup(dataBuf);
-    char *buf2 = strdup(dataBuf);
-    char *buf1Orig = buf1;
-    char *buf2Orig = buf2;
-    char *buf1dup = NULL;
-    char *buf2dup = NULL;
-    char *buf1DupOrig = NULL;
-    char *buf2DupOrig = NULL;
-    int *atCoords = NULL;
-    int atCoordsSize = 0;
-    int done = 0;
-    char *lengthStr = NULL;
-    char *currElem = NULL;
-    unsigned int currElemLength = 0;
-    int maxDepth = 0;
-    int depth = 0;
-    char *currElemShort = NULL;
-    vectorLikeDimension_t *tempVecDim = NULL;
-    AIF *ac = NULL;
-    printArray(shape->sizes, shape->sizesSize);
-
-    /*
-            Why do we need a two pass parser? Turns out that you can only
-       initiialize an empty AIF array if you have a representative element (any
-       element, it's not really used only it's size is) so that the size can be
-       inferred.
-
-            The first pass gets a string representation of the first base
-       element it can find and exits, storing it in currElemShort
-
-            The second pass proceeds to parse the entire multidimensional
-       structure into AIF
-    */
-    while (!done) {
-        DVPRINT("buf1: %s\n", buf1);
-        DVPRINT("maxDepth: %d\n", maxDepth);
-        switch (*buf1) {
-            // Ignore all spaces
-            case ' ':
-                break;
-            // A way to skip over commas
-            case 'l':
-                if (strncmp(buf1, "length", 6) == 0) {
-                    buf1 = buf1 + 7;
-                    buf1dup = strdup(buf1);
-                    buf1DupOrig = buf1dup;
-                    lengthStr = strtok(buf1dup, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    free(buf1DupOrig);
-                }
-                break;
-            // Avoid useless commas, part 2
-            case 'w':
-                if (strncmp(buf1, "with", 4) == 0) {
-                    buf1 = buf1 + 4;
-                    buf1dup = strdup(buf1);
-                    buf1DupOrig = buf1dup;
-                    lengthStr = strtok(buf1dup, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    free(buf1DupOrig);
-                }
-                break;
-            case '{':
-                // currElem keeps track of the current base type element
-                currElem = buf1 + 1;
-                currElemLength = 0;
-                ++depth;
-                if (depth > maxDepth) {
-                    maxDepth = depth;
-                    DVPRINT("maxDepth incremented. It is now %d\n", maxDepth);
-                }
-                break;
-            // Carve out only the relevant part of the string into currElemShort
-            // and exit
-            case '}':
-                currElemShort =
-                    (char *)realloc(currElemShort, currElemLength + 1);
-                strncpy(currElemShort, currElem, currElemLength);
-                currElemShort[currElemLength] = '\0';
-                DVPRINT(
-                    "parseMIVectorLikeContToAIF: Got the representative "
-                    "element (%s)\n",
-                    currElemShort);
-
-                currElem = buf1 + 1;
-                currElemLength = 0;
-                done++;
-                --depth;
-                break;
-            // Carve out only the relevant part of the string into currElemShort
-            // and exit
-            case ',':
-                currElemShort =
-                    (char *)realloc(currElemShort, currElemLength + 1);
-                strncpy(currElemShort, currElem, currElemLength);
-                currElemShort[currElemLength] = '\0';
-                DVPRINT(
-                    "parseMIVectorLikeContToAIF: Got the representative "
-                    "element (%s)\n",
-                    currElemShort);
-                currElem = buf1 + 2;
-                currElemLength = 0;
-                done++;
-                break;
-            default:
-                currElemLength++;
-                break;
-        }
-        buf1++;
-    }
-    DVPRINT("Attempting to build simple AIF with $%s$", currElemShort);
-    // Now have the representative element (currElemShort) to pass in
-    // when building empty arrays
-    ac = CreateSimpleAIF(id, currElemShort, type_str, type_len, type_struct,
-                         type_func);
-    DVPRINT("Built simple AIF");
-
-    // Build empty arrays with all the right coordinates using the shape of the
-    // array
-    createDummyAIF(shape, ac);
-    DVPRINT("parseMIVectorLikeContToAIF: Built the dummies\n");
-
-    depth = 0;
-    DVPRINT("maxDepth is: %d\n", maxDepth);
-
-    printVectorLikeDimension(shape);
-    while (*buf2) {
-        // DVPRINT("buf2: %s\n", buf2);
-        switch (*buf2) {
-            // Ignore all spaces
-            case ' ':
-                break;
-            // A way to skip over commas
-            case 'l':
-                if (strncmp(buf2, "length", 6) == 0) {
-                    buf2 = buf2 + 7;
-                    buf2dup = strdup(buf2);
-                    buf2DupOrig = buf2dup;
-                    lengthStr = strtok(buf2dup, " ");
-                    buf2 = buf2 + strlen(lengthStr);
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Skipping commas length\n");
-                    free(buf2DupOrig);
-                }
-                break;
-            //{ means we've gone down a level. Make a new AIF array and prepare
-            //it to start adding elements
-            case '{':
-                DVPRINT("parseMIVectorLikeContToAIF: Open bracket\n");
-                // Append a 0 to atCoords
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize + 1) * sizeof(int));
-                atCoords[atCoordsSize] = 0;
-                atCoordsSize++;
-
-                // currElem keeps track of the current base type element
-                currElem = buf2 + 1;
-                currElemLength = 0;
-
-                ++depth;
-                break;
-            case '}':
-                DVPRINT("parseMIVectorLikeContToAIF: Closing bracket.\n");
-                if (depth == maxDepth) {
-                    // currElemShort is the relevant base type element string
-                    currElemShort =
-                        (char *)realloc(currElemShort, currElemLength + 1);
-                    strncpy(currElemShort, currElem, currElemLength);
-                    currElemShort[currElemLength] = '\0';
-
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Closing bracket. Found "
-                        "element: (%s)\n",
-                        currElemShort);
-                    // For some reason the parser gets to this point with valid
-                    // but empty strings. Only do stuff when the string is not
-                    // empty
-                    if ((*currElemShort != '\0')) {
-                        // Add AIF of the element we saw to AIF Array
-                        ac = CreateSimpleAIF(id, currElemShort, type_str,
-                                             type_len, type_struct, type_func);
-                        tempVecDim = getVectorLikeDimensionStruct(
-                            shape, atCoords, atCoordsSize - 1);
-                        printVectorLikeDimension(tempVecDim);
-                        AIFAddArrayElement(tempVecDim->aif,
-                                           atCoords[atCoordsSize - 1], ac);
-                        tempVecDim->dimdef[atCoords[atCoordsSize - 1]].aif = ac;
-                    }
-                }
-                if (atCoordsSize >= 1)
-                    atCoords = (int *)realloc(atCoords,
-                                              (atCoordsSize - 1) * sizeof(int));
-                atCoordsSize--;
-
-                currElem = buf2 + 1;
-                currElemLength = 0;
-
-                --depth;
-                break;
-            case ',':
-                DVPRINT("parseMIVectorLikeContToAIF: Comma.\n");
-                if (depth == maxDepth) {
-                    // currElemShort is the relevant base type element string
-                    currElemShort =
-                        (char *)realloc(currElemShort, currElemLength + 1);
-                    strncpy(currElemShort, currElem, currElemLength);
-                    currElemShort[currElemLength] = '\0';
-
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Comma. Found element: "
-                        "(%s)\n",
-                        currElemShort);
-                    // For some reason the parser gets to this point with valid
-                    // but empty strings. Only do stuff when the string is not
-                    // empty
-                    if (strcmp("", currElemShort)) {
-                        // Add AIF of the element we saw to AIF Array
-                        ac = CreateSimpleAIF(id, currElemShort, type_str,
-                                             type_len, type_struct, type_func);
-                        tempVecDim = getVectorLikeDimensionStruct(
-                            shape, atCoords, atCoordsSize - 1);
-                        printVectorLikeDimension(tempVecDim);
-                        AIFAddArrayElement(tempVecDim->aif,
-                                           atCoords[atCoordsSize - 1], ac);
-                        tempVecDim->dimdef[atCoords[atCoordsSize - 1]].aif = ac;
-                    }
-                }
-
-                // Fix atCoords and currElem appropriately
-                atCoords[atCoordsSize - 1]++;
-                currElem = buf2 + 2;
-                currElemLength = 0;
-                break;
-
-            // Avoid useless commas, part 2
-            case 'w':
-                if (strncmp(buf2, "with", 4) == 0) {
-                    buf2 = buf2 + 5;
-                    buf2dup = strdup(buf2);
-                    buf2DupOrig = buf2dup;
-                    lengthStr = strtok(buf2dup, " ");
-                    buf2 = buf2 + strlen(lengthStr);
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Skipping commas with\n");
-                    free(buf2DupOrig);
-                }
-                currElemLength++;
-                break;
-
-            // All other cases just increment currElemLength (element might have
-            // numerous digits/characters)
-            default:
-                currElemLength++;
-                break;
-        }
-        // Move on to the next character
-        buf2++;
-    }
-
-    DVPRINT("got here, returning...\n");
-    connectAIFArrays(shape);
-    fprintf(stderr, "shape->aif: %p\n", shape->aif);
-    AIFPrint(stderr, 20, shape->aif);
-    AIF *retval = shape->aif;
-
-    // free memory
-    free(buf1Orig);
-    free(buf2Orig);
-    free(atCoords);
-    freeVectorLikeDimension(shape);
-
-    return retval;
-}
-
 namespace {
 class MIArrayToAIFParser {
 public:
@@ -4306,7 +3913,8 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 	return a;
     }
     
-    DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n", id, var->numchild, type_str, type_len);
+    DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
+            id, var->numchild, type_str, type_len);
 
     // Get the shape of this array
     arrayDimension_t *shape = GetArrayDimensionShape(session, var);
@@ -4338,71 +3946,76 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 }
 
 static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
-    int id;
-    char *type_str;
-    int type_len;
-    struct_info_t *type_struct;
-    func_info_t *type_func;
-    char *buf = NULL;
-    vectorLikeDimension_t *shape = NULL;
-    AIF *ac = NULL;
-    AIF *a = NULL;
-
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
-    if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
-                               &type_func)) == T_UNKNOWN) {
+    char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
+    int id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct, &type_func);
+
+    if (id == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
         return (AIF *)NULL;
     }
     DVPRINT("id: %d\n", id);
+
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
-        ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                             type_func);
-        a = EmptyArrayToAIF(0, 0, ac);
+        AIF* ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
+                                  type_func);
+        AIF* a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-	return a;
-    } else {
-        DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
+        return a;
+    } 
 
-        // first we need to get the data string
-        buf = GetArrayDataString(session, var);
+    DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
 
-        // Now lets get the shape of this array
-        if ((shape = GetVectorLikeDimensionShape(buf)) ==
-            (vectorLikeDimension_t *)NULL) {
-            // error already set
-            DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
+    // first we need to get the data string
+    char* buf = GetArrayDataString(session, var);
 
-            return NULL;
-        }
+    // Now lets get the shape of this array
+    int lengthTagLen = 6;
+    char *lengthLoc = strstr(buf, "length"), *lengthEnd;
+
+    char* withLoc = strstr(buf, "with");
+    if (!lengthLoc || (withLoc && withLoc < lengthLoc)) {
+        lengthLoc = withLoc;
+        lengthTagLen = 4;
     }
-    buf = strtok(buf, "=");
-    buf = strtok(NULL, "");
-    buf++;
-    return parseMIVectorLikeContToAIF(type_str, type_len, type_struct,
-                                      type_func, buf, id, shape);
-}
+    
+    if (!lengthLoc ) {
+        DVPRINT("GetVectorLikeAIF: could not find length\n");
+        return nullptr;
+    }
 
-static AIF *GetVectorAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    lengthLoc += lengthTagLen;
+    long length = strtol(lengthLoc, &lengthEnd, 10);
+    if (lengthEnd == lengthLoc) {
+        DVPRINT("GetVectorLikeAIF: could not parse length\n");
+        return nullptr;
+    }
 
-static AIF *GetDequeAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    char* array = strchr(lengthEnd, '{');
+    if (!array) {
+        DVPRINT("GetVectorLikeAIF: could not find array in vector\n");
+        return nullptr;
+    }
 
-static AIF *GetStackAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    arrayDimension_t* shape = newArrayDimension();
+    if (!shape) {
+        DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
+        return nullptr;
+    }
+    addArrayDimensionDef(shape, length, 0, length-1);
 
-static AIF *GetQueueAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    // now we can just parse it like an array
+    MIArrayToAIFParser parser(type_str, type_len, type_struct,
+                              type_func, id, shape);
+    parser.parseSome(array);
+    AIF* a = parser.getResult();
 
-static AIF *GetPQueueAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
+    free(buf);
+    freeArrayDimension(shape);
+
+    return a;
 }
 
 static AIF *GetPointerAIF(MISession *session, MIVar *var) {

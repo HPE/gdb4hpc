@@ -502,7 +502,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/pretty_printers.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/prompt.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/tsx.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/type_printers.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/unwinders.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/xmethods.py

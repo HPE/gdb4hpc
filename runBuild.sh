@@ -108,7 +108,14 @@ fi
 cd $top_level/external/ddt_gdb-8.1
 check_exit_status
 
-./configure --disable-werror --prefix=$install_dir --with-gdb-datadir=$install_dir/share/gdb --without-guile --without-separate-debug-dir --with-mmalloc --with-python=$python_loc --without-babeltrace
+./configure --prefix=$install_dir \
+            --with-gdb-datadir=$install_dir/share/gdb \
+            --with-python=$python_loc \
+            --disable-werror \
+            --with-mmalloc \
+            --without-babeltrace \
+            --without-guile \
+            --without-separate-debug-dir
 check_exit_status
 
 make $cdst_j_flags
@@ -146,7 +153,17 @@ cd $top_level/external/ddt_cuda-gdb-101
 check_exit_status
 
 cuda_install_dir=$install_dir/cuda_gdb_install
-./configure --prefix=$cuda_install_dir --enable-gdbserver=no --program-prefix=cuda- --enable-cuda --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu --disable-rpath --without-separate-debug-dir --with-gdb-datadir=$install_dir/share/cuda-gdb --with-python=$python_loc CFLAGS="-Wno-shift-negative-value -Wno-unused-const-variable -I/root/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" LDFLAGS="-lpthread"
+./configure --prefix=$cuda_install_dir \
+            --with-gdb-datadir=$cuda_install_dir/share/cuda-gdb \
+            --with-python=$python_loc \
+            --program-prefix=cuda- \
+            --enable-cuda \
+            --enable-gdbserver=no \
+            --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
+            CFLAGS="-Wno-shift-negative-value \
+                -Wno-unused-const-variable \
+                -I$top_level/external/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" \
+            LDFLAGS="-lpthread"
 check_exit_status
 
 make $cdst_j_flags

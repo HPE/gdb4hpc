@@ -159,7 +159,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/cuda101-gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-%{__cp} -a %{external_build_dir}/libexec/roc_alpha-gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
+%{__cp} -a %{external_build_dir}/libexec/ROCgdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/guard_proxy ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/start_proxy.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/bin/mrnet_commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
@@ -250,42 +250,42 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
-# roc-gdb Share
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/FrameDecorator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/FrameIterator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/frames.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/printing.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/types.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/unwinder.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/xmethod.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/explore.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/frame_filters.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/pretty_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/type_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/unwinders.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/command/xmethods.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/function/as_string.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/function/caller_is.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/function/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/function/strfns.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/printer/bound_registers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/python/gdb/printer/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/syscalls/*.xml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/syscalls/gdb-syscalls.dtd ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit
-%{__cp} -a %{external_build_dir}/roc_gdb_install/share/roc-gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit
+# ROCgdb Share
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/FrameDecorator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/FrameIterator.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/frames.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/printing.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/types.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/unwinder.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/xmethod.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/explore.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/frame_filters.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/pretty_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/prompt.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/type_printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/unwinders.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/command/xmethods.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/function/as_string.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/function/caller_is.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/function/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/function/strfns.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/printer/bound_registers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/python/gdb/printer/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/syscalls/*.xml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/syscalls/gdb-syscalls.dtd ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
+%{__cp} -a %{external_build_dir}/ROCgdb_install/share/ROCgdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
 %{__cp} -a %{external_build_dir}/share/man/man1/gdb4hpc.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
@@ -398,14 +398,14 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_info_name}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
@@ -418,7 +418,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda101-gdb-guard
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/roc_alpha-gdb-guard
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/ROCgdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_commnode
@@ -487,34 +487,34 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/wrs-linux.py
-#roc-gdb share
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/FrameDecorator.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/FrameIterator.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/frames.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/__init__.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printing.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/prompt.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/types.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/unwinder.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/xmethod.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/explore.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/frame_filters.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/__init__.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/pretty_printers.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/prompt.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/type_printers.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/unwinders.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/command/xmethods.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function/as_string.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function/caller_is.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function/__init__.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/function/strfns.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer/bound_registers.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/python/gdb/printer/__init__.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls/*.xml
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/syscalls/gdb-syscalls.dtd
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit/elinos.py
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/roc-gdb/system-gdbinit/wrs-linux.py
+#ROCgdb share
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameDecorator.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameIterator.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/frames.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printing.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/prompt.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/types.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/unwinder.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/xmethod.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/explore.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/frame_filters.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/pretty_printers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/prompt.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/type_printers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/unwinders.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command/xmethods.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function/as_string.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function/caller_is.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/function/strfns.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer/bound_registers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/printer/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls/*.xml
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls/gdb-syscalls.dtd
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit/elinos.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit/wrs-linux.py
 #end share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}

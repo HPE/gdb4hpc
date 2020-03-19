@@ -187,19 +187,19 @@ echo "############################################"
 
 # we've already ensured python3 exists, just noting it's necessary here too.
 # ensure submodule is checked out
-if [[ ! -f $top_level/external/ddt_roc-gdb-alpha/README ]]; then
-    echo "ddt_roc-gdb-alpha submodule not checked out..."
+if [[ ! -f $top_level/external/ROCgdb/README ]]; then
+    echo "ROCgdb submodule not checked out..."
     exit 1
 fi
 
-cd $top_level/external/ddt_roc-gdb-alpha
+cd $top_level/external/ROCgdb
 check_exit_status
 
-rocgdb_install_dir=$install_dir/roc_gdb_install
-./configure --prefix=$rocgdb_install_dir \
-            --with-gdb-datadir=$rocgdb_install_dir/share/roc-gdb \
+ROCgdb_install_dir=$install_dir/ROCgdb_install
+./configure --prefix=$ROCgdb_install_dir \
+            --with-gdb-datadir=$ROCgdb_install_dir/share/ROCgdb \
             --with-python=$python_loc \
-            --program-prefix=roc- \
+            --program-prefix=ROC \
             --enable-gdbserver=no
 check_exit_status
 
@@ -208,13 +208,13 @@ check_exit_status
 
 # as in ddt_gdb-8.1, the ROCgdb build comes with LOTS of extra stuff: we don't
 # want all of it, so we only install from the gdb directory.
-cd $top_level/external/ddt_roc-gdb-alpha/gdb
+cd $top_level/external/ROCgdb/gdb
 check_exit_status
 make $cdst_j_flags install
 check_exit_status
 
-# deliver roc-gdb to libexec dir
-cp -a $rocgdb_install_dir/bin/roc-gdb $install_dir/libexec/roc_alpha-gdb-guard
+# deliver ROCgdb to libexec dir
+cp -a $ROCgdb_install_dir/bin/ROCgdb $install_dir/libexec/ROCgdb-guard
 check_exit_status
 
 

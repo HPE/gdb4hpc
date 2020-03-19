@@ -22,6 +22,6 @@
 	path = external/pebuildenv
 	url = ssh://git@stash.us.cray.com:7999/pe_tools/pebuildenv.git
 	branch = master
-[submodule "external/ddt_roc-gdb-alpha"]
-	path = external/ddt_roc-gdb-alpha
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_roc-gdb-alpha.git
+[submodule "external/ROCgdb"]
+	path = external/ROCgdb
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/rocgdb.git

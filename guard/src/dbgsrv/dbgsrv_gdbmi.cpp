@@ -68,8 +68,8 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported cuda versions
-enum cuda_vers { CUDA_UNKNOWN, CUDA_101};
-typedef enum cuda_vers cuda_vers;
+enum gdb_version { GDB_81, CUDA_101, ROC_GDB};
+typedef enum gdb_version gdb_version;
 
 // functions with external visibility
 void SendMICommand(MISession *, MICommand *);
@@ -1116,7 +1116,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 
 static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    cuda_vers vers_num = CUDA_UNKNOWN;
+    gdb_version gdb_vers = GDB_81;
 
     DVPRINT("*** DbgGDBMIInit\n");
 
@@ -1133,17 +1133,19 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             sigprocmask(SIG_UNBLOCK, &debug_mask, NULL);
 
             DVPRINT("InitGDBMI(): sigprocmask SIGCHLD is unblocked!\n");
-        } else
+        } else {
             DVPRINT("InitGDBMI(): sigprocmask SIGCHLD is NOT blocked!\n");
+        }
     }
     /**************DEBUG End*****************/
 
     GDBMISession = MISessionNew();
 
-    if (debug_flag)
+    if (debug_flag) {
         MISessionSetDebug(1);
-    else
+    } else {
         MISessionSetDebug(0);
+    }
 
     MISessionRegisterEventCallback(GDBMISession, event_callback);
     MISessionRegisterConsoleCallback(GDBMISession, console_callback);
@@ -1155,7 +1157,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     char gdb_type[32];
     sprintf(gdb_type, "gdb");
 
-    // set the gdb path to use gdb-guard or cuda-gdb-guard
+    // set the gdb path to use standard or gpu specific gdb
     if (gpu_flag) {
         // Need to determine the version of the driver to start the proper gdb
         FILE *vers;
@@ -1163,28 +1165,20 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
 
         // Open the driver version file, if this fails we are not on a gpu node
         // and should default to using the regular gdb.
-        if ((vers = fopen("/proc/driver/nvidia/version", "r")) == NULL) {
-            DVPRINT("Failed to open /proc/driver/nvidia/version\n");
-            DVPRINT("Defaulting to non-gpu mode.\n");
-            gpu_flag = 0;
-        } else {
-            // We can open the driver version file, so now we need to grab the
-            // driver number
+        if ((vers = fopen("/proc/driver/nvidia/version", "r")) != NULL) {
             if (fscanf(vers,
                        "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
                        "\t]%m[0-9.]",
                        &vers_str) == 0) {
-                // Failed to determine driver version!!!!
-                fclose(vers);
-                DVPRINT("Failed to determine driver version.\n");
+                // Failed to determine driver version.
+                DVPRINT("Failed to determine NVIDA driver version.\n");
                 DVPRINT("Defaulting to non-gpu mode.\n");
+                fclose(vers);
                 gpu_flag = 0;
             } else {
                 // We now have the version string, close the vers file
-                fclose(vers);
-
                 DVPRINT("Detected Nvidia driver %s\n", vers_str);
-
+                fclose(vers);
                 // Now strcmp the driver version with a list of supported
                 // versions The known driver mappings are:
                 // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
@@ -1195,68 +1189,101 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
                 // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
                 // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
-
                 if (strncmp(vers_str, "440", 3) == 0) {
-                    vers_num = CUDA_101;
-                }
-
-                // force tmpdir to /tmp if GPU mode is on.
-                // This is a stupid Nvidia requirement. They utilize unix pipes
-                // that are writen in TMPDIR and this value *MUST* match the
-                // value set in the applications environment otherwise things
-                // will hang.
-                if (vers_num != CUDA_UNKNOWN) {
-                    char *old_tmpdir;
-                    struct stat st;
-
-                    // Get the applications setting of TMPDIR
-                    if ((old_tmpdir = getenv("CTI_OLD_TMPDIR")) != NULL) {
-                        DVPRINT("Using application TMPDIR setting of %s\n",
-                                old_tmpdir);
-                        if (setenv("TMPDIR", old_tmpdir, 1) < 0) {
-                            // failure
-                            DVPRINT("setenv failed");
-                        }
-                        // ensure the directory exists, otherwise create it
-                        // try to stat the directory
-                        if (stat(old_tmpdir, &st) != 0) {
-                            // the directory doesn't exist so we need to create
-                            // it use perms 755
-                            if (mkdir(old_tmpdir, S_IRWXU | S_IRGRP | S_IXGRP |
-                                                      S_IROTH | S_IXOTH) != 0) {
-                                DVPRINT(
-                                    "Could not create non-existent TMPDIR!\n");
-                            } else {
-                                DVPRINT("Created TMPDIR at %s\n", old_tmpdir);
-                            }
-                        }
-                    } else {
-                        DVPRINT(
-                            "CTI_OLD_TMPDIR env var not set. Defaulting to "
-                            "/tmp.\n");
-                        if (setenv("TMPDIR", "/tmp", 1) < 0) {
-                            // failure
-                            DVPRINT("setenv failed");
-                        }
-                    }
-                }
-
-                char *env_base_dir = NULL;
-                switch (vers_num) {
-                    case CUDA_101:
-                        DVPRINT("Using cuda101-gdb-guard\n");
-                        MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
-                        // We have defined a different share directory for the
-                        // cuda gdb 10.1 binary's data-directory:
-                        sprintf(gdb_type, "cuda-gdb");
-                        break;
-                    case CUDA_UNKNOWN:
-                        DVPRINT("Unsupported driver version.\n");
-                        DVPRINT("Defaulting to non-gpu mode.\n");
-                        gpu_flag = 0;
-                        break;
+                    gdb_vers = CUDA_101;
                 }
             }
+        } else if ((vers = fopen("/proc/driver/amd/version", "r")) != NULL) {
+            if (fscanf(vers,
+                       "DKMS version: AMD UNIX x86_64 Kernel Module%*[ "
+                       "\t]%m[0-9.]",
+                       &vers_str) == 0) {
+                // Failed to determine driver version!!!!
+                DVPRINT("Failed to determine AMD driver version.\n");
+                DVPRINT("Defaulting to non-gpu mode.\n");
+                fclose(vers);
+                gpu_flag = 0;
+            } else {
+                DVPRINT("Detected AMD driver %s\n", vers_str);
+                // We now have the version string, close the vers file
+                fclose(vers);
+                // Now strcmp the driver version with a list of supported
+                // versions.  The known driver mappings are:
+                // TBD: TODO: this is just a place holder
+                // amd 1234*  ==> ROCm HIP 2.10
+                if (strncmp(vers_str, "1234", 4) == 0) {
+                    gdb_vers = ROC_GDB;
+                }
+            }
+        } else {
+            // Didn't find any of the gpu driver types; apparently gpu_flag is
+            // a global so we need to tell the world that we didn't find the
+            // correct gpu debugger. (really, we need to do better variable
+            // naming to make this obvious)
+            gpu_flag = 0;
+        }
+
+        // If GPU mode is on and we're targeting Nvidia hardware, force tmpdir
+        // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
+        // this value *MUST* match the value set in the applications
+        // environment, otherwise things will hang.
+        if (gdb_vers == CUDA_101) {
+            char *old_tmpdir;
+            struct stat st;
+
+            // Get the applications setting of TMPDIR
+            if ((old_tmpdir = getenv("CTI_OLD_TMPDIR")) != NULL) {
+                DVPRINT("Using application TMPDIR setting of %s\n",
+                        old_tmpdir);
+                if (setenv("TMPDIR", old_tmpdir, 1) < 0) {
+                    // failure
+                    DVPRINT("setenv failed");
+                }
+                // ensure the directory exists, otherwise create it
+                // try to stat the directory
+                if (stat(old_tmpdir, &st) != 0) {
+                    // the directory doesn't exist so we need to create
+                    // it use perms 755
+                    if (mkdir(old_tmpdir, S_IRWXU | S_IRGRP | S_IXGRP |
+                                              S_IROTH | S_IXOTH) != 0) {
+                        DVPRINT(
+                            "Could not create non-existent TMPDIR!\n");
+                    } else {
+                        DVPRINT("Created TMPDIR at %s\n", old_tmpdir);
+                    }
+                }
+            } else {
+                DVPRINT(
+                    "CTI_OLD_TMPDIR env var not set. Defaulting to "
+                    "/tmp.\n");
+                if (setenv("TMPDIR", "/tmp", 1) < 0) {
+                    // failure
+                    DVPRINT("setenv failed");
+                }
+            }
+        }
+
+        char *env_base_dir = NULL;
+        switch (gdb_vers) {
+            case CUDA_101:
+                DVPRINT("Using cuda101-gdb-guard\n");
+                MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
+                // We have defined a different share directory for the
+                // cuda gdb 10.1 binary's data-directory:
+                sprintf(gdb_type, "cuda-gdb");
+                break;
+            case ROC_GDB:
+                DVPRINT("Using ROCgdb-guard\n");
+                MISessionSetGDBPath(GDBMISession, "ROCgdb-guard");
+                // We have defined a different share directory for the
+                // ROCgdb binary's data-directory:
+                sprintf(gdb_type, "ROCgdb");
+                break;
+            case GDB_81:
+                DVPRINT("Unsupported driver version.\n");
+                DVPRINT("Defaulting to non-gpu mode.\n");
+                gpu_flag = 0;
+                break;
         }
     }
 
@@ -1318,13 +1345,13 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
 
     DBEPERFLOG(SetTimerStart("DbgInitBackend: setup_gdbmi_environment"));
 
-    if ((e = setup_gdbmi_environment()) != NULL) return e;
+    if ((e = setup_gdbmi_environment()) != NULL) { return e; }
 
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: setup_gdbmi_environment"));
 
     DBEPERFLOG(SetTimerStart("DbgInitBackend: setup_gdbmi_signals"));
 
-    if ((e = setup_gdbmi_signals()) != NULL) return e;
+    if ((e = setup_gdbmi_signals()) != NULL) { return e; }
 
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: setup_gdbmi_signals"));
 

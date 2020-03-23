@@ -34,7 +34,7 @@
 ** It generates a ton of output for large arrays, which is why we want to
 ** normally leave it off.
 */
-#define CreateSimpleAIF_PRINT
+//#define CreateSimpleAIF_PRINT
 
 #ifdef CreateSimpleAIF_PRINT
 #define CSAPRINT(...) fprintf(stderr, __VA_ARGS__)
@@ -3944,6 +3944,7 @@ public:
     char* getNext();
 
     arrayDimension_t *getShape();
+    const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
     
 private:
     void determineSlicing();
@@ -3966,7 +3967,7 @@ private:
 
 ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape)
     : m_session(session), m_var(var), m_shape(shape), m_shapeIsLocal(!shape),
-      m_buf(nullptr), m_array(nullptr), m_blockSize(0),
+      m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
     static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");

@@ -63,8 +63,11 @@ arrayDimension_t *newArrayDimension() {
     }
     memset(arr_dim->dimmax, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
 
+    arr_dim->isfortran = false;
+
     // set the hidden len value
     arr_dim->_len = DIMDEF_SIZE;
+
 
     return arr_dim;
 }

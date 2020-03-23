@@ -37,6 +37,7 @@ typedef struct {
     unsigned int *dimdef;  // indicies in each dimension
     int *dimmin;           // min range value in each dimension
     int *dimmax;           // max range value in each dimension
+    bool isfortran;        // array is indexed in fortran
     int _len;              // *hidden* allocated size of the dimdef array
 } arrayDimension_t;
 

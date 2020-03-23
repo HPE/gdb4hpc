@@ -3718,27 +3718,31 @@ private:
     void closeBracket(char bracket);
     void error(const std::string& message);
     
-    char* m_type_str;
+    char* m_type_str;     // type information from GetArrayBaseType
     int m_type_len;
     struct_info_t* m_type_struct;
     func_info_t* m_type_func;
     int m_type_id;
-    arrayDimension_t* m_shape;
+    arrayDimension_t* m_shape;  // dimension and index range of the array
 
-    int m_dim;
-    std::vector<int> m_mins;
-    std::vector<int> m_maxs;
+    int m_dim;                  // dimension of the array
+    std::vector<int> m_mins;    // minimum index in each direction (slowest to fastest)
+    std::vector<int> m_maxs;    // maximum index in each direction (slowest to fastest)
 
-    int m_depth;
-    bool m_isC;
-    bool m_isFortran;
-    bool m_hasError;
-    bool m_isFragment;
-    std::vector<AIF*> m_abuild;
-    std::vector<int> m_idcs;
-    std::string m_element;
+    int m_depth;                // depth of current nesting (i.e. number of unclosed brackets)
+    bool m_isC;                 // true if the data-type is a C/C++ array
+    bool m_isFortran;           // true if the data-type is a fortran array
+    bool m_hasError;            // true if the parser encountered a problem
+    bool m_isFragment;          // true if the last block ended in the middle of an array
+    std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
+    std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
+    std::string m_element;      // the text of the current - potentially partial - element
 };
 
+// Define the type of object we are defining before we start partsing the actual
+// text of the result.
+// type_str, type_len, type_struct, type_func, and type_id collectively define the
+// data type, while shape defined the dimension and indexing of the array.
 MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
                                        struct_info_t *type_struct,
                                        func_info_t *type_func,
@@ -3797,6 +3801,11 @@ void MIArrayToAIFParser::openBracket(char bracket)
     }
 
     if (m_mins.empty()) {
+        // get the min and max elements the first time through.   Take care around
+        // arrayDimension_t it is a bit of a goofy goober and used start-1 indexing, so
+        // i=1, j=2, k=3, etc.   Also, the parser always orders from slowest changing to
+        // fastest changing, so note the order reversal we do here for fortran.  (so we
+        // don't need to mess with it again).
         for (int i=0; i<m_dim; ++i) {
             int d = (m_isFortran ? m_dim-i : i+1);
             m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
@@ -3818,10 +3827,15 @@ void MIArrayToAIFParser::closeBracket(char bracket)
 {
     if ((bracket == '}' && !m_isC) ||
         (bracket == ')' && !m_isFortran)) {
+        // the brackets don't match the language - treat like an ordinary character
         m_element += bracket;
     } else if (m_depth <= 0) {
         error("found a closing bracket with no matching open");
     } else if (m_depth > m_dim) {
+        // this can happen with an array of structs or classes.   Pass into element
+        // to give the element parser a crack at it.   We still need to update
+        // the depth so we know when we've finished gettting the element.   We presume
+        // the element has balanced brackets.
         m_element += bracket;
         --m_depth;
     } else {
@@ -3832,7 +3846,9 @@ void MIArrayToAIFParser::closeBracket(char bracket)
 
         if (m_idcs[m_depth] != m_maxs[m_depth] + 1) {
             // with data chunking, we append adjacent arrays
-            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}
+            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}.    If the next
+            // non-space character is *not* an open bracket, the parsing will
+            // generate a delayed error.
             m_isFragment = true;
         }
     }

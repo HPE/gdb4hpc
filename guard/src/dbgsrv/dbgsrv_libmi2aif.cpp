@@ -3870,6 +3870,7 @@ void MIArrayToAIFParser::addElement()
     m_element.clear();
 
     addArrayElement(m_depth-1, aif);
+    AIFFree(aif);
 }
 
 // Create an empty array in direction \a i to contain type \a ac.
@@ -3905,8 +3906,11 @@ void MIArrayToAIFParser::addArrayElement(int i, AIF* ac)
         AIFAddArrayElement(m_abuild[i], m_idcs[i]++, ac);
     }
 
-    if (i && m_idcs[i] == m_maxs[i]+1)
+    if (i && m_idcs[i] == m_maxs[i]+1) {
         addArrayElement(i-1, m_abuild[i]);
+        AIFFree(m_abuild[i]);
+        m_abuild[i] = nullptr;
+    }
 }
 
 // Create a single element for the AIR result array

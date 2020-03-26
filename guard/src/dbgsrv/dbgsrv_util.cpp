@@ -492,7 +492,7 @@ AIF *PerformHashMI(char *datastr, char *type, arrayDimension_t *shape,
     // value of data_bound_max
     j = rank - 1;
     for (i = 0; i < rank; i++) {
-        data_bound_max[i] = shape->dimdef[j];
+        data_bound_max[i] = shape->dimDef[j];
         j--;
     }
 

@@ -2265,7 +2265,7 @@ static arrayDimension_t *GetArrayDimensionShape(MISession *session,
         free(str);
         return (arrayDimension_t *)NULL;
     }
-    shape->isfortran = isFortran;
+    shape->isFortran = isFortran;
 
     // set the end delimiter char to '\0'
     *p-- = '\0';
@@ -4052,7 +4052,7 @@ void ArraySlicer::determineSlicing()
             return;
         }
         addArrayDimensionDef(m_shape, size, 0, size-1);
-        m_shape->isfortran = false;
+        m_shape->isFortran = false;
 
         frontStr.erase(frontStr.end()-2, frontStr.end());
         frontStr += "$$from$$]@$$len$$";
@@ -4065,7 +4065,7 @@ void ArraySlicer::determineSlicing()
         DVPRINT("Slicing vector %s %ld to %ld by %ld\n",
                 m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
 
-    } else if (m_shape && m_shape->isfortran) {
+    } else if (m_shape && m_shape->isFortran) {
         // fortran array - we only try to split on the slowest changing dimension.
         // we can revisit if 100M x 2 arrays matter.
         int dim = m_shape->dim;
@@ -4172,7 +4172,7 @@ arrayDimension_t *ArraySlicer::getShape() {
     }
 
     addArrayDimensionDef(m_shape, length, 0, length-1);
-    m_shape->isfortran = false;
+    m_shape->isFortran = false;
 
     return m_shape;
 }

@@ -309,7 +309,7 @@ int mrn_be_recv(MRNet_Stream** stream, int* tag, int blocking) {
 int mrn_be_send_reply(MRNet_Stream* stream, char* msg) {
     if (mrnet_be->stream_cmd == NULL) return -1;
 
-    DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%s], via stream[%u]\n", msg,
+    DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%.1000s], via stream[%u]\n", msg,
             stream_get_Id(stream));
 
     char* strArr[2];

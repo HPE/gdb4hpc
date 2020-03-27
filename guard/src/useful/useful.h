@@ -34,5 +34,4 @@
 #include "path.h"
 #include "queue.h"
 #include "str.h"
-#include "vector.h"
 #endif /* !_USEFUL_H */

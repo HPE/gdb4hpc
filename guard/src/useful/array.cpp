@@ -36,35 +36,38 @@ arrayDimension_t *newArrayDimension() {
     memset(arr_dim, 0, sizeof(arrayDimension_t));  // clear it to NULL
 
     // allocate the default dimdef size
-    if ((arr_dim->dimdef = (unsigned int *)malloc(sizeof(unsigned int) *
+    if ((arr_dim->dimDef = (unsigned int *)malloc(sizeof(unsigned int) *
                                                   DIMDEF_SIZE)) == (void *)0) {
         PrintOutError("newArrayDimension: malloc error!\n");
         freeArrayDimension(arr_dim);
         return (arrayDimension_t *)NULL;
     }
-    memset(arr_dim->dimdef, 0,
+    memset(arr_dim->dimDef, 0,
            sizeof(unsigned int) * DIMDEF_SIZE);  // clear it to NULL
 
     // allocate the default dimdef size for the min range
-    if ((arr_dim->dimmin = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
+    if ((arr_dim->dimMin = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
         (void *)0) {
         PrintOutError("newArrayDimension: malloc error!\n");
         freeArrayDimension(arr_dim);
         return (arrayDimension_t *)NULL;
     }
-    memset(arr_dim->dimmin, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
+    memset(arr_dim->dimMin, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
 
     // allocate the default dimdef size for the max range
-    if ((arr_dim->dimmax = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
+    if ((arr_dim->dimMax = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
         (void *)0) {
         PrintOutError("newArrayDimension: malloc error!\n");
         freeArrayDimension(arr_dim);
         return (arrayDimension_t *)NULL;
     }
-    memset(arr_dim->dimmax, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
+    memset(arr_dim->dimMax, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
+
+    arr_dim->isFortran = false;
 
     // set the hidden len value
     arr_dim->_len = DIMDEF_SIZE;
+
 
     return arr_dim;
 }
@@ -82,7 +85,7 @@ static int resizeArrayDimension(arrayDimension_t *myArray) {
 
     // resize the dimdef
     if ((temp = (unsigned int *)realloc(
-             myArray->dimdef,
+             myArray->dimDef,
              sizeof(unsigned int) * (myArray->_len + DIMDEF_SIZE))) ==
         (void *)0) {
         PrintOutError("resizeArrayDimension: realloc error!\n");
@@ -92,11 +95,11 @@ static int resizeArrayDimension(arrayDimension_t *myArray) {
     // note that offsetting to _len in the new array will be this member.
     memset(&temp[myArray->_len], 0, sizeof(unsigned int) * DIMDEF_SIZE);
 
-    myArray->dimdef = temp;
+    myArray->dimDef = temp;
 
     // resize the dimmin
     if ((temp_range = (int *)realloc(
-             myArray->dimmin, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
+             myArray->dimMin, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
         (void *)0) {
         PrintOutError("resizeArrayDimension: realloc error!\n");
         return 1;
@@ -105,11 +108,11 @@ static int resizeArrayDimension(arrayDimension_t *myArray) {
     // note that offsetting to _len in the new array will be this member.
     memset(&temp_range[myArray->_len], 0, sizeof(int) * DIMDEF_SIZE);
 
-    myArray->dimmin = temp_range;
+    myArray->dimMin = temp_range;
 
     // resize the dimmax
     if ((temp_range = (int *)realloc(
-             myArray->dimmax, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
+             myArray->dimMax, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
         (void *)0) {
         PrintOutError("resizeArrayDimension: realloc error!\n");
         return 1;
@@ -118,7 +121,7 @@ static int resizeArrayDimension(arrayDimension_t *myArray) {
     // note that offsetting to _len in the new array will be this member.
     memset(&temp_range[myArray->_len], 0, sizeof(int) * DIMDEF_SIZE);
 
-    myArray->dimmax = temp_range;
+    myArray->dimMax = temp_range;
 
     // increase the private len variable
     myArray->_len += DIMDEF_SIZE;
@@ -146,9 +149,9 @@ int addArrayDimensionDef(arrayDimension_t *myArray, unsigned int size,
 
     // assign the new integer representation of the definition string into the
     // list
-    myArray->dimdef[myArray->dim] = size;
-    myArray->dimmin[myArray->dim] = min_range;
-    myArray->dimmax[myArray->dim] = max_range;
+    myArray->dimDef[myArray->dim] = size;
+    myArray->dimMin[myArray->dim] = min_range;
+    myArray->dimMax[myArray->dim] = max_range;
 
     // increment the dim counter
     ++myArray->dim;
@@ -171,7 +174,7 @@ unsigned int getArrayDimension(arrayDimension_t *myArray, int index) {
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimdef[myArray->dim - index];
+    return myArray->dimDef[myArray->dim - index];
 }
 
 // get the min range for the specified dimension
@@ -190,7 +193,7 @@ int getArrayDimensionRangeMin(arrayDimension_t *myArray, int index) {
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimmin[myArray->dim - index];
+    return myArray->dimMin[myArray->dim - index];
 }
 
 // get the max range for the specified dimension
@@ -209,7 +212,7 @@ int getArrayDimensionRangeMax(arrayDimension_t *myArray, int index) {
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimmax[myArray->dim - index];
+    return myArray->dimMax[myArray->dim - index];
 }
 
 // free a arrayDimension_t object
@@ -221,18 +224,18 @@ void freeArrayDimension(arrayDimension_t *myArray) {
     }
 
     // free the dimdef array
-    if (myArray->dimdef != (unsigned int *)NULL) {
-        free(myArray->dimdef);
+    if (myArray->dimDef != (unsigned int *)NULL) {
+        free(myArray->dimDef);
     }
 
     // free the dimmin array
-    if (myArray->dimmin != (int *)NULL) {
-        free(myArray->dimmin);
+    if (myArray->dimMin != (int *)NULL) {
+        free(myArray->dimMin);
     }
 
     // free the dimmin array
-    if (myArray->dimmax != (int *)NULL) {
-        free(myArray->dimmax);
+    if (myArray->dimMax != (int *)NULL) {
+        free(myArray->dimMax);
     }
 
     // free the arrayDimension_t object

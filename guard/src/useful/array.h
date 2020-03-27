@@ -34,9 +34,10 @@ extern "C" {
 // used for returning shape of arrays
 typedef struct {
     unsigned int dim;      // dimension of array
-    unsigned int *dimdef;  // indicies in each dimension
-    int *dimmin;           // min range value in each dimension
-    int *dimmax;           // max range value in each dimension
+    unsigned int *dimDef;  // indicies in each dimension
+    int *dimMin;           // min range value in each dimension
+    int *dimMax;           // max range value in each dimension
+    bool isFortran;        // array is indexed in fortran
     int _len;              // *hidden* allocated size of the dimdef array
 } arrayDimension_t;
 

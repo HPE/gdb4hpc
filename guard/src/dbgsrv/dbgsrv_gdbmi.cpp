@@ -68,8 +68,7 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported cuda versions
-enum gdb_version { GDB_81, CUDA_101, ROC_GDB};
-typedef enum gdb_version gdb_version;
+enum class GdbVersion { gdb_81, cuda_101, roc_gdb};
 
 // functions with external visibility
 void SendMICommand(MISession *, MICommand *);
@@ -331,10 +330,10 @@ static void setup_pretty_printing() {
         return;
     }
 
-    std::string scriptFile = std::string(tmpDir) + "/initpretty" + 
+    std::string scriptFile = std::string(tmpDir) + "/initpretty" +
                                 std::to_string(getpid());
     free(tmpDir);
- 
+
     std::ofstream script(scriptFile.c_str());
     if (!script) {
         DVPRINT("could not open %s\n", scriptFile.c_str());
@@ -1116,7 +1115,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 
 static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    gdb_version gdb_vers = GDB_81;
+    GdbVersion gdb_vers = GdbVersion::gdb_81;
 
     DVPRINT("*** DbgGDBMIInit\n");
 
@@ -1155,6 +1154,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     //overwrite it if we're using a non standard backend gdb.
     MISessionSetGDBPath(GDBMISession, "gdb-guard");
     char gdb_type[32];
+    //set the default value of gdb_type to "gdb"
     sprintf(gdb_type, "gdb");
 
     // set the gdb path to use standard or gpu specific gdb
@@ -1162,23 +1162,19 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
         // Need to determine the version of the driver to start the proper gdb
         FILE *vers;
         char *vers_str = NULL;
+        int num_fields = 0;
 
         // Open the driver version file, if this fails we are not on a gpu node
         // and should default to using the regular gdb.
         if ((vers = fopen("/proc/driver/nvidia/version", "r")) != NULL) {
-            if (fscanf(vers,
-                       "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
-                       "\t]%m[0-9.]",
-                       &vers_str) == 0) {
-                // Failed to determine driver version.
-                DVPRINT("Failed to determine NVIDA driver version.\n");
-                DVPRINT("Defaulting to non-gpu mode.\n");
-                fclose(vers);
-                gpu_flag = 0;
-            } else {
+            num_fields = fscanf(vers,
+                               "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
+                               "\t]%m[0-9.]",
+                               &vers_str);
+            fclose(vers);
+            if (num_fields > 0) {
                 // We now have the version string, close the vers file
                 DVPRINT("Detected Nvidia driver %s\n", vers_str);
-                fclose(vers);
                 // Now strcmp the driver version with a list of supported
                 // versions The known driver mappings are:
                 // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
@@ -1190,44 +1186,92 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
                 // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
                 if (strncmp(vers_str, "440", 3) == 0) {
-                    gdb_vers = CUDA_101;
+                    gdb_vers = GdbVersion::cuda_101;
                 }
             }
-        } else if ((vers = fopen("/proc/driver/amd/version", "r")) != NULL) {
-            if (fscanf(vers,
-                       "DKMS version: AMD UNIX x86_64 Kernel Module%*[ "
-                       "\t]%m[0-9.]",
-                       &vers_str) == 0) {
-                // Failed to determine driver version!!!!
-                DVPRINT("Failed to determine AMD driver version.\n");
-                DVPRINT("Defaulting to non-gpu mode.\n");
-                fclose(vers);
-                gpu_flag = 0;
-            } else {
-                DVPRINT("Detected AMD driver %s\n", vers_str);
-                // We now have the version string, close the vers file
-                fclose(vers);
-                // Now strcmp the driver version with a list of supported
-                // versions.  The known driver mappings are:
-                // TBD: TODO: this is just a place holder
-                // amd 1234*  ==> ROCm HIP 2.10
-                if (strncmp(vers_str, "1234", 4) == 0) {
-                    gdb_vers = ROC_GDB;
+        } else if ((vers = fopen("/usr/src/amdgpu-3.1-44.el7/amd/amdgpu/amdgpu_drv.c", "r")) != NULL) {
+            size_t size = 1024;
+            char linebuf[size];
+            char versbuf[32];
+            num_fields = 0;
+            while (fgets(linebuf, size, vers) != NULL) {
+                num_fields = sscanf(linebuf, "#define AMDGPU_VERSION %s",
+                                    versbuf);
+                if (num_fields == 1) {
+                    if (strncmp(versbuf, "\"5.4.4\"", 7) == 0) {
+                        DVPRINT("Detected AMD driver %s\n", versbuf);
+                        gdb_vers = GdbVersion::roc_gdb;
+                    }
                 }
             }
-        } else {
+            fclose(vers);
+        } else if (access("/usr/sbin/modinfo", X_OK ) != -1 ) {
+            int link[2];
+            pid_t pid;
+            char versbuf[32];
+            if (pipe(link) == 0) {
+                if ((pid = fork()) == 0) {
+                    if (pid == 0) {
+                        if (dup2(link[1], STDOUT_FILENO) != -1) {
+                            close(link[0]);
+                            close(link[1]);
+                            execl("/usr/sbin/modinfo", "modinfo", "--field",
+                                  "version", "-k", "amdgpu",
+                                  "/lib/modules/3.10.0-1062.12.1.el7.x86_64/extra/amdgpu.ko.xz",
+                                  (char *)0);
+                        }
+                    } else {
+                        close(link[1]);
+                        //we should only get one line of output from modinfo
+                        int nbytes = read(link[0], versbuf, sizeof(versbuf));
+                        if (nbytes >= 6) {
+                            versbuf[5] = '\0';
+                            if (strncmp(versbuf, "5.4.4", 5) == 0) {
+                                DVPRINT("Detected AMD driver %s\n", versbuf);
+                                gdb_vers = GdbVersion::roc_gdb;
+                            }
+                        }
+                        wait(NULL);
+                    }
+                }
+            }
+        } else if (access("/opt/rocm/bin/rocminfo", X_OK ) != -1 ) {
+            size_t size = 1024;
+            char linebuf[size];
+            char typebuf[32];
+            FILE* fp = NULL;
+            int num_fields = 0;
+            fp = popen("/opt/rocm/bin/rocminfo", "r");
+            if (fp != NULL) {
+                printf("popened /opt/rocm/bin/rocminfo\n");
+                while (gdb_vers != GdbVersion::roc_gdb &&
+                       fgets(linebuf, size, fp) != NULL) {
+                    num_fields = sscanf(linebuf, " Device Type: %s", typebuf);
+                    if (num_fields == 1) {
+                        if (strncmp(typebuf, "GPU", 3) == 0) {
+                            DVPRINT("Detected GPU device %s\n", typebuf);
+                            gdb_vers = GdbVersion::roc_gdb;
+                        }
+                    }
+                }
+                pclose(fp);
+            }
+        }
+
+        if (gdb_vers == GdbVersion::gdb_81) {
             // Didn't find any of the gpu driver types; apparently gpu_flag is
             // a global so we need to tell the world that we didn't find the
             // correct gpu debugger. (really, we need to do better variable
             // naming to make this obvious)
+            DVPRINT("Failed to determine gpu driver version.\n");
+            DVPRINT("Defaulting to non-gpu mode.\n");
             gpu_flag = 0;
         }
-
         // If GPU mode is on and we're targeting Nvidia hardware, force tmpdir
         // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
         // this value *MUST* match the value set in the applications
         // environment, otherwise things will hang.
-        if (gdb_vers == CUDA_101) {
+        if (gdb_vers == GdbVersion::cuda_101) {
             char *old_tmpdir;
             struct stat st;
 
@@ -1263,25 +1307,26 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             }
         }
 
-        char *env_base_dir = NULL;
         switch (gdb_vers) {
-            case CUDA_101:
+            case GdbVersion::cuda_101:
                 DVPRINT("Using cuda101-gdb-guard\n");
                 MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");
                 // We have defined a different share directory for the
                 // cuda gdb 10.1 binary's data-directory:
                 sprintf(gdb_type, "cuda-gdb");
                 break;
-            case ROC_GDB:
+            case GdbVersion::roc_gdb:
                 DVPRINT("Using ROCgdb-guard\n");
                 MISessionSetGDBPath(GDBMISession, "ROCgdb-guard");
                 // We have defined a different share directory for the
                 // ROCgdb binary's data-directory:
                 sprintf(gdb_type, "ROCgdb");
                 break;
-            case GDB_81:
+            case GdbVersion::gdb_81:
                 DVPRINT("Unsupported driver version.\n");
                 DVPRINT("Defaulting to non-gpu mode.\n");
+                //gdb_type was initialized to default value of "gdb" after its
+                //declaration above...
                 gpu_flag = 0;
                 break;
         }

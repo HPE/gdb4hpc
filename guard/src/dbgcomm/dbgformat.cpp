@@ -29,7 +29,6 @@
 #include "useful.h"
 
 // Static prototypes
-static char *StrSocDup(char *s);
 static char *getstring(char **);
 static int getint(char **);
 
@@ -37,33 +36,21 @@ static inline const char* StrSoc(const char* s) {
     return s ? s : "";
 }
 
-static char *EventErrorToSocProto(dbgerr_t);
-static char *EventBPToSocProto(dbgbp_t *, int);
-static char *EventSigToSocProto(dbgsig_t);
-static char *EventStepToSocProto(dbgstep_t);
-static char *EventFrameToSocProto(dbgframe_t *);
-static char *EventLocToSocProto(dbgloc_t *);
-static char *EventStatusToSocProto(dbgstatus_t *);
-static char *EventVersToSocProto(dbgvers_t);
-static char *EventIntToSocProto(int);
-static char *EventListToSocProto(dbglist_t *);
-static char *EventSourcesToSocProto(dbgsources_t *);
-static char *EventVarsToSocProto(dbgvars_t *);
-static char *EventStringToSocProto(char *);
-
-static char *EventErrorToSocProto(dbgev, dbgerr_t);
-static char *EventStringToSocProto(dbgev, char *);
-static char *EventIntToSocProto(dbgev,int);
 static char *EventBPToSocProto(dbgev, dbgbp_t *, int);
 static char *EventSigToSocProto(dbgev, dbgsig_t);
 static char *EventStepToSocProto(dbgev, dbgstep_t);
 static char *EventFrameToSocProto(dbgev, dbgframe_t *);
 static char *EventLocToSocProto(dbgev, dbgloc_t *);
-static char *EventSourcesToSocProto(dbgev, dbgsources_t *);
 static char *EventStatusToSocProto(dbgev, dbgstatus_t *);
-static char *EventVarsToSocProto(dbgev, dbgvars_t *);
-static char *EventListToSocProto(dbgev, dbglist_t *);
 static char *EventVersToSocProto(dbgev, dbgvers_t);
+static char *EventIntToSocProto(dbgev,int);
+static char *EventSourcesToSocProto(dbgev, dbgsources_t *);
+static char *EventListToSocProto(dbgev, dbglist_t *);
+static char *EventVarsToSocProto(dbgev, dbgvars_t *);
+static char *EventStringToSocProto(dbgev, char *);
+
+static char *EventFrameToSocProtoL(dbgframe_t *);
+static char *EventLocToSocProtoL(dbgloc_t *);
 
 static dbgerr_t SocProtoToErr(char *);
 static dbgloc_t *SocProtoToLoc(char *);
@@ -77,17 +64,7 @@ static dbgstatus_t *SocProtoToStatus(char *);
 static dbgvers_t SocProtoToVers(char *);
 static int SocProtoToInt(char *);
 static dbgsources_t *SocProtoToSources(char *);
-
-static void DVPRINT(const char* fmt, ...)
-{
-    if (FILE* f = fopen("/lus/scratch/jvogt/special.log","a")) {
-        va_list args;
-        va_start(args,fmt);
-        vfprintf(f, fmt, args);
-        va_end(args);
-        fclose(f);
-    }
-}
+char *AIFToSocProto(dbgev, AIF *a);
 
 // Used for checking null strings
 static const char *__fmt_null_str = "";
@@ -106,10 +83,33 @@ static const char *__fmt_null_str = "";
 ** Auxillary functions **
 ************************/
 
-static char *StrSocDup(char *s) {
-    if (s == NULL) return strdup("");
+static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
 
-    return strdup(s);
+    static const size_t BUF_SIZE = 200;  // FIXME: artificially low for testing
+    char buf[BUF_SIZE];
+
+    va_list args, args2;
+    va_start(args, fmt);
+    va_copy(args2, args);
+    
+    size_t len = vsnprintf(buf, BUF_SIZE, fmt, args);
+    va_end(args);
+
+    char *str = nullptr;
+    if (len < BUF_SIZE) {
+        Asprintf(&str, "%d %d %s", int(ev), len, buf);
+    } else {
+        // the string is too long for the local buffer but
+        // we now know the length of the inside string so we
+        // can build the final with just one allocation
+        std::ostringstream ostr;
+        ostr << int(ev) << " " << len << " " << fmt;
+        std::string wrapFmt = ostr.str();
+        VAsprintf(&str, wrapFmt.c_str(), args2);
+    }
+    va_end(args2);
+
+    return str;
 }
 
 static int getint(char **res_buf) {
@@ -164,38 +164,24 @@ static char *getstring(char **res_buf) {
 ** network transfer
 */
 
-static char *EventErrorToSocProto(dbgerr_t e) {
-    char *stres = NULL;
-    char *err_str = NULL;
-
-    err_str = StrSocDup(e.err_str);
-
-    Asprintf(&stres, "%d %d %s", e.err_errno, (int)strlen(err_str), err_str);
-
-    Free(err_str);
-
-    return stres;
+static char *EventErrorToSocProto(dbgev ev, dbgerr_t e) {
+    const char* err_str = StrSoc(e.err_str);
+    return MakeSocStr(ev, "%d %d %s", e.err_errno, (int)strlen(err_str), err_str);
 }
 
-static char *EventBPToSocProto(dbgbp_t *be, int simplified) {
-    char *stres = NULL;
-    char *st_stmt = NULL;
-    char *st_file = NULL;
-    char *st_func = NULL;
-    char *st_addr = NULL;
-    char *st_exp = NULL;
+static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
+    if (!be) return MakeSocStr(ev, "");
 
-    if (be == (dbgbp_t *)NULL) return strdup("");
+    const char* st_file = StrSoc(be->bp_loc.loc_file);
+    const char* st_func = StrSoc(be->bp_loc.loc_func);
+    const char* st_exp = StrSoc(be->bp_exp);
 
-    st_file = StrSocDup(be->bp_loc.loc_file);
-    st_func = StrSocDup(be->bp_loc.loc_func);
-    st_exp = StrSocDup(be->bp_exp);
-
+    char *stres = nullptr;
     if (!simplified) {
-        st_stmt = StrSocDup(be->bp_stmt);
-        st_addr = StrSocDup(be->bp_loc.loc_addr);
+        const char* st_stmt = StrSoc(be->bp_stmt);
+        const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
-        Asprintf(&stres,
+        stres = MakeSocStr(ev,
                  "%d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s",
                  be->bp_id, simplified, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
@@ -203,179 +189,125 @@ static char *EventBPToSocProto(dbgbp_t *be, int simplified) {
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
                  be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
 
-        Free(st_stmt);
-        Free(st_addr);
     } else {
-        Asprintf(&stres, "%d %d %d %d %d %d %s %d %s %d %d %s", be->bp_id,
+        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s", be->bp_id,
                  simplified, be->bp_enabled, be->bp_disp, be->bp_type,
                  (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
                  be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
     }
-
-    Free(st_file);
-    Free(st_func);
-    Free(st_exp);
-
     return stres;
 }
 
-static char *EventSigToSocProto(dbgsig_t se) {
-    char *stres = NULL;
-    char *sig;
-    char *line;
-    char *frame;
 
-    sig = StrSocDup(se.sig_type);
-    line = StrSocDup(se.sig_line);
+static char *EventSigToSocProto(dbgev ev, dbgsig_t se) {
+    const char* sig = StrSoc(se.sig_type);
+    const char* line = StrSoc(se.sig_line);
 
     // get the frame
-    frame = EventFrameToSocProto(se.sig_frame);
+    char* frame = EventFrameToSocProtoL(se.sig_frame);
 
-    Asprintf(&stres, "%d %s %d %s %d %s", (int)strlen(sig), sig,
+    char* stres = MakeSocStr(ev, "%d %s %d %s %d %s", (int)strlen(sig), sig,
              (int)strlen(line), line, (int)strlen(frame), frame);
-
-    Free(sig);
-    Free(line);
     Free(frame);
-
     return stres;
 }
 
-static char *EventStepToSocProto(dbgstep_t se) {
-    char *stres = NULL;
-    char *line;
-    char *frame;
-
-    line = StrSocDup(se.step_line);
-
-    // Get the frame
-    frame = EventFrameToSocProto(se.step_frame);
-
-    Asprintf(&stres, "%d %d %s %d %s", se.step_lno, (int)strlen(line), line,
-             (int)strlen(frame), frame);
-
-    Free(line);
+static char *EventStepToSocProto(dbgev ev, dbgstep_t se) {
+    const char* line = StrSoc(se.step_line);
+    char* frame = EventFrameToSocProtoL(se.step_frame);
+    char* stres = MakeSocStr(ev, "%d %d %s %d %s", se.step_lno,
+                             (int)strlen(line), line,
+                             (int)strlen(frame), frame);
     Free(frame);
-
     return stres;
 }
 
-static char *EventFrameToSocProto(dbgframe_t *fe) {
+static char *EventFrameToSocProtoL(dbgframe_t *fe) {
     char *stres = strdup("");
-    char *tmp_str;
-    char *frame;
-    char *file;
-    char *func;
-    char *addr;
 
     for (; fe != NULL; fe = fe->frame_next) {
-        file = StrSocDup(fe->frame_loc.loc_file);
-        func = StrSocDup(fe->frame_loc.loc_func);
-        addr = StrSocDup(fe->frame_loc.loc_addr);
-        Asprintf(&frame, "%d %d %s %d %s %d %s %d ", fe->frame_level,
+        const char* file = StrSoc(fe->frame_loc.loc_file);
+        const char* func = StrSoc(fe->frame_loc.loc_func);
+        const char* addr = StrSoc(fe->frame_loc.loc_addr);
+
+        // append the next frame
+        char *tmp;;
+        Asprintf(&tmp, "%s%d %d %s %d %s %d %s %d ", stres,
+                 fe->frame_level,
                  (int)strlen(file), file, (int)strlen(func), func,
                  (int)strlen(addr), addr, fe->frame_loc.loc_line);
-        Asprintf(&tmp_str, "%s%s", stres, frame);
-        // Free old strings
-        Free(frame);
-        Free(stres);
-        Free(file);
-        Free(func);
-        Free(addr);
-        stres = tmp_str;
+        std::swap(tmp, stres);
+        Free(tmp);
     }
-
     return stres;
 }
 
-static char *EventLocToSocProto(dbgloc_t *le) {
-    char *stres;
-    char *file;
-    char *func;
-    char *addr;
+static char *EventFrameToSocProto(dbgev ev, dbgframe_t *fe) {
+    char *stres = EventFrameToSocProtoL(fe);
+    char* wrappedStr = MakeSocStr(ev, "%s", stres);
+    Free(stres);
+    return wrappedStr;
+}
+
+static char *EventLocToSocProtoL(dbgloc_t *le) {
 
     if (le == (dbgloc_t *)NULL) return strdup("");
 
-    file = StrSocDup(le->loc_file);
-    func = StrSocDup(le->loc_func);
-    addr = StrSocDup(le->loc_addr);
+    const char* file = StrSoc(le->loc_file);
+    const char* func = StrSoc(le->loc_func);
+    const char* addr = StrSoc(le->loc_addr);
 
+    char *stres;
     Asprintf(&stres, "%d %s %d %s %d %s %d", (int)strlen(file), file,
              (int)strlen(func), func, (int)strlen(addr), addr, le->loc_line);
 
-    Free(file);
-    Free(func);
-    Free(addr);
-
     return stres;
 }
 
-static char *EventVarsToSocProto(dbgvars_t *ve) {
+static char *EventVarsToSocProto(dbgev ev, dbgvars_t *ve) {
     char *stres = strdup("");
-    char *tmp;
-    char *elem;
-    char *type;
 
-    for (; ve != NULL; ve = ve->var_next) {
-        if (ve->var_name == (char *)NULL) {
+    for (; ve; ve = ve->var_next) {
+        if (!ve->var_name) {
             continue;
         }
 
-        type = StrSocDup(ve->var_type);
+        const char* type = StrSoc(ve->var_type);
 
-        // create the name and type
-        Asprintf(&elem, "%d %s %d %s ", (int)strlen(ve->var_name), ve->var_name,
+        // append  the name and type
+        char* tmp = nullptr;;
+        Asprintf(&tmp, "%s%d %s %d %s ", stres,
+                 (int)strlen(ve->var_name), ve->var_name,
                  (int)strlen(type), type);
 
-        // append elem to stres
-        Asprintf(&tmp, "%s%s", stres, elem);
-
-        // Free the old strings
-        Free(type);
-        Free(elem);
-        Free(stres);
-
-        stres = tmp;
+        std::swap(tmp, stres);
+        Free(tmp);
     }
 
-    return stres;
+    char* wrappedStr = MakeSocStr(ev, stres);
+    Free(stres);
+
+    return wrappedStr;
 }
 
-static char *EventStringToSocProto(char *te) {
-    char *stres = NULL;
-    char *type;
-
-    type = StrSocDup(te);
-
-    Asprintf(&stres, "%d %s", (int)strlen(type), type);
-
-    Free(type);
-
-    return stres;
+static char *EventStringToSocProto(dbgev ev, char *te) {
+    const char* type = StrSoc(te);
+    return MakeSocStr(ev, "%d %s", (int)strlen(type), type);
 }
 
-static char *EventListToSocProto(dbglist_t *le) {
+static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
     char *stres = strdup("");
-    char *tmp;
-    char *elem;
-    char *line;
-
-    for (; le != NULL; le = le->list_next) {
-        line = StrSocDup(le->list_line);
-        Asprintf(&elem, "%d %d %s ", le->list_lno, (int)strlen(line), line);
-
-        // append elem to stres
-        Asprintf(&tmp, "%s%s", stres, elem);
-
-        // Free the old strings
-        Free(line);
-        Free(elem);
-        Free(stres);
-
-        stres = tmp;
+    for (; le; le = le->list_next) {
+        const char* line = StrSoc(le->list_line);
+        char* tmp = nullptr;
+        Asprintf(&tmp, "%s%d %d %s ", stres, le->list_lno, (int)strlen(line), line);
+        std::swap(tmp,stres);
+        Free(tmp);
     }
 
-    return stres;
+    char* wrappedStr = MakeSocStr(ev, stres);
+    Free(stres);
+    return wrappedStr;
 }
 
 char *AIFToSocProto(AIF *a) {
@@ -431,71 +363,44 @@ char *AIFToSocProto(AIF *a) {
     return stres;
 }
 
-char *AIFToSocProto(dbgev, AIF *a);
-
-static char *EventStatusToSocProto(dbgstatus_t *se) {
-    char *stres = NULL;
-    char *loc;
-
-    if (se == NULL) return strdup("");
+static char *EventStatusToSocProto(dbgev ev, dbgstatus_t *se) {
+    if (!se) return MakeSocStr(ev, "");
 
     // Get the location
-    loc = EventLocToSocProto(se->stat_loc);
-
-    Asprintf(&stres, "%d %d %s", se->stat, (int)strlen(loc), loc);
-
+    char* loc = EventLocToSocProtoL(se->stat_loc);
+    char* stres = MakeSocStr(ev, "%d %d %s", se->stat, (int)strlen(loc), loc);
     Free(loc);
-
     return stres;
 }
 
-static char *EventVersToSocProto(dbgvers_t ve) {
-    char *stres = NULL;
-    char *vers;
-    char *arch;
-
-    vers = StrSocDup(ve.vers_version);
-    arch = StrSocDup(ve.vers_arch);
-
-    Asprintf(&stres, "%d %s %d %s", (int)strlen(vers), vers, (int)strlen(arch),
-             arch);
-
-    Free(vers);
-    Free(arch);
-
+static char *EventVersToSocProto(dbgev ev, dbgvers_t ve) {
+    const char* vers = StrSoc(ve.vers_version);
+    const char* arch = StrSoc(ve.vers_arch);
+    char* stres = MakeSocStr(ev, "%d %s %d %s", (int)strlen(vers), vers,
+                             (int)strlen(arch), arch);
     return stres;
 }
 
-static char *EventIntToSocProto(int pe) {
-    char *stres = NULL;
-
-    Asprintf(&stres, "%d", pe);
-
-    return stres;
+static char *EventIntToSocProto(dbgev ev, int pe) {
+    return MakeSocStr(ev, "%d", pe);
 }
 
-static char *EventSourcesToSocProto(dbgsources_t *se) {
+static char *EventSourcesToSocProto(dbgev ev, dbgsources_t *se) {
     char *stres = strdup("");
-    char *tmp;
-    char *elem;
-    char *file;
-
     for (; se != NULL; se = se->sources_next) {
-        file = StrSocDup(se->sources_file);
-        Asprintf(&elem, "%d %s ", (int)strlen(file), file);
+        const char* file = StrSoc(se->sources_file);
 
-        // append elem to stres
-        Asprintf(&tmp, "%s%s", stres, elem);
+        // append the next source
+        char* tmp;
+        Asprintf(&tmp, "%s%d %s ", stres, (int)strlen(file), file);
 
-        // Free the old strings
-        Free(file);
-        Free(elem);
-        Free(stres);
-
-        stres = tmp;
+        std::swap(tmp,stres);
+        Free(tmp);
     }
 
-    return stres;
+    char* wrappedStr = MakeSocStr(ev, stres);
+    Free(stres);
+    return wrappedStr;
 }
 
 /*
@@ -503,154 +408,6 @@ static char *EventSourcesToSocProto(dbgsources_t *se) {
 */
 
 char *EventToSocProto(dbgevent_t *e) {
-    dbgev ev;
-    char *evdata;
-    char *stres = NULL;
-
-    if (e == (dbgevent_t *)NULL) {
-        // There is no data that goes along with this event
-        Asprintf(&stres, "%d", DBGEV_NONE);
-
-        return (stres);
-    }
-
-    ev = e->ev_event;
-
-    switch (ev) {
-    case DBGEV_ERROR:
-        evdata = EventErrorToSocProto(e->ev_err);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_NONE:
-    case DBGEV_OK:
-        // There is no data that goes along with this event
-        Asprintf(&stres, "%d", ev);
-        break;
-
-        // This handles the generic string events
-    case DBGEV_SOURCEPATH:
-    case DBGEV_TYPE:
-    case DBGEV_CMD:
-        evdata = EventStringToSocProto(e->ev_string);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-        // This handles the generic int events
-    case DBGEV_EXIT:
-        evdata = EventIntToSocProto(e->ev_int);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_BPHIT:
-        evdata = EventBPToSocProto(e->ev_bp, 1);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_BPINFO:
-        evdata = EventBPToSocProto(e->ev_bp, 0);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_BPSET:
-        evdata = EventBPToSocProto(e->ev_bp, 0);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_BPDEL:
-        evdata = EventBPToSocProto(e->ev_bp, 1);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_SIGNAL:
-        evdata = EventSigToSocProto(e->ev_sig);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_STEP:
-        evdata = EventStepToSocProto(e->ev_step);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_FRAME:
-        evdata = EventFrameToSocProto(e->ev_frame);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_HALT:
-    case DBGEV_LOC:
-        evdata = EventLocToSocProto(e->ev_loc);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_VARS:
-        evdata = EventVarsToSocProto(e->ev_vars);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_LIST:
-        evdata = EventListToSocProto(e->ev_list);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_DATA:
-        evdata = AIFToSocProto(e->ev_data);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_STAT:
-        evdata = EventStatusToSocProto(e->ev_status);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_VERS:
-        evdata = EventVersToSocProto(e->ev_vers);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-        break;
-
-    case DBGEV_SOURCES:
-        evdata = EventSourcesToSocProto(e->ev_sources);
-        Asprintf(&stres, "%d %d %s", ev, (int)strlen(evdata), evdata);
-        Free(evdata);
-
-        break;
-    }
-
-    extern char *EventToSocProto_new(dbgevent_t *e);
-    char* newRes = EventToSocProto_new(e);
-    if (strcmp(stres, newRes) == 0) {
-        DVPRINT("Old and new result strings match\n");
-    } else {
-        DVPRINT("Old and new result strings are different, old: [%s] new [%s]\n",
-               stres, newRes);
-    }
-
-    FreeEvent(e);
-
-    return (stres);
-}
-
-/*
-** This is the main function that converts an event to network protocol
-*/
-
-char *EventToSocProto_new(dbgevent_t *e) {
     char *res = nullptr;
 
     dbgev ev = (e ? e->ev_event : DBGEV_NONE);
@@ -662,7 +419,6 @@ char *EventToSocProto_new(dbgevent_t *e) {
 
     case DBGEV_NONE:
     case DBGEV_OK:
-        DVPRINT("In EventToSocProto_new OK/NONE\n");
         // There is no data that goes along with this event
         Asprintf(&res, "%d", ev);
         break;
@@ -737,125 +493,16 @@ char *EventToSocProto_new(dbgevent_t *e) {
         break;
     }
 
-    //FreeEvent(e);
+    FreeEvent(e);
 
     return res;
 }
 
-static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
-
-    static const size_t BUF_SIZE = 200;  // FIXME: artificially low for testing
-    char buf[BUF_SIZE];
-
-    va_list args, args2;
-    va_start(args, fmt);
-    va_copy(args2, args);
-    
-    size_t len = vsnprintf(buf, BUF_SIZE, fmt, args);
-    va_end(args);
-
-    char *str = nullptr;
-    if (len < BUF_SIZE) {
-        Asprintf(&str, "%d %d %s", int(ev), len, buf);
-    } else {
-        // the string is too long for the local buffer but
-        // we now know the length of the inside string so we
-        // can build the final with just one allocation
-        std::ostringstream ostr;
-        ostr << int(ev) << " " << len << " " << fmt;
-        std::string wrapFmt = ostr.str();
-        VAsprintf(&str, wrapFmt.c_str(), args2);
-    }
-    va_end(args2);
-
-    return str;
-}
 
 /*
 ** The following are helper functions for converting events into a string for
 ** network transfer
 */
-
-static char *EventErrorToSocProto(dbgev ev, dbgerr_t e) {
-    const char* err_str = StrSoc(e.err_str);
-    return MakeSocStr(ev, "%d %d %s", e.err_errno, (int)strlen(err_str), err_str);
-}
-
-static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
-    if (!be) return MakeSocStr(ev, "");
-
-    const char* st_file = StrSoc(be->bp_loc.loc_file);
-    const char* st_func = StrSoc(be->bp_loc.loc_func);
-    const char* st_exp = StrSoc(be->bp_exp);
-
-    char *stres = nullptr;
-    if (!simplified) {
-        const char* st_stmt = StrSoc(be->bp_stmt);
-        const char* st_addr = StrSoc(be->bp_loc.loc_addr);
-
-        stres = MakeSocStr(ev,
-                 "%d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s",
-                 be->bp_id, simplified, be->bp_ignore, be->bp_hits,
-                 (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
-                 be->bp_type, (int)strlen(st_file), st_file,
-                 (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
-                 be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
-
-    } else {
-        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s", be->bp_id,
-                 simplified, be->bp_enabled, be->bp_disp, be->bp_type,
-                 (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
-                 be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
-    }
-    return stres;
-}
-
-static char *EventSigToSocProto(dbgev ev, dbgsig_t se) {
-    const char* sig = StrSoc(se.sig_type);
-    const char* line = StrSoc(se.sig_line);
-
-    // get the frame
-    char* frame = EventFrameToSocProto(se.sig_frame);
-
-    char* stres = MakeSocStr(ev, "%d %s %d %s %d %s", (int)strlen(sig), sig,
-             (int)strlen(line), line, (int)strlen(frame), frame);
-    Free(frame);
-    return stres;
-}
-
-static char *EventStepToSocProto(dbgev ev, dbgstep_t se) {
-    const char* line = StrSoc(se.step_line);
-    char* frame = EventFrameToSocProto(se.step_frame);
-    char* stres = MakeSocStr(ev, "%d %d %s %d %s", se.step_lno,
-                             (int)strlen(line), line,
-                             (int)strlen(frame), frame);
-    Free(frame);
-    return stres;
-}
-
-static char *EventFrameToSocProto(dbgev ev, dbgframe_t *fe) {
-    char *stres = strdup("");
-
-    for (; fe != NULL; fe = fe->frame_next) {
-        const char* file = StrSoc(fe->frame_loc.loc_file);
-        const char* func = StrSoc(fe->frame_loc.loc_func);
-        const char* addr = StrSoc(fe->frame_loc.loc_addr);
-
-        // append the next frame
-        char *tmp;;
-        Asprintf(&tmp, "%s%d %d %s %d %s %d %s %d ", stres,
-                 fe->frame_level,
-                 (int)strlen(file), file, (int)strlen(func), func,
-                 (int)strlen(addr), addr, fe->frame_loc.loc_line);
-        std::swap(tmp, stres);
-        Free(tmp);
-    }
-
-    char* wrappedStr = MakeSocStr(ev, "%s", stres);
-    Free(stres);
-
-    return wrappedStr;
-}
 
 static char *EventLocToSocProto(dbgev ev, dbgloc_t *le) {
     if (!le) return MakeSocStr(ev, "");
@@ -869,51 +516,6 @@ static char *EventLocToSocProto(dbgev ev, dbgloc_t *le) {
     return stres;
 }
 
-static char *EventVarsToSocProto(dbgev ev, dbgvars_t *ve) {
-    char *stres = strdup("");
-
-    for (; ve; ve = ve->var_next) {
-        if (!ve->var_name) {
-            continue;
-        }
-
-        const char* type = StrSoc(ve->var_type);
-
-        // append  the name and type
-        char* tmp = nullptr;;
-        Asprintf(&tmp, "%s%d %s %d %s ", stres,
-                 (int)strlen(ve->var_name), ve->var_name,
-                 (int)strlen(type), type);
-
-        std::swap(tmp, stres);
-        Free(tmp);
-    }
-
-    char* wrappedStr = MakeSocStr(ev, stres);
-    Free(stres);
-
-    return wrappedStr;
-}
-
-static char *EventStringToSocProto(dbgev ev, char *te) {
-    const char* type = StrSoc(te);
-    return MakeSocStr(ev, "%d %s", (int)strlen(type), type);
-}
-
-static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
-    char *stres = strdup("");
-    for (; le; le = le->list_next) {
-        const char* line = StrSoc(le->list_line);
-        char* tmp = nullptr;
-        Asprintf(&tmp, "%s%d %d %s ", stres, le->list_lno, (int)strlen(line), line);
-        std::swap(tmp,stres);
-        Free(tmp);
-    }
-
-    char* wrappedStr = MakeSocStr(ev, stres);
-    Free(stres);
-    return wrappedStr;
-}
 
 char *AIFToSocProto(dbgev ev, AIF *a) {
     if (a == NULL) return MakeSocStr(ev, "");
@@ -958,46 +560,6 @@ char *AIFToSocProto(dbgev ev, AIF *a) {
     if (aif_data) Free(aif_data);
 
     return stres;
-}
-
-static char *EventStatusToSocProto(dbgev ev, dbgstatus_t *se) {
-    if (!se) return MakeSocStr(ev, "");
-
-    // Get the location
-    char* loc = EventLocToSocProto(se->stat_loc);
-    char* stres = MakeSocStr(ev, "%d %d %s", se->stat, (int)strlen(loc), loc);
-    Free(loc);
-    return stres;
-}
-
-static char *EventVersToSocProto(dbgev ev, dbgvers_t ve) {
-    const char* vers = StrSoc(ve.vers_version);
-    const char* arch = StrSoc(ve.vers_arch);
-    char* stres = MakeSocStr(ev, "%d %s %d %s", (int)strlen(vers), vers,
-                             (int)strlen(arch), arch);
-    return stres;
-}
-
-static char *EventIntToSocProto(dbgev ev, int pe) {
-    return MakeSocStr(ev, "%d", pe);
-}
-
-static char *EventSourcesToSocProto(dbgev ev, dbgsources_t *se) {
-    char *stres = strdup("");
-    for (; se != NULL; se = se->sources_next) {
-        const char* file = StrSoc(se->sources_file);
-
-        // append the next source
-        char* tmp;
-        Asprintf(&tmp, "%s%d %s ", stres, (int)strlen(file), file);
-
-        std::swap(tmp,stres);
-        Free(tmp);
-    }
-
-    char* wrappedStr = MakeSocStr(ev, stres);
-    Free(stres);
-    return wrappedStr;
 }
 
 /*

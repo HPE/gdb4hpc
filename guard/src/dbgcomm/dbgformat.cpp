@@ -83,28 +83,45 @@ static const char *__fmt_null_str = "";
 ** Auxillary functions **
 ************************/
 
+// Function for wrapping an fprintf style encoded message into to the socket
+// prototype which is in the form "%d %d %s", event_number, length_of_message, message.
+// Since the wrapped message must contain the length of the event message, the
+// trick for this function is to try to create the final result without creating two
+// potentially huge strings.
 static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
 
-    static const size_t BUF_SIZE = 200;  // FIXME: artificially low for testing
+    static const size_t BUF_SIZE = 4000; 
     char buf[BUF_SIZE];
 
+    // we may need to iterate the var_args twice.   Using va_copy seems to be the
+    // more bullet-proof way to do it.
     va_list args, args2;
     va_start(args, fmt);
     va_copy(args2, args);
-    
+
+    // most messages are short so we just try to build the inner string in a
+    // fixed size buffer.   Even in the worst case this should outperform
+    // calling asprintf twice (note that asprintf already needs to be a two pass
+    // operation.
     size_t len = vsnprintf(buf, BUF_SIZE, fmt, args);
     va_end(args);
 
     char *str = nullptr;
     if (len < BUF_SIZE) {
+        // a short message, so we just need to simple copy
         Asprintf(&str, "%d %d %s", int(ev), len, buf);
     } else {
         // the string is too long for the local buffer but
         // we now know the length of the inside string so we
-        // can build the final with just one allocation
+        // can build the final with just one allocation.
+
+        // note: rather than trying to concatenate the var_args,
+        // we just prepend the event number and length to the 
+        // format string.
         std::ostringstream ostr;
         ostr << int(ev) << " " << len << " " << fmt;
-        std::string wrapFmt = ostr.str();
+        std::string wrapFmt = ostr.str();    // event + length + fmt
+
         VAsprintf(&str, wrapFmt.c_str(), args2);
     }
     va_end(args2);

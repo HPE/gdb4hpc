@@ -53,4 +53,9 @@ void SliceSocketSend(int, AIF *);
 AIF *SliceSocketReceive(void);
 AIF *PerformP2P(AIF *, char *, int, int *);
 
+// Get the size of the virtual data segment of the current process
+// in megabytes.
+unsigned long GetProcSize();
+
+
 #endif /* !_DBGSRV_UTIL_H */

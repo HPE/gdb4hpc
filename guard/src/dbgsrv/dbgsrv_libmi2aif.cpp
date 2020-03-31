@@ -142,29 +142,6 @@ static dbgevent_t *get_err(void) {
     return rtn;
 }
 
-// Get the size of the virtual data segment of the current process
-// in megabytes.
-static unsigned long getProcSize() {
-    if (!debug_flag)
-         return 0l;
-    FILE* stat = fopen("/proc/self/status","r");
-    if (!stat) {
-        DVPRINT("memory: could not open /proc/self/status\n");
-        return 0;
-    }
-    char line[128];
-    while (fgets(line,128,stat)) {
-        int size;
-        if (sscanf(line, "VmData: %d kB", &size) == 1) {
-            fclose(stat);
-            return size >> 10;  // return in megabytes
-        }
-    }
-    DVPRINT("memory: could not find size in /proc/self/status\n");
-    fclose(stat);
-    return 0;
-}
-
 // This is the "main" function that should be called in this interface...
 // It returns NULL on success, otherwise it returns an error event.
 dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
@@ -4225,7 +4202,7 @@ char* ArraySlicer::getNext()
         if (array) {
             // success!
             m_subIdx = maxIdx+1;
-            DVPRINT("Succeeded getting sub-array value: %s\n", array);
+            DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
             array = GetArrayDataString(m_session, m_var);
@@ -4274,7 +4251,8 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
         return nullptr;
     }
 
-    unsigned long origSize = getProcSize();
+    std::vector<unsigned long> memSizes;
+    memSizes.push_back(GetProcSize());
 
     // first we need to get the data string
     MIArrayToAIFParser parser(type_str, type_len, type_struct,
@@ -4282,14 +4260,19 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 
     ArraySlicer slicer(session,var,shape);
     while (char* buf = slicer.getNext()) {
+        memSizes.push_back(GetProcSize());
         parser.parseSome(buf);
     }
 
-    unsigned long miSize = getProcSize();
     AIF* a = parser.getResult();
 
-    unsigned long aifSize = getProcSize();
-    DVPRINT("memory: sizes %lu, %lu, %lu\n", origSize, miSize, aifSize);
+    memSizes.push_back(GetProcSize());
+
+    DVPRINT("memory: sizes");
+    for (auto s : memSizes)
+        DVPRINT(" %lu", s);
+    DVPRINT("\n");
+        
 
     freeArrayDimension(shape);
 

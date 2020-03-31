@@ -1140,7 +1140,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
 
     GDBMISession = MISessionNew();
 
-    if (debug_flag && !getenv("GDB4HPC_DISABLE_MI_DBG"))
+    if (debug_flag && !getenv("GDB4HPC_DISABLE_MI_DBG")) {
         MISessionSetDebug(1);
     } else {
         MISessionSetDebug(0);

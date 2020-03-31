@@ -356,6 +356,10 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
             PrintOutError("CTI error: %s\n", cti_error_str());
             PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
             goto attach_error;
+        } else if (cti_addManifestBinary(mid, "ROCgdb-guard")) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError("Failed to add ROCgdb-guard to manifest.\n");
+            goto attach_error;
         }
     }
 
@@ -1031,6 +1035,10 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
         if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
             PrintOutError("CTI error: %s\n", cti_error_str());
             PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+            goto invoke_error;
+        } else if (cti_addManifestBinary(mid, "ROCgdb-guard")) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError("Failed to add ROCgdb-guard to manifest.\n");
             goto invoke_error;
         }
     }

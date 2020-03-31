@@ -1140,7 +1140,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
 
     GDBMISession = MISessionNew();
 
-    if (debug_flag) {
+    if (debug_flag && !getenv("GDB4HPC_DISABLE_MI_DBG"))
         MISessionSetDebug(1);
     } else {
         MISessionSetDebug(0);
@@ -4410,13 +4410,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         AIFFree(e->ev_data);
         e->ev_data = tmp;
 
-        if (debug_flag) {
-            char *aif_str = NULL;
-            AIFToStr(&aif_str, 0, a);
-            DVPRINT("Final AIF size is: %d\n", AIF_LEN(a));
-            DVPRINT("Final AIF type is:\n %s\n", aif_str);
-            Free(aif_str);
-        }
+        DVPRINT("Removed AIFToStr here\n");
     }
 
     return e;
@@ -4457,14 +4451,6 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
     e = NewEvent(DBGEV_NONE);
     e->ev_event = DBGEV_DATA;
     e->ev_data = a;
-
-    if (debug_flag) {
-        char *aif_str = NULL;
-        AIFToStr(&aif_str, 0, a);
-        DVPRINT("Final AIF size is: %d\n", AIF_LEN(a));
-        DVPRINT("Final AIF type is: %s\n", aif_str);
-        Free(aif_str);
-    }
 
     return e;
 }

@@ -27,6 +27,7 @@
 #include "dbgsrv_cmds.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_proto.h"
+#include "dbgsrv_util.h"
 #include "useful.h"
 
 #define CHECK_ARGS(e, cargs)                                     \
@@ -46,6 +47,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
     // Convert the network string to a command and free the msg
     cmd = SocProtoToCommand(msg);
     Free(msg);
+
+    bool trackSize = false;
+    unsigned long size0 = 0;
 
     // switch on the command
     switch (cmd->command) {
@@ -169,6 +173,8 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
 
         case DBGCMD_EVALEXPR:
             CHECK_ARGS(e, cmd->cmd_arg_evalexpr);
+            size0 = GetProcSize();
+            trackSize = true;
             e = DbgEvalExpr(cmd->cmd_evalexpr_expr);
             break;
 
@@ -231,7 +237,15 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
     // Convert the event to network protocol and send it
     // TODO: remove the null event check here when the DbgInvokeNetwork function
     // gets fixed for MRNet. Every command should be returning a response.
+    unsigned long size1 = 0, size2 = 0;
+    if (trackSize)
+        size1 = GetProcSize();
+    
     if (e != NULL && (resp = EventToSocProto(e)) != NULL) {
+        if (trackSize) {
+            size2 = GetProcSize();
+            DVPRINT("Sizes at dispatcher %lu %lu %lu\n", size0, size1, size2);
+        }
         DbgSendReply(resp);
     }
 }

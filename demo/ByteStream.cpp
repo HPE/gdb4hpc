@@ -1,0 +1,29 @@
+#include "ByteStream.h"
+#include "Error.h"
+
+ByteStream::ByteStream() {}
+    
+void ByteStream::wait(size_t elems) const
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    while (m_data.size() < elems)
+        m_ready.wait(lock);
+}
+
+void ByteStream::read(size_t elems, char* val)
+{
+    wait(elems);
+
+    auto de = m_data.begin()+elems;
+    copy(m_data.begin(), de, val);
+    m_data.erase(m_data.begin(), de);
+}
+
+void ByteStream::write(size_t elems, const char* val)
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_data.insert(m_data.end(), val, val+elems);
+    m_ready.notify_all();
+}
+
+

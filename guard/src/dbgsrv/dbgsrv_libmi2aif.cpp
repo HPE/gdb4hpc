@@ -26,12 +26,15 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
+#include <vector>
+#include <string>
+#include <sstream>
 
 /* The following is used to turn on debug printing for the CreateSimpleAIF func.
 ** It generates a ton of output for large arrays, which is why we want to
 ** normally leave it off.
 */
-#define CreateSimpleAIF_PRINT
+//#define CreateSimpleAIF_PRINT
 
 #ifdef CreateSimpleAIF_PRINT
 #define CSAPRINT(...) fprintf(stderr, __VA_ARGS__)
@@ -99,19 +102,15 @@ static AIF *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
 static AIF *GetArrayAIF(MISession *, MIVar *);
 static AIF *GetVectorLikeAIF(MISession *, MIVar *);
-static AIF *GetVectorAIF(MISession *, MIVar *);
-static AIF *GetDequeAIF(MISession *, MIVar *);
-static AIF *GetStackAIF(MISession *, MIVar *);
-static AIF *GetPQueueAIF(MISession *, MIVar *);
-static AIF *GetQueueAIF(MISession *, MIVar *);
 static AIF *GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
 static AIF *GetPointerAIF(MISession *, MIVar *);
 static char *GetArrayDataString(MISession *, MIVar *);
 // static arrayDimension_t *   oneDArray(int, int, int);
-static vectorLikeDimension_t *GetVectorLikeDimensionShape(char *);
 static void fixTypeString(char *, const char *, char *);
 
 const char *_aif_ignored_type_specifiers[] = {"const", "restrict", NULL};
+
+static char* EvalExpression(MISession* session, const char* expression);
 
 // Internal globals
 static dbgevent_t *dbg_error = NULL;
@@ -141,29 +140,6 @@ static dbgevent_t *get_err(void) {
     }
 
     return rtn;
-}
-
-// Get the size of the virtual data segment of the current process
-// in megabytes.
-static unsigned long getProcSize() {
-    if (!debug_flag)
-         return 0l;
-    FILE* stat = fopen("/proc/self/status","r");
-    if (!stat) {
-        DVPRINT("memory: could not open /proc/self/status\n");
-        return 0;
-    }
-    char line[128];
-    while (fgets(line,128,stat)) {
-        int size;
-        if (sscanf(line, "VmData: %d kB", &size) == 1) {
-            fclose(stat);
-            return size >> 10;  // return in megabytes
-        }
-    }
-    DVPRINT("memory: could not find size in /proc/self/status\n");
-    fclose(stat);
-    return 0;
 }
 
 // This is the "main" function that should be called in this interface...
@@ -467,6 +443,21 @@ static void fixTypeString(char *p, const char *s, char *orig) {
     }
 
     DVPRINT("fixTypeString: New string is \"%s\"\n", p);
+}
+
+static char* EvalExpression(MISession* session, const char* expression)
+{
+    MICommand *cmd = MIDataEvaluateExpression(expression);
+    SendMICommand(session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("EvalExpression got error from %s\n", expression);
+        MICommandFree(cmd);
+        return nullptr;
+    }
+
+    char* res = MIGetDataEvaluateExpressionInfo(cmd);
+    MICommandFree(cmd);
+    return res;
 }
 
 static char *sanitize_type_string(const char *input) {
@@ -822,26 +813,16 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
             a = GetStructAIF(session, var);
             break;
+
         case T_STD_VECTOR:
-            DVPRINT("GetComplexAIF: Creating AIF Vector.\n");
-            a = GetVectorAIF(session, var);
-            break;
         case T_STD_DEQUE:
-            DVPRINT("GetComplexAIF: Creating AIF Deque.\n");
-            a = GetDequeAIF(session, var);
-            break;
         case T_STD_STACK:
-            DVPRINT("GetComplexAIF: Creating AIF Stack.\n");
-            a = GetStackAIF(session, var);
-            break;
         case T_STD_QUEUE:
-            DVPRINT("GetComplexAIF: Creating AIF Queue.\n");
-            a = GetQueueAIF(session, var);
-            break;
         case T_STD_PQUEUE:
-            DVPRINT("GetComplexAIF: Creating AIF Priority Queue.\n");
-            a = GetPQueueAIF(session, var);
+            DVPRINT("GetComplexAIF: Creating AIF Vector.\n");
+            a = GetVectorLikeAIF(session, var);
             break;
+
         default:
             /*
              * Maybe it was simple all alongg
@@ -2224,105 +2205,6 @@ static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
     return id;
 }
 
-static vectorLikeDimension_t *GetVectorLikeDimensionShape(char *buf) {
-    char *buf1 = strdup(buf);
-    char *bufOrig = buf1;
-    int *atCoords = NULL;
-    int atCoordsSize = 0;
-    vectorLikeDimension_t *result = newVectorLikeDimension();
-    int lengthToAdd = 0;
-    char *lengthStr = NULL;
-    int depth = -1;
-    char *newBuf1 = NULL;
-    char *newBuf1Orig = NULL;
-
-    // Error null args
-    if (!buf1) {
-        DVPRINT("GetVectorLikeDimensionShape: buf is NULL");
-        return NULL;
-    }
-
-    // Main loop to parse the data string into the dimension object
-    while (*buf1) {
-        switch (*buf1) {
-            // Get the length, add it to the dimension object and skip the comma
-            case 'l':
-                if (strncmp(buf1, "length", 6) == 0) {
-                    buf1 = buf1 + 7;
-                    newBuf1 = strdup(buf1);
-                    newBuf1Orig = newBuf1;
-                    lengthStr = strtok(newBuf1, ",");
-                    DVPRINT("lengthStr: $%s$", lengthStr);
-                    buf1 = buf1 + strlen(lengthStr);
-                    lengthToAdd = atoi(lengthStr);
-                    addVectorLikeDimensionDef(result, atCoords, atCoordsSize,
-                                              lengthToAdd);
-                    free(newBuf1Orig);
-                }
-                break;
-            // Make the current coordinates (atCoords) have another dimension,
-            // starting at 0
-            case '{':
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize + 1) * sizeof(int));
-                atCoords[atCoordsSize] = 0;
-                atCoordsSize++;
-                depth++;
-                break;
-
-            // Check if the array being closed is the biggest of its parent's
-            // children. If so, store this size in the parent. Shrink our
-            // coordinates.
-            case '}':
-                if (atCoordsSize >= 1) {
-                    if (result && result->sizes &&
-                        ((atCoords[atCoordsSize - 1] + 1) >
-                         int(result->sizes[depth]))) {
-                        result->sizes[depth] = atCoords[atCoordsSize - 1] + 1;
-                    }
-                }
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize - 1) * sizeof(int));
-                atCoordsSize--;
-                --depth;
-                break;
-
-            // Commas increment the latest coordinate
-            case ',':
-                atCoords[atCoordsSize - 1]++;
-                break;
-
-            // Handle containers that use 'with' in their string to describe
-            // length
-            case 'w':
-                if (strncmp(buf1, "with", 4) == 0) {
-                    buf1 = buf1 + 5;
-                    newBuf1 = strdup(buf1);
-                    newBuf1Orig = newBuf1;
-                    lengthStr = strtok(newBuf1, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    lengthToAdd = atoi(lengthStr);
-                    addVectorLikeDimensionDef(result, atCoords, atCoordsSize,
-                                              lengthToAdd);
-                    free(newBuf1Orig);
-                }
-                break;
-
-            // Otherwise just skip the character
-            default:
-                break;
-        }
-        // Go to the next character
-        buf1++;
-    }
-    // free memory
-    free(atCoords);
-    free(bufOrig);
-
-    // return the dimension object we just constructed
-    return result;
-}
-
 // get the shape of an array
 static arrayDimension_t *GetArrayDimensionShape(MISession *session,
                                                 MIVar *var) {
@@ -2360,6 +2242,7 @@ static arrayDimension_t *GetArrayDimensionShape(MISession *session,
         free(str);
         return (arrayDimension_t *)NULL;
     }
+    shape->isFortran = isFortran;
 
     // set the end delimiter char to '\0'
     *p-- = '\0';
@@ -3789,832 +3672,550 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
     return buf;
 }
 
-static AIF *parseMIVectorLikeContToAIF(char *type_str, int type_len,
+namespace {
+class MIArrayToAIFParser {
+public:
+    MIArrayToAIFParser(char* type_str, int type_len,
+                       struct_info_t *type_struct, func_info_t *type_func,
+                       int type_id, arrayDimension_t *shape);
+
+    void parseSome(const char* str);
+
+    AIF* getResult();
+    
+private:
+    class Error {};
+    
+    AIF* createSimpleAIF();
+    AIF* makeEmptyArrayAIF(int i, AIF* ac);
+    void addArrayElement(int i, AIF* ac);
+
+    void addElement();
+    void openBracket(char bracket);
+    void closeBracket(char bracket);
+    void error(const std::string& message);
+    
+    char* m_type_str;     // type information from GetArrayBaseType
+    int m_type_len;
+    struct_info_t* m_type_struct;
+    func_info_t* m_type_func;
+    int m_type_id;
+    arrayDimension_t* m_shape;  // dimension and index range of the array
+
+    int m_dim;                  // dimension of the array
+    std::vector<int> m_mins;    // minimum index in each direction (slowest to fastest)
+    std::vector<int> m_maxs;    // maximum index in each direction (slowest to fastest)
+
+    int m_depth;                // depth of current nesting (i.e. number of unclosed brackets)
+    bool m_isC;                 // true if the data-type is a C/C++ array
+    bool m_isFortran;           // true if the data-type is a fortran array
+    bool m_hasError;            // true if the parser encountered a problem
+    bool m_isFragment;          // true if the last block ended in the middle of an array
+    std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
+    std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
+    std::string m_element;      // the text of the current - potentially partial - element
+};
+
+// Define the type of object we are defining before we start partsing the actual
+// text of the result.
+// type_str, type_len, type_struct, type_func, and type_id collectively define the
+// data type, while shape defined the dimension and indexing of the array.
+MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
                                        struct_info_t *type_struct,
-                                       func_info_t *type_func, char *dataBuf,
-                                       int id, vectorLikeDimension_t *shape) {
-    char *buf1 = strdup(dataBuf);
-    char *buf2 = strdup(dataBuf);
-    char *buf1Orig = buf1;
-    char *buf2Orig = buf2;
-    char *buf1dup = NULL;
-    char *buf2dup = NULL;
-    char *buf1DupOrig = NULL;
-    char *buf2DupOrig = NULL;
-    int *atCoords = NULL;
-    int atCoordsSize = 0;
-    int done = 0;
-    char *lengthStr = NULL;
-    char *currElem = NULL;
-    unsigned int currElemLength = 0;
-    int maxDepth = 0;
-    int depth = 0;
-    char *currElemShort = NULL;
-    vectorLikeDimension_t *tempVecDim = NULL;
-    AIF *ac = NULL;
-    printArray(shape->sizes, shape->sizesSize);
-
-    /*
-            Why do we need a two pass parser? Turns out that you can only
-       initiialize an empty AIF array if you have a representative element (any
-       element, it's not really used only it's size is) so that the size can be
-       inferred.
-
-            The first pass gets a string representation of the first base
-       element it can find and exits, storing it in currElemShort
-
-            The second pass proceeds to parse the entire multidimensional
-       structure into AIF
-    */
-    while (!done) {
-        DVPRINT("buf1: %s\n", buf1);
-        DVPRINT("maxDepth: %d\n", maxDepth);
-        switch (*buf1) {
-            // Ignore all spaces
-            case ' ':
-                break;
-            // A way to skip over commas
-            case 'l':
-                if (strncmp(buf1, "length", 6) == 0) {
-                    buf1 = buf1 + 7;
-                    buf1dup = strdup(buf1);
-                    buf1DupOrig = buf1dup;
-                    lengthStr = strtok(buf1dup, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    free(buf1DupOrig);
-                }
-                break;
-            // Avoid useless commas, part 2
-            case 'w':
-                if (strncmp(buf1, "with", 4) == 0) {
-                    buf1 = buf1 + 4;
-                    buf1dup = strdup(buf1);
-                    buf1DupOrig = buf1dup;
-                    lengthStr = strtok(buf1dup, " ");
-                    buf1 = buf1 + strlen(lengthStr);
-                    free(buf1DupOrig);
-                }
-                break;
-            case '{':
-                // currElem keeps track of the current base type element
-                currElem = buf1 + 1;
-                currElemLength = 0;
-                ++depth;
-                if (depth > maxDepth) {
-                    maxDepth = depth;
-                    DVPRINT("maxDepth incremented. It is now %d\n", maxDepth);
-                }
-                break;
-            // Carve out only the relevant part of the string into currElemShort
-            // and exit
-            case '}':
-                currElemShort =
-                    (char *)realloc(currElemShort, currElemLength + 1);
-                strncpy(currElemShort, currElem, currElemLength);
-                currElemShort[currElemLength] = '\0';
-                DVPRINT(
-                    "parseMIVectorLikeContToAIF: Got the representative "
-                    "element (%s)\n",
-                    currElemShort);
-
-                currElem = buf1 + 1;
-                currElemLength = 0;
-                done++;
-                --depth;
-                break;
-            // Carve out only the relevant part of the string into currElemShort
-            // and exit
-            case ',':
-                currElemShort =
-                    (char *)realloc(currElemShort, currElemLength + 1);
-                strncpy(currElemShort, currElem, currElemLength);
-                currElemShort[currElemLength] = '\0';
-                DVPRINT(
-                    "parseMIVectorLikeContToAIF: Got the representative "
-                    "element (%s)\n",
-                    currElemShort);
-                currElem = buf1 + 2;
-                currElemLength = 0;
-                done++;
-                break;
-            default:
-                currElemLength++;
-                break;
-        }
-        buf1++;
-    }
-    DVPRINT("Attempting to build simple AIF with $%s$", currElemShort);
-    // Now have the representative element (currElemShort) to pass in
-    // when building empty arrays
-    ac = CreateSimpleAIF(id, currElemShort, type_str, type_len, type_struct,
-                         type_func);
-    DVPRINT("Built simple AIF");
-
-    // Build empty arrays with all the right coordinates using the shape of the
-    // array
-    createDummyAIF(shape, ac);
-    DVPRINT("parseMIVectorLikeContToAIF: Built the dummies\n");
-
-    depth = 0;
-    DVPRINT("maxDepth is: %d\n", maxDepth);
-
-    printVectorLikeDimension(shape);
-    while (*buf2) {
-        // DVPRINT("buf2: %s\n", buf2);
-        switch (*buf2) {
-            // Ignore all spaces
-            case ' ':
-                break;
-            // A way to skip over commas
-            case 'l':
-                if (strncmp(buf2, "length", 6) == 0) {
-                    buf2 = buf2 + 7;
-                    buf2dup = strdup(buf2);
-                    buf2DupOrig = buf2dup;
-                    lengthStr = strtok(buf2dup, " ");
-                    buf2 = buf2 + strlen(lengthStr);
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Skipping commas length\n");
-                    free(buf2DupOrig);
-                }
-                break;
-            //{ means we've gone down a level. Make a new AIF array and prepare
-            //it to start adding elements
-            case '{':
-                DVPRINT("parseMIVectorLikeContToAIF: Open bracket\n");
-                // Append a 0 to atCoords
-                atCoords =
-                    (int *)realloc(atCoords, (atCoordsSize + 1) * sizeof(int));
-                atCoords[atCoordsSize] = 0;
-                atCoordsSize++;
-
-                // currElem keeps track of the current base type element
-                currElem = buf2 + 1;
-                currElemLength = 0;
-
-                ++depth;
-                break;
-            case '}':
-                DVPRINT("parseMIVectorLikeContToAIF: Closing bracket.\n");
-                if (depth == maxDepth) {
-                    // currElemShort is the relevant base type element string
-                    currElemShort =
-                        (char *)realloc(currElemShort, currElemLength + 1);
-                    strncpy(currElemShort, currElem, currElemLength);
-                    currElemShort[currElemLength] = '\0';
-
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Closing bracket. Found "
-                        "element: (%s)\n",
-                        currElemShort);
-                    // For some reason the parser gets to this point with valid
-                    // but empty strings. Only do stuff when the string is not
-                    // empty
-                    if ((*currElemShort != '\0')) {
-                        // Add AIF of the element we saw to AIF Array
-                        ac = CreateSimpleAIF(id, currElemShort, type_str,
-                                             type_len, type_struct, type_func);
-                        tempVecDim = getVectorLikeDimensionStruct(
-                            shape, atCoords, atCoordsSize - 1);
-                        printVectorLikeDimension(tempVecDim);
-                        AIFAddArrayElement(tempVecDim->aif,
-                                           atCoords[atCoordsSize - 1], ac);
-                        tempVecDim->dimdef[atCoords[atCoordsSize - 1]].aif = ac;
-                    }
-                }
-                if (atCoordsSize >= 1)
-                    atCoords = (int *)realloc(atCoords,
-                                              (atCoordsSize - 1) * sizeof(int));
-                atCoordsSize--;
-
-                currElem = buf2 + 1;
-                currElemLength = 0;
-
-                --depth;
-                break;
-            case ',':
-                DVPRINT("parseMIVectorLikeContToAIF: Comma.\n");
-                if (depth == maxDepth) {
-                    // currElemShort is the relevant base type element string
-                    currElemShort =
-                        (char *)realloc(currElemShort, currElemLength + 1);
-                    strncpy(currElemShort, currElem, currElemLength);
-                    currElemShort[currElemLength] = '\0';
-
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Comma. Found element: "
-                        "(%s)\n",
-                        currElemShort);
-                    // For some reason the parser gets to this point with valid
-                    // but empty strings. Only do stuff when the string is not
-                    // empty
-                    if (strcmp("", currElemShort)) {
-                        // Add AIF of the element we saw to AIF Array
-                        ac = CreateSimpleAIF(id, currElemShort, type_str,
-                                             type_len, type_struct, type_func);
-                        tempVecDim = getVectorLikeDimensionStruct(
-                            shape, atCoords, atCoordsSize - 1);
-                        printVectorLikeDimension(tempVecDim);
-                        AIFAddArrayElement(tempVecDim->aif,
-                                           atCoords[atCoordsSize - 1], ac);
-                        tempVecDim->dimdef[atCoords[atCoordsSize - 1]].aif = ac;
-                    }
-                }
-
-                // Fix atCoords and currElem appropriately
-                atCoords[atCoordsSize - 1]++;
-                currElem = buf2 + 2;
-                currElemLength = 0;
-                break;
-
-            // Avoid useless commas, part 2
-            case 'w':
-                if (strncmp(buf2, "with", 4) == 0) {
-                    buf2 = buf2 + 5;
-                    buf2dup = strdup(buf2);
-                    buf2DupOrig = buf2dup;
-                    lengthStr = strtok(buf2dup, " ");
-                    buf2 = buf2 + strlen(lengthStr);
-                    DVPRINT(
-                        "parseMIVectorLikeContToAIF: Skipping commas with\n");
-                    free(buf2DupOrig);
-                }
-                currElemLength++;
-                break;
-
-            // All other cases just increment currElemLength (element might have
-            // numerous digits/characters)
-            default:
-                currElemLength++;
-                break;
-        }
-        // Move on to the next character
-        buf2++;
-    }
-
-    DVPRINT("got here, returning...\n");
-    connectAIFArrays(shape);
-    fprintf(stderr, "shape->aif: %p\n", shape->aif);
-    AIFPrint(stderr, 20, shape->aif);
-    AIF *retval = shape->aif;
-
-    // free memory
-    free(buf1Orig);
-    free(buf2Orig);
-    free(atCoords);
-    freeVectorLikeDimension(shape);
-
-    return retval;
+                                       func_info_t *type_func,
+                                       int type_id, arrayDimension_t *shape)
+    : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
+      m_type_func(type_func), m_type_id(type_id), m_shape(shape),
+      m_dim(shape->dim), m_mins(), m_maxs(),
+      m_depth(0), m_isC(false), m_isFortran(false),
+      m_hasError(false), m_isFragment(false), m_abuild(m_dim), m_idcs(m_dim, 0)
+{
 }
 
-static AIF *parseMIArrayToAIF(MISession *session, MIVar *var, char *type_str,
-                              int type_len, struct_info_t *type_struct,
-                              func_info_t *type_func, char *buf, int id,
-                              arrayDimension_t *shape, AIF *a, AIF *ac) {
-    int isComplex = 0;
-    int dcnt;
-    int *mcnt;
-    int depth = 0;
-    int done = 0;
-    int isFortran = 0;
-    int endCnt = 0;
-    AIF **abuild;
-    char *p1, *p2;
+// Translate the MI result text into AIF format.   \a str may contain either the
+// data result, or a subset of the result.   In the case of a partitioned array
+// it will concatenate adjacent array pieces.   That is "[0,1,2]" "[3,4,5]" will be
+// understood as "[0,1,2,3,4,5]" Note that there is no comma between those arrays.
+void MIArrayToAIFParser::parseSome(const char* str) {
+    if (m_hasError)
+        return;
 
-    // check if we are dealing with complex types here, by complex we mean
-    // that gdb is going to enclose the basetype with curly braces (i.e. {...})
-    // This presents a problem because these curly braces are indistinguishable
-    // from the start of a new array. If the type is complex, then we use a
-    // lookahead to ensure we have a base type.
-    switch (id) {
-        case T_COMPLEX_4:
-        case T_COMPLEX_8:
-        case T_COMPLEX_16:
-        case T_UNION:
-        case T_STRUCT:
-            ++isComplex;
-        default:
-            break;
-    }
-    // now that we have the string and array shape, we need to start
-    // parsing it, find the first array member, and create a simple
-    // aif object out of it.
-    p1 = buf;
-
-    /*
-     * Note that in the below switch statements we are going to check for
-     * any of the START, SEP, or END delimiters that are defined. We do this
-     * because switch statements require constant integers in their case
-     * definitions, so we must check for any of the valid cases.
-     */
-
-    // ensure the first character is a start delimiter
-    switch (*p1++) {
-        // Fortran uses row major ordering
-        case ARRAY_FTN_START:
-            ++isFortran;
-        case ARRAY_C_START:
-            break;
-
-        case C_STRING_START:
-            /*
-             * This is to handle the way gdb prints out arrays of chars. It will
-             * try to print it out in string format i.e. \"blah\". We need to
-             * handle this case.
-             */
-            if (buf[strlen(buf) - 1] == C_STRING_END) {
-                buf[strlen(buf) - 1] = '\0';
-            }
-            // Create the string directly
-            a = StringToAIF(p1);
-            // free the buf string
-            free(buf);
-            // free the array dimension info
-            freeArrayDimension(shape);
-            return a;
-
-        default:
-            DVPRINT("GetArrayAIF: unknown array format.\n");
-            freeArrayDimension(shape);
-            return (AIF *)NULL;
-    }
-    ++depth;
-
-    // now lets proceed into the string, ignoring ' ' and counting
-    // depth along the way
-    while (!done) {
-        switch (*p1) {
-            case ' ':
-                // ignore it
-                ++p1;
-                break;
-
-            case ARRAY_C_START:
-            case ARRAY_FTN_START:
-                // Note that complex data values printed by gdb are of the form
-                // (r,i) and the start delimiter is indistinguishable from the
-                // ARRAY_FTN_START delimiter. Therefore we need to have a
-                // look-ahead to see if the next character is not
-                // ARRAY_FTN_START. The same is true for c with structs, unions,
-                // etc but it is in the form {...}
-                if (isComplex) {
-                    switch (*(p1 + 1)) {
-                        case ARRAY_C_START:
-                        case ARRAY_FTN_START:
-                        case ' ':
-                            // still need to go deeper
-                            ++depth;
-                            ++p1;
-                            break;
-
-                        default:
-                            // we are pointing to the start of the (r,i) pair
-                            ++done;
-                            break;
-                    }
-                    break;
-                }
-
-                // increment depth and continue
-                ++depth;
-                ++p1;
-                break;
-
-            default:
-                // something other than ' ' or start_delim so we are done
-                ++done;
-                break;
-        }
-    }
-
-    // we now need to iterate through with p2 until we find a ',' or end
-    // delimiter
-    p2 = p1 + 1;
-    done = 0;
-
-    while (!done) {
-        switch (*p2) {
-            case ARRAY_SEP:
-                // only if we are complex
-                if (isComplex) {
-                    // if we have not seen a ')' or '}' which ends the
-                    // complex type, ignore the seperator.
-                    if (endCnt == 0) {
-                        // ignore it
-                        ++p2;
-                        break;
-                    }
-                }
-                // at the end of this member...
-                *p2 = '\0';
-                ++done;
-                break;
-
-            case ARRAY_C_END:
-            case ARRAY_FTN_END:
-                // special case if we are complex
-                if (isComplex) {
-                    ++endCnt;
-                    if (endCnt == 1) {
-                        // ignore it
-                        ++p2;
-                        break;
-                    }
-                }
-                // at the end of this member and dimension
-                *p2 = '\0';
-                --depth;
-                ++done;
-                break;
-
-            default:
-                // ignore it
-                ++p2;
-                break;
-        }
-    }
-
-    // we can now create the first data member's aif object and use
-    // it to create our entire array regardless of dimension.
-    ac = CreateSimpleAIF(id, p1, type_str, type_len, type_struct, type_func);
-
-    // we need to allocate space for the abuild array
-    // this will hold a list of each of our array dimensions which
-    // are used while building the aif representation of the array
-    if ((abuild = (AIF **)malloc(sizeof(AIF *) * shape->dim)) == (void *)0) {
-        DVPRINT("GetArrayAIF: malloc error\n");
-        free(buf);
-        freeArrayDimension(shape);
-        AIFFree(ac);
-        AIFFree(a);
-        return (AIF *)NULL;
-    }
-
-    // we need to allocate space for the mcnt array
-    // this will hold a list of ints which is used to keep track of
-    // the next open member index for each dimension
-    if ((mcnt = (int *)malloc(sizeof(int) * shape->dim)) == (void *)0) {
-        DVPRINT("GetArrayAIF: malloc error\n");
-        free(abuild);
-        free(buf);
-        freeArrayDimension(shape);
-        AIFFree(ac);
-        AIFFree(a);
-        return (AIF *)NULL;
-    }
-    // set the mcnt array to zero since we are currently at the
-    // zeroeth index for each dimension
-    memset(mcnt, 0, sizeof(int) * shape->dim);
-
-    // now that we have adequate space to hold our aif array pointers
-    // for each dimension, we can create the aif arrays.
-
-    // !!!IMPORTANT!!! Fortran is col-major, meaning we need to transpose the
-    // array.
-
-    // we start by creating the innermost array first, since this
-    // is going to have entries of type ac
-    if (isFortran) {
-        DVPRINT(
-            "GetArrayAIF: building inner array of size %d at abuild index %d\n",
-            getArrayDimension(shape, 1), shape->dim - 1);
-        if ((abuild[shape->dim - 1] = EmptyFtnArrayToAIF(
-                 getArrayDimensionRangeMin(shape, 1),
-                 getArrayDimensionRangeMax(shape, 1), ac)) == (AIF *)NULL) {
-            DVPRINT("GetArrayAIF: EmptyFtnArrayToAIF error\n");
-            free(abuild);
-            free(buf);
-            freeArrayDimension(shape);
-            AIFFree(ac);
-            AIFFree(a);
-            return (AIF *)NULL;
-        }
-
-        // now we create each of the outer dimensions using its inner dimension
-        // child as its aif ref type. This will ensure that we have enough space
-        // in our aif object the the child arrays.
-        for (dcnt = 2; dcnt <= int(shape->dim); ++dcnt) {
-            DVPRINT(
-                "GetArrayAIF: building outter array of size %d at abuild index "
-                "%d\n",
-                getArrayDimension(shape, dcnt), shape->dim - dcnt);
-            // the abuild index at dcnt is a 0..n array of type
-            // abuild[shape->dim-dcnt+1]
-            abuild[shape->dim - dcnt] =
-                EmptyFtnArrayToAIF(getArrayDimensionRangeMin(shape, dcnt),
-                                   getArrayDimensionRangeMax(shape, dcnt),
-                                   abuild[shape->dim - dcnt + 1]);
-            if (abuild[shape->dim - dcnt] == (AIF *)NULL) {
-                DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-                dcnt = shape->dim;
-                while (--dcnt >= 0) {
-                    AIFFree(abuild[dcnt]);
-                }
-                free(abuild);
-                free(buf);
-                freeArrayDimension(shape);
-                AIFFree(ac);
-                AIFFree(a);
-                return (AIF *)NULL;
+    try {
+        for (const char* p = str; *p; ++p) {
+            if (*p == '(' || *p == '{') {
+                openBracket(*p);
+            } else if (m_isFragment && !isspace(*p)) {
+                error("insufficient data items in direction");
+            } else if (*p == ')' || *p == '}') {
+                closeBracket(*p);
+            } else if (m_depth == m_dim && *p == ',') {
+                addElement();
+            } else if (!isspace(*p) || !m_element.empty()) {
+                m_element += *p;
             }
         }
+    } catch (Error&) {
+        m_hasError = true;
+    }
+}
 
-        // set the mcnt array to the actual min range value for each dimension.
-        // Fortran allows for custom ranges to be used
-        for (dcnt = 1; dcnt <= int(shape->dim); ++dcnt) {
-            mcnt[shape->dim - dcnt] = getArrayDimensionRangeMin(shape, dcnt);
-            DVPRINT("GetArrayAIF: Set mcnt[%d] to %d\n", shape->dim - dcnt,
-                    mcnt[shape->dim - dcnt]);
-        }
-
-        // since we already created the first data member, lets add it
-        // to the abuild array at the previous depth if depth is non-zero
-        // or else at zero, meaning we had only one element in our array.
-        if (0 < depth) {
-            AIFAddFtnArrayElement(abuild[depth - 1], mcnt[depth - 1]++, ac);
-        } else {
-            // we are done building the array. There is only 1 element.
-            AIFAddFtnArrayElement(abuild[0], mcnt[0]++, ac);
-        }
+// Handle a character that can be the beginniong of an array: '(' or '{' 
+void MIArrayToAIFParser::openBracket(char bracket)
+{
+    if (bracket == '{' && !m_isFortran) {
+        m_isC = true;
+    } else if (bracket == '(' && !m_isC) {
+        m_isFortran = true;
     } else {
-        DVPRINT(
-            "GetArrayAIF: building inner array of size %d at abuild index %d\n",
-            getArrayDimension(shape, shape->dim), shape->dim - 1);
-        if ((abuild[shape->dim - 1] = EmptyArrayToAIF(
-                 0, getArrayDimension(shape, shape->dim) - 1, ac)) ==
-            (AIF *)NULL) {
-            DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-            free(abuild);
-            free(buf);
-            freeArrayDimension(shape);
-            AIFFree(ac);
-            AIFFree(a);
-            return (AIF *)NULL;
-        }
+        m_element += bracket;
+        return;
+    }
 
-        // now we create each of the outer dimensions using its inner dimension
-        // child as its aif ref type. This will ensure that we have enough space
-        // in our aif object the the child arrays.
-        for (dcnt = shape->dim - 2; dcnt >= 0; --dcnt) {
-            DVPRINT(
-                "GetArrayAIF: building outter array of size %d at abuild index "
-                "%d\n",
-                getArrayDimension(shape, dcnt + 1), dcnt);
-            // the abuild index at dcnt is a 0..n array of type abuild[dcnt+1]
-            if ((abuild[dcnt] =
-                     EmptyArrayToAIF(0, getArrayDimension(shape, dcnt + 1) - 1,
-                                     abuild[dcnt + 1])) == (AIF *)NULL) {
-                DVPRINT("GetArrayAIF: EmptyArrayToAIF error\n");
-                while (--dcnt >= 0) {
-                    AIFFree(abuild[dcnt]);
-                }
-                free(abuild);
-                free(buf);
-                freeArrayDimension(shape);
-                AIFFree(ac);
-                AIFFree(a);
-                return (AIF *)NULL;
-            }
-        }
+    if (m_depth >= m_dim) {
+        m_element += bracket;
+        ++m_depth;
+        return;
+    }
 
-        // since we already created the first data member, lets add it
-        // to the abuild array at the previous depth if depth is non-zero
-        // or else at zero, meaning we had only one element in our array.
-        if (0 < depth) {
-            AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++, ac);
-        } else {
-            // we are done building the array. There is only 1 element.
-            AIFAddArrayElement(abuild[0], mcnt[0]++, ac);
+    if (m_mins.empty()) {
+        // get the min and max elements the first time through.   Take care around
+        // arrayDimension_t it is a bit of a goofy goober and used start-1 indexing, so
+        // i=1, j=2, k=3, etc.   Also, the parser always orders from slowest changing to
+        // fastest changing, so note the order reversal we do here for fortran.  (so we
+        // don't need to mess with it again).
+        for (int i=0; i<m_dim; ++i) {
+            int d = (m_isFortran ? m_dim-i : i+1);
+            m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
+            m_maxs.push_back(getArrayDimensionRangeMax(m_shape,d));
+            
+            DVPRINT("range in %d [%d,%d]\n", i, m_mins.back(), m_maxs.back());
         }
     }
 
-    // free the first member, we are done with it
-    AIFFree(ac);
-
-    while (0 < depth) {
-        // point p1 one past p2
-        // p2 points to the '\0' at the end of the last string
-        p1 = ++p2;
-        done = 0;
-
-        while (!done) {
-            switch (*p1) {
-                case ' ':
-                    // ignore it
-                    ++p1;
-                    break;
-
-                case ARRAY_SEP:
-                    // ignore it
-                    ++p1;
-                    break;
-
-                case ARRAY_C_START:
-                case ARRAY_FTN_START:
-                    // special case for complex
-                    if (isComplex) {
-                        switch (*(p1 + 1)) {
-                            case ARRAY_C_START:
-                            case ARRAY_FTN_START:
-                            case ' ':
-                                // still need to go deeper
-                                ++depth;
-                                ++p1;
-                                break;
-
-                            default:
-                                // we are pointing to the start of (r,i) or
-                                // {...}
-                                ++done;
-                                break;
-                        }
-                        break;
-                    }
-                    // increment depth and continue
-                    ++depth;
-                    ++p1;
-                    break;
-
-                case ARRAY_C_END:
-                case ARRAY_FTN_END:
-                    // we just finished adding the final entry for the
-                    // current dimension
-
-                    // ensure that depth is greater than 0
-                    if (--depth == 0) {
-                        DVPRINT("GetArrayAIF: Done building.\n");
-                        ++done;
-                        break;
-                    }
-
-                    //						DVPRINT("GetArrayAIF: Done with %d\n",
-                    //mcnt[depth-1]);
-
-                    if (isFortran) {
-                        // lets add it to its parent
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, abuild[depth]);
-
-                        // reset the current depth mcnt
-                        // note that fortran needs to reverse the dimensionality
-                        // hence the dim minus current depth
-                        //							DVPRINT("GetArrayAIF:
-                        //p1 depth is %d\n", depth);
-                        mcnt[depth] = getArrayDimensionRangeMin(
-                            shape, shape->dim - depth);
-                    } else {
-                        // lets add it to its parent
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           abuild[depth]);
-
-                        // reset the current depths mcnt
-                        mcnt[depth] = 0;
-                    }
-
-                    // continue parsing
-                    ++p1;
-                    break;
-
-                default:
-                    // something other than ' ' ',' start_delim or end_delim
-                    // start of a new value
-                    ++done;
-                    break;
-            }
-        }
-
-        // ensure depth is not zero
-        if (depth == 0) continue;
-
-        // reset done and set p2 to p1+1
-        p2 = p1 + 1;
-        done = 0;
-
-        // reset the complex counters
-        endCnt = 0;
-
-        while (!done) {
-            switch (*p2) {
-                case ARRAY_SEP:
-                    // only if we are complex
-                    if (isComplex) {
-                        if (endCnt == 0) {
-                            // ignore it
-                            ++p2;
-                            break;
-                        }
-                    }
-                    // at the end of this member
-                    *p2 = '\0';
-
-                    // lets create the simple aif variable from it
-                    ac = CreateSimpleAIF(id, p1, type_str, type_len,
-                                         type_struct, type_func);
-
-                    // now we add it to the current abuild at mcnt
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, ac);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           ac);
-                    }
-
-                    // free the temporary aif object
-                    AIFFree(ac);
-
-                    // we are done
-                    ++done;
-                    break;
-
-                case ARRAY_C_END:
-                case ARRAY_FTN_END:
-                    // special case if we are complex
-                    if (isComplex) {
-                        ++endCnt;
-                        if (endCnt == 1) {
-                            // ignore it
-                            ++p2;
-                            break;
-                        }
-                    }
-                    // at the last member in the current dimension
-                    *p2 = '\0';
-
-                    // lets create the simple aif variable from it
-                    ac = CreateSimpleAIF(id, p1, type_str, type_len,
-                                         type_struct, type_func);
-
-                    // now we add it to the current abuild at mcnt
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1], ac);
-
-                        // reset mcnt for this dimension since we are done with
-                        // it note that fortran can have non-standard ranges
-                        //							DVPRINT("GetArrayAIF:
-                        //p2 depth is %d\n", depth);
-                        mcnt[depth - 1] = getArrayDimensionRangeMin(
-                            shape, shape->dim - depth + 1);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1],
-                                           ac);
-
-                        // reset mcnt for this dimension since we are done with
-                        // it
-                        mcnt[depth - 1] = 0;
-                    }
-
-                    // free the temporary aif object
-                    AIFFree(ac);
-
-                    // ensure that depth is greater than 0
-                    if (--depth == 0) {
-                        ++done;
-                        break;
-                    }
-
-                    // lets add it to its parent
-                    if (isFortran) {
-                        AIFAddFtnArrayElement(abuild[depth - 1],
-                                              mcnt[depth - 1]++, abuild[depth]);
-                    } else {
-                        AIFAddArrayElement(abuild[depth - 1], mcnt[depth - 1]++,
-                                           abuild[depth]);
-                    }
-
-                    //						DVPRINT("GetArrayAIF: Done with %d\n",
-                    //mcnt[depth-1]);
-
-                    // we are done
-                    ++done;
-                    break;
-
-                default:
-                    // ignore it
-                    ++p2;
-                    break;
-            }
-        }
-    }
-
-    // our final return array is going to be contained in abuild[0]
-    a = abuild[0];
-
-    // cleanup the other abuild entries, we are done with them
-    for (dcnt = 1; dcnt < int(shape->dim); ++dcnt) {
-        AIFFree(abuild[dcnt]);
-    }
-    // free abuild
-    free(abuild);
-    // free mcnt
-    free(mcnt);
-    // free the buf string
-    free(buf);
-    // free the array dimension info
-    freeArrayDimension(shape);
-    return a;
+    if (m_depth < m_dim && !m_isFragment)
+        m_idcs[m_depth] = m_mins[m_depth];
+    ++m_depth;
+    m_isFragment = false;
+    m_element.clear();
 }
+
+// Handle the potential end of an array
+void MIArrayToAIFParser::closeBracket(char bracket)
+{
+    if ((bracket == '}' && !m_isC) ||
+        (bracket == ')' && !m_isFortran)) {
+        // the brackets don't match the language - treat like an ordinary character
+        m_element += bracket;
+    } else if (m_depth <= 0) {
+        error("found a closing bracket with no matching open");
+    } else if (m_depth > m_dim) {
+        // this can happen with an array of structs or classes.   Pass into element
+        // to give the element parser a crack at it.   We still need to update
+        // the depth so we know when we've finished gettting the element.   We presume
+        // the element has balanced brackets.
+        m_element += bracket;
+        --m_depth;
+    } else {
+        if (!m_element.empty())
+            addElement();
+
+        --m_depth;
+
+        if (m_idcs[m_depth] != m_maxs[m_depth] + 1) {
+            // with data chunking, we append adjacent arrays
+            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}.    If the next
+            // non-space character is *not* an open bracket, the parsing will
+            // generate a delayed error.
+            m_isFragment = true;
+        }
+    }
+}
+
+// We have parsed through an array element, create the AIF and add it to the
+// AIF structure.
+void MIArrayToAIFParser::addElement()
+{
+    if (m_depth != m_dim) {
+        error("trying to add an element at the wrong depth");
+        return;
+    }
+
+    AIF* aif = createSimpleAIF();
+    if (!aif)
+        error("could not create element for " + m_element);
+
+    m_element.clear();
+
+    addArrayElement(m_depth-1, aif);
+    AIFFree(aif);
+}
+
+// Create an empty array in direction \a i to contain type \a ac.
+// i is ordered from slowest changing i=0 to fastest 
+AIF* MIArrayToAIFParser::makeEmptyArrayAIF(int i, AIF* ac)
+{
+    AIF* aif = nullptr;
+    if (m_isFortran) {
+        aif = EmptyFtnArrayToAIF(m_mins[i], m_maxs[i], ac);
+    } else {
+        aif = EmptyArrayToAIF(m_mins[i], m_maxs[i], ac);
+    }
+    if (!aif)
+        error("create empty AIF array failed");
+    return aif;
+}
+
+// Add element \a ac to the current location in direction \a i.
+void MIArrayToAIFParser::addArrayElement(int i, AIF* ac)
+{
+    if (m_idcs[i] > m_maxs[i]) {
+        error("too many elements returned for direction");
+        return;
+    }
+
+    if (m_idcs[i] == m_mins[i]) {
+        m_abuild[i] = makeEmptyArrayAIF(i,ac);
+    }
+
+    if (m_isFortran) {
+        AIFAddFtnArrayElement(m_abuild[i], m_idcs[i]++, ac);
+    } else {
+        AIFAddArrayElement(m_abuild[i], m_idcs[i]++, ac);
+    }
+
+    if (i && m_idcs[i] == m_maxs[i]+1) {
+        addArrayElement(i-1, m_abuild[i]);
+        AIFFree(m_abuild[i]);
+        m_abuild[i] = nullptr;
+    }
+}
+
+// Create a single element for the AIR result array
+AIF* MIArrayToAIFParser::createSimpleAIF() {
+    return CreateSimpleAIF(m_type_id, const_cast<char*>(m_element.c_str()),
+                           m_type_str, m_type_len, m_type_struct, m_type_func);
+}
+
+// pull out the final result representing the entire array after all input
+// has been parsed
+AIF* MIArrayToAIFParser::getResult() {
+    if (m_hasError)
+        return nullptr;
+    
+    try {
+        if (m_depth != 0)
+            error("missing end bracket for array");
+        else if (!m_abuild[0])
+            error("expression ends prematurely");
+        
+    } catch (Error&) {}
+
+    if (!m_hasError) {
+        return m_abuild[0];
+    }
+    if (m_abuild[0])
+        AIFFree(m_abuild[0]);
+    return nullptr;
+}
+
+void MIArrayToAIFParser::error(const std::string& message) {
+    m_hasError = true;
+    DVPRINT("Parsing error %s\n", message.c_str());
+    throw Error();
+}
+
+// Class to manage breaking the MI query for an array into smaller pieces.
+// The calling sequence is simple:
+// ArraySlice slicer(session, val, shape);
+// while (char* buf = slicer.getNext()) {
+//    ... process buf ...
+// }
+// The class is not omnicient, we currently only slice on the slowest changing
+// dimension, so the actual block size could be larger than the nominal limit.
+// Also, since we are plugging into the front end of gdb/mi (paging is disabled in this
+// mode), we are limited to the set of types that can be split using a gdb expression.
+class ArraySlicer {
+public:
+    ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape);
+    ~ArraySlicer();
+    char* getNext();
+
+    arrayDimension_t *getShape();
+    const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
+    
+private:
+    void determineSlicing();
+    ArraySlicer(const ArraySlicer&) = delete;
+    ArraySlicer& operator=(const ArraySlicer&) = delete;    
+
+    MISession* m_session;       // session to connect to gdb/MI
+    MIVar* m_var;               // MI variable of interest
+    arrayDimension_t *m_shape;  // dimension and size of the array
+    bool m_shapeIsLocal;        // true if m_shape was created this this object
+    char* m_buf;                // allocated array for the result (contolled by this)
+    char* m_array;              // interpretable region of m_buf
+
+    size_t m_blockSize;         // maximum number of elements in each query
+    std::string m_subExpr;      // encode expression to use for querying a chunk
+    long m_subIdx;              // index for the current chunk
+    long m_maxSubIdx;           // index for the highest chunk to return
+    long m_slice;               // stride for the chunking index.
+};
+
+ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape)
+    : m_session(session), m_var(var), m_shape(shape), m_shapeIsLocal(!shape),
+      m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
+      m_subIdx(0), m_maxSubIdx(0), m_slice(0)
+{
+    static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");
+    if (blockSizeStr) {
+        long lval = atol(blockSizeStr);
+        if (lval > 0)
+            m_blockSize = lval; 
+    }
+
+    if (m_blockSize) {
+        DVPRINT("Slicing %s of type %s and dimension %d\n", var->expr, var->type,
+                (shape ? shape->dim : 0));
+        determineSlicing();
+    }
+}
+
+ArraySlicer::~ArraySlicer()
+{
+    free(m_buf);
+    if (m_shape && m_shapeIsLocal)
+        freeArrayDimension(m_shape);
+}
+
+// Paging and the like is unavailable in MI mode.   Instead, this class and this function
+// specifically examines the data type and determines how it can be extracted in multiple
+// data print calls that each pull out a portion of the data structure
+void ArraySlicer::determineSlicing()
+{
+    if (!m_blockSize)
+        return;
+    
+    std::string type(m_var->type);
+    if (type.substr(0,12) == "std::vector<") {
+        // C++ vector, we can treat this like an array if we can get at the size
+        // and the first element.   We usually can, but gdb can get a little gimpy
+        // in this area
+        DVPRINT("Slicing: it is a vector");
+        std::string sizeStr = std::string("(") + m_var->exp + ").size()";
+        char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
+        if (!sizeRes)
+            return;
+        
+        int size = atoi(sizeRes);
+        DVPRINT("Slicing got a size %d\n", size);
+        free(sizeRes);
+
+        if (size <= ptrdiff_t(m_blockSize))
+            return;
+        
+        // can I get the address of the first element?
+        std::string frontStr = std::string("*&(") + m_var->expr + ")[0]";
+        char* beginRes = EvalExpression(m_session, frontStr.c_str());
+        if (!beginRes)
+            return;
+
+        DVPRINT("got begin address %s\n", beginRes);
+        free(beginRes);
+
+        m_shape = newArrayDimension();
+        if (!m_shape) {
+            DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
+            return;
+        }
+        addArrayDimensionDef(m_shape, size, 0, size-1);
+        m_shape->isFortran = false;
+
+        frontStr.erase(frontStr.end()-2, frontStr.end());
+        frontStr += "$$from$$]@$$len$$";
+
+        m_subExpr = frontStr;
+        m_subIdx = 0;
+        m_maxSubIdx = size-1;
+        m_slice = m_blockSize;
+
+        DVPRINT("Slicing vector %s %ld to %ld by %ld\n",
+                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
+
+    } else if (m_shape && m_shape->isFortran) {
+        // fortran array - we only try to split on the slowest changing dimension.
+        // we can revisit if 100M x 2 arrays matter.
+        int dim = m_shape->dim;
+        size_t subArrayLen  = 1;
+        for (int i=1; i<dim; ++i)
+            subArrayLen *= getArrayDimension(m_shape,i);
+        size_t numElems = subArrayLen * getArrayDimension(m_shape,dim);
+        if (numElems <= m_blockSize)
+            return;             // no need to divide
+
+        std::ostringstream os;
+        os << m_var->expr << "(";
+        for (int i=1; i<dim; ++i) {
+            int minIdx = getArrayDimensionRangeMin(m_shape,i);
+            int maxIdx = getArrayDimensionRangeMax(m_shape,i);
+            os << minIdx << ":" << maxIdx << ",";
+        }
+        os << "$$from$$:$$to$$)";
+
+        m_subExpr = os.str();
+        m_subIdx = getArrayDimensionRangeMin(m_shape,dim);
+        m_maxSubIdx = getArrayDimensionRangeMax(m_shape,dim);
+        m_slice = std::max(1, int(m_blockSize / subArrayLen));
+
+        DVPRINT("Slicing: fortran type %s %ld to %ld by %ld\n",
+                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
+    } else if (m_shape) {
+        // C/C++ array, this may be real or partially artficial
+        int dim = m_shape->dim;
+        size_t subArrayLen  = 1;
+        for (int i=2; i<=dim; ++i)
+            subArrayLen *= getArrayDimension(m_shape,i);
+        size_t numElems = subArrayLen * getArrayDimension(m_shape,1);
+        if (numElems <= m_blockSize)
+            return;             // no need to divide
+
+        // we handle at least the simplest  artificial arrays
+        m_subExpr = m_var->expr;
+        size_t atLoc = m_subExpr.rfind("[0]@");
+        if (atLoc != std::string::npos) {
+            m_subExpr.erase(atLoc);
+        }
+
+        // transform into a series of artificial arrays for the sub-sets
+        m_subExpr += "[$$from$$]@$$len$$";
+        m_subIdx = 0;
+        m_maxSubIdx = getArrayDimensionRangeMax(m_shape,1);
+        m_slice = std::max(1, int(m_blockSize / subArrayLen));
+
+        DVPRINT("Slicing: C array %s %ld to %ld by %ld\n",
+                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
+
+    } else {
+        DVPRINT("Slicing: no means to slice array\n");
+    }
+}
+
+// Get the data shape, i.e. the dimensionality and range of the array indexing
+// for the data type.  The function is entwinded with this class because it
+// needs understand the shape before it is sliced, and need to pass it along to
+// the parsing after it is sliced
+arrayDimension_t *ArraySlicer::getShape() {
+    // in most important cases, ArraySlicer already has determined the shape
+    // from the type.
+    if (m_shape)
+        return m_shape;
+
+    // Though not always!   The remainder here is the fall-back position where
+    // we could not cogitize the type information, so we just pull out the result
+    // in a single glob and pull the shape information out of the result.
+    m_buf = GetArrayDataString(m_session, m_var);
+
+    // Now lets get the shape of this array
+    int lengthTagLen = 6;
+    char *lengthLoc = strstr(m_buf, "length"), *lengthEnd;
+
+    char* withLoc = strstr(m_buf, "with");
+    if (!lengthLoc || (withLoc && withLoc < lengthLoc)) {
+        lengthLoc = withLoc;
+        lengthTagLen = 4;
+    }
+    
+    if (!lengthLoc ) {
+        DVPRINT("GetVectorLikeAIF: could not find length\n");
+        return nullptr;
+    }
+    lengthLoc += lengthTagLen;
+    int length = strtol(lengthLoc, &lengthEnd, 10);
+    if (lengthEnd == lengthLoc) {
+        DVPRINT("GetVectorLikeAIF: could not parse length\n");
+        return nullptr;
+    }
+
+    m_array = strchr(lengthEnd, '{');
+    if (!m_array) {
+        DVPRINT("GetVectorLikeAIF: could not find array in vector\n");
+        return nullptr;
+    }
+
+    m_shape = newArrayDimension();
+    if (!m_shape) {
+        DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
+        return nullptr;
+    }
+
+    addArrayDimensionDef(m_shape, length, 0, length-1);
+    m_shape->isFortran = false;
+
+    return m_shape;
+}
+
+// Return either the next chunk of data, or nullptr if there is no more data to be
+// had.
+// The returned array is controlled by ArraySlicer and should not be freed by the
+// caller.
+char* ArraySlicer::getNext()
+{
+    if (m_subIdx > m_maxSubIdx)
+        return nullptr;
+    
+    char* array = nullptr;
+    if (m_array) {
+        // we were unable to get the size information for variable, so we
+        // have already gotten the full data
+        array = m_array;
+        m_array = nullptr;
+        ++m_subIdx;
+    } else if (m_slice == 0 && !m_buf) {
+        // splitting is not enabled, the array is not big enough to split,
+        // or it's a form the splitter doesn't recognize, just return it
+        // all
+        array = m_buf = GetArrayDataString(m_session, m_var);
+        ++m_subIdx;
+    } else {
+        // get the next chunk of data
+        std::swap(m_buf, array);
+        if (array) {
+            free(array);
+            array = nullptr;
+        }
+
+        long maxIdx = std::min(m_maxSubIdx, m_subIdx+m_slice-1);
+        long len = maxIdx - m_subIdx + 1;
+
+        std::string subExpr = m_subExpr;
+        std::string patterns[3] = { "$$from$$", "$$to$$", "$$len$$" };
+        long vals[3] = { m_subIdx, maxIdx, len };
+        for (int i=0; i<3; ++i) {
+            size_t loc = subExpr.find(patterns[i]);
+            if (loc != std::string::npos)
+                subExpr.replace(loc, patterns[i].size(), std::to_string(vals[i]));
+        }
+
+        DVPRINT("Evaluating sub-expression %s\n", subExpr.c_str());
+        
+        array = EvalExpression(m_session,const_cast<char*>(subExpr.c_str()));
+        if (array) {
+            // success!
+            m_subIdx = maxIdx+1;
+            DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
+        } else {
+            // failure!  - fall back to just evaluating the whole kielbasa
+            array = GetArrayDataString(m_session, m_var);
+            m_subIdx = m_maxSubIdx + 1;
+
+            DVPRINT("Failed getting sub-array value, full result: %s\n", array);
+        }
+        m_buf = array;
+    }
+    return array;
+}
+} // namespace
+
 
 static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     int id;
@@ -4622,11 +4223,6 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     int type_len;
     struct_info_t *type_struct;
     func_info_t *type_func;
-    char *buf = NULL;
-    arrayDimension_t *shape = NULL;
-    AIF *a = NULL;
-    AIF *ac = NULL;
-
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
     if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
@@ -4637,103 +4233,94 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
-        ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
+        AIF *ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
                              type_func);
-        a = EmptyArrayToAIF(0, 0, ac);
+        AIF *a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
 	return a;
     }
-    DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
+    
+    DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
+            var->numchild, id, type_str, type_len);
 
-    unsigned long origSize = getProcSize();
-
-    // first we need to get the data string
-    buf = GetArrayDataString(session, var);
-
-    unsigned long miSize = getProcSize();
-
-    // Now lets get the shape of this array
-    if ((shape = GetArrayDimensionShape(session, var)) ==
-        (arrayDimension_t *)NULL) {
+    // Get the shape of this array
+    arrayDimension_t *shape = GetArrayDimensionShape(session, var);
+    if (!shape) {
         // error already set
         DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-        return NULL;
+        return nullptr;
     }
-    a = parseMIArrayToAIF(session, var, type_str, type_len, type_struct,
-                          type_func, buf, id, shape, a, ac);
 
-    unsigned long aifSize = getProcSize();
-    DVPRINT("memory: sizes %lu, %lu, %lu\n", origSize, miSize, aifSize);
+    std::vector<unsigned long> memSizes;
+    memSizes.push_back(GetProcSize());
+
+    // first we need to get the data string
+    MIArrayToAIFParser parser(type_str, type_len, type_struct,
+                              type_func, id, shape);
+
+    ArraySlicer slicer(session,var,shape);
+    while (char* buf = slicer.getNext()) {
+        memSizes.push_back(GetProcSize());
+        parser.parseSome(buf);
+    }
+
+    AIF* a = parser.getResult();
+
+    memSizes.push_back(GetProcSize());
+
+    DVPRINT("memory: sizes");
+    for (auto s : memSizes)
+        DVPRINT(" %lu", s);
+    DVPRINT("\n");
+        
+
+    freeArrayDimension(shape);
 
     return a;
 }
 
 static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
-    int id;
-    char *type_str;
-    int type_len;
-    struct_info_t *type_struct;
-    func_info_t *type_func;
-    char *buf = NULL;
-    vectorLikeDimension_t *shape = NULL;
-    AIF *ac = NULL;
-    AIF *a = NULL;
-
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
-    if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
-                               &type_func)) == T_UNKNOWN) {
+    char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
+    int id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct, &type_func);
+
+    if (id == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
         return (AIF *)NULL;
     }
     DVPRINT("id: %d\n", id);
+
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
-        ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                             type_func);
-        a = EmptyArrayToAIF(0, 0, ac);
+        AIF* ac = CreateSimpleAIF(id, var->value, type_str, type_len, type_struct,
+                                  type_func);
+        AIF* a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-	return a;
-    } else {
-        DVPRINT("GetArrayAIF: %d children detected.\n", var->numchild);
+        return a;
+    } 
 
-        // first we need to get the data string
-        buf = GetArrayDataString(session, var);
+    DVPRINT("Slicing (vector-like) %s of type %s and dimension one\n", var->expr, var->type);
 
-        // Now lets get the shape of this array
-        if ((shape = GetVectorLikeDimensionShape(buf)) ==
-            (vectorLikeDimension_t *)NULL) {
-            // error already set
-            DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
+    DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
 
-            return NULL;
-        }
+    ArraySlicer slicer(session, var, nullptr);
+    arrayDimension_t *shape = slicer.getShape();
+    if (!shape) {
+        DVPRINT("could not get size of a vector like object");
+        return nullptr;
     }
-    buf = strtok(buf, "=");
-    buf = strtok(NULL, "");
-    buf++;
-    return parseMIVectorLikeContToAIF(type_str, type_len, type_struct,
-                                      type_func, buf, id, shape);
-}
 
-static AIF *GetVectorAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    MIArrayToAIFParser parser(type_str, type_len, type_struct,
+                              type_func, id, shape);
 
-static AIF *GetDequeAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    while (char* buf = slicer.getNext()) {
+        parser.parseSome(buf);
+    }
 
-static AIF *GetStackAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
+    AIF* a = parser.getResult();
 
-static AIF *GetQueueAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
-}
-
-static AIF *GetPQueueAIF(MISession *session, MIVar *var) {
-    return GetVectorLikeAIF(session, var);
+    return a;
 }
 
 static AIF *GetPointerAIF(MISession *session, MIVar *var) {

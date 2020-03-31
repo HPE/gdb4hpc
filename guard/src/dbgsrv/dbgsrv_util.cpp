@@ -492,7 +492,7 @@ AIF *PerformHashMI(char *datastr, char *type, arrayDimension_t *shape,
     // value of data_bound_max
     j = rank - 1;
     for (i = 0; i < rank; i++) {
-        data_bound_max[i] = shape->dimdef[j];
+        data_bound_max[i] = shape->dimDef[j];
         j--;
     }
 
@@ -1338,3 +1338,27 @@ AIF *PerformP2P(AIF *data, char *args, int my_rank, int *is_sender) {
 
     return res;
 }
+
+// Get the size of the virtual data segment of the current process
+// in megabytes.
+unsigned long GetProcSize() {
+    if (!debug_flag)
+         return 0l;
+    FILE* stat = fopen("/proc/self/status","r");
+    if (!stat) {
+        DVPRINT("memory: could not open /proc/self/status\n");
+        return 0;
+    }
+    char line[128];
+    while (fgets(line,128,stat)) {
+        int size;
+        if (sscanf(line, "VmData: %d kB", &size) == 1) {
+            fclose(stat);
+            return size >> 10;  // return in megabytes
+        }
+    }
+    DVPRINT("memory: could not find size in /proc/self/status\n");
+    fclose(stat);
+    return 0;
+}
+

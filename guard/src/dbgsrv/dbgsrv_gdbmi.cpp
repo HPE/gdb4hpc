@@ -4331,7 +4331,8 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         return e;
     }
 
-    if ((e = GetAIFVar(GDBMISession, var, &a, &type)) != NULL) {
+    AIFStream* aifStream = nullptr;
+    if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
         return e;
     }
 
@@ -4417,17 +4418,13 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 }
 
 dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
-    char *type;
-    AIF *a;
-    dbgevent_t *e;
-
     DVPRINT("*** DbgEvalExpr(%s-%d)\n", exp, my_rank);
 
     // Check whether it has hashing/slicing
     if (strpbrk(exp, "`") || strpbrk(exp, "|")) {
         // TODO: we don't want to parse this if the user escaped the input
         DVPRINT("DbgEvalExpr: Found reduction/slicing info.\n");
-        e = PerformExtEvalExpr(exp);
+        dbgevent_t* e = PerformExtEvalExpr(exp);
         if (e == NULL) {
             e = NewEvent(DBGEV_ERROR);
             e->ev_errno = DBGERR_DEBUGGER;
@@ -4444,13 +4441,16 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
         }
     }
 
-    if ((e = GetAIFVar(GDBMISession, exp, &a, &type)) != NULL) {
+    AIFStream* aifStream = nullptr;
+    char *type = nullptr;
+
+    if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
         return e;
     }
 
-    e = NewEvent(DBGEV_NONE);
+    dbgevent_t* e = NewEvent(DBGEV_NONE);
     e->ev_event = DBGEV_DATA;
-    e->ev_data = new AIFStream(a);
+    e->ev_data = aifStream;
 
     return e;
 }

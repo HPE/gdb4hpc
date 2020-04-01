@@ -94,16 +94,16 @@ static AIF *CreateSimpleAIF(int, char *, char *, int, struct_info_t *,
                             func_info_t *);
 static char *MIToFDS(MISession *, int, char *);
 static char *GetVarValue(MISession *, char *);
-static AIF *GetAIF(MISession *, MIVar *);
-static AIF *GetSimpleAIF(MISession *, MIVar *);
-static AIF *GetComplexAIF(MISession *, MIVar *);
+static AIFStream *GetAIF(MISession *, MIVar *);
+static AIFStream *GetSimpleAIF(MISession *, MIVar *);
+static AIFStream *GetComplexAIF(MISession *, MIVar *);
 static struct_info_t *GetStructInfo(MISession *, char *);
-static AIF *GetStructAIF(MISession *, MIVar *);
+static AIFStream *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
-static AIF *GetArrayAIF(MISession *, MIVar *);
-static AIF *GetVectorLikeAIF(MISession *, MIVar *);
+static AIFStream *GetArrayAIF(MISession *, MIVar *);
+static AIFStream *GetVectorLikeAIF(MISession *, MIVar *);
 static AIF *GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
-static AIF *GetPointerAIF(MISession *, MIVar *);
+static AIFStream *GetPointerAIF(MISession *, MIVar *);
 static char *GetArrayDataString(MISession *, MIVar *);
 // static arrayDimension_t *   oneDArray(int, int, int);
 static void fixTypeString(char *, const char *, char *);
@@ -144,17 +144,14 @@ static dbgevent_t *get_err(void) {
 
 // This is the "main" function that should be called in this interface...
 // It returns NULL on success, otherwise it returns an error event.
-dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
+dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
                       char **type) {
-    AIF *res;
-    MIVar *mivar;
-
     // reset the error var
     reset_err();
 
     DVPRINT("GetAIFVar: Resolving variable %s.\n", var);
 
-    mivar = CreateMIVar(session, var);
+    MIVar* mivar = CreateMIVar(session, var);
 
     if (mivar == NULL) {
         DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
@@ -164,7 +161,8 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
         return get_err();
     }
 
-    if ((res = GetAIF(session, mivar)) == NULL) {
+    AIFStream* res = GetAIF(session, mivar);
+    if (!res) {
         DVPRINT("GetAIFVar: GetAIF returned null.\n");
         if (dbg_error == NULL) {
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
@@ -187,17 +185,10 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
 dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
                           char *hashinfo, int hashfunc, int precision_lower,
                           int precision_upper) {
-    AIF *res;
-    AIF *a = NULL;
-    MIVar *mivar;
-    int id;
-    char *pt;
-    int cnt = 0;
-
     // reset the error var
     reset_err();
 
-    mivar = CreateMIVar(session, var);
+    MIVar* mivar = CreateMIVar(session, var);
 
     if (mivar == NULL) {
         DVPRINT("GetAIFVarHash: Unknown variable\n");
@@ -213,12 +204,12 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
         return get_err();
     }
 
+    int id;
+    int cnt = 0;
+
     while ((id = GetComplexType(mivar->type)) == T_UNKNOWN) {
-        pt = GetMIWhatisValue(session, NULL, mivar);
-        if (pt != NULL) {
-            if (mivar->type != NULL) {
-                free(mivar->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, NULL, mivar)) {
+            free(mivar->type);
             mivar->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
@@ -229,11 +220,14 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
             break;
     }
 
+    AIF *res = nullptr;
+
     if (mivar->numchild == 0 || !(id == T_ARRAY || id == T_FTNARRAY)) {
         // simple type
-        a = GetAIF(session, mivar);
-        res = PerformHash(a, hashinfo, hashfunc, precision_lower,
+        AIFStream* a = GetAIF(session, mivar);
+        res = PerformHash(a->joinAIF(), hashinfo, hashfunc, precision_lower,
                           precision_upper);
+        delete a;
     } else {
         // of type array
         if ((res = GetArrayAIFHash(session, mivar, hashinfo, hashfunc,
@@ -621,13 +615,13 @@ static char *GetVarValue(MISession *session, char *var) {
     return res;
 }
 
-static AIF *GetAIF(MISession *session, MIVar *var) {
+static AIFStream *GetAIF(MISession *session, MIVar *var) {
     DVPRINT("GetAIF: %s\n", var->expr);
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
         DVPRINT("GetAIF: No symbols\n");
-        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, NULL);
-        return NULL;
+        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, nullptr);
+        return nullptr;
     }
     if (var->numchild == 0) {
         // simple type
@@ -640,18 +634,15 @@ static AIF *GetAIF(MISession *session, MIVar *var) {
     return GetComplexAIF(session, var);
 }
 
-static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
-    int id;
-    AIF *a = NULL;
+static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
+
     AIF *ac;
     AIF *addr;
-    char *pt;
     char *v;
-    char **argv;
     int argc;
+    char **argv;
     char *rtn;
     char *name;
-    int cnt = 0;
 
     DVPRINT(
         "GetSimpleAIF: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, "
@@ -659,13 +650,12 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
         var->expr, var->name, var->exp, var->numchild, var->type, var->value,
         var->thread_id);
 
+    int cnt = 0;
+    int id;
     while ((id = GetSimpleType(var->type)) == T_UNKNOWN) {
         // default to using whatis
-        pt = GetMIWhatisValue(session, NULL, var);
-        if (pt != NULL) {
-            if (var->type != NULL) {
-                free(var->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, nullptr, var)) {
+            free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 break;
@@ -674,6 +664,7 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
             break;
     }
 
+    AIFStream *a = nullptr;
     switch (id) {
         case T_FUNCTION:
             DVPRINT("GetSimpleAIF: Creating AIF function.\n");
@@ -695,13 +686,13 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
                     "GetSimpleAIF: GetFunctionReturnType returned: %s, "
                     "returning NULL!\n",
                     rtn);
-                return NULL;
+                return nullptr;
             }
             DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
             if ((v = GetVarValue(session, var->name)) == NULL) {
                 // error already set
                 free(rtn);
-                return NULL;
+                return nullptr;
             }
             name = GetFunctionName(v);
             DVPRINT("GetSimpleAIF: Function name: %s\n", name);
@@ -729,18 +720,17 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
             free(rtn);
             free(name);
             AIFFree(addr);
-            return ac;
+            return new AIFStream(ac);
 
         case T_ENUM:
             DVPRINT("GetSimpleAIF: Creating AIF enum.\n");
-            return EmptyEnumToAIF(GetTypeName(var->type));
+            return new AIFStream(EmptyEnumToAIF(GetTypeName(var->type)));
 
         case T_VOID_PTR:
             // void ptr's don't have any children and are considered simple
             // types
             DVPRINT("GetComplexAIF: Creating AIF void pointer.\n");
-            a = GetPointerAIF(session, var);
-            return a;
+            return GetPointerAIF(session, var);
 
         case T_UNKNOWN:
             // Unrecognized type.
@@ -754,24 +744,19 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
                 // error already set
                 return NULL;
             }
-            a = CreateSimpleAIF(id, v, NULL, 0, NULL, NULL);
+            a = new AIFStream(CreateSimpleAIF(id, v, NULL, 0, NULL, NULL));
             free(v);
             return a;
     }
 }
 
-static AIF *GetComplexAIF(MISession *session, MIVar *var) {
+static AIFStream *GetComplexAIF(MISession *session, MIVar *var) {
     int id;
-    char *pt;
-    AIF *a = NULL;
     int cnt = 0;
 
     while ((id = GetComplexType(var->type)) == T_UNKNOWN) {
-        pt = GetMIWhatisValue(session, NULL, var);
-        if (pt != NULL) {
-            if (var->type != NULL) {
-                free(var->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, NULL, var)) {
+            free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 break;
@@ -780,6 +765,7 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
             break;
     }
 
+    AIFStream *a = nullptr;
     switch (id) {
         case T_ARRAY:
         case T_FTNARRAY:
@@ -2854,7 +2840,6 @@ static char *MIToFDS(MISession *session, int type_id, char *base_type) {
 static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                             struct_info_t *type_struct,
                             func_info_t *type_func) {
-    char *pch;
     char *s1, *s2;
     char *t1, *t2;
     char *name;
@@ -2869,7 +2854,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
     }
     switch (id) {
         case T_STRING:
-            if ((pch = strchr(res, ' ')) != NULL) {
+            if (char* pch = strchr(res, ' ')) {
                 pch++;
                 CSAPRINT("CreateSimpleAIF: Creating string\n");
                 return StringToAIF(pch);
@@ -2907,8 +2892,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             return LongLongToAIF(strtoll(res, NULL, 10));
         case T_ULONGLONG:
             CSAPRINT("CreateSimpleAIF: Creating ulong long\n");
-            return UnsignedLongLongToAIF(
-                (unsigned long long)strtoull(res, NULL, 10));
+            return UnsignedLongLongToAIF((unsigned long long)strtoull(res, NULL, 10));
 #endif
         case T_FLOAT:
             CSAPRINT("CreateSimpleAIF: Creating float\n");
@@ -2926,7 +2910,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             return BoolToAIF(strncmp(res, "true", 4) == 0 ? 1 : 0);
         case T_INTEGER_1:
             // gdb adds the actual char value so we need to get rid of that
-            if ((pch = strchr(res, ' ')) != NULL) {
+            if (char* pch = strchr(res, ' ')) {
                 pch++;
                 if (*pch == '\'') {
                     pch--;
@@ -2959,50 +2943,59 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
 #endif
         case T_COMPLEX_4:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX4\n");
-            return COMPLEX4ToAIF(strtof(res, NULL), strtof(pch, NULL));
+            if (char* pch = strchr(res, ',')) { 
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX4\n");
+                return COMPLEX4ToAIF(strtof(res, NULL), strtof(pch, NULL));
+            } else {
+                return VoidToAIF(0, 0);
+            }
         case T_COMPLEX_8:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX8\n");
-            return COMPLEX8ToAIF(strtod(res, NULL), strtod(pch, NULL));
+            if (char* pch = strchr(res, ',')) {
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX8\n");
+                return COMPLEX8ToAIF(strtod(res, NULL), strtod(pch, NULL));
+            } else {
+                 return VoidToAIF(0, 0);
+            }
 #ifdef HAVE_LONG_DOUBLE
         case T_COMPLEX_16:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
-            CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
-            real = strtold(res, NULL);
-            img = strtold(pch, NULL);
-            return COMPLEX16ToAIF(real, img);
+            if (char* pch = strchr(res, ',')) {
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
+                CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
+                real = strtold(res, NULL);
+                img = strtold(pch, NULL);
+                return COMPLEX16ToAIF(real, img);
+            } else {
+                return VoidToAIF(0, 0);
+            }
 #endif
         case T_LOGICAL_1:
             CSAPRINT("CreateSimpleAIF: Creating LOGICAL1\n");
@@ -3040,7 +3033,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             if (*res == '\'') {
                 ++res;
                 // get rid of the final '
-                if ((pch = strrchr(res, '\'')) != NULL) {
+                if (char* pch = strrchr(res, '\'')) {
                     *pch = '\0';
                 }
                 CSAPRINT("CreateSimpleAIF: res is now \"%s\"\n", res);
@@ -3120,7 +3113,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             }
 
             a = EmptyStructToAIF(type_struct->name);
-            pch = res;
+            char* pch = res;
 
             while (index < type_struct->numFields) {
                 // point at the fields "="
@@ -3259,20 +3252,16 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
 /*
 ** Create an AIF object that is the struct represented by the MIVar var.
 */
-static AIF *GetStructAIF(MISession *session, MIVar *var) {
+static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
     MIVar *v;
-    AIF *a;
-    AIF *ac;
-    char *base_type = NULL;
-    int i;
 
     DVPRINT("GetStructAIF: %s\n", var->name);
 
     // get the base type for this struct
-    base_type = GetTypeName(var->type);
+    char* base_type = GetTypeName(var->type);
     DVPRINT("GetStructAIF: Base type: %s\n", base_type);
 
-    a = EmptyStructToAIF(base_type);
+    AIF* a = EmptyStructToAIF(base_type);
 
     // Resolve the child information for the var
     if (MIVarGetChildren(session, var)) {
@@ -3284,23 +3273,24 @@ static AIF *GetStructAIF(MISession *session, MIVar *var) {
     DVPRINT("GetStructAIF: Total number of children detected: %d\n",
             var->numchild);
 
-    for (i = 0; i < var->numchild; i++) {
+    for (int i = 0; i < var->numchild; i++) {
         DVPRINT("GetStructAIF: Resolving member %d\n", i + 1);
         v = var->children[i];
         // set the expr to the name of this member
         v->expr = strdup(v->name);
-        if ((ac = GetAIF(session, v)) == NULL) {
+        AIFStream* ac = GetAIF(session, v);
+        if (!ac) {
             DVPRINT(
                 "GetStructAIF: ERROR: Null aif object returned from GetAIF.\n");
             AIFFree(a);
-            return NULL;
+            return nullptr;
         }
         DVPRINT("GetStructAIF: Adding AIF field for member %d.\n", i + 1);
-        AIFAddFieldToStruct(a, v->exp, ac);
-        AIFFree(ac);
+        AIFAddFieldToStruct(a, v->exp, ac->joinAIF());
+        delete ac;
     }
 
-    return a;
+    return new AIFStream(a);
 }
 
 static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
@@ -4217,7 +4207,7 @@ char* ArraySlicer::getNext()
 } // namespace
 
 
-static AIF *GetArrayAIF(MISession *session, MIVar *var) {
+static AIFStream *GetArrayAIF(MISession *session, MIVar *var) {
     int id;
     char *type_str;
     int type_len;
@@ -4228,7 +4218,7 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
                                &type_func)) == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return (AIF *)NULL;
+        return nullptr;
     }
 
     if (var->numchild <= 0) {
@@ -4237,7 +4227,7 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
                              type_func);
         AIF *a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-	return a;
+        return new AIFStream(a);
     }
     
     DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
@@ -4276,10 +4266,10 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
 
     freeArrayDimension(shape);
 
-    return a;
+    return new AIFStream(a);
 }
 
-static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
+static AIFStream *GetVectorLikeAIF(MISession *session, MIVar *var) {
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
     char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
@@ -4287,7 +4277,7 @@ static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
 
     if (id == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return (AIF *)NULL;
+        return nullptr;
     }
     DVPRINT("id: %d\n", id);
 
@@ -4297,7 +4287,7 @@ static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
                                   type_func);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-        return a;
+        return new AIFStream(a);
     } 
 
     DVPRINT("Slicing (vector-like) %s of type %s and dimension one\n", var->expr, var->type);
@@ -4319,49 +4309,42 @@ static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
     }
 
     AIF* a = parser.getResult();
-
-    return a;
+    return new AIFStream(a);
 }
 
-static AIF *GetPointerAIF(MISession *session, MIVar *var) {
-    void *addr;
-    char *addr_str;
-    long long int addr_loc;
-    int addr_len;
-    AIF *addr_aif;
-    AIF *rtn_aif;
-
+static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
     DVPRINT("GetPointerAIF: Pointer Type => %s\n", var->type);
 
     // get the address for the pointer, this is represented by the value
     // in the MI object.
-    if ((addr_str = GetVarValue(session, var->name)) == NULL) {
+    char *addr_str = GetVarValue(session, var->name);
+    if (!addr_str) {
         // error already set
-        return NULL;
+        return nullptr;
     }
 
     DVPRINT("GetPointerAIF: Pointer Addr => %s\n", addr_str);
 
     // convert the address of the pointer to an integer value
-    addr_loc = strtoll(addr_str, NULL, 0);
+    long long int addr_loc = strtoll(addr_str, NULL, 0);
 
     // Make the void pointer point at the memory location of the pointer
-    addr = (void *)addr_loc;
+    void* addr = (void *)addr_loc;
 
     // We need to ask for the length of the address type for this particular
     // pointer.
-    addr_len = GetTypeLength(session, var->type);
+    int addr_len = GetTypeLength(session, var->type);
 
     DVPRINT("GetPointerAIF: Pointer Addr Length => %d\n", addr_len);
 
     // Create the AIF type representing the address
-    addr_aif = AddressToAIF(addr, addr_len);
+    AIF* addr_aif = AddressToAIF(addr, addr_len);
 
     // Now create the AIF generic pointer representing both the address that
     // we actually point to and the type string.
-    rtn_aif = GenericPointerToAIF(addr_aif, var->type);
+    AIF *rtn_aif = GenericPointerToAIF(addr_aif, var->type);
 
     AIFFree(addr_aif);
 
-    return rtn_aif;
+    return new AIFStream(rtn_aif);
 }

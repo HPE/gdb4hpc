@@ -37,7 +37,7 @@
 
 #include <stdarg.h>
 
-#include "aif.h"
+#include "AIFStream.h"
 #include "dbgbp.h"
 #include "dbgloc.h"
 #include "list.h"
@@ -46,8 +46,6 @@
     (e) = NewEvent(DBGEV_ERROR); \
     (e)->ev_errno = (err);       \
     EventErrStr((e), __VA_ARGS__);
-
-#define EVENT_SAVE_DATA(e) (e)->save_ev_data = 1;
 
 enum event_equiv { EV_EQUAL, EV_DIFF };
 typedef enum event_equiv event_equiv;
@@ -215,7 +213,7 @@ struct dbgevent_t {
         dbgbp_t *ev_u_bp;
         dbgsig_t ev_u_sig;
         dbgstep_t ev_u_step;
-        AIF *ev_u_data;
+        AIFStream *ev_u_data;
         dbglist_t *ev_u_list;
         dbgframe_t *ev_u_frame;
         dbgloc_t *ev_u_loc;

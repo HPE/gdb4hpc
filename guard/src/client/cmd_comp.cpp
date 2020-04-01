@@ -133,7 +133,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             while ((reply = GetNextReplyInSet(rep_set)) !=
                    (group_reply_t *)NULL) {
                 // point at the aif result
-                a = EVENT_DATA(reply->rep_event);
+                a = EVENT_DATA(reply->rep_event)->joinAIF();
                 // Set res to the comparison result
                 AIFToInt(a, &res);
                 switch (res) {

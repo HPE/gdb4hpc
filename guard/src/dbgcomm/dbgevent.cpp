@@ -164,7 +164,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
-            e->ev_data = CopyAIF(event->ev_data);
+            e->ev_data = (event->ev_data ? new AIFStream(*event->ev_data) : nullptr);
             break;
 
         case DBGEV_LIST:
@@ -482,7 +482,7 @@ void FreeEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
-            AIFFree(event->ev_data);
+            delete event->ev_data;
             break;
 
         case DBGEV_LIST:

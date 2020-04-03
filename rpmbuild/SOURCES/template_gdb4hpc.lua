@@ -8,9 +8,7 @@
 
 ]]--
 
-
 -- local vars: define & assign --
-
 
 -- template variables ----------------------------------------------------------
 local INSTALL_ROOT       = "[@%PREFIX_PATH%@]"
@@ -30,9 +28,7 @@ if isFile(REL_FILE) then
     if data ~= nill then rel_info = data end
 end
 
-
  -- standered Lmod functions --
-
 
 help ([[
 
@@ -48,21 +44,18 @@ type:    less ]] .. REL_FILE .. "\n" .. [[
 
 ]])
 
- whatis("Loads the Cray Line Mode Parallel Debugger.")
-
+whatis("Loads the Cray Line Mode Parallel Debugger.")
 
  -- environment modifications --
-
 
 setenv (           "GDB4HPC_LEVEL",              MOD_LEVEL                   )
 setenv (           "GDB4HPC_BASEDIR",            PE_DIR                      )
 setenv (           "PE_GDB4HPC_MODULE_NAME",     myModuleName()              )
 setenv (           "GDB4HPC_VERSION",            MOD_LEVEL                   )
 setenv (           "GDB4HPC_INSTALL_DIR",        PE_DIR                      )
-setenv (           "GDB4HPC_INSTALL_DIR",                PE_DIR                      )
 
 append_path   (    "PE_PRODUCT_LIST",            "GDB4HPC"                   )
 
-prepend_path  (    "LD_LIBRARY_PATH",          PE_DIR .. "/lib"              )
-prepend_path  (    "PATH",                     PE_DIR .. "/bin"              )
-prepend_path  (    "MANPATH",                  PE_DIR .. "/man"              )
+prepend_path  (    "LD_LIBRARY_PATH",            PE_DIR .. "/lib"            )
+prepend_path  (    "PATH",                       PE_DIR .. "/bin"            )
+prepend_path  (    "MANPATH",                    PE_DIR .. "/man"            )

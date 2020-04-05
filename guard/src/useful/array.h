@@ -44,6 +44,7 @@ typedef struct {
 /* arrayDimension_t operator prototypes */
 
 arrayDimension_t *newArrayDimension(void);
+arrayDimension_t *dupArrayDimension(arrayDimension_t *);
 int addArrayDimensionDef(arrayDimension_t *, unsigned int, int, int);
 unsigned int getArrayDimension(arrayDimension_t *, int);
 int getArrayDimensionRangeMin(arrayDimension_t *, int);

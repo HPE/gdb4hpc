@@ -327,6 +327,7 @@ static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
     return wrappedStr;
 }
 
+
 char *AIFToSocProto(AIF *a) {
     int fl;
     char *aif_format;
@@ -511,7 +512,6 @@ char *EventToSocProto(dbgevent_t *e) {
     }
 
     FreeEvent(e);
-
     return res;
 }
 

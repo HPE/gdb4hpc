@@ -72,10 +72,10 @@ extern void SendMICommand(MISession *, MICommand *);
 /*
 ** Static prototypes
 */
-static MIVar *CreateMIVar(MISession *, const char *);
+static std::shared_ptr<MIVar> CreateMIVar(MISession *, const char *);
 static void DeleteMIVar(MISession *, const char *);
 static int MIVarGetChildren(MISession *, MIVar *);
-static char *GetMIWhatisValue(MISession *, char *, MIVar *);
+static char *GetMIWhatisValue(MISession *, char *, MIVar*);
 static int GetTypeLength(MISession *, const char *);
 static int GetSimpleType(const char *);
 static int GetComplexType(const char *);
@@ -94,15 +94,15 @@ static AIF *CreateSimpleAIF(int, char *, char *, int, struct_info_t *,
                             func_info_t *);
 static char *MIToFDS(MISession *, int, char *);
 static char *GetVarValue(MISession *, char *);
-static AIFStream *GetAIF(MISession *, MIVar *);
+static AIFStream *GetAIF(MISession *, std::shared_ptr<MIVar>);
 static AIFStream *GetSimpleAIF(MISession *, MIVar *);
-static AIFStream *GetComplexAIF(MISession *, MIVar *);
+static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>);
 static struct_info_t *GetStructInfo(MISession *, char *);
 static AIFStream *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
-static AIFStream *GetArrayAIF(MISession *, MIVar *);
-static AIFStream *GetVectorLikeAIF(MISession *, MIVar *);
-static AIF *GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
+static AIFStream *GetArrayAIF(MISession *, std::shared_ptr<MIVar>);
+static AIFStream *GetVectorLikeAIF(MISession *, std::shared_ptr<MIVar>);
+static AIF *GetArrayAIFHash(MISession *, MIVar*, char *, int, int, int);
 static AIFStream *GetPointerAIF(MISession *, MIVar *);
 static char *GetArrayDataString(MISession *, MIVar *);
 // static arrayDimension_t *   oneDArray(int, int, int);
@@ -151,9 +151,9 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
 
     DVPRINT("GetAIFVar: Resolving variable %s.\n", var);
 
-    MIVar* mivar = CreateMIVar(session, var);
+    auto mivar = CreateMIVar(session, var);
 
-    if (mivar == NULL) {
+    if (!mivar) {
         DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
         if (dbg_error == NULL) {
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
@@ -168,15 +168,10 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
                         "Parser failed to interpret gdb variable.");
         }
-        DeleteMIVar(session, mivar->name);
-        MIVarFree(mivar);
         return get_err();
     }
     *type = strdup(mivar->type);
     *val = res;
-
-    DeleteMIVar(session, mivar->name);
-    MIVarFree(mivar);
 
     return NULL;
 }
@@ -188,7 +183,7 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
     // reset the error var
     reset_err();
 
-    MIVar* mivar = CreateMIVar(session, var);
+    auto mivar = CreateMIVar(session, var);
 
     if (mivar == NULL) {
         DVPRINT("GetAIFVarHash: Unknown variable\n");
@@ -208,7 +203,7 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
     int cnt = 0;
 
     while ((id = GetComplexType(mivar->type)) == T_UNKNOWN) {
-        if (char* pt = GetMIWhatisValue(session, NULL, mivar)) {
+        if (char* pt = GetMIWhatisValue(session, nullptr, mivar.get())) {
             free(mivar->type);
             mivar->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
@@ -230,11 +225,9 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
         delete a;
     } else {
         // of type array
-        if ((res = GetArrayAIFHash(session, mivar, hashinfo, hashfunc,
+        if ((res = GetArrayAIFHash(session, mivar.get(), hashinfo, hashfunc,
                                    precision_lower, precision_upper)) == NULL) {
             DVPRINT("GetAIFVarHash: Unknown type\n");
-            DeleteMIVar(session, mivar->name);
-            MIVarFree(mivar);
             if (dbg_error == NULL) {
                 EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
                             "GetArrayAIFHash failed.");
@@ -244,50 +237,46 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
     }
 
     *val = res;
-
-    DeleteMIVar(session, mivar->name);
-    MIVarFree(mivar);
-
-    return 0;
+    return nullptr;
 }
 
 /*
  * Create a MI variable in gdb and get its MIVar type.
  * Returns null on error.
  */
-static MIVar *CreateMIVar(MISession *session, const char *expr) {
-    MICommand *cmd;
-    MIVar *var;
-    char *p;
+static std::shared_ptr<MIVar> CreateMIVar(MISession *session, const char *expr) {
 
-    cmd = MIVarCreate("-", "*", expr);
+    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
+            if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }});
+    
+    MICommand* cmd = MIVarCreate("-", "*", expr);
     SendMICommand(session, cmd);
     // If this fails, it means the symbol doesn't exist.
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(dbg_error, DBGERR_NOSYM, expr);
         MICommandFree(cmd);
-        return NULL;
+        return var;
     }
 
-    var = MIGetVarCreateInfo(cmd);
+    MIVar* mivar = MIGetVarCreateInfo(cmd);
     MICommandFree(cmd);
 
-    if (var->exp == NULL) {
-        var->exp = strdup(expr);
+    if (mivar->exp == NULL) {
+        mivar->exp = strdup(expr);
     }
 
-    var->expr = strdup(expr);
+    mivar->expr = strdup(expr);
 
     // remove newline
-    if (var->expr[strlen(expr) - 1] == '\n') {
-        var->expr[strlen(expr) - 1] = '\0';
+    if (mivar->expr[strlen(expr) - 1] == '\n') {
+        mivar->expr[strlen(expr) - 1] = '\0';
     }
 
     // Remove whitespace and the final '&' for reference types.
     // ptype breaks with '&'.
-    p = &(var->type)[strlen(var->type) - 1];
+    char* p = &(mivar->type)[strlen(mivar->type) - 1];
 
-    while ((p >= var->type) && isspace(*p)) {
+    while ((p >= mivar->type) && isspace(*p)) {
         *p-- = '\0';
     }
 
@@ -295,6 +284,7 @@ static MIVar *CreateMIVar(MISession *session, const char *expr) {
         *p = '\0';
     }
 
+    var.reset(mivar);
     return var;
 }
 
@@ -615,7 +605,7 @@ static char *GetVarValue(MISession *session, char *var) {
     return res;
 }
 
-static AIFStream *GetAIF(MISession *session, MIVar *var) {
+static AIFStream *GetAIF(MISession *session, std::shared_ptr<MIVar> var) {
     DVPRINT("GetAIF: %s\n", var->expr);
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
@@ -626,7 +616,7 @@ static AIFStream *GetAIF(MISession *session, MIVar *var) {
     if (var->numchild == 0) {
         // simple type
         DVPRINT("GetAIF: Resolved to simple type.\n");
-        return GetSimpleAIF(session, var);
+        return GetSimpleAIF(session, var.get());
     }
 
     // complex type
@@ -750,12 +740,12 @@ static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
     }
 }
 
-static AIFStream *GetComplexAIF(MISession *session, MIVar *var) {
+static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) {
     int id;
     int cnt = 0;
 
     while ((id = GetComplexType(var->type)) == T_UNKNOWN) {
-        if (char* pt = GetMIWhatisValue(session, NULL, var)) {
+        if (char* pt = GetMIWhatisValue(session, NULL, var.get())) {
             free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
@@ -775,7 +765,7 @@ static AIFStream *GetComplexAIF(MISession *session, MIVar *var) {
 
         case T_POINTER:
             DVPRINT("GetComplexAIF: Creating AIF pointer.\n");
-            a = GetPointerAIF(session, var);
+            a = GetPointerAIF(session, var.get());
             break;
 
         case T_UNION:
@@ -790,14 +780,14 @@ static AIFStream *GetComplexAIF(MISession *session, MIVar *var) {
             DVPRINT(
                 "GetComplexAIF: Creating AIF struct to represent union "
                 "type.\n");
-            a = GetStructAIF(session, var);
+            a = GetStructAIF(session, var.get());
             break;
 
         case T_STRUCT:
         // Pretend a derived type is a struct
         case T_FTNDTYPE:
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
-            a = GetStructAIF(session, var);
+            a = GetStructAIF(session, var.get());
             break;
 
         case T_STD_VECTOR:
@@ -814,7 +804,7 @@ static AIFStream *GetComplexAIF(MISession *session, MIVar *var) {
              * Maybe it was simple all alongg
              */
             DVPRINT("GetComplexAIF: Defaulting to simple aif.\n");
-            a = GetSimpleAIF(session, var);
+            a = GetSimpleAIF(session, var.get());
     }
 
     return a;
@@ -3278,7 +3268,13 @@ static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
         v = var->children[i];
         // set the expr to the name of this member
         v->expr = strdup(v->name);
-        AIFStream* ac = GetAIF(session, v);
+
+        // note: var owns the children - we can get away with creating a
+        // dummied up shared_ptr here because the enclosing stream (ac)
+        // is deleted before we exit this function.  i.e. we aren't trying to
+        // slice a struct... yet.
+        std::shared_ptr<MIVar> sv(v, [](MIVar*){});  
+        AIFStream* ac = GetAIF(session, sv);
         if (!ac) {
             DVPRINT(
                 "GetStructAIF: ERROR: Null aif object returned from GetAIF.\n");
@@ -3665,13 +3661,19 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
 namespace {
 class MIArrayToAIFParser {
 public:
+    // FIXME: type_struct and type_func have never properly cleaned themselves up.
+    // also clarify type_str.   Object copies shape.
     MIArrayToAIFParser(char* type_str, int type_len,
                        struct_info_t *type_struct, func_info_t *type_func,
-                       int type_id, arrayDimension_t *shape);
+                       int type_id, arrayDimension_t* shape);
+    ~MIArrayToAIFParser();
 
     void parseSome(const char* str);
 
     AIF* getResult();
+
+    // reset the parser to work on a new array - takes ownership of shape
+    void setShape(arrayDimension_t* shape);
     
 private:
     class Error {};
@@ -3713,13 +3715,18 @@ private:
 MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
                                        struct_info_t *type_struct,
                                        func_info_t *type_func,
-                                       int type_id, arrayDimension_t *shape)
+                                       int type_id, arrayDimension_t* shape)
     : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
-      m_type_func(type_func), m_type_id(type_id), m_shape(shape),
+      m_type_func(type_func), m_type_id(type_id), m_shape(shape ? dupArrayDimension(shape) : nullptr),
       m_dim(shape->dim), m_mins(), m_maxs(),
       m_depth(0), m_isC(false), m_isFortran(false),
       m_hasError(false), m_isFragment(false), m_abuild(m_dim), m_idcs(m_dim, 0)
 {
+}
+
+MIArrayToAIFParser::~MIArrayToAIFParser() {
+    if (m_shape)
+        freeArrayDimension(m_shape);
 }
 
 // Translate the MI result text into AIF format.   \a str may contain either the
@@ -3727,6 +3734,7 @@ MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
 // it will concatenate adjacent array pieces.   That is "[0,1,2]" "[3,4,5]" will be
 // understood as "[0,1,2,3,4,5]" Note that there is no comma between those arrays.
 void MIArrayToAIFParser::parseSome(const char* str) {
+    DVPRINT("In MIArrayToAIFParser::parseSome %s\n", str);
     if (m_hasError)
         return;
 
@@ -3747,6 +3755,8 @@ void MIArrayToAIFParser::parseSome(const char* str) {
     } catch (Error&) {
         m_hasError = true;
     }
+
+    DVPRINT("leaving MIArrayToAIFParser::parseSome m_hasError = %s\n", m_hasError ? "true" : "false");
 }
 
 // Handle a character that can be the beginniong of an array: '(' or '{' 
@@ -3908,6 +3918,33 @@ AIF* MIArrayToAIFParser::getResult() {
     return nullptr;
 }
 
+// reset the parser to work on a new array
+void MIArrayToAIFParser::setShape(arrayDimension_t* shape)
+{
+    if (!shape) {
+        DVPRINT("nullptr passed to AIFArrayToAIFParser::setShape\n");
+        return;
+    }
+
+    arrayDimension_t* newShape = dupArrayDimension(shape);
+    std::swap(newShape,m_shape);
+    if (newShape)
+        freeArrayDimension(newShape);
+
+    // reset the processing state
+    m_mins.clear();
+    m_maxs.clear();
+    m_dim = shape->dim;
+    m_depth = 0;
+    m_isC = m_isFortran = false;
+    m_hasError = false;
+    m_isFragment = false;
+    m_abuild.resize(m_dim);
+    fill_n(m_abuild.begin(), m_dim, nullptr);
+    m_idcs.resize(m_dim);
+    fill_n(m_idcs.begin(), m_dim, 0);
+}
+
 void MIArrayToAIFParser::error(const std::string& message) {
     m_hasError = true;
     DVPRINT("Parsing error %s\n", message.c_str());
@@ -3926,22 +3963,27 @@ void MIArrayToAIFParser::error(const std::string& message) {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape);
+    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, arrayDimension_t* shape);
     ~ArraySlicer();
-    char* getNext();
 
-    arrayDimension_t *getShape();
+    // evaluate the next slice of the variable result.   Return the
+    // result and the expected shape of the result.   The caller is
+    // responsible for free the returned shape.
+    char* getNext(arrayDimension_t** sliceShape);
+
+    arrayDimension_t* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
     
 private:
     void determineSlicing();
+    arrayDimension_t* makeSubShape(long subRng[2]);
+
     ArraySlicer(const ArraySlicer&) = delete;
     ArraySlicer& operator=(const ArraySlicer&) = delete;    
 
     MISession* m_session;       // session to connect to gdb/MI
-    MIVar* m_var;               // MI variable of interest
-    arrayDimension_t *m_shape;  // dimension and size of the array
-    bool m_shapeIsLocal;        // true if m_shape was created this this object
+    std::shared_ptr<MIVar> m_var;  // MI variable of interest
+    arrayDimension_t* m_shape;  // dimension and size of the array
     char* m_buf;                // allocated array for the result (contolled by this)
     char* m_array;              // interpretable region of m_buf
 
@@ -3952,8 +3994,9 @@ private:
     long m_slice;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape)
-    : m_session(session), m_var(var), m_shape(shape), m_shapeIsLocal(!shape),
+ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
+                         arrayDimension_t* shape)
+    : m_session(session), m_var(var), m_shape(shape ? dupArrayDimension(shape) : nullptr),
       m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
@@ -3966,7 +4009,7 @@ ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape
 
     if (m_blockSize) {
         DVPRINT("Slicing %s of type %s and dimension %d\n", var->expr, var->type,
-                (shape ? shape->dim : 0));
+                (!shape ? 0 : shape->dim));
         determineSlicing();
     }
 }
@@ -3974,7 +4017,7 @@ ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape
 ArraySlicer::~ArraySlicer()
 {
     free(m_buf);
-    if (m_shape && m_shapeIsLocal)
+    if (m_shape)
         freeArrayDimension(m_shape);
 }
 
@@ -4091,7 +4134,7 @@ void ArraySlicer::determineSlicing()
 }
 
 // Get the data shape, i.e. the dimensionality and range of the array indexing
-// for the data type.  The function is entwinded with this class because it
+// for the data type.  The function is entwined with this class because it
 // needs understand the shape before it is sliced, and need to pass it along to
 // the parsing after it is sliced
 arrayDimension_t *ArraySlicer::getShape() {
@@ -4103,7 +4146,7 @@ arrayDimension_t *ArraySlicer::getShape() {
     // Though not always!   The remainder here is the fall-back position where
     // we could not cogitize the type information, so we just pull out the result
     // in a single glob and pull the shape information out of the result.
-    m_buf = GetArrayDataString(m_session, m_var);
+    m_buf = GetArrayDataString(m_session, m_var.get());
 
     // Now lets get the shape of this array
     int lengthTagLen = 6;
@@ -4148,25 +4191,32 @@ arrayDimension_t *ArraySlicer::getShape() {
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-char* ArraySlicer::getNext()
+char* ArraySlicer::getNext(arrayDimension_t** sliceShape)
 {
+    DVPRINT("In ArraySlicer::getNext\n");
+    
+    *sliceShape = nullptr;
+    
     if (m_subIdx > m_maxSubIdx)
         return nullptr;
     
     char* array = nullptr;
     if (m_array) {
+        DVPRINT("In ArraySlicer::getNext no size information\n");
         // we were unable to get the size information for variable, so we
         // have already gotten the full data
         array = m_array;
         m_array = nullptr;
         ++m_subIdx;
     } else if (m_slice == 0 && !m_buf) {
+        DVPRINT("In ArraySlicer::getNext not big enough to split\n");
         // splitting is not enabled, the array is not big enough to split,
         // or it's a form the splitter doesn't recognize, just return it
         // all
-        array = m_buf = GetArrayDataString(m_session, m_var);
+        array = m_buf = GetArrayDataString(m_session, m_var.get());
         ++m_subIdx;
     } else {
+        DVPRINT("In ArraySlicer::getNext get next chunk\n");
         // get the next chunk of data
         std::swap(m_buf, array);
         if (array) {
@@ -4191,23 +4241,103 @@ char* ArraySlicer::getNext()
         array = EvalExpression(m_session,const_cast<char*>(subExpr.c_str()));
         if (array) {
             // success!
-            m_subIdx = maxIdx+1;
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
+            long subRng[2]= { m_subIdx, maxIdx };
+            *sliceShape = makeSubShape(subRng);
+            m_subIdx = maxIdx+1;
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
-            array = GetArrayDataString(m_session, m_var);
+            array = GetArrayDataString(m_session, m_var.get());
             m_subIdx = m_maxSubIdx + 1;
 
             DVPRINT("Failed getting sub-array value, full result: %s\n", array);
         }
         m_buf = array;
     }
+
+    DVPRINT("got an array value\n");
+    if (array && !*sliceShape)
+        *sliceShape = makeSubShape(nullptr);
+
+    DVPRINT("done makeSubShape\n");
+
     return array;
 }
+
+// Create a shape object corresponding to an array slice, or the full array if subRng is null.
+// If subRng is specified it is the inclusive range of the outermost dimension of the arrray.
+// Callers is responsible for freeing the returned object.
+arrayDimension_t* ArraySlicer::makeSubShape(long subRng[2])
+{
+    arrayDimension_t* shape = getShape(); // size of the full array
+    arrayDimension_t* subShape = newArrayDimension();
+    subShape->isFortran = shape->isFortran;
+
+    unsigned int dim = shape->dim;
+
+    for (unsigned int i=1; i<=shape->dim; ++i) {
+        int minIdx, maxIdx;
+        if (subRng && ((shape->isFortran && i==dim) || (!shape->isFortran && i==1))) {
+            minIdx = subRng[0];
+            maxIdx = subRng[1];
+        } else {
+            minIdx = getArrayDimensionRangeMin(shape,i);
+            maxIdx = getArrayDimensionRangeMax(shape,i);
+        }
+        addArrayDimensionDef(subShape, maxIdx-minIdx+1, minIdx, maxIdx);
+    }
+
+    return subShape;
+}            
+
+// Class for managing the extraction of an array data object via slices.   This object will
+// be wrapped in an AIFStream, and ultimately allows us to query gdb/mi for slice data as the
+// slices are ready to be consumed.   
+class ArrayStream : public AIFStream::Slices {
+public:
+    // Constructor.   slicr and parser do the heavy lifting.
+    ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser);
+
+    // get the shape of the full array
+    virtual arrayDimension_t* getFullShape() const override;
+
+    // return the next partition of data
+    virtual AIF* getNextSlice() override;
+
+private:
+    std::shared_ptr<ArraySlicer> m_slicer;
+    std::shared_ptr<MIArrayToAIFParser> m_parser;
+};
+
+ArrayStream::ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser)
+    : m_slicer(slicer), m_parser(parser)
+{}
+
+// get the shape of the full array
+arrayDimension_t* ArrayStream::getFullShape() const {
+    return m_slicer->getShape();
+}
+
+// return the next partition of data
+AIF* ArrayStream::getNextSlice() {
+    DVPRINT("In ArrayStream::getNextSlice\n");
+    arrayDimension_t* subShape = nullptr;
+    AIF* res = nullptr;
+    if (char* subResult = m_slicer->getNext(&subShape)) {
+        m_parser->setShape(subShape);
+        freeArrayDimension(subShape);
+
+        m_parser->parseSome(subResult);
+        res = m_parser->getResult();
+    }
+
+    return res;
+}
+
 } // namespace
 
 
-static AIFStream *GetArrayAIF(MISession *session, MIVar *var) {
+static AIFStream *GetArrayAIF(MISession *session, std::shared_ptr<MIVar> var) {
     int id;
     char *type_str;
     int type_len;
@@ -4215,7 +4345,7 @@ static AIFStream *GetArrayAIF(MISession *session, MIVar *var) {
     func_info_t *type_func;
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
-    if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
+    if ((id = GetArrayBaseType(session, var.get(), &type_str, &type_len, &type_struct,
                                &type_func)) == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
         return nullptr;
@@ -4234,46 +4364,31 @@ static AIFStream *GetArrayAIF(MISession *session, MIVar *var) {
             var->numchild, id, type_str, type_len);
 
     // Get the shape of this array
-    arrayDimension_t *shape = GetArrayDimensionShape(session, var);
+    arrayDimension_t *shape = GetArrayDimensionShape(session, var.get());
     if (!shape) {
         // error already set
         DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
         return nullptr;
     }
 
-    std::vector<unsigned long> memSizes;
-    memSizes.push_back(GetProcSize());
-
-    // first we need to get the data string
-    MIArrayToAIFParser parser(type_str, type_len, type_struct,
-                              type_func, id, shape);
-
-    ArraySlicer slicer(session,var,shape);
-    while (char* buf = slicer.getNext()) {
-        memSizes.push_back(GetProcSize());
-        parser.parseSome(buf);
-    }
-
-    AIF* a = parser.getResult();
-
-    memSizes.push_back(GetProcSize());
-
-    DVPRINT("memory: sizes");
-    for (auto s : memSizes)
-        DVPRINT(" %lu", s);
-    DVPRINT("\n");
-        
+    // The array data could be enormous, so instead of getting it now, we just return a
+    // data stream object which can access it in pieces
+    auto slicer = std::make_shared<ArraySlicer>(session,var,shape);
+    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
+                                                       type_func, id, shape);
+    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
 
     freeArrayDimension(shape);
 
-    return new AIFStream(a);
+    return new AIFStream(arrayStream);
+
 }
 
-static AIFStream *GetVectorLikeAIF(MISession *session, MIVar *var) {
+static AIFStream *GetVectorLikeAIF(MISession *session, std::shared_ptr<MIVar> var) {
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
     char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
-    int id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct, &type_func);
+    int id = GetArrayBaseType(session, var.get(), &type_str, &type_len, &type_struct, &type_func);
 
     if (id == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
@@ -4294,22 +4409,15 @@ static AIFStream *GetVectorLikeAIF(MISession *session, MIVar *var) {
 
     DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
 
-    ArraySlicer slicer(session, var, nullptr);
-    arrayDimension_t *shape = slicer.getShape();
-    if (!shape) {
-        DVPRINT("could not get size of a vector like object");
-        return nullptr;
-    }
+    // The vector data could be enormous, so instead of getting it now, we just create an 
+    // AIFStream which can access the data as it is needed.
 
-    MIArrayToAIFParser parser(type_str, type_len, type_struct,
-                              type_func, id, shape);
+    auto slicer = std::make_shared<ArraySlicer>(session,var,nullptr);
+    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
+                                                       type_func, id, nullptr);
+    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
 
-    while (char* buf = slicer.getNext()) {
-        parser.parseSome(buf);
-    }
-
-    AIF* a = parser.getResult();
-    return new AIFStream(a);
+    return new AIFStream(arrayStream);
 }
 
 static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {

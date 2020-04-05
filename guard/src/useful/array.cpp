@@ -72,6 +72,32 @@ arrayDimension_t *newArrayDimension() {
     return arr_dim;
 }
 
+arrayDimension_t *dupArrayDimension(arrayDimension_t *rhs)
+{
+    if (!rhs)
+        return nullptr;
+
+    arrayDimension_t* cp = (arrayDimension_t*) malloc(sizeof(arrayDimension_t));
+    memset(cp, 0, sizeof(arrayDimension_t));  // clear it to NULL
+    unsigned int dim = cp->dim = rhs->dim;
+
+    size_t arraySize = sizeof(int) * dim;
+
+    cp->dimDef = (unsigned int*)malloc(arraySize);
+    memcpy(cp->dimDef, rhs->dimDef, arraySize);
+
+    cp->dimMin = (int*) malloc(arraySize);
+    memcpy(cp->dimMin, rhs->dimMin, arraySize);
+
+    cp->dimMax = (int*) malloc(arraySize);
+    memcpy(cp->dimMax, rhs->dimMax, arraySize);
+
+    cp->isFortran = rhs->isFortran;
+    cp->_len = dim;
+
+    return cp;
+}
+
 // resize an arrayDimension_t object
 static int resizeArrayDimension(arrayDimension_t *myArray) {
     unsigned int *temp;

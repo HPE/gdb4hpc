@@ -2225,7 +2225,7 @@ static arrayDimension_t *GetArrayDimensionShape(MISession *session,
 
     // iterate while we are not pointing to the begining of the range info
     while (!done) {
-        // iterate while we are not pointing to a start delimiter and seperation
+        // iterate while we are not pointing to a start delimiter and separation
         // delimiter and str
         switch (*p) {
             case ARRAY_C_TYPE_START:
@@ -3718,7 +3718,7 @@ MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
                                        int type_id, arrayDimension_t* shape)
     : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
       m_type_func(type_func), m_type_id(type_id), m_shape(shape ? dupArrayDimension(shape) : nullptr),
-      m_dim(shape->dim), m_mins(), m_maxs(),
+      m_dim(shape ? shape->dim : 0), m_mins(), m_maxs(),
       m_depth(0), m_isC(false), m_isFortran(false),
       m_hasError(false), m_isFragment(false), m_abuild(m_dim), m_idcs(m_dim, 0)
 {
@@ -3735,10 +3735,15 @@ MIArrayToAIFParser::~MIArrayToAIFParser() {
 // understood as "[0,1,2,3,4,5]" Note that there is no comma between those arrays.
 void MIArrayToAIFParser::parseSome(const char* str) {
     DVPRINT("In MIArrayToAIFParser::parseSome %s\n", str);
+
     if (m_hasError)
         return;
 
     try {
+        if (!m_shape) {
+            error("no array shape is specified\n");
+        }
+        
         for (const char* p = str; *p; ++p) {
             if (*p == '(' || *p == '{') {
                 openBracket(*p);
@@ -3782,9 +3787,10 @@ void MIArrayToAIFParser::openBracket(char bracket)
         // arrayDimension_t it is a bit of a goofy goober and used start-1 indexing, so
         // i=1, j=2, k=3, etc.   Also, the parser always orders from slowest changing to
         // fastest changing, so note the order reversal we do here for fortran.  (so we
-        // don't need to mess with it again).
+        // don't need to mess with it again).   Actually - the dimension ordering in
+        // arrayDimension_t is also perversely reversed, so reverse the logic again.
         for (int i=0; i<m_dim; ++i) {
-            int d = (m_isFortran ? m_dim-i : i+1);
+            int d = (m_isFortran ? i+1 : m_dim-i);
             m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
             m_maxs.push_back(getArrayDimensionRangeMax(m_shape,d));
             
@@ -4413,8 +4419,15 @@ static AIFStream *GetVectorLikeAIF(MISession *session, std::shared_ptr<MIVar> va
     // AIFStream which can access the data as it is needed.
 
     auto slicer = std::make_shared<ArraySlicer>(session,var,nullptr);
+
+    arrayDimension_t *shape = slicer->getShape();                                                    
+    if (!shape) {                                                                                   
+        DVPRINT("could not get size of a vector like object");                                      
+        return nullptr;                                                                             
+    }                                                                                               
+    
     auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
-                                                       type_func, id, nullptr);
+                                                       type_func, id, shape);
     auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
 
     return new AIFStream(arrayStream);

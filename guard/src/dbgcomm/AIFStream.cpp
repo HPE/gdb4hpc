@@ -134,6 +134,6 @@ arrayDimension_t* AIFStream::getShape() {
 }
 
 void AIFStream::warning(const char* message) {
-    fprintf(stderr, "AIFStream: %s\n", message);
+    //fprintf(stderr, "AIFStream: %s\n", message);
 }
 

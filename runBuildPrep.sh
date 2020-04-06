@@ -82,18 +82,25 @@ install_common_pe
 # Install CTI and CDST support
 install_cti
 
-echo "############################################"
-echo "#          Installing cudatoolkit          #"
-echo "############################################"
-# ensure submodule is checked out
-if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
-    echo "$top_level/external/pebuildenv submodule not checked out..."
-    exit 1
+local arch=$(get_arch)
+if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
+    echo "############################################"
+    echo "#    aarch64, cudatoolkit not supported    #"
+    echo "############################################"
+else
+    echo "############################################"
+    echo "#          Installing cudatoolkit          #"
+    echo "############################################"
+    # ensure submodule is checked out
+    if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
+        echo "$top_level/external/pebuildenv submodule not checked out..."
+        exit 1
+    fi
+    export product_version="10.1"
+    export pebuildenv_path=$top_level/external/pebuildenv
+    $top_level/external/pebuildenv/src/cuda-local.sh
+    check_exit_status
 fi
-export product_version="10.1"
-export pebuildenv_path=$top_level/external/pebuildenv
-$top_level/external/pebuildenv/src/cuda-local.sh
-check_exit_status
 
 capture_jenkins_build
 check_exit_status

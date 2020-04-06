@@ -138,47 +138,54 @@ check_exit_status
 cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
 check_exit_status
 
-echo "############################################"
-echo "#          Building cuda gdb 10.1          #"
-echo "############################################"
+local arch=$(get_arch)
+if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
+    echo "############################################"
+    echo "#      aarch64, cudagdb not supported      #"
+    echo "############################################"
+else
+    echo "############################################"
+    echo "#          Building cuda gdb 10.1          #"
+    echo "############################################"
 
-# we've already ensured python3 exists, just noting it's necessary here too.
-# ensure submodule is checked out
-if [[ ! -f $top_level/external/ddt_cuda-gdb-101/README ]]; then
-    echo "cuda gdb 10.1 submodule not checked out..."
-    exit 1
+    # we've already ensured python3 exists, just noting it's necessary here too.
+    # ensure submodule is checked out
+    if [[ ! -f $top_level/external/ddt_cuda-gdb-101/README ]]; then
+        echo "cuda gdb 10.1 submodule not checked out..."
+        exit 1
+    fi
+
+    cd $top_level/external/ddt_cuda-gdb-101
+    check_exit_status
+
+    cuda_install_dir=$install_dir/cuda_gdb_install
+    ./configure --prefix=$cuda_install_dir \
+                --with-gdb-datadir=$cuda_install_dir/share/cuda-gdb \
+                --with-python=$python_loc \
+                --program-prefix=cuda- \
+                --enable-cuda \
+                --enable-gdbserver=no \
+                --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
+                CFLAGS="-Wno-shift-negative-value \
+                    -Wno-unused-const-variable \
+                    -I$top_level/external/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" \
+                LDFLAGS="-lpthread"
+    check_exit_status
+
+    make $cdst_j_flags
+    check_exit_status
+
+    # as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: we don't
+    # want all of cuda gdb to install, so we only install from the gdb directory.
+    cd $top_level/external/ddt_cuda-gdb-101/gdb
+    check_exit_status
+    make $cdst_j_flags install
+    check_exit_status
+
+    # deliver cuda gdb to libexec dir
+    cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
+    check_exit_status
 fi
-
-cd $top_level/external/ddt_cuda-gdb-101
-check_exit_status
-
-cuda_install_dir=$install_dir/cuda_gdb_install
-./configure --prefix=$cuda_install_dir \
-            --with-gdb-datadir=$cuda_install_dir/share/cuda-gdb \
-            --with-python=$python_loc \
-            --program-prefix=cuda- \
-            --enable-cuda \
-            --enable-gdbserver=no \
-            --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
-            CFLAGS="-Wno-shift-negative-value \
-                -Wno-unused-const-variable \
-                -I$top_level/external/pebuildenv/opt/cudatoolkit/10.1/include -g -O2" \
-            LDFLAGS="-lpthread"
-check_exit_status
-
-make $cdst_j_flags
-check_exit_status
-
-# as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: we don't
-# want all of cuda gdb to install, so we only install from the gdb directory.
-cd $top_level/external/ddt_cuda-gdb-101/gdb
-check_exit_status
-make $cdst_j_flags install
-check_exit_status
-
-# deliver cuda gdb to libexec dir
-cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
-check_exit_status
 
 
 echo "############################################"

@@ -158,7 +158,9 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
+%ifnarch aarch64
 %{__cp} -a %{external_build_dir}/libexec/cuda101-gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
+%endif
 %{__cp} -a %{external_build_dir}/libexec/ROCgdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/guard_proxy ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/start_proxy.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
@@ -214,6 +216,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__cp} -a %{external_build_dir}/share/gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/share/gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
 # cuda-gdb Share
+%ifnarch aarch64
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
@@ -250,6 +253,7 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
+%endif
 # ROCgdb Share
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
@@ -391,6 +395,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
+%ifnarch aarch64
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/command
@@ -399,6 +404,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
+%endif
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
@@ -418,7 +424,9 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
+%ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda101-gdb-guard
+%endif
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/ROCgdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
@@ -460,6 +468,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit/wrs-linux.py
 #cuda-gdb share
+%ifnarch aarch64
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/FrameDecorator.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/FrameIterator.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb/frames.py
@@ -488,6 +497,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/wrs-linux.py
+%endif
 #ROCgdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameDecorator.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameIterator.py

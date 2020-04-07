@@ -48,24 +48,70 @@
 /*
 ** Types
 */
-typedef struct func_info {
-    int addr_len;
-    char *rtn_type;
-    int argc;
-    char **argv;
-} func_info_t;
+namespace {
+class func_info_t {
+public:
+    // note: steals ownership of all arguments
+    func_info_t(int addr_len, char* rtn_type, int argc, char** argv)
+        : m_addr_len(addr_len), m_rtn_type(rtn_type), m_argc(argc), m_argv(argv) {}
+    ~func_info_t();
+    func_info_t(const func_info_t&) = delete;
+    func_info_t& operator=(const func_info_t&) = delete;
 
-typedef struct struct_info {
-    char *name;
-    int numFields;
-    // The following are arrays of size numFields
-    int *id;
-    char **type_str;
-    int *type_len;
-    struct func_info **type_func;
-    struct struct_info **inner_struct;
-} struct_info_t;
+    int getAddrLen() const { return m_addr_len; }
+    char* getRtnType() const { return m_rtn_type; }
+    int getArgc() const { return m_argc; }
+    char** getArgv() const { return m_argv; }
 
+private:
+    int m_addr_len;
+    char *m_rtn_type;
+    int m_argc;
+    char **m_argv;
+};
+func_info_t::~func_info_t() {
+    free(m_rtn_type);
+    for (int i=0; i<m_argc; ++i)
+        free(m_argv[i]);
+    free(m_argv);
+}
+
+class struct_info_t {
+public:
+    struct_info_t(const char* name, int numFields);
+    ~struct_info_t();
+    struct_info_t(const struct_info_t&) = delete;
+    struct_info_t& operator=(const struct_info_t&) = delete;
+    
+    struct field {
+        field() : id(0), type_str(nullptr), type_len(0), type_func(nullptr), inner_struct(nullptr) {}
+        int id;
+        char* type_str;
+        int type_len;
+        func_info_t* type_func;
+        struct_info_t* inner_struct;
+    };
+
+    char* getName() { return m_name; }
+    field& getField(int idx) { return m_fields[idx]; }
+    const std::vector<field>& getFields() const { return m_fields; }
+private:
+    char* m_name;
+    std::vector<field> m_fields;
+}; 
+
+struct_info_t::struct_info_t(const char* name, int numFields)
+    : m_name(strdup(name)), m_fields(numFields) {
+}
+struct_info_t::~struct_info_t() {
+    free(m_name);
+    for (auto f : m_fields) {
+        free(f.type_str);
+        delete(f.type_func);
+        delete(f.inner_struct);
+    }
+}
+} // namespace
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
 
@@ -2031,6 +2077,11 @@ static int GetType(char *type) {
 static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
                             int *type_len, struct_info_t **type_struct,
                             func_info_t **type_func) {
+    if (type_struct)
+        *type_struct = nullptr;
+    if (type_func)
+        *type_func = nullptr;
+    
     char *vecStr = strdup(var->type);
     int done = 0;
     // DVPRINT("GetArrayBaseType: %s\n", str);
@@ -2449,26 +2500,23 @@ static void RemoveWhitespace(char *str) {
 ** This function is used when creating a simple AIF type from a gdb string.
 */
 static func_info_t *GetFunctionInfo(MISession *session, char *type_str) {
-    func_info_t *result;
-
     DVPRINT("GetFunctionInfo: %s\n", type_str);
 
-    // malloc the return type
-    if ((result = (func_info_t *)malloc(sizeof(func_info_t))) == (void *)0) {
-        DVPRINT("GetFunctionInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
     // get the number of arguments and arguments of function
-    result->argc = GetFunctionArguments(session, type_str, &result->argv);
-    DVPRINT("GetFunctionInfo: Num args: %d\n", result->argc);
+    char **argv;
+    int argc = GetFunctionArguments(session, type_str, &argv);
+    DVPRINT("GetFunctionInfo: Num args: %d\n", argc);
 
     // get the return type of the function
-    result->rtn_type = GetFunctionReturnType(session, type_str);
-    DVPRINT("GetFunctionInfo: Function return type: %s\n", result->rtn_type);
+    char* rtn_type = GetFunctionReturnType(session, type_str);
+    DVPRINT("GetFunctionInfo: Function return type: %s\n", rtn_type);
 
     // We need to ask for the length of an address on this system
-    result->addr_len = GetTypeLength(session, "void *");
+    int addr_len = GetTypeLength(session, "void *");
+
+    auto result = new func_info_t(addr_len, rtn_type, argc, argv);
+    if (!result)
+        DVPRINT("GetFunctionInfo: Malloc Failed.\n");
 
     return result;
 }
@@ -3062,14 +3110,14 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             // first create an address of the res
             addr_loc = strtoll(res, NULL, 0);
             addr_ptr = (void *)addr_loc;
-            addr = AddressToAIF(addr_ptr, type_func->addr_len);
+            addr = AddressToAIF(addr_ptr, type_func->getAddrLen());
 
             // get the function name
             name = GetFunctionName(res);
 
             // Now create the actual function pointer
-            ac = FunctionToAIF(addr, name, type_func->rtn_type, type_func->argc,
-                               type_func->argv);
+            ac = FunctionToAIF(addr, name, type_func->getRtnType(), type_func->getArgc(),
+                               type_func->getArgv());
 
             Free(name);
             AIFFree(addr);
@@ -3102,10 +3150,10 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                 return VoidToAIF(0, 0);
             }
 
-            a = EmptyStructToAIF(type_struct->name);
+            a = EmptyStructToAIF(type_struct->getName());
             char* pch = res;
 
-            while (index < type_struct->numFields) {
+            for (const auto& f : type_struct->getFields()) {
                 // point at the fields "="
                 if ((s1 = strchr(pch, '=')) == NULL) {
                     DVPRINT("CreateSimpleAIF: Could not find = in field.\n");
@@ -3218,17 +3266,13 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                 *s2 = '\0';
 
                 // now create a new AIF type from the res we just pieced out
-                ac = CreateSimpleAIF(type_struct->id[index], s1,
-                                     type_struct->type_str[index],
-                                     type_struct->type_len[index],
-                                     type_struct->inner_struct[index],
-                                     type_struct->type_func[index]);
+                ac = CreateSimpleAIF(f.id, s1, f.type_str, f.type_len,
+                                     f.inner_struct, f.type_func);
 
-                CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d.\n",
-                         index + 1);
+                CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d\n", index);
+                ++index;
                 AIFAddFieldToStruct(a, strdup(name), ac);
                 AIFFree(ac);
-                ++index;
             }
             return a;
         }
@@ -3298,7 +3342,6 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
     char *tmp2;
     char tmp_char;
     int id;
-    struct_info_t *result;
     int index;
 
     DVPRINT("GetStructInfo: %s\n", type_str);
@@ -3315,61 +3358,30 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
     field_list = CLIGetPtypeFieldList(cmd);
     MICommandFree(cmd);
 
-    // malloc the return type
-    if ((result = (struct_info_t *)malloc(sizeof(struct_info_t))) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->numFields = MIListSize(field_list)) == 0) {
+    int numFields = MIListSize(field_list);
+    if (!numFields) {
         DVPRINT("GetStructInfo: Zero fields detected.\n");
         MIListFree(field_list, NULL);
-        free(result);
         return NULL;
     }
 
     // set the name of the struct
-    result->name = strdup(GetTypeName(type_str));
-
-    // malloc each of the arrays inside the struct_info_t
-    if ((result->id = (int *)malloc(sizeof(int) * result->numFields)) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_str = (char **)malloc(sizeof(char *) *
-                                            result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_len = (int *)malloc(sizeof(int) * result->numFields)) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_func = (func_info_t **)malloc(
-             sizeof(func_info_t *) * result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-    // memset this to 0
-    memset(result->type_func, 0, sizeof(func_info_t *) * result->numFields);
-
-    if ((result->inner_struct = (struct_info_t **)malloc(
-             sizeof(struct_info_t *) * result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
+    const char* name = GetTypeName(type_str);
+    struct_info_t* result = new struct_info_t(name, numFields);
+    if (!result) {
+        DVPRINT("allocating struct_info_t failed\n");
+        return nullptr;
     }
 
     // Now fill in the information from the returned list
     index = 0;
     MIListSet(field_list);
-    while ((field = (char *)MIListGet(field_list)) != NULL) {
+    for (index = 0; (field = (char *)MIListGet(field_list)); ++index) {
         DVPRINT("GetStructInfo: field is %s\n", field);
+
+        struct_info_t::field& sfield = result->getField(index);
+
+        
         // The field contains the type including its name. For instance, field
         // will contain int i. We only want to point at the int part.
         // Note that we need to do special things for function pointers.
@@ -3419,7 +3431,7 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
                 Free(tmp_field);
                 tmp_field = tmp2;
                 // Get the function info
-                result->type_func[index] = GetFunctionInfo(session, tmp_field);
+                sfield.type_func = GetFunctionInfo(session, tmp_field);
             } else {
                 // not a function pointer, proceed as usual
                 tmp_char = *tmp;
@@ -3443,27 +3455,24 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
                 break;
         }
 
-        result->id[index] = id;
-        result->type_str[index] = strdup(tmp_field);
-        result->type_len[index] = GetTypeLength(session, tmp_field);
+        sfield.id = id;
+        sfield.type_str = strdup(tmp_field);
+        sfield.type_len = GetTypeLength(session, tmp_field);
 
-        DVPRINT("GetStructInfo: id is %d\n", result->id[index]);
-        DVPRINT("GetStructInfo: type_str is %s\n", result->type_str[index]);
-        DVPRINT("GetStructInfo: type_len is %d\n", result->type_len[index]);
+        DVPRINT("GetStructInfo: id is %d\n", sfield.id);
+        DVPRINT("GetStructInfo: type_str is %s\n", sfield.type_str);
+        DVPRINT("GetStructInfo: type_len is %d\n", sfield.type_len);
 
         // only need the struct_info_t stuff filled out if this is a struct
         if (id == T_STRUCT) {
             DVPRINT("GetStructInfo: Gathering inner struct info.\n");
             // recursively call this function with the field
-            result->inner_struct[index] = GetStructInfo(session, tmp_field);
+            sfield.inner_struct = GetStructInfo(session, tmp_field);
         } else {
-            result->inner_struct[index] = NULL;
+            sfield.inner_struct = nullptr;
         }
 
         DVPRINT("GetStructInfo: Done with field.\n");
-
-        // increment index
-        ++index;
     }
 
     // Remember to free the MIList and tmp_field.
@@ -3661,8 +3670,7 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
 namespace {
 class MIArrayToAIFParser {
 public:
-    // FIXME: type_struct and type_func have never properly cleaned themselves up.
-    // also clarify type_str.   Object copies shape.
+    // takes ownership of type_str, type_struct and type_func (but not shape)
     MIArrayToAIFParser(char* type_str, int type_len,
                        struct_info_t *type_struct, func_info_t *type_func,
                        int type_id, arrayDimension_t* shape);
@@ -3727,6 +3735,8 @@ MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
 MIArrayToAIFParser::~MIArrayToAIFParser() {
     if (m_shape)
         freeArrayDimension(m_shape);
+    delete m_type_struct;
+    delete m_type_func;
 }
 
 // Translate the MI result text into AIF format.   \a str may contain either the

@@ -8,11 +8,11 @@
 #include "array.h"
 #include <memory>
 
-
+// This class represents a single data result from gdb which can be accesses as a series
+// of discrete styled slices - at least for arrays.
 class AIFStream {
 public:
-    enum steal_t { STEAL };
-
+    // The Slices class for implementing the piecewise data access.   
     class Slices {
     public:
         Slices() = default;
@@ -29,6 +29,8 @@ public:
         virtual AIF* getNextSlice() = 0;
     };
 
+    enum steal_t { STEAL };
+
     // constructor for a single block of AIF data - takes ownership of aif if supplied
     AIFStream(AIF* aif);
 
@@ -36,8 +38,12 @@ public:
     AIFStream(std::shared_ptr<Slices> slices);
 
     // this should be a temporary function to be replaced by real iteration
+    // The value is cached and is owned by the AIF stream object.
     AIF* joinAIF();
 
+    // create the joined AIF and steal the ownership.  I.e. the returned AIF object
+    // can live after the AIF stream is destroyed and the caller is responsible for
+    // freeing it.
     AIF* joinAIF(steal_t);
 
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,

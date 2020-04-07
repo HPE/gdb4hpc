@@ -49,6 +49,8 @@
 ** Types
 */
 namespace {
+
+// Type information for describing a function with its argument and return types
 class func_info_t {
 public:
     // note: steals ownership of all arguments
@@ -76,13 +78,15 @@ func_info_t::~func_info_t() {
     free(m_argv);
 }
 
+// type information for describing the data members of a struct or class
 class struct_info_t {
 public:
     struct_info_t(const char* name, int numFields);
     ~struct_info_t();
     struct_info_t(const struct_info_t&) = delete;
     struct_info_t& operator=(const struct_info_t&) = delete;
-    
+
+    // descriptor type for a single field of the struct.
     struct field {
         field() : id(0), type_str(nullptr), type_len(0), type_func(nullptr), inner_struct(nullptr) {}
         int id;

@@ -45,8 +45,11 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             xz-devel
     check_exit_status
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
+    # Note the following will be different on build VMs vs DST. Errors are okay.
+    yum config-manager --set-enabled PowerTools
+    yum config-manager --set-enabled dst-remote-centos8-PowerTools
     # Install yum based components
-    yum --assumeyes --enablerepo=PowerTools install \
+    yum --assumeyes install \
             autoconf \
             automake \
             binutils-devel \

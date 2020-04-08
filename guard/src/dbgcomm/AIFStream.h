@@ -8,7 +8,7 @@
 #include "array.h"
 #include <memory>
 
-// This class represents a single data result from gdb which can be accesses as a series
+// This class represents a single data result from gdb which can be accessed as a series
 // of discrete styled slices - at least for arrays.
 class AIFStream {
 public:
@@ -41,7 +41,7 @@ public:
     // The value is cached and is owned by the AIF stream object.
     AIF* joinAIF();
 
-    // create the joined AIF and steal the ownership.  I.e. the returned AIF object
+    // create the joined AIF and steal the ownership; i.e. the returned AIF object
     // can live after the AIF stream is destroyed and the caller is responsible for
     // freeing it.
     AIF* joinAIF(steal_t);

@@ -1689,7 +1689,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             if (GetNumberOfReply(rep_set) == 1) {
                                 reply = GetNextReplyInSet(rep_set);
                                 // point directly at the AIF data
-                                a1 = EVENT_DATA(reply->rep_event);
+                                a1 = EVENT_DATA(reply->rep_event)->joinAIF();
                                 // goto the code above
                                 goto apply_op_aif_direct;
                             }
@@ -1703,7 +1703,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             while ((reply = GetNextReplyInSet(rep_set)) !=
                                    (group_reply_t *)NULL) {
                                 // point at the data
-                                a1 = EVENT_DATA(reply->rep_event);
+                                a1 = EVENT_DATA(reply->rep_event)->joinAIF();
                                 if (AIFIsZero(a1, &r1) < 0) {
                                     SetError("%s", AIFErrorStr());
                                     // Make sure cleanup happens
@@ -1746,7 +1746,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         // event, and finally add it to the new
                                         // reply set
                                         ev = NewEvent(DBGEV_DATA);
-                                        ev->ev_data = CopyAIF(RVAL_AIF(tmp));
+                                        ev->ev_data = new AIFStream(CopyAIF(RVAL_AIF(tmp)));
                                         new_reply = NewGroupReply(
                                             reply->rep_di,
                                             bitset_dup(reply->rep_group), ev);
@@ -1984,7 +1984,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 aif_diff = NULL;
 
                                 // point at the data
-                                a2 = EVENT_DATA(reply->rep_event);
+                                a2 = EVENT_DATA(reply->rep_event)->joinAIF();
 
                                 // apply the operation
                                 if ((aif_res = apply_op_aif(
@@ -1999,7 +1999,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 // Make a new event out of the AIF data, use the
                                 // replies bitset
                                 ev = NewEvent(DBGEV_DATA);
-                                ev->ev_data = aif_res;
+                                ev->ev_data = new AIFStream(aif_res);
                                 new_reply = NewGroupReply(
                                     reply->rep_di, bitset_dup(reply->rep_group),
                                     ev);
@@ -2008,7 +2008,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 // Check the aif_diff
                                 if (aif_diff != NULL) {
                                     ev = NewEvent(DBGEV_DATA);
-                                    ev->ev_data = aif_diff;
+                                    ev->ev_data = new AIFStream(aif_diff);
                                     new_reply = NewGroupReply(
                                         reply->rep_di,
                                         bitset_dup(reply->rep_group), ev);
@@ -2060,7 +2060,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                         aif_diff = NULL;
 
                         // point at the data
-                        a1 = EVENT_DATA(reply->rep_event);
+                        a1 = EVENT_DATA(reply->rep_event)->joinAIF();
 
                         switch (RVAL_TYPE(v2)) {
                             // This is the reply to aif case
@@ -2081,7 +2081,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 // Make a new event out of the AIF data, use the
                                 // replies bitset
                                 ev = NewEvent(DBGEV_DATA);
-                                ev->ev_data = aif_res;
+                                ev->ev_data = new AIFStream(aif_res);
                                 new_reply = NewGroupReply(
                                     reply->rep_di, bitset_dup(reply->rep_group),
                                     ev);
@@ -2090,7 +2090,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 // Check the aif_diff
                                 if (aif_diff != NULL) {
                                     ev = NewEvent(DBGEV_DATA);
-                                    ev->ev_data = aif_diff;
+                                    ev->ev_data = new AIFStream(aif_diff);
                                     new_reply = NewGroupReply(
                                         reply->rep_di,
                                         bitset_dup(reply->rep_group), ev);
@@ -2117,7 +2117,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         GetNumberOfReply(rep_set2) == 1) {
                                         // point directly at the AIF data for
                                         // reply2
-                                        a2 = EVENT_DATA(reply2->rep_event);
+                                        a2 = EVENT_DATA(reply2->rep_event)->joinAIF();
                                         // apply the operation
                                         if ((aif_res = apply_op_aif(
                                                  op, a1, a2,
@@ -2172,7 +2172,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                     }
 
                                     // point at the aif data for reply2
-                                    a2 = EVENT_DATA(reply2->rep_event);
+                                    a2 = EVENT_DATA(reply2->rep_event)->joinAIF();
 
                                     // apply the operation
                                     if ((aif_res = apply_op_aif(
@@ -2186,7 +2186,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
 
                                     // Make a new event out of the AIF data
                                     ev = NewEvent(DBGEV_DATA);
-                                    ev->ev_data = aif_res;
+                                    ev->ev_data = new AIFStream(aif_res);
                                     // XXX: Note that we don't want to use the
                                     // handle in the set, since that is not
                                     // really a valid
@@ -2204,7 +2204,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                     // Check the aif_diff
                                     if (aif_diff != NULL) {
                                         ev = NewEvent(DBGEV_DATA);
-                                        ev->ev_data = aif_diff;
+                                        ev->ev_data = new AIFStream(aif_diff);
                                         new_reply = NewGroupReply(
                                             NULL, bitset_dup(tset), ev);
                                         AddReplyToSet(diff_rep_set, new_reply);
@@ -2305,7 +2305,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                     while ((reply = GetNextReplyInSet(rep_set)) !=
                            (group_reply_t *)NULL) {
                         // point at the data
-                        a1 = EVENT_DATA(reply->rep_event);
+                        a1 = EVENT_DATA(reply->rep_event)->joinAIF();
 
                         // apply the operation
                         if ((aif_res = apply_op_aif(op, a1, NULL, NULL)) ==
@@ -2317,7 +2317,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                         // Make a new event out of the AIF data, use the replies
                         // bitset
                         ev = NewEvent(DBGEV_DATA);
-                        ev->ev_data = aif_res;
+                        ev->ev_data = new AIFStream(aif_res);
                         new_reply = NewGroupReply(
                             reply->rep_di, bitset_dup(reply->rep_group), ev);
                         AddReplyToSet(new_rep_set, new_reply);
@@ -3111,7 +3111,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     // grab the result
                     reply = GetNextReplyInSet(rep_set);
                     // point at the AIF data
-                    na = EVENT_DATA(reply->rep_event);
+                    na = EVENT_DATA(reply->rep_event)->joinAIF();
 
                     // Send the command using the event data
                     if (lval_rec_set != NULL) {
@@ -3168,7 +3168,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                             target_recset,
                             NewGroupReceiver(over_set->s_di, reply->rep_group));
                         // point at the AIF data
-                        na = EVENT_DATA(reply->rep_event);
+                        na = EVENT_DATA(reply->rep_event)->joinAIF();
                         // Send the command using the target_recset and the
                         // event data Only set ret if this returns non-zero
                         if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval),
@@ -3224,7 +3224,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                                 NewGroupReceiver(recv_ptr->rec_di,
                                                  reply->rep_group));
                             // point at the AIF data
-                            na = EVENT_DATA(reply->rep_event);
+                            na = EVENT_DATA(reply->rep_event)->joinAIF();
                             // Send the command using the target_recset and the
                             // event data Only set ret if this returns non-zero
                             if (SendSetVarCmd(target_recset,
@@ -3307,7 +3307,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // grab the result
                 reply = GetNextReplyInSet(rep_set);
                 // point at the AIF data
-                na = EVENT_DATA(reply->rep_event);
+                na = EVENT_DATA(reply->rep_event)->joinAIF();
 
                 // Send the command using the event data
                 if (lval_rec_set != NULL) {
@@ -3381,7 +3381,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         target_recset,
                         NewGroupReceiver(over_set->s_di, reply->rep_group));
                     // point at the AIF data
-                    na = EVENT_DATA(reply->rep_event);
+                    na = EVENT_DATA(reply->rep_event)->joinAIF();
                     // Send the command using the target_recset and the event
                     // data Only set ret if this returns non-zero
                     if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na)) {
@@ -3434,7 +3434,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                                          NewGroupReceiver(recv_ptr->rec_di,
                                                           reply->rep_group));
                         // point at the AIF data
-                        na = EVENT_DATA(reply->rep_event);
+                        na = EVENT_DATA(reply->rep_event)->joinAIF();
                         // Send the command using the target_recset and the
                         // event data Only set ret if this returns non-zero
                         if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval),

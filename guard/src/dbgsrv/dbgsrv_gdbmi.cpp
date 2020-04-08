@@ -4318,7 +4318,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         }
 
         e = NewEvent(DBGEV_DATA);
-        e->ev_data = a;
+        e->ev_data = new AIFStream(a);
 
         if (debug_flag) {
             char *aif_str = NULL;
@@ -4331,7 +4331,8 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         return e;
     }
 
-    if ((e = GetAIFVar(GDBMISession, var, &a, &type)) != NULL) {
+    AIFStream* aifStream = nullptr;
+    if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
         return e;
     }
 
@@ -4343,7 +4344,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
         if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
 
-        e->ev_data = PerformSlicing(a, sliceinfo, is_revert);
+        e->ev_data = new AIFStream(PerformSlicing(a, sliceinfo, is_revert));
         AIFFree(a);
 
         if (e->ev_data == NULL) {
@@ -4356,7 +4357,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
             return e;
         }
     } else {
-        e->ev_data = a;
+        e->ev_data = new AIFStream(a);
     }
 
     // Minh changes here to do p2p mode
@@ -4364,11 +4365,11 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     if (func_id == EXPR_P2P) {
         int is_sender = 0;
         // do a lot of things here
-        tmp = PerformP2P(e->ev_data, args, my_rank, &is_sender);
+        tmp = PerformP2P(e->ev_data->joinAIF(), args, my_rank, &is_sender);
         if (!is_sender)  // if not sender, send the data back to client
         {
-            AIFFree(e->ev_data);
-            e->ev_data = tmp;
+            delete e->ev_data;
+            e->ev_data = new AIFStream(tmp);
         } else  // otherwise, just make a empty event
         {
             FreeEvent(e);
@@ -4381,34 +4382,34 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
         switch (func_id) {
             case EXPR_SUM:  // sum
-                tmp = AIFSum(e->ev_data);
+                tmp = AIFSum(e->ev_data->joinAIF());
                 break;
             case EXPR_PRODUCT:  // product
-                tmp = AIFProduct(e->ev_data);
+                tmp = AIFProduct(e->ev_data->joinAIF());
                 break;
             case EXPR_AVERAGE:  // average
-                tmp = AIFAverage(e->ev_data);
+                tmp = AIFAverage(e->ev_data->joinAIF());
                 break;
             case EXPR_MIN:  // min
-                tmp = AIFMin(e->ev_data);
+                tmp = AIFMin(e->ev_data->joinAIF());
                 break;
             case EXPR_MAX:  // max
-                tmp = AIFMax(e->ev_data);
+                tmp = AIFMax(e->ev_data->joinAIF());
                 break;
             case EXPR_STDEV:  // standard deviation
-                tmp = AIFStdev(e->ev_data);
+                tmp = AIFStdev(e->ev_data->joinAIF());
                 break;
             case EXPR_COUNTELEM:  // countelem
                 ParseCountelemArgs(args, &lower_bound, &upper_bound);
-                tmp = AIFCountElem(e->ev_data, lower_bound, upper_bound);
+                tmp = AIFCountElem(e->ev_data->joinAIF(), lower_bound, upper_bound);
                 break;
             default:
                 DVPRINT("*** Unknow reduce operation\n");
                 break;
         }
 
-        AIFFree(e->ev_data);
-        e->ev_data = tmp;
+        delete e->ev_data;
+        e->ev_data = new AIFStream(tmp);
 
         DVPRINT("Removed AIFToStr here\n");
     }
@@ -4417,23 +4418,19 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 }
 
 dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
-    char *type;
-    AIF *a;
-    dbgevent_t *e;
-
     DVPRINT("*** DbgEvalExpr(%s-%d)\n", exp, my_rank);
 
     // Check whether it has hashing/slicing
     if (strpbrk(exp, "`") || strpbrk(exp, "|")) {
         // TODO: we don't want to parse this if the user escaped the input
         DVPRINT("DbgEvalExpr: Found reduction/slicing info.\n");
-        e = PerformExtEvalExpr(exp);
+        dbgevent_t* e = PerformExtEvalExpr(exp);
         if (e == NULL) {
             e = NewEvent(DBGEV_ERROR);
             e->ev_errno = DBGERR_DEBUGGER;
             EventErrStr(e, "bad data format");
             return e;
-        } else if (e->ev_data == (AIF *)NULL) {
+        } else if (e->ev_data == nullptr) {
             e = NewEvent(DBGEV_ERROR);
             e->ev_errno = DBGERR_DEBUGGER;
             EventErrStr(e, "NULL data found");
@@ -4444,13 +4441,16 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
         }
     }
 
-    if ((e = GetAIFVar(GDBMISession, exp, &a, &type)) != NULL) {
+    AIFStream* aifStream = nullptr;
+    char *type = nullptr;
+
+    if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
         return e;
     }
 
-    e = NewEvent(DBGEV_NONE);
+    dbgevent_t* e = NewEvent(DBGEV_NONE);
     e->ev_event = DBGEV_DATA;
-    e->ev_data = a;
+    e->ev_data = aifStream;
 
     return e;
 }

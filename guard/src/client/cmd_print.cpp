@@ -73,7 +73,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...
                 AIFPrint(Client.cli_out_stream, 0,
-                         EVENT_DATA(reply->rep_event));
+                         EVENT_DATA(reply->rep_event)->joinAIF());
                 PrintOutMsg("\n");
             }
 

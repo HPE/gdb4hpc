@@ -48,34 +48,84 @@
 /*
 ** Types
 */
-typedef struct func_info {
-    int addr_len;
-    char *rtn_type;
-    int argc;
-    char **argv;
-} func_info_t;
+namespace {
 
-typedef struct struct_info {
-    char *name;
-    int numFields;
-    // The following are arrays of size numFields
-    int *id;
-    char **type_str;
-    int *type_len;
-    struct func_info **type_func;
-    struct struct_info **inner_struct;
-} struct_info_t;
+// Type information for describing a function with its argument and return types
+class func_info_t {
+public:
+    // note: steals ownership of all arguments
+    func_info_t(int addr_len, char* rtn_type, int argc, char** argv)
+        : m_addr_len(addr_len), m_rtn_type(rtn_type), m_argc(argc), m_argv(argv) {}
+    ~func_info_t();
+    func_info_t(const func_info_t&) = delete;
+    func_info_t& operator=(const func_info_t&) = delete;
 
+    int getAddrLen() const { return m_addr_len; }
+    char* getRtnType() const { return m_rtn_type; }
+    int getArgc() const { return m_argc; }
+    char** getArgv() const { return m_argv; }
+
+private:
+    int m_addr_len;
+    char *m_rtn_type;
+    int m_argc;
+    char **m_argv;
+};
+func_info_t::~func_info_t() {
+    free(m_rtn_type);
+    for (int i=0; i<m_argc; ++i)
+        free(m_argv[i]);
+    free(m_argv);
+}
+
+// type information for describing the data members of a struct or class
+class struct_info_t {
+public:
+    struct_info_t(const char* name, int numFields);
+    ~struct_info_t();
+    struct_info_t(const struct_info_t&) = delete;
+    struct_info_t& operator=(const struct_info_t&) = delete;
+
+    // descriptor type for a single field of the struct.
+    struct field {
+        field() : id(0), type_str(nullptr), type_len(0), type_func(nullptr), inner_struct(nullptr) {}
+        int id;
+        char* type_str;
+        int type_len;
+        func_info_t* type_func;
+        struct_info_t* inner_struct;
+    };
+
+    char* getName() { return m_name; }
+    field& getField(int idx) { return m_fields[idx]; }
+    const std::vector<field>& getFields() const { return m_fields; }
+private:
+    char* m_name;
+    std::vector<field> m_fields;
+}; 
+
+struct_info_t::struct_info_t(const char* name, int numFields)
+    : m_name(strdup(name)), m_fields(numFields) {
+}
+struct_info_t::~struct_info_t() {
+    free(m_name);
+    for (auto f : m_fields) {
+        free(f.type_str);
+        delete(f.type_func);
+        delete(f.inner_struct);
+    }
+}
+} // namespace
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
 
 /*
 ** Static prototypes
 */
-static MIVar *CreateMIVar(MISession *, const char *);
+static std::shared_ptr<MIVar> CreateMIVar(MISession *, const char *);
 static void DeleteMIVar(MISession *, const char *);
 static int MIVarGetChildren(MISession *, MIVar *);
-static char *GetMIWhatisValue(MISession *, char *, MIVar *);
+static char *GetMIWhatisValue(MISession *, char *, MIVar*);
 static int GetTypeLength(MISession *, const char *);
 static int GetSimpleType(const char *);
 static int GetComplexType(const char *);
@@ -94,16 +144,16 @@ static AIF *CreateSimpleAIF(int, char *, char *, int, struct_info_t *,
                             func_info_t *);
 static char *MIToFDS(MISession *, int, char *);
 static char *GetVarValue(MISession *, char *);
-static AIF *GetAIF(MISession *, MIVar *);
-static AIF *GetSimpleAIF(MISession *, MIVar *);
-static AIF *GetComplexAIF(MISession *, MIVar *);
+static AIFStream *GetAIF(MISession *, std::shared_ptr<MIVar>);
+static AIFStream *GetSimpleAIF(MISession *, MIVar *);
+static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>);
 static struct_info_t *GetStructInfo(MISession *, char *);
-static AIF *GetStructAIF(MISession *, MIVar *);
+static AIFStream *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
-static AIF *GetArrayAIF(MISession *, MIVar *);
-static AIF *GetVectorLikeAIF(MISession *, MIVar *);
-static AIF *GetArrayAIFHash(MISession *, MIVar *, char *, int, int, int);
-static AIF *GetPointerAIF(MISession *, MIVar *);
+static AIFStream *GetArrayAIF(MISession *, std::shared_ptr<MIVar>);
+static AIFStream *GetVectorLikeAIF(MISession *, std::shared_ptr<MIVar>);
+static AIF *GetArrayAIFHash(MISession *, MIVar*, char *, int, int, int);
+static AIFStream *GetPointerAIF(MISession *, MIVar *);
 static char *GetArrayDataString(MISession *, MIVar *);
 // static arrayDimension_t *   oneDArray(int, int, int);
 static void fixTypeString(char *, const char *, char *);
@@ -144,19 +194,16 @@ static dbgevent_t *get_err(void) {
 
 // This is the "main" function that should be called in this interface...
 // It returns NULL on success, otherwise it returns an error event.
-dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
+dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
                       char **type) {
-    AIF *res;
-    MIVar *mivar;
-
     // reset the error var
     reset_err();
 
     DVPRINT("GetAIFVar: Resolving variable %s.\n", var);
 
-    mivar = CreateMIVar(session, var);
+    auto mivar = CreateMIVar(session, var);
 
-    if (mivar == NULL) {
+    if (!mivar) {
         DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
         if (dbg_error == NULL) {
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
@@ -164,21 +211,17 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
         return get_err();
     }
 
-    if ((res = GetAIF(session, mivar)) == NULL) {
+    AIFStream* res = GetAIF(session, mivar);
+    if (!res) {
         DVPRINT("GetAIFVar: GetAIF returned null.\n");
         if (dbg_error == NULL) {
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
                         "Parser failed to interpret gdb variable.");
         }
-        DeleteMIVar(session, mivar->name);
-        MIVarFree(mivar);
         return get_err();
     }
     *type = strdup(mivar->type);
     *val = res;
-
-    DeleteMIVar(session, mivar->name);
-    MIVarFree(mivar);
 
     return NULL;
 }
@@ -187,17 +230,10 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIF **val,
 dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
                           char *hashinfo, int hashfunc, int precision_lower,
                           int precision_upper) {
-    AIF *res;
-    AIF *a = NULL;
-    MIVar *mivar;
-    int id;
-    char *pt;
-    int cnt = 0;
-
     // reset the error var
     reset_err();
 
-    mivar = CreateMIVar(session, var);
+    auto mivar = CreateMIVar(session, var);
 
     if (mivar == NULL) {
         DVPRINT("GetAIFVarHash: Unknown variable\n");
@@ -213,12 +249,12 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
         return get_err();
     }
 
+    int id;
+    int cnt = 0;
+
     while ((id = GetComplexType(mivar->type)) == T_UNKNOWN) {
-        pt = GetMIWhatisValue(session, NULL, mivar);
-        if (pt != NULL) {
-            if (mivar->type != NULL) {
-                free(mivar->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, nullptr, mivar.get())) {
+            free(mivar->type);
             mivar->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
@@ -229,18 +265,19 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
             break;
     }
 
+    AIF *res = nullptr;
+
     if (mivar->numchild == 0 || !(id == T_ARRAY || id == T_FTNARRAY)) {
         // simple type
-        a = GetAIF(session, mivar);
-        res = PerformHash(a, hashinfo, hashfunc, precision_lower,
+        AIFStream* a = GetAIF(session, mivar);
+        res = PerformHash(a->joinAIF(), hashinfo, hashfunc, precision_lower,
                           precision_upper);
+        delete a;
     } else {
         // of type array
-        if ((res = GetArrayAIFHash(session, mivar, hashinfo, hashfunc,
+        if ((res = GetArrayAIFHash(session, mivar.get(), hashinfo, hashfunc,
                                    precision_lower, precision_upper)) == NULL) {
             DVPRINT("GetAIFVarHash: Unknown type\n");
-            DeleteMIVar(session, mivar->name);
-            MIVarFree(mivar);
             if (dbg_error == NULL) {
                 EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
                             "GetArrayAIFHash failed.");
@@ -250,50 +287,46 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
     }
 
     *val = res;
-
-    DeleteMIVar(session, mivar->name);
-    MIVarFree(mivar);
-
-    return 0;
+    return nullptr;
 }
 
 /*
  * Create a MI variable in gdb and get its MIVar type.
  * Returns null on error.
  */
-static MIVar *CreateMIVar(MISession *session, const char *expr) {
-    MICommand *cmd;
-    MIVar *var;
-    char *p;
+static std::shared_ptr<MIVar> CreateMIVar(MISession *session, const char *expr) {
 
-    cmd = MIVarCreate("-", "*", expr);
+    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
+            if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }});
+    
+    MICommand* cmd = MIVarCreate("-", "*", expr);
     SendMICommand(session, cmd);
     // If this fails, it means the symbol doesn't exist.
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(dbg_error, DBGERR_NOSYM, expr);
         MICommandFree(cmd);
-        return NULL;
+        return var;
     }
 
-    var = MIGetVarCreateInfo(cmd);
+    MIVar* mivar = MIGetVarCreateInfo(cmd);
     MICommandFree(cmd);
 
-    if (var->exp == NULL) {
-        var->exp = strdup(expr);
+    if (mivar->exp == NULL) {
+        mivar->exp = strdup(expr);
     }
 
-    var->expr = strdup(expr);
+    mivar->expr = strdup(expr);
 
     // remove newline
-    if (var->expr[strlen(expr) - 1] == '\n') {
-        var->expr[strlen(expr) - 1] = '\0';
+    if (mivar->expr[strlen(expr) - 1] == '\n') {
+        mivar->expr[strlen(expr) - 1] = '\0';
     }
 
     // Remove whitespace and the final '&' for reference types.
     // ptype breaks with '&'.
-    p = &(var->type)[strlen(var->type) - 1];
+    char* p = &(mivar->type)[strlen(mivar->type) - 1];
 
-    while ((p >= var->type) && isspace(*p)) {
+    while ((p >= mivar->type) && isspace(*p)) {
         *p-- = '\0';
     }
 
@@ -301,6 +334,7 @@ static MIVar *CreateMIVar(MISession *session, const char *expr) {
         *p = '\0';
     }
 
+    var.reset(mivar);
     return var;
 }
 
@@ -621,18 +655,18 @@ static char *GetVarValue(MISession *session, char *var) {
     return res;
 }
 
-static AIF *GetAIF(MISession *session, MIVar *var) {
+static AIFStream *GetAIF(MISession *session, std::shared_ptr<MIVar> var) {
     DVPRINT("GetAIF: %s\n", var->expr);
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
         DVPRINT("GetAIF: No symbols\n");
-        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, NULL);
-        return NULL;
+        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, nullptr);
+        return nullptr;
     }
     if (var->numchild == 0) {
         // simple type
         DVPRINT("GetAIF: Resolved to simple type.\n");
-        return GetSimpleAIF(session, var);
+        return GetSimpleAIF(session, var.get());
     }
 
     // complex type
@@ -640,18 +674,15 @@ static AIF *GetAIF(MISession *session, MIVar *var) {
     return GetComplexAIF(session, var);
 }
 
-static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
-    int id;
-    AIF *a = NULL;
+static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
+
     AIF *ac;
     AIF *addr;
-    char *pt;
     char *v;
-    char **argv;
     int argc;
+    char **argv;
     char *rtn;
     char *name;
-    int cnt = 0;
 
     DVPRINT(
         "GetSimpleAIF: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, "
@@ -659,13 +690,12 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
         var->expr, var->name, var->exp, var->numchild, var->type, var->value,
         var->thread_id);
 
+    int cnt = 0;
+    int id;
     while ((id = GetSimpleType(var->type)) == T_UNKNOWN) {
         // default to using whatis
-        pt = GetMIWhatisValue(session, NULL, var);
-        if (pt != NULL) {
-            if (var->type != NULL) {
-                free(var->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, nullptr, var)) {
+            free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 break;
@@ -674,6 +704,7 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
             break;
     }
 
+    AIFStream *a = nullptr;
     switch (id) {
         case T_FUNCTION:
             DVPRINT("GetSimpleAIF: Creating AIF function.\n");
@@ -695,13 +726,13 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
                     "GetSimpleAIF: GetFunctionReturnType returned: %s, "
                     "returning NULL!\n",
                     rtn);
-                return NULL;
+                return nullptr;
             }
             DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
             if ((v = GetVarValue(session, var->name)) == NULL) {
                 // error already set
                 free(rtn);
-                return NULL;
+                return nullptr;
             }
             name = GetFunctionName(v);
             DVPRINT("GetSimpleAIF: Function name: %s\n", name);
@@ -729,18 +760,17 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
             free(rtn);
             free(name);
             AIFFree(addr);
-            return ac;
+            return new AIFStream(ac);
 
         case T_ENUM:
             DVPRINT("GetSimpleAIF: Creating AIF enum.\n");
-            return EmptyEnumToAIF(GetTypeName(var->type));
+            return new AIFStream(EmptyEnumToAIF(GetTypeName(var->type)));
 
         case T_VOID_PTR:
             // void ptr's don't have any children and are considered simple
             // types
             DVPRINT("GetComplexAIF: Creating AIF void pointer.\n");
-            a = GetPointerAIF(session, var);
-            return a;
+            return GetPointerAIF(session, var);
 
         case T_UNKNOWN:
             // Unrecognized type.
@@ -754,24 +784,19 @@ static AIF *GetSimpleAIF(MISession *session, MIVar *var) {
                 // error already set
                 return NULL;
             }
-            a = CreateSimpleAIF(id, v, NULL, 0, NULL, NULL);
+            a = new AIFStream(CreateSimpleAIF(id, v, NULL, 0, NULL, NULL));
             free(v);
             return a;
     }
 }
 
-static AIF *GetComplexAIF(MISession *session, MIVar *var) {
+static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) {
     int id;
-    char *pt;
-    AIF *a = NULL;
     int cnt = 0;
 
     while ((id = GetComplexType(var->type)) == T_UNKNOWN) {
-        pt = GetMIWhatisValue(session, NULL, var);
-        if (pt != NULL) {
-            if (var->type != NULL) {
-                free(var->type);
-            }
+        if (char* pt = GetMIWhatisValue(session, NULL, var.get())) {
+            free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
                 break;
@@ -780,6 +805,7 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
             break;
     }
 
+    AIFStream *a = nullptr;
     switch (id) {
         case T_ARRAY:
         case T_FTNARRAY:
@@ -789,7 +815,7 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
 
         case T_POINTER:
             DVPRINT("GetComplexAIF: Creating AIF pointer.\n");
-            a = GetPointerAIF(session, var);
+            a = GetPointerAIF(session, var.get());
             break;
 
         case T_UNION:
@@ -804,14 +830,14 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
             DVPRINT(
                 "GetComplexAIF: Creating AIF struct to represent union "
                 "type.\n");
-            a = GetStructAIF(session, var);
+            a = GetStructAIF(session, var.get());
             break;
 
         case T_STRUCT:
         // Pretend a derived type is a struct
         case T_FTNDTYPE:
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
-            a = GetStructAIF(session, var);
+            a = GetStructAIF(session, var.get());
             break;
 
         case T_STD_VECTOR:
@@ -828,7 +854,7 @@ static AIF *GetComplexAIF(MISession *session, MIVar *var) {
              * Maybe it was simple all alongg
              */
             DVPRINT("GetComplexAIF: Defaulting to simple aif.\n");
-            a = GetSimpleAIF(session, var);
+            a = GetSimpleAIF(session, var.get());
     }
 
     return a;
@@ -2055,6 +2081,11 @@ static int GetType(char *type) {
 static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
                             int *type_len, struct_info_t **type_struct,
                             func_info_t **type_func) {
+    if (type_struct)
+        *type_struct = nullptr;
+    if (type_func)
+        *type_func = nullptr;
+    
     char *vecStr = strdup(var->type);
     int done = 0;
     // DVPRINT("GetArrayBaseType: %s\n", str);
@@ -2249,7 +2280,7 @@ static arrayDimension_t *GetArrayDimensionShape(MISession *session,
 
     // iterate while we are not pointing to the begining of the range info
     while (!done) {
-        // iterate while we are not pointing to a start delimiter and seperation
+        // iterate while we are not pointing to a start delimiter and separation
         // delimiter and str
         switch (*p) {
             case ARRAY_C_TYPE_START:
@@ -2473,26 +2504,23 @@ static void RemoveWhitespace(char *str) {
 ** This function is used when creating a simple AIF type from a gdb string.
 */
 static func_info_t *GetFunctionInfo(MISession *session, char *type_str) {
-    func_info_t *result;
-
     DVPRINT("GetFunctionInfo: %s\n", type_str);
 
-    // malloc the return type
-    if ((result = (func_info_t *)malloc(sizeof(func_info_t))) == (void *)0) {
-        DVPRINT("GetFunctionInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
     // get the number of arguments and arguments of function
-    result->argc = GetFunctionArguments(session, type_str, &result->argv);
-    DVPRINT("GetFunctionInfo: Num args: %d\n", result->argc);
+    char **argv;
+    int argc = GetFunctionArguments(session, type_str, &argv);
+    DVPRINT("GetFunctionInfo: Num args: %d\n", argc);
 
     // get the return type of the function
-    result->rtn_type = GetFunctionReturnType(session, type_str);
-    DVPRINT("GetFunctionInfo: Function return type: %s\n", result->rtn_type);
+    char* rtn_type = GetFunctionReturnType(session, type_str);
+    DVPRINT("GetFunctionInfo: Function return type: %s\n", rtn_type);
 
     // We need to ask for the length of an address on this system
-    result->addr_len = GetTypeLength(session, "void *");
+    int addr_len = GetTypeLength(session, "void *");
+
+    auto result = new func_info_t(addr_len, rtn_type, argc, argv);
+    if (!result)
+        DVPRINT("GetFunctionInfo: Malloc Failed.\n");
 
     return result;
 }
@@ -2854,7 +2882,6 @@ static char *MIToFDS(MISession *session, int type_id, char *base_type) {
 static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                             struct_info_t *type_struct,
                             func_info_t *type_func) {
-    char *pch;
     char *s1, *s2;
     char *t1, *t2;
     char *name;
@@ -2869,7 +2896,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
     }
     switch (id) {
         case T_STRING:
-            if ((pch = strchr(res, ' ')) != NULL) {
+            if (char* pch = strchr(res, ' ')) {
                 pch++;
                 CSAPRINT("CreateSimpleAIF: Creating string\n");
                 return StringToAIF(pch);
@@ -2907,8 +2934,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             return LongLongToAIF(strtoll(res, NULL, 10));
         case T_ULONGLONG:
             CSAPRINT("CreateSimpleAIF: Creating ulong long\n");
-            return UnsignedLongLongToAIF(
-                (unsigned long long)strtoull(res, NULL, 10));
+            return UnsignedLongLongToAIF((unsigned long long)strtoull(res, NULL, 10));
 #endif
         case T_FLOAT:
             CSAPRINT("CreateSimpleAIF: Creating float\n");
@@ -2926,7 +2952,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             return BoolToAIF(strncmp(res, "true", 4) == 0 ? 1 : 0);
         case T_INTEGER_1:
             // gdb adds the actual char value so we need to get rid of that
-            if ((pch = strchr(res, ' ')) != NULL) {
+            if (char* pch = strchr(res, ' ')) {
                 pch++;
                 if (*pch == '\'') {
                     pch--;
@@ -2959,50 +2985,59 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
 #endif
         case T_COMPLEX_4:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX4\n");
-            return COMPLEX4ToAIF(strtof(res, NULL), strtof(pch, NULL));
+            if (char* pch = strchr(res, ',')) { 
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX4\n");
+                return COMPLEX4ToAIF(strtof(res, NULL), strtof(pch, NULL));
+            } else {
+                return VoidToAIF(0, 0);
+            }
         case T_COMPLEX_8:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX8\n");
-            return COMPLEX8ToAIF(strtod(res, NULL), strtod(pch, NULL));
+            if (char* pch = strchr(res, ',')) {
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX8\n");
+                return COMPLEX8ToAIF(strtod(res, NULL), strtod(pch, NULL));
+            } else {
+                 return VoidToAIF(0, 0);
+            }
 #ifdef HAVE_LONG_DOUBLE
         case T_COMPLEX_16:
             // ensure gdb gives us a sane result
-            if ((pch = strchr(res, ',')) == NULL) return VoidToAIF(0, 0);
-            // get rid of the final ')'
-            res[strlen(res) - 1] = '\0';
-            // get rid of the initial '('
-            // res now holds the real part
-            res++;
-            // get rid of the ','
-            *pch = '\0';
-            // get the index to the complex part
-            pch++;
-            CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
-            CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
-            real = strtold(res, NULL);
-            img = strtold(pch, NULL);
-            return COMPLEX16ToAIF(real, img);
+            if (char* pch = strchr(res, ',')) {
+                // get rid of the final ')'
+                res[strlen(res) - 1] = '\0';
+                // get rid of the initial '('
+                // res now holds the real part
+                res++;
+                // get rid of the ','
+                *pch = '\0';
+                // get the index to the complex part
+                pch++;
+                CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
+                CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
+                real = strtold(res, NULL);
+                img = strtold(pch, NULL);
+                return COMPLEX16ToAIF(real, img);
+            } else {
+                return VoidToAIF(0, 0);
+            }
 #endif
         case T_LOGICAL_1:
             CSAPRINT("CreateSimpleAIF: Creating LOGICAL1\n");
@@ -3040,7 +3075,7 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             if (*res == '\'') {
                 ++res;
                 // get rid of the final '
-                if ((pch = strrchr(res, '\'')) != NULL) {
+                if (char* pch = strrchr(res, '\'')) {
                     *pch = '\0';
                 }
                 CSAPRINT("CreateSimpleAIF: res is now \"%s\"\n", res);
@@ -3079,14 +3114,14 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
             // first create an address of the res
             addr_loc = strtoll(res, NULL, 0);
             addr_ptr = (void *)addr_loc;
-            addr = AddressToAIF(addr_ptr, type_func->addr_len);
+            addr = AddressToAIF(addr_ptr, type_func->getAddrLen());
 
             // get the function name
             name = GetFunctionName(res);
 
             // Now create the actual function pointer
-            ac = FunctionToAIF(addr, name, type_func->rtn_type, type_func->argc,
-                               type_func->argv);
+            ac = FunctionToAIF(addr, name, type_func->getRtnType(), type_func->getArgc(),
+                               type_func->getArgv());
 
             Free(name);
             AIFFree(addr);
@@ -3119,10 +3154,10 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                 return VoidToAIF(0, 0);
             }
 
-            a = EmptyStructToAIF(type_struct->name);
-            pch = res;
+            a = EmptyStructToAIF(type_struct->getName());
+            char* pch = res;
 
-            while (index < type_struct->numFields) {
+            for (const auto& f : type_struct->getFields()) {
                 // point at the fields "="
                 if ((s1 = strchr(pch, '=')) == NULL) {
                     DVPRINT("CreateSimpleAIF: Could not find = in field.\n");
@@ -3235,17 +3270,13 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
                 *s2 = '\0';
 
                 // now create a new AIF type from the res we just pieced out
-                ac = CreateSimpleAIF(type_struct->id[index], s1,
-                                     type_struct->type_str[index],
-                                     type_struct->type_len[index],
-                                     type_struct->inner_struct[index],
-                                     type_struct->type_func[index]);
+                ac = CreateSimpleAIF(f.id, s1, f.type_str, f.type_len,
+                                     f.inner_struct, f.type_func);
 
-                CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d.\n",
-                         index + 1);
+                CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d\n", index);
+                ++index;
                 AIFAddFieldToStruct(a, strdup(name), ac);
                 AIFFree(ac);
-                ++index;
             }
             return a;
         }
@@ -3259,20 +3290,16 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
 /*
 ** Create an AIF object that is the struct represented by the MIVar var.
 */
-static AIF *GetStructAIF(MISession *session, MIVar *var) {
+static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
     MIVar *v;
-    AIF *a;
-    AIF *ac;
-    char *base_type = NULL;
-    int i;
 
     DVPRINT("GetStructAIF: %s\n", var->name);
 
     // get the base type for this struct
-    base_type = GetTypeName(var->type);
+    char* base_type = GetTypeName(var->type);
     DVPRINT("GetStructAIF: Base type: %s\n", base_type);
 
-    a = EmptyStructToAIF(base_type);
+    AIF* a = EmptyStructToAIF(base_type);
 
     // Resolve the child information for the var
     if (MIVarGetChildren(session, var)) {
@@ -3284,23 +3311,30 @@ static AIF *GetStructAIF(MISession *session, MIVar *var) {
     DVPRINT("GetStructAIF: Total number of children detected: %d\n",
             var->numchild);
 
-    for (i = 0; i < var->numchild; i++) {
+    for (int i = 0; i < var->numchild; i++) {
         DVPRINT("GetStructAIF: Resolving member %d\n", i + 1);
         v = var->children[i];
         // set the expr to the name of this member
         v->expr = strdup(v->name);
-        if ((ac = GetAIF(session, v)) == NULL) {
+
+        // note: var owns the children - we can get away with creating a
+        // dummied up shared_ptr here because the enclosing stream (ac)
+        // is deleted before we exit this function.  i.e. we aren't trying to
+        // slice a struct... yet.
+        std::shared_ptr<MIVar> sv(v, [](MIVar*){});  
+        AIFStream* ac = GetAIF(session, sv);
+        if (!ac) {
             DVPRINT(
                 "GetStructAIF: ERROR: Null aif object returned from GetAIF.\n");
             AIFFree(a);
-            return NULL;
+            return nullptr;
         }
         DVPRINT("GetStructAIF: Adding AIF field for member %d.\n", i + 1);
-        AIFAddFieldToStruct(a, v->exp, ac);
-        AIFFree(ac);
+        AIFAddFieldToStruct(a, v->exp, ac->joinAIF());
+        delete ac;
     }
 
-    return a;
+    return new AIFStream(a);
 }
 
 static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
@@ -3312,7 +3346,6 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
     char *tmp2;
     char tmp_char;
     int id;
-    struct_info_t *result;
     int index;
 
     DVPRINT("GetStructInfo: %s\n", type_str);
@@ -3329,61 +3362,30 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
     field_list = CLIGetPtypeFieldList(cmd);
     MICommandFree(cmd);
 
-    // malloc the return type
-    if ((result = (struct_info_t *)malloc(sizeof(struct_info_t))) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->numFields = MIListSize(field_list)) == 0) {
+    int numFields = MIListSize(field_list);
+    if (!numFields) {
         DVPRINT("GetStructInfo: Zero fields detected.\n");
         MIListFree(field_list, NULL);
-        free(result);
         return NULL;
     }
 
     // set the name of the struct
-    result->name = strdup(GetTypeName(type_str));
-
-    // malloc each of the arrays inside the struct_info_t
-    if ((result->id = (int *)malloc(sizeof(int) * result->numFields)) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_str = (char **)malloc(sizeof(char *) *
-                                            result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_len = (int *)malloc(sizeof(int) * result->numFields)) ==
-        (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-
-    if ((result->type_func = (func_info_t **)malloc(
-             sizeof(func_info_t *) * result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
-    }
-    // memset this to 0
-    memset(result->type_func, 0, sizeof(func_info_t *) * result->numFields);
-
-    if ((result->inner_struct = (struct_info_t **)malloc(
-             sizeof(struct_info_t *) * result->numFields)) == (void *)0) {
-        DVPRINT("GetStructInfo: Malloc Failed.\n");
-        return NULL;
+    const char* name = GetTypeName(type_str);
+    struct_info_t* result = new struct_info_t(name, numFields);
+    if (!result) {
+        DVPRINT("allocating struct_info_t failed\n");
+        return nullptr;
     }
 
     // Now fill in the information from the returned list
     index = 0;
     MIListSet(field_list);
-    while ((field = (char *)MIListGet(field_list)) != NULL) {
+    for (index = 0; (field = (char *)MIListGet(field_list)); ++index) {
         DVPRINT("GetStructInfo: field is %s\n", field);
+
+        struct_info_t::field& sfield = result->getField(index);
+
+        
         // The field contains the type including its name. For instance, field
         // will contain int i. We only want to point at the int part.
         // Note that we need to do special things for function pointers.
@@ -3433,7 +3435,7 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
                 Free(tmp_field);
                 tmp_field = tmp2;
                 // Get the function info
-                result->type_func[index] = GetFunctionInfo(session, tmp_field);
+                sfield.type_func = GetFunctionInfo(session, tmp_field);
             } else {
                 // not a function pointer, proceed as usual
                 tmp_char = *tmp;
@@ -3457,27 +3459,24 @@ static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
                 break;
         }
 
-        result->id[index] = id;
-        result->type_str[index] = strdup(tmp_field);
-        result->type_len[index] = GetTypeLength(session, tmp_field);
+        sfield.id = id;
+        sfield.type_str = strdup(tmp_field);
+        sfield.type_len = GetTypeLength(session, tmp_field);
 
-        DVPRINT("GetStructInfo: id is %d\n", result->id[index]);
-        DVPRINT("GetStructInfo: type_str is %s\n", result->type_str[index]);
-        DVPRINT("GetStructInfo: type_len is %d\n", result->type_len[index]);
+        DVPRINT("GetStructInfo: id is %d\n", sfield.id);
+        DVPRINT("GetStructInfo: type_str is %s\n", sfield.type_str);
+        DVPRINT("GetStructInfo: type_len is %d\n", sfield.type_len);
 
         // only need the struct_info_t stuff filled out if this is a struct
         if (id == T_STRUCT) {
             DVPRINT("GetStructInfo: Gathering inner struct info.\n");
             // recursively call this function with the field
-            result->inner_struct[index] = GetStructInfo(session, tmp_field);
+            sfield.inner_struct = GetStructInfo(session, tmp_field);
         } else {
-            result->inner_struct[index] = NULL;
+            sfield.inner_struct = nullptr;
         }
 
         DVPRINT("GetStructInfo: Done with field.\n");
-
-        // increment index
-        ++index;
     }
 
     // Remember to free the MIList and tmp_field.
@@ -3675,13 +3674,18 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
 namespace {
 class MIArrayToAIFParser {
 public:
+    // takes ownership of type_str, type_struct and type_func (but not shape)
     MIArrayToAIFParser(char* type_str, int type_len,
                        struct_info_t *type_struct, func_info_t *type_func,
-                       int type_id, arrayDimension_t *shape);
+                       int type_id, arrayDimension_t* shape);
+    ~MIArrayToAIFParser();
 
     void parseSome(const char* str);
 
     AIF* getResult();
+
+    // reset the parser to work on a new array - takes ownership of shape
+    void setShape(arrayDimension_t* shape);
     
 private:
     class Error {};
@@ -3723,13 +3727,20 @@ private:
 MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
                                        struct_info_t *type_struct,
                                        func_info_t *type_func,
-                                       int type_id, arrayDimension_t *shape)
+                                       int type_id, arrayDimension_t* shape)
     : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
-      m_type_func(type_func), m_type_id(type_id), m_shape(shape),
-      m_dim(shape->dim), m_mins(), m_maxs(),
+      m_type_func(type_func), m_type_id(type_id), m_shape(shape ? dupArrayDimension(shape) : nullptr),
+      m_dim(shape ? shape->dim : 0), m_mins(), m_maxs(),
       m_depth(0), m_isC(false), m_isFortran(false),
       m_hasError(false), m_isFragment(false), m_abuild(m_dim), m_idcs(m_dim, 0)
 {
+}
+
+MIArrayToAIFParser::~MIArrayToAIFParser() {
+    if (m_shape)
+        freeArrayDimension(m_shape);
+    delete m_type_struct;
+    delete m_type_func;
 }
 
 // Translate the MI result text into AIF format.   \a str may contain either the
@@ -3737,10 +3748,16 @@ MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
 // it will concatenate adjacent array pieces.   That is "[0,1,2]" "[3,4,5]" will be
 // understood as "[0,1,2,3,4,5]" Note that there is no comma between those arrays.
 void MIArrayToAIFParser::parseSome(const char* str) {
+    DVPRINT("In MIArrayToAIFParser::parseSome %s\n", str);
+
     if (m_hasError)
         return;
 
     try {
+        if (!m_shape) {
+            error("no array shape is specified\n");
+        }
+        
         for (const char* p = str; *p; ++p) {
             if (*p == '(' || *p == '{') {
                 openBracket(*p);
@@ -3757,6 +3774,8 @@ void MIArrayToAIFParser::parseSome(const char* str) {
     } catch (Error&) {
         m_hasError = true;
     }
+
+    DVPRINT("leaving MIArrayToAIFParser::parseSome m_hasError = %s\n", m_hasError ? "true" : "false");
 }
 
 // Handle a character that can be the beginniong of an array: '(' or '{' 
@@ -3782,9 +3801,10 @@ void MIArrayToAIFParser::openBracket(char bracket)
         // arrayDimension_t it is a bit of a goofy goober and used start-1 indexing, so
         // i=1, j=2, k=3, etc.   Also, the parser always orders from slowest changing to
         // fastest changing, so note the order reversal we do here for fortran.  (so we
-        // don't need to mess with it again).
+        // don't need to mess with it again).   Actually - the dimension ordering in
+        // arrayDimension_t is also perversely reversed, so reverse the logic again.
         for (int i=0; i<m_dim; ++i) {
-            int d = (m_isFortran ? m_dim-i : i+1);
+            int d = (m_isFortran ? i+1 : m_dim-i);
             m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
             m_maxs.push_back(getArrayDimensionRangeMax(m_shape,d));
             
@@ -3918,6 +3938,33 @@ AIF* MIArrayToAIFParser::getResult() {
     return nullptr;
 }
 
+// reset the parser to work on a new array
+void MIArrayToAIFParser::setShape(arrayDimension_t* shape)
+{
+    if (!shape) {
+        DVPRINT("nullptr passed to AIFArrayToAIFParser::setShape\n");
+        return;
+    }
+
+    arrayDimension_t* newShape = dupArrayDimension(shape);
+    std::swap(newShape,m_shape);
+    if (newShape)
+        freeArrayDimension(newShape);
+
+    // reset the processing state
+    m_mins.clear();
+    m_maxs.clear();
+    m_dim = shape->dim;
+    m_depth = 0;
+    m_isC = m_isFortran = false;
+    m_hasError = false;
+    m_isFragment = false;
+    m_abuild.resize(m_dim);
+    fill_n(m_abuild.begin(), m_dim, nullptr);
+    m_idcs.resize(m_dim);
+    fill_n(m_idcs.begin(), m_dim, 0);
+}
+
 void MIArrayToAIFParser::error(const std::string& message) {
     m_hasError = true;
     DVPRINT("Parsing error %s\n", message.c_str());
@@ -3936,22 +3983,27 @@ void MIArrayToAIFParser::error(const std::string& message) {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape);
+    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, arrayDimension_t* shape);
     ~ArraySlicer();
-    char* getNext();
 
-    arrayDimension_t *getShape();
+    // evaluate the next slice of the variable result.   Return the
+    // result and the expected shape of the result.   The caller is
+    // responsible for free the returned shape.
+    char* getNext(arrayDimension_t** sliceShape);
+
+    arrayDimension_t* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
     
 private:
     void determineSlicing();
+    arrayDimension_t* makeSubShape(long subRng[2]);
+
     ArraySlicer(const ArraySlicer&) = delete;
     ArraySlicer& operator=(const ArraySlicer&) = delete;    
 
     MISession* m_session;       // session to connect to gdb/MI
-    MIVar* m_var;               // MI variable of interest
-    arrayDimension_t *m_shape;  // dimension and size of the array
-    bool m_shapeIsLocal;        // true if m_shape was created this this object
+    std::shared_ptr<MIVar> m_var;  // MI variable of interest
+    arrayDimension_t* m_shape;  // dimension and size of the array
     char* m_buf;                // allocated array for the result (contolled by this)
     char* m_array;              // interpretable region of m_buf
 
@@ -3962,8 +4014,9 @@ private:
     long m_slice;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape)
-    : m_session(session), m_var(var), m_shape(shape), m_shapeIsLocal(!shape),
+ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
+                         arrayDimension_t* shape)
+    : m_session(session), m_var(var), m_shape(shape ? dupArrayDimension(shape) : nullptr),
       m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
@@ -3976,7 +4029,7 @@ ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape
 
     if (m_blockSize) {
         DVPRINT("Slicing %s of type %s and dimension %d\n", var->expr, var->type,
-                (shape ? shape->dim : 0));
+                (!shape ? 0 : shape->dim));
         determineSlicing();
     }
 }
@@ -3984,7 +4037,7 @@ ArraySlicer::ArraySlicer(MISession* session, MIVar* var, arrayDimension_t *shape
 ArraySlicer::~ArraySlicer()
 {
     free(m_buf);
-    if (m_shape && m_shapeIsLocal)
+    if (m_shape)
         freeArrayDimension(m_shape);
 }
 
@@ -4101,7 +4154,7 @@ void ArraySlicer::determineSlicing()
 }
 
 // Get the data shape, i.e. the dimensionality and range of the array indexing
-// for the data type.  The function is entwinded with this class because it
+// for the data type.  The function is entwined with this class because it
 // needs understand the shape before it is sliced, and need to pass it along to
 // the parsing after it is sliced
 arrayDimension_t *ArraySlicer::getShape() {
@@ -4113,7 +4166,7 @@ arrayDimension_t *ArraySlicer::getShape() {
     // Though not always!   The remainder here is the fall-back position where
     // we could not cogitize the type information, so we just pull out the result
     // in a single glob and pull the shape information out of the result.
-    m_buf = GetArrayDataString(m_session, m_var);
+    m_buf = GetArrayDataString(m_session, m_var.get());
 
     // Now lets get the shape of this array
     int lengthTagLen = 6;
@@ -4158,25 +4211,32 @@ arrayDimension_t *ArraySlicer::getShape() {
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-char* ArraySlicer::getNext()
+char* ArraySlicer::getNext(arrayDimension_t** sliceShape)
 {
+    DVPRINT("In ArraySlicer::getNext\n");
+    
+    *sliceShape = nullptr;
+    
     if (m_subIdx > m_maxSubIdx)
         return nullptr;
     
     char* array = nullptr;
     if (m_array) {
+        DVPRINT("In ArraySlicer::getNext no size information\n");
         // we were unable to get the size information for variable, so we
         // have already gotten the full data
         array = m_array;
         m_array = nullptr;
         ++m_subIdx;
     } else if (m_slice == 0 && !m_buf) {
+        DVPRINT("In ArraySlicer::getNext not big enough to split\n");
         // splitting is not enabled, the array is not big enough to split,
         // or it's a form the splitter doesn't recognize, just return it
         // all
-        array = m_buf = GetArrayDataString(m_session, m_var);
+        array = m_buf = GetArrayDataString(m_session, m_var.get());
         ++m_subIdx;
     } else {
+        DVPRINT("In ArraySlicer::getNext get next chunk\n");
         // get the next chunk of data
         std::swap(m_buf, array);
         if (array) {
@@ -4201,23 +4261,103 @@ char* ArraySlicer::getNext()
         array = EvalExpression(m_session,const_cast<char*>(subExpr.c_str()));
         if (array) {
             // success!
-            m_subIdx = maxIdx+1;
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
+            long subRng[2]= { m_subIdx, maxIdx };
+            *sliceShape = makeSubShape(subRng);
+            m_subIdx = maxIdx+1;
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
-            array = GetArrayDataString(m_session, m_var);
+            array = GetArrayDataString(m_session, m_var.get());
             m_subIdx = m_maxSubIdx + 1;
 
             DVPRINT("Failed getting sub-array value, full result: %s\n", array);
         }
         m_buf = array;
     }
+
+    DVPRINT("got an array value\n");
+    if (array && !*sliceShape)
+        *sliceShape = makeSubShape(nullptr);
+
+    DVPRINT("done makeSubShape\n");
+
     return array;
 }
+
+// Create a shape object corresponding to an array slice, or the full array if subRng is null.
+// If subRng is specified it is the inclusive range of the outermost dimension of the arrray.
+// Callers is responsible for freeing the returned object.
+arrayDimension_t* ArraySlicer::makeSubShape(long subRng[2])
+{
+    arrayDimension_t* shape = getShape(); // size of the full array
+    arrayDimension_t* subShape = newArrayDimension();
+    subShape->isFortran = shape->isFortran;
+
+    unsigned int dim = shape->dim;
+
+    for (unsigned int i=1; i<=shape->dim; ++i) {
+        int minIdx, maxIdx;
+        if (subRng && ((shape->isFortran && i==dim) || (!shape->isFortran && i==1))) {
+            minIdx = subRng[0];
+            maxIdx = subRng[1];
+        } else {
+            minIdx = getArrayDimensionRangeMin(shape,i);
+            maxIdx = getArrayDimensionRangeMax(shape,i);
+        }
+        addArrayDimensionDef(subShape, maxIdx-minIdx+1, minIdx, maxIdx);
+    }
+
+    return subShape;
+}            
+
+// Class for managing the extraction of an array data object via slices.   This object will
+// be wrapped in an AIFStream, and ultimately allows us to query gdb/mi for slice data as the
+// slices are ready to be consumed.   
+class ArrayStream : public AIFStream::Slices {
+public:
+    // Constructor.   slicr and parser do the heavy lifting.
+    ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser);
+
+    // get the shape of the full array
+    virtual arrayDimension_t* getFullShape() const override;
+
+    // return the next partition of data
+    virtual AIF* getNextSlice() override;
+
+private:
+    std::shared_ptr<ArraySlicer> m_slicer;
+    std::shared_ptr<MIArrayToAIFParser> m_parser;
+};
+
+ArrayStream::ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser)
+    : m_slicer(slicer), m_parser(parser)
+{}
+
+// get the shape of the full array
+arrayDimension_t* ArrayStream::getFullShape() const {
+    return m_slicer->getShape();
+}
+
+// return the next partition of data
+AIF* ArrayStream::getNextSlice() {
+    DVPRINT("In ArrayStream::getNextSlice\n");
+    arrayDimension_t* subShape = nullptr;
+    AIF* res = nullptr;
+    if (char* subResult = m_slicer->getNext(&subShape)) {
+        m_parser->setShape(subShape);
+        freeArrayDimension(subShape);
+
+        m_parser->parseSome(subResult);
+        res = m_parser->getResult();
+    }
+
+    return res;
+}
+
 } // namespace
 
 
-static AIF *GetArrayAIF(MISession *session, MIVar *var) {
+static AIFStream *GetArrayAIF(MISession *session, std::shared_ptr<MIVar> var) {
     int id;
     char *type_str;
     int type_len;
@@ -4225,10 +4365,10 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
     func_info_t *type_func;
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
-    if ((id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct,
+    if ((id = GetArrayBaseType(session, var.get(), &type_str, &type_len, &type_struct,
                                &type_func)) == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return (AIF *)NULL;
+        return nullptr;
     }
 
     if (var->numchild <= 0) {
@@ -4237,57 +4377,42 @@ static AIF *GetArrayAIF(MISession *session, MIVar *var) {
                              type_func);
         AIF *a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-	return a;
+        return new AIFStream(a);
     }
     
     DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
             var->numchild, id, type_str, type_len);
 
     // Get the shape of this array
-    arrayDimension_t *shape = GetArrayDimensionShape(session, var);
+    arrayDimension_t *shape = GetArrayDimensionShape(session, var.get());
     if (!shape) {
         // error already set
         DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
         return nullptr;
     }
 
-    std::vector<unsigned long> memSizes;
-    memSizes.push_back(GetProcSize());
-
-    // first we need to get the data string
-    MIArrayToAIFParser parser(type_str, type_len, type_struct,
-                              type_func, id, shape);
-
-    ArraySlicer slicer(session,var,shape);
-    while (char* buf = slicer.getNext()) {
-        memSizes.push_back(GetProcSize());
-        parser.parseSome(buf);
-    }
-
-    AIF* a = parser.getResult();
-
-    memSizes.push_back(GetProcSize());
-
-    DVPRINT("memory: sizes");
-    for (auto s : memSizes)
-        DVPRINT(" %lu", s);
-    DVPRINT("\n");
-        
+    // The array data could be enormous, so instead of getting it now, we just return a
+    // data stream object which can access it in pieces
+    auto slicer = std::make_shared<ArraySlicer>(session,var,shape);
+    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
+                                                       type_func, id, shape);
+    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
 
     freeArrayDimension(shape);
 
-    return a;
+    return new AIFStream(arrayStream);
+
 }
 
-static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
+static AIFStream *GetVectorLikeAIF(MISession *session, std::shared_ptr<MIVar> var) {
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
     char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
-    int id = GetArrayBaseType(session, var, &type_str, &type_len, &type_struct, &type_func);
+    int id = GetArrayBaseType(session, var.get(), &type_str, &type_len, &type_struct, &type_func);
 
     if (id == T_UNKNOWN) {
         DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return (AIF *)NULL;
+        return nullptr;
     }
     DVPRINT("id: %d\n", id);
 
@@ -4297,71 +4422,64 @@ static AIF *GetVectorLikeAIF(MISession *session, MIVar *var) {
                                   type_func);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
-        return a;
+        return new AIFStream(a);
     } 
 
     DVPRINT("Slicing (vector-like) %s of type %s and dimension one\n", var->expr, var->type);
 
     DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
 
-    ArraySlicer slicer(session, var, nullptr);
-    arrayDimension_t *shape = slicer.getShape();
-    if (!shape) {
-        DVPRINT("could not get size of a vector like object");
-        return nullptr;
-    }
+    // The vector data could be enormous, so instead of getting it now, we just create an 
+    // AIFStream which can access the data as it is needed.
 
-    MIArrayToAIFParser parser(type_str, type_len, type_struct,
-                              type_func, id, shape);
+    auto slicer = std::make_shared<ArraySlicer>(session,var,nullptr);
 
-    while (char* buf = slicer.getNext()) {
-        parser.parseSome(buf);
-    }
+    arrayDimension_t *shape = slicer->getShape();                                                    
+    if (!shape) {                                                                                   
+        DVPRINT("could not get size of a vector like object");                                      
+        return nullptr;                                                                             
+    }                                                                                               
+    
+    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
+                                                       type_func, id, shape);
+    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
 
-    AIF* a = parser.getResult();
-
-    return a;
+    return new AIFStream(arrayStream);
 }
 
-static AIF *GetPointerAIF(MISession *session, MIVar *var) {
-    void *addr;
-    char *addr_str;
-    long long int addr_loc;
-    int addr_len;
-    AIF *addr_aif;
-    AIF *rtn_aif;
-
+static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
     DVPRINT("GetPointerAIF: Pointer Type => %s\n", var->type);
 
     // get the address for the pointer, this is represented by the value
     // in the MI object.
-    if ((addr_str = GetVarValue(session, var->name)) == NULL) {
+    char *addr_str = GetVarValue(session, var->name);
+    if (!addr_str) {
         // error already set
-        return NULL;
+        return nullptr;
     }
 
     DVPRINT("GetPointerAIF: Pointer Addr => %s\n", addr_str);
 
     // convert the address of the pointer to an integer value
-    addr_loc = strtoll(addr_str, NULL, 0);
+    long long int addr_loc = strtoll(addr_str, NULL, 0);
 
     // Make the void pointer point at the memory location of the pointer
-    addr = (void *)addr_loc;
+    void* addr = (void *)addr_loc;
 
     // We need to ask for the length of the address type for this particular
     // pointer.
-    addr_len = GetTypeLength(session, var->type);
+    int addr_len = GetTypeLength(session, var->type);
 
     DVPRINT("GetPointerAIF: Pointer Addr Length => %d\n", addr_len);
 
     // Create the AIF type representing the address
-    addr_aif = AddressToAIF(addr, addr_len);
+    AIF* addr_aif = AddressToAIF(addr, addr_len);
 
     // Now create the AIF generic pointer representing both the address that
     // we actually point to and the type string.
-    rtn_aif = GenericPointerToAIF(addr_aif, var->type);
+    AIF *rtn_aif = GenericPointerToAIF(addr_aif, var->type);
 
     AIFFree(addr_aif);
 
-    return rtn_aif;
+    return new AIFStream(rtn_aif);
 }

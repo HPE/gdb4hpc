@@ -327,6 +327,7 @@ static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
     return wrappedStr;
 }
 
+
 char *AIFToSocProto(AIF *a) {
     int fl;
     char *aif_format;
@@ -494,7 +495,7 @@ char *EventToSocProto(dbgevent_t *e) {
         break;
 
     case DBGEV_DATA:
-        res = AIFToSocProto(ev, e->ev_data);
+        res = AIFToSocProto(ev, e->ev_data->joinAIF());
         break;
 
     case DBGEV_STAT:
@@ -511,7 +512,6 @@ char *EventToSocProto(dbgevent_t *e) {
     }
 
     FreeEvent(e);
-
     return res;
 }
 
@@ -1647,7 +1647,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_DATA:
             // Get the string and convert to AIF * and set directly
             evdata = getstring(&s);
-            e->ev_data = SocProtoToAIF(evdata);
+            e->ev_data = new AIFStream(SocProtoToAIF(evdata));
             Free(evdata);
             break;
 

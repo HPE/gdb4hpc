@@ -190,7 +190,7 @@
 /*
  * Function prototypes
  */
-dbgevent_t *GetAIFVar(MISession *, const char *, AIF **, char **);
+dbgevent_t *GetAIFVar(MISession *, const char *, AIFStream **, char **);
 dbgevent_t *GetAIFVarHash(MISession *, char *, AIF **, char *, int, int, int);
 
 #endif /* _DBGSRV_LIBMI2AIF_H */

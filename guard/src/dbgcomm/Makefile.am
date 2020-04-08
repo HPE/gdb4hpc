@@ -25,6 +25,6 @@ endif
 ##############################
 
 noinst_LIBRARIES = libdbg.a
-libdbg_a_SOURCES = dbgbp.cpp dbgcmd.cpp dbgevent.cpp dbgformat.cpp \
+libdbg_a_SOURCES = dbgbp.cpp dbgcmd.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp \
 		   $(SOC_COMM)
 

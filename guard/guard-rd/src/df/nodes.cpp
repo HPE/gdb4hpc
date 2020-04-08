@@ -1714,14 +1714,13 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
         rep = GetNextReplyInSet(set);
         // Mark the event as save data to prevent the AIF data from being
         // free'ed when the reply is cleaned up.
-        EVENT_SAVE_DATA(rep->rep_event);
         // Point at the aif data
-        res = EVENT_DATA(rep->rep_event);
-    } else { /* an array of AIF. Impelementation is based on AIFStruct */
+        res = EVENT_DATA(rep->rep_event)->joinAIF(AIFStream::STEAL);
+    } else { /* an array of AIF. Implementation is based on AIFStruct */
         SetReplyHeadInSet(set);
         while ((rep = GetNextReplyInSet(set)) != NULL) {
             // point at the aif data
-            value = EVENT_DATA(rep->rep_event);
+            value = EVENT_DATA(rep->rep_event)->joinAIF();
 
             if (res == NULL) {
                 res = EmptyStructToAIF(const_cast<char *>("repset_struct"));
@@ -1962,7 +1961,7 @@ token_t *NodeDbgRecvVarSet(graph_t *g, node_t *n) {
         for (i = 0; i < set_length; ++i) {
             if (bitset_test(reply->rep_group, (i + over_set->s_ps_offset))) {
                 // Save the AIF data into the ax
-                ax[i] = EVENT_DATA(reply->rep_event);
+                ax[i] = EVENT_DATA(reply->rep_event)->joinAIF();
             }
         }
     }
@@ -2088,7 +2087,7 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
         for (i = 0; i < set_length; ++i) {
             if (bitset_test(reply->rep_group, (i + over_set->s_ps_offset))) {
                 // Save the AIF data into the ax
-                ax[i] = EVENT_DATA(reply->rep_event);
+                ax[i] = EVENT_DATA(reply->rep_event)->joinAIF();
             }
         }
     }
@@ -2195,9 +2194,8 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
         // This node will call AIFFree directly on the aif pointer, so we want
         // to mark this reply as save data to prevent it from being free'ed when
         // we free the reply.
-        EVENT_SAVE_DATA(reply->rep_event);
         // point a directly at the event data
-        a = EVENT_DATA(reply->rep_event);
+        a = EVENT_DATA(reply->rep_event)->joinAIF(AIFStream::STEAL);
     }
 
     // cleanup

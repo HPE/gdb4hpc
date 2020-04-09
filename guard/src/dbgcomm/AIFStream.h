@@ -25,8 +25,9 @@ public:
         virtual arrayDimension_t* getFullShape() const = 0;
 
         // return the next partition of data, the result must be freed by
-        // the caller
-        virtual AIF* getNextSlice() = 0;
+        // the caller.   isFinal will contain true if there are no more slices after this
+        // one.
+        virtual AIF* getNextSlice(bool& isFinal) = 0;
     };
 
     enum steal_t { STEAL };
@@ -37,6 +38,12 @@ public:
     // construct a data array that can be accessed via sequential slices
     AIFStream(std::shared_ptr<Slices> slices);
 
+    // Get the next slice of AIF data.   Set isFinal to true if this is the last
+    // slice of the data object.   The returned AIF is owned by this object and
+    // is guaranteed to exist until the next call to getNextSlice.
+    // FIXME - oh just make this a shared pointer for god's sake.
+    AIF* getNextSlice(bool& isFinal);
+
     // this should be a temporary function to be replaced by real iteration
     // The value is cached and is owned by the AIF stream object.
     AIF* joinAIF();
@@ -46,23 +53,27 @@ public:
     // freeing it.
     AIF* joinAIF(steal_t);
 
+    
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
     // The object is owned by this object.
     arrayDimension_t* getShape();
 
+    ~AIFStream();
+
 private:
     void joinAIFFromSlices();
-    void freeAIF(AIF* aif) { if (aif && !m_joinedIsStolen) AIFFree(aif); }
     AIF* makeEmptyJoinedAIF(AIF* slice, size_t* elemSize);
     void copySlice(AIF* slice, size_t elemSize, char*& joinedIt);
     void warning(const char* message);
     
-    std::shared_ptr<AIF> m_joinedAIF;
+    AIF* m_joinedAIF;
     bool m_joinedIsStolen;
     bool m_joinedIsExposed;
 
     std::shared_ptr<Slices> m_slices;
+    AIF* m_currentSlice;
+
 };
 
 #endif

@@ -425,8 +425,11 @@ static char *EventSourcesToSocProto(dbgev ev, dbgsources_t *se) {
 ** This is the main function that converts an event to network protocol
 */
 
-char *EventToSocProto(dbgevent_t *e) {
+EventToSocProtoStream::EventToSocProtoStream(dbgevent_t *e)
+    : m_protoString(nullptr), m_aifStream(nullptr)
+{
     char *res = nullptr;
+    AIFStream* stream = nullptr;
 
     dbgev ev = (e ? e->ev_event : DBGEV_NONE);
 
@@ -495,7 +498,8 @@ char *EventToSocProto(dbgevent_t *e) {
         break;
 
     case DBGEV_DATA:
-        res = AIFToSocProto(ev, e->ev_data->joinAIF());
+    case DBGEV_DATA_SLICE:
+        std::swap(stream, e->ev_data);
         break;
 
     case DBGEV_STAT:
@@ -511,10 +515,59 @@ char *EventToSocProto(dbgevent_t *e) {
         break;
     }
 
+    m_protoString = res;
+    m_aifStream = stream;
+
     FreeEvent(e);
+}
+
+EventToSocProtoStream::~EventToSocProtoStream()
+{
+    delete m_aifStream;
+}
+
+// Get a string for the next packet to send back to
+// the client, or nullptr if no message remains.
+char* EventToSocProtoStream::getNextProtoString()
+{
+    char* res = nullptr;
+    bool isFinal = true;
+    if (!m_aifStream) {
+        std::swap(res, m_protoString);
+    } else if (AIF* aif = m_aifStream->getNextSlice(isFinal)) {
+        dbgev ev = ( isFinal ? DBGEV_DATA : DBGEV_DATA_SLICE );
+        res = AIFToSocProto(ev, aif);
+
+        if (isFinal) {
+            // free as soon as possible; also assures a subsequent
+            // call to this function will return nullptr.
+            AIFStream* stream = nullptr;
+            std::swap(stream,m_aifStream);
+            delete stream;
+        }
+    }
+
     return res;
 }
 
+// Return the event as a single string regardless of size.
+char* EventToSocProtoStream::getSingleProtoString()
+{
+    char* res = nullptr;
+    if (!m_aifStream) {
+        std::swap(res, m_protoString);
+    } else if (AIF* aif = m_aifStream->joinAIF()) {
+        // the join is temporary
+        res = AIFToSocProto(aif);
+        // free as soon as possible; also assures a subsequent
+        // call to this function will return nullptr.
+        AIFStream* stream = nullptr;
+        std::swap(stream,m_aifStream);
+        delete stream;
+    }
+
+    return res;
+}
 
 /*
 ** The following are helper functions for converting events into a string for
@@ -531,6 +584,11 @@ static char *EventLocToSocProto(dbgev ev, dbgloc_t *le) {
     char* stres = MakeSocStr(ev, "%d %s %d %s %d %s %d", (int)strlen(file), file,
              (int)strlen(func), func, (int)strlen(addr), addr, le->loc_line);
     return stres;
+}
+
+char *EventToSocProto(dbgevent_t *event) {
+    EventToSocProtoStream stream(event);
+    return stream.getSingleProtoString();
 }
 
 
@@ -1645,6 +1703,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
             break;
 
         case DBGEV_DATA:
+        case DBGEV_DATA_SLICE:
             // Get the string and convert to AIF * and set directly
             evdata = getstring(&s);
             e->ev_data = new AIFStream(SocProtoToAIF(evdata));

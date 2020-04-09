@@ -6,18 +6,50 @@
 #include <stdarg.h>
 
 AIFStream::AIFStream(AIF* aif) :
-    m_joinedAIF(aif, [this](AIF* aif) { this->freeAIF(aif); }),
-    m_joinedIsStolen(false), m_joinedIsExposed(false) {}
+    m_joinedAIF(aif), m_joinedIsStolen(false), m_joinedIsExposed(false),
+    m_currentSlice(nullptr) {}
 
 AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
-    m_joinedIsStolen(false), m_joinedIsExposed(false), m_slices(slices) {}
+    m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false), m_slices(slices),
+    m_currentSlice(nullptr)
+{}
+
+AIFStream::~AIFStream(){
+    if (m_joinedAIF && !m_joinedIsStolen)
+        AIFFree(m_joinedAIF);
+    if (m_currentSlice)
+        AIFFree(m_currentSlice);
+}
+
+// Get the next slice of AIF data.   Set isFinal to true if this is the last
+// slice of the data object.   The returned AIF is owned by this object and
+// is guaranteed to exist until the next call to getNextSlice.
+// FIXME - oh just make this a shared pointer for god's sake.
+AIF* AIFStream::getNextSlice(bool& isFinal)
+{
+    isFinal = true;
+    if (m_joinedIsExposed) {
+        return nullptr;
+    } else if (m_joinedAIF) {
+        return m_joinedAIF;
+    } else if (m_slices) {
+        AIF* slice = m_slices->getNextSlice(isFinal);
+        if (m_currentSlice)
+            AIFFree(m_currentSlice);
+        m_currentSlice = slice;
+        return slice;
+    } else {
+        return nullptr;
+    }
+}
+
 
 // I am hoping for the joinAIF call be to temporary for when I'm pushing through
 // the pieced out version.  This allows us to improve the performance in
 // step-wise fashion instead of having to implement everything at once.
 // This version maintains ownership of AIF object.
 AIF* AIFStream::joinAIF() {
-    if (m_joinedAIF.get() && m_joinedIsStolen && m_joinedIsExposed) {
+    if (m_joinedAIF && m_joinedIsStolen && m_joinedIsExposed) {
         warning("possible problematic lifetime in AIFStream\n");
     }
     if (!m_joinedAIF && m_slices.get()) {
@@ -25,13 +57,13 @@ AIF* AIFStream::joinAIF() {
     }
         
     m_joinedIsExposed = true;
-    return m_joinedAIF.get();
+    return m_joinedAIF;
 }
 
 // This version retrieves the monolithic AIF data structure, and cedes
 // its ownership to the caller.
 AIF* AIFStream::joinAIF(steal_t) {
-    if (m_joinedAIF.get() && m_joinedIsExposed) {
+    if (m_joinedAIF && m_joinedIsExposed) {
         warning("trying to steal an AIF that has already been exposed");
     }
 
@@ -46,7 +78,8 @@ void AIFStream::joinAIFFromSlices() {
     size_t elemSize = 0;
     bool isFirst = true;
 
-    while (AIF* slice = m_slices->getNextSlice()) {
+    bool isFinal;
+    while (AIF* slice = m_slices->getNextSlice(isFinal)) {
         if (isFirst) {
             // first slice, it might also be the last so put off creating a new
             // data structure
@@ -68,7 +101,7 @@ void AIFStream::joinAIFFromSlices() {
         }
     }
 
-    m_joinedAIF.reset(joinedAIF);
+    m_joinedAIF = joinedAIF;
 }
 
 // copy one slice of data into the amalgamated structure.

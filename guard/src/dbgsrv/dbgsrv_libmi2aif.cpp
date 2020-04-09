@@ -3989,7 +3989,7 @@ public:
     // evaluate the next slice of the variable result.   Return the
     // result and the expected shape of the result.   The caller is
     // responsible for free the returned shape.
-    char* getNext(arrayDimension_t** sliceShape);
+    char* getNext(arrayDimension_t** sliceShape, bool& isFinal);
 
     arrayDimension_t* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
@@ -4211,11 +4211,12 @@ arrayDimension_t *ArraySlicer::getShape() {
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-char* ArraySlicer::getNext(arrayDimension_t** sliceShape)
+char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
 {
     DVPRINT("In ArraySlicer::getNext\n");
     
     *sliceShape = nullptr;
+    isFinal = true;
     
     if (m_subIdx > m_maxSubIdx)
         return nullptr;
@@ -4279,6 +4280,8 @@ char* ArraySlicer::getNext(arrayDimension_t** sliceShape)
     if (array && !*sliceShape)
         *sliceShape = makeSubShape(nullptr);
 
+    isFinal = (m_subIdx > m_maxSubIdx);
+
     DVPRINT("done makeSubShape\n");
 
     return array;
@@ -4322,7 +4325,7 @@ public:
     virtual arrayDimension_t* getFullShape() const override;
 
     // return the next partition of data
-    virtual AIF* getNextSlice() override;
+    virtual AIF* getNextSlice(bool& isFinal) override;
 
 private:
     std::shared_ptr<ArraySlicer> m_slicer;
@@ -4339,11 +4342,11 @@ arrayDimension_t* ArrayStream::getFullShape() const {
 }
 
 // return the next partition of data
-AIF* ArrayStream::getNextSlice() {
+AIF* ArrayStream::getNextSlice(bool& isFinal) {
     DVPRINT("In ArrayStream::getNextSlice\n");
     arrayDimension_t* subShape = nullptr;
     AIF* res = nullptr;
-    if (char* subResult = m_slicer->getNext(&subShape)) {
+    if (char* subResult = m_slicer->getNext(&subShape, isFinal)) {
         m_parser->setShape(subShape);
         freeArrayDimension(subShape);
 

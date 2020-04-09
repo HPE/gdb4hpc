@@ -206,6 +206,14 @@ static int cmd_blockmap_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Alt commands
  ********************************/
 
+static expr_t* join_and_parse(int argc, char** argv)
+{
+    std::string args;
+    for (int i=1; i<argc; ++i)
+        args += argv[i];
+    return ParseExpr(args.c_str());
+}
+
 static int cmd_blockmap_alt_dimension_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     expr_t *ex;
@@ -227,7 +235,7 @@ static int cmd_blockmap_alt_dimension_cmd(rec_set_t *rec_set, int argc,
         if (!cli_query("Re-define dimension?")) return 1;
     }
 
-    if ((ex = ParseExpr(argv[1])) == (expr_t *)NULL) {
+    if ((ex = join_and_parse(argc,argv)) == (expr_t *)NULL) {
         PrintError();
         return 0;
     }
@@ -340,7 +348,7 @@ static int cmd_blockmap_alt_distribute_cmd(rec_set_t *rec_set, int argc,
         if (!cli_query("Re-define distribute?")) return 1;
     }
 
-    if ((ex = ParseExpr(argv[1])) == (expr_t *)NULL) {
+    if ((ex = join_and_parse(argc,argv)) == (expr_t *)NULL) {
         PrintError();
         return 0;
     }
@@ -537,7 +545,7 @@ static int cmd_blockmap_alt_proc_grid_cmd(rec_set_t *rec_set, int argc,
         if (!cli_query("Re-define proc_grid?")) return 1;
     }
 
-    if ((ex = ParseExpr(argv[1])) == (expr_t *)NULL) {
+    if ((ex = join_and_parse(argc,argv)) == (expr_t *)NULL) {
         PrintError();
         return 0;
     }
@@ -688,7 +696,7 @@ static int cmd_blockmap_alt_dim_order_cmd(rec_set_t *rec_set, int argc,
         if (!cli_query("Re-define dim_order?")) return 1;
     }
 
-    if ((ex = ParseExpr(argv[1])) == (expr_t *)NULL) {
+    if ((ex = join_and_parse(argc,argv)) == (expr_t *)NULL) {
         PrintError();
         return 0;
     }

@@ -1189,58 +1189,23 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                     gdb_vers = GdbVersion::CUDA_101;
                 }
             }
-        } else if ((vers = fopen("/usr/src/amdgpu-3.1-44.el7/amd/amdgpu/amdgpu_drv.c", "r")) != NULL) {
-            const size_t size = 1024;
-            char linebuf[size];
-            char versbuf[32];
-            num_fields = 0;
-            while (fgets(linebuf, size, vers) != NULL) {
-                num_fields = sscanf(linebuf, "#define AMDGPU_VERSION %7s",
-                                    versbuf);
-                if (num_fields == 1) {
-                    if (strncmp(versbuf, "\"5.4.4\"", 7) == 0) {
-                        DVPRINT("Detected AMD driver %s\n", versbuf);
-                        gdb_vers = GdbVersion::ROC_GDB;
-                    }
-                }
-            }
-            fclose(vers);
-        } else if (access("/usr/sbin/modinfo", X_OK ) != -1 ) {
+        } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
             const size_t size = 1024;
             char linebuf[size];
             char versbuf[32];
             FILE* fp = NULL;
             int num_fields = 0;
-            fp = popen("/usr/sbin/modinfo --field version -k amdgpu /lib/modules/3.10.0-1062.12.1.el7.x86_64/extra/amdgpu.ko.xz", "r");
+            fp = popen("/usr/sbin/dkms status -m amdgpu", "r");
             if (fp != NULL) {
-                DVPRINT("popened /usr/sbin/modinfo\n");
+                DVPRINT("popened /usr/sbin/dkms\n");
                 while (gdb_vers != GdbVersion::ROC_GDB &&
                        fgets(linebuf, size, fp) != NULL) {
-                    num_fields = sscanf(linebuf, "%5s", versbuf);
+                    num_fields = sscanf(linebuf, " Device Type: %3s", versbuf);
+                    //TODO: shorten this up.
+                    num_fields = sscanf(linebuf, "amdgpu, %10s, 3.10.0-1062.12.1.el7.x86_64, x86_64: installed (original_module exists)", versbuf);
                     if (num_fields == 1) {
-                        if (strncmp(versbuf, "5.4.4", 5) == 0) {
+                        if (strncmp(versbuf, "3.3-19.el7", 10) == 0) {
                             DVPRINT("Detected AMD driver %s\n", versbuf);
-                            gdb_vers = GdbVersion::ROC_GDB;
-                        }
-                    }
-                }
-                pclose(fp);
-            }
-        } else if (access("/opt/rocm/bin/rocminfo", X_OK ) != -1 ) {
-            const size_t size = 1024;
-            char linebuf[size];
-            char typebuf[32];
-            FILE* fp = NULL;
-            int num_fields = 0;
-            fp = popen("/opt/rocm/bin/rocminfo", "r");
-            if (fp != NULL) {
-                DVPRINT("popened /opt/rocm/bin/rocminfo\n");
-                while (gdb_vers != GdbVersion::ROC_GDB &&
-                       fgets(linebuf, size, fp) != NULL) {
-                    num_fields = sscanf(linebuf, " Device Type: %3s", typebuf);
-                    if (num_fields == 1) {
-                        if (strncmp(typebuf, "GPU", 3) == 0) {
-                            DVPRINT("Detected GPU device %s\n", typebuf);
                             gdb_vers = GdbVersion::ROC_GDB;
                         }
                     }

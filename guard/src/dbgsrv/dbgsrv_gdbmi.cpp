@@ -1195,15 +1195,14 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             char versbuf[32];
             FILE* fp = NULL;
             int num_fields = 0;
-            fp = popen("/usr/sbin/dkms status -m amdgpu", "r");
+            fp = popen("/usr/sbin/dkms --version", "r");
             if (fp != NULL) {
                 DVPRINT("popened /usr/sbin/dkms\n");
                 while (gdb_vers != GdbVersion::ROC_GDB &&
                        fgets(linebuf, size, fp) != NULL) {
-                    //TODO: shorten this up.
-                    num_fields = sscanf(linebuf, "amdgpu, %10s, 3.10.0-1062.12.1.el7.x86_64, x86_64: installed (original_module exists)", versbuf);
+                    num_fields = sscanf(linebuf, "%8s", versbuf);
                     if (num_fields == 1) {
-                        if (strncmp(versbuf, "3.3-19.el7", 10) == 0) {
+                        if (strncmp(versbuf, "dkms:2.8", 8) == 0) {
                             DVPRINT("Detected AMD driver %s\n", versbuf);
                             gdb_vers = GdbVersion::ROC_GDB;
                         }

@@ -1200,7 +1200,6 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 DVPRINT("popened /usr/sbin/dkms\n");
                 while (gdb_vers != GdbVersion::ROC_GDB &&
                        fgets(linebuf, size, fp) != NULL) {
-                    num_fields = sscanf(linebuf, " Device Type: %3s", versbuf);
                     //TODO: shorten this up.
                     num_fields = sscanf(linebuf, "amdgpu, %10s, 3.10.0-1062.12.1.el7.x86_64, x86_64: installed (original_module exists)", versbuf);
                     if (num_fields == 1) {

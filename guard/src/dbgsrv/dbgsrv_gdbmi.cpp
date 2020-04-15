@@ -70,6 +70,8 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 // functions with external visibility
 void SendMICommand(MISession *, MICommand *);
 
+GdbVersion __gdb_vers = GdbVersion::GDB_81;
+
 static MISession *GDBMISession;
 static dbgstat Status;
 static int Pid = 0;

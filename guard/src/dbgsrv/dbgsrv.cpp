@@ -49,11 +49,6 @@ int debug_flag = 0;
 int gpu_flag = 0;
 int early_entry_flag = 0;
 
-// Enum for supported cuda versions
-enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
-GdbVersion __gdb_vers = GdbVersion::GDB_81;
-
-
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
     {"callbackPort", required_argument, 0, 'c'},

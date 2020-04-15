@@ -40,7 +40,6 @@
 void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
     dbgcommand_t *cmd;
     dbgevent_t *e = NULL;
-    char *resp;
 
     DVPRINT("dbgsrv_dispatch_cmds received: %s\n", msg);
 
@@ -234,18 +233,24 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
 
     FreeCommand(cmd);
 
-    // Convert the event to network protocol and send it
-    // TODO: remove the null event check here when the DbgInvokeNetwork function
-    // gets fixed for MRNet. Every command should be returning a response.
     unsigned long size1 = 0, size2 = 0;
     if (trackSize)
         size1 = GetProcSize();
-    
-    if (e != NULL && (resp = EventToSocProto(e)) != NULL) {
-        if (trackSize) {
-            size2 = GetProcSize();
-            DVPRINT("Sizes at dispatcher %lu %lu %lu\n", size0, size1, size2);
-        }
+
+    // Convert the event to network protocol and send it
+    // TODO: remove the null event check here when the DbgInvokeNetwork function
+    // gets fixed for MRNet. Every command should be returning a response.
+
+    if (!e)
+        return;
+
+    EventToSocProtoStream socProto(e);
+    while (char* resp = socProto.getNextProtoString()) {
         DbgSendReply(resp);
+    }
+
+    if (trackSize) {
+        size2 = GetProcSize();
+        DVPRINT("Sizes at dispatcher %lu %lu %lu\n", size0, size1, size2);
     }
 }

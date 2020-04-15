@@ -31,6 +31,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <vector>
+#include <algorithm>
 
 #include "dbg_client.h"
 #include "useful.h"
@@ -92,7 +94,10 @@ static void DisableBPForBPSet(bp_set_t *, bitset *);
 static void SetBPDispositionForBPSet(bp_set_t *, bitset *, dbgbp_disp);
 static void RemoveBPSet(dbginvoke_t *, bp_set_t *, bitset *);
 static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
-
+static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices);
+static group_reply_t* JoinReplies(bitset* group,
+                                  const std::vector<group_reply*>& replies,
+                                  bool& isError);
 /*
 ** Internal Variables
 */
@@ -2006,7 +2011,14 @@ static int DbgSendCmd(group_recv_t *set, char *request) {
     return (set->_cmd_sent != NULL ? 0 : 1);
 }
 
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
+// Receive one reply from the debug server
+// \param set the the process set we expect a response from.
+// \param req_type the event type we expect to be returned.   Any other event will
+//      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
+//      DBG_DATA).
+// \param isFinal will be set to true if reply finishes the response.   
+// \return the reply as a rep_set_t*, note errors are returned with an error response.
+static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFinal) {
     dbginvoke_t *di = set->rec_di;
     proto_msg_set *proto_res;
     proto_message *msg;
@@ -2015,18 +2027,16 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
     dbgevent_t *e;
     dbgev ev;
 
+    isFinal = true;
+
     // ensure the recv_reply function is implemented
     if (DBG_PROTO_SW(di)->sw_recv_reply == NULL) {
         PrintOutError("Protocol function sw_recv_cmd not implemented.\n");
-        ClearCmdSent(set);
         return NULL;
     }
 
     proto_res =
         DBG_PROTO_SW(di)->sw_recv_reply(di, set->rec_group, set->_cmd_sent);
-
-    // Done with the received bitset
-    ClearCmdSent(set);
 
     reply = NewRepSet();
 
@@ -2072,6 +2082,11 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
                 // Do nothing.
                 break;
 
+            case DBGEV_DATA_SLICE:
+                ev = DBGEV_DATA;
+                isFinal = false;
+                // intentionally falling through
+
             default:
                 if (ev != req_type) {
                     // Create a new error event based on this reply
@@ -2107,6 +2122,318 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
 
     return reply;
 }
+
+// Receive the full reply from the debug server.
+// \param set the the process set we expect a response from.
+// \param req_type the event type we expect to be returned.   Any other event will
+//      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
+//      DBG_DATA).
+// \param isFinal will be set to true if reply finishes the response.   
+// \return the reply as a rep_set_t*, note errors are returned with an error response.
+static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
+
+    std::vector<rep_set_t*> slices;
+    bool isFinal = false;
+    bool failed = false;
+    do {
+        if (rep_set_t *reply = DbgRecvOneReply(set, req_type, isFinal)) {
+            slices.push_back(reply);
+
+            if (!isFinal) {
+                // set 'set' bit_set to contain just those that still want to send
+                // more data -- we can definitely modify the input because ClearCmdSent
+                // will wipe it clean anyway
+                bitset_clear(set->rec_group);
+                SetReplyHeadInSet(reply);
+                while (group_reply_t* rep = GetNextReplyInSet(reply)) {
+                    if (rep->rep_event->ev_event == DBGEV_DATA_SLICE) {
+                        bitset_oreq(set->rec_group, rep->rep_group);
+                    }
+                }
+            }
+        } else {
+            failed = true;
+        }
+    } while (!isFinal && !bitset_isempty(set->rec_group));
+                
+    // As seen in DbgRevOneReply, this function left set cleared, so I'll make sure
+    // we leave it in the same state is used to be in.
+    ClearCmdSent(set);        
+
+    if (failed) {
+        return nullptr;  // should only happen on a misconfiguration
+    } else {
+        return MergeReplySlices(slices);
+    }
+}
+
+// Create a single reply set response from DbgRecvReply.
+// \param slices is a list of reply sets.  In most cases, slices.size() == 1,
+//    the exception if when returning very large array results, the reply is
+//    spread across multiple MRNet packets from each node.   The packets should
+//    be equivalent so that each element of \a slices refers to the *same* subset
+//    of the array.
+// \return a single ret_set with the equivalence sets fixed up and the AIF data,
+//    if it exists, joined back into a single large array.
+// \note this function is temporary to allow the client side logic (including compare,
+//     assert and print) to work unmodified; but this is just a piton - the client
+//     side will need to avoid instaintiating enormous data to avoid blowing up the
+//     client side memory usage.
+static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
+{
+    if (slices.empty())
+        return nullptr;
+    else if (slices.size() == 1)
+        return slices[0];
+
+    // Each generation of packets was reduced separately, so we'll need to build
+    // up new equivalence classes to get a combined result that was returned by
+    // every process.   FIXME: this bit of code is temporary since it allows the
+    // memory consumption in the client to grow unbounded.   So I won't try to make
+    // this code super optimal.
+
+    // but in any case, we won't be trying to do a lot of processing with list_t's -
+    // copy into a vector of vectors.
+    size_t numTiers = slices.size();
+    std::vector<std::vector<group_reply*>> tiers(slices.size());
+    for (size_t i=0; i<numTiers; ++i) {
+        rep_set_t* rs = slices[i];
+        auto& gs = tiers[i];
+        for (int w=0; w<2; ++w) {
+            auto l = (!w ? rs->rep_list : rs->err_list);
+            SetList(l);
+            while (group_reply* gr = (group_reply*)(GetListElement(l)))
+                gs.push_back(gr);
+        }
+    }
+
+    // create the monolithic return 
+    rep_set_t* newRepSet = NewRepSet();
+    if (!newRepSet) {
+        DPRINT("NewRepSet failed\n");
+        return newRepSet;
+    }
+
+    // compute the set of processes left to process
+    bitset* toproc = nullptr;
+    for (auto r : tiers[0]) {
+        if (toproc)
+            bitset_oreq(toproc, r->rep_group);
+        else
+            toproc = bitset_dup(r->rep_group);
+    }
+
+    // the algorithm here isn't too complicated.  We're just looking to pick
+    // one group_reply from each tier which share at least one process.
+    // Merge that set into a single group reply, removed the shared process nodes
+    // from \a toproc and keep doing so until every process has been accounted for.
+    std::vector<group_reply*> newSlice;
+    bitset* setset = bitset_dup(toproc);
+    while (!bitset_isempty(toproc)) {
+        // find a common reply set
+        newSlice.clear();
+        bitset_copy(setset, toproc);
+        for (auto tier : tiers) {
+            for (auto gp : tier) {
+                if (bitset_compare(setset, gp->rep_group)) {
+                    bitset_andeq(setset, gp->rep_group);
+                    newSlice.push_back(gp);
+                    break;
+                }
+            }
+        }
+
+        // remove this set from the process set to process
+        bitset_andeqnot(toproc, setset);
+
+        if (newSlice.size() != numTiers) {
+            DPRINT("reply mismatch in MergeReplySlices\n");
+            break;
+        }
+
+        // update the set of replies left to process
+        for (size_t i=0; i<numTiers; ++i) {
+            auto reply = newSlice[i];
+            auto& tier = tiers[i];
+            if (!bitset_compare(reply->rep_group, toproc)) {
+                // no processes left unprocessed - remove it from the
+                // list because we no longer need to look at it
+                tier.erase(std::find(tier.begin(), tier.end(), reply));
+            }
+        }
+
+        // we have our set of overlapping replies, join the events together
+        // and add to the monolithic return set.
+        bool isError;
+        if (group_reply_t* newReply = JoinReplies(setset, newSlice, isError)) {
+            if (isError) {
+                AddErrToSet(newRepSet, newReply);
+            } else {
+                AddReplyToSet(newRepSet, newReply);
+            }
+        }
+    }
+        
+
+    // cleanup and return
+    bitset_free(toproc);
+    bitset_free(setset);
+        
+    
+    for (auto repset : slices) {
+        FreeRepSet(repset);
+    }
+
+    return newRepSet;
+}
+
+namespace {
+// Manage a bunch of *in memory* AIF slices as an AIF stream.
+// This class is temporary (since it still potentially tries to
+// hold a data structure of nearly unlimited size in memory at once).
+// We define it here just in order to access the joinAIF functionality
+// in AIFStream.  (which is also a temporary expedient).
+class LocalSlices : public AIFStream::Slices {
+public:
+    LocalSlices() : m_shape(nullptr) {}
+    ~LocalSlices() { if (m_shape) freeArrayDimension(m_shape); }
+    void addSlice(AIF* aif);
+    
+    virtual arrayDimension_t* getFullShape() const override;
+    virtual AIF* getNextSlice(bool& isFinal);
+private:
+    std::vector<AIF*> m_aifs;
+    std::vector<AIF*>::iterator m_current;
+    mutable arrayDimension_t* m_shape;
+};
+
+void LocalSlices::addSlice(AIF* aif) {
+    m_aifs.push_back(aif);
+    m_current = m_aifs.begin();
+}
+
+arrayDimension_t* LocalSlices::getFullShape() const
+{
+    if (m_shape)
+        return m_shape;
+    
+    int* fullMins = nullptr;
+    int* fullMaxs = nullptr;
+    int fullDim = 0;
+    bool isFortran = false;
+
+    for (auto aif : m_aifs) {
+        isFortran = (AIFType(aif) == AIF_FTN_ARRAY);
+        int dim = AIFArrayRank(aif);
+        if (dim <= 0) {
+            DPRINT("could not get array dimension\n");
+            return nullptr;
+        }
+
+        // get the array bounds, (note not using AIFArrayBounds because it
+        // errors out on a fortran array)
+        int* mins, *maxs;
+        if (AIFType(aif) != AIF_ARRAY && AIFType(aif) != AIF_FTN_ARRAY) {
+            fprintf(stderr, "aif is not an array type\n");
+            return nullptr;
+        }
+        FDSArrayBounds(AIF_FORMAT(aif), dim, &mins, &maxs, nullptr);
+
+        if (!fullMins) {
+            fullMins = mins;
+            fullMaxs = maxs;
+            fullDim = dim;
+        } else if (dim == fullDim) {
+            for (int i=0; i<dim; ++i) {
+                fullMins[i] = std::min(fullMins[i], mins[i]);
+                fullMaxs[i] = std::max(fullMaxs[i], maxs[i]);
+            }
+            free(mins);
+            free(maxs);
+        } else {
+            DPRINT("dimensions to not match\n");
+            return nullptr;
+        }
+    }
+
+    // Got the bounds, create the array dimension object
+    arrayDimension_t *shape = newArrayDimension();
+    if (!shape) {
+        DPRINT("newArrayDimension failed");
+        return nullptr;
+    }
+
+    shape->isFortran = isFortran;
+
+    for (int i=0; i<fullDim; ++i) {
+        // arrayDimension orders dims from fastest to slowest
+        int d = (isFortran ? i : fullDim-1-i);
+        addArrayDimensionDef(shape, fullMaxs[d]-fullMins[d]+1,
+                             fullMins[d], fullMaxs[d]);
+    }
+
+    free(fullMins);
+    free(fullMaxs);
+
+    m_shape = shape;
+
+    return shape;
+}
+
+AIF* LocalSlices::getNextSlice(bool& isFinal)
+{
+    if (m_current == m_aifs.end()) {
+        return nullptr;
+    } else {
+        isFinal = (m_current+1 == m_aifs.end());
+        return *(m_current++);
+    }
+}
+}
+
+static group_reply_t* JoinReplies(bitset* group,
+                                  const std::vector<group_reply*>& replies,
+                                  bool& isError)
+{
+    dbginvoke_t* di = nullptr;
+    isError = false;
+    for (auto reply : replies) {
+        di = reply->rep_di;
+        if (reply->rep_event->ev_event != DBGEV_DATA &&
+            reply->rep_event->ev_event != DBGEV_DATA_SLICE) {
+            DPRINT("reply event is not data\n");
+            isError = true;
+        }
+    }
+    if (!di) {
+        DPRINT("could not get di in JoinReplies\n");
+        return nullptr;
+    }
+
+    AIFStream* data = nullptr;
+    if (!isError) {
+        auto assemblerSlices = std::make_shared<LocalSlices>();
+        for (auto reply : replies) {
+            assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF(AIFStream::STEAL));
+        }
+        AIFStream assembler(assemblerSlices);
+        AIF* joinedAIF = assembler.joinAIF(AIFStream::STEAL);
+        data = new AIFStream(joinedAIF);
+
+        if (!data)
+            isError = true;
+    }
+        
+    dbgevent_t* event = NewEvent(isError ? DBGEV_ERROR : DBGEV_DATA);
+    if (data) {
+        EVENT_DATA(event) = data;
+    }
+
+    group_reply_t* groupReply = NewGroupReply(di, bitset_dup(group), event);
+    return groupReply;
+}
+
+                                   
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
                                          dbgev req_type) {
@@ -2667,7 +2994,6 @@ rep_set_t *DbgKill(rec_set_t *set) {
     char *request;
     rep_set_t *result;
     dbginvoke_t *di;
-    int res;
     dbgevent_t *e;
     group_reply_t *err_rep;
 
@@ -2696,7 +3022,7 @@ rep_set_t *DbgKill(rec_set_t *set) {
 
         } else {
             // We always want to kill the application, so hardcode detatch to 0
-            res = DBG_PROTO_SW(di)->sw_exit(di, 0);
+            DBG_PROTO_SW(di)->sw_exit(di, 0);
         }
 
         FreeDbgInvoke(di);
@@ -3974,7 +4300,6 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
     group_recv_t *recv_ptr;
     dbginvoke_t *di;
     group_reply_t *err_rep;
-    int res;
     dbgevent_t *e;
     rec_set_t *to_send;
 
@@ -4015,7 +4340,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                     AddErrToSet(result, err_rep);
                 } else {
                     // FIXME: How to handle error case?
-                    res = DBG_PROTO_SW(di)->sw_exit(di, detach);
+                    DBG_PROTO_SW(di)->sw_exit(di, detach);
                 }
 
                 // cleanup the di object
@@ -4067,7 +4392,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                     AddErrToSet(result, err_rep);
                 } else {
                     // FIXME: How to handle error case?
-                    res = DBG_PROTO_SW(di)->sw_exit(di, detach);
+                    DBG_PROTO_SW(di)->sw_exit(di, detach);
                 }
 
                 // cleanup the di object

@@ -70,7 +70,8 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 // functions with external visibility
 void SendMICommand(MISession *, MICommand *);
 
-GdbVersion __gdb_vers = GdbVersion::GDB_81;
+enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
+static GdbVersion gdb_vers = GdbVersion::GDB_81;
 
 static MISession *GDBMISession;
 static dbgstat Status;
@@ -455,7 +456,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (__gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
         // do not open source files
         cmd = _MIGDBSet("source open", "off");
         SendMICommand(GDBMISession, cmd);
@@ -531,7 +532,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (__gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
         // limit strings to 200 characters
         cmd = _MIGDBSet("print characters", "200");
         SendMICommand(GDBMISession, cmd);
@@ -605,7 +606,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         MICommandFree(cmd);
     }
 
-    if (__gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
         // If running with gpu's, turn upc off. If we don't do this, things will
         // break
         if (gpu_flag) {
@@ -1119,7 +1120,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 
 static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    __gdb_vers = GdbVersion::GDB_81;
+    gdb_vers = GdbVersion::GDB_81;
 
     DVPRINT("*** DbgGDBMIInit\n");
 
@@ -1190,7 +1191,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
                 // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
                 if (strncmp(vers_str, "440", 3) == 0) {
-                    __gdb_vers = GdbVersion::CUDA_101;
+                    gdb_vers = GdbVersion::CUDA_101;
                 }
             }
         } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
@@ -1202,13 +1203,13 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             fp = popen("/usr/sbin/dkms --version", "r");
             if (fp != NULL) {
                 DVPRINT("popened /usr/sbin/dkms\n");
-                while (__gdb_vers != GdbVersion::ROC_GDB &&
+                while (gdb_vers != GdbVersion::ROC_GDB &&
                        fgets(linebuf, size, fp) != NULL) {
                     num_fields = sscanf(linebuf, "%8s", versbuf);
                     if (num_fields == 1) {
                         if (strncmp(versbuf, "dkms:2.8", 8) == 0) {
                             DVPRINT("Detected AMD driver %s\n", versbuf);
-                            __gdb_vers = GdbVersion::ROC_GDB;
+                            gdb_vers = GdbVersion::ROC_GDB;
                         }
                     }
                 }
@@ -1216,7 +1217,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             }
         }
 
-        if (__gdb_vers == GdbVersion::GDB_81) {
+        if (gdb_vers == GdbVersion::GDB_81) {
             // Didn't find any of the gpu driver types; apparently gpu_flag is
             // a global so we need to tell the world that we didn't find the
             // correct gpu debugger. (really, we need to do better variable
@@ -1229,7 +1230,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
         // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
         // this value *MUST* match the value set in the applications
         // environment, otherwise things will hang.
-        if (__gdb_vers == GdbVersion::CUDA_101) {
+        if (gdb_vers == GdbVersion::CUDA_101) {
             char *old_tmpdir;
             struct stat st;
 
@@ -1265,7 +1266,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
             }
         }
 
-        switch (__gdb_vers) {
+        switch (gdb_vers) {
             case GdbVersion::CUDA_101:
                 DVPRINT("Using cuda101-gdb-guard\n");
                 MISessionSetGDBPath(GDBMISession, "cuda101-gdb-guard");

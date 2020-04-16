@@ -25,8 +25,6 @@ extern int my_rank;
 extern int sock_fd;
 extern int gpu_flag;
 // Enum for supported cuda versions
-enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
-extern GdbVersion __gdb_vers;
 extern int early_entry_flag;
 extern int debug_flag;
 

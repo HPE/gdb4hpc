@@ -67,11 +67,12 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
 
-// functions with external visibility
-void SendMICommand(MISession *, MICommand *);
-
+// Enum for supported gdb versions
 enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
 static GdbVersion gdb_vers = GdbVersion::GDB_81;
+
+// functions with external visibility
+void SendMICommand(MISession *, MICommand *);
 
 static MISession *GDBMISession;
 static dbgstat Status;

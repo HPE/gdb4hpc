@@ -24,7 +24,6 @@ extern int exit_sleep_time;
 extern int my_rank;
 extern int sock_fd;
 extern int gpu_flag;
-// Enum for supported cuda versions
 extern int early_entry_flag;
 extern int debug_flag;
 

@@ -16,7 +16,7 @@
 
  prepend-path LD_LIBRARY_PATH   $GDB4HPC_BASEDIR/lib
  prepend-path PATH              $GDB4HPC_BASEDIR/bin
- prepend-path MANPATH           $GDB4HPC_BASEDIR/man
+ prepend-path MANPATH           $GDB4HPC_BASEDIR/share/man
  append-path  PE_PRODUCT_LIST   GDB4HPC
 
  if { [ file exists ${GDB4HPC_BASEDIR}/release_info ] } {

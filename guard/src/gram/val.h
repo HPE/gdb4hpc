@@ -23,7 +23,7 @@
 
 #include <stdarg.h>
 
-#include "aif.h"
+#include "AIFStream.h"
 #include "blockmap.h"
 #include "procset.h"
 #ifdef RD
@@ -138,7 +138,7 @@ struct rval_ref_val {
 typedef struct rval_ref_val rval_ref_val;
 
 union rval_val {
-    AIF *rval_aif;
+    AIFStream *rval_aif;
     g_block_map_t *rval_blockmap;
 #ifdef RD
     graph_t *rval_graph;

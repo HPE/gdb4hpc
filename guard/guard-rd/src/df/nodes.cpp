@@ -1724,7 +1724,7 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
 
             if (res == NULL) {
                 res = EmptyStructToAIF(const_cast<char *>("repset_struct"));
-                AIFAddFieldToStruct(res, "size", IntToAIF(num));
+                AIFAddFieldToStruct(res, const_cast<char*>("size"), IntToAIF(num));
             }
 
             snprintf(index_str, 32, "%d", index++);
@@ -1780,7 +1780,7 @@ token_t *NodeGetVar(graph_t *g, node_t *n) {
 
         case lval_blockmap:
             // assign the AIF data directly
-            t->t_data = CopyAIF(RVAL_AIF(v));
+            t->t_data = CopyAIF(RVAL_AIF(v)->joinAIF());
             break;
 
         default:

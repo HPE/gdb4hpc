@@ -47,7 +47,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
             // Print the result
             //
             // AIFPrint doesn't play nice with editline...
-            AIFPrint(Client.cli_out_stream, 0, RVAL_AIF(val));
+            RVAL_AIF(val)->print(Client.cli_out_stream, 0);
             PrintOutMsg("\n");
 
             break;

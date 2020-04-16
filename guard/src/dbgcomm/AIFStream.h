@@ -52,7 +52,6 @@ public:
     // can live after the AIF stream is destroyed and the caller is responsible for
     // freeing it.
     AIF* joinAIF(steal_t);
-
     
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
@@ -61,11 +60,20 @@ public:
 
     ~AIFStream();
 
+    AIFStream* clone();
+
+    // Early version of exporting AIF operations via AIFStream.
+    // ToDo: I'm letting this grow organically for now reserving the
+    // possiblity of a cleaner/better approach later.
+    int isZero(int& val);
+    int toInt(int& val);
+    int print(FILE* fp, int depth);
+
 private:
     void joinAIFFromSlices();
     AIF* makeEmptyJoinedAIF(AIF* slice, size_t* elemSize);
     void copySlice(AIF* slice, size_t elemSize, char*& joinedIt);
-    void warning(const char* message);
+    void warning(const char* message) const;
     
     AIF* m_joinedAIF;
     bool m_joinedIsStolen;

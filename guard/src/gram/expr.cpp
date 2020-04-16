@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sstream>
 
 #include "aif.h"
 #include "client_settings.h"
@@ -815,7 +816,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -832,7 +833,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smn) < 0) {
+            if (RVAL_AIF(val)->toInt(smn) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -862,7 +863,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -992,17 +993,14 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // FIXME: This should be a formal expression operator that is passed
             // to the backend instead of hacking together a random string.
             if (slice != NULL) {
-                char sliceexpr[BUFSIZ] = "|slice(";
-                int n;
-
-                for (n = 0; n < slice->s_rank; n++) {
-                    sprintf(sliceexpr, "%s%d,%d", sliceexpr, slice->s_low[n],
-                            slice->s_high[n]);
-                    if (n < slice->s_rank - 1) strcat(sliceexpr, ",");
+                std::ostringstream sliceexpr("|slice(");
+                for (int n = 0; n < slice->s_rank; n++) {
+                    sliceexpr << slice->s_low[n] << "," << slice->s_high[n];
+                    if (n < slice->s_rank - 1) sliceexpr << ",";
                 }
-                sprintf(sliceexpr, "%s)%s|", sliceexpr, var_expr);
+                sliceexpr << ")" << var_expr << "|";
                 Free(var_expr);
-                var_expr = strdup(sliceexpr);
+                var_expr = strdup(sliceexpr.str().c_str());
             }
 
             // Always have procset be null here, the EXPR_VAR case above takes
@@ -1582,8 +1580,8 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diff) {
 static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                        rec_set_t *rec_set, val_t **diff) {
     int r1;
-    AIF *a1;
-    AIF *a2;
+    AIFStream *a1;
+    AIFStream *a2;
     AIF *aif_res;
     rep_set_t *rep_set;
     group_reply_t *reply;
@@ -1630,7 +1628,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             a1 = RVAL_AIF(v1);
 
                         apply_op_aif_direct:
-                            if (AIFIsZero(a1, &r1) < 0) {
+                            if (a1->isZero(r1) < 0) {
                                 SetError("%s", AIFErrorStr());
                                 return (val_t *)NULL;
                             }
@@ -1647,7 +1645,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         return (val_t *)NULL;
                                     }
                                     return NewVal(lval_none, rval_aif,
-                                                  CopyAIF(RVAL_AIF(tmp)));
+                                                  CopyAIF(RVAL_AIF(tmp)->joinAIF()));
                                 case rval_blockmap:
                                     return NewVal(lval_none, rval_blockmap,
                                                   RVAL_BLOCKMAP(tmp));
@@ -1689,7 +1687,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             if (GetNumberOfReply(rep_set) == 1) {
                                 reply = GetNextReplyInSet(rep_set);
                                 // point directly at the AIF data
-                                a1 = EVENT_DATA(reply->rep_event)->joinAIF();
+                                a1 = EVENT_DATA(reply->rep_event);
                                 // goto the code above
                                 goto apply_op_aif_direct;
                             }
@@ -1703,8 +1701,8 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             while ((reply = GetNextReplyInSet(rep_set)) !=
                                    (group_reply_t *)NULL) {
                                 // point at the data
-                                a1 = EVENT_DATA(reply->rep_event)->joinAIF();
-                                if (AIFIsZero(a1, &r1) < 0) {
+                                a1 = EVENT_DATA(reply->rep_event);
+                                if (a1->isZero(r1) < 0) {
                                     SetError("%s", AIFErrorStr());
                                     // Make sure cleanup happens
                                     FreeRepSet(new_rep_set);
@@ -1746,7 +1744,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         // event, and finally add it to the new
                                         // reply set
                                         ev = NewEvent(DBGEV_DATA);
-                                        ev->ev_data = new AIFStream(CopyAIF(RVAL_AIF(tmp)));
+                                        ev->ev_data = RVAL_AIF(tmp)->clone();
                                         new_reply = NewGroupReply(
                                             reply->rep_di,
                                             bitset_dup(reply->rep_group), ev);
@@ -1948,9 +1946,9 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
 
                             // return the result
                             if ((aif_res = apply_op_aif(
-                                     op, a1, a2,
-                                     check_diff ? &aif_diff : NULL)) == NULL) {
-                                return (val_t *)NULL;
+                                     op, a1->joinAIF(), a2->joinAIF(),
+                                     check_diff ? &aif_diff : nullptr)) == nullptr) {
+                                return nullptr;
                             }
 
                             if (aif_diff != NULL) {
@@ -1979,21 +1977,19 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 diff_rep_set = NewRepSet();
                             }
 
-                            while ((reply = GetNextReplyInSet(rep_set)) !=
-                                   (group_reply_t *)NULL) {
-                                aif_diff = NULL;
+                            while ((reply = GetNextReplyInSet(rep_set))) {
+                                aif_diff = nullptr;
 
                                 // point at the data
-                                a2 = EVENT_DATA(reply->rep_event)->joinAIF();
+                                a2 = EVENT_DATA(reply->rep_event);
 
                                 // apply the operation
-                                if ((aif_res = apply_op_aif(
-                                         op, a1, a2,
-                                         check_diff ? &aif_diff : NULL)) ==
-                                    NULL) {
+                                if (!(aif_res = apply_op_aif(
+                                         op, a1->joinAIF(), a2->joinAIF(),
+                                         check_diff ? &aif_diff : nullptr))) {
                                     FreeRepSet(diff_rep_set);
                                     FreeRepSet(new_rep_set);
-                                    return (val_t *)NULL;
+                                    return nullptr;
                                 }
 
                                 // Make a new event out of the AIF data, use the
@@ -2060,7 +2056,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                         aif_diff = NULL;
 
                         // point at the data
-                        a1 = EVENT_DATA(reply->rep_event)->joinAIF();
+                        a1 = EVENT_DATA(reply->rep_event);
 
                         switch (RVAL_TYPE(v2)) {
                             // This is the reply to aif case
@@ -2069,13 +2065,14 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 a2 = RVAL_AIF(v2);
 
                                 // apply the operation
-                                if ((aif_res = apply_op_aif(
-                                         op, a1, a2,
-                                         check_diff ? &aif_diff : NULL)) ==
-                                    NULL) {
+                                aif_res = apply_op_aif(
+                                    op, a1->joinAIF(), a2->joinAIF(),
+                                    check_diff ? &aif_diff : nullptr);
+
+                                if (!aif_res) {
                                     FreeRepSet(diff_rep_set);
                                     FreeRepSet(new_rep_set);
-                                    return (val_t *)NULL;
+                                    return nullptr;
                                 }
 
                                 // Make a new event out of the AIF data, use the
@@ -2117,15 +2114,17 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         GetNumberOfReply(rep_set2) == 1) {
                                         // point directly at the AIF data for
                                         // reply2
-                                        a2 = EVENT_DATA(reply2->rep_event)->joinAIF();
+                                        a2 = EVENT_DATA(reply2->rep_event);
+
                                         // apply the operation
-                                        if ((aif_res = apply_op_aif(
-                                                 op, a1, a2,
-                                                 check_diff ? &aif_diff
-                                                            : NULL)) == NULL) {
+                                        aif_res = apply_op_aif(
+                                            op, a1->joinAIF(), a2->joinAIF(),
+                                            check_diff ? &aif_diff : nullptr);
+
+                                        if (!aif_res) {
                                             FreeRepSet(diff_rep_set);
                                             FreeRepSet(new_rep_set);
-                                            return (val_t *)NULL;
+                                            return nullptr;
                                         }
 
                                         // Note that here we return an AIF rval,
@@ -2172,16 +2171,15 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                     }
 
                                     // point at the aif data for reply2
-                                    a2 = EVENT_DATA(reply2->rep_event)->joinAIF();
+                                    a2 = EVENT_DATA(reply2->rep_event);
 
                                     // apply the operation
-                                    if ((aif_res = apply_op_aif(
-                                             op, a1, a2,
-                                             check_diff ? &aif_diff : NULL)) ==
-                                        NULL) {
+                                    aif_res = apply_op_aif(op, a1->joinAIF(), a2->joinAIF(),
+                                                           check_diff ? &aif_diff : nullptr);
+                                    if (!aif_res) {
                                         FreeRepSet(diff_rep_set);
                                         FreeRepSet(new_rep_set);
-                                        return (val_t *)NULL;
+                                        return nullptr;
                                     }
 
                                     // Make a new event out of the AIF data
@@ -2285,8 +2283,9 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                     a1 = RVAL_AIF(v1);
 
                     // return the result
-                    if ((aif_res = apply_op_aif(op, a1, NULL, NULL)) == NULL) {
-                        return (val_t *)NULL;
+                    aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr);
+                    if (!aif_res) {
+                        return nullptr;
                     }
 
                     return NewVal(lval_none, rval_aif, aif_res);
@@ -2302,16 +2301,15 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                     // will contain the bitset of the v1 reply
                     new_rep_set = NewRepSet();
 
-                    while ((reply = GetNextReplyInSet(rep_set)) !=
-                           (group_reply_t *)NULL) {
+                    while ((reply = GetNextReplyInSet(rep_set))) {
                         // point at the data
-                        a1 = EVENT_DATA(reply->rep_event)->joinAIF();
+                        a1 = EVENT_DATA(reply->rep_event);
 
                         // apply the operation
-                        if ((aif_res = apply_op_aif(op, a1, NULL, NULL)) ==
-                            NULL) {
+                        aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr);
+                        if (!aif_res) {
                             FreeRepSet(new_rep_set);
-                            return (val_t *)NULL;
+                            return nullptr;
                         }
 
                         // Make a new event out of the AIF data, use the replies
@@ -2345,7 +2343,6 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
 static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
     int smn;
     int smx;
-    hentry_t *sym;
     val_t *val;
     var_t *var = (var_t *)NULL;
     expr_elt *ep;
@@ -2440,7 +2437,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2458,7 +2455,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smn) < 0) {
+            if (RVAL_AIF(val)->toInt(smn) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2484,7 +2481,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2562,8 +2559,6 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
     }
 
     ep = TOP(e);
-
-    sym = ep->e_sym;
 
     if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL)
         goto bad_var;
@@ -2669,7 +2664,6 @@ g_block_map_t *EvaluateBlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
 var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
     int smn;
     int smx;
-    hentry_t *sym;
     val_t *val;
     var_t *var = (var_t *)NULL;
     expr_elt *ep;
@@ -2758,7 +2752,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2776,7 +2770,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smn) < 0) {
+            if (RVAL_AIF(val)->toInt(smn) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2802,7 +2796,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
                 goto bad_var;
             }
 
-            if (AIFToInt(RVAL_AIF(val), &smx) < 0) {
+            if (RVAL_AIF(val)->toInt(smx) < 0) {
                 SetError("%s", AIFErrorStr());
                 DestroyVal(val);
                 goto bad_var;
@@ -2880,8 +2874,6 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
     }
 
     ep = TOP(e);
-
-    sym = ep->e_sym;
 
     if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) == (val_t *)NULL)
         goto bad_var;
@@ -3073,12 +3065,12 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // Send the command using the rval aif data
                 if (lval_rec_set != NULL) {
                     ret = SendSetVarCmd(lval_rec_set, LVAL_GDB_EXPR(lval),
-                                        RVAL_AIF(rval));
+                                        RVAL_AIF(rval)->joinAIF());
                     FreeRecSet(lval_rec_set);
                     return ret;
                 } else {
                     return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval),
-                                         RVAL_AIF(rval));
+                                         RVAL_AIF(rval)->joinAIF());
                 }
             }
 

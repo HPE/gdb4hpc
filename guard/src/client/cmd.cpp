@@ -222,7 +222,6 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
     // used for checking status
     rep_set_t *rep_set;
     group_recv_t *recv_ptr;
-    group_reply_t *reply;
     char *bitset_str;
     char *set_str;
     dbgstatus_t *stat;
@@ -259,8 +258,7 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
                 status_block = XMLStartStatusBlock(recv_ptr->rec_di->d_handle);
 
                 // Process each status message and add it to the status block
-                SetReplyHeadInSet(rep_set);
-                while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+                for (auto&& reply : rep_set) {
                     // Ensure the di match
                     if (recv_ptr->rec_di != reply->rep_di) {
                         continue;

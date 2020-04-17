@@ -1679,13 +1679,12 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                         case rval_reply:
                             // point at the reply set
                             rep_set = RVAL_REPLY(v1);
-                            ResetSet(rep_set);
 
                             // If there is only one reply in the set, we can
                             // treat this as an aif type and do the same thing
                             // as we did above
                             if (GetNumberOfReply(rep_set) == 1) {
-                                reply = GetNextReplyInSet(rep_set);
+                                reply = rep_set->getFirstReply();
                                 // point directly at the AIF data
                                 a1 = EVENT_DATA(reply->rep_event);
                                 // goto the code above
@@ -1698,8 +1697,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             // on true/false value
                             new_rep_set = NewRepSet();
 
-                            while ((reply = GetNextReplyInSet(rep_set)) !=
-                                   (group_reply_t *)NULL) {
+                            for (auto&& reply : rep_set) {
                                 // point at the data
                                 a1 = EVENT_DATA(reply->rep_event);
                                 if (a1->isZero(r1) < 0) {
@@ -1767,14 +1765,12 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         // reply set. If it isn't empty we add
                                         // it.
                                         rep_set2 = RVAL_REPLY(tmp);
-                                        ResetSet(rep_set2);
 
                                         // If there is only one reply in the
                                         // set, we can assign directly without
                                         // any checks on the bitset
                                         if (GetNumberOfReply(rep_set) == 1) {
-                                            reply2 =
-                                                GetNextReplyInSet(rep_set2);
+                                            reply2 = rep_set2->getFirstReply();
                                             new_reply = NewGroupReply(
                                                 reply->rep_di,
                                                 bitset_dup(reply->rep_group),
@@ -1786,8 +1782,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                             // check to make sure the lval and
                                             // rval bitset sizes match for the
                                             // replies, otherwise throw an error
-                                            reply2 =
-                                                GetNextReplyInSet(rep_set2);
+                                            reply2 = rep_set2->getFirstReply();
                                             if (bitset_size(reply->rep_group) !=
                                                 bitset_size(
                                                     reply2->rep_group)) {
@@ -1800,13 +1795,10 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                                 FreeRepSet(new_rep_set);
                                                 return (val_t *)NULL;
                                             }
-                                            ResetSet(rep_set2);
                                         }
 
                                         // loop over this reply
-                                        while ((reply2 = GetNextReplyInSet(
-                                                    rep_set2)) !=
-                                               (group_reply_t *)NULL) {
+                                        for (auto&& reply2 : rep_set2) {
                                             // compute the new set
                                             tset =
                                                 bitset_and(reply->rep_group,
@@ -1962,7 +1954,6 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
 
                             // point at the reply set
                             rep_set = RVAL_REPLY(v2);
-                            ResetSet(rep_set);
 
                             // we always want to recreate the set for binary
                             // operations
@@ -1977,7 +1968,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                 diff_rep_set = NewRepSet();
                             }
 
-                            while ((reply = GetNextReplyInSet(rep_set))) {
+                            for (auto&& reply : rep_set) {
                                 aif_diff = nullptr;
 
                                 // point at the data
@@ -2039,7 +2030,6 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                 case rval_reply:
                     // point at the reply set
                     rep_set = RVAL_REPLY(v1);
-                    ResetSet(rep_set);
 
                     // we always want to recreate the set for binary operations
 
@@ -2051,8 +2041,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                         diff_rep_set = NewRepSet();
                     }
 
-                    while ((reply = GetNextReplyInSet(rep_set)) !=
-                           (group_reply_t *)NULL) {
+                    for (auto&& reply : rep_set) {
                         aif_diff = NULL;
 
                         // point at the data
@@ -2100,12 +2089,11 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                             case rval_reply:
                                 // point at the reply set
                                 rep_set2 = RVAL_REPLY(v2);
-                                ResetSet(rep_set2);
 
                                 // check to make sure the v1 and v2 bitset sizes
                                 // match for the replies, otherwise throw an
                                 // error
-                                reply2 = GetNextReplyInSet(rep_set2);
+                                reply2 = rep_set2->getFirstReply();
                                 if (bitset_size(reply->rep_group) !=
                                     bitset_size(reply2->rep_group)) {
                                     // If there is only one reply in the set, we
@@ -2152,11 +2140,9 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                                         return (val_t *)NULL;
                                     }
                                 }
-                                ResetSet(rep_set2);
 
                                 // loop over this reply
-                                while ((reply2 = GetNextReplyInSet(rep_set2)) !=
-                                       (group_reply_t *)NULL) {
+                                for (auto&& reply2 : rep_set2) {
                                     aif_diff = NULL;
 
                                     // compute the new set
@@ -2293,7 +2279,6 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                 case rval_reply:
                     // point at the reply set
                     rep_set = RVAL_REPLY(v1);
-                    ResetSet(rep_set);
 
                     // we always want to recreate the set for unary operations
 
@@ -2301,7 +2286,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                     // will contain the bitset of the v1 reply
                     new_rep_set = NewRepSet();
 
-                    while ((reply = GetNextReplyInSet(rep_set))) {
+                    for (auto&& reply : rep_set) {
                         // point at the data
                         a1 = EVENT_DATA(reply->rep_event);
 
@@ -3093,15 +3078,13 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     return -1;
                 }
 
-                // Reset the linked list
-                ResetSet(rep_set);
 
                 // Check to see if there is only one reply in the rep_set, if so
                 // we can assign the value directly since it is a constant
                 // across every rank
                 if (GetNumberOfReply(rep_set) == 1) {
                     // grab the result
-                    reply = GetNextReplyInSet(rep_set);
+                    reply = rep_set->getFirstReply();
                     // point at the AIF data
                     na = EVENT_DATA(reply->rep_event)->joinAIF();
 
@@ -3124,7 +3107,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // temporarily point at the first reply, make sure to reset the
                 // list when finished. Need to check one of the bitsets in the
                 // reply set to see if its the same size of the lval overset.
-                reply = GetNextReplyInSet(rep_set);
+                reply = rep_set->getFirstReply();
 
                 if (lval_rec_set != NULL) {
                     // We already enforced the one di rule with the lval, so
@@ -3151,8 +3134,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
 
                     // We can assign the rval to the lval since the number of
                     // ranks match loop over each reply
-                    ResetSet(rep_set);
-                    while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+                    for (auto&& reply : rep_set) {
                         // Create the rec_set for this reply from the lval
                         // overset using the bitset from the reply
                         target_recset = NewRecSet();
@@ -3189,8 +3171,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     ret = 0;
 
                     // loop over each reply
-                    ResetSet(rep_set);
-                    while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+                    for (auto&& reply : rep_set) {
                         // Loop over each di in the rec_set
                         SetReceiverHeadInSet(rec_set);
                         while ((recv_ptr = GetNextReceiverInSet(rec_set)) !=
@@ -3289,15 +3270,12 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 return -1;
             }
 
-            // Reset the linked list
-            ResetSet(rep_set);
-
             // Check to see if there is only one reply in the rep_set, if so
             // we can assign the value directly since it is a constant across
             // every rank
             if (GetNumberOfReply(rep_set) == 1) {
                 // grab the result
-                reply = GetNextReplyInSet(rep_set);
+                reply = rep_set->getFirstReply();
                 // point at the AIF data
                 na = EVENT_DATA(reply->rep_event)->joinAIF();
 
@@ -3336,10 +3314,9 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 }
             }
 
-            // temporarily point at the first reply, make sure to reset the list
-            // when finished. Need to check one of the bitsets in the reply set
+            // Need to check one of the bitsets in the reply set
             // to see if its the same size of the lval overset.
-            reply = GetNextReplyInSet(rep_set);
+            reply = rep_set->getFirstReply();
 
             if (lval_rec_set != NULL) {
                 // We already enforced the one di rule with the lval, so lets
@@ -3364,8 +3341,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
 
                 // We can assign the rval to the lval since the number of ranks
                 // match loop over each reply
-                ResetSet(rep_set);
-                while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+                for (auto&& reply : rep_set) {
                     // Create the rec_set for this reply from the lval overset
                     // using the bitset from the reply
                     target_recset = NewRecSet();
@@ -3401,8 +3377,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 ret = 0;
 
                 // loop over each reply
-                ResetSet(rep_set);
-                while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+                for (auto&& reply : rep_set) {
                     // Loop over each di in the rec_set
                     SetReceiverHeadInSet(rec_set);
                     while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL) {

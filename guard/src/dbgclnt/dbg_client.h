@@ -37,7 +37,7 @@
 #include "dbgevent.h"
 #include "dbgoutp.h"
 #include "defs.h"
-
+#include <vector>
 /*
 ** debugger client struct and type definitions
 */
@@ -161,11 +161,40 @@ typedef struct group_reply group_reply_t;
 ** Each group maybe an error message (maintained by group_err_t),
 ** or a normal message (maintained by group_reply_t).
 */
-struct rep_set {
-    list_t *rep_list;  // event replies of cmd
-    list_t *err_list;  // error events
+class rep_set_t {
+public:
+    rep_set_t();
+    ~rep_set_t();
+    rep_set_t(const rep_set_t&) = delete;
+    rep_set_t& operator=(const rep_set_t&) = delete;
+
+    rep_set_t* clone() const;
+    rep_set_t* merge(rep_set_t* tmp);
+    int hasError() const;
+    void addReply(group_reply_t* reply);
+    void addErr(group_reply_t* reply);
+    bool isEmpty() const { return m_reps.empty() && m_errs.empty(); }
+    group_reply_t* getFirstReply() const {
+        return (m_reps.empty() ? nullptr : m_reps.front());
+    }
+
+    const std::vector<group_reply_t*>& getReplies() const { return m_reps; }
+    const std::vector<group_reply_t*>& getErrs() const { return m_errs; }
+
+    static const std::vector<group_reply_t*>& getNullReply();
+
+private:
+    std::vector<group_reply_t*> m_reps;  // event replies of cmd
+    std::vector<group_reply_t*> m_errs;  // error events
 };
-typedef struct rep_set rep_set_t;
+
+inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t* set) {
+    return (set ? set->getReplies() : rep_set_t::getNullReply()).begin();
+}
+inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t* set) {
+    return (set ? set->getReplies() : rep_set_t::getNullReply()).end();
+}
+
 
 // These are used to describe asynchronous events to the client interface
 struct event_set {
@@ -251,11 +280,11 @@ extern rep_set_t *NewRepSet(void);  // Make static
 extern void FreeRepSet(rep_set_t *set);
 extern rep_set_t *CopyRepSet(rep_set_t *set);
 extern void AddReplyToSet(rep_set_t *set, group_reply_t *rep);  // Make static
-extern void ResetSet(rep_set_t *set);                           // Make static
+//extern void ResetSet(rep_set_t *set);                           // Make static
 extern int SetHasError(rep_set_t *set);  // Maybe make static
-extern void SetReplyHeadInSet(rep_set_t *set);
+//extern void SetReplyHeadInSet(rep_set_t *set);
 extern int GetNumberOfReply(rep_set_t *set);
-extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
+//extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
 extern int ProcessErrorInRepSet(rep_set_t *);
 
 /*

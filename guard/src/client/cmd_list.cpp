@@ -29,7 +29,6 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbglist_t *l;
     dbglist_t *lp;
     rep_set_t *rep_set = NULL;
-    group_reply_t *reply;
     char *tmp_str;
 
     if (argc > 1) s = argv[1];
@@ -38,7 +37,7 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at the list data
         lp = EVENT_LIST(reply->rep_event);
 
@@ -64,7 +63,6 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     rep_set_t *rep_set;
     group_recv_t *recv_ptr;
-    group_reply_t *reply;
     dbgsources_t *s;
     dbgsources_t *sp;
     int print_header;
@@ -80,8 +78,7 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
         print_header = 1;
 
         // process replies
-        SetReplyHeadInSet(rep_set);
-        while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+        for (auto&& reply : rep_set) {
             if (recv_ptr->rec_di != reply->rep_di) {
                 continue;
             }

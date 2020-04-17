@@ -182,7 +182,6 @@ static void SetupEnvironment(void) {
     char *lib_dir;
     char *libexec_dir;
     char *cfg_dir;
-    char *env_lib_dir;
 
     // Adjust the environment to add our install base to LD_LIBRARY_PATH and
     // PATH of our process
@@ -584,7 +583,6 @@ static void SigHandler(int sig) {
     dbgprocset_t *s;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgloc_t *halt_loc;
 
     DPRINT("\n***In SigHandler\n");
@@ -617,7 +615,7 @@ static void SigHandler(int sig) {
     ProcessErrorInRepSet(rep_set);
 
     // process location
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         halt_loc = EVENT_LOC(reply->rep_event);
         PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group,
                                halt_loc);
@@ -907,7 +905,6 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
         // used for checking status
         rec_set_t *rec_set;
         rep_set_t *rep_set;
-        group_reply_t *reply;
         char *bitset_str;
         char *set_str;
         dbgstatus_t *s;
@@ -934,7 +931,7 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
             status_block = XMLStartStatusBlock(ev_set->e_di->d_handle);
 
             // Process each status message and add it to the status block
-            while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+            for (auto&& reply : rep_set) {
                 // First create the bitset string
                 bitset_str = bitset_to_set(reply->rep_group);
 

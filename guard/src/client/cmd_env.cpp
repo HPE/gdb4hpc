@@ -408,7 +408,6 @@ static int class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
 static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgstatus_t *s;
 
     // We do not want to get the location info with this status command
@@ -416,7 +415,7 @@ static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at the status data
         s = EVENT_STATUS(reply->rep_event);
 
@@ -464,7 +463,6 @@ static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
 static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     char *new_path;
 
     if (argc < 2) {
@@ -477,7 +475,7 @@ static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         new_path = EVENT_SOURCE_PATH(reply->rep_event);
 
         PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
@@ -493,14 +491,13 @@ static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
 static int class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     char *path;
 
     rep_set = DbgGetSourcePath(rec_set);
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         path = EVENT_SOURCE_PATH(reply->rep_event);
 
         PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,

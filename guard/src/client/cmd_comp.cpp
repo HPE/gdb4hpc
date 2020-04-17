@@ -32,7 +32,6 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *val_diff = NULL;
     int res;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     expr_t *e;
     char **ap;
     AIFStream *a;
@@ -129,9 +128,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             // together and only print a summary over all the ranks.
 
             // Need to loop over the reply
-            SetReplyHeadInSet(rep_set);
-            while ((reply = GetNextReplyInSet(rep_set)) !=
-                   (group_reply_t *)NULL) {
+            for (auto&& reply : rep_set) {
                 // point at the aif result
                 a = EVENT_DATA(reply->rep_event);
                 // Set res to the comparison result

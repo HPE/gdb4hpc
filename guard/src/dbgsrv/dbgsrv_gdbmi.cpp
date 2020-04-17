@@ -67,8 +67,9 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
 
-// Enum for supported cuda versions
+// Enum for supported gdb versions
 enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
+static GdbVersion gdb_vers = GdbVersion::GDB_81;
 
 // functions with external visibility
 void SendMICommand(MISession *, MICommand *);
@@ -456,16 +457,17 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    // do not open source files
-    cmd = _MIGDBSet("source open", "off");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        // do not open source files
+        cmd = _MIGDBSet("source open", "off");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-        return e;
     }
-    MICommandFree(cmd);
-
     // we need gdb to set print elements and print repeats to 0 so
     // that when we resolve the data it gives us the entire contents
     // of the data type.
@@ -531,16 +533,18 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    // limit strings to 200 characters
-    cmd = _MIGDBSet("print characters", "200");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        // limit strings to 200 characters
+        cmd = _MIGDBSet("print characters", "200");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER,
+                        "Gdb set print characters command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set print characters command failed.");
-        return e;
     }
-    MICommandFree(cmd);
 
     // don't allow pending breakpoints
     cmd = _MIGDBSet("breakpoint pending", "off");
@@ -603,18 +607,20 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         MICommandFree(cmd);
     }
 
-    // If running with gpu's, turn upc off. If we don't do this, things will
-    // break
-    if (gpu_flag) {
-        cmd = _MIGDBSet("upcsingle", "1");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        // If running with gpu's, turn upc off. If we don't do this, things will
+        // break
+        if (gpu_flag) {
+            cmd = _MIGDBSet("upcsingle", "1");
+            SendMICommand(GDBMISession, cmd);
+            if (!MICommandResultOK(cmd)) {
+                MICommandFree(cmd);
+                EVENT_ERROR(e, DBGERR_DEBUGGER,
+                            "Gdb set upcsingle command failed.");
+                return e;
+            }
             MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Gdb set upcsingle command failed.");
-            return e;
         }
-        MICommandFree(cmd);
     }
 
     // XXX: This actual does do something with the Allinea branch of gdb.
@@ -1115,7 +1121,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 
 static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    GdbVersion gdb_vers = GdbVersion::GDB_81;
+    gdb_vers = GdbVersion::GDB_81;
 
     DVPRINT("*** DbgGDBMIInit\n");
 

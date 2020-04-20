@@ -107,16 +107,25 @@ def makeRunFile(test):
     session = makeBatchScript(test, application, totNumProcs)
     if (session):
         session = "session " + session
-        exclusive = "-n" + str(numProcs)
 
     syncrc = re.compile(r"maint\s+set\s+sync\s+on")
 
     with open(runfile,"w") as run:
         for line in open(rcfile, "r"):
-            if session and syncrc.search(line):
-                run.write(session + "\n")
-                run.write("maint sleep 15\n")
-            run.write(line.replace("--exclusive",exclusive))
+            if not session:
+                run.write(line)
+            elif syncrc.search(line):
+                 run.write(session + "\n")
+                 run.write("maint sleep 15\n")
+                 run.write(line)
+            else:
+                match = launchRE.search(line)
+                if match:
+                    launchN = match.group(1)
+                    exclusive = "-n" + launchN
+                    run.write(line.replace("--exclusive",exclusive))
+                else:
+                    run.write(line)
 
     return runfile
 

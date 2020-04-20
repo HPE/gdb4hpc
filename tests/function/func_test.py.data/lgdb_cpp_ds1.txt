@@ -8,6 +8,9 @@ Finalizing setup...
 Launch complete.
 b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_ds_test1.cpp:13
 b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_ds_test1.cpp, line 61.
+%[
+<$b>:%.*%
+%]
 b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_ds_test1.cpp:61
 b{0..2}: 10
 b{0..2}: 9
@@ -17,9 +20,6 @@ b{0..2}: 9
 b{0..2}: 9
 b{0..2}: 9.5
 b{0..2}: 9.5
-%[
-<$b>:%.*%
-%]
 b{0..2}: Unsupported symbol type
 b{0..2}: [9,8,5,6,7,1,4,0,3,2]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]

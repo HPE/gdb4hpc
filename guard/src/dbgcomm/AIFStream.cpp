@@ -17,8 +17,8 @@ AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
 AIFStream::~AIFStream(){
     if (m_joinedAIF && !m_joinedIsStolen)
         AIFFree(m_joinedAIF);
-    if (m_currentSlice)
-        AIFFree(m_currentSlice);
+    if (m_currentSlice && m_slices.get())
+        m_slices->freeSlice(m_currentSlice);
 }
 
 // Get the next slice of AIF data.   Set isFinal to true if this is the last
@@ -35,7 +35,7 @@ AIF* AIFStream::getNextSlice(bool& isFinal)
     } else if (m_slices) {
         AIF* slice = m_slices->getNextSlice(isFinal);
         if (m_currentSlice)
-            AIFFree(m_currentSlice);
+            m_slices->freeSlice(m_currentSlice);
         m_currentSlice = slice;
         return slice;
     } else {
@@ -93,11 +93,11 @@ void AIFStream::joinAIFFromSlices() {
                 joinedAIF = makeEmptyJoinedAIF(slice, &elemSize);
                 joinedIt = AIF_DATA(joinedAIF);
                 copySlice(slice0, elemSize, joinedIt);  // joinedIt is updated
-                AIFFree(slice0);
+                m_slices->freeSlice(slice0);
             }
 
             copySlice(slice, elemSize, joinedIt); // joinedIt is updated
-            AIFFree(slice);
+            m_slices->freeSlice(slice);
         }
     }
 

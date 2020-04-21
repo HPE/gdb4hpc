@@ -28,6 +28,9 @@ public:
         // the caller.   isFinal will contain true if there are no more slices after this
         // one.
         virtual AIF* getNextSlice(bool& isFinal) = 0;
+
+        // free (or not) a slice after it is done being processed
+        virtual void freeSlice(AIF* aif) = 0;
     };
 
     enum steal_t { STEAL };

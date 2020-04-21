@@ -35,7 +35,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     group_reply_t *reply;
     expr_t *e;
     char **ap;
-    AIF *a;
+    AIFStream *a;
     int print_diff = 0;
     bitset *true_bitset = NULL;
     bitset *false_bitset = NULL;
@@ -96,7 +96,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             // point at the aif result
             a = RVAL_AIF(val_res);
             // Set res to the comparison result
-            AIFToInt(a, &res);
+            a->toInt(res);
             switch (res) {
                 case 0:
                     PrintOutMsg("Comparison is true.\n");
@@ -133,9 +133,9 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             while ((reply = GetNextReplyInSet(rep_set)) !=
                    (group_reply_t *)NULL) {
                 // point at the aif result
-                a = EVENT_DATA(reply->rep_event)->joinAIF();
+                a = EVENT_DATA(reply->rep_event);
                 // Set res to the comparison result
-                AIFToInt(a, &res);
+                a->toInt(res);
                 switch (res) {
                     case 0:
                         if (true_bitset == NULL) {

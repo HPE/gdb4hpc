@@ -178,11 +178,11 @@ AIF *GetActualAIF(val_t *val) {
                     }
 
                     // return the base
-                    return AIF_VAL(*(ref->ref_val));
+                    return AIF_VAL(*(ref->ref_val))->joinAIF();
 
                 case rval_aif:
                     // Can return the AIF type directly
-                    return AIF_VAL(RVAL_REF_VAL(val));
+                    return AIF_VAL(RVAL_REF_VAL(val))->joinAIF();
 
                 // Everything else is an error!
                 default:
@@ -196,7 +196,7 @@ AIF *GetActualAIF(val_t *val) {
 
         case rval_aif:
             // Can return the AIF type directly
-            return RVAL_AIF(val);
+            return (RVAL_AIF(val) ? RVAL_AIF(val)->joinAIF() : nullptr);
 
         // Everything else is an error!
         default:
@@ -465,7 +465,7 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
             // Free the rep_set, we are done with it
             FreeRepSet(rep_set);
             // assign the AIF result to the val
-            RVAL_AIF(val) = a;
+            RVAL_AIF(val) = new AIFStream(a);
             break;
 
         default:
@@ -529,7 +529,7 @@ val_t *NewVal(lval_type ltype, ...) {
             LVAL_BM_ARRAY_SIZE(v) = va_arg(args, int);
             // The rval is assumed.
             RVAL_TYPE(v) = rval_aif;
-            RVAL_AIF(v) = (AIF *)NULL;
+            RVAL_AIF(v) = nullptr;
             va_end(args);
             return v;
     }
@@ -542,7 +542,7 @@ val_t *NewVal(lval_type ltype, ...) {
             break;
 
         case rval_aif:
-            RVAL_AIF(v) = va_arg(args, AIF *);
+            RVAL_AIF(v) = new AIFStream(va_arg(args, AIF *));
             break;
 
         case rval_proc:
@@ -644,7 +644,7 @@ void DestroyRval(rval_type rtype, rval_val rval) {
             return;
 
         case rval_aif:
-            AIFFree(AIF_VAL(rval));
+            delete AIF_VAL(rval);
             return;
 
         case rval_blockmap:
@@ -721,7 +721,7 @@ rval_val CopyRval(rval_type rtype, rval_val rval) {
             return new_rval;
 
         case rval_aif:
-            AIF_VAL(new_rval) = CopyAIF(AIF_VAL(rval));
+            AIF_VAL(new_rval) = AIF_VAL(rval)->clone();
             return new_rval;
 
         case rval_blockmap:
@@ -790,7 +790,7 @@ val_t *CopyVal(val_t *val) {
                     break;
 
                 case rval_aif:
-                    v = NewVal(lval_none, rval_aif, CopyAIF(RVAL_AIF(val)));
+                    v = NewVal(lval_none, rval_aif, CopyAIF(RVAL_AIF(val)->joinAIF()));
                     break;
 
                 case rval_blockmap:
@@ -828,7 +828,7 @@ val_t *CopyVal(val_t *val) {
 
                 case rval_aif:
                     v = NewVal(lval_internal, LVAL_SYM(val), rval_aif,
-                               CopyAIF(RVAL_AIF(val)));
+                               CopyAIF(RVAL_AIF(val)->joinAIF()));
                     break;
 
                 case rval_blockmap:
@@ -867,8 +867,8 @@ val_t *CopyVal(val_t *val) {
                 case rval_reply:
                     v = NewVal(lval_gdb, LVAL_GDB_PROCSET(val),
                                LVAL_GDB_EXPR(val));
-                    if (RVAL_AIF(val) != (AIF *)NULL) {
-                        RVAL_AIF(v) = CopyAIF(RVAL_AIF(val));
+                    if (RVAL_AIF(val)) {
+                        RVAL_AIF(v) = RVAL_AIF(val)->clone();
                     }
                     break;
 
@@ -945,7 +945,7 @@ int AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         return -1;
                     }
                     val = NewVal(lval_internal, LVAL_SYM(lval), rval_aif,
-                                 CopyAIF(RVAL_AIF(rval)));
+                                 CopyAIF(RVAL_AIF(rval)->joinAIF()));
                     break;
 
                 case rval_proc:
@@ -1017,7 +1017,7 @@ int AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set) {
 ** Remove association between an internal variable and its symbol.
 */
 void RemoveVal(hentry_t *sym) {
-    val_t *val;
+    val_t *val [[maybe_unused]];
     hentry_t *hval = NULL;
 
     hval = HashSearch(_val_table, SymLookup(sym));

@@ -166,7 +166,14 @@ arrayDimension_t* AIFStream::getShape() {
     return nullptr;
 }
 
-void AIFStream::warning(const char* message) {
+// AIF translations.
+int AIFStream::isZero(int& val) { return AIFIsZero(joinAIF(), &val); }
+int AIFStream::toInt(int& val) { return AIFToInt(joinAIF(), &val); }
+int AIFStream::print(FILE* fp, int depth) { return AIFPrint(fp, depth, joinAIF()); }
+AIFStream* AIFStream::clone() { return new AIFStream(joinAIF()); }
+
+
+void AIFStream::warning(const char* message) const {
     //fprintf(stderr, "AIFStream: %s\n", message);
 }
 

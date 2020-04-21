@@ -1,0 +1,11 @@
+This is a modified version of the NVIDA cuda simpleMPI example, hipified
+slightly to work with the cray hipcc compiler.
+
+This currently compiles properly on pegasus, with the following modules loaded:
+
+Currently Loaded Modulefiles:
+  1) shared                      4) craype-network-infiniband   7) cuda10.2/toolkit/10.2.89   10) perftools-base/20.03.0
+  2) slurm/18.08.9               5) craype/2.6.5.4              8) cray-mvapich2/2.3.3pre1    11) PrgEnv-cray/1.0.6
+  3) craype-sandybridge          6) cce/10.0.0.1235             9) cray-libsci/20.03.1        12) rocm-alt/3.3.0
+
+This was achieved by loading PrgEnv-cray and rocm-alt.  Your milage may vary.

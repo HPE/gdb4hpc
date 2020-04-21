@@ -7,7 +7,6 @@
 #include <string.h>
 #include "mpi.h"
 
-int
 main(int argc, char* argv[]) {
   int myRank, numProcs;
   int source, dest=0, tag=0;

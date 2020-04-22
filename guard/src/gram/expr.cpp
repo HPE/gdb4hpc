@@ -1826,7 +1826,8 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
     return (val_t *)NULL;
 }
 
-static bool check_op_val(val_t* v, rec_set_t* rec_set, const char* message)
+// check that a value type is usuable for an operation
+static bool op_val_is_ok(val_t* v, rec_set_t* rec_set, const char* message)
 {
     switch (LVAL_TYPE(v)) {
     case lval_blockmap:
@@ -1855,354 +1856,171 @@ static bool check_op_val(val_t* v, rec_set_t* rec_set, const char* message)
     return true;
 }
 
+namespace {
+    // little struct to apply common processing for rval_aif and rval_reply values
+    struct mini_reply {
+        mini_reply(AIFStream* aaif, bitset* agroup) : aif(aaif), group(agroup) {}
+        AIFStream* aif;
+        bitset* group;
+    };
+}
+        
+
+// get the rvalue for a value in a form-neutral format
+static std::vector<mini_reply> rval_to_replies(val_t* v) {
+    std::vector<mini_reply> replies;
+    switch (RVAL_TYPE(v)) {
+    default:
+        break;
+    case rval_aif:
+        replies.push_back( mini_reply(RVAL_AIF(v), nullptr));
+        break;
+    case rval_reply:
+        auto rep_set = RVAL_REPLY(v);
+        for (auto&& r : rep_set) {
+            replies.push_back( mini_reply( EVENT_DATA(r->rep_event), r->rep_group));
+        }
+        break;
+    }
+    return replies;
+}
+
+// compute the intersection of two bitsets, treating a null-ptr as all 1's
+static bitset* intersect_groups(bitset* a, bitset* b) {
+    if (a && b)
+        return bitset_and(a,b);
+    else if (a)
+        return bitset_dup(a);
+    else if (b)
+        return bitset_dup(b);
+    else
+        return nullptr;
+}
+
+// create a group reply containing the content in \a aif and add it to \a repSet
+// note : takes ownership of \a group and \a aif
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif)
+{
+    auto ev = NewEvent(DBGEV_DATA);
+    ev->ev_data = new AIFStream(aif);
+    if (auto new_reply = NewGroupReply(di, group, ev)) {
+        repSet.addReply(new_reply);
+    }
+}
+
+
+// apply a binary operation to two values and return the result
+// if check_diff is true, also return the delta array via \a diff
 static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_set, bool check_diff,
                               val_t **diff) {
-    AIFStream *a1;
-    AIFStream *a2;
-    AIF *aif_res;
-    rep_set_t *rep_set;
-    rep_set_t *rep_set2;
-    group_reply_t *reply2;
-    rep_set_t *new_rep_set;
-    group_reply_t *new_reply;
-    dbgevent_t *ev;
-    bitset *tset;
-    AIF *aif_diff = NULL;
-    rep_set_t *diff_rep_set = NULL;
+    *diff = nullptr;
 
     // First check to make sure the supplied vals are safe to operate on
 
-    if (v1 == NULL || v2 == NULL) {
-        SetError(
-            "apply_op(): binary operator called with missing val!");
-        return (val_t *)NULL;
+    if (!v1 || !v2) {
+        SetError("apply_op(): binary operator called with missing val!");
+        return nullptr;
     }
-
-    if (!check_op_val(v1, rec_set, "First val is invalid to apply binary operator."))
+    if (!op_val_is_ok(v1, rec_set, "First val is invalid to apply binary operator."))
         return nullptr;
-    if (!check_op_val(v2, rec_set, "Second val is invalid to apply binary operator."))
+    if (!op_val_is_ok(v2, rec_set, "Second val is invalid to apply binary operator."))
         return nullptr;
 
-    // We need to check to see if one or both of the vals are a reply
-    // set.
-    switch (RVAL_TYPE(v1)) {
-    case rval_aif:
-        // can directly access the aif data
-        a1 = RVAL_AIF(v1);
+    // boil down aif and replies to a common workable form - note that if the r-value type
+    // is AIF mini_reply.group == nullptr
+    std::vector<mini_reply> reps1 = rval_to_replies(v1);
+    std::vector<mini_reply> reps2 = rval_to_replies(v2);
 
-        switch (RVAL_TYPE(v2)) {
-        case rval_aif:
-            // can directly access the aif data
-            a2 = RVAL_AIF(v2);
+    bool resultIsRepSet = true;
 
-            // return the result
-            if ((aif_res = apply_op_aif(
-                     op, a1->joinAIF(), a2->joinAIF(),
-                     check_diff ? &aif_diff : nullptr)) == nullptr) {
+    if (reps1.size() >= 1 && reps2.size() >= 1) {
+        // check that the bitset sizes match - and determine 
+        auto &r1 = reps1[0], &r2 = reps2[0];
+        if (r1.group && r2.group && bitset_size(r1.group) != bitset_size(r2.group)) {
+            if (reps1.size() == 1 && reps2.size()) {
+                // special case = we go forward just treating these as AIFs
+                // FIXME: Alert the user somehow that this is a special set.
+                r1.group = r2.group = nullptr;
+            } else {
+                SetError("Attempted to apply binary operator to two val sets with "
+                         "different sizes.");
                 return nullptr;
             }
-
-            if (aif_diff != NULL) {
-                *diff = NewVal(lval_none, rval_aif, aif_diff);
-            }
-
-            return NewVal(lval_none, rval_aif, aif_res);
-
-        case rval_reply:
-            // This is the aif to reply case
-
-            // point at the reply set
-            rep_set = RVAL_REPLY(v2);
-
-            // we always want to recreate the set for binary
-            // operations
-
-            // Need to loop over the reply, create a new rep_set
-            // that will contain the bitset of the v1 reply
-            // along with the data of either v2 or v3 depending
-            // on true/false value
-            new_rep_set = NewRepSet();
-
-            if (check_diff) {
-                diff_rep_set = NewRepSet();
-            }
-
-            for (auto&& reply : rep_set) {
-                aif_diff = nullptr;
-
-                // point at the data
-                a2 = EVENT_DATA(reply->rep_event);
-
-                // apply the operation
-                if (!(aif_res = apply_op_aif(
-                          op, a1->joinAIF(), a2->joinAIF(),
-                          check_diff ? &aif_diff : nullptr))) {
-                    FreeRepSet(diff_rep_set);
-                    FreeRepSet(new_rep_set);
-                    return nullptr;
-                }
-
-                // Make a new event out of the AIF data, use the
-                // replies bitset
-                ev = NewEvent(DBGEV_DATA);
-                ev->ev_data = new AIFStream(aif_res);
-                new_reply = NewGroupReply(
-                    reply->rep_di, bitset_dup(reply->rep_group),
-                    ev);
-                AddReplyToSet(new_rep_set, new_reply);
-
-                // Check the aif_diff
-                if (aif_diff != NULL) {
-                    ev = NewEvent(DBGEV_DATA);
-                    ev->ev_data = new AIFStream(aif_diff);
-                    new_reply = NewGroupReply(
-                        reply->rep_di,
-                        bitset_dup(reply->rep_group), ev);
-                    AddReplyToSet(diff_rep_set, new_reply);
-                }
-            }
-
-            if (check_diff) {
-                if (GetNumberOfReply(diff_rep_set) > 0) {
-                    *diff = NewVal(lval_none, rval_reply,
-                                   diff_rep_set);
-                } else {
-                    FreeRepSet(diff_rep_set);
-                }
-            }
-
-            // Return the new reply
-            return NewVal(lval_none, rval_reply, new_rep_set);
-
-            // Shouldn't get here
-        default:
-            SetError(
-                "apply_op(): Reached end of control "
-                "statement!");
-            return (val_t *)NULL;
         }
 
-        // Shouldn't get here
-        SetError("apply_op(): Reached end of control statement!");
-        return (val_t *)NULL;
-
-    case rval_reply:
-        // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        // point at the reply set
-        rep_set = RVAL_REPLY(v1);
-
-        // we always want to recreate the set for binary operations
-
-        // Need to loop over the reply, create a new rep_set that
-        // will contain the bitset of the v1 reply
-        new_rep_set = NewRepSet();
-
-        if (check_diff) {
-            diff_rep_set = NewRepSet();
-        }
-
-        for (auto&& reply : rep_set) {
-            aif_diff = NULL;
-
-            // point at the data
-            a1 = EVENT_DATA(reply->rep_event);
-
-            switch (RVAL_TYPE(v2)) {
-                // This is the reply to aif case
-            case rval_aif:
-                // can directly access the aif data
-                a2 = RVAL_AIF(v2);
-
-                // apply the operation
-                aif_res = apply_op_aif(
-                    op, a1->joinAIF(), a2->joinAIF(),
-                    check_diff ? &aif_diff : nullptr);
-
-                if (!aif_res) {
-                    FreeRepSet(diff_rep_set);
-                    FreeRepSet(new_rep_set);
-                    return nullptr;
-                }
-
-                // Make a new event out of the AIF data, use the
-                // replies bitset
-                ev = NewEvent(DBGEV_DATA);
-                ev->ev_data = new AIFStream(aif_res);
-                new_reply = NewGroupReply(
-                    reply->rep_di, bitset_dup(reply->rep_group),
-                    ev);
-                AddReplyToSet(new_rep_set, new_reply);
-
-                // Check the aif_diff
-                if (aif_diff != NULL) {
-                    ev = NewEvent(DBGEV_DATA);
-                    ev->ev_data = new AIFStream(aif_diff);
-                    new_reply = NewGroupReply(
-                        reply->rep_di,
-                        bitset_dup(reply->rep_group), ev);
-                    AddReplyToSet(diff_rep_set, new_reply);
-                }
-
-                break;
-
-                // This is the reply to reply case
-            case rval_reply:
-                // point at the reply set
-                rep_set2 = RVAL_REPLY(v2);
-
-                // check to make sure the v1 and v2 bitset sizes
-                // match for the replies, otherwise throw an
-                // error
-                reply2 = rep_set2->getFirstReply();
-                if (bitset_size(reply->rep_group) !=
-                    bitset_size(reply2->rep_group)) {
-                    // If there is only one reply in the set, we
-                    // can treat this as an aif type
-                    if (GetNumberOfReply(rep_set) == 1 &&
-                        GetNumberOfReply(rep_set2) == 1) {
-                        // point directly at the AIF data for
-                        // reply2
-                        a2 = EVENT_DATA(reply2->rep_event);
-
-                        // apply the operation
-                        aif_res = apply_op_aif(
-                            op, a1->joinAIF(), a2->joinAIF(),
-                            check_diff ? &aif_diff : nullptr);
-
-                        if (!aif_res) {
-                            FreeRepSet(diff_rep_set);
-                            FreeRepSet(new_rep_set);
-                            return nullptr;
-                        }
-
-                        // Note that here we return an AIF rval,
-                        // we want to loose the set information
-                        // since both are different sizes.
-                        // FIXME: Alert the user somehow that
-                        // this is a special set.
-
-                        // Check the diff
-                        if (aif_diff != NULL) {
-                            *diff = NewVal(lval_none, rval_aif,
-                                           aif_diff);
-                        }
-
-                        return NewVal(lval_none, rval_aif,
-                                      aif_res);
-                    } else {
-                        SetError(
-                            "Attempted to apply binary "
-                            "operator to two val sets with "
-                            "different sizes.");
-                        // Make sure cleanup happens
-                        FreeRepSet(diff_rep_set);
-                        FreeRepSet(new_rep_set);
-                        return (val_t *)NULL;
-                    }
-                }
-
-                // loop over this reply
-                for (auto&& reply2 : rep_set2) {
-                    aif_diff = NULL;
-
-                    // compute the new set
-                    tset = bitset_and(reply->rep_group,
-                                      reply2->rep_group);
-
-                    // check to see if this is empty, if so
-                    // continue
-                    if (bitset_isempty(tset)) {
-                        bitset_free(tset);
-                        continue;
-                    }
-
-                    // point at the aif data for reply2
-                    a2 = EVENT_DATA(reply2->rep_event);
-
-                    // apply the operation
-                    aif_res = apply_op_aif(op, a1->joinAIF(), a2->joinAIF(),
-                                           check_diff ? &aif_diff : nullptr);
-                    if (!aif_res) {
-                        FreeRepSet(diff_rep_set);
-                        FreeRepSet(new_rep_set);
-                        return nullptr;
-                    }
-
-                    // Make a new event out of the AIF data
-                    ev = NewEvent(DBGEV_DATA);
-                    ev->ev_data = new AIFStream(aif_res);
-                    // XXX: Note that we don't want to use the
-                    // handle in the set, since that is not
-                    // really a valid
-                    //		representation of what we are looking
-                    //at. What we have is a delta between the
-                    //two sets, 		and since a di was needed to be
-                    //set in the reply, it just arbitrarily
-                    //chose the
-                    //      first one. Now we set the di to NULL
-                    //      and ensure the print routines can
-                    //      handle it.
-                    new_reply = NewGroupReply(NULL, tset, ev);
-                    AddReplyToSet(new_rep_set, new_reply);
-
-                    // Check the aif_diff
-                    if (aif_diff != NULL) {
-                        ev = NewEvent(DBGEV_DATA);
-                        ev->ev_data = new AIFStream(aif_diff);
-                        new_reply = NewGroupReply(
-                            NULL, bitset_dup(tset), ev);
-                        AddReplyToSet(diff_rep_set, new_reply);
-                    }
-                }
-                break;
-
-                // Shouldn't get here
-            default:
-                SetError(
-                    "apply_op(): Reached end of control "
-                    "statement!");
-                FreeRepSet(new_rep_set);
-                return (val_t *)NULL;
-            }
-        }
-
-        // Set the diff val
-        if (check_diff) {
-            if (GetNumberOfReply(diff_rep_set) > 0) {
-                *diff = NewVal(lval_none, rval_reply, diff_rep_set);
-            } else {
-                FreeRepSet(diff_rep_set);
-            }
-        }
-
-        // Return the new reply
-        return NewVal(lval_none, rval_reply, new_rep_set);
-
-        // Shouldn't get here
-    default:
-        SetError("apply_op(): Reached end of control statement!");
-        return (val_t *)NULL;
+        // determine if the result is a rep_set - note that only a rep_set can lead to an
+        // *empty* reps set - so we'll treat that like a rep_set to match old behavior
+        if (!r1.group && !r2.group)
+            resultIsRepSet = false;
     }
 
-    // Shouldn't get here
-    SetError("apply_op(): Reached end of control statement!");
-    return (val_t *)NULL;
-}
+    // storage for the return values.   
+    std::unique_ptr<rep_set_t> new_rep_set{ resultIsRepSet ? NewRepSet() : nullptr };
+    std::unique_ptr<rep_set_t> diff_rep_set{ resultIsRepSet && check_diff ? NewRepSet() : nullptr };
 
+    std::unique_ptr<AIF,void(*)(AIF*)> new_aif{nullptr,AIFFree};
+    std::unique_ptr<AIF,void(*)(AIF*)> diff_aif{nullptr,AIFFree};
+
+    // And apply the op to all pairwise results that share a group.
+    
+    // we could be a smarter about finding overlapping replies, but the previous version
+    // was just n-squared so I'll just repeat that for now
+    for (auto&& r1 : reps1) {
+        for (auto&& r2 : reps2) {
+            if (r1.group && r2.group && !bitset_compare(r1.group,r2.group)) {
+                continue;
+            }
+
+            AIF* diff = nullptr, **darg = (check_diff ? &diff : nullptr);
+            AIF* res = apply_op_aif(op, r1.aif->joinAIF(), r2.aif->joinAIF(), darg);
+            if (!res) {
+                return nullptr; // error
+            } else if (resultIsRepSet) {
+                // we intentionally set the di to null rather than picking an arbitrary one
+                auto tset = intersect_groups(r1.group, r2.group);
+                auto di = nullptr; 
+                add_to_reply(*new_rep_set, di, tset, res);
+                if (diff_rep_set && diff) {
+                    add_to_reply(*diff_rep_set, di, bitset_dup(tset), diff);
+                }
+            } else {
+                new_aif.reset(res);
+                diff_aif.reset(diff);
+            }
+        }
+    }
+
+    // create the value result for return and possibly diff.
+    val_t* retVal = nullptr;
+
+    if (new_rep_set) {
+        retVal = NewVal(lval_none, rval_reply, new_rep_set.release());
+    } else if (new_aif) {
+        retVal = NewVal(lval_none, rval_aif, new_aif.release());
+    }
+
+    if (diff_rep_set) {
+        *diff = NewVal(lval_none, rval_reply, diff_rep_set.release());
+    } else if (diff_aif) {
+        *diff = NewVal(lval_none, rval_aif, diff_aif.release());
+    }
+        
+    return retVal;
+}
+            
+
+// apply a unary operator to a value \a v1 and return the new result
 static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
     AIFStream *a1;
-    AIF *aif_res;
     rep_set_t *rep_set;
     rep_set_t *new_rep_set;
-    group_reply_t *new_reply;
-    dbgevent_t *ev;
 
     if (v1 == NULL) {
         SetError("apply_op(): unary operator called with missing val!");
         return nullptr;
     }
 
-    if (!check_op_val(v1, rec_set, "Val is invalid to apply unary operator.")) {
+    if (!op_val_is_ok(v1, rec_set, "Val is invalid to apply unary operator.")) {
         return nullptr;
     }
 
@@ -2213,12 +2031,12 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
         a1 = RVAL_AIF(v1);
 
         // return the result
-        aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr);
-        if (!aif_res) {
+        if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
+            return NewVal(lval_none, rval_aif, aif_res);
+        } else {
             return nullptr;
         }
 
-        return NewVal(lval_none, rval_aif, aif_res);
 
     case rval_reply:
         // point at the reply set
@@ -2235,19 +2053,14 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
             a1 = EVENT_DATA(reply->rep_event);
 
             // apply the operation
-            aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr);
-            if (!aif_res) {
+            if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
+                // Make a new event out of the AIF data, use the replies
+                // bitset
+                add_to_reply(*new_rep_set, reply->rep_di, bitset_dup(reply->rep_group), aif_res);
+            } else {
                 FreeRepSet(new_rep_set);
                 return nullptr;
             }
-
-            // Make a new event out of the AIF data, use the replies
-            // bitset
-            ev = NewEvent(DBGEV_DATA);
-            ev->ev_data = new AIFStream(aif_res);
-            new_reply = NewGroupReply(
-                reply->rep_di, bitset_dup(reply->rep_group), ev);
-            AddReplyToSet(new_rep_set, new_reply);
         }
 
         // Return the new reply
@@ -2264,15 +2077,10 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
     return (val_t *)NULL;
 }
     
-    
-
 /*
 ** Apply unary, binary or tertiary operator to a val.
-** FIXME: How to deal with the reply sets here properly in light of the
-*dbginvoke
-** addition? This is a problem because we can apply op's to two replies that
-*came
-** from different dbginvoke_t trees.
+   The result will have no dbginvoke since v1 and v2 (v3) potentially come from
+   different trees.  The print will just not include procset info.
 */
 static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
                        rec_set_t *rec_set, val_t **diff) {

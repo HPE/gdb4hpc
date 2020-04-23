@@ -149,55 +149,108 @@ struct group_reply {
 typedef struct group_reply group_reply_t;
 
 /*
-** This is used to hold replies from commands in the dbgclnt interface. The
-*error
-** list is maintained and handled internally and should not be used outside of
-** this layer. The client layer can call the ProcessErrorInRepSet() function to
+** This is used to hold replies from commands in the dbgclnt interface.  The error
+** The client layer can call the ProcessErrorInRepSet() function to
 ** print out any errors.
-** TODO: Add a setter for the error handler so we can get rid of the use of
-** the silly print calls.
 ** A ReplySet(rep_set_t) keeps results replied by a number of BEs.
-** These results are aggregated into several unquie groups.
-** Each group maybe an error message (maintained by group_err_t),
+** These results are aggregated into several unique groups.
+** Each group may be an error message (maintained by m_errs)
 ** or a normal message (maintained by group_reply_t).
+
+For very large arrays, rep_set_t supports the ability to hold just slice of the array
+result at one time.   Code using the rep_set can iterate over the slices by using the 
+\a getNextSlice function.   Using this approach a client side operation could potentially
+process a terabyte sized array while never needing to allocate more than a fixed number of
+of megabytes. 
+
+Most debugger replies do not have the potential to generate gigantic replies, so these
+operations can and should just use getReplies or the iterator forms.    These original 
+forms will also accumulate the result slices into a single reply, though operations that
+potentially access large data should avoid that usage.
 */
 class rep_set_t {
 public:
+    // contruct an empty reply set
     rep_set_t();
-    rep_set_t(const std::vector<rep_set_t*>& slices);
+
+    // construct from a single reply that has been sliced.
+    rep_set_t(const std::vector<rep_set_t*>& slicedReply);
+
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
     rep_set_t& operator=(const rep_set_t&) = delete;
 
+    // create a copy of the contents of the rep_set
     rep_set_t* clone() const;
+
+    // merge the replies in \a tmp into this object *and delete \a tmp*
     rep_set_t* merge(rep_set_t* tmp);
+
+    // return the number of group_sets in this reply
     int hasError() const;
+
+    // add a successful reply
     void addReply(group_reply_t* reply);
+
+    // add a error reply
     void addErr(group_reply_t* reply);
+
+    // return true if the rep_set has neigher replies nor error replies
     bool isEmpty() const;
+
+    // get the first non-error reply if there is one
     group_reply_t* getFirstReply() const;
 
+    // get the number of replies in the set ( does not include errors)
+    size_t getNumReplies() const;
+
+    // access the set of replies - generally prefer the iterator for (auto&& reply : repSet)
     const std::vector<group_reply_t*>& getReplies() const;
+
+    // acccess the set of error replies
     const std::vector<group_reply_t*>& getErrs() const;
 
+    // get the next reply slice - return nullptr when none remain.   Note that
+    // for non-sliced replies the first call will simply return this.
+    rep_set_t* getNextSlice();
+
+    // add a slice to the reply set - takes ownership of \a slice.
+    // Note that this function may be temporary; the reply will ultimately be
+    // fetched on demand - currently they are just kept in memory
+    void addSlice(rep_set_t* slice);
+
+    // install a desired shape for the result - takes ownership of \a shape
+    // and \a group
+    // Note, this is to support sliced results for the diff returned by
+    // comparison operators which do not create diff slices that are all zeros.
+    void setSparseVals(arrayDimension_t* shape, bitset* group);
+
+    std::vector<group_reply_t*>& getMutableReplies();
     static const std::vector<group_reply_t*>& getNullReply();
 
 private:
     void mergeReplySlices();
     void mergeReplySliceSet(const std::vector<rep_set_t*>& slices);
+    void createSlicesSets();
     
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
-    std::vector<std::vector<rep_set_t*>> m_slices;    // sub-replies
+    std::vector<rep_set_t*> m_slices;  // packetized reply
+    std::vector<std::vector<rep_set_t*>> m_slicedReplies;    // sub-replies
+    size_t m_currentSlice;             // index of the next slice for getNextSlice
+    arrayDimension_t* m_shape;         // see setSparseVals - shape of full array result
+    bitset* m_group;                   // see setSparseVals - all procs involvd in sparse array
 };
 
+// Iteration support for processing the non-error replies of a rep_set_t, which
+// the overwhelmingly most common operation.   Most commonly used as:
+// for (auto&& reply : repSet)   and it treats repSet==nullptr as an empty set.
 inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t* set) {
     return (set ? set->getReplies() : rep_set_t::getNullReply()).begin();
 }
 inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t* set) {
     return (set ? set->getReplies() : rep_set_t::getNullReply()).end();
 }
-
 
 // These are used to describe asynchronous events to the client interface
 struct event_set {

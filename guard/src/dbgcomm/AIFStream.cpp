@@ -74,57 +74,114 @@ AIF* AIFStream::joinAIF(steal_t) {
 // Create a single large AIF structure from the set of slices.
 void AIFStream::joinAIFFromSlices() {
     AIF* joinedAIF = nullptr;
-    char* joinedIt = nullptr;
-    size_t elemSize = 0;
-    bool isFirst = true;
-
+    bool hasError = false;
     bool isFinal;
     while (AIF* slice = m_slices->getNextSlice(isFinal)) {
-        if (isFirst) {
-            // first slice, it might also be the last so put off creating a new
-            // data structure
-            joinedAIF = slice;
-            isFirst = false;
-        } else {
-            if (!joinedIt) {
-                // this is the *second* slice, now we know we have to allocate a
-                // new AIF object
-                AIF* slice0 = joinedAIF;
-                joinedAIF = makeEmptyJoinedAIF(slice, &elemSize);
-                joinedIt = AIF_DATA(joinedAIF);
-                copySlice(slice0, elemSize, joinedIt);  // joinedIt is updated
-                m_slices->freeSlice(slice0);
-            }
+        size_t offset, sliceSize; bool isFullArray;
 
-            copySlice(slice, elemSize, joinedIt); // joinedIt is updated
+        if (hasError) {
+        } else if (!getSliceOffset(slice, offset, sliceSize, isFullArray)) {
             m_slices->freeSlice(slice);
+            hasError = true;
+        } else if (isFullArray) {
+            if (joinedAIF)
+                AIFFree(joinedAIF);
+            joinedAIF = slice;
+        } else if (joinedAIF || (joinedAIF = makeEmptyJoinedAIF(slice))) {
+            const char* sliceData = AIF_DATA(slice);
+            char* joinedData = AIF_DATA(joinedAIF);
+            memcpy(joinedData+offset, sliceData, sliceSize);
+        } else {
+            fprintf(stderr, "could not create joined array\n");
+            hasError = true;
         }
+
+        if (slice != joinedAIF)
+            m_slices->freeSlice(slice);
+    }
+
+    if (hasError) {
+        fprintf(stderr, "could not reassemble array\n");
+        if (joinedAIF)
+            AIFFree(joinedAIF);
     }
 
     m_joinedAIF = joinedAIF;
 }
 
-// copy one slice of data into the amalgamated structure.
-// \param slice is the AIF slice object to copy
-// \param elemSize is the size in bytes of each element of the array
-// \param joinedIt I/O is the next location in the monolithic data object
-void AIFStream::copySlice(AIF* slice, size_t elemSize, char*& joinedIt)
+
+// compute the offset in bytes to copy the data in \a slice into the the data for the
+// the monolithic array
+// \param slice the slice of interest
+// \param offset will contrain on output the offset of the equivalent data of \a slice in the
+//         full data object
+// \param sliceSize will contain on output the size of the data in \a slice in bytes
+// \param isFullArray will contain true on output if \a slice is the entire contents of the
+//       the full result.
+// \return true if \a slice is a legitimate subset (including equality) of the result array.
+bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray)
 {
-    // AIF doesn't export any real useful ways to copy a bunch of values
-    // so we'll tread the well worn path and just use binary copy
-    const char* sliceData = AIF_DATA(slice);
-    int sliceElems = AIFArraySize(slice);
-    size_t sliceSize = sliceElems * elemSize;
+    arrayDimension_t* shape = getShape();
+    if (!shape) {
+        warning("no shape in joinAIFFromSlices");
+        return false;
+    }
 
-    memcpy(joinedIt, sliceData, sliceSize);
-    joinedIt += sliceSize;
+    // index is initialized to the first element of \a slice
+    AIFIndex* index = AIFArrayIndexInit(slice);
+    offset = 0;
+    isFullArray = false;
 
+    size_t totalElems = 1;
+    size_t elemSize = index->i_bsize;
+
+    int dim = shape->dim;
+    bool isOk = true;
+
+    // compute the offset (in elements) of slice within the full array
+    // and the total number of elements in the full array.
+    for (int i=0; i<dim; ++i) {
+        // slowest to fastest
+        int d = (shape->isFortran ? dim-i : i+1);
+        int min = getArrayDimensionRangeMin(shape,d);
+        int max = getArrayDimensionRangeMax(shape,d);
+
+        size_t len = (max-min+1);
+        offset *= len;
+        totalElems *= len;
+
+        // AIFIndex is slowest to fastest
+        int idx = index->i_index[i];
+        if (idx < min || idx > max)
+            isOk = false;
+        else
+            offset += (idx-min);
+    }
+
+    offset *= elemSize;
+
+    sliceSize = AIF_LEN(slice);
+    size_t arraySize = totalElems * elemSize;
+
+    isFullArray = false;
+
+    // check that its a valid subset
+    if (offset + sliceSize > arraySize) {
+        isOk = false;
+    }
+        
+    AIFArrayIndexFree(index);
+    if (!isOk) {
+        DPRINT("slice copy is out of bounds\n");
+    }
+    return isOk;
 }
+
 
 // Create the data structure for the monolithic array.   Note that
 // this will allocate all of the storage.  If the process will fail, this
 // is the most likely place.
-AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice, size_t* elemSize)
+AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
 {
     arrayDimension_t* shape = getShape();
     if (!shape) {
@@ -136,7 +193,6 @@ AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice, size_t* elemSize)
     int dim = shape->dim;
 
     AIFIndex* index = AIFArrayIndexInit(slice);
-    *elemSize = index->i_bsize;
 
     // Actually an element here, but AIF uses it as an exemplar to create the containing
     // array.

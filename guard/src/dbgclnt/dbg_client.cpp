@@ -96,6 +96,7 @@ static void RemoveBPSet(dbginvoke_t *, bp_set_t *, bitset *);
 static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
+                                  arrayDimension_t* shape,
                                   bool& isError);
 /*
 ** Internal Variables
@@ -376,17 +377,20 @@ rep_set_t *NewRepSet(void) {
     return new rep_set_t();
 }
 
-rep_set_t::rep_set_t() {}
+rep_set_t::rep_set_t() : m_currentSlice(0), m_shape(nullptr), m_group(nullptr) {}
 
+// Careful, this function takes a sliced reply, not a reply slice.
+// That is, the packetized result from a single reply.
+// (This function should disappear when we stop storing these in memory)
 rep_set_t::rep_set_t(const std::vector<rep_set_t*>& slices)
+    : m_currentSlice(0), m_shape(nullptr), m_group(nullptr)
 {
-    m_slices.push_back(slices);
+    m_slicedReplies.push_back(slices);
 }
 
 void FreeRepSet(rep_set_t *set) {
     delete set;
 }
-
 
 rep_set_t::~rep_set_t() {
     for (auto&& reply : m_reps)
@@ -394,10 +398,17 @@ rep_set_t::~rep_set_t() {
     for (auto&& reply : m_errs)
         FreeGroupReply(reply);
 
-    for (auto&& slices : m_slices) {
-        for (auto&& slice : slices)
+    for (auto&& slicedReply : m_slicedReplies) {
+        for (auto&& slice : slicedReply)
             delete slice;
     }
+    for (auto&& slice : m_slices) {
+        delete slice;
+    }
+    if (m_shape)
+        freeArrayDimension(m_shape);
+    if (m_group)
+        bitset_free(m_group);
 }
 
 rep_set_t *CopyRepSet(rep_set_t *set) {
@@ -413,10 +424,13 @@ rep_set_t* rep_set_t::clone() const
     for (auto&& reply : m_errs) {
         newset->m_errs.push_back(CopyGroupReply(reply));
     }
-    for (auto&& slices : m_slices) {
-        newset->m_slices.push_back(std::vector<rep_set_t*>());
+    for (auto&& slices : m_slicedReplies) {
+        newset->m_slicedReplies.push_back(std::vector<rep_set_t*>());
         for (auto&& slice : slices) 
-            newset->m_slices.back().push_back(slice->clone());
+            newset->m_slicedReplies.back().push_back(slice->clone());
+    }
+    for (auto&& slice : m_slices) {
+        newset->m_slices.push_back(slice->clone());
     }
 
     return newset;
@@ -428,6 +442,9 @@ static rep_set_t *MergeRepSet(rep_set_t *set, rep_set_t *tmp_set) {
     // merge the replies
     return set->merge(tmp_set);
 }
+
+// merge the reply from a single group_recv_t (\a tmp) into the reply set
+// and delete \a tmp
 rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     std::vector<group_reply_t*> r;
     r.swap(tmp->m_reps);
@@ -438,8 +455,12 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     m_errs.insert(m_errs.end(), r.begin(), r.end());
 
     std::vector<std::vector<rep_set_t*>> s;
-    s.swap(tmp->m_slices);
-    m_slices.insert(m_slices.end(), s.begin(), s.end());
+    s.swap(tmp->m_slicedReplies);
+    m_slicedReplies.insert(m_slicedReplies.end(), s.begin(), s.end());
+
+    std::vector<rep_set_t*> s2;
+    s2.swap(tmp->m_slices);
+    m_slices.insert(m_slices.end(), s2.begin(), s2.end());
 
     delete tmp;
 
@@ -450,7 +471,16 @@ int SetHasError(rep_set_t *set) {
     return (set ? set->hasError() : 0);
 }
 int rep_set_t::hasError() const {
-    return int(m_errs.size());
+    int ne = m_errs.size();
+    for (auto&& slice : m_slices) {
+        ne += slice->m_errs.size();
+    }
+    for (auto&& sr : m_slicedReplies) {
+        for (auto&& reply : sr) {
+            ne += reply->m_errs.size();
+        }
+    }
+    return ne;
 }
 
 void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
@@ -475,16 +505,31 @@ void rep_set_t::addErr(group_reply_t* rep)
 
 bool rep_set_t::isEmpty() const
 {
-    if (m_slices.empty()) {
-        return m_reps.empty() && m_errs.empty();
-    } else {
-        for (auto&& slices : m_slices) {
+    if (!m_slices.empty()) {
+        for (auto&& slice : m_slices) {
+            if (!slice->isEmpty())
+                return false;
+        }
+        return true;
+    } else if (!m_slicedReplies.empty()) {
+        for (auto&& slices : m_slicedReplies) {
             for (auto&& slice : slices) {
                 if (!slice->isEmpty())
                     return false;
             }
         }
         return true;
+    } else {
+        return m_reps.empty() && m_errs.empty();
+    }
+}
+
+size_t rep_set_t::getNumReplies() const
+{
+    if (!m_slicedReplies.empty()) {
+        return m_slicedReplies.size();
+    } else {
+        return getReplies().size();
     }
 }
 
@@ -496,7 +541,7 @@ group_reply_t* rep_set_t::getFirstReply() const
 
 const std::vector<group_reply_t*>& rep_set_t::getReplies() const
 {
-    if (!m_slices.empty()) {
+    if (!m_slices.empty() || !m_slicedReplies.empty()) {
         // make the single reply on demand if the processing doesn't handle
         // packetized.  -- delete the slices and clears the m_slices vector.
         const_cast<rep_set_t*>(this)->mergeReplySlices();
@@ -505,9 +550,26 @@ const std::vector<group_reply_t*>& rep_set_t::getReplies() const
     return m_reps;
 }
 
+std::vector<group_reply_t*>& rep_set_t::getMutableReplies()
+{
+    getReplies();
+    return m_reps;
+}
+
+void rep_set_t::setSparseVals(arrayDimension_t* shape, bitset* group)
+{
+    if (m_shape && m_shape != shape)
+        freeArrayDimension(m_shape);
+    m_shape = shape;
+    if (m_group && m_group != group)
+        bitset_free(group);
+    m_group = group;
+}
+
+
 const std::vector<group_reply_t*>& rep_set_t::getErrs() const
 {
-    if (!m_slices.empty()) {
+    if (!m_slices.empty() || !m_slicedReplies.empty()) {
         // make the single reply on demand if the processing doesn't handle
         // packetized.  -- delete the slices and clears the m_slices vector.
         const_cast<rep_set_t*>(this)->mergeReplySlices();
@@ -516,8 +578,58 @@ const std::vector<group_reply_t*>& rep_set_t::getErrs() const
     return m_errs;
 }
 
+// get the next reply slice if we haven't already processed the last one
+rep_set_t* rep_set_t::getNextSlice() {
+    if (!m_slicedReplies.empty())
+        createSlicesSets();
 
+    if (m_currentSlice < m_slices.size()) {
+        return m_slices[m_currentSlice++];
+    } else if (!m_currentSlice) {
+        ++m_currentSlice;
+        return this;
+    } else {
+        return nullptr;
+    }
+}
 
+// add a slice to the reply set, for large arrays this will a single array slice
+// across all processes being queried
+void rep_set_t::addSlice(rep_set_t* slice) {
+    m_slices.push_back(slice);
+}
+
+// having m_slices and m_slicedReplies is a situation too confusing to be allowed
+// to live for long, and should just be a short time.   The send/recv logic has not
+// yet been altered to control the order to the client is currently retriving all
+// slices for each rec_set instead of getting the first slice from each first.
+// So we currently store the packets in the order we get them, and use this function
+// to translate into the order we want to consume them.
+// The result is store in m_slices and m_resultSlices is cleared by this call.
+void rep_set_t::createSlicesSets()
+{
+    if (m_slicedReplies.empty())
+        return;
+
+    std::vector<std::vector<rep_set_t*>> slicedReplies;
+    slicedReplies.swap(m_slicedReplies);
+
+    std::vector<rep_set_t*> rep2;
+    for (auto&& slicedReply : slicedReplies) {
+        rep2.clear();
+        rep2.swap(slicedReply);
+
+        // we expect the same number of slices in each reply set, though
+        // this code is agnostic about it
+        for (size_t j=0, n=rep2.size(); j<n; ++j) {
+            if (j < m_slices.size()) {
+                m_slices[j]->merge(rep2[j]);   // rep2[j] deleted
+            } else {
+                m_slices.push_back(rep2[j]);
+            }
+        }
+    }
+}
 
 // keep an empty vector to iterator over when trying to use
 // a rep_set_t* == nullptr
@@ -527,39 +639,8 @@ const std::vector<group_reply_t*>& rep_set_t::getNullReply()
     return nullReply;
 }
 
-/*
-void ResetSet(rep_set_t *set) {
-    if (set == NULL) return;
-
-    SetList(set->rep_list);
-    SetList(set->err_list);
-}
-
-static void SetErrHeadInSet(rep_set_t *set) {
-    if (set != NULL) SetList(set->err_list);
-}
-
-static group_reply_t *GetNextErrInSet(rep_set_t *set) {
-    if (set != NULL)
-        return (group_reply_t *)GetListElement(set->err_list);
-    else
-        return NULL;
-}
-
-void SetReplyHeadInSet(rep_set_t *set) {
-    if (set != NULL) SetList(set->rep_list);
-}
-
-group_reply_t *GetNextReplyInSet(rep_set_t *set) {
-    if (set != NULL)
-        return (group_reply_t *)GetListElement(set->rep_list);
-    else
-        return NULL;
-}
-*/
-
 int GetNumberOfReply(rep_set_t *set) {
-    return (set ? int(set->getReplies().size()) : 0);
+    return (set ? int(set->getNumReplies()): 0);
 }
 
 // Used to print out an error from a rep_set
@@ -2239,29 +2320,42 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
 // m_reps and m_errs.
 void rep_set_t::mergeReplySlices()
 {
-    if (m_slices.empty()) {
+    if (m_currentSlice && m_currentSlice < m_slices.size()) {
+        // this will still successfully merge the slices, each slice
+        // has just been merged into a single reply set - but
+        // someone is iterating this set and will get into trouble
+        DPRINT("unexpected rep_set_t usage\n");
+    }
+
+    if (m_slicedReplies.empty() && m_slices.empty()) {
         return;
-    } else if (m_slices.size() == 1 && m_slices[0].size() == 1) {
-        auto slice = m_slices[0][0];
+    } else if ( m_slicedReplies.size() == 1 && m_slicedReplies[0].size() == 1) {
+        // common special case, the reply wasn't large enough to break up
+        auto slice = m_slicedReplies[0][0];
         m_reps.swap(slice->m_reps);
         m_errs.swap(slice->m_errs);
         delete slice;
         m_slices.clear();
         return;
-    }
-
-    // general case - note we swap out the current slices to ensure
-    // no object is double referenced.
-    std::vector<std::vector<rep_set_t*>> sliceSets;
-    sliceSets.swap(m_slices);
-
-    for (auto&& sliceSet : sliceSets) {
-        mergeReplySliceSet(sliceSet);
-
-        for (auto&& repset : sliceSet) {
-            FreeRepSet(repset);
+    } else if (!m_slicedReplies.empty()) {
+        // we have cached the sliced replies
+        std::vector<std::vector<rep_set_t*>> sliceSets;
+        sliceSets.swap(m_slicedReplies);
+        
+        for (auto&& sliceSet : sliceSets) {
+            mergeReplySliceSet(sliceSet);
+            
+            for (auto&& repset : sliceSet) {
+                FreeRepSet(repset);
+            }
         }
+    } else {
+        // the reply set has been sliced into packets as a whole
+        std::vector<rep_set_t*> slices;
+        slices.swap(m_slices);
+        mergeReplySliceSet(slices);
     }
+        
 }
 
 // merge together a packetized reply into a monolithic rep_set
@@ -2292,11 +2386,15 @@ void rep_set_t::mergeReplySliceSet(const std::vector<rep_set_t*>& slices)
 
     // compute the set of processes left to process
     bitset* toproc = nullptr;
-    for (auto&& r : tiers[0]) {
-        if (toproc)
-            bitset_oreq(toproc, r->rep_group);
-        else
-            toproc = bitset_dup(r->rep_group);
+    if (m_group) {
+        toproc = bitset_dup(m_group);
+    } else {
+        for (auto&& r : tiers[0]) {
+            if (toproc)
+                bitset_oreq(toproc, r->rep_group);
+            else
+                toproc = bitset_dup(r->rep_group);
+        }
     }
 
     // the algorithm here isn't too complicated.  We're just looking to pick
@@ -2322,26 +2420,27 @@ void rep_set_t::mergeReplySliceSet(const std::vector<rep_set_t*>& slices)
         // remove this set from the process set to process
         bitset_andeqnot(toproc, setset);
 
-        if (newSlice.size() != numTiers) {
+        if (!m_group && newSlice.size() != numTiers) {
             DPRINT("reply mismatch in MergeReplySlices\n");
             break;
         }
 
         // update the set of replies left to process
-        for (size_t i=0; i<numTiers; ++i) {
-            auto reply = newSlice[i];
-            auto& tier = tiers[i];
-            if (!bitset_compare(reply->rep_group, toproc)) {
-                // no processes left unprocessed - remove it from the
-                // list because we no longer need to look at it
-                tier.erase(std::find(tier.begin(), tier.end(), reply));
-            }
-        }
+        if (newSlice.size() == numTiers) {
+            for (size_t i=0; i<numTiers; ++i) {
+                auto reply = newSlice[i];
+                auto& tier = tiers[i];
+                if (!bitset_compare(reply->rep_group, toproc)) {
+                    // no processes left unprocessed - remove it from the
+                    // list because we no longer need to look at it
+                    tier.erase(std::find(tier.begin(), tier.end(), reply));
+                }
+            } }
 
         // we have our set of overlapping replies, join the events together
         // and add to the monolithic return set.
         bool isError;
-        if (group_reply_t* newReply = JoinReplies(setset, newSlice, isError)) {
+        if (group_reply_t* newReply = JoinReplies(setset, newSlice, m_shape, isError)) {
             if (isError) {
                 m_errs.push_back(newReply);
             } else {
@@ -2363,7 +2462,7 @@ namespace {
 // in AIFStream.  (which is also a temporary expedient).
 class LocalSlices : public AIFStream::Slices {
 public:
-    LocalSlices() : m_shape(nullptr) {}
+    LocalSlices(arrayDimension_t* shape) : m_shape(shape ? dupArrayDimension(shape) : nullptr) {}
     ~LocalSlices() { if (m_shape) freeArrayDimension(m_shape); }
     void addSlice(AIF* aif);
     
@@ -2381,6 +2480,8 @@ void LocalSlices::addSlice(AIF* aif) {
     m_current = m_aifs.begin();
 }
 
+// compute the full shape of the AIF array by combining the information from the slices
+// if necessary
 arrayDimension_t* LocalSlices::getFullShape() const
 {
     if (m_shape)
@@ -2462,31 +2563,38 @@ AIF* LocalSlices::getNextSlice(bool& isFinal)
 void LocalSlices::freeSlice(AIF* aif) {}
 }
 
+// Create a single unsliced group_reply from a set of slices
+// \a group the process set for the new result
+// \a replies the slices for the result
+// \a shape if given is the array shape for the returned result.   This is necessary
+//     if \a replies are a sparse representation, otherwise the function can
+//     compute the shape by combining the array sizes in \a replies
+// \a isError will contain true on return if any slice in \a replies was an error
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
+                                  arrayDimension_t* shape,
                                   bool& isError)
 {
+    // JoinReplies should be called on DATA replies - no other type is sliced
     dbginvoke_t* di = nullptr;
     isError = false;
     for (auto&& reply : replies) {
         di = reply->rep_di;
         if (reply->rep_event->ev_event != DBGEV_DATA &&
             reply->rep_event->ev_event != DBGEV_DATA_SLICE) {
-            fprintf(stderr, "reply event is not data\n");
+            DPRINT("reply event is not data\n");
             isError = true;
         }
     }
-    if (!di) {
-        DPRINT("could not get di in JoinReplies\n");
-        return nullptr;
-    }
 
+    // AIFStream does the work to paste the data objects into a single object
     AIFStream* data = nullptr;
     if (!isError) {
-        auto assemblerSlices = std::make_shared<LocalSlices>();
+        auto assemblerSlices = std::make_shared<LocalSlices>(shape);
         for (auto&& reply : replies) {
             assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF());
         }
+
         AIFStream assembler(assemblerSlices);
         AIF* joinedAIF = assembler.joinAIF(AIFStream::STEAL);
         data = new AIFStream(joinedAIF);
@@ -2494,7 +2602,8 @@ static group_reply_t* JoinReplies(bitset* group,
         if (!data)
             isError = true;
     }
-        
+
+    // and create the group reply
     dbgevent_t* event = NewEvent(isError ? DBGEV_ERROR : DBGEV_DATA);
     if (data) {
         EVENT_DATA(event) = data;

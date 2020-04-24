@@ -32,7 +32,6 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     graph_t *g;
     dbgprocset_t *pr = NULL;
     rep_set_t *rep_set;
-    group_reply_t *reply;
 
     if (val == NULL) return -1;
 
@@ -60,8 +59,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
 
             // Print each reply
             rep_set = RVAL_REPLY(val);
-            SetReplyHeadInSet(rep_set);
-            while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+            for (auto&& reply : rep_set) {
                 // Print the set info - Note that the rep_di can be null here if
                 // the reply set was the result of an operation on two different
                 // sets.

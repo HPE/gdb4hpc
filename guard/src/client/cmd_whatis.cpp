@@ -27,7 +27,6 @@
 
 static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     int i;
     int argp = 1;
     int isType = 0;
@@ -70,7 +69,7 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     // process type strings
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         type_str = EVENT_TYPE(reply->rep_event);
 
         PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
@@ -92,7 +91,6 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
     char *file = NULL;
     dbgvars_t *v;
     rep_set_t *rep_set;
-    group_reply_t *reply;
 
     if (argc > 1) file = argv[1];
 
@@ -101,7 +99,7 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
     ProcessErrorInRepSet(rep_set);
 
     // Process the replies
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at the vars data
         v = EVENT_VARS(reply->rep_event);
 
@@ -120,7 +118,6 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
 static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgvars_t *v;
 
     if (argc < 2) {
@@ -133,7 +130,7 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+    for (auto&& reply : rep_set) {
         // point at the vars data
         v = EVENT_VARS(reply->rep_event);
 

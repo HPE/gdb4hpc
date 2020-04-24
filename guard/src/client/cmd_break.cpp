@@ -31,7 +31,6 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *file;
     char *arg;
     rep_set_t *rep_set = NULL;
-    group_reply_t *reply = NULL;
     bp_set_t *bpset;
     dbgbp_t *bp;
 
@@ -72,7 +71,7 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
 
@@ -110,7 +109,6 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *arg;
     rep_set_t *rep_set;
     rep_set_t *enb_rep;
-    group_reply_t *reply = NULL;
     bp_set_t *bpset;
     dbgbp_t *bp;
     rec_set_t *new_rec;
@@ -152,7 +150,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process the replies
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
 
@@ -209,7 +207,6 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *arg;
     rep_set_t *rep_set = NULL;
-    group_reply_t *reply = NULL;
     bp_set_t *bpset;
     dbgbp_t *bp;
     dbgbp_type bp_type;
@@ -259,7 +256,7 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     ProcessErrorInRepSet(rep_set);
 
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
 

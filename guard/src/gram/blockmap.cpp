@@ -1243,7 +1243,6 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
     AIF **da;
     int i;
     dbg_over_set_t *over_set;
-    group_reply_t *reply;
 
     if (rep_set == NULL) return NULL;
 
@@ -1273,8 +1272,7 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
     da = (AIF **)Alloc(sizeof(AIF *) * array_size);
 
     // process rep_set, placing the AIF data into the array
-    SetReplyHeadInSet(rep_set);
-    while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+    for (auto&& reply : rep_set) {
         // Now loop over every rank to see if its in this reply
         // FIXME: There must be a more efficient way to do this...
         for (i = 0; i < array_size; ++i) {

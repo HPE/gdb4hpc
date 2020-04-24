@@ -1699,7 +1699,6 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
     AIF *value = NULL;
     int index = 0;
     char index_str[32];
-    group_reply_t *rep = NULL;
     int num = 0;
 
     if (set == NULL) return NULL;
@@ -1710,15 +1709,13 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
 
     if (num == 1) /* only one AIF */
     {
-        SetReplyHeadInSet(set);
-        rep = GetNextReplyInSet(set);
+        group_reply_t *rep = set->getFirstReply();
         // Mark the event as save data to prevent the AIF data from being
         // free'ed when the reply is cleaned up.
         // Point at the aif data
         res = EVENT_DATA(rep->rep_event)->joinAIF(AIFStream::STEAL);
     } else { /* an array of AIF. Implementation is based on AIFStruct */
-        SetReplyHeadInSet(set);
-        while ((rep = GetNextReplyInSet(set)) != NULL) {
+        for (auto rep : set) {
             // point at the aif data
             value = EVENT_DATA(rep->rep_event)->joinAIF();
 
@@ -1896,7 +1893,6 @@ token_t *NodeDbgRecvVarSet(graph_t *g, node_t *n) {
     AIF **ax;
     int set_length;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
     bitset *receiver;
@@ -1955,7 +1951,7 @@ token_t *NodeDbgRecvVarSet(graph_t *g, node_t *n) {
     // Process the data replies
     // FIXME: Modify graph to understand rep_set_t * instead of making this
     // strange array.
-    while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+    for (auto reply : rep_set) {
         // loop over the ax array
         // NOTE: I don't understand this - andrewg
         for (i = 0; i < set_length; ++i) {
@@ -2000,7 +1996,6 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
     AIF **ax;
     int set_length;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
     bitset *receiver;
@@ -2081,7 +2076,7 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
     // Process the data replies
     // FIXME: Modify graph to understand rep_set_t * instead of making this
     // strange array.
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         // loop over the ax array
         // NOTE: I don't understand this - andrewg
         for (i = 0; i < set_length; ++i) {
@@ -2123,7 +2118,6 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
     token_t *t3 [[maybe_unused]];
     AIF *a = NULL;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
     bitset *receiver;
@@ -2190,7 +2184,7 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
     // FIXME: This node is unecessary. Instead modify graph to understand
     // rep_set_t and have a single node for this.......... Combine with the
     // NodeDbgGetVarSet.
-    if ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         // This node will call AIFFree directly on the aif pointer, so we want
         // to mark this reply as save data to prevent it from being free'ed when
         // we free the reply.
@@ -2416,7 +2410,6 @@ token_t *NodeDbgOpenSocketSet(graph_t *g, node_t *n) {
     int set_length;
     rep_set_t *rep_set;
     int index;
-    group_reply_t *reply;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
     bitset *receiver;
@@ -2476,7 +2469,7 @@ token_t *NodeDbgOpenSocketSet(graph_t *g, node_t *n) {
     ProcessErrorInRepSet(rep_set);
 
     // process results
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         // point at the breakpoint
         bp_t = EVENT_BP(reply->rep_event);
         for (index = 0; index < set_length; index++)
@@ -2506,7 +2499,6 @@ static void _close_socket_proc_set(graph_t *g, token_t *t, node_t *n) {
     int set_length;
     rep_set_t *rep_set;
     int index;
-    group_reply_t *reply;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
     bitset *receiver;
@@ -2555,8 +2547,7 @@ static void _close_socket_proc_set(graph_t *g, token_t *t, node_t *n) {
     ProcessErrorInRepSet(rep_set);
 
     // process results
-    SetReplyHeadInSet(rep_set);
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         // point at the breakpoint data
         bp_t = EVENT_BP(reply->rep_event);
         for (index = 0; index < set_length; index++)
@@ -2629,7 +2620,6 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
     dbg_over_set_t *over_set;
     rep_set_t *rep_set;
     int index;
-    group_reply_t *reply;
 
     token_t *t1 = GetTokenFromInput(n, 0);
     token_t *t2 = GetTokenFromInput(n, 1);
@@ -2694,7 +2684,7 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
     ProcessErrorInRepSet(rep_set);
 
     // process results
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         // Point at the bp
         dbgbp_t *bp = EVENT_BP(reply->rep_event);
         const char *addr = bp->bp_loc.loc_addr;
@@ -2726,8 +2716,7 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
     // happen at graph exit. We could potentially avoid copying the replies
     // since the originals are about to be deleted, but it does seem worth
     // breaking the abstraction...
-    SetReplyHeadInSet(rep_set);
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto reply : rep_set) {
         AddToList(g->g_bp_reply_list, (void *)CopyGroupReply(reply));
     }
 

@@ -289,7 +289,6 @@ void EndDF(graph_t *g) {
         // used for checking status
         rec_set_t *rec_set;
         rep_set_t *rep_set;
-        group_reply_t *reply;
         char *bitset_str;
         char *set_str;
         dbgstatus_t *s;
@@ -315,7 +314,7 @@ void EndDF(graph_t *g) {
             status_block = XMLStartStatusBlock(di->d_handle);
 
             // Process each status message and add it to the status block
-            while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+            for (auto reply : rep_set) {
                 // First create the bitset string
                 bitset_str = bitset_to_set(reply->rep_group);
 
@@ -479,7 +478,6 @@ static void _delete_bp(graph_t *g, dbginvoke_t *di) {
 static void _halt(dbginvoke_t *di, int haltmode) {
     rec_set_t *rec_set;
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgloc_t *halt_loc;
     char *set_info;
 
@@ -507,7 +505,7 @@ static void _halt(dbginvoke_t *di, int haltmode) {
             DFMsg("%s%s: Application halted at multiple locations.",
                   di->d_handle, set_info);
         } else {
-            while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+            for (auto reply : rep_set) {
                 set_info = bitset_to_set(reply->rep_group);
                 // point at the location data
                 halt_loc = EVENT_LOC(reply->rep_event);

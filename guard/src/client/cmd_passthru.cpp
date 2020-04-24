@@ -30,7 +30,6 @@ static cmdlist_t *OldCmds;
 static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     char *cmd;
 
     rep_set = DbgDirectCmd(rec_set, argc, argv);
@@ -39,7 +38,7 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
     ProcessErrorInRepSet(rep_set);
 
     // process console messages
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the cmd data
         cmd = EVENT_CMD(reply->rep_event);
 
@@ -57,7 +56,6 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     char *cmd;
     const char *tmp_cmd[2] = {"show", "version"};
 
@@ -80,7 +78,7 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     // process console messages
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the cmd data
         cmd = EVENT_CMD(reply->rep_event);
 
@@ -116,7 +114,6 @@ static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     char *cmd;
     rep_set_t *rep_set;
-    group_reply_t *reply;
 
     if (rec_set == NULL) {
         PrintOutError("No processes in focus.\n");
@@ -129,9 +126,7 @@ static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
     ProcessErrorInRepSet(rep_set);
 
     // process console messages
-    SetReplyHeadInSet(rep_set);
-
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the cmd data
         cmd = EVENT_CMD(reply->rep_event);
 

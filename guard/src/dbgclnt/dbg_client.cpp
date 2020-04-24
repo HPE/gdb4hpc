@@ -72,8 +72,8 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *);
 static int GetNumberOfReceivers(rec_set_t *);
 static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
-static void SetErrHeadInSet(rep_set_t *);
-static group_reply_t *GetNextErrInSet(rep_set_t *);
+//static void SetErrHeadInSet(rep_set_t *);
+//static group_reply_t *GetNextErrInSet(rep_set_t *);
 static event_set_t *NewEventSet(dbginvoke_t *, bitset *, dbgevent_t *);
 static void FreeEventSet(event_set_t *);
 static void DestroyEventSet(dbginvoke_t *, dbgev);
@@ -374,87 +374,94 @@ group_reply_t *CopyGroupReply(group_reply_t *rep) {
  */
 
 rep_set_t *NewRepSet(void) {
-    rep_set_t *set = (rep_set_t *)Alloc(sizeof(rep_set_t));
-
-    set->rep_list = NewList();
-    set->err_list = NewList();
-
-    return set;
+    return new rep_set_t();
 }
 
+rep_set_t::rep_set_t() {}
+
 void FreeRepSet(rep_set_t *set) {
-    if (set == NULL) return;
+    delete set;
+}
 
-    DestroyList(set->rep_list, (void (*)(void *))FreeGroupReply);
-
-    DestroyList(set->err_list, (void (*)(void *))FreeGroupReply);
-
-    Free(set);
+rep_set_t::~rep_set_t() {
+    for (auto&& reply : m_reps)
+        FreeGroupReply(reply);
+    for (auto&& reply : m_errs)
+        FreeGroupReply(reply);
 }
 
 rep_set_t *CopyRepSet(rep_set_t *set) {
-    rep_set_t *newset;
-    group_reply_t *elem;
+    return (set ? set->clone() : nullptr);
+}
 
-    if (set == NULL) return NULL;
-
-    newset = NewRepSet();
-
-    // copy the replies
-    SetList(set->rep_list);
-    while ((elem = (group_reply_t *)GetListElement(set->rep_list)) != NULL) {
-        AddReplyToSet(newset, CopyGroupReply(elem));
+rep_set_t* rep_set_t::clone() const
+{
+    rep_set_t *newset = new rep_set_t();
+    for (auto&& reply : m_reps) {
+        newset->m_reps.push_back(CopyGroupReply(reply));
     }
-
-    // copy the errors
-    SetList(set->err_list);
-    while ((elem = (group_reply_t *)GetListElement(set->err_list)) != NULL) {
-        AddErrToSet(newset, CopyGroupReply(elem));
+    for (auto&& reply : m_errs) {
+        newset->m_errs.push_back(CopyGroupReply(reply));
     }
-
     return newset;
 }
 
 static rep_set_t *MergeRepSet(rep_set_t *set, rep_set_t *tmp_set) {
-    group_reply_t *elem;
-
-    if (set == NULL || tmp_set == NULL) return NULL;
+    if (!set || !tmp_set) return nullptr;
 
     // merge the replies
-    while ((elem = (group_reply_t *)RemoveFirst(tmp_set->rep_list)) != NULL) {
-        AddReplyToSet(set, elem);
-    }
+    return set->merge(tmp_set);
+}
+rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
+    std::vector<group_reply_t*> r;
+    r.swap(tmp->m_reps);
+    m_reps.insert(m_reps.end(), r.begin(), r.end());
 
-    // Merge the errors
-    while ((elem = (group_reply_t *)RemoveFirst(tmp_set->err_list)) != NULL) {
-        AddErrToSet(set, elem);
-    }
+    r.clear();
+    r.swap(tmp->m_errs);
+    m_errs.insert(m_errs.end(), r.begin(), r.end());
 
-    FreeRepSet(tmp_set);
+    delete tmp;
 
-    return set;
+    return this;
 }
 
 int SetHasError(rep_set_t *set) {
-    if (set == (rep_set_t *)NULL) return 0;
-
-    if (set->err_list == (list_t *)NULL) return 0;
-
-    return SizeOfList(set->err_list);
+    return (set ? set->hasError() : 0);
+}
+int rep_set_t::hasError() const {
+    return int(m_errs.size());
 }
 
 void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
-    if (rep == NULL || set == NULL) return;
-
-    AddToList(set->rep_list, (void *)rep);
+    if (rep && set)
+        set->addReply(rep);
+}
+void rep_set_t::addReply(group_reply_t *rep)
+{
+    m_reps.push_back(rep);
 }
 
 static void AddErrToSet(rep_set_t *set, group_reply_t *err_rep) {
-    if (err_rep == NULL || set == NULL) return;
-
-    AddToList(set->err_list, (void *)err_rep);
+    if (err_rep && set) {
+        set->addErr(err_rep);
+    }
 }
 
+void rep_set_t::addErr(group_reply_t* rep)
+{
+    m_errs.push_back(rep);
+}
+
+// keep an empty vector to iterator over when trying to use
+// a rep_set_t* == nullptr
+const std::vector<group_reply_t*>& rep_set_t::getNullReply()
+{
+    static std::vector<group_reply_t*> nullReply;
+    return nullReply;
+}
+
+/*
 void ResetSet(rep_set_t *set) {
     if (set == NULL) return;
 
@@ -483,22 +490,16 @@ group_reply_t *GetNextReplyInSet(rep_set_t *set) {
     else
         return NULL;
 }
+*/
 
 int GetNumberOfReply(rep_set_t *set) {
-    if (set == NULL) return 0;
-
-    return SizeOfList(set->rep_list);
+    return (set ? int(set->getReplies().size()) : 0);
 }
 
 // Used to print out an error from a rep_set
 int ProcessErrorInRepSet(rep_set_t *rep_set) {
-    group_reply_t *err;
-
-    if (rep_set == NULL) return 0;
-
-    if (SetHasError(rep_set)) {
-        SetErrHeadInSet(rep_set);
-        while ((err = GetNextErrInSet(rep_set)) != NULL) {
+    if (rep_set && rep_set->hasError()) {
+        for (auto&& err : rep_set->getErrs()) {
             // Print out the error
             PrintErrorWithSetInfo(err->rep_di->d_handle, err->rep_group, "%s\n",
                                   DbgEventErrorStr(err->rep_event));
@@ -829,26 +830,22 @@ static void FreeBPDispSet(bp_disp_set_t *disp_set) {
 ** for the dbginvoke_t
 */
 static void AddBP(rep_set_t *res) {
-    group_reply_t *reply;
-    dbgbp_t *bp;
-    bp_set_t *bpset;
-    dbginvoke_t *di;
 
-    ResetSet(res);
+    for (auto&& reply : res) {
+        dbgbp_t *bp = EVENT_BP(reply->rep_event);
 
-    while ((reply = GetNextReplyInSet(res)) != NULL) {
-        bp = EVENT_BP(reply->rep_event);
+        dbginvoke_t *di = (dbginvoke_t *)(reply->rep_di);
 
-        di = (dbginvoke_t *)(reply->rep_di);
 
         SetList(di->d_bpset_list);
+        bp_set_t *bpset;
         while ((bpset = (bp_set_t *)GetListElement(di->d_bpset_list)) != NULL) {
             if (!CompareBPSetWithBP(bpset, bp)) {
                 break;
             }
         }
 
-        if (bpset != NULL) /* This is a known breakpoint */
+        if (bpset) /* This is a known breakpoint */
         {
             // update the bpset with this group and info from the bp for disp
             // and id
@@ -2115,7 +2112,7 @@ static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFin
     // want to return NULL. This is because some of the event types have no
     // data. These functions will want to receive null, otherwise they assume
     // that there was an error
-    if (!SizeOfList(reply->err_list) && !SizeOfList(reply->rep_list)) {
+    if (reply->isEmpty()) {
         FreeRepSet(reply);
         return NULL;
     }
@@ -2136,16 +2133,15 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
     bool isFinal = false;
     bool failed = false;
     do {
-        if (rep_set_t *reply = DbgRecvOneReply(set, req_type, isFinal)) {
-            slices.push_back(reply);
+        if (rep_set_t *repset = DbgRecvOneReply(set, req_type, isFinal)) {
+            slices.push_back(repset);
 
             if (!isFinal) {
                 // set 'set' bit_set to contain just those that still want to send
                 // more data -- we can definitely modify the input because ClearCmdSent
                 // will wipe it clean anyway
                 bitset_clear(set->rec_group);
-                SetReplyHeadInSet(reply);
-                while (group_reply_t* rep = GetNextReplyInSet(reply)) {
+                for (group_reply_t* rep : repset) {
                     if (rep->rep_event->ev_event == DBGEV_DATA_SLICE) {
                         bitset_oreq(set->rec_group, rep->rep_group);
                     }
@@ -2200,10 +2196,8 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
         rep_set_t* rs = slices[i];
         auto& gs = tiers[i];
         for (int w=0; w<2; ++w) {
-            auto l = (!w ? rs->rep_list : rs->err_list);
-            SetList(l);
-            while (group_reply* gr = (group_reply*)(GetListElement(l)))
-                gs.push_back(gr);
+            const auto& l = (!w ? rs->getReplies() : rs->getErrs());
+            gs.insert(gs.end(), l.begin(), l.end());
         }
     }
 
@@ -2216,7 +2210,7 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
 
     // compute the set of processes left to process
     bitset* toproc = nullptr;
-    for (auto r : tiers[0]) {
+    for (auto&& r : tiers[0]) {
         if (toproc)
             bitset_oreq(toproc, r->rep_group);
         else
@@ -2233,8 +2227,8 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
         // find a common reply set
         newSlice.clear();
         bitset_copy(setset, toproc);
-        for (auto tier : tiers) {
-            for (auto gp : tier) {
+        for (auto&& tier : tiers) {
+            for (auto&& gp : tier) {
                 if (bitset_compare(setset, gp->rep_group)) {
                     bitset_andeq(setset, gp->rep_group);
                     newSlice.push_back(gp);
@@ -2280,7 +2274,7 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
     bitset_free(setset);
         
     
-    for (auto repset : slices) {
+    for (auto&& repset : slices) {
         FreeRepSet(repset);
     }
 
@@ -2322,7 +2316,7 @@ arrayDimension_t* LocalSlices::getFullShape() const
     int fullDim = 0;
     bool isFortran = false;
 
-    for (auto aif : m_aifs) {
+    for (auto&& aif : m_aifs) {
         isFortran = (AIFType(aif) == AIF_FTN_ARRAY);
         int dim = AIFArrayRank(aif);
         if (dim <= 0) {
@@ -2397,7 +2391,7 @@ static group_reply_t* JoinReplies(bitset* group,
 {
     dbginvoke_t* di = nullptr;
     isError = false;
-    for (auto reply : replies) {
+    for (auto&& reply : replies) {
         di = reply->rep_di;
         if (reply->rep_event->ev_event != DBGEV_DATA &&
             reply->rep_event->ev_event != DBGEV_DATA_SLICE) {
@@ -2413,7 +2407,7 @@ static group_reply_t* JoinReplies(bitset* group,
     AIFStream* data = nullptr;
     if (!isError) {
         auto assemblerSlices = std::make_shared<LocalSlices>();
-        for (auto reply : replies) {
+        for (auto&& reply : replies) {
             assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF(AIFStream::STEAL));
         }
         AIFStream assembler(assemblerSlices);
@@ -2466,7 +2460,7 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
     ReleaseSignals();
 
     // If there is nothing in the result set, then return NULL
-    if (!SizeOfList(result->err_list) && !SizeOfList(result->rep_list)) {
+    if (result->isEmpty()) {
         FreeRepSet(result);
         return NULL;
     }
@@ -2497,7 +2491,6 @@ rep_set_t *DbgStartup(rec_set_t *set) {
     // This command changes the status
     inferior_status_change = 1;
 
-    ResetSet(result);
     return result;
 }
 
@@ -2536,7 +2529,6 @@ rep_set_t *DbgGetExpr(rec_set_t *set) {
         result = MergeRepSet(result, tmp_result);
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -2552,7 +2544,6 @@ rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2568,7 +2559,6 @@ rep_set_t *DbgCloseSocket(rec_set_t *set) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2584,7 +2574,6 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2600,7 +2589,6 @@ rep_set_t *DbgSetDebuggerVar(rec_set_t *set, char *var, AIF *val) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2616,7 +2604,6 @@ rep_set_t *DbgGetDebuggerVar(rec_set_t *set, char *var) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2666,7 +2653,6 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
                 AddReplyToSet(result, group_rep);
             }
 
-            ResetSet(result);
         } else {
             // Add this recv_ptr to the to_send list
             AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
@@ -2686,7 +2672,6 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
     }
 
     FreeRecSet(to_send);
-    ResetSet(result);
     return result;
 }
 
@@ -2751,7 +2736,6 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
     }
 
     FreeRecSet(to_send);
-    ResetSet(result);
     return result;
 }
 
@@ -2767,7 +2751,6 @@ rep_set_t *DbgSetVar(rec_set_t *set, char *var, AIF *val) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2783,8 +2766,6 @@ rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE);
 
     Free(request);
-
-    ResetSet(result);
     return result;
 }
 
@@ -2797,7 +2778,6 @@ rep_set_t *DbgGo(rec_set_t *set) {
     rep_set_t *result;
     dbgfrontend_sw *dbg_fe;
     int has_err;
-    group_reply_t *err;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
@@ -2826,8 +2806,7 @@ rep_set_t *DbgGo(rec_set_t *set) {
             has_err = 0;
 
             // Ensure this di is not in the error list
-            SetErrHeadInSet(result);
-            while ((err = GetNextErrInSet(result)) != NULL) {
+            for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
                     ++has_err;
@@ -2851,7 +2830,6 @@ rep_set_t *DbgGo(rec_set_t *set) {
     // An async event is now pending
     async_pending = 1;
 
-    ResetSet(result);
     return result;
 }
 
@@ -2865,7 +2843,6 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     rep_set_t *result;
     dbgfrontend_sw *dbg_fe;
     int has_err;
-    group_reply_t *err;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
@@ -2894,8 +2871,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
             has_err = 0;
 
             // Ensure this di is not in the error list
-            SetErrHeadInSet(result);
-            while ((err = GetNextErrInSet(result)) != NULL) {
+            for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
                     ++has_err;
@@ -2919,7 +2895,6 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     // An async event is now pending
     async_pending = 1;
 
-    ResetSet(result);
     return result;
 }
 
@@ -2940,7 +2915,6 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line) {
     // process breakpoint information
     AddBP(result);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2961,7 +2935,6 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, char *file, char *func) {
     // process breakpoint information
     AddBP(result);
 
-    ResetSet(result);
     return result;
 }
 
@@ -2981,7 +2954,6 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
     // process breakpoint information
     AddBP(result);
 
-    ResetSet(result);
     return result;
 }
 
@@ -3030,7 +3002,6 @@ rep_set_t *DbgKill(rec_set_t *set) {
         recv_ptr->rec_di = NULL;
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -3174,7 +3145,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
         }
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -3320,7 +3290,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
         }
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -3482,7 +3451,6 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del) {
         }
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -3551,8 +3519,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 }
 
                 // process the frame
-                SetReplyHeadInSet(tmp_result);
-                while ((group_rep = GetNextReplyInSet(tmp_result)) != NULL) {
+                for (auto&& group_rep : tmp_result) {
                     // Point at the event frame
                     fp = EVENT_FRAME(group_rep->rep_event);
 
@@ -3778,7 +3745,6 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
     }
 
     FreeRecSet(to_send);
-    ResetSet(result);
     return result;
 }
 
@@ -3855,7 +3821,6 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
     }
 
     FreeRecSet(to_send);
-    ResetSet(result);
     return result;
 }
 
@@ -3871,7 +3836,6 @@ rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -3884,7 +3848,6 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     group_recv_t *recv_ptr;
     dbgfrontend_sw *dbg_fe;
     int has_err;
-    group_reply_t *err;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
@@ -3913,8 +3876,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
             has_err = 0;
 
             // Ensure this di is not in the error list
-            SetErrHeadInSet(result);
-            while ((err = GetNextErrInSet(result)) != NULL) {
+            for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
                     ++has_err;
@@ -3938,7 +3900,6 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // An async event is now pending
     async_pending = 1;
 
-    ResetSet(result);
     return result;
 }
 
@@ -3951,10 +3912,8 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     group_recv_t *recv_ptr;
     dbgfrontend_sw *dbg_fe;
     dbgframe_t *fp;
-    group_reply_t *group_rep;
     char *location = NULL;
     int has_err;
-    group_reply_t *err;
 
     request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up);
 
@@ -3975,8 +3934,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
                 ClearListState(dbg_fe);
 
                 // process the frame
-                SetReplyHeadInSet(result);
-                while ((group_rep = GetNextReplyInSet(result)) != NULL) {
+                for (auto&& group_rep : result) {
                     // Point at the frame
                     fp = EVENT_FRAME(group_rep->rep_event);
 
@@ -4010,8 +3968,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
             has_err = 0;
 
             // Ensure this di is not in the error list
-            SetErrHeadInSet(result);
-            while ((err = GetNextErrInSet(result)) != NULL) {
+            for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
                     ++has_err;
@@ -4029,8 +3986,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
                     ClearListState(dbg_fe);
 
                     // process the frame
-                    SetReplyHeadInSet(result);
-                    while ((group_rep = GetNextReplyInSet(result)) != NULL) {
+                    for (auto&& group_rep : result) {
                         // Point at the frame
                         fp = EVENT_FRAME(group_rep->rep_event);
 
@@ -4061,7 +4017,6 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
         }
     }
 
-    ResetSet(result);
     return result;
 }
 
@@ -4077,7 +4032,6 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -4093,7 +4047,6 @@ rep_set_t *DbgGetFrame(rec_set_t *set) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -4109,7 +4062,6 @@ rep_set_t *DbgGetVars(rec_set_t *set, char *file) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -4185,7 +4137,6 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
     }
 
     FreeRecSet(to_send);
-    ResetSet(result);
     return result;
 }
 
@@ -4201,7 +4152,6 @@ rep_set_t *DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -4217,7 +4167,6 @@ rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
 
     Free(request);
 
-    ResetSet(result);
     return result;
 }
 
@@ -4230,7 +4179,6 @@ rep_set_t *DbgInterrupt(rec_set_t *set) {
     group_recv_t *recv_ptr;
     dbgfrontend_sw *dbg_fe;
     int has_err;
-    group_reply_t *err;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
@@ -4259,8 +4207,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set) {
             has_err = 0;
 
             // Ensure this di is not in the error list
-            SetErrHeadInSet(result);
-            while ((err = GetNextErrInSet(result)) != NULL) {
+            for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
                     ++has_err;
@@ -4284,7 +4231,6 @@ rep_set_t *DbgInterrupt(rec_set_t *set) {
     // An async event is now pending
     async_pending = 1;
 
-    ResetSet(result);
     return result;
 }
 
@@ -4402,6 +4348,5 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
             break;
     }
 
-    ResetSet(result);
     return result;
 }

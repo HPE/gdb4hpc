@@ -702,7 +702,6 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
     dbginvoke_t *di;
     dbgframe_t *f;
     rec_set_t *rec_set;
-    group_reply_t *reply;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
     int p2pmode = 0;
@@ -760,8 +759,7 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
 
     // Print the startup frames based on this bitset
     if (Client.print_entry_frame) {
-        SetReplyHeadInSet(rep_set);
-        while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+        for (auto&& reply : rep_set) {
             // point at the frame
             f = EVENT_FRAME(reply->rep_event);
             // print out the message
@@ -973,7 +971,6 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
     dbgframe_t *f;
     dbgframe_t *fp;
     rec_set_t *rec_set;
-    group_reply_t *reply;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
     int p2pmode = 0;
@@ -1025,8 +1022,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
         PrintOutMsg("Current rank location:\n");
         // Print the current frame based on this bitset
         // Print the startup frames based on this bitset
-        SetReplyHeadInSet(rep_set);
-        while ((reply = GetNextReplyInSet(rep_set)) != NULL) {
+        for (auto&& reply : rep_set) {
             // point at the frame
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
@@ -1084,7 +1080,6 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
 
 static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgloc_t *halt_loc;
 
     rep_set = DbgInterrupt(rec_set);
@@ -1093,7 +1088,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     // process location
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // point at location data
         halt_loc = EVENT_LOC(reply->rep_event);
         PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group,

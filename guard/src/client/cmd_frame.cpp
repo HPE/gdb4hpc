@@ -49,7 +49,6 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
     if (argc >= 2) count = atoi(argv[1]);
 
     rep_set_t *rep_set;
-    group_reply_t *reply;
 
     rep_set = DbgMoveFrame(rec_set, count, up);
 
@@ -57,7 +56,7 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     // process frames
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the frame data
         f = EVENT_FRAME(reply->rep_event);
 
@@ -73,18 +72,16 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int count = 0;
     dbgframe_t *f;
     dbgframe_t *fp;
-    rep_set_t *rep_set;
-    group_reply_t *reply;
 
     if (argc >= 2) count = atoi(argv[1]);
 
-    rep_set = DbgShowFrame(rec_set, count);
+    rep_set_t *rep_set = DbgShowFrame(rec_set, count);
 
     // process error
     ProcessErrorInRepSet(rep_set);
 
     // process frames
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the frame data
         fp = EVENT_FRAME(reply->rep_event);
 
@@ -100,7 +97,6 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     rep_set_t *rep_set;
-    group_reply_t *reply;
     dbgframe_t *fp;
 
     rep_set = DbgGetFrame(rec_set);
@@ -109,7 +105,7 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     // process frame - there should only be one
-    while ((reply = GetNextReplyInSet(rep_set)) != (group_reply_t *)NULL) {
+    for (auto&& reply : rep_set) {
         // Point at the frame data
         fp = EVENT_FRAME(reply->rep_event);
 

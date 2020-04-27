@@ -164,6 +164,7 @@ typedef struct group_reply group_reply_t;
 class rep_set_t {
 public:
     rep_set_t();
+    rep_set_t(const std::vector<rep_set_t*>& slices);
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
     rep_set_t& operator=(const rep_set_t&) = delete;
@@ -173,19 +174,21 @@ public:
     int hasError() const;
     void addReply(group_reply_t* reply);
     void addErr(group_reply_t* reply);
-    bool isEmpty() const { return m_reps.empty() && m_errs.empty(); }
-    group_reply_t* getFirstReply() const {
-        return (m_reps.empty() ? nullptr : m_reps.front());
-    }
+    bool isEmpty() const;
+    group_reply_t* getFirstReply() const;
 
-    const std::vector<group_reply_t*>& getReplies() const { return m_reps; }
-    const std::vector<group_reply_t*>& getErrs() const { return m_errs; }
+    const std::vector<group_reply_t*>& getReplies() const;
+    const std::vector<group_reply_t*>& getErrs() const;
 
     static const std::vector<group_reply_t*>& getNullReply();
 
 private:
+    void mergeReplySlices();
+    void mergeReplySliceSet(const std::vector<rep_set_t*>& slices);
+    
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
+    std::vector<std::vector<rep_set_t*>> m_slices;    // sub-replies
 };
 
 inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t* set) {

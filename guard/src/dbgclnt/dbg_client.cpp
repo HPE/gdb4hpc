@@ -94,7 +94,6 @@ static void DisableBPForBPSet(bp_set_t *, bitset *);
 static void SetBPDispositionForBPSet(bp_set_t *, bitset *, dbgbp_disp);
 static void RemoveBPSet(dbginvoke_t *, bp_set_t *, bitset *);
 static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
-static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices);
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   bool& isError);
@@ -379,15 +378,26 @@ rep_set_t *NewRepSet(void) {
 
 rep_set_t::rep_set_t() {}
 
+rep_set_t::rep_set_t(const std::vector<rep_set_t*>& slices)
+{
+    m_slices.push_back(slices);
+}
+
 void FreeRepSet(rep_set_t *set) {
     delete set;
 }
+
 
 rep_set_t::~rep_set_t() {
     for (auto&& reply : m_reps)
         FreeGroupReply(reply);
     for (auto&& reply : m_errs)
         FreeGroupReply(reply);
+
+    for (auto&& slices : m_slices) {
+        for (auto&& slice : slices)
+            delete slice;
+    }
 }
 
 rep_set_t *CopyRepSet(rep_set_t *set) {
@@ -403,6 +413,12 @@ rep_set_t* rep_set_t::clone() const
     for (auto&& reply : m_errs) {
         newset->m_errs.push_back(CopyGroupReply(reply));
     }
+    for (auto&& slices : m_slices) {
+        newset->m_slices.push_back(std::vector<rep_set_t*>());
+        for (auto&& slice : slices) 
+            newset->m_slices.back().push_back(slice->clone());
+    }
+
     return newset;
 }
 
@@ -420,6 +436,10 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     r.clear();
     r.swap(tmp->m_errs);
     m_errs.insert(m_errs.end(), r.begin(), r.end());
+
+    std::vector<std::vector<rep_set_t*>> s;
+    s.swap(tmp->m_slices);
+    m_slices.insert(m_slices.end(), s.begin(), s.end());
 
     delete tmp;
 
@@ -452,6 +472,52 @@ void rep_set_t::addErr(group_reply_t* rep)
 {
     m_errs.push_back(rep);
 }
+
+bool rep_set_t::isEmpty() const
+{
+    if (m_slices.empty()) {
+        return m_reps.empty() && m_errs.empty();
+    } else {
+        for (auto&& slices : m_slices) {
+            for (auto&& slice : slices) {
+                if (!slice->isEmpty())
+                    return false;
+            }
+        }
+        return true;
+    }
+}
+
+group_reply_t* rep_set_t::getFirstReply() const
+{
+    auto msgs = getReplies();
+    return msgs.empty() ? nullptr : msgs.front();
+}
+
+const std::vector<group_reply_t*>& rep_set_t::getReplies() const
+{
+    if (!m_slices.empty()) {
+        // make the single reply on demand if the processing doesn't handle
+        // packetized.  -- delete the slices and clears the m_slices vector.
+        const_cast<rep_set_t*>(this)->mergeReplySlices();
+    }
+
+    return m_reps;
+}
+
+const std::vector<group_reply_t*>& rep_set_t::getErrs() const
+{
+    if (!m_slices.empty()) {
+        // make the single reply on demand if the processing doesn't handle
+        // packetized.  -- delete the slices and clears the m_slices vector.
+        const_cast<rep_set_t*>(this)->mergeReplySlices();
+    }
+
+    return m_errs;
+}
+
+
+
 
 // keep an empty vector to iterator over when trying to use
 // a rep_set_t* == nullptr
@@ -2156,42 +2222,65 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
     // we leave it in the same state is used to be in.
     ClearCmdSent(set);        
 
-    if (failed) {
+    if (failed || slices.empty()) {
         return nullptr;  // should only happen on a misconfiguration
+    } else if (slices.size() == 1) {
+        return slices[0];
     } else {
-        return MergeReplySlices(slices);
+        return new rep_set_t(slices);
     }
 }
 
 // Create a single reply set response from DbgRecvReply.
-// \param slices is a list of reply sets.  In most cases, slices.size() == 1,
-//    the exception if when returning very large array results, the reply is
-//    spread across multiple MRNet packets from each node.   The packets should
-//    be equivalent so that each element of \a slices refers to the *same* subset
-//    of the array.
-// \return a single ret_set with the equivalence sets fixed up and the AIF data,
-//    if it exists, joined back into a single large array.
-// \note this function is temporary to allow the client side logic (including compare,
-//     assert and print) to work unmodified; but this is just a piton - the client
-//     side will need to avoid instaintiating enormous data to avoid blowing up the
-//     client side memory usage.
-static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
+// On entry m_slices will contain the set of packetized replies.   Actually, it's
+// a vector of vectors where each of the inner vectors holds the group replies from
+// one single response.
+// On exit, this rep_set will contain the set of monolithic group_replie stored in
+// m_reps and m_errs.
+void rep_set_t::mergeReplySlices()
 {
-    if (slices.empty())
-        return nullptr;
-    else if (slices.size() == 1)
-        return slices[0];
+    if (m_slices.empty()) {
+        return;
+    } else if (m_slices.size() == 1 && m_slices[0].size() == 1) {
+        auto slice = m_slices[0][0];
+        m_reps.swap(slice->m_reps);
+        m_errs.swap(slice->m_errs);
+        delete slice;
+        m_slices.clear();
+        return;
+    }
 
+    // general case - note we swap out the current slices to ensure
+    // no object is double referenced.
+    std::vector<std::vector<rep_set_t*>> sliceSets;
+    sliceSets.swap(m_slices);
+
+    for (auto&& sliceSet : sliceSets) {
+        mergeReplySliceSet(sliceSet);
+
+        for (auto&& repset : sliceSet) {
+            FreeRepSet(repset);
+        }
+    }
+}
+
+// merge together a packetized reply into a monolithic rep_set
+// Note that this is a short term function, the goal it to process the
+// result slices as they arrive; storing the full set of slices
+// in memory does not help (actually hinders) the memory usage on the client
+// side
+void rep_set_t::mergeReplySliceSet(const std::vector<rep_set_t*>& slices)
+{
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
     // every process.   FIXME: this bit of code is temporary since it allows the
     // memory consumption in the client to grow unbounded.   So I won't try to make
     // this code super optimal.
 
-    // but in any case, we won't be trying to do a lot of processing with list_t's -
-    // copy into a vector of vectors.
+    // merge the non-error and error replies into a single vector for easier
+    // processing
     size_t numTiers = slices.size();
-    std::vector<std::vector<group_reply*>> tiers(slices.size());
+    std::vector<std::vector<group_reply*>> tiers(numTiers);
     for (size_t i=0; i<numTiers; ++i) {
         rep_set_t* rs = slices[i];
         auto& gs = tiers[i];
@@ -2199,13 +2288,6 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
             const auto& l = (!w ? rs->getReplies() : rs->getErrs());
             gs.insert(gs.end(), l.begin(), l.end());
         }
-    }
-
-    // create the monolithic return 
-    rep_set_t* newRepSet = NewRepSet();
-    if (!newRepSet) {
-        DPRINT("NewRepSet failed\n");
-        return newRepSet;
     }
 
     // compute the set of processes left to process
@@ -2261,24 +2343,16 @@ static rep_set_t* MergeReplySlices(const std::vector<rep_set_t*>& slices)
         bool isError;
         if (group_reply_t* newReply = JoinReplies(setset, newSlice, isError)) {
             if (isError) {
-                AddErrToSet(newRepSet, newReply);
+                m_errs.push_back(newReply);
             } else {
-                AddReplyToSet(newRepSet, newReply);
+                m_reps.push_back(newReply);
             }
         }
     }
-        
 
     // cleanup and return
     bitset_free(toproc);
     bitset_free(setset);
-        
-    
-    for (auto&& repset : slices) {
-        FreeRepSet(repset);
-    }
-
-    return newRepSet;
 }
 
 namespace {
@@ -2295,6 +2369,7 @@ public:
     
     virtual arrayDimension_t* getFullShape() const override;
     virtual AIF* getNextSlice(bool& isFinal);
+    virtual void freeSlice(AIF* aif) override;
 private:
     std::vector<AIF*> m_aifs;
     std::vector<AIF*>::iterator m_current;
@@ -2383,6 +2458,8 @@ AIF* LocalSlices::getNextSlice(bool& isFinal)
         return *(m_current++);
     }
 }
+// LocalSlices does not control the aif objects which may be reused    
+void LocalSlices::freeSlice(AIF* aif) {}
 }
 
 static group_reply_t* JoinReplies(bitset* group,
@@ -2395,7 +2472,7 @@ static group_reply_t* JoinReplies(bitset* group,
         di = reply->rep_di;
         if (reply->rep_event->ev_event != DBGEV_DATA &&
             reply->rep_event->ev_event != DBGEV_DATA_SLICE) {
-            DPRINT("reply event is not data\n");
+            fprintf(stderr, "reply event is not data\n");
             isError = true;
         }
     }
@@ -2408,7 +2485,7 @@ static group_reply_t* JoinReplies(bitset* group,
     if (!isError) {
         auto assemblerSlices = std::make_shared<LocalSlices>();
         for (auto&& reply : replies) {
-            assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF(AIFStream::STEAL));
+            assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF());
         }
         AIFStream assembler(assemblerSlices);
         AIF* joinedAIF = assembler.joinAIF(AIFStream::STEAL);
@@ -2426,7 +2503,6 @@ static group_reply_t* JoinReplies(bitset* group,
     group_reply_t* groupReply = NewGroupReply(di, bitset_dup(group), event);
     return groupReply;
 }
-
                                    
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,

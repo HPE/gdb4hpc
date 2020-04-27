@@ -4327,6 +4327,9 @@ public:
     // return the next partition of data
     virtual AIF* getNextSlice(bool& isFinal) override;
 
+    // free an slice after it is done being processed
+    virtual void freeSlice(AIF* aif) override;
+
 private:
     std::shared_ptr<ArraySlicer> m_slicer;
     std::shared_ptr<MIArrayToAIFParser> m_parser;
@@ -4357,6 +4360,11 @@ AIF* ArrayStream::getNextSlice(bool& isFinal) {
     return res;
 }
 
+void ArrayStream::freeSlice(AIF* aif)
+{
+    if (aif)
+        AIFFree(aif);
+}
 } // namespace
 
 

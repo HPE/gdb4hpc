@@ -2032,7 +2032,7 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
         bitset_free(group);
     }
 
-    // Hew replies could potentially have an already existing value.   Merge duplicates
+    // New replies could potentially have an already existing value.   Merge duplicates
     // here.  The total number or possible values is small so the amount of processing
     // here should be limited.
     for (size_t i=origNumReplies; i<replies.size(); ++i) {
@@ -2170,10 +2170,10 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     if (!op_val_is_ok(v2, rec_set, "Second val is invalid to apply binary operator."))
         return nullptr;
 
-    bool resultIsInt = false;
-    bool isArrayCompare = false;
     AccumulateShape diffShape;
     bitset* diffGroup = nullptr;
+    bool isCompare = false;
+    if (op >= EXPR_OPEQUAL && op <= EXPR_OPGT) isCompare = true;
 
     // boil down aif and replies to a common workable form - note that if the r-value type
     // is AIF mini_reply.group == nullptr
@@ -2236,13 +2236,9 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                 else
                     bitset_oreq(diffGroup, reply.group);
             }
-        } else if (sliceCnt == 1 && resultIsInt) {
-            // more spefically an array compare, we're on the second slice
-            // scalar compares just drop harmlessy into the right result
-            isArrayCompare = true;
         }
-
-        if (!isArrayCompare)
+        
+        if (!sliceCnt || !isCompare)
             newRepSlice.reset(NewRepSet());
         if (check_diff)
             diffRepSlice.reset(NewRepSet());
@@ -2269,7 +2265,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
 
                 // we intentionally set the di to null rather than picking an arbitrary one
                 auto tset = intersect_groups(r1.group, r2.group);
-                if (isArrayCompare) {
+                if (sliceCnt && isCompare) {
                     add_to_compare_reply(*newRepSet, bitset_dup(tset), res, op);
                 } else {
                     add_to_reply(*newRepSlice, nullptr, bitset_dup(tset), res);
@@ -2279,12 +2275,6 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                     add_to_reply(*diffRepSlice, nullptr, tset, diff);
                 } else {
                     bitset_free(tset);
-                }
-
-                if (!sliceCnt && AIFType(res) == AIF_INTEGER) {
-                    // we can detect an array compare indirectly because it doesn't
-                    // affect the handling until the second slice
-                    resultIsInt = true;
                 }
 
                 // we need to track the array size because the diff is only sparsely
@@ -2304,7 +2294,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
             if (sliceCnt == 1) {
                 // the current result becomes the first slice
                 std::unique_ptr<rep_set_t> new0, diff0;
-                if (!isArrayCompare) {
+                if (!isCompare) {
                     new0.swap(newRepSet);
                     newRepSet.reset(NewRepSet());
                     newRepSet->addSlice(new0.release());
@@ -2315,7 +2305,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                     diffRepSet->addSlice(diff0.release());
                 }
             }
-            if (!isArrayCompare) {
+            if (!isCompare) {
                 newRepSet->addSlice(newRepSlice.release());
             }
             if (diffRepSet) {

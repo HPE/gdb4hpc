@@ -85,7 +85,7 @@ install_common_pe
 # Install CTI and CDST support
 install_cti
 
-local arch=$(get_arch)
+arch=$(get_arch)
 if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
     echo "############################################"
     echo "#    aarch64, cudatoolkit not supported    #"

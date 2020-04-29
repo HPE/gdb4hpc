@@ -426,8 +426,9 @@ rep_set_t* rep_set_t::clone() const
     }
     for (auto&& slices : m_slicedReplies) {
         newset->m_slicedReplies.push_back(std::vector<rep_set_t*>());
-        for (auto&& slice : slices) 
+        for (auto&& slice : slices) {
             newset->m_slicedReplies.back().push_back(slice->clone());
+        }
     }
     for (auto&& slice : m_slices) {
         newset->m_slices.push_back(slice->clone());
@@ -507,8 +508,9 @@ bool rep_set_t::isEmpty() const
 {
     if (!m_slices.empty()) {
         for (auto&& slice : m_slices) {
-            if (!slice->isEmpty())
+            if (!slice->isEmpty()) {
                 return false;
+            }
         }
         return true;
     } else if (!m_slicedReplies.empty()) {
@@ -2435,7 +2437,8 @@ void rep_set_t::mergeReplySliceSet(const std::vector<rep_set_t*>& slices)
                     // list because we no longer need to look at it
                     tier.erase(std::find(tier.begin(), tier.end(), reply));
                 }
-            } }
+            }
+        }
 
         // we have our set of overlapping replies, join the events together
         // and add to the monolithic return set.

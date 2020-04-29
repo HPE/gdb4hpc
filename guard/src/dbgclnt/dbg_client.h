@@ -149,7 +149,7 @@ struct group_reply {
 typedef struct group_reply group_reply_t;
 
 /*
-** This is used to hold replies from commands in the dbgclnt interface.  The error
+** This is used to hold replies from commands in the dbgclnt interface. 
 ** The client layer can call the ProcessErrorInRepSet() function to
 ** print out any errors.
 ** A ReplySet(rep_set_t) keeps results replied by a number of BEs.

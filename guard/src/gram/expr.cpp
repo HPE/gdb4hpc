@@ -2230,6 +2230,8 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         std::unique_ptr<rep_set_t> newRepSlice, diffRepSlice;
 
         if (!sliceCnt && check_diff) {
+            // we need track the involved process set for setSparseValues (otherwise
+            // an process for which every element passes would not be in the result)
             for (auto&& reply : reps1) {
                 if (!diffGroup)
                     diffGroup = bitset_dup(reply.group);

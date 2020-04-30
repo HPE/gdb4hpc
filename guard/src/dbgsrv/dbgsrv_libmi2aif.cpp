@@ -2088,7 +2088,7 @@ static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
     
     char *vecStr = strdup(var->type);
     int done = 0;
-    // DVPRINT("GetArrayBaseType: %s\n", str);
+    DVPRINT("GetArrayBaseType: %s\n", var->type);
 
     if (strncmp(vecStr, "std::", 5) == 0) {
         vecStr += 5;
@@ -2208,21 +2208,39 @@ static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
     while (id == T_UNKNOWN) {
         DVPRINT("GetArrayBaseType: Base still unknown, using whatis.\n");
         p = GetMIWhatisValue(session, str, NULL);
-        if (p != NULL) {
-            id = GetType(p);
-            if (type_str != NULL) {
-                free(*type_str);
-                *type_str = strdup(p);
-            }
-            if (type_len != NULL) *type_len = GetTypeLength(session, p);
-            free(str);
-            str = p;
-        } else
+        if (!p) {
             break;
+        } else if (str && strcmp(str,p)==0) {
+            free(p);
+            break;
+        }
+        
+        id = GetType(p);
+        if (type_str != NULL) {
+            free(*type_str);
+            *type_str = strdup(p);
+        }
+        if (type_len != NULL) *type_len = GetTypeLength(session, p);
+        free(str);
+        str = p;
     }
 
-    // If this is a struct, we need to resolve the struct info
-    if (id == T_STRUCT && type_struct != NULL) {
+    if (id == T_UNKNOWN) {
+        // C++ structs don't use the word "struct" so we need to just see if
+        // GetStructInfo gives us a result
+        DVPRINT("Still unknown, trying as a struct with: %s\n", str);
+        if (struct_info_t* si = GetStructInfo(session,str)) {
+            DVPRINT("Got a struct result\n");
+            if (type_struct)
+                *type_struct = si;
+            else
+                delete si;
+            id = T_STRUCT;
+        } else {
+            DVPRINT("Did not get a struct result\n");
+        }
+    } else if (id == T_STRUCT && type_struct != NULL) {
+        // If this is a C-style struct name, we need to resolve the struct info
         *type_struct = GetStructInfo(session, str);
     }
 

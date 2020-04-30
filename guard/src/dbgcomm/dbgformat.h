@@ -26,25 +26,6 @@
 #include "dbgcmd.h"
 #include "dbgevent.h"
 #include "dbgloc.h"
-/*
-** The following define function for converting to network protocol
-*/
-class EventToSocProtoStream {
-public:
-    // takes ownership of event
-    EventToSocProtoStream(dbgevent_t* event);
-    ~EventToSocProtoStream();
-
-    // user is responsible for freeing the result
-    char* getNextProtoString();
-
-    // user is responsible for freeing the result
-    char* getSingleProtoString();
-
-private:
-    char* m_protoString;
-    AIFStream* m_aifStream;
-};
 
 // TODO: Make this static, everything should be an event or a command
 extern char *AIFToSocProto(AIF *);

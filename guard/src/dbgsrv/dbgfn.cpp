@@ -484,7 +484,7 @@ dbgevent_t *DbgSetVar(char *var, AIF *data) {
     return DbgBackendSW->dbg_setvar(var, data);
 }
 
-dbgevent_t *DbgEvalExpr(char *expr) {
+dbgevent_t *DbgEvalExpr(char *expr, long exprCnt) {
     dbgevent_t *e;
 
     ResetWDT();
@@ -493,7 +493,7 @@ dbgevent_t *DbgEvalExpr(char *expr) {
 
     DBG_IMP(e, DbgBackendSW->dbg_evalexpr);
 
-    return DbgBackendSW->dbg_evalexpr(expr);
+    return DbgBackendSW->dbg_evalexpr(expr, exprCnt);
 }
 
 dbgevent_t *DbgGetType(char *var, int isType) {

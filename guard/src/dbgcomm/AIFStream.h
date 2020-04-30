@@ -47,6 +47,8 @@ public:
     // FIXME - oh just make this a shared pointer for god's sake.
     AIF* getNextSlice(bool& isFinal);
 
+    AIF* getNextSlice(steal_t, bool& isFinal);
+
     // this should be a temporary function to be replaced by real iteration
     // The value is cached and is owned by the AIF stream object.
     AIF* joinAIF();

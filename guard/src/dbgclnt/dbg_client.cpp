@@ -32,6 +32,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
+#include <set>
 #include <algorithm>
 
 #include "dbg_client.h"
@@ -66,9 +67,10 @@ static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
                                  dbgclnt_proto *);
 static void FreeDbgInvoke(dbginvoke_t *);
 static void DbgFreeSignal(int *);
+static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
-static group_recv_t *CopyGroupReceiver(group_recv_t *);
+static group_recv_t *CopyGroupReceiver(group_recv_t *, bool copyCmdSent=false);
 static int GetNumberOfReceivers(rec_set_t *);
 static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
@@ -98,6 +100,7 @@ static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   arrayDimension_t* shape,
                                   bool& isError);
+static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request, dbgev req_type);
 /*
 ** Internal Variables
 */
@@ -244,7 +247,7 @@ group_recv_t *NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask) {
 static void FreeGroupReceiver(group_recv_t *rec) {
     bitset_free(rec->rec_group);
     if (rec->_cmd_sent != NULL) {
-        bitset_free(rec->rec_group);
+        bitset_free(rec->_cmd_sent);
     }
     Free(rec);
 }
@@ -256,7 +259,7 @@ static void ClearCmdSent(group_recv_t *rec) {
     }
 }
 
-static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
+static group_recv_t *CopyGroupReceiver(group_recv_t *rec, bool copyCmdSent) {
     group_recv_t *newrec;
 
     if (rec == NULL) return NULL;
@@ -265,7 +268,7 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
 
     newrec->rec_di = rec->rec_di;
     newrec->rec_group = bitset_dup(rec->rec_group);
-    newrec->_cmd_sent = NULL;
+    newrec->_cmd_sent = (copyCmdSent && rec->_cmd_sent ? bitset_dup(rec->_cmd_sent) : nullptr);
 
     return newrec;
 }
@@ -377,15 +380,15 @@ rep_set_t *NewRepSet(void) {
     return new rep_set_t();
 }
 
-rep_set_t::rep_set_t() : m_currentSlice(0), m_shape(nullptr), m_group(nullptr) {}
+rep_set_t::rep_set_t()
+    : m_set(nullptr), m_dataId(0), m_isSliced(false), m_returnedSlice0(false),
+      m_moreSlices(false)
+{}
 
-// Careful, this function takes a sliced reply, not a reply slice.
-// That is, the packetized result from a single reply.
-// (This function should disappear when we stop storing these in memory)
-rep_set_t::rep_set_t(const std::vector<rep_set_t*>& slices)
-    : m_currentSlice(0), m_shape(nullptr), m_group(nullptr)
+rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, arrayDimension_t* shape, bitset* group)
+    : rep_set_t()
 {
-    m_slicedReplies.push_back(slices);
+    mergeReplySliceSet(slices, shape, group);
 }
 
 void FreeRepSet(rep_set_t *set) {
@@ -398,17 +401,9 @@ rep_set_t::~rep_set_t() {
     for (auto&& reply : m_errs)
         FreeGroupReply(reply);
 
-    for (auto&& slicedReply : m_slicedReplies) {
-        for (auto&& slice : slicedReply)
-            delete slice;
+    if (m_set) {
+        FreeRecSet(m_set);
     }
-    for (auto&& slice : m_slices) {
-        delete slice;
-    }
-    if (m_shape)
-        freeArrayDimension(m_shape);
-    if (m_group)
-        bitset_free(m_group);
 }
 
 rep_set_t *CopyRepSet(rep_set_t *set) {
@@ -424,15 +419,16 @@ rep_set_t* rep_set_t::clone() const
     for (auto&& reply : m_errs) {
         newset->m_errs.push_back(CopyGroupReply(reply));
     }
-    for (auto&& slices : m_slicedReplies) {
-        newset->m_slicedReplies.push_back(std::vector<rep_set_t*>());
-        for (auto&& slice : slices) {
-            newset->m_slicedReplies.back().push_back(slice->clone());
+    if (m_set) {
+        newset->m_set = NewRecSet();
+        SetReceiverHeadInSet(m_set);
+        while (auto recv = GetNextReceiverInSet(m_set)) {
+            AddReceiverToSet(newset->m_set, CopyGroupReceiver(recv));
         }
     }
-    for (auto&& slice : m_slices) {
-        newset->m_slices.push_back(slice->clone());
-    }
+
+    newset->m_dataId = m_dataId;
+    newset->m_moreSlices = m_moreSlices;
 
     return newset;
 }
@@ -455,14 +451,24 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     r.swap(tmp->m_errs);
     m_errs.insert(m_errs.end(), r.begin(), r.end());
 
-    std::vector<std::vector<rep_set_t*>> s;
-    s.swap(tmp->m_slicedReplies);
-    m_slicedReplies.insert(m_slicedReplies.end(), s.begin(), s.end());
+    m_isSliced |= tmp->m_isSliced;
+    m_moreSlices |= tmp->m_moreSlices;
+    m_returnedSlice0 = false;
 
-    std::vector<rep_set_t*> s2;
-    s2.swap(tmp->m_slices);
-    m_slices.insert(m_slices.end(), s2.begin(), s2.end());
+    if (m_dataId != tmp->m_dataId) {
+        fprintf(stderr, "data ids do not match\n");
+    }
 
+    if (tmp->m_set) {
+        if (!m_set) {
+            std::swap(m_set,tmp->m_set);
+        } else {
+            SetReceiverHeadInSet(tmp->m_set);
+            while (auto recv = GetNextReceiverInSet(tmp->m_set)) {
+                AddReceiverToSet(m_set, CopyGroupReceiver(recv));
+            }
+        }
+    }
     delete tmp;
 
     return this;
@@ -472,16 +478,7 @@ int SetHasError(rep_set_t *set) {
     return (set ? set->hasError() : 0);
 }
 int rep_set_t::hasError() const {
-    int ne = m_errs.size();
-    for (auto&& slice : m_slices) {
-        ne += slice->m_errs.size();
-    }
-    for (auto&& sr : m_slicedReplies) {
-        for (auto&& reply : sr) {
-            ne += reply->m_errs.size();
-        }
-    }
-    return ne;
+    return m_errs.size();
 }
 
 void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
@@ -506,33 +503,12 @@ void rep_set_t::addErr(group_reply_t* rep)
 
 bool rep_set_t::isEmpty() const
 {
-    if (!m_slices.empty()) {
-        for (auto&& slice : m_slices) {
-            if (!slice->isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    } else if (!m_slicedReplies.empty()) {
-        for (auto&& slices : m_slicedReplies) {
-            for (auto&& slice : slices) {
-                if (!slice->isEmpty())
-                    return false;
-            }
-        }
-        return true;
-    } else {
-        return m_reps.empty() && m_errs.empty();
-    }
+    return m_reps.empty() && m_errs.empty();
 }
 
 size_t rep_set_t::getNumReplies() const
 {
-    if (!m_slicedReplies.empty()) {
-        return m_slicedReplies.size();
-    } else {
-        return getReplies().size();
-    }
+    return getReplies().size();
 }
 
 group_reply_t* rep_set_t::getFirstReply() const
@@ -543,7 +519,7 @@ group_reply_t* rep_set_t::getFirstReply() const
 
 const std::vector<group_reply_t*>& rep_set_t::getReplies() const
 {
-    if (!m_slices.empty() || !m_slicedReplies.empty()) {
+    if (m_moreSlices) {
         // make the single reply on demand if the processing doesn't handle
         // packetized.  -- delete the slices and clears the m_slices vector.
         const_cast<rep_set_t*>(this)->mergeReplySlices();
@@ -558,20 +534,9 @@ std::vector<group_reply_t*>& rep_set_t::getMutableReplies()
     return m_reps;
 }
 
-void rep_set_t::setSparseVals(arrayDimension_t* shape, bitset* group)
-{
-    if (m_shape && m_shape != shape)
-        freeArrayDimension(m_shape);
-    m_shape = shape;
-    if (m_group && m_group != group)
-        bitset_free(group);
-    m_group = group;
-}
-
-
 const std::vector<group_reply_t*>& rep_set_t::getErrs() const
 {
-    if (!m_slices.empty() || !m_slicedReplies.empty()) {
+    if (!m_moreSlices) {
         // make the single reply on demand if the processing doesn't handle
         // packetized.  -- delete the slices and clears the m_slices vector.
         const_cast<rep_set_t*>(this)->mergeReplySlices();
@@ -581,55 +546,55 @@ const std::vector<group_reply_t*>& rep_set_t::getErrs() const
 }
 
 // get the next reply slice if we haven't already processed the last one
-rep_set_t* rep_set_t::getNextSlice() {
-    if (!m_slicedReplies.empty())
-        createSlicesSets();
-
-    if (m_currentSlice < m_slices.size()) {
-        return m_slices[m_currentSlice++];
-    } else if (!m_currentSlice) {
-        ++m_currentSlice;
-        return this;
+std::unique_ptr<rep_set_t> rep_set_t::getNextSlice() {
+    if (!m_returnedSlice0) {
+        rep_set_t* slice0 = new rep_set_t;
+        m_reps.swap(slice0->m_reps);
+        m_errs.swap(slice0->m_errs);
+        m_returnedSlice0 = true;
+        return std::unique_ptr<rep_set_t>(slice0);
+    } else if (m_isSliced && m_moreSlices) {
+        return recvSlice();
     } else {
         return nullptr;
     }
 }
 
-// add a slice to the reply set, for large arrays this will a single array slice
-// across all processes being queried
-void rep_set_t::addSlice(rep_set_t* slice) {
-    m_slices.push_back(slice);
-}
-
-// having m_slices and m_slicedReplies is a situation too confusing to be allowed
-// to live for long, and should just be a short time.   The send/recv logic has not
-// yet been altered to control the order to the client is currently retriving all
-// slices for each rec_set instead of getting the first slice from each first.
-// So we currently store the packets in the order we get them, and use this function
-// to translate into the order we want to consume them.
-// The result is store in m_slices and m_resultSlices is cleared by this call.
-void rep_set_t::createSlicesSets()
-{
-    if (m_slicedReplies.empty())
+void rep_set_t::setContinuation(group_recv_t* set) {
+    if (!set)
         return;
 
-    std::vector<std::vector<rep_set_t*>> slicedReplies;
-    slicedReplies.swap(m_slicedReplies);
+    if (!m_set) {
+        m_set = NewRecSet();
+    }
 
-    std::vector<rep_set_t*> rep2;
-    for (auto&& slicedReply : slicedReplies) {
-        rep2.clear();
-        rep2.swap(slicedReply);
+    if (m_set) {
+        AddReceiverToSet(m_set, CopyGroupReceiver(set));
+    }
+    m_returnedSlice0 = false;
+    m_isSliced = m_moreSlices = true;
+}
 
-        // we expect the same number of slices in each reply set, though
-        // this code is agnostic about it
-        for (size_t j=0, n=rep2.size(); j<n; ++j) {
-            if (j < m_slices.size()) {
-                m_slices[j]->merge(rep2[j]);   // rep2[j] deleted
-            } else {
-                m_slices.push_back(rep2[j]);
-            }
-        }
+void rep_set_t::setDataId(size_t id) { m_dataId = id; }
+
+std::unique_ptr<rep_set_t> rep_set_t::recvSlice()
+{
+    if (!m_set) {
+        fprintf(stderr, "no receptor for receiving the next slice\n");
+        return nullptr;
+    }
+
+    char* req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
+
+    if (rep_set_t* slice = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA)) {
+        free(req);
+        m_moreSlices = slice->m_moreSlices;
+        slice->m_isSliced = slice->m_returnedSlice0 = slice->m_moreSlices = false;
+        return std::unique_ptr<rep_set_t>(slice);
+    } else {
+        free(req);
+        m_moreSlices = false;
+        return nullptr;
     }
 }
 
@@ -2157,14 +2122,13 @@ static int DbgSendCmd(group_recv_t *set, char *request) {
     return (set->_cmd_sent != NULL ? 0 : 1);
 }
 
-// Receive one reply from the debug server
+// Receive a reply from the debug server
 // \param set the the process set we expect a response from.
 // \param req_type the event type we expect to be returned.   Any other event will
 //      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
 //      DBG_DATA).
-// \param isFinal will be set to true if reply finishes the response.   
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
-static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFinal) {
+static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
     dbginvoke_t *di = set->rec_di;
     proto_msg_set *proto_res;
     proto_message *msg;
@@ -2173,7 +2137,7 @@ static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFin
     dbgevent_t *e;
     dbgev ev;
 
-    isFinal = true;
+    bool isFinal = true;
 
     // ensure the recv_reply function is implemented
     if (DBG_PROTO_SW(di)->sw_recv_reply == NULL) {
@@ -2193,7 +2157,7 @@ static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFin
         rep = NewGroupReply(di, bitset_dup(set->rec_group), e);
         // Add the error to the reply set
         AddErrToSet(reply, rep);
-
+        ClearCmdSent(set);
         return reply;
     }
 
@@ -2257,107 +2221,21 @@ static rep_set_t *DbgRecvOneReply(group_recv_t *set, dbgev req_type, bool& isFin
     // Free the proto set, we are done with it.
     FreeProtoMsgSet(proto_res);
 
+
     // Check to see if there are no replies or errors in the reply set, if so we
     // want to return NULL. This is because some of the event types have no
     // data. These functions will want to receive null, otherwise they assume
     // that there was an error
     if (reply->isEmpty()) {
         FreeRepSet(reply);
-        return NULL;
+        reply = nullptr;
+    } else if (!isFinal) {
+        // the reply-set will need the receiver to request the remainder of the data
+        reply->setContinuation(set);
     }
+    ClearCmdSent(set);
 
     return reply;
-}
-
-// Receive the full reply from the debug server.
-// \param set the the process set we expect a response from.
-// \param req_type the event type we expect to be returned.   Any other event will
-//      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
-//      DBG_DATA).
-// \param isFinal will be set to true if reply finishes the response.   
-// \return the reply as a rep_set_t*, note errors are returned with an error response.
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
-
-    std::vector<rep_set_t*> slices;
-    bool isFinal = false;
-    bool failed = false;
-    do {
-        if (rep_set_t *repset = DbgRecvOneReply(set, req_type, isFinal)) {
-            slices.push_back(repset);
-
-            if (!isFinal) {
-                // set 'set' bit_set to contain just those that still want to send
-                // more data -- we can definitely modify the input because ClearCmdSent
-                // will wipe it clean anyway
-                bitset_clear(set->rec_group);
-                for (group_reply_t* rep : repset) {
-                    if (rep->rep_event->ev_event == DBGEV_DATA_SLICE) {
-                        bitset_oreq(set->rec_group, rep->rep_group);
-                    }
-                }
-            }
-        } else {
-            failed = true;
-        }
-    } while (!isFinal && !bitset_isempty(set->rec_group));
-                
-    // As seen in DbgRevOneReply, this function left set cleared, so I'll make sure
-    // we leave it in the same state is used to be in.
-    ClearCmdSent(set);        
-
-    if (failed || slices.empty()) {
-        return nullptr;  // should only happen on a misconfiguration
-    } else if (slices.size() == 1) {
-        return slices[0];
-    } else {
-        return new rep_set_t(slices);
-    }
-}
-
-// Create a single reply set response from DbgRecvReply.
-// On entry m_slices will contain the set of packetized replies.   Actually, it's
-// a vector of vectors where each of the inner vectors holds the group replies from
-// one single response.
-// On exit, this rep_set will contain the set of monolithic group_replie stored in
-// m_reps and m_errs.
-void rep_set_t::mergeReplySlices()
-{
-    if (m_currentSlice && m_currentSlice < m_slices.size()) {
-        // this will still successfully merge the slices, each slice
-        // has just been merged into a single reply set - but
-        // someone is iterating this set and will get into trouble
-        DPRINT("unexpected rep_set_t usage\n");
-    }
-
-    if (m_slicedReplies.empty() && m_slices.empty()) {
-        return;
-    } else if ( m_slicedReplies.size() == 1 && m_slicedReplies[0].size() == 1) {
-        // common special case, the reply wasn't large enough to break up
-        auto slice = m_slicedReplies[0][0];
-        m_reps.swap(slice->m_reps);
-        m_errs.swap(slice->m_errs);
-        delete slice;
-        m_slices.clear();
-        return;
-    } else if (!m_slicedReplies.empty()) {
-        // we have cached the sliced replies
-        std::vector<std::vector<rep_set_t*>> sliceSets;
-        sliceSets.swap(m_slicedReplies);
-        
-        for (auto&& sliceSet : sliceSets) {
-            mergeReplySliceSet(sliceSet);
-            
-            for (auto&& repset : sliceSet) {
-                FreeRepSet(repset);
-            }
-        }
-    } else {
-        // the reply set has been sliced into packets as a whole
-        std::vector<rep_set_t*> slices;
-        slices.swap(m_slices);
-        mergeReplySliceSet(slices);
-    }
-        
 }
 
 // merge together a packetized reply into a monolithic rep_set
@@ -2365,97 +2243,148 @@ void rep_set_t::mergeReplySlices()
 // result slices as they arrive; storing the full set of slices
 // in memory does not help (actually hinders) the memory usage on the client
 // side
-void rep_set_t::mergeReplySliceSet(const std::vector<rep_set_t*>& slices)
+void rep_set_t::mergeReplySlices()
+{
+    if (!m_isSliced)
+        return;
+    
+    // Each generation of packets was reduced separately, so we'll need to build
+    // up new equivalence classes to get a combined result that was returned by
+    // every process.
+
+    std::vector<std::unique_ptr<rep_set_t>> slices;
+    while (auto slice = getNextSlice()) {
+        slices.push_back(move(slice));
+    }
+
+    mergeReplySliceSet(slices, nullptr, nullptr);
+
+    m_isSliced = m_returnedSlice0 = m_moreSlices =  false;
+}
+
+// merge together a packetized reply into a monolithic rep_set
+// Note that this is a short term function, the goal it to process the
+// result slices as they arrive; storing the full set of slices
+// in memory does not help (actually hinders) the memory usage on the client
+// side
+void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
+                                   arrayDimension_t* shape, bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
     // every process.   FIXME: this bit of code is temporary since it allows the
     // memory consumption in the client to grow unbounded.   So I won't try to make
     // this code super optimal.
-
-    // merge the non-error and error replies into a single vector for easier
-    // processing
-    size_t numTiers = slices.size();
-    std::vector<std::vector<group_reply*>> tiers(numTiers);
-    for (size_t i=0; i<numTiers; ++i) {
-        rep_set_t* rs = slices[i];
-        auto& gs = tiers[i];
-        for (int w=0; w<2; ++w) {
-            const auto& l = (!w ? rs->getReplies() : rs->getErrs());
-            gs.insert(gs.end(), l.begin(), l.end());
-        }
+    if (slices.empty()) {
+        return;
+    } else if (slices.size() == 1) {
+        m_reps.swap(slices[0]->m_reps);
+        m_errs.swap(slices[0]->m_errs);
+        m_dataId = 0;
+        m_isSliced = m_returnedSlice0 = m_moreSlices = false;
+        return;
     }
 
-    // compute the set of processes left to process
-    bitset* toproc = nullptr;
-    if (m_group) {
-        toproc = bitset_dup(m_group);
-    } else {
-        for (auto&& r : tiers[0]) {
-            if (toproc)
-                bitset_oreq(toproc, r->rep_group);
-            else
-                toproc = bitset_dup(r->rep_group);
+    std::set<dbginvoke_t*> disSet;
+    std::vector<dbginvoke_t*> dis;
+    for (auto&& slice : slices) {
+        for (auto&& reply : slice.get()) {
+            auto di = reply->rep_di;
+            if (disSet.insert(di).second)
+                dis.push_back(di);
         }
     }
-
-    // the algorithm here isn't too complicated.  We're just looking to pick
-    // one group_reply from each tier which share at least one process.
-    // Merge that set into a single group reply, removed the shared process nodes
-    // from \a toproc and keep doing so until every process has been accounted for.
-    std::vector<group_reply*> newSlice;
-    bitset* setset = bitset_dup(toproc);
-    while (!bitset_isempty(toproc)) {
-        // find a common reply set
-        newSlice.clear();
-        bitset_copy(setset, toproc);
-        for (auto&& tier : tiers) {
-            for (auto&& gp : tier) {
-                if (bitset_compare(setset, gp->rep_group)) {
-                    bitset_andeq(setset, gp->rep_group);
-                    newSlice.push_back(gp);
-                    break;
+    
+    for (auto&& di : dis) {
+        // merge the non-error and error replies into a single vector for easier
+        // processing
+        size_t numTiers = slices.size();
+        std::vector<std::vector<group_reply*>> tiers(numTiers);
+        for (size_t i=0; i<numTiers; ++i) {
+            rep_set_t& rs = *slices[i];
+            auto& gs = tiers[i];
+            for (int w=0; w<2; ++w) {
+                const auto& l = (!w ? rs.getReplies() : rs.getErrs());
+                for (auto&& reply : l) {
+                    if (reply->rep_di == di) {
+                        gs.push_back(reply);
+                    }
                 }
             }
         }
 
-        // remove this set from the process set to process
-        bitset_andeqnot(toproc, setset);
-
-        if (!m_group && newSlice.size() != numTiers) {
-            DPRINT("reply mismatch in MergeReplySlices\n");
-            break;
+        // compute the set of processes left to process
+        bitset* toproc = nullptr;
+        if (group) {
+            toproc = bitset_dup(group);
+        } else {
+            for (auto&& r : tiers[0]) {
+                if (toproc)
+                    bitset_oreq(toproc, r->rep_group);
+                else
+                    toproc = bitset_dup(r->rep_group);
+            }
         }
 
-        // update the set of replies left to process
-        if (newSlice.size() == numTiers) {
-            for (size_t i=0; i<numTiers; ++i) {
-                auto reply = newSlice[i];
-                auto& tier = tiers[i];
-                if (!bitset_compare(reply->rep_group, toproc)) {
-                    // no processes left unprocessed - remove it from the
-                    // list because we no longer need to look at it
-                    tier.erase(std::find(tier.begin(), tier.end(), reply));
+        // the algorithm here isn't too complicated.  We're just looking to pick
+        // one group_reply from each tier which share at least one process.
+        // Merge that set into a single group reply, removed the shared process nodes
+        // from \a toproc and keep doing so until every process has been accounted for.
+        std::vector<group_reply*> newSlice;
+        bitset* setset = bitset_dup(toproc);
+        while (!bitset_isempty(toproc)) {
+            // find a common reply set
+            newSlice.clear();
+            bitset_copy(setset, toproc);
+            for (auto&& tier : tiers) {
+                for (auto&& gp : tier) {
+                    if (bitset_compare(setset, gp->rep_group)) {
+                        bitset_andeq(setset, gp->rep_group);
+                        newSlice.push_back(gp);
+                        break;
+                    }
+                }
+            }
+
+            // remove this set from the process set to process
+            bitset_andeqnot(toproc, setset);
+
+            if (!group && newSlice.size() != numTiers) {
+                DPRINT("reply mismatch in MergeReplySlices\n");
+                break;
+            }
+
+            // update the set of replies left to process
+            if (newSlice.size() == numTiers) {
+                for (size_t i=0; i<numTiers; ++i) {
+                    auto reply = newSlice[i];
+                    auto& tier = tiers[i];
+                    if (!bitset_compare(reply->rep_group, toproc)) {
+                        // no processes left unprocessed - remove it from the
+                        // list because we no longer need to look at it
+                        tier.erase(std::find(tier.begin(), tier.end(), reply));
+                    }
+                }
+            }
+
+            // we have our set of overlapping replies, join the events together
+            // and add to the monolithic return set.
+            bool isError;
+            if (group_reply_t* newReply = JoinReplies(setset, newSlice, shape, isError)) {
+                if (isError) {
+                    m_errs.push_back(newReply);
+                } else {
+                    m_reps.push_back(newReply);
                 }
             }
         }
 
-        // we have our set of overlapping replies, join the events together
-        // and add to the monolithic return set.
-        bool isError;
-        if (group_reply_t* newReply = JoinReplies(setset, newSlice, m_shape, isError)) {
-            if (isError) {
-                m_errs.push_back(newReply);
-            } else {
-                m_reps.push_back(newReply);
-            }
-        }
+        // cleanup and return
+        bitset_free(toproc);
+        bitset_free(setset);
     }
-
-    // cleanup and return
-    bitset_free(toproc);
-    bitset_free(setset);
 }
+
 
 namespace {
 // Manage a bunch of *in memory* AIF slices as an AIF stream.
@@ -2682,14 +2611,21 @@ rep_set_t *DbgStartup(rec_set_t *set) {
     return result;
 }
 
+static size_t DbgGetNextExprIdx()
+{
+    static size_t idx = 0;
+    return ++idx;
+}
+
 /*
 ** DBG_SENDEXPR: Send expression to BE.
 */
 void DbgSendExpr(rec_set_t *set, char *exp) {
     char *request;
     group_recv_t *recv_ptr;
+    size_t id = DbgGetNextExprIdx();
 
-    request = CommandToSocProto(DBGCMD_EVALEXPR, exp);
+    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, id);
 
     SetReceiverHeadInSet(set);
     while ((recv_ptr = GetNextReceiverInSet(set)) != NULL) {
@@ -2756,11 +2692,16 @@ rep_set_t *DbgCloseSocket(rec_set_t *set) {
 rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
     char *request;
 
-    request = CommandToSocProto(DBGCMD_EVALEXPR, exp);
+    size_t exprId = DbgGetNextExprIdx();
+
+    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, exprId);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
 
     Free(request);
+    if (result) {
+        result->setDataId(exprId);
+    }
 
     return result;
 }

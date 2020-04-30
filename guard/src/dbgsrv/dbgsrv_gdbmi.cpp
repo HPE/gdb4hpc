@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include <string>
 #include <fstream>
+#include <map>
 
 #include "MI.h"
 #include "aif.h"
@@ -124,7 +125,7 @@ static dbgevent_t *DbgGDBMIMoveFrame(int, int);
 static dbgevent_t *DbgGDBMIShowFrame(int);
 static dbgevent_t *DbgGDBMIGetFrame(void);
 static dbgevent_t *DbgGDBMISetVar(const char *, AIF *);
-static dbgevent_t *DbgGDBMIEvalExpr(const char *);
+static dbgevent_t *DbgGDBMIEvalExpr(const char *, long);
 static dbgevent_t *DbgGDBMIGetType(const char *, int);
 static dbgevent_t *DbgGDBMIGetVars(const char *);
 static dbgevent_t *DbgGDBMIGetScope(const char *);
@@ -4300,6 +4301,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         return e;
     }
 
+    // GetAIFVar only returns a value if it fails
     AIFStream* aifStream = nullptr;
     if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
         return e;
@@ -4386,8 +4388,8 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     return e;
 }
 
-dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
-    DVPRINT("*** DbgEvalExpr(%s-%d)\n", exp, my_rank);
+dbgevent_t *DbgGDBMIEvalExpr(const char *exp, long expIdx) {
+    DVPRINT("*** DbgEvalExpr:%s rank:%d idx:%ld)\n", exp, my_rank, expIdx);
 
     // Check whether it has hashing/slicing
     if (strpbrk(exp, "`") || strpbrk(exp, "|")) {
@@ -4410,6 +4412,26 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
         }
     }
 
+    static std::map<long,std::unique_ptr<AIFStream>> remainders;
+
+    auto remainderLoc = remainders.find(expIdx);
+    if (remainderLoc != remainders.end()) {
+        bool isFinal;
+        dbgev ev = DBGEV_DATA_SLICE;
+        auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal);
+        if (isFinal) {
+            DVPRINT("returning the last slice of %l\n", expIdx);
+            ev = DBGEV_DATA;
+            remainders.erase(remainderLoc);
+        } else {
+            DVPRINT("Returning the next slice of %l\n", expIdx);
+        }
+
+        auto e = NewEvent(ev);
+        e->ev_data = new AIFStream(a);
+        return e;
+    }
+    
     AIFStream* aifStream = nullptr;
     char *type = nullptr;
 
@@ -4417,10 +4439,21 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp) {
         return e;
     }
 
-    dbgevent_t* e = NewEvent(DBGEV_NONE);
-    e->ev_event = DBGEV_DATA;
-    e->ev_data = aifStream;
+    dbgev ev = DBGEV_DATA;
+    bool isFinal;
+    auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
+    
+    if (isFinal) {
+        DVPRINT("returning entirety of value\n");
+        delete aifStream;
+    } else {
+        DVPRINT("saving remainder of expression %l\n", expIdx);
+        ev = DBGEV_DATA_SLICE;
+        remainders.insert(std::make_pair(expIdx,aifStream));
+    } 
 
+    dbgevent_t* e = NewEvent(ev);
+    e->ev_data = new AIFStream(aif);
     return e;
 }
 

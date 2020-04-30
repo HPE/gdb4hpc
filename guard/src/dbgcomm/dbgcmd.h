@@ -58,6 +58,7 @@ enum dbgcmd {
     DBGCMD_OPENSOCKET,
     DBGCMD_CLOSESOCKET,
     DBGCMD_SETCOMMPARAM,  // send parameter to the communication layer
+    DBGCMD_CONTINUEEVALEXPR
 };
 typedef enum dbgcmd dbgcmd;
 
@@ -151,6 +152,7 @@ struct cmdargs_setvar {
 typedef struct cmdargs_setvar cmdargs_setvar;
 
 struct cmdargs_evalexpr {
+    long exprIdx;
     char *expr;
 };
 typedef struct cmdargs_evalexpr cmdargs_evalexpr;

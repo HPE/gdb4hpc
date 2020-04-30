@@ -74,8 +74,8 @@ public:
 
 private:
     void joinAIFFromSlices();
-    AIF* makeEmptyJoinedAIF(AIF* slice, size_t* elemSize);
-    void copySlice(AIF* slice, size_t elemSize, char*& joinedIt);
+    AIF* makeEmptyJoinedAIF(AIF* slice);
+    bool getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray);
     void warning(const char* message) const;
     
     AIF* m_joinedAIF;

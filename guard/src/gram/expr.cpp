@@ -51,6 +51,7 @@ static val_t *apply_op(expr_op, val_t *, val_t *, val_t *, rec_set_t *,
                        val_t **);
 static int assign_expr_imm(val_t *, val_t *, rec_set_t *);
 static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif);
 // Only used with debug
 #ifdef DEBUG
 static void DumpExpr(expr_t *);
@@ -1864,25 +1865,34 @@ namespace {
         bitset* group;
     };
 }
-        
 
-// get the rvalue for a value in a form-neutral format
-static std::vector<mini_reply> rval_to_replies(val_t* v) {
-    std::vector<mini_reply> replies;
+// get the next slice of the result reply from an aif or reply value object and
+// store the replies in \a slice.   Return false if there are are no more slices to
+// process
+static bool rval_next_slice(val_t* v, std::vector<mini_reply>& slice) {
     switch (RVAL_TYPE(v)) {
     default:
         break;
     case rval_aif:
-        replies.push_back( mini_reply(RVAL_AIF(v), nullptr));
+        if (slice.empty()) {
+            slice.push_back( mini_reply(RVAL_AIF(v), nullptr));
+            return true;
+        }
+        // return false after the first time: there isn't anything new to process
         break;
+
     case rval_reply:
-        auto rep_set = RVAL_REPLY(v);
-        for (auto&& r : rep_set) {
-            replies.push_back( mini_reply( EVENT_DATA(r->rep_event), r->rep_group));
+        slice.clear();
+        auto repSet = RVAL_REPLY(v);
+        if (auto repSlice = repSet->getNextSlice()) {
+            for (auto&& r : repSlice) {
+                slice.push_back( mini_reply( EVENT_DATA(r->rep_event), r->rep_group));
+            }
+            return true;
         }
         break;
     }
-    return replies;
+    return false;
 }
 
 // compute the intersection of two bitsets, treating a null-ptr as all 1's
@@ -1897,17 +1907,251 @@ static bitset* intersect_groups(bitset* a, bitset* b) {
         return nullptr;
 }
 
+// create a group reply by wrapping a single AIF data object.   Takes ownership of
+// group and aif.
+static group_reply_t* make_reply_from_aif(dbginvoke_t* di, bitset* group, AIF* aif) {
+    if (aif) {
+        auto ev = NewEvent(DBGEV_DATA);
+        ev->ev_data = new AIFStream(aif);
+        return NewGroupReply(di, group, ev);
+    } else {
+        return nullptr;
+    }
+}
+
+// determine the correct result from a comparison operation over the union of
+// two independent sets.
+// \param oldVal is the comparison result of the array thus far
+// \param addVal is the comparison result of the next slice
+// \param isNeq is true if the comparison operation is "!=" which changes
+//    the sense of the combination
+// \return the new comparison result.
+static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
+{
+    // note that the value for true is 0.
+    if (isNeq) {
+        return ((!oldVal || !addVal) ? 0 : 1);
+    }
+
+    // comparison values are 0=true, other value priorties are:
+    // (-1,1)->1, (-2,2)->2, 3, 0
+    switch (addVal) {
+    case -1:
+    case 1:
+        return 1;
+        break;
+    case -2:
+    case 2:
+        if (oldVal!=1)
+            return 2;
+        break;
+    case 3:
+        if(oldVal!=1 && oldVal !=2)
+            return 3;
+        break;
+    }
+
+    return oldVal;
+}
+
+// merge the comparison result on an array slice into the full result.  The comparison result
+// is a AIF integer with results 0,1,2,3 for true, false, warn error respectively.   Here we've
+// done the comparison on a slice, but since this need not match the comparison result of any
+// other slice, we need a reduction step to get a final answer.
+// \param repSet is the comparison result thus far
+// \param group is the set of processes with the same comparison result on a slice.   The
+//            function takes ownership of \a group.
+// \param aif it the aif integer comparison result on the slice.   The function takes ownership
+//       of \a aif
+// \param op is the operation being applied.
+static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, expr_op op) {
+    // by right there should be no more than two replies as there are but two values
+    bool isNeq = (op == EXPR_OPNOTEQUAL);
+
+    int addVal;
+    if (AIFToInt(aif,&addVal)) {
+        DPRINT("not a compare result\n");
+        return;
+    }
+
+    // we need to do the usual reply combination work of find existing replies that share any 
+    // members of the process group with the new result
+    dbginvoke_t* di = nullptr;
+    auto& replies = repSet.getMutableReplies();
+
+    // make sure not to reprocess any newly created replies
+    size_t origNumReplies = replies.size();
+    for (size_t i=0; i<origNumReplies; ++i) { 
+        auto reply = replies[i];
+        di = reply->rep_di;
+        bitset* oldGroup = reply->rep_group;
+        if (!bitset_compare(group,oldGroup))
+            continue;
+
+        // we have shared processes, compute the new comparison result
+        int oldVal;
+        EVENT_DATA(reply->rep_event)->toInt(oldVal);
+        int newVal = combine_compare_vals(oldVal, addVal, isNeq);
+
+        // if the reult is the same, we don't need to update the reply, just
+        // remove the common processes from the ones we're looking for
+        if (newVal == oldVal) {
+            bitset_andeqnot(group, oldGroup);
+            continue;
+        }
+
+        // the result is different.  create a reply and add it to the set.
+        // this might be the same value as an existing element of \a replies
+        // but we'll resolve those later.   The new replies are all after
+        // \a origNumReplies because we need to make sure we don't try to apply the
+        // new result to a reply twice.
+        bitset* igrp = bitset_and(group, oldGroup);
+        if (auto newReply = make_reply_from_aif(di, igrp, IntToAIF(newVal)))
+            replies.push_back(newReply);
+
+        // remove the bits from old and new replies
+        bitset_andeqnot(group, igrp);
+        bitset_andeqnot(oldGroup, igrp);
+
+        // we might have completely replaced an existing reply value, remove it and
+        // update the iteration values
+        if (bitset_isempty(oldGroup)) {
+            replies.erase(replies.begin()+i);
+            FreeGroupReply(reply);
+            --i;
+            --origNumReplies;
+        }
+    }
+
+    // we're bootstrapping from an enpty reply set - so store the initial value
+    if (!bitset_isempty(group)) {
+        if (auto newReply = make_reply_from_aif(di, group, aif))
+            replies.push_back(newReply);
+    } else {
+        AIFFree(aif);
+        bitset_free(group);
+    }
+
+    // New replies could potentially have an already existing value.   Merge duplicates
+    // here.  The total number or possible values is small so the amount of processing
+    // here should be limited.
+    for (size_t i=origNumReplies; i<replies.size(); ++i) {
+        auto repI = replies[i];
+        int valI, valJ;
+        if (EVENT_DATA(repI->rep_event)->toInt(valI) != 0)
+            continue;
+        for (size_t j=0; j<i; ++j) {
+            auto repJ = replies[j];
+            if (EVENT_DATA(repJ->rep_event)->toInt(valJ) == 0 && valI == valJ) {
+                bitset_oreq(repJ->rep_group, repI->rep_group);
+                replies.erase(replies.begin()+i);
+                --i;
+                FreeGroupReply(repI);
+            }
+        }
+    }
+}
+
+
 // create a group reply containing the content in \a aif and add it to \a repSet
 // note : takes ownership of \a group and \a aif
 static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif)
 {
-    auto ev = NewEvent(DBGEV_DATA);
-    ev->ev_data = new AIFStream(aif);
-    if (auto new_reply = NewGroupReply(di, group, ev)) {
-        repSet.addReply(new_reply);
+    if (auto rep = make_reply_from_aif(di, group, aif)) {
+        repSet.addReply(rep);
     }
 }
 
+namespace {
+// Helper class to build up the full size of a array by accumulating the size of its
+// slices.
+class AccumulateShape {
+public:
+    AccumulateShape();
+    ~AccumulateShape();
+    void addArray(AIF* aif);
+    arrayDimension_t* makeShape();
+private:
+    bool m_isFortran;
+    int m_dim;
+    int* m_mins;
+    int* m_maxs;
+};
+
+AccumulateShape::AccumulateShape()
+    : m_isFortran(false), m_mins(nullptr), m_maxs(nullptr)
+{}
+
+AccumulateShape::~AccumulateShape() {
+    if (m_mins)
+        free(m_mins);
+    if (m_maxs)
+        free(m_maxs);
+}
+
+void AccumulateShape::addArray(AIF* aif) {
+    if (!aif)
+        return;
+
+    auto type = AIFType(aif);
+    if (type == AIF_FTN_ARRAY)
+        m_isFortran = true;
+    else if (type != AIF_ARRAY)
+        return;
+
+    int dim = AIFArrayRank(aif);
+    int* mins = nullptr, *maxs = nullptr;
+    FDSArrayBounds(AIF_FORMAT(aif), dim, &mins, &maxs, nullptr);
+
+    if (!m_mins) {
+        m_dim = dim;
+        m_mins = mins;
+        m_maxs = maxs;
+    } else if (dim == m_dim) {
+        for (int i=0; i<dim; ++i) {
+            m_mins[i] = std::min(m_mins[i], mins[i]);
+            m_maxs[i] = std::max(m_maxs[i], maxs[i]);
+        }
+        free(mins);
+        free(maxs);
+    }
+};
+
+arrayDimension_t* AccumulateShape::makeShape() {
+    if (!m_mins)
+        return nullptr;
+
+    arrayDimension_t *shape = newArrayDimension();
+    if (!shape) {
+        DPRINT("newArrayDimension failed");
+        return nullptr;
+    }
+
+    shape->isFortran = m_isFortran;
+    for (int i=0; i<m_dim; ++i) {
+        // arrayDimension orders dims from fastest to slowest
+        int d = (m_isFortran ? i : m_dim-1-i);
+        addArrayDimensionDef(shape, m_maxs[d]-m_mins[d]+1,
+                             m_mins[d], m_maxs[d]);
+    }
+
+    return shape;
+}
+} // namespace
+
+
+// apply a binary operation when both operands are just AIF types
+static val_t* apply_binary_op_aif(expr_op op, AIFStream* a1, AIFStream* a2, bool check_diff,
+                              val_t **diff) {
+    AIF* diffAIF = nullptr, **darg = (check_diff ? &diffAIF : nullptr);
+    if (AIF* res = apply_op_aif(op, a1->joinAIF(), a2->joinAIF(), darg)) {
+        if (diffAIF)
+            *diff = NewVal(lval_none, rval_aif, diffAIF);
+        return NewVal(lval_none, rval_aif, res);
+    } else {
+        return nullptr;
+    }
+}
 
 // apply a binary operation to two values and return the result
 // if check_diff is true, also return the delta array via \a diff
@@ -1926,18 +2170,29 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     if (!op_val_is_ok(v2, rec_set, "Second val is invalid to apply binary operator."))
         return nullptr;
 
+    AccumulateShape diffShape;
+    bitset* diffGroup = nullptr;
+    bool isCompare = false;
+    if (op >= EXPR_OPEQUAL && op <= EXPR_OPGT) isCompare = true;
+
     // boil down aif and replies to a common workable form - note that if the r-value type
     // is AIF mini_reply.group == nullptr
-    std::vector<mini_reply> reps1 = rval_to_replies(v1);
-    std::vector<mini_reply> reps2 = rval_to_replies(v2);
+
+    //-----------------------------------------------------------------------
+    // retrieve the first slice
+    //-----------------------------------------------------------------------
+    // we do extra processing on the first slice to determine the type we are working with
+    std::vector<mini_reply> reps1, reps2;
+    bool toProc1 = rval_next_slice(v1,reps1);
+    bool toProc2 = rval_next_slice(v2,reps2);
 
     bool resultIsRepSet = true;
 
     if (reps1.size() >= 1 && reps2.size() >= 1) {
-        // check that the bitset sizes match - and determine 
+        // check that the bitset sizes match - and determine if our result should be a repset
         auto &r1 = reps1[0], &r2 = reps2[0];
         if (r1.group && r2.group && bitset_size(r1.group) != bitset_size(r2.group)) {
-            if (reps1.size() == 1 && reps2.size()) {
+            if (reps1.size() == 1 && reps2.size() == 1) {
                 // special case = we go forward just treating these as AIFs
                 // FIXME: Alert the user somehow that this is a special set.
                 r1.group = r2.group = nullptr;
@@ -1954,55 +2209,125 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
             resultIsRepSet = false;
     }
 
-    // storage for the return values.   
-    std::unique_ptr<rep_set_t> new_rep_set{ resultIsRepSet ? NewRepSet() : nullptr };
-    std::unique_ptr<rep_set_t> diff_rep_set{ resultIsRepSet && check_diff ? NewRepSet() : nullptr };
-
-    std::unique_ptr<AIF,void(*)(AIF*)> new_aif{nullptr,AIFFree};
-    std::unique_ptr<AIF,void(*)(AIF*)> diff_aif{nullptr,AIFFree};
-
-    // And apply the op to all pairwise results that share a group.
-    
-    // we could be a smarter about finding overlapping replies, but the previous version
-    // was just n-squared so I'll just repeat that for now
-    for (auto&& r1 : reps1) {
-        for (auto&& r2 : reps2) {
-            if (r1.group && r2.group && !bitset_compare(r1.group,r2.group)) {
-                continue;
-            }
-
-            AIF* diff = nullptr, **darg = (check_diff ? &diff : nullptr);
-            AIF* res = apply_op_aif(op, r1.aif->joinAIF(), r2.aif->joinAIF(), darg);
-            if (!res) {
-                return nullptr; // error
-            } else if (resultIsRepSet) {
-                // we intentionally set the di to null rather than picking an arbitrary one
-                auto tset = intersect_groups(r1.group, r2.group);
-                auto di = nullptr; 
-                add_to_reply(*new_rep_set, di, tset, res);
-                if (diff_rep_set && diff) {
-                    add_to_reply(*diff_rep_set, di, bitset_dup(tset), diff);
-                }
-            } else {
-                new_aif.reset(res);
-                diff_aif.reset(diff);
-            }
+    if (!resultIsRepSet) {
+        if (reps1.size() == 1 && reps2.size() == 1) {
+            return apply_binary_op_aif(op, reps1[0].aif, reps2[0].aif, check_diff, diff);
+        } else {
+            SetError("Attempted to apply binary operator to a null AIF");
+            return nullptr;
         }
     }
+
+    // storage for the return values.   
+    std::unique_ptr<rep_set_t> newRepSet, diffRepSet;
+    
+    //-----------------------------------------------------------------------
+    // Process each slice -- add the result to the reply
+    //-----------------------------------------------------------------------
+    for (int sliceCnt=0; toProc1 || toProc2;
+         ++sliceCnt, toProc1=rval_next_slice(v1,reps1), toProc2 = rval_next_slice(v2,reps2)) {
+
+        std::unique_ptr<rep_set_t> newRepSlice, diffRepSlice;
+
+        if (!sliceCnt && check_diff) {
+            // we need track the involved process set for setSparseValues (otherwise
+            // an process for which every element passes would not be in the result)
+            for (auto&& reply : reps1) {
+                if (!diffGroup)
+                    diffGroup = bitset_dup(reply.group);
+                else
+                    bitset_oreq(diffGroup, reply.group);
+            }
+        }
+        
+        if (!sliceCnt || !isCompare)
+            newRepSlice.reset(NewRepSet());
+        if (check_diff)
+            diffRepSlice.reset(NewRepSet());
+
+        //-----------------------------------------------------------------------
+        // Main comparison operation
+        //-----------------------------------------------------------------------
+        // Apply the op to all pairwise results that share a group.
+        // we could be a smarter about finding overlapping replies, but the previous version
+        // was just n-squared so I'll just repeat that for now
+        bool isFirst = true;
+        for (auto&& r1 : reps1) {
+            for (auto&& r2 : reps2) {
+                if (r1.group && r2.group && !bitset_compare(r1.group,r2.group)) {
+                    continue;
+                }
+
+                AIF* diff = nullptr, **darg = (check_diff ? &diff : nullptr);
+                AIF* a1 = r1.aif->joinAIF(), *a2 = r2.aif->joinAIF();
+                AIF* res = apply_op_aif(op, a1, a2, darg);
+                if (!res) {
+                    return nullptr; // error
+                }
+
+                // we intentionally set the di to null rather than picking an arbitrary one
+                auto tset = intersect_groups(r1.group, r2.group);
+                if (sliceCnt && isCompare) {
+                    add_to_compare_reply(*newRepSet, bitset_dup(tset), res, op);
+                } else {
+                    add_to_reply(*newRepSlice, nullptr, bitset_dup(tset), res);
+                }
+
+                if (diffRepSlice && diff) {
+                    add_to_reply(*diffRepSlice, nullptr, tset, diff);
+                } else {
+                    bitset_free(tset);
+                }
+
+                // we need to track the array size because the diff is only sparsely
+                // defined
+                if (isFirst && check_diff) {
+                    diffShape.addArray(a1);
+                    isFirst = false;
+                }
+            } ///for (auto&& r2 : reps2)
+        } // for (auto&& r1 : reps1)
+
+        // combine the slice result with the previous result
+        if (sliceCnt == 0) {
+            newRepSet.swap(newRepSlice);
+            diffRepSet.swap(diffRepSlice);
+        } else {
+            if (sliceCnt == 1) {
+                // the current result becomes the first slice
+                std::unique_ptr<rep_set_t> new0, diff0;
+                if (!isCompare) {
+                    new0.swap(newRepSet);
+                    newRepSet.reset(NewRepSet());
+                    newRepSet->addSlice(new0.release());
+                }
+                diff0.swap(diffRepSet);
+                if (diff0) {
+                    diffRepSet.reset(NewRepSet());
+                    diffRepSet->addSlice(diff0.release());
+                }
+            }
+            if (!isCompare) {
+                newRepSet->addSlice(newRepSlice.release());
+            }
+            if (diffRepSet) {
+                diffRepSet->addSlice(diffRepSlice.release());
+            }
+        }
+    } // for (each slice)
 
     // create the value result for return and possibly diff.
     val_t* retVal = nullptr;
 
-    if (new_rep_set) {
-        retVal = NewVal(lval_none, rval_reply, new_rep_set.release());
-    } else if (new_aif) {
-        retVal = NewVal(lval_none, rval_aif, new_aif.release());
-    }
+    if (newRepSet) {
+        retVal = NewVal(lval_none, rval_reply, newRepSet.release());
+    } 
 
-    if (diff_rep_set) {
-        *diff = NewVal(lval_none, rval_reply, diff_rep_set.release());
-    } else if (diff_aif) {
-        *diff = NewVal(lval_none, rval_aif, diff_aif.release());
+    if (diffRepSet) {
+        if (auto shape = diffShape.makeShape()) {
+            diffRepSet->setSparseVals(shape, diffGroup);
+        }
+        *diff = NewVal(lval_none, rval_reply, diffRepSet.release());
     }
         
     return retVal;
@@ -2056,7 +2381,8 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
             if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
                 // Make a new event out of the AIF data, use the replies
                 // bitset
-                add_to_reply(*new_rep_set, reply->rep_di, bitset_dup(reply->rep_group), aif_res);
+                add_to_reply(*new_rep_set, reply->rep_di, bitset_dup(reply->rep_group),
+                             aif_res);
             } else {
                 FreeRepSet(new_rep_set);
                 return nullptr;

@@ -15,12 +15,12 @@ Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
 b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_arrays.cpp:8
-a{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 62.
-b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 62.
+a{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 76.
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 76.
 %<
-a{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:62
+a{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:76
 %-
-b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:62
+b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:76
 %>
 {0..2}: Comparison is true.
 a{0..2}: [0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156]
@@ -39,12 +39,14 @@ b{2}: [320,322,324,326,328,330,332,334,336,338,340,342,344,346,348,350,352,354,3
 Comparison is true.
 Comparison is true.
 Comparison is true.
-a{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 71.
-b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 71.
+{0..2}: Comparison is true.
+{0..2}: Comparison is true.
+a{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 87.
+b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_arrays.cpp, line 87.
 %<
-a{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:71
+a{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:87
 %-
-b{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:71
+b{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_arrays.cpp:87
 %>
 {0..2}: Comparison is false.
 The difference delta is:
@@ -74,5 +76,11 @@ Comparison is false. The difference delta is:
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,56,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,216,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,376,0]
 Comparison is false. The difference delta is:
 [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[120,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: [{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = -288, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0}]
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: [{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = -264, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0}]
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

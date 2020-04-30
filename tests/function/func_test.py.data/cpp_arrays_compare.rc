@@ -15,7 +15,7 @@ launch $a{3} --launcher-args="--exclusive" --args="0 40" bd_dt/C++/cpp_arrays.x
 launch $b{3} --launcher-args="--exclusive" --args="1 40" bd_dt/C++/cpp_arrays.x
 
 # run until the arrays are initialized
-b 62
+b 76
 c
 
 # distributedArray1 and distributedVec should each have 40 elements, define
@@ -72,8 +72,11 @@ compare $sp{$a::"localArray1[0]@80"} == $sp{$b::"localArray1[0]@80"}
 #cross compare - and why not
 compare $sp{$a::"localArray1[0]@80"} == $sp{$b::localVec}
 
+compare $a::wafflesArray == $b::wafflesArray
+compare $a::"wafflesVec[0]@40" == $b::"wafflesVec[0]@40"
+
 # continue to a point where the same comparisons should fail
-b 71
+b 87
 c
 
 compare $a::array2d == $b::array2d
@@ -94,6 +97,9 @@ compare $sp{$a::"localArray1[0]@80"} == $sp{$b::"localArray1[0]@80"}
 compare $sp{$a::"localArray1[0]@80"} == $sp{$b::localVec}
 
 compare $d2{$a::distributedVec1} == $d2{$b::distributedVec1}
+
+compare $a::wafflesArray == $b::wafflesArray
+compare $a::"wafflesVec[0]@40" == $b::"wafflesVec[0]@40"
 
 quit
 

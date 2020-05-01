@@ -2088,7 +2088,7 @@ static int GetArrayBaseType(MISession *session, MIVar *var, char **type_str,
     
     char *vecStr = strdup(var->type);
     int done = 0;
-    DVPRINT("GetArrayBaseType: %s\n", var->type);
+    //DVPRINT("GetArrayBaseType: %s\n", var->type);
 
     if (strncmp(vecStr, "std::", 5) == 0) {
         vecStr += 5;

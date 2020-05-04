@@ -59,6 +59,20 @@ int main(int argc, char* argv[])
         localVec[i] = idx0 + 2 * i;
     }
 
+    struct Waffle {
+        double diameter;
+        double depth;
+        bool syrup;
+    };
+
+    Waffle wafflesArray[40];
+    std::vector<Waffle> wafflesVec;
+
+    for (int i=0; i<40; ++i) {
+        wafflesArray[i] = Waffle{ double(i), 3.0*i, bool(i%2) };
+        wafflesVec.push_back(wafflesArray[i]);
+    }
+
     if (application) {
         localArray1[localSize-1] = -100;
         distributedArray1[size-1] = -100;
@@ -66,6 +80,8 @@ int main(int argc, char* argv[])
         distributedVec1[size/2] = -100;
         std_array[4] = -100;
         localVec[localSize-2] =100;
+        wafflesArray[12].diameter = 300.0;
+        wafflesVec[12].depth = 300.0;
     }
 
     delete[] distributedArray1;

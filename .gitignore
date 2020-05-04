@@ -12,6 +12,8 @@ depcomp
 install-sh
 libtool
 ltmain.sh
+TAGS
+tagslist
 .deps/
 .dirstamp
 .libs/

@@ -112,7 +112,7 @@ static void Banner(void) {
     PrintOutMsg("gdb4hpc %s.%s - Cray Line Mode Parallel Debugger\n",
                 GUARD_MAJOR, GUARD_MINOR);
     PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-    PrintOutMsg("Copyright 2007-2019 Cray Inc. All Rights Reserved.\n");
+    PrintOutMsg("Copyright 2007-2020 Cray Inc. All Rights Reserved.\n");
     PrintOutMsg(
         "Copyright 1996-2016 University of Queensland. All Rights Reserved.\n");
     PrintOutMsg("\n");

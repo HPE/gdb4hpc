@@ -210,11 +210,13 @@ public:
     // acccess the set of error replies
     const std::vector<group_reply_t*>& getErrs() const;
 
-    // get the next reply slice - return nullptr when none remain.   Note that
-    // for non-sliced replies the first call will simply return this.
+    // get the next reply slice - return nullptr when none remain.
     std::unique_ptr<rep_set_t> getNextSlice();
 
+    // install information to get the next slice
     void setContinuation(group_recv_t* set);
+
+    // each expression result keeps and sequential id for requesting additional slices.
     void setDataId(size_t id);
     
     std::vector<group_reply_t*>& getMutableReplies();
@@ -230,9 +232,9 @@ private:
     std::vector<group_reply_t*> m_errs;  // error events
     rec_set_t* m_set;                 // for continuation of large arrays
     size_t m_dataId;                     // for continuation of large arrays
-    bool m_isSliced;
-    bool m_returnedSlice0;
-    bool m_moreSlices;
+    bool m_isSliced;                     // the data can be accessed in sequential pieces
+    bool m_returnedSlice0;               // the first result has been returned by getNextSlice
+    bool m_moreSlices;                   // more slices remain to be retrieved
 };
 
 // Iteration support for processing the non-error replies of a rep_set_t, which

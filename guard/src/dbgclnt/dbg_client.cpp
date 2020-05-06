@@ -70,7 +70,7 @@ static void DbgFreeSignal(int *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
-static group_recv_t *CopyGroupReceiver(group_recv_t *, bool copyCmdSent=false);
+static group_recv_t *CopyGroupReceiver(group_recv_t *);
 static int GetNumberOfReceivers(rec_set_t *);
 static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
@@ -259,7 +259,7 @@ static void ClearCmdSent(group_recv_t *rec) {
     }
 }
 
-static group_recv_t *CopyGroupReceiver(group_recv_t *rec, bool copyCmdSent) {
+static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
     group_recv_t *newrec;
 
     if (rec == NULL) return NULL;
@@ -268,7 +268,7 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *rec, bool copyCmdSent) {
 
     newrec->rec_di = rec->rec_di;
     newrec->rec_group = bitset_dup(rec->rec_group);
-    newrec->_cmd_sent = (copyCmdSent && rec->_cmd_sent ? bitset_dup(rec->_cmd_sent) : nullptr);
+    newrec->_cmd_sent = nullptr;
 
     return newrec;
 }
@@ -2285,6 +2285,8 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
         return;
     }
 
+    // find the set of dbg_invokes.   The slice set for the delta output from
+    // compare is sparse, so we can't just look at the first slice.
     std::set<dbginvoke_t*> disSet;
     std::vector<dbginvoke_t*> dis;
     for (auto&& slice : slices) {
@@ -2611,6 +2613,8 @@ rep_set_t *DbgStartup(rec_set_t *set) {
     return result;
 }
 
+// We associate a index with every expression evaluation that is used
+// to accessed cached values on the server side.
 static size_t DbgGetNextExprIdx()
 {
     static size_t idx = 0;

@@ -47,6 +47,8 @@ public:
     // FIXME - oh just make this a shared pointer for god's sake.
     AIF* getNextSlice(bool& isFinal);
 
+    // Get the next slice of AIF data and return ownership of AIF object.
+    // return nullptr if there are no new slices.
     AIF* getNextSlice(steal_t, bool& isFinal);
 
     // this should be a temporary function to be replaced by real iteration

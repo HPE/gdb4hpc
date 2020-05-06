@@ -1926,12 +1926,12 @@ static cmdargs_setvar *SocProtoToSetVarArgs(char *s) {
 static cmdargs_evalexpr *SocProtoToEvalExprArgs(char *s) {
     cmdargs_evalexpr *res;
 
-    NULL_GUARD(s);  fprintf(stderr,"In SocProtoToEvalExpArgs %s\n", s);
+    NULL_GUARD(s);
 
     res = (cmdargs_evalexpr *)Alloc(sizeof(cmdargs_evalexpr));
 
     res->exprIdx = getlong(&s);
-    res->expr = getstring(&s);   fprintf(stderr,"Result %lu %s\n", res->exprIdx, res->expr);
+    res->expr = getstring(&s);
 
     return res;
 }

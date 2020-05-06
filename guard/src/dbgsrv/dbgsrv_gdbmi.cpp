@@ -4412,10 +4412,12 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp, long expIdx) {
         }
     }
 
+    // track the evaluations that have only returned a portion of result
     static std::map<long,std::unique_ptr<AIFStream>> remainders;
 
     auto remainderLoc = remainders.find(expIdx);
     if (remainderLoc != remainders.end()) {
+        // Return the next slice of data
         bool isFinal;
         dbgev ev = DBGEV_DATA_SLICE;
         auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal);
@@ -4444,9 +4446,10 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp, long expIdx) {
     auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
     
     if (isFinal) {
-        DVPRINT("returning entirety of value\n");
         delete aifStream;
     } else {
+        // We are only returning the first slice of the result.   Save the
+        // rest for the continuation call.
         DVPRINT("saving remainder of expression %l\n", expIdx);
         ev = DBGEV_DATA_SLICE;
         remainders.insert(std::make_pair(expIdx,aifStream));

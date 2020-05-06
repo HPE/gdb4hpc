@@ -43,6 +43,7 @@ AIF* AIFStream::getNextSlice(bool& isFinal)
     }
 }
 
+// Get the next slice of AIF data and return ownership of the AIF object.
 AIF* AIFStream::getNextSlice(steal_t, bool& isFinal)
 {
     AIF* slice = getNextSlice(isFinal);

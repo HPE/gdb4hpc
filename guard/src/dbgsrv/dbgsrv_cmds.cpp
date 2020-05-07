@@ -171,10 +171,11 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
 
         case DBGCMD_EVALEXPR:
+        case DBGCMD_CONTINUEEVALEXPR:
             CHECK_ARGS(e, cmd->cmd_arg_evalexpr);
             size0 = GetProcSize();
             trackSize = true;
-            e = DbgEvalExpr(cmd->cmd_evalexpr_expr);
+            e = DbgEvalExpr(cmd->cmd_evalexpr_expr, cmd->cmd_u.cmd_u_evalexpr->exprIdx);
             break;
 
         case DBGCMD_GETTYPE:
@@ -244,8 +245,8 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
     if (!e)
         return;
 
-    EventToSocProtoStream socProto(e);
-    while (char* resp = socProto.getNextProtoString()) {
+
+    if (char* resp = EventToSocProto(e)) {
         DbgSendReply(resp);
     }
 

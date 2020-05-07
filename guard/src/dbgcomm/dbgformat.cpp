@@ -31,6 +31,7 @@
 // Static prototypes
 static char *getstring(char **);
 static int getint(char **);
+static long getlong(char **);
 
 static inline const char* StrSoc(const char* s) {
     return s ? s : "";
@@ -64,6 +65,7 @@ static dbgstatus_t *SocProtoToStatus(char *);
 static dbgvers_t SocProtoToVers(char *);
 static int SocProtoToInt(char *);
 static dbgsources_t *SocProtoToSources(char *);
+
 char *AIFToSocProto(dbgev, AIF *a);
 
 // Used for checking null strings
@@ -142,6 +144,21 @@ static int getint(char **res_buf) {
 
     return digit;
 }
+
+static long getlong(char **res_buf) {
+    long digit;
+    char *endptr = NULL;
+
+    *res_buf = skipspace(*res_buf);
+
+    // Get the digit
+    digit = strtol(*res_buf, &endptr, 10);
+
+    *res_buf = endptr;
+
+    return digit;
+}
+
 
 static char *getstring(char **res_buf) {
     int len;
@@ -425,13 +442,12 @@ static char *EventSourcesToSocProto(dbgev ev, dbgsources_t *se) {
 ** This is the main function that converts an event to network protocol
 */
 
-EventToSocProtoStream::EventToSocProtoStream(dbgevent_t *e)
-    : m_protoString(nullptr), m_aifStream(nullptr)
+char* EventToSocProto(dbgevent_t *e)
 {
     char *res = nullptr;
-    AIFStream* stream = nullptr;
-
     dbgev ev = (e ? e->ev_event : DBGEV_NONE);
+    AIF* aif = nullptr;
+    bool isFinal = false;
 
     switch (ev) {
     case DBGEV_ERROR:
@@ -499,7 +515,8 @@ EventToSocProtoStream::EventToSocProtoStream(dbgevent_t *e)
 
     case DBGEV_DATA:
     case DBGEV_DATA_SLICE:
-        std::swap(stream, e->ev_data);
+        aif = e->ev_data->getNextSlice(isFinal);
+        res = AIFToSocProto(ev, aif);
         break;
 
     case DBGEV_STAT:
@@ -515,59 +532,10 @@ EventToSocProtoStream::EventToSocProtoStream(dbgevent_t *e)
         break;
     }
 
-    m_protoString = res;
-    m_aifStream = stream;
-
     FreeEvent(e);
-}
-
-EventToSocProtoStream::~EventToSocProtoStream()
-{
-    delete m_aifStream;
-}
-
-// Get a string for the next packet to send back to
-// the client, or nullptr if no message remains.
-char* EventToSocProtoStream::getNextProtoString()
-{
-    char* res = nullptr;
-    bool isFinal = true;
-    if (!m_aifStream) {
-        std::swap(res, m_protoString);
-    } else if (AIF* aif = m_aifStream->getNextSlice(isFinal)) {
-        dbgev ev = ( isFinal ? DBGEV_DATA : DBGEV_DATA_SLICE );
-        res = AIFToSocProto(ev, aif);
-
-        if (isFinal) {
-            // free as soon as possible; also assures a subsequent
-            // call to this function will return nullptr.
-            AIFStream* stream = nullptr;
-            std::swap(stream,m_aifStream);
-            delete stream;
-        }
-    }
-
     return res;
 }
 
-// Return the event as a single string regardless of size.
-char* EventToSocProtoStream::getSingleProtoString()
-{
-    char* res = nullptr;
-    if (!m_aifStream) {
-        std::swap(res, m_protoString);
-    } else if (AIF* aif = m_aifStream->joinAIF()) {
-        // the join is temporary
-        res = AIFToSocProto(aif);
-        // free as soon as possible; also assures a subsequent
-        // call to this function will return nullptr.
-        AIFStream* stream = nullptr;
-        std::swap(stream,m_aifStream);
-        delete stream;
-    }
-
-    return res;
-}
 
 /*
 ** The following are helper functions for converting events into a string for
@@ -585,12 +553,6 @@ static char *EventLocToSocProto(dbgev ev, dbgloc_t *le) {
              (int)strlen(func), func, (int)strlen(addr), addr, le->loc_line);
     return stres;
 }
-
-char *EventToSocProto(dbgevent_t *event) {
-    EventToSocProtoStream stream(event);
-    return stream.getSingleProtoString();
-}
-
 
 char *AIFToSocProto(dbgev ev, AIF *a) {
     if (a == NULL) return MakeSocStr(ev, "");
@@ -859,17 +821,28 @@ static char *CmdArgsSetVarToSocProto(va_list ap) {
     return res;
 }
 
-static char *CmdArgsEvalExprToSocProto(va_list ap) {
+static char* CmdArgsEvalExprToSocProtoL(const char* expr, size_t idx)
+{
     char *res;
+    Asprintf(&res, "%lu %d %s", idx, (int)strlen(expr), expr);
+    return res;
+}
+
+static char *CmdArgsEvalExprToSocProto(va_list ap) {
+
     cmdargs_evalexpr args;
 
     args.expr = va_arg(ap, char *);
+    args.exprIdx = va_arg(ap, size_t);
 
     FMT_CHECK_NULL_STR(args.expr);
 
-    Asprintf(&res, "%d %s", (int)strlen(args.expr), args.expr);
+    return CmdArgsEvalExprToSocProtoL(args.expr, args.exprIdx);
+}
 
-    return res;
+static char *CmdArgsContinueEvalExprToSocSocProto(va_list ap) {
+    size_t id = va_arg(ap, size_t);
+    return CmdArgsEvalExprToSocProtoL("continue", id);
 }
 
 static char *CmdArgsGetTypeToSocProto(va_list ap) {
@@ -980,9 +953,10 @@ static char *CmdArgsSetCommParamToSocProto(va_list ap) {
     char *res;
     const char *subformat = va_arg(ap, char *);
     FMT_CHECK_NULL_STR(subformat);
-    VAsprintf(&res, subformat, ap);
+    Asprintf(&res, subformat, ap);
     return res;
 }
+
 
 /*
 ** This is the main function that converts a command to network protocol
@@ -1142,6 +1116,12 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
 
         case DBGCMD_SETCOMMPARAM:
             cmdargs = CmdArgsSetCommParamToSocProto(ap);
+            Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
+            Free(cmdargs);
+            break;
+
+        case DBGCMD_CONTINUEEVALEXPR:
+            cmdargs = CmdArgsContinueEvalExprToSocSocProto(ap);
             Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
             Free(cmdargs);
             break;
@@ -1950,6 +1930,7 @@ static cmdargs_evalexpr *SocProtoToEvalExprArgs(char *s) {
 
     res = (cmdargs_evalexpr *)Alloc(sizeof(cmdargs_evalexpr));
 
+    res->exprIdx = getlong(&s);
     res->expr = getstring(&s);
 
     return res;
@@ -2181,6 +2162,7 @@ dbgcommand_t *SocProtoToCommand(char *s) {
             break;
 
         case DBGCMD_EVALEXPR:
+        case DBGCMD_CONTINUEEVALEXPR:
             cmdargs = getstring(&s);
             c->cmd_arg_evalexpr = SocProtoToEvalExprArgs(cmdargs);
             Free(cmdargs);

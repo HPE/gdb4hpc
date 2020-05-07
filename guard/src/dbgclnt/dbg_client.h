@@ -173,11 +173,11 @@ public:
     // contruct an empty reply set
     rep_set_t();
 
-    // construct from a single reply that has been sliced.
-    rep_set_t(const std::vector<rep_set_t*>& slicedReply);
-
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
+
+    // create from slices 
+    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, arrayDimension_t* shape, bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
     // create a copy of the contents of the rep_set
@@ -210,36 +210,31 @@ public:
     // acccess the set of error replies
     const std::vector<group_reply_t*>& getErrs() const;
 
-    // get the next reply slice - return nullptr when none remain.   Note that
-    // for non-sliced replies the first call will simply return this.
-    rep_set_t* getNextSlice();
+    // get the next reply slice - return nullptr when none remain.
+    std::unique_ptr<rep_set_t> getNextSlice();
 
-    // add a slice to the reply set - takes ownership of \a slice.
-    // Note that this function may be temporary; the reply will ultimately be
-    // fetched on demand - currently they are just kept in memory
-    void addSlice(rep_set_t* slice);
+    // install information to get the next slice
+    void setContinuation(group_recv_t* set);
 
-    // install a desired shape for the result - takes ownership of \a shape
-    // and \a group
-    // Note, this is to support sliced results for the diff returned by
-    // comparison operators which do not create diff slices that are all zeros.
-    void setSparseVals(arrayDimension_t* shape, bitset* group);
-
+    // each expression result keeps and sequential id for requesting additional slices.
+    void setDataId(size_t id);
+    
     std::vector<group_reply_t*>& getMutableReplies();
     static const std::vector<group_reply_t*>& getNullReply();
 
 private:
     void mergeReplySlices();
-    void mergeReplySliceSet(const std::vector<rep_set_t*>& slices);
-    void createSlicesSets();
+    void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
+                            arrayDimension_t* shape, bitset* group);
+    std::unique_ptr<rep_set_t> recvSlice();
     
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
-    std::vector<rep_set_t*> m_slices;  // packetized reply
-    std::vector<std::vector<rep_set_t*>> m_slicedReplies;    // sub-replies
-    size_t m_currentSlice;             // index of the next slice for getNextSlice
-    arrayDimension_t* m_shape;         // see setSparseVals - shape of full array result
-    bitset* m_group;                   // see setSparseVals - all procs involvd in sparse array
+    rec_set_t* m_set;                 // for continuation of large arrays
+    size_t m_dataId;                     // for continuation of large arrays
+    bool m_isSliced;                     // the data can be accessed in sequential pieces
+    bool m_returnedSlice0;               // the first result has been returned by getNextSlice
+    bool m_moreSlices;                   // more slices remain to be retrieved
 };
 
 // Iteration support for processing the non-error replies of a rep_set_t, which

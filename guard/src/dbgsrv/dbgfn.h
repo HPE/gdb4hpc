@@ -49,7 +49,7 @@ struct dbgbackend_sw {
     dbgevent_t *(*dbg_showframe)(int);
     dbgevent_t *(*dbg_getframe)(void);
     dbgevent_t *(*dbg_setvar)(const char *, AIF *);
-    dbgevent_t *(*dbg_evalexpr)(const char *);
+    dbgevent_t *(*dbg_evalexpr)(const char *, long);
     dbgevent_t *(*dbg_gettype)(const char *, int);
     dbgevent_t *(*dbg_getlocation)(void);
     dbgevent_t *(*dbg_getvars)(const char *);
@@ -106,7 +106,7 @@ extern dbgevent_t *DbgSetVar(char *, AIF *);
 extern dbgevent_t *DbgSetDebuggerVar(char *, AIF *);
 extern dbgevent_t *DbgSetSourcePath(char *);
 extern dbgevent_t *DbgGetSourcePath(void);
-extern dbgevent_t *DbgEvalExpr(char *);
+extern dbgevent_t *DbgEvalExpr(char *, long);
 extern dbgevent_t *DbgGetType(char *, int);
 extern dbgevent_t *DbgGetLocation(void);
 extern dbgevent_t *DbgGetVars(char *);

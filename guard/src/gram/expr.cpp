@@ -1868,8 +1868,9 @@ namespace {
 
 // get the next slice of the result reply from an aif or reply value object and
 // store the replies in \a slice.   Return false if there are are no more slices to
-// process
-static bool rval_next_slice(val_t* v, std::vector<mini_reply>& slice) {
+// process.   The reply argument hold the reply slice on return and its lifetime controls
+// the lifetime of the object in \a slice.
+static bool rval_next_slice(val_t* v, std::unique_ptr<rep_set_t>& reply, std::vector<mini_reply>& slice) {
     switch (RVAL_TYPE(v)) {
     default:
         break;
@@ -1884,8 +1885,8 @@ static bool rval_next_slice(val_t* v, std::vector<mini_reply>& slice) {
     case rval_reply:
         slice.clear();
         auto repSet = RVAL_REPLY(v);
-        if (auto repSlice = repSet->getNextSlice()) {
-            for (auto&& r : repSlice) {
+        if ((reply = repSet->getNextSlice())) {
+            for (auto&& r : reply.get()) {
                 slice.push_back( mini_reply( EVENT_DATA(r->rep_event), r->rep_group));
             }
             return true;
@@ -2070,16 +2071,17 @@ public:
     AccumulateShape();
     ~AccumulateShape();
     void addArray(AIF* aif);
-    arrayDimension_t* makeShape();
+    arrayDimension_t* getShape();
 private:
     bool m_isFortran;
     int m_dim;
     int* m_mins;
     int* m_maxs;
+    arrayDimension_t* m_shape;
 };
 
 AccumulateShape::AccumulateShape()
-    : m_isFortran(false), m_mins(nullptr), m_maxs(nullptr)
+    : m_isFortran(false), m_mins(nullptr), m_maxs(nullptr), m_shape(nullptr)
 {}
 
 AccumulateShape::~AccumulateShape() {
@@ -2087,6 +2089,8 @@ AccumulateShape::~AccumulateShape() {
         free(m_mins);
     if (m_maxs)
         free(m_maxs);
+    if (m_shape)
+        freeArrayDimension(m_shape);
 }
 
 void AccumulateShape::addArray(AIF* aif) {
@@ -2117,7 +2121,10 @@ void AccumulateShape::addArray(AIF* aif) {
     }
 };
 
-arrayDimension_t* AccumulateShape::makeShape() {
+arrayDimension_t* AccumulateShape::getShape() {
+    if (m_shape)
+        return m_shape;
+    
     if (!m_mins)
         return nullptr;
 
@@ -2135,6 +2142,7 @@ arrayDimension_t* AccumulateShape::makeShape() {
                              m_mins[d], m_maxs[d]);
     }
 
+    m_shape = shape;
     return shape;
 }
 } // namespace
@@ -2171,20 +2179,22 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         return nullptr;
 
     AccumulateShape diffShape;
-    bitset* diffGroup = nullptr;
     bool isCompare = false;
     if (op >= EXPR_OPEQUAL && op <= EXPR_OPGT) isCompare = true;
 
     // boil down aif and replies to a common workable form - note that if the r-value type
     // is AIF mini_reply.group == nullptr
 
+    std::vector<std::unique_ptr<rep_set_t>> newSlices, diffSlices;
+
     //-----------------------------------------------------------------------
     // retrieve the first slice
     //-----------------------------------------------------------------------
     // we do extra processing on the first slice to determine the type we are working with
+    std::unique_ptr<rep_set_t> reply1,reply2;
     std::vector<mini_reply> reps1, reps2;
-    bool toProc1 = rval_next_slice(v1,reps1);
-    bool toProc2 = rval_next_slice(v2,reps2);
+    bool toProc1 = rval_next_slice(v1,reply1,reps1);
+    bool toProc2 = rval_next_slice(v2,reply2,reps2);
 
     bool resultIsRepSet = true;
 
@@ -2219,26 +2229,28 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     }
 
     // storage for the return values.   
-    std::unique_ptr<rep_set_t> newRepSet, diffRepSet;
+    std::unique_ptr<rep_set_t> newRepSet;
+    if (isCompare) {
+        newRepSet.reset(new rep_set_t);
+    }
+
+    bitset* diffGroup = nullptr;
+    // we need track the involved process set for setSparseValues (otherwise
+    // an process for which every element passes would not be in the result)
+    for (auto&& reply : reps1) {
+        if (!diffGroup)
+            diffGroup = bitset_dup(reply.group);
+        else
+            bitset_oreq(diffGroup, reply.group);
+    }
     
     //-----------------------------------------------------------------------
     // Process each slice -- add the result to the reply
     //-----------------------------------------------------------------------
     for (int sliceCnt=0; toProc1 || toProc2;
-         ++sliceCnt, toProc1=rval_next_slice(v1,reps1), toProc2 = rval_next_slice(v2,reps2)) {
+         ++sliceCnt, toProc1=rval_next_slice(v1,reply1,reps1), toProc2 = rval_next_slice(v2,reply2,reps2)) {
 
         std::unique_ptr<rep_set_t> newRepSlice, diffRepSlice;
-
-        if (!sliceCnt && check_diff) {
-            // we need track the involved process set for setSparseValues (otherwise
-            // an process for which every element passes would not be in the result)
-            for (auto&& reply : reps1) {
-                if (!diffGroup)
-                    diffGroup = bitset_dup(reply.group);
-                else
-                    bitset_oreq(diffGroup, reply.group);
-            }
-        }
         
         if (!sliceCnt || !isCompare)
             newRepSlice.reset(NewRepSet());
@@ -2267,7 +2279,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
 
                 // we intentionally set the di to null rather than picking an arbitrary one
                 auto tset = intersect_groups(r1.group, r2.group);
-                if (sliceCnt && isCompare) {
+                if (isCompare) {
                     add_to_compare_reply(*newRepSet, bitset_dup(tset), res, op);
                 } else {
                     add_to_reply(*newRepSlice, nullptr, bitset_dup(tset), res);
@@ -2289,32 +2301,28 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         } // for (auto&& r1 : reps1)
 
         // combine the slice result with the previous result
-        if (sliceCnt == 0) {
-            newRepSet.swap(newRepSlice);
-            diffRepSet.swap(diffRepSlice);
-        } else {
-            if (sliceCnt == 1) {
-                // the current result becomes the first slice
-                std::unique_ptr<rep_set_t> new0, diff0;
-                if (!isCompare) {
-                    new0.swap(newRepSet);
-                    newRepSet.reset(NewRepSet());
-                    newRepSet->addSlice(new0.release());
-                }
-                diff0.swap(diffRepSet);
-                if (diff0) {
-                    diffRepSet.reset(NewRepSet());
-                    diffRepSet->addSlice(diff0.release());
-                }
-            }
-            if (!isCompare) {
-                newRepSet->addSlice(newRepSlice.release());
-            }
-            if (diffRepSet) {
-                diffRepSet->addSlice(diffRepSlice.release());
-            }
-        }
+        if (!isCompare)
+            newSlices.push_back(move(newRepSlice));
+        if (diffRepSlice)
+            diffSlices.push_back(move(diffRepSlice));
     } // for (each slice)
+
+    // create the reply sets
+    if (!newRepSet) {
+        if (newSlices.size() == 1) {
+            newRepSet = move(newSlices[0]);
+            newSlices.clear();
+        } else if (newSlices.size() > 1) {
+            newRepSet.reset(new rep_set_t(newSlices, nullptr, nullptr));
+        }
+    }
+
+    rep_set_t* diffRepSet = nullptr;
+    if (check_diff) {
+        diffRepSet = new rep_set_t(diffSlices, diffShape.getShape(), bitset_dup(diffGroup));
+    }
+    bitset_free(diffGroup);
+        
 
     // create the value result for return and possibly diff.
     val_t* retVal = nullptr;
@@ -2324,10 +2332,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     } 
 
     if (diffRepSet) {
-        if (auto shape = diffShape.makeShape()) {
-            diffRepSet->setSparseVals(shape, diffGroup);
-        }
-        *diff = NewVal(lval_none, rval_reply, diffRepSet.release());
+        *diff = NewVal(lval_none, rval_reply, diffRepSet);
     }
         
     return retVal;

@@ -419,9 +419,9 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
 
     // Process errors - If there were no replies in the set we want to make sure
     // the rval gets NULL'ed. I don't think this is ever possible without an
-    // error being generated.
-    if ((ProcessErrorInRepSet(rep_set) && GetNumberOfReply(rep_set) == 0) ||
-        (GetNumberOfReply(rep_set) == 0)) {
+    // error being generated.   Note: be sure not to call any functions here that
+    // try to aggregate the result.
+    if (!rep_set || ProcessErrorInRepSet(rep_set) || rep_set->isEmpty()) {
         // Free the rep_set, we are done with it
         FreeRepSet(rep_set);
 

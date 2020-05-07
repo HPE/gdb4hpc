@@ -43,6 +43,15 @@ AIF* AIFStream::getNextSlice(bool& isFinal)
     }
 }
 
+// Get the next slice of AIF data and return ownership of the AIF object.
+AIF* AIFStream::getNextSlice(steal_t, bool& isFinal)
+{
+    AIF* slice = getNextSlice(isFinal);
+    if (slice) {
+        m_currentSlice = m_joinedAIF = nullptr;
+    }
+    return slice;
+}
 
 // I am hoping for the joinAIF call be to temporary for when I'm pushing through
 // the pieced out version.  This allows us to improve the performance in

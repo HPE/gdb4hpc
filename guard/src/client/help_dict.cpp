@@ -680,6 +680,18 @@ const char* const cmd_tbreak_help[] = {
     "at address 0x400693.",
     0};
 
+const char* const cmd_thread_help[] = {
+    "Summary: Switch between threads.",
+    "Usage: thread <thread-id>",
+    "",
+    "Arguments: thread-id  (id or name)",
+    "",
+    "Description:",
+    "Change the thread context in every application rank in the current process set.",
+    "Subsequent commands like \"print\", \"bt\", \"next\" and \"step\" will be",
+    "direct to the thread-id",
+    0};
+    
 const char* const cmd_up_help[] = {
     "Summary: Move stack frame up command.",
     "Usage: up [<num>]",
@@ -965,6 +977,13 @@ const char* const class_info_subcmd_sources_help[] = {
 const char* const class_info_subcmd_status_help[] = {
     "Summary: Status command.", "",
     "Description:", "Display the status of lauched/attached applications.", 0};
+
+const char* const class_info_subcmd_threads_help[] = {
+    "Summary: List threads.", "",
+    "Usage: info threads",
+    "Usage: info threads 2",
+    "Arguments: optional list of thread ids", "",
+    "Description:", "List the known threads in the current process set.", 0};
 
 /*
  * Class maint subcommands

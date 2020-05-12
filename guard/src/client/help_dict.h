@@ -51,6 +51,7 @@ extern const char* const cmd_session_help[];
 extern const char* const cmd_source_help[];
 extern const char* const cmd_step_help[];
 extern const char* const cmd_tbreak_help[];
+extern const char* const cmd_thread_help[];
 extern const char* const cmd_up_help[];
 extern const char* const cmd_viewset_help[];
 extern const char* const cmd_watch_help[];
@@ -82,7 +83,7 @@ extern const char* const class_info_subcmd_locals_help[];
 extern const char* const class_info_subcmd_scope_help[];
 extern const char* const class_info_subcmd_sources_help[];
 extern const char* const class_info_subcmd_status_help[];
-
+extern const char* const class_info_subcmd_threads_help[];
 /*
  * Class maint subcommands
  */

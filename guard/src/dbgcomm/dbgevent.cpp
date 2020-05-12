@@ -164,6 +164,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
+        case DBGEV_DATA_SLICE:
             e->ev_data = (event->ev_data ? new AIFStream(*event->ev_data) : nullptr);
             break;
 
@@ -482,6 +483,7 @@ void FreeEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
+        case DBGEV_DATA_SLICE:
             delete event->ev_data;
             break;
 
@@ -907,6 +909,9 @@ void PrintDbgEvent(dbgevent_t *event) {
         case DBGEV_DATA:
             PrintOutMsg("DBGEV_DATA");
             break;
+        case DBGEV_DATA_SLICE:
+            PrintOutMsg("DBGEV_SLICE");
+            break;
         case DBGEV_STAT:
             PrintOutMsg("DBGEV_STAT");
             break;
@@ -962,6 +967,8 @@ const char *EventToStr(dbgevent_t *event) {
             return "DBGEV_SOURCEPATH";
         case DBGEV_DATA:
             return "DBGEV_DATA";
+        case DBGEV_DATA_SLICE:
+            return "DBGEV_DATA_SLICE";
         case DBGEV_STAT:
             return "DBGEV_STAT";
         case DBGEV_VERS:
@@ -1013,6 +1020,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_SOURCEPATH";
         case DBGEV_DATA:
             return "DBGEV_DATA";
+        case DBGEV_DATA_SLICE:
+            return "DBGEV_DATA_SLICE";
         case DBGEV_STAT:
             return "DBGEV_STAT";
         case DBGEV_VERS:

@@ -422,6 +422,8 @@ extern rep_set_t *DbgFinishFunc(rec_set_t *);
 extern rep_set_t *DbgSetLineBreak(rec_set_t *, char *, int);
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, char *, char *);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
+extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
+extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgKill(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error

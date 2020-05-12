@@ -138,6 +138,8 @@ static dbgevent_t *DbgGDBMIAttach(int, const char *, const char *, char **,
                                   int);
 static dbgevent_t *DbgGDBMIOpenSocket(const char *, int);
 static dbgevent_t *DbgGDBMICloseSocket(void);
+static dbgevent_t *DbgGDBMISetThread(const char* threadId);
+static dbgevent_t *DbgGDBMIGetThreadInfo(const char* threadId);
 static void DbgGDBMIFinish(void);
 static int DbgGDBMIReadyForCmd(void);
 static int DbgGDBMIOK(void);
@@ -215,7 +217,10 @@ dbgbackend_sw DbgBackendGDBMI = {DbgGDBMIInit,
                                  DbgGDBMIGetDebuggerVar,
                                  DbgGDBMIDirectCmd,
                                  DbgGDBMIOpenSocket,
-                                 DbgGDBMICloseSocket};
+                                 DbgGDBMICloseSocket,
+                                 DbgGDBMISetThread,
+                                 DbgGDBMIGetThreadInfo
+};
 
 /* internal static functions */
 
@@ -2765,6 +2770,22 @@ static dbgevent_t *DbgGDBMIGetType(const char *var, int isType) {
 
     Free(type);
 
+    return e;
+}
+
+static dbgevent_t *DbgGDBMISetThread(const char *threadId) {
+    DVPRINT("*** DbgSetThread(%s) UNIMPLEMENTED\n", threadId);
+
+    dbgevent_t* e;
+    EVENT_ERROR(e, DBGERR_NOTIMP, "thread command not implemented");
+    return e;
+}
+
+static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
+    DVPRINT("*** DbgGetThreadInfo(%s) UNIMPLEMENTED\n", threadId ? threadId : "");
+
+    dbgevent_t* e;
+    EVENT_ERROR(e, DBGERR_NOTIMP, "info threads command not implemented");
     return e;
 }
 

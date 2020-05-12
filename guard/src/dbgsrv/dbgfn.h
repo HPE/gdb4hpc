@@ -71,6 +71,8 @@ struct dbgbackend_sw {
     dbgevent_t *(*dbg_directcmd)(int, char **);
     dbgevent_t *(*dbg_opensocket)(const char *, int);
     dbgevent_t *(*dbg_closesocket)(void);
+    dbgevent_t *(*dbg_setthread)(const char*);
+    dbgevent_t *(*dbg_getthreadinfo)(const char*);
 };
 typedef struct dbgbackend_sw dbgbackend_sw;
 
@@ -117,6 +119,8 @@ extern dbgevent_t *DbgStatus(int);
 extern dbgevent_t *DbgGetEvent(void);
 extern dbgevent_t *DbgQuit(int);
 extern dbgevent_t *DbgInterrupt(void);
+extern dbgevent_t *DbgSetThread(const char* threadId);
+extern dbgevent_t *DbgGetThreadInfo(const char* threadId);
 extern dbgevent_t *DbgOpenSocket(char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 

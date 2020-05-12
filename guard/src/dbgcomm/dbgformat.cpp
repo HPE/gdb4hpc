@@ -840,7 +840,7 @@ static char *CmdArgsEvalExprToSocProto(va_list ap) {
     return CmdArgsEvalExprToSocProtoL(args.expr, args.exprIdx);
 }
 
-static char *CmdArgsContinueEvalExprToSocSocProto(va_list ap) {
+static char *CmdArgsContinueEvalExprToSocProto(va_list ap) {
     size_t id = va_arg(ap, size_t);
     return CmdArgsEvalExprToSocProtoL("continue", id);
 }
@@ -917,6 +917,15 @@ static char *CmdArgsStatusToSocProto(va_list ap) {
 
     Asprintf(&res, "%d", args.getLocation);
 
+    return res;
+}
+
+static char* CmdArgsThreadToSocProto(va_list ap) {
+    const char* threadId = va_arg(ap, const char*);
+    FMT_CHECK_NULL_STR(threadId);
+
+    char* res;
+    Asprintf(&res, "%d %s", strlen(threadId), threadId);
     return res;
 }
 
@@ -1121,7 +1130,14 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
             break;
 
         case DBGCMD_CONTINUEEVALEXPR:
-            cmdargs = CmdArgsContinueEvalExprToSocSocProto(ap);
+            cmdargs = CmdArgsContinueEvalExprToSocProto(ap);
+            Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
+            Free(cmdargs);
+            break;
+
+        case DBGCMD_THREAD:
+        case DBGCMD_GETTHREADINFO:
+            cmdargs = CmdArgsThreadToSocProto(ap);
             Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
             Free(cmdargs);
             break;
@@ -2040,6 +2056,16 @@ static cmdargs_opensocket *SocProtoToOpenSocketArgs(char *s) {
     return res;
 }
 
+static cmdargs_thread * SocProtoToThreadArgs(char* s)
+{
+    fprintf(stderr, "In SocProtoToThreadArgs %s\n", s);
+
+    NULL_GUARD(s);
+    cmdargs_thread* res = (cmdargs_thread*)Alloc(sizeof(cmdargs_thread));
+    res->threadId = getstring(&s);
+    return res;
+}
+
 /*
 ** This is the main function that converts a command from network protocol
 */
@@ -2207,6 +2233,13 @@ dbgcommand_t *SocProtoToCommand(char *s) {
         case DBGCMD_OPENSOCKET:
             cmdargs = getstring(&s);
             c->cmd_arg_opensocket = SocProtoToOpenSocketArgs(cmdargs);
+            Free(cmdargs);
+            break;
+
+        case DBGCMD_THREAD:
+        case DBGCMD_GETTHREADINFO:
+            cmdargs = getstring(&s);
+            c->cmd_u.cmd_u_thread = SocProtoToThreadArgs(cmdargs);
             Free(cmdargs);
             break;
 

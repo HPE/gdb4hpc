@@ -51,6 +51,7 @@ extern void InitCmd_print(void);
 extern void InitCmd_proc(void);
 extern void InitCmd_procset(void);
 extern void InitCmd_source(void);
+extern void InitCmd_thread();
 extern void InitCmd_step(void);
 extern void InitCmd_whatis(void);
 extern void InitBuiltinFuncs(void);

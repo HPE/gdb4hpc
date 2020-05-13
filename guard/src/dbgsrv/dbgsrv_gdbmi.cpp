@@ -1168,20 +1168,20 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
     if (gpu_flag) {
         // Need to determine the version of the driver to start the proper gdb
         FILE *vers;
-        char *vers_str = NULL;
         int num_fields = 0;
 
         // Open the driver version file, if this fails we are not on a gpu node
         // and should default to using the regular gdb.
         if ((vers = fopen("/proc/driver/nvidia/version", "r")) != NULL) {
+            char *vers_cstr = NULL;
             num_fields = fscanf(vers,
                                "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
                                "\t]%m[0-9.]",
-                               &vers_str);
+                               &vers_cstr);
             fclose(vers);
             if (num_fields > 0) {
                 // We now have the version string, close the vers file
-                DVPRINT("Detected Nvidia driver %s\n", vers_str);
+                DVPRINT("Detected Nvidia driver %s\n", vers_cstr);
                 // Now strcmp the driver version with a list of supported
                 // versions The known driver mappings are:
                 // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
@@ -1192,9 +1192,15 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
                 // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
                 // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
                 // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
-                if (strncmp(vers_str, "440", 3) == 0) {
+                std::string vers_str(vers_cstr);
+                int vers_int = stoi(vers_str.substr(0,3));
+                //We're assuming forward compatibility from version 440
+                if (vers_int >= 440) {
                     gdb_vers = GdbVersion::CUDA_101;
                 }
+            }
+            if (vers_cstr) {
+                free(vers_cstr);
             }
         } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
             const size_t size = 1024;

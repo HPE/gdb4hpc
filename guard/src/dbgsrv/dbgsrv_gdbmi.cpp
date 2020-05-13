@@ -2774,18 +2774,54 @@ static dbgevent_t *DbgGDBMIGetType(const char *var, int isType) {
 }
 
 static dbgevent_t *DbgGDBMISetThread(const char *threadId) {
-    DVPRINT("*** DbgSetThread(%s) UNIMPLEMENTED\n", threadId);
+    DVPRINT("*** DbgSetThread(%s)\n", threadId);
 
-    dbgevent_t* e;
-    EVENT_ERROR(e, DBGERR_NOTIMP, "thread command not implemented");
+    dbgevent_t* e = nullptr;
+
+    char* idEnd = nullptr;
+    int threadNo = strtol(threadId, &idEnd, 10);
+    if (!idEnd || *idEnd) {
+        EVENT_ERROR(e, DBGERR_BADTYPE, "thread command only supports integer thread ids");
+        return e;
+    }
+
+    MICommand* cmd = MIThreadSelect(threadNo);
+
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set thread failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    MICommandFree(cmd);
+
+    e = NewEvent(DBGEV_OK);
+
     return e;
 }
 
 static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
-    DVPRINT("*** DbgGetThreadInfo(%s) UNIMPLEMENTED\n", threadId ? threadId : "");
+    DVPRINT("*** DbgGetThreadInfo(%s)\n", threadId ? threadId : "");
 
-    dbgevent_t* e;
-    EVENT_ERROR(e, DBGERR_NOTIMP, "info threads command not implemented");
+    dbgevent_t* e = nullptr;
+
+    MICommand* cmd = CLIInfoThreads();
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = threadInfo;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
+    }
+
+    MICommandFree(cmd);
     return e;
 }
 

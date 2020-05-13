@@ -464,6 +464,7 @@ char* EventToSocProto(dbgevent_t *e)
     case DBGEV_SOURCEPATH:
     case DBGEV_TYPE:
     case DBGEV_CMD:
+    case DBGEV_THREADINFO:
         res = EventStringToSocProto(ev, e->ev_string);
         break;
 
@@ -1616,6 +1617,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
+        case DBGEV_THREADINFO:
             // Get the string and convert to char * and set directly
             evdata = getstring(&s);
             e->ev_string = SocProtoToString(evdata);
@@ -2058,8 +2060,6 @@ static cmdargs_opensocket *SocProtoToOpenSocketArgs(char *s) {
 
 static cmdargs_thread * SocProtoToThreadArgs(char* s)
 {
-    fprintf(stderr, "In SocProtoToThreadArgs %s\n", s);
-
     NULL_GUARD(s);
     cmdargs_thread* res = (cmdargs_thread*)Alloc(sizeof(cmdargs_thread));
     res->threadId = getstring(&s);

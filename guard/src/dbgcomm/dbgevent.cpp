@@ -125,6 +125,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
+        case DBGEV_THREADINFO:
             e->ev_string = strdup(event->ev_string);
             break;
 
@@ -443,6 +444,7 @@ void FreeEvent(dbgevent_t *event) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
+        case DBGEV_THREADINFO:
             Free(event->ev_string);
             break;
 
@@ -900,6 +902,9 @@ void PrintDbgEvent(dbgevent_t *event) {
         case DBGEV_TYPE:
             PrintOutMsg("DBGEV_TYPE");
             break;
+        case DBGEV_THREADINFO:
+            PrintOutMsg("DBGEV_THREADINFO");
+            break;
         case DBGEV_LIST:
             PrintOutMsg("DBGEV_LIST");
             break;
@@ -961,6 +966,8 @@ const char *EventToStr(dbgevent_t *event) {
             return "DBGEV_VARS";
         case DBGEV_TYPE:
             return "DBGEV_TYPE";
+        case DBGEV_THREADINFO:
+            return "DBGEV_THREADINFO";
         case DBGEV_LIST:
             return "DBGEV_LIST";
         case DBGEV_SOURCEPATH:
@@ -1014,6 +1021,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_VARS";
         case DBGEV_TYPE:
             return "DBGEV_TYPE";
+        case DBGEV_THREADINFO:
+            return "DBGEV_THREADINFO";
         case DBGEV_LIST:
             return "DBGEV_LIST";
         case DBGEV_SOURCEPATH:

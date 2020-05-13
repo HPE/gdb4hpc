@@ -3106,7 +3106,7 @@ rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
 {
     char* request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
 
-    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
 
     Free(request);
     return result;

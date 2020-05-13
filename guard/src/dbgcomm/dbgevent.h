@@ -136,7 +136,8 @@ enum dbgev {
     DBGEV_CMD,
     DBGEV_NONE,
     DBGEV_ERROR,
-    DBGEV_DATA_SLICE
+    DBGEV_DATA_SLICE,
+    DBGEV_THREADINFO
 };
 typedef enum dbgev dbgev;
 

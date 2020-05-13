@@ -1,5 +1,5 @@
 /*********************************************************************************\
- * Breakpoint commands.
+ * Thread commands.
  *
  * Copyright 2020 Cray Inc.
  *

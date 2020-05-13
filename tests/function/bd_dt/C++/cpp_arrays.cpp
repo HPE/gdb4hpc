@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 
     ierr = MPI_Finalize();
     if (ierr != MPI_SUCCESS) {
-        std::cout << stderr << "Error: MPI_init() failed: " << ierr;
+        std::cout << stderr << "Error: MPI_Finalize() failed: " << ierr;
     }
     return 0;
 }

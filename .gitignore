@@ -206,6 +206,7 @@ tests/function/bd_dt/C++/cpp_ds_test1.x
 tests/function/bd_dt/C++/cpp_arrays.x
 tests/function/bd_dt/C++/cpp_decomp.x
 tests/function/bd_dt/C++/cpp_decomp2.x
+tests/function/bd_dt/C++/cpp_threads.x
 tests/function/bd_dt/c/c_cmp_diff.x
 tests/function/bd_dt/c/c_time.x
 tests/function/bd_dt/c/c_type_test.x

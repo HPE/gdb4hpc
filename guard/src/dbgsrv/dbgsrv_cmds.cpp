@@ -230,6 +230,19 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             e = NULL;  // this command should be caught by the communication
                        // level
             break;
+
+        case DBGCMD_THREAD:
+            DVPRINT("Got into DBGCMD_THREAD:\n");
+            
+            CHECK_ARGS(e, cmd->cmd_u.cmd_u_thread->threadId);
+            e = DbgSetThread(cmd->cmd_u.cmd_u_thread->threadId);
+            break;
+
+        case DBGCMD_GETTHREADINFO:
+            DVPRINT("Got into DBGCMD_GETTHREADINFO:\n");
+            e = DbgGetThreadInfo(cmd->cmd_u.cmd_u_thread->threadId);
+            break;
+
     }
 
     FreeCommand(cmd);

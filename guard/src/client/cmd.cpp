@@ -515,6 +515,7 @@ void InitCommands() {
     InitCmd_procset();
     InitCmd_source();
     InitCmd_step();
+    InitCmd_thread();
     InitCmd_whatis();
 #ifdef RD
     InitCmd_rd();

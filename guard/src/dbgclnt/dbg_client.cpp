@@ -3090,6 +3090,29 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
     return result;
 }
 
+// Set the current thread for subsequent commands
+rep_set_t *DbgSetThread(rec_set_t* set, const char* threadId)
+{
+    char* request = CommandToSocProto(DBGCMD_THREAD, threadId);
+
+    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+
+    Free(request);
+    return result;
+}
+
+// Set the current thread for subsequent commands
+rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
+{
+    char* request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
+
+    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+
+    Free(request);
+    return result;
+}
+
+
 /*
 ** DBG_KILL: Terminate execution of program.
 ** TODO: Probably remove this, the DbgQuit should be sufficient.

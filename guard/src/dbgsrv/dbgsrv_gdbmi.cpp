@@ -138,6 +138,8 @@ static dbgevent_t *DbgGDBMIAttach(int, const char *, const char *, char **,
                                   int);
 static dbgevent_t *DbgGDBMIOpenSocket(const char *, int);
 static dbgevent_t *DbgGDBMICloseSocket(void);
+static dbgevent_t *DbgGDBMISetThread(const char* threadId);
+static dbgevent_t *DbgGDBMIGetThreadInfo(const char* threadId);
 static void DbgGDBMIFinish(void);
 static int DbgGDBMIReadyForCmd(void);
 static int DbgGDBMIOK(void);
@@ -215,7 +217,10 @@ dbgbackend_sw DbgBackendGDBMI = {DbgGDBMIInit,
                                  DbgGDBMIGetDebuggerVar,
                                  DbgGDBMIDirectCmd,
                                  DbgGDBMIOpenSocket,
-                                 DbgGDBMICloseSocket};
+                                 DbgGDBMICloseSocket,
+                                 DbgGDBMISetThread,
+                                 DbgGDBMIGetThreadInfo
+};
 
 /* internal static functions */
 
@@ -2765,6 +2770,58 @@ static dbgevent_t *DbgGDBMIGetType(const char *var, int isType) {
 
     Free(type);
 
+    return e;
+}
+
+static dbgevent_t *DbgGDBMISetThread(const char *threadId) {
+    DVPRINT("*** DbgSetThread(%s)\n", threadId);
+
+    dbgevent_t* e = nullptr;
+
+    char* idEnd = nullptr;
+    int threadNo = strtol(threadId, &idEnd, 10);
+    if (!idEnd || *idEnd) {
+        EVENT_ERROR(e, DBGERR_BADTYPE, "thread command only supports integer thread ids");
+        return e;
+    }
+
+    MICommand* cmd = MIThreadSelect(threadNo);
+
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set thread failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    MICommandFree(cmd);
+
+    e = NewEvent(DBGEV_OK);
+
+    return e;
+}
+
+static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
+    DVPRINT("*** DbgGetThreadInfo(%s)\n", threadId ? threadId : "");
+
+    dbgevent_t* e = nullptr;
+
+    MICommand* cmd = CLIInfoThreads();
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = threadInfo;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
+    }
+
+    MICommandFree(cmd);
     return e;
 }
 

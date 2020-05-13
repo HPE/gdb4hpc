@@ -214,6 +214,13 @@ static void FreeCmdArgsOpenSocket(cmdargs_opensocket *arg) {
     Free(arg);
 }
 
+static void FreeCmdArgsThread(cmdargs_thread* arg) {
+    if (arg) {
+        Free(const_cast<char*>(arg->threadId));
+        Free(arg);
+    }
+}
+ 
 void FreeCommand(dbgcommand_t *cmd) {
     if (cmd == NULL) return;
 
@@ -283,6 +290,7 @@ void FreeCommand(dbgcommand_t *cmd) {
             break;
 
         case DBGCMD_EVALEXPR:
+        case DBGCMD_CONTINUEEVALEXPR:
             FreeCmdArgsEvalExpr(cmd->cmd_arg_evalexpr);
             break;
 
@@ -312,6 +320,11 @@ void FreeCommand(dbgcommand_t *cmd) {
 
         case DBGCMD_OPENSOCKET:
             FreeCmdArgsOpenSocket(cmd->cmd_arg_opensocket);
+            break;
+
+        case DBGCMD_THREAD:
+        case DBGCMD_GETTHREADINFO:
+            FreeCmdArgsThread(cmd->cmd_u.cmd_u_thread);
             break;
 
         // Commands without arguments go here

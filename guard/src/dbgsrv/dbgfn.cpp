@@ -568,6 +568,33 @@ dbgevent_t *DbgGetScope(char *location) {
     return DbgBackendSW->dbg_getscope(location);
 }
 
+dbgevent_t* DbgSetThread(const char* threadId) {
+    DVPRINT("IN server DbgSetThread\n");
+
+    ResetWDT();
+
+    dbgevent_t* e;
+    DBG_READY(e);
+
+    DBG_IMP(e, DbgBackendSW->dbg_setthread);
+
+    return DbgBackendSW->dbg_setthread(threadId);
+}
+
+dbgevent_t* DbgGetThreadInfo(const char* threadId) {
+    DVPRINT("IN server DbgGetThreadInfo\n");
+
+    ResetWDT();
+
+    dbgevent_t* e;
+    DBG_READY(e);
+
+    DBG_IMP(e, DbgBackendSW->dbg_getthreadinfo);
+
+    return DbgBackendSW->dbg_getthreadinfo(threadId);
+}
+
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     dbgevent_t *e;
 

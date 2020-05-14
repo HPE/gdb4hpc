@@ -312,25 +312,6 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 }
 
 static void setup_pretty_printing() {
-    // setup the pretty printing for C++ types
-    char* ctiFileDir = cti_be_getFileDir();
-    if (!ctiFileDir) {
-        DVPRINT("no CTIFile dir\n");
-        return;
-    }
-
-    std::string prettyDir = ctiFileDir;
-    std::string prettyFile = prettyDir + "/printers.py";
-    free(ctiFileDir);
-
-    FILE *pf = fopen(prettyFile.c_str(), "r");
-    if (!pf) {
-       DVPRINT("could not open printers.py\n");
-       return;
-    }
-
-    fclose(pf);
-
     char* tmpDir = cti_be_getTmpDir();
     if (!tmpDir) {
         DVPRINT("could not get tmpDir");
@@ -349,7 +330,7 @@ static void setup_pretty_printing() {
 
     script << "python\n";
     script << "import sys\n";
-    script << "sys.path.insert(0,'" << prettyDir << "')\n";
+    //script << "sys.path.insert(0,'" << prettyDir << "')\n";  (see DbgMRNInvoke)
     script << "from libstdcxx.v6.printers import register_libstdcxx_printers\n";
     script << "register_libstdcxx_printers (None)\n";
     script << "end\n";

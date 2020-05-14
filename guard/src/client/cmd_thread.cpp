@@ -95,7 +95,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, (int (*)())cmd_thread_cmd,
-               cmd_thread_help, "switch to specified thread.");
+               cmd_thread_help, "Switch to specified thread.");
 
     AddInfoCommand("threads", proc_required, 0,
                    (int (*)())class_info_subcmd_threads_cmd,

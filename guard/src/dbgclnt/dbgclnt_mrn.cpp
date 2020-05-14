@@ -1187,6 +1187,11 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     }
 
     // Add the pretty printers
+    /* JLV 5/14/20 Commenting this out because the server side can find the printers file locally.
+       Since this is just for the local install, it's better keep fewer deltas between a dev system
+       and an installed one.   Keeping the code in place though, because this area is ticklish and 
+       we may someday just need to push the file in every system.
+
     if (getenv("GDB4HPC_INSTALL_DIR")) {
         // this is a local install, ship over the pretty-printing via the
         // manifest
@@ -1201,7 +1206,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
             }
         }
     }
-        
+    */  
 
     DPRINT("MRNet network initialized.\n");
     DPRINT("Launching debug servers onto compute nodes.\n");

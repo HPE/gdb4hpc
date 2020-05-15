@@ -46,6 +46,10 @@
 #include <string>
 #include <fstream>
 #include <map>
+#include <sstream>
+#include <vector>
+#include <regex>
+#include <iomanip>
 
 #include "MI.h"
 #include "aif.h"
@@ -2788,12 +2792,153 @@ static dbgevent_t *DbgGDBMISetThread(const char *threadId) {
     return e;
 }
 
+// remove process specific addresses and LWP ids from the thread ouput that would
+// prevent them being reduced in MRNet
+static std::string anonymizeThreadInfo(const std::string& val) {
+    std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
+    std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
+
+    std::istringstream is(val);
+    std::ostringstream os;
+
+    std::string line;
+    for (int lineNo = 0; std::getline(is,line); ++lineNo) {
+        if (!lineNo) {
+            // heading line
+            os << "  Id    Frame\n";
+            continue;
+        }
+
+        line = std::regex_replace(line, lwpRE, "");
+        line = std::regex_replace(line, hexValRE, "");
+        
+        os << line << "\n";
+    }
+    
+    return os.str();
+}
+
+// identify threads with equivalent frame information to present the information more
+// compactly.   Similar threads will be identified by an id list at is:
+// id1 id2 id3-id4
+static std::string collectThreadInfo(const std::string& val) {
+    std::regex re(R"(^(\*? *\d+)\s+(.*))");
+
+    using Loc2Id = std::map<std::string,std::string>;
+    Loc2Id loc2id;
+
+    std::istringstream is(val);
+    std::string line, header;
+    for (int lineNo = 0; std::getline(is,line); ++lineNo) {
+        if (!lineNo) {
+            // heading line
+            header = line;
+            continue;
+        }
+
+        // get the thread-id and location for this line
+        std::smatch match;
+        if (!regex_match(line, match, re)) {
+            DVPRINT("did not match line on %d:%s\n", lineNo, line.c_str());;
+            // can't parse the line - luckily we can just *not* collect
+            return val;
+        }
+
+        const std::string& loc = match[2];
+        std::string id = match[1];
+
+        // store the location in loc2Id
+        auto ins = loc2id.insert(std::make_pair(loc,id));
+        if (ins.second)
+            continue;
+
+        // duplicate location, merge into the id list
+        try {
+            id = id.substr(id.find_first_not_of(" \t")); // strip leading spaces
+            std::string& ids = ins.first->second;
+
+            // get the last id in the current list
+            size_t delimLoc = ids.find_last_of(" -");
+            size_t prevIdLoc = (delimLoc == std::string::npos ? 0 : delimLoc+1);
+                
+            // determine if this just creates or extends a range
+            int prev = std::stoi(ids.substr(prevIdLoc));  // throws if not an int
+            int curr = std::stoi(id);
+            if (curr != prev+1) {
+                // just append to the id list
+                ids += " " + id;
+            } else if (delimLoc != std::string::npos && ids[delimLoc] == '-') {
+                // extending a range
+                ids.replace(prevIdLoc,std::string::npos,id);
+            } else {
+                // creating a new range
+                ids += "-" + id;
+            }
+        } catch (std::exception&) {
+            return val;  // not an int, give up collecting
+        }
+    }
+
+    // sort the ids back from lowest to highest
+    // we build up an offset table from id->the map location rather then copying
+    using ToSort = std::pair<int,Loc2Id::iterator>;
+    std::vector<ToSort> toSort;
+    for (Loc2Id::iterator it = loc2id.begin(); it != loc2id.end(); ++it) {
+        auto id = it->second;
+        size_t idLoc = id.find_first_not_of(" \t*");
+        int idNo = strtol(id.c_str()+idLoc,nullptr,10);
+        toSort.push_back(std::make_pair(idNo,it));
+    }
+
+    sort(toSort.begin(), toSort.end(),[](const ToSort& a,const ToSort& b) { return a.first < b.first; });
+
+    // and assemble the result
+    std::ostringstream os;
+    os << header << "\n";
+    for (auto&& ts : toSort) {
+        const auto& pr = *ts.second;  // (loc,id)
+        std::string id = pr.second;
+        os << std::setw(7) << std::left << pr.second << " " << pr.first << "\n";
+    }
+    return os.str();
+}
+
 static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
     DVPRINT("*** DbgGetThreadInfo(%s)\n", threadId ? threadId : "");
 
     dbgevent_t* e = nullptr;
 
-    MICommand* cmd = CLIInfoThreads();
+    bool doAnonymize = true;
+    bool doCollect = true;
+
+    // parse the input for the info threads command
+    std::vector<std::string> args{"info", "threads"};
+    std::regex rangeRE(R"((\d+)-(\d+))");
+    std::smatch match;
+
+    std::istringstream argStream(threadId);
+    std::string arg;
+    while (argStream >> arg) {
+        if (arg == "-v") {
+            doAnonymize = doCollect = false;
+        } else if (arg == "-l") {
+            doCollect = false;
+        } else if (regex_match(arg, match, rangeRE)) {
+            int a = atoi(match[1].str().c_str());
+            int b = atoi(match[2].str().c_str());
+            for (int i=a; i<=b; ++i) {
+                args.push_back(std::to_string(i));
+            }
+        } else {
+            args.push_back(arg);
+        }
+    }
+
+    std::vector<const char*> cargs;
+    std::transform(args.begin(), args.end(), std::back_inserter(cargs), [](const std::string& s) { return s.c_str(); });
+
+    // get the result from gdb
+    MICommand* cmd = CLIBypassc(cargs.size(), &cargs[0]);
     SendMICommand(GDBMISession, cmd);
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
@@ -2801,9 +2946,16 @@ static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
         return e;
     }
 
+    // reformat the return to be reduced
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
+        std::string info(threadInfo);
+        free(threadInfo);
+        
+        if (doAnonymize) info = anonymizeThreadInfo(info);
+        if (doCollect) info = collectThreadInfo(info);
+
         e = NewEvent(DBGEV_THREADINFO);
-        e->ev_string = threadInfo;
+        e->ev_string = strdup(info.c_str());
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
     }

@@ -982,8 +982,16 @@ const char* const class_info_subcmd_threads_help[] = {
     "Summary: List threads.", "",
     "Usage: info threads",
     "Usage: info threads 2",
-    "Arguments: optional list of thread ids", "",
-    "Description:", "List the known threads in the current process set.", 0};
+    "Arguments: [-v] [-l] optional list of thread ids", "",
+    "Description:",
+    "List the known threads in the current process set.",
+    "-v option will suppress the removal of the  address and LWP for each thead",
+    "(which will usually create a full thread set output for each process).",
+    "-l prints every thread on a separate line instead of collecting",
+    "threads at the same location.",
+    "With no thread ids, this command displays all known threads.",
+    "A subset of threads to display can be specified with a space separated",
+    "list of thread ids with ranges, e.g.: 2 4 7-10", nullptr};
 
 /*
  * Class maint subcommands

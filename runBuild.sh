@@ -202,7 +202,21 @@ fi
 cd $top_level/external/ROCgdb
 check_exit_status
 
+#ROCgdb requires the "amdgcn-amd-amdhsa" target in order to support gpu
+#debugging.  However, because this breaks all of our other builds, we're taking
+#it out here to allow the automated builds to work.  At some point, we'll need
+#to figure out how to get this to build in a separate rpm of gdb backends.
 ROCgdb_install_dir=$install_dir/ROCgdb_install
+arch_targets=
+if [[ -f "/etc/os-release" ]]; then
+    source /etc/os-release
+    if   [[ "$ID$VERSION_ID" == "centos7" ]]; then
+        arch_targets="x86_64-linux-gnu,amdgcn-amd-amdhsa"
+    else
+        arch_targets="x86_64-linux-gnu"
+    fi
+fi
+
 LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" ./configure \
             --program-prefix=ROC \
             --prefix=$ROCgdb_install_dir \
@@ -213,7 +227,7 @@ LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" ./configure \
             --with-lzma \
             --with-system-zlib \
             --enable-64-bit-bfd \
-            --enable-targets="x86_64-linux-gnu,amdgcn-amd-amdhsa" \
+            --enable-targets=$arch_targets \
             --enable-tui \
             --without-guile \
             --disable-gas \

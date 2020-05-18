@@ -25,3 +25,4 @@
 [submodule "external/ROCgdb"]
 	path = external/ROCgdb
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/rocgdb.git
+	branch = amd-master

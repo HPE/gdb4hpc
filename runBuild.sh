@@ -203,11 +203,25 @@ cd $top_level/external/ROCgdb
 check_exit_status
 
 ROCgdb_install_dir=$install_dir/ROCgdb_install
-./configure --prefix=$ROCgdb_install_dir \
-            --with-gdb-datadir=$ROCgdb_install_dir/share/ROCgdb \
-            --with-python=$python_loc \
+LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" ./configure \
             --program-prefix=ROC \
-            --enable-gdbserver=no
+            --prefix=$ROCgdb_install_dir \
+            --with-gdb-datadir=$ROCgdb_install_dir/share/ROCgdb \
+            --with-babeltrace=/usr/lib64 \
+            --with-expat=/usr/lib64 \
+            --with-python=$python_loc \
+            --with-lzma \
+            --with-system-zlib \
+            --enable-64-bit-bfd \
+            --enable-targets="x86_64-linux-gnu,amdgcn-amd-amdhsa" \
+            --enable-tui \
+            --without-guile \
+            --disable-gas \
+            --disable-gdbserver \
+            --disable-gdbtk \
+            --disable-ld \
+            --disable-shared \
+            --disable-sim
 check_exit_status
 
 make $cdst_j_flags

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sstream>
 
 #include "client.h"
 #include "useful.h"
@@ -52,7 +53,6 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
-
     std::string arg;
     for (int i=1; i<argc; ++i) {
         if (i > 1)
@@ -60,32 +60,32 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
         arg += argv[i];
     }
 
+    // print out address informtation if we are focuses on a single process.  In that case,
+    // the actual memory addresses are useful and combining results is no an issue.
+    int numRecvs = 0;
+    SetReceiverHeadInSet(rec_set);
+    while (auto recv = GetNextReceiverInSet(rec_set)) {
+        if ((numRecvs = bitset_numset(recv->rec_group)) > 1) break;
+    }
+    if (numRecvs == 1) arg += " -v";
+
     rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
     ProcessErrorInRepSet(rep_set);
 
-    // Need to loop this over each di in the rec_set
-    SetReceiverHeadInSet(rec_set);
-    while (auto recv_ptr = GetNextReceiverInSet(rec_set)) {
-        bool printHeader = true;
+    // process replies
+    for (auto&& reply : rep_set) {
+        auto handle = reply->rep_di->d_handle;
+        auto group = reply->rep_group;
 
-        // process replies
-        for (auto&& reply : rep_set) {
-            if (recv_ptr->rec_di != reply->rep_di) {
-                continue;
-            }
-
-            // Only want to print the header message once
-            if (printHeader) {
-                PrintOutMsg("\nThreads for $%s:\n",
-                            recv_ptr->rec_di->d_handle);
-                printHeader = false;
-            }
-
-            // point at the sources data
-            const char* str = reply->rep_event->ev_u.ev_u_string;
-            PrintOutMsg(str);
+        const char* str = reply->rep_event->ev_u.ev_u_string;
+        std::istringstream is(str);
+        std::string line;
+        while (std::getline(is,line)) {
+            PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
         }
+        // add a blank line to make the output more understandable
+        PrintMsgWithSetInfo(handle, group, "\n");
     }
 
     FreeRepSet(rep_set);

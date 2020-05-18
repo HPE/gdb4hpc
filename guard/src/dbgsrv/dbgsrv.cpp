@@ -622,7 +622,7 @@ void Server(void) {
 
 void EndServer(int stat) {
     DVPRINT("EndServer called\n");
-    DbgFinish();
+    DbgFinalize();
     DbgEndProto();
 
     // If exit_sleep_time is not zero, we want to sleep before calling exit.

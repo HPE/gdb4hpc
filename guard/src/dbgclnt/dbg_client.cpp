@@ -1857,7 +1857,7 @@ int DbgInit(void) {
     return 0;
 }
 
-void DbgFinish(void) {
+void DbgFinalize(void) {
     dbgclnt_proto *sw;
     dbginvoke_t *di;
 
@@ -3452,7 +3452,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 /*
 ** DBG_ENABLEBREAK: Enable a breakpoint.
 */
-rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, int once, int del) {
+rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
     group_recv_t *recv_ptr;
     dbginvoke_t *di;
     bp_set_t *bp_set;

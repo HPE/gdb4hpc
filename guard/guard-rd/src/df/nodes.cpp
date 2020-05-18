@@ -1247,7 +1247,7 @@ token_t *NodeHashEntry(graph_t *g, node_t *n) {
 ** Exit interpreter.
 */
 token_t *NodeExit(graph_t *g, node_t *n) {
-    /*DbgFinish();*/
+    /*DbgFinalize();*/
     ExitDF();
     return (token_t *)NULL;
 }

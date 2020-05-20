@@ -32,11 +32,17 @@ Purpose:
 ---------
   This is a feature release.
 
-  - Initial support for Shasta systems
+  - Initial support for XC/CS systems
+  - Improved memory consumption of compare commands
+  - Fixed issues with C++ pretty printers
+  - CAST-22211: gdb4hpc doesn't work
+  - CAST-17502: Provide a way for user to inhibit automatic backtrace on finalization of attach
 
 Product and OS Dependencies:
 -----------------------------
   The gdb4hpc <VERSION> is supported on the following Cray systems:
+    - Cray XC systems with CLE release 7.0 or later
+    - Cray CS systems with CentOS/RH 8.0 or later
     - Cray Shasta systems
 
   Product Dependencies:

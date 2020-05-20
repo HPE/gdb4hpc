@@ -561,7 +561,7 @@ int main(int argc, char *argv[]) {
     FinishDF();
 #endif /* RD */
     EndAll();
-    DbgFinish();
+    DbgFinalize();
     FinishProcSet();
     FinishFunc();
     FinishVal();

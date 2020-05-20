@@ -173,7 +173,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
             continue;
         }
 
-        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_id, 0, 1)) != NULL) {
+        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_id, false, true)) != NULL) {
             ProcessErrorInRepSet(enb_rep);
             PrintOutError("ERROR: Could not set temporary breakpoint.\n");
             FreeRepSet(enb_rep);

@@ -105,58 +105,69 @@ static int dbgsrv_fd;
 extern appInfo_t other_app;
 
 /* dbgbackend_sw functions */
-static dbgevent_t *DbgGDBMIInit(int *, int *, char **);
-static dbgevent_t *DbgGDBMIStartup(void);
-static int DbgGDBMIConsume(int);
-static int DbgGDBMIEventReady(void);
-static dbgevent_t *DbgGDBMISetLineBreak(const char *, int,
-                                        const dbgcomm_info *);
-static dbgevent_t *DbgGDBMISetFuncBreak(const char *, char *,
-                                        const dbgcomm_info *);
-static dbgevent_t *DbgGDBMISetWatch(int, const char *, const dbgcomm_info *);
-static dbgevent_t *DbgGDBMIDeleteBreak(int);
-static dbgevent_t *DbgGDBMIDisableBreak(int);
-static dbgevent_t *DbgGDBMIEnableBreak(int, int, int);
-static dbgevent_t *DbgGDBMILastBreak(void);
-static dbgevent_t *DbgGDBMIList(const char *);
-static dbgevent_t *DbgGDBMIGetSources(void);
-static dbgevent_t *DbgGDBMIGo(void);
-static dbgevent_t *DbgGDBMIFinishFunc(void);
-static dbgevent_t *DbgGDBMISetArgs(const char *);
-static dbgevent_t *DbgGDBMIStep(int, int);
-static dbgevent_t *DbgGDBMIKill(void);
-static dbgevent_t *DbgGDBMIMoveFrame(int, int);
-static dbgevent_t *DbgGDBMIShowFrame(int);
-static dbgevent_t *DbgGDBMIGetFrame(void);
-static dbgevent_t *DbgGDBMISetVar(const char *, AIF *);
-static dbgevent_t *DbgGDBMIEvalExpr(const char *, long);
-static dbgevent_t *DbgGDBMIGetType(const char *, int);
-static dbgevent_t *DbgGDBMIGetVars(const char *);
-static dbgevent_t *DbgGDBMIGetScope(const char *);
-static dbgevent_t *DbgGDBMIStatus(int);
-static dbgevent_t *DbgGDBMIQuit(int);
-static dbgevent_t *DbgGDBMIInterrupt(void);
-static dbgevent_t *DbgGDBMIInvoke(const char *, int, const char *, const char *,
-                                  const char *, char **, int);
-static dbgevent_t *DbgGDBMIAttach(int, const char *, const char *, char **,
-                                  int);
-static dbgevent_t *DbgGDBMIOpenSocket(const char *, int);
-static dbgevent_t *DbgGDBMICloseSocket(void);
-static dbgevent_t *DbgGDBMISetThread(const char* threadId);
-static dbgevent_t *DbgGDBMIGetThreadInfo(const char* threadId);
-static void DbgGDBMIFinish(void);
-static int DbgGDBMIReadyForCmd(void);
-static int DbgGDBMIOK(void);
-static int DbgGDBMIStopped(void);
-static dbgevent_t *DbgGDBMISetDebuggerVar(const char *, AIF *);
-static dbgevent_t *DbgGDBMISetSourcePath(const char *);
-static dbgevent_t *DbgGDBMIGetSourcePath(void);
-static dbgevent_t *DbgGDBMIGetDebuggerVar(const char *);
-static dbgevent_t *DbgGDBMIDirectCmd(int, char **);
+namespace {
+class DbgGdbMI : public dbgbackend_sw {
+public:
+    virtual dbgevent_t *init(int *dfd, int *iofd, char **env) override;
+    virtual dbgevent_t *startup() override;
+    virtual int read(int) override;
+    virtual bool bufferReady() override;
+    virtual int progioHook(int) override;   //!!! careful - potentially unimplemented
+    virtual dbgevent_t *setLineBreak(const char *file, int lno, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setFuncBreak(const char *file, char *func, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *deleteBreak(int bid) override;
+    virtual dbgevent_t *disableBreak(int bid) override;
+    virtual dbgevent_t *enableBreak(int bid, bool once, bool del) override;
+    virtual dbgevent_t *lastBreak() override;
+    virtual dbgevent_t *list(const char *str) override;
+    virtual dbgevent_t *getSources() override;
+    virtual dbgevent_t *go() override;
+    virtual dbgevent_t *finishFunc() override;
+    virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
+    virtual dbgevent_t *step(int const, bool in) override;
+    virtual dbgevent_t *kill() override;
+    virtual dbgevent_t *moveFrame(int count, bool up) override;
 
-/* auxiliary functions */
-static dbgevent_t *InitDbg(const char *, const char *);
-static dbgevent_t *InitDbgAttach(int, const char *);
+    // If count is not zero then return only that many frames. If count is zero then
+    // return an unlimited number of frames. If count is negative return the
+    // outermost frames.
+    virtual dbgevent_t *showFrame(int count) override;
+
+    virtual dbgevent_t *getFrame() override;
+    virtual dbgevent_t *setVar(const char *var, AIF *a) override;
+    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx) override;
+    virtual dbgevent_t *getType(const char *var, bool isType) override;
+    virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
+    virtual dbgevent_t *getVars(const char *file) override;
+    virtual dbgevent_t *getScope(const char *location) override;
+    virtual dbgevent_t *getStatus(bool getLocation) override;
+    virtual dbgevent_t *quit(bool detach) override;
+    virtual dbgevent_t *interrupt() override;
+    virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
+                               const char *args, char **env, int arch) override;
+    virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) override;
+    virtual void finalize() override;
+    virtual bool isReadyForCmd() override;
+    virtual bool isOk() override;
+    virtual bool isStopped() override;
+    virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) override;
+    virtual dbgevent_t *setSourcePath(const char *path) override;
+    virtual dbgevent_t *getSourcePath() override;
+    virtual dbgevent_t *getDebuggerVar(const char *var) override;
+
+    // Pass command directly to gdb/mi through console command
+    virtual dbgevent_t *directCmd(int argc, char **argv) override;
+    virtual dbgevent_t *openSocket(const char *opset_name, int opset_size) override;
+    virtual dbgevent_t *closeSocket() override;
+    virtual dbgevent_t *setThread(const char* threadId) override;
+    virtual dbgevent_t *getThreadInfo(const char* threadId) override;
+private:
+    dbgevent_t *initDbg(const char *prog, const char *args);
+    dbgevent_t *initDbgAttach(int pid, const char *prog);
+};
+}
+
 static dbgevent_t *WaitEvent(dbgevent_t *e);
 static dbgevent_t *CheckBreak(MICommand *, const dbgcomm_info *);
 static void Finish(int);
@@ -178,53 +189,9 @@ static dbgevent_t *RestoreAfterDirectCmd(void);
 static dbgevent_t *PerformExtEvalExpr(const char *);
 
 /* debugger definition */
-dbgbackend_sw DbgBackendGDBMI = {DbgGDBMIInit,
-                                 DbgGDBMIStartup,
-                                 DbgGDBMIConsume,
-                                 DbgGDBMIEventReady,
-                                 NULL,  // Not implemented ProgIO_hook
-                                 DbgGDBMISetLineBreak,
-                                 DbgGDBMISetFuncBreak,
-                                 DbgGDBMISetWatch,
-                                 DbgGDBMIDeleteBreak,
-                                 DbgGDBMIDisableBreak,
-                                 DbgGDBMIEnableBreak,
-                                 DbgGDBMILastBreak,
-                                 DbgGDBMIList,
-                                 DbgGDBMIGetSources,
-                                 DbgGDBMIGo,
-                                 DbgGDBMIFinishFunc,
-                                 DbgGDBMISetArgs,
-                                 DbgGDBMIStep,
-                                 DbgGDBMIKill,
-                                 DbgGDBMIMoveFrame,
-                                 DbgGDBMIShowFrame,
-                                 DbgGDBMIGetFrame,
-                                 DbgGDBMISetVar,
-                                 DbgGDBMIEvalExpr,
-                                 DbgGDBMIGetType,
-                                 NULL,  // DbgGDBMIGetLocation, not used
-                                 DbgGDBMIGetVars,
-                                 DbgGDBMIGetScope,
-                                 DbgGDBMIStatus,
-                                 DbgGDBMIQuit,
-                                 DbgGDBMIInterrupt,
-                                 DbgGDBMIInvoke,
-                                 DbgGDBMIAttach,
-                                 DbgGDBMIFinish,
-                                 DbgGDBMIReadyForCmd,
-                                 DbgGDBMIOK,
-                                 DbgGDBMIStopped,
-                                 DbgGDBMISetDebuggerVar,
-                                 DbgGDBMISetSourcePath,
-                                 DbgGDBMIGetSourcePath,
-                                 DbgGDBMIGetDebuggerVar,
-                                 DbgGDBMIDirectCmd,
-                                 DbgGDBMIOpenSocket,
-                                 DbgGDBMICloseSocket,
-                                 DbgGDBMISetThread,
-                                 DbgGDBMIGetThreadInfo
-};
+static DbgGdbMI DbgBackendGDBMI;
+
+dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 
 /* internal static functions */
 
@@ -1110,7 +1077,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 **
 */
 
-static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
+dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
     gdb_vers = GdbVersion::GDB_81;
 
@@ -1363,7 +1330,7 @@ static dbgevent_t *DbgGDBMIInit(int *dfd, int *iofd, char **env) {
 /*
 ** Continue to main and show current stack frame.
 */
-static dbgevent_t *DbgGDBMIStartup(void) {
+dbgevent_t *DbgGdbMI::startup(void) {
     dbgevent_t *e;
     MICommand *cmd;
     MIEvent *evt;
@@ -1402,7 +1369,7 @@ static dbgevent_t *DbgGDBMIStartup(void) {
             Status = DBGSTAT_RUNNING;
 
             // wait for the asynch command to complete
-            while (!DbgGDBMIEventReady()) {
+            while (!bufferReady()) {
                 MISessionProgress(GDBMISession);
             }
 
@@ -1496,7 +1463,7 @@ static dbgevent_t *DbgGDBMIStartup(void) {
                 Status = DBGSTAT_RUNNING;
 
                 // wait for the asynch command to complete
-                while (!DbgGDBMIEventReady()) MISessionProgress(GDBMISession);
+                while (!bufferReady()) MISessionProgress(GDBMISession);
 
                 // grab the pending asynch
                 evt = PendingEvent;
@@ -1528,14 +1495,14 @@ static dbgevent_t *DbgGDBMIStartup(void) {
     }
 
     // call the showframe function with unlimited frame count and return
-    return DbgGDBMIShowFrame(0);
+    return showFrame(0);
 }
 
 /*
 ** LibMI consumer call. This will have the libmi progress its session
 ** and perform any necessary callbacks.
 */
-static int DbgGDBMIConsume(int fd) {
+int DbgGdbMI::read(int fd) {
     int error = 0;
 
     /*
@@ -1570,15 +1537,14 @@ static int DbgGDBMIConsume(int fd) {
 ** The main Server loop of dbgsrv.c calls this function to check whether we
 ** are ready to process the registered asynch event or not.
 */
-static int DbgGDBMIEventReady(void) {
+bool DbgGdbMI::bufferReady(void) {
     return AsynchEventWaiting; /* Modified by event_callback(). */
 }
 
 /*
 ** Set breakpoint at specified line.
 */
-static dbgevent_t *DbgGDBMISetLineBreak(const char *file, int lno,
-                                        const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, const dbgcomm_info *commInfo) {
     dbgevent_t *event;
     MICommand *cmd;
     char *where;
@@ -1658,8 +1624,8 @@ static dbgevent_t *DbgGDBMISetLineBreak(const char *file, int lno,
 /*
 ** Set breakpoint at start of specified function.
 */
-static dbgevent_t *DbgGDBMISetFuncBreak(const char *file, char *func,
-                                        const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func,
+                                   const dbgcomm_info *commInfo) {
     dbgevent_t *event;
     MICommand *cmd;
     char *where;
@@ -1730,8 +1696,7 @@ static dbgevent_t *DbgGDBMISetFuncBreak(const char *file, char *func,
 /*
 ** Set watchpoint at specified expression.
 */
-static dbgevent_t *DbgGDBMISetWatch(int type, const char *expr,
-                                    const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *commInfo) {
     dbgevent_t *event;
     MICommand *cmd;
     dbgbp_type bp_type = (dbgbp_type)type;
@@ -1818,7 +1783,7 @@ static dbgevent_t *DbgGDBMISetWatch(int type, const char *expr,
 /*
 ** Delete a breakpoint.
 */
-static dbgevent_t *DbgGDBMIDeleteBreak(int bid) {
+dbgevent_t *DbgGdbMI::deleteBreak(int bid) {
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp;
@@ -1856,7 +1821,7 @@ static dbgevent_t *DbgGDBMIDeleteBreak(int bid) {
 /*
 ** Disable a breakpoint.
 */
-static dbgevent_t *DbgGDBMIDisableBreak(int bid) {
+dbgevent_t *DbgGdbMI::disableBreak(int bid) {
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp;
@@ -1894,7 +1859,7 @@ static dbgevent_t *DbgGDBMIDisableBreak(int bid) {
 /*
 ** Enable a breakpoint.
 */
-static dbgevent_t *DbgGDBMIEnableBreak(int bid, int once, int del) {
+dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
     dbgevent_t *e;
     MICommand *cmd;
     const char *cmd_args[3];
@@ -1960,10 +1925,10 @@ static dbgevent_t *DbgGDBMIEnableBreak(int bid, int once, int del) {
 /*
 ** Return id of last breakpoint to be hit.
 */
-static dbgevent_t *DbgGDBMILastBreak(void) {
+dbgevent_t *DbgGdbMI::lastBreak() {
     dbgevent_t *e;
 
-    if (CurrBP == (dbgbp_t *)NULL) {
+    if (!CurrBP) {
         EVENT_ERROR(e, DBGERR_NOBP, "No breakpoints registered.");
         return e;
     }
@@ -1979,7 +1944,7 @@ static dbgevent_t *DbgGDBMILastBreak(void) {
 **
 ** GDB does not have a MI command for this; we use the CLI command.
 */
-static dbgevent_t *DbgGDBMIList(const char *str) {
+dbgevent_t *DbgGdbMI::list(const char *str) {
     dbgevent_t *e;
     MICommand *cmd;
     MIList *lines;
@@ -2058,7 +2023,7 @@ static dbgevent_t *DbgGDBMIList(const char *str) {
 /*
 ** Get source files of inferior.
 */
-static dbgevent_t *DbgGDBMIGetSources(void) {
+dbgevent_t *DbgGdbMI::getSources() {
     dbgevent_t *e;
     MICommand *cmd;
     MIList *sources;
@@ -2118,7 +2083,7 @@ static dbgevent_t *DbgGDBMIGetSources(void) {
 ** then we must plant a breakpoint at main() so that we
 ** can find out the process id of the program.
 */
-static dbgevent_t *DbgGDBMIGo(void) {
+dbgevent_t *DbgGdbMI::go() {
     dbgevent_t *e;
     MICommand *cmd;
 
@@ -2153,9 +2118,8 @@ static dbgevent_t *DbgGDBMIGo(void) {
 /*
 ** Continue executing program until the current function returns.
 */
-static dbgevent_t *DbgGDBMIFinishFunc(void) {
+dbgevent_t *DbgGdbMI::finishFunc() {
     dbgevent_t *e;
-    MICommand *cmd;
 
     DVPRINT("*** DbgFinishFunc()\n");
 
@@ -2164,7 +2128,7 @@ static dbgevent_t *DbgGDBMIFinishFunc(void) {
         return e;
     }
 
-    cmd = MIExecFinish();
+    MICommand *cmd = MIExecFinish();
 
     SendMICommand(GDBMISession, cmd);
 
@@ -2188,7 +2152,7 @@ static dbgevent_t *DbgGDBMIFinishFunc(void) {
 /*
 ** Set run arguments.
 */
-static dbgevent_t *DbgGDBMISetArgs(const char *arg) {
+dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
     DVPRINT("*** DbgSetArgs\n");
 
     if (arg != NULL && *arg != '\0') {
@@ -2201,10 +2165,10 @@ static dbgevent_t *DbgGDBMISetArgs(const char *arg) {
 }
 
 /*
-** Execute count statements. If in == 0, do not enter
+** Execute count statements. If in == false, do not enter
 ** function calls.
 */
-static dbgevent_t *DbgGDBMIStep(int count, int in) {
+dbgevent_t *DbgGdbMI::step(int count, bool in) {
     dbgevent_t *e;
     MICommand *cmd;
 
@@ -2242,7 +2206,7 @@ static dbgevent_t *DbgGDBMIStep(int count, int in) {
 /*
 ** Kill the currently running process.
 */
-static dbgevent_t *DbgGDBMIKill(void) {
+dbgevent_t *DbgGdbMI::kill() {
     dbgevent_t *e;
 
     DVPRINT("*** DbgKill\n");
@@ -2277,7 +2241,7 @@ static dbgevent_t *DbgGDBMIKill(void) {
 /*
 ** Move up or down count stack frames.
 */
-static dbgevent_t *DbgGDBMIMoveFrame(int count, int up) {
+dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
     dbgevent_t *e;
     dbgframe_t *result = NULL;
 
@@ -2449,7 +2413,7 @@ static dbgevent_t *DbgGDBMIMoveFrame(int count, int up) {
 ** return an unlimited number of frames. If count is negative return the
 ** outermost frames.
 */
-static dbgevent_t *DbgGDBMIShowFrame(int count) {
+dbgevent_t *DbgGdbMI::showFrame(int count) {
     dbgevent_t *e;
     dbgframe_t *result = NULL;
     dbgframe_t *new_f = NULL;
@@ -2583,9 +2547,9 @@ static dbgevent_t *DbgGDBMIShowFrame(int count) {
 *frame
 ** that is selected.
 */
-static dbgevent_t *DbgGDBMIGetFrame(void) {
+dbgevent_t *DbgGdbMI::getFrame() {
     dbgevent_t *e;
-    dbgframe_t *result = NULL;
+    dbgframe_t *result = nullptr;
 
     MICommand *cmd;
     MIList *mi_frame_list;
@@ -2669,7 +2633,7 @@ static dbgevent_t *DbgGDBMIGetFrame(void) {
 ** types. Right now we just convert to string and let gdb handle it. I think
 ** this is a better implementation (andrewg).
 */
-static dbgevent_t *DbgGDBMISetVar(const char *var, AIF *a) {
+dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a) {
     dbgevent_t *e;
     MICommand *cmd;
     char *data;
@@ -2690,7 +2654,7 @@ static dbgevent_t *DbgGDBMISetVar(const char *var, AIF *a) {
     }
 
     // get type info about var to make sure it exists
-    if (((e = DbgGDBMIGetType(var, 0))->ev_event) != DBGEV_TYPE) return e;
+    if (((e = getType(var, 0))->ev_event) != DBGEV_TYPE) return e;
     FreeEvent(e);
 
     // convert the aif type to string form
@@ -2725,7 +2689,7 @@ static dbgevent_t *DbgGDBMISetVar(const char *var, AIF *a) {
 ** Find type of variable.
 ** If isType is true, then we are finding type information for a type.
 */
-static dbgevent_t *DbgGDBMIGetType(const char *var, int isType) {
+dbgevent_t *DbgGdbMI::getType(const char *var, bool isType) {
     dbgevent_t *e;
     MICommand *cmd;
     char *type;
@@ -2764,7 +2728,7 @@ static dbgevent_t *DbgGDBMIGetType(const char *var, int isType) {
     return e;
 }
 
-static dbgevent_t *DbgGDBMISetThread(const char *threadId) {
+dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
     DVPRINT("*** DbgSetThread(%s)\n", threadId);
 
     dbgevent_t* e = nullptr;
@@ -2903,7 +2867,7 @@ static std::string collectThreadInfo(const std::string& val) {
     return os.str();
 }
 
-static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
+dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     DVPRINT("*** DbgGetThreadInfo(%s)\n", threadId ? threadId : "");
 
     dbgevent_t* e = nullptr;
@@ -2967,7 +2931,7 @@ static dbgevent_t *DbgGDBMIGetThreadInfo(const char *threadId) {
 /*
 ** List variables in the current stack frame
 */
-static dbgevent_t *DbgGDBMIGetVars(const char *file) {
+dbgevent_t *DbgGdbMI::getVars(const char *file) {
     dbgevent_t *e;
     dbgvars_t *result = NULL;
     dbgvars_t *cur_var = NULL;
@@ -3045,7 +3009,7 @@ static dbgevent_t *DbgGDBMIGetVars(const char *file) {
 /*
 ** List local variables relative to a scope
 */
-static dbgevent_t *DbgGDBMIGetScope(const char *location) {
+dbgevent_t *DbgGdbMI::getScope(const char *location) {
     MICommand *cmd;
     MIList *vars;
     char *name;
@@ -3194,7 +3158,7 @@ static dbgevent_t *DbgGDBMIGetScope(const char *location) {
 /*
 ** Get debugger status.
 */
-static dbgevent_t *DbgGDBMIStatus(int getLocation) {
+dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
     dbgevent_t *e;
     dbgevent_t *async_e;
     dbgstatus_t *s;
@@ -3219,7 +3183,7 @@ static dbgevent_t *DbgGDBMIStatus(int getLocation) {
             case DBGSTAT_STOPPED:
             case DBGSTAT_EXIT:
                 // Reuse DbgGDBMIShowFrame to get the bottommost frame
-                async_e = DbgGDBMIShowFrame(1);
+                async_e = showFrame(1);
 
                 if (async_e->ev_frame != NULL) {
                     s->stat_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
@@ -3258,8 +3222,8 @@ static dbgevent_t *DbgGDBMIStatus(int getLocation) {
 /*
 ** Quit debugger.
 */
-static dbgevent_t *DbgGDBMIQuit(int detach) {
-    dbgevent_t *e = NULL;
+dbgevent_t *DbgGdbMI::quit(bool detach) {
+    dbgevent_t *e = nullptr;
 #ifdef ALPS
     MICommand *cmd;
 #endif
@@ -3273,9 +3237,9 @@ static dbgevent_t *DbgGDBMIQuit(int detach) {
     */
     if (Status == DBGSTAT_RUNNING && !detach) {
         DVPRINT("DbgQuit: Sending SIGSTOP to process.\n");
-        (void)kill(Pid, SIGSTOP);
+        ::kill(Pid, SIGSTOP);
         // wait for the asynch command to complete
-        while (!DbgGDBMIEventReady()) MISessionProgress(GDBMISession);
+        while (!bufferReady()) MISessionProgress(GDBMISession);
         e = WaitEvent(NULL);
         FreeEvent(e);
     }
@@ -3298,7 +3262,7 @@ static dbgevent_t *DbgGDBMIQuit(int detach) {
 
     // If the command completed ok, we need to send SIGSTOP ASAP!!!
     if (MICommandResultOK(cmd) && !detach) {
-        (void)kill(Pid, SIGSTOP);
+        ::kill(Pid, SIGSTOP);
         DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
     }
 #endif
@@ -3316,14 +3280,14 @@ static dbgevent_t *DbgGDBMIQuit(int detach) {
 /*
 ** Interrupt the debugger.
 */
-static dbgevent_t *DbgGDBMIInterrupt(void) {
+dbgevent_t *DbgGdbMI::interrupt() {
     dbgevent_t *e;
     dbgevent_t *async_e;
 
     DVPRINT("*** DbgInterrupt\n");
 
     if (Status == DBGSTAT_RUNNING) {
-        if (kill(Pid, SIGSTOP)) {
+        if (::kill(Pid, SIGSTOP)) {
             switch (errno) {
                 case EINVAL:
                     EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid signal SIGSTOP.");
@@ -3345,7 +3309,7 @@ static dbgevent_t *DbgGDBMIInterrupt(void) {
         }
 
         // wait for the asynch command to complete
-        while (!DbgGDBMIEventReady()) MISessionProgress(GDBMISession);
+        while (!bufferReady()) MISessionProgress(GDBMISession);
 
         async_e = WaitEvent(NULL);
 
@@ -3373,7 +3337,7 @@ static dbgevent_t *DbgGDBMIInterrupt(void) {
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
-    async_e = DbgGDBMIShowFrame(1);
+    async_e = showFrame(1);
 
     e = NewEvent(DBGEV_HALT);
     e->ev_loc = (dbgloc_t *)NULL;
@@ -3397,16 +3361,16 @@ static dbgevent_t *DbgGDBMIInterrupt(void) {
     return e;
 }
 
-static dbgevent_t *DbgGDBMIInvoke(const char *host, int cb, const char *proto,
-                                  const char *prog, const char *args,
-                                  char **env, int arch) {
+dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
+                             const char *prog, const char *args,
+                             char **env, int arch) {
     dbgevent_t *e;
 
     DVPRINT("*** DbgInvoke\n");
 
     MPArch = arch;
 
-    e = InitDbg(prog, args);
+    e = initDbg(prog, args);
 
     Status = DBGSTAT_STOPPED;
 
@@ -3418,8 +3382,8 @@ static dbgevent_t *DbgGDBMIInvoke(const char *host, int cb, const char *proto,
 /*
 ** Attach debugger to running process.
 */
-static dbgevent_t *DbgGDBMIAttach(int pid, const char *prog, const char *args,
-                                  char **env, int arch) {
+dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
+                             char **env, int arch) {
     dbgevent_t *e;
 
     DVPRINT("*** DbgAttach\n");
@@ -3428,7 +3392,7 @@ static dbgevent_t *DbgGDBMIAttach(int pid, const char *prog, const char *args,
 
     switch (arch) {
         default:
-            e = InitDbgAttach(pid, prog);
+            e = initDbgAttach(pid, prog);
             break;
     }
 
@@ -3440,7 +3404,7 @@ static dbgevent_t *DbgGDBMIAttach(int pid, const char *prog, const char *args,
 /*
 ** Called if Shutdown > 0 to finalise debugger.
 */
-static void DbgGDBMIFinish(void) {
+void DbgGdbMI::finalize() {
     MICommand *cmd;
 
     cmd = MIGDBExit();
@@ -3451,27 +3415,27 @@ static void DbgGDBMIFinish(void) {
 /*
 ** Check if debugger is ready to receive a command.
 */
-static int DbgGDBMIReadyForCmd(void) {
-    return (int)(Status == DBGSTAT_WAITING || Status == DBGSTAT_STOPPED ||
-                 Status == DBGSTAT_EXIT);
+bool DbgGdbMI::isReadyForCmd() {
+    return (Status == DBGSTAT_WAITING || Status == DBGSTAT_STOPPED ||
+            Status == DBGSTAT_EXIT);
 }
 
 /*
 ** Check that debugger is ready ok
 */
-static int DbgGDBMIOK(void) { return (int)(Status != DBGSTAT_DBGERR); }
+bool DbgGdbMI::isOk() { return (Status != DBGSTAT_DBGERR); }
 
 /*
 ** Check if debugger is ready to receive a command.
 */
-static int DbgGDBMIStopped(void) {
-    return (int)(Status == DBGSTAT_STOPPED || Status == DBGSTAT_EXIT);
+bool DbgGdbMI::isStopped() {
+    return (Status == DBGSTAT_STOPPED || Status == DBGSTAT_EXIT);
 }
 
 /*
 ** Set contents of GDB debug variable var.
 */
-static dbgevent_t *DbgGDBMISetDebuggerVar(const char *var, AIF *val) {
+dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, AIF *val) {
     MICommand *cmd;
     int intVal;
 
@@ -3487,7 +3451,7 @@ static dbgevent_t *DbgGDBMISetDebuggerVar(const char *var, AIF *val) {
     return NewEvent(DBGEV_OK);
 }
 
-static dbgevent_t *DbgGDBMISetSourcePath(const char *path) {
+dbgevent_t *DbgGdbMI::setSourcePath(const char *path) {
     char *pathdirs[2];
     MICommand *cmd;
     MIString *cmd_result;
@@ -3520,7 +3484,7 @@ static dbgevent_t *DbgGDBMISetSourcePath(const char *path) {
     return e;
 }
 
-static dbgevent_t *DbgGDBMIGetSourcePath(void) {
+dbgevent_t *DbgGdbMI::getSourcePath() {
     char *pathdirs[1];
     MICommand *cmd;
     MIString *cmd_result;
@@ -3555,7 +3519,7 @@ static dbgevent_t *DbgGDBMIGetSourcePath(void) {
 /*
 ** Get contents of GDB debug variable var.
 */
-static dbgevent_t *DbgGDBMIGetDebuggerVar(const char *var) {
+dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
     MICommand *cmd;
 
     DVPRINT("*** DbgGetDebuggerVar\n");
@@ -3649,7 +3613,7 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
 /*
 ** Pass command directly to gdb/mi through console command
 */
-static dbgevent_t *DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv) {
+dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     MICommand *cmd;
     dbgevent_t *e;
     dbgevent_t *e2 = NULL;
@@ -3741,7 +3705,7 @@ static dbgevent_t *DbgGDBMIDirectCmd(int cmd_argc, char **cmd_argv) {
 ** Initialise debugger, make sure we are using
 ** the correct version, etc.
 */
-static dbgevent_t *InitDbg(const char *prog, const char *args) {
+dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
     dbgevent_t *e;
     MICommand *cmd;
     MIList *bpts;
@@ -3756,7 +3720,7 @@ static dbgevent_t *InitDbg(const char *prog, const char *args) {
     MICommandFree(cmd);
 
     if (args != NULL) {
-        e = DbgGDBMISetArgs(args);
+        e = setArgs(args);
 
         if (e->ev_event != DBGEV_OK) return e;
 
@@ -3861,7 +3825,7 @@ static dbgevent_t *InitDbg(const char *prog, const char *args) {
 ** Attach debugger. Added specifically for Cray XT / ALPS, but it might
 ** work for other platforms as well.
 */
-static dbgevent_t *InitDbgAttach(int pid, const char *prog) {
+dbgevent_t *DbgGdbMI::initDbgAttach(int pid, const char *prog) {
     dbgevent_t *e;
     MICommand *cmd;
     CLIInfoProcInfo *procInfo;
@@ -3894,7 +3858,7 @@ static dbgevent_t *InitDbgAttach(int pid, const char *prog) {
     // this is always generated by an attach command.
 
     // wait for the asynch command to complete
-    while (!DbgGDBMIEventReady()) MISessionProgress(GDBMISession);
+    while (!bufferReady()) MISessionProgress(GDBMISession);
 
     DVPRINT("InitDbgAttach: Event ready!\n");
 
@@ -4584,7 +4548,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     return e;
 }
 
-dbgevent_t *DbgGDBMIEvalExpr(const char *exp, long expIdx) {
+dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
     DVPRINT("*** DbgEvalExpr:%s rank:%d idx:%ld)\n", exp, my_rank, expIdx);
 
     // Check whether it has hashing/slicing
@@ -4656,7 +4620,7 @@ dbgevent_t *DbgGDBMIEvalExpr(const char *exp, long expIdx) {
     return e;
 }
 
-dbgevent_t *DbgGDBMIOpenSocket(const char *opset_name, int opset_size) {
+dbgevent_t *DbgGdbMI::openSocket(const char *opset_name, int opset_size) {
     int i;
 
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -4675,11 +4639,22 @@ dbgevent_t *DbgGDBMIOpenSocket(const char *opset_name, int opset_size) {
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t *DbgGDBMICloseSocket(void) {
+dbgevent_t *DbgGdbMI::closeSocket() {
     close(sock_fd);
 
     // unload other_app
     UnloadAppInfo(&other_app);
 
     return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t *DbgGdbMI::getLocation() {
+    // unimplemented, return an error event
+    dbgevent_t* e = nullptr;
+    EVENT_ERROR(e, DBGERR_DEBUGGER, "debugger function not implemented");
+    return e;
+}
+int DbgGdbMI::progioHook(int) {
+    // unimplemented, expecting a status, this has always return -1
+    return -1;
 }

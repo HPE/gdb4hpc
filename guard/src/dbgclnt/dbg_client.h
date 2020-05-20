@@ -358,7 +358,7 @@ extern void ReleaseSignals(void);
 ** interface prototypes
 */
 extern int DbgInit(void);
-extern void DbgFinish(void);
+extern void DbgFinalize(void);
 
 extern int DbgCheckEvents(void);
 extern void DbgDispatchEvents(void);
@@ -434,7 +434,7 @@ extern rep_set_t *DbgDeleteBreak(rec_set_t *, int);
 extern rep_set_t *DbgDisableBreak(rec_set_t *, int);
 // Returns NULL on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *DbgEnableBreak(rec_set_t *, int, int, int);
+extern rep_set_t *DbgEnableBreak(rec_set_t *, int, bool, bool);
 extern rep_set_t *DbgList(rec_set_t *, char *);
 extern rep_set_t *DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though

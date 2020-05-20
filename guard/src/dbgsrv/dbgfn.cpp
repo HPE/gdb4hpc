@@ -42,7 +42,7 @@ typedef struct backend_tab backend_tab;
 #if defined(GDB_BACKEND)
 extern dbgbackend_sw DbgBackendGDB;
 #elif defined(GDBMI_BACKEND)
-extern dbgbackend_sw DbgBackendGDBMI;
+extern dbgbackend_sw* DbgGdbMIGetSingleton();
 #elif defined(IDB_BACKEND)
 extern dbgbackend_sw DbgBackendIDB;
 #endif
@@ -52,7 +52,7 @@ static backend_tab DbgBackendTab[] = {
 #if defined(GDB_BACKEND)
     {"gdb", &DbgBackendGDB},
 #elif defined(GDBMI_BACKEND)
-    {"gdbmi", &DbgBackendGDBMI},
+    {"gdbmi", DbgGdbMIGetSingleton()},
 #elif defined(IDB_BACKEND)
     {"idb", &DbgBackendIDB},
 #endif
@@ -65,7 +65,7 @@ static backend_tab DbgBackendTab[] = {
 #if defined(GDB_BACKEND)
 static dbgbackend_sw *DbgBackendSW = &DbgBackendGDB; /* Default to GDB */
 #elif defined(GDBMI_BACKEND)
-static dbgbackend_sw *DbgBackendSW = &DbgBackendGDBMI; /* Default to GDBMI */
+static dbgbackend_sw *DbgBackendSW = DbgGdbMIGetSingleton(); /* Default to GDBMI */
 #elif defined(IDB_BACKEND)
 static dbgbackend_sw *DbgBackendSW = &DbgBackendIDB; /* Default to IDB */
 #endif
@@ -94,86 +94,42 @@ int DbgSetBackend(const char *backend) {
     return 1;
 }
 
-// Used to ensure the function is implemented
-#define DBG_IMP(e, f)                                                         \
-    if (f == NULL) {                                                          \
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "debugger function not implemented"); \
-        return e;                                                             \
-    }
-
-#define DBG_SIMPLE_IMP(f) \
-    if (f == NULL) {      \
-        return -1;        \
-    }
-
-#define DBG_VOID_IMP(f) \
-    if (f == NULL) {    \
-        return;         \
-    }
-
 dbgevent_t *DbgInit(int *dfd, int *iofd, char **env) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_IMP(e, DbgBackendSW->dbg_init);
-
-    return DbgBackendSW->dbg_init(dfd, iofd, env);
+    return DbgBackendSW->init(dfd, iofd, env);
 }
 
 dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env,
                       int arch) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_IMP(e, DbgBackendSW->dbg_attach);
-
-    return DbgBackendSW->dbg_attach(pid, prog, args, env, arch);
+    return DbgBackendSW->attach(pid, prog, args, env, arch);
 }
 
 dbgevent_t *DbgInvoke(const char *host, int cb, const char *proto,
                       const char *prog, const char *args, char **env,
                       int arch) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_IMP(e, DbgBackendSW->dbg_invoke);
-
-    return DbgBackendSW->dbg_invoke(host, cb, proto, prog, args, env, arch);
+    return DbgBackendSW->invoke(host, cb, proto, prog, args, env, arch);
 }
 
-void DbgFinish(void) {
+void DbgFinalize(void) {
     ResetWDT();
-
-    DBG_VOID_IMP(DbgBackendSW->dbg_finish);
-
-    return DbgBackendSW->dbg_finish();
+    return DbgBackendSW->finalize();
 }
 
 int DbgProgIOHook(int fd) {
     ResetWDT();
-
-    DBG_SIMPLE_IMP(DbgBackendSW->dbg_progio_hook);
-
-    return DbgBackendSW->dbg_progio_hook(fd);
+    return DbgBackendSW->progioHook(fd);
 }
 
 int DbgRead(int fd) {
     ResetWDT();
-
-    DBG_SIMPLE_IMP(DbgBackendSW->dbg_read);
-
-    return DbgBackendSW->dbg_read(fd);
+    return DbgBackendSW->read(fd);
 }
 
 int DbgBufferReady(void) {
     ResetWDT();
-
-    DBG_SIMPLE_IMP(DbgBackendSW->dbg_bufferready);
-
-    return DbgBackendSW->dbg_bufferready();
+    return DbgBackendSW->bufferReady();
 }
 
 /*
@@ -181,24 +137,27 @@ int DbgBufferReady(void) {
 ** started and init'ed before calling these.
 */
 
-#define DBG_CHECK(e)                                               \
-    if (!DbgBackendSW->dbg_ok()) {                                 \
+#define DBG_CHECK()                                               \
+    if (!DbgBackendSW->isOk()) {                                 \
+        dbgevent_t* e;                                            \
         EVENT_ERROR(e, DBGERR_DEBUGGER, "debugger not available"); \
         return e;                                                  \
     }
 
-#define DBG_READY(e)                          \
-    DBG_CHECK(e);                             \
+#define DBG_READY()                          \
+    DBG_CHECK();                             \
                                               \
-    if (!DbgBackendSW->dbg_readyforcmd()) {   \
+    if (!DbgBackendSW->isReadyForCmd()) {   \
+        dbgevent_t* e;                      \
         EVENT_ERROR(e, DBGERR_ISRUNNING, ""); \
         return e;                             \
     }
 
-#define DBG_STOPPED(e)                        \
-    DBG_READY(e);                             \
+#define DBG_STOPPED()                        \
+    DBG_READY();                             \
                                               \
-    if (!DbgBackendSW->dbg_stopped()) {       \
+    if (!DbgBackendSW->isStopped()) {       \
+        dbgevent_t* e;                      \
         EVENT_ERROR(e, DBGERR_ISRUNNING, ""); \
         return e;                             \
     }
@@ -208,437 +167,220 @@ int DbgBufferReady(void) {
 */
 
 dbgevent_t *DbgStartup(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_startup);
-
-    return DbgBackendSW->dbg_startup();
+    DBG_READY();
+    return DbgBackendSW->startup();
 }
 
 dbgevent_t *DbgSetLineBreak(char *file, int line, const dbgcomm_info *ci) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setlinebreak);
-
-    return DbgBackendSW->dbg_setlinebreak(file, line, ci);
+    DBG_READY();
+    return DbgBackendSW->setLineBreak(file, line, ci);
 }
 
 dbgevent_t *DbgSetFuncBreak(char *file, char *func, const dbgcomm_info *ci) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setfuncbreak);
-
-    return DbgBackendSW->dbg_setfuncbreak(file, func, ci);
+    DBG_READY();
+    return DbgBackendSW->setFuncBreak(file, func, ci);
 }
 
 dbgevent_t *DbgSetWatch(int type, char *expr, const dbgcomm_info *ci) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setwatch);
-
-    return DbgBackendSW->dbg_setwatch(type, expr, ci);
+    DBG_READY();
+    return DbgBackendSW->setWatch(type, expr, ci);
 }
 
 dbgevent_t *DbgDeleteBreak(int bp) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_deletebreak);
-
-    return DbgBackendSW->dbg_deletebreak(bp);
+    DBG_READY();
+    return DbgBackendSW->deleteBreak(bp);
 }
 
 dbgevent_t *DbgDisableBreak(int bp) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_disablebreak);
-
-    return DbgBackendSW->dbg_disablebreak(bp);
+    DBG_READY();
+    return DbgBackendSW->disableBreak(bp);
 }
 
-dbgevent_t *DbgEnableBreak(int bp, int once, int del) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgEnableBreak(int bp, bool once, bool del) {
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_enablebreak);
-
-    return DbgBackendSW->dbg_enablebreak(bp, once, del);
+    DBG_READY();
+    return DbgBackendSW->enableBreak(bp, once, del);
 }
 
 dbgevent_t *DbgLastBreak(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_lastbreak);
-
-    return DbgBackendSW->dbg_lastbreak();
+    DBG_READY();
+    return DbgBackendSW->lastBreak();
 }
 
 dbgevent_t *DbgList(char *str) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_list);
-
-    return DbgBackendSW->dbg_list(str);
+    DBG_READY();
+    return DbgBackendSW->list(str);
 }
 
-dbgevent_t *DbgGetSources(void) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgGetSources() {
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getsources);
-
-    return DbgBackendSW->dbg_getsources();
+    DBG_READY();
+    return DbgBackendSW->getSources();
 }
 
-dbgevent_t *DbgGo(void) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgGo() {
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_go);
-
-    return DbgBackendSW->dbg_go();
+    DBG_READY();
+    return DbgBackendSW->go();
 }
 
 dbgevent_t *DbgFinishFunc(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_finishfunc);
-
-    return DbgBackendSW->dbg_finishfunc();
+    DBG_READY();
+    return DbgBackendSW->finishFunc();
 }
 
 dbgevent_t *DbgSetArgs(char *args) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setargs);
-
-    return DbgBackendSW->dbg_setargs(args);
+    DBG_READY();
+    return DbgBackendSW->setArgs(args);
 }
 
 dbgevent_t *DbgStep(int count, int in) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_STOPPED(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_step);
-
-    return DbgBackendSW->dbg_step(count, in);
+    DBG_STOPPED();
+    return DbgBackendSW->step(count, in);
 }
 
 dbgevent_t *DbgKill(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_kill);
-
-    return DbgBackendSW->dbg_kill();
+    DBG_READY();
+    return DbgBackendSW->kill();
 }
 
-dbgevent_t *DbgMoveFrame(int count, int up) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgMoveFrame(int count, bool up) {
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_moveframe);
-
-    return DbgBackendSW->dbg_moveframe(count, up);
+    DBG_READY();
+    return DbgBackendSW->moveFrame(count, up);
 }
 
 // If count is 0, then an unlimited number of frames should be displayed.
 dbgevent_t *DbgShowFrame(int count) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_showframe);
-
-    return DbgBackendSW->dbg_showframe(count);
+    DBG_READY();
+    return DbgBackendSW->showFrame(count);
 }
 
 dbgevent_t *DbgGetFrame(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getframe);
-
-    return DbgBackendSW->dbg_getframe();
+    DBG_READY();
+    return DbgBackendSW->getFrame();
 }
 
 dbgevent_t *DbgSetDebuggerVar(char *var, AIF *val) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setdebuggervar);
-
-    return DbgBackendSW->dbg_setdebuggervar(var, val);
+    DBG_READY();
+    return DbgBackendSW->setDebuggerVar(var, val);
 }
 
 dbgevent_t *DbgSetSourcePath(char *path) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setsourcepath);
-
-    return DbgBackendSW->dbg_setsourcepath(path);
+    DBG_READY();
+    return DbgBackendSW->setSourcePath(path);
 }
 
 dbgevent_t *DbgGetSourcePath() {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getsourcepath);
-
-    return DbgBackendSW->dbg_getsourcepath();
+    DBG_READY();
+    return DbgBackendSW->getSourcePath();
 }
 
 dbgevent_t *DbgGetDebuggerVar(char *var) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getdebuggervar);
-
-    return DbgBackendSW->dbg_getdebuggervar(var);
+    DBG_READY();
+    return DbgBackendSW->getDebuggerVar(var);
 }
 
 dbgevent_t *DbgSetVar(char *var, AIF *data) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setvar);
-
-    return DbgBackendSW->dbg_setvar(var, data);
+    DBG_READY();
+    return DbgBackendSW->setVar(var, data);
 }
 
 dbgevent_t *DbgEvalExpr(char *expr, long exprCnt) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_evalexpr);
-
-    return DbgBackendSW->dbg_evalexpr(expr, exprCnt);
+    DBG_READY();
+    return DbgBackendSW->evalExpr(expr, exprCnt);
 }
 
-dbgevent_t *DbgGetType(char *var, int isType) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgGetType(char *var, bool isType) {
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_gettype);
-
-    return DbgBackendSW->dbg_gettype(var, isType);
+    DBG_READY();
+    return DbgBackendSW->getType(var, isType);
 }
 
 dbgevent_t *DbgGetLocation(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getlocation);
-
-    return DbgBackendSW->dbg_getlocation();
+    DBG_READY();
+    return DbgBackendSW->getLocation();
 }
 
 dbgevent_t *DbgOpenSocket(char *opset_name, int opset_size) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_opensocket);
-
-    return DbgBackendSW->dbg_opensocket(opset_name, opset_size);
+    DBG_READY();
+    return DbgBackendSW->openSocket(opset_name, opset_size);
 }
 
 dbgevent_t *DbgCloseSocket(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_closesocket);
-
-    return DbgBackendSW->dbg_closesocket();
+    DBG_READY();
+    return DbgBackendSW->closeSocket();
 }
 
 dbgevent_t *DbgGetVars(char *file) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getvars);
-
-    return DbgBackendSW->dbg_getvars(file);
+    DBG_READY();
+    return DbgBackendSW->getVars(file);
 }
 
 dbgevent_t *DbgGetScope(char *location) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getscope);
-
-    return DbgBackendSW->dbg_getscope(location);
+    DBG_READY();
+    return DbgBackendSW->getScope(location);
 }
 
 dbgevent_t* DbgSetThread(const char* threadId) {
     DVPRINT("IN server DbgSetThread\n");
-
     ResetWDT();
-
-    dbgevent_t* e;
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_setthread);
-
-    return DbgBackendSW->dbg_setthread(threadId);
+    DBG_READY();
+    return DbgBackendSW->setThread(threadId);
 }
 
 dbgevent_t* DbgGetThreadInfo(const char* threadId) {
     DVPRINT("IN server DbgGetThreadInfo\n");
-
     ResetWDT();
-
-    dbgevent_t* e;
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_getthreadinfo);
-
-    return DbgBackendSW->dbg_getthreadinfo(threadId);
+    DBG_READY();
+    return DbgBackendSW->getThreadInfo(threadId);
 }
 
-
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_READY(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_directcmd);
-
-    return DbgBackendSW->dbg_directcmd(cmd_argc, cmd_argv);
+    DBG_READY();
+    return DbgBackendSW->directCmd(cmd_argc, cmd_argv);
 }
 
 dbgevent_t *DbgStatus(int getLocation) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_CHECK(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_status);
-
-    return DbgBackendSW->dbg_status(getLocation);
+    DBG_CHECK();
+    return DbgBackendSW->getStatus(getLocation);
 }
 
-dbgevent_t *DbgQuit(int detach) {
-    dbgevent_t *e;
-
+dbgevent_t *DbgQuit(bool detach) {
     Shutdown++;
-
-    DBG_CHECK(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_quit);
-
-    return DbgBackendSW->dbg_quit(detach);
+    DBG_CHECK();
+    return DbgBackendSW->quit(detach);
 }
 
 dbgevent_t *DbgInterrupt(void) {
-    dbgevent_t *e;
-
     ResetWDT();
-
-    DBG_CHECK(e);
-
-    DBG_IMP(e, DbgBackendSW->dbg_interrupt);
-
-    return DbgBackendSW->dbg_interrupt();
+    DBG_CHECK();
+    return DbgBackendSW->interrupt();
 }

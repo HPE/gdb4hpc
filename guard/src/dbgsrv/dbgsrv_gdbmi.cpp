@@ -2994,7 +2994,7 @@ dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
 
     dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread name failed.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set thread name failed.");
     } else {
         e = NewEvent(DBGEV_OK);
     }
@@ -3013,22 +3013,16 @@ dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
 
     dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb find thread.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread find failed.");
         MICommandFree(cmd);
         return e;
     }
 
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
-        DVPRINT("got a find thread result %s\n", threadInfo);
-
-        std::string info(threadInfo);
-        free(threadInfo);
-
-        //info = anonymizeThreadInfo(info);
         e = NewEvent(DBGEV_THREADINFO);
-        e->ev_string = strdup(info.c_str());
+        e->ev_string = threadInfo;
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Get thread find failed to get a result.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread find failed to get a result.");
     }
 
     MICommandFree(cmd);
@@ -3189,14 +3183,12 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
 
     dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb find thread.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
         MICommandFree(cmd);
         return e;
     }
 
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
-        DVPRINT("thread apply result = %s\n", threadInfo);
-        
         std::string info(threadInfo);
         free(threadInfo);
 
@@ -3204,7 +3196,7 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
         e = NewEvent(DBGEV_THREADINFO);
         e->ev_string = strdup(info.c_str());
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Get thread find failed to get a result.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed to get a result.");
     }
 
     MICommandFree(cmd);

@@ -237,18 +237,15 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
 
         case DBGCMD_GETTHREADINFO:
-            DVPRINT("in DBGCMD_GETTHREADINFO\n");
             e = DbgGetThreadInfo(cmd->cmd_u.cmd_u_thread->threadId);
             break;
             
         case DBGCMD_SETTHREADNAME:
-            DVPRINT("in DBGCMD_SETTHREADINFO\n");
             CHECK_ARGS(e, cmd->cmd_u.cmd_u_thread->threadId);
             e = DbgSetThreadName(cmd->cmd_u.cmd_u_thread->threadId);
             break;
 
         case DBGCMD_FINDTHREAD:
-            DVPRINT("in DBGCMD_FINDTHREAD\n");
             e = DbgFindThread(cmd->cmd_u.cmd_u_thread->threadId);
             break;
 

@@ -1,4 +1,4 @@
-/******************************************************************************\
+/****************************************************************************** \
  * help_dict.c - Command help string definition dictionary.
  *
  * Copyright 2011-2020 Cray Inc.
@@ -683,13 +683,47 @@ const char* const cmd_tbreak_help[] = {
 const char* const cmd_thread_help[] = {
     "Summary: Switch between threads.",
     "Usage: thread <thread-id>",
+    "Example command: thread 5",
     "",
-    "Arguments: thread-id  (id or name)",
+    "Arguments: thread-id",
     "",
     "Description:",
     "Change the thread context in every application rank in the current process set.",
     "Subsequent commands like \"print\", \"bt\", \"next\" and \"step\" will be",
-    "direct to the thread-id",
+    "directed to the thread-id",
+    "",
+    "Summary: apply a command to a set of threads.",
+    "Usage: thread apply <thread-list> | all [-ascending] [-s] [-q] [-c] [-v] command",
+    "Example command: thread apply all -s p i"
+    "",
+    "Description:",
+    "Applies command to every thread in the selection list with the following flags",
+    "to control the output:",
+    "-q (quiet) disables printing the thread information for each result",
+    "-s (silent) disables output from threads where the command generates an error"
+    "     (e.g. variable not defined).",
+    "-v (verbose) suppresses stripping out LWP and pointer values from the output.",
+    "     Especially when not compbined with -q this will tend to produce a full result for",
+    "     each member of the procset.",
+    "-c and -ascending (continue after error) and list in ascending order are the default behaviors",
+    "     and are included for compatiblity with gdb commands.",
+    "",
+    "Summary: Name the current thread.",
+    "Usage: thread name [<name>]",
+    "Example command: thread name main",
+    "",
+    "Description:",
+    "Renames the current thread to name.   If no name argument is given, remove any previous name assigned",
+    "via thread name and revert to the program's name for the thread.",
+    "",
+    "Summary: Find threads using a regular expression",
+    "Usage: thread find <regex>",
+    "Example: thread find collector",
+    "",
+    "Description:",
+    "Prints threads whose full id contains a regular expression.   The match is against the full",
+    "thread identifier shown by \"info threads -v\" which may include not just the number and name",
+    "but also the thread's address and LWP id",
     0};
     
 const char* const cmd_up_help[] = {

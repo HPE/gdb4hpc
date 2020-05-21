@@ -29,23 +29,76 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: thread 5\n");
+        PrintOutError("Expected: thread <thread-number> or thread name <thread-name>,\n");
+        PrintOutError("  or thread find <pattern> or thread apply <operation>.\n");
         return 1;
     }
 
-    if (argc > 2) {
+    if ((argc == 3 || argc == 2) && strcmp(argv[1],"name") == 0) {
+        rep_set_t* rep_set = DbgSetThreadName(rec_set, argc == 3 ? argv[2] : "");
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return 1;
+    } else if (argc == 3 && strcmp(argv[1],"find") == 0) {
+        rep_set_t* rep_set = DbgFindThread(rec_set, argv[2]);
+        ProcessErrorInRepSet(rep_set);
+
+        // process replies
+        for (auto&& reply : rep_set) {
+            auto handle = reply->rep_di->d_handle;
+            auto group = reply->rep_group;
+            
+            const char* str = reply->rep_event->ev_u.ev_u_string;
+            std::istringstream is(str);
+            std::string line;
+            while (std::getline(is,line)) {
+                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            }
+        }
+        
+        FreeRepSet(rep_set);
+        return 1;
+    } else if (argc >= 3 && strcmp(argv[1],"apply") == 0) {
+        std::string arg = ArgsToString(argc-2,argv+2);
+        if (RecSetHasOneProcPerReceiver(rec_set)) {
+            // We try not to lose any information when you are focused on a
+            // single rank.    Taking advantage of the server side not being
+            // too particular about where the -v option is on the line..
+            arg = "-v " + arg;
+        }
+
+        rep_set_t* rep_set = DbgThreadApply(rec_set,arg.c_str());
+        ProcessErrorInRepSet(rep_set);
+
+        // process replies
+        for (auto&& reply : rep_set) {
+            auto handle = reply->rep_di->d_handle;
+            auto group = reply->rep_group;
+            
+            const char* str = reply->rep_event->ev_u.ev_u_string;
+            std::istringstream is(str);
+            std::string line;
+            while (std::getline(is,line)) {
+                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            }
+        }
+
+        FreeRepSet(rep_set);
+        return 1;
+    } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: thread 5\n");
+        return 0;
+    } else {
+        const char* arg = argv[1];
+        rep_set_t *rep_set = DbgSetThread(rec_set, arg);
+
+        ProcessErrorInRepSet(rep_set);
+        
+        FreeRepSet(rep_set);
+        
+        return 1;
     }
-
-    const char* arg = argv[1];
-    rep_set_t *rep_set = DbgSetThread(rec_set, arg);
-
-    ProcessErrorInRepSet(rep_set);
-
-    FreeRepSet(rep_set);
-    
-    return 1;
 }
 
 static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
@@ -62,12 +115,9 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     // print out address informtation if we are focuses on a single process.  In that case,
     // the actual memory addresses are useful and combining results is no an issue.
-    int numRecvs = 0;
-    SetReceiverHeadInSet(rec_set);
-    while (auto recv = GetNextReceiverInSet(rec_set)) {
-        if ((numRecvs = bitset_numset(recv->rec_group)) > 1) break;
+    if (RecSetHasOneProcPerReceiver(rec_set)) {
+        arg += " -v";
     }
-    if (numRecvs == 1) arg += " -v";
 
     rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
@@ -95,7 +145,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, (int (*)())cmd_thread_cmd,
-               cmd_thread_help, "Switch to specified thread.");
+               cmd_thread_help, "Thread control functions.");
 
     AddInfoCommand("threads", proc_required, 0,
                    (int (*)())class_info_subcmd_threads_cmd,

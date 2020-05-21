@@ -319,6 +319,7 @@ extern void AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
 extern void FreeRecSet(rec_set_t *set);
 extern void SetReceiverHeadInSet(rec_set_t *set);
 extern group_recv_t *GetNextReceiverInSet(rec_set_t *set);
+extern bool RecSetHasOneProcPerReceiver(rec_set_t* set);
 
 /*
 ** Reply routines
@@ -424,6 +425,10 @@ extern rep_set_t *DbgSetFuncBreak(rec_set_t *, char *, char *);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
+extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);
+extern rep_set_t *DbgFindThread(rec_set_t *, const char*);
+extern rep_set_t *DbgThreadApply(rec_set_t *,const char* op);
+
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgKill(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error

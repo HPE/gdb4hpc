@@ -264,3 +264,14 @@ char *ArgsToBuf(char *argv[], int argc) {
     // return the concat'ed result
     return buf_1;
 }
+
+
+std::string ArgsToString(int argc, char* argv[]) {
+    std::string res;
+    for (int i=0; i<argc; ++i) {
+        if (i)
+            res += " ";
+        res += argv[i];
+    }
+    return res;
+}

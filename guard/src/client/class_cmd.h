@@ -39,25 +39,26 @@ extern cmdlist_t *UsageCmds;     /* Usage command list */
 /*
  * External AddClassCommand interface
  */
-extern void AddInfoCommand(const char *, cmdptype_t, int, int (*)(),
+using cmdfunc_t = int (*)(rec_set_t*,int,char**);
+extern void AddInfoCommand(const char *, cmdptype_t, int, cmdfunc_t,
                            const char *const[], const char *);
-extern void AddMaintCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddMaintCommand(const char *, cmdptype_t, int, cmdfunc_t,
                             const char *const[], const char *);
-extern void AddMaintSetCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddMaintSetCommand(const char *, cmdptype_t, int, cmdfunc_t,
                                const char *const[], const char *);
-extern void AddMaintShowCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddMaintShowCommand(const char *, cmdptype_t, int, cmdfunc_t,
                                 const char *const[], const char *);
-extern void AddSetCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddSetCommand(const char *, cmdptype_t, int, cmdfunc_t,
                           const char *const[], const char *);
-extern void AddSetPrintCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddSetPrintCommand(const char *, cmdptype_t, int, cmdfunc_t,
                                const char *const[], const char *);
-extern void AddShowCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddShowCommand(const char *, cmdptype_t, int, cmdfunc_t,
                            const char *const[], const char *);
-extern void AddShowPrintCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddShowPrintCommand(const char *, cmdptype_t, int, cmdfunc_t,
                                 const char *const[], const char *);
-extern void AddUnsetCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddUnsetCommand(const char *, cmdptype_t, int, cmdfunc_t,
                             const char *const[], const char *);
-extern void AddUsageCommand(const char *, cmdptype_t, int, int (*)(),
+extern void AddUsageCommand(const char *, cmdptype_t, int, cmdfunc_t,
                             const char *const[], const char *);
 
 /*

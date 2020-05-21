@@ -39,52 +39,52 @@ cmdlist_t *UsageCmds;     /* Usage command list */
  * AddCommand functions for command classes - External access
  */
 
-void AddInfoCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddInfoCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                     const char *const help[], const char *desc) {
     AddClassSubCommand(InfoCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddMaintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddMaintCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                      const char *const help[], const char *desc) {
     AddClassSubCommand(MaintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddMaintSetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddMaintSetCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                         const char *const help[], const char *desc) {
     AddClassSubCommand(MaintSetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddMaintShowCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddMaintShowCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                          const char *const help[], const char *desc) {
     AddClassSubCommand(MaintShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddSetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddSetCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                    const char *const help[], const char *desc) {
     AddClassSubCommand(SetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddSetPrintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddSetPrintCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                         const char *const help[], const char *desc) {
     AddClassSubCommand(SetPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddShowCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddShowCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                     const char *const help[], const char *desc) {
     AddClassSubCommand(ShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddShowPrintCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddShowPrintCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                          const char *const help[], const char *desc) {
     AddClassSubCommand(ShowPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddUnsetCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddUnsetCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                      const char *const help[], const char *desc) {
     AddClassSubCommand(UnsetCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
-void AddUsageCommand(const char *name, cmdptype_t pt, int sub, int (*cmd)(),
+void AddUsageCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                      const char *const help[], const char *desc) {
     AddClassSubCommand(UsageCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
@@ -529,40 +529,40 @@ void InitCmd_class(void) {
 
     // class commands
     AddClassCommand(
-        "info", NULL, proc_ignore, 1, (int (*)())class_info_cmd,
+        "info", NULL, proc_ignore, 1, class_info_cmd,
         FindInfoCommand, class_info_help,
         "Display information about the application being debugged.");
-    AddClassCommand("maint", NULL, proc_ignore, 1, (int (*)())class_maint_cmd,
+    AddClassCommand("maint", NULL, proc_ignore, 1, class_maint_cmd,
                     FindMaintCommand, class_maint_help,
                     "Commands for use by debugger maintainers.");
-    AddClassCommand("set", NULL, proc_ignore, 1, (int (*)())class_set_cmd,
+    AddClassCommand("set", NULL, proc_ignore, 1, class_set_cmd,
                     FindSetCommand, class_set_help,
                     "Set information about the debugger environment.");
-    AddClassCommand("show", NULL, proc_ignore, 1, (int (*)())class_show_cmd,
+    AddClassCommand("show", NULL, proc_ignore, 1, class_show_cmd,
                     FindShowCommand, class_show_help,
                     "Show information about the debugger environment.");
-    AddClassCommand("unset", NULL, proc_ignore, 1, (int (*)())class_unset_cmd,
+    AddClassCommand("unset", NULL, proc_ignore, 1, class_unset_cmd,
                     FindUnsetCommand, class_unset_help,
                     "Unset information in the debugger environment.");
-    AddClassCommand("usage", NULL, proc_ignore, 1, (int (*)())class_usage_cmd,
+    AddClassCommand("usage", NULL, proc_ignore, 1, class_usage_cmd,
                     FindUsageCommand, class_usage_help,
                     "Display usage information about script mode commands.");
 
     // Set class commands
-    AddSetCommand("print", proc_ignore, 1, (int (*)())class_set_print_cmd,
+    AddSetCommand("print", proc_ignore, 1, class_set_print_cmd,
                   class_set_print_help,
                   "Set information about how things get printed.");
 
     // Show class commands
-    AddShowCommand("print", proc_ignore, 1, (int (*)())class_show_print_cmd,
+    AddShowCommand("print", proc_ignore, 1, class_show_print_cmd,
                    class_show_print_help,
                    "Show information about how things get printed.");
 
     // Maint class commands
-    AddMaintCommand("set", proc_ignore, 1, (int (*)())class_maint_set_cmd,
+    AddMaintCommand("set", proc_ignore, 1, class_maint_set_cmd,
                     class_maint_set_help,
                     "Set information about the debugger environment.");
-    AddMaintCommand("show", proc_ignore, 1, (int (*)())class_maint_show_cmd,
+    AddMaintCommand("show", proc_ignore, 1, class_maint_show_cmd,
                     class_maint_show_help,
                     "Show information about the debugger environment.");
 }

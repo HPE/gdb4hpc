@@ -42,6 +42,6 @@ static int cmd_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_source(void) {
-    AddCommand("source", NULL, proc_ignore, 0, (int (*)())cmd_source_cmd,
+    AddCommand("source", NULL, proc_ignore, 0, cmd_source_cmd,
                cmd_source_help, "Read debugger commands from a file.");
 }

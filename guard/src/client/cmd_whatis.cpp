@@ -160,15 +160,15 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
 }
 
 void InitCmd_whatis(void) {
-    AddCommand("whatis", NULL, proc_required, 0, (int (*)())cmd_whatis_cmd,
+    AddCommand("whatis", NULL, proc_required, 0, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
 
     AddInfoCommand("locals", proc_required, 0,
-                   (int (*)())class_info_subcmd_locals_cmd,
+                   class_info_subcmd_locals_cmd,
                    class_info_subcmd_locals_help,
                    "List local variables of ranks in current process set.");
     AddInfoCommand("scope", proc_required, 0,
-                   (int (*)())class_info_subcmd_scope_cmd,
+                   class_info_subcmd_scope_cmd,
                    class_info_subcmd_scope_help,
                    "List variables local to a scope in the application.");
 }

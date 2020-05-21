@@ -106,12 +106,12 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_list(void) {
     // Regular commands
-    AddCommand("list", "l", proc_required, 0, (int (*)())cmd_list_cmd,
+    AddCommand("list", "l", proc_required, 0, cmd_list_cmd,
                cmd_list_help, "List source for specified function or line.");
 
     // Info commands
     AddInfoCommand("sources", proc_required, 0,
-                   (int (*)())class_info_subcmd_sources_cmd,
+                   class_info_subcmd_sources_cmd,
                    class_info_subcmd_sources_help,
                    "Display the source files in the application.");
 }

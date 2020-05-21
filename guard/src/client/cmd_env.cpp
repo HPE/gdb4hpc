@@ -660,98 +660,98 @@ static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_env(void) {
     // regular commands
-    AddCommand("quit", "q", proc_ignore, 0, (int (*)())cmd_quit_cmd,
+    AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
                cmd_quit_help, "Exit the debugger.");
 
     // maint commands
     AddMaintCommand("echo", proc_ignore, 0,
-                    (int (*)())class_maint_subcmd_echo_cmd,
+                    class_maint_subcmd_echo_cmd,
                     class_maint_subcmd_echo_help, "Echo a string.");
     AddMaintCommand("sleep", proc_ignore, 0,
-                    (int (*)())class_maint_subcmd_sleep_cmd,
+                    class_maint_subcmd_sleep_cmd,
                     class_maint_subcmd_sleep_help, "Pause the debugger.");
     AddMaintCommand("system", proc_ignore, 0,
-                    (int (*)())class_maint_subcmd_system_cmd,
+                    class_maint_subcmd_system_cmd,
                     class_maint_subcmd_system_help, "Run a shell command.");
 
     // info commands
     AddInfoCommand("status", proc_required, 0,
-                   (int (*)())class_info_subcmd_status_cmd,
+                   class_info_subcmd_status_cmd,
                    class_info_subcmd_status_help,
                    "Display the status of the debug servers.");
 
     // set commands
     AddSetCommand("directory", proc_required, 0,
-                  (int (*)())class_set_subcmd_directory_cmd,
+                  class_set_subcmd_directory_cmd,
                   class_set_subcmd_directory_help,
                   "Add directory to search path for source files.");
     AddSetCommand("error", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_error_cmd,
+                  class_set_subcmd_error_cmd,
                   class_set_subcmd_error_help,
                   "Set warn and error epsilon for floating point comparison.");
     AddSetCommand("environment", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_environment_cmd,
+                  class_set_subcmd_environment_cmd,
                   class_set_subcmd_environment_help,
                   "Set environment variable value for launching applications.");
 
     // set print commands
     AddSetPrintCommand(
         "entry-frame", proc_ignore, 0,
-        (int (*)())class_set_print_subcmd_entryframe_cmd,
+        class_set_print_subcmd_entryframe_cmd,
         class_set_print_subcmd_entryframe_help,
         "Enable/disable printing of entry frames on launch/attach.");
 
     // maint set commands
     AddMaintSetCommand("earlyentry", proc_ignore, 0,
-                       (int (*)())class_maint_set_subcmd_earlyentry_cmd,
+                       class_maint_set_subcmd_earlyentry_cmd,
                        class_maint_set_subcmd_earlyentry_help,
                        "Enable early entry mode.");
     AddMaintSetCommand(
-        "unsafe", proc_ignore, 0, (int (*)())class_maint_set_subcmd_unsafe_cmd,
+        "unsafe", proc_ignore, 0, class_maint_set_subcmd_unsafe_cmd,
         class_maint_set_subcmd_unsafe_help, "Enable unsafe functionality.");
     AddMaintSetCommand(
-        "sync", proc_ignore, 0, (int (*)())class_maint_set_subcmd_sync_cmd,
+        "sync", proc_ignore, 0, class_maint_set_subcmd_sync_cmd,
         class_maint_set_subcmd_sync_help, "Enable synchronous event mode.");
 
     // show commands
     AddShowCommand("directories", proc_required, 0,
-                   (int (*)())class_show_subcmd_directories_cmd,
+                   class_show_subcmd_directories_cmd,
                    class_show_subcmd_directories_help,
                    "Show current search path for finding source files.");
     AddShowCommand(
-        "error", proc_ignore, 0, (int (*)())class_show_subcmd_error_cmd,
+        "error", proc_ignore, 0, class_show_subcmd_error_cmd,
         class_show_subcmd_error_help,
         "Show warn and error epsilon for floating point comparison.");
     AddShowCommand("environment", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_environment_cmd,
+                   class_show_subcmd_environment_cmd,
                    class_show_subcmd_environment_help,
                    "Show environment variables that were set.");
     AddShowCommand(
-        "version", proc_ignore, 0, (int (*)())class_show_subcmd_version_cmd,
+        "version", proc_ignore, 0, class_show_subcmd_version_cmd,
         class_show_subcmd_version_help, "Show the debugger version number.");
 
     // show print commands
     AddShowPrintCommand("entry-frame", proc_ignore, 0,
-                        (int (*)())class_show_print_subcmd_entryframe_cmd,
+                        class_show_print_subcmd_entryframe_cmd,
                         class_show_print_subcmd_entryframe_help,
                         "Show setting of print entry-frame mode.");
 
     // maint show commands
     AddMaintShowCommand("earlyentry", proc_ignore, 0,
-                        (int (*)())class_maint_show_subcmd_earlyentry_cmd,
+                        class_maint_show_subcmd_earlyentry_cmd,
                         class_maint_show_subcmd_earlyentry_help,
                         "Show setting of early entry mode.");
     AddMaintShowCommand(
-        "unsafe", proc_ignore, 0, (int (*)())class_maint_show_subcmd_unsafe_cmd,
+        "unsafe", proc_ignore, 0, class_maint_show_subcmd_unsafe_cmd,
         class_maint_show_subcmd_unsafe_help, "Show setting of unsafe mode.");
     AddMaintShowCommand("sync", proc_ignore, 0,
-                        (int (*)())class_maint_show_subcmd_sync_cmd,
+                        class_maint_show_subcmd_sync_cmd,
                         class_maint_show_subcmd_sync_help,
                         "Show setting of synchronous event mode.");
 
     // unset commands
     AddUnsetCommand("environment", proc_ignore, 0,
-                    (int (*)())class_unset_subcmd_environment_cmd,
+                    class_unset_subcmd_environment_cmd,
                     class_unset_subcmd_environment_help,
                     "Remove a previously set environment variable.");
 }

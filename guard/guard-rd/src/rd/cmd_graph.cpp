@@ -1532,54 +1532,54 @@ void InitCmd_graph(void) {
 
     // info commands
     AddInfoCommand("diff", proc_ignore, 0,
-                   (int (*)())class_info_subcmd_diff_cmd,
+                   class_info_subcmd_diff_cmd,
                    class_info_subcmd_diff_help,
                    "Display saved deltas from assertion script execution.");
     AddInfoCommand(
-        "build", proc_ignore, 0, (int (*)())class_info_subcmd_build_cmd,
+        "build", proc_ignore, 0, class_info_subcmd_build_cmd,
         class_info_subcmd_build_help, "Display built assertion scripts.");
     AddInfoCommand("script", proc_ignore, 0,
-                   (int (*)())class_info_subcmd_script_cmd,
+                   class_info_subcmd_script_cmd,
                    class_info_subcmd_script_help,
                    "Display active assertion script status.");
 
     // maint commands
     AddMaintCommand("dump", proc_ignore, 0,
-                    (int (*)())class_maint_subcmd_dump_cmd,
+                    class_maint_subcmd_dump_cmd,
                     class_maint_subcmd_dump_help,
                     "Dump an assertion script in digraph format.");
 
     // set commands
     AddSetCommand(
-        "display", proc_ignore, 0, (int (*)())class_set_subcmd_display_cmd,
+        "display", proc_ignore, 0, class_set_subcmd_display_cmd,
         class_set_subcmd_display_help, "Set how to display output of assert.");
     AddSetCommand(
-        "output", proc_ignore, 0, (int (*)())class_set_subcmd_output_cmd,
+        "output", proc_ignore, 0, class_set_subcmd_output_cmd,
         class_set_subcmd_output_help, "Set name of output file for assert.");
     AddSetCommand("force", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_force_cmd,
+                  class_set_subcmd_force_cmd,
                   class_set_subcmd_force_help,
                   "Enable/disable forcing of assertion values.");
-    AddSetCommand("halt", proc_ignore, 0, (int (*)())class_set_subcmd_halt_cmd,
+    AddSetCommand("halt", proc_ignore, 0, class_set_subcmd_halt_cmd,
                   class_set_subcmd_halt_help,
                   "Enable/disable halting of processes on termination.");
-    AddSetCommand("stop", proc_ignore, 0, (int (*)())class_set_subcmd_stop_cmd,
+    AddSetCommand("stop", proc_ignore, 0, class_set_subcmd_stop_cmd,
                   class_set_subcmd_stop_help,
                   "Enable/disable stopping on assertion failure.");
     AddSetCommand("logging", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_logging_cmd,
+                  class_set_subcmd_logging_cmd,
                   class_set_subcmd_logging_help, "Enable/disable logging.");
     AddSetCommand("logfile", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_logfile_cmd,
+                  class_set_subcmd_logfile_cmd,
                   class_set_subcmd_logfile_help, "Set log file name.");
     AddSetCommand(
-        "dfblock", proc_ignore, 0, (int (*)())class_set_subcmd_dfblock_cmd,
+        "dfblock", proc_ignore, 0, class_set_subcmd_dfblock_cmd,
         class_set_subcmd_dfblock_help, "Set dataflow command blocking.");
     AddSetCommand("dfmode", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_dfmode_cmd,
+                  class_set_subcmd_dfmode_cmd,
                   class_set_subcmd_dfmode_help, "Set dataflow mode.");
     AddSetCommand("reduce", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_reduce_cmd,
+                  class_set_subcmd_reduce_cmd,
                   class_set_subcmd_reduce_help, "Set reduce function.");
 
     /* FIXME: andrewg: Once P2P has been fully tested, we can add this to the
@@ -1587,43 +1587,43 @@ void InitCmd_graph(void) {
     **         commands. But for now only support this feature as experimental.
     */
     AddMaintSetCommand("p2p", proc_ignore, 0,
-                       (int (*)())class_set_subcmd_p2p_cmd,
+                       class_set_subcmd_p2p_cmd,
                        class_set_subcmd_p2p_help, "Set p2p mode.");
 
     // show commands
     AddShowCommand("display", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_display_cmd,
+                   class_show_subcmd_display_cmd,
                    class_show_subcmd_display_help,
                    "Show how output of assert is displayed.");
     AddShowCommand(
-        "output", proc_ignore, 0, (int (*)())class_show_subcmd_output_cmd,
+        "output", proc_ignore, 0, class_show_subcmd_output_cmd,
         class_show_subcmd_output_help, "Show name of output file for assert.");
     AddShowCommand("force", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_force_cmd,
+                   class_show_subcmd_force_cmd,
                    class_show_subcmd_force_help,
                    "Show status of forcing of assertion values.");
     AddShowCommand("halt", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_halt_cmd,
+                   class_show_subcmd_halt_cmd,
                    class_show_subcmd_halt_help,
                    "Show status of halting of processes on termination.");
     AddShowCommand("stop", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_stop_cmd,
+                   class_show_subcmd_stop_cmd,
                    class_show_subcmd_stop_help,
                    "Show status of stopping on assertion failure.");
     AddShowCommand("logging", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_logging_cmd,
+                   class_show_subcmd_logging_cmd,
                    class_show_subcmd_logging_help, "Show logging status.");
     AddShowCommand("logfile", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_logfile_cmd,
+                   class_show_subcmd_logfile_cmd,
                    class_show_subcmd_logfile_help, "Show log file name.");
     AddShowCommand(
-        "dfblock", proc_ignore, 0, (int (*)())class_show_subcmd_dfblock_cmd,
+        "dfblock", proc_ignore, 0, class_show_subcmd_dfblock_cmd,
         class_show_subcmd_dfblock_help, "Show dataflow command blocking.");
     AddShowCommand("dfmode", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_dfmode_cmd,
+                   class_show_subcmd_dfmode_cmd,
                    class_show_subcmd_dfmode_help, "Show dataflow mode.");
     AddShowCommand("reduce", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_reduce_cmd,
+                   class_show_subcmd_reduce_cmd,
                    class_show_subcmd_reduce_help, "Show reduce function.");
 
     /* FIXME: andrewg: Once P2P has been fully tested, we can add this to the
@@ -1631,25 +1631,25 @@ void InitCmd_graph(void) {
     **         commands. But for now only support this feature as experimental.
     */
     AddMaintShowCommand("p2p", proc_ignore, 0,
-                        (int (*)())class_show_subcmd_p2p_cmd,
+                        class_show_subcmd_p2p_cmd,
                         class_show_subcmd_p2p_help, "Show p2p mode.");
 
     // usage commands
     AddUsageCommand("assert", proc_ignore, 0,
-                    (int (*)())class_usage_subcmd_assert_cmd,
+                    class_usage_subcmd_assert_cmd,
                     class_usage_subcmd_assert_help,
                     "Display help about using build \"assert\" commands.");
     AddUsageCommand("assign", proc_ignore, 0,
-                    (int (*)())class_usage_subcmd_assign_cmd,
+                    class_usage_subcmd_assign_cmd,
                     class_usage_subcmd_assign_help,
                     "Display help about using build \"assign\" commands.");
 
     // regular commands
-    AddCommand("build", NULL, proc_ignore, 0, (int (*)())cmd_build_cmd,
+    AddCommand("build", NULL, proc_ignore, 0, cmd_build_cmd,
                cmd_build_help, "Build an assertion script.");
-    AddCommand("start", NULL, proc_ignore, 0, (int (*)())cmd_start_cmd,
+    AddCommand("start", NULL, proc_ignore, 0, cmd_start_cmd,
                cmd_start_help, "Start executing an assertion script.");
-    AddCommand("stop", NULL, proc_ignore, 0, (int (*)())cmd_stop_cmd,
+    AddCommand("stop", NULL, proc_ignore, 0, cmd_stop_cmd,
                cmd_stop_help, "Stop the currently executing assertion script.");
     /* FIXME: This is currently broken on cray systems
     AddCommand("restart", NULL, proc_ignore, 0, cmd_restart_cmd,
@@ -1660,7 +1660,7 @@ void InitCmd_graph(void) {
     GraphCmds = NewCommandList(graphnotfound, graphambig, graphfailed);
 
     AddAltCommand(GraphCmds, "assert", NULL, proc_ignore, 0,
-                  (int (*)())cmd_graph_alt_assert_cmd,
+                  cmd_graph_alt_assert_cmd,
                   cmd_graph_alt_assert_help, "Create an assertion.");
     // FIXME: Disabled until BuildAssign is fixed in build.c
 #if 0
@@ -1668,16 +1668,16 @@ void InitCmd_graph(void) {
 		cmd_graph_alt_assign_cmd, cmd_graph_alt_assign_help, "Assign a value to a debugger variable.");
 #endif
     AddAltCommand(GraphCmds, "end", NULL, proc_ignore, 0,
-                  (int (*)())cmd_graph_alt_end_cmd, cmd_graph_alt_end_help,
+                  cmd_graph_alt_end_cmd, cmd_graph_alt_end_help,
                   "Finish building the current assertion script.");
     AddAltCommand(GraphCmds, "help", "h", proc_ignore, 0,
-                  (int (*)())cmd_help_cmd, cmd_help_help,
+                  cmd_help_cmd, cmd_help_help,
                   "Display help information about build script mode commands.");
     AddAltCommand(GraphCmds, "set", NULL, proc_ignore, 1,
-                  (int (*)())class_set_cmd, class_set_help,
+                  class_set_cmd, class_set_help,
                   "Set information about the debugger environment.");
     AddAltCommand(GraphCmds, "show", NULL, proc_ignore, 1,
-                  (int (*)())class_show_cmd, class_show_help,
+                  class_show_cmd, class_show_help,
                   "Show information about the debugger environment.");
 }
 

@@ -41,7 +41,7 @@ static cmdlist_t *Cmds;         /* Main command list */
 ** Internal function prototypes
 */
 static cmdtype_t *_addcmd(list_t *, const char *, const char *, cmdptype_t, int,
-                          int (*)(), const char *const[], const char *);
+                          cmdfunc_t, const char *const[], const char *);
 static cmdhelp_t *_addhelpclasscmd(const char *, cmdtype_t *(*)(char *));
 static void _alphabetize_cmd_list(list_t *);
 static int _docmd(cmdlist_t *, dbgprocset_t *, cmdtype_t *, int, char *[], int);
@@ -78,14 +78,14 @@ void DestroyCommandList(cmdlist_t *c) {
  */
 
 static cmdtype_t *_addcmd(list_t *l, const char *name, const char *alias,
-                          cmdptype_t pt, int sub, int (*cmd)(),
+                          cmdptype_t pt, int sub, cmdfunc_t cmd,
                           const char *const help[], const char *desc) {
     cmdtype_t *c;
 
     c = (cmdtype_t *)Alloc(sizeof(cmdtype_t));
     c->c_name = name;
     c->c_alias = alias;
-    c->c_cmd = (int (*)(rec_set_t *, int, char **))cmd;
+    c->c_cmd = cmd;
     c->c_help = (char **)help;
     c->c_desc = desc;
     c->c_ptype = pt;
@@ -142,18 +142,18 @@ static void _alphabetize_cmd_list(list_t *l) {
 }
 
 void AddCommand(const char *name, const char *alias, cmdptype_t pt, int sub,
-                int (*cmd)(), const char *const help[], const char *desc) {
+                cmdfunc_t cmd, const char *const help[], const char *desc) {
     _addcmd(Cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
 }
 
 void AddAltCommand(cmdlist_t *cmds, const char *name, const char *alias,
-                   cmdptype_t pt, int sub, int (*cmd)(),
+                   cmdptype_t pt, int sub, cmdfunc_t cmd,
                    const char *const help[], const char *desc) {
     _addcmd(cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
 }
 
 void AddClassCommand(const char *name, const char *alias, cmdptype_t pt,
-                     int sub, int (*cmd)(), cmdtype_t *(*find)(char *),
+                     int sub, cmdfunc_t cmd, cmdtype_t *(*find)(char *),
                      const char *const help[], const char *desc) {
     // register the class command with the regular command list
     _addcmd(Cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
@@ -162,7 +162,7 @@ void AddClassCommand(const char *name, const char *alias, cmdptype_t pt,
 }
 
 void AddClassSubCommand(list_t *l, const char *name, cmdptype_t pt, int sub,
-                        int (*cmd)(), const char *const help[],
+                        cmdfunc_t cmd, const char *const help[],
                         const char *desc) {
     _addcmd(l, name, NULL, pt, sub, cmd, help, desc);
 }
@@ -497,7 +497,7 @@ void InitCommands() {
     InitCmd_class();
 
     // add the help command
-    AddCommand("help", "h", proc_ignore, 0, (int (*)())cmd_help_cmd,
+    AddCommand("help", "h", proc_ignore, 0, cmd_help_cmd,
                cmd_help_help, "Display help information about commands.");
 
     // Begin init of every other command

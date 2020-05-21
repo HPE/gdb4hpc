@@ -1287,23 +1287,23 @@ void InitCmd_proc(void) {
     // info commands
     AddInfoCommand(
         "application", proc_ignore, 0,
-        (int (*)())class_info_subcmd_application_cmd,
+        class_info_subcmd_application_cmd,
         class_info_subcmd_application_help,
         "Show attached/launched applications under debugger control.");
 
     // regular commands
-    AddCommand("session", NULL, proc_ignore, 0, (int (*)())cmd_session_cmd,
+    AddCommand("session", NULL, proc_ignore, 0, cmd_session_cmd,
                cmd_session_help, "Create a new WLM session.");
-    AddCommand("launch", NULL, proc_ignore, 0, (int (*)())cmd_invoke_cmd,
+    AddCommand("launch", NULL, proc_ignore, 0, cmd_invoke_cmd,
                cmd_invoke_help, "Launch an application.");
-    AddCommand("attach", NULL, proc_ignore, 0, (int (*)())cmd_attach_cmd,
+    AddCommand("attach", NULL, proc_ignore, 0, cmd_attach_cmd,
                cmd_attach_help, "Attach to an application.");
-    AddCommand("halt", NULL, proc_required, 0, (int (*)())cmd_halt_cmd,
+    AddCommand("halt", NULL, proc_required, 0, cmd_halt_cmd,
                cmd_halt_help,
                "Halt execution of attached/launched application.");
-    AddCommand("release", NULL, proc_ignore, 0, (int (*)())cmd_release_cmd,
+    AddCommand("release", NULL, proc_ignore, 0, cmd_release_cmd,
                cmd_release_help,
                "Release attached/launched application from debugger control.");
-    AddCommand("kill", NULL, proc_ignore, 0, (int (*)())cmd_kill_cmd,
+    AddCommand("kill", NULL, proc_ignore, 0, cmd_kill_cmd,
                cmd_kill_help, "Kill attached/launched application.");
 }

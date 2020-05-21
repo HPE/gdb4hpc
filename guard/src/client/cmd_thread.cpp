@@ -153,13 +153,13 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 }
 
 void InitCmd_thread(void) {
-    AddCommand("thread", "t", proc_required, 0, (int (*)())cmd_thread_cmd,
+    AddCommand("thread", "t", proc_required, 0, cmd_thread_cmd,
                cmd_thread_help, "Thread control functions.");
-    AddCommand("taas", "", proc_required, 0, (int (*)())cmd_taas_cmd,
+    AddCommand("taas", "", proc_required, 0, cmd_taas_cmd,
                cmd_thread_help, nullptr);
 
     AddInfoCommand("threads", proc_required, 0,
-                   (int (*)())class_info_subcmd_threads_cmd,
+                   class_info_subcmd_threads_cmd,
                    class_info_subcmd_threads_help,
                    "List currently known threads.");
 }

@@ -45,7 +45,7 @@ start           Start executing an assertion script.
 step            Step application until it reaches a different source line.
 stop            Stop the currently executing assertion script.
 tbreak          Set a temporary breakpoint at specified line or function.
-thread          Switch to specified thread.
+thread          Thread control functions.
 unset           Unset information in the debugger environment.
 up              Move up one or more stack frames.
 usage           Display usage information about script mode commands.

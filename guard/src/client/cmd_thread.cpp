@@ -101,6 +101,15 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 }
 
+// shortcut for thread apply all -s
+static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    if (argc < 1) return 1;
+    std::vector<const char*> newArgs{"thread", "apply", "all", "-s"};
+    std::copy(argv+1, argv+argc, std::back_inserter(newArgs));
+    return cmd_thread_cmd(rec_set, newArgs.size(), const_cast<char**>(&newArgs[0]));
+}
+
+
 static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
 
@@ -146,6 +155,8 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, (int (*)())cmd_thread_cmd,
                cmd_thread_help, "Thread control functions.");
+    AddCommand("taas", "", proc_required, 0, (int (*)())cmd_taas_cmd,
+               cmd_thread_help, nullptr);
 
     AddInfoCommand("threads", proc_required, 0,
                    (int (*)())class_info_subcmd_threads_cmd,

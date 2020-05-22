@@ -703,10 +703,10 @@ const char* const cmd_thread_help[] = {
     "-s (silent) disables output from threads where the command generates an error"
     "     (e.g. variable not defined).",
     "-v (verbose) suppresses stripping out LWP and pointer values from the output.",
-    "     Especially when not compbined with -q this will tend to produce a full result for",
+    "     Especially when not combined with -q this will tend to produce a full result for",
     "     each member of the procset.",
     "-c and -ascending (continue after error) and list in ascending order are the default behaviors",
-    "     and are included for compatiblity with gdb commands.",
+    "     and are included for compatibility with gdb commands.",
     "",
     "Summary: apply a command silently to all threads.",
     "Usage: taas [-q] [-c] [-v] <command>",

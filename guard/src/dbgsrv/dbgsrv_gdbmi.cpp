@@ -2809,6 +2809,11 @@ private:
 // add an id,value pair for collection
 void ThreadCollector::add(std::string id, const std::string& val)
 {
+    if (!m_sortedResult.empty()) {
+        DVPRINT("logic error, adding a value to ThreadCollector after extraction has begun.\n");
+        return;
+    }
+
     // store the location in val2Id
     auto ins = m_val2Id.insert(std::make_pair(val,id));
     if (ins.second)
@@ -2869,11 +2874,11 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
         return false;
     }
 
-    // get the next result - we are breaking the technically breaking the invariants of
-    // m_val2Id map by moving the value, but we are done using the map as a map.
+    // we could potentially avoid the copy for the value, but it would make the code a lot more complicated
+    // (the map key is rightly const).  
     auto& pr = *m_currentResult++->second;
     ids = move(pr.second);
-    val = move(pr.first);
+    val = pr.first;
 
     return true;
 }

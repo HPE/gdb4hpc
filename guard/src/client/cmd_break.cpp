@@ -585,22 +585,22 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 }
 
 void InitCmd_break(void) {
-    AddCommand("break", "b", proc_required, 0, (int (*)())cmd_break_cmd,
+    AddCommand("break", "b", proc_required, 0, cmd_break_cmd,
                cmd_break_help, "Set breakpoint at specified line or function.");
-    AddCommand("delete", "d", proc_required, 0, (int (*)())cmd_delete_cmd,
+    AddCommand("delete", "d", proc_required, 0, cmd_delete_cmd,
                cmd_delete_help, "Delete a breakpoint.");
-    AddCommand("disable", NULL, proc_required, 0, (int (*)())cmd_disable_cmd,
+    AddCommand("disable", NULL, proc_required, 0, cmd_disable_cmd,
                cmd_disable_help, "Disable a breakpoint.");
-    AddCommand("enable", NULL, proc_required, 0, (int (*)())cmd_enable_cmd,
+    AddCommand("enable", NULL, proc_required, 0, cmd_enable_cmd,
                cmd_enable_help, "Enable a breakpoint.");
-    AddCommand("tbreak", NULL, proc_required, 0, (int (*)())cmd_tbreak_cmd,
+    AddCommand("tbreak", NULL, proc_required, 0, cmd_tbreak_cmd,
                cmd_tbreak_help,
                "Set a temporary breakpoint at specified line or function.");
-    AddCommand("watch", NULL, proc_required, 0, (int (*)())cmd_watch_cmd,
+    AddCommand("watch", NULL, proc_required, 0, cmd_watch_cmd,
                cmd_watch_help, "Set watchpoint on specified expression.");
 
     AddInfoCommand("breakpoints", proc_required, 0,
-                   (int (*)())class_info_subcmd_breakpoints_cmd,
+                   class_info_subcmd_breakpoints_cmd,
                    class_info_subcmd_breakpoints_help,
                    "Show status of breakpoints.");
 }

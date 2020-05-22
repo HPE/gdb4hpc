@@ -171,6 +171,6 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_print(void) {
-    AddCommand("print", "p", proc_optional, 0, (int (*)())cmd_print_cmd,
+    AddCommand("print", "p", proc_optional, 0, cmd_print_cmd,
                cmd_print_help, "Print the value of an expression.");
 }

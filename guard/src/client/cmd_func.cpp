@@ -137,10 +137,10 @@ static int class_show_subcmd_function_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_func(void) {
     AddSetCommand("function", proc_ignore, 0,
-                  (int (*)())class_set_subcmd_function_cmd,
+                  class_set_subcmd_function_cmd,
                   class_set_subcmd_function_help, "Define a function.");
     AddShowCommand("function", proc_ignore, 0,
-                   (int (*)())class_show_subcmd_function_cmd,
+                   class_show_subcmd_function_cmd,
                    class_show_subcmd_function_help,
                    "Show information about defined functions.");
 }

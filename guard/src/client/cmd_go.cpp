@@ -57,10 +57,10 @@ static int cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_go(void) {
-    AddCommand("continue", "c", proc_required, 0, (int (*)())cmd_continue_cmd,
+    AddCommand("continue", "c", proc_required, 0, cmd_continue_cmd,
                cmd_continue_help, "Continue execution of application.");
     AddCommand(
-        "finish", NULL, proc_required, 0, (int (*)())cmd_finish_cmd,
+        "finish", NULL, proc_required, 0, cmd_finish_cmd,
         cmd_finish_help,
         "Execute application until each rank's current function returns.");
 }

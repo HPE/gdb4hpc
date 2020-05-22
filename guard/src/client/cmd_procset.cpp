@@ -152,10 +152,10 @@ static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_procset(void) {
-    AddCommand("defset", NULL, proc_ignore, 0, (int (*)())cmd_defset_cmd,
+    AddCommand("defset", NULL, proc_ignore, 0, cmd_defset_cmd,
                cmd_defset_help, "Create a set of processes.");
-    AddCommand("viewset", NULL, proc_ignore, 0, (int (*)())cmd_viewset_cmd,
+    AddCommand("viewset", NULL, proc_ignore, 0, cmd_viewset_cmd,
                cmd_viewset_help, "Display information about process sets.");
-    AddCommand("focus", NULL, proc_ignore, 0, (int (*)())cmd_focus_cmd,
+    AddCommand("focus", NULL, proc_ignore, 0, cmd_focus_cmd,
                cmd_focus_help, "Set the current process set.");
 }

@@ -77,7 +77,7 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_assign(void) {
-    AddCommand("assign", NULL, proc_optional, 0, (int (*)())cmd_assign_cmd,
+    AddCommand("assign", NULL, proc_optional, 0, cmd_assign_cmd,
                cmd_assign_help,
                "Change the value of an application or debugger variable.");
 }

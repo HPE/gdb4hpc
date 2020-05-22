@@ -162,6 +162,10 @@ public:
     virtual dbgevent_t *closeSocket() override;
     virtual dbgevent_t *setThread(const char* threadId) override;
     virtual dbgevent_t *getThreadInfo(const char* threadId) override;
+    virtual dbgevent_t *setThreadName(const char* name) override;
+    virtual dbgevent_t *findThread(const char* pattern) override;
+    virtual dbgevent_t *threadApply(const char* op) override;
+
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
     dbgevent_t *initDbgAttach(int pid, const char *prog);
@@ -2782,14 +2786,111 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     return os.str();
 }
 
+namespace {
+// Class for taking thread-id, value pairs and assembling id's with the same values
+// into equivalence sets.
+class ThreadCollector {
+public:
+    // Add an id,value pair.   *This will throw an exception if \a id is malformed*
+    // This function must not be called after the first call to getNextResult.
+    void add(std::string id, const std::string& val);
+
+    // Get the next id-list value pair.   Return false if none remain.
+    bool getNextResult(std::string& ids, std::string& val);
+private:
+    using Val2Id = std::map<std::string,std::string>;
+    Val2Id m_val2Id;
+
+    using ToSort = std::pair<int,Val2Id::iterator>;
+    std::vector<ToSort> m_sortedResult;
+    std::vector<ToSort>::iterator m_currentResult;
+};
+
+// add an id,value pair for collection
+void ThreadCollector::add(std::string id, const std::string& val)
+{
+    if (!m_sortedResult.empty()) {
+        DVPRINT("logic error, adding a value to ThreadCollector after extraction has begun.\n");
+        return;
+    }
+
+    // store the location in val2Id
+    auto ins = m_val2Id.insert(std::make_pair(val,id));
+    if (ins.second)
+        return;
+
+    // duplicate location, merge into the id list
+    std::string& ids = ins.first->second;
+    if (id.find('*') != std::string::npos) {
+        // the default thread indicator for 'info threads' put it at the head of the list
+        ids = id + ids;
+        return;
+    }
+                
+    id = id.substr(id.find_first_not_of(" \t")); // strip leading spaces
+    
+    // get the last id in the current list
+    size_t delimLoc = ids.find_last_of(" -");
+    size_t prevIdLoc = (delimLoc == std::string::npos ? 0 : delimLoc+1);
+    
+    // determine if this just creates or extends a range
+    int prev = std::stoi(ids.substr(prevIdLoc));  // throws if not an int
+    int curr = std::stoi(id);
+    if (curr != prev+1) {
+        // just append to the id list
+        ids += " " + id;
+    } else if (delimLoc != std::string::npos && ids[delimLoc] == '-') {
+        // extending a range
+        ids.replace(prevIdLoc,std::string::npos,id);
+    } else {
+        // creating a new range
+        ids += "-" + id;
+    }
+}
+
+// get the next id-list, value pair of the collected result
+bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
+    if (m_val2Id.empty()) {
+        return false;
+    }
+
+    if (m_sortedResult.empty()) {
+        // first call - sort the entries into ascending order.  We just refer into
+        // the map to avoid copies
+        for (Val2Id::iterator it = m_val2Id.begin(); it != m_val2Id.end(); ++it) {
+            auto id = it->second;
+            size_t idLoc = id.find_first_not_of(" \t*");
+            int idNo = strtol(id.c_str()+idLoc,nullptr,10);
+            m_sortedResult.push_back(ToSort(idNo,it));
+        }
+
+        // and sort
+        sort(m_sortedResult.begin(), m_sortedResult.end(),
+             [](const ToSort& a,const ToSort& b) { return a.first < b.first; });
+        m_currentResult = m_sortedResult.begin();
+    }
+
+    if (m_currentResult == m_sortedResult.end()) {
+        return false;
+    }
+
+    // we could potentially avoid the copy for the value, but it would make the code a lot more complicated
+    // (the map key is rightly const).  
+    auto& pr = *m_currentResult++->second;
+    ids = move(pr.second);
+    val = pr.first;
+
+    return true;
+}
+}
+
 // identify threads with equivalent frame information to present the information more
 // compactly.   Similar threads will be identified by an id list at is:
 // id1 id2 id3-id4
 static std::string collectThreadInfo(const std::string& val) {
     std::regex re(R"(^(\*? *\d+)\s+(.*))");
 
-    using Loc2Id = std::map<std::string,std::string>;
-    Loc2Id loc2id;
+    ThreadCollector collector;
 
     std::istringstream is(val);
     std::string line, header;
@@ -2811,58 +2912,19 @@ static std::string collectThreadInfo(const std::string& val) {
         const std::string& loc = match[2];
         std::string id = match[1];
 
-        // store the location in loc2Id
-        auto ins = loc2id.insert(std::make_pair(loc,id));
-        if (ins.second)
-            continue;
-
-        // duplicate location, merge into the id list
         try {
-            id = id.substr(id.find_first_not_of(" \t")); // strip leading spaces
-            std::string& ids = ins.first->second;
-
-            // get the last id in the current list
-            size_t delimLoc = ids.find_last_of(" -");
-            size_t prevIdLoc = (delimLoc == std::string::npos ? 0 : delimLoc+1);
-                
-            // determine if this just creates or extends a range
-            int prev = std::stoi(ids.substr(prevIdLoc));  // throws if not an int
-            int curr = std::stoi(id);
-            if (curr != prev+1) {
-                // just append to the id list
-                ids += " " + id;
-            } else if (delimLoc != std::string::npos && ids[delimLoc] == '-') {
-                // extending a range
-                ids.replace(prevIdLoc,std::string::npos,id);
-            } else {
-                // creating a new range
-                ids += "-" + id;
-            }
+            collector.add(id, loc);
         } catch (std::exception&) {
-            return val;  // not an int, give up collecting
+            return val;  // couldn't resolve an id, guess we're not collecting
         }
     }
-
-    // sort the ids back from lowest to highest
-    // we build up an offset table from id->the map location rather then copying
-    using ToSort = std::pair<int,Loc2Id::iterator>;
-    std::vector<ToSort> toSort;
-    for (Loc2Id::iterator it = loc2id.begin(); it != loc2id.end(); ++it) {
-        auto id = it->second;
-        size_t idLoc = id.find_first_not_of(" \t*");
-        int idNo = strtol(id.c_str()+idLoc,nullptr,10);
-        toSort.push_back(std::make_pair(idNo,it));
-    }
-
-    sort(toSort.begin(), toSort.end(),[](const ToSort& a,const ToSort& b) { return a.first < b.first; });
 
     // and assemble the result
     std::ostringstream os;
     os << header << "\n";
-    for (auto&& ts : toSort) {
-        const auto& pr = *ts.second;  // (loc,id)
-        std::string id = pr.second;
-        os << std::setw(7) << std::left << pr.second << " " << pr.first << "\n";
+
+    for (std::string id, loc; collector.getNextResult(id,loc); ) {
+        os << std::setw(7) << std::left << id << " " << loc << "\n";
     }
     return os.str();
 }
@@ -2927,6 +2989,225 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     MICommandFree(cmd);
     return e;
 }
+
+dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
+    DVPRINT("DbgGDBMI::setThoreadName\n");
+
+    const char* cmd_args[3] = { "thread", "name", name };
+    MICommand* cmd = CLIBypassc(3, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set thread name failed.");
+    } else {
+        e = NewEvent(DBGEV_OK);
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
+
+dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
+    DVPRINT("DbgGDBMI::findThread\n");
+
+    const char* cmd_args[3] = { "thread", "find", pattern };
+
+    MICommand* cmd = CLIBypassc(3, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread find failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = threadInfo;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread find failed to get a result.");
+    }
+
+    MICommandFree(cmd);
+    return e;
+
+}
+
+// parse the command line given to thread apply and extract the flags aimed at gdb4hpc, and return the
+// operation string intended for gdb.
+//
+// the backend gdb doesn't recognize some of the more useful options for apply including:
+// -s (silent) suppresses output from threads that produce errors (like a variable not defined)
+// -q (quiet) suppresses printing the thread information
+// -c (continue) displays error messages but keeps going
+// -v (verbose) a gdb4hpc extension - don't strip out hex values
+// also if the thread set is "all" we want to add a -ascending flag to keep the output sane.
+static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose) {
+    isSilent = isQuiet = isVerbose = false;
+
+    std::istringstream is(op);
+    std::ostringstream os;
+    std::string arg;
+
+    
+    bool inCommand = false, isAll = false, isAscending = false, isFirst = false;
+    while ( is >> arg) {
+        bool addArg = true;
+        char c = arg[0];
+        if (inCommand) {}
+        else if (arg == "all") {
+            isAll = true;
+        } else if (isdigit(c)) {
+        } else if (c != '-') {
+            inCommand = true;
+            if (isAll && !isAscending) {
+                os << " -ascending";
+            }
+        } else if (arg == "-ascending") {
+            isAscending = true;
+        } else if (arg == "-s") {
+            addArg = false;
+            isSilent = true;
+        } else if (arg == "-q") {
+            addArg = false;
+            isQuiet = true;
+        } else if (arg == "-c") {
+            // kept just for compatibility, this is the default behavior
+            addArg = false;
+        } else if (arg == "-v") {
+            // note (the client side currenly slaps this argument in first which
+            // would need to change if this function were to get persickety about this argument
+            // needing to be after the thread set or not defined multiple times.
+            addArg = false;
+            isVerbose = true;
+        }
+
+        if (addArg) {
+            os << (isFirst ? "" : " ") << arg;
+            isFirst = false;
+        }
+    }
+
+    return os.str();
+}
+
+// process the output from thread apply using the extented flags
+// isSilent: suppress ouput from threads that produce errors (like a variable not defined)
+// isQuiet: suppress printing the thread information
+// isVerbose: a gdb4hpc extension - don't strip out hex values
+static std::string processThreadApplyOutput(const std::string& in, bool isSilent, bool isQuiet, bool isVerbose) {
+    std::regex headerRE(R"(^Thread\s+(\d+)\s*\(Thread[^:]*:)");
+    std::regex hexRE(R"(0x[0-9a-fA-F]+)");
+    std::regex convenienceVarRE(R"(^\$\d+\s*=\s*)");
+
+    std::string line;
+
+    if (!isVerbose) {
+        // The collected version of thread apply; we report theads with the same result together
+        // in a thead list.
+        try {
+            std::istringstream is(in);
+            ThreadCollector collector;
+            std::string id;
+            std::ostringstream result;
+
+            while (std::getline(is, line)) {
+                std::smatch match;
+                if (std::regex_match(line, match, headerRE)) {
+                    if (!result.str().empty()) {
+                        collector.add(id,result.str());
+                        result.str("");
+                    }
+                    id = std::string(match[1]);
+                } else if (!line.empty() && (!isSilent || line[0] != '<')) {
+                    line = std::regex_replace(line, hexRE, "");
+                    line = std::regex_replace(line, convenienceVarRE, "");
+                    result << line << "\n";
+                }
+            }
+            if (!result.str().empty()) {
+                collector.add(id, result.str());
+            }
+
+            std::ostringstream os;
+            for (std::string val; collector.getNextResult(id,val); ) {
+                if (!isQuiet) {
+                    os << "Thread " << id << ":\n";
+                }
+                os << val;
+            }
+            return os.str();
+        } catch (std::exception&) {
+            // we can just fall back on the non-collected version
+            DVPRINT("Thread apply collection failed on line %s\n", line.c_str());
+        }
+    }
+
+    // the non-collected version of thread apply.   
+    std::istringstream is(in);
+    std::ostringstream os;
+    std::string header;
+    while (std::getline(is, line)) {
+        std::smatch match;
+        if (std::regex_match(line, match, headerRE)) {
+            if (isVerbose) {
+                header = match[0];
+            } else {
+                header = "Thread " + std::string(match[1]) + ":";
+            }
+        } else if (!line.empty() && (!isSilent || line[0] != '<')) {
+            if (!header.empty()) {
+                if (!isQuiet) {
+                    os << header << "\n";
+                }
+                header.clear();
+            }
+            if (!isVerbose) {
+                line = std::regex_replace(line, hexRE, "");
+                line = std::regex_replace(line, convenienceVarRE, "");
+            }
+            os << line << "\n";
+        }
+    }
+
+    return os.str();
+}
+
+dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
+    DVPRINT("DbgGDBMI::threadApply\n");
+
+    bool isSilent = false, isQuiet = false, isVerbose = false;
+    std::string op = parseThreadApplyOp(inOp, isSilent, isQuiet, isVerbose);
+
+    const char* cmd_args[3] = { "thread", "apply", op.c_str() };
+
+    MICommand* cmd = CLIBypassc(3, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
+        MICommandFree(cmd);
+        return e;
+    }
+
+    if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
+        std::string info(threadInfo);
+        free(threadInfo);
+
+        info = processThreadApplyOutput(info, isSilent, isQuiet, isVerbose);
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = strdup(info.c_str());
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed to get a result.");
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
+
 
 /*
 ** List variables in the current stack frame

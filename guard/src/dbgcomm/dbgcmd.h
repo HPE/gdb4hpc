@@ -60,7 +60,11 @@ enum dbgcmd {
     DBGCMD_SETCOMMPARAM,  // send parameter to the communication layer
     DBGCMD_CONTINUEEVALEXPR,
     DBGCMD_THREAD,
-    DBGCMD_GETTHREADINFO
+    DBGCMD_GETTHREADINFO,
+    DBGCMD_SETTHREADNAME,
+    DBGCMD_FINDTHREAD,
+    DBGCMD_THREADAPPLY
+    
 };
 typedef enum dbgcmd dbgcmd;
 

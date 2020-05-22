@@ -348,19 +348,37 @@ dbgevent_t *DbgGetScope(char *location) {
 }
 
 dbgevent_t* DbgSetThread(const char* threadId) {
-    DVPRINT("IN server DbgSetThread\n");
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setThread(threadId);
 }
 
 dbgevent_t* DbgGetThreadInfo(const char* threadId) {
-    DVPRINT("IN server DbgGetThreadInfo\n");
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getThreadInfo(threadId);
 }
 
+dbgevent_t *DbgSetThreadName(const char* name) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setThreadName(name);
+}
+    
+dbgevent_t *DbgFindThread(const char* pattern)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->findThread(pattern);
+}
+        
+dbgevent_t *DbgThreadApply(const char* op)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->threadApply(op);
+}
+       
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     ResetWDT();
     DBG_READY();

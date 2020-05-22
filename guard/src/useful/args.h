@@ -17,6 +17,9 @@
 #define _USEFUL_ARGS_H
 
 #ifdef __cplusplus
+#include <string>
+extern std::string ArgsToString(int argc, char** argv);
+
 extern "C" {
 #endif
 

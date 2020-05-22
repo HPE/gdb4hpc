@@ -334,6 +334,17 @@ static int GetNumberOfReceivers(rec_set_t *set) {
     return SizeOfList(set->rec_list);
 }
 
+bool RecSetHasOneProcPerReceiver(rec_set_t* set)
+{
+    SetReceiverHeadInSet(set);
+    while (auto recv = GetNextReceiverInSet(set)) {
+        if (bitset_numset(recv->rec_group) != 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**********************************
 ** Reply set and related functions
 **********************************/
@@ -3101,6 +3112,30 @@ rep_set_t *DbgSetThread(rec_set_t* set, const char* threadId)
     return result;
 }
 
+rep_set_t *DbgSetThreadName(rec_set_t* set, const char* name)
+{
+    char* request = CommandToSocProto(DBGCMD_SETTHREADNAME, name);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    Free(request);
+    return result;
+}
+
+rep_set_t *DbgFindThread(rec_set_t* set, const char* pattern)
+{
+    char* request = CommandToSocProto(DBGCMD_FINDTHREAD,pattern);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    Free(request);
+    return result;
+}
+
+rep_set_t *DbgThreadApply(rec_set_t* set, const char* op)
+{
+    char* request = CommandToSocProto(DBGCMD_THREADAPPLY,op);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    Free(request);
+    return result;
+}
+
 // Set the current thread for subsequent commands
 rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
 {
@@ -3111,7 +3146,6 @@ rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
     Free(request);
     return result;
 }
-
 
 /*
 ** DBG_KILL: Terminate execution of program.

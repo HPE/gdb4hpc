@@ -81,6 +81,9 @@ public:
     virtual dbgevent_t *closeSocket() = 0;
     virtual dbgevent_t *setThread(const char* threadId) = 0;
     virtual dbgevent_t *getThreadInfo(const char* threadId) = 0;
+    virtual dbgevent_t *setThreadName(const char* name) = 0;
+    virtual dbgevent_t *findThread(const char* pattern) = 0;
+    virtual dbgevent_t *threadApply(const char* op) = 0;
 };
 
 extern int DbgSetBackend(const char *);
@@ -128,6 +131,9 @@ extern dbgevent_t *DbgQuit(bool);
 extern dbgevent_t *DbgInterrupt(void);
 extern dbgevent_t *DbgSetThread(const char* threadId);
 extern dbgevent_t *DbgGetThreadInfo(const char* threadId);
+extern dbgevent_t *DbgSetThreadName(const char* name);
+extern dbgevent_t *DbgFindThread(const char* pattern);
+extern dbgevent_t *DbgThreadApply(const char* op);
 extern dbgevent_t *DbgOpenSocket(char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 

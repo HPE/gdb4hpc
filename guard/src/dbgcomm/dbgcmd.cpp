@@ -324,6 +324,9 @@ void FreeCommand(dbgcommand_t *cmd) {
 
         case DBGCMD_THREAD:
         case DBGCMD_GETTHREADINFO:
+        case DBGCMD_SETTHREADNAME:
+        case DBGCMD_FINDTHREAD:
+        case DBGCMD_THREADAPPLY:
             FreeCmdArgsThread(cmd->cmd_u.cmd_u_thread);
             break;
 

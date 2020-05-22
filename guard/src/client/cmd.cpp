@@ -444,7 +444,7 @@ int cmd_help_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
         while ((c = (cmdtype_t *)GetListElement(CurrentCmds->cmd_list)) !=
                (cmdtype_t *)NULL)
-            if (c->c_cmd != NULL)
+            if (c->c_cmd != NULL && c->c_desc != NULL)
                 PrintOutMsg("%-15s %s\n", c->c_name, c->c_desc);
 
         return 1;

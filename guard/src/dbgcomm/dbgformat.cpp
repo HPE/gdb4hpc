@@ -1138,6 +1138,9 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
 
         case DBGCMD_THREAD:
         case DBGCMD_GETTHREADINFO:
+        case DBGCMD_SETTHREADNAME:
+        case DBGCMD_FINDTHREAD:
+        case DBGCMD_THREADAPPLY:
             cmdargs = CmdArgsThreadToSocProto(ap);
             Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
             Free(cmdargs);
@@ -2238,6 +2241,9 @@ dbgcommand_t *SocProtoToCommand(char *s) {
 
         case DBGCMD_THREAD:
         case DBGCMD_GETTHREADINFO:
+        case DBGCMD_SETTHREADNAME:
+        case DBGCMD_FINDTHREAD:
+        case DBGCMD_THREADAPPLY:
             cmdargs = getstring(&s);
             c->cmd_u.cmd_u_thread = SocProtoToThreadArgs(cmdargs);
             Free(cmdargs);

@@ -214,9 +214,9 @@ static void FreeCmdArgsOpenSocket(cmdargs_opensocket *arg) {
     Free(arg);
 }
 
-static void FreeCmdArgsThread(cmdargs_thread* arg) {
+static void FreeCmdArgsString(cmdargs_string *arg) {
     if (arg) {
-        Free(const_cast<char*>(arg->threadId));
+        Free(const_cast<char*>(arg->str));
         Free(arg);
     }
 }
@@ -327,7 +327,8 @@ void FreeCommand(dbgcommand_t *cmd) {
         case DBGCMD_SETTHREADNAME:
         case DBGCMD_FINDTHREAD:
         case DBGCMD_THREADAPPLY:
-            FreeCmdArgsThread(cmd->cmd_u.cmd_u_thread);
+        case DBGCMD_SETSCHEDULERLOCKING:
+            FreeCmdArgsString(cmd->cmd_u.cmd_u_string);
             break;
 
         // Commands without arguments go here
@@ -343,6 +344,7 @@ void FreeCommand(dbgcommand_t *cmd) {
         case DBGCMD_INTERRUPT:
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_SETCOMMPARAM:
+        case DBGCMD_GETSCHEDULERLOCKING:
             break;
     }
 

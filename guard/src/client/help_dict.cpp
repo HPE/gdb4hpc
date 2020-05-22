@@ -731,6 +731,33 @@ const char* const cmd_thread_help[] = {
     "thread identifier shown by \"info threads -v\" which may include not just the number and name",
     "but also the thread's address and LWP id",
     0};
+
+const char* const class_set_scheduler_locking_help[] = {
+    "Summary: Set the behavior of the thread schedule locking during execution",
+    "Usage set scheduler-locking  off|on|step|replay",
+    "Example command: set scheduler-locking off",
+    "",
+    "Description:",
+    "Set the mode for the locking scheduler:",
+    "off    : no locking, threads may preemt any time",
+    "on     : full locking, no thread except the current thread may run",
+    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
+    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
+    0};
+
+const char* const class_show_scheduler_locking_help[] = {
+    "Summary: Show the behavior of the thread schedule locking during execution",
+    "Usage: show scheduler-locking",
+    "Example command: show scheduler-locking",
+    "",
+    "Description:",
+    "Show the mode for the locking scheduler:",
+    "off    : no locking, threads may preemt any time",
+    "on     : full locking, no thread except the current thread may run",
+    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
+    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
+    0};
+
     
 const char* const cmd_up_help[] = {
     "Summary: Move stack frame up command.",

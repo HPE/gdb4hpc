@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sstream>
+#include <algorithm>
 
 #include "client.h"
 #include "useful.h"
@@ -152,6 +153,45 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+    if (argc != 2) {
+        PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
+        return 1;
+    }
+    static const std::array<std::string,4> vals = { "off", "on", "step", "replay" };
+    if (std::find(vals.begin(), vals.end(), argv[1]) == vals.end()) {
+        PrintOutError("Unknown mode %s\n", argv[1]);
+        return 1;
+    }
+
+    rep_set_t* rep_set = DbgSetSchedulerLocking(rec_set, argv[1]);
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+    return 1;
+}
+
+static int class_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+{
+    if (argc != 1) {
+        PrintOutError("Unexpected command arguments.\n");
+        return 1;
+    }
+
+    rep_set_t* rep_set = DbgGetSchedulerLocking(rec_set);
+    ProcessErrorInRepSet(rep_set);
+
+    for (auto&& reply : rep_set) {
+        char* mode = reply->rep_event->ev_u.ev_u_string;
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                            "%s\n", mode);
+    }
+        
+
+    FreeRepSet(rep_set);
+    return 1;
+}
+
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, cmd_thread_cmd,
                cmd_thread_help, "Thread control functions.");
@@ -162,4 +202,12 @@ void InitCmd_thread(void) {
                    class_info_subcmd_threads_cmd,
                    class_info_subcmd_threads_help,
                    "List currently known threads.");
+    AddSetCommand("scheduler-locking", proc_required, 0,
+                  class_set_scheduler_locking_cmd,
+                  class_set_scheduler_locking_help,
+                  "Set mode for locking scheduler during execution.");
+    AddShowCommand("scheduler-locking", proc_required, 0,
+                   class_show_scheduler_locking_cmd,
+                   class_show_scheduler_locking_help,
+                   "Show mode for locking scheduler during execution.");
 }

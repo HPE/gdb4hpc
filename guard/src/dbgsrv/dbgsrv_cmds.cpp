@@ -232,27 +232,35 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
 
         case DBGCMD_THREAD:
-            CHECK_ARGS(e, cmd->cmd_u.cmd_u_thread->threadId);
-            e = DbgSetThread(cmd->cmd_u.cmd_u_thread->threadId);
+            CHECK_ARGS(e, cmd->cmd_u.cmd_u_string->str);
+            e = DbgSetThread(cmd->cmd_u.cmd_u_string->str);
             break;
 
         case DBGCMD_GETTHREADINFO:
-            e = DbgGetThreadInfo(cmd->cmd_u.cmd_u_thread->threadId);
+            e = DbgGetThreadInfo(cmd->cmd_u.cmd_u_string->str);
             break;
             
         case DBGCMD_SETTHREADNAME:
-            CHECK_ARGS(e, cmd->cmd_u.cmd_u_thread->threadId);
-            e = DbgSetThreadName(cmd->cmd_u.cmd_u_thread->threadId);
+            CHECK_ARGS(e, cmd->cmd_u.cmd_u_string->str);
+            e = DbgSetThreadName(cmd->cmd_u.cmd_u_string->str);
             break;
 
         case DBGCMD_FINDTHREAD:
-            e = DbgFindThread(cmd->cmd_u.cmd_u_thread->threadId);
+            e = DbgFindThread(cmd->cmd_u.cmd_u_string->str);
             break;
 
         case DBGCMD_THREADAPPLY:
-            DVPRINT("in DBGCMD_THREADAPPLY\n");
-            e = DbgThreadApply(cmd->cmd_u.cmd_u_thread->threadId);
+            e = DbgThreadApply(cmd->cmd_u.cmd_u_string->str);
             break;
+
+        case DBGCMD_SETSCHEDULERLOCKING:
+            e = DbgSetSchedulerLocking(cmd->cmd_u.cmd_u_string->str);
+            break;
+
+        case DBGCMD_GETSCHEDULERLOCKING:
+            e = DbgGetSchedulerLocking();
+            break;
+
     }
 
     FreeCommand(cmd);

@@ -3147,6 +3147,22 @@ rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
     return result;
 }
 
+rep_set_t *DbgSetSchedulerLocking(rec_set_t* set, const char* mode)
+{
+    char* request = CommandToSocProto(DBGCMD_SETSCHEDULERLOCKING,mode);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    Free(request);
+    return result;
+}
+
+rep_set_t *DbgGetSchedulerLocking(rec_set_t* set)
+{
+    char* request = CommandToSocProto(DBGCMD_GETSCHEDULERLOCKING);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    Free(request);
+    return result;
+}
+
 /*
 ** DBG_KILL: Terminate execution of program.
 ** TODO: Probably remove this, the DbgQuit should be sufficient.

@@ -84,6 +84,8 @@ public:
     virtual dbgevent_t *setThreadName(const char* name) = 0;
     virtual dbgevent_t *findThread(const char* pattern) = 0;
     virtual dbgevent_t *threadApply(const char* op) = 0;
+    virtual dbgevent_t *setSchedulerLocking(const char* mode) = 0;
+    virtual dbgevent_t *getSchedulerLocking() = 0;
 };
 
 extern int DbgSetBackend(const char *);
@@ -134,6 +136,8 @@ extern dbgevent_t *DbgGetThreadInfo(const char* threadId);
 extern dbgevent_t *DbgSetThreadName(const char* name);
 extern dbgevent_t *DbgFindThread(const char* pattern);
 extern dbgevent_t *DbgThreadApply(const char* op);
+extern dbgevent_t *DbgSetSchedulerLocking(const char* mode);
+extern dbgevent_t *DbgGetSchedulerLocking();
 extern dbgevent_t *DbgOpenSocket(char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 

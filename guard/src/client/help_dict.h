@@ -70,6 +70,8 @@ extern const char* const class_show_help[];
 extern const char* const class_show_print_help[];
 extern const char* const class_unset_help[];
 extern const char* const class_usage_help[];
+extern const char* const class_set_scheduler_locking_help[];
+extern const char* const class_show_scheduler_locking_help[];
 
 /**********************************************
  * Command class sub-command help definitions

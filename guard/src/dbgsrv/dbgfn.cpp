@@ -378,7 +378,21 @@ dbgevent_t *DbgThreadApply(const char* op)
     DBG_READY();
     return DbgBackendSW->threadApply(op);
 }
-       
+
+dbgevent_t *DbgSetSchedulerLocking(const char* mode)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setSchedulerLocking(mode);
+}
+
+dbgevent_t *DbgGetSchedulerLocking()
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->getSchedulerLocking();
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     ResetWDT();
     DBG_READY();

@@ -63,7 +63,9 @@ enum dbgcmd {
     DBGCMD_GETTHREADINFO,
     DBGCMD_SETTHREADNAME,
     DBGCMD_FINDTHREAD,
-    DBGCMD_THREADAPPLY
+    DBGCMD_THREADAPPLY,
+    DBGCMD_SETSCHEDULERLOCKING,
+    DBGCMD_GETSCHEDULERLOCKING
     
 };
 typedef enum dbgcmd dbgcmd;
@@ -191,8 +193,8 @@ struct cmdargs_status {
 };
 typedef struct cmdargs_status cmdargs_status;
 
-struct cmdargs_thread {
-    const char* threadId;
+struct cmdargs_string {
+    const char* str;
 };
 
 struct cmdargs_quit {
@@ -235,7 +237,7 @@ struct dbgcommand_t {
         cmdargs_getscope *cmd_u_getscope;
         cmdargs_direct *cmd_u_direct;
         cmdargs_status *cmd_u_status;
-        cmdargs_thread * cmd_u_thread;
+        cmdargs_string * cmd_u_string;
         cmdargs_quit *cmd_u_quit;
         cmdargs_opensocket *cmd_u_opensocket;
     } cmd_u;

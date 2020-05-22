@@ -428,6 +428,8 @@ extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
 extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);
 extern rep_set_t *DbgFindThread(rec_set_t *, const char*);
 extern rep_set_t *DbgThreadApply(rec_set_t *,const char* op);
+extern rep_set_t *DbgSetSchedulerLocking(rec_set_t *,const char* mode);
+extern rep_set_t *DbgGetSchedulerLocking(rec_set_t *);
 
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgKill(rec_set_t *);

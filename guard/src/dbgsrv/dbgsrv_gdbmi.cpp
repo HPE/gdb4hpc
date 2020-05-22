@@ -165,6 +165,8 @@ public:
     virtual dbgevent_t *setThreadName(const char* name) override;
     virtual dbgevent_t *findThread(const char* pattern) override;
     virtual dbgevent_t *threadApply(const char* op) override;
+    virtual dbgevent_t *setSchedulerLocking(const char* op) override;
+    virtual dbgevent_t *getSchedulerLocking() override;
 
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
@@ -2991,7 +2993,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
 }
 
 dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
-    DVPRINT("DbgGDBMI::setThoreadName\n");
+    DVPRINT("DbgGDBMI::setThreadName\n");
 
     const char* cmd_args[3] = { "thread", "name", name };
     MICommand* cmd = CLIBypassc(3, cmd_args);
@@ -3208,6 +3210,44 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
     return e;
 }
 
+dbgevent_t *DbgGdbMI::setSchedulerLocking(const char* mode) {
+    DVPRINT("DbgGDBMI::setSchedulerLocking\n");
+
+    const char* cmd_args[3] = { "set", "scheduler-locking", mode };
+    MICommand* cmd = CLIBypassc(3, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set scheduler-locking failed.");
+    } else {
+        e = NewEvent(DBGEV_OK);
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
+
+dbgevent_t *DbgGdbMI::getSchedulerLocking() {
+    DVPRINT("DbgGDBMI::getSchedulerLocking\n");
+
+    const char* cmd_args[2] = { "show", "scheduler-locking"};
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get scheduler-locking failed.");
+    } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = mode;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get scheduler-locking did not return a value.");
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
 
 /*
 ** List variables in the current stack frame

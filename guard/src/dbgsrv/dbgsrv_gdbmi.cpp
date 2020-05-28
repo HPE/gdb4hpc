@@ -122,7 +122,7 @@ public:
     virtual dbgevent_t *lastBreak() override;
     virtual dbgevent_t *list(const char *str) override;
     virtual dbgevent_t *getSources() override;
-    virtual dbgevent_t *go() override;
+    virtual dbgevent_t *go(bool all) override;
     virtual dbgevent_t *finishFunc() override;
     virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
     virtual dbgevent_t *step(int const, bool in) override;
@@ -143,7 +143,7 @@ public:
     virtual dbgevent_t *getScope(const char *location) override;
     virtual dbgevent_t *getStatus(bool getLocation) override;
     virtual dbgevent_t *quit(bool detach) override;
-    virtual dbgevent_t *interrupt() override;
+    virtual dbgevent_t *interrupt(bool all) override;
     virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch) override;
     virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) override;
@@ -2076,18 +2076,17 @@ dbgevent_t *DbgGdbMI::getSources() {
 ** then we must plant a breakpoint at main() so that we
 ** can find out the process id of the program.
 */
-dbgevent_t *DbgGdbMI::go() {
+dbgevent_t *DbgGdbMI::go(bool all) {
     dbgevent_t *e;
-    MICommand *cmd;
 
-    DVPRINT("*** DbgGo()\n");
+    DVPRINT("*** DbgGo(%s)\n", all ? "all" : "");
 
     if (Status == DBGSTAT_EXIT) {
         EVENT_ERROR(e, DBGERR_AT_EXIT, "");
         return e;
     }
 
-    cmd = MIExecContinue();
+    MICommand *cmd = (all ? MIExecContinueAll() : MIExecContinue());
 
     SendMICommand(GDBMISession, cmd);
 
@@ -3628,11 +3627,11 @@ dbgevent_t *DbgGdbMI::quit(bool detach) {
 /*
 ** Interrupt the debugger.
 */
-dbgevent_t *DbgGdbMI::interrupt() {
+dbgevent_t *DbgGdbMI::interrupt(bool all) {
     dbgevent_t *e;
     dbgevent_t *async_e;
 
-    DVPRINT("*** DbgInterrupt\n");
+    DVPRINT("*** DbgInterrupt%s\n", all ? " all" : "");
 
     if (Status == DBGSTAT_RUNNING) {
         DVPRINT("RUNNING - sending SIgSTOP\n");
@@ -3662,34 +3661,42 @@ dbgevent_t *DbgGdbMI::interrupt() {
 
         async_e = WaitEvent(NULL);
 
-        e = NewEvent(DBGEV_HALT);
-        e->ev_loc = (dbgloc_t *)NULL;
+        if (!all) {
+            e = NewEvent(DBGEV_HALT);
+            e->ev_loc = (dbgloc_t *)NULL;
 
-        if (async_e->ev_sig_frame != NULL) {
-            e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
-            e->ev_loc->loc_file =
-                (async_e->ev_sig_frame->frame_loc.loc_file == NULL
+            if (async_e->ev_sig_frame != NULL) {
+                e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
+                e->ev_loc->loc_file =
+                    (async_e->ev_sig_frame->frame_loc.loc_file == NULL
                      ? NULL
                      : strdup(async_e->ev_sig_frame->frame_loc.loc_file));
-            e->ev_loc->loc_func =
-                (async_e->ev_sig_frame->frame_loc.loc_func == NULL
+                e->ev_loc->loc_func =
+                    (async_e->ev_sig_frame->frame_loc.loc_func == NULL
                      ? NULL
                      : strdup(async_e->ev_sig_frame->frame_loc.loc_func));
-            e->ev_loc->loc_addr = NULL;  // We don't care about the address
-            e->ev_loc->loc_line = async_e->ev_sig_frame->frame_loc.loc_line;
+                e->ev_loc->loc_addr = NULL;  // We don't care about the address
+                e->ev_loc->loc_line = async_e->ev_sig_frame->frame_loc.loc_line;
+            }
+
+            FreeEvent(async_e);
+
+            return e;
         }
+    }
 
-        FreeEvent(async_e);
-
-        return e;
-    } else {
-        DVPRINT("not RUNNING - sending interrupt command\n");
+    if (Status != DBGSTAT_RUNNING || all) {
+        DVPRINT("sending interrupt command\n");
 
         // In non-stop mode we want "halt" to stop the current thread.
         // Calling "interrupt" if the current thread is stopped is harmless
         // so we won't try to avoid the call in all stop mode.
-        const char* cmdTxt = "interrupt";
-        MICommand* cmd = CLIBypassc(1,&cmdTxt);
+        // Also, adding the interrupt call in the RUNNING state when selecting all
+        // because in non-stop the signale will only stop one thread.
+        // Note: MIExecInterrupt has a hack that causes it to hang, so using
+        // the console command.
+        const char* cmdTxt[2] = { "interrupt", "-a" };
+        MICommand* cmd = CLIBypassc(all ? 2 : 1,cmdTxt);
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
             DVPRINT("MI -exec-interrupt failed\n");

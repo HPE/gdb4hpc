@@ -609,7 +609,7 @@ static void SigHandler(int sig) {
     rec_set = CreateRecSetForProcset(s);
 
     // Call the interupt command
-    rep_set = DbgInterrupt(rec_set);
+    rep_set = DbgInterrupt(rec_set,true);
 
     // process error
     ProcessErrorInRepSet(rep_set);

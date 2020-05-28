@@ -930,6 +930,20 @@ static char* CmdArgsThreadToSocProto(va_list ap) {
     return res;
 }
 
+static char *CmdArgsGoToSocProto(va_list ap) {
+    int all = va_arg(ap, int);
+    char* res;
+    Asprintf(&res, "%d", all);
+    return res;
+}
+
+static char *CmdArgsInterruptToSocProto(va_list ap) {
+    int all = va_arg(ap, int);
+    char* res;
+    Asprintf(&res, "%d", all);
+    return res;
+}
+
 static char *CmdArgsQuitToSocProto(va_list ap) {
     char *res;
     cmdargs_quit args;
@@ -1112,6 +1126,18 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
             Free(cmdargs);
             break;
 
+        case DBGCMD_GO:
+            cmdargs = CmdArgsGoToSocProto(ap);
+            Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
+            Free(cmdargs);
+            break;
+
+        case DBGCMD_INTERRUPT:
+            cmdargs = CmdArgsInterruptToSocProto(ap);
+            Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
+            Free(cmdargs);
+            break;
+
         case DBGCMD_QUIT:
             cmdargs = CmdArgsQuitToSocProto(ap);
             Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
@@ -1136,6 +1162,7 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
             Free(cmdargs);
             break;
 
+
         case DBGCMD_THREAD:
         case DBGCMD_GETTHREADINFO:
         case DBGCMD_SETTHREADNAME:
@@ -1152,13 +1179,11 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
         case DBGCMD_STARTUP:
         case DBGCMD_LASTBREAK:
         case DBGCMD_GETSOURCES:
-        case DBGCMD_GO:
         case DBGCMD_FINISH:
         case DBGCMD_KILL:
         case DBGCMD_GETFRAME:
         case DBGCMD_GETSOURCEPATH:
         case DBGCMD_GETLOCATION:
-        case DBGCMD_INTERRUPT:
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_GETSCHEDULERLOCKING:
         case DBGCMD_GETNONSTOP:
@@ -2052,6 +2077,20 @@ static cmdargs_quit *SocProtoToQuitArgs(char *s) {
     return res;
 }
 
+static cmdargs_go *SocProtoToGoArgs(char *s) {
+    NULL_GUARD(s);
+    cmdargs_go *res = (cmdargs_go*)Alloc(sizeof(cmdargs_go));
+    res->all = bool(getint(&s));
+    return res;
+}
+
+static cmdargs_interrupt *SocProtoToInterruptArgs(char *s) {
+    NULL_GUARD(s);
+    cmdargs_interrupt *res = (cmdargs_interrupt*)Alloc(sizeof(cmdargs_interrupt));
+    res->all = bool(getint(&s));
+    return res;
+}
+
 static cmdargs_opensocket *SocProtoToOpenSocketArgs(char *s) {
     cmdargs_opensocket *res;
 
@@ -2231,6 +2270,17 @@ dbgcommand_t *SocProtoToCommand(char *s) {
             Free(cmdargs);
             break;
 
+        case DBGCMD_GO:
+            cmdargs = getstring(&s);
+            c->cmd_u.cmd_u_go = SocProtoToGoArgs(cmdargs);
+            break;
+
+        case DBGCMD_INTERRUPT:
+            cmdargs = getstring(&s);
+            c->cmd_u.cmd_u_interrupt = SocProtoToInterruptArgs(cmdargs);
+            break;
+
+
         case DBGCMD_QUIT:
             cmdargs = getstring(&s);
             c->cmd_arg_quit = SocProtoToQuitArgs(cmdargs);
@@ -2259,13 +2309,11 @@ dbgcommand_t *SocProtoToCommand(char *s) {
         case DBGCMD_STARTUP:
         case DBGCMD_LASTBREAK:
         case DBGCMD_GETSOURCES:
-        case DBGCMD_GO:
         case DBGCMD_FINISH:
         case DBGCMD_KILL:
         case DBGCMD_GETFRAME:
         case DBGCMD_GETSOURCEPATH:
         case DBGCMD_GETLOCATION:
-        case DBGCMD_INTERRUPT:
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_SETCOMMPARAM:
         case DBGCMD_GETSCHEDULERLOCKING:

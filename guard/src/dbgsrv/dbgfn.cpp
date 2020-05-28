@@ -226,10 +226,10 @@ dbgevent_t *DbgGetSources() {
     return DbgBackendSW->getSources();
 }
 
-dbgevent_t *DbgGo() {
+dbgevent_t *DbgGo(bool all) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->go();
+    return DbgBackendSW->go(all);
 }
 
 dbgevent_t *DbgFinishFunc(void) {
@@ -426,8 +426,8 @@ dbgevent_t *DbgQuit(bool detach) {
     return DbgBackendSW->quit(detach);
 }
 
-dbgevent_t *DbgInterrupt(void) {
+dbgevent_t *DbgInterrupt(bool all) {
     ResetWDT();
     DBG_CHECK();
-    return DbgBackendSW->interrupt();
+    return DbgBackendSW->interrupt(all);
 }

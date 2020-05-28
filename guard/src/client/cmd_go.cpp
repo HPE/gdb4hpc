@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "client.h"
 #include "useful.h"
@@ -29,7 +30,16 @@ static int cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     DPERFLOG(SetTimerStart("cont"));
 
-    if ((rep_set = DbgGo(rec_set)) != NULL) {
+    bool continueAll = false;
+    if (argc == 2 && strcmp(argv[1],"-a") == 0) {
+        continueAll = true;
+    } else if (argc > 1) {
+        PrintOutError("unrecognized command arguments.\n");
+        PrintOutError("expected continue or continue -a.\n");
+        return 0;
+    }
+        
+    if ((rep_set = DbgGo(rec_set, continueAll)) != NULL) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
         return 0;

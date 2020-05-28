@@ -2368,7 +2368,7 @@ token_t *NodeDbgGoSet(graph_t *g, node_t *n) {
     rec_set = NewRecSet();
     AddReceiverToSet(rec_set, NewGroupReceiver(over_set->s_di, receiver));
 
-    if ((rep_set = DbgGo(rec_set)) != NULL) {
+    if ((rep_set = DbgGo(rec_set,true)) != NULL) {
         ProcessErrorInRepSet(rep_set);
 
         for (index = 0; index < set_length; index++) RemoveActiveEvent(g);

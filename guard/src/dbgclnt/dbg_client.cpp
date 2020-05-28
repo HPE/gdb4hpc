@@ -2916,7 +2916,7 @@ rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
 /*
 ** DBG_GO: Continue/start execution.
 */
-rep_set_t *DbgGo(rec_set_t *set) {
+rep_set_t *DbgGo(rec_set_t *set, bool all) {
     group_recv_t *recv_ptr;
     char *request;
     rep_set_t *result;
@@ -2926,7 +2926,7 @@ rep_set_t *DbgGo(rec_set_t *set) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_GO);
+    request = CommandToSocProto(DBGCMD_GO, int(all));
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -4396,7 +4396,7 @@ rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
 /*
 ** DBG_INTERRUPT: Interrupt current debugger operation.
 */
-rep_set_t *DbgInterrupt(rec_set_t *set) {
+rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
     char *request;
     rep_set_t *result;
     group_recv_t *recv_ptr;
@@ -4406,7 +4406,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_INTERRUPT);
+    request = CommandToSocProto(DBGCMD_INTERRUPT, all);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
 

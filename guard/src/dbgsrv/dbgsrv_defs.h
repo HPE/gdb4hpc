@@ -26,6 +26,7 @@ extern int sock_fd;
 extern int gpu_flag;
 extern int early_entry_flag;
 extern int debug_flag;
+extern int non_stop_flag;
 
 extern void _dvprint(const char *format, ...);
 extern void ResetWDT(void);

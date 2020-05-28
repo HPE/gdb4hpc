@@ -41,6 +41,7 @@
 #define DBGSRV_OPT_GPU "--gpu"
 #define DBGSRV_OPT_DEBUG "--debug"
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
+#define DBGSRV_OPT_NON_STOP "--non-stop"
 
 #define UDASRV "udaserver"
 #define UDASRV_ARGC 2
@@ -57,6 +58,7 @@
 static int debug_flag = 0;
 static int gpu_flag = 0;
 static int early_entry_flag = 0;
+static int non_stop_flag = 0;
 
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
@@ -68,6 +70,7 @@ const struct option long_opts[] = {
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
+    {"non-stop", no_argument, &non_stop_flag, 1},
     {0, 0, 0, 0}};
 
 void DVPRINT(const char *format, ...) {
@@ -373,6 +376,10 @@ int main(int argc, char **argv) {
     if (early_entry_flag) {
         dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, NULL);
     }
+    if (non_stop_flag) {
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_NON_STOP, NULL);
+    }
+
 
     if (debug_flag) {
         DVPRINT("dbgsrv argv is: \n");

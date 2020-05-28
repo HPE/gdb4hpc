@@ -53,7 +53,7 @@ static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
                         const char *, const char *, int, int);
 static int DbgMRNInvoke(dbginvoke_t *, proto_session *, const char *, char **,
                         const char *, char **, const char *, const char *,
-                        char **, const char *, int, int, int);
+                        char **, const char *, int, int, int, bool);
 static int DbgMRNExit(dbginvoke_t *, int);
 static void DbgMRNDestroyClient(dbginvoke_t *);
 
@@ -814,7 +814,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
                         char **argv, const char *arch, char **arch_args,
                         const char *arch_input, const char *backend, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
-                        int early_entry_flag) {
+                        int early_entry_flag, bool isNonStop) {
     char sn[80];
     char *root = NULL;
     char *cfg_dir;
@@ -1215,52 +1215,13 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     // dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend>
     // prog first create the argv for dbgsrv_alps This now also depends on
     // gpu_flag This now adds the early entry flag...
-    // TODO: Clean this ugly thing up
-    if (dbg) {
-        if (gpu_flag) {
-            if (early_entry_flag) {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--gpu",
-                             "--debug", "--early-entry", "--", prog, NULL);
-            } else {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--gpu",
-                             "--debug", "--", prog, NULL);
-            }
-        } else {
-            if (early_entry_flag) {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--debug",
-                             "--early-entry", "--", prog, NULL);
-            } else {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--debug",
-                             "--", prog, NULL);
-            }
-        }
-    } else {
-        if (gpu_flag) {
-            if (early_entry_flag) {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--gpu",
-                             "--early-entry", "--", prog, NULL);
-            } else {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--gpu", "--",
-                             prog, NULL);
-            }
-        } else {
-            if (early_entry_flag) {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend,
-                             "--early-entry", "--", prog, NULL);
-            } else {
-                ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                             di->d_proto->sw_name, "-e", backend, "--", prog,
-                             NULL);
-            }
-        }
-    }
+    ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+                 di->d_proto->sw_name, "-e", backend, nullptr);
+    if (gpu_flag) ap = AppendArgs(ap, "--gpu", nullptr);
+    if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
+    if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
+    if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
+    ap = AppendArgs(ap, "--", prog, nullptr);
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");

@@ -393,6 +393,21 @@ dbgevent_t *DbgGetSchedulerLocking()
     return DbgBackendSW->getSchedulerLocking();
 }
 
+dbgevent_t *DbgSetNonStop(const char* mode)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setNonStop(mode);
+}
+
+dbgevent_t *DbgGetNonStop()
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->getNonStop();
+}
+
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     ResetWDT();
     DBG_READY();

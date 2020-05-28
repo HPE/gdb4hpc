@@ -2022,7 +2022,7 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
                        const char *arch, char **arch_args,
                        const char *arch_input, const char *backend, char **env,
                        const char *cwd, int gpu_flag, int debug_flag,
-                       int unsafe_flag, int early_entry_flag) {
+                       int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
     dbgclnt_proto *ptab;
     char **ap;
@@ -2108,7 +2108,7 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
 
     if (ptab->sw_invoke(di, sess, prog, argv, arch, arch_args, arch_input,
                         backend, env, cwd, gpu_flag, debug_flag,
-                        early_entry_flag)) {
+                        early_entry_flag, isNonStop)) {
         FreeDbgInvoke(di);
         return NULL;
     }
@@ -3162,6 +3162,23 @@ rep_set_t *DbgGetSchedulerLocking(rec_set_t* set)
     Free(request);
     return result;
 }
+
+rep_set_t *DbgSetNonStop(rec_set_t* set, const char* mode)
+{
+    char* request = CommandToSocProto(DBGCMD_SETNONSTOP,mode);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    Free(request);
+    return result;
+}
+
+rep_set_t *DbgGetNonStop(rec_set_t* set)
+{
+    char* request = CommandToSocProto(DBGCMD_GETNONSTOP);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    Free(request);
+    return result;
+}
+
 
 /*
 ** DBG_KILL: Terminate execution of program.

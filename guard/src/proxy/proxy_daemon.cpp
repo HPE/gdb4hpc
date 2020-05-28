@@ -1185,7 +1185,8 @@ void DbgDispatchEvents(void) {
                                     inv_args->arch_input, inv_args->backend,
                                     inv_args->env, inv_args->cwd,
                                     inv_args->gpu_flag, inv_args->debug_flag,
-                                    inv_args->early_entry_flag)) {
+                                    inv_args->early_entry_flag,
+                                    inv_args->non_stop_flag)) {
                     // Handle error
                     FreeInvokeArgs(inv_args);
                     FreeDbgInvoke(di);

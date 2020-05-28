@@ -758,6 +758,30 @@ const char* const class_show_scheduler_locking_help[] = {
     "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
     0};
 
+const char* const class_set_non_stop_help[] = {
+    "Summary: Set the behavior of the threads during a break",
+    "Usage set non-stop off|on",
+    "Example command: set non-stop on",
+    "",
+    "Description:",
+    "Set the non-stop mode",
+    "off    : stopping one thread in a process stops all threads",
+    "on     : other threads continue running when one is stopped",
+    0};
+
+const char* const class_show_non_stop_help[] = {
+    "Summary: Show the behavior of the thread schedule locking during execution",
+    "Usage: show non-stop",
+    "Example command: show non-stop",
+    "",
+    "Description:",
+    "Show the non-stop mode for thread stopping:",
+    "off    : stopping one thread in a process stops all threads",
+    "on     : other threads continue running when one is stopped",
+    0};
+
+
+
     
 const char* const cmd_up_help[] = {
     "Summary: Move stack frame up command.",

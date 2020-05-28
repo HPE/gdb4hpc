@@ -396,7 +396,7 @@ extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
 extern dbginvoke_t *DbgInvoke(const char *, proto_session *, const char *,
                               char **, const char *, int, const char *, char **,
                               const char *, const char *, char **, const char *,
-                              int, int, int, int);
+                              int, int, int, int, bool);
 
 extern rep_set_t *DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than
@@ -430,6 +430,9 @@ extern rep_set_t *DbgFindThread(rec_set_t *, const char*);
 extern rep_set_t *DbgThreadApply(rec_set_t *,const char* op);
 extern rep_set_t *DbgSetSchedulerLocking(rec_set_t *,const char* mode);
 extern rep_set_t *DbgGetSchedulerLocking(rec_set_t *);
+extern rep_set_t *DbgSetNonStop(rec_set_t *,const char* mode);
+extern rep_set_t *DbgGetNonStop(rec_set_t *);
+
 
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgKill(rec_set_t *);

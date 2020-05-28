@@ -57,7 +57,7 @@ static int DbgPROXYAttach(dbginvoke_t *, proto_session *, const char *,
                           const char *, const char *, int, int);
 static int DbgPROXYInvoke(dbginvoke_t *, proto_session *, const char *, char **,
                           const char *, char **, const char *, const char *,
-                          char **, const char *, int, int, int);
+                          char **, const char *, int, int, int, bool);
 static int DbgPROXYExit(dbginvoke_t *, int);
 static void DbgPROXYDestroyClient(dbginvoke_t *);
 
@@ -1529,7 +1529,8 @@ static int DbgPROXYInvoke(dbginvoke_t *di, proto_session *session,
                           const char *prog, char **argv, const char *arch,
                           char **arch_args, const char *arch_input,
                           const char *backend, char **env, const char *cwd,
-                          int gpu_flag, int debug_flag, int early_entry_flag) {
+                          int gpu_flag, int debug_flag, int early_entry_flag,
+                          bool isNonStop) {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1586,7 +1587,7 @@ static int DbgPROXYInvoke(dbginvoke_t *di, proto_session *session,
     // Create the invoke args string
     msg = InvokeArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
                                arch_input, backend, env, cwd, gpu_flag,
-                               debug_flag, early_entry_flag);
+                               debug_flag, early_entry_flag, isNonStop);
 
     // set the length in the header
     msg_head.msg_len = (int)strlen(msg) * sizeof(char);

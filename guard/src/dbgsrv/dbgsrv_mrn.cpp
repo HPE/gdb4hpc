@@ -158,6 +158,7 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
     if (res < 0) {
         fprintf(stderr, "DbgSRVMRNInitProto cannot find parent to attach!\n");
         ++Shutdown;
+        Free(hostname);
 
         return -1;
     }
@@ -314,6 +315,8 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
 
     // get the mrnet event fd to select on
     mrn_event_fd = mrn_be_get_event_fd();
+
+    Free(hostname);
 
     return res;
 }

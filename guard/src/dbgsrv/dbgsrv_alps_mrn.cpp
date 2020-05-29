@@ -435,6 +435,14 @@ int main(int argc, char **argv) {
         valgrind_argv =
             NewArgv("valgrind", "--read-var-info=yes", "--track-origins=yes",
                     "--leak-check=full", valgrind_log_str, NULL);
+
+        if (char* envArgs = getenv("GDB4HPC_VALGRIND_ARGS")) {
+            if (char** envArgv = Str2Argv(envArgs)) {
+                valgrind_argv = AppendArgv(valgrind_argv, envArgv);
+                FreeArgv(envArgv);
+            }
+        }
+
         valgrind_argv = AppendArgv(valgrind_argv, this_argv);
 #endif
 

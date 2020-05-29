@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-FILE *create_log(int suffix, char *nodeName) {
+FILE *create_log(int suffix, const char *nodeName) {
     char logfile[PATH_MAX];
     const char *envDir;
     FILE *logfd;
@@ -52,7 +52,7 @@ FILE *create_log(int suffix, char *nodeName) {
     return logfd;
 }
 
-FILE *open_log(int suffix, char *nodeName) {
+FILE *open_log(int suffix, const char *nodeName) {
     char logfile[PATH_MAX];
     const char *envDir;
     FILE *logfd;
@@ -80,7 +80,7 @@ FILE *open_log(int suffix, char *nodeName) {
     return logfd;
 }
 
-int write_log(FILE *log, char *buf) {
+int write_log(FILE *log, const char *buf) {
     if (log == (FILE *)NULL || buf == (char *)NULL) return 1;
 
     fprintf(log, "%s", buf);
@@ -88,7 +88,7 @@ int write_log(FILE *log, char *buf) {
     return 0;
 }
 
-int write_log2(FILE *log, char *buf) {
+int write_log2(FILE *log, const char *buf) {
     if (log == (FILE *)NULL || buf == (char *)NULL) return 1;
 
     fprintf(log, "%s\n", buf);

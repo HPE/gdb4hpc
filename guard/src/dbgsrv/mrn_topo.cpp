@@ -55,8 +55,11 @@ int get_myparent_info(int id, char *host, char *par_addr, unsigned *par_port,
 
 #ifdef ALPS
     // file was shipped via CTI
-    snprintf(connections, MAXPATHLEN - 1, "%s/%s", cti_be_getFileDir(),
+    char* fileDir = cti_be_getFileDir();
+    snprintf(connections, MAXPATHLEN - 1, "%s/%s", fileDir,
              MRNET_ATTACH_CONNECTIONS);
+    free(fileDir);
+
     if ((conn = fopen(connections, "r")) == (FILE *)NULL) {
         PrintOutError("ERROR: get_myparent_info cannot open %s!\n",
                       connections);

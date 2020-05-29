@@ -34,16 +34,21 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     bp_set_t *bpset;
     dbgbp_t *bp;
 
+    int threadId = -1;
+
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
         return 1;
-    }
-
-    if (argc > 2) {
+    } else if (argc == 4 &&
+               strcmp(argv[2],"thread") == 0 &&
+               IsInteger(argv[3])) {
+        threadId = atoi(argv[3]);
+    } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
+        PrintOutError("or: break main.c:20 thread 2\n");
         return 0;
     }
 
@@ -60,9 +65,9 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     DPERFLOG(SetTimerStart("setbreak"));
 
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, file, atoi(s));
+        rep_set = DbgSetLineBreak(rec_set, file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, file, s);
+        rep_set = DbgSetFuncBreak(rec_set, file, s, threadId);
     }
 
     DPERFLOG(SetTimerStopAndLog("setbreak"));
@@ -87,15 +92,21 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
             return 0;
         }
 
+        std::string bpThread;
+        if (bpset->b_thread_id > 0) {
+            bpThread = " thread " + std::to_string(bpset->b_thread_id);
+        }
+
         if (bpset->b_loc_line >= 0)
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Breakpoint %d: file %s, line %d.\n",
+                                "Breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_id, bpset->b_loc_file,
-                                bpset->b_loc_line);
+                                bpset->b_loc_line, bpThread.c_str());
         else
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Breakpoint %d in %s\n", bpset->b_bp_id,
-                                bpset->b_loc_func, bpset->b_loc_line);
+                                "Breakpoint %d in %s%s\n", bpset->b_bp_id,
+                                bpset->b_loc_func, bpset->b_loc_line,
+                                bpThread.c_str());
     }
 
     FreeRepSet(rep_set);
@@ -112,17 +123,21 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     bp_set_t *bpset;
     dbgbp_t *bp;
     rec_set_t *new_rec;
-
+    int threadId = -1;
+    
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: tbreak main.c:20\n");
         return 1;
-    }
-
-    if (argc > 2) {
+    } else if (argc == 4 &&
+               strcmp(argv[2],"thread") == 0 &&
+               IsInteger(argv[3])) {
+        threadId = atoi(argv[3]);
+    } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: tbreak main.c:20\n");
+        PrintOutError("or: tbreak main.c:20 thread 2\n");
         return 0;
     }
 
@@ -140,9 +155,9 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // Set the breakpoint
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, file, atoi(s));
+        rep_set = DbgSetLineBreak(rec_set, file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, file, s);
+        rep_set = DbgSetFuncBreak(rec_set, file, s, threadId);
     }
 
     Free(arg);
@@ -183,17 +198,22 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
         FreeRecSet(new_rec);
 
+        std::string bpThread;
+        if (bpset->b_thread_id > 0) {
+            bpThread = " thread " + std::to_string(bpset->b_thread_id);
+        }
+
         // Print out status
         if (bpset->b_loc_line >= 0) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Temporary breakpoint %d: file %s, line %d.\n",
+                                "Temporary breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_id, bpset->b_loc_file,
-                                bpset->b_loc_line);
+                                bpset->b_loc_line, bpThread.c_str());
         } else {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Temporary breakpoint %d in %s\n",
+                                "Temporary breakpoint %d in %s%s\n",
                                 bpset->b_bp_id, bpset->b_loc_func,
-                                bpset->b_loc_line);
+                                bpset->b_loc_line, bpThread.c_str());
         }
     }
 
@@ -454,6 +474,10 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                 continue;
             }
 
+            std::string bpThread;
+            if (bpset->b_thread_id > 0)
+                bpThread = " thread " + std::to_string(bpset->b_thread_id);
+
             // The info we print is dependent on the type of breakpoint and the
             // enabled/disabled setting and disposition
             switch (bpset->b_bp_type) {
@@ -472,7 +496,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // First print out watchpoints that are enabled
                             PrintMsgWithSetInfo(
                                 recv_ptr->rec_di->d_handle, enabled_group,
-                                "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_id,
+                                "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "y",
                                 bpset->b_bp_exp);
@@ -489,7 +513,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "n",
-                                bpset->b_bp_exp);
+                                bpset->b_bp_exp);;
                         }
 
                         // Free the bitsets
@@ -514,12 +538,12 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, enabled_group,
-                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d\n",
+                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
                                     bpset->b_bp_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "y",
                                     bpset->b_loc_func, bpset->b_loc_file,
-                                    bpset->b_loc_line);
+                                    bpset->b_loc_line, bpThread.c_str());
                             }
 
                             // Compute the disabled set
@@ -531,23 +555,23 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 // Next print out breakpoints that are disabled
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, disabled_group,
-                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d\n",
+                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
                                     bpset->b_bp_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "n",
                                     bpset->b_loc_func, bpset->b_loc_file,
-                                    bpset->b_loc_line);
+                                    bpset->b_loc_line, bpThread.c_str());
                             }
                         } else {
                             if (!bitset_isempty(enabled_group)) {
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, enabled_group,
-                                    "\t%-3d %-14s %-4s %-3s in %s\n",
+                                    "\t%-3d %-14s %-4s %-3s in %s%s\n",
                                     bpset->b_bp_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "y",
-                                    bpset->b_loc_func);
+                                    bpset->b_loc_func, bpThread.c_str());
                             }
 
                             // Compute the disabled set
@@ -559,11 +583,11 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 // Next print out breakpoints that are disabled
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, disabled_group,
-                                    "\t%-3d %-14s %-4s %-3s in %s\n",
+                                    "\t%-3d %-14s %-4s %-3s in %s%s\n",
                                     bpset->b_bp_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "n",
-                                    bpset->b_loc_func);
+                                    bpset->b_loc_func, bpThread.c_str());
                             }
                         }
 

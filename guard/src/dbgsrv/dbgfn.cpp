@@ -172,16 +172,16 @@ dbgevent_t *DbgStartup(void) {
     return DbgBackendSW->startup();
 }
 
-dbgevent_t *DbgSetLineBreak(char *file, int line, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetLineBreak(char *file, int line, int threadId, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setLineBreak(file, line, ci);
+    return DbgBackendSW->setLineBreak(file, line, threadId, ci);
 }
 
-dbgevent_t *DbgSetFuncBreak(char *file, char *func, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetFuncBreak(char *file, char *func, int threadId, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setFuncBreak(file, func, ci);
+    return DbgBackendSW->setFuncBreak(file, func, threadId, ci);
 }
 
 dbgevent_t *DbgSetWatch(int type, char *expr, const dbgcomm_info *ci) {

@@ -81,12 +81,14 @@ typedef struct cmdargs_invoke cmdargs_invoke;
 struct cmdargs_setlinebreak {
     char *file;
     int lno;
+    int threadId;
 };
 typedef struct cmdargs_setlinebreak cmdargs_setlinebreak;
 
 struct cmdargs_setfuncbreak {
     char *file;
     char *func;
+    int threadId;
 };
 typedef struct cmdargs_setfuncbreak cmdargs_setfuncbreak;
 

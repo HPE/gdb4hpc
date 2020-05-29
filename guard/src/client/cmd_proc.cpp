@@ -1117,7 +1117,7 @@ void PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc) {
 
 // Non-stop mode must generally be enable before the process is running,
 // thus it is managed as a launch time option.  
-void SetLaunchNonStopMode(bool isNonStop) { non_stop_mode = true; }
+void SetLaunchNonStopMode(bool isNonStop) { non_stop_mode = isNonStop; }
 bool GetLaunchNonStopMode() { return non_stop_mode; }
 
 

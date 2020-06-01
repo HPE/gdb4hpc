@@ -684,7 +684,7 @@ const char* const cmd_tbreak_help[] = {
     "with an asterisk (*). For example, break *0x0000000000400693 would break",
     "at address 0x400693.",
     "Adding thread thread-id create a thread specific temporary breakpoint that",
-    "will only stop when that thread hits the break point."
+    "will only stop when that thread hits the break point.",
     0};
 
 const char* const cmd_thread_help[] = {

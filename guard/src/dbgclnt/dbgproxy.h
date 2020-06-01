@@ -147,6 +147,7 @@ struct invoke_args {
     int gpu_flag;
     int debug_flag;
     int early_entry_flag;
+    int non_stop_flag;
 };
 typedef struct invoke_args invoke_args;
 
@@ -179,7 +180,8 @@ extern char *InvokeArgsToSocProto(const char *prog, char **argv, int nproc,
                                   const char *arch, char **arch_args,
                                   const char *arch_input, const char *backend,
                                   char **env, const char *cwd, int gpu_flag,
-                                  int debug_flag, int early_entry_flag);
+                                  int debug_flag, int early_entry_flag,
+                                  bool isNonStop);
 extern char *ExitArgsToSocProto(int detach);
 
 #endif /* ! _DBGPROXY_H */

@@ -91,7 +91,7 @@ struct dbgclnt_proto {
     int (*sw_invoke)(struct dbginvoke *, proto_session *, const char *, char **,
                      const char *, char **, const char *, const char *, char **,
                      const char *, int, int,
-                     int); /* protocol launch function */
+                     int, bool); /* protocol launch function */
     int (*sw_exit)(struct dbginvoke *, int detach); /* protocol exit function */
     void (*sw_destroyclnt)(
         struct dbginvoke *); /* protocol destroy dbginvoke specific instance */

@@ -445,6 +445,7 @@ invoke_args *SocProtoToInvokeArgs(char *s) {
     rtn->gpu_flag = getint(&s);
     rtn->debug_flag = getint(&s);
     rtn->early_entry_flag = getint(&s);
+    rtn->non_stop_flag = getint(&s);
 
     return rtn;
 }
@@ -522,7 +523,7 @@ char *InvokeArgsToSocProto(const char *prog, char **argv, int nproc,
                            const char *arch, char **arch_args,
                            const char *arch_input, const char *backend,
                            char **env, const char *cwd, int gpu_flag,
-                           int debug_flag, int early_entry_flag) {
+                           int debug_flag, int early_entry_flag, bool isNonStop) {
     char *stres = NULL;
     char *argv_str;
     int argv_num;
@@ -546,13 +547,13 @@ char *InvokeArgsToSocProto(const char *prog, char **argv, int nproc,
     // Create the res
     Asprintf(
         &stres,
-        "%d %s %d %d %s %d %d %s %d %d %s %d %s %d %s %d %d %s %d %s %d %d %d",
+        "%d %s %d %d %s %d %d %s %d %d %s %d %s %d %s %d %d %s %d %s %d %d %d %d",
         (int)strlen(prog), prog, argv_num, (int)strlen(argv_str), argv_str,
         nproc, (int)strlen(arch), arch, arch_args_num,
         (int)strlen(arch_args_str), arch_args_str, (int)strlen(arch_input),
         arch_input, (int)strlen(backend), backend, env_num,
         (int)strlen(env_str), env_str, (int)strlen(cwd), cwd, gpu_flag,
-        debug_flag, early_entry_flag);
+        debug_flag, early_entry_flag, isNonStop);
 
     // Cleanup
     Free(argv_str);

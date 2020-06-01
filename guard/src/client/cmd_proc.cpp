@@ -38,6 +38,7 @@
 */
 static int debug_flag = 0;
 static int gpu_flag = 0;
+static bool non_stop_mode = false;
 
 /*
 ** static function prototypes
@@ -719,7 +720,7 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
 
     di = DbgInvoke(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
                    arch_args, arch_input, backend, Env, cwd, gpu_flag,
-                   debug_flag, Client.unsafe, Client.early_entry);
+                   debug_flag, Client.unsafe, Client.early_entry, non_stop_mode);
 
     if (di == NULL) {
         // Do not print out an error message here since the lower layer already
@@ -1102,7 +1103,9 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 // external exposure
 void PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc) {
-    if (loc->loc_line > 0) {
+    if (!loc) {
+        PrintMsgWithSetInfo(setname, group, "Halt could not report a location\n");
+    } else if (loc->loc_line > 0) {
         PrintMsgWithSetInfo(setname, group,
                             "Application halted in %s at %s:%d\n",
                             loc->loc_func, loc->loc_file, loc->loc_line);
@@ -1111,6 +1114,12 @@ void PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc) {
                             loc->loc_func);
     }
 }
+
+// Non-stop mode must generally be enable before the process is running,
+// thus it is managed as a launch time option.  
+void SetLaunchNonStopMode(bool isNonStop) { non_stop_mode = isNonStop; }
+bool GetLaunchNonStopMode() { return non_stop_mode; }
+
 
 static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e;
@@ -1307,3 +1316,4 @@ void InitCmd_proc(void) {
     AddCommand("kill", NULL, proc_ignore, 0, cmd_kill_cmd,
                cmd_kill_help, "Kill attached/launched application.");
 }
+

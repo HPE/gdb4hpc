@@ -261,6 +261,13 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             e = DbgGetSchedulerLocking();
             break;
 
+        case DBGCMD_SETNONSTOP:
+            e = DbgSetNonStop(cmd->cmd_u.cmd_u_string->str);
+            break;
+
+        case DBGCMD_GETNONSTOP:
+            e = DbgGetNonStop();
+            break;
     }
 
     FreeCommand(cmd);

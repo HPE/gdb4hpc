@@ -67,5 +67,7 @@ extern int PrintVal(val_t *, rec_set_t *);
 */
 extern void PrintHaltedLocationSet(char *, bitset *, dbgloc_t *);
 extern void EndAll(void);
+extern void SetLaunchNonStopMode(bool isNonStop);
+extern bool GetLaunchNonStopMode();
 
 #endif /* _CLIENT_H */

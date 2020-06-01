@@ -1142,6 +1142,7 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
         case DBGCMD_FINDTHREAD:
         case DBGCMD_THREADAPPLY:
         case DBGCMD_SETSCHEDULERLOCKING:
+        case DBGCMD_SETNONSTOP:
             cmdargs = CmdArgsThreadToSocProto(ap);
             Asprintf(&stres, "%d %d %s", cmd, (int)strlen(cmdargs), cmdargs);
             Free(cmdargs);
@@ -1160,6 +1161,7 @@ char *CommandToSocProto(dbgcmd cmd, ...) {
         case DBGCMD_INTERRUPT:
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_GETSCHEDULERLOCKING:
+        case DBGCMD_GETNONSTOP:
             Asprintf(&stres, "%d", cmd);
             break;
     }
@@ -2247,6 +2249,7 @@ dbgcommand_t *SocProtoToCommand(char *s) {
         case DBGCMD_FINDTHREAD:
         case DBGCMD_THREADAPPLY:
         case DBGCMD_SETSCHEDULERLOCKING:
+        case DBGCMD_SETNONSTOP:
             cmdargs = getstring(&s);
             c->cmd_u.cmd_u_string = SocProtoToStringArgs(cmdargs);
             Free(cmdargs);
@@ -2266,6 +2269,7 @@ dbgcommand_t *SocProtoToCommand(char *s) {
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_SETCOMMPARAM:
         case DBGCMD_GETSCHEDULERLOCKING:
+        case DBGCMD_GETNONSTOP:
             break;
     }
 

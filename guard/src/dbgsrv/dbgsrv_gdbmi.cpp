@@ -167,6 +167,9 @@ public:
     virtual dbgevent_t *threadApply(const char* op) override;
     virtual dbgevent_t *setSchedulerLocking(const char* op) override;
     virtual dbgevent_t *getSchedulerLocking() override;
+    virtual dbgevent_t *setNonStop(const char* op) override;
+    virtual dbgevent_t *getNonStop() override;
+
 
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
@@ -364,42 +367,6 @@ static dbgevent_t *setup_gdbmi_environment(void) {
 		}
 		MICommandFree(cmd);
 	}
-#endif
-
-#if 0
-	// set target-async mode on
-	cmd = _MIGDBSet("target-async", "on");
-	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd))
-	{
-		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set target-async command failed.");
-		return e;
-	}
-	MICommandFree(cmd);
-
-	// set pagination off
-	cmd = _MIGDBSet("pagination", "off");
-	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd))
-	{
-		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set pagination command failed.");
-		return e;
-	}
-	MICommandFree(cmd);
-
-	// set non-stop mode on
-	cmd = _MIGDBSet("non-stop", "on");
-	SendMICommand(GDBMISession, cmd);
-	if (!MICommandResultOK(cmd))
-	{
-		MICommandFree(cmd);
-		EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set non-stop command failed.");
-		return e;
-	}
-	MICommandFree(cmd);
-
 #endif
 
     cmd = _MIGDBSet("confirm", "off");
@@ -600,6 +567,26 @@ static dbgevent_t *setup_gdbmi_environment(void) {
 
     // manually set up pretty printing for relocated installs
     setup_pretty_printing();
+
+    // set non-stop mode 
+    if (non_stop_flag) {
+        cmd = _MIGDBSet("non-stop", "on");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            DVPRINT("setting non-stop mode failed\n");
+        }
+        MICommandFree(cmd);
+
+        // we need to also set mi-async mode when non-stop mode
+        // is on; otherwise commands can hang waiting for all the
+        // threads to stop.
+        cmd = _MIGDBSet("mi-async", "on");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            DVPRINT("setting mi-asycn mode failed\n");
+        }
+        MICommandFree(cmd);
+    }
 
     return NULL;
 }
@@ -3249,6 +3236,46 @@ dbgevent_t *DbgGdbMI::getSchedulerLocking() {
     return e;
 }
 
+dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
+    DVPRINT("DbgGDBMI::setNonStop\n");
+
+    const char* cmd_args[3] = { "set", "non-stop", mode };
+    MICommand* cmd = CLIBypassc(3, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+    } else {
+        e = NewEvent(DBGEV_OK);
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
+
+dbgevent_t *DbgGdbMI::getNonStop() {
+    DVPRINT("DbgGDBMI::getNonStop\n");
+
+    const char* cmd_args[2] = { "show", "non-stop"};
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop failed.");
+    } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = mode;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop did not return a value.");
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
+
+
 /*
 ** List variables in the current stack frame
 */
@@ -3608,6 +3635,7 @@ dbgevent_t *DbgGdbMI::interrupt() {
     DVPRINT("*** DbgInterrupt\n");
 
     if (Status == DBGSTAT_RUNNING) {
+        DVPRINT("RUNNING - sending SIgSTOP\n");
         if (::kill(Pid, SIGSTOP)) {
             switch (errno) {
                 case EINVAL:
@@ -3654,7 +3682,21 @@ dbgevent_t *DbgGdbMI::interrupt() {
         FreeEvent(async_e);
 
         return e;
+    } else {
+        DVPRINT("not RUNNING - sending interrupt command\n");
+
+        // In non-stop mode we want "halt" to stop the current thread.
+        // Calling "interrupt" if the current thread is stopped is harmless
+        // so we won't try to avoid the call in all stop mode.
+        const char* cmdTxt = "interrupt";
+        MICommand* cmd = CLIBypassc(1,&cmdTxt);
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            DVPRINT("MI -exec-interrupt failed\n");
+        }
+        MICommandFree(cmd);
     }
+        
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
@@ -3663,7 +3705,7 @@ dbgevent_t *DbgGdbMI::interrupt() {
     e = NewEvent(DBGEV_HALT);
     e->ev_loc = (dbgloc_t *)NULL;
 
-    if (async_e->ev_frame != NULL) {
+    if (async_e->ev_frame != NULL && async_e->ev_event == DBGEV_FRAME) {
         e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
         e->ev_loc->loc_file =
             (async_e->ev_frame->frame_loc.loc_file == NULL

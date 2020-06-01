@@ -328,6 +328,7 @@ void FreeCommand(dbgcommand_t *cmd) {
         case DBGCMD_FINDTHREAD:
         case DBGCMD_THREADAPPLY:
         case DBGCMD_SETSCHEDULERLOCKING:
+        case DBGCMD_SETNONSTOP:
             FreeCmdArgsString(cmd->cmd_u.cmd_u_string);
             break;
 
@@ -345,6 +346,7 @@ void FreeCommand(dbgcommand_t *cmd) {
         case DBGCMD_CLOSESOCKET:
         case DBGCMD_SETCOMMPARAM:
         case DBGCMD_GETSCHEDULERLOCKING:
+        case DBGCMD_GETNONSTOP:
             break;
     }
 

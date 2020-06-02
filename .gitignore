@@ -17,6 +17,7 @@ tagslist
 .deps/
 .dirstamp
 .libs/
+.vscode/
 
 # libtool
 *.lo
@@ -149,6 +150,7 @@ third_party/libmi/test_mi
 third_party/Python-2.6.2/Lib/plat-linux3
 *~
 cscope.out
+external/
 
 guard/aclocal.m4
 guard/config/

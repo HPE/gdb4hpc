@@ -864,6 +864,7 @@ static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
 
     // Set the expression for watchpoints
     bp_set->b_bp_exp = strdup(bp->bp_exp);
+    bp_set->b_thread_id = bp->bp_threadId;
 
     // Set the id unique to the rank
     bp_set->b_bp_id_list = NewList();
@@ -3046,11 +3047,11 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line) {
+rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line, int threadId) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETLINEBREAK, file, line);
+    request = CommandToSocProto(DBGCMD_SETLINEBREAK, file, line, threadId);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -3066,11 +3067,11 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line) {
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, char *file, char *func) {
+rep_set_t *DbgSetFuncBreak(rec_set_t *set, char *file, char *func, int threadId) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, file, func);
+    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, file, func, threadId);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 

@@ -639,6 +639,8 @@ static void SigHandler(int sig) {
 // individual reply that was just received is passed in as reply_set.
 int EventCB(event_set_t *ev_set, bitset *reply_set) {
     bp_set_t *bpset;
+    int threadId = 0;
+    std::string bpThread;
 
     // need to do "special" things if we are currently reading from stdin
     // for readline support.
@@ -663,7 +665,7 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
             break;
 
         case DBGEV_BPHIT:
-            // ensure the recv bp has a cooresponding bp_set. If not, this is an
+            // ensure the recv bp has a corresponding bp_set. If not, this is an
             // unknown breakpoint. If its unknown either its a breakpoint
             // encountered from ending the graph (graph breakpoints are hidden)
             // or an exit breakpoint that was set by the dbg servers.
@@ -695,6 +697,9 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
             // breakpoint
             // TODO: What should this default to? Right now I am having it
             // default to the breakpoint message.
+            threadId = bpset->b_thread_id;
+            if (threadId > 0) bpThread = " thread " + std::to_string(threadId);
+
             switch (bpset->b_bp_type) {
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
@@ -719,17 +724,19 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                     break;
 
                 case DBGBP_BREAK_TYPE:
+
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
-                            "Breakpoint %d, %s at %s:%d\n", bpset->b_bp_id,
+                            "Breakpoint %d, %s at %s:%d%s\n", bpset->b_bp_id,
                             bpset->b_loc_func, bpset->b_loc_file,
-                            bpset->b_loc_line);
+                            bpset->b_loc_line, bpThread.c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group,
-                                            "Breakpoint %d, in %s\n",
-                                            bpset->b_bp_id, bpset->b_loc_func);
+                                            "Breakpoint %d, in %s%s\n",
+                                            bpset->b_bp_id, bpset->b_loc_func,
+                                            bpThread.c_str());
                     }
                     break;
 

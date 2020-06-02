@@ -216,18 +216,20 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
         const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
         stres = MakeSocStr(ev,
-                 "%d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s",
+                 "%d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d",
                  be->bp_id, simplified, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
                  be->bp_type, (int)strlen(st_file), st_file,
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
-                 be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
+                           be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
+                           be->bp_threadId);
 
     } else {
-        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s", be->bp_id,
+        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d", be->bp_id,
                  simplified, be->bp_enabled, be->bp_disp, be->bp_type,
                  (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
-                 be->bp_loc.loc_line, (int)strlen(st_exp), st_exp);
+                           be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
+                           be->bp_threadId);
     }
     return stres;
 }
@@ -622,10 +624,12 @@ static char *CmdArgsSetLineBreakToSocProto(va_list ap) {
 
     args.file = va_arg(ap, char *);
     args.lno = va_arg(ap, int);
+    args.threadId = va_arg(ap, int);
 
     FMT_CHECK_NULL_STR(args.file);
 
-    Asprintf(&res, "%d %s %d", (int)strlen(args.file), args.file, args.lno);
+    Asprintf(&res, "%d %s %d %d", (int)strlen(args.file), args.file, args.lno,
+             args.threadId);
 
     return res;
 }
@@ -636,12 +640,13 @@ static char *CmdArgsSetFuncBreakToSocProto(va_list ap) {
 
     args.file = va_arg(ap, char *);
     args.func = va_arg(ap, char *);
+    args.threadId = va_arg(ap, int);
 
     FMT_CHECK_NULL_STR(args.file);
     FMT_CHECK_NULL_STR(args.func);
 
-    Asprintf(&res, "%d %s %d %s", (int)strlen(args.file), args.file,
-             (int)strlen(args.func), args.func);
+    Asprintf(&res, "%d %s %d %s %d", (int)strlen(args.file), args.file,
+             (int)strlen(args.func), args.func, args.threadId);
 
     return res;
 }
@@ -1381,6 +1386,7 @@ static dbgbp_t *SocProtoToBP(char *s) {
 
     res->bp_loc.loc_line = getint(&s);
     res->bp_exp = getstring(&s);
+    res->bp_threadId = getint(&s);
     res->bp_next = (dbgbp_t *)NULL;
 
     // We should try to resolve the realpath of file on this end. If it fails,
@@ -1762,6 +1768,7 @@ static cmdargs_setlinebreak *SocProtoToSetLineBreakArgs(char *s) {
 
     res->file = getstring(&s);
     res->lno = getint(&s);
+    res->threadId = getint(&s);
 
     return res;
 }
@@ -1775,6 +1782,7 @@ static cmdargs_setfuncbreak *SocProtoToSetFuncBreakArgs(char *s) {
 
     res->file = getstring(&s);
     res->func = getstring(&s);
+    res->threadId = getint(&s);
 
     return res;
 }

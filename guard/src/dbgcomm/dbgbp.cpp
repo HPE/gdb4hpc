@@ -56,6 +56,7 @@ dbgbp_t *NewBP(int id) {
     bp->bp_loc.loc_addr = NULL;
     bp->bp_loc.loc_line = 0;
     bp->bp_exp = NULL;
+    bp->bp_threadId = -1;
     bp->bp_hits = 0;
     bp->bp_stmt = NULL;
     bp->bp_commands = (char **)NULL;
@@ -121,6 +122,7 @@ dbgbp_t *DupBP(dbgbp_t *bp) {
     }
 
     b->bp_comminfo = (bp->bp_comminfo ? bp->bp_comminfo->clone() : NULL);
+    b->bp_threadId = bp->bp_threadId;
 
     return b;
 }

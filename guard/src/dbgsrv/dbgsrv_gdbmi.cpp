@@ -113,8 +113,8 @@ public:
     virtual int read(int) override;
     virtual bool bufferReady() override;
     virtual int progioHook(int) override;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(const char *file, int lno, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setFuncBreak(const char *file, char *func, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setFuncBreak(const char *file, char *func, int threadId, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *deleteBreak(int bid) override;
     virtual dbgevent_t *disableBreak(int bid) override;
@@ -1537,7 +1537,7 @@ bool DbgGdbMI::bufferReady(void) {
 /*
 ** Set breakpoint at specified line.
 */
-dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) {
     dbgevent_t *event;
     MICommand *cmd;
     char *where;
@@ -1563,7 +1563,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, const dbgcomm_info
         snprintf(where, len, "%s:%d", file, lno);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
+    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1581,7 +1581,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, const dbgcomm_info
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%d", opt2, lno);
 
-            cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
+            cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1617,7 +1617,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, const dbgcomm_info
 /*
 ** Set breakpoint at start of specified function.
 */
-dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func,
+dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
                                    const dbgcomm_info *commInfo) {
     dbgevent_t *event;
     MICommand *cmd;
@@ -1635,7 +1635,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func,
         snprintf(where, len, "%s:%s", file, func);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
+    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -4698,6 +4698,10 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
         if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
         if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
         if (bpt->what != NULL) bp->bp_exp = strdup(bpt->what);
+    }
+
+    if (bpt->threadId != NULL) {
+        bp->bp_threadId = atoi(bpt->threadId); // 0 is an OK response
     }
 
     if (commInfo) {

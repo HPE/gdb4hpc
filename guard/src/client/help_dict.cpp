@@ -100,18 +100,21 @@ const char* const cmd_backtrace_help[] = {
 const char* const cmd_break_help[] = {
     "Summary: Set breakpoint command.",
     "Usage: break <location>",
+    "Usage: break <location> thread <thread-id>",
     "Example command: break main.c:20",
+    "Example command: break main.c:20 thread 2",
     "Shortcut: b",
     "",
     "Arguments: location (line number, function name, or address)",
     "",
     "Description:",
     "Set a breakpoint in every application rank in the current process set.",
-    "The location of the breakpoint can be defined as a line number, a "
-    "function",
-    "name, or \"*\" and an address. If an address is specified, it must begin",
-    "with an asterix (*). For example, break *0x0000000000400693 would break",
-    "at address 0x400693.",
+    "The location of the breakpoint can be defined as a line number, a ",
+    "function name, a source file:line-no, or \"*\" and an address. If an address is",
+    "specified, it must begin with an asterix (*)."
+    "For example, break *0x0000000000400693 would break at address 0x400693.",
+    "Adding thread thread-id creates a thread specific breakpoint which will",
+    "apply only to the given thread.",
     0};
 
 const char* const cmd_compare_help[] = {
@@ -662,9 +665,11 @@ const char* const cmd_step_help[] = {
 const char* const cmd_tbreak_help[] = {
     "Summary: Set temporary breakpoint command.",
     "Usage: tbreak <location>",
+    "Usage: tbreak <location> thread <thread-id>",
     "Example command: tbreak main.c:20",
+    "Example command: tbreak myFunction thread 2",
     "",
-    "Arguments: location (line number, function name, or address)",
+    "Arguments: location (line number, function name, source-file:line or address)",
     "",
     "Description:",
     "Set a temporary breakpoint in every application rank in the current "
@@ -678,6 +683,8 @@ const char* const cmd_tbreak_help[] = {
     "name, or \"*\" and an address. If an address is specified, it must begin",
     "with an asterisk (*). For example, break *0x0000000000400693 would break",
     "at address 0x400693.",
+    "Adding thread thread-id create a thread specific temporary breakpoint that",
+    "will only stop when that thread hits the break point.",
     0};
 
 const char* const cmd_thread_help[] = {

@@ -30,6 +30,7 @@ cmdlist_t *MaintSetCmds;  /* Maint Set command list */
 cmdlist_t *MaintShowCmds; /* Maint Show command list */
 cmdlist_t *SetCmds;       /* Set command list */
 cmdlist_t *SetPrintCmds;  /* Set Print command list */
+cmdlist_t *SetBreakCmds;  /* Set Breakpoint command list */
 cmdlist_t *ShowCmds;      /* Show command list */
 cmdlist_t *ShowPrintCmds; /* Show Print command list */
 cmdlist_t *UnsetCmds;     /* Unset command list */
@@ -69,6 +70,11 @@ void AddSetPrintCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
     AddClassSubCommand(SetPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
+void AddSetBreakCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
+                        const char *const help[], const char *desc) {
+    AddClassSubCommand(SetBreakCmds->cmd_list, name, pt, sub, cmd, help, desc);
+}
+
 void AddShowCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                     const char *const help[], const char *desc) {
     AddClassSubCommand(ShowCmds->cmd_list, name, pt, sub, cmd, help, desc);
@@ -77,6 +83,11 @@ void AddShowCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
 void AddShowPrintCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
                          const char *const help[], const char *desc) {
     AddClassSubCommand(ShowPrintCmds->cmd_list, name, pt, sub, cmd, help, desc);
+}
+
+void AddShowBreakCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
+                         const char *const help[], const char *desc) {
+    AddClassSubCommand(ShowBreakCmds->cmd_list, name, pt, sub, cmd, help, desc);
 }
 
 void AddUnsetCommand(const char *name, cmdptype_t pt, int sub, cmdfunc_t cmd,
@@ -123,6 +134,11 @@ static int DoSetPrintCommand(dbgprocset_t *s, cmdtype_t *c, int argc,
     return DoClassSubCommand(SetPrintCmds, s, c, argc, argv, sub);
 }
 
+static int DoSetBreakCommand(dbgprocset_t *s, cmdtype_t *c, int argc,
+                             char *argv[], int sub) {
+    return DoClassSubCommand(SetBreakCmds, s, c, argc, argv, sub);
+}
+
 static int DoShowCommand(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[],
                          int sub) {
     return DoClassSubCommand(ShowCmds, s, c, argc, argv, sub);
@@ -131,6 +147,11 @@ static int DoShowCommand(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[],
 static int DoShowPrintCommand(dbgprocset_t *s, cmdtype_t *c, int argc,
                               char *argv[], int sub) {
     return DoClassSubCommand(ShowPrintCmds, s, c, argc, argv, sub);
+}
+
+static int DoShowBreakCommand(dbgprocset_t *s, cmdtype_t *c, int argc,
+                              char *argv[], int sub) {
+    return DoClassSubCommand(ShowBreakCmds, s, c, argc, argv, sub);
 }
 
 static int DoUnsetCommand(dbgprocset_t *s, cmdtype_t *c, int argc, char *argv[],
@@ -175,12 +196,20 @@ static cmdtype_t *FindSetPrintCommand(char *cmd) {
     return FindSubCommand(SetPrintCmds, cmd);
 }
 
+static cmdtype_t *FindSetBreakCommand(char *cmd) {
+    return FindSubCommand(SetBreakCmds, cmd);
+}
+
 static cmdtype_t *FindShowCommand(char *cmd) {
     return FindSubCommand(ShowCmds, cmd);
 }
 
 static cmdtype_t *FindShowPrintCommand(char *cmd) {
     return FindSubCommand(ShowPrintCmds, cmd);
+}
+
+static cmdtype_t *FindShowBreakCommand(char *cmd) {
+    return FindSubCommand(ShowBreakCmds, cmd);
 }
 
 static cmdtype_t *FindUnsetCommand(char *cmd) {
@@ -224,6 +253,11 @@ static void SetPrintCmdNotFound(const char *cmd) {
         "Undefined set print command: \"%s\".  Try \"help set print\".\n", cmd);
 }
 
+static void SetBreakCmdNotFound(const char *cmd) {
+    PrintOutError(
+        "Undefined set break command: \"%s\".  Try \"help set break\".\n", cmd);
+}
+
 static void ShowCmdNotFound(const char *cmd) {
     PrintOutError("Undefined show command: \"%s\". Try \"help show\".\n", cmd);
 }
@@ -231,6 +265,12 @@ static void ShowCmdNotFound(const char *cmd) {
 static void ShowPrintCmdNotFound(const char *cmd) {
     PrintOutError(
         "Undefined show print command: \"%s\". Try \"help show print\".\n",
+        cmd);
+}
+
+static void ShowBreakCmdNotFound(const char *cmd) {
+    PrintOutError(
+        "Undefined show break command: \"%s\". Try \"help show break\".\n",
         cmd);
 }
 
@@ -278,6 +318,11 @@ static void AmbiguousSetPrintCmd(const char *cmd) {
     AmbiguousClassSubCmd(SetPrintCmds->cmd_list, cmd);
 }
 
+static void AmbiguousSetBreakCmd(const char *cmd) {
+    PrintOutError("Ambiguous set breakpoint command \"%s\": ", cmd);
+    AmbiguousClassSubCmd(SetBreakCmds->cmd_list, cmd);
+}
+
 static void AmbiguousShowCmd(const char *cmd) {
     PrintOutError("Ambiguous show command \"%s\": ", cmd);
     AmbiguousClassSubCmd(ShowCmds->cmd_list, cmd);
@@ -286,6 +331,11 @@ static void AmbiguousShowCmd(const char *cmd) {
 static void AmbiguousShowPrintCmd(const char *cmd) {
     PrintOutError("Ambiguous show print command \"%s\": ", cmd);
     AmbiguousClassSubCmd(ShowPrintCmds->cmd_list, cmd);
+}
+
+static void AmbiguousShowBreakCmd(const char *cmd) {
+    PrintOutError("Ambiguous show breakpoint command \"%s\": ", cmd);
+    AmbiguousClassSubCmd(ShowBreakCmds->cmd_list, cmd);
 }
 
 static void AmbiguousUnsetCmd(const char *cmd) {
@@ -425,6 +475,25 @@ int class_set_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return DoSetPrintCommand(s, c, --argc, &argv[1], 1);
 }
 
+int class_set_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    cmdtype_t *c;
+    dbgprocset_t *s = CurrentProcSet();
+
+    if (argc < 2) {
+        SetList(SetBreakCmds->cmd_list);
+
+        while ((c = (cmdtype_t *)GetListElement(SetBreakCmds->cmd_list)) !=
+               (cmdtype_t *)NULL)
+            if (c->c_cmd != NULL)
+                PrintOutMsg("set break %-20s %s\n", c->c_name, c->c_desc);
+        return 1;
+    }
+
+    if ((c = FindSetBreakCommand(argv[1])) == (cmdtype_t *)NULL) return 0;
+
+    return DoSetBreakCommand(s, c, --argc, &argv[1], 1);
+}
+
 int class_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
     cmdtype_t *c;
     dbgprocset_t *s = CurrentProcSet();
@@ -461,6 +530,25 @@ int class_show_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if ((c = FindShowPrintCommand(argv[1])) == (cmdtype_t *)NULL) return 0;
 
     return DoShowPrintCommand(s, c, --argc, &argv[1], 1);
+}
+
+int class_show_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    cmdtype_t *c;
+    dbgprocset_t *s = CurrentProcSet();
+
+    if (argc < 2) {
+        SetList(ShowBreakCmds->cmd_list);
+
+        while ((c = (cmdtype_t *)GetListElement(ShowBreakCmds->cmd_list)) !=
+               (cmdtype_t *)NULL)
+            if (c->c_cmd != NULL)
+                PrintOutMsg("show break %-20s %s\n", c->c_name, c->c_desc);
+        return 1;
+    }
+
+    if ((c = FindShowBreakCommand(argv[1])) == (cmdtype_t *)NULL) return 0;
+
+    return DoShowBreakCommand(s, c, --argc, &argv[1], 1);
 }
 
 int class_unset_cmd(rec_set_t *rec_set, int argc, char **argv) {
@@ -518,9 +606,13 @@ void InitCmd_class(void) {
         NewCommandList(SetCmdNotFound, AmbiguousSetCmd, (void (*)(void))NULL);
     SetPrintCmds = NewCommandList(SetPrintCmdNotFound, AmbiguousSetPrintCmd,
                                   (void (*)(void))NULL);
+    SetBreakCmds = NewCommandList(SetBreakCmdNotFound, AmbiguousSetBreakCmd,
+                                  (void (*)(void))NULL);
     ShowCmds =
         NewCommandList(ShowCmdNotFound, AmbiguousShowCmd, (void (*)(void))NULL);
     ShowPrintCmds = NewCommandList(ShowPrintCmdNotFound, AmbiguousShowPrintCmd,
+                                   (void (*)(void))NULL);
+    ShowBreakCmds = NewCommandList(ShowBreakCmdNotFound, AmbiguousShowBreakCmd,
                                    (void (*)(void))NULL);
     UnsetCmds = NewCommandList(UnsetCmdNotFound, AmbiguousUnsetCmd,
                                (void (*)(void))NULL);
@@ -552,11 +644,17 @@ void InitCmd_class(void) {
     AddSetCommand("print", proc_ignore, 1, class_set_print_cmd,
                   class_set_print_help,
                   "Set information about how things get printed.");
+    AddSetCommand("breakpoint", proc_ignore, 1, class_set_break_cmd,
+                  class_set_break_help,
+                  "Set information about breakpoints.");
 
     // Show class commands
     AddShowCommand("print", proc_ignore, 1, class_show_print_cmd,
                    class_show_print_help,
                    "Show information about how things get printed.");
+    AddShowCommand("breakpoint", proc_ignore, 1, class_show_break_cmd,
+                  class_show_break_help,
+                  "Show information about breakpoints.");
 
     // Maint class commands
     AddMaintCommand("set", proc_ignore, 1, class_maint_set_cmd,
@@ -574,7 +672,9 @@ void DestroyCmd_class(void) {
     DestroyCommandList(MaintShowCmds);
     DestroyCommandList(SetCmds);
     DestroyCommandList(SetPrintCmds);
+    DestroyCommandList(SetBreakCmds);
     DestroyCommandList(ShowCmds);
     DestroyCommandList(ShowPrintCmds);
+    DestroyCommandList(ShowBreakCmds);
     DestroyCommandList(UnsetCmds);
 }

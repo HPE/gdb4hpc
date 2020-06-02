@@ -584,6 +584,52 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_set_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
+                                                 char **argv) {
+    const char *s;
+    int pending_flag;
+    ct_val cv;
+
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: set breakpoint pending [true|false]\n");
+        return 0;
+    }
+
+    // only look at the first arg
+    s = argv[1];
+
+    switch (ScanString(&cv, &s)) {
+        case CT_TRUE:
+            pending_flag = 1;
+            break;
+
+        case CT_FALSE:
+            pending_flag = 0;
+            break;
+
+        default:
+            PrintOutError("Encountered something other than true or false.\n");
+            PrintOutError(
+                "See \"help set breakpoint pending\" for more information.\n");
+            return 0;
+    }
+
+    Client.brk_pending = pending_flag;
+
+    return 1;
+}
+
+static int class_show_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
+                                                  char **argv) {
+    if (Client.brk_pending)
+        PrintOutMsg("Allow setting of pending breakpoints enabled.\n");
+    else
+        PrintOutMsg("Allow setting of pending breakpoints disabled.\n");
+
+    return 1;
+}
+
 void InitCmd_break(void) {
     AddCommand("break", "b", proc_required, 0, cmd_break_cmd,
                cmd_break_help, "Set breakpoint at specified line or function.");
@@ -599,8 +645,21 @@ void InitCmd_break(void) {
     AddCommand("watch", NULL, proc_required, 0, cmd_watch_cmd,
                cmd_watch_help, "Set watchpoint on specified expression.");
 
+    // info commands
     AddInfoCommand("breakpoints", proc_required, 0,
-                   class_info_subcmd_breakpoints_cmd,
-                   class_info_subcmd_breakpoints_help,
-                   "Show status of breakpoints.");
+        class_info_subcmd_breakpoints_cmd,
+        class_info_subcmd_breakpoints_help,
+        "Show status of breakpoints.");
+
+    // set breakpoint commands
+    AddSetBreakCommand("pending", proc_ignore, 0,
+        class_set_break_subcmd_pending_cmd,
+        class_set_break_subcmd_pending_help,
+        "Set behavior for pending breakpoints.");
+
+    // show breakpoint commands
+    AddShowBreakCommand("pending", proc_ignore, 0,
+        class_show_break_subcmd_pending_cmd,
+        class_show_break_subcmd_pending_help,
+        "Show behavior for pending breakpoints.");
 }

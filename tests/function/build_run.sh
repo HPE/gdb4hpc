@@ -164,8 +164,8 @@ run_tests() {
 ###########################
 
 # check that running this is feasible at all
-if ! python3 --version > /dev/null && ! python --version > /dev/null ; then
-    echo "No valid python install found. Exiting..."
+if ! python3 --version > /dev/null ; then
+    echo "python3 not found. Exiting..."
     exit 1
 fi
 

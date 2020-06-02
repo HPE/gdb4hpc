@@ -33,6 +33,7 @@ cmdlist_t *SetPrintCmds;  /* Set Print command list */
 cmdlist_t *SetBreakCmds;  /* Set Breakpoint command list */
 cmdlist_t *ShowCmds;      /* Show command list */
 cmdlist_t *ShowPrintCmds; /* Show Print command list */
+cmdlist_t *ShowBreakCmds; /* Show Print command list */
 cmdlist_t *UnsetCmds;     /* Unset command list */
 cmdlist_t *UsageCmds;     /* Usage command list */
 

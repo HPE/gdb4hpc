@@ -134,7 +134,7 @@ int main(int argc, char *argv[], char *env[]) {
     const char *prog = NULL;
     const char *jobKey = NULL;
     char *args = NULL;
-    dbgevent_t *e;
+    dbgevent_t *e = nullptr;
 #ifdef SOCKETS
     char name[MAXHOSTNAMELEN];
     struct hostent *hp;
@@ -450,6 +450,7 @@ int main(int argc, char *argv[], char *env[]) {
     if (e->ev_event != DBGEV_OK) {
         fprintf(stderr, "dbgsrv: dbg_invoke failed, error %d = %s\n",
                 e->ev_event, e->ev_errstr);
+        FreeEvent(e);
         EndServer(1);
     }
 
@@ -465,6 +466,7 @@ int main(int argc, char *argv[], char *env[]) {
     DBEPERFLOG(SetTimerStopAndLog("DbgCallBack"));
 
     if (args != NULL) Free(args);
+    if (e != NULL) FreeEvent(e);
 
     Server();
 

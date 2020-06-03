@@ -243,6 +243,8 @@ smart_bitset_serialize(smart_bitset *sb)
 	char* res = (char *)malloc(strlen(content)+16);
 	sprintf(res, "%x;%x;%s", format, num_bits, content);
 
+    free(content);
+
 	return res;
 }
 

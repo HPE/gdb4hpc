@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <string>
 #include <initializer_list>
+#include <fstream>
 
 #include "Stream_C.h"
 #include "aif.h"
@@ -56,6 +57,7 @@ static int DbgMRNInvoke(dbginvoke_t *, proto_session *, const char *, char **,
                         char **, const char *, int, int, int);
 static int DbgMRNExit(dbginvoke_t *, int);
 static void DbgMRNDestroyClient(dbginvoke_t *);
+static int DbgAddValgrindFiles(cti_manifest_id_t mid);
 
 // protocol specific startup event callback functions
 static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
@@ -401,12 +403,10 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     }
 
 #ifdef BE_VALGRIND
-    // Add valgrind to the manifest
-    if (cti_addManifestBinary(mid, "valgrind")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add valgrind to manifest.\n");
+
+    if (DbgAddValgrindFiles(mid))
         goto attach_error;
-    }
+
 #endif
 
     // Add the aggregation filter to the manifest
@@ -1082,10 +1082,8 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     }
 
 #ifdef BE_VALGRIND
-    // add valgrind
-    if (cti_addManifestBinary(mid, "valgrind")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add valgrind to manifest.\n");
+    // Add valgrind files to the manifest
+    if (DbgAddValgrindFiles(mid)) {
         goto invoke_error;
     }
 #endif
@@ -1734,4 +1732,34 @@ static void DbgMRNDestroyClient(dbginvoke_t *di) {
         // clear the program output object
         di->d_proto_outp = NULL;
     }
+}
+
+static int DbgAddValgrindFiles(cti_manifest_id_t mid)
+{
+    std::string suppressionFile;
+    bool hasSuppressionFile = false;
+
+    // Add valgrind to the manifest
+    if (int err = cti_addManifestBinary(mid, "valgrind")) {
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        PrintOutError("Failed to add valgrind to manifest.\n");
+        return err;
+    }
+
+    // And the suppression file if there is one
+    suppressionFile = std::string(getenv("HOME")) + "/gdb4hpc_be_suppressions.txt";
+    if (std::ifstream(suppressionFile.c_str())) hasSuppressionFile = true;
+
+    if (hasSuppressionFile) {
+        if (int err = cti_addManifestFile(mid, suppressionFile.c_str())) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError("Failed to add valgrind suppression file %s to manifest.\n", suppressionFile.c_str());
+            return err;
+        }
+    } else {
+        // Print out the file we're looking for so the dev doesn't need to look it up
+        PrintOutError("no suppression file found at: %s\n", suppressionFile.c_str());
+    }
+
+    return 0;
 }

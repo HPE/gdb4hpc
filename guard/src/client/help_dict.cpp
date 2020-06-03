@@ -891,6 +891,18 @@ const char* const class_set_print_help[] = {
     "is given, display a list of all valid set print subcommands.",
     0};
 
+const char* const class_set_break_help[] = {
+    "Summary: Set break command.",
+    "Usage: set break [<subcommand>]",
+    "Example command: set break",
+    "",
+    "Arguments: subcommand (set break subcommand)",
+    "",
+    "Description:",
+    "Settings relating to breakpoints. If no argument is given,",
+    "display a list of all valid set break subcommands.",
+    0};
+
 const char* const class_show_help[] = {
     "Summary: Show command.",
     "Usage: show [<subcommand>]",
@@ -913,6 +925,18 @@ const char* const class_show_print_help[] = {
     "Description:",
     "Show information relating to the way things are printed. If no argument",
     "is given, display a list of all valid show print subcommands.",
+    0};
+
+const char* const class_show_break_help[] = {
+    "Summary: Show break command.",
+    "Usage: show break [<subcommand>]",
+    "Example command: show break",
+    "",
+    "Arguments: subcommand (show break subcommand)",
+    "",
+    "Description:",
+    "Settings relating to breakpoints. If no argument is given,",
+    "display a list of all valid show break subcommands.",
     0};
 
 const char* const class_unset_help[] = {

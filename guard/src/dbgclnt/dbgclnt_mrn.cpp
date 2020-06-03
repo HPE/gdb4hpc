@@ -57,7 +57,9 @@ static int DbgMRNInvoke(dbginvoke_t *, proto_session *, const char *, char **,
                         char **, const char *, int, int, int);
 static int DbgMRNExit(dbginvoke_t *, int);
 static void DbgMRNDestroyClient(dbginvoke_t *);
+#ifdef BE_VALGRIND
 static int DbgAddValgrindFiles(cti_manifest_id_t mid);
+#endif
 
 // protocol specific startup event callback functions
 static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
@@ -1734,6 +1736,7 @@ static void DbgMRNDestroyClient(dbginvoke_t *di) {
     }
 }
 
+#ifdef BE_VALGRIND
 static int DbgAddValgrindFiles(cti_manifest_id_t mid)
 {
     std::string suppressionFile;
@@ -1747,7 +1750,7 @@ static int DbgAddValgrindFiles(cti_manifest_id_t mid)
     }
 
     // And the suppression file if there is one
-    suppressionFile = std::string(getenv("HOME")) + "/gdb4hpc_be_suppressions.txt";
+    suppressionFile = std::string(getenv("HOME")) + "/" + GDB4HPC_BE_SUPPRESSIONS;
     if (std::ifstream(suppressionFile.c_str())) hasSuppressionFile = true;
 
     if (hasSuppressionFile) {
@@ -1763,3 +1766,4 @@ static int DbgAddValgrindFiles(cti_manifest_id_t mid)
 
     return 0;
 }
+#endif

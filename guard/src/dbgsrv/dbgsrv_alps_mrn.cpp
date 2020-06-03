@@ -439,7 +439,7 @@ int main(int argc, char **argv) {
                     "--gen-suppressions=all", valgrind_log_str, NULL);
 
         if (char* fileDir = cti_be_getFileDir()) {
-            std::string suppressions{ std::string(fileDir) + "/gdb4hpc_be_suppressions.txt"};
+            std::string suppressions{ std::string(fileDir) + "/" + GDB4HPC_BE_SUPPRESSIONS};
             if (std::ifstream(suppressions)) {
                 suppressions = "--suppressions=" + suppressions;
                 valgrind_argv = AppendArgs(valgrind_argv, suppressions.c_str(), nullptr);

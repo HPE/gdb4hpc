@@ -1083,7 +1083,16 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
     rep_set_t *rep_set;
     dbgloc_t *halt_loc;
 
-    rep_set = DbgInterrupt(rec_set);
+    bool all = false;
+    if (argc == 2 && strcmp(argv[1],"-a") == 0) {
+        all = true;
+    } else if (argc > 1) {
+        PrintOutError("unrecognized command arguments.\n");
+        PrintOutError("expected halt or halt -a.\n");
+        return 0;
+    }
+
+    rep_set = DbgInterrupt(rec_set, all);
 
     // process error
     ProcessErrorInRepSet(rep_set);

@@ -187,6 +187,14 @@ struct cmdargs_getscope {
 };
 typedef struct cmdargs_getscope cmdargs_getscope;
 
+struct cmdargs_interrupt {
+    bool all;
+};
+
+struct cmdargs_go {
+    bool all;
+};
+
 struct cmdargs_direct {
     int cmd_argc;
     char **cmd_argv;
@@ -240,7 +248,9 @@ struct dbgcommand_t {
         cmdargs_gettype *cmd_u_gettype;
         cmdargs_getvars *cmd_u_getvars;
         cmdargs_getscope *cmd_u_getscope;
+        cmdargs_go *cmd_u_go;
         cmdargs_direct *cmd_u_direct;
+        cmdargs_interrupt *cmd_u_interrupt;
         cmdargs_status *cmd_u_status;
         cmdargs_string * cmd_u_string;
         cmdargs_quit *cmd_u_quit;

@@ -485,7 +485,7 @@ static void _halt(dbginvoke_t *di, int haltmode) {
     rec_set = NewRecSet();
     AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 
-    rep_set = DbgInterrupt(rec_set);
+    rep_set = DbgInterrupt(rec_set,true);
 
     // We only want to alert the user that the application has halted if
     // haltmode is true
@@ -540,7 +540,7 @@ static void _continue(dbginvoke_t *di) {
     rec_set = NewRecSet();
     AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
 
-    if ((rep_set = DbgGo(rec_set)) != NULL) {
+    if ((rep_set = DbgGo(rec_set,true)) != NULL) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
     }

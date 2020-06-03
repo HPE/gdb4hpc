@@ -41,7 +41,7 @@ public:
     virtual dbgevent_t *lastBreak() = 0;
     virtual dbgevent_t *list(const char *str) = 0;
     virtual dbgevent_t *getSources() = 0;
-    virtual dbgevent_t *go() = 0;
+    virtual dbgevent_t *go(bool all) = 0;
     virtual dbgevent_t *finishFunc() = 0;
     virtual dbgevent_t *setArgs(const char *arg) = 0; // set run arguments
     virtual dbgevent_t *step(int const, bool in) = 0;
@@ -62,7 +62,7 @@ public:
     virtual dbgevent_t *getScope(const char *location) = 0;
     virtual dbgevent_t *getStatus(bool getLocation) = 0;
     virtual dbgevent_t *quit(bool detach) = 0;
-    virtual dbgevent_t *interrupt() = 0;
+    virtual dbgevent_t *interrupt(bool all) = 0;
     virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch) = 0;
     virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) = 0;
@@ -111,7 +111,7 @@ extern dbgevent_t *DbgShowBreak(void);
 extern dbgevent_t *DbgLastBreak(void);
 extern dbgevent_t *DbgList(char *);
 extern dbgevent_t *DbgGetSources(void);
-extern dbgevent_t *DbgGo(void);
+extern dbgevent_t *DbgGo(bool all);
 extern dbgevent_t *DbgFinishFunc(void);
 extern dbgevent_t *DbgSetArgs(char *);
 extern dbgevent_t *DbgStep(int, int);
@@ -133,7 +133,7 @@ extern dbgevent_t *DbgDirectCmd(int, char **);
 extern dbgevent_t *DbgStatus(int);
 extern dbgevent_t *DbgGetEvent(void);
 extern dbgevent_t *DbgQuit(bool);
-extern dbgevent_t *DbgInterrupt(void);
+extern dbgevent_t *DbgInterrupt(bool all);
 extern dbgevent_t *DbgSetThread(const char* threadId);
 extern dbgevent_t *DbgGetThreadInfo(const char* threadId);
 extern dbgevent_t *DbgSetThreadName(const char* name);

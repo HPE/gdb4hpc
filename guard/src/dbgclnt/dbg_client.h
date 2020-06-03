@@ -419,7 +419,7 @@ extern rep_set_t *DbgGetSourcePath(rec_set_t *);
 extern rep_set_t *DbgSetVar(rec_set_t *, char *, AIF *);
 extern rep_set_t *DbgGetType(rec_set_t *, char *, int);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgGo(rec_set_t *);
+extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
 extern rep_set_t *DbgSetLineBreak(rec_set_t *, char *, int, int);
@@ -460,7 +460,7 @@ extern rep_set_t *DbgGetVars(rec_set_t *, char *);
 extern rep_set_t *DbgGetScope(rec_set_t *, char *);
 extern rep_set_t *DbgDirectCmd(rec_set_t *, int, char **);
 extern rep_set_t *DbgStatus(rec_set_t *, int);
-extern rep_set_t *DbgInterrupt(rec_set_t *);
+extern rep_set_t *DbgInterrupt(rec_set_t *, bool all);
 extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
 extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);

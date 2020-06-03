@@ -111,7 +111,8 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
 
         case DBGCMD_GO:
-            e = DbgGo();
+            CHECK_ARGS(e, cmd->cmd_u.cmd_u_go);
+            e = DbgGo(cmd->cmd_u.cmd_u_go->all);
             break;
 
         case DBGCMD_FINISH:
@@ -215,7 +216,8 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
 
         case DBGCMD_INTERRUPT:
-            e = DbgInterrupt();
+            CHECK_ARGS(e, cmd->cmd_u.cmd_u_interrupt);
+            e = DbgInterrupt(cmd->cmd_u.cmd_u_interrupt->all);
             break;
 
         case DBGCMD_OPENSOCKET:

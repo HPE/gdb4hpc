@@ -159,15 +159,17 @@ const char* const cmd_compare_help[] = {
 
 const char* const cmd_continue_help[] = {
     "Summary: Continue debugging application.",
-    "Usage: continue",
+    "Usage: continue [-a]",
     "Example command: continue",
     "Shortcut: c",
     "",
-    "Arguments: None.",
+    "Arguments: optional -a for \"all\".",
     "",
     "Description:",
     "Continue execution of every application rank in the current process set",
     "from its current location.",
+    "In non-stop mode, continue only applies to the current thread, use",
+    "continue -a to continue execution on all threads.",
     0};
 
 const char* const cmd_run_help[] = {
@@ -347,7 +349,7 @@ const char* const cmd_frame_help[] = {
 
 const char* const cmd_halt_help[] = {
     "Summary: Halt all executing processes.",
-    "Usage: halt",
+    "Usage: halt [-a]",
     "Example command: halt",
     "",
     "Arguments: None.",
@@ -355,6 +357,8 @@ const char* const cmd_halt_help[] = {
     "Description:",
     "Halt all executing ranks in the current process set. This is equivalent",
     "to sending a SIGINT to the ranks.",
+    "In non-stop mode only the current thread is halted; use halt -a to stop",
+    "all threads.",
     0};
 
 const char* const cmd_help_help[] = {

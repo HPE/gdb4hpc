@@ -66,14 +66,12 @@ extern const char* const class_maint_set_help[];
 extern const char* const class_maint_show_help[];
 extern const char* const class_set_help[];
 extern const char* const class_set_print_help[];
+extern const char* const class_set_break_help[];
 extern const char* const class_show_help[];
 extern const char* const class_show_print_help[];
+extern const char* const class_show_break_help[];
 extern const char* const class_unset_help[];
 extern const char* const class_usage_help[];
-extern const char* const class_set_scheduler_locking_help[];
-extern const char* const class_show_scheduler_locking_help[];
-extern const char* const class_set_non_stop_help[];
-extern const char* const class_show_non_stop_help[];
 
 /**********************************************
  * Command class sub-command help definitions
@@ -103,11 +101,18 @@ extern const char* const class_set_subcmd_directory_help[];
 extern const char* const class_set_subcmd_error_help[];
 extern const char* const class_set_subcmd_environment_help[];
 extern const char* const class_set_subcmd_function_help[];
+extern const char* const class_set_subcmd_scheduler_locking_help[];
+extern const char* const class_set_subcmd_non_stop_help[];
 
 /*
  * Class set print subcommands
  */
 extern const char* const class_set_print_subcmd_entryframe_help[];
+
+/*
+ * Class set breakpoint subcommands
+ */
+extern const char* const class_set_break_subcmd_pending_help[];
 
 /*
  * Class maint set subcommands
@@ -124,11 +129,18 @@ extern const char* const class_show_subcmd_error_help[];
 extern const char* const class_show_subcmd_function_help[];
 extern const char* const class_show_subcmd_environment_help[];
 extern const char* const class_show_subcmd_version_help[];
+extern const char* const class_show_subcmd_scheduler_locking_help[];
+extern const char* const class_show_subcmd_non_stop_help[];
 
 /*
  * Class show print subcommands
  */
 extern const char* const class_show_print_subcmd_entryframe_help[];
+
+/*
+ * Class show break subcommands
+ */
+extern const char* const class_show_break_subcmd_pending_help[];
 
 /*
  * Class maint show subcommands

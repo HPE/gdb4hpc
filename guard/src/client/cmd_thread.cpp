@@ -48,7 +48,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (auto&& reply : rep_set) {
             auto handle = reply->rep_di->d_handle;
             auto group = reply->rep_group;
-            
+
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
             std::string line;
@@ -56,7 +56,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
             }
         }
-        
+
         FreeRepSet(rep_set);
         return 1;
     } else if (argc >= 3 && strcmp(argv[1],"apply") == 0) {
@@ -75,7 +75,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (auto&& reply : rep_set) {
             auto handle = reply->rep_di->d_handle;
             auto group = reply->rep_group;
-            
+
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
             std::string line;
@@ -95,9 +95,9 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         rep_set_t *rep_set = DbgSetThread(rec_set, arg);
 
         ProcessErrorInRepSet(rep_set);
-        
+
         FreeRepSet(rep_set);
-        
+
         return 1;
     }
 }
@@ -149,11 +149,11 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
     }
 
     FreeRepSet(rep_set);
-    
+
     return 1;
 }
 
-static int class_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int class_set_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
@@ -171,7 +171,7 @@ static int class_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **
     return 1;
 }
 
-static int class_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int class_show_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -186,7 +186,7 @@ static int class_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char *
         PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                             "%s\n", mode);
     }
-        
+
 
     FreeRepSet(rep_set);
     return 1;
@@ -194,7 +194,7 @@ static int class_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char *
 
 // enable/disable non-stop mode which lets other threads in a process continue
 // running instead of stopping every thread
-static int class_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int class_set_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on.\n");
@@ -213,7 +213,7 @@ static int class_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 
     // note that the usual gdb back-ends do not support changing the non-stop
     // mode once the process is running, so we set a flag to set the
-    // mode during the next launch.   
+    // mode during the next launch.
     SetLaunchNonStopMode(isNonStop);
 
     // however, some back end *might* support changing the mode either now
@@ -234,7 +234,7 @@ static int class_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 // on means other threads can continue to run when one is stopped
-static int class_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -255,7 +255,7 @@ static int class_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
     } else {
         PrintOutMsg("non-stop mode is %s\n", GetLaunchNonStopMode() ? "on" : "off");
     }
-        
+
     return 1;
 }
 
@@ -272,20 +272,20 @@ void InitCmd_thread(void) {
                    "List currently known threads.");
 
     AddSetCommand("scheduler-locking", proc_required, 0,
-                  class_set_scheduler_locking_cmd,
-                  class_set_scheduler_locking_help,
+                  class_set_subcmd_scheduler_locking_cmd,
+                  class_set_subcmd_scheduler_locking_help,
                   "Set mode for locking scheduler during execution.");
     AddShowCommand("scheduler-locking", proc_required, 0,
-                   class_show_scheduler_locking_cmd,
-                   class_show_scheduler_locking_help,
+                   class_show_subcmd_scheduler_locking_cmd,
+                   class_show_subcmd_scheduler_locking_help,
                    "Show mode for locking scheduler during execution.");
 
     AddSetCommand("non-stop", proc_optional, 0,
-                  class_set_non_stop_cmd,
-                  class_set_non_stop_help,
+                  class_set_subcmd_non_stop_cmd,
+                  class_set_subcmd_non_stop_help,
                   "Set mode for thread stopping during execution.");
     AddShowCommand("non-stop", proc_optional, 0,
-                   class_show_non_stop_cmd,
-                   class_show_non_stop_help,
+                   class_show_subcmd_non_stop_cmd,
+                   class_show_subcmd_non_stop_help,
                    "Show mode for thread stopping during execution.");
 }

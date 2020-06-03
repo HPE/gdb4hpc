@@ -739,57 +739,6 @@ const char* const cmd_thread_help[] = {
     "but also the thread's address and LWP id",
     0};
 
-const char* const class_set_scheduler_locking_help[] = {
-    "Summary: Set the behavior of the thread schedule locking during execution",
-    "Usage set scheduler-locking  off|on|step|replay",
-    "Example command: set scheduler-locking off",
-    "",
-    "Description:",
-    "Set the mode for the locking scheduler:",
-    "off    : no locking, threads may preemt any time",
-    "on     : full locking, no thread except the current thread may run",
-    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
-    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
-    0};
-
-const char* const class_show_scheduler_locking_help[] = {
-    "Summary: Show the behavior of the thread schedule locking during execution",
-    "Usage: show scheduler-locking",
-    "Example command: show scheduler-locking",
-    "",
-    "Description:",
-    "Show the mode for the locking scheduler:",
-    "off    : no locking, threads may preemt any time",
-    "on     : full locking, no thread except the current thread may run",
-    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
-    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
-    0};
-
-const char* const class_set_non_stop_help[] = {
-    "Summary: Set the behavior of the threads during a break",
-    "Usage set non-stop off|on",
-    "Example command: set non-stop on",
-    "",
-    "Description:",
-    "Set the non-stop mode",
-    "off    : stopping one thread in a process stops all threads",
-    "on     : other threads continue running when one is stopped",
-    0};
-
-const char* const class_show_non_stop_help[] = {
-    "Summary: Show the behavior of the thread schedule locking during execution",
-    "Usage: show non-stop",
-    "Example command: show non-stop",
-    "",
-    "Description:",
-    "Show the non-stop mode for thread stopping:",
-    "off    : stopping one thread in a process stops all threads",
-    "on     : other threads continue running when one is stopped",
-    0};
-
-
-
-    
 const char* const cmd_up_help[] = {
     "Summary: Move stack frame up command.",
     "Usage: up [<num>]",
@@ -949,6 +898,18 @@ const char* const class_set_print_help[] = {
     "is given, display a list of all valid set print subcommands.",
     0};
 
+const char* const class_set_break_help[] = {
+    "Summary: Set break command.",
+    "Usage: set break [<subcommand>]",
+    "Example command: set break",
+    "",
+    "Arguments: subcommand (set break subcommand)",
+    "",
+    "Description:",
+    "Settings relating to breakpoints. If no argument is given,",
+    "display a list of all valid set break subcommands.",
+    0};
+
 const char* const class_show_help[] = {
     "Summary: Show command.",
     "Usage: show [<subcommand>]",
@@ -971,6 +932,18 @@ const char* const class_show_print_help[] = {
     "Description:",
     "Show information relating to the way things are printed. If no argument",
     "is given, display a list of all valid show print subcommands.",
+    0};
+
+const char* const class_show_break_help[] = {
+    "Summary: Show break command.",
+    "Usage: show break [<subcommand>]",
+    "Example command: show break",
+    "",
+    "Arguments: subcommand (show break subcommand)",
+    "",
+    "Description:",
+    "Settings relating to breakpoints. If no argument is given,",
+    "display a list of all valid show break subcommands.",
     0};
 
 const char* const class_unset_help[] = {
@@ -1230,6 +1203,30 @@ const char* const class_set_subcmd_function_help[] = {
     "allowed.",
     0};
 
+const char* const class_set_subcmd_scheduler_locking_help[] = {
+    "Summary: Set the behavior of the thread schedule locking during execution",
+    "Usage set scheduler-locking  off|on|step|replay",
+    "Example command: set scheduler-locking off",
+    "",
+    "Description:",
+    "Set the mode for the locking scheduler:",
+    "off    : no locking, threads may preemt any time",
+    "on     : full locking, no thread except the current thread may run",
+    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
+    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
+    0};
+
+const char* const class_set_subcmd_non_stop_help[] = {
+    "Summary: Set the behavior of the threads during a break",
+    "Usage set non-stop off|on",
+    "Example command: set non-stop on",
+    "",
+    "Description:",
+    "Set the non-stop mode",
+    "off    : stopping one thread in a process stops all threads",
+    "on     : other threads continue running when one is stopped",
+    0};
+
 /*
  * Class set print subcommands
  */
@@ -1244,6 +1241,18 @@ const char* const class_set_print_subcmd_entryframe_help[] = {
     "Description:",
     "Determines if the frames of the application ranks are printed on "
     "launch/attach.",
+    0};
+
+/*
+ * Class set breakpoint subcommands
+ */
+const char* const class_set_break_subcmd_pending_help[] = {
+    "Summary: Set behavior of setting pending breakpoints.",
+    "",
+    "Description:",
+    "Set if pending breakpoints are enabled. If enabled an unrecognized breakpoint location",
+    "will create a pending breakpoint. If disabled an unrecognized breakpoint location results",
+    "in an error.",
     0};
 
 /*
@@ -1322,6 +1331,30 @@ const char* const class_show_subcmd_version_help[] = {
     "Summary: Version information.", "",
     "Description:", "Display the debugger version number.", 0};
 
+const char* const class_show_subcmd_scheduler_locking_help[] = {
+    "Summary: Show the behavior of the thread schedule locking during execution",
+    "Usage: show scheduler-locking",
+    "Example command: show scheduler-locking",
+    "",
+    "Description:",
+    "Show the mode for the locking scheduler:",
+    "off    : no locking, threads may preemt any time",
+    "on     : full locking, no thread except the current thread may run",
+    "step   : scheduler is locked during stepping commands (step,next,stepi,nexti)",
+    "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
+    0};
+
+const char* const class_show_subcmd_non_stop_help[] = {
+    "Summary: Show the behavior of the thread schedule locking during execution",
+    "Usage: show non-stop",
+    "Example command: show non-stop",
+    "",
+    "Description:",
+    "Show the non-stop mode for thread stopping:",
+    "off    : stopping one thread in a process stops all threads",
+    "on     : other threads continue running when one is stopped",
+    0};
+
 /*
  * Class show print subcommands
  */
@@ -1329,6 +1362,18 @@ const char* const class_show_print_subcmd_entryframe_help[] = {
     "Summary: Printing of frame on entry mode information.", "", "Description:",
     "Display if the frames of the application ranks are printed on "
     "launch/attach.",
+    0};
+
+/*
+ * Class show breakpoint subcommands
+ */
+const char* const class_show_break_subcmd_pending_help[] = {
+    "Summary: Show behavior of setting pending breakpoints.",
+    "",
+    "Description:",
+    "Display if pending breakpoints are enabled. If enabled an unrecognized breakpoint location",
+    "will create a pending breakpoint. If disabled an unrecognized breakpoint location results",
+    "in an error.",
     0};
 
 /*

@@ -49,6 +49,7 @@ struct clnt_settings {
     list_t* set_env_list; /* Env vars from set env cmd */
     AIF* cmp_lower_eps;   /* Lower eps limit */
     AIF* cmp_upper_eps;   /* upper eps limit */
+    int brk_pending;      /* pending breakpoint mode */
 };
 typedef struct clnt_settings clnt_settings_t;
 

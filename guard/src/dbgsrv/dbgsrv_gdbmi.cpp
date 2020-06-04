@@ -193,6 +193,8 @@ static dbgevent_t *setup_gdbmi_main_entry_points(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
+static dbgevent_t *wrap_ROCgdb_MIGDBSet(const char* cmd, const char* setting);
+
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
@@ -388,16 +390,9 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        // do not open source files
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
+    // do not open source files
+    if ((e = wrap_ROCgdb_MIGDBSet("source open", "off")) != NULL) {
+        return e;
     }
     // we need gdb to set print elements and print repeats to 0 so
     // that when we resolve the data it gives us the entire contents
@@ -464,17 +459,9 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        // limit strings to 200 characters
-        cmd = _MIGDBSet("print characters", "200");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Gdb set print characters command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
+    // limit strings to 200 characters
+    if ((e = wrap_ROCgdb_MIGDBSet("print characters", "200")) != NULL) {
+        return e;
     }
 
     // don't allow pending breakpoints
@@ -538,19 +525,11 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         MICommandFree(cmd);
     }
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gpu_flag) {
         // If running with gpu's, turn upc off. If we don't do this, things will
         // break
-        if (gpu_flag) {
-            cmd = _MIGDBSet("upcsingle", "1");
-            SendMICommand(GDBMISession, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER,
-                            "Gdb set upcsingle command failed.");
-                return e;
-            }
-            MICommandFree(cmd);
+        if ((e = wrap_ROCgdb_MIGDBSet("upcsingle", "1")) != NULL) {
+            return e;
         }
     }
 
@@ -1959,14 +1938,9 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // if there are hundreds of thousands of ranks and they are all at different
     // locations.
 
-    cmd = _MIGDBSet("source open", "on");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+    if ((e = wrap_ROCgdb_MIGDBSet("source open", "on")) != NULL) {
         return e;
     }
-    MICommandFree(cmd);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1998,14 +1972,9 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MICommandFree(cmd);
 
     // do not open source files
-    cmd = _MIGDBSet("source open", "off");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+    if ((e = wrap_ROCgdb_MIGDBSet("source open", "off")) != NULL) {
         return e;
     }
-    MICommandFree(cmd);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -3929,14 +3898,9 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("source open", "on");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+    if ((e = wrap_ROCgdb_MIGDBSet("source open", "on")) != NULL) {
         return e;
     }
-    MICommandFree(cmd);
 
     return NULL;
 }
@@ -3968,14 +3932,9 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("source open", "off");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+    if ((e = wrap_ROCgdb_MIGDBSet("source open", "off")) != NULL) {
         return e;
     }
-    MICommandFree(cmd);
 
     return NULL;
 }
@@ -5031,4 +4990,21 @@ dbgevent_t *DbgGdbMI::getLocation() {
 int DbgGdbMI::progioHook(int) {
     // unimplemented, expecting a status, this has always return -1
     return -1;
+}
+
+static dbgevent_t* wrap_ROCgdb_MIGDBSet(const char* command, const char* setting) {
+    MICommand* cmd;
+    dbgevent_t* e = NULL;
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        DVPRINT("%s, gdb_vers == %d\n", __func__, gdb_vers);
+        cmd = _MIGDBSet(command, setting);
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set %s %s command failed.",
+                        command, setting);
+        }
+        MICommandFree(cmd);
+    }
+    return e;
 }

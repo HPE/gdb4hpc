@@ -12,8 +12,8 @@ void merge(int rank);
 void step_one(int rank);
 void step_two(int rank);
 void step_three(int rank);
-void even(int rank);
-void odd(int rank);
+void left(int rank);
+void right(int rank);
 
 int main(int argc, char* argv[]) {
     int ierr = MPI_Init(&argc, &argv);
@@ -42,10 +42,10 @@ int main(int argc, char* argv[]) {
 
 void branch(int rank) {
     // branch execution path in a psuedo-random fashion
-    if ((rank & 1) == 0) {
-        even(rank);
+    if (rank < 10) {
+        left(rank);
     } else {
-        odd(rank);
+        right(rank);
     }
 }
 
@@ -62,7 +62,7 @@ void step_one(int rank) {
 }
 
 void step_two(int rank) {
-    if (rank == 3 || rank == 4) {
+    if (rank == 0 || rank == 10) {
         rare_branch(rank);
     }
     step_three(rank);
@@ -72,12 +72,12 @@ void step_three(int rank) {
     merge(rank);
 }
 
-void even(int rank) {
-    std::cout << "I'm even!\n";
+void left(int rank) {
+    std::cout << "I'm left!\n";
     step_one(rank);
 }
 
-void odd(int rank) {
-    std::cout << "I'm odd!\n";
+void right(int rank) {
+    std::cout << "I'm right!\n";
     step_one(rank);
 }

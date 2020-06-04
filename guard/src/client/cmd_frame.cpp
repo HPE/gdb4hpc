@@ -21,9 +21,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 #include "client.h"
 #include "useful.h"
+#include "bttree.h"
 
 void PrintFrameSet(char *setname, bitset *group, dbgframe_t *f) {
     PrintMsgWithSetInfo(setname, group, "#%-2d ", f->frame_level);
@@ -71,7 +73,6 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
 static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int count = 0;
     dbgframe_t *f;
-    dbgframe_t *fp;
 
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -80,16 +81,44 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process error
     ProcessErrorInRepSet(rep_set);
 
-    // process frames
-    for (auto&& reply : rep_set) {
-        // Point at the frame data
-        fp = EVENT_FRAME(reply->rep_event);
+    // turn backtraces into tree format ////////////////////////////////////////
 
-        for (f = fp; f != (dbgframe_t *)NULL; f = f->frame_next) {
-            PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
+    BTTree root;
+    // root is a blank root node which serves to hold multiple trees.
+    // it needs a dummy bitset for the recursive group bitset merging to work.
+    root.group = bitset_new(1);
+
+    std::vector<BTTree> tracePool; // to hold information for cleaning up memory later
+
+    for (auto&& reply : rep_set) {
+        // reply sets hold stack frames in "reverse" (deepest first) order, while
+        // we want to print them in most shallow (i.e. main) first order.
+        BTTree path;
+        BTTree child;
+        bool available_child = false;
+        
+        for (f = EVENT_FRAME(reply->rep_event); f != (dbgframe_t *)NULL; f = f->frame_next) {
+            path = BTTree(reply->rep_di->d_handle, reply->rep_group, f);
+
+            if (available_child == true) {
+                path.children.push_back(child);
+            }
+
+            child = path;
+            available_child = true;
         }
+
+        tracePool.push_back(path); // save for freeing group bitsets later
+        root.insertBacktrace(path); // insert into root tree and merge common paths
     }
 
+    root.print();
+
+    // clean up - each tree node had its own group bitset allocated
+    for (auto &path : tracePool) {
+        path.freeTreeGroups();
+    }
+    bitset_free(root.group);
     FreeRepSet(rep_set);
 
     return 1;

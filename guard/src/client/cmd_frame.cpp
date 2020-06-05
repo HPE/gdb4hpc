@@ -21,11 +21,45 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <vector>
+#include <algorithm>
 
 #include "client.h"
 #include "useful.h"
-#include "bttree.h"
+
+/*
+ backtrace tree
+
+ used in cmd_backtrace_cmd (cmd_frame.cpp) to print a pstree-like 
+ representation of the results of a backtrack command.
+
+ copies setname and debugframe_t pointers and does not modify them, but 
+ duplicates the bitset passed in the constructor which must be freed manually. 
+*/
+class BTTree {
+public:
+    BTTree();
+    BTTree(char* setname, bitset* group, dbgframe_t* frame);
+
+    void print(std::string indent = "", bool is_last = true) const;
+    void insertBacktrace(BTTree &bt);
+    void insertChild(const BTTree &bt);
+    void removeGroupFromTree(bitset* group);
+    void allocateGroup(int size);
+    void freeGroup();
+    void freeTreeGroups();
+    bool compareData(const BTTree &other) const;
+    void condenseTree();
+private:
+    void printData(char* setname, bitset* group, dbgframe_t* frame) const;
+
+    char* _setname;
+    bitset* _group;
+    dbgframe_t* _frame;
+    std::vector<BTTree> _lateral;
+    std::vector<BTTree> _children;
+};
 
 void PrintFrameSet(char *setname, bitset *group, dbgframe_t *f) {
     PrintMsgWithSetInfo(setname, group, "#%-2d ", f->frame_level);
@@ -158,4 +192,169 @@ void InitCmd_frame(void) {
                "Print backtrace of all stack frames.");
     AddCommand("frame", NULL, proc_required, 0, cmd_frame_cmd,
                cmd_frame_help, "Print the currently selected stack frame.");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// BTTree
+////////////////////////////////////////////////////////////////////////////////
+
+BTTree::BTTree() 
+    : _setname{nullptr}, _group{nullptr}, _frame{nullptr}
+{}
+
+BTTree::BTTree(char* setname, bitset* group, dbgframe_t* frame) 
+    : _setname{setname}, _group{bitset_dup(group)}, _frame{frame}
+{}
+
+void BTTree::print(std::string indent, bool is_last) const {
+    bool has_info = (_setname != nullptr && _group != nullptr && _frame != nullptr);
+
+    std::string nodeMark = "|_ ";
+
+    if (has_info) { // skip the root node
+        if (is_last) {
+            nodeMark = "\\_ ";
+        }
+
+        // substr(3) is a hack to shave off the first 3 characters of the tree.
+        // since there is an invisible master root node, every backtrack tree is
+        // indended by 3 spaces by default. we want it to look like we're printing
+        // multiple tress instead of one big tree.
+        PrintOutMsg((indent + nodeMark).substr(3).c_str());
+        printData(_setname, _group, _frame);
+        for (auto &lat : _lateral) {
+            if (is_last) {
+                nodeMark = "   ";
+            } else {
+                nodeMark = "|  ";
+            }
+
+            PrintOutMsg((indent + nodeMark).substr(3).c_str());
+            printData(lat._setname, lat._group, lat._frame);
+        }
+
+        if (is_last) {
+            indent += "   ";
+        } else {
+            indent += "|  ";
+        }
+
+        if (_children.size() == 0) {
+            // extra spaces to make sure substr(3) never crashes
+            PrintOutMsg("%s\n", (indent + "   ").substr(3).c_str());
+        } else {
+            PrintOutMsg("%s\n", (indent + "|  ").substr(3).c_str());
+        }
+    }
+
+    for (unsigned int i = 0; i < _children.size(); i++) {
+        _children[i].print(indent, i == _children.size() - 1);
+    }
+}
+
+void BTTree::removeGroupFromTree(bitset* remgroup) {
+    bitset_andeqnot(_group, remgroup);
+    for (auto &child : _children) {
+        child.removeGroupFromTree(remgroup);
+    }
+}
+
+bool BTTree::compareData(const BTTree &other) const {
+    return std::string(_setname) == std::string(other._setname)
+        && std::string(_frame->frame_loc.loc_addr) == std::string(other._frame->frame_loc.loc_addr);
+}
+
+void BTTree::freeTreeGroups() {
+    for (auto &child : _children) {
+        child.freeTreeGroups();
+    }
+
+    if (_group != nullptr) {
+        freeGroup();
+    }
+}
+
+void BTTree::insertBacktrace(BTTree &bt) {
+    if (_children.size() == 0) {
+        // no children; nothing to merge with; just add here.
+        bitset_oreq(_group, bt._group);
+        _children.push_back(bt);
+    } else {
+        // look for a matching child node
+        auto it = std::find_if(_children.begin(), _children.end(), 
+            [&](const BTTree &child) {
+                return child.compareData(bt);
+            });
+
+        if (it != _children.end()) {
+            // match found; merge it and move down
+            bitset_oreq(_group, bt._group);
+            if (bt._children.size() != 0) {
+                // backtraces will only have one child
+                it->insertBacktrace(bt._children.front());
+            }
+        } else {
+            // match not found; add a new branch
+
+            // test for if we're in the master root node
+            // if we are, we don't want to mess with the _group bitsets of other
+            // programs.
+            if (_setname != nullptr) {
+                // remove ranks from bitsets on old branches
+                for (auto& child : _children) {
+                    child.removeGroupFromTree(bt._group);
+                }
+            }
+
+            bitset_oreq(_group, bt._group);
+            _children.push_back(bt);
+        }
+    }
+}
+
+void BTTree::insertChild(const BTTree &t) {
+    _children.push_back(t);
+}
+
+void BTTree::allocateGroup(int size) {
+    _group = bitset_new(size);
+}
+
+void BTTree::freeGroup() {
+    if (_group != nullptr) {
+        bitset_free(_group);
+        _group = nullptr;
+    }
+}
+
+void BTTree::printData(char* sn, bitset* gr, dbgframe_t* f) const {
+    PrintMsgWithSetInfo(sn, gr, "#%-2d ", f->frame_level);
+
+    PrintOutMsg("%s", f->frame_loc.loc_func);
+
+    if (*f->frame_loc.loc_file != '\0')
+        PrintOutMsg(" at %s:%d", f->frame_loc.loc_file, f->frame_loc.loc_line);
+
+    PrintOutMsg("\n");
+}
+
+void BTTree::condenseTree() {
+    for (auto &child : _children) {
+        child.condenseTree();
+    }
+
+    // don't do this if we are master root; master root only servers as a holder
+    // for unique backtraces as children
+    if (_children.size() == 1 && _setname != nullptr) {
+        BTTree& child = _children.front();
+        _lateral.push_back(child);
+        _lateral.back()._lateral.clear();
+
+        for (auto &nested : child._lateral) {
+            _lateral.push_back(nested);
+        }
+
+        child._lateral.clear();
+        _children = child._children;
+    }
 }

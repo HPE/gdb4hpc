@@ -86,7 +86,7 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     BTTree root;
     // root is a blank root node which serves to hold multiple trees.
     // it needs a dummy bitset for the recursive group bitset merging to work.
-    root.group = bitset_new(1);
+    root.allocateGroup(1);
 
     std::vector<BTTree> tracePool; // to hold information for cleaning up memory later
 
@@ -101,7 +101,7 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
             path = BTTree(reply->rep_di->d_handle, reply->rep_group, f);
 
             if (available_child == true) {
-                path.children.push_back(child);
+                path.insertChild(child);
             }
 
             child = path;
@@ -112,13 +112,15 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         root.insertBacktrace(path); // insert into root tree and merge common paths
     }
 
+    root.condenseTree();
     root.print();
 
-    // clean up - each tree node had its own group bitset allocated
+    // clean up - each tree node had its own group bitset allocated.
+    // the original pointers are still stored in tracePool.
     for (auto &path : tracePool) {
         path.freeTreeGroups();
     }
-    bitset_free(root.group);
+    root.freeGroup();
     FreeRepSet(rep_set);
 
     return 1;

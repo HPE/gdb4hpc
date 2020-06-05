@@ -184,6 +184,7 @@ static void event_callback(MIEvent *);
 static void console_callback(char *);
 static void log_callback(char *);
 static void target_callback(char *);
+static void notification_callback(char *, MIList *);
 static dbgbp_t *get_dbgbp(MICommand *);
 static dbgevent_t *delete_internal_breakpoints(list_t *);
 static dbgevent_t *setup_gdbmi_environment(void);
@@ -568,7 +569,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     // manually set up pretty printing for relocated installs
     setup_pretty_printing();
 
-    // set non-stop mode 
+    // set non-stop mode
     if (non_stop_flag) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(GDBMISession, cmd);
@@ -1115,6 +1116,7 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     MISessionRegisterConsoleCallback(GDBMISession, console_callback);
     MISessionRegisterLogCallback(GDBMISession, log_callback);
     MISessionRegisterTargetCallback(GDBMISession, target_callback);
+    MISessionRegisterNotifyCallback(GDBMISession, notification_callback);
     //set the default gdb type here for both the binary and the share directory,
     //overwrite it if we're using a non standard backend gdb.
     MISessionSetGDBPath(GDBMISession, "gdb-guard");
@@ -2779,10 +2781,10 @@ static std::string anonymizeThreadInfo(const std::string& val) {
 
         line = std::regex_replace(line, lwpRE, "");
         line = std::regex_replace(line, hexValRE, "");
-        
+
         os << line << "\n";
     }
-    
+
     return os.str();
 }
 
@@ -2826,13 +2828,13 @@ void ThreadCollector::add(std::string id, const std::string& val)
         ids = id + ids;
         return;
     }
-                
+
     id = id.substr(id.find_first_not_of(" \t")); // strip leading spaces
-    
+
     // get the last id in the current list
     size_t delimLoc = ids.find_last_of(" -");
     size_t prevIdLoc = (delimLoc == std::string::npos ? 0 : delimLoc+1);
-    
+
     // determine if this just creates or extends a range
     int prev = std::stoi(ids.substr(prevIdLoc));  // throws if not an int
     int curr = std::stoi(id);
@@ -2875,7 +2877,7 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
     }
 
     // we could potentially avoid the copy for the value, but it would make the code a lot more complicated
-    // (the map key is rightly const).  
+    // (the map key is rightly const).
     auto& pr = *m_currentResult++->second;
     ids = move(pr.second);
     val = pr.first;
@@ -2976,7 +2978,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
         std::string info(threadInfo);
         free(threadInfo);
-        
+
         if (doAnonymize) info = anonymizeThreadInfo(info);
         if (doCollect) info = collectThreadInfo(info);
 
@@ -3051,7 +3053,7 @@ static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, boo
     std::ostringstream os;
     std::string arg;
 
-    
+
     bool inCommand = false, isAll = false, isAscending = false, isFirst = false;
     while ( is >> arg) {
         bool addArg = true;
@@ -3145,7 +3147,7 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
         }
     }
 
-    // the non-collected version of thread apply.   
+    // the non-collected version of thread apply.
     std::istringstream is(in);
     std::ostringstream os;
     std::string header;
@@ -3715,7 +3717,7 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
         }
         MICommandFree(cmd);
     }
-        
+
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
@@ -4801,6 +4803,10 @@ static void target_callback(char *str) {
     DVPRINT("NEWGDBMI target> %s\n", str);
 }
 
+static void notification_callback(char *className, MIList *results) {
+    DVPRINT("NEWGDBMI notification> %s\n", className);
+}
+
 /*
 **
 ** ----- hashing and slicing functions -----
@@ -4984,7 +4990,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
         e->ev_data = new AIFStream(a);
         return e;
     }
-    
+
     AIFStream* aifStream = nullptr;
     char *type = nullptr;
 
@@ -4995,7 +5001,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
     dbgev ev = DBGEV_DATA;
     bool isFinal;
     auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
-    
+
     if (isFinal) {
         delete aifStream;
     } else {
@@ -5004,7 +5010,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
         DVPRINT("saving remainder of expression %l\n", expIdx);
         ev = DBGEV_DATA_SLICE;
         remainders.insert(std::make_pair(expIdx,aifStream));
-    } 
+    }
 
     dbgevent_t* e = NewEvent(ev);
     e->ev_data = new AIFStream(aif);

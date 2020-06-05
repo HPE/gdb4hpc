@@ -744,7 +744,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
 
     parallel_entry_BP = NewList();
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Init)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPI_Init)", 0);
     SendMICommand(GDBMISession, cmd);
     // Note we only want to insert the breakpoint into our internal list if the
     // command succeeded. We expect many of these to fail.
@@ -754,7 +754,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "athos_mpi_init", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "athos_mpi_init", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -762,7 +762,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_INIT_THREAD__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -770,7 +770,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_INIT__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -778,7 +778,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "mpi_init__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -786,7 +786,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "mpi_init_thread__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -794,7 +794,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD_", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_INIT_THREAD_", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -802,7 +802,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_INIT_", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -810,7 +810,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread_", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "mpi_init_thread_", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -818,7 +818,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "mpi_init_", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -826,7 +826,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI::Init", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -834,7 +834,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(MPI_Init_thread)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*&(MPI_Init_thread)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -842,7 +842,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init()", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_Init()", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -850,7 +850,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init(int&, char**&)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI::Init(int&, char**&)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -858,7 +858,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MPI_Init", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -866,7 +866,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "PMI2_Init", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "PMI2_Init", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -874,7 +874,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(PMPI_Init)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*&(PMPI_Init)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -882,7 +882,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "PMPI_Init", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "PMPI_Init", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -890,7 +890,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(start_pes)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*&(start_pes)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -898,7 +898,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(shmem_init)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*&(shmem_init)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL)
@@ -936,7 +936,7 @@ static dbgevent_t *setup_gdbmi_main_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "main", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "main", 0);
     SendMICommand(GDBMISession, cmd);
     // Note we only want to insert the breakpoint into our internal list if the
     // command succeeded.
@@ -982,7 +982,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     // FIXME: Figure out what the proper behavior should be. Should we warn if
     //        no exit point is found??
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&exit)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&exit)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -993,7 +993,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&_exit)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&_exit)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1004,7 +1004,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1015,7 +1015,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPIR_Errors_are_fatal)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPIR_Errors_are_fatal)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1026,7 +1026,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPID_Abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPID_Abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1037,7 +1037,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPI_Abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1048,7 +1048,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0,
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0,
                         "*(&ompi_mpi_errors_are_fatal_comm_handler)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
@@ -1573,7 +1573,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
         snprintf(where, len, "%s:%d", file, lno);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, where, 0);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1591,7 +1591,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%d", opt2, lno);
 
-            cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+            cmd = MIBreakInsert(0, 0, 0, NULL, 0, where, 0);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1645,7 +1645,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
         snprintf(where, len, "%s:%s", file, func);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, where, 0);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1663,7 +1663,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%s", opt2, func);
 
-            cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
+            cmd = MIBreakInsert(0, 0, 0, NULL, 0, where, 0);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1735,8 +1735,7 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     /*
     ** The MIBreakWatch command returns a limited amount of information when
-    ** inserting the watchpoint. Much less info is returned than the
-    *MIBreakInsert
+    ** inserting the watchpoint. Much less info is returned than the MIBreakInsert
     ** command. We need to first process the returned info ourselves to get the
     ** breakpoint id, and then call MIBreakInfo with this id.
     */
@@ -3438,7 +3437,7 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     // out what function the scope referrs to by setting a breakpoint to get
     // the function name.
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, location, 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, location, 0);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -4119,7 +4118,7 @@ dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
     /*
     ** Check for fortran.
     */
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MAIN__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MAIN__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         /*
@@ -4128,7 +4127,7 @@ dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
         ProgMain = "MAIN__";
     } else {
         MICommandFree(cmd);
-        cmd = MIBreakInsert(0, 0, NULL, 0, "main", 0);
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, "main", 0);
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);

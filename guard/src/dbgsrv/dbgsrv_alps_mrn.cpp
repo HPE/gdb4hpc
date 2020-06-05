@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fstream>
 
 #include "common_tools_be.h"
 #include "defs.h"
@@ -441,7 +442,26 @@ int main(int argc, char **argv) {
         // create an argv for valgrind
         valgrind_argv =
             NewArgv("valgrind", "--read-var-info=yes", "--track-origins=yes",
-                    "--leak-check=full", valgrind_log_str, NULL);
+                    "--leak-check=full", "--show-leak-kinds=definite",
+                    "--gen-suppressions=all", valgrind_log_str, NULL);
+
+        if (char* fileDir = cti_be_getFileDir()) {
+            std::string suppressions{ std::string(fileDir) + "/" + GDB4HPC_BE_SUPPRESSIONS};
+            if (std::ifstream(suppressions)) {
+                suppressions = "--suppressions=" + suppressions;
+                valgrind_argv = AppendArgs(valgrind_argv, suppressions.c_str(), nullptr);
+            }
+            free(fileDir);
+        }
+
+        // Add additional valgrind options
+        if (char* envArgs = getenv("GDB4HPC_VALGRIND_ARGS")) {
+            if (char** envArgv = Str2Argv(envArgs)) {
+                valgrind_argv = AppendArgv(valgrind_argv, envArgv);
+                FreeArgv(envArgv);
+            }
+        }
+
         valgrind_argv = AppendArgv(valgrind_argv, this_argv);
 #endif
 

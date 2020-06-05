@@ -1,0 +1,114 @@
+{
+   creating_peer_node
+   Memcheck:Param
+   writev(vector[...])
+   fun:writev
+   fun:_ZN5XPlat11SocketUtils4SendEiPNS0_5NCBufEj
+   fun:_ZN3MRN7Message4sendEi
+   fun:_ZNK3MRN8PeerNode12sendDirectlyEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode27init_newChildDataConnectionEN5boost10shared_ptrINS_8PeerNodeEEEj
+   fun:_ZN3MRN11BackEndNodeC2EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN13XTBackEndNodeC1EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN9XTNetwork17CreateBackEndNodeEPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN7Network12init_BackEndEPKctjS2_j
+   fun:_ZN3MRN7Network15CreateNetworkBEEiPPc
+   fun:network_create_BE
+   fun:_Z21mrn_be_create_networkiPPc
+}
+{
+   uninitialized_packet_memory
+   Memcheck:Param
+   writev(vector[...])
+   fun:writev
+   fun:_ZN5XPlat11SocketUtils4SendEiPNS0_5NCBufEj
+   fun:_ZN3MRN7Message4sendEi
+   fun:_ZN3MRN8PeerNode16send_thread_mainEPv
+   fun:_ZN5XPlatL21sigblock_wrapper_funcEPv
+   fun:start_thread
+}
+{
+   mrnet_unitialized_padding
+   Memcheck:Param
+   writev(vector[...])
+   fun:writev
+   fun:_ZN5XPlat11SocketUtils4SendEiPNS0_5NCBufEj
+   fun:_ZN3MRN7Message4sendEi
+   fun:_ZN3MRN13EventDetector25init_NewChildFDConnectionEN5boost10shared_ptrINS_8PeerNodeEEE
+   fun:_ZN3MRN13EventDetector4mainEPv
+   fun:_ZN5XPlatL21sigblock_wrapper_funcEPv
+   fun:start_thread
+}
+{
+   mrnet_leak_during_setup
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:strdup
+   fun:_ZNK3MRN9ChildNode20proc_NetworkSettingsEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode21proc_PacketFromParentEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode22proc_PacketsFromParentERNSt7__cxx114listIN5boost10shared_ptrINS_6PacketEEESaIS6_EEE
+   fun:_ZN3MRN9ChildNode27init_newChildDataConnectionEN5boost10shared_ptrINS_8PeerNodeEEEj
+   fun:_ZN3MRN11BackEndNodeC2EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN13XTBackEndNodeC1EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN9XTNetwork17CreateBackEndNodeEPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+}
+{
+   leak_in_cti_slurm_init_that_should_be_fixed
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:strdup
+   fun:_cti_be_slurm_init
+   fun:_cti_be_init
+   fun:call_init.part.0
+   fun:_dl_init
+   obj:/lib64/ld-2.26.so
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+{
+   leak_in_create_back_end_node
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:strdup
+   fun:_ZNK3MRN6Packet24DataElementArray2ArgListEP13__va_list_tag
+   fun:_ZNK3MRN6Packet13ExtractVaListEPKcP13__va_list_tag
+   fun:_ZN3MRN6Packet6unpackEPKcz
+   fun:_ZNK3MRN9ChildNode20proc_NetworkSettingsEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode21proc_PacketFromParentEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode22proc_PacketsFromParentERNSt7__cxx114listIN5boost10shared_ptrINS_6PacketEEESaIS6_EEE
+   fun:_ZN3MRN9ChildNode27init_newChildDataConnectionEN5boost10shared_ptrINS_8PeerNodeEEEj
+   fun:_ZN3MRN11BackEndNodeC2EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN13XTBackEndNodeC1EPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+   fun:_ZN3MRN9XTNetwork17CreateBackEndNodeEPNS_7NetworkENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEjS8_tj
+}
+{
+   leak_adding_mrnet_filter
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN5XPlat12SharedObject4LoadEPKc
+   fun:_ZN3MRN6Filter15load_FilterFuncEN5boost10shared_ptrISt3mapItNS_10FilterInfoESt4lessItESaISt4pairIKtS4_EEEEEtPKcSE_
+   fun:_ZNK3MRN11BackEndNode14proc_newFilterEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode21proc_PacketFromParentEN5boost10shared_ptrINS_6PacketEEE
+   fun:_ZN3MRN9ChildNode22proc_PacketsFromParentERNSt7__cxx114listIN5boost10shared_ptrINS_6PacketEEESaIS6_EEE
+   fun:_ZN3MRN8PeerNode16recv_thread_mainEPv
+   fun:_ZN5XPlatL21sigblock_wrapper_funcEPv
+   fun:start_thread
+   fun:clone
+}
+{
+   leak_in_MISessionStartLocal
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:realloc
+   fun:vasprintf
+   fun:asprintf
+   fun:MISessionStartLocal
+   fun:_ZN12_GLOBAL__N_18DbgGdbMI4initEPiS1_PPc
+   fun:main
+}

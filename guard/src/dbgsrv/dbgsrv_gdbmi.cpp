@@ -4365,6 +4365,18 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             bp->bp_hits++;
             CurrBP = bp;
 
+            // If the stored bp was pending, we need to modify it with the new information
+            if (bp->bp_pending && evt->frame != NULL) {
+                bp->bp_pending = 0;
+                if (evt->frame->file != NULL)
+                    bp->bp_loc.loc_file = strdup(evt->frame->file);
+                if (evt->frame->func != NULL)
+                    bp->bp_loc.loc_func = strdup(evt->frame->func);
+                if (evt->frame->addr != NULL)
+                    bp->bp_loc.loc_addr = strdup(evt->frame->addr);
+                bp->bp_loc.loc_line = evt->frame->line;
+            }
+
             e->ev_event = DBGEV_BPHIT;
             e->ev_bp = DupBP(bp);
 

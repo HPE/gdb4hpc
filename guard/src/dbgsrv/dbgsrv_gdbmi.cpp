@@ -4725,6 +4725,12 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
         if (bpt->what != NULL) bp->bp_exp = strdup(bpt->what);
     }
 
+    // Check to see if this is a pending breakpoint
+    if (bpt->pending != NULL) {
+        bp->bp_pending = 1;
+        bp->bp_stmt = strdup(bpt->pending);
+    }
+
     if (bpt->threadId != NULL) {
         bp->bp_threadId = atoi(bpt->threadId); // 0 is an OK response
     }

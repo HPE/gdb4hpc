@@ -189,6 +189,7 @@ static dbgevent_t *delete_internal_breakpoints(list_t *);
 static dbgevent_t *setup_gdbmi_environment(void);
 static dbgevent_t *setup_gdbmi_signals(void);
 static dbgevent_t *setup_gdbmi_entry_points(void);
+static dbgevent_t *finish_from_mpi_entry_point(void);
 static dbgevent_t *setup_gdbmi_main_entry_points(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
@@ -205,6 +206,7 @@ dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 /* internal static functions */
 
 static dbgbp_t *get_dbgbp(MICommand *cmd) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgbp_t *bp;
     MIBreakpoint *bpt;
     MIList *bpts;
@@ -262,6 +264,7 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
 }
 
 static dbgevent_t *delete_internal_breakpoints(list_t *bplist) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp;
@@ -292,6 +295,7 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 }
 
 static void setup_pretty_printing() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     char* tmpDir = cti_be_getTmpDir();
     if (!tmpDir) {
         DVPRINT("could not get tmpDir");
@@ -328,6 +332,7 @@ static void setup_pretty_printing() {
 }
 
 static dbgevent_t *setup_gdbmi_environment(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
 
@@ -568,7 +573,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     // manually set up pretty printing for relocated installs
     setup_pretty_printing();
 
-    // set non-stop mode 
+    // set non-stop mode
     if (non_stop_flag) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(GDBMISession, cmd);
@@ -592,6 +597,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
 }
 
 static dbgevent_t *setup_gdbmi_signals(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
 
@@ -726,10 +732,35 @@ static dbgevent_t *setup_gdbmi_signals(void) {
     return NULL;
 }
 
+//static const std::set<std::string> s;
+static const std::vector<std::string> entry_point_strings
+{
+    "*(&MPI_Init)",
+    "athos_mpi_init",
+    "MPI_INIT_THREAD__",
+    "MPI_INIT__",
+    "mpi_init__",
+    "mpi_init_thread__",
+    "MPI_INIT_THREAD_",
+    "MPI_INIT_",
+    "mpi_init_thread_",
+    "mpi_init_",
+    "MPI::Init",
+    "*&(MPI_Init_thread)",
+    "MPI_Init()",
+    "MPI::Init(int&)",
+    "MPI_Init",
+    "PMI2_Init",
+    "*&(PMPI_Init)",
+    "PMPI_Init",
+    "*&(start_pes)",
+    "*&(shmem_init)"
+};
+
 static dbgevent_t *setup_gdbmi_entry_points(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
-    dbgbp_t *bp_res;
 
     // set the lang to c. We always want to do this!!
     cmd = _MIGDBSet("lang", "c");
@@ -742,160 +773,18 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     MICommandFree(cmd);
 
     parallel_entry_BP = NewList();
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Init)", 0);
-    SendMICommand(GDBMISession, cmd);
-    // Note we only want to insert the breakpoint into our internal list if the
-    // command succeeded. We expect many of these to fail.
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
+    dbgbp_t *bp_res;
+    for (auto&& str: entry_point_strings) {
+        cmd = MIBreakInsert(0, 0, NULL, 0, str.c_str(), 0);
+        SendMICommand(GDBMISession, cmd);
+        // Note we only want to insert the breakpoint into our internal list if the
+        // command succeeded. We expect many of these to fail.
+        if (MICommandResultOK(cmd)) {
+            if ((bp_res = get_dbgbp(cmd)) != NULL)
+                AddToList(parallel_entry_BP, (void *)bp_res);
+        }
+        MICommandFree(cmd);
     }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "athos_mpi_init", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD__", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT__", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init__", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread__", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_THREAD_", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_INIT_", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_thread_", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "mpi_init_", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(MPI_Init_thread)", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init()", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI::Init(int&, char**&)", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MPI_Init", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "PMI2_Init", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(PMPI_Init)", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(start_pes)", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
-
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*&(shmem_init)", 0);
-    SendMICommand(GDBMISession, cmd);
-    if (MICommandResultOK(cmd)) {
-        if ((bp_res = get_dbgbp(cmd)) != NULL)
-            AddToList(parallel_entry_BP, (void *)bp_res);
-    }
-    MICommandFree(cmd);
 
     // set the lang back to auto. We always want to do this!!
     cmd = _MIGDBSet("lang", "auto");
@@ -910,7 +799,107 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     return NULL;
 }
 
+static dbgevent_t *finish_from_mpi_entry_point(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    dbgevent_t *e = nullptr;
+    MICommand *cmd;
+    MIList *frames;
+    MIFrame *frame;
+
+    //get all of the frames.
+    cmd = MIStackListAllFrames();
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
+        return e;
+    }
+    if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
+        return e;
+    }
+    MICommandFree(cmd);
+
+    //for (auto&& str: entry_point_strings) {
+    //    DVPRINT("%s: %d, entry_point_strings %s\n", __func__, __LINE__, str.c_str());
+    //}
+    int depth = 0;
+    bool found_eps = false;
+    std::string matching_eps;
+    // parse over the frame list
+    for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL && !found_eps;) {
+        // set frame function
+        if (frame->func != NULL) {
+            DVPRINT("%s: frame_func: %s\n", __func__, frame->func);
+            if (std::find(entry_point_strings.begin(),
+                          entry_point_strings.end(),
+                          std::string(frame->func)) != entry_point_strings.end()) {
+                DVPRINT("%s: frame func %s matches an entry point string\n", __func__, frame->func);
+                found_eps = true;
+                matching_eps = frame->func;
+            } else {
+                ++depth;
+                //DVPRINT("frame func %s does not match an entry point string\n", frame->func);
+            }
+            DVPRINT("%s: depth %d, found_eps %s, matching_ops %s\n", __func__, depth, found_eps?"true":"false",
+                    found_eps?matching_eps.c_str():"notfound");
+        } else {
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "frame_func: NULL!");
+            return e;
+        }
+    }
+    //if we didn't find the entry point string, fail.
+    if (!found_eps) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Didn't find entry point function!");
+        return e;
+    }
+    //otherwise, to walk us back up the stack to main
+    int fr_cnt = 0;
+    for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL && fr_cnt <= depth; ++fr_cnt) {
+        cmd = MIExecFinish();
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
+            return e;
+        }
+        MICommandFree(cmd);
+        DVPRINT("%s: just finished frame func %s\n", __func__, frame->func);
+    }
+    // free the MIFrame list
+    MIListFree(frames, (void (*)())MIFrameFree);
+
+    //get the current frame
+    cmd = MIStackListFrames(0, 0);
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListFrames command failed.");
+        return e;
+    }
+    if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
+        return e;
+    }
+    MICommandFree(cmd);
+    MIListSet(frames);
+    if ((frame = (MIFrame *)MIListGet(frames)) != NULL) {
+        DVPRINT("%s: Current frame func %s\n", __func__, frame->func);
+        if (std::string("main") != std::string(frame->func)) {
+            EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo returned non- main function frame!");
+        }
+    } else {
+        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo returned NULL function frame!");
+    }
+    MIListFree(frames, (void (*)())MIFrameFree);
+    
+    return e;
+}
+
 static dbgevent_t *setup_gdbmi_main_entry_points(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp_res;
@@ -951,6 +940,7 @@ static dbgevent_t *setup_gdbmi_main_entry_points(void) {
 }
 
 static dbgevent_t *setup_gdbmi_exit_points(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp_res;
@@ -1071,10 +1061,10 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
 */
 
 dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
+    DVPRINT("*** Dbg %s::%s\n", __FILE__, __func__);
     dbgevent_t *e;
     gdb_vers = GdbVersion::GDB_81;
 
-    DVPRINT("*** DbgGDBMIInit\n");
 
     /**************DEBUG Start*****************/
     sigset_t debug_mask;
@@ -1324,6 +1314,7 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
 ** Continue to main and show current stack frame.
 */
 dbgevent_t *DbgGdbMI::startup(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     MIEvent *evt;
@@ -1331,11 +1322,11 @@ dbgevent_t *DbgGdbMI::startup(void) {
     int finish = 1;
     int attempt = 0;
 
-    DVPRINT("*** DbgStartup\n");
-
     // Only setup entry points if we are not running with the special early
     // entry mode
-    if (!early_entry_flag) {
+    if (early_entry_flag) {
+        if ((e = finish_from_mpi_entry_point()) != NULL) return e;
+    } else {
         // setup main entry points
         if ((e = setup_gdbmi_main_entry_points()) != NULL) return e;
         // setup parallel entry points
@@ -1496,6 +1487,7 @@ dbgevent_t *DbgGdbMI::startup(void) {
 ** and perform any necessary callbacks.
 */
 int DbgGdbMI::read(int fd) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     int error = 0;
 
     /*
@@ -1531,6 +1523,7 @@ int DbgGdbMI::read(int fd) {
 ** are ready to process the registered asynch event or not.
 */
 bool DbgGdbMI::bufferReady(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     return AsynchEventWaiting; /* Modified by event_callback(). */
 }
 
@@ -1538,13 +1531,12 @@ bool DbgGdbMI::bufferReady(void) {
 ** Set breakpoint at specified line.
 */
 dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
     MICommand *cmd;
     char *where;
     char *opt2;
     int tmp = lno, len = 0;
-
-    DVPRINT("*** DbgSetLineBreak\n");
 
     // determine digit length of integer
     do {
@@ -1619,13 +1611,12 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
 */
 dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
                                    const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
     MICommand *cmd;
     char *where;
     char *opt2;
     int len = 0;
-
-    DVPRINT("*** DbgSetFuncBreak\n");
 
     if (file == NULL || *file == '\0') {
         where = strdup(func);
@@ -1690,14 +1681,13 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
 ** Set watchpoint at specified expression.
 */
 dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
     MICommand *cmd;
     dbgbp_type bp_type = (dbgbp_type)type;
     MIBreakpoint *bpt;
     MIList *bpts;
     int id;
-
-    DVPRINT("*** DbgSetWatch\n");
 
     // set the command based on the type
     switch (bp_type) {
@@ -1777,12 +1767,11 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 ** Delete a breakpoint.
 */
 dbgevent_t *DbgGdbMI::deleteBreak(int bid) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp;
     int bpid;
-
-    DVPRINT("*** DbgDeleteBreak\n");
 
     bp = FindBPByID(BP, bid);
 
@@ -1815,12 +1804,11 @@ dbgevent_t *DbgGdbMI::deleteBreak(int bid) {
 ** Disable a breakpoint.
 */
 dbgevent_t *DbgGdbMI::disableBreak(int bid) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     dbgbp_t *bp;
     int bpid;
-
-    DVPRINT("*** DbgDisableBreak\n");
 
     bp = FindBPByID(BP, bid);
 
@@ -1853,14 +1841,13 @@ dbgevent_t *DbgGdbMI::disableBreak(int bid) {
 ** Enable a breakpoint.
 */
 dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     const char *cmd_args[3];
     char cmd_bpid[30];
     dbgbp_t *bp;
     int bpid;
-
-    DVPRINT("*** DbgEnableBreak\n");
 
     bp = FindBPByID(BP, bid);
 
@@ -1919,6 +1906,7 @@ dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
 ** Return id of last breakpoint to be hit.
 */
 dbgevent_t *DbgGdbMI::lastBreak() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
     if (!CurrBP) {
@@ -1938,6 +1926,7 @@ dbgevent_t *DbgGdbMI::lastBreak() {
 ** GDB does not have a MI command for this; we use the CLI command.
 */
 dbgevent_t *DbgGdbMI::list(const char *str) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     MIList *lines;
@@ -1945,8 +1934,6 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     dbglist_t *dbg_list;
     dbglist_t *list_ptr = NULL;
     dbglist_t *list = NULL;
-
-    DVPRINT("*** DbgList\n");
 
     // We currently turn off opening of source files to avoid performance
     // penalties of accessing the cross mounted file system. But the user
@@ -2017,6 +2004,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
 ** Get source files of inferior.
 */
 dbgevent_t *DbgGdbMI::getSources() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     MIList *sources;
@@ -2024,8 +2012,6 @@ dbgevent_t *DbgGdbMI::getSources() {
     dbgsources_t *dbg_sources;
     dbgsources_t *sources_ptr = NULL;
     dbgsources_t *head = NULL;
-
-    DVPRINT("*** DbgGetSources\n");
 
     cmd = MIFileListExecSourceFiles();
     SendMICommand(GDBMISession, cmd);
@@ -2077,9 +2063,8 @@ dbgevent_t *DbgGdbMI::getSources() {
 ** can find out the process id of the program.
 */
 dbgevent_t *DbgGdbMI::go(bool all) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    DVPRINT("*** DbgGo(%s)\n", all ? "all" : "");
 
     if (Status == DBGSTAT_EXIT) {
         EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2111,9 +2096,8 @@ dbgevent_t *DbgGdbMI::go(bool all) {
 ** Continue executing program until the current function returns.
 */
 dbgevent_t *DbgGdbMI::finishFunc() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    DVPRINT("*** DbgFinishFunc()\n");
 
     if (Status == DBGSTAT_EXIT) {
         EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2145,7 +2129,7 @@ dbgevent_t *DbgGdbMI::finishFunc() {
 ** Set run arguments.
 */
 dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
-    DVPRINT("*** DbgSetArgs\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     if (arg != NULL && *arg != '\0') {
         if (RunArgs != NULL) Free(RunArgs);
@@ -2161,10 +2145,9 @@ dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
 ** function calls.
 */
 dbgevent_t *DbgGdbMI::step(int count, bool in) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
-
-    DVPRINT("*** DbgStep()\n");
 
     if (Status == DBGSTAT_EXIT) {
         EVENT_ERROR(e, DBGERR_AT_EXIT, "");
@@ -2199,9 +2182,8 @@ dbgevent_t *DbgGdbMI::step(int count, bool in) {
 ** Kill the currently running process.
 */
 dbgevent_t *DbgGdbMI::kill() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    DVPRINT("*** DbgKill\n");
 
 #ifndef ALPS
     // Note that if we are on a cray platform, we don't want to send the kill
@@ -2234,6 +2216,7 @@ dbgevent_t *DbgGdbMI::kill() {
 ** Move up or down count stack frames.
 */
 dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgframe_t *result = NULL;
 
@@ -2244,8 +2227,6 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
     MICommand *cmd;
     MIList *mi_frame_list;
     MIFrame *mi_frame;
-
-    DVPRINT("*** DbgMoveFrame\n");
 
     // first get the level of the current frame
     cmd = MIStackInfoFrame();
@@ -2406,6 +2387,7 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
 ** outermost frames.
 */
 dbgevent_t *DbgGdbMI::showFrame(int count) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgframe_t *result = NULL;
     dbgframe_t *new_f = NULL;
@@ -2414,8 +2396,6 @@ dbgevent_t *DbgGdbMI::showFrame(int count) {
     MICommand *cmd;
     MIList *frames;
     MIFrame *frame;
-
-    DVPRINT("*** DbgShowFrame\n");
 
     // We need to do different things depending on the value of count
     if (count < 0) {
@@ -2540,14 +2520,13 @@ dbgevent_t *DbgGdbMI::showFrame(int count) {
 ** that is selected.
 */
 dbgevent_t *DbgGdbMI::getFrame() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgframe_t *result = nullptr;
 
     MICommand *cmd;
     MIList *mi_frame_list;
     MIFrame *mi_frame;
-
-    DVPRINT("*** DbgShowFrame\n");
 
     // Get the selected frame
     cmd = MIStackInfoFrame();
@@ -2626,13 +2605,12 @@ dbgevent_t *DbgGdbMI::getFrame() {
 ** this is a better implementation (andrewg).
 */
 dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     char *data;
     char *expr;
     int len;
-
-    DVPRINT("*** DbgSetVar\n");
 
     if (a == NULL) {
         EVENT_ERROR(e, DBGERR_SETVAR, "Invalid input. AIF is null.");
@@ -2682,11 +2660,10 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a) {
 ** If isType is true, then we are finding type information for a type.
 */
 dbgevent_t *DbgGdbMI::getType(const char *var, bool isType) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     char *type;
-
-    DVPRINT("*** DbgGetType(%s, %d)\n", var, isType);
 
     if (isType)
         cmd = CLIPtype(var);
@@ -2721,7 +2698,7 @@ dbgevent_t *DbgGdbMI::getType(const char *var, bool isType) {
 }
 
 dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
-    DVPRINT("*** DbgSetThread(%s)\n", threadId);
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     dbgevent_t* e = nullptr;
 
@@ -2751,6 +2728,7 @@ dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
 // remove process specific addresses and LWP ids from the thread ouput that would
 // prevent them being reduced in MRNet
 static std::string anonymizeThreadInfo(const std::string& val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
     std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
 
@@ -2767,10 +2745,10 @@ static std::string anonymizeThreadInfo(const std::string& val) {
 
         line = std::regex_replace(line, lwpRE, "");
         line = std::regex_replace(line, hexValRE, "");
-        
+
         os << line << "\n";
     }
-    
+
     return os.str();
 }
 
@@ -2795,8 +2773,8 @@ private:
 };
 
 // add an id,value pair for collection
-void ThreadCollector::add(std::string id, const std::string& val)
-{
+void ThreadCollector::add(std::string id, const std::string& val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     if (!m_sortedResult.empty()) {
         DVPRINT("logic error, adding a value to ThreadCollector after extraction has begun.\n");
         return;
@@ -2814,13 +2792,13 @@ void ThreadCollector::add(std::string id, const std::string& val)
         ids = id + ids;
         return;
     }
-                
+
     id = id.substr(id.find_first_not_of(" \t")); // strip leading spaces
-    
+
     // get the last id in the current list
     size_t delimLoc = ids.find_last_of(" -");
     size_t prevIdLoc = (delimLoc == std::string::npos ? 0 : delimLoc+1);
-    
+
     // determine if this just creates or extends a range
     int prev = std::stoi(ids.substr(prevIdLoc));  // throws if not an int
     int curr = std::stoi(id);
@@ -2838,6 +2816,7 @@ void ThreadCollector::add(std::string id, const std::string& val)
 
 // get the next id-list, value pair of the collected result
 bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     if (m_val2Id.empty()) {
         return false;
     }
@@ -2863,7 +2842,7 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
     }
 
     // we could potentially avoid the copy for the value, but it would make the code a lot more complicated
-    // (the map key is rightly const).  
+    // (the map key is rightly const).
     auto& pr = *m_currentResult++->second;
     ids = move(pr.second);
     val = pr.first;
@@ -2876,6 +2855,7 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
 // compactly.   Similar threads will be identified by an id list at is:
 // id1 id2 id3-id4
 static std::string collectThreadInfo(const std::string& val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     std::regex re(R"(^(\*? *\d+)\s+(.*))");
 
     ThreadCollector collector;
@@ -2918,7 +2898,7 @@ static std::string collectThreadInfo(const std::string& val) {
 }
 
 dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
-    DVPRINT("*** DbgGetThreadInfo(%s)\n", threadId ? threadId : "");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     dbgevent_t* e = nullptr;
 
@@ -2964,7 +2944,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
         std::string info(threadInfo);
         free(threadInfo);
-        
+
         if (doAnonymize) info = anonymizeThreadInfo(info);
         if (doCollect) info = collectThreadInfo(info);
 
@@ -2979,7 +2959,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
 }
 
 dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
-    DVPRINT("DbgGDBMI::setThreadName\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[3] = { "thread", "name", name };
     MICommand* cmd = CLIBypassc(3, cmd_args);
@@ -2997,7 +2977,7 @@ dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
 }
 
 dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
-    DVPRINT("DbgGDBMI::findThread\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[3] = { "thread", "find", pattern };
 
@@ -3033,13 +3013,14 @@ dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
 // -v (verbose) a gdb4hpc extension - don't strip out hex values
 // also if the thread set is "all" we want to add a -ascending flag to keep the output sane.
 static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     isSilent = isQuiet = isVerbose = false;
 
     std::istringstream is(op);
     std::ostringstream os;
     std::string arg;
 
-    
+
     bool inCommand = false, isAll = false, isAscending = false, isFirst = false;
     while ( is >> arg) {
         bool addArg = true;
@@ -3086,6 +3067,7 @@ static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, boo
 // isQuiet: suppress printing the thread information
 // isVerbose: a gdb4hpc extension - don't strip out hex values
 static std::string processThreadApplyOutput(const std::string& in, bool isSilent, bool isQuiet, bool isVerbose) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     std::regex headerRE(R"(^Thread\s+(\d+)\s*\(Thread[^:]*:)");
     std::regex hexRE(R"(0x[0-9a-fA-F]+)");
     std::regex convenienceVarRE(R"(^\$\d+\s*=\s*)");
@@ -3133,7 +3115,7 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
         }
     }
 
-    // the non-collected version of thread apply.   
+    // the non-collected version of thread apply.
     std::istringstream is(in);
     std::ostringstream os;
     std::string header;
@@ -3164,7 +3146,7 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
 }
 
 dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
-    DVPRINT("DbgGDBMI::threadApply\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     bool isSilent = false, isQuiet = false, isVerbose = false;
     std::string op = parseThreadApplyOp(inOp, isSilent, isQuiet, isVerbose);
@@ -3197,7 +3179,7 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
 }
 
 dbgevent_t *DbgGdbMI::setSchedulerLocking(const char* mode) {
-    DVPRINT("DbgGDBMI::setSchedulerLocking\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[3] = { "set", "scheduler-locking", mode };
     MICommand* cmd = CLIBypassc(3, cmd_args);
@@ -3215,7 +3197,7 @@ dbgevent_t *DbgGdbMI::setSchedulerLocking(const char* mode) {
 }
 
 dbgevent_t *DbgGdbMI::getSchedulerLocking() {
-    DVPRINT("DbgGDBMI::getSchedulerLocking\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[2] = { "show", "scheduler-locking"};
     MICommand* cmd = CLIBypassc(2, cmd_args);
@@ -3236,7 +3218,7 @@ dbgevent_t *DbgGdbMI::getSchedulerLocking() {
 }
 
 dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
-    DVPRINT("DbgGDBMI::setNonStop\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[3] = { "set", "non-stop", mode };
     MICommand* cmd = CLIBypassc(3, cmd_args);
@@ -3254,7 +3236,7 @@ dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
 }
 
 dbgevent_t *DbgGdbMI::getNonStop() {
-    DVPRINT("DbgGDBMI::getNonStop\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     const char* cmd_args[2] = { "show", "non-stop"};
     MICommand* cmd = CLIBypassc(2, cmd_args);
@@ -3279,6 +3261,7 @@ dbgevent_t *DbgGdbMI::getNonStop() {
 ** List variables in the current stack frame
 */
 dbgevent_t *DbgGdbMI::getVars(const char *file) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgvars_t *result = NULL;
     dbgvars_t *cur_var = NULL;
@@ -3287,8 +3270,6 @@ dbgevent_t *DbgGdbMI::getVars(const char *file) {
     MICommand *cmd;
     MIList *vars;
     MIArg *var;
-
-    DVPRINT("*** DbgGetVars\n");
 
     cmd = MIStackListVariables(SIMPLE_VALUES);
     SendMICommand(GDBMISession, cmd);
@@ -3357,6 +3338,7 @@ dbgevent_t *DbgGdbMI::getVars(const char *file) {
 ** List local variables relative to a scope
 */
 dbgevent_t *DbgGdbMI::getScope(const char *location) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     MIList *vars;
     char *name;
@@ -3369,8 +3351,6 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     char *var_str;
     char *type;
     dbgevent_t *e;
-
-    DVPRINT("*** DbgGetScope\n");
 
     cmd = CLIInfoScope(location);
 
@@ -3506,13 +3486,12 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
 ** Get debugger status.
 */
 dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgevent_t *async_e;
     dbgstatus_t *s;
 
     e = NewEvent(DBGEV_STAT);
-
-    DVPRINT("*** DbgStatus\n");
 
     // Create the new status object
     s = e->ev_status = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
@@ -3570,12 +3549,11 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
 ** Quit debugger.
 */
 dbgevent_t *DbgGdbMI::quit(bool detach) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e = nullptr;
 #ifdef ALPS
     MICommand *cmd;
 #endif
-
-    DVPRINT("*** DbgQuit\n");
 
     /*
     ** Interrupt the process if it is running. This will generate a async event.
@@ -3628,10 +3606,9 @@ dbgevent_t *DbgGdbMI::quit(bool detach) {
 ** Interrupt the debugger.
 */
 dbgevent_t *DbgGdbMI::interrupt(bool all) {
+    DVPRINT("*** Dbg %s, %s(bool all %s)\n", __FILE__, __func__, all?"true":"false");
     dbgevent_t *e;
     dbgevent_t *async_e;
-
-    DVPRINT("*** DbgInterrupt%s\n", all ? " all" : "");
 
     if (Status == DBGSTAT_RUNNING) {
         DVPRINT("RUNNING - sending SIgSTOP\n");
@@ -3703,7 +3680,7 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
         }
         MICommandFree(cmd);
     }
-        
+
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
@@ -3734,9 +3711,8 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
 dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
                              const char *prog, const char *args,
                              char **env, int arch) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    DVPRINT("*** DbgInvoke\n");
 
     MPArch = arch;
 
@@ -3754,9 +3730,8 @@ dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
 */
 dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
                              char **env, int arch) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    DVPRINT("*** DbgAttach\n");
 
     MPArch = arch;
 
@@ -3806,10 +3781,9 @@ bool DbgGdbMI::isStopped() {
 ** Set contents of GDB debug variable var.
 */
 dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, AIF *val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     int intVal;
-
-    DVPRINT("*** DbgSetDebuggerVar\n");
 
     AIFToInt(val, &intVal);
 
@@ -3822,13 +3796,12 @@ dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, AIF *val) {
 }
 
 dbgevent_t *DbgGdbMI::setSourcePath(const char *path) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     char *pathdirs[2];
     MICommand *cmd;
     MIString *cmd_result;
     char *res;
     dbgevent_t *e;
-
-    DVPRINT("*** DbgSetSourcePath\n");
 
     pathdirs[0] = const_cast<char *>(path);
     pathdirs[1] = NULL;
@@ -3855,13 +3828,12 @@ dbgevent_t *DbgGdbMI::setSourcePath(const char *path) {
 }
 
 dbgevent_t *DbgGdbMI::getSourcePath() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     char *pathdirs[1];
     MICommand *cmd;
     MIString *cmd_result;
     char *res;
     dbgevent_t *e;
-
-    DVPRINT("*** DbgSetSourcePath\n");
 
     pathdirs[0] = NULL;
 
@@ -3890,9 +3862,8 @@ dbgevent_t *DbgGdbMI::getSourcePath() {
 ** Get contents of GDB debug variable var.
 */
 dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
-
-    DVPRINT("*** DbgGetDebuggerVar\n");
 
     cmd = MICommandNew("-gdb-show", MIResultRecordDONE);
     MICommandAddOption(cmd, var, NULL);
@@ -3903,6 +3874,7 @@ dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
 }
 
 static dbgevent_t *ResetBeforeDirectCmd(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     dbgevent_t *e;
 
@@ -3942,6 +3914,7 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
 }
 
 static dbgevent_t *RestoreAfterDirectCmd(void) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     dbgevent_t *e;
 
@@ -3984,13 +3957,12 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
 ** Pass command directly to gdb/mi through console command
 */
 dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     dbgevent_t *e;
     dbgevent_t *e2 = NULL;
     // FIXME: Restore after reaching a breakpoint later on!
     int restore = 1;
-
-    DVPRINT("*** DbgDirectCmd\n");
 
     // Reset some of the print settings to default, otherwise the user might
     // not get a response
@@ -4076,6 +4048,7 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
 ** the correct version, etc.
 */
 dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     MIList *bpts;
@@ -4196,11 +4169,10 @@ dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
 ** work for other platforms as well.
 */
 dbgevent_t *DbgGdbMI::initDbgAttach(int pid, const char *prog) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     CLIInfoProcInfo *procInfo;
-
-    DVPRINT("*** InitDbgAttach\n");
 
     cmd = MITargetAttach(pid);
 
@@ -4271,11 +4243,10 @@ dbgevent_t *DbgGdbMI::initDbgAttach(int pid, const char *prog) {
 ** Checks to see what caused the termination.
 */
 static dbgevent_t *WaitEvent(dbgevent_t *e) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgbp_t *bp = NULL;
 
     MIEvent *evt = PendingEvent;
-
-    DVPRINT("*** WaitEvent\n");
 
     if (e == (dbgevent_t *)NULL) e = NewEvent(DBGEV_NONE);
 
@@ -4625,13 +4596,12 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
 ** id in bid. Adds to breakpoint list if necessary.
 */
 static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     int id;
     dbgbp_t *bp;
     dbgevent_t *e;
     MIBreakpoint *bpt;
     MIList *bpts;
-
-    DVPRINT("*** CheckBreak\n");
 
     bpts = MIBreakpointGetBreakInsertInfo(cmd);
 
@@ -4736,7 +4706,7 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
 ** Signal handler.
 */
 static void Finish(int sig) {
-    DVPRINT("*** In Finish.\n");
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     Shutdown++;
 }
 
@@ -4744,6 +4714,7 @@ static void Finish(int sig) {
 ** Send the MI command
 */
 void SendMICommand(MISession *sess, MICommand *cmd) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     char *buf;
 
     MISessionSendCommand(sess, cmd);
@@ -4769,19 +4740,21 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 
 /* GDBMI callback functions */
 static void event_callback(MIEvent *e) {
-    DVPRINT("NEWGDBMI event> %d\n", e->type);
+    DVPRINT("*** Dbg %s, %s, e->type %d\n", __FILE__, __func__, e->type);
     AsynchEventWaiting = 1;
     PendingEvent = e;
 }
 
 static void console_callback(char *str) {
-    DVPRINT("NEWGDBMI console> %s\n", str);
+    DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 
-static void log_callback(char *str) { DVPRINT("NEWGDBMI log> %s\n", str); }
+static void log_callback(char *str) {
+    DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
+}
 
 static void target_callback(char *str) {
-    DVPRINT("NEWGDBMI target> %s\n", str);
+    DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 
 /*
@@ -4792,6 +4765,7 @@ static void target_callback(char *str) {
 
 // rather than coded in DbgGDBMIEvalExpr()
 static dbgevent_t *PerformExtEvalExpr(const char *exp) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     AIF *a;
 
@@ -4923,7 +4897,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 }
 
 dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
-    DVPRINT("*** DbgEvalExpr:%s rank:%d idx:%ld)\n", exp, my_rank, expIdx);
+    DVPRINT("*** Dbg %s, %s(exp %s, rank %d, idx %ld)\n", __FILE__, __func__, exp, my_rank, expIdx);
 
     // Check whether it has hashing/slicing
     if (strpbrk(exp, "`") || strpbrk(exp, "|")) {
@@ -4967,7 +4941,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
         e->ev_data = new AIFStream(a);
         return e;
     }
-    
+
     AIFStream* aifStream = nullptr;
     char *type = nullptr;
 
@@ -4978,7 +4952,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
     dbgev ev = DBGEV_DATA;
     bool isFinal;
     auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
-    
+
     if (isFinal) {
         delete aifStream;
     } else {
@@ -4987,7 +4961,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
         DVPRINT("saving remainder of expression %l\n", expIdx);
         ev = DBGEV_DATA_SLICE;
         remainders.insert(std::make_pair(expIdx,aifStream));
-    } 
+    }
 
     dbgevent_t* e = NewEvent(ev);
     e->ev_data = new AIFStream(aif);
@@ -4995,6 +4969,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
 }
 
 dbgevent_t *DbgGdbMI::openSocket(const char *opset_name, int opset_size) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     int i;
 
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -5014,6 +4989,7 @@ dbgevent_t *DbgGdbMI::openSocket(const char *opset_name, int opset_size) {
 }
 
 dbgevent_t *DbgGdbMI::closeSocket() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     close(sock_fd);
 
     // unload other_app
@@ -5023,6 +4999,7 @@ dbgevent_t *DbgGdbMI::closeSocket() {
 }
 
 dbgevent_t *DbgGdbMI::getLocation() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     // unimplemented, return an error event
     dbgevent_t* e = nullptr;
     EVENT_ERROR(e, DBGERR_DEBUGGER, "debugger function not implemented");

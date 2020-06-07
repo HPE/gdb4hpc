@@ -149,7 +149,7 @@ struct group_reply {
 typedef struct group_reply group_reply_t;
 
 /*
-** This is used to hold replies from commands in the dbgclnt interface. 
+** This is used to hold replies from commands in the dbgclnt interface.
 ** The client layer can call the ProcessErrorInRepSet() function to
 ** print out any errors.
 ** A ReplySet(rep_set_t) keeps results replied by a number of BEs.
@@ -158,13 +158,13 @@ typedef struct group_reply group_reply_t;
 ** or a normal message (maintained by group_reply_t).
 
 For very large arrays, rep_set_t supports the ability to hold just slice of the array
-result at one time.   Code using the rep_set can iterate over the slices by using the 
+result at one time.   Code using the rep_set can iterate over the slices by using the
 \a getNextSlice function.   Using this approach a client side operation could potentially
 process a terabyte sized array while never needing to allocate more than a fixed number of
-of megabytes. 
+of megabytes.
 
 Most debugger replies do not have the potential to generate gigantic replies, so these
-operations can and should just use getReplies or the iterator forms.    These original 
+operations can and should just use getReplies or the iterator forms.    These original
 forms will also accumulate the result slices into a single reply, though operations that
 potentially access large data should avoid that usage.
 */
@@ -176,7 +176,7 @@ public:
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
 
-    // create from slices 
+    // create from slices
     rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, arrayDimension_t* shape, bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
@@ -218,7 +218,7 @@ public:
 
     // each expression result keeps and sequential id for requesting additional slices.
     void setDataId(size_t id);
-    
+
     std::vector<group_reply_t*>& getMutableReplies();
     static const std::vector<group_reply_t*>& getNullReply();
 
@@ -227,7 +227,7 @@ private:
     void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
                             arrayDimension_t* shape, bitset* group);
     std::unique_ptr<rep_set_t> recvSlice();
-    
+
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
     rec_set_t* m_set;                 // for continuation of large arrays
@@ -422,8 +422,8 @@ extern rep_set_t *DbgGetType(rec_set_t *, char *, int);
 extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
-extern rep_set_t *DbgSetLineBreak(rec_set_t *, char *, int, int);
-extern rep_set_t *DbgSetFuncBreak(rec_set_t *, char *, char *, int);
+extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, int);
+extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, int);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);

@@ -92,7 +92,7 @@ static const char *__fmt_null_str = "";
 // potentially huge strings.
 static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
 
-    static const size_t BUF_SIZE = 4000; 
+    static const size_t BUF_SIZE = 4000;
     char buf[BUF_SIZE];
 
     // we may need to iterate the var_args twice.   Using va_copy seems to be the
@@ -118,7 +118,7 @@ static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
         // can build the final with just one allocation.
 
         // note: rather than trying to concatenate the var_args,
-        // we just prepend the event number and length to the 
+        // we just prepend the event number and length to the
         // format string.
         std::ostringstream ostr;
         ostr << int(ev) << " " << len << " " << fmt;
@@ -622,13 +622,14 @@ static char *CmdArgsSetLineBreakToSocProto(va_list ap) {
     char *res;
     cmdargs_setlinebreak args;
 
+    args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.lno = va_arg(ap, int);
     args.threadId = va_arg(ap, int);
 
     FMT_CHECK_NULL_STR(args.file);
 
-    Asprintf(&res, "%d %s %d %d", (int)strlen(args.file), args.file, args.lno,
+    Asprintf(&res, "%d %d %s %d %d", args.allowPending, (int)strlen(args.file), args.file, args.lno,
              args.threadId);
 
     return res;
@@ -638,6 +639,7 @@ static char *CmdArgsSetFuncBreakToSocProto(va_list ap) {
     char *res;
     cmdargs_setfuncbreak args;
 
+    args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.func = va_arg(ap, char *);
     args.threadId = va_arg(ap, int);
@@ -645,7 +647,7 @@ static char *CmdArgsSetFuncBreakToSocProto(va_list ap) {
     FMT_CHECK_NULL_STR(args.file);
     FMT_CHECK_NULL_STR(args.func);
 
-    Asprintf(&res, "%d %s %d %s %d", (int)strlen(args.file), args.file,
+    Asprintf(&res, "%d %d %s %d %s %d", args.allowPending, (int)strlen(args.file), args.file,
              (int)strlen(args.func), args.func, args.threadId);
 
     return res;
@@ -1791,6 +1793,7 @@ static cmdargs_setlinebreak *SocProtoToSetLineBreakArgs(char *s) {
 
     res = (cmdargs_setlinebreak *)Alloc(sizeof(cmdargs_setlinebreak));
 
+    res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->lno = getint(&s);
     res->threadId = getint(&s);
@@ -1805,6 +1808,7 @@ static cmdargs_setfuncbreak *SocProtoToSetFuncBreakArgs(char *s) {
 
     res = (cmdargs_setfuncbreak *)Alloc(sizeof(cmdargs_setfuncbreak));
 
+    res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->func = getstring(&s);
     res->threadId = getint(&s);

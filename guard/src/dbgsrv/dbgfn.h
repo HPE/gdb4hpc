@@ -32,8 +32,8 @@ public:
     virtual int read(int) = 0;
     virtual bool bufferReady() = 0;
     virtual int progioHook(int) = 0;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) = 0;
-    virtual dbgevent_t *setFuncBreak(const char *file, char *func, int threadId, const dbgcomm_info *commInfo) = 0;
+    virtual dbgevent_t *setLineBreak(const int, const char *file, int lno, int threadId, const dbgcomm_info *commInfo) = 0;
+    virtual dbgevent_t *setFuncBreak(const int, const char *file, char *func, int threadId, const dbgcomm_info *commInfo) = 0;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) = 0;
     virtual dbgevent_t *deleteBreak(int bid) = 0;
     virtual dbgevent_t *disableBreak(int bid) = 0;
@@ -101,8 +101,8 @@ extern int DbgProgIOHook(int);
 extern int DbgRead(int);
 extern int DbgBufferReady(void);
 extern dbgevent_t *DbgStartup(void);
-extern dbgevent_t *DbgSetLineBreak(char *, int, int, const dbgcomm_info *);
-extern dbgevent_t *DbgSetFuncBreak(char *, char *, int, const dbgcomm_info *);
+extern dbgevent_t *DbgSetLineBreak(int, char *, int, int, const dbgcomm_info *);
+extern dbgevent_t *DbgSetFuncBreak(int, char *, char *, int, const dbgcomm_info *);
 extern dbgevent_t *DbgSetWatch(int, char *, const dbgcomm_info *);
 extern dbgevent_t *DbgDeleteBreak(int);
 extern dbgevent_t *DbgDisableBreak(int);

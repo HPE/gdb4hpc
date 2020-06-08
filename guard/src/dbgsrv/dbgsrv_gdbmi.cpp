@@ -113,8 +113,8 @@ public:
     virtual int read(int) override;
     virtual bool bufferReady() override;
     virtual int progioHook(int) override;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setFuncBreak(const char *file, char *func, int threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setLineBreak(const int allowPending, const char *file, int lno, int threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setFuncBreak(const int allowPending, const char *file, char *func, int threadId, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *deleteBreak(int bid) override;
     virtual dbgevent_t *disableBreak(int bid) override;
@@ -184,6 +184,7 @@ static void event_callback(MIEvent *);
 static void console_callback(char *);
 static void log_callback(char *);
 static void target_callback(char *);
+static void notification_callback(char *, MIList *);
 static dbgbp_t *get_dbgbp(MICommand *);
 static dbgevent_t *delete_internal_breakpoints(list_t *);
 static dbgevent_t *setup_gdbmi_environment(void);
@@ -777,7 +778,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     parallel_entry_BP = NewList();
     dbgbp_t *bp_res;
     for (auto&& str: entry_point_strings) {
-        cmd = MIBreakInsert(0, 0, NULL, 0, str.c_str(), 0);
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
         SendMICommand(GDBMISession, cmd);
         // Note we only want to insert the breakpoint into our internal list if the
         // command succeeded. We expect many of these to fail.
@@ -867,7 +868,6 @@ static dbgevent_t *finish_from_entry_point(void) {
         return e;
     }
     MICommandFree(cmd);
-#if 0
     cmd = MIExecFinish();
     SendMICommand(GDBMISession, cmd);
     if (!MICommandResultOK(cmd)) {
@@ -876,7 +876,7 @@ static dbgevent_t *finish_from_entry_point(void) {
         return e;
     }
     MICommandFree(cmd);
-#endif
+
     //get the current frame
     cmd = MIStackListFrames(0, 0);
     SendMICommand(GDBMISession, cmd);
@@ -923,7 +923,7 @@ static dbgevent_t *setup_gdbmi_main_entry_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "main", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "main", 0);
     SendMICommand(GDBMISession, cmd);
     // Note we only want to insert the breakpoint into our internal list if the
     // command succeeded.
@@ -970,7 +970,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     // FIXME: Figure out what the proper behavior should be. Should we warn if
     //        no exit point is found??
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&exit)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&exit)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -981,7 +981,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&_exit)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&_exit)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -992,7 +992,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1003,7 +1003,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPIR_Errors_are_fatal)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPIR_Errors_are_fatal)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1014,7 +1014,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPID_Abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPID_Abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1025,7 +1025,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, "*(&MPI_Abort)", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "*(&MPI_Abort)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         if ((bp_res = get_dbgbp(cmd)) != NULL) {
@@ -1036,7 +1036,7 @@ static dbgevent_t *setup_gdbmi_exit_points(void) {
     }
     MICommandFree(cmd);
 
-    cmd = MIBreakInsert(0, 0, NULL, 0,
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0,
                         "*(&ompi_mpi_errors_are_fatal_comm_handler)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
@@ -1104,6 +1104,7 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     MISessionRegisterConsoleCallback(GDBMISession, console_callback);
     MISessionRegisterLogCallback(GDBMISession, log_callback);
     MISessionRegisterTargetCallback(GDBMISession, target_callback);
+    MISessionRegisterNotifyCallback(GDBMISession, notification_callback);
     //set the default gdb type here for both the binary and the share directory,
     //overwrite it if we're using a non standard backend gdb.
     MISessionSetGDBPath(GDBMISession, "gdb-guard");
@@ -1537,7 +1538,7 @@ bool DbgGdbMI::bufferReady(void) {
 /*
 ** Set breakpoint at specified line.
 */
-dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int lno, int threadId, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
     MICommand *cmd;
@@ -1562,7 +1563,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
         snprintf(where, len, "%s:%d", file, lno);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1580,7 +1581,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%d", opt2, lno);
 
-            cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1616,7 +1617,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const char *file, int lno, int threadId, cons
 /*
 ** Set breakpoint at start of specified function.
 */
-dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
+dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, char *func, int threadId,
                                    const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
@@ -1633,7 +1634,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
         snprintf(where, len, "%s:%s", file, func);
     }
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, where, threadId);
+    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1651,7 +1652,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const char *file, char *func, int threadId,
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%s", opt2, func);
 
-            cmd = MIBreakInsert(0, 0, NULL, 0, where, 0);
+            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1722,8 +1723,7 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     /*
     ** The MIBreakWatch command returns a limited amount of information when
-    ** inserting the watchpoint. Much less info is returned than the
-    *MIBreakInsert
+    ** inserting the watchpoint. Much less info is returned than the MIBreakInsert
     ** command. We need to first process the returned info ourselves to get the
     ** breakpoint id, and then call MIBreakInfo with this id.
     */
@@ -3415,7 +3415,7 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     // out what function the scope referrs to by setting a breakpoint to get
     // the function name.
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, location, 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, location, 0);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -4089,7 +4089,7 @@ dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
     /*
     ** Check for fortran.
     */
-    cmd = MIBreakInsert(0, 0, NULL, 0, "MAIN__", 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MAIN__", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {
         /*
@@ -4098,7 +4098,7 @@ dbgevent_t *DbgGdbMI::initDbg(const char *prog, const char *args) {
         ProgMain = "MAIN__";
     } else {
         MICommandFree(cmd);
-        cmd = MIBreakInsert(0, 0, NULL, 0, "main", 0);
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, "main", 0);
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);
@@ -4333,6 +4333,18 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
 
             bp->bp_hits++;
             CurrBP = bp;
+
+            // If the stored bp was pending, we need to modify it with the new information
+            if (bp->bp_pending && evt->frame != NULL) {
+                bp->bp_pending = 0;
+                if (evt->frame->file != NULL)
+                    bp->bp_loc.loc_file = strdup(evt->frame->file);
+                if (evt->frame->func != NULL)
+                    bp->bp_loc.loc_func = strdup(evt->frame->func);
+                if (evt->frame->addr != NULL)
+                    bp->bp_loc.loc_addr = strdup(evt->frame->addr);
+                bp->bp_loc.loc_line = evt->frame->line;
+            }
 
             e->ev_event = DBGEV_BPHIT;
             e->ev_bp = DupBP(bp);
@@ -4693,6 +4705,12 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
         if (bpt->what != NULL) bp->bp_exp = strdup(bpt->what);
     }
 
+    // Check to see if this is a pending breakpoint
+    if (bpt->pending != NULL) {
+        bp->bp_pending = 1;
+        bp->bp_stmt = strdup(bpt->pending);
+    }
+
     if (bpt->threadId != NULL) {
         bp->bp_threadId = atoi(bpt->threadId); // 0 is an OK response
     }
@@ -4771,6 +4789,10 @@ static void log_callback(char *str) {
 
 static void target_callback(char *str) {
     DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
+}
+
+static void notification_callback(char *className, MIList *results) {
+    DVPRINT("NEWGDBMI notification> %s\n", className);
 }
 
 /*

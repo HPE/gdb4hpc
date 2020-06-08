@@ -2259,7 +2259,7 @@ void rep_set_t::mergeReplySlices()
 {
     if (!m_isSliced)
         return;
-    
+
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
     // every process.
@@ -2308,7 +2308,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
                 dis.push_back(di);
         }
     }
-    
+
     for (auto&& di : dis) {
         // merge the non-error and error replies into a single vector for easier
         // processing
@@ -2411,7 +2411,7 @@ public:
     LocalSlices(arrayDimension_t* shape) : m_shape(shape ? dupArrayDimension(shape) : nullptr) {}
     ~LocalSlices() { if (m_shape) freeArrayDimension(m_shape); }
     void addSlice(AIF* aif);
-    
+
     virtual arrayDimension_t* getFullShape() const override;
     virtual AIF* getNextSlice(bool& isFinal);
     virtual void freeSlice(AIF* aif) override;
@@ -2432,7 +2432,7 @@ arrayDimension_t* LocalSlices::getFullShape() const
 {
     if (m_shape)
         return m_shape;
-    
+
     int* fullMins = nullptr;
     int* fullMaxs = nullptr;
     int fullDim = 0;
@@ -2505,7 +2505,7 @@ AIF* LocalSlices::getNextSlice(bool& isFinal)
         return *(m_current++);
     }
 }
-// LocalSlices does not control the aif objects which may be reused    
+// LocalSlices does not control the aif objects which may be reused
 void LocalSlices::freeSlice(AIF* aif) {}
 }
 
@@ -2558,7 +2558,7 @@ static group_reply_t* JoinReplies(bitset* group,
     group_reply_t* groupReply = NewGroupReply(di, bitset_dup(group), event);
     return groupReply;
 }
-                                   
+
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
                                          dbgev req_type) {
@@ -3047,11 +3047,11 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line, int threadId) {
+rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line, int threadId) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETLINEBREAK, file, line, threadId);
+    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadId);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -3067,11 +3067,11 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, char *file, int line, int threadId) {
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, char *file, char *func, int threadId) {
+rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func, int threadId) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, file, func, threadId);
+    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadId);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 

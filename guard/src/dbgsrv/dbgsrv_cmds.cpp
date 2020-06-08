@@ -11,11 +11,6 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -63,16 +58,18 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
 
         case DBGCMD_SETLINEBREAK:
             CHECK_ARGS(e, cmd->cmd_arg_setlinebreak);
-            e = DbgSetLineBreak(cmd->cmd_setlinebreak_file,
+            e = DbgSetLineBreak(cmd->cmd_setlinebreak_allowPending,
+                                cmd->cmd_setlinebreak_file,
                                 cmd->cmd_setlinebreak_lno,
-                                cmd->cmd_u.cmd_u_setlinebreak->threadId, ci);
+                                cmd->cmd_setlinebreak_threadid, ci);
             break;
 
         case DBGCMD_SETFUNCBREAK:
             CHECK_ARGS(e, cmd->cmd_arg_setfuncbreak);
-            e = DbgSetFuncBreak(cmd->cmd_setfuncbreak_file,
+            e = DbgSetFuncBreak(cmd->cmd_setfuncbreak_allowPending,
+                                cmd->cmd_setfuncbreak_file,
                                 cmd->cmd_setfuncbreak_func,
-                                cmd->cmd_u.cmd_u_setfuncbreak->threadId, ci);
+                                cmd->cmd_setfuncbreak_threadid, ci);
             break;
 
         case DBGCMD_SETWATCH:
@@ -243,7 +240,7 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         case DBGCMD_GETTHREADINFO:
             e = DbgGetThreadInfo(cmd->cmd_u.cmd_u_string->str);
             break;
-            
+
         case DBGCMD_SETTHREADNAME:
             CHECK_ARGS(e, cmd->cmd_u.cmd_u_string->str);
             e = DbgSetThreadName(cmd->cmd_u.cmd_u_string->str);

@@ -35,7 +35,7 @@ static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, bitset *, int);
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void _free_procset(dbgprocset_t *);
-static void _print_with_set_info(const char *, bitset *, int, int, int, int,
+static void _print_with_set_info(const char *, const bitset *, int, int, int, int,
                                  const char *, va_list);
 
 // Internal variables
@@ -800,7 +800,7 @@ dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s) {
     return set;
 }
 
-static void _print_with_set_info(const char *setname, bitset *group,
+static void _print_with_set_info(const char *setname, const bitset *group,
                                  int isOffset, int offset, int len, int isErr,
                                  const char *f, va_list ap) {
     char *set_info = NULL;
@@ -832,7 +832,7 @@ static void _print_with_set_info(const char *setname, bitset *group,
     Free(set_info);
 }
 
-void PrintMsgWithSetInfo(const char *setname, bitset *group, const char *f,
+void PrintMsgWithSetInfo(const char *setname, const bitset *group, const char *f,
                          ...) {
     va_list ap;
 
@@ -845,7 +845,7 @@ void PrintMsgWithSetInfo(const char *setname, bitset *group, const char *f,
     va_end(ap);
 }
 
-void PrintErrorWithSetInfo(const char *setname, bitset *group, const char *f,
+void PrintErrorWithSetInfo(const char *setname, const bitset *group, const char *f,
                            ...) {
     va_list ap;
 

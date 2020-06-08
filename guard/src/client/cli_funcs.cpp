@@ -641,34 +641,51 @@ char *cli_get_prompt(void) {
     return cs->cs_prompt;
 }
 
-int cli_query(const char *s) {
-    int resp;
-
+int cli_query(const char *s, cli_query_default defaultVal) {
     // Make sure we are currently in confirm mode, if not return true.
     // Also ensure that there is an input stream to read from in the current
     // stream
     if (!Client.confirm || CurrentStream == NULL ||
-        CurrentStream->cs_fpin == NULL)
-        return 1;
+        CurrentStream->cs_fpin == NULL) {
+        return (defaultVal != cli_query_default::NO);
+    }
 
-    PrintOutMsg("%s (y or n) ", s);
+    const char* prompt = "%s (y or n) ";
+    switch (defaultVal) {
+    case cli_query_default::NO:
+        prompt = "%s (y or [n]) ";
+        break;
+    case cli_query_default::YES:
+        prompt = "%s ([y] or n) ";
+        break;
+    case cli_query_default::NONE:
+        break;
+    }
+    
+    PrintOutMsg(prompt, s);
 
-    for (;;) {
-        resp = fgetc(CurrentStream->cs_fpin);
+    int rval = -1;
+    for (; rval < 0;) {
+        int resp = fgetc(CurrentStream->cs_fpin);
 
         if (resp == 'n' || resp == 'N') {
-            PrintOutMsg("\n");
-            return 0;
+            rval = 0;
+        } else if (resp == 'y' || resp == 'Y') {
+            rval = 1;
+        } else if (resp == '\n' && defaultVal != cli_query_default::NONE) {
+            rval = (defaultVal == cli_query_default::YES);
+        } else {
+            PrintOutMsg("\nPlease answer y or n:\n");
         }
 
-        if (resp == 'y' || resp == 'Y') break;
-
-        PrintOutMsg("\nPlease answer y or n:\n");
+        // don't leave the a dangling CR in the input stream.
+        while (resp != '\n' && resp != EOF) {
+            resp = fgetc(CurrentStream->cs_fpin);
+        }
     }
 
     PrintOutMsg("\n");
-
-    return 1;
+    return rval;
 }
 
 char *cli_get_line(void) {
@@ -713,7 +730,7 @@ int cli_start_response(int seq) {
     if (CurrentStream->cs_fpout != NULL) fflush(CurrentStream->cs_fpout);
 
     // Increment the seq num
-    CurrentStream->cs_seq = ++(CurrentStream->cs_seq) % XML_MAX_SEQ;
+    CurrentStream->cs_seq = (CurrentStream->cs_seq+1) % XML_MAX_SEQ;
 
     return 1;
 }

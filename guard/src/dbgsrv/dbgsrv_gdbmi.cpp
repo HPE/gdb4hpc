@@ -189,7 +189,7 @@ static dbgevent_t *delete_internal_breakpoints(list_t *);
 static dbgevent_t *setup_gdbmi_environment(void);
 static dbgevent_t *setup_gdbmi_signals(void);
 static dbgevent_t *setup_gdbmi_entry_points(void);
-static dbgevent_t *finish_from_mpi_entry_point(void);
+static dbgevent_t *finish_from_entry_point(void);
 static dbgevent_t *setup_gdbmi_main_entry_points(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
@@ -732,24 +732,26 @@ static dbgevent_t *setup_gdbmi_signals(void) {
     return NULL;
 }
 
-//static const std::set<std::string> s;
-static const std::vector<std::string> entry_point_strings
+static const std::array<std::string, 20> entry_point_strings
 {
     "*(&MPI_Init)",
     "athos_mpi_init",
     "MPI_INIT_THREAD__",
     "MPI_INIT__",
     "mpi_init__",
+
     "mpi_init_thread__",
     "MPI_INIT_THREAD_",
     "MPI_INIT_",
     "mpi_init_thread_",
     "mpi_init_",
+
     "MPI::Init",
     "*&(MPI_Init_thread)",
     "MPI_Init()",
     "MPI::Init(int&)",
     "MPI_Init",
+
     "PMI2_Init",
     "*&(PMPI_Init)",
     "PMPI_Init",
@@ -799,7 +801,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     return NULL;
 }
 
-static dbgevent_t *finish_from_mpi_entry_point(void) {
+static dbgevent_t *finish_from_entry_point(void) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e = nullptr;
     MICommand *cmd;
@@ -1325,7 +1327,7 @@ dbgevent_t *DbgGdbMI::startup(void) {
     // Only setup entry points if we are not running with the special early
     // entry mode
     if (early_entry_flag) {
-        if ((e = finish_from_mpi_entry_point()) != NULL) return e;
+        if ((e = finish_from_entry_point()) != NULL) return e;
     } else {
         // setup main entry points
         if ((e = setup_gdbmi_main_entry_points()) != NULL) return e;
@@ -2702,7 +2704,7 @@ dbgevent_t *DbgGdbMI::getType(const char *var, bool isType) {
 }
 
 dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    DVPRINT("*** Dbg %s, %s, threadId(%s)\n", __FILE__, __func__, threadId);
 
     dbgevent_t* e = nullptr;
 

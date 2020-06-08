@@ -851,27 +851,32 @@ static dbgevent_t *finish_from_entry_point(void) {
             return e;
         }
     }
+    // free the MIFrame list
+    MIListFree(frames, (void (*)())MIFrameFree);
     //if we didn't find the entry point string, fail.
     if (!found_eps) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Didn't find entry point function!");
         return e;
     }
-    //otherwise, to walk us back up the stack to main
-    int fr_cnt = 0;
-    for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL && fr_cnt <= depth; ++fr_cnt) {
-        cmd = MIExecFinish();
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
-            return e;
-        }
+    //otherwise, set the frame to the frame before main and finish.
+    cmd = MIStackSelectFrame(depth);
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        DVPRINT("%s: just finished frame func %s\n", __func__, frame->func);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Stack Select Frame command failed.");
+        return e;
     }
-    // free the MIFrame list
-    MIListFree(frames, (void (*)())MIFrameFree);
-
+    MICommandFree(cmd);
+#if 0
+    cmd = MIExecFinish();
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
+        return e;
+    }
+    MICommandFree(cmd);
+#endif
     //get the current frame
     cmd = MIStackListFrames(0, 0);
     SendMICommand(GDBMISession, cmd);
@@ -896,7 +901,7 @@ static dbgevent_t *finish_from_entry_point(void) {
         EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo returned NULL function frame!");
     }
     MIListFree(frames, (void (*)())MIFrameFree);
-    
+
     return e;
 }
 
@@ -2780,7 +2785,7 @@ private:
 
 // add an id,value pair for collection
 void ThreadCollector::add(std::string id, const std::string& val) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
     if (!m_sortedResult.empty()) {
         DVPRINT("logic error, adding a value to ThreadCollector after extraction has begun.\n");
         return;
@@ -2822,7 +2827,7 @@ void ThreadCollector::add(std::string id, const std::string& val) {
 
 // get the next id-list, value pair of the collected result
 bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
     if (m_val2Id.empty()) {
         return false;
     }
@@ -2861,7 +2866,7 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
 // compactly.   Similar threads will be identified by an id list at is:
 // id1 id2 id3-id4
 static std::string collectThreadInfo(const std::string& val) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
     std::regex re(R"(^(\*? *\d+)\s+(.*))");
 
     ThreadCollector collector;
@@ -2904,7 +2909,7 @@ static std::string collectThreadInfo(const std::string& val) {
 }
 
 dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    DVPRINT("*** Dbg %s, %s, threadId(%s)\n", __FILE__, __func__, threadId);
 
     dbgevent_t* e = nullptr;
 

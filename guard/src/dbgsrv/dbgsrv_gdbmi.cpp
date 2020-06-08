@@ -1959,14 +1959,16 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // if there are hundreds of thousands of ranks and they are all at different
     // locations.
 
-    cmd = _MIGDBSet("source open", "on");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        cmd = _MIGDBSet("source open", "on");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-        return e;
     }
-    MICommandFree(cmd);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1997,15 +1999,17 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MIListFree(lines, (void (*)())CLILineInfoFree);
     MICommandFree(cmd);
 
-    // do not open source files
-    cmd = _MIGDBSet("source open", "off");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        // do not open source files
+        cmd = _MIGDBSet("source open", "off");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-        return e;
     }
-    MICommandFree(cmd);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -3929,14 +3933,16 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("source open", "on");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        cmd = _MIGDBSet("source open", "on");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-        return e;
     }
-    MICommandFree(cmd);
 
     return NULL;
 }
@@ -3968,14 +3974,17 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("source open", "off");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+    if (gdb_vers != GdbVersion::ROC_GDB) {
+        cmd = _MIGDBSet("source open", "off");
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER,
+                        "Gdb set source open command failed.");
+            return e;
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-        return e;
     }
-    MICommandFree(cmd);
 
     return NULL;
 }

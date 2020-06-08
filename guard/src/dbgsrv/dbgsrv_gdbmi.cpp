@@ -1573,7 +1573,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int
         snprintf(where, len, "%s:%d", file, lno);
     }
 
-    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, 0);
+    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1591,7 +1591,7 @@ dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%d", opt2, lno);
 
-            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, 0);
+            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);
@@ -1645,7 +1645,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, cha
         snprintf(where, len, "%s:%s", file, func);
     }
 
-    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, 0);
+    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -1663,7 +1663,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, cha
             where = (char *)Alloc(len);
             snprintf(where, len, "%s:%s", opt2, func);
 
-            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, 0);
+            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
             SendMICommand(GDBMISession, cmd);
 
             Free(file_cp);

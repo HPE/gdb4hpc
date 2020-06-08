@@ -881,6 +881,14 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     }
     MICommandFree(cmd);
 
+    cmd = MIBreakInsert(0, 0, NULL, 0, "PMPI_Init", 0);
+    SendMICommand(GDBMISession, cmd);
+    if (MICommandResultOK(cmd)) {
+        if ((bp_res = get_dbgbp(cmd)) != NULL)
+            AddToList(parallel_entry_BP, (void *)bp_res);
+    }
+    MICommandFree(cmd);
+
     cmd = MIBreakInsert(0, 0, NULL, 0, "*&(start_pes)", 0);
     SendMICommand(GDBMISession, cmd);
     if (MICommandResultOK(cmd)) {

@@ -65,9 +65,9 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     DPERFLOG(SetTimerStart("setbreak"));
 
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, Client.brk_pending, file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, Client.brk_pending, file, s, threadId);
     }
 
     DPERFLOG(SetTimerStopAndLog("setbreak"));
@@ -124,7 +124,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgbp_t *bp;
     rec_set_t *new_rec;
     int threadId = -1;
-    
+
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");
@@ -155,9 +155,9 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // Set the breakpoint
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, Client.brk_pending, file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, Client.brk_pending, file, s, threadId);
     }
 
     Free(arg);

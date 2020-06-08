@@ -518,7 +518,7 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
     // out what function the scope referrs to by setting a breakpoint to get
     // the function name.
 
-    cmd = MIBreakInsert(0, 0, NULL, 0, location, 0);
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, location, 0);
     SendMICommand_fe(sess, cmd);
 
     if (!MICommandResultOK(cmd)) {

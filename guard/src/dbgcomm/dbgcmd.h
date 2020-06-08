@@ -1,18 +1,13 @@
 /******************************************************************************\
  * dbgcmd.h - Command interface defines
  *
- * Copyright 2013 Cray Inc.	All Rights Reserved.
+ * Copyright 2013-2020 Cray Inc.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Cray Inc.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  ******************************************************************************/
 
@@ -69,7 +64,7 @@ enum dbgcmd {
     DBGCMD_SETNONSTOP,
     DBGCMD_GETNONSTOP
 
-    
+
 };
 typedef enum dbgcmd dbgcmd;
 
@@ -79,6 +74,7 @@ struct cmdargs_invoke {
 typedef struct cmdargs_invoke cmdargs_invoke;
 
 struct cmdargs_setlinebreak {
+    int allowPending;
     char *file;
     int lno;
     int threadId;
@@ -86,6 +82,7 @@ struct cmdargs_setlinebreak {
 typedef struct cmdargs_setlinebreak cmdargs_setlinebreak;
 
 struct cmdargs_setfuncbreak {
+    int allowPending;
     char *file;
     char *func;
     int threadId;
@@ -259,11 +256,15 @@ struct dbgcommand_t {
 #define cmd_arg_invoke cmd_u.cmd_u_invoke
 #define cmd_invoke_numbe cmd_u.cmd_u_invoke->numbe
 #define cmd_arg_setlinebreak cmd_u.cmd_u_setlinebreak
+#define cmd_setlinebreak_allowPending cmd_u.cmd_u_setlinebreak->allowPending
 #define cmd_setlinebreak_file cmd_u.cmd_u_setlinebreak->file
 #define cmd_setlinebreak_lno cmd_u.cmd_u_setlinebreak->lno
+#define cmd_setlinebreak_threadid cmd_u.cmd_u_setlinebreak->threadId
 #define cmd_arg_setfuncbreak cmd_u.cmd_u_setfuncbreak
+#define cmd_setfuncbreak_allowPending cmd_u.cmd_u_setfuncbreak->allowPending
 #define cmd_setfuncbreak_file cmd_u.cmd_u_setfuncbreak->file
 #define cmd_setfuncbreak_func cmd_u.cmd_u_setfuncbreak->func
+#define cmd_setfuncbreak_threadid cmd_u.cmd_u_setfuncbreak->threadId
 #define cmd_arg_setwatch cmd_u.cmd_u_setwatch
 #define cmd_setwatch_type cmd_u.cmd_u_setwatch->type
 #define cmd_setwatch_expr cmd_u.cmd_u_setwatch->expr

@@ -49,6 +49,7 @@ dbgbp_t *NewBP(int id) {
     bp->bp_ignore = 0;
     bp->bp_deleted = 0;
     bp->bp_enabled = 1;
+    bp->bp_pending = 0;
     bp->bp_disp = DBGBP_UNKNOWN_DISP;
     bp->bp_type = DBGBP_UNKNOWN_TYPE;
     bp->bp_loc.loc_file = NULL;
@@ -97,6 +98,7 @@ dbgbp_t *DupBP(dbgbp_t *bp) {
     b->bp_ignore = bp->bp_ignore;
     b->bp_deleted = bp->bp_deleted;
     b->bp_enabled = bp->bp_enabled;
+    b->bp_pending = bp->bp_pending;
     b->bp_disp = bp->bp_disp;
     b->bp_type = bp->bp_type;
     b->bp_hits = bp->bp_hits;
@@ -211,6 +213,7 @@ void DumpBP(dbgbp_t *bp) {
     PrintOutMsg("ign=%s,", bp->bp_ignore ? "true" : "false");
     PrintOutMsg("del=%s,", bp->bp_deleted ? "true" : "false");
     PrintOutMsg("enb=%s,", bp->bp_enabled ? "true" : "false");
+    PrintOutMsg("pend=%s,", bp->bp_pending ? "true" : "false");
     PrintOutMsg("disp=%s,", dbgbp_disp_str[bp->bp_disp]);
     PrintOutMsg("type=%s,", dbgbp_type_str[bp->bp_type]);
     PrintOutMsg("file=%s,",

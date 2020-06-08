@@ -49,6 +49,7 @@ struct dbgbp_t {
     int bp_ignore;
     int bp_deleted;
     int bp_enabled;
+    int bp_pending;
     dbgbp_disp bp_disp;
     dbgbp_type bp_type;
     dbgloc_t bp_loc;

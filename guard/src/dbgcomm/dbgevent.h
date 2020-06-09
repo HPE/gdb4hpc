@@ -55,9 +55,10 @@ enum dbgstat {
     DBGSTAT_WAITING,
     DBGSTAT_RUNNING,
     DBGSTAT_STOPPED,
+    DBGSTAT_STOPPED_IN_THREAD,  // non-stopped mode: some threads are running
     DBGSTAT_EXIT,
     DBGSTAT_DBGERR,
-    DBGSTAT_INTERR
+    DBGSTAT_INTERR,
 };
 typedef enum dbgstat dbgstat;
 

@@ -440,6 +440,11 @@ static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
                                     "The application is stopped.\n");
                 break;
 
+            case DBGSTAT_STOPPED_IN_THREAD:
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "The application is stopped in a thread while in non-stop mode.\n");
+                break;
+
             case DBGSTAT_EXIT:
                 PrintMsgWithSetInfo(
                     reply->rep_di->d_handle, reply->rep_group,

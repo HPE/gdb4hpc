@@ -250,7 +250,7 @@ void BTTree::print(std::string indent, bool is_last) const {
         }
 
         if (m_children.size() == 0) {
-            // extra spaces to make sure substr(3) never throws and exception
+            // extra spaces to make sure substr(3) never throws an exception
             PrintOutMsg("%s\n", (indent + "   ").substr(3).c_str());
         } else {
             PrintOutMsg("%s\n", (indent + "|  ").substr(3).c_str());

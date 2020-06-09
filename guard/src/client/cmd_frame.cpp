@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <algorithm>
 
@@ -40,23 +41,26 @@ duplicates the bitset passed in the constructor which must be freed manually.
 */
 class BTTree {
 public:
-    BTTree();
-    BTTree(const char* setname, const bitset* group, const dbgframe_t* frame);
+    BTTree() = delete;
+    BTTree(const char* setname, bitset* group, const dbgframe_t* frame);
+    ~BTTree();
 
     void print(std::string indent = "", bool is_last = true) const;
     void insertBacktrace(BTTree &bt);
-    void insertChild(const BTTree &bt);
+    void transferChild(BTTree &bt);
     void removeGroupFromTree(const bitset* group);
-    void allocateGroup(int size);
     void freeGroup();
     void freeTreeGroups();
     void condenseTree();
+    void calculateTreeGroups();
+    void markDirtyGroup();
 
     bool operator==(const BTTree &other) const;
 private:
-    void printData(const std::string setname, const bitset* group, const dbgframe_t* frame) const;
+    void printData(const bitset* group) const;
 
     const std::string m_setname;
+    bool m_dirtyGroup;
     bitset* m_group;
     const dbgframe_t* m_frame;
     std::vector<BTTree> m_lateral;
@@ -120,44 +124,35 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // turn backtraces into tree format ////////////////////////////////////////
 
-    BTTree root;
+    BTTree root("", bitset_new(1), nullptr);
     // root is a blank root node which serves to hold multiple trees.
     // it needs a dummy bitset for the recursive group bitset merging to work.
-    root.allocateGroup(1);
-
-    std::vector<BTTree> tracePool; // to hold information for cleaning up memory later
-
-    for (auto&& reply : rep_set) {
+    root.markDirtyGroup(); // mark as dirty so destructor will free the bitset
+    
+    for (const auto& reply : rep_set) {
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
         
         for (f = EVENT_FRAME(reply->rep_event); f != (dbgframe_t *)NULL; f = f->frame_next) {
-            BTTree frame = BTTree(reply->rep_di->d_handle, reply->rep_group, f);
-
-            frames.push_back(frame); // deepest frame will be in the front
+            // deepest (farthest from main) frame will be in the front
+            frames.push_back(BTTree(reply->rep_di->d_handle, reply->rep_group, f));
         }
 
         // link frames up
         for (auto it = frames.begin(); it != frames.end(); ++it) {
             if (std::next(it) != frames.end()) {
-                std::next(it)->insertChild(*it);
+                std::next(it)->transferChild(*it);
             }
         }
 
-        tracePool.push_back(frames.back()); // save for freeing group bitsets later
         root.insertBacktrace(frames.back()); // insert into root tree and merge common paths
     }
 
     root.condenseTree();
+    root.calculateTreeGroups();
     root.print();
 
-    // clean up - each tree node had its own group bitset allocated.
-    // the original pointers are still stored in tracePool.
-    for (auto &path : tracePool) {
-        path.freeTreeGroups();
-    }
-    root.freeGroup();
     FreeRepSet(rep_set);
 
     return 1;
@@ -201,13 +196,19 @@ void InitCmd_frame(void) {
 // BTTree
 ////////////////////////////////////////////////////////////////////////////////
 
-BTTree::BTTree() 
-    : m_setname{""}, m_group{nullptr}, m_frame{nullptr}
+// BTTree::BTTree() 
+//     : m_setname{""}, m_dirtyGroup{false}, m_group{nullptr}, m_frame{nullptr}
+// {}
+
+BTTree::BTTree(const char* setname, bitset* group, const dbgframe_t* frame) 
+    : m_setname(setname), m_dirtyGroup{false}, m_group{group}, m_frame{frame}
 {}
 
-BTTree::BTTree(const char* setname, const bitset* group, const dbgframe_t* frame) 
-    : m_setname(setname), m_group{bitset_dup(group)}, m_frame{frame}
-{}
+BTTree::~BTTree() {
+    if (m_dirtyGroup && m_group != nullptr) {
+        bitset_free(m_group);
+    }
+}
 
 void BTTree::print(std::string indent, bool is_last) const {
     bool has_info = (m_group != nullptr && m_frame != nullptr);
@@ -224,7 +225,7 @@ void BTTree::print(std::string indent, bool is_last) const {
         // indended by 3 spaces by default. we want it to look like we're printing
         // multiple tress instead of one big tree.
         PrintOutMsg((indent + nodeMark).substr(3).c_str());
-        printData(m_setname, m_group, m_frame);
+        printData(m_group);
         for (auto &lat : m_lateral) {
             if (is_last) {
                 nodeMark = "   ";
@@ -233,7 +234,7 @@ void BTTree::print(std::string indent, bool is_last) const {
             }
 
             PrintOutMsg((indent + nodeMark).substr(3).c_str());
-            printData(lat.m_setname, lat.m_group, lat.m_frame);
+            lat.printData(m_group);
         }
 
         if (is_last) {
@@ -275,8 +276,7 @@ void BTTree::freeTreeGroups() {
 void BTTree::insertBacktrace(BTTree &bt) {
     if (m_children.size() == 0) {
         // no children; nothing to merge with; just add here.
-        bitset_oreq(m_group, bt.m_group);
-        m_children.push_back(bt);
+        m_children.push_back(std::move(bt));
     } else {
         // look for a matching child node
         auto it = std::find_if(m_children.begin(), m_children.end(), 
@@ -286,36 +286,19 @@ void BTTree::insertBacktrace(BTTree &bt) {
 
         if (it != m_children.end()) {
             // match found; merge it and move down
-            bitset_oreq(m_group, bt.m_group);
             if (bt.m_children.size() != 0) {
                 // backtraces will only have one child
                 it->insertBacktrace(bt.m_children.front());
             }
         } else {
             // match not found; add a new branch
-
-            // test for if we're in the master root node
-            // if we are, we don't want to mess with the m_group bitsets of other
-            // programs.
-            if (m_frame != nullptr) {
-                // remove ranks from bitsets on old branches
-                for (auto& child : m_children) {
-                    child.removeGroupFromTree(bt.m_group);
-                }
-            }
-
-            bitset_oreq(m_group, bt.m_group);
-            m_children.push_back(bt);
+            m_children.push_back(std::move(bt));
         }
     }
 }
 
-void BTTree::insertChild(const BTTree &t) {
-    m_children.push_back(t);
-}
-
-void BTTree::allocateGroup(int size) {
-    m_group = bitset_new(size);
+void BTTree::transferChild(BTTree &t) {
+    m_children.push_back(std::move(t));
 }
 
 void BTTree::freeGroup() {
@@ -325,13 +308,17 @@ void BTTree::freeGroup() {
     }
 }
 
-void BTTree::printData(const std::string sn, const bitset* gr, const dbgframe_t* f) const {
-    PrintMsgWithSetInfo(sn.c_str(), gr, "#%-2d ", f->frame_level);
+void BTTree::printData(const bitset* group) const {
+    if (group == nullptr || m_frame == nullptr) {
+        return;
+    }
 
-    PrintOutMsg("%s", f->frame_loc.loc_func);
+    PrintMsgWithSetInfo(m_setname.c_str(), group, "#%-2d ", m_frame->frame_level);
 
-    if (*f->frame_loc.loc_file != '\0')
-        PrintOutMsg(" at %s:%d", f->frame_loc.loc_file, f->frame_loc.loc_line);
+    PrintOutMsg("%s", m_frame->frame_loc.loc_func);
+
+    if (*m_frame->frame_loc.loc_file != '\0')
+        PrintOutMsg(" at %s:%d", m_frame->frame_loc.loc_file, m_frame->frame_loc.loc_line);
 
     PrintOutMsg("\n");
 }
@@ -345,19 +332,43 @@ void BTTree::condenseTree() {
     // for unique backtraces as children
     if (m_children.size() == 1 && m_frame != nullptr) {
         BTTree& child = m_children.front();
-        m_lateral.push_back(child);
-        m_lateral.back().m_lateral.clear();
 
-        for (auto &nested : child.m_lateral) {
-            m_lateral.push_back(nested);
+        // put child into lateral list
+        m_lateral.push_back(std::move(child));
+
+        // inherit child's children
+        m_children = std::move(m_lateral.back().m_children);
+        
+        // add any lateral children the child had to our lateral list
+        for (auto &nested : m_lateral.back().m_lateral) {
+            m_lateral.push_back(std::move(nested));
         }
-
-        child.m_lateral.clear();
-        m_children = std::vector<BTTree>(child.m_children);
     }
+}
+
+void BTTree::calculateTreeGroups() {
+    for (auto &child : m_children) {
+        child.calculateTreeGroups();
+    }
+
+    // leaf nodes will have pointers to the groups they were given at creation time.
+
+    if (m_children.size() != 0 && !m_dirtyGroup) {
+        m_group = bitset_new(bitset_size(m_children.front().m_group));
+        m_dirtyGroup = true;
+    
+        for (const auto &child : m_children) {
+            bitset_oreq(m_group, child.m_group);
+        }
+    }
+
+}
+
+void BTTree::markDirtyGroup() {
+    m_dirtyGroup = true;
 }
 
 bool BTTree::operator==(const BTTree &other) const {
     return m_setname == other.m_setname
-        && std::string(m_frame->frame_loc.loc_addr) == std::string(other.m_frame->frame_loc.loc_addr);
+        && std::strcmp(m_frame->frame_loc.loc_addr, other.m_frame->frame_loc.loc_addr) == 0;
 }

@@ -42,6 +42,8 @@ duplicates the bitset passed in the constructor which must be freed manually.
 class BTTree {
 public:
     BTTree() = delete;
+    BTTree(const BTTree &other) = delete;
+    BTTree(BTTree &&other);
     BTTree(const char* setname, bitset* group, const dbgframe_t* frame);
     ~BTTree();
 
@@ -196,13 +198,17 @@ void InitCmd_frame(void) {
 // BTTree
 ////////////////////////////////////////////////////////////////////////////////
 
-// BTTree::BTTree() 
-//     : m_setname{""}, m_dirtyGroup{false}, m_group{nullptr}, m_frame{nullptr}
-// {}
-
 BTTree::BTTree(const char* setname, bitset* group, const dbgframe_t* frame) 
     : m_setname(setname), m_dirtyGroup{false}, m_group{group}, m_frame{frame}
 {}
+
+BTTree::BTTree(BTTree &&other)
+    : m_setname{std::move(other.m_setname)}, m_dirtyGroup{std::move(other.m_dirtyGroup)}
+    , m_group{std::move(other.m_group)}, m_frame{std::move(other.m_frame)}
+    , m_lateral{std::move(other.m_lateral)}, m_children{std::move(other.m_children)}
+{
+    other.m_group = nullptr;
+}
 
 BTTree::~BTTree() {
     if (m_dirtyGroup && m_group != nullptr) {

@@ -50,9 +50,6 @@ public:
     void print(std::string indent = "", bool is_last = true) const;
     void insertBacktrace(BTTree &bt);
     void transferChild(BTTree &bt);
-    void removeGroupFromTree(const bitset* group);
-    void freeGroup();
-    void freeTreeGroups();
     void condenseTree();
     void calculateTreeGroups();
     void markDirtyGroup();
@@ -262,23 +259,6 @@ void BTTree::print(std::string indent, bool is_last) const {
     }
 }
 
-void BTTree::removeGroupFromTree(const bitset* remgroup) {
-    bitset_andeqnot(m_group, remgroup);
-    for (auto &child : m_children) {
-        child.removeGroupFromTree(remgroup);
-    }
-}
-
-void BTTree::freeTreeGroups() {
-    for (auto &child : m_children) {
-        child.freeTreeGroups();
-    }
-
-    if (m_group != nullptr) {
-        freeGroup();
-    }
-}
-
 void BTTree::insertBacktrace(BTTree &bt) {
     if (m_children.size() == 0) {
         // no children; nothing to merge with; just add here.
@@ -305,13 +285,6 @@ void BTTree::insertBacktrace(BTTree &bt) {
 
 void BTTree::transferChild(BTTree &t) {
     m_children.push_back(std::move(t));
-}
-
-void BTTree::freeGroup() {
-    if (m_group != nullptr) {
-        bitset_free(m_group);
-        m_group = nullptr;
-    }
 }
 
 void BTTree::printData(const bitset* group) const {

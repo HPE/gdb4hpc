@@ -58,6 +58,14 @@ one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
       one{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
       one{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
          
+one{1..4,6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+one{1..4,6..9}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+one{1..4,6..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+one{0,5}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+one{0,5}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+one{0,5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
 two{0..4}: Breakpoint 1, merge(int) at %testdir/bd_dt/C++/cpp_bt.cpp:59
 two{0..4}: #11 main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 two{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
@@ -78,6 +86,18 @@ two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
    two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
    two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
       
+two{1..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{1..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+two{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+two{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+two{0}: #4  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+two{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+two{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
 %<
 one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 |  
@@ -132,6 +152,13 @@ two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
    two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
    two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
       
+%>
+%<
+one{0..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+%-
+two{0..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
 %>
 %<
 Shutting down debugger and killing application for 'one'.

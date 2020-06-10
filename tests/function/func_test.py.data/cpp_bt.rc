@@ -10,16 +10,22 @@ focus $one
 
 c
 bt
+maint sleep 1
+bt 3
 
 # now another single process
 focus $two
 
 c
 bt
+maint sleep 1
+bt 5
 
 # now both
 focus $all
 
 bt
+maint sleep 1
+bt 1
 
 q

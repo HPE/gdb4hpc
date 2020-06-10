@@ -769,8 +769,9 @@ const char* const cmd_viewset_help[] = {
 
 const char* const cmd_watch_help[] = {
     "Summary: Set watchpoint command.",
-    "Usage: watch [-a|-w] <expression>",
+    "Usage: watch [-a|-w|-r] <expression> [thread <thread-id>]",
     "Example command: watch -a foo(1,1)",
+    "Example command: watch i thread 4",
     "",
     "Arguments: expression (variable expression)",
     "",
@@ -789,9 +790,11 @@ const char* const cmd_watch_help[] = {
     "use an expression of the form *0xXXXXXX with the -a option.",
     "The -w option specifies that a write watchpoint",
     "should be created. Write watchpoints will cause the program to break",
-    "when the address defined by the expression is written to. Currently there",
-    "is no support for read watchpoints. If no argument is provided the",
-    "watchpoint will default to a write watchpoint.",
+    "when the address defined by the expression is written to.",
+    "The -r option specifies that a read watchpoint",
+    "should be created. Read watchpoints will cause the program to break",
+    "when the address defined by the expression is read from.",
+    "If no argument is provided the watchpoint will default to a write watchpoint.",
     "",
     "If the expression corresponds to a single address, a hardware watchpoint",
     "will be created. If the expression corresponds to a range of addresses a",
@@ -803,6 +806,9 @@ const char* const cmd_watch_help[] = {
     "If the variable defined by the expression goes out of scope, the "
     "watchpoint",
     "will cause the application to break and the watchpoint will be removed.",
+    "",
+    "Adding thread thread-id creates the watchpoint that only applies to the",
+    "given thread.",
     0};
 
 const char* const cmd_whatis_help[] = {

@@ -200,8 +200,11 @@ extern void cli_restore_stream(void);
 extern void cli_reset_stream(void);
 // Used to clear the current line of its input
 extern void cli_clear_line(void);
+
+enum class cli_query_default { NONE, NO, YES };
 // Used to confirm dangerous instructions
-extern int cli_query(const char *);
+extern int cli_query(const char *, cli_query_default defVal=cli_query_default::NONE);
+
 // Used to get a line of input. This should be avoided. It is needed for ssh
 // keyboard-interactive authentication
 extern char *cli_get_line(void);

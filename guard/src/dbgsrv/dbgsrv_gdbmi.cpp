@@ -1334,6 +1334,29 @@ dbgevent_t *DbgGdbMI::startup(void) {
     // entry mode
     if (early_entry_flag) {
         if ((e = finish_from_entry_point()) != NULL) return e;
+        // set the status to running
+        Status = DBGSTAT_RUNNING;
+
+        // wait for the asynch command to complete
+        while (!bufferReady()) MISessionProgress(GDBMISession);
+
+        // grab the pending asynch
+        evt = PendingEvent;
+
+        // set the state back to default
+        AsynchEventWaiting = 0;
+        PendingEvent = NULL;
+        Status = DBGSTAT_STOPPED;
+        DVPRINT("%s, %s: evt->type %d, MIEventTypeSuspended %d\n", __FILE__,
+                __func__, evt->type, MIEventTypeSuspended);
+        // ensure we finished the function
+        if (evt->type != MIEventTypeSuspended) {
+            EVENT_ERROR(e, DBGERR_DEBUGGER,
+                        "Entry point not in suspended state!");
+            return e;
+        }
+        // Free the event
+        MIEventFree(evt);
     } else {
         // setup main entry points
         if ((e = setup_gdbmi_main_entry_points()) != NULL) return e;

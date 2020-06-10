@@ -1,0 +1,167 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [10];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+one{0..9}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_bt.cpp:20
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [5];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+two{0..4}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_bt.cpp:20
+%<
+one{0..9}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_bt.cpp, line 59.
+%-
+two{0..4}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_bt.cpp, line 59.
+%>
+one{0..9}: Breakpoint 1, merge(int) at %testdir/bd_dt/C++/cpp_bt.cpp:59
+one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
+|  
+|_ one{5..9}: #5  branch at %testdir/bd_dt/C++/cpp_bt.cpp:49
+|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:83
+|  one{5..9}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+|  |  
+|  |_ one{6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+|  |  one{6..9}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|  |  one{6..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|  |     
+|  \_ one{5}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+|     one{5}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+|     one{5}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|     one{5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|        
+\_ one{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
+   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
+   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+   |  
+   |_ one{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+   |  one{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+   |  one{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   |     
+   \_ one{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+      one{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+      one{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+      one{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+         
+one{1..4,6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+one{1..4,6..9}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+one{1..4,6..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+one{0,5}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+one{0,5}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+one{0,5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+two{0..4}: Breakpoint 1, merge(int) at %testdir/bd_dt/C++/cpp_bt.cpp:59
+two{0..4}: #11 main at %testdir/bd_dt/C++/cpp_bt.cpp:35
+two{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
+two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
+two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+|  
+|_ two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+|  two{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|  two{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|     
+\_ two{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+   two{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+   two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+   two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+      
+two{1..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{1..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+two{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+two{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+two{0}: #4  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+two{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+two{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+%<
+one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
+|  
+|_ one{5..9}: #5  branch at %testdir/bd_dt/C++/cpp_bt.cpp:49
+|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:83
+|  one{5..9}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+|  |  
+|  |_ one{6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+|  |  one{6..9}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|  |  one{6..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|  |     
+|  \_ one{5}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+|     one{5}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+|     one{5}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|     one{5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|        
+\_ one{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
+   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
+   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+   |  
+   |_ one{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+   |  one{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+   |  one{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   |     
+   \_ one{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+      one{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+      one{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+      one{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+         
+%-      
+two{0..4}: #11 main at %testdir/bd_dt/C++/cpp_bt.cpp:35
+two{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
+two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
+two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
+two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
+|  
+|_ two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
+|  two{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+|  two{1..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+|     
+\_ two{0}: #3  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:67
+   two{0}: #2  rare_branch at %testdir/bd_dt/C++/cpp_bt.cpp:54
+   two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
+   two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+      
+%>
+%<
+one{0..9}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+%-
+two{0..4}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
+   
+%>
+%<
+Shutting down debugger and killing application for 'one'.
+%-
+Shutting down debugger and killing application for 'two'.
+%>

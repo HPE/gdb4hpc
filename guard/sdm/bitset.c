@@ -69,13 +69,13 @@ bitset_free(bitset *b)
 }
 
 void
-bitset_copy(bitset *b1, bitset *b2)
+bitset_copy(bitset *b1, const bitset *b2)
 {
 	memcpy(b1->bs_bits, b2->bs_bits, MIN(SIZE_TO_BYTES(b1->bs_size), SIZE_TO_BYTES(b2->bs_size)));
 }
 
 bitset *
-bitset_dup(bitset *b)
+bitset_dup(const bitset *b)
 {
 	bitset *nb = bitset_new(b->bs_nbits);
 
@@ -85,7 +85,7 @@ bitset_dup(bitset *b)
 }
 
 int
-bitset_isempty(bitset *b)
+bitset_isempty(const bitset *b)
 {
 	int	i;
 
@@ -98,7 +98,7 @@ bitset_isempty(bitset *b)
 
 
 int
-bitset_isfull(bitset *b)
+bitset_isfull(const bitset *b)
 {
 	int	i;
 	
@@ -122,7 +122,7 @@ bitset_clear(bitset *b)
  * will be ANDed with 0.
  */
 bitset *
-bitset_and(bitset *b1, bitset *b2)
+bitset_and(const bitset *b1, const bitset *b2)
 {
 	bitset *	nb;
 
@@ -144,7 +144,7 @@ bitset_and(bitset *b1, bitset *b2)
  * to be 0.
  */
 void
-bitset_andeq(bitset *b1, bitset *b2)
+bitset_andeq(bitset *b1, const bitset *b2)
 {
 	int	i;
 
@@ -165,7 +165,7 @@ bitset_andeq(bitset *b1, bitset *b2)
  * to be 0.
  */
 void
-bitset_andeqnot(bitset *b1, bitset *b2)
+bitset_andeqnot(bitset *b1, const bitset *b2)
 {
 	int	i;
 
@@ -183,7 +183,7 @@ bitset_andeqnot(bitset *b1, bitset *b2)
  * Compute logical OR of bitsets
  */
 bitset *
-bitset_or(bitset *b1, bitset *b2)
+bitset_or(const bitset *b1, const bitset *b2)
 {
 	bitset *	nb;
 
@@ -202,7 +202,7 @@ bitset_or(bitset *b1, bitset *b2)
  * Compute b1 |= b2
  */
 void
-bitset_oreq(bitset *b1, bitset *b2)
+bitset_oreq(bitset *b1, const bitset *b2)
 {
 	int	i;
 
@@ -240,7 +240,7 @@ bitset_invert(bitset *b)
  * Bitsets must be the same size
  */
 int
-bitset_eq(bitset *b1, bitset *b2)
+bitset_eq(const bitset *b1, const bitset *b2)
 {
 	int	i;
 
@@ -261,7 +261,7 @@ bitset_eq(bitset *b1, bitset *b2)
  * to be 0.
  */
 int
-bitset_compare(bitset *b1, bitset *b2)
+bitset_compare(const bitset *b1, const bitset *b2)
 {
 	int	i;
 
@@ -294,7 +294,7 @@ bitset_unset(bitset *b, int bit)
 }
 
 int
-bitset_test(bitset *b, int bit)
+bitset_test(const bitset *b, int bit)
 {
 	bits		mask = (1 << BIT_IN_OBJ(bit));
 
@@ -365,7 +365,7 @@ static char tohex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B
  * 		"11011010101011101" -> "11:01b55d"
  */
 char *
-bitset_to_str(bitset *b)
+bitset_to_str(const bitset *b)
 {
 	int				n;
 	int				bytes;
@@ -506,7 +506,7 @@ emit_hexrange(varstr *v, char sep, int lower, int upper)
  * 	{0-2,4,5-100}
  */
 char *
-bitset_to_set(bitset *b)
+bitset_to_set(const bitset *b)
 {
 	int			bit;
 	int			lower;
@@ -669,7 +669,7 @@ hexset_to_bitset(int nbits, char* set, int len)
  * 	{0-2,4,5-100}
  */
 char *
-bitset_to_set_by_offset(bitset *b, int offset, int len)
+bitset_to_set_by_offset(const bitset *b, int offset, int len)
 {
 	int			end;
 	int			bit;
@@ -727,7 +727,7 @@ count_bits(bits b)
  * Number of bits in the set (as opposed to the total size of the set)
  */
 int
-bitset_count(bitset *b)
+bitset_count(const bitset *b)
 {
 	int	i;
 	int	count = 0;
@@ -742,7 +742,7 @@ bitset_count(bitset *b)
  * Number of bits this set can represent
  */
 int
-bitset_size(bitset *b)
+bitset_size(const bitset *b)
 {
 	return b->bs_nbits;
 }
@@ -768,7 +768,7 @@ bitset_partdup(bitset *b, int offset, int len)
 }	
 
 char *		
-bitset_serialize(bitset *b)
+bitset_serialize(const bitset *b)
 {
 	/*The maximum number of characters required by BT_FORMAT_FullString, each byte using 2 characters.*/
 //	int num_fullstr = b->bs_size * 2; 

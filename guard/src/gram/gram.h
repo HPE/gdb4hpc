@@ -157,9 +157,9 @@ extern dbgprocset_t *CurrentProcSet(void);
 extern void PrintProcSet(dbgprocset_t *);
 extern void SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *);
-extern void PrintMsgWithSetInfo(const char *setname, bitset *group,
+extern void PrintMsgWithSetInfo(const char *setname, const bitset *group,
                                 const char *f, ...);
-extern void PrintErrorWithSetInfo(const char *setname, bitset *group,
+extern void PrintErrorWithSetInfo(const char *setname, const bitset *group,
                                   const char *f, ...);
 
 /*

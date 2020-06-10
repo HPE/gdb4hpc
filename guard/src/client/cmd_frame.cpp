@@ -54,6 +54,7 @@ public:
     void calculateTreeGroups();
     void markDirtyGroup();
 
+    bool operator=(const BTTree &other) = delete;
     bool operator==(const BTTree &other) const;
 private:
     void printData(const bitset* group) const;

@@ -14,6 +14,7 @@ void step_two(int rank);
 void step_three(int rank);
 void left(int rank);
 void right(int rank);
+void loop(int rank, int num);
 
 int main(int argc, char* argv[]) {
     int ierr = MPI_Init(&argc, &argv);
@@ -42,7 +43,7 @@ int main(int argc, char* argv[]) {
 
 void branch(int rank) {
     // branch execution path in a psuedo-random fashion
-    if (rank < 10) {
+    if (rank < 5) {
         left(rank);
     } else {
         right(rank);
@@ -62,7 +63,7 @@ void step_one(int rank) {
 }
 
 void step_two(int rank) {
-    if (rank == 0 || rank == 10) {
+    if (rank == 0 || rank == 5) {
         rare_branch(rank);
     }
     step_three(rank);
@@ -74,10 +75,18 @@ void step_three(int rank) {
 
 void left(int rank) {
     std::cout << "I'm left!\n";
-    step_one(rank);
+    loop(rank, 0);
 }
 
 void right(int rank) {
     std::cout << "I'm right!\n";
     step_one(rank);
+}
+
+void loop(int rank, int num) {
+    if (num > 3) {
+        step_one(rank);
+    } else {
+        loop(rank, num+1);
+    }
 }

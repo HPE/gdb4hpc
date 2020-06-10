@@ -1,0 +1,25 @@
+maint set sync on
+
+launch $one{10} bd_dt/C++/cpp_bt.x
+launch $two{5} bd_dt/C++/cpp_bt.x
+
+break merge
+
+# test on a single process
+focus $one
+
+c
+bt
+
+# now another single process
+focus $two
+
+c
+bt
+
+# now both
+focus $all
+
+bt
+
+q

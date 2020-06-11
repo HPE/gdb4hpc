@@ -2,7 +2,7 @@
 
 #PBS -N gdb4hpc_test
 #PBS -l nodes=[pes]:ppn=[ppn]
-#PBS -l walltime=00:01:00
+#PBS -l walltime=00:02:00
 #PBS -V
 #PBS -o tmp/qout
 #PBS -e tmp/qerr

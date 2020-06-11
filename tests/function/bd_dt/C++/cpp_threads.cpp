@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
                 int numVals = 0;
                 double sum = 0.0;
                 while (true) {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     std::unique_lock<std::mutex> lk(valMutex);
                     cond.wait(lk, [&]{return valAvail;});
                     if (val < 0.0) {
@@ -65,9 +65,9 @@ int main(int argc, char** argv) {
             });
     }
 
-    // pump in values on the front end - I want this to run for about 30 seconds, and
+    // pump in values on the front end - I want this to run for about 10 seconds, and
     // with the sleep in the processors code, this can process numThreads values per second
-    int numVals = 30 * numThreads;
+    int numVals = 10 * 10 * numThreads;
     for (int i=0; i<numVals; ++i) {
         {
             //std::this_thread::sleep_for(std::chrono::milliseconds(100));

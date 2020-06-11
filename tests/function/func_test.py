@@ -517,3 +517,7 @@ class cpp_decomp2(Test):
 class cpp_bt(Test):
     def test(self):
         runTest(self)
+
+class cpp_thread(Test):
+    def test(self):
+        runTest(self)

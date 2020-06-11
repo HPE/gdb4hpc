@@ -1,2 +1,0 @@
-location	|source_files			|options		|executable_files 	|Link?
-open_acc	|open_acc_test.f90		|-g 			|open_acc1.x		|N

@@ -39,8 +39,8 @@ def getWLM():
         return theWLM
     
     wlm = subprocess.check_output("module load wlm_detect; wlm_detect", shell=True).rstrip()
-    theWLM = wlm
-    return wlm
+    theWLM = wlm.decode("utf-8")
+    return theWLM
 
 def isSlurm():
     return ( getWLM() == "SLURM")

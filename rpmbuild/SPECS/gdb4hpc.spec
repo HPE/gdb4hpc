@@ -17,6 +17,8 @@
 #FIXME: This should be relocatable
 %global external_build_dir %{cray_prefix}/%{cray_product}/%{pkgversion}
 
+%global tests_source_dir %{_topdir}/../tests
+
 # modulefile definitions
 %global modulefile_name %{cray_name}
 %global module_template_name %{modulefile_name}.module.template
@@ -125,6 +127,14 @@ Source5:    %{yaml_template}
 %description
 Cray gdb4hpc %{pkgversion}
 gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 2008 applications written in C/C++/Fortran.
+
+%package -n %{cray_name}%{pkgversion_separator}tests
+Summary:    Cray gdb4hpc parallel debugger tests
+Group:      Development/Tools/Debuggers
+Provides:   %{cray_name}%{pkgversion_separator}tests = %{pkgversion}
+Requires:   %{cray_name} = %{pkgversion}
+%description -n %{cray_name}%{pkgversion_separator}tests
+Tests for Cray gdb4hpc parallel debugger
 
 %prep
 # Run q(uiet) with build directory name, c(reate) subdirectory, disable T(arball) unpacking
@@ -307,6 +317,47 @@ gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 200
 # yaml file
 %{__mkdir} -p %{_rpmdir}/%{_arch}
 %{__sed} 's|<PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_product}-%{pkgversion}-%{release}.%{_arch}.rpm.yaml
+
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/scripts
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_harness
+
+%{__cp} -a %{tests_source_dir}/function/bd_dt/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
+%{__cp} -a %{tests_source_dir}/function/bd_dt/c/*.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/
+%{__cp} -a %{tests_source_dir}/function/bd_dt/c/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am
+%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/*.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/
+%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/Makefile.am
+%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/*.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran/
+%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran/Makefile.am
+
+%{__cp} -a %{tests_source_dir}/function/func_test.py.data/* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/
+
+%{__cp} -a %{tests_source_dir}/function/avo_config.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
+%{__cp} -a %{tests_source_dir}/function/build_run.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
+%{__cp} -a %{tests_source_dir}/function/func_test.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
+%{__cp} -a %{tests_source_dir}/function/func_test_params.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
+%{__cp} -a %{tests_source_dir}/function/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
+%{__cp} -a %{tests_source_dir}/function/README ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/README
+
+%{__cp} -a %{tests_source_dir}/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
+%{__cp} -a %{tests_source_dir}/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
+%{__cp} -a %{tests_source_dir}/include/mpitestconf.h.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h.in
+%{__cp} -a %{tests_source_dir}/include/mpitestcxx.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestcxx.h
+%{__cp} -a %{tests_source_dir}/include/mpithreadtest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpithreadtest.h
+%{__cp} -a %{tests_source_dir}/include/rectangle.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/rectangle.h
+
+%{__cp} -a %{tests_source_dir}/scripts/gdb4hpc_be_suppressions.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/scripts/gdb4hpc_be_suppressions.txt
+%{__cp} -a %{tests_source_dir}/scripts/validate_ssh.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/scripts/validate_ssh.sh
+
+%{__cp} -a %{tests_source_dir}/configure.ac ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/configure.ac
+%{__cp} -a %{tests_source_dir}/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile.am
 
 %post
 # Add Shasta configuration files for PE content projection
@@ -536,3 +587,40 @@ fi
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
 %attr(644, root, root) %{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
+
+%files -n %{cray_name}%{pkgversion_separator}tests
+%defattr(755, root, root)
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/scripts
+
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/*.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/*.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/Makefile.am
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran/*.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/fortran/Makefile.am
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/*
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/README
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestcxx.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpithreadtest.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/rectangle.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/scripts/gdb4hpc_be_suppressions.txt
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/scripts/validate_ssh.sh
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/configure.ac
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile.am

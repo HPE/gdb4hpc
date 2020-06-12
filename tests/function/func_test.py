@@ -39,8 +39,8 @@ def getWLM():
         return theWLM
     
     wlm = subprocess.check_output("module load wlm_detect; wlm_detect", shell=True).rstrip()
-    theWLM = wlm
-    return wlm
+    theWLM = wlm.decode("utf-8")
+    return theWLM
 
 def isSlurm():
     return ( getWLM() == "SLURM")
@@ -515,5 +515,9 @@ class cpp_decomp2(Test):
         runTest(self)
 
 class cpp_bt(Test):
+    def test(self):
+        runTest(self)
+
+class cpp_thread(Test):
     def test(self):
         runTest(self)

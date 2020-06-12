@@ -66,7 +66,6 @@ typedef struct outpcb_t outpcb_t;
 static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
                                  dbgclnt_proto *);
 static void FreeDbgInvoke(dbginvoke_t *);
-static void DbgFreeSignal(int *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
@@ -106,8 +105,8 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request, dbgev re
 */
 static proto_session *DbgCurrSess;
 static list_t *DbgInvokeList;
-static list_t *DbgSigList;
-static list_t *DbgUnblockableSigList;
+static std::vector<int> DbgSigList;
+static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
 static int high_fd;
 static inpcb_t InputCB;
@@ -125,16 +124,15 @@ static rec_set_t *async_set;  // full set of async receivers
 ** Hold any pending signals.
 */
 void HoldSignals(void) {
-    int *sig;
     sigset_t mask;
 
     // initialize values
     sigemptyset(&mask);
 
-    if (!EmptyList(DbgSigList)) {
-        SetList(DbgSigList);
-        while ((sig = (int *)GetListElement(DbgSigList)) != (int *)NULL)
-            sigaddset(&mask, *sig);
+    if (!DbgSigList.empty()) {
+        for (auto&& sig : DbgSigList) {
+            sigaddset(&mask, sig);
+        }
 
         sigprocmask(SIG_BLOCK, &mask, (sigset_t *)NULL);
     }
@@ -144,16 +142,14 @@ void HoldSignals(void) {
 ** Release any pending signals.
 */
 void ReleaseSignals(void) {
-    int *sig;
     sigset_t mask;
 
     // initialize data
     sigemptyset(&mask);
 
-    if (!EmptyList(DbgSigList)) {
-        SetList(DbgSigList);
-        while ((sig = (int *)GetListElement(DbgSigList)) != (int *)NULL)
-            sigaddset(&mask, *sig);
+    if (!DbgSigList.empty()) {
+        for (auto&& sig : DbgSigList)
+            sigaddset(&mask, sig);
 
         sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
     }
@@ -211,6 +207,8 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
     if (di->d_bitset_full != NULL) bitset_free(di->d_bitset_full);
 
     if (di->d_bitset_launched != NULL) bitset_free(di->d_bitset_launched);
+
+    if (di->d_cmd != NULL) Free(di->d_cmd);
 
     // remove any event fds from the proto
     DestroyList(di->d_evfds, Free);
@@ -1744,69 +1742,44 @@ void DbgUnmaskSignal(int sig) {
 ** Set signal handler.
 */
 void DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type) {
-    int *l_sig;
     struct sigaction handler;
 
     if (hand == SIG_DFL || hand == SIG_IGN) {
         // ensure the signal is not in the normal or unblockable list
-        SetList(DbgSigList);
-        while ((l_sig = (int *)GetListElement(DbgSigList)) != NULL) {
-            if (*l_sig == sig) {
-                RemoveFromList(DbgSigList, (void *)l_sig);
-                Free(l_sig);
-                break;
-            }
+        auto loc = std::find(DbgSigList.begin(), DbgSigList.end(), sig);
+        if (loc != DbgSigList.end()) {
+            DbgSigList.erase(loc);
         }
-        SetList(DbgUnblockableSigList);
-        while ((l_sig = (int *)GetListElement(DbgUnblockableSigList)) != NULL) {
-            if (*l_sig == sig) {
-                RemoveFromList(DbgUnblockableSigList, (void *)l_sig);
-                Free(l_sig);
-                break;
-            }
+        loc = std::find(DbgUnblockableSigList.begin(), DbgUnblockableSigList.end(), sig);
+        if (loc != DbgUnblockableSigList.end()) {
+            DbgUnblockableSigList.erase(loc);
         }
     } else {
-        dbgsig_type cur_type;
         // Search the list, if the signal isn't in the list, then add it.
-        SetList(DbgSigList);
-        while ((l_sig = (int *)GetListElement(DbgSigList)) != NULL) {
-            if (*l_sig == sig) {
-                cur_type = DBG_SIG_MASKABLE;
-                break;
-            }
-        }
-        SetList(DbgUnblockableSigList);
-        while ((l_sig = (int *)GetListElement(DbgUnblockableSigList)) != NULL) {
-            if (*l_sig == sig) {
-                cur_type = DBG_SIG_NOMASK;
-                break;
-            }
-        }
-
-        // if the signal is already present, make sure it is in the proper list
-        if (l_sig != NULL) {
-            if (mask_type == DBG_SIG_NOMASK && cur_type == DBG_SIG_MASKABLE) {
+        auto loc = std::find(DbgSigList.begin(), DbgSigList.end(), sig);
+        if (loc != DbgSigList.end()) {
+            if (mask_type == DBG_SIG_NOMASK) {
                 // signal is in wrong list
-                RemoveFromList(DbgSigList, (void *)l_sig);
-                AddToList(DbgUnblockableSigList, (void *)l_sig);
-            } else if (mask_type == DBG_SIG_MASKABLE &&
-                       cur_type == DBG_SIG_NOMASK) {
+                DbgSigList.erase(loc);
+                DbgUnblockableSigList.push_back(sig);
+            }
+        } else if ((loc=std::find(DbgUnblockableSigList.begin(), DbgUnblockableSigList.end(), sig)) !=
+                   DbgUnblockableSigList.end()) {
+            if (mask_type == DBG_SIG_MASKABLE) {
                 // signal is in wrong list
-                RemoveFromList(DbgUnblockableSigList, (void *)l_sig);
-                AddToList(DbgSigList, (void *)l_sig);
+                DbgUnblockableSigList.erase(loc);
+                DbgSigList.push_back(sig);
             }
         } else {
             // signal isn't present, so create it and add to the proper list
-            l_sig = (int *)Alloc(sizeof(int));
-            memcpy(l_sig, &sig, sizeof(int));
             if (mask_type == DBG_SIG_NOMASK) {
-                AddToList(DbgUnblockableSigList, (void *)l_sig);
+                DbgUnblockableSigList.push_back(sig);
             } else {
-                AddToList(DbgSigList, (void *)l_sig);
+                DbgSigList.push_back(sig);
             }
         }
     }
-
+            
     // make sure to initialize the handler
     memset(&handler, 0, sizeof(handler));
     sigemptyset(&handler.sa_mask);
@@ -1815,13 +1788,6 @@ void DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type) {
     handler.sa_handler = hand;
 
     sigaction(sig, &handler, NULL);
-}
-
-/*
-** Free signal handler.
-*/
-static void DbgFreeSignal(int *l_sig) {
-    if (l_sig != NULL) Free(l_sig);
 }
 
 /*
@@ -1853,10 +1819,6 @@ int DbgInit(void) {
 
     while ((sw = GetClntProto()) != (dbgclnt_proto *)NULL)
         if (sw->sw_init != NULL && !sw->sw_init()) return -1;
-
-    if (DbgSigList == NULL) DbgSigList = NewList();
-
-    if (DbgUnblockableSigList == NULL) DbgUnblockableSigList = NewList();
 
     // Initialize the mutex lock for the InputCB
     InputCB.i_fd = -1;
@@ -1893,11 +1855,8 @@ void DbgFinalize(void) {
         }
     }
 
-    DestroyList(DbgSigList, (void (*)(void *))DbgFreeSignal);
-    DbgSigList = NULL;
-
-    DestroyList(DbgUnblockableSigList, (void (*)(void *))DbgFreeSignal);
-    DbgUnblockableSigList = NULL;
+    DbgSigList.clear();
+    DbgUnblockableSigList.clear();
 
     // Manually free the elements in the dbginvoke list
     while ((di = (dbginvoke_t *)RemoveFirst(DbgInvokeList)) != NULL) {

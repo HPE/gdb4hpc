@@ -79,6 +79,8 @@ void FreeDbgInvoke(dbginvoke_t *di) {
 
     if (di->d_bitset_launched != NULL) bitset_free(di->d_bitset_launched);
 
+    if (di->d_cmd != NULL) Free(di->d_cmd);
+
     // remove any event fds from the proto
     DestroyList(di->d_evfds, Free);
 

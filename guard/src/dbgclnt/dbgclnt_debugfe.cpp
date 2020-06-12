@@ -66,7 +66,10 @@ dbgfrontend_sw *DbgInstantiateFE(const char *debug_def) {
 
             // init the frontend if it has an init function defined
             if (fe_obj->dbg_init != NULL) {
-                fe_obj->dbg_init(fe_obj);
+                if (auto e = fe_obj->dbg_init(fe_obj)) {
+                    // the event has always been ignored
+                    FreeEvent(e);
+                }
             }
 
             // return the object

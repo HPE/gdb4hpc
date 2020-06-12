@@ -1689,7 +1689,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, cha
 ** Set watchpoint at specified expression.
 */
 dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *commInfo) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    DVPRINT("*** Dbg %s, %s expr=%s\n", __FILE__, __func__, expr);
     dbgevent_t *event;
     MICommand *cmd;
     dbgbp_type bp_type = (dbgbp_type)type;

@@ -225,72 +225,59 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    char *arg;
-    rep_set_t *rep_set = NULL;
-    bp_set_t *bpset;
-    dbgbp_t *bp;
-    dbgbp_type bp_type;
-
+    
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: watch -a foo\n");
+        PrintOutError("Expected: watch foo\n");
         return 1;
     }
 
-    if (argc > 3) {
-        PrintOutError("Too many command arguments.\n");
-        PrintOutError("Expected: watch -a foo\n");
-        return 0;
-    }
-
-    // check if we have an "-a", "-r", or "-w" argument.
-    if (argc == 3) {
-        if (strcmp(argv[1], "-a") == 0) {
-            bp_type = DBGBP_AWATCH_TYPE;
-            // FIXME: There is a gdb bug that breaks read watchpoints. It will
-            // cause
-            //         a segfault, so they are disabled for now.
-            //} else if ( strcmp(argv[1], "-r") == 0 )
-            //{
-            //	bp_type = DBGBP_RWATCH_TYPE;
-        } else if (strcmp(argv[1], "-w") == 0) {
-            bp_type = DBGBP_WATCH_TYPE;
-        } else {
-            PrintOutError("Unknown command argument %s.\n", argv[1]);
-            return 0;
-        }
-
-        // FIXME: This should go through the parser...
-        arg = strdup(argv[2]);
-    } else {
-        // default to write watchpoint
+    int expIdx = 1;
+    
+    dbgbp_type bp_type = DBGBP_WATCH_TYPE;
+    if (strcmp(argv[1], "-a") == 0) {
+        bp_type = DBGBP_AWATCH_TYPE;
+        expIdx = 2;
+    } else if (strcmp(argv[1], "-r") == 0) {
+        bp_type = DBGBP_RWATCH_TYPE;
+        expIdx = 2;
+    } else if (strcmp(argv[1], "-w") == 0) {
         bp_type = DBGBP_WATCH_TYPE;
-
-        // FIXME: This should go through the parser...
-        arg = strdup(argv[1]);
+        expIdx = 2;
     }
 
-    rep_set = DbgSetWatch(rec_set, bp_type, arg);
+    int n = argc - expIdx;
+    if (n < 1) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: watch %s foo\n", argv[1]);
+        return 1;
+    } else if (n == 2 || (n == 3 && strcmp(argv[expIdx+1], "thread") != 0) || n > 3) {
+        PrintOutError("Too many command arguments.\n");
+        PrintOutError("Expected: watch foo\n");
+        PrintOutError("      or: watch -a foo\n");
+        PrintOutError("      or: watch foo thread 2\n");
+        return 1;
+    }
 
-    Free(arg);
+    std::string exprStr{argv[expIdx]};
+    if (n == 3) {
+        exprStr = "\"" + exprStr + " thread " + argv[expIdx+2] + "\"";
+    }
+
+    char* expression = strdup(exprStr.c_str());
+
+    rep_set_t *rep_set = DbgSetWatch(rec_set, bp_type, expression);
+
+    Free(expression);
 
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
         // Point at the breakpoint data
-        bp = EVENT_BP(reply->rep_event);
+        dbgbp_t *bp = EVENT_BP(reply->rep_event);
 
-        bpset = FindBPSetForBP(reply->rep_di, bp);
-
-        if (bpset == NULL)  // this is not supposed to happen
-        {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                  "ERROR: cannot find watchpoint [%d: variable "
-                                  "%s] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_exp);
-        }
-
-        switch (bpset->b_bp_type) {
+        if (bp_set_t *bpset = FindBPSetForBP(reply->rep_di, bp)) {
+            switch (bpset->b_bp_type) {
             case DBGBP_WATCH_TYPE:
                 PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                     "Watchpoint %d: Set on variable %s\n",
@@ -312,6 +299,12 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                     reply->rep_di->d_handle, reply->rep_group,
                     "Unknown Watchpoint %d: Set on variable %s\n",
                     bpset->b_bp_id, bpset->b_bp_exp);
+            }
+        } else {
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                  "ERROR: cannot find watchpoint [%d: variable "
+                                  "%s] in BPSetList.\n",
+                                  bp->bp_id, bp->bp_exp);
         }
     }
 

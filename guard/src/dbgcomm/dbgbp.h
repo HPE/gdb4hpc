@@ -65,6 +65,7 @@ struct dbgbp_t {
 typedef struct dbgbp_t dbgbp_t;
 
 extern dbgbp_t *NewBP(int);
+extern void DumpBP(dbgbp_t *bp);
 extern void CleanupBP(list_t *);
 extern void FreeBP(dbgbp_t *);
 extern dbgbp_t *DupBP(dbgbp_t *);

@@ -190,8 +190,7 @@ static dbgevent_t *delete_internal_breakpoints(list_t *);
 static dbgevent_t *setup_gdbmi_environment(void);
 static dbgevent_t *setup_gdbmi_signals(void);
 static dbgevent_t *setup_gdbmi_entry_points(void);
-static dbgevent_t *finish_from_entry_point(void);
-static dbgevent_t *setup_gdbmi_main_entry_points(void);
+static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
@@ -258,6 +257,8 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
     if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
 
     DVPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
+    //DVPRINT("%s: DumpingBP:", __func__);
+    //DumpBP(bp);
 
     MIListFree(bpts, (void (*)())MIBreakpointFree);
 
@@ -733,7 +734,7 @@ static dbgevent_t *setup_gdbmi_signals(void) {
     return NULL;
 }
 
-static const std::array<std::string, 20> entry_point_strings
+static const std::array<std::string, 20> parallel_entry_pt_strs
 {
     "*(&MPI_Init)",
     "athos_mpi_init",
@@ -777,7 +778,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
 
     parallel_entry_BP = NewList();
     dbgbp_t *bp_res;
-    for (auto&& str: entry_point_strings) {
+    for (auto&& str: parallel_entry_pt_strs) {
         cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
         SendMICommand(GDBMISession, cmd);
         // Note we only want to insert the breakpoint into our internal list if the
@@ -802,110 +803,7 @@ static dbgevent_t *setup_gdbmi_entry_points(void) {
     return NULL;
 }
 
-static dbgevent_t *finish_from_entry_point(void) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e = nullptr;
-    MICommand *cmd;
-    MIList *frames;
-    MIFrame *frame;
-
-    //get all of the frames.
-    cmd = MIStackListAllFrames();
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
-        return e;
-    }
-    if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    //for (auto&& str: entry_point_strings) {
-    //    DVPRINT("%s: %d, entry_point_strings %s\n", __func__, __LINE__, str.c_str());
-    //}
-    int depth = 0;
-    bool found_eps = false;
-    std::string matching_eps;
-    // parse over the frame list
-    for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL && !found_eps;) {
-        // set frame function
-        if (frame->func != NULL) {
-            DVPRINT("%s: frame_func: %s\n", __func__, frame->func);
-            if (std::find(entry_point_strings.begin(),
-                          entry_point_strings.end(),
-                          std::string(frame->func)) != entry_point_strings.end()) {
-                DVPRINT("%s: frame func %s matches an entry point string\n", __func__, frame->func);
-                found_eps = true;
-                matching_eps = frame->func;
-            } else {
-                ++depth;
-                //DVPRINT("frame func %s does not match an entry point string\n", frame->func);
-            }
-            DVPRINT("%s: depth %d, found_eps %s, matching_ops %s\n", __func__, depth, found_eps?"true":"false",
-                    found_eps?matching_eps.c_str():"notfound");
-        } else {
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "frame_func: NULL!");
-            return e;
-        }
-    }
-    // free the MIFrame list
-    MIListFree(frames, (void (*)())MIFrameFree);
-    //if we didn't find the entry point string, fail.
-    if (!found_eps) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Didn't find entry point function!");
-        return e;
-    }
-    //otherwise, set the frame to the frame before main and finish.
-    cmd = MIStackSelectFrame(depth);
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Stack Select Frame command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-    cmd = MIExecFinish();
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    //get the current frame
-    cmd = MIStackListFrames(0, 0);
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListFrames command failed.");
-        return e;
-    }
-    if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
-        return e;
-    }
-    MICommandFree(cmd);
-    MIListSet(frames);
-    if ((frame = (MIFrame *)MIListGet(frames)) != NULL) {
-        DVPRINT("%s: Current frame func %s\n", __func__, frame->func);
-        if (std::string("main") != std::string(frame->func)) {
-            EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo returned non- main function frame!");
-        }
-    } else {
-        EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo returned NULL function frame!");
-    }
-    MIListFree(frames, (void (*)())MIFrameFree);
-
-    return e;
-}
-
-static dbgevent_t *setup_gdbmi_main_entry_points(void) {
+static dbgevent_t *setup_gdbmi_main_entry_point(void) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
@@ -1325,41 +1223,18 @@ dbgevent_t *DbgGdbMI::startup(void) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
+    MIList *frames;
+    MIFrame *frame;
     MIEvent *evt;
     dbgbp_t *bp = NULL;
-    int finish = 1;
+    int finish = 0;
     int attempt = 0;
 
-    // Only setup entry points if we are not running with the special early
-    // entry mode
-    if (early_entry_flag) {
-        if ((e = finish_from_entry_point()) != NULL) return e;
-        // set the status to running
-        Status = DBGSTAT_RUNNING;
-
-        // wait for the asynch command to complete
-        while (!bufferReady()) MISessionProgress(GDBMISession);
-
-        // grab the pending asynch
-        evt = PendingEvent;
-
-        // set the state back to default
-        AsynchEventWaiting = 0;
-        PendingEvent = NULL;
-        Status = DBGSTAT_STOPPED;
-        DVPRINT("%s, %s: evt->type %d, MIEventTypeSuspended %d\n", __FILE__,
-                __func__, evt->type, MIEventTypeSuspended);
-        // ensure we finished the function
-        if (evt->type != MIEventTypeSuspended) {
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Entry point not in suspended state!");
-            return e;
-        }
-        // Free the event
-        MIEventFree(evt);
-    } else {
+    // Setup entry points if we are not running with the special early
+    // entry mode:
+    if (!early_entry_flag) {
         // setup main entry points
-        if ((e = setup_gdbmi_main_entry_points()) != NULL) return e;
+        if ((e = setup_gdbmi_main_entry_point()) != NULL) return e;
         // setup parallel entry points
         if ((e = setup_gdbmi_entry_points()) != NULL) return e;
 
@@ -1369,68 +1244,105 @@ dbgevent_t *DbgGdbMI::startup(void) {
         recover_for_slurm:
             // counter for recover
             ++attempt;
-            // issue a continue command
-            cmd = MIExecContinueAll();
+            // Make sure that we're not inside a parallel entry point
+
+            //get all of the frames.
+            cmd = MIStackListAllFrames();
             SendMICommand(GDBMISession, cmd);
             if (!MICommandResultOK(cmd)) {
-                EVENT_ERROR(e, DBGERR_DEBUGGER,
-                            MICommandResultErrorMessage(cmd));
                 MICommandFree(cmd);
+                EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
+                return e;
+            }
+            if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
+                MICommandFree(cmd);
+                EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
                 return e;
             }
             MICommandFree(cmd);
 
-            // set the status to running
-            Status = DBGSTAT_RUNNING;
-
-            // wait for the asynch command to complete
-            while (!bufferReady()) {
-                MISessionProgress(GDBMISession);
+            // parse over the frame list
+            for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
+                if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
+                    DVPRINT("%s: found frame in parallel_entry_BP, frame->level "
+                            "%d, frame->func %s\n", __func__, frame->level, frame->func);
+                    break;
+                }
             }
-
-            // grab the pending asynch
-            evt = PendingEvent;
-
-            // set the state back to default
-            AsynchEventWaiting = 0;
-            PendingEvent = NULL;
-            Status = DBGSTAT_STOPPED;
-
-            // slurm will send a SIGSTOP for some reason, try to recover from
-            // that
-            if (evt->type == MIEventTypeSignal && attempt < 10) {
-                DVPRINT("DbgStartup: Received signal, trying to recover.\n");
-                MIEventFree(evt);
-                evt = NULL;
-                goto recover_for_slurm;
-            }
-
-            // ensure we hit the breakpoint
-            if (evt->type != MIEventTypeBreakpointHit) {
-                EVENT_ERROR(e, DBGERR_DEBUGGER,
-                            "Failed to hit entry breakpoint.");
-                return e;
-            }
-
-            // If we hit a main breakpoint, we are done (unset finish).
-            // Otherwise check parallel breakpoints
-            if ((bp = FindBPByID(main_entry_BP, evt->bkptno)) ==
-                (dbgbp_t *)NULL) {
-                // If we hit a parallel breakpoint, we need to finish, otherwise
-                // unkown
-                if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno)) ==
-                    (dbgbp_t *)NULL) {
+            //if we found a parallel entry point function, select that frame
+            if (frame != NULL) {
+                //set the frame to the parallel entry point
+                cmd = MIStackSelectFrame(frame->level);
+                SendMICommand(GDBMISession, cmd);
+                if (MICommandResultOK(cmd)) {
+                    finish = 1;
+                }
+                MICommandFree(cmd);
+            } else {
+                // issue a continue command .. this is assuming we're pre-main or
+                // pre-parallel entry point.
+                cmd = MIExecContinueAll();
+                SendMICommand(GDBMISession, cmd);
+                if (!MICommandResultOK(cmd)) {
                     EVENT_ERROR(e, DBGERR_DEBUGGER,
-                                "Hit unknown entry breakpoint.");
+                                MICommandResultErrorMessage(cmd));
+                    MICommandFree(cmd);
                     return e;
                 }
-            } else {
-                finish = 0;
+                MICommandFree(cmd);
+                // set the status to running
+                Status = DBGSTAT_RUNNING;
+
+                // wait for the asynch command to complete
+                while (!bufferReady()) {
+                    MISessionProgress(GDBMISession);
+                }
+
+                // grab the pending asynch
+                evt = PendingEvent;
+
+                // set the state back to default
+                AsynchEventWaiting = 0;
+                PendingEvent = NULL;
+                Status = DBGSTAT_STOPPED;
+
+                // slurm will send a SIGSTOP for some reason, try to recover from
+                // that
+                if (evt->type == MIEventTypeSignal && attempt < 10) {
+                    DVPRINT("DbgStartup: Received signal, trying to recover.\n");
+                    MIEventFree(evt);
+                    evt = NULL;
+                    goto recover_for_slurm;
+                }
+
+                // ensure we hit the breakpoint
+                if (evt->type != MIEventTypeBreakpointHit) {
+                    EVENT_ERROR(e, DBGERR_DEBUGGER,
+                                "Failed to hit entry breakpoint.");
+                    return e;
+                }
+
+                // If we hit a main breakpoint, we are done (unset finish).
+                // Otherwise check parallel breakpoints
+                if ((bp = FindBPByID(main_entry_BP, evt->bkptno)) ==
+                    (dbgbp_t *)NULL) {
+                    // If we hit a parallel breakpoint, we need to finish, otherwise
+                    // unkown
+                    if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno)) ==
+                        (dbgbp_t *)NULL) {
+                        DVPRINT("%s, %s Hit unknown entry breakpoint.", __FILE__,
+                                __func__);
+                    } else {
+                        //hit the known parallel entry breakpoint
+                        finish = 1;
+                    }
+                }
+
+                // Free the event
+                MIEventFree(evt);
             }
-
-            // Free the event
-            MIEventFree(evt);
-
+            // free the MIFrame list
+            MIListFree(frames, (void (*)())MIFrameFree);
             // remove all of the entry breakpoints. We are done with them.
             if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
                 return e;
@@ -1489,7 +1401,8 @@ dbgevent_t *DbgGdbMI::startup(void) {
                 Status = DBGSTAT_STOPPED;
 
                 // ensure we finished the function
-                if (evt->type != MIEventTypeFunctionFinished) {
+                if (evt->type != MIEventTypeFunctionFinished &&
+                    evt->type != MIEventTypeSuspended) {
                     EVENT_ERROR(e, DBGERR_DEBUGGER,
                                 "Failed to finish the entry function.");
                     return e;
@@ -1510,7 +1423,7 @@ dbgevent_t *DbgGdbMI::startup(void) {
     }
 
     // call the showframe function with unlimited frame count and return
-    return showFrame(0);
+    return showFrame(1);
 }
 
 /*

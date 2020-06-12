@@ -329,6 +329,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/scripts
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_harness
 
+%{__cp} -a %{tests_source_dir}/test_tool.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.sh
+
 %{__cp} -a %{tests_source_dir}/function/bd_dt/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/*.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am
@@ -600,6 +602,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/scripts
 
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/*.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am

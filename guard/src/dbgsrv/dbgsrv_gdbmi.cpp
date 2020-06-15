@@ -1422,7 +1422,7 @@ dbgevent_t *DbgGdbMI::startup(void) {
         MICommandFree(cmd);
     }
 
-    // call the showframe function with unlimited frame count and return
+    // call the showframe function to ask for the innermost frame
     return showFrame(1);
 }
 

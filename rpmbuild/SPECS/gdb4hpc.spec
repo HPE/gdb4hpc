@@ -330,6 +330,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_harness
 
 %{__cp} -a %{tests_source_dir}/test_tool.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.sh
+%{__cp} -a %{tests_source_dir}/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
 
 %{__cp} -a %{tests_source_dir}/function/bd_dt/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/*.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/
@@ -346,7 +347,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/func_test.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
 %{__cp} -a %{tests_source_dir}/function/func_test_params.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
 %{__cp} -a %{tests_source_dir}/function/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
-%{__cp} -a %{tests_source_dir}/function/README ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/README
+%{__cp} -a %{tests_source_dir}/function/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/README.md
 
 %{__cp} -a %{tests_source_dir}/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -603,6 +604,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/scripts
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/*.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am
@@ -616,7 +618,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/README
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/README.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h.in

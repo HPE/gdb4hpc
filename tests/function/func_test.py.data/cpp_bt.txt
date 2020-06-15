@@ -28,7 +28,7 @@ one{0..9}: Breakpoint 1, merge(int) at %testdir/bd_dt/C++/cpp_bt.cpp:59
 one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 |  
 |_ one{5..9}: #5  branch at %testdir/bd_dt/C++/cpp_bt.cpp:49
-|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:83
+|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:81
 |  one{5..9}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
 |  |  
 |  |_ one{6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
@@ -41,12 +41,12 @@ one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 |     one{5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
 |        
 \_ one{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
-   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
-   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:77
+   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:86
    one{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
    |  
    |_ one{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
@@ -69,12 +69,12 @@ one{0,5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
 two{0..4}: Breakpoint 1, merge(int) at %testdir/bd_dt/C++/cpp_bt.cpp:59
 two{0..4}: #11 main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 two{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
-two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
-two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:77
+two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:86
 two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
 |  
 |_ two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
@@ -86,7 +86,7 @@ two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
    two{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
    two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
       
-two{1..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{1..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:86
 two{1..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
 two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
 two{1..4}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
@@ -102,7 +102,7 @@ two{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
 one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 |  
 |_ one{5..9}: #5  branch at %testdir/bd_dt/C++/cpp_bt.cpp:49
-|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:83
+|  one{5..9}: #4  right at %testdir/bd_dt/C++/cpp_bt.cpp:81
 |  one{5..9}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
 |  |  
 |  |_ one{6..9}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
@@ -115,12 +115,12 @@ one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 |     one{5}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
 |        
 \_ one{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
-   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
-   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:77
+   one{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+   one{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:86
    one{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
    |  
    |_ one{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69
@@ -132,15 +132,15 @@ one{0..9}: #6  main at %testdir/bd_dt/C++/cpp_bt.cpp:35
       one{0}: #1  step_three at %testdir/bd_dt/C++/cpp_bt.cpp:73
       one{0}: #0  merge at %testdir/bd_dt/C++/cpp_bt.cpp:59
          
-%-      
+%-
 two{0..4}: #11 main at %testdir/bd_dt/C++/cpp_bt.cpp:35
 two{0..4}: #10 branch at %testdir/bd_dt/C++/cpp_bt.cpp:47
-two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:78
-two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:90
-two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #9  left at %testdir/bd_dt/C++/cpp_bt.cpp:77
+two{0..4}: #8  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #7  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #6  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #5  loop at %testdir/bd_dt/C++/cpp_bt.cpp:88
+two{0..4}: #4  loop at %testdir/bd_dt/C++/cpp_bt.cpp:86
 two{0..4}: #3  step_one at %testdir/bd_dt/C++/cpp_bt.cpp:62
 |  
 |_ two{1..4}: #2  step_two at %testdir/bd_dt/C++/cpp_bt.cpp:69

@@ -74,12 +74,10 @@ void step_three(int rank) {
 }
 
 void left(int rank) {
-    std::cout << "I'm left!\n";
     loop(rank, 0);
 }
 
 void right(int rank) {
-    std::cout << "I'm right!\n";
     step_one(rank);
 }
 

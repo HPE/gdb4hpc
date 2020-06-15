@@ -1,14 +1,12 @@
 #!/bin/bash
 
-SCRIPT=`basename "$0"`
+SCRIPT=$(basename "$0")
 BUILD=true
-TEST=true
+TEST_ALL=true
+DIR=$(cd `dirname $0` && pwd)
 
 run_tests() {
     # default action - run all tests
-
-    # make sure we're in the directory the script itself is in
-    cd "$(dirname "${BASH_SOURCE[0]}")"
 
     if ! prereq_checks ; then
         echo "Failed prerequisite checks."
@@ -22,14 +20,12 @@ run_tests() {
         fi
     fi
 
-    cd function
+    cd "$DIR/function"
     ./build_run.sh $@
+    cd "$DIR"
 }
 
 prereq_checks() {
-    # make sure we're in the directory the script itself is in
-    cd "$(dirname "${BASH_SOURCE[0]}")"
-
     # do we have gdb4hpc installed?
     if ! gdb4hpc -v > /dev/null ; then
         echo "gdb4hpc not found."
@@ -47,12 +43,9 @@ prereq_checks() {
 }
 
 build() {
-    # make sure we're in the directory the script itself is in
-    cd "$(dirname "${BASH_SOURCE[0]}")"
-
-    local source_files_glob="function/bd_dt/c/*.c \
-                             function/bd_dt/C++/*.cpp \
-                            function/bd_dt/fortran/*.f90"
+    local source_files_glob="$DIR/function/bd_dt/c/*.c \
+                             $DIR/function/bd_dt/C++/*.cpp \
+                            $DIR/function/bd_dt/fortran/*.f90"
     
     # touch source files to force rebuild
     # stat to make sure they're there; otherwise touch *.c would create a file
@@ -64,11 +57,13 @@ build() {
         return 1
     fi
 
+    cd "$DIR"
     if ! (autoreconf -ifv && ./configure) ; then
         echo "Failed while running autotools."
         return 1
     fi
     
+    cd "$DIR"
     if ! make check ; then
         echo "Failed to compile test program binaries."
         return 1
@@ -86,9 +81,6 @@ copy_to() {
         return 1
     fi
 
-    # make sure we're in the directory the script itself is in
-    cd "$(dirname "${BASH_SOURCE[0]}")"
-
     local dest="$1/gdb4hpc-tests"
 
     echo "Copying tests to $dest."
@@ -97,7 +89,7 @@ copy_to() {
         return 1
     fi
 
-    if ! cp -r . $dest; then
+    if ! cp -r "$DIR" $dest; then
         echo "Failed to copy."
         return 1
     fi
@@ -114,7 +106,7 @@ process_arguments() {
             case $1 in
                 -c|--cp) 
                     if [ "$#" -gt 1 ]; then
-                        TEST=false
+                        TEST_ALL=false
                         copy_to $2
                     else
                         copy_to_usage
@@ -124,6 +116,7 @@ process_arguments() {
                 -t|--test)
                     if [ "$#" -gt 1 ]; then
                         run_tests $2
+                        TEST_ALL=false
                     else
                         echo "Usage: ./$SCRIPT [-t|--test] <test name>"
                         return 1
@@ -134,7 +127,7 @@ process_arguments() {
                     BUILD=false
                     ;;
                 -h|--help)
-                    TEST=false
+                    TEST_ALL=false
                     echo "    ./$SCRIPT [options]"
                     echo "    [-t|--test] <test name> : run a single test. if this option isn't used, all tests are run."
                     echo "    [-c|--cp] <directory>   : copy tests to a directory."
@@ -149,7 +142,7 @@ process_arguments() {
         done
     fi
 
-    if [ $TEST = true ]; then
+    if [ $TEST_ALL = true ]; then
         run_tests
     fi
 

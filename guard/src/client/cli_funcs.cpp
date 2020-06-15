@@ -808,6 +808,7 @@ void XMLAddStatus(char **status_block, char *set, dbgstat stat,
         case DBGSTAT_WAITING:
         case DBGSTAT_STOPPED:
         case DBGSTAT_EXIT:
+        case DBGSTAT_STOPPED_IN_THREAD:
             if (location != NULL) {
                 // point at the dbgloc_t members
                 func = location->loc_func;
@@ -845,6 +846,7 @@ void XMLAddStatus(char **status_block, char *set, dbgstat stat,
             break;
 
         case DBGSTAT_STOPPED:
+        case DBGSTAT_STOPPED_IN_THREAD:
             Asprintf(&status_str, XML_STATUS_STOPPED, set, func, file, line);
             break;
 

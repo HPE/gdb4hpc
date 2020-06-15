@@ -3231,8 +3231,8 @@ dbgevent_t *DbgGdbMI::getSchedulerLocking() {
 dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    const char* cmd_args[3] = { "set", "non-stop", mode };
-    MICommand* cmd = CLIBypassc(3, cmd_args);
+    MICommand* cmd = MICommandNew("-gdb-set", MIResultRecordDONE);
+    MICommandAddOption(cmd, "non-stop", mode);
     SendMICommand(GDBMISession, cmd);
 
     dbgevent_t* e = nullptr;
@@ -3249,8 +3249,8 @@ dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
 dbgevent_t *DbgGdbMI::getNonStop() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    const char* cmd_args[2] = { "show", "non-stop"};
-    MICommand* cmd = CLIBypassc(2, cmd_args);
+    MICommand* cmd = MICommandNew("-gdb-show", MIResultRecordDONE);
+    MICommandAddOption(cmd, "non-stop", nullptr);
     SendMICommand(GDBMISession, cmd);
 
     dbgevent_t* e = nullptr;
@@ -3497,15 +3497,12 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
 ** Get debugger status.
 */
 dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    dbgevent_t *async_e;
-    dbgstatus_t *s;
+    DVPRINT("*** DbgStatus %s, %s\n", __FILE__, __func__);
 
-    e = NewEvent(DBGEV_STAT);
+    dbgevent_t *e = NewEvent(DBGEV_STAT), *async_e = nullptr;
 
     // Create the new status object
-    s = e->ev_status = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
+    dbgstatus_t *s = e->ev_status = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
 
     // Assign the status
     s->stat = Status;
@@ -3518,6 +3515,7 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
             // These should generate location information
             case DBGSTAT_WAITING:
             case DBGSTAT_STOPPED:
+            case DBGSTAT_STOPPED_IN_THREAD:
             case DBGSTAT_EXIT:
                 // Reuse DbgGDBMIShowFrame to get the bottommost frame
                 async_e = showFrame(1);
@@ -3551,6 +3549,19 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
     } else {
         // Location information not requested
         s->stat_loc = NULL;
+    }
+
+    if (Status != DBGSTAT_STOPPED || !non_stop_flag) {
+        return e;
+    }
+
+    // there's potentially more work to do if we're in non-stop mode
+    if (dbgevent_t* threadEvent = getThreadInfo("")) {
+        if (threadEvent->ev_event == DBGEV_THREADINFO &&
+            strstr(threadEvent->ev_string, "(running)")) {
+            s->stat = DBGSTAT_STOPPED_IN_THREAD;
+        }
+        FreeEvent(threadEvent);
     }
 
     return e;
@@ -3772,8 +3783,19 @@ void DbgGdbMI::finalize() {
 ** Check if debugger is ready to receive a command.
 */
 bool DbgGdbMI::isReadyForCmd() {
-    return (Status == DBGSTAT_WAITING || Status == DBGSTAT_STOPPED ||
-            Status == DBGSTAT_EXIT);
+    switch (Status) {
+        case DBGSTAT_WAITING:
+        case DBGSTAT_STOPPED:
+        case DBGSTAT_STOPPED_IN_THREAD:
+        case DBGSTAT_EXIT:
+            return true;
+        case DBGSTAT_INITIALISING:
+        case DBGSTAT_RUNNING:
+        case DBGSTAT_DBGERR:
+        case DBGSTAT_INTERR:
+            return false;
+    }
+    return false;
 }
 
 /*

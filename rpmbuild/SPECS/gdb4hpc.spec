@@ -345,7 +345,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bd_test.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bd_test.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bt.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bt_demo.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt_demo.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bt_stress.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt_stress.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_cmp_diff.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_cmp_diff.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_decomp2.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_decomp2.cpp
@@ -719,7 +718,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bd_test.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt_demo.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_bt_stress.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_cmp_diff.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/C++/cpp_decomp2.cpp

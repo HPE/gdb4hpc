@@ -366,8 +366,8 @@ expr		:	expr OROR expr
 			{ $$ = AddExpr(EXPR_OPOR); }
 		;
 
-//expr		:	expr COND expr COLON expr %prec COND
-//			{ $$ = AddExpr(EXPR_OPCOND); }
+expr		:	expr COND expr COLON expr %prec COND
+			{ $$ = AddExpr(EXPR_OPCOND); }
 		;
 
 expr		:	expr EQUAL expr

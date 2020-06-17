@@ -6,7 +6,7 @@ Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:13
+a{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_threads.cpp:13
 a{0..2}: Debugger error: Cannot change this setting while the inferior is running.
 non-stop mode will be applied on future "launch" commands
 %Starting application, please wait...
@@ -16,21 +16,21 @@ Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:13
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_threads.cpp:13
 %<
 a{0..2}: Controlling the inferior in non-stop mode is off.
 %-
 b{0..2}: Controlling the inferior in non-stop mode is on.
 %>
 %<
-a{0..2}: Breakpoint 1: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 71.
+a{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_threads.cpp, line 71.
 %-
-b{0..2}: Breakpoint 1: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 71.
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_threads.cpp, line 71.
 %>
 %<
-a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
+a{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
 %-
-b{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
+b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
 %>
 %<
 a{0..2}:   Id    Frame
@@ -44,17 +44,17 @@ b{0..2}:   2-11  "cpp_threads.x" (running)
 b{0..2}: 
 %>
 %<
-a{0..2}: Breakpoint 2: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 60 thread 5.
+a{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 60 thread 5.
 %-
-b{0..2}: Breakpoint 2: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 60 thread 5.
+b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 60 thread 5.
 %>
 %[
 %[ab]{[^0][.,12]*}:.*%
 %]
 %<
-a{0%[.,12]*%}: Breakpoint 2, main::$_0::operator()() const at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:60 thread 5
+a{0%[.,12]*%}: Breakpoint 2, main::$_0::operator()() const at %testdir/bd_dt/C++/cpp_threads.cpp:60 thread 5
 %-
-b{0%[.,12]*%}: Breakpoint 2, main::$_0::operator()() const at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:60 thread 5
+b{0%[.,12]*%}: Breakpoint 2, main::$_0::operator()() const at %testdir/bd_dt/C++/cpp_threads.cpp:60 thread 5
 %>
 %<
 a{0..2}:   Id    Frame
@@ -69,11 +69,11 @@ b{0..2}:
 %>
 %<
 Procset		Num Type           Disp Enb What
-a{0%[.,12]*%}: 	1   breakpoint     keep y   in main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
-a{0%[.,12]*%}: 	2   breakpoint     keep y   in main::$_0::operator()() const at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:60 thread 5
+a{0%[.,12]*%}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
+a{0%[.,12]*%}: 	2   breakpoint     keep y   in main::$_0::operator()() const at %testdir/bd_dt/C++/cpp_threads.cpp:60 thread 5
 %-
-b{0%[.,12]*%}: 	1   breakpoint     keep y   in main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
-b{0%[.,12]*%}: 	2   breakpoint     keep y   in main::$_0::operator()() const at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:60 thread 5
+b{0%[.,12]*%}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
+b{0%[.,12]*%}: 	2   breakpoint     keep y   in main::$_0::operator()() const at %testdir/bd_dt/C++/cpp_threads.cpp:60 thread 5
 %>
 %<
 a{0..2}: 0
@@ -87,18 +87,18 @@ b{0..2}: Watchpoint 2: Set on variable sum
 %>
 %<
 Procset		Num Type           Disp Enb What
-a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
+a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
 a{0..2}: 	2   watchpoint     keep y   sum thread 5
 %-
-b{0..2}: 	1   breakpoint     keep y   in main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:71
+b{0..2}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
 b{0..2}: 	2   watchpoint     keep y   sum thread 5
 %>
 %<
 a{0..2}: Watchpoint 2, variable expression: sum
-a{0..2}: In main::$_0::operator at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:61
+a{0..2}: In main::$_0::operator at %testdir/bd_dt/C++/cpp_threads.cpp:61
 %-
 b{0..2}: Watchpoint 2, variable expression: sum
-b{0..2}: In main::$_0::operator at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:61
+b{0..2}: In main::$_0::operator at %testdir/bd_dt/C++/cpp_threads.cpp:61
 %>
 %<
 a{0..2}: Unsupported symbol type
@@ -119,18 +119,18 @@ b{0..2}: (More stack frames follow...)
 a{0%[.,12]*%}: Thread 2 (Thread 0x%[0-9a-f]+% (LWP %[0-9]+%)):
 a{0%[.,12]*%}: #0  %.*%
 %<
-a{0..2}: Breakpoint 2: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 75.
+a{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
 %-
-b{0..2}: Breakpoint 2: file /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp, line 75.
+b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
 %>
 %<
-a{0..2}: Breakpoint 2, main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:75
+a{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
 %-
-b{0..2}: Breakpoint 2, main(int, char**) at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:75
+b{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
 %>
 a{0..2}: Mode for locking scheduler during execution is "replay".
 
-a{0..2}: main at /home/users/jvogt/dev/gdb4hpc/tests/function/bd_dt/C++/cpp_threads.cpp:76
+a{0..2}: main at %testdir/bd_dt/C++/cpp_threads.cpp:76
 a{0%[.,12]*%}:   Id    Frame
 a{0%[.,12]*%}: * 1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:76
 a{0%[.,12]*%}:   8     "hunka-hunka-burning-love" %.*%

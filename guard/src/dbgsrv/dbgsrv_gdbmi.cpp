@@ -1238,10 +1238,10 @@ dbgevent_t *DbgGdbMI::startup(void) {
         // setup parallel entry points
         if ((e = setup_gdbmi_entry_points()) != NULL) return e;
 
+recover_for_slurm:
         // we only want to issue a continue if one of the breakpoint lists is
         // not empty.
         if (!EmptyList(parallel_entry_BP) || !EmptyList(main_entry_BP)) {
-        recover_for_slurm:
             // counter for recover
             ++attempt;
             // Make sure that we're not inside a parallel entry point

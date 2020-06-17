@@ -11,9 +11,6 @@ START_DIR=$PWD
 FUNCTION_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 &&pwd )"
 EXEC_DIR=$FUNCTION_DIR
 
-#RUNNING AS PART OF NIGHTLY TESTING?
-NIGHTLY_TEST=false
-
 # take an argument as a single test to run
 if [[ $# -eq 1 ]] ; then
     ONE_TEST=":"$1
@@ -86,6 +83,11 @@ install_additional_plugins() {
     if ! pip install avocado-framework-plugin-loader-yaml ; then
         return 1
     fi
+
+    if ! pip install avocado-framework-plugin-result-html ; then
+        return 1
+    fi
+    
     return 0
 }
 
@@ -150,9 +152,8 @@ setup_avocado() {
 run_tests() {
     if test -d ./avocado-virtual-environment ; then
         echo "Valid avocado virtual environment for testing..."
-	echo "calling:./avocado-virtual-environment/avocado/bin/avocado run ./func_test.py${ONE_TEST} --mux-yaml ./func_test_params.yaml"
-
-       ./avocado-virtual-environment/avocado/bin/avocado run ./func_test.py${ONE_TEST} --mux-yaml ./func_test_params.yaml
+        echo "calling:./avocado-virtual-environment/avocado/bin/avocado run ./func_test.py${ONE_TEST} --mux-yaml ./func_test_params.yaml"
+        ./avocado-virtual-environment/avocado/bin/avocado run ./func_test.py${ONE_TEST} --mux-yaml ./func_test_params.yaml
     else
         echo "No avocado environment setup. Cannot execute tests"
         return 1

@@ -2679,7 +2679,7 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
     std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
     std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
-    std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can define aggregation
+    std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
 
     std::istringstream is(val);
     std::ostringstream os;

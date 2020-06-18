@@ -176,12 +176,17 @@ void RemoveBP(list_t *bplist, int bid) {
 dbgbp_t *FindBPByFunc(list_t *bplist, char *func) {
     dbgbp_t *bp;
 
+    if (func == nullptr) { return nullptr; }
+
     SetList(bplist);
 
-    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL)
-        if (strcmp(func, bp->bp_loc.loc_func) == 0) return bp;
+    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)nullptr) {
+         if (bp->bp_loc.loc_func != nullptr && (strcmp(func, bp->bp_loc.loc_func) == 0)) return bp;
+    }
 
-    return (dbgbp_t *)NULL;
+    fprintf(stderr, "%s, %s line %d\n", __FILE__, __func__, __LINE__);
+
+    return (dbgbp_t *)nullptr;
 }
 
 /*
@@ -192,10 +197,10 @@ dbgbp_t *FindBPByID(list_t *bplist, int bid) {
 
     SetList(bplist);
 
-    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL)
+    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)nullptr)
         if (bid == bp->bp_id) return bp;
 
-    return (dbgbp_t *)NULL;
+    return (dbgbp_t *)nullptr;
 }
 
 /*

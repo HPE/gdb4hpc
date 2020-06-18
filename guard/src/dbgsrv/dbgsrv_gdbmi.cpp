@@ -2678,6 +2678,8 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
     std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
+    std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
+    std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can define aggregation
 
     std::istringstream is(val);
     std::ostringstream os;
@@ -2692,6 +2694,8 @@ static std::string anonymizeThreadInfo(const std::string& val) {
 
         line = std::regex_replace(line, lwpRE, "");
         line = std::regex_replace(line, hexValRE, "");
+        line = std::regex_replace(line, amdGpuRE, "AMDGPU");
+        line = std::regex_replace(line, multispaceRE, " ");
 
         os << line << "\n";
     }
@@ -2721,7 +2725,6 @@ private:
 
 // add an id,value pair for collection
 void ThreadCollector::add(std::string id, const std::string& val) {
-    //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
     if (!m_sortedResult.empty()) {
         DVPRINT("logic error, adding a value to ThreadCollector after extraction has begun.\n");
         return;
@@ -2803,7 +2806,7 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
 // id1 id2 id3-id4
 static std::string collectThreadInfo(const std::string& val) {
     //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
-    std::regex re(R"(^(\*? *\d+)\s+(.*))");
+    std::regex re(R"(^( *\*? *\d+)\s+(.*))");
 
     ThreadCollector collector;
 

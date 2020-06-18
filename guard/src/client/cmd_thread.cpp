@@ -61,13 +61,6 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     } else if (argc >= 3 && strcmp(argv[1],"apply") == 0) {
         std::string arg = ArgsToString(argc-2,argv+2);
-        if (RecSetHasOneProcPerReceiver(rec_set)) {
-            // We try not to lose any information when you are focused on a
-            // single rank.    Taking advantage of the server side not being
-            // too particular about where the -v option is on the line..
-            arg = "-v " + arg;
-        }
-
         rep_set_t* rep_set = DbgThreadApply(rec_set,arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
@@ -121,12 +114,6 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
         if (i > 1)
             arg += " ";
         arg += argv[i];
-    }
-
-    // print out address informtation if we are focuses on a single process.  In that case,
-    // the actual memory addresses are useful and combining results is no an issue.
-    if (RecSetHasOneProcPerReceiver(rec_set)) {
-        arg += " -v";
     }
 
     rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());

@@ -75,8 +75,10 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
     # These are the rocm 3.5 relase packages
     yum-config-manager --add-repo http://repo.radeon.com/rocm/centos8/rpm
     yum install -y epel-release
-    yum install -y dkms kernel-headers-`uname -r` kernel-devel-`uname -r`
-    yum install -y rocm-dkms
+    yum install -y dkms
+    yum install -y kernel-headers
+    yum install -y kernel-devel
+    yum install -y --nogpgcheck rocm-dkms
     check_exit_status
 else
     # Unknown OS! Exit with error.

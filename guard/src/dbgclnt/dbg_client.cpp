@@ -847,21 +847,25 @@ static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
     bp_set->b_bp_type = bp->bp_type;
 
     // Set the location
-    if (bp->bp_loc.loc_addr != NULL)
+    if (bp->bp_pending && bp->bp_stmt != NULL) {
+        bp_set->b_loc_stmt = strdup(bp->bp_stmt);
+    }
+
+    if (bp->bp_loc.loc_addr != NULL) {
         bp_set->b_loc_addr = strdup(bp->bp_loc.loc_addr);
+    }
 
     bp_set->b_loc_line = bp->bp_loc.loc_line;
 
     if (bp_set->b_loc_line >= 0) {
         bp_set->b_loc_file = strdup(bp->bp_loc.loc_file);
         bp_set->b_loc_func = strdup(bp->bp_loc.loc_func);
-    } else {
-        bp_set->b_loc_file = NULL;
-        bp_set->b_loc_func = NULL;
     }
 
     // Set the expression for watchpoints
     bp_set->b_bp_exp = strdup(bp->bp_exp);
+
+    // Set thread id
     bp_set->b_thread_id = bp->bp_threadId;
 
     // Set the id unique to the rank
@@ -913,6 +917,8 @@ static void FreeBPSet(bp_set_t *bp_set) {
 
     if (bp_set->b_bp_disp != NULL)
         DestroyList(bp_set->b_bp_disp, (void (*)(void *))FreeBPDispSet);
+
+    if (bp_set->b_loc_stmt != NULL) Free(bp_set->b_loc_stmt);
 
     if (bp_set->b_loc_addr != NULL) Free(bp_set->b_loc_addr);
 
@@ -1116,18 +1122,22 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
     // if its a watchpoint we want to check the expression.
     switch (bp->bp_type) {
         case DBGBP_BREAK_TYPE:
+            // check if both are pending and have the same stmt
+            if (bp->bp_pending && bp->bp_stmt != NULL && set->b_loc_stmt) {
+                if (strncmp(set->b_loc_stmt, bp->bp_stmt, strlen(set->b_loc_stmt)+1)) return 1;
+            }
             // check if both have the same file name and line number
-            if (bp->bp_loc.loc_file != NULL && bp->bp_loc.loc_line >= 0) {
+            if (bp->bp_loc.loc_file != NULL && set->b_loc_file != NULL && bp->bp_loc.loc_line >= 0) {
                 // First check if the file name matches.
-                if (strcmp(set->b_loc_file, bp->bp_loc.loc_file)) return 1;
+                if (strncmp(set->b_loc_file, bp->bp_loc.loc_file, strlen(set->b_loc_file)+1)) return 1;
                 // The file name matches, so we can now safely check the line
                 // number.
                 if (set->b_loc_line != bp->bp_loc.loc_line) return 1;
             }
 
             // check if both have the same address
-            if (bp->bp_loc.loc_addr != NULL) {
-                if (strcmp(set->b_loc_addr, bp->bp_loc.loc_addr)) return 1;
+            if (bp->bp_loc.loc_addr != NULL && set->b_loc_addr != NULL) {
+                if (strncmp(set->b_loc_addr, bp->bp_loc.loc_addr, strlen(set->b_loc_addr)+1)) return 1;
             }
 
             break;
@@ -1136,8 +1146,8 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
         case DBGBP_AWATCH_TYPE:
         case DBGBP_RWATCH_TYPE:
             // check if both have the same bp expression
-            if (bp->bp_exp != NULL) {
-                if (strcmp(set->b_bp_exp, bp->bp_exp)) return 1;
+            if (bp->bp_exp != NULL && set->b_bp_exp != NULL) {
+                if (strncmp(set->b_bp_exp, bp->bp_exp, strlen(set->b_bp_exp)+1)) return 1;
             }
 
             break;
@@ -1491,34 +1501,17 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
         switch (EVENT_EV(event)) {
             // These events coorespond to possible status changes
             case DBGEV_BPHIT:
+            case DBGEV_BPDEL:
                 // Handle special pre-processing for breakpoints
                 bp = EVENT_BP(event);
                 if ((bp_set = FindBPSetForBP(di, bp)) != NULL) {
                     // if the breakpoint was a watchpoint we need to update the
-                    // location information
-                    // FIXME: This could vary by rank and the current
-                    // implementation is broken.
+                    // watchpoint locale information
                     switch (bp_set->b_bp_type) {
                         case DBGBP_WATCH_TYPE:
                         case DBGBP_AWATCH_TYPE:
                         case DBGBP_RWATCH_TYPE:
-                            if (bp->bp_loc.loc_file != NULL) {
-                                // Free the old value and set it to the new
-                                // value
-                                if (bp_set->b_loc_file != NULL)
-                                    Free(bp_set->b_loc_file);
-                                bp_set->b_loc_file =
-                                    strdup(bp->bp_loc.loc_file);
-                            }
-                            if (bp->bp_loc.loc_func != NULL) {
-                                // Free the old value and set it to the new
-                                // value
-                                if (bp_set->b_loc_func != NULL)
-                                    Free(bp_set->b_loc_func);
-                                bp_set->b_loc_func =
-                                    strdup(bp->bp_loc.loc_func);
-                            }
-                            bp_set->b_loc_line = bp->bp_loc.loc_line;
+                            bp_set->b_bp_watch_loc.add(msg->group, bp->bp_loc.loc_file, bp->bp_loc.loc_line, bp->bp_loc.loc_func);
                             break;
 
                         default:
@@ -1779,7 +1772,7 @@ void DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type) {
             }
         }
     }
-            
+
     // make sure to initialize the handler
     memset(&handler, 0, sizeof(handler));
     sigemptyset(&handler.sa_mask);

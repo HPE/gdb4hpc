@@ -11,11 +11,6 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifndef _DBG_CLIENT_H
@@ -255,10 +250,83 @@ struct event_set {
 };
 typedef struct event_set event_set_t;
 
+// Used to represent a watchpoint location
+typedef struct {
+    bitset *    group;      // All ranks that hit this location
+    std::string loc_file;   // locale file
+    int         loc_line;   // locale line
+    std::string loc_func;   // locale function
+} bp_watch_loc_t;
+
+class bp_watch_locale_set
+{
+public:
+    using watch_loc_t = std::vector<bp_watch_loc_t>;
+private:
+    watch_loc_t watch_loc;
+public:
+    using iterator = watch_loc_t::iterator;
+    using const_iterator = watch_loc_t::const_iterator;
+
+    void add(bitset *group, char *loc_file, int loc_line, char *loc_func)
+    {
+        // search the list
+        if (loc_file != nullptr) {
+            std::string file{loc_file};
+            for (auto&& i : watch_loc) {
+                if (i.loc_file.compare(file) == 0 && i.loc_line == loc_line) {
+                    // found it!
+                    bitset_oreq(i.group, group);
+                    return;
+                }
+            }
+        }
+        else {
+            std::string func{loc_func};
+            for (auto&& i : watch_loc) {
+                if (i.loc_func.compare(func) == 0) {
+                    // found it!
+                    bitset_oreq(i.group, group);
+                    return;
+                }
+            }
+        }
+        // Not found! Add it.
+        watch_loc.push_back({bitset_dup(group), std::string{loc_file}, loc_line, std::string{loc_func}});
+    }
+
+    void clear()
+    {
+        for (auto&& i : watch_loc) {
+            // free the bitset
+            bitset_free(i.group);
+        }
+        watch_loc.clear();
+    }
+
+    iterator begin() { return watch_loc.begin(); }
+    iterator end() { return watch_loc.end(); }
+    const_iterator begin() const { return watch_loc.begin(); }
+    const_iterator end() const { return watch_loc.end(); }
+    const_iterator cbegin() { return watch_loc.cbegin(); }
+    const_iterator cend() { return watch_loc.cend(); }
+
+    bp_watch_locale_set();
+    ~bp_watch_locale_set()
+    {
+        clear();
+    }
+
+    // Delete copy/move constructors and assignment
+    bp_watch_locale_set(bp_watch_locale_set const&) = delete;
+    bp_watch_locale_set& operator=(bp_watch_locale_set const&) = delete;
+};
+
+
 // This is used to represent breakpoints and is accessible by the client layer.
 // It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
 // object.
-struct bp_set {
+typedef struct {
     // Current bp num - This gets reset every time a bp_set is returned to the
     // client. These numbers are issued per dbginvoke_t object. The dbg_client
     // layer needs to remember to update these when returning the object to the
@@ -280,16 +348,19 @@ struct bp_set {
     dbgbp_type b_bp_type;  // breakpoint type (i.e. breakpoint, watchpoint)
 
     // breakpoint locale
+    char *b_loc_stmt;  // locale statement (pending)
     char *b_loc_addr;  // locale address
     char *b_loc_file;  // locale file
     char *b_loc_func;  // locale function
     int b_loc_line;    // locale line
 
-    int b_thread_id;  // thread-id (if > 0)
+    // Watchpoint information
+    char *b_bp_exp;                     // watchpoint expression
+    bp_watch_locale_set b_bp_watch_loc; // watchpoint location
 
-    char *b_bp_exp;  // watchpoint expression
-};
-typedef struct bp_set bp_set_t;
+    // Thread specific breakpoints
+    int b_thread_id;  // thread-id (if > 0)
+} bp_set_t;
 
 // Only should be used in the dbg_client layer. This is used to map the client
 // breakpoint number onto gdb backend breakpoint numbers.

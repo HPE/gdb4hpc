@@ -250,30 +250,30 @@ struct event_set {
 };
 typedef struct event_set event_set_t;
 
-// Used to represent a watchpoint location
+// Used to represent a breakpoint location
 typedef struct {
     bitset *    group;      // All ranks that hit this location
     std::string loc_file;   // locale file
     int         loc_line;   // locale line
     std::string loc_func;   // locale function
-} bp_watch_loc_t;
+} bp_loc_t;
 
-class bp_watch_locale_set
+class bp_locale_set
 {
 public:
-    using watch_loc_t = std::vector<bp_watch_loc_t>;
+    using bp_loc_set_t = std::vector<bp_loc_t>;
 private:
-    watch_loc_t watch_loc;
+    bp_loc_set_t bp_loc;
 public:
-    using iterator = watch_loc_t::iterator;
-    using const_iterator = watch_loc_t::const_iterator;
+    using iterator = bp_loc_set_t::iterator;
+    using const_iterator = bp_loc_set_t::const_iterator;
 
     void add(bitset *group, char *loc_file, int loc_line, char *loc_func)
     {
         // search the list
         if (loc_file != nullptr) {
             std::string file{loc_file};
-            for (auto&& i : watch_loc) {
+            for (auto&& i : bp_loc) {
                 if (i.loc_file.compare(file) == 0 && i.loc_line == loc_line) {
                     // found it!
                     bitset_oreq(i.group, group);
@@ -283,7 +283,7 @@ public:
         }
         else {
             std::string func{loc_func};
-            for (auto&& i : watch_loc) {
+            for (auto&& i : bp_loc) {
                 if (i.loc_func.compare(func) == 0) {
                     // found it!
                     bitset_oreq(i.group, group);
@@ -292,34 +292,34 @@ public:
             }
         }
         // Not found! Add it.
-        watch_loc.push_back({bitset_dup(group), std::string{loc_file}, loc_line, std::string{loc_func}});
+        bp_loc.push_back({bitset_dup(group), std::string{loc_file}, loc_line, std::string{loc_func}});
     }
 
     void clear()
     {
-        for (auto&& i : watch_loc) {
+        for (auto&& i : bp_loc) {
             // free the bitset
             bitset_free(i.group);
         }
-        watch_loc.clear();
+        bp_loc.clear();
     }
 
-    iterator begin() { return watch_loc.begin(); }
-    iterator end() { return watch_loc.end(); }
-    const_iterator begin() const { return watch_loc.begin(); }
-    const_iterator end() const { return watch_loc.end(); }
-    const_iterator cbegin() { return watch_loc.cbegin(); }
-    const_iterator cend() { return watch_loc.cend(); }
+    iterator begin() { return bp_loc.begin(); }
+    iterator end() { return bp_loc.end(); }
+    const_iterator begin() const { return bp_loc.begin(); }
+    const_iterator end() const { return bp_loc.end(); }
+    const_iterator cbegin() { return bp_loc.cbegin(); }
+    const_iterator cend() { return bp_loc.cend(); }
 
-    bp_watch_locale_set();
-    ~bp_watch_locale_set()
+    bp_locale_set();
+    ~bp_locale_set()
     {
         clear();
     }
 
     // Delete copy/move constructors and assignment
-    bp_watch_locale_set(bp_watch_locale_set const&) = delete;
-    bp_watch_locale_set& operator=(bp_watch_locale_set const&) = delete;
+    bp_locale_set(bp_locale_set const&) = delete;
+    bp_locale_set& operator=(bp_locale_set const&) = delete;
 };
 
 
@@ -355,8 +355,8 @@ typedef struct {
     int b_loc_line;    // locale line
 
     // Watchpoint information
-    char *b_bp_exp;                     // watchpoint expression
-    bp_watch_locale_set b_bp_watch_loc; // watchpoint location
+    char *b_bp_exp;               // watchpoint expression
+    bp_locale_set b_bp_watch_loc; // watchpoint location
 
     // Thread specific breakpoints
     int b_thread_id;  // thread-id (if > 0)

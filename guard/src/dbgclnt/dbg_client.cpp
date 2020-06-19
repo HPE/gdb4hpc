@@ -1160,7 +1160,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
 }
 
 static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
-    bp_set_t *bpset;
+    bp_set_t *bp_set;
     bp_id_set_t *id_set;
     bitset *search_group = nullptr;
     bitset *remove_group;
@@ -1169,9 +1169,9 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) 
 
     do {
         SetList(di->d_bpset_list);
-        while ((bpset = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
+        while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
             // check to see if this bp_set is pending
-            if (bpset->b_bp_pending) {
+            if (bp_set->b_bp_pending) {
                 // see if this bp_id is in the id list
                 SetList(bp_set->b_bp_id_list);
                 while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
@@ -1191,8 +1191,8 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) 
             }
         }
         // See if we found a matching bp_set, if so we need to clean it up
-        if (bpset != nullptr) {
-            RemoveBPSet(di, bpset, remove_group);
+        if (bp_set != nullptr) {
+            RemoveBPSet(di, bp_set, remove_group);
             AddBP(di, bp, remove_group);
             bitset_free(remove_group);
         }

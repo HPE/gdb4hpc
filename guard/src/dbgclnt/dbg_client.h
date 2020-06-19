@@ -346,6 +346,7 @@ typedef struct {
         b_bp_disp;  // a list of bp_disp_set_t representing breakpoint
                     // disposition (i.e. keep, dis, del), this can vary by rank.
     dbgbp_type b_bp_type;  // breakpoint type (i.e. breakpoint, watchpoint)
+    bool b_bp_pending; // pending breakpoint
 
     // breakpoint locale
     char *b_loc_stmt;  // locale statement (pending)

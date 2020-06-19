@@ -184,8 +184,6 @@ dbgbp_t *FindBPByFunc(list_t *bplist, char *func) {
          if (bp->bp_loc.loc_func != nullptr && (strcmp(func, bp->bp_loc.loc_func) == 0)) return bp;
     }
 
-    fprintf(stderr, "%s, %s line %d\n", __FILE__, __func__, __LINE__);
-
     return (dbgbp_t *)nullptr;
 }
 

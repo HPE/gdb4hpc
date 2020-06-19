@@ -1177,7 +1177,9 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) 
                 while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
                     if (id_set->b_bp_id == bp->bp_id) {
                         // Found a matching bp_id! Check if anything in the group matches
-                        if (search_group == nullptr) bitset_dup(group);
+                        if (search_group == nullptr) {
+                            search_group = bitset_dup(group);
+                        }
                         if (bitset_compare(search_group, id_set->b_group)) {
                             // Remove the matching bits, we found a match
                             remove_group = bitset_and(search_group, id_set->b_group);

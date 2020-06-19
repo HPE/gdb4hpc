@@ -18,9 +18,9 @@ Finalizing setup...
 Launch complete.
 b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_threads.cpp:13
 %<
-a{0..2}: Controlling the inferior in non-stop mode is off.
+a{0..2}: non-stop mode is off
 %-
-b{0..2}: Controlling the inferior in non-stop mode is on.
+b{0..2}: non-stop mode is on
 %>
 %<
 a{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_threads.cpp, line 71.

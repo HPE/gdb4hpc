@@ -216,8 +216,8 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
         const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
         stres = MakeSocStr(ev,
-                 "%d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d",
-                 be->bp_id, simplified, be->bp_ignore, be->bp_hits,
+                 "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d",
+                 be->bp_id, simplified, be->bp_pending, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
                  be->bp_type, (int)strlen(st_file), st_file,
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
@@ -1395,6 +1395,7 @@ static dbgbp_t *SocProtoToBP(char *s) {
 
     // simple breakpoints don't contain this information
     if (!simple) {
+        res->bp_pending = getint(&s);
         res->bp_ignore = getint(&s);
         res->bp_hits = getint(&s);
         res->bp_stmt = getstring(&s);

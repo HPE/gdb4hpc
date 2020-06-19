@@ -111,8 +111,7 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
         else {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Breakpoint %d in %s%s\n", bpset->b_bp_id,
-                                bpset->b_loc_func, bpset->b_loc_line,
-                                bpThread.c_str());
+                                bpset->b_loc_func, bpThread.c_str());
         }
     }
 
@@ -225,7 +224,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Temporary breakpoint %d in %s%s\n",
                                 bpset->b_bp_id, bpset->b_loc_func,
-                                bpset->b_loc_line, bpThread.c_str());
+                                bpThread.c_str());
         }
     }
 

@@ -97,16 +97,23 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
             bpThread = " thread " + std::to_string(bpset->b_thread_id);
         }
 
-        if (bpset->b_loc_line >= 0)
+        if (bpset->b_bp_pending) {
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                "Breakpoint %d: Pending at %s%s.\n",
+                                bpset->b_bp_id, bpset->b_loc_stmt, bpThread.c_str());
+        }
+        else if (bpset->b_loc_line >= 0) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_id, bpset->b_loc_file,
                                 bpset->b_loc_line, bpThread.c_str());
-        else
+        }
+        else {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Breakpoint %d in %s%s\n", bpset->b_bp_id,
                                 bpset->b_loc_func, bpset->b_loc_line,
                                 bpThread.c_str());
+        }
     }
 
     FreeRepSet(rep_set);
@@ -204,7 +211,12 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
 
         // Print out status
-        if (bpset->b_loc_line >= 0) {
+        if (bpset->b_bp_pending) {
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                "Temporary breakpoint %d: Pending at %s%s.\n",
+                                bpset->b_bp_id, bpset->b_loc_stmt, bpThread.c_str());
+        }
+        else if (bpset->b_loc_line >= 0) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Temporary breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_id, bpset->b_loc_file,
@@ -225,7 +237,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    
+
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: watch foo\n");
@@ -233,7 +245,7 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     int expIdx = 1;
-    
+
     dbgbp_type bp_type = DBGBP_WATCH_TYPE;
     if (strcmp(argv[1], "-a") == 0) {
         bp_type = DBGBP_AWATCH_TYPE;
@@ -526,7 +538,35 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                         enabled_group =
                             bitset_and(bpset->b_bp_enabled, disp_group);
 
-                        if (bpset->b_loc_line > 0) {
+                        if (bpset->b_bp_pending) {
+                            if (!bitset_isempty(enabled_group)) {
+                                // First print out breakpoints that are enabled
+                                PrintMsgWithSetInfo(
+                                    recv_ptr->rec_di->d_handle, enabled_group,
+                                    "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
+                                    bpset->b_bp_id,
+                                    BPTypeToStr(bpset->b_bp_type),
+                                    BPDispToStr(disp_set->b_bp_disp), "y",
+                                    bpset->b_loc_stmt, bpThread.c_str());
+                            }
+
+                            // Compute the disabled set
+                            bitset_invert(enabled_group);
+                            disabled_group =
+                                bitset_and(enabled_group, disp_group);
+
+                            if (!bitset_isempty(disabled_group)) {
+                                // Next print out breakpoints that are disabled
+                                PrintMsgWithSetInfo(
+                                    recv_ptr->rec_di->d_handle, disabled_group,
+                                    "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
+                                    bpset->b_bp_id,
+                                    BPTypeToStr(bpset->b_bp_type),
+                                    BPDispToStr(disp_set->b_bp_disp), "n",
+                                    bpset->b_loc_stmt, bpThread.c_str());
+                            }
+                        }
+                        else if (bpset->b_loc_line > 0) {
                             if (!bitset_isempty(enabled_group)) {
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(

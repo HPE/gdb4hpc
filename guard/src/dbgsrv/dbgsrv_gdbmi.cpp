@@ -203,6 +203,18 @@ static DbgGdbMI DbgBackendGDBMI;
 
 dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 
+static char* MICommandOutputString(MICommand* cmd)
+{
+    MIListSet(cmd->output->rr->results);
+    for (MIResult *	r; (r = (MIResult *)MIListGet(cmd->output->rr->results)); ) {
+        if (r->value != NULL) {
+            MIString* s = MIValueToString(r->value);
+            return strdup(MIStringToCString(s));
+        }
+    }
+    return nullptr;
+}
+
 /* internal static functions */
 
 static dbgbp_t *get_dbgbp(MICommand *cmd) {
@@ -3195,11 +3207,11 @@ dbgevent_t *DbgGdbMI::getNonStop() {
     dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop failed.");
-    } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
+    } else if (char* mode = MICommandOutputString(cmd)) {
         e = NewEvent(DBGEV_THREADINFO);
         e->ev_string = mode;
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop did not return a value.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop did not get a string");
     }
 
     MICommandFree(cmd);

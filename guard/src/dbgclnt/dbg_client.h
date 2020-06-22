@@ -276,7 +276,7 @@ public:
             for (auto&& i : bp_loc) {
                 if (i.loc_file == loc_file && i.loc_line == loc_line) {
                     // found it!
-                    bitset_oreq(loc->group, group);
+                    bitset_oreq(i->group, group);
                     return;
                 }
             }
@@ -286,7 +286,7 @@ public:
             for (auto&& i : bp_loc) {
                 if (i.loc_func == loc_func) {
                     // found it!
-                    bitset_oreq(loc->group, group);
+                    bitset_oreq(i->group, group);
                     return;
                 }
             }

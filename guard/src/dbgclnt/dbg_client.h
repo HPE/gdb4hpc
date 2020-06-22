@@ -273,20 +273,22 @@ public:
         // search the list
         if (loc_file != nullptr) {
             std::string file{loc_file};
-            auto loc = find_if(bp_loc.begin(), bp_loc.end(), [](auto &i){i.loc_file == loc_file && i.loc_line == loc_line});
-            if (loc != bp_loc.end()) {
-                // found it!
-                bitset_oreq(loc->group, group);
-                return;
+            for (auto&& i : bp_loc) {
+                if (i.loc_file == loc_file && i.loc_line == loc_line) {
+                    // found it!
+                    bitset_oreq(loc->group, group);
+                    return;
+                }
             }
         }
         else {
             std::string func{loc_func};
-            auto loc = find_if(bp_loc.begin(), bp_loc.end(), [](auto &i){i.loc_func == loc_func});
-            if (loc != bp_loc.end()) {
-                // found it!
-                bitset_oreq(loc->group, group);
-                return;
+            for (auto&& i : bp_loc) {
+                if (i.loc_func == loc_func) {
+                    // found it!
+                    bitset_oreq(loc->group, group);
+                    return;
+                }
             }
         }
         // Not found! Add it.

@@ -292,7 +292,7 @@ public:
             }
         }
         // Not found! Add it.
-        bp_loc.push_back({bitset_dup(group), std::string{loc_file}, loc_line, std::string{loc_func}});
+        bp_loc.push_back({bitset_dup(group), loc_file, loc_line, loc_func});
     }
 
     void clear()

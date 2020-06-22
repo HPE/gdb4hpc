@@ -1129,7 +1129,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
                 if (strcmp(set->b_loc_file, bp->bp_loc.loc_file)) return 1;
                 // The file name matches, so we can now safely check the line
                 // number.
-                if (set->b_loc_line != bp->bp_loc.loc_line)) return 1;
+                if (set->b_loc_line != bp->bp_loc.loc_line) return 1;
             }
 
             // check if both have the same address

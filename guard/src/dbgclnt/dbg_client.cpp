@@ -83,7 +83,7 @@ static event_set_t *AddEvent(dbginvoke_t *, bitset *, dbgevent_t *);
 static void CheckForFullEventSet(dbginvoke_t *, bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
 static void RemoveGroupFromAsyncSet(dbginvoke_t *, bitset *);
-static bp_set_t *NewBPSet(bitset *, dbgbp_t *);
+static bp_set_t *NewBPSet(int, bitset *, dbgbp_t *);
 static bp_disp_set_t *NewBPDispSet(bitset *, dbgbp_disp);
 static bp_id_set_t *NewBPIDSet(bitset *, int);
 static void FreeBPSet(bp_set_t *);
@@ -826,13 +826,13 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
 /*
 ** Create a new breakpoint set
 */
-static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
+static bp_set_t *NewBPSet(int bp_id, bitset *group, dbgbp_t *bp) {
 
     bp_set_t *bp_set = (bp_set_t *)Alloc(sizeof(bp_set_t));
     memset(bp_set, 0, sizeof(bp_set_t));
 
     // Set the bp set id based on the global id
-    bp_set->b_bp_set_id = ++(di->d_global_bp_set_id);
+    bp_set->b_bp_set_id = bp_id;
 
     bp_set->b_group = bitset_dup(group);
 
@@ -983,7 +983,7 @@ static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
         AddBPToBPSet(bp_set, group, bp);
     } else {
         // create a new breakpoint for this group based on the bp
-        bp_set = NewBPSet(group, bp);
+        bp_set = NewBPSet(++(di->d_global_bp_set_id), group, bp);
         AddToList(di->d_bpset_list, bp_set);
     }
 }
@@ -1166,7 +1166,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
 
 static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
     assert(di != nullptr);
-    assert (bp_set != nullptr);
+    assert (bp != nullptr);
     assert (group != nullptr);
 
     bitset *search_group = nullptr;

@@ -135,7 +135,7 @@ void HoldSignals(void) {
             sigaddset(&mask, sig);
         }
 
-        sigprocmask(SIG_BLOCK, &mask, (sigset_t *)nullptr);
+        sigprocmask(SIG_BLOCK, &mask, nullptr);
     }
 }
 
@@ -152,7 +152,7 @@ void ReleaseSignals(void) {
         for (auto&& sig : DbgSigList)
             sigaddset(&mask, sig);
 
-        sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)nullptr);
+        sigprocmask(SIG_UNBLOCK, &mask, nullptr);
     }
 }
 
@@ -1121,12 +1121,12 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
         case DBGBP_BREAK_TYPE:
             // check if both are pending and have the same stmt
             if (bp->bp_pending && bp->bp_stmt != nullptr && set->b_bp_pending && set->b_loc_stmt != nullptr) {
-                if (strncmp(set->b_loc_stmt, bp->bp_stmt, strlen(set->b_loc_stmt)+1)) return 1;
+                if (strcmp(set->b_loc_stmt, bp->bp_stmt) return 1;
             }
             // check if both have the same file name and line number
             if (bp->bp_loc.loc_file != nullptr && set->b_loc_file != nullptr && bp->bp_loc.loc_line >= 0) {
                 // First check if the file name matches.
-                if (strncmp(set->b_loc_file, bp->bp_loc.loc_file, strlen(set->b_loc_file)+1)) return 1;
+                if (strcmp(set->b_loc_file, bp->bp_loc.loc_file) return 1;
                 // The file name matches, so we can now safely check the line
                 // number.
                 if (set->b_loc_line != bp->bp_loc.loc_line) return 1;
@@ -1134,7 +1134,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
 
             // check if both have the same address
             if (bp->bp_loc.loc_addr != nullptr && set->b_loc_addr != nullptr) {
-                if (strncmp(set->b_loc_addr, bp->bp_loc.loc_addr, strlen(set->b_loc_addr)+1)) return 1;
+                if (strcmp(set->b_loc_addr, bp->bp_loc.loc_addr)) return 1;
             }
 
             break;
@@ -1144,7 +1144,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
         case DBGBP_RWATCH_TYPE:
             // check if both have the same bp expression
             if (bp->bp_exp != nullptr && set->b_bp_exp != nullptr) {
-                if (strncmp(set->b_bp_exp, bp->bp_exp, strlen(set->b_bp_exp)+1)) return 1;
+                if (strcmp(set->b_bp_exp, bp->bp_exp)) return 1;
             }
 
             break;
@@ -1327,8 +1327,7 @@ int DbgCheckEvents(void) {
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) !=
-               (dbginvoke_t *)nullptr) {
+        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
             /*
             ** Note: This should be used for protocols that do not use an event
             *notification
@@ -1354,8 +1353,7 @@ int DbgCheckEvents(void) {
             if (di->d_evfds != nullptr) {
                 SetList(di->d_evfds);
 
-                while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
-                       (int *)nullptr) {
+                while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
                     if (high_fd < *ev_fd) {
                         high_fd = *ev_fd;
                     }
@@ -1459,8 +1457,7 @@ void DbgDispatchEvents(void) {
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) !=
-               (dbginvoke_t *)nullptr) {
+        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
             // if the proto is shutting down, don't dispatch further pending
             // events
             if (di->d_isShutdown) continue;
@@ -1474,8 +1471,7 @@ void DbgDispatchEvents(void) {
                 if (di->d_evfds != nullptr) {
                     SetList(di->d_evfds);
 
-                    while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
-                           (int *)nullptr) {
+                    while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
                         // if the previous event caused a shutdown, don't
                         // continue processing events
                         if (di->d_isShutdown) break;
@@ -1775,7 +1771,7 @@ void DbgUnmaskSignal(int sig) {
 
     sigemptyset(&mask);
     sigaddset(&mask, sig);
-    sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)nullptr);
+    sigprocmask(SIG_UNBLOCK, &mask, nullptr);
 }
 
 /*
@@ -1857,7 +1853,7 @@ int DbgInit(void) {
 
     SetClntProto();
 
-    while ((sw = GetClntProto()) != (dbgclnt_proto *)nullptr)
+    while ((sw = GetClntProto()) != nullptr)
         if (sw->sw_init != nullptr && !sw->sw_init()) return -1;
 
     // Initialize the mutex lock for the InputCB
@@ -1889,7 +1885,7 @@ void DbgFinalize(void) {
         DbgCurrSess = nullptr;
     }
 
-    while ((sw = GetClntProto()) != (dbgclnt_proto *)nullptr) {
+    while ((sw = GetClntProto()) != nullptr) {
         if (sw->sw_finish != nullptr) {
             sw->sw_finish();
         }
@@ -1980,7 +1976,7 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
     dbginvoke_t *di;
     dbgclnt_proto *ptab;
 
-    if ((ptab = FindClntProto(proto)) == (dbgclnt_proto *)nullptr) {
+    if ((ptab = FindClntProto(proto)) == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
         return nullptr;
     }
@@ -2030,7 +2026,7 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
     int ap_argc = 0;
     dbgevent_t *e;
 
-    if ((ptab = FindClntProto(proto)) == (dbgclnt_proto *)nullptr) {
+    if ((ptab = FindClntProto(proto)) == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
         return nullptr;
     }

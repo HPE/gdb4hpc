@@ -272,7 +272,7 @@ public:
     {
         // search the list
         if (loc_file != nullptr) {
-            std::string file{loc_file};
+            const std::string file{loc_file};
             for (auto&& i : bp_loc) {
                 if (i.loc_file == loc_file && i.loc_line == loc_line) {
                     // found it!
@@ -282,7 +282,7 @@ public:
             }
         }
         else {
-            std::string func{loc_func};
+            const std::string func{loc_func};
             for (auto&& i : bp_loc) {
                 if (i.loc_func == loc_func) {
                     // found it!

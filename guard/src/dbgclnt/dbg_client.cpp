@@ -1121,15 +1121,15 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
         case DBGBP_BREAK_TYPE:
             // check if both are pending and have the same stmt
             if (bp->bp_pending && bp->bp_stmt != nullptr && set->b_bp_pending && set->b_loc_stmt != nullptr) {
-                if (strcmp(set->b_loc_stmt, bp->bp_stmt) return 1;
+                if (strcmp(set->b_loc_stmt, bp->bp_stmt)) return 1;
             }
             // check if both have the same file name and line number
             if (bp->bp_loc.loc_file != nullptr && set->b_loc_file != nullptr && bp->bp_loc.loc_line >= 0) {
                 // First check if the file name matches.
-                if (strcmp(set->b_loc_file, bp->bp_loc.loc_file) return 1;
+                if (strcmp(set->b_loc_file, bp->bp_loc.loc_file)) return 1;
                 // The file name matches, so we can now safely check the line
                 // number.
-                if (set->b_loc_line != bp->bp_loc.loc_line) return 1;
+                if (set->b_loc_line != bp->bp_loc.loc_line)) return 1;
             }
 
             // check if both have the same address

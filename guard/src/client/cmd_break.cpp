@@ -17,6 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <assert.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -77,36 +78,14 @@ force_pending_break:
 
     DPERFLOG(SetTimerStopAndLog("setbreak"));
 
-    // Process any errors in the bp set
-    ProcessErrorInRepSet(rep_set);
-
-    // If we had errors, query the user to set a pending breakpoint if in auto mode
-    if (SetHasError(rep_set) && pending_val == PendingBrkType::Auto) {
-        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
-            // Force pending_val to on and try again
-            pending_val = PendingBrkType::On
-            FreeRepSet(rep_set);
-            goto force_pending_break;
-        }
-    }
-
-    Free(arg);
+    // Process replies
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
-
-        if (bpset == NULL) {
-            // this is not supposed to happen
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                  "ERROR: cannot find breakpoint [%d: file %s, "
-                                  "line %d] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_loc.loc_file,
-                                  bp->bp_loc.loc_line);
-            return 0;
-        }
+        assert(bpset != nullptr);
 
         std::string bpThread;
         if (bpset->b_thread_id > 0) {
@@ -131,6 +110,17 @@ force_pending_break:
         }
     }
 
+    // If we had errors, query the user to set a pending breakpoint if in auto mode
+    if (ProcessErrorInRepSet(rep_set) && pending_val == PendingBrkType::Auto) {
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+            // Force pending_val to on and try again
+            pending_val = PendingBrkType::On;
+            FreeRepSet(rep_set);
+            goto force_pending_break;
+        }
+    }
+
+    Free(arg);
     FreeRepSet(rep_set);
 
     return 1;
@@ -187,20 +177,9 @@ force_pending_tbreak:
         rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s, threadId);
     }
 
-    // process the replies
-    ProcessErrorInRepSet(rep_set);
+    DPERFLOG(SetTimerStopAndLog("settbreak"));
 
-    // If we had errors, query the user to set a pending breakpoint if in auto mode
-    if (SetHasError(rep_set) && pending_val == PendingBrkType::Auto) {
-        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
-            // Force pending_val to on and try again
-            pending_val = PendingBrkType::On
-            FreeRepSet(rep_set);
-            goto force_pending_tbreak;
-        }
-    }
-
-    Free(arg);
+    // Process the replies
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
@@ -213,19 +192,9 @@ force_pending_tbreak:
                          NewGroupReceiver(reply->rep_di, reply->rep_group));
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
+        assert(bpset != nullptr);
 
-        if (bpset == NULL)  // this is not supposed to happen
-        {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                  "ERROR: cannot find breakpoint [%d: file %s, "
-                                  "line %d] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_loc.loc_file,
-                                  bp->bp_loc.loc_line);
-            FreeRecSet(new_rec);
-            continue;
-        }
-
-        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_id, false, true)) != NULL) {
+        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_id, false, true)) != nullptr) {
             ProcessErrorInRepSet(enb_rep);
             PrintOutError("ERROR: Could not set temporary breakpoint.\n");
             FreeRepSet(enb_rep);
@@ -259,8 +228,17 @@ force_pending_tbreak:
         }
     }
 
-    DPERFLOG(SetTimerStopAndLog("settbreak"));
+    // If we had errors, query the user to set a pending breakpoint if in auto mode
+    if (ProcessErrorInRepSet(rep_set) && pending_val == PendingBrkType::Auto) {
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+            // Force pending_val to on and try again
+            pending_val = PendingBrkType::On;
+            FreeRepSet(rep_set);
+            goto force_pending_tbreak;
+        }
+    }
 
+    Free(arg);
     FreeRepSet(rep_set);
 
     return 1;

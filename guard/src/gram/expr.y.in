@@ -48,7 +48,7 @@ int	expr_lex(YYSTYPE *);
 #ifdef DEBUG
 /*
 ** You can uncomment the following variable to turn on debug output from the
-** parser. However this is *VERY* verbose. 
+** parser. However this is *VERY* verbose.
 */
 //int     yydebug=1;
 #endif
@@ -130,7 +130,7 @@ expr1		:	expr
 expr	    :	star_op expr %prec UNARY
 			{ $$ = AddExpr(EXPR_OPDREF); }
 		;
-		
+
 expr	    :	ADDROF expr %prec UNARY
 			{ $$ = AddExpr(EXPR_OPADDROF); }
 		;
@@ -149,11 +149,11 @@ expr		:	MINUS expr %prec UNARY
 expr	    :	expr DOT expr
 			{ $$ = AddExpr(EXPR_OPELEMENTREF); }
 		;
-			
+
 expr	    :	expr ARROW expr
 			{ $$ = AddExpr(EXPR_OPELEMENTPTR); }
 		;
-		
+
 expr		:	expr PERC expr
 			{ $$ = AddExpr(EXPR_OPELEMENTACC); }
 		;
@@ -175,7 +175,7 @@ array_start :   expr LBRACE
 				// design IMO.
 				// UPDATE: This is necessary because of the way we read the variables.
 				// The readvar function depends on if it is inside a function or not. If its
-				// in a blockmap, a certain type of readvar function is called. 
+				// in a blockmap, a certain type of readvar function is called.
 				// There is no way to fix this since we need to know if we are going to be
 				// passing the val into a blockmap. A fix would be to merge all the function,
 				// which would require a fundamental rewrite.
@@ -186,16 +186,16 @@ expr        : array_start expr_list RBRACE %prec ARROW
 			{
 				// add the length of the list to the expression stack
 				(void)AddExpr(EXPR_INT, EndExprList());
-				
+
 				// add a list start token to denote the start of the list to the expression stack
 				(void)AddExpr(EXPR_LIST_START);
-				
+
 				// check to see if the saved elt is a symbol
 				if ( GetTopEltOp() == EXPR_DSYM )
 				{
 					// Note that the call to SaveTopElt removed the symbol earlier
 					// from the expr stack if it cooresponded to a known symbol.
-					
+
 					// check to see if the symbol is something we know about,
 					// if so we need to add the proper EXPR that cooresponds to
 					// the symbol to the expression stack along with the saved
@@ -215,17 +215,17 @@ expr        : array_start expr_list RBRACE %prec ARROW
 					SetError("Unknown symbol in front of \"{\"");
 					YYABORT;
 				}
-				
+
 				// remove the saved elt
 				RemoveTopElt();
 			}
 		;
 
-expr    : array_start expr_list COLON 
+expr    : array_start expr_list COLON
         {
             // add the length of the list to the expression stack
             AddExpr(EXPR_INT, EndExprList());
-				
+
             // add a list start token to denote the start of the list to the expression stack
             AddExpr(EXPR_LIST_START);
 
@@ -237,7 +237,7 @@ expr    : array_start expr_list COLON
         {
             // add the length of the list to the expression stack
             AddExpr(EXPR_INT, EndExprList());
-				
+
             // add a list start token to denote the start of the list to the expression stack
             AddExpr(EXPR_LIST_START);
 
@@ -245,7 +245,7 @@ expr    : array_start expr_list COLON
             if ( GetTopEltOp() == EXPR_DSYM ) {
                 // Note that the call to SaveTopElt removed the symbol earlier
                 // from the expr stack if it correspondeds to a known symbol.
-					
+
                 // check to see if the symbol is something we know about,
                 // if so we need to add the proper EXPR that corresponds to
                 // the symbol to the expression stack along with the saved
@@ -256,12 +256,12 @@ expr    : array_start expr_list COLON
 					SetError("Symbol in front of \"{\" is not a known procset");
 					YYABORT;
 				}
-				
+
 				// remove the saved elt
 				RemoveTopElt();
             }
         }
-        
+
 // This handles fortran multi-dimensional arrays
 expr		:	expr LPAREN
 			{
@@ -277,8 +277,8 @@ expr		:	expr LPAREN
 				(void)AddExpr(EXPR_OPSUBSCR);
 			}
 		;
-		
-expr	    :	LPAREN 
+
+expr	    :	LPAREN
 			{
 				(void)AddExpr(EXPR_TYPE);
 			}
@@ -288,14 +288,14 @@ expr	    :	LPAREN
 
 expr_list	:
 		;
-		
+
 expr_list	:	expr
-			{ 
+			{
 				SetExprList(1);
 				(void)AddExpr(EXPR_LIST);
 			}
 		;
-		
+
 expr_list	:	expr_list COMMA expr %prec ABOVE_COMMA
 			{
 				IncExprList();
@@ -306,7 +306,7 @@ expr_list	:	expr_list COMMA expr %prec ABOVE_COMMA
 expr		:	expr DOTDOT expr
 			{ $$ = AddExpr(EXPR_SLICE); }
 		;
-		
+
 /* binary operators according to precedence */
 expr		:	expr MUL expr
 			{ $$ = AddExpr(EXPR_OPMUL); }
@@ -350,7 +350,7 @@ expr		:	expr GEQ expr
 expr		:	expr DBLEQ expr
 			{ $$ = AddExpr(EXPR_OPEQUAL); }
 		;
-		
+
 expr		:	expr NOTEQUAL expr
 			{ $$ = AddExpr(EXPR_OPNOTEQUAL); }
 		;
@@ -387,7 +387,7 @@ expr		:	SYM
 expr		:	STRING
 			{ $$ = AddExpr(EXPR_STRING, $1); }
 		;
-		
+
 expr		:	INT
 			{ $$ = AddExpr(EXPR_INT, $1); }
 		;
@@ -395,22 +395,22 @@ expr		:	INT
 expr		:	FLOAT
 			{ $$ = AddExpr(EXPR_FLOAT, $1); }
 		;
-		
+
 expr		:	star_op %prec ABOVE_COMMA
 		;
-		
+
 // The star is a base type for blockmaps
 star_op		:	STAR
 			{ $$ = AddExpr(EXPR_STAR); }
 
-/* 
+/*
 ** These are references to debug variables paired with a procset. We only want
 ** to allow unary operators here.
 */
 expr		:	expr COLONCOLON expr
 			{ $$ = AddExpr(EXPR_VAR); }
 		;
-		
+
 /*
 ** This is used to add on a location to a debug variable reference
 */
@@ -433,7 +433,7 @@ location	:	STRING COLON INT
 type	    :	type1
 			{ $$ = AddExpr(EXPR_TYPE); }
 		;
-		
+
 basetype	:	TYPE_SPEC
 			{ $$ = AddExpr(EXPR_TYPE_SPEC, $1); }
 		|		TYPE_IDENT
@@ -445,7 +445,7 @@ type1		:	basetype
 			{ (void)AddExpr(EXPR_TYPE_PTR); }
 		|		type1 basetype
 		|		type1 LBRCK INT RBRCK
-			{ 
+			{
 			  (void)AddExpr(EXPR_INT, $3);
 			  (void)AddExpr(EXPR_OPSUBSCR);
 			}
@@ -496,7 +496,7 @@ expr_lex(YYSTYPE *lv)
 	case CT_INT:
 		lv->v_int = cv.cv_int;
 		break;
-		
+
 	case CT_DSYM:
 		lv->v_sym = cv.cv_sym;
 		break;
@@ -508,6 +508,7 @@ expr_lex(YYSTYPE *lv)
 	*/
 	case CT_ABSOLUTE:
 	case CT_ASSERT:
+	case CT_AUTO:
 	case CT_DFMODE:
 	case CT_DISPLAY:
 	case CT_ERROR:
@@ -543,7 +544,7 @@ expr_lex(YYSTYPE *lv)
 	case CT_SYNC:
 	case CT_ASYNC:
 		// For the above command tokens, we want to pretend that they are
-		// CT_SYM for now. In the future we may want to fix the parser to 
+		// CT_SYM for now. In the future we may want to fix the parser to
 		// actually recognize the syntax.
 		ct = CT_SYM;
 		// fall through

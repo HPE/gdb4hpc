@@ -52,6 +52,9 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
+    // Grab state of brk_pending, we will try setting breakpoint again on error
+    PendingBrkType pending_val = Client.brk_pending;
+
     arg = strdup(argv[1]);
 
     if ((s = strchr(arg, ':')) != NULL) {
@@ -62,19 +65,32 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
         s = arg;
     }
 
+force_pending_break:
+
     DPERFLOG(SetTimerStart("setbreak"));
 
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, Client.brk_pending, file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, Client.brk_pending, file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s, threadId);
     }
 
     DPERFLOG(SetTimerStopAndLog("setbreak"));
 
-    Free(arg);
-
+    // Process any errors in the bp set
     ProcessErrorInRepSet(rep_set);
+
+    // If we had errors, query the user to set a pending breakpoint if in auto mode
+    if (SetHasError(rep_set) && pending_val == PendingBrkType::Auto) {
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+            // Force pending_val to on and try again
+            pending_val = PendingBrkType::On
+            FreeRepSet(rep_set);
+            goto force_pending_break;
+        }
+    }
+
+    Free(arg);
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
@@ -82,8 +98,8 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
 
-        if (bpset == NULL)  // this is not supposed to happen
-        {
+        if (bpset == NULL) {
+            // this is not supposed to happen
             PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
@@ -147,6 +163,9 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
+    // Grab state of brk_pending, we will try setting breakpoint again on error
+    PendingBrkType pending_val = Client.brk_pending;
+
     arg = strdup(argv[1]);
 
     if ((s = strchr(arg, ':')) != NULL) {
@@ -157,19 +176,31 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
         s = arg;
     }
 
+force_pending_tbreak:
+
     DPERFLOG(SetTimerStart("settbreak"));
 
     // Set the breakpoint
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, Client.brk_pending, file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadId);
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, Client.brk_pending, file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s, threadId);
     }
-
-    Free(arg);
 
     // process the replies
     ProcessErrorInRepSet(rep_set);
+
+    // If we had errors, query the user to set a pending breakpoint if in auto mode
+    if (SetHasError(rep_set) && pending_val == PendingBrkType::Auto) {
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+            // Force pending_val to on and try again
+            pending_val = PendingBrkType::On
+            FreeRepSet(rep_set);
+            goto force_pending_tbreak;
+        }
+    }
+
+    Free(arg);
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
@@ -643,12 +674,12 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 static int class_set_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
-    int pending_flag;
+    PendingBrkType pending_val;
     ct_val cv;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set breakpoint pending [true|false]\n");
+        PrintOutError("Expected: set breakpoint pending [auto|on|off]\n");
         return 0;
     }
 
@@ -656,29 +687,35 @@ static int class_set_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
     s = argv[1];
 
     switch (ScanString(&cv, &s)) {
+        case CT_AUTO:
+            pending_val = PendingBrkType::Auto;
+            break;
+
         case CT_TRUE:
-            pending_flag = 1;
+            pending_val = PendingBrkType::On;
             break;
 
         case CT_FALSE:
-            pending_flag = 0;
+            pending_val = PendingBrkType::Off;
             break;
 
         default:
-            PrintOutError("Encountered something other than true or false.\n");
+            PrintOutError("Encountered something other than auto or on or off.\n");
             PrintOutError(
                 "See \"help set breakpoint pending\" for more information.\n");
             return 0;
     }
 
-    Client.brk_pending = pending_flag;
+    Client.brk_pending = pending_val;
 
     return 1;
 }
 
 static int class_show_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
                                                   char **argv) {
-    if (Client.brk_pending)
+    if (Client.brk_pending == PendingBrkType::Auto)
+        PrintOutMsg("Allow setting of pending breakpoints will ask user first. (auto)\n");
+    else if (Client.brk_pending == PendingBrkType::On)
         PrintOutMsg("Allow setting of pending breakpoints enabled.\n");
     else
         PrintOutMsg("Allow setting of pending breakpoints disabled.\n");

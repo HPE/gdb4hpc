@@ -270,6 +270,8 @@ int InitCmdToken(void) {
 
     if (AddCmdToken("assert", CT_ASSERT) < 0) return -1;
 
+    if (AddCmdToken("auto", CT_AUTO) < 0) return -1;
+
     if (AddCmdToken("dfmode", CT_DFMODE) < 0) return -1;
 
     if (AddCmdToken("display", CT_DISPLAY) < 0) return -1;

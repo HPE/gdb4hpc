@@ -265,7 +265,6 @@ public:
 private:
     bp_loc_set_t bp_loc;
 public:
-    using iterator = bp_loc_set_t::iterator;
     using const_iterator = bp_loc_set_t::const_iterator;
 
     void add(bitset *group, char *loc_file, int loc_line, char *loc_func)

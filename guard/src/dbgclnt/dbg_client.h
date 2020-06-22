@@ -103,7 +103,7 @@ struct dbginvoke {
     // FIXME: These should be marked private once this is turned into a class
     list_t *d_eventset_list;  // pending events
     list_t *d_bpset_list;     // current breakpoints
-    int d_global_bpset_id;    // private to dbg_client
+    int d_global_bp_set_id;    // private to dbg_client
 };
 typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto

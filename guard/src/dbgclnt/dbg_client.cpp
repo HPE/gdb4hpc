@@ -832,7 +832,7 @@ static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
     memset(bp_set, 0, sizeof(bp_set_t));
 
     // Set the bp set id based on the global id
-    bp_set->b_bp_set_id = ++(di->d_global_bpset_id);
+    bp_set->b_bp_set_id = ++(di->d_global_bp_set_id);
 
     bp_set->b_group = bitset_dup(group);
 

@@ -33,6 +33,7 @@
 #define EMPTY(e) ((e)->e_eval < 0)
 #define LAST(e) &((e)->e_expr[(e)->e_lval - 1])
 
+
 #define MODE_EXPR 1   /* parsing an expression */
 #define MODE_FUNC 2   /* parsing a function definition */
 #define MODE_COMP 3   /* parsing a compare */
@@ -98,6 +99,7 @@ enum expr_op {
     EXPR_COUNTELEM,      /* element counting function call */
     EXPR_P2P,            /* p2p comp mode */
     EXPR_HISTOGRAM,      /* histogram function call */
+    EXPR_PROC_THREAD,    /* process set with thread info */
     EXPR_UNKNOWN         /* unknown error */
 };
 typedef enum expr_op expr_op;

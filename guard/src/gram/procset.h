@@ -95,4 +95,7 @@ struct dbgprocset_t {
 };
 typedef struct dbgprocset_t dbgprocset_t;
 
+dbgprocset_t *FindProcSet(char *procsetName);
+bool CheckProcSet(hentry_t* sym);
+
 #endif /* !_PROCSET_H */

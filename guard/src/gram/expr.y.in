@@ -2,6 +2,7 @@
 ** Expression parser.
 **
 ** Copyright (c) 1996-2002 by Guardsoft Pty Ltd.
+** Copyright 2012-2020 Cray Inc.
 **
 */
 
@@ -98,7 +99,7 @@ int	expr_lex(YYSTYPE *);
 
 %left		COMMA
 %left		ABOVE_COMMA
-%right		EQUAL
+av%right		EQUAL
 %right		COND
 %left		OROR
 %left		ANDAND
@@ -166,11 +167,11 @@ expr		:	expr LBRCK RBRCK
 		;
 
 // The following is for debugger arrays/functions/maps/trans/blockmaps etc
-expr		:	expr LBRACE
+array_start :   expr LBRACE
 			{
 				StartExprList();
 				// FIXME: The SaveTopElt will remove the elt from the expr stack
-				// if it cooresponds to a known EXPR_SYM. This is not a very good
+				// if it corresponds to a known EXPR_SYM. This is not a very good
 				// design IMO.
 				// UPDATE: This is necessary because of the way we read the variables.
 				// The readvar function depends on if it is inside a function or not. If its
@@ -180,7 +181,8 @@ expr		:	expr LBRACE
 				// which would require a fundamental rewrite.
 				SaveTopElt();
 			}
-				expr_list RBRACE %prec ARROW
+
+expr        : array_start expr_list RBRACE %prec ARROW
 			{
 				// add the length of the list to the expression stack
 				(void)AddExpr(EXPR_INT, EndExprList());
@@ -219,6 +221,47 @@ expr		:	expr LBRACE
 			}
 		;
 
+expr    : array_start expr_list COLON 
+        {
+            // add the length of the list to the expression stack
+            AddExpr(EXPR_INT, EndExprList());
+				
+            // add a list start token to denote the start of the list to the expression stack
+            AddExpr(EXPR_LIST_START);
+
+            AddExpr(EXPR_OPSUBSCR);
+
+            StartExprList();
+        }
+        expr_list  RBRACE
+        {
+            // add the length of the list to the expression stack
+            AddExpr(EXPR_INT, EndExprList());
+				
+            // add a list start token to denote the start of the list to the expression stack
+            AddExpr(EXPR_LIST_START);
+
+            // check to see if the saved elt is a symbol
+            if ( GetTopEltOp() == EXPR_DSYM ) {
+                // Note that the call to SaveTopElt removed the symbol earlier
+                // from the expr stack if it correspondeds to a known symbol.
+					
+                // check to see if the symbol is something we know about,
+                // if so we need to add the proper EXPR that corresponds to
+                // the symbol to the expression stack along with the saved
+                // elt's val
+                if ( CheckProcSet(GetTopEltSymVal())) {
+                    $$ = AddExpr(EXPR_PROC_THREAD);
+                } else {
+					SetError("Symbol in front of \"{\" is not a known procset");
+					YYABORT;
+				}
+				
+				// remove the saved elt
+				RemoveTopElt();
+            }
+        }
+        
 // This handles fortran multi-dimensional arrays
 expr		:	expr LPAREN
 			{

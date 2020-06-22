@@ -735,6 +735,11 @@ dbgprocset_t *FindProcSet(char *name) {
     return (dbgprocset_t *)NULL;
 }
 
+bool CheckProcSet(hentry_t* sym) {
+    dbgprocset_t* p = FindProcSet(SymLookup(sym));
+    return (p != NULL);
+}
+
 void SetCurrentProcSet(dbgprocset_t *s) {
     // If the CurrProcSet is a temporary procset, we want to destroy it
     if (CurrProcSet != NULL) {

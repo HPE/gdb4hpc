@@ -51,6 +51,9 @@ static val_t *apply_op(expr_op, val_t *, val_t *, val_t *, rec_set_t *,
                        val_t **);
 static int assign_expr_imm(val_t *, val_t *, rec_set_t *);
 static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
+static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
+static expr_elt* check_pop(expr_t*, expr_op);
+
 static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif);
 // Only used with debug
 #ifdef DEBUG
@@ -594,7 +597,11 @@ static val_t *evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
             return val;
 
-        case EXPR_SYM:
+        case EXPR_PROC_THREAD:
+            val = ReadThreadProcSet(e, rec_set);
+            return val;
+
+    case EXPR_SYM:
             /*
             ** FIXME: This is broken with the symbol table update.
             sym = ep->e_sym;
@@ -2774,6 +2781,64 @@ g_block_map_t *EvaluateBlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
     return m;
 }
 
+// Create a procset value from the expression stack e.   The epression stack should have
+// the thread info as a list that contains integers, integer ranges, strings (for regexps), and
+// possibly the special '*' for all.   These will be on top of the usual proc set definition.
+static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
+{
+    // We expect a list start for the thread list
+    expr_elt *ep, *ep2;
+    if (!check_pop(e, EXPR_LIST_START)) return nullptr;
+
+    // then the length of the thread list
+    int threadLen = 0;
+    if ((ep = check_pop(e, EXPR_INT))) {
+        threadLen = ep->e_int;
+    } else {
+        return nullptr;
+    }
+
+    // process the thread list
+    std::stringstream threadDef;
+    if (!check_pop(e, EXPR_LIST)) return nullptr;
+
+    for (int i=0; i<threadLen; ++i) {
+        if (!(ep = check_pop(e, EXPR_UNKNOWN))) return nullptr;
+
+        switch (ep->e_op) {
+        case EXPR_INT:
+            threadDef << ep->e_int << " ";
+            break;
+        case EXPR_STRING:
+            threadDef << ep->e_string << " ";
+            break;
+        case EXPR_STAR:
+            threadDef << "* ";
+            break;
+        case EXPR_SLICE:
+            if ((ep=check_pop(e, EXPR_INT)) &&
+                (ep2=check_pop(e,EXPR_INT))) {
+                threadDef << ep2->e_int << "-" << ep->e_int << " ";
+            } else {
+                return nullptr;
+            }
+            break;
+        default:
+            SetError("unexpected type in thread list %s", getExprOpStr(ep->e_op));
+            return nullptr;
+        }
+    }
+
+    val_t* procVal = read_var_imm(e, rec_set, nullptr);
+
+    if (procVal) {
+        PrintOutMsg("thread info for proc set is not implemented: %s\n", threadDef.str().c_str());
+    }
+
+    return procVal;
+}
+
+
 /*
 ** Evaluate a variable in declarative mode. Return details in var_t.
 */
@@ -3674,6 +3739,8 @@ const char *getExprOpStr(expr_op op) {
             return "<count>";
         case EXPR_HISTOGRAM:
             return "<hist>";
+       case EXPR_PROC_THREAD:
+           return "<proc_thread>";
         default:
             return "<UNKNOWN>";
     }
@@ -3800,4 +3867,24 @@ int EndExprList(void) {
     DPRINT("EndExprList: Final list length is %d.\n", n);
 
     return n;
+}
+
+// pop the expression stack of e and verify that the result is an expected type.
+// op==EXPR_UNKNOWN pops without checking the type of the result.
+// return nullptr if the stack is empty, or the type of the top element is wrong.
+static expr_elt* check_pop(expr_t* e, expr_op op)
+{
+    if (EMPTY(e)) {
+        SetError("Internal error: exected a list element");
+        return nullptr;
+    } 
+        
+    expr_elt* ep = POP(e);
+    if (op != EXPR_UNKNOWN && ep->e_op != op) {
+        SetError("Internal error: expected a %s got %s", getExprOpStr(op),
+                 getExprOpStr(ep->e_op));
+        return nullptr;
+    }
+
+    return ep;
 }

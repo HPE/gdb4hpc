@@ -711,7 +711,7 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, watch_loc.group,
                             "Watchpoint %d, variable expression: %s\n",
-                            bpset->b_bp_id, bpset->b_bp_exp);
+                            bpset->b_bp_set_id, bpset->b_bp_exp);
                         if (watch_loc.loc_line > 0) {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group,
@@ -732,14 +732,14 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
-                            "Breakpoint %d, %s at %s:%d%s\n", bpset->b_bp_id,
+                            "Breakpoint %d, %s at %s:%d%s\n", bpset->b_bp_set_id,
                             bpset->b_loc_func, bpset->b_loc_file,
                             bpset->b_loc_line, bpThread.c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group,
                                             "Breakpoint %d, in %s%s\n",
-                                            bpset->b_bp_id, bpset->b_loc_func,
+                                            bpset->b_bp_set_id, bpset->b_loc_func,
                                             bpThread.c_str());
                     }
                     break;
@@ -749,13 +749,13 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
                             "Unknown break type %d, %s at %s:%d\n",
-                            bpset->b_bp_id, bpset->b_loc_func,
+                            bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group,
                                             "Unknown break type %d, in %s\n",
-                                            bpset->b_bp_id, bpset->b_loc_func);
+                                            bpset->b_bp_set_id, bpset->b_loc_func);
                     }
                     break;
             }
@@ -791,7 +791,7 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                             ev_set->e_di->d_handle, watch_loc.group,
                             "Watchpoint %d deleted because the program has left "
                             "the block in which its expression is valid.\n",
-                            bpset->b_bp_id);
+                            bpset->b_bp_set_id);
                         if (watch_loc.loc_line > 0) {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group,
@@ -812,13 +812,13 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
                             "Breakpoint %d deleted, %s at %s:%d\n",
-                            bpset->b_bp_id, bpset->b_loc_func,
+                            bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group,
                                             "Breakpoint %d deleted, in %s\n",
-                                            bpset->b_bp_id, bpset->b_loc_func);
+                                            bpset->b_bp_set_id, bpset->b_loc_func);
                     }
                     break;
 
@@ -827,13 +827,13 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
                             "Unknown break type %d deleted, %s at %s:%d\n",
-                            bpset->b_bp_id, bpset->b_loc_func,
+                            bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group,
                             "Unknown break type %d deleted, in %s\n",
-                            bpset->b_bp_id, bpset->b_loc_func);
+                            bpset->b_bp_set_id, bpset->b_loc_func);
                     }
                     break;
             }

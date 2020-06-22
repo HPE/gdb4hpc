@@ -17,6 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <assert.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -826,11 +827,12 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
 ** Create a new breakpoint set
 */
 static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
-    bp_id_set_t *id_set;
-    bp_disp_set_t *disp_set;
 
     bp_set_t *bp_set = (bp_set_t *)Alloc(sizeof(bp_set_t));
     memset(bp_set, 0, sizeof(bp_set_t));
+
+    // Set the bp set id based on the global id
+    bp_set->b_bp_set_id = ++(di->d_global_bpset_id);
 
     bp_set->b_group = bitset_dup(group);
 
@@ -841,7 +843,7 @@ static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
 
     // Add the group and disposition to the disp list
     bp_set->b_bp_disp = NewList();
-    disp_set = NewBPDispSet(group, bp->bp_disp);
+    bp_disp_set_t *disp_set = NewBPDispSet(group, bp->bp_disp);
     AddToList(bp_set->b_bp_disp, (void *)disp_set);
 
     // Set the type, this cannot vary by rank
@@ -872,7 +874,7 @@ static bp_set_t *NewBPSet(bitset *group, dbgbp_t *bp) {
 
     // Set the id unique to the rank
     bp_set->b_bp_id_list = NewList();
-    id_set = NewBPIDSet(group, bp->bp_id);
+    bp_id_set_t *id_set = NewBPIDSet(group, bp->bp_id);
     AddToList(bp_set->b_bp_id_list, id_set);
 
     return bp_set;
@@ -963,42 +965,50 @@ static void FreeBPDispSet(bp_disp_set_t *disp_set) {
 */
 
 static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
-    if (di == nullptr || bp == nullptr || group == nullptr) return;
+    assert(di != nullptr);
+    assert(bp != nullptr);
+    assert(group != nullptr);
 
+    bp_set_t *bp_set;
     SetList(di->d_bpset_list);
-    bp_set_t *bpset;
-    while ((bpset = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        if (!CompareBPSetWithBP(bpset, bp)) {
+    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
+        if (!CompareBPSetWithBP(bp_set, bp)) {
             break;
         }
     }
 
-    if (bpset) /* This is a known breakpoint */
+    if (bp_set) /* This is a known breakpoint */
     {
-        // update the bpset with this group and info from the bp for disp
-        // and id
-        AddBPToBPSet(bpset, group, bp);
+        // update the bp_set with this group and info from the bp for disp and id
+        AddBPToBPSet(bp_set, group, bp);
     } else {
         // create a new breakpoint for this group based on the bp
-        bpset = NewBPSet(group, bp);
-        AddToList(di->d_bpset_list, bpset);
+        bp_set = NewBPSet(group, bp);
+        AddToList(di->d_bpset_list, bp_set);
     }
 }
 
 static void AddBPToBPSet(bp_set_t *bp_set, bitset *group, dbgbp_t *bp) {
-    bp_id_set_t *id_set = nullptr;
+    assert(bp_set != nullptr);
+    assert(group != nullptr);
+    assert(bp != nullptr);
+
+    // Add this group into the bp_set group
     bitset_oreq(bp_set->b_group, group);
 
+    // Add internal gdb id to the bp_id_list
+    bp_id_set_t *id_set = nullptr;
     SetList(bp_set->b_bp_id_list);
-    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) !=
-           nullptr) {
+    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
         if (id_set->b_bp_id == bp->bp_id) break;
     }
 
     if (id_set == nullptr) {
+        // no existing internal gdb id found, add it.
         id_set = NewBPIDSet(group, bp->bp_id);
         AddToList(bp_set->b_bp_id_list, id_set);
     } else {
+        // existing internal gdb id found, add group to existing id_set
         bitset_oreq(id_set->b_group, group);
     }
 
@@ -1012,32 +1022,29 @@ static void AddBPToBPSet(bp_set_t *bp_set, bitset *group, dbgbp_t *bp) {
 }
 
 static void EnableBPForBPSet(bp_set_t *bp_set, bitset *group) {
-    if (bp_set == nullptr || group == nullptr) return;
-
+    assert (bp_set != nullptr);
+    assert (group != nullptr);
     bitset_oreq(bp_set->b_bp_enabled, group);
 }
 
 static void DisableBPForBPSet(bp_set_t *bp_set, bitset *group) {
-    if (bp_set == nullptr || group == nullptr) return;
-
+    assert (bp_set != nullptr);
+    assert (group != nullptr);
     bitset_andeqnot(bp_set->b_bp_enabled, group);
 }
 
 static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
                                      dbgbp_disp bp_disp) {
-    list_t *bpdisp_list;
+    assert (bp_set != nullptr);
+    assert (group != nullptr);
+
+    bool found = false;
     bp_disp_set_t *disp_set;
-    int found = 0;
-
-    if (bp_set == nullptr || group == nullptr) return;
-
-    bpdisp_list = bp_set->b_bp_disp;
-
-    SetList(bpdisp_list);
-    while ((disp_set = (bp_disp_set_t *)GetListElement(bpdisp_list)) != nullptr) {
+    SetList(bp_set->b_bp_disp);
+    while ((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) != nullptr) {
         if (disp_set->b_bp_disp == bp_disp) {
             // This matches the requested disposition
-            ++found;
+            found = true;
             bitset_oreq(disp_set->b_group, group);
         } else {
             // This doesn't match the requested disposition, so remove the group
@@ -1047,7 +1054,7 @@ static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
 
             // Make sure the disp_set isn't empty, otherwise remove it
             if (bitset_isempty(disp_set->b_group)) {
-                RemoveFromList(bpdisp_list, (void *)disp_set);
+                RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
                 FreeBPDispSet(disp_set);
             }
         }
@@ -1062,18 +1069,16 @@ static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
 }
 
 static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, bitset *group) {
-    bp_id_set_t *id_set;
-    bp_disp_set_t *disp_set;
-
-    if (di == nullptr || bp_set == nullptr) return;
+    assert (bp_set != nullptr);
+    assert (group != nullptr);
 
     // Remove the group from the global bp list
     bitset_andeqnot(bp_set->b_group, group);
 
     // Remove the group from the bp_id list
+    bp_id_set_t *id_set;
     SetList(bp_set->b_bp_id_list);
-    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) !=
-           nullptr) {
+    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
         bitset_andeqnot(id_set->b_group, group);
         // Make sure the id_set isn't empty, otherwise remove it
         if (bitset_isempty(id_set->b_group)) {
@@ -1086,12 +1091,12 @@ static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, bitset *group) {
     bitset_andeqnot(bp_set->b_bp_enabled, group);
 
     // Remove the group from the disp list
+    bp_disp_set_t *disp_set;
     SetList(bp_set->b_bp_disp);
     while ((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) !=
            nullptr) {
         // Try to remove the group from this set
         bitset_andeqnot(disp_set->b_group, group);
-
         // Make sure the disp_set isn't empty, otherwise remove it
         if (bitset_isempty(disp_set->b_group)) {
             RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
@@ -1160,19 +1165,20 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
 }
 
 static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
-    bp_set_t *bp_set;
-    bp_id_set_t *id_set;
+    assert(di != nullptr);
+    assert (bp_set != nullptr);
+    assert (group != nullptr);
+
     bitset *search_group = nullptr;
-    bitset *remove_group;
-
-    if (di == nullptr) return;
-
     do {
+        bitset *remove_group = nullptr;
+        bp_set_t *bp_set;
         SetList(di->d_bpset_list);
         while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
             // check to see if this bp_set is pending
             if (bp_set->b_bp_pending) {
                 // see if this bp_id is in the id list
+                bp_id_set_t *id_set;
                 SetList(bp_set->b_bp_id_list);
                 while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
                     if (id_set->b_bp_id == bp->bp_id) {
@@ -1194,9 +1200,11 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) 
         }
         // See if we found a matching bp_set, if so we need to clean it up
         if (bp_set != nullptr) {
+            assert(remove_group != nullptr);
             RemoveBPSet(di, bp_set, remove_group);
             AddBP(di, bp, remove_group);
             bitset_free(remove_group);
+            remove_group = nullptr;
         }
         else {
             // no other pending breakpoints found, we are done
@@ -1208,72 +1216,45 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) 
 }
 
 bp_set_t *FindBPSetByID(dbginvoke_t *di, int id) {
-    bp_set_t *bpset;
-    int bpset_id = 0;
+    assert(di != nullptr);
+    if (id < 1) return nullptr;
 
-    if (id < 1 || di == nullptr) return nullptr;
-
-    SetList(di->d_bpset_list);
-    while ((bpset = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        bpset_id++;
-
-        if (bpset_id == id) {
-            break;
-        }
-    }
-
-    return bpset;
-}
-
-bp_set_t *FindBPSetForBP(dbginvoke_t *di, dbgbp_t *bp) {
-    bp_set_t *bpset;
-    int bpset_id = 0;
-
-    if (di == nullptr) return nullptr;
-
-    SetList(di->d_bpset_list);
-    while ((bpset = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        bpset_id++;
-
-        if (!CompareBPSetWithBP(bpset, bp)) {
-            break;
-        }
-    }
-
-    if (bpset == nullptr) return nullptr;
-
-    // Always update the b_bp_id
-    bpset->b_bp_id = bpset_id;
-
-    return bpset;
-}
-
-void ResetBPSetList(dbginvoke_t *di) {
-    if (di == nullptr) return;
-
-    SetList(di->d_bpset_list);
-    di->d_global_bpset_id = 0;
-}
-
-bp_set_t *GetNextBPSet(dbginvoke_t *di) {
     bp_set_t *bp_set;
-
-    if (di == nullptr) return nullptr;
-
-    // Get the next element in the list
-    bp_set = (bp_set_t *)GetListElement(di->d_bpset_list);
-
-    // update the b_bp_id if there was another element
-    if (bp_set != nullptr) {
-        bp_set->b_bp_id = ++(di->d_global_bpset_id);
+    SetList(di->d_bpset_list);
+    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
+        if (bp_set->b_bp_set_id == id) {
+            break;
+        }
     }
-
     return bp_set;
 }
 
-int EmptyBPSetList(dbginvoke_t *di) {
-    if (di == nullptr) return 1;
+bp_set_t *FindBPSetForBP(dbginvoke_t *di, dbgbp_t *bp) {
+    assert(di != nullptr);
+    assert(bp != nullptr);
 
+    bp_set_t *bp_set;
+    SetList(di->d_bpset_list);
+    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
+        if (!CompareBPSetWithBP(bp_set, bp)) {
+            break;
+        }
+    }
+    return bp_set;
+}
+
+void ResetBPSetList(dbginvoke_t *di) {
+    assert(di != nullptr);
+    SetList(di->d_bpset_list);
+}
+
+bp_set_t *GetNextBPSet(dbginvoke_t *di) {
+    assert(di != nullptr);
+    return (bp_set_t *)GetListElement(di->d_bpset_list);
+}
+
+int EmptyBPSetList(dbginvoke_t *di) {
+    assert(di != nullptr);
     return EmptyList(di->d_bpset_list);
 }
 

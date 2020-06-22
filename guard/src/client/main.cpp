@@ -705,23 +705,26 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
                 case DBGBP_RWATCH_TYPE:
-                    PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group,
-                        "Watchpoint %d, variable expression: %s\n",
-                        bpset->b_bp_id, bpset->b_bp_exp);
-                    // We should also print out the updated locale information
-                    // for the watchpoint. This was updated in EventCB before
-                    // calling this function.
-                    if (bpset->b_loc_line > 0) {
+                    // Print out the updated locale information for the watchpoint.
+                    // This was updated in EventCB before calling this function.
+                    for (auto &&watch_loc : bpset->b_bp_watch_loc) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
-                            "In %s at %s:%d\n", bpset->b_loc_func,
-                            bpset->b_loc_file, bpset->b_loc_line);
-                    } else {
-                        PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group, "In %s\n",
-                                            bpset->b_loc_func);
+                            ev_set->e_di->d_handle, watch_loc.group,
+                            "Watchpoint %d, variable expression: %s\n",
+                            bpset->b_bp_id, bpset->b_bp_exp);
+                        if (watch_loc.loc_line > 0) {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, watch_loc.group,
+                                "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
+                                watch_loc.loc_file.c_str(), watch_loc.loc_line);
+                        } else {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, watch_loc.group,
+                                "In %s\n", watch_loc.loc_func.c_str());
+                        }
                     }
+                    // clear out the watchpoint locale to avoid printing multiple times
+                    bpset->b_bp_watch_loc.clear();
                     break;
 
                 case DBGBP_BREAK_TYPE:
@@ -781,23 +784,27 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
                 case DBGBP_RWATCH_TYPE:
-                    PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group,
-                        "Watchpoint %d deleted because the program has left "
-                        "the block in which its expression is valid.\n",
-                        bpset->b_bp_id);
-                    // We should also print out the updated locale information
-                    // for the watchpoint.
-                    if (bpset->b_loc_line > 0) {
+                    // Print out the updated locale information for the watchpoint.
+                    // This was updated in EventCB before calling this function.
+                    for (auto &&watch_loc : bpset->b_bp_watch_loc) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
-                            "In %s at %s:%d\n", bpset->b_loc_func,
-                            bpset->b_loc_file, bpset->b_loc_line);
-                    } else {
-                        PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group, "In %s\n",
-                                            bpset->b_loc_func);
+                            ev_set->e_di->d_handle, watch_loc.group,
+                            "Watchpoint %d deleted because the program has left "
+                            "the block in which its expression is valid.\n",
+                            bpset->b_bp_id);
+                        if (watch_loc.loc_line > 0) {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, watch_loc.group,
+                                "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
+                                watch_loc.loc_file.c_str(), watch_loc.loc_line);
+                        } else {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, watch_loc.group,
+                                "In %s\n", watch_loc.loc_func.c_str());
+                        }
                     }
+                    // clear out the watchpoint locale to avoid printing multiple times
+                    bpset->b_bp_watch_loc.clear();
                     break;
 
                 case DBGBP_BREAK_TYPE:

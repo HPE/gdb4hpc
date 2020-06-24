@@ -461,7 +461,7 @@ static void _delete_bp(graph_t *g, dbginvoke_t *di) {
         // Check to see if this di has this breakpoint
         if ((bpset = FindBPSetForBP(di, bp)) != NULL) {
             // The dbg_client layer handles all the of the details here
-            if ((rep_set = DbgDeleteBreak(rec_set, bpset->b_bp_id)) != NULL) {
+            if ((rep_set = DbgDeleteBreak(rec_set, bpset->b_bp_set_id)) != NULL) {
                 ProcessErrorInRepSet(rep_set);
                 FreeRepSet(rep_set);
                 DFErrMsg("ERROR: Could not delete graph breakpoint.");

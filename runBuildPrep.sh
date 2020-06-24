@@ -72,12 +72,16 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             texinfo \
             which \
             xz-devel
-    # These are the rocm 3.5 relase packages
+    check_exit_status
+    # These are the rocm 3.5 relase packages: relevant only for centos8 build, specific to
+    # building ROCgdb
+    yum install -y  epel-release \
+                    dkms \
+                    kernel-headers \
+                    kernel-devel
+    check_exit_status
     yum-config-manager --add-repo http://repo.radeon.com/rocm/centos8/rpm
-    yum install -y epel-release
-    yum install -y dkms
-    yum install -y kernel-headers
-    yum install -y kernel-devel
+    check_exit_status
     yum install -y --nogpgcheck rocm-dkms
     check_exit_status
 else

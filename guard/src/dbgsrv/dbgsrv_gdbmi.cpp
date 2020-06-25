@@ -2834,7 +2834,7 @@ static std::string collectThreadInfo(const std::string& val) {
 
         // get the thread-id and location for this line
         std::smatch match;
-        if (!regex_match(line, match, re)) {
+        if (!std::regex_match(line, match, re)) {
             DVPRINT("did not match line on %d:%s\n", lineNo, line.c_str());;
             // can't parse the line - luckily we can just *not* collect
             return val;
@@ -2881,19 +2881,19 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
     std::vector<int> ids;
 
     for (std::smatch match; !toParse.empty(); toParse = match.suffix().str()) {
-        if (regex_search(toParse, match, rangeRE)) {
+        if (std::regex_search(toParse, match, rangeRE)) {
             // range of ids
             auto a = atoi(match[1].str().c_str());
             auto b = atoi(match[4].str().c_str());
             for (auto i=a; i<=b; ++i) {
                 ids.push_back(i);
             }
-        } else if (regex_search(toParse, match, idRE)) {
+        } else if (std::regex_search(toParse, match, idRE)) {
             // lone id
             auto a = atoi(match[1].str().c_str());
             ids.push_back(a);
-        } else if (regex_search(toParse, match, regexRE) ||
-                   regex_search(toParse, match, regexREsq)) {
+        } else if (std::regex_search(toParse, match, regexRE) ||
+                   std::regex_search(toParse, match, regexREsq)) {
             // use thread find to get the matching threads
             hasPattern = true;
             auto pattern = match[1].str();
@@ -2940,7 +2940,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     static std::regex flagRE{R"(^\s*(-[a-z]+)($|(\s+)))"};
     std::string threadArgs{threadId};
 
-    for (std::smatch match; regex_search(threadArgs, match, flagRE); threadArgs=match.suffix().str()) {
+    for (std::smatch match; std::regex_search(threadArgs, match, flagRE); threadArgs=match.suffix().str()) {
         auto f = match[1].str();
         if (f == "-v") {
             doAnonymize = doCollect = false;

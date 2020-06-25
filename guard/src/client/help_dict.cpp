@@ -1063,6 +1063,9 @@ const char* const class_info_subcmd_threads_help[] = {
     "Summary: List threads.", "",
     "Usage: info threads",
     "Usage: info threads 2",
+    "Usage: info threads 1-4 6",
+    "Usage: info threads 2,4..8",
+    "Usage: info threads \"worker[0-9]\"",
     "Arguments: [-v] [-l] optional list of thread ids", "",
     "Description:",
     "List the known threads in the current process set.",
@@ -1071,8 +1074,12 @@ const char* const class_info_subcmd_threads_help[] = {
     "-l prints every thread on a separate line instead of collecting",
     "threads at the same location.",
     "With no thread ids, this command displays all known threads.",
-    "A subset of threads to display can be specified with a space separated",
-    "list of thread ids with ranges, e.g.: 2 4 7-10", nullptr};
+    "A subset of threads to display can be specified with a space or comma",
+    "separated list of thread ids with ranges, e.g.: 2 4 7-10",
+    "or 2,4,7..10    The list may also contain regular expressions within",
+    "quotes, e.g \"thead.*1\" or 'thread.*1' which will match the set of threads",
+    "returned by thread find.",
+    nullptr};
 
 /*
  * Class maint subcommands

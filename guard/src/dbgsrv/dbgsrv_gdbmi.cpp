@@ -2867,36 +2867,36 @@ static std::string collectThreadInfo(const std::string& val) {
 //   the name patterns do not match any threads.
 // \return the set of individual threads from the list
 std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string& error) {
-    std::vector<int> ids;
-
-    // note that all each of these RE contains tail that matches the next space or comma
+    // note that all each of these RE contains a tail that matches the next space or comma
     // in the list  (we add a space to the original string to simplify matching)
-    static std::regex rangeRE{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+)(,|(\s+,?)))"};  // 1-2, 1..2
-    static std::regex idRE{R"(^\s*(\d+)(,|(\s+,?)))"}; // 1
-    static std::regex regexRE{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\"(,|(\\s+,?))"};  // "re\"g\"ex"
-    static std::regex regexREsq{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'(,|(\\s+,?))"};    // 're\'g\'ex'
-    static std::regex threadFindRE{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
+    static auto rangeRE=std::regex{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+)(,|(\s+,?)))"};  // 1-2, 1..2
+    static auto idRE=std::regex{R"(^\s*(\d+)(,|(\s+,?)))"}; // 1
+    static auto regexRE=std::regex{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\"(,|(\\s+,?))"};  // "re\"g\"ex"
+    static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'(,|(\\s+,?))"};    // 're\'g\'ex'
+    static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
         
-    bool hasPattern = false;
+    auto hasPattern = false;
     auto toParse = std::string{threadId} + " ";
+
+    std::vector<int> ids;
 
     for (std::smatch match; !toParse.empty(); toParse = match.suffix().str()) {
         if (regex_search(toParse, match, rangeRE)) {
             // range of ids
-            int a = atoi(match[1].str().c_str());
-            int b = atoi(match[4].str().c_str());
-            for (int i=a; i<=b; ++i) {
+            auto a = atoi(match[1].str().c_str());
+            auto b = atoi(match[4].str().c_str());
+            for (auto i=a; i<=b; ++i) {
                 ids.push_back(i);
             }
         } else if (regex_search(toParse, match, idRE)) {
             // lone id
-            int a = atoi(match[1].str().c_str());
+            auto a = atoi(match[1].str().c_str());
             ids.push_back(a);
         } else if (regex_search(toParse, match, regexRE) ||
                    regex_search(toParse, match, regexREsq)) {
             // use thread find to get the matching threads
             hasPattern = true;
-            std::string pattern = match[1].str();
+            auto pattern = match[1].str();
             auto ev = findThread(pattern.c_str());
             if (ev->ev_event == DBGEV_THREADINFO && ev->ev_string) {
                 const char* findRes = ev->ev_string, *findEnd = findRes + strlen(findRes);

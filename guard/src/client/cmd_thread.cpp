@@ -40,8 +40,9 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
         return 1;
-    } else if (argc == 3 && strcmp(argv[1],"find") == 0) {
-        rep_set_t* rep_set = DbgFindThread(rec_set, argv[2]);
+    } else if (argc >= 3 && strcmp(argv[1],"find") == 0) {
+        auto arg = ArgsToString(argc-2, argv+2);
+        rep_set_t* rep_set = DbgFindThread(rec_set, arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
         // process replies
@@ -109,13 +110,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
-    std::string arg;
-    for (int i=1; i<argc; ++i) {
-        if (i > 1)
-            arg += " ";
-        arg += argv[i];
-    }
-
+    std::string arg = ArgsToString(argc-1, argv+1);
     rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
     ProcessErrorInRepSet(rep_set);

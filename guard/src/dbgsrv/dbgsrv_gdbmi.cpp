@@ -174,7 +174,9 @@ public:
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
     dbgevent_t *initDbgAttach(int pid, const char *prog);
-    std::vector<int> getThreadSet(const std::string& threadId, std::string& error);
+    std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
+    std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
+                                   bool &isVerbose);
 };
 }
 
@@ -2862,11 +2864,14 @@ static std::string collectThreadInfo(const std::string& val) {
 
 // translate an extended format thread list into the set of actual thread ids.
 // \param threadId the thread list, it recognizes: 1 2 3-4 5..6 "regex" 'regex' in a list
-//   using either spaces or commas as a separator
+//    using either spaces or commas as a separator
+// \param suffix if specified will be assigned and part of \a threadId that follows a
+//      thread specification.   If this value is null, any remaining text is an error.
 // \param error will be assigned an error message if the list cannot be parsed, or if
 //   the name patterns do not match any threads.
 // \return the set of individual threads from the list
-std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string& error) {
+std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string* suffix,
+                                        std::string& error) {
     // note that all each of these RE contains a tail that matches the next space or comma
     // in the list  (we add a space to the original string to simplify matching)
     static auto rangeRE=std::regex{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+)(,|(\s+,?)))"};  // 1-2, 1..2
@@ -2915,7 +2920,11 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
         toParse.erase(toParse.size()-1);
     }
 
-    if (!toParse.empty()) {
+    if (suffix) {
+        *suffix = toParse;
+    }
+
+    if (!suffix && !toParse.empty()) {
         error = "junk at end of thread list:\"" + toParse + "\"";
     } else if (hasPattern && ids.empty()) {
         // a just plain empty list is fine - it means all (at least with info threads)
@@ -2954,7 +2963,7 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
 
     // parse the thread list to get the real thread ids
     std::string error;
-    auto ids = getThreadSet(threadArgs.c_str(), error);
+    auto ids = getThreadSet(threadArgs.c_str(), nullptr, error);
 
     if (!error.empty()) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, error.c_str());
@@ -3051,7 +3060,7 @@ dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
 // -c (continue) displays error messages but keeps going
 // -v (verbose) a gdb4hpc extension - don't strip out hex values
 // also if the thread set is "all" we want to add a -ascending flag to keep the output sane.
-static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose) {
+std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     isSilent = isQuiet = isVerbose = false;
 
@@ -3059,17 +3068,16 @@ static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, boo
     std::ostringstream os;
     std::string arg;
 
-
-    bool inCommand = false, isAll = false, isAscending = false, isFirst = false;
+    bool inFlags = true, isAll = false, isAscending = false, isFirst = false;
     while ( is >> arg) {
         bool addArg = true;
         char c = arg[0];
-        if (inCommand) {}
+        if (!inFlags) {}
         else if (arg == "all") {
             isAll = true;
         } else if (isdigit(c)) {
         } else if (c != '-') {
-            inCommand = true;
+            inFlags = false;
             if (isAll && !isAscending) {
                 os << " -ascending";
             }
@@ -3085,11 +3093,10 @@ static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, boo
             // kept just for compatibility, this is the default behavior
             addArg = false;
         } else if (arg == "-v") {
-            // note (the client side currenly slaps this argument in first which
-            // would need to change if this function were to get persickety about this argument
-            // needing to be after the thread set or not defined multiple times.
             addArg = false;
             isVerbose = true;
+        } else {
+            return "error:unrecognized flag " + arg;
         }
 
         if (addArg) {
@@ -3098,6 +3105,26 @@ static std::string parseThreadApplyOp(const std::string& op, bool& isSilent, boo
         }
     }
 
+    if (isAll) {
+        return os.str();
+    }
+
+    // otherwise, pull find the set of threads
+    std::string command, error;
+    auto threadIds = getThreadSet(os.str(), &command, error);
+
+    if (!error.empty()) {
+        return "error:" + error;
+    } else if (threadIds.empty()) {
+        return "error:no threads specified for apply";
+    } else if (command.empty()) {
+        return "error:no command given for thread apply";
+    }
+
+    os.str("");
+    for (auto&& id : threadIds) os << id << " ";
+    os << command;
+                                      
     return os.str();
 }
 
@@ -3190,12 +3217,18 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
     bool isSilent = false, isQuiet = false, isVerbose = false;
     std::string op = parseThreadApplyOp(inOp, isSilent, isQuiet, isVerbose);
 
+    dbgevent_t* e = nullptr;
+
+    if (op.substr(0,6) == "error:") {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, op.substr(6).c_str());
+        return e;
+    }
+
     const char* cmd_args[3] = { "thread", "apply", op.c_str() };
 
     MICommand* cmd = CLIBypassc(3, cmd_args);
     SendMICommand(GDBMISession, cmd);
 
-    dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
         MICommandFree(cmd);

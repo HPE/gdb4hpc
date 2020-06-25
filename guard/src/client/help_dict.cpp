@@ -706,6 +706,7 @@ const char* const cmd_thread_help[] = {
     "Summary: apply a command to a set of threads.",
     "Usage: thread apply <thread-list> | all [-ascending] [-s] [-q] [-c] [-v] <command>",
     "Example command: thread apply all -s p i"
+    "Example command: thread apply 1 2-4 9..11 \"worker 1\\.[0-9]\" bt 1",
     "",
     "Description:",
     "Applies command to every thread in the selection list with the following flags",
@@ -718,6 +719,8 @@ const char* const cmd_thread_help[] = {
     "     each member of the procset.",
     "-c and -ascending (continue after error) and list in ascending order are the default behaviors",
     "     and are included for compatibility with gdb commands.",
+    "<thread-list> accepts the same syntax as info threads",
+    "<command> is any valid gdb command",
     "",
     "Summary: apply a command silently to all threads.",
     "Usage: taas [-q] [-c] [-v] <command>",

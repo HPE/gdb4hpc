@@ -100,9 +100,10 @@ struct dbginvoke {
     dbgfrontend_sw *d_frontend;  // debug frontend object
 
     // Extensions for client support
+    // FIXME: These should be marked private once this is turned into a class
     list_t *d_eventset_list;  // pending events
     list_t *d_bpset_list;     // current breakpoints
-    int d_global_bpset_id;    // PRIVATE TO DBG_CLIENT!!! Do not use!
+    int d_global_bp_set_id;    // private to dbg_client
 };
 typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
@@ -328,7 +329,7 @@ typedef struct {
     // client. These numbers are issued per dbginvoke_t object. The dbg_client
     // layer needs to remember to update these when returning the object to the
     // client layer.
-    int b_bp_id;  // The current breakpoint number
+    int b_bp_set_id;  // The current breakpoint number
 
     // group information
     bitset *b_group;  // All ranks that contain this breakpoint

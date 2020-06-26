@@ -174,6 +174,7 @@ public:
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
     dbgevent_t *initDbgAttach(int pid, const char *prog);
+    std::vector<int> getThreadSet(const std::string& threadId, std::string& error);
 };
 }
 
@@ -2833,7 +2834,7 @@ static std::string collectThreadInfo(const std::string& val) {
 
         // get the thread-id and location for this line
         std::smatch match;
-        if (!regex_match(line, match, re)) {
+        if (!std::regex_match(line, match, re)) {
             DVPRINT("did not match line on %d:%s\n", lineNo, line.c_str());;
             // can't parse the line - luckily we can just *not* collect
             return val;
@@ -2859,6 +2860,74 @@ static std::string collectThreadInfo(const std::string& val) {
     return os.str();
 }
 
+// translate an extended format thread list into the set of actual thread ids.
+// \param threadId the thread list, it recognizes: 1 2 3-4 5..6 "regex" 'regex' in a list
+//   using either spaces or commas as a separator
+// \param error will be assigned an error message if the list cannot be parsed, or if
+//   the name patterns do not match any threads.
+// \return the set of individual threads from the list
+std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string& error) {
+    // note that all each of these RE contains a tail that matches the next space or comma
+    // in the list  (we add a space to the original string to simplify matching)
+    static auto rangeRE=std::regex{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+)(,|(\s+,?)))"};  // 1-2, 1..2
+    static auto idRE=std::regex{R"(^\s*(\d+)(,|(\s+,?)))"}; // 1
+    static auto regexRE=std::regex{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\"(,|(\\s+,?))"};  // "re\"g\"ex"
+    static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'(,|(\\s+,?))"};    // 're\'g\'ex'
+    static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
+        
+    auto hasPattern = false;
+    auto toParse = std::string{threadId} + " ";
+
+    std::vector<int> ids;
+
+    for (std::smatch match; !toParse.empty(); toParse = match.suffix().str()) {
+        if (std::regex_search(toParse, match, rangeRE)) {
+            // range of ids
+            auto a = atoi(match[1].str().c_str());
+            auto b = atoi(match[4].str().c_str());
+            for (auto i=a; i<=b; ++i) {
+                ids.push_back(i);
+            }
+        } else if (std::regex_search(toParse, match, idRE)) {
+            // lone id
+            auto a = atoi(match[1].str().c_str());
+            ids.push_back(a);
+        } else if (std::regex_search(toParse, match, regexRE) ||
+                   std::regex_search(toParse, match, regexREsq)) {
+            // use thread find to get the matching threads
+            hasPattern = true;
+            auto pattern = match[1].str();
+            auto ev = findThread(pattern.c_str());
+            if (ev->ev_event == DBGEV_THREADINFO && ev->ev_string) {
+                const char* findRes = ev->ev_string, *findEnd = findRes + strlen(findRes);
+                for (std::cregex_iterator it(findRes,findEnd,threadFindRE), end;
+                     it != end; ++it) {
+                    ids.push_back(atoi((*it)[2].str().c_str()));
+                }
+            }
+        } else {
+            break;              // the next thing isn't parse-able
+        }
+    }
+
+    if (!toParse.empty()) {
+        // remove the space we added to ease parsing.
+        toParse.erase(toParse.size()-1);
+    }
+
+    if (!toParse.empty()) {
+        error = "junk at end of thread list:\"" + toParse + "\"";
+    } else if (hasPattern && ids.empty()) {
+        // a just plain empty list is fine - it means all (at least with info threads)
+        error = "no threads match the pattern";
+    }
+
+    return ids;
+}
+
+
+// get a listing of either all available threads or a subset depending on the arguments
+// in \a threadId
 dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     DVPRINT("*** Dbg %s, %s, threadId(%s)\n", __FILE__, __func__, threadId);
 
@@ -2867,31 +2936,39 @@ dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
     bool doAnonymize = true;
     bool doCollect = true;
 
-    // parse the input for the info threads command
-    std::vector<std::string> args{"info", "threads"};
-    std::regex rangeRE(R"((\d+)-(\d+))");
-    std::smatch match;
+    // process the flags first
+    static std::regex flagRE{R"(^\s*(-[a-z]+)($|(\s+)))"};
+    std::string threadArgs{threadId};
 
-    std::istringstream argStream(threadId);
-    std::string arg;
-    while (argStream >> arg) {
-        if (arg == "-v") {
+    for (std::smatch match; std::regex_search(threadArgs, match, flagRE); threadArgs=match.suffix().str()) {
+        auto f = match[1].str();
+        if (f == "-v") {
             doAnonymize = doCollect = false;
-        } else if (arg == "-l") {
+        } else if (f == "-l") {
             doCollect = false;
-        } else if (regex_match(arg, match, rangeRE)) {
-            int a = atoi(match[1].str().c_str());
-            int b = atoi(match[2].str().c_str());
-            for (int i=a; i<=b; ++i) {
-                args.push_back(std::to_string(i));
-            }
         } else {
-            args.push_back(arg);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "unrecognized flag %s", f.c_str());
+            DVPRINT("unrecognized flag %s\n", f.c_str());
         }
     }
 
+    // parse the thread list to get the real thread ids
+    std::string error;
+    auto ids = getThreadSet(threadArgs.c_str(), error);
+
+    if (!error.empty()) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, error.c_str());
+        return e;
+    }
+
+    // get the arguments ready
+    std::vector<std::string> args{"info", "threads"};
+    std::transform(ids.begin(), ids.end(), std::back_inserter(args),
+                   [](int i) { return std::to_string(i); });
+
     std::vector<const char*> cargs;
-    std::transform(args.begin(), args.end(), std::back_inserter(cargs), [](const std::string& s) { return s.c_str(); });
+    std::transform(args.begin(), args.end(), std::back_inserter(cargs),
+                   [](const std::string& s) { return s.c_str(); });
 
     // get the result from gdb
     MICommand* cmd = CLIBypassc(cargs.size(), &cargs[0]);

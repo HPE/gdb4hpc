@@ -36,6 +36,13 @@ echo "Install dir: \"$install_dir\""
 mkdir -p $install_dir
 check_exit_status
 
+# ensure python3 exists
+python_loc=$(command -v python3)
+if [[ ! -x "$python_loc" ]]; then
+    echo "python3 not found on system..."
+    exit 1
+fi
+
 echo "############################################"
 echo "#               Building libaif            #"
 echo "############################################"
@@ -91,13 +98,6 @@ echo "############################################"
 #       the release process to be defined properly; at that juncture it may be
 #       possible that we replace the gdb backend builds here with a separate rpm
 #       of gdb backends included in the build prep.
-
-# ensure python3 exists
-python_loc=$(command -v python3)
-if [[ ! -x "$python_loc" ]]; then
-    echo "python3 not found on system..."
-    exit 1
-fi
 
 # ensure submodule is checked out
 if [[ ! -f $top_level/external/ddt_gdb-8.1/README ]]; then
@@ -189,9 +189,10 @@ fi
 
 
 echo "############################################"
-echo "#          Building ROCgdb alpha           #"
+echo "#          Building ROCgdb ROCm 3.5.0      #"
 echo "############################################"
 
+ROCgdb_dir=$top_level/external/ROCgdb
 # we've already ensured python3 exists, just noting it's necessary here too.
 # ensure submodule is checked out
 if [[ ! -f $top_level/external/ROCgdb/README ]]; then
@@ -199,25 +200,27 @@ if [[ ! -f $top_level/external/ROCgdb/README ]]; then
     exit 1
 fi
 
-cd $top_level/external/ROCgdb
-check_exit_status
-
 #ROCgdb requires the "amdgcn-amd-amdhsa" target in order to support gpu
 #debugging.  However, because this breaks all of our other builds, we're taking
 #it out here to allow the automated builds to work.  At some point, we'll need
 #to figure out how to get this to build in a separate rpm of gdb backends.
-ROCgdb_install_dir=$install_dir/ROCgdb_install
 arch_targets=
 if [[ -f "/etc/os-release" ]]; then
     source /etc/os-release
-    if   [[ "$ID$VERSION_ID" == "centos7" ]]; then
+    if   [[ "$ID$VERSION_ID" == "centos7" || "$ID$VERSION_ID" == "centos8" ]]; then
         arch_targets="x86_64-linux-gnu,amdgcn-amd-amdhsa"
     else
         arch_targets="x86_64-linux-gnu"
     fi
 fi
 
-LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" ./configure \
+ROCgdb_install_dir=$install_dir/ROCgdb_install
+mkdir -p $ROCgdb_install_dir
+check_exit_status
+cd $ROCgdb_install_dir
+check_exit_status
+
+LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" $ROCgdb_dir/configure \
             --program-prefix=ROC \
             --prefix=$ROCgdb_install_dir \
             --with-gdb-datadir=$ROCgdb_install_dir/share/ROCgdb \
@@ -225,6 +228,7 @@ LDFLAGS="-Wl,-rpath,/opt/cray/pe/gcc-libs" ./configure \
             --with-expat=/usr/lib64 \
             --with-python=$python_loc \
             --with-lzma \
+            --with-rocm-dbgapi=/opt/rocm \
             --with-system-zlib \
             --enable-64-bit-bfd \
             --enable-targets=$arch_targets \
@@ -241,15 +245,8 @@ check_exit_status
 make $cdst_j_flags
 check_exit_status
 
-# as in ddt_gdb-8.1, the ROCgdb build comes with LOTS of extra stuff: we don't
-# want all of it, so we only install from the gdb directory.
-cd $top_level/external/ROCgdb/gdb
-check_exit_status
-make $cdst_j_flags install
-check_exit_status
-
 # deliver ROCgdb to libexec dir
-cp -a $ROCgdb_install_dir/bin/ROCgdb $install_dir/libexec/ROCgdb-guard
+cp -a $ROCgdb_install_dir/gdb/gdb $install_dir/libexec/ROCgdb-guard
 check_exit_status
 
 

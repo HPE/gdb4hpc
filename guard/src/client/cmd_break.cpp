@@ -17,7 +17,6 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <assert.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -95,17 +94,17 @@ force_pending_break:
         if (bpset->b_bp_pending) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Breakpoint %d: Pending at %s%s.\n",
-                                bpset->b_bp_id, bpset->b_loc_stmt, bpThread.c_str());
+                                bpset->b_bp_set_id, bpset->b_loc_stmt, bpThread.c_str());
         }
         else if (bpset->b_loc_line >= 0) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Breakpoint %d: file %s, line %d%s.\n",
-                                bpset->b_bp_id, bpset->b_loc_file,
+                                bpset->b_bp_set_id, bpset->b_loc_file,
                                 bpset->b_loc_line, bpThread.c_str());
         }
         else {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Breakpoint %d in %s%s\n", bpset->b_bp_id,
+                                "Breakpoint %d in %s%s\n", bpset->b_bp_set_id,
                                 bpset->b_loc_func, bpThread.c_str());
         }
     }
@@ -192,9 +191,18 @@ force_pending_tbreak:
                          NewGroupReceiver(reply->rep_di, reply->rep_group));
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
-        assert(bpset != nullptr);
+        if (bpset == NULL)  // this is not supposed to happen
+        {
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                  "ERROR: cannot find breakpoint [%d: file %s, "
+                                  "line %d] in BPSetList.\n",
+                                  bp->bp_id, bp->bp_loc.loc_file,
+                                  bp->bp_loc.loc_line);
+            FreeRecSet(new_rec);
+            continue;
+        }
 
-        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_id, false, true)) != nullptr) {
+        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_set_id, false, true)) != NULL) {
             ProcessErrorInRepSet(enb_rep);
             PrintOutError("ERROR: Could not set temporary breakpoint.\n");
             FreeRepSet(enb_rep);
@@ -213,17 +221,17 @@ force_pending_tbreak:
         if (bpset->b_bp_pending) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Temporary breakpoint %d: Pending at %s%s.\n",
-                                bpset->b_bp_id, bpset->b_loc_stmt, bpThread.c_str());
+                                bpset->b_bp_set_id, bpset->b_loc_stmt, bpThread.c_str());
         }
         else if (bpset->b_loc_line >= 0) {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Temporary breakpoint %d: file %s, line %d%s.\n",
-                                bpset->b_bp_id, bpset->b_loc_file,
+                                bpset->b_bp_set_id, bpset->b_loc_file,
                                 bpset->b_loc_line, bpThread.c_str());
         } else {
             PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                 "Temporary breakpoint %d in %s%s\n",
-                                bpset->b_bp_id, bpset->b_loc_func,
+                                bpset->b_bp_set_id, bpset->b_loc_func,
                                 bpThread.c_str());
         }
     }
@@ -301,24 +309,24 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
             case DBGBP_WATCH_TYPE:
                 PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                     "Watchpoint %d: Set on variable %s\n",
-                                    bpset->b_bp_id, bpset->b_bp_exp);
+                                    bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             case DBGBP_AWATCH_TYPE:
                 PrintMsgWithSetInfo(
                     reply->rep_di->d_handle, reply->rep_group,
                     "Access Watchpoint %d: Set on variable %s\n",
-                    bpset->b_bp_id, bpset->b_bp_exp);
+                    bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             case DBGBP_RWATCH_TYPE:
                 PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                     "Read Watchpoint %d: Set on variable %s\n",
-                                    bpset->b_bp_id, bpset->b_bp_exp);
+                                    bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             default:
                 PrintMsgWithSetInfo(
                     reply->rep_di->d_handle, reply->rep_group,
                     "Unknown Watchpoint %d: Set on variable %s\n",
-                    bpset->b_bp_id, bpset->b_bp_exp);
+                    bpset->b_bp_set_id, bpset->b_bp_exp);
             }
         } else {
             PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
@@ -478,7 +486,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
         ResetBPSetList(recv_ptr->rec_di);
         while ((bpset = GetNextBPSet(recv_ptr->rec_di)) != NULL) {
-            if (bid > 0 && bpset->b_bp_id != bid) continue;
+            if (bid > 0 && bpset->b_bp_set_id != bid) continue;
 
             group = bitset_and(bpset->b_group, recv_ptr->rec_group);
 
@@ -509,7 +517,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // First print out watchpoints that are enabled
                             PrintMsgWithSetInfo(
                                 recv_ptr->rec_di->d_handle, enabled_group,
-                                "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_id,
+                                "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_set_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "y",
                                 bpset->b_bp_exp);
@@ -523,7 +531,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // Next print out watchpoints that are disabled
                             PrintMsgWithSetInfo(
                                 recv_ptr->rec_di->d_handle, disabled_group,
-                                "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_id,
+                                "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_set_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "n",
                                 bpset->b_bp_exp);;
@@ -552,7 +560,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, enabled_group,
                                     "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "y",
                                     bpset->b_loc_stmt, bpThread.c_str());
@@ -568,7 +576,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, disabled_group,
                                     "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "n",
                                     bpset->b_loc_stmt, bpThread.c_str());
@@ -580,7 +588,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, enabled_group,
                                     "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "y",
                                     bpset->b_loc_func, bpset->b_loc_file,
@@ -597,7 +605,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, disabled_group,
                                     "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "n",
                                     bpset->b_loc_func, bpset->b_loc_file,
@@ -609,7 +617,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, enabled_group,
                                     "\t%-3d %-14s %-4s %-3s in %s%s\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "y",
                                     bpset->b_loc_func, bpThread.c_str());
@@ -625,7 +633,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 PrintMsgWithSetInfo(
                                     recv_ptr->rec_di->d_handle, disabled_group,
                                     "\t%-3d %-14s %-4s %-3s in %s%s\n",
-                                    bpset->b_bp_id,
+                                    bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
                                     BPDispToStr(disp_set->b_bp_disp), "n",
                                     bpset->b_loc_func, bpThread.c_str());
@@ -642,7 +650,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
             bitset_free(group);
 
-            if (bid >= 0 && bpset->b_bp_id == bid) break;
+            if (bid >= 0 && bpset->b_bp_set_id == bid) break;
         }
     }
 

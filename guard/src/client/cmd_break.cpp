@@ -30,7 +30,7 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *s;
     char *file;
     char *arg;
-    rep_set_t *rep_set = NULL;
+    rep_set_t *rep_set = nullptr;
     bp_set_t *bpset;
     dbgbp_t *bp;
 
@@ -57,11 +57,11 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     arg = strdup(argv[1]);
 
-    if ((s = strchr(arg, ':')) != NULL) {
+    if ((s = strchr(arg, ':')) != nullptr) {
         file = arg;
         *s++ = '\0';
     } else {
-        file = NULL;
+        file = nullptr;
         s = arg;
     }
 
@@ -84,7 +84,15 @@ force_pending_break:
         bp = EVENT_BP(reply->rep_event);
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
-        assert(bpset != nullptr);
+        if (bpset == nullptr)  // this is not supposed to happen
+        {
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                  "ERROR: cannot find breakpoint [%d: file %s, "
+                                  "line %d] in BPSetList.\n",
+                                  bp->bp_id, bp->bp_loc.loc_file,
+                                  bp->bp_loc.loc_line);
+            continue;
+        }
 
         std::string bpThread;
         if (bpset->b_thread_id > 0) {
@@ -157,11 +165,11 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     arg = strdup(argv[1]);
 
-    if ((s = strchr(arg, ':')) != NULL) {
+    if ((s = strchr(arg, ':')) != nullptr) {
         file = arg;
         *s++ = '\0';
     } else {
-        file = NULL;
+        file = nullptr;
         s = arg;
     }
 
@@ -191,7 +199,7 @@ force_pending_tbreak:
                          NewGroupReceiver(reply->rep_di, reply->rep_group));
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
-        if (bpset == NULL)  // this is not supposed to happen
+        if (bpset == nullptr)  // this is not supposed to happen
         {
             PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                   "ERROR: cannot find breakpoint [%d: file %s, "
@@ -202,7 +210,7 @@ force_pending_tbreak:
             continue;
         }
 
-        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_set_id, false, true)) != NULL) {
+        if ((enb_rep = DbgEnableBreak(new_rec, bpset->b_bp_set_id, false, true)) != nullptr) {
             ProcessErrorInRepSet(enb_rep);
             PrintOutError("ERROR: Could not set temporary breakpoint.\n");
             FreeRepSet(enb_rep);
@@ -365,7 +373,7 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgDeleteBreak(rec_set, bp_id)) != NULL) {
+    if ((rep_set = DbgDeleteBreak(rec_set, bp_id)) != nullptr) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
 
@@ -389,7 +397,7 @@ static int cmd_disable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgDisableBreak(rec_set, bp_id)) != NULL) {
+    if ((rep_set = DbgDisableBreak(rec_set, bp_id)) != nullptr) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
 
@@ -438,7 +446,7 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgEnableBreak(rec_set, bp_id, once, delete_cmd)) != NULL) {
+    if ((rep_set = DbgEnableBreak(rec_set, bp_id, once, delete_cmd)) != nullptr) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
 
@@ -470,14 +478,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
     // Need to loop over each di in the rec_set
     SetReceiverHeadInSet(rec_set);
-    while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL) {
+    while ((recv_ptr = GetNextReceiverInSet(rec_set)) != nullptr) {
         if (EmptyBPSetList(recv_ptr->rec_di)) {
             PrintMsgWithSetInfo(recv_ptr->rec_di->d_handle, recv_ptr->rec_group,
                                 "No breakpoints or watchpoints.\n");
             continue;
         }
 
-        if (bid > 0 && (bpset = FindBPSetByID(recv_ptr->rec_di, bid)) == NULL) {
+        if (bid > 0 && (bpset = FindBPSetByID(recv_ptr->rec_di, bid)) == nullptr) {
             PrintErrorWithSetInfo(
                 recv_ptr->rec_di->d_handle, recv_ptr->rec_group,
                 "No breakpoint or watchpoint number %d.\n", bid);
@@ -485,7 +493,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
         }
 
         ResetBPSetList(recv_ptr->rec_di);
-        while ((bpset = GetNextBPSet(recv_ptr->rec_di)) != NULL) {
+        while ((bpset = GetNextBPSet(recv_ptr->rec_di)) != nullptr) {
             if (bid > 0 && bpset->b_bp_set_id != bid) continue;
 
             group = bitset_and(bpset->b_group, recv_ptr->rec_group);
@@ -508,7 +516,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     // loop over the disposition list
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
-                                bpset->b_bp_disp)) != NULL) {
+                                bpset->b_bp_disp)) != nullptr) {
                         disp_group = bitset_and(disp_set->b_group, group);
                         enabled_group =
                             bitset_and(bpset->b_bp_enabled, disp_group);
@@ -549,7 +557,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     // loop over the disposition list
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
-                                bpset->b_bp_disp)) != NULL) {
+                                bpset->b_bp_disp)) != nullptr) {
                         disp_group = bitset_and(disp_set->b_group, group);
                         enabled_group =
                             bitset_and(bpset->b_bp_enabled, disp_group);
@@ -714,14 +722,14 @@ void InitCmd_break(void) {
                cmd_break_help, "Set breakpoint at specified line or function.");
     AddCommand("delete", "d", proc_required, 0, cmd_delete_cmd,
                cmd_delete_help, "Delete a breakpoint.");
-    AddCommand("disable", NULL, proc_required, 0, cmd_disable_cmd,
+    AddCommand("disable", nullptr, proc_required, 0, cmd_disable_cmd,
                cmd_disable_help, "Disable a breakpoint.");
-    AddCommand("enable", NULL, proc_required, 0, cmd_enable_cmd,
+    AddCommand("enable", nullptr, proc_required, 0, cmd_enable_cmd,
                cmd_enable_help, "Enable a breakpoint.");
-    AddCommand("tbreak", NULL, proc_required, 0, cmd_tbreak_cmd,
+    AddCommand("tbreak", nullptr, proc_required, 0, cmd_tbreak_cmd,
                cmd_tbreak_help,
                "Set a temporary breakpoint at specified line or function.");
-    AddCommand("watch", NULL, proc_required, 0, cmd_watch_cmd,
+    AddCommand("watch", nullptr, proc_required, 0, cmd_watch_cmd,
                cmd_watch_help, "Set watchpoint on specified expression.");
 
     // info commands

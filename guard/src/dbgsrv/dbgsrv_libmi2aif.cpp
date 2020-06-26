@@ -149,7 +149,6 @@ static AIFStream *GetSimpleAIF(MISession *, MIVar *);
 static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>);
 static struct_info_t *GetStructInfo(MISession *, char *);
 static AIFStream *GetStructAIF(MISession *, MIVar *);
-static AIFStream *GetClassAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
 static AIFStream *GetArrayAIF(MISession *, std::shared_ptr<MIVar>);
 static AIFStream *GetVectorLikeAIF(MISession *, std::shared_ptr<MIVar>);
@@ -807,7 +806,7 @@ static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) 
                 // name can't be broken down further.  So whatis("MyStruct") == "MyStruct"
                 DVPRINT("GetComplexAIF: Creating AIF class.\n");
                 free(pt);
-                id = T_CLASS;
+                id = T_STRUCT;
                 break;
             } 
 
@@ -850,15 +849,11 @@ static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) 
             break;
 
         case T_STRUCT:
+        case T_CLASS:
         // Pretend a derived type is a struct
         case T_FTNDTYPE:
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
             a = GetStructAIF(session, var.get());
-            break;
-
-        case T_CLASS:
-            DVPRINT("GetComplexAIF: Creating AIF class.\n");
-            a = GetClassAIF(session, var.get());
             break;
 
         case T_STD_VECTOR:
@@ -3328,59 +3323,9 @@ static AIF *CreateSimpleAIF(int id, char *res, char *type_str, int type_len,
 }
 
 /*
-** Create an AIF object that is the struct represented by the MIVar var.
+** Create an AIF object that is a struct or class represented by the MIVar var.
 */
 static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
-    MIVar *v;
-
-    DVPRINT("GetStructAIF: %s\n", var->name);
-
-    // get the base type for this struct
-    char* base_type = GetTypeName(var->type);
-    DVPRINT("GetStructAIF: Base type: %s\n", base_type);
-
-    AIF* a = EmptyStructToAIF(base_type);
-
-    // Resolve the child information for the var
-    if (MIVarGetChildren(session, var)) {
-        // error already set
-        AIFFree(a);
-        return NULL;
-    }
-
-    DVPRINT("GetStructAIF: Total number of children detected: %d\n",
-            var->numchild);
-
-    for (int i = 0; i < var->numchild; i++) {
-        DVPRINT("GetStructAIF: Resolving member %d\n", i + 1);
-        v = var->children[i];
-        // set the expr to the name of this member
-        v->expr = strdup(v->name);
-
-        // note: var owns the children - we can get away with creating a
-        // dummied up shared_ptr here because the enclosing stream (ac)
-        // is deleted before we exit this function.  i.e. we aren't trying to
-        // slice a struct... yet.
-        std::shared_ptr<MIVar> sv(v, [](MIVar*){});  
-        AIFStream* ac = GetAIF(session, sv);
-        if (!ac) {
-            DVPRINT(
-                "GetStructAIF: ERROR: Null aif object returned from GetAIF.\n");
-            AIFFree(a);
-            return nullptr;
-        }
-        DVPRINT("GetStructAIF: Adding AIF field for member %d.\n", i + 1);
-        AIFAddFieldToStruct(a, v->exp, ac->joinAIF());
-        delete ac;
-    }
-
-    return new AIFStream(a);
-}
-
-/*
-** Create an AIF object that is the class or C++ style struct represented by the MIVar var.
-*/
-static AIFStream *GetClassAIF(MISession *session, MIVar *var) {
     DVPRINT("GetStructAIF: %s\n", var->name);
 
     // get the base type for this struct
@@ -3390,6 +3335,7 @@ static AIFStream *GetClassAIF(MISession *session, MIVar *var) {
     AIF* a = EmptyStructToAIF(base_type);
 
     if (MIVarGetChildren(session,var)) {
+        DVPRINT("MIVarGetChildren failed\n");
         return new AIFStream(a);
     }
 
@@ -3398,7 +3344,7 @@ static AIFStream *GetClassAIF(MISession *session, MIVar *var) {
     for (int i=0; i<var->numchild; ++i) {
         auto child1 = var->children[i];
         if (child1->type == NULL) {
-            // child1 is public|proteted|private
+            // child1 is public|protected|private
             if (MIVarGetChildren(session,child1)) {
                 continue;
             }
@@ -3409,16 +3355,17 @@ static AIFStream *GetClassAIF(MISession *session, MIVar *var) {
                 child2->expr = strdup(child2->name);
 
                 std::shared_ptr<MIVar> sv(child2, [](MIVar*){});  
-                AIFStream* ac = GetAIF(session, sv);
-                AIFAddFieldToStruct(a, child2->exp, ac->joinAIF());
-                delete ac;
+                if (AIFStream* ac = GetAIF(session, sv)) {
+                    AIFAddFieldToStruct(a, child2->exp, ac->joinAIF());
+                    delete ac;
+                }
             }
         } else {
-            DVPRINT("expected all class members to be two levels deep");
             std::shared_ptr<MIVar> sv(child1, [](MIVar*){});  
-            AIFStream* ac = GetAIF(session, sv);
-            AIFAddFieldToStruct(a, child1->exp, ac->joinAIF());
-            delete ac;
+            if (AIFStream* ac = GetAIF(session, sv)) {
+                AIFAddFieldToStruct(a, child1->exp, ac->joinAIF());
+                delete ac;
+            }
         }
     }
 

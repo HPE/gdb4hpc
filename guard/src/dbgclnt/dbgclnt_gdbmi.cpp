@@ -643,7 +643,6 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     MICommandFree(cmd);
 
     list_t *parallel_entry_BP = NewList();
-    //TODO: not sure how to call DestroyList
 
     dbgbp_t *bp_res;
     for (auto&& str: parallel_entry_pt_strs) {
@@ -695,6 +694,8 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
             FreeBP(bp);
         }
     }
+
+    DestroyList(parallel_entry_BP, NULL);
 
     // startup function was found
     return NewEvent(DBGEV_OK);

@@ -624,72 +624,13 @@ static const std::array<std::string, 16> parallel_entry_pt_strs
 
     "shmem_init"
 };
-static dbgbp_t *get_dbgbp(MICommand *cmd) {
-    DPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgbp_t *bp;
-    MIBreakpoint *bpt;
-    MIList *bpts;
 
-    if (cmd == NULL) return NULL;
-
-    bpts = MIBreakpointGetBreakInsertInfo(cmd);
-
-    if (bpts == NULL) {
-        return NULL;
-    }
-
-    MIListSet(bpts);
-    bpt = (MIBreakpoint *)MIListGet(bpts);
-
-    bp = NewBP(bpt->number);
-
-    if (bpt->isWpt) {
-        if (bpt->isWWpt) {
-            if (bpt->isRWpt)
-                bp->bp_type = DBGBP_AWATCH_TYPE;
-            else
-                bp->bp_type = DBGBP_WATCH_TYPE;
-        } else if (bpt->isRWpt) {
-            bp->bp_type = DBGBP_RWATCH_TYPE;
-        } else {
-            bp->bp_type = DBGBP_WATCH_TYPE;
-        }
-    } else {
-        bp->bp_type = DBGBP_BREAK_TYPE;
-    }
-
-    bp->bp_enabled = bpt->enabled;
-
-    // set the breakpoint disposition
-    if (strncmp(bpt->disp, "keep", 4) == 0)
-        bp->bp_disp = DBGBP_KEEP_DISP;
-    else if (strncmp(bpt->disp, "del", 3) == 0)
-        bp->bp_disp = DBGBP_DELETE_DISP;
-    else if (strncmp(bpt->disp, "dis", 3) == 0)
-        bp->bp_disp = DBGBP_DISABLE_DISP;
-    else
-        bp->bp_disp = DBGBP_UNKNOWN_DISP;
-
-    bp->bp_loc.loc_line = bpt->line;
-    if (bpt->file != NULL) bp->bp_loc.loc_file = strdup(bpt->file);
-    if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
-    if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
-
-    DPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
-    //DPRINT("%s: DumpingBP:", __func__);
-    //DumpBP(bp);
-
-    MIListFree(bpts, (void (*)())MIBreakpointFree);
-
-    return bp;
-}
 static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     MISession *sess = (MISession *)fe_obj->dbg_session;
     dbgevent_t *e;
     MICommand *cmd;
 
     DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
-    printf("*** DbgGDBMICheckStartupFunc_fe\n");
 
     // set the lang to c. We always want to do this!!
     cmd = MIGDBSet("lang", "c");
@@ -757,4 +698,64 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
 
     // startup function was found
     return NewEvent(DBGEV_OK);
+}
+
+static dbgbp_t *get_dbgbp(MICommand *cmd) {
+    DPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    dbgbp_t *bp;
+    MIBreakpoint *bpt;
+    MIList *bpts;
+
+    if (cmd == NULL) return NULL;
+
+    bpts = MIBreakpointGetBreakInsertInfo(cmd);
+
+    if (bpts == NULL) {
+        return NULL;
+    }
+
+    MIListSet(bpts);
+    bpt = (MIBreakpoint *)MIListGet(bpts);
+
+    bp = NewBP(bpt->number);
+
+    if (bpt->isWpt) {
+        if (bpt->isWWpt) {
+            if (bpt->isRWpt)
+                bp->bp_type = DBGBP_AWATCH_TYPE;
+            else
+                bp->bp_type = DBGBP_WATCH_TYPE;
+        } else if (bpt->isRWpt) {
+            bp->bp_type = DBGBP_RWATCH_TYPE;
+        } else {
+            bp->bp_type = DBGBP_WATCH_TYPE;
+        }
+    } else {
+        bp->bp_type = DBGBP_BREAK_TYPE;
+    }
+
+    bp->bp_enabled = bpt->enabled;
+
+    // set the breakpoint disposition
+    if (strncmp(bpt->disp, "keep", 4) == 0)
+        bp->bp_disp = DBGBP_KEEP_DISP;
+    else if (strncmp(bpt->disp, "del", 3) == 0)
+        bp->bp_disp = DBGBP_DELETE_DISP;
+    else if (strncmp(bpt->disp, "dis", 3) == 0)
+        bp->bp_disp = DBGBP_DISABLE_DISP;
+    else
+        bp->bp_disp = DBGBP_UNKNOWN_DISP;
+
+    bp->bp_loc.loc_line = bpt->line;
+    if (bpt->file != NULL) bp->bp_loc.loc_file = strdup(bpt->file);
+    if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
+    if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
+
+    DPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
+    //DPRINT("%s: DumpingBP:", __func__);
+    //DumpBP(bp);
+
+    MIListFree(bpts, (void (*)())MIBreakpointFree);
+
+    return bp;
 }

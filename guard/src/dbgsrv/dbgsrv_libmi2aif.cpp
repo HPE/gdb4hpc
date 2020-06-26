@@ -149,6 +149,7 @@ static AIFStream *GetSimpleAIF(MISession *, MIVar *);
 static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>);
 static struct_info_t *GetStructInfo(MISession *, char *);
 static AIFStream *GetStructAIF(MISession *, MIVar *);
+static AIFStream *GetClassAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
 static AIFStream *GetArrayAIF(MISession *, std::shared_ptr<MIVar>);
 static AIFStream *GetVectorLikeAIF(MISession *, std::shared_ptr<MIVar>);
@@ -792,19 +793,34 @@ static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
 
 static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) {
     int id;
-    int cnt = 0;
 
-    while ((id = GetComplexType(var->type)) == T_UNKNOWN) {
+    //--- Find the AIF type -----
+    // We allow multiple passes to break off extra type decoration.   I believe
+    // the LOOP_PREVENTION count was primarily in place because of the non-progress
+    // case that is now recognized as T_CLASS, but I'm not 100% sure so we'll leave it
+    // in a safety backup.
+    for (int cnt=0; cnt < LOOP_PREVENTION &&
+             ((id = GetComplexType(var->type)) == T_UNKNOWN); ++cnt) {
         if (char* pt = GetMIWhatisValue(session, NULL, var.get())) {
+            if (strcmp(pt, var->type) == 0) {
+                // C++ style struct and classes loop into here because the class type
+                // name can't be broken down further.  So whatis("MyStruct") == "MyStruct"
+                DVPRINT("GetComplexAIF: Creating AIF class.\n");
+                free(pt);
+                id = T_CLASS;
+                break;
+            } 
+
+            // otherwise, we have a hopefully simpler version of type, so give
+            // GetComplexType another chance.
             free(var->type);
             var->type = pt;
-            if (++cnt >= LOOP_PREVENTION) {
-                break;
-            }
-        } else
+        } else {
             break;
+        }
     }
 
+    //--- Create the AIF. ---- 
     AIFStream *a = nullptr;
     switch (id) {
         case T_ARRAY:
@@ -838,6 +854,11 @@ static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) 
         case T_FTNDTYPE:
             DVPRINT("GetComplexAIF: Creating AIF struct.\n");
             a = GetStructAIF(session, var.get());
+            break;
+
+        case T_CLASS:
+            DVPRINT("GetComplexAIF: Creating AIF class.\n");
+            a = GetClassAIF(session, var.get());
             break;
 
         case T_STD_VECTOR:
@@ -1973,6 +1994,7 @@ static int GetComplexType(const char *type) {
                 return T_STD_QUEUE;
         }
     }
+
     const char *t = &type[len - 1];
     const char *p;
     // Check for nvidia address space identifiers, we want to ignore these.
@@ -3354,6 +3376,55 @@ static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
 
     return new AIFStream(a);
 }
+
+/*
+** Create an AIF object that is the class or C++ style struct represented by the MIVar var.
+*/
+static AIFStream *GetClassAIF(MISession *session, MIVar *var) {
+    DVPRINT("GetStructAIF: %s\n", var->name);
+
+    // get the base type for this struct
+    char* base_type = GetTypeName(var->type);
+    DVPRINT("GetStructAIF: Base type: %s\n", base_type);
+
+    AIF* a = EmptyStructToAIF(base_type);
+
+    if (MIVarGetChildren(session,var)) {
+        return new AIFStream(a);
+    }
+
+    // The children of class objects are the visibility sections - as a first pass I will
+    // make no attempt to capture these in the AIF
+    for (int i=0; i<var->numchild; ++i) {
+        auto child1 = var->children[i];
+        if (child1->type == NULL) {
+            // child1 is public|proteted|private
+            if (MIVarGetChildren(session,child1)) {
+                continue;
+            }
+            DVPRINT("child %s has %d children\n", child1->name, child1->numchild);
+            
+            for (int j=0; j<child1->numchild; ++j) {
+                auto child2 = child1->children[j];
+                child2->expr = strdup(child2->name);
+
+                std::shared_ptr<MIVar> sv(child2, [](MIVar*){});  
+                AIFStream* ac = GetAIF(session, sv);
+                AIFAddFieldToStruct(a, child2->exp, ac->joinAIF());
+                delete ac;
+            }
+        } else {
+            DVPRINT("expected all class members to be two levels deep");
+            std::shared_ptr<MIVar> sv(child1, [](MIVar*){});  
+            AIFStream* ac = GetAIF(session, sv);
+            AIFAddFieldToStruct(a, child1->exp, ac->joinAIF());
+            delete ac;
+        }
+    }
+
+    return new AIFStream(a);
+}
+
 
 static struct_info_t *GetStructInfo(MISession *session, char *type_str) {
     MICommand *cmd;

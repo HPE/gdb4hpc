@@ -11,11 +11,6 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -269,6 +264,8 @@ int InitCmdToken(void) {
     if (AddCmdToken("absolute", CT_ABSOLUTE) < 0) return -1;
 
     if (AddCmdToken("assert", CT_ASSERT) < 0) return -1;
+
+    if (AddCmdToken("auto", CT_AUTO) < 0) return -1;
 
     if (AddCmdToken("dfmode", CT_DFMODE) < 0) return -1;
 

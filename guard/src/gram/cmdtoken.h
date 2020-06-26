@@ -11,11 +11,6 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifndef _CMDTOKEN_H
@@ -172,6 +167,7 @@
 #define CT_SET 220
 #define CT_TRUE 221
 #define CT_USING 222
+#define CT_AUTO 223
 
 typedef int ct_type;
 

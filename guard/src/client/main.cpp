@@ -11,11 +11,6 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -302,7 +297,7 @@ int main(int argc, char *argv[]) {
     ulp = nextafter(0.0, 0.1);
     Client.cmp_lower_eps = DoubleToAIF(ulp);
     Client.cmp_upper_eps = DoubleToAIF(ulp);
-    Client.brk_pending = 1;            // Allow pending breakpoints?
+    Client.brk_pending = PendingBrkType::Auto;  // Allow pending breakpoints?
 
     /*
     ** Set signal handlers.

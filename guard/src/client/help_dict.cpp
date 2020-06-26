@@ -1266,10 +1266,14 @@ const char* const class_set_print_subcmd_entryframe_help[] = {
 const char* const class_set_break_subcmd_pending_help[] = {
     "Summary: Set behavior of setting pending breakpoints.",
     "",
+    "Default setting: auto",
+    "Arguments: auto or on or off",
+    "",
     "Description:",
     "Set if pending breakpoints are enabled. If enabled an unrecognized breakpoint location",
     "will create a pending breakpoint. If disabled an unrecognized breakpoint location results",
-    "in an error.",
+    "in an error. If auto an unrecognized breakpoint location results in a user query to see if",
+    "a pending breakpoint should be created.",
     0};
 
 /*
@@ -1390,7 +1394,8 @@ const char* const class_show_break_subcmd_pending_help[] = {
     "Description:",
     "Display if pending breakpoints are enabled. If enabled an unrecognized breakpoint location",
     "will create a pending breakpoint. If disabled an unrecognized breakpoint location results",
-    "in an error.",
+    "in an error. If auto an unrecognized breakpoint location results in a user query to see if",
+    "a pending breakpoint should be created.",
     0};
 
 /*

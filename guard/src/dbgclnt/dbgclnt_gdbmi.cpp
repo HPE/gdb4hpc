@@ -40,6 +40,8 @@ static dbgevent_t *DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
 
+static dbgbp_t *get_dbgbp(MICommand *);
+
 /* auxiliary functions */
 /*
 static void		event_callback(MIEvent *);
@@ -600,167 +602,159 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
     return e;
 }
 
+static const std::array<std::string, 16> parallel_entry_pt_strs
+{
+    "PMI_Init",
+    "MPI_Init",
+    "__pgas_runtime_error_checking",
+    "PMI2_Init",
+    "MPI_INIT_THREAD__",
+
+    "MPI_INIT__",
+    "mpi_init__",
+    "mpi_init_thread__",
+    "MPI_INIT_THREAD_",
+    "MPI_INIT_",
+
+    "mpi_init_thread_",
+    "mpi_init_",
+    "MPI::Init",
+    "PMPI_Init",
+    "start_pes",
+
+    "shmem_init"
+};
+static dbgbp_t *get_dbgbp(MICommand *cmd) {
+    DPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    dbgbp_t *bp;
+    MIBreakpoint *bpt;
+    MIList *bpts;
+
+    if (cmd == NULL) return NULL;
+
+    bpts = MIBreakpointGetBreakInsertInfo(cmd);
+
+    if (bpts == NULL) {
+        return NULL;
+    }
+
+    MIListSet(bpts);
+    bpt = (MIBreakpoint *)MIListGet(bpts);
+
+    bp = NewBP(bpt->number);
+
+    if (bpt->isWpt) {
+        if (bpt->isWWpt) {
+            if (bpt->isRWpt)
+                bp->bp_type = DBGBP_AWATCH_TYPE;
+            else
+                bp->bp_type = DBGBP_WATCH_TYPE;
+        } else if (bpt->isRWpt) {
+            bp->bp_type = DBGBP_RWATCH_TYPE;
+        } else {
+            bp->bp_type = DBGBP_WATCH_TYPE;
+        }
+    } else {
+        bp->bp_type = DBGBP_BREAK_TYPE;
+    }
+
+    bp->bp_enabled = bpt->enabled;
+
+    // set the breakpoint disposition
+    if (strncmp(bpt->disp, "keep", 4) == 0)
+        bp->bp_disp = DBGBP_KEEP_DISP;
+    else if (strncmp(bpt->disp, "del", 3) == 0)
+        bp->bp_disp = DBGBP_DELETE_DISP;
+    else if (strncmp(bpt->disp, "dis", 3) == 0)
+        bp->bp_disp = DBGBP_DISABLE_DISP;
+    else
+        bp->bp_disp = DBGBP_UNKNOWN_DISP;
+
+    bp->bp_loc.loc_line = bpt->line;
+    if (bpt->file != NULL) bp->bp_loc.loc_file = strdup(bpt->file);
+    if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
+    if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
+
+    DPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
+    //DPRINT("%s: DumpingBP:", __func__);
+    //DumpBP(bp);
+
+    MIListFree(bpts, (void (*)())MIBreakpointFree);
+
+    return bp;
+}
 static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     MISession *sess = (MISession *)fe_obj->dbg_session;
-    MICommand *cmd;
     dbgevent_t *e;
-    int found = 0;
+    MICommand *cmd;
 
     DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
+    printf("*** DbgGDBMICheckStartupFunc_fe\n");
 
-    // On Cray systems, we require PMI_Init to exist otherwise the pmi_attribs
-    // file will never be created and the user will hang upon startup.
-    cmd = CLIWhatis("PMI_Init");
-
+    // set the lang to c. We always want to do this!!
+    cmd = MIGDBSet("lang", "c");
     SendMICommand_fe(sess, cmd);
-    if (MICommandResultOK(cmd)) {
-        found = 1;
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
+        return e;
     }
     MICommandFree(cmd);
 
-    // We should also check for other startup function names as well
-    if (!found) {
-        cmd = CLIWhatis("MPI_Init");
+    list_t *parallel_entry_BP = NewList();
+    //TODO: not sure how to call DestroyList
+
+    dbgbp_t *bp_res;
+    for (auto&& str: parallel_entry_pt_strs) {
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
         SendMICommand_fe(sess, cmd);
+        // Note we only want to insert the breakpoint into our internal list if the
+        // command succeeded. We expect many of these to fail.
         if (MICommandResultOK(cmd)) {
-            found = 1;
+            if ((bp_res = get_dbgbp(cmd)) != NULL) {
+                AddToList(parallel_entry_BP, (void *)bp_res);
+                break;
+            }
         }
         MICommandFree(cmd);
     }
 
-    if (!found) {
-        cmd = CLIWhatis("__pgas_runtime_error_checking");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
 
-    if (!found) {
-        cmd = CLIWhatis("PMI2_Init");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
+    // set the lang back to auto. We always want to do this!!
+    cmd = MIGDBSet("lang", "auto");
+    SendMICommand_fe(sess, cmd);
+    if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("MPI_INIT_THREAD__");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("MPI_INIT__");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("mpi_init__");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("mpi_init_thread__");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("MPI_INIT_THREAD_");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("MPI_INIT_");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("mpi_init_thread_");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("mpi_init_");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("MPI::Init");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("PMPI_Init");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("start_pes");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    if (!found) {
-        cmd = CLIWhatis("shmem_init");
-        SendMICommand_fe(sess, cmd);
-        if (MICommandResultOK(cmd)) {
-            found = 1;
-        }
-        MICommandFree(cmd);
-    }
-
-    // If we get here, no known startup function was found.
-    if (!found) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI_Init symbol!");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
         return e;
+    }
+    MICommandFree(cmd);
+
+    if (EmptyList(parallel_entry_BP) == 1) {
+        // If we get here, no known startup function was found.
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI or MPI entrypoint symbol!");
+        return e;
+    } else {
+        dbgbp_t *bp;
+        // If we get here, we found a known startup function. Clear the list, delete it.
+        SetList(parallel_entry_BP);
+        while ((bp = (dbgbp_t *)GetListElement(parallel_entry_BP)) != (dbgbp_t *)NULL) {
+            // send the delete command
+            cmd = MIBreakDelete(1, &bp->bp_id);
+            SendMICommand_fe(sess, cmd);
+            if (!MICommandResultOK(cmd)) {
+                MICommandFree(cmd);
+                EVENT_ERROR(e, DBGERR_NOBP, "Delete internal breakpoint failed.");
+                return e;
+            }
+            MICommandFree(cmd);
+
+            // remove the breakpoint from the internal list and delete it
+            RemoveFromList(parallel_entry_BP, (void *)bp);
+            FreeBP(bp);
+        }
     }
 
     // startup function was found
     return NewEvent(DBGEV_OK);
-    ;
 }

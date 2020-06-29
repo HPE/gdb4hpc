@@ -61,7 +61,7 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             e = DbgSetLineBreak(cmd->cmd_setlinebreak_allowPending,
                                 cmd->cmd_setlinebreak_file,
                                 cmd->cmd_setlinebreak_lno,
-                                cmd->cmd_setlinebreak_threadid, ci);
+                                cmd->cmd_setlinebreak_threadSet, ci);
             break;
 
         case DBGCMD_SETFUNCBREAK:
@@ -69,7 +69,7 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             e = DbgSetFuncBreak(cmd->cmd_setfuncbreak_allowPending,
                                 cmd->cmd_setfuncbreak_file,
                                 cmd->cmd_setfuncbreak_func,
-                                cmd->cmd_setfuncbreak_threadid, ci);
+                                cmd->cmd_setfuncbreak_threadSet, ci);
             break;
 
         case DBGCMD_SETWATCH:

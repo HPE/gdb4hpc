@@ -172,16 +172,16 @@ dbgevent_t *DbgStartup(void) {
     return DbgBackendSW->startup();
 }
 
-dbgevent_t *DbgSetLineBreak(int allowPending, char *file, int line, int threadId, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetLineBreak(int allowPending, char *file, int line, const char* threadSet, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setLineBreak(allowPending, file, line, threadId, ci);
+    return DbgBackendSW->setLineBreak(allowPending, file, line, threadSet, ci);
 }
 
-dbgevent_t *DbgSetFuncBreak(int allowPending, char *file, char *func, int threadId, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetFuncBreak(int allowPending, char *file, char *func, const char* threadSet, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setFuncBreak(allowPending, file, func, threadId, ci);
+    return DbgBackendSW->setFuncBreak(allowPending, file, func, threadSet, ci);
 }
 
 dbgevent_t *DbgSetWatch(int type, char *expr, const dbgcomm_info *ci) {

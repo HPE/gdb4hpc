@@ -34,17 +34,16 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     bp_set_t *bpset;
     dbgbp_t *bp;
 
-    int threadId = -1;
+    std::string threadSet;
 
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
         return 1;
-    } else if (argc == 4 &&
-               strcmp(argv[2],"thread") == 0 &&
-               IsInteger(argv[3])) {
-        threadId = atoi(argv[3]);
+    } else if (argc >= 4 &&
+               strcmp(argv[2],"thread") == 0) {
+        threadSet = ArgsToString(argc-3, argv+3);
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
@@ -70,9 +69,10 @@ force_pending_break:
     DPERFLOG(SetTimerStart("setbreak"));
 
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadSet.c_str());
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s,
+                                  threadSet.c_str());
     }
 
     DPERFLOG(SetTimerStopAndLog("setbreak"));
@@ -142,17 +142,16 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     bp_set_t *bpset;
     dbgbp_t *bp;
     rec_set_t *new_rec;
-    int threadId = -1;
+    std::string threadSet;
 
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: tbreak main.c:20\n");
         return 1;
-    } else if (argc == 4 &&
-               strcmp(argv[2],"thread") == 0 &&
-               IsInteger(argv[3])) {
-        threadId = atoi(argv[3]);
+    } else if (argc >= 4 &&
+               strcmp(argv[2],"thread") == 0) {
+        threadSet = ArgsToString(argc-3, argv+3);
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: tbreak main.c:20\n");
@@ -179,9 +178,11 @@ force_pending_tbreak:
 
     // Set the breakpoint
     if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadId);
+        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On),
+                                  file, atoi(s), threadSet.c_str());
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s, threadId);
+        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On),
+                                  file, s, threadSet.c_str());
     }
 
     DPERFLOG(SetTimerStopAndLog("settbreak"));

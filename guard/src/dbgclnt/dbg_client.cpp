@@ -3023,11 +3023,12 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line, int threadId) {
+rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line,
+                           const char* threadSet) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadId);
+    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -3045,11 +3046,12 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int lin
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func, int threadId) {
+rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func,
+                           const char* threadSet) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadId);
+    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 

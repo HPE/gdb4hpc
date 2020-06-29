@@ -2667,11 +2667,11 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
 
     switch (t2->t_type) {
         case TK_INT:
-            rep_set = DbgSetLineBreak(rec_set, 0, file, t2->t_int, -1);
+            rep_set = DbgSetLineBreak(rec_set, 0, file, t2->t_int, nullptr);
             break;
 
         case TK_STR:
-            rep_set = DbgSetFuncBreak(rec_set, 0, file, t2->t_str, -1);
+            rep_set = DbgSetFuncBreak(rec_set, 0, file, t2->t_str, nullptr);
             break;
 
         default:

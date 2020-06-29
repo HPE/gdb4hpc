@@ -113,8 +113,8 @@ public:
     virtual int read(int) override;
     virtual bool bufferReady() override;
     virtual int progioHook(int) override;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(const int allowPending, const char *file, int lno, int threadId, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setFuncBreak(const int allowPending, const char *file, char *func, int threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setLineBreak(const int allowPending, const char *file, int lno, const char* threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setFuncBreak(const int allowPending, const char *file, const char *func, const char* threadId, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *deleteBreak(int bid) override;
     virtual dbgevent_t *disableBreak(int bid) override;
@@ -169,7 +169,6 @@ public:
     virtual dbgevent_t *getSchedulerLocking() override;
     virtual dbgevent_t *setNonStop(const char* op) override;
     virtual dbgevent_t *getNonStop() override;
-
 
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
@@ -1487,7 +1486,8 @@ bool DbgGdbMI::bufferReady(void) {
 /*
 ** Set breakpoint at specified line.
 */
-dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int lno, int threadId, const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int lno,
+                                   const char* threadSet, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
     MICommand *cmd;
@@ -1510,6 +1510,22 @@ dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int
         len += strlen(file) + 2;
         where = (char *)Alloc(len);
         snprintf(where, len, "%s:%d", file, lno);
+    }
+
+    auto threadId = -1;
+    if (threadSet && strlen(threadSet)) {
+        std::string error;
+        auto threads = getThreadSet(threadSet, error);
+        if (!error.empty()) {
+            EVENT_ERROR(event, DBGERR_DEBUGGER, error.c_str());
+            return event;
+        } else if (threads.size() > 1) {
+            EVENT_ERROR(event, DBGERR_DEBUGGER,
+                        "setting a breakpoint for a group of threads is not yet implemented");
+            return event;
+        } else {
+            threadId = threads.front();
+        }
     }
 
     cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
@@ -1566,7 +1582,8 @@ dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int
 /*
 ** Set breakpoint at start of specified function.
 */
-dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, char *func, int threadId,
+dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, const char *func,
+                                   const char*  threadSet,
                                    const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *event;
@@ -1582,6 +1599,23 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, cha
         where = (char *)Alloc(len);
         snprintf(where, len, "%s:%s", file, func);
     }
+
+    auto threadId = -1;
+    if (threadSet && strlen(threadSet)) {
+        std::string error;
+        auto threads = getThreadSet(threadSet, error);
+        if (!error.empty()) {
+            EVENT_ERROR(event, DBGERR_DEBUGGER, error.c_str());
+            return event;
+        } else if (threads.size() > 1) {
+            EVENT_ERROR(event, DBGERR_DEBUGGER,
+                        "setting a breakpoint on a group of threads is not yet implemented");
+            return event;
+        } else {
+            threadId = threads.front();
+        }
+    }
+
 
     cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
     SendMICommand(GDBMISession, cmd);

@@ -492,8 +492,8 @@ extern rep_set_t *DbgGetType(rec_set_t *, char *, int);
 extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
-extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, int);
-extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, int);
+extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
+extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);

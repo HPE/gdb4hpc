@@ -625,12 +625,14 @@ static char *CmdArgsSetLineBreakToSocProto(va_list ap) {
     args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.lno = va_arg(ap, int);
-    args.threadId = va_arg(ap, int);
+    args.threadSet = va_arg(ap, char*);
 
     FMT_CHECK_NULL_STR(args.file);
 
-    Asprintf(&res, "%d %d %s %d %d", args.allowPending, (int)strlen(args.file), args.file, args.lno,
-             args.threadId);
+    Asprintf(&res, "%d %d %s %d %d %s", args.allowPending,
+             (int)strlen(args.file), args.file, args.lno,
+             args.threadSet ? strlen(args.threadSet) : 0,
+             args.threadSet ? args.threadSet : "");
 
     return res;
 }
@@ -642,13 +644,15 @@ static char *CmdArgsSetFuncBreakToSocProto(va_list ap) {
     args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.func = va_arg(ap, char *);
-    args.threadId = va_arg(ap, int);
+    args.threadSet = va_arg(ap, char*);
 
     FMT_CHECK_NULL_STR(args.file);
     FMT_CHECK_NULL_STR(args.func);
 
-    Asprintf(&res, "%d %d %s %d %s %d", args.allowPending, (int)strlen(args.file), args.file,
-             (int)strlen(args.func), args.func, args.threadId);
+    Asprintf(&res, "%d %d %s %d %s %d %s", args.allowPending, (int)strlen(args.file), args.file,
+             (int)strlen(args.func), args.func,
+             args.threadSet ? strlen(args.threadSet) : 0,
+             args.threadSet ? args.threadSet : "");
 
     return res;
 }
@@ -1797,7 +1801,7 @@ static cmdargs_setlinebreak *SocProtoToSetLineBreakArgs(char *s) {
     res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->lno = getint(&s);
-    res->threadId = getint(&s);
+    res->threadSet = getstring(&s);
 
     return res;
 }
@@ -1812,7 +1816,7 @@ static cmdargs_setfuncbreak *SocProtoToSetFuncBreakArgs(char *s) {
     res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->func = getstring(&s);
-    res->threadId = getint(&s);
+    res->threadSet = getstring(&s);
 
     return res;
 }

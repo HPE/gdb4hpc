@@ -25,10 +25,16 @@ launch $b{3} --launcher-args="--exclusive"  bd_dt/C++/cpp_ds_test1.x --debug
 
 
 # Set a breakpoint at specified line numbers:
-break cpp_ds_test1.cpp:61
+break cpp_ds_test1.cpp:77
+break cpp_ds_test1.cpp:83
 
+# Run to breakpoint 2:
+continue
 
-# Run to breakpoint 1:
+p s
+p c
+
+# Run to breakpoint 1
 continue
 
 
@@ -63,6 +69,9 @@ print q
 print d
 print vf
 print vd
+
+p s1
+p c1
 
 continue
 

@@ -9,12 +9,16 @@ Launch complete.
 %[
 <$b>:%.*%
 %]
-b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_ds_test1.cpp:13
-b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_ds_test1.cpp, line 61.
+b{0..2}: Initial breakpoint, main at %testdir/bd_dt/C++/cpp_ds_test1.cpp:26
+b{0..2}: Breakpoint 1: file %testdir/bd_dt/C++/cpp_ds_test1.cpp, line 77.
+b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_ds_test1.cpp, line 83.
 %[
 <$b>:%.*%
 %]
-b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_ds_test1.cpp:61
+b{0..2}: Breakpoint 2, f(Struct1 const&, Classy const&) at %testdir/bd_dt/C++/cpp_ds_test1.cpp:83
+b{0..2}: {x = 22.1, y = -5}
+b{0..2}: {x = 22.2, y = -6}
+b{0..2}: Breakpoint 1, main(int, char**) at %testdir/bd_dt/C++/cpp_ds_test1.cpp:77
 b{0..2}: 10
 b{0..2}: 9
 b{0..2}: 9
@@ -23,12 +27,14 @@ b{0..2}: 9
 b{0..2}: 9
 b{0..2}: 9.5
 b{0..2}: 9.5
-b{0..2}: Unsupported symbol type
+b{0..2}: {std::__cxx11::_List_base<int, std::allocator<int> > = {}}
 b{0..2}: [9,8,5,6,7,1,4,0,3,2]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]
 b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
 b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
+b{0..2}: {x = 22.1, y = -5}
+b{0..2}: {x = 22.2, y = -6}
 b{0..2}: The application has reached an exit breakpoint.
 Shutting down debugger and killing application for 'b'.

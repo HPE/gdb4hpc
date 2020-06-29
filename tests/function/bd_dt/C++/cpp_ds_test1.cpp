@@ -9,6 +9,19 @@
 #include <deque>
 #include <stack>
 #include <queue>
+struct Struct1 {
+  double x;
+  int y;
+};
+class Classy {
+public:
+  Classy(double ax, int ay) : x(ax), y(ay) {}
+private:
+  double x;
+  double y;
+};
+static void f(const Struct1& s, const Classy& c);
+
 int main(int argc, char ** argv){
 	int x[5] = {1,2,3,4,5};
 	MPI_Init(&argc, &argv);
@@ -57,7 +70,15 @@ int main(int argc, char ** argv){
 	int d_queue_tail=d.back();
 	float vec_float=vf.back();
 	double vec_double=vd.back();
-	
+	Struct1 s1 = { 22.1, -5 };
+	Classy c1(22.2, -6);
+	f(s1,c1);
+
 	MPI_Finalize();
 	return 0;
+}
+
+static void f(const Struct1& s, const Classy& c)
+{
+  int i = 0;
 }

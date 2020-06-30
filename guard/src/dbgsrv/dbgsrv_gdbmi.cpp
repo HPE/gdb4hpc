@@ -173,6 +173,8 @@ public:
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
     dbgevent_t *initDbgAttach(int pid, const char *prog);
+    dbgevent_t* setBreak(const int allowPending, const std::string& where,
+                         const char* threadSet, const dbgcomm_info* commInfo);
     std::vector<int> getThreadSet(const std::string& threadId, std::string& error);
 };
 }
@@ -1489,94 +1491,12 @@ bool DbgGdbMI::bufferReady(void) {
 dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int lno,
                                    const char* threadSet, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *event;
-    MICommand *cmd;
-    char *where;
-    char *opt2;
-    int tmp = lno, len = 0;
-
-    // determine digit length of integer
-    do {
-        ++len;
-    } while (tmp /= 10);
-
-    if (file == NULL || *file == '\0') {
-        // 1 for null term
-        ++len;
-        where = (char *)Alloc(len);
-        snprintf(where, len, "%d", lno);
-    } else {
-        // strlen of file plus null term and :
-        len += strlen(file) + 2;
-        where = (char *)Alloc(len);
-        snprintf(where, len, "%s:%d", file, lno);
+    auto where = std::to_string(lno);
+    if (file && file[0]) {
+        where = std::string{file} + ":" + where;
     }
 
-    auto threadId = -1;
-    if (threadSet && strlen(threadSet)) {
-        std::string error;
-        auto threads = getThreadSet(threadSet, error);
-        if (!error.empty()) {
-            EVENT_ERROR(event, DBGERR_DEBUGGER, error.c_str());
-            return event;
-        } else if (threads.size() > 1) {
-            EVENT_ERROR(event, DBGERR_DEBUGGER,
-                        "setting a breakpoint for a group of threads is not yet implemented");
-            return event;
-        } else {
-            threadId = threads.front();
-        }
-    }
-
-    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
-    SendMICommand(GDBMISession, cmd);
-
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        Free(where);
-
-        // If this error's out, try using the basename of the file instead
-        // XXX: This will not work properly if there are two source files in the
-        //      application with the same name. The full path based on the
-        //      source tree should be used in that case.
-        if (file != NULL && *file != '\0') {
-            char *file_cp = strdup(file);
-            opt2 = basename(file_cp);
-            where = (char *)Alloc(len);
-            snprintf(where, len, "%s:%d", opt2, lno);
-
-            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
-            SendMICommand(GDBMISession, cmd);
-
-            Free(file_cp);
-
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                Free(where);
-                // return the original error event
-                return event;
-            }
-
-            // This worked, so free the error event and continue on with the
-            // original code
-            FreeEvent(event);
-        } else {
-            return event;
-        }
-    }
-
-    event = CheckBreak(cmd, commInfo);
-
-    if (event == NULL) {
-        EVENT_ERROR(event, DBGERR_DEBUGGER,
-                    "Cannot create internal breakpoint.");
-    }
-
-    Free(where);
-    MICommandFree(cmd);
-
-    return event;
+    return setBreak(allowPending, where, threadSet, commInfo);
 }
 
 /*
@@ -1586,20 +1506,22 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, con
                                    const char*  threadSet,
                                    const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *event;
-    MICommand *cmd;
-    char *where;
-    char *opt2;
-    int len = 0;
-
-    if (file == NULL || *file == '\0') {
-        where = strdup(func);
+    assert(func!=nullptr);
+    
+    std::string where;
+    if (file && file[0]) {
+        where = std::string(file) + ":" + func;
     } else {
-        len = strlen(file) + strlen(func) + 2;  // 2 for null term and :
-        where = (char *)Alloc(len);
-        snprintf(where, len, "%s:%s", file, func);
+        where = func;
     }
 
+    return setBreak(allowPending, where, threadSet, commInfo);
+}
+
+dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
+                               const char*  threadSet,
+                               const dbgcomm_info *commInfo) {
+    dbgevent_t *event = nullptr;
     auto threadId = -1;
     if (threadSet && strlen(threadSet)) {
         std::string error;
@@ -1616,33 +1538,25 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, con
         }
     }
 
-
-    cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
+    auto cmd = MIBreakInsert(0, 0, allowPending, nullptr, 0, where.c_str(), threadId);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
-        Free(where);
 
         // If this error's out, try using the basename of the file instead
         // XXX: This will not work properly if there are two source files in the
         //      application with the same name. The full path based on the
         //      source tree should be used in that case.
-        if (file != NULL && *file != '\0') {
-            char *file_cp = strdup(file);
-            opt2 = basename(file_cp);
-            where = (char *)Alloc(len);
-            snprintf(where, len, "%s:%s", opt2, func);
-
-            cmd = MIBreakInsert(0, 0, allowPending, NULL, 0, where, threadId);
+        auto sloc = where.rfind('/');
+        if (sloc != std::string::npos) {
+            auto where2 = where.substr(sloc+1);
+            cmd = MIBreakInsert(0, 0, allowPending, nullptr, 0, where2.c_str(), threadId);
             SendMICommand(GDBMISession, cmd);
-
-            Free(file_cp);
 
             if (!MICommandResultOK(cmd)) {
                 MICommandFree(cmd);
-                Free(where);
                 // return the original error event
                 return event;
             }
@@ -1662,11 +1576,11 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, con
                     "Cannot create internal breakpoint.");
     }
 
-    Free(where);
     MICommandFree(cmd);
-
     return event;
 }
+
+
 
 /*
 ** Set watchpoint at specified expression.

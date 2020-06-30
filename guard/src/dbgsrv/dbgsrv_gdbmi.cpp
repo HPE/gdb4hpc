@@ -1540,20 +1540,25 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         }
     }
 
+    // -1 is the gdb/gdbmi indicator for a normal stop on all threads breakpoint
     if (threads.empty()) threads.push_back(-1);
 
     std::vector<int> bpIds;
-    dbgevent_t* event = nullptr;
+    using event_ptr = std::unique_ptr<dbgevent_t, decltype(&FreeEvent)>;
 
+    event_ptr event(nullptr,FreeEvent);
+
+    // gdb only implements a single thread breakpoint, so if have a thread set we will
+    // need to create multiple gdb breakpoints and track them.   
     for (auto&& threadId : threads) {
 
         auto cmd = MIBreakInsert(0, 0, allowPending, nullptr, 0, where.c_str(), threadId);
         SendMICommand(GDBMISession, cmd);
 
-        dbgevent_t* tbEvent = nullptr;
+        event_ptr tbEvent(nullptr,FreeEvent);
         
         if (!MICommandResultOK(cmd)) {
-            tbEvent = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            tbEvent.reset(NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd)));
 
             // Try the basename instead in case the file was compiled locally.
             auto sloc = where.rfind('/');
@@ -1565,46 +1570,37 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
                 SendMICommand(GDBMISession, cmd);
 
                 if (MICommandResultOK(cmd)) {
-                    FreeEvent(tbEvent);
-                    tbEvent = nullptr;
+                    tbEvent.reset();
                 }
             }
         }
 
         if (!tbEvent) {
-            tbEvent = CheckBreak(cmd, commInfo);
+            tbEvent.reset(CheckBreak(cmd, commInfo));
         }
 
         MICommandFree(cmd);
 
         if (!tbEvent) {
-            if (event)
-                FreeEvent(event);
-            event = NewErrorEvent(DBGERR_DEBUGGER, "Cannot create breakpoint.");
+            event.reset(NewErrorEvent(DBGERR_DEBUGGER, "Cannot create breakpoint."));
             break;
         } else {
             bpIds.push_back(EVENT_BP(tbEvent)->bp_id);
             if (!event) {
-                event = tbEvent;
-            } else {
-                FreeEvent(tbEvent);
-            }
+                event = std::move(tbEvent);
+            } 
         }
     } // for (threadId)
 
-    DVPRINT("event = %p\n", event);
-    DVPRINT("we have %d bpIds\n", bpIds.size());
-
     if (!event) {
-        event = NewErrorEvent(DBGERR_DEBUGGER, "Cannot create breakpoint.");
+        event.reset(NewErrorEvent(DBGERR_DEBUGGER, "Cannot create breakpoint."));
     }
 
     if (event->ev_event != DBGEV_BPSET) {
-        DVPRINT("Insertion failed removing %d breakpoints\n", bpIds.size());
-        
         // failed - undo any breakpoints that may have succeeded
         // note that we haven't yet updated m_multiThreadBreaks so each delete will
         // remove a single breakpoint
+        DVPRINT("Insertion failed removing %d breakpoints\n", bpIds.size());
         for (auto it=bpIds.rbegin(); it!=bpIds.rend(); ++it) {
             // may not matter, but undo in LIFO order for neatness sake
             FreeEvent(deleteBreak(*it));
@@ -1616,7 +1612,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         m_multiThreadBreaks.insert(std::make_pair(id, bpIds));
     }
 
-    return event;
+    return event.release();
 }
 
 /*

@@ -516,16 +516,18 @@ void FreeEvent(dbgevent_t *event) {
     Free(event);
 }
 
-void EventErrStr(dbgevent_t *e, const char *fmt, ...) {
-    va_list ap;
-
+void EventErrStr(dbgevent_t *e, const char *fmt, va_list ap) {
     if (fmt == NULL) {
         e->ev_errstr = NULL;
         return;
     }
-
-    va_start(ap, fmt);
     vasprintf(&e->ev_errstr, fmt, ap);
+}
+
+void EventErrStr(dbgevent_t *e, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    EventErrStr(e, fmt, ap);
     va_end(ap);
 }
 
@@ -1046,4 +1048,21 @@ const char *DbgevToStr(dbgev ev) {
     }
 
     return "UNKNOWN_EVENT";
+}
+
+dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
+    fprintf(stderr, "In NewErrorEvent\n");
+    
+    auto e = NewEvent(DBGEV_ERROR);
+    e->ev_errno = err;
+
+    fprintf(stderr, "In NewErrorEvent 2\n");
+    va_list ap;
+    va_start(ap, fmt);
+    EventErrStr(e, fmt, ap);
+    va_end(ap);
+
+    fprintf(stderr, "In NewErrorEvent 3\n");
+
+    return e;
 }

@@ -707,6 +707,7 @@ const char* const cmd_thread_help[] = {
     "Usage: thread apply <thread-list> | all [-ascending] [-s] [-q] [-c] [-v] <command>",
     "Example command: thread apply all -s p i"
     "Example command: thread apply 1 2-4 9..11 \"worker 1\\.[0-9]\" bt 1",
+    "Example command: thread apply 1,2-4,9..11,\"worker 1\\.[0-9]\" info frame",
     "",
     "Description:",
     "Applies command to every thread in the selection list with the following flags",

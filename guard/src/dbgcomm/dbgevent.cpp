@@ -1056,13 +1056,10 @@ dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
     auto e = NewEvent(DBGEV_ERROR);
     e->ev_errno = err;
 
-    fprintf(stderr, "In NewErrorEvent 2\n");
     va_list ap;
     va_start(ap, fmt);
     EventErrStr(e, fmt, ap);
     va_end(ap);
-
-    fprintf(stderr, "In NewErrorEvent 3\n");
 
     return e;
 }

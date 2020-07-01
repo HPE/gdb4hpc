@@ -444,6 +444,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/test1.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/test1.txt
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/test2.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/test2.txt
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/upc.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/upc.txt
+%{__cp} -a %{tests_source_dir}/function/func_test.py.data/qsub.template ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/qsub.template
 
 %{__cp} -a %{tests_source_dir}/function/avo_config.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
 %{__cp} -a %{tests_source_dir}/function/build_run.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
@@ -816,6 +817,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/test1.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/test2.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/upc.txt
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/qsub.template
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py

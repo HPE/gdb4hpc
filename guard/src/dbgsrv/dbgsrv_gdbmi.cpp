@@ -1610,6 +1610,13 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         int id = bpIds.front();
         bpIds.erase(bpIds.begin());
         m_multiThreadBreaks.insert(std::make_pair(id, bpIds));
+
+        auto bp = EVENT_BP(event);
+        if (bp && threadSet) {
+            char* ts = strdup(threadSet);
+            std::swap(ts, bp->bp_threadId);
+            free(ts);
+        }
     }
 
     return event.release();
@@ -4736,7 +4743,7 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
     }
 
     if (bpt->threadId != NULL) {
-        bp->bp_threadId = atoi(bpt->threadId); // 0 is an OK response
+        bp->bp_threadId = strdup(bpt->threadId);
     }
 
     if (commInfo) {

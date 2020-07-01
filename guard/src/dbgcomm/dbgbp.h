@@ -55,7 +55,7 @@ struct dbgbp_t {
     dbgloc_t bp_loc;
     char *bp_exp;  // Should this be a part of bp_loc?? Its used to hold the
                    // watchpoint expression.
-    int bp_threadId;
+    char* bp_threadId;
     int bp_hits;
     char *bp_stmt;
     char **bp_commands;

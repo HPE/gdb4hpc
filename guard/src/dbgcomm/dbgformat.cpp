@@ -209,6 +209,7 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
     const char* st_file = StrSoc(be->bp_loc.loc_file);
     const char* st_func = StrSoc(be->bp_loc.loc_func);
     const char* st_exp = StrSoc(be->bp_exp);
+    const char* threadId = StrSoc(be->bp_threadId);
 
     char *stres = nullptr;
     if (!simplified) {
@@ -216,20 +217,19 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
         const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
         stres = MakeSocStr(ev,
-                 "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d",
+                 "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d %s",
                  be->bp_id, simplified, be->bp_pending, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
                  be->bp_type, (int)strlen(st_file), st_file,
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
-                           be->bp_threadId);
-
+                           strlen(threadId), threadId);
     } else {
-        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d", be->bp_id,
+        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d %s", be->bp_id,
                  simplified, be->bp_enabled, be->bp_disp, be->bp_type,
                  (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
-                           be->bp_threadId);
+                           strlen(threadId), threadId);
     }
     return stres;
 }
@@ -1418,7 +1418,14 @@ static dbgbp_t *SocProtoToBP(char *s) {
 
     res->bp_loc.loc_line = getint(&s);
     res->bp_exp = getstring(&s);
-    res->bp_threadId = getint(&s);
+
+    char* t = getstring(&s);
+    if (t && !t[0]) {
+        free(t);
+        t = nullptr;
+    }
+    res->bp_threadId = t;
+
     res->bp_next = (dbgbp_t *)NULL;
 
     // We should try to resolve the realpath of file on this end. If it fails,

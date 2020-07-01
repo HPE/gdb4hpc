@@ -95,8 +95,8 @@ force_pending_break:
         }
 
         std::string bpThread;
-        if (bpset->b_thread_id > 0) {
-            bpThread = " thread " + std::to_string(bpset->b_thread_id);
+        if (bpset->b_thread_id) {
+            bpThread = std::string{" thread "} + bpset->b_thread_id;
         }
 
         if (bpset->b_bp_pending) {
@@ -222,8 +222,8 @@ force_pending_tbreak:
         FreeRecSet(new_rec);
 
         std::string bpThread;
-        if (bpset->b_thread_id > 0) {
-            bpThread = " thread " + std::to_string(bpset->b_thread_id);
+        if (bpset->b_thread_id) {
+            bpThread = std::string{" thread "} + bpset->b_thread_id;
         }
 
         // Print out status
@@ -505,8 +505,8 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
             }
 
             std::string bpThread;
-            if (bpset->b_thread_id > 0)
-                bpThread = " thread " + std::to_string(bpset->b_thread_id);
+            if (bpset->b_thread_id)
+                bpThread = std::string{" thread "} + bpset->b_thread_id;
 
             // The info we print is dependent on the type of breakpoint and the
             // enabled/disabled setting and disposition

@@ -63,7 +63,7 @@ def makeBatchScript(test, application, numJobs):
 
     templateFile = test.get_data("qsub.template", must_exist=True)
     if not templateFile:
-        return None
+        test.error("Couldn't find required qsub.template file in func_test.py.data/")
 
     tmpDir = getTmpDir()
     batchfile = tmpDir + "/batch.script"

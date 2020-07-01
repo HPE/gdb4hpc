@@ -77,6 +77,7 @@
 %global privlibs %{privlibs}|libtbbmalloc*
 %global privlibs %{privlibs}|libtbb.*
 %global __requires_exclude ^(%{privlibs})\\.so*
+%global __requires_exclude librocm-dbgapi.so.0
 
 # Dist tags for SuSE need to be manually set
 %if 0%{?suse_version}

@@ -100,9 +100,9 @@ const char* const cmd_backtrace_help[] = {
 const char* const cmd_break_help[] = {
     "Summary: Set breakpoint command.",
     "Usage: break <location>",
-    "Usage: break <location> thread <thread-id>",
+    "Usage: break <location> thread <thread-list>",
     "Example command: break main.c:20",
-    "Example command: break main.c:20 thread 2",
+    "Example command: break main.c:20 thread 2-4",
     "Shortcut: b",
     "",
     "Arguments: location (line number, function name, or address)",
@@ -113,8 +113,8 @@ const char* const cmd_break_help[] = {
     "function name, a source file:line-no, or \"*\" and an address. If an address is",
     "specified, it must begin with an asterix (*)."
     "For example, break *0x0000000000400693 would break at address 0x400693.",
-    "Adding thread thread-id creates a thread specific breakpoint which will",
-    "apply only to the given thread.",
+    "Adding thread thread-set creates a thread specific breakpoint which will",
+    "apply only to the given thread(s).",
     0};
 
 const char* const cmd_compare_help[] = {

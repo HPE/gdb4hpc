@@ -635,7 +635,7 @@ static void SigHandler(int sig) {
 // individual reply that was just received is passed in as reply_set.
 int EventCB(event_set_t *ev_set, bitset *reply_set) {
     bp_set_t *bpset;
-    int threadId = 0;
+    const char* threadId = nullptr;
     std::string bpThread;
 
     // need to do "special" things if we are currently reading from stdin
@@ -694,7 +694,7 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
             // TODO: What should this default to? Right now I am having it
             // default to the breakpoint message.
             threadId = bpset->b_thread_id;
-            if (threadId > 0) bpThread = " thread " + std::to_string(threadId);
+            if (threadId) bpThread = std::string(" thread ") + threadId;
 
             switch (bpset->b_bp_type) {
                 case DBGBP_WATCH_TYPE:

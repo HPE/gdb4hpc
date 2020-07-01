@@ -284,6 +284,7 @@ extern event_equiv CompareEvents(dbgevent_t *, dbgevent_t *);
 extern const char *DbgEventErrorStr(dbgevent_t *);
 
 // Used for debug
+extern dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...);
 extern void PrintDbgEvent(dbgevent_t *);
 extern const char *EventToStr(dbgevent_t *);
 extern const char *DbgevToStr(dbgev);

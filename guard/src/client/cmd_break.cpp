@@ -460,7 +460,6 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     int bid = 0;
-    group_recv_t *recv_ptr;
     bitset *group, *disp_group, *enabled_group, *disabled_group;
     bp_set_t *bpset;
     bp_disp_set_t *disp_set;
@@ -478,8 +477,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                 "Enb", "What");
 
     // Need to loop over each di in the rec_set
-    SetReceiverHeadInSet(rec_set);
-    while ((recv_ptr = GetNextReceiverInSet(rec_set)) != nullptr) {
+    for (auto&& recv_ptr : rec_set) {
         if (EmptyBPSetList(recv_ptr->rec_di)) {
             PrintMsgWithSetInfo(recv_ptr->rec_di->d_handle, recv_ptr->rec_group,
                                 "No breakpoints or watchpoints.\n");

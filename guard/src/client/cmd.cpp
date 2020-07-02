@@ -217,18 +217,11 @@ int DoClassSubCommand(cmdlist_t *cmd_l, dbgprocset_t *s, cmdtype_t *c, int argc,
 */
 static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
                           char *argv[]) {
-    rec_set_t *rec_set;
     int res = 1;
-    // used for checking status
-    rep_set_t *rep_set;
-    group_recv_t *recv_ptr;
-    char *bitset_str;
-    char *set_str;
     dbgstatus_t *stat;
-    char *status_block;
 
     // Create a new rec_set for this procset
-    rec_set = CreateRecSetForProcset(s);
+    auto rec_set = CreateRecSetForProcset(s);
 
     // Call the command
     if (!(*c->c_cmd)(rec_set, argc, argv)) res = 0;
@@ -245,17 +238,16 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
 
             // Query the new status from the backends, note that for this we
             // want to grab the location information
-            rep_set = DbgStatus(rec_set, 1);
+            auto rep_set = DbgStatus(rec_set, 1);
 
             ProcessErrorInRepSet(rep_set);
 
             // We need to loop over each di in the rec_set and process it one at
             // a time. This is because we need to create a status block for each
             // di.
-            SetReceiverHeadInSet(rec_set);
-            while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL) {
+            for (auto&& recv_ptr : rec_set) {
                 // Start a new status block for this di
-                status_block = XMLStartStatusBlock(recv_ptr->rec_di->d_handle);
+                auto status_block = XMLStartStatusBlock(recv_ptr->rec_di->d_handle);
 
                 // Process each status message and add it to the status block
                 for (auto&& reply : rep_set) {
@@ -265,9 +257,10 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
                     }
 
                     // First create the bitset string
-                    bitset_str = bitset_to_set(reply->rep_group);
+                    auto bitset_str = bitset_to_set(reply->rep_group);
 
                     // Next create the full set string
+                    char *set_str = nullptr;
                     Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
                              bitset_str);
 

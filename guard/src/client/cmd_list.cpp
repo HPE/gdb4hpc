@@ -61,21 +61,15 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
-    rep_set_t *rep_set;
-    group_recv_t *recv_ptr;
-    dbgsources_t *s;
-    dbgsources_t *sp;
-    int print_header;
+    if (!rec_set) return 1;
 
-    rep_set = DbgGetSources(rec_set);
+    auto rep_set = DbgGetSources(rec_set);
 
     ProcessErrorInRepSet(rep_set);
 
     // Need to loop this over each di in the rec_set
-    SetReceiverHeadInSet(rec_set);
-    while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL) {
-        // reset print_header
-        print_header = 1;
+    for (auto&& recv_ptr : rec_set) {
+        auto print_header = true;
 
         // process replies
         for (auto&& reply : rep_set) {
@@ -87,13 +81,13 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
             if (print_header) {
                 PrintOutMsg("\nSource files for $%s:\n",
                             recv_ptr->rec_di->d_handle);
-                print_header = 0;
+                print_header = false;
             }
 
             // point at the sources data
-            sp = EVENT_SOURCES(reply->rep_event);
+            auto sp = EVENT_SOURCES(reply->rep_event);
 
-            for (s = sp; s != NULL; s = s->sources_next) {
+            for (auto s = sp; s != nullptr; s = s->sources_next) {
                 PrintOutMsg("%s\n", s->sources_file);
             }
         }

@@ -3213,7 +3213,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
         } else {
             // find the bp_set for the bp_set_num
             auto bp_set = FindBPSetByID(di, bp_set_num);
-            if (bp_set != nullptr) {
+            if (bp_set == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 

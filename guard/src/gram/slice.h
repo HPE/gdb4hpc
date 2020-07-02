@@ -26,6 +26,7 @@ struct slice {
     int* s_low;
     int* s_high;
     int _s_size;  // Internal, do not use.
+    char* s_threads;  // for thread focused proc-sets         
 };
 typedef struct slice slice_t;
 

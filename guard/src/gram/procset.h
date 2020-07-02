@@ -92,10 +92,12 @@ struct dbgprocset_t {
     int s_num_sets;  // Used to keep track of the number of over_sets, each one
                      // corresponding to a unique di
     list_t* s_over_set_list;  // list of dbg_over_set_t
+    char* s_threads;
 };
 typedef struct dbgprocset_t dbgprocset_t;
 
 dbgprocset_t *FindProcSet(char *procsetName);
 bool CheckProcSet(hentry_t* sym);
+void SetProcSetThreads(dbgprocset_t* procSet, const char* threads);
 
 #endif /* !_PROCSET_H */

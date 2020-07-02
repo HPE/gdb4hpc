@@ -41,6 +41,7 @@ slice_t *NewSlice(void) {
     s->s_rank = 0;
     s->s_low = (int *)Alloc(sizeof(int) * INIT_SLICE);
     s->s_high = (int *)Alloc(sizeof(int) * INIT_SLICE);
+    s->s_threads = nullptr;
 
     return s;
 }
@@ -79,6 +80,8 @@ slice_t *CopySlice(slice_t *s) {
     ns->s_high = (int *)Alloc(sizeof(int) * s->_s_size);
     memcpy(ns->s_high, s->s_high, sizeof(int) * s->_s_size);
 
+    ns->s_threads = (s->s_threads ? strdup(s->s_threads) : nullptr);
+
     return ns;
 }
 
@@ -106,5 +109,6 @@ void DestroySlice(slice_t *s) {
 
     Free(s->s_low);
     Free(s->s_high);
+    free(s->s_threads);
     Free(s);
 }

@@ -2818,7 +2818,7 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
         case EXPR_SLICE:
             if ((ep=check_pop(e, EXPR_INT)) &&
                 (ep2=check_pop(e,EXPR_INT))) {
-                threadDef << ep2->e_int << "-" << ep->e_int << " ";
+                threadDef << ep2->e_int << ".." << ep->e_int << " ";
             } else {
                 return nullptr;
             }
@@ -2832,7 +2832,9 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
     val_t* procVal = read_var_imm(e, rec_set, nullptr);
 
     if (procVal) {
-        PrintOutMsg("thread info for proc set is not implemented: %s\n", threadDef.str().c_str());
+        PrintOutMsg("thread info for proc set has no effect\n");
+        slice_t* slice = RVAL_REF_SLICE(procVal);
+        slice->s_threads = strdup(threadDef.str().c_str());
     }
 
     return procVal;

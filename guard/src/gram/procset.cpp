@@ -30,7 +30,7 @@
 #include "useful.h"
 
 // static prototypes
-static dbgprocset_t *NewProcSet(const char *, dbgset_type);
+static dbgprocset_t *NewProcSet(const char *, dbgset_type, const char* threads);
 static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, bitset *, int);
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
@@ -63,7 +63,7 @@ void InitProcSet(void) {
 
     FreeExpr(ex);
 
-    AllProcSet = NewProcSet("all", DBGSET_INTERNAL);
+    AllProcSet = NewProcSet("all", DBGSET_INTERNAL, nullptr);
     SetCurrentProcSet(AllProcSet);
 
     // Fixup the val
@@ -100,7 +100,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     Asprintf(&ps_name, "%s_temp", ps->s_name);
 
     // create the new procset
-    new_procset = NewProcSet(ps_name, DBGSET_TEMP);
+    new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->s_threads);
 
     DPRINT("CreateTempProcSetSlice name:%s\n", ps_name);
 
@@ -281,7 +281,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
     }
 
     // create the new procset
-    new_procset = NewProcSet(SymLookup(LVAL_SYM(v_name)), DBGSET_DEFSET);
+    new_procset = NewProcSet(SymLookup(LVAL_SYM(v_name)), DBGSET_DEFSET, nullptr);
 
     // Now eval the provided lists of procsets
     if (EvalExprList(&l, e_set, NULL) < 0) {
@@ -318,6 +318,10 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
 
             // Loop over each overlay set in the procset
             SetOverlaySetForProcSet(procset);
+            if (ps_slice) {
+                SetProcSetThreads(new_procset, ps_slice->s_threads);
+            }
+
             while ((over_set = GetNextOverlaySetForProcSet(procset)) != NULL) {
                 // grab the procset for this invoke, dup it
                 di_mask = bitset_dup(over_set->s_di_bs);
@@ -550,7 +554,7 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e) {
     }
 
     // create the new procset
-    rtn = NewProcSet(SymLookup(LVAL_SYM(val)), DBGSET_INVOKE);
+    rtn = NewProcSet(SymLookup(LVAL_SYM(val)), DBGSET_INVOKE, nullptr);
 
     // Calculate the number of ranks in the provided list
     if (RVAL_TYPE(val) == rval_ref) {
@@ -571,6 +575,8 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e) {
         }
 
         rtn->s_nproc = proc_slice->s_high[0];
+        SetProcSetThreads(rtn, proc_slice->s_threads);
+        
 
     } else {
         // Always default to one rank
@@ -649,7 +655,7 @@ rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps) {
     return res;
 }
 
-static dbgprocset_t *NewProcSet(const char *name, dbgset_type type) {
+static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* threads) {
     dbgprocset_t *s;
 
     s = (dbgprocset_t *)Alloc(sizeof(dbgprocset_t));
@@ -658,6 +664,7 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type) {
     s->s_nproc = 0;
     s->s_num_sets = 0;
     s->s_over_set_list = NewList();
+    s->s_threads = (threads ? strdup(threads) : nullptr);
 
     AddToList(ProcSets, (void *)s);
 
@@ -759,6 +766,12 @@ void SetCurrentProcSet(dbgprocset_t *s) {
     CurrProcSet = s;
 }
 
+void SetProcSetThreads(dbgprocset_t* procSet, const char* threads) {
+    char* t = (threads ? strdup(threads) : nullptr);
+    std::swap(procSet->s_threads, t);
+    free(t);
+}
+
 dbgprocset_t *CurrentProcSet(void) { return CurrProcSet; }
 
 void SetProcSet(void) { SetList(ProcSets); }
@@ -795,6 +808,9 @@ void PrintProcSet(dbgprocset_t *s) {
 
         n += bitset_numset(over_set->s_di_bs);
         if (n < s->s_nproc) PrintOutMsg(",");
+    }
+    if (s->s_threads) {
+        PrintOutMsg(":%s", s->s_threads);
     }
 }
 

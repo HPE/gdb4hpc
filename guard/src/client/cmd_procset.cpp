@@ -119,8 +119,6 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    expr_t *e_name;
-    expr_t *e_set;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -128,12 +126,15 @@ static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    if ((e_name = ParseExpr(argv[1])) == NULL) {
+    expr_t *e_name = ParseExpr(argv[1]);
+    if (!e_name) {
         PrintError();
         return 0;
     }
 
-    if ((e_set = ParseExpr(argv[2])) == NULL) {
+    std::string procDef = ArgsToString(argc-2, argv+2);
+    expr_t* e_set = ParseExpr(procDef.c_str());
+    if (!e_set) {
         PrintError();
         return 0;
     }

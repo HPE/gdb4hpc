@@ -77,7 +77,7 @@ struct cmdargs_setlinebreak {
     int allowPending;
     char *file;
     int lno;
-    int threadId;
+    char* threadSet;
 };
 typedef struct cmdargs_setlinebreak cmdargs_setlinebreak;
 
@@ -85,7 +85,7 @@ struct cmdargs_setfuncbreak {
     int allowPending;
     char *file;
     char *func;
-    int threadId;
+    char* threadSet;
 };
 typedef struct cmdargs_setfuncbreak cmdargs_setfuncbreak;
 
@@ -259,12 +259,12 @@ struct dbgcommand_t {
 #define cmd_setlinebreak_allowPending cmd_u.cmd_u_setlinebreak->allowPending
 #define cmd_setlinebreak_file cmd_u.cmd_u_setlinebreak->file
 #define cmd_setlinebreak_lno cmd_u.cmd_u_setlinebreak->lno
-#define cmd_setlinebreak_threadid cmd_u.cmd_u_setlinebreak->threadId
+#define cmd_setlinebreak_threadSet cmd_u.cmd_u_setlinebreak->threadSet
 #define cmd_arg_setfuncbreak cmd_u.cmd_u_setfuncbreak
 #define cmd_setfuncbreak_allowPending cmd_u.cmd_u_setfuncbreak->allowPending
 #define cmd_setfuncbreak_file cmd_u.cmd_u_setfuncbreak->file
 #define cmd_setfuncbreak_func cmd_u.cmd_u_setfuncbreak->func
-#define cmd_setfuncbreak_threadid cmd_u.cmd_u_setfuncbreak->threadId
+#define cmd_setfuncbreak_threadSet cmd_u.cmd_u_setfuncbreak->threadSet
 #define cmd_arg_setwatch cmd_u.cmd_u_setwatch
 #define cmd_setwatch_type cmd_u.cmd_u_setwatch->type
 #define cmd_setwatch_expr cmd_u.cmd_u_setwatch->expr

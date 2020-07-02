@@ -208,7 +208,7 @@ static int cli_socket_destroy(cli_stream_t **stream) {
 static int cli_socket_handle_input(cli_stream_t **stream) {
     int n;
     ssize_t num;
-    cli_stream_t *cs;
+    cli_stream_t *cs = nullptr;
     char *cmd_buf;
 
     DPRINT("In cli_socket_handle_input\n");
@@ -298,7 +298,7 @@ cli_socket_handle_input_error:
     DPRINT("Error exit cli_socket_handle_input\n");
 
     // Reenable input
-    cs->cs_handling = 0;
+    if (cs) cs->cs_handling = 0;
 
     return 1;
 }

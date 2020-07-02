@@ -309,7 +309,7 @@ public:
     const_iterator cbegin() { return bp_loc.cbegin(); }
     const_iterator cend() { return bp_loc.cend(); }
 
-    bp_locale_set();
+    bp_locale_set() = default;
     ~bp_locale_set()
     {
         clear();
@@ -324,7 +324,10 @@ public:
 // This is used to represent breakpoints and is accessible by the client layer.
 // It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
 // object.
-typedef struct {
+struct bp_set_t {
+    bp_set_t(int bp_id, bitset* group, dbgbp_t* bp);
+    ~bp_set_t();
+    
     // Current bp num - This gets reset every time a bp_set is returned to the
     // client. These numbers are issued per dbginvoke_t object. The dbg_client
     // layer needs to remember to update these when returning the object to the
@@ -358,8 +361,8 @@ typedef struct {
     bp_locale_set b_bp_watch_loc; // watchpoint location
 
     // Thread specific breakpoints
-    int b_thread_id;  // thread-id (if > 0)
-} bp_set_t;
+    char*  b_thread_id;  // thread-id (if > 0)
+};
 
 // Only should be used in the dbg_client layer. This is used to map the client
 // breakpoint number onto gdb backend breakpoint numbers.
@@ -492,8 +495,8 @@ extern rep_set_t *DbgGetType(rec_set_t *, char *, int);
 extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
-extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, int);
-extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, int);
+extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
+extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);

@@ -209,6 +209,7 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
     const char* st_file = StrSoc(be->bp_loc.loc_file);
     const char* st_func = StrSoc(be->bp_loc.loc_func);
     const char* st_exp = StrSoc(be->bp_exp);
+    const char* threadId = StrSoc(be->bp_threadId);
 
     char *stres = nullptr;
     if (!simplified) {
@@ -216,20 +217,19 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
         const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
         stres = MakeSocStr(ev,
-                 "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d",
+                 "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d %s",
                  be->bp_id, simplified, be->bp_pending, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
                  be->bp_type, (int)strlen(st_file), st_file,
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
-                           be->bp_threadId);
-
+                           strlen(threadId), threadId);
     } else {
-        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d", be->bp_id,
+        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d %s", be->bp_id,
                  simplified, be->bp_enabled, be->bp_disp, be->bp_type,
                  (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
-                           be->bp_threadId);
+                           strlen(threadId), threadId);
     }
     return stres;
 }
@@ -625,12 +625,14 @@ static char *CmdArgsSetLineBreakToSocProto(va_list ap) {
     args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.lno = va_arg(ap, int);
-    args.threadId = va_arg(ap, int);
+    args.threadSet = va_arg(ap, char*);
 
     FMT_CHECK_NULL_STR(args.file);
 
-    Asprintf(&res, "%d %d %s %d %d", args.allowPending, (int)strlen(args.file), args.file, args.lno,
-             args.threadId);
+    Asprintf(&res, "%d %d %s %d %d %s", args.allowPending,
+             (int)strlen(args.file), args.file, args.lno,
+             args.threadSet ? strlen(args.threadSet) : 0,
+             args.threadSet ? args.threadSet : "");
 
     return res;
 }
@@ -642,13 +644,15 @@ static char *CmdArgsSetFuncBreakToSocProto(va_list ap) {
     args.allowPending = va_arg(ap, int);
     args.file = va_arg(ap, char *);
     args.func = va_arg(ap, char *);
-    args.threadId = va_arg(ap, int);
+    args.threadSet = va_arg(ap, char*);
 
     FMT_CHECK_NULL_STR(args.file);
     FMT_CHECK_NULL_STR(args.func);
 
-    Asprintf(&res, "%d %d %s %d %s %d", args.allowPending, (int)strlen(args.file), args.file,
-             (int)strlen(args.func), args.func, args.threadId);
+    Asprintf(&res, "%d %d %s %d %s %d %s", args.allowPending, (int)strlen(args.file), args.file,
+             (int)strlen(args.func), args.func,
+             args.threadSet ? strlen(args.threadSet) : 0,
+             args.threadSet ? args.threadSet : "");
 
     return res;
 }
@@ -1414,7 +1418,14 @@ static dbgbp_t *SocProtoToBP(char *s) {
 
     res->bp_loc.loc_line = getint(&s);
     res->bp_exp = getstring(&s);
-    res->bp_threadId = getint(&s);
+
+    char* t = getstring(&s);
+    if (t && !t[0]) {
+        free(t);
+        t = nullptr;
+    }
+    res->bp_threadId = t;
+
     res->bp_next = (dbgbp_t *)NULL;
 
     // We should try to resolve the realpath of file on this end. If it fails,
@@ -1797,7 +1808,7 @@ static cmdargs_setlinebreak *SocProtoToSetLineBreakArgs(char *s) {
     res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->lno = getint(&s);
-    res->threadId = getint(&s);
+    res->threadSet = getstring(&s);
 
     return res;
 }
@@ -1812,7 +1823,7 @@ static cmdargs_setfuncbreak *SocProtoToSetFuncBreakArgs(char *s) {
     res->allowPending = getint(&s);
     res->file = getstring(&s);
     res->func = getstring(&s);
-    res->threadId = getint(&s);
+    res->threadSet = getstring(&s);
 
     return res;
 }

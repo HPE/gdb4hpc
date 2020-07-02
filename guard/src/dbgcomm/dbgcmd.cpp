@@ -38,6 +38,7 @@ static void FreeCmdArgsSetLineBreak(cmdargs_setlinebreak *arg) {
     if (arg == NULL) return;
 
     Free(arg->file);
+    if (arg->threadSet) Free(arg->threadSet);
 
     Free(arg);
 }
@@ -47,6 +48,7 @@ static void FreeCmdArgsSetFuncBreak(cmdargs_setfuncbreak *arg) {
 
     Free(arg->file);
     Free(arg->func);
+    if (arg->threadSet) Free(arg->threadSet);
 
     Free(arg);
 }

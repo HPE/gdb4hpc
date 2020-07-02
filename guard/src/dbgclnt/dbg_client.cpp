@@ -83,7 +83,6 @@ static event_set_t *AddEvent(dbginvoke_t *, bitset *, dbgevent_t *);
 static void CheckForFullEventSet(dbginvoke_t *, bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
 static void RemoveGroupFromAsyncSet(dbginvoke_t *, bitset *);
-static bp_set_t *NewBPSet(int, bitset *, dbgbp_t *);
 static bp_disp_set_t *NewBPDispSet(bitset *, dbgbp_disp);
 static bp_id_set_t *NewBPIDSet(bitset *, int);
 static void FreeBPSet(bp_set_t *);
@@ -826,58 +825,34 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
 /*
 ** Create a new breakpoint set
 */
-static bp_set_t *NewBPSet(int bp_id, bitset *group, dbgbp_t *bp) {
-
-    bp_set_t *bp_set = (bp_set_t *)Alloc(sizeof(bp_set_t));
-    memset(bp_set, 0, sizeof(bp_set_t));
-
-    // Set the bp set id based on the global id
-    bp_set->b_bp_set_id = bp_id;
-
-    bp_set->b_group = bitset_dup(group);
-
-    // Add the group to the enabled set if the bp is enabled
-    if (bp->bp_enabled) {
-        bp_set->b_bp_enabled = bitset_dup(group);
-    }
-
+bp_set_t::bp_set_t(int bp_id, bitset *group, dbgbp_t *bp)
+    : b_bp_set_id(bp_id),
+      b_group(bitset_dup(group)),
+      b_bp_id_list(NewList()),
+      b_bp_enabled(bp->bp_enabled ? bitset_dup(group) : nullptr),
+      b_bp_disp(NewList()),
+      b_bp_type(bp->bp_type),
+      b_bp_pending(bp->bp_pending && bp->bp_stmt != nullptr),
+      b_loc_stmt(b_bp_pending ? strdup(bp->bp_stmt) : nullptr),
+      b_loc_addr(bp->bp_loc.loc_addr ? strdup(bp->bp_loc.loc_addr) : nullptr),
+      b_loc_file(nullptr),
+      b_loc_func(nullptr),
+      b_loc_line(bp->bp_loc.loc_line),
+      b_bp_exp(strdup(bp->bp_exp)),
+      b_thread_id(bp->bp_threadId ? strdup(bp->bp_threadId) : nullptr)
+{
     // Add the group and disposition to the disp list
-    bp_set->b_bp_disp = NewList();
     bp_disp_set_t *disp_set = NewBPDispSet(group, bp->bp_disp);
-    AddToList(bp_set->b_bp_disp, (void *)disp_set);
-
-    // Set the type, this cannot vary by rank
-    bp_set->b_bp_type = bp->bp_type;
-
-    // Set the location
-    if (bp->bp_pending && bp->bp_stmt != nullptr) {
-        bp_set->b_bp_pending = true;
-        bp_set->b_loc_stmt = strdup(bp->bp_stmt);
-    }
-
-    if (bp->bp_loc.loc_addr != nullptr) {
-        bp_set->b_loc_addr = strdup(bp->bp_loc.loc_addr);
-    }
-
-    bp_set->b_loc_line = bp->bp_loc.loc_line;
-
-    if (bp_set->b_loc_line >= 0) {
-        bp_set->b_loc_file = strdup(bp->bp_loc.loc_file);
-        bp_set->b_loc_func = strdup(bp->bp_loc.loc_func);
-    }
-
-    // Set the expression for watchpoints
-    bp_set->b_bp_exp = strdup(bp->bp_exp);
-
-    // Set thread id
-    bp_set->b_thread_id = bp->bp_threadId;
+    AddToList(b_bp_disp, (void *)disp_set);
 
     // Set the id unique to the rank
-    bp_set->b_bp_id_list = NewList();
     bp_id_set_t *id_set = NewBPIDSet(group, bp->bp_id);
-    AddToList(bp_set->b_bp_id_list, id_set);
+    AddToList(b_bp_id_list, id_set);
 
-    return bp_set;
+    if (b_loc_line >= 0) {
+        b_loc_file = strdup(bp->bp_loc.loc_file);
+        b_loc_func = strdup(bp->bp_loc.loc_func);
+    }
 }
 
 /*
@@ -910,29 +885,26 @@ static bp_id_set_t *NewBPIDSet(bitset *group, int bp_id) {
 ** Free a breakpoint set.
 */
 static void FreeBPSet(bp_set_t *bp_set) {
-    if (bp_set == nullptr) return;
+    delete bp_set;
+}
 
-    if (bp_set->b_group != nullptr) bitset_free(bp_set->b_group);
+bp_set_t::~bp_set_t() {
+    if (b_group != nullptr) bitset_free(b_group);
 
-    if (bp_set->b_bp_id_list != nullptr)
-        DestroyList(bp_set->b_bp_id_list, (void (*)(void *))FreeBPIDSet);
+    if (b_bp_id_list != nullptr)
+        DestroyList(b_bp_id_list, (void (*)(void *))FreeBPIDSet);
 
-    if (bp_set->b_bp_enabled != nullptr) bitset_free(bp_set->b_bp_enabled);
+    if (b_bp_enabled != nullptr) bitset_free(b_bp_enabled);
 
-    if (bp_set->b_bp_disp != nullptr)
-        DestroyList(bp_set->b_bp_disp, (void (*)(void *))FreeBPDispSet);
+    if (b_bp_disp != nullptr)
+        DestroyList(b_bp_disp, (void (*)(void *))FreeBPDispSet);
 
-    if (bp_set->b_loc_stmt != nullptr) Free(bp_set->b_loc_stmt);
-
-    if (bp_set->b_loc_addr != nullptr) Free(bp_set->b_loc_addr);
-
-    if (bp_set->b_loc_file != nullptr) Free(bp_set->b_loc_file);
-
-    if (bp_set->b_loc_func != nullptr) Free(bp_set->b_loc_func);
-
-    if (bp_set->b_bp_exp != nullptr) Free(bp_set->b_bp_exp);
-
-    Free(bp_set);
+    free(b_loc_stmt);
+    free(b_loc_addr);
+    free(b_loc_file);
+    free(b_loc_func);
+    free(b_bp_exp);
+    free(b_thread_id);
 }
 
 /*
@@ -983,7 +955,7 @@ static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
         AddBPToBPSet(bp_set, group, bp);
     } else {
         // create a new breakpoint for this group based on the bp
-        bp_set = NewBPSet(++(di->d_global_bp_set_id), group, bp);
+        bp_set = new bp_set_t(++(di->d_global_bp_set_id), group, bp);
         AddToList(di->d_bpset_list, bp_set);
     }
 }
@@ -1142,6 +1114,11 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
                 if (strcmp(set->b_loc_addr, bp->bp_loc.loc_addr)) return 1;
             }
 
+            // check the thread
+            {
+                const char* t1 = set->b_thread_id, *t2 = bp->bp_threadId;
+                if ( (!t1 ^ !t2) || (t1 && t2 && strcmp(t1,t2))) return 1;
+            }
             break;
 
         case DBGBP_WATCH_TYPE:
@@ -3023,11 +3000,12 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line, int threadId) {
+rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line,
+                           const char* threadSet) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadId);
+    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -3045,11 +3023,12 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int lin
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func, int threadId) {
+rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func,
+                           const char* threadSet) {
     char *request;
     rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadId);
+    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
 
     result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 

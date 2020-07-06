@@ -277,66 +277,59 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
  */
 
 rec_set_t *NewRecSet(void) {
-    rec_set_t *set;
-
-    set = (rec_set_t *)Alloc(sizeof(rec_set_t));
-    set->rec_list = NewList();
-
-    return set;
+    return new rec_set_t;
 }
 
+rec_set_t::~rec_set_t() {
+    for (auto&& recv : m_recs) {
+        FreeGroupReceiver(recv);
+    }
+}
+        
+    
 void FreeRecSet(rec_set_t *set) {
-    if (set == nullptr) return;
-
-    DestroyList(set->rec_list, (void (*)(void *))FreeGroupReceiver);
-
-    Free(set);
+    delete set;
 }
 
-void AddReceiverToSet(rec_set_t *set, group_recv_t *rec) {
-    group_recv_t *r_ptr;
-
-    if (rec == nullptr || set == nullptr) return;
+void rec_set_t::addReceiver(group_recv_t *rec)
+{
+    if (!rec) return;
 
     // Here we want to enforce merging since this is done *before* any command
     // is sent. We want to send all commands at the same time to each di tree.
-    SetList(set->rec_list);
-    while ((r_ptr = (group_recv_t *)GetListElement(set->rec_list)) != nullptr) {
+    for (auto&& r : m_recs) {
         // If the di objects match, they are they point to the same thing.
-        if (r_ptr->rec_di == rec->rec_di) {
+        if (r->rec_di == rec->rec_di) {
             // The provided di matches, we need to merge
-            bitset_oreq(r_ptr->rec_group, rec->rec_group);
+            bitset_oreq(r->rec_group, rec->rec_group);
             FreeGroupReceiver(rec);
             return;
         }
     }
+    m_recs.push_back(rec);
 
-    // This is a unique di, add it to the list.
-    AddToList(set->rec_list, (void *)rec);
 }
 
-void SetReceiverHeadInSet(rec_set_t *set) {
-    if (set != nullptr) SetList(set->rec_list);
+void AddReceiverToSet(rec_set_t *set, group_recv_t *rec) {
+    if (rec == nullptr || set == nullptr) return;
+    set->addReceiver(rec);
 }
 
-group_recv_t *GetNextReceiverInSet(rec_set_t *set) {
-    if (set != nullptr)
-        return (group_recv_t *)GetListElement(set->rec_list);
-    else
-        return nullptr;
+void rec_set_t::removeReceiver(group_recv_t* rec) {
+    m_recs.erase(std::remove(m_recs.begin(), m_recs.end(), rec), m_recs.end());
+    FreeGroupReceiver(rec);
 }
+
 
 // This returns the number of dbginvoke_t in the rec_set
 static int GetNumberOfReceivers(rec_set_t *set) {
-    if (set == nullptr) return 0;
-
-    return SizeOfList(set->rec_list);
+    return set ? set->getReceivers().size() : 0;
 }
 
 bool RecSetHasOneProcPerReceiver(rec_set_t* set)
 {
-    SetReceiverHeadInSet(set);
-    while (auto recv = GetNextReceiverInSet(set)) {
+    if (!set) return false;
+    for (auto&& recv : set) {
         if (bitset_numset(recv->rec_group) != 1) {
             return false;
         }
@@ -431,8 +424,7 @@ rep_set_t* rep_set_t::clone() const
     }
     if (m_set) {
         newset->m_set = NewRecSet();
-        SetReceiverHeadInSet(m_set);
-        while (auto recv = GetNextReceiverInSet(m_set)) {
+        for (auto&& recv : m_set) {
             AddReceiverToSet(newset->m_set, CopyGroupReceiver(recv));
         }
     }
@@ -473,8 +465,7 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
         if (!m_set) {
             std::swap(m_set,tmp->m_set);
         } else {
-            SetReceiverHeadInSet(tmp->m_set);
-            while (auto recv = GetNextReceiverInSet(tmp->m_set)) {
+            for (auto&& recv : tmp->m_set) {
                 AddReceiverToSet(m_set, CopyGroupReceiver(recv));
             }
         }
@@ -749,7 +740,6 @@ static void CheckForFullEventSet(dbginvoke_t *di, bitset *fullset, dbgev ev) {
 }
 
 static void ResetForAsyncCmd(rec_set_t *set) {
-    group_recv_t *recv_ptr;
     event_set_t *eventset;
 
     if (set == nullptr) return;
@@ -760,8 +750,7 @@ static void ResetForAsyncCmd(rec_set_t *set) {
     async_set = NewRecSet();
 
     // Remove any old events for this group, and add each one to the async_set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // Clear any pending events for the group we are sending an async
         // command to
         SetList(recv_ptr->rec_di->d_eventset_list);
@@ -785,21 +774,17 @@ static void ResetForAsyncCmd(rec_set_t *set) {
 }
 
 static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
-    group_recv_t *recv_ptr;
-
     if (di == nullptr || group == nullptr || async_set == nullptr) return;
 
     // Find entry for this di in the async_set
-    SetReceiverHeadInSet(async_set);
-    while ((recv_ptr = GetNextReceiverInSet(async_set)) != nullptr) {
+    for (auto&& recv_ptr : async_set) { 
         if (recv_ptr->rec_di == di) {
             // Remove the group from the bitset
             bitset_andeqnot(recv_ptr->rec_group, group);
 
             // Check to see if the rec_group is now empty
             if (bitset_isempty(recv_ptr->rec_group)) {
-                RemoveFromList(async_set->rec_list, (void *)recv_ptr);
-                FreeGroupReceiver(recv_ptr);
+                async_set->removeReceiver(recv_ptr);
             }
 
             // We are done, there is only one group per di in the async_set
@@ -809,7 +794,7 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
 
     // Check to see if we have an empty async_set, if so the async events are
     // no longer pending
-    if (SizeOfList(async_set->rec_list) == 0) {
+    if (async_set->getNumReceivers() == 0) {
         // The async event is no longer pending
         async_pending = 0;
         // cleanup the async_set
@@ -2515,26 +2500,23 @@ static group_reply_t* JoinReplies(bitset* group,
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
                                          dbgev req_type) {
-    group_recv_t *recv_ptr;
-    rep_set_t *result = NewRepSet();
-    rep_set_t *reply_set;
+    if (!set) return nullptr;
+    auto result = NewRepSet();
 
     HoldSignals();
 
     // Send the command to each di in the receiver set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // send the command to this di
         DbgSendCmd(recv_ptr, request);
     }
 
     // Now recv the reply for each di in the receiver set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // recv the reply for this di, only if there is a _cmd_sent set.
         // Otherwise there was an error
         if (recv_ptr->_cmd_sent != nullptr) {
-            reply_set = DbgRecvReply(recv_ptr, req_type);
+            auto reply_set = DbgRecvReply(recv_ptr, req_type);
             if (reply_set != nullptr) {
                 result = MergeRepSet(result, reply_set);
             }
@@ -2590,14 +2572,13 @@ static size_t DbgGetNextExprIdx()
 ** DBG_SENDEXPR: Send expression to BE.
 */
 void DbgSendExpr(rec_set_t *set, char *exp) {
-    char *request;
-    group_recv_t *recv_ptr;
+    if (!set) return;
+
     size_t id = DbgGetNextExprIdx();
 
-    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, id);
+    auto request = CommandToSocProto(DBGCMD_EVALEXPR, exp, id);
 
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // send the command to this di
         DbgSendCmd(recv_ptr, request);
     }
@@ -2611,14 +2592,12 @@ void DbgSendExpr(rec_set_t *set, char *exp) {
 ** DBG_GETEXPR: Get results of evaluate expression.
 */
 rep_set_t *DbgGetExpr(rec_set_t *set) {
-    group_recv_t *recv_ptr;
     rep_set_t *result = NewRepSet();
-    rep_set_t *tmp_result;
 
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
-        tmp_result = DbgRecvReply(recv_ptr, DBGEV_DATA);
+    if (!set) return result;
 
+    for (auto&& recv_ptr : set) {
+        auto tmp_result = DbgRecvReply(recv_ptr, DBGEV_DATA);
         result = MergeRepSet(result, tmp_result);
     }
 
@@ -2709,28 +2688,23 @@ rep_set_t *DbgGetDebuggerVar(rec_set_t *set, char *var) {
 ** DBG_SETSOURCEPATH: Set source search path in debugger to new value.
 */
 rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
+    if (!set) return nullptr;
+
     rec_set_t *to_send = NewRecSet();
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    char *request = nullptr;
     rep_set_t *result = nullptr;
-    rep_set_t *tmp_res = nullptr;
-    dbgevent_t *e;
-    group_reply_t *group_rep;
 
     // We want to do the actual reading of the source code on the frontend if
     // possible. This means this command should be directed towards the
     // frontend if possible.
     // Loop over each di in the rec set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the debug frontend
-        if ((dbg_fe = recv_ptr->rec_di->d_frontend) != nullptr) {
+        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
             if (result == nullptr) {
                 result = NewRepSet();
             }
 
-            e = DbgFESetSourcePath(dbg_fe, path);
+            auto e = DbgFESetSourcePath(dbg_fe, path);
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
                 // Free the event
@@ -2742,8 +2716,8 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
             }
 
             // Add the event to the result based on its type
-            group_rep = NewGroupReply(recv_ptr->rec_di,
-                                      bitset_dup(recv_ptr->rec_group), e);
+            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                                           bitset_dup(recv_ptr->rec_group), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -2759,9 +2733,9 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
 
     // check to see if there are any commands left to send
     if (GetNumberOfReceivers(to_send)) {
-        request = CommandToSocProto(DBGCMD_SETSOURCEPATH, path);
+        auto request = CommandToSocProto(DBGCMD_SETSOURCEPATH, path);
 
-        tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
+        auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
         Free(request);
 
@@ -2777,25 +2751,19 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
 ** DBG_GETSOURCEPATH: Get source search path from debugger.
 */
 rep_set_t *DbgGetSourcePath(rec_set_t *set) {
-    rec_set_t *to_send = NewRecSet();
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    char *request = nullptr;
     rep_set_t *result = NewRepSet();
-    ;
-    rep_set_t *tmp_res = nullptr;
-    dbgevent_t *e;
-    group_reply_t *group_rep;
+    if (!set) return result;
+
+    auto to_send = NewRecSet();
 
     // We want to do the actual reading of the source code on the frontend if
     // possible. This means this command should be directed towards the
     // frontend if possible.
     // Loop over each di in the rec set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the debug frontend
-        if ((dbg_fe = recv_ptr->rec_di->d_frontend) != nullptr) {
-            e = DbgFEGetSourcePath(dbg_fe);
+        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+            auto e = DbgFEGetSourcePath(dbg_fe);
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
                 // Free the event
@@ -2807,8 +2775,8 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
             }
 
             // Add the event to the result based on its type
-            group_rep = NewGroupReply(recv_ptr->rec_di,
-                                      bitset_dup(recv_ptr->rec_group), e);
+            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                                           bitset_dup(recv_ptr->rec_group), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -2823,9 +2791,9 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
 
     // check to see if there are any commands left to send
     if (GetNumberOfReceivers(to_send)) {
-        request = CommandToSocProto(DBGCMD_GETSOURCEPATH);
+        auto request = CommandToSocProto(DBGCMD_GETSOURCEPATH);
 
-        tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
+        auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
         Free(request);
 
@@ -2871,7 +2839,6 @@ rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
 ** DBG_GO: Continue/start execution.
 */
 rep_set_t *DbgGo(rec_set_t *set, bool all) {
-    group_recv_t *recv_ptr;
     char *request;
     rep_set_t *result;
     dbgfrontend_sw *dbg_fe;
@@ -2889,8 +2856,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
     // Clear the list location state since this modified the frame only if there
     // was no error
     if (!SetHasError(result)) {
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto&& recv_ptr : set) {
             dbg_fe = recv_ptr->rec_di->d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
@@ -2898,8 +2864,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
         }
     } else {
         // selectively clear the list
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto&& recv_ptr : set) {
             // reset the has_err
             has_err = 0;
 
@@ -2936,37 +2901,31 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 *frame.
 */
 rep_set_t *DbgFinishFunc(rec_set_t *set) {
-    group_recv_t *recv_ptr;
-    char *request;
-    rep_set_t *result;
-    dbgfrontend_sw *dbg_fe;
-    int has_err;
+    if (!set) return nullptr;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_FINISH);
+    auto request = CommandToSocProto(DBGCMD_FINISH);
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     Free(request);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
     if (!SetHasError(result)) {
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
-            dbg_fe = recv_ptr->rec_di->d_frontend;
+        for (auto&& recv_ptr : set) {
+            auto dbg_fe = recv_ptr->rec_di->d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
         }
     } else {
         // selectively clear the list
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto&& recv_ptr : set) {
             // reset the has_err
-            has_err = 0;
+            auto has_err = 0;
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
@@ -2979,7 +2938,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di->d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -3147,24 +3106,19 @@ rep_set_t *DbgGetNonStop(rec_set_t* set)
 ** TODO: Probably remove this, the DbgQuit should be sufficient.
 */
 rep_set_t *DbgKill(rec_set_t *set) {
-    group_recv_t *recv_ptr;
-    char *request;
-    rep_set_t *result;
-    dbginvoke_t *di;
-    dbgevent_t *e;
-    group_reply_t *err_rep;
 
-    request = CommandToSocProto(DBGCMD_KILL);
+    if (!set) return nullptr;
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    auto request = CommandToSocProto(DBGCMD_KILL);
+
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     Free(request);
 
     // Loop over each di and call the protocol specific hook
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the di
-        di = recv_ptr->rec_di;
+        auto di = recv_ptr->rec_di;
 
         if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
             if (result == nullptr) {
@@ -3172,8 +3126,8 @@ rep_set_t *DbgKill(rec_set_t *set) {
             }
 
             // Create a new error event
-            EVENT_ERROR(e, DBGERR_NOTIMP, nullptr);
-            err_rep = NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
+            auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
+            auto err_rep = NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
             // Add the error to the reply set
             AddErrToSet(result, err_rep);
 
@@ -3194,26 +3148,20 @@ rep_set_t *DbgKill(rec_set_t *set) {
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */
 rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
-    group_recv_t *recv_ptr;
-    dbginvoke_t *di;
-    bp_set_t *bp_set;
-    rep_set_t *tmp_result;
-    bitset *group;
+    if (!set) return nullptr;
+
     bp_id_set_t *id_set;
-    char *request;
-    rec_set_t *new_rec_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the di
-        di = recv_ptr->rec_di;
+        auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
             ResetBPSetList(di);
-            while ((bp_set = GetNextBPSet(di)) != nullptr) {
+            for (bp_set_t* bp_set; (bp_set=GetNextBPSet(di)); ) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
                 SetList(bp_set->b_bp_id_list);
@@ -3221,7 +3169,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3231,14 +3179,14 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     }
 
                     // Create the request for this group
-                    request =
+                    auto request =
                         CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
 
                     // Create the new rec set for this group
-                    new_rec_set = NewRecSet();
+                    auto new_rec_set = NewRecSet();
                     AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                    tmp_result =
+                    auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                     // We expect this to return nullptr on success, handle the case
@@ -3264,16 +3212,16 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
             }
         } else {
             // find the bp_set for the bp_set_num
-            if ((bp_set = FindBPSetByID(di, bp_set_num)) == nullptr) {
+            auto bp_set = FindBPSetByID(di, bp_set_num);
+            if (bp_set == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
-                group_reply_t *group_rep;
 
                 // Create a new error event
                 EVENT_ERROR(e, DBGERR_DEBUGGER, "No breakpoint number %d.\n",
                             bp_set_num);
                 // Add the event to the result based on its type
-                group_rep =
+                auto group_rep =
                     NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
                 // Create a new result and return it
                 result = NewRepSet();
@@ -3288,7 +3236,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the set.
-                group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (bitset_isempty(group)) {
@@ -3297,14 +3245,14 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 }
 
                 // Create the request for this group
-                request =
+                auto request =
                     CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
 
                 // Create the new rec set for this group
-                new_rec_set = NewRecSet();
+                auto new_rec_set = NewRecSet();
                 AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                tmp_result =
+                auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                 // We expect this to return nullptr on success, handle the case
@@ -3337,22 +3285,17 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 ** DBG_DISABLEBREAK: Disable a breakpoint.
 */
 rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
-    group_recv_t *recv_ptr;
-    dbginvoke_t *di;
+    if (!set) return nullptr;
+
     bp_set_t *bp_set;
-    rep_set_t *tmp_result;
-    bitset *group;
     bp_id_set_t *id_set;
-    char *request;
-    rec_set_t *new_rec_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the di
-        di = recv_ptr->rec_di;
+        auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
             ResetBPSetList(di);
@@ -3364,7 +3307,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3374,14 +3317,14 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     }
 
                     // Create the request for this group
-                    request =
+                    auto request =
                         CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
 
                     // Create the new rec set for this group
-                    new_rec_set = NewRecSet();
+                    auto new_rec_set = NewRecSet();
                     AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                    tmp_result =
+                    auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                     // We expect this to return nullptr on success, handle the case
@@ -3410,13 +3353,12 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
             if ((bp_set = FindBPSetByID(di, bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
-                group_reply_t *group_rep;
 
                 // Create a new error event
                 EVENT_ERROR(e, DBGERR_DEBUGGER, "No breakpoint number %d.\n",
                             bp_set_num);
                 // Add the event to the result based on its type
-                group_rep =
+                auto group_rep =
                     NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
                 // Create a new result and return it
                 if (result == nullptr) {
@@ -3433,7 +3375,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (bitset_isempty(group)) {
@@ -3442,14 +3384,14 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 }
 
                 // Create the request for this group
-                request =
+                auto request =
                     CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
 
                 // Create the new rec set for this group
-                new_rec_set = NewRecSet();
+                auto new_rec_set = NewRecSet();
                 AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                tmp_result =
+                auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                 // We expect this to return nullptr on success, handle the case
@@ -3462,10 +3404,8 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 // Add this to the overall result
                 if (result == nullptr) {
                     result = tmp_result;
-                } else {
-                    if (tmp_result != nullptr) {
-                        result = MergeRepSet(result, tmp_result);
-                    }
+                } else if (tmp_result != nullptr) {
+                    result = MergeRepSet(result, tmp_result);
                 }
 
                 Free(request);
@@ -3482,22 +3422,17 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 ** DBG_ENABLEBREAK: Enable a breakpoint.
 */
 rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
-    group_recv_t *recv_ptr;
-    dbginvoke_t *di;
+    if (!set) return nullptr;
+
     bp_set_t *bp_set;
-    rep_set_t *tmp_result;
-    bitset *group;
     bp_id_set_t *id_set;
-    char *request;
-    rec_set_t *new_rec_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the di
-        di = recv_ptr->rec_di;
+        auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
             ResetBPSetList(di);
@@ -3509,7 +3444,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3519,14 +3454,14 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                     }
 
                     // Create the request for this group
-                    request = CommandToSocProto(DBGCMD_ENABLEBREAK,
+                    auto request = CommandToSocProto(DBGCMD_ENABLEBREAK,
                                                 id_set->b_bp_id, once, del);
 
                     // Create the new rec set for this group
-                    new_rec_set = NewRecSet();
+                    auto new_rec_set = NewRecSet();
                     AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                    tmp_result =
+                    auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                     // We expect this to return nullptr on success, handle the case
@@ -3563,13 +3498,12 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
             if ((bp_set = FindBPSetByID(di, bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
-                group_reply_t *group_rep;
 
                 // Create a new error event
                 EVENT_ERROR(e, DBGERR_DEBUGGER, "No breakpoint number %d.\n",
                             bp_set_num);
                 // Add the event to the result based on its type
-                group_rep =
+                auto group_rep =
                     NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
                 // Create a new result and return it
                 if (result == nullptr) {
@@ -3586,7 +3520,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (bitset_isempty(group)) {
@@ -3595,14 +3529,14 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 }
 
                 // Create the request for this group
-                request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set->b_bp_id,
+                auto request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set->b_bp_id,
                                             once, del);
 
                 // Create the new rec set for this group
-                new_rec_set = NewRecSet();
+                auto new_rec_set = NewRecSet();
                 AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
 
-                tmp_result =
+                auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
 
                 // We expect this to return nullptr on success, handle the case
@@ -3643,19 +3577,12 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 ** DBG_LIST: List specified function or line.
 */
 rep_set_t *DbgList(rec_set_t *set, char *str) {
+    auto result = NewRepSet();
+    if (!set) return result;
+    
     rec_set_t *to_send = NewRecSet();
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    char *request;
-    rec_set_t *new_rec_set;
-    rep_set_t *result = NewRepSet();
-    rep_set_t *tmp_result;
-    group_reply_t *group_rep;
-    dbgframe_t *fp;
-    dbgevent_t *e;
-    char *location = nullptr;
-    int isReverse, i, cont;
-    set_location *set_loc;
+
+    int i, cont;
 
     // We want to do the actual reading of the source code on the frontend if
     // possible. This is because there is a performance hit associated with
@@ -3667,14 +3594,11 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
     // with the dbginvoke
 
     // Loop over each di in the set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the dbg fe
-        dbg_fe = recv_ptr->rec_di->d_frontend;
-
-        if (dbg_fe != nullptr) {
+        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
             // set the forward/reverse direction
-            isReverse = (str == nullptr) ? 0 : (*str == '-');
+            auto isReverse = (str == nullptr) ? false : (*str == '-');
 
             // First is the logic for the case where a previous list is not
             // pending. If str is null, then we need to ask each of the ranks
@@ -3683,13 +3607,13 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 !(dbg_fe->dbg_list_isPending)) {
                 // create and send the command, we only want the innermost
                 // frame.
-                request = CommandToSocProto(DBGCMD_SHOWFRAME, 1);
+                auto request = CommandToSocProto(DBGCMD_SHOWFRAME, 1);
 
                 // Create the new rec set for this group
-                new_rec_set = NewRecSet();
+                auto new_rec_set = NewRecSet();
                 AddReceiverToSet(new_rec_set, CopyGroupReceiver(recv_ptr));
 
-                tmp_result =
+                auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_FRAME);
                 Free(request);
                 FreeRecSet(new_rec_set);
@@ -3706,10 +3630,11 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 // process the frame
                 for (auto&& group_rep : tmp_result) {
                     // Point at the event frame
-                    fp = EVENT_FRAME(group_rep->rep_event);
+                    auto fp = EVENT_FRAME(group_rep->rep_event);
 
                     // Now ask the frontend for the source listing around this
                     // location. This is set depending on the value of isReverse
+                    char *location = nullptr;
                     if (isReverse) {
                         Asprintf(&location, ",%s:%d", fp->frame_loc.loc_file,
                                  fp->frame_loc.loc_line);
@@ -3727,7 +3652,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     }
 
                     // Send the list command to the frontend
-                    e = DbgFEList(dbg_fe, location);
+                    auto e = DbgFEList(dbg_fe, location);
 
                     // Free the location, we are done with it
                     Free(location);
@@ -3760,15 +3685,15 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // loop over every set_location
                 SetListStateLocation(dbg_fe);
-                while ((set_loc = GetListStateLocation(dbg_fe)) != nullptr) {
+                for (set_location *set_loc; (set_loc = GetListStateLocation(dbg_fe));) {
                     // Call the list command using the saved location string to
                     // set things up
-                    e = DbgFEList(dbg_fe, set_loc->loc_str);
+                    auto e = DbgFEList(dbg_fe, set_loc->loc_str);
 
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
-                        group_rep = NewGroupReply(recv_ptr->rec_di,
-                                                  bitset_dup(set_loc->set), e);
+                        auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                                                       bitset_dup(set_loc->set), e);
                         AddErrToSet(result, group_rep);
                         continue;
                     }
@@ -3787,7 +3712,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
-                                group_rep =
+                                auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di,
                                                   bitset_dup(set_loc->set), e);
                                 AddErrToSet(result, group_rep);
@@ -3809,7 +3734,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
-                                group_rep =
+                                auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di,
                                                   bitset_dup(set_loc->set), e);
                                 AddErrToSet(result, group_rep);
@@ -3849,8 +3774,8 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     }
 
                     // Add the event to the result based on its type
-                    group_rep = NewGroupReply(recv_ptr->rec_di,
-                                              bitset_dup(set_loc->set), e);
+                    auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                                                   bitset_dup(set_loc->set), e);
 
                     if (e->ev_event == DBGEV_ERROR) {
                         AddErrToSet(result, group_rep);
@@ -3881,7 +3806,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // we can pass the str directly to the frontend list command
                 // since its not null and was provided by the user.
-                e = DbgFEList(dbg_fe, str);
+                auto e = DbgFEList(dbg_fe, str);
 
                 // Make sure the event is a DBGEV_LIST or DBGEV_ERROR, otherwise
                 // create an error
@@ -3895,7 +3820,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 }
 
                 // Add the event to the result based on its type
-                group_rep = NewGroupReply(recv_ptr->rec_di,
+                auto group_rep = NewGroupReply(recv_ptr->rec_di,
                                           bitset_dup(recv_ptr->rec_group), e);
 
                 if (e->ev_event == DBGEV_ERROR) {
@@ -3919,9 +3844,9 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
     if (GetNumberOfReceivers(to_send)) {
         DPRINT("DbgList: Falling back to backend evaluation.\n");
 
-        request = CommandToSocProto(DBGCMD_LIST, str);
+        auto request = CommandToSocProto(DBGCMD_LIST, str);
 
-        tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_LIST);
+        auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_LIST);
 
         Free(request);
 
@@ -3937,14 +3862,10 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 ** DBG_GET_SOURCES: Ask for source files of inferior.
 */
 rep_set_t *DbgGetSources(rec_set_t *set) {
-    rec_set_t *to_send = NewRecSet();
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    char *request;
-    dbgevent_t *e;
-    rep_set_t *result = NewRepSet();
-    rep_set_t *tmp_result;
-    group_reply_t *group_rep;
+    auto result = NewRepSet();
+    if (!set) return result;
+
+    auto to_send = NewRecSet();
 
     // We want to do the actual reading of the source files on the frontend if
     // possible. This is because there is a performance hit associated with
@@ -3956,13 +3877,12 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
     // with the dbginvoke
 
     // Loop over each di in the set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the dbg fe
-        dbg_fe = recv_ptr->rec_di->d_frontend;
+        auto dbg_fe = recv_ptr->rec_di->d_frontend;
 
         if (dbg_fe != nullptr) {
-            e = DbgFEGetSources(dbg_fe);
+            auto e = DbgFEGetSources(dbg_fe);
 
             // Make sure the event is a DBGEV_SOURCES or DBGEV_ERROR, otherwise
             // create an error
@@ -3976,8 +3896,8 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
             }
 
             // Add the event to the result based on its type
-            group_rep = NewGroupReply(recv_ptr->rec_di,
-                                      bitset_dup(recv_ptr->rec_group), e);
+            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                                           bitset_dup(recv_ptr->rec_group), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -3995,9 +3915,9 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
     if (GetNumberOfReceivers(to_send)) {
         DPRINT("DbgGetSources: Falling back to backend evaluation.\n");
 
-        request = CommandToSocProto(DBGCMD_GETSOURCES);
+        auto request = CommandToSocProto(DBGCMD_GETSOURCES);
 
-        tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCES);
+        auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCES);
 
         Free(request);
 
@@ -4029,15 +3949,10 @@ rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
 **		If in == 0, pass over function calls (ala next).
 */
 rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
-    char *request;
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    int has_err;
-
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_STEP, count, in);
+    auto request = CommandToSocProto(DBGCMD_STEP, count, in);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -4046,32 +3961,29 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // Clear the list location state since this modified the frame only if there
     // was no error
     if (!SetHasError(result)) {
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
-            dbg_fe = recv_ptr->rec_di->d_frontend;
+        for (auto&& recv_ptr : set) {
+            auto dbg_fe = recv_ptr->rec_di->d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
         }
     } else {
         // selectively clear the list
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
-            // reset the has_err
-            has_err = 0;
+        for (auto&& recv_ptr : set) {
+            auto has_err = false;
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
-                    ++has_err;
+                    has_err = true;
                     break;
                 }
             }
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di->d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -4092,29 +4004,24 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 ** DBG_MOVEFRAME: Move up or down stack frames.
 */
 rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
-    char *request;
-    rep_set_t *result;
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
+    if (!set) return nullptr;
+    
     dbgframe_t *fp;
     char *location = nullptr;
     int has_err;
 
-    request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up);
+    auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up);
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
     Free(request);
 
     // Clear the list location state and set it to the new frame since this
     // modified the frame location. Only do it if it didn't have an error.
     if (!SetHasError(result)) {
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto&& recv_ptr : set) {
             // point at the dbg fe
-            dbg_fe = recv_ptr->rec_di->d_frontend;
-
-            if (dbg_fe != nullptr) {
+            if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
                 // Clear any existing state
                 ClearListState(dbg_fe);
 
@@ -4147,8 +4054,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
         }
     } else {
         // selectively clear the list
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto recv_ptr : set) {
             // reset the has_err
             has_err = 0;
 
@@ -4164,7 +4070,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
             // only proceed if there wasn't an error with this di
             if (!has_err) {
                 // point at the dbg fe
-                dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di->d_frontend;
 
                 if (dbg_fe != nullptr) {
                     // Clear any existing state
@@ -4254,14 +4160,11 @@ rep_set_t *DbgGetVars(rec_set_t *set, char *file) {
 ** DBG_GETSCOPE: Return variables local to a scope.
 */
 rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
-    rec_set_t *to_send = NewRecSet();
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    char *request;
     rep_set_t *result = NewRepSet();
-    rep_set_t *tmp_result;
-    dbgevent_t *e;
-    group_reply_t *group_rep;
+
+    if (!set) return result;
+
+    rec_set_t *to_send = NewRecSet();
 
     // We want to do the actual reading of the source files on the frontend if
     // possible. This is because there is a performance hit associated with
@@ -4273,13 +4176,12 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
     // with the dbginvoke
 
     // Loop over each di in the set
-    SetReceiverHeadInSet(set);
-    while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+    for (auto&& recv_ptr : set) {
         // point at the dbg fe
-        dbg_fe = recv_ptr->rec_di->d_frontend;
+        auto dbg_fe = recv_ptr->rec_di->d_frontend;
 
         if (dbg_fe != nullptr) {
-            e = DbgFEGetScope(dbg_fe, location);
+            auto e = DbgFEGetScope(dbg_fe, location);
 
             // Make sure the event is a DBGEV_VARS or DBGEV_ERROR, otherwise
             // create an error
@@ -4293,7 +4195,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
             }
 
             // Add the event msg to the result based on its type
-            group_rep = NewGroupReply(recv_ptr->rec_di,
+            auto group_rep = NewGroupReply(recv_ptr->rec_di,
                                       bitset_dup(recv_ptr->rec_group), e);
 
             if (e->ev_event == DBGEV_ERROR) {
@@ -4311,9 +4213,9 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
     if (GetNumberOfReceivers(to_send)) {
         DPRINT("DbgGetScope: Falling back to backend evaluation.\n");
 
-        request = CommandToSocProto(DBGCMD_GETSCOPE, location);
+        auto request = CommandToSocProto(DBGCMD_GETSCOPE, location);
 
-        tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_VARS);
+        auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_VARS);
 
         Free(request);
 
@@ -4359,50 +4261,42 @@ rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
 ** DBG_INTERRUPT: Interrupt current debugger operation.
 */
 rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
-    char *request;
-    rep_set_t *result;
-    group_recv_t *recv_ptr;
-    dbgfrontend_sw *dbg_fe;
-    int has_err;
-
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_INTERRUPT, all);
+    auto request = CommandToSocProto(DBGCMD_INTERRUPT, all);
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
 
     Free(request);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
     if (!SetHasError(result)) {
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
-            dbg_fe = recv_ptr->rec_di->d_frontend;
+        for (auto&& recv_ptr : set) {
+            auto dbg_fe = recv_ptr->rec_di->d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
         }
     } else {
         // selectively clear the list
-        SetReceiverHeadInSet(set);
-        while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+        for (auto&& recv_ptr : set) {
             // reset the has_err
-            has_err = 0;
+            auto has_err = false;
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di) {
                     // this di has an error
-                    ++has_err;
+                    has_err = true;
                     break;
                 }
             }
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di->d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -4425,14 +4319,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 */
 rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
     int detach = 0;
-    char *request;
     rep_set_t *result = NewRepSet();
-    rep_set_t *tmp_result;
-    group_recv_t *recv_ptr;
-    dbginvoke_t *di;
-    group_reply_t *err_rep;
-    dbgevent_t *e;
-    rec_set_t *to_send;
 
     // set the detach value
     switch (det) {
@@ -4444,28 +4331,29 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
             detach = 1;
 
         uniform_exit:
-            // The caller hardcoded the quit type, so it is the same for every
-            // di. There is no need to selectively quit based on the di type.
-            request = CommandToSocProto(DBGCMD_QUIT, detach);
+            {
+                // The caller hardcoded the quit type, so it is the same for every
+                // di. There is no need to selectively quit based on the di type.
+                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
-            tmp_result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+                auto tmp_result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+                
+                Free(request);
 
-            Free(request);
-
-            // merge the results
-            result = MergeRepSet(result, tmp_result);
+                // merge the results
+                result = MergeRepSet(result, tmp_result);
+            }
 
             // Call protocol specific communication network exit function and
             // destroy the di for each di in the rec_set
-            SetReceiverHeadInSet(set);
-            while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+            for (auto&& recv_ptr : set) {
                 // point at the di
-                di = recv_ptr->rec_di;
+                auto di = recv_ptr->rec_di;
 
                 if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
                     // Create a new error event
-                    EVENT_ERROR(e, DBGERR_NOTIMP, nullptr);
-                    err_rep =
+                    auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
+                    auto err_rep =
                         NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
                     // Add the error to the reply set
                     AddErrToSet(result, err_rep);
@@ -4484,13 +4372,12 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
             // Here the caller used the default quit type which is based on the
             // attach value in each di. So we need to loop over each di in the
             // rec_set individually since these can be different.
-            SetReceiverHeadInSet(set);
-            while ((recv_ptr = GetNextReceiverInSet(set)) != nullptr) {
+            for (auto&& recv_ptr : set) {
                 // point at the di
-                di = recv_ptr->rec_di;
+                auto di = recv_ptr->rec_di;
 
                 // create the rec_set
-                to_send = NewRecSet();
+                auto to_send = NewRecSet();
                 AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
 
                 // use default based on attach value
@@ -4503,9 +4390,9 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                         break;
                 }
 
-                request = CommandToSocProto(DBGCMD_QUIT, detach);
+                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
-                tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
+                auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
 
                 Free(request);
                 FreeRecSet(to_send);
@@ -4516,8 +4403,8 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 // Call protocol specific communication network exit function
                 if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
                     // Create a new error event
-                    EVENT_ERROR(e, DBGERR_NOTIMP, nullptr);
-                    err_rep =
+                    auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
+                    auto err_rep =
                         NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
                     // Add the error to the reply set
                     AddErrToSet(result, err_rep);

@@ -127,10 +127,30 @@ typedef struct group_recv group_recv_t;
 *for
 ** each di involved in the command.
 */
-struct rec_set {
-    list_t *rec_list;  // recievers of command
+class rec_set_t {
+public:
+    rec_set_t() = default;
+    ~rec_set_t();
+    rec_set_t(const rec_set_t&) = delete;
+    rec_set_t& operator=(const rec_set_t&) = delete;
+
+    void addReceiver(group_recv_t* rec);
+    void removeReceiver(group_recv_t* rec);  // frees the receiver
+
+    size_t getNumReceivers() const { return m_recs.size(); }
+    const std::vector<group_recv_t*>& getReceivers() const { return m_recs; }
+    
+private:
+    std::vector<group_recv_t*> m_recs;  // recievers of command
 };
-typedef struct rec_set rec_set_t;
+
+inline std::vector<group_recv_t*>::const_iterator begin(const rec_set_t* set) {
+    return set->getReceivers().begin();
+}
+inline std::vector<group_recv_t*>::const_iterator end(const rec_set_t* set) {
+    return set->getReceivers().end();
+}
+
 
 /*
 ** A group reply is the actual element placed inside the rep_set_t lists.
@@ -390,10 +410,9 @@ typedef enum dbgsig_type dbgsig_type;
 */
 extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask);
 extern rec_set_t *NewRecSet(void);
+
 extern void AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
 extern void FreeRecSet(rec_set_t *set);
-extern void SetReceiverHeadInSet(rec_set_t *set);
-extern group_recv_t *GetNextReceiverInSet(rec_set_t *set);
 extern bool RecSetHasOneProcPerReceiver(rec_set_t* set);
 
 /*

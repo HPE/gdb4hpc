@@ -3156,7 +3156,6 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
     dbg_over_set_t *over_set;
     int ret;
     rec_set_t *target_recset;
-    group_recv_t *recv_ptr;
 
     DPRINT("In assign_expr_imm.\n");
 
@@ -3371,9 +3370,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     // loop over each reply
                     for (auto&& reply : rep_set) {
                         // Loop over each di in the rec_set
-                        SetReceiverHeadInSet(rec_set);
-                        while ((recv_ptr = GetNextReceiverInSet(rec_set)) !=
-                               NULL) {
+                        for (auto&& recv_ptr : rec_set) {
                             // Check if the size of the di bitset matches the
                             // size of the rep_set bitset
                             if (bitset_size(recv_ptr->rec_group) !=
@@ -3577,8 +3574,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // loop over each reply
                 for (auto&& reply : rep_set) {
                     // Loop over each di in the rec_set
-                    SetReceiverHeadInSet(rec_set);
-                    while ((recv_ptr = GetNextReceiverInSet(rec_set)) != NULL) {
+                    for (auto&& recv_ptr : rec_set) {
                         // Check if the size of the di bitset matches the size
                         // of the rep_set bitset
                         if (bitset_size(recv_ptr->rec_group) !=

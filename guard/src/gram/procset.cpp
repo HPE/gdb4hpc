@@ -780,10 +780,10 @@ dbgprocset_t *GetProcSet(void) {
     return (dbgprocset_t *)GetListElement(ProcSets);
 }
 
+
 void PrintProcSet(dbgprocset_t *s) {
     int n = 0;
     dbg_over_set_t *over_set;
-    char *setinfo;
 
     if (EmptyList(s->s_over_set_list)) {
         PrintOutMsg("none");
@@ -796,21 +796,24 @@ void PrintProcSet(dbgprocset_t *s) {
     // ranks.
     while ((over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) !=
            NULL) {
-        setinfo = bitset_to_set(over_set->s_di_bs);
-
         PrintOutMsg("%s", over_set->s_di->d_handle);
 
-        if (setinfo != NULL) {
-            PrintOutMsg("%s", setinfo);
-            Free(setinfo);
-            setinfo = NULL;
+        if (char* si = bitset_to_set(over_set->s_di_bs)) {
+            if (s->s_threads) {
+                std::string setInfo{si};
+                auto loc = setInfo.rfind('}');
+                if (loc != std::string::npos) {
+                    setInfo = setInfo.substr(0,loc) + ":" + s->s_threads + "}";
+                }
+                PrintOutMsg("%s", setInfo.c_str());
+            } else {
+                PrintOutMsg("%s", si);
+            }
+            Free(si);
         }
 
         n += bitset_numset(over_set->s_di_bs);
         if (n < s->s_nproc) PrintOutMsg(",");
-    }
-    if (s->s_threads) {
-        PrintOutMsg(":%s", s->s_threads);
     }
 }
 

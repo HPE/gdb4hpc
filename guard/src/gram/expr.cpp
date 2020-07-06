@@ -2799,27 +2799,26 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
     }
 
     // process the thread list
-    std::stringstream threadDef;
-    if (!check_pop(e, EXPR_LIST)) return nullptr;
+    std::vector<std::string> threadElems;
 
     for (int i=0; i<threadLen; ++i) {
+        if (!check_pop(e, EXPR_LIST)) return nullptr;
+
         if (!(ep = check_pop(e, EXPR_UNKNOWN))) return nullptr;
 
         switch (ep->e_op) {
         case EXPR_INT:
-            threadDef << ep->e_int << " ";
+            threadElems.push_back(std::to_string(ep->e_int));
             break;
         case EXPR_STRING:
-            threadDef << ep->e_string << " ";
-            break;
-        case EXPR_STAR:
-            threadDef << "* ";
+            threadElems.push_back(std::string{"\""} + ep->e_string + "\"");
             break;
         case EXPR_SLICE:
             if ((ep=check_pop(e, EXPR_INT)) &&
                 (ep2=check_pop(e,EXPR_INT))) {
-                threadDef << ep2->e_int << ".." << ep->e_int << " ";
+                threadElems.push_back( std::to_string(ep2->e_int) + ".." + std::to_string(ep->e_int));
             } else {
+                SetError("unexpected type in thread range");
                 return nullptr;
             }
             break;
@@ -2829,12 +2828,21 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
         }
     }
 
+    // the expression parsing happens back to front, to I need to reverse the list elements
+    std::string threadDef;
+    for (auto it = threadElems.rbegin(); it != threadElems.rend(); ++it) {
+        if (!threadDef.empty())
+            threadDef += ",";
+        threadDef += *it;
+    }
+    
+
     val_t* procVal = read_var_imm(e, rec_set, nullptr);
 
     if (procVal) {
         PrintOutMsg("thread info for proc set has no effect\n");
         slice_t* slice = RVAL_REF_SLICE(procVal);
-        slice->s_threads = strdup(threadDef.str().c_str());
+        slice->s_threads = strdup(threadDef.c_str());
     }
 
     return procVal;

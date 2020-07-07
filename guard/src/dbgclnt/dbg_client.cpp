@@ -2652,7 +2652,7 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
 
     size_t exprId = DbgGetNextExprIdx();
 
-    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, exprId);
+    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, exprId, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
 

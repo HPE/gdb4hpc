@@ -136,7 +136,7 @@ public:
 
     virtual dbgevent_t *getFrame() override;
     virtual dbgevent_t *setVar(const char *var, AIF *a) override;
-    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx) override;
+    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char *file) override;
@@ -4998,7 +4998,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
+dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads) {
     DVPRINT("*** Dbg %s, %s(exp %s, rank %d, idx %ld)\n", __FILE__, __func__, exp, my_rank, expIdx);
 
     // Check whether it has hashing/slicing
@@ -5047,9 +5047,15 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
     AIFStream* aifStream = nullptr;
     char *type = nullptr;
 
+    if (threads && threads[0]) {
+        DVPRINT("ignoring thread info %s\n", threads);
+    }
+
+
     if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
         return e;
     }
+
 
     dbgev ev = DBGEV_DATA;
     bool isFinal;

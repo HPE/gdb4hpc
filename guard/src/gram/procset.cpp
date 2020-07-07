@@ -636,20 +636,23 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di) {
 ** passing down to the dbg_client layer.
 */
 rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps) {
-    rec_set_t *res;
-    dbg_over_set_t *over_set;
 
     if (ps == NULL) return NULL;
 
     // create an empty rec_set
-    res = NewRecSet();
+    rec_set_t* res = NewRecSet();
 
     // loop over each over_set in the procset
+    ;
     SetOverlaySetForProcSet(ps);
-    while ((over_set = GetNextOverlaySetForProcSet(ps)) != NULL) {
+    while (dbg_over_set_t *over_set = GetNextOverlaySetForProcSet(ps)) {
         // create a group_recv_t for the over_set and add it to the res
         AddReceiverToSet(res,
                          NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
+    }
+
+    if (ps->s_threads) {
+        res->setThreads(ps->s_threads);
     }
 
     return res;

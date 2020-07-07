@@ -273,17 +273,27 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
 }
 
 /*
- * data structures for sets of group reveivers to dbgsrv
+ * data structures for sets of group receivers to dbgsrv
  */
 
 rec_set_t *NewRecSet(void) {
     return new rec_set_t;
 }
 
+rec_set_t::rec_set_t() : m_threads(nullptr) {}
+
 rec_set_t::~rec_set_t() {
     for (auto&& recv : m_recs) {
         FreeGroupReceiver(recv);
     }
+    free(m_threads);
+}
+
+void rec_set_t::setThreads(const char* threads)
+{
+    char* t = ( threads && strlen(threads) ? strdup(threads) : nullptr);
+    std::swap(t, m_threads);
+    free(t);
 }
         
     

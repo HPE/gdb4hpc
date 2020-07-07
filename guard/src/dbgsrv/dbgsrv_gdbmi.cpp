@@ -175,6 +175,7 @@ private:
     dbgevent_t *initDbgAttach(int pid, const char *prog);
     dbgevent_t* setBreak(const int allowPending, const std::string& where,
                          const char* threadSet, const dbgcomm_info* commInfo);
+    dbgevent_t* evalExprWithThreads(const char *expr, const char* threads);
     std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
                                    bool &isVerbose);
@@ -206,6 +207,8 @@ static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
+
+static std::string threadIdsToString(const std::vector<int>& ids);
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
@@ -3102,11 +3105,7 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
         return "error:no command given for thread apply";
     }
 
-    os.str("");
-    for (auto&& id : threadIds) os << id << " ";
-    os << command;
-                                      
-    return os.str();
+    return threadIdsToString(threadIds) + " " + command;
 }
 
 // process the output from thread apply using the extented flags
@@ -5044,13 +5043,12 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         return e;
     }
 
-    AIFStream* aifStream = nullptr;
-    char *type = nullptr;
-
     if (threads && threads[0]) {
-        DVPRINT("ignoring thread info %s\n", threads);
+        if (auto e = evalExprWithThreads(exp, threads)) return e;
     }
 
+    AIFStream* aifStream = nullptr;
+    char *type = nullptr;
 
     if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
         return e;
@@ -5074,6 +5072,47 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     dbgevent_t* e = NewEvent(ev);
     e->ev_data = new AIFStream(aif);
     return e;
+}
+
+// handling for expressions that are limited to a thread context.   If the threads
+// resolves to a single thread  we just change the thread context and return 
+dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
+{
+    std::string error;
+    auto threadSet = getThreadSet(threads, nullptr, error);
+    if (!error.empty()) {
+        return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
+    }
+
+    auto threadStr = threadIdsToString(threadSet);
+    if (threadSet.size() == 1) {
+        // single thread - just change to the thread and act normally - that is return
+        // an AIF structure just like always
+        auto e = setThread(threadStr.c_str());
+        if (e->ev_event != DBGEV_OK) {
+            return e;
+        } else {
+            FreeEvent(e);
+        }
+    } else if (threadSet.size() > 1) {
+        // multiple threads - we'll switch over to apply, which means this form will
+        // just return a string, but in this case there are possible multiple values
+        std::string op = threadStr + " p " + exp;
+        auto applyEvent = threadApply(op.c_str());
+        if (applyEvent->ev_event != DBGEV_THREADINFO) {
+            return applyEvent;
+        }
+        
+        // the front end expects data, and most of it will work reasonably well if we
+        // return this as string data
+        AIF* aif = StringToAIF(applyEvent->ev_u.ev_u_string);
+        FreeEvent(applyEvent);
+        dbgevent_t* e = NewEvent(DBGEV_DATA);
+        e->ev_data = new AIFStream(aif);
+        return e;
+    }
+
+    return nullptr; // let the normal eval process either continue or take over
 }
 
 dbgevent_t *DbgGdbMI::openSocket(const char *opset_name, int opset_size) {
@@ -5117,3 +5156,15 @@ int DbgGdbMI::progioHook(int) {
     // unimplemented, expecting a status, this has always return -1
     return -1;
 }
+
+static std::string threadIdsToString(const std::vector<int>& ids) {
+    bool first = true;
+    std::ostringstream os;
+    for (auto&& id : ids) {
+        os << (first ? "" : " ") << id;
+        first = false;
+    }
+    return os.str();
+}
+
+ 

@@ -290,4 +290,6 @@ extern const char *EventToStr(dbgevent_t *);
 extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);
 
+constexpr const char* MULTI_THREAD_HDR = "Thread Results\n";
+
 #endif /* !_DBGEVENT_H */

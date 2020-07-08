@@ -129,11 +129,10 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
         auto aif = EVENT_DATA(reply->rep_event)->joinAIF();
         char* str = nullptr;
-        if (AIFType(aif) == AIF_STRING && AIFToStr(&str,0,aif)==0) {
-            auto lookStr = std::string{str};
-            if (lookStr.size() >= 2) {
-                lookStr = lookStr.substr(1,lookStr.size()-2); // string quotes
-            }
+        if (AIFType(aif) == AIF_STRING && AIFToStr(&str,0,aif) == 0 &&
+            strncmp(str+1,MULTI_THREAD_HDR,strlen(MULTI_THREAD_HDR)) == 0) {
+            auto lookStr = std::string{str+1+strlen(MULTI_THREAD_HDR)}; // skip begin quote and header
+            if (lookStr.size() >= 1) lookStr.erase(lookStr.size()-1);  // end quote
             
             auto thread = std::string{}, eval = std::string{}, nextThread = std::string{};
             auto match = std::smatch{};
@@ -163,6 +162,7 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
             AIFPrint(Client.cli_out_stream, 0, aif);
             PrintOutMsg("\n");
         }
+        free (str);
     }
 
     return 0;

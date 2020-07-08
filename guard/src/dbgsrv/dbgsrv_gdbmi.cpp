@@ -3147,6 +3147,9 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
                 collector.add(id, result.str());
             }
 
+            // Print out the thread info - if this format changes, printValWithThreads in cmd_print.cpp
+            // would need to changed to match.  (or possibly consider changing to a more structured
+            // form for the data)
             std::ostringstream os;
             for (std::string val; collector.getNextResult(id,val); ) {
                 if (!isQuiet) {
@@ -5105,8 +5108,12 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
         
         // the front end expects data, and most of it will work reasonably well if we
         // return this as string data
-        AIF* aif = StringToAIF(applyEvent->ev_u.ev_u_string);
+        char* retStr = nullptr;
+        asprintf(&retStr, "%s%s", MULTI_THREAD_HDR, applyEvent->ev_u.ev_u_string);
+        AIF* aif = StringToAIF(retStr);
         FreeEvent(applyEvent);
+        free(retStr);
+
         dbgevent_t* e = NewEvent(DBGEV_DATA);
         e->ev_data = new AIFStream(aif);
         return e;

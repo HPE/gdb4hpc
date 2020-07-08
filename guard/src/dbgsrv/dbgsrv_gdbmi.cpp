@@ -1305,7 +1305,14 @@ recover_for_slurm:
                     finish = 1;
                 }
                 MICommandFree(cmd);
+
+                // free the MIFrame list
+                MIListFree(frames, (void (*)())MIFrameFree);
+
             } else {
+                // we are done with the frames list
+                MIListFree(frames, (void (*)())MIFrameFree);
+                
                 // issue a continue command .. this is assuming we're pre-main or
                 // pre-parallel entry point.
                 cmd = MIExecContinueAll();
@@ -1368,8 +1375,6 @@ recover_for_slurm:
                 // Free the event
                 MIEventFree(evt);
             }
-            // free the MIFrame list
-            MIListFree(frames, (void (*)())MIFrameFree);
             // remove all of the entry breakpoints. We are done with them.
             if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
                 return e;
@@ -4877,7 +4882,6 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     char var[BUFSIZ] = "";
     char args[BUFSIZ] = "";
-    char *type;
     int func_id = 0;
     char sliceinfo[BUFSIZ] = "";
 
@@ -4915,10 +4919,10 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     // GetAIFVar only returns a value if it fails
     AIFStream* aifStream = nullptr;
-    if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
+    if ((e = GetAIFVar(GDBMISession, var, &aifStream, nullptr))) {
         return e;
     }
-
+    
     e = NewEvent(DBGEV_DATA);
 
     // if slice info found, perform slicing first
@@ -5053,9 +5057,8 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     }
 
     AIFStream* aifStream = nullptr;
-    char *type = nullptr;
 
-    if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
+    if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, nullptr)) {
         return e;
     }
 

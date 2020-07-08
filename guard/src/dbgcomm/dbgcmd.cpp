@@ -330,11 +330,13 @@ void FreeCommand(dbgcommand_t *cmd) {
             FreeCmdArgsString(cmd->cmd_u.cmd_u_string);
             break;
 
+        case DBGCMD_GO:
+            free(cmd->cmd_u.cmd_u_go);
+
         // Commands without arguments go here
         case DBGCMD_STARTUP:
         case DBGCMD_LASTBREAK:
         case DBGCMD_GETSOURCES:
-        case DBGCMD_GO:
         case DBGCMD_FINISH:
         case DBGCMD_KILL:
         case DBGCMD_GETFRAME:

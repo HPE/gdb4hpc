@@ -784,7 +784,6 @@ dbgprocset_t *GetProcSet(void) {
     return (dbgprocset_t *)GetListElement(ProcSets);
 }
 
-
 void PrintProcSet(dbgprocset_t *s) {
     int n = 0;
     dbg_over_set_t *over_set;

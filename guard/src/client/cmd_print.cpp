@@ -108,6 +108,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     return 0;
 }
 
+// print the value of \a prefixed with the process and possibly thread info.
 static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
     if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
         return PrintVal(val, rec_set);

@@ -291,7 +291,7 @@ rec_set_t::~rec_set_t() {
 
 void rec_set_t::setThreads(const char* threads)
 {
-    char* t = ( threads && strlen(threads) ? strdup(threads) : nullptr);
+    char* t = ( threads && threads[0] ? strdup(threads) : nullptr);
     std::swap(t, m_threads);
     free(t);
 }

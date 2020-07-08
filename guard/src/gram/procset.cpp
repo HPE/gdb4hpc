@@ -35,7 +35,8 @@ static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, bitset *, int);
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void _free_procset(dbgprocset_t *);
-static void _print_with_set_info(const char *, const bitset *, int, int, int, int,
+static void _print_with_set_info(const char *, const bitset *, const char* threads,
+                                 int, int, int, int,
                                  const char *, va_list);
 
 // Internal variables
@@ -828,6 +829,7 @@ dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s) {
 }
 
 static void _print_with_set_info(const char *setname, const bitset *group,
+                                 const char* threads,
                                  int isOffset, int offset, int len, int isErr,
                                  const char *f, va_list ap) {
     char *set_info = NULL;
@@ -841,6 +843,20 @@ static void _print_with_set_info(const char *setname, const bitset *group,
     if (set_info == NULL) {
         set_info = bitset_to_set(group);
     }
+
+    if (threads && threads[0]) {
+        auto siLen = strlen(set_info);
+        if (siLen > 0 && set_info[siLen-1] == '}') {
+            char* s = (char*) malloc(siLen+strlen(threads) + 2); // for ':' and '\0'
+            strcpy(s, set_info);
+            s[siLen-1] = ':';
+            strcat(s,threads);
+            strcat(s,"}");
+            std::swap(set_info, s);
+            free(s);
+        }
+    }
+        
 
     if (setname != NULL && set_info != NULL) {
         if (isErr) {
@@ -866,7 +882,21 @@ void PrintMsgWithSetInfo(const char *setname, const bitset *group, const char *f
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, 0, 0, 0, 0, f, ap);
+    _print_with_set_info(setname, group, nullptr, 0, 0, 0, 0, f, ap);
+
+    // end the va_list
+    va_end(ap);
+}
+
+void PrintMsgWithSetAndThreadInfo(const char *setname, const bitset* group,
+                                  const char* threads, const char* f, ...)
+{
+    va_list ap;
+
+    // setup the va_list
+    va_start(ap, f);
+
+    _print_with_set_info(setname, group, threads, 0, 0, 0, 0, f, ap);
 
     // end the va_list
     va_end(ap);
@@ -879,8 +909,22 @@ void PrintErrorWithSetInfo(const char *setname, const bitset *group, const char 
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, 0, 0, 0, 1, f, ap);
+    _print_with_set_info(setname, group, nullptr, 0, 0, 0, 1, f, ap);
 
     // end the va_list
     va_end(ap);
 }
+
+void PrintErrorWithSetAndThreadInfo(const char *setname, const bitset *group, const char* threads,
+                                    const char *f, ...) {
+    va_list ap;
+
+    // setup the va_list
+    va_start(ap, f);
+
+    _print_with_set_info(setname, group, threads, 0, 0, 0, 1, f, ap);
+
+    // end the va_list
+    va_end(ap);
+}
+

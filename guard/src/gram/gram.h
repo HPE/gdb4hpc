@@ -159,8 +159,16 @@ extern void SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *);
 extern void PrintMsgWithSetInfo(const char *setname, const bitset *group,
                                 const char *f, ...);
+extern void PrintMsgWithSetAndThreadInfo(const char *setname, const bitset *group,
+                                         const char* threads,
+                                         const char *f, ...);
+
 extern void PrintErrorWithSetInfo(const char *setname, const bitset *group,
                                   const char *f, ...);
+extern void PrintErrorWithSetAndThreadInfo(const char *setname, const bitset *group,
+                                           const char* threads,
+                                           const char *f, ...);
+
 
 /*
 ** slice.h

@@ -131,38 +131,47 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
         char* str = nullptr;
         if (AIFType(aif) == AIF_STRING && AIFToStr(&str,0,aif) == 0 &&
             strncmp(str+1,MULTI_THREAD_HDR,strlen(MULTI_THREAD_HDR)) == 0) {
+            // this is the result from thread apply returned back in string form since it
+            // is potentially a heterogeneous collection
             auto lookStr = std::string{str+1+strlen(MULTI_THREAD_HDR)}; // skip begin quote and header
             if (lookStr.size() >= 1) lookStr.erase(lookStr.size()-1);  // end quote
-            
+
+            // the form is:
+            // Threads 1 3 5-7:
+            // <result>
             auto thread = std::string{}, eval = std::string{}, nextThread = std::string{};
             auto match = std::smatch{};
             while (!lookStr.empty()) {
                 if (std::regex_search(lookStr, match, threadHeadRE)) {
-                    eval = match.prefix().str();
-                    nextThread = match[2].str();
+                    eval = match.prefix().str();  // will be empty for the first thread
+                    nextThread = match[2].str();  // note we're catching the thread id in arrears
                     lookStr = match.suffix().str();
                 } else {
+                    // result from final thread
                     eval = lookStr;
                     nextThread = lookStr = "";
                 }
 
                 if (!eval.empty()) {
+                    // translate from gdb form to procset form
                     for (size_t i=0; (i=thread.find('-', i)) != std::string::npos; ++i) thread.replace(i,1,"..");
                     for (size_t i=0; (i=thread.find(' ',i)) != std::string::npos; ++i) thread.replace(i,1,",");
 
+                    // and print
                     PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, thread.c_str(), eval.c_str());
                     PrintOutMsg("\n");
                 }
                 thread = nextThread;
             }
         } else {
+            // A normal expression result, either from no thread focus, or focus on a single thread.
             PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, nullptr, nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
             AIFPrint(Client.cli_out_stream, 0, aif);
             PrintOutMsg("\n");
         }
-        free (str);
+        free(str);
     }
 
     return 0;

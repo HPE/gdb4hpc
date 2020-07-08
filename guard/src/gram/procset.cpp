@@ -804,6 +804,7 @@ void PrintProcSet(dbgprocset_t *s) {
 
         if (char* si = bitset_to_set(over_set->s_di_bs)) {
             if (s->s_threads) {
+                // insert the thread info
                 std::string setInfo{si};
                 auto loc = setInfo.rfind('}');
                 if (loc != std::string::npos) {
@@ -845,6 +846,7 @@ static void _print_with_set_info(const char *setname, const bitset *group,
     }
 
     if (threads && threads[0]) {
+        // insert the thread info before the end bracket
         auto siLen = strlen(set_info);
         if (siLen > 0 && set_info[siLen-1] == '}') {
             char* s = (char*) malloc(siLen+strlen(threads) + 2); // for ':' and '\0'

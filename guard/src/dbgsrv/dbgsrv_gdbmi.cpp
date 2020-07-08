@@ -5047,6 +5047,8 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     }
 
     if (threads && threads[0]) {
+        // evalExprWithThreads returns null if the result is single threaded, so that case
+        // falls through into the normal processing
         if (auto e = evalExprWithThreads(exp, threads)) return e;
     }
 
@@ -5077,7 +5079,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     return e;
 }
 
-// handling for expressions that are limited to a thread context.   If the threads
+// handling for expressions that have a defined thread set context.   If the thread set
 // resolves to a single thread  we just change the thread context and return 
 dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
 {
@@ -5107,7 +5109,8 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
         }
         
         // the front end expects data, and most of it will work reasonably well if we
-        // return this as string data
+        // return this as string data.   Adding a special header reduces the odds of
+        // conflicting with an actual string.
         char* retStr = nullptr;
         asprintf(&retStr, "%s%s", MULTI_THREAD_HDR, applyEvent->ev_u.ev_u_string);
         AIF* aif = StringToAIF(retStr);

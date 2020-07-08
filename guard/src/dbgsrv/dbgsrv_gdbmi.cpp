@@ -136,7 +136,7 @@ public:
 
     virtual dbgevent_t *getFrame() override;
     virtual dbgevent_t *setVar(const char *var, AIF *a) override;
-    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx) override;
+    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char *file) override;
@@ -175,6 +175,7 @@ private:
     dbgevent_t *initDbgAttach(int pid, const char *prog);
     dbgevent_t* setBreak(const int allowPending, const std::string& where,
                          const char* threadSet, const dbgcomm_info* commInfo);
+    dbgevent_t* evalExprWithThreads(const char *expr, const char* threads);
     std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
                                    bool &isVerbose);
@@ -206,6 +207,8 @@ static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
+
+static std::string threadIdsToString(const std::vector<int>& ids);
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
@@ -3102,11 +3105,7 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
         return "error:no command given for thread apply";
     }
 
-    os.str("");
-    for (auto&& id : threadIds) os << id << " ";
-    os << command;
-                                      
-    return os.str();
+    return threadIdsToString(threadIds) + " " + command;
 }
 
 // process the output from thread apply using the extented flags
@@ -3148,6 +3147,9 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
                 collector.add(id, result.str());
             }
 
+            // Print out the thread info - if this format changes, printValWithThreads in cmd_print.cpp
+            // would need to changed to match.  (or possibly consider changing to a more structured
+            // form for the data)
             std::ostringstream os;
             for (std::string val; collector.getNextResult(id,val); ) {
                 if (!isQuiet) {
@@ -4998,7 +5000,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
+dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads) {
     DVPRINT("*** Dbg %s, %s(exp %s, rank %d, idx %ld)\n", __FILE__, __func__, exp, my_rank, expIdx);
 
     // Check whether it has hashing/slicing
@@ -5044,12 +5046,19 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
         return e;
     }
 
+    if (threads && threads[0]) {
+        // evalExprWithThreads returns null if the result is single threaded, so that case
+        // falls through into the normal processing
+        if (auto e = evalExprWithThreads(exp, threads)) return e;
+    }
+
     AIFStream* aifStream = nullptr;
     char *type = nullptr;
 
     if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, &type)) {
         return e;
     }
+
 
     dbgev ev = DBGEV_DATA;
     bool isFinal;
@@ -5068,6 +5077,52 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx) {
     dbgevent_t* e = NewEvent(ev);
     e->ev_data = new AIFStream(aif);
     return e;
+}
+
+// handling for expressions that have a defined thread set context.   If the thread set
+// resolves to a single thread  we just change the thread context and return 
+dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
+{
+    std::string error;
+    auto threadSet = getThreadSet(threads, nullptr, error);
+    if (!error.empty()) {
+        return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
+    }
+
+    auto threadStr = threadIdsToString(threadSet);
+    if (threadSet.size() == 1) {
+        // single thread - just change to the thread and act normally - that is return
+        // an AIF structure just like always
+        auto e = setThread(threadStr.c_str());
+        if (e->ev_event != DBGEV_OK) {
+            return e;
+        } else {
+            FreeEvent(e);
+        }
+    } else if (threadSet.size() > 1) {
+        // multiple threads - we'll switch over to apply, which means this form will
+        // just return a string, but in this case there are possible multiple values
+        std::string op = threadStr + " p " + exp;
+        auto applyEvent = threadApply(op.c_str());
+        if (applyEvent->ev_event != DBGEV_THREADINFO) {
+            return applyEvent;
+        }
+        
+        // the front end expects data, and most of it will work reasonably well if we
+        // return this as string data.   Adding a special header reduces the odds of
+        // conflicting with an actual string.
+        char* retStr = nullptr;
+        asprintf(&retStr, "%s%s", MULTI_THREAD_HDR, applyEvent->ev_u.ev_u_string);
+        AIF* aif = StringToAIF(retStr);
+        FreeEvent(applyEvent);
+        free(retStr);
+
+        dbgevent_t* e = NewEvent(DBGEV_DATA);
+        e->ev_data = new AIFStream(aif);
+        return e;
+    }
+
+    return nullptr; // let the normal eval process either continue or take over
 }
 
 dbgevent_t *DbgGdbMI::openSocket(const char *opset_name, int opset_size) {
@@ -5111,3 +5166,15 @@ int DbgGdbMI::progioHook(int) {
     // unimplemented, expecting a status, this has always return -1
     return -1;
 }
+
+static std::string threadIdsToString(const std::vector<int>& ids) {
+    bool first = true;
+    std::ostringstream os;
+    for (auto&& id : ids) {
+        os << (first ? "" : " ") << id;
+        first = false;
+    }
+    return os.str();
+}
+
+ 

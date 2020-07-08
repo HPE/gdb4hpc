@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <regex>
 
 #include "client.h"
 #include "df.h"
@@ -107,6 +108,77 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     return 0;
 }
 
+// print the value of \a prefixed with the process and possibly thread info.
+static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
+    if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
+        return PrintVal(val, rec_set);
+    }
+
+    // Retrieve the contents of the val
+    if (VAL_RETRIEVE(val, rec_set)) {
+        return -1;
+    }
+
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+
+    // Print each reply
+    auto rep_set = RVAL_REPLY(val);
+    for (auto&& reply : rep_set) {
+        // Print the set info - Note that the rep_di can be null here if
+        // the reply set was the result of an operation on two different
+        // sets.
+        auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
+        auto aif = EVENT_DATA(reply->rep_event)->joinAIF();
+        char* str = nullptr;
+        if (AIFType(aif) == AIF_STRING && AIFToStr(&str,0,aif) == 0 &&
+            strncmp(str+1,MULTI_THREAD_HDR,strlen(MULTI_THREAD_HDR)) == 0) {
+            // this is the result from thread apply returned back in string form since it
+            // is potentially a heterogeneous collection
+            auto lookStr = std::string{str+1+strlen(MULTI_THREAD_HDR)}; // skip begin quote and header
+            if (lookStr.size() >= 1) lookStr.erase(lookStr.size()-1);  // end quote
+
+            // the form is:
+            // Threads 1 3 5-7:
+            // <result>
+            auto thread = std::string{}, eval = std::string{}, nextThread = std::string{};
+            auto match = std::smatch{};
+            while (!lookStr.empty()) {
+                if (std::regex_search(lookStr, match, threadHeadRE)) {
+                    eval = match.prefix().str();  // will be empty for the first thread
+                    nextThread = match[2].str();  // note we're catching the thread id in arrears
+                    lookStr = match.suffix().str();
+                } else {
+                    // result from final thread
+                    eval = lookStr;
+                    nextThread = lookStr = "";
+                }
+
+                if (!eval.empty()) {
+                    // translate from gdb form to procset form
+                    for (size_t i=0; (i=thread.find('-', i)) != std::string::npos; ++i) thread.replace(i,1,"..");
+                    for (size_t i=0; (i=thread.find(' ',i)) != std::string::npos; ++i) thread.replace(i,1,",");
+
+                    // and print
+                    PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, thread.c_str(), eval.c_str());
+                    PrintOutMsg("\n");
+                }
+                thread = nextThread;
+            }
+        } else {
+            // A normal expression result, either from no thread focus, or focus on a single thread.
+            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, nullptr, nullptr);
+            // Print the AIF value
+            // AIFPrint doesn't play nice with editline...
+            AIFPrint(Client.cli_out_stream, 0, aif);
+            PrintOutMsg("\n");
+        }
+        free(str);
+    }
+
+    return 0;
+
+}
+
 static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *val;
     char **ap;
@@ -161,7 +233,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     DPERFLOG(SetTimerStart("print"));
 
-    PrintVal(val, rec_set);
+    printValWithThreads(val, rec_set);
 
     DPERFLOG(SetTimerStopAndLog("print"));
 

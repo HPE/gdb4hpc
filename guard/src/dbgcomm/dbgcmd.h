@@ -164,6 +164,7 @@ typedef struct cmdargs_setvar cmdargs_setvar;
 struct cmdargs_evalexpr {
     long exprIdx;
     char *expr;
+    char* threads;
 };
 typedef struct cmdargs_evalexpr cmdargs_evalexpr;
 

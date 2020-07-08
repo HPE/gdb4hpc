@@ -149,6 +149,7 @@ static void FreeCmdArgsEvalExpr(cmdargs_evalexpr *arg) {
     if (arg == NULL) return;
 
     Free(arg->expr);
+    free(arg->threads);
 
     Free(arg);
 }

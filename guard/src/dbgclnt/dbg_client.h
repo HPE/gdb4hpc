@@ -128,8 +128,12 @@ typedef struct group_recv group_recv_t;
 ** each di involved in the command.
 */
 class rec_set_t {
+private:
+    std::vector<group_recv_t*> m_recs;  // receivers of command
+    char* m_threads;
+
 public:
-    rec_set_t() = default;
+    rec_set_t();
     ~rec_set_t();
     rec_set_t(const rec_set_t&) = delete;
     rec_set_t& operator=(const rec_set_t&) = delete;
@@ -137,11 +141,11 @@ public:
     void addReceiver(group_recv_t* rec);
     void removeReceiver(group_recv_t* rec);  // frees the receiver
 
+    void setThreads(const char* threads);
+    const char* getThreads() const { return m_threads; }
+    
     size_t getNumReceivers() const { return m_recs.size(); }
     const std::vector<group_recv_t*>& getReceivers() const { return m_recs; }
-    
-private:
-    std::vector<group_recv_t*> m_recs;  // recievers of command
 };
 
 inline std::vector<group_recv_t*>::const_iterator begin(const rec_set_t* set) {

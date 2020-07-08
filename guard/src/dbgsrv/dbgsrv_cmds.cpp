@@ -175,7 +175,8 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             CHECK_ARGS(e, cmd->cmd_arg_evalexpr);
             size0 = GetProcSize();
             trackSize = true;
-            e = DbgEvalExpr(cmd->cmd_evalexpr_expr, cmd->cmd_u.cmd_u_evalexpr->exprIdx);
+            e = DbgEvalExpr(cmd->cmd_evalexpr_expr, cmd->cmd_u.cmd_u_evalexpr->exprIdx,
+                            cmd->cmd_u.cmd_u_evalexpr->threads);
             break;
 
         case DBGCMD_GETTYPE:

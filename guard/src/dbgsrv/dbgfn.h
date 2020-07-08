@@ -55,7 +55,7 @@ public:
 
     virtual dbgevent_t *getFrame() = 0;
     virtual dbgevent_t *setVar(const char *var, AIF *a) = 0;
-    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx) = 0;
+    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
     virtual dbgevent_t *getType(const char *var, bool isType) = 0;
     virtual dbgevent_t *getLocation() = 0;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char *file) = 0;
@@ -123,7 +123,7 @@ extern dbgevent_t *DbgSetVar(char *, AIF *);
 extern dbgevent_t *DbgSetDebuggerVar(char *, AIF *);
 extern dbgevent_t *DbgSetSourcePath(char *);
 extern dbgevent_t *DbgGetSourcePath(void);
-extern dbgevent_t *DbgEvalExpr(char *, long);
+extern dbgevent_t *DbgEvalExpr(char *, long, const char*);
 extern dbgevent_t *DbgGetType(char *, bool);
 extern dbgevent_t *DbgGetLocation(void);
 extern dbgevent_t *DbgGetVars(char *);

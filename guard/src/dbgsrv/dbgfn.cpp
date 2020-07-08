@@ -305,10 +305,10 @@ dbgevent_t *DbgSetVar(char *var, AIF *data) {
     return DbgBackendSW->setVar(var, data);
 }
 
-dbgevent_t *DbgEvalExpr(char *expr, long exprCnt) {
+dbgevent_t *DbgEvalExpr(char *expr, long exprCnt, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->evalExpr(expr, exprCnt);
+    return DbgBackendSW->evalExpr(expr, exprCnt, threads);
 }
 
 dbgevent_t *DbgGetType(char *var, bool isType) {

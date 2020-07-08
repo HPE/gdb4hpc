@@ -833,10 +833,11 @@ static char *CmdArgsSetVarToSocProto(va_list ap) {
     return res;
 }
 
-static char* CmdArgsEvalExprToSocProtoL(const char* expr, size_t idx)
+static char* CmdArgsEvalExprToSocProtoL(const char* expr, size_t idx, const char* threads)
 {
+    const char* t = StrSoc(threads);
     char *res;
-    Asprintf(&res, "%lu %d %s", idx, (int)strlen(expr), expr);
+    Asprintf(&res, "%lu %d %s %d %s", idx, (int)strlen(expr), expr, strlen(t), t);
     return res;
 }
 
@@ -846,15 +847,16 @@ static char *CmdArgsEvalExprToSocProto(va_list ap) {
 
     args.expr = va_arg(ap, char *);
     args.exprIdx = va_arg(ap, size_t);
+    args.threads = va_arg(ap, char*);
 
     FMT_CHECK_NULL_STR(args.expr);
 
-    return CmdArgsEvalExprToSocProtoL(args.expr, args.exprIdx);
+    return CmdArgsEvalExprToSocProtoL(args.expr, args.exprIdx, args.threads);
 }
 
 static char *CmdArgsContinueEvalExprToSocProto(va_list ap) {
     size_t id = va_arg(ap, size_t);
-    return CmdArgsEvalExprToSocProtoL("continue", id);
+    return CmdArgsEvalExprToSocProtoL("continue", id, nullptr);
 }
 
 static char *CmdArgsGetTypeToSocProto(va_list ap) {
@@ -1998,14 +2000,20 @@ static cmdargs_setvar *SocProtoToSetVarArgs(char *s) {
 }
 
 static cmdargs_evalexpr *SocProtoToEvalExprArgs(char *s) {
-    cmdargs_evalexpr *res;
-
     NULL_GUARD(s);
 
-    res = (cmdargs_evalexpr *)Alloc(sizeof(cmdargs_evalexpr));
+    cmdargs_evalexpr *res = (cmdargs_evalexpr *)Alloc(sizeof(cmdargs_evalexpr));
 
     res->exprIdx = getlong(&s);
     res->expr = getstring(&s);
+
+    char* threads = getstring(&s);
+    if (threads && threads[0]) {
+        res->threads = threads;
+    } else {
+        res->threads = nullptr;
+        free(threads);
+    }
 
     return res;
 }

@@ -467,6 +467,12 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/configure.ac ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/configure.ac
 %{__cp} -a %{tests_source_dir}/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile.am
 
+# yaml file
+# since there is no modulefile in the tests rpm, remove related sections from the template
+%global start_rmLine%(sed -n /section-3/= %{SOURCE5})
+%global end_rmLine %(sed -n /admin-pe/= %{SOURCE5} | tail -1)
+%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}%{pkgversion_separator}tests|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;'/admin-pe'/d' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}%{pkgversion_separator}tests-%{pkgversion}-%{release}.%{_arch}.rpm.yaml
+
 %post
 # Add Shasta configuration files for PE content projection
 if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then

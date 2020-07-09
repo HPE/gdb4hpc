@@ -76,8 +76,8 @@
 %global privlibs %{privlibs}|libelf
 %global privlibs %{privlibs}|libtbbmalloc*
 %global privlibs %{privlibs}|libtbb.*
+%global privlibs %{privlibs}|librocm-dbgapi
 %global __requires_exclude ^(%{privlibs})\\.so*
-%global __requires_exclude librocm-dbgapi.so.0
 
 # Dist tags for SuSE need to be manually set
 %if 0%{?suse_version}
@@ -336,7 +336,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
 
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/Makefile.am
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_cmp_diff.c 
+%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_cmp_diff.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_type_pause.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_type_test.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/mtest.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/mtest.c
@@ -711,7 +711,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/Makefile.am
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_cmp_diff.c 
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_cmp_diff.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_type_pause.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/c_type_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/bd_dt/c/mtest.c

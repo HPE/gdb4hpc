@@ -220,7 +220,7 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
         }
         return get_err();
     }
-    *type = strdup(mivar->type);
+    if (type) *type = strdup(mivar->type);
     *val = res;
 
     return NULL;
@@ -296,8 +296,13 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
  */
 static std::shared_ptr<MIVar> CreateMIVar(MISession *session, const char *expr) {
 
-    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
-            if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }});
+    auto delVar = [session](MIVar* mivar) {
+        if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }};
+
+    std::shared_ptr<MIVar> var(nullptr, delVar);
+
+            /*    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
+                  if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }}); */
     
     MICommand* cmd = MIVarCreate("-", "*", expr);
     SendMICommand(session, cmd);
@@ -334,7 +339,7 @@ static std::shared_ptr<MIVar> CreateMIVar(MISession *session, const char *expr) 
         *p = '\0';
     }
 
-    var.reset(mivar);
+    var.reset(mivar, delVar);
     return var;
 }
 
@@ -877,7 +882,8 @@ static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) 
 }
 
 static int GetSimpleType(const char *type) {
-    char *t = sanitize_type_string(type);
+    std::unique_ptr<char,decltype(std::free)*> sanStr(sanitize_type_string(type),std::free);
+    char *t = sanStr.get();
     int len = strlen(type);
 
     DVPRINT("GetSimpleType: %s\n", type);

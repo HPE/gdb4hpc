@@ -36,6 +36,8 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     std::string threadSet;
 
+    if (rec_set->getThreads()) threadSet = rec_set->getThreads();
+
     if (argc < 2) {
         /* get current loc */
         PrintOutError("Not enough command arguments.\n");

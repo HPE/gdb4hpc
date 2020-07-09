@@ -264,7 +264,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/cuda_gdb_install/share/cuda-gdb/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
-%endif
 # ROCgdb Share
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
@@ -301,6 +300,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/ROCgdb_install/gdb/data-directory/system-gdbinit/elinos.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
 %{__cp} -a %{external_build_dir}/ROCgdb_install/gdb/data-directory/system-gdbinit/wrs-linux.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
+%endif
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
 %{__cp} -a %{external_build_dir}/share/man/man1/gdb4hpc.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
@@ -567,7 +567,6 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit
-%endif
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/command
@@ -576,6 +575,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/syscalls
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit
+%endif
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_info_name}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
@@ -589,8 +589,8 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda101-gdb-guard
-%endif
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/ROCgdb-guard
+%endif
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_commnode
@@ -660,7 +660,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/wrs-linux.py
-%endif
 #ROCgdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameDecorator.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/python/gdb/FrameIterator.py
@@ -690,6 +689,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ROCgdb/system-gdbinit/wrs-linux.py
 #end share
+%endif
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}

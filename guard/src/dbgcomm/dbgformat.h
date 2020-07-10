@@ -26,13 +26,12 @@
 #include "dbgcmd.h"
 #include "dbgevent.h"
 #include "dbgloc.h"
+#include <sstream>
 
 // TODO: Make this static, everything should be an event or a command
 extern char *AIFToSocProto(AIF *);
 // Event to network proto string functions
 extern char *EventToSocProto(dbgevent_t *);
-// Command to network proto string function
-extern char *CommandToSocProto(dbgcmd cmd, ...);
 
 /*
 ** The following define functions for converting from network protocol
@@ -43,5 +42,38 @@ extern AIF *SocProtoToAIF(char *);
 extern dbgevent_t *SocProtoToEvent(char *);
 // Network proto string to command functions.
 extern dbgcommand_t *SocProtoToCommand(char *s);
+
+// String assembler class for CommandToSocProto -- it just needs to define an
+// overrider for every type used as a command argument
+class OSocStream {
+private:
+    dbgcmd m_cmd;
+    std::ostringstream m_str;
+
+public:
+    OSocStream(dbgcmd id);
+
+    OSocStream& operator<<(int i);
+    OSocStream& operator<<(unsigned int i);
+    OSocStream& operator<<(long i);
+    OSocStream& operator<<(size_t i);
+    OSocStream& operator<<(const char*s);
+    OSocStream& operator<<(const std::string& s);
+    OSocStream& operator<<(const std::pair<int,char**>& args);
+    OSocStream& operator<<(AIF* val);
+
+    // retrieve the result string
+    std::string str();
+};
+
+// Create the protocol string for a command, \a args is the set of
+// parameters to be encoded into the string.
+template<typename ...Targs>
+std::string CommandToSocProto(dbgcmd cmd, Targs&&... args) {
+    OSocStream str(cmd);
+    (void) (str << ... << std::forward<Targs>(args));
+    return str.str();
+}
+
 
 #endif /* ! _DBGFORMAT_H */

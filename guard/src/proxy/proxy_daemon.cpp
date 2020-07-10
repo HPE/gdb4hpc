@@ -134,7 +134,6 @@ static void CleanupOnSocketClose(void) {
     dbginvoke_t *di = NULL;
     proxy_instance *obj = NULL;
     int detach = 0;
-    char *request;
     bitset *recv_set;
     proto_msg_set *pmsg_set;
 
@@ -161,13 +160,11 @@ static void CleanupOnSocketClose(void) {
                 // TODO: how to handle error?
 
                 // Create the quit command
-                request = CommandToSocProto(DBGCMD_QUIT, detach);
+                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
                 // send the command to every rank
                 recv_set = DBG_PROTO_SW(di)->sw_send_cmd(di, di->d_bitset_full,
-                                                         request);
-
-                Free(request);
+                                                         request.c_str());
 
                 // ensure the recv_reply function is implemented
                 if (DBG_PROTO_SW(di)->sw_recv_reply != NULL) {

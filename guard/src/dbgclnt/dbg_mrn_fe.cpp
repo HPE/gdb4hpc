@@ -564,7 +564,7 @@ int mrn_fe_get_num_of_be(mrnet_type *mrnet) {
     return mrnet->num_be;
 }
 
-int mrn_fe_setup_streams(mrnet_type *mrnet, char *msg) {
+int mrn_fe_setup_streams(mrnet_type *mrnet, const char *msg) {
     MRNet_Stream *stream = NULL;
 
     if (mrnet == NULL || msg == NULL) return -1;
@@ -654,15 +654,14 @@ int mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg,
         if (event_stream != NULL) {
             // Send an initializer command along the command stream to register
             // it's matching event stream.
-            char *linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u",
-                                              MRNCMD_SETEVENTSTREAM,
-                                              stream_get_Id(event_stream));
-            if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", linkMsg) ==
+            auto linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u",
+                                             MRNCMD_SETEVENTSTREAM,
+                                             stream_get_Id(event_stream));
+            if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", linkMsg.c_str()) ==
                 -1) {
                 PrintOutError(
                     "Could not connect event stream to command stream");
             }
-            Free(linkMsg);
         }
     }
 

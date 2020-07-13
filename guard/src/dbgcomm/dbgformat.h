@@ -40,8 +40,6 @@ extern char *EventToSocProto(dbgevent_t *);
 extern AIF *SocProtoToAIF(char *);
 // Network proto string to event functions.
 extern dbgevent_t *SocProtoToEvent(char *);
-// Network proto string to command functions.
-extern dbgcommand_t *SocProtoToCommand(char *s);
 
 // String assembler class for CommandToSocProto -- it just needs to define an
 // overrider for every type used as a command argument

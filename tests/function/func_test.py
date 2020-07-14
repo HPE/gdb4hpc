@@ -11,6 +11,7 @@
 import avocado
 from avocado import Test
 from avocado.utils import process
+from func_help import detect_wlm
 
 import subprocess
 import os
@@ -29,21 +30,8 @@ import re
 #Note: if you want to skip a test but run the suite, add the following line at the top of the class definition:
 #       @avocado.skip("<optional comment here>")
 
-'''
-Get the name of the work load manager
-'''
-theWLM = None
-def getWLM():
-    global theWLM
-    if theWLM:
-        return theWLM
-    
-    wlm = subprocess.check_output("module load wlm_detect; wlm_detect", shell=True).rstrip()
-    theWLM = wlm.decode("utf-8")
-    return theWLM
-
 def isSlurm():
-    return ( getWLM() == "SLURM")
+    return ( detect_wlm() == "SLURM")
 
 '''
 Return a writeable directory for saving the output result for the tests.
@@ -57,7 +45,6 @@ def getTmpDir():
     return tmpdir
 
 def makeBatchScript(test, application, numJobs):
-    wlm = getWLM()
     if isSlurm():
         return None
 

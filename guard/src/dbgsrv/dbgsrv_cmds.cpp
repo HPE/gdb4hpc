@@ -38,6 +38,11 @@ struct CmdArgs {
     CmdArgs& operator=(const CmdArgs&) = delete;
 };
 
+struct OptionalString {
+    std::string str;
+    operator const char*() { return str.empty() ? nullptr : str.c_str(); }
+};
+
 using AIFPtr = std::unique_ptr<AIF,decltype(&AIFFree)>;
 
 // Socket prototype string reader.
@@ -67,6 +72,7 @@ private:
     ISocStream& operator>>(bool& b);
     ISocStream& operator>>(size_t& sz);
     ISocStream& operator>>(std::string& s);
+    ISocStream& operator>>(OptionalString& s);
     ISocStream& operator>>(AIFPtr& aif);
     ISocStream& operator>>(CmdArgs& args);
 };
@@ -197,16 +203,16 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_SHOWFRAME: {
-            int count; std::string threads;
+            int count; OptionalString threads;
             is.get(count, threads);
-            e = DbgShowFrame(count, threads.c_str());
+            e = DbgShowFrame(count, threads);
             break;
         }
 
         case DBGCMD_GETFRAME: {
-            std::string threads;
+            OptionalString threads;
             is.get(threads);
-            e = DbgGetFrame(threads.c_str());
+            e = DbgGetFrame(threads);
             break;
         }
 
@@ -420,6 +426,10 @@ ISocStream& ISocStream::operator>>(std::string& s) {
     s.resize(len);
     m_str.read(&s[0], len);
     return *this;
+}
+
+ISocStream& ISocStream::operator>>(OptionalString& s) {
+    return *this >> s.str;
 }
 
 ISocStream& ISocStream::operator>>(AIFPtr& aif) {

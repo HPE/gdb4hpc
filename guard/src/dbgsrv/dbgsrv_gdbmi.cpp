@@ -2348,7 +2348,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     MIList *frames;
     MIFrame *frame;
 
-    if (threads && threads[0]) {
+    if (threads) {
         DVPRINT("ignoring threads to showFrame: %s\n", threads);
     }
 
@@ -2483,7 +2483,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     MIList *mi_frame_list;
     MIFrame *mi_frame;
 
-    if (threads && threads[0]) {
+    if (threads) {
        DVPRINT("ignoring threads to getFrame: %s\n", threads);
     }
 

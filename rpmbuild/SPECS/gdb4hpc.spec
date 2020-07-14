@@ -450,6 +450,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/avo_config.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
 %{__cp} -a %{tests_source_dir}/function/build_run.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
 %{__cp} -a %{tests_source_dir}/function/func_test.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
+%{__cp} -a %{tests_source_dir}/function/func_help.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_help.py
+%{__cp} -a %{tests_source_dir}/function/modules.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/modules.py
 %{__cp} -a %{tests_source_dir}/function/func_test_params.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
 %{__cp} -a %{tests_source_dir}/function/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/README.md
@@ -828,6 +830,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/avo_config.py
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/build_run.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_help.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/modules.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test_params.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/README.md

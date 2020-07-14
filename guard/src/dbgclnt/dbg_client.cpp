@@ -4038,7 +4038,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 */
 rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 
-    auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count);
+    auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
@@ -4049,7 +4049,7 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 ** DBG_GETFRAME: Get selected stack frame.
 */
 rep_set_t *DbgGetFrame(rec_set_t *set) {
-    auto request = CommandToSocProto(DBGCMD_GETFRAME);
+    auto request = CommandToSocProto(DBGCMD_GETFRAME, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 

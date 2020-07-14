@@ -197,14 +197,16 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_SHOWFRAME: {
-            int count;
-            is.get(count);
-            e = DbgShowFrame(count);
+            int count; std::string threads;
+            is.get(count, threads);
+            e = DbgShowFrame(count, threads.c_str());
             break;
         }
 
         case DBGCMD_GETFRAME: {
-            e = DbgGetFrame();
+            std::string threads;
+            is.get(threads);
+            e = DbgGetFrame(threads.c_str());
             break;
         }
 

@@ -51,9 +51,9 @@ public:
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
     // outermost frames.
-    virtual dbgevent_t *showFrame(int count) = 0;
+    virtual dbgevent_t *showFrame(int count, const char* threads) = 0;
 
-    virtual dbgevent_t *getFrame() = 0;
+    virtual dbgevent_t *getFrame(const char* threads) = 0;
     virtual dbgevent_t *setVar(const char *var, AIF *a) = 0;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
     virtual dbgevent_t *getType(const char *var, bool isType) = 0;
@@ -117,8 +117,8 @@ extern dbgevent_t *DbgSetArgs(const char *);
 extern dbgevent_t *DbgStep(int, int);
 extern dbgevent_t *DbgKill(void);
 extern dbgevent_t *DbgMoveFrame(int, bool);
-extern dbgevent_t *DbgShowFrame(int);
-extern dbgevent_t *DbgGetFrame(void);
+extern dbgevent_t *DbgShowFrame(int, const char*);
+extern dbgevent_t *DbgGetFrame(const char*);
 extern dbgevent_t *DbgSetVar(const char *, AIF *);
 extern dbgevent_t *DbgSetDebuggerVar(const char *, AIF *);
 extern dbgevent_t *DbgSetSourcePath(const char *);

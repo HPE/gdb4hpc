@@ -13,7 +13,7 @@ AM_INIT_AUTOMAKE([subdir-objects foreign -Wall])
 
 AC_PROG_CXX([CC])
 AC_PROG_CC([cc])
-AC_PROG_FC
+AC_PROG_FC([ftn])
 AC_COPYRIGHT([Copyright 2020 Cray Inc.])
 
 AC_CONFIG_HEADERS([include/config.h])

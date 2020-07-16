@@ -144,8 +144,8 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     int rtn;
     MRNet_Topology *mrn_topology;
     mrnet_type *network = NULL;
-    char *request = NULL;
     char *env_var_str;
+    std::string request;
     // Set this to the number of environment variables we need to ship over.
     char *env_vars[5] = {NULL, NULL, NULL, NULL, NULL};
     int env_var_cnt = 0;
@@ -689,7 +689,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     /*broadcast an INVOKE command to complete the attach callback*/
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
 
-    if (mrn_fe_setup_streams(network, request)) {
+    if (mrn_fe_setup_streams(network, request.c_str())) {
         PrintOutError(
             "ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
         goto attach_error;
@@ -702,8 +702,6 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     DPRINT("Waiting for dbgsrv callbacks...\n");
 
     // final cleanup
-    Free(request);
-    request = NULL;
 
     DPERFLOG(SetTimerStart("Attach finalize"));
 
@@ -753,8 +751,6 @@ attach_error:
     for (i = 0; i < env_var_cnt; ++i) {
         Free(env_vars[i]);
     }
-
-    if (request != NULL) Free(request);
 
     return 1;
 }
@@ -826,9 +822,9 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     int rtn;
     MRNet_Topology *mrn_topology;
     mrnet_type *network = NULL;
-    char *request = NULL;
     char **ap = NULL;
     char **tmp;
+    std::string request;
     int event_fd;
     int *ev_fd_ptr;
     g_progoutp_t *po = NULL;
@@ -1360,7 +1356,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     // broadcast an INVOKE command to complete the invoke callback
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
 
-    if (mrn_fe_setup_streams(network, request)) {
+    if (mrn_fe_setup_streams(network, request.c_str())) {
         PrintOutError(
             "ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
         goto invoke_error;
@@ -1373,8 +1369,6 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     DPRINT("Waiting for dbgsrv callbacks...\n");
 
     // final cleanup
-    Free(request);
-    request = NULL;
 
     DPERFLOG(SetTimerStart("Launch finalize"));
 
@@ -1431,8 +1425,6 @@ invoke_error:
         }
         Free(machine_hosts);
     }
-
-    if (request != NULL) Free(request);
 
     return 1;
 }

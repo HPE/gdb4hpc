@@ -100,7 +100,7 @@ static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   arrayDimension_t* shape,
                                   bool& isError);
-static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request, dbgev req_type);
+static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request, dbgev req_type);
 /*
 ** Internal Variables
 */
@@ -595,15 +595,13 @@ std::unique_ptr<rep_set_t> rep_set_t::recvSlice()
         return nullptr;
     }
 
-    char* req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
+    auto req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
 
     if (rep_set_t* slice = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA)) {
-        free(req);
         m_moreSlices = slice->m_moreSlices;
         slice->m_isSliced = slice->m_returnedSlice0 = slice->m_moreSlices = false;
         return std::unique_ptr<rep_set_t>(slice);
     } else {
-        free(req);
         m_moreSlices = false;
         return nullptr;
     }
@@ -2068,7 +2066,7 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
     return di;
 }
 
-static int DbgSendCmd(group_recv_t *set, char *request) {
+static int DbgSendCmd(group_recv_t *set, const std::string& request) {
     dbginvoke_t *di = set->rec_di;
 
     // ensure the send_cmd function is implemented
@@ -2077,7 +2075,7 @@ static int DbgSendCmd(group_recv_t *set, char *request) {
         return 1;
     }
 
-    set->_cmd_sent = DBG_PROTO_SW(di)->sw_send_cmd(di, set->rec_group, request);
+    set->_cmd_sent = DBG_PROTO_SW(di)->sw_send_cmd(di, set->rec_group, request.c_str());
 
     return (set->_cmd_sent != nullptr ? 0 : 1);
 }
@@ -2508,7 +2506,7 @@ static group_reply_t* JoinReplies(bitset* group,
 }
 
 
-static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
+static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type) {
     if (!set) return nullptr;
     auto result = NewRepSet();
@@ -2556,13 +2554,9 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, char *request,
 **				the frame.
 */
 rep_set_t *DbgStartup(rec_set_t *set) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_STARTUP);
+    auto request = CommandToSocProto(DBGCMD_STARTUP);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    Free(request);
 
     // This command changes the status
     inferior_status_change = 1;
@@ -2593,8 +2587,6 @@ void DbgSendExpr(rec_set_t *set, char *exp) {
         DbgSendCmd(recv_ptr, request);
     }
 
-    Free(request);
-
     return;
 }
 
@@ -2618,13 +2610,10 @@ rep_set_t *DbgGetExpr(rec_set_t *set) {
 ** DBGOPENSOCKET: Open socket for each debug server - for P2P
 */
 rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_OPENSOCKET, opset_name, opset_size);
+    auto request = CommandToSocProto(DBGCMD_OPENSOCKET, opset_name, opset_size);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
-
-    Free(request);
 
     return result;
 }
@@ -2633,30 +2622,20 @@ rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
 ** DBGCLOSESOCKET: Close socket for each debug server - for P2P
 */
 rep_set_t *DbgCloseSocket(rec_set_t *set) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_CLOSESOCKET);
-
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
-
-    Free(request);
-
-    return result;
+    auto request = CommandToSocProto(DBGCMD_CLOSESOCKET);
+    return DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 }
 
 /*
 ** DBG_EVALEXPR: Evaluate expression.
 */
 rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
-    char *request;
 
     size_t exprId = DbgGetNextExprIdx();
 
-    request = CommandToSocProto(DBGCMD_EVALEXPR, exp, exprId, set->getThreads());
+    auto request = CommandToSocProto(DBGCMD_EVALEXPR, exprId, exp, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
-
-    Free(request);
     if (result) {
         result->setDataId(exprId);
     }
@@ -2668,14 +2647,10 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
 ** DBG_SETDEBUGGERVAR: Set variable in debugger to new value.
 */
 rep_set_t *DbgSetDebuggerVar(rec_set_t *set, char *var, AIF *val) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, val);
+    auto request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, val);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
-
     return result;
 }
 
@@ -2683,13 +2658,9 @@ rep_set_t *DbgSetDebuggerVar(rec_set_t *set, char *var, AIF *val) {
 ** DBG_GETDEBUGGERVAR: Get variable in debugger.
 */
 rep_set_t *DbgGetDebuggerVar(rec_set_t *set, char *var) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_GETDEBUGGERVAR, var);
+    auto request = CommandToSocProto(DBGCMD_GETDEBUGGERVAR, var);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
-
-    Free(request);
 
     return result;
 }
@@ -2747,8 +2718,6 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
 
         auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
-        Free(request);
-
         // merge the results
         result = MergeRepSet(result, tmp_res);
     }
@@ -2805,8 +2774,6 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
 
         auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
-        Free(request);
-
         // merge the results
         result = MergeRepSet(result, tmp_res);
     }
@@ -2819,13 +2786,9 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
 ** DBG_SETVAR: Set variable in program to new value.
 */
 rep_set_t *DbgSetVar(rec_set_t *set, char *var, AIF *val) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_SETVAR, var, val);
+    auto request = CommandToSocProto(DBGCMD_SETVAR, var, val);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
 
     return result;
 }
@@ -2835,13 +2798,8 @@ rep_set_t *DbgSetVar(rec_set_t *set, char *var, AIF *val) {
 ** If isType is true, then get type of type.
 */
 rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_GETTYPE, var, isType);
-
+    auto request = CommandToSocProto(DBGCMD_GETTYPE, var, isType);
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE);
-
-    Free(request);
     return result;
 }
 
@@ -2849,19 +2807,15 @@ rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
 ** DBG_GO: Continue/start execution.
 */
 rep_set_t *DbgGo(rec_set_t *set, bool all) {
-    char *request;
-    rep_set_t *result;
     dbgfrontend_sw *dbg_fe;
     int has_err;
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    request = CommandToSocProto(DBGCMD_GO, int(all));
+    auto request = CommandToSocProto(DBGCMD_GO, int(all));
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -2920,7 +2874,6 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
-    Free(request);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -2971,14 +2924,10 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 */
 rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line,
                            const char* threadSet) {
-    char *request;
-    rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);
+    auto request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
-
-    Free(request);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
     // process breakpoint information
     for (auto&& reply : result) {
@@ -2994,14 +2943,10 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int lin
 */
 rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func,
                            const char* threadSet) {
-    char *request;
-    rep_set_t *result;
 
-    request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
+    auto request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
 
-    result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
-
-    Free(request);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
     // process breakpoint information
     for (auto&& reply : result) {
@@ -3016,13 +2961,10 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *f
 **			specified expression.
 */
 rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_SETWATCH, type, expr);
+    auto request = CommandToSocProto(DBGCMD_SETWATCH, type, expr);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
-
-    Free(request);
 
     // process breakpoint information
     for (auto&& reply : result) {
@@ -3035,78 +2977,68 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 // Set the current thread for subsequent commands
 rep_set_t *DbgSetThread(rec_set_t* set, const char* threadId)
 {
-    char* request = CommandToSocProto(DBGCMD_THREAD, threadId);
+    auto request = CommandToSocProto(DBGCMD_THREAD, threadId);
 
     rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgSetThreadName(rec_set_t* set, const char* name)
 {
-    char* request = CommandToSocProto(DBGCMD_SETTHREADNAME, name);
+    auto request = CommandToSocProto(DBGCMD_SETTHREADNAME, name);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgFindThread(rec_set_t* set, const char* pattern)
 {
-    char* request = CommandToSocProto(DBGCMD_FINDTHREAD,pattern);
+    auto request = CommandToSocProto(DBGCMD_FINDTHREAD,pattern);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgThreadApply(rec_set_t* set, const char* op)
 {
-    char* request = CommandToSocProto(DBGCMD_THREADAPPLY,op);
+    auto request = CommandToSocProto(DBGCMD_THREADAPPLY,op);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
-    Free(request);
     return result;
 }
 
 // Set the current thread for subsequent commands
 rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
 {
-    char* request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
+    auto request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
 
     rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
 
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgSetSchedulerLocking(rec_set_t* set, const char* mode)
 {
-    char* request = CommandToSocProto(DBGCMD_SETSCHEDULERLOCKING,mode);
+    auto request = CommandToSocProto(DBGCMD_SETSCHEDULERLOCKING,mode);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgGetSchedulerLocking(rec_set_t* set)
 {
-    char* request = CommandToSocProto(DBGCMD_GETSCHEDULERLOCKING);
+    auto request = CommandToSocProto(DBGCMD_GETSCHEDULERLOCKING);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgSetNonStop(rec_set_t* set, const char* mode)
 {
-    char* request = CommandToSocProto(DBGCMD_SETNONSTOP,mode);
+    auto request = CommandToSocProto(DBGCMD_SETNONSTOP,mode);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    Free(request);
     return result;
 }
 
 rep_set_t *DbgGetNonStop(rec_set_t* set)
 {
-    char* request = CommandToSocProto(DBGCMD_GETNONSTOP);
+    auto request = CommandToSocProto(DBGCMD_GETNONSTOP);
     rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
-    Free(request);
     return result;
 }
 
@@ -3122,8 +3054,6 @@ rep_set_t *DbgKill(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_KILL);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
 
     // Loop over each di and call the protocol specific hook
     for (auto&& recv_ptr : set) {
@@ -3215,7 +3145,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                         }
                     }
 
-                    Free(request);
                     bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
@@ -3281,7 +3210,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     }
                 }
 
-                Free(request);
                 bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
@@ -3353,7 +3281,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                         }
                     }
 
-                    Free(request);
                     bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
@@ -3418,7 +3345,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     result = MergeRepSet(result, tmp_result);
                 }
 
-                Free(request);
                 bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
@@ -3498,7 +3424,6 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                         }
                     }
 
-                    Free(request);
                     bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
@@ -3573,7 +3498,6 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                     }
                 }
 
-                Free(request);
                 bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
@@ -3625,7 +3549,6 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_FRAME);
-                Free(request);
                 FreeRecSet(new_rec_set);
 
                 // Make sure there isn't an error in the result, otherwise add
@@ -3858,8 +3781,6 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_LIST);
 
-        Free(request);
-
         // merge the results
         result = MergeRepSet(result, tmp_result);
     }
@@ -3929,8 +3850,6 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCES);
 
-        Free(request);
-
         // merge the results
         result = MergeRepSet(result, tmp_result);
     }
@@ -3943,13 +3862,10 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 ** DBG_SETARGS: Set arguments to pass to program when run.
 */
 rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_SETARGS, args);
+    auto request = CommandToSocProto(DBGCMD_SETARGS, args);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
 
     return result;
 }
@@ -3965,8 +3881,6 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     auto request = CommandToSocProto(DBGCMD_STEP, count, in);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    Free(request);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -4023,8 +3937,6 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    Free(request);
 
     // Clear the list location state and set it to the new frame since this
     // modified the frame location. Only do it if it didn't have an error.
@@ -4125,13 +4037,10 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 ** DBG_SHOWFRAME: Show current stack.
 */
 rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_SHOWFRAME, count);
+    auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    Free(request);
 
     return result;
 }
@@ -4140,13 +4049,9 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 ** DBG_GETFRAME: Get selected stack frame.
 */
 rep_set_t *DbgGetFrame(rec_set_t *set) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_GETFRAME);
+    auto request = CommandToSocProto(DBGCMD_GETFRAME);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    Free(request);
 
     return result;
 }
@@ -4155,13 +4060,10 @@ rep_set_t *DbgGetFrame(rec_set_t *set) {
 ** DBG_GETVARS: Return defined variables.
 */
 rep_set_t *DbgGetVars(rec_set_t *set, char *file) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_GETVARS, file);
+    auto request = CommandToSocProto(DBGCMD_GETVARS, file);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS);
 
-    Free(request);
 
     return result;
 }
@@ -4227,8 +4129,6 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_VARS);
 
-        Free(request);
-
         // merge the results
         result = MergeRepSet(result, tmp_result);
     }
@@ -4241,13 +4141,10 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 ** DBG_DIRECTCMD: Send direct command to debug backend
 */
 rep_set_t *DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
-    char *request;
 
-    request = CommandToSocProto(DBGCMD_DIRECT, argc, argv);
+    auto request = CommandToSocProto(DBGCMD_DIRECT, std::make_pair(argc, argv));
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_CMD);
-
-    Free(request);
 
     return result;
 }
@@ -4256,13 +4153,8 @@ rep_set_t *DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
 ** DBG_DBGSTATUS: Return status of debugger.
 */
 rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
-    char *request;
-
-    request = CommandToSocProto(DBGCMD_STATUS, getLocation);
-
+    auto request = CommandToSocProto(DBGCMD_STATUS, getLocation);
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_STAT);
-
-    Free(request);
 
     return result;
 }
@@ -4277,8 +4169,6 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
     auto request = CommandToSocProto(DBGCMD_INTERRUPT, all);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
-
-    Free(request);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -4348,8 +4238,6 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
 
                 auto tmp_result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
                 
-                Free(request);
-
                 // merge the results
                 result = MergeRepSet(result, tmp_result);
             }
@@ -4404,7 +4292,6 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
 
                 auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
 
-                Free(request);
                 FreeRecSet(to_send);
 
                 // merge the results

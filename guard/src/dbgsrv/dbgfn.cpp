@@ -172,19 +172,21 @@ dbgevent_t *DbgStartup(void) {
     return DbgBackendSW->startup();
 }
 
-dbgevent_t *DbgSetLineBreak(int allowPending, char *file, int line, const char* threadSet, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetLineBreak(int allowPending, const char *file, int line,
+                            const char* threadSet, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setLineBreak(allowPending, file, line, threadSet, ci);
 }
 
-dbgevent_t *DbgSetFuncBreak(int allowPending, char *file, char *func, const char* threadSet, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetFuncBreak(int allowPending, const char *file, const char *func,
+                            const char* threadSet, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setFuncBreak(allowPending, file, func, threadSet, ci);
 }
 
-dbgevent_t *DbgSetWatch(int type, char *expr, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetWatch(int type, const char *expr, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setWatch(type, expr, ci);
@@ -214,7 +216,7 @@ dbgevent_t *DbgLastBreak(void) {
     return DbgBackendSW->lastBreak();
 }
 
-dbgevent_t *DbgList(char *str) {
+dbgevent_t *DbgList(const char *str) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->list(str);
@@ -238,7 +240,7 @@ dbgevent_t *DbgFinishFunc(void) {
     return DbgBackendSW->finishFunc();
 }
 
-dbgevent_t *DbgSetArgs(char *args) {
+dbgevent_t *DbgSetArgs(const char *args) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setArgs(args);
@@ -275,13 +277,13 @@ dbgevent_t *DbgGetFrame(void) {
     return DbgBackendSW->getFrame();
 }
 
-dbgevent_t *DbgSetDebuggerVar(char *var, AIF *val) {
+dbgevent_t *DbgSetDebuggerVar(const char *var, AIF *val) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setDebuggerVar(var, val);
 }
 
-dbgevent_t *DbgSetSourcePath(char *path) {
+dbgevent_t *DbgSetSourcePath(const char *path) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setSourcePath(path);
@@ -293,25 +295,25 @@ dbgevent_t *DbgGetSourcePath() {
     return DbgBackendSW->getSourcePath();
 }
 
-dbgevent_t *DbgGetDebuggerVar(char *var) {
+dbgevent_t *DbgGetDebuggerVar(const char *var) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getDebuggerVar(var);
 }
 
-dbgevent_t *DbgSetVar(char *var, AIF *data) {
+dbgevent_t *DbgSetVar(const char *var, AIF *data) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setVar(var, data);
 }
 
-dbgevent_t *DbgEvalExpr(char *expr, long exprCnt, const char* threads) {
+dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->evalExpr(expr, exprCnt, threads);
 }
 
-dbgevent_t *DbgGetType(char *var, bool isType) {
+dbgevent_t *DbgGetType(const char *var, bool isType) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getType(var, isType);
@@ -323,7 +325,7 @@ dbgevent_t *DbgGetLocation(void) {
     return DbgBackendSW->getLocation();
 }
 
-dbgevent_t *DbgOpenSocket(char *opset_name, int opset_size) {
+dbgevent_t *DbgOpenSocket(const char *opset_name, int opset_size) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->openSocket(opset_name, opset_size);
@@ -335,13 +337,13 @@ dbgevent_t *DbgCloseSocket(void) {
     return DbgBackendSW->closeSocket();
 }
 
-dbgevent_t *DbgGetVars(char *file) {
+dbgevent_t *DbgGetVars(const char *file) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getVars(file);
 }
 
-dbgevent_t *DbgGetScope(char *location) {
+dbgevent_t *DbgGetScope(const char *location) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getScope(location);

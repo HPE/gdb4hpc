@@ -71,7 +71,7 @@ extern int mrn_fe_create_streams(mrnet_type *);
 extern int mrn_fe_get_num_of_be(mrnet_type *);
 
 /* setup the command, event and I/O streams for debugging sessions */
-extern int mrn_fe_setup_streams(mrnet_type *, char *msg);
+extern int mrn_fe_setup_streams(mrnet_type *, const char *msg);
 
 /* send commands to backends via the command stream*/
 extern int mrn_fe_send_command(mrnet_type *, bitset *target, const char *msg,

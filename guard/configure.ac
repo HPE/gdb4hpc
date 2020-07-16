@@ -12,7 +12,7 @@
 AC_PREREQ([2.63])
 
 AC_INIT([guard],[4.0],[andrewg@cray.com])
-AC_COPYRIGHT([Copyright 2010-2019 Cray Inc. All Rights Reserved.])
+AC_COPYRIGHT([Copyright 2010-2020 Cray Inc. All Rights Reserved.])
 
 AC_CONFIG_SRCDIR([defs.h])
 AC_CONFIG_AUX_DIR([config])
@@ -305,11 +305,12 @@ AC_PROG_LN_S
 AC_PROG_YACC
 AC_PROG_SED
 
+
 LT_INIT
 
 AC_LANG([C++])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
-AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
+AX_CXX_COMPILE_STDCXX(17, noext, mandatory)
 
 dnl Check for GDB
 AC_PATH_PROG([GDB_GUARD], [gdb-guard], [no])

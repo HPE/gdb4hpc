@@ -17,6 +17,7 @@
 ** The Guard GDB/MI interface.
 ** Now uses the Eclipse SDM libmi interface.
 */
+#include <string>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -2349,7 +2350,9 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     MIFrame *frame;
 
     if (threads) {
-        DVPRINT("ignoring threads to showFrame: %s\n", threads);
+        auto op = std::string{threads} + " bt";
+        if (count) op += " " + std::to_string(count);
+        return threadApply(op.c_str());
     }
 
     // We need to do different things depending on the value of count
@@ -2484,7 +2487,8 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     MIFrame *mi_frame;
 
     if (threads) {
-       DVPRINT("ignoring threads to getFrame: %s\n", threads);
+        auto op = std::string{threads} + " frame";
+        return threadApply(op.c_str());
     }
 
     // Get the selected frame

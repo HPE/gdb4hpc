@@ -265,16 +265,16 @@ dbgevent_t *DbgMoveFrame(int count, bool up) {
 }
 
 // If count is 0, then an unlimited number of frames should be displayed.
-dbgevent_t *DbgShowFrame(int count) {
+dbgevent_t *DbgShowFrame(int count, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->showFrame(count);
+    return DbgBackendSW->showFrame(count, threads);
 }
 
-dbgevent_t *DbgGetFrame(void) {
+dbgevent_t *DbgGetFrame(const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->getFrame();
+    return DbgBackendSW->getFrame(threads);
 }
 
 dbgevent_t *DbgSetDebuggerVar(const char *var, AIF *val) {

@@ -561,4 +561,7 @@ extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
 extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);
 
+extern int PrintMultiThreadMsg(const char* diName, const bitset* group, const std::string& msg);
+extern int PrintMultiThreadReply(group_reply_t* reply);
+
 #endif /* !_DBG_CLIENT_H */

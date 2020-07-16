@@ -17,6 +17,7 @@
 ** The Guard GDB/MI interface.
 ** Now uses the Eclipse SDM libmi interface.
 */
+#include <string>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -132,9 +133,9 @@ public:
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
     // outermost frames.
-    virtual dbgevent_t *showFrame(int count) override;
+    virtual dbgevent_t *showFrame(int count, const char* threads) override;
 
-    virtual dbgevent_t *getFrame() override;
+    virtual dbgevent_t *getFrame(const char* threads) override;
     virtual dbgevent_t *setVar(const char *var, AIF *a) override;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType) override;
@@ -1455,7 +1456,7 @@ recover_for_slurm:
     }
 
     // call the showframe function to ask for the innermost frame
-    return showFrame(1);
+    return showFrame(1, nullptr);
 }
 
 /*
@@ -2337,7 +2338,7 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
 ** return an unlimited number of frames. If count is negative return the
 ** outermost frames.
 */
-dbgevent_t *DbgGdbMI::showFrame(int count) {
+dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgframe_t *result = NULL;
@@ -2347,6 +2348,12 @@ dbgevent_t *DbgGdbMI::showFrame(int count) {
     MICommand *cmd;
     MIList *frames;
     MIFrame *frame;
+
+    if (threads) {
+        auto op = std::string{threads} + " bt";
+        if (count) op += " " + std::to_string(count);
+        return threadApply(op.c_str());
+    }
 
     // We need to do different things depending on the value of count
     if (count < 0) {
@@ -2470,7 +2477,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count) {
 *frame
 ** that is selected.
 */
-dbgevent_t *DbgGdbMI::getFrame() {
+dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     dbgframe_t *result = nullptr;
@@ -2478,6 +2485,11 @@ dbgevent_t *DbgGdbMI::getFrame() {
     MICommand *cmd;
     MIList *mi_frame_list;
     MIFrame *mi_frame;
+
+    if (threads) {
+        auto op = std::string{threads} + " frame";
+        return threadApply(op.c_str());
+    }
 
     // Get the selected frame
     cmd = MIStackInfoFrame();
@@ -3548,6 +3560,7 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
 dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
     DVPRINT("*** DbgStatus %s, %s\n", __FILE__, __func__);
 
+    const char* threads = nullptr;  // thread focus unimplemented
     dbgevent_t *e = NewEvent(DBGEV_STAT), *async_e = nullptr;
 
     // Create the new status object
@@ -3567,7 +3580,7 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
             case DBGSTAT_STOPPED_IN_THREAD:
             case DBGSTAT_EXIT:
                 // Reuse DbgGDBMIShowFrame to get the bottommost frame
-                async_e = showFrame(1);
+                async_e = showFrame(1, threads);
 
                 if (async_e->ev_frame != NULL) {
                     s->stat_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
@@ -3681,6 +3694,8 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
     dbgevent_t *e;
     dbgevent_t *async_e;
 
+    const char* threads = nullptr;  // thread focus is unimplemented
+
     if (Status == DBGSTAT_RUNNING) {
         DVPRINT("RUNNING - sending SIgSTOP\n");
         if (::kill(Pid, SIGSTOP)) {
@@ -3755,7 +3770,7 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
-    async_e = showFrame(1);
+    async_e = showFrame(1, threads);
 
     e = NewEvent(DBGEV_HALT);
     e->ev_loc = (dbgloc_t *)NULL;

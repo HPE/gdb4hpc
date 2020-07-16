@@ -130,6 +130,14 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     root.markDirtyGroup(); // mark as dirty so destructor will free the bitset
     
     for (const auto& reply : rep_set) {
+
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_THREADINFO) {
+            // This case is when rec_set has a thread focus
+            PrintMultiThreadReply(reply);
+            continue;
+        }
+
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
@@ -159,10 +167,8 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
-    dbgframe_t *fp;
 
-    rep_set = DbgGetFrame(rec_set);
+    auto rep_set = DbgGetFrame(rec_set);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -170,9 +176,13 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process frame - there should only be one
     for (auto&& reply : rep_set) {
         // Point at the frame data
-        fp = EVENT_FRAME(reply->rep_event);
-
-        PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_FRAME) {
+            auto fp = EVENT_FRAME(reply->rep_event);
+            PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
+        } else if (ev == DBGEV_THREADINFO) {
+            PrintMultiThreadReply(reply);
+        }
     }
 
     FreeRepSet(rep_set);

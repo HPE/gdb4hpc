@@ -67,7 +67,7 @@ typedef struct outpcb_t outpcb_t;
 static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
                                  dbgclnt_proto *);
 static void FreeDbgInvoke(dbginvoke_t *);
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type);
+static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
 static group_recv_t *CopyGroupReceiver(group_recv_t *);
@@ -100,7 +100,8 @@ static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   arrayDimension_t* shape,
                                   bool& isError);
-static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request, dbgev req_type);
+static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
+                                         dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 /*
 ** Internal Variables
 */
@@ -2086,7 +2087,7 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
 //      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
 //      DBG_DATA).
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
+static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
     dbginvoke_t *di = set->rec_di;
     proto_msg_set *proto_res;
     proto_message *msg;
@@ -2156,7 +2157,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type) {
                 // intentionally falling through
 
             default:
-                if (ev != req_type) {
+                if (ev != req_type && ev != alt_req_type) {
                     // Create a new error event based on this reply
                     FreeEvent(e);
                     EVENT_ERROR(
@@ -2507,7 +2508,7 @@ static group_reply_t* JoinReplies(bitset* group,
 
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
-                                         dbgev req_type) {
+                                         dbgev req_type, dbgev alt_req_type) {
     if (!set) return nullptr;
     auto result = NewRepSet();
 
@@ -2524,7 +2525,7 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
         // recv the reply for this di, only if there is a _cmd_sent set.
         // Otherwise there was an error
         if (recv_ptr->_cmd_sent != nullptr) {
-            auto reply_set = DbgRecvReply(recv_ptr, req_type);
+            auto reply_set = DbgRecvReply(recv_ptr, req_type, alt_req_type);
             if (reply_set != nullptr) {
                 result = MergeRepSet(result, reply_set);
             }
@@ -4038,9 +4039,9 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 */
 rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 
-    auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count);
+    auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
 
     return result;
 }
@@ -4049,9 +4050,9 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 ** DBG_GETFRAME: Get selected stack frame.
 */
 rep_set_t *DbgGetFrame(rec_set_t *set) {
-    auto request = CommandToSocProto(DBGCMD_GETFRAME);
+    auto request = CommandToSocProto(DBGCMD_GETFRAME, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
 
     return result;
 }

@@ -158,11 +158,11 @@ typedef struct dbglist_t dbglist_t;
 
 class dbgframe_t {
 private:
-    int m_level;
-    dbgloc_t m_loc;
-    dbgframe_t* m_next;
-    char* m_threads;
-    dbgframe_t* m_nextThreadFrame;
+    int m_level;                // depth of the frame
+    dbgloc_t m_loc;             // source file location
+    dbgframe_t* m_next;         // frame of the calling function
+    char* m_threads;            // threads (only if called during thread focus, and only top initial frame)
+    dbgframe_t* m_nextThreadFrame;  // (initial frame only) - frame list for the next thread set
 public:
     int getLevel() const { return m_level; }
     const dbgloc_t& getLoc() const { return m_loc; }

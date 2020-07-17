@@ -3540,16 +3540,14 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
             // for their current frame.
             if (((str == nullptr) ? 1 : isReverse) &&
                 !(dbg_fe->dbg_list_isPending)) {
-                // create and send the command, we only want the innermost
-                // frame.
-                auto request = CommandToSocProto(DBGCMD_SHOWFRAME, 1);
+                // Get the inntermost frame.  
+                // Create the new rec set for this group - it holds state so it's not
+                // directly re-usable
 
-                // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
                 AddReceiverToSet(new_rec_set, CopyGroupReceiver(recv_ptr));
 
-                auto tmp_result =
-                    DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_FRAME);
+                auto tmp_result = DbgShowFrame(new_rec_set, 1);
                 FreeRecSet(new_rec_set);
 
                 // Make sure there isn't an error in the result, otherwise add

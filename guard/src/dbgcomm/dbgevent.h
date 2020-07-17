@@ -156,12 +156,29 @@ struct dbglist_t {
 };
 typedef struct dbglist_t dbglist_t;
 
-struct dbgframe_t {
-    int frame_level;
-    dbgloc_t frame_loc;
-    struct dbgframe_t *frame_next;
+class dbgframe_t {
+private:
+    int m_level;
+    dbgloc_t m_loc;
+    dbgframe_t* m_next;
+    char* m_threads;
+    dbgframe_t* m_nextThreadFrame;
+public:
+    int getLevel() const { return m_level; }
+    const dbgloc_t& getLoc() const { return m_loc; }
+    const dbgframe_t* getNext() const { return m_next; }
+
+    void setNext(dbgframe_t* next);
+
+    dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
+               const char* threads, dbgframe_t* nextThreadFrame);
+    dbgframe_t* clone() const;
+    static dbgframe_t* copy(const dbgframe_t* rhs) { return rhs ? rhs->clone() : nullptr; }
+    ~dbgframe_t();
+
+    dbgframe_t(const dbgframe_t&) = delete;
+    dbgframe_t& operator=(const dbgframe_t&) = delete;
 };
-typedef struct dbgframe_t dbgframe_t;
 
 struct dbgsig_t {
     char *sig_type;

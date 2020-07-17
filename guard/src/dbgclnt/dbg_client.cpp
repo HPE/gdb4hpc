@@ -3565,16 +3565,15 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 for (auto&& group_rep : tmp_result) {
                     // Point at the event frame
                     auto fp = EVENT_FRAME(group_rep->rep_event);
+                    auto loc = fp->getLoc();
 
                     // Now ask the frontend for the source listing around this
                     // location. This is set depending on the value of isReverse
                     char *location = nullptr;
                     if (isReverse) {
-                        Asprintf(&location, ",%s:%d", fp->frame_loc.loc_file,
-                                 fp->frame_loc.loc_line);
+                        Asprintf(&location, ",%s:%d", loc.loc_file, loc.loc_line);
                     } else {
-                        Asprintf(&location, "%s:%d,", fp->frame_loc.loc_file,
-                                 fp->frame_loc.loc_line);
+                        Asprintf(&location, "%s:%d,", loc.loc_file, loc.loc_line);
                     }
 
                     // Save this new list location state for later calls to list
@@ -3931,101 +3930,61 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     if (!set) return nullptr;
     
-    dbgframe_t *fp;
-    char *location = nullptr;
-    int has_err;
+    auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up, set->getThreads());
 
-    auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up);
-
-    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
 
     // Clear the list location state and set it to the new frame since this
     // modified the frame location. Only do it if it didn't have an error.
-    if (!SetHasError(result)) {
-        for (auto&& recv_ptr : set) {
-            // point at the dbg fe
-            if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
-                // Clear any existing state
-                ClearListState(dbg_fe);
+    // process DIs that did move the frame
+    for (auto recv_ptr : set) {
+        // reset the has_err
+        auto hasErr = false;
+            
+        // Ensure this di is not in the error list
+        for (auto&& err : result->getErrs()) {
+            if (err->rep_di == recv_ptr->rec_di) {
+                // this di has an error
+                hasErr = true;
+                break;
+            }
+        }
 
-                // process the frame
-                for (auto&& group_rep : result) {
+        if (hasErr) {
+            continue;
+        }
+                     
+        // point at the dbg fe
+        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+            // Clear any existing state
+            ClearListState(dbg_fe);
+
+            // process the frame
+            for (auto&& group_rep : result) {
+                if (group_rep->rep_event->ev_event == DBGEV_FRAME) {
                     // Point at the frame
-                    fp = EVENT_FRAME(group_rep->rep_event);
+                    auto fp = EVENT_FRAME(group_rep->rep_event);
+                    auto loc = fp->getLoc();
 
                     // Create the location string based on the new frame
                     // location Note that this should one short of the new
-                    // location since we didn't generate this by listing source
-                    // a first time. Otherwise we will start getting 10 lines
-                    // after this location and it will be messed up.
-                    Asprintf(&location, ",%s:%d", fp->frame_loc.loc_file,
-                             fp->frame_loc.loc_line - 1);
+                    // location since we didn't generate this by listing
+                    // source a first time. Otherwise we will start getting
+                    // 10 lines after this location and it will be messed
+                    // up.
+                    std::ostringstream locStr;
+                    locStr << "," << loc.loc_file << ":" << loc.loc_line - 1;
 
-                    // Save this new list location state for later calls to list
-                    if (AddListStateLocation(dbg_fe, group_rep->rep_group,
-                                             location) < 0) {
+                    // Save this new list location state for later calls to
+                    // list
+                    if (AddListStateLocation(dbg_fe, group_rep->rep_group, locStr.str().c_str()) < 0) {
                         PrintOutError(
-                            "Failed to save list location. Further calls to "
-                            "list will not save state.\n");
+                            "Failed to save list location. Further calls "
+                            "to list will not save state.\n");
                     }
-
-                    // Free the location, we are done with it
-                    Free(location);
-                    location = nullptr;
-                }
-            }
-        }
-    } else {
-        // selectively clear the list
-        for (auto recv_ptr : set) {
-            // reset the has_err
-            has_err = 0;
-
-            // Ensure this di is not in the error list
-            for (auto&& err : result->getErrs()) {
-                if (err->rep_di == recv_ptr->rec_di) {
-                    // this di has an error
-                    ++has_err;
-                    break;
-                }
-            }
-
-            // only proceed if there wasn't an error with this di
-            if (!has_err) {
-                // point at the dbg fe
-                auto dbg_fe = recv_ptr->rec_di->d_frontend;
-
-                if (dbg_fe != nullptr) {
-                    // Clear any existing state
-                    ClearListState(dbg_fe);
-
-                    // process the frame
-                    for (auto&& group_rep : result) {
-                        // Point at the frame
-                        fp = EVENT_FRAME(group_rep->rep_event);
-
-                        // Create the location string based on the new frame
-                        // location Note that this should one short of the new
-                        // location since we didn't generate this by listing
-                        // source a first time. Otherwise we will start getting
-                        // 10 lines after this location and it will be messed
-                        // up.
-                        Asprintf(&location, ",%s:%d", fp->frame_loc.loc_file,
-                                 fp->frame_loc.loc_line - 1);
-
-                        // Save this new list location state for later calls to
-                        // list
-                        if (AddListStateLocation(dbg_fe, group_rep->rep_group,
-                                                 location) < 0) {
-                            PrintOutError(
-                                "Failed to save list location. Further calls "
-                                "to list will not save state.\n");
-                        }
-
-                        // Free the location, we are done with it
-                        Free(location);
-                        location = nullptr;
-                    }
+                } else {
+                    // temporary
+                    PrintMultiThreadReply(group_rep);
                 }
             }
         }

@@ -105,7 +105,7 @@ dbgevent_t *DbgDestroyFE(dbgfrontend_sw *fe_obj) {
 ** commands.
 */
 
-int AddListStateLocation(dbgfrontend_sw *fe_obj, bitset *set, char *str) {
+int AddListStateLocation(dbgfrontend_sw *fe_obj, bitset *set, const char *str) {
     set_location *new_loc;
 
     if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL || set == NULL ||

@@ -31,7 +31,7 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e1;
     expr_t *e2;
     char *buf;
-    int force = 0;
+    int force [[maybe_unused]] = 0 ; 
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");

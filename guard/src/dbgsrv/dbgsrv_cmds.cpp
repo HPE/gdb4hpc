@@ -196,9 +196,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_MOVEFRAME: {
-            int count; bool up;
-            is.get(count, up);
-            e = DbgMoveFrame(count, up);
+            int count; bool up; OptionalString threads;
+            is.get(count, up, threads);
+            e = DbgMoveFrame(count, up, threads);
             break;
         }
 

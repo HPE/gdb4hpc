@@ -258,10 +258,10 @@ dbgevent_t *DbgKill(void) {
     return DbgBackendSW->kill();
 }
 
-dbgevent_t *DbgMoveFrame(int count, bool up) {
+dbgevent_t *DbgMoveFrame(int count, bool up, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->moveFrame(count, up);
+    return DbgBackendSW->moveFrame(count, up, threads);
 }
 
 // If count is 0, then an unlimited number of frames should be displayed.

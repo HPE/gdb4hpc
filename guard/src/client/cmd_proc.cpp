@@ -701,7 +701,6 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
                     char **arch_args, const char *arch_input,
                     const char *backend, char **Env, const char *cwd) {
     dbginvoke_t *di;
-    dbgframe_t *f;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
@@ -752,17 +751,18 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
     if (Client.print_entry_frame) {
         for (auto&& reply : rep_set) {
             // point at the frame
-            f = EVENT_FRAME(reply->rep_event);
+            auto f = EVENT_FRAME(reply->rep_event);
+            auto loc = f->getLoc();
+
             // print out the message
-            if (f->frame_loc.loc_line > 0) {
+            if (loc.loc_line > 0) {
                 PrintMsgWithSetInfo(
                     reply->rep_di->d_handle, reply->rep_group,
-                    "Initial breakpoint, %s at %s:%d\n", f->frame_loc.loc_func,
-                    f->frame_loc.loc_file, f->frame_loc.loc_line);
+                    "Initial breakpoint, %s at %s:%d\n", loc.loc_func, loc.loc_file, loc.loc_line);
             } else {
                 PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
                                     "Initial breakpoint, in %s\n",
-                                    f->frame_loc.loc_func);
+                                    loc.loc_func);
             }
             // If XML mode is enabled, we want to print out a status message.
             // We don't need to ask the backend for the status since this is
@@ -775,7 +775,7 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
                 Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
                          bitset_to_set(reply->rep_group));
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
-                             &(f->frame_loc));
+                             &(f->getLoc()));
                 Free(set_str);
                 XMLPrintStatusBlock(status_block);
             }
@@ -959,7 +959,6 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                     const char *app_ident, const char *arch,
                     const char *backend) {
     dbginvoke_t *di;
-    dbgframe_t *f;
     dbgframe_t *fp;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
@@ -1017,7 +1016,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
             // point at the frame
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
-            for (f = fp; f != NULL; f = f->frame_next) {
+            for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
                 PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
             }
             // If XML mode is enabled, we want to print out a status message.
@@ -1032,7 +1031,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                          bitset_to_set(reply->rep_group));
                 // Set the location based on the top frame
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
-                             (fp == NULL) ? NULL : &(fp->frame_loc));
+                             (fp == NULL) ? NULL : &(fp->getLoc()));
                 Free(set_str);
                 XMLPrintStatusBlock(status_block);
             }

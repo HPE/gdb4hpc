@@ -214,7 +214,7 @@ extern void cli_end_response(void);
 // Used to print out XML status messages
 extern char *XMLStartStatusBlock(char *set_name);
 extern void XMLAddStatus(char **status_block, char *set, dbgstat stat,
-                         dbgloc_t *location);
+                         const dbgloc_t *location);
 extern void XMLPrintStatusBlock(char *status_block);
 // Used to print out when a graph has been started
 extern void XMLPrintStartGraphMsg(char *set_name, char *set_str);

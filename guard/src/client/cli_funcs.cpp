@@ -791,7 +791,7 @@ void XMLPrintStatusBlock(char *status_block) {
 }
 
 void XMLAddStatus(char **status_block, char *set, dbgstat stat,
-                  dbgloc_t *location) {
+                  const dbgloc_t *location) {
     const char *func = NULL;
     const char *file = NULL;
     int line = 0;

@@ -29,6 +29,7 @@
 #include "dbg.h"
 #include "defs.h"
 #include "useful.h"
+#include <regex>
 
 // Static prototypes
 static event_equiv CompareEvExit(int, int);
@@ -1052,4 +1053,34 @@ dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
     va_end(ap);
 
     return e;
+}
+
+// get next thread,value pair from the string if any exist
+std::optional<std::pair<std::string,std::string>> ThreadMsgParser::nextResult() {
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+
+    std::optional<std::pair<std::string,std::string>> res;
+    if (m_str.empty()) return res;
+
+    auto match = std::smatch{};
+    while (std::regex_search(m_str, match, threadHeadRE)) {
+        if (!m_thread.empty()) {
+            // we have a thread result, and the *next* thread id
+            res = std::make_pair(m_thread, match.prefix().str());
+            m_thread = match[2].str();
+            m_str = match.suffix().str();
+            return res;
+        } else {
+            // first thread, save the threads and keep looking
+            m_thread = match[2].str();
+            m_str = match.suffix().str();
+        }
+    }
+
+    if (m_thread.empty()) return res;
+
+    // the final result
+    res = std::make_pair(m_thread, m_str);
+    m_str.clear();
+    return res;
 }

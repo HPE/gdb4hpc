@@ -208,6 +208,7 @@ static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
+static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
@@ -2189,7 +2190,7 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     if (threads) {
         std::ostringstream op;
         op << threads << (up ? " up " : " down ") << count;
-        return threadApply(op.str().c_str());
+        return threadEventToFrame(threadApply(op.str().c_str()));
     }
 
     // first get the level of the current frame
@@ -2326,7 +2327,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     if (threads) {
         auto op = std::string{threads} + " bt";
         if (count) op += " " + std::to_string(count);
-        return threadApply(op.c_str());
+        return threadEventToFrame(threadApply(op.c_str()));
     }
 
     // We need to do different things depending on the value of count
@@ -2420,7 +2421,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
 
     if (threads) {
         auto op = std::string{threads} + " frame";
-        return threadApply(op.c_str());
+        return threadEventToFrame(threadApply(op.c_str()));
     }
 
     // Get the selected frame
@@ -3033,7 +3034,7 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
     return threadIdsToString(threadIds) + " " + command;
 }
 
-// process the output from thread apply using the extented flags
+// process the output from thread apply using the extended flags
 // isSilent: suppress ouput from threads that produce errors (like a variable not defined)
 // isQuiet: suppress printing the thread information
 // isVerbose: a gdb4hpc extension - don't strip out hex values
@@ -5043,4 +5044,19 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
     return os.str();
 }
 
- 
+static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
+    if (threadEvent->ev_event != DBGEV_THREADINFO) {
+        return threadEvent;
+    }
+
+    auto res = std::string{threadEvent->ev_u.ev_u_string};
+
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+    for (ThreadMsgParser parser(std::move(res)); auto res = parser.nextResult(); ) {
+        auto [ thread, val ] = *res;
+        DVPRINT("%s -> %s\n", thread.c_str(), val.c_str());
+    }
+
+    return threadEvent;
+}
+    

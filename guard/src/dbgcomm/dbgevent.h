@@ -41,6 +41,7 @@
 #include "dbgbp.h"
 #include "dbgloc.h"
 #include "list.h"
+#include <optional>
 
 #define EVENT_ERROR(e, err, ...) \
     (e) = NewEvent(DBGEV_ERROR); \
@@ -308,5 +309,23 @@ extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);
 
 constexpr const char* MULTI_THREAD_HDR = "Thread Results\n";
+
+// Parser class for processing a THREAD_INFO result into its components.
+// Usage as:
+// for (ThreadMsgParser parser(std::move(msg); auto msg = parser.nextResult(); ) {
+//      auto [thread, val] = msg;
+class ThreadMsgParser {
+private:
+    std::string m_str;
+    std::string m_thread;
+public:
+    ThreadMsgParser(const std::string& msg) : m_str(msg) {}
+    ThreadMsgParser(std::string&& msg) : m_str(std::move(msg)) {}
+
+    std::optional<std::pair<std::string,std::string>> nextResult();
+
+    ThreadMsgParser(const ThreadMsgParser&) = delete;
+    ThreadMsgParser& operator=(const ThreadMsgParser&) = delete;
+};
 
 #endif /* !_DBGEVENT_H */

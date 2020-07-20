@@ -123,35 +123,19 @@ int PrintMultiThreadMsg(const char* diName, const bitset* group, const std::stri
     // the form is:
     // Threads 1 3 5-7:
     // <result>
-    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+    for (ThreadMsgParser parser(msg); auto res = parser.nextResult(); ) {
+        auto [ thread, val ] = *res;
 
-    auto lookStr = msg;
-    auto thread = std::string{}, eval = std::string{}, nextThread = std::string{};
-    auto match = std::smatch{};
-    while (!lookStr.empty()) {
-        if (std::regex_search(lookStr, match, threadHeadRE)) {
-            eval = match.prefix().str();  // will be empty for the first thread
-            nextThread = match[2].str();  // note we're catching the thread id in arrears
-            lookStr = match.suffix().str();
-        } else {
-            // result from final thread
-            eval = lookStr;
-            nextThread = lookStr = "";
-        }
-        
-        if (!eval.empty()) {
-            // translate from gdb form to procset form
-            for (size_t i=0; (i=thread.find('-', i)) != std::string::npos; ++i) thread.replace(i,1,"..");
-            for (size_t i=0; (i=thread.find(' ',i)) != std::string::npos; ++i) thread.replace(i,1,",");
+        // translate from gdb form to procset form
+        for (size_t i=0; (i=thread.find('-', i)) != std::string::npos; ++i) thread.replace(i,1,"..");
+        for (size_t i=0; (i=thread.find(' ',i)) != std::string::npos; ++i) thread.replace(i,1,",");
 
-            auto is = std::istringstream{eval};
-            auto line = std::string{};
-            while (std::getline(is,line)) {
-                line += "\n";
-                PrintMsgWithSetAndThreadInfo(diName, group, thread.c_str(), line.c_str());
-            }
+        auto is = std::istringstream{std::move(val)};
+        auto line = std::string{};
+        while (std::getline(is,line)) {
+            line += "\n";
+            PrintMsgWithSetAndThreadInfo(diName, group, thread.c_str(), line.c_str());
         }
-        thread = nextThread;
     }
 
     return 0;

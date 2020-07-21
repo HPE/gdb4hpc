@@ -153,6 +153,7 @@ typedef struct dbgvars_t dbgvars_t;
 struct dbglist_t {
     int list_lno;
     char *list_line;
+    char *list_threads;
     struct dbglist_t *list_next;
 };
 typedef struct dbglist_t dbglist_t;

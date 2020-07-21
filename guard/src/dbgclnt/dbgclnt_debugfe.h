@@ -28,6 +28,7 @@ typedef void *dbgfrontend_sess;
 
 struct set_location {
     bitset *set;
+    char *threads;
     char *loc_str;
     int count;
 };
@@ -44,7 +45,7 @@ struct dbgfrontend_sw {
     dbgevent_t *(*dbg_quit)(struct dbgfrontend_sw *);
     dbgevent_t *(*dbg_set_file)(struct dbgfrontend_sw *, const char *);
     dbgevent_t *(*dbg_checkstartupfunc)(struct dbgfrontend_sw *);
-    dbgevent_t *(*dbg_list)(struct dbgfrontend_sw *, const char *);
+    dbgevent_t *(*dbg_list)(struct dbgfrontend_sw *, const char*, const char *);
     dbgevent_t *(*dbg_getsources)(struct dbgfrontend_sw *);
     dbgevent_t *(*dbg_setsourcepath)(struct dbgfrontend_sw *, const char *);
     dbgevent_t *(*dbg_getsourcepath)(struct dbgfrontend_sw *);
@@ -59,7 +60,7 @@ struct dbgfrontend_sw_create {
 typedef struct dbgfrontend_sw_create dbgfrontend_sw_create;
 
 // Functions used for managing state information for DbgList commands
-extern int AddListStateLocation(dbgfrontend_sw *, bitset *, const char *);
+extern int AddListStateLocation(dbgfrontend_sw *, bitset *, const char*, const char *);
 extern set_location *GetListStateLocation(dbgfrontend_sw *);
 extern void SetListStateLocation(dbgfrontend_sw *);
 extern void ClearListState(dbgfrontend_sw *);
@@ -69,7 +70,7 @@ extern dbgfrontend_sw *DbgInstantiateFE(const char *);
 extern dbgevent_t *DbgDestroyFE(dbgfrontend_sw *);
 extern dbgevent_t *DbgFESetFile(dbgfrontend_sw *, const char *);
 extern dbgevent_t *DbgFECheckStartupFunc(dbgfrontend_sw *);
-extern dbgevent_t *DbgFEList(dbgfrontend_sw *, const char *);
+extern dbgevent_t *DbgFEList(dbgfrontend_sw *, const char*, const char *);
 extern dbgevent_t *DbgFEGetSources(dbgfrontend_sw *);
 extern dbgevent_t *DbgFESetSourcePath(dbgfrontend_sw *, const char *);
 extern dbgevent_t *DbgFEGetSourcePath(dbgfrontend_sw *);

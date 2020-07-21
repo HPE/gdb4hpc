@@ -32,7 +32,7 @@
 static void DbgInstantiateGDBMI(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *, const char *);
+static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *, const char*, const char *);
 static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMISetFile_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t *DbgGDBMISetSourcePath_fe(dbgfrontend_sw *, const char *);
@@ -271,7 +271,7 @@ static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *fe_obj) {
 **
 ** GDB does not have a MI command for this; we use the CLI command.
 */
-static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char *str) {
+static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char* threads, const char *str) {
     dbgevent_t *e;
     MICommand *cmd;
     MISession *sess = (MISession *)fe_obj->dbg_session;
@@ -298,6 +298,7 @@ static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char *str) {
         line_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
         line_list->list_lno = line->line_no;
         line_list->list_line = strdup(line->line);
+        line_list->list_threads = StrdupOpt(threads);
         line_list->list_next = (dbglist_t *)NULL;
 
         if (list == NULL) {

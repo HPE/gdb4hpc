@@ -640,6 +640,7 @@ static dbglist_t *DupSCList(dbglist_t *list) {
 
         l->list_lno = list->list_lno;
         l->list_line = strdup(list->list_line);
+        l->list_threads = StrdupOpt(list->list_threads);
         l->list_next = (dbglist_t *)NULL;
 
         le = &l->list_next;
@@ -654,9 +655,9 @@ static void FreeSCList(dbglist_t *l) {
     while (l != (dbglist_t *)NULL) {
         lp = l->list_next;
 
-        if (l->list_line != NULL) Free(l->list_line);
-
-        Free(l);
+        free(l->list_line);
+        free(l->list_threads);
+        free(l);
 
         l = lp;
     }

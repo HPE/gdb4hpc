@@ -105,17 +105,16 @@ dbgevent_t *DbgDestroyFE(dbgfrontend_sw *fe_obj) {
 ** commands.
 */
 
-int AddListStateLocation(dbgfrontend_sw *fe_obj, bitset *set, const char *str) {
-    set_location *new_loc;
-
+int AddListStateLocation(dbgfrontend_sw *fe_obj, bitset *set, const char* threads, const char *str) {
     if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL || set == NULL ||
         str == NULL) {
         return -1;
     }
 
-    new_loc = (set_location *)Alloc(sizeof(set_location));
+    auto new_loc = (set_location *)Alloc(sizeof(set_location));
     new_loc->set = bitset_dup(set);
     new_loc->loc_str = strdup(str);
+    new_loc->threads = StrdupOpt(threads);
     new_loc->count = 0;
 
     AddToList(fe_obj->dbg_list_locs, new_loc);
@@ -154,8 +153,9 @@ void ClearListState(dbgfrontend_sw *fe_obj) {
 
 static void FreeSetLocation(set_location *set_loc) {
     bitset_free(set_loc->set);
-    Free(set_loc->loc_str);
-    Free(set_loc);
+    free(set_loc->loc_str);
+    free(set_loc->threads);
+    free(set_loc);
 }
 
 // Used to ensure the function is implemented
@@ -189,12 +189,12 @@ dbgevent_t *DbgFECheckStartupFunc(dbgfrontend_sw *fe_obj) {
     return fe_obj->dbg_checkstartupfunc(fe_obj);
 }
 
-dbgevent_t *DbgFEList(dbgfrontend_sw *fe_obj, const char *str) {
+dbgevent_t *DbgFEList(dbgfrontend_sw *fe_obj, const char* threads, const char *str) {
     dbgevent_t *e;
 
     DBG_IMP(e, fe_obj->dbg_list);
 
-    return fe_obj->dbg_list(fe_obj, str);
+    return fe_obj->dbg_list(fe_obj, threads, str);
 }
 
 dbgevent_t *DbgFEGetSources(dbgfrontend_sw *fe_obj) {

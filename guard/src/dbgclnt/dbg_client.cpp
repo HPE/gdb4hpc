@@ -3930,7 +3930,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     
     auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up, set->getThreads());
 
-    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
     // Clear the list location state and set it to the new frame since this
     // modified the frame location. Only do it if it didn't have an error.
@@ -3998,7 +3998,7 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 
     auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
     return result;
 }
@@ -4009,7 +4009,7 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 rep_set_t *DbgGetFrame(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_GETFRAME, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME, DBGEV_THREADINFO);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
     return result;
 }

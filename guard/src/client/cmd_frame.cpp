@@ -136,11 +136,6 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (const auto& reply : rep_set) {
 
         auto ev = reply->rep_event->ev_event;
-        if (ev == DBGEV_THREADINFO) {
-            // This case is when rec_set has a thread focus
-            PrintMultiThreadReply(reply);
-            continue;
-        }
 
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
@@ -181,12 +176,8 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (auto&& reply : rep_set) {
         // Point at the frame data
         auto ev = reply->rep_event->ev_event;
-        if (ev == DBGEV_FRAME) {
-            auto fp = EVENT_FRAME(reply->rep_event);
-            PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
-        } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadReply(reply);
-        }
+        auto fp = EVENT_FRAME(reply->rep_event);
+        PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
     }
 
     FreeRepSet(rep_set);

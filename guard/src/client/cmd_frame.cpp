@@ -68,19 +68,23 @@ private:
 };
 }
 
-void PrintFrameSet(char *setname, bitset *group, const dbgframe_t *f) {
-    PrintMsgWithSetInfo(setname, group, "#%-2d ", f->getLevel());
+void PrintFrameSet(char *setname, bitset *group, const dbgframe_t *frame) {
 
-    auto loc = f->getLoc();
-    if (*loc.loc_addr != '\0')
-        PrintOutMsg("%s in ", loc.loc_addr);
+    for (auto f = frame; f ; f = f->getNextThreadFrame()) {
 
-    PrintOutMsg("%s", loc.loc_func);
+        PrintMsgWithSetAndThreadInfo(setname, group, f->getThreads(), "#%-2d ", f->getLevel());
 
-    if (*loc.loc_file != '\0')
-        PrintOutMsg(" at %s:%d", loc.loc_file, loc.loc_line);
+        auto loc = f->getLoc();
+        if (*loc.loc_addr != '\0')
+            PrintOutMsg("%s in ", loc.loc_addr);
 
-    PrintOutMsg("\n");
+        PrintOutMsg("%s", loc.loc_func);
+
+        if (*loc.loc_file != '\0')
+            PrintOutMsg(" at %s:%d", loc.loc_file, loc.loc_line);
+
+        PrintOutMsg("\n");
+    }
 }
 
 static int movecmd(rec_set_t *rec_set, int argc, char **argv) {

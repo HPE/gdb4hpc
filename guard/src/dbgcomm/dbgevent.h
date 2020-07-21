@@ -167,9 +167,13 @@ private:
 public:
     int getLevel() const { return m_level; }
     const dbgloc_t& getLoc() const { return m_loc; }
+    const char* getThreads() const { return m_threads; }
+
     const dbgframe_t* getNext() const { return m_next; }
+    const dbgframe_t* getNextThreadFrame() const { return m_nextThreadFrame; }
 
     void setNext(dbgframe_t* next);
+    void setNextThreadFrame(dbgframe_t* next);
 
     dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
                const char* threads, dbgframe_t* nextThreadFrame);

@@ -2601,10 +2601,10 @@ dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
 // prevent them being reduced in MRNet
 static std::string anonymizeThreadInfo(const std::string& val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
-    std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
-    std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
-    std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
+    static std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
+    static std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
+    static std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
+    static std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
 
     std::istringstream is(val);
     std::ostringstream os;
@@ -5044,19 +5044,98 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
     return os.str();
 }
 
+// translate a frame result from threadApply into a frame event.    The frame event
+// will contain the set of frames for each equivalent thread set
 static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
     if (threadEvent->ev_event != DBGEV_THREADINFO) {
         return threadEvent;
     }
 
+    static std::regex atRE(R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))");
+    static std::regex fromRE(R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))");
+
     auto res = std::string{threadEvent->ev_u.ev_u_string};
+
+    dbgframe_t* frame0 = nullptr, *frame0tail = nullptr;
 
     static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
     for (ThreadMsgParser parser(std::move(res)); auto res = parser.nextResult(); ) {
         auto [ thread, val ] = *res;
-        DVPRINT("%s -> %s\n", thread.c_str(), val.c_str());
+
+        // now we will need to scrape the frame information from the response.
+        // I will look something like:
+        // #0   in nanosleep () from /lib64/libpthread.so.0
+        // #1   in std::this_thread::sleep_for<long, std::ratio<1l, 1000l> > (__rtime=...) at /opt/gcc/8.1.0/snos/lib/gcc/x86_64-suse-linux/8.1.0/../../../../include/g++/thread:369
+        // #2   in main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:54
+        // so I think every frame is written on one line
+        auto is = std::istringstream{std::move(val)};
+        auto line = std::string{};
+
+        dbgframe_t *tframe = nullptr, *ttail = nullptr;
+        auto threadStr = thread.c_str();
+
+        while (std::getline(is, line)) {
+            auto match = std::smatch{};
+            dbgframe_t* frame = nullptr;
+
+            if (std::regex_match(line, match, atRE)) {
+                auto level = std::stoi(match[1]);
+                auto func = match[3].str();
+                auto file = match[4].str();
+                auto frameLine = std::stoi(match[5]);
+
+                DVPRINT("frame %d IN %s AT FILE %s LINE %d\n", level, func.c_str(), file.c_str(),
+                        frameLine);
+
+                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
+                                     const_cast<char*>(func.c_str()), nullptr, frameLine };
+                frame = new dbgframe_t{level, loc, nullptr, threadStr, nullptr};
+            } else if (std::regex_match(line, match, fromRE)) {
+                auto level = std::stoi(match[1]);
+                auto func = match[3].str();
+                auto file = match[4].str();
+                DVPRINT("frame %d IN %s FROM %s\n", level, func.c_str(), file.c_str());
+
+                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
+                                     const_cast<char*>(func.c_str()), nullptr, 0 };
+
+                frame = new dbgframe_t{ level, loc, nullptr, threadStr, nullptr};
+            } else {
+                DVPRINT("could not parse line %s\n", line.c_str());
+                continue;
+            }
+
+            // we only report threads on the head of each stack
+            threadStr = nullptr;
+
+            // add frame to the linked list
+            if (!tframe) {
+                // begining of thread frame
+                tframe = ttail = frame;
+                if (!frame0) {
+                    // first frame at all
+                    frame0 = frame0tail = frame;
+                } else {
+                    frame0tail->setNextThreadFrame(frame);
+                    frame0tail = frame;
+                }
+            } else {
+                ttail->setNext(frame);
+                ttail = frame;
+            }
+        }
     }
 
-    return threadEvent;
+    dbgevent_t* frameEvent = nullptr;
+    if (frame0) {
+        frameEvent = NewEvent(DBGEV_FRAME);
+        EVENT_FRAME(frameEvent) = frame0;
+    } else {
+        frameEvent = NewErrorEvent(DBGERR_DEBUGGER, "could not parse frame result");
+    }
+
+    FreeEvent(threadEvent);
+
+    return frameEvent;
 }
     

@@ -565,6 +565,14 @@ void dbgframe_t::setNext(dbgframe_t* next) {
     }
 }
 
+void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
+    if (next != m_nextThreadFrame) {
+        std::swap(next, m_nextThreadFrame);
+        delete next;
+    }
+}
+
+
 static dbgloc_t *DupLocation(dbgloc_t *l) {
     dbgloc_t *loc;
 

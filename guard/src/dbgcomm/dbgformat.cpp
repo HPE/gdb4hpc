@@ -235,24 +235,28 @@ static char *EventStepToSocProto(dbgev ev, dbgstep_t se) {
 }
 
 static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
-    char *stres = strdup("");
+    std::ostringstream os;
+    const char* s = " ";
 
-    for (auto f=fe; f; f = f->getNext()) {
-        auto loc = f->getLoc();
-        const char* file = StrSoc(loc.loc_file);
-        const char* func = StrSoc(loc.loc_func);
-        const char* addr = StrSoc(loc.loc_addr);
+    for (auto tf=fe; tf; tf=tf->getNextThreadFrame()) {
+        auto newThread = 1;
+        
+        for (auto f=tf; f; f = f->getNext()) {
+            auto loc = f->getLoc();
+            const char* file = StrSoc(loc.loc_file);
+            const char* func = StrSoc(loc.loc_func);
+            const char* addr = StrSoc(loc.loc_addr);
+            const char* threads = StrSoc(f->getThreads());
 
-        // append the next frame
-        char *tmp;;
-        Asprintf(&tmp, "%s%d %d %s %d %s %d %s %d ", stres,
-                 f->getLevel(),
-                 (int)strlen(file), file, (int)strlen(func), func,
-                 (int)strlen(addr), addr, loc.loc_line);
-        std::swap(tmp, stres);
-        Free(tmp);
+            // append the next frame
+            os << f->getLevel() << s << strlen(file) << s << file << s
+               << strlen(func) << s << func << s << strlen(addr) << s << addr << s
+               << loc.loc_line << s << newThread << s << strlen(threads) << s << threads;
+
+            newThread = 0;
+        }
     }
-    return stres;
+    return strdup(os.str().c_str());
 }
 
 static char *EventFrameToSocProto(dbgev ev, const dbgframe_t *fe) {
@@ -894,7 +898,7 @@ static dbgsig_t SocProtoToSig(char *s) {
 static dbgframe_t *SocProtoToFrame(char *s) {
     NULL_GUARD(s);
 
-    dbgframe_t *res = nullptr, *tail = nullptr;
+    dbgframe_t *res = nullptr, *tail = nullptr, *threadTail = nullptr;
 
     // Loop until we find a null terminator
     for (; *s != '\0'; s = skipspace(s)) {
@@ -905,6 +909,9 @@ static dbgframe_t *SocProtoToFrame(char *s) {
         loc.loc_addr = getstring(&s);
         loc.loc_line = getint(&s);
 
+        auto newThread = getint(&s);
+        auto threads = getstring(&s);
+
         // We should try to resolve the realpath of file on this end. If it
         // fails, we will use the original value.
         if (auto tmp_file = realpath(loc.loc_file, nullptr)) {
@@ -912,12 +919,21 @@ static dbgframe_t *SocProtoToFrame(char *s) {
             free(tmp_file);
         }
 
-        auto frame = new dbgframe_t(level, loc, nullptr, nullptr, nullptr);
+        auto frame = new dbgframe_t(level, loc, nullptr, threads[0] ? threads : nullptr, nullptr);
 
-        if (tail) {
-            tail->setNext(frame);
+        free(loc.loc_file);
+        free(loc.loc_func);
+        free(loc.loc_addr);
+        free(threads);
+
+        if (!tail) {
+            res = tail = threadTail = frame;
+        } else if (newThread) {
+            threadTail->setNextThreadFrame(frame);
+            threadTail = tail = frame;
         } else {
-            res = tail = frame;
+            tail->setNext(frame);
+            tail = frame;
         }
     }
 

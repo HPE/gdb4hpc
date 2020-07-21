@@ -42,9 +42,36 @@ def module(*args):
             print("Couldn't read %s from environment. Are modules available?" % e,
                 file=sys.stderr)
             raise e
+
+    # find module command
+    MODULES_CMD = ""
+    
+    if MODULES_CMD == "":
+        # try reading environment variable
+        try:
+            MODULES_CMD = os.environ['MODULES_CMD']
+        except KeyError:
+            pass 
+            # no modules command env var, try something else...
+
+    if MODULES_CMD == "":
+        # try non-lmod location
+        if os.path.isfile(MODULES_HOME + "/bin/modulecmd") and \
+            os.access(MODULES_HOME + "/bin/modulecmd", os.X_OK):
+            MODULES_CMD = MODULES_HOME + "/bin/modulecmd"
+
+    if MODULES_CMD == "":
+        # try lmod location
+        if os.path.isfile(MODULES_HOME + "/libexec/modulecmd.tcl") and \
+            os.access(MODULES_HOME + "/libexec/modulecmd.tcl", os.X_OK):
+            MODULES_CMD = MODULES_HOME + "/libexec/modulecmd.tcl"
+
+    if MODULES_CMD == "":
+        print("Couldn't detect modules command.")
+        raise RuntimeError
     
     # query modulecmd
-    p = subprocess.Popen(['%s/bin/modulecmd' % MODULES_HOME, 'python'] + args,
+    p = subprocess.Popen([MODULES_CMD, 'python'] + args,
         stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     (output, error) = p.communicate()
 

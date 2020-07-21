@@ -16,6 +16,8 @@
 #ifndef _USEFUL_STR_H
 #define _USEFUL_STR_H
 
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,8 @@ extern char *TrimStrWithTarget(char *, char);
 extern int CountOccurence(char, char *);
 extern char *ReplaceStr(const char *, const char *, const char *);
 extern int IsInteger(char *);
+
+inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };
 
 #ifdef __cplusplus
 }

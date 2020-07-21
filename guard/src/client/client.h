@@ -55,7 +55,7 @@ extern int cmd_quit_cmd(rec_set_t *, int, char **);
 /*
 ** Functions defined in cmd_frame.c
 */
-extern void PrintFrameSet(char *, bitset *, dbgframe_t *);
+extern void PrintFrameSet(char *, bitset *, const dbgframe_t *);
 
 /*
 ** Functions defined in cmd_print.c

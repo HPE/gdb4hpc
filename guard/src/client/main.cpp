@@ -841,17 +841,16 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
                                 ev_set->e_ev->ev_sig_type);
 
             if (ev_set->e_ev->ev_sig_frame != (dbgframe_t *)NULL) {
-                if (ev_set->e_ev->ev_sig_frame->frame_loc.loc_file != NULL) {
+                auto frameLoc = ev_set->e_ev->ev_sig_frame->getLoc();
+                if (frameLoc.loc_file != NULL) {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group,
                         "In %s at %s:%d\n",
-                        ev_set->e_ev->ev_sig_frame->frame_loc.loc_func,
-                        ev_set->e_ev->ev_sig_frame->frame_loc.loc_file,
-                        ev_set->e_ev->ev_sig_frame->frame_loc.loc_line);
+                        frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
                 } else {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
-                        ev_set->e_ev->ev_sig_frame->frame_loc.loc_func);
+                        frameLoc.loc_func);
                 }
             } else if (ev_set->e_ev->ev_sig_line != NULL) {
                 PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
@@ -862,17 +861,14 @@ int EventCB(event_set_t *ev_set, bitset *reply_set) {
 
         case DBGEV_STEP:
             if (ev_set->e_ev->ev_step_frame != (dbgframe_t *)NULL) {
-                if (ev_set->e_ev->ev_step_frame->frame_loc.loc_line > 0) {
+                auto frameLoc = ev_set->e_ev->ev_step_frame->getLoc();
+                if (frameLoc.loc_line > 0) {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group,
-                        "%s at %s:%d\n",
-                        ev_set->e_ev->ev_step_frame->frame_loc.loc_func,
-                        ev_set->e_ev->ev_step_frame->frame_loc.loc_file,
-                        ev_set->e_ev->ev_step_frame->frame_loc.loc_line);
+                        "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
                 } else {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group, "in %s\n",
-                        ev_set->e_ev->ev_step_frame->frame_loc.loc_func);
+                        ev_set->e_di->d_handle, ev_set->e_group, "in %s\n", frameLoc.loc_func);
                 }
                 break;
             }

@@ -29,17 +29,16 @@
 #include "dbg.h"
 #include "defs.h"
 #include "useful.h"
+#include <regex>
 
 // Static prototypes
 static event_equiv CompareEvExit(int, int);
 static event_equiv CompareEvBp(dbgbp_t *, dbgbp_t *);
 static event_equiv CompareEvSig(dbgsig_t, dbgsig_t);
 static event_equiv CompareEvStep(dbgstep_t, dbgstep_t);
-static event_equiv CompareEvFrame(dbgframe_t *, dbgframe_t *, int);
+static event_equiv CompareEvFrame(const dbgframe_t *, const dbgframe_t *, int);
 static event_equiv CompareEvErr(dbgerr_t, dbgerr_t);
 
-static dbgframe_t *DupFrame(dbgframe_t *);
-static void FreeFrame(dbgframe_t *);
 static dbgloc_t *DupLocation(dbgloc_t *);
 static void FreeLocation(dbgloc_t *);
 static dbgvars_t *DupVars(dbgvars_t *);
@@ -143,17 +142,17 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
         case DBGEV_SIGNAL:
             e->ev_sig_type = strdup(event->ev_sig_type);
             e->ev_sig_line = strdup(event->ev_sig_line);
-            e->ev_sig_frame = DupFrame(event->ev_sig_frame);
+            e->ev_sig_frame = dbgframe_t::copy(event->ev_sig_frame);
             break;
 
         case DBGEV_STEP:
             e->ev_step_lno = event->ev_step_lno;
             e->ev_step_line = strdup(event->ev_step_line);
-            e->ev_step_frame = DupFrame(event->ev_step_frame);
+            e->ev_step_frame = dbgframe_t::copy(event->ev_step_frame);
             break;
 
         case DBGEV_FRAME:
-            e->ev_frame = DupFrame(event->ev_frame);
+            e->ev_frame = dbgframe_t::copy(event->ev_frame);
             break;
 
         case DBGEV_VARS:
@@ -289,57 +288,59 @@ static event_equiv CompareEvStep(dbgstep_t s1, dbgstep_t s2) {
     return EV_EQUAL;
 }
 
-static event_equiv CompareEvFrame(dbgframe_t *fp1, dbgframe_t *fp2,
+static event_equiv CompareEvFrame(const dbgframe_t *fp1, const dbgframe_t *fp2,
                                   int recurse) {
     // compare the level
-    if (fp1->frame_level != fp2->frame_level) {
+    if (fp1->getLevel() != fp2->getLevel()) {
         return EV_DIFF;
     }
 
     // compare the loc_file
-    if (fp1->frame_loc.loc_file == NULL || fp2->frame_loc.loc_file == NULL) {
-        if (fp1->frame_loc.loc_file != NULL ||
-            fp2->frame_loc.loc_file != NULL) {
+    const auto& loc1 = fp1->getLoc(), &loc2 = fp2->getLoc();
+    
+    if (loc1.loc_file == NULL || loc2.loc_file == NULL) {
+        if (loc1.loc_file != NULL ||
+            loc2.loc_file != NULL) {
             // This checks if only one is null, in which case they are different
             return EV_DIFF;
         }
     } else {
         // compare the file directly
-        if (strcmp(fp1->frame_loc.loc_file, fp2->frame_loc.loc_file)) {
+        if (strcmp(loc1.loc_file, loc2.loc_file)) {
             return EV_DIFF;
         }
     }
 
     // compare the loc_func
-    if (fp1->frame_loc.loc_func == NULL || fp2->frame_loc.loc_func == NULL) {
-        if (fp1->frame_loc.loc_func != NULL ||
-            fp2->frame_loc.loc_func != NULL) {
+    if (loc1.loc_func == NULL || loc2.loc_func == NULL) {
+        if (loc1.loc_func != NULL ||
+            loc2.loc_func != NULL) {
             // This checks if only one is null, in which case they are different
             return EV_DIFF;
         }
     } else {
         // compare the func directly
-        if (strcmp(fp1->frame_loc.loc_func, fp2->frame_loc.loc_func)) {
+        if (strcmp(loc1.loc_func, loc2.loc_func)) {
             return EV_DIFF;
         }
     }
 
     // compare the loc_addr
-    if (fp1->frame_loc.loc_addr == NULL || fp2->frame_loc.loc_addr == NULL) {
-        if (fp1->frame_loc.loc_addr != NULL ||
-            fp2->frame_loc.loc_addr != NULL) {
+    if (loc1.loc_addr == NULL || loc2.loc_addr == NULL) {
+        if (loc1.loc_addr != NULL ||
+            loc2.loc_addr != NULL) {
             // This checks if only one is null, in which case they are different
             return EV_DIFF;
         }
     } else {
         // compare the addr directly
-        if (strcmp(fp1->frame_loc.loc_addr, fp2->frame_loc.loc_addr)) {
+        if (strcmp(loc1.loc_addr, loc2.loc_addr)) {
             return EV_DIFF;
         }
     }
 
     // compare the loc_line
-    if (fp1->frame_loc.loc_line != fp2->frame_loc.loc_line) {
+    if (loc1.loc_line != loc2.loc_line) {
         return EV_DIFF;
     }
 
@@ -347,16 +348,16 @@ static event_equiv CompareEvFrame(dbgframe_t *fp1, dbgframe_t *fp2,
     // the frames.
     if (recurse) {
         // Check to see if both have a frame_next
-        if (fp1->frame_next == NULL && fp2->frame_next == NULL) {
+        if (fp1->getNext() == NULL && fp2->getNext() == NULL) {
             // there is no frame_next, so return equal
             return EV_EQUAL;
-        } else if (fp1->frame_next != NULL || fp2->frame_next != NULL) {
+        } else if (fp1->getNext() != NULL || fp2->getNext() != NULL) {
             // One has a frame_next, and the other doesn't. They are different.
             return EV_DIFF;
         }
 
         // Both have a frame_next
-        return CompareEvFrame(fp1->frame_next, fp2->frame_next, 1);
+        return CompareEvFrame(fp1->getNext(), fp2->getNext(), 1);
     }
 
     // If we get here everything matches, so return equal.
@@ -458,17 +459,16 @@ void FreeEvent(dbgevent_t *event) {
         case DBGEV_SIGNAL:
             Free(event->ev_sig_type);
             Free(event->ev_sig_line);
-            FreeFrame(event->ev_sig_frame);
+            delete event->ev_sig_frame;
             break;
 
         case DBGEV_FRAME:
-            if (event->ev_frame != (dbgframe_t *)NULL)
-                FreeFrame(event->ev_frame);
+            delete event->ev_frame;
             break;
 
         case DBGEV_STEP:
             Free(event->ev_step_line);
-            FreeFrame(event->ev_step_frame);
+            delete event->ev_step_frame;
             break;
 
         case DBGEV_STAT:
@@ -531,48 +531,47 @@ void EventErrStr(dbgevent_t *e, const char *fmt, ...) {
     va_end(ap);
 }
 
-static dbgframe_t *DupFrame(dbgframe_t *frame) {
-    dbgframe_t *f;
-    dbgframe_t *fp = (dbgframe_t *)NULL;
-    dbgframe_t **fe = &fp;
-
-    for (; frame != (dbgframe_t *)NULL; frame = frame->frame_next) {
-        f = *fe = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-        f->frame_loc.loc_file = NULL;
-        f->frame_loc.loc_func = NULL;
-        f->frame_loc.loc_addr = NULL;
-
-        f->frame_level = frame->frame_level;
-        if (frame->frame_loc.loc_file != NULL)
-            f->frame_loc.loc_file = strdup(frame->frame_loc.loc_file);
-        if (frame->frame_loc.loc_addr != NULL)
-            f->frame_loc.loc_addr = strdup(frame->frame_loc.loc_addr);
-        if (frame->frame_loc.loc_func != NULL)
-            f->frame_loc.loc_func = strdup(frame->frame_loc.loc_func);
-        f->frame_loc.loc_line = frame->frame_loc.loc_line;
-        f->frame_next = (dbgframe_t *)NULL;
-
-        fe = &f->frame_next;
-    }
-
-    return fp;
+dbgframe_t *dbgframe_t::clone() const {
+    return new dbgframe_t(m_level, m_loc,
+                          m_next ? m_next->clone() : nullptr,
+                          m_threads,
+                          m_nextThreadFrame ? m_nextThreadFrame->clone() : nullptr);
 }
 
-static void FreeFrame(dbgframe_t *f) {
-    dbgframe_t *fp;
+dbgframe_t::dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
+                       const char* threads, dbgframe_t* nextThreadFrame)
+    : m_level(level), m_next(next), m_threads(StrdupOpt(threads)),
+      m_nextThreadFrame(nextThreadFrame)
+{
+    // dealing with loc directly - it's still POD
+    m_loc.loc_file = StrdupOpt(loc.loc_file);
+    m_loc.loc_addr = StrdupOpt(loc.loc_addr);
+    m_loc.loc_func = StrdupOpt(loc.loc_func);
+    m_loc.loc_line = loc.loc_line;
+}
 
-    while (f != (dbgframe_t *)NULL) {
-        fp = f->frame_next;
+dbgframe_t::~dbgframe_t() {
+    delete m_next;
+    delete m_nextThreadFrame;
+    free(m_loc.loc_addr);
+    free(m_loc.loc_func);
+    free(m_loc.loc_file);
+}
 
-        if (f->frame_loc.loc_addr != NULL) Free(f->frame_loc.loc_addr);
-        if (f->frame_loc.loc_func != NULL) Free(f->frame_loc.loc_func);
-        if (f->frame_loc.loc_file != NULL) Free(f->frame_loc.loc_file);
-
-        Free(f);
-
-        f = fp;
+void dbgframe_t::setNext(dbgframe_t* next) {
+    if (next != m_next) {
+        std::swap(next, m_next);
+        delete next;
     }
 }
+
+void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
+    if (next != m_nextThreadFrame) {
+        std::swap(next, m_nextThreadFrame);
+        delete next;
+    }
+}
+
 
 static dbgloc_t *DupLocation(dbgloc_t *l) {
     dbgloc_t *loc;
@@ -1062,4 +1061,34 @@ dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
     va_end(ap);
 
     return e;
+}
+
+// get next thread,value pair from the string if any exist
+std::optional<std::pair<std::string,std::string>> ThreadMsgParser::nextResult() {
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+
+    std::optional<std::pair<std::string,std::string>> res;
+    if (m_str.empty()) return res;
+
+    auto match = std::smatch{};
+    while (std::regex_search(m_str, match, threadHeadRE)) {
+        if (!m_thread.empty()) {
+            // we have a thread result, and the *next* thread id
+            res = std::make_pair(m_thread, match.prefix().str());
+            m_thread = match[2].str();
+            m_str = match.suffix().str();
+            return res;
+        } else {
+            // first thread, save the threads and keep looking
+            m_thread = match[2].str();
+            m_str = match.suffix().str();
+        }
+    }
+
+    if (m_thread.empty()) return res;
+
+    // the final result
+    res = std::make_pair(m_thread, m_str);
+    m_str.clear();
+    return res;
 }

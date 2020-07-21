@@ -46,7 +46,7 @@ public:
     virtual dbgevent_t *setArgs(const char *arg) = 0; // set run arguments
     virtual dbgevent_t *step(int const, bool in) = 0;
     virtual dbgevent_t *kill() = 0;
-    virtual dbgevent_t *moveFrame(int count, bool up) = 0;
+    virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) = 0;
 
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
@@ -116,7 +116,7 @@ extern dbgevent_t *DbgFinishFunc(void);
 extern dbgevent_t *DbgSetArgs(const char *);
 extern dbgevent_t *DbgStep(int, int);
 extern dbgevent_t *DbgKill(void);
-extern dbgevent_t *DbgMoveFrame(int, bool);
+extern dbgevent_t *DbgMoveFrame(int, bool, const char*);
 extern dbgevent_t *DbgShowFrame(int, const char*);
 extern dbgevent_t *DbgGetFrame(const char*);
 extern dbgevent_t *DbgSetVar(const char *, AIF *);

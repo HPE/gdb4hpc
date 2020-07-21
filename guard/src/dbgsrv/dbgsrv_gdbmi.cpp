@@ -128,7 +128,7 @@ public:
     virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
     virtual dbgevent_t *step(int const, bool in) override;
     virtual dbgevent_t *kill() override;
-    virtual dbgevent_t *moveFrame(int count, bool up) override;
+    virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) override;
 
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
@@ -208,6 +208,8 @@ static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *ResetBeforeDirectCmd(void);
 static dbgevent_t *RestoreAfterDirectCmd(void);
+static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
+static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
 
@@ -2164,13 +2166,18 @@ dbgevent_t *DbgGdbMI::kill() {
     return e;
 }
 
+static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
+    dbgloc resLoc = { mi->file, mi->func, keepAddr ? mi->addr : nullptr, mi->line };
+    return new dbgframe_t{mi->level, resLoc, nullptr, nullptr, nullptr};
+}
+
+
 /*
 ** Move up or down count stack frames.
 */
-dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
+dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-    dbgframe_t *result = NULL;
 
     int cur_level;
     int max_depth;
@@ -2179,6 +2186,12 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
     MICommand *cmd;
     MIList *mi_frame_list;
     MIFrame *mi_frame;
+
+    if (threads) {
+        std::ostringstream op;
+        op << threads << (up ? " up " : " down ") << count;
+        return threadEventToFrame(threadApply(op.str().c_str()));
+    }
 
     // first get the level of the current frame
     cmd = MIStackInfoFrame();
@@ -2285,42 +2298,7 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
     MICommandFree(cmd);
 
     // parse the frame into a dbgframe_t object
-    result = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-
-    // set the next to null and the level to its level
-    result->frame_next = (dbgframe_t *)NULL;
-    result->frame_level = mi_frame->level;
-
-    // set frame address
-    if (mi_frame->addr != NULL) {
-        DVPRINT("frame_addr: %s\n", mi_frame->addr);
-        result->frame_loc.loc_addr = strdup(mi_frame->addr);
-    } else {
-        DVPRINT("frame_addr: NULL\n");
-        result->frame_loc.loc_addr = (char *)NULL;
-    }
-
-    // set frame function
-    if (mi_frame->func != NULL) {
-        DVPRINT("frame_func: %s\n", mi_frame->func);
-        result->frame_loc.loc_func = strdup(mi_frame->func);
-    } else {
-        DVPRINT("frame_func: NULL\n");
-        result->frame_loc.loc_func = (char *)NULL;
-    }
-
-    // set frame file
-    if (mi_frame->file != NULL) {
-        DVPRINT("frame_file: %s\n", mi_frame->file);
-        result->frame_loc.loc_file = strdup(mi_frame->file);
-    } else {
-        DVPRINT("frame_file: NULL\n");
-        result->frame_loc.loc_file = (char *)NULL;
-    }
-
-    // set frame line
-    DVPRINT("frame_line: %d\n", mi_frame->line);
-    result->frame_loc.loc_line = mi_frame->line;
+    auto result = MakeFrameFromMIFrame(mi_frame);
 
     // free the MIFrame list
     MIListFree(mi_frame_list, (void (*)())MIFrameFree);
@@ -2341,9 +2319,6 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up) {
 dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-    dbgframe_t *result = NULL;
-    dbgframe_t *new_f = NULL;
-    dbgframe_t *old_f = NULL;
 
     MICommand *cmd;
     MIList *frames;
@@ -2352,7 +2327,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     if (threads) {
         auto op = std::string{threads} + " bt";
         if (count) op += " " + std::to_string(count);
-        return threadApply(op.c_str());
+        return threadEventToFrame(threadApply(op.c_str()));
     }
 
     // We need to do different things depending on the value of count
@@ -2413,53 +2388,16 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
 
     // parse over the frame list
     // increment the frames count each time through
+    dbgframe_t *result = nullptr, *tail = nullptr;
+
     for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
         // create the new frame
-        new_f = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-
-        // first time through we want to set the root frame as the result
-        if (result == NULL) result = new_f;
-
-        // if this is not the first time through, set the old frames next frame
-        // pointer to this new frame
-        if (old_f != NULL) old_f->frame_next = new_f;
-
-        // set the next to null and the level to its level
-        new_f->frame_next = (dbgframe_t *)NULL;
-        new_f->frame_level = frame->level;
-
-        // set frame address
-        if (frame->addr != NULL) {
-            DVPRINT("frame_addr: %s\n", frame->addr);
-            new_f->frame_loc.loc_addr = strdup(frame->addr);
+        auto df = MakeFrameFromMIFrame(frame);
+        if (tail) {
+            tail->setNext(df);
         } else {
-            DVPRINT("frame_addr: NULL\n");
-            new_f->frame_loc.loc_addr = (char *)NULL;
+            result = tail = df;
         }
-
-        // set frame function
-        if (frame->func != NULL) {
-            DVPRINT("frame_func: %s\n", frame->func);
-            new_f->frame_loc.loc_func = strdup(frame->func);
-        } else {
-            DVPRINT("frame_func: NULL\n");
-            new_f->frame_loc.loc_func = (char *)NULL;
-        }
-
-        // set frame file
-        if (frame->file != NULL) {
-            DVPRINT("frame_file: %s\n", frame->file);
-            new_f->frame_loc.loc_file = strdup(frame->file);
-        } else {
-            DVPRINT("frame_file: NULL\n");
-            new_f->frame_loc.loc_file = (char *)NULL;
-        }
-
-        // set frame line
-        DVPRINT("frame_line: %d\n", frame->line);
-        new_f->frame_loc.loc_line = frame->line;
-
-        old_f = new_f;
     }
 
     // create the event with the frame information
@@ -2480,19 +2418,14 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
 dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-    dbgframe_t *result = nullptr;
-
-    MICommand *cmd;
-    MIList *mi_frame_list;
-    MIFrame *mi_frame;
 
     if (threads) {
         auto op = std::string{threads} + " frame";
-        return threadApply(op.c_str());
+        return threadEventToFrame(threadApply(op.c_str()));
     }
 
     // Get the selected frame
-    cmd = MIStackInfoFrame();
+    auto cmd = MIStackInfoFrame();
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -2502,7 +2435,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     }
 
     // process the result
-    mi_frame_list = MIGetFrameInfo(cmd);
+    auto mi_frame_list = MIGetFrameInfo(cmd);
 
     if (mi_frame_list == NULL) {
         EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
@@ -2512,7 +2445,9 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
 
     // get the frame
     MIListSet(mi_frame_list);
-    if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL) {
+    auto mi_frame = (MIFrame *)MIListGet(mi_frame_list);
+
+    if (!mi_frame) {
         MIListFree(mi_frame_list, NULL);
         EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
@@ -2520,33 +2455,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     }
 
     // create the result
-    result = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-    memset((void *)result, 0, sizeof(dbgframe_t));
-
-    // set frame level
-    result->frame_level = mi_frame->level;
-
-    // set frame address
-    if (mi_frame->addr != NULL) {
-        DVPRINT("frame_addr: %s\n", mi_frame->addr);
-        result->frame_loc.loc_addr = strdup(mi_frame->addr);
-    }
-
-    // set frame function
-    if (mi_frame->func != NULL) {
-        DVPRINT("frame_func: %s\n", mi_frame->func);
-        result->frame_loc.loc_func = strdup(mi_frame->func);
-    }
-
-    // set frame file
-    if (mi_frame->file != NULL) {
-        DVPRINT("frame_file: %s\n", mi_frame->file);
-        result->frame_loc.loc_file = strdup(mi_frame->file);
-    }
-
-    // set frame line
-    DVPRINT("frame_line: %d\n", mi_frame->line);
-    result->frame_loc.loc_line = mi_frame->line;
+    auto result = MakeFrameFromMIFrame(mi_frame);
 
     // free the MIFrame list
     MIListFree(mi_frame_list, (void (*)())MIFrameFree);
@@ -2692,10 +2601,10 @@ dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
 // prevent them being reduced in MRNet
 static std::string anonymizeThreadInfo(const std::string& val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
-    std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
-    std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
-    std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
+    static std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
+    static std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
+    static std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
+    static std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
 
     std::istringstream is(val);
     std::ostringstream os;
@@ -3125,7 +3034,7 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
     return threadIdsToString(threadIds) + " " + command;
 }
 
-// process the output from thread apply using the extented flags
+// process the output from thread apply using the extended flags
 // isSilent: suppress ouput from threads that produce errors (like a variable not defined)
 // isQuiet: suppress printing the thread information
 // isVerbose: a gdb4hpc extension - don't strip out hex values
@@ -3583,19 +3492,13 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
                 async_e = showFrame(1, threads);
 
                 if (async_e->ev_frame != NULL) {
+                    auto frameLoc = async_e->ev_frame->getLoc();
+
                     s->stat_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
-                    s->stat_loc->loc_file =
-                        (async_e->ev_frame->frame_loc.loc_file == NULL
-                             ? NULL
-                             : strdup(async_e->ev_frame->frame_loc.loc_file));
-                    s->stat_loc->loc_func =
-                        (async_e->ev_frame->frame_loc.loc_func == NULL
-                             ? NULL
-                             : strdup(async_e->ev_frame->frame_loc.loc_func));
-                    s->stat_loc->loc_addr =
-                        NULL;  // We don't care about the address
-                    s->stat_loc->loc_line =
-                        async_e->ev_frame->frame_loc.loc_line;
+                    s->stat_loc->loc_file = StrdupOpt(frameLoc.loc_file);
+                    s->stat_loc->loc_func = StrdupOpt(frameLoc.loc_func);
+                    s->stat_loc->loc_addr = nullptr; // We don't care about the address
+                    s->stat_loc->loc_line = frameLoc.loc_line;
                 }
 
                 FreeEvent(async_e);
@@ -3729,17 +3632,12 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
             e->ev_loc = (dbgloc_t *)NULL;
 
             if (async_e->ev_sig_frame != NULL) {
+                auto frameLoc = async_e->ev_sig_frame->getLoc();
                 e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
-                e->ev_loc->loc_file =
-                    (async_e->ev_sig_frame->frame_loc.loc_file == NULL
-                     ? NULL
-                     : strdup(async_e->ev_sig_frame->frame_loc.loc_file));
-                e->ev_loc->loc_func =
-                    (async_e->ev_sig_frame->frame_loc.loc_func == NULL
-                     ? NULL
-                     : strdup(async_e->ev_sig_frame->frame_loc.loc_func));
-                e->ev_loc->loc_addr = NULL;  // We don't care about the address
-                e->ev_loc->loc_line = async_e->ev_sig_frame->frame_loc.loc_line;
+                e->ev_loc->loc_file = StrdupOpt(frameLoc.loc_file);
+                e->ev_loc->loc_func = StrdupOpt(frameLoc.loc_func);
+                e->ev_loc->loc_addr = nullptr;  // We don't care about the address
+                e->ev_loc->loc_line = frameLoc.loc_line;
             }
 
             FreeEvent(async_e);
@@ -3776,17 +3674,12 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
     e->ev_loc = (dbgloc_t *)NULL;
 
     if (async_e->ev_frame != NULL && async_e->ev_event == DBGEV_FRAME) {
+        auto frameLoc = async_e->ev_frame->getLoc();
         e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
-        e->ev_loc->loc_file =
-            (async_e->ev_frame->frame_loc.loc_file == NULL
-                 ? NULL
-                 : strdup(async_e->ev_frame->frame_loc.loc_file));
-        e->ev_loc->loc_func =
-            (async_e->ev_frame->frame_loc.loc_func == NULL
-                 ? NULL
-                 : strdup(async_e->ev_frame->frame_loc.loc_func));
-        e->ev_loc->loc_addr = NULL;  // We don't care about the address
-        e->ev_loc->loc_line = async_e->ev_frame->frame_loc.loc_line;
+        e->ev_loc->loc_file = StrdupOpt(frameLoc.loc_file);
+        e->ev_loc->loc_func = StrdupOpt(frameLoc.loc_func);
+        e->ev_loc->loc_addr = nullptr;  // We don't care about the address
+        e->ev_loc->loc_line = frameLoc.loc_line;
     }
 
     FreeEvent(async_e);
@@ -4572,18 +4465,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                 // No need to get the line again since we already have it in the
                 // MIFrame information.
                 e->ev_step_line = NULL;
-                e->ev_step_frame = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-                e->ev_step_frame->frame_level = evt->frame->level;
-                e->ev_step_frame->frame_loc.loc_file =
-                    (evt->frame->file == NULL ? NULL
-                                              : strdup(evt->frame->file));
-                e->ev_step_frame->frame_loc.loc_func =
-                    (evt->frame->func == NULL ? NULL
-                                              : strdup(evt->frame->func));
-                e->ev_step_frame->frame_loc.loc_addr =
-                    NULL;  // We don't care about the address
-                e->ev_step_frame->frame_loc.loc_line = evt->frame->line;
-                e->ev_step_frame->frame_next = NULL;
+                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
             }
 
             Status = DBGSTAT_STOPPED;
@@ -4603,18 +4485,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                 // No need to get the line again since we already have it in the
                 // MIFrame information.
                 e->ev_step_line = NULL;
-                e->ev_step_frame = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-                e->ev_step_frame->frame_level = evt->frame->level;
-                e->ev_step_frame->frame_loc.loc_file =
-                    (evt->frame->file == NULL ? NULL
-                                              : strdup(evt->frame->file));
-                e->ev_step_frame->frame_loc.loc_func =
-                    (evt->frame->func == NULL ? NULL
-                                              : strdup(evt->frame->func));
-                e->ev_step_frame->frame_loc.loc_addr =
-                    NULL;  // We don't care about the address
-                e->ev_step_frame->frame_loc.loc_line = evt->frame->line;
-                e->ev_step_frame->frame_next = NULL;
+                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
             }
 
             Status = DBGSTAT_STOPPED;
@@ -4633,18 +4504,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                 // No need to get the line again since we already have it in the
                 // MIFrame information.
                 e->ev_step_line = NULL;
-                e->ev_step_frame = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-                e->ev_step_frame->frame_level = evt->frame->level;
-                e->ev_step_frame->frame_loc.loc_file =
-                    (evt->frame->file == NULL ? NULL
-                                              : strdup(evt->frame->file));
-                e->ev_step_frame->frame_loc.loc_func =
-                    (evt->frame->func == NULL ? NULL
-                                              : strdup(evt->frame->func));
-                e->ev_step_frame->frame_loc.loc_addr =
-                    NULL;  // We don't care about the address
-                e->ev_step_frame->frame_loc.loc_line = evt->frame->line;
-                e->ev_step_frame->frame_next = NULL;
+                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
             }
 
             Status = DBGSTAT_STOPPED;
@@ -4661,18 +4521,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_sig_frame = (dbgframe_t *)NULL;
 
             if (evt->frame != NULL) {
-                e->ev_sig_frame = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-                e->ev_sig_frame->frame_level = evt->frame->level;
-                e->ev_sig_frame->frame_loc.loc_file =
-                    (evt->frame->file == NULL ? NULL
-                                              : strdup(evt->frame->file));
-                e->ev_sig_frame->frame_loc.loc_func =
-                    (evt->frame->func == NULL ? NULL
-                                              : strdup(evt->frame->func));
-                e->ev_sig_frame->frame_loc.loc_addr =
-                    NULL;  // We don't care about the address
-                e->ev_sig_frame->frame_loc.loc_line = evt->frame->line;
-                e->ev_sig_frame->frame_next = NULL;
+                e->ev_sig_frame = MakeFrameFromMIFrame(evt->frame, false);
             }
 
             Status = DBGSTAT_STOPPED;
@@ -5195,4 +5044,98 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
     return os.str();
 }
 
- 
+// translate a frame result from threadApply into a frame event.    The frame event
+// will contain the set of frames for each equivalent thread set
+static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
+    if (threadEvent->ev_event != DBGEV_THREADINFO) {
+        return threadEvent;
+    }
+
+    static std::regex atRE(R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))");
+    static std::regex fromRE(R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))");
+
+    auto res = std::string{threadEvent->ev_u.ev_u_string};
+
+    dbgframe_t* frame0 = nullptr, *frame0tail = nullptr;
+
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+    for (ThreadMsgParser parser(std::move(res)); auto res = parser.nextResult(); ) {
+        auto [ thread, val ] = *res;
+
+        // now we will need to scrape the frame information from the response.
+        // I will look something like:
+        // #0   in nanosleep () from /lib64/libpthread.so.0
+        // #1   in std::this_thread::sleep_for<long, std::ratio<1l, 1000l> > (__rtime=...) at /opt/gcc/8.1.0/snos/lib/gcc/x86_64-suse-linux/8.1.0/../../../../include/g++/thread:369
+        // #2   in main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:54
+        // so I think every frame is written on one line
+        auto is = std::istringstream{std::move(val)};
+        auto line = std::string{};
+
+        dbgframe_t *tframe = nullptr, *ttail = nullptr;
+        auto threadStr = thread.c_str();
+
+        while (std::getline(is, line)) {
+            auto match = std::smatch{};
+            dbgframe_t* frame = nullptr;
+
+            if (std::regex_match(line, match, atRE)) {
+                auto level = std::stoi(match[1]);
+                auto func = match[3].str();
+                auto file = match[4].str();
+                auto frameLine = std::stoi(match[5]);
+
+                DVPRINT("frame %d IN %s AT FILE %s LINE %d\n", level, func.c_str(), file.c_str(),
+                        frameLine);
+
+                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
+                                     const_cast<char*>(func.c_str()), nullptr, frameLine };
+                frame = new dbgframe_t{level, loc, nullptr, threadStr, nullptr};
+            } else if (std::regex_match(line, match, fromRE)) {
+                auto level = std::stoi(match[1]);
+                auto func = match[3].str();
+                auto file = match[4].str();
+                DVPRINT("frame %d IN %s FROM %s\n", level, func.c_str(), file.c_str());
+
+                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
+                                     const_cast<char*>(func.c_str()), nullptr, 0 };
+
+                frame = new dbgframe_t{ level, loc, nullptr, threadStr, nullptr};
+            } else {
+                DVPRINT("could not parse line %s\n", line.c_str());
+                continue;
+            }
+
+            // we only report threads on the head of each stack
+            threadStr = nullptr;
+
+            // add frame to the linked list
+            if (!tframe) {
+                // begining of thread frame
+                tframe = ttail = frame;
+                if (!frame0) {
+                    // first frame at all
+                    frame0 = frame0tail = frame;
+                } else {
+                    frame0tail->setNextThreadFrame(frame);
+                    frame0tail = frame;
+                }
+            } else {
+                ttail->setNext(frame);
+                ttail = frame;
+            }
+        }
+    }
+
+    dbgevent_t* frameEvent = nullptr;
+    if (frame0) {
+        frameEvent = NewEvent(DBGEV_FRAME);
+        EVENT_FRAME(frameEvent) = frame0;
+    } else {
+        frameEvent = NewErrorEvent(DBGERR_DEBUGGER, "could not parse frame result");
+    }
+
+    FreeEvent(threadEvent);
+
+    return frameEvent;
+}
+    

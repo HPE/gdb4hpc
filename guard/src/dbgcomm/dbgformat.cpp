@@ -39,7 +39,7 @@ static inline const char* StrSoc(const char* s) {
 static char *EventBPToSocProto(dbgev, dbgbp_t *, int);
 static char *EventSigToSocProto(dbgev, dbgsig_t);
 static char *EventStepToSocProto(dbgev, dbgstep_t);
-static char *EventFrameToSocProto(dbgev, dbgframe_t *);
+static char *EventFrameToSocProto(dbgev, const dbgframe_t *);
 static char *EventLocToSocProto(dbgev, dbgloc_t *);
 static char *EventStatusToSocProto(dbgev, dbgstatus_t *);
 static char *EventVersToSocProto(dbgev, dbgvers_t);
@@ -49,7 +49,7 @@ static char *EventListToSocProto(dbgev, dbglist_t *);
 static char *EventVarsToSocProto(dbgev, dbgvars_t *);
 static char *EventStringToSocProto(dbgev, char *);
 
-static char *EventFrameToSocProtoL(dbgframe_t *);
+static char *EventFrameToSocProtoL(const dbgframe_t *);
 static char *EventLocToSocProtoL(dbgloc_t *);
 
 static dbgerr_t SocProtoToErr(char *);
@@ -234,27 +234,32 @@ static char *EventStepToSocProto(dbgev ev, dbgstep_t se) {
     return stres;
 }
 
-static char *EventFrameToSocProtoL(dbgframe_t *fe) {
-    char *stres = strdup("");
+static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
+    std::ostringstream os;
+    const char* s = " ";
 
-    for (; fe != NULL; fe = fe->frame_next) {
-        const char* file = StrSoc(fe->frame_loc.loc_file);
-        const char* func = StrSoc(fe->frame_loc.loc_func);
-        const char* addr = StrSoc(fe->frame_loc.loc_addr);
+    for (auto tf=fe; tf; tf=tf->getNextThreadFrame()) {
+        auto newThread = 1;
+        
+        for (auto f=tf; f; f = f->getNext()) {
+            auto loc = f->getLoc();
+            const char* file = StrSoc(loc.loc_file);
+            const char* func = StrSoc(loc.loc_func);
+            const char* addr = StrSoc(loc.loc_addr);
+            const char* threads = StrSoc(f->getThreads());
 
-        // append the next frame
-        char *tmp;;
-        Asprintf(&tmp, "%s%d %d %s %d %s %d %s %d ", stres,
-                 fe->frame_level,
-                 (int)strlen(file), file, (int)strlen(func), func,
-                 (int)strlen(addr), addr, fe->frame_loc.loc_line);
-        std::swap(tmp, stres);
-        Free(tmp);
+            // append the next frame
+            os << f->getLevel() << s << strlen(file) << s << file << s
+               << strlen(func) << s << func << s << strlen(addr) << s << addr << s
+               << loc.loc_line << s << newThread << s << strlen(threads) << s << threads;
+
+            newThread = 0;
+        }
     }
-    return stres;
+    return strdup(os.str().c_str());
 }
 
-static char *EventFrameToSocProto(dbgev ev, dbgframe_t *fe) {
+static char *EventFrameToSocProto(dbgev ev, const dbgframe_t *fe) {
     char *stres = EventFrameToSocProtoL(fe);
     char* wrappedStr = MakeSocStr(ev, "%s", stres);
     Free(stres);
@@ -891,36 +896,45 @@ static dbgsig_t SocProtoToSig(char *s) {
 }
 
 static dbgframe_t *SocProtoToFrame(char *s) {
-    dbgframe_t *res = NULL;
-    dbgframe_t **fp;
-    char *tmp_file;
-
     NULL_GUARD(s);
 
-    fp = &res;
+    dbgframe_t *res = nullptr, *tail = nullptr, *threadTail = nullptr;
 
     // Loop until we find a null terminator
     for (; *s != '\0'; s = skipspace(s)) {
-        *fp = (dbgframe_t *)Alloc(sizeof(dbgframe_t));
-        memset(*fp, 0, sizeof(dbgframe_t));
+        auto loc = dbgloc_t{};
+        auto level = getint(&s);
+        loc.loc_file = getstring(&s);
+        loc.loc_func = getstring(&s);
+        loc.loc_addr = getstring(&s);
+        loc.loc_line = getint(&s);
 
-        (*fp)->frame_level = getint(&s);
-        (*fp)->frame_loc.loc_file = getstring(&s);
-        (*fp)->frame_loc.loc_func = getstring(&s);
-        (*fp)->frame_loc.loc_addr = getstring(&s);
-        (*fp)->frame_loc.loc_line = getint(&s);
-        (*fp)->frame_next = (dbgframe_t *)NULL;
+        auto newThread = getint(&s);
+        auto threads = getstring(&s);
 
         // We should try to resolve the realpath of file on this end. If it
         // fails, we will use the original value.
-        if ((tmp_file = realpath((*fp)->frame_loc.loc_file, NULL)) != NULL) {
-            // Free the old loc_file
-            Free((*fp)->frame_loc.loc_file);
-            // Set the new loc_file
-            (*fp)->frame_loc.loc_file = tmp_file;
+        if (auto tmp_file = realpath(loc.loc_file, nullptr)) {
+            std::swap(tmp_file,  loc.loc_file);
+            free(tmp_file);
         }
 
-        fp = &(*fp)->frame_next;
+        auto frame = new dbgframe_t(level, loc, nullptr, threads[0] ? threads : nullptr, nullptr);
+
+        free(loc.loc_file);
+        free(loc.loc_func);
+        free(loc.loc_addr);
+        free(threads);
+
+        if (!tail) {
+            res = tail = threadTail = frame;
+        } else if (newThread) {
+            threadTail->setNextThreadFrame(frame);
+            threadTail = tail = frame;
+        } else {
+            tail->setNext(frame);
+            tail = frame;
+        }
     }
 
     return res;

@@ -41,6 +41,7 @@
 #include "dbgbp.h"
 #include "dbgloc.h"
 #include "list.h"
+#include <optional>
 
 #define EVENT_ERROR(e, err, ...) \
     (e) = NewEvent(DBGEV_ERROR); \
@@ -156,12 +157,33 @@ struct dbglist_t {
 };
 typedef struct dbglist_t dbglist_t;
 
-struct dbgframe_t {
-    int frame_level;
-    dbgloc_t frame_loc;
-    struct dbgframe_t *frame_next;
+class dbgframe_t {
+private:
+    int m_level;                // depth of the frame
+    dbgloc_t m_loc;             // source file location
+    dbgframe_t* m_next;         // frame of the calling function
+    char* m_threads;            // threads (only if called during thread focus, and only top initial frame)
+    dbgframe_t* m_nextThreadFrame;  // (initial frame only) - frame list for the next thread set
+public:
+    int getLevel() const { return m_level; }
+    const dbgloc_t& getLoc() const { return m_loc; }
+    const char* getThreads() const { return m_threads; }
+
+    const dbgframe_t* getNext() const { return m_next; }
+    const dbgframe_t* getNextThreadFrame() const { return m_nextThreadFrame; }
+
+    void setNext(dbgframe_t* next);
+    void setNextThreadFrame(dbgframe_t* next);
+
+    dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
+               const char* threads, dbgframe_t* nextThreadFrame);
+    dbgframe_t* clone() const;
+    static dbgframe_t* copy(const dbgframe_t* rhs) { return rhs ? rhs->clone() : nullptr; }
+    ~dbgframe_t();
+
+    dbgframe_t(const dbgframe_t&) = delete;
+    dbgframe_t& operator=(const dbgframe_t&) = delete;
 };
-typedef struct dbgframe_t dbgframe_t;
 
 struct dbgsig_t {
     char *sig_type;
@@ -291,5 +313,23 @@ extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);
 
 constexpr const char* MULTI_THREAD_HDR = "Thread Results\n";
+
+// Parser class for processing a THREAD_INFO result into its components.
+// Usage as:
+// for (ThreadMsgParser parser(std::move(msg); auto msg = parser.nextResult(); ) {
+//      auto [thread, val] = msg;
+class ThreadMsgParser {
+private:
+    std::string m_str;
+    std::string m_thread;
+public:
+    ThreadMsgParser(const std::string& msg) : m_str(msg) {}
+    ThreadMsgParser(std::string&& msg) : m_str(std::move(msg)) {}
+
+    std::optional<std::pair<std::string,std::string>> nextResult();
+
+    ThreadMsgParser(const ThreadMsgParser&) = delete;
+    ThreadMsgParser& operator=(const ThreadMsgParser&) = delete;
+};
 
 #endif /* !_DBGEVENT_H */

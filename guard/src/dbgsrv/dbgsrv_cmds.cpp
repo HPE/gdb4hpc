@@ -196,9 +196,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_MOVEFRAME: {
-            int count; bool up;
-            is.get(count, up);
-            e = DbgMoveFrame(count, up);
+            int count; bool up; OptionalString threads;
+            is.get(count, up, threads);
+            e = DbgMoveFrame(count, up, threads);
             break;
         }
 
@@ -421,10 +421,12 @@ ISocStream& ISocStream::operator>>(size_t& sz) { m_str >> sz; return *this; }
 ISocStream& ISocStream::operator>>(std::string& s) {
     size_t len;
     m_str >> len;
+    
     char c;
     m_str.get(c); // the space between the length an the string
     s.resize(len);
-    m_str.read(&s[0], len);
+    if (len) m_str.read(&s[0], len);
+
     return *this;
 }
 

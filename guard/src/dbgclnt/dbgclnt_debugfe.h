@@ -59,7 +59,7 @@ struct dbgfrontend_sw_create {
 typedef struct dbgfrontend_sw_create dbgfrontend_sw_create;
 
 // Functions used for managing state information for DbgList commands
-extern int AddListStateLocation(dbgfrontend_sw *, bitset *, char *);
+extern int AddListStateLocation(dbgfrontend_sw *, bitset *, const char *);
 extern set_location *GetListStateLocation(dbgfrontend_sw *);
 extern void SetListStateLocation(dbgfrontend_sw *);
 extern void ClearListState(dbgfrontend_sw *);

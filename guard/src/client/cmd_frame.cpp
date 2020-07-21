@@ -68,18 +68,23 @@ private:
 };
 }
 
-void PrintFrameSet(char *setname, bitset *group, dbgframe_t *f) {
-    PrintMsgWithSetInfo(setname, group, "#%-2d ", f->frame_level);
+void PrintFrameSet(char *setname, bitset *group, const dbgframe_t *frame) {
 
-    if (*f->frame_loc.loc_addr != '\0')
-        PrintOutMsg("%s in ", f->frame_loc.loc_addr);
+    for (auto f = frame; f ; f = f->getNextThreadFrame()) {
 
-    PrintOutMsg("%s", f->frame_loc.loc_func);
+        PrintMsgWithSetAndThreadInfo(setname, group, f->getThreads(), "#%-2d ", f->getLevel());
 
-    if (*f->frame_loc.loc_file != '\0')
-        PrintOutMsg(" at %s:%d", f->frame_loc.loc_file, f->frame_loc.loc_line);
+        auto loc = f->getLoc();
+        if (*loc.loc_addr != '\0')
+            PrintOutMsg("%s in ", loc.loc_addr);
 
-    PrintOutMsg("\n");
+        PrintOutMsg("%s", loc.loc_func);
+
+        if (*loc.loc_file != '\0')
+            PrintOutMsg(" at %s:%d", loc.loc_file, loc.loc_line);
+
+        PrintOutMsg("\n");
+    }
 }
 
 static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
@@ -113,7 +118,6 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int count = 0;
-    dbgframe_t *f;
 
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -132,17 +136,12 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (const auto& reply : rep_set) {
 
         auto ev = reply->rep_event->ev_event;
-        if (ev == DBGEV_THREADINFO) {
-            // This case is when rec_set has a thread focus
-            PrintMultiThreadReply(reply);
-            continue;
-        }
 
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
         
-        for (f = EVENT_FRAME(reply->rep_event); f != (dbgframe_t *)NULL; f = f->frame_next) {
+        for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f != nullptr; f = f->getNext()) {
             // deepest (farthest from main) frame will be in the front
             frames.push_back(BTTree(reply->rep_di->d_handle, reply->rep_group, f));
         }
@@ -177,12 +176,8 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (auto&& reply : rep_set) {
         // Point at the frame data
         auto ev = reply->rep_event->ev_event;
-        if (ev == DBGEV_FRAME) {
-            auto fp = EVENT_FRAME(reply->rep_event);
-            PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
-        } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadReply(reply);
-        }
+        auto fp = EVENT_FRAME(reply->rep_event);
+        PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
     }
 
     FreeRepSet(rep_set);
@@ -303,12 +298,13 @@ void BTTree::printData(const bitset* group) const {
         return;
     }
 
-    PrintMsgWithSetInfo(m_setname.c_str(), group, "#%-2d ", m_frame->frame_level);
+    PrintMsgWithSetInfo(m_setname.c_str(), group, "#%-2d ", m_frame->getLevel());
 
-    PrintOutMsg("%s", m_frame->frame_loc.loc_func);
+    auto loc = m_frame->getLoc();
+    PrintOutMsg("%s", loc.loc_func);
 
-    if (*m_frame->frame_loc.loc_file != '\0')
-        PrintOutMsg(" at %s:%d", m_frame->frame_loc.loc_file, m_frame->frame_loc.loc_line);
+    if (*loc.loc_file != '\0')
+        PrintOutMsg(" at %s:%d", loc.loc_file, loc.loc_line);
 
     PrintOutMsg("\n");
 }
@@ -360,5 +356,5 @@ void BTTree::markDirtyGroup() {
 
 bool BTTree::operator==(const BTTree &other) const {
     return m_setname == other.m_setname
-        && std::strcmp(m_frame->frame_loc.loc_addr, other.m_frame->frame_loc.loc_addr) == 0;
+        && std::strcmp(m_frame->getLoc().loc_addr, other.m_frame->getLoc().loc_addr) == 0;
 }

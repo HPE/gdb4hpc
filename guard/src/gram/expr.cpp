@@ -767,7 +767,8 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     val_t *val = NULL;
     val_t *ps_val = NULL;
     val_t *v1 = NULL;
-    slice_t *slice = (slice_t *)NULL;
+    slice_t *slice = nullptr;
+    bool isFullSlice = false;
     expr_elt *ep;
     expr_op stype;
 
@@ -858,6 +859,11 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
             AddSlice(slice, smn, smx);
             DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
+        } else if (ep->e_op == EXPR_STAR) {
+            // create a slice for everything
+            DPRINT("read_var_imm: processing * as a process slice\n");
+            isFullSlice = true;
+            ep = POP(e);
         } else {
             DPRINT(
                 "read_var_imm: EXPR_SLICE not present. Taking default "
@@ -1019,9 +1025,17 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             break;
 
         case EXPR_DSYM:
+            
             if ((val = GetVal(sym)) != NULL) {
                 DPRINT("read_var_imm: Found previous val for dsym \"%s\"\n",
                        SymLookup(sym));
+
+                if (isFullSlice && !slice && val->val_rval_type == rval_proc) {
+                    // create the slice since we now know the number of processes
+                    DPRINT("assignign the size to a * in procset\n");
+                    slice = NewSlice();
+                    AddSlice(slice, 0, val->rval_u.rval_procset->s_nproc-1);
+                }
 
                 // if slice information is set, we need to create a new
                 // reference.
@@ -2821,6 +2835,9 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
                 SetError("unexpected type in thread range");
                 return nullptr;
             }
+            break;
+        case EXPR_STAR:
+            threadElems.push_back(std::string{"*"});
             break;
         default:
             SetError("unexpected type in thread list %s", getExprOpStr(ep->e_op));

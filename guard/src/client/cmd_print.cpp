@@ -184,7 +184,7 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
 
         } else {
             // A normal expression result, either from no thread focus, or focus on a single thread.
-            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, nullptr, nullptr);
+            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
             AIFPrint(Client.cli_out_stream, 0, aif);

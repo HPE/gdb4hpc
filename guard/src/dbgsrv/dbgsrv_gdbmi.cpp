@@ -2788,6 +2788,7 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
     static auto idRE=std::regex{R"(^\s*(\d+)(,|(\s+,?)))"}; // 1
     static auto regexRE=std::regex{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\"(,|(\\s+,?))"};  // "re\"g\"ex"
     static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'(,|(\\s+,?))"};    // 're\'g\'ex'
+    static auto starRE=std::regex{R"(\s*(\*)(,|(\s+,?)))"};   // *
     static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
         
     auto hasPattern = false;
@@ -2808,11 +2809,14 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
             auto a = atoi(match[1].str().c_str());
             ids.push_back(a);
         } else if (std::regex_search(toParse, match, regexRE) ||
-                   std::regex_search(toParse, match, regexREsq)) {
+                   std::regex_search(toParse, match, regexREsq) ||
+                   std::regex_search(toParse, match, starRE)) {
             // use thread find to get the matching threads
             hasPattern = true;
             auto pattern = match[1].str();
+            if (pattern == "*") pattern = ".*"; // match every thread
             auto ev = findThread(pattern.c_str());
+
             if (ev->ev_event == DBGEV_THREADINFO && ev->ev_string) {
                 const char* findRes = ev->ev_string, *findEnd = findRes + strlen(findRes);
                 for (std::cregex_iterator it(findRes,findEnd,threadFindRE), end;
@@ -2840,6 +2844,10 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
         // a just plain empty list is fine - it means all (at least with info threads)
         error = "no threads match the pattern";
     }
+
+    // canonicalize and make unique
+    std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
 
     return ids;
 }

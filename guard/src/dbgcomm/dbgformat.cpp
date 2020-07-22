@@ -313,6 +313,8 @@ static char *EventStringToSocProto(dbgev ev, char *te) {
 }
 
 static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
+    // we haven't added thread information to the socket protocol because list
+    // is usually handled on the front end.
     char *stres = strdup("");
     for (; le; le = le->list_next) {
         const char* line = StrSoc(le->list_line);
@@ -801,6 +803,7 @@ static dbglist_t *SocProtoToList(char *s) {
 
         (*lp)->list_lno = getint(&s);
         (*lp)->list_line = getstring(&s);
+        (*lp)->list_threads = nullptr;
         (*lp)->list_next = (dbglist_t *)NULL;
 
         lp = &(*lp)->list_next;

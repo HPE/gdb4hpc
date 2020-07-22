@@ -3538,9 +3538,8 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
             // First is the logic for the case where a previous list is not
             // pending. If str is null, then we need to ask each of the ranks
             // for their current frame.
-            if (((str == nullptr) ? 1 : isReverse) &&
-                !(dbg_fe->dbg_list_isPending)) {
-                // Get the inntermost frame.  
+            if ((!str || isReverse) && !dbg_fe->dbg_list_isPending) {
+                // Get the innermost frame.  
                 // Create the new rec set for this group - it holds state so it's not
                 // directly re-usable
 
@@ -3551,7 +3550,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 FreeRecSet(new_rec_set);
 
                 // Make sure there isn't an error in the result, otherwise add
-                // this to the to_send list
+                // this to the to_send list to get the list from the back end.
                 if (SetHasError(tmp_result)) {
                     FreeRepSet(tmp_result);
                     tmp_result = nullptr;
@@ -3559,58 +3558,62 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     continue;
                 }
 
-                // process the frame
-                for (auto&& group_rep : tmp_result) {
+                // process the frame -- note that we may be adding replies to tmp_result
+                // inside the loop.
+                for (size_t repIdx=0, numReps= tmp_result->getNumReplies();
+                     tmp_result && repIdx<numReps; ++repIdx) {
+
+                    auto group_rep = tmp_result->getReplies()[repIdx];
+
                     // Point at the event frame
-                    auto fp = EVENT_FRAME(group_rep->rep_event);
-                    auto loc = fp->getLoc();
+                    const dbgframe_t* fp0 = EVENT_FRAME(group_rep->rep_event);
+                    for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
+                    
+                        auto loc = fp->getLoc();
 
-                    // Now ask the frontend for the source listing around this
-                    // location. This is set depending on the value of isReverse
-                    char *location = nullptr;
-                    if (isReverse) {
-                        Asprintf(&location, ",%s:%d", loc.loc_file, loc.loc_line);
-                    } else {
-                        Asprintf(&location, "%s:%d,", loc.loc_file, loc.loc_line);
+                        // Now ask the frontend for the source listing around this
+                        // location. This is set depending on the value of isReverse
+                        std::ostringstream os;
+                        os << (isReverse ? "," : "") << loc.loc_file << ":" << loc.loc_line;
+                        auto location = os.str().c_str();
+
+                        // Save this new list location state for later calls to list
+                        if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
+                                                 location) < 0) {
+                            PrintOutError("Failed to save list location. Further calls to "
+                                          "list will not save state.\n");
+                        }
+
+                        // Send the list command to the frontend
+                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location);
+
+                        // Make sure the event is a DBGEV_LIST, otherwise add this
+                        // to the to_send list
+                        if (e->ev_event != DBGEV_LIST) {
+                            FreeRepSet(tmp_result);
+                            tmp_result = nullptr;
+                            FreeEvent(e);
+                            ClearListState(dbg_fe);
+                            AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
+                            break; // for (fp)
+                        }
+
+                        // Replace the event in the group_rep with this one
+                        FreeEvent(group_rep->rep_event);
+                        if (fp == fp0) {
+                            group_rep->rep_event = e;
+                        } else {
+                            auto newReply = NewGroupReply(group_rep->rep_di,
+                                                          bitset_dup(group_rep->rep_group), e);
+                            tmp_result->addReply(newReply);
+                        }
                     }
-
-                    // Save this new list location state for later calls to list
-                    if (AddListStateLocation(dbg_fe, group_rep->rep_group,
-                                             location) < 0) {
-                        PrintOutError(
-                            "Failed to save list location. Further calls to "
-                            "list will not save state.\n");
-                    }
-
-                    // Send the list command to the frontend
-                    auto e = DbgFEList(dbg_fe, location);
-
-                    // Free the location, we are done with it
-                    Free(location);
-                    location = nullptr;
-
-                    // Make sure the event is a DBGEV_LIST, otherwise add this
-                    // to the to_send list
-                    if (e->ev_event != DBGEV_LIST) {
-                        FreeRepSet(tmp_result);
-                        tmp_result = nullptr;
-                        FreeEvent(e);
-                        e = nullptr;
-                        ClearListState(dbg_fe);
-                        AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
-                        continue;
-                    }
-
-                    // Replace the event in the group_rep with this one
-                    FreeEvent(group_rep->rep_event);
-                    group_rep->rep_event = e;
                 }
 
                 // This has converted the SHOWFRAME result into a LIST result.
-                result = MergeRepSet(result, tmp_result);
+                result = MergeRepSet(result, tmp_result);  // it checks for tmp_result==nulptr
 
-            } else if (((str == nullptr) ? 1 : isReverse) &&
-                       dbg_fe->dbg_list_isPending) {
+            } else if ((!str || isReverse) && dbg_fe->dbg_list_isPending) {
                 // We will create the result by hand based on the saved list
                 // location state data
 
@@ -3619,7 +3622,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 for (set_location *set_loc; (set_loc = GetListStateLocation(dbg_fe));) {
                     // Call the list command using the saved location string to
                     // set things up
-                    auto e = DbgFEList(dbg_fe, set_loc->loc_str);
+                    auto e = DbgFEList(dbg_fe, set_loc->threads, set_loc->loc_str);
 
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
@@ -3639,7 +3642,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                         // We need to go in the reverse direction
                         for (i = set_loc->count; i < 0; ++i) {
-                            e = DbgFEList(dbg_fe, "-");
+                            e = DbgFEList(dbg_fe, set_loc->threads, "-");
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
@@ -3661,7 +3664,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                         // We need to go in the forward direction
                         for (i = 0; i < set_loc->count; ++i) {
-                            e = DbgFEList(dbg_fe, "");
+                            e = DbgFEList(dbg_fe, set_loc->threads, "");
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
@@ -3685,10 +3688,10 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // isReverse value. We also increment or decrement the saved
                     // count here
                     if (isReverse) {
-                        e = DbgFEList(dbg_fe, "-");
+                        e = DbgFEList(dbg_fe, set_loc->threads, "-");
                         set_loc->count--;
                     } else {
-                        e = DbgFEList(dbg_fe, "");
+                        e = DbgFEList(dbg_fe, set_loc->threads, "");
                         set_loc->count++;
                     }
 
@@ -3728,7 +3731,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 ClearListState(dbg_fe);
 
                 // Save this new list location state for later calls to list
-                if (AddListStateLocation(dbg_fe, recv_ptr->rec_group, str) <
+                if (AddListStateLocation(dbg_fe, recv_ptr->rec_group, nullptr, str) <
                     0) {
                     PrintOutError(
                         "Failed to save list location. Further calls to list "
@@ -3737,7 +3740,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // we can pass the str directly to the frontend list command
                 // since its not null and was provided by the user.
-                auto e = DbgFEList(dbg_fe, str);
+                auto e = DbgFEList(dbg_fe, nullptr, str);
 
                 // Make sure the event is a DBGEV_LIST or DBGEV_ERROR, otherwise
                 // create an error
@@ -3957,13 +3960,13 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
             // Clear any existing state
             ClearListState(dbg_fe);
 
-            // process the frame
+            // process the frame(s)
             for (auto&& group_rep : result) {
-                if (group_rep->rep_event->ev_event == DBGEV_FRAME) {
-                    // Point at the frame
-                    auto fp = EVENT_FRAME(group_rep->rep_event);
+                // Point at the frame
+                auto fp0 = const_cast<const dbgframe_t*>(EVENT_FRAME(group_rep->rep_event));
+                for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
                     auto loc = fp->getLoc();
-
+                        
                     // Create the location string based on the new frame
                     // location Note that this should one short of the new
                     // location since we didn't generate this by listing
@@ -3975,14 +3978,12 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 
                     // Save this new list location state for later calls to
                     // list
-                    if (AddListStateLocation(dbg_fe, group_rep->rep_group, locStr.str().c_str()) < 0) {
+                    if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
+                                             locStr.str().c_str()) < 0) {
                         PrintOutError(
                             "Failed to save list location. Further calls "
                             "to list will not save state.\n");
                     }
-                } else {
-                    // temporary
-                    PrintMultiThreadReply(group_rep);
                 }
             }
         }

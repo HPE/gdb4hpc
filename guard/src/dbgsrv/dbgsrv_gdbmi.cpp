@@ -1922,6 +1922,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
         dbg_list = (dbglist_t *)Alloc(sizeof(dbglist_t));
         dbg_list->list_lno = line->line_no;
         dbg_list->list_line = strdup(line->line);
+        dbg_list->list_threads = nullptr;
         dbg_list->list_next = (dbglist_t *)NULL;
 
         if (list == NULL) {
@@ -5046,6 +5047,10 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
 
 // translate a frame result from threadApply into a frame event.    The frame event
 // will contain the set of frames for each equivalent thread set
+// -- This is based on the strategy of using threadApply to do the aggragation, though
+// it may leave us with potentially brittle text at this level.   If in the future gdb/mi
+// gives a more efficient means to get frames from multiple threads, the approach could
+// be changed to take advantage of it. ---
 static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
     if (threadEvent->ev_event != DBGEV_THREADINFO) {
         return threadEvent;

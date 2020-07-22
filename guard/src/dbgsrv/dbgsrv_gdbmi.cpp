@@ -2845,7 +2845,8 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
         error = "no threads match the pattern";
     }
 
-    // canonicalize and make unique
+    // canonicalize and make unique (thread find will return the same thread multiple times if
+    // the regex matches multiple parts of the thread description)
     std::sort(ids.begin(), ids.end());
     ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
 

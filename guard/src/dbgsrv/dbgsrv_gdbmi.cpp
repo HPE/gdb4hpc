@@ -2395,6 +2395,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
         auto df = MakeFrameFromMIFrame(frame);
         if (tail) {
             tail->setNext(df);
+            tail = df;
         } else {
             result = tail = df;
         }
@@ -2784,11 +2785,14 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
                                         std::string& error) {
     // note that all each of these RE contains a tail that matches the next space or comma
     // in the list  (we add a space to the original string to simplify matching)
-    static auto rangeRE=std::regex{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+)(,|(\s+,?)))"};  // 1-2, 1..2
-    static auto idRE=std::regex{R"(^\s*(\d+)(,|(\s+,?)))"}; // 1
-    static auto regexRE=std::regex{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\"(,|(\\s+,?))"};  // "re\"g\"ex"
-    static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'(,|(\\s+,?))"};    // 're\'g\'ex'
-    static auto starRE=std::regex{R"(\s*(\*)(,|(\s+,?)))"};   // *
+    using namespace std::string_literals;
+    static auto post = R"((,|(\s+,?)))"s;  // slurp up the list separator
+    static auto rangeRE=std::regex{R"(^\s*(\d+)\s*(-|(\.\.))\s*(\d+))" + post};  // 1-2, 1..2
+    static auto idRE=std::regex{R"(^\s*(\d+))"s + post}; // 1
+    static auto regexRE=std::regex{"^\\s*\"(([^\"\\\\]*\\\\.)*[^\"\\\\]*)\""s + post};  // "re\"g\"ex"
+    static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'"s + post};    // 're\'g\'ex'
+    static auto starRE=std::regex{R"(\s*(\*))"s + post};   // * note in parens to match regexRE
+
     static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
         
     auto hasPattern = false;

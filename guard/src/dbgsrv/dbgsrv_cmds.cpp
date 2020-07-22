@@ -184,9 +184,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_STEP: {
-            int count, stepInto;
-            is.get(count,stepInto);
-            e = DbgStep(count, stepInto);
+            int count, stepInto; OptionalString threads;
+            is.get(count,stepInto, threads);
+            e = DbgStep(count, stepInto, threads);
             break;
         }
 

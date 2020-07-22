@@ -126,7 +126,7 @@ public:
     virtual dbgevent_t *go(bool all) override;
     virtual dbgevent_t *finishFunc() override;
     virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
-    virtual dbgevent_t *step(int const, bool in) override;
+    virtual dbgevent_t *step(int const, bool in, const char* threads) override;
     virtual dbgevent_t *kill() override;
     virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) override;
 
@@ -2099,7 +2099,7 @@ dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
 ** Execute count statements. If in == false, do not enter
 ** function calls.
 */
-dbgevent_t *DbgGdbMI::step(int count, bool in) {
+dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;

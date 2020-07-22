@@ -246,10 +246,10 @@ dbgevent_t *DbgSetArgs(const char *args) {
     return DbgBackendSW->setArgs(args);
 }
 
-dbgevent_t *DbgStep(int count, int in) {
+dbgevent_t *DbgStep(int count, int in, const char* threads) {
     ResetWDT();
     DBG_STOPPED();
-    return DbgBackendSW->step(count, in);
+    return DbgBackendSW->step(count, in, threads);
 }
 
 dbgevent_t *DbgKill(void) {

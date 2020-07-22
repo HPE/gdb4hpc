@@ -3879,7 +3879,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_STEP, count, in);
+    auto request = CommandToSocProto(DBGCMD_STEP, count, in, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 

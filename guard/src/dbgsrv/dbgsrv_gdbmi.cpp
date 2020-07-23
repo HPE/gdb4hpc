@@ -2101,34 +2101,52 @@ dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
 */
 dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
 
     if (Status == DBGSTAT_EXIT) {
-        EVENT_ERROR(e, DBGERR_AT_EXIT, "");
-        return e;
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
     }
 
-    if (!in)
-        cmd = count > 1 ? MIExecNext(count) : MIExecNext(1);
-    else
-        cmd = count > 1 ? MIExecStep(count) : MIExecStep(1);
+    if (count < 1) count = 1;
 
-    SendMICommand(GDBMISession, cmd);
+    if (threads) {
+        std::string error;
+        auto threadSet = getThreadSet(threads, nullptr, error);
+        if (!error.empty()) {
+            return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
+        }
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        for (auto&& t : threadSet) {
+            auto cmd = (in ? MIExecStep(count) : MIExecNext(count));
+            auto tstr = std::to_string(t);
+            MICommandAddOption(cmd, "--thread", tstr.c_str());
+
+            SendMICommand(GDBMISession, cmd);
+            if (!MICommandResultOK(cmd)) {
+                auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+                MICommandFree(cmd);
+                return e;
+            }
+            MICommandFree(cmd);
+        }
+    } else {
+
+        auto cmd = (in ? MIExecStep(count) : MIExecNext(count));
+        SendMICommand(GDBMISession, cmd);
+
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+
         MICommandFree(cmd);
-        return e;
     }
-
-    MICommandFree(cmd);
 
     AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
 
     Status = DBGSTAT_RUNNING;
 
-    e = NewEvent(DBGEV_OK);
+    auto e = NewEvent(DBGEV_OK);
 
     return e;
 }

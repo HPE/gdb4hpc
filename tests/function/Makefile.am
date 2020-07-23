@@ -19,7 +19,6 @@ bd_dt_C___cpp_arrays_x_SOURCES = bd_dt/C++/cpp_arrays.cpp
 bd_dt_C___cpp_decomp_x_SOURCES = bd_dt/C++/cpp_decomp.cpp
 bd_dt_C___cpp_decomp2_x_SOURCES = bd_dt/C++/cpp_decomp2.cpp
 bd_dt_C___cpp_threads_x_SOURCES = bd_dt/C++/cpp_threads.cpp
-bd_dt_C___cpp_threads_x_LDFLAGS = -lpthread
 bd_dt_C___cpp_bt_x_SOURCES = bd_dt/C++/cpp_bt.cpp
 bd_dt_C___cpp_bt_stress_x_SOURCES = bd_dt/C++/cpp_bt_stress.cpp
 

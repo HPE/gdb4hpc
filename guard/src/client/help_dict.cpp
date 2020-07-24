@@ -919,9 +919,16 @@ const char* const class_set_break_help[] = {
     "",
     "Arguments: subcommand (set break subcommand)",
     "",
+    "List of set breakpoint subcommands:",
+    "set breakpoint pending -- Set pending breakpoint behavior (on, off, auto)",
+    "",
     "Description:",
     "Settings relating to breakpoints. If no argument is given,",
-    "display a list of all valid set break subcommands.",
+    "display a list of all valid set break subcommands: on, off, or auto.",
+    "Default setting is \"auto\", which will query to create a pending",
+    "breakpoint. If set to \"on\", a pending breakpoint will automatically",
+    "be created. If set to \"off\", attempting to set a pending breakpoint",
+    "will produce an error.",
     0};
 
 const char* const class_show_help[] = {

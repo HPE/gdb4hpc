@@ -50,8 +50,10 @@ int main(int argc, char** argv) {
     // I know async is just a filthy lie..
     for (int i=0; i<numThreads; ++i) {
         futures[i] = std::async(std::launch::async, [&cond,&mutex,&ready] {
-                std::unique_lock<std::mutex> lock(mutex);
-                cond.wait(lock, [&ready] { return ready; });
+                {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    cond.wait(lock, [&ready] { return ready; });
+                }
 
                 double total = 0.0;
                 for (int i=0; i<100; ++i) {

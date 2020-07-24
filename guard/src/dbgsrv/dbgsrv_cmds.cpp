@@ -165,14 +165,16 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_GO: {
-            bool all;
-            is.get(all);
-            e = DbgGo(all);
+            bool all; OptionalString threads;
+            is.get(all, threads);
+            e = DbgGo(all, threads);
             break;
         }
 
         case DBGCMD_FINISH: {
-            e = DbgFinishFunc();
+            OptionalString threads;
+            is.get(threads);
+            e = DbgFinishFunc(threads);
             break;
         }
 

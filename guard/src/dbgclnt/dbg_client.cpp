@@ -2814,7 +2814,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_GO, int(all));
+    auto request = CommandToSocProto(DBGCMD_GO, int(all), set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -2871,7 +2871,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_FINISH);
+    auto request = CommandToSocProto(DBGCMD_FINISH, set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 

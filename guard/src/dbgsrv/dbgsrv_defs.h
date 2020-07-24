@@ -32,6 +32,6 @@ extern void _dvprint(const char *format, ...);
 extern void ResetWDT(void);
 
 #define DVPRINT(...) \
-    if (debug_flag) _dvprint(__VA_ARGS__);
+    (debug_flag ? _dvprint(__VA_ARGS__) : (void)0)
 
 #endif /* _DBGSRV_DEFS_H */

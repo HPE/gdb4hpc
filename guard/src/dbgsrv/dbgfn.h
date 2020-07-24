@@ -41,8 +41,8 @@ public:
     virtual dbgevent_t *lastBreak() = 0;
     virtual dbgevent_t *list(const char *str) = 0;
     virtual dbgevent_t *getSources() = 0;
-    virtual dbgevent_t *go(bool all) = 0;
-    virtual dbgevent_t *finishFunc() = 0;
+    virtual dbgevent_t *go(bool all, const char* threads) = 0;
+    virtual dbgevent_t *finishFunc(const char* threads) = 0;
     virtual dbgevent_t *setArgs(const char *arg) = 0; // set run arguments
     virtual dbgevent_t *step(int const, bool in, const char*) = 0;
     virtual dbgevent_t *kill() = 0;
@@ -111,8 +111,8 @@ extern dbgevent_t *DbgShowBreak(void);
 extern dbgevent_t *DbgLastBreak(void);
 extern dbgevent_t *DbgList(const char *);
 extern dbgevent_t *DbgGetSources(void);
-extern dbgevent_t *DbgGo(bool all);
-extern dbgevent_t *DbgFinishFunc(void);
+extern dbgevent_t *DbgGo(bool all, const char* threads);
+extern dbgevent_t *DbgFinishFunc(const char* threads);
 extern dbgevent_t *DbgSetArgs(const char *);
 extern dbgevent_t *DbgStep(int, int, const char*);
 extern dbgevent_t *DbgKill(void);

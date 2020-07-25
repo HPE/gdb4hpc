@@ -3575,17 +3575,17 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         // location. This is set depending on the value of isReverse
                         std::ostringstream os;
                         os << (isReverse ? "," : "") << loc.loc_file << ":" << loc.loc_line;
-                        auto location = os.str().c_str();
+                        auto location = os.str();
 
                         // Save this new list location state for later calls to list
                         if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
-                                                 location) < 0) {
+                                                 location.c_str()) < 0) {
                             PrintOutError("Failed to save list location. Further calls to "
                                           "list will not save state.\n");
                         }
 
                         // Send the list command to the frontend
-                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location);
+                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location.c_str());
 
                         // Make sure the event is a DBGEV_LIST, otherwise add this
                         // to the to_send list

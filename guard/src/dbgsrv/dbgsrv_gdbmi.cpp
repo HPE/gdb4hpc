@@ -97,6 +97,10 @@ static int AsynchEventWaiting = 0;
 static MIEvent *PendingEvent = NULL;
 static int DirectCmdAsyncRestore = 0;
 
+// true if the debugger is actually in non-stop mode, the variable non_stop_mode
+// just indicates it was *requested*
+static bool isInNonStopMode = false; 
+
 #ifndef ALPS
 // These are for sending the target output to the fe
 static int WRITE_fd;
@@ -123,10 +127,10 @@ public:
     virtual dbgevent_t *lastBreak() override;
     virtual dbgevent_t *list(const char *str) override;
     virtual dbgevent_t *getSources() override;
-    virtual dbgevent_t *go(bool all) override;
-    virtual dbgevent_t *finishFunc() override;
+    virtual dbgevent_t *go(bool all, const char* threads) override;
+    virtual dbgevent_t *finishFunc(const char* threads) override;
     virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
-    virtual dbgevent_t *step(int const, bool in) override;
+    virtual dbgevent_t *step(int const, bool in, const char* threads) override;
     virtual dbgevent_t *kill() override;
     virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) override;
 
@@ -606,6 +610,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     setup_pretty_printing();
 
     // set non-stop mode
+    isInNonStopMode = false;
     if (non_stop_flag) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(GDBMISession, cmd);
@@ -621,7 +626,10 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
             DVPRINT("setting mi-asycn mode failed\n");
+        } else {
+            isInNonStopMode = true;
         }
+            
         MICommandFree(cmd);
     }
 
@@ -2017,67 +2025,81 @@ dbgevent_t *DbgGdbMI::getSources() {
 ** then we must plant a breakpoint at main() so that we
 ** can find out the process id of the program.
 */
-dbgevent_t *DbgGdbMI::go(bool all) {
+dbgevent_t *DbgGdbMI::go(bool all, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
 
     if (Status == DBGSTAT_EXIT) {
-        EVENT_ERROR(e, DBGERR_AT_EXIT, "");
-        return e;
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
     }
 
-    MICommand *cmd = (all ? MIExecContinueAll() : MIExecContinue());
+    if (!all && threads && isInNonStopMode) {
+        // in non-stop mode continue just runs the current thread.   So apply it
+        // to the active threads
+        auto command = std::string{threads} + " c&";  // use background apply for async functions
+        auto applyEvent = threadApply(command.c_str());
+        if (applyEvent->ev_event == DBGEV_ERROR) {
+            return applyEvent;
+        }
+        FreeEvent(applyEvent);  // nothing interesting with background calls.
+    } else {
+        // normal continue starts all threads unless scheduler locking is enabled.
+        auto cmd = (all ? MIExecContinueAll() : MIExecContinue());
 
-    SendMICommand(GDBMISession, cmd);
+        SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+
         MICommandFree(cmd);
-        return e;
     }
 
-    MICommandFree(cmd);
-
+    // set up catch for the async response.
     AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
 
     Status = DBGSTAT_RUNNING;
 
-    e = NewEvent(DBGEV_OK);
-
-    return e;
+    return NewEvent(DBGEV_OK);
 }
 
 /*
 ** Continue executing program until the current function returns.
 */
-dbgevent_t *DbgGdbMI::finishFunc() {
+dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
 
     if (Status == DBGSTAT_EXIT) {
-        EVENT_ERROR(e, DBGERR_AT_EXIT, "");
-        return e;
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
     }
 
-    MICommand *cmd = MIExecFinish();
+    if (threads) {
+        auto command = std::string{threads} + " finish&";
+        auto applyEvent = threadApply(command.c_str());
+        if (applyEvent->ev_event == DBGEV_ERROR) {
+            return applyEvent;
+        }
+        FreeEvent(applyEvent);
+    } else {
+        MICommand *cmd = MIExecFinish();
 
-    SendMICommand(GDBMISession, cmd);
+        SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+        
         MICommandFree(cmd);
-        return e;
     }
-
-    MICommandFree(cmd);
 
     AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
 
     Status = DBGSTAT_RUNNING;
 
-    e = NewEvent(DBGEV_OK);
-
-    return e;
+    return NewEvent(DBGEV_OK);
 }
 
 /*
@@ -2099,36 +2121,50 @@ dbgevent_t *DbgGdbMI::setArgs(const char *arg) {
 ** Execute count statements. If in == false, do not enter
 ** function calls.
 */
-dbgevent_t *DbgGdbMI::step(int count, bool in) {
+dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
 
     if (Status == DBGSTAT_EXIT) {
-        EVENT_ERROR(e, DBGERR_AT_EXIT, "");
-        return e;
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
     }
 
-    if (!in)
-        cmd = count > 1 ? MIExecNext(count) : MIExecNext(1);
-    else
-        cmd = count > 1 ? MIExecStep(count) : MIExecStep(1);
+    if (count < 1) count = 1;
 
-    SendMICommand(GDBMISession, cmd);
+    if (threads) {
+        // gdb does not respect the --thread argument to -exec-next so we'll use apply
+        auto os = std::ostringstream{};
+        os << threads << " " << (in ? "s" : "n");
+        if (count > 1) os << " " << count;
+        os << "&";              // the call is asynchronous
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        auto e = threadApply(os.str().c_str());
+
+        if (e->ev_event == DBGEV_ERROR)
+            return e;
+
+        // otherwise it doesn't return anything interesting
+        FreeEvent(e);
+    } else {
+        // normal next/step.   If there are multiple threads, the behavior will
+        // depend on the non-stop and scheduler-locking modes.
+        auto cmd = (in ? MIExecStep(count) : MIExecNext(count));
+        SendMICommand(GDBMISession, cmd);
+
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+
         MICommandFree(cmd);
-        return e;
     }
 
-    MICommandFree(cmd);
-
+    // register the method for catching the response when it comes back
     AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
 
     Status = DBGSTAT_RUNNING;
 
-    e = NewEvent(DBGEV_OK);
+    auto e = NewEvent(DBGEV_OK);
 
     return e;
 }
@@ -3147,10 +3183,23 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
         return e;
     }
 
+    auto isBackground = false;
+    auto lastCharPos = op.find_last_not_of(" \t");
+    if (lastCharPos != std::string::npos && op[lastCharPos] == '&') isBackground = true;
+
     const char* cmd_args[3] = { "thread", "apply", op.c_str() };
 
     MICommand* cmd = CLIBypassc(3, cmd_args);
     SendMICommand(GDBMISession, cmd);
+
+    if (isBackground) {
+        // The command will not contain the actual result yet.
+        MICommandFree(cmd);
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = strdup("applied in background");
+        return e;
+    }
+        
 
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
@@ -3223,6 +3272,9 @@ dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
     } else {
+        // current compilers can't change this state after launch, but update the
+        // mode if this ever succeeds
+        isInNonStopMode = (strcasecmp(mode, "on") == 0);
         e = NewEvent(DBGEV_OK);
     }
 
@@ -5069,8 +5121,9 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
         return threadEvent;
     }
 
-    static std::regex atRE(R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))");
-    static std::regex fromRE(R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))");
+    static std::regex atRE{R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))"};
+    static std::regex fromRE{R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))"};
+    static std::regex runningRE{R"(<.* is running.*>)"};
 
     auto res = std::string{threadEvent->ev_u.ev_u_string};
 
@@ -5118,6 +5171,9 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
                                      const_cast<char*>(func.c_str()), nullptr, 0 };
 
                 frame = new dbgframe_t{ level, loc, nullptr, threadStr, nullptr};
+            } else if (std::regex_match(line, match, runningRE)) {
+                auto loc = dbgloc_t{ const_cast<char*>(""), const_cast<char*>("<running>"), nullptr, 0 };
+                frame = new dbgframe_t{ 0, loc, nullptr, threadStr, nullptr};
             } else {
                 DVPRINT("could not parse line %s\n", line.c_str());
                 continue;

@@ -2814,7 +2814,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_GO, int(all));
+    auto request = CommandToSocProto(DBGCMD_GO, int(all), set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -2871,7 +2871,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_FINISH);
+    auto request = CommandToSocProto(DBGCMD_FINISH, set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -3574,18 +3574,22 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         // Now ask the frontend for the source listing around this
                         // location. This is set depending on the value of isReverse
                         std::ostringstream os;
-                        os << (isReverse ? "," : "") << loc.loc_file << ":" << loc.loc_line;
-                        auto location = os.str().c_str();
+                        if (isReverse) {
+                            os << "," << loc.loc_file << ":" << loc.loc_line;
+                        } else {
+                            os << loc.loc_file << ":" << loc.loc_line << ",";
+                        }
+                        auto location = os.str();
 
                         // Save this new list location state for later calls to list
                         if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
-                                                 location) < 0) {
+                                                 location.c_str()) < 0) {
                             PrintOutError("Failed to save list location. Further calls to "
                                           "list will not save state.\n");
                         }
 
                         // Send the list command to the frontend
-                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location);
+                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location.c_str());
 
                         // Make sure the event is a DBGEV_LIST, otherwise add this
                         // to the to_send list
@@ -3879,7 +3883,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
-    auto request = CommandToSocProto(DBGCMD_STEP, count, in);
+    auto request = CommandToSocProto(DBGCMD_STEP, count, in, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 

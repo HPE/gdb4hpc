@@ -228,16 +228,16 @@ dbgevent_t *DbgGetSources() {
     return DbgBackendSW->getSources();
 }
 
-dbgevent_t *DbgGo(bool all) {
+dbgevent_t *DbgGo(bool all, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->go(all);
+    return DbgBackendSW->go(all, threads);
 }
 
-dbgevent_t *DbgFinishFunc(void) {
+dbgevent_t *DbgFinishFunc(const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->finishFunc();
+    return DbgBackendSW->finishFunc(threads);
 }
 
 dbgevent_t *DbgSetArgs(const char *args) {
@@ -246,10 +246,10 @@ dbgevent_t *DbgSetArgs(const char *args) {
     return DbgBackendSW->setArgs(args);
 }
 
-dbgevent_t *DbgStep(int count, int in) {
+dbgevent_t *DbgStep(int count, int in, const char* threads) {
     ResetWDT();
     DBG_STOPPED();
-    return DbgBackendSW->step(count, in);
+    return DbgBackendSW->step(count, in, threads);
 }
 
 dbgevent_t *DbgKill(void) {

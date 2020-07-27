@@ -231,7 +231,7 @@ void BTTree::print(std::string indent, bool is_last) const {
 
         // substr(3) is a hack to shave off the first 3 characters of the tree.
         // since there is an invisible master root node, every backtrack tree is
-        // indended by 3 spaces by default. we want it to look like we're printing
+        // indented by 3 spaces by default. we want it to look like we're printing
         // multiple tress instead of one big tree.
         PrintOutMsg((indent + nodeMark).substr(3).c_str());
         printData(m_group);

@@ -3574,7 +3574,11 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         // Now ask the frontend for the source listing around this
                         // location. This is set depending on the value of isReverse
                         std::ostringstream os;
-                        os << (isReverse ? "," : "") << loc.loc_file << ":" << loc.loc_line;
+                        if (isReverse) {
+                            os << "," << loc.loc_file << ":" << loc.loc_line;
+                        } else {
+                            os << loc.loc_file << ":" << loc.loc_line << ",";
+                        }
                         auto location = os.str();
 
                         // Save this new list location state for later calls to list

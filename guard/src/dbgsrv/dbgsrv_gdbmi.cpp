@@ -5121,8 +5121,9 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
         return threadEvent;
     }
 
-    static std::regex atRE(R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))");
-    static std::regex fromRE(R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))");
+    static std::regex atRE{R"(#(\d+)\s+(in\s+)?(.*)\s+at (.*):(\d+))"};
+    static std::regex fromRE{R"(#(\d+)\s+(in\s+)?(.*)\s+from\s+(.*))"};
+    static std::regex runningRE{R"(<.* is running.*>)"};
 
     auto res = std::string{threadEvent->ev_u.ev_u_string};
 
@@ -5170,6 +5171,9 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
                                      const_cast<char*>(func.c_str()), nullptr, 0 };
 
                 frame = new dbgframe_t{ level, loc, nullptr, threadStr, nullptr};
+            } else if (std::regex_match(line, match, runningRE)) {
+                auto loc = dbgloc_t{ const_cast<char*>(""), const_cast<char*>("<running>"), nullptr, 0 };
+                frame = new dbgframe_t{ 0, loc, nullptr, threadStr, nullptr};
             } else {
                 DVPRINT("could not parse line %s\n", line.c_str());
                 continue;

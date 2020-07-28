@@ -188,6 +188,7 @@ const char* const cmd_defset_help[] = {
     "Summary: Define process set command.",
     "Usage: defset <name> <process set expression>",
     "Example command: defset $new_set $a{0,1}",
+    "Example command: defset $thread_set $a{*:2..7}",
     "",
     "Arguments: name (new process set name), process set expression (process",
     "           set expression list)",
@@ -201,8 +202,7 @@ const char* const cmd_defset_help[] = {
     "The process set expression should consist of a comma-separated list of",
     "debugger variable arrays specifying which ranks of the process set should",
     "be included in the new process set. A \"..\" can be used to denote a "
-    "range",
-    "of ranks.",
+    "range of ranks.",
     "",
     "For example, if the app_handle $a{1024} was provided to launch an "
     "application,",
@@ -213,6 +213,17 @@ const char* const cmd_defset_help[] = {
     "to launch an application, $a{32},$b{32} would create a process set "
     "containing",
     "rank 32 of both applications.",
+    "",
+    "The process set expression can optionally contain a thread set after a colon,",
+    "for example defset $thread_set $a{0:2} will focus all actions onto thread 2",
+    "within rank 0.  The thread expression is comma separated list of",
+    "thread ids, ranges of thread ids as <min-index>..<max-index>, and \"pattern\"",
+    "for regular expressions that match on the thread name: e.g. \"worker[0-4]\"",
+    "or * to work on all available threads.",
+    "* for the process set will match all ranks.",
+    "",
+    "When focused on a threaded process set, operations act similarly to",
+    "using thread apply on that set of threads (see help thread).",
     0};
 
 const char* const cmd_delete_help[] = {
@@ -330,8 +341,18 @@ const char* const cmd_focus_help[] = {
     "ranks zero thru thirty-two and rank sixty-four of application $a. The "
     "temporary",
     "process set name cannot be subsequently used in process targeted commands "
-    "in",
-    "the same way a defined process set can.",
+    "in the same way a defined process set can.",
+    "",
+    "The process set expression can optionally contain a thread set after a colon,",
+    "for example defset $thread_set $a{0:2} will focus all actions onto thread 2",
+    "within rank 0.  The thread expression is comma separated list of",
+    "thread ids, ranges of thread ids as <min-index>..<max-index>, and \"pattern\"",
+    "for regular expressions that match on the thread name: e.g. \"worker[0-4]\"",
+    "or * to work on all available threads.",
+    "* for the process set will match all ranks.",
+    "",
+    "When focused on a threaded process set, operations act similarly to",
+    "using thread apply on that set of threads (see help thread).",
     0};
 
 const char* const cmd_frame_help[] = {

@@ -508,3 +508,8 @@ class cpp_bt(Test):
 class cpp_thread(Test):
     def test(self):
         runTest(self)
+
+class cpp_thread_focus(Test):
+    def test(self):
+        runTest(self)
+

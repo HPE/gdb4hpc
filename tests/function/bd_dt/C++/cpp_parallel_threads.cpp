@@ -12,6 +12,15 @@
 #include <future>
 #include <vector>
 
+static double addOne(double x, int i) {
+  return x + i;
+}
+
+static void add(double& total, int i) {
+  total = addOne(total, i);
+}
+  
+
 int main(int argc, char** argv) {
 
 #ifdef USE_MPI
@@ -57,7 +66,7 @@ int main(int argc, char** argv) {
 
                 double total = 0.0;
                 for (int i=0; i<100; ++i) {
-                    total += i;
+		    add(total, i);
                 }
 
                 return total;

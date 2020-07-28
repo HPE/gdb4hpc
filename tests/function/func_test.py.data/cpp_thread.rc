@@ -11,6 +11,9 @@
 maint set sync on
 
 # we'll launch one in non-stop mode to broaden the testing
+show non-stop
+
+set non-stop off
 launch $a{3} --launcher-args="--exclusive" bd_dt/C++/cpp_threads.x
 
 set non-stop on

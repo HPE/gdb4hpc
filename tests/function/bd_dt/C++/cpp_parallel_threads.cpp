@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
 
                 double total = 0.0;
                 for (int i=0; i<100; ++i) {
-		    add(total, i);
+                    add(total, i);
                 }
 
                 return total;

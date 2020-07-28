@@ -4022,10 +4022,10 @@ rep_set_t *DbgGetFrame(rec_set_t *set) {
 /*
 ** DBG_GETVARS: Return defined variables.
 */
-rep_set_t *DbgGetVars(rec_set_t *set, char *file) {
-    auto request = CommandToSocProto(DBGCMD_GETVARS, file);
+rep_set_t *DbgGetVars(rec_set_t *set) {
+    auto request = CommandToSocProto(DBGCMD_GETVARS, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS, DBGEV_THREADINFO);
 
 
     return result;

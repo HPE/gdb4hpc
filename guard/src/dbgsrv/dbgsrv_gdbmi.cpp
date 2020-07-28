@@ -144,7 +144,7 @@ public:
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
-    virtual dbgevent_t *getVars(const char *file) override;
+    virtual dbgevent_t *getVars(const char* threads) override;
     virtual dbgevent_t *getScope(const char *location) override;
     virtual dbgevent_t *getStatus(bool getLocation) override;
     virtual dbgevent_t *quit(bool detach) override;
@@ -3307,64 +3307,67 @@ dbgevent_t *DbgGdbMI::getNonStop() {
 /*
 ** List variables in the current stack frame
 */
-dbgevent_t *DbgGdbMI::getVars(const char *file) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    dbgvars_t *result = NULL;
-    dbgvars_t *cur_var = NULL;
-    dbgvars_t *new_var = NULL;
+dbgevent_t *DbgGdbMI::getVars(const char* threads) {
+    DVPRINT("*** Dbg %s, %s %s\n", __FILE__, __func__,  threads ? threads : "");
 
-    MICommand *cmd;
-    MIList *vars;
-    MIArg *var;
+    if (threads) {
+        auto command = std::string{threads} + " info locals";
+        return threadApply(command.c_str());
+    }
 
-    cmd = MIStackListVariables(SIMPLE_VALUES);
+    auto cmd = MIStackListVariables(SIMPLE_VALUES);
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
         return e;
     }
 
-    if ((vars = MIGetStackListVariablesInfo(cmd)) == NULL) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+    auto vars = MIGetStackListVariablesInfo(cmd);
+    if (vars == nullptr) {
+        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
         return e;
     }
     MICommandFree(cmd);
 
+    dbgvars_t *result = nullptr;
+    dbgvars_t *cur_var = nullptr;
+    
     // parse over the vars list
+    MIArg *var;
     for (MIListSet(vars); (var = (MIArg *)MIListGet(vars)) != NULL;) {
+
         // create the new var
-        new_var = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
+        auto new_var = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
 
         // first time through we want to set the root var as the result
-        if (result == NULL) result = new_var;
+        if (result == nullptr) result = new_var;
 
         // set the cur_var var_next pointer to the new var if this isn't
         // the first time through
-        if (cur_var != NULL) cur_var->var_next = new_var;
+        if (cur_var != nullptr) cur_var->var_next = new_var;
 
         // set the var_next to null
-        new_var->var_next = (dbgvars_t *)NULL;
+        new_var->var_next = (dbgvars_t *)nullptr;
 
         // set the name
-        if (var->name != NULL) {
+        if (var->name != nullptr) {
             DVPRINT("var_name: %s\n", var->name);
             new_var->var_name = strdup(var->name);
         } else {
             DVPRINT("var_name: NULL\n");
-            new_var->var_name = (char *)NULL;
+            new_var->var_name = nullptr;
         }
 
         // set the type
-        if (var->type != NULL) {
+        if (var->type != nullptr) {
             DVPRINT("var_type: %s\n", var->type);
             new_var->var_type = strdup(var->type);
         } else {
             DVPRINT("var_type: NULL\n");
-            new_var->var_type = NULL;
+            new_var->var_type = nullptr;
         }
 
         // set the cur_var pointer to the new_var
@@ -3372,7 +3375,7 @@ dbgevent_t *DbgGdbMI::getVars(const char *file) {
     }
 
     // create the event with the var information
-    e = NewEvent(DBGEV_VARS);
+    auto e = NewEvent(DBGEV_VARS);
     e->ev_vars = result;
 
     // free the MIArg list

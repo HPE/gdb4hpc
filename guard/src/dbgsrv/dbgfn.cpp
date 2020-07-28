@@ -337,10 +337,10 @@ dbgevent_t *DbgCloseSocket(void) {
     return DbgBackendSW->closeSocket();
 }
 
-dbgevent_t *DbgGetVars(const char *file) {
+dbgevent_t *DbgGetVars(const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->getVars(file);
+    return DbgBackendSW->getVars(threads);
 }
 
 dbgevent_t *DbgGetScope(const char *location) {

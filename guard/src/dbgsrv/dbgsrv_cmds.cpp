@@ -273,9 +273,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_GETVARS: {
-            std::string file;
-            is.get(file);
-            e = DbgGetVars(file.c_str());
+            OptionalString threads;
+            is.get(threads);
+            e = DbgGetVars(threads);
             break;
         }
 

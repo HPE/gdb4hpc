@@ -1,0 +1,26 @@
+%session
+%Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+%[
+<$a>:%.*%
+%]
+a{0..5}: Initial breakpoint, in main
+a{0..5}: Breakpoint 1: Pending at dlopened_function.
+a{0..5}: Breakpoint 2, in dlopened_function
+a{0..5}: #1  main
+a{0..5}: #0  dlopened_function
+   
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep n   in dlopened_function
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+Procset		Num Type           Disp Enb What
+a{0..5}: No breakpoints or watchpoints.
+Shutting down debugger and killing application for 'a'.

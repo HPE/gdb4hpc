@@ -25,7 +25,7 @@ extern "C" {
 extern char *Argv0;
 
 extern void *Alloc(int size);
-extern void Asprintf(char **strp, const char *fmt, ...);
+extern void Asprintf(char **strp, const char *fmt, ...) __attribute__((format (printf,2,3)));
 extern void VAsprintf(char **strp, const char *fmt, va_list ap);
 extern void *Resize(void *, int);
 extern void Free(void *);

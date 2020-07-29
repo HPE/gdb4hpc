@@ -1621,7 +1621,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         // failed - undo any breakpoints that may have succeeded
         // note that we haven't yet updated m_multiThreadBreaks so each delete will
         // remove a single breakpoint
-        DVPRINT("Insertion failed removing %d breakpoints\n", bpIds.size());
+        DVPRINT("Insertion failed removing %zu breakpoints\n", bpIds.size());
         for (auto it=bpIds.rbegin(); it!=bpIds.rend(); ++it) {
             // may not matter, but undo in LIFO order for neatness sake
             FreeEvent(deleteBreak(*it));
@@ -4968,11 +4968,11 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         dbgev ev = DBGEV_DATA_SLICE;
         auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal);
         if (isFinal) {
-            DVPRINT("returning the last slice of %l\n", expIdx);
+            DVPRINT("returning the last slice of %ld\n", expIdx);
             ev = DBGEV_DATA;
             remainders.erase(remainderLoc);
         } else {
-            DVPRINT("Returning the next slice of %l\n", expIdx);
+            DVPRINT("Returning the next slice of %ld\n", expIdx);
         }
 
         auto e = NewEvent(ev);
@@ -5002,7 +5002,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     } else {
         // We are only returning the first slice of the result.   Save the
         // rest for the continuation call.
-        DVPRINT("saving remainder of expression %l\n", expIdx);
+        DVPRINT("saving remainder of expression %ld\n", expIdx);
         ev = DBGEV_DATA_SLICE;
         remainders.insert(std::make_pair(expIdx,aifStream));
     }

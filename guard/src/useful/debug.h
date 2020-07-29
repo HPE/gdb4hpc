@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-extern void PrintDebugTime(char*, ...);
-extern void PrintDebugTimeLog(char*, ...);
+extern void PrintDebugTime(char*, ...) __attribute__((format (printf,1,2)));
+extern void PrintDebugTimeLog(char*, ...) __attribute__((format (printf,1,2)));
 
 #ifdef PERFLOG
 struct guard_timer_t {
@@ -41,7 +41,7 @@ extern void ReleaseTimers();
 extern guard_timer_t* SetTimerStart(char* name);
 extern guard_timer_t* SetTimerStop(char* name);
 extern void SetTimerStopAndLog(char* name);
-extern void SetLogInfo(char* fmt, ...);
+extern void SetLogInfo(char* fmt, ...) __attribute__((format (printf,1,2)));
 #endif /* PERFLOG */
 
 #ifdef __cplusplus

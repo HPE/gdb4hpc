@@ -28,7 +28,7 @@ extern int early_entry_flag;
 extern int debug_flag;
 extern int non_stop_flag;
 
-extern void _dvprint(const char *format, ...);
+extern void _dvprint(const char *format, ...) __attribute__((format (printf,1,2)));
 extern void ResetWDT(void);
 
 #define DVPRINT(...) \

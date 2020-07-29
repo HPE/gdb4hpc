@@ -529,7 +529,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_set_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "y",
-                                bpset->b_bp_exp);
+                                bpset->b_bp_exp, bpThread.c_str());
                         }
 
                         // Compute the disabled set

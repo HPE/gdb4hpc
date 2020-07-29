@@ -24,8 +24,8 @@ extern "C" {
 
 extern char *Argv0;
 extern char *GetError();
-extern void SetError(const char *, ...);
-extern void SetSysError(const char *, ...);
+extern void SetError(const char *, ...) __attribute__((format (printf,1,2)));
+extern void SetSysError(const char *, ...) __attribute__((format (printf,1,2)));
 
 #ifdef __cplusplus
 }

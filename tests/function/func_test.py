@@ -364,6 +364,10 @@ class c_assign(Test):
 class c_breakpoint(Test):
     def test(self):
         runTest(self)
+
+class c_breakpoint_pending(Test):
+    def test(self):
+        runTest(self)
         
 class c_cmp_false(Test):
     def test(self):

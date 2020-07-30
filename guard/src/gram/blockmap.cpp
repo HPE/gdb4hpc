@@ -992,7 +992,7 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
         SetError(
             "Wrong number of PEs to map %d vs %d. Please check "
             "decomposition function '%s'",
-            totalProcs, nd, SymLookup(m->m_sym));
+            int(totalProcs), nd, SymLookup(m->m_sym));
         if (type) Free(type);
         return nullptr;
 
@@ -1023,7 +1023,7 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
 
     if (expect_num_elems != actual_num_elems) {
         SetError(
-            "Wrong number of elements to map %d vs %d. Please check "
+            "Wrong number of elements to map %zu vs %zu. Please check "
             "decomposition function '%s'",
             expect_num_elems, actual_num_elems, SymLookup(m->m_sym));
         if (type) Free(type);

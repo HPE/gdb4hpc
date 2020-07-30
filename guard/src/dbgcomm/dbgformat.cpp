@@ -102,7 +102,7 @@ static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
     char *str = nullptr;
     if (len < BUF_SIZE) {
         // a short message, so we just need to simple copy
-        Asprintf(&str, "%d %d %s", int(ev), len, buf);
+        Asprintf(&str, "%d %zu %s", int(ev), len, buf);
     } else {
         // the string is too long for the local buffer but
         // we now know the length of the inside string so we
@@ -370,11 +370,11 @@ char *AIFToSocProto(AIF *a) {
     if (fl <= 0 && dl <= 0) {
         Asprintf(&stres, "%d %d", fl, dl);
     } else if (fl <= 0 && dl > 0) {
-        Asprintf(&stres, "%d %d %d %s", fl, dl, strlen(aif_data), aif_data);
+        Asprintf(&stres, "%d %d %zu %s", fl, dl, strlen(aif_data), aif_data);
     } else if (fl > 0 && dl <= 0) {
         Asprintf(&stres, "%d %s %d", fl, aif_format, dl);
     } else if (fl > 0 && dl > 0) {
-        Asprintf(&stres, "%d %s %d %d %s", fl, aif_format, dl, strlen(aif_data),
+        Asprintf(&stres, "%d %s %d %zu %s", fl, aif_format, dl, strlen(aif_data),
                  aif_data);
     }
 

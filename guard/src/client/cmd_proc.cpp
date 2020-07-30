@@ -38,7 +38,7 @@
 */
 static int debug_flag = 0;
 static int gpu_flag = 0;
-static bool non_stop_mode = false;
+static bool non_stop_mode = true;
 
 /*
 ** static function prototypes

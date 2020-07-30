@@ -171,12 +171,12 @@ extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 /*
 ** Output functions
 */
-extern void PrintOutLine(const char *, ...);
-extern void PrintOutError(const char *, ...);
+extern void PrintOutLine(const char *, ...) __attribute__((format (printf,1,2)));
+extern void PrintOutError(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutError(const char *, va_list);
-extern void PrintOutMsg(const char *, ...);
+extern void PrintOutMsg(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutMsg(const char *, va_list);
-extern void PrintToFd(FILE *, const char *, ...);
+extern void PrintToFd(FILE *, const char *, ...) __attribute__((format (printf,2,3)));
 extern void vPrintToFd(FILE *, const char *, va_list);
 extern void PrintError();
 

@@ -88,25 +88,27 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
 */
 static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
-    char *file = NULL;
-    dbgvars_t *v;
-    rep_set_t *rep_set;
-
-    if (argc > 1) file = argv[1];
-
-    rep_set = DbgGetVars(rec_set, file);
+    auto rep_set = DbgGetVars(rec_set);
 
     ProcessErrorInRepSet(rep_set);
 
     // Process the replies
     for (auto&& reply : rep_set) {
-        // point at the vars data
-        v = EVENT_VARS(reply->rep_event);
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_VARS) {
+            // point at the vars data
+            auto v = EVENT_VARS(reply->rep_event);
 
-        for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
-                                "Name:%-25s\tType:%s\n", v->var_name,
-                                v->var_type);
+            for (; v != (dbgvars_t *)NULL; v = v->var_next) {
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "Name:%-25s\tType:%s\n", v->var_name,
+                                    v->var_type);
+            }
+        } else if (ev == DBGEV_THREADINFO) {
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+                                reply->rep_event->ev_u.ev_u_string);
+        } else {
+            PrintOutError("unexpected result type.\n");
         }
     }
 

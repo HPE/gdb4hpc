@@ -58,7 +58,7 @@ public:
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
     virtual dbgevent_t *getType(const char *var, bool isType) = 0;
     virtual dbgevent_t *getLocation() = 0;   //!! potentially unimplemented
-    virtual dbgevent_t *getVars(const char *file) = 0;
+    virtual dbgevent_t *getVars(const char* threads) = 0;
     virtual dbgevent_t *getScope(const char *location) = 0;
     virtual dbgevent_t *getStatus(bool getLocation) = 0;
     virtual dbgevent_t *quit(bool detach) = 0;
@@ -126,7 +126,7 @@ extern dbgevent_t *DbgGetSourcePath(void);
 extern dbgevent_t *DbgEvalExpr(const char *, long, const char*);
 extern dbgevent_t *DbgGetType(const char *, bool);
 extern dbgevent_t *DbgGetLocation(void);
-extern dbgevent_t *DbgGetVars(const char *);
+extern dbgevent_t *DbgGetVars(const char*);
 extern dbgevent_t *DbgGetScope(const char *);
 extern dbgevent_t *DbgGetDebuggerVar(const char *);
 extern dbgevent_t *DbgDirectCmd(int, char **);

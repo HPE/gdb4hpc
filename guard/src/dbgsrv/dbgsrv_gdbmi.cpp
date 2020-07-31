@@ -2805,6 +2805,7 @@ static std::string collectThreadInfo(const std::string& val) {
     os << header << "\n";
 
     for (std::string id, loc; collector.getNextResult(id,loc); ) {
+        if (!id.empty() && id[0] != '*') id = " " + id;
         os << std::setw(7) << std::left << id << " " << loc << "\n";
     }
     return os.str();

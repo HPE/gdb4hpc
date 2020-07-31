@@ -82,23 +82,23 @@ a{0..2}: 0
 b{0..2}: 0
 %>
 %<
-a{0..2}: Watchpoint 2: Set on variable sum
+a{0..2}: Watchpoint 3: Set on variable sum
 %-
-b{0..2}: Watchpoint 2: Set on variable sum
+b{0..2}: Watchpoint 3: Set on variable sum
 %>
 %<
 Procset		Num Type           Disp Enb What
 a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
-a{0..2}: 	2   watchpoint     keep y   sum thread 5
+a{0..2}: 	3   watchpoint     keep y   sum thread 5
 %-
 b{0..2}: 	1   breakpoint     keep y   in main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:71
-b{0..2}: 	2   watchpoint     keep y   sum thread 5
+b{0..2}: 	3   watchpoint     keep y   sum thread 5
 %>
 %<
-a{0..2}: Watchpoint 2, variable expression: sum
+a{0..2}: Watchpoint 3, variable expression: sum
 a{0..2}: In main::$_0::operator at %testdir/bd_dt/C++/cpp_threads.cpp:61
 %-
-b{0..2}: Watchpoint 2, variable expression: sum
+b{0..2}: Watchpoint 3, variable expression: sum
 b{0..2}: In main::$_0::operator at %testdir/bd_dt/C++/cpp_threads.cpp:61
 %>
 %<
@@ -120,14 +120,14 @@ b{0..2}: (More stack frames follow...)
 a{0%[.,12]*%}: Thread 2 (Thread 0x%[0-9a-f]+% (LWP %[0-9]+%)):
 a{0%[.,12]*%}: #0  %.*%
 %<
-a{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
+a{0..2}: Breakpoint 4: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
 %-
-b{0..2}: Breakpoint 2: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
+b{0..2}: Breakpoint 4: file %testdir/bd_dt/C++/cpp_threads.cpp, line 75.
 %>
 %<
-a{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
+a{0..2}: Breakpoint 4, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
 %-
-b{0..2}: Breakpoint 2, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
+b{0..2}: Breakpoint 4, main(int, char**) at %testdir/bd_dt/C++/cpp_threads.cpp:75
 %>
 a{0..2}: Mode for locking scheduler during execution is "replay".
 

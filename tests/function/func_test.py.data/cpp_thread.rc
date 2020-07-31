@@ -43,7 +43,7 @@ info breakpoints
 
 c
 
-del 2
+del 3
 
 thread 8
 thread name hunka-hunka-burning-love
@@ -75,7 +75,7 @@ show scheduler-locking
 info status
 
 focus $all
-del 2
+del 4
 c -a
 
 # these line hang on the info stautus call, commenting these out for

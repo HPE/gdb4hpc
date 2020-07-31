@@ -53,6 +53,8 @@ up 2
 
 p i
 
+info locals
+
 down 2
 
 finish

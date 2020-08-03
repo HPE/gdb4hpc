@@ -16,10 +16,10 @@ bd_dt_c_c_cmp_diff_x_SOURCES = bd_dt/c/c_cmp_diff.c
 
 # test-specific shared library to dlopen
 bd_dt/c/libdlopen_test.so: bd_dt/c/libdlopen_test.c
-       $(CC) $(AM_CFLAGS) -shared bd_dt/c/libdlopen_test.c -o $@
+	$(CC) $(AM_CFLAGS) -shared bd_dt/c/libdlopen_test.c -o $@
 
 bd_dt/c/c_dlopen.x$(EXEEXT): bd_dt/c/c_dlopen_test.c bd_dt/c/libdlopen_test.so
-       $(CC) $(AM_CFLAGS) bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
+	$(CC) $(AM_CFLAGS) bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
 
 bd_dt_C___cpp_bd_test_x_SOURCES = bd_dt/C++/cpp_bd_test.cpp
 bd_dt_C___cpp_cmp_diff_x_SOURCES = bd_dt/C++/cpp_cmp_diff.cpp

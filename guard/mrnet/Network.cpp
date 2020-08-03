@@ -459,7 +459,7 @@ extern "C" int network_register_TopAddBE_event_callback(
 
 extern "C" void network_remove_TopAddBE_event_callback(MRNet_Network* network) {
     Network* pNetwork = (Network*)network;
-    int rtn;
+    int rtn [[maybe_unused]];
 
     // destroy the mutex lock
     rtn = pthread_mutexattr_destroy(&callback.callback_lock_attr);
@@ -522,11 +522,11 @@ extern "C" int network_register_Failure_event_callback(MRNet_Network* network,
         Event::TOPOLOGY_EVENT, TopologyEvent::TOPOL_REMOVE_NODE,
         Failure_Callback, data, true);
 
-    cbrett = pNetwork->register_EventCallback(
+    int cbrett2 = pNetwork->register_EventCallback(
         Event::TOPOLOGY_EVENT, TopologyEvent::TOPOL_CHANGE_PARENT,
         Failure_Callback, data, true);
 
-    return 0;
+    return cbrett && cbrett2;
 }
 
 extern "C" int network_is_shutdown(MRNet_Network* network) {

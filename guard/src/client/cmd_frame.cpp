@@ -135,8 +135,6 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     
     for (const auto& reply : rep_set) {
 
-        auto ev = reply->rep_event->ev_event;
-
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
@@ -175,7 +173,6 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process frame - there should only be one
     for (auto&& reply : rep_set) {
         // Point at the frame data
-        auto ev = reply->rep_event->ev_event;
         auto fp = EVENT_FRAME(reply->rep_event);
         PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, fp);
     }

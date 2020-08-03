@@ -331,8 +331,8 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
     slice_t *s;
     perm_t *p;
 
-    char varexpr[BUFSIZ] = "";
-    char finalexpr[BUFSIZ] = "";
+    std::ostringstream varexpr;
+    std::ostringstream finalexpr;
     int reducefunc, p2pmode;
 
     DPRINT("In BuildGetVarSet\n");
@@ -345,69 +345,70 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
         if ((s = v->v_slice) != (slice_t *)NULL) {
-            char sliceexpr[BUFSIZ] = "|slice(";
+            std::ostringstream sliceexpr;
+            sliceexpr << "|slice(";
             for (n = 0; n < s->s_rank; n++) {
-                sprintf(sliceexpr, "%s%d,%d", sliceexpr, s->s_low[n],
-                        s->s_high[n]);
-                if (n < s->s_rank - 1) strcat(sliceexpr, ",");
+                sliceexpr << s->s_low[n] << "," << s->s_high[n];
+                if (n < s->s_rank - 1) sliceexpr << ",";
             }
-            strcat(sliceexpr, ")");
-            sprintf(varexpr, "%s%s|", sliceexpr, v->v_var);
-        } else
-            strcpy(varexpr, v->v_var);
+            sliceexpr << ")";
+            varexpr << sliceexpr.str() << v->v_var << "|";
+        } else {
+            varexpr << v->v_var;
+        }
 
         /* check if reduce function is on
         ** Minh 09/06/2009
         */
         if (reducefunc != EXPR_REDUCE_NONE) {
-            char reduceexpr[BUFSIZ] = "";
+            std::string reduceexpr;
             double lower_bound;
             double upper_bound;
 
             switch (reducefunc) {
                 case EXPR_SUM:
-                    strcpy(reduceexpr, "`sum`");
+                    reduceexpr = "`sum`";
                     break;
                 case EXPR_PRODUCT:
-                    strcpy(reduceexpr, "`product`");
+                    reduceexpr = "`product`";
                     break;
                 case EXPR_AVERAGE:
-                    strcpy(reduceexpr, "`average`");
+                    reduceexpr = "`average`";
                     break;
                 case EXPR_MIN:
-                    strcpy(reduceexpr, "`min`");
+                    reduceexpr = "`min`";
                     break;
                 case EXPR_MAX:
-                    strcpy(reduceexpr, "`max`");
+                    reduceexpr = "`max`";
                     break;
                 case EXPR_STDEV:
-                    strcpy(reduceexpr, "`stdev`");
+                    reduceexpr = "`stdev`";
                     break;
                 case EXPR_COUNTELEM:
                     GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
                     GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-                    sprintf(reduceexpr, "`countelem(%lf,%lf)`", lower_bound,
-                            upper_bound);
+                    reduceexpr = "`countelem(" + std::to_string(lower_bound) + ","
+                        + std::to_string(upper_bound) + ")`";
                     break;
                 case EXPR_HASH_BOB:
-                    sprintf(reduceexpr, "`hash(%s)`", extra->hashinfo);
+                    reduceexpr = std::string{"`hash("} + extra->hashinfo + ")`";
                     break;
                 default:
                     SetError("Unknown reduction function %d", reducefunc);
                     return;
             }
-            sprintf(finalexpr, "%s%s", reduceexpr, varexpr);
+            finalexpr << reduceexpr << varexpr.str();
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
-            char p2pexpr[BUFSIZ] = "";
-            sprintf(p2pexpr, "`ptop(%s-%s)`", v->v_pname, extra->blockmapinfo);
-            sprintf(finalexpr, "%s%s", p2pexpr, varexpr);
-        } else
-            strcpy(finalexpr, varexpr);
+            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`"
+                      << varexpr.str();
+        } else {
+            finalexpr << varexpr.str();
+        }
 
-        t1 = SCONST(g, "CONST", finalexpr);
+        t1 = SCONST(g, "CONST", finalexpr.str().c_str());
 
         n4 = NODE(g, "DBGGETVAR_SET");
     }
@@ -470,8 +471,8 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
     slice_t *s;
     perm_t *p;
 
-    char finalexpr[BUFSIZ] = "";
-    char varexpr[BUFSIZ] = "";
+    std::ostringstream finalexpr;
+    std::ostringstream varexpr;
     int reducefunc;
     int p2pmode = 0;
 
@@ -484,22 +485,23 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
         if ((s = v->v_slice) != (slice_t *)NULL) {
-            char sliceexpr[BUFSIZ] = "|slice(";
+            std::ostringstream sliceexpr;
+            sliceexpr << "|slice(";
             for (n = 0; n < s->s_rank; n++) {
-                sprintf(sliceexpr, "%s%d,%d", sliceexpr, s->s_low[n],
-                        s->s_high[n]);
-                if (n < s->s_rank - 1) strcat(sliceexpr, ",");
+                sliceexpr << s->s_low[n] << "," << s->s_high[n];
+                if (n < s->s_rank - 1) sliceexpr << ",";
             }
-            strcat(sliceexpr, ")");
-            sprintf(varexpr, "%s%s|", sliceexpr, v->v_var);
-        } else
-            strcpy(varexpr, v->v_var);
+            sliceexpr << ")";
+            varexpr << sliceexpr.str() << v->v_var << "|";
+        } else {
+            varexpr << v->v_var;
+        }
 
         /* check if reduce function is on
         ** Minh 09/06/2009
         */
         if (reducefunc != EXPR_REDUCE_NONE) {
-            char reduceexpr[BUFSIZ] = "";
+            std::string reduceexpr;
             double lower_bound;
             double upper_bound;
             int histogram_numbins;
@@ -508,28 +510,28 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
             switch (reducefunc) {
                 case EXPR_SUM:
-                    strcpy(reduceexpr, "`sum`");
+                    reduceexpr = "`sum`";
                     break;
                 case EXPR_PRODUCT:
-                    strcpy(reduceexpr, "`product`");
+                    reduceexpr = "`product`";
                     break;
                 case EXPR_AVERAGE:
-                    strcpy(reduceexpr, "`average`");
+                    reduceexpr = "`average`";
                     break;
                 case EXPR_MIN:
-                    strcpy(reduceexpr, "`min`");
+                    reduceexpr = "`min`";
                     break;
                 case EXPR_MAX:
-                    strcpy(reduceexpr, "`max`");
+                    reduceexpr = "`max`";
                     break;
                 case EXPR_STDEV:
-                    strcpy(reduceexpr, "`stdev`");
+                    reduceexpr = "`stdev`";
                     break;
                 case EXPR_COUNTELEM:
                     GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
                     GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-                    sprintf(reduceexpr, "`countelem(%lf,%lf)`", lower_bound,
-                            upper_bound);
+                    reduceexpr = "`countelem(" + std::to_string(lower_bound) + "," +
+                        std::to_string(upper_bound) + ")`";
                     break;
                 case EXPR_HISTOGRAM:
                     GetGraphVar(GRAPH_HISTOGRAM_NUMBINS,
@@ -537,29 +539,28 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
                     GetGraphVar(GRAPH_HISTOGRAM_START,
                                 (double *)&histogram_start);
                     GetGraphVar(GRAPH_HISTOGRAM_END, (double *)&histogram_end);
-                    sprintf(reduceexpr, "`histogram(%d,%lf,%lf)`",
-                            histogram_numbins, histogram_start, histogram_end);
+                    reduceexpr = "`histogram(" + std::to_string(histogram_numbins) + "," +
+                        std::to_string(histogram_start) + "," + std::to_string(histogram_end) + ")`";
                     break;
                 case EXPR_HASH_BOB:
-                    sprintf(reduceexpr, "`hash(%s)`", extra->hashinfo);
+                    reduceexpr = std::string{"`hash("} + extra->hashinfo +")`";
                     break;
                 default:
                     SetError("Unknown reduction function %d", reducefunc);
                     return;
             }
 
-            sprintf(finalexpr, "%s%s", reduceexpr, varexpr);
+            finalexpr << reduceexpr << varexpr.str();
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
-            char p2pexpr[BUFSIZ] = "";
-            sprintf(p2pexpr, "`ptop(%s-%s)`", v->v_pname, extra->blockmapinfo);
-            sprintf(finalexpr, "%s%s", p2pexpr, varexpr);
-        } else
-            strcpy(finalexpr, varexpr);
+            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr.str();
+        } else {
+            finalexpr << varexpr.str();
+        }
 
-        t1 = SCONST(g, "CONST", finalexpr);
+        t1 = SCONST(g, "CONST", finalexpr.str().c_str());
         n4 = NODE(g, "DBGGETVAR");
     }
 
@@ -760,7 +761,7 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
     graph_inv *gi;
 
     int reducefunc;
-    char mapname[BUFSIZ] = "";
+    std::ostringstream mapname;
 
     DPRINT("In BuildBlockMap\n");
 
@@ -771,13 +772,15 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
         (
             // All known hash functions should be or'ed here
             reducefunc == EXPR_HASH_BOB))
-        sprintf(mapname, "%s#%s(%s)", extra->hashinfo, SymLookup(bm->m_sym),
-                v->v_var);
-    else
-        sprintf(mapname, "%s(%s)", SymLookup(bm->m_sym), v->v_var);
+        mapname << extra->hashinfo << "#" << SymLookup(bm->m_sym) << "("
+                << v->v_var << ")";
+    else {
+        mapname << SymLookup(bm->m_sym) << "(" << v->v_var << ")";
+    }
+
 
     if (blockmap_required) {
-        n1 = SCONST(g, "CONST", mapname);
+        n1 = SCONST(g, "CONST", mapname.str().c_str());
 
         t3 = NODE(g, "TYPE_SET");
         n3 = NODE(g, "BLOCKMAP_SET");
@@ -1702,7 +1705,6 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
             reducefunc == EXPR_HASH_BOB)) {
         DPRINT("BuildAssert: Reduce function is set!\n");
         int precision_lower, precision_upper;
-        char tmp[BUFSIZ] = "";
         if (_find_hash_info(extra.hashinfo, g, e, rec_set) == -1) return -1;
         GetGraphVar(GRAPH_HASH_LOWER, (int *)&precision_lower);
         GetGraphVar(GRAPH_HASH_UPPER, (int *)&precision_upper);
@@ -1712,9 +1714,9 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         DPRINT("BuildAssert: lower precision is %d\n", precision_lower);
         DPRINT("BuildAssert: upper precision is %d\n", precision_upper);
         // now pass the hashinfo into the BlockMap node
-        sprintf(tmp, "%s#%d,%d,%d", extra.hashinfo, reducefunc, precision_lower,
-                precision_upper);
-        strcpy(extra.hashinfo, tmp);
+        std::ostringstream tmp;
+        tmp << extra.hashinfo << "#" << reducefunc << "," << precision_lower << "," << precision_upper;
+        strcpy(extra.hashinfo, tmp.str().c_str());
     }
 
     GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
@@ -1979,13 +1981,15 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
             blockmap_required =
                 _identify_p2p_receiver_procset(g, tmp_v, bm2->m_actual);
+
+            std::ostringstream bmStr;
             if (blockmap_required)
-                strcpy(tmpstr, bm2->m_actual->v_pname);
+                bmStr << bm2->m_actual->v_pname;
             else
-                strcpy(tmpstr, tmp_v->v_pname);
-            sprintf(tmpstr, "%s-%s-%f,%f", tmpstr, extra.blockmapinfo,
-                    graph_lower, graph_upper);
-            strcpy(extra.blockmapinfo, tmpstr);
+                bmStr << tmp_v->v_pname;
+            bmStr << "-" << extra.blockmapinfo << "-" << graph_lower << "," << graph_upper;
+                                           
+            strcpy(extra.blockmapinfo, bmStr.str().c_str());
 
             cmp1 = BuildBlockMap(g, bm, tmp_v, &extra, blockmap_required);
             if (cmp1 == -1) {

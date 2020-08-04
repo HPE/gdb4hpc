@@ -183,7 +183,7 @@ private:
     dbgevent_t* evalExprWithThreads(const char *expr, const char* threads);
     std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
-                                   bool &isVerbose);
+                                   bool &isVerbose, size_t& numThreads);
 
     std::vector<int> getMultiThreadBreaks(int bid, bool remove);
 
@@ -216,12 +216,16 @@ static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
+static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
 
 /* debugger definition */
 static DbgGdbMI DbgBackendGDBMI;
+
+// number of threads still running that were set off by background commands in thread apply
+static size_t numBackgroundThreads = 0;
 
 dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 
@@ -2057,7 +2061,7 @@ dbgevent_t *DbgGdbMI::go(bool all, const char* threads) {
     }
 
     // set up catch for the async response.
-    AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
+    ThreadAsyncCheck(WaitEvent, nullptr);
 
     Status = DBGSTAT_RUNNING;
 
@@ -2095,7 +2099,7 @@ dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
         MICommandFree(cmd);
     }
 
-    AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
+    ThreadAsyncCheck(WaitEvent, nullptr);
 
     Status = DBGSTAT_RUNNING;
 
@@ -2160,7 +2164,7 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     }
 
     // register the method for catching the response when it comes back
-    AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
+    ThreadAsyncCheck(WaitEvent, nullptr);
 
     Status = DBGSTAT_RUNNING;
 
@@ -3021,7 +3025,11 @@ dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
 // -c (continue) displays error messages but keeps going
 // -v (verbose) a gdb4hpc extension - don't strip out hex values
 // also if the thread set is "all" we want to add a -ascending flag to keep the output sane.
-std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose) {
+//
+// numThreads will contain the number of threads involved, note that it will return 0 for the
+// thread set "all".   (currently that information is not used when thread apply is called
+// directly by the user, and other contexts don't use "all")
+std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet, bool &isVerbose, size_t& numThreads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     isSilent = isQuiet = isVerbose = false;
 
@@ -3030,6 +3038,8 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
     std::string arg;
 
     bool inFlags = true, isAll = false, isAscending = false, isFirst = false;
+    numThreads = 0;
+
     while ( is >> arg) {
         bool addArg = true;
         char c = arg[0];
@@ -3073,6 +3083,8 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
     // otherwise, pull find the set of threads
     std::string command, error;
     auto threadIds = getThreadSet(os.str(), &command, error);
+
+    numThreads = threadIds.size();
 
     if (!error.empty()) {
         return "error:" + error;
@@ -3174,8 +3186,8 @@ static std::string processThreadApplyOutput(const std::string& in, bool isSilent
 dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    bool isSilent = false, isQuiet = false, isVerbose = false;
-    std::string op = parseThreadApplyOp(inOp, isSilent, isQuiet, isVerbose);
+    bool isSilent = false, isQuiet = false, isVerbose = false; size_t numThreads;
+    std::string op = parseThreadApplyOp(inOp, isSilent, isQuiet, isVerbose, numThreads);
 
     dbgevent_t* e = nullptr;
 
@@ -3195,12 +3207,13 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
 
     if (isBackground) {
         // The command will not contain the actual result yet.
+        numBackgroundThreads = numThreads;
         MICommandFree(cmd);
         e = NewEvent(DBGEV_THREADINFO);
         e->ev_string = strdup("applied in background");
         return e;
     }
-        
+    numBackgroundThreads = 0;
 
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
@@ -3769,7 +3782,7 @@ dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
 
     Status = DBGSTAT_STOPPED;
 
-    AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent, (dbgevent_t *)NULL);
+    AsyncCheck(WaitEvent, nullptr);
 
     return e;
 }
@@ -4058,8 +4071,7 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
             restore = 0;
             DirectCmdAsyncRestore = 1;
             // FIXME: Use a custom WaitEvent
-            AsyncCheck((dbgevent_t * (*)(dbgevent_t *)) WaitEvent,
-                       (dbgevent_t *)NULL);
+            AsyncCheck(WaitEvent, nullptr);
             break;
 
         case MIResultRecordERROR:
@@ -4309,8 +4321,11 @@ dbgevent_t *DbgGdbMI::initDbgAttach(int pid, const char *prog) {
 */
 static dbgevent_t *WaitEvent(dbgevent_t *e) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgbp_t *bp = NULL;
 
+    MISessionRegisterThreadStoppedCallback(GDBMISession, nullptr);
+    numBackgroundThreads = 0;
+
+    dbgbp_t *bp = NULL;
     MIEvent *evt = PendingEvent;
 
     if (e == (dbgevent_t *)NULL) e = NewEvent(DBGEV_NONE);
@@ -5216,4 +5231,35 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
 
     return frameEvent;
 }
-    
+
+// Callback function registered with libMI.
+// This function is registered when gdb4hpc starts multiple background thread operations
+// (e.g. next, step, continue) in non-stop mode.    This function is celled whenever libMI
+// detects that a thread has stopped.
+// We are using the global variable numBackgroundThreads to track how many background threads
+// are still running.
+// As per the libMI interface, returning non-zero indicates that libMI can stop waiting for
+// more responses.
+static int thread_stopped_callback(int threadId) {
+    DVPRINT("thread_stopped_callback thread id %d with %d threads remaining\n", threadId,
+            numBackgroundThreads);
+            
+    if (numBackgroundThreads && !--numBackgroundThreads) {
+        return 1;  // we've heard back from all threads
+    }
+    else {
+        return 0;
+    }
+}
+
+// Register a function with the top level server loop to tell it that we are waiting for an
+// asynchronous reponse.   If the global variable numBackgroundThreads is non-zero, then
+// we are running in non-stop mode and are expected numBackgroundThreads separate responses from
+// gdb as those threads stop.  (i.e they've completed their "next" or "step").
+// Once we've gotten the single response, or the expected multiple responses from gdb, the
+// server look will call \a rtn with the event \a event.
+static void ThreadAsyncCheck(dbgevent_t *(*rtn)(dbgevent_t *), dbgevent_t *event) {
+    auto cb = numBackgroundThreads ? thread_stopped_callback : nullptr;
+    MISessionRegisterThreadStoppedCallback(GDBMISession, cb);
+    AsyncCheck(rtn, event);
+}

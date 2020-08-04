@@ -901,6 +901,11 @@ void _dvprint(const char *format, ...) {
 
     if (!debug_flag) return;
 
+    struct timeval tv;
+    while (gettimeofday( &tv, NULL ) == -1 ) {}
+
+    fprintf(stderr, "%ld.%06ld: ", tv.tv_sec % 1000, tv.tv_usec);
+
     // setup the va_list
     va_start(arg_list, format);
 

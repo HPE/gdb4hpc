@@ -5241,9 +5241,6 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
 // As per the libMI interface, returning non-zero indicates that libMI can stop waiting for
 // more responses.
 static int thread_stopped_callback(int threadId) {
-    DVPRINT("thread_stopped_callback thread id %d with %d threads remaining\n", threadId,
-            numBackgroundThreads);
-            
     if (numBackgroundThreads && !--numBackgroundThreads) {
         return 1;  // we've heard back from all threads
     }

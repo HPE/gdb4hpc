@@ -459,23 +459,10 @@ extern "C" int network_register_TopAddBE_event_callback(
 
 extern "C" void network_remove_TopAddBE_event_callback(MRNet_Network* network) {
     Network* pNetwork = (Network*)network;
-    int rtn [[maybe_unused]];
 
     // destroy the mutex lock
-    rtn = pthread_mutexattr_destroy(&callback.callback_lock_attr);
-    /*if (rtn)
-    {
-            fprintf(*err_stream_ptr, "WARNING: pthread_mutexattr_destroy
-    failed!\n");
-    }*/
-
-    rtn = pthread_mutex_destroy(&callback.callback_lock);
-    /*if (rtn)
-    {
-            fprintf(*err_stream_ptr, "WARNING: pthread_mutex_destroy
-    failed!\n");
-    }*/
-
+    pthread_mutexattr_destroy(&callback.callback_lock_attr);
+    pthread_mutex_destroy(&callback.callback_lock);
     pNetwork->remove_EventCallback(BE_Add_Callback, Event::TOPOLOGY_EVENT,
                                    TopologyEvent::TOPOL_ADD_BE);
 }

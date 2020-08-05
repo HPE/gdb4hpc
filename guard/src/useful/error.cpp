@@ -58,9 +58,6 @@ void SetSysError(const char *fmt, ...) {
 
     vsnprintf(buf, sizeof(buf), fmt, args);
     const auto n = sizeof(_lasterr);
-    if (snprintf(_lasterr, n, "%s: %s", buf, strerror(errno)) >= int(n)) {
-        _lasterr[n-1] = '\0';
-    }
-
+    if (snprintf(_lasterr, n, "%s: %s", buf, strerror(errno)) >= int(n)) { /* ignore truncation */ }
     va_end(args);
 }

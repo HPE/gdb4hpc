@@ -546,7 +546,7 @@ int create_knominal_topology(int num_be, char *root, char **hosts,
     char topology_file[MAXPATHLEN];
     char *cfg_dir = getenv(GUARD_CFG_DIRECTORY);
     char *fanout_env = getenv(GUARD_MRNET_TOP_FANOUT);
-    char topgen_cmd[1024];
+    char *topgen_cmd = nullptr;
 
     FILE *machines = NULL;
 
@@ -604,11 +604,13 @@ int create_knominal_topology(int num_be, char *root, char **hosts,
     free(root_ip_addr);
 
     // invoke mrnet_topgen to create k-nomial topology
-    sprintf(topgen_cmd, "%s --host=%s --topology=k:%d@%d -o %s", "mrnet_topgen",
+    asprintf(&topgen_cmd, "%s --host=%s --topology=k:%d@%d -o %s", "mrnet_topgen",
             machines_file, K, N, topology_file);
     DPRINT("calling mrnet_topgen to create k-nomial topology: \n\t%s\n",
            topgen_cmd);
-    return system(topgen_cmd);
+    auto retval = system(topgen_cmd);
+    free(topgen_cmd);
+    return retval;
 }
 
 int create_mrnet_topology(int num_be, char *root, char **hosts, int attaching) {
@@ -750,7 +752,7 @@ int create_parents_info_with_balanced_top(MRNet_Topology *topology,
 int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
     int dbgsrv_id = 0;
     int inner, index, loop;
-    int num_nodes, num_attach_floor, num_attach_ceil, num_floor, num_ceil;
+    int num_nodes, num_attach_floor, num_attach_ceil, num_ceil;
     float num_attach;
     MRNet_Node_t *leaf_nodes;
 
@@ -785,7 +787,6 @@ int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
     num_attach_floor = floor(num_attach);
 
     num_ceil = num_be - num_attach_floor * num_nodes;
-    num_floor = num_nodes - num_ceil;
 
     dbgsrv_id = 0;
     for (index = 0; index < num_nodes; ++index) {

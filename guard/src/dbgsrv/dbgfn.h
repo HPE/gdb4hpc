@@ -54,9 +54,9 @@ public:
     virtual dbgevent_t *showFrame(int count, const char* threads) = 0;
 
     virtual dbgevent_t *getFrame(const char* threads) = 0;
-    virtual dbgevent_t *setVar(const char *var, AIF *a) = 0;
+    virtual dbgevent_t *setVar(const char *var, AIF *a, const char* threads) = 0;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
-    virtual dbgevent_t *getType(const char *var, bool isType) = 0;
+    virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) = 0;
     virtual dbgevent_t *getLocation() = 0;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char* threads) = 0;
     virtual dbgevent_t *getScope(const char *location) = 0;
@@ -119,12 +119,12 @@ extern dbgevent_t *DbgKill(void);
 extern dbgevent_t *DbgMoveFrame(int, bool, const char*);
 extern dbgevent_t *DbgShowFrame(int, const char*);
 extern dbgevent_t *DbgGetFrame(const char*);
-extern dbgevent_t *DbgSetVar(const char *, AIF *);
+extern dbgevent_t *DbgSetVar(const char *, AIF *, const char* threads);
 extern dbgevent_t *DbgSetDebuggerVar(const char *, AIF *);
 extern dbgevent_t *DbgSetSourcePath(const char *);
 extern dbgevent_t *DbgGetSourcePath(void);
 extern dbgevent_t *DbgEvalExpr(const char *, long, const char*);
-extern dbgevent_t *DbgGetType(const char *, bool);
+extern dbgevent_t *DbgGetType(const char *, bool, const char*);
 extern dbgevent_t *DbgGetLocation(void);
 extern dbgevent_t *DbgGetVars(const char*);
 extern dbgevent_t *DbgGetScope(const char *);

@@ -57,35 +57,37 @@ a{0..2:2-11}: #2  main::$_0::operator() (this=) at %testdir/bd_dt/C++/cpp_parall
 a{0..2:2-11}: #2  main::$_0::operator() (this=) at %testdir/bd_dt/C++/cpp_parallel_threads.cpp:69
 a{0..2:2-11}: #0  addOne (x=10, i=5) at %testdir/bd_dt/C++/cpp_parallel_threads.cpp:16
 a{0:2..5}: 15
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
-<$a>: value is 4950
+a{0:2..5}: type = double
+a{0:2..5}: 8
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
+<$a>: value is 49%..%
 a{0..2}: The application has reached an exit breakpoint.
 Shutting down debugger and killing application for 'a'.

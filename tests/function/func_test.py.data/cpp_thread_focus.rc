@@ -80,6 +80,10 @@ c
 
 p x
 
+whatis x
+assign x 8.0
+p x
+
 focus $all
 dis 3
 

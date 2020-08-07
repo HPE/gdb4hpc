@@ -1,0 +1,16 @@
+%*
+Launch complete.
+a{0..5}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+a{0..5}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 223.
+a{0..5}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:223
+%[
+%<\$a>:.*%
+%]
+Display type: text
+Version %[0-9.]+%
+Assertion forcing is off.
+Assertion script stopping mode: true
+a{0..5}: Source directories searched: $cdir:$cwd
+Warning epsilon: 4.940656458412465e-324
+Error epsilon: 4.940656458412465e-324
+Shutting down debugger and killing application for 'a'.

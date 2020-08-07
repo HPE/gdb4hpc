@@ -1,0 +1,19 @@
+%*
+Launch complete.
+a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+%*
+Launch complete.
+b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
+%[
+%^<\$b>:.*$%
+%]
+%<
+b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193
+b{0..2}: The application has reached an exit breakpoint.
+%-
+a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193
+%>
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

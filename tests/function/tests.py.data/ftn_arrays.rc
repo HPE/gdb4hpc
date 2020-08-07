@@ -1,0 +1,119 @@
+#
+# ftn_arrays.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+
+maint set sync on
+
+# launch 2 instances of the application
+launch $a{3} --launcher-args="--exclusive %%launcher_args%%" --args="0 6" bd_dt/fortran/ftn_arrays.x
+launch $b{3} --launcher-args="--exclusive %%launcher_args%%" --args="1 6" bd_dt/fortran/ftn_arrays.x
+
+# Break when the arrays should be equivalent
+break 113
+
+continue
+
+# print the array values
+p int_1
+p int_2
+p int_3
+p long_1
+p long_2
+p long_3
+p float_1
+p float_2
+p float_3
+p double_1
+p double_2
+p double_3
+p complex_1
+p complex_2
+p complex_3
+p bool_1
+p bool_2
+p bool_3
+p word
+
+compare $a::int_1 == $b::int_1
+compare $a::int_2 == $b::int_2
+compare $a::int_3 == $b::int_3
+compare $a::long_1 == $b::long_1
+compare $a::long_2 == $b::long_2
+compare $a::long_3 == $b::long_3
+compare $a::float_1 == $b::float_1
+compare $a::float_2 == $b::float_2
+compare $a::float_3 == $b::float_3
+compare $a::double_1 == $b::double_1
+compare $a::double_2 == $b::double_2
+compare $a::double_3 == $b::double_3
+compare $a::complex_1 == $b::complex_1
+compare $a::complex_2 == $b::complex_2
+compare $a::complex_3 == $b::complex_3
+compare $a::bool_1 == $b::bool_1
+compare $a::bool_2 == $b::bool_2
+compare $a::bool_3 == $b::bool_3
+compare $a::word == $b::word
+
+# continue to a point where the array should be different
+b 140
+continue
+
+compare $a::int_1 == $b::int_1
+compare $a::int_2 == $b::int_2
+compare $a::int_3 == $b::int_3
+compare $a::long_1 == $b::long_1
+compare $a::long_2 == $b::long_2
+compare $a::long_3 == $b::long_3
+compare $a::float_1 == $b::float_1
+compare $a::float_2 == $b::float_2
+compare $a::float_3 == $b::float_3
+compare $a::double_1 == $b::double_1
+compare $a::double_2 == $b::double_2
+compare $a::double_3 == $b::double_3
+compare $a::complex_1 == $b::complex_1
+compare $a::complex_2 == $b::complex_2
+compare $a::complex_3 == $b::complex_3
+compare $a::bool_1 == $b::bool_1
+compare $a::bool_2 == $b::bool_2
+compare $a::bool_3 == $b::bool_3
+compare $a::word == $b::word
+
+compare $a::int_1 != $b::int_1
+compare $a::int_2 != $b::int_2
+compare $a::int_3 != $b::int_3
+compare $a::long_1 != $b::long_1
+compare $a::long_2 != $b::long_2
+compare $a::long_3 != $b::long_3
+compare $a::float_1 != $b::float_1
+compare $a::float_2 != $b::float_2
+compare $a::float_3 != $b::float_3
+compare $a::double_1 != $b::double_1
+compare $a::double_2 != $b::double_2
+compare $a::double_3 != $b::double_3
+compare $a::complex_1 != $b::complex_1
+compare $a::complex_2 != $b::complex_2
+compare $a::complex_3 != $b::complex_3
+compare $a::bool_1 != $b::bool_1
+compare $a::bool_2 != $b::bool_2
+compare $a::bool_3 != $b::bool_3
+compare $a::word != $b::word
+
+# continue to the end
+continue
+
+
+
+#exit lgdb
+q
+
+
+
+
+

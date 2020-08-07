@@ -1,0 +1,26 @@
+---
+# config for build time
+build:
+  # target specific checks and rules
+  targets:
+    check:
+      directory: .
+
+# config for test time
+test:
+  modules:
+    - gdb4hpc
+
+# launcher config
+launch:
+  # launcher args are defined per test in gdb4hpc
+  args:
+    slurm: ""
+    alps: ""
+    ssh: ""
+
+# system specific overides
+cfa6k:
+  launch:
+    args:
+      slurm: "--mpi=cray_shasta"

@@ -1,0 +1,65 @@
+#
+# lgdb_c_t1.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+# This source file tests the following:
+# 1.  Assertion without decomposistion
+# 2.  defset command
+# 3.  Work with defset, print var, compare newset
+
+#maint set sync on
+
+#for assertion (dataflow) commands, turn dfblock on
+set dfblock on
+
+# launch 3 instances of the application
+launch $a{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+
+break c_type_test.c:223
+
+launch $b{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_cmp_diff.x --debug
+
+# Set a breakpoint at specified line numbers:
+focus $b
+
+
+break c_cmp_diff.c:223
+
+
+focus $all
+
+
+build $mine
+	#use assertion without decomposition
+	assert $a{0}::assertTest@"c_type_test.c":160=$b{0}::assertTest@"c_cmp_diff.c":160
+	assert $a{1}::assertTest@"c_type_test.c":160=$b{1}::assertTest@"c_cmp_diff.c":160
+end
+
+
+#start assertion script
+start $mine
+
+#Display active assertion script status.
+info script
+
+
+#Display built assertion scripts.
+info build $mine
+
+#exit lgdb
+q
+
+
+
+

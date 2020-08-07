@@ -509,7 +509,7 @@ class cpp_bt(Test):
     def test(self):
         runTest(self)
 
-class cpp_thread(Test):
+class cpp_thread_funcs(Test):
     def test(self):
         runTest(self)
 

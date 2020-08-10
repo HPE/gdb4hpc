@@ -120,8 +120,8 @@
 %global SYS_WB_TAG WHITEBOX
 %endif
 %if 0%{?rhel} == 8
-%global OS_HW_TAG %{dist}
-%global OS_WB_TAG %{dist}
+%global OS_HW_TAG el8
+%global OS_WB_TAG el8
 %endif
 
 Summary:    Cray gdb4hpc parallel debugger

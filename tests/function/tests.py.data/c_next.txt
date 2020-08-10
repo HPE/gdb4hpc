@@ -1,10 +1,10 @@
 %*
 Launch complete.
 a{0..5}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
-a{0..5}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
-a{0..5}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193
 %[
 %<\$a>:.*%
 %]
+a{0..5}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
+a{0..5}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193
 a{0..5}: main at %%testdir%%/bd_dt/c/c_type_test.c:195
 Shutting down debugger and killing application for 'a'.

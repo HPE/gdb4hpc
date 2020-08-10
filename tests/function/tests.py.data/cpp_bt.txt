@@ -51,9 +51,7 @@ one{0,5}: #2  rare_branch at %%testdir%%/bd_dt/C++/cpp_bt.cpp:54
 one{0,5}: #1  step_three at %%testdir%%/bd_dt/C++/cpp_bt.cpp:73
 one{0,5}: #0  merge at %%testdir%%/bd_dt/C++/cpp_bt.cpp:59
    
-%[
-two{%.*%}: Breakpoint 1, merge(int) at %%testdir%%/bd_dt/C++/cpp_bt.cpp:59
-%]
+two{0..4}: Breakpoint 1, merge(int) at %%testdir%%/bd_dt/C++/cpp_bt.cpp:59
 two{0..4}: #11 main at %%testdir%%/bd_dt/C++/cpp_bt.cpp:35
 two{0..4}: #10 branch at %%testdir%%/bd_dt/C++/cpp_bt.cpp:47
 two{0..4}: #9  left at %%testdir%%/bd_dt/C++/cpp_bt.cpp:77

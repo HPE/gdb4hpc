@@ -15,7 +15,7 @@ test:
 launch:
   # launcher args are defined per test in gdb4hpc
   args:
-    slurm: ""
+    slurm: "--exclusive"
     alps: ""
     ssh: ""
 

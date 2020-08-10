@@ -9,8 +9,8 @@
 #
 maint set sync on
 
-launch $a{6} --launcher-args="--exclusive %%launcher_args%%" --args="0" bd_dt/C++/cpp_decomp2.x
-launch $b{6} --launcher-args="--exclusive %%launcher_args%%" --args="1" bd_dt/C++/cpp_decomp2.x
+launch $a{6} --launcher-args="%%launcher_args%%" --args="0" bd_dt/C++/cpp_decomp2.x
+launch $b{6} --launcher-args="%%launcher_args%%" --args="1" bd_dt/C++/cpp_decomp2.x
 
 decomposition $block2_12
 dimension 12,10

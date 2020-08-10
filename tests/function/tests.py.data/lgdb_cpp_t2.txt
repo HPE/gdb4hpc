@@ -7,7 +7,7 @@ b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:24
 a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 136.
 b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 136.
 %[
-%<\$[ab]>:.*
+%<\$[ab]>:.*%
 %]
 %<
 b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:136

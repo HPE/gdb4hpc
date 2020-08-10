@@ -14,10 +14,10 @@ maint set sync on
 show non-stop
 
 set non-stop off
-launch $a{3} --launcher-args="--exclusive" bd_dt/C++/cpp_threads.x
+launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_threads.x
 
 set non-stop on
-launch $b{3} --launcher-args="--exclusive" bd_dt/C++/cpp_threads.x
+launch $b{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_threads.x
 
 show non-stop
 

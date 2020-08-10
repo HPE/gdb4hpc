@@ -11,8 +11,8 @@
 maint set sync on
 
 # launch 3 instances of the application
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%" --args="0 40" bd_dt/C++/cpp_arrays.x
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%" --args="1 40" bd_dt/C++/cpp_arrays.x
+launch $a{3} --launcher-args="%%launcher_args%%" --args="0 40" bd_dt/C++/cpp_arrays.x
+launch $b{3} --launcher-args="%%launcher_args%%" --args="1 40" bd_dt/C++/cpp_arrays.x
 
 # run until the arrays are initialized
 b 76

@@ -23,11 +23,11 @@
 maint set sync on
 
 # launch 3 instances of the application
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/C++/cpp_bd_test.x --debug
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/C++/cpp_bd_test.x --debug
 
 break cpp_bd_test.cpp:136
 
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/C++/cpp_cmp_diff.x --debug
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/C++/cpp_cmp_diff.x --debug
 
 
 focus $b

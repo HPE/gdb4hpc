@@ -16,7 +16,7 @@
 maint set sync on
 
 # launch 3 instances of the application
-launch $a{6} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+launch $a{6} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
 
 # Set a breakpoint at specified line numbers:
 break c_type_test.c:248

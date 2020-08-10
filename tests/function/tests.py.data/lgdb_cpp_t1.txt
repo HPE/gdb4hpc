@@ -4,9 +4,6 @@ a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:24
 %*
 Launch complete.
 b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:24
-%[
-<$%[ab]>:.*
-%]
 %<
 a{0..2}: 24	       int 				my_int = 44;
 a{0..2}: 25	       char 			a,b;   //1 byte
@@ -38,7 +35,7 @@ b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 134.
 b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 136.
 %>
 %[
-%<\$[ab]>:.*
+%<\$[ab]>:.*%
 %]
 %<
 a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:134

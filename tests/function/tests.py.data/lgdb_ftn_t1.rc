@@ -17,10 +17,10 @@ maint set sync on
 
 
 # launch 2 applications in lgdb
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/fortran/ftn_bd_dt.x --debug
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/fortran/ftn_bd_dt.x --debug
 
 
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/fortran/ftn_bd_dt.x --debug
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/fortran/ftn_bd_dt.x --debug
 
 
 

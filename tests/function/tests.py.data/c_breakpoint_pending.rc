@@ -12,7 +12,7 @@ maint set sync on
 
 
 # launch 3 instances of the application
-launch $a{6} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_dlopen.x --debug
+launch $a{6} --launcher-args="%%launcher_args%%"  bd_dt/c/c_dlopen.x --debug
 
 
 # Set a pending breakpoint at function that will be dlopened

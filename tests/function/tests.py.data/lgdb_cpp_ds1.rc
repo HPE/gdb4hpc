@@ -19,9 +19,9 @@ maint set sync on
 
 
 # launch 3 instances of the application
-#launch $a{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/C++/cpp_ds_test1.x --debug
+#launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/C++/cpp_ds_test1.x --debug
 
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/C++/cpp_ds_test1.x --debug
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/C++/cpp_ds_test1.x --debug
 
 
 # Set a breakpoint at specified line numbers:

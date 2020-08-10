@@ -25,10 +25,10 @@
 
 maint set sync on
 
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
 
 
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
 
 
 #set breakpoint

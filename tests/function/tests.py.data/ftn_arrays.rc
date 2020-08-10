@@ -12,8 +12,8 @@
 maint set sync on
 
 # launch 2 instances of the application
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%" --args="0 6" bd_dt/fortran/ftn_arrays.x
-launch $b{3} --launcher-args="--exclusive %%launcher_args%%" --args="1 6" bd_dt/fortran/ftn_arrays.x
+launch $a{3} --launcher-args="%%launcher_args%%" --args="0 6" bd_dt/fortran/ftn_arrays.x
+launch $b{3} --launcher-args="%%launcher_args%%" --args="1 6" bd_dt/fortran/ftn_arrays.x
 
 # Break when the arrays should be equivalent
 break 113

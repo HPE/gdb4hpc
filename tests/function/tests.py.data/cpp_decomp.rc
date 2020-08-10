@@ -11,8 +11,8 @@
 maint set sync on
 
 # launch 3 instances of one application and 4 of another to test decomp
-launch $a{3} --launcher-args="--exclusive %%launcher_args%%" --args="0" bd_dt/C++/cpp_decomp.x
-launch $b{4} --launcher-args="--exclusive %%launcher_args%%" --args="1" bd_dt/C++/cpp_decomp.x
+launch $a{3} --launcher-args="%%launcher_args%%" --args="0" bd_dt/C++/cpp_decomp.x
+launch $b{4} --launcher-args="%%launcher_args%%" --args="1" bd_dt/C++/cpp_decomp.x
 
 # run until the arrays are initialized
 b 82

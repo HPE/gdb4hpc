@@ -7,7 +7,7 @@ b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
 a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
 b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 193.
 %[
-%^<\$b>:.*$%
+%^<\$[ab]>:.*$%
 %]
 %<
 b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193

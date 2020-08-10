@@ -52,27 +52,6 @@ def getTmpDir():
         pass
     return tmpdir
 
-def makeBatchScript(test, application, numJobs):
-    if isSlurm():
-        return None
-
-    templateFile = test.get_data("qsub.template", must_exist=True)
-    if not templateFile:
-        test.error("Couldn't find required qsub.template file in func_test.py.data/")
-
-    tmpDir = getTmpDir()
-    batchfile = tmpDir + "/batch.script"
-    npes = numJobs
-    ranks = 1
-    with open(batchfile, "w") as batch:
-        for line in open(templateFile,"r"):
-            line = line.replace("[pes]", str(npes))
-            line = line.replace("[ppn]", str(ranks))
-            line = line.replace("[application]", application)
-            batch.write(line)
-
-    return "--qsub=" + batchfile
-
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
@@ -98,31 +77,14 @@ def makeRunFile(test):
     if not application:
         test.error("could not find launch in " + rcfile)
 
-    session = makeBatchScript(test, application, totNumProcs)
-    if (session):
-        session = "session " + session
-
-    syncrc = re.compile(r"maint\s+set\s+sync\s+on")
-
     with open(runfile,"w") as run:
         for line in open(rcfile, "r"):
-            if not session:
-                line = line.replace(r"%%launcher_args%%", os.environ["CDST_TESTS_LAUNCHER_ARGS"])
-                run.write(line)
-            elif syncrc.search(line):
-                 run.write(session + "\n")
-                 run.write("maint sleep 15\n")
-                 run.write(line)
-            else:
-                match = launchRE.search(line)
-                if match:
-                    launchN = match.group(1)
-                    exclusive = "-n" + launchN
-                    line = line.replace("--exclusive",exclusive)
-                    line = line.replace(r"%%launcher_args%%", os.environ["CDST_TESTS_LAUNCHER_ARGS"])
-                    run.write(line)
-                else:
-                    run.write(line)
+            line = line.replace(r"%%launcher_args%%", os.environ["CDST_TESTS_LAUNCHER_ARGS"])
+
+            # hack: on some systems, specifying --launcher-args="" will break the launcher.
+            line = line.replace("--launcher-args=\"\"", "")
+
+            run.write(line)
 
     return runfile
 

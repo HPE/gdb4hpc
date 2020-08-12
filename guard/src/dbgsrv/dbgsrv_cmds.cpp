@@ -245,9 +245,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_SETVAR: {
-            std::string var; AIFPtr val{nullptr, AIFFree};
-            is.get(var, val);
-            e = DbgSetVar(var.c_str(), val.get());
+            std::string var; AIFPtr val{nullptr, AIFFree}; OptionalString threads;
+            is.get(var, val, threads);
+            e = DbgSetVar(var.c_str(), val.get(), threads);
             break;
         }
 
@@ -261,9 +261,9 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
         }
 
         case DBGCMD_GETTYPE: {
-            std::string var; bool isType;
-            is.get(var, isType);
-            e = DbgGetType(var.c_str(), isType);
+            std::string var; bool isType; OptionalString threads;
+            is.get(var, isType, threads);
+            e = DbgGetType(var.c_str(), isType, threads);
             break;
         }
 

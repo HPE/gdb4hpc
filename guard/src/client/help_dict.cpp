@@ -600,6 +600,21 @@ const char* const cmd_print_help[] = {
     "of application $a, issue: print $a{1,3..5,10}::myVar.",
     0};
 
+const char* const cmd_ptype_help[] = {
+    "Summary: print the definition of a type.",
+    "Usage: whatis <type>",
+    "Example command: ptype timeval",
+    "",
+    "Arguments: type",
+    "",
+    "The type argument is a type name defined by typedef, or \"struct STRUCT-TAG,\"",
+    "or \"union UNION-TAG,\" or \"enum ENUM-TAG.\"",
+    "",
+    "Description:",
+    "A type is always displayed as a full type definition.",
+    0};
+
+
 const char* const cmd_quit_help[] = {"Summary: Quit command.",
                                      "Usage: quit",
                                      "Example command: quit",

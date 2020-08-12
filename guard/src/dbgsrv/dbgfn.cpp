@@ -301,10 +301,10 @@ dbgevent_t *DbgGetDebuggerVar(const char *var) {
     return DbgBackendSW->getDebuggerVar(var);
 }
 
-dbgevent_t *DbgSetVar(const char *var, AIF *data) {
+dbgevent_t *DbgSetVar(const char *var, AIF *data, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setVar(var, data);
+    return DbgBackendSW->setVar(var, data, threads);
 }
 
 dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {
@@ -313,10 +313,10 @@ dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {
     return DbgBackendSW->evalExpr(expr, exprCnt, threads);
 }
 
-dbgevent_t *DbgGetType(const char *var, bool isType) {
+dbgevent_t *DbgGetType(const char *var, bool isType, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->getType(var, isType);
+    return DbgBackendSW->getType(var, isType, threads);
 }
 
 dbgevent_t *DbgGetLocation(void) {

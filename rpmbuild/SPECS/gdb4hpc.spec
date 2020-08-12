@@ -400,8 +400,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_decomp2.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp2.txt
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_decomp.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp.rc
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_decomp.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp.txt
-%{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_thread.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread.rc
-%{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_thread.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread.txt
+%{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_thread_funcs.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread_funcs.rc
+%{__cp} -a %{tests_source_dir}/function/func_test.py.data/cpp_thread_funcs.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread_funcs.txt
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/c_print.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_print.rc
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/c_print.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_print.txt
 %{__cp} -a %{tests_source_dir}/function/func_test.py.data/c_release.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_release.rc
@@ -781,8 +781,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp2.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp.rc
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_decomp.txt
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread.rc
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread.txt
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread_funcs.rc
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/cpp_thread_funcs.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_print.rc
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_print.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/function/func_test.py.data/c_release.rc

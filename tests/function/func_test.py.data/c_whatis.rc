@@ -27,6 +27,9 @@ continue
 # Test whatis command  
 whatis d
 
+# Test ptype command
+ptype struct test_struct
+
 
 #exit lgdb
 q

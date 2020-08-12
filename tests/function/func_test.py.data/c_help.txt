@@ -35,6 +35,7 @@ list            List source for specified function or line.
 maint           Commands for use by debugger maintainers.
 next            Step application, proceeding through subroutine calls.
 print           Print the value of an expression.
+ptype           Print definition of a type.
 quit            Exit the debugger.
 release         Release attached/launched application from debugger control.
 session         Create a new WLM session.

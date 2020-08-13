@@ -52,6 +52,7 @@
 
 # Disable debug package
 %global debug_package %{nil}
+%global _build_id_links none
 
 # System strip command may be too old, use current path
 %global __strip strip
@@ -589,8 +590,8 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
+%{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
+%{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/uda-plugin-cray-upc.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps

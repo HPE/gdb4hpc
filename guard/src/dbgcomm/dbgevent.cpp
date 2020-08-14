@@ -553,6 +553,7 @@ dbgframe_t::dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
 dbgframe_t::~dbgframe_t() {
     delete m_next;
     delete m_nextThreadFrame;
+    free(m_threads);
     free(m_loc.loc_addr);
     free(m_loc.loc_func);
     free(m_loc.loc_file);

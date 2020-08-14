@@ -1,0 +1,19 @@
+%*
+Launch complete.
+a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 227.
+%*
+Launch complete.
+b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_cmp_diff.c:55
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_cmp_diff.c, line 227.
+%[
+%<\$[ab]>:.*%
+%]
+%<
+b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_cmp_diff.c:227
+%-
+a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:227
+%>
+{1}: Comparison is true.
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

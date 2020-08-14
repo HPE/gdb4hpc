@@ -1,0 +1,66 @@
+#
+# c_assert_wdecomp.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+#maint set sync on
+
+# This source file tests lgdb's decomposition and assertion command
+#when using assertion (dataflow) commands, turn on dfblock
+set dfblock on
+
+# launch 2 instances of the application
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+
+
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_cmp_diff.x --debug
+
+
+#Test usage command
+usage assert
+
+# create decomposition scheme
+decomposition $myComp
+dimension 3
+distribute block
+proc_grid 3
+dim_order 1
+end
+
+
+build $mine
+	#use assertion with decomposition
+	assert $myComp{$a::assertTest@"c_type_test.c":160}=$myComp{$b::assertTest@"c_cmp_diff.c":160}
+end
+
+
+#start assertion script
+start $mine
+
+maint sleep 10
+
+
+#Display active assertion script status.
+info script
+
+#Display currently defined decomposition schemes.
+info decomposition
+
+
+#Display built assertion scripts.
+info build $mine
+
+
+#exit lgdb
+q
+

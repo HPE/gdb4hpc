@@ -1,0 +1,168 @@
+#
+# lgdb_c_t2.rc script script is runs commands automatically in lgdb
+#               this script compares two executables files
+#				to determine if variable content is the same.
+#			    the output of this file should result in compare = false
+#				for all variables   
+#
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+
+#this test compares variables in two files.
+#all comparisons should result in
+#comparision is false
+
+maint sleep 15
+maint set sync on
+
+
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+
+break c_type_test.c:242
+
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_cmp_diff.x --debug
+
+focus $b
+
+break c_cmp_diff.c:242
+
+focus $all
+
+#run to breakpiont
+continue
+
+
+#run compare commands on all datatypes
+
+#char - Dissabled as lgdb compare command is not working for strings and chars
+#print c
+#compare $a{0}::c=$b{0}::c
+
+#signed char
+print sc
+compare $a{0}::sc=$b{0}::sc
+
+#unsigned char
+print uc
+compare $a{0}::uc=$b{0}::uc
+
+#short
+print sh
+compare $a{0}::sh=$b{0}::sh
+
+#short int
+print shi
+compare $a{0}::shi=$b{0}::shi
+
+#signed short
+print ssh
+compare $a{0}::ssh=$b{0}::ssh
+
+#signed short int
+print sshi
+compare $a{0}::sshi=$b{0}::sshi
+
+#usinged short
+print ush
+compare $a{0}::ush=$b{0}::ush
+
+#usigned short int
+print ushi
+compare $a{0}::ushi=$b{0}::ushi
+
+#int
+print i
+compare $a{0}::i=$b{0}::i
+
+#signed int
+print si
+compare $a{0}::si=$b{0}::si
+
+#unsigned
+print u
+compare $a{0}::u=$b{0}::u
+
+#unsigned int
+print ui
+compare $a{0}::ui=$b{0}::ui
+
+#long
+print l
+compare $a{0}::l=$b{0}::l
+
+#long int
+print li
+compare $a{0}::li=$b{0}::li
+
+#signed long
+print sl
+compare $a{0}::sl=$b{0}::sl
+
+#signed long int
+print sli
+compare $a{0}::sli=$b{0}::sli
+
+#unsigned long
+print ul
+compare $a{0}::ul=$b{0}::ul
+
+#unsigned long int
+print uli
+compare $a{0}::uli=$b{0}::uli
+
+#long long
+print ll
+compare $a{0}::ll=$b{0}::ll
+
+#long long int
+print lli
+compare $a{0}::lli=$b{0}::lli
+
+#signed long long
+print sll
+compare $a{0}::sll=$b{0}::sll
+
+#signed long long int
+print slli
+compare $a{0}::slli=$b{0}::slli
+
+#unsigned long long
+print ull
+compare $a{0}::ull=$b{0}::ull
+
+#unsigned long long int
+print ulli
+compare $a{0}::ulli=$b{0}::ulli
+
+#float
+print f
+compare $a{0}::f=$b{0}::f
+
+#double
+print d
+compare $a{0}::d=$b{0}::d
+
+#long double
+print ld
+compare $a{0}::ld=$b{0}::ld
+
+#assertTest
+print assertTest
+compare $a{0}::assertTest=$b{0}::assertTest
+
+
+
+#continue
+
+q

@@ -1,0 +1,45 @@
+#
+# lgdb_c_t2.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+
+maint set sync on
+
+# launch 3 instances of the application
+launch $a{6} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
+
+break c_type_test.c:227
+
+#Display the status of the debug servers.
+info status
+
+
+#List local variables of ranks in current process set.
+info scope test_stack
+
+#List variables local to a scope in the application.
+info locals
+
+
+#Show attached/launched applications under debugger control.
+info application
+
+#exit lgdb
+q
+
+
+
+
+
+

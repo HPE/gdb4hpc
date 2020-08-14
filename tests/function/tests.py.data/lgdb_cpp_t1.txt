@@ -1,0 +1,59 @@
+%*
+Launch complete.
+a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:24
+%*
+Launch complete.
+b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:24
+%<
+a{0..2}: 24	       int 				my_int = 44;
+a{0..2}: 25	       char 			a,b;   //1 byte
+a{0..2}: 26	       double 			d,v,h;   // 8 bytes
+a{0..2}: 27	       string word = "Testing"; //8 bytes
+a{0..2}: 28	       bool 			tf; // 1 byte
+a{0..2}: 29	       signed int 		si;  //4 bytes
+a{0..2}: 30	       unsigned int 	usi; // 4 bytes
+a{0..2}: 31	
+a{0..2}: 32	       signed short int sshi = -32767;  // 2 bytes  ok
+a{0..2}: 33	       unsigned short int ushi = 32767;  // 2 bytes  ok
+%-
+b{0..2}: 24	       int 				my_int = 44;
+b{0..2}: 25	       char 			a,b;   //1 byte
+b{0..2}: 26	       double 			d,v,h;   // 8 bytes
+b{0..2}: 27	       string word = "Testing"; //8 bytes
+b{0..2}: 28	       bool 			tf; // 1 byte
+b{0..2}: 29	       signed int 		si;  //4 bytes
+b{0..2}: 30	       unsigned int 	usi; // 4 bytes
+b{0..2}: 31	
+b{0..2}: 32	       signed short int sshi = -32767;  // 2 bytes  ok
+b{0..2}: 33	       unsigned short int ushi = 32767;  // 2 bytes  ok
+%>
+%<
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 134.
+a{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 136.
+%-
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 134.
+b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_bd_test.cpp, line 136.
+%>
+%[
+%<\$[ab]>:.*%
+%]
+%<
+a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:134
+a{0..2}: 1
+a{0..2}: 4
+%-
+b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:134
+b{0..2}: 1
+b{0..2}: 4
+%>
+{0}: Comparison is true.
+{0}: Comparison is true.
+%<
+a{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:136
+%-
+b{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_bd_test.cpp:136
+%>
+a{0..2}: 2
+b{0..2}: 2
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

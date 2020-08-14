@@ -1,0 +1,48 @@
+%*
+Launch complete.
+a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 223.
+%*
+Launch complete.
+b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_cmp_diff.c:55
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_cmp_diff.c, line 223.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 1.
+Warning: Range use detected in procset for command. Only operating on rank 1.
+Assertion script $mine compiled.
+%[
+%<\$[ab]>:.*%
+%]
+*** Starting execution of application ***
+%<
+*** Difference found in AssertID 1 ***
+%-
+*** Difference found in AssertID 2 ***
+%>
+
+*** The interpreter has halted. ***
+Assertion script $mine complete.
+Successful Assertion Set Iterations: 0
+Total Passed Assertions: 0
+Total Warned Assertions: 0
+Total Failed Assertions: 2
+
+Assertion summary:
+AssertID 1:  Pass: 0 Warn: 0 Fail: 1
+AssertID 2:  Pass: 0 Warn: 0 Fail: 1
+***********************************
+
+Current location:
+b{0..1}: Application halted in main at %%testdir%%/bd_dt/c/c_cmp_diff.c:160
+b{2}: Application halted in main at %%testdir%%/bd_dt/c/c_cmp_diff.c:223
+a{0..1}: Application halted in main at %%testdir%%/bd_dt/c/c_type_test.c:160
+a{2}: Application halted in main at %%testdir%%/bd_dt/c/c_type_test.c:223
+
+
+There is currently no assertion script executing.
+Script $mine
+AssertID:1  $a{0}::assertTest@"c_type_test.c":160=$b{0}::assertTest@"c_cmp_diff.c":160
+AssertID:2  $a{1}::assertTest@"c_type_test.c":160=$b{1}::assertTest@"c_cmp_diff.c":160
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

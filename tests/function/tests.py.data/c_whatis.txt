@@ -1,0 +1,17 @@
+%*
+Launch complete.
+a{0..5}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
+a{0..5}: Breakpoint 1: file %%testdir%%/bd_dt/c/c_type_test.c, line 223.
+%[
+<$a>:%.*%
+%]
+a{0..5}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:223
+a{0..5}: double
+a{0..5}: struct test_struct {
+    int i;
+    double d;
+    char *c_ptr;
+    func_ptr_t func_ptr;
+}
+
+Shutting down debugger and killing application for 'a'.

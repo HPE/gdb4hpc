@@ -1348,11 +1348,11 @@ recover_for_slurm:
                 }
 
                 // grab the pending asynch
-                evt = PendingEvent;
+                evt = NULL;
+                std::swap(PendingEvent, evt);
 
                 // set the state back to default
                 AsynchEventWaiting = 0;
-                PendingEvent = NULL;
                 Status = DBGSTAT_STOPPED;
 
                 // slurm will send a SIGSTOP for some reason, try to recover from
@@ -2550,6 +2550,7 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a, const char* threads) {
 
     // create the assignment string
     auto expr = std::string{var} + "=" + data;
+    free(data);
     DVPRINT("DbgSetVar: expr is %s\n", expr.c_str());
 
     if (threads) {
@@ -4364,6 +4365,8 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
         return e;
     }
 
+    std::unique_ptr<MIEvent, decltype(&MIEventFree)> evtHolder(evt, &MIEventFree);
+
     switch (evt->type) {
         case MIEventTypeBreakpointHit:
             DVPRINT("MIEventTypeBreakpointHit\n");
@@ -4373,7 +4376,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                 bp = NewBP(evt->bkptno);
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
-
                 return e;
             }
 
@@ -4443,7 +4445,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                     break;
             }
 
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeWatchpointTrigger:
@@ -4517,7 +4518,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeWatchpointScope:
@@ -4539,7 +4539,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_bp = DupBP(bp);
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSuspended:
@@ -4559,7 +4558,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeFunctionFinished:
@@ -4579,7 +4577,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSteppingRange:
@@ -4598,7 +4595,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSignal:
@@ -4615,12 +4611,10 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeInferiorSignalExit:
             DVPRINT("MIEventTypeInferiorSignalExit\n");
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeInferiorExit:
@@ -4629,7 +4623,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_exit = 0;
             Status = DBGSTAT_WAITING;
             Pid = 0;
-            MIEventFree(evt);
             return e;
 
         default:
@@ -4637,7 +4630,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e = ChangeEvent(e, DBGEV_ERROR);
             e->ev_errno = DBGERR_DEBUGGER;
             EventErrStr(e, "unknown event");
-            MIEventFree(evt);
             return e;
     }
     /* NOT REACHED */
@@ -4801,7 +4793,8 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 static void event_callback(MIEvent *e) {
     DVPRINT("*** Dbg %s, %s, e->type %d\n", __FILE__, __func__, e->type);
     AsynchEventWaiting = 1;
-    PendingEvent = e;
+    std::swap(PendingEvent, e);
+    if (e) MIEventFree(e);
 }
 
 static void console_callback(char *str) {

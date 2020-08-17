@@ -654,6 +654,7 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
         if (MICommandResultOK(cmd)) {
             if ((bp_res = get_dbgbp(cmd)) != NULL) {
                 AddToList(parallel_entry_BP, (void *)bp_res);
+                MICommandFree(cmd);
                 break;
             }
         }

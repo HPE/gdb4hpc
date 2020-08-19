@@ -718,7 +718,6 @@ fi
 %attr(644, root, root) %{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 
 %files -n %{cray_name}-tests-%{pkgversion}
-%defattr(755, root, root)
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c

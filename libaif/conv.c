@@ -530,27 +530,6 @@ BoolToAIF(int b)
 }
 
 /*
- * Convert a character to AIF.
- */
-AIF *
-CharacterToAIF(char c)
-{
-	AIF *	a;
-
-	a = NewAIF(0, sizeof(char));
-
-	AIF_FORMAT(a) = strdup(AIF_CHARACTER_TYPE());
-
-	if ( _char_to_aif(&AIF_DATA(a), c) < 0 )
-	{
-		AIFFree(a);
-		return (AIF *)NULL;
-	}
-
-	return a;
-}
-
-/*
  * Convert a char to AIF.
  */
 AIF *

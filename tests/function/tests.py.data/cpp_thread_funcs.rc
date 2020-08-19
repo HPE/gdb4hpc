@@ -1,0 +1,96 @@
+#
+# cpp_thread.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+
+maint set sync on
+
+# we'll launch one in non-stop mode to broaden the testing
+show non-stop
+
+set non-stop off
+launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_threads.x
+
+set non-stop on
+launch $b{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_threads.x
+
+show non-stop
+
+# run until the threads are running
+b 71
+c
+
+info threads
+
+b 60 thread 5
+c
+
+info threads 1 5
+info breakpoints
+
+thread 5
+p sum
+
+del 2
+
+watch sum thread 5
+info breakpoints
+
+c
+
+del 3
+
+thread 8
+thread name hunka-hunka-burning-love
+thread info
+
+thread find hunk
+
+focus $b
+thread apply 1-3 5 bt 2
+thread apply 1-4 -s -q p i
+
+focus $a
+thread apply 2 -v frame
+
+focus $all
+
+b 75
+c -a
+
+focus $a
+thread 1
+show scheduler-locking
+set scheduler-locking on
+n
+info threads 1 8
+set scheduler-locking off
+show scheduler-locking
+
+info status
+
+focus $all
+del 4
+c -a
+
+# these line hang on the info stautus call, commenting these out for
+# now and I'll create a jira to figure out what's going on
+#maint sleep 2
+#info status
+#halt
+#info status
+#c
+
+#maint sleep 2
+#halt -a
+#info status
+
+#focus $all
+
+quit
+

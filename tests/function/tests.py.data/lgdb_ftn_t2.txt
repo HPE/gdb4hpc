@@ -1,0 +1,45 @@
+%*
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:25
+%*
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:25
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+%[
+<$%[ab]>:.*%
+%]
+%<
+a{0..2}: Breakpoint 1, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:64
+%-
+b{0..2}: Breakpoint 1, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:64
+%>
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: 't'
+b{0..2}: 't'
+{0}: Comparison is true.
+a{0..2}: 30.32
+b{0..2}: 30.32
+{0}: Comparison is true.
+a{0..2}: 'Testing'
+b{0..2}: 'Testing'
+{0}: Comparison is true.
+a{0..2}: (327.670013,-0.00650000013)
+b{0..2}: (327.670013,-0.00650000013)
+{0}: Comparison is true.
+a{0..2}: 1
+b{0..2}: 1
+{0}: Comparison is true.
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+{0}: Comparison is true.
+a{0..2}: 'Cray'
+b{0..2}: 'Cray'
+{0}: Comparison is true.
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

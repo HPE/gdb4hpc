@@ -140,9 +140,9 @@ public:
     virtual dbgevent_t *showFrame(int count, const char* threads) override;
 
     virtual dbgevent_t *getFrame(const char* threads) override;
-    virtual dbgevent_t *setVar(const char *var, AIF *a) override;
+    virtual dbgevent_t *setVar(const char *var, AIF *a, const char* threads) override;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
-    virtual dbgevent_t *getType(const char *var, bool isType) override;
+    virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char* threads) override;
     virtual dbgevent_t *getScope(const char *location) override;
@@ -1348,11 +1348,11 @@ recover_for_slurm:
                 }
 
                 // grab the pending asynch
-                evt = PendingEvent;
+                evt = NULL;
+                std::swap(PendingEvent, evt);
 
                 // set the state back to default
                 AsynchEventWaiting = 0;
-                PendingEvent = NULL;
                 Status = DBGSTAT_STOPPED;
 
                 // slurm will send a SIGSTOP for some reason, try to recover from
@@ -2518,53 +2518,63 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
 ** types. Right now we just convert to string and let gdb handle it. I think
 ** this is a better implementation (andrewg).
 */
-dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a) {
+dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
-    char *data;
-    char *expr;
-    int len;
 
     if (a == NULL) {
-        EVENT_ERROR(e, DBGERR_SETVAR, "Invalid input. AIF is null.");
-        return e;
+        return NewErrorEvent(DBGERR_SETVAR, "Invalid input. AIF is null.");
     }
 
     if (AIF_LEN(a) <= 0) {
-        EVENT_ERROR(e, DBGERR_SETVAR,
+        return NewErrorEvent(DBGERR_SETVAR,
                     "Attempt to set var with data of null length.");
-        return e;
     }
 
     // get type info about var to make sure it exists
-    if (((e = getType(var, 0))->ev_event) != DBGEV_TYPE) return e;
-    FreeEvent(e);
+    if (!threads) {
+        // for multiple threads the variable may of different type or not exist
+        // in every thread - let thread apply return an error information.
+        auto e = getType(var, 0, threads);
+        if (e->ev_event != DBGEV_TYPE) {
+            return e;
+        } else {
+            FreeEvent(e);
+        }
+    }
 
     // convert the aif type to string form
+    char* data = nullptr;
     if (AIFToStr(&data, 0, a)) {
-        EVENT_ERROR(e, DBGERR_SETVAR, "Could not convert AIF data to string.");
-        return e;
+        return NewErrorEvent(DBGERR_SETVAR, "Could not convert AIF data to string.");
     }
 
     // create the assignment string
-    len = strlen(var) + strlen(data) + 2;
-    expr = (char *)Alloc(len);
-    snprintf(expr, len, "%s=%s", var, data);
+    auto expr = std::string{var} + "=" + data;
+    free(data);
+    DVPRINT("DbgSetVar: expr is %s\n", expr.c_str());
 
-    DVPRINT("DbgSetVar: expr is %s\n", expr);
+    if (threads) {
+        auto tcommand = std::string{threads} + " set " + expr;
+        DVPRINT("DbgSetVar: arguments to apply are %s\n", tcommand.c_str());
 
-    // set the var to the val of the aif var
-    cmd = _MIGDBSet(expr, NULL);
-    SendMICommand(GDBMISession, cmd);
+        auto e = threadApply(tcommand.c_str());
+        if (e->ev_event == DBGEV_ERROR) {
+            return e;
+        } else {
+            FreeEvent(e);
+        }
+    } else {
+        // set the var to the val of the aif var
+        auto cmd = _MIGDBSet(expr.c_str(), NULL);
+        SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_SETVAR, MICommandResultErrorMessage(cmd));
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_SETVAR, MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
         MICommandFree(cmd);
-        return e;
     }
-    MICommandFree(cmd);
-    Free(expr);
 
     return NewEvent(DBGEV_OK);
 }
@@ -2573,40 +2583,36 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a) {
 ** Find type of variable.
 ** If isType is true, then we are finding type information for a type.
 */
-dbgevent_t *DbgGdbMI::getType(const char *var, bool isType) {
+dbgevent_t *DbgGdbMI::getType(const char *var, bool isType, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
-    char *type;
 
-    if (isType)
-        cmd = CLIPtype(var);
-    else
-        cmd = CLIWhatis(var);
+    if (threads && !isType) {
+        // threads could be looking at variables in different scopes
+        auto command = std::string{threads} + " whatis " + var;
+        return threadApply(command.c_str());
+    }
+
+    auto cmd = (isType ? CLIPtype(var) : CLIWhatis(var));
 
     SendMICommand(GDBMISession, cmd);
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_NOSYM, var);
+        auto e = NewErrorEvent(DBGERR_NOSYM, var);
         MICommandFree(cmd);
         return e;
     }
 
-    if (isType)
-        type = CLIGetPtypeInfo(cmd);
-    else
-        type = CLIGetWhatisInfo(cmd);
-
-    if (type == NULL) {
-        EVENT_ERROR(e, DBGERR_NOSYM, var);
+    auto type = (isType ? CLIGetPtypeInfo(cmd) : CLIGetWhatisInfo(cmd));
+    if (!type) {
+        auto e = NewErrorEvent(DBGERR_NOSYM, var);
         MICommandFree(cmd);
         return e;
     }
     MICommandFree(cmd);
 
-    e = NewEvent(DBGEV_TYPE);
+    auto e = NewEvent(DBGEV_TYPE);
     e->ev_type = strdup(type);
 
-    Free(type);
+    free(type);
 
     return e;
 }
@@ -4359,6 +4365,8 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
         return e;
     }
 
+    std::unique_ptr<MIEvent, decltype(&MIEventFree)> evtHolder(evt, &MIEventFree);
+
     switch (evt->type) {
         case MIEventTypeBreakpointHit:
             DVPRINT("MIEventTypeBreakpointHit\n");
@@ -4368,7 +4376,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                 bp = NewBP(evt->bkptno);
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
-
                 return e;
             }
 
@@ -4438,7 +4445,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                     break;
             }
 
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeWatchpointTrigger:
@@ -4512,7 +4518,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeWatchpointScope:
@@ -4534,7 +4539,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_bp = DupBP(bp);
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSuspended:
@@ -4554,7 +4558,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeFunctionFinished:
@@ -4574,7 +4577,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSteppingRange:
@@ -4593,7 +4595,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeSignal:
@@ -4610,12 +4611,10 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             }
 
             Status = DBGSTAT_STOPPED;
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeInferiorSignalExit:
             DVPRINT("MIEventTypeInferiorSignalExit\n");
-            MIEventFree(evt);
             return e;
 
         case MIEventTypeInferiorExit:
@@ -4624,7 +4623,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_exit = 0;
             Status = DBGSTAT_WAITING;
             Pid = 0;
-            MIEventFree(evt);
             return e;
 
         default:
@@ -4632,7 +4630,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e = ChangeEvent(e, DBGEV_ERROR);
             e->ev_errno = DBGERR_DEBUGGER;
             EventErrStr(e, "unknown event");
-            MIEventFree(evt);
             return e;
     }
     /* NOT REACHED */
@@ -4796,7 +4793,8 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 static void event_callback(MIEvent *e) {
     DVPRINT("*** Dbg %s, %s, e->type %d\n", __FILE__, __func__, e->type);
     AsynchEventWaiting = 1;
-    PendingEvent = e;
+    std::swap(PendingEvent, e);
+    if (e) MIEventFree(e);
 }
 
 static void console_callback(char *str) {

@@ -1,0 +1,91 @@
+#
+# lgdb_ftn_t1.rc script
+# 
+# Unpublished Proprietary Information.
+# This unpublished work is protected to trade secret, copyright and other laws.
+# Except as permitted by contract or express written permission of Cray Inc.,
+# no part of this work or its content may be used, reproduced or disclosed
+# in any form.
+#
+# $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+# $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+# $Rev: 1 $
+# $Author: kdavis $
+#
+
+# This source file tests lgdb's  compare command for source code in fortran.
+# All results should be FAILURE.
+
+maint set sync on
+
+# launch 2 applications in lgdb
+launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/fortran/ftn_bd_dt.x --debug
+
+break ftn_bd_dt.f90:64
+
+
+launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/fortran/ftn_cmp_diff.x --debug
+
+focus $b
+
+# Set a breakpoint at specified line number:
+break ftn_cmp_diff.f90:64
+
+focus $all
+
+# Run to breakpoint 1:
+continue
+
+
+# run compare commands on all datatypes
+
+#logical
+print tf
+compare $a{0}::tf=$b{0}::tf
+
+
+#integer
+print x
+compare $a{0}::x=$b{0}::x
+
+
+#character - dissabled for now as compare on string doesnt work in lgdb 
+#print l
+#compare $a{0}::l=$b{0}::l
+
+
+#real
+print e
+compare $a{0}::e=$b{0}::e
+
+
+#character*7 - dissabled for now as compare on string doesnt work in lgdb
+#print word
+#compare $a{0}::word=$b{0}::word
+
+
+#complex
+print r
+compare $a{0}::r=$b{0}::r
+
+
+#real*8 -> double float
+print df
+compare $a{0}::df=$b{0}::df
+
+
+#int array
+print m
+compare $a{0}::m=$b{0}::m
+
+
+#struct object data member of type character*4 - dissabled for now as compare on string doesnt work in lgdb
+#print myself.name
+#compare $a{0}::myself.name=$b{0}::myself.name
+
+
+#Exit lgdb
+q
+
+
+

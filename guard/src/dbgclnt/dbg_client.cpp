@@ -2786,8 +2786,8 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
 /*
 ** DBG_SETVAR: Set variable in program to new value.
 */
-rep_set_t *DbgSetVar(rec_set_t *set, char *var, AIF *val) {
-    auto request = CommandToSocProto(DBGCMD_SETVAR, var, val);
+rep_set_t *DbgSetVar(rec_set_t *set, const char *var, AIF *val) {
+    auto request = CommandToSocProto(DBGCMD_SETVAR, var, val, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
@@ -2798,9 +2798,9 @@ rep_set_t *DbgSetVar(rec_set_t *set, char *var, AIF *val) {
 ** DBG_GETTYPE: Get type of variable.
 ** If isType is true, then get type of type.
 */
-rep_set_t *DbgGetType(rec_set_t *set, char *var, int isType) {
-    auto request = CommandToSocProto(DBGCMD_GETTYPE, var, isType);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE);
+rep_set_t *DbgGetType(rec_set_t *set, const char *var, int isType) {
+    auto request = CommandToSocProto(DBGCMD_GETTYPE, var, isType, set->getThreads());
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE, DBGEV_THREADINFO);
     return result;
 }
 

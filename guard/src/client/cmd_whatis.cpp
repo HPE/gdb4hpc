@@ -70,16 +70,60 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // process type strings
     for (auto&& reply : rep_set) {
-        type_str = EVENT_TYPE(reply->rep_event);
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_TYPE) {
+            type_str = EVENT_TYPE(reply->rep_event);
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
-                            type_str);
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
+                                type_str);
+        } else if (ev == DBGEV_THREADINFO) {
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+                                reply->rep_event->ev_u.ev_u_string);
+        } else {
+            PrintOutError("unexpected result type.\n");
+        }
     }
 
     FreeRepSet(rep_set);
 
     return 1;
 }
+
+static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: ptype type\n");
+        return 0;
+    }
+
+    auto args = ArgsToString(argc-1, argv+1);
+
+    auto rep_set = DbgGetType(rec_set, args.c_str(), true);
+
+    // process error
+    ProcessErrorInRepSet(rep_set);
+
+    // process type strings
+    for (auto&& reply : rep_set) {
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_TYPE) {
+            auto type_str = EVENT_TYPE(reply->rep_event);
+
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
+                                type_str);
+        } else if (ev == DBGEV_THREADINFO) {
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+                                reply->rep_event->ev_u.ev_u_string);
+        } else {
+            PrintOutError("unexpected result type.\n");
+        }
+    }
+
+    FreeRepSet(rep_set);
+
+    return 1;
+}
+
 
 /*
 ** NOTE: This used to be info globals, but with the upgrade to libmi, I changed
@@ -164,6 +208,9 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
 void InitCmd_whatis(void) {
     AddCommand("whatis", NULL, proc_required, 0, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
+    AddCommand("ptype", NULL, proc_required, 0, cmd_ptype_cmd,
+               cmd_ptype_help, "Print definition of a type.");
+
 
     AddInfoCommand("locals", proc_required, 0,
                    class_info_subcmd_locals_cmd,

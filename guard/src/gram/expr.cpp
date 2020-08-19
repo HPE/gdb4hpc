@@ -1425,10 +1425,12 @@ static char *apply_var_op(expr_elt *ep, expr_t *e) {
 ** NOTE - This is a helper function for apply_op and should not be
 ** called directly.
 */
-static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diff) {
+static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
     int r1;
     int r2;
     AIF *ar = NULL;
+    AIF *localDiff = nullptr;
+    AIF **diff = (diffArg ? diffArg : &localDiff);
 
     DPRINT("In apply_op_aif\n");
 
@@ -1586,6 +1588,10 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diff) {
 
         default:
             return NULL;
+    }
+
+    if (localDiff) {
+        AIFFree(localDiff);
     }
 
     return ar;
@@ -2174,7 +2180,7 @@ static val_t* apply_binary_op_aif(expr_op op, AIFStream* a1, AIFStream* a2, bool
                               val_t **diff) {
     AIF* diffAIF = nullptr, **darg = (check_diff ? &diffAIF : nullptr);
     if (AIF* res = apply_op_aif(op, a1->joinAIF(), a2->joinAIF(), darg)) {
-        if (diffAIF)
+        if (diffAIF && diff)
             *diff = NewVal(lval_none, rval_aif, diffAIF);
         return NewVal(lval_none, rval_aif, res);
     } else {
@@ -2186,7 +2192,9 @@ static val_t* apply_binary_op_aif(expr_op op, AIFStream* a1, AIFStream* a2, bool
 // if check_diff is true, also return the delta array via \a diff
 static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_set, bool check_diff,
                               val_t **diff) {
-    *diff = nullptr;
+    if (diff) {
+        *diff = nullptr;
+    }
 
     // First check to make sure the supplied vals are safe to operate on
 
@@ -2352,7 +2360,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         retVal = NewVal(lval_none, rval_reply, newRepSet.release());
     } 
 
-    if (diffRepSet) {
+    if (diff && diffRepSet) {
         *diff = NewVal(lval_none, rval_reply, diffRepSet);
     }
         

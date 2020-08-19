@@ -1,0 +1,31 @@
+maint set sync on
+
+launch $one{10} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_bt.x
+launch $two{5} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_bt.x
+
+break merge
+
+# test on a single process
+focus $one
+
+c
+bt
+maint sleep 1
+bt 3
+
+# now another single process
+focus $two
+
+c
+bt
+maint sleep 1
+bt 5
+
+# now both
+focus $all
+
+bt
+maint sleep 1
+bt 1
+
+q

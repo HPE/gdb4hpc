@@ -102,17 +102,34 @@
 %endif
 %if 0%{?sle_version} == 150000
 %global dist .sles15
+%global OS_HW_TAG 7.0,7.1
+%global OS_WB_TAG sles15 
 %endif
 %if 0%{?sle_version} == 150100
 %global dist .sles15sp1
+%global OS_HW_TAG 7.0,7.1
+%global OS_WB_TAG sles15sp1
 %endif
 %endif
 
+%if %{_arch} == aarch64
+%global SYS_HW_TAG AARCH64
+%global SYS_WB_TAG AARCH64
+%endif
+%if %{_arch} == x86_64
+%global SYS_HW_TAG HARDWARE
+%global SYS_WB_TAG WHITEBOX
+%endif
+%if 0%{?rhel} == 8
+%global OS_HW_TAG el8
+%global OS_WB_TAG el8
+%endif
+
 Summary:    Cray gdb4hpc parallel debugger
-Name:       %{cray_name}
-Version:    %{pkgversion}
+Name:       %{cray_name}-%{pkgversion}
 # BUILD_METADATA is set by Jenkins
-Release:    %(echo ${BUILD_METADATA})%{dist}
+Version:    %(echo ${BUILD_METADATA})
+Release:    1%{dist}
 Prefix:     %{cray_prefix}
 License:    %{copyright}
 Vendor:     Cray Inc.
@@ -130,12 +147,12 @@ Source5:    %{yaml_template}
 Cray gdb4hpc %{pkgversion}
 gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 2008 applications written in C/C++/Fortran.
 
-%package -n %{cray_name}%{pkgversion_separator}tests
+%package -n %{cray_name}-tests-%{pkgversion}
 Summary:    Cray gdb4hpc parallel debugger tests
 Group:      Development/Tools/Debuggers
-Provides:   %{cray_name}%{pkgversion_separator}tests = %{pkgversion}
+Provides:   %{cray_name}-tests = %{pkgversion}
 Requires:   %{cray_name} = %{pkgversion}
-%description -n %{cray_name}%{pkgversion_separator}tests
+%description -n %{cray_name}-tests-%{pkgversion}
 Tests for Cray gdb4hpc parallel debugger
 
 %prep
@@ -143,7 +160,7 @@ Tests for Cray gdb4hpc parallel debugger
 %setup -q -n %{name} -c -T
 %build
 # external build
-%{__sed} 's|<RELEASE_DATE>|%{release_date}|g;s|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<ARCH>|%{_target_cpu}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_info_name}
+%{__sed} 's|<RELEASE_DATE>|%{release_date}|g;s|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<ARCH>|%{_target_cpu}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_info_name}
 %{__cp} -a %{SOURCE3} ${RPM_BUILD_DIR}/%{attributions_name}
 
 %install
@@ -318,7 +335,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -D ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion} ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
 # yaml file
 %{__mkdir} -p %{_rpmdir}/%{_arch}
-%{__sed} 's|<PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_product}-%{pkgversion}-%{release}.%{_arch}.rpm.yaml
+%{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 
 # tests
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests
@@ -467,9 +484,9 @@ Tests for Cray gdb4hpc parallel debugger
 
 # yaml file
 # since there is no modulefile in the tests rpm, remove related sections from the template
-%global start_rmLine%(sed -n /section-3/= %{SOURCE5})
+%global start_rmLine %(sed -n /section-3/= %{SOURCE5})
 %global end_rmLine %(sed -n /admin-pe/= %{SOURCE5} | tail -1)
-%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}%{pkgversion_separator}tests|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;'/admin-pe'/d' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}%{pkgversion_separator}tests-%{pkgversion}-%{release}.%{_arch}.rpm.yaml
+%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}-tests|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;'/admin-pe'/d' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-tests-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 
 %post
 # Add Shasta configuration files for PE content projection
@@ -700,7 +717,7 @@ fi
 %attr(755, root, root) %{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
 %attr(644, root, root) %{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 
-%files -n %{cray_name}%{pkgversion_separator}tests
+%files -n %{cray_name}-tests-%{pkgversion}
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c

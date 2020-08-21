@@ -731,7 +731,14 @@ void FreeProcSet(dbgprocset_t *s) {
     }
 
     RemoveFromList(ProcSets, (void *)s);
-
+    if (auto sym = FindSym(s->s_name)) {
+        RemoveSym(sym);
+    }
+    if (auto val = FindVal(s->s_name)) {
+        // Fixme - this can leak the value
+        RemoveVal(val);
+    }
+        
     _free_procset(s);
 }
 

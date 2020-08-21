@@ -305,6 +305,7 @@ void HashRemove(htable_t *htab, hentry_t *item) {
     *hp = (*hp)->h_next;
 
     Free(item->h_key);
+    Free(item);
     --(htab->count);
 }
 

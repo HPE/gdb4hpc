@@ -1028,3 +1028,7 @@ void RemoveVal(hentry_t *sym) {
         HashRemove(_val_table, hval);
     }
 }
+
+hentry_t* FindVal(const char* name) {
+    return HashSearch(_val_table, name);
+}

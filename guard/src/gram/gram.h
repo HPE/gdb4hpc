@@ -119,6 +119,7 @@ extern val_t *CopyVal(val_t *);
 extern val_t *GetVal(hentry_t *);
 extern int AssignVal(val_t *, val_t *, rec_set_t *);
 extern void RemoveVal(hentry_t *);
+hentry_t* FindVal(const char* name);
 
 /*
 ** cmdtoken.h

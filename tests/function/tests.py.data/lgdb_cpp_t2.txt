@@ -56,8 +56,8 @@ b{0..2}: -2147483648
 a{0..2}: 236
 b{0..2}: 236
 {0}: Comparison is true.
-a{0..2}: -20
-b{0..2}: -20
+a{0..2}: \0xEC
+b{0..2}: \0xEC
 {0}: Comparison is true.
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

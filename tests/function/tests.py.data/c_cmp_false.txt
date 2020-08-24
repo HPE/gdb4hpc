@@ -14,8 +14,8 @@ b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_cmp_diff.c:242
 %-
 a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:242
 %>
-a{0..2}: -2
-b{0..2}: -3
+a{0..2}: \0xFE
+b{0..2}: \0xFD
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1

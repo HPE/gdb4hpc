@@ -278,3 +278,7 @@ class cpp_thread_funcs(Test):
 class cpp_thread_focus(Test):
     def test(self):
         runTest(self)
+
+class cpp_char_arrays(Test):
+    def test(self):
+        runTest(self)

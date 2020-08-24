@@ -5,7 +5,7 @@ check_PROGRAMS = bd_dt/c/c_time.x bd_dt/c/c_type_test.x bd_dt/c/c_cmp_diff.x \
    bd_dt/C++/cpp_bd_test.x bd_dt/C++/cpp_cmp_diff.x bd_dt/C++/cpp_ds_test1.x \
    bd_dt/C++/cpp_arrays.x bd_dt/C++/cpp_decomp.x bd_dt/C++/cpp_decomp2.x \
    bd_dt/C++/cpp_threads.x bd_dt/C++/cpp_parallel_threads.x \
-   bd_dt/C++/cpp_bt.x bd_dt/C++/cpp_bt_stress.x \
+   bd_dt/C++/cpp_bt.x bd_dt/C++/cpp_bt_stress.x bd_dt/C++/cpp_char_arrays.x \
    bd_dt/fortran/ftn_bd_dt.x bd_dt/fortran/ftn_cmp_diff.x \
    bd_dt/fortran/ftn_arrays.x bd_dt/fortran/ftn_decomp.x
 
@@ -31,6 +31,7 @@ bd_dt_C___cpp_threads_x_SOURCES = bd_dt/C++/cpp_threads.cpp
 bd_dt_C___cpp_parallel_threads_x_SOURCES = bd_dt/C++/cpp_parallel_threads.cpp
 bd_dt_C___cpp_bt_x_SOURCES = bd_dt/C++/cpp_bt.cpp
 bd_dt_C___cpp_bt_stress_x_SOURCES = bd_dt/C++/cpp_bt_stress.cpp
+bd_dt_C___cpp_char_arrays_x_SOURCES = bd_dt/C++/cpp_char_arrays.cpp
 
 
 bd_dt_fortran_ftn_bd_dt_x_SOURCES = bd_dt/fortran/ftn_bd_dt.f90

@@ -14,8 +14,8 @@ a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:242
 %-
 b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:242
 %>
-a{0..2}: -2
-b{0..2}: -2
+a{0..2}: \0xFE
+b{0..2}: \0xFE
 {0}: Comparison is true.
 a{0..2}: 3
 b{0..2}: 3

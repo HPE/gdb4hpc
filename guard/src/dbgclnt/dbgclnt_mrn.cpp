@@ -320,6 +320,60 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
                 goto attach_error;
             }
         } break;
+        case CTI_WLM_ALPS: {
+            uint64_t apid;
+            char *eptr;
+
+            // convert the string to an apid
+            errno = 0;
+            apid = (uint64_t)strtoull(app_ident, &eptr, 10);
+
+            // check for error
+            if ((errno == ERANGE && (apid == ULLONG_MAX)) ||
+                (errno != 0 && apid == 0)) {
+                PrintOutError("Invalid alps apid argument.\n");
+                goto attach_error;
+            }
+
+            // check for invalid input
+            if (eptr == app_ident) {
+                PrintOutError("Invalid alps apid argument.\n");
+                goto attach_error;
+            }
+
+            // Register the alps apid with the tool interface
+            cti_alps_ops_t *ops = NULL;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_ALPS) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                goto attach_error;
+            }
+            if ((di->d_appid = ops->registerApid(apid)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register alps apid with CTI.\n");
+                goto attach_error;
+            }
+        }break;
+        case CTI_WLM_PALS: {
+            // check for invalid input
+            if (app_ident == nullptr) {
+                PrintOutError("Invalid pals apid argument.\n");
+                goto attach_error;
+            }
+
+            // Register the pals apid with the tool interface
+            cti_pals_ops_t *ops = NULL;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_PALS) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                goto attach_error;
+            }
+            if ((di->d_appid = ops->registerApid(app_ident)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register pals apid with CTI.\n");
+                goto attach_error;
+            }
+        }break;
         default:
             PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
             goto attach_error;
@@ -1185,7 +1239,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     // Add the pretty printers
     /* JLV 5/14/20 Commenting this out because the server side can find the printers file locally.
        Since this is just for the local install, it's better keep fewer deltas between a dev system
-       and an installed one.   Keeping the code in place though, because this area is ticklish and 
+       and an installed one.   Keeping the code in place though, because this area is ticklish and
        we may someday just need to push the file in every system.
 
     if (getenv("GDB4HPC_INSTALL_DIR")) {
@@ -1202,7 +1256,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
             }
         }
     }
-    */  
+    */
 
     DPRINT("MRNet network initialized.\n");
     DPRINT("Launching debug servers onto compute nodes.\n");

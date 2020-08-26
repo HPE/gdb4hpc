@@ -1340,7 +1340,9 @@ int_to_float_cmp:
 				// string of the result
 				if (success == 0)
 				{
-					*diff_f = strdup(AIF_CHARACTER_TYPE());
+					// using AIF_CHARACTER_TYPE will result in the diff being printed
+					// as a character, so format as character-sized signed int
+					*diff_f = strdup(AIF_INTEGER_TYPE(1, sizeof(char)));
 				} else
 				{
 					// Ensure everything is nulled

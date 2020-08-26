@@ -530,27 +530,6 @@ BoolToAIF(int b)
 }
 
 /*
- * Convert a character to AIF.
- */
-AIF *
-CharacterToAIF(char c)
-{
-	AIF *	a;
-
-	a = NewAIF(0, sizeof(char));
-
-	AIF_FORMAT(a) = strdup(AIF_CHARACTER_TYPE());
-
-	if ( _char_to_aif(&AIF_DATA(a), c) < 0 )
-	{
-		AIFFree(a);
-		return (AIF *)NULL;
-	}
-
-	return a;
-}
-
-/*
  * Convert a char to AIF.
  */
 AIF *
@@ -560,7 +539,7 @@ CharToAIF(char i)
 
 	a = NewAIF(0, sizeof(char));
 
-	AIF_FORMAT(a) = strdup(AIF_INTEGER_TYPE(1, sizeof(char)));
+	AIF_FORMAT(a) = strdup(AIF_CHARACTER_TYPE());
 
 	if ( _longest_to_aif(&AIF_DATA(a), sizeof(char), (AIFLONGEST)i) < 0 )
 	{
@@ -2464,9 +2443,9 @@ _aif_char_to_str(int depth, char **fds, char **data)
 		return -1;
 
 	if ( c >= ' ' && c <= '~' )
-		snprintf(buf, BUFSIZ-1, "%d '%c'", c, c);
+		snprintf(buf, BUFSIZ-1, "%c", c);
 	else
-		snprintf(buf, BUFSIZ-1, "%d '\\%03o'", c & 0xff, c & 0xff);
+		snprintf(buf, BUFSIZ-1, "\\0x%02X", c & 0xff);
 
 	_str_cat(buf);
 	*data += sizeof(char);
@@ -3350,31 +3329,50 @@ _aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data)
 	int i;
 	int nel;
 	char *fmt;
+	int is_char_array = FDSType(ix->i_btype) == AIF_CHARACTER;
 
 	if ( rank == ix->i_rank )
 		return;
 
 	nel = ix->i_max[rank] - ix->i_min[rank] + 1;
 
-	_str_cat("[");
-
-	for ( i = 0 ; i < nel ; i++ )
-	{
-		if ( rank == ix->i_rank - 1 )
-		{
-			fmt = ix->i_btype;
-			_aif_to_str(depth, &fmt, data);
-		}
-		else
-		{
-			_aif_array_to_str_unflattened(rank+1, ix, depth, data);
-		}
-
-		if ( i < nel - 1 )
-			_str_cat(",");
+	if (is_char_array && rank == ix->i_rank - 1) {
+		_str_cat("\"");
+	} else {
+		_str_cat("[");
 	}
 
-	_str_cat("]");
+	for (i = 0; i < nel; i++) {
+		if (rank == ix->i_rank - 1) {
+			// hitting a null terminator in a char array means we're done with the string
+			if (is_char_array && rank == ix->i_rank - 1) {
+				char null_term_test;
+				_aif_to_char(*data, &null_term_test);
+				if (null_term_test == '\0') {
+					// advance data pointer to next item and move to it in the loop
+					*data += (nel - i) * sizeof(char);
+					break;
+				}
+			}
+			fmt = ix->i_btype;
+			_aif_to_str(depth, &fmt, data);
+		} else {
+			_aif_array_to_str_unflattened(rank + 1, ix, depth, data);
+		}
+
+		// print commas between elements, but don't break up char arrays (strings)
+		if (i < nel - 1) {
+			if (!is_char_array || rank != ix->i_rank - 1) {
+				_str_cat(",");
+			}
+		}
+	}
+
+	if (is_char_array && rank == ix->i_rank - 1) {
+		_str_cat("\"");
+	} else {
+		_str_cat("]");
+	}
 }
 
 /* 

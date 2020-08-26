@@ -84,8 +84,8 @@ b{0..2}: 237
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1
-a{0..2}: -20
-b{0..2}: -19
+a{0..2}: \0xEC
+b{0..2}: \0xED
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1

@@ -19,6 +19,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include "dbgevent.h"
 #include "dbgfn.h"
 #include "dbgsrv_defs.h"
@@ -26,9 +31,6 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
-#include <vector>
-#include <string>
-#include <sstream>
 
 /* The following is used to turn on debug printing for the CreateSimpleAIF func.
 ** It generates a ton of output for large arrays, which is why we want to
@@ -3735,11 +3737,14 @@ private:
     AIF* createSimpleAIF();
     AIF* makeEmptyArrayAIF(int i, AIF* ac);
     void addArrayElement(int i, AIF* ac);
+    bool pushElementsUp(int depth);
 
     void addElement();
     void openBracket(char bracket);
     void closeBracket(char bracket);
     void error(const std::string& message);
+
+    int elementToCharcode(); // if the current element is a character, returns its ascii code
     
     char* m_type_str;     // type information from GetArrayBaseType
     int m_type_len;
@@ -3754,6 +3759,8 @@ private:
 
     int m_depth;                // depth of current nesting (i.e. number of unclosed brackets)
     bool m_isC;                 // true if the data-type is a C/C++ array
+    bool m_inCharArray;         // true if the data-type is a C/C++ char array and the parser is inside of it
+    bool m_escapeNext;          // true if we're reading a char array and just read the character '\'
     bool m_isFortran;           // true if the data-type is a fortran array
     bool m_hasError;            // true if the parser encountered a problem
     bool m_isFragment;          // true if the last block ended in the middle of an array
@@ -3766,67 +3773,92 @@ private:
 // text of the result.
 // type_str, type_len, type_struct, type_func, and type_id collectively define the
 // data type, while shape defined the dimension and indexing of the array.
-MIArrayToAIFParser::MIArrayToAIFParser(char* type_str, int type_len,
+MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
                                        struct_info_t *type_struct,
-                                       func_info_t *type_func,
-                                       int type_id, arrayDimension_t* shape)
-    : m_type_str(type_str), m_type_len(type_len), m_type_struct(type_struct),
-      m_type_func(type_func), m_type_id(type_id), m_shape(shape ? dupArrayDimension(shape) : nullptr),
-      m_dim(shape ? shape->dim : 0), m_mins(), m_maxs(),
-      m_depth(0), m_isC(false), m_isFortran(false),
-      m_hasError(false), m_isFragment(false), m_abuild(m_dim), m_idcs(m_dim, 0)
-{
-}
+                                       func_info_t *type_func, int type_id,
+                                       arrayDimension_t *shape)
+    : m_type_str(type_str),
+      m_type_len(type_len),
+      m_type_struct(type_struct),
+      m_type_func(type_func),
+      m_type_id(type_id),
+      m_shape(shape ? dupArrayDimension(shape) : nullptr),
+      m_dim(shape ? shape->dim : 0),
+      m_mins(),
+      m_maxs(),
+      m_depth(0),
+      m_isC(false),
+      m_inCharArray(false),
+      m_escapeNext(false),
+      m_isFortran(false),
+      m_hasError(false),
+      m_isFragment(false),
+      m_abuild(m_dim),
+      m_idcs(m_dim, 0) {}
 
 MIArrayToAIFParser::~MIArrayToAIFParser() {
-    if (m_shape)
-        freeArrayDimension(m_shape);
+    if (m_shape) freeArrayDimension(m_shape);
     delete m_type_struct;
     delete m_type_func;
 }
 
-// Translate the MI result text into AIF format.   \a str may contain either the
-// data result, or a subset of the result.   In the case of a partitioned array
-// it will concatenate adjacent array pieces.   That is "[0,1,2]" "[3,4,5]" will be
-// understood as "[0,1,2,3,4,5]" Note that there is no comma between those arrays.
-void MIArrayToAIFParser::parseSome(const char* str) {
+// Translate the MI result text into AIF format.
+// \a str may contain either the data result, or a subset of the result.
+// In the case of a partitioned array it will concatenate adjacent array pieces.
+// That is "[0,1,2]" "[3,4,5]" will be understood as "[0,1,2,3,4,5]"
+// Note that there is no comma between those arrays.
+//
+// For char arrays, the gdb backend sends back data in the form of
+// "string here", with no brackets.
+void MIArrayToAIFParser::parseSome(const char *str) {
     DVPRINT("In MIArrayToAIFParser::parseSome %s\n", str);
 
-    if (m_hasError)
-        return;
+    if (m_hasError) return;
 
     try {
         if (!m_shape) {
             error("no array shape is specified\n");
         }
-        
-        for (const char* p = str; *p; ++p) {
-            if (*p == '(' || *p == '{') {
+
+        for (const char *p = str; *p; ++p) {
+            if ((*p == '(' || *p == '{' || *p == '"') && !m_inCharArray) {
                 openBracket(*p);
             } else if (m_isFragment && !isspace(*p)) {
                 error("insufficient data items in direction");
-            } else if (*p == ')' || *p == '}') {
+            } else if (*p == ')' || *p == '}' || *p == '"') {
                 closeBracket(*p);
-            } else if (m_depth == m_dim && *p == ',') {
+            } else if (m_depth == m_dim && *p == ',' && !m_inCharArray) {
                 addElement();
-            } else if (!isspace(*p) || !m_element.empty()) {
+            } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
                 m_element += *p;
+
+                m_escapeNext = false;
+
+                if (*p == '\\' && m_inCharArray) {
+                    m_escapeNext = true;
+                } else if (m_inCharArray) {
+                    addElement();
+                }
             }
         }
-    } catch (Error&) {
+    } catch (Error &) {
         m_hasError = true;
     }
 
-    DVPRINT("leaving MIArrayToAIFParser::parseSome m_hasError = %s\n", m_hasError ? "true" : "false");
+    DVPRINT("leaving MIArrayToAIFParser::parseSome m_hasError = %s\n",
+            m_hasError ? "true" : "false");
 }
 
-// Handle a character that can be the beginniong of an array: '(' or '{' 
-void MIArrayToAIFParser::openBracket(char bracket)
-{
+// Handle a character that can be the beginning of an array: '(' or '{'
+// In a char array, '"' also marks the beginning of an array.
+void MIArrayToAIFParser::openBracket(char bracket) {
     if (bracket == '{' && !m_isFortran) {
         m_isC = true;
     } else if (bracket == '(' && !m_isC) {
         m_isFortran = true;
+    } else if (bracket == '"' && !m_isFortran) {
+        m_isC = true;
+        m_inCharArray = true;
     } else {
         m_element += bracket;
         return;
@@ -3839,76 +3871,103 @@ void MIArrayToAIFParser::openBracket(char bracket)
     }
 
     if (m_mins.empty()) {
-        // get the min and max elements the first time through.   Take care around
-        // arrayDimension_t it is a bit of a goofy goober and used start-1 indexing, so
-        // i=1, j=2, k=3, etc.   Also, the parser always orders from slowest changing to
-        // fastest changing, so note the order reversal we do here for fortran.  (so we
-        // don't need to mess with it again).   Actually - the dimension ordering in
-        // arrayDimension_t is also perversely reversed, so reverse the logic again.
-        for (int i=0; i<m_dim; ++i) {
-            int d = (m_isFortran ? i+1 : m_dim-i);
-            m_mins.push_back(getArrayDimensionRangeMin(m_shape,d));
-            m_maxs.push_back(getArrayDimensionRangeMax(m_shape,d));
-            
+        // get the min and max elements the first time through.
+        // Take care around arrayDimension_t it is a bit of a goofy goober and
+        // used start-1 indexing, so i=1, j=2, k=3, etc. Also, the parser always
+        // orders from slowest changing to fastest changing, so note the order
+        // reversal we do here for fortran.  (so we don't need to mess with it
+        // again). Actually - the dimension ordering in arrayDimension_t is also
+        // perversely reversed, so reverse the logic again.
+        for (int i = 0; i < m_dim; ++i) {
+            int d = (m_isFortran ? i + 1 : m_dim - i);
+            m_mins.push_back(getArrayDimensionRangeMin(m_shape, d));
+            m_maxs.push_back(getArrayDimensionRangeMax(m_shape, d));
+
             DVPRINT("range in %d [%d,%d]\n", i, m_mins.back(), m_maxs.back());
         }
     }
 
-    if (m_depth < m_dim && !m_isFragment)
-        m_idcs[m_depth] = m_mins[m_depth];
+    if (m_depth < m_dim && !m_isFragment) m_idcs[m_depth] = m_mins[m_depth];
     ++m_depth;
     m_isFragment = false;
     m_element.clear();
 }
 
 // Handle the potential end of an array
-void MIArrayToAIFParser::closeBracket(char bracket)
-{
-    if ((bracket == '}' && !m_isC) ||
-        (bracket == ')' && !m_isFortran)) {
-        // the brackets don't match the language - treat like an ordinary character
+void MIArrayToAIFParser::closeBracket(char bracket) {
+    if (m_inCharArray && bracket != '"') {
+        // read a '}' or ')', but this is a char array, so those characters
+        // are part of the array and are not closing it
+        m_element += bracket;
+        addElement();
+    } else if (m_inCharArray && m_escapeNext) {
+        // read a '"', but it came after a '\', so it's part of the char array.
+        m_element += bracket;
+        m_escapeNext = false;
+        addElement();
+    } else if ((bracket == '}' && !m_isC) || (bracket == ')' && !m_isFortran)) {
+        // the brackets don't match the language - treat like an ordinary
+        // character
         m_element += bracket;
     } else if (m_depth <= 0) {
         error("found a closing bracket with no matching open");
     } else if (m_depth > m_dim) {
-        // this can happen with an array of structs or classes.   Pass into element
-        // to give the element parser a crack at it.   We still need to update
-        // the depth so we know when we've finished gettting the element.   We presume
-        // the element has balanced brackets.
+        // this can happen with an array of structs or classes.
+        // Pass into element to give the element parser a crack at it.
+        // We still need to update the depth so we know when we've finished
+        // gettting the element.
+        // We presume the element has balanced brackets.
         m_element += bracket;
         --m_depth;
     } else {
-        if (!m_element.empty())
-            addElement();
+        if (!m_element.empty()) addElement();
+
+        if (m_inCharArray && m_abuild[m_depth - 1] != nullptr)
+            pushElementsUp(m_depth - 1);
 
         --m_depth;
 
-        if (m_idcs[m_depth] != m_maxs[m_depth] + 1) {
+        if (m_idcs[m_depth] != m_maxs[m_depth] + 1 && !m_inCharArray) {
             // with data chunking, we append adjacent arrays
-            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}.    If the next
-            // non-space character is *not* an open bracket, the parsing will
-            // generate a delayed error.
+            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}.
+            // If the next non-space character is *not* an open bracket, the
+            // parsing will generate a delayed error.
+
+            // we don't set this flag in a character array because it is common
+            // for a string to be allocated say, 16 bytes but have its null
+            // terminator on byte 8. the output from the gdb backend doesn't
+            // include bytes after a null terminator, so the char array might
+            // look shorter than its declared size.
             m_isFragment = true;
         }
+
+        m_inCharArray = false;
     }
 }
 
 // We have parsed through an array element, create the AIF and add it to the
 // AIF structure.
-void MIArrayToAIFParser::addElement()
-{
+void MIArrayToAIFParser::addElement() {
     if (m_depth != m_dim) {
-        error("trying to add an element at the wrong depth");
+        error(
+            "trying to add an element at the wrong depth. "
+            "(depth:" +
+            std::to_string(m_depth) + " != dim:" + std::to_string(m_dim) + ")");
         return;
     }
 
-    AIF* aif = createSimpleAIF();
-    if (!aif)
-        error("could not create element for " + m_element);
+    AIF *aif = createSimpleAIF();
+    if (!aif) error("could not create element for " + m_element);
+
+    // even for debug output, these can be a little much...
+    // DVPRINT("addElement: m_element: %s\n", m_element.c_str());
+    // DVPRINT("addElement: depth:%d aif:%s(%d):%s\n", m_depth - 1,
+    //         AIF_FORMAT(aif) ? AIF_FORMAT(aif) : "(null)", AIF_LEN(aif),
+    //         AIF_DATA(aif) ? AIF_DATA(aif) : "(null)");
 
     m_element.clear();
 
-    addArrayElement(m_depth-1, aif);
+    addArrayElement(m_depth - 1, aif);
     AIFFree(aif);
 }
 
@@ -3928,15 +3987,15 @@ AIF* MIArrayToAIFParser::makeEmptyArrayAIF(int i, AIF* ac)
 }
 
 // Add element \a ac to the current location in direction \a i.
-void MIArrayToAIFParser::addArrayElement(int i, AIF* ac)
-{
+void MIArrayToAIFParser::addArrayElement(int i, AIF *ac) {
     if (m_idcs[i] > m_maxs[i]) {
         error("too many elements returned for direction");
         return;
     }
 
     if (m_idcs[i] == m_mins[i]) {
-        m_abuild[i] = makeEmptyArrayAIF(i,ac);
+        DVPRINT("addArrayElement: making empty array at %d\n", i);
+        m_abuild[i] = makeEmptyArrayAIF(i, ac);
     }
 
     if (m_isFortran) {
@@ -3945,16 +4004,67 @@ void MIArrayToAIFParser::addArrayElement(int i, AIF* ac)
         AIFAddArrayElement(m_abuild[i], m_idcs[i]++, ac);
     }
 
-    if (i && m_idcs[i] == m_maxs[i]+1) {
-        addArrayElement(i-1, m_abuild[i]);
-        AIFFree(m_abuild[i]);
-        m_abuild[i] = nullptr;
+    if (i && (m_idcs[i] == m_maxs[i] + 1)) {
+        pushElementsUp(i);
     }
 }
 
-// Create a single element for the AIR result array
-AIF* MIArrayToAIFParser::createSimpleAIF() {
-    return CreateSimpleAIF(m_type_id, const_cast<char*>(m_element.c_str()),
+// Move array elements up into outer level array
+bool MIArrayToAIFParser::pushElementsUp(int index) {
+    DVPRINT("pushElementsUp: pushing into level above %d.\n", index);
+    if (index > 0) {
+        addArrayElement(index - 1, m_abuild[index]);
+        AIFFree(m_abuild[index]);
+        m_abuild[index] = nullptr;
+        return true;
+    } else {
+        DVPRINT("pushElementsUp: can't push up any more than 0.\n");
+        return false;
+    }
+}
+
+// used in char arrays. converts current element to an integer character code.
+int MIArrayToAIFParser::elementToCharcode() {
+    const std::unordered_map<std::string, char> escapedMap = {
+        {"\\0", '\0'}, {"\\a", '\a'}, {"\\b", '\b'}, {"\\t", '\t'},
+        {"\\n", '\n'}, {"\\v", '\v'}, {"\\f", '\f'}, {"\\r", '\r'}};
+
+    if (!m_inCharArray) {
+        error("elementToCharcode called when m_inCharArray is false.");
+    }
+
+    // handle escaped characters
+    if (m_element[0] == '\\' && m_element.size() >= 2) {
+        if (escapedMap.find(m_element) != escapedMap.end()) {
+            return (int)escapedMap.at(m_element);
+        } else {
+            // not a special invisible character, just return what's there
+            // (for example double quotes go here)
+            return (int)m_element[1];
+        }
+    } else {
+        // not an escaped character at all
+        return (int)m_element[0];
+    }
+}
+
+// Create a single element for the AIF result array
+AIF *MIArrayToAIFParser::createSimpleAIF() {
+    std::string charCodeString;  // used in char arrays
+    const char *elementPtr = m_element.c_str();
+
+    if (m_inCharArray) {
+        // CreateSimpleAIF expects a string representing a number as the second
+        // argument. If we're dealing with a character array, the elements won't
+        // be strings representing numbers, they will be single characters.
+        // So we convert the characters to their ascii codes and let the front
+        // end change them back into readable characters.
+
+        charCodeString = std::to_string(elementToCharcode());
+        elementPtr = charCodeString.c_str();
+    }
+
+    return CreateSimpleAIF(m_type_id, const_cast<char *>(elementPtr),
                            m_type_str, m_type_len, m_type_struct, m_type_func);
 }
 

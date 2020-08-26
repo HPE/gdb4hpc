@@ -404,7 +404,6 @@ extern AIF *		FtnArrayToAIF(int, int *, int *, char *, int, char *);
 extern AIF *		AsciiToAIF(char *, char *);
 extern AIF * 		BoolToAIF(int);
 extern AIF *		CharToAIF(char);
-extern AIF *		CharacterToAIF(char);
 extern AIF *		CopyAIF(AIF *);
 extern AIF *		DoubleToAIF(double);
 extern AIF *		EmptyArrayToAIF(int, int, AIF *);

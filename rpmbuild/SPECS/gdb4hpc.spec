@@ -12,12 +12,12 @@
 
 # Path definitions
 %global cray_prefix /opt/cray/pe
-%global test_prefix /opt/cray/tests
 
 #FIXME: This should be relocatable
 %global external_build_dir %{cray_prefix}/%{cray_product}/%{pkgversion}
 
 %global tests_source_dir %{_topdir}/../tests
+%global demo_source_dir %{_topdir}/../demo
 
 # modulefile definitions
 %global modulefile_name %{cray_name}
@@ -82,24 +82,6 @@
 
 # Dist tags for SuSE need to be manually set
 %if 0%{?suse_version}
-%if 0%{?suse_version} == 1315
-%global dist .sles12
-%endif
-%if 0%{?sle_version} == 120000
-%global dist .sles12
-%endif
-%if 0%{?sle_version} == 120100
-%global dist .sles12sp1
-%endif
-%if 0%{?sle_version} == 120200
-%global dist .sles12sp2
-%endif
-%if 0%{?sle_version} == 120300
-%global dist .sles12sp3
-%endif
-%if 0%{?sle_version} == 120400
-%global dist .sles12sp4
-%endif
 %if 0%{?sle_version} == 150000
 %global dist .sles15
 %global OS_HW_TAG 7.0,7.1
@@ -325,6 +307,9 @@ Tests for Cray gdb4hpc parallel debugger
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
+# demo files
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demo
+%{__cp} -a %{demo_source_dir}/* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demo
 # lmod modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}
 %{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
@@ -582,6 +567,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
+%dir %{prefix}/%{cray_product}/%{pkgversion}/demo
 %ifnarch aarch64
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
@@ -605,6 +591,8 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demo/*.cpp
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demo/*.h
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/uda-plugin-cray-upc.so

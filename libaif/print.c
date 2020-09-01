@@ -44,6 +44,7 @@ int
 _aif_print(FILE *fp, int depth, char **fds, char **data)
 {
         char * tmp;
+		int r;
 
         _fds_resolve(fds);
 
@@ -71,7 +72,16 @@ _aif_print(FILE *fp, int depth, char **fds, char **data)
                 return _aif_print_pointer(fp, depth, fds, data);
                 
         case AIF_GENERIC_POINTER:
-                return _aif_print_generic_pointer(fp, depth, fds, data);
+                r = _aif_print_generic_pointer(fp, depth, fds, data);
+				if (r != 0) return r;
+				
+				// char * pointers will have a string leftover on the end
+				if (FDSType(*fds) == AIF_STRING) {
+					fprintf(fp, " ");
+					return _aif_print_string(fp, depth, fds, data);
+				} else {
+					return r;
+				}
 
         case AIF_REGION:
                 return _aif_print_region(fp, depth, fds, data);

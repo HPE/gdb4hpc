@@ -378,6 +378,28 @@ GenericPointerToAIF(AIF *addr, char *ptr_type)
 }
 
 /*
+** special case of GenericPointerToAIF where we are dealing with a char * and
+** want to include the string at the address in the AIF
+*/
+AIF *
+CharPointerToAIF(AIF *addr, char *ptr_type, char *cstring, int str_length) {
+	AIF * a;
+	int	ptr_length = strlen(ptr_type)+1;
+
+	ResetAIFError();
+
+	a = NewAIF(0, ptr_length+AIF_LEN(addr)+str_length);
+	
+	AIF_FORMAT(a) = strdup(AIF_CHAR_POINTER_TYPE(ptr_length, AIF_FORMAT(addr), str_length));
+
+	strncpy(AIF_DATA(a), ptr_type, ptr_length);
+	memcpy(AIF_DATA(a)+ptr_length, AIF_DATA(addr), AIF_LEN(addr));
+	strncpy(AIF_DATA(a)+ptr_length+AIF_LEN(addr), cstring, str_length);
+
+	return a;
+}
+
+/*
  * Convert a generic function (defined as a named prototype with a variable 
  * number of arguments, and having an address value) to AIF
  *

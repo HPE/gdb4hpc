@@ -106,9 +106,11 @@ typedef double AIFDOUBLEST;
 #define AIF_FTN_LOGICAL	 		23
 #define AIF_FTN_CHARACTER		24
 #define AIF_FTN_ARRAY				25
+// for handling c strings nicely
+#define AIF_CHAR_POINTER			26
 
 /* Total AIF types */
-#define NUM_AIF_TYPES				26
+#define NUM_AIF_TYPES				27
 
 #define AIF_PTR_NIL				0
 #define AIF_PTR_NORMAL			1
@@ -276,6 +278,8 @@ typedef struct AIFFILE	AIFFILE;
 #define AIF_ADDRESS_TYPE(len)			TypeToFDS(AIF_ADDRESS, (len))
 #define AIF_GENERIC_POINTER_TYPE(len, addr_fmt) \
 			TypeToFDS(AIF_GENERIC_POINTER, (len), (addr_fmt))
+#define AIF_CHAR_POINTER_TYPE(len, addr_fmt, string_len) \
+			TypeToFDS(AIF_CHAR_POINTER, (len), (addr_fmt), (string_len))
 #define AIF_HASHED_TYPE(len)				TypeToFDS(AIF_HASHED_SIGNATURE, (len))
 #define AIF_FTN_INTEGER_TYPE(len)		TypeToFDS(AIF_FTN_INTEGER, (len))
 #define AIF_FTN_REAL_TYPE(len)			TypeToFDS(AIF_FTN_REAL, (len))
@@ -465,6 +469,7 @@ extern AIF *		UnsignedLongLongToAIF(unsigned long long);
 extern AIF *		VoidToAIF(char *, int);
 extern AIF *		AddressToAIF(void *, int);
 extern AIF *		GenericPointerToAIF(AIF *, char *);
+extern AIF * 		CharPointerToAIF(AIF *, char *, char *, int);
 extern AIF *		EmptyComplexArrayToAIF(int, int, AIF *);
 extern void		AIFAddComplexArrayElement(AIF *, AIF *);
 extern AIF *		HashToAIF(int);

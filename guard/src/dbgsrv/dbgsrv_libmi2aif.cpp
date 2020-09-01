@@ -4638,9 +4638,30 @@ static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
     // Create the AIF type representing the address
     AIF* addr_aif = AddressToAIF(addr, addr_len);
 
-    // Now create the AIF generic pointer representing both the address that
-    // we actually point to and the type string.
-    AIF *rtn_aif = GenericPointerToAIF(addr_aif, var->type);
+    AIF *rtn_aif = NULL;
+
+    if (strncmp(var->type, "char *", 6) == 0) {
+        DVPRINT("GetPointerAIF: Detected a char *\n");
+        // we're dealing with a char pointer, which is special because we want
+        // to print the string as well as the address.
+
+        // if the pointer is a char* pointer, the addr_str (extracted above)
+        // will also include a printout of the string in double quotes. (e.g
+        // addr_str = "0x200f58 \"hello world\"")
+
+        // AIFPrint will add quotes at print time, but the gdb backend also adds
+        // quotes, so we move one character past the first quote.
+        // There is also a quote on the end we chop off by
+        // passing strlen - 1 to CharPointerToAIF
+        char *start = strchr(addr_str, '"') + 1;
+        rtn_aif =
+            CharPointerToAIF(addr_aif, var->type, start, strlen(start) - 1);
+    } else {
+        DVPRINT("GetPointerAIF: Not a char *\n");
+        // Now create the AIF generic pointer representing both the address that
+        // we actually point to and the type string.
+        rtn_aif = GenericPointerToAIF(addr_aif, var->type);
+    }
 
     AIFFree(addr_aif);
 

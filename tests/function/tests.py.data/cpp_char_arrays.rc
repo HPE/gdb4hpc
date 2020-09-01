@@ -2,14 +2,25 @@ maint set sync on
 
 launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_char_arrays.x --debug
 
-break cpp_char_arrays.cpp:12
+break cpp_char_arrays.cpp:20
 
 continue
 
+# char arrays
 p one_d
 p one_d_u
 p one_d_s
 p two_d
 p two_d_u
+
+# strings
+p cstring
+p cptr
+p empty
+
+# make sure normal pointers still work too
+p inte
+p intp
+p *intp
 
 q

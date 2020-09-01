@@ -2,13 +2,25 @@
 Launch complete.
 a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_char_arrays.cpp:4
 %<
-a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_char_arrays.cpp, line 12.
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_char_arrays.cpp, line 20.
 %-
-a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_char_arrays.cpp:12
+a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_char_arrays.cpp:20
 %>
 a{0..2}: "Hello world!\0x0A"
 a{0..2}: [78,117,109,98,101,114,115,0]
 a{0..2}: "Hello world! (signed)\0x09\0x0A"
 a{0..2}: ["Hello","World","Once","Again!\0x0A"]
 a{0..2}: [[97,98,99,0],[49,50,51,0],[120,121,122,0],[48,57,56,0]]
+a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
+a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
+a{0..2}: (char *) %0x[0-9a-f]*% ""
+a{0..2}: 23
+%<
+a{0}: (int *) %0x[0-9a-f]*%
+%-
+a{1}: (int *) %0x[0-9a-f]*%
+%-
+a{2}: (int *) %0x[0-9a-f]*%
+%>
+a{0..2}: 23
 Shutting down debugger and killing application for 'a'.

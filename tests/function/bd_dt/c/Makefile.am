@@ -1,2 +1,2 @@
-# Copyright 2020 Cray Inc.
+# Copyright 2020 Hewlett Packard Enterprise Development LP.
 

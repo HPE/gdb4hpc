@@ -1,4 +1,4 @@
-// Copyright 2020 Cray Inc.
+// Copyright 2020 Hewlett Packard Enterprise Development LP.
 
 // Classes for defining a sequential stream of data accessed via the AIF interface.
 #include "AIFStream.h"

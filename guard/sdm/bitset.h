@@ -18,7 +18,7 @@
  *
  * LA-CC 04-115
  *
- * Copyright 2011-2013,2020 Cray Inc.
+ * Copyright 2011-2013,2020 Hewlett Packard Enterprise Development LP.
  *
  * $HeadURL$
  * $Date$

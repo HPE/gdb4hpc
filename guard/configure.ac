@@ -1,10 +1,10 @@
 #
-# Copyright 2010-2019 Cray Inc. All Rights Reserved
+# Copyright 2010-2019,2020 Hewlett Packard Enterprise Development LP. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
-# Except as permitted by contract or express written permission of Cray Inc.,
+# Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
 # no part of this work or its content may be used, reproduced or disclosed
 # in any form.
 #
@@ -12,7 +12,7 @@
 AC_PREREQ([2.63])
 
 AC_INIT([guard],[4.0],[andrewg@cray.com])
-AC_COPYRIGHT([Copyright 2010-2020 Cray Inc. All Rights Reserved.])
+AC_COPYRIGHT([Copyright 2010-2020 Hewlett Packard Enterprise Development LP.])
 
 AC_CONFIG_SRCDIR([defs.h])
 AC_CONFIG_AUX_DIR([config])

@@ -17,7 +17,7 @@
 %global external_build_dir %{cray_prefix}/%{cray_product}/%{pkgversion}
 
 %global tests_source_dir %{_topdir}/../tests
-%global demo_source_dir %{_topdir}/../demo
+%global demo_source_dir %{_topdir}/../extras/demos
 
 # modulefile definitions
 %global modulefile_name %{cray_name}
@@ -308,8 +308,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
 # demo files
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demo
-%{__cp} -a %{demo_source_dir}/* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demo
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demos
+%{__cp} -a %{demo_source_dir}/* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/demos
 # lmod modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}
 %{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
@@ -567,7 +567,10 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
-%dir %{prefix}/%{cray_product}/%{pkgversion}/demo
+%dir %{prefix}/%{cray_product}/%{pkgversion}/demos
+%dir %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example
+%dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo
+%dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts
 %ifnarch aarch64
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/python
@@ -591,8 +594,15 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demo/*.cpp
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demo/*.h
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.f90
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.cpp
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.c
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/README
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc.source.tar.gz
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/build_demo.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpccinf.txt
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts/*.rc
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/uda-plugin-cray-upc.so

@@ -4640,7 +4640,7 @@ static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
 
     AIF *rtn_aif = NULL;
 
-    if (strncmp(var->type, "char *", 6) == 0) {
+    if (strncmp(var->type, "char *\0", 7) == 0) {
         DVPRINT("GetPointerAIF: Detected a char *\n");
         // we're dealing with a char pointer, which is special because we want
         // to print the string as well as the address.

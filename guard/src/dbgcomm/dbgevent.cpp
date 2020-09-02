@@ -1067,7 +1067,7 @@ dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
 
 // get next thread,value pair from the string if any exist
 std::optional<std::pair<std::string,std::string>> ThreadMsgParser::nextResult() {
-    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+):\s*\n)"};
+    static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+)(\s*\(AMDGPU Thread.*)?:\s*\n)"};
 
     std::optional<std::pair<std::string,std::string>> res;
     if (m_str.empty()) return res;

@@ -15,12 +15,11 @@ a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
 a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
 a{0..2}: (char *) %0x[0-9a-f]*% ""
 a{0..2}: 23
-%<
-a{0}: (int *) %0x[0-9a-f]*%
-%-
-a{1}: (int *) %0x[0-9a-f]*%
-%-
-a{2}: (int *) %0x[0-9a-f]*%
-%>
+%# this address can change per node, so just make sure we get one of the right form
+a{%.*%}: (int *) %0x[0-9a-f]*%
+%*
 a{0..2}: 23
+%# this address can change per node, so just make sure we get one of the right form
+a{%.*%}: (char **) %0x[0-9a-f]*%
+%*
 Shutting down debugger and killing application for 'a'.

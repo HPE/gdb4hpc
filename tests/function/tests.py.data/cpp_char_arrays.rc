@@ -23,4 +23,7 @@ p inte
 p intp
 p *intp
 
+# make sure printing a char** is normal
+p argv
+
 q

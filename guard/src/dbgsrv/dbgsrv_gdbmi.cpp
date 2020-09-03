@@ -3109,7 +3109,7 @@ std::string DbgGdbMI::parseThreadApplyOp(const std::string& op, bool& isSilent, 
 // isVerbose: a gdb4hpc extension - don't strip out hex values
 static std::string processThreadApplyOutput(const std::string& in, bool isSilent, bool isQuiet, bool isVerbose) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    std::regex headerRE(R"(^Thread\s+(\d+)\s*\(Thread[^:]*:)");
+    std::regex headerRE(R"(^Thread\s+(\d+)\s*\((AMDGPU\s*)?Thread[^:]*:)");
     std::regex hexRE(R"(0x[0-9a-fA-F]+)");
     std::regex convenienceVarRE(R"(^\$\d+\s*=\s*)");
 

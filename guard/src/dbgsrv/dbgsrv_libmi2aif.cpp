@@ -4638,9 +4638,9 @@ static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
     // Create the AIF type representing the address
     AIF* addr_aif = AddressToAIF(addr, addr_len);
 
-    AIF *rtn_aif = NULL;
+    AIF *rtn_aif = nullptr;
 
-    if (strncmp(var->type, "char *\0", 7) == 0) {
+    if (strcmp(var->type, "char *") == 0) {
         DVPRINT("GetPointerAIF: Detected a char *\n");
         // we're dealing with a char pointer, which is special because we want
         // to print the string as well as the address.
@@ -4653,7 +4653,10 @@ static AIFStream *GetPointerAIF(MISession *session, MIVar *var) {
         // quotes, so we move one character past the first quote.
         // There is also a quote on the end we chop off by
         // passing strlen - 1 to CharPointerToAIF
-        char *start = strchr(addr_str, '"') + 1;
+        char *start = strchr(addr_str, '"');
+        if (start == nullptr) return nullptr;
+
+        start++;
         rtn_aif =
             CharPointerToAIF(addr_aif, var->type, start, strlen(start) - 1);
     } else {

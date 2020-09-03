@@ -382,7 +382,7 @@ GenericPointerToAIF(AIF *addr, char *ptr_type)
 ** want to include the string at the address in the AIF
 */
 AIF *
-CharPointerToAIF(AIF *addr, char *ptr_type, char *cstring, int str_length) {
+CharPointerToAIF(AIF *addr, const char *ptr_type, const char *cstring, int str_length) {
 	AIF * a;
 	int	ptr_length = strlen(ptr_type)+1;
 

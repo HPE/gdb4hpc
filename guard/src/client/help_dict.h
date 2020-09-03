@@ -99,6 +99,7 @@ extern const char* const class_set_subcmd_environment_help[];
 extern const char* const class_set_subcmd_function_help[];
 extern const char* const class_set_subcmd_scheduler_locking_help[];
 extern const char* const class_set_subcmd_non_stop_help[];
+extern const char* const class_set_print_subcmd_elements_help[];
 
 /*
  * Class set print subcommands

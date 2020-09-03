@@ -1483,6 +1483,20 @@ const char* const class_unset_subcmd_environment_help[] = {
     "only take effect upon the next launch command.",
     0};
 
+const char *const class_set_print_subcmd_elements_help[] = {
+    "Summary: Set the amount of elements to be printed in arrays or c-strings.",
+    "Usage: set print elements [<n>|\"unlimited\"]",
+    "Example command: set print elements 200",
+    "",
+    "Default setting: 200",
+    "Arguments: a positive integer or \"unlimited\".",
+    "",
+    "Description:",
+    "Sets the amount of elements to be printed in arrays or c-strings. Setting",
+    "to \"unlimited\" will print unlimited elements (until a null terminator or",
+    "similar is found)",
+    0};
+
 /*
  * Class usage subcommands
  */

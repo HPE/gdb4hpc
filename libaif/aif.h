@@ -469,7 +469,7 @@ extern AIF *		UnsignedLongLongToAIF(unsigned long long);
 extern AIF *		VoidToAIF(char *, int);
 extern AIF *		AddressToAIF(void *, int);
 extern AIF *		GenericPointerToAIF(AIF *, char *);
-extern AIF * 		CharPointerToAIF(AIF *, char *, char *, int);
+extern AIF * 		CharPointerToAIF(AIF *, const char *, const char *, int);
 extern AIF *		EmptyComplexArrayToAIF(int, int, AIF *);
 extern void		AIFAddComplexArrayElement(AIF *, AIF *);
 extern AIF *		HashToAIF(int);

@@ -29,6 +29,7 @@
 #include "client.h"
 #include "df.h"
 #include "useful.h"
+#include "help_dict.h"
 
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
@@ -269,20 +270,26 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
                                                char **argv) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Usage: set print elements <positive integer or 0>\n");
+        PrintOutError("Usage: set print elements <positive integer or \"unlimited\">\n");
         return 0;
     }
 
     int elements = -1;
 
-    try {
-        elements = std::stoi(argv[1]);
-    } catch (const std::invalid_argument &e) {
-        PrintOutError("Error: couldn't convert %s to an integer. (%s)\n", argv[1], e.what());
-        return 0;
-    } catch (const std::out_of_range &e) {
-        PrintOutError("Error: %s is out of range for an integer. (%s)\n", argv[1], e.what());
-        return 0;
+    if (strcmp("unlimited", argv[1]) == 0) {
+        elements = 0;
+    } else {
+        try {
+            elements = std::stoi(argv[1]);
+        } catch (const std::invalid_argument &e) {
+            PrintOutError("Error: couldn't convert \"%s\" to an integer. (%s)\n",
+                          argv[1], e.what());
+            return 0;
+        } catch (const std::out_of_range &e) {
+            PrintOutError("Error: %s is out of range for an integer. (%s)\n",
+                          argv[1], e.what());
+            return 0;
+        }
     }
 
     if (elements < 0) {
@@ -295,26 +302,12 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-const char *const class_set_print_subcmd_elements_help[] = {
-    "Summary: Set the amount of elements to be printed in arrays or c-strings.",
-    "Usage: set print elements n",
-    "Example command: set print elements 200",
-    "",
-    "Default setting: 200",
-    "Arguments: a positive integer or 0.",
-    "",
-    "Description:",
-    "Sets the amount of elements to be printed in arrays or c-strings. Setting",
-    "to zero will print unlimited elements (until a null terminator or similar",
-    "is found)",
-    0};
-
 static int class_show_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
                                                char **argv) {
     if (Client.print_elements == 0) {
-        PrintOutMsg("%d (unlimited)\n", Client.print_elements);
+        PrintOutMsg("Limit on string chars or array elements to print is unlimited.\n");
     } else {
-        PrintOutMsg("%d\n", Client.print_elements);
+        PrintOutMsg("Limit on string chars or array elements to print is %d.\n", Client.print_elements);
     }
 
     return 1;
@@ -334,10 +327,10 @@ void InitCmd_print(void) {
     AddSetPrintCommand(
         "elements", proc_ignore, 0, class_set_print_subcmd_elements_cmd,
         class_set_print_subcmd_elements_help,
-        "Specify amount of elements to be printed in arrays or c-strings.");
+        "Specify number of elements to be printed in arrays or c-strings.");
 
     AddShowPrintCommand(
         "elements", proc_ignore, 0, class_show_print_subcmd_elements_cmd,
         class_show_print_subcmd_elements_help,
-        "Show amount of elements to print when an array as printed.");
+        "Show number of elements to print when an array as printed.");
 }

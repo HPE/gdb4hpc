@@ -3,11 +3,11 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Cray Inc.
+ * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
- * Except as permitted by contract or express written permission of Cray Inc.,
+ * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
@@ -107,7 +107,7 @@ static void Banner(void) {
     PrintOutMsg("gdb4hpc %s.%s - Cray Line Mode Parallel Debugger\n",
                 GUARD_MAJOR, GUARD_MINOR);
     PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-    PrintOutMsg("Copyright 2007-2020 Cray Inc. All Rights Reserved.\n");
+    PrintOutMsg("Copyright 2007-2020 Hewlett Packard Enterprise Development LP.\n");
     PrintOutMsg(
         "Copyright 1996-2016 University of Queensland. All Rights Reserved.\n");
     PrintOutMsg("\n");

@@ -162,7 +162,7 @@ DESCRIPTION
 
                    gdb4hpc 2.4 - Cray Line Mode Parallel Debugger
                    With Cray Comparative Debugging Technology.
-                   Copyright 2007-2014 Cray Inc. All Rights Reserved.
+                   Copyright 2007-2020 Hewlett Packard Enterprise Development LP.
                    Copyright 1996-2013 University of Queensland. All rights Reserved.
 
                    Type "help" for a list of commands.

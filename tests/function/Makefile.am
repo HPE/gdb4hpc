@@ -1,4 +1,4 @@
-# Copyright 2020 Cray Inc.
+# Copyright 2020 Hewlett Packard Enterprise Development LP.
 
 check_PROGRAMS = bd_dt/c/c_time.x bd_dt/c/c_type_test.x bd_dt/c/c_cmp_diff.x \
    bd_dt/c/c_dlopen.x \

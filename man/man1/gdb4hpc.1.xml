@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--Arbortext, Inc., 1988-2010, v.4002-->
-<!DOCTYPE refentry PUBLIC "-//Cray Inc.//DTD Cray XML Docbook axbook-based subset V1.0//EN" "craybook.dtd" [
-<!ENTITY % crayref-titles.ent PUBLIC "-//Cray Inc.//ELEMENTS RefEntry Section Titles//EN" "crayref-titles.ent">
+<!DOCTYPE refentry PUBLIC "-//Hewlett Packard Enterprise Development LP.//DTD Cray XML Docbook axbook-based subset V1.0//EN" "craybook.dtd" [
+<!ENTITY % crayref-titles.ent PUBLIC "-//Hewlett Packard Enterprise Development LP.//ELEMENTS RefEntry Section Titles//EN" "crayref-titles.ent">
 %crayref-titles.ent;
-<!ENTITY % manualtitles.ent PUBLIC "-//Cray Inc.//ELEMENTS Cray Manual Titles//EN" "manualtitles.ent">
+<!ENTITY % manualtitles.ent PUBLIC "-//Hewlett Packard Enterprise Development LP.//ELEMENTS Cray Manual Titles//EN" "manualtitles.ent">
 %manualtitles.ent;
-<!ENTITY % manualtitles-current.ent PUBLIC "-//Cray Inc.//ELEMENTS Cray Current Manual Titles//EN" "manualtitles-current.ent">
+<!ENTITY % manualtitles-current.ent PUBLIC "-//Hewlett Packard Enterprise Development LP.//ELEMENTS Cray Current Manual Titles//EN" "manualtitles-current.ent">
 %manualtitles-current.ent;
-<!ENTITY % strings.ent PUBLIC "-//Cray Inc.//ELEMENTS Cray Strings//EN" "strings.ent">
+<!ENTITY % strings.ent PUBLIC "-//Hewlett Packard Enterprise Development LP.//ELEMENTS Cray Strings//EN" "strings.ent">
 %strings.ent;
-<!ENTITY % graphics.ent PUBLIC "-//Cray Inc.//ELEMENTS Cray Graphics//EN" "graphics.ent">
+<!ENTITY % graphics.ent PUBLIC "-//Hewlett Packard Enterprise Development LP.//ELEMENTS Cray Graphics//EN" "graphics.ent">
 %graphics.ent;
 ]>
 <?Pub Inc?>
@@ -120,7 +120,7 @@ JobID     MaxVMSize  MaxVMSizeNode  MaxVMSizeTask  AveVMSize  MaxRSS ...
 <para>Use the <command>gdb4hpc</command> command to launch the parallel debugger.<screen>% <userinput>gdb4hpc</userinput></screen></para>
 <para>The system responds as follows:<screen>gdb4hpc 2.4 - Cray Line Mode Parallel Debugger 
 With Cray Comparative Debugging Technology.
-Copyright 2007-2014 Cray Inc. All Rights Reserved.
+Copyright 2007-2020 Hewlett Packard Enterprise Development LP.
 Copyright 1996-2013 University of Queensland. All rights Reserved.
 
 Type "help" for a list of commands.

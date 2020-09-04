@@ -13,7 +13,7 @@
  * 	Greg Watson - stand alone implementation
  *
  *
- * © 2011-2013 Cray Inc.  All Rights Reserved.
+ * Copyright 2011-2013,2020 Hewlett Packard Enterprise Development LP.
  *
  * $HeadURL$
  * $Date$

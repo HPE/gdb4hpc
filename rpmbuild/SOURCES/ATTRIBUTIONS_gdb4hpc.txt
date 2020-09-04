@@ -1,8 +1,8 @@
 ------------------------------------------------------------------------
 Except for the third party modules discussed below and software licensed
 by Cray through proprietary agreements, components, files or programs
-contained within this package or product are Copyright 2001-2020
-Cray Inc. All rights reserved.
+contained within this package or product are Copyright 2001-2020 Hewlett Packard
+Enterprise Development LP.
 ------------------------------------------------------------------------
 
 Bob Jenkins Hash Function
@@ -43,7 +43,7 @@ uda-plugin-cray-upc 1.3
 http://www.gccupc.org/
 BSD
 
-Copyright (c) 2013 Cray Inc. All rights reserved.
+Copyright 2013, 2020 Hewlett Packard Enterprise Development LP.
 
 Copyright 2007 by Intrepid Technology, Inc.
 Copyright 2007 by Hewlett-Packard.
@@ -128,7 +128,7 @@ https://www.eclipse.org/ptp/
 Eclipse Public License 1.0
 
 Derivative work based on PTP libmi implementation
-Copyright (c) 2011-2020 Cray Inc. All Rights Reserved.
+Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
 
 Copyright (c) 2005, 2010 The Regents of the University of California and others.
 This material was produced under U.S. Government contract W-7405-ENG-36
@@ -202,7 +202,7 @@ Editline Library - libedit-20191211-3.1
 http://thrysoee.dk/editline/
 BSD 3-clause "New" or "Revised" License
 
-Copyright (c) 2011-2020 Cray Inc. All rights reserved.
+Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
 
 Copyright (c) 1992, 1993
  The Regents of the University of California.  All rights reserved.
@@ -240,7 +240,7 @@ MRNet - libmrnet
 http://git.dyninst.org/
 LGPLv2.1+: GNU Lesser General Public License v2.1 or later
 
-Copyright (c) 2011-2020 Cray Inc. All rights reserved.
+Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
 Copyright © 2003-2012 Dorian C. Arnold, Philip C. Roth, Barton P. Miller
 
 License text appended to this file.
@@ -252,7 +252,7 @@ https://www.eclipse.org/ptp/
 Eclipse Public License v1.0
 
 Derivative work based on SDM bitset implementation
-Copyright (c) 2011-2020 Cray Inc. All rights reserved.
+Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
 
 Copyright (c) 2005 The Regents of the University of California.
 This material was produced under U.S. Government contract W-7405-ENG-36
@@ -284,7 +284,7 @@ BSD 1.0 - Historical Permission License
    Antoine P. Petitet
    University of Tennessee, Knoxville
    Innovative Computing Laboratory
-   (C) Copyright 2000-2008 All Rights Reserved
+   Copyright 2000-2008 All Rights Reserved
 
 -- Copyright notice and Licensing terms:
 
@@ -352,7 +352,7 @@ referred to the Eclipse Foundation.
 
 IF you have received an object-only copy of any software licensed to you
 under one of the following licenses, and you are the recipient of that
-copy because it was distributed to you by Cray Inc. or one of its
+copy because it was distributed to you by Hewlett Packard Enterprise Development LP. or one of its
 subsidiary companies ("CRAY") in association with your receipt of hardware
 or software distributed by CRAY, and it is before the later of either
 (a) three years after CRAY distributed the object-code copy to you, or
@@ -572,7 +572,7 @@ referred to the Free Software Foundation, Inc.
 
 IF you have received an object-only copy of any software licensed to you
 under one of the following licenses, and you are the recipient of that
-copy because it was distributed to you by Cray Inc. or one of its
+copy because it was distributed to you by Hewlett Packard Enterprise Development LP. or one of its
 subsidiary companies ("CRAY") in association with your receipt of hardware
 or software distributed by CRAY, and it is before the later of either
 (a) three years after CRAY distributed the object-code copy to you, or

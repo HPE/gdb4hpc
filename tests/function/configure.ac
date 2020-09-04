@@ -1,6 +1,6 @@
 # configure.ac script for gdb4hpc tests.
 #
-# Copyright 2020 Cray Inc.
+# Copyright 2020 Hewlett Packard Enterprise Development LP.
 #
 
 AC_PREREQ([2.63])
@@ -14,7 +14,7 @@ AM_INIT_AUTOMAKE([subdir-objects foreign -Wall])
 AC_PROG_CXX([CC])
 AC_PROG_CC([cc])
 AC_PROG_FC([ftn])
-AC_COPYRIGHT([Copyright 2020 Cray Inc.])
+AC_COPYRIGHT([Copyright 2020 Hewlett Packard Enterprise Development LP.])
 
 AC_CONFIG_FILES([
     Makefile

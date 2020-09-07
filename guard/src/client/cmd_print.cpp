@@ -332,5 +332,5 @@ void InitCmd_print(void) {
     AddShowPrintCommand(
         "elements", proc_ignore, 0, class_show_print_subcmd_elements_cmd,
         class_show_print_subcmd_elements_help,
-        "Show number of elements to print when an array as printed.");
+        "Show number of elements to print when an array is printed.");
 }

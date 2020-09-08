@@ -22,12 +22,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include <regex>
 #include <sstream>
 
 #include "client.h"
 #include "df.h"
 #include "useful.h"
+#include "help_dict.h"
 
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
@@ -61,7 +63,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
 
             // Print each reply
             rep_set = RVAL_REPLY(val);
-            for (auto&& reply : rep_set) {
+            for (auto &&reply : rep_set) {
                 // Print the set info - Note that the rep_di can be null here if
                 // the reply set was the result of an operation on two different
                 // sets.
@@ -109,32 +111,34 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     return 0;
 }
 
-// Print the message from a use of thread apply with it proc-set and thread-set info.
-// \a msg is the output from a thread apply operation and will be formatted like:
-// Thread 1-4:
+// Print the message from a use of thread apply with it proc-set and thread-set
+// info. \a msg is the output from a thread apply operation and will be
+// formatted like: Thread 1-4:
 //  <result>
 // Thread 5 9:
 //  <result>
-// etc.  and this will be parsed and combined with diName and group to something like:
-// $a{0..5:1..4}: <result>
-// $a{0..5:5,9}: <result>
-int PrintMultiThreadMsg(const char* diName, const bitset* group, const std::string& msg)
-{
+// etc.  and this will be parsed and combined with diName and group to something
+// like: $a{0..5:1..4}: <result> $a{0..5:5,9}: <result>
+int PrintMultiThreadMsg(const char *diName, const bitset *group,
+                        const std::string &msg) {
     // the form is:
     // Threads 1 3 5-7:
     // <result>
-    for (ThreadMsgParser parser(msg); auto res = parser.nextResult(); ) {
-        auto [ thread, val ] = *res;
+    for (ThreadMsgParser parser(msg); auto res = parser.nextResult();) {
+        auto [thread, val] = *res;
 
         // translate from gdb form to procset form
-        for (size_t i=0; (i=thread.find('-', i)) != std::string::npos; ++i) thread.replace(i,1,"..");
-        for (size_t i=0; (i=thread.find(' ',i)) != std::string::npos; ++i) thread.replace(i,1,",");
+        for (size_t i = 0; (i = thread.find('-', i)) != std::string::npos; ++i)
+            thread.replace(i, 1, "..");
+        for (size_t i = 0; (i = thread.find(' ', i)) != std::string::npos; ++i)
+            thread.replace(i, 1, ",");
 
         auto is = std::istringstream{std::move(val)};
         auto line = std::string{};
-        while (std::getline(is,line)) {
+        while (std::getline(is, line)) {
             line += "\n";
-            PrintMsgWithSetAndThreadInfo(diName, group, thread.c_str(), line.c_str());
+            PrintMsgWithSetAndThreadInfo(diName, group, thread.c_str(),
+                                         line.c_str());
         }
     }
 
@@ -142,8 +146,7 @@ int PrintMultiThreadMsg(const char* diName, const bitset* group, const std::stri
 }
 
 // print out a reply of type DBGEV_THREADINFO with procset/threadset info.
-int PrintMultiThreadReply(group_reply_t* reply)
-{
+int PrintMultiThreadReply(group_reply_t *reply) {
     if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
         auto res = std::string{reply->rep_event->ev_u.ev_u_string};
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
@@ -154,7 +157,7 @@ int PrintMultiThreadReply(group_reply_t* reply)
 }
 
 // print the value of \a prefixed with the process and possibly thread info.
-static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
+static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
     if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
         return PrintVal(val, rec_set);
     }
@@ -166,25 +169,29 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
 
     // Print each reply
     auto rep_set = RVAL_REPLY(val);
-    for (auto&& reply : rep_set) {
+    for (auto &&reply : rep_set) {
         // Print the set info - Note that the rep_di can be null here if
         // the reply set was the result of an operation on two different
         // sets.
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
         auto aif = EVENT_DATA(reply->rep_event)->joinAIF();
-        char* str = nullptr;
-        if (AIFType(aif) == AIF_STRING && AIFToStr(&str,0,aif) == 0 &&
-            strncmp(str+1,MULTI_THREAD_HDR,strlen(MULTI_THREAD_HDR)) == 0) {
-            // this is the result from thread apply returned back in string form since it
-            // is potentially a heterogeneous collection
-            auto msg = std::string{str+1+strlen(MULTI_THREAD_HDR)}; // skip begin quote and header
-            if (msg.size() >= 1) msg.erase(msg.size()-1);  // end quote
+        char *str = nullptr;
+        if (AIFType(aif) == AIF_STRING && AIFToStr(&str, 0, aif) == 0 &&
+            strncmp(str + 1, MULTI_THREAD_HDR, strlen(MULTI_THREAD_HDR)) == 0) {
+            // this is the result from thread apply returned back in string form
+            // since it is potentially a heterogeneous collection
+            auto msg = std::string{
+                str + 1 +
+                strlen(MULTI_THREAD_HDR)};  // skip begin quote and header
+            if (msg.size() >= 1) msg.erase(msg.size() - 1);  // end quote
 
             PrintMultiThreadMsg(diName, reply->rep_group, msg);
 
         } else {
-            // A normal expression result, either from no thread focus, or focus on a single thread.
-            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group, rec_set->getThreads(), nullptr);
+            // A normal expression result, either from no thread focus, or focus
+            // on a single thread.
+            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group,
+                                         rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
             AIFPrint(Client.cli_out_stream, 0, aif);
@@ -194,7 +201,6 @@ static int printValWithThreads(val_t* val, rec_set_t* rec_set) {
     }
 
     return 0;
-
 }
 
 static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
@@ -260,7 +266,71 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
+                                               char **argv) {
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Usage: set print elements <positive integer or \"unlimited\">\n");
+        return 0;
+    }
+
+    int elements = -1;
+
+    if (strcmp("unlimited", argv[1]) == 0) {
+        elements = 0;
+    } else {
+        try {
+            elements = std::stoi(argv[1]);
+        } catch (const std::invalid_argument &e) {
+            PrintOutError("Error: couldn't convert \"%s\" to an integer. (%s)\n",
+                          argv[1], e.what());
+            return 0;
+        } catch (const std::out_of_range &e) {
+            PrintOutError("Error: %s is out of range for an integer. (%s)\n",
+                          argv[1], e.what());
+            return 0;
+        }
+    }
+
+    if (elements < 0) {
+        PrintOutError("Error: negative values are invalid.\n");
+        return 0;
+    }
+
+    Client.print_elements = elements;
+
+    return 1;
+}
+
+static int class_show_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
+                                               char **argv) {
+    if (Client.print_elements == 0) {
+        PrintOutMsg("Limit on string chars or array elements to print is unlimited.\n");
+    } else {
+        PrintOutMsg("Limit on string chars or array elements to print is %d.\n", Client.print_elements);
+    }
+
+    return 1;
+}
+
+const char *const class_show_print_subcmd_elements_help[] = {
+    "Summary: Number of elements to print when an array or c-string is printed.", 
+    "", 
+    "Description:",
+    "Display the number of elements to print when an array or c-string is printed.",
+    0};
+
 void InitCmd_print(void) {
-    AddCommand("print", "p", proc_optional, 0, cmd_print_cmd,
-               cmd_print_help, "Print the value of an expression.");
+    AddCommand("print", "p", proc_optional, 0, cmd_print_cmd, cmd_print_help,
+               "Print the value of an expression.");
+
+    AddSetPrintCommand(
+        "elements", proc_ignore, 0, class_set_print_subcmd_elements_cmd,
+        class_set_print_subcmd_elements_help,
+        "Specify number of elements to be printed in arrays or c-strings.");
+
+    AddShowPrintCommand(
+        "elements", proc_ignore, 0, class_show_print_subcmd_elements_cmd,
+        class_show_print_subcmd_elements_help,
+        "Show number of elements to print when an array is printed.");
 }

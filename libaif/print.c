@@ -273,12 +273,20 @@ _aif_print_generic_pointer(FILE *fp, int depth, char **fds, char **data)
         if ( _aif_generic_pointer_to_str(depth, fds, data) < 0 )
                 return -1;
                 
+
         str = _str_get();
         
         fprintf(fp, "%s", str);
         
         _aif_free(str);
         
+		// char * pointers will have a string leftover on the end
+		if (FDSType(*fds) == AIF_STRING) {
+			fprintf(fp, " ");
+			if (_aif_print_string(fp, depth, fds, data) < 0)
+				return -2;
+		}
+		
         return 0;
 }
 

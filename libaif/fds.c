@@ -79,7 +79,9 @@ static char	_fds_type_str[NUM_AIF_TYPES][12] =
 	
 	{ FDS_FTN_CHARACTER, '%', 'd', '\0' },
 	
-	{ FDS_FTN_ARRAY_START, '%', 's', FDS_FTN_ARRAY_END, '%', 's', '\0' }
+	{ FDS_FTN_ARRAY_START, '%', 's', FDS_FTN_ARRAY_END, '%', 's', '\0' },
+
+	{ FDS_GENERIC_POINTER, '%', 'd', '%', 's', FDS_STRING, '%', 'd', '\0'}
 };
 
 static char _fds_array_end[] = {FDS_ARRAY_END, '\0'};
@@ -642,6 +644,14 @@ TypeToFDS(int type, ...)
 		v1 = va_arg(args, int);
 		v3 = strdup(va_arg(args, char *));
 		snprintf(_fds_buf, BUFSIZ-1, _fds_type_str[type], v1, v3);
+		_aif_free(v3);
+		break;
+
+	case AIF_CHAR_POINTER:
+		v1 = va_arg(args, int);				// ptr type length
+		v3 = strdup(va_arg(args, char *));  // address format string
+		v2 = va_arg(args, int);				// cstring length
+		snprintf(_fds_buf, BUFSIZ-1, _fds_type_str[type], v1, v3, v2);
 		_aif_free(v3);
 		break;
 

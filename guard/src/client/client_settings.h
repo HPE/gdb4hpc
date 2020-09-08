@@ -34,6 +34,7 @@ struct clnt_settings {
     int unsafe;                 /* Be unsafe? */
     int early_entry;            /* Enter at pmi_init? */
     int print_entry_frame;      /* Print frame locations at startup? */
+    int print_elements;         /* Number of elements to print in arrays or char * strings */
     int sync_wait;              /* Treat asynchronous cmds as sync? */
     int sync_blocked;           /* Current blocked on async cmd? */
     const char* proto;          /* Default debugger protocol */

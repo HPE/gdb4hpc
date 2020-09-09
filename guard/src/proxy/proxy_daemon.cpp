@@ -1177,7 +1177,7 @@ void DbgDispatchEvents(void) {
                 // invocations,
                 //       to support multiple hops, but that is not required
                 //       right now...
-                if (ptab->sw_invoke(di, NULL, inv_args->prog, inv_args->argv,
+                if (ptab->sw_launch(di, NULL, inv_args->prog, inv_args->argv,
                                     inv_args->arch, inv_args->arch_args,
                                     inv_args->arch_input, inv_args->backend,
                                     inv_args->env, inv_args->cwd,

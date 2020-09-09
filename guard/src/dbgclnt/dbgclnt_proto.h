@@ -88,7 +88,7 @@ struct dbgclnt_proto {
     int (*sw_attach)(struct dbginvoke *, proto_session *, const char *,
                      const char *, const char *, int,
                      int); /* protocol attach function */
-    int (*sw_invoke)(struct dbginvoke *, proto_session *, const char *, char **,
+    int (*sw_launch)(struct dbginvoke *, proto_session *, const char *, char **,
                      const char *, char **, const char *, const char *, char **,
                      const char *, int, int,
                      int, bool); /* protocol launch function */

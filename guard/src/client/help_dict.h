@@ -35,7 +35,7 @@ extern const char* const cmd_focus_help[];
 extern const char* const cmd_frame_help[];
 extern const char* const cmd_halt_help[];
 extern const char* const cmd_help_help[];
-extern const char* const cmd_invoke_help[];
+extern const char* const cmd_launch_help[];
 extern const char* const cmd_kill_help[];
 extern const char* const cmd_list_help[];
 extern const char* const cmd_next_help[];

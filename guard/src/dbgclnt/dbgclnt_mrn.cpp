@@ -52,7 +52,7 @@ static proto_msg_set *DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
 static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
                         const char *, const char *, int, int);
-static int DbgMRNInvoke(dbginvoke_t *, proto_session *, const char *, char **,
+static int DbgMRNLaunch(dbginvoke_t *, proto_session *, const char *, char **,
                         const char *, char **, const char *, const char *,
                         char **, const char *, int, int, int, bool);
 static int DbgMRNExit(dbginvoke_t *, int);
@@ -79,7 +79,7 @@ dbgclnt_proto DbgClntMRNProtoSW = {
     NULL,               /* sw_save_session */
     NULL,               /* sw_cleanup_session */
     DbgMRNAttach,       /* sw_attach */
-    DbgMRNInvoke,       /* sw_invoke */
+    DbgMRNLaunch,       /* sw_launch*/
     DbgMRNExit,         /* sw_exit */
     DbgMRNDestroyClient /* sw_destroyclnt */
 };
@@ -862,7 +862,7 @@ static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
 /*
 ** Invoke user program and build an MRNet tree.
 */
-static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
+static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         char **argv, const char *arch, char **arch_args,
                         const char *arch_input, const char *backend, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,

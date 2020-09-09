@@ -491,7 +491,7 @@ extern proto_session *DbgGetSession(void);
 extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
                               const char *, const char *, const char *, int,
                               int);
-extern dbginvoke_t *DbgInvoke(const char *, proto_session *, const char *,
+extern dbginvoke_t *DbgLaunch(const char *, proto_session *, const char *,
                               char **, const char *, int, const char *, char **,
                               const char *, const char *, char **, const char *,
                               int, int, int, int, bool);

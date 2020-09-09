@@ -446,7 +446,7 @@ int main(int argc, char *argv[], char *env[]) {
             exit(1);
         }
 
-        e = DbgInvoke(host, cb, proto, prog, args, env, arch);
+        e = DbgLaunch(host, cb, proto, prog, args, env, arch);
     }
 
     if (e->ev_event != DBGEV_OK) {

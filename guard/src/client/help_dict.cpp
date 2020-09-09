@@ -395,7 +395,7 @@ const char* const cmd_help_help[] = {
     "display a list of all valid commands.",
     0};
 
-const char* const cmd_invoke_help[] = {
+const char* const cmd_launch_help[] = {
     "Summary: Launch an application.",
     "Usage: launch <app_handle> <application>",
     "              [--args=\"<args>\" OR -a \"<args>\"]",

@@ -63,7 +63,7 @@ public:
     virtual dbgevent_t *getStatus(bool getLocation) = 0;
     virtual dbgevent_t *quit(bool detach) = 0;
     virtual dbgevent_t *interrupt(bool all) = 0;
-    virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
+    virtual dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch) = 0;
     virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) = 0;
     virtual void finalize() = 0;
@@ -94,7 +94,7 @@ public:
 extern int DbgSetBackend(const char *);
 extern dbgevent_t *DbgInit(int *, int *, char **);
 extern dbgevent_t *DbgAttach(int, const char *, const char *, char **, int);
-extern dbgevent_t *DbgInvoke(const char *, int, const char *, const char *,
+extern dbgevent_t *DbgLaunch(const char *, int, const char *, const char *,
                              const char *, char **, int);
 extern void DbgFinalize(void);
 extern int DbgProgIOHook(int);

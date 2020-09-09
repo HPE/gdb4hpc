@@ -149,7 +149,7 @@ public:
     virtual dbgevent_t *getStatus(bool getLocation) override;
     virtual dbgevent_t *quit(bool detach) override;
     virtual dbgevent_t *interrupt(bool all) override;
-    virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
+    virtual dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch) override;
     virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) override;
     virtual void finalize() override;
@@ -3776,7 +3776,7 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
+dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
                              const char *prog, const char *args,
                              char **env, int arch) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);

@@ -1963,9 +1963,9 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 }
 
 /*
-** Invoke user program.
+** Launch user program.
 */
-dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
+dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                        char **argv, const char *handle, int nproc,
                        const char *arch, char **arch_args,
                        const char *arch_input, const char *backend, char **env,
@@ -1983,8 +1983,8 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
         return nullptr;
     }
 
-    if (ptab->sw_invoke == nullptr) {
-        PrintOutError("Protocol function sw_invoke not implemented.\n");
+    if (ptab->sw_launch == nullptr) {
+        PrintOutError("Protocol function sw_launch not implemented.\n");
         return nullptr;
     }
 
@@ -2054,7 +2054,7 @@ dbginvoke_t *DbgInvoke(const char *proto, proto_session *sess, const char *prog,
     di->d_cmd = ArgsToBuf(ap, ap_argc);
     FreeArgv(ap);
 
-    if (ptab->sw_invoke(di, sess, prog, argv, arch, arch_args, arch_input,
+    if (ptab->sw_launch(di, sess, prog, argv, arch, arch_args, arch_input,
                         backend, env, cwd, gpu_flag, debug_flag,
                         early_entry_flag, isNonStop)) {
         FreeDbgInvoke(di);

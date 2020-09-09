@@ -39,11 +39,12 @@
 static int debug_flag = 0;
 static int gpu_flag = 0;
 static bool non_stop_mode = true;
+static char* gdb_backend = nullptr;
 
 /*
 ** static function prototypes
 */
-static int DoInvoke(const char *, proto_session *, const char *, char **,
+static int DoLaunch(const char *, proto_session *, const char *, char **,
                     dbgprocset_t *, const char *, char **, const char *,
                     const char *, char **, const char *);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
@@ -70,6 +71,7 @@ static const struct option launch_long_opts[] = {
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
     {"launcher", optional_argument, 0, 'l'},
+    {"gdb", required_argument, 0, 'b'},
     {0, 0, 0, 0}};
 
 static const struct option attach_long_opts[] = {
@@ -259,7 +261,7 @@ exit_with_error:
 **  [--using arch] [--arch-args "arch-args"] [--arch-input "inputFile"]
 **  [--on host] [--with proto] [--backend debugger] [--gpu]
 */
-static int cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     proto_session *sess = NULL;
     dbgprocset_t *ps = NULL;
     char *prog = NULL;
@@ -290,6 +292,7 @@ static int cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv) {
     optind = 0;
     debug_flag = 0;
     gpu_flag = 0;
+    gdb_backend = nullptr;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -645,7 +648,7 @@ static int cmd_invoke_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // Invoke the application
     //
-    if (!DoInvoke(proto, sess, prog, args, ps, arch, arch_args, arch_input,
+    if (!DoLaunch(proto, sess, prog, args, ps, arch, arch_args, arch_input,
                   backend, env_list, workdir)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
@@ -696,7 +699,7 @@ exit_with_error:
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the invoke process always operates synchronously.
 */
-static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
+static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
                     char **args, dbgprocset_t *ps, const char *arch,
                     char **arch_args, const char *arch_input,
                     const char *backend, char **Env, const char *cwd) {
@@ -707,7 +710,7 @@ static int DoInvoke(const char *proto, proto_session *sess, const char *prog,
     int p2pmode = 0;
 
     // Call the invoke in the dbg_client layer
-    di = DbgInvoke(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
+    di = DbgLaunch(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
                    arch_args, arch_input, backend, Env, cwd, gpu_flag,
                    debug_flag, Client.unsafe, Client.early_entry, non_stop_mode);
 
@@ -832,6 +835,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     optind = 0;
     debug_flag = 0;
     gpu_flag = 0;
+    gdb_backend = nullptr;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -1301,8 +1305,8 @@ void InitCmd_proc(void) {
     // regular commands
     AddCommand("session", NULL, proc_ignore, 0, cmd_session_cmd,
                cmd_session_help, "Create a new WLM session.");
-    AddCommand("launch", NULL, proc_ignore, 0, cmd_invoke_cmd,
-               cmd_invoke_help, "Launch an application.");
+    AddCommand("launch", NULL, proc_ignore, 0, cmd_launch_cmd,
+               cmd_launch_help, "Launch an application.");
     AddCommand("attach", NULL, proc_ignore, 0, cmd_attach_cmd,
                cmd_attach_help, "Attach to an application.");
     AddCommand("halt", NULL, proc_required, 0, cmd_halt_cmd,

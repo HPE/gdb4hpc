@@ -105,11 +105,11 @@ dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env,
     return DbgBackendSW->attach(pid, prog, args, env, arch);
 }
 
-dbgevent_t *DbgInvoke(const char *host, int cb, const char *proto,
+dbgevent_t *DbgLaunch(const char *host, int cb, const char *proto,
                       const char *prog, const char *args, char **env,
                       int arch) {
     ResetWDT();
-    return DbgBackendSW->invoke(host, cb, proto, prog, args, env, arch);
+    return DbgBackendSW->launch(host, cb, proto, prog, args, env, arch);
 }
 
 void DbgFinalize(void) {

@@ -63,6 +63,7 @@ const struct option long_opts[] = {
     {"debug", no_argument, &debug_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
+    {"gdb", required_argument, 0, 'b'},
     {0, 0, 0, 0}};
 
 struct mp_arch MPArchs[] = {
@@ -135,6 +136,7 @@ int main(int argc, char *argv[], char *env[]) {
     const char *backend = DBG_BACKEND;
     const char *prog = NULL;
     const char *jobKey = NULL;
+    const char *gdb = nullptr;
     char *args = NULL;
     dbgevent_t *e = nullptr;
 #ifdef SOCKETS
@@ -207,6 +209,11 @@ int main(int argc, char *argv[], char *env[]) {
 
             case 'k':
                 jobKey = optarg;
+                break;
+
+            case 'b':
+                gdb = optarg;
+                fprintf(stderr, "in dbgsrv.cpp: got --gdb option %s\n", gdb);
                 break;
 
             default:

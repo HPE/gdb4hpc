@@ -89,7 +89,7 @@ struct dbgclnt_proto {
                      const char *, const char *, int,
                      int); /* protocol attach function */
     int (*sw_launch)(struct dbginvoke *, proto_session *, const char *, char **,
-                     const char *, char **, const char *, const char *, char **,
+                     const char *, char **, const char *, const char *, const char*, char **,
                      const char *, int, int,
                      int, bool); /* protocol launch function */
     int (*sw_exit)(struct dbginvoke *, int detach); /* protocol exit function */

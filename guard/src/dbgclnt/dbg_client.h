@@ -493,7 +493,7 @@ extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
                               int);
 extern dbginvoke_t *DbgLaunch(const char *, proto_session *, const char *,
                               char **, const char *, int, const char *, char **,
-                              const char *, const char *, char **, const char *,
+                              const char *, const char *, const char*, char **, const char *,
                               int, int, int, int, bool);
 
 extern rep_set_t *DbgStartup(rec_set_t *);

@@ -1968,7 +1968,8 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                        char **argv, const char *handle, int nproc,
                        const char *arch, char **arch_args,
-                       const char *arch_input, const char *backend, char **env,
+                       const char *arch_input, const char *backend, const char* gdb,
+                       char **env,
                        const char *cwd, int gpu_flag, int debug_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
@@ -2055,7 +2056,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     FreeArgv(ap);
 
     if (ptab->sw_launch(di, sess, prog, argv, arch, arch_args, arch_input,
-                        backend, env, cwd, gpu_flag, debug_flag,
+                        backend, gdb, env, cwd, gpu_flag, debug_flag,
                         early_entry_flag, isNonStop)) {
         FreeDbgInvoke(di);
         return nullptr;

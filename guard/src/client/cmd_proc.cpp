@@ -46,7 +46,7 @@ static char* gdb_backend = nullptr;
 */
 static int DoLaunch(const char *, proto_session *, const char *, char **,
                     dbgprocset_t *, const char *, char **, const char *,
-                    const char *, char **, const char *);
+                    const char *, const char *, char **, const char *);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
                     const char *, const char *);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
@@ -256,10 +256,19 @@ exit_with_error:
 }
 
 /*
-** TODO: This is now called launch, but the source refers to it as invoke
-** invoke $proc['['num']',...],... program [--args "prog-args"]
-**  [--using arch] [--arch-args "arch-args"] [--arch-input "inputFile"]
-**  [--on host] [--with proto] [--backend debugger] [--gpu]
+    Launch an application.
+
+    launch <app_handle> <application>"
+                  [--args=\"<args>\" OR -a \"<args>\"]
+                  [--launcher="<launcher_name>"]
+                  [--launcher-args="<launcher_args>"]
+                  [--launcher-input=<path_to_file>]
+                  [--workdir=<path>]
+                  [--env="<name=value>"]
+                  [--qsub=<batch_template>]
+                  [--sbatch=<batch_template>]
+                  [--gpu]
+                  [--debug]
 */
 static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     proto_session *sess = NULL;
@@ -292,6 +301,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     optind = 0;
     debug_flag = 0;
     gpu_flag = 0;
+    free(gdb_backend);
     gdb_backend = nullptr;
 
     if (argc < 3) {
@@ -494,6 +504,10 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
                 setenv(CTI_LAUNCHER_NAME_ENV_VAR, optarg, 1);
                 break;
+            case 'b':
+                gdb_backend = StrdupOpt(optarg);
+                break;
+                
             default:
                 PrintOutError(
                     "Invalid launch argument provided. See \"help launch\" for "
@@ -649,7 +663,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // Invoke the application
     //
     if (!DoLaunch(proto, sess, prog, args, ps, arch, arch_args, arch_input,
-                  backend, env_list, workdir)) {
+                  backend, gdb_backend, env_list, workdir)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);
@@ -702,7 +716,7 @@ exit_with_error:
 static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
                     char **args, dbgprocset_t *ps, const char *arch,
                     char **arch_args, const char *arch_input,
-                    const char *backend, char **Env, const char *cwd) {
+                    const char *backend, const char *gdb, char **Env, const char *cwd) {
     dbginvoke_t *di;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
@@ -711,7 +725,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
 
     // Call the invoke in the dbg_client layer
     di = DbgLaunch(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
-                   arch_args, arch_input, backend, Env, cwd, gpu_flag,
+                   arch_args, arch_input, backend, gdb, Env, cwd, gpu_flag,
                    debug_flag, Client.unsafe, Client.early_entry, non_stop_mode);
 
     if (di == NULL) {
@@ -835,6 +849,8 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     optind = 0;
     debug_flag = 0;
     gpu_flag = 0;
+
+    free(gdb_backend);
     gdb_backend = nullptr;
 
     if (argc < 3) {

@@ -53,7 +53,7 @@ static void DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
 static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
                         const char *, const char *, int, int);
 static int DbgMRNLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-                        const char *, char **, const char *, const char *,
+                        const char *, char **, const char *, const char *, const char*,
                         char **, const char *, int, int, int, bool);
 static int DbgMRNExit(dbginvoke_t *, int);
 static void DbgMRNDestroyClient(dbginvoke_t *);
@@ -864,7 +864,7 @@ static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
 */
 static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         char **argv, const char *arch, char **arch_args,
-                        const char *arch_input, const char *backend, char **env,
+                        const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {
     char sn[80];
@@ -1271,6 +1271,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
     if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
+    if (gdb) ap = AppendArgs(ap, "--gdb", gdb, nullptr);
     ap = AppendArgs(ap, "--", prog, nullptr);
 
 #ifdef DEBUG

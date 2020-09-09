@@ -134,7 +134,7 @@ struct attach_args {
 };
 typedef struct attach_args attach_args;
 
-struct invoke_args {
+struct launch_args {
     char *prog;
     char **argv;
     int nproc;
@@ -142,6 +142,7 @@ struct invoke_args {
     char **arch_args;
     char *arch_input;
     char *backend;
+    char *gdb;
     char **env;
     char *cwd;
     int gpu_flag;
@@ -149,7 +150,6 @@ struct invoke_args {
     int early_entry_flag;
     int non_stop_flag;
 };
-typedef struct invoke_args invoke_args;
 
 extern proxy_session *NewProxySession(void);
 extern void CleanupProxySession(proxy_session *sess);
@@ -162,13 +162,13 @@ extern void FreeRecvType(recv_type *);
 
 extern attach_args *NewAttachArgs(void);
 extern void FreeAttachArgs(attach_args *args);
-extern invoke_args *NewInvokeArgs(void);
-extern void FreeInvokeArgs(invoke_args *args);
+extern launch_args *NewLaunchArgs(void);
+extern void FreeLaunchArgs(launch_args *args);
 
 extern proto_message *SocProtoToProtoMsg(char *);
 extern recv_type *SocProtoToRecv(char *);
 extern attach_args *SocProtoToAttachArgs(char *);
-extern invoke_args *SocProtoToInvokeArgs(char *);
+extern launch_args *SocProtoToLaunchArgs(char *);
 extern int SocProtoToExitArgs(char *);
 
 extern char *ProtoMsgToSocProto(proto_message *);
@@ -176,9 +176,9 @@ extern char *RecvToSocProto(bitset *target, bitset *recv);
 extern char *AttachArgsToSocProto(const char *app_ident, const char *arch,
                                   const char *backend, int gpu_flag,
                                   int debug_flag);
-extern char *InvokeArgsToSocProto(const char *prog, char **argv, int nproc,
+extern char *LaunchArgsToSocProto(const char *prog, char **argv, int nproc,
                                   const char *arch, char **arch_args,
-                                  const char *arch_input, const char *backend,
+                                  const char *arch_input, const char *backend, const char* gdb,
                                   char **env, const char *cwd, int gpu_flag,
                                   int debug_flag, int early_entry_flag,
                                   bool isNonStop);

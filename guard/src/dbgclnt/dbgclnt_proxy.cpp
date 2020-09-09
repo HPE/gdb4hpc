@@ -56,7 +56,7 @@ static void DbgPROXYCleanupSession(proto_session *);
 static int DbgPROXYAttach(dbginvoke_t *, proto_session *, const char *,
                           const char *, const char *, int, int);
 static int DbgPROXYLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-                          const char *, char **, const char *, const char *,
+                          const char *, char **, const char *, const char *, const char*,
                           char **, const char *, int, int, int, bool);
 static int DbgPROXYExit(dbginvoke_t *, int);
 static void DbgPROXYDestroyClient(dbginvoke_t *);
@@ -1528,7 +1528,7 @@ static int cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
 static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
                           const char *prog, char **argv, const char *arch,
                           char **arch_args, const char *arch_input,
-                          const char *backend, char **env, const char *cwd,
+                          const char *backend, const char* gdb,  char **env, const char *cwd,
                           int gpu_flag, int debug_flag, int early_entry_flag,
                           bool isNonStop) {
     proxy_session *sess;
@@ -1585,8 +1585,8 @@ static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
     msg_head.msg_type = MSG_INVOKE;
 
     // Create the invoke args string
-    msg = InvokeArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
-                               arch_input, backend, env, cwd, gpu_flag,
+    msg = LaunchArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
+                               arch_input, backend, gdb, env, cwd, gpu_flag,
                                debug_flag, early_entry_flag, isNonStop);
 
     // set the length in the header

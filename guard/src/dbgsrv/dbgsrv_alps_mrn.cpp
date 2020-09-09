@@ -43,6 +43,7 @@
 #define DBGSRV_OPT_DEBUG "--debug"
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
 #define DBGSRV_OPT_NON_STOP "--non-stop"
+#define DBGSRV_OPT_GDB "--gdb"
 
 #define UDASRV "udaserver"
 #define UDASRV_ARGC 2
@@ -72,6 +73,7 @@ const struct option long_opts[] = {
     {"debug", no_argument, &debug_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
+    {"gdb", required_argument, 0, 'b'},
     {0, 0, 0, 0}};
 
 void DVPRINT(const char *format, ...) {
@@ -119,6 +121,7 @@ int main(int argc, char **argv) {
     char *networkProto = NULL;
     char *dbgBackend = NULL;
     char *prog = NULL;
+    char* gdb = nullptr;
     char pidbuff[PID_BUFSIZ];
     // node specific info
     cti_pidList_t *myPids;
@@ -216,6 +219,11 @@ int main(int argc, char **argv) {
             case 'x':
                 usage(argv[0]);
                 return 1;
+
+            case 'b':
+                fprintf(stderr, "in dbgsrv_alps_mrn.cpp: got --gdb=%s\n", optarg);
+                gdb = strdup(optarg);
+                break;
 
             default:
                 usage(argv[0]);
@@ -379,6 +387,9 @@ int main(int argc, char **argv) {
     }
     if (non_stop_flag) {
         dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_NON_STOP, NULL);
+    }
+    if (gdb) {
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GDB, gdb, nullptr);
     }
 
 
@@ -548,6 +559,7 @@ int main(int argc, char **argv) {
     if (prog != NULL) {
         Free(prog);
     }
+    free(gdb);
 
     // cleanup pid list
     cti_be_destroyPidList(myPids);

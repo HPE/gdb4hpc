@@ -371,6 +371,25 @@ static void setup_pretty_printing() {
     MICommandFree(cmd);
 }
 
+// Turn the source open mode on or off.
+// Turning off source file opening is a performance optimization available in
+// some versions of gdb.
+static void setSourceOpen(bool doOpen) {
+    // the function does not exist in newer versions of gdb
+    // in the future, I'd expect a more sophisticated way to handle gdb versioning..
+    if (gdb_vers == GdbVersion::ROC_GDB || gdb_vers == GdbVersion::CUSTOM) return;
+
+    const char* mode = (doOpen ? "on" : "off");
+    auto cmd = _MIGDBSet("source open", mode);
+    SendMICommand(GDBMISession, cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        // it's not critical that this call work.
+        DVPRINT("set source open %s mode failed\n", mode);
+    }
+    MICommandFree(cmd);
+}
+
 static dbgevent_t *setup_gdbmi_environment(void) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
@@ -433,17 +452,9 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
-        // do not open source files
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // do not open source files
+    setSourceOpen(false);
+
     // we need gdb to set print elements and print repeats to 0 so
     // that when we resolve the data it gives us the entire contents
     // of the data type.
@@ -1915,16 +1926,8 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // if there are hundreds of thousands of ranks and they are all at different
     // locations.
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
-        cmd = _MIGDBSet("source open", "on");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // note this option does not exist in newer versions of gdb
+    setSourceOpen(true);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1956,17 +1959,8 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MIListFree(lines, (void (*)())CLILineInfoFree);
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
-        // do not open source files
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // do not open source files
+    setSourceOpen(false);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -3987,16 +3981,7 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
-        cmd = _MIGDBSet("source open", "on");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    setSourceOpen(true);
 
     return NULL;
 }
@@ -4029,17 +4014,7 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    setSourceOpen(false);
 
     return NULL;
 }

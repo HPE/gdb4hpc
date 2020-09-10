@@ -49,6 +49,8 @@ int debug_flag = 0;
 int gpu_flag = 0;
 int early_entry_flag = 0;
 int non_stop_flag = 0;
+const char* custom_gdb = nullptr;
+const char* custom_gdb_data = nullptr;
 
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
@@ -136,7 +138,6 @@ int main(int argc, char *argv[], char *env[]) {
     const char *backend = DBG_BACKEND;
     const char *prog = NULL;
     const char *jobKey = NULL;
-    const char *gdb = nullptr;
     char *args = NULL;
     dbgevent_t *e = nullptr;
 #ifdef SOCKETS
@@ -152,6 +153,11 @@ int main(int argc, char *argv[], char *env[]) {
     // hardcode the debug_flag to 1 if built with debug turned on
     debug_flag = 1;
 #endif
+    free(const_cast<char*>(custom_gdb));
+    custom_gdb = nullptr;
+
+    free(const_cast<char*>(custom_gdb_data));
+    custom_gdb_data = nullptr;
 
     // Set the streams
     out_stream = stdout;
@@ -212,8 +218,15 @@ int main(int argc, char *argv[], char *env[]) {
                 break;
 
             case 'b':
-                gdb = optarg;
-                fprintf(stderr, "in dbgsrv.cpp: got --gdb option %s\n", gdb);
+                if (char* colon = strchr(optarg, ':')) {
+                    custom_gdb = strndup(optarg, colon-optarg);
+                    custom_gdb_data = strdup(colon+1);
+                } else {
+                    custom_gdb = strdup(optarg);
+                    custom_gdb_data = nullptr;
+                }
+                DVPRINT("custom_gdb = %s, custom_gdb_data = %s\n", custom_gdb,
+                        custom_gdb_data ? custom_gdb_data : "nullptr");
                 break;
 
             default:

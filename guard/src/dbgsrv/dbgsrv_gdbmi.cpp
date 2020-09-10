@@ -74,7 +74,7 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported gdb versions
-enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
+enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB, CUSTOM};
 static GdbVersion gdb_vers = GdbVersion::GDB_81;
 
 // functions with external visibility
@@ -433,7 +433,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // do not open source files
         cmd = _MIGDBSet("source open", "off");
         SendMICommand(GDBMISession, cmd);
@@ -509,7 +509,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // limit strings to 200 characters
         cmd = _MIGDBSet("print characters", "200");
         SendMICommand(GDBMISession, cmd);
@@ -583,7 +583,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         MICommandFree(cmd);
     }
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // If running with gpu's, turn upc off. If we don't do this, things will
         // break
         if (gpu_flag) {
@@ -1012,7 +1012,6 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
     gdb_vers = GdbVersion::GDB_81;
 
-
     /**************DEBUG Start*****************/
     sigset_t debug_mask;
     if (sigprocmask(0, NULL, &debug_mask) < 0) {
@@ -1053,7 +1052,11 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     sprintf(gdb_type, "gdb");
 
     // set the gdb path to use standard or gpu specific gdb
-    if (gpu_flag) {
+    if (custom_gdb) {
+        DVPRINT("setting gdb path to %s\n", custom_gdb);
+        MISessionSetGDBPath(GDBMISession, custom_gdb);
+        gdb_vers = GdbVersion::CUSTOM;
+    } else if (gpu_flag) {
         // Need to determine the version of the driver to start the proper gdb
         FILE *vers;
         int num_fields = 0;
@@ -1184,12 +1187,16 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
                 //declaration above...
                 gpu_flag = 0;
                 break;
+            case GdbVersion::CUSTOM:
+                DVPRINT("Using custom gdb driver %s\n", custom_gdb);
+                break;
         }
     }
 
     // Get the base dir env var if it was set and use that for data-directory
-    char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
-    if (env_base_dir != NULL) {
+    if (custom_gdb_data) {
+        MISessionSetGDBDataDirectory(GDBMISession, custom_gdb_data);
+    } else if (char *env_base_dir = getenv(GUARD_INST_DIRECTORY)) {
         char *gdb_data_dir;
         Asprintf(&gdb_data_dir, "%s/share/%s", env_base_dir, gdb_type);
         MISessionSetGDBDataDirectory(GDBMISession, gdb_data_dir);
@@ -1908,7 +1915,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // if there are hundreds of thousands of ranks and they are all at different
     // locations.
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         cmd = _MIGDBSet("source open", "on");
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
@@ -1949,7 +1956,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MIListFree(lines, (void (*)())CLILineInfoFree);
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // do not open source files
         cmd = _MIGDBSet("source open", "off");
         SendMICommand(GDBMISession, cmd);
@@ -3980,7 +3987,7 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         cmd = _MIGDBSet("source open", "on");
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {
@@ -4022,7 +4029,7 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         cmd = _MIGDBSet("source open", "off");
         SendMICommand(GDBMISession, cmd);
         if (!MICommandResultOK(cmd)) {

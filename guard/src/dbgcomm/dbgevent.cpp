@@ -131,6 +131,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
         // Generic int go here
         case DBGEV_EXIT:
             e->ev_int = event->ev_int;
+            break;
 
         case DBGEV_BPHIT:
         case DBGEV_BPINFO:

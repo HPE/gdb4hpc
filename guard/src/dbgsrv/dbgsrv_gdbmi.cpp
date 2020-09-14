@@ -174,6 +174,7 @@ public:
     virtual dbgevent_t *getSchedulerLocking() override;
     virtual dbgevent_t *setNonStop(const char* op) override;
     virtual dbgevent_t *getNonStop() override;
+    virtual dbgevent_t *ompd(const char* op) override;
 
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
@@ -3324,6 +3325,32 @@ dbgevent_t *DbgGdbMI::getNonStop() {
     return e;
 }
 
+// OpenMP debugger functions
+dbgevent_t *DbgGdbMI::ompd(const char* opp) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    const char* cmd_args[2] = { "ompd", opp };
+    if (strcmp(opp, "help") == 0) {
+        cmd_args[0] = "help";
+        cmd_args[1] = "ompd";
+    }
+
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    dbgevent_t* e = nullptr;
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd failed: not supported with this gdb.");
+    } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+        e->ev_string = mode;
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd ompd did not return a value.");
+    }
+
+    MICommandFree(cmd);
+    return e;
+}
 
 /*
 ** List variables in the current stack frame

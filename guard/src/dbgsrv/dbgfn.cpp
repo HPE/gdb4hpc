@@ -381,6 +381,7 @@ dbgevent_t *DbgThreadApply(const char* op)
     return DbgBackendSW->threadApply(op);
 }
 
+
 dbgevent_t *DbgSetSchedulerLocking(const char* mode)
 {
     ResetWDT();
@@ -407,6 +408,13 @@ dbgevent_t *DbgGetNonStop()
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->getNonStop();
+}
+
+dbgevent_t *DbgOmpd(const char* op)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->ompd(op);
 }
 
 

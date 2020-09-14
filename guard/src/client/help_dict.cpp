@@ -579,6 +579,15 @@ const char* const cmd_next_help[] = {
     "num is supplied, advance num lines.",
     0};
 
+const char* const cmd_ompd_help[] = {
+    "Summary: OpenMP debugging functions.",
+    "Usage: ompd [subcommand]",
+    "",
+    "Whether the ompd function is a available and which sub-functions",
+    "are available is instatallation specific.   Use",
+    "\"ompd help\" to get the commands available with the current process.",
+    0};
+
 const char* const cmd_print_help[] = {
     "Summary: Print the value of an expression.",
     "Usage: print <expr>",

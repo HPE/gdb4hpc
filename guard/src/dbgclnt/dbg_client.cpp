@@ -3044,6 +3044,12 @@ rep_set_t *DbgGetNonStop(rec_set_t* set)
     return result;
 }
 
+rep_set_t *DbgOmpd(rec_set_t* set, const char* op)
+{
+    auto request = CommandToSocProto(DBGCMD_OMPD,op);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    return result;
+}
 
 /*
 ** DBG_KILL: Terminate execution of program.

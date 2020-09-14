@@ -530,7 +530,7 @@ extern rep_set_t *DbgSetSchedulerLocking(rec_set_t *,const char* mode);
 extern rep_set_t *DbgGetSchedulerLocking(rec_set_t *);
 extern rep_set_t *DbgSetNonStop(rec_set_t *,const char* mode);
 extern rep_set_t *DbgGetNonStop(rec_set_t *);
-
+extern rep_set_t *DbgOmpd(rec_set_t *,const char* op);
 
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgKill(rec_set_t *);

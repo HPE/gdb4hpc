@@ -388,6 +388,14 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             e = DbgGetNonStop();
             break;
         }
+
+        case DBGCMD_OMPD: {
+            std::string op;
+            is.get(op);
+            e = DbgOmpd(op.c_str());
+            break;
+        }
+
     }
 
     // Convert the event to network protocol and send it

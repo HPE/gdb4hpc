@@ -77,6 +77,7 @@ void InitProcSet(void) {
 
 void FinishProcSet(void) {
     DestroyList(ProcSets, (void (*)(void *))_free_procset);
+    ProcSets = NULL;
 }
 
 /*
@@ -700,8 +701,10 @@ static void AddOverlaySetToAllProcSet(dbg_over_set_t *over_set) {
 static void _free_procset(dbgprocset_t *s) {
     // FIXME: Destroy the val!!!
     DestroyList(s->s_over_set_list, (void (*)(void *))FreeOverlaySet);
+    s->s_over_set_list = NULL;
 
     Free(s->s_name);
+    s->s_name = NULL;
     Free(s);
 }
 

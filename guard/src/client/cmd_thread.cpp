@@ -241,6 +241,7 @@ static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **a
     return 1;
 }
 
+// command to interface with the ompd plugin
 static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     auto arg = ArgsToString(argc-1, argv+1);
@@ -252,11 +253,13 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto handle = reply->rep_di->d_handle;
         auto group = reply->rep_group;
 
-        const char* str = reply->rep_event->ev_u.ev_u_string;
-        std::istringstream is(str);
-        std::string line;
-        while (std::getline(is,line)) {
-            PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+        if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
+            const char* str = reply->rep_event->ev_u.ev_u_string;
+            std::istringstream is(str);
+            std::string line;
+            while (std::getline(is,line)) {
+                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            }
         }
     }
 

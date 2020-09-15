@@ -2137,7 +2137,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
 
             // Any event without data should be handled here
             case DBGEV_OK:
-                if (ev != req_type) {
+                if (ev != req_type && ev != alt_req_type) {
                     // Create a new error event based on this reply
                     FreeEvent(e);
                     EVENT_ERROR(
@@ -3047,7 +3047,7 @@ rep_set_t *DbgGetNonStop(rec_set_t* set)
 rep_set_t *DbgOmpd(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_OMPD,op);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
     return result;
 }
 

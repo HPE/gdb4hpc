@@ -197,6 +197,7 @@ private:
 }
 
 static dbgevent_t *WaitEvent(dbgevent_t *e);
+static dbgevent_t *WaitOmpdEvent(dbgevent_t *e);
 static dbgevent_t *CheckBreak(MICommand *, const dbgcomm_info *);
 static void Finish(int);
 static void event_callback(MIEvent *);
@@ -218,6 +219,8 @@ static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
 static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
+
+static const char* unknownBPErrorMsg = "Hit unknown breakpoint!";
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
@@ -3325,12 +3328,43 @@ dbgevent_t *DbgGdbMI::getNonStop() {
     return e;
 }
 
+// ompd prints the thread info in a little different format; in particular the thread indices
+// in ompd simple indices so we probably want them displayed - we just filter out the
+// LWP numbers and hex addresses that mess up aggregation
+static std::string anonymizeOmpdThreadInfo(const std::string& val) {
+    static std::regex threadId{R"(^(Thread\s+\d+)\s*\(\d+\)(.*))"};
+    static std::regex threadId2{R"(^(\[.* thread\s+\d+)\s+\(Thread.*\(LWP.*\)\)(.*))"};
+    static std::regex hexValRE(R"(0x[0-9a-f]+)");  // the extra ( in ) is for the proc counter
+
+     std::istringstream is(val);
+     std::ostringstream os;
+
+     for (std::string line; std::getline(is,line); ) {
+         line = std::regex_replace(line, threadId, "$1$2");
+         line = std::regex_replace(line, threadId2, "$1$2");
+         line = std::regex_replace(line, hexValRE, "");
+         os << line << "\n";
+     }
+
+     return os.str();
+}
+
 // OpenMP debugger functions
-dbgevent_t *DbgGdbMI::ompd(const char* opp) {
+dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    const char* cmd_args[2] = { "ompd", opp };
-    if (strcmp(opp, "help") == 0) {
+    static std::regex verboseRE{R"(^\s*-v\s*)"};
+    auto isVerbose = bool{false};
+    auto opp = std::string{inOpp};
+
+    auto match = std::smatch{};
+    if (std::regex_search(opp, match, verboseRE)) {
+        isVerbose = true;
+        opp = match.suffix().str();
+    }
+
+    const char* cmd_args[2] = { "ompd", opp.c_str() };
+    if (opp == "help") {
         cmd_args[0] = "help";
         cmd_args[1] = "ompd";
     }
@@ -3338,17 +3372,53 @@ dbgevent_t *DbgGdbMI::ompd(const char* opp) {
     MICommand* cmd = CLIBypassc(2, cmd_args);
     SendMICommand(GDBMISession, cmd);
 
+    bool isRunning = false;
+
     dbgevent_t* e = nullptr;
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd failed: not supported with this gdb.");
-    } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
+    if (MICommandResultClass(cmd) == MIResultRecordRUNNING) {
+        // ompd init runs aynchronously after it sets a temporary breakpoint
+        isRunning = true;
+        e = NewEvent(DBGEV_OK);
+    } else if (!MICommandResultOK(cmd)) {
+        const char* msg = MICommandResultErrorMessage(cmd);
+        if (!msg) msg = "ompd failed.";
+        EVENT_ERROR(e, DBGERR_DEBUGGER, msg);
+    } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
         e = NewEvent(DBGEV_THREADINFO);
-        e->ev_string = mode;
+
+        if (isVerbose || opp != "threads") {
+            e->ev_string = result;
+        } else {
+            auto cresult = anonymizeOmpdThreadInfo(result);
+            free(result);
+            e->ev_string = strdup(cresult.c_str());
+        }
+
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd ompd did not return a value.");
     }
 
     MICommandFree(cmd);
+
+    if (isRunning) {
+        DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
+        ThreadAsyncCheck(WaitOmpdEvent, nullptr);
+        Status = DBGSTAT_RUNNING;
+    }
+    return e;
+}
+
+static dbgevent_t *WaitOmpdEvent(dbgevent_t* inEvent) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    auto e = WaitEvent(inEvent);
+
+    // ompd init set an internal breakpoint and runs to it, so gdb4hpc is going to get
+    // an event on a breakpoint is doesn't know anything about.
+    if (e && e->ev_event == DBGEV_ERROR && strcmp(e->ev_errstr, unknownBPErrorMsg) == 0) {
+        FreeEvent(e);
+        e = NewEvent(DBGEV_OK);
+    }
+
     return e;
 }
 
@@ -4407,7 +4477,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             if (bp == NULL) {
                 e = ChangeEvent(e, DBGEV_ERROR);
                 e->ev_errno = DBGERR_DEBUGGER;
-                EventErrStr(e, "Hit unknown breakpoint!");
+                EventErrStr(e, unknownBPErrorMsg);
                 return e;
             }
 

@@ -106,6 +106,7 @@ void DestroyCLI(void) {
 
     // Null out the global variables
 
+    StreamQueue = NULL;
     CurrentStream = NULL;
 
     Client.cli_in_stream = NULL;
@@ -200,6 +201,11 @@ void DestroyCurrentCLIStream(void) {
 
 void SetDefaultCLIStream(void) {
     cli_stream_t *stream = NULL;
+
+    if (StreamQueue == NULL) {
+        PrintOutError("Error: Default stream is invalid.\n");
+        return;
+    }
 
     // We only need to do stuff if the StreamQueue isn't empty
     while (SizeOfList(StreamQueue) != 0) {

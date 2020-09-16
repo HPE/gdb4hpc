@@ -28,18 +28,19 @@
 
 static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *buf;
-    val_t *val_res = NULL;
-    val_t *val_diff = NULL;
+    val_t *val_res = nullptr;
+    val_t *val_diff = nullptr;
     int res;
     rep_set_t *rep_set;
     expr_t *e;
     char **ap;
     AIFStream *a;
+    AIF *printElementsAIF;
     int print_diff = 0;
-    bitset *true_bitset = NULL;
-    bitset *false_bitset = NULL;
-    bitset *warn_bitset = NULL;
-    bitset *indet_bitset = NULL;
+    bitset *true_bitset = nullptr;
+    bitset *false_bitset = nullptr;
+    bitset *warn_bitset = nullptr;
+    bitset *indet_bitset = nullptr;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -57,7 +58,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     buf = ArgsToBuf(ap, argc - 1);
 
-    if ((e = ParseExpr(buf)) == (expr_t *)NULL) {
+    if ((e = ParseExpr(buf)) == (expr_t *)nullptr) {
         PrintError();
         Free(buf);
         return 0;
@@ -65,6 +66,16 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // done with buf
     Free(buf);
+
+    // FIXME: this is inefficient, but since the print elements setting affects
+    // what gets sent back, we need to set/reset it before evaluating a compare
+    //
+    // set print elements to unlimited
+    printElementsAIF = IntToAIF(0);
+    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
+    ProcessErrorInRepSet(rep_set);
+    AIFFree(printElementsAIF);
+    FreeRepSet(rep_set);
 
     DPERFLOG(SetTimerStart("compare"));
 
@@ -75,6 +86,13 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     DPERFLOG(SetTimerStopAndLog("compare"));
+
+    // set print elements back to client setting
+    printElementsAIF = IntToAIF(Client.print_elements);
+    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
+    ProcessErrorInRepSet(rep_set);
+    AIFFree(printElementsAIF);
+    FreeRepSet(rep_set);
 
     FreeExpr(e);
 
@@ -135,7 +153,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 a->toInt(res);
                 switch (res) {
                     case 0:
-                        if (true_bitset == NULL) {
+                        if (true_bitset == nullptr) {
                             // create a new true bitset based off the reply
                             // group. Note that every reply will have the same
                             // set size.
@@ -147,7 +165,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                         break;
                     case -1:
                     case 1:
-                        if (false_bitset == NULL) {
+                        if (false_bitset == nullptr) {
                             // create a new false bitset based off the reply
                             // group. Note that every reply will have the same
                             // set size.
@@ -160,7 +178,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                         break;
                     case -2:
                     case 2:
-                        if (warn_bitset == NULL) {
+                        if (warn_bitset == nullptr) {
                             // create a new warn bitset based off the reply
                             // group. Note that every reply will have the same
                             // set size.
@@ -172,7 +190,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                         print_diff++;
                         break;
                     case 3:
-                        if (indet_bitset == NULL) {
+                        if (indet_bitset == nullptr) {
                             // create a new indeterminate bitset based off the
                             // reply group. Note that every reply will have the
                             // same set size.
@@ -194,19 +212,19 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             //      someday should be fixed. For now just use the string ""
 
             // print the result summary
-            if (true_bitset != NULL) {
+            if (true_bitset != nullptr) {
                 PrintMsgWithSetInfo("", true_bitset, "Comparison is true.\n");
                 bitset_free(true_bitset);
             }
-            if (false_bitset != NULL) {
+            if (false_bitset != nullptr) {
                 PrintMsgWithSetInfo("", false_bitset, "Comparison is false.\n");
                 bitset_free(false_bitset);
             }
-            if (warn_bitset != NULL) {
+            if (warn_bitset != nullptr) {
                 PrintMsgWithSetInfo("", warn_bitset, "Comparison is warn.\n");
                 bitset_free(warn_bitset);
             }
-            if (indet_bitset != NULL) {
+            if (indet_bitset != nullptr) {
                 PrintMsgWithSetInfo(
                     "", indet_bitset,
                     "Comparison is indeterminate due to pointers.\n");
@@ -214,7 +232,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             }
 
             // print out the difference deltas once
-            if (print_diff && val_diff != NULL) {
+            if (print_diff && val_diff != nullptr) {
                 PrintOutMsg("The difference delta is:\n");
                 if (PrintVal(val_diff, rec_set) < 0) PrintError();
             }
@@ -225,9 +243,9 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
             break;
     }
 
-    if (val_diff != NULL) DestroyVal(val_diff);
+    if (val_diff != nullptr) DestroyVal(val_diff);
 
-    if (val_res != NULL) DestroyVal(val_res);
+    if (val_res != nullptr) DestroyVal(val_res);
 
     return 1;
 }

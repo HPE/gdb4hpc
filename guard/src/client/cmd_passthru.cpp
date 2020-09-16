@@ -27,12 +27,81 @@
 static cmdlist_t *DirectModeCmds;
 static cmdlist_t *OldCmds;
 
+static int run_direct_cmds(rec_set_t *rec_set, std::vector<std::vector<std::string>> cmds) {
+    for (const auto &cmdv : cmds) {
+        rep_set_t *rep_set;
+        std::vector<const char*> cstrings;
+        char *cmd;
+
+        // convert command to cstrings
+        for (const auto &string : cmdv) {
+            cstrings.push_back(string.c_str());
+        }
+
+        rep_set = DbgDirectCmd(rec_set, cstrings.size(), const_cast<char **>(cstrings.data()));
+
+        ProcessErrorInRepSet(rep_set);
+
+        // process console messages
+        for (const auto &reply : rep_set) {
+            // Point at the cmd data
+            cmd = EVENT_CMD(reply->rep_event);
+
+            // make sure the cmd is not empty
+            if (strlen(cmd) == 0) continue;
+
+            if (GetNumberOfReply(rep_set) == 1) {
+                PrintOutMsg("%s\n", cmd);
+            } else {
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                                    "%s\n", cmd);
+            }
+        }
+
+        FreeRepSet(rep_set);
+    }
+
+    return 1;
+}
+
+static int reset_before_direct_mode(rec_set_t *rec_set) {
+    std::vector<std::string> argv_p_elements = {"set", "print", "elements", "200"};
+    std::vector<std::string> argv_p_repeats = {"set", "print", "repeats", "10"};
+    std::vector<std::string> argv_source_open = {"set", "source", "open", "on"};
+    // FIXME: set source open on does not work with ROCgdb backends.
+    
+    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats, argv_source_open};
+
+    return run_direct_cmds(rec_set, commands);
+}
+
+static int restore_after_direct_mode(rec_set_t *rec_set) {
+    std::vector<std::string> argv_p_elements = {"set", "print", "elements", "_"};
+    std::vector<std::string> argv_p_repeats = {"set", "print", "repeats", "0"};
+    std::vector<std::string> argv_source_open = {"set", "source", "open", "off"};
+    // FIXME: set source open on does not work with ROCgdb backends.
+    
+    // restore print elements to client setting
+    argv_p_elements[3] = std::to_string(Client.print_elements);
+
+    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats, argv_source_open};
+
+    return run_direct_cmds(rec_set, commands);
+}
+
 static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     rep_set_t *rep_set;
     char *cmd;
 
-    rep_set = DbgDirectCmd(rec_set, argc, argv);
+    if (argc < 2) {
+        PrintOutError("Usage: maint passthru <gdb command...>\n");
+        return 0;
+    }
+
+    reset_before_direct_mode(rec_set);
+
+    rep_set = DbgDirectCmd(rec_set, argc - 1, &argv[1]);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -50,6 +119,8 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
     }
 
     FreeRepSet(rep_set);
+
+    restore_after_direct_mode(rec_set);
 
     return 1;
 }
@@ -70,6 +141,8 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     PrintOutMsg(
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
+
+    reset_before_direct_mode(rec_set);
 
     // This won't work with a "generic" debug backend, but works with gdb.
     rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
@@ -104,6 +177,7 @@ static int cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc,
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
         "continue) debugger is in an unknown state.\n");
 
+    restore_after_direct_mode(rec_set);
     cli_dec_prompt();
     SetCommands(OldCmds);
 

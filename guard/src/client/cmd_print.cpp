@@ -26,10 +26,11 @@
 #include <regex>
 #include <sstream>
 
+#include "aif.h"
 #include "client.h"
 #include "df.h"
-#include "useful.h"
 #include "help_dict.h"
+#include "useful.h"
 
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
@@ -298,6 +299,13 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     }
 
     Client.print_elements = elements;
+    AIF *aif = IntToAIF(elements);
+
+    rep_set_t *rep_set = DbgSetDebuggerVar(rec_set, "print elements", aif);
+    
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+    AIFFree(aif);
 
     return 1;
 }
@@ -325,12 +333,12 @@ void InitCmd_print(void) {
                "Print the value of an expression.");
 
     AddSetPrintCommand(
-        "elements", proc_ignore, 0, class_set_print_subcmd_elements_cmd,
+        "elements", proc_required, 0, class_set_print_subcmd_elements_cmd,
         class_set_print_subcmd_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
     AddShowPrintCommand(
-        "elements", proc_ignore, 0, class_show_print_subcmd_elements_cmd,
+        "elements", proc_required, 0, class_show_print_subcmd_elements_cmd,
         class_show_print_subcmd_elements_help,
         "Show number of elements to print when an array is printed.");
 }

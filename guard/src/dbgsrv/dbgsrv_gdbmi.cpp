@@ -95,7 +95,6 @@ static list_t *exit_BP;
 static const char *ProgMain;
 static int AsynchEventWaiting = 0;
 static MIEvent *PendingEvent = NULL;
-static int DirectCmdAsyncRestore = 0;
 
 // true if the debugger is actually in non-stop mode, the variable non_stop_mode
 // just indicates it was *requested*
@@ -212,8 +211,6 @@ static dbgevent_t *setup_gdbmi_signals(void);
 static dbgevent_t *setup_gdbmi_entry_points(void);
 static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
-static dbgevent_t *ResetBeforeDirectCmd(void);
-static dbgevent_t *RestoreAfterDirectCmd(void);
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
@@ -4050,72 +4047,6 @@ dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
     return NewEvent(DBGEV_OK);
 }
 
-static dbgevent_t *ResetBeforeDirectCmd(void) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    MICommand *cmd;
-    dbgevent_t *e;
-
-    // we need gdb to set print elements and print repeats to 0 so
-    // that when we resolve the data it gives us the entire contents
-    // of the data type.
-    cmd = _MIGDBSet("print elements", "200");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set print elements command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = _MIGDBSet("print repeats", "10");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set print repeats command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    setSourceOpen(true);
-
-    return NULL;
-}
-
-static dbgevent_t *RestoreAfterDirectCmd(void) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    MICommand *cmd;
-    dbgevent_t *e;
-
-    // we need gdb to set print elements and print repeats to 0 so
-    // that when we resolve the data it gives us the entire contents
-    // of the data type.
-    cmd = _MIGDBSet("print elements", "0");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set print elements command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = _MIGDBSet("print repeats", "0");
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set print repeats command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    setSourceOpen(false);
-
-    return NULL;
-}
-
 /*
 ** Pass command directly to gdb/mi through console command
 */
@@ -4123,15 +4054,6 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     dbgevent_t *e;
-    dbgevent_t *e2 = NULL;
-    // FIXME: Restore after reaching a breakpoint later on!
-    int restore = 1;
-
-    // Reset some of the print settings to default, otherwise the user might
-    // not get a response
-    e = ResetBeforeDirectCmd();
-
-    if (e != NULL) return e;
 
     cmd = CLIBypass(cmd_argc, cmd_argv);
     SendMICommand(GDBMISession, cmd);
@@ -4143,25 +4065,17 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     // We also want to update status in certain situations (like ^running)
     switch (MICommandResultClass(cmd)) {
         case MIResultRecordINVALID:
-            e = RestoreAfterDirectCmd();
-            if (e != NULL) return e;
             EVENT_ERROR(e, DBGERR_DEBUGGER,
                         "Invalid command returned by MI layer.");
             MICommandFree(cmd);
             return e;
 
         case MIResultRecordRUNNING:
-            Status = DBGSTAT_RUNNING;
-            // We can't restore if the status changes to running
-            restore = 0;
-            DirectCmdAsyncRestore = 1;
             // FIXME: Use a custom WaitEvent
             AsyncCheck(WaitEvent, nullptr);
             break;
 
         case MIResultRecordERROR:
-            e = RestoreAfterDirectCmd();
-            if (e != NULL) return e;
             EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
             MICommandFree(cmd);
             return e;
@@ -4186,15 +4100,6 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     e->ev_cmd = MICommandConsoleOOBMessages(cmd);
 
     MICommandFree(cmd);
-
-    if (restore) {
-        e2 = RestoreAfterDirectCmd();
-
-        if (e2 != NULL) {
-            FreeEvent(e);
-            return e2;
-        }
-    }
 
     return e;
 }
@@ -4417,16 +4322,6 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
 
     AsynchEventWaiting = 0;
     PendingEvent = NULL;
-
-    // check if we should reset due to a direct command triggering the run state
-    if (DirectCmdAsyncRestore) {
-        DirectCmdAsyncRestore = 0;
-        dbgevent_t *e2 = RestoreAfterDirectCmd();
-        if (e2 != NULL) {
-            FreeEvent(e);
-            return e2;
-        }
-    }
 
     // check for MI error condition
     if (MIGetError()) {

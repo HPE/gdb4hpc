@@ -161,7 +161,11 @@ compare $a{0}::ld=$b{0}::ld
 print assertTest
 compare $a{0}::assertTest=$b{0}::assertTest
 
-
+#arrays
+#should be false in both cases
+compare $a{0}::one_d_i_init=$b{0}::one_d_i_init
+set print elements 5
+compare $a{0}::one_d_i_init=$b{0}::one_d_i_init
 
 #continue
 

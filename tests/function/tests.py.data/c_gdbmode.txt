@@ -19,6 +19,13 @@ Find the GDB manual and other documentation resources online at:
 For help, type "help".
 Type "apropos word" to search for commands related to "word".
 
+Limit on array elements to print is 200.
+
+Threshold for repeated print elements is 10.
+
+Source opening is on.
+
 
 Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
+Limit on string chars or array elements to print is 5.
 Shutting down debugger and killing application for 'a'.

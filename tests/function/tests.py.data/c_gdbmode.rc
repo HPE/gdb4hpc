@@ -18,17 +18,19 @@ maint set sync on
 # launch 3 instances of the application
 launch $a{6} --launcher-args="%%launcher_args%%"  bd_dt/c/c_type_test.x --debug
 
+# Test gdbmode and that things are reset upon entering/exiting gdb
 
-# Test gdbmode command
+set print elements 5
+
 gdbmode
 
-#exit gdbmode
+show print elements
+show print repeats
+show source open
+
 e
+
+show print elements
 
 #exit lgdb
 q
-
-
-
-
-

@@ -554,6 +554,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Ignore signals during cleanup
+    DbgHandleSignal(SIGINT, SIG_IGN, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGHUP, SIG_IGN, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGTERM, SIG_IGN, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGQUIT, SIG_IGN, DBG_SIG_NOMASK);
+
 #ifdef RD
     FinishDF();
 #endif /* RD */
@@ -564,6 +570,12 @@ int main(int argc, char *argv[]) {
     FinishVal();
     DestroyCommands();
     DestroyCLI();
+
+    // Reset signal dispositions that used SigHandler
+    DbgHandleSignal(SIGINT, SIG_DFL, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGHUP, SIG_DFL, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGTERM, SIG_DFL, DBG_SIG_NOMASK);
+    DbgHandleSignal(SIGQUIT, SIG_DFL, DBG_SIG_NOMASK);
 
     exit(0);
 }

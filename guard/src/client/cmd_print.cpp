@@ -301,7 +301,10 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     Client.print_elements = elements;
     AIF *aif = IntToAIF(elements);
 
-    rep_set_t *rep_set = DbgSetDebuggerVar(rec_set, "print elements", aif);
+    // FIXME: the proper solution here is to make DbgSetDebuggerVar const-correct
+    // to avoid compiler warnings - DbgSetDebuggerVar takes a char *, not a const char *
+    char printElemsString[] = "print elements";
+    rep_set_t *rep_set = DbgSetDebuggerVar(rec_set, printElemsString, aif);
     
     ProcessErrorInRepSet(rep_set);
     FreeRepSet(rep_set);

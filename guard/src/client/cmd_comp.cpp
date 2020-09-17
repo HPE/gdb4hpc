@@ -72,10 +72,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // set print elements to unlimited
     printElementsAIF = IntToAIF(0);
-    // FIXME: the proper solution here is to make DbgSetDebuggerVar const-correct
-    // to avoid compiler warnings - DbgSetDebuggerVar takes a char *, not a const char *
-    char printElemsString[] = "print elements";
-    rep_set = DbgSetDebuggerVar(rec_set, printElemsString, printElementsAIF);
+    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
     ProcessErrorInRepSet(rep_set);
     AIFFree(printElementsAIF);
     FreeRepSet(rep_set);
@@ -92,7 +89,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // set print elements back to client setting
     printElementsAIF = IntToAIF(Client.print_elements);
-    rep_set = DbgSetDebuggerVar(rec_set, printElemsString, printElementsAIF);
+    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
     ProcessErrorInRepSet(rep_set);
     AIFFree(printElementsAIF);
     FreeRepSet(rep_set);

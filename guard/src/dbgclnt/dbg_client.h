@@ -507,8 +507,8 @@ extern rep_set_t *DbgGetExpr(rec_set_t *);
 extern rep_set_t *DbgEvalExpr(rec_set_t *, char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
-extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, char *, AIF *);
-extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, char *);
+extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIF *);
+extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
 extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
 extern rep_set_t *DbgGetSourcePath(rec_set_t *);
 extern rep_set_t *DbgSetSourceOpen(rec_set_t *, const char *);

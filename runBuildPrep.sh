@@ -75,8 +75,9 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
     check_exit_status
     # These are the rocm 3.5 relase packages: relevant only for centos8 build, specific to
     # building ROCgdb
-    yum install -y  epel-release \
-                    dkms \
+    yum install -y  epel-release 
+    check_exit_status
+    yum install -y dkms \
                     kernel-headers \
                     kernel-devel
     check_exit_status

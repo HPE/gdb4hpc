@@ -76,8 +76,9 @@ void InitProcSet(void) {
 }
 
 void FinishProcSet(void) {
-    DestroyList(ProcSets, (void (*)(void *))_free_procset);
-    ProcSets = NULL;
+    auto procSets = ProcSets;
+    ProcSets = nullptr;
+    DestroyList(procSets, (void (*)(void *))_free_procset);
 }
 
 /*

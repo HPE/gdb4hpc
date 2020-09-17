@@ -158,6 +158,8 @@ public:
     virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) override;
     virtual dbgevent_t *setSourcePath(const char *path) override;
     virtual dbgevent_t *getSourcePath() override;
+    virtual dbgevent_t *setSourceOpen(const char *arg) override;
+    virtual dbgevent_t *getSourceOpen() override;
     virtual dbgevent_t *getDebuggerVar(const char *var) override;
 
     // Pass command directly to gdb/mi through console command
@@ -213,6 +215,7 @@ static dbgevent_t *setup_gdbmi_main_entry_point(void);
 static dbgevent_t *setup_gdbmi_exit_points(void);
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
+static void setSourceOpen(bool doOpen);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
 static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
@@ -1928,7 +1931,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // locations.
 
     // note this option does not exist in newer versions of gdb
-    setSourceOpen(true);
+    ::setSourceOpen(true);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1961,7 +1964,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MICommandFree(cmd);
 
     // do not open source files
-    setSourceOpen(false);
+    ::setSourceOpen(false);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -4030,6 +4033,28 @@ dbgevent_t *DbgGdbMI::getSourcePath() {
     MIStringFree(cmd_result);
 
     return e;
+}
+
+dbgevent_t *DbgGdbMI::setSourceOpen(const char *arg) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    bool doOpen;
+
+    if (strcmp("on", arg) == 0) {
+        doOpen = true;
+    } else if (strcmp("off", arg) == 0) {
+        doOpen = false;
+    } else {
+        return NewEvent(DBGEV_ERROR);
+    }
+
+    ::setSourceOpen(doOpen);
+
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t *DbgGdbMI::getSourceOpen() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    return getDebuggerVar("source open");
 }
 
 /*

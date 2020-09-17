@@ -237,6 +237,18 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
         }
 
+        case DBGCMD_SETSOURCEOPEN: {
+            std::string arg;
+            is.get(arg);
+            e = DbgSetSourceOpen(arg.c_str());
+            break;
+        }
+
+        case DBGCMD_GETSOURCEOPEN: {
+            e = DbgGetSourceOpen();
+            break;
+        }
+
         case DBGCMD_GETDEBUGGERVAR: {
             std::string var;
             is.get(var);

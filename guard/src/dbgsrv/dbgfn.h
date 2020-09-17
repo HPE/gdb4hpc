@@ -73,6 +73,8 @@ public:
     virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) = 0;
     virtual dbgevent_t *setSourcePath(const char *path) = 0;
     virtual dbgevent_t *getSourcePath() = 0;
+    virtual dbgevent_t *setSourceOpen(const char* arg) = 0;
+    virtual dbgevent_t *getSourceOpen() = 0;
     virtual dbgevent_t *getDebuggerVar(const char *var) = 0;
 
     // Pass command directly to gdb/mi through console command
@@ -124,6 +126,8 @@ extern dbgevent_t *DbgSetVar(const char *, AIF *, const char* threads);
 extern dbgevent_t *DbgSetDebuggerVar(const char *, AIF *);
 extern dbgevent_t *DbgSetSourcePath(const char *);
 extern dbgevent_t *DbgGetSourcePath(void);
+extern dbgevent_t *DbgSetSourceOpen(const char* arg);
+extern dbgevent_t *DbgGetSourceOpen();
 extern dbgevent_t *DbgEvalExpr(const char *, long, const char*);
 extern dbgevent_t *DbgGetType(const char *, bool, const char*);
 extern dbgevent_t *DbgGetLocation(void);

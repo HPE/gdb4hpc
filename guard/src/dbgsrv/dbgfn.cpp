@@ -289,6 +289,18 @@ dbgevent_t *DbgSetSourcePath(const char *path) {
     return DbgBackendSW->setSourcePath(path);
 }
 
+dbgevent_t *DbgSetSourceOpen(const char *arg) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setSourceOpen(arg);
+}
+
+dbgevent_t *DbgGetSourceOpen() {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->getSourceOpen();
+}
+
 dbgevent_t *DbgGetSourcePath() {
     ResetWDT();
     DBG_READY();

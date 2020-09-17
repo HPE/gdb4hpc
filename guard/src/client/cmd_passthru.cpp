@@ -67,26 +67,43 @@ static int run_direct_cmds(rec_set_t *rec_set, std::vector<std::vector<std::stri
 static int reset_before_direct_mode(rec_set_t *rec_set) {
     std::vector<std::string> argv_p_elements = {"set", "print", "elements", "200"};
     std::vector<std::string> argv_p_repeats = {"set", "print", "repeats", "10"};
-    std::vector<std::string> argv_source_open = {"set", "source", "open", "on"};
-    // FIXME: set source open on does not work with ROCgdb backends.
-    
-    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats, argv_source_open};
+    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats};
+    int r = 0;    
+    rep_set_t *rep_set = nullptr;
 
-    return run_direct_cmds(rec_set, commands);
+    r = run_direct_cmds(rec_set, commands);
+    if (r != 1) {
+        return r;
+    }
+    
+    rep_set = DbgSetSourceOpen(rec_set, "on");
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+
+    return 1;
 }
 
 static int restore_after_direct_mode(rec_set_t *rec_set) {
     std::vector<std::string> argv_p_elements = {"set", "print", "elements", "_"};
     std::vector<std::string> argv_p_repeats = {"set", "print", "repeats", "0"};
-    std::vector<std::string> argv_source_open = {"set", "source", "open", "off"};
-    // FIXME: set source open on does not work with ROCgdb backends.
-    
+    int r = 0;
+    rep_set_t *rep_set = nullptr;
+
     // restore print elements to client setting
     argv_p_elements[3] = std::to_string(Client.print_elements);
 
-    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats, argv_source_open};
+    std::vector<std::vector<std::string>> commands = {argv_p_elements, argv_p_repeats};
 
-    return run_direct_cmds(rec_set, commands);
+    r = run_direct_cmds(rec_set, commands);
+    if (r != 1) {
+        return r;
+    }
+
+    rep_set = DbgSetSourceOpen(rec_set, "off");
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+
+    return 1;
 }
 
 static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,

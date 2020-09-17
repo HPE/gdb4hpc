@@ -303,16 +303,16 @@ void FreeAttachArgs(attach_args *args) {
     Free(args);
 }
 
-invoke_args *NewInvokeArgs(void) {
-    invoke_args *rtn = (invoke_args *)Alloc(sizeof(invoke_args));
+launch_args *NewLaunchArgs(void) {
+    launch_args *rtn = (launch_args *)Alloc(sizeof(launch_args));
 
     // set everything to null/0
-    memset(rtn, 0, sizeof(invoke_args));
+    memset(rtn, 0, sizeof(launch_args));
 
     return rtn;
 }
 
-void FreeInvokeArgs(invoke_args *args) {
+void FreeLaunchArgs(launch_args *args) {
     char **t;
 
     if (args == NULL) return;
@@ -331,6 +331,7 @@ void FreeInvokeArgs(invoke_args *args) {
     }
     Free(args->arch_input);
     Free(args->backend);
+    free(args->gdb);
     if (args->env != NULL) {
         for (t = args->env; *t != NULL; ++t) {
             Free(*t);
@@ -415,8 +416,8 @@ attach_args *SocProtoToAttachArgs(char *s) {
     return rtn;
 }
 
-invoke_args *SocProtoToInvokeArgs(char *s) {
-    invoke_args *rtn;
+launch_args *SocProtoToLaunchArgs(char *s) {
+    launch_args *rtn;
 
     if (s == NULL) return NULL;
 
@@ -425,7 +426,7 @@ invoke_args *SocProtoToInvokeArgs(char *s) {
     if (*s == '\0') return NULL;
 
     // create the return type
-    rtn = NewInvokeArgs();
+    rtn = NewLaunchArgs();
 
     // process the message
     rtn->prog = getstring(&s);
@@ -439,6 +440,8 @@ invoke_args *SocProtoToInvokeArgs(char *s) {
     FMT_MAKE_NULL_STR(rtn->arch_input);
     rtn->backend = getstring(&s);
     FMT_MAKE_NULL_STR(rtn->backend);
+    rtn->gdb = getstring(&s);
+    FMT_MAKE_NULL_STR(rtn->gdb);
     rtn->env = getargv(&s);
     rtn->cwd = getstring(&s);
     FMT_MAKE_NULL_STR(rtn->cwd);
@@ -519,9 +522,9 @@ char *AttachArgsToSocProto(const char *app_ident, const char *arch,
     return stres;
 }
 
-char *InvokeArgsToSocProto(const char *prog, char **argv, int nproc,
+char *LaunchArgsToSocProto(const char *prog, char **argv, int nproc,
                            const char *arch, char **arch_args,
-                           const char *arch_input, const char *backend,
+                           const char *arch_input, const char *backend, const char* gdb,
                            char **env, const char *cwd, int gpu_flag,
                            int debug_flag, int early_entry_flag, bool isNonStop) {
     char *stres = NULL;

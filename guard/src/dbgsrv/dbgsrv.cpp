@@ -49,6 +49,8 @@ int debug_flag = 0;
 int gpu_flag = 0;
 int early_entry_flag = 0;
 int non_stop_flag = 0;
+const char* custom_gdb = nullptr;
+const char* custom_gdb_data = nullptr;
 
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
@@ -63,6 +65,7 @@ const struct option long_opts[] = {
     {"debug", no_argument, &debug_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
+    {"gdb", required_argument, 0, 'b'},
     {0, 0, 0, 0}};
 
 struct mp_arch MPArchs[] = {
@@ -150,6 +153,11 @@ int main(int argc, char *argv[], char *env[]) {
     // hardcode the debug_flag to 1 if built with debug turned on
     debug_flag = 1;
 #endif
+    free(const_cast<char*>(custom_gdb));
+    custom_gdb = nullptr;
+
+    free(const_cast<char*>(custom_gdb_data));
+    custom_gdb_data = nullptr;
 
     // Set the streams
     out_stream = stdout;
@@ -207,6 +215,18 @@ int main(int argc, char *argv[], char *env[]) {
 
             case 'k':
                 jobKey = optarg;
+                break;
+
+            case 'b':
+                if (char* colon = strchr(optarg, ':')) {
+                    custom_gdb = strndup(optarg, colon-optarg);
+                    custom_gdb_data = strdup(colon+1);
+                } else {
+                    custom_gdb = strdup(optarg);
+                    custom_gdb_data = nullptr;
+                }
+                DVPRINT("custom_gdb = %s, custom_gdb_data = %s\n", custom_gdb,
+                        custom_gdb_data ? custom_gdb_data : "nullptr");
                 break;
 
             default:
@@ -446,7 +466,7 @@ int main(int argc, char *argv[], char *env[]) {
             exit(1);
         }
 
-        e = DbgInvoke(host, cb, proto, prog, args, env, arch);
+        e = DbgLaunch(host, cb, proto, prog, args, env, arch);
     }
 
     if (e->ev_event != DBGEV_OK) {

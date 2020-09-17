@@ -74,7 +74,7 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 }
 
 // Enum for supported gdb versions
-enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB};
+enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB, CUSTOM};
 static GdbVersion gdb_vers = GdbVersion::GDB_81;
 
 // functions with external visibility
@@ -149,7 +149,7 @@ public:
     virtual dbgevent_t *getStatus(bool getLocation) override;
     virtual dbgevent_t *quit(bool detach) override;
     virtual dbgevent_t *interrupt(bool all) override;
-    virtual dbgevent_t *invoke(const char *host, int cp, const char *proto, const char *prog,
+    virtual dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch) override;
     virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) override;
     virtual void finalize() override;
@@ -174,6 +174,7 @@ public:
     virtual dbgevent_t *getSchedulerLocking() override;
     virtual dbgevent_t *setNonStop(const char* op) override;
     virtual dbgevent_t *getNonStop() override;
+    virtual dbgevent_t *ompd(const char* op) override;
 
 private:
     dbgevent_t *initDbg(const char *prog, const char *args);
@@ -196,6 +197,7 @@ private:
 }
 
 static dbgevent_t *WaitEvent(dbgevent_t *e);
+static dbgevent_t *WaitOmpdEvent(dbgevent_t *e);
 static dbgevent_t *CheckBreak(MICommand *, const dbgcomm_info *);
 static void Finish(int);
 static void event_callback(MIEvent *);
@@ -217,6 +219,8 @@ static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
 static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
+
+static const char* unknownBPErrorMsg = "Hit unknown breakpoint!";
 
 /* hashing and slicing functions */
 static dbgevent_t *PerformExtEvalExpr(const char *);
@@ -371,6 +375,25 @@ static void setup_pretty_printing() {
     MICommandFree(cmd);
 }
 
+// Turn the source open mode on or off.
+// Turning off source file opening is a performance optimization available in
+// some versions of gdb.
+static void setSourceOpen(bool doOpen) {
+    // the function does not exist in newer versions of gdb
+    // in the future, I'd expect a more sophisticated way to handle gdb versioning..
+    if (gdb_vers == GdbVersion::ROC_GDB || gdb_vers == GdbVersion::CUSTOM) return;
+
+    const char* mode = (doOpen ? "on" : "off");
+    auto cmd = _MIGDBSet("source open", mode);
+    SendMICommand(GDBMISession, cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        // it's not critical that this call work.
+        DVPRINT("set source open %s mode failed\n", mode);
+    }
+    MICommandFree(cmd);
+}
+
 static dbgevent_t *setup_gdbmi_environment(void) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
@@ -433,17 +456,9 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        // do not open source files
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // do not open source files
+    setSourceOpen(false);
+
     // we need gdb to set print elements and print repeats to 0 so
     // that when we resolve the data it gives us the entire contents
     // of the data type.
@@ -509,7 +524,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // limit strings to 200 characters
         cmd = _MIGDBSet("print characters", "200");
         SendMICommand(GDBMISession, cmd);
@@ -583,7 +598,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         MICommandFree(cmd);
     }
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
+    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // If running with gpu's, turn upc off. If we don't do this, things will
         // break
         if (gpu_flag) {
@@ -1012,7 +1027,6 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
     gdb_vers = GdbVersion::GDB_81;
 
-
     /**************DEBUG Start*****************/
     sigset_t debug_mask;
     if (sigprocmask(0, NULL, &debug_mask) < 0) {
@@ -1053,7 +1067,11 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     sprintf(gdb_type, "gdb");
 
     // set the gdb path to use standard or gpu specific gdb
-    if (gpu_flag) {
+    if (custom_gdb) {
+        DVPRINT("setting gdb path to %s\n", custom_gdb);
+        MISessionSetGDBPath(GDBMISession, custom_gdb);
+        gdb_vers = GdbVersion::CUSTOM;
+    } else if (gpu_flag) {
         // Need to determine the version of the driver to start the proper gdb
         FILE *vers;
         int num_fields = 0;
@@ -1184,12 +1202,16 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
                 //declaration above...
                 gpu_flag = 0;
                 break;
+            case GdbVersion::CUSTOM:
+                DVPRINT("Using custom gdb driver %s\n", custom_gdb);
+                break;
         }
     }
 
     // Get the base dir env var if it was set and use that for data-directory
-    char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
-    if (env_base_dir != NULL) {
+    if (custom_gdb_data) {
+        MISessionSetGDBDataDirectory(GDBMISession, custom_gdb_data);
+    } else if (char *env_base_dir = getenv(GUARD_INST_DIRECTORY)) {
         char *gdb_data_dir;
         Asprintf(&gdb_data_dir, "%s/share/%s", env_base_dir, gdb_type);
         MISessionSetGDBDataDirectory(GDBMISession, gdb_data_dir);
@@ -1908,16 +1930,8 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // if there are hundreds of thousands of ranks and they are all at different
     // locations.
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        cmd = _MIGDBSet("source open", "on");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // note this option does not exist in newer versions of gdb
+    setSourceOpen(true);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1949,17 +1963,8 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MIListFree(lines, (void (*)())CLILineInfoFree);
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        // do not open source files
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    // do not open source files
+    setSourceOpen(false);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -3323,6 +3328,99 @@ dbgevent_t *DbgGdbMI::getNonStop() {
     return e;
 }
 
+// ompd prints the thread info in a little different format; in particular the thread indices
+// in ompd simple indices so we probably want them displayed - we just filter out the
+// LWP numbers and hex addresses that mess up aggregation
+static std::string anonymizeOmpdThreadInfo(const std::string& val) {
+    static std::regex threadId{R"(^(Thread\s+\d+)\s*\(\d+\)(.*))"};
+    static std::regex threadId2{R"(^(\[.* thread\s+\d+)\s+\(Thread.*\(LWP.*\)\)(.*))"};
+    static std::regex hexValRE(R"(0x[0-9a-f]+)");  // the extra ( in ) is for the proc counter
+
+     std::istringstream is(val);
+     std::ostringstream os;
+
+     for (std::string line; std::getline(is,line); ) {
+         line = std::regex_replace(line, threadId, "$1$2");
+         line = std::regex_replace(line, threadId2, "$1$2");
+         line = std::regex_replace(line, hexValRE, "");
+         os << line << "\n";
+     }
+
+     return os.str();
+}
+
+// OpenMP debugger functions
+dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    static std::regex verboseRE{R"(^\s*-v\s*)"};
+    auto isVerbose = bool{false};
+    auto opp = std::string{inOpp};
+
+    auto match = std::smatch{};
+    if (std::regex_search(opp, match, verboseRE)) {
+        isVerbose = true;
+        opp = match.suffix().str();
+    }
+
+    const char* cmd_args[2] = { "ompd", opp.c_str() };
+    if (opp == "help") {
+        cmd_args[0] = "help";
+        cmd_args[1] = "ompd";
+    }
+
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    bool isRunning = false;
+
+    dbgevent_t* e = nullptr;
+    if (MICommandResultClass(cmd) == MIResultRecordRUNNING) {
+        // ompd init runs aynchronously after it sets a temporary breakpoint
+        isRunning = true;
+        e = NewEvent(DBGEV_OK);
+    } else if (!MICommandResultOK(cmd)) {
+        const char* msg = MICommandResultErrorMessage(cmd);
+        if (!msg) msg = "ompd failed.";
+        EVENT_ERROR(e, DBGERR_DEBUGGER, msg);
+    } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+
+        if (isVerbose || opp != "threads") {
+            e->ev_string = result;
+        } else {
+            auto cresult = anonymizeOmpdThreadInfo(result);
+            free(result);
+            e->ev_string = strdup(cresult.c_str());
+        }
+
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd ompd did not return a value.");
+    }
+
+    MICommandFree(cmd);
+
+    if (isRunning) {
+        DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
+        ThreadAsyncCheck(WaitOmpdEvent, nullptr);
+        Status = DBGSTAT_RUNNING;
+    }
+    return e;
+}
+
+static dbgevent_t *WaitOmpdEvent(dbgevent_t* inEvent) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    auto e = WaitEvent(inEvent);
+
+    // ompd init set an internal breakpoint and runs to it, so gdb4hpc is going to get
+    // an event on a breakpoint is doesn't know anything about.
+    if (e && e->ev_event == DBGEV_ERROR && strcmp(e->ev_errstr, unknownBPErrorMsg) == 0) {
+        FreeEvent(e);
+        e = NewEvent(DBGEV_OK);
+    }
+
+    return e;
+}
 
 /*
 ** List variables in the current stack frame
@@ -3776,7 +3874,7 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::invoke(const char *host, int cb, const char *proto,
+dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
                              const char *prog, const char *args,
                              char **env, int arch) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
@@ -3980,16 +4078,7 @@ static dbgevent_t *ResetBeforeDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        cmd = _MIGDBSet("source open", "on");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    setSourceOpen(true);
 
     return NULL;
 }
@@ -4022,17 +4111,7 @@ static dbgevent_t *RestoreAfterDirectCmd(void) {
     }
     MICommandFree(cmd);
 
-    if (gdb_vers != GdbVersion::ROC_GDB) {
-        cmd = _MIGDBSet("source open", "off");
-        SendMICommand(GDBMISession, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Gdb set source open command failed.");
-            return e;
-        }
-        MICommandFree(cmd);
-    }
+    setSourceOpen(false);
 
     return NULL;
 }
@@ -4398,7 +4477,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             if (bp == NULL) {
                 e = ChangeEvent(e, DBGEV_ERROR);
                 e->ev_errno = DBGERR_DEBUGGER;
-                EventErrStr(e, "Hit unknown breakpoint!");
+                EventErrStr(e, unknownBPErrorMsg);
                 return e;
             }
 

@@ -779,7 +779,7 @@ void DbgDispatchEvents(void) {
         bitset *set;
         recv_type *recv_set;
         attach_args *att_args;
-        invoke_args *inv_args;
+        launch_args *launch_args;
         dbgclnt_proto *ptab;
         proxy_type *inst;
         int sopt, tries = 0;
@@ -1087,7 +1087,7 @@ void DbgDispatchEvents(void) {
 
             case MSG_INVOKE:
                 // convert msg to an invoke_args type
-                if ((inv_args = SocProtoToInvokeArgs(msg)) == NULL) {
+                if ((launch_args = SocProtoToLaunchArgs(msg)) == NULL) {
                     PrintOutError(
                         "Could not convert cmd stream msg to recv type.\n");
                     Free(msg);
@@ -1170,22 +1170,22 @@ void DbgDispatchEvents(void) {
                 }
 
                 // Create the dbginvoke_t object to pass down
-                di = NewDbgInvoke(inv_args->nproc, ptab);
+                di = NewDbgInvoke(launch_args->nproc, ptab);
 
                 // Call the protocol specific invoke function
                 // TODO: This could be modified to allow for multiple proxy
                 // invocations,
                 //       to support multiple hops, but that is not required
                 //       right now...
-                if (ptab->sw_invoke(di, NULL, inv_args->prog, inv_args->argv,
-                                    inv_args->arch, inv_args->arch_args,
-                                    inv_args->arch_input, inv_args->backend,
-                                    inv_args->env, inv_args->cwd,
-                                    inv_args->gpu_flag, inv_args->debug_flag,
-                                    inv_args->early_entry_flag,
-                                    inv_args->non_stop_flag)) {
+                if (ptab->sw_launch(di, NULL, launch_args->prog, launch_args->argv,
+                                    launch_args->arch, launch_args->arch_args,
+                                    launch_args->arch_input, launch_args->backend, launch_args->gdb,
+                                    launch_args->env, launch_args->cwd,
+                                    launch_args->gpu_flag, launch_args->debug_flag,
+                                    launch_args->early_entry_flag,
+                                    launch_args->non_stop_flag)) {
                     // Handle error
-                    FreeInvokeArgs(inv_args);
+                    FreeLaunchArgs(launch_args);
                     FreeDbgInvoke(di);
                     return;
                 }
@@ -1198,7 +1198,7 @@ void DbgDispatchEvents(void) {
                 NewProxyInstance(msg_head.msg_id, inst);
 
                 // cleanup invoke args
-                FreeInvokeArgs(inv_args);
+                FreeLaunchArgs(launch_args);
 
                 // Send the DBG_OK event for the entire set
                 set = bitset_new(di->d_nproc);

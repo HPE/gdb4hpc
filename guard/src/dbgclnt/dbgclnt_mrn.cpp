@@ -52,8 +52,8 @@ static proto_msg_set *DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
 static void DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
 static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
                         const char *, const char *, int, int);
-static int DbgMRNInvoke(dbginvoke_t *, proto_session *, const char *, char **,
-                        const char *, char **, const char *, const char *,
+static int DbgMRNLaunch(dbginvoke_t *, proto_session *, const char *, char **,
+                        const char *, char **, const char *, const char *, const char*,
                         char **, const char *, int, int, int, bool);
 static int DbgMRNExit(dbginvoke_t *, int);
 static void DbgMRNDestroyClient(dbginvoke_t *);
@@ -79,7 +79,7 @@ dbgclnt_proto DbgClntMRNProtoSW = {
     NULL,               /* sw_save_session */
     NULL,               /* sw_cleanup_session */
     DbgMRNAttach,       /* sw_attach */
-    DbgMRNInvoke,       /* sw_invoke */
+    DbgMRNLaunch,       /* sw_launch*/
     DbgMRNExit,         /* sw_exit */
     DbgMRNDestroyClient /* sw_destroyclnt */
 };
@@ -862,9 +862,9 @@ static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
 /*
 ** Invoke user program and build an MRNet tree.
 */
-static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
+static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         char **argv, const char *arch, char **arch_args,
-                        const char *arch_input, const char *backend, char **env,
+                        const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {
     char sn[80];
@@ -891,6 +891,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     cti_session_id_t sid;
     char **args = NULL;
     char *env_base_dir = NULL;
+    auto serverGdb = std::string{};
 
 #ifdef DEBUG
     dbg = 1;
@@ -1074,7 +1075,42 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     }
 
     // first add gdb-guard to manifest
-    if (cti_addManifestBinary(mid, "gdb-guard")) {
+    if (gdb) {
+        auto gdbBin = std::string{gdb};
+        auto colon = gdbBin.find(':');
+        auto dataDir = std::string{};
+        if (colon != std::string::npos) {
+            dataDir = gdbBin.substr(colon+1);
+            gdbBin = gdbBin.substr(0,colon);
+            if (!dataDir.empty() && dataDir[0] != '/') {
+                PrintOutError("adding a dataDir to the manifest is not supported.\n");
+                goto invoke_error;
+            }
+        }
+
+        if (gdbBin.empty()) {
+            PrintOutError("--gdb executable name is empty\n");
+            goto invoke_error;
+        } else if (gdbBin[0] != '/') {
+            if (cti_addManifestBinary(mid, gdbBin.c_str())) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
+                goto invoke_error;
+            }
+        }
+
+        auto slash = gdbBin.rfind('/');
+        if (slash == std::string::npos) {
+            serverGdb = gdbBin;
+        } else {
+            serverGdb = gdbBin.substr(slash+1);
+        }
+        if (!dataDir.empty()) {
+            serverGdb += ":";
+            serverGdb += dataDir;
+        }
+
+    } else if (cti_addManifestBinary(mid, "gdb-guard")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to add gdb-guard to manifest.\n");
         goto invoke_error;
@@ -1082,7 +1118,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
 
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
-    if (gpu_flag) {
+    if (gpu_flag && !gdb) {
         // The backend code will determine which version of cuda-gdb to use
         if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
             PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1271,6 +1307,7 @@ static int DbgMRNInvoke(dbginvoke_t *di, proto_session *sess, const char *prog,
     if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
     if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
+    if (gdb) ap = AppendArgs(ap, "--gdb", serverGdb.c_str(), nullptr);
     ap = AppendArgs(ap, "--", prog, nullptr);
 
 #ifdef DEBUG

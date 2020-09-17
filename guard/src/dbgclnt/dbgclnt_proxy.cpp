@@ -55,8 +55,8 @@ static void DbgPROXYSaveSession(proto_session *);
 static void DbgPROXYCleanupSession(proto_session *);
 static int DbgPROXYAttach(dbginvoke_t *, proto_session *, const char *,
                           const char *, const char *, int, int);
-static int DbgPROXYInvoke(dbginvoke_t *, proto_session *, const char *, char **,
-                          const char *, char **, const char *, const char *,
+static int DbgPROXYLaunch(dbginvoke_t *, proto_session *, const char *, char **,
+                          const char *, char **, const char *, const char *, const char*,
                           char **, const char *, int, int, int, bool);
 static int DbgPROXYExit(dbginvoke_t *, int);
 static void DbgPROXYDestroyClient(dbginvoke_t *);
@@ -74,7 +74,7 @@ dbgclnt_proto DbgClntPROXYProtoSW = {
     DbgPROXYSaveSession,    /* sw_save_session */
     DbgPROXYCleanupSession, /* sw_cleanup_session */
     DbgPROXYAttach,         /* sw_attach */
-    DbgPROXYInvoke,         /* sw_invoke */
+    DbgPROXYLaunch,         /* sw_launch */
     DbgPROXYExit,           /* sw_exit */
     DbgPROXYDestroyClient   /* sw_destroyclnt */
 };
@@ -1525,10 +1525,10 @@ static int cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
 /*
 ** Invoke user program through proxy daemon
 */
-static int DbgPROXYInvoke(dbginvoke_t *di, proto_session *session,
+static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
                           const char *prog, char **argv, const char *arch,
                           char **arch_args, const char *arch_input,
-                          const char *backend, char **env, const char *cwd,
+                          const char *backend, const char* gdb,  char **env, const char *cwd,
                           int gpu_flag, int debug_flag, int early_entry_flag,
                           bool isNonStop) {
     proxy_session *sess;
@@ -1585,8 +1585,8 @@ static int DbgPROXYInvoke(dbginvoke_t *di, proto_session *session,
     msg_head.msg_type = MSG_INVOKE;
 
     // Create the invoke args string
-    msg = InvokeArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
-                               arch_input, backend, env, cwd, gpu_flag,
+    msg = LaunchArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
+                               arch_input, backend, gdb, env, cwd, gpu_flag,
                                debug_flag, early_entry_flag, isNonStop);
 
     // set the length in the header

@@ -35,7 +35,6 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e;
     char **ap;
     AIFStream *a;
-    AIF *printElementsAIF;
     int print_diff = 0;
     bitset *true_bitset = nullptr;
     bitset *false_bitset = nullptr;
@@ -71,10 +70,8 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // what gets sent back, we need to set/reset it before evaluating a compare
     //
     // set print elements to unlimited
-    printElementsAIF = IntToAIF(0);
-    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
+    rep_set = DbgSetPrintElements(rec_set, "0");
     ProcessErrorInRepSet(rep_set);
-    AIFFree(printElementsAIF);
     FreeRepSet(rep_set);
 
     DPERFLOG(SetTimerStart("compare"));
@@ -88,10 +85,8 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     DPERFLOG(SetTimerStopAndLog("compare"));
 
     // set print elements back to client setting
-    printElementsAIF = IntToAIF(Client.print_elements);
-    rep_set = DbgSetDebuggerVar(rec_set, "print elements", printElementsAIF);
+    rep_set = DbgSetPrintElements(rec_set, std::to_string(Client.print_elements).c_str());
     ProcessErrorInRepSet(rep_set);
-    AIFFree(printElementsAIF);
     FreeRepSet(rep_set);
 
     FreeExpr(e);

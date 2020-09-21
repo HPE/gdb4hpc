@@ -256,6 +256,28 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
         }
 
+        case DBGCMD_GETPRINTELEMENTS: {
+            e = DbgGetPrintElements();
+            break;
+        }
+
+        case DBGCMD_SETPRINTELEMENTS: {
+            std::string elements;
+            is.get(elements);
+            e = DbgSetPrintElements(elements.c_str());
+            break;
+        }
+
+        case DBGCMD_RESETBEFOREDIRECTCMD: {
+            e = DbgResetBeforeDirectCmd();
+            break;
+        }
+
+        case DBGCMD_RESTOREAFTERDIRECTCMD: {
+            e = DbgRestoreAfterDirectCmd();
+            break;
+        }
+
         case DBGCMD_SETVAR: {
             std::string var; AIFPtr val{nullptr, AIFFree}; OptionalString threads;
             is.get(var, val, threads);

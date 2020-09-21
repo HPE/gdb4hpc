@@ -67,7 +67,6 @@
 #include "expr.h"
 #include "mparch.h"
 #include "useful.h"
-#include "common_tools_be.h"
 
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
@@ -99,6 +98,10 @@ static MIEvent *PendingEvent = NULL;
 // true if the debugger is actually in non-stop mode, the variable non_stop_mode
 // just indicates it was *requested*
 static bool isInNonStopMode = false; 
+
+// print elements setting used for resetting and restoring before direct commands
+// set by DbgSetPrintElements and initialized by setup_gdbmi_environment
+static int clientPrintElements = -1;
 
 #ifndef ALPS
 // These are for sending the target output to the fe
@@ -161,6 +164,10 @@ public:
     virtual dbgevent_t *setSourceOpen(const char *arg) override;
     virtual dbgevent_t *getSourceOpen() override;
     virtual dbgevent_t *getDebuggerVar(const char *var) override;
+    virtual dbgevent_t *setPrintElements(const char *elements) override;
+    virtual dbgevent_t *getPrintElements() override;
+    virtual dbgevent_t *resetBeforeDirectCmd() override;
+    virtual dbgevent_t *restoreAfterDirectCmd() override;
 
     // Pass command directly to gdb/mi through console command
     virtual dbgevent_t *directCmd(int argc, char **argv) override;
@@ -471,6 +478,7 @@ static dbgevent_t *setup_gdbmi_environment(void) {
         return e;
     }
     MICommandFree(cmd);
+    clientPrintElements = 0;
 
     cmd = _MIGDBSet("print repeats", "0");
     SendMICommand(GDBMISession, cmd);
@@ -4068,6 +4076,64 @@ dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
     MICommandAddOption(cmd, var, NULL);
     SendMICommand(GDBMISession, cmd);
     MICommandFree(cmd);
+
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    int elems = atoi(elements);
+
+    // update cached value
+    clientPrintElements = elems;
+
+    // update debugger value
+    AIF *aif = IntToAIF(elems);
+    dbgevent_t *r = setDebuggerVar("print elements", aif);
+
+    AIFFree(aif);
+    return r;
+}
+
+dbgevent_t *DbgGdbMI::getPrintElements() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    return getDebuggerVar("print elements");
+}
+
+// Reset some print settings to make sure everything is in order when gdbmode/a passthru cmd is used
+dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
+    dbgevent_t *e;
+
+    // this function always returns NewEvent(DBGEV_OK), so we just need to clean it up
+    e = setPrintElements("200");
+    FreeEvent(e);
+
+    AIF *aif = IntToAIF(10);
+    // also returns NewEvent(DBGEV_OK)
+    e = setDebuggerVar("print repeats", aif);
+    FreeEvent(e);
+    AIFFree(aif);
+
+    ::setSourceOpen(true);
+
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
+    dbgevent_t *e;
+
+    // this function always returns NewEvent(DBGEV_OK), so we just need to clean it up
+    e = setPrintElements(std::to_string(clientPrintElements).c_str());
+    FreeEvent(e);
+
+    AIF *aif = IntToAIF(0);
+    // also returns NewEvent(DBGEV_OK)
+    e = setDebuggerVar("print repeats", aif);
+    FreeEvent(e);
+    AIFFree(aif);
+
+    ::setSourceOpen(false);
 
     return NewEvent(DBGEV_OK);
 }

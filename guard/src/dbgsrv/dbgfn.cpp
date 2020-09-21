@@ -313,6 +313,30 @@ dbgevent_t *DbgGetDebuggerVar(const char *var) {
     return DbgBackendSW->getDebuggerVar(var);
 }
 
+dbgevent_t *DbgSetPrintElements(const char *elements) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setPrintElements(elements);
+}
+
+dbgevent_t *DbgGetPrintElements() {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->getPrintElements();
+}
+
+dbgevent_t *DbgResetBeforeDirectCmd() {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->resetBeforeDirectCmd();
+}
+
+dbgevent_t *DbgRestoreAfterDirectCmd() {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->restoreAfterDirectCmd();
+}
+
 dbgevent_t *DbgSetVar(const char *var, AIF *data, const char* threads) {
     ResetWDT();
     DBG_READY();

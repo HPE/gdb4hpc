@@ -299,13 +299,10 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     }
 
     Client.print_elements = elements;
-    AIF *aif = IntToAIF(elements);
-
-    rep_set_t *rep_set = DbgSetDebuggerVar(rec_set, "print elements", aif);
+    auto rep_set = DbgSetPrintElements(rec_set, argv[1]);
     
     ProcessErrorInRepSet(rep_set);
     FreeRepSet(rep_set);
-    AIFFree(aif);
 
     return 1;
 }
@@ -320,13 +317,6 @@ static int class_show_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
 
     return 1;
 }
-
-const char *const class_show_print_subcmd_elements_help[] = {
-    "Summary: Number of elements to print when an array or c-string is printed.", 
-    "", 
-    "Description:",
-    "Display the number of elements to print when an array or c-string is printed.",
-    0};
 
 void InitCmd_print(void) {
     AddCommand("print", "p", proc_optional, 0, cmd_print_cmd, cmd_print_help,

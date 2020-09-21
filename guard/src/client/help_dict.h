@@ -100,12 +100,12 @@ extern const char* const class_set_subcmd_environment_help[];
 extern const char* const class_set_subcmd_function_help[];
 extern const char* const class_set_subcmd_scheduler_locking_help[];
 extern const char* const class_set_subcmd_non_stop_help[];
-extern const char* const class_set_print_subcmd_elements_help[];
 
 /*
  * Class set print subcommands
  */
 extern const char* const class_set_print_subcmd_entryframe_help[];
+extern const char* const class_set_print_subcmd_elements_help[];
 
 /*
  * Class set breakpoint subcommands
@@ -134,6 +134,7 @@ extern const char* const class_show_subcmd_non_stop_help[];
  * Class show print subcommands
  */
 extern const char* const class_show_print_subcmd_entryframe_help[];
+extern const char* const class_show_print_subcmd_elements_help[];
 
 /*
  * Class show break subcommands

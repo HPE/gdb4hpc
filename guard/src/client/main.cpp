@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
     Client.unsafe = 0;                // Be unsafe?
     Client.early_entry = 0;           // Enter at pmi_init?
     Client.print_entry_frame = 1;     // Print frame locations at startup?
-    Client.print_elements = 200;      // Elements to print in arrays or char * strings
+    Client.print_elements = 0;        // Elements to print in arrays or char * strings
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;          // Current blocked on async cmd?
     Client.proto = DBG_PROTO;         // Default debugger protocol

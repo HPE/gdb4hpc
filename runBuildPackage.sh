@@ -27,14 +27,7 @@ echo "############################################"
 rpmbuilddir="$PWD/rpmbuild"
 cd ${rpmbuilddir}
 check_exit_status
-
-if [ "$1" ]; then
-echo BUILD_METADATA=$1
-BUILD_METADATA=$1 rpmbuild -bb -D "_topdir ${rpmbuilddir}" SPECS/gdb4hpc.spec
-else
 rpmbuild -bb -D "_topdir ${rpmbuilddir}" SPECS/gdb4hpc.spec
-fi
-
 check_exit_status
 
 echo "############################################"

@@ -161,8 +161,6 @@ public:
     virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) override;
     virtual dbgevent_t *setSourcePath(const char *path) override;
     virtual dbgevent_t *getSourcePath() override;
-    virtual dbgevent_t *setSourceOpen(const char *arg) override;
-    virtual dbgevent_t *getSourceOpen() override;
     virtual dbgevent_t *getDebuggerVar(const char *var) override;
     virtual dbgevent_t *setPrintElements(const char *elements) override;
     virtual dbgevent_t *getPrintElements() override;
@@ -1939,7 +1937,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     // locations.
 
     // note this option does not exist in newer versions of gdb
-    ::setSourceOpen(true);
+    setSourceOpen(true);
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
@@ -1972,7 +1970,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
     MICommandFree(cmd);
 
     // do not open source files
-    ::setSourceOpen(false);
+    setSourceOpen(false);
 
     e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
@@ -4043,28 +4041,6 @@ dbgevent_t *DbgGdbMI::getSourcePath() {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::setSourceOpen(const char *arg) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    bool doOpen;
-
-    if (strcmp("on", arg) == 0) {
-        doOpen = true;
-    } else if (strcmp("off", arg) == 0) {
-        doOpen = false;
-    } else {
-        return NewEvent(DBGEV_ERROR);
-    }
-
-    ::setSourceOpen(doOpen);
-
-    return NewEvent(DBGEV_OK);
-}
-
-dbgevent_t *DbgGdbMI::getSourceOpen() {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    return getDebuggerVar("source open");
-}
-
 /*
 ** Get contents of GDB debug variable var.
 */
@@ -4115,7 +4091,7 @@ dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
     FreeEvent(e);
     AIFFree(aif);
 
-    ::setSourceOpen(true);
+    setSourceOpen(true);
 
     return NewEvent(DBGEV_OK);
 }
@@ -4133,7 +4109,7 @@ dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
     FreeEvent(e);
     AIFFree(aif);
 
-    ::setSourceOpen(false);
+    setSourceOpen(false);
 
     return NewEvent(DBGEV_OK);
 }

@@ -2784,18 +2784,6 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
     return result;
 }
 
-rep_set_t *DbgSetSourceOpen(rec_set_t *set, const char *arg) {
-    auto request = CommandToSocProto(DBGCMD_SETSOURCEOPEN, arg);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    return result;
-}
-
-rep_set_t *DbgGetSourceOpen(rec_set_t *set) {
-    auto request = CommandToSocProto(DBGCMD_GETSOURCEOPEN);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    return result;
-}
-
 rep_set_t *DbgSetPrintElements(rec_set_t *set, const char *elements) {
     auto request = CommandToSocProto(DBGCMD_SETPRINTELEMENTS, elements);
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);

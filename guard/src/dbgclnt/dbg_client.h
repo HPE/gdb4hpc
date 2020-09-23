@@ -511,8 +511,6 @@ extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIF *);
 extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
 extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
 extern rep_set_t *DbgGetSourcePath(rec_set_t *);
-extern rep_set_t *DbgSetSourceOpen(rec_set_t *, const char *);
-extern rep_set_t *DbgGetSourceOpen(rec_set_t *);
 extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
 extern rep_set_t *DbgGetPrintElements(rec_set_t *);
 extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);

@@ -163,7 +163,6 @@ public:
     virtual dbgevent_t *getSourcePath() override;
     virtual dbgevent_t *getDebuggerVar(const char *var) override;
     virtual dbgevent_t *setPrintElements(const char *elements) override;
-    virtual dbgevent_t *getPrintElements() override;
     virtual dbgevent_t *resetBeforeDirectCmd() override;
     virtual dbgevent_t *restoreAfterDirectCmd() override;
 
@@ -4072,12 +4071,10 @@ dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
     return r;
 }
 
-dbgevent_t *DbgGdbMI::getPrintElements() {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    return getDebuggerVar("print elements");
-}
-
-// Reset some print settings to make sure everything is in order when gdbmode/a passthru cmd is used
+// This is called before entering gdbmode and before passthru commands are 
+// executed.
+// We want gdbmode to appear like a freshly-started gdb instance would, so we
+// reset some printing settings to gdb defaults.
 dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
     dbgevent_t *e;
 
@@ -4096,6 +4093,7 @@ dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
     return NewEvent(DBGEV_OK);
 }
 
+// Called upon exit from gdbmode and after a passthru command is finished
 dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
     dbgevent_t *e;
 

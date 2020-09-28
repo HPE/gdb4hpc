@@ -244,11 +244,6 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
             break;
         }
 
-        case DBGCMD_GETPRINTELEMENTS: {
-            e = DbgGetPrintElements();
-            break;
-        }
-
         case DBGCMD_SETPRINTELEMENTS: {
             std::string elements;
             is.get(elements);

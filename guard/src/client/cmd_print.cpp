@@ -32,6 +32,19 @@
 #include "help_dict.h"
 #include "useful.h"
 
+bool ClientSetPrintElements(int elements, rec_set_t* rec_set) {
+    if (Client.print_elements != elements) {
+        Client.print_elements = elements;
+        rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return true;
+    }
+    // if we get here, elements is already the set value, so we save some time
+    // by doing nothing
+    return false;
+}
+
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
     graph_t *g;
@@ -298,11 +311,7 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    Client.print_elements = elements;
-    auto rep_set = DbgSetPrintElements(rec_set, argv[1]);
-    
-    ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
+    ClientSetPrintElements(elements, rec_set);
 
     return 1;
 }

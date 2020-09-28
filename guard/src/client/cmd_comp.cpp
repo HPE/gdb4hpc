@@ -70,9 +70,8 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // what gets sent back, we need to set/reset it before evaluating a compare
     //
     // set print elements to unlimited
-    rep_set = DbgSetPrintElements(rec_set, "0");
-    ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
+    int oldPrintElements = Client.print_elements;
+    ClientSetPrintElements(0, rec_set);
 
     DPERFLOG(SetTimerStart("compare"));
 
@@ -85,9 +84,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     DPERFLOG(SetTimerStopAndLog("compare"));
 
     // set print elements back to client setting
-    rep_set = DbgSetPrintElements(rec_set, std::to_string(Client.print_elements).c_str());
-    ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
+    ClientSetPrintElements(oldPrintElements, rec_set);
 
     FreeExpr(e);
 

@@ -2790,12 +2790,6 @@ rep_set_t *DbgSetPrintElements(rec_set_t *set, const char *elements) {
     return result;
 }
 
-rep_set_t *DbgGetPrintElements(rec_set_t *set) {
-    auto request = CommandToSocProto(DBGCMD_GETPRINTELEMENTS);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-    return result;
-}
-
 rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_RESETBEFOREDIRECTCMD);
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);

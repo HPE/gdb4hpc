@@ -154,11 +154,5 @@ b{0..2}: 5
 {0}: Comparison is false.
 The difference delta is:
 {0}: -2
-{0}: Comparison is false.
-The difference delta is:
-{0}: [0,0,0,0,0,-50,-60,-70,-80,-90]
-{0}: Comparison is false.
-The difference delta is:
-{0}: [0,0,0,0,0,-50,-60,-70,-80,-90]
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

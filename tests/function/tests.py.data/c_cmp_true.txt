@@ -95,7 +95,5 @@ b{0..2}: 27.1
 a{0..2}: 28.19999999999999928945726423989981
 b{0..2}: 28.19999999999999928945726423989981
 {0}: Comparison is true.
-{0}: Comparison is true.
-{0}: Comparison is true.
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

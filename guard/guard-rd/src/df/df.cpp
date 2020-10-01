@@ -37,11 +37,14 @@ static int _is_running;
 static list_t *_evhandlers;
 static list_t *_iohandlers;
 static graph_t *_active_graph = NULL;
+static int old_print_elements;
 
 static void _continue(dbginvoke_t *);
 static void _halt(dbginvoke_t *, int);
 static void _delete_bp(graph_t *, dbginvoke_t *);
 void DFDisplayMsg(char *);
+
+static rec_set_t* NewRecSetFromGraph(graph_t *g);
 
 /*
 ** Initialise the dataflow interpreter.
@@ -99,6 +102,14 @@ void StartDF(graph_t *g) {
     _active_graph = g;
     _active_graph->g_isactive = 1;
     _is_running = 1;
+
+    // FIXME: this is an inefficient way of accomplishing this.
+    // since the user can change print elements in the dbgsrv, make sure the
+    // setting is 0 when the assertion script is active
+    rec_set_t *rec_set = NewRecSetFromGraph(g);
+    old_print_elements = Client.print_elements;
+    ClientSetPrintElements(0, rec_set);
+    FreeRecSet(rec_set);
 
     DFMsg("*** Starting execution of application ***");
 
@@ -274,6 +285,12 @@ void EndDF(graph_t *g) {
 
     DestroyList(_evhandlers, NULL);
     DestroyList(_iohandlers, NULL);
+
+    // FIXME: this is an inefficient way of accomplishing this.
+    // set print elements back to Client setting
+    rec_set_t *rec_set = NewRecSetFromGraph(g);
+    ClientSetPrintElements(old_print_elements, rec_set);
+    FreeRecSet(rec_set);
 
     if (!halt) {
         SetList(g->g_di_list);
@@ -546,4 +563,20 @@ static void _continue(dbginvoke_t *di) {
     }
 
     FreeRecSet(rec_set);
+}
+
+// creates a rec_set_t from a graph so we can send commands to it.
+// the rec_set_t needs to be freed by the caller of this function.
+static rec_set_t* NewRecSetFromGraph(graph_t *g) {
+    rec_set_t* rec_set = NewRecSet();
+
+    SetList(g->g_di_list);
+
+    for (dbginvoke_t *di = (dbginvoke_t *)GetListElement(g->g_di_list);
+        di != nullptr; di = (dbginvoke_t *)GetListElement(g->g_di_list)) {
+        group_recv_t *recv = NewGroupReceiver(di, di->d_bitset_full);
+        rec_set->addReceiver(recv);
+    }
+
+    return rec_set;
 }

@@ -453,9 +453,10 @@ extern void ForceQuit(void);
 extern void HoldSignals(void);
 extern void ReleaseSignals(void);
 // wrapper around DbgSetPrintElements that is aware of the cached print elements
-// value in client settings, only calling DbgSetPrintElements if necessary.
-// defined in cmd_print.cpp. returns true if DbgSetPrintElements was called,
-// false otherwise.
+// value in client settings, only calling DbgSetPrintElements if the value passed
+// is different from the value cached.
+// function defined in cmd_print.cpp. 
+// returns true if DbgSetPrintElements was called, false otherwise.
 extern bool ClientSetPrintElements(int elements, rec_set_t* rec_set);
 
 /*

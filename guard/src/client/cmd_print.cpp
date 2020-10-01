@@ -32,12 +32,17 @@
 #include "help_dict.h"
 #include "useful.h"
 
-bool ClientSetPrintElements(int elements, rec_set_t* rec_set) {
-    if (Client.print_elements != elements) {
+bool ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
+    if (Client.print_elements != elements || force) {
         Client.print_elements = elements;
-        rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
-        ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
+        
+        // it is valid to call this function with a null rec_set, before launching
+        if (rec_set != nullptr) {
+            rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
+            ProcessErrorInRepSet(rep_set);
+            FreeRepSet(rep_set);
+        }
+
         return true;
     }
     // if we get here, elements is already the set value, so we save some time
@@ -332,12 +337,12 @@ void InitCmd_print(void) {
                "Print the value of an expression.");
 
     AddSetPrintCommand(
-        "elements", proc_required, 0, class_set_print_subcmd_elements_cmd,
+        "elements", proc_optional, 0, class_set_print_subcmd_elements_cmd,
         class_set_print_subcmd_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
     AddShowPrintCommand(
-        "elements", proc_required, 0, class_show_print_subcmd_elements_cmd,
+        "elements", proc_optional, 0, class_show_print_subcmd_elements_cmd,
         class_show_print_subcmd_elements_help,
         "Show number of elements to print when an array is printed.");
 }

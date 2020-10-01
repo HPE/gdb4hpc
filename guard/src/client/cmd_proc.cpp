@@ -799,6 +799,11 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
         }
     }
 
+    // ensure the new process has the current print elements setting
+    if (Client.print_elements != 0) {
+        ClientSetPrintElements(Client.print_elements, rec_set, true);
+    }
+
     // Done with the startup reply
     FreeRepSet(rep_set);
 

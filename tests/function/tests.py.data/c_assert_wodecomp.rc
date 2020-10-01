@@ -44,8 +44,11 @@ build $mine
 	#use assertion without decomposition
 	assert $a{0}::assertTest@"c_type_test.c":160=$b{0}::assertTest@"c_cmp_diff.c":160
 	assert $a{1}::assertTest@"c_type_test.c":160=$b{1}::assertTest@"c_cmp_diff.c":160
+	assert $a{0}::one_d_i_init@"c_type_test.c":160 != $b{0}::one_d_i_init@"c_cmp_diff.c":160
 end
 
+# set print elements to test that it doesn't affect assert results
+set print elements 5
 
 #start assertion script
 start $mine

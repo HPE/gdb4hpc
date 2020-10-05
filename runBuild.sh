@@ -138,7 +138,7 @@ check_exit_status
 cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
 check_exit_status
 
-local arch=$(get_arch)
+arch=$(get_arch)
 if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
     echo "############################################"
     echo "#      aarch64, cudagdb not supported      #"
@@ -215,6 +215,7 @@ if [[ -f "/etc/os-release" ]]; then
 fi
 
 ROCgdb_install_dir=$install_dir/ROCgdb_install
+rmdir -r $ROCgdb_install_dir
 mkdir -p $ROCgdb_install_dir
 check_exit_status
 cd $ROCgdb_install_dir
@@ -339,6 +340,7 @@ autoreconf -ifv
 check_exit_status
 
 PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+
 check_exit_status
 
 make $cdst_j_flags

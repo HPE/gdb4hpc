@@ -456,8 +456,7 @@ extern void ReleaseSignals(void);
 // value in client settings, only calling DbgSetPrintElements if the value passed
 // is different from the value cached.
 // function defined in cmd_print.cpp. 
-// returns true if DbgSetPrintElements was called, false otherwise.
-extern bool ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force = false);
+extern void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force = false);
 
 /*
 ** interface prototypes

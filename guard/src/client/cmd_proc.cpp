@@ -800,6 +800,8 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     // ensure the new process has the current print elements setting
+    // 0 is the default value set up by the dbgsrv, so if the setting is already
+    // 0, we don't have to do anything
     if (Client.print_elements != 0) {
         ClientSetPrintElements(Client.print_elements, rec_set, true);
     }

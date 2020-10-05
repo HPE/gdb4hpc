@@ -32,22 +32,19 @@
 #include "help_dict.h"
 #include "useful.h"
 
-bool ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
+void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
+    // only do work if we need to
     if (Client.print_elements != elements || force) {
         Client.print_elements = elements;
         
-        // it is valid to call this function with a null rec_set, before launching
+        // it is valid to call this function with a null rec_set, before a
+        // gdb instance is launched
         if (rec_set != nullptr) {
             rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
             ProcessErrorInRepSet(rep_set);
             FreeRepSet(rep_set);
         }
-
-        return true;
     }
-    // if we get here, elements is already the set value, so we save some time
-    // by doing nothing
-    return false;
 }
 
 // external exposure

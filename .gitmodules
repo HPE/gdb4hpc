@@ -26,6 +26,3 @@
 	path = external/ROCgdb
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/rocgdb.git
 	branch = amd-master
-[submodule "external/openmp"]
-	path = external/openmp
-	url = ssh://git@stash.us.cray.com:7999/pe-cce/openmp.git

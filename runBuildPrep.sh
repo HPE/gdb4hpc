@@ -116,6 +116,10 @@ else
     check_exit_status
 fi
 
+## building openmp relies on bdist_wheel
+pip3 install wheel
+check_exit_status
+
 capture_jenkins_build
 check_exit_status
 

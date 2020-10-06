@@ -189,7 +189,7 @@ static int cli_readline_save_stream(cli_stream_t **stream) {
     cli_stream_t *cs = (*stream);
 
     cs->cs_tmp_prompt = cs->cs_prompt;
-    cs->cs_prompt = "";
+    cs->cs_prompt = nullptr;
 
     cs->cs_buf_point = rl_point;
     cs->cs_buf = rl_copy_text(0, rl_end);

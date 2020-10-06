@@ -161,8 +161,6 @@ compare $a{0}::ld=$b{0}::ld
 print assertTest
 compare $a{0}::assertTest=$b{0}::assertTest
 
-
-
 #continue
 
 q

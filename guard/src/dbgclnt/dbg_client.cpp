@@ -2648,7 +2648,7 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
 /*
 ** DBG_SETDEBUGGERVAR: Set variable in debugger to new value.
 */
-rep_set_t *DbgSetDebuggerVar(rec_set_t *set, char *var, AIF *val) {
+rep_set_t *DbgSetDebuggerVar(rec_set_t *set, const char *var, AIF *val) {
 
     auto request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, val);
 
@@ -2659,7 +2659,7 @@ rep_set_t *DbgSetDebuggerVar(rec_set_t *set, char *var, AIF *val) {
 /*
 ** DBG_GETDEBUGGERVAR: Get variable in debugger.
 */
-rep_set_t *DbgGetDebuggerVar(rec_set_t *set, char *var) {
+rep_set_t *DbgGetDebuggerVar(rec_set_t *set, const char *var) {
     auto request = CommandToSocProto(DBGCMD_GETDEBUGGERVAR, var);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
@@ -2781,6 +2781,24 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
     }
 
     FreeRecSet(to_send);
+    return result;
+}
+
+rep_set_t *DbgSetPrintElements(rec_set_t *set, const char *elements) {
+    auto request = CommandToSocProto(DBGCMD_SETPRINTELEMENTS, elements);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    return result;
+}
+
+rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *set) {
+    auto request = CommandToSocProto(DBGCMD_RESETBEFOREDIRECTCMD);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    return result;
+}
+
+rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *set) {
+    auto request = CommandToSocProto(DBGCMD_RESTOREAFTERDIRECTCMD);
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 

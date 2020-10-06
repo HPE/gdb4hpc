@@ -4,12 +4,12 @@ a{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:8
 %*
 Launch complete.
 b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:8
-a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 76.
-b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 76.
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 78.
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 78.
 %<
-a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:76
+a{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:78
 %-
-b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:76
+b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:78
 %>
 {0..2}: Comparison is true.
 a{0..2}: [0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156]
@@ -30,12 +30,12 @@ Comparison is true.
 Comparison is true.
 {0..2}: Comparison is true.
 {0..2}: Comparison is true.
-a{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 87.
-b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 87.
+a{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 88.
+b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_arrays.cpp, line 88.
 %<
-a{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:87
+a{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:88
 %-
-b{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:87
+b{0..2}: Breakpoint 2, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_arrays.cpp:88
 %>
 {0..2}: Comparison is false.
 The difference delta is:
@@ -71,5 +71,10 @@ The difference delta is:
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: [{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = -264, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0},{diameter = 0, depth = 0, syrup = 0}]
+Comparison is false. The difference delta is:
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,258,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,418,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,578]
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: [0,0,0,0,0,0,0,0,0,-11]
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

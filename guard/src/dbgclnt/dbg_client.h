@@ -452,6 +452,11 @@ extern int EmptyBPSetList(dbginvoke_t *di);
 extern void ForceQuit(void);
 extern void HoldSignals(void);
 extern void ReleaseSignals(void);
+// wrapper around DbgSetPrintElements that is aware of the cached print elements
+// value in client settings, only calling DbgSetPrintElements if the value passed
+// is different from the value cached.
+// function defined in cmd_print.cpp. 
+extern void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force = false);
 
 /*
 ** interface prototypes
@@ -507,10 +512,13 @@ extern rep_set_t *DbgGetExpr(rec_set_t *);
 extern rep_set_t *DbgEvalExpr(rec_set_t *, char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
-extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, char *, AIF *);
-extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, char *);
+extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIF *);
+extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
 extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
 extern rep_set_t *DbgGetSourcePath(rec_set_t *);
+extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
+extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);
+extern rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgSetVar(rec_set_t *, const char *, AIF *);
 extern rep_set_t *DbgGetType(rec_set_t *, const char *, int);

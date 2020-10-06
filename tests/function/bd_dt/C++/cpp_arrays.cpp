@@ -59,6 +59,8 @@ int main(int argc, char* argv[])
         localVec[i] = idx0 + 2 * i;
     }
 
+    int staticArray[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+
     struct Waffle {
         double diameter;
         double depth;
@@ -82,6 +84,7 @@ int main(int argc, char* argv[])
         localVec[localSize-2] =100;
         wafflesArray[12].diameter = 300.0;
         wafflesVec[12].depth = 300.0;
+        staticArray[9] = 11;
     }
 
     delete[] distributedArray1;

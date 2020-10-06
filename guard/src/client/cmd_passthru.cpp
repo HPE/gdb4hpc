@@ -21,6 +21,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <algorithm>
+
 #include "client.h"
 #include "useful.h"
 
@@ -32,7 +34,16 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
     rep_set_t *rep_set;
     char *cmd;
 
-    rep_set = DbgDirectCmd(rec_set, argc, argv);
+    if (argc < 2) {
+        PrintOutError("Usage: maint passthru <gdb command...>\n");
+        return 0;
+    }
+
+    rep_set = DbgResetBeforeDirectCmd(rec_set);
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+
+    rep_set = DbgDirectCmd(rec_set, argc - 1, &argv[1]);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -49,6 +60,10 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
                             "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
     }
 
+    FreeRepSet(rep_set);
+
+    DbgRestoreAfterDirectCmd(rec_set);
+    ProcessErrorInRepSet(rep_set);
     FreeRepSet(rep_set);
 
     return 1;
@@ -70,6 +85,10 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     PrintOutMsg(
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
+
+    rep_set = DbgResetBeforeDirectCmd(rec_set);
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
 
     // This won't work with a "generic" debug backend, but works with gdb.
     rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
@@ -104,6 +123,10 @@ static int cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc,
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
         "continue) debugger is in an unknown state.\n");
 
+    rep_set_t *rep_set = DbgRestoreAfterDirectCmd(rec_set);
+    ProcessErrorInRepSet(rep_set);
+    FreeRepSet(rep_set);
+    
     cli_dec_prompt();
     SetCommands(OldCmds);
 

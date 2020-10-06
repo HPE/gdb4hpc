@@ -152,8 +152,6 @@ compare $a{0}::d=$b{0}::d
 print ld
 compare $a{0}::ld=$b{0}::ld
 
-
-
 #continue
 
 q

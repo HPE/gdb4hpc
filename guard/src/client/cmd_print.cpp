@@ -26,10 +26,26 @@
 #include <regex>
 #include <sstream>
 
+#include "aif.h"
 #include "client.h"
 #include "df.h"
-#include "useful.h"
 #include "help_dict.h"
+#include "useful.h"
+
+void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
+    // only do work if we need to
+    if (Client.print_elements != elements || force) {
+        Client.print_elements = elements;
+        
+        // it is valid to call this function with a null rec_set, before a
+        // gdb instance is launched
+        if (rec_set != nullptr) {
+            rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
+            ProcessErrorInRepSet(rep_set);
+            FreeRepSet(rep_set);
+        }
+    }
+}
 
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
@@ -297,7 +313,7 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    Client.print_elements = elements;
+    ClientSetPrintElements(elements, rec_set);
 
     return 1;
 }
@@ -313,24 +329,17 @@ static int class_show_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-const char *const class_show_print_subcmd_elements_help[] = {
-    "Summary: Number of elements to print when an array or c-string is printed.", 
-    "", 
-    "Description:",
-    "Display the number of elements to print when an array or c-string is printed.",
-    0};
-
 void InitCmd_print(void) {
     AddCommand("print", "p", proc_optional, 0, cmd_print_cmd, cmd_print_help,
                "Print the value of an expression.");
 
     AddSetPrintCommand(
-        "elements", proc_ignore, 0, class_set_print_subcmd_elements_cmd,
+        "elements", proc_optional, 0, class_set_print_subcmd_elements_cmd,
         class_set_print_subcmd_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
     AddShowPrintCommand(
-        "elements", proc_ignore, 0, class_show_print_subcmd_elements_cmd,
+        "elements", proc_optional, 0, class_show_print_subcmd_elements_cmd,
         class_show_print_subcmd_elements_help,
         "Show number of elements to print when an array is printed.");
 }

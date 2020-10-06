@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 	long double					ld;
 
 	/* c arrays */
-	int 			one_d_i_init[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+	int 			one_d_i_init[10] = {0, 1, 2, 3, 4, 55, 66, 77, 88, 99};
 	int				one_d_i[10];
 	int				two_d_i[10][20];
 	int				three_d_i[10][20][30];

@@ -329,6 +329,44 @@ check_exit_status
 cp -a $top_level/external/mrnet/build/*/mrnet_config.h $install_dir/include/.
 check_exit_status
 
+
+echo "############################################"
+echo "#             Building ompd plugin         #"
+echo "############################################"
+
+ompd_dir=$install_dir/ompd
+ompd_build=$ompd_dir/build
+
+mkdir -p $ompd_build
+check_exit_status
+
+mkdir -p $ompd_dir
+
+cd $top_level/external/openmp/libompd/gdb-plugin
+check_exit_status
+
+cp ../../runtime/src/include/omp-tools.h.var omp-tools.h
+check_exit_status
+python3 ./setup.py -v bdist_wheel -b $ompd_build -d $ompd_build
+check_exit_status
+python3 ./setup.py clean --all
+check_exit_status
+rm -R ompd.egg-info
+check_exit_status
+python3 -m pip install -U -t $ompd_build/python-module --no-index  . .
+check_exit_status
+rm omp-tools.h
+check_exit_status
+
+cd $ompd_dir
+check_exit_status
+mkdir -p gdb
+check_exit_status
+cp $ompd_build/python-module/ompd/*.* gdb
+check_exit_status
+rm -R build
+check_exit_status
+
 echo "############################################"
 echo "#             Building gdb4hpc             #"
 echo "############################################"

@@ -507,10 +507,12 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
 ** This should be extended to support multi-dimensional procsets with the slice.
 ** XXX: This only works for a single handle (i.e. $a), not a list of handles.
 */
-dbgprocset_t *CreateProcSetForInvoke(expr_t *e) {
+dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) {
     val_t *val;
     dbgprocset_t *rtn;
     slice_t *proc_slice;
+
+    existingProcSet = nullptr;
 
     if (EvalExpr(&val, e, NULL) < 0) {
         PrintError();
@@ -530,8 +532,7 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e) {
             return NULL;
 
         case rval_proc:
-            PrintOutError(
-                "A process set has already been defined using this name.\n");
+            existingProcSet = RVAL_ACTUAL_PROCSET(val);
             return NULL;
 
         case rval_blockmap:

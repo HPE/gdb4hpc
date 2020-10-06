@@ -255,6 +255,44 @@ exit_with_error:
     return 0;
 }
 
+static dbgprocset_t* getNewProcSet(const char* procName) {
+
+    auto e = ParseExpr(procName);
+    if (!e) {
+        PrintError();
+        return nullptr;
+    }
+    
+    dbgprocset_t* existingProcSet = nullptr;
+
+    auto procSet = CreateProcSetForInvoke(e, existingProcSet);
+
+    // e is destructively modified by CreateProcSetForInvoke, so we cannot
+    // reuse it.   
+    FreeExpr(e); 
+    e = nullptr;
+
+    if (!procSet && existingProcSet) {
+        // give the user a chance to release the existing launch and re-use the
+        // launch id.   Release and reuse is assumed in non-interactive contexts.
+        if (!Client.confirm ||
+            cli_query("A process set with this name is in use, release?",
+                      cli_query_default::NO, cli_query_default::YES)) {
+
+            // Out with the old
+            ReleaseProc(existingProcSet, DBG_DETACH);
+            existingProcSet = nullptr;
+
+            // In with the new
+            e = ParseExpr(procName);  // assume to work since it's the same string
+            procSet = CreateProcSetForInvoke(e, existingProcSet);
+            FreeExpr(e);
+        }
+    }
+
+    return procSet;
+}
+
 /*
     Launch an application.
 
@@ -291,7 +329,6 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // TODO: Allow the user to specify hostname/username
     char *hostname = NULL;
     char *username = NULL;
-    expr_t *e;
     int opt_ind = 0;
     int opt;
     int i;
@@ -528,18 +565,9 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // parse the non-option arguments
 
     // The first argument should be the name of the process set
-    if ((e = ParseExpr(argv[optind++])) == NULL) {
-        PrintError();
+    if ((ps = getNewProcSet(argv[optind++])) == NULL) {
         goto exit_with_error;
     }
-
-    // Create the process set for invoke
-    if ((ps = CreateProcSetForInvoke(e)) == NULL) {
-        FreeExpr(e);
-        goto exit_with_error;
-    }
-
-    FreeExpr(e);
 
     // The second argument is the name of the a.out
 
@@ -841,7 +869,6 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     const char *backend = Client.backend;
     char *hostname = NULL;
     char *username = NULL;
-    expr_t *e;
     int opt_ind = 0;
     int opt;
 
@@ -891,18 +918,9 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // parse the non-option arguments
 
     // The first argument should be the name of the process set
-    if ((e = ParseExpr(argv[optind++])) == (expr_t *)NULL) {
-        PrintError();
+    if ((ps = getNewProcSet(argv[optind++])) == NULL) {
         return 0;
     }
-
-    // Create the process set for invoke
-    if ((ps = CreateProcSetForInvoke(e)) == NULL) {
-        FreeExpr(e);
-        return 0;
-    }
-
-    FreeExpr(e);
 
     app_ident = strdup(argv[optind++]);
 

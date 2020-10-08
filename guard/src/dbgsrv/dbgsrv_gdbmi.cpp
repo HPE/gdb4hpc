@@ -3148,6 +3148,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     // We perform hashing separately
     if (func_id == EXPR_HASH_BOB) {
+        DVPRINT("*** PerformExtEvalExpr: performing hashing.\n");
         int hashfunc = 0, precision_lower, precision_upper;
         char hashinfo[BUFSIZ] = "";
         ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper,
@@ -3173,15 +3174,19 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     }
 
     // GetAIFVar only returns a value if it fails
+    // FIXME: This is a big bulky process just to pull out an AIF
     AIFStream* aifStream = nullptr;
     if ((e = GetAIFVar(GDBMISession, var, &aifStream, nullptr))) {
         return e;
     }
-    
+    a = aifStream->joinAIF(AIFStream::STEAL);
+    delete aifStream;
+
     e = NewEvent(DBGEV_DATA);
 
     // if slice info found, perform slicing first
     if (strlen(sliceinfo) > 0) {
+        DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
         int is_revert = 0;
 
         if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;

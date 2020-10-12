@@ -647,13 +647,28 @@ char *cli_get_prompt(void) {
     return cs->cs_prompt;
 }
 
-int cli_query(const char *s, cli_query_default defaultVal) {
+// print prompt s and get a yes/no response - return true if "yes"
+// default value indicates which response to use if the user just hits return
+//    or NONE if the user must type y or n
+// nonInteractiveDefaultVal governs the response if the context it non-interactive
+//    i.e. in batch mode or in a "source" command.   In that case return:
+//    true if YES,  false if NO, or use defaultVal if nonInteractiveDefaultVal is NONE.
+//    If the context is non-interactive and *both* default values are NONE, return true.
+bool cli_query(const char *s, cli_query_default defaultVal,
+              cli_query_default nonInteractiveDefaultVal) {
+
     // Make sure we are currently in confirm mode, if not return true.
     // Also ensure that there is an input stream to read from in the current
     // stream
     if (!Client.confirm || CurrentStream == NULL ||
-        CurrentStream->cs_fpin == NULL) {
-        return (defaultVal != cli_query_default::NO);
+        CurrentStream->cs_fpin == NULL ||
+        CurrentStream->cs_type == CLI_FILE_STREAM) {
+        if (nonInteractiveDefaultVal == cli_query_default::NONE) {
+            return (defaultVal != cli_query_default::NO);
+        } else {
+            return (nonInteractiveDefaultVal != cli_query_default::NO);
+        }
+            
     }
 
     const char* prompt = "%s (y or n) ";

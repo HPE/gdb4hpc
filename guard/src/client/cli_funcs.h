@@ -203,7 +203,9 @@ extern void cli_clear_line(void);
 
 enum class cli_query_default { NONE, NO, YES };
 // Used to confirm dangerous instructions
-extern int cli_query(const char *, cli_query_default defVal=cli_query_default::NONE);
+extern bool cli_query(const char *prompt,
+                      cli_query_default defVal=cli_query_default::NONE,
+                      cli_query_default nonInteractiveDefVal=cli_query_default::NONE);
 
 // Used to get a line of input. This should be avoided. It is needed for ssh
 // keyboard-interactive authentication

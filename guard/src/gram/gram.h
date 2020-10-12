@@ -119,6 +119,7 @@ extern val_t *CopyVal(val_t *);
 extern val_t *GetVal(hentry_t *);
 extern int AssignVal(val_t *, val_t *, rec_set_t *);
 extern void RemoveVal(hentry_t *);
+hentry_t* FindVal(const char* name);
 
 /*
 ** cmdtoken.h
@@ -145,7 +146,7 @@ extern void InitProcSet(void);
 extern void FinishProcSet(void);
 dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
 extern int CreateProcSet(expr_t *, expr_t *);
-extern dbgprocset_t *CreateProcSetForInvoke(expr_t *e);
+extern dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t*& isInUse);
 extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di);
 extern rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps);
 extern void SetProcSet(void);

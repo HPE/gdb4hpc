@@ -34,7 +34,7 @@ endif
 
 # Check for gdb-mi
 if GDBMI_BACKEND
-BACKEND		= dbgsrv_gdbmi.cpp dbgsrv_libmi2aif.cpp dbgsrv_util.cpp dbgsrv_p2p.cpp
+BACKEND		= dbgsrv_gdbmi.cpp dbgsrv_init.cpp dbgsrv_libmi2aif.cpp dbgsrv_util.cpp dbgsrv_p2p.cpp
 MI_LIBS		= @mi_libs@
 endif
 

@@ -78,7 +78,6 @@ static dbgstat Status;
 static int MPArch;
 static dbgbp_t *CurrBP = (dbgbp_t *)NULL;
 static list_t *BP;
-static list_t *exit_BP = nullptr;
 
 static int AsynchEventWaiting = 0;
 static MIEvent *PendingEvent = NULL;
@@ -148,7 +147,6 @@ dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
 
     auto event = m_initializer->init(dfd, iofd, env);
     GDBMISession = m_initializer->getMISession();
-    exit_BP = m_initializer->getExitBPs();
 
     return event;
 }
@@ -2695,6 +2693,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
 
     dbgbp_t *bp = NULL;
     MIEvent *evt = PendingEvent;
+    list_t* exitBPs = nullptr;
 
     if (e == (dbgevent_t *)NULL) e = NewEvent(DBGEV_NONE);
 
@@ -2735,11 +2734,12 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             Status = DBGSTAT_STOPPED;
 
             bp = FindBPByID(BP, evt->bkptno);
+            exitBPs = DbgBackendGDBMI.getExitBPs();
 
             // We want to check for an exit breakpoint if we didn't find it in
             // the normal BP list.
             if (bp == NULL) {
-                bp = FindBPByID(exit_BP, evt->bkptno);
+                bp = FindBPByID(exitBPs, evt->bkptno);
                 // set the status to exit if we are at an exit breakpoint
                 if (bp != NULL) {
                     Status = DBGSTAT_EXIT;
@@ -2785,7 +2785,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
                     // exit_BP, so we
                     //       try to remove from both. Its okay to do this.
                     RemoveBP(BP, evt->bkptno);
-                    RemoveBP(exit_BP, evt->bkptno);
+                    RemoveBP(exitBPs, evt->bkptno);
                     CurrBP = NULL;
                     break;
                 case DBGBP_DISABLE_DISP:
@@ -3615,3 +3615,4 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
 void DbgGdbMI::resetPId() { m_initializer->resetPId(); }
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }
+list_t* DbgGdbMI::getExitBPs() const { return m_initializer->getExitBPs(); }

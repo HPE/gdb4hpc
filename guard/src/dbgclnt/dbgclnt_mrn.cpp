@@ -32,6 +32,7 @@
 #include <string>
 #include <initializer_list>
 #include <fstream>
+#include <filesystem>
 
 #include "Stream_C.h"
 #include "aif.h"
@@ -1099,13 +1100,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
                 PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
                 goto invoke_error;
             }
-
-            auto slash = gdbBin.rfind('/');
-            if (slash == std::string::npos) {
-                serverGdb = gdbBin;
-            } else {
-                serverGdb = gdbBin.substr(slash+1);
-            }
+            serverGdb = std::filesystem::path(gdbBin).filename();
         }
 
         if (!dataDir.empty()) {

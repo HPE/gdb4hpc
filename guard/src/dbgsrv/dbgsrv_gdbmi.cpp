@@ -3191,11 +3191,11 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
         if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
 
-        e->ev_data = new AIFStream(PerformSlicing(a, sliceinfo, is_revert));
-        AIFFree(a);
+        AIF *slice = PerformSlicing(a, sliceinfo, is_revert);
 
-        if (e->ev_data == NULL) {
+        if (slice == nullptr) {
             // an error occured.
+            DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n", PerformSlicingErr);
             FreeEvent(e);
             e = NULL;
             EVENT_ERROR(e, DBGERR_DEBUGGER, "Slicing failed: %s",
@@ -3203,6 +3203,9 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
             return e;
         }
+        
+        e->ev_data = new AIFStream(slice);
+        AIFFree(a);
     } else {
         e->ev_data = new AIFStream(a);
     }

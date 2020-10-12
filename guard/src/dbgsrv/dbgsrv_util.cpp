@@ -820,7 +820,7 @@ AIF *PerformSlicing(AIF *a, char *sliceinfo, int is_revert) {
     if ((res = AIFArraySlice(a, nd, min, max)) == NULL) {
         Free(min);
         Free(max);
-        DVPRINT("*** AIFArraySlice: %s", AIFErrorStr());
+        DVPRINT("*** AIFArraySlice: %s\n", AIFErrorStr());
         SetPerformSlicingErrorMsg("%s", AIFErrorStr());
         return (AIF *)NULL;
     }

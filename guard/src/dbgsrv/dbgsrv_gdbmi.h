@@ -96,8 +96,7 @@ public:
     
     void setIsInNonStopMode(bool inNonStop);
     void setSourceOpen(bool doOpen);
-    void resetPId();
-    list_t* getExitBPs() const;
+    dbgevent_t* waitEvent(dbgevent_t *e);
 
 private:
     class Initializer;

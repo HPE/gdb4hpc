@@ -2599,7 +2599,7 @@ dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
     FreeEvent(e);
     AIFFree(aif);
 
-    DbgBackendGDBMI.setSourceOpen(true);
+    setSourceOpen(true);
 
     return NewEvent(DBGEV_OK);
 }
@@ -2618,7 +2618,7 @@ dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
     FreeEvent(e);
     AIFFree(aif);
 
-    DbgBackendGDBMI.setSourceOpen(false);
+    setSourceOpen(false);
 
     return NewEvent(DBGEV_OK);
 }
@@ -2686,6 +2686,11 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
 ** Checks to see what caused the termination.
 */
 static dbgevent_t *WaitEvent(dbgevent_t *e) {
+    return DbgBackendGDBMI.waitEvent(e);
+}
+
+dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
+    
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     MISessionRegisterThreadStoppedCallback(GDBMISession, nullptr);
@@ -2734,7 +2739,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             Status = DBGSTAT_STOPPED;
 
             bp = FindBPByID(BP, evt->bkptno);
-            exitBPs = DbgBackendGDBMI.getExitBPs();
+            exitBPs = m_initializer->getExitBPs();
 
             // We want to check for an exit breakpoint if we didn't find it in
             // the normal BP list.
@@ -2974,7 +2979,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
             e->ev_event = DBGEV_EXIT;
             e->ev_exit = 0;
             Status = DBGSTAT_WAITING;
-            DbgBackendGDBMI.resetPId();
+            m_initializer->resetPId();
             return e;
 
         default:
@@ -3612,7 +3617,5 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
     if (e) MIEventFree(e);
 }
     
-void DbgGdbMI::resetPId() { m_initializer->resetPId(); }
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }
-list_t* DbgGdbMI::getExitBPs() const { return m_initializer->getExitBPs(); }

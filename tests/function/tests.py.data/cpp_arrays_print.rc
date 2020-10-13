@@ -1,0 +1,60 @@
+maint set sync on
+
+# character array specific tests
+launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_char_arrays.x --debug
+
+break cpp_char_arrays.cpp:20
+
+continue
+
+# full char arrays
+p one_d
+p one_d_u
+p one_d_s
+p two_d
+p two_d_u
+
+# single elements
+## valid
+p one_d[0]
+p two_d[0][0]
+p two_d[3][2]
+
+## out of range
+p one_d[256]
+p two_d[256][0]
+p two_d[0][256]
+
+# strings
+p cstring
+p cptr
+p empty
+
+# make sure normal pointers still work too
+p inte
+p intp
+p *intp
+
+# make sure printing a char** is normal
+p argv
+
+kill $a
+
+# generic array tests
+launch $b{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_arrays.x --debug
+
+break cpp_arrays.cpp:93
+
+continue
+
+# full array tests
+print staticArray
+
+# single element tests
+print staticArray[0]
+print staticArray[9]
+print staticArray[256]
+
+kill $b
+
+q

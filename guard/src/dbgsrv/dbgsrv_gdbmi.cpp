@@ -23,30 +23,14 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <arpa/inet.h>
 #include <assert.h>
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <math.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <string>
 #include <fstream>
 #include <map>
-#include <sstream>
 #include <vector>
 #include <regex>
 #include <iomanip>
@@ -63,7 +47,6 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "expr.h"
-#include "mparch.h"
 #include "useful.h"
 
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {

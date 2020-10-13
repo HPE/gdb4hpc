@@ -51,6 +51,7 @@
 #include <vector>
 #include <regex>
 #include <iomanip>
+#include <filesystem>
 
 #include "MI.h"
 #include "aif.h"
@@ -1613,17 +1614,12 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
             tbEvent.reset(NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd)));
 
             // Try the basename instead in case the file was compiled locally.
-            auto sloc = where.rfind('/');
-            if (sloc != std::string::npos) {
-                auto where2 = where.substr(sloc+1);
-
+            auto where2 = std::filesystem::path(where).filename();
+            if (where2 != where) {
                 MICommandFree(cmd);
                 cmd = MIBreakInsert(0, 0, allowPending, nullptr, 0, where2.c_str(), threadId);
                 SendMICommand(GDBMISession, cmd);
-
-                if (MICommandResultOK(cmd)) {
-                    tbEvent.reset();
-                }
+                if (MICommandResultOK(cmd)) tbEvent.reset();
             }
         }
 

@@ -32,6 +32,7 @@
 #include <string>
 #include <initializer_list>
 #include <fstream>
+#include <filesystem>
 
 #include "Stream_C.h"
 #include "aif.h"
@@ -1091,20 +1092,17 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
         if (gdbBin.empty()) {
             PrintOutError("--gdb executable name is empty\n");
             goto invoke_error;
-        } else if (gdbBin[0] != '/') {
+        } else if (gdbBin[0] == '/') {
+            serverGdb = gdbBin;
+        } else {
             if (cti_addManifestBinary(mid, gdbBin.c_str())) {
                 PrintOutError("CTI error: %s\n", cti_error_str());
                 PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
                 goto invoke_error;
             }
+            serverGdb = std::filesystem::path(gdbBin).filename();
         }
 
-        auto slash = gdbBin.rfind('/');
-        if (slash == std::string::npos) {
-            serverGdb = gdbBin;
-        } else {
-            serverGdb = gdbBin.substr(slash+1);
-        }
         if (!dataDir.empty()) {
             serverGdb += ":";
             serverGdb += dataDir;

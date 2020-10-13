@@ -52,5 +52,5 @@ gdb4hpc_SOURCES	= main.cpp class_cmd.cpp cli_funcs.cpp cmd.cpp help_dict.cpp cmd
 gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/gcc-libs -Wl,--enable-new-dtags
 gdb4hpc_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++ -lpthread
+		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++ -lstdc++fs -lpthread
 

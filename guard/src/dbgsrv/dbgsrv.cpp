@@ -218,6 +218,7 @@ int main(int argc, char *argv[], char *env[]) {
                 break;
 
             case 'b':
+                DVPRINT("--gdb option is %s\n", optarg);
                 if (char* colon = strchr(optarg, ':')) {
                     custom_gdb = strndup(optarg, colon-optarg);
                     custom_gdb_data = strdup(colon+1);

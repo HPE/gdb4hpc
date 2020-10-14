@@ -22,6 +22,28 @@ private:
 };
 static void f(const Struct1& s, const Classy& c);
 
+class LinkedList {
+public:
+    LinkedList() : next(this) {}
+    ~LinkedList() { 
+        for (auto n = next; n; ) { 
+            auto elem = n;
+            n = n->next;
+            elem->next = nullptr;
+            delete elem;
+        }
+    }
+    void push(int v) { 
+        LinkedList* elem = new LinkedList;
+        elem->val = v;
+        elem->next = next;
+        next = elem;
+    }
+private:
+    int val;
+    LinkedList* next;
+};
+
 int main(int argc, char ** argv){
 	int x[5] = {1,2,3,4,5};
 	MPI_Init(&argc, &argv);
@@ -41,6 +63,7 @@ int main(int argc, char ** argv){
 	std::vector<double> vd;
 	std::vector<int *> ip;
 	std::vector<Rectangle > vv;
+    LinkedList* ll = new LinkedList;
 	while(i < 10 ){
 		vv.push_back(rect);
 		ip.push_back((int*)0x1234);
@@ -55,12 +78,9 @@ int main(int argc, char ** argv){
 		rect.height++;
 		rect.vec.push_back(++i);
 		rect.vec.at(0);
-		std::cout<<"i="<<i<<std::endl;
 		area1 = rect.area();
 		area2 = rectb.area();
-		std::cout << "rect area: " << area1 << std::endl;
-		std::cout << "rectb area: " << area2 << std::endl;
-		std::cout<<"";
+        ll->push((i*3)%5);
 	}
        
 	int l_tail = l.back();
@@ -73,6 +93,8 @@ int main(int argc, char ** argv){
 	Struct1 s1 = { 22.1, -5 };
 	Classy c1(22.2, -6);
 	f(s1,c1);
+
+    delete ll;
 
 	MPI_Finalize();
 	return 0;

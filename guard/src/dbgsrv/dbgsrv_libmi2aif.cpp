@@ -146,9 +146,9 @@ static AIF *CreateSimpleAIF(int, char *, char *, int, struct_info_t *,
                             func_info_t *);
 static char *MIToFDS(MISession *, int, char *);
 static char *GetVarValue(MISession *, char *);
-static AIFStream *GetAIF(MISession *, std::shared_ptr<MIVar>);
+static AIFStream *GetAIF(MISession *, std::shared_ptr<MIVar>, bool followPtrs);
 static AIFStream *GetSimpleAIF(MISession *, MIVar *);
-static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>);
+static AIFStream *GetComplexAIF(MISession *, std::shared_ptr<MIVar>, bool followPtrs);
 static struct_info_t *GetStructInfo(MISession *, char *);
 static AIFStream *GetStructAIF(MISession *, MIVar *);
 // static AIF *				GetUnionAIF(MISession *, MIVar *);
@@ -166,6 +166,15 @@ static char* EvalExpression(MISession* session, const char* expression);
 
 // Internal globals
 static dbgevent_t *dbg_error = NULL;
+
+// quote typename with spaces to pass to MI
+static std::string quoteId(std::string var)
+{
+    if (var.find(' ') != std::string::npos) {
+        var = "\"" + var + "\"";
+    }
+    return var;
+}
 
 void printArray(unsigned int *arr, int size) {
     fprintf(stderr, "[");
@@ -213,7 +222,7 @@ dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
         return get_err();
     }
 
-    AIFStream* res = GetAIF(session, mivar);
+    AIFStream* res = GetAIF(session, mivar, true);
     if (!res) {
         DVPRINT("GetAIFVar: GetAIF returned null.\n");
         if (dbg_error == NULL) {
@@ -271,7 +280,7 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
 
     if (mivar->numchild == 0 || !(id == T_ARRAY || id == T_FTNARRAY)) {
         // simple type
-        AIFStream* a = GetAIF(session, mivar);
+        AIFStream* a = GetAIF(session, mivar, true);
         res = PerformHash(a->joinAIF(), hashinfo, hashfunc, precision_lower,
                           precision_upper);
         delete a;
@@ -354,25 +363,18 @@ static void DeleteMIVar(MISession *session, const char *name) {
 }
 
 static int MIVarGetChildren(MISession *session, MIVar *var) {
-    MICommand *cmd;
-
     if (session == NULL || var == NULL) return 1;
 
-    cmd = MIVarListChildren(var->name);
+    auto cmd = MIVarListChildren(quoteId(var->name).c_str());
     SendMICommand(session, cmd);
+
     if (!MICommandResultOK(cmd)) {
         if (MICommandResultClass(cmd) == MIResultRecordERROR) {
             char *err = MICommandResultErrorMessage(cmd);
-            if (err != NULL) {
-                DVPRINT("MIVarGetChildren: Debugger error: %s\n", err);
-                EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, err);
-                free(err);
-            } else {
-                DVPRINT(
-                    "MIVarGetChildren: Error from GDB, no error message.\n");
-                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
-                            "Error without message!");
-            }
+            const char* errMsg = ( err ? err : "Error without message!");
+            DVPRINT("MIVarGetChildren: Debugger error: %s\n", errMsg);
+            EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, errMsg);
+            free(err);
         } else {
             DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
             EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB.");
@@ -639,7 +641,7 @@ static char *GetVarValue(MISession *session, char *var) {
     DVPRINT("GetVarValue: Evaluate %s.\n", var);
 
     DBEPERFLOG(SetTimerStart("GetVarValue: -data-evaluate-expression"));
-    cmd = MIVarEvaluateExpression(var);
+    cmd = MIVarEvaluateExpression(quoteId(var).c_str());
     DBEPERFLOG(SetTimerStopAndLog("GetVarValue: -data-evaluate-expression"));
 
     SendMICommand(session, cmd);
@@ -662,7 +664,7 @@ static char *GetVarValue(MISession *session, char *var) {
     return res;
 }
 
-static AIFStream *GetAIF(MISession *session, std::shared_ptr<MIVar> var) {
+static AIFStream *GetAIF(MISession *session, std::shared_ptr<MIVar> var, bool followPtrs) {
     DVPRINT("GetAIF: %s\n", var->expr);
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
@@ -678,7 +680,7 @@ static AIFStream *GetAIF(MISession *session, std::shared_ptr<MIVar> var) {
 
     // complex type
     DVPRINT("GetAIF: Resolved to complex type.\n");
-    return GetComplexAIF(session, var);
+    return GetComplexAIF(session, var, followPtrs);
 }
 
 static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
@@ -797,7 +799,8 @@ static AIFStream *GetSimpleAIF(MISession *session, MIVar *var) {
     }
 }
 
-static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) {
+static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var,
+                                bool followPtrs) {
     int id;
 
     //--- Find the AIF type -----
@@ -823,6 +826,14 @@ static AIFStream *GetComplexAIF(MISession *session, std::shared_ptr<MIVar> var) 
             var->type = pt;
         } else {
             break;
+        }
+    }
+
+    if (!followPtrs) {
+        DVPRINT("Not follow pointers: type is %s\n", var->type);
+        if (var->type[strlen(var->type)-1] == '*') {
+            DVPRINT("it is a pointer\n");
+            return GetPointerAIF(session, var.get());
         }
     }
 
@@ -2476,7 +2487,7 @@ static char *GetTypeName(char *type) {
 
     DVPRINT("GetTypeName: %s\n", type);
 
-    if ((p = strrchr(type, ' ')) != NULL) {
+    if ((p = strrchr(type, ' ')) != NULL && p[1] != '>') {
         p++;
         if (strncmp(p, "{...}", 5) == 0) {
             DVPRINT("GetTypeName: NULL type\n");
@@ -3363,14 +3374,14 @@ static AIFStream *GetStructAIF(MISession *session, MIVar *var) {
                 child2->expr = strdup(child2->name);
 
                 std::shared_ptr<MIVar> sv(child2, [](MIVar*){});  
-                if (AIFStream* ac = GetAIF(session, sv)) {
+                if (AIFStream* ac = GetAIF(session, sv, false)) {
                     AIFAddFieldToStruct(a, child2->exp, ac->joinAIF());
                     delete ac;
                 }
             }
         } else {
             std::shared_ptr<MIVar> sv(child1, [](MIVar*){});  
-            if (AIFStream* ac = GetAIF(session, sv)) {
+            if (AIFStream* ac = GetAIF(session, sv, false)) {
                 AIFAddFieldToStruct(a, child1->exp, ac->joinAIF());
                 delete ac;
             }

@@ -3174,13 +3174,10 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     }
 
     // GetAIFVar only returns a value if it fails
-    // FIXME: This is a big bulky process just to pull out an AIF
     AIFStream* aifStream = nullptr;
     if ((e = GetAIFVar(GDBMISession, var, &aifStream, nullptr))) {
         return e;
     }
-    a = aifStream->joinAIF(AIFStream::STEAL);
-    delete aifStream;
 
     e = NewEvent(DBGEV_DATA);
 
@@ -3189,9 +3186,15 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
         int is_revert = 0;
 
-        if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
+        // pull out AIF to slice up
+        a = aifStream->joinAIF(AIFStream::STEAL);
+        // done with aifStream, we will create a new one with sliced data
+        delete aifStream;
 
+        if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
         AIF *slice = PerformSlicing(a, sliceinfo, is_revert);
+        // done aith a, our new sliced-up AIF (or an error) will be sent back
+        AIFFree(a);
 
         if (slice == nullptr) {
             // an error occured.
@@ -3204,10 +3207,10 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
             return e;
         }
         
+        // finally, create a new AIFStream from our sliced-up AIF
         e->ev_data = new AIFStream(slice);
-        AIFFree(a);
     } else {
-        e->ev_data = new AIFStream(a);
+        e->ev_data = aifStream;
     }
 
     // Minh changes here to do p2p mode

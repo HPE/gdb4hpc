@@ -118,11 +118,6 @@ struct_info_t::~struct_info_t() {
     }
 }
 
-class ReferenceIndexer {
-public:
-    bool followPtr();
-};
-    
 } // namespace
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
@@ -134,7 +129,7 @@ namespace {
 class Mi2Aif {
 private:
     MISession* m_session;
-    ReferenceIndexer m_indexer;
+    std::unordered_map<long long int,size_t> m_refs;
 
 public:
     Mi2Aif(MISession* session);
@@ -172,7 +167,7 @@ private:
     char *getArrayDataString(MIVar *);
     void fixTypeString(char *, const char *, char *);
     void sendMICommand(MICommand* command);
-    char *sanitizeTypeString(const char *input);
+    std::unique_ptr<char,decltype(std::free)*> sanitizeTypeString(const char *input);
 };
 }
 
@@ -299,7 +294,6 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
 
     if (mivar->numchild == 0 || !(id == T_ARRAY || id == T_FTNARRAY)) {
         // simple type
-        auto refIdcs = std::shared_ptr<ReferenceIndexer>(new ReferenceIndexer);
         AIFStream* a = mi2aif.getAIF(mivar);
         res = PerformHash(a->joinAIF(), hashinfo, hashfunc, precision_lower,
                           precision_upper);
@@ -329,6 +323,7 @@ static void DeleteMIVar(MISession* session, MIVar* mivar)
         MICommandFree(cmd);
         MIVarFree(mivar);
     }
+}
 
 
 /*
@@ -526,7 +521,7 @@ static char* EvalExpression(MISession* session, const char* expression)
     return res;
 }
 
-char *Mi2Aif::sanitizeTypeString(const char *input) {
+std::unique_ptr<char,decltype(std::free)*> Mi2Aif::sanitizeTypeString(const char *input) {
     // first we need to sanitize the stupid string if gpu debugging is turned on
     // I don't know why Nvidia decided to be dumb by putting the address space
     // idents in but then making the gdb parser not understand them...
@@ -612,7 +607,7 @@ char *Mi2Aif::sanitizeTypeString(const char *input) {
         current++;
     }
 
-    return clean_str;
+    return std::unique_ptr<char,decltype(std::free)*>(clean_str,std::free);
 }
 
 int Mi2Aif::getTypeLength(const char *in_base_type) {
@@ -626,7 +621,8 @@ int Mi2Aif::getTypeLength(const char *in_base_type) {
     // sanity
     if (in_base_type == NULL) return 0;
 
-    char *base_type = sanitizeTypeString(in_base_type);
+    auto base_type_holder = sanitizeTypeString(in_base_type);
+    char *base_type = base_type_holder.get();
 
     // create the command string
     Asprintf(&buf, "\"sizeof(%s)\"", base_type);
@@ -648,11 +644,6 @@ int Mi2Aif::getTypeLength(const char *in_base_type) {
     type_len = (int)strtol(res, NULL, 10);
 
     free(res);
-
-    // free the base_type if gpu flag is turned on
-    if (gpu_flag) {
-        free(base_type);
-    }
 
     return type_len;
 }
@@ -851,14 +842,22 @@ AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
         }
     }
 
-    if (!m_indexer.followPtr()) {
-        DVPRINT("Not follow pointers: type is %s\n", var->type);
-        if (var->type[strlen(var->type)-1] == '*') {
-            DVPRINT("it is a pointer\n");
-            void* addr = getVarValue(var->name);
-            DVPRINT("the value is %p\n", addr);
-            
+    if (var->type[strlen(var->type)-1] == '*') {
+        DVPRINT("Looking at a pointer\n");
+        char* addr_str = getVarValue(var->name);
+        DVPRINT("Got Address %s\n", addr_str);
+        long long int addr_loc = strtoll(addr_str, nullptr, 0);
+        free(addr_str); addr_str = nullptr;
+
+        if (!addr_loc) {
             return getPointerAIF(var.get());
+        }
+        auto [loc,didInsert] = m_refs.insert(std::make_pair(addr_loc,m_refs.size()+1));
+        if (!didInsert) {
+            DVPRINT("Previously defined location %zu\n", loc->second);
+            return getPointerAIF(var.get());
+        } else {
+            DVPRINT("Not previously seen, given value %zu\n", loc->second);
         }
     }
 
@@ -920,8 +919,8 @@ AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
 }
 
 int Mi2Aif::getSimpleType(const char *type) {
-    std::unique_ptr<char,decltype(std::free)*> sanStr(sanitizeTypeString(type),std::free);
-    char *t = sanStr.get();
+    auto sanStr = sanitizeTypeString(type);
+    const char *t = sanStr.get();
     int len = strlen(type);
 
     DVPRINT("GetSimpleType: %s\n", type);
@@ -2010,11 +2009,14 @@ start:
  * 	T_STRUCT
  * 	T_UNKNOWN
  */
-int Mi2Aif::getComplexType(const char *type) {
-    type = sanitizeTypeString(type);
+int Mi2Aif::getComplexType(const char *inType) {
+    auto typeHolder = sanitizeTypeString(inType);
+    const char* type = typeHolder.get();
     int len = strlen(type);
+
     if (strncmp(type, "std::", 5) == 0) {
         type += 5;
+        len -= 5;
         switch (*type) {
             case 'v':
                 DVPRINT("GetComplexType: Found std::vector\n");
@@ -2126,10 +2128,10 @@ int Mi2Aif::getComplexType(const char *type) {
 }
 
 int Mi2Aif::getType(char *type) {
-    type = sanitizeTypeString(type);
-    int id = getSimpleType(type);
+    auto sanType = sanitizeTypeString(type);
+    int id = getSimpleType(sanType.get());
     if (id == T_UNKNOWN) {
-        id = getComplexType(type);
+        id = getComplexType(sanType.get());
     }
 
     return id;
@@ -3771,6 +3773,7 @@ MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
 
 MIArrayToAIFParser::~MIArrayToAIFParser() {
     if (m_shape) freeArrayDimension(m_shape);
+    free(m_type_str);
     delete m_type_struct;
     delete m_type_func;
 }
@@ -4544,7 +4547,8 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
 AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
     DVPRINT("GetArrayAIF: %s\n", var->expr);
 
-    char *type_str; int type_len; struct_info_t *type_struct; func_info_t *type_func;
+    char *type_str=nullptr; int type_len=0; struct_info_t *type_struct=nullptr;
+    func_info_t *type_func = nullptr;
     int id = getArrayBaseType(var.get(), &type_str, &type_len, &type_struct, &type_func);
 
     if (id == T_UNKNOWN) {
@@ -4559,6 +4563,7 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
                                   type_func);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
+        free(type_str);
         return new AIFStream(a);
     } 
 
@@ -4573,7 +4578,8 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
 
     arrayDimension_t *shape = slicer->getShape();                                                    
     if (!shape) {                                                                                   
-        DVPRINT("could not get size of a vector like object");                                      
+        DVPRINT("could not get size of a vector like object");
+        free(type_str);
         return nullptr;                                                                             
     }                                                                                               
     
@@ -4641,6 +4647,7 @@ AIFStream *Mi2Aif::getPointerAIF(MIVar *var) {
     }
 
     AIFFree(addr_aif);
+    free(addr_str);
 
     return new AIFStream(rtn_aif);
 }
@@ -4651,6 +4658,3 @@ void Mi2Aif::sendMICommand(MICommand* command) {
 
 Mi2Aif::Mi2Aif(MISession* session) : m_session(session) {}
 
-bool ReferenceIndexer::followPtr() {
-    return false;
-}

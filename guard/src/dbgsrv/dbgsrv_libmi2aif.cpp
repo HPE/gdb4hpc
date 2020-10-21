@@ -129,7 +129,9 @@ namespace {
 class Mi2Aif {
 private:
     MISession* m_session;
-    std::unordered_map<long long int,size_t> m_refs;
+    size_t m_depth;
+    std::vector<std::shared_ptr<MIVar>> m_refs;
+    std::unordered_map<long long int,size_t> m_refMap;
 
 public:
     Mi2Aif(MISession* session);
@@ -164,10 +166,13 @@ private:
     AIFStream *getArrayAIF(std::shared_ptr<MIVar>);
     AIFStream *getVectorLikeAIF(std::shared_ptr<MIVar>);
     AIFStream *getPointerAIF(MIVar *);
+    AIFStream* getReferenceAIF(MIVar*);
     char *getArrayDataString(MIVar *);
     void fixTypeString(char *, const char *, char *);
     void sendMICommand(MICommand* command);
     std::unique_ptr<char,decltype(std::free)*> sanitizeTypeString(const char *input);
+
+    AIF* makeBackPointerAIF(size_t idx);
 };
 }
 
@@ -678,8 +683,22 @@ char *Mi2Aif::getVarValue(char *var) {
     return res;
 }
 
+namespace {
+    // small helper RAII object to track when we are evaluating the original expression
+    class DepthTracker {
+        size_t& m_depth;
+    public:
+        DepthTracker(size_t& depth) : m_depth(depth) { ++m_depth; }
+        ~DepthTracker() { --m_depth; }
+        bool isTop() const { return (m_depth == 1); }
+    };
+}
+        
+
 AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
     DVPRINT("GetAIF: %s\n", var->expr);
+
+    DepthTracker depth(m_depth);
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
         DVPRINT("GetAIF: No symbols\n");
@@ -694,7 +713,32 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
 
     // complex type
     DVPRINT("GetAIF: Resolved to complex type.\n");
-    return getComplexAIF(var);
+    auto val = getComplexAIF(var);
+
+    // types based multiple blocks connected via pointers or references.  For comparative
+    // debugging especially, we have to observe the whole state of the data structure.
+    if (depth.isTop() && !m_refs.empty()) {
+        
+        // checked that the name argument is just copied
+        auto container = EmptyStructToAIF(const_cast<char*>("multi-block"));
+        auto fid = "[" + std::to_string(0) + "]";
+
+        // I'm pretty sure the name argument is actually used as const
+        AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), val->joinAIF());
+
+        for (size_t i=0; i<m_refs.size() && i<20 ; ++i) {
+            if (auto child1 = getAIF(m_refs[i])) {
+                fid = "[" + std::to_string(i+1) + "]";
+                AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), child1->joinAIF());
+                delete child1;
+            }
+        }
+        
+        delete val;
+        val = new AIFStream(container);
+    }
+        
+    return val;
 }
 
 AIFStream *Mi2Aif::getSimpleAIF(MIVar *var) {
@@ -843,22 +887,7 @@ AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
     }
 
     if (var->type[strlen(var->type)-1] == '*') {
-        DVPRINT("Looking at a pointer\n");
-        char* addr_str = getVarValue(var->name);
-        DVPRINT("Got Address %s\n", addr_str);
-        long long int addr_loc = strtoll(addr_str, nullptr, 0);
-        free(addr_str); addr_str = nullptr;
-
-        if (!addr_loc) {
-            return getPointerAIF(var.get());
-        }
-        auto [loc,didInsert] = m_refs.insert(std::make_pair(addr_loc,m_refs.size()+1));
-        if (!didInsert) {
-            DVPRINT("Previously defined location %zu\n", loc->second);
-            return getPointerAIF(var.get());
-        } else {
-            DVPRINT("Not previously seen, given value %zu\n", loc->second);
-        }
+        return getReferenceAIF(var.get());
     }
 
     //--- Create the AIF. ---- 
@@ -4562,6 +4591,7 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
         AIF* ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
                                   type_func);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
+        
         AIFFree(ac);
         free(type_str);
         return new AIFStream(a);
@@ -4590,6 +4620,38 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
     return new AIFStream(arrayStream);
 }
 
+// Create the AIF for a pointed to object, which could be either null, an object that has already
+// been visited, or one we haven't seen yet.   In the last case, it pushes the expression onto
+// the evaluation list.   It returns either a null-pointer AIF object or a reference to the index
+// for this object.
+AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
+    DVPRINT("Looking at a pointer %s\n",var->type);
+
+    char* addr_str = getVarValue(var->name);
+    long long int addr_loc = strtoll(addr_str, nullptr, 0);
+    free(addr_str); addr_str = nullptr;
+
+    if (!addr_loc) {
+        // NULL pointer
+        return getPointerAIF(var);
+    }
+
+    auto [loc,isNew] = m_refMap.insert(std::make_pair(addr_loc,m_refs.size()+1));
+    if (isNew) {
+        DVPRINT("New reference:  type=%s, value=%s gets value %zu\n",
+                var->type?var->type:"null", var->value?var->value:"null", loc->second);
+
+        // Create and store the var to dereference this pointer, we need to wrap the
+        // expression in quotes to handle types with spaces.
+        auto derefExpr = std::ostringstream{};
+        derefExpr << "\"*(" << var->type << ")" << var->value << "\"";
+        m_refs.push_back(createMIVar(derefExpr.str().c_str()));
+    } 
+    return new AIFStream(makeBackPointerAIF(loc->second));
+}
+
+// Create the AIF for a raw pointer value for contexts where we want to present
+// hex values instead of replacing them with reference ids
 AIFStream *Mi2Aif::getPointerAIF(MIVar *var) {
     DVPRINT("GetPointerAIF: Pointer Type => %s\n", var->type);
 
@@ -4656,5 +4718,16 @@ void Mi2Aif::sendMICommand(MICommand* command) {
     if (m_session) SendMICommand(m_session, command);
 }
 
-Mi2Aif::Mi2Aif(MISession* session) : m_session(session) {}
+// create an AIF type to represent a pointer reference to a specific indexed elmement
+AIF* Mi2Aif::makeBackPointerAIF(size_t idx) {
+    auto ival = IntToAIF(idx);
+    auto arr = EmptyArrayToAIF(0,0,ival);
+    memcpy(AIF_DATA(arr), AIF_DATA(ival), AIF_LEN(ival));
+
+    AIFFree(ival);
+    return arr;
+}
+
+
+Mi2Aif::Mi2Aif(MISession* session) : m_session(session), m_depth(0) {}
 

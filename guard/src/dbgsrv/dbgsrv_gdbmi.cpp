@@ -3131,7 +3131,6 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-    AIF *a;
 
     AIF *tmp = NULL;
 
@@ -3154,6 +3153,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper,
                       hashinfo);
 
+        AIF *a;
         if ((e = GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id,
                                precision_lower, precision_upper)) != NULL) {
             return e;
@@ -3180,30 +3180,26 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     }
 
     e = NewEvent(DBGEV_DATA);
+    e->ev_data = nullptr;
 
     // if slice info found, perform slicing first
     if (strlen(sliceinfo) > 0) {
         DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
-        int is_revert = 0;
 
-        // pull out AIF to slice up
-        a = aifStream->joinAIF(AIFStream::STEAL);
-        // done with aifStream, we will create a new one with sliced data
+        // pull out AIF and slice up
+        AIF *a = aifStream->joinAIF();
+        AIF *slice = PerformSlicing(a, sliceinfo, AIFType(a) == AIF_FTN_ARRAY);
+        
+        // done with aifStream (and the aif contained within), 
+        // we will create a new one with sliced data
         delete aifStream;
-
-        if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
-        AIF *slice = PerformSlicing(a, sliceinfo, is_revert);
-        // done aith a, our new sliced-up AIF (or an error) will be sent back
-        AIFFree(a);
+        aifStream = nullptr;
 
         if (slice == nullptr) {
             // an error occured.
             DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n", PerformSlicingErr);
             FreeEvent(e);
-            e = NULL;
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Slicing failed: %s",
-                        PerformSlicingErr);
-
+            e = NewErrorEvent(DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
             return e;
         }
         

@@ -45,7 +45,7 @@ void ParseHistogramArgs(char *, int *, double *, double *);
 void ParseBlockMapArgs(char *, blockmap_info *);
 void ParseP2PArgs(char *, char *, int *, blockmap_info *, blockmap_info *);
 
-AIF *PerformSlicing(AIF *, char *, int);
+AIF *PerformSlicing(AIF *, char *, bool);
 AIF *PerformHash(AIF *, char *, int, int, int);
 AIF *PerformHashMI(char *, char *, arrayDimension_t *, char *, int, int, int);
 

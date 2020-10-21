@@ -739,7 +739,7 @@ void SetPerformSlicingErrorMsg(const char *fmt, ...) {
 
 /* Minh
  */
-AIF *PerformSlicing(AIF *a, char *sliceinfo, int is_revert) {
+AIF *PerformSlicing(AIF *a, char *sliceinfo, bool is_reverse) {
     int i = 0, j = 0;
     int nd, nds;
     int *min;
@@ -768,7 +768,7 @@ AIF *PerformSlicing(AIF *a, char *sliceinfo, int is_revert) {
     tok = strtok(sliceinfo, ",");
 
     // Fortran arrays are reversed for the time being.
-    if (is_revert) i = nd - 1;
+    if (is_reverse) i = nd - 1;
 
     nds = 0;
     while (tok != NULL) {
@@ -796,7 +796,7 @@ AIF *PerformSlicing(AIF *a, char *sliceinfo, int is_revert) {
                 min[i], max[i]);
             return (AIF *)NULL;
         }
-        if (is_revert)
+        if (is_reverse)
             --i;
         else
             ++i;
@@ -1268,7 +1268,7 @@ AIF *PerformP2P(AIF *data, char *args, int my_rank, int *is_sender) {
             DVPRINT("sending to %d\n", des);
 
             // perform slicing
-            tosend = PerformSlicing(data, sliceinfo, 0);
+            tosend = PerformSlicing(data, sliceinfo, false);
 
             // perform peer communication
             SliceSocketSend(des, tosend);
@@ -1306,7 +1306,7 @@ AIF *PerformP2P(AIF *data, char *args, int my_rank, int *is_sender) {
             // get the right slice for comparing
             _get_slice_info(my_data_size, overlap_info, sliceinfo, i,
                             my_bm.rank, isFortran);
-            tocompare = PerformSlicing(data, sliceinfo, 0);
+            tocompare = PerformSlicing(data, sliceinfo, false);
 
             AIFToStr(&datastr, 0, tocompare);
 

@@ -46,6 +46,7 @@
 
 // Used to fix infinite loop issue for recursive calls to whatis
 #define LOOP_PREVENTION 20
+extern int clientPrintElements;
 
 /*
 ** Types
@@ -732,8 +733,12 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
 
         // add the reference elements as members of the struct - note that
         // the current val is deleted on the first iteration of this loop
-        // Note - replace 20 with the value of set print elements
-        for (size_t i=0; i<m_refs.size() && i<20 ; ++i) {
+        auto refLimit = (clientPrintElements > 0 ?
+                         static_cast<size_t>(clientPrintElements) :
+                         std::numeric_limits<size_t>::max());
+
+        // create the elements, note that m_refs can grow inside the loop
+        for (size_t i=0; i<m_refs.size() && i<refLimit ; ++i) {
             if (!m_refs[i])
                 continue;
             if (auto child1 = i ? getAIF(m_refs[i]) : val) {

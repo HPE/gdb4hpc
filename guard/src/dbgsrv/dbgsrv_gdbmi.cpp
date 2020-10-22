@@ -69,6 +69,16 @@ static MIEvent *PendingEvent = NULL;
 // just indicates it was *requested*
 static bool isInNonStopMode = false; 
 
+// print elements setting used for resetting and restoring before direct commands
+// set by DbgSetPrintElements and initialized by setup_gdbmi_environment
+int clientPrintElements = 0;
+
+#ifndef ALPS
+// These are for sending the target output to the fe
+static int WRITE_fd;
+static int dbgsrv_fd;
+#endif
+
 extern appInfo_t other_app;
 
 static dbgevent_t *WaitEvent(dbgevent_t *e);
@@ -91,8 +101,6 @@ static DbgGdbMI DbgBackendGDBMI;
 
 // number of threads still running that were set off by background commands in thread apply
 static size_t numBackgroundThreads = 0;
-
-static int clientPrintElements = 0;
 
 dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 

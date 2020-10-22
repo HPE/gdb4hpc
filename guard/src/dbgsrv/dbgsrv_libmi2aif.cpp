@@ -699,12 +699,20 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
     DVPRINT("GetAIF: %s\n", var->expr);
 
     DepthTracker depth(m_depth);
+    if (depth.isTop()) {
+        // Save the input expression - if it contains pointers we will need
+        // to index the address of this object to resolve any back-pointers in
+        // the structure.
+        DVPRINT("Pushing top expression %s\n", var->expr);
+        m_refs.push_back(var);
+    }
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
         DVPRINT("GetAIF: No symbols\n");
         EVENT_ERROR(dbg_error, DBGERR_NOSYMS, nullptr);
         return nullptr;
     }
+
     if (var->numchild == 0) {
         // simple type
         DVPRINT("GetAIF: Resolved to simple type.\n");
@@ -717,24 +725,24 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
 
     // types based multiple blocks connected via pointers or references.  For comparative
     // debugging especially, we have to observe the whole state of the data structure.
-    if (depth.isTop() && !m_refs.empty()) {
-        
+    if (depth.isTop() && m_refs.size() > 1) {
+
         // checked that the name argument is just copied
         auto container = EmptyStructToAIF(const_cast<char*>("multi-block"));
-        auto fid = "[" + std::to_string(0) + "]";
 
-        // I'm pretty sure the name argument is actually used as const
-        AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), val->joinAIF());
-
+        // add the reference elements as members of the struct - note that
+        // the current val is deleted on the first iteration of this loop
+        // Note - replace 20 with the value of set print elements
         for (size_t i=0; i<m_refs.size() && i<20 ; ++i) {
-            if (auto child1 = getAIF(m_refs[i])) {
-                fid = "[" + std::to_string(i+1) + "]";
+            if (!m_refs[i])
+                continue;
+            if (auto child1 = i ? getAIF(m_refs[i]) : val) {
+                auto fid = "[" + std::to_string(i) + "]";
                 AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), child1->joinAIF());
                 delete child1;
             }
         }
         
-        delete val;
         val = new AIFStream(container);
     }
         
@@ -4636,13 +4644,42 @@ AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
         return getPointerAIF(var);
     }
 
-    auto [loc,isNew] = m_refMap.insert(std::make_pair(addr_loc,m_refs.size()+1));
-    if (isNew) {
+    if (m_refMap.empty()) {
+        // we put off indexing the first block until we know we are dealing with pointers
+        auto top = m_refs[0];
+        DVPRINT("Top reference %s type %s value=%s\n", top->expr, top->type, top->value);
+        long long int addr_loc = 0;
+        if (top->value && top->value[0]=='0') {
+            // the top level is a pointer and we already have the pointer value
+            addr_loc = strtoll(m_refs[0]->value, nullptr, 0);
+        } else {
+            DVPRINT("Trying to get address of top object");
+            // the top level is a value type, use & to try to get an address
+            auto addrExpr = std::ostringstream{};
+            addrExpr << "\"&(" << top->expr << ")\"";
+            if (auto addrVar = createMIVar(addrExpr.str().c_str())) {
+                auto addrStr = getVarValue(addrVar->name);
+
+                DVPRINT("Got value %s\n", addrStr);
+
+                addr_loc = strtoll(addrStr, nullptr, 0);
+                free(addrStr);
+            } else {
+                DVPRINT("createMIVar failed\n");
+            }
+        }
+        m_refMap.insert(std::make_pair(addr_loc, 0));
+    }
+
+    auto [loc,isNew] = m_refMap.insert(std::make_pair(addr_loc,m_refs.size()));
+    if (isNew && var->type && var->value) {
+        // there is no reason for var->type or var->value to be null, but no
+        // good reason to crash if they are
         DVPRINT("New reference:  type=%s, value=%s gets value %zu\n",
-                var->type?var->type:"null", var->value?var->value:"null", loc->second);
+                var->type, var->value, loc->second);
 
         // Create and store the var to dereference this pointer, we need to wrap the
-        // expression in quotes to handle types with spaces.
+        // expression in quotes to handle types with spaces.  
         auto derefExpr = std::ostringstream{};
         derefExpr << "\"*(" << var->type << ")" << var->value << "\"";
         m_refs.push_back(createMIVar(derefExpr.str().c_str()));

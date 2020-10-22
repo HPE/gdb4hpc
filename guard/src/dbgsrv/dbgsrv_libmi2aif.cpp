@@ -4641,6 +4641,15 @@ AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
     DVPRINT("Looking at a pointer %s\n",var->type);
 
     char* addr_str = getVarValue(var->name);
+
+    if (strcmp(var->type, "char *") == 0) {
+        if (auto strVal = strchr(var->value, '"')) {
+            // string - we won't try to manage these as a reference
+            auto s = std::string{strVal+1, strlen(strVal)-2};  // remove quotes
+            return new AIFStream(StringToAIF(const_cast<char*>(s.c_str())));
+        }
+    }
+
     long long int addr_loc = strtoll(addr_str, nullptr, 0);
     free(addr_str); addr_str = nullptr;
 

@@ -17,16 +17,14 @@ a{0..2}: a
 a{0..2}: Debugger error: Slicing failed: Index out of range
 a{0..2}: Debugger error: Slicing failed: Index out of range
 a{0..2}: Debugger error: Slicing failed: Index out of range
-a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
-a{0..2}: (char *) %0x[0-9a-f]*% "hello \n world!"
-a{0..2}: (char *) %0x[0-9a-f]*% ""
+a{0..2}: "hello \n world!"
+a{0..2}: "hello \n world!"
+a{0..2}: ""
 a{0..2}: 23
-%# this address can change per node, so just make sure we get one of the right form
-a{%.*%}: (int *) %0x[0-9a-f]*%
+a{%.*%}: [0]
 %*
 a{0..2}: 23
-%# this address can change per node, so just make sure we get one of the right form
-a{%.*%}: (char **) %0x[0-9a-f]*%
+a{%.*%}: [0]
 %*
 Shutting down debugger and killing application for 'a'.
 %*

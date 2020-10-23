@@ -3131,7 +3131,6 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-    AIF *a;
 
     AIF *tmp = NULL;
 
@@ -3148,11 +3147,13 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     // We perform hashing separately
     if (func_id == EXPR_HASH_BOB) {
+        DVPRINT("*** PerformExtEvalExpr: performing hashing.\n");
         int hashfunc = 0, precision_lower, precision_upper;
         char hashinfo[BUFSIZ] = "";
         ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper,
                       hashinfo);
 
+        AIF *a;
         if ((e = GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id,
                                precision_lower, precision_upper)) != NULL) {
             return e;
@@ -3177,29 +3178,35 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     if ((e = GetAIFVar(GDBMISession, var, &aifStream, nullptr))) {
         return e;
     }
-    
+
     e = NewEvent(DBGEV_DATA);
+    e->ev_data = nullptr;
 
     // if slice info found, perform slicing first
     if (strlen(sliceinfo) > 0) {
-        int is_revert = 0;
+        DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
 
-        if (AIFType(a) == AIF_FTN_ARRAY) is_revert = 1;
+        // pull out AIF and slice up
+        AIF *a = aifStream->joinAIF();
+        AIF *slice = PerformSlicing(a, sliceinfo, AIFType(a) == AIF_FTN_ARRAY);
+        
+        // done with aifStream (and the aif contained within), 
+        // we will create a new one with sliced data
+        delete aifStream;
+        aifStream = nullptr;
 
-        e->ev_data = new AIFStream(PerformSlicing(a, sliceinfo, is_revert));
-        AIFFree(a);
-
-        if (e->ev_data == NULL) {
+        if (slice == nullptr) {
             // an error occured.
+            DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n", PerformSlicingErr);
             FreeEvent(e);
-            e = NULL;
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Slicing failed: %s",
-                        PerformSlicingErr);
-
+            e = NewErrorEvent(DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
             return e;
         }
+        
+        // finally, create a new AIFStream from our sliced-up AIF
+        e->ev_data = new AIFStream(slice);
     } else {
-        e->ev_data = new AIFStream(a);
+        e->ev_data = aifStream;
     }
 
     // Minh changes here to do p2p mode

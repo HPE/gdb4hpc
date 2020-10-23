@@ -1007,7 +1007,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // FIXME: This should be a formal expression operator that is passed
             // to the backend instead of hacking together a random string.
             if (slice != NULL) {
-                std::ostringstream sliceexpr("|slice(");
+                std::ostringstream sliceexpr("|slice(", std::ostringstream::ate);
                 for (int n = 0; n < slice->s_rank; n++) {
                     sliceexpr << slice->s_low[n] << "," << slice->s_high[n];
                     if (n < slice->s_rank - 1) sliceexpr << ",";

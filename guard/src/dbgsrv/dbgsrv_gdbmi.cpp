@@ -3306,18 +3306,22 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         // Return the next slice of data
         bool isFinal;
         dbgev ev = DBGEV_DATA_SLICE;
-        auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal);
-        if (isFinal) {
-            DVPRINT("returning the last slice of %ld\n", expIdx);
-            ev = DBGEV_DATA;
-            remainders.erase(remainderLoc);
-        } else {
-            DVPRINT("Returning the next slice of %ld\n", expIdx);
-        }
+        if (auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal)) {
+            if (isFinal) {
+                DVPRINT("returning the last slice of %ld\n", expIdx);
+                ev = DBGEV_DATA;
+                remainders.erase(remainderLoc);
+            } else {
+                DVPRINT("Returning the next slice of %ld\n", expIdx);
+            }
 
-        auto e = NewEvent(ev);
-        e->ev_data = new AIFStream(a);
-        return e;
+            auto e = NewEvent(ev);
+            e->ev_data = new AIFStream(a);
+            return e;
+        } else {
+            DVPRINT("getNextSlice failed");
+            return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
+        }
     }
 
     if (threads && threads[0]) {
@@ -3336,6 +3340,11 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     dbgev ev = DBGEV_DATA;
     bool isFinal;
     auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
+
+    if (!aif) {
+        DVPRINT("getNextSlice failed\n");
+        return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
+    }
 
     if (isFinal) {
         delete aifStream;

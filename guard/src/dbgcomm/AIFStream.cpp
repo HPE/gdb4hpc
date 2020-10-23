@@ -113,6 +113,7 @@ void AIFStream::joinAIFFromSlices() {
         fprintf(stderr, "could not reassemble array\n");
         if (joinedAIF)
             AIFFree(joinedAIF);
+        joinedAIF = nullptr;
     }
 
     m_joinedAIF = joinedAIF;

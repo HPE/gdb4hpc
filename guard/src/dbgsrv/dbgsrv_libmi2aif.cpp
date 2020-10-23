@@ -742,8 +742,10 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
             if (!m_refs[i])
                 continue;
             if (auto child1 = i ? getAIF(m_refs[i]) : val) {
-                auto fid = "[" + std::to_string(i) + "]";
-                AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), child1->joinAIF());
+                if (auto aif = child1->joinAIF()) {
+                    auto fid = "[" + std::to_string(i) + "]";
+                    AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), aif);
+                }
                 delete child1;
             }
         }
@@ -3440,16 +3442,20 @@ AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
                 auto child2 = child1->children[j];
                 child2->expr = strdup(child2->name);
 
-                std::shared_ptr<MIVar> sv(child2, [](MIVar*){});  
+                std::shared_ptr<MIVar> sv(child2, [](MIVar*){});
                 if (AIFStream* ac = getAIF(sv)) {
-                    AIFAddFieldToStruct(a, child2->exp, ac->joinAIF());
+                    if (auto aif = ac->joinAIF()) {
+                        AIFAddFieldToStruct(a, child2->exp, aif);
+                    }
                     delete ac;
                 }
             }
         } else {
             std::shared_ptr<MIVar> sv(child1, [](MIVar*){});  
             if (AIFStream* ac = getAIF(sv)) {
-                AIFAddFieldToStruct(a, child1->exp, ac->joinAIF());
+                if (auto aif = ac->joinAIF()) {
+                    AIFAddFieldToStruct(a, child1->exp, aif);
+                }
                 delete ac;
             }
         }
@@ -3712,6 +3718,9 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
                         continue;
                     }
                 }
+                DVPRINT("GetArrayAIF: last resort failed\n");
+                MICommandFree(cmd);
+                return nullptr;
             } else {
                 DVPRINT("GetArrayAIF: Error from GDB, but no message\n");
                 EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
@@ -4453,7 +4462,7 @@ char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
 
     isFinal = (m_subIdx > m_maxSubIdx);
 
-    DVPRINT("done makeSubShape\n");
+    DVPRINT("done makeSubShape array=%p\n", array);
 
     return array;
 }

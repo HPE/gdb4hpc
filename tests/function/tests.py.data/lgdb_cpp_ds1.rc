@@ -25,8 +25,8 @@ launch $b{3} --launcher-args="%%launcher_args%%"  bd_dt/C++/cpp_ds_test1.x --deb
 
 
 # Set a breakpoint at specified line numbers:
-break cpp_ds_test1.cpp:77
-break cpp_ds_test1.cpp:83
+break cpp_ds_test1.cpp:97
+break cpp_ds_test1.cpp:105
 
 # Run to breakpoint 2:
 continue
@@ -72,6 +72,9 @@ print vd
 
 p s1
 p c1
+
+p ll
+p *ll
 
 continue
 

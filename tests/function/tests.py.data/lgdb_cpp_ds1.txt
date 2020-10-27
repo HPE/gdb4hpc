@@ -3,13 +3,13 @@ Launch complete.
 %[
 <$b>:%.*%
 %]
-b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:26
-b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp, line 77.
-b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp, line 83.
-b{0..2}: Breakpoint 2, f(Struct1 const&, Classy const&) at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:83
+b{0..2}: Initial breakpoint, main at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:48
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp, line 97.
+b{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp, line 105.
+b{0..2}: Breakpoint 2, f(Struct1 const&, Classy const&) at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:105
 b{0..2}: {x = 22.1, y = -5}
 b{0..2}: {x = 22.2, y = -6}
-b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:77
+b{0..2}: Breakpoint 1, main(int, char**) at %%testdir%%/bd_dt/C++/cpp_ds_test1.cpp:97
 b{0..2}: 10
 b{0..2}: 9
 b{0..2}: 9
@@ -18,7 +18,7 @@ b{0..2}: 9
 b{0..2}: 9
 b{0..2}: 9.5
 b{0..2}: 9.5
-b{0..2}: {std::__cxx11::_List_base<int, std::allocator<int> > = {}}
+b{0..2}: {[0] = {std::__cxx11::_List_base<int, std::allocator<int> > = {_M_impl = {std::__cxx11::_List_base<int, std::allocator<int> >::_Node_alloc_type = {}, _M_node = {std::__detail::_List_node_base = {_M_next = [1], _M_prev = [2]}, _M_size = 10}}}}, [1] = {_M_next = [3], _M_prev = [0]}, [2] = {_M_next = [0], _M_prev = [4]}, [3] = {_M_next = [5], _M_prev = [1]}, [4] = {_M_next = [2], _M_prev = [6]}, [5] = {_M_next = [7], _M_prev = [3]}, [6] = {_M_next = [4], _M_prev = [8]}, [7] = {_M_next = [9], _M_prev = [5]}, [8] = {_M_next = [6], _M_prev = [10]}, [9] = {_M_next = [10], _M_prev = [7]}, [10] = {_M_next = [8], _M_prev = [9]}}
 b{0..2}: [9,8,5,6,7,1,4,0,3,2]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]
 b{0..2}: [0,1,2,3,4,5,6,7,8,9]
@@ -27,5 +27,7 @@ b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
 b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
 b{0..2}: {x = 22.1, y = -5}
 b{0..2}: {x = 22.2, y = -6}
+b{0..2}: [0]
+b{0..2}: {[0] = {val = 0, next = [1]}, [1] = {val = 0, next = [2]}, [2] = {val = 2, next = [3]}, [3] = {val = 4, next = [4]}, [4] = {val = 1, next = [5]}, [5] = {val = 3, next = [6]}, [6] = {val = 0, next = [7]}, [7] = {val = 2, next = [8]}, [8] = {val = 4, next = [9]}, [9] = {val = 1, next = [10]}, [10] = {val = 3, next = [0]}}
 b{0..2}: The application has reached an exit breakpoint.
 Shutting down debugger and killing application for 'b'.

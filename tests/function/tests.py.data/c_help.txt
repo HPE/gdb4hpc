@@ -26,6 +26,7 @@ launch          Launch an application.
 list            List source for specified function or line.
 maint           Commands for use by debugger maintainers.
 next            Step application, proceeding through subroutine calls.
+ompd            OpenMP debugging functions.
 print           Print the value of an expression.
 ptype           Print definition of a type.
 quit            Exit the debugger.

@@ -381,6 +381,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_cmp_diff.f90
 %{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_decomp.f90
 
+%{__cp} -a %{tests_source_dir}/build.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/build.sh
+
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assert_wdecomp.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assert_wdecomp.rc
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assert_wdecomp.txt ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assert_wdecomp.txt
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assert_wodecomp.rc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assert_wodecomp.rc
@@ -886,3 +888,4 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestcxx.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpithreadtest.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/rectangle.h
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/build.sh

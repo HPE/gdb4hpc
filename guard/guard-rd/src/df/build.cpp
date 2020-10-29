@@ -345,14 +345,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
         if ((s = v->v_slice) != (slice_t *)NULL) {
-            std::ostringstream sliceexpr;
-            sliceexpr << "|slice(";
-            for (n = 0; n < s->s_rank; n++) {
-                sliceexpr << s->s_low[n] << "," << s->s_high[n];
-                if (n < s->s_rank - 1) sliceexpr << ",";
-            }
-            sliceexpr << ")";
-            varexpr << sliceexpr.str() << v->v_var << "|";
+            varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
         } else {
             varexpr << v->v_var;
         }
@@ -468,7 +461,6 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
     int a1;
 
-    slice_t *s;
     perm_t *p;
 
     std::ostringstream finalexpr;
@@ -484,15 +476,8 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
         n4 = NODE(g, "GETVAR");
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
-        if ((s = v->v_slice) != (slice_t *)NULL) {
-            std::ostringstream sliceexpr;
-            sliceexpr << "|slice(";
-            for (n = 0; n < s->s_rank; n++) {
-                sliceexpr << s->s_low[n] << "," << s->s_high[n];
-                if (n < s->s_rank - 1) sliceexpr << ",";
-            }
-            sliceexpr << ")";
-            varexpr << sliceexpr.str() << v->v_var << "|";
+        if (v->v_slice) {
+            varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
         } else {
             varexpr << v->v_var;
         }

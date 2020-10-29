@@ -767,7 +767,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     val_t *val = NULL;
     val_t *ps_val = NULL;
     val_t *v1 = NULL;
-    slice_t *slice = nullptr;
+    slice_t* slice = nullptr;
     bool isFullSlice = false;
     expr_elt *ep;
     expr_op stype;
@@ -855,9 +855,9 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 goto bad_var;
             }
 
-            if (slice == NULL) slice = NewSlice();
+            if (!slice) slice = new slice_t;
 
-            AddSlice(slice, smn, smx);
+            slice->addSlice(smn, smx);
             DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
         } else if (ep->e_op == EXPR_STAR) {
             // create a slice for everything
@@ -892,9 +892,9 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
             smn = smx;
 
-            if (slice == (slice_t *)NULL) slice = NewSlice();
+            if (!slice) slice = new slice_t;
 
-            AddSlice(slice, smn, smx);
+            slice->addSlice(smn, smx);
             DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
         }
 
@@ -905,7 +905,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     // We need to reverse because the stuff is added to the slice in reverse
     // order than what was entered. This way we should have lower ranks first
     // followed by higher ranks.
-    if (slice != NULL) ReverseSlice(slice);
+    if (slice) slice->reverse();
 
     switch (stype = ep->e_op) {
         case EXPR_SYM:
@@ -1006,15 +1006,10 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // its incredibly dangerous.
             // FIXME: This should be a formal expression operator that is passed
             // to the backend instead of hacking together a random string.
-            if (slice != NULL) {
-                std::ostringstream sliceexpr("|slice(", std::ostringstream::ate);
-                for (int n = 0; n < slice->s_rank; n++) {
-                    sliceexpr << slice->s_low[n] << "," << slice->s_high[n];
-                    if (n < slice->s_rank - 1) sliceexpr << ",";
-                }
-                sliceexpr << ")" << var_expr << "|";
+            if (slice) {
+                auto sliceexpr = "|slice" + slice->getExpr() + var_expr + "|";
                 Free(var_expr);
-                var_expr = strdup(sliceexpr.str().c_str());
+                var_expr = strdup(sliceexpr.c_str());
             }
 
             // Always have procset be null here, the EXPR_VAR case above takes
@@ -1033,8 +1028,8 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 if (isFullSlice && !slice && val->val_rval_type == rval_proc) {
                     // create the slice since we now know the number of processes
                     DPRINT("assignign the size to a * in procset\n");
-                    slice = NewSlice();
-                    AddSlice(slice, 0, val->rval_u.rval_procset->s_nproc-1);
+                    slice = new slice_t;
+                    slice->addSlice(0, val->rval_u.rval_procset->s_nproc-1);
                 }
 
                 // if slice information is set, we need to create a new
@@ -1111,7 +1106,7 @@ bad_var:
 
     if (var_expr != NULL) Free(var_expr);
 
-    if (slice != NULL) DestroySlice(slice);
+    delete slice;
 
     return NULL;
 }
@@ -2564,7 +2559,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                    getExprOpStr(ep->e_op));
         }
 
-        if (var->v_slice == (slice_t *)NULL) var->v_slice = NewSlice();
+        if (!var->v_slice) var->v_slice = new slice_t;
 
         if (ep->e_op == EXPR_SLICE) {
             (void)POP(e);  // pop the EXPR_SLICE off
@@ -2613,7 +2608,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                 goto bad_var;
             }
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
 
         } else {
             if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) ==
@@ -2641,13 +2636,13 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
 
             smn = smx;
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
         }
 
         ep = POP(e);
     }
 
-    if (var->v_slice != (slice_t *)NULL) ReverseSlice(var->v_slice);
+    if (var->v_slice) var->v_slice->reverse();
 
     switch (ep->e_op) {
         case EXPR_SYM:
@@ -2726,8 +2721,8 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
         PrintOutError(
             "Warning: Range use detected in procset for command. Only "
             "operating on rank %d.\n",
-            RVAL_REF_SLICE(val)->s_low[0]);
-        var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
+            RVAL_REF_SLICE(val)->getLow(0));
+        var->v_indiv = RVAL_REF_SLICE(val)->getLow(0);
     }
 
     return var;
@@ -2866,7 +2861,7 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
 
     if (procVal) {
         slice_t* slice = RVAL_REF_SLICE(procVal);
-        slice->s_threads = strdup(threadDef.c_str());
+        slice->setThreads(threadDef.c_str());
     }
 
     return procVal;
@@ -2949,7 +2944,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
             DPRINT("ReadVarDecl: ep points to %s\n", getExprOpStr(ep->e_op));
         }
 
-        if (var->v_slice == (slice_t *)NULL) var->v_slice = NewSlice();
+        if (!var->v_slice) var->v_slice = new slice_t;
 
         if (ep->e_op == EXPR_SLICE) {
             (void)POP(e);  // pop the EXPR_SLICE off
@@ -2998,7 +2993,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
                 goto bad_var;
             }
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
 
         } else {
             if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) ==
@@ -3026,13 +3021,13 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
 
             smn = smx;
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
         }
 
         ep = POP(e);
     }
 
-    if (var->v_slice != (slice_t *)NULL) ReverseSlice(var->v_slice);
+    if (var->v_slice) var->v_slice->reverse();
 
     switch (ep->e_op) {
         case EXPR_SYM:
@@ -3111,8 +3106,8 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
         PrintOutError(
             "Warning: Range use detected in procset for command. Only "
             "operating on rank %d.\n",
-            RVAL_REF_SLICE(val)->s_low[0]);
-        var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
+            RVAL_REF_SLICE(val)->getLow(0));
+        var->v_indiv = RVAL_REF_SLICE(val)->getLow(0);
     }
 
     return var;

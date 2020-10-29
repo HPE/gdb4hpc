@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 
 #include "defs.h"
 #include "gram.h"
@@ -31,84 +32,78 @@
 
 #define INIT_SLICE 4
 
-slice_t *NewSlice(void) {
-    slice_t *s;
+slice_t::slice_t() : m_rank(0), m_size(INIT_SLICE),
+                     m_low(new int[INIT_SLICE]), m_high(new int[INIT_SLICE]),
+                     m_threads(nullptr) {}
 
-    s = (slice_t *)Alloc(sizeof(slice_t));
+void slice_t::resize() {
+    m_size *= 2;
 
-    s->_s_size = INIT_SLICE;
+    auto low = new int[m_size];
+    auto high = new int[m_size];
 
-    s->s_rank = 0;
-    s->s_low = (int *)Alloc(sizeof(int) * INIT_SLICE);
-    s->s_high = (int *)Alloc(sizeof(int) * INIT_SLICE);
-    s->s_threads = nullptr;
+    std::copy(m_low, m_low+m_rank, low);
+    std::copy(m_high, m_high+m_rank, high);
 
-    return s;
+    std::swap(m_low, low);
+    std::swap(m_high, high);
+
+    delete[] low;
+    delete[] high;
 }
 
-static void ResizeSlice(slice_t *s) {
-    s->_s_size *= 2;
+void slice_t::addSlice(int f, int t) {
+    int rank = m_rank;
 
-    s->s_low = (int *)Resize((void *)s->s_low, sizeof(int) * s->_s_size);
-    s->s_high = (int *)Resize((void *)s->s_high, sizeof(int) * s->_s_size);
+    if (rank >= m_size) resize();
+
+    m_low[rank] = f;
+    m_high[rank] = t;
+    m_rank++;
 }
 
-void AddSlice(slice_t *s, int f, int t) {
-    int rank = s->s_rank;
+slice_t::slice_t(const slice_t& rhs) :
+    m_rank(rhs.m_rank),
+    m_size(rhs.m_size),
+    m_low(new int[m_size]),
+    m_high(new int[m_size]),
+    m_threads(rhs.m_threads ? strdup(rhs.m_threads) : nullptr) {
 
-    if (rank >= s->_s_size) ResizeSlice(s);
-
-    s->s_low[rank] = f;
-    s->s_high[rank] = t;
-
-    s->s_rank++;
+    std::copy(rhs.m_low, rhs.m_low+m_rank, m_low);
+    std::copy(rhs.m_high, rhs.m_high+m_rank, m_high);
 }
 
-slice_t *CopySlice(slice_t *s) {
-    slice_t *ns;
-
-    if (s == NULL) return NULL;
-
-    ns = (slice_t *)Alloc(sizeof(slice_t));
-
-    ns->_s_size = s->_s_size;
-    ns->s_rank = s->s_rank;
-
-    ns->s_low = (int *)Alloc(sizeof(int) * s->_s_size);
-    memcpy(ns->s_low, s->s_low, sizeof(int) * s->_s_size);
-
-    ns->s_high = (int *)Alloc(sizeof(int) * s->_s_size);
-    memcpy(ns->s_high, s->s_high, sizeof(int) * s->_s_size);
-
-    ns->s_threads = (s->s_threads ? strdup(s->s_threads) : nullptr);
-
-    return ns;
-}
-
-static void _reverse_slice(int rank, int *ix) {
-    int i;
-    int tmp;
-
-    for (i = 0; i < rank / 2; i++) {
-        tmp = ix[rank - i - 1];
-        ix[rank - i - 1] = ix[i];
-        ix[i] = tmp;
-    }
+slice_t* slice_t::clone() const {
+    return new slice_t(*this);
 }
 
 /*
 ** Reverse order of slices.
 */
-void ReverseSlice(slice_t *s) {
-    _reverse_slice(s->s_rank, s->s_low);
-    _reverse_slice(s->s_rank, s->s_high);
+void slice_t::reverse() {
+    std::reverse(m_low, m_low+m_rank);
+    std::reverse(m_high, m_high+m_rank);
 }
 
-void DestroySlice(slice_t *s) {
-    if (s == NULL) return;
+slice_t::~slice_t() {
+    delete[] m_low;
+    delete[] m_high;
+    free(m_threads);
+}
 
-    Free(s->s_low);
-    Free(s->s_high);
-    free(s->s_threads);
-    Free(s);
+void slice_t::setThreads(const char* threads)
+{
+    auto t = (threads ? strdup(threads) : nullptr);
+    std::swap(m_threads, t);
+    free(t);
+}
+
+std::string slice_t::getExpr() const
+{
+    std::ostringstream sliceexpr;
+    for (int n = 0; n < m_rank; n++) {
+        sliceexpr << (n ? "," : "(" ) << m_low[n] << "," << m_high[n];
+    }
+    sliceexpr << ")";
+    return sliceexpr.str();
 }

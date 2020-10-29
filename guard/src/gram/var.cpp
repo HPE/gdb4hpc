@@ -51,7 +51,7 @@ void DestroyVar(var_t *v) {
 
     if (v->v_line != (line_t *)NULL) DestroyLine(v->v_line);
 
-    if (v->v_slice != (slice_t *)NULL) DestroySlice(v->v_slice);
+    delete v->v_slice;
 
     if (v->v_perm != (list_t *)NULL) DestroyPerm(v->v_perm);
 

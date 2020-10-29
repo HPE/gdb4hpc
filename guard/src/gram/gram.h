@@ -174,10 +174,5 @@ extern void PrintErrorWithSetAndThreadInfo(const char *setname, const bitset *gr
 /*
 ** slice.h
 */
-slice_t *NewSlice(void);
-void AddSlice(slice_t *, int, int);
-slice_t *CopySlice(slice_t *);
-void ReverseSlice(slice_t *);
-void DestroySlice(slice_t *);
 
 #endif /* !_GRAM_H */

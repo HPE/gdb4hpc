@@ -345,7 +345,8 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
         if ((s = v->v_slice) != (slice_t *)NULL) {
-            varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
+            //varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
+            varexpr << v->v_var << s->getExpr();
         } else {
             varexpr << v->v_var;
         }

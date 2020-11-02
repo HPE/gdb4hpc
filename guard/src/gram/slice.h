@@ -22,13 +22,15 @@
 #define _SLICE_H
 
 #include <string>
+#include <vector>
 
 class slice_t {
     int m_rank;
     int m_size;
     int* m_low;
     int* m_high;
-    char* m_threads;  // for thread focused proc-sets         
+    char* m_threads;  // for thread focused proc-sets
+    char* m_args;
 
 public:
     slice_t();
@@ -50,6 +52,8 @@ public:
 
     void setThreads(const char* threads);
     const char* getThreads() const { return m_threads; }
+
+    void setArgs(const char* args);
 
 private:
     slice_t(const slice_t&);

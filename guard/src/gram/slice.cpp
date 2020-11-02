@@ -34,7 +34,7 @@
 
 slice_t::slice_t() : m_rank(0), m_size(INIT_SLICE),
                      m_low(new int[INIT_SLICE]), m_high(new int[INIT_SLICE]),
-                     m_threads(nullptr) {}
+                     m_threads(nullptr), m_args(nullptr) {}
 
 void slice_t::resize() {
     m_size *= 2;
@@ -67,7 +67,9 @@ slice_t::slice_t(const slice_t& rhs) :
     m_size(rhs.m_size),
     m_low(new int[m_size]),
     m_high(new int[m_size]),
-    m_threads(rhs.m_threads ? strdup(rhs.m_threads) : nullptr) {
+    m_threads(rhs.m_threads ? strdup(rhs.m_threads) : nullptr),
+    m_args(rhs.m_args ? strdup(rhs.m_args) : nullptr)
+{
 
     std::copy(rhs.m_low, rhs.m_low+m_rank, m_low);
     std::copy(rhs.m_high, rhs.m_high+m_rank, m_high);
@@ -89,6 +91,7 @@ slice_t::~slice_t() {
     delete[] m_low;
     delete[] m_high;
     free(m_threads);
+    free(m_args);
 }
 
 void slice_t::setThreads(const char* threads)
@@ -98,8 +101,19 @@ void slice_t::setThreads(const char* threads)
     free(t);
 }
 
+void slice_t::setArgs(const char* args)
+{
+    auto a = (args ? strdup(args) : nullptr);
+    std::swap(m_args, a);
+    free(a);
+}
+
 std::string slice_t::getExpr() const
 {
+    if (m_args) {
+        return m_args;
+    }
+
     std::ostringstream sliceexpr;
     for (int n = 0; n < m_rank; n++) {
         sliceexpr << (n ? "," : "(" ) << m_low[n] << "," << m_high[n];

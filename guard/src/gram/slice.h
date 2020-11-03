@@ -58,6 +58,7 @@ public:
 private:
     slice_t(const slice_t&);
     void resize();
+    void parseIdcs();
 };
 
 inline slice_t* CopySlice(slice_t *s) { return s ? s->clone() : nullptr; }

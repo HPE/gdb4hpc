@@ -106,6 +106,8 @@ void slice_t::setArgs(const char* args)
     auto a = (args ? strdup(args) : nullptr);
     std::swap(m_args, a);
     free(a);
+
+    parseIdcs();
 }
 
 std::string slice_t::getExpr() const
@@ -120,4 +122,38 @@ std::string slice_t::getExpr() const
     }
     sliceexpr << ")";
     return sliceexpr.str();
+}
+
+void slice_t::parseIdcs() {
+    m_rank = 0;
+    if (!m_args || !strlen(m_args)) return;
+
+    // the gdb4hpc syntax has some ambiguity as process lists can look fortran array
+    // references.   So here we examine a parsed argument list and create the array
+    // of min/max indices if it fits that interpretation
+    auto arg = std::string{m_args};
+    if (arg[0] == '(' && arg[arg.size()-1] == ')') {
+        arg = arg.substr(1,arg.size()-2);
+    }
+        
+    auto nonMatch = arg.find_first_not_of("0123456789,:*");
+    if (nonMatch != std::string::npos) {
+        DPRINT("argument is not a slice, it has: %c\n", arg[nonMatch]);
+        return;
+    }
+
+    auto is = std::istringstream{arg};
+    auto a = std::string{};
+    while (std::getline(is, a, ',')) {
+        if (a == "*") {
+            addSlice(0,INT_MAX);
+        } else if (auto col = a.find(':'); col != std::string::npos) {
+            auto low = std::stoi(a);
+            auto high = std::stoi(a.substr(col+1));
+            addSlice(low,high);
+        } else {
+            auto val = std::stoi(a);
+            addSlice(val,val);
+        }
+    }
 }

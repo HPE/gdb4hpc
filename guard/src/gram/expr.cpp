@@ -747,15 +747,19 @@ static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
 namespace {
 struct ExprToArgList {
     static std::string str(expr_t* e);
-    static std::string binOp(expr_t* e, const std::string& op);
+    static std::string binOp(expr_t* e, const std::string& op, bool wrap=true);
 };
 }
     
 
-std::string ExprToArgList::binOp(expr_t* e, const std::string& op) {
+std::string ExprToArgList::binOp(expr_t* e, const std::string& op, bool wrap) {
     auto right = str(e);
     auto left = str(e);
-    return "(" + left + op + right + ")";
+    if (wrap) {
+        return "(" + left + op + right + ")";
+    } else {
+        return left + op + right;
+    }
 }
 
 std::string ExprToArgList::str(expr_t* e) {
@@ -793,7 +797,7 @@ std::string ExprToArgList::str(expr_t* e) {
         return "((" + a1 + ")(" + a2 + "))";
     }        
     case EXPR_TYPE: return "(" + str(e) + ")";
-    case EXPR_SLICE: return binOp(e, ":");   // probably fortran slice
+    case EXPR_SLICE: return binOp(e, ":", false);   // probably fortran slice
     case EXPR_INT: return std::to_string(ep->e_val.e_v_int);
     case EXPR_FLOAT: return std::to_string(ep->e_val.e_v_float);
     case EXPR_DSYM: return SymLookup(ep->e_val.e_v_sym);
@@ -808,7 +812,10 @@ std::string ExprToArgList::str(expr_t* e) {
             ep = POP(e);
             // Pop the length
             ep = POP(e);
+        } else if (ep->e_op != EXPR_LIST) {
+            return "(" + str(e) + ")";
         }
+
         auto arglist = std::string{""};
         while ((ep=TOP(e))->e_op == EXPR_LIST) {
             ep = POP(e);
@@ -885,7 +892,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
         auto argList = makeArgumentList(e);
         slice = new slice_t;
         slice->setArgs(argList.c_str());
-        ep = TOP(e);
+        ep = POP(e);
     }
     } else {
     while (ep->e_op == EXPR_OPSUBSCR || ep->e_op == EXPR_LIST) {
@@ -986,13 +993,14 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
         ep = POP(e);
         DPRINT("read_var_imm: Popped expr_op %s\n", getExprOpStr(ep->e_op));
+
+        // We need to reverse because the stuff is added to the slice in reverse
+        // order than what was entered. This way we should have lower ranks first
+        // followed by higher ranks.
+        if (slice) slice->reverse();
     }
     }
 
-    // We need to reverse because the stuff is added to the slice in reverse
-    // order than what was entered. This way we should have lower ranks first
-    // followed by higher ranks.
-    if (slice) slice->reverse();
     
     switch (stype = ep->e_op) {
         case EXPR_SYM:
@@ -1112,11 +1120,21 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 DPRINT("read_var_imm: Found previous val for dsym \"%s\"\n",
                        SymLookup(sym));
 
+                if (useNew) {
+                    if (slice && slice->getRank() && slice->getExpr().find('*') != std::string::npos){
+                        DPRINT("assigning the size to a * in procset\n");
+                        fprintf(stderr, "baby I'm a star!\n");
+                        delete slice;
+                        slice = new slice_t;
+                        slice->addSlice(0, val->rval_u.rval_procset->s_nproc-1);
+                    }
+                } else {
                 if (isFullSlice && !slice && val->val_rval_type == rval_proc) {
                     // create the slice since we now know the number of processes
-                    DPRINT("assignign the size to a * in procset\n");
+                    DPRINT("assigning the size to a * in procset\n");
                     slice = new slice_t;
                     slice->addSlice(0, val->rval_u.rval_procset->s_nproc-1);
+                }
                 }
 
                 // if slice information is set, we need to create a new

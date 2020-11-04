@@ -3183,7 +3183,9 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     // GetAIFVar only returns a value if it fails
     AIFStream* aifStream = nullptr;
-    if ((e = GetAIFVar(GDBMISession, var, &aifStream, nullptr))) {
+    char* type = nullptr;
+    if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
+        free(type);
         return e;
     }
 
@@ -3191,8 +3193,12 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     e->ev_data = nullptr;
 
     // if slice info found, perform slicing first
-    if (strlen(sliceinfo) > 0) {
-        DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
+    if (!sliceinfo[0]) {
+        e->ev_data = aifStream;
+    } else if (!strchr(type, '(')) {
+        // slice the data.   Fixme: this should be done up front instead of
+        // killing the buffalo and only eating the tongue
+        DVPRINT("*** PerformExtEvalExpr: slice info found, type=%s.\n", type);
 
         // pull out AIF and slice up
         AIF *a = aifStream->joinAIF();
@@ -3214,7 +3220,25 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         // finally, create a new AIFStream from our sliced-up AIF
         e->ev_data = new AIFStream(slice);
     } else {
-        e->ev_data = aifStream;
+        // the expression is a function call with integer arguments.   We couldn't be
+        // sure until now because fortran array references look like function calls.
+        auto is = std::istringstream{sliceinfo};
+        auto os = std::ostringstream{};
+        os << var << "(";
+        auto arg = std::string{};  // the arguments are doubled up as min-max values
+        for (int i=0; arg="", std::getline(is,arg,','); ++i) {
+            if (!(i%2)) os << (i ? "," : "") << arg;
+        }
+        os << ")";
+
+        delete aifStream;
+        aifStream = nullptr;
+        if (auto e2 = GetAIFVar(GDBMISession, os.str().c_str(), &aifStream, nullptr)) {
+            FreeEvent(e);
+            return e2;
+        } else {
+            e->ev_data = aifStream;
+        }
     }
 
     // Minh changes here to do p2p mode
@@ -3271,6 +3295,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         DVPRINT("Removed AIFToStr here\n");
     }
 
+    free(type);
     return e;
 }
 

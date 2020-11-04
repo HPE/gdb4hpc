@@ -331,7 +331,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
     slice_t *s;
     perm_t *p;
 
-    std::ostringstream varexpr;
+    std::string varexpr;
     std::ostringstream finalexpr;
     int reducefunc, p2pmode;
 
@@ -346,9 +346,9 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
     } else {
         if ((s = v->v_slice) != (slice_t *)NULL) {
             //varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
-            varexpr << v->v_var << s->getExpr();
+            varexpr = s->getExpr(v->v_var);
         } else {
-            varexpr << v->v_var;
+            varexpr = v->v_var;
         }
 
         /* check if reduce function is on
@@ -391,15 +391,15 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
                     SetError("Unknown reduction function %d", reducefunc);
                     return;
             }
-            finalexpr << reduceexpr << varexpr.str();
+            finalexpr << reduceexpr << varexpr;
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
             finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`"
-                      << varexpr.str();
+                      << varexpr;
         } else {
-            finalexpr << varexpr.str();
+            finalexpr << varexpr;
         }
 
         t1 = SCONST(g, "CONST", finalexpr.str().c_str());
@@ -465,7 +465,7 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
     perm_t *p;
 
     std::ostringstream finalexpr;
-    std::ostringstream varexpr;
+    std::string varexpr;
     int reducefunc;
     int p2pmode = 0;
 
@@ -478,9 +478,9 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
         if (v->v_slice) {
-            varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
+            varexpr = v->v_slice->getExpr(v->v_var);
         } else {
-            varexpr << v->v_var;
+            varexpr = v->v_var;
         }
 
         /* check if reduce function is on
@@ -536,14 +536,14 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
                     return;
             }
 
-            finalexpr << reduceexpr << varexpr.str();
+            finalexpr << reduceexpr << varexpr;
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
-            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr.str();
+            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr;
         } else {
-            finalexpr << varexpr.str();
+            finalexpr << varexpr;
         }
 
         t1 = SCONST(g, "CONST", finalexpr.str().c_str());

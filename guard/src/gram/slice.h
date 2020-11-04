@@ -45,7 +45,7 @@ public:
     int getLow(int n) const { return m_low[n]; }
     int getHigh(int n) const { return m_high[n]; }
 
-    std::string getExpr() const;
+    std::string getExpr(const char* var) const;
 
     void addSlice(int minIdx, int maxIdx);
     void reverse();

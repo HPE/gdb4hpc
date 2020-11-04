@@ -110,17 +110,20 @@ void slice_t::setArgs(const char* args)
     parseIdcs();
 }
 
-std::string slice_t::getExpr() const
+std::string slice_t::getExpr(const char* var) const
 {
-    if (m_args) {
-        return m_args;
+    if (m_args && !m_rank) {
+        fprintf(stderr, "adding arguments to the variable\n");
+        return std::string{var} + m_args;
     }
-
+    
     std::ostringstream sliceexpr;
+    sliceexpr << "|slice";
     for (int n = 0; n < m_rank; n++) {
         sliceexpr << (n ? "," : "(" ) << m_low[n] << "," << m_high[n];
     }
     sliceexpr << ")";
+    sliceexpr << var << "|";
     return sliceexpr.str();
 }
 

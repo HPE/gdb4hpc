@@ -806,6 +806,8 @@ std::string ExprToArgList::str(expr_t* e) {
     case EXPR_STAR: return "*";  // backend will need to deal with it
     case EXPR_LIST:
     case EXPR_OPSUBSCR: {
+        auto arglist = std::string{""};
+
         ep = TOP(e);
         if (ep->e_op == EXPR_LIST_START) {
             // Pop the list start token
@@ -813,11 +815,11 @@ std::string ExprToArgList::str(expr_t* e) {
             // Pop the length
             ep = POP(e);
         } else if (ep->e_op != EXPR_LIST) {
-            return "(" + str(e) + ")";
+            arglist = str(e);
         }
 
-        auto arglist = std::string{""};
-        while ((ep=TOP(e))->e_op == EXPR_LIST) {
+        // be sure to double check C multi-dimension arrays are handled correctly
+        while ((ep=TOP(e))->e_op == EXPR_LIST || ep->e_op == EXPR_OPSUBSCR) {
             ep = POP(e);
             auto elem = str(e);
             if (arglist.empty()) {
@@ -1102,7 +1104,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // FIXME: This should be a formal expression operator that is passed
             // to the backend instead of hacking together a random string.
             if (slice) {
-                auto sliceexpr = var_expr+slice->getExpr();
+                auto sliceexpr = slice->getExpr(var_expr);
                 Free(var_expr);
                 var_expr = strdup(sliceexpr.c_str());
             }
@@ -1121,7 +1123,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                        SymLookup(sym));
 
                 if (useNew) {
-                    if (slice && slice->getRank() && slice->getExpr().find('*') != std::string::npos){
+                    if (slice && slice->getRank() && slice->getExpr("").find('*') != std::string::npos){
                         DPRINT("assigning the size to a * in procset\n");
                         fprintf(stderr, "baby I'm a star!\n");
                         delete slice;

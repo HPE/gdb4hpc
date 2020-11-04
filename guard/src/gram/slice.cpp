@@ -113,7 +113,6 @@ void slice_t::setArgs(const char* args)
 std::string slice_t::getExpr(const char* var) const
 {
     if (m_args && !m_rank) {
-        fprintf(stderr, "adding arguments to the variable\n");
         return std::string{var} + m_args;
     }
     

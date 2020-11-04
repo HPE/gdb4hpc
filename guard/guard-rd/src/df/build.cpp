@@ -328,9 +328,6 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
 
     int a1;
 
-    slice_t *s;
-    perm_t *p;
-
     std::string varexpr;
     std::ostringstream finalexpr;
     int reducefunc, p2pmode;
@@ -344,8 +341,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
         n4 = NODE(g, "GETVAR");
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
-        if ((s = v->v_slice) != (slice_t *)NULL) {
-            //varexpr << "|slice" << v->v_slice->getExpr() << v->v_var << "|";
+        if (auto s = v->v_slice) {
             varexpr = s->getExpr(v->v_var);
         } else {
             varexpr = v->v_var;
@@ -439,7 +435,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
 
         n = 1;
 
-        while ((p = GetPerm(v->v_perm)) != (perm_t *)NULL) {
+        while (auto p = GetPerm(v->v_perm)) {
             t1 = ICONST(g, "CONST", p->p_to);
 
             EDGE(g, n4, t1, 0);
@@ -462,10 +458,6 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
     int a1;
 
-    perm_t *p;
-
-    std::ostringstream finalexpr;
-    std::string varexpr;
     int reducefunc;
     int p2pmode = 0;
 
@@ -477,6 +469,9 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
         n4 = NODE(g, "GETVAR");
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
+        std::ostringstream finalexpr;
+        std::string varexpr;
+
         if (v->v_slice) {
             varexpr = v->v_slice->getExpr(v->v_var);
         } else {
@@ -581,7 +576,7 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
         n = 1;
 
-        while ((p = GetPerm(v->v_perm)) != (perm_t *)NULL) {
+        while (auto p = GetPerm(v->v_perm)) {
             t1 = ICONST(g, "CONST", p->p_to);
 
             EDGE(g, n4, t1, 0);

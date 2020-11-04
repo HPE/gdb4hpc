@@ -3188,6 +3188,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         free(type);
         return e;
     }
+    auto typeHolder = std::unique_ptr<char,decltype(std::free)*>{type,std::free};
 
     e = NewEvent(DBGEV_DATA);
     e->ev_data = nullptr;
@@ -3195,10 +3196,10 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     // if slice info found, perform slicing first
     if (!sliceinfo[0]) {
         e->ev_data = aifStream;
-    } else if (!strchr(type, '(')) {
+    } else if (!strchr(type, '(')) { 
         // slice the data.   Fixme: this should be done up front instead of
         // killing the buffalo and only eating the tongue
-        DVPRINT("*** PerformExtEvalExpr: slice info found, type=%s.\n", type);
+        DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
 
         // pull out AIF and slice up
         AIF *a = aifStream->joinAIF();
@@ -3211,7 +3212,8 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
         if (slice == nullptr) {
             // an error occured.
-            DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n", PerformSlicingErr);
+            DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n",
+                    PerformSlicingErr);
             FreeEvent(e);
             e = NewErrorEvent(DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
             return e;
@@ -3222,15 +3224,18 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     } else {
         // the expression is a function call with integer arguments.   We couldn't be
         // sure until now because fortran array references look like function calls.
+
+        // the slice info is the doubled up as min-max values, so f(1,7) has sliceinfo="1,1,7,7"
         auto is = std::istringstream{sliceinfo};
         auto os = std::ostringstream{};
         os << var << "(";
-        auto arg = std::string{};  // the arguments are doubled up as min-max values
+        auto arg = std::string{};  
         for (int i=0; arg="", std::getline(is,arg,','); ++i) {
             if (!(i%2)) os << (i ? "," : "") << arg;
         }
         os << ")";
 
+        // so run the evaluation again as a function call
         delete aifStream;
         aifStream = nullptr;
         if (auto e2 = GetAIFVar(GDBMISession, os.str().c_str(), &aifStream, nullptr)) {
@@ -3295,7 +3300,6 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         DVPRINT("Removed AIFToStr here\n");
     }
 
-    free(type);
     return e;
 }
 

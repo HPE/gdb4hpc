@@ -31,7 +31,6 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e1;
     expr_t *e2;
     char *buf;
-    int force = 0;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -41,11 +40,6 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
             "argument\n");
         PrintOutError("is the value to assign to the target.\n");
         return 0;
-    }
-
-    if (strcmp(argv[argc - 1], "-force") == 0) {
-        force = 1;
-        argc--;
     }
 
     if ((e1 = ParseExpr(argv[1])) == (expr_t *)NULL) {

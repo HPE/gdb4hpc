@@ -1104,23 +1104,27 @@ void _fix_fortran_blockmap_info(blockmap_info *my_bm) {
 */
 int P2PCompareData(AIF *data1, AIF *data2, double a_lower, double a_upper,
                    int cmpop) {
+    return 0;
+    
     int res;
     int type;
-    AIF *ar;
+    AIF *ar = nullptr;
     AIF *abs_ar;
     AIF *tmp_ar;
 
     AIF *aiflower = DoubleToAIF(a_lower);
     AIF *aifupper = DoubleToAIF(a_upper);
 
-    /*if ( (ar = AIFDiff(0, data1, data2)) == (AIF *)NULL )
+    /*
+    if ( (ar = AIFDiff(0, data1, data2)) == (AIF *)NULL )
     {
                     DVPRINT("copare problem 0\n");
             DVPRINT("AIFDiff Error: %s\n", AIFErrorStr());
             AIFFree(aiflower);
             AIFFree(aifupper);
             return 0;
-    }*/
+    }
+    */
 
     // Now check if the operator is not just equal sign
     if (cmpop != EXPR_OPEQUAL) {

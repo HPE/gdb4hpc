@@ -354,7 +354,7 @@ static int DbgSRVMRNTransferIO(int fd, char *buffer, int size) {
 static void DbgSRVMRNRunProto(fd_set *fds) {
     int res;
 
-    DVPRINT("INFO: enterring DbgSRVMRNRunProto.\n");
+    DVPRINT("INFO: entering DbgSRVMRNRunProto.\n");
 
     if (mrn_be_is_shutdown()) {
         DVPRINT("DbgSRVMRNRunProto found mrnet is in a shutdown state!\n");

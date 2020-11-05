@@ -85,7 +85,7 @@
 %if 0%{?sle_version} == 150000
 %global dist .sles15
 %global OS_HW_TAG 7.0,7.1
-%global OS_WB_TAG sles15 
+%global OS_WB_TAG sles15
 %endif
 %if 0%{?sle_version} == 150100
 %global dist .sles15sp1
@@ -494,7 +494,7 @@ Tests for Cray gdb4hpc parallel debugger
 if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
     %{__mkdir_p} /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/
     %{__mkdir_p} /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/
-    echo "%{cray_prefix}/%{product}/%{pkgversion}" > /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
+    echo "%{cray_prefix}/%{product}/" > /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
     echo "%{cray_prefix}/modulefiles/%{modulefile_name}" > /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
     echo "%{cray_prefix}/lmod/modulefiles/core/%{cray_name}" >> /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
 

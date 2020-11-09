@@ -328,10 +328,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
 
     int a1;
 
-    slice_t *s;
-    perm_t *p;
-
-    std::ostringstream varexpr;
+    std::string varexpr;
     std::ostringstream finalexpr;
     int reducefunc, p2pmode;
 
@@ -344,17 +341,10 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
         n4 = NODE(g, "GETVAR");
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
-        if ((s = v->v_slice) != (slice_t *)NULL) {
-            std::ostringstream sliceexpr;
-            sliceexpr << "|slice(";
-            for (n = 0; n < s->s_rank; n++) {
-                sliceexpr << s->s_low[n] << "," << s->s_high[n];
-                if (n < s->s_rank - 1) sliceexpr << ",";
-            }
-            sliceexpr << ")";
-            varexpr << sliceexpr.str() << v->v_var << "|";
+        if (auto s = v->v_slice) {
+            varexpr = s->getExpr(v->v_var);
         } else {
-            varexpr << v->v_var;
+            varexpr = v->v_var;
         }
 
         /* check if reduce function is on
@@ -397,15 +387,15 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
                     SetError("Unknown reduction function %d", reducefunc);
                     return;
             }
-            finalexpr << reduceexpr << varexpr.str();
+            finalexpr << reduceexpr << varexpr;
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
             finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`"
-                      << varexpr.str();
+                      << varexpr;
         } else {
-            finalexpr << varexpr.str();
+            finalexpr << varexpr;
         }
 
         t1 = SCONST(g, "CONST", finalexpr.str().c_str());
@@ -445,7 +435,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
 
         n = 1;
 
-        while ((p = GetPerm(v->v_perm)) != (perm_t *)NULL) {
+        while (auto p = GetPerm(v->v_perm)) {
             t1 = ICONST(g, "CONST", p->p_to);
 
             EDGE(g, n4, t1, 0);
@@ -468,11 +458,6 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
     int a1;
 
-    slice_t *s;
-    perm_t *p;
-
-    std::ostringstream finalexpr;
-    std::ostringstream varexpr;
     int reducefunc;
     int p2pmode = 0;
 
@@ -484,17 +469,13 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
         n4 = NODE(g, "GETVAR");
         t1 = SCONST(g, "CONST", v->v_var);
     } else {
-        if ((s = v->v_slice) != (slice_t *)NULL) {
-            std::ostringstream sliceexpr;
-            sliceexpr << "|slice(";
-            for (n = 0; n < s->s_rank; n++) {
-                sliceexpr << s->s_low[n] << "," << s->s_high[n];
-                if (n < s->s_rank - 1) sliceexpr << ",";
-            }
-            sliceexpr << ")";
-            varexpr << sliceexpr.str() << v->v_var << "|";
+        std::ostringstream finalexpr;
+        std::string varexpr;
+
+        if (v->v_slice) {
+            varexpr = v->v_slice->getExpr(v->v_var);
         } else {
-            varexpr << v->v_var;
+            varexpr = v->v_var;
         }
 
         /* check if reduce function is on
@@ -550,14 +531,14 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
                     return;
             }
 
-            finalexpr << reduceexpr << varexpr.str();
+            finalexpr << reduceexpr << varexpr;
         }
 
         // if there is p2p mode turn on, attach blockmap info
         else if (p2pmode) {
-            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr.str();
+            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr;
         } else {
-            finalexpr << varexpr.str();
+            finalexpr << varexpr;
         }
 
         t1 = SCONST(g, "CONST", finalexpr.str().c_str());
@@ -595,7 +576,7 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
         n = 1;
 
-        while ((p = GetPerm(v->v_perm)) != (perm_t *)NULL) {
+        while (auto p = GetPerm(v->v_perm)) {
             t1 = ICONST(g, "CONST", p->p_to);
 
             EDGE(g, n4, t1, 0);

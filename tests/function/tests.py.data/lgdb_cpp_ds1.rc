@@ -76,6 +76,12 @@ p c1
 p ll
 p *ll
 
+p func1(l_tail)
+p func1(4)
+p func2(l_tail, i)
+p func2(2,-7)
+
+
 continue
 
 

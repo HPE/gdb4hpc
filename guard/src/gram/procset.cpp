@@ -103,7 +103,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     Asprintf(&ps_name, "%s_temp", ps->s_name);
 
     // create the new procset
-    new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->s_threads);
+    new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->getThreads());
 
     DPRINT("CreateTempProcSetSlice name:%s\n", ps_name);
 
@@ -120,7 +120,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
 
         // Now check the slice information to see if this di has any specified
         // ranks
-        for (i = 0; i < ps_slice->s_rank; ++i) {
+        for (i = 0; i < ps_slice->getRank(); ++i) {
             // initialize the bit counter for this set, we need to ignore bits
             // in the bitset that are not set since these are not part of the
             // procset This could be more efficient, but I guess the slice
@@ -134,7 +134,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
                    ps_slice->s_low[i], ps_slice->s_high[i]);
 
             // Loop over the range of this rank in the slice
-            for (index = ps_slice->s_low[i]; index <= ps_slice->s_high[i];
+            for (index = ps_slice->getLow(i); index <= ps_slice->getHigh(i);
                  ++index) {
                 // If the index is less than the offset of this o_ptr, we know
                 // that the requested rank cannot be found here.
@@ -322,7 +322,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
             // Loop over each overlay set in the procset
             SetOverlaySetForProcSet(procset);
             if (ps_slice) {
-                SetProcSetThreads(new_procset, ps_slice->s_threads);
+                SetProcSetThreads(new_procset, ps_slice->getThreads());
             }
 
             while ((over_set = GetNextOverlaySetForProcSet(procset)) != NULL) {
@@ -343,7 +343,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
 
                     // Now check the slice information to see if this di has any
                     // specified ranks
-                    for (i = 0; i < ps_slice->s_rank; ++i) {
+                    for (i = 0; i < ps_slice->getRank(); ++i) {
                         // initialize the bit counter for this set, we need to
                         // ignore bits in the bitset that are not set since
                         // these are not part of the procset This could be more
@@ -358,8 +358,8 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                                ps_slice->s_low[i], ps_slice->s_high[i]);
 
                         // Loop over the range of this rank in the slice
-                        for (index = ps_slice->s_low[i];
-                             index <= ps_slice->s_high[i]; ++index) {
+                        for (index = ps_slice->getLow(i);
+                             index <= ps_slice->getHigh(i); ++index) {
                             // If the index is less than the offset of this
                             // over_set, we know that the requested rank cannot
                             // be found here.
@@ -567,8 +567,8 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) 
         // syntax is unique to launch only.
         proc_slice = RVAL_REF_SLICE(val);
 
-        if (proc_slice->s_rank > 1 ||
-            (proc_slice->s_low[0] != proc_slice->s_high[0])) {
+        if (proc_slice->getRank() > 1 ||
+            (proc_slice->getLow(0) != proc_slice->getHigh(0))) {
             PrintOutError(
                 "Invalid proc handle syntax. Expected $handle{n} where n is "
                 "the number of application ranks.\n");
@@ -578,8 +578,8 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) 
             return NULL;
         }
 
-        rtn->s_nproc = proc_slice->s_high[0];
-        SetProcSetThreads(rtn, proc_slice->s_threads);
+        rtn->s_nproc = proc_slice->getHigh(0);
+        SetProcSetThreads(rtn, proc_slice->getThreads());
         
 
     } else {

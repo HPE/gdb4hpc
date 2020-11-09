@@ -55,9 +55,9 @@ static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
 static expr_elt* check_pop(expr_t*, expr_op);
 
 static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif);
-// Only used with debug
+// Only called directly with debug - but keep around to be able to call from gdb
 #ifdef DEBUG
-static void DumpExpr(expr_t *);
+void DumpExpr(expr_t *);
 #endif
 
 expr_t *ParseExpr(const char *str) { return do_parse(&str); }
@@ -744,6 +744,117 @@ static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
     return val;
 }
 
+namespace {
+// helper to translate an parsed expression back into a string
+struct ExprToArgList {
+    static std::string str(expr_t* e);
+    static std::string binOp(expr_t* e, const std::string& op, bool wrap=true);
+};
+}
+    
+// string-ize an expression binary operation.   If wrap is true, the result is
+// parenthesized
+std::string ExprToArgList::binOp(expr_t* e, const std::string& op, bool wrap) {
+    auto right = str(e);
+    auto left = str(e);
+    if (wrap) {
+        return "(" + left + op + right + ")";
+    } else {
+        return left + op + right;
+    }
+}
+
+// recursively translate the parsed expression e into a string
+std::string ExprToArgList::str(expr_t* e) {
+    auto ep = POP(e);
+    switch (ep->e_op) {
+    case EXPR_OPADD: return binOp(e,"+");
+    case EXPR_OPSUB: return binOp(e,"-");
+    case EXPR_OPMUL: return binOp(e,"*");
+    case EXPR_OPDIV: return binOp(e,"/");
+    case EXPR_OPPOS: return str(e); 
+    case EXPR_OPNEG: return "-" + str(e);
+    case EXPR_OPAND: return binOp(e,"&&");
+    case EXPR_OPOR:  return binOp(e,"||");
+    case EXPR_OPEQUAL: return binOp(e,"=="); 
+    case EXPR_OPNOTEQUAL: return binOp(e,"!=");
+    case EXPR_OPLEQ: return binOp(e,"<=");
+    case EXPR_OPGEQ: return binOp(e,">=");
+    case EXPR_OPLT: return binOp(e,"<");
+    case EXPR_OPGT: return binOp(e,">");
+    case EXPR_OPCOND: {
+        auto a3 = str(e);
+        auto a2 = str(e);
+        auto a1 = str(e);
+        return "(" + a1 + "?" + a2 + ":" + a3 + ")";
+    }
+    case EXPR_OPCOMMA: return binOp(e,",");
+    case EXPR_OPDREF: return "*" + str(e);
+    case EXPR_OPADDROF: return "&" + str(e);
+    case EXPR_OPELEMENTREF: return binOp(e,".");
+    case EXPR_OPELEMENTPTR: return binOp(e,"->");
+    case EXPR_OPELEMENTACC: return binOp(e,"%");  // fortran element access
+    case EXPR_OPCAST: {
+        auto a2 = str(e);
+        auto a1 = str(e);
+        return "((" + a1 + ")(" + a2 + "))";
+    }        
+    case EXPR_TYPE: return "(" + str(e) + ")";
+    case EXPR_SLICE: return binOp(e, ":", false);   // probably fortran slice
+    case EXPR_INT: return std::to_string(ep->e_val.e_v_int);
+    case EXPR_FLOAT: return std::to_string(ep->e_val.e_v_float);
+    case EXPR_DSYM: return SymLookup(ep->e_val.e_v_sym);
+    case EXPR_SYM: return ep->e_val.e_v_sym_str;
+    case EXPR_STRING: return ep->e_val.e_v_string;
+    case EXPR_STAR: return "*";  // backend will need to deal with it
+
+    case EXPR_LIST:  
+    case EXPR_OPSUBSCR: {
+        // a gamut of list like things end up here:
+        // (expr,expr,expr)    function calls and fortran array references/slices
+        // [expr][expr]        C/C++ array subsripts
+        auto arglist = std::string{""};
+
+        ep = TOP(e);
+        if (ep->e_op == EXPR_LIST_START) {
+            // Pop the list start token
+            ep = POP(e);
+            // Pop the length
+            ep = POP(e);
+        } else if (ep->e_op != EXPR_LIST) {
+            arglist = str(e);
+        }
+
+        // note that expression list is ordered from last to first
+        // the ordering works the same for C multi-dimension array references (verified emprically)
+        while ((ep=TOP(e))->e_op == EXPR_LIST || ep->e_op == EXPR_OPSUBSCR) {
+            ep = POP(e);
+            auto elem = str(e);
+            if (arglist.empty()) {
+                arglist = elem;
+            } else {
+                arglist = elem + "," + arglist;
+            }
+        }
+        return "(" + arglist + ")";
+    }
+
+    default:
+        throw std::invalid_argument(std::string{"unrecognized subexpression of type: "} +
+                                    getExprOpStr(ep->e_op));
+    }
+}
+
+// translate an expression back into a string.  
+static std::string makeArgumentList(expr_t* e) {
+    try {
+        return ExprToArgList::str(e);
+    } catch (std::exception& e) {
+        fprintf(stderr, "could not unparse string: %s\n", e.what());
+        return "";
+    }
+}
+
 /*
 ** Read a variable from a program and return in res. The supplied expression
 ** must be in the form:
@@ -760,15 +871,12 @@ static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
 ** Internal variables are created if they don't already exist.
 */
 static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
-    int smn;
-    int smx;
     hentry_t *sym = NULL;
     char *var_expr = NULL;
     val_t *val = NULL;
     val_t *ps_val = NULL;
     val_t *v1 = NULL;
     slice_t *slice = nullptr;
-    bool isFullSlice = false;
     expr_elt *ep;
     expr_op stype;
 
@@ -786,127 +894,14 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
     // This now works for multi-dimensional fortran arrays. They are represented
     // as a list.
-    while (ep->e_op == EXPR_OPSUBSCR || ep->e_op == EXPR_LIST) {
-        DPRINT("read_var_imm: In EXPR_OPSUBSCR loop\n");
-
-        ep = TOP(e);
-
-        DPRINT("read_var_imm: ep points to %s\n", getExprOpStr(ep->e_op));
-
-        // if we are point to the start of the list, we want to pop the token
-        // and its length. We can parse recursively without knowing the length.
-        if (ep->e_op == EXPR_LIST_START) {
-            DPRINT("read_var_imm: At start of multi-dimensional array list.\n");
-            // Pop the list start token
-            ep = POP(e);
-            // Pop the length
-            ep = POP(e);
-            // Pop the first elements list token
-            ep = POP(e);
-            // Point at the start of the next token
-            ep = TOP(e);
-            DPRINT("read_var_imm: ep points to %s\n", getExprOpStr(ep->e_op));
-        }
-
-        if (ep->e_op == EXPR_SLICE) {
-            DPRINT("read_var_imm: Evaluating EXPR_SLICE\n");
-
-            (void)POP(e);  // pop the EXPR_SLICE off
-
-            smx = -1;
-            smn = -1;
-
-            if ((val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL)
-                goto bad_var;
-
-            if (!VAL_IS_LOCAL_CONST(val)) {
-                SetError("Expression evaluated to bad type");
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            DestroyVal(val);
-
-            if ((val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL)
-                goto bad_var;
-
-            if (!VAL_IS_LOCAL_CONST(val)) {
-                SetError("Expression evaluated to bad type");
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            if (RVAL_AIF(val)->toInt(smn) < 0) {
-                SetError("%s", AIFErrorStr());
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            DestroyVal(val);
-
-            if (smn < 0 || smx < 0) {
-                SetError("Negative indices not allowed");
-                goto bad_var;
-            }
-
-            if (slice == NULL) slice = NewSlice();
-
-            AddSlice(slice, smn, smx);
-            DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
-        } else if (ep->e_op == EXPR_STAR) {
-            // create a slice for everything
-            DPRINT("read_var_imm: processing * as a process slice\n");
-            isFullSlice = true;
-            ep = POP(e);
-        } else {
-            DPRINT(
-                "read_var_imm: EXPR_SLICE not present. Taking default "
-                "action.\n");
-            if ((val = evaluate_expr_imm(e, rec_set, f)) == (val_t *)NULL)
-                goto bad_var;
-
-            if (!VAL_IS_LOCAL_CONST(val)) {
-                SetError("Expression evaluated to bad type");
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
-                DestroyVal(val);
-                goto bad_var;
-            }
-
-            DestroyVal(val);
-
-            if (smx < 0) {
-                SetError("Negative indices not allowed");
-                goto bad_var;
-            }
-
-            smn = smx;
-
-            if (slice == (slice_t *)NULL) slice = NewSlice();
-
-            AddSlice(slice, smn, smx);
-            DPRINT("read_var_imm: Added slice for range %d to %d\n", smn, smx);
-        }
-
+    if (ep->e_op == EXPR_OPSUBSCR) {
+        PUSH(e);
+        auto argList = makeArgumentList(e);
+        slice = new slice_t;
+        slice->setArgs(argList.c_str());
         ep = POP(e);
-        DPRINT("read_var_imm: Popped expr_op %s\n", getExprOpStr(ep->e_op));
     }
-
-    // We need to reverse because the stuff is added to the slice in reverse
-    // order than what was entered. This way we should have lower ranks first
-    // followed by higher ranks.
-    if (slice != NULL) ReverseSlice(slice);
-
+    
     switch (stype = ep->e_op) {
         case EXPR_SYM:
             var_expr = strdup(ep->e_sym_str);
@@ -1006,15 +1001,10 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // its incredibly dangerous.
             // FIXME: This should be a formal expression operator that is passed
             // to the backend instead of hacking together a random string.
-            if (slice != NULL) {
-                std::ostringstream sliceexpr("|slice(", std::ostringstream::ate);
-                for (int n = 0; n < slice->s_rank; n++) {
-                    sliceexpr << slice->s_low[n] << "," << slice->s_high[n];
-                    if (n < slice->s_rank - 1) sliceexpr << ",";
-                }
-                sliceexpr << ")" << var_expr << "|";
+            if (slice) {
+                auto sliceexpr = slice->getExpr(var_expr);
                 Free(var_expr);
-                var_expr = strdup(sliceexpr.str().c_str());
+                var_expr = strdup(sliceexpr.c_str());
             }
 
             // Always have procset be null here, the EXPR_VAR case above takes
@@ -1030,11 +1020,11 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 DPRINT("read_var_imm: Found previous val for dsym \"%s\"\n",
                        SymLookup(sym));
 
-                if (isFullSlice && !slice && val->val_rval_type == rval_proc) {
-                    // create the slice since we now know the number of processes
-                    DPRINT("assignign the size to a * in procset\n");
-                    slice = NewSlice();
-                    AddSlice(slice, 0, val->rval_u.rval_procset->s_nproc-1);
+                if (slice && slice->getRank() && slice->getExpr("").find('*') != std::string::npos){
+                    DPRINT("assigning the size to a * in procset\n");
+                    delete slice;
+                    slice = new slice_t;
+                    slice->addSlice(0, val->rval_u.rval_procset->s_nproc-1);
                 }
 
                 // if slice information is set, we need to create a new
@@ -1111,7 +1101,7 @@ bad_var:
 
     if (var_expr != NULL) Free(var_expr);
 
-    if (slice != NULL) DestroySlice(slice);
+    delete slice;
 
     return NULL;
 }
@@ -2564,7 +2554,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                    getExprOpStr(ep->e_op));
         }
 
-        if (var->v_slice == (slice_t *)NULL) var->v_slice = NewSlice();
+        if (!var->v_slice) var->v_slice = new slice_t;
 
         if (ep->e_op == EXPR_SLICE) {
             (void)POP(e);  // pop the EXPR_SLICE off
@@ -2613,7 +2603,7 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
                 goto bad_var;
             }
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
 
         } else {
             if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) ==
@@ -2641,13 +2631,13 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
 
             smn = smx;
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
         }
 
         ep = POP(e);
     }
 
-    if (var->v_slice != (slice_t *)NULL) ReverseSlice(var->v_slice);
+    if (var->v_slice) var->v_slice->reverse();
 
     switch (ep->e_op) {
         case EXPR_SYM:
@@ -2726,8 +2716,8 @@ static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
         PrintOutError(
             "Warning: Range use detected in procset for command. Only "
             "operating on rank %d.\n",
-            RVAL_REF_SLICE(val)->s_low[0]);
-        var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
+            RVAL_REF_SLICE(val)->getLow(0));
+        var->v_indiv = RVAL_REF_SLICE(val)->getLow(0);
     }
 
     return var;
@@ -2866,7 +2856,7 @@ static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
 
     if (procVal) {
         slice_t* slice = RVAL_REF_SLICE(procVal);
-        slice->s_threads = strdup(threadDef.c_str());
+        slice->setThreads(threadDef.c_str());
     }
 
     return procVal;
@@ -2949,7 +2939,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
             DPRINT("ReadVarDecl: ep points to %s\n", getExprOpStr(ep->e_op));
         }
 
-        if (var->v_slice == (slice_t *)NULL) var->v_slice = NewSlice();
+        if (!var->v_slice) var->v_slice = new slice_t;
 
         if (ep->e_op == EXPR_SLICE) {
             (void)POP(e);  // pop the EXPR_SLICE off
@@ -2998,7 +2988,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
                 goto bad_var;
             }
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
 
         } else {
             if ((val = evaluate_expr_imm(e, rec_set, (func_t *)NULL)) ==
@@ -3026,13 +3016,13 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
 
             smn = smx;
 
-            AddSlice(var->v_slice, smn, smx);
+            var->v_slice->addSlice(smn, smx);
         }
 
         ep = POP(e);
     }
 
-    if (var->v_slice != (slice_t *)NULL) ReverseSlice(var->v_slice);
+    if (var->v_slice) var->v_slice->reverse();
 
     switch (ep->e_op) {
         case EXPR_SYM:
@@ -3111,8 +3101,8 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
         PrintOutError(
             "Warning: Range use detected in procset for command. Only "
             "operating on rank %d.\n",
-            RVAL_REF_SLICE(val)->s_low[0]);
-        var->v_indiv = RVAL_REF_SLICE(val)->s_low[0];
+            RVAL_REF_SLICE(val)->getLow(0));
+        var->v_indiv = RVAL_REF_SLICE(val)->getLow(0);
     }
 
     return var;
@@ -3779,9 +3769,8 @@ const char *getExprOpStr(expr_op op) {
     return "<ERROR>";
 }
 
-// Only used when debug is turned on
-#ifdef DEBUG
-static void DumpExpr(expr_t *e) {
+// Only used when debug is turned on; export the symbol for calling from gdb
+void DumpExpr(expr_t *e) {
     int i;
     expr_elt *ep;
 
@@ -3829,7 +3818,6 @@ static void DumpExpr(expr_t *e) {
 
     PrintOutMsg("\n");
 }
-#endif
 
 // XXX: The following functions are used in expr.y.in.
 

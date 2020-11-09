@@ -29,5 +29,9 @@ b{0..2}: {x = 22.1, y = -5}
 b{0..2}: {x = 22.2, y = -6}
 b{0..2}: [0]
 b{0..2}: {[0] = {val = 0, next = [1]}, [1] = {val = 0, next = [2]}, [2] = {val = 2, next = [3]}, [3] = {val = 4, next = [4]}, [4] = {val = 1, next = [5]}, [5] = {val = 3, next = [6]}, [6] = {val = 0, next = [7]}, [7] = {val = 2, next = [8]}, [8] = {val = 4, next = [9]}, [9] = {val = 1, next = [10]}, [10] = {val = 3, next = [0]}}
+b{0..2}: 27
+b{0..2}: 12
+b{0..2}: 29
+b{0..2}: -12
 b{0..2}: The application has reached an exit breakpoint.
 Shutting down debugger and killing application for 'b'.

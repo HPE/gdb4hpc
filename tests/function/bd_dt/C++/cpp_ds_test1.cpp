@@ -104,3 +104,13 @@ static void f(const Struct1& s, const Classy& c)
 {
   int i = 0;
 }
+
+int func2(int x, int y) 
+{
+    return x+2*y;
+}
+int func1(int x) 
+{
+    return 3 * x;
+}
+

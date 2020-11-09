@@ -683,7 +683,7 @@ static void Destroyrval_ref(rval_ref_val *ref) {
     if (ref == NULL) return;
 
     // destroy the ref slice
-    DestroySlice(ref->ref_slice);
+    delete ref->ref_slice;
 
     // destroy the ref val
     if (ref->ref_val != NULL) {

@@ -25,9 +25,15 @@ public:
         virtual arrayDimension_t* getFullShape() const = 0;
 
         // return the next partition of data, the result must be freed by
-        // the caller.   isFinal will contain true if there are no more slices after this
-        // one.
+        // the caller.
+        // flags:
+        //   - isFinal will contain true if there are no more slices after this one.
+        //   - isTruncated will be true if for some reason this slice should be
+        //       treated as incomplete, e.g. an array truncated by set print elements.
+        //   - truncatedLength is the true length of the slice's data in number of
+        //       elements.
         virtual AIF* getNextSlice(bool& isFinal) = 0;
+        virtual AIF* getNextSlice(bool& isFinal, bool& isTruncated, unsigned int& truncatedLength) = 0;
 
         // free (or not) a slice after it is done being processed
         virtual void freeSlice(AIF* aif) = 0;

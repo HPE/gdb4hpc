@@ -4643,7 +4643,6 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
     freeArrayDimension(shape);
 
     return new AIFStream(arrayStream);
-
 }
 
 AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {

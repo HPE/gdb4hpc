@@ -65,6 +65,19 @@ public:
     // can live after the AIF stream is destroyed and the caller is responsible for
     // freeing it.
     AIF* joinAIF(steal_t);
+
+    // creates a new AIF stream from the AIF that comes from a call to getNextSlice(STEAL).
+    // the new stream will have the truncation information related to the slice.
+    // this transfes ownership of the AIF returned from getNextSlice(STEAL) to
+    // the new stream.
+    AIFStream* createStreamFromNextSlice(bool &isFinal);
+
+    // functions about data truncation. sometimes, especially in the case of arrays
+    // and set print elements, data can be "truncated", but by "truncated" we mean
+    // only partially filled, i.e., an array with some false zeros filling the last
+    // slots. so we need to keep track of how much of the data is real.
+    bool isTruncated() const;
+    unsigned int getTruncatedLength() const;
     
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
@@ -91,6 +104,9 @@ private:
     AIF* m_joinedAIF;
     bool m_joinedIsStolen;
     bool m_joinedIsExposed;
+    
+    bool m_dataIsTruncated;
+    unsigned int m_dataTruncatedLength;
 
     std::shared_ptr<Slices> m_slices;
     AIF* m_currentSlice;

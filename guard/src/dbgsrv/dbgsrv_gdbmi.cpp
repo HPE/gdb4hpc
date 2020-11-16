@@ -1303,7 +1303,7 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     static std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
     static std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
-    static std::regex amdGpuRE(R"(AMDGPU Thread [0-9.,() ]+/[0-9]+)");
+    static std::regex amdGpuRE(R"(AMDGPU Thread [0-9:.,() ]+/[0-9]+)");
     static std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
 
     std::istringstream is(val);

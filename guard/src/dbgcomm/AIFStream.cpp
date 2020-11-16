@@ -12,7 +12,7 @@ AIFStream::AIFStream(AIF* aif) :
 
 AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
     m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_dataIsTruncated{false}, m_dataTruncatedLength{0}, 
+    m_dataIsTruncated{false}, m_dataTruncatedLength{0},
     m_slices(slices), m_currentSlice(nullptr)
 {}
 
@@ -66,7 +66,7 @@ AIF* AIFStream::joinAIF() {
     if (!m_joinedAIF && m_slices.get()) {
         joinAIFFromSlices();
     }
-        
+
     m_joinedIsExposed = true;
     return m_joinedAIF;
 }
@@ -78,17 +78,20 @@ AIFStream* AIFStream::createStreamFromNextSlice(bool &isFinal) {
     // getNextSlice will set internal truncation data
     auto aif = getNextSlice(AIFStream::STEAL, isFinal);
     auto returnStream = new AIFStream(aif);
-    returnStream->m_dataIsTruncated = isTruncated();
-    returnStream->m_dataTruncatedLength = getTruncatedLength();
+    returnStream->setTruncatedLength(m_dataTruncatedLength);
     return returnStream;
 }
 
 bool AIFStream::isTruncated() const {
-    return m_dataIsTruncated;
+    return m_dataTruncatedLength != 0;
 }
 
 unsigned int AIFStream::getTruncatedLength() const {
     return m_dataTruncatedLength;
+}
+
+void AIFStream::setTruncatedLength(unsigned int len) {
+    m_dataTruncatedLength = len;
 }
 
 // This version retrieves the monolithic AIF data structure, and cedes
@@ -201,7 +204,7 @@ bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bo
     if (offset + sliceSize > arraySize) {
         isOk = false;
     }
-        
+
     AIFArrayIndexFree(index);
     if (!isOk) {
         DPRINT("slice copy is out of bounds\n");

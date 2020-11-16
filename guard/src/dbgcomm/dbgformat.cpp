@@ -48,9 +48,9 @@ static char *EventSourcesToSocProto(dbgev, dbgsources_t *);
 static char *EventListToSocProto(dbgev, dbglist_t *);
 static char *EventVarsToSocProto(dbgev, dbgvars_t *);
 static char *EventStringToSocProto(dbgev, char *);
-
 static char *EventFrameToSocProtoL(const dbgframe_t *);
 static char *EventLocToSocProtoL(dbgloc_t *);
+static char *EventDataToSocProto(dbgev, AIFStream *);
 
 static dbgerr_t SocProtoToErr(char *);
 static dbgloc_t *SocProtoToLoc(char *);
@@ -64,8 +64,7 @@ static dbgstatus_t *SocProtoToStatus(char *);
 static dbgvers_t SocProtoToVers(char *);
 static int SocProtoToInt(char *);
 static dbgsources_t *SocProtoToSources(char *);
-
-char *AIFToSocProto(dbgev, AIF *a);
+static AIFStream *SocProtoToAIFStream(char *);
 
 #define NULL_GUARD(s)              \
     if (s == NULL || *s == '\0') { \
@@ -240,7 +239,7 @@ static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
 
     for (auto tf=fe; tf; tf=tf->getNextThreadFrame()) {
         auto newThread = 1;
-        
+
         for (auto f=tf; f; f = f->getNext()) {
             auto loc = f->getLoc();
             const char* file = StrSoc(loc.loc_file);
@@ -331,50 +330,42 @@ static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
 
 
 char *AIFToSocProto(AIF *a) {
-    int fl;
-    char *aif_format;
-    int dl;
-    char *aif_data;
-    char *stres;
-    int i;
-    char *src;
-    char *dst;
-    char ch;
-
     if (a == NULL) return strdup("");
 
     // Can directly print the format
-    fl = strlen(AIF_FORMAT(a));
-    aif_format = AIF_FORMAT(a);
+    int fl = strlen(AIF_FORMAT(a));
+    char* aif_format = AIF_FORMAT(a);
 
     // Convert the data to string format
-    dl = AIF_LEN(a);
-    if (dl <= 0) {
-        aif_data = NULL;
-    } else {
+    int dl = AIF_LEN(a);
+    char *aif_data = nullptr;
+    if (dl > 0) {
         aif_data = (char *)Alloc(2 * dl + 1);
-        src = AIF_DATA(a);
-        dst = aif_data;
-        for (i = 0; i < dl; i++) {
-            ch = *src++;
+        char* src = AIF_DATA(a);
+        char* dst = aif_data;
+        for (int i = 0; i < dl; i++) {
+            char ch = *src++;
             // Need to ensure that the NULL char doesn't appear, hence the '0'
             // offset
             // FIXME: This seems messed up and a dumb way of transferring data.
             // Someone needs to investigate if this is actually necessary...
+            // !!!!!FIXME FIXME FIXME - HOLY MOTHER IF GOD IT IS **DOUBLING** THE
+            // SIZE OF THE DATA!!!!!!!!!!!!
             *dst++ = ((ch >> 4) & 0xf) + '0';
             *dst++ = (ch & 0xf) + '0';
         }
         *dst = '\0';
     }
 
+    char *stres = nullptr;
     if (fl <= 0 && dl <= 0) {
         Asprintf(&stres, "%d %d", fl, dl);
     } else if (fl <= 0 && dl > 0) {
-        Asprintf(&stres, "%d %d %zu %s", fl, dl, strlen(aif_data), aif_data);
+        Asprintf(&stres, "%d %d %lu %s", fl, dl, strlen(aif_data), aif_data);
     } else if (fl > 0 && dl <= 0) {
         Asprintf(&stres, "%d %s %d", fl, aif_format, dl);
     } else if (fl > 0 && dl > 0) {
-        Asprintf(&stres, "%d %s %d %zu %s", fl, aif_format, dl, strlen(aif_data),
+        Asprintf(&stres, "%d %s %d %lu %s", fl, aif_format, dl, strlen(aif_data),
                  aif_data);
     }
 
@@ -431,8 +422,6 @@ char* EventToSocProto(dbgevent_t *e)
 {
     char *res = nullptr;
     dbgev ev = (e ? e->ev_event : DBGEV_NONE);
-    AIF* aif = nullptr;
-    bool isFinal = false;
 
     switch (ev) {
     case DBGEV_ERROR:
@@ -501,8 +490,7 @@ char* EventToSocProto(dbgevent_t *e)
 
     case DBGEV_DATA:
     case DBGEV_DATA_SLICE:
-        aif = e->ev_data->getNextSlice(isFinal);
-        res = AIFToSocProto(ev, aif);
+        res = EventDataToSocProto(ev, e->ev_data);
         break;
 
     case DBGEV_STAT:
@@ -540,48 +528,24 @@ static char *EventLocToSocProto(dbgev ev, dbgloc_t *le) {
     return stres;
 }
 
-char *AIFToSocProto(dbgev ev, AIF *a) {
-    if (a == NULL) return MakeSocStr(ev, "");
+static char *EventDataToSocProto(dbgev ev, AIFStream *stream) {
+    if (stream == nullptr) return MakeSocStr(ev, "");
 
-    // Can directly print the format
-    int fl = strlen(AIF_FORMAT(a));
-    char* aif_format = AIF_FORMAT(a);
+    bool isFinal = false;
+    AIF *aif = stream->getNextSlice(isFinal); // updates truncation info in the stream
+    if (aif == nullptr) return MakeSocStr(ev, "");
 
-    // Convert the data to string format
-    int dl = AIF_LEN(a);
-    char *aif_data = nullptr;
-    if (dl > 0) {
-        aif_data = (char *)Alloc(2 * dl + 1);
-        char* src = AIF_DATA(a);
-        char* dst = aif_data;
-        for (int i = 0; i < dl; i++) {
-            char ch = *src++;
-            // Need to ensure that the NULL char doesn't appear, hence the '0'
-            // offset
-            // FIXME: This seems messed up and a dumb way of transferring data.
-            // Someone needs to investigate if this is actually necessary...
-            // !!!!!FIXME FIXME FIXME - HOLY MOTHER IF GOD IT IS **DOUBLING** THE
-            // SIZE OF THE DATA!!!!!!!!!!!!
-            *dst++ = ((ch >> 4) & 0xf) + '0';
-            *dst++ = (ch & 0xf) + '0';
-        }
-        *dst = '\0';
-    }
+    // make aif string
+    char *aifStr = AIFToSocProto(aif);
 
-    char *stres = nullptr;
-    if (fl <= 0 && dl <= 0) {
-        stres = MakeSocStr(ev, "%d %d", fl, dl);
-    } else if (fl <= 0 && dl > 0) {
-        stres = MakeSocStr(ev, "%d %d %d %s", fl, dl, strlen(aif_data), aif_data);
-    } else if (fl > 0 && dl <= 0) {
-        stres = MakeSocStr(ev, "%d %s %d", fl, aif_format, dl);
-    } else if (fl > 0 && dl > 0) {
-        stres = MakeSocStr(ev, "%d %s %d %d %s", fl, aif_format, dl, strlen(aif_data),
-                 aif_data);
-    }
+    // get truncation info
+    // a truncation length of zero means no truncation
+    unsigned int truncLen = stream->getTruncatedLength();
 
-    if (aif_data) Free(aif_data);
+    // attach to soc proto string
+    char *stres = MakeSocStr(ev, "%s %u", aifStr, truncLen);
 
+    free(aifStr);
     return stres;
 }
 
@@ -786,6 +750,29 @@ AIF *SocProtoToAIF(char *s) {
     }
 
     return res;
+}
+
+static AIFStream *SocProtoToAIFStream(char *s) {
+    // extract AIF
+    AIF *aif = SocProtoToAIF(s);
+
+    // advance s past AIF data
+    // skip AIF format string
+    char *skipStr = getstring(&s);
+    free(skipStr);
+
+    // skip data size
+    getint(&s);
+
+    // skip data string
+    skipStr = getstring(&s);
+    free(skipStr);
+
+    unsigned int truncationLen = (unsigned int)getint(&s);
+    AIFStream *result = new AIFStream(aif);
+    result->setTruncatedLength(truncationLen);
+
+    return result;
 }
 
 static dbglist_t *SocProtoToList(char *s) {
@@ -1197,7 +1184,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_DATA_SLICE:
             // Get the string and convert to AIF * and set directly
             evdata = getstring(&s);
-            e->ev_data = new AIFStream(SocProtoToAIF(evdata));
+            e->ev_data = SocProtoToAIFStream(evdata);
             Free(evdata);
             break;
 

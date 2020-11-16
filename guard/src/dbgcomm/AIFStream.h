@@ -12,7 +12,7 @@
 // of discrete styled slices - at least for arrays.
 class AIFStream {
 public:
-    // The Slices class for implementing the piecewise data access.   
+    // The Slices class for implementing the piecewise data access.
     class Slices {
     public:
         Slices() = default;
@@ -78,7 +78,8 @@ public:
     // slots. so we need to keep track of how much of the data is real.
     bool isTruncated() const;
     unsigned int getTruncatedLength() const;
-    
+    void setTruncatedLength(unsigned int length);
+
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
     // The object is owned by this object.
@@ -100,12 +101,11 @@ private:
     AIF* makeEmptyJoinedAIF(AIF* slice);
     bool getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray);
     void warning(const char* message) const;
-    
+
     AIF* m_joinedAIF;
     bool m_joinedIsStolen;
     bool m_joinedIsExposed;
-    
-    bool m_dataIsTruncated;
+
     unsigned int m_dataTruncatedLength;
 
     std::shared_ptr<Slices> m_slices;

@@ -33,7 +33,7 @@ public:
         //   - truncatedLength is the true length of the slice's data in number of
         //       elements.
         virtual AIF* getNextSlice(bool& isFinal) = 0;
-        virtual AIF* getNextSlice(bool& isFinal, bool& isTruncated, unsigned int& truncatedLength) = 0;
+        virtual AIF* getNextSlice(bool& isFinal, unsigned int& truncatedLength) = 0;
 
         // free (or not) a slice after it is done being processed
         virtual void freeSlice(AIF* aif) = 0;

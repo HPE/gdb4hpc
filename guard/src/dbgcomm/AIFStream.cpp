@@ -7,12 +7,12 @@
 
 AIFStream::AIFStream(AIF* aif) :
     m_joinedAIF(aif), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_dataIsTruncated{false}, m_dataTruncatedLength{0},
+    m_dataTruncatedLength{0},
     m_slices{nullptr}, m_currentSlice(nullptr) {}
 
 AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
     m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_dataIsTruncated{false}, m_dataTruncatedLength{0},
+    m_dataTruncatedLength{0},
     m_slices(slices), m_currentSlice(nullptr)
 {}
 
@@ -35,7 +35,7 @@ AIF* AIFStream::getNextSlice(bool& isFinal)
     } else if (m_joinedAIF) {
         return m_joinedAIF;
     } else if (m_slices) {
-        AIF* slice = m_slices->getNextSlice(isFinal, m_dataIsTruncated, m_dataTruncatedLength);
+        AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength);
         if (m_currentSlice)
             m_slices->freeSlice(m_currentSlice);
         m_currentSlice = slice;
@@ -110,7 +110,7 @@ void AIFStream::joinAIFFromSlices() {
     AIF* joinedAIF = nullptr;
     bool hasError = false;
     bool isFinal;
-    while (AIF* slice = m_slices->getNextSlice(isFinal, m_dataIsTruncated, m_dataTruncatedLength)) {
+    while (AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength)) {
         size_t offset, sliceSize; bool isFullArray;
 
         if (hasError) {

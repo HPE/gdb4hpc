@@ -3856,7 +3856,7 @@ void MIArrayToAIFParser::parseSome(const char *str) {
         for (const char *p = str; *p; ++p) {
             if ((*p == '(' || *p == '{' || *p == '"') && !m_inCharArray) {
                 openBracket(*p);
-            } else if (m_isFragment && !isspace(*p)) {
+            } else if (m_isFragment && !isspace(*p) && !m_isTruncated) {
                 error("insufficient data items in direction");
             } else if (*p == ')' || *p == '}' || *p == '"') {
                 closeBracket(*p);
@@ -3869,7 +3869,7 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                     //
                     // m_elementsRead + 1 to make the debug message reflect the actual amount of elements that
                     // will be read after the bracket is closed
-                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %u elements\n", m_elementsRead + 1);
+                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %u elements (inner).\n", m_elementsRead + 1);
                     m_isTruncated = true;
                     // move past "..." so p is pointing to '}'
                     // the ++p in the for loop declaration will make this advance 3 elements
@@ -3878,14 +3878,23 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                     addElement();
                 }
             } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
-                m_element += *p;
+                // sometimes the data can come back like "{{1, 2}, {3...}...}"
+                // so we might detect truncation here too
+                if (strncmp(p, "...}", 4) != 0) {
+                    m_element += *p;
 
-                m_escapeNext = false;
+                    m_escapeNext = false;
 
-                if (*p == '\\' && m_inCharArray) {
-                    m_escapeNext = true;
-                } else if (m_inCharArray) {
-                    addElement();
+                    if (*p == '\\' && m_inCharArray) {
+                        m_escapeNext = true;
+                    } else if (m_inCharArray) {
+                        addElement();
+                    }
+                } else {
+                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %u elements (outer).\n", m_elementsRead);
+                    m_isTruncated = true;
+                    // move past ... to }
+                    p += 2; // ++p in for loop declaration will make this 3
                 }
             }
         }
@@ -3973,7 +3982,9 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
         // this can happen if gdb reports a char array e.g. 8 characters long,
         // but the actual data is e.g. 3 characters followed by \0. addElement
         // won't push elements up because it doesn't think we're at the end yet.
-        if (m_inCharArray && m_abuild[m_depth - 1] != nullptr)
+        //
+        // this can also happen if data gets truncated by set print elements.
+        if ((m_inCharArray || m_isTruncated) && m_abuild[m_depth - 1] != nullptr)
             pushElementsUp(m_depth - 1);
 
         --m_depth;
@@ -4544,7 +4555,7 @@ public:
 
     // return the next partition of data
     virtual AIF* getNextSlice(bool& isFinal) override;
-    virtual AIF* getNextSlice(bool& isFinal, bool& isTruncated, unsigned int& truncatedLength) override;
+    virtual AIF* getNextSlice(bool& isFinal, unsigned int& truncatedLength) override;
 
     // free an slice after it is done being processed
     virtual void freeSlice(AIF* aif) override;
@@ -4565,14 +4576,12 @@ arrayDimension_t* ArrayStream::getFullShape() const {
 
 // return the next partition of data
 AIF* ArrayStream::getNextSlice(bool& isFinal) {
-    // these bools are unused, but required since the function takes references
-    // as arguments
-    bool isTruncated;
+    // unused, but required since the function take a references as an argument
     unsigned int truncatedLength;
-    return getNextSlice(isFinal, isTruncated, truncatedLength);
+    return getNextSlice(isFinal, truncatedLength);
 }
 
-AIF *ArrayStream::getNextSlice(bool& isFinal, bool& isTruncated, unsigned int& truncatedLength) {
+AIF *ArrayStream::getNextSlice(bool& isFinal, unsigned int& truncatedLength) {
     DVPRINT("In ArrayStream::getNextSlice\n");
     arrayDimension_t* subShape = nullptr;
     AIF* res = nullptr;
@@ -4582,8 +4591,7 @@ AIF *ArrayStream::getNextSlice(bool& isFinal, bool& isTruncated, unsigned int& t
 
         m_parser->parseSome(subResult);
 
-        isTruncated = m_parser->dataIsTruncated();
-        truncatedLength = isTruncated ? m_parser->getElementsRead() : 0;
+        truncatedLength = m_parser->dataIsTruncated() ? m_parser->getElementsRead() : 0;
 
         res = m_parser->getResult();
     }

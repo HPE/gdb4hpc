@@ -36,7 +36,7 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
     // only do work if we need to
     if (Client.print_elements != elements || force) {
         Client.print_elements = elements;
-        
+
         // it is valid to call this function with a null rec_set, before a
         // gdb instance is launched
         if (rec_set != nullptr) {
@@ -211,11 +211,7 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
                                          rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
-            if (stream->isTruncated()) {
-                PrintOutMsg("Detected data truncation: %u\n", stream->getTruncatedLength());
-            }
-
-            AIFPrint(Client.cli_out_stream, 0, aif);
+            AIFPrintLen(Client.cli_out_stream, 0, aif, stream->getTruncatedLength());
             PrintOutMsg("\n");
         }
         free(str);

@@ -119,7 +119,7 @@ typedef double AIFDOUBLEST;
 #define AIF_PTR_INVALID			4
 
 /*
- * Structure used to index into a 
+ * Structure used to index into a
  * muli-dimensional array.
  */
 struct AIFIndex
@@ -155,7 +155,7 @@ typedef struct AIF AIF;
 #define AIF_DATA(a)	(a)->a_data.a_data_val
 
 /*
- * Arithmetic/logical operations that can be 
+ * Arithmetic/logical operations that can be
  * performed on AIF objects.
  */
 enum aifop
@@ -360,6 +360,7 @@ extern AIF *		AIFOr(AIF *, AIF *);
 extern int		AIFPointerToStr(char **, int, AIF *);
 extern int		AIFGenericPointerToStr(char **, int, AIF *);
 extern int		AIFPrint(FILE *, int, AIF *);
+extern int 		AIFPrintLen(FILE *, int, AIF *, unsigned int);
 extern int		AIFPrintArray(FILE *, int, AIF *);
 extern int		AIFPrintBool(FILE *, int, AIF *);
 extern int		AIFPrintChar(FILE *, int, AIF *);
@@ -434,8 +435,8 @@ extern AIF *		AIFMin(AIF *);			// Minh changes here
 extern AIF *		AIFMinArray(AIF **, int);	// Minh changes here
 extern AIF *		AIFStdev(AIF *);		// Minh changes here
 extern AIF *		AIFStdevArray(AIF **, int);	// Minh changes here
-extern AIF *		AIFCountElem(AIF *, double, double);	// Minh changes here 
-extern AIF *		AIFCountElemArray(AIF **, int);	// Minh changes here 
+extern AIF *		AIFCountElem(AIF *, double, double);	// Minh changes here
+extern AIF *		AIFCountElemArray(AIF **, int);	// Minh changes here
 /*
 extern AIF *		AIFHistogram(AIF *, double, double, double);	// Minh changes here
 extern AIF *		HistogramToAIF(gsl_histogram *);	// Minh changes here
@@ -456,7 +457,7 @@ extern AIF *		NewAIF(int, int);
 extern AIF *		PointerNameToAIF(AIF *);
 extern AIF *		PointerReferenceToAIF(AIF *);
 extern AIF *		PointerToAIF(AIF *, AIF *);
-extern AIF *		ReferenceAIF(int); 
+extern AIF *		ReferenceAIF(int);
 extern AIF *		ShortToAIF(short);
 extern AIF *		StringToAIF(char *);
 extern AIF *		UnsignedCharToAIF(unsigned char);

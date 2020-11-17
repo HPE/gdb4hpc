@@ -47,7 +47,7 @@ union ieee
 	** long enough for any conceivable precision
 	*/
 	char		bytes[256/BITSPERBYTE];
-};      
+};
 
 /*
  * For _aif_*_to_str() functions
@@ -74,7 +74,7 @@ _aif_normalise(char *dst, int dstlen, char *src, int srclen)
 	{
 		len = srclen;
 		pad = dstlen - srclen;
-	} 
+	}
 	else if ( srclen >= dstlen )
 		len = dstlen;
 
@@ -120,7 +120,7 @@ _pointer_to_aif(char **rd, const AIF *addr, const AIF *val)
 	}
 
 	**rd = (char) AIF_PTR_NORMAL; /* indicates normal pointer value */
-	
+
 	memcpy((*rd)+1, AIF_DATA(addr), AIF_LEN(addr));
 	memcpy((*rd)+1+AIF_LEN(addr), AIF_DATA(val), AIF_LEN(val));
 
@@ -236,7 +236,7 @@ ReferenceAIF(int name)
 
 	AIF_FORMAT(a) = strdup(AIF_REFERENCE_TYPE(name));
 	AIF_LEN(a) = 0;
-	
+
 	return a;
 }
 
@@ -269,7 +269,7 @@ AIFNull(AIF *toWhat)
 	}
 	else
 	{
-		/* 
+		/*
 		** repeat the format
 		*/
 		AIF_FORMAT(a) = strdup(AIF_POINTER_TYPE(NULL, oldFormat));
@@ -277,7 +277,7 @@ AIFNull(AIF *toWhat)
 
 	AIF_DATA(a)[0] = AIF_PTR_NIL;
 	AIF_LEN(a) = 1;
-	
+
 	return a;
 }
 
@@ -296,7 +296,7 @@ PointerNameToAIF(AIF *i)
 
 	*(AIF_DATA(a)) = (char) AIF_PTR_NAME;
 	_int_to_ptrname( (int) name, AIF_DATA(a)+1);
-	
+
 	memcpy(AIF_DATA(a)+5, AIF_DATA(i), AIF_LEN(i));
 
 	ResetAIFError();
@@ -330,7 +330,7 @@ PointerReferenceToAIF(AIF *toWhat)
 	AIF_DATA(a)[0] = AIF_PTR_REFERENCE;
 	_int_to_ptrname( (int) name, AIF_DATA(a)+1);
 	AIF_LEN(a) = 5;
-	
+
 	return a;
 }
 
@@ -368,7 +368,7 @@ GenericPointerToAIF(AIF *addr, char *ptr_type)
 	ResetAIFError();
 
 	a = NewAIF(0, ptr_length+AIF_LEN(addr));
-	
+
 	AIF_FORMAT(a) = strdup(AIF_GENERIC_POINTER_TYPE(ptr_length, AIF_FORMAT(addr)));
 
 	strncpy(AIF_DATA(a), ptr_type, ptr_length);
@@ -389,7 +389,7 @@ CharPointerToAIF(AIF *addr, const char *ptr_type, const char *cstring, int str_l
 	ResetAIFError();
 
 	a = NewAIF(0, ptr_length+AIF_LEN(addr)+str_length);
-	
+
 	AIF_FORMAT(a) = strdup(AIF_CHAR_POINTER_TYPE(ptr_length, AIF_FORMAT(addr), str_length));
 
 	strncpy(AIF_DATA(a), ptr_type, ptr_length);
@@ -400,13 +400,13 @@ CharPointerToAIF(AIF *addr, const char *ptr_type, const char *cstring, int str_l
 }
 
 /*
- * Convert a generic function (defined as a named prototype with a variable 
+ * Convert a generic function (defined as a named prototype with a variable
  * number of arguments, and having an address value) to AIF
  *
  * TODO: This function takes in fds format strings for both the return type
  *	and the arguments. This is not intuitive for the end user! There
  *	should be a special fds type created to distinguish between a true
- *	fds and a random char pointer. 
+ *	fds and a random char pointer.
  */
 AIF *
 FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, char *argv[])
@@ -418,9 +418,9 @@ FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, cha
 	int		cpy_len;
 	char *	args_fmt_string = NULL;
 	int		func_name_len;
-	
+
 	ResetAIFError();
-	
+
 	// We start by creating the argument format string
 	if (argc > 0)
 	{
@@ -428,7 +428,7 @@ FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, cha
 		for (i=0; i<argc; ++i)
 		{
 			// add in the length of the arg format string plus the
-			// length of the FDS_FUNCTION_ARG_SEP to the 
+			// length of the FDS_FUNCTION_ARG_SEP to the
 			//args_fmt_len
 			if (argv[i] == NULL)
 			{
@@ -437,7 +437,7 @@ FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, cha
 			}
 			args_fmt_len += strlen(argv[i]) + 1;
 		}
-		
+
 		// create the args_fmt_string
 		// NOTE: since we added in the FDS_FUNCTION_ARG_SEP for each of
 		//       the arg_fmt entries, we already are including the NULL
@@ -460,30 +460,30 @@ FunctionToAIF(AIF *func_addr, char *func_name, char *func_rtn_fmt, int argc, cha
 	{
 		args_fmt_string = strdup("");
 	}
-	
+
 	// The data for the AIF_FUNCTION type consists of the functions name string
 	// followed by the functions address data
-	
+
 	// get the length of the addr data
 	data_len = AIF_LEN(func_addr);
-	
+
 	// get the length of the func_name string and add that in to data_len, don't forget the null terminator.
 	func_name_len = strlen(func_name) + 1;
 	data_len += func_name_len;
-	
+
 	// create the aif object
 	a = NewAIF(0, data_len);
-	
+
 	// set the aif format string
 	AIF_FORMAT(a) = strdup(AIF_FUNCTION_TYPE(args_fmt_string, func_name_len, func_rtn_fmt, AIF_FORMAT(func_addr)));
-	
+
 	// free the args_fmt_string
 	_aif_free(args_fmt_string);
-	
+
 	// set the aif data
 	strncpy(AIF_DATA(a), func_name, func_name_len);
 	memcpy(AIF_DATA(a)+func_name_len, AIF_DATA(func_addr), AIF_LEN(func_addr));
-	
+
 	return a;
 }
 
@@ -524,7 +524,7 @@ AddressToAIF(void *addr, int addr_len)
 		AIFFree(a);
 		return (AIF *)NULL;
 	}
-	
+
 	return a;
 }
 
@@ -905,7 +905,7 @@ LongDoubleToAIF(long double f)
 /*******************************
  * Fortran Type Extensions
  *******************************/
- 
+
 /*
  * Convert a INTEGER*1 value to AIF
  * INTEGER*1 translates to a char in c
@@ -914,17 +914,17 @@ AIF *
 INTEGER1ToAIF(char c)
 {
 	AIF *   a;
-	
+
 	a = NewAIF(0, sizeof(char));
-	
+
 	AIF_FORMAT(a) = strdup(AIF_FTN_INTEGER_TYPE(sizeof(char)));
-	
+
 	if ( _char_to_aif(&AIF_DATA(a), c) < 0 )
 	{
 		AIFFree(a);
 		return (AIF *)NULL;
 	}
-	
+
 	return a;
 }
 
@@ -1072,17 +1072,17 @@ AIF *
 LOGICAL1ToAIF(char c)
 {
 	AIF *   a;
-	
+
 	a = NewAIF(0, sizeof(char));
-	
+
 	AIF_FORMAT(a) = strdup(AIF_FTN_LOGICAL_TYPE(sizeof(char)));
-	
+
 	if ( _char_to_aif(&AIF_DATA(a), c) < 0 )
 	{
 		AIFFree(a);
 		return (AIF *)NULL;
 	}
-	
+
 	return a;
 }
 
@@ -1205,11 +1205,11 @@ AIF *
 COMPLEX4ToAIF(float real, float j)
 {
 	AIF *   a;
-	
+
 	a = NewAIF(0, sizeof(float)*2);
-	
+
 	AIF_FORMAT(a) = strdup(AIF_FTN_COMPLEX_TYPE(sizeof(float)));
-	
+
 	if ( _complex_to_aif(&AIF_DATA(a), sizeof(float), (AIFDOUBLEST)real, (AIFDOUBLEST)j) < 0 )
 	{
 		AIFFree(a);
@@ -1223,11 +1223,11 @@ AIF *
 COMPLEX8ToAIF(double real, double j)
 {
 	AIF *   a;
-	
+
 	a = NewAIF(0, sizeof(double)*2);
-	
+
 	AIF_FORMAT(a) = strdup(AIF_FTN_COMPLEX_TYPE(sizeof(double)));
-	
+
 	if ( _complex_to_aif(&AIF_DATA(a), sizeof(double), (AIFDOUBLEST)real, (AIFDOUBLEST)j) < 0 )
 	{
 		AIFFree(a);
@@ -1242,11 +1242,11 @@ AIF *
 COMPLEX16ToAIF(long double real, long double j)
 {
 	AIF *   a;
-	
+
 	a = NewAIF(0, sizeof(long double)*2);
-	
+
 	AIF_FORMAT(a) = strdup(AIF_FTN_COMPLEX_TYPE(sizeof(long double)));
-	
+
 	if ( _complex_to_aif(&AIF_DATA(a), sizeof(long double), (AIFDOUBLEST)real, (AIFDOUBLEST)j) < 0 )
 	{
 		AIFFree(a);
@@ -1273,7 +1273,7 @@ CHARACTERToAIF(char *i)
 	AIF_FORMAT(a) = strdup(AIF_FTN_CHARACTER_TYPE(length));
 
 	strncpy(AIF_DATA(a), i, length);
-	
+
 	return a;
 }
 
@@ -1342,11 +1342,11 @@ EmptyArrayToAIF(int min, int max, AIF *btype)
 	}
 
 	a = NewAIF(0, len);
-	
+
 	AIF_FORMAT(a) = FDSArrayInit(min, max, AIF_FORMAT(btype));
-	
+
 	ResetAIFError();
-	
+
 	return a;
 }
 /*
@@ -1369,10 +1369,10 @@ AIFAddArrayElement(AIF *a, int idx, AIF *el)
 	else {
 		min = FDSArrayMinIndex(AIF_FORMAT(a), 0);
 		max = FDSArrayMaxIndex(AIF_FORMAT(a), 0);
-		
+
 		if (idx < min || idx > max)
 			return;
-					
+
 		memcpy(AIF_DATA(a) + len * (idx - min), AIF_DATA(el), len);
 	}
 }
@@ -1381,13 +1381,13 @@ AIF *
 EmptyComplexArrayToAIF(int min, int max, AIF *btype)
 {
 	AIF *	a;
-	
+
 	a = NewAIF(0, 0);
-	
+
 	AIF_FORMAT(a) = FDSArrayInit(min, max, AIF_FORMAT(btype));
-	
+
 	ResetAIFError();
-	
+
 	return a;
 }
 
@@ -1432,11 +1432,11 @@ EmptyFtnArrayToAIF(int min, int max, AIF *btype)
 	len = (max - min + 1) * AIFTypeSize(btype);
 
 	a = NewAIF(0, len);
-	
+
 	AIF_FORMAT(a) = FDSFtnArrayInit(min, max, AIF_FORMAT(btype));
-	
+
 	ResetAIFError();
-	
+
 	return a;
 }
 
@@ -1494,10 +1494,10 @@ AIFAddFtnArrayElement(AIF *a, int idx, AIF *el)
 
 	min = FDSFtnArrayMinIndex(AIF_FORMAT(a), 0);
 	max = FDSFtnArrayMaxIndex(AIF_FORMAT(a), 0);
-		
+
 	if (idx < min || idx > max)
 		return;
-					
+
 	memcpy(AIF_DATA(a) + len * (idx - min), AIF_DATA(el), len);
 }
 
@@ -1505,7 +1505,7 @@ AIFAddFtnArrayElement(AIF *a, int idx, AIF *el)
  * Create an empty AIF enumerated type.
  */
 AIF *
-EmptyEnumToAIF(char *id) 
+EmptyEnumToAIF(char *id)
 {
 	AIF *   a;
 
@@ -1598,7 +1598,7 @@ AIFGetEnum(AIF *a)
  * Create an empty AIF union type.
  */
 AIF *
-EmptyUnionToAIF(char *id) 
+EmptyUnionToAIF(char *id)
 {
 	AIF *   a;
 
@@ -1661,14 +1661,14 @@ AIFSetUnion(AIF *a, char *field, AIF *data)
 		_aif_free(AIF_DATA(a));
 
 	AIF_DATA(a) = _aif_alloc(len);
-	
+
 	// if len is greater than the length of data, we need to memset to null first
 	// otherwise we will be left with a bunch of junk in the final type.
 	if (len > AIF_LEN(data))
 	{
 		memset(AIF_DATA(a), 0, len);
 	}
-	
+
 	// We can only memcpy up to the length of the input data. Otherwise we are
 	// reading off the end of the buffer!
 	memcpy(AIF_DATA(a), AIF_DATA(data), AIF_LEN(data));
@@ -1723,7 +1723,7 @@ EmptyStructToAIF(char *id)
 	return a;
 }
 
-/* 
+/*
  * Add a field to the public section of a structure
  */
 int
@@ -1773,7 +1773,7 @@ AIFAddFieldToStruct(AIF *a, char* field, AIF *content)
 	return 0;
 }
 
-/* 
+/*
  * Set the value of a field in a structure
  */
 int
@@ -2289,8 +2289,8 @@ AIFCoerce(AIF *a, char *t)
 	return na;
 }
 
-/* 
- * build an AIF from two ascii strings. 
+/*
+ * build an AIF from two ascii strings.
  */
 AIF *
 AsciiToAIF(char *format, char *data)
@@ -2587,7 +2587,7 @@ _aif_float_to_str(int depth, char **fds, char **data)
 	return 0;
 }
 
-/* 
+/*
  * print floats with given precision
  */
 int
@@ -2663,7 +2663,7 @@ AIFFloatToStr(char **str, int depth, AIF *a)
 /*****
  * Base fortran types
  */
- 
+
 int
 _aif_ftn_integer_to_str(int depth, char **fds, char **data)
 {
@@ -2676,7 +2676,7 @@ _aif_ftn_integer_to_str(int depth, char **fds, char **data)
 
 	if ( _aif_to_longest(*data, bytes, &lli) < 0 )
 		return -1;
-		
+
 	if ( bytes <= (int)sizeof(char))
 	{
 		snprintf(buf, BUFSIZ-1, "%hhd", (char)lli);
@@ -2763,16 +2763,16 @@ _aif_ftn_real_to_str(int depth, char **fds, char **data)
 		snprintf(buf, BUFSIZ-1, "%.16g", (double)d);
 #endif
 	}
-	
+
 	_str_cat(buf);
 	*data += bytes;
-	
+
 	if ( bytes > (int)sizeof(AIFDOUBLEST) )
 	{
 		snprintf(buf, BUFSIZ-1, "<truncated from %d bytes>", bytes);
 		_str_cat(buf);
 	}
-	
+
 	return 0;
 }
 
@@ -2815,7 +2815,7 @@ _aif_ftn_complex_to_str(int depth, char **fds, char **data)
 
 	if ( _aif_to_doublest(*data, bytes, &real) < 0 )
 		return -1;
-		
+
 	if ( _aif_to_doublest(*(data)+bytes, bytes, &img) < 0)
 		return -1;
 
@@ -2833,17 +2833,17 @@ _aif_ftn_complex_to_str(int depth, char **fds, char **data)
 		snprintf(buf, BUFSIZ-1, "(%.16g,%.16g)", (double)real, (double)img);
 #endif
 	}
-	
+
 	_str_cat(buf);
 	// need to increment data past the real and imaginary part
 	*data += total_bytes;
-	
+
 	if ( bytes > (int)sizeof(AIFDOUBLEST) )
 	{
 		snprintf(buf, BUFSIZ-1, "<truncated from %d bytes>", bytes);
 		_str_cat(buf);
 	}
-	
+
 	return 0;
 }
 
@@ -3148,7 +3148,7 @@ _aif_pointer_to_str(int depth, char **fds, char **data)
 			depth = -1;
 		else if ( depth > 1 )
 			depth--;
-		
+
 		_aif_to_str(depth, fds, data);
 		break;
 
@@ -3231,7 +3231,7 @@ AIFPointerToStr(char **str, int depth, AIF *a)
 
 	if ( _aif_pointer_to_str(depth, &fmt, &data) )
 		return -1;
-	
+
 	*str = _str_get();
 
 	return 0;
@@ -3245,26 +3245,26 @@ _aif_generic_pointer_to_str(int depth, char **fds, char **data)
 
 	(*fds)++; /* past "p" */
 	_str_cat("(");
-	
+
 	// get the length of the type string
 	type_str_len = _fds_getnum(*fds);
 	*fds = _fds_skipnum(*fds); /* past length */
-	
+
 	// get the type string
 	type_str = _aif_alloc(type_str_len);
 	strncpy(type_str, *data, type_str_len);
-	
+
 	// cat the type string to the global str buffer
 	_str_cat(type_str);
-	
+
 	_str_cat(") ");
-	
+
 	// free the type string
 	_aif_free(type_str);
-	
+
 	// point the data past the type string
 	*data += type_str_len;
-	
+
 	// print the address string
 	_aif_to_str(depth, fds, data);
 
@@ -3290,7 +3290,7 @@ AIFGenericPointerToStr(char **str, int depth, AIF *a)
 
 	if ( _aif_generic_pointer_to_str(depth, &fmt, &data) )
 		return -1;
-	
+
 	*str = _str_get();
 
 	return 0;
@@ -3346,7 +3346,7 @@ _aif_region_to_str(int depth, char **fds, char **data)
  * This function is called by _aif_array_to_str().
  */
 void
-_aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data)
+_aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data, unsigned int len, unsigned int *printed)
 {
 	int i;
 	int nel;
@@ -3376,16 +3376,24 @@ _aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data)
 					break;
 				}
 			}
-			fmt = ix->i_btype;
-			_aif_to_str(depth, &fmt, data);
+			if (*printed < len || len == 0) {
+				fmt = ix->i_btype;
+				_aif_to_str(depth, &fmt, data);
+				(*printed)++;
+			}
 		} else {
-			_aif_array_to_str_unflattened(rank + 1, ix, depth, data);
+			_aif_array_to_str_unflattened(rank + 1, ix, depth, data, len, printed);
 		}
 
 		// print commas between elements, but don't break up char arrays (strings)
 		if (i < nel - 1) {
 			if (!is_char_array || rank != ix->i_rank - 1) {
-				_str_cat(",");
+				if (*printed == len && len != 0) {
+					_str_cat("...");
+					break;
+				} else {
+					_str_cat(",");
+				}
 			}
 		}
 	}
@@ -3397,7 +3405,7 @@ _aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data)
 	}
 }
 
-/* 
+/*
  * Print array of floats with a given precision
  * only used for float
  */
@@ -3451,7 +3459,7 @@ _aif_array_to_str_precise(int depth, char **fds, char **data, int precision)
 }
 
 int
-_aif_array_to_str(int depth, char **fds, char **data)
+_aif_array_to_str(int depth, char **fds, char **data, unsigned int len)
 {
 	AIFIndex *	ix;
 
@@ -3474,8 +3482,9 @@ _aif_array_to_str(int depth, char **fds, char **data)
 
 	_str_cat("]");
 */
+	unsigned int print_counter = 0;
 
-	_aif_array_to_str_unflattened(0, ix, depth, data);
+	_aif_array_to_str_unflattened(0, ix, depth, data, len, &print_counter);
 
 	AIFArrayIndexFree(ix);
 
@@ -3507,7 +3516,7 @@ AIFArrayToStr(char **str, int depth, AIF *a)
 
 	_str_init();
 
-	if ( _aif_array_to_str(depth, &fmt, &data) < 0 )
+	if ( _aif_array_to_str(depth, &fmt, &data, 0) < 0 )
 		return -1;
 
 	*str = _str_get();
@@ -3537,7 +3546,7 @@ AIFArrayIndexToStr(char **str, AIFIndex *ix)
 int
 _aif_struct_to_str(int depth, char **fds, char **data)
 {
-	char *	inFds;	
+	char *	inFds;
 	char	buf[BUFSIZ];
 	int	isStruct = 1;	/* assume it is a struct */
 				/* to avoid printing the semicolons if
@@ -3565,7 +3574,7 @@ _aif_struct_to_str(int depth, char **fds, char **data)
 		else if ( **fds == FDS_STRUCT_ACCESS_SEP )
 		{
 			isStruct = 0;	/* it is a class */
-			
+
 			(*fds)++;
 			_str_cat("; ");
 			continue;
@@ -3732,8 +3741,8 @@ AIFVoidToStr(char **str, int depth, AIF *a)
 
 int
 _aif_union_to_str(int depth, char **fds, char **data)
-{	
-	char *	inFds;	
+{
+	char *	inFds;
 	char *	temp;
 	char *	dt;
 	int 	size;
@@ -3827,8 +3836,8 @@ FDSToStr(char *fds)
 
 	if
 	(
-		fds == NULL 
-		|| 
+		fds == NULL
+		||
 		*fds == '\0'
 	)
 		return strdup("<unknown>");
@@ -3950,7 +3959,7 @@ FDSToStr(char *fds)
 	case FDS_VOID: /* void */
 		type = strdup("void");
 		break;
-		
+
 	case FDS_FTN_ARRAY_START: /* fortran array */
 		index_len = FDSArraySize(--fds_ptr);
 		base_type = FDSToStr(fds_ptr);
@@ -3958,7 +3967,7 @@ FDSToStr(char *fds)
 		type = strdup(buf);
 		_aif_free(base_type);
 		break;
-		
+
 	case FDS_FTN_INTEGER: /* fortran INTEGER */
 		// get the length
 		type_len = _fds_getnum(fds_ptr);
@@ -3966,7 +3975,7 @@ FDSToStr(char *fds)
 		snprintf(buf, BUFSIZ, "INTEGER*%d", type_len);
 		type = strdup(buf);
 		break;
-	
+
 	case FDS_FTN_REAL: /* fortran REAL */
 		// get the length
 		type_len = _fds_getnum(fds_ptr);
@@ -3974,7 +3983,7 @@ FDSToStr(char *fds)
 		snprintf(buf, BUFSIZ, "REAL*%d", type_len);
 		type = strdup(buf);
 		break;
-	
+
 	case FDS_FTN_COMPLEX: /* fortran COMPLEX */
 		// get the length
 		type_len = _fds_getnum(fds_ptr);
@@ -3982,7 +3991,7 @@ FDSToStr(char *fds)
 		snprintf(buf, BUFSIZ, "COMPLEX*%d", type_len);
 		type = strdup(buf);
 		break;
-	
+
 	case FDS_FTN_LOGICAL: /* fortran LOGICAL */
 		// get the length
 		type_len = _fds_getnum(fds_ptr);
@@ -3990,7 +3999,7 @@ FDSToStr(char *fds)
 		snprintf(buf, BUFSIZ, "LOGICAL*%d", type_len);
 		type = strdup(buf);
 		break;
-	
+
 	case FDS_FTN_CHARACTER: /* fortran CHARACTER */
 		// get the length
 		type_len = _fds_getnum(fds_ptr);
@@ -4008,7 +4017,7 @@ FDSToStr(char *fds)
 
 int
 _aif_function_to_str(int depth, char **fds, char **data)
-{	
+{
 	char *	func_name;
 	int     func_name_len;
 	char *  addr_fds;
@@ -4020,16 +4029,16 @@ _aif_function_to_str(int depth, char **fds, char **data)
 	char	end[2] = {FDS_FUNCTION_ARG_END, 0};
 
 	(*fds)++; /* past '&' */
-	
+
 	// first item in the fds string is the start of the args
 	args_start = *fds;
 	// advance to '/'
 	*fds = _fds_skipto(*fds, end);
 	(*fds)++; /* past '/' */
-	
+
 	// we start by advancing the data past the stuff we expect to be defined
 	// by the functions base type (i.e. address and name string)
-	
+
 	// grab a copy of the function name in the data
 	func_name = strdup(*data);
 	// get the stored length of the name string
@@ -4050,7 +4059,7 @@ _aif_function_to_str(int depth, char **fds, char **data)
 	addr_data = *data;
 	// advance data by the size of the address
 	*data += addr_len;
-	
+
 	// we start by printing out the function prototype
 	_str_cat("{");
 	// print out the return type first
@@ -4079,15 +4088,15 @@ _aif_function_to_str(int depth, char **fds, char **data)
 	_str_cat(")");
 	// followed by end of prototype
 	_str_cat("} ");
-	
+
 	// print out the address
 	_aif_to_str(depth, &addr_fds, &addr_data);
-	
+
 	// finally print out the function name
 	_str_cat(" <");
 	_str_cat(func_name);
 	_str_cat(">");
-	
+
 	if (func_name != NULL)
 		free(func_name);
 
@@ -4121,7 +4130,7 @@ AIFFunctionToStr(char **str, int depth, AIF *a)
 
 int
 _aif_enum_to_str(int depth, char **fds, char **data)
-{	
+{
 	int		bytes = FDSTypeSize(*fds);
 	AIFLONGEST	lli;
 	int		i;
@@ -4136,7 +4145,7 @@ _aif_enum_to_str(int depth, char **fds, char **data)
 	f++;
 	if ( *f == FDS_ENUM_END )
 	{	/* it is an empty enum */
-		_str_cat("0");	
+		_str_cat("0");
 		*data += bytes;
 		_fds_advance(fds);
 		return 0;
@@ -4149,7 +4158,7 @@ _aif_enum_to_str(int depth, char **fds, char **data)
 
 	if ( FDSEnumConstByValue(*fds, &string, i) < 0)
 		return -1;
-	
+
 	_str_cat(string);
 	_aif_free(string);
 
@@ -4186,7 +4195,7 @@ AIFEnumToStr(char **str, int depth, AIF *a)
 
 int
 _aif_name_to_str(int depth, char **fds, char **data)
-{	
+{
 	int	index;
 
 	(*fds)++; /* past "%" */
@@ -4198,7 +4207,7 @@ _aif_name_to_str(int depth, char **fds, char **data)
 	return _aif_to_str(depth, fds, data);
 }
 
-/* 
+/*
  * Prints the object in human-readable form to fp, advances fds and data to
  * the first location after the part printed.  Arithmetic values are given at
  * least len bytes of significance, more if the fds indicates.
@@ -4213,7 +4222,7 @@ _aif_to_str(int depth, char **fds, char **data)
 	switch ( FDSType(*fds) )
 	{
 	case AIF_BOOLEAN:
-		return _aif_bool_to_str(depth, fds, data); 
+		return _aif_bool_to_str(depth, fds, data);
 
 	case AIF_CHARACTER:
 		return _aif_char_to_str(depth, fds, data);
@@ -4225,14 +4234,14 @@ _aif_to_str(int depth, char **fds, char **data)
 		return _aif_float_to_str(depth, fds, data);
 
 	case AIF_ARRAY:
-		return _aif_array_to_str(depth, fds, data);
+		return _aif_array_to_str(depth, fds, data, 0);
 
 	case AIF_POINTER:
 		return _aif_pointer_to_str(depth, fds, data);
-		
+
 	case AIF_GENERIC_POINTER:
 		return _aif_generic_pointer_to_str(depth, fds, data);
-		
+
 	case AIF_ADDRESS:
 		return _aif_address_to_str(depth, fds, data);
 
@@ -4266,25 +4275,25 @@ _aif_to_str(int depth, char **fds, char **data)
 
 	case AIF_HASHED_SIGNATURE:
 		return _aif_int_to_str(depth, fds, data);
-		
+
 	case AIF_FTN_INTEGER:
 		return _aif_ftn_integer_to_str(depth, fds, data);
-	
+
 	case AIF_FTN_REAL:
 		return _aif_ftn_real_to_str(depth, fds, data);
-	
+
 	case AIF_FTN_COMPLEX:
 		return _aif_ftn_complex_to_str(depth, fds, data);
-	
+
 	case AIF_FTN_LOGICAL:
 		return _aif_ftn_logical_to_str(depth, fds, data);
-	
+
 	case AIF_FTN_CHARACTER:
 		return _aif_ftn_character_to_str(depth, fds, data);
-	
+
 	case AIF_FTN_ARRAY:
 		return _aif_ftn_array_to_str(depth, fds, data);
-	
+
 	default:
 		SetAIFError(AIFERR_TYPE, NULL);
 		break;

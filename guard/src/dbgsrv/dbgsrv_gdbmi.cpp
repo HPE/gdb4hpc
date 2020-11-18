@@ -3336,7 +3336,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         bool isFinal;
         dbgev ev = DBGEV_DATA_SLICE;
         AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
-        if (returnStream != nullptr && returnStream->joinAIF() != nullptr) {
+        if (returnStream != nullptr && returnStream->hasJoinAIF()) {
             if (isFinal) {
                 DVPRINT("returning the last slice of %ld\n", expIdx);
                 ev = DBGEV_DATA;
@@ -3370,7 +3370,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     bool isFinal;
     AIFStream *returnStream = aifStream->createStreamFromNextSlice(isFinal);
 
-    if (!aif) {
+    if (returnStream == nullptr || !returnStream->hasJoinAIF()) {
         DVPRINT("getNextSlice failed\n");
         return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
     }

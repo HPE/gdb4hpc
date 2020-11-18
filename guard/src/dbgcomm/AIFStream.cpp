@@ -105,6 +105,10 @@ AIF* AIFStream::joinAIF(steal_t) {
     return joinAIF();
 }
 
+bool AIFStream::hasJoinAIF() const {
+    return m_joinedAIF != nullptr;
+}
+
 // Create a single large AIF structure from the set of slices.
 void AIFStream::joinAIFFromSlices() {
     AIF* joinedAIF = nullptr;

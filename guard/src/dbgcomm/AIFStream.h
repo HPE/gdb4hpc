@@ -66,6 +66,10 @@ public:
     // freeing it.
     AIF* joinAIF(steal_t);
 
+    // returns true if joinAIF is not nullptr. Distinct from an outside call to
+    // if (joinAIF() == nullptr) since joinAIF has side effects
+    bool hasJoinAIF() const;
+
     // creates a new AIF stream from the AIF that comes from a call to getNextSlice(STEAL).
     // the new stream will have the truncation information related to the slice.
     // this transfes ownership of the AIF returned from getNextSlice(STEAL) to

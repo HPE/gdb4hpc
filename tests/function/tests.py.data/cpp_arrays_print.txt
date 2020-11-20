@@ -28,13 +28,9 @@ a{0..2}: "hello \n world!"
 a{0..2}: "hello \n world!"
 a{0..2}: ""
 a{0..2}: 23
-a{%.*%}: [0]
-%*
+a{0..2}: [0]
 a{0..2}: 23
-a{%.*%}: [0]
-%*
-%# this address can change per node, so just make sure we get one of the right form
-a{%.*%}: (char **) %0x[0-9a-f]*%
+a{0..2}: [0]
 a{0..2}: [1,2,3...]
 a{0..2}: [[1,2],[3...]]
 a{0..2}: [[1,2],[3...]...]

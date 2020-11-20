@@ -360,7 +360,7 @@ extern AIF *		AIFOr(AIF *, AIF *);
 extern int		AIFPointerToStr(char **, int, AIF *);
 extern int		AIFGenericPointerToStr(char **, int, AIF *);
 extern int		AIFPrint(FILE *, int, AIF *);
-extern int 		AIFPrintLen(FILE *, int, AIF *, unsigned int);
+extern int 		AIFPrintN(FILE *, int, AIF *, size_t);
 extern int		AIFPrintArray(FILE *, int, AIF *);
 extern int		AIFPrintBool(FILE *, int, AIF *);
 extern int		AIFPrintChar(FILE *, int, AIF *);

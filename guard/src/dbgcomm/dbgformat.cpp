@@ -30,6 +30,7 @@
 
 // Static prototypes
 static char *getstring(char **);
+static char *skipstring(char*);
 static int getint(char **);
 
 static inline const char* StrSoc(const char* s) {
@@ -162,6 +163,20 @@ static char *getstring(char **res_buf) {
     *res_buf = endptr + len;
 
     return res;
+}
+
+static char *skipstring(char *res_buf) {
+    char *endptr = NULL;
+
+    res_buf = skipspace(res_buf);
+
+    // get the length of the string - Note that this can be 0
+    int len = (int)strtol(res_buf, &endptr, 10);
+    // set res_buf past string
+    // + 1 for the space in between the size and string
+    res_buf = endptr + len + 1;
+
+    return res_buf;
 }
 
 /*******************************
@@ -334,14 +349,14 @@ char *AIFToSocProto(AIF *a) {
 
     // Can directly print the format
     int fl = strlen(AIF_FORMAT(a));
-    char* aif_format = AIF_FORMAT(a);
+    const char* aif_format = AIF_FORMAT(a);
 
     // Convert the data to string format
     int dl = AIF_LEN(a);
     char *aif_data = nullptr;
     if (dl > 0) {
         aif_data = (char *)Alloc(2 * dl + 1);
-        char* src = AIF_DATA(a);
+        const char* src = AIF_DATA(a);
         char* dst = aif_data;
         for (int i = 0; i < dl; i++) {
             char ch = *src++;
@@ -361,11 +376,11 @@ char *AIFToSocProto(AIF *a) {
     if (fl <= 0 && dl <= 0) {
         Asprintf(&stres, "%d %d", fl, dl);
     } else if (fl <= 0 && dl > 0) {
-        Asprintf(&stres, "%d %d %lu %s", fl, dl, strlen(aif_data), aif_data);
+        Asprintf(&stres, "%d %d %zu %s", fl, dl, strlen(aif_data), aif_data);
     } else if (fl > 0 && dl <= 0) {
         Asprintf(&stres, "%d %s %d", fl, aif_format, dl);
     } else if (fl > 0 && dl > 0) {
-        Asprintf(&stres, "%d %s %d %lu %s", fl, aif_format, dl, strlen(aif_data),
+        Asprintf(&stres, "%d %s %d %zu %s", fl, aif_format, dl, strlen(aif_data),
                  aif_data);
     }
 
@@ -540,10 +555,10 @@ static char *EventDataToSocProto(dbgev ev, AIFStream *stream) {
 
     // get truncation info
     // a truncation length of zero means no truncation
-    unsigned int truncLen = stream->getTruncatedLength();
+    size_t truncLen = stream->getTruncatedLength();
 
     // attach to soc proto string
-    char *stres = MakeSocStr(ev, "%s %u", aifStr, truncLen);
+    char *stres = MakeSocStr(ev, "%s %zu", aifStr, truncLen);
 
     free(aifStr);
     return stres;
@@ -758,17 +773,15 @@ static AIFStream *SocProtoToAIFStream(char *s) {
 
     // advance s past AIF data
     // skip AIF format string
-    char *skipStr = getstring(&s);
-    free(skipStr);
+    s = skipstring(s);
 
     // skip data size
     getint(&s);
 
     // skip data string
-    skipStr = getstring(&s);
-    free(skipStr);
+    s = skipstring(s);
 
-    unsigned int truncationLen = (unsigned int)getint(&s);
+    size_t truncationLen = (size_t)getint(&s);
     AIFStream *result = new AIFStream(aif);
     result->setTruncatedLength(truncationLen);
 

@@ -28,12 +28,10 @@ public:
         // the caller.
         // flags:
         //   - isFinal will contain true if there are no more slices after this one.
-        //   - isTruncated will be true if for some reason this slice should be
-        //       treated as incomplete, e.g. an array truncated by set print elements.
-        //   - truncatedLength is the true length of the slice's data in number of
-        //       elements.
+        //   - truncatedLength will be nonzero if data was truncated and will be 
+        //       the length of the slice's valid data in number of elements.
         virtual AIF* getNextSlice(bool& isFinal) = 0;
-        virtual AIF* getNextSlice(bool& isFinal, unsigned int& truncatedLength) = 0;
+        virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) = 0;
 
         // free (or not) a slice after it is done being processed
         virtual void freeSlice(AIF* aif) = 0;
@@ -81,8 +79,8 @@ public:
     // only partially filled, i.e., an array with some false zeros filling the last
     // slots. so we need to keep track of how much of the data is real.
     bool isTruncated() const;
-    unsigned int getTruncatedLength() const;
-    void setTruncatedLength(unsigned int length);
+    size_t getTruncatedLength() const;
+    void setTruncatedLength(size_t length);
 
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
@@ -110,7 +108,7 @@ private:
     bool m_joinedIsStolen;
     bool m_joinedIsExposed;
 
-    unsigned int m_dataTruncatedLength;
+    size_t m_dataTruncatedLength;
 
     std::shared_ptr<Slices> m_slices;
     AIF* m_currentSlice;

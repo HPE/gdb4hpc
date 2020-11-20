@@ -21,6 +21,7 @@
 #include	<string.h>
 #include	<stdlib.h>
 #include	<stdarg.h>
+#include    <limits.h>
 
 #include	"aif.h"
 #include	"aiferr.h"
@@ -3346,12 +3347,13 @@ _aif_region_to_str(int depth, char **fds, char **data)
  * This function is called by _aif_array_to_str().
  */
 void
-_aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data, unsigned int len, unsigned int *printed)
+_aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data, size_t len, size_t *printed)
 {
 	int i;
 	int nel;
 	char *fmt;
 	int is_char_array = FDSType(ix->i_btype) == AIF_CHARACTER;
+	size_t print_limit = len ? len : ULONG_MAX;
 
 	if ( rank == ix->i_rank )
 		return;
@@ -3376,7 +3378,7 @@ _aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data, un
 					break;
 				}
 			}
-			if (*printed < len || len == 0) {
+			if (*printed < print_limit) {
 				fmt = ix->i_btype;
 				_aif_to_str(depth, &fmt, data);
 				(*printed)++;
@@ -3388,7 +3390,7 @@ _aif_array_to_str_unflattened(int rank, AIFIndex *ix, int depth, char **data, un
 		// print commas between elements, but don't break up char arrays (strings)
 		if (i < nel - 1) {
 			if (!is_char_array || rank != ix->i_rank - 1) {
-				if (*printed == len && len != 0) {
+				if (*printed == print_limit) {
 					_str_cat("...");
 					break;
 				} else {
@@ -3459,7 +3461,7 @@ _aif_array_to_str_precise(int depth, char **fds, char **data, int precision)
 }
 
 int
-_aif_array_to_str(int depth, char **fds, char **data, unsigned int len)
+_aif_array_to_str(int depth, char **fds, char **data, size_t max_len)
 {
 	AIFIndex *	ix;
 
@@ -3482,9 +3484,9 @@ _aif_array_to_str(int depth, char **fds, char **data, unsigned int len)
 
 	_str_cat("]");
 */
-	unsigned int print_counter = 0;
+	size_t print_counter = 0;
 
-	_aif_array_to_str_unflattened(0, ix, depth, data, len, &print_counter);
+	_aif_array_to_str_unflattened(0, ix, depth, data, max_len, &print_counter);
 
 	AIFArrayIndexFree(ix);
 

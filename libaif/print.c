@@ -20,10 +20,10 @@
 int
 AIFPrint(FILE *fp, int depth, AIF *a)
 {
-    return AIFPrintLen(fp, depth, a, 0);
+    return AIFPrintN(fp, depth, a, 0);
 }
 
-int AIFPrintLen(FILE *fp, int depth, AIF *a, unsigned int len) {
+int AIFPrintN(FILE *fp, int depth, AIF *a, size_t max_len) {
 	if ( a == (AIF *)NULL ) {
 		SetAIFError(AIFERR_BADARG, NULL);
 		return -1;
@@ -32,7 +32,7 @@ int AIFPrintLen(FILE *fp, int depth, AIF *a, unsigned int len) {
 	char * fmt = AIF_FORMAT(a);
 	char * data = AIF_DATA(a);
 
-	return _aif_print(fp, depth, &fmt, &data, len);
+	return _aif_print(fp, depth, &fmt, &data, max_len);
 }
 
 /*
@@ -41,7 +41,7 @@ int AIFPrintLen(FILE *fp, int depth, AIF *a, unsigned int len) {
 ** least len bytes of significance, more if the fds indicates.
 */
 int
-_aif_print(FILE *fp, int depth, char **fds, char **data, unsigned int len)
+_aif_print(FILE *fp, int depth, char **fds, char **data, size_t max_len)
 {
         char * tmp;
 
@@ -62,7 +62,7 @@ _aif_print(FILE *fp, int depth, char **fds, char **data, unsigned int len)
                 return _aif_print_float(fp, depth, fds, data);
 
         case AIF_ARRAY:
-                return _aif_print_array(fp, depth, fds, data, len);
+                return _aif_print_array(fp, depth, fds, data, max_len);
 
         case AIF_ADDRESS:
                 return _aif_print_address(fp, depth, fds, data);
@@ -84,7 +84,7 @@ _aif_print(FILE *fp, int depth, char **fds, char **data, unsigned int len)
 
         case AIF_REFERENCE:
                 tmp = _fds_lookup(fds);
-                return _aif_print(fp, depth, &tmp, data, len);
+                return _aif_print(fp, depth, &tmp, data, max_len);
 
         case AIF_STRING:
                 return _aif_print_string(fp, depth, fds, data);
@@ -207,13 +207,13 @@ _aif_print_float(FILE *fp, int depth, char **fds, char **data)
 }
 
 int
-_aif_print_array(FILE *fp, int depth, char **fds, char **data, unsigned int len)
+_aif_print_array(FILE *fp, int depth, char **fds, char **data, size_t max_len)
 {
 	char *	str;
 
 	_str_init();
 
-	if ( _aif_array_to_str(depth, fds, data, len) < 0 )
+	if ( _aif_array_to_str(depth, fds, data, max_len) < 0 )
 		return -1;
 
 	str = _str_get();

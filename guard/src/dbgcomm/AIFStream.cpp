@@ -86,11 +86,11 @@ bool AIFStream::isTruncated() const {
     return m_dataTruncatedLength != 0;
 }
 
-unsigned int AIFStream::getTruncatedLength() const {
+size_t AIFStream::getTruncatedLength() const {
     return m_dataTruncatedLength;
 }
 
-void AIFStream::setTruncatedLength(unsigned int len) {
+void AIFStream::setTruncatedLength(size_t len) {
     m_dataTruncatedLength = len;
 }
 

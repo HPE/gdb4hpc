@@ -211,7 +211,7 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
                                          rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
-            AIFPrintLen(Client.cli_out_stream, 0, aif, stream->getTruncatedLength());
+            AIFPrintN(Client.cli_out_stream, 0, aif, stream->getTruncatedLength());
             PrintOutMsg("\n");
         }
         free(str);

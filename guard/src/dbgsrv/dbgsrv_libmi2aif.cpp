@@ -3753,7 +3753,7 @@ public:
     void parseSome(const char* str);
 
     AIF* getResult();
-    unsigned int getElementsRead() const;
+    size_t getElementsRead() const;
     bool dataIsTruncated() const;
 
     // reset the parser to work on a new array - takes ownership of shape
@@ -3792,7 +3792,7 @@ private:
     bool m_isFortran;           // true if the data-type is a fortran array
     bool m_hasError;            // true if the parser encountered a problem
     bool m_isFragment;          // true if the last block ended in the middle of an array
-    unsigned int m_elementsRead;// counts the total amount of elements that have been read across all dimensions
+    size_t m_elementsRead;      // counts the total amount of elements that have been read across all dimensions
     bool m_isTruncated;         // true if the array got truncated (by e.g. set print elements)
     std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
     std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
@@ -3860,23 +3860,21 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                 error("insufficient data items in direction");
             } else if (*p == ')' || *p == '}' || *p == '"') {
                 closeBracket(*p);
-            } else if (m_depth == m_dim && (*p == ',' || strncmp(p, "...}", 4) == 0) && !m_inCharArray) {
-                if (strncmp(p, "...}", 4) == 0) {
-                    // e.g. parsing "{{1, 2}, {3...}}" will produce an AIF array with data [[1, 2], [3, 0]],
-                    // m_isTruncated will be true, and m_elements read will be 3. this behavior is
-                    // necessary because AIF arrays are very rigidly sized and can't have inner arrays
-                    // of differing length.
-                    //
-                    // m_elementsRead + 1 to make the debug message reflect the actual amount of elements that
-                    // will be read after the bracket is closed
-                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %u elements (inner).\n", m_elementsRead + 1);
-                    m_isTruncated = true;
-                    // move past "..." so p is pointing to '}'
-                    // the ++p in the for loop declaration will make this advance 3 elements
-                    p += 2;
-                } else {
-                    addElement();
-                }
+            } else if (m_depth == m_dim && *p == ',' && !m_inCharArray) {
+                addElement();
+            } else if (m_depth == m_dim && strncmp(p, "...}", 4) == 0 && !m_inCharArray) {
+                // e.g. parsing "{{1, 2}, {3...}}" will produce an AIF array with data [[1, 2], [3, 0]],
+                // m_isTruncated will be true, and m_elements read will be 3. this behavior is
+                // necessary because AIF arrays are very rigidly sized and can't have inner arrays
+                // of differing length.
+                //
+                // m_elementsRead + 1 to make the debug message reflect the actual amount of elements that
+                // will be read after the bracket is closed
+                DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (inner).\n", m_elementsRead + 1);
+                m_isTruncated = true;
+                // move past "..." so p is pointing to '}'
+                // the ++p in the for loop declaration will make this advance 3 elements
+                p += 2;
             } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
                 // sometimes the data can come back like "{{1, 2}, {3...}...}"
                 // so we might detect truncation here too
@@ -3891,7 +3889,7 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                         addElement();
                     }
                 } else {
-                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %u elements (outer).\n", m_elementsRead);
+                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
                     m_isTruncated = true;
                     // move past ... to }
                     p += 2; // ++p in for loop declaration will make this 3
@@ -4157,7 +4155,7 @@ AIF* MIArrayToAIFParser::getResult() {
 // get the total number of elements read in all dimensions
 // e.g. with {{1, 2}, {3, 4}}, getElementsRead() == 4
 //      with {{1, 2}, {3...}}, getElementsRead() == 3
-unsigned int MIArrayToAIFParser::getElementsRead() const {
+size_t MIArrayToAIFParser::getElementsRead() const {
     return m_elementsRead;
 }
 
@@ -4555,7 +4553,7 @@ public:
 
     // return the next partition of data
     virtual AIF* getNextSlice(bool& isFinal) override;
-    virtual AIF* getNextSlice(bool& isFinal, unsigned int& truncatedLength) override;
+    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
 
     // free an slice after it is done being processed
     virtual void freeSlice(AIF* aif) override;
@@ -4577,11 +4575,11 @@ arrayDimension_t* ArrayStream::getFullShape() const {
 // return the next partition of data
 AIF* ArrayStream::getNextSlice(bool& isFinal) {
     // unused, but required since the function take a references as an argument
-    unsigned int truncatedLength;
+    size_t truncatedLength = 0;
     return getNextSlice(isFinal, truncatedLength);
 }
 
-AIF *ArrayStream::getNextSlice(bool& isFinal, unsigned int& truncatedLength) {
+AIF *ArrayStream::getNextSlice(bool& isFinal, size_t& truncatedLength) {
     DVPRINT("In ArrayStream::getNextSlice\n");
     arrayDimension_t* subShape = nullptr;
     AIF* res = nullptr;

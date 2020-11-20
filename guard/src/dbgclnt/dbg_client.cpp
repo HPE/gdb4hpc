@@ -2362,7 +2362,7 @@ public:
 
     virtual arrayDimension_t* getFullShape() const override;
     virtual AIF* getNextSlice(bool& isFinal) override;
-    virtual AIF* getNextSlice(bool& isFinal, unsigned int& truncatedLength) override;
+    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
     virtual void freeSlice(AIF* aif) override;
 private:
     std::vector<AIF*> m_aifs;
@@ -2448,11 +2448,11 @@ arrayDimension_t* LocalSlices::getFullShape() const
 AIF* LocalSlices::getNextSlice(bool& isFinal)
 {
     // unused, but required since the function takes a reference as an argument
-    unsigned int truncatedLength;
+    size_t truncatedLength = 0;
     return getNextSlice(isFinal, truncatedLength);
 }
 
-AIF* LocalSlices::getNextSlice(bool& isFinal, unsigned int& truncatedLength) {
+AIF* LocalSlices::getNextSlice(bool& isFinal, size_t& truncatedLength) {
     if (m_current == m_aifs.end()) {
         return nullptr;
     } else {

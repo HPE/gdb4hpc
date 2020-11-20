@@ -36,6 +36,8 @@
 #include <iomanip>
 #include <filesystem>
 
+#include "common_tools_be.h"
+
 #include "aif.h"
 #include "dbgcomm_info.h"
 #include "dbgevent.h"
@@ -104,7 +106,14 @@ static size_t numBackgroundThreads = 0;
 
 dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 
-DbgGdbMI::DbgGdbMI() : m_initializer(new Initializer(*this)) {}
+DbgGdbMI::DbgGdbMI() : m_initializer(new Initializer(*this)),
+                       m_ompdIsInitialized(false), m_ompdIsAvail(false) {
+    if (auto * be = cti_be_getFileDir()) {
+        DVPRINT("got the file directory %s\n", be);
+        m_beFileDir = be;
+        free(be);
+    }
+}
 
 static char* MICommandOutputString(MICommand* cmd)
 {
@@ -2000,6 +2009,8 @@ static std::string anonymizeOmpdThreadInfo(const std::string& val) {
 dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
+    if (auto e = initOmpd()) return e;  // initOmpd returns nullptr on success
+
     static std::regex verboseRE{R"(^\s*-v\s*)"};
     auto isVerbose = bool{false};
     auto opp = std::string{inOpp};
@@ -2067,6 +2078,38 @@ static dbgevent_t *WaitOmpdEvent(dbgevent_t* inEvent) {
     }
 
     return e;
+}
+
+// initialize teh ompd plugin if it hasn't been already - return an error event if
+// initialization fails
+dbgevent_t* DbgGdbMI::initOmpd() {
+    if (!m_ompdIsInitialized) {
+        m_ompdIsInitialized = true;
+        m_ompdIsAvail = initOmpdL();
+    }
+
+    if (m_ompdIsAvail) return nullptr;
+    else return NewErrorEvent(DBGERR_NOTIMP, "could not start ompd plugin");
+}
+
+bool DbgGdbMI::initOmpdL() {
+    DVPRINT("initialized ompd\n");
+    if (m_beFileDir.empty()) return false;
+
+    auto initFile = m_beFileDir;
+    initFile += "/__init__.py";
+
+    const char* cmd_args[2] = {"source", initFile.c_str() };
+    MICommand* cmd = CLIBypassc(2, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    bool ok = true;
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Loading ompd plugin failed\n");
+        ok = false;
+    }
+    MICommandFree(cmd);
+    return ok;
 }
 
 /*

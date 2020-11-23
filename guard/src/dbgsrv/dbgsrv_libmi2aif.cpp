@@ -4707,7 +4707,7 @@ AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
 
     char* addr_str = getVarValue(var->name);
 
-    if (strcmp(var->type, "char *") == 0) {
+    if (strcmp(var->type, "char *") == 0 || strcmp(var->type, "const char *") == 0) {
         if (auto strVal = strchr(var->value, '"')) {
             // string - we won't try to manage these as a reference
             auto s = std::string{strVal+1, strlen(strVal)-2};  // remove quotes

@@ -75,6 +75,7 @@ p c1
 
 p ll
 p *ll
+p my_null
 
 p func1(l_tail)
 p func1(4)

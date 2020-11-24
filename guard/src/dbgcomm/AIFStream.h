@@ -12,7 +12,7 @@
 // of discrete styled slices - at least for arrays.
 class AIFStream {
 public:
-    // The Slices class for implementing the piecewise data access.   
+    // The Slices class for implementing the piecewise data access.
     class Slices {
     public:
         Slices() = default;
@@ -25,9 +25,13 @@ public:
         virtual arrayDimension_t* getFullShape() const = 0;
 
         // return the next partition of data, the result must be freed by
-        // the caller.   isFinal will contain true if there are no more slices after this
-        // one.
+        // the caller.
+        // flags:
+        //   - isFinal will contain true if there are no more slices after this one.
+        //   - truncatedLength will be nonzero if data was truncated and will be 
+        //       the length of the slice's valid data in number of elements.
         virtual AIF* getNextSlice(bool& isFinal) = 0;
+        virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) = 0;
 
         // free (or not) a slice after it is done being processed
         virtual void freeSlice(AIF* aif) = 0;
@@ -59,7 +63,25 @@ public:
     // can live after the AIF stream is destroyed and the caller is responsible for
     // freeing it.
     AIF* joinAIF(steal_t);
-    
+
+    // returns true if joinAIF is not nullptr. Distinct from an outside call to
+    // if (joinAIF() == nullptr) since joinAIF has side effects
+    bool hasJoinAIF() const;
+
+    // creates a new AIF stream from the AIF that comes from a call to getNextSlice(STEAL).
+    // the new stream will have the truncation information related to the slice.
+    // this transfes ownership of the AIF returned from getNextSlice(STEAL) to
+    // the new stream.
+    AIFStream* createStreamFromNextSlice(bool &isFinal);
+
+    // functions about data truncation. sometimes, especially in the case of arrays
+    // and set print elements, data can be "truncated", but by "truncated" we mean
+    // only partially filled, i.e., an array with some false zeros filling the last
+    // slots. so we need to keep track of how much of the data is real.
+    bool isTruncated() const;
+    size_t getTruncatedLength() const;
+    void setTruncatedLength(size_t length);
+
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
     // The object is owned by this object.
@@ -81,10 +103,12 @@ private:
     AIF* makeEmptyJoinedAIF(AIF* slice);
     bool getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray);
     void warning(const char* message) const;
-    
+
     AIF* m_joinedAIF;
     bool m_joinedIsStolen;
     bool m_joinedIsExposed;
+
+    size_t m_dataTruncatedLength;
 
     std::shared_ptr<Slices> m_slices;
     AIF* m_currentSlice;

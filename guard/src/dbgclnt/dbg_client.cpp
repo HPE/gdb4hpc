@@ -296,8 +296,8 @@ void rec_set_t::setThreads(const char* threads)
     std::swap(t, m_threads);
     free(t);
 }
-        
-    
+
+
 void FreeRecSet(rec_set_t *set) {
     delete set;
 }
@@ -786,7 +786,7 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
     if (di == nullptr || group == nullptr || async_set == nullptr) return;
 
     // Find entry for this di in the async_set
-    for (auto&& recv_ptr : async_set) { 
+    for (auto&& recv_ptr : async_set) {
         if (recv_ptr->rec_di == di) {
             // Remove the group from the bitset
             bitset_andeqnot(recv_ptr->rec_group, group);
@@ -2361,7 +2361,8 @@ public:
     void addSlice(AIF* aif);
 
     virtual arrayDimension_t* getFullShape() const override;
-    virtual AIF* getNextSlice(bool& isFinal);
+    virtual AIF* getNextSlice(bool& isFinal) override;
+    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
     virtual void freeSlice(AIF* aif) override;
 private:
     std::vector<AIF*> m_aifs;
@@ -2446,13 +2447,22 @@ arrayDimension_t* LocalSlices::getFullShape() const
 
 AIF* LocalSlices::getNextSlice(bool& isFinal)
 {
+    // unused, but required since the function takes a reference as an argument
+    size_t truncatedLength = 0;
+    return getNextSlice(isFinal, truncatedLength);
+}
+
+AIF* LocalSlices::getNextSlice(bool& isFinal, size_t& truncatedLength) {
     if (m_current == m_aifs.end()) {
         return nullptr;
     } else {
         isFinal = (m_current+1 == m_aifs.end());
+        // truncation never happens in LocalSlices
+        truncatedLength = 0;
         return *(m_current++);
     }
 }
+
 // LocalSlices does not control the aif objects which may be reused
 void LocalSlices::freeSlice(AIF* aif) {}
 }
@@ -3539,7 +3549,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 rep_set_t *DbgList(rec_set_t *set, char *str) {
     auto result = NewRepSet();
     if (!set) return result;
-    
+
     rec_set_t *to_send = NewRecSet();
 
     int i, cont;
@@ -3564,7 +3574,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
             // pending. If str is null, then we need to ask each of the ranks
             // for their current frame.
             if ((!str || isReverse) && !dbg_fe->dbg_list_isPending) {
-                // Get the innermost frame.  
+                // Get the innermost frame.
                 // Create the new rec set for this group - it holds state so it's not
                 // directly re-usable
 
@@ -3593,7 +3603,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // Point at the event frame
                     const dbgframe_t* fp0 = EVENT_FRAME(group_rep->rep_event);
                     for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
-                    
+
                         auto loc = fp->getLoc();
 
                         // Now ask the frontend for the source listing around this
@@ -3959,7 +3969,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 */
 rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     if (!set) return nullptr;
-    
+
     auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up, set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
@@ -3970,7 +3980,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
     for (auto recv_ptr : set) {
         // reset the has_err
         auto hasErr = false;
-            
+
         // Ensure this di is not in the error list
         for (auto&& err : result->getErrs()) {
             if (err->rep_di == recv_ptr->rec_di) {
@@ -3983,7 +3993,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
         if (hasErr) {
             continue;
         }
-                     
+
         // point at the dbg fe
         if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
             // Clear any existing state
@@ -3995,7 +4005,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
                 auto fp0 = const_cast<const dbgframe_t*>(EVENT_FRAME(group_rep->rep_event));
                 for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
                     auto loc = fp->getLoc();
-                        
+
                     // Create the location string based on the new frame
                     // location Note that this should one short of the new
                     // location since we didn't generate this by listing
@@ -4225,7 +4235,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
                 auto tmp_result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-                
+
                 // merge the results
                 result = MergeRepSet(result, tmp_result);
             }

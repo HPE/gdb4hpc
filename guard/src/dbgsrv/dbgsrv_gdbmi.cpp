@@ -67,7 +67,7 @@ static MIEvent *PendingEvent = NULL;
 
 // true if the debugger is actually in non-stop mode, the variable non_stop_mode
 // just indicates it was *requested*
-static bool isInNonStopMode = false; 
+static bool isInNonStopMode = false;
 
 // print elements setting used for resetting and restoring before direct commands
 // set by DbgSetPrintElements and initialized by setup_gdbmi_environment
@@ -217,7 +217,7 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, con
                                    const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     assert(func!=nullptr);
-    
+
     std::string where;
     if (file && file[0]) {
         where = std::string(file) + ":" + func;
@@ -251,14 +251,14 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
     event_ptr event(nullptr,FreeEvent);
 
     // gdb only implements a single thread breakpoint, so if have a thread set we will
-    // need to create multiple gdb breakpoints and track them.   
+    // need to create multiple gdb breakpoints and track them.
     for (auto&& threadId : threads) {
 
         auto cmd = MIBreakInsert(0, 0, allowPending, nullptr, 0, where.c_str(), threadId);
         SendMICommand(GDBMISession, cmd);
 
         event_ptr tbEvent(nullptr,FreeEvent);
-        
+
         if (!MICommandResultOK(cmd)) {
             tbEvent.reset(NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd)));
 
@@ -285,7 +285,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
             bpIds.push_back(EVENT_BP(tbEvent)->bp_id);
             if (!event) {
                 event = std::move(tbEvent);
-            } 
+            }
         }
     } // for (threadId)
 
@@ -754,7 +754,7 @@ dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
             MICommandFree(cmd);
             return e;
         }
-        
+
         MICommandFree(cmd);
     }
 
@@ -1493,8 +1493,8 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
     static auto regexREsq=std::regex{"^\\s*'(([^'\\\\]*\\\\.)*[^'\\\\]*)'"s + post};    // 're\'g\'ex'
     static auto starRE=std::regex{R"(\s*(\*))"s + post};   // * note in parens to match regexRE
 
-    static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id 
-        
+    static auto threadFindRE=std::regex{R"((^|\n)Thread\s+(\d+)\s+)"};     // Thread id
+
     auto hasPattern = false;
     auto toParse = std::string{threadId} + " ";
 
@@ -2099,7 +2099,7 @@ dbgevent_t *DbgGdbMI::getVars(const char* threads) {
 
     dbgvars_t *result = nullptr;
     dbgvars_t *cur_var = nullptr;
-    
+
     // parse over the vars list
     MIArg *var;
     for (MIListSet(vars); (var = (MIArg *)MIListGet(vars)) != NULL;) {
@@ -2573,7 +2573,7 @@ dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
     return r;
 }
 
-// This is called before entering gdbmode and before passthru commands are 
+// This is called before entering gdbmode and before passthru commands are
 // executed.
 // We want gdbmode to appear like a freshly-started gdb instance would, so we
 // reset some printing settings to gdb defaults.
@@ -2681,7 +2681,7 @@ static dbgevent_t *WaitEvent(dbgevent_t *e) {
 }
 
 dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
-    
+
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     MISessionRegisterThreadStoppedCallback(GDBMISession, nullptr);
@@ -3196,7 +3196,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     // if slice info found, perform slicing first
     if (!sliceinfo[0]) {
         e->ev_data = aifStream;
-    } else if (!strchr(type, '(')) { 
+    } else if (!strchr(type, '(')) {
         // slice the data.   Fixme: this should be done up front instead of
         // killing the buffalo and only eating the tongue
         DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
@@ -3204,8 +3204,8 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         // pull out AIF and slice up
         AIF *a = aifStream->joinAIF();
         AIF *slice = PerformSlicing(a, sliceinfo, AIFType(a) == AIF_FTN_ARRAY);
-        
-        // done with aifStream (and the aif contained within), 
+
+        // done with aifStream (and the aif contained within),
         // we will create a new one with sliced data
         delete aifStream;
         aifStream = nullptr;
@@ -3218,7 +3218,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
             e = NewErrorEvent(DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
             return e;
         }
-        
+
         // finally, create a new AIFStream from our sliced-up AIF
         e->ev_data = new AIFStream(slice);
     } else {
@@ -3229,7 +3229,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         auto is = std::istringstream{sliceinfo};
         auto os = std::ostringstream{};
         os << var << "(";
-        auto arg = std::string{};  
+        auto arg = std::string{};
         for (int i=0; arg="", std::getline(is,arg,','); ++i) {
             if (!(i%2)) os << (i ? "," : "") << arg;
         }
@@ -3335,7 +3335,8 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         // Return the next slice of data
         bool isFinal;
         dbgev ev = DBGEV_DATA_SLICE;
-        if (auto a = remainderLoc->second->getNextSlice(AIFStream::STEAL, isFinal)) {
+        AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
+        if (returnStream != nullptr && returnStream->hasJoinAIF()) {
             if (isFinal) {
                 DVPRINT("returning the last slice of %ld\n", expIdx);
                 ev = DBGEV_DATA;
@@ -3343,14 +3344,14 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
             } else {
                 DVPRINT("Returning the next slice of %ld\n", expIdx);
             }
-
-            auto e = NewEvent(ev);
-            e->ev_data = new AIFStream(a);
-            return e;
         } else {
             DVPRINT("getNextSlice failed");
             return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
         }
+
+        auto e = NewEvent(ev);
+        e->ev_data = returnStream;
+        return e;
     }
 
     if (threads && threads[0]) {
@@ -3365,12 +3366,11 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         return e;
     }
 
-
     dbgev ev = DBGEV_DATA;
     bool isFinal;
-    auto  aif = aifStream->getNextSlice(AIFStream::STEAL, isFinal);
+    AIFStream *returnStream = aifStream->createStreamFromNextSlice(isFinal);
 
-    if (!aif) {
+    if (returnStream == nullptr || !returnStream->hasJoinAIF()) {
         DVPRINT("getNextSlice failed\n");
         return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
     }
@@ -3386,12 +3386,12 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     }
 
     dbgevent_t* e = NewEvent(ev);
-    e->ev_data = new AIFStream(aif);
+    e->ev_data = returnStream;
     return e;
 }
 
 // handling for expressions that have a defined thread set context.   If the thread set
-// resolves to a single thread  we just change the thread context and return 
+// resolves to a single thread  we just change the thread context and return
 dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
 {
     std::string error;
@@ -3418,7 +3418,7 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
         if (applyEvent->ev_event != DBGEV_THREADINFO) {
             return applyEvent;
         }
-        
+
         // the front end expects data, and most of it will work reasonably well if we
         // return this as string data.   Adding a special header reduces the odds of
         // conflicting with an actual string.
@@ -3624,12 +3624,12 @@ MIEvent* DbgGdbMI::waitForAsyncEvent()
 {
     // set the status to running
     Status = DBGSTAT_RUNNING;
-    
+
     // wait for the asynch command to complete
     while (!bufferReady()) {
         MISessionProgress(GDBMISession);
     }
-    
+
     // grab the pending asynch
     MIEvent* evt = nullptr;
     std::swap(PendingEvent, evt);
@@ -3652,6 +3652,6 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
     std::swap(PendingEvent, e);
     if (e) MIEventFree(e);
 }
-    
+
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }

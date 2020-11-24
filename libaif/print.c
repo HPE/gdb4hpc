@@ -20,28 +20,28 @@
 int
 AIFPrint(FILE *fp, int depth, AIF *a)
 {
-        char *  fmt;
-        char *  data;
-
-        if ( a == (AIF *)NULL )
-	{
-		SetAIFError(AIFERR_BADARG, NULL);
-                return -1;
-	}
-
-        fmt = AIF_FORMAT(a);
-        data = AIF_DATA(a);
-
-        return _aif_print(fp, depth, &fmt, &data);
+    return AIFPrintN(fp, depth, a, 0);
 }
 
-/* 
+int AIFPrintN(FILE *fp, int depth, AIF *a, size_t max_len) {
+	if ( a == (AIF *)NULL ) {
+		SetAIFError(AIFERR_BADARG, NULL);
+		return -1;
+	}
+
+	char * fmt = AIF_FORMAT(a);
+	char * data = AIF_DATA(a);
+
+	return _aif_print(fp, depth, &fmt, &data, max_len);
+}
+
+/*
 ** Prints the object in human-readable form to fp, advances fds and data to
 ** the first location after the part printed.  Arithmetic values are given at
 ** least len bytes of significance, more if the fds indicates.
 */
 int
-_aif_print(FILE *fp, int depth, char **fds, char **data)
+_aif_print(FILE *fp, int depth, char **fds, char **data, size_t max_len)
 {
         char * tmp;
 
@@ -62,14 +62,14 @@ _aif_print(FILE *fp, int depth, char **fds, char **data)
                 return _aif_print_float(fp, depth, fds, data);
 
         case AIF_ARRAY:
-                return _aif_print_array(fp, depth, fds, data);
+                return _aif_print_array(fp, depth, fds, data, max_len);
 
         case AIF_ADDRESS:
                 return _aif_print_address(fp, depth, fds, data);
 
         case AIF_POINTER:
                 return _aif_print_pointer(fp, depth, fds, data);
-                
+
         case AIF_GENERIC_POINTER:
                 return _aif_print_generic_pointer(fp, depth, fds, data);
 
@@ -84,7 +84,7 @@ _aif_print(FILE *fp, int depth, char **fds, char **data)
 
         case AIF_REFERENCE:
                 tmp = _fds_lookup(fds);
-                return _aif_print(fp, depth, &tmp, data);
+                return _aif_print(fp, depth, &tmp, data, max_len);
 
         case AIF_STRING:
                 return _aif_print_string(fp, depth, fds, data);
@@ -103,22 +103,22 @@ _aif_print(FILE *fp, int depth, char **fds, char **data)
 
         case AIF_HASHED_SIGNATURE:
                 return _aif_print_int(fp, depth, fds, data);
-                
+
         case AIF_FTN_INTEGER:
                 return _aif_print_ftn_integer(fp, depth, fds, data);
-        
+
         case AIF_FTN_REAL:
                 return _aif_print_ftn_real(fp, depth, fds, data);
-        
+
         case AIF_FTN_COMPLEX:
                 return _aif_print_ftn_complex(fp, depth, fds, data);
-        
+
         case AIF_FTN_LOGICAL:
                 return _aif_print_ftn_logical(fp, depth, fds, data);
-        
+
         case AIF_FTN_CHARACTER:
-                return _aif_print_ftn_character(fp, depth, fds, data); 
-                
+                return _aif_print_ftn_character(fp, depth, fds, data);
+
         case AIF_FTN_ARRAY:
                 return _aif_print_ftn_array(fp, depth, fds, data);
 
@@ -134,7 +134,7 @@ int
 _aif_print_bool(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_bool_to_str(depth, fds, data) < 0 )
@@ -153,7 +153,7 @@ int
 _aif_print_char(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_char_to_str(depth, fds, data) < 0 )
@@ -172,7 +172,7 @@ int
 _aif_print_int(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_int_to_str(depth, fds, data) < 0 )
@@ -191,7 +191,7 @@ int
 _aif_print_float(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_float_to_str(depth, fds, data) < 0 )
@@ -207,13 +207,13 @@ _aif_print_float(FILE *fp, int depth, char **fds, char **data)
 }
 
 int
-_aif_print_array(FILE *fp, int depth, char **fds, char **data)
+_aif_print_array(FILE *fp, int depth, char **fds, char **data, size_t max_len)
 {
 	char *	str;
-	
+
 	_str_init();
 
-	if ( _aif_array_to_str(depth, fds, data) < 0 )
+	if ( _aif_array_to_str(depth, fds, data, max_len) < 0 )
 		return -1;
 
 	str = _str_get();
@@ -229,18 +229,18 @@ int
 _aif_print_address(FILE *fp, int depth, char **fds, char **data)
 {
         char *  str;
-        
+
         _str_init();
-        
+
         if ( _aif_address_to_str(depth, fds, data) < 0 )
                 return -1;
-                
+
         str = _str_get();
-        
+
         fprintf(fp, "%s", str);
-        
+
         _aif_free(str);
-        
+
         return 0;
 }
 
@@ -248,7 +248,7 @@ int
 _aif_print_pointer(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_pointer_to_str(depth, fds, data) < 0 )
@@ -267,26 +267,26 @@ int
 _aif_print_generic_pointer(FILE *fp, int depth, char **fds, char **data)
 {
         char *  str;
-        
+
         _str_init();
-        
+
         if ( _aif_generic_pointer_to_str(depth, fds, data) < 0 )
                 return -1;
-                
+
 
         str = _str_get();
-        
+
         fprintf(fp, "%s", str);
-        
+
         _aif_free(str);
-        
+
 		// char * pointers will have a string leftover on the end
 		if (FDSType(*fds) == AIF_STRING) {
 			fprintf(fp, " ");
 			if (_aif_print_string(fp, depth, fds, data) < 0)
 				return -2;
 		}
-		
+
         return 0;
 }
 
@@ -294,7 +294,7 @@ int
 _aif_print_region(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_region_to_str(depth, fds, data) < 0 )
@@ -313,7 +313,7 @@ int
 _aif_print_struct(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_struct_to_str(depth, fds, data) < 0 )
@@ -332,7 +332,7 @@ int
 _aif_print_name(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_name_to_str(depth, fds, data) < 0 )
@@ -351,7 +351,7 @@ int
 _aif_print_reference(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_reference_to_str(depth, fds, data) < 0 )
@@ -370,7 +370,7 @@ int
 _aif_print_string(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_string_to_str(depth, fds, data) < 0 )
@@ -389,7 +389,7 @@ int
 _aif_print_enum(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_enum_to_str(depth, fds, data) < 0 )
@@ -408,7 +408,7 @@ int
 _aif_print_union(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_union_to_str(depth, fds, data) < 0 )
@@ -427,7 +427,7 @@ int
 _aif_print_void(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_void_to_str(depth, fds, data) < 0 )
@@ -446,7 +446,7 @@ int
 _aif_print_function(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_function_to_str(depth, fds, data) < 0 )
@@ -470,7 +470,7 @@ int
 _aif_print_ftn_integer(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_integer_to_str(depth, fds, data) < 0 )
@@ -489,7 +489,7 @@ int
 _aif_print_ftn_real(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_real_to_str(depth, fds, data) < 0 )
@@ -508,7 +508,7 @@ int
 _aif_print_ftn_complex(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_complex_to_str(depth, fds, data) < 0 )
@@ -527,7 +527,7 @@ int
 _aif_print_ftn_logical(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_logical_to_str(depth, fds, data) < 0 )
@@ -546,7 +546,7 @@ int
 _aif_print_ftn_character(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_character_to_str(depth, fds, data) < 0 )
@@ -565,7 +565,7 @@ int
 _aif_print_ftn_array(FILE *fp, int depth, char **fds, char **data)
 {
 	char *	str;
-	
+
 	_str_init();
 
 	if ( _aif_ftn_array_to_str(depth, fds, data) < 0 )
@@ -667,7 +667,7 @@ AIFPrintArray(FILE *fp, int depth, AIF *a)
 	fmt = AIF_FORMAT(a);
 	data = AIF_DATA(a);
 
-	return _aif_print_array(fp, depth, &fmt, &data);
+	return _aif_print_array(fp, depth, &fmt, &data, 0);
 }
 
 int

@@ -105,7 +105,7 @@ public:
 private:
     char* m_name;
     std::vector<field> m_fields;
-}; 
+};
 
 struct_info_t::struct_info_t(const char* name, int numFields)
     : m_name(strdup(name)), m_fields(numFields) {
@@ -345,7 +345,7 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
 
             /*    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
                   if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }}); */
-    
+
     MICommand* cmd = MIVarCreate("-", "*", expr);
     sendMICommand(cmd);
     // If this fails, it means the symbol doesn't exist.
@@ -694,7 +694,7 @@ namespace {
         bool isTop() const { return (m_depth == 1); }
     };
 }
-        
+
 
 AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
     DVPRINT("GetAIF: %s\n", var->expr);
@@ -749,10 +749,10 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
                 delete child1;
             }
         }
-        
+
         val = new AIFStream(container);
     }
-        
+
     return val;
 }
 
@@ -890,7 +890,7 @@ AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
                 free(pt);
                 id = T_STRUCT;
                 break;
-            } 
+            }
 
             // otherwise, we have a hopefully simpler version of type, so give
             // GetComplexType another chance.
@@ -905,7 +905,7 @@ AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
         return getReferenceAIF(var.get());
     }
 
-    //--- Create the AIF. ---- 
+    //--- Create the AIF. ----
     AIFStream *a = nullptr;
     switch (id) {
         case T_ARRAY:
@@ -2191,7 +2191,7 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
         *type_struct = nullptr;
     if (type_func)
         *type_func = nullptr;
-    
+
     char *vecStr = strdup(var->type);
     int done = 0;
     //DVPRINT("GetArrayBaseType: %s\n", var->type);
@@ -2320,7 +2320,7 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
             free(p);
             break;
         }
-        
+
         id = getType(p);
         if (type_str != NULL) {
             free(*type_str);
@@ -3108,7 +3108,7 @@ AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_l
 #endif
         case T_COMPLEX_4:
             // ensure gdb gives us a sane result
-            if (char* pch = strchr(res, ',')) { 
+            if (char* pch = strchr(res, ',')) {
                 // get rid of the final ')'
                 res[strlen(res) - 1] = '\0';
                 // get rid of the initial '('
@@ -3437,7 +3437,7 @@ AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
                 continue;
             }
             DVPRINT("child %s has %d children\n", child1->name, child1->numchild);
-            
+
             for (int j=0; j<child1->numchild; ++j) {
                 auto child2 = child1->children[j];
                 child2->expr = strdup(child2->name);
@@ -3451,7 +3451,7 @@ AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
                 }
             }
         } else {
-            std::shared_ptr<MIVar> sv(child1, [](MIVar*){});  
+            std::shared_ptr<MIVar> sv(child1, [](MIVar*){});
             if (AIFStream* ac = getAIF(sv)) {
                 if (auto aif = ac->joinAIF()) {
                     AIFAddFieldToStruct(a, child1->exp, aif);
@@ -3513,7 +3513,7 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
 
         struct_info_t::field& sfield = result->getField(index);
 
-        
+
         // The field contains the type including its name. For instance, field
         // will contain int i. We only want to point at the int part.
         // Note that we need to do special things for function pointers.
@@ -3753,13 +3753,15 @@ public:
     void parseSome(const char* str);
 
     AIF* getResult();
+    size_t getElementsRead() const;
+    bool dataIsTruncated() const;
 
     // reset the parser to work on a new array - takes ownership of shape
     void setShape(arrayDimension_t* shape);
-    
+
 private:
     class Error {};
-    
+
     AIF* createSimpleAIF();
     AIF* makeEmptyArrayAIF(int i, AIF* ac);
     void addArrayElement(int i, AIF* ac);
@@ -3771,7 +3773,7 @@ private:
     void error(const std::string& message);
 
     int elementToCharcode(); // if the current element is a character, returns its ascii code
-    
+
     char* m_type_str;     // type information from GetArrayBaseType
     int m_type_len;
     struct_info_t* m_type_struct;
@@ -3790,6 +3792,8 @@ private:
     bool m_isFortran;           // true if the data-type is a fortran array
     bool m_hasError;            // true if the parser encountered a problem
     bool m_isFragment;          // true if the last block ended in the middle of an array
+    size_t m_elementsRead;      // counts the total amount of elements that have been read across all dimensions
+    bool m_isTruncated;         // true if the array got truncated (by e.g. set print elements)
     std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
     std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
     std::string m_element;      // the text of the current - potentially partial - element
@@ -3819,6 +3823,8 @@ MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
       m_isFortran(false),
       m_hasError(false),
       m_isFragment(false),
+      m_elementsRead{0},
+      m_isTruncated{false},
       m_abuild(m_dim),
       m_idcs(m_dim, 0) {}
 
@@ -3850,21 +3856,43 @@ void MIArrayToAIFParser::parseSome(const char *str) {
         for (const char *p = str; *p; ++p) {
             if ((*p == '(' || *p == '{' || *p == '"') && !m_inCharArray) {
                 openBracket(*p);
-            } else if (m_isFragment && !isspace(*p)) {
+            } else if (m_isFragment && !isspace(*p) && !m_isTruncated) {
                 error("insufficient data items in direction");
             } else if (*p == ')' || *p == '}' || *p == '"') {
                 closeBracket(*p);
             } else if (m_depth == m_dim && *p == ',' && !m_inCharArray) {
                 addElement();
+            } else if (m_depth == m_dim && strncmp(p, "...}", 4) == 0 && !m_inCharArray) {
+                // e.g. parsing "{{1, 2}, {3...}}" will produce an AIF array with data [[1, 2], [3, 0]],
+                // m_isTruncated will be true, and m_elements read will be 3. this behavior is
+                // necessary because AIF arrays are very rigidly sized and can't have inner arrays
+                // of differing length.
+                //
+                // m_elementsRead + 1 to make the debug message reflect the actual amount of elements that
+                // will be read after the bracket is closed
+                DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (inner).\n", m_elementsRead + 1);
+                m_isTruncated = true;
+                // move past "..." so p is pointing to '}'
+                // the ++p in the for loop declaration will make this advance 3 elements
+                p += 2;
             } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
-                m_element += *p;
+                // sometimes the data can come back like "{{1, 2}, {3...}...}"
+                // so we might detect truncation here too
+                if (strncmp(p, "...}", 4) != 0) {
+                    m_element += *p;
 
-                m_escapeNext = false;
+                    m_escapeNext = false;
 
-                if (*p == '\\' && m_inCharArray) {
-                    m_escapeNext = true;
-                } else if (m_inCharArray) {
-                    addElement();
+                    if (*p == '\\' && m_inCharArray) {
+                        m_escapeNext = true;
+                    } else if (m_inCharArray) {
+                        addElement();
+                    }
+                } else {
+                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
+                    m_isTruncated = true;
+                    // move past ... to }
+                    p += 2; // ++p in for loop declaration will make this 3
                 }
             }
         }
@@ -3949,7 +3977,12 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
     } else {
         if (!m_element.empty()) addElement();
 
-        if (m_inCharArray && m_abuild[m_depth - 1] != nullptr)
+        // this can happen if gdb reports a char array e.g. 8 characters long,
+        // but the actual data is e.g. 3 characters followed by \0. addElement
+        // won't push elements up because it doesn't think we're at the end yet.
+        //
+        // this can also happen if data gets truncated by set print elements.
+        if ((m_inCharArray || m_isTruncated) && m_abuild[m_depth - 1] != nullptr)
             pushElementsUp(m_depth - 1);
 
         --m_depth;
@@ -3996,10 +4029,11 @@ void MIArrayToAIFParser::addElement() {
 
     addArrayElement(m_depth - 1, aif);
     AIFFree(aif);
+    m_elementsRead++;
 }
 
 // Create an empty array in direction \a i to contain type \a ac.
-// i is ordered from slowest changing i=0 to fastest 
+// i is ordered from slowest changing i=0 to fastest
 AIF* MIArrayToAIFParser::makeEmptyArrayAIF(int i, AIF* ac)
 {
     AIF* aif = nullptr;
@@ -4101,13 +4135,13 @@ AIF *MIArrayToAIFParser::createSimpleAIF() {
 AIF* MIArrayToAIFParser::getResult() {
     if (m_hasError)
         return nullptr;
-    
+
     try {
         if (m_depth != 0)
             error("missing end bracket for array");
         else if (!m_abuild[0])
             error("expression ends prematurely");
-        
+
     } catch (Error&) {}
 
     if (!m_hasError) {
@@ -4116,6 +4150,19 @@ AIF* MIArrayToAIFParser::getResult() {
     if (m_abuild[0])
         AIFFree(m_abuild[0]);
     return nullptr;
+}
+
+// get the total number of elements read in all dimensions
+// e.g. with {{1, 2}, {3, 4}}, getElementsRead() == 4
+//      with {{1, 2}, {3...}}, getElementsRead() == 3
+size_t MIArrayToAIFParser::getElementsRead() const {
+    return m_elementsRead;
+}
+
+// returns true if the parser detected that the data it read was truncated.
+// if this is true, there might be some zeros in the end of the array that aren't real
+bool MIArrayToAIFParser::dataIsTruncated() const {
+    return m_isTruncated;
 }
 
 // reset the parser to work on a new array
@@ -4173,13 +4220,13 @@ public:
 
     arrayDimension_t* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
-    
+
 private:
     void determineSlicing();
     arrayDimension_t* makeSubShape(long subRng[2]);
 
     ArraySlicer(const ArraySlicer&) = delete;
-    ArraySlicer& operator=(const ArraySlicer&) = delete;    
+    ArraySlicer& operator=(const ArraySlicer&) = delete;
 
     MISession* m_session;       // session to connect to gdb/MI
     std::shared_ptr<MIVar> m_var;  // MI variable of interest
@@ -4204,7 +4251,7 @@ ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
     if (blockSizeStr) {
         long lval = atol(blockSizeStr);
         if (lval > 0)
-            m_blockSize = lval; 
+            m_blockSize = lval;
     }
 
     if (m_blockSize) {
@@ -4228,7 +4275,7 @@ void ArraySlicer::determineSlicing()
 {
     if (!m_blockSize)
         return;
-    
+
     std::string type(m_var->type);
     if (type.substr(0,12) == "std::vector<") {
         // C++ vector, we can treat this like an array if we can get at the size
@@ -4239,14 +4286,14 @@ void ArraySlicer::determineSlicing()
         char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
         if (!sizeRes)
             return;
-        
+
         int size = atoi(sizeRes);
         DVPRINT("Slicing got a size %d\n", size);
         free(sizeRes);
 
         if (size <= ptrdiff_t(m_blockSize))
             return;
-        
+
         // can I get the address of the first element?
         std::string frontStr = std::string("*&(") + m_var->expr + ")[0]";
         char* beginRes = EvalExpression(m_session, frontStr.c_str());
@@ -4357,7 +4404,7 @@ arrayDimension_t *ArraySlicer::getShape() {
         lengthLoc = withLoc;
         lengthTagLen = 4;
     }
-    
+
     if (!lengthLoc ) {
         DVPRINT("GetVectorLikeAIF: could not find length\n");
         return nullptr;
@@ -4394,13 +4441,13 @@ arrayDimension_t *ArraySlicer::getShape() {
 char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
 {
     DVPRINT("In ArraySlicer::getNext\n");
-    
+
     *sliceShape = nullptr;
     isFinal = true;
-    
+
     if (m_subIdx > m_maxSubIdx)
         return nullptr;
-    
+
     char* array = nullptr;
     if (m_array) {
         DVPRINT("In ArraySlicer::getNext no size information\n");
@@ -4438,7 +4485,7 @@ char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
         }
 
         DVPRINT("Evaluating sub-expression %s\n", subExpr.c_str());
-        
+
         array = EvalExpression(m_session,const_cast<char*>(subExpr.c_str()));
         if (array) {
             // success!
@@ -4491,11 +4538,11 @@ arrayDimension_t* ArraySlicer::makeSubShape(long subRng[2])
     }
 
     return subShape;
-}            
+}
 
 // Class for managing the extraction of an array data object via slices.   This object will
 // be wrapped in an AIFStream, and ultimately allows us to query gdb/mi for slice data as the
-// slices are ready to be consumed.   
+// slices are ready to be consumed.
 class ArrayStream : public AIFStream::Slices {
 public:
     // Constructor.   slicr and parser do the heavy lifting.
@@ -4506,6 +4553,7 @@ public:
 
     // return the next partition of data
     virtual AIF* getNextSlice(bool& isFinal) override;
+    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
 
     // free an slice after it is done being processed
     virtual void freeSlice(AIF* aif) override;
@@ -4526,6 +4574,12 @@ arrayDimension_t* ArrayStream::getFullShape() const {
 
 // return the next partition of data
 AIF* ArrayStream::getNextSlice(bool& isFinal) {
+    // unused, but required since the function take a references as an argument
+    size_t truncatedLength = 0;
+    return getNextSlice(isFinal, truncatedLength);
+}
+
+AIF *ArrayStream::getNextSlice(bool& isFinal, size_t& truncatedLength) {
     DVPRINT("In ArrayStream::getNextSlice\n");
     arrayDimension_t* subShape = nullptr;
     AIF* res = nullptr;
@@ -4534,6 +4588,9 @@ AIF* ArrayStream::getNextSlice(bool& isFinal) {
         freeArrayDimension(subShape);
 
         m_parser->parseSome(subResult);
+
+        truncatedLength = m_parser->dataIsTruncated() ? m_parser->getElementsRead() : 0;
+
         res = m_parser->getResult();
     }
 
@@ -4570,7 +4627,7 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
         AIFFree(ac);
         return new AIFStream(a);
     }
-    
+
     DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
             var->numchild, id, type_str, type_len);
 
@@ -4592,7 +4649,6 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
     freeArrayDimension(shape);
 
     return new AIFStream(arrayStream);
-
 }
 
 AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
@@ -4613,28 +4669,28 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
         AIF* ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
                                   type_func);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
-        
+
         AIFFree(ac);
         free(type_str);
         return new AIFStream(a);
-    } 
+    }
 
     DVPRINT("Slicing (vector-like) %s of type %s and dimension one\n", var->expr, var->type);
 
     DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
 
-    // The vector data could be enormous, so instead of getting it now, we just create an 
+    // The vector data could be enormous, so instead of getting it now, we just create an
     // AIFStream which can access the data as it is needed.
 
     auto slicer = std::make_shared<ArraySlicer>(m_session,var,nullptr);
 
-    arrayDimension_t *shape = slicer->getShape();                                                    
-    if (!shape) {                                                                                   
+    arrayDimension_t *shape = slicer->getShape();
+    if (!shape) {
         DVPRINT("could not get size of a vector like object");
         free(type_str);
-        return nullptr;                                                                             
-    }                                                                                               
-    
+        return nullptr;
+    }
+
     auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
                                                        type_func, id, shape);
     auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
@@ -4702,11 +4758,11 @@ AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
                 var->type, var->value, loc->second);
 
         // Create and store the var to dereference this pointer, we need to wrap the
-        // expression in quotes to handle types with spaces.  
+        // expression in quotes to handle types with spaces.
         auto derefExpr = std::ostringstream{};
         derefExpr << "\"*(" << var->type << ")" << var->value << "\"";
         m_refs.push_back(createMIVar(derefExpr.str().c_str()));
-    } 
+    }
     return new AIFStream(makeBackPointerAIF(loc->second));
 }
 

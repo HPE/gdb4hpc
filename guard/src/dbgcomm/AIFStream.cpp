@@ -7,11 +7,13 @@
 
 AIFStream::AIFStream(AIF* aif) :
     m_joinedAIF(aif), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_currentSlice(nullptr) {}
+    m_dataTruncatedLength{0},
+    m_slices{nullptr}, m_currentSlice(nullptr) {}
 
 AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
-    m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false), m_slices(slices),
-    m_currentSlice(nullptr)
+    m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false),
+    m_dataTruncatedLength{0},
+    m_slices(slices), m_currentSlice(nullptr)
 {}
 
 AIFStream::~AIFStream(){
@@ -33,7 +35,7 @@ AIF* AIFStream::getNextSlice(bool& isFinal)
     } else if (m_joinedAIF) {
         return m_joinedAIF;
     } else if (m_slices) {
-        AIF* slice = m_slices->getNextSlice(isFinal);
+        AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength);
         if (m_currentSlice)
             m_slices->freeSlice(m_currentSlice);
         m_currentSlice = slice;
@@ -64,9 +66,32 @@ AIF* AIFStream::joinAIF() {
     if (!m_joinedAIF && m_slices.get()) {
         joinAIFFromSlices();
     }
-        
+
     m_joinedIsExposed = true;
     return m_joinedAIF;
+}
+
+// creates a new aifstream and transfers ownership of the AIF retrieved from
+// getNextSlice(STEAL).
+// preserves truncation info in the new stream.
+AIFStream* AIFStream::createStreamFromNextSlice(bool &isFinal) {
+    // getNextSlice will set internal truncation data
+    auto aif = getNextSlice(AIFStream::STEAL, isFinal);
+    auto returnStream = new AIFStream(aif);
+    returnStream->setTruncatedLength(m_dataTruncatedLength);
+    return returnStream;
+}
+
+bool AIFStream::isTruncated() const {
+    return m_dataTruncatedLength != 0;
+}
+
+size_t AIFStream::getTruncatedLength() const {
+    return m_dataTruncatedLength;
+}
+
+void AIFStream::setTruncatedLength(size_t len) {
+    m_dataTruncatedLength = len;
 }
 
 // This version retrieves the monolithic AIF data structure, and cedes
@@ -80,12 +105,16 @@ AIF* AIFStream::joinAIF(steal_t) {
     return joinAIF();
 }
 
+bool AIFStream::hasJoinAIF() const {
+    return m_joinedAIF != nullptr;
+}
+
 // Create a single large AIF structure from the set of slices.
 void AIFStream::joinAIFFromSlices() {
     AIF* joinedAIF = nullptr;
     bool hasError = false;
     bool isFinal;
-    while (AIF* slice = m_slices->getNextSlice(isFinal)) {
+    while (AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength)) {
         size_t offset, sliceSize; bool isFullArray;
 
         if (hasError) {
@@ -179,7 +208,7 @@ bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bo
     if (offset + sliceSize > arraySize) {
         isOk = false;
     }
-        
+
     AIFArrayIndexFree(index);
     if (!isOk) {
         DPRINT("slice copy is out of bounds\n");

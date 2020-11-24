@@ -19,7 +19,7 @@ extern void *	_aif_alloc(int);
 extern void		_aif_and_bool(char *, char *, int, char *, int);
 extern void		_aif_and_int(char *, char *, int, char *, int);
 extern AIF *	_aif_array_ref(AIF *, int, int *, int *, int *, char *);
-extern int		_aif_array_to_str(int, char **, char **);
+extern int		_aif_array_to_str(int, char **, char **, size_t);
 extern int		_aif_binary_op(aifop, char **, char **, char **, char **, char **, char **);
 extern int		_aif_binary_op_bool(aifop, char **, char *, int, char *, int);
 extern int		_aif_binary_op_float(aifop, char **, char *, int, char *, int);
@@ -27,13 +27,13 @@ extern int		_aif_binary_op_complex(aifop, char **, char *, int, char *, int);
 extern int		_aif_binary_op_int(aifop, char **, char *, int, char *, int);
 extern int		_aif_bool_to_str(int, char **, char **);
 extern int		_aif_char_to_str(int, char **, char **);
-extern int		_aif_compare(	int *, char **, char **, char **, char **, 
-								int, char **, char **, int, char *, int, char *, 
+extern int		_aif_compare(	int *, char **, char **, char **, char **,
+								int, char **, char **, int, char *, int, char *,
 								int);
 extern int		_aif_cmp_int(int *, char *, int, char *, int, int, char **);
 extern int		_aif_cmp_float(	int *, char *, int, char *, int, int, char **,
 								int, char *, int, char *, int);
-extern int		_aif_cmp_complex(	int *, char *, int, char *, int, int, 
+extern int		_aif_cmp_complex(	int *, char *, int, char *, int, int,
 									char **, int, char *, int, char *, int);
 extern int		_aif_cmp_char(int *, char *, char *, int, char **);
 extern int		_aif_cmp_hashed(int *, char *, int, char *, int);
@@ -70,8 +70,8 @@ extern void		_aif_or_int(char *, char *, int, char *, int);
 extern int		_aif_address_to_str(int, char **, char **);
 extern int		_aif_pointer_to_str(int, char **, char **);
 extern int		_aif_generic_pointer_to_str(int, char **, char **);
-extern int		_aif_print(FILE *, int, char **, char **);
-extern int		_aif_print_array(FILE *, int, char **, char **);
+extern int		_aif_print(FILE *, int, char **, char **, size_t);
+extern int		_aif_print_array(FILE *, int, char **, char **, size_t);
 extern int		_aif_print_bool(FILE *, int, char **, char **);
 extern int		_aif_print_char(FILE *, int, char **, char **);
 extern int		_aif_print_enum(FILE *, int, char **, char **);

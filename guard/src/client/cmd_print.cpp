@@ -36,7 +36,7 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
     // only do work if we need to
     if (Client.print_elements != elements || force) {
         Client.print_elements = elements;
-        
+
         // it is valid to call this function with a null rec_set, before a
         // gdb instance is launched
         if (rec_set != nullptr) {
@@ -189,8 +189,9 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
         // Print the set info - Note that the rep_di can be null here if
         // the reply set was the result of an operation on two different
         // sets.
+        auto stream = EVENT_DATA(reply->rep_event);
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
-        auto aif = EVENT_DATA(reply->rep_event)->joinAIF();
+        auto aif = stream->joinAIF();
         char *str = nullptr;
         if (AIFType(aif) == AIF_STRING && AIFToStr(&str, 0, aif) == 0 &&
             strncmp(str + 1, MULTI_THREAD_HDR, strlen(MULTI_THREAD_HDR)) == 0) {
@@ -210,7 +211,7 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
                                          rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...
-            AIFPrint(Client.cli_out_stream, 0, aif);
+            AIFPrintN(Client.cli_out_stream, 0, aif, stream->getTruncatedLength());
             PrintOutMsg("\n");
         }
         free(str);

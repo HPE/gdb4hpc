@@ -1,9 +1,9 @@
 maint set sync on
 
 # character array specific tests
-launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_char_arrays.x --debug
+launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_arrays_print.x --debug
 
-break cpp_char_arrays.cpp:20
+break cpp_arrays_print.cpp:24
 
 continue
 
@@ -14,16 +14,25 @@ p one_d_s
 p two_d
 p two_d_u
 
+# full arrays
+print intarray
+print intarray2d
+print intarray2d2
+print floatarray
+
 # single elements
 ## valid
 p one_d[0]
 p two_d[0][0]
 p two_d[3][2]
+p intarray[2]
+p intarray2d[1][1]
 
 ## out of range
 p one_d[256]
 p two_d[256][0]
 p two_d[0][256]
+p intarray[10]
 
 # strings
 p cstring
@@ -38,23 +47,14 @@ p *intp
 # make sure printing a char** is normal
 p argv
 
+# setting pring elements
+set print elements 3
+
+p intarray
+p intarray2d
+p intarray2d2
+p two_d
+
 kill $a
-
-# generic array tests
-launch $b{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_arrays.x --debug
-
-break cpp_arrays.cpp:93
-
-continue
-
-# full array tests
-print staticArray
-
-# single element tests
-print staticArray[0]
-print staticArray[9]
-print staticArray[256]
-
-kill $b
 
 q

@@ -404,6 +404,7 @@ const char* const cmd_launch_help[] = {
     "              [--qsub=<batch_template> OR -q <batch_template>]",
     "              [--sbatch=<batch_template> OR -s <batch_template>]",
     "              [--gpu]",
+    "              [--gdb=<gdb_app>]",
     "",
     "Example command: launch $a{20000} ./helloworld",
     "",
@@ -433,6 +434,9 @@ const char* const cmd_launch_help[] = {
     "This will enable the use of a GPU supported version of gdb and set "
     "several",
     "environment variables for debugging.",
+    "",
+    "--gdb is an experimental option to use a specific debugger with each process,",
+    "for example: --gdb=/opt/rocm-3.9.0/bin/rocgdb",
     "",
     "The optional args, launcher_args, and name=value arguments should be "
     "enclosed",

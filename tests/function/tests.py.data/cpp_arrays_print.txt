@@ -26,6 +26,7 @@ a{0..2}: Debugger error: Slicing failed: Index out of range
 a{0..2}: Debugger error: Slicing failed: Index out of range
 a{0..2}: "hello \n world!"
 a{0..2}: "hello \n world!"
+a{0..2}: "const hello world!"
 a{0..2}: ""
 a{0..2}: 23
 a{0..2}: [0]

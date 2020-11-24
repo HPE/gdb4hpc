@@ -37,6 +37,7 @@ p intarray[10]
 # strings
 p cstring
 p cptr
+p const_cstring
 p empty
 
 # make sure normal pointers still work too

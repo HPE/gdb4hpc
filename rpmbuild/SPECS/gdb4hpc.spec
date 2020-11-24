@@ -9,7 +9,7 @@
 %global product gdb4hpc
 %global cray_product %{product}
 %global cray_name %{cray_product}
-%global set_as_default_true /opt/cray/pe/admin-pe/set_default_files/set_default_%{cray_product}_%{pkgversion}
+%global set_as_default_true /opt/cray/pe/admin-pe/set_default_files/set_default_%{cray_name}_%{pkgversion}
 %global set_as_default_false echo Not setting as default.
 
 # Path definitions

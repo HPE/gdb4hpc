@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
     // pointers
     char *cstring = "hello \n world!";
     char *cptr = cstring;
+    const char *const_cstring = "const hello world!";
     char *empty = "";
     int inte = 23;
     int *intp = &inte;

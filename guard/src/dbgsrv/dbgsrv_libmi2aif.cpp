@@ -173,7 +173,7 @@ private:
     void sendMICommand(MICommand* command);
     std::unique_ptr<char,decltype(std::free)*> sanitizeTypeString(const char *input);
 
-    AIF* makeBackPointerAIF(size_t idx);
+    AIF* makeBackPointerAIF(size_t idx, const char* type);
 };
 }
 
@@ -743,7 +743,7 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
                 continue;
             if (auto child1 = i ? getAIF(m_refs[i]) : val) {
                 if (auto aif = child1->joinAIF()) {
-                    auto fid = "[" + std::to_string(i) + "]";
+                    auto fid = "[" + std::to_string(i+1) + "]";
                     AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), aif);
                 }
                 delete child1;
@@ -4762,8 +4762,8 @@ AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
         auto derefExpr = std::ostringstream{};
         derefExpr << "\"*(" << var->type << ")" << var->value << "\"";
         m_refs.push_back(createMIVar(derefExpr.str().c_str()));
-    }
-    return new AIFStream(makeBackPointerAIF(loc->second));
+    } 
+    return new AIFStream(makeBackPointerAIF(loc->second, var->type));
 }
 
 // Create the AIF for a raw pointer value for contexts where we want to present
@@ -4835,13 +4835,16 @@ void Mi2Aif::sendMICommand(MICommand* command) {
 }
 
 // create an AIF type to represent a pointer reference to a specific indexed elmement
-AIF* Mi2Aif::makeBackPointerAIF(size_t idx) {
-    auto ival = IntToAIF(idx);
+AIF* Mi2Aif::makeBackPointerAIF(size_t idx, const char* type) {
+    auto ival = IntToAIF(idx+1);
     auto arr = EmptyArrayToAIF(0,0,ival);
     memcpy(AIF_DATA(arr), AIF_DATA(ival), AIF_LEN(ival));
 
     AIFFree(ival);
-    return arr;
+
+    auto ptr = GenericPointerToAIF(arr, const_cast<char*>(type));
+    AIFFree(arr);
+    return ptr;
 }
 
 

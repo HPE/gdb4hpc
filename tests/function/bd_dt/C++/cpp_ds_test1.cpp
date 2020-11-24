@@ -82,7 +82,7 @@ int main(int argc, char ** argv){
 		area2 = rectb.area();
         ll->push((i*3)%5);
 	}
-       
+    void* my_null = nullptr;       
 	int l_tail = l.back();
 	int pq_tail = pq.top();
 	int stack_top=s.top();

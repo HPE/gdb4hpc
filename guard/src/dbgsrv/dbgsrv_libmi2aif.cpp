@@ -3911,7 +3911,7 @@ void MIArrayToAIFParser::openBracket(char bracket) {
         m_isC = true;
     } else if (bracket == '(' && !m_isC) {
         m_isFortran = true;
-    } else if (bracket == '"' && !m_isFortran) {
+    } else if (bracket == '"' && !m_isFortran && m_element.empty()) {
         m_isC = true;
         m_inCharArray = true;
     } else {

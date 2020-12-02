@@ -3876,24 +3876,21 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                 // the ++p in the for loop declaration will make this advance 3 elements
                 p += 2;
             } else if (m_depth == m_dim && (m_inCharArray || !isspace(*p) || !m_element.empty())) {
-                // sometimes the data can come back like "{{1, 2}, {3...}...}"
-                // so we might detect truncation here too
-                if (strncmp(p, "...}", 4) != 0) {
-                    m_element += *p;
+                m_element += *p;
 
-                    m_escapeNext = false;
-
-                    if (*p == '\\' && m_inCharArray) {
-                        m_escapeNext = true;
-                    } else if (m_inCharArray) {
-                        addElement();
-                    }
-                } else {
-                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
-                    m_isTruncated = true;
-                    // move past ... to }
-                    p += 2; // ++p in for loop declaration will make this 3
+                m_escapeNext = false;
+                if (*p == '\\' && m_inCharArray) {
+                    m_escapeNext = true;
+                } else if (m_inCharArray) {
+                    addElement();
                 }
+            } else if (strncmp(p, "...}", 4) == 0) {
+                // sometimes the data, specifically strings, can come back 
+                // like "{"Hello"...}", so we might detect truncation here too
+                DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
+                m_isTruncated = true;
+                // move past ... to }
+                p += 2; // ++p in for loop declaration will make this 3
             }
         }
     } catch (Error &) {

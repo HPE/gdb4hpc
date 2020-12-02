@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
     char one_d[] = "Hello world!\n";
     unsigned char one_d_u[] = "Numbers"; // will be printed as decimal numbers
     signed char one_d_s[] = "Hello world! (signed)\t\n"; // treated the same as char
-    char two_d[4][16] = {"Hello", "World", "Once", "Again!\n"};
+    char two_d[4][16] = {"Hello", "World!\n", "Empty ->", ""};
     unsigned char two_d_u[4][4] = {"abc", "123", "xyz", "098"};
     int intarray[] = {1, 2, 3, 4, 5};
     int intarray2d[2][2] = {{1, 2}, {3, 4}};
@@ -16,9 +16,12 @@ int main(int argc, char* argv[]) {
 
     // pointers
     char *cstring = "hello \n world!";
+    char *cstring2 = "hola mundo!";
+    char *cstring3 = "hallo wereld!";
     char *cptr = cstring;
     const char *const_cstring = "const hello world!";
     char *empty = "";
+    char *cstringarray[] = {cstring, cstring2, cstring3};
     int inte = 23;
     int *intp = &inte;
 

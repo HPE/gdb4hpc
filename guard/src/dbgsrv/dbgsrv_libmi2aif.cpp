@@ -3875,7 +3875,7 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                 // move past "..." so p is pointing to '}'
                 // the ++p in the for loop declaration will make this advance 3 elements
                 p += 2;
-            } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
+            } else if (m_depth == m_dim && (m_inCharArray || !isspace(*p) || !m_element.empty())) {
                 // sometimes the data can come back like "{{1, 2}, {3...}...}"
                 // so we might detect truncation here too
                 if (strncmp(p, "...}", 4) != 0) {
@@ -4010,7 +4010,7 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
 void MIArrayToAIFParser::addElement() {
     if (m_depth != m_dim) {
         error(
-            "trying to add an element at the wrong depth. "
+            "trying to add an element (" + m_element + ") at the wrong depth. "
             "(depth:" +
             std::to_string(m_depth) + " != dim:" + std::to_string(m_dim) + ")");
         return;

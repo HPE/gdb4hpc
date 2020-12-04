@@ -24,6 +24,9 @@ int main(int argc, char* argv[]) {
     char *cstringarray[] = {cstring, cstring2, cstring3};
     int inte = 23;
     int *intp = &inte;
+    int inte2 = 24;
+    int *intp2 = &inte2;
+    int *intparray[] = {intp, intp2};
 
     MPI_Finalize();
     return 0;

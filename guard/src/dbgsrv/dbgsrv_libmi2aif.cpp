@@ -3875,22 +3875,25 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                 // move past "..." so p is pointing to '}'
                 // the ++p in the for loop declaration will make this advance 3 elements
                 p += 2;
-            } else if (m_depth == m_dim && (m_inCharArray || !isspace(*p) || !m_element.empty())) {
-                m_element += *p;
-
-                m_escapeNext = false;
-                if (*p == '\\' && m_inCharArray) {
-                    m_escapeNext = true;
-                } else if (m_inCharArray) {
-                    addElement();
-                }
-            } else if (strncmp(p, "...}", 4) == 0) {
+            } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
                 // sometimes the data, specifically strings, can come back 
                 // like "{"Hello"...}", so we might detect truncation here too
-                DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
-                m_isTruncated = true;
-                // move past ... to }
-                p += 2; // ++p in for loop declaration will make this 3
+                if (strncmp(p, "...}", 4) != 0) {
+                    m_element += *p;
+
+                    m_escapeNext = false;
+
+                    if (*p == '\\' && m_inCharArray) {
+                        m_escapeNext = true;
+                    } else if (m_inCharArray) {
+                        addElement();
+                    }
+                } else {
+                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
+                    m_isTruncated = true;
+                    // move past ... to }
+                    p += 2; // ++p in for loop declaration will make this 3
+                }
             }
         }
     } catch (Error &) {
@@ -3908,7 +3911,17 @@ void MIArrayToAIFParser::openBracket(char bracket) {
         m_isC = true;
     } else if (bracket == '(' && !m_isC) {
         m_isFortran = true;
-    } else if (bracket == '"' && !m_isFortran && m_element.empty()) {
+    } else if (bracket == '"' && !m_isFortran && (m_element.empty() || m_element == ", ")) {
+        // the gdb backend gives arrays of char * to the parser as
+        //    {0x... "string 1 here", 0x... "string 2 here"}
+        // we don't have a good way to fit variable length data into an array AIF,
+        // so we just want to treat them like normal pointers (with no string).
+        // this means we have to be careful when we see the quotes that start the
+        // strings and only start a char array AIF if we know we're not dealing with
+        // a pointer. a good way to do this is to make sure there's nothing in
+        // m_element when we start a char array.
+        //
+        // m_element can become ", " from the last part of the else if checks in parseSome.
         m_isC = true;
         m_inCharArray = true;
     } else {

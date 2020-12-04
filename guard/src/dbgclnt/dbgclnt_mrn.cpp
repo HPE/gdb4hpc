@@ -1822,8 +1822,6 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
     dir.resize(bloc+1); // keep the /
     dir += "share/ompd/gdb";
 
-    PrintOutError("base directory is %s\n", dir.c_str());
-    
     for (const auto& entry : std::filesystem::directory_iterator(dir)) {
         auto f = entry.path();
         if (f.filename() == "__pycache__") continue;

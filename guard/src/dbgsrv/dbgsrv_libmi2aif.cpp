@@ -3972,7 +3972,7 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
         m_element += bracket;
         --m_depth;
     } else {
-        if (!m_element.empty() || m_inCharArray) addElement();
+        if (!m_element.empty()) addElement();
 
         // this can happen if gdb reports a char array e.g. 8 characters long,
         // but the actual data is e.g. 3 characters followed by \0. addElement

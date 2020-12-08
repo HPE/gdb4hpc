@@ -230,10 +230,18 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
                 break;
             case GdbVersion::ROC_GDB:
                 DVPRINT("Using ROCgdb-guard\n");
-                MISessionSetGDBPath(m_session, "ROCgdb-guard");
-                // We have defined a different share directory for the
-                // ROCgdb binary's data-directory:
-                sprintf(gdb_type, "ROCgdb");
+                /* 
+                   MISessionSetGDBPath(m_session, "ROCgdb-guard"); 
+                   // We have defined a different share directory for the
+                   // ROCgdb binary's data-directory:
+                   sprintf(gdb_type, "ROCgdb");
+                */
+
+                DVPRINT("rocgdb is unavailable.\n");
+                DVPRINT("reverting to non-gpu mode.\n");
+                gpu_flag = 0;
+                
+
                 break;
             case GdbVersion::GDB_81:
                 DVPRINT("Unsupported driver version.\n");

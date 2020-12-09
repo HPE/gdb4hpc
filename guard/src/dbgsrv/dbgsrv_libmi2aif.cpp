@@ -3912,16 +3912,10 @@ void MIArrayToAIFParser::openBracket(char bracket) {
     } else if (bracket == '(' && !m_isC) {
         m_isFortran = true;
     } else if (bracket == '"' && !m_isFortran && (m_element.empty() || m_element == ", ")) {
-        // the gdb backend gives arrays of char * to the parser as
-        //    {0x... "string 1 here", 0x... "string 2 here"}
-        // we don't have a good way to fit variable length data into an array AIF,
-        // so we just want to treat them like normal pointers (with no string).
-        // this means we have to be careful when we see the quotes that start the
-        // strings and only start a char array AIF if we know we're not dealing with
-        // a pointer. a good way to do this is to make sure there's nothing in
-        // m_element when we start a char array.
-        //
-        // m_element can become ", " from the last part of the else if checks in parseSome.
+        // gdb will print single char * as strings, but arrays of char * as 
+        // pointer addresses with strings concatinated.
+        // we only start char arrays from parsing (single) strings, e.g. 
+        // '"string here"', not from pointers, e.g. '0x555c102 "string here"'.
         m_isC = true;
         m_inCharArray = true;
     } else {

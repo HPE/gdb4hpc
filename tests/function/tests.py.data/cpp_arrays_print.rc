@@ -3,7 +3,7 @@ maint set sync on
 # character array specific tests
 launch $a{3} --launcher-args="%%launcher_args%%" bd_dt/C++/cpp_arrays_print.x --debug
 
-break cpp_arrays_print.cpp:24
+break cpp_arrays_print.cpp:31
 
 continue
 
@@ -24,7 +24,7 @@ print floatarray
 ## valid
 p one_d[0]
 p two_d[0][0]
-p two_d[3][2]
+p two_d[2][0]
 p intarray[2]
 p intarray2d[1][1]
 
@@ -39,11 +39,13 @@ p cstring
 p cptr
 p const_cstring
 p empty
+p cstringarray
 
 # make sure normal pointers still work too
 p inte
 p intp
 p *intp
+p intparray
 
 # make sure printing a char** is normal
 p argv

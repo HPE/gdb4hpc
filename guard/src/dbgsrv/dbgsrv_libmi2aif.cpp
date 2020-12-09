@@ -3876,8 +3876,8 @@ void MIArrayToAIFParser::parseSome(const char *str) {
                 // the ++p in the for loop declaration will make this advance 3 elements
                 p += 2;
             } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
-                // sometimes the data can come back like "{{1, 2}, {3...}...}"
-                // so we might detect truncation here too
+                // sometimes the data, specifically strings, can come back 
+                // like "{"Hello"...}", so we might detect truncation here too
                 if (strncmp(p, "...}", 4) != 0) {
                     m_element += *p;
 
@@ -3911,7 +3911,11 @@ void MIArrayToAIFParser::openBracket(char bracket) {
         m_isC = true;
     } else if (bracket == '(' && !m_isC) {
         m_isFortran = true;
-    } else if (bracket == '"' && !m_isFortran) {
+    } else if (bracket == '"' && !m_isFortran && (m_element.empty() || m_element == ", ")) {
+        // gdb will print single char * as strings, but arrays of char * as 
+        // pointer addresses with strings concatinated.
+        // we only start char arrays from parsing (single) strings, e.g. 
+        // '"string here"', not from pointers, e.g. '0x555c102 "string here"'.
         m_isC = true;
         m_inCharArray = true;
     } else {
@@ -4010,7 +4014,7 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
 void MIArrayToAIFParser::addElement() {
     if (m_depth != m_dim) {
         error(
-            "trying to add an element at the wrong depth. "
+            "trying to add an element (" + m_element + ") at the wrong depth. "
             "(depth:" +
             std::to_string(m_depth) + " != dim:" + std::to_string(m_dim) + ")");
         return;

@@ -131,6 +131,31 @@ static int DbgMRNInit() {
     return 1;
 }
 
+// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
+// which one to use; and they might well not be the same for each rank.
+static bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
+    // The backend code will determine which version of cuda-gdb to use
+    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        return false;
+    }
+
+    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
+    // continuously and a typical machine might have 3 or 4 versions available.   So it
+    // make sense to just let the user select the rocgdb version they want by
+    // loading the right module or otherwise manipulationg PATH.
+    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
+        if (cti_addManifestBinary(mid, rocgdb)) {
+            free(rocgdb);
+            return false;
+        }
+        free(rocgdb);
+    }
+
+    return true;
+}
+
 /*
 ** Attach to user program and build an MRNet tree.
 */
@@ -407,23 +432,11 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
         goto attach_error;
     }
 
-    // This checks the setting of gpu_flag to figure out if cuda-gdb should be
+    // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
     if (gpu_flag) {
-        // The backend code will determine which version of cuda-gdb to use
-        if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        if (!DbgMRNAddGpuGdbs(mid))
             goto attach_error;
-        }
-        /* Leaving this in place because we'll probably want to add rocgdb to the 
-           manifest; we'll just want to get it from the system first instead..
-         else if (cti_addManifestBinary(mid, "ROCgdb-guard")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to add ROCgdb-guard to manifest.\n");
-            goto attach_error;
-        }
-            */
     }
 
     // Add dbgsrv to the manifest
@@ -1121,20 +1134,9 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
     if (gpu_flag && !gdb) {
-        // The backend code will determine which version of cuda-gdb to use
-        if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        if (!DbgMRNAddGpuGdbs(mid)) {
             goto invoke_error;
         }
-        /* Leaving this in place because we'll probably want to add rocgdb to the 
-           manifest; we'll just want to get it from the system first instead..
-        else if (cti_addManifestBinary(mid, "ROCgdb-guard")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to add ROCgdb-guard to manifest.\n");
-            goto invoke_error;
-        }
-        */
     }
 
     // add the dbgsrv

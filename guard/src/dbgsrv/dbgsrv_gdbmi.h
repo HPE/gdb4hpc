@@ -141,6 +141,9 @@ private:
     dbgevent_t* setup_gdbmi_signals();
     dbgevent_t* delete_internal_breakpoints(list_t *bplist);
     void setup_pretty_printing();
+    void initGpu();
+    void setDataDir(const char* gdbType);
+        
     DbgGdbMI& m_dbg;
     MISession* m_session;
     list_t *m_exitBP;

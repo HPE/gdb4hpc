@@ -23,6 +23,7 @@
 #include "alloc.h"
 #include "common_tools_be.h"
 #include "str.h"
+#include "path.h"
 #include <unistd.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -35,6 +36,8 @@ static void target_callback(char *);
 static void notification_callback(char *, MIList *);
 static void Finish(int);
 static dbgbp_t *get_dbgbp(MICommand *);
+static bool runRocgdb(MISession*);
+
 void SendMICommand(MISession *, MICommand *);
 
 // Enum for supported gdb versions
@@ -52,6 +55,7 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
+
 
 #ifndef ALPS
 // These are for sending the target output to the fe
@@ -99,171 +103,24 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     MISessionRegisterLogCallback(m_session, log_callback);
     MISessionRegisterTargetCallback(m_session, target_callback);
     MISessionRegisterNotifyCallback(m_session, notification_callback);
-    //set the default gdb type here for both the binary and the share directory,
-    //overwrite it if we're using a non standard backend gdb.
-    MISessionSetGDBPath(m_session, "gdb-guard");
-    char gdb_type[32];
-    //set the default value of gdb_type to "gdb"
-    sprintf(gdb_type, "gdb");
 
     // set the gdb path to use standard or gpu specific gdb
     if (custom_gdb) {
         DVPRINT("setting gdb path to %s\n", custom_gdb);
         MISessionSetGDBPath(m_session, custom_gdb);
         gdb_vers = GdbVersion::CUSTOM;
+        if (custom_gdb_data) {
+            MISessionSetGDBDataDirectory(m_session, custom_gdb_data);
+        }
     } else if (gpu_flag) {
-        // Need to determine the version of the driver to start the proper gdb
-        FILE *vers;
-        int num_fields = 0;
-
-        // Open the driver version file, if this fails we are not on a gpu node
-        // and should default to using the regular gdb.
-        if ((vers = fopen("/proc/driver/nvidia/version", "r")) != NULL) {
-            char *vers_cstr = NULL;
-            num_fields = fscanf(vers,
-                               "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
-                               "\t]%m[0-9.]",
-                               &vers_cstr);
-            fclose(vers);
-            if (num_fields > 0) {
-                // We now have the version string, close the vers file
-                DVPRINT("Detected Nvidia driver %s\n", vers_cstr);
-                // Now strcmp the driver version with a list of supported
-                // versions The known driver mappings are:
-                // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
-                // nvidia 340.* ==> CTK 6.5     ; deprecated, unsupported
-                // nvidia 346.* ==> CTK 7.0     ; deprecated, unsupported
-                // nvidia 352.* ==> CTK 7.5     ; deprecated, unsupported
-                // nvidia 361.* ==> CTK 8.0     ; deprecated, unsupported
-                // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
-                // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
-                // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
-                std::string vers_str(vers_cstr);
-                int vers_int = stoi(vers_str.substr(0,3));
-                //We're assuming forward compatibility from version 440
-                if (vers_int >= 440) {
-                    gdb_vers = GdbVersion::CUDA_101;
-                }
-            }
-            if (vers_cstr) {
-                free(vers_cstr);
-            }
-        } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
-            const size_t size = 1024;
-            char linebuf[size];
-            char versbuf[32];
-            FILE* fp = NULL;
-            int num_fields = 0;
-            fp = popen("/usr/sbin/dkms --version", "r");
-            if (fp != NULL) {
-                DVPRINT("popened /usr/sbin/dkms\n");
-                while (gdb_vers != GdbVersion::ROC_GDB &&
-                       fgets(linebuf, size, fp) != NULL) {
-                    num_fields = sscanf(linebuf, "%8s", versbuf);
-                    if (num_fields == 1) {
-                        if (strncmp(versbuf, "dkms:2.8", 8) == 0) {
-                            DVPRINT("Detected AMD driver %s\n", versbuf);
-                            gdb_vers = GdbVersion::ROC_GDB;
-                        }
-                    }
-                }
-                pclose(fp);
-            }
-        }
-
-        if (gdb_vers == GdbVersion::GDB_81) {
-            // Didn't find any of the gpu driver types; apparently gpu_flag is
-            // a global so we need to tell the world that we didn't find the
-            // correct gpu debugger. (really, we need to do better variable
-            // naming to make this obvious)
-            DVPRINT("Failed to determine gpu driver version.\n");
-            DVPRINT("Defaulting to non-gpu mode.\n");
-            gpu_flag = 0;
-        }
-        // If GPU mode is on and we're targeting Nvidia hardware, force tmpdir
-        // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
-        // this value *MUST* match the value set in the applications
-        // environment, otherwise things will hang.
-        if (gdb_vers == GdbVersion::CUDA_101) {
-            char *old_tmpdir;
-            struct stat st;
-
-            // Get the applications setting of TMPDIR
-            if ((old_tmpdir = getenv("CTI_OLD_TMPDIR")) != NULL) {
-                DVPRINT("Using application TMPDIR setting of %s\n",
-                        old_tmpdir);
-                if (setenv("TMPDIR", old_tmpdir, 1) < 0) {
-                    // failure
-                    DVPRINT("setenv failed");
-                }
-                // ensure the directory exists, otherwise create it
-                // try to stat the directory
-                if (stat(old_tmpdir, &st) != 0) {
-                    // the directory doesn't exist so we need to create
-                    // it use perms 755
-                    if (mkdir(old_tmpdir, S_IRWXU | S_IRGRP | S_IXGRP |
-                                              S_IROTH | S_IXOTH) != 0) {
-                        DVPRINT(
-                            "Could not create non-existent TMPDIR!\n");
-                    } else {
-                        DVPRINT("Created TMPDIR at %s\n", old_tmpdir);
-                    }
-                }
-            } else {
-                DVPRINT(
-                    "CTI_OLD_TMPDIR env var not set. Defaulting to "
-                    "/tmp.\n");
-                if (setenv("TMPDIR", "/tmp", 1) < 0) {
-                    // failure
-                    DVPRINT("setenv failed");
-                }
-            }
-        }
-
-        switch (gdb_vers) {
-            case GdbVersion::CUDA_101:
-                DVPRINT("Using cuda101-gdb-guard\n");
-                MISessionSetGDBPath(m_session, "cuda101-gdb-guard");
-                // We have defined a different share directory for the
-                // cuda gdb 10.1 binary's data-directory:
-                sprintf(gdb_type, "cuda-gdb");
-                break;
-            case GdbVersion::ROC_GDB:
-                DVPRINT("Using ROCgdb-guard\n");
-                /* 
-                   MISessionSetGDBPath(m_session, "ROCgdb-guard"); 
-                   // We have defined a different share directory for the
-                   // ROCgdb binary's data-directory:
-                   sprintf(gdb_type, "ROCgdb");
-                */
-
-                DVPRINT("rocgdb is unavailable.\n");
-                DVPRINT("reverting to non-gpu mode.\n");
-                gpu_flag = 0;
-                
-
-                break;
-            case GdbVersion::GDB_81:
-                DVPRINT("Unsupported driver version.\n");
-                DVPRINT("Defaulting to non-gpu mode.\n");
-                //gdb_type was initialized to default value of "gdb" after its
-                //declaration above...
-                gpu_flag = 0;
-                break;
-            case GdbVersion::CUSTOM:
-                DVPRINT("Using custom gdb driver %s\n", custom_gdb);
-                break;
-        }
+        // try to initialize a gpu back-end, if this fails, gdb_vers will
+        // be set to GdbVersion::GDB_81
+        initGpu();
     }
 
-    // Get the base dir env var if it was set and use that for data-directory
-    if (custom_gdb_data) {
-        MISessionSetGDBDataDirectory(m_session, custom_gdb_data);
-    } else if (char *env_base_dir = getenv(GUARD_INST_DIRECTORY)) {
-        char *gdb_data_dir;
-        Asprintf(&gdb_data_dir, "%s/share/%s", env_base_dir, gdb_type);
-        MISessionSetGDBDataDirectory(m_session, gdb_data_dir);
-        Free(gdb_data_dir);
+    if (gdb_vers == GdbVersion::GDB_81) {
+        MISessionSetGDBPath(m_session, "gdb-guard");
+        setDataDir("gdb");
     }
 
     // Ensure PYTHONSTARTUP isn't set
@@ -325,6 +182,131 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend: setup_gdbmi_signals"));
 
     return (dbgevent_t *)NULL;
+}
+
+// Initialize the backend when --gpu is given as an argument
+void DbgGdbMI::Initializer::initGpu()
+{
+    //-----------------------------------------------------------------------
+    // Need to determine the version of the driver to start the proper gdb
+    //-----------------------------------------------------------------------
+
+    if (auto vers = fopen("/proc/driver/nvidia/version", "r")) {
+        // We are on an nvidia node.
+        char *vers_cstr = nullptr;
+        int num_fields = fscanf(vers,
+                            "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
+                            "\t]%m[0-9.]",
+                            &vers_cstr);
+        fclose(vers);
+        if (num_fields > 0) {
+            // We now have the version string, close the vers file
+            DVPRINT("Detected Nvidia driver %s\n", vers_cstr);
+            // Now strcmp the driver version with a list of supported
+            // versions The known driver mappings are:
+            // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
+            // nvidia 340.* ==> CTK 6.5     ; deprecated, unsupported
+            // nvidia 346.* ==> CTK 7.0     ; deprecated, unsupported
+            // nvidia 352.* ==> CTK 7.5     ; deprecated, unsupported
+            // nvidia 361.* ==> CTK 8.0     ; deprecated, unsupported
+            // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
+            // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
+            // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
+            std::string vers_str(vers_cstr);
+            int vers_int = stoi(vers_str.substr(0,3));
+            //We're assuming forward compatibility from version 440
+            if (vers_int >= 440) {
+                gdb_vers = GdbVersion::CUDA_101;
+            }
+        }
+        if (vers_cstr) {
+            free(vers_cstr);
+        }
+    } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
+        // we may be on a AMDnode.
+        // The dkms check seems a little suspect, but the worst side effect might
+        // just be that we run with rocgdb on the backend and lose some fortran
+        // support.
+        if (auto fp = popen("/usr/sbin/dkms --version", "r")) {
+            DVPRINT("popened /usr/sbin/dkms\n");
+            const size_t size = 1024;
+            char linebuf[size];
+            while ( fgets(linebuf, size, fp)) {
+                if (strncmp(linebuf, "dkms:2.8", 8) == 0) {
+                    DVPRINT("Detected AMD driver %s\n", linebuf);
+                    gdb_vers = GdbVersion::ROC_GDB;
+                    break;
+                }
+            }
+            pclose(fp);
+        }
+    }
+
+    if (gdb_vers == GdbVersion::GDB_81) {
+        // Didn't find any of the gpu driver types; apparently gpu_flag is
+        // a global so we need to tell the world that we didn't find the
+        // correct gpu debugger. (really, we need to do better variable
+        // naming to make this obvious)
+        DVPRINT("Failed to determine gpu driver version.\n");
+        DVPRINT("Defaulting to non-gpu mode.\n");
+        gpu_flag = 0;
+        
+    } else if (gdb_vers == GdbVersion::CUDA_101) {
+        // If GPU mode is on and we're targeting Nvidia hardware, force tmpdir
+        // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
+        // this value *MUST* match the value set in the applications
+        // environment, otherwise things will hang.
+
+        char *old_tmpdir;
+        struct stat st;
+
+        // Get the applications setting of TMPDIR
+        if ((old_tmpdir = getenv("CTI_OLD_TMPDIR")) != NULL) {
+            DVPRINT("Using application TMPDIR setting of %s\n",
+                    old_tmpdir);
+            if (setenv("TMPDIR", old_tmpdir, 1) < 0) {
+                // failure
+                DVPRINT("setenv failed");
+            }
+            // ensure the directory exists, otherwise create it
+            // try to stat the directory
+            if (stat(old_tmpdir, &st) != 0) {
+                // the directory doesn't exist so we need to create
+                // it use perms 755
+                if (mkdir(old_tmpdir, S_IRWXU | S_IRGRP | S_IXGRP |
+                          S_IROTH | S_IXOTH) != 0) {
+                    DVPRINT(
+                        "Could not create non-existent TMPDIR!\n");
+                } else {
+                    DVPRINT("Created TMPDIR at %s\n", old_tmpdir);
+                }
+            }
+        } else {
+            DVPRINT(
+                "CTI_OLD_TMPDIR env var not set. Defaulting to "
+                "/tmp.\n");
+            if (setenv("TMPDIR", "/tmp", 1) < 0) {
+                // failure
+                DVPRINT("setenv failed");
+            }
+        }
+
+        // set the path and data directory
+        DVPRINT("Using cuda101-gdb-guard\n");
+        MISessionSetGDBPath(m_session, "cuda101-gdb-guard");
+        setDataDir("cuda-gdb");
+
+    } else if (gdb_vers == GdbVersion::ROC_GDB) {
+        if (runRocgdb(m_session)) {
+            DVPRINT("Using rocgdb from manifest\n");
+            DVPRINT("not setting data directory\n");
+        } else {
+            DVPRINT("rocgdb is unavailable.\n");
+            DVPRINT("reverting to non-gpu mode.\n");
+            gpu_flag = 0;
+            gdb_vers = GdbVersion::GDB_81;
+        }
+    }
 }
 
 /*
@@ -1669,3 +1651,31 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
 
     return e;
 }
+
+void DbgGdbMI::Initializer::setDataDir(const char* gdbType) {
+    if (auto baseDir = getenv(GUARD_INST_DIRECTORY)) {
+        auto dataDir = std::string{baseDir} + "/share/" + gdbType;
+        MISessionSetGDBDataDirectory(m_session, dataDir.c_str());
+    }
+}
+
+// Get rocgdb out of the manifest and setup MI to call it.   Return false if
+// it is not available.
+static bool runRocgdb(MISession* session) {
+
+    if (auto binDir = cti_be_getBinDir()) {
+        auto rocgdb = std::string{binDir} + "/rocgdb";
+        free(binDir);
+
+        if (access(rocgdb.c_str(), X_OK) == 0) {
+            DVPRINT("found rocgdb at %s\n", rocgdb.c_str());
+            MISessionSetGDBPath(session, rocgdb.c_str());
+            return true;
+        } else {
+            DVPRINT("could not find rocgdb in %s\n", binDir);
+        }
+    }
+
+    return false;
+}
+

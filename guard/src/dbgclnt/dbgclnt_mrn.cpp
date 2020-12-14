@@ -61,6 +61,7 @@ static void DbgMRNDestroyClient(dbginvoke_t *);
 #ifdef BE_VALGRIND
 static int DbgAddValgrindFiles(cti_manifest_id_t mid);
 #endif
+static bool DbgMRNAddOmpd(cti_manifest_id_t mid);
 
 // protocol specific startup event callback functions
 static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
@@ -433,8 +434,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
         goto attach_error;
     }
 
-#if 1  // RWM
-       // send over the uda plugin - only if gpu mode is currently turned off
+    // send over the uda plugin - only if gpu mode is currently turned off
     if (!gpu_flag) {
         if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so")) {
             PrintOutError("CTI error: %s\n", cti_error_str());
@@ -442,18 +442,11 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
             goto attach_error;
         }
     }
-// End upc addition
-#endif
 
-#if 0  // use with strace for libmi
-	if (cti_addManifestBinary(mid, "strace"))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add strace to manifest.\n");
+    if (!DbgMRNAddOmpd(mid)) {
+        PrintOutError("Failed to add ompd to manifest.\n");
+    }
 
-		goto attach_error;
-	}
-#endif
 
     // Add libthread_db otherwise gdb will be messed up with thread
     // support
@@ -1144,8 +1137,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
         goto invoke_error;
     }
 
-#if 1  // RWM
-       // send over the uda plugin - only if gpu mode is currently turned off
+    // send over the uda plugin - only if gpu mode is currently turned off
     if (!gpu_flag) {
         if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so")) {
             PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1154,18 +1146,11 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
             goto invoke_error;
         }
     }
-// End upc addition
-#endif
+    // End upc addition
 
-#if 0  // use with strace for libmi
-	if (cti_addManifestBinary(mid, "strace"))
-	{
-		PrintOutError("CTI error: %s\n", cti_error_str());
-		PrintOutError("Failed to add strace to manifest.\n");
-
-		goto invoke_error;
-	}
-#endif
+    if (!DbgMRNAddOmpd(mid)) {
+        PrintOutError("Failed to add ompd to manifest.\n");
+    }
 
     // Add libthread_db otherwise gdb will be messed up with thread
     // support
@@ -1817,3 +1802,34 @@ static int DbgAddValgrindFiles(cti_manifest_id_t mid)
     return 0;
 }
 #endif
+
+// Explicitly publish the ompd library files for the back-end.
+static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
+{
+    auto dir = std::string{};
+    try {
+        dir = std::filesystem::canonical("/proc/self/exe");
+    } catch (std::exception& err) {
+        PrintOutError("Could not get executable path, opmd will not be available\n");
+        return false;
+    }
+
+
+    // we expect gdb4hpc to bin a bin directory and ompd to be in share
+    auto bloc = dir.rfind("/bin");
+
+    if (bloc == std::string::npos) return false;
+    dir.resize(bloc+1); // keep the /
+    dir += "share/ompd/gdb";
+
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        auto f = entry.path();
+        if (f.filename() == "__pycache__") continue;
+        if (cti_addManifestFile(mid, f.c_str())) {
+            PrintOutError("adding ompd file to the manifest failed\n");
+            break;
+        }
+    }
+        
+    return true;
+}

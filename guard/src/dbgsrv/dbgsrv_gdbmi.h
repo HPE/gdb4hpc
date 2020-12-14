@@ -112,9 +112,14 @@ private:
         auto ids = getMultiThreadBreaks(bid,remove);
         for (auto it = ids.rbegin(); it != ids.rend(); ++it) op(*it);
     }
+    dbgevent_t*  initOmpd();
+    bool initOmpdL();
 
     std::map<int,std::vector<int>> m_multiThreadBreaks;
     std::unique_ptr<Initializer> m_initializer;
+    bool m_ompdIsInitialized;
+    bool m_ompdIsAvail;
+    std::string m_beFileDir;  // location of manifest files
 };
 
 class DbgGdbMI::Initializer {

@@ -312,13 +312,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py
 %{__cp} -a %{tests_source_dir}/function/avocado_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %{__cp} -a %{tests_source_dir}/function/test_tool_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
-%{__cp} -a %{tests_source_dir}/function/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile.am
-%{__cp} -a %{tests_source_dir}/function/configure.ac ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/configure.ac
-%{__cp} -a %{tests_source_dir}/function/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
+%{__cp} -a %{tests_source_dir}/function/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/Makefile.am
-
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_cmp_diff.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_pause.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_test.c
@@ -327,7 +322,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_dlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/libdlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bd_test.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bd_test.cpp
@@ -341,7 +335,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_parallel_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_parallel_threads.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_threads.cpp
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/Makefile.am ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/Makefile.am
 %{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_arrays.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_arrays.f90
 %{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_bd_dt.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_bd_dt.f90
 %{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_cmp_diff.f90
@@ -687,13 +680,8 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile.am
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/configure.ac
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/Makefile.am
-
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_cmp_diff.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_pause.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_test.c
@@ -702,7 +690,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bd_test.cpp
@@ -716,7 +703,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_parallel_threads.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_threads.cpp
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/Makefile.am
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_arrays.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_bd_dt.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_cmp_diff.f90

@@ -27,6 +27,15 @@ clean:
 	rm -f */*/*.o
 	rm -f */*/*.so
 
+%.o : %.c
+	cc -g -O0 -c -I./include $< -o $@
+
+%.o : %.cpp
+	CC -g -O0 -c -I./include $< -o $@
+
+%.o : %.f90
+	ftn -g -O0 -c $< -o $@
+
 bd_dt/c/c_time.x : bd_dt/c/wtime.o bd_dt/c/mtest.o
 	cc -g -O0 $^ -o $@
 
@@ -80,11 +89,3 @@ bd_dt/fortran/ftn_arrays.x : bd_dt/fortran/ftn_arrays.o
 
 bd_dt/fortran/ftn_decomp.x : bd_dt/fortran/ftn_decomp.o
 	ftn -g -O0 $^ -o $@
-%.o : %.c
-	cc -g -O0 -c -I./include $< -o $@
-
-%.o : %.cpp
-	CC -g -O0 -c -I./include $< -o $@
-
-%.o : %.f90
-	ftn -g -O0 -c $< -o $@

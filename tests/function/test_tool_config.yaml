@@ -3,7 +3,7 @@
 build:
   # target specific checks and rules
   targets:
-    check:
+    all:
       directory: .
 
 # config for test time

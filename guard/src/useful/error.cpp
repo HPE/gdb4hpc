@@ -52,12 +52,11 @@ void SetError(const char *fmt, ...) {
 
 void SetSysError(const char *fmt, ...) {
     va_list args;
-    char buf[BUFSIZ];
+    char buf[BUFSIZ-2];  // -2 removes a truncation warning in the snprintf.
 
     va_start(args, fmt);
 
     vsnprintf(buf, sizeof(buf), fmt, args);
-    const auto n = sizeof(_lasterr);
-    if (snprintf(_lasterr, n, "%s: %s", buf, strerror(errno)) >= int(n)) { /* ignore truncation */ }
+    snprintf(_lasterr, sizeof(_lasterr), "%s: %s", buf, strerror(errno));
     va_end(args);
 }

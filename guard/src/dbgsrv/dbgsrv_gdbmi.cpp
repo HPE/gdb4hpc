@@ -311,19 +311,26 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
             // may not matter, but undo in LIFO order for neatness sake
             FreeEvent(deleteBreak(*it));
         }
-    } else if (bpIds.size() > 1) {
+
+        return event.release();
+    } 
+
+    // guard-gdb only supports a thread specific breakpoint only for a single thread, so
+    // we return the first and track the others via m_multiThreadBreaks.
+    if (bpIds.size() > 1) {
         DVPRINT("adding multiThreadBreaks\n");
         int id = bpIds.front();
         bpIds.erase(bpIds.begin());
         m_multiThreadBreaks.insert(std::make_pair(id, bpIds));
-
-        auto bp = EVENT_BP(event);
-        if (bp && threadSet) {
-            char* ts = strdup(threadSet);
-            std::swap(ts, bp->bp_threadId);
-            free(ts);
-        }
     }
+
+    // add the thread info if this is a thread specific breakpoint
+    if (threadSet && !threads.empty() && threads[0] != -1) {
+        auto bp = EVENT_BP(event);
+        char* ts = strdup(threadSet);
+        std::swap(ts, bp->bp_threadId);
+        free(ts);
+    } 
 
     return event.release();
 }

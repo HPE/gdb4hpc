@@ -350,6 +350,7 @@ char *resolve_hostname(char const *hostname) {
     // extract the IP address string
     if (auto const rc = getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, ip_addr, MAXADDRLEN,
                 NULL, 0, NI_NUMERICHOST)) {
+        freeaddrinfo(infoptr);
         free(ip_addr);
         PrintOutError("ERROR: failed to extract IP address for %s\n",
                       hostname);

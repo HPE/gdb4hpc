@@ -1812,7 +1812,7 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
     try {
         dir = std::filesystem::canonical("/proc/self/exe");
     } catch (std::exception& err) {
-        PrintOutError("Could not get executable path, opmd will not be available\n");
+        PrintOutError("Could not get executable path, ompd will not be available\n");
         return false;
     }
 
@@ -1824,14 +1824,19 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
     dir.resize(bloc+1); // keep the /
     dir += "share/ompd/gdb";
 
-    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-        auto f = entry.path();
-        if (f.filename() == "__pycache__") continue;
-        if (cti_addManifestFile(mid, f.c_str())) {
-            PrintOutError("adding ompd file to the manifest failed\n");
-            break;
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            auto f = entry.path();
+            if (f.filename() == "__pycache__") continue;
+            if (cti_addManifestFile(mid, f.c_str())) {
+                PrintOutError("adding ompd file to the manifest failed\n");
+                break;
+            }
         }
+    } catch (std::exception& err) {
+        PrintOutError("ompd path %s not found, ompd will not be available\n", dir.c_str());
+        return false;
     }
-        
+
     return true;
 }

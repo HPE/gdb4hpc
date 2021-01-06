@@ -339,17 +339,24 @@ char *resolve_hostname(char const *hostname) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     struct addrinfo *infoptr = NULL;
-    if (getaddrinfo(hostname, NULL, &hints, &infoptr) || !infoptr) {
+    if (auto const rc = getaddrinfo(hostname, NULL, &hints, &infoptr) || !infoptr) {
         free(ip_addr);
         PrintOutError("ERROR: failed to resolve frontend hostname %s\n",
                       hostname);
-        perror("getaddrinfo");
+        fprintf(stderr, "getaddrinfo: %s (%d)\n", gai_strerror(rc), rc);
         return NULL;
     }
 
     // extract the IP address string
-    getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, ip_addr, MAXADDRLEN - 1,
-                NULL, 0, NI_NUMERICHOST);
+    if (auto const rc = getnameinfo(infoptr->ai_addr, infoptr->ai_addrlen, ip_addr, MAXADDRLEN,
+                NULL, 0, NI_NUMERICHOST)) {
+        freeaddrinfo(infoptr);
+        free(ip_addr);
+        PrintOutError("ERROR: failed to extract IP address for %s\n",
+                      hostname);
+        fprintf(stderr, "getnameinfo: %s (%d)\n", gai_strerror(rc), rc);
+        return NULL;
+    }
     freeaddrinfo(infoptr);
     ip_addr[MAXADDRLEN] = '\0';
 

@@ -268,13 +268,13 @@ Tests for Cray gdb4hpc parallel debugger
 # ompd gdb plugin
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb
-%{__cp} -a %{external_build_dir}/ompd/gdb/frame_filter.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/frame_filter.py
-%{__cp} -a %{external_build_dir}/ompd/gdb/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/__init__.py
-%{__cp} -a %{external_build_dir}/ompd/gdb/ompd_address_space.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
-%{__cp} -a %{external_build_dir}/ompd/gdb/ompd_callbacks.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
-%{__cp} -a %{external_build_dir}/ompd/gdb/ompd_handles.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
-%{__cp} -a %{external_build_dir}/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so
-%{__cp} -a %{external_build_dir}/ompd/gdb/ompd.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/frame_filter.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/frame_filter.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/__init__.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_address_space.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_callbacks.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_handles.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1

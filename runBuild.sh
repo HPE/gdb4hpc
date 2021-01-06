@@ -270,7 +270,7 @@ echo "############################################"
 echo "#             Building ompd plugin         #"
 echo "############################################"
 
-ompd_dir=$install_dir/ompd
+ompd_dir=$install_dir/share/ompd
 ompd_build=$ompd_dir/build
 
 mkdir -p $ompd_build

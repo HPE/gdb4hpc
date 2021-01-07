@@ -506,12 +506,13 @@ void Usage(void) {
 
 void Server(void) {
     int fd = -1;
-    int dtbsz = getdtablesize();
+    int dtbsz = min(FD_SETSIZE, getdtablesize());
     fd_set *readfds;
     dbgevent_t *e;
     struct timeval tv;
 
     DVPRINT("dbgsrv: Server() main loop has started!\n");
+    DVPRINT("dtbsz: %d\n", dtbsz);
 
     for (;;) {
         DVPRINT("dbgsrv: Main loop\n");
@@ -520,6 +521,7 @@ void Server(void) {
 
         // add the debugger output file descriptor to the set
         if (DbgFD >= 0) FD_SET(DbgFD, readfds);
+        // DVPRINT("DbgFD: %d\n", DbgFD);
 
         /*
         ** If IOBackendFD >= 0 then we are reading the target output and
@@ -528,6 +530,7 @@ void Server(void) {
         */
         if (IOBackendFD >= 0) {
             FD_SET(IOBackendFD, readfds);
+            // DVPRINT("IOBackendFD: %d\n", IOBackendFD);
 
             /*
             ** IOClientFD is just used to set up the socket
@@ -535,6 +538,7 @@ void Server(void) {
             ** it is set to -1 and not used again.
             */
             if (IOClientFD >= 0) FD_SET(IOClientFD, readfds);
+            // DVPRINT("IOClientFD: %d\n", IOClientFD);
         }
 
         // Wait for an asynchronous event if a asynch handler has been

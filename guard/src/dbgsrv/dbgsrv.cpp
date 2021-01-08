@@ -506,12 +506,13 @@ void Usage(void) {
 
 void Server(void) {
     int fd = -1;
-    int dtbsz = getdtablesize();
+    int dtbsz = min(FD_SETSIZE, getdtablesize());
     fd_set *readfds;
     dbgevent_t *e;
     struct timeval tv;
 
     DVPRINT("dbgsrv: Server() main loop has started!\n");
+    DVPRINT("dtbsz: %d\n", dtbsz);
 
     for (;;) {
         DVPRINT("dbgsrv: Main loop\n");

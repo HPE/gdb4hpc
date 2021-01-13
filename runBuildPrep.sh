@@ -84,7 +84,7 @@ fi
 install_common_pe
 
 # Install CTI and CDST support
-#install_cti
+install_cti
 
 arch=$(get_arch)
 if [[ "$arch" == "$cdst_arch_aarch64" ]]; then

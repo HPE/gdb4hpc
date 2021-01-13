@@ -42,7 +42,8 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             rpm-build \
             tcl \
             which \
-            xz-devel
+            xz-devel \
+            python3-pip
     check_exit_status
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
     # Note the following will be different on build VMs vs DST. Errors are okay.
@@ -83,7 +84,7 @@ fi
 install_common_pe
 
 # Install CTI and CDST support
-install_cti
+#install_cti
 
 arch=$(get_arch)
 if [[ "$arch" == "$cdst_arch_aarch64" ]]; then

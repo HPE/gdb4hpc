@@ -20,7 +20,7 @@ TESTS = \
    bd_dt/fortran/ftn_cmp_diff.x \
    bd_dt/fortran/ftn_arrays.x \
    bd_dt/fortran/ftn_decomp.x \
-   bd_dt_fortran/ftn_bd_dt.x
+   bd_dt/fortran/ftn_bd_dt.x
 
 all: $(TESTS)
 

@@ -16,6 +16,7 @@ TESTS = \
    bd_dt/C++/cpp_parallel_threads.x \
    bd_dt/C++/cpp_bt.x \
    bd_dt/C++/cpp_bt_stress.x \
+   bd_dt/C++/cpp_arrays_print.x \
    bd_dt/fortran/ftn_cmp_diff.x \
    bd_dt/fortran/ftn_arrays.x \
    bd_dt/fortran/ftn_decomp.x \
@@ -79,7 +80,10 @@ bd_dt/C++/cpp_parallel_threads.x : bd_dt/C++/cpp_parallel_threads.o
 bd_dt/C++/cpp_bt.x : bd_dt/C++/cpp_bt.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_bt_stress.x :    bd_dt/C++/cpp_bt_stress.o
+bd_dt/C++/cpp_bt_stress.x : bd_dt/C++/cpp_bt_stress.o
+	CC -g -O0 $^ -o $@
+
+bd_dt/C++/cpp_arrays_print.x : bd_dt/C++/cpp_arrays_print.o
 	CC -g -O0 $^ -o $@
 
 bd_dt/fortran/ftn_cmp_diff.x : bd_dt/fortran/ftn_cmp_diff.o

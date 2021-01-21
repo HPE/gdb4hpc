@@ -278,7 +278,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_address_space.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_callbacks.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_handles.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
-%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 
 # manpage
@@ -654,6 +654,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/elinos.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/cuda-gdb/system-gdbinit/wrs-linux.py
+%endif
 
 #ompd share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/frame_filter.py
@@ -661,11 +662,10 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-x86_64-linux-gnu.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
-
 #end share
-%endif
+
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}

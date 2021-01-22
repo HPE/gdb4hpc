@@ -24,7 +24,7 @@ Product Description:
 
   * GDB-like feel, also implements a gdbmode to enable a true parallel gdb.
 
-  * GPU debugging is supported for OpenMP 4.0+ GPU directives.
+  * GPU debugging is supported for OpenMP 4.0+ GPU directives; OpenMP 5.0 on AMD GPU's.
 
   * Workload manager support via Common Tools Interface (cray-cti).
 
@@ -41,13 +41,15 @@ Purpose:
 Product and OS Dependencies:
 -----------------------------
   The gdb4hpc <VERSION> is supported on the following Cray systems:
-    - Cray XC systems with CLE release 7.0 or later
-    - Cray CS systems with CentOS/RH 8.0 or later
-    - Cray Shasta systems
+    - HPE/Cray XC systems with CLE 7.0 or later
+    - HPE/Cray CS systems with CentOS/RH 8.0 or later
+    - HPE/Cray Shasta systems with SLES 15 service pack 1 or later
+    - HPE Apollo systems with Slurm and RH 8.0 or later
+    - Baymax systems with RH 8.0 or later
 
   Product Dependencies:
-    - Cray cti rpm installed
-    - Cray cdst-support rpm installed
+    - Cray cray-cti rpm installed
+    - Cray cray-cdst-support rpm installed
 
 Documentation:
 ---------------

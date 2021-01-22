@@ -99,7 +99,7 @@ else
         echo "$top_level/external/pebuildenv submodule not checked out..."
         exit 1
     fi
-    export product_version="11.0"
+    export product_version="11.1"
     export pebuildenv_path=$top_level/external/pebuildenv
     $top_level/external/pebuildenv/src/cuda-local.sh
     check_exit_status

@@ -93,6 +93,11 @@
 %global OS_HW_TAG 7.0,7.1
 %global OS_WB_TAG sles15sp1
 %endif
+%if 0%{?sle_version} == 150200
+%global dist .sles15sp2
+%global OS_HW_TAG 7.2
+%global OS_WB_TAG sles15sp2
+%endif
 %endif
 
 %if %{_arch} == aarch64

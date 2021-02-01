@@ -19,6 +19,11 @@ launch:
     alps: ""
     ssh: ""
 
+# having to do with the test tool itself
+meta:
+  keep: # don't delete these files upon -r option
+    - Makefile
+
 # system specific overides
 cfa6k:
   launch:

@@ -26,3 +26,6 @@
 	path = external/openmp
 	url = ssh://git@stash.us.cray.com:7999/pe-cce/openmp.git
 	branch = ompd-plugin-fixes
+[submodule "rpmbuild/SOURCES/set_default"]
+	path = rpmbuild/SOURCES/set_default
+	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git

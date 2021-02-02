@@ -1,5 +1,6 @@
 # Packaging definitions
 %global pkgversion %(%{_sourcedir}/get_package_data --crayversion)
+%global minorVersion %(echo %{pkgversion} | cut -d. -f2)
 %global pkgversion_separator -
 %global copyright Copyright 2007-2021 Hewlett Packard Enterprise Development LP.
 
@@ -19,27 +20,27 @@
 %global external_build_dir %{cray_prefix}/%{cray_product}/%{pkgversion}
 
 %global tests_source_dir %{_topdir}/../tests
-%global demo_source_dir %{_topdir}/../extras/demos
+%global demo_source_dir  %{_topdir}/../extras/demos
 
 # modulefile definitions
-%global modulefile_name %{cray_name}
+%global modulefile_name      %{cray_name}
 %global module_template_name %{modulefile_name}.module.template
 
 # set_default modulefile definitions
-%global set_default_command set_default
-%global set_default_template_name %{set_default_command}.template
-%global set_default_path admin-pe/set_default_files
+%global set_default_command       set_default
+%global set_default_template      set_default_template
+%global set_default_path          admin-pe/set_default_files
 
 # lmod modulefiles
-%global lmod_template_gdb4hpc template_%{product}.lua
+%global lmod_template_gdb4hpc     template_%{product}.lua
 
 # release info
-%global release_info_name release_info
+%global release_info_name          release_info
 %global release_info_template_name %{release_info_name}.template
 
 # yaml file
 %global yaml_template yaml.template
-%global removal_date %(date '+%Y-%m-%d' -d "+5 years")
+%global removal_date  %(date '+%Y-%m-%d' -d "+5 years")
 
 # attributions file
 %global attributions_name ATTRIBUTIONS_gdb4hpc.txt
@@ -125,7 +126,6 @@ Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
 Requires:   set_default_2, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}
 Source0:    %{module_template_name}
-Source1:    %{set_default_template_name}
 Source2:    %{release_info_template_name}
 Source3:    %{attributions_name}
 Source4:    %{lmod_template_gdb4hpc}
@@ -293,16 +293,22 @@ Tests for Cray gdb4hpc parallel debugger
 # lmod modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}
 %{__sed} 's|\[@%PREFIX_PATH%@\]|%{prefix}|g;s|\[@%MODULE_VERSION%@\]|%{pkgversion}|g' %{SOURCE4} > ${RPM_BUILD_ROOT}/%{prefix}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
-# set_default scripts
-%{__sed} 's|<PREFIX>|%{prefix}|g;s|<CRAY_PRODUCT>|%{cray_product}|g;s|<VERSION>|%{pkgversion}|g;s|<MODULEFILE_NAME>|%{modulefile_name}|g' %{SOURCE1} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_name}_%{pkgversion}
+# set_default template
+%{__sed} 's|\[product_name\]|%{cray_product}|g;s|\[version_string\]|%{pkgversion}|g;s|\[install_dir\]|%{prefix}|g;s|\[module_dir\]|%{prefix}/modulefiles|g;s|\[module_name_list\]|%{modulefile_name}|g;s|\[lmod_dir_list\]|%{prefix}/lmod/modulefiles/core|g;s|\[lmod_name_list\]|%{modulefile_name}|g' %{_sourcedir}/set_default/%{set_default_template} > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_name}_%{pkgversion}
 # set_default into admin-pe
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}
 %{__install} -D ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_name}_%{pkgversion} ${RPM_BUILD_ROOT}/%{prefix}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{pkgversion}
 # yaml file
 %{__mkdir} -p %{_rpmdir}/%{_arch}
+%global start_rmLine %(sed -n /section-3/= %{SOURCE5})
+%global end_rmLine %(sed -n /SET_AS_DEFAULT/= %{SOURCE5} | tail -1)
+%if %{minorVersion} == 9999
+%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}|g;s|<SET_AS_DEFAULT>|%{set_as_default_false}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
+%else
 %{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<SET_AS_DEFAULT>|%{set_as_default_false}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
-# yaml set as default file
-%{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<SET_AS_DEFAULT>|%{set_as_default_true}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.set_as_default.rpm.yaml
+%endif
+# yaml file - tests (No modulefile provided)
+%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}-tests|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;'/admin-pe'/d' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-tests-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 
 # tests
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests
@@ -446,12 +452,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/include/mpitestcxx.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestcxx.h
 %{__cp} -a %{tests_source_dir}/function/include/mpithreadtest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpithreadtest.h
 %{__cp} -a %{tests_source_dir}/function/include/rectangle.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/rectangle.h
-
-# yaml file
-# since there is no modulefile in the tests rpm, remove related sections from the template
-%global start_rmLine %(sed -n /section-3/= %{SOURCE5})
-%global end_rmLine %(sed -n /SET_AS_DEFAULT/= %{SOURCE5} | tail -1)
-%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}-tests|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;'/admin-pe'/d' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-tests-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 
 %post
 # Add Shasta configuration files for PE content projection

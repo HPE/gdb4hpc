@@ -142,6 +142,14 @@ static bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
         return false;
     }
 
+    if (cti_addManifestBinary(mid, "cuobjdump")) {
+        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
+        // amd system, it is not required so printint a complaint here could be confusing.
+        // It will be cleaner to trigger this from the back-end after it determines we
+        // are on an nvidia system.
+        //PrintOutError("Failed to add cuobjdump to manifest.\n");
+    }
+
     // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
     // continuously and a typical machine might have 3 or 4 versions available.   So it
     // make sense to just let the user select the rocgdb version they want by

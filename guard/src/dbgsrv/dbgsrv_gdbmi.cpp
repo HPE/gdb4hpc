@@ -251,6 +251,13 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         }
     }
 
+    if (char* objdump = pathFind("cuobjdump", nullptr)) {
+        DVPRINT("found cuobjdump at %s\n", objdump);
+        free(objdump);
+    } else {
+        DVPRINT("did not find cuobjdump, PATH is %s\n", getenv("PATH"));
+    }
+
     // -1 is the gdb/gdbmi indicator for a normal stop on all threads breakpoint
     if (threads.empty()) threads.push_back(-1);
 

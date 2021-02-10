@@ -37,15 +37,17 @@ const char* const cmd_attach_help[] = {
     "For example, app_handle should only be a scalar debugger variable such as "
     "$a.",
     "",
-    "The apid can be obtained by using the apstat utility. For slurm, the "
-    "job_id",
-    "can be optained from squeue and the step_id can be obtained from sstat. "
-    "The",
-    "slurm app_ident should be provided as <job_id>.<step_id> on Cray systems.",
+    "For ALPS, the apid can be obtained by using the apstat utility.",
     "",
-    "For Cray clusters, app_ident should be the pid of the launcher process "
-    "that",
-    "started the application. This can be obtained using ps.",
+    "For Slurm, app_ident should be provided as <job_id>.<step_id> on Cray systems.",
+    "The job_id is available from squeue and the step_id can be found using ",
+    "sstat --format=JobId <job_id>.",
+    "",
+    "For Cray clusters or Apollo / Everest HPCM systems running PALS, app_ident ",
+    "should be the pid of the application's launcher process (e.g. mpiexec) as ",
+    "reported by ps.  gdb4hpc must be run on that launching node which may not be ",
+    "the same node that started the batch run.   The launching node is printed by ",
+    "qstat -n",
     "",
     "If you wish to enable GPU debugging, add --gpu to your attach command.",
     "This will enable the use of a GPU supported version of gdb and set "

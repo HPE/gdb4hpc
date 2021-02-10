@@ -1,7 +1,7 @@
-.\"  Copyright 2018, 2020 Hewlett Packard Enterprise Development LP.
-.\"  $LastChangedDate: 2018-10-30 $ 
-.ds ]v Last changed: 10-30-2018
-.TH "gdb4hpc" "1" "10-30-2018" 
+.\"  Copyright 2018, 2020,2021 Hewlett Packard Enterprise Development LP.
+.\"  $LastChangedDate: 2021-02-08 $ 
+.ds ]v Last changed: 02-08-2021
+.TH "gdb4hpc" "1" "02-08-2021" 
 .ad l 
 .nh 
 .shc *
@@ -127,21 +127,37 @@ Placed  Apid ResId     User   PEs Nodes    Age   State Command
 .po -2
 .fi
 .sp
-For native SLURM, use the \fB\%qstat\fP and \fBsstat\fP commands to obtain the \fBjob_id\fP and \fBstep_id\fP, respectively\&. The SLURM application identifier should be provided as \fIjob_id\fP\&.\fIstep_id\fP\&. For example, if the application \fBa\&.out\fP was launched using \fB\%qsub\fP, the following \fB\%qstat\fP output shows the application\&'s \fBjob_id\fP is \fB453282\fP, and the \fB\%sstat\fP output shows the application\&'s \fBstep_id\fP is \fB0\fP\&.
+For native SLURM, use the \fB\%squeue\fP and \fBsstat\fP commands to obtain the \fBjob_id\fP and \fBstep_id\fP, respectively\&. The SLURM application identifier should be provided as \fIjob_id\fP\&.\fIstep_id\fP\&. For example, if the application \fBa\&.out\fP was launched using \fB\%srun\fP, the following \fB\%squeue\fP output shows the application\&'s \fBjob_id\fP is \fB22702\fP, and the \fB\%sstat\fP output shows the application\&'s \fBstep_id\fP is \fB0\fP\&.
 .nf
 .sp
 .po +2
-% \fBqstat\fP
-Job id              Name             Username        Time Use S Queue
-------------------- ---------------- --------------- -------- - ---------------
-453224              sst              user123         00:01:59 R share
-453282              a\&.out            user124         00:00:00 R share
-453283              Chpl-lulesh-den  user125         00:00:00 R share
-
-% \fBsstat 453282\fP
-JobID     MaxVMSize  MaxVMSizeNode  MaxVMSizeTask  AveVMSize  MaxRSS \&.\&.\&.
-453282\&.0  226136K    nid00013       30             204001K    9936K  \&.\&.\&.      
+% \fBsqueue\fP
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+             22702  amdMI100    a\&.out  user123  R      32:15      1 node010
+             22701   amdMI60    faces  user124  R       4:32      1 node004
+	     
+% \fBsstat --format=JobId 22702\fP
+       JobID 
+------------ 
+22702\&.0      
 .po -2
+.fi
+.sp
+If the WLM is PALS or GENERIC, the \fBjob_id\fP is simply the process id of the mpiexec process.
+There are two ways to find the mpiexec process id:
+.sp
+\fBProcedure 1\&.\fR  Create an interactive job with \fBqsub -I -V -l<resource list>\fP then
+launch your job directly via \fBmpiexec\fP.   In this case, the interactive job already puts
+you shell on the launching node, so can just run \fBgdb4hpc\fP (step 5) and attach using the
+mpiexec process id.
+.sp
+\fBProcedure 2\&.\fP  If the job was launched via a batch script, use \fBqstat -n\fP to find the
+launching node.   Then \fBssh\fP to that node, find your \fBmpiexec\fP process, run \fBgdb4hpc\fP
+(step 5) on that node and attach using the mpiexec process id.
+.sp
+\fBNote:\fP   These procedures are temporary work-arounds for the preliminary PALS support in
+\fBgdb4hpc\fP.
+.PP
 .fi
 .sp
 .PP

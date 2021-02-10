@@ -11,11 +11,17 @@
 # used, reproduced or disclosed in any form.
 #
 
+top_level=$PWD
+
 source ./external/cdst_build_library/build_lib
 
+source $top_level/release_versioning
+gdb4hpc_version="$major.$minor.$revision"
+install_dir="/opt/cray/pe/gdb4hpc/$gdb4hpc_version"
+
 # Remove build dir
-if [ -d /opt/cray/pe/gdb4hpc ]; then
-  rm -rf /opt/cray/pe/gdb4hpc
+if [ -d ${install_dir} ]; then
+   mv ${install_dir} ${install_dir}_orig
 fi
 
 arch=$(uname -m)

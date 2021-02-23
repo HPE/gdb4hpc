@@ -220,3 +220,62 @@ int WaitForProtoStartupEvent(dbginvoke_t *di) {
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+const std::string DebugClientProtocol::name = "Interface";
+
+int DebugClientProtocol::init() {
+    throw FunctionNotImplementedException("init");
+}
+
+void DebugClientProtocol::finish() {
+    throw FunctionNotImplementedException("finish");
+}
+
+bitset* DebugClientProtocol::sendCommand(struct dbginvoke *, bitset *, const char *) {
+    throw FunctionNotImplementedException("sendCommand");
+}
+
+struct proto_msg_set* DebugClientProtocol::receiveReply(struct dbginvoke *, bitset *,bitset *) {
+    throw FunctionNotImplementedException("receiveReply");
+}
+
+int DebugClientProtocol::checkEvents(struct dbginvoke *) {
+    throw FunctionNotImplementedException("checkEvents");
+}
+
+void DebugClientProtocol::dispatchEvents(struct dbginvoke *, int) {
+    throw FunctionNotImplementedException("dispatchEvents");
+}
+
+proto_session *DebugClientProtocol::createSession(struct dbgclnt_proto *, WLM_type, const char *, const char *,const char *) {
+    throw FunctionNotImplementedException("createSession");
+}
+
+void DebugClientProtocol::saveSession(proto_session *) {
+    throw FunctionNotImplementedException("saveSession");
+}
+
+void DebugClientProtocol::cleanupSession(proto_session *) {
+    throw FunctionNotImplementedException("cleanupSession");
+}
+
+int DebugClientProtocol::attach(struct dbginvoke *, proto_session *, const char *,
+    const char *, const char *, int, int) {
+    throw FunctionNotImplementedException("attach");
+}
+    
+int DebugClientProtocol::launch(struct dbginvoke *, proto_session *, const char *, 
+    char **, const char *, char **, const char *, const char *, const char*, 
+    char **, const char *, int, int, int, bool) {
+    throw FunctionNotImplementedException("launch");
+}
+
+int DebugClientProtocol::exit(struct dbginvoke *, int detach) {
+    throw FunctionNotImplementedException("exit");
+}
+
+void DebugClientProtocol::destroyClient(struct dbginvoke *) {
+    throw FunctionNotImplementedException("destroyClient");
+}

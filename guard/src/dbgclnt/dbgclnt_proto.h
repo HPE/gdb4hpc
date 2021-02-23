@@ -38,6 +38,9 @@
 #include "bitset.h"
 #include "proto_message.h"
 
+#include <string>
+#include <exception>
+
 // forward declare struct dbginvoke - Note that because the struct dbginvoke is
 // first encountered inside of a list of parameters for the function pointer, we
 // *must* forward declare it otherwise the compiler will mess up.
@@ -58,7 +61,46 @@ typedef struct proto_session proto_session;
 enum WLM_type { WLM_none, WLM_qsub, WLM_sbatch };
 typedef enum WLM_type WLM_type;
 
+// thrown when a child class of DebugClientProtocol attempts to call a function
+// that the child class does not implement.
+struct FunctionNotImplementedException : public std::exception {
+    const char* fName;
+
+    FunctionNotImplementedException(const char* functionName) 
+        : std::exception()
+        , fName{functionName}
+    {}
+
+    const char* functionName() const { return fName; }
+};
+
 // main protocol definition
+class DebugClientProtocol {
+public:
+    // name of the protocol
+    static const std::string name;
+
+    virtual int init();
+    virtual void finish();
+    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *);
+    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *);
+    virtual int checkEvents(struct dbginvoke *); // check for ready event
+    virtual void dispatchEvents(struct dbginvoke *, int);
+
+    // Client protocol routines
+    virtual proto_session *createSession(struct dbgclnt_proto *, WLM_type, 
+        const char *, const char *,const char *);
+    virtual void saveSession(proto_session *);
+    virtual void cleanupSession(proto_session *); // called when a session is no longer valid
+    virtual int attach(struct dbginvoke *, proto_session *, const char *,
+        const char *, const char *, int, int);
+    virtual int launch(struct dbginvoke *, proto_session *, const char *, char **,
+        const char *, char **, const char *, const char *, const char*, char **,
+        const char *, int, int, int, bool);
+    virtual int exit(struct dbginvoke *, int detach);
+    virtual void destroyClient(struct dbginvoke *);
+};
+
 struct dbgclnt_proto {
     const char *sw_name; /* Name of the protocol */
 

@@ -26,7 +26,7 @@ class LinkedList {
 public:
     LinkedList() : val(0), next(this) {}
     ~LinkedList() { 
-        for (auto n = next; n; ) { 
+        for (auto n = next; n && n != this; ) {
             auto elem = n;
             n = n->next;
             elem->next = nullptr;

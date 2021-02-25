@@ -40,20 +40,12 @@
 
 #include <string>
 #include <exception>
+#include <vector>
 
 // forward declare struct dbginvoke - Note that because the struct dbginvoke is
 // first encountered inside of a list of parameters for the function pointer, we
 // *must* forward declare it otherwise the compiler will mess up.
 struct dbginvoke;
-
-// Used to keep track of sessions associated with the proxy based dbgclnt_proto
-// implementation
-struct proto_session {
-    struct dbgclnt_proto *sess_proto;
-    void *sess_obj;  // This is data used by the protocol layer
-                     // that is allocated on a per session basis.
-};
-typedef struct proto_session proto_session;
 
 // Some protocols will interact with the workload manager. Known workload
 // managers are defined in the following enumeration. Note that the name
@@ -78,74 +70,82 @@ struct FunctionNotImplementedException : public std::exception {
 class DebugClientProtocol {
 public:
     // name of the protocol
-    static const std::string name;
+    virtual const std::string name() const = 0;
 
-    virtual int init();
-    virtual void finish();
-    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *);
-    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *);
-    virtual int checkEvents(struct dbginvoke *); // check for ready event
-    virtual void dispatchEvents(struct dbginvoke *, int);
+    virtual int init() const;
+    virtual void finish() const;
+    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *) const;
+    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) const;
+    virtual int checkEvents(struct dbginvoke *) const; // check for ready event
+    virtual void dispatchEvents(struct dbginvoke *, int) const;
 
     // Client protocol routines
     virtual proto_session *createSession(struct dbgclnt_proto *, WLM_type, 
-        const char *, const char *,const char *);
-    virtual void saveSession(proto_session *);
-    virtual void cleanupSession(proto_session *); // called when a session is no longer valid
+        const char *, const char *,const char *) const;
+    virtual void saveSession(proto_session *) const;
+    virtual void cleanupSession(proto_session *) const; // called when a session is no longer valid
     virtual int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int, int);
+        const char *, const char *, int, int) const;
     virtual int launch(struct dbginvoke *, proto_session *, const char *, char **,
         const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int, int, bool);
-    virtual int exit(struct dbginvoke *, int detach);
-    virtual void destroyClient(struct dbginvoke *);
+        const char *, int, int, int, bool) const;
+    virtual int exit(struct dbginvoke *, int detach) const;
+    virtual void destroyClient(struct dbginvoke *) const;
 };
 
-struct dbgclnt_proto {
-    const char *sw_name; /* Name of the protocol */
-
-    int (*sw_init)(void);    /* protocol init function */
-    void (*sw_finish)(void); /* protocol finish function */
-
-    bitset *(*sw_send_cmd)(struct dbginvoke *, bitset *,
-                           const char *); /* protocol send command function */
-    struct proto_msg_set *(*sw_recv_reply)(
-        struct dbginvoke *, bitset *,
-        bitset *); /* protocol receive reply function */
-    int (*sw_checkevents)(
-        struct dbginvoke *); /* protocol check for ready event function */
-    void (*sw_dispatchevents)(struct dbginvoke *,
-                              int); /* protocol event dispatch function */
-
-    /*
-    ** Client protocol routines.
-    */
-    proto_session *(*sw_create_session)(
-        struct dbgclnt_proto *, WLM_type, const char *, const char *,
-        const char *); /* protocol create session function */
-    void (*sw_save_session)(proto_session *);
-    void (*sw_cleanup_session)(
-        proto_session *); /* protocol cleanup session function - called when a
-                             session is no longer valid */
-    int (*sw_attach)(struct dbginvoke *, proto_session *, const char *,
-                     const char *, const char *, int,
-                     int); /* protocol attach function */
-    int (*sw_launch)(struct dbginvoke *, proto_session *, const char *, char **,
-                     const char *, char **, const char *, const char *, const char*, char **,
-                     const char *, int, int,
-                     int, bool); /* protocol launch function */
-    int (*sw_exit)(struct dbginvoke *, int detach); /* protocol exit function */
-    void (*sw_destroyclnt)(
-        struct dbginvoke *); /* protocol destroy dbginvoke specific instance */
+// Used to keep track of sessions associated with the proxy based dbgclnt_proto
+// implementation
+struct proto_session {
+    struct DebugClientProtocol *sess_proto;
+    void *sess_obj;  // This is data used by the protocol layer
+                     // that is allocated on a per session basis.
 };
-typedef struct dbgclnt_proto dbgclnt_proto;
+typedef struct proto_session proto_session;
+
+// struct dbgclnt_proto {
+//     const char *sw_name; /* Name of the protocol */
+
+//     int (*sw_init)(void);    /* protocol init function */
+//     void (*sw_finish)(void); /* protocol finish function */
+
+//     bitset *(*sw_send_cmd)(struct dbginvoke *, bitset *,
+//                            const char *); /* protocol send command function */
+//     struct proto_msg_set *(*sw_recv_reply)(
+//         struct dbginvoke *, bitset *,
+//         bitset *); /* protocol receive reply function */
+//     int (*sw_checkevents)(
+//         struct dbginvoke *); /* protocol check for ready event function */
+//     void (*sw_dispatchevents)(struct dbginvoke *,
+//                               int); /* protocol event dispatch function */
+
+//     /*
+//     ** Client protocol routines.
+//     */
+//     proto_session *(*sw_create_session)(
+//         struct dbgclnt_proto *, WLM_type, const char *, const char *,
+//         const char *); /* protocol create session function */
+//     void (*sw_save_session)(proto_session *);
+//     void (*sw_cleanup_session)(
+//         proto_session *); /* protocol cleanup session function - called when a
+//                              session is no longer valid */
+//     int (*sw_attach)(struct dbginvoke *, proto_session *, const char *,
+//                      const char *, const char *, int,
+//                      int); /* protocol attach function */
+//     int (*sw_launch)(struct dbginvoke *, proto_session *, const char *, char **,
+//                      const char *, char **, const char *, const char *, const char*, char **,
+//                      const char *, int, int,
+//                      int, bool); /* protocol launch function */
+//     int (*sw_exit)(struct dbginvoke *, int detach); /* protocol exit function */
+//     void (*sw_destroyclnt)(
+//         struct dbginvoke *); /* protocol destroy dbginvoke specific instance */
+// };
+// typedef struct dbgclnt_proto dbgclnt_proto;
 
 /*
 ** Function definitions
 */
-extern void SetClntProto(void);
-extern dbgclnt_proto *GetClntProto(void);
-extern dbgclnt_proto *FindClntProto(const char *);
+const std::vector<const DebugClientProtocol *> getClientProtos();
+const DebugClientProtocol* findClientProtoByName(std::string protoName);
 
 extern int WaitForProtoStartupEvent(struct dbginvoke *);
 

@@ -88,7 +88,7 @@ struct dbginvoke {
                      // protocols
     proto_network d_proto_net;  // di specific protocol network object
     proto_outp d_proto_outp;    // di specific protocol output object
-    dbgclnt_proto *d_proto;     // client protocol switch
+    DebugClientProtocol *d_proto;     // client protocol switch
 
     // The following two callbacks are for protocol event messages and for
     // handling the actual events in the client layer.

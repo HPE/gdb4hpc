@@ -6,27 +6,27 @@
 class MRNClientProtocol : public DebugClientProtocol {
 public:
     // MRNet does not support:
-    //  * finish
+    //  * finish function
     //  * checkEvents
     //  * any session functions
 
-    static const std::string name;
+    const std::string name() const override;
 
-    int init() override;
-    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) override;
-    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) override;
-    void dispatchEvents(struct dbginvoke *, int) override;
+    int init() const override;
+    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) const override;
+    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) const override;
+    void dispatchEvents(struct dbginvoke *, int) const override;
 
     // Client protocol routines
     int attach(struct dbginvoke *, proto_session *, const char *,
         const char *, const char *, int,
-        int) override;
+        int) const override;
     int launch(struct dbginvoke *, proto_session *, const char *, char **,
         const char *, char **, const char *, const char *, const char*, char **,
         const char *, int, int,
-        int, bool) override;
-    int exit(struct dbginvoke *, int detach) override;
-    void destroyClient(struct dbginvoke *) override;
+        int, bool) const override;
+    int exit(struct dbginvoke *, int detach) const override;
+    void destroyClient(struct dbginvoke *) const override;
 };
 
 #endif /* _DBGCLNT_MRN_H */

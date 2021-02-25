@@ -22,6 +22,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <vector>
+
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
@@ -35,57 +37,31 @@
 #include "list.h"
 #include "useful.h"
 
-#ifdef SUN_RPC
-extern dbgclnt_proto DbgClntRPCProtoSW;
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-extern dbgclnt_proto DbgClntSocProtoSW;
-#endif /* SOCKETS */
-#ifdef MRNET
-extern dbgclnt_proto DbgClntMRNProtoSW;
-#endif /* MRNET */
-#ifdef SCI
-extern dbgclnt_proto DbgClntSCIProtoSW;
-#endif /* SCI */
+extern DebugClientProtocol *DbgClntProtoMRN;
+
 // FIXME
-extern dbgclnt_proto DbgClntPROXYProtoSW;
+// extern dbgclnt_proto DbgClntPROXYProtoSW;
 
-static dbgclnt_proto *DbgProtoTab[] = {
-#ifdef SUN_RPC
-    &DbgClntRPCProtoSW,
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-    &DbgClntSocProtoSW,
-#endif /* SOCKETS */
-#ifdef MRNET
-    &DbgClntMRNProtoSW,
-#endif /* MRNET */
-#ifdef SCI
-    &DbgClntSCIProtoSW,
-#endif /* SCI */
-    &DbgClntPROXYProtoSW, (dbgclnt_proto *)NULL};
-
-static dbgclnt_proto **_ptab;
+static const std::vector<const DebugClientProtocol *> DbgProtoTab = {
+    DbgClntProtoMRN
+};
 
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;
 
-void SetClntProto(void) { _ptab = DbgProtoTab; }
-
-dbgclnt_proto *GetClntProto(void) {
-    if (*_ptab == (dbgclnt_proto *)NULL) return (dbgclnt_proto *)NULL;
-
-    return *(_ptab++);
+// used to iterate through DbgProtoTab and call init or finish on each proto
+// when gdb4hpc starts up or finishes
+const std::vector<const DebugClientProtocol *> getClientProtos() {
+    return DbgProtoTab;
 }
 
-dbgclnt_proto *FindClntProto(const char *proto) {
-    dbgclnt_proto **p;
+const DebugClientProtocol* findClientProtoByName(std::string protoName) {
+    for (const auto &p : DbgProtoTab) {
+        if (p->name() == protoName) return p;
+}
 
-    for (p = DbgProtoTab; *p != (dbgclnt_proto *)NULL; p++)
-        if (strcmp((*p)->sw_name, proto) == 0) return *p;
-
-    return (dbgclnt_proto *)NULL;
+    return (DebugClientProtocol *)nullptr;
 }
 
 // Used during launch/attach to wait for the initial setup to complete
@@ -223,59 +199,57 @@ int WaitForProtoStartupEvent(dbginvoke_t *di) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-const std::string DebugClientProtocol::name = "Interface";
-
-int DebugClientProtocol::init() {
+int DebugClientProtocol::init() const {
     throw FunctionNotImplementedException("init");
 }
 
-void DebugClientProtocol::finish() {
+void DebugClientProtocol::finish() const {
     throw FunctionNotImplementedException("finish");
 }
 
-bitset* DebugClientProtocol::sendCommand(struct dbginvoke *, bitset *, const char *) {
+bitset* DebugClientProtocol::sendCommand(struct dbginvoke *, bitset *, const char *) const {
     throw FunctionNotImplementedException("sendCommand");
 }
 
-struct proto_msg_set* DebugClientProtocol::receiveReply(struct dbginvoke *, bitset *,bitset *) {
+struct proto_msg_set* DebugClientProtocol::receiveReply(struct dbginvoke *, bitset *,bitset *) const {
     throw FunctionNotImplementedException("receiveReply");
 }
 
-int DebugClientProtocol::checkEvents(struct dbginvoke *) {
+int DebugClientProtocol::checkEvents(struct dbginvoke *) const {
     throw FunctionNotImplementedException("checkEvents");
 }
 
-void DebugClientProtocol::dispatchEvents(struct dbginvoke *, int) {
+void DebugClientProtocol::dispatchEvents(struct dbginvoke *, int) const {
     throw FunctionNotImplementedException("dispatchEvents");
 }
 
-proto_session *DebugClientProtocol::createSession(struct dbgclnt_proto *, WLM_type, const char *, const char *,const char *) {
+proto_session *DebugClientProtocol::createSession(struct dbgclnt_proto *, WLM_type, const char *, const char *,const char *) const {
     throw FunctionNotImplementedException("createSession");
 }
 
-void DebugClientProtocol::saveSession(proto_session *) {
+void DebugClientProtocol::saveSession(proto_session *) const {
     throw FunctionNotImplementedException("saveSession");
 }
 
-void DebugClientProtocol::cleanupSession(proto_session *) {
+void DebugClientProtocol::cleanupSession(proto_session *) const {
     throw FunctionNotImplementedException("cleanupSession");
 }
 
 int DebugClientProtocol::attach(struct dbginvoke *, proto_session *, const char *,
-    const char *, const char *, int, int) {
+    const char *, const char *, int, int) const {
     throw FunctionNotImplementedException("attach");
 }
     
 int DebugClientProtocol::launch(struct dbginvoke *, proto_session *, const char *, 
     char **, const char *, char **, const char *, const char *, const char*, 
-    char **, const char *, int, int, int, bool) {
+    char **, const char *, int, int, int, bool) const {
     throw FunctionNotImplementedException("launch");
 }
 
-int DebugClientProtocol::exit(struct dbginvoke *, int detach) {
+int DebugClientProtocol::exit(struct dbginvoke *, int detach) const {
     throw FunctionNotImplementedException("exit");
 }
 
-void DebugClientProtocol::destroyClient(struct dbginvoke *) {
+void DebugClientProtocol::destroyClient(struct dbginvoke *) const {
     throw FunctionNotImplementedException("destroyClient");
 }

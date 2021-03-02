@@ -38,12 +38,11 @@
 #include "useful.h"
 
 extern DebugClientProtocol *DbgClntProtoMRN;
-
-// FIXME
-// extern dbgclnt_proto DbgClntPROXYProtoSW;
+extern DebugClientProtocol *DbgClntProtoProxy;
 
 static const std::vector<const DebugClientProtocol *> DbgProtoTab = {
-    DbgClntProtoMRN
+    DbgClntProtoMRN,
+    DbgClntProtoProxy
 };
 
 // Used for the protocol wait for events function
@@ -58,10 +57,10 @@ const std::vector<const DebugClientProtocol *> getClientProtos() {
 
 const DebugClientProtocol* findClientProtoByName(std::string protoName) {
     for (const auto &p : DbgProtoTab) {
-        if (p->name() == protoName) return p;
-}
+        if (p != nullptr && p->name() == protoName) return p;
+    }
 
-    return (DebugClientProtocol *)nullptr;
+    return nullptr;
 }
 
 // Used during launch/attach to wait for the initial setup to complete
@@ -77,16 +76,12 @@ static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     proto_high_fd = -1;
 
     /*
-    ** Note: This should be used for protocols that do not use an event
-    *notification
-    **       fd. If a event notification fd can be used, then it should be added
-    *to
-    **       the sw_evfd list and sw_checkevents should simply return 0.
+     * Note: This should be used for protocols that do not use an event
+     *  notification fd. If a event notification fd can be used, then it should 
+     *  be added to the sw_evfd list and sw_checkevents should simply return 0.
     */
-    if (DBG_PROTO_SW(di)->sw_checkevents !=
-            NULL  // if the protocol has a checkevent function defined
-        && DBG_PROTO_SW(di)->sw_checkevents(di) >
-               0  // if checkevent tells us that there is an event.
+    if (DBG_PROTO_SW(di)->hasCheckEvents() == true 
+         && DBG_PROTO_SW(di)->checkEvents(di) > 0  // if checkevent tells us that there is an event.
     ) {
         DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
         return 1;  // there is a proto event to handle. Return immediately.
@@ -158,7 +153,7 @@ static void DispatchProtoStartupEvent(dbginvoke_t *di) {
     if (di == NULL) return;
 
     // Ensure there is a protocol specific dispatch function
-    if (DBG_PROTO_SW(di)->sw_dispatchevents != NULL) {
+    if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
         // If there is an d_evfds list, then the protol layer is using event
         // notification fd's. We should try to check to see if each one is set,
         // and if so call the protocol specific dispatch function with the event
@@ -170,13 +165,13 @@ static void DispatchProtoStartupEvent(dbginvoke_t *di) {
                    (int *)NULL) {
                 if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
                     // dispatch each of the set notification fds one at a time.
-                    DBG_PROTO_SW(di)->sw_dispatchevents(di, *ev_fd);
+                    DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
                 }
             }
         } else {
             // event notification fd's not in use by this protocol, so call
             // the generic dispatch function with -1 for event fd arg.
-            DBG_PROTO_SW(di)->sw_dispatchevents(di, -1);
+            DBG_PROTO_SW(di)->dispatchEvents(di, -1);
         }
     }
 }
@@ -195,61 +190,4 @@ int WaitForProtoStartupEvent(dbginvoke_t *di) {
                 return 1;
         }
     }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-int DebugClientProtocol::init() const {
-    throw FunctionNotImplementedException("init");
-}
-
-void DebugClientProtocol::finish() const {
-    throw FunctionNotImplementedException("finish");
-}
-
-bitset* DebugClientProtocol::sendCommand(struct dbginvoke *, bitset *, const char *) const {
-    throw FunctionNotImplementedException("sendCommand");
-}
-
-struct proto_msg_set* DebugClientProtocol::receiveReply(struct dbginvoke *, bitset *,bitset *) const {
-    throw FunctionNotImplementedException("receiveReply");
-}
-
-int DebugClientProtocol::checkEvents(struct dbginvoke *) const {
-    throw FunctionNotImplementedException("checkEvents");
-}
-
-void DebugClientProtocol::dispatchEvents(struct dbginvoke *, int) const {
-    throw FunctionNotImplementedException("dispatchEvents");
-}
-
-proto_session *DebugClientProtocol::createSession(struct dbgclnt_proto *, WLM_type, const char *, const char *,const char *) const {
-    throw FunctionNotImplementedException("createSession");
-}
-
-void DebugClientProtocol::saveSession(proto_session *) const {
-    throw FunctionNotImplementedException("saveSession");
-}
-
-void DebugClientProtocol::cleanupSession(proto_session *) const {
-    throw FunctionNotImplementedException("cleanupSession");
-}
-
-int DebugClientProtocol::attach(struct dbginvoke *, proto_session *, const char *,
-    const char *, const char *, int, int) const {
-    throw FunctionNotImplementedException("attach");
-}
-    
-int DebugClientProtocol::launch(struct dbginvoke *, proto_session *, const char *, 
-    char **, const char *, char **, const char *, const char *, const char*, 
-    char **, const char *, int, int, int, bool) const {
-    throw FunctionNotImplementedException("launch");
-}
-
-int DebugClientProtocol::exit(struct dbginvoke *, int detach) const {
-    throw FunctionNotImplementedException("exit");
-}
-
-void DebugClientProtocol::destroyClient(struct dbginvoke *) const {
-    throw FunctionNotImplementedException("destroyClient");
 }

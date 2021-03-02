@@ -42,7 +42,7 @@ list_t *DbgInvokeList = (list_t *)NULL;
 /*
 ** Create a dbginvoke_t structure.
 */
-dbginvoke_t *NewDbgInvoke(int nproc, dbgclnt_proto *proto) {
+dbginvoke_t *NewDbgInvoke(int nproc, const DebugClientProtocol *proto) {
     dbginvoke_t *di;
 
     di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
@@ -71,8 +71,8 @@ void FreeDbgInvoke(dbginvoke_t *di) {
     RemoveFromList(DbgInvokeList, (void *)di);
 
     // Call the protocol destructor if there is one
-    if (DBG_PROTO_SW(di)->sw_destroyclnt != NULL) {
-        DBG_PROTO_SW(di)->sw_destroyclnt(di);
+    if (DBG_PROTO_SW(di)->hasDestroyClient() == true) {
+        DBG_PROTO_SW(di)->destroyClient(di);
     }
 
     if (di->d_bitset_full != NULL) bitset_free(di->d_bitset_full);

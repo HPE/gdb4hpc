@@ -37,47 +37,10 @@
 #include "defs.h"
 #include "list.h"
 #include "useful.h"
+#include "dbgclnt_proxy.h"
 
 #define START_KEYWORD_FMT "#cray_debug_start"
 #define END_KEYWORD_FMT "#cray_debug_end"
-
-// protocol prototypes
-static int DbgPROXYInit(void);
-static void DbgPROXYFinish(void);
-static bitset *DbgPROXYSendCmd(dbginvoke_t *, bitset *, const char *);
-static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *, bitset *, bitset *);
-static void DbgPROXYDispatchEvents(dbginvoke_t *, int);
-static proto_session *DbgPROXYCreateSession(dbgclnt_proto *, WLM_type manager,
-                                            const char *batch_template,
-                                            const char *hostname,
-                                            const char *username);
-static void DbgPROXYSaveSession(proto_session *);
-static void DbgPROXYCleanupSession(proto_session *);
-static int DbgPROXYAttach(dbginvoke_t *, proto_session *, const char *,
-                          const char *, const char *, int, int);
-static int DbgPROXYLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-                          const char *, char **, const char *, const char *, const char*,
-                          char **, const char *, int, int, int, bool);
-static int DbgPROXYExit(dbginvoke_t *, int);
-static void DbgPROXYDestroyClient(dbginvoke_t *);
-
-// protocol definition
-dbgclnt_proto DbgClntPROXYProtoSW = {
-    "proxy",                /* sw_name */
-    DbgPROXYInit,           /* sw_init */
-    DbgPROXYFinish,         /* sw_finish */
-    DbgPROXYSendCmd,        /* sw_send_cmd */
-    DbgPROXYRecvReply,      /* sw_recv_reply */
-    NULL,                   /* sw_checkevents */
-    DbgPROXYDispatchEvents, /* sw_dispatchevents */
-    DbgPROXYCreateSession,  /* sw_create_session */
-    DbgPROXYSaveSession,    /* sw_save_session */
-    DbgPROXYCleanupSession, /* sw_cleanup_session */
-    DbgPROXYAttach,         /* sw_attach */
-    DbgPROXYLaunch,         /* sw_launch */
-    DbgPROXYExit,           /* sw_exit */
-    DbgPROXYDestroyClient   /* sw_destroyclnt */
-};
 
 // Internal prototypes
 static int setupPROXYCfgDir(void);
@@ -90,6 +53,8 @@ static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
 
 // Internal global variables
 static int callback_failure = 0;
+
+ProxyClientProtocol* DbgClntProtoProxy = new ProxyClientProtocol();
 
 /*
 ** Functions start below
@@ -127,13 +92,13 @@ static int setupPROXYCfgDir(void) {
 
 // Interface definitions
 
-static int DbgPROXYInit(void) {
+int ProxyClientProtocol::init() const {
     if (setupPROXYCfgDir() == -1) return 0;
 
     return 1;
 }
 
-static void DbgPROXYFinish(void) {
+void ProxyClientProtocol::finish(void) const {
     // what to do here???
 }
 
@@ -883,11 +848,11 @@ keyinter_failure:
 ** manager: workload manager type
 ** All arguments are optional dependent on manager.
 */
-static proto_session *DbgPROXYCreateSession(dbgclnt_proto *proto,
+proto_session* ProxyClientProtocol::createSession(const DebugClientProtocol *proto,
                                             WLM_type manager,
                                             const char *batch_template,
                                             const char *hostname,
-                                            const char *username) {
+                                            const char *username) const {
     proto_session *rtn;
     proxy_session *sess;
     struct addrinfo hints;
@@ -1189,7 +1154,7 @@ static proto_session *DbgPROXYCreateSession(dbgclnt_proto *proto,
 /*
 ** Mark an existing proxy session as valid
 */
-static void DbgPROXYSaveSession(proto_session *session) {
+void ProxyClientProtocol::saveSession(proto_session *session) const {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1238,7 +1203,7 @@ static void DbgPROXYSaveSession(proto_session *session) {
 /*
 ** Cleanup an existing session, making sure it is no longer valid
 */
-static void DbgPROXYCleanupSession(proto_session *session) {
+void ProxyClientProtocol::cleanupSession(proto_session *session) const {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1286,9 +1251,9 @@ static void DbgPROXYCleanupSession(proto_session *session) {
 /*
 ** Attach to user program through proxy daemon
 */
-static int DbgPROXYAttach(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
                           const char *app_ident, const char *arch,
-                          const char *backend, int gpu_flag, int debug_flag) {
+                          const char *backend, int gpu_flag, int debug_flag) const {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1525,12 +1490,12 @@ static int cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
 /*
 ** Invoke user program through proxy daemon
 */
-static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
                           const char *prog, char **argv, const char *arch,
                           char **arch_args, const char *arch_input,
                           const char *backend, const char* gdb,  char **env, const char *cwd,
                           int gpu_flag, int debug_flag, int early_entry_flag,
-                          bool isNonStop) {
+                          bool isNonStop) const {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1815,7 +1780,7 @@ static proto_msg_set *DbgPROXYRecvProtoMsg(int net_fd) {
     return res;
 }
 
-static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
+void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) const {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proto_msg_set *ev_res;
     char *line;
@@ -1904,8 +1869,8 @@ static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-static bitset *DbgPROXYSendCmd(dbginvoke_t *di, bitset *target,
-                               const char *request) {
+bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
+                               const char *request) const {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     bitset *received;
     proto_msg_set *pmsg_set;
@@ -1972,8 +1937,8 @@ static bitset *DbgPROXYSendCmd(dbginvoke_t *di, bitset *target,
 
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
-static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *di, bitset *target,
-                                        bitset *received) {
+proto_msg_set *ProxyClientProtocol::receiveReply(dbginvoke_t *di, bitset *target,
+                                        bitset *received) const {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     int full = 0;
     proto_msg_set *pmsg_set = NULL;
@@ -2052,7 +2017,7 @@ static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *di, bitset *target,
 ** DBG_EXIT: Tell server to quit immediately.
 ** If detach is true, then we detach from application instead of killing it.
 */
-static int DbgPROXYExit(dbginvoke_t *di, int detach) {
+int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) const {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proxy_msg_header msg_head;
     char *msg;
@@ -2101,12 +2066,12 @@ static int DbgPROXYExit(dbginvoke_t *di, int detach) {
     return 0;
 }
 
-static void DbgPROXYDestroyClient(dbginvoke_t *di) {
+void ProxyClientProtocol::destroyClient(dbginvoke_t *di) const {
     proxy_type *network = (proxy_type *)di->d_proto_net;
 
     // Check to see if the network type has been destroyed
     if (network != NULL) {
         // call the exit function to force the application to quit
-        DbgPROXYExit(di, 0);
+        exit(di, 0);
     }
 }

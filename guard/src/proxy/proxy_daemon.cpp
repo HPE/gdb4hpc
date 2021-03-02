@@ -42,7 +42,7 @@
 #define RECONNECT_TRIES 10
 
 // These are static in dbg_client, here they are provided by dbg_client_proxy.c
-extern dbginvoke_t *NewDbgInvoke(int, dbgclnt_proto *);
+extern dbginvoke_t *NewDbgInvoke(int, const DebugClientProtocol *);
 extern void FreeDbgInvoke(dbginvoke_t *);
 
 /*
@@ -156,21 +156,21 @@ static void CleanupOnSocketClose(void) {
             }
 
             // ensure the send_cmd function is implemented
-            if (DBG_PROTO_SW(di)->sw_send_cmd != NULL) {
+            if (DBG_PROTO_SW(di)->hasSendCommand() == true) {
                 // TODO: how to handle error?
 
                 // Create the quit command
                 auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
                 // send the command to every rank
-                recv_set = DBG_PROTO_SW(di)->sw_send_cmd(di, di->d_bitset_full,
+                recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full,
                                                          request.c_str());
 
                 // ensure the recv_reply function is implemented
-                if (DBG_PROTO_SW(di)->sw_recv_reply != NULL) {
+                if (DBG_PROTO_SW(di)->hasReceiveReply() == true) {
                     // TODO: how to handle error?
 
-                    pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(
+                    pmsg_set = DBG_PROTO_SW(di)->receiveReply(
                         di, di->d_bitset_full, recv_set);
 
                     // We don't care about actually processing the reply, since
@@ -187,9 +187,9 @@ static void CleanupOnSocketClose(void) {
             // It is now safe to exit
 
             // ensure the exit function is implemented
-            if (DBG_PROTO_SW(di)->sw_exit != NULL) {
+            if (DBG_PROTO_SW(di)->hasExit() == true) {
                 // call the exit function
-                DBG_PROTO_SW(di)->sw_exit(di, detach);
+                DBG_PROTO_SW(di)->exit(di, detach);
             }
 
             // Cleanup the dbginvoke, we are done with it.
@@ -365,7 +365,6 @@ int main(int argc, char **argv) {
     int rc, sopt;
     struct addrinfo hints;  // hints object for call to getaddrinfo
     int tries = 0;
-    dbgclnt_proto *ptab;
 
     // Setup
 
@@ -562,15 +561,16 @@ int main(int argc, char **argv) {
     instances = NewList();
 
     // initialize the protocols
-    // TODO: Allow this to select any protocol, other than the hardcoded
-    //       mrnet we see now.
-    if ((ptab = FindClntProto("mrnet")) == (dbgclnt_proto *)NULL) {
+
+    // TODO: Allow this to select any protocol, other than the hardcoded mrnet.
+    const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
+    if (ptab == nullptr) {
         // Handle error
         return 1;
     }
 
     // call the init function
-    if (ptab->sw_init != NULL && !ptab->sw_init()) {
+    if (ptab->hasInit() == true && !ptab->init()) {
         // Handle error
         return 1;
     }
@@ -596,9 +596,8 @@ int main(int argc, char **argv) {
     }
 
     // call the finish function
-    // TODO: Allow this to select any protocol.
-    if (ptab->sw_finish != NULL) {
-        ptab->sw_finish();
+    if (ptab->hasFinish() == true) {
+        ptab->finish();
     }
 
     return 0;
@@ -643,9 +642,8 @@ int DbgCheckEvents(void) {
             *be added to
             **       the sw_evfd list and sw_checkevents should simply return 0.
             */
-            if (DBG_PROTO_SW(di)->sw_checkevents !=
-                    NULL  // if the protocol has a checkevent function defined
-                && DBG_PROTO_SW(di)->sw_checkevents(di) >
+            if (DBG_PROTO_SW(di)->hasCheckEvents() == true  // if the protocol has a checkevent function defined
+                && DBG_PROTO_SW(di)->checkEvents(di) >
                        0  // if checkevent tells us that there is an event.
             ) {
                 DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
@@ -738,7 +736,7 @@ void DbgDispatchEvents(void) {
             if (di->d_isShutdown) continue;
 
             // Ensure there is a protocol specific dispatch function
-            if (DBG_PROTO_SW(di)->sw_dispatchevents != NULL) {
+            if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
                 // If there is an d_evfds list, then the protol layer is using
                 // event notification fd's. We should try to check to see if
                 // each one is set, and if so call the protocol specific
@@ -755,14 +753,14 @@ void DbgDispatchEvents(void) {
                         if (FD_ISSET(*ev_fd, &dispatch_fds)) {
                             // dispatch each of the set notification fds one at
                             // a time.
-                            DBG_PROTO_SW(di)->sw_dispatchevents(di, *ev_fd);
+                            DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
                         }
                     }
                 } else {
                     // event notification fd's not in use by this protocol, so
                     // call the generic dispatch function with -1 for event fd
                     // arg.
-                    DBG_PROTO_SW(di)->sw_dispatchevents(di, -1);
+                    DBG_PROTO_SW(di)->dispatchEvents(di, -1);
                 }
             }
         }
@@ -780,7 +778,6 @@ void DbgDispatchEvents(void) {
         recv_type *recv_set;
         attach_args *att_args;
         launch_args *launch_args;
-        dbgclnt_proto *ptab;
         proxy_type *inst;
         int sopt, tries = 0;
         int detach;
@@ -851,15 +848,14 @@ void DbgDispatchEvents(void) {
                 // TODO: Handle error
 
                 // ensure the send_cmd function is implemented
-                if (DBG_PROTO_SW(di)->sw_send_cmd == NULL) {
+                if (DBG_PROTO_SW(di)->hasSendCommand() == false) {
                     // TODO: Handle error
                     PrintOutError("send cmd not implemented.\n");
                     return;
                 }
 
                 // Send the command
-                set = DBG_PROTO_SW(di)->sw_send_cmd(di, pmsg->group,
-                                                    pmsg->message);
+                set = DBG_PROTO_SW(di)->sendCommand(di, pmsg->group, pmsg->message);
 
                 // cleanup
                 FreeProtoMsg(pmsg);
@@ -922,13 +918,13 @@ void DbgDispatchEvents(void) {
                 // TODO: Handle error
 
                 // ensure the recv_reply function is implemented
-                if (DBG_PROTO_SW(di)->sw_recv_reply == NULL) {
+                if (DBG_PROTO_SW(di)->hasReceiveReply() == false) {
                     // TODO: handle error
                     PrintOutError("recv reply not implemented.\n");
                     return;
                 }
 
-                pmsg_set = DBG_PROTO_SW(di)->sw_recv_reply(di, recv_set->target,
+                pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target,
                                                            recv_set->received);
 
                 // send the result back
@@ -962,7 +958,7 @@ void DbgDispatchEvents(void) {
                 FreeProtoMsgSet(pmsg_set);
                 break;
 
-            case MSG_ATTACH:
+            case MSG_ATTACH: {
                 // convert msg to an attach_args type
                 if ((att_args = SocProtoToAttachArgs(msg)) == NULL) {
                     PrintOutError(
@@ -1037,11 +1033,10 @@ void DbgDispatchEvents(void) {
                 // Set the stream to be line buffered
                 setlinebuf(PROXY_OUTPUTSTREAM(inst));
 
+                // TODO: Allow this to select any protocol, other than the hardcoded mrnet we see now.
+                const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
                 // Set the protocol based on the proto arg
-                // TODO: Allow this to select any protocol, other than the
-                // hardcoded
-                //       mrnet we see now.
-                if ((ptab = FindClntProto("mrnet")) == (dbgclnt_proto *)NULL) {
+                if (ptab == nullptr) {
                     // Handle error
                     return;
                 }
@@ -1055,7 +1050,7 @@ void DbgDispatchEvents(void) {
                 // invocations,
                 //       to support multiple hops, but that is not required
                 //       right now...
-                if (ptab->sw_attach(di, NULL, att_args->app_ident,
+                if (ptab->attach(di, NULL, att_args->app_ident,
                                     att_args->arch, att_args->backend,
                                     att_args->gpu_flag, att_args->debug_flag)) {
                     // Handle error
@@ -1084,8 +1079,9 @@ void DbgDispatchEvents(void) {
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
+            }
 
-            case MSG_INVOKE:
+            case MSG_INVOKE: {
                 // convert msg to an invoke_args type
                 if ((launch_args = SocProtoToLaunchArgs(msg)) == NULL) {
                     PrintOutError(
@@ -1160,11 +1156,10 @@ void DbgDispatchEvents(void) {
                 // Set the stream to be line buffered
                 setlinebuf(PROXY_OUTPUTSTREAM(inst));
 
+                // TODO: Allow this to select any protocol, other than the hardcoded mrnet we see now.
+                const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
                 // Set the protocol based on the proto arg
-                // TODO: Allow this to select any protocol, other than the
-                // hardcoded
-                //       mrnet we see now.
-                if ((ptab = FindClntProto("mrnet")) == (dbgclnt_proto *)NULL) {
+                if (ptab == nullptr) {
                     // Handle error
                     return;
                 }
@@ -1177,7 +1172,7 @@ void DbgDispatchEvents(void) {
                 // invocations,
                 //       to support multiple hops, but that is not required
                 //       right now...
-                if (ptab->sw_launch(di, NULL, launch_args->prog, launch_args->argv,
+                if (ptab->launch(di, NULL, launch_args->prog, launch_args->argv,
                                     launch_args->arch, launch_args->arch_args,
                                     launch_args->arch_input, launch_args->backend, launch_args->gdb,
                                     launch_args->env, launch_args->cwd,
@@ -1210,6 +1205,7 @@ void DbgDispatchEvents(void) {
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
+            }
 
             case MSG_SAVE_SESSION:
                 // Set this session as valid
@@ -1274,9 +1270,9 @@ void DbgDispatchEvents(void) {
                 // TODO: Handle error
 
                 // ensure the exit function is implemented
-                if (di != NULL && DBG_PROTO_SW(di)->sw_exit != NULL) {
+                if (di != NULL && DBG_PROTO_SW(di)->hasExit() == true) {
                     // call the exit function
-                    if (DBG_PROTO_SW(di)->sw_exit(di, detach)) {
+                    if (DBG_PROTO_SW(di)->exit(di, detach)) {
                         PrintOutError("Exit failed.\n");
                         msg_head.msg_type = MSG_ERROR;
                     } else {

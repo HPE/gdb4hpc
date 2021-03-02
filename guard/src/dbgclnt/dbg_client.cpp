@@ -65,7 +65,7 @@ typedef struct outpcb_t outpcb_t;
 ** Internal prototypes
 */
 static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
-                                 dbgclnt_proto *);
+                                 const DebugClientProtocol *);
 static void FreeDbgInvoke(dbginvoke_t *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
@@ -161,7 +161,7 @@ void ReleaseSignals(void) {
 ** Create a dbginvoke_t structure.
 */
 static dbginvoke_t *NewDbgInvoke(const char *handle, dbgproc_type type,
-                                 int nproc, dbgclnt_proto *proto) {
+                                 int nproc, const DebugClientProtocol *proto) {
     dbginvoke_t *di;
 
     di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
@@ -196,8 +196,8 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
     RemoveFromList(DbgInvokeList, (void *)di);
 
     // Call the protocol destructor if there is one
-    if (DBG_PROTO_SW(di)->sw_destroyclnt != nullptr) {
-        DBG_PROTO_SW(di)->sw_destroyclnt(di);
+    if (DBG_PROTO_SW(di)->hasDestroyClient() == true) {
+        DBG_PROTO_SW(di)->destroyClient(di);
     }
 
     // Quit the debug frontend if there is one
@@ -1287,10 +1287,8 @@ int DbgCheckEvents(void) {
             *be added to
             **       the sw_evfd list and sw_checkevents should simply return 0.
             */
-            if (DBG_PROTO_SW(di)->sw_checkevents !=
-                    nullptr  // if the protocol has a checkevent function defined
-                && DBG_PROTO_SW(di)->sw_checkevents(di) >
-                       0  // if checkevent tells us that there is an event.
+            if (DBG_PROTO_SW(di)->hasCheckEvents() == true // if the protocol has a checkevent function defined
+                && DBG_PROTO_SW(di)->checkEvents(di) > 0  // if checkevent tells us that there is an event.
             ) {
                 DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
                 return 1;  // there is a proto event to handle. Return
@@ -1415,7 +1413,7 @@ void DbgDispatchEvents(void) {
             if (di->d_isShutdown) continue;
 
             // Ensure there is a protocol specific dispatch function
-            if (DBG_PROTO_SW(di)->sw_dispatchevents != nullptr) {
+            if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
                 // If there is an d_evfds list, then the protol layer is using
                 // event notification fd's. We should try to check to see if
                 // each one is set, and if so call the protocol specific
@@ -1431,14 +1429,14 @@ void DbgDispatchEvents(void) {
                         if (FD_ISSET(*ev_fd, &dispatch_fds)) {
                             // dispatch each of the set notification fds one at
                             // a time.
-                            DBG_PROTO_SW(di)->sw_dispatchevents(di, *ev_fd);
+                            DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
                         }
                     }
                 } else {
                     // event notification fd's not in use by this protocol, so
                     // call the generic dispatch function with -1 for event fd
                     // arg.
-                    DBG_PROTO_SW(di)->sw_dispatchevents(di, -1);
+                    DBG_PROTO_SW(di)->dispatchEvents(di, -1);
                 }
             }
         }
@@ -1801,12 +1799,9 @@ int DbgCheckForAsyncPending(void) { return async_pending; }
 ** Initialise server
 */
 int DbgInit(void) {
-    dbgclnt_proto *sw;
-
-    SetClntProto();
-
-    while ((sw = GetClntProto()) != nullptr)
-        if (sw->sw_init != nullptr && !sw->sw_init()) return -1;
+    for (const auto &proto : getClientProtos()) {
+        if (proto->hasInit() && !proto->init()) return -1;
+    }
 
     // Initialize the mutex lock for the InputCB
     InputCB.i_fd = -1;
@@ -1820,27 +1815,23 @@ int DbgInit(void) {
 }
 
 void DbgFinalize(void) {
-    dbgclnt_proto *sw;
     dbginvoke_t *di;
-
-    SetClntProto();
 
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
-        sw = DbgCurrSess->sess_proto;
-        if (sw->sw_cleanup_session == nullptr) {
+        const DebugClientProtocol *sw = DbgCurrSess->sess_proto;
+        if (sw->hasCleanupSession() == false) {
             PrintOutError(
                 "Protocol function sw_cleanup_session not implemented.\n");
         } else {
-            sw->sw_cleanup_session(DbgCurrSess);
+            sw->cleanupSession(DbgCurrSess);
         }
         DbgCurrSess = nullptr;
     }
 
-    while ((sw = GetClntProto()) != nullptr) {
-        if (sw->sw_finish != nullptr) {
-            sw->sw_finish();
-        }
+    for (const auto &proto : getClientProtos()) {
+        if (proto->hasFinish())
+            proto->finish();
     }
 
     DbgSigList.clear();
@@ -1864,19 +1855,19 @@ void DbgFinalize(void) {
 proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
                                 char *batch_template, char *hostname,
                                 char *username) {
-    dbgclnt_proto *ptab;
+    const DebugClientProtocol *ptab = findClientProtoByName(proto);
 
-    if ((ptab = FindClntProto(proto)) == nullptr) {
+    if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
         return nullptr;
     }
 
-    if (ptab->sw_create_session == nullptr) {
+    if (ptab->hasCreateSession() == false) {
         PrintOutError("Protocol function sw_create_session not implemented.\n");
         return nullptr;
     }
 
-    return ptab->sw_create_session(ptab, manager, batch_template, hostname,
+    return ptab->createSession(ptab, manager, batch_template, hostname,
                                    username);
 }
 
@@ -1886,27 +1877,25 @@ proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
 ** It's up to the protocol implementation to handle the actual cleanup.
 */
 void DbgSetSession(proto_session *sess) {
-    dbgclnt_proto *ptab;
-
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
-        ptab = DbgCurrSess->sess_proto;
-        if (ptab->sw_cleanup_session == nullptr) {
+        const DebugClientProtocol *ptab = DbgCurrSess->sess_proto;
+        if (ptab->hasCleanupSession() == false) {
             PrintOutError(
                 "Protocol function sw_cleanup_session not implemented.\n");
         } else {
-            ptab->sw_cleanup_session(DbgCurrSess);
+            ptab->cleanupSession(DbgCurrSess);
         }
     }
 
     // Ask the protocol layer to keep the new session around if its not null
     if (sess != nullptr) {
-        ptab = sess->sess_proto;
-        if (ptab->sw_save_session == nullptr) {
+        const DebugClientProtocol *ptab = sess->sess_proto;
+        if (ptab->hasSaveSession() == false) {
             PrintOutError(
                 "Protocol function sw_save_session not implemented.\n");
         } else {
-            ptab->sw_save_session(sess);
+            ptab->saveSession(sess);
         }
     }
 
@@ -1926,14 +1915,14 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
                        const char *arch, const char *backend, int gpu_flag,
                        int debug_flag) {
     dbginvoke_t *di;
-    dbgclnt_proto *ptab;
+    const DebugClientProtocol *ptab = findClientProtoByName(proto);
 
-    if ((ptab = FindClntProto(proto)) == nullptr) {
+    if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
         return nullptr;
     }
 
-    if (ptab->sw_attach == nullptr) {
+    if (ptab->hasAttach() == false) {
         PrintOutError("Protocol function sw_attach not implemented.\n");
         return nullptr;
     }
@@ -1942,7 +1931,7 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
     // is the attach case
     di = NewDbgInvoke(handle, DBG_ATTACHED, 0, ptab);
 
-    if (ptab->sw_attach(di, sess, app_ident, arch, backend, gpu_flag,
+    if (ptab->attach(di, sess, app_ident, arch, backend, gpu_flag,
                         debug_flag)) {
         FreeDbgInvoke(di);
         return nullptr;
@@ -1973,18 +1962,18 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                        const char *cwd, int gpu_flag, int debug_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
-    dbgclnt_proto *ptab;
+    const DebugClientProtocol *ptab = findClientProtoByName(proto);
     char **ap;
     char **ptr;
     int ap_argc = 0;
     dbgevent_t *e;
 
-    if ((ptab = FindClntProto(proto)) == nullptr) {
+    if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
         return nullptr;
     }
 
-    if (ptab->sw_launch == nullptr) {
+    if (ptab->hasLaunch() == false) {
         PrintOutError("Protocol function sw_launch not implemented.\n");
         return nullptr;
     }
@@ -2055,7 +2044,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     di->d_cmd = ArgsToBuf(ap, ap_argc);
     FreeArgv(ap);
 
-    if (ptab->sw_launch(di, sess, prog, argv, arch, arch_args, arch_input,
+    if (ptab->launch(di, sess, prog, argv, arch, arch_args, arch_input,
                         backend, gdb, env, cwd, gpu_flag, debug_flag,
                         early_entry_flag, isNonStop)) {
         FreeDbgInvoke(di);
@@ -2072,12 +2061,12 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
     dbginvoke_t *di = set->rec_di;
 
     // ensure the send_cmd function is implemented
-    if (DBG_PROTO_SW(di)->sw_send_cmd == nullptr) {
+    if (DBG_PROTO_SW(di)->hasSendCommand() == false) {
         PrintOutError("Protocol function sw_send_cmd not implemented.\n");
         return 1;
     }
 
-    set->_cmd_sent = DBG_PROTO_SW(di)->sw_send_cmd(di, set->rec_group, request.c_str());
+    set->_cmd_sent = DBG_PROTO_SW(di)->sendCommand(di, set->rec_group, request.c_str());
 
     return (set->_cmd_sent != nullptr ? 0 : 1);
 }
@@ -2100,13 +2089,13 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
     bool isFinal = true;
 
     // ensure the recv_reply function is implemented
-    if (DBG_PROTO_SW(di)->sw_recv_reply == nullptr) {
+    if (DBG_PROTO_SW(di)->hasReceiveReply() == false) {
         PrintOutError("Protocol function sw_recv_cmd not implemented.\n");
         return nullptr;
     }
 
     proto_res =
-        DBG_PROTO_SW(di)->sw_recv_reply(di, set->rec_group, set->_cmd_sent);
+        DBG_PROTO_SW(di)->receiveReply(di, set->rec_group, set->_cmd_sent);
 
     reply = NewRepSet();
 
@@ -3096,7 +3085,7 @@ rep_set_t *DbgKill(rec_set_t *set) {
         // point at the di
         auto di = recv_ptr->rec_di;
 
-        if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
+        if (DBG_PROTO_SW(di)->hasExit() == false) {
             if (result == nullptr) {
                 result = NewRepSet();
             }
@@ -3109,7 +3098,7 @@ rep_set_t *DbgKill(rec_set_t *set) {
 
         } else {
             // We always want to kill the application, so hardcode detatch to 0
-            DBG_PROTO_SW(di)->sw_exit(di, 0);
+            DBG_PROTO_SW(di)->exit(di, 0);
         }
 
         FreeDbgInvoke(di);
@@ -4246,7 +4235,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 // point at the di
                 auto di = recv_ptr->rec_di;
 
-                if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
+                if (DBG_PROTO_SW(di)->hasExit() == false) {
                     // Create a new error event
                     auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
                     auto err_rep =
@@ -4255,7 +4244,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                     AddErrToSet(result, err_rep);
                 } else {
                     // FIXME: How to handle error case?
-                    DBG_PROTO_SW(di)->sw_exit(di, detach);
+                    DBG_PROTO_SW(di)->exit(di, detach);
                 }
 
                 // cleanup the di object
@@ -4296,7 +4285,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 result = MergeRepSet(result, tmp_result);
 
                 // Call protocol specific communication network exit function
-                if (DBG_PROTO_SW(di)->sw_exit == nullptr) {
+                if (DBG_PROTO_SW(di)->hasExit() == false) {
                     // Create a new error event
                     auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
                     auto err_rep =
@@ -4305,7 +4294,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                     AddErrToSet(result, err_rep);
                 } else {
                     // FIXME: How to handle error case?
-                    DBG_PROTO_SW(di)->sw_exit(di, detach);
+                    DBG_PROTO_SW(di)->exit(di, detach);
                 }
 
                 // cleanup the di object

@@ -47,18 +47,6 @@
 #include "common_tools_fe.h"
 #endif /* ALPS */
 
-// Static function prototypes
-// static int DbgMRNInit();
-// static bitset *DbgMRNSendCmd(dbginvoke_t *, bitset *, const char *);
-// static proto_msg_set *DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
-// static void DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
-// static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
-//                         const char *, const char *, int, int);
-// static int DbgMRNLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-//                         const char *, char **, const char *, const char *, const char*,
-//                         char **, const char *, int, int, int, bool);
-// static int DbgMRNExit(dbginvoke_t *, int);
-// static void DbgMRNDestroyClient(dbginvoke_t *);
 #ifdef BE_VALGRIND
 static int DbgAddValgrindFiles(cti_manifest_id_t mid);
 #endif
@@ -68,26 +56,7 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid);
 static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
 static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set);
 
-// dbgclnt_proto DbgClntMRNProtoSW = {
-//     "mrnet",              /* sw_name */
-//     DbgMRNInit,           /* sw_init */
-//     NULL,                 /* sw_finish */
-//     DbgMRNSendCmd,        /* sw_send_cmd */
-//     DbgMRNRecvReply,      /* sw_recv_reply */
-//     NULL,                 /* sw_checkevents */
-//     DbgMRNDispatchEvents, /* sw_dispatchevents */
-//     // MRNet does not implement sessions. These should only
-//     // be used inside of the proxy protocol.
-//     NULL,               /* sw_create_session */
-//     NULL,               /* sw_save_session */
-//     NULL,               /* sw_cleanup_session */
-//     DbgMRNAttach,       /* sw_attach */
-//     DbgMRNLaunch,       /* sw_launch*/
-//     DbgMRNExit,         /* sw_exit */
-//     DbgMRNDestroyClient /* sw_destroyclnt */
-// };
-
-MRNClientProtocol* DbgClntProtoMRN = new DbgClntProtoMRN();
+MRNClientProtocol* DbgClntProtoMRN = new MRNClientProtocol();
 
 // Add the gpu enabled version of gdb to the manifest.  The back-end will determine
 // which one to use; and they might well not be the same for each rank.
@@ -310,10 +279,6 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-const std::string MRNClientProtocol::name() const {
-    return "mrnet";
-}
 
 int MRNClientProtocol::init() const {
     struct stat st;
@@ -914,19 +879,19 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     if (dbg) {
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--gpu",
+                         di->d_proto->name(), "-e", backend, "--gpu",
                          "--debug", NULL);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--debug", NULL);
+                         di->d_proto->name(), "-e", backend, "--debug", NULL);
         }
     } else {
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--gpu", NULL);
+                         di->d_proto->name(), "-e", backend, "--gpu", NULL);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, NULL);
+                         di->d_proto->name(), "-e", backend, NULL);
         }
     }
 
@@ -1569,7 +1534,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // prog first create the argv for dbgsrv_alps This now also depends on
     // gpu_flag This now adds the early entry flag...
     ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                 di->d_proto->sw_name, "-e", backend, nullptr);
+                 di->d_proto->name(), "-e", backend, nullptr);
     if (gpu_flag) ap = AppendArgs(ap, "--gpu", nullptr);
     if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
@@ -1830,7 +1795,7 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) const {
     // Check to see if the network type has been destroyed
     if (network != NULL) {
         // call the exit function to force the application to quit
-        DbgMRNExit(di, 0);
+        exit(di, 0);
     }
 
     // need to set po now since DbgMRNExit can modify it

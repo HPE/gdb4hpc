@@ -65,7 +65,7 @@ typedef struct outpcb_t outpcb_t;
 ** Internal prototypes
 */
 static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
-                                 const DebugClientProtocol *);
+                                DebugClientProtocol * const);
 static void FreeDbgInvoke(dbginvoke_t *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
@@ -161,17 +161,14 @@ void ReleaseSignals(void) {
 ** Create a dbginvoke_t structure.
 */
 static dbginvoke_t *NewDbgInvoke(const char *handle, dbgproc_type type,
-                                 int nproc, const DebugClientProtocol *proto) {
-    dbginvoke_t *di;
-
-    di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
-    memset(di, 0, sizeof(dbginvoke_t));
+                                 int nproc, DebugClientProtocol * const proto) {
+    dbginvoke_t *di = new dbginvoke_t(proto);
 
     // Set non-zero members here
     di->d_handle = (handle != nullptr) ? strdup(handle) : nullptr;
     di->d_type = type;
     di->d_nproc = nproc;
-    di->d_proto = proto;
+    // di->d_proto = proto; // proto is set in constructor
     di->d_eventset_list = NewList();
     di->d_bpset_list = NewList();
 
@@ -1819,7 +1816,7 @@ void DbgFinalize(void) {
 
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
-        const DebugClientProtocol *sw = DbgCurrSess->sess_proto;
+        DebugClientProtocol * const sw = DbgCurrSess->sess_proto;
         if (sw->hasCleanupSession() == false) {
             PrintOutError(
                 "Protocol function sw_cleanup_session not implemented.\n");
@@ -1855,7 +1852,7 @@ void DbgFinalize(void) {
 proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
                                 char *batch_template, char *hostname,
                                 char *username) {
-    const DebugClientProtocol *ptab = findClientProtoByName(proto);
+    DebugClientProtocol * const ptab = findClientProtoByName(proto);
 
     if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
@@ -1879,7 +1876,7 @@ proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
 void DbgSetSession(proto_session *sess) {
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
-        const DebugClientProtocol *ptab = DbgCurrSess->sess_proto;
+        DebugClientProtocol * const ptab = DbgCurrSess->sess_proto;
         if (ptab->hasCleanupSession() == false) {
             PrintOutError(
                 "Protocol function sw_cleanup_session not implemented.\n");
@@ -1890,7 +1887,7 @@ void DbgSetSession(proto_session *sess) {
 
     // Ask the protocol layer to keep the new session around if its not null
     if (sess != nullptr) {
-        const DebugClientProtocol *ptab = sess->sess_proto;
+        DebugClientProtocol * const ptab = sess->sess_proto;
         if (ptab->hasSaveSession() == false) {
             PrintOutError(
                 "Protocol function sw_save_session not implemented.\n");
@@ -1915,7 +1912,7 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
                        const char *arch, const char *backend, int gpu_flag,
                        int debug_flag) {
     dbginvoke_t *di;
-    const DebugClientProtocol *ptab = findClientProtoByName(proto);
+    DebugClientProtocol * const ptab = findClientProtoByName(proto);
 
     if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
@@ -1962,7 +1959,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                        const char *cwd, int gpu_flag, int debug_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
-    const DebugClientProtocol *ptab = findClientProtoByName(proto);
+    DebugClientProtocol * const ptab = findClientProtoByName(proto);
     char **ap;
     char **ptr;
     int ap_argc = 0;

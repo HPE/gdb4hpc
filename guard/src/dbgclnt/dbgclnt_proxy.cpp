@@ -54,7 +54,7 @@ static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
 // Internal global variables
 static int callback_failure = 0;
 
-ProxyClientProtocol* DbgClntProtoProxy = new ProxyClientProtocol();
+ProxyClientProtocol * DbgClntProtoProxy = new ProxyClientProtocol();
 
 /*
 ** Functions start below
@@ -92,13 +92,13 @@ static int setupPROXYCfgDir(void) {
 
 // Interface definitions
 
-int ProxyClientProtocol::init() const {
+int ProxyClientProtocol::init() {
     if (setupPROXYCfgDir() == -1) return 0;
 
     return 1;
 }
 
-void ProxyClientProtocol::finish(void) const {
+void ProxyClientProtocol::finish(void) {
     // what to do here???
 }
 
@@ -848,12 +848,11 @@ keyinter_failure:
 ** manager: workload manager type
 ** All arguments are optional dependent on manager.
 */
-proto_session* ProxyClientProtocol::createSession(const DebugClientProtocol *proto,
+proto_session* ProxyClientProtocol::createSession(DebugClientProtocol * const proto,
                                             WLM_type manager,
                                             const char *batch_template,
                                             const char *hostname,
-                                            const char *username) const {
-    proto_session *rtn;
+                                            const char *username) {
     proxy_session *sess;
     struct addrinfo hints;
     struct addrinfo *listener = NULL;
@@ -1143,18 +1142,13 @@ proto_session* ProxyClientProtocol::createSession(const DebugClientProtocol *pro
 
     DPRINT("Session started.\n");
 
-    // Create a proto_session object
-    rtn = (proto_session *)Alloc(sizeof(proto_session));
-    rtn->sess_proto = proto;
-    rtn->sess_obj = sess;
-
-    return rtn;
+    return new proto_session(proto, sess);
 }
 
 /*
 ** Mark an existing proxy session as valid
 */
-void ProxyClientProtocol::saveSession(proto_session *session) const {
+void ProxyClientProtocol::saveSession(proto_session *session) {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1203,7 +1197,7 @@ void ProxyClientProtocol::saveSession(proto_session *session) const {
 /*
 ** Cleanup an existing session, making sure it is no longer valid
 */
-void ProxyClientProtocol::cleanupSession(proto_session *session) const {
+void ProxyClientProtocol::cleanupSession(proto_session *session) {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1253,7 +1247,7 @@ void ProxyClientProtocol::cleanupSession(proto_session *session) const {
 */
 int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
                           const char *app_ident, const char *arch,
-                          const char *backend, int gpu_flag, int debug_flag) const {
+                          const char *backend, int gpu_flag, int debug_flag) {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1495,7 +1489,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
                           char **arch_args, const char *arch_input,
                           const char *backend, const char* gdb,  char **env, const char *cwd,
                           int gpu_flag, int debug_flag, int early_entry_flag,
-                          bool isNonStop) const {
+                          bool isNonStop) {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1780,7 +1774,7 @@ static proto_msg_set *DbgPROXYRecvProtoMsg(int net_fd) {
     return res;
 }
 
-void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) const {
+void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proto_msg_set *ev_res;
     char *line;
@@ -1870,7 +1864,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) const {
 }
 
 bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
-                               const char *request) const {
+                               const char *request) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     bitset *received;
     proto_msg_set *pmsg_set;
@@ -1938,7 +1932,7 @@ bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
 proto_msg_set *ProxyClientProtocol::receiveReply(dbginvoke_t *di, bitset *target,
-                                        bitset *received) const {
+                                        bitset *received) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     int full = 0;
     proto_msg_set *pmsg_set = NULL;
@@ -2017,7 +2011,7 @@ proto_msg_set *ProxyClientProtocol::receiveReply(dbginvoke_t *di, bitset *target
 ** DBG_EXIT: Tell server to quit immediately.
 ** If detach is true, then we detach from application instead of killing it.
 */
-int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) const {
+int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proxy_msg_header msg_head;
     char *msg;
@@ -2066,7 +2060,7 @@ int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) const {
     return 0;
 }
 
-void ProxyClientProtocol::destroyClient(dbginvoke_t *di) const {
+void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
 
     // Check to see if the network type has been destroyed

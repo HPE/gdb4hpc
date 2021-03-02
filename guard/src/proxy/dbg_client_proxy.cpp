@@ -42,15 +42,12 @@ list_t *DbgInvokeList = (list_t *)NULL;
 /*
 ** Create a dbginvoke_t structure.
 */
-dbginvoke_t *NewDbgInvoke(int nproc, const DebugClientProtocol *proto) {
-    dbginvoke_t *di;
-
-    di = (dbginvoke_t *)Alloc(sizeof(dbginvoke_t));
-    memset(di, 0, sizeof(dbginvoke_t));
+dbginvoke_t *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
+    dbginvoke_t *di = new dbginvoke_t(proto);
 
     // Set non-zero members here
     di->d_nproc = nproc;
-    di->d_proto = proto;
+    // di->d_proto = proto; // proto set in constructor
     // XXX: This interface doesn't make use of the d_eventset_list or
     // d_pbset_list All of that gets forwarded to the client side.
 

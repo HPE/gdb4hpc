@@ -42,7 +42,7 @@
 #define RECONNECT_TRIES 10
 
 // These are static in dbg_client, here they are provided by dbg_client_proxy.c
-extern dbginvoke_t *NewDbgInvoke(int, const DebugClientProtocol *);
+extern dbginvoke_t *NewDbgInvoke(int, DebugClientProtocol * const);
 extern void FreeDbgInvoke(dbginvoke_t *);
 
 /*
@@ -563,7 +563,7 @@ int main(int argc, char **argv) {
     // initialize the protocols
 
     // TODO: Allow this to select any protocol, other than the hardcoded mrnet.
-    const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
+    DebugClientProtocol * const ptab = findClientProtoByName("mrnet");
     if (ptab == nullptr) {
         // Handle error
         return 1;
@@ -1034,7 +1034,7 @@ void DbgDispatchEvents(void) {
                 setlinebuf(PROXY_OUTPUTSTREAM(inst));
 
                 // TODO: Allow this to select any protocol, other than the hardcoded mrnet we see now.
-                const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
+                DebugClientProtocol * const ptab = findClientProtoByName("mrnet");
                 // Set the protocol based on the proto arg
                 if (ptab == nullptr) {
                     // Handle error
@@ -1157,7 +1157,7 @@ void DbgDispatchEvents(void) {
                 setlinebuf(PROXY_OUTPUTSTREAM(inst));
 
                 // TODO: Allow this to select any protocol, other than the hardcoded mrnet we see now.
-                const DebugClientProtocol *ptab = findClientProtoByName("mrnet");
+                DebugClientProtocol * const ptab = findClientProtoByName("mrnet");
                 // Set the protocol based on the proto arg
                 if (ptab == nullptr) {
                     // Handle error

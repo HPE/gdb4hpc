@@ -58,11 +58,11 @@ class DebugClientProtocol;
 // Used to keep track of sessions associated with the proxy based dbgclnt_proto
 // implementation
 struct proto_session {
-    proto_session(const DebugClientProtocol *sess_proto_, void *sess_obj_)
+    proto_session(DebugClientProtocol * const sess_proto_, void *sess_obj_)
         : sess_proto{sess_proto_}
         , sess_obj{sess_obj_} {}
     
-    const DebugClientProtocol *sess_proto;
+    DebugClientProtocol * const sess_proto;
     void *sess_obj; // This is data used by the protocol layer
                     // that is allocated on a per session basis.
 };
@@ -89,56 +89,56 @@ public:
     // name of the protocol
     virtual const std::string name() const = 0;
 
-    virtual int init() const { throw FunctionNotImplementedException("init"); };
+    virtual int init() { throw FunctionNotImplementedException("init"); };
     virtual bool hasInit() const { return false; };
 
-    virtual void finish() const { throw FunctionNotImplementedException("finish"); };
+    virtual void finish() { throw FunctionNotImplementedException("finish"); };
     virtual bool hasFinish() const { return false; };
 
-    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *) const { throw FunctionNotImplementedException("sendCommand"); };
+    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *) { throw FunctionNotImplementedException("sendCommand"); };
     virtual bool hasSendCommand() const { return false; };
 
-    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) const { throw FunctionNotImplementedException("receiveReply"); };
+    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) { throw FunctionNotImplementedException("receiveReply"); };
     virtual bool hasReceiveReply() const { return false; };
 
-    virtual int checkEvents(struct dbginvoke *) const { throw FunctionNotImplementedException("checkEvents"); }; // check for ready event
+    virtual int checkEvents(struct dbginvoke *) { throw FunctionNotImplementedException("checkEvents"); }; // check for ready event
     virtual bool hasCheckEvents() const { return false; };
 
-    virtual void dispatchEvents(struct dbginvoke *, int) const { throw FunctionNotImplementedException("dispatchEvents"); };
+    virtual void dispatchEvents(struct dbginvoke *, int) { throw FunctionNotImplementedException("dispatchEvents"); };
     virtual bool hasDispatchEvents() const { return false; };
 
     // Client protocol routines
-    virtual proto_session *createSession(const DebugClientProtocol *, WLM_type, 
-        const char *, const char *,const char *) const { throw FunctionNotImplementedException("createSession"); };
+    virtual proto_session *createSession(DebugClientProtocol * const, WLM_type, 
+        const char *, const char *,const char *) { throw FunctionNotImplementedException("createSession"); };
     virtual bool hasCreateSession() const { return false; };
 
-    virtual void saveSession(proto_session *) const { throw FunctionNotImplementedException("saveSession"); };
+    virtual void saveSession(proto_session *) { throw FunctionNotImplementedException("saveSession"); };
     virtual bool hasSaveSession() const { return false; };
 
-    virtual void cleanupSession(proto_session *) const { throw FunctionNotImplementedException("cleanupSession"); }; // called when a session is no longer valid
+    virtual void cleanupSession(proto_session *) { throw FunctionNotImplementedException("cleanupSession"); }; // called when a session is no longer valid
     virtual bool hasCleanupSession() const { return false; };
 
     virtual int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int, int) const { throw FunctionNotImplementedException("attach"); };
+        const char *, const char *, int, int) { throw FunctionNotImplementedException("attach"); };
     virtual bool hasAttach() const { return false; };
 
     virtual int launch(struct dbginvoke *, proto_session *, const char *, char **,
         const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int, int, bool) const { throw FunctionNotImplementedException("launch"); };
+        const char *, int, int, int, bool) { throw FunctionNotImplementedException("launch"); };
     virtual bool hasLaunch() const { return false; };
 
-    virtual int exit(struct dbginvoke *, int detach) const { throw FunctionNotImplementedException("exit"); };
+    virtual int exit(struct dbginvoke *, int detach) { throw FunctionNotImplementedException("exit"); };
     virtual bool hasExit() const { return false; };
 
-    virtual void destroyClient(struct dbginvoke *) const { throw FunctionNotImplementedException("destroyClient"); };
+    virtual void destroyClient(struct dbginvoke *) { throw FunctionNotImplementedException("destroyClient"); };
     virtual bool hasDestroyClient() const { return false; };
 };
 
 /*
 ** Function definitions
 */
-const std::vector<const DebugClientProtocol *> getClientProtos();
-const DebugClientProtocol* findClientProtoByName(std::string protoName);
+const std::vector<DebugClientProtocol *> getClientProtos();
+DebugClientProtocol * const findClientProtoByName(std::string protoName);
 
 extern int WaitForProtoStartupEvent(struct dbginvoke *);
 

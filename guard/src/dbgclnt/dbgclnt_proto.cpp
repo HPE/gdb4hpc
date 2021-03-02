@@ -37,10 +37,10 @@
 #include "list.h"
 #include "useful.h"
 
-extern DebugClientProtocol *DbgClntProtoMRN;
-extern DebugClientProtocol *DbgClntProtoProxy;
+extern DebugClientProtocol * DbgClntProtoMRN;
+extern DebugClientProtocol * DbgClntProtoProxy;
 
-static const std::vector<const DebugClientProtocol *> DbgProtoTab = {
+static const std::vector<DebugClientProtocol *> DbgProtoTab = {
     DbgClntProtoMRN,
     DbgClntProtoProxy
 };
@@ -51,11 +51,11 @@ static int proto_high_fd;
 
 // used to iterate through DbgProtoTab and call init or finish on each proto
 // when gdb4hpc starts up or finishes
-const std::vector<const DebugClientProtocol *> getClientProtos() {
+const std::vector<DebugClientProtocol *> getClientProtos() {
     return DbgProtoTab;
 }
 
-const DebugClientProtocol* findClientProtoByName(std::string protoName) {
+DebugClientProtocol * const findClientProtoByName(std::string protoName) {
     for (const auto &p : DbgProtoTab) {
         if (p != nullptr && p->name() == protoName) return p;
     }

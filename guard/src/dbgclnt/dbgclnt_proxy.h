@@ -9,45 +9,45 @@ public:
 
     const std::string name() const override { return "proxy"; };
 
-    int init() const override;
+    int init() override;
     bool hasInit() const { return true; };
 
-    void finish() const override;
+    void finish() override;
     bool hasFinish() const { return true; };
 
-    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) const override;
+    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) override;
     bool hasSendCommand() const { return true; };
 
-    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) const override;
+    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) override;
     bool hasReceiveReply() const { return true; };
 
-    void dispatchEvents(struct dbginvoke *, int) const override;
+    void dispatchEvents(struct dbginvoke *, int) override;
     bool hasDispatchEvents() const { return true; };
 
     // Client protocol routines
-    proto_session *createSession(const DebugClientProtocol *, WLM_type, 
-        const char *, const char *,const char *) const override;
+    proto_session *createSession(DebugClientProtocol * const, WLM_type, 
+        const char *, const char *,const char *) override;
     bool hasCreateSession() const { return true; };
 
-    void saveSession(proto_session *) const override;
+    void saveSession(proto_session *) override;
     bool hasSaveSession() const { return true; };
 
-    void cleanupSession(proto_session *) const override;
+    void cleanupSession(proto_session *) override;
     bool hasCleanupSession() const { return true; };
 
     int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int, int) const override;
+        const char *, const char *, int, int) override;
     bool hasAttach() const { return true; };
 
     int launch(struct dbginvoke *, proto_session *, const char *, char **,
         const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int, int, bool) const override;
+        const char *, int, int, int, bool) override;
     bool hasLaunch() const { return true; };
 
-    int exit(struct dbginvoke *, int detach) const override;
+    int exit(struct dbginvoke *, int detach) override;
     bool hasExit() const { return true; };
 
-    void destroyClient(struct dbginvoke *) const override;
+    void destroyClient(struct dbginvoke *) override;
     bool hasDestroyClient() const { return true; };
 };
 

@@ -56,7 +56,7 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid);
 static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
 static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set);
 
-MRNClientProtocol* DbgClntProtoMRN = new MRNClientProtocol();
+MRNClientProtocol * DbgClntProtoMRN = new MRNClientProtocol();
 
 // Add the gpu enabled version of gdb to the manifest.  The back-end will determine
 // which one to use; and they might well not be the same for each rank.
@@ -280,7 +280,7 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int MRNClientProtocol::init() const {
+int MRNClientProtocol::init() {
     struct stat st;
     char *mrnet_cfg_dir;
     const char *mrnet_port_base;
@@ -327,7 +327,7 @@ int MRNClientProtocol::init() const {
 }
 
 bitset* MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
-                             const char *request) const {
+                             const char *request) {
     proto_network network = di->d_proto_net;
     bitset *received = NULL;
 
@@ -356,7 +356,7 @@ bitset* MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 }
 
 struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di, 
-                                            bitset *target, bitset *received) const {
+                                            bitset *target, bitset *received) {
     proto_network network = di->d_proto_net;
     int full = 0;
     proto_msg_set *msg_set = NULL;
@@ -406,7 +406,7 @@ struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di,
     return result;
 }
 
-void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) const {
+void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
     proto_msg_set *io_res;
@@ -454,7 +454,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) const {
 
 int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
-                        const char *backend, int gpu_flag, int debug_flag) const {
+                        const char *backend, int gpu_flag, int debug_flag) {
     char *root = NULL;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
@@ -1116,7 +1116,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
                         char **argv, const char *arch, char **arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
-                        int early_entry_flag, bool isNonStop) const {
+                        int early_entry_flag, bool isNonStop) {
     char sn[80];
     char *root = NULL;
     char *cfg_dir;
@@ -1752,7 +1752,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::exit(dbginvoke_t *di, int detach) const {
+int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
@@ -1788,7 +1788,7 @@ int MRNClientProtocol::exit(dbginvoke_t *di, int detach) const {
     return 0;
 }
 
-void MRNClientProtocol::destroyClient(dbginvoke_t *di) const {
+void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po;
 

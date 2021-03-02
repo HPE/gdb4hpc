@@ -69,6 +69,10 @@ enum dbgquit_type { DBG_KILL, DBG_DETACH, DBG_DEFAULT };
 typedef enum dbgquit_type dbgquit_type;
 
 struct dbginvoke {
+    dbginvoke(DebugClientProtocol * const proto)
+        : d_proto{proto}
+    {}
+
     char *d_handle;       // invoke handle used as identifier in client layer
     uint64_t d_appid;     // app identifier - this should be generic
     dbgproc_type d_type;  // launched or attached?
@@ -88,7 +92,7 @@ struct dbginvoke {
                      // protocols
     proto_network d_proto_net;  // di specific protocol network object
     proto_outp d_proto_outp;    // di specific protocol output object
-    const DebugClientProtocol *d_proto;     // client protocol switch
+    DebugClientProtocol * const d_proto;     // client protocol switch
 
     // The following two callbacks are for protocol event messages and for
     // handling the actual events in the client layer.

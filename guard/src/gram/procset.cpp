@@ -131,7 +131,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
             i_cnt = o_ptr->s_ps_offset;
 
             DPRINT("CreateTempProcSetSlice looping over slice:[%d..%d]\n",
-                   ps_slice->s_low[i], ps_slice->s_high[i]);
+                   ps_slice->getLow(i), ps_slice->getHigh(i));
 
             // Loop over the range of this rank in the slice
             for (index = ps_slice->getLow(i); index <= ps_slice->getHigh(i);
@@ -355,7 +355,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                         i_cnt = over_set->s_ps_offset;
 
                         DPRINT("CreateProcSet looping over slice:[%d..%d]\n",
-                               ps_slice->s_low[i], ps_slice->s_high[i]);
+                               ps_slice->getLow(i), ps_slice->getHigh(i));
 
                         // Loop over the range of this rank in the slice
                         for (index = ps_slice->getLow(i);

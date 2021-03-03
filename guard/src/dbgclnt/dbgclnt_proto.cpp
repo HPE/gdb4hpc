@@ -37,14 +37,17 @@
 #include "list.h"
 #include "useful.h"
 
-extern DebugClientProtocol * DbgClntProtoMRN;
-extern DebugClientProtocol * DbgClntProtoProxy;
+#include "dbgclnt_mrn.h"
+#include "dbgclnt_proxy.h"
+
+extern MRNClientProtocol DbgClntProtoMRN;
+extern ProxyClientProtocol DbgClntProtoProxy;
 
 static const std::vector<DebugClientProtocol *> DbgProtoTab = {
-    DbgClntProtoMRN,
-    DbgClntProtoProxy
+    &DbgClntProtoMRN,
+    &DbgClntProtoProxy
 };
-
+ 
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;

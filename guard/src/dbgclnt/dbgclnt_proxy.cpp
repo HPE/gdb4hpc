@@ -18,7 +18,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <libssh2.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <pwd.h>
@@ -42,25 +41,10 @@
 #define START_KEYWORD_FMT "#cray_debug_start"
 #define END_KEYWORD_FMT "#cray_debug_end"
 
-// Internal prototypes
-static int setupPROXYCfgDir(void);
-static char *parseBatchScript(const char *, const char *);
-static int ssh_start_proxy(const char *, const char *, const char *,
-                           const char *);
-static proto_msg_set *DbgPROXYRecvProtoMsg(int);
-static int cbPROXYAttach(dbginvoke_t *, proto_msg_set *);
-static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
+// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
+ProxyClientProtocol DbgClntProtoProxy;
 
-// Internal global variables
-static int callback_failure = 0;
-
-ProxyClientProtocol * DbgClntProtoProxy = new ProxyClientProtocol();
-
-/*
-** Functions start below
-*/
-
-static int setupPROXYCfgDir(void) {
+int ProxyClientProtocol::setupPROXYCfgDir(void) {
     struct stat st;
     char *cfg_dir;
 
@@ -90,8 +74,6 @@ static int setupPROXYCfgDir(void) {
     return 0;
 }
 
-// Interface definitions
-
 int ProxyClientProtocol::init() {
     if (setupPROXYCfgDir() == -1) return 0;
 
@@ -105,7 +87,7 @@ void ProxyClientProtocol::finish(void) {
 /*
 ** Parse a batch job script
 */
-static char *parseBatchScript(const char *script_file,
+char* ProxyClientProtocol::parseBatchScript(const char *script_file,
                               const char *launcher_argv_str) {
     FILE *sfp;
     char *cfg_dir;
@@ -219,7 +201,7 @@ static char *parseBatchScript(const char *script_file,
 
 extern char *cli_get_line(void);
 
-static void interactive_auth_callback(
+void ProxyClientProtocol::interactive_auth_callback(
     const char *name, int name_len, const char *instruction,
     int instruction_len, int num_prompts,
     const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
@@ -256,7 +238,7 @@ static void interactive_auth_callback(
     PrintOutMsg("\n\n");
 }
 
-static int ssh_start_proxy(const char *hostname, const char *username,
+int ProxyClientProtocol::ssh_start_proxy(const char *hostname, const char *username,
                            const char *lhost, const char *lport) {
     int auth = 0;
     struct addrinfo hints;
@@ -573,7 +555,7 @@ publickey_failure:
         PrintOutMsg("Performing keyboard-interactive authentication.\n");
 
         if (libssh2_userauth_keyboard_interactive(session, username,
-                                                  &interactive_auth_callback)) {
+                                                  &ProxyClientProtocol::interactive_auth_callback)) {
             // Failed to authenticate
             PrintOutError("keybaord-interactive authentication failed.\n");
             goto keyinter_failure;
@@ -1261,7 +1243,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbPROXYAttach;
+    di->d_proto_ev_callback = ProxyClientProtocol::cbPROXYAttach;
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1422,7 +1404,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 /*
 ** Compatible callback routine for attaching with the proxy
 */
-static int cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
+int ProxyClientProtocol::cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
     proto_message *msg;
     dbgevent_t *e = NULL;
     int err = 0;
@@ -1504,7 +1486,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbPROXYInvoke;
+    di->d_proto_ev_callback = ProxyClientProtocol::cbPROXYInvoke;
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1679,7 +1661,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
 /*
 ** Compatible callback routine for invoking with the proxy
 */
-static int cbPROXYInvoke(dbginvoke_t *di, proto_msg_set *set) {
+int ProxyClientProtocol::cbPROXYInvoke(dbginvoke_t *di, proto_msg_set *set) {
     proto_message *msg;
     dbgevent_t *e = NULL;
     int err = 0;
@@ -1724,16 +1706,8 @@ static int cbPROXYInvoke(dbginvoke_t *di, proto_msg_set *set) {
     return 0;
 }
 
-/*
-**********************************************************
-**********************************************************
-************ WRAPPERS FOR PROXY ROUTINES *****************
-**********************************************************
-**********************************************************
-*/
-
 // Helper function to receive a proto message
-static proto_msg_set *DbgPROXYRecvProtoMsg(int net_fd) {
+proto_msg_set* ProxyClientProtocol::DbgPROXYRecvProtoMsg(int net_fd) {
     proxy_msg_header soc_head;
     char *soc_buf;
     proto_message *msg;

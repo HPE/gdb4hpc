@@ -43,242 +43,8 @@
 #include "useful.h"
 #include "dbgclnt_mrn.h"
 
-#ifdef ALPS
-#include "common_tools_fe.h"
-#endif /* ALPS */
-
-#ifdef BE_VALGRIND
-static int DbgAddValgrindFiles(cti_manifest_id_t mid);
-#endif
-static bool DbgMRNAddOmpd(cti_manifest_id_t mid);
-
-// protocol specific startup event callback functions
-static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
-static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set);
-
-MRNClientProtocol * DbgClntProtoMRN = new MRNClientProtocol();
-
-// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
-// which one to use; and they might well not be the same for each rank.
-static bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
-    // The backend code will determine which version of cuda-gdb to use
-    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
-        return false;
-    }
-
-    if (cti_addManifestBinary(mid, "cuobjdump")) {
-        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
-        // amd system, it is not required so printint a complaint here could be confusing.
-        // It will be cleaner to trigger this from the back-end after it determines we
-        // are on an nvidia system.
-        //PrintOutError("Failed to add cuobjdump to manifest.\n");
-    }
-
-    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
-    // continuously and a typical machine might have 3 or 4 versions available.   So it
-    // make sense to just let the user select the rocgdb version they want by
-    // loading the right module or otherwise manipulationg PATH.
-    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
-        if (cti_addManifestBinary(mid, rocgdb)) {
-            free(rocgdb);
-            return false;
-        }
-        free(rocgdb);
-    }
-
-    return true;
-}
-
-/*
-** Compatible callback routine for attaching with mrnet.
-*/
-static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-        PrintOutMsg("Attach complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-** Compatible callback routine for invoking with mrnet.
-*/
-static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-#ifdef ALPS
-        // tell CTI to release the application from the startup barrier
-        if (cti_releaseAppBarrier(di->d_appid)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError(
-                "Could not release application from the startup barrier.\n");
-            cti_killApp(di->d_appid, SIGKILL);
-            return 1;
-        }
-#endif
-
-        PrintOutMsg("Launch complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-**********************************************************
-**********************************************************
-************ WRAPPERS FOR MRNet ROUTINES *****************
-**********************************************************
-**********************************************************
-*/
-
-#ifdef BE_VALGRIND
-static int DbgAddValgrindFiles(cti_manifest_id_t mid)
-{
-    std::string suppressionFile;
-    bool hasSuppressionFile = false;
-
-    // Add valgrind to the manifest
-    if (int err = cti_addManifestBinary(mid, "valgrind")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add valgrind to manifest.\n");
-        return err;
-    }
-
-    // And the suppression file if there is one
-    suppressionFile = std::string(getenv("HOME")) + "/" + GDB4HPC_BE_SUPPRESSIONS;
-    if (std::ifstream(suppressionFile.c_str())) hasSuppressionFile = true;
-
-    if (hasSuppressionFile) {
-        if (int err = cti_addManifestFile(mid, suppressionFile.c_str())) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to add valgrind suppression file %s to manifest.\n", suppressionFile.c_str());
-            return err;
-        }
-    } else {
-        // Print out the file we're looking for so the dev doesn't need to look it up
-        PrintOutError("no suppression file found at: %s\n", suppressionFile.c_str());
-    }
-
-    return 0;
-}
-#endif
-
-// Explicitly publish the ompd library files for the back-end.
-static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
-{
-    auto dir = std::string{};
-    try {
-        dir = std::filesystem::canonical("/proc/self/exe");
-    } catch (std::exception& err) {
-        PrintOutError("Could not get executable path, ompd will not be available\n");
-        return false;
-    }
-
-
-    // we expect gdb4hpc to bin a bin directory and ompd to be in share
-    auto bloc = dir.rfind("/bin");
-
-    if (bloc == std::string::npos) return false;
-    dir.resize(bloc+1); // keep the /
-    dir += "share/ompd/gdb";
-
-    try {
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            auto f = entry.path();
-            if (f.filename() == "__pycache__") continue;
-            if (cti_addManifestFile(mid, f.c_str())) {
-                PrintOutError("adding ompd file to the manifest failed\n");
-                break;
-            }
-        }
-    } catch (std::exception& err) {
-        PrintOutError("ompd path %s not found, ompd will not be available\n", dir.c_str());
-        return false;
-    }
-
-    return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
+// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
+MRNClientProtocol DbgClntProtoMRN;
 
 int MRNClientProtocol::init() {
     struct stat st;
@@ -491,7 +257,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbMRNAttach;
+    di->d_proto_ev_callback = MRNClientProtocol::cbMRNAttach;
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -1152,7 +918,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbMRNInvoke;
+    di->d_proto_ev_callback = MRNClientProtocol::cbMRNInvoke;
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -1809,4 +1575,216 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
         // clear the program output object
         di->d_proto_outp = NULL;
     }
+}
+
+// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
+// which one to use; and they might well not be the same for each rank.
+bool MRNClientProtocol::DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
+    // The backend code will determine which version of cuda-gdb to use
+    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        return false;
+    }
+
+    if (cti_addManifestBinary(mid, "cuobjdump")) {
+        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
+        // amd system, it is not required so printint a complaint here could be confusing.
+        // It will be cleaner to trigger this from the back-end after it determines we
+        // are on an nvidia system.
+        //PrintOutError("Failed to add cuobjdump to manifest.\n");
+    }
+
+    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
+    // continuously and a typical machine might have 3 or 4 versions available.   So it
+    // make sense to just let the user select the rocgdb version they want by
+    // loading the right module or otherwise manipulationg PATH.
+    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
+        if (cti_addManifestBinary(mid, rocgdb)) {
+            free(rocgdb);
+            return false;
+        }
+        free(rocgdb);
+    }
+
+    return true;
+}
+
+/*
+** Compatible callback routine for attaching with mrnet.
+*/
+int MRNClientProtocol::cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNAttach received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto_ev_callback = DbgDispatchProtoEvents;
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+        PrintOutMsg("Attach complete.\n");
+    }
+
+    return 0;
+}
+
+/*
+** Compatible callback routine for invoking with mrnet.
+*/
+int MRNClientProtocol::cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNInvoke received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto_ev_callback = DbgDispatchProtoEvents;
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+#ifdef ALPS
+        // tell CTI to release the application from the startup barrier
+        if (cti_releaseAppBarrier(di->d_appid)) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError(
+                "Could not release application from the startup barrier.\n");
+            cti_killApp(di->d_appid, SIGKILL);
+            return 1;
+        }
+#endif
+
+        PrintOutMsg("Launch complete.\n");
+    }
+
+    return 0;
+}
+
+#ifdef BE_VALGRIND
+int MRNClientProtocol::DbgAddValgrindFiles(cti_manifest_id_t mid)
+{
+    std::string suppressionFile;
+    bool hasSuppressionFile = false;
+
+    // Add valgrind to the manifest
+    if (int err = cti_addManifestBinary(mid, "valgrind")) {
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        PrintOutError("Failed to add valgrind to manifest.\n");
+        return err;
+    }
+
+    // And the suppression file if there is one
+    suppressionFile = std::string(getenv("HOME")) + "/" + GDB4HPC_BE_SUPPRESSIONS;
+    if (std::ifstream(suppressionFile.c_str())) hasSuppressionFile = true;
+
+    if (hasSuppressionFile) {
+        if (int err = cti_addManifestFile(mid, suppressionFile.c_str())) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError("Failed to add valgrind suppression file %s to manifest.\n", suppressionFile.c_str());
+            return err;
+        }
+    } else {
+        // Print out the file we're looking for so the dev doesn't need to look it up
+        PrintOutError("no suppression file found at: %s\n", suppressionFile.c_str());
+    }
+
+    return 0;
+}
+#endif
+
+// Explicitly publish the ompd library files for the back-end.
+bool MRNClientProtocol::DbgMRNAddOmpd(cti_manifest_id_t mid)
+{
+    auto dir = std::string{};
+    try {
+        dir = std::filesystem::canonical("/proc/self/exe");
+    } catch (std::exception& err) {
+        PrintOutError("Could not get executable path, ompd will not be available\n");
+        return false;
+    }
+
+
+    // we expect gdb4hpc to bin a bin directory and ompd to be in share
+    auto bloc = dir.rfind("/bin");
+
+    if (bloc == std::string::npos) return false;
+    dir.resize(bloc+1); // keep the /
+    dir += "share/ompd/gdb";
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            auto f = entry.path();
+            if (f.filename() == "__pycache__") continue;
+            if (cti_addManifestFile(mid, f.c_str())) {
+                PrintOutError("adding ompd file to the manifest failed\n");
+                break;
+            }
+        }
+    } catch (std::exception& err) {
+        PrintOutError("ompd path %s not found, ompd will not be available\n", dir.c_str());
+        return false;
+    }
+
+    return true;
 }

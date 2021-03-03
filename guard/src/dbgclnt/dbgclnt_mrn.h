@@ -3,6 +3,10 @@
 
 #include "dbgclnt_proto.h"
 
+#ifdef ALPS
+#include "common_tools_fe.h"
+#endif /* ALPS */
+
 class MRNClientProtocol : public DebugClientProtocol {
 public:
     // MRNet does not support:
@@ -41,6 +45,21 @@ public:
 
     void destroyClient(struct dbginvoke *) override;
     virtual bool hasDestroyClient() const { return true; };
+
+private:
+    // MRNet specific helper functions
+    bool DbgMRNAddOmpd(cti_manifest_id_t mid);
+    bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid);
+
+    // startup event callback functions
+    // these are static so that they can be pointed to by the callback function
+    // fields of a dbginvoke_t
+    static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
+    static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set);
+
+#ifdef BE_VALGRIND
+    int DbgAddValgrindFiles(cti_manifest_id_t mid);
+#endif
 };
 
 #endif /* _DBGCLNT_MRN_H */

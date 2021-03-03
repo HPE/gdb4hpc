@@ -1,6 +1,8 @@
 #ifndef _DBGCLNT_PROXY_H
 #define _DBGCLNT_PROXY_H
 
+#include <libssh2.h>
+
 #include "dbgclnt_proto.h"
 
 class ProxyClientProtocol : public DebugClientProtocol {
@@ -49,6 +51,27 @@ public:
 
     void destroyClient(struct dbginvoke *) override;
     bool hasDestroyClient() const { return true; };
+
+private:
+    // Proxy specific helper functions
+    int setupPROXYCfgDir(void);
+    char *parseBatchScript(const char *, const char *);
+    int ssh_start_proxy(const char *, const char *, const char *, const char *);
+    static void interactive_auth_callback(
+        const char *name, int name_len, const char *instruction,
+        int instruction_len, int num_prompts,
+        const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
+        LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses, void **abstract);
+    proto_msg_set *DbgPROXYRecvProtoMsg(int);
+
+    // startup event callback functions
+    // these are static so that they can be pointed to by the callback function
+    // fields of a dbginvoke_t
+    static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
+    static int cbPROXYAttach(dbginvoke_t *, proto_msg_set *);
+
+    // Proxy specific variables
+    int callback_failure = 0;
 };
 
 #endif /* _DBGCLNT_PROXY_H */

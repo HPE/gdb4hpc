@@ -87,7 +87,7 @@ struct FunctionNotImplementedException : public std::exception {
 class DebugClientProtocol {
 public:
     // name of the protocol
-    virtual const std::string name() const = 0;
+    virtual const char* name() const = 0;
 
     virtual int init() { throw FunctionNotImplementedException("init"); };
     virtual bool hasInit() const { return false; };

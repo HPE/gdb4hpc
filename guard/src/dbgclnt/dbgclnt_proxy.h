@@ -9,7 +9,7 @@ class ProxyClientProtocol : public DebugClientProtocol {
 public:
     // proxy supports everything except checkEvents
 
-    const std::string name() const override { return "proxy"; };
+    const char* name() const override { return "proxy"; };
 
     int init() override;
     bool hasInit() const { return true; };

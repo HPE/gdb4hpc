@@ -14,7 +14,7 @@ public:
     //  * checkEvents
     //  * any session functions
 
-    const std::string name() const override { return "mrnet"; };
+    const char* name() const override { return "mrnet"; };
 
     int init() override;
     virtual bool hasInit() const { return true; };

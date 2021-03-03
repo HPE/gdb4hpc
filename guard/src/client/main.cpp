@@ -113,6 +113,7 @@ static void Banner(void) {
     PrintOutMsg("\n");
     PrintOutMsg("Type \"help\" for a list of commands.\n");
     PrintOutMsg("Type \"help <cmd>\" for detailed help about a command.\n");
+    DPRINT("Debug printing is enabled.\n");
 }
 
 static int checkDirPerms(const char *dir) {

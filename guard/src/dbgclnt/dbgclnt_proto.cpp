@@ -189,3 +189,28 @@ int WaitForProtoStartupEvent(dbginvoke_t *di) {
         }
     }
 }
+
+void DebugClientProtocol::outputCallback(dbginvoke *di, FILE *stream) {
+    // by default, just forward to generic handler
+    DbgDispatchProtoOutput(di, stream);
+}
+
+// public facing function to set the handler back to the default generic
+void DebugClientProtocol::resetProtocolEventHandler() {
+    setProtocolEventHandler(new DebugClientDefaultProtocolEventHandler());
+}
+
+void DebugClientProtocol::setProtocolEventHandler(DebugClientProtocolEventHandler *handler) {
+    // since this is a unique pointer, this will delete any old handler.
+    m_protoEventHandler.reset(handler);
+}
+
+int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, proto_msg_set *set) { 
+    if (m_protoEventHandler) return m_protoEventHandler->handleEvent(di, set);
+    return 1;
+};
+
+int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, proto_msg_set* set) {
+    // by default, just forward to generic handler
+    return DbgDispatchProtoEvents(di, set);
+}

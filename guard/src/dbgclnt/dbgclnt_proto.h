@@ -40,6 +40,7 @@
 
 #include <string>
 #include <exception>
+#include <memory>
 #include <vector>
 
 // forward declare struct dbginvoke - Note that because the struct dbginvoke is
@@ -67,12 +68,24 @@ struct proto_session {
                     // that is allocated on a per session basis.
 };
 
-// main protocol definition
+// event handlers used by protocols to handle events in certain situations
 //
-// child classes should provide a name() and various functions. once a function
-// has been implimented, the child class should override the matching has...() function.
+// 
+class DebugClientProtocolEventHandler {
+public:
+    ~DebugClientProtocolEventHandler() = default;
+    virtual int handleEvent(dbginvoke *di, proto_msg_set* set) = 0;
+};
+
+class DebugClientDefaultProtocolEventHandler : public DebugClientProtocolEventHandler{
+public:
+    int handleEvent(dbginvoke *di, proto_msg_set* set) override;
+};
+
+// main protocol definition
 class DebugClientProtocol {
 public:
+    DebugClientProtocol() : m_protoEventHandler{} {};
     virtual ~DebugClientProtocol() = default;
 
     // functions required by every derived class:
@@ -113,6 +126,18 @@ public:
     virtual void cleanupSession(proto_session *session) {};
 
     virtual void destroyClient(struct dbginvoke *di) {};
+
+    void resetProtocolEventHandler();
+protected:
+    // callback related
+    virtual void outputCallback(dbginvoke *di, FILE *f);
+    void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
+    int handleProtocolEvent(dbginvoke *di, proto_msg_set* set);
+
+private:
+    // we don't want this exposed to derived classes directly, they should only
+    // be able to set it and call its handler method.
+    std::unique_ptr<DebugClientProtocolEventHandler> m_protoEventHandler;
 };
 
 /*

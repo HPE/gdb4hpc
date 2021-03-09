@@ -1243,7 +1243,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = ProxyClientProtocol::cbPROXYAttach;
+    setProtocolEventHandler(new ProxyAttachHandler());
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1402,68 +1402,6 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 }
 
 /*
-** Compatible callback routine for attaching with the proxy
-*/
-int ProxyClientProtocol::cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    ResetProtoMsgSet(set);
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        // Note that the proxy will artificially create the DBG_OK message for
-        // every rank in the application. Since we do not know how many ranks
-        // exist until after the attach completes on this end, we just blindly
-        // accept what the proxy daemon tells us
-        if (di->d_bitset_full == NULL) {
-            di->d_nproc = bitset_size(msg->group);
-
-            di->d_bitset_full = bitset_new(bitset_size(msg->group));
-            bitset_invert(di->d_bitset_full);
-
-            // Create the empty launched bitset
-            di->d_bitset_launched = bitset_new(bitset_size(msg->group));
-        }
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbPROXYAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("proxy callback complete.\n");
-    }
-
-    return 0;
-}
-
-/*
 ** Invoke user program through proxy daemon
 */
 int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
@@ -1486,7 +1424,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = ProxyClientProtocol::cbPROXYInvoke;
+    setProtocolEventHandler(new ProxyLaunchHandler());
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1590,9 +1528,6 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
         PrintOutError("pipe: Could not fcntl to O_NONBLOCK.\n");
     }
 
-    // Set the protocol program output stream callback
-    di->d_proto_outp_callback = DbgDispatchProtoOutput;
-
     DPRINT("Proxy connected.\n");
 
     // Create the full bitset based on the number of ranks
@@ -1655,54 +1590,6 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
     }
 
     // All done. Everything is ready to go at this point.
-    return 0;
-}
-
-/*
-** Compatible callback routine for invoking with the proxy
-*/
-int ProxyClientProtocol::cbPROXYInvoke(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    ResetProtoMsgSet(set);
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbPROXYInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("proxy callback complete.\n");
-    }
-
     return 0;
 }
 
@@ -1774,7 +1661,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
         }
 
         // Call the protocol specific callback function to handle this event msg
-        (*(di->d_proto_ev_callback))(di, ev_res);
+        handleProtocolEvent(di, ev_res);
 
         // Free the message set
         FreeProtoMsgSet(ev_res);
@@ -1785,7 +1672,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch output
     if (ev_fd == PROXY_OUTPUTFD(network)) {
         // Call the protocol specific callback function to handle the output
-        (*(di->d_proto_outp_callback))(di, PROXY_OUTPUTSTREAM(network));
+        outputCallback(di, PROXY_OUTPUTSTREAM(network));
 
         return;
     }
@@ -2042,4 +1929,114 @@ void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
         // call the exit function to force the application to quit
         exit(di, 0);
     }
+}
+
+/*
+** Compatible callback routine for attaching with the proxy
+*/
+int ProxyAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    ResetProtoMsgSet(set);
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        // Note that the proxy will artificially create the DBG_OK message for
+        // every rank in the application. Since we do not know how many ranks
+        // exist until after the attach completes on this end, we just blindly
+        // accept what the proxy daemon tells us
+        if (di->d_bitset_full == NULL) {
+            di->d_nproc = bitset_size(msg->group);
+
+            di->d_bitset_full = bitset_new(bitset_size(msg->group));
+            bitset_invert(di->d_bitset_full);
+
+            // Create the empty launched bitset
+            di->d_bitset_launched = bitset_new(bitset_size(msg->group));
+        }
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbPROXYAttach received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("proxy callback complete.\n");
+    }
+
+    return 0;
+}
+
+/*
+** Compatible callback routine for invoking with the proxy
+*/
+int ProxyLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    ResetProtoMsgSet(set);
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbPROXYInvoke received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("proxy callback complete.\n");
+    }
+
+    return 0;
 }

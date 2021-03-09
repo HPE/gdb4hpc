@@ -14,14 +14,10 @@ typedef void *proto_outp;
 // and is not suitable for storing instance data.
 typedef void *proto_network;
 
-// This is the protocol callback function prototype
-typedef int (*proto_ev_callback_func)(struct dbginvoke *, proto_msg_set *);
 // This is the client callback function prototype
 // Arguments are the event_set for this event and a bitset containing the new
 // ranks to report this event
 typedef int (*clnt_ev_callback_func)(struct event_set *, bitset *);
-// This is the proto program output callback function prototype
-typedef void (*proto_outp_callback_func)(struct dbginvoke *, FILE *);
 
 // Used to determine type of dbginvoke, currently there is either launched or
 // attached launched means the application was launched by the debugger,
@@ -54,12 +50,7 @@ struct dbginvoke {
     proto_outp d_proto_outp;    // di specific protocol output object
     DebugClientProtocol * const d_proto;     // client protocol switch
 
-    // The following two callbacks are for protocol event messages and for
-    // handling the actual events in the client layer.
-    proto_ev_callback_func d_proto_ev_callback;
     clnt_ev_callback_func d_clnt_ev_callback;
-    // This is the callback for handling application output in the client
-    proto_outp_callback_func d_proto_outp_callback;
 
     dbgfrontend_sw *d_frontend;  // debug frontend object
 

@@ -16,9 +16,7 @@ dbginvoke::dbginvoke(DebugClientProtocol * const proto)
     , d_proto_net{nullptr}
     , d_proto_outp{nullptr}
     , d_proto{proto}
-    , d_proto_ev_callback{nullptr}
     , d_clnt_ev_callback{nullptr}
-    , d_proto_outp_callback{nullptr}
     , d_frontend{nullptr}
     , d_eventset_list{nullptr}
     , d_bpset_list{nullptr}

@@ -186,7 +186,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     if (di->d_started && (po != NULL) && (po->p_o_rfd == ev_fd)) {
         // Call the protocol specific callback function to handle the output on
         // the stream
-        (*(di->d_proto_outp_callback))(di, po->p_o_stream);
+        outputCallback(di, po->p_o_stream);
         return;
     }
 
@@ -210,7 +210,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch events
     if ((ev_res = mrn_fe_dispatch_event(network, ev_fd)) != NULL) {
         // Call the protocol specific callback function to handle this event msg
-        (*(di->d_proto_ev_callback))(di, ev_res);
+        handleProtocolEvent(di, ev_res);
 
         // Free the message set
         FreeProtoMsgSet(ev_res);
@@ -257,7 +257,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = MRNClientProtocol::cbMRNAttach;
+    setProtocolEventHandler(new MRNAttachHandler());
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -918,7 +918,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = MRNClientProtocol::cbMRNInvoke;
+    setProtocolEventHandler(new MRNLaunchHandler());
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -1002,8 +1002,6 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != NULL) {
         po = (g_progoutp_t *)di->d_proto_outp;
         prog_outp = po->p_o_wfd;
-        // Set the protocol program output stream callback
-        di->d_proto_outp_callback = DbgDispatchProtoOutput;
     }
 
     // Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate
@@ -1610,117 +1608,6 @@ bool MRNClientProtocol::DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
     return true;
 }
 
-/*
-** Compatible callback routine for attaching with mrnet.
-*/
-int MRNClientProtocol::cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-        PrintOutMsg("Attach complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-** Compatible callback routine for invoking with mrnet.
-*/
-int MRNClientProtocol::cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-#ifdef ALPS
-        // tell CTI to release the application from the startup barrier
-        if (cti_releaseAppBarrier(di->d_appid)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError(
-                "Could not release application from the startup barrier.\n");
-            cti_killApp(di->d_appid, SIGKILL);
-            return 1;
-        }
-#endif
-
-        PrintOutMsg("Launch complete.\n");
-    }
-
-    return 0;
-}
-
 #ifdef BE_VALGRIND
 int MRNClientProtocol::DbgAddValgrindFiles(cti_manifest_id_t mid)
 {
@@ -1787,4 +1674,115 @@ bool MRNClientProtocol::DbgMRNAddOmpd(cti_manifest_id_t mid)
     }
 
     return true;
+}
+
+/*
+** Compatible callback routine for attaching with mrnet.
+*/
+int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNAttach received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+        PrintOutMsg("Attach complete.\n");
+    }
+
+    return 0;
+}
+
+/*
+** Compatible callback routine for invoking with mrnet.
+*/
+int MRNLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNInvoke received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+#ifdef ALPS
+        // tell CTI to release the application from the startup barrier
+        if (cti_releaseAppBarrier(di->d_appid)) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError(
+                "Could not release application from the startup barrier.\n");
+            cti_killApp(di->d_appid, SIGKILL);
+            return 1;
+        }
+#endif
+
+        PrintOutMsg("Launch complete.\n");
+    }
+
+    return 0;
 }

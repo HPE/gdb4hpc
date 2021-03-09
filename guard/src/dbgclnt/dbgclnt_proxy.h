@@ -5,9 +5,23 @@
 
 #include "dbgclnt_proto.h"
 
+namespace {
+class ProxyAttachHandler : public DebugClientProtocolEventHandler {
+public:
+    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+};
+
+class ProxyLaunchHandler : public DebugClientProtocolEventHandler {
+public:
+    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+};
+} // private namespace
+
 class ProxyClientProtocol : public DebugClientProtocol {
 public:
     // proxy supports everything except checkEvents
+
+    ProxyClientProtocol() : DebugClientProtocol() {};
 
     const char* name() const override { return "proxy"; };
 
@@ -57,12 +71,6 @@ private:
         const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
         LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses, void **abstract);
     proto_msg_set *DbgPROXYRecvProtoMsg(int);
-
-    // startup event callback functions
-    // these are static so that they can be pointed to by the callback function
-    // fields of a dbginvoke_t
-    static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
-    static int cbPROXYAttach(dbginvoke_t *, proto_msg_set *);
 
     // Proxy specific variables
     int callback_failure = 0;

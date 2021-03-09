@@ -155,42 +155,25 @@ static void CleanupOnSocketClose(void) {
                     break;
             }
 
-            // ensure the send_cmd function is implemented
-            if (DBG_PROTO_SW(di)->hasSendCommand() == true) {
-                // TODO: how to handle error?
+            // Create the quit command
+            auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
-                // Create the quit command
-                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
+            // send the command to every rank
+            recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full, request.c_str());
 
-                // send the command to every rank
-                recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full,
-                                                         request.c_str());
+            pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full, recv_set);
 
-                // ensure the recv_reply function is implemented
-                if (DBG_PROTO_SW(di)->hasReceiveReply() == true) {
-                    // TODO: how to handle error?
+            // We don't care about actually processing the reply, since
+            // this is the cleanup on error case. We want to ensure that
+            // we received an asynch reply.
 
-                    pmsg_set = DBG_PROTO_SW(di)->receiveReply(
-                        di, di->d_bitset_full, recv_set);
+            // cleanup
+            FreeProtoMsgSet(pmsg_set);
 
-                    // We don't care about actually processing the reply, since
-                    // this is the cleanup on error case. We want to ensure that
-                    // we received an asynch reply.
-
-                    // cleanup
-                    FreeProtoMsgSet(pmsg_set);
-                }
-
-                bitset_free(recv_set);
-            }
+            bitset_free(recv_set);
 
             // It is now safe to exit
-
-            // ensure the exit function is implemented
-            if (DBG_PROTO_SW(di)->hasExit() == true) {
-                // call the exit function
-                DBG_PROTO_SW(di)->exit(di, detach);
-            }
+            DBG_PROTO_SW(di)->exit(di, detach);
 
             // Cleanup the dbginvoke, we are done with it.
             FreeDbgInvoke(di);
@@ -570,7 +553,7 @@ int main(int argc, char **argv) {
     }
 
     // call the init function
-    if (ptab->hasInit() == true && !ptab->init()) {
+    if (!ptab->init()) {
         // Handle error
         return 1;
     }
@@ -596,9 +579,7 @@ int main(int argc, char **argv) {
     }
 
     // call the finish function
-    if (ptab->hasFinish() == true) {
-        ptab->finish();
-    }
+    ptab->finish();
 
     return 0;
 }
@@ -633,28 +614,22 @@ int DbgCheckEvents(void) {
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) !=
-               (dbginvoke_t *)NULL) {
+        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != (dbginvoke_t *)NULL) {
             /*
-            ** Note: This should be used for protocols that do not use an event
-            *notification
-            **       fd. If a event notification fd can be used, then it should
-            *be added to
-            **       the sw_evfd list and sw_checkevents should simply return 0.
+             Note: This should be used for protocols that do not use an event
+             notification fd. If a event notification fd can be used, then 
+             it should be added to the sw_evfd list and sw_checkevents should 
+             simply return 0.
             */
-            if (DBG_PROTO_SW(di)->hasCheckEvents() == true  // if the protocol has a checkevent function defined
-                && DBG_PROTO_SW(di)->checkEvents(di) >
-                       0  // if checkevent tells us that there is an event.
-            ) {
+            if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
                 DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
                 return 1;  // there is a proto event to handle. Return
                            // immediately.
             }
 
             /*
-            ** If there is a d_evfds fd set, we want to add it to the fd_set to
-            *select on.
-            ** This enables protocol events.
+             If there is a d_evfds fd set, we want to add it to the fd_set to
+             select on. This enables protocol events.
             */
             if (di->d_evfds != NULL) {
                 SetList(di->d_evfds);
@@ -735,33 +710,30 @@ void DbgDispatchEvents(void) {
             // events
             if (di->d_isShutdown) continue;
 
-            // Ensure there is a protocol specific dispatch function
-            if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
-                // If there is an d_evfds list, then the protol layer is using
-                // event notification fd's. We should try to check to see if
-                // each one is set, and if so call the protocol specific
-                // dispatch function with the event fd as an argument
-                if (di->d_evfds != NULL) {
-                    SetList(di->d_evfds);
+            // If there is an d_evfds list, then the protol layer is using
+            // event notification fd's. We should try to check to see if
+            // each one is set, and if so call the protocol specific
+            // dispatch function with the event fd as an argument
+            if (di->d_evfds != NULL) {
+                SetList(di->d_evfds);
 
-                    while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
-                           (int *)NULL) {
-                        // if the previous event caused a shutdown, don't
-                        // continue processing events
-                        if (di->d_isShutdown) break;
+                while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
+                        (int *)NULL) {
+                    // if the previous event caused a shutdown, don't
+                    // continue processing events
+                    if (di->d_isShutdown) break;
 
-                        if (FD_ISSET(*ev_fd, &dispatch_fds)) {
-                            // dispatch each of the set notification fds one at
-                            // a time.
-                            DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
-                        }
+                    if (FD_ISSET(*ev_fd, &dispatch_fds)) {
+                        // dispatch each of the set notification fds one at
+                        // a time.
+                        DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
                     }
-                } else {
-                    // event notification fd's not in use by this protocol, so
-                    // call the generic dispatch function with -1 for event fd
-                    // arg.
-                    DBG_PROTO_SW(di)->dispatchEvents(di, -1);
                 }
+            } else {
+                // event notification fd's not in use by this protocol, so
+                // call the generic dispatch function with -1 for event fd
+                // arg.
+                DBG_PROTO_SW(di)->dispatchEvents(di, -1);
             }
         }
     }
@@ -845,15 +817,6 @@ void DbgDispatchEvents(void) {
                     }
                 }
 
-                // TODO: Handle error
-
-                // ensure the send_cmd function is implemented
-                if (DBG_PROTO_SW(di)->hasSendCommand() == false) {
-                    // TODO: Handle error
-                    PrintOutError("send cmd not implemented.\n");
-                    return;
-                }
-
                 // Send the command
                 set = DBG_PROTO_SW(di)->sendCommand(di, pmsg->group, pmsg->message);
 
@@ -915,17 +878,7 @@ void DbgDispatchEvents(void) {
                     }
                 }
 
-                // TODO: Handle error
-
-                // ensure the recv_reply function is implemented
-                if (DBG_PROTO_SW(di)->hasReceiveReply() == false) {
-                    // TODO: handle error
-                    PrintOutError("recv reply not implemented.\n");
-                    return;
-                }
-
-                pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target,
-                                                           recv_set->received);
+                pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target, recv_set->received);
 
                 // send the result back
 
@@ -1270,7 +1223,7 @@ void DbgDispatchEvents(void) {
                 // TODO: Handle error
 
                 // ensure the exit function is implemented
-                if (di != NULL && DBG_PROTO_SW(di)->hasExit() == true) {
+                if (di != NULL) {
                     // call the exit function
                     if (DBG_PROTO_SW(di)->exit(di, detach)) {
                         PrintOutError("Exit failed.\n");

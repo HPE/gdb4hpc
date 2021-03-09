@@ -67,10 +67,7 @@ dbginvoke_t *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
 void FreeDbgInvoke(dbginvoke_t *di) {
     RemoveFromList(DbgInvokeList, (void *)di);
 
-    // Call the protocol destructor if there is one
-    if (DBG_PROTO_SW(di)->hasDestroyClient() == true) {
-        DBG_PROTO_SW(di)->destroyClient(di);
-    }
+    DBG_PROTO_SW(di)->destroyClient(di);
 
     if (di->d_bitset_full != NULL) bitset_free(di->d_bitset_full);
 

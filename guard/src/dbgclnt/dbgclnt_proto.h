@@ -67,71 +67,52 @@ struct proto_session {
                     // that is allocated on a per session basis.
 };
 
-// thrown when a child class of DebugClientProtocol attempts to call a function
-// that the child class does not implement.
-struct FunctionNotImplementedException : public std::exception {
-    const char* fName;
-
-    FunctionNotImplementedException(const char* functionName) 
-        : std::exception()
-        , fName{functionName}
-    {}
-
-    const char* functionName() const { return fName; }
-};
-
 // main protocol definition
 //
 // child classes should provide a name() and various functions. once a function
 // has been implimented, the child class should override the matching has...() function.
 class DebugClientProtocol {
 public:
-    // name of the protocol
+    virtual ~DebugClientProtocol() = default;
+
+    // functions required by every derived class:
     virtual const char* name() const = 0;
 
-    virtual int init() { throw FunctionNotImplementedException("init"); };
-    virtual bool hasInit() const { return false; };
+    virtual int attach(struct dbginvoke *di, proto_session *session, 
+        const char *app_ident, const char *arch, const char *backend, 
+        int gpu_flag, int debug_flag) = 0;
 
-    virtual void finish() { throw FunctionNotImplementedException("finish"); };
-    virtual bool hasFinish() const { return false; };
+    virtual int launch(struct dbginvoke *di, proto_session *session, 
+        const char *prog, char **argv,
+        const char *arch, char **arch_args, const char *arch_input, 
+        const char *backend, const char* gdb, char **env,
+        const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
+        bool isNonStop) = 0;
 
-    virtual bitset* sendCommand(struct dbginvoke *, bitset *, const char *) { throw FunctionNotImplementedException("sendCommand"); };
-    virtual bool hasSendCommand() const { return false; };
+    virtual int exit(struct dbginvoke *di, int detach) = 0;
 
-    virtual struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) { throw FunctionNotImplementedException("receiveReply"); };
-    virtual bool hasReceiveReply() const { return false; };
+    virtual bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+        const char *request) = 0;
 
-    virtual int checkEvents(struct dbginvoke *) { throw FunctionNotImplementedException("checkEvents"); }; // check for ready event
-    virtual bool hasCheckEvents() const { return false; };
+    virtual struct proto_msg_set* receiveReply(struct dbginvoke *di, 
+        bitset *target, bitset *received) = 0;
 
-    virtual void dispatchEvents(struct dbginvoke *, int) { throw FunctionNotImplementedException("dispatchEvents"); };
-    virtual bool hasDispatchEvents() const { return false; };
+    // optional functions:
+    virtual int init() { return 1; }; // success by default
+    virtual void finish() {};
+    
+    virtual int checkEvents(struct dbginvoke *di) { return 0; };
+    virtual void dispatchEvents(struct dbginvoke *di, int ev_fd) {};
 
-    // Client protocol routines
-    virtual proto_session *createSession(DebugClientProtocol * const, WLM_type, 
-        const char *, const char *,const char *) { throw FunctionNotImplementedException("createSession"); };
-    virtual bool hasCreateSession() const { return false; };
+    virtual proto_session *createSession(DebugClientProtocol * const proto, 
+        WLM_type manager, const char *batch_template, const char *hostname, 
+        const char *username) { return nullptr; };
+    
+    virtual void saveSession(proto_session *session) {};
+    // called when a session is no longer valid
+    virtual void cleanupSession(proto_session *session) {};
 
-    virtual void saveSession(proto_session *) { throw FunctionNotImplementedException("saveSession"); };
-    virtual bool hasSaveSession() const { return false; };
-
-    virtual void cleanupSession(proto_session *) { throw FunctionNotImplementedException("cleanupSession"); }; // called when a session is no longer valid
-    virtual bool hasCleanupSession() const { return false; };
-
-    virtual int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int, int) { throw FunctionNotImplementedException("attach"); };
-    virtual bool hasAttach() const { return false; };
-
-    virtual int launch(struct dbginvoke *, proto_session *, const char *, char **,
-        const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int, int, bool) { throw FunctionNotImplementedException("launch"); };
-    virtual bool hasLaunch() const { return false; };
-
-    virtual int exit(struct dbginvoke *, int detach) { throw FunctionNotImplementedException("exit"); };
-    virtual bool hasExit() const { return false; };
-
-    virtual void destroyClient(struct dbginvoke *) { throw FunctionNotImplementedException("destroyClient"); };
-    virtual bool hasDestroyClient() const { return false; };
+    virtual void destroyClient(struct dbginvoke *di) {};
 };
 
 /*

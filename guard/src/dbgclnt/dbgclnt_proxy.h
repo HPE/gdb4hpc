@@ -11,46 +11,40 @@ public:
 
     const char* name() const override { return "proxy"; };
 
+    int attach(struct dbginvoke *di, proto_session *session, 
+        const char *app_ident, const char *arch, const char *backend, 
+        int gpu_flag, int debug_flag) override;
+
+    int launch(struct dbginvoke *di, proto_session *session, 
+        const char *prog, char **argv,
+        const char *arch, char **arch_args, const char *arch_input, 
+        const char *backend, const char* gdb, char **env,
+        const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
+        bool isNonStop) override;
+
+    int exit(struct dbginvoke *di, int detach) override;
+
+    bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+        const char *request) override;
+
+    struct proto_msg_set* receiveReply(struct dbginvoke *di, 
+        bitset *target, bitset *received) override;
+
     int init() override;
-    bool hasInit() const { return true; };
-
     void finish() override;
-    bool hasFinish() const { return true; };
 
-    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) override;
-    bool hasSendCommand() const { return true; };
-
-    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) override;
-    bool hasReceiveReply() const { return true; };
-
-    void dispatchEvents(struct dbginvoke *, int) override;
-    bool hasDispatchEvents() const { return true; };
+    void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
 
     // Client protocol routines
-    proto_session *createSession(DebugClientProtocol * const, WLM_type, 
-        const char *, const char *,const char *) override;
-    bool hasCreateSession() const { return true; };
+    proto_session *createSession(DebugClientProtocol * const proto, 
+        WLM_type manager, const char *batch_template, const char *hostname, 
+        const char *username) override;
 
-    void saveSession(proto_session *) override;
-    bool hasSaveSession() const { return true; };
+    void saveSession(proto_session *session) override;
 
-    void cleanupSession(proto_session *) override;
-    bool hasCleanupSession() const { return true; };
+    void cleanupSession(proto_session *session) override;
 
-    int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int, int) override;
-    bool hasAttach() const { return true; };
-
-    int launch(struct dbginvoke *, proto_session *, const char *, char **,
-        const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int, int, bool) override;
-    bool hasLaunch() const { return true; };
-
-    int exit(struct dbginvoke *, int detach) override;
-    bool hasExit() const { return true; };
-
-    void destroyClient(struct dbginvoke *) override;
-    bool hasDestroyClient() const { return true; };
+    void destroyClient(struct dbginvoke *di) override;
 
 private:
     // Proxy specific helper functions

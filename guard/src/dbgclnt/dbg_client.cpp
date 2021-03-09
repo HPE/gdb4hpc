@@ -192,10 +192,7 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
 
     RemoveFromList(DbgInvokeList, (void *)di);
 
-    // Call the protocol destructor if there is one
-    if (DBG_PROTO_SW(di)->hasDestroyClient() == true) {
-        DBG_PROTO_SW(di)->destroyClient(di);
-    }
+    DBG_PROTO_SW(di)->destroyClient(di);
 
     // Quit the debug frontend if there is one
     if (di->d_frontend != nullptr) {
@@ -1278,18 +1275,14 @@ int DbgCheckEvents(void) {
         // Loop through each dbginvoke entry and check for events.
         while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
             /*
-            ** Note: This should be used for protocols that do not use an event
-            *notification
-            **       fd. If a event notification fd can be used, then it should
-            *be added to
-            **       the sw_evfd list and sw_checkevents should simply return 0.
+             Note: This should be used for protocols that do not use an event
+             notification fd. If a event notification fd can be used, then it 
+             should be added to the sw_evfd list and sw_checkevents should 
+             simply return 0.
             */
-            if (DBG_PROTO_SW(di)->hasCheckEvents() == true // if the protocol has a checkevent function defined
-                && DBG_PROTO_SW(di)->checkEvents(di) > 0  // if checkevent tells us that there is an event.
-            ) {
+            if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
                 DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
-                return 1;  // there is a proto event to handle. Return
-                           // immediately.
+                return 1;  // there is a proto event to handle. Return immediately.
             }
 
             /*
@@ -1409,32 +1402,29 @@ void DbgDispatchEvents(void) {
             // events
             if (di->d_isShutdown) continue;
 
-            // Ensure there is a protocol specific dispatch function
-            if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
-                // If there is an d_evfds list, then the protol layer is using
-                // event notification fd's. We should try to check to see if
-                // each one is set, and if so call the protocol specific
-                // dispatch function with the event fd as an argument
-                if (di->d_evfds != nullptr) {
-                    SetList(di->d_evfds);
+            // If there is an d_evfds list, then the protol layer is using
+            // event notification fd's. We should try to check to see if
+            // each one is set, and if so call the protocol specific
+            // dispatch function with the event fd as an argument
+            if (di->d_evfds != nullptr) {
+                SetList(di->d_evfds);
 
-                    while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
-                        // if the previous event caused a shutdown, don't
-                        // continue processing events
-                        if (di->d_isShutdown) break;
+                while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
+                    // if the previous event caused a shutdown, don't
+                    // continue processing events
+                    if (di->d_isShutdown) break;
 
-                        if (FD_ISSET(*ev_fd, &dispatch_fds)) {
-                            // dispatch each of the set notification fds one at
-                            // a time.
-                            DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
-                        }
+                    if (FD_ISSET(*ev_fd, &dispatch_fds)) {
+                        // dispatch each of the set notification fds one at
+                        // a time.
+                        DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
                     }
-                } else {
-                    // event notification fd's not in use by this protocol, so
-                    // call the generic dispatch function with -1 for event fd
-                    // arg.
-                    DBG_PROTO_SW(di)->dispatchEvents(di, -1);
                 }
+            } else {
+                // event notification fd's not in use by this protocol, so
+                // call the generic dispatch function with -1 for event fd
+                // arg.
+                DBG_PROTO_SW(di)->dispatchEvents(di, -1);
             }
         }
     }
@@ -1797,7 +1787,7 @@ int DbgCheckForAsyncPending(void) { return async_pending; }
 */
 int DbgInit(void) {
     for (const auto &proto : getClientProtos()) {
-        if (proto->hasInit() && !proto->init()) return -1;
+        if (!proto->init()) return -1;
     }
 
     // Initialize the mutex lock for the InputCB
@@ -1817,18 +1807,12 @@ void DbgFinalize(void) {
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
         DebugClientProtocol * const sw = DbgCurrSess->sess_proto;
-        if (sw->hasCleanupSession() == false) {
-            PrintOutError(
-                "Protocol function sw_cleanup_session not implemented.\n");
-        } else {
-            sw->cleanupSession(DbgCurrSess);
-        }
+        sw->cleanupSession(DbgCurrSess);
         DbgCurrSess = nullptr;
     }
 
     for (const auto &proto : getClientProtos()) {
-        if (proto->hasFinish())
-            proto->finish();
+        proto->finish();
     }
 
     DbgSigList.clear();
@@ -1859,13 +1843,7 @@ proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
         return nullptr;
     }
 
-    if (ptab->hasCreateSession() == false) {
-        PrintOutError("Protocol function sw_create_session not implemented.\n");
-        return nullptr;
-    }
-
-    return ptab->createSession(ptab, manager, batch_template, hostname,
-                                   username);
+    return ptab->createSession(ptab, manager, batch_template, hostname, username);
 }
 
 /*
@@ -1877,23 +1855,13 @@ void DbgSetSession(proto_session *sess) {
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
         DebugClientProtocol * const ptab = DbgCurrSess->sess_proto;
-        if (ptab->hasCleanupSession() == false) {
-            PrintOutError(
-                "Protocol function sw_cleanup_session not implemented.\n");
-        } else {
-            ptab->cleanupSession(DbgCurrSess);
-        }
+        ptab->cleanupSession(DbgCurrSess);
     }
 
     // Ask the protocol layer to keep the new session around if its not null
     if (sess != nullptr) {
         DebugClientProtocol * const ptab = sess->sess_proto;
-        if (ptab->hasSaveSession() == false) {
-            PrintOutError(
-                "Protocol function sw_save_session not implemented.\n");
-        } else {
-            ptab->saveSession(sess);
-        }
+        ptab->saveSession(sess);
     }
 
     DbgCurrSess = sess;
@@ -1916,11 +1884,6 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 
     if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
-        return nullptr;
-    }
-
-    if (ptab->hasAttach() == false) {
-        PrintOutError("Protocol function sw_attach not implemented.\n");
         return nullptr;
     }
 
@@ -1967,11 +1930,6 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
 
     if (ptab == nullptr) {
         PrintOutError("No such protocol \"%s\"\n", proto);
-        return nullptr;
-    }
-
-    if (ptab->hasLaunch() == false) {
-        PrintOutError("Protocol function sw_launch not implemented.\n");
         return nullptr;
     }
 
@@ -2057,12 +2015,6 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
 static int DbgSendCmd(group_recv_t *set, const std::string& request) {
     dbginvoke_t *di = set->rec_di;
 
-    // ensure the send_cmd function is implemented
-    if (DBG_PROTO_SW(di)->hasSendCommand() == false) {
-        PrintOutError("Protocol function sw_send_cmd not implemented.\n");
-        return 1;
-    }
-
     set->_cmd_sent = DBG_PROTO_SW(di)->sendCommand(di, set->rec_group, request.c_str());
 
     return (set->_cmd_sent != nullptr ? 0 : 1);
@@ -2084,12 +2036,6 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
     dbgev ev;
 
     bool isFinal = true;
-
-    // ensure the recv_reply function is implemented
-    if (DBG_PROTO_SW(di)->hasReceiveReply() == false) {
-        PrintOutError("Protocol function sw_recv_cmd not implemented.\n");
-        return nullptr;
-    }
 
     proto_res =
         DBG_PROTO_SW(di)->receiveReply(di, set->rec_group, set->_cmd_sent);
@@ -3082,21 +3028,8 @@ rep_set_t *DbgKill(rec_set_t *set) {
         // point at the di
         auto di = recv_ptr->rec_di;
 
-        if (DBG_PROTO_SW(di)->hasExit() == false) {
-            if (result == nullptr) {
-                result = NewRepSet();
-            }
-
-            // Create a new error event
-            auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
-            auto err_rep = NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
-            // Add the error to the reply set
-            AddErrToSet(result, err_rep);
-
-        } else {
-            // We always want to kill the application, so hardcode detatch to 0
-            DBG_PROTO_SW(di)->exit(di, 0);
-        }
+        // We always want to kill the application, so hardcode detatch to 0
+        DBG_PROTO_SW(di)->exit(di, 0);
 
         FreeDbgInvoke(di);
 
@@ -4232,17 +4165,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 // point at the di
                 auto di = recv_ptr->rec_di;
 
-                if (DBG_PROTO_SW(di)->hasExit() == false) {
-                    // Create a new error event
-                    auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
-                    auto err_rep =
-                        NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
-                    // Add the error to the reply set
-                    AddErrToSet(result, err_rep);
-                } else {
-                    // FIXME: How to handle error case?
-                    DBG_PROTO_SW(di)->exit(di, detach);
-                }
+                DBG_PROTO_SW(di)->exit(di, detach);
 
                 // cleanup the di object
                 FreeDbgInvoke(di);
@@ -4282,17 +4205,7 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 result = MergeRepSet(result, tmp_result);
 
                 // Call protocol specific communication network exit function
-                if (DBG_PROTO_SW(di)->hasExit() == false) {
-                    // Create a new error event
-                    auto e = NewErrorEvent(DBGERR_NOTIMP, nullptr);
-                    auto err_rep =
-                        NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
-                    // Add the error to the reply set
-                    AddErrToSet(result, err_rep);
-                } else {
-                    // FIXME: How to handle error case?
-                    DBG_PROTO_SW(di)->exit(di, detach);
-                }
+                DBG_PROTO_SW(di)->exit(di, detach);
 
                 // cleanup the di object
                 FreeDbgInvoke(di);

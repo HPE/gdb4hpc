@@ -79,13 +79,11 @@ static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     proto_high_fd = -1;
 
     /*
-     * Note: This should be used for protocols that do not use an event
-     *  notification fd. If a event notification fd can be used, then it should 
-     *  be added to the sw_evfd list and sw_checkevents should simply return 0.
+     Note: This should be used for protocols that do not use an event
+     notification fd. If a event notification fd can be used, then it should 
+     be added to the sw_evfd list and sw_checkevents should simply return 0.
     */
-    if (DBG_PROTO_SW(di)->hasCheckEvents() == true 
-         && DBG_PROTO_SW(di)->checkEvents(di) > 0  // if checkevent tells us that there is an event.
-    ) {
+    if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
         DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
         return 1;  // there is a proto event to handle. Return immediately.
     }
@@ -155,27 +153,24 @@ static void DispatchProtoStartupEvent(dbginvoke_t *di) {
 
     if (di == NULL) return;
 
-    // Ensure there is a protocol specific dispatch function
-    if (DBG_PROTO_SW(di)->hasDispatchEvents() == true) {
-        // If there is an d_evfds list, then the protol layer is using event
-        // notification fd's. We should try to check to see if each one is set,
-        // and if so call the protocol specific dispatch function with the event
-        // fd as an argument
-        if (di->d_evfds != NULL) {
-            SetList(di->d_evfds);
+    // If there is an d_evfds list, then the protol layer is using event
+    // notification fd's. We should try to check to see if each one is set,
+    // and if so call the protocol specific dispatch function with the event
+    // fd as an argument
+    if (di->d_evfds != NULL) {
+        SetList(di->d_evfds);
 
-            while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
-                   (int *)NULL) {
-                if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
-                    // dispatch each of the set notification fds one at a time.
-                    DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
-                }
+        while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
+                (int *)NULL) {
+            if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
+                // dispatch each of the set notification fds one at a time.
+                DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
             }
-        } else {
-            // event notification fd's not in use by this protocol, so call
-            // the generic dispatch function with -1 for event fd arg.
-            DBG_PROTO_SW(di)->dispatchEvents(di, -1);
         }
+    } else {
+        // event notification fd's not in use by this protocol, so call
+        // the generic dispatch function with -1 for event fd arg.
+        DBG_PROTO_SW(di)->dispatchEvents(di, -1);
     }
 }
 

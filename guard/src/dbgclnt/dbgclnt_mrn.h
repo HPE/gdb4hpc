@@ -16,35 +16,30 @@ public:
 
     const char* name() const override { return "mrnet"; };
 
-    int init() override;
-    virtual bool hasInit() const { return true; };
+    int attach(struct dbginvoke *di, proto_session *session, 
+        const char *app_ident, const char *arch, const char *backend, 
+        int gpu_flag, int debug_flag) override;
 
-    bitset* sendCommand(struct dbginvoke *, bitset *, const char *) override;
-    virtual bool hasSendCommand() const { return true; };
-
-    struct proto_msg_set* receiveReply(struct dbginvoke *, bitset *,bitset *) override;
-    virtual bool hasReceiveReply() const { return true; };
-
-    void dispatchEvents(struct dbginvoke *, int) override;
-    virtual bool hasDispatchEvents() const { return true; };
-
-    // Client protocol routines
-    int attach(struct dbginvoke *, proto_session *, const char *,
-        const char *, const char *, int,
-        int) override;
-    virtual bool hasAttach() const { return true; };
-
-    int launch(struct dbginvoke *, proto_session *, const char *, char **,
-        const char *, char **, const char *, const char *, const char*, char **,
-        const char *, int, int,
-        int, bool) override;
-    virtual bool hasLaunch() const { return true; };
+    int launch(struct dbginvoke *di, proto_session *session, 
+        const char *prog, char **argv,
+        const char *arch, char **arch_args, const char *arch_input, 
+        const char *backend, const char* gdb, char **env,
+        const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
+        bool isNonStop) override;
 
     int exit(struct dbginvoke *, int detach) override;
-    virtual bool hasExit() const { return true; };
 
-    void destroyClient(struct dbginvoke *) override;
-    virtual bool hasDestroyClient() const { return true; };
+    bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+        const char *request) override;
+
+    struct proto_msg_set* receiveReply(struct dbginvoke *di, 
+        bitset *target, bitset *received) override;
+
+    int init() override;
+    
+    void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
+
+    void destroyClient(struct dbginvoke *di) override;
 
 private:
     // MRNet specific helper functions

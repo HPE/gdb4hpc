@@ -1518,7 +1518,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {
+int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 

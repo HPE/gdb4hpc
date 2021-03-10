@@ -18,7 +18,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <libssh2.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <pwd.h>
@@ -37,65 +36,15 @@
 #include "defs.h"
 #include "list.h"
 #include "useful.h"
+#include "dbgclnt_proxy.h"
 
 #define START_KEYWORD_FMT "#cray_debug_start"
 #define END_KEYWORD_FMT "#cray_debug_end"
 
-// protocol prototypes
-static int DbgPROXYInit(void);
-static void DbgPROXYFinish(void);
-static bitset *DbgPROXYSendCmd(dbginvoke_t *, bitset *, const char *);
-static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *, bitset *, bitset *);
-static void DbgPROXYDispatchEvents(dbginvoke_t *, int);
-static proto_session *DbgPROXYCreateSession(dbgclnt_proto *, WLM_type manager,
-                                            const char *batch_template,
-                                            const char *hostname,
-                                            const char *username);
-static void DbgPROXYSaveSession(proto_session *);
-static void DbgPROXYCleanupSession(proto_session *);
-static int DbgPROXYAttach(dbginvoke_t *, proto_session *, const char *,
-                          const char *, const char *, int, int);
-static int DbgPROXYLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-                          const char *, char **, const char *, const char *, const char*,
-                          char **, const char *, int, int, int, bool);
-static int DbgPROXYExit(dbginvoke_t *, int);
-static void DbgPROXYDestroyClient(dbginvoke_t *);
+// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
+ProxyClientProtocol DbgClntProtoProxy;
 
-// protocol definition
-dbgclnt_proto DbgClntPROXYProtoSW = {
-    "proxy",                /* sw_name */
-    DbgPROXYInit,           /* sw_init */
-    DbgPROXYFinish,         /* sw_finish */
-    DbgPROXYSendCmd,        /* sw_send_cmd */
-    DbgPROXYRecvReply,      /* sw_recv_reply */
-    NULL,                   /* sw_checkevents */
-    DbgPROXYDispatchEvents, /* sw_dispatchevents */
-    DbgPROXYCreateSession,  /* sw_create_session */
-    DbgPROXYSaveSession,    /* sw_save_session */
-    DbgPROXYCleanupSession, /* sw_cleanup_session */
-    DbgPROXYAttach,         /* sw_attach */
-    DbgPROXYLaunch,         /* sw_launch */
-    DbgPROXYExit,           /* sw_exit */
-    DbgPROXYDestroyClient   /* sw_destroyclnt */
-};
-
-// Internal prototypes
-static int setupPROXYCfgDir(void);
-static char *parseBatchScript(const char *, const char *);
-static int ssh_start_proxy(const char *, const char *, const char *,
-                           const char *);
-static proto_msg_set *DbgPROXYRecvProtoMsg(int);
-static int cbPROXYAttach(dbginvoke_t *, proto_msg_set *);
-static int cbPROXYInvoke(dbginvoke_t *, proto_msg_set *);
-
-// Internal global variables
-static int callback_failure = 0;
-
-/*
-** Functions start below
-*/
-
-static int setupPROXYCfgDir(void) {
+int ProxyClientProtocol::setupConfigDirectory() {
     struct stat st;
     char *cfg_dir;
 
@@ -125,22 +74,20 @@ static int setupPROXYCfgDir(void) {
     return 0;
 }
 
-// Interface definitions
-
-static int DbgPROXYInit(void) {
-    if (setupPROXYCfgDir() == -1) return 0;
+int ProxyClientProtocol::init() {
+    if (setupConfigDirectory() == -1) return 0;
 
     return 1;
 }
 
-static void DbgPROXYFinish(void) {
+void ProxyClientProtocol::finish(void) {
     // what to do here???
 }
 
 /*
 ** Parse a batch job script
 */
-static char *parseBatchScript(const char *script_file,
+char* ProxyClientProtocol::parseBatchScript(const char *script_file,
                               const char *launcher_argv_str) {
     FILE *sfp;
     char *cfg_dir;
@@ -254,7 +201,7 @@ static char *parseBatchScript(const char *script_file,
 
 extern char *cli_get_line(void);
 
-static void interactive_auth_callback(
+void ProxyClientProtocol::interactive_auth_callback(
     const char *name, int name_len, const char *instruction,
     int instruction_len, int num_prompts,
     const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
@@ -291,7 +238,7 @@ static void interactive_auth_callback(
     PrintOutMsg("\n\n");
 }
 
-static int ssh_start_proxy(const char *hostname, const char *username,
+int ProxyClientProtocol::ssh_start_proxy(const char *hostname, const char *username,
                            const char *lhost, const char *lport) {
     int auth = 0;
     struct addrinfo hints;
@@ -608,7 +555,7 @@ publickey_failure:
         PrintOutMsg("Performing keyboard-interactive authentication.\n");
 
         if (libssh2_userauth_keyboard_interactive(session, username,
-                                                  &interactive_auth_callback)) {
+                                                  &ProxyClientProtocol::interactive_auth_callback)) {
             // Failed to authenticate
             PrintOutError("keybaord-interactive authentication failed.\n");
             goto keyinter_failure;
@@ -883,12 +830,11 @@ keyinter_failure:
 ** manager: workload manager type
 ** All arguments are optional dependent on manager.
 */
-static proto_session *DbgPROXYCreateSession(dbgclnt_proto *proto,
+proto_session* ProxyClientProtocol::createSession(DebugClientProtocol * const proto,
                                             WLM_type manager,
                                             const char *batch_template,
                                             const char *hostname,
                                             const char *username) {
-    proto_session *rtn;
     proxy_session *sess;
     struct addrinfo hints;
     struct addrinfo *listener = NULL;
@@ -1178,18 +1124,13 @@ static proto_session *DbgPROXYCreateSession(dbgclnt_proto *proto,
 
     DPRINT("Session started.\n");
 
-    // Create a proto_session object
-    rtn = (proto_session *)Alloc(sizeof(proto_session));
-    rtn->sess_proto = proto;
-    rtn->sess_obj = sess;
-
-    return rtn;
+    return new proto_session(proto, sess);
 }
 
 /*
 ** Mark an existing proxy session as valid
 */
-static void DbgPROXYSaveSession(proto_session *session) {
+void ProxyClientProtocol::saveSession(proto_session *session) {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1238,7 +1179,7 @@ static void DbgPROXYSaveSession(proto_session *session) {
 /*
 ** Cleanup an existing session, making sure it is no longer valid
 */
-static void DbgPROXYCleanupSession(proto_session *session) {
+void ProxyClientProtocol::cleanupSession(proto_session *session) {
     proxy_session *sess;
     proxy_msg_header msg_head;
 
@@ -1286,7 +1227,7 @@ static void DbgPROXYCleanupSession(proto_session *session) {
 /*
 ** Attach to user program through proxy daemon
 */
-static int DbgPROXYAttach(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
                           const char *app_ident, const char *arch,
                           const char *backend, int gpu_flag, int debug_flag) {
     proxy_session *sess;
@@ -1302,7 +1243,7 @@ static int DbgPROXYAttach(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbPROXYAttach;
+    setProtocolEventHandler(new ProxyAttachHandler());
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1461,71 +1402,9 @@ static int DbgPROXYAttach(dbginvoke_t *di, proto_session *session,
 }
 
 /*
-** Compatible callback routine for attaching with the proxy
-*/
-static int cbPROXYAttach(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    ResetProtoMsgSet(set);
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        // Note that the proxy will artificially create the DBG_OK message for
-        // every rank in the application. Since we do not know how many ranks
-        // exist until after the attach completes on this end, we just blindly
-        // accept what the proxy daemon tells us
-        if (di->d_bitset_full == NULL) {
-            di->d_nproc = bitset_size(msg->group);
-
-            di->d_bitset_full = bitset_new(bitset_size(msg->group));
-            bitset_invert(di->d_bitset_full);
-
-            // Create the empty launched bitset
-            di->d_bitset_launched = bitset_new(bitset_size(msg->group));
-        }
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbPROXYAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("proxy callback complete.\n");
-    }
-
-    return 0;
-}
-
-/*
 ** Invoke user program through proxy daemon
 */
-static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
                           const char *prog, char **argv, const char *arch,
                           char **arch_args, const char *arch_input,
                           const char *backend, const char* gdb,  char **env, const char *cwd,
@@ -1545,7 +1424,7 @@ static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbPROXYInvoke;
+    setProtocolEventHandler(new ProxyLaunchHandler());
 
     // Make sure the user passed in a session
     if ((session == NULL) ||
@@ -1649,9 +1528,6 @@ static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
         PrintOutError("pipe: Could not fcntl to O_NONBLOCK.\n");
     }
 
-    // Set the protocol program output stream callback
-    di->d_proto_outp_callback = DbgDispatchProtoOutput;
-
     DPRINT("Proxy connected.\n");
 
     // Create the full bitset based on the number of ranks
@@ -1717,64 +1593,8 @@ static int DbgPROXYLaunch(dbginvoke_t *di, proto_session *session,
     return 0;
 }
 
-/*
-** Compatible callback routine for invoking with the proxy
-*/
-static int cbPROXYInvoke(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    ResetProtoMsgSet(set);
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbPROXYInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("proxy callback complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-**********************************************************
-**********************************************************
-************ WRAPPERS FOR PROXY ROUTINES *****************
-**********************************************************
-**********************************************************
-*/
-
 // Helper function to receive a proto message
-static proto_msg_set *DbgPROXYRecvProtoMsg(int net_fd) {
+proto_msg_set* ProxyClientProtocol::recvProtoMsg(int net_fd) {
     proxy_msg_header soc_head;
     char *soc_buf;
     proto_message *msg;
@@ -1815,7 +1635,7 @@ static proto_msg_set *DbgPROXYRecvProtoMsg(int net_fd) {
     return res;
 }
 
-static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
+void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proto_msg_set *ev_res;
     char *line;
@@ -1831,7 +1651,7 @@ static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch events
     if (ev_fd == PROXY_EVENTFD(network)) {
         // get the message
-        if ((ev_res = DbgPROXYRecvProtoMsg(PROXY_EVENTFD(network))) == NULL) {
+        if ((ev_res = recvProtoMsg(PROXY_EVENTFD(network))) == NULL) {
             // If this happens, it means the proxy daemon died. We should force
             // quit to happen here since it is unexpected. We expect that the
             // proxy already sent us an error string, so print a brief one.
@@ -1841,7 +1661,7 @@ static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
         }
 
         // Call the protocol specific callback function to handle this event msg
-        (*(di->d_proto_ev_callback))(di, ev_res);
+        handleProtocolEvent(di, ev_res);
 
         // Free the message set
         FreeProtoMsgSet(ev_res);
@@ -1852,7 +1672,7 @@ static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch output
     if (ev_fd == PROXY_OUTPUTFD(network)) {
         // Call the protocol specific callback function to handle the output
-        (*(di->d_proto_outp_callback))(di, PROXY_OUTPUTSTREAM(network));
+        outputCallback(di, PROXY_OUTPUTSTREAM(network));
 
         return;
     }
@@ -1904,7 +1724,7 @@ static void DbgPROXYDispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-static bitset *DbgPROXYSendCmd(dbginvoke_t *di, bitset *target,
+bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
                                const char *request) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     bitset *received;
@@ -1948,7 +1768,7 @@ static bitset *DbgPROXYSendCmd(dbginvoke_t *di, bitset *target,
     Free(msg);
 
     // recv the receiver set
-    if ((pmsg_set = DbgPROXYRecvProtoMsg(PROXY_CMDFD(network))) == NULL) {
+    if ((pmsg_set = recvProtoMsg(PROXY_CMDFD(network))) == NULL) {
         PrintOutError("Could not recv reply from proxy.\n");
         return NULL;
     }
@@ -1972,7 +1792,7 @@ static bitset *DbgPROXYSendCmd(dbginvoke_t *di, bitset *target,
 
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
-static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *di, bitset *target,
+proto_msg_set *ProxyClientProtocol::receiveReply(dbginvoke_t *di, bitset *target,
                                         bitset *received) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     int full = 0;
@@ -2012,7 +1832,7 @@ static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *di, bitset *target,
     Free(msg);
 
     while (!full) {
-        if ((pmsg_set = DbgPROXYRecvProtoMsg(PROXY_CMDFD(network))) == NULL) {
+        if ((pmsg_set = recvProtoMsg(PROXY_CMDFD(network))) == NULL) {
             PrintOutError("Could not recv reply from proxy.\n");
             ResetProtoMsgSet(result);
             return result;
@@ -2052,7 +1872,7 @@ static proto_msg_set *DbgPROXYRecvReply(dbginvoke_t *di, bitset *target,
 ** DBG_EXIT: Tell server to quit immediately.
 ** If detach is true, then we detach from application instead of killing it.
 */
-static int DbgPROXYExit(dbginvoke_t *di, int detach) {
+int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     proxy_msg_header msg_head;
     char *msg;
@@ -2101,12 +1921,122 @@ static int DbgPROXYExit(dbginvoke_t *di, int detach) {
     return 0;
 }
 
-static void DbgPROXYDestroyClient(dbginvoke_t *di) {
+void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
 
     // Check to see if the network type has been destroyed
     if (network != NULL) {
         // call the exit function to force the application to quit
-        DbgPROXYExit(di, 0);
+        exit(di, 0);
     }
+}
+
+/*
+** Compatible callback routine for attaching with the proxy
+*/
+int ProxyAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    ResetProtoMsgSet(set);
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        // Note that the proxy will artificially create the DBG_OK message for
+        // every rank in the application. Since we do not know how many ranks
+        // exist until after the attach completes on this end, we just blindly
+        // accept what the proxy daemon tells us
+        if (di->d_bitset_full == NULL) {
+            di->d_nproc = bitset_size(msg->group);
+
+            di->d_bitset_full = bitset_new(bitset_size(msg->group));
+            bitset_invert(di->d_bitset_full);
+
+            // Create the empty launched bitset
+            di->d_bitset_launched = bitset_new(bitset_size(msg->group));
+        }
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbPROXYAttach received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("proxy callback complete.\n");
+    }
+
+    return 0;
+}
+
+/*
+** Compatible callback routine for invoking with the proxy
+*/
+int ProxyLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    ResetProtoMsgSet(set);
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbPROXYInvoke received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("proxy callback complete.\n");
+    }
+
+    return 0;
 }

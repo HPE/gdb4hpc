@@ -22,6 +22,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <vector>
+
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
@@ -35,57 +37,33 @@
 #include "list.h"
 #include "useful.h"
 
-#ifdef SUN_RPC
-extern dbgclnt_proto DbgClntRPCProtoSW;
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-extern dbgclnt_proto DbgClntSocProtoSW;
-#endif /* SOCKETS */
-#ifdef MRNET
-extern dbgclnt_proto DbgClntMRNProtoSW;
-#endif /* MRNET */
-#ifdef SCI
-extern dbgclnt_proto DbgClntSCIProtoSW;
-#endif /* SCI */
-// FIXME
-extern dbgclnt_proto DbgClntPROXYProtoSW;
+#include "dbgclnt_mrn.h"
+#include "dbgclnt_proxy.h"
 
-static dbgclnt_proto *DbgProtoTab[] = {
-#ifdef SUN_RPC
-    &DbgClntRPCProtoSW,
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-    &DbgClntSocProtoSW,
-#endif /* SOCKETS */
-#ifdef MRNET
-    &DbgClntMRNProtoSW,
-#endif /* MRNET */
-#ifdef SCI
-    &DbgClntSCIProtoSW,
-#endif /* SCI */
-    &DbgClntPROXYProtoSW, (dbgclnt_proto *)NULL};
+extern MRNClientProtocol DbgClntProtoMRN;
+extern ProxyClientProtocol DbgClntProtoProxy;
 
-static dbgclnt_proto **_ptab;
-
+static const std::vector<DebugClientProtocol *> DbgProtoTab = {
+    &DbgClntProtoMRN,
+    &DbgClntProtoProxy
+};
+ 
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;
 
-void SetClntProto(void) { _ptab = DbgProtoTab; }
-
-dbgclnt_proto *GetClntProto(void) {
-    if (*_ptab == (dbgclnt_proto *)NULL) return (dbgclnt_proto *)NULL;
-
-    return *(_ptab++);
+// used to iterate through DbgProtoTab and call init or finish on each proto
+// when gdb4hpc starts up or finishes
+const std::vector<DebugClientProtocol *> getClientProtos() {
+    return DbgProtoTab;
 }
 
-dbgclnt_proto *FindClntProto(const char *proto) {
-    dbgclnt_proto **p;
+DebugClientProtocol * const findClientProtoByName(std::string protoName) {
+    for (const auto &p : DbgProtoTab) {
+        if (p != nullptr && p->name() == protoName) return p;
+    }
 
-    for (p = DbgProtoTab; *p != (dbgclnt_proto *)NULL; p++)
-        if (strcmp((*p)->sw_name, proto) == 0) return *p;
-
-    return (dbgclnt_proto *)NULL;
+    return nullptr;
 }
 
 // Used during launch/attach to wait for the initial setup to complete
@@ -101,17 +79,11 @@ static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     proto_high_fd = -1;
 
     /*
-    ** Note: This should be used for protocols that do not use an event
-    *notification
-    **       fd. If a event notification fd can be used, then it should be added
-    *to
-    **       the sw_evfd list and sw_checkevents should simply return 0.
+     Note: This should be used for protocols that do not use an event
+     notification fd. If a event notification fd can be used, then it should 
+     be added to the sw_evfd list and sw_checkevents should simply return 0.
     */
-    if (DBG_PROTO_SW(di)->sw_checkevents !=
-            NULL  // if the protocol has a checkevent function defined
-        && DBG_PROTO_SW(di)->sw_checkevents(di) >
-               0  // if checkevent tells us that there is an event.
-    ) {
+    if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
         DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
         return 1;  // there is a proto event to handle. Return immediately.
     }
@@ -181,27 +153,24 @@ static void DispatchProtoStartupEvent(dbginvoke_t *di) {
 
     if (di == NULL) return;
 
-    // Ensure there is a protocol specific dispatch function
-    if (DBG_PROTO_SW(di)->sw_dispatchevents != NULL) {
-        // If there is an d_evfds list, then the protol layer is using event
-        // notification fd's. We should try to check to see if each one is set,
-        // and if so call the protocol specific dispatch function with the event
-        // fd as an argument
-        if (di->d_evfds != NULL) {
-            SetList(di->d_evfds);
+    // If there is an d_evfds list, then the protol layer is using event
+    // notification fd's. We should try to check to see if each one is set,
+    // and if so call the protocol specific dispatch function with the event
+    // fd as an argument
+    if (di->d_evfds != NULL) {
+        SetList(di->d_evfds);
 
-            while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
-                   (int *)NULL) {
-                if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
-                    // dispatch each of the set notification fds one at a time.
-                    DBG_PROTO_SW(di)->sw_dispatchevents(di, *ev_fd);
-                }
+        while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
+                (int *)NULL) {
+            if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
+                // dispatch each of the set notification fds one at a time.
+                DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
             }
-        } else {
-            // event notification fd's not in use by this protocol, so call
-            // the generic dispatch function with -1 for event fd arg.
-            DBG_PROTO_SW(di)->sw_dispatchevents(di, -1);
         }
+    } else {
+        // event notification fd's not in use by this protocol, so call
+        // the generic dispatch function with -1 for event fd arg.
+        DBG_PROTO_SW(di)->dispatchEvents(di, -1);
     }
 }
 
@@ -219,4 +188,29 @@ int WaitForProtoStartupEvent(dbginvoke_t *di) {
                 return 1;
         }
     }
+}
+
+void DebugClientProtocol::outputCallback(dbginvoke *di, FILE *stream) {
+    // by default, just forward to generic handler
+    DbgDispatchProtoOutput(di, stream);
+}
+
+// public facing function to set the handler back to the default generic
+void DebugClientProtocol::resetProtocolEventHandler() {
+    setProtocolEventHandler(new DebugClientDefaultProtocolEventHandler());
+}
+
+void DebugClientProtocol::setProtocolEventHandler(DebugClientProtocolEventHandler *handler) {
+    // since this is a unique pointer, this will delete any old handler.
+    m_protoEventHandler.reset(handler);
+}
+
+int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, proto_msg_set *set) { 
+    if (m_protoEventHandler) return m_protoEventHandler->handleEvent(di, set);
+    return 1;
+};
+
+int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, proto_msg_set* set) {
+    // by default, just forward to generic handler
+    return DbgDispatchProtoEvents(di, set);
 }

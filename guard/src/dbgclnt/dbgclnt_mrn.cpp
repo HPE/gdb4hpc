@@ -41,52 +41,12 @@
 #include "defs.h"
 #include "list.h"
 #include "useful.h"
+#include "dbgclnt_mrn.h"
 
-#ifdef ALPS
-#include "common_tools_fe.h"
-#endif /* ALPS */
+// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
+MRNClientProtocol DbgClntProtoMRN;
 
-// Static function prototypes
-static int DbgMRNInit();
-static bitset *DbgMRNSendCmd(dbginvoke_t *, bitset *, const char *);
-static proto_msg_set *DbgMRNRecvReply(dbginvoke_t *, bitset *, bitset *);
-static void DbgMRNDispatchEvents(dbginvoke_t *, int ev_fd);
-static int DbgMRNAttach(dbginvoke_t *, proto_session *, const char *,
-                        const char *, const char *, int, int);
-static int DbgMRNLaunch(dbginvoke_t *, proto_session *, const char *, char **,
-                        const char *, char **, const char *, const char *, const char*,
-                        char **, const char *, int, int, int, bool);
-static int DbgMRNExit(dbginvoke_t *, int);
-static void DbgMRNDestroyClient(dbginvoke_t *);
-#ifdef BE_VALGRIND
-static int DbgAddValgrindFiles(cti_manifest_id_t mid);
-#endif
-static bool DbgMRNAddOmpd(cti_manifest_id_t mid);
-
-// protocol specific startup event callback functions
-static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set);
-static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set);
-
-dbgclnt_proto DbgClntMRNProtoSW = {
-    "mrnet",              /* sw_name */
-    DbgMRNInit,           /* sw_init */
-    NULL,                 /* sw_finish */
-    DbgMRNSendCmd,        /* sw_send_cmd */
-    DbgMRNRecvReply,      /* sw_recv_reply */
-    NULL,                 /* sw_checkevents */
-    DbgMRNDispatchEvents, /* sw_dispatchevents */
-    // MRNet does not implement sessions. These should only
-    // be used inside of the proxy protocol.
-    NULL,               /* sw_create_session */
-    NULL,               /* sw_save_session */
-    NULL,               /* sw_cleanup_session */
-    DbgMRNAttach,       /* sw_attach */
-    DbgMRNLaunch,       /* sw_launch*/
-    DbgMRNExit,         /* sw_exit */
-    DbgMRNDestroyClient /* sw_destroyclnt */
-};
-
-static int DbgMRNInit() {
+int MRNClientProtocol::init() {
     struct stat st;
     char *mrnet_cfg_dir;
     const char *mrnet_port_base;
@@ -132,43 +92,133 @@ static int DbgMRNInit() {
     return 1;
 }
 
-// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
-// which one to use; and they might well not be the same for each rank.
-static bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
-    // The backend code will determine which version of cuda-gdb to use
-    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
-        return false;
+bitset* MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
+                             const char *request) {
+    proto_network network = di->d_proto_net;
+    bitset *received = NULL;
+
+    // send command only if not already in a shutdown state
+    if (di->d_isShutdown) {
+        return NULL;
     }
 
-    if (cti_addManifestBinary(mid, "cuobjdump")) {
-        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
-        // amd system, it is not required so printint a complaint here could be confusing.
-        // It will be cleaner to trigger this from the back-end after it determines we
-        // are on an nvidia system.
-        //PrintOutError("Failed to add cuobjdump to manifest.\n");
+    MRNet_Stream *newEventStream = NULL;
+    mrn_fe_send_command((mrnet_type *)network, target, request,
+                        &newEventStream);
+
+    received = bitset_new(bitset_size(target));
+
+    DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
+
+    if (newEventStream) {
+        int eventFd = stream_get_DataNotificationFd(newEventStream);
+
+        int *eventFdPtr = (int *)Alloc(sizeof(int));
+        *eventFdPtr = eventFd;
+        AddToList(di->d_evfds, eventFdPtr);
     }
 
-    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
-    // continuously and a typical machine might have 3 or 4 versions available.   So it
-    // make sense to just let the user select the rocgdb version they want by
-    // loading the right module or otherwise manipulationg PATH.
-    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
-        if (cti_addManifestBinary(mid, rocgdb)) {
-            free(rocgdb);
-            return false;
-        }
-        free(rocgdb);
-    }
-
-    return true;
+    return received;
 }
 
-/*
-** Attach to user program and build an MRNet tree.
-*/
-static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
+struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di, 
+                                            bitset *target, bitset *received) {
+    proto_network network = di->d_proto_net;
+    int full = 0;
+    proto_msg_set *msg_set = NULL;
+    proto_message *msg;
+    proto_msg_set *result = NULL;
+
+    // recv reply only if not already in a shutdown state
+    if (di->d_isShutdown) {
+        return NULL;
+    }
+
+    while (!full) {
+        if ((msg_set = mrn_fe_recv_reply((mrnet_type *)network, target)) ==
+            NULL) {
+            PrintOutError("Could not recv reply from MRNet network.\n");
+            ResetProtoMsgSet(result);
+            return result;
+        }
+
+        // If this is the first message set, then use this as our return type,
+        // otherwise merge the set with our return type.
+        if (result == NULL) {
+            result = msg_set;
+            // process the msg_set to get the received set
+            while ((msg = NextProtoMsgInSet(msg_set)) != NULL) {
+                // add this group to the received group
+                bitset_oreq(received, msg->group);
+            }
+        } else {
+            // add each message to the result
+            while ((msg = RemoveProtoMsgInSet(msg_set)) != NULL) {
+                // add this group to the received group
+                bitset_oreq(received, msg->group);
+                AddProtoMsgSet(result, msg);
+            }
+        }
+
+        DPRINT("INFO: Recieved replies from set[%s]\n",
+               bitset_to_str(received));
+
+        // Check to see if we have received all responses
+        full = bitset_eq(target, received);
+    }
+
+    ResetProtoMsgSet(result);
+
+    return result;
+}
+
+void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
+    mrnet_type *network = (mrnet_type *)di->d_proto_net;
+    g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
+    proto_msg_set *io_res;
+    proto_msg_set *ev_res;
+    proto_message *msg;
+    char *set_str;
+
+    // dispatch application output if started
+    // Note that the proxy would segfault here if we tried to handle program
+    // output before the startup event completes...
+    if (di->d_started && (po != NULL) && (po->p_o_rfd == ev_fd)) {
+        // Call the protocol specific callback function to handle the output on
+        // the stream
+        outputCallback(di, po->p_o_stream);
+        return;
+    }
+
+    // dispatch io
+    // FIXME: This isn't used on a Cray, but if it is this should be calling
+    // a callback registered in the dbginvoke instead of handling it here. It's
+    // not appropriate to handle client events in this layer.
+    if (di->d_started &&
+        ((io_res = mrn_fe_dispatch_io(network, ev_fd)) != NULL)) {
+        // process each io message in the list
+        while ((msg = NextProtoMsgInSet(io_res)) != NULL) {
+            set_str = bitset_to_set(msg->group);
+            PrintOutMsg("IO from %s: %s\n", set_str, msg->message);
+            Free(set_str);
+        }
+
+        FreeProtoMsgSet(io_res);
+        return;
+    }
+
+    // dispatch events
+    if ((ev_res = mrn_fe_dispatch_event(network, ev_fd)) != NULL) {
+        // Call the protocol specific callback function to handle this event msg
+        handleProtocolEvent(di, ev_res);
+
+        // Free the message set
+        FreeProtoMsgSet(ev_res);
+        return;
+    }
+}
+
+int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
                         const char *backend, int gpu_flag, int debug_flag) {
     char *root = NULL;
@@ -207,7 +257,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbMRNAttach;
+    setProtocolEventHandler(new MRNAttachHandler());
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -444,7 +494,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
     if (gpu_flag) {
-        if (!DbgMRNAddGpuGdbs(mid))
+        if (!addGpuGdbs(mid))
             goto attach_error;
     }
 
@@ -464,7 +514,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
         }
     }
 
-    if (!DbgMRNAddOmpd(mid)) {
+    if (!addOmpd(mid)) {
         PrintOutError("Failed to add ompd to manifest.\n");
     }
 
@@ -479,7 +529,7 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
 
 #ifdef BE_VALGRIND
 
-    if (DbgAddValgrindFiles(mid))
+    if (addValgrindFiles(mid))
         goto attach_error;
 
 #endif
@@ -595,19 +645,19 @@ static int DbgMRNAttach(dbginvoke_t *di, proto_session *sess,
     if (dbg) {
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--gpu",
+                         di->d_proto->name(), "-e", backend, "--gpu",
                          "--debug", NULL);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--debug", NULL);
+                         di->d_proto->name(), "-e", backend, "--debug", NULL);
         }
     } else {
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, "--gpu", NULL);
+                         di->d_proto->name(), "-e", backend, "--gpu", NULL);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->sw_name, "-e", backend, NULL);
+                         di->d_proto->name(), "-e", backend, NULL);
         }
     }
 
@@ -828,60 +878,7 @@ attach_error:
     return 1;
 }
 
-/*
-** Compatible callback routine for attaching with mrnet.
-*/
-static int cbMRNAttach(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-        PrintOutMsg("Attach complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-** Invoke user program and build an MRNet tree.
-*/
-static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
+int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         char **argv, const char *arch, char **arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
@@ -921,7 +918,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
-    di->d_proto_ev_callback = cbMRNInvoke;
+    setProtocolEventHandler(new MRNLaunchHandler());
 
     // get mrnet configuration information
     if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
@@ -1005,8 +1002,6 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != NULL) {
         po = (g_progoutp_t *)di->d_proto_outp;
         prog_outp = po->p_o_wfd;
-        // Set the protocol program output stream callback
-        di->d_proto_outp_callback = DbgDispatchProtoOutput;
     }
 
     // Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate
@@ -1135,7 +1130,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
     if (gpu_flag && !gdb) {
-        if (!DbgMRNAddGpuGdbs(mid)) {
+        if (!addGpuGdbs(mid)) {
             goto invoke_error;
         }
     }
@@ -1158,7 +1153,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     }
     // End upc addition
 
-    if (!DbgMRNAddOmpd(mid)) {
+    if (!addOmpd(mid)) {
         PrintOutError("Failed to add ompd to manifest.\n");
     }
 
@@ -1172,7 +1167,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
 
 #ifdef BE_VALGRIND
     // Add valgrind files to the manifest
-    if (DbgAddValgrindFiles(mid)) {
+    if (addValgrindFiles(mid)) {
         goto invoke_error;
     }
 #endif
@@ -1303,7 +1298,7 @@ static int DbgMRNLaunch(dbginvoke_t *di, proto_session *sess, const char *prog,
     // prog first create the argv for dbgsrv_alps This now also depends on
     // gpu_flag This now adds the early entry flag...
     ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                 di->d_proto->sw_name, "-e", backend, nullptr);
+                 di->d_proto->name(), "-e", backend, nullptr);
     if (gpu_flag) ap = AppendArgs(ap, "--gpu", nullptr);
     if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
@@ -1521,208 +1516,7 @@ invoke_error:
     return 1;
 }
 
-/*
-** Compatible callback routine for invoking with mrnet.
-*/
-static int cbMRNInvoke(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
-    dbgevent_t *e = NULL;
-    int err = 0;
-
-    if (set == NULL) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
-        // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
-
-        bitset_oreq(di->d_bitset_launched, msg->group);
-
-        if (e->ev_event != DBGEV_OK) {
-            err = 1;
-            PrintOutError("Received unknown event %s.\n",
-                          DbgevToStr(e->ev_event));
-        }
-
-        // Done with the event, free it
-        FreeEvent(e);
-    }
-
-    if (err) return 1;
-
-    DPRINT("cbMRNInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
-
-    // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
-        // Reset the protocol event callback to the dbgclient default
-        di->d_proto_ev_callback = DbgDispatchProtoEvents;
-
-        // Set the started bit in the di
-        di->d_started = 1;
-
-        DPERFLOG(SetTimerStopAndLog("stream_init"));
-
-        DPRINT("dbgsrv callback complete.\n");
-        DPRINT("Releasing application from the startup barrier...\n");
-
-#ifdef ALPS
-        // tell CTI to release the application from the startup barrier
-        if (cti_releaseAppBarrier(di->d_appid)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError(
-                "Could not release application from the startup barrier.\n");
-            cti_killApp(di->d_appid, SIGKILL);
-            return 1;
-        }
-#endif
-
-        PrintOutMsg("Launch complete.\n");
-    }
-
-    return 0;
-}
-
-/*
-**********************************************************
-**********************************************************
-************ WRAPPERS FOR MRNet ROUTINES *****************
-**********************************************************
-**********************************************************
-*/
-
-static void DbgMRNDispatchEvents(dbginvoke_t *di, int ev_fd) {
-    mrnet_type *network = (mrnet_type *)di->d_proto_net;
-    g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
-    proto_msg_set *io_res;
-    proto_msg_set *ev_res;
-    proto_message *msg;
-    char *set_str;
-
-    // dispatch application output if started
-    // Note that the proxy would segfault here if we tried to handle program
-    // output before the startup event completes...
-    if (di->d_started && (po != NULL) && (po->p_o_rfd == ev_fd)) {
-        // Call the protocol specific callback function to handle the output on
-        // the stream
-        (*(di->d_proto_outp_callback))(di, po->p_o_stream);
-        return;
-    }
-
-    // dispatch io
-    // FIXME: This isn't used on a Cray, but if it is this should be calling
-    // a callback registered in the dbginvoke instead of handling it here. It's
-    // not appropriate to handle client events in this layer.
-    if (di->d_started &&
-        ((io_res = mrn_fe_dispatch_io(network, ev_fd)) != NULL)) {
-        // process each io message in the list
-        while ((msg = NextProtoMsgInSet(io_res)) != NULL) {
-            set_str = bitset_to_set(msg->group);
-            PrintOutMsg("IO from %s: %s\n", set_str, msg->message);
-            Free(set_str);
-        }
-
-        FreeProtoMsgSet(io_res);
-        return;
-    }
-
-    // dispatch events
-    if ((ev_res = mrn_fe_dispatch_event(network, ev_fd)) != NULL) {
-        // Call the protocol specific callback function to handle this event msg
-        (*(di->d_proto_ev_callback))(di, ev_res);
-
-        // Free the message set
-        FreeProtoMsgSet(ev_res);
-        return;
-    }
-}
-
-static bitset *DbgMRNSendCmd(dbginvoke_t *di, bitset *target,
-                             const char *request) {
-    proto_network network = di->d_proto_net;
-    bitset *received = NULL;
-
-    // send command only if not already in a shutdown state
-    if (di->d_isShutdown) {
-        return NULL;
-    }
-
-    MRNet_Stream *newEventStream = NULL;
-    mrn_fe_send_command((mrnet_type *)network, target, request,
-                        &newEventStream);
-
-    received = bitset_new(bitset_size(target));
-
-    DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
-
-    if (newEventStream) {
-        int eventFd = stream_get_DataNotificationFd(newEventStream);
-
-        int *eventFdPtr = (int *)Alloc(sizeof(int));
-        *eventFdPtr = eventFd;
-        AddToList(di->d_evfds, eventFdPtr);
-    }
-
-    return received;
-}
-
-// Here received means the bitset that represents the ranks we sent the initial
-// command to. Change this to something that makes more sense.
-static proto_msg_set *DbgMRNRecvReply(dbginvoke_t *di, bitset *target,
-                                      bitset *received) {
-    proto_network network = di->d_proto_net;
-    int full = 0;
-    proto_msg_set *msg_set = NULL;
-    proto_message *msg;
-    proto_msg_set *result = NULL;
-
-    // recv reply only if not already in a shutdown state
-    if (di->d_isShutdown) {
-        return NULL;
-    }
-
-    while (!full) {
-        if ((msg_set = mrn_fe_recv_reply((mrnet_type *)network, target)) ==
-            NULL) {
-            PrintOutError("Could not recv reply from MRNet network.\n");
-            ResetProtoMsgSet(result);
-            return result;
-        }
-
-        // If this is the first message set, then use this as our return type,
-        // otherwise merge the set with our return type.
-        if (result == NULL) {
-            result = msg_set;
-            // process the msg_set to get the received set
-            while ((msg = NextProtoMsgInSet(msg_set)) != NULL) {
-                // add this group to the received group
-                bitset_oreq(received, msg->group);
-            }
-        } else {
-            // add each message to the result
-            while ((msg = RemoveProtoMsgInSet(msg_set)) != NULL) {
-                // add this group to the received group
-                bitset_oreq(received, msg->group);
-                AddProtoMsgSet(result, msg);
-            }
-        }
-
-        DPRINT("INFO: Recieved replies from set[%s]\n",
-               bitset_to_str(received));
-
-        // Check to see if we have received all responses
-        full = bitset_eq(target, received);
-    }
-
-    ResetProtoMsgSet(result);
-
-    return result;
-}
-
-/*
-** DBG_EXIT: Tell server to quit immediately.
-** If detach is true, then we detach from application instead of killing it.
-*/
-static int DbgMRNExit(dbginvoke_t *di, int detach) {
+int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
@@ -1758,14 +1552,14 @@ static int DbgMRNExit(dbginvoke_t *di, int detach) {
     return 0;
 }
 
-static void DbgMRNDestroyClient(dbginvoke_t *di) {
+void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
     mrnet_type *network = (mrnet_type *)di->d_proto_net;
     g_progoutp_t *po;
 
     // Check to see if the network type has been destroyed
     if (network != NULL) {
         // call the exit function to force the application to quit
-        DbgMRNExit(di, 0);
+        exit(di, 0);
     }
 
     // need to set po now since DbgMRNExit can modify it
@@ -1781,8 +1575,41 @@ static void DbgMRNDestroyClient(dbginvoke_t *di) {
     }
 }
 
+// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
+// which one to use; and they might well not be the same for each rank.
+bool MRNClientProtocol::addGpuGdbs(cti_manifest_id_t mid) {
+    // The backend code will determine which version of cuda-gdb to use
+    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        return false;
+    }
+
+    if (cti_addManifestBinary(mid, "cuobjdump")) {
+        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
+        // amd system, it is not required so printint a complaint here could be confusing.
+        // It will be cleaner to trigger this from the back-end after it determines we
+        // are on an nvidia system.
+        //PrintOutError("Failed to add cuobjdump to manifest.\n");
+    }
+
+    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
+    // continuously and a typical machine might have 3 or 4 versions available.   So it
+    // make sense to just let the user select the rocgdb version they want by
+    // loading the right module or otherwise manipulationg PATH.
+    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
+        if (cti_addManifestBinary(mid, rocgdb)) {
+            free(rocgdb);
+            return false;
+        }
+        free(rocgdb);
+    }
+
+    return true;
+}
+
 #ifdef BE_VALGRIND
-static int DbgAddValgrindFiles(cti_manifest_id_t mid)
+int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
 {
     std::string suppressionFile;
     bool hasSuppressionFile = false;
@@ -1814,7 +1641,7 @@ static int DbgAddValgrindFiles(cti_manifest_id_t mid)
 #endif
 
 // Explicitly publish the ompd library files for the back-end.
-static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
+bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
 {
     auto dir = std::string{};
     try {
@@ -1847,4 +1674,115 @@ static bool DbgMRNAddOmpd(cti_manifest_id_t mid)
     }
 
     return true;
+}
+
+/*
+** Compatible callback routine for attaching with mrnet.
+*/
+int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNAttach received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+        PrintOutMsg("Attach complete.\n");
+    }
+
+    return 0;
+}
+
+/*
+** Compatible callback routine for invoking with mrnet.
+*/
+int MRNLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+    proto_message *msg;
+    dbgevent_t *e = NULL;
+    int err = 0;
+
+    if (set == NULL) return 0;
+
+    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+        // convert this protocol msg string to an event
+        e = SocProtoToEvent(msg->message);
+
+        bitset_oreq(di->d_bitset_launched, msg->group);
+
+        if (e->ev_event != DBGEV_OK) {
+            err = 1;
+            PrintOutError("Received unknown event %s.\n",
+                          DbgevToStr(e->ev_event));
+        }
+
+        // Done with the event, free it
+        FreeEvent(e);
+    }
+
+    if (err) return 1;
+
+    DPRINT("cbMRNInvoke received responses [%s]!\n",
+           bitset_to_str(di->d_bitset_launched));
+
+    // Check if we have received a message from every rank
+    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+        // Reset the protocol event callback to the dbgclient default
+        di->d_proto->resetProtocolEventHandler();
+
+        // Set the started bit in the di
+        di->d_started = 1;
+
+        DPERFLOG(SetTimerStopAndLog("stream_init"));
+
+        DPRINT("dbgsrv callback complete.\n");
+        DPRINT("Releasing application from the startup barrier...\n");
+
+#ifdef ALPS
+        // tell CTI to release the application from the startup barrier
+        if (cti_releaseAppBarrier(di->d_appid)) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError(
+                "Could not release application from the startup barrier.\n");
+            cti_killApp(di->d_appid, SIGKILL);
+            return 1;
+        }
+#endif
+
+        PrintOutMsg("Launch complete.\n");
+    }
+
+    return 0;
 }

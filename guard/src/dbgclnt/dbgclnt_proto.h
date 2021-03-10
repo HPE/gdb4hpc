@@ -38,19 +38,15 @@
 #include "bitset.h"
 #include "proto_message.h"
 
+#include <string>
+#include <exception>
+#include <memory>
+#include <vector>
+
 // forward declare struct dbginvoke - Note that because the struct dbginvoke is
 // first encountered inside of a list of parameters for the function pointer, we
 // *must* forward declare it otherwise the compiler will mess up.
 struct dbginvoke;
-
-// Used to keep track of sessions associated with the proxy based dbgclnt_proto
-// implementation
-struct proto_session {
-    struct dbgclnt_proto *sess_proto;
-    void *sess_obj;  // This is data used by the protocol layer
-                     // that is allocated on a per session basis.
-};
-typedef struct proto_session proto_session;
 
 // Some protocols will interact with the workload manager. Known workload
 // managers are defined in the following enumeration. Note that the name
@@ -58,52 +54,97 @@ typedef struct proto_session proto_session;
 enum WLM_type { WLM_none, WLM_qsub, WLM_sbatch };
 typedef enum WLM_type WLM_type;
 
-// main protocol definition
-struct dbgclnt_proto {
-    const char *sw_name; /* Name of the protocol */
+class DebugClientProtocol;
 
-    int (*sw_init)(void);    /* protocol init function */
-    void (*sw_finish)(void); /* protocol finish function */
-
-    bitset *(*sw_send_cmd)(struct dbginvoke *, bitset *,
-                           const char *); /* protocol send command function */
-    struct proto_msg_set *(*sw_recv_reply)(
-        struct dbginvoke *, bitset *,
-        bitset *); /* protocol receive reply function */
-    int (*sw_checkevents)(
-        struct dbginvoke *); /* protocol check for ready event function */
-    void (*sw_dispatchevents)(struct dbginvoke *,
-                              int); /* protocol event dispatch function */
-
-    /*
-    ** Client protocol routines.
-    */
-    proto_session *(*sw_create_session)(
-        struct dbgclnt_proto *, WLM_type, const char *, const char *,
-        const char *); /* protocol create session function */
-    void (*sw_save_session)(proto_session *);
-    void (*sw_cleanup_session)(
-        proto_session *); /* protocol cleanup session function - called when a
-                             session is no longer valid */
-    int (*sw_attach)(struct dbginvoke *, proto_session *, const char *,
-                     const char *, const char *, int,
-                     int); /* protocol attach function */
-    int (*sw_launch)(struct dbginvoke *, proto_session *, const char *, char **,
-                     const char *, char **, const char *, const char *, const char*, char **,
-                     const char *, int, int,
-                     int, bool); /* protocol launch function */
-    int (*sw_exit)(struct dbginvoke *, int detach); /* protocol exit function */
-    void (*sw_destroyclnt)(
-        struct dbginvoke *); /* protocol destroy dbginvoke specific instance */
+// Used to keep track of sessions associated with the proxy based dbgclnt_proto
+// implementation
+struct proto_session {
+    proto_session(DebugClientProtocol * const sess_proto_, void *sess_obj_)
+        : sess_proto{sess_proto_}
+        , sess_obj{sess_obj_} {}
+    
+    DebugClientProtocol * const sess_proto;
+    void *sess_obj; // This is data used by the protocol layer
+                    // that is allocated on a per session basis.
 };
-typedef struct dbgclnt_proto dbgclnt_proto;
+
+// event handlers used by protocols to handle events in certain situations
+//
+// 
+class DebugClientProtocolEventHandler {
+public:
+    virtual ~DebugClientProtocolEventHandler() = default;
+    virtual int handleEvent(dbginvoke *di, proto_msg_set* set) = 0;
+};
+
+class DebugClientDefaultProtocolEventHandler : public DebugClientProtocolEventHandler{
+public:
+    int handleEvent(dbginvoke *di, proto_msg_set* set) override;
+};
+
+// main protocol definition
+class DebugClientProtocol {
+public:
+    DebugClientProtocol() : m_protoEventHandler{} {};
+    virtual ~DebugClientProtocol() = default;
+
+    // functions required by every derived class:
+    virtual const char* name() const = 0;
+
+    virtual int attach(struct dbginvoke *di, proto_session *session, 
+        const char *app_ident, const char *arch, const char *backend, 
+        int gpu_flag, int debug_flag) = 0;
+
+    virtual int launch(struct dbginvoke *di, proto_session *session, 
+        const char *prog, char **argv,
+        const char *arch, char **arch_args, const char *arch_input, 
+        const char *backend, const char* gdb, char **env,
+        const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
+        bool isNonStop) = 0;
+
+    virtual int exit(struct dbginvoke *di, int detach) = 0;
+
+    virtual bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+        const char *request) = 0;
+
+    virtual struct proto_msg_set* receiveReply(struct dbginvoke *di, 
+        bitset *target, bitset *received) = 0;
+
+    // optional functions:
+    virtual int init() { return 1; }; // success by default
+    virtual void finish() {};
+    
+    virtual int checkEvents(struct dbginvoke *di) { return 0; };
+    virtual void dispatchEvents(struct dbginvoke *di, int ev_fd) {};
+
+    virtual proto_session *createSession(DebugClientProtocol * const proto, 
+        WLM_type manager, const char *batch_template, const char *hostname, 
+        const char *username) { return nullptr; };
+    
+    virtual void saveSession(proto_session *session) {};
+    // called when a session is no longer valid
+    virtual void cleanupSession(proto_session *session) {};
+
+    virtual void destroyClient(struct dbginvoke *di) {};
+
+    void resetProtocolEventHandler();
+protected:
+    // callback related
+    virtual void outputCallback(dbginvoke *di, FILE *f);
+    void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
+    int handleProtocolEvent(dbginvoke *di, proto_msg_set* set);
+
+private:
+    // we don't want this exposed to derived classes directly, they should only
+    // be able to set it and call its handler method.
+    std::unique_ptr<DebugClientProtocolEventHandler> m_protoEventHandler;
+};
 
 /*
 ** Function definitions
 */
-extern void SetClntProto(void);
-extern dbgclnt_proto *GetClntProto(void);
-extern dbgclnt_proto *FindClntProto(const char *);
+const std::vector<DebugClientProtocol *> getClientProtos();
+DebugClientProtocol * const findClientProtoByName(std::string protoName);
 
 extern int WaitForProtoStartupEvent(struct dbginvoke *);
 

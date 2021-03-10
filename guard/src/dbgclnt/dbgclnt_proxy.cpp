@@ -44,7 +44,7 @@
 // Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
 ProxyClientProtocol DbgClntProtoProxy;
 
-int ProxyClientProtocol::setupPROXYCfgDir(void) {
+int ProxyClientProtocol::setupConfigDirectory() {
     struct stat st;
     char *cfg_dir;
 
@@ -75,7 +75,7 @@ int ProxyClientProtocol::setupPROXYCfgDir(void) {
 }
 
 int ProxyClientProtocol::init() {
-    if (setupPROXYCfgDir() == -1) return 0;
+    if (setupConfigDirectory() == -1) return 0;
 
     return 1;
 }
@@ -1594,7 +1594,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
 }
 
 // Helper function to receive a proto message
-proto_msg_set* ProxyClientProtocol::DbgPROXYRecvProtoMsg(int net_fd) {
+proto_msg_set* ProxyClientProtocol::recvProtoMsg(int net_fd) {
     proxy_msg_header soc_head;
     char *soc_buf;
     proto_message *msg;
@@ -1651,7 +1651,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch events
     if (ev_fd == PROXY_EVENTFD(network)) {
         // get the message
-        if ((ev_res = DbgPROXYRecvProtoMsg(PROXY_EVENTFD(network))) == NULL) {
+        if ((ev_res = recvProtoMsg(PROXY_EVENTFD(network))) == NULL) {
             // If this happens, it means the proxy daemon died. We should force
             // quit to happen here since it is unexpected. We expect that the
             // proxy already sent us an error string, so print a brief one.
@@ -1768,7 +1768,7 @@ bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
     Free(msg);
 
     // recv the receiver set
-    if ((pmsg_set = DbgPROXYRecvProtoMsg(PROXY_CMDFD(network))) == NULL) {
+    if ((pmsg_set = recvProtoMsg(PROXY_CMDFD(network))) == NULL) {
         PrintOutError("Could not recv reply from proxy.\n");
         return NULL;
     }
@@ -1832,7 +1832,7 @@ proto_msg_set *ProxyClientProtocol::receiveReply(dbginvoke_t *di, bitset *target
     Free(msg);
 
     while (!full) {
-        if ((pmsg_set = DbgPROXYRecvProtoMsg(PROXY_CMDFD(network))) == NULL) {
+        if ((pmsg_set = recvProtoMsg(PROXY_CMDFD(network))) == NULL) {
             PrintOutError("Could not recv reply from proxy.\n");
             ResetProtoMsgSet(result);
             return result;

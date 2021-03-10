@@ -494,7 +494,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
     if (gpu_flag) {
-        if (!DbgMRNAddGpuGdbs(mid))
+        if (!addGpuGdbs(mid))
             goto attach_error;
     }
 
@@ -514,7 +514,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
         }
     }
 
-    if (!DbgMRNAddOmpd(mid)) {
+    if (!addOmpd(mid)) {
         PrintOutError("Failed to add ompd to manifest.\n");
     }
 
@@ -529,7 +529,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
 #ifdef BE_VALGRIND
 
-    if (DbgAddValgrindFiles(mid))
+    if (addValgrindFiles(mid))
         goto attach_error;
 
 #endif
@@ -1130,7 +1130,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
     if (gpu_flag && !gdb) {
-        if (!DbgMRNAddGpuGdbs(mid)) {
+        if (!addGpuGdbs(mid)) {
             goto invoke_error;
         }
     }
@@ -1153,7 +1153,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     }
     // End upc addition
 
-    if (!DbgMRNAddOmpd(mid)) {
+    if (!addOmpd(mid)) {
         PrintOutError("Failed to add ompd to manifest.\n");
     }
 
@@ -1167,7 +1167,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
 #ifdef BE_VALGRIND
     // Add valgrind files to the manifest
-    if (DbgAddValgrindFiles(mid)) {
+    if (addValgrindFiles(mid)) {
         goto invoke_error;
     }
 #endif
@@ -1577,7 +1577,7 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
 
 // Add the gpu enabled version of gdb to the manifest.  The back-end will determine
 // which one to use; and they might well not be the same for each rank.
-bool MRNClientProtocol::DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
+bool MRNClientProtocol::addGpuGdbs(cti_manifest_id_t mid) {
     // The backend code will determine which version of cuda-gdb to use
     if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
@@ -1609,7 +1609,7 @@ bool MRNClientProtocol::DbgMRNAddGpuGdbs(cti_manifest_id_t mid) {
 }
 
 #ifdef BE_VALGRIND
-int MRNClientProtocol::DbgAddValgrindFiles(cti_manifest_id_t mid)
+int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
 {
     std::string suppressionFile;
     bool hasSuppressionFile = false;
@@ -1641,7 +1641,7 @@ int MRNClientProtocol::DbgAddValgrindFiles(cti_manifest_id_t mid)
 #endif
 
 // Explicitly publish the ompd library files for the back-end.
-bool MRNClientProtocol::DbgMRNAddOmpd(cti_manifest_id_t mid)
+bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
 {
     auto dir = std::string{};
     try {

@@ -62,15 +62,17 @@ public:
 
 private:
     // Proxy specific helper functions
-    int setupPROXYCfgDir(void);
-    char *parseBatchScript(const char *, const char *);
-    int ssh_start_proxy(const char *, const char *, const char *, const char *);
+    int setupConfigDirectory();
+    char *parseBatchScript(const char *script_file, const char *launcher_argv_str);
+    int ssh_start_proxy(const char *hostname, const char *username,
+        const char *lhost, const char *lport);
+    
     static void interactive_auth_callback(
         const char *name, int name_len, const char *instruction,
         int instruction_len, int num_prompts,
         const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
         LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses, void **abstract);
-    proto_msg_set *DbgPROXYRecvProtoMsg(int);
+    proto_msg_set *recvProtoMsg(int net_fd);
 
     // Proxy specific variables
     int callback_failure = 0;

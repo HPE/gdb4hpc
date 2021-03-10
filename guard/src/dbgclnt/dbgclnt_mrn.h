@@ -57,11 +57,11 @@ public:
 
 private:
     // MRNet specific helper functions
-    bool DbgMRNAddOmpd(cti_manifest_id_t mid);
-    bool DbgMRNAddGpuGdbs(cti_manifest_id_t mid);
+    bool addOmpd(cti_manifest_id_t mid);
+    bool addGpuGdbs(cti_manifest_id_t mid);
 
 #ifdef BE_VALGRIND
-    int DbgAddValgrindFiles(cti_manifest_id_t mid);
+    int addValgrindFiles(cti_manifest_id_t mid);
 #endif
 };
 

@@ -73,7 +73,7 @@ struct proto_session {
 // 
 class DebugClientProtocolEventHandler {
 public:
-    ~DebugClientProtocolEventHandler() = default;
+    virtual ~DebugClientProtocolEventHandler() = default;
     virtual int handleEvent(dbginvoke *di, proto_msg_set* set) = 0;
 };
 

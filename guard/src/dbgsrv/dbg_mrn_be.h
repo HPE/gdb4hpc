@@ -27,7 +27,7 @@ extern void mrn_be_set_localrank(int rank);
 extern int mrn_be_get_localrank();
 
 extern void mrn_be_set_callback(void (*callback)(char *, const dbgcomm_info *));
-extern void mrn_be_handle_msg();
+extern void mrn_be_handle_msg(MRNet_Stream *stream);
 
 extern void mrn_be_set_cmd_stream(MRNet_Stream *stream);
 extern void mrn_be_set_event_stream(MRNet_Stream *stream);
@@ -49,5 +49,7 @@ extern int mrn_be_is_shutdown();
 extern void mrn_be_waitfor_shutdown();
 
 extern int mrn_be_shutdown();
+
+extern void mrn_be_set_param(MRNet_Stream *stream, const char* msg);
 
 #endif /* _GUARD_MRNET_BACKEND_H */

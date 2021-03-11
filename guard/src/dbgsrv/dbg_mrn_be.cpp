@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dbg_mrn_be.h"
+
 #include "Communicator_C.h"
 #include "MRNet_C.h"
 #include "Network_C.h"
@@ -400,7 +402,7 @@ void mrn_be_set_callback(void (*callback)(char*, const dbgcomm_info*)) {
     return;
 }
 
-void mrn_be_handle_msg() {
+void mrn_be_handle_msg(MRNet_Stream *stream) {
     char* msg = (char*)RemoveFirst(msg_list);
 
     if (msg != NULL) {
@@ -416,7 +418,7 @@ void mrn_be_handle_msg() {
             }
             for (; *submsg && isspace(*submsg); ++submsg) {
             }
-            DbgSRVMRNSetParam(submsg);
+            mrn_be_set_param(stream, submsg);
         } else {
             // push all other commands to the back-end.
             mrncomm_info ci(mrnet_be->stream_event);
@@ -435,4 +437,21 @@ int mrn_be_shutdown() {
     DestroyList(msg_list, NULL);
 
     return 0;
+}
+
+void mrn_be_set_param(MRNet_Stream *stream, const char *msg) {
+    // note: the prototype always puts length of the remainder of the message
+    // before the message itself. Since at this point we only support a single
+    // special command, we can keep the handling pretty simple.
+    int len, subCommand;
+    unsigned int eventStreamId;
+    if (sscanf(msg, "%d %d %u", &len, &subCommand, &eventStreamId) != 3) {
+        DVPRINT("Could not parse MRNSetParam\n");
+    } else if (subCommand != MRNCMD_SETEVENTSTREAM) {
+        DVPRINT("Unrecognized MRNSetParam command\n");
+    } else {
+        unsigned int commandStreamId = stream_get_Id(stream);
+        DVPRINT("Stream pair %u %u\n", commandStreamId, eventStreamId);
+        mrn_be_set_event_stream_from_id(eventStreamId);
+    }
 }

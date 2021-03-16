@@ -41,10 +41,10 @@ private:
         NULL};
 #endif // ALPS
 
-    MRNet_Stream *stream;
-    int tag;
-    int my_mrn_rank;
-    int mrn_event_fd;
+    MRNet_Stream *m_stream;
+    int m_tag;
+    int m_my_mrn_rank;
+    int m_mrn_event_fd;
 };
 
 #endif // _DBGSRV_MRN_H

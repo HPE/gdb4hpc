@@ -160,9 +160,9 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     DVPRINT("Creating be network");
     res = mrn_be_create_network(be_argc, be_argv);
     DVPRINT("Done Creating network");
-    my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
+    m_my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(my_mrn_rank);
+    mrn_be_set_localrank(m_my_mrn_rank);
     DVPRINT("Done setting local rank");
 #else /*end of ALPS*/
 
@@ -267,9 +267,9 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
         par_addr, par_port, par_rank, my_mrnrank);
 
     res = mrn_be_create_network(be_argc, be_argv);
-    my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
+    m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(my_mrn_rank);
+    mrn_be_set_localrank(m_my_mrn_rank);
 //	res = mrn_be_create_network( argc, argv );
 //	my_mrn_rank = mrn_be_get_localrank();
 #endif
@@ -277,7 +277,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     mrn_be_set_callback(dbgsrv_dispatch_cmds);
 
     // get the mrnet event fd to select on
-    mrn_event_fd = mrn_be_get_event_fd();
+    m_mrn_event_fd = mrn_be_get_event_fd();
 
     Free(hostname);
 
@@ -294,7 +294,7 @@ fd_set *MRNServerProtocol::getFdSet() {
     static fd_set fds;
 
     FD_ZERO(&fds);
-    FD_SET(mrn_event_fd, &fds);
+    FD_SET(m_mrn_event_fd, &fds);
 
     return &fds;
 }
@@ -328,11 +328,11 @@ void MRNServerProtocol::runProto(fd_set *fds) {
     }
 
     // make sure event fd is ready to read on
-    if (!FD_ISSET(mrn_event_fd, fds)) {
+    if (!FD_ISSET(m_mrn_event_fd, fds)) {
         return;
     }
 
-    FD_CLR(mrn_event_fd, fds);
+    FD_CLR(m_mrn_event_fd, fds);
 
     // clear the mrnet event fd
     mrn_be_clear_event_fd();
@@ -345,7 +345,7 @@ void MRNServerProtocol::runProto(fd_set *fds) {
         mrn_be_ack_event();
 
         // receive the event
-        res = mrn_be_recv(&stream, &tag, MRNET_UNBLOCKING);
+        res = mrn_be_recv(&m_stream, &m_tag, MRNET_UNBLOCKING);
 
         if (res < 0) {
             fprintf(stderr, "DbgSRVMRNRunProto() mrn_be_recv() failed!\n");
@@ -353,10 +353,10 @@ void MRNServerProtocol::runProto(fd_set *fds) {
         }
         if (res > 0) {
             DVPRINT("Recieved message on stream %u[%d]\n",
-                    stream_get_Id(stream), tag);
-            if (tag == DBG_MRNet_PRO_COMMAND) mrn_be_set_cmd_stream(stream);
+                    stream_get_Id(m_stream), m_tag);
+            if (m_tag == DBG_MRNet_PRO_COMMAND) mrn_be_set_cmd_stream(m_stream);
 
-            mrn_be_handle_msg(stream);
+            mrn_be_handle_msg(m_stream);
         }
 
         DVPRINT("INFO: Finished servicing MRNet Event.\n");
@@ -370,23 +370,23 @@ void MRNServerProtocol::runProto(fd_set *fds) {
 // TODO: This is calling the send event instead of send reply function, so its
 //        incompatible with the caller...
 dbgevent_t *MRNServerProtocol::invokeNetwork(int numbe) {
-    if (tag == DBG_MRNet_PRO_COMMAND) {
-        mrn_be_set_cmd_stream(stream);
+    if (m_tag == DBG_MRNet_PRO_COMMAND) {
+        mrn_be_set_cmd_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on command stream.\n");
         return NULL;
     }
 
-    if (tag == DBG_MRNet_PRO_IO) {
-        mrn_be_set_io_stream(stream);
+    if (m_tag == DBG_MRNet_PRO_IO) {
+        mrn_be_set_io_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on io stream!\n");
         return NULL;
     }
 
-    if (tag == DBG_MRNet_PRO_EVENT) {
+    if (m_tag == DBG_MRNet_PRO_EVENT) {
         dbgevent_t *e;
         char *resp;
 
-        mrn_be_set_event_stream(stream);
+        mrn_be_set_event_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on event stream!\n");
 
         mrn_be_set_size(numbe);
@@ -404,5 +404,5 @@ dbgevent_t *MRNServerProtocol::invokeNetwork(int numbe) {
 }
 
 int MRNServerProtocol::sendReply(char *response) {
-    return mrn_be_send_reply(stream, response);
+    return mrn_be_send_reply(m_stream, response);
 }

@@ -138,16 +138,6 @@ AC_ARG_WITH([mrnet],
 	    [mrnet_mode=no]
 	    )
 
-dnl Check for --with-socket
-AC_ARG_WITH([socket],
-	    [AS_HELP_STRING([--with-socket],
-			    [Enable legacy socket support in Guard.]
-			    )
-	    ],
-	    [socket_mode=yes],
-	    [socket_mode=no]
-	    )
-
 dnl Check for --with-idb
 AC_ARG_WITH([idb],
 	    [AS_HELP_STRING([--with-idb],
@@ -430,11 +420,6 @@ fi
 dnl Check for mrnet
 if test "x$mrnet_mode" = xyes; then
 	AC_DEFINE([MRNET], [1], [Enable MRNet support in Guard.])
-fi
-
-dnl Check for socket
-if test "x$socket_mode" = xyes; then
-	AC_DEFINE([SOCKETS], [1], [Enable legacy socket support in Guard.])
 fi
 
 ##############################
@@ -755,7 +740,6 @@ AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRN], [test "x$mrnet_mode" != xno])
-AM_CONDITIONAL([SOCK], [test "x$socket_mode" != xno])
 
 dnl Backend conds
 AM_CONDITIONAL([GDB_BACKEND], [test "x$gdb_mode" != xno])
@@ -778,7 +762,6 @@ AC_CONFIG_FILES([Makefile
 		 scripts/Makefile
 		 filters/Makefile
 		 filters/mrnet/Makefile
-		 filters/sci/Makefile
 		 mrnet/Makefile
 		 src/client/Makefile
 		 src/dbgclnt/Makefile

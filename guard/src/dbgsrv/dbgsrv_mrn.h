@@ -24,23 +24,6 @@ public:
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(char *response) override;
 private:
-    /*
-    we use mpd to launch MRNet backends on non-Cray platform.
-    Not sure why "PMI_RANK" does not work.
-    We use "MPD_JRANK" instead.
-    */
-#ifndef ALPS
-    static char *MPIRankVars[] = {
-        "OMPI_COMM_WORLD_RANK",   /* Open MPI 1.6 */
-        "OMPI_MCA_orte_ess_vpid", /* Open MPI 1.3 */
-        "OMPI_MCA_ns_nds_vpid",   /* Open MPI 1.2 */
-        "PMI_RANK",               /* MPICH2. PMI_RANK does not work for MPICH2. */
-        "MPD_JRANK",              /* MPICH2. MPD_JRANK works on MPICH2. */
-        "MP_CHILD",               /* IBM PE */
-        "SLURM_PROCID",           /* SLURM */
-        NULL};
-#endif // ALPS
-
     MRNet_Stream *m_stream;
     int m_tag;
     int m_my_mrn_rank;

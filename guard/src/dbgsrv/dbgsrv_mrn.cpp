@@ -182,6 +182,22 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     unsigned par_port, par_rank;
     unsigned my_mrnrank;
 
+    /*
+        we use mpd to launch MRNet backends on non-Cray platform.
+        Not sure why "PMI_RANK" does not work.
+        We use "MPD_JRANK" instead.
+    */
+    char *MPIRankVars[] = {
+        "OMPI_COMM_WORLD_RANK",   /* Open MPI 1.6 */
+        "OMPI_MCA_orte_ess_vpid", /* Open MPI 1.3 */
+        "OMPI_MCA_ns_nds_vpid",   /* Open MPI 1.2 */
+        "PMI_RANK",               /* MPICH2. PMI_RANK does not work for MPICH2. */
+        "MPD_JRANK",              /* MPICH2. MPD_JRANK works on MPICH2. */
+        "MP_CHILD",               /* IBM PE */
+        "SLURM_PROCID",           /* SLURM */
+        nullptr
+    };
+
     optind = 0;
     while ((c = getopt(argc, argv, "p:h:c:a:n:i:e:k:v:d:")) != EOF) {
         switch (c) {

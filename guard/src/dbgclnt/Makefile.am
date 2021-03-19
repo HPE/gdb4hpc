@@ -18,11 +18,6 @@ AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
 endif
 
-# Check for Socket
-if SOCK
-SOCK_PROTO	= dbgclnt_soc.cpp
-endif
-
 ############################
 # Determine debug frontend #
 ############################
@@ -45,7 +40,7 @@ libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp\
 						  $(FRONTEND)
 libdbgproto_a_SOURCES	= dbgclnt_proto.cpp proto_message.cpp dbginvoke.cpp \
 						  dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
-						  $(MRN_PROTO) $(SOCK_PROTO)
+						  $(MRN_PROTO)
 
 if CRAY
 # Cray ALPS does not need guard_starter

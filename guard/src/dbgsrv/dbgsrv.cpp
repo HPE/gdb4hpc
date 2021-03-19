@@ -140,10 +140,6 @@ int main(int argc, char *argv[], char *env[]) {
     const char *jobKey = NULL;
     char *args = NULL;
     dbgevent_t *e = nullptr;
-#ifdef SOCKETS
-    char name[MAXHOSTNAMELEN];
-    struct hostent *hp;
-#endif /* SOCKETS */
 
 #ifdef PERFLOG
     gettimeofday(&tv_srv, NULL);
@@ -255,30 +251,6 @@ int main(int argc, char *argv[], char *env[]) {
         fprintf(stderr, "No callback specified.\n");
         Usage();
     }
-
-#ifdef SOCKETS
-    if (gethostname(name, MAXHOSTNAMELEN - 1) < 0) {
-        perror("gethostname");
-        exit(1);
-    }
-
-#ifdef PERFLOG
-    gettimeofday(&tv_para, NULL);
-#endif
-
-    hp = gethostbyname(name);
-    if (hp == (struct hostent *)NULL) {
-        fprintf(stderr, "Could not find name of %s\n", name);
-        exit(1);
-    }
-
-#ifdef PERFLOG
-    gettimeofday(&tv_arch, NULL);
-#endif
-
-    hname = strdup(hp->h_name);
-
-#endif /* SOCKETS */
 
     switch (arch) {
         case MPARCH_POE:

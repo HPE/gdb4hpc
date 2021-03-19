@@ -22,6 +22,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <vector>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,58 +31,20 @@
 #include "defs.h"
 #include "useful.h"
 
-/*
-** Setup protocol defs
-*/
-struct proto_tab {
-    const char *proto_name;
-    dbgsrv_proto *proto_def;
-};
-typedef struct proto_tab proto_tab;
+#include "dbgsrv_mrn.h"
 
 // external proto defs
-#ifdef SUN_RPC
-extern dbgsrv_proto DbgSrvRPCProtoSW;
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-extern dbgsrv_proto DbgSrvSocProtoSW;
-#endif /* SOCKETS */
-#ifdef MRNET
-extern dbgsrv_proto DbgSrvMRNProtoSW;
-#endif /* MRNET */
-#ifdef SCI
-extern dbgsrv_proto DbgSrvSCIProtoSW;
-#endif /* SCI */
+extern MRNServerProtocol DbgSrvProtoMRN;
 
-// table of proto defs
-static proto_tab DbgProtoTab[] = {
-#ifdef SUN_RPC
-    {"rpc", &DbgSrvRPCProtoSW},
-#endif /* SUN_RPC */
-#ifdef SOCKETS
-    {"socket", &DbgSrvSocProtoSW},
-#endif /* SOCKETS */
-#ifdef MRNET
-    {"mrnet", &DbgSrvMRNProtoSW},
-#endif /* MRNET */
-#ifdef SCI
-    {"sci", &DbgSrvSCIProtoSW},
-#endif /* SCI */
-    {NULL, (dbgsrv_proto *)NULL}};
+static const std::vector<DebugServerProtocol *> DbgProtoTab = {
+    &DbgSrvProtoMRN
+};
 
 /*
 ** Set default proto.
 ** This defines the current protocol in use
 */
-#if defined(MRNET)
-static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvMRNProtoSW; /* Default to MRNET */
-#elif defined(SCI)
-static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvSCIProtoSW; /* Default to SCI */
-#elif defined(SUN_RPC)
-static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvRPCProtoSW; /* Default to RPC */
-#elif defined(SOCKETS)
-static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvSocProtoSW; /* Default to SOC */
-#endif
+static DebugServerProtocol *DbgSrvProtoSW = &DbgSrvProtoMRN; /* Default to MRNET */
 
 /*
 ** dbgsrv protocol related functions
@@ -91,46 +55,44 @@ static dbgsrv_proto *DbgSrvProtoSW = &DbgSrvSocProtoSW; /* Default to SOC */
 //       talk to many different debug servers. Hence why the client handles
 //       multiple protocols at once, and the server doesn't.
 
-int DbgSetSrvProto(const char *proto) {
-    proto_tab *p;
-
-    for (p = DbgProtoTab; p->proto_name != NULL; p++) {
-        if (strcmp(p->proto_name, proto) == 0) {
-            // Set the current protocol
-            DbgSrvProtoSW = p->proto_def;
+int DbgSetSrvProto(const char *protoName) {
+    for (const auto &proto : DbgProtoTab) {
+        if (strcmp(proto->name(), protoName) == 0) {
+            DbgSrvProtoSW = proto;
             return 0;
         }
     }
+
     return 1;
 }
 
 int DbgInitProto(int procnum, int argc, char **argv, const char *key,
                  const char *host, int port) {
-    return DbgSrvProtoSW->sw_initproto(procnum, argc, argv, key, host, port);
+    return DbgSrvProtoSW->initProto(procnum, argc, argv, key, host, port);
 }
 
-fd_set *DbgGetFDSet(void) { return DbgSrvProtoSW->sw_getfdset(); }
+fd_set *DbgGetFDSet(void) { return DbgSrvProtoSW->getFdSet(); }
 
-void DbgRunProto(fd_set *fds) { DbgSrvProtoSW->sw_runproto(fds); }
+void DbgRunProto(fd_set *fds) { DbgSrvProtoSW->runProto(fds); }
 
-void DbgEndProto(void) { DbgSrvProtoSW->sw_endproto(); }
+void DbgEndProto(void) { DbgSrvProtoSW->endProto(); }
 
 int DbgSetupIO(int *fd, int *port) {
-    return DbgSrvProtoSW->sw_setupio(fd, port);
+    return DbgSrvProtoSW->setupIo(fd, port);
 }
 
 int DbgTransferIO(int fd, char *buffer, int size) {
-    return DbgSrvProtoSW->sw_transferio(fd, buffer, size);
+    return DbgSrvProtoSW->transferIo(fd, buffer, size);
 }
 
 dbgevent_t *DbgInvokeNetwork(int numbe) {
-    return DbgSrvProtoSW->sw_invokenetwork(numbe);
+    return DbgSrvProtoSW->invokeNetwork(numbe);
 }
 
 int DbgSendReply(char *response) {
     int res;
 
-    res = DbgSrvProtoSW->sw_sendreply(response);
+    res = DbgSrvProtoSW->sendReply(response);
 
     Free(response);
 
@@ -139,7 +101,7 @@ int DbgSendReply(char *response) {
 
 int DbgInvokeCB(char *chost, int cprog, char *host, int prog, int pnum,
                 int port, dbgevent_t *ev) {
-    return DbgSrvProtoSW->sw_invokecb(chost, cprog, host, prog, pnum, port, ev);
+    return DbgSrvProtoSW->invokeCallback(chost, cprog, host, prog, pnum, port, ev);
 }
 
-int DbgEventCB(dbgevent_t *ev) { return DbgSrvProtoSW->sw_eventcb(ev); }
+int DbgEventCB(dbgevent_t *ev) { return DbgSrvProtoSW->eventCallback(ev); }

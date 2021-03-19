@@ -10,11 +10,6 @@ AM_LIBTOOLFLAGS = --quiet
 # Check for optional components #
 #################################
 
-# Check for Socket proto
-if SOCK
-SOCK_COMM       = dbg_soc.cpp
-endif
-
 # Check for MRNet
 if MRN
 AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
@@ -25,6 +20,4 @@ endif
 ##############################
 
 noinst_LIBRARIES = libdbg.a
-libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp \
-		   $(SOC_COMM)
-
+libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp

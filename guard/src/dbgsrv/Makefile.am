@@ -18,11 +18,6 @@ MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 
-# Check for Socket
-if SOCK
-SOCK_SRV	= dbgsrv_soc.cpp
-endif
-
 #####################
 # Determine backend #
 #####################
@@ -67,7 +62,7 @@ endif
 
 libexec_PROGRAMS= dbgsrv $(CRAY_PROGS)
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
-		$(BACKEND) $(MRN_SRV) $(SOCK_SRV)
+		$(BACKEND) $(MRN_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
 		$(MI_LIBS) $(MRN_LIBS) -laif -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags

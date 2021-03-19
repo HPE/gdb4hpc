@@ -24,19 +24,24 @@
 #include "dbgevent.h"
 #include "defs.h"
 
-struct dbgsrv_proto {
-    int (*sw_initproto)(int, int, char **, const char *, const char *, int);
-    void (*sw_endproto)(void);
-    fd_set *(*sw_getfdset)(void);
-    void (*sw_runproto)(fd_set *);
-    int (*sw_invokecb)(char *, int, char *, int, int, int, dbgevent_t *);
-    int (*sw_eventcb)(dbgevent_t *);
-    int (*sw_setupio)(int *, int *);
-    int (*sw_transferio)(int, char *, int);
-    dbgevent_t *(*sw_invokenetwork)(int);
-    int (*sw_sendreply)(char *);
+class DebugServerProtocol {
+public:
+    virtual ~DebugServerProtocol() = default;
+
+    virtual const char * name() = 0;
+    virtual int initProto(int procnum, int argc, char **argv,
+        const char *key, const char *host, int port) = 0;
+    virtual void endProto() = 0;
+    virtual fd_set* getFdSet() = 0;
+    virtual void runProto(fd_set *fds) = 0;
+    virtual int invokeCallback(char *chost, int cport, char *host, int prog,
+        int pnum, int port, dbgevent_t *e) = 0;
+    virtual int eventCallback(dbgevent_t *ev) = 0;
+    virtual int setupIo(int *fd, int *port) = 0;
+    virtual int transferIo(int fd, char *buffer, int size) = 0;
+    virtual dbgevent_t* invokeNetwork(int numbe) = 0;
+    virtual int sendReply(char *response) = 0;
 };
-typedef struct dbgsrv_proto dbgsrv_proto;
 
 extern int DbgSetSrvProto(const char *);
 extern int DbgInitProto(int, int, char **, const char *, const char *, int);

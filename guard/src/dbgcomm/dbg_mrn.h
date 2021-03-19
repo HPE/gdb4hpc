@@ -43,6 +43,4 @@ typedef enum {
 
 enum mrn_dbgcmd { MRNCMD_SETEVENTSTREAM };
 
-extern void DbgSRVMRNSetParam(const char* msg);
-
 #endif /* _GUARD_MRNET_TYPES_H */

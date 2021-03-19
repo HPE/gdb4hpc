@@ -30,6 +30,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "dbgsrv_mrn.h"
+
 #include "Stream_C.h"
 #include "aif.h"
 #include "bitset.h"
@@ -47,32 +49,6 @@
 #include "smart_bitset.h"
 #include "useful.h"
 
-#ifdef ALPS
-#include "common_tools_be.h"
-#endif
-
-/*
-we use mpd to launch MRNet backends on non-Cray platform.
-Not sure why "PMI_RANK" does not work.
-We use "MPD_JRANK" instead.
-*/
-#ifndef ALPS
-static char *MPIRankVars[] = {
-    "OMPI_COMM_WORLD_RANK",   /* Open MPI 1.6 */
-    "OMPI_MCA_orte_ess_vpid", /* Open MPI 1.3 */
-    "OMPI_MCA_ns_nds_vpid",   /* Open MPI 1.2 */
-    "PMI_RANK",               /* MPICH2. PMI_RANK does not work for MPICH2. */
-    "MPD_JRANK",              /* MPICH2. MPD_JRANK works on MPICH2. */
-    "MP_CHILD",               /* IBM PE */
-    "SLURM_PROCID",           /* SLURM */
-    NULL};
-#endif
-
-// Static global vars
-static MRNet_Stream *stream;
-static int tag;
-static int my_mrn_rank;
-static int mrn_event_fd;
 #ifdef PERFLOG
 extern struct timeval tv_srv;
 extern struct timeval tv_para;
@@ -83,34 +59,21 @@ extern struct timeval tv_end;
 struct timeval tv_att;
 #endif
 
-// Prototypes
-static int DbgSRVMRNInitProto(int, int, char **, const char *, const char *,
-                              int);
-static void DbgSRVMRNEndProto(void);
-static fd_set *DbgSRVMRNGetFDSet(void);
-static void DbgSRVMRNRunProto(fd_set *);
-static int InvokeMRNCallBack(char *, int, char *, int, int, int, dbgevent_t *);
-static int EventMRNCallBack(dbgevent_t *);
-static int DbgSRVMRNSetupIOChannel(int *fd, int *port);
-static int DbgSRVMRNTransferIO(int fd, char *buffer, int size);
-static dbgevent_t *DbgSRVMRNInvokeNetwork(int numbe);
-static int DbgSRVMRNSendReply(char *response);
-
 // Proto definition
-dbgsrv_proto DbgSrvMRNProtoSW = {DbgSRVMRNInitProto,      DbgSRVMRNEndProto,
-                                 DbgSRVMRNGetFDSet,       DbgSRVMRNRunProto,
-                                 InvokeMRNCallBack,       EventMRNCallBack,
-                                 DbgSRVMRNSetupIOChannel, DbgSRVMRNTransferIO,
-                                 DbgSRVMRNInvokeNetwork,  DbgSRVMRNSendReply};
+MRNServerProtocol DbgSrvProtoMRN;
+
+const char *MRNServerProtocol::name() {
+    return "mrnet";
+}
 
 // Callbacks
-static int InvokeMRNCallBack(char *chost, int cport, char *host, int prog,
+int MRNServerProtocol::invokeCallback(char *chost, int cport, char *host, int prog,
                              int pnum, int port, dbgevent_t *e) {
     // we have nothing to do here
     return 1;
 }
 
-static int EventMRNCallBack(dbgevent_t *ev) {
+int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
     // find the communication info - now because EventToSocProto deletes the
     // event
     const dbgcomm_info *comm_info = nullptr;
@@ -129,7 +92,7 @@ static int EventMRNCallBack(dbgevent_t *ev) {
     return res;
 }
 
-static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
+int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
                               const char *key, const char *host, int port) {
     int res;
 
@@ -197,9 +160,9 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
     DVPRINT("Creating be network");
     res = mrn_be_create_network(be_argc, be_argv);
     DVPRINT("Done Creating network");
-    my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
+    m_my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(my_mrn_rank);
+    mrn_be_set_localrank(m_my_mrn_rank);
     DVPRINT("Done setting local rank");
 #else /*end of ALPS*/
 
@@ -218,6 +181,22 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
     int mpi_rank = -1;
     unsigned par_port, par_rank;
     unsigned my_mrnrank;
+
+    /*
+        we use mpd to launch MRNet backends on non-Cray platform.
+        Not sure why "PMI_RANK" does not work.
+        We use "MPD_JRANK" instead.
+    */
+    char *MPIRankVars[] = {
+        "OMPI_COMM_WORLD_RANK",   /* Open MPI 1.6 */
+        "OMPI_MCA_orte_ess_vpid", /* Open MPI 1.3 */
+        "OMPI_MCA_ns_nds_vpid",   /* Open MPI 1.2 */
+        "PMI_RANK",               /* MPICH2. PMI_RANK does not work for MPICH2. */
+        "MPD_JRANK",              /* MPICH2. MPD_JRANK works on MPICH2. */
+        "MP_CHILD",               /* IBM PE */
+        "SLURM_PROCID",           /* SLURM */
+        nullptr
+    };
 
     optind = 0;
     while ((c = getopt(argc, argv, "p:h:c:a:n:i:e:k:v:d:")) != EOF) {
@@ -304,9 +283,9 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
         par_addr, par_port, par_rank, my_mrnrank);
 
     res = mrn_be_create_network(be_argc, be_argv);
-    my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
+    m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(my_mrn_rank);
+    mrn_be_set_localrank(m_my_mrn_rank);
 //	res = mrn_be_create_network( argc, argv );
 //	my_mrn_rank = mrn_be_get_localrank();
 #endif
@@ -314,31 +293,31 @@ static int DbgSRVMRNInitProto(int procnum, int argc, char **argv,
     mrn_be_set_callback(dbgsrv_dispatch_cmds);
 
     // get the mrnet event fd to select on
-    mrn_event_fd = mrn_be_get_event_fd();
+    m_mrn_event_fd = mrn_be_get_event_fd();
 
     Free(hostname);
 
     return res;
 }
 
-static void DbgSRVMRNEndProto(void) {
+void MRNServerProtocol::endProto() {
     /*todo: delete network? */
     DVPRINT("Waiting for MRNet network shutdown.\n");
     mrn_be_waitfor_shutdown();
 }
 
-static fd_set *DbgSRVMRNGetFDSet(void) {
+fd_set *MRNServerProtocol::getFdSet() {
     static fd_set fds;
 
     FD_ZERO(&fds);
-    FD_SET(mrn_event_fd, &fds);
+    FD_SET(m_mrn_event_fd, &fds);
 
     return &fds;
 }
 
-static int DbgSRVMRNSetupIOChannel(int *fd, int *port) { return 0; }
+int MRNServerProtocol::setupIo(int *fd, int *port) { return 0; }
 
-static int DbgSRVMRNTransferIO(int fd, char *buffer, int size) {
+int MRNServerProtocol::transferIo(int fd, char *buffer, int size) {
     buffer[size] = '\0';
 
     DVPRINT("DbgSRVMRNTransferIO: %s\n", buffer);
@@ -351,7 +330,7 @@ static int DbgSRVMRNTransferIO(int fd, char *buffer, int size) {
 /*
  * This is the real part checking and delivering any packets from MRNet frontend
  */
-static void DbgSRVMRNRunProto(fd_set *fds) {
+void MRNServerProtocol::runProto(fd_set *fds) {
     int res;
 
     DVPRINT("INFO: entering DbgSRVMRNRunProto.\n");
@@ -365,11 +344,11 @@ static void DbgSRVMRNRunProto(fd_set *fds) {
     }
 
     // make sure event fd is ready to read on
-    if (!FD_ISSET(mrn_event_fd, fds)) {
+    if (!FD_ISSET(m_mrn_event_fd, fds)) {
         return;
     }
 
-    FD_CLR(mrn_event_fd, fds);
+    FD_CLR(m_mrn_event_fd, fds);
 
     // clear the mrnet event fd
     mrn_be_clear_event_fd();
@@ -382,7 +361,7 @@ static void DbgSRVMRNRunProto(fd_set *fds) {
         mrn_be_ack_event();
 
         // receive the event
-        res = mrn_be_recv(&stream, &tag, MRNET_UNBLOCKING);
+        res = mrn_be_recv(&m_stream, &m_tag, MRNET_UNBLOCKING);
 
         if (res < 0) {
             fprintf(stderr, "DbgSRVMRNRunProto() mrn_be_recv() failed!\n");
@@ -390,10 +369,10 @@ static void DbgSRVMRNRunProto(fd_set *fds) {
         }
         if (res > 0) {
             DVPRINT("Recieved message on stream %u[%d]\n",
-                    stream_get_Id(stream), tag);
-            if (tag == DBG_MRNet_PRO_COMMAND) mrn_be_set_cmd_stream(stream);
+                    stream_get_Id(m_stream), m_tag);
+            if (m_tag == DBG_MRNet_PRO_COMMAND) mrn_be_set_cmd_stream(m_stream);
 
-            mrn_be_handle_msg();
+            mrn_be_handle_msg(m_stream);
         }
 
         DVPRINT("INFO: Finished servicing MRNet Event.\n");
@@ -406,24 +385,24 @@ static void DbgSRVMRNRunProto(fd_set *fds) {
 // frontend knows that setup completed on each of the streams
 // TODO: This is calling the send event instead of send reply function, so its
 //        incompatible with the caller...
-static dbgevent_t *DbgSRVMRNInvokeNetwork(int numbe) {
-    if (tag == DBG_MRNet_PRO_COMMAND) {
-        mrn_be_set_cmd_stream(stream);
+dbgevent_t *MRNServerProtocol::invokeNetwork(int numbe) {
+    if (m_tag == DBG_MRNet_PRO_COMMAND) {
+        mrn_be_set_cmd_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on command stream.\n");
         return NULL;
     }
 
-    if (tag == DBG_MRNet_PRO_IO) {
-        mrn_be_set_io_stream(stream);
+    if (m_tag == DBG_MRNet_PRO_IO) {
+        mrn_be_set_io_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on io stream!\n");
         return NULL;
     }
 
-    if (tag == DBG_MRNet_PRO_EVENT) {
+    if (m_tag == DBG_MRNet_PRO_EVENT) {
         dbgevent_t *e;
         char *resp;
 
-        mrn_be_set_event_stream(stream);
+        mrn_be_set_event_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on event stream!\n");
 
         mrn_be_set_size(numbe);
@@ -440,23 +419,6 @@ static dbgevent_t *DbgSRVMRNInvokeNetwork(int numbe) {
     return NULL;
 }
 
-static int DbgSRVMRNSendReply(char *response) {
-    return mrn_be_send_reply(stream, response);
-}
-
-void DbgSRVMRNSetParam(const char *msg) {
-    // note: the prototype always puts length of the remainder of the message
-    // before the message itself. Since at this point we only support a single
-    // special command, we can keep the handling pretty simple.
-    int len, subCommand;
-    unsigned int eventStreamId;
-    if (sscanf(msg, "%d %d %u", &len, &subCommand, &eventStreamId) != 3) {
-        DVPRINT("Could not parse MRNSetParam\n");
-    } else if (subCommand != MRNCMD_SETEVENTSTREAM) {
-        DVPRINT("Unrecognized MRNSetParam command\n");
-    } else {
-        unsigned int commandStreamId = stream_get_Id(stream);
-        DVPRINT("Stream pair %u %u\n", commandStreamId, eventStreamId);
-        mrn_be_set_event_stream_from_id(eventStreamId);
-    }
+int MRNServerProtocol::sendReply(char *response) {
+    return mrn_be_send_reply(m_stream, response);
 }

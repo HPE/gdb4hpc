@@ -210,7 +210,11 @@ class c_viewset(Test):
 class c_whatis(Test):
     def test(self):
         runTest(self)
-        
+
+class c_segv(Test):
+    def test(self):
+        runTest(self)
+
 class lgdb_cpp_t1(Test):
     def test(self):
         runTest(self)

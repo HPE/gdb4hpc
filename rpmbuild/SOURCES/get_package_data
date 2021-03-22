@@ -34,7 +34,7 @@ while true ; do
         -m|--cdstversionmax) echo "${cdstsupportversionmax}" ; shift ;;
         -t|--ctiversionmin) echo "${ctiversionmin}" ; shift ;;
         -x|--ctiversionmax) echo "${ctiversionmax}" ; shift ;;
-        -b)--branch) echo "${branch}" ; shift ;;
+        -b|--branch) echo "${branch}" ; shift ;;
         *) break ;;
     esac
 done

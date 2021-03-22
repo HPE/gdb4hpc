@@ -11,8 +11,8 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([guard],[4.0],[andrewg@cray.com])
-AC_COPYRIGHT([Copyright 2010-2020 Hewlett Packard Enterprise Development LP.])
+AC_INIT([guard],[m4_esyscmd([source $PWD/release_versioning; echo $major.0 | tr -d '\n'])],[andrewg@cray.com])
+AC_COPYRIGHT([Copyright 2010-2021 Hewlett Packard Enterprise Development LP.])
 
 AC_CONFIG_SRCDIR([defs.h])
 AC_CONFIG_AUX_DIR([config])

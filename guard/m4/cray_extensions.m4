@@ -38,14 +38,31 @@ AC_DEFUN([CRAY_DEFINE_SUBSTRINGS_AS], [
 ])
 
 AC_DEFUN([CRAY_PARSE_VERSION], [
-    CRAY_DEFINE_SUBSTRINGS_AS(
-        m4_builtin([include], $1),
-        [revision="\([0-9]+\)"\s*\n*\s*\n*major="\([0-9]+\)"\s*\n*\s*\n*minor="\([0-9]+\)"],
-        [], [CRAY_REVISION], [CRAY_MAJOR], [CRAY_MINOR]
-    )
+    dnl Pull in the revision information from the $PWD/release_versioning file
+    AC_ARG_VAR([BUILD_NUMBER], [m4_esyscmd_s([source $PWD/release_versioning; echo "$build_number"])])dnl 
+    
+    if test -z "$BUILD_NUMBER" || -n "$BUILD_NUMBER" ; then
+      CRAY_DEFINE_SUBSTRINGS_AS(
+          m4_builtin([include], $1),
+          [revision="\([0-9]+\)"\s*\n*\s*\n*major="\([0-9]+\)"\s*\n*\s*\n*minor="\([0-9]+\)"],
+          [], [CRAY_REVISION], [CRAY_MAJOR], [CRAY_MINOR]
+      )
+    else
+      CRAY_DEFINE_SUBSTRINGS_AS(
+          m4_builtin([include], $1),
+          [revision="\([0-9]+\)"\s*\n*\s*\n*build_number="\([0-9]+\)"\s*\n*\s*\n*mmajor="\([0-9]+\)"\s*\n*\s*\n*minor="\([0-9]+\)"],
+          [], [CRAY_REVISION], [CRAY_BUILD_NUMBER], [CRAY_MAJOR], [CRAY_MINOR]
+      )
+    fi
+
     m4_ifndef([CRAY_REVISION], [AC_MSG_ERROR([invalid version format in release_versioning file])])
+    m4_ifndef([CRAY_BUILD_NUMER], [AC_MSG_ERROR([invalid version format in release_versioning file])]
     m4_ifndef([CRAY_MAJOR], [AC_MSG_ERROR([invalid version format in release_versioning file])])
     m4_ifndef([CRAY_MINOR], [AC_MSG_ERROR([invalid version format in release_versioning file])])
 
-    AC_MSG_NOTICE([Building with version CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION])
+    if test -z "$BUILD_NUMBER" || -n "$BUILD_NUMBER" ; then
+      AC_MSG_NOTICE([Building with version CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION])
+    else
+      AC_MSG_NOTICE([Building with version CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION.CRAY_BUILD_NUMER])
+    fi
 ])

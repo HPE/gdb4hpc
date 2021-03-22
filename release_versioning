@@ -66,8 +66,9 @@
 #
 
 # Jenkins will override this 
-revision="9999"
+revision="1"
+build_number=""
 
 major="4"
-minor="9999"
+minor="13"
 

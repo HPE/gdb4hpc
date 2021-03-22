@@ -6,6 +6,7 @@ TESTS = \
    bd_dt/c/c_type_test.x \
    bd_dt/c/c_cmp_diff.x \
    bd_dt/c/c_dlopen.x \
+   bd_dt/c/c_segv.x \
    bd_dt/C++/cpp_bd_test.x \
    bd_dt/C++/cpp_cmp_diff.x \
    bd_dt/C++/cpp_ds_test1.x \
@@ -52,6 +53,9 @@ bd_dt/c/libdlopen_test.so : bd_dt/c/libdlopen_test.c
 
 bd_dt/c/c_dlopen.x :  bd_dt/c/c_dlopen_test.c bd_dt/c/libdlopen_test.so
 	cc bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
+
+bd_dt/c/c_segv.x : bd_dt/c/c_segv.o
+	cc -g -O0 $^ -o $@
 
 bd_dt/C++/cpp_bd_test.x : bd_dt/C++/cpp_bd_test.o
 	CC -g -O0 $^ -o $@

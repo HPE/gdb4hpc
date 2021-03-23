@@ -11,7 +11,7 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([guard],[4.0],[andrewg@cray.com])
+AC_INIT([guard], m4_esyscmd([source $PWD/../release_versioning; echo $major.$minor | tr -d '\n']),[andrewg@cray.com])
 AC_COPYRIGHT([Copyright 2010-2021 Hewlett Packard Enterprise Development LP.])
 
 AC_CONFIG_SRCDIR([defs.h])
@@ -26,12 +26,13 @@ AC_USE_SYSTEM_EXTENSIONS
 
 AM_INIT_AUTOMAKE([foreign -Wall])
 
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
-
-CRAY_PARSE_VERSION([./../release_versioning])
-AC_DEFINE([GUARD_VERSION], ["CRAY_MAJOR.CRAY_MINOR.CRAY_REVISION"], [Version number of gdb4hpc])
+dnl Pull inCray Specific m4 extensions
+cray_INIT
 AC_DEFINE([GUARD_MAJOR], ["CRAY_MAJOR"], [Major version number of gdb4hpc])
 AC_DEFINE([GUARD_MINOR], ["CRAY_MINOR"], [Minor version number of gdb4hpc])
+
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
 #############################
 ### Check for --with tags ###
 #############################

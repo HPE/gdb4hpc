@@ -1,7 +1,7 @@
 #
 # cray_extensions.m4 Cray configure extensions.
 #
-# Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
 #
 #     Redistribution and use in source and binary forms, with or
 #     without modification, are permitted provided that the following
@@ -33,7 +33,7 @@ dnl
 AC_DEFUN([cray_INIT],
 [
     dnl Pull in the revision information from the $PWD/release_versioning file
-    m4_define([BUILD_NUMBER], [m4_esyscmd_s([source $PWD/release_versioning; echo "$build_number"])])dnl 
+    m4_define([BUILD_NUMBER], [m4_esyscmd_s([source $PWD/release_versioning; echo "$build_number"])])
     m4_define([REVISION], [m4_esyscmd_s([source $PWD/release_versioning; echo "$revision"])])
 
     m4_define([MAJOR], [m4_esyscmd_s([source $PWD/release_versioning; echo "$major"])])
@@ -43,10 +43,11 @@ AC_DEFUN([cray_INIT],
     AC_SUBST([GDB4HPC_BUILD_NUMBER],[BUILD_NUMBER])
     if test -z "$GDB4HPC_BUILD_NUMBER" || -n "$GDB4HPC_BUILD_NUMBER" ; then 
         dnl Build number is empty - Building from release branch
-        AC_MSG_NOTICE([checking for build status - Building from release branch**************************************************])
+        AC_MSG_NOTICE([checking for build status - Building from release branch])
         AC_DEFINE_UNQUOTED([GUARD_VERSION], ["MAJOR.MINOR.REVISION"], [Version number of gdb4hpc package.])	
     else
-        AC_MSG_NOTICE([checking for build status - Building from other than release branch***********************])
+        dnl Build number is not empty - Building from other than branch
+        AC_MSG_NOTICE([checking for build status - Building from other than release branch])
         AC_DEFINE_UNQUOTED([GUARD_VERSION], ["MAJOR.MINOR.REVISION.BUILD_NUMBER"], [Version number of gdb4hpc package.])
     fi
 

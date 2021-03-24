@@ -463,8 +463,6 @@ if [ "${RPM_INSTALL_PREFIX}" = "%{cray_prefix}" ]; then
     echo "%{cray_prefix}/%{product}/" > /etc/%{cray_prefix}/admin-pe/bindmount.conf.d/%{cray_name}.conf
     echo "%{cray_prefix}/modulefiles/%{modulefile_name}" > /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
     echo "%{cray_prefix}/lmod/modulefiles/core/%{cray_name}" >> /etc/%{cray_prefix}/admin-pe/modulepaths.conf.d/%{modulefile_name}.conf
-
-    echo -e '#%Modulefile\r\nset  ModulesVersion "%{pkgversion}"' > %{cray_prefix}/lmod/modulefiles/core/%{cray_name}/.version
 fi
 
 # Process relocations

@@ -57,6 +57,42 @@ AC_ARG_WITH([guard],
 	    [with_guard=check]
 	    )
 
+dnl Check for --with-cray
+AC_ARG_WITH([cray],
+	    [AS_HELP_STRING([--with-cray],
+			    [Enable Cray APRUN support in Guard.]
+			    )
+	    ],
+	    [with_cray=yes],
+	    [with_cray=no]
+	    )
+
+dnl check for --with-cray sub-arguments
+if test "x$with_cray" != xno; then
+	dnl Check for --with-craytool-inc
+	AC_ARG_WITH([craytool-inc],
+		    [AS_HELP_STRING([--with-craytool-inc],
+				    [Location of the craytool header files.]
+				    )
+		    ],
+		    [CPPFLAGS="$CPPFLAGS -I$withval"],
+		    [AC_MSG_WARN([Using default path to the craytool headers.])]
+		    )
+
+	dnl Check for --with-craytool-lib
+	AC_ARG_WITH([craytool-lib],
+		    [AS_HELP_STRING([--with-craytool-lib],
+				    [Location of the craytool libraries.]
+				    )
+		    ],
+		    [LDFLAGS="$LDFLAGS -L$withval"
+		     AC_SUBST([craytool_path], ["$withval"])
+		     libcraytool_path="$withval"
+		    ],
+		    [AC_MSG_WARN([Using default path to craytool libraries.])]
+		    )
+fi
+
 dnl Check for --with-mrnet
 AC_ARG_WITH([mrnet], 
 	    [AS_HELP_STRING([--with-mrnet],
@@ -148,6 +184,8 @@ if test "x$mrnet_mode" = xyes; then
 	AC_DEFINE([AGGMODE], [1], [Enable MRNet aggrigation support in Guard.]) 
 fi 
 
+AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
+
 ############################
 ### Check for libraries. ###
 ############################
@@ -184,6 +222,15 @@ else
 		     [AC_MSG_ERROR([You must have libaif to compile GUARD.])]
 		     )
 fi
+
+dnl
+dnl Check for pkg-config
+dnl
+PKG_PROG_PKG_CONFIG
+
+PKG_CHECK_MODULES([CRAY_CTI_FE], 	[common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_BE], 	[common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
+
 
 ###############################
 ### Check for header files. ###

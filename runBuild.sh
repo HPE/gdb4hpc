@@ -243,13 +243,16 @@ mrnet_cflags=$(pkg-config --cflags cray-cdst-support)
 mrnet_cxxflags=${mrnet_cflags}
 mrnet_ldflags="$(pkg-config --libs cray-cdst-support) "'-Wl,-rpath,\$$ORIGIN'
 mrnet_soflags="-Wl,-rpath,/opt/cray/pe/gcc-libs"
+mrnet_ctiflags=$(pkg-config --libs common_tools_be)
+mrnet_flags="${mrnet_ldflags} ${mrnet_ctiflags}"
 
 echo "mrnet_cflags:     $mrnet_cflags"
 echo "mrnet_cxxflags:   $mrnet_cxxflags"
 echo "mrnet_ldflags:    $mrnet_ldflags"
 echo "mrnet_soflags:    $mrnet_soflags"
+echo "mrnet_ctiflags:   $mrnet_ctiflags"
 
-CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_ldflags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CRAY_CDST_SUPPORT_INSTALL_DIR}
+CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_flags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CRAY_CDST_SUPPORT_INSTALL_DIR}
 check_exit_status
 
 # parallel builds are broken with mrnet

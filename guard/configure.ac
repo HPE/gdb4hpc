@@ -570,8 +570,8 @@ dnl Check for pkg-config
 dnl
 PKG_PROG_PKG_CONFIG
 
-PKG_CHECK_MODULES([CRAY_CTI_FE], 	[common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
-PKG_CHECK_MODULES([CRAY_CTI_BE], 	[common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_FE],        [common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_BE],        [common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
 PKG_CHECK_MODULES([EDITLINE], 		[libedit],[],[AC_MSG_ERROR([libedit.so not found.])])
 
 ###############################

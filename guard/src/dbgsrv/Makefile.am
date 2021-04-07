@@ -2,7 +2,8 @@ USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
-SDM	= @guard_srcdir@/sdm
+SDM	    = @guard_srcdir@/sdm
+ZMQNET  = @zmqnet_root@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --silent
@@ -16,6 +17,13 @@ if MRN
 AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet 
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
+endif
+
+# Check for ZMQNet
+if ZMQNET
+AM_CXXFLAGS += -I$(ZMQNET)/include
+ZMQNET_LIBS  = -lzmqnet
+ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 
 #####################
@@ -62,8 +70,7 @@ endif
 
 libexec_PROGRAMS= dbgsrv $(CRAY_PROGS)
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
-		$(BACKEND) $(MRN_SRV)
+		$(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
-		$(MI_LIBS) $(MRN_LIBS) -laif -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
+		$(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -laif -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
-

@@ -37,17 +37,29 @@
 #include "list.h"
 #include "useful.h"
 
+#ifdef MRNET
 #include "dbgclnt_mrn.h"
-#include "dbgclnt_proxy.h"
-
 extern MRNClientProtocol DbgClntProtoMRN;
+#endif
+
+#ifdef ZMQNET
+#include "dbgclnt_zmq.h"
+extern ZMQNetClientProtocol DbgClntProtoZMQ;
+#endif
+
+#include "dbgclnt_proxy.h"
 extern ProxyClientProtocol DbgClntProtoProxy;
 
 static const std::vector<DebugClientProtocol *> DbgProtoTab = {
+#ifdef MRNET
     &DbgClntProtoMRN,
+#endif
+#ifdef ZMQNET
+    &DbgClntProtoZMQ,
+#endif
     &DbgClntProtoProxy
 };
- 
+
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;

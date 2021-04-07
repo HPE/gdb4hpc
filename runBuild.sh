@@ -275,6 +275,24 @@ check_exit_status
 cp -a $top_level/external/mrnet/build/*/mrnet_config.h $install_dir/include/.
 check_exit_status
 
+echo "############################################"
+echo "#             Building zmqnet              #"
+echo "############################################"
+
+cd $top_level/external/zmqnet
+check_exit_status
+
+# hack: make sure that the zmqnet build script properly imports the build 
+#       library for its own use.
+unset CDST_capture_jenkins_build
+unset CDST_cdst_config
+unset CDST_check_exit
+unset CDST_get_branch_info
+unset CDST_get_os_info
+unset CDST_install_common_pe
+
+install_dir=$install_dir ./runBuildModule.sh
+check_exit_status
 
 echo "############################################"
 echo "#             Building ompd plugin         #"
@@ -323,7 +341,7 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
 
 check_exit_status
 

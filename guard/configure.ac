@@ -138,6 +138,18 @@ AC_ARG_WITH([mrnet],
 	    [mrnet_mode=no]
 	    )
 
+dnl Check for --with-zmqnet
+AC_ARG_WITH([zmqnet],
+	    [AS_HELP_STRING([--with-zmqnet],
+			    [Enable zmqnet support in Guard.]
+			    )
+	    ],
+	    [zmqnet_mode=yes
+	     zmqnet_root=$withval
+	    ],
+	    [zmqnet_mode=no]
+	    )
+
 dnl Check for --with-idb
 AC_ARG_WITH([idb],
 	    [AS_HELP_STRING([--with-idb],
@@ -422,6 +434,11 @@ if test "x$mrnet_mode" = xyes; then
 	AC_DEFINE([MRNET], [1], [Enable MRNet support in Guard.])
 fi
 
+dnl Check for zmqnet
+if test "x$zmqnet_mode" = xyes; then
+	AC_DEFINE([ZMQNET], [1], [Enable zmqnet support in Guard.])
+fi
+
 ##############################
 ### Check for Dbg Backends ###
 ##############################
@@ -563,6 +580,22 @@ if test "x$mrnet_mode" = xyes; then
 	AC_SUBST([mrn_root], ["$mrnet_root"])
 fi
 
+dnl Conditional check for zmqnet libs
+if test "x$zmqnet_mode" = xyes; then
+	AC_MSG_CHECKING([for libzmqnet.so])
+	if test -f "$zmqnet_root/lib/libzmqnet.so"; then
+		AC_MSG_RESULT([$zmqnet_root/lib/zmqnet.so])
+	else
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([libzmqnet.so not found in given path.])
+	fi
+
+	LDFLAGS="$LDFLAGS -L$zmqnet_root/lib"
+
+	dnl add the zmqnet substitution
+	AC_SUBST([zmqnet_root], ["$zmqnet_root"])
+fi
+
 dnl Conditional check for pkg-config libs
 
 dnl
@@ -675,6 +708,17 @@ if test "x$mrnet_mode" = xyes; then
         fi
 fi
 
+dnl Check for zmqnet headers
+if test "x$zmqnet_mode" = xyes; then
+	AC_MSG_CHECKING([for zmqnet.hpp])
+	if test -f "$zmqnet_root/include/zmqnet.hpp"; then
+		AC_MSG_RESULT([$zmqnet_root/include/zmqnet.hpp])
+	else
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([zmqnet.hpp not found. Please provide install location of zmqnet to --with-zmqnet=<zmqnet directory root>])
+	fi
+fi
+
 #####################################################################
 ### Check for typedefs, structures, and compiler characteristics. ###
 #####################################################################
@@ -740,6 +784,7 @@ AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRN], [test "x$mrnet_mode" != xno])
+AM_CONDITIONAL([ZMQNET], [test "x$zmqnet_mode" != xno])
 
 dnl Backend conds
 AM_CONDITIONAL([GDB_BACKEND], [test "x$gdb_mode" != xno])
@@ -753,7 +798,7 @@ AM_CONDITIONAL([HDF_LIBS], [test "x$mfhdf" = xyes || test "x$hdf5" = xyes])
 ### Finalize ###
 ################
 dnl Conditional run of guard-rd configure.ac
-if test "x$mrnet_mode" != xno; then
+if test "x$mrnet_mode" != xno -o "x$zmqnet_mode" != xno; then
 	AC_CONFIG_SUBDIRS([guard-rd])
 fi
 

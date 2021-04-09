@@ -29,7 +29,14 @@ check_exit_status
 
 # Create install directory
 source $top_level/release_versioning
-gdb4hpc_version="$major.$minor.$revision"
+gdb4hpc_version=
+branch_name=$(get_branch_info)
+branch_type=$(echo "$branch_name" | cut -d'/' -f1)
+if [ "$branch_type" != "release" ]; then
+  gdb4hpc_version="$major.$minor.$revision.$build_number"
+else
+  gdb4hpc_version="$major.$minor.$revision"
+fi
 echo "gdb4hpc version: \"$gdb4hpc_version\""
 install_dir="/opt/cray/pe/gdb4hpc/$gdb4hpc_version"
 echo "Install dir: \"$install_dir\""

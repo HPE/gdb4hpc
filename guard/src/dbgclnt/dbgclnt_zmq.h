@@ -1,6 +1,5 @@
 /******************************************************************************\
- * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #ifndef _DBGCLNT_ZMQ_H

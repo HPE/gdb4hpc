@@ -1,6 +1,5 @@
 /******************************************************************************\
- * Copyright (c) 1996-2012 by Monash Uni.
- * Copyright 2010-2013,2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include "dbgsrv_zmq.h"

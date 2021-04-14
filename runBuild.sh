@@ -275,24 +275,26 @@ check_exit_status
 cp -a $top_level/external/mrnet/build/*/mrnet_config.h $install_dir/include/.
 check_exit_status
 
-echo "############################################"
-echo "#             Building zmqnet              #"
-echo "############################################"
+if [ ! -z $ENABLE_ZMQNET ]; then
+    echo "############################################"
+    echo "#             Building zmqnet              #"
+    echo "############################################"
 
-cd $top_level/external/zmqnet
-check_exit_status
+    cd $top_level/external/zmqnet
+    check_exit_status
 
-# hack: make sure that the zmqnet build script properly imports the build 
-#       library for its own use.
-unset CDST_capture_jenkins_build
-unset CDST_cdst_config
-unset CDST_check_exit
-unset CDST_get_branch_info
-unset CDST_get_os_info
-unset CDST_install_common_pe
+    # hack: make sure that the zmqnet build script properly imports the build 
+    #       library for its own use.
+    unset CDST_capture_jenkins_build
+    unset CDST_cdst_config
+    unset CDST_check_exit
+    unset CDST_get_branch_info
+    unset CDST_get_os_info
+    unset CDST_install_common_pe
 
-install_dir=$install_dir ./runBuildModule.sh
-check_exit_status
+    install_dir=$install_dir ./runBuildModule.sh
+    check_exit_status
+fi
 
 echo "############################################"
 echo "#             Building ompd plugin         #"

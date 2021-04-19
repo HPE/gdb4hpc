@@ -275,7 +275,7 @@ check_exit_status
 cp -a $top_level/external/mrnet/build/*/mrnet_config.h $install_dir/include/.
 check_exit_status
 
-if [ ! -z $ENABLE_ZMQNET ]; then
+if [ ! -z "$ENABLE_ZMQNET" ]; then
     echo "############################################"
     echo "#             Building zmqnet              #"
     echo "############################################"

@@ -41,8 +41,8 @@
 #define START_KEYWORD_FMT "#cray_debug_start"
 #define END_KEYWORD_FMT "#cray_debug_end"
 
-// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
-ProxyClientProtocol DbgClntProtoProxy;
+// Instantiation of the protocol - accessed via DebugClientProtocol::registry
+ProxyClientProtocol DbgClntProtoProxy{};
 
 int ProxyClientProtocol::setupConfigDirectory() {
     struct stat st;

@@ -42,6 +42,7 @@
 #include <exception>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 // forward declare struct dbginvoke - Note that because the struct dbginvoke is
 // first encountered inside of a list of parameters for the function pointer, we
@@ -85,8 +86,10 @@ public:
 // main protocol definition
 class DebugClientProtocol {
 public:
-    DebugClientProtocol() : m_protoEventHandler{} {};
+    DebugClientProtocol();
     virtual ~DebugClientProtocol() = default;
+
+    static const std::unordered_map<std::string, DebugClientProtocol *>& getRegistry();
 
     // functions required by every derived class:
     virtual const char* name() const = 0;
@@ -129,11 +132,16 @@ public:
 
     void resetProtocolEventHandler();
 protected:
+    // what client protocols are currently known
+    static std::unordered_map<std::string, DebugClientProtocol *> registry;
+
     // callback related
     virtual void outputCallback(dbginvoke *di, FILE *f);
     void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
     int handleProtocolEvent(dbginvoke *di, proto_msg_set* set);
 
+    // called by derived classes' constructors to register themselves
+    void registerProtocol();
 private:
     // we don't want this exposed to derived classes directly, they should only
     // be able to set it and call its handler method.
@@ -143,8 +151,7 @@ private:
 /*
 ** Function definitions
 */
-const std::vector<DebugClientProtocol *> getClientProtos();
-DebugClientProtocol * const findClientProtoByName(std::string protoName);
+DebugClientProtocol * const findClientProtoByName(const char* protoName);
 
 extern int WaitForProtoStartupEvent(struct dbginvoke *);
 

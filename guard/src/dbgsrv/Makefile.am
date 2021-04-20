@@ -20,9 +20,9 @@ MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 
 # Check for ZMQNet
-if ZMQNET
+if ZMQN
 AM_CXXFLAGS += -I$(ZMQNET)/include
-ZMQNET_LIBS  = -lzmqnet
+ZMQNET_LIBS  = -L$(ZMQNET)/lib -lzmqnet
 ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 

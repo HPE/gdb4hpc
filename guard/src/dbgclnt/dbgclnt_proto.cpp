@@ -32,49 +32,62 @@
 #include "list.h"
 #include "useful.h"
 
-#ifdef MRNET
-#include "dbgclnt_mrn.h"
-extern MRNClientProtocol DbgClntProtoMRN;
-#endif
+/*
+ * don't use this function!
+ * this function is only here to make sure the linker pulls in the protocol
+ * translation units so each protocol calls its constructor and registers itself.
+*/
+static void _linkProtos() {
+    #ifdef MRNET
+    extern void _MRNClientProtocol_link();
+    _MRNClientProtocol_link();
+    #endif
+    #ifdef ZMQNET
+    extern void _ZMQClientProtocol_link();
+    _ZMQClientProtocol_link();
+    #endif
+    // proxy is always present
+    extern void _ProxyClientProtocol_link();
+    _ProxyClientProtocol_link();
 
-#ifdef ZMQNET
-#include "dbgclnt_zmq.h"
-extern ZMQNetClientProtocol DbgClntProtoZMQ;
-#endif
-
-#include "dbgclnt_proxy.h"
-extern ProxyClientProtocol DbgClntProtoProxy;
-
-static const std::vector<DebugClientProtocol *> DbgProtoTab = {
-#ifdef MRNET
-    &DbgClntProtoMRN,
-#endif
-#ifdef ZMQNET
-    &DbgClntProtoZMQ,
-#endif
-    &DbgClntProtoProxy
-};
+    // avoid "unused function" warning
+    _linkProtos();
+}
 
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;
 
-// used to iterate through DbgProtoTab and call init or finish on each proto
-// when gdb4hpc starts up or finishes
-const std::vector<DebugClientProtocol *> getClientProtos() {
-    return DbgProtoTab;
+std::unordered_map<std::string, DebugClientProtocol *> DebugClientProtocol::registry;
+
+const std::unordered_map<std::string, DebugClientProtocol *>& DebugClientProtocol::getRegistry() {
+    return DebugClientProtocol::registry;
 }
 
-DebugClientProtocol * const findClientProtoByName(std::string protoName) {
-    for (const auto &p : DbgProtoTab) {
-        if (p != nullptr && p->name() == protoName) return p;
+DebugClientProtocol * const findClientProtoByName(const char* protoName) {
+    if (DebugClientProtocol::getRegistry().find(protoName) != DebugClientProtocol::getRegistry().end()) {
+        return DebugClientProtocol::getRegistry().at(protoName);
     }
 
     return nullptr;
 }
 
-// Used during launch/attach to wait for the initial setup to complete
+DebugClientProtocol::DebugClientProtocol()
+    : m_protoEventHandler{} {}
 
+void DebugClientProtocol::registerProtocol() {
+    // called by derived class constructors to register themselves in the registry
+    if (registry.find(name()) == registry.end()) {
+        // this protocol doesn't exist in the registry yet, add it
+        registry.insert({name(), this});
+        DPRINT("Registered client protocol: %s\n", name());
+    } else {
+        // this protocol already exists
+        DPRINT("Duplicate protocol: %s\n", name());
+    }
+}
+
+// Used during launch/attach to wait for the initial setup to complete
 static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     int *ev_fd;
     int status;

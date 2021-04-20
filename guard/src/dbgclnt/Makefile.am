@@ -19,7 +19,7 @@ AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
 endif
 
-if ZMQNET
+if ZMQN
 AM_CXXFLAGS += -I$(ZMQNET)/include
 ZMQNET_PROTO = dbgclnt_zmq.cpp
 endif

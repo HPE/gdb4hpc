@@ -28,23 +28,56 @@
 #include <string.h>
 
 #include "dbgsrv_proto.h"
+#include "dbgsrv_defs.h"
 #include "defs.h"
 #include "useful.h"
 
-#include "dbgsrv_mrn.h"
+/*
+ * don't use this function!
+ * this function is only here to make sure the linker pulls in the protocol
+ * translation units so each protocol calls its constructor and registers itself.
+*/
+static void _linkProtos() {
+    #ifdef MRNET
+    extern void _MRNServerProtocol_link();
+    _MRNServerProtocol_link();
+    #endif
+    #ifdef ZMQNET
+    extern void _ZMQServerProtocol_link();
+    _ZMQServerProtocol_link();
+    #endif
 
-// external proto defs
-extern MRNServerProtocol DbgSrvProtoMRN;
+    // avoid "unused function" warning
+    _linkProtos();
+}
 
-static const std::vector<DebugServerProtocol *> DbgProtoTab = {
-    &DbgSrvProtoMRN
-};
+std::unordered_map<std::string, DebugServerProtocol *> DebugServerProtocol::registry;
+
+const std::unordered_map<std::string, DebugServerProtocol *>& DebugServerProtocol::getRegistry() {
+    return DebugServerProtocol::registry;
+}
+
+void DebugServerProtocol::registerProtocol() {
+    // NOTE:
+    // fprintf is used instead of DVPRINT because registration happens before 
+    //   main(), meaning debug_flag will always be 0 at this point, which
+    //   stops DVPRINT from outputting anything.
+
+    // called by derived class constructors to register themselves in the registry
+    if (registry.find(name()) == registry.end()) {
+        // this protocol doesn't exist in the registry yet, add it
+        registry.insert({name(), this});
+        fprintf(stderr, "Registered server protocol: %s\n", name());
+    } else {
+        // this protocol already exists
+        fprintf(stderr, "Duplicate protocol: %s\n", name());
+    }
+}
 
 /*
-** Set default proto.
 ** This defines the current protocol in use
 */
-static DebugServerProtocol *DbgSrvProtoSW = &DbgSrvProtoMRN; /* Default to MRNET */
+static DebugServerProtocol *DbgSrvProtoSW = nullptr;
 
 /*
 ** dbgsrv protocol related functions
@@ -56,11 +89,11 @@ static DebugServerProtocol *DbgSrvProtoSW = &DbgSrvProtoMRN; /* Default to MRNET
 //       multiple protocols at once, and the server doesn't.
 
 int DbgSetSrvProto(const char *protoName) {
-    for (const auto &proto : DbgProtoTab) {
-        if (strcmp(proto->name(), protoName) == 0) {
-            DbgSrvProtoSW = proto;
-            return 0;
-        }
+    auto protoRef = DebugServerProtocol::getRegistry().find(protoName);
+    if (protoRef != DebugServerProtocol::getRegistry().end()) {
+        DbgSrvProtoSW = protoRef->second;
+        DVPRINT("Selected protocol: %s\n", protoRef->second->name());
+        return 0;
     }
 
     return 1;

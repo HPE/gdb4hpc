@@ -6,12 +6,12 @@
 #include "defs.h"
 #include "bitset.h"
 
-// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
-ZMQNetClientProtocol DbgClntProtoZMQ;
+// Instantiation of the protocol - accessed via DebugClientProtocol::registry
+ZMQNetClientProtocol DbgClntProtoZMQ{};
 
 int ZMQNetClientProtocol::init() {
     DPRINT("ZMQNetClientProtocol::init\n");
-    return 0;
+    return 1;
 }
 
 bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,

@@ -2,8 +2,7 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#ifndef _DBGCLNT_ZMQ_H
-#define _DBGCLNT_ZMQ_H
+#pragma once
 
 #include "dbgclnt_proto.h"
 #include "dbginvoke.h"
@@ -28,7 +27,7 @@ public:
     //  * checkEvents
     //  * any session functions
 
-    ZMQNetClientProtocol() : DebugClientProtocol() {};
+    ZMQNetClientProtocol() : DebugClientProtocol() { registerProtocol(); };
 
     const char* name() const override { return "zmqnet"; };
 
@@ -58,4 +57,5 @@ public:
     void destroyClient(struct dbginvoke *di) override;
 };
 
-#endif /* _DBGCLNT_ZMQ_H */
+// used as a handle in dbgclnt_proto.cpp to make the linker include this class
+void _ZMQClientProtocol_link() {};

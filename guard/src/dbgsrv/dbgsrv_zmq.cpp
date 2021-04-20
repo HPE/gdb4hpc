@@ -13,8 +13,8 @@ const char *ZMQNetServerProtocol::name() {
 }
 
 // Callbacks
-int ZMQNetServerProtocol::invokeCallback(char *chost, int cport, char *host, int prog,
-                             int pnum, int port, dbgevent_t *e) {
+int ZMQNetServerProtocol::invokeCallback(const char *chost, int cport, 
+    const char *host, int prog, int pnum, int port, dbgevent_t *e) {
     // we have nothing to do here
     DVPRINT("ZMQNetServerProtocol::invokeCallback\n");
     return 1;
@@ -59,7 +59,7 @@ dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
     return nullptr;
 }
 
-int ZMQNetServerProtocol::sendReply(char *response) {
+int ZMQNetServerProtocol::sendReply(const char *response) {
     DVPRINT("ZMQNetServerProtocol::sendReply\n");
     return 0;
 }

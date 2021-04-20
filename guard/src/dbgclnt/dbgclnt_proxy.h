@@ -21,7 +21,7 @@ class ProxyClientProtocol : public DebugClientProtocol {
 public:
     // proxy supports everything except checkEvents
 
-    ProxyClientProtocol() : DebugClientProtocol() {};
+    ProxyClientProtocol() : DebugClientProtocol() { registerProtocol(); };
 
     const char* name() const override { return "proxy"; };
 
@@ -77,5 +77,8 @@ private:
     // Proxy specific variables
     int callback_failure = 0;
 };
+
+ 
+void _ProxyClientProtocol_link() {};
 
 #endif /* _DBGCLNT_PROXY_H */

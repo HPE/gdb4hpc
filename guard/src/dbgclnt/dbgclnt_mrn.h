@@ -26,7 +26,7 @@ public:
     //  * checkEvents
     //  * any session functions
 
-    MRNClientProtocol() : DebugClientProtocol() {};
+    MRNClientProtocol() : DebugClientProtocol() { registerProtocol(); };
 
     const char* name() const override { return "mrnet"; };
 
@@ -64,5 +64,8 @@ private:
     int addValgrindFiles(cti_manifest_id_t mid);
 #endif
 };
+
+// used as a handle in dbgclnt_proto.cpp to make the linker include this class
+void _MRNClientProtocol_link() {};
 
 #endif /* _DBGCLNT_MRN_H */

@@ -79,6 +79,6 @@ private:
 };
 
  
-void _ProxyClientProtocol_link() {};
+void ProxyClientProtocol_link() {};
 
 #endif /* _DBGCLNT_PROXY_H */

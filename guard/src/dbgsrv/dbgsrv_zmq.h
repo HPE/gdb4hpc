@@ -26,6 +26,6 @@ public:
 };
 
 // used as a handle in dbgsrv_proto.cpp to make the linker include this class
-void _ZMQServerProtocol_link() {};
+void ZMQServerProtocol_link() {};
 
 #endif // _DBGSRV_ZMQ_H

@@ -37,18 +37,18 @@
  * this function is only here to make sure the linker pulls in the protocol
  * translation units so each protocol calls its constructor and registers itself.
 */
-static void _linkProtos() {
+static void linkProtos() {
     #ifdef MRNET
-    extern void _MRNServerProtocol_link();
-    _MRNServerProtocol_link();
+    extern void MRNServerProtocol_link();
+    MRNServerProtocol_link();
     #endif
     #ifdef ZMQNET
-    extern void _ZMQServerProtocol_link();
-    _ZMQServerProtocol_link();
+    extern void ZMQServerProtocol_link();
+    ZMQServerProtocol_link();
     #endif
 
     // avoid "unused function" warning
-    _linkProtos();
+    linkProtos();
 }
 
 std::unordered_map<std::string, DebugServerProtocol *> DebugServerProtocol::registry;
@@ -64,9 +64,8 @@ void DebugServerProtocol::registerProtocol() {
     //   stops DVPRINT from outputting anything.
 
     // called by derived class constructors to register themselves in the registry
-    if (registry.find(name()) == registry.end()) {
+    if (registry.insert({name(), this}).second == true) {
         // this protocol doesn't exist in the registry yet, add it
-        registry.insert({name(), this});
         fprintf(stderr, "Registered server protocol: %s\n", name());
     } else {
         // this protocol already exists

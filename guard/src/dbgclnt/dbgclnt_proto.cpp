@@ -37,21 +37,21 @@
  * this function is only here to make sure the linker pulls in the protocol
  * translation units so each protocol calls its constructor and registers itself.
 */
-static void _linkProtos() {
+static void linkProtos() {
     #ifdef MRNET
-    extern void _MRNClientProtocol_link();
-    _MRNClientProtocol_link();
+    extern void MRNClientProtocol_link();
+    MRNClientProtocol_link();
     #endif
     #ifdef ZMQNET
-    extern void _ZMQClientProtocol_link();
-    _ZMQClientProtocol_link();
+    extern void ZMQClientProtocol_link();
+    ZMQClientProtocol_link();
     #endif
     // proxy is always present
-    extern void _ProxyClientProtocol_link();
-    _ProxyClientProtocol_link();
+    extern void ProxyClientProtocol_link();
+    ProxyClientProtocol_link();
 
     // avoid "unused function" warning
-    _linkProtos();
+    linkProtos();
 }
 
 // Used for the protocol wait for events function
@@ -77,10 +77,9 @@ DebugClientProtocol::DebugClientProtocol()
 
 void DebugClientProtocol::registerProtocol() {
     // called by derived class constructors to register themselves in the registry
-    if (registry.find(name()) == registry.end()) {
+    if (registry.insert({name(), this}).second == true) {
         // this protocol doesn't exist in the registry yet, add it
-        registry.insert({name(), this});
-        DPRINT("Registered client protocol: %s\n", name());
+        DPRINT("Registered server protocol: %s\n", name());
     } else {
         // this protocol already exists
         DPRINT("Duplicate protocol: %s\n", name());

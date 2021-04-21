@@ -33,6 +33,6 @@ private:
 };
 
 // used as a handle in dbgsrv_proto.cpp to make the linker include this class
-void _MRNServerProtocol_link() {};
+void MRNServerProtocol_link() {};
 
 #endif // _DBGSRV_MRN_H

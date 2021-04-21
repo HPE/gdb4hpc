@@ -58,4 +58,4 @@ public:
 };
 
 // used as a handle in dbgclnt_proto.cpp to make the linker include this class
-void _ZMQClientProtocol_link() {};
+void ZMQClientProtocol_link() {};

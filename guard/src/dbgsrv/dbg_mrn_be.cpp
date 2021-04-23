@@ -308,13 +308,13 @@ int mrn_be_recv(MRNet_Stream** stream, int* tag, int blocking) {
     return 0;
 }
 
-int mrn_be_send_reply(MRNet_Stream* stream, char* msg) {
+int mrn_be_send_reply(MRNet_Stream* stream, const char* msg) {
     if (mrnet_be->stream_cmd == NULL) return -1;
 
     DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%.1000s], via stream[%u]\n", msg,
             stream_get_Id(stream));
 
-    char* strArr[2];
+    const char* strArr[2];
     strArr[0] = msg;
     strArr[1] = mrnet_be->rank_bs_str;
 

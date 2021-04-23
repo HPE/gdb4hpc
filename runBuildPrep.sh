@@ -27,6 +27,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             bison \
             bzip2 \
             ctags \
+            cmake \
             flex \
             libtool \
             m4 \
@@ -58,6 +59,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             bzip2 \
             bzip2-devel \
             ctags \
+            cmake \
             environment-modules \
             flex \
             libtool \

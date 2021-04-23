@@ -67,8 +67,8 @@ const char *MRNServerProtocol::name() {
 }
 
 // Callbacks
-int MRNServerProtocol::invokeCallback(char *chost, int cport, char *host, int prog,
-                             int pnum, int port, dbgevent_t *e) {
+int MRNServerProtocol::invokeCallback(const char *chost, int cport, 
+    const char *host, int prog, int pnum, int port, dbgevent_t *e) {
     // we have nothing to do here
     return 1;
 }
@@ -419,6 +419,6 @@ dbgevent_t *MRNServerProtocol::invokeNetwork(int numbe) {
     return NULL;
 }
 
-int MRNServerProtocol::sendReply(char *response) {
+int MRNServerProtocol::sendReply(const char *response) {
     return mrn_be_send_reply(m_stream, response);
 }

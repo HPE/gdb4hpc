@@ -1786,7 +1786,7 @@ int DbgCheckForAsyncPending(void) { return async_pending; }
 ** Initialise server
 */
 int DbgInit(void) {
-    for (const auto &proto : getClientProtos()) {
+    for (const auto &[name, proto] : DebugClientProtocol::getRegistry()) {
         if (!proto->init()) return -1;
     }
 
@@ -1811,7 +1811,7 @@ void DbgFinalize(void) {
         DbgCurrSess = nullptr;
     }
 
-    for (const auto &proto : getClientProtos()) {
+    for (const auto &[name, proto] : DebugClientProtocol::getRegistry()) {
         proto->finish();
     }
 

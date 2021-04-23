@@ -3,7 +3,8 @@ USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @guard_srcdir@/mrnet
-SDM	= @guard_srcdir@/sdm
+SDM	    = @guard_srcdir@/sdm
+ZMQNET  = @zmqnet_root@
 
 AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
@@ -16,6 +17,11 @@ AM_LIBTOOLFLAGS = --quiet
 if MRN
 AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
 MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
+endif
+
+if ZMQN
+AM_CXXFLAGS += -I$(ZMQNET)/include
+ZMQNET_PROTO = dbgclnt_zmq.cpp
 endif
 
 ############################
@@ -40,7 +46,7 @@ libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp\
 						  $(FRONTEND)
 libdbgproto_a_SOURCES	= dbgclnt_proto.cpp proto_message.cpp dbginvoke.cpp \
 						  dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
-						  $(MRN_PROTO)
+						  $(MRN_PROTO) $(ZMQNET_PROTO)
 
 if CRAY
 # Cray ALPS does not need guard_starter

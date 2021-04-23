@@ -43,8 +43,8 @@
 #include "useful.h"
 #include "dbgclnt_mrn.h"
 
-// Instantiation of the protocol - accessed via DbgProtoTab in dbgclnt_proto.cpp
-MRNClientProtocol DbgClntProtoMRN;
+// Instantiation of the protocol - accessed via DebugClientProtocol::registry
+MRNClientProtocol DbgClntProtoMRN{};
 
 int MRNClientProtocol::init() {
     struct stat st;
@@ -557,7 +557,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
         goto attach_error;
     }
 
-    DPRINT("Application has apid[%d]\n", di->d_appid);
+    DPRINT("Application has apid[%lu]\n", di->d_appid);
     DPRINT("Root has a hostname of [%s]\n", root);
 
     // get a list of the nid hostnames for topology creation

@@ -1,20 +1,15 @@
 /*********************************************************************************\
  * Debug client protocol switch routines.
  *
- * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
+ * Copyright 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -37,37 +32,61 @@
 #include "list.h"
 #include "useful.h"
 
-#include "dbgclnt_mrn.h"
-#include "dbgclnt_proxy.h"
+/*
+ * don't use this function!
+ * this function is only here to make sure the linker pulls in the protocol
+ * translation units so each protocol calls its constructor and registers itself.
+*/
+static void linkProtos() {
+    #ifdef MRNET
+    extern void MRNClientProtocol_link();
+    MRNClientProtocol_link();
+    #endif
+    #ifdef ZMQNET
+    extern void ZMQClientProtocol_link();
+    ZMQClientProtocol_link();
+    #endif
+    // proxy is always present
+    extern void ProxyClientProtocol_link();
+    ProxyClientProtocol_link();
 
-extern MRNClientProtocol DbgClntProtoMRN;
-extern ProxyClientProtocol DbgClntProtoProxy;
+    // avoid "unused function" warning
+    linkProtos();
+}
 
-static const std::vector<DebugClientProtocol *> DbgProtoTab = {
-    &DbgClntProtoMRN,
-    &DbgClntProtoProxy
-};
- 
 // Used for the protocol wait for events function
 static fd_set proto_dispatch_fds;
 static int proto_high_fd;
 
-// used to iterate through DbgProtoTab and call init or finish on each proto
-// when gdb4hpc starts up or finishes
-const std::vector<DebugClientProtocol *> getClientProtos() {
-    return DbgProtoTab;
+std::unordered_map<std::string, DebugClientProtocol *> DebugClientProtocol::registry;
+
+const std::unordered_map<std::string, DebugClientProtocol *>& DebugClientProtocol::getRegistry() {
+    return DebugClientProtocol::registry;
 }
 
-DebugClientProtocol * const findClientProtoByName(std::string protoName) {
-    for (const auto &p : DbgProtoTab) {
-        if (p != nullptr && p->name() == protoName) return p;
+DebugClientProtocol * const findClientProtoByName(const char* protoName) {
+    if (DebugClientProtocol::getRegistry().find(protoName) != DebugClientProtocol::getRegistry().end()) {
+        return DebugClientProtocol::getRegistry().at(protoName);
     }
 
     return nullptr;
 }
 
-// Used during launch/attach to wait for the initial setup to complete
+DebugClientProtocol::DebugClientProtocol()
+    : m_protoEventHandler{} {}
 
+void DebugClientProtocol::registerProtocol() {
+    // called by derived class constructors to register themselves in the registry
+    if (registry.insert({name(), this}).second == true) {
+        // this protocol doesn't exist in the registry yet, add it
+        DPRINT("Registered server protocol: %s\n", name());
+    } else {
+        // this protocol already exists
+        DPRINT("Duplicate protocol: %s\n", name());
+    }
+}
+
+// Used during launch/attach to wait for the initial setup to complete
 static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     int *ev_fd;
     int status;

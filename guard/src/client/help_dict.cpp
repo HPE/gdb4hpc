@@ -172,13 +172,13 @@ const char* const cmd_continue_help[] = {
 
 const char* const cmd_cuda_help[] = {
     "Summary: Cuda debugging functions.",
-    "Usage: cuda <subcommand> [arguments] ",
+    "Usage: cuda <subcommand> [arguments]",
+    "Usage: cuda help <subcommand>",
+    "Usage: cuda info <subcommand>",
+    "Usage: cuda set <subcommand> <value>",
     "",
     "Calls the cuda thread functions, which will be available when launching/attaching",
     "with --gpu and running with an nvidia device.",
-    "Note, gdb4hpc rearranges the command order so \"cuda\" is the primary command",
-    "so the basic cuda-gdb command \"info cuda threads\" is \"cuda info threads\"",
-    "and \"help set cuda <option>\" is \"cuda help set <option>\".",
     0};
 
 

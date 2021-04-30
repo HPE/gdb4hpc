@@ -267,6 +267,33 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+// command to interface with the cuda-gdb extensions
+static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+
+    auto arg = ArgsToString(argc-1, argv+1);
+    auto rep_set = DbgCuda(rec_set, arg.c_str());
+    ProcessErrorInRepSet(rep_set);
+
+    // process replies
+    for (auto&& reply : rep_set) {
+        auto handle = reply->rep_di->d_handle;
+        auto group = reply->rep_group;
+
+        if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
+            const char* str = reply->rep_event->ev_u.ev_u_string;
+            std::istringstream is(str);
+            std::string line;
+            while (std::getline(is,line)) {
+                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            }
+        }
+    }
+
+    FreeRepSet(rep_set);
+    return 1;
+}
+
+
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, cmd_thread_cmd,
                cmd_thread_help, "Thread control functions.");
@@ -274,7 +301,8 @@ void InitCmd_thread(void) {
                cmd_thread_help, nullptr);
     AddCommand("ompd", "", proc_required, 0, cmd_ompd_cmd,
                cmd_ompd_help, "OpenMP debugging functions.");
-    
+    AddCommand("cuda", "", proc_required, 0, cmd_cuda_cmd,
+               cmd_cuda_help, "Cuda debugging functions.");
 
     AddInfoCommand("threads", proc_required, 0,
                    class_info_subcmd_threads_cmd,

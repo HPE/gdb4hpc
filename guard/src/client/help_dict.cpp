@@ -170,6 +170,18 @@ const char* const cmd_continue_help[] = {
     "continue -a to continue execution on all threads.",
     0};
 
+const char* const cmd_cuda_help[] = {
+    "Summary: Cuda debugging functions.",
+    "Usage: cuda <subcommand> [arguments] ",
+    "",
+    "Calls the cuda thread functions, which will be available when launching/attaching",
+    "with --gpu and running with an nvidia device.",
+    "Note, gdb4hpc rearranges the command order so \"cuda\" is the primary command",
+    "so the basic cuda-gdb command \"info cuda threads\" is \"cuda info threads\"",
+    "and \"help set cuda <option>\" is \"cuda help set <option>\".",
+    0};
+
+
 const char* const cmd_run_help[] = {
     "Summary: start debugging application.",
     "Usage: run",
@@ -586,7 +598,7 @@ const char* const cmd_ompd_help[] = {
     "Usage: ompd [subcommand]",
     "",
     "Whether the ompd function is a available and which sub-functions",
-    "are available is instatallation specific.   Use",
+    "are available is installation specific.   Use",
     "\"ompd help\" to get the commands available with the current process.",
     0};
 

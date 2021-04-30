@@ -8,6 +8,7 @@ break           Set breakpoint at specified line or function.
 build           Build an assertion script.
 compare         Compare the contents of two variables.
 continue        Continue execution of application.
+cuda            Cuda debugging functions.
 decomposition   Define a decomposition scheme.
 defset          Create a set of processes.
 delete          Delete a breakpoint.

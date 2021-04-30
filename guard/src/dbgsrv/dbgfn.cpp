@@ -435,6 +435,12 @@ dbgevent_t *DbgOmpd(const char* op)
     return DbgBackendSW->ompd(op);
 }
 
+dbgevent_t *DbgCuda(const char* op)
+{
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->cuda(op);
+}
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     ResetWDT();

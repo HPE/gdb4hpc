@@ -2067,7 +2067,7 @@ dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
         }
 
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd ompd did not return a value.");
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb ompd did not return a value.");
     }
 
     MICommandFree(cmd);
@@ -2125,6 +2125,79 @@ bool DbgGdbMI::initOmpdL() {
     MICommandFree(cmd);
     return ok;
 }
+
+// OpenMP debugger functions
+dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    if (auto e = initOmpd()) return e;  // initOmpd returns nullptr on success
+
+    static std::regex verboseRE{R"(^\s*-v\s*)"};
+    auto isVerbose = bool{false};
+    auto op = std::string{inOp};
+
+    auto match = std::smatch{};
+    if (std::regex_search(op, match, verboseRE)) {
+        isVerbose = true;
+        op = match.suffix().str();
+    }
+
+    static const std::vector<std::string> subCmds{"help", "info", "set"};
+
+    auto cudaOp = "cuda " + op;
+    char **cmd_args = Str2Argv(cudaOp.c_str());
+
+    // cuda gdb puts "cuda" after the sub commands, e.g. "help set cuda cuda-variable" 
+    for (int i=0;
+         cmd_args[i+1] && std::find(subCmds.begin(), subCmds.end(), cmd_args[i+1]) != subCmds.end();
+         ++i) {
+        std::swap(cmd_args[i], cmd_args[i+1]);
+    }
+    auto argc = int{0};
+    while (cmd_args[argc]) {
+        ++argc;
+    }
+    
+    MICommand* cmd = CLIBypass(argc, cmd_args);
+    SendMICommand(GDBMISession, cmd);
+
+    bool isRunning = false;
+
+    dbgevent_t* e = nullptr;
+    if (MICommandResultClass(cmd) == MIResultRecordRUNNING) {
+        // ompd init runs aynchronously after it sets a temporary breakpoint
+        isRunning = true;
+        e = NewEvent(DBGEV_OK);
+    } else if (!MICommandResultOK(cmd)) {
+        const char* msg = MICommandResultErrorMessage(cmd);
+        if (!msg) msg = "cuda command failed.";
+        EVENT_ERROR(e, DBGERR_DEBUGGER, msg);
+    } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
+        e = NewEvent(DBGEV_THREADINFO);
+
+        if (isVerbose || op != "threads") {
+            e->ev_string = result;
+        } else {
+            auto cresult = anonymizeThreadInfo(result);
+            free(result);
+            e->ev_string = strdup(cresult.c_str());
+        }
+
+    } else {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb cuda did not return a value.");
+    }
+
+    FreeArgv(cmd_args);
+    MICommandFree(cmd);
+
+    if (isRunning) {
+        DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
+        ThreadAsyncCheck(WaitOmpdEvent, nullptr);
+        Status = DBGSTAT_RUNNING;
+    }
+    return e;
+}
+
 
 /*
 ** List variables in the current stack frame

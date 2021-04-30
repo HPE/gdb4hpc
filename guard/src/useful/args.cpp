@@ -32,7 +32,7 @@
 
 #define INITIAL_MAXARGC 8
 
-char **Str2Argv(char *s) {
+char **Str2Argv(const char *s) {
     int squote = 0;
     int dquote = 0;
     int bsquote = 0;

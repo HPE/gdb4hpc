@@ -92,6 +92,7 @@ public:
     virtual dbgevent_t *setNonStop(const char* mode) = 0;
     virtual dbgevent_t *getNonStop() = 0;
     virtual dbgevent_t *ompd(const char* op) = 0;
+    virtual dbgevent_t *cuda(const char* op) = 0;
 
 };
 
@@ -151,6 +152,7 @@ extern dbgevent_t *DbgGetSchedulerLocking();
 extern dbgevent_t *DbgSetNonStop(const char* mode);
 extern dbgevent_t *DbgGetNonStop();
 extern dbgevent_t *DbgOmpd(const char* op);
+extern dbgevent_t *DbgCuda(const char* op);
 extern dbgevent_t *DbgOpenSocket(const char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 

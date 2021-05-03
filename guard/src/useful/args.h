@@ -23,7 +23,7 @@ extern std::string ArgsToString(int argc, char** argv);
 extern "C" {
 #endif
 
-extern char **Str2Argv(char *);
+extern char **Str2Argv(const char *);
 extern char **NewArgv(const char *, ...);
 extern char **CopyArgv(char **);
 extern char **AppendArgv(char **, char **);

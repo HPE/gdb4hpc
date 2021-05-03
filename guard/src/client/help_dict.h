@@ -23,6 +23,7 @@ extern const char* const cmd_backtrace_help[];
 extern const char* const cmd_break_help[];
 extern const char* const cmd_compare_help[];
 extern const char* const cmd_continue_help[];
+extern const char* const cmd_cuda_help[];
 extern const char* const cmd_run_help[];
 extern const char* const cmd_defset_help[];
 extern const char* const cmd_delete_help[];

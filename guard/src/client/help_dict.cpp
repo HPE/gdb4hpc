@@ -170,6 +170,18 @@ const char* const cmd_continue_help[] = {
     "continue -a to continue execution on all threads.",
     0};
 
+const char* const cmd_cuda_help[] = {
+    "Summary: Cuda debugging functions.",
+    "Usage: cuda <subcommand> [arguments]",
+    "Usage: cuda help <subcommand>",
+    "Usage: cuda info <subcommand>",
+    "Usage: cuda set <subcommand> <value>",
+    "",
+    "Calls the cuda thread functions, which will be available when launching/attaching",
+    "with --gpu and running with an nvidia device.",
+    0};
+
+
 const char* const cmd_run_help[] = {
     "Summary: start debugging application.",
     "Usage: run",
@@ -586,7 +598,7 @@ const char* const cmd_ompd_help[] = {
     "Usage: ompd [subcommand]",
     "",
     "Whether the ompd function is a available and which sub-functions",
-    "are available is instatallation specific.   Use",
+    "are available is installation specific.   Use",
     "\"ompd help\" to get the commands available with the current process.",
     0};
 

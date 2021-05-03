@@ -3011,6 +3011,14 @@ rep_set_t *DbgOmpd(rec_set_t* set, const char* op)
     return result;
 }
 
+rep_set_t *DbgCuda(rec_set_t* set, const char* op)
+{
+    auto request = CommandToSocProto(DBGCMD_CUDA,op);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
+    return result;
+}
+
+
 /*
 ** DBG_KILL: Terminate execution of program.
 ** TODO: Probably remove this, the DbgQuit should be sufficient.

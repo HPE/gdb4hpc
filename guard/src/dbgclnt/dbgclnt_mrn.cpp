@@ -43,6 +43,9 @@
 #include "useful.h"
 #include "dbgclnt_mrn.h"
 
+// used as a handle in dbgclnt_proto.cpp to make the linker include this class
+void MRNClientProtocol_link() {};
+
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 MRNClientProtocol DbgClntProtoMRN{};
 

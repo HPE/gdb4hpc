@@ -37,7 +37,7 @@
  * this function is only here to make sure the linker pulls in the protocol
  * translation units so each protocol calls its constructor and registers itself.
 */
-static void linkProtos() {
+void ClientProtocol_link() {
     #ifdef MRNET
     extern void MRNClientProtocol_link();
     MRNClientProtocol_link();
@@ -49,9 +49,6 @@ static void linkProtos() {
     // proxy is always present
     extern void ProxyClientProtocol_link();
     ProxyClientProtocol_link();
-
-    // avoid "unused function" warning
-    linkProtos();
 }
 
 // Used for the protocol wait for events function

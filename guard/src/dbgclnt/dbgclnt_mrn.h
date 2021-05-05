@@ -65,7 +65,4 @@ private:
 #endif
 };
 
-// used as a handle in dbgclnt_proto.cpp to make the linker include this class
-void MRNClientProtocol_link() {};
-
 #endif /* _DBGCLNT_MRN_H */

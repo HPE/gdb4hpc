@@ -518,7 +518,8 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     }
 
     if (!addOmpd(mid)) {
-        PrintOutError("Failed to add ompd to manifest.\n");
+        PrintOutMsg("Failed to add OMPD support files to manifest. \
+OMPD support will not be available.\n");
     }
 
 
@@ -1157,7 +1158,8 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // End upc addition
 
     if (!addOmpd(mid)) {
-        PrintOutError("Failed to add ompd to manifest.\n");
+        PrintOutMsg("Failed to add OMPD support files to manifest. \
+OMPD support will not be available.\n");
     }
 
     // Add libthread_db otherwise gdb will be messed up with thread
@@ -1636,7 +1638,7 @@ int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
         }
     } else {
         // Print out the file we're looking for so the dev doesn't need to look it up
-        PrintOutError("no suppression file found at: %s\n", suppressionFile.c_str());
+        PrintOutMsg("no suppression file found at: %s\n", suppressionFile.c_str());
     }
 
     return 0;
@@ -1650,7 +1652,7 @@ bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
     try {
         dir = std::filesystem::canonical("/proc/self/exe");
     } catch (std::exception& err) {
-        PrintOutError("Could not get executable path, ompd will not be available\n");
+        PrintOutMsg("Could not get executable path, OMPD support will not be available\n");
         return false;
     }
 
@@ -1667,12 +1669,12 @@ bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
             auto f = entry.path();
             if (f.filename() == "__pycache__") continue;
             if (cti_addManifestFile(mid, f.c_str())) {
-                PrintOutError("adding ompd file to the manifest failed\n");
+                PrintOutMsg("Adding OMPD file %s to manifest failed\n", f.c_str());
                 break;
             }
         }
     } catch (std::exception& err) {
-        PrintOutError("ompd path %s not found, ompd will not be available\n", dir.c_str());
+        PrintOutMsg("OMPD path %s not found, OMPD will not be available\n", dir.c_str());
         return false;
     }
 

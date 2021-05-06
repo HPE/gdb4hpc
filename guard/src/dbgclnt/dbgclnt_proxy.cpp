@@ -1700,6 +1700,10 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
         // know how many ranks exist as is the case for the attach scenario. I
         // don't know how to make this work, this hack is the only thing I can
         // come up with right now.
+        // Any output on the error stream during startup will be interpereted
+        // as a fatal error. Non-fatal output should be printed using
+        // PrintOutMsg.
+        // Message that is displayed: "Could not receive launch callbacks!"
         if (di->d_started == 0) {
             callback_failure = 1;
         }

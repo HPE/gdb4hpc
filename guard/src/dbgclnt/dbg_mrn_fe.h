@@ -22,9 +22,7 @@
 
 class MRNetFrontEnd {
 public:
-    MRNetFrontEnd() = delete;
-    MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd,
-          MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
+    MRNetFrontEnd() = delete; // use create_network methods below
     ~MRNetFrontEnd();
 
 #ifdef ALPS
@@ -67,6 +65,9 @@ public:
     void debug_print_network_topology();
 
 private:
+    MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd,
+          MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
+    
     void add_event_stream(MRN::Stream *event_stream);
     MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, bitset *target) const;
     MRN::Stream *create_stream(bitset *target, MRN::Stream *&event_stream);

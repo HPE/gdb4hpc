@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Topology_C.h"
 #include "common_tools_be.h"
 #include "dbg.h"
 #include "dbg_mrn.h"

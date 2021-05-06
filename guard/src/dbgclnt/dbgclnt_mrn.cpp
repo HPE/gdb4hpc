@@ -34,7 +34,6 @@
 #include <fstream>
 #include <filesystem>
 
-#include "Stream_C.h"
 #include "aif.h"
 #include "dbg_client.h"
 #include "dbg_mrn_fe.h"
@@ -42,9 +41,6 @@
 #include "list.h"
 #include "useful.h"
 #include "dbgclnt_mrn.h"
-
-// used as a handle in dbgclnt_proto.cpp to make the linker include this class
-void MRNClientProtocol_link() {};
 
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 MRNClientProtocol DbgClntProtoMRN{};
@@ -55,7 +51,7 @@ int MRNClientProtocol::init() {
     const char *mrnet_port_base;
 
     // grab the config dir environment variable
-    if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
+    if ((mrnet_cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)nullptr) {
         PrintOutError(
             "Could not retrieve %s env var! Please check your environment "
             "settings.\n",
@@ -75,7 +71,7 @@ int MRNClientProtocol::init() {
     }
 
     // Try to grab the port base environment variable
-    if ((mrnet_port_base = getenv(GUARD_MRNET_PORT)) == NULL) {
+    if ((mrnet_port_base = getenv(GUARD_MRNET_PORT)) == nullptr) {
         // Use the default choice
         mrnet_port_base = DEFAULT_MRNET_PORT_BASE;
     }
@@ -86,7 +82,7 @@ int MRNClientProtocol::init() {
     // Set DSL by default unless overridden by an environment variable
     setenv(LIBALPS_ENABLE_DSL, "1", 1);
     char *guard_libalps_enable_dsl = getenv(GUARD_LIBALPS_ENABLE_DSL);
-    if (guard_libalps_enable_dsl != NULL) {
+    if (guard_libalps_enable_dsl != nullptr) {
         if (strcmp(guard_libalps_enable_dsl, "0") == 0) {
             unsetenv(LIBALPS_ENABLE_DSL);
         }
@@ -95,26 +91,25 @@ int MRNClientProtocol::init() {
     return 1;
 }
 
-bitset* MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
-                             const char *request) {
-    proto_network network = di->d_proto_net;
-    bitset *received = NULL;
+bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
+                                       const char *request) {
+    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
+    bitset *received = nullptr;
 
     // send command only if not already in a shutdown state
     if (di->d_isShutdown) {
-        return NULL;
+        return nullptr;
     }
 
-    MRNet_Stream *newEventStream = NULL;
-    mrn_fe_send_command((mrnet_type *)network, target, request,
-                        &newEventStream);
+    MRN::Stream *newEventStream = nullptr;
+    network->send_command(target, request, &newEventStream);
 
     received = bitset_new(bitset_size(target));
 
     DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
 
     if (newEventStream) {
-        int eventFd = stream_get_DataNotificationFd(newEventStream);
+        int eventFd = newEventStream->get_DataNotificationFd();
 
         int *eventFdPtr = (int *)Alloc(sizeof(int));
         *eventFdPtr = eventFd;
@@ -126,20 +121,20 @@ bitset* MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 
 struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di, 
                                             bitset *target, bitset *received) {
-    proto_network network = di->d_proto_net;
+    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     int full = 0;
-    proto_msg_set *msg_set = NULL;
+    proto_msg_set *msg_set = nullptr;
     proto_message *msg;
-    proto_msg_set *result = NULL;
+    proto_msg_set *result = nullptr;
 
     // recv reply only if not already in a shutdown state
     if (di->d_isShutdown) {
-        return NULL;
+        return nullptr;
     }
 
     while (!full) {
-        if ((msg_set = mrn_fe_recv_reply((mrnet_type *)network, target)) ==
-            NULL) {
+        if ((msg_set = network->recv_reply(target)) ==
+            nullptr) {
             PrintOutError("Could not recv reply from MRNet network.\n");
             ResetProtoMsgSet(result);
             return result;
@@ -147,16 +142,16 @@ struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di,
 
         // If this is the first message set, then use this as our return type,
         // otherwise merge the set with our return type.
-        if (result == NULL) {
+        if (result == nullptr) {
             result = msg_set;
             // process the msg_set to get the received set
-            while ((msg = NextProtoMsgInSet(msg_set)) != NULL) {
+            while ((msg = NextProtoMsgInSet(msg_set)) != nullptr) {
                 // add this group to the received group
                 bitset_oreq(received, msg->group);
             }
         } else {
             // add each message to the result
-            while ((msg = RemoveProtoMsgInSet(msg_set)) != NULL) {
+            while ((msg = RemoveProtoMsgInSet(msg_set)) != nullptr) {
                 // add this group to the received group
                 bitset_oreq(received, msg->group);
                 AddProtoMsgSet(result, msg);
@@ -176,7 +171,7 @@ struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di,
 }
 
 void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
-    mrnet_type *network = (mrnet_type *)di->d_proto_net;
+    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
     proto_msg_set *io_res;
     proto_msg_set *ev_res;
@@ -186,7 +181,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch application output if started
     // Note that the proxy would segfault here if we tried to handle program
     // output before the startup event completes...
-    if (di->d_started && (po != NULL) && (po->p_o_rfd == ev_fd)) {
+    if (di->d_started && (po != nullptr) && (po->p_o_rfd == ev_fd)) {
         // Call the protocol specific callback function to handle the output on
         // the stream
         outputCallback(di, po->p_o_stream);
@@ -198,9 +193,9 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // a callback registered in the dbginvoke instead of handling it here. It's
     // not appropriate to handle client events in this layer.
     if (di->d_started &&
-        ((io_res = mrn_fe_dispatch_io(network, ev_fd)) != NULL)) {
+        ((io_res = network->dispatch_io(ev_fd)) != nullptr)) {
         // process each io message in the list
-        while ((msg = NextProtoMsgInSet(io_res)) != NULL) {
+        while ((msg = NextProtoMsgInSet(io_res)) != nullptr) {
             set_str = bitset_to_set(msg->group);
             PrintOutMsg("IO from %s: %s\n", set_str, msg->message);
             Free(set_str);
@@ -211,7 +206,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 
     // dispatch events
-    if ((ev_res = mrn_fe_dispatch_event(network, ev_fd)) != NULL) {
+    if ((ev_res = network->dispatch_event(ev_fd)) != nullptr) {
         // Call the protocol specific callback function to handle this event msg
         handleProtocolEvent(di, ev_res);
 
@@ -224,46 +219,46 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
 int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
                         const char *backend, int gpu_flag, int debug_flag) {
-    char *root = NULL;
+    char *root = nullptr;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
     char connections[MAXPATHLEN];
     int num_be;
     int rtn;
-    MRNet_Topology *mrn_topology;
-    mrnet_type *network = NULL;
+    MRN::NetworkTopology *mrn_topology = nullptr;
+    MRNetFrontEnd *network = nullptr;
     char *env_var_str;
     std::string request;
     // Set this to the number of environment variables we need to ship over.
-    char *env_vars[5] = {NULL, NULL, NULL, NULL, NULL};
+    char *env_vars[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
     int env_var_cnt = 0;
     int i;
     // init this to the default timeout
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
-    char **ap = NULL;
+    char **ap = nullptr;
     int event_fd;
     int *ev_fd_ptr;
     int dbg = debug_flag;
-    char **machine_hosts = NULL;
+    char **machine_hosts = nullptr;
     char **tmp;
     cti_manifest_id_t mid;
     cti_session_id_t sid;
     cti_wlm_type_t wlm;
-    char *env_base_dir = NULL;
+    char *env_base_dir = nullptr;
 
 #ifdef DEBUG
     dbg = 1;
 #endif
 
     // ensure the dbginvoke_t object was passed down
-    if (di == NULL) goto attach_error;
+    if (di == nullptr) goto attach_error;
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
     setProtocolEventHandler(new MRNAttachHandler());
 
     // get mrnet configuration information
-    if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
+    if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)nullptr) {
         PrintOutError(
             "ERROR: Cannot find %s. Please set MRNet environment variables!\n",
             GUARD_CFG_DIRECTORY);
@@ -288,16 +283,16 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     char *envDir;
     char logfile[PATH_MAX];
 
-    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL) {
+    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)nullptr) {
         // user didn't set the environment variable, so lets
         // read the HOME variable
-        if ((envDir = getenv("HOME")) == (char *)NULL) {
+        if ((envDir = getenv("HOME")) == (char *)nullptr) {
             // couldn't read HOME, so lets default to tmp
             envDir = "/tmp";
         }
     }
 
-    // create the fullpath string to the log file using PATH_MAX plus a null
+    // create the fullpath string to the log file using PATH_MAX plus a nullptr
     // term
     snprintf(logfile, PATH_MAX + 1, "%s/mrnet_perf_frontend.log", envDir);
 
@@ -317,13 +312,13 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
             char *eptr;
 
             // find '.' in app_ident
-            if ((sep = strchr(app_ident, '.')) == NULL) {
+            if ((sep = strchr(app_ident, '.')) == nullptr) {
                 PrintOutError(
                     "Invalid slurm job step argument. Expected "
                     "<job_id>.<step_id>\n");
                 goto attach_error;
             }
-            // turn it into null term and point past
+            // turn it into nullptr term and point past
             //*sep++ = '\0';
             ++sep;  // point to second digit (no need to modify string, strtol
                     // will stop at '.'
@@ -363,7 +358,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
             }
 
             // Register the slurm job step with the tool interface
-            cti_slurm_ops_t *ops = NULL;
+            cti_slurm_ops_t *ops = nullptr;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
             if (ret != CTI_WLM_SLURM) {
                 PrintOutError("cti_open_ops returned invalid wlm!\n");
@@ -396,7 +391,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
             }
 
             // Register the pid with the tool interface
-            cti_ssh_ops_t *ops = NULL;
+            cti_ssh_ops_t *ops = nullptr;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
             if (ret != CTI_WLM_SSH) {
                 PrintOutError("cti_open_ops returned invalid wlm!\n");
@@ -430,7 +425,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
             }
 
             // Register the alps apid with the tool interface
-            cti_alps_ops_t *ops = NULL;
+            cti_alps_ops_t *ops = nullptr;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
             if (ret != CTI_WLM_ALPS) {
                 PrintOutError("cti_open_ops returned invalid wlm!\n");
@@ -450,7 +445,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
             }
 
             // Register the pals apid with the tool interface
-            cti_pals_ops_t *ops = NULL;
+            cti_pals_ops_t *ops = nullptr;
             cti_wlm_type_t ret = cti_open_ops((void **)&ops);
             if (ret != CTI_WLM_PALS) {
                 PrintOutError("cti_open_ops returned invalid wlm!\n");
@@ -554,7 +549,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     }
 
     // create the root hostname for mrnet
-    if ((root = cti_getHostname()) == NULL) {
+    if ((root = cti_getHostname()) == nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve node hostname.\n");
         goto attach_error;
@@ -564,7 +559,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     DPRINT("Root has a hostname of [%s]\n", root);
 
     // get a list of the nid hostnames for topology creation
-    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == NULL) {
+    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve nid hostname list.\n");
         goto attach_error;
@@ -573,7 +568,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 #ifdef DEBUG
     DPRINT("Application has the following nid hostnames list:\n");
     tmp = machine_hosts;
-    while (*tmp != (char *)NULL) {
+    while (*tmp != (char *)nullptr) {
         DPRINT("%s ", *tmp++);
     }
     DPRINT("\n");
@@ -588,13 +583,13 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
     // cleanup
     Free(root);
-    root = NULL;
+    root = nullptr;
     tmp = machine_hosts;
-    while (*tmp != NULL) {
+    while (*tmp != nullptr) {
         Free(*tmp++);
     }
     Free(machine_hosts);
-    machine_hosts = NULL;
+    machine_hosts = nullptr;
 
     DPRINT("MRNet is going to create a tree with topology[%s]\n",
            topology_name);
@@ -602,9 +597,9 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
 
     // We let MRNet send the contents of the manifest for us
-    network = mrn_fe_create_network_no_be(topology_name, &mrn_topology,
+    network = MRNetFrontEnd::create_network_no_be(topology_name, mrn_topology,
                                           di->d_appid, mid);
-    if (network == NULL) {
+    if (network == nullptr) {
         // error already printed
         goto attach_error;
     }
@@ -649,25 +644,25 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
                          di->d_proto->name(), "-e", backend, "--gpu",
-                         "--debug", NULL);
+                         "--debug", nullptr);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--debug", NULL);
+                         di->d_proto->name(), "-e", backend, "--debug", nullptr);
         }
     } else {
         if (gpu_flag) {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--gpu", NULL);
+                         di->d_proto->name(), "-e", backend, "--gpu", nullptr);
         } else {
             ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, NULL);
+                         di->d_proto->name(), "-e", backend, nullptr);
         }
     }
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");
     tmp = ap;
-    while (*tmp != (char *)NULL) {
+    while (*tmp != (char *)nullptr) {
         DPRINT("%s ", *tmp++);
     }
     DPRINT("\n");
@@ -680,28 +675,28 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     // GUARD_MRNET_STARTUP_TIMEOUT in case it isn't set in the environment of
     // the application. Note that we want the environment inside the cray tool
     // interface to be set to this value.
-    if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL) {
+    if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != nullptr) {
         Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_MRNET_STARTUP_TIMEOUT,
                  env_var_str);
     }
 
     // ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
     // inside the cray tool interface again.
-    if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL) {
+    if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != nullptr) {
         Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_ADDITIONAL_SLEEP,
                  env_var_str);
     }
 
     // We should set the DBG_LOG_ENV_VAR only if debug flag is true
     if (dbg) {
-        if ((env_var_str = getenv(DBG_LOG_ENV_VAR)) != NULL) {
+        if ((env_var_str = getenv(DBG_LOG_ENV_VAR)) != nullptr) {
             Asprintf(&env_vars[env_var_cnt++], "%s=%s", DBG_LOG_ENV_VAR,
                      env_var_str);
         }
     }
 
     // Forward GUARD_INST_DIRECTORY if set
-    if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+    if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != nullptr) {
         Asprintf(&env_vars[env_var_cnt++], "%s=%s", GUARD_INST_DIRECTORY,
                  env_base_dir);
     }
@@ -726,14 +721,14 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
     // done with the argv array and env_vars
     FreeArgv(ap);
-    ap = NULL;
+    ap = nullptr;
     for (i = 0; i < env_var_cnt; ++i) {
         Free(env_vars[i]);
     }
     env_var_cnt = 0;
 
     // wait for the debug servers to connect to the mrnet tree
-    rtn = mrn_fe_attach_be(network, di->d_nproc, mrnet_timeout);
+    rtn = network->attach_be(di->d_nproc, mrnet_timeout);
     if (rtn) {
         if (rtn > 0) {
             PrintOutError(
@@ -741,7 +736,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                 "timeout!\n");
         } else {
             PrintOutError(
-                "ERROR: DbgMRNAttach had null network information!\n");
+                "ERROR: DbgMRNAttach had nullptr network information!\n");
         }
         goto attach_error;
     }
@@ -753,7 +748,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
         "MRNet is going to create communication streams for the debugging "
         "network...\n");
 
-    if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER,
+    if (network->create_streams_and_load_filter(AGGREGATION_FILTER,
                                               AGGREGATION_FUNC)) {
         PrintOutError(
             "ERROR: DbgMRNAttach failed to load filter functions and create "
@@ -765,9 +760,9 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 
     PrintOutMsg("Finalizing setup...\n");
 
-    mrn_fe_enable_failure_callback(network, di);
+    network->enable_failure_callback(di);
 
-    if ((num_be = mrn_fe_get_num_of_be(network)) != di->d_nproc) {
+    if ((num_be = network->get_num_of_be()) != di->d_nproc) {
         PrintOutError(
             "ERROR: MRNet has an incorrect number of debug servers.\n");
         PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
@@ -790,7 +785,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     di->d_evfds = NewList();
 
     // setup the event notification fd for the io stream
-    event_fd = mrn_fe_get_io_notificationfd(network);
+    event_fd = network->get_io_notificationfd();
 
     // create an int to hold the io stream fd. Note that this will get free'ed
     // later on when the dbg invoke gets cleaned up.
@@ -802,7 +797,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     AddToList(di->d_evfds, (void *)ev_fd_ptr);
 
     // setup the event notification fd for the event stream
-    event_fd = mrn_fe_get_event_notificationfd(network);
+    event_fd = network->get_event_notificationfd();
 
     // create an int to hold the event stream fd.
     ev_fd_ptr = (int *)Alloc(sizeof(int));
@@ -815,7 +810,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     /*broadcast an INVOKE command to complete the attach callback*/
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
 
-    if (mrn_fe_setup_streams(network, request.c_str())) {
+    if (network->setup_streams(request.c_str())) {
         PrintOutError(
             "ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
         goto attach_error;
@@ -856,19 +851,19 @@ attach_error:
         di->d_appid = 0;
     }
 
-    if (network != NULL) {
-        mrn_fe_delete_network(network);
+    if (network != nullptr) {
+        delete network;
         // clear the network pointer
-        di->d_proto_net = NULL;
+        di->d_proto_net = nullptr;
     }
 
-    if (ap != NULL) FreeArgv(ap);
+    if (ap != nullptr) FreeArgv(ap);
 
-    if (root != NULL) Free(root);
+    if (root != nullptr) Free(root);
 
-    if (machine_hosts != NULL) {
+    if (machine_hosts != nullptr) {
         tmp = machine_hosts;
-        while (*tmp != NULL) {
+        while (*tmp != nullptr) {
             Free(*tmp++);
         }
         Free(machine_hosts);
@@ -887,29 +882,29 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {
     char sn[80];
-    char *root = NULL;
+    char *root = nullptr;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
     char connections[MAXPATHLEN];
     int num_be;
     int rtn;
-    MRNet_Topology *mrn_topology;
-    mrnet_type *network = NULL;
-    char **ap = NULL;
+    MRN::NetworkTopology *mrn_topology = nullptr;
+    MRNetFrontEnd *network = nullptr;
+    char **ap = nullptr;
     char **tmp;
     std::string request;
     int event_fd;
     int *ev_fd_ptr;
-    g_progoutp_t *po = NULL;
+    g_progoutp_t *po = nullptr;
     int prog_outp = -1;
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
     char *env_var_str;
     int dbg = debug_flag;
-    char **machine_hosts = NULL;
+    char **machine_hosts = nullptr;
     cti_manifest_id_t mid;
     cti_session_id_t sid;
-    char **args = NULL;
-    char *env_base_dir = NULL;
+    char **args = nullptr;
+    char *env_base_dir = nullptr;
     auto serverGdb = std::string{};
 
 #ifdef DEBUG
@@ -917,14 +912,14 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 #endif
 
     // ensure the dbginvoke_t object was passed down
-    if (di == NULL) goto invoke_error;
+    if (di == nullptr) goto invoke_error;
 
     // Set the initial protocol event callback to use our custom event handler
     // for launching
     setProtocolEventHandler(new MRNLaunchHandler());
 
     // get mrnet configuration information
-    if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)NULL) {
+    if ((cfg_dir = getenv(GUARD_CFG_DIRECTORY)) == (char *)nullptr) {
         PrintOutError(
             "ERROR: Cannot find %s. Please set MRNet environment variables!\n",
             GUARD_CFG_DIRECTORY);
@@ -949,16 +944,16 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     char *envDir;
     char logfile[PATH_MAX];
 
-    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL) {
+    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)nullptr) {
         // user didn't set the environment variable, so lets
         // read the HOME variable
-        if ((envDir = getenv("HOME")) == (char *)NULL) {
+        if ((envDir = getenv("HOME")) == (char *)nullptr) {
             // couldn't read HOME, so lets default to tmp
             envDir = "/tmp";
         }
     }
 
-    // create the fullpath string to the log file using PATH_MAX plus a null
+    // create the fullpath string to the log file using PATH_MAX plus a nullptr
     // term
     snprintf(logfile, PATH_MAX + 1, "%s/mrnet_perf_frontend.log", envDir);
 
@@ -973,28 +968,28 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // ignorant of the starter applications real name.
     snprintf(sn, sizeof(sn), "%d", di->d_nproc);
 #ifdef DEBUG
-    ap = NewArgv("-n", sn, NULL);
+    ap = NewArgv("-n", sn, nullptr);
 #else
     // we want the application to be silent when not in debug mode.
-    // ap = NewArgv("--quiet", "-n", sn, NULL);
-    ap = NewArgv("-n", sn, NULL);
+    // ap = NewArgv("--quiet", "-n", sn, nullptr);
+    ap = NewArgv("-n", sn, nullptr);
 #endif /* DEBUG */
 
     // add the launcher args if present
-    if (arch_args != NULL) {
+    if (arch_args != nullptr) {
         tmp = &arch_args[0];
-        while (*tmp != (char *)NULL) {
-            ap = AppendArgs(ap, *tmp++, NULL);
+        while (*tmp != (char *)nullptr) {
+            ap = AppendArgs(ap, *tmp++, nullptr);
         }
     }
 
-    ap = AppendArgs(ap, prog, NULL);  // and the prog
+    ap = AppendArgs(ap, prog, nullptr);  // and the prog
     ap = AppendArgv(ap, argv);        // plus its args
 
 #ifdef DEBUG
     DPRINT("application launcher args: ");
     tmp = ap;
-    while (*tmp != (char *)NULL) {
+    while (*tmp != (char *)nullptr) {
         DPRINT("%s ", *tmp++);
     }
     DPRINT("\n");
@@ -1002,15 +997,15 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // create the output stream to redirect stdout/stderr to
     // Note that this will be a g_progoutp_t in this proto definition
-    if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != NULL) {
+    if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != nullptr) {
         po = (g_progoutp_t *)di->d_proto_outp;
         prog_outp = po->p_o_wfd;
     }
 
     // Try to read the GUARD_MRNET_STARTUP_TIMEOUT and set the appropriate
     // CTI environment variables for the application.
-    if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != NULL) {
-        mrnet_timeout = strtoul(env_var_str, NULL, 10);
+    if ((env_var_str = getenv(GUARD_MRNET_STARTUP_TIMEOUT)) != nullptr) {
+        mrnet_timeout = strtoul(env_var_str, nullptr, 10);
         // set the pmi_attribs parser timeout to the same value as mrnet
         // timeout.
         if (cti_setAttribute(CTI_PMI_FOPEN_TIMEOUT, env_var_str)) {
@@ -1021,7 +1016,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // ditto for GUARD_ADDITIONAL_SLEEP, we want to use the actual env var that
     // inside the cray tool interface again.
-    if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != NULL) {
+    if ((env_var_str = getenv(GUARD_ADDITIONAL_SLEEP)) != nullptr) {
         if (cti_setAttribute(CTI_PMI_FOPEN_TIMEOUT, env_var_str)) {
             PrintOutError("Setting CTI_PMI_FOPEN_TIMEOUT failed: %s\n",
                           cti_error_str());
@@ -1072,7 +1067,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // done with this ap
     FreeArgv(ap);
-    ap = NULL;
+    ap = nullptr;
 
     // ship over the binaries to the compute nodes
 
@@ -1188,7 +1183,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     DPRINT("MRNet is creating a tree that the dbgsrvs can attach to.\n");
 
     // create the root hostname for mrnet
-    if ((root = cti_getHostname()) == NULL) {
+    if ((root = cti_getHostname()) == nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve node hostname.\n");
         goto invoke_error;
@@ -1198,7 +1193,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     DPRINT("Root has a hostname of [%s]\n", root);
 
     // get a list of the nid hostnames for topology creation
-    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)NULL) {
+    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve nid hostname list.\n");
         goto invoke_error;
@@ -1207,7 +1202,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 #ifdef DEBUG
     DPRINT("Application has the following nid hostnames list:\n");
     tmp = machine_hosts;
-    while (*tmp != (char *)NULL) {
+    while (*tmp != (char *)nullptr) {
         DPRINT("%s ", *tmp++);
     }
     DPRINT("\n");
@@ -1222,22 +1217,22 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // cleanup
     Free(root);
-    root = NULL;
+    root = nullptr;
     tmp = machine_hosts;
-    while (*tmp != NULL) {
+    while (*tmp != nullptr) {
         Free(*tmp++);
     }
     Free(machine_hosts);
-    machine_hosts = NULL;
+    machine_hosts = nullptr;
 
     DPRINT("MRNet is going to create a tree with topology[%s]\n",
            topology_name);
 
     DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
 
-    network = mrn_fe_create_network_no_be(topology_name, &mrn_topology,
+    network = MRNetFrontEnd::create_network_no_be(topology_name, mrn_topology,
                                           di->d_appid, mid);
-    if (network == NULL) {
+    if (network == nullptr) {
         // error already printed
         goto invoke_error;
     }
@@ -1312,7 +1307,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");
     tmp = ap;
-    while (*tmp != (char *)NULL) {
+    while (*tmp != (char *)nullptr) {
         DPRINT("%s ", *tmp++);
     }
     DPRINT("\n");
@@ -1322,10 +1317,10 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 #endif /* DEBUG */
 
     // Forward GUARD_INST_DIRECTORY if set
-    if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != NULL) {
+    if ((env_base_dir = getenv(GUARD_INST_DIRECTORY)) != nullptr) {
         args = (char **)malloc(2 * sizeof(char *));
         Asprintf(&args[0], "%s=%s", GUARD_INST_DIRECTORY, env_base_dir);
-        args[1] = (char *)NULL;
+        args[1] = (char *)nullptr;
     }
 
     DPERFLOG(SetTimerStart("mrnet backend attach"));
@@ -1342,26 +1337,26 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
                            (const char *const *)args)) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
-        if (args != NULL) {
+        if (args != nullptr) {
             free(args[0]);
             free(args);
-            args = NULL;
+            args = nullptr;
         }
         goto invoke_error;
     }
 
-    if (args != NULL) {
+    if (args != nullptr) {
         free(args[0]);
         free(args);
-        args = NULL;
+        args = nullptr;
     }
 
     // done with the argv array
     FreeArgv(ap);
-    ap = NULL;
+    ap = nullptr;
 
     // wait for the debug servers to connect to the mrnet tree
-    rtn = mrn_fe_attach_be(network, di->d_nproc, mrnet_timeout);
+    rtn = network->attach_be(di->d_nproc, mrnet_timeout);
     if (rtn) {
         if (rtn > 0) {
             PrintOutError(
@@ -1369,7 +1364,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
                 "timeout!\n");
         } else {
             PrintOutError(
-                "ERROR: DbgMRNInvoke had null network information!\n");
+                "ERROR: DbgMRNInvoke had nullptr network information!\n");
         }
 
         goto invoke_error;
@@ -1382,7 +1377,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
         "MRNet is going to create communication streams for the debugging "
         "network...\n");
 
-    if (mrn_fe_create_streams_and_load_filter(network, AGGREGATION_FILTER,
+    if (network->create_streams_and_load_filter(AGGREGATION_FILTER,
                                               AGGREGATION_FUNC)) {
         PrintOutError(
             "ERROR: DbgMRNInvoke failed to load filter functions and create "
@@ -1393,9 +1388,9 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     DPRINT("Debugging network startup completed.\n");
     PrintOutMsg("Finalizing setup...\n");
 
-    mrn_fe_enable_failure_callback(network, di);
+    network->enable_failure_callback(di);
 
-    if ((num_be = mrn_fe_get_num_of_be(network)) != di->d_nproc) {
+    if ((num_be = network->get_num_of_be()) != di->d_nproc) {
         PrintOutError(
             "ERROR: MRNet has an incorrect number of debug servers.\n");
         PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
@@ -1421,7 +1416,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     di->d_evfds = NewList();
 
     // setup the event notification fd for the io stream
-    event_fd = mrn_fe_get_io_notificationfd(network);
+    event_fd = network->get_io_notificationfd();
 
     // create an int to hold the io stream fd. Note that this will get free'ed
     // later on when the dbg invoke gets cleaned up.
@@ -1433,7 +1428,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     AddToList(di->d_evfds, (void *)ev_fd_ptr);
 
     // setup the event notification fd for the event stream
-    event_fd = mrn_fe_get_event_notificationfd(network);
+    event_fd = network->get_event_notificationfd();
 
     // create an int to hold the event stream fd.
     ev_fd_ptr = (int *)Alloc(sizeof(int));
@@ -1446,7 +1441,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // broadcast an INVOKE command to complete the invoke callback
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
 
-    if (mrn_fe_setup_streams(network, request.c_str())) {
+    if (network->setup_streams(request.c_str())) {
         PrintOutError(
             "ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
         goto invoke_error;
@@ -1476,7 +1471,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // setup the program output stream handler if we are handling output - Note
     // we need to do this after the startup event completes. Otherwise the proxy
     // might segfault...
-    if (po != NULL) {
+    if (po != nullptr) {
         ev_fd_ptr = (int *)Alloc(sizeof(int));
         *ev_fd_ptr = po->p_o_rfd;
 
@@ -1494,7 +1489,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
 invoke_error:
 
-    if (ap != NULL) FreeArgv(ap);
+    if (ap != nullptr) FreeArgv(ap);
 
     if (di->d_appid != 0) {
         cti_killApp(di->d_appid, SIGKILL);
@@ -1502,15 +1497,15 @@ invoke_error:
         di->d_appid = 0;
     }
 
-    if (network != NULL) {
-        mrn_fe_delete_network(network);
+    if (network != nullptr) {
+        delete network;
         // clear the network pointer
-        di->d_proto_net = NULL;
+        di->d_proto_net = nullptr;
     }
 
-    if (machine_hosts != NULL) {
+    if (machine_hosts != nullptr) {
         tmp = machine_hosts;
-        while (*tmp != NULL) {
+        while (*tmp != nullptr) {
             Free(*tmp++);
         }
         Free(machine_hosts);
@@ -1520,16 +1515,16 @@ invoke_error:
 }
 
 int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
-    mrnet_type *network = (mrnet_type *)di->d_proto_net;
+    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
     // shutdown mrnet only if not already in a shutdown state
     if (!di->d_isShutdown) {
-        mrn_fe_delete_network(network);
+        delete network;
     }
 
     // clear the network pointer
-    di->d_proto_net = NULL;
+    di->d_proto_net = nullptr;
 
 #ifdef ALPS
     if (!detach) {
@@ -1550,17 +1545,17 @@ int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     DbgFreeGenericProgOutp(po);
 
     // clear the program output object
-    di->d_proto_outp = NULL;
+    di->d_proto_outp = nullptr;
 
     return 0;
 }
 
 void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
-    mrnet_type *network = (mrnet_type *)di->d_proto_net;
+    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     g_progoutp_t *po;
 
     // Check to see if the network type has been destroyed
-    if (network != NULL) {
+    if (network != nullptr) {
         // call the exit function to force the application to quit
         exit(di, 0);
     }
@@ -1569,12 +1564,12 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
     po = (g_progoutp_t *)di->d_proto_outp;
 
     // Check to see if the output stream has been destroyed
-    if (po != NULL) {
+    if (po != nullptr) {
         // Destroy the program output object
         DbgFreeGenericProgOutp(po);
 
         // clear the program output object
-        di->d_proto_outp = NULL;
+        di->d_proto_outp = nullptr;
     }
 }
 
@@ -1684,12 +1679,12 @@ bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
 */
 int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
     proto_message *msg;
-    dbgevent_t *e = NULL;
+    dbgevent_t *e = nullptr;
     int err = 0;
 
-    if (set == NULL) return 0;
+    if (set == nullptr) return 0;
 
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+    while ((msg = NextProtoMsgInSet(set)) != nullptr) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg->message);
 
@@ -1734,12 +1729,12 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
 */
 int MRNLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
     proto_message *msg;
-    dbgevent_t *e = NULL;
+    dbgevent_t *e = nullptr;
     int err = 0;
 
-    if (set == NULL) return 0;
+    if (set == nullptr) return 0;
 
-    while ((msg = NextProtoMsgInSet(set)) != NULL) {
+    while ((msg = NextProtoMsgInSet(set)) != nullptr) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg->message);
 

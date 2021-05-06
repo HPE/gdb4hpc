@@ -155,4 +155,7 @@ DebugClientProtocol * const findClientProtoByName(const char* protoName);
 
 extern int WaitForProtoStartupEvent(struct dbginvoke *);
 
+// called once to register available protocols
+void registerProtos();
+
 #endif /* !_DBGCLNT_PROTO_H */

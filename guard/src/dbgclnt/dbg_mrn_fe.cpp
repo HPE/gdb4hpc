@@ -1,13 +1,13 @@
 /*********************************************************************************\
- * dbg_mrn_fe.c
+ * dbg_mrn_fe.cpp
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
- * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
- * no part of this work or its content may be used, reproduced or disclosed
- * in any form.
+ * Except as permitted by contract or express written permission of Hewlett
+ * Packard Enterprise Development LP., no part of this work or its content may
+ * be used, reproduced or disclosed in any form.
  *
  *********************************************************************************/
 
@@ -21,12 +21,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "Communicator_C.h"
-#include "MRNet_C.h"
-#include "Network_C.h"
-#include "Packet_C.h"
-#include "Stream_C.h"
-#include "Topology_C.h"
 #include "alloc.h"
 #include "bitset.h"
 #include "dbg_client.h"
@@ -35,153 +29,146 @@
 #include "defs.h"
 #include "list.h"
 #include "mrn_topgen.h"
+#include "mrnet/Communicator.h"
+#include "mrnet/Event.h"
+#include "mrnet/FilterIds.h"
+#include "mrnet/Network.h"
+#include "mrnet/NetworkTopology.h"
+#include "mrnet/Packet.h"
+#include "mrnet/Stream.h"
 #include "smart_bitset.h"
 
-struct multicast_type {
+struct MulticastType {
+    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, bitset *target);
+    ~MulticastType();
+
     bitset *target;
-    MRNet_Communicator *comm;
-    MRNet_Stream *stream;
+    MRN::Communicator *comm;
+    MRN::Stream *stream;
 };
-typedef struct multicast_type multicast_type;
 
-static multicast_type *new_multicast_type(MRNet_Communicator *comm,
-                                          MRNet_Stream *stream,
-                                          bitset *target) {
-    multicast_type *mc_type = (multicast_type *)Alloc(sizeof(multicast_type));
+struct CallbackHandlerInfo {
+    int num_callbacks;
+    pthread_mutex_t callback_lock;
+    pthread_mutexattr_t callback_lock_attr;
+};
 
-    mc_type->target = bitset_dup(target);
-    mc_type->comm = comm;
-    mc_type->stream = stream;
+struct FailureHandlerInfo {
+    void (*failure_func)(void *);
+    pthread_mutex_t failure_lock;
+    pthread_mutexattr_t failure_lock_attr;
+};
 
-    return mc_type;
+static CallbackHandlerInfo callback_handler;
+static FailureHandlerInfo *failure_handler = nullptr;
+
+static int get_num_callbacks() {
+    int rtn;
+    // grab the lock, read the value, then release
+    // we had a data contention here before
+    pthread_mutex_lock(&callback_handler.callback_lock);
+    rtn = callback_handler.num_callbacks;
+    pthread_mutex_unlock(&callback_handler.callback_lock);
+
+    return rtn;
 }
 
-static void free_multicast_type(multicast_type *mc) {
-    bitset_free(mc->target);
-    mc->target = NULL;
-    mc->comm = NULL;
-    mc->stream = NULL;
-
-    Free(mc);
-}
-inline int ptr_to_int(void *p) { return (char *)p - (char *)0; }
-inline void *int_to_ptr(int i) { return (char *)0 + i; }
-
-static void mrn_add_event_stream(mrnet_type *mrnet, MRNet_Stream *event) {
-    if (event) {
-        int eventFd = stream_get_DataNotificationFd(event);
-        AddToList(mrnet->event_streams, event);
-        AddToList(mrnet->event_nfds, int_to_ptr(eventFd));
-    }
-}
-
-static mrnet_type *new_mrnet_type(MRNet_Network *network,
-                                  MRNet_Communicator *comm, MRNet_Stream *cmd,
-                                  MRNet_Stream *event, MRNet_Stream *io,
-                                  int num_be, int filter) {
-    mrnet_type *mrnet = (mrnet_type *)Alloc(sizeof(mrnet_type));
-
-    mrnet->network = network;
-    mrnet->comm_bc = comm;
-    mrnet->cmd_stream = cmd;
-    mrnet->event_streams = NewList();
-    mrnet->event_nfds = NewList();
-    mrn_add_event_stream(mrnet, event);
-    mrnet->io_stream = io;
-    mrnet->io_nfd = -1;
-
-    mrnet->filter_id = filter;
-    mrnet->num_be = num_be;
-    if (num_be > 0) {
-        mrnet->bitset_full = bitset_new(num_be);
-        bitset_invert(mrnet->bitset_full);
-    } else {
-        mrnet->bitset_full = NULL;
-    }
-    mrnet->mc_streams = NewList();
-
-    return mrnet;
-}
-
-static void free_mrnet_type(mrnet_type *mrnet) {
-    mrnet->network = NULL;
-    mrnet->comm_bc = NULL;
-    mrnet->cmd_stream = NULL;
-    DestroyList(mrnet->event_streams, NULL);
-    mrnet->io_stream = NULL;
-    bitset_free(mrnet->bitset_full);
-    if (mrnet->mc_streams != NULL)
-        DestroyList(mrnet->mc_streams, (void (*)(void *))free_multicast_type);
-    DestroyList(mrnet->event_nfds, NULL);
-
-    Free(mrnet);
-}
-
-static void release_mrnet_resource(
-    mrnet_type *mrnet) /*TODO: how about communicator ? */
+MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
+                             bitset *target)
+    : comm{comm}, stream{stream} 
 {
-    list_t *mc_streams = NULL;
-    multicast_type *mc_type = NULL;
-
-    if (mrnet->cmd_stream != NULL) stream_delete(mrnet->cmd_stream);
-
-    SetList(mrnet->event_streams);
-    while (MRNet_Stream *s =
-               (MRNet_Stream *)GetListElement(mrnet->event_streams))
-        stream_delete(s);
-
-    if (mrnet->io_stream != NULL) stream_delete(mrnet->io_stream);
-
-    if (mrnet->mc_streams != NULL) {
-        mc_streams = mrnet->mc_streams;
-
-        SetList(mc_streams);
-        while ((mc_type = (multicast_type *)GetListElement(mc_streams)) !=
-               (multicast_type *)NULL) {
-            if (mc_type->stream != NULL) stream_delete(mc_type->stream);
-        }
-    }
-
-    if (mrnet->network != NULL) network_delete(mrnet->network);
+    target = bitset_dup(target);
 }
 
-static MRNet_Stream *get_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto,
-                                bitset *target) {
-    list_t *mc_streams = NULL;
-    multicast_type *mc_type = NULL;
-    MRNet_Stream *stream = NULL;
+MulticastType::~MulticastType() { bitset_free(target); }
 
-    if (mrnet == NULL) return NULL;
+static inline int ptr_to_int(void *p) { return (char *)p - (char *)0; }
+static inline void *int_to_ptr(int i) { return (char *)0 + i; }
+
+void MRNetFrontEnd::add_event_stream(MRN::Stream *event_stream) {
+    if (event_stream != nullptr) {
+        int eventFd = event_stream->get_DataNotificationFd();
+        AddToList(m_event_streams, event_stream);
+    AddToList(m_event_nfds, int_to_ptr(eventFd));
+    }
+}
+
+MRNetFrontEnd::MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd, MRN::Stream *event,
+             MRN::Stream *io, int num_be, int filter)
+    : m_network{network},
+      m_cmd_stream{cmd},
+      m_io_stream{io},
+      m_event_streams{NewList()},
+      m_mc_streams{NewList()},
+      m_event_nfds{NewList()},
+      m_io_nfd{-1},
+      m_filter_id{filter},
+      m_num_be{num_be}
+{
+    add_event_stream(event);
+    if (num_be > 0) {
+        m_bitset_full = bitset_new(num_be);
+        bitset_invert(m_bitset_full);
+    } else {
+        m_bitset_full = nullptr;
+    }
+}
+
+MRNetFrontEnd::~MRNetFrontEnd() {
+    delete m_cmd_stream;
+    delete m_io_stream;
+
+    // DestroyList is safe to call with nullptr, no need to check if
+    // m_event_streams is null
+    DestroyList(m_event_streams, [](void *stream) {
+        delete static_cast<MRN::Stream *>(stream);
+    });
+
+    DestroyList(m_mc_streams, [](void *voidMulti) {
+        auto *multi = static_cast<MulticastType *>(voidMulti);
+        if (multi != nullptr)
+            delete multi->stream;
+        delete multi;
+    });
+
+    // for this list we are cheeky and store the fds directly as void
+    // pointers and cast them to ints to use them. so there is no need to pass a
+    // deletion function here. see the ptr_to_int and int_to_ptr functions.
+    DestroyList(m_event_nfds, nullptr);
+
+    bitset_free(m_bitset_full);
+    
+    delete m_network; // needs to be deleted last
+}
+
+MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, bitset *target) const {
+    MRN::Stream *stream = nullptr;
 
     switch (proto) {
         case DBG_MRNet_PRO_COMMAND:
-            if (target == NULL ||
-                bitset_eq(mrnet->bitset_full, target))  // is it a broadcast?
-            {
-                stream = mrnet->cmd_stream;
+            // is it a broadcast?
+            if (target == nullptr || bitset_eq(m_bitset_full, target)) {
+                stream = m_cmd_stream;
             } else {
-                mc_streams = mrnet->mc_streams;
                 // look for multicast stream
-                SetList(mc_streams);
-                while ((mc_type = (multicast_type *)GetListElement(
-                            mc_streams)) != (multicast_type *)NULL) {
-                    if (bitset_eq(mc_type->target, target)) break;
-                }
-
-                if (mc_type != NULL)  // found multicast stream
-                {
-                    stream = mc_type->stream;
+                SetList(m_mc_streams);
+                while (auto *mc_type = static_cast<MulticastType *>(GetListElement(m_mc_streams))) {
+                    if (bitset_eq(mc_type->target, target)) {
+                        // found multicast stream
+                        stream = mc_type->stream;
+                        break;
+                    }
                 }
             }
             break;
         case DBG_MRNet_PRO_EVENT:
-            stream = (MRNet_Stream *)(EmptyList(mrnet->event_streams)
-                                          ? NULL
-                                          : GetListNumElement(
-                                                mrnet->event_streams, 0));
+            stream = static_cast<MRN::Stream *>(
+                EmptyList(m_event_streams)
+                    ? nullptr
+                    : GetListNumElement(m_event_streams, 0));
             break;
         case DBG_MRNet_PRO_IO:
-            stream = mrnet->io_stream;
+            stream = m_io_stream;
             break;
         default:
             PrintOutError("ERROR: get_stream invalid proto[%d]\n", proto);
@@ -190,32 +177,75 @@ static MRNet_Stream *get_stream(mrnet_type *mrnet, DBG_MRNet_PROTOCOL proto,
     return stream;
 }
 
-static MRNet_Stream *create_stream(mrnet_type *mrnet, bitset *target,
-                                   MRNet_Stream **event_stream) {
-    if (mrnet == NULL || target == NULL) {
-        *event_stream = NULL;
-        return NULL;
+MRN::Stream *MRNetFrontEnd::create_stream(bitset *target, MRN::Stream *&event_stream) {
+    if (target == nullptr) {
+        event_stream = nullptr;
+        return nullptr;
     }
 
-    MRNet_Communicator *comm =
-        network_create_communicator(mrnet->network, target, ATTACHBE_RANK_SKEW);
+    std::set<MRN::Rank> endpointers;
+    int size = bitset_size(target);
+    for (int bit = 0; bit < size; ++bit)
+        if (bitset_test(target, bit))
+            endpointers.insert(static_cast<MRN::Rank>(bit + ATTACHBE_RANK_SKEW));
+    auto *comm = m_network->new_Communicator(endpointers);
 
     // Create the broadcast stream
-    MRNet_Stream *stream = network_create_stream_syncfilter(
-        mrnet->network, comm, mrnet->filter_id);
+    auto *stream =
+        m_network->new_Stream(comm, m_filter_id, MRN::SFILTER_WAITFORALL);
 
-    multicast_type *mc_type = new_multicast_type(comm, stream, target);
-    AddToList(mrnet->mc_streams, mc_type);
+    auto *mc_type = new MulticastType(comm, stream, target);
+    AddToList(m_mc_streams, mc_type);
 
     // Create the event stream for handling asynchronous output from the
     // debugger
     int filter_timeout = get_mrn_filter_timeout();
-    *event_stream = network_create_stream_timefilter(
-        mrnet->network, comm, mrnet->filter_id, filter_timeout);
+    event_stream =
+        m_network->new_Stream(comm, m_filter_id, MRN::SFILTER_TIMEOUT);
+    event_stream->set_FilterParameters(MRN::FILTER_UPSTREAM_SYNC, "%ud",
+                                       filter_timeout);
 
-    mrn_add_event_stream(mrnet, *event_stream);
+    add_event_stream(event_stream);
 
     return stream;
+}
+
+/* temporary supporting only one network */
+/* TODO: extension for multiple networks */
+static void BE_Add_Callback(MRN::Event *evt, void *) {
+    if ((evt->get_Class() == MRN::Event::TOPOLOGY_EVENT) &&
+        (evt->get_Type() == MRN::TopologyEvent::TOPOL_ADD_BE)) {
+        // grab the lock, write the value, then release
+        pthread_mutex_lock(&callback_handler.callback_lock);
+        ++(callback_handler.num_callbacks);
+        pthread_mutex_unlock(&callback_handler.callback_lock);
+    }
+}
+
+int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
+    callback_handler.num_callbacks = 0;
+
+    // setup the mutex lock
+    if (pthread_mutexattr_init(&callback_handler.callback_lock_attr)) {
+        // fprintf(*err_stream_ptr, "ERROR: pthread_mutexattr_init failed!\n");
+        return 1;
+    }
+
+    if (pthread_mutex_init(&callback_handler.callback_lock,
+                           &callback_handler.callback_lock_attr)) {
+        // fprintf(*err_stream_ptr, "ERROR: pthread_mutex_init failed!\n");
+        return 1;
+    }
+
+    if (!network.register_EventCallback(MRN::Event::TOPOLOGY_EVENT,
+                                        MRN::TopologyEvent::TOPOL_ADD_BE,
+                                        BE_Add_Callback, nullptr)) {
+        // fprintf( *err_stream_ptr, "ERROR: Failed to register callback for
+        // back-end add topology event!\n");
+        return 1;
+    }
+
+    return 0;
 }
 
 /*------------------------------------------ ---------------------*/
@@ -223,202 +253,111 @@ static MRNet_Stream *create_stream(mrnet_type *mrnet, bitset *target,
 /*------------------------------------------- --------------------*/
 
 /*
-** initialize frontend and launch backend program
-** Currently not called by Cray
-*/
-mrnet_type *mrn_fe_launch_with_filter(const char *topology,
-                                      const char *filter_file,
-                                      const char *filter_name,
-                                      const char *backend_exe,
-                                      char *backend_args[]) {
-    MRNet_Network *network =
-        network_create_FE(topology, backend_exe, backend_args);
-
-    if (network == NULL) return NULL;
-
-    if (network_has_error(network)) {
-        network_print_error(network, "MRNet Network creation failed!\n");
-        return NULL;
-    }
-
-    int filter_id = network_load_filter_func(network, filter_file, filter_name);
-    if (filter_id == -1) {
-        PrintOutError(
-            "ERROR: mrn_fe_launch_with_filter network_load_filter_func() "
-            "failed!\n");
-        network_delete(network);
-        return NULL;
-    }
-
-    MRNet_Communicator *comm_bc = network_get_broadcast_communicator(network);
-    MRNet_Stream *stream_bc =
-        network_create_stream_syncfilter(network, comm_bc, filter_id);
-    int num_be = communicator_get_endpoints_size(comm_bc);
-
-    MRNet_Stream *stream_io =
-        network_create_stream_nofid_nowait(network, comm_bc);
-
-    int filter_timeout = get_mrn_filter_timeout();
-    MRNet_Stream *stream_event = network_create_stream_timefilter(
-        network, comm_bc, filter_id, filter_timeout);
-
-    mrnet_type *mrnet =
-        new_mrnet_type(network, comm_bc, stream_bc, stream_event, stream_io,
-                       num_be, filter_id);
-
-    DPRINT(
-        "mrn_fe_launch_with_filter network[%p] bc_comm[%p] bc_stream[%p] "
-        "num_be[%d]!\n",
-        network, comm_bc, stream_bc, num_be);
-
-    network_set_failure_recovery(network, 0);
-
-    return mrnet;
-}
-
-/*
-** initialize frontend and launch backend program without filter
-** Currently not called by Cray
-*/
-mrnet_type *mrn_fe_launch(char *topology, char *backend_exe,
-                          char *backend_args[]) {
-    MRNet_Network *network =
-        network_create_FE(topology, backend_exe, backend_args);
-
-    if (network == NULL) return NULL;
-
-    if (network_has_error(network)) {
-        network_print_error(network, "Network creation failed!\n");
-        return NULL;
-    }
-
-    MRNet_Communicator *comm_bc = network_get_broadcast_communicator(network);
-    MRNet_Stream *stream_bc =
-        network_create_stream_nofid_nowait(network, comm_bc);
-    int num_be = communicator_get_endpoints_size(comm_bc);
-
-    MRNet_Stream *stream_io =
-        network_create_stream_nofid_nowait(network, comm_bc);
-    MRNet_Stream *stream_event =
-        network_create_stream_nofid_nowait(network, comm_bc);
-
-    mrnet_type *mrnet = new_mrnet_type(network, comm_bc, stream_bc,
-                                       stream_event, stream_io, num_be, -1);
-
-    DPRINT(
-        "mrn_initialize_fe network[%p] comm_bc[%p] bc_stream[%p] num_be[%d] "
-        "mc_streams[%p]!\n",
-        network, comm_bc, stream_bc, num_be, mrnet->mc_streams);
-
-    network_set_failure_recovery(network, 0);
-
-    return mrnet;
-}
-
-/*
 ** initialize frontend for attaching backend programs
 ** Main way of launching/attaching on a Cray
 */
 #ifdef ALPS
-mrnet_type *mrn_fe_create_network_no_be(char *topology_file,
-                                        MRNet_Topology **p_topology,
-                                        int ctiAppid, int ctiMid) {
-    MRNet_Network *network = NULL;
-    int rtn;
-
-    if (topology_file == NULL) {
+MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
+                                   MRN::NetworkTopology *&p_topology,
+                                   int ctiAppid, int ctiMid) {
+    if (topology_file == nullptr) {
         PrintOutError(
-            "ERROR: mrn_fe_create_network_no_be topology_file is NULL!\n");
-        return NULL;
+            "ERROR: mrn_fe_create_network_no_be topology_file is nullptr!\n");
+        return nullptr;
     }
 
-    network = network_create_FE_with_cti(topology_file, ctiAppid, ctiMid);
+    // create network with CTI
+    std::map<std::string, std::string> mrnet_attrs;
+    std::ostringstream appidStr;
+    std::ostringstream midStr;
 
-    if (network_has_error(network)) {
+    appidStr << ctiAppid;
+    midStr << ctiMid;
+    mrnet_attrs.insert(std::make_pair("CRAY_CTI_APPID", appidStr.str()));
+    mrnet_attrs.insert(std::make_pair("CRAY_CTI_MID", midStr.str()));
+
+    auto *network = MRN::Network::CreateNetworkFE(topology_file, nullptr,
+                                                  nullptr, &mrnet_attrs);
+
+    if (network->has_Error()) {
         PrintOutError(
             "ERROR: mrn_fe_create_network_no_be failed to create MRNet "
             "network!\n");
-        return NULL;
+        return nullptr;
     }
 
     // enable network event callbacks
-    rtn = network_register_TopAddBE_event_callback(network);
-
-    if (rtn) {
+    if (register_TopAddBE_event_callback(*network)) {
         PrintOutError(
             "ERROR: mrn_fe_create_network_no_be failed to enable event "
             "callbacks!\n");
-        network_delete(network);
-        return NULL;
+        delete network;
+        return nullptr;
     }
 
-    MRNet_Topology *topology = network_get_topology(network);
+    auto *topology = network->get_NetworkTopology();
 
-    if (topology == NULL) {
+    if (topology == nullptr) {
         PrintOutError(
             "ERROR: mrn_fe_create_network_no_be cannot get topology for "
             "network[%p]\n",
             network);
-        network_delete(network);
-        return NULL;
+        delete network;
+        return nullptr;
     }
 
-    *p_topology = topology;
+    p_topology = topology;
 
-    network_set_failure_recovery(network, 0);
+    network->set_FailureRecovery(false);
 
-    mrnet_type *mrnet = new_mrnet_type(network, NULL, NULL, NULL, NULL, 0, -1);
+    auto *mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
 
     return mrnet;
 }
 #else
-mrnet_type *mrn_fe_create_network_no_be(char *topology_file,
-                                        MRNet_Topology **p_topology) {
-    MRNet_Network *network = NULL;
-    int rtn;
-
-    if (topology_file == NULL) {
+MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
+                                   MRN::NetworkTopology *&p_topology) {
+    if (topology_file == nullptr) {
         PrintOutError(
-            "ERROR: mrn_fe_create_network_no_be topology_file is NULL!\n");
-        return NULL;
+            "ERROR: mrn_fe_create_network_no_be topology_file is nullptr!\n");
+        return nullptr;
     }
 
-    network = network_create_FE(topology_file, NULL, NULL);
+    auto *network =
+        MRN::Network::CreateNetworkFE(topology_file, nullptr, nullptr);
 
-    if (network_has_error(network)) {
-        network_print_error(network,
-                            "ERROR: mrn_fe_create_network_no_be failed to "
-                            "create MRNet network!\n");
-        return NULL;
+    if (network->has_Error()) {
+        network->print_error(
+            "ERROR: mrn_fe_create_network_no_be failed to "
+            "create MRNet network!\n");
+        return nullptr;
     }
 
     // enable network event callbacks
-    rtn = network_register_TopAddBE_event_callback(network);
-
-    if (rtn) {
-        network_print_error(network,
-                            "ERROR: mrn_fe_create_network_no_be failed to "
-                            "enable event callbacks!\n");
-        network_delete(network);
-        return NULL;
+    if (register_TopAddBE_event_callback(*network)) {
+        network->print_error(
+            "ERROR: mrn_fe_create_network_no_be failed to "
+            "enable event callbacks!\n");
+        delete network;
+        return nullptr;
     }
 
-    MRNet_Topology *topology = network_get_topology(network);
+    auto *topology = network->get_NetworkTopology();
 
-    if (topology == NULL) {
+    if (topology == nullptr) {
         PrintOutError(
             "ERROR: mrn_fe_create_network_no_be cannot get topology for "
             "network[%p]\n",
             network);
-        network_delete(network);
-        return NULL;
+        delete network;
+        return nullptr;
     }
 
-    *p_topology = topology;
+    p_topology = topology;
 
-    network_set_failure_recovery(network, 0);
+    network->set_FailureRecovery(false);
 
-    mrnet_type *mrnet = new_mrnet_type(network, NULL, NULL, NULL, NULL, 0, -1);
+    auto *mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
 
     return mrnet;
 }
@@ -427,13 +366,11 @@ mrnet_type *mrn_fe_create_network_no_be(char *topology_file,
 /*
 ** wait for attaching backend programs
 */
-int mrn_fe_attach_be(mrnet_type *mrnet, int num_be, int timeout) {
+int MRNetFrontEnd::attach_be(int num_be, int timeout) {
     int num_callbacks = 0;
     int last_num_callbacks = 0;
     int expire = 0;
     struct timespec timeslice;
-
-    if (mrnet == NULL) return -1;
 
     timeslice.tv_sec = 0;
     timeslice.tv_nsec = 50000000;
@@ -446,9 +383,9 @@ int mrn_fe_attach_be(mrnet_type *mrnet, int num_be, int timeout) {
         timeout);
 
     do {
-        nanosleep(&timeslice, (struct timespec *)NULL);
+        nanosleep(&timeslice, (struct timespec *)nullptr);
 
-        num_callbacks = network_get_num_callbacks();
+        num_callbacks = get_num_callbacks();
         if (num_callbacks == last_num_callbacks) {
             expire++;
         } else {
@@ -474,7 +411,10 @@ int mrn_fe_attach_be(mrnet_type *mrnet, int num_be, int timeout) {
     DPRINT("INFO: mrn_network_wait_for_attaching all dbgsrv have attached!\n");
 
     // remove network event callbacks
-    network_remove_TopAddBE_event_callback(mrnet->network);
+    pthread_mutexattr_destroy(&callback_handler.callback_lock_attr);
+    pthread_mutex_destroy(&callback_handler.callback_lock);
+    m_network->remove_EventCallback(BE_Add_Callback, MRN::Event::TOPOLOGY_EVENT,
+                                    MRN::TopologyEvent::TOPOL_ADD_BE);
 
     return 0;
 }
@@ -483,167 +423,128 @@ int mrn_fe_attach_be(mrnet_type *mrnet, int num_be, int timeout) {
  * load filters and completes the creation of MRNet for attaching backend
  * programs This is how streams are created on a Cray
  */
-int mrn_fe_create_streams_and_load_filter(mrnet_type *mrnet,
+int MRNetFrontEnd::create_streams_and_load_filter(
                                           const char *filter_file,
                                           const char *filter_name) {
-    if (mrnet == NULL) return 1;
-
     DPRINT("INFO: network_load_filter_func filter_file: %s filter_name: %s\n",
            filter_file, filter_name);
     int filter_id =
-        network_load_filter_func(mrnet->network, filter_file, filter_name);
+        m_network->load_FilterFunc(filter_file, filter_name);
     if (filter_id == -1) {
         PrintOutError(
             "mrn_fe_create_streams_and_load_filter "
             "mrn_network_load_filter_and_complete_creation() failed!\n");
-        network_delete(mrnet->network);
+        delete m_network;
         return 1;
     }
 
-    MRNet_Communicator *comm_bc =
-        network_get_broadcast_communicator(mrnet->network);
-    MRNet_Stream *stream_bc =
-        network_create_stream_syncfilter(mrnet->network, comm_bc, filter_id);
-    int num_be = communicator_get_endpoints_size(comm_bc);
+    auto *comm_bc = m_network->get_BroadcastCommunicator();
+    auto *stream_bc = m_network->new_Stream(comm_bc, filter_id, MRN::SFILTER_WAITFORALL);
+    int num_be = comm_bc->size();
 
-    MRNet_Stream *stream_io =
-        network_create_stream_nofid_nowait(mrnet->network, comm_bc);
+    auto *stream_io = m_network->new_Stream(comm_bc, MRN::TFILTER_NULL, MRN::SFILTER_DONTWAIT);
 
     int filter_timeout = get_mrn_filter_timeout();
-    MRNet_Stream *stream_event = network_create_stream_timefilter(
-        mrnet->network, comm_bc, filter_id, filter_timeout);
+    auto *stream_event = m_network->new_Stream(comm_bc, filter_id, MRN::SFILTER_TIMEOUT);
+    stream_event->set_FilterParameters(MRN::FILTER_UPSTREAM_SYNC, "%ud", filter_timeout);
 
     // set the mrnet members
-    mrnet->comm_bc = comm_bc;
-    mrnet->cmd_stream = stream_bc;
-    mrn_add_event_stream(mrnet, stream_event);
-    mrnet->io_stream = stream_io;
-    mrnet->num_be = num_be;
-    mrnet->bitset_full = bitset_new(num_be);
-    bitset_invert(mrnet->bitset_full);
-    mrnet->filter_id = filter_id;
+    m_cmd_stream = stream_bc;
+    add_event_stream(stream_event);
+    m_io_stream = stream_io;
+    m_num_be = num_be;
+    m_bitset_full = bitset_new(num_be);
+    bitset_invert(m_bitset_full);
+    m_filter_id = filter_id;
 
     return 0;
 }
 
-/*
- * completes the creation of MRNet for attaching backend programs without
- * filters Currently not called by Cray
- */
-int mrn_fe_create_streams(mrnet_type *mrnet) {
-    if (mrnet == NULL) return 1;
-
-    MRNet_Communicator *comm_bc =
-        network_get_broadcast_communicator(mrnet->network);
-    MRNet_Stream *stream_bc =
-        network_create_stream_nofid_nowait(mrnet->network, comm_bc);
-    int num_be = communicator_get_endpoints_size(comm_bc);
-
-    MRNet_Stream *stream_io =
-        network_create_stream_nofid_nowait(mrnet->network, comm_bc);
-    MRNet_Stream *stream_event =
-        network_create_stream_nofid_nowait(mrnet->network, comm_bc);
-
-    // set the mrnet members
-    mrnet->comm_bc = comm_bc;
-    mrnet->cmd_stream = stream_bc;
-    mrn_add_event_stream(mrnet, stream_event);
-    mrnet->io_stream = stream_io;
-    mrnet->num_be = num_be;
-    mrnet->bitset_full = bitset_new(num_be);
-    bitset_invert(mrnet->bitset_full);
-
-    return 0;
+int MRNetFrontEnd::get_num_of_be() const {
+    return m_num_be;
 }
 
-int mrn_fe_get_num_of_be(mrnet_type *mrnet) {
-    if (mrnet == NULL) {
-        return 0;
-    }
-
-    return mrnet->num_be;
-}
-
-int mrn_fe_setup_streams(mrnet_type *mrnet, const char *msg) {
-    MRNet_Stream *stream = NULL;
-
-    if (mrnet == NULL || msg == NULL) return -1;
+int MRNetFrontEnd::setup_streams(const char *msg) {
+    if (msg == nullptr)
+        return -1;
 
     // initialize commands stream
-    stream = get_stream(mrnet, DBG_MRNet_PRO_COMMAND, NULL);
-    if (stream == NULL) {
-        PrintOutError(
-            "ERROR: mrn_fe_setup_streams cannot find command stream!\n");
-        return -1;
-    }
+    {
+        auto *stream = get_stream(DBG_MRNet_PRO_COMMAND, nullptr);
+        if (stream == nullptr) {
+            PrintOutError(
+                "ERROR: mrn_fe_setup_streams cannot find command stream!\n");
+            return -1;
+        }
 
-    if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", msg) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
-        return -1;
-    }
+        if (stream->send(DBG_MRNet_PRO_COMMAND, "%s", msg) == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
+            return -1;
+        }
 
-    if (stream_flush(stream) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
-        return -1;
+        if (stream->flush() == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
+            return -1;
+        }
+        DPRINT("mrn_fe_setup_streams has set the command stream. tag[%d]\n",
+            DBG_MRNet_PRO_COMMAND);
     }
-    DPRINT("mrn_fe_setup_streams has set the command stream. tag[%d]\n",
-           DBG_MRNet_PRO_COMMAND);
 
     // initialize io stream
-    stream = get_stream(mrnet, DBG_MRNet_PRO_IO, NULL);
-    if (stream == NULL) {
-        PrintOutError("ERROR: mrn_fe_setup_streams cannot find io stream!\n");
-        return -1;
-    }
+    {
+        auto *stream = get_stream(DBG_MRNet_PRO_IO, nullptr);
+        if (stream == nullptr) {
+            PrintOutError("ERROR: mrn_fe_setup_streams cannot find io stream!\n");
+            return -1;
+        }
 
-    if (stream_send(stream, DBG_MRNet_PRO_IO, "%s", msg) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
-        return -1;
-    }
+        if (stream->send(DBG_MRNet_PRO_IO, "%s", msg) == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
+            return -1;
+        }
 
-    if (stream_flush(stream) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
-        return -1;
+        if (stream->flush() == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
+            return -1;
+        }
+        DPRINT("mrn_fe_setup_streams has set io stream. tag[%d]\n",
+            DBG_MRNet_PRO_IO);
     }
-    DPRINT("mrn_fe_setup_streams has set io stream. tag[%d]\n",
-           DBG_MRNet_PRO_IO);
 
     // initialize event stream
-    stream = get_stream(mrnet, DBG_MRNet_PRO_EVENT, NULL);
-    if (stream == NULL) {
-        PrintOutError(
-            "ERROR: mrn_fe_setup_streams cannot find event stream!\n");
-        return -1;
-    }
+    {
+        auto *stream = get_stream(DBG_MRNet_PRO_EVENT, nullptr);
+        if (stream == nullptr) {
+            PrintOutError(
+                "ERROR: mrn_fe_setup_streams cannot find event stream!\n");
+            return -1;
+        }
 
-    if (stream_send(stream, DBG_MRNet_PRO_EVENT, "%s", msg) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
-        return -1;
-    }
+        if (stream->send(DBG_MRNet_PRO_EVENT, "%s", msg) == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_send() failed!\n");
+            return -1;
+        }
 
-    if (stream_flush(stream) == -1) {
-        PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
-        return -1;
+        if (stream->flush() == -1) {
+            PrintOutError("ERROR: mrn_fe_setup_streams stream_flush() failed!\n");
+            return -1;
+        }
+        DPRINT("mrn_fe_setup_streams has set event stream. tag[%d]\n",
+            DBG_MRNet_PRO_EVENT);
     }
-    DPRINT("mrn_fe_setup_streams has set event stream. tag[%d]\n",
-           DBG_MRNet_PRO_EVENT);
 
     return 0;
 }
 
-int mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg,
-                        MRNet_Stream **event_stream_ptr) {
-    if (mrnet == NULL) return -1;
-
-    MRNet_Stream *stream = NULL;
-
-    stream = get_stream(mrnet, DBG_MRNet_PRO_COMMAND, target);
-    if (stream == NULL) {
-        MRNet_Stream *event_stream = NULL;
-        stream = create_stream(mrnet, target, &event_stream);
+int MRNetFrontEnd::send_command(bitset *target, const char *msg,
+                        MRN::Stream **event_stream_ptr) {
+    auto *stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
+    if (stream == nullptr) {
+        MRN::Stream *event_stream = nullptr;
+        stream = create_stream(target, event_stream);
         *event_stream_ptr = event_stream;
 
-        if (stream == NULL) {
+        if (stream == nullptr) {
             PrintOutError(
                 "ERROR: mrn_fe_send_command_to_group cannot create stream for "
                 "network target[%s]\n",
@@ -651,21 +552,21 @@ int mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg,
             return -1;
         }
 
-        if (event_stream != NULL) {
+        if (event_stream != nullptr) {
             // Send an initializer command along the command stream to register
             // it's matching event stream.
             auto linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u",
                                              MRNCMD_SETEVENTSTREAM,
-                                             stream_get_Id(event_stream));
-            if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", linkMsg.c_str()) ==
-                -1) {
+                                             event_stream->get_Id());
+            if (stream->send(DBG_MRNet_PRO_COMMAND, "%s",
+                            linkMsg.c_str()) == -1) {
                 PrintOutError(
                     "Could not connect event stream to command stream");
             }
         }
     }
 
-    if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%s", msg) == -1) {
+    if (stream->send(DBG_MRNet_PRO_COMMAND, "%s", msg) == -1) {
         PrintOutError(
             "ERROR: mrn_fe_send_command_to_group stream_send() failed!\n");
         return -1;
@@ -674,7 +575,7 @@ int mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg,
     DPRINT("[INFO]: mrn_fe_send_command_to_group via stream for %s\n",
            bitset_to_set(target));
 
-    if (stream_flush(stream) == -1) {
+    if (stream->flush() == -1) {
         PrintOutError(
             "ERROR: mrn_fe_send_command_to_group stream_flush() failed!\n");
         return -1;
@@ -683,55 +584,50 @@ int mrn_fe_send_command(mrnet_type *mrnet, bitset *target, const char *msg,
     return 0;
 }
 
-proto_msg_set *mrn_fe_recv_reply(mrnet_type *mrnet, bitset *target) {
-    MRNet_Stream *cmd_stream = NULL;
-    int tag, retval;
-    MRNet_Packet *packet = NULL;
-    char **strArr;
-    int strLen, msgNum, index;
-    smart_bitset *sb;
-    bitset *bs;
-    proto_msg_set *result;
-
-    if ((cmd_stream = get_stream(mrnet, DBG_MRNet_PRO_COMMAND, target)) ==
-        NULL) {
+proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
+    MRN::Stream *cmd_stream = nullptr;
+    if ((cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target)) ==
+        nullptr) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
             bitset_to_set(target));
-        return NULL;
+        return nullptr;
     }
 
-    retval = stream_recv(cmd_stream, &tag, &packet, MRNET_BLOCKING);
+    MRN::PacketPtr packetPtr;
+    int tag;
+    int retval = cmd_stream->recv(&tag, packetPtr, MRNET_BLOCKING);
 
     if (retval <= 0) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply failed to receive replies! retval[%d]\n",
             retval);
-        return NULL;
+        return nullptr;
     }
 
-    if (packet != NULL &&
-        packet_unpack(packet, "%as", &strArr, &strLen) == -1) {
+    char **strArr;
+    int strLen;
+    if (packetPtr && packetPtr->unpack("%as", &strArr, &strLen) == -1) {
         PrintOutError("ERROR: mrn_fe_recv_reply packet_unpack() failed!\n");
-        return NULL;
+        return nullptr;
     }
 
-    msgNum = strLen / 2;
+    int msgNum = strLen / 2;
     if (msgNum <= 0 || strLen % 2 != 0) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply receivd an invalid number of message: "
             "strLen[%d]\n",
             strLen);
-        return NULL;
+        return nullptr;
     }
 
     // Create the return type
-    result = NewProtoMsgSet();
+    auto *result = NewProtoMsgSet();
 
-    for (index = 0; index < msgNum; index++) {
-        sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
+    for (int index = 0; index < msgNum; index++) {
+        auto *sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
         smart_bitset_convert(sb);
-        bs = bitset_dup(sb->sb_dense);
+        auto *bs = bitset_dup(sb->sb_dense);
 
         smart_bitset_free(sb);
 
@@ -746,58 +642,50 @@ proto_msg_set *mrn_fe_recv_reply(mrnet_type *mrnet, bitset *target) {
     // free the final strArr allocated by packet_unpack
     free(strArr);
 
-    // delete the packet
-    packet_delete(packet);
-
     // reset the message set
     ResetProtoMsgSet(result);
 
     return result;
 }
 
-int mrn_fe_get_io_notificationfd(mrnet_type *mrnet) {
-    MRNet_Stream *io_stream = NULL;
+int MRNetFrontEnd::get_io_notificationfd() {
+    auto* io_stream = get_stream(DBG_MRNet_PRO_IO, nullptr);
 
-    if (mrnet == NULL) return -1;
+    if (io_stream != nullptr) {
+        // set the notification fd for the mrnet_type
+        m_io_nfd = io_stream->get_DataNotificationFd();
+    }
 
-    io_stream = get_stream(mrnet, DBG_MRNet_PRO_IO, NULL);
-
-    // set the notification fd for the mrnet_type
-    mrnet->io_nfd = stream_get_DataNotificationFd(io_stream);
-
-    return mrnet->io_nfd;
+    return m_io_nfd;
 }
 
-int mrn_fe_get_event_notificationfd(mrnet_type *mrnet) {
-    return ptr_to_int(GetListNumElement(mrnet->event_nfds, 0));
+int MRNetFrontEnd::get_event_notificationfd() const {
+    return ptr_to_int(GetListNumElement(m_event_nfds, 0));
 }
 
-proto_msg_set *mrn_fe_dispatch_io(mrnet_type *mrnet, int notification_fd) {
-    MRNet_Stream *io_stream = NULL;
-    MRNet_Packet *packet = NULL;
-    int tag, retval;
-    char *rank = NULL;
-    char *msg = NULL;
-    bitset *source;
-    proto_msg_set *result = NULL;
+proto_msg_set *MRNetFrontEnd::dispatch_io(int notification_fd) {
+    proto_msg_set *result = nullptr;
 
-    if (mrnet == NULL) return NULL;
-
-    if (mrnet->io_nfd == notification_fd) {
+    if (m_io_nfd == notification_fd) {
         DPRINT("mrn_fe_check_io_and_event: handle IO_MESSAGE.\n");
 
-        io_stream = get_stream(mrnet, DBG_MRNet_PRO_IO, NULL);
+        auto *io_stream = get_stream(DBG_MRNet_PRO_IO, nullptr);
 
         // clear the io_stream notification fd
-        stream_clear_DataNotificationFd(io_stream);
+        io_stream->clear_DataNotificationFd();
 
         // Try to recv as many packets as possible
+        int retval;
+
         do {
-            retval = stream_recv(io_stream, &tag, &packet, MRNET_UNBLOCKING);
+            int tag;
+            MRN::PacketPtr packetPtr;
+            retval = io_stream->recv(&tag, packetPtr, MRNET_UNBLOCKING);
 
             if (retval > 0 && tag == DBG_MRNet_PRO_IO) {
-                if (packet != NULL &&
-                    packet_unpack(packet, "%s %s", &rank, &msg) == -1) {
+                char *rank, *msg;
+
+                if (packetPtr && packetPtr->unpack("%s %s", &rank, &msg) == -1) {
                     PrintOutError("ERROR: packet_unpack() failure\n");
                     // reset the message set
                     ResetProtoMsgSet(result);
@@ -805,34 +693,29 @@ proto_msg_set *mrn_fe_dispatch_io(mrnet_type *mrnet, int notification_fd) {
                 }
 
                 // Create the return type if it hasn't been created already
-                if (result == NULL) {
+                if (result == nullptr) {
                     result = NewProtoMsgSet();
                 }
 
                 // Create a mrnet_message for this packet and add it to the
                 // result
-                if (rank != NULL) {
-                    source = str_to_bitset(rank, NULL);
-                } else {
-                    source = NULL;
+                bitset *source = nullptr;
+                if (rank != nullptr) {
+                    source = str_to_bitset(rank, nullptr);
                 }
 
                 AddProtoMsgSet(result, NewProtoMsg(source, msg));
-
 #ifdef DEBUG
-                if (msg != NULL)
+                if (msg != nullptr)
                     DPRINT(
                         "INFO: mrn_fe_check_io_and_event() received io: %s "
                         "from [%s]!\n",
                         msg, rank);
                 else
                     DPRINT(
-                        "INFO: mrn_fe_check_io_and_event() received NULL "
+                        "INFO: mrn_fe_check_io_and_event() received nullptr "
                         "io!\n");
 #endif
-                // delete the packet
-                packet_delete(packet);
-
             } else if (retval < 0) {
                 PrintOutError(
                     "ERROR: mrn_fe_check_io_and_event() received an invalid "
@@ -851,40 +734,37 @@ proto_msg_set *mrn_fe_dispatch_io(mrnet_type *mrnet, int notification_fd) {
     return result;
 }
 
-proto_msg_set *mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd) {
-    MRNet_Stream *event_stream = NULL;
-    MRNet_Packet *packet = NULL;
-    int tag, retval;
-    char **strArr;
-    int strLen, msgNum, index;
-    smart_bitset *sb = NULL;
-    bitset *bs = NULL;
-    proto_msg_set *result = NULL;
-
-    if (mrnet == NULL) return NULL;
+proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
+    proto_msg_set *result = nullptr;
 
     void *notification_fdptr = int_to_ptr(notification_fd);
-    if (InList(mrnet->event_nfds, notification_fdptr)) {
+    if (InList(m_event_nfds, notification_fdptr)) {
         DPRINT("mrn_fe_check_io_and_event: handle EVENT_MESSAGE.\n");
 
         // find the event_stream corresponding to the event_fd
-        SetList(mrnet->event_nfds);
-        SetList(mrnet->event_streams);
-        while ((event_stream =
-                    (MRNet_Stream *)GetListElement(mrnet->event_streams)),
-               (GetListElement(mrnet->event_nfds) != notification_fdptr)) {
+        SetList(m_event_nfds);
+        SetList(m_event_streams);
+        MRN::Stream *event_stream = nullptr;
+        while (event_stream = static_cast<MRN::Stream *>(GetListElement(m_event_streams)),
+               GetListElement(m_event_nfds) != notification_fdptr) {
         }
 
         // clear the event_stream notification fd
-        stream_clear_DataNotificationFd(event_stream);
+        event_stream->clear_DataNotificationFd();
+
+        int retval;
 
         // Try to recv as many packets as possible
         do {
-            retval = stream_recv(event_stream, &tag, &packet, MRNET_UNBLOCKING);
+            int tag;
+            MRN::PacketPtr packetPtr;
+            retval = event_stream->recv(&tag, packetPtr, MRNET_UNBLOCKING);
 
             if (retval > 0 && tag == DBG_MRNet_PRO_EVENT) {
-                if (packet != NULL &&
-                    packet_unpack(packet, "%as", &strArr, &strLen) == -1) {
+                char **strArr;
+                int strLen;
+                if (packetPtr &&
+                    packetPtr->unpack("%as", &strArr, &strLen) == -1) {
                     PrintOutError(
                         "ERROR: mrn_fe_check_io_and_event packet_unpack() "
                         "failed!\n");
@@ -898,7 +778,8 @@ proto_msg_set *mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd) {
                     "messages.\n",
                     strLen);
 
-                if (((msgNum = strLen / 2) <= 0) || (strLen % 2 != 0)) {
+                int msgNum = strLen / 2;
+                if (msgNum <= 0 || strLen % 2 != 0) {
                     PrintOutError(
                         "ERROR: mrn_fe_check_io_and_event received incorrect "
                         "number of message: strLen[%d]\n",
@@ -909,17 +790,17 @@ proto_msg_set *mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd) {
                 }
 
                 // Create the return type if it hasn't been created already
-                if (result == NULL) {
+                if (result == nullptr) {
                     result = NewProtoMsgSet();
                 }
 
-                for (index = 0; index < msgNum; index++) {
-                    sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
+                for (int index = 0; index < msgNum; index++) {
+                    auto *sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
                     smart_bitset_convert(sb);
-                    bs = bitset_dup(sb->sb_dense);
+                    auto *bs = bitset_dup(sb->sb_dense);
 
                     smart_bitset_free(sb);
-                    sb = NULL;
+                    sb = nullptr;
 
                     // Create a proto_message for this packet and add it to the
                     // result
@@ -932,10 +813,6 @@ proto_msg_set *mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd) {
 
                 // Cleanup the strArr
                 free(strArr);
-
-                // delete the packet
-                packet_delete(packet);
-
             } else if (retval < 0) {
                 PrintOutError(
                     "ERROR: mrn_fe_check_io_and_event() invalid tag[%d] for "
@@ -954,14 +831,7 @@ proto_msg_set *mrn_fe_dispatch_event(mrnet_type *mrnet, int notification_fd) {
     return result;
 }
 
-void mrn_fe_delete_network(mrnet_type *mrnet) {
-    if (mrnet == NULL) return;
-
-    release_mrnet_resource(mrnet);
-    free_mrnet_type(mrnet);
-}
-
-static void mrnet_fe_failure_callback(void *cb_data) {
+static void failure_callback(void *cb_data) {
     dbginvoke_t *di = (dbginvoke_t *)cb_data;
 
     PrintOutError("\nERROR: MRNet failure callback invoked.\n");
@@ -978,44 +848,98 @@ static void mrnet_fe_failure_callback(void *cb_data) {
     ForceQuit();
 }
 
-void mrn_fe_enable_failure_callback(mrnet_type *mrnet, dbginvoke_t *di) {
-    if (mrnet == NULL) return;
+static void update_and_call_failure_callback(MRN::Event *evt, void *cb_data) {
+    if (evt->get_Class() == MRN::Event::TOPOLOGY_EVENT) {
+        if (evt->get_Type() == MRN::TopologyEvent::TOPOL_REMOVE_NODE) {
+            // fprintf(*err_stream_ptr, "MRNet [TOPOL_REMOVE_NODE] failure event
+            // recieved.\n");
+        } else if (evt->get_Type() == MRN::TopologyEvent::TOPOL_CHANGE_PARENT) {
+            // fprintf(*err_stream_ptr, "MRNet [TOPOL_CHANGE_PARENT] failure
+            // event recieved.\n");
+        } else {
+            return;
+        }
 
-    network_register_Failure_event_callback(
-        mrnet->network, (void (*)())mrnet_fe_failure_callback, (void *)di);
+        // lets handle the callback.
+
+        // ensure that the failure_handler is not null
+        if (failure_handler == nullptr) return;
+
+        // grab the lock, call the registered handler, then release
+        pthread_mutex_lock(&failure_handler->failure_lock);
+
+        if (failure_handler->failure_func != nullptr)
+            (failure_handler->failure_func)(cb_data);
+
+        pthread_mutex_unlock(&failure_handler->failure_lock);
+    }
 }
 
-static void display_leaves_for_network(MRNet_Network *network) {
-    MRNet_Topology *topology;
-    MRNet_Node_t *nodes;
+void MRNetFrontEnd::enable_failure_callback(dbginvoke_t *di) {
+    // we only want to init the failure_handler if it hasen't been initialized
+    // before.
+    if (failure_handler == nullptr) {
+        failure_handler = new FailureHandlerInfo;
 
-    topology = network_get_topology(network);
-    if (topology == NULL) {
+        if (failure_handler == nullptr) {
+            // fprintf(*err_stream_ptr, "ERROR: malloc failed!\n");
+            return;
+        }
+
+        failure_handler->failure_func = failure_callback;
+
+        // this needs to be made threadsafe...
+        // we only want to initialize the mutex once.
+        if (pthread_mutexattr_init(&failure_handler->failure_lock_attr)) {
+            // fprintf(*err_stream_ptr, "ERROR: pthread_mutexattr_init
+            // failed!\n");
+            return;
+        }
+
+        if (pthread_mutex_init(&failure_handler->failure_lock,
+                                 &failure_handler->failure_lock_attr)) {
+            // fprintf(*err_stream_ptr, "ERROR: pthread_mutex_init failed!\n");
+            return;
+        }
+    } else {
+        failure_handler->failure_func = failure_callback;
+    }
+
+    m_network->register_EventCallback(
+        MRN::Event::TOPOLOGY_EVENT, MRN::TopologyEvent::TOPOL_REMOVE_NODE,
+        update_and_call_failure_callback, static_cast<void *>(di), true);
+
+    m_network->register_EventCallback(
+        MRN::Event::TOPOLOGY_EVENT, MRN::TopologyEvent::TOPOL_CHANGE_PARENT,
+        update_and_call_failure_callback, static_cast<void *>(di), true);
+}
+
+void MRNetFrontEnd::debug_print_network_topology() {
+    MRN::NetworkTopology *topology = m_network->get_NetworkTopology();
+
+    if (topology == nullptr) {
         PrintOutError(
-            "ERROR: display_leaves_for_network cannot get topology for "
+            "ERROR: debug_print_network_topology cannot get topology for "
             "network.\n");
         return;
     }
 
-    int num_leaves = topology_get_leaves(topology, &nodes);
+    std::vector<MRN::NetworkTopology::Node *> leaves;
+    topology->get_Leaves(leaves);
+    int num_leaves = leaves.size();
 
     if (num_leaves <= 0) {
         PrintOutError(
-            "ERROR: display_leaves_for_network network has no leaves.\n");
+            "ERROR: debug_print_network_topology network has no leaves.\n");
         return;
     }
 
     PrintOutMsg("Leaf node info for network.\n");
-    int index;
-    for (index = 0; index < num_leaves; ++index) {
+    int index = 0;
+    for (const auto &leafPtr : leaves) {
         PrintOutMsg("\tcurrent_node[%d] host[%s] port[%d] rank[%d]\n", index,
-                    nodes[index].hostname, nodes[index].port,
-                    nodes[index].rank);
+                    leafPtr->get_HostName().c_str(), leafPtr->get_Port(),
+                    leafPtr->get_Rank());
+        index++;
     }
-}
-
-void mrn_fe_debug_print_network_topology(mrnet_type *mrnet) {
-    if (mrnet == NULL) return;
-
-    display_leaves_for_network(mrnet->network);
 }

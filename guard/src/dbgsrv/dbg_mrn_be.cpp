@@ -22,11 +22,6 @@
 
 #include "dbg_mrn_be.h"
 
-#include "Communicator_C.h"
-#include "MRNet_C.h"
-#include "Network_C.h"
-#include "Packet_C.h"
-#include "Stream_C.h"
 #include "alloc.h"
 #include "dbg_mrn.h"
 #include "dbgcmd.h"
@@ -36,123 +31,72 @@
 #include "defs.h"
 #include "smart_bitset.h"
 
-/*
- * data structures for MRNet backend
- */
-
-struct mrnet_be_type {
-    MRNet_Network* network;
-
-    MRNet_Stream* bc_stream_cmd;
-    MRNet_Stream* bc_stream_event;
-
-    MRNet_Stream* stream_cmd;
-    MRNet_Stream* stream_event;
-    MRNet_Stream* stream_io;
-    MRNet_Stream* stream_single;  // TODO: using singlecast stream to reply
-                                  // simgle cast cmd
-    int cmd_fd;    // for notification of events on cmd stream
-    int event_fd;  // for notification of events on event stream
-    int io_fd;     // for notification of events on io stream
-
-    int rank;               // rankd of backend
-    smart_bitset* rank_bs;  // smart_bitset
-    char* rank_bs_str;
-
-    int network_size;
-
-    list_t* cmd_streams;    // procset streams created for working with subset
-    list_t* event_streams;  // asynch return streams for each of cmd_streams
-};
-typedef struct mrnet_be_type mrnet_be_type;
+#include "mrnet/Stream.h"
+#include "mrnet/Network.h"
 
 // class to associate the event call-back stream for the asynch response of
 // breakpoint/watchpoints
 class mrncomm_info : public dbgcomm_info {
    public:
-    mrncomm_info(MRNet_Stream* inStream) : stream(inStream) {}
+    mrncomm_info(MRN::Stream* inStream) : stream(inStream) {}
     dbgcomm_info* clone() const { return new mrncomm_info(*this); }
 
-    MRNet_Stream* getStream() const { return stream; }
+    MRN::Stream* getStream() const { return stream; }
 
    private:
-    MRNet_Stream* stream;
+    MRN::Stream* stream;
 };
 
-static mrnet_be_type* mrnet_be = NULL;
-static list_t* msg_list = NULL;
-
-void (*dbgsrv_callback)(char* msg, const dbgcomm_info*) = NULL;
-
-mrnet_be_type* new_mrnet_be_type() {
-    mrnet_be_type* mrnet = (mrnet_be_type*)Alloc(sizeof(mrnet_be_type));
-
-    mrnet->network = NULL;
-
-    mrnet->bc_stream_cmd = NULL;
-    mrnet->bc_stream_event = NULL;
-
-    mrnet->stream_cmd = NULL;
-    mrnet->stream_event = NULL;
-    mrnet->stream_io = NULL;
-    mrnet->stream_single = NULL;
-    mrnet->event_fd = 0;
-
-    mrnet->rank_bs = NULL;
-    mrnet->rank_bs_str = NULL;
-
-    mrnet->cmd_streams = NewList();
-    mrnet->event_streams = NewList();
-
-    return mrnet;
-}
-
-void free_mrnet_be_type(mrnet_be_type* mrnet) {
-    if (mrnet == NULL) return;
-
-    if (mrnet->rank_bs != NULL) smart_bitset_free(mrnet->rank_bs);
-
-    Free(mrnet->rank_bs_str);
-
-    Free(mrnet);
-    DestroyList(mrnet->cmd_streams, NULL);
-    DestroyList(mrnet->event_streams, NULL);
-}
-
-/*
-** initialize backend
-*/
-int mrn_be_create_network(int argc, char* argv[]) {
-    mrnet_be = new_mrnet_be_type();
-    msg_list = NewList();
-
-    mrnet_be->network = network_create_BE(argc, argv);
-    if (mrnet_be->network == NULL) {
+MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
+    : m_network{MRN::Network::CreateNetworkBE(argc, argv)},
+      m_bc_stream_cmd{nullptr},
+      m_bc_stream_event{nullptr},
+      m_stream_cmd{nullptr},
+      m_stream_event{nullptr},
+      m_stream_io{nullptr},
+      m_stream_single{nullptr},
+      m_event_fd{0},
+      m_rank_bs{nullptr},
+      m_rank_bs_str{nullptr},
+      m_cmd_streams{NewList()},
+      m_event_streams{NewList()},
+      m_msg_list{NewList()}
+{
+    if (m_network == nullptr) {
         DVPRINT("ERROR: mrn_initialize_backend_node cannot create BE!\n");
-        return -1;
+        throw std::runtime_error("ERROR: mrn_initialize_backend_node cannot create BE!");
     }
 
-    mrnet_be->rank = network_get_local_rank(mrnet_be->network);
-    DVPRINT("mrn_initialize_backend_node rank[%d]\n", mrnet_be->rank);
+    m_rank = m_network->get_LocalRank();
+    DVPRINT("mrn_initialize_backend_node rank[%d]\n", m_rank);
 
-    mrnet_be->event_fd =
-        network_get_EventNotificationFd(mrnet_be->network, MRNet_EVENT_DATA);
-
-    return 0;
+    m_event_fd =
+        m_network->get_EventNotificationFd(MRN::Event::DATA_EVENT);
 }
 
-int mrn_be_is_shutdown() { return network_is_shutdown(mrnet_be->network); }
+MRNetBackEnd::~MRNetBackEnd() {
+    if (m_rank_bs != nullptr) smart_bitset_free(m_rank_bs);
+    delete m_rank_bs_str;
 
-void mrn_be_waitfor_shutdown() { network_waitfor_shutdown(mrnet_be->network); }
+    m_network->close_EventNotificationFd(MRN::Event::DATA_EVENT);
+    delete m_network;
 
-int mrn_be_get_localrank() { return mrnet_be->rank; }
+    // XXX: Memory leak?
+    DestroyList(m_cmd_streams, nullptr);
+    DestroyList(m_event_streams, nullptr);
+    DestroyList(m_msg_list, nullptr);
+}
 
-void mrn_be_set_localrank(int rank) {
-    mrnet_be->rank = rank;
-    MRNet_Stream* single =
-        network_get_stream(mrnet_be->network, rank + ATTACHBE_RANK_SKEW);
-    mrnet_be->stream_single = single;
-    DVPRINT("INFO: [dbgsrv] mrnet_be->stream_single is set [%p].\n", single);
+int MRNetBackEnd::is_shutdown() { return m_network->is_ShutDown(); }
+
+void MRNetBackEnd::waitfor_shutdown() { m_network->waitfor_ShutDown(); }
+
+int MRNetBackEnd::get_localrank() const { return m_rank; }
+
+void MRNetBackEnd::set_localrank(int rank) {
+    m_rank = rank;
+    m_stream_single = m_network->get_Stream(rank + ATTACHBE_RANK_SKEW);;
+    DVPRINT("INFO: [dbgsrv] m_stream_single is set [%p].\n", m_stream_single);
 }
 
 // Set the current command stream for the backend.
@@ -163,52 +107,52 @@ void mrn_be_set_localrank(int rank) {
 // stream, and any asynchronous events are triggered on the same communicator -
 // by restricting the focus, we know that MRNet won't be waiting on any rank not
 // involved in the command.
-void mrn_be_set_cmd_stream(MRNet_Stream* stream) {
-    if (stream == mrnet_be->stream_cmd) return;
+void MRNetBackEnd::set_cmd_stream(MRN::Stream* stream) {
+    if (stream == m_stream_cmd || stream == nullptr) return;
 
-    unsigned int streamId = stream_get_Id(stream);
+    unsigned int streamId = stream->get_Id();
 
-    MRNet_Stream* event_stream = NULL;
-    if (!mrnet_be->bc_stream_cmd) {
+    MRN::Stream* event_stream = nullptr;
+    if (m_bc_stream_cmd == nullptr) {
         // the first registered stream is broadcast stream connected
         // to every rank
-        DVPRINT("INFO: [dbgsrv] mrnet_be->stream_cmd is set to %u.\n",
+        DVPRINT("INFO: [dbgsrv] m_stream_cmd is set to %u.\n",
                 streamId);
-        mrnet_be->bc_stream_cmd = stream;
-    } else if (mrnet_be->stream_cmd == mrnet_be->bc_stream_cmd) {
+        m_bc_stream_cmd = stream;
+    } else if (m_stream_cmd == m_bc_stream_cmd) {
         DVPRINT(
-            "INFO: [dbgsrv] mrnet_be->stream_event set back to broadcast "
+            "INFO: [dbgsrv] m_stream_event set back to broadcast "
             "stream\n");
-        event_stream = mrnet_be->bc_stream_event;
+        event_stream = m_bc_stream_event;
     } else {
-        list_t* cs = mrnet_be->cmd_streams;
-        list_t* es = mrnet_be->event_streams;
+        list_t* cs = m_cmd_streams;
+        list_t* es = m_event_streams;
         SetList(cs);
         SetList(es);
-        for (MRNet_Stream *cmd, *event;
-             (cmd = (MRNet_Stream*)GetListElement(cs)) &&
-             (event = (MRNet_Stream*)GetListElement(es));) {
+        for (MRN::Stream *cmd, *event;
+             (cmd = static_cast<MRN::Stream *>(GetListElement(cs))) &&
+             (event = static_cast<MRN::Stream *>(GetListElement(es)));) {
             if (cmd == stream) {
                 event_stream = event;
                 break;
             }
         }
 
-        if (event_stream == NULL) {
+        if (event_stream == nullptr) {
             DVPRINT("INFO: [dbgsrv] no event stream for %u, using default\n",
                     streamId);
-            event_stream = mrnet_be->bc_stream_event;
+            event_stream = m_bc_stream_event;
         } else {
             DVPRINT(
                 "INFO: [dbgsrv] found event stream for command stream %u,%u\n",
-                streamId, stream_get_Id(event_stream));
+                streamId, event_stream->get_Id());
         }
 
-        mrnet_be->stream_event = event_stream;
+        m_stream_event = event_stream;
     }
-    if (event_stream != NULL) mrnet_be->stream_event = event_stream;
+    if (event_stream != nullptr) m_stream_event = event_stream;
 
-    mrnet_be->stream_cmd = stream;
+    m_stream_cmd = stream;
 }
 
 // the first call to this function sets the default event stream for the
@@ -216,90 +160,86 @@ void mrn_be_set_cmd_stream(MRNet_Stream* stream) {
 // setting an event stream that matches the current procSet. Note that "event"
 // in this case is not the same as the MRNet events, this stream is for sending
 // asynchronous debugger events (e.g. breakpoint-hit)
-void mrn_be_set_event_stream(MRNet_Stream* stream) {
-    if (!stream || stream == mrnet_be->stream_event) return;
+void MRNetBackEnd::set_event_stream(MRN::Stream* stream) {
+    if (!stream || stream == m_stream_event) return;
 
-    // current command stream
-    MRNet_Stream* cmd = mrnet_be->stream_cmd;
-
-    if (!mrnet_be->bc_stream_event) {
+    if (m_bc_stream_event == nullptr) {
         // the first registered stream is the default (broadcast) stream
-        mrnet_be->bc_stream_event = stream;
-        DVPRINT("INFO: [dbgsrv] mrnet_be->event_stream is set %u.\n",
-                stream_get_Id(stream));
+        m_bc_stream_event = stream;
+        DVPRINT("INFO: [dbgsrv] m_event_stream is set %u.\n",
+                stream->get_Id());
 
-    } else if (cmd && !InList(mrnet_be->cmd_streams, (void*)cmd)) {
+    } else if (m_stream_cmd && !InList(m_cmd_streams, (void*)m_stream_cmd)) {
         DVPRINT("INFO: [dbgsrv] creating cmd/event stream pair %d, %d\n",
-                stream_get_Id(cmd), stream_get_Id(stream));
+                m_stream_cmd->get_Id(), stream->get_Id());
 
-        AddToList(mrnet_be->cmd_streams, cmd);
-        AddToList(mrnet_be->event_streams, stream);
+        AddToList(m_cmd_streams, m_stream_cmd);
+        AddToList(m_event_streams, stream);
     }
-    mrnet_be->stream_event = stream;
+    m_stream_event = stream;
 }
 
-void mrn_be_set_event_stream_from_id(unsigned int streamId) {
-    MRNet_Network* network = mrnet_be->network;
-    if (!network) {
+void MRNetBackEnd::set_event_stream_from_id(unsigned int streamId) {
+    if (m_network == nullptr) {
         DVPRINT("Network on server side is not set\n");
         return;
     }
 
-    if (MRNet_Stream* event_stream = network_get_stream(network, streamId)) {
-        mrn_be_set_event_stream(event_stream);
+    if (auto* event_stream = m_network->get_Stream(streamId)) {
+        set_event_stream(event_stream);
     } else {
         DVPRINT("Could not get event stream from event stream id!\n");
     }
 }
 
-void mrn_be_set_io_stream(MRNet_Stream* stream) {
-    mrnet_be->stream_io = stream;
-    DVPRINT("INFO: [dbgsrv] mrnet_be->io_stream is set.\n");
+void MRNetBackEnd::set_io_stream(MRN::Stream* stream) {
+    m_stream_io = stream;
+    DVPRINT("INFO: [dbgsrv] m_io_stream is set.\n");
 }
 
-int mrn_be_get_event_fd() { return mrnet_be->event_fd; }
+int MRNetBackEnd::get_event_fd() const { return m_event_fd; }
 
-void mrn_be_clear_event_fd() {
-    network_clear_EventNotificationFd(mrnet_be->network, MRNet_EVENT_DATA);
+void MRNetBackEnd::clear_event_fd() {
+    m_network->clear_EventNotificationFd(MRN::Event::DATA_EVENT);
 }
 
-unsigned int mrn_be_num_events_pending() {
-    return network_get_num_events_pending(mrnet_be->network);
+unsigned int MRNetBackEnd::num_events_pending() {
+    return m_network->num_EventsPending();
 }
 
-void mrn_be_ack_event() { return network_get_next_event(mrnet_be->network); }
+MRN::Event* MRNetBackEnd::ack_event() { return m_network->next_Event(); }
 
-void mrn_be_clear_events() { return network_clear_events(mrnet_be->network); }
+void MRNetBackEnd::clear_events() { return m_network->clear_Events(); }
 
-void mrn_be_set_size(int size) {
+void MRNetBackEnd::set_size(int size) {
     DVPRINT("mrn_be_set_size is called. size[%d]\n", size);
 
-    mrnet_be->network_size = size;
-    mrnet_be->rank_bs = smart_bitset_new(size);
+    m_network_size = size;
+    m_rank_bs = smart_bitset_new(size);
 
-    smart_bitset_set(mrnet_be->rank_bs, mrnet_be->rank);
-    mrnet_be->rank_bs_str = smart_bitset_serialize(mrnet_be->rank_bs);
+    smart_bitset_set(m_rank_bs, m_rank);
+    m_rank_bs_str = smart_bitset_serialize(m_rank_bs);
 }
 
-int mrn_be_recv(MRNet_Stream** stream, int* tag, int blocking) {
-    MRNet_Stream* stream_be = NULL;
-    MRNet_Packet* packet_be = NULL;
+int MRNetBackEnd::recv(MRN::Stream** stream, int* tag, bool blocking) {
+    MRN::Stream* stream_be = nullptr;
+    MRN::PacketPtr packet_be;
     int tag_be = -1;
 
-    network_recv(mrnet_be->network, &tag_be, &packet_be, &stream_be, blocking);
+    m_network->recv(&tag_be, packet_be, &stream_be, blocking);
 
-    char* msg = NULL;
-    if (packet_be != NULL && packet_unpack(packet_be, "%s", &msg) == -1) {
-        fprintf(stderr, "mrn_be_recv packet_unpack() failure\n");
+    char* msg = nullptr;
+    if (packet_be && packet_be->unpack("%s", &msg) == -1) {
+        fprintf(stderr, "MRNetBackEnd::recv packet_unpack() failure\n");
         return -1;
     }
 
 #ifdef DEBUG
-    if (msg != NULL) fprintf(stderr, "INFO: [dbgsrv] mrn_be_recv: [%s]\n", msg);
+    if (msg != nullptr) fprintf(stderr, "INFO: [dbgsrv] MRNetBackEnd::recv: [%s]\n", msg);
 #endif
 
-    if (msg != NULL) {
-        AddToList(msg_list, msg);
+    if (msg != nullptr) {
+        AddToList(m_msg_list, msg);
         *stream = stream_be;
         *tag = tag_be;
         return 1;
@@ -308,25 +248,25 @@ int mrn_be_recv(MRNet_Stream** stream, int* tag, int blocking) {
     return 0;
 }
 
-int mrn_be_send_reply(MRNet_Stream* stream, const char* msg) {
-    if (mrnet_be->stream_cmd == NULL) return -1;
+int MRNetBackEnd::send_reply(MRN::Stream* stream, const char* msg) {
+    if (m_stream_cmd == nullptr) return -1;
 
     DVPRINT("INFO: [dbgsrv] mrn_be_send_reply [%.1000s], via stream[%u]\n", msg,
-            stream_get_Id(stream));
+            stream->get_Id());
 
     const char* strArr[2];
     strArr[0] = msg;
-    strArr[1] = mrnet_be->rank_bs_str;
+    strArr[1] = m_rank_bs_str;
 
-    if (stream == NULL) stream = mrnet_be->stream_cmd;
+    if (stream == nullptr) stream = m_stream_cmd;
 
-    if (stream_send(stream, DBG_MRNet_PRO_COMMAND, "%as", strArr, 2) == -1) {
-        fprintf(stderr, "ERROR: mrn_be_send_reply stream_send(%s) failed!\n",
+    if (stream->send(DBG_MRNet_PRO_COMMAND, "%as", strArr, 2) == -1) {
+        fprintf(stderr, "ERROR: mrn_be_send_reply stream->send(%s) failed!\n",
                 msg);
         return -1;
     }
 
-    if (stream_flush(stream) == -1) {
+    if (stream->flush() == -1) {
         fprintf(stderr, "ERROR: mrn_be_send_reply stream_flush() failed!\n");
         return -1;
     }
@@ -334,14 +274,14 @@ int mrn_be_send_reply(MRNet_Stream* stream, const char* msg) {
     return 0;
 }
 
-int mrn_be_send_event(char* msg, const dbgcomm_info* commInfo) {
-    if (mrnet_be->stream_event == NULL) return -1;
+int MRNetBackEnd::send_event(char* msg, const dbgcomm_info* commInfo) {
+    if (m_stream_event == nullptr) return -1;
 
     char* strArr[2];
     strArr[0] = msg;
-    strArr[1] = mrnet_be->rank_bs_str;
+    strArr[1] = m_rank_bs_str;
 
-    MRNet_Stream* stream = mrnet_be->stream_event;
+    MRN::Stream* stream = m_stream_event;
 
     // a breakpoint should have passed the stream back so be can send it back
     // on the same communicator.  This lets MRNet know exactly which end-points
@@ -350,62 +290,62 @@ int mrn_be_send_event(char* msg, const dbgcomm_info* commInfo) {
     if (const mrncomm_info* ci = dynamic_cast<const mrncomm_info*>(commInfo)) {
         if (ci->getStream()) {
             stream = ci->getStream();
-            DVPRINT("got stream %u from event\n", stream_get_Id(stream));
+            DVPRINT("got stream %u from event\n", stream->get_Id());
         }
     }
 
-    DVPRINT("INFO: [dbgsrv] mrn_be_send_event [%s] via stream[%u]%s\n", msg,
-            stream_get_Id(stream),
+    DVPRINT("INFO: [dbgsrv] MRNetBackEnd::send_event [%s] via stream[%u]%s\n", msg,
+            stream->get_Id(),
             commInfo ? " from comm_info" : " no comm_info");
 
-    if (stream_send(stream, DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1) {
-        fprintf(stderr, "ERROR: mrn_be_send_event stream_send(%s) failed!\n",
+    if (stream->send(DBG_MRNet_PRO_EVENT, "%as", strArr, 2) == -1) {
+        fprintf(stderr, "ERROR: MRNetBackEnd::send_event stream_send(%s) failed!\n",
                 msg);
         return -1;
     }
 
-    if (stream_flush(stream) == -1) {
-        fprintf(stderr, "ERROR: mrn_be_send_event stream_flush() failed!\n");
+    if (stream->flush() == -1) {
+        fprintf(stderr, "ERROR: MRNetBackEnd::send_event stream_flush() failed!\n");
         return -1;
     }
 
     return 0;
 }
 
-int mrn_be_send_io(char* msg) {
+int MRNetBackEnd::send_io(char* msg) {
     char* strArr[2];
 
-    if (mrnet_be->stream_io == NULL) return -1;
+    if (m_stream_io == nullptr) return -1;
 
-    DVPRINT("INFO: [dbgsrv] mrn_be_send_io [%s] via stream[%p]\n", msg,
-            mrnet_be->stream_io);
+    DVPRINT("INFO: [dbgsrv] MRNetBackEnd::send_io [%s] via stream[%p]\n", msg,
+            m_stream_io);
 
     strArr[0] = msg;
-    strArr[1] = mrnet_be->rank_bs_str;
+    strArr[1] = m_rank_bs_str;
 
-    if (stream_send(mrnet_be->stream_io, DBG_MRNet_PRO_IO, "%as", strArr, 2) ==
+    if (m_stream_io->send(DBG_MRNet_PRO_IO, "%as", strArr, 2) ==
         -1) {
-        fprintf(stderr, "ERROR: mrn_be_send_io stream_send(%s) failed!\n", msg);
+        fprintf(stderr, "ERROR: MRNetBackEnd::send_io stream_send(%s) failed!\n", msg);
         return -1;
     }
 
-    if (stream_flush(mrnet_be->stream_io) == -1) {
-        fprintf(stderr, "ERROR: mrn_be_send_io stream_flush() failed!\n");
+    if (m_stream_io->flush() == -1) {
+        fprintf(stderr, "ERROR: MRNetBackEnd::send_io stream_flush() failed!\n");
         return -1;
     }
 
     return 0;
 }
 
-void mrn_be_set_callback(void (*callback)(char*, const dbgcomm_info*)) {
-    dbgsrv_callback = callback;
+void MRNetBackEnd::set_callback(void (*callback)(char*, const dbgcomm_info*)) {
+    m_dbgsrv_callback = callback;
     return;
 }
 
-void mrn_be_handle_msg(MRNet_Stream *stream) {
-    char* msg = (char*)RemoveFirst(msg_list);
+void MRNetBackEnd::handle_msg(MRN::Stream *stream) {
+    char* msg = (char*)RemoveFirst(m_msg_list);
 
-    if (msg != NULL) {
+    if (msg != nullptr) {
         int cmdIdx = 0;
         if (sscanf(msg, "%d", &cmdIdx) == 1 && cmdIdx == DBGCMD_SETCOMMPARAM) {
             // strip off the command number and toss it back into the mrn
@@ -418,28 +358,18 @@ void mrn_be_handle_msg(MRNet_Stream *stream) {
             }
             for (; *submsg && isspace(*submsg); ++submsg) {
             }
-            mrn_be_set_param(stream, submsg);
+            set_param(stream, submsg);
         } else {
             // push all other commands to the back-end.
-            mrncomm_info ci(mrnet_be->stream_event);
-            dbgsrv_callback(msg, &ci);
+            mrncomm_info ci(m_stream_event);
+            m_dbgsrv_callback(msg, &ci);
         }
     }
 
     return;
 }
 
-int mrn_be_shutdown() {
-    network_close_EventNotificationFd(mrnet_be->network, MRNet_EVENT_DATA);
-    network_delete(mrnet_be->network);
-
-    free_mrnet_be_type(mrnet_be);
-    DestroyList(msg_list, NULL);
-
-    return 0;
-}
-
-void mrn_be_set_param(MRNet_Stream *stream, const char *msg) {
+void MRNetBackEnd::set_param(MRN::Stream *stream, const char *msg) {
     // note: the prototype always puts length of the remainder of the message
     // before the message itself. Since at this point we only support a single
     // special command, we can keep the handling pretty simple.
@@ -450,8 +380,8 @@ void mrn_be_set_param(MRNet_Stream *stream, const char *msg) {
     } else if (subCommand != MRNCMD_SETEVENTSTREAM) {
         DVPRINT("Unrecognized MRNSetParam command\n");
     } else {
-        unsigned int commandStreamId = stream_get_Id(stream);
+        unsigned int commandStreamId = stream->get_Id();
         DVPRINT("Stream pair %u %u\n", commandStreamId, eventStreamId);
-        mrn_be_set_event_stream_from_id(eventStreamId);
+        set_event_stream_from_id(eventStreamId);
     }
 }

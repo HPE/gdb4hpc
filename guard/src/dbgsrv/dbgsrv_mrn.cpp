@@ -285,8 +285,6 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
     m_network->(m_my_mrn_rank);
-//	res = mrn_be_create_network( argc, argv );
-//	my_mrn_rank = mrn_be_get_localrank();
 #endif
 
     m_network->set_callback(dbgsrv_dispatch_cmds);

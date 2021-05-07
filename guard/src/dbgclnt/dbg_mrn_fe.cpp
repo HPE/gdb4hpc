@@ -123,7 +123,7 @@ void MRNetFrontEnd::add_event_stream(MRN::Stream *event_stream) {
     if (event_stream != nullptr) {
         int eventFd = event_stream->get_DataNotificationFd();
         AddToList(m_event_streams, event_stream);
-    AddToList(m_event_nfds, int_to_ptr(eventFd));
+        AddToList(m_event_nfds, int_to_ptr(eventFd));
     }
 }
 
@@ -159,10 +159,10 @@ MRNetFrontEnd::~MRNetFrontEnd() {
     });
 
     DestroyList(m_mc_streams, [](void *voidMulti) {
-        auto *multi = static_cast<MulticastType *>(voidMulti);
-        if (multi != nullptr)
+        if (auto *multi = static_cast<MulticastType *>(voidMulti)) {
             delete multi->stream;
-        delete multi;
+            delete multi;
+        }
     });
 
     // for this list we are cheeky and store the fds directly as void
@@ -287,13 +287,8 @@ MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
 
     // create network with CTI
     std::map<std::string, std::string> mrnet_attrs;
-    std::ostringstream appidStr;
-    std::ostringstream midStr;
-
-    appidStr << ctiAppid;
-    midStr << ctiMid;
-    mrnet_attrs.insert(std::make_pair("CRAY_CTI_APPID", appidStr.str()));
-    mrnet_attrs.insert(std::make_pair("CRAY_CTI_MID", midStr.str()));
+    mrnet_attrs.insert(std::make_pair("CRAY_CTI_APPID", std::to_string(ctiAppid)));
+    mrnet_attrs.insert(std::make_pair("CRAY_CTI_MID", std::to_string(ctiMid)));
 
     auto *network = MRN::Network::CreateNetworkFE(topology_file, nullptr,
                                                   nullptr, &mrnet_attrs);
@@ -329,7 +324,7 @@ MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
 
     network->set_FailureRecovery(false);
 
-    auto *mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
+    auto mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
 
     return mrnet;
 }
@@ -452,6 +447,7 @@ int MRNetFrontEnd::create_streams_and_load_filter(
             "mrn_fe_create_streams_and_load_filter "
             "mrn_network_load_filter_and_complete_creation() failed!\n");
         delete m_network;
+        m_network = nullptr;
         return 1;
     }
 
@@ -602,9 +598,8 @@ int MRNetFrontEnd::send_command(bitset *target, const char *msg,
 }
 
 proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
-    MRN::Stream *cmd_stream = nullptr;
-    if ((cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target)) ==
-        nullptr) {
+    MRN::Stream *cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
+    if (cmd_stream) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
             bitset_to_set(target));
@@ -622,8 +617,8 @@ proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
         return nullptr;
     }
 
-    char **strArr;
-    int strLen;
+    char **strArr = nullptr;
+    int strLen = -1;
     if (packetPtr && packetPtr->unpack("%as", &strArr, &strLen) == -1) {
         PrintOutError("ERROR: mrn_fe_recv_reply packet_unpack() failed!\n");
         return nullptr;
@@ -778,8 +773,8 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
             retval = event_stream->recv(&tag, packetPtr, MRNET_UNBLOCKING);
 
             if (retval > 0 && tag == DBG_MRNet_PRO_EVENT) {
-                char **strArr;
-                int strLen;
+                char **strArr = nullptr;
+                int strLen = -1;
                 if (packetPtr &&
                     packetPtr->unpack("%as", &strArr, &strLen) == -1) {
                     PrintOutError(
@@ -852,10 +847,10 @@ static void call_failure_callback(MRN::Event *evt, void *cb_data) {
     if (evt->get_Class() == MRN::Event::TOPOLOGY_EVENT) {
         if (evt->get_Type() == MRN::TopologyEvent::TOPOL_REMOVE_NODE) {
             // fprintf(*err_stream_ptr, "MRNet [TOPOL_REMOVE_NODE] failure event
-            // recieved.\n");
+            // received.\n");
         } else if (evt->get_Type() == MRN::TopologyEvent::TOPOL_CHANGE_PARENT) {
             // fprintf(*err_stream_ptr, "MRNet [TOPOL_CHANGE_PARENT] failure
-            // event recieved.\n");
+            // event received.\n");
         } else {
             return;
         }

@@ -22,7 +22,6 @@ class dbgcomm_info;
 
 class MRNetBackEnd {
 public:
-    MRNetBackEnd() = delete;
     MRNetBackEnd(int argc, char *argv[]);
     ~MRNetBackEnd();
 
@@ -66,12 +65,12 @@ private:
     MRN::Stream* m_stream_event;
     MRN::Stream* m_stream_io;
     MRN::Stream* m_stream_single;  // TODO: using singlecast stream to reply
-                                  // simgle cast cmd
+                                   // single cast cmd
     int m_cmd_fd;    // for notification of events on cmd stream
     int m_event_fd;  // for notification of events on event stream
     int m_io_fd;     // for notification of events on io stream
 
-    int m_rank;               // rankd of backend
+    int m_rank;               // rank of backend
     smart_bitset* m_rank_bs;  // smart_bitset
     char* m_rank_bs_str;
 

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <mutex>
 
 #include "alloc.h"
 #include "bitset.h"
@@ -47,31 +48,64 @@ struct MulticastType {
     MRN::Stream *stream;
 };
 
-struct CallbackHandlerInfo {
-    int num_callbacks;
-    pthread_mutex_t callback_lock;
-    pthread_mutexattr_t callback_lock_attr;
+class CallbackHandlerInfo {
+public:
+    int getNumCallbacks() const {
+        const std::lock_guard<std::mutex> lock(m_callback_lock);
+        return m_num_callbacks;
+    }
+
+    void setNumCallbacks(int num) {
+        const std::lock_guard<std::mutex> lock(m_callback_lock);
+        m_num_callbacks = num;
+    }
+
+    void incrementCallbacks() {
+        const std::lock_guard<std::mutex> lock(m_callback_lock);
+        m_num_callbacks++;
+    }
+private:
+    int m_num_callbacks;
+    mutable std::mutex m_callback_lock;
 };
 
-struct FailureHandlerInfo {
-    void (*failure_func)(void *);
-    pthread_mutex_t failure_lock;
-    pthread_mutexattr_t failure_lock_attr;
+class FailureHandler {
+public:
+    FailureHandler()
+        : m_enabled{false} {};
+    
+    void enable() {m_enabled = true;};
+    void disable() {m_enabled = false;};
+    bool isEnabled() const {return m_enabled;};
+
+    void operator()(void * data) {
+        if (!m_enabled)
+            return;
+
+        const std::lock_guard<std::mutex> lock(m_failure_lock);
+        
+        auto di = static_cast<dbginvoke_t *>(data);
+
+        PrintOutError("\nERROR: MRNet failure callback invoked.\n");
+        PrintOutError("Debugger is shutting down! Please file a bugreport.\n");
+        PrintOutError(
+            "Re-run with setting CRAY_DBG_LOG_DIR to a cross mounted location\n");
+        PrintOutError(
+            "and adding --debug to your launch/attach statement. Submit the\n");
+        PrintOutError("generated logs with the bugreport.\n\n");
+
+        di->d_isShutdown = 1;
+
+        // Force ccdb to shutdown
+        ForceQuit();
+    }
+private:
+    bool m_enabled;
+    std::mutex m_failure_lock;
 };
 
 static CallbackHandlerInfo callback_handler;
-static FailureHandlerInfo *failure_handler = nullptr;
-
-static int get_num_callbacks() {
-    int rtn;
-    // grab the lock, read the value, then release
-    // we had a data contention here before
-    pthread_mutex_lock(&callback_handler.callback_lock);
-    rtn = callback_handler.num_callbacks;
-    pthread_mutex_unlock(&callback_handler.callback_lock);
-
-    return rtn;
-}
+static FailureHandler failure_handler;
 
 MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
                              bitset *target)
@@ -215,27 +249,12 @@ MRN::Stream *MRNetFrontEnd::create_stream(bitset *target, MRN::Stream *&event_st
 static void BE_Add_Callback(MRN::Event *evt, void *) {
     if ((evt->get_Class() == MRN::Event::TOPOLOGY_EVENT) &&
         (evt->get_Type() == MRN::TopologyEvent::TOPOL_ADD_BE)) {
-        // grab the lock, write the value, then release
-        pthread_mutex_lock(&callback_handler.callback_lock);
-        ++(callback_handler.num_callbacks);
-        pthread_mutex_unlock(&callback_handler.callback_lock);
+        callback_handler.incrementCallbacks();
     }
 }
 
 int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
-    callback_handler.num_callbacks = 0;
-
-    // setup the mutex lock
-    if (pthread_mutexattr_init(&callback_handler.callback_lock_attr)) {
-        // fprintf(*err_stream_ptr, "ERROR: pthread_mutexattr_init failed!\n");
-        return 1;
-    }
-
-    if (pthread_mutex_init(&callback_handler.callback_lock,
-                           &callback_handler.callback_lock_attr)) {
-        // fprintf(*err_stream_ptr, "ERROR: pthread_mutex_init failed!\n");
-        return 1;
-    }
+    callback_handler.setNumCallbacks(0);
 
     if (!network.register_EventCallback(MRN::Event::TOPOLOGY_EVENT,
                                         MRN::TopologyEvent::TOPOL_ADD_BE,
@@ -385,7 +404,7 @@ int MRNetFrontEnd::attach_be(int num_be, int timeout) {
     do {
         nanosleep(&timeslice, (struct timespec *)nullptr);
 
-        num_callbacks = get_num_callbacks();
+        num_callbacks = callback_handler.getNumCallbacks();
         if (num_callbacks == last_num_callbacks) {
             expire++;
         } else {
@@ -411,8 +430,6 @@ int MRNetFrontEnd::attach_be(int num_be, int timeout) {
     DPRINT("INFO: mrn_network_wait_for_attaching all dbgsrv have attached!\n");
 
     // remove network event callbacks
-    pthread_mutexattr_destroy(&callback_handler.callback_lock_attr);
-    pthread_mutex_destroy(&callback_handler.callback_lock);
     m_network->remove_EventCallback(BE_Add_Callback, MRN::Event::TOPOLOGY_EVENT,
                                     MRN::TopologyEvent::TOPOL_ADD_BE);
 
@@ -831,24 +848,7 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
     return result;
 }
 
-static void failure_callback(void *cb_data) {
-    dbginvoke_t *di = (dbginvoke_t *)cb_data;
-
-    PrintOutError("\nERROR: MRNet failure callback invoked.\n");
-    PrintOutError("Debugger is shutting down! Please file a bugreport.\n");
-    PrintOutError(
-        "Re-run with setting CRAY_DBG_LOG_DIR to a cross mounted location\n");
-    PrintOutError(
-        "and adding --debug to your launch/attach statement. Submit the\n");
-    PrintOutError("generated logs with the bugreport.\n\n");
-
-    di->d_isShutdown = 1;
-
-    // Force ccdb to shutdown
-    ForceQuit();
-}
-
-static void update_and_call_failure_callback(MRN::Event *evt, void *cb_data) {
+static void call_failure_callback(MRN::Event *evt, void *cb_data) {
     if (evt->get_Class() == MRN::Event::TOPOLOGY_EVENT) {
         if (evt->get_Type() == MRN::TopologyEvent::TOPOL_REMOVE_NODE) {
             // fprintf(*err_stream_ptr, "MRNet [TOPOL_REMOVE_NODE] failure event
@@ -860,58 +860,20 @@ static void update_and_call_failure_callback(MRN::Event *evt, void *cb_data) {
             return;
         }
 
-        // lets handle the callback.
-
-        // ensure that the failure_handler is not null
-        if (failure_handler == nullptr) return;
-
-        // grab the lock, call the registered handler, then release
-        pthread_mutex_lock(&failure_handler->failure_lock);
-
-        if (failure_handler->failure_func != nullptr)
-            (failure_handler->failure_func)(cb_data);
-
-        pthread_mutex_unlock(&failure_handler->failure_lock);
+        failure_handler(cb_data);
     }
 }
 
 void MRNetFrontEnd::enable_failure_callback(dbginvoke_t *di) {
-    // we only want to init the failure_handler if it hasen't been initialized
-    // before.
-    if (failure_handler == nullptr) {
-        failure_handler = new FailureHandlerInfo;
-
-        if (failure_handler == nullptr) {
-            // fprintf(*err_stream_ptr, "ERROR: malloc failed!\n");
-            return;
-        }
-
-        failure_handler->failure_func = failure_callback;
-
-        // this needs to be made threadsafe...
-        // we only want to initialize the mutex once.
-        if (pthread_mutexattr_init(&failure_handler->failure_lock_attr)) {
-            // fprintf(*err_stream_ptr, "ERROR: pthread_mutexattr_init
-            // failed!\n");
-            return;
-        }
-
-        if (pthread_mutex_init(&failure_handler->failure_lock,
-                                 &failure_handler->failure_lock_attr)) {
-            // fprintf(*err_stream_ptr, "ERROR: pthread_mutex_init failed!\n");
-            return;
-        }
-    } else {
-        failure_handler->failure_func = failure_callback;
-    }
+    failure_handler.enable();
 
     m_network->register_EventCallback(
         MRN::Event::TOPOLOGY_EVENT, MRN::TopologyEvent::TOPOL_REMOVE_NODE,
-        update_and_call_failure_callback, static_cast<void *>(di), true);
+        call_failure_callback, static_cast<void *>(di), true);
 
     m_network->register_EventCallback(
         MRN::Event::TOPOLOGY_EVENT, MRN::TopologyEvent::TOPOL_CHANGE_PARENT,
-        update_and_call_failure_callback, static_cast<void *>(di), true);
+        call_failure_callback, static_cast<void *>(di), true);
 }
 
 void MRNetFrontEnd::debug_print_network_topology() {

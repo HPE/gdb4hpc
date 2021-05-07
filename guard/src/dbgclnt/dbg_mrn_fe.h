@@ -12,8 +12,6 @@
 
 #pragma once
 
-#include <pthread.h>
-
 #include "dbg_mrn.h"
 #include "mrn_topgen.h"
 

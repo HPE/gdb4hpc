@@ -157,7 +157,13 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
 #endif
 
     DVPRINT("Creating be network");
-    m_network = new MRNetBackEnd(be_argc, be_argv);
+    try {
+        m_network = new MRNetBackEnd(be_argc, be_argv);
+        res = 0;
+    } catch (const std::runtime_error &e) {
+        free(hostname);
+        return -1;
+    }
     DVPRINT("Done Creating network");
     m_my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
@@ -281,7 +287,13 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
         "par_rank[%d] my_rank[%d]\n",
         par_addr, par_port, par_rank, my_mrnrank);
 
-    m_network = new MRNetBackEnd(be_argc, be_argv);
+    try {
+        m_network = new MRNetBackEnd(be_argc, be_argv);
+        res = 0;
+    } catch (const std::runtime_error &e) {
+        free(hostname);
+        return -1;
+    }
     m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
     m_network->(m_my_mrn_rank);

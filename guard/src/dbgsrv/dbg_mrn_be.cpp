@@ -63,8 +63,11 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
       m_msg_list{NewList()}
 {
     if (m_network == nullptr) {
-        DVPRINT("ERROR: mrn_initialize_backend_node cannot create BE!\n");
-        throw std::runtime_error("ERROR: mrn_initialize_backend_node cannot create BE!");
+        DVPRINT("ERROR: mrn_initialize_backend_node cannot create BE! (missing network)\n");
+        DestroyList(m_cmd_streams, nullptr);
+        DestroyList(m_event_streams, nullptr);
+        DestroyList(m_msg_list, nullptr);
+        throw std::runtime_error("ERROR: mrn_initialize_backend_node cannot create BE! (missing network)");
     }
 
     m_rank = m_network->get_LocalRank();

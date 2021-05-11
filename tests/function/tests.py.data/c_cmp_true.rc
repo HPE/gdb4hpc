@@ -152,6 +152,15 @@ compare $a{0}::d=$b{0}::d
 print ld
 compare $a{0}::ld=$b{0}::ld
 
+#single differing rank comparison
+print sc
+compare $a{0}::sc=$b{1}::sc
+
+print i
+compare $a{1}::i=$b{2}::i
+
+compare $a{1}::i=$a{2}::i
+
 #continue
 
 q

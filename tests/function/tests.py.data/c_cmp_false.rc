@@ -161,6 +161,13 @@ compare $a{0}::ld=$b{0}::ld
 print assertTest
 compare $a{0}::assertTest=$b{0}::assertTest
 
+#single differing rank comparison
+print sc
+compare $a{0}::sc=$b{1}::sc
+
+print i
+compare $a{1}::i=$b{2}::i
+
 #continue
 
 q

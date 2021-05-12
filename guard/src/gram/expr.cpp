@@ -871,11 +871,11 @@ static std::string makeArgumentList(expr_t* e) {
 ** Internal variables are created if they don't already exist.
 */
 static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
-    hentry_t *sym = NULL;
-    char *var_expr = NULL;
-    val_t *val = NULL;
-    val_t *ps_val = NULL;
-    val_t *v1 = NULL;
+    hentry_t *sym = nullptr;
+    char *var_expr = nullptr;
+    val_t *val = nullptr;
+    val_t *ps_val = nullptr;
+    val_t *v1 = nullptr;
     slice_t *slice = nullptr;
     expr_elt *ep;
     expr_op stype;
@@ -889,7 +889,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     // Ensure a location wasn't provided.
     if (ep->e_op == EXPR_LOC) {
         SetError("Can't specify location in immediate mode");
-        return (val_t *)NULL;
+        return nullptr;
     }
 
     // This now works for multi-dimensional fortran arrays. They are represented
@@ -926,16 +926,16 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             // First evaluate the first part into a val, we expect this to be an
             // lval_gdb type, otherwise we don't want to do anything since we
             // can only query the backends for lval_gdb types.
-            if ((val = evaluate_expr_imm(e, rec_set, f)) == NULL) goto bad_var;
+            if ((val = evaluate_expr_imm(e, rec_set, f)) == nullptr) goto bad_var;
 
             // Now evaluate the second part into a val, this is the procset
-            if ((ps_val = evaluate_expr_imm(e, rec_set, f)) == NULL)
+            if ((ps_val = evaluate_expr_imm(e, rec_set, f)) == nullptr)
                 goto bad_var;
 
             // Ensure that the type is rval_proc, otherwise there was an error.
             if (RVAL_ACTUAL_TYPE(ps_val) != rval_proc) {
                 // Fix for BUG 816870
-                if (LVAL_SYM(ps_val) == NULL) {
+                if (LVAL_SYM(ps_val) == nullptr) {
                     SetError("Invalid process set syntax");
                 } else {
                     SetError("No such process \"%s\"",
@@ -945,7 +945,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             }
 
             // Ensure that the procset actually has a procset assigned to it
-            if (RVAL_ACTUAL_PROCSET(ps_val) == NULL) {
+            if (RVAL_ACTUAL_PROCSET(ps_val) == nullptr) {
                 SetError("Invalid process set");
                 goto bad_var;
             }
@@ -959,7 +959,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
         case EXPR_OPELEMENTACC:
         case EXPR_OPCAST:
             var_expr = apply_var_op(ep, e);
-            if (var_expr == NULL) goto bad_var;
+            if (var_expr == nullptr) goto bad_var;
             DPRINT("read_var_imm: var_expr op is %s\n", var_expr);
             break;
 
@@ -974,13 +974,13 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
         case EXPR_SYM:
             /*
             ** FIXME: This is broken with the symbol table update.
-            if ( f != (func_t *)NULL )
+            if ( f != (func_t *)nullptr )
             {
                     DPRINT("read_var_imm: f is not null\n");
                     if ( FindArg(&ap, sym, f) < 0 )
                             goto bad_var;
 
-                    if ( ap != (arg_t *)NULL )
+                    if ( ap != (arg_t *)nullptr )
                     {
                             DPRINT("read_var_imm: Found previous val for sym
             \"%s\"\n", SymLookup(sym)); val = CopyVal(ap->a_val); break;
@@ -1009,14 +1009,14 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
             // Always have procset be null here, the EXPR_VAR case above takes
             // care of modifying this if need be.
-            val = NewVal(lval_gdb, NULL, var_expr);
+            val = NewVal(lval_gdb, nullptr, var_expr);
             DPRINT("read_var_imm: Created new val for %s\n", var_expr);
 
             break;
 
         case EXPR_DSYM:
             
-            if ((val = GetVal(sym)) != NULL) {
+            if ((val = GetVal(sym)) != nullptr) {
                 DPRINT("read_var_imm: Found previous val for dsym \"%s\"\n",
                        SymLookup(sym));
 
@@ -1029,7 +1029,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 
                 // if slice information is set, we need to create a new
                 // reference.
-                if (slice != NULL) {
+                if (slice != nullptr) {
                     DPRINT(
                         "read_var_imm: Slicing information provided, creating "
                         "new reference to existing val.\n");
@@ -1045,7 +1045,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             ** Create new debugger var.
             */
             DPRINT("read_var_imm: Creating new debugger var\n");
-            if (slice != NULL) {
+            if (slice != nullptr) {
                 DPRINT("read_var_imm: Slice is present\n");
 
                 v1 = NewVal(lval_none, rval_none);
@@ -1075,10 +1075,16 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                     LVAL_GDB_PROCSET(val) = CreateTempProcSetSlice(
                         RVAL_ACTUAL_PROCSET(ps_val), RVAL_REF_SLICE(ps_val));
 
-                    if (LVAL_GDB_PROCSET(val) == NULL) {
+                    if (LVAL_GDB_PROCSET(val) == nullptr) {
                         PrintOutError(
                             "Failed to create temporary procset for "
                             "expression!\n");
+                        goto bad_var;
+                    }
+
+                    if (LVAL_GDB_PROCSET(val)->s_nproc == 0) {
+                        PrintOutError("Rank selection \"%s\" is invalid.\n", 
+                            RVAL_REF_SLICE(ps_val)->getArgs());
                         goto bad_var;
                     }
 
@@ -1093,17 +1099,17 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             break;
     }
 
-    Free(var_expr);
+    free(var_expr);
 
     return val;
 
 bad_var:
 
-    if (var_expr != NULL) Free(var_expr);
+    free(var_expr);
 
     delete slice;
 
-    return NULL;
+    return nullptr;
 }
 
 /*

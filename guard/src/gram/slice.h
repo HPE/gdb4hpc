@@ -54,6 +54,8 @@ public:
     // get the xlice expression for variable var
     std::string getExpr(const char* var) const;
 
+    const char * getArgs() const;
+
     // add another dimension value
     void addSlice(int minIdx, int maxIdx);
 

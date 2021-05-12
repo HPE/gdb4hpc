@@ -62,6 +62,12 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintOutError("Failed to create temporary procset for focus!\n");
             return 0;
         }
+
+        if (procset->s_nproc == 0) {
+            PrintOutError("Rank selection \"%s\" is invalid.\n", 
+                RVAL_REF_SLICE(val)->getArgs());
+            return 0;
+        }
     } else {
         // assign procset directly
         procset = RVAL_ACTUAL_PROCSET(val);

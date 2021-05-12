@@ -126,6 +126,10 @@ std::string slice_t::getExpr(const char* var) const
     return sliceexpr.str();
 }
 
+const char * slice_t::getArgs() const {
+    return m_args;
+}
+
 void slice_t::parseIdcs() {
     m_rank = 0;
     if (!m_args || !strlen(m_args)) return;

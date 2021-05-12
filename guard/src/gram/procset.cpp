@@ -100,7 +100,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     }
 
     // Create the name for this temporary process set
-    Asprintf(&ps_name, "%s_temp", ps->s_name);
+    Asprintf(&ps_name, "%s_%s", ps->s_name, ps_slice->getArgs());
 
     // create the new procset
     new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->getThreads());
@@ -669,6 +669,7 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* 
     s->s_name = strdup(name);
     s->s_type = type;
     s->s_nproc = 0;
+    s->s_init = 0;
     s->s_num_sets = 0;
     s->s_over_set_list = NewList();
     s->s_threads = (threads ? strdup(threads) : nullptr);

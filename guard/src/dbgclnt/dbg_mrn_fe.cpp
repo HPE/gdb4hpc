@@ -50,14 +50,11 @@ struct MulticastType {
 
 class CallbackHandlerInfo {
 public:
+    CallbackHandlerInfo() : m_num_callbacks{0} {};
+
     int getNumCallbacks() const {
         const std::lock_guard<std::mutex> lock(m_callback_lock);
         return m_num_callbacks;
-    }
-
-    void setNumCallbacks(int num) {
-        const std::lock_guard<std::mutex> lock(m_callback_lock);
-        m_num_callbacks = num;
     }
 
     void incrementCallbacks() {
@@ -79,10 +76,10 @@ public:
     bool isEnabled() const {return m_enabled;};
 
     void operator()(void * data) {
+        const std::lock_guard<std::mutex> lock(m_failure_lock);
+        
         if (!m_enabled)
             return;
-
-        const std::lock_guard<std::mutex> lock(m_failure_lock);
         
         auto di = static_cast<dbginvoke_t *>(data);
 
@@ -95,6 +92,7 @@ public:
         PrintOutError("generated logs with the bugreport.\n\n");
 
         di->d_isShutdown = 1;
+        m_enabled = false;
 
         // Force ccdb to shutdown
         ForceQuit();
@@ -254,8 +252,6 @@ static void BE_Add_Callback(MRN::Event *evt, void *) {
 }
 
 int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
-    callback_handler.setNumCallbacks(0);
-
     if (!network.register_EventCallback(MRN::Event::TOPOLOGY_EVENT,
                                         MRN::TopologyEvent::TOPOL_ADD_BE,
                                         BE_Add_Callback, nullptr)) {
@@ -599,7 +595,7 @@ int MRNetFrontEnd::send_command(bitset *target, const char *msg,
 
 proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
     MRN::Stream *cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
-    if (cmd_stream) {
+    if (!cmd_stream) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
             bitset_to_set(target));

@@ -160,7 +160,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     try {
         m_network = new MRNetBackEnd(be_argc, be_argv);
         res = 0;
-    } catch (const std::runtime_error &e) {
+    } catch (...) {
         free(hostname);
         return -1;
     }
@@ -290,7 +290,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     try {
         m_network = new MRNetBackEnd(be_argc, be_argv);
         res = 0;
-    } catch (const std::runtime_error &e) {
+    } catch (...) {
         free(hostname);
         return -1;
     }

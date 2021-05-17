@@ -27,7 +27,7 @@ break c_type_test.c:193
 
 
 
-#Test assign command
+#Test focus command
 focus $b
 
 # Run procset b to breakpoint 1:  
@@ -38,6 +38,8 @@ focus $all
 # Run procset a to breakpoint 1:  
 continue
 
+#Test invalid selection
+focus $b{3}
 
 #exit lgdb
 q

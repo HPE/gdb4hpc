@@ -161,6 +161,9 @@ compare $a{1}::i=$b{2}::i
 
 compare $a{1}::i=$a{2}::i
 
+#invalid rank selection
+compare $a{1}::i=$a{3}::i
+
 #continue
 
 q

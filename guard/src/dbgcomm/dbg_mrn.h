@@ -19,10 +19,10 @@
 #ifndef _GUARD_MRNET_TYPES_H
 #define _GUARD_MRNET_TYPES_H
 
-#include "MRNet_C.h"
 #include "bitset.h"
 #include "list.h"
 #include "mrn_cfg.h"
+#include "mrnet/Types.h"
 
 #define MRNET_BLOCKING 1
 #define MRNET_UNBLOCKING 0

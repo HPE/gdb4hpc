@@ -1,7 +1,7 @@
 USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
-MRNET	= @guard_srcdir@/mrnet
+MRNET	= @mrn_root@
 SDM	    = @guard_srcdir@/sdm
 ZMQNET  = @zmqnet_root@
 
@@ -15,7 +15,7 @@ AM_LIBTOOLFLAGS = --silent
 # Check for MRNet
 if MRN
 AM_CXXFLAGS	+= -I$(MRNET) -I$(SDM)
-MRN_LIBS	= -L$(MRNET) -L$(SDM) -lmrnet_c -lbitset -lmrnet 
+MRN_LIBS	= -L$(MRNET)/lib -L$(SDM) -lbitset -lmrnet 
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 

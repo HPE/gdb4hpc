@@ -485,6 +485,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    registerProtos();
     if (DbgInit() < 0) {
         PrintOutError("Could not initialise debugger.\n");
         exit(1);

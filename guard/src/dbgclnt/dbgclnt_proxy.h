@@ -78,7 +78,10 @@ private:
     int callback_failure = 0;
 };
 
- 
-void ProxyClientProtocol_link() {};
+// called once by registerProtos
+void ProxyClientProtocol_init() {
+    // will register itself in constructor
+    static ProxyClientProtocol proto;
+};
 
 #endif /* _DBGCLNT_PROXY_H */

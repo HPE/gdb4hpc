@@ -57,5 +57,8 @@ public:
     void destroyClient(struct dbginvoke *di) override;
 };
 
-// used as a handle in dbgclnt_proto.cpp to make the linker include this class
-void ZMQClientProtocol_link() {};
+// called once by registerProtos
+void ZMQClientProtocol_init() {
+    // will register itself in constructor
+    static ZMQNetClientProtocol proto;
+};

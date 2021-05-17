@@ -2,7 +2,7 @@ USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCLNT = @guard_srcdir@/src/dbgclnt
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
-MRNET	= @guard_srcdir@/mrnet
+MRNET	= @mrn_root@
 SDM	= @guard_srcdir@/sdm
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
@@ -26,7 +26,7 @@ endif
 # Check for MRNet libraries
 if MRN
 AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
-MRN_LIBS        = -L$(MRNET) -L$(SDM) -lmrnet_c -lmrnet -lbitset
+MRN_LIBS        = -L$(MRNET)/lib -L$(SDM) -lmrnet -lbitset
 endif
 
 # Check for gdb-mi libraries

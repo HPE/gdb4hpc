@@ -3,6 +3,9 @@
 
 #include "dbgsrv_proto.h"
 #include "dbg_mrn.h"
+#include "dbg_mrn_be.h"
+
+#include "mrnet/Stream.h"
 
 #ifdef ALPS
 #include "common_tools_be.h"
@@ -26,7 +29,8 @@ public:
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(const char *response) override;
 private:
-    MRNet_Stream *m_stream;
+    MRNetBackEnd *m_network;
+    MRN::Stream *m_stream;
     int m_tag;
     int m_my_mrn_rank;
     int m_mrn_event_fd;

@@ -37,18 +37,18 @@
  * this function is only here to make sure the linker pulls in the protocol
  * translation units so each protocol calls its constructor and registers itself.
 */
-void ClientProtocol_link() {
+void registerProtos() {
     #ifdef MRNET
-    extern void MRNClientProtocol_link();
-    MRNClientProtocol_link();
+    extern void MRNClientProtocol_init();
+    MRNClientProtocol_init();
     #endif
     #ifdef ZMQNET
-    extern void ZMQClientProtocol_link();
-    ZMQClientProtocol_link();
+    extern void ZMQClientProtocol_init();
+    ZMQClientProtocol_init();
     #endif
     // proxy is always present
-    extern void ProxyClientProtocol_link();
-    ProxyClientProtocol_link();
+    extern void ProxyClientProtocol_init();
+    ProxyClientProtocol_init();
 }
 
 // Used for the protocol wait for events function

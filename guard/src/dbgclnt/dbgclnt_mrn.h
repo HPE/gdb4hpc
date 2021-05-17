@@ -65,4 +65,10 @@ private:
 #endif
 };
 
+// called once by registerProtos
+void MRNClientProtocol_init() {
+    // will register itself in constructor
+    static MRNClientProtocol proto;
+};
+
 #endif /* _DBGCLNT_MRN_H */

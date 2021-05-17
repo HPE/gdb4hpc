@@ -807,7 +807,6 @@ AC_CONFIG_FILES([Makefile
 		 scripts/Makefile
 		 filters/Makefile
 		 filters/mrnet/Makefile
-		 mrnet/Makefile
 		 src/client/Makefile
 		 src/dbgclnt/Makefile
 		 src/dbgcomm/Makefile

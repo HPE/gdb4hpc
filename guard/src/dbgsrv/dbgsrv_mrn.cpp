@@ -32,7 +32,6 @@
 
 #include "dbgsrv_mrn.h"
 
-#include "Stream_C.h"
 #include "aif.h"
 #include "bitset.h"
 #include "dbg_mrn_be.h"
@@ -85,7 +84,7 @@ int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
 
     DVPRINT("EventMRNCallBack is invoked: %s!\n", st_dres);
 
-    int res = mrn_be_send_event(st_dres, comm_info);
+    int res = m_network->send_event(st_dres, comm_info);
     Free(st_dres);
     delete comm_info;
 
@@ -108,7 +107,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     unsigned par_port, par_rank;
     unsigned my_mrnrank;
 
-    if ((hostname = cti_be_getNodeHostname()) == NULL) {
+    if ((hostname = cti_be_getNodeHostname()) == nullptr) {
         fprintf(stderr, "DbgSRVMRNInitProto cannot get hostname\n");
         ++Shutdown;
 
@@ -121,7 +120,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     if (res < 0) {
         fprintf(stderr, "DbgSRVMRNInitProto cannot find parent to attach!\n");
         ++Shutdown;
-        Free(hostname);
+        free(hostname);
 
         return -1;
     }
@@ -154,22 +153,28 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     }
 
 #ifdef PERFLOG
-    gettimeofday(&tv_att, NULL);
+    gettimeofday(&tv_att, nullptr);
 #endif
 
     DVPRINT("Creating be network");
-    res = mrn_be_create_network(be_argc, be_argv);
+    try {
+        m_network = new MRNetBackEnd(be_argc, be_argv);
+        res = 0;
+    } catch (...) {
+        free(hostname);
+        return -1;
+    }
     DVPRINT("Done Creating network");
     m_my_mrn_rank = pmi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(m_my_mrn_rank);
+    m_network->set_localrank(m_my_mrn_rank);
     DVPRINT("Done setting local rank");
 #else /*end of ALPS*/
 
     int c;
     char **var;
     char *envval;
-    char *cfg_env = NULL;
+    char *cfg_env = nullptr;
     char single_rank[16];
     int be_argc = 6;
     char hostname[MAXPATHLEN];
@@ -217,7 +222,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
         }
     }
 
-    if (cfg_env == NULL) {
+    if (cfg_env == nullptr) {
         fprintf(stderr, "ERROR: GUARD_CFG_DIRECTORY argument is missing!\n");
         return -1;
     }
@@ -225,14 +230,14 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     DVPRINT("DbgSRVMRNInitProto GUARD_CFG_DIRECTORY=%s\n", cfg_env);
     setenv(GUARD_CFG_DIRECTORY, cfg_env, 1);
 
-    for (var = MPIRankVars; *var != NULL; var++) {
+    for (var = MPIRankVars; *var != nullptr; var++) {
         envval = getenv(*var);
-        if (envval != NULL) {
+        if (envval != nullptr) {
             break;
         }
     }
 
-    if (envval == NULL) /* we assume only single process is debugged */
+    if (envval == nullptr) /* we assume only single process is debugged */
     {
         /*
         fprintf(stderr, "ERROR: DbgSRVSCIInitProto cannot get MPIRank\n");
@@ -282,28 +287,32 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
         "par_rank[%d] my_rank[%d]\n",
         par_addr, par_port, par_rank, my_mrnrank);
 
-    res = mrn_be_create_network(be_argc, be_argv);
+    try {
+        m_network = new MRNetBackEnd(be_argc, be_argv);
+        res = 0;
+    } catch (...) {
+        free(hostname);
+        return -1;
+    }
     m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
                              // client to identifiy dbgsrv
-    mrn_be_set_localrank(m_my_mrn_rank);
-//	res = mrn_be_create_network( argc, argv );
-//	my_mrn_rank = mrn_be_get_localrank();
+    m_network->(m_my_mrn_rank);
 #endif
 
-    mrn_be_set_callback(dbgsrv_dispatch_cmds);
+    m_network->set_callback(dbgsrv_dispatch_cmds);
 
     // get the mrnet event fd to select on
-    m_mrn_event_fd = mrn_be_get_event_fd();
+    m_mrn_event_fd = m_network->get_event_fd();
 
-    Free(hostname);
+    free(hostname);
 
     return res;
 }
 
 void MRNServerProtocol::endProto() {
-    /*todo: delete network? */
     DVPRINT("Waiting for MRNet network shutdown.\n");
-    mrn_be_waitfor_shutdown();
+    m_network->waitfor_shutdown();
+    delete m_network;
 }
 
 fd_set *MRNServerProtocol::getFdSet() {
@@ -322,7 +331,7 @@ int MRNServerProtocol::transferIo(int fd, char *buffer, int size) {
 
     DVPRINT("DbgSRVMRNTransferIO: %s\n", buffer);
 
-    mrn_be_send_io(buffer);
+    m_network->send_io(buffer);
 
     return 0;
 }
@@ -335,10 +344,16 @@ void MRNServerProtocol::runProto(fd_set *fds) {
 
     DVPRINT("INFO: entering DbgSRVMRNRunProto.\n");
 
-    if (mrn_be_is_shutdown()) {
+    if (m_network == nullptr) {
+        DVPRINT("m_network is nullptr!\n");
+        DbgQuit(false);
+        return;
+    }
+
+    if (m_network->is_shutdown()) {
         DVPRINT("DbgSRVMRNRunProto found mrnet is in a shutdown state!\n");
         DVPRINT("Quiting...\n");
-        DbgQuit(0);
+        DbgQuit(false);
 
         return;
     }
@@ -351,28 +366,28 @@ void MRNServerProtocol::runProto(fd_set *fds) {
     FD_CLR(m_mrn_event_fd, fds);
 
     // clear the mrnet event fd
-    mrn_be_clear_event_fd();
+    m_network->clear_event_fd();
 
     // service all pending events, otherwise the event fd might not trigger
-    while (mrn_be_num_events_pending()) {
+    while (m_network->num_events_pending()) {
         DVPRINT("INFO: Servicing MRNet event.\n");
 
         // Acknowledge the event
-        mrn_be_ack_event();
+        m_network->ack_event();
 
         // receive the event
-        res = mrn_be_recv(&m_stream, &m_tag, MRNET_UNBLOCKING);
+        res = m_network->recv(&m_stream, &m_tag, MRNET_UNBLOCKING);
 
         if (res < 0) {
-            fprintf(stderr, "DbgSRVMRNRunProto() mrn_be_recv() failed!\n");
+            fprintf(stderr, "DbgSRVMRNRunProto() m_network->recv() failed!\n");
             exit(1);
         }
         if (res > 0) {
             DVPRINT("Recieved message on stream %u[%d]\n",
-                    stream_get_Id(m_stream), m_tag);
-            if (m_tag == DBG_MRNet_PRO_COMMAND) mrn_be_set_cmd_stream(m_stream);
+                    m_stream->get_Id(), m_tag);
+            if (m_tag == DBG_MRNet_PRO_COMMAND) m_network->set_cmd_stream(m_stream);
 
-            mrn_be_handle_msg(m_stream);
+            m_network->handle_msg(m_stream);
         }
 
         DVPRINT("INFO: Finished servicing MRNet Event.\n");
@@ -386,39 +401,44 @@ void MRNServerProtocol::runProto(fd_set *fds) {
 // TODO: This is calling the send event instead of send reply function, so its
 //        incompatible with the caller...
 dbgevent_t *MRNServerProtocol::invokeNetwork(int numbe) {
+    if (m_network == nullptr) {
+        DVPRINT("Tried to call MRNServerProtocol::invokeNetwork with a null m_network!\n");
+        return nullptr;
+    }
+
     if (m_tag == DBG_MRNet_PRO_COMMAND) {
-        mrn_be_set_cmd_stream(m_stream);
+        m_network->set_cmd_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on command stream.\n");
-        return NULL;
+        return nullptr;
     }
 
     if (m_tag == DBG_MRNet_PRO_IO) {
-        mrn_be_set_io_stream(m_stream);
+        m_network->set_io_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on io stream!\n");
-        return NULL;
+        return nullptr;
     }
 
     if (m_tag == DBG_MRNet_PRO_EVENT) {
         dbgevent_t *e;
         char *resp;
 
-        mrn_be_set_event_stream(m_stream);
+        m_network->set_event_stream(m_stream);
         DVPRINT("[dbgsrv] Received SetupNetwork on event stream!\n");
 
-        mrn_be_set_size(numbe);
+        m_network->set_size(numbe);
 
         e = NewEvent(DBGEV_OK);
         resp = EventToSocProto(e);
 
-        mrn_be_send_event(resp, NULL /*defaults to the stream we just set*/);
-        Free(resp);
+        m_network->send_event(resp, nullptr /*defaults to the stream we just set*/);
+        free(resp);
 
-        return NULL;
+        return nullptr;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 int MRNServerProtocol::sendReply(const char *response) {
-    return mrn_be_send_reply(m_stream, response);
+    return m_network->send_reply(m_stream, response);
 }

@@ -1,5 +1,5 @@
 /*********************************************************************************\
- * mrn_topgen.c
+ * mrn_topgen.cpp
  *
  * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
@@ -24,11 +24,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Topology_C.h"
 #include "dbg_client.h"
 #include "dbg_mrn.h"
 #include "defs.h"
 #include "mrn_cfg.h"
+
+#include "mrnet/NetworkTopology.h"
 
 #define DEFAULT_TOP_FANOUT_DEGREE 32
 #define DEFAULT_FILTER_TIMEOUT 500
@@ -644,18 +645,16 @@ int create_mrnet_topology(int num_be, char *root, char **hosts, int attaching) {
 
 /* TODO: check apid */
 
-int create_parents_info_with_balanced_top(MRNet_Topology *topology,
+int create_parents_info_with_balanced_top(MRN::NetworkTopology *topology,
                                           int num_be) {
-    int num_nodes, num_level, up_fanout, low_fanout;
+    int num_level, up_fanout, low_fanout;
     int up_count, low_count;
-    int index, inner, up_index = 0;
+    int up_index = 0;
     int dbgsrv_id = 0;
-    int loop;
     char *dir;
     char connections[MAXPATHLEN];
     char temp_conn[MAXPATHLEN];
     FILE *pfile;
-    MRNet_Node_t *leaf_nodes;
 
     dir = getenv(GUARD_CFG_DIRECTORY);
 
@@ -703,7 +702,9 @@ int create_parents_info_with_balanced_top(MRNet_Topology *topology,
             num_be, num_level);
     }
 
-    num_nodes = topology_get_leaves(topology, &leaf_nodes);
+    std::vector<MRN::NetworkTopology::Node *> leaves;
+    topology->get_Leaves(leaves);
+    int num_nodes = leaves.size();
 
     DPRINT(
         "INFO: create_parents_info num_nodes[%d], up_fanout[%d]x[%d], "
@@ -723,12 +724,12 @@ int create_parents_info_with_balanced_top(MRNet_Topology *topology,
         return 0;
     }
 
-    for (index = 0; index < num_nodes; ++index) {
-        loop = up_fanout;
+    for (unsigned int index = 0; index < leaves.size(); ++index) {
+        int loop = up_fanout;
         ++up_index;
         if (up_index > up_count) loop = low_fanout;
 
-        for (inner = 0; inner < loop; ++inner) {
+        for (int inner = 0; inner < loop; ++inner) {
             // we should make this a constant width so we can speed up the
             // parsing of the be_attach.dat file 7 digit width for dbgsrv_id -
             // meaning we can have up to 9,999,999 nodes, should be good enough
@@ -737,8 +738,8 @@ int create_parents_info_with_balanced_top(MRNet_Topology *topology,
             // don't change the standard on us (65535) 6 digit mrnet rank - this
             // is highest dbgsrv_id divided by fanout
             fprintf(pfile, "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n", dbgsrv_id,
-                    leaf_nodes[index].hostname, leaf_nodes[index].port,
-                    leaf_nodes[index].rank);
+                    leaves[index]->get_HostName().c_str(), leaves[index]->get_Port(),
+                    leaves[index]->get_Rank());
             ++dbgsrv_id;
         }
     }
@@ -751,17 +752,13 @@ int create_parents_info_with_balanced_top(MRNet_Topology *topology,
         return -1;
     }
 
-    release_nodes(leaf_nodes, num_nodes);
-
     return num_nodes;
 }
 
-int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
+int create_parents_info_with_knomial_top(MRN::NetworkTopology *topology, int num_be) {
     int dbgsrv_id = 0;
-    int inner, index, loop;
-    int num_nodes, num_attach_floor, num_attach_ceil, num_ceil;
+    int num_attach_floor, num_attach_ceil;
     float num_attach;
-    MRNet_Node_t *leaf_nodes;
 
     char *dir;
     char connections[MAXPATHLEN];
@@ -787,20 +784,22 @@ int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
         return 0;
     }
 
-    num_nodes = topology_get_leaves(topology, &leaf_nodes);
+    std::vector<MRN::NetworkTopology::Node *> leaves;
+    topology->get_Leaves(leaves);
+    int num_nodes = leaves.size();
 
     num_attach = (float)num_be / num_nodes;
     num_attach_ceil = ceil(num_attach);
     num_attach_floor = floor(num_attach);
 
-    num_ceil = num_be - num_attach_floor * num_nodes;
+    unsigned int num_ceil = num_be - num_attach_floor * num_nodes;
 
     dbgsrv_id = 0;
-    for (index = 0; index < num_nodes; ++index) {
-        loop = num_attach_ceil;
+    for (unsigned int index = 0; index < leaves.size(); ++index) {
+        int loop = num_attach_ceil;
         if (index > num_ceil) loop = num_attach_floor;
 
-        for (inner = 0; inner < loop; ++inner) {
+        for (int inner = 0; inner < loop; ++inner) {
             // we should make this a constant width so we can speed up the
             // parsing of the be_attach.dat file 7 digit width for dbgsrv_id -
             // meaning we can have up to 9,999,999 nodes, should be good enough
@@ -809,8 +808,8 @@ int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
             // don't change the standard on us (65535) 6 digit mrnet rank - this
             // is highest dbgsrv_id divided by fanout
             fprintf(pfile, "%-7d %" MAXADDRLEN_FMT "s %-5d %-6d\n", dbgsrv_id,
-                    leaf_nodes[index].hostname, leaf_nodes[index].port,
-                    leaf_nodes[index].rank);
+                    leaves[index]->get_HostName().c_str(), leaves[index]->get_Port(),
+                    leaves[index]->get_Rank());
             ++dbgsrv_id;
         }
     }
@@ -824,12 +823,10 @@ int create_parents_info_with_knomial_top(MRNet_Topology *topology, int num_be) {
         return -1;
     }
 
-    release_nodes(leaf_nodes, num_nodes);
-
     return num_nodes;
 }
 
-int create_parents_info(MRNet_Topology *topology, int num_be) {
+int create_parents_info(MRN::NetworkTopology *topology, int num_be) {
     int res = 0;
 
     switch (topology_type) {

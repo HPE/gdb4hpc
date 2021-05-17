@@ -1,6 +1,6 @@
 USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
-MRNET	= @guard_srcdir@/mrnet
+MRNET	= @mrn_root@
 SDM	= @guard_srcdir@/sdm
 
 AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM)

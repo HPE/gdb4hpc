@@ -10,46 +10,75 @@
  * in any form.
  *
  *********************************************************************************/
+#pragma once
 
 /* interface of MRNet backend for Guard server*/
-#ifndef _GUARD_MRNET_BACKEND_H
-#define _GUARD_MRNET_BACKEND_H
 
 #include "dbg_mrn.h"
+#include "mrnet/Stream.h"
+#include "smart_bitset.h"
 
 class dbgcomm_info;
 
-extern int mrn_be_create_network(int argc, char *argv[]);
+class MRNetBackEnd {
+public:
+    MRNetBackEnd(int argc, char *argv[]);
+    ~MRNetBackEnd();
 
-extern void mrn_be_set_size(int size);
+    void set_size(int size);
 
-extern void mrn_be_set_localrank(int rank);
-extern int mrn_be_get_localrank();
+    void set_localrank(int rank);
+    int get_localrank() const;
 
-extern void mrn_be_set_callback(void (*callback)(char *, const dbgcomm_info *));
-extern void mrn_be_handle_msg(MRNet_Stream *stream);
+    void set_callback(void (*callback)(char *, const dbgcomm_info *));
+    void handle_msg(MRN::Stream *stream);
 
-extern void mrn_be_set_cmd_stream(MRNet_Stream *stream);
-extern void mrn_be_set_event_stream(MRNet_Stream *stream);
-extern void mrn_be_set_event_stream_from_id(unsigned int streamId);
-extern void mrn_be_set_io_stream(MRNet_Stream *stream);
-extern int mrn_be_get_event_fd();
-extern void mrn_be_clear_event_fd();
-extern unsigned int mrn_be_num_events_pending();
-extern void mrn_be_ack_event();
-extern void mrn_be_clear_events();
+    void set_cmd_stream(MRN::Stream *stream);
+    void set_event_stream(MRN::Stream *stream);
+    void set_event_stream_from_id(unsigned int streamId);
+    void set_io_stream(MRN::Stream *stream);
+    int get_event_fd() const;
+    void clear_event_fd();
+    unsigned int num_events_pending();
+    MRN::Event* ack_event();
+    void clear_events();
 
-extern int mrn_be_recv(struct MRNet_Stream **stream, int *tag, int blocking);
+    int recv(struct MRN::Stream **stream, int *tag, bool blocking);
 
-extern int mrn_be_send_reply(MRNet_Stream *stream, const char *msg);
-extern int mrn_be_send_event(char *msg, const dbgcomm_info *commInfo);
-extern int mrn_be_send_io(char *msg);
+    int send_reply(MRN::Stream *stream, const char *msg);
+    int send_event(char *msg, const dbgcomm_info *commInfo);
+    int send_io(char *msg);
 
-extern int mrn_be_is_shutdown();
-extern void mrn_be_waitfor_shutdown();
+    int is_shutdown();
+    void waitfor_shutdown();
 
-extern int mrn_be_shutdown();
+    int shutdown();
 
-extern void mrn_be_set_param(MRNet_Stream *stream, const char* msg);
+    void set_param(MRN::Stream *stream, const char* msg);
+private:
+    MRN::Network* m_network;
 
-#endif /* _GUARD_MRNET_BACKEND_H */
+    MRN::Stream* m_bc_stream_cmd;
+    MRN::Stream* m_bc_stream_event;
+
+    MRN::Stream* m_stream_cmd;
+    MRN::Stream* m_stream_event;
+    MRN::Stream* m_stream_io;
+    MRN::Stream* m_stream_single;  // TODO: using singlecast stream to reply
+                                   // single cast cmd
+    int m_cmd_fd;    // for notification of events on cmd stream
+    int m_event_fd;  // for notification of events on event stream
+    int m_io_fd;     // for notification of events on io stream
+
+    int m_rank;               // rank of backend
+    smart_bitset* m_rank_bs;  // smart_bitset
+    char* m_rank_bs_str;
+
+    int m_network_size;
+
+    list_t* m_cmd_streams;    // procset streams created for working with subset
+    list_t* m_event_streams;  // asynch return streams for each of cmd_streams
+    list_t* m_msg_list;
+
+    void (*m_dbgsrv_callback)(char* msg, const dbgcomm_info*);
+};

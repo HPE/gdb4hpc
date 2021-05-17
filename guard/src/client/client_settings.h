@@ -30,7 +30,9 @@ struct clnt_settings {
     int confirm;                /* Confirm dangerous commands */
     int quit;                   /* Quit the debugger? */
     int interactive;            /* Interactive mode? */
-    int silent;                 /* Be quiet? */
+    int silent;                 /* Print banner? */
+    bool echo;                  /* Echo each command in batch mode? */
+    bool keep_going;            /* Ignore errors in batch mode? */
     int unsafe;                 /* Be unsafe? */
     int early_entry;            /* Enter at pmi_init? */
     int print_entry_frame;      /* Print frame locations at startup? */

@@ -41,7 +41,7 @@ static void _print_with_set_info(const char *, const bitset *, const char* threa
 
 static bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
 
-// Internal variablesa
+// Internal variables
 static list_t *ProcSets = NULL;  // TODO: Try to get rid of this
 static dbgprocset_t *CurrProcSet = NULL;
 static dbgprocset_t *AllProcSet = NULL;
@@ -156,7 +156,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     }
 
     // Create the name for this temporary process set
-    Asprintf(&ps_name, "$%s{%s}", ps->s_name, ps_slice->getArgs());
+    Asprintf(&ps_name, "%s_temp", ps->s_name);
 
     // create the new procset
     new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->getThreads());

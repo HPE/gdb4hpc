@@ -171,16 +171,26 @@ static int cli_file_get_line(cli_stream_t **stream) {
         return 1;
     }
 
+    if (Client.echo == true && cs->cs_buf[0] != '\n' && cs->cs_buf[0] != '\0') {
+        // cs->cs_buf has a \n on the end
+        PrintOutMsg("%d: %s", cs->cs_line, cs->cs_buf); 
+    }
     ExecuteCommand(cs->cs_buf);
 
     // print an error if the err flag is set
     if (cs->cs_err) {
-        PrintOutMsg("Line: %d Text: %s\n", cs->cs_line, cs->cs_buf);
+        // cs->cs_buf has a \n on the end
+        PrintOutMsg("Command resulted in an error: %d: %s", cs->cs_line, cs->cs_buf); 
 
-        // Reenable input
-        cs->cs_handling = 0;
+        if (Client.keep_going == false) {
+            // Reenable input
+            cs->cs_handling = 0;
 
-        return 1;
+            return 1;
+        } else {
+            // reset error
+            cs->cs_err = 0;
+        }
     }
 
     Free(cs->cs_buf);

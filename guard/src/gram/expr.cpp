@@ -1085,6 +1085,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                     if (LVAL_GDB_PROCSET(val)->s_nproc == 0) {
                         PrintOutError("Rank selection \"%s\" is invalid.\n", 
                             RVAL_REF_SLICE(ps_val)->getArgs());
+                        free(LVAL_GDB_PROCSET(val));
                         goto bad_var;
                     }
 
@@ -1931,18 +1932,6 @@ static bitset* intersect_groups(bitset* a, bitset* b) {
         return nullptr;
 }
 
-// compute the union of two bitsets, treating a null-ptr as all 1's
-static bitset* union_groups(bitset* a, bitset* b) {
-    if (a && b)
-        return bitset_or(a,b);
-    else if (a)
-        return bitset_dup(a);
-    else if (b)
-        return bitset_dup(b);
-    else
-        return nullptr;
-}
-
 // create a group reply by wrapping a single AIF data object.   Takes ownership of
 // group and aif.
 static group_reply_t* make_reply_from_aif(dbginvoke_t* di, bitset* group, AIF* aif) {
@@ -2298,15 +2287,20 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         // Main comparison operation
         //-----------------------------------------------------------------------
         // Apply the op to all pairwise results that share a group. We make an
-        // exception to the "share a group" rule for two groups that are only
-        // one rank in size.
+        // exception to the "share a group" rule when the full set of replies is
+        // only one rank in size on each side.
         // we could be a smarter about finding overlapping replies, but the previous version
         // was just n-squared so I'll just repeat that for now
         bool isFirst = true;
         for (auto&& r1 : reps1) {
             for (auto&& r2 : reps2) {
-                if (r1.group && r2.group && !bitset_compare(r1.group,r2.group) && (bitset_numset(r1.group) > 1 || bitset_numset(r2.group) > 1)) {
-                    continue;
+                bool is_single = false;
+                if (r1.group && r2.group && !bitset_compare(r1.group,r2.group)) {
+                    if (reps1.size() == 1 && reps2.size() == 1 && 
+                        bitset_numset(r1.group) == 1 && bitset_numset(r2.group) == 1)
+                        is_single = true;
+                    else
+                        continue;
                 }
 
                 AIF* diff = nullptr, **darg = (check_diff ? &diff : nullptr);
@@ -2318,11 +2312,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
 
                 // intersect if we have groups larger than 1 rank in size, 
                 // otherwise it is fine to union them
-                auto tset = (bitset_numset(r1.group) > 1 || bitset_numset(r2.group) > 1) ? 
-                    intersect_groups(r1.group, r2.group)
-                    :
-                    union_groups(r1.group, r2.group)
-                ;
+                auto tset = is_single ? bitset_dup(r1.group) : intersect_groups(r1.group, r2.group);
                 
                 if (isCompare) {
                     add_to_compare_reply(*newRepSet, bitset_dup(tset), res, op);

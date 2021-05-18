@@ -109,14 +109,10 @@ bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice) {
         auto ret = start;
 
         // skip all unset bits and n set bits
-        while (ret < bits->bs_nbits) {
-            if (bitset_test(bits, ret)) {
-                if (n == 0)
-                    break;
-                else
-                    n--;
+        for (; ret < bits->bs_nbits; ++ret) {
+            if (bitset_test(bits, ret) && !n--) {
+                break;
             }
-            ret++;
         }
 
         return ret;

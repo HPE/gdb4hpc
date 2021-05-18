@@ -102,5 +102,8 @@ a{0..2}: 10
 b{0..2}: 10
 {1..2}: Comparison is true.
 {1..2}: Comparison is true.
+Rank selection "(3)" is invalid.
+
+Command resulted in an error: %[0-9]+%: compare $a{1}::i=$a{3}::i
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

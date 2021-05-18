@@ -15,5 +15,7 @@ b{0..2}: The application has reached an exit breakpoint.
 %-
 a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:193
 %>
+Rank selection "(3)" is invalid.
+Command resulted in an error: %[0-9]+%: focus $b{3}
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

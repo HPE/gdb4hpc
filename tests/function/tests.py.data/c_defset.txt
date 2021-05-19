@@ -15,5 +15,7 @@ b{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_cmp_diff.c:227
 a{0..2}: Breakpoint 1, main at %%testdir%%/bd_dt/c/c_type_test.c:227
 %>
 {1}: Comparison is true.
+ERROR: No valid ranks detected in process set argument.
+Command resulted in an error: %[0-9]+%: defset $invalid $b{3}
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

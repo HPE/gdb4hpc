@@ -73,6 +73,8 @@ static void SigHandler(int);
  */
 static const struct option long_opts[] = {
     {"batch", required_argument, 0, 'b'},
+    {"keep-going", no_argument, 0, 'k'},
+    {"echo", no_argument, 0, 'e'},
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'i'},
     {"output", required_argument, 0, 'o'},
@@ -87,13 +89,11 @@ static void usage(char *name) {
 
     PrintOutMsg("Options:\n\n");
 
-    PrintOutMsg(
-        "  --batch=FILE, -b     Execute debugger commands from FILE and "
-        "exit\n");
+    PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
+    PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered\n");
+    PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it\n");
     PrintOutMsg("  --help, -h           Display this text\n");
-    PrintOutMsg(
-        "  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used "
-        "with --batch.\n");
+    PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
     PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
     PrintOutMsg("  --version, -v        Display version\n");
 
@@ -283,7 +283,9 @@ int main(int argc, char *argv[]) {
     Client.confirm = 1;               // Confirm dangerous commands?
     Client.quit = 0;                  // Quit the debugger?
     Client.interactive = 1;           // Interactive mode?
-    Client.silent = 0;                // Be quiet?
+    Client.silent = 0;                // Print banner?
+    Client.echo = false;              // Echo each command in batch mode?
+    Client.keep_going = false;        // Ignore errors in batch mode?
     Client.unsafe = 0;                // Be unsafe?
     Client.early_entry = 0;           // Enter at pmi_init?
     Client.print_entry_frame = 1;     // Print frame locations at startup?
@@ -318,7 +320,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:hi:o:sv", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:kehi:o:sv", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -345,6 +347,14 @@ int main(int argc, char *argv[]) {
                 // dependent.
                 Client.confirm = 0;
 
+                break;
+            }
+            case 'k': {
+                Client.keep_going = true;
+                break;
+            }
+            case 'e': {
+                Client.echo = true;
                 break;
             }
             case 'i': {

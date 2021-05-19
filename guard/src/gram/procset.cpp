@@ -39,6 +39,8 @@ static void _print_with_set_info(const char *, const bitset *, const char* threa
                                  int, int, int, int,
                                  const char *, va_list);
 
+static bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
+
 // Internal variables
 static list_t *ProcSets = NULL;  // TODO: Try to get rid of this
 static dbgprocset_t *CurrProcSet = NULL;
@@ -81,6 +83,59 @@ void FinishProcSet(void) {
     DestroyList(procSets, (void (*)(void *))_free_procset);
 }
 
+// Returns a newly allocated bitset which is the passed \c slice applied to 
+// the bitset in \c overlay_set. Only set bits are considered for the slice. 
+// For example, given the bitset 111100001111, the slice {3..5} (zero indexed, 
+// least significant bit is zero) would return 001100001000. The caller is 
+// responsible for freeing the returned bitset. If the passed \c slice is null,
+// a duplicate bitset will still be allocated.
+//
+// \param overlay_set: The overlay set containing the bitset the new bitset will 
+//                     be derived from
+//      \param *slice: The slice applied to \a bitset. If null, a duplicate of 
+//                     \a bitset is returned.
+bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice) {
+    const auto bits = overlay_set.s_di_bs;
+    if (bits == nullptr) return nullptr;
+
+    const auto num_set = bitset_numset(bits);
+    auto result = bitset_dup(bits);
+    if (slice == nullptr) return result; // no slice requested
+
+    bitset_clear(result);
+
+    // get nth set bit in bits, zero indexed, beginning from start
+    auto nthSetBit = [bits](int n, unsigned int start = 0) {
+        auto ret = start;
+
+        // skip all unset bits and n set bits
+        for (; ret < bits->bs_nbits; ++ret) {
+            if (bitset_test(bits, ret) && !n--) {
+                break;
+            }
+        }
+
+        return ret;
+    };
+
+    // check that the requested slice index makes sense in the context of the
+    // overlay sets
+    auto validIndex = [&overlay_set, &num_set](int index) {
+        return
+            index >= overlay_set.s_ps_offset && index < overlay_set.s_ps_offset + num_set;
+    };
+
+    for (int i = 0; i < slice->getRank(); ++i) {
+        int bit = nthSetBit(slice->getLow(i) - overlay_set.s_ps_offset);
+
+        for (int j = slice->getLow(i); j <= slice->getHigh(i) && validIndex(j); ++j) {
+            bitset_set(result, nthSetBit(0, bit++));
+        }
+    }
+
+    return result;
+}
+
 /*
 ** Create a temporary process set from a slice
 */
@@ -89,9 +144,6 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     dbgprocset_t *new_procset;
     dbg_over_set_t *o_ptr;
     dbg_over_set_t *over_set;
-    bitset *di_mask = NULL;
-    int num_set;
-    int i, index, bit, i_cnt;
     int ps_offset;
 
     if (ps == NULL || ps_slice == NULL) {
@@ -110,65 +162,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     // Loop over each overlay set in the procset
     SetOverlaySetForProcSet(ps);
     while ((o_ptr = GetNextOverlaySetForProcSet(ps)) != NULL) {
-        // grab the procset for this invoke, dup it, and clear it
-        di_mask = bitset_dup(o_ptr->s_di_bs);
-        bitset_clear(di_mask);
-
-        // Get the number of bits set to 1, this is the number of "ranks" found
-        // in this di for the procset.
-        num_set = bitset_numset(o_ptr->s_di_bs);
-
-        // Now check the slice information to see if this di has any specified
-        // ranks
-        for (i = 0; i < ps_slice->getRank(); ++i) {
-            // initialize the bit counter for this set, we need to ignore bits
-            // in the bitset that are not set since these are not part of the
-            // procset This could be more efficient, but I guess the slice
-            // information is not guaranteed to be sorted.
-            bit = 0;
-            // This corresponds to the offset plus the number of on bits in the
-            // bitset
-            i_cnt = o_ptr->s_ps_offset;
-
-            DPRINT("CreateTempProcSetSlice looping over slice:[%d..%d]\n",
-                   ps_slice->getLow(i), ps_slice->getHigh(i));
-
-            // Loop over the range of this rank in the slice
-            for (index = ps_slice->getLow(i); index <= ps_slice->getHigh(i);
-                 ++index) {
-                // If the index is less than the offset of this o_ptr, we know
-                // that the requested rank cannot be found here.
-                if (index < o_ptr->s_ps_offset) break;
-
-                // If the index is greater than the offset plus the number of
-                // ranks set in the bitset, we know that the requested rank
-                // cannot be found here.
-                if (index > (o_ptr->s_ps_offset + num_set)) break;
-
-                // advance i_cnt to index
-                do {
-                    // Ignore unset bits
-                    while (!bitset_test(o_ptr->s_di_bs, bit)) ++bit;
-
-                    DPRINT(
-                        "CreateTempProcSetSlice bit[%d] i_cnt[%d] index[%d]\n",
-                        bit, i_cnt, index);
-
-                    // increment bit if i_cnt does not equal index, we want to
-                    // skip over this bit
-                    if (i_cnt != index) {
-                        ++bit;
-                    }
-
-                    // only advance i_cnt, bit currently points to the bit in
-                    // the set that corresponds to index if i_cnt == index
-                } while (i_cnt == index ? 0 : ++i_cnt);
-
-                // set this bit in the di_mask to 1, this corresponds to this
-                // index
-                bitset_set(di_mask, bit);
-            }
-        }
+        auto di_mask = sliceBitset(*o_ptr, ps_slice);
 
         // Ensure that this mask isn't empty, otherwise we don't want to add it
         if (bitset_isempty(di_mask)) {
@@ -223,8 +217,6 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
     bitset *di_mask = NULL;
     dbg_over_set_t *over_set = NULL;
     dbg_over_set_t *o_ptr = NULL;
-    int num_set;
-    int i, index, bit, i_cnt;
     slice_t *ps_slice;
     int ps_offset = 0;
 
@@ -326,81 +318,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
             }
 
             while ((over_set = GetNextOverlaySetForProcSet(procset)) != NULL) {
-                // grab the procset for this invoke, dup it
-                di_mask = bitset_dup(over_set->s_di_bs);
-
-                // Check to see if slicing information was provided
-                if (ps_slice != NULL) {
-                    DPRINT("CreateProcSet slicing information provided.\n");
-
-                    // We need to compute the slice, start by clearing the
-                    // di_mask
-                    bitset_clear(di_mask);
-
-                    // Get the number of bits set to 1, this is the number of
-                    // "ranks" found in this di for the procset.
-                    num_set = bitset_numset(over_set->s_di_bs);
-
-                    // Now check the slice information to see if this di has any
-                    // specified ranks
-                    for (i = 0; i < ps_slice->getRank(); ++i) {
-                        // initialize the bit counter for this set, we need to
-                        // ignore bits in the bitset that are not set since
-                        // these are not part of the procset This could be more
-                        // efficient, but I guess the slice information is not
-                        // guaranteed to be sorted.
-                        bit = 0;
-                        // This corresponds to the offset plus the number of on
-                        // bits in the bitset
-                        i_cnt = over_set->s_ps_offset;
-
-                        DPRINT("CreateProcSet looping over slice:[%d..%d]\n",
-                               ps_slice->getLow(i), ps_slice->getHigh(i));
-
-                        // Loop over the range of this rank in the slice
-                        for (index = ps_slice->getLow(i);
-                             index <= ps_slice->getHigh(i); ++index) {
-                            // If the index is less than the offset of this
-                            // over_set, we know that the requested rank cannot
-                            // be found here.
-                            if (index < over_set->s_ps_offset) break;
-
-                            // If the index is greater than the offset plus the
-                            // number of ranks set in the bitset, we know that
-                            // the requested rank cannot be found here.
-                            if (index > (over_set->s_ps_offset + num_set))
-                                break;
-
-                            // advance i_cnt to index
-                            do {
-                                // Ignore unset bits
-                                while (!bitset_test(over_set->s_di_bs, bit))
-                                    ++bit;
-
-                                DPRINT(
-                                    "CreateProcSet bit[%d] i_cnt[%d] "
-                                    "index[%d]\n",
-                                    bit, i_cnt, index);
-
-                                // increment bit if i_cnt does not equal index,
-                                // we want to skip over this bit
-                                if (i_cnt != index) {
-                                    ++bit;
-                                }
-
-                                // only advance i_cnt, bit currently points to
-                                // the bit in the set that corresponds to index
-                                // if i_cnt == index
-                            } while (i_cnt == index ? 0 : ++i_cnt);
-
-                            // set this bit in the di_mask to 1, this
-                            // corresponds to this index
-                            bitset_set(di_mask, bit);
-                            DPRINT("CreateProcSet found index at bit[%d]\n",
-                                   bit);
-                        }
-                    }
-                }
+                di_mask = sliceBitset(*over_set, ps_slice);
 
                 // Ensure that this mask isn't empty, otherwise we don't want to
                 // add it
@@ -411,10 +329,6 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                         o_ptr->s_di->d_handle);
                     continue;
                 }
-
-                // If slicing information wasn't provided, the user specified
-                // the whole set. In that case we want to use the entire bitset
-                // "as is".
 
                 // Check to see if an overlay set already exists for this di in
                 // the new_procset
@@ -669,6 +583,7 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* 
     s->s_name = strdup(name);
     s->s_type = type;
     s->s_nproc = 0;
+    s->s_init = 0;
     s->s_num_sets = 0;
     s->s_over_set_list = NewList();
     s->s_threads = (threads ? strdup(threads) : nullptr);

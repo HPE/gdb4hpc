@@ -49,11 +49,10 @@ defset $new_set $b{0..2}
 
 compare $new_set{1}::si=$b{1}::si
 
+# Test combining sets
+
+# Test detection of invalid rank selection
+defset $invalid $b{3}
 
 #exit lgdb
 q
-
-
-
-
-

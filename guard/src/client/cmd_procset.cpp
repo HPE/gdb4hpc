@@ -35,7 +35,7 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    if ((ex = ParseExpr(argv[1])) == NULL) {
+    if ((ex = ParseExpr(argv[1])) == nullptr) {
         PrintError();
         return 0;
     }
@@ -58,8 +58,15 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
         procset = CreateTempProcSetSlice(RVAL_ACTUAL_PROCSET(val),
                                          RVAL_REF_SLICE(val));
 
-        if (procset == NULL) {
+        if (procset == nullptr) {
             PrintOutError("Failed to create temporary procset for focus!\n");
+            return 0;
+        }
+
+        if (procset->s_nproc == 0) {
+            PrintOutError("Rank selection \"%s\" is invalid.\n", 
+                RVAL_REF_SLICE(val)->getArgs());
+            free(procset);
             return 0;
         }
     } else {
@@ -78,7 +85,7 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgprocset_t *procset;
 
     if (argc > 1) {
-        if ((ex = ParseExpr(argv[1])) == NULL) {
+        if ((ex = ParseExpr(argv[1])) == nullptr) {
             PrintError();
             return 0;
         }
@@ -109,7 +116,7 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
     PrintOutMsg("Name       Procs\n");
 
     SetProcSet();
-    while ((procset = GetProcSet()) != NULL) {
+    while ((procset = GetProcSet()) != nullptr) {
         PrintOutMsg("%-10s ", procset->s_name);
         PrintProcSet(procset);
         PrintOutMsg("\n");
@@ -153,10 +160,10 @@ static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_procset(void) {
-    AddCommand("defset", NULL, proc_ignore, 0, cmd_defset_cmd,
+    AddCommand("defset", nullptr, proc_ignore, 0, cmd_defset_cmd,
                cmd_defset_help, "Create a set of processes.");
-    AddCommand("viewset", NULL, proc_ignore, 0, cmd_viewset_cmd,
+    AddCommand("viewset", nullptr, proc_ignore, 0, cmd_viewset_cmd,
                cmd_viewset_help, "Display information about process sets.");
-    AddCommand("focus", NULL, proc_ignore, 0, cmd_focus_cmd,
+    AddCommand("focus", nullptr, proc_ignore, 0, cmd_focus_cmd,
                cmd_focus_help, "Set the current process set.");
 }

@@ -1123,7 +1123,7 @@ static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
     /*
     ** Start building graph.
     */
-    GraphPtr->g_startnode = SCONST(GraphPtr, "CONST", Client.proto);
+    GraphPtr->g_startnode = SCONST(GraphPtr, "CONST", Client.proto.c_str());
     GraphPtr->g_initnode = NODE(GraphPtr, "DBGINIT");
     EDGE(GraphPtr, GraphPtr->g_startnode, GraphPtr->g_initnode, 0);
 

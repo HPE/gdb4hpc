@@ -663,6 +663,40 @@ static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_set_subcmd_protocol_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    auto error = false;
+    
+    if (argc < 2) {
+        PrintOutError("Not enough arguments.\n");
+        error = true;
+    } else if (findClientProtoByName(argv[1])) {
+        Client.proto = argv[1];
+    } else {
+        PrintOutError("No protocol \"%s\".\n", argv[1]);
+        error = true;
+    }
+
+    if (error) {
+        // compute available protocols string
+        std::string available = "";
+        std::string comma = "";
+        for (const auto &[name, proto] : DebugClientProtocol::getRegistry()) {
+            available += comma + name;
+            comma = "|";
+        }
+
+        PrintOutError("Expected: set protocol [%s]\n", available.c_str());
+        return 0;
+    }
+
+    return 1;
+}
+
+static int class_show_subcmd_protocol_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    PrintOutMsg("%s\n", Client.proto.c_str());
+    return 1;
+}
+
 void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
@@ -698,6 +732,10 @@ void InitCmd_env(void) {
                   class_set_subcmd_environment_cmd,
                   class_set_subcmd_environment_help,
                   "Set environment variable value for launching applications.");
+    AddSetCommand("protocol", proc_ignore, 0,
+                  class_set_subcmd_protocol_cmd,
+                  class_set_subcmd_protocol_help,
+                  "Set default communication protocol.");
 
     // set print commands
     AddSetPrintCommand(
@@ -731,6 +769,10 @@ void InitCmd_env(void) {
                    class_show_subcmd_environment_cmd,
                    class_show_subcmd_environment_help,
                    "Show environment variables that were set.");
+    AddShowCommand("protocol", proc_ignore, 0,
+                   class_show_subcmd_protocol_cmd,
+                   class_show_subcmd_protocol_help,
+                   "Show default communication protocol.");
     AddShowCommand(
         "version", proc_ignore, 0, class_show_subcmd_version_cmd,
         class_show_subcmd_version_help, "Show the debugger version number.");

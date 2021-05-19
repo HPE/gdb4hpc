@@ -1,18 +1,21 @@
 %*
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:%[0-9]+%
-a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
+a{0..2}: Initial breakpoint, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:%[0-9]+%
+a{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90, line 64.
 %*
 Launch complete.
-b{0..2}: Initial breakpoint, ftn_dt at ftn_cmp_diff.f90:%[0-9]+%
-b{0..2}: Breakpoint 1: file ftn_cmp_diff.f90, line 64.
+b{0..2}: Initial breakpoint, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_cmp_diff.f90:%[0-9]+%
+b{0..2}: Breakpoint 1: file %%testdir%%/bd_dt/fortran/ftn_cmp_diff.f90, line 64.
 %[
 <$%[ab]>:.*%
+%[ab]\{0\}: Breakpoint.*%
+%[ab]\{0..1\}: Breakpoint.*%
+%[ab]\{1.*\}: Breakpoint.*%
 %]
 %<
-b{0..2}: Breakpoint 1, ftn_dt at ftn_cmp_diff.f90:64
+b{0..2}: Breakpoint 1, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_cmp_diff.f90:64
 %-
-a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1, ftn_dt at %%testdir%%/bd_dt/fortran/ftn_bd_dt.f90:64
 %>
 a{0..2}: .TRUE.
 b{0..2}: .FALSE.

@@ -156,13 +156,13 @@ The difference delta is:
 {0}: -2
 a{0..2}: \0xFE
 b{0..2}: \0xFD
-{0..1}: Comparison is false.
+{0}: Comparison is false.
 The difference delta is:
-{0..1}: 1
+{0}: 1
 a{0..2}: 10
 b{0..2}: 11
-{1..2}: Comparison is false.
+{1}: Comparison is false.
 The difference delta is:
-{1..2}: -1
+{1}: -1
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

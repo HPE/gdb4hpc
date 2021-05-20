@@ -146,6 +146,7 @@ private:
     dbgevent_t* setup_gdbmi_environment();
     dbgevent_t* setup_gdbmi_signals();
     dbgevent_t* delete_internal_breakpoints(list_t *bplist);
+    dbgevent_t* continueToEntryPoint();
     void setup_pretty_printing();
     void initGpu();
     void setDataDir(const char* gdbType);

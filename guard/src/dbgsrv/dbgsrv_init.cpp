@@ -967,6 +967,10 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", m_pid);
 
     if (gdb_vers == GdbVersion::ROC_GDB) {
+        // This debugger currently stops *before* reading symbols.
+        // In the future this be moved to startup along with
+        // setting up the exit points.  Unless there is some unknown
+        // reason the exit breakpoints need be set up before startup..
         DVPRINT("Continuing for ROC\n");
         auto cmd = MIExecContinue();
         SendMICommand(m_session, cmd);

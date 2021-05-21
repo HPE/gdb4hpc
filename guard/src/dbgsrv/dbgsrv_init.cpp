@@ -966,7 +966,10 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
 
     DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", m_pid);
 
-    if (gdb_vers == GdbVersion::ROC_GDB) {
+    // setup default exit points
+    if ((e = setup_gdbmi_exit_points()) != NULL) return e;
+
+    if (gdb_vers == GdbVersion::ROC_GDB && EmptyList(m_exitBP)) {
         // This debugger currently stops *before* reading symbols.
         // In the future this be moved to startup along with
         // setting up the exit points.  Unless there is some unknown
@@ -984,11 +987,9 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
         e = m_dbg.waitAndProcessAsyncEvent();
         DVPRINT("InitDbgAttach: continued to the real entry!\n");
         FreeEvent(e);
+
+        if ((e = setup_gdbmi_exit_points()) != NULL) return e;
     }
-
-
-    // setup default exit points
-    if ((e = setup_gdbmi_exit_points()) != NULL) return e;
 
     return NewEvent(DBGEV_OK);
 }

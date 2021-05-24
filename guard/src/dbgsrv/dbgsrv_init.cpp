@@ -314,189 +314,214 @@ void DbgGdbMI::Initializer::initGpu()
 */
 dbgevent_t *DbgGdbMI::Initializer::startup() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
-    MIList *frames;
-    MIFrame *frame;
-    MIEvent *evt;
-    dbgbp_t *bp = NULL;
-    int finish = 0;
-    int attempt = 0;
 
     // Setup entry points if we are not running with the special early
     // entry mode:
     if (!early_entry_flag) {
-        // setup main entry points
-        if ((e = setup_gdbmi_main_entry_point()) != NULL) return e;
-        // setup parallel entry points
-        if ((e = setup_gdbmi_entry_points()) != NULL) return e;
-
-recover_for_slurm:
-        // we only want to issue a continue if one of the breakpoint lists is
-        // not empty.
-        if (!EmptyList(parallel_entry_BP) || !EmptyList(main_entry_BP)) {
-            // counter for recover
-            ++attempt;
-            // Make sure that we're not inside a parallel entry point
-
-            //get all of the frames.
-            cmd = MIStackListAllFrames();
-            SendMICommand(m_session, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
-                return e;
-            }
-            if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
-                return e;
-            }
-            MICommandFree(cmd);
-
-            // parse over the frame list
-            for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
-                if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
-                    DVPRINT("%s: found frame in parallel_entry_BP, frame->level "
-                            "%d, frame->func %s\n", __func__, frame->level, frame->func);
-                    break;
-                }
-            }
-            //if we found a parallel entry point function, select that frame
-            if (frame != NULL) {
-                //set the frame to the parallel entry point
-                cmd = MIStackSelectFrame(frame->level);
-                SendMICommand(m_session, cmd);
-                if (MICommandResultOK(cmd)) {
-                    finish = 1;
-                }
-                MICommandFree(cmd);
-
-                // free the MIFrame list
-                MIListFree(frames, (void (*)())MIFrameFree);
-
-            } else {
-                // we are done with the frames list
-                MIListFree(frames, (void (*)())MIFrameFree);
-                
-                // issue a continue command .. this is assuming we're pre-main or
-                // pre-parallel entry point.
-                cmd = MIExecContinueAll();
-                SendMICommand(m_session, cmd);
-                if (!MICommandResultOK(cmd)) {
-                    EVENT_ERROR(e, DBGERR_DEBUGGER,
-                                MICommandResultErrorMessage(cmd));
-                    MICommandFree(cmd);
-                    return e;
-                }
-                MICommandFree(cmd);
-
-                evt = m_dbg.waitForAsyncEvent();
-
-                // slurm will send a SIGSTOP for some reason, try to recover from
-                // that
-                if (evt->type == MIEventTypeSignal && attempt < 10) {
-                    DVPRINT("DbgStartup: Received signal, trying to recover.\n");
-                    MIEventFree(evt);
-                    evt = NULL;
-                    goto recover_for_slurm;
-                }
-
-                // ensure we hit the breakpoint
-                if (evt->type != MIEventTypeBreakpointHit) {
-                    EVENT_ERROR(e, DBGERR_DEBUGGER,
-                                "Failed to hit entry breakpoint.");
-                    return e;
-                }
-
-                // If we hit a main breakpoint, we are done (unset finish).
-                // Otherwise check parallel breakpoints
-                if ((bp = FindBPByID(main_entry_BP, evt->bkptno)) ==
-                    (dbgbp_t *)NULL) {
-                    // If we hit a parallel breakpoint, we need to finish, otherwise
-                    // unkown
-                    if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno)) ==
-                        (dbgbp_t *)NULL) {
-                        DVPRINT("%s, %s Hit unknown entry breakpoint.", __FILE__,
-                                __func__);
-                    } else {
-                        //hit the known parallel entry breakpoint
-                        finish = 1;
-                    }
-                }
-
-                // Free the event
-                MIEventFree(evt);
-            }
-            // remove all of the entry breakpoints. We are done with them.
-            if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
-                return e;
-            if ((e = delete_internal_breakpoints(parallel_entry_BP)) != NULL)
-                return e;
-
-            // We want to set MPIR_debug_gate=1. This is an old MPIR standard.
-            cmd = _MIGDBSet("lang", "c");
-            SendMICommand(m_session, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-                return e;
-            }
-            MICommandFree(cmd);
-
-            // This can fail if the symbol doesn't exist. We want to silently
-            // fail.
-            cmd = _MIGDBSet("MPIR_debug_gate=1", NULL);
-            SendMICommand(m_session, cmd);
-            MICommandFree(cmd);
-
-            // set the lang back to auto.
-            cmd = _MIGDBSet("lang", "auto");
-            SendMICommand(m_session, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-                return e;
-            }
-            MICommandFree(cmd);
-
-            if (finish) {
-                // now we want to issue the finish command to get back to main.
-                cmd = MIExecFinish();
-                SendMICommand(m_session, cmd);
-                if (!MICommandResultOK(cmd)) {
-                    MICommandFree(cmd);
-                    EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
-                    return e;
-                }
-                MICommandFree(cmd);
-
-                evt = m_dbg.waitForAsyncEvent();
-
-                // ensure we finished the function
-                if (evt->type != MIEventTypeFunctionFinished &&
-                    evt->type != MIEventTypeSuspended) {
-                    EVENT_ERROR(e, DBGERR_DEBUGGER,
-                                "Failed to finish the entry function.");
-                    return e;
-                }
-
-                // Free the event
-                MIEventFree(evt);
-            }
-        }
+        if (dbgevent_t *e = continueToEntryPoint()) return e;
     }
 
     // Initialize UPC, in case the app uses UPC - this will break gpu debugging
     if (!gpu_flag) {
         const char *cmd_argv[1] = {"upc-init"};
-        cmd = CLIBypassc(1, cmd_argv);
+        MICommand* cmd = CLIBypassc(1, cmd_argv);
         SendMICommand(m_session, cmd);
         MICommandFree(cmd);
     }
 
     // call the showframe function to ask for the innermost frame
     return m_dbg.showFrame(1, nullptr);
+}
+
+// When the debug server starts up, some WLM's give control at a well defined entry point
+// like WLM_Init, but some variations give control earlier in startup process.   This function
+// continues the process, if necessary, until we are actually in the user program.
+// \return nullptr on success
+dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    dbgevent_t *e = nullptr;
+    
+    // setup main entry points
+    if ((e = setup_gdbmi_main_entry_point()) != NULL) return e;
+    // setup parallel entry points
+    if ((e = setup_gdbmi_entry_points()) != NULL) return e;
+    
+    // we only want to issue a continue if one of the breakpoint lists is
+    // not empty.
+    if (EmptyList(parallel_entry_BP) && EmptyList(main_entry_BP)) {
+        return nullptr;
+    }
+
+    bool finish = false;
+    bool atEntry = false;
+
+    for (int attempt=0; !atEntry && attempt < 10; ++attempt) {
+        // Make sure that we're not inside a parallel entry point
+
+        //get all of the frames.
+        MICommand* cmd = MIStackListAllFrames();
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
+            return e;
+        }
+
+        MIList *frames = MIGetStackListFramesInfo(cmd);
+        if (!frames) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
+            return e;
+        }
+        MICommandFree(cmd);
+
+        // parse over the frame list
+        MIFrame* frame = nullptr;
+        for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
+            if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
+                DVPRINT("%s: found frame in parallel_entry_BP, frame->level "
+                        "%d, frame->func %s\n", __func__, frame->level, frame->func);
+                break;
+            }
+        }
+        // free the MIFrame list
+        MIListFree(frames, (void (*)())MIFrameFree);
+
+        //if we found a parallel entry point function, select that frame
+        if (frame) {
+            //set the frame to the parallel entry point
+            cmd = MIStackSelectFrame(frame->level);
+            SendMICommand(m_session, cmd);
+            if (MICommandResultOK(cmd)) {
+                finish = true;
+            }
+            MICommandFree(cmd);
+
+            atEntry = true;
+            break;
+        }
+                
+        // issue a continue command .. this is assuming we're pre-main or
+        // pre-parallel entry point.
+        DVPRINT("Trying to continue to start breakpoint attempt = %d\n", attempt);
+                
+        cmd = MIExecContinueAll();
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            EVENT_ERROR(e, DBGERR_DEBUGGER,
+                        MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+        MICommandFree(cmd);
+
+        MIEvent *evt = m_dbg.waitForAsyncEvent();
+
+        if (evt->type == MIEventTypeBreakpointHit) {
+            // If we hit a main breakpoint, we are done (unset finish).
+            // Otherwise check parallel breakpoints
+            if (dbgbp_t *bp = FindBPByID(main_entry_BP, evt->bkptno)) {
+                atEntry = true;
+            } else if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno))) {
+                // If we hit a parallel breakpoint, we need to finish
+                atEntry = finish = true;
+            } else {
+                DVPRINT("%s, %s Hit unknown entry breakpoint.", __FILE__, __func__);
+            }
+        } else if (evt->type == MIEventTypeSignal) {
+            // slurm will send a SIGSTOP for some reason, try to recover from
+            // that
+            DVPRINT("DbgStartup: Received signal %s (%s), trying to recover.\n",
+                    evt->sigName, evt->sigMeaning);
+            MIEventFree(evt);
+
+            if (gdb_vers == GdbVersion::ROC_GDB) {
+                // rocgdb triggers a signal without stopping the process.
+                // if this just goes back to the top of loop, the MIStackListAllFrames
+                // will fail.   One could pose this without the special casing by
+                // dealing with failure there, but I don't know enough about every
+                // situation that could cause ListAllFrames to fail to assure
+                // myself it would be waiting forever.  So cowardly, just changing the
+                // handling for roc.
+                DVPRINT("waiting for another event\n");
+                evt = m_dbg.waitForAsyncEvent();
+                DVPRINT("Got event type %d\n", evt->type);
+                MIEventFree(evt);
+            }
+            evt = NULL;
+            continue;  // for attempt
+        }
+
+        // Free the event
+        MIEventFree(evt);
+        break;
+        
+    } // for attempt
+
+    if (!atEntry) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to hit entry breakpoint.");
+        return e;
+    }
+
+    // remove all of the entry breakpoints. We are done with them.
+    if ((e = delete_internal_breakpoints(main_entry_BP)) != NULL)
+        return e;
+    if ((e = delete_internal_breakpoints(parallel_entry_BP)) != NULL)
+        return e;
+
+    // We want to set MPIR_debug_gate=1. This is an old MPIR standard.
+    MICommand* cmd = _MIGDBSet("lang", "c");
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
+        return e;
+    }
+    MICommandFree(cmd);
+
+    // This can fail if the symbol doesn't exist. We want to silently
+    // fail.
+    cmd = _MIGDBSet("MPIR_debug_gate=1", NULL);
+    SendMICommand(m_session, cmd);
+    MICommandFree(cmd);
+
+    // set the lang back to auto.
+    cmd = _MIGDBSet("lang", "auto");
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
+        return e;
+    }
+    MICommandFree(cmd);
+
+    if (finish) {
+        // now we want to issue the finish command to get back to main.
+        cmd = MIExecFinish();
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
+            return e;
+        }
+        MICommandFree(cmd);
+
+        MIEvent *evt = m_dbg.waitForAsyncEvent();
+
+        // ensure we finished the function
+        if (evt->type != MIEventTypeFunctionFinished &&
+            evt->type != MIEventTypeSuspended) {
+            EVENT_ERROR(e, DBGERR_DEBUGGER,
+                        "Failed to finish the entry function.");
+            return e;
+        }
+
+        // Free the event
+        MIEventFree(evt);
+    }
+
+    return nullptr;
 }
 
 /* GDBMI callback functions */
@@ -943,6 +968,28 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
 
     // setup default exit points
     if ((e = setup_gdbmi_exit_points()) != NULL) return e;
+
+    if (gdb_vers == GdbVersion::ROC_GDB && EmptyList(m_exitBP)) {
+        // This debugger currently stops *before* reading symbols.
+        // In the future this be moved to startup along with
+        // setting up the exit points.  Unless there is some unknown
+        // reason the exit breakpoints need be set up before startup..
+        DVPRINT("Continuing for ROC\n");
+        auto cmd = MIExecContinue();
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "Continue failed: %s",
+                        MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return e;
+        }
+        MICommandFree(cmd);
+        e = m_dbg.waitAndProcessAsyncEvent();
+        DVPRINT("InitDbgAttach: continued to the real entry!\n");
+        FreeEvent(e);
+
+        if ((e = setup_gdbmi_exit_points()) != NULL) return e;
+    }
 
     return NewEvent(DBGEV_OK);
 }

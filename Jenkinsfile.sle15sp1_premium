@@ -16,5 +16,5 @@
 sle15sp1PE {
     timeout = 60
     product = "pe-base"
-    receiveEvent = ["cti-sles15sp1-complete"]
+    receiveEvent = ["cti-sles15sp1-complete-master"]
 }

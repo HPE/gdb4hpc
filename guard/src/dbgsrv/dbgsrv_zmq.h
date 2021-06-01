@@ -5,13 +5,14 @@
 #define _DBGSRV_ZMQ_H
 
 #include "dbgsrv_proto.h"
+#include "dbg_zmq.h"
 
 class ZMQNetServerProtocol : public DebugServerProtocol {
 public:
-    ZMQNetServerProtocol() : DebugServerProtocol() { registerProtocol(); };
+    ZMQNetServerProtocol();
 
     const char * name() override;
-    int initProto(int procnum, int argc, char **argv,
+    int initProto(int procnum, int argc, const char **argv,
         const char *key, const char *host, int port) override;
     void endProto() override;
     fd_set* getFdSet() override;
@@ -23,6 +24,13 @@ public:
     int transferIo(int fd, char *buffer, int size) override;
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(const char *response) override;
+private:
+    std::unique_ptr<zmqnet::AsyncBackend> m_network;
+
+    WaitQueue<std::string> m_command_queue;
+    WaitQueue<std::string> m_result_queue;
+
+    int m_event_pipe[2];
 };
 
 // used as a handle in dbgsrv_proto.cpp to make the linker include this class

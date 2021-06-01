@@ -2,11 +2,24 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
+#include <stdio.h>
+#include <unistd.h>
+
+#include "zmqnet.hpp"
+
 #include "dbgsrv_zmq.h"
 #include "dbgsrv_defs.h"
+#include "dbgsrv_cmds.h"
 
 // Proto definition
 ZMQNetServerProtocol DbgSrvProtoZMQNet;
+
+ZMQNetServerProtocol::ZMQNetServerProtocol()
+     : DebugServerProtocol() 
+     , m_network{nullptr} 
+{ 
+    registerProtocol();
+};
 
 const char *ZMQNetServerProtocol::name() {
     return "zmqnet";
@@ -25,19 +38,100 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     return 0;
 }
 
-int ZMQNetServerProtocol::initProto(int procnum, int argc, char **argv,
+int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
                               const char *key, const char *host, int port) {
     DVPRINT("ZMQNetServerProtocol::initProto\n");
+
+    { 
+        DVPRINT("argc: %d\n", argc);
+        DVPRINT("argv: ");
+        // print out the argv
+        auto tmp = argv;
+        while (*tmp != NULL) {
+            fprintf(stderr, "%s ", *tmp++);
+        }
+        fprintf(stderr, "\n"); 
+    }
+
+    auto const [upstreamControlEndpoint, upstreamDataEndpoint, node_id,
+		rest_argc, rest_argv] = zmqnet::AsyncBackend::getParams(argc, argv);
+
+    m_network = std::make_unique<zmqnet::AsyncBackend>(upstreamControlEndpoint, upstreamDataEndpoint, node_id);
+
+    { // register send command stream callback
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamSend);
+        const auto command_send_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            DVPRINT("zmqnet: send callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+            assert(streamId == streamId);
+            
+            m_command_queue.push(command.asChars().begin());
+            DVPRINT("zmqnet: done pushing command to queue. sending pong\n");
+
+            return zmqnet::make_ByteArray("pong", 5);
+        };
+
+        m_network->registerCallback(streamId, command_send_callback);
+    }
+
+    { // register receive command stream callback
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamReceive);
+        const auto command_receive_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            DVPRINT("zmqnet: %d receive callback got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+
+            DVPRINT("zmqnet: pulling result from queue...\n");
+
+            auto result = m_result_queue.waitForNext();
+
+            DVPRINT("zmqnet: pulled result %s, sending back\n", result.c_str());
+            return zmqnet::make_ByteArray(result.c_str(), result.length() + 1);
+        };
+
+        m_network->registerCallback(streamId, command_receive_callback);
+    }
+
+    // Set up event fd
+    if (pipe(m_event_pipe)) {
+        DVPRINT("Creation of event pipe failed.\n");
+        return -1;
+    }
+
+    { // put an x in the pipe to have the main thread call runProto.
+      // this never gets cleared.
+        const char buf[] = {'x'};
+        auto sent = write(m_event_pipe[1], &buf, sizeof(char));
+        if (sent < 0) {
+            DVPRINT("error in write: %d: %s\n", errno, strerror(errno));
+            return -1;
+        }
+    }
+
+    m_network->notifyReady();
+
+    DVPRINT("Made it out of initProto!\n");
+
     return 0;
 }
 
 void ZMQNetServerProtocol::endProto() {
     DVPRINT("ZMQNetServerProtocol::endProto\n");
+
+    close(m_event_pipe[0]);
+    close(m_event_pipe[1]);
+
+    if (m_network) m_network->waitForExit();
 }
 
 fd_set *ZMQNetServerProtocol::getFdSet() {
     DVPRINT("ZMQNetServerProtocol::getFdSet\n");
-    return nullptr;
+    static fd_set fds;
+
+    // this is reconstructed every call because the main loop layer adds to it
+    // every iteration
+
+    FD_ZERO(&fds);
+    FD_SET(m_event_pipe[0], &fds);
+
+    return &fds;
 }
 
 int ZMQNetServerProtocol::setupIo(int *fd, int *port) { 
@@ -52,6 +146,22 @@ int ZMQNetServerProtocol::transferIo(int fd, char *buffer, int size) {
 
 void ZMQNetServerProtocol::runProto(fd_set *fds) {
     DVPRINT("ZMQNetServerProtocol::runProto\n");
+
+    while (m_command_queue.length() > 0) {
+        DVPRINT("waiting for command...\n");
+
+        auto command = m_command_queue.waitForNext();
+        DVPRINT("got %s from command queue\n", command.c_str());
+        // TODO pass ci
+        DVPRINT("dispatching \"%s\"\n", command.c_str());
+        auto result = dbgsrv_dispatch_cmds(command.c_str(), nullptr);
+
+        DVPRINT("pushing result \"%s\"...\n", result.c_str());
+        m_result_queue.push(result);
+        DVPRINT("done! checking length...\n");
+    }
+
+    DVPRINT("dispatched all commands.\n");
 }
 
 dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
@@ -61,5 +171,6 @@ dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
 
 int ZMQNetServerProtocol::sendReply(const char *response) {
     DVPRINT("ZMQNetServerProtocol::sendReply\n");
+    // this is done by the zmqnet callbacks
     return 0;
 }

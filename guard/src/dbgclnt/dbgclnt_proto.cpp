@@ -33,7 +33,9 @@
 #include "useful.h"
 
 /*
- * called once to register available protocols
+ * don't use this function!
+ * this function is only here to make sure the linker pulls in the protocol
+ * translation units so each protocol calls its constructor and registers itself.
 */
 void registerProtos() {
     #ifdef MRNET

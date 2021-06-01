@@ -1275,11 +1275,6 @@ const char* const class_set_subcmd_environment_help[] = {
     "forked environment of the application launcher process (aprun/srun).",
     0};
 
-const char* const class_set_subcmd_protocol_help[] = {
-    "TODO",
-    0
-};
-
 const char* const class_set_subcmd_function_help[] = {
     "Summary: Set function definition.",
     "Usage: set function <function_name>(<function_args>) = <expr>",
@@ -1422,11 +1417,6 @@ const char* const class_show_subcmd_environment_help[] = {
     "environment",
     "command.",
     0};
-
-const char* const class_show_subcmd_protocol_help[] = {
-    "TODO",
-    0
-};
 
 const char* const class_show_subcmd_version_help[] = {
     "Summary: Version information.", "",

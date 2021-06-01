@@ -39,7 +39,7 @@ struct clnt_settings {
     int print_elements;         /* Number of elements to print in arrays or char * strings */
     int sync_wait;              /* Treat asynchronous cmds as sync? */
     int sync_blocked;           /* Current blocked on async cmd? */
-    std::string proto;          /* Default debugger protocol */
+    const char* proto;          /* Default debugger protocol */
     const char* arch;           /* Default starter achitecture */
     const char* backend;        /* Default debug backend*/
     cli_type_t cli_mode;        /* CLI mode */

@@ -58,7 +58,6 @@ static const struct option session_long_opts[] = {
     {"qsub", optional_argument, 0, 'q'},
     {"sbatch", optional_argument, 0, 's'},
     {"end", optional_argument, 0, 'e'},
-    {"protocol", optional_argument, 0, 'p'},
     {0, 0, 0, 0}};
 
 static const struct option launch_long_opts[] = {
@@ -73,13 +72,11 @@ static const struct option launch_long_opts[] = {
     {"debug", no_argument, &debug_flag, 1},
     {"launcher", optional_argument, 0, 'l'},
     {"gdb", required_argument, 0, 'b'},
-    {"protocol", optional_argument, 0, 'p'},
     {0, 0, 0, 0}};
 
 static const struct option attach_long_opts[] = {
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
-    {"protocol", optional_argument, 0, 'p'},
     {0, 0, 0, 0}};
 
 static int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
@@ -143,7 +140,7 @@ static int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
     proto_session *sess = NULL;
-    auto proto = Client.proto;
+    const char *proto = Client.proto;
     WLM_type manager = WLM_none;
     char *batch_script = NULL;
     int opt_ind = 0;
@@ -156,7 +153,7 @@ static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // Process user provided arguments
     //
 
-    while ((opt = getopt_long(argc, argv, "q:s:e:p:", session_long_opts,
+    while ((opt = getopt_long(argc, argv, "q:s:e:", session_long_opts,
                               &opt_ind)) != -1) {
         switch (opt) {
             case 0:
@@ -222,21 +219,6 @@ static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 DbgSetSession(NULL);
                 break;
 
-            case 'p':
-                // Select a protocol
-                if (optarg == nullptr) {
-                    PrintOutError("Error: --protocol provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                if (!findClientProtoByName(optarg)) {
-                    PrintOutError("Error: No such protocol %s.\n", optarg);
-                    goto exit_with_error;
-                }
-
-                proto = optarg;
-                break;
-
             default:
                 PrintOutError(
                     "Invalid session argument provided. See \"help session\" "
@@ -251,7 +233,7 @@ static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // Create a new session
-    if ((sess = DbgSessionCreate(proto.c_str(), manager, batch_script, NULL, NULL)) ==
+    if ((sess = DbgSessionCreate(proto, manager, batch_script, NULL, NULL)) ==
         NULL) {
         PrintOutError("Could not create session for WLM!\n");
         goto exit_with_error;
@@ -331,7 +313,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgprocset_t *ps = NULL;
     char *prog = NULL;
     const char *arch = Client.arch;
-    auto proto = Client.proto;
+    const char *proto = Client.proto;
     const char *backend = Client.backend;
     char *arch_input = NULL;
     int set_default_workdir = 0;
@@ -416,7 +398,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // This will permute the non-option stuff to the end, so parse that stuff
     // last.
 
-    while ((opt = getopt_long(argc, argv, "a:g:i:d::e:q:p:", launch_long_opts,
+    while ((opt = getopt_long(argc, argv, "a:g:i:d::e:q:", launch_long_opts,
                               &opt_ind)) != -1) {
         switch (opt) {
             case 0:
@@ -562,21 +544,6 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
             case 'b':
                 gdb_backend = StrdupOpt(optarg);
                 break;
-
-            case 'p':
-                // Select a protocol
-                if (optarg == nullptr) {
-                    PrintOutError("Error: --protocol provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                if (!findClientProtoByName(optarg)) {
-                    PrintOutError("Error: No such protocol %s.\n", optarg);
-                    goto exit_with_error;
-                }
-
-                proto = optarg;
-                break;
                 
             default:
                 PrintOutError(
@@ -645,7 +612,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
         goto exit_with_error;
     }
 
-    if (proto == "") {
+    if (proto == NULL) {
         PrintOutError("Must specify a protocol.\n");
         goto exit_with_error;
     }
@@ -688,7 +655,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 hostname = strdup(elogin_env);
 
                 // Create a new session
-                if ((sess = DbgSessionCreate(proto.c_str(), manager, NULL, hostname,
+                if ((sess = DbgSessionCreate(proto, manager, NULL, hostname,
                                              username)) == NULL) {
                     PrintOutError("Could not create session for eslogin!\n");
                     goto exit_with_error;
@@ -711,7 +678,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
             // cleaned up when the dbginvoke gets cleaned up.
 
             // Create a new session
-            if ((sess = DbgSessionCreate(proto.c_str(), manager, batch_script, NULL,
+            if ((sess = DbgSessionCreate(proto, manager, batch_script, NULL,
                                          NULL)) == NULL) {
                 PrintOutError("Could not create session for WLM!\n");
                 goto exit_with_error;
@@ -723,7 +690,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // Invoke the application
     //
-    if (!DoLaunch(proto.c_str(), sess, prog, args, ps, arch, arch_args, arch_input,
+    if (!DoLaunch(proto, sess, prog, args, ps, arch, arch_args, arch_input,
                   backend, gdb_backend, env_list, workdir)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
@@ -905,7 +872,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgprocset_t *ps;
     char *app_ident;
     const char *arch = Client.arch;
-    auto proto = Client.proto;
+    const char *proto = Client.proto;
     const char *backend = Client.backend;
     char *hostname = NULL;
     char *username = NULL;
@@ -932,28 +899,12 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // This will permute the non-option stuff to the end, so parse that stuff
     // last.
 
-    while ((opt = getopt_long(argc, argv, "p:", attach_long_opts, &opt_ind)) !=
+    while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
            -1) {
         switch (opt) {
             case 0:
                 // if this is a flag, do nothing
                 break;
-
-            case 'p':
-                // Select a protocol
-                if (optarg == nullptr) {
-                    PrintOutError("Error: --protocol provided, but missing arguments.\n");
-                    return 0;
-                }
-
-                if (!findClientProtoByName(optarg)) {
-                    PrintOutError("Error: No such protocol %s.\n", optarg);
-                    return 0;
-                }
-
-                proto = optarg;
-                break;
-
             default:
                 PrintOutError(
                     "Invalid attach argument provided. See \"help attach\" for "
@@ -982,7 +933,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // Verify that the arguments are correct
 
-    if (proto == "") {
+    if (proto == NULL) {
         PrintOutError("Must specify a protocol.\n");
         Free(app_ident);
         return 0;
@@ -1019,7 +970,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
             hostname = strdup(elogin_env);
 
             // Create a new session
-            if ((sess = DbgSessionCreate(proto.c_str(), WLM_none, NULL, hostname,
+            if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname,
                                          username)) == NULL) {
                 PrintOutError("Could not create session for eslogin!\n");
                 Free(app_ident);
@@ -1031,7 +982,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    if (!DoAttach(proto.c_str(), sess, ps, app_ident, arch, backend)) {
+    if (!DoAttach(proto, sess, ps, app_ident, arch, backend)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);

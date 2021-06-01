@@ -240,7 +240,7 @@ int adjustLibPath(const char *path) {
 }
 
 /*
- * Add the path to LD_LIBRARY_PATH.
+ * Add the path to PATH.
  */
 int adjustExecPath(const char *path) {
     char *oldpath, *newpath;

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -78,13 +78,12 @@ private:
 };
 }
 
-void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
+const std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci) {
 
     DVPRINT("dbgsrv_dispatch_cmds received: %s\n", msg);
 
     // ISocStream manages the parsing
     ISocStream is(msg);
-    Free(msg);
 
     dbgcmd cmd = is.getCmd();
 
@@ -428,15 +427,22 @@ void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci) {
     // gets fixed for MRNet. Every command should be returning a response.
     if (!e) {
         DVPRINT("event was null\n");
-        return;
+        return "null event";
     }
 
-
-    if (char* resp = EventToSocProto(e)) {
+    // TODO make this logic nicer
+    auto resp = EventToSocProto(e);
+    auto resp_string = resp ? std::string{resp} : "empty event";
+    if (resp) {
         DbgSendReply(resp);
     } else {
         DVPRINT("did not get an event response\n");
     }
+    free(resp);
+
+    DVPRINT("done with dispatch\n");
+
+    return resp_string;
 }
 
 ISocStream::ISocStream(const std::string& str) : m_str(str) {

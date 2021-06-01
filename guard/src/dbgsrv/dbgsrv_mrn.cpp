@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -91,7 +91,7 @@ int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
     return res;
 }
 
-int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
+int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
                               const char *key, const char *host, int port) {
     int res;
 
@@ -100,6 +100,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     int be_argc = 6;
     char *hostname;
     char par_addr[MAXADDRLEN + 1];
+    char *program_name = strdup(argv[0]); // dup'd because mrnet doesn't accept const char *
     char par_port_str[64];
     char par_rank_str[64];
     char my_rank_str[64];
@@ -132,7 +133,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     sprintf(par_rank_str, "%d", par_rank);
     sprintf(my_rank_str, "%d", my_mrnrank);
 
-    be_argv[0] = argv[0];
+    be_argv[0] = program_name;
     be_argv[1] = par_addr;
     be_argv[2] = par_port_str;
     be_argv[3] = par_rank_str;
@@ -177,6 +178,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     char *cfg_env = nullptr;
     char single_rank[16];
     int be_argc = 6;
+    char *program_name = strdup(argv[0]);
     char hostname[MAXPATHLEN];
     char par_addr[MAXADDRLEN + 1];
     char par_port_str[64];
@@ -275,7 +277,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     sprintf(par_rank_str, "%d", par_rank);
     sprintf(my_rank_str, "%d", my_mrnrank);
 
-    be_argv[0] = argv[0];
+    be_argv[0] = program_name;
     be_argv[1] = par_addr;
     be_argv[2] = par_port_str;
     be_argv[3] = par_rank_str;
@@ -304,6 +306,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, char **argv,
     // get the mrnet event fd to select on
     m_mrn_event_fd = m_network->get_event_fd();
 
+    free(program_name);
     free(hostname);
 
     return res;

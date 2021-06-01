@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbg_mrn_be.c
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -340,7 +340,7 @@ int MRNetBackEnd::send_io(char* msg) {
     return 0;
 }
 
-void MRNetBackEnd::set_callback(void (*callback)(char*, const dbgcomm_info*)) {
+void MRNetBackEnd::set_callback(MRNetBackEndCallback callback) {
     m_dbgsrv_callback = callback;
     return;
 }
@@ -366,6 +366,7 @@ void MRNetBackEnd::handle_msg(MRN::Stream *stream) {
             // push all other commands to the back-end.
             mrncomm_info ci(m_stream_event);
             m_dbgsrv_callback(msg, &ci);
+            free(msg);
         }
     }
 

@@ -1304,7 +1304,7 @@ OMPD support will not be available.\n");
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
     if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
     if (gdb) ap = AppendArgs(ap, "--gdb", serverGdb.c_str(), nullptr);
-    ap = AppendArgs(ap, "--", prog, nullptr);
+    ap = AppendArgs(ap, "-f", prog, nullptr);
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");

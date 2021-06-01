@@ -18,8 +18,10 @@
 
 #ifdef MRNET
 #define DBG_PROTO "mrnet"
+#elif ZMQNET
+#define DBG_PROTO "zmqnet"
 #else
-#define DBG_PROTO "socket" /* "socket" or "mrnet" */
+#define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
 #endif
 
 // I don't think this is used anymore - pretty sure it related to the old

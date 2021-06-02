@@ -4,6 +4,9 @@
 #ifndef _DBGSRV_ZMQ_H
 #define _DBGSRV_ZMQ_H
 
+#include <future>
+#include <functional>
+
 #include "dbgsrv_proto.h"
 #include "dbg_zmq.h"
 
@@ -25,11 +28,17 @@ public:
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(const char *response) override;
 private:
+    void incEventFlag();
+    void decEventFlag();
+
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 
-    WaitQueue<std::string> m_command_queue;
-    WaitQueue<std::string> m_result_queue;
+    using CommandDispatchFunc = std::packaged_task<std::string(const dbgcomm_info*)>;
+    std::unique_ptr<CommandDispatchFunc> m_pending_command;
 
+    std::mutex m_command_lock;
+
+    fd_set m_fds;
     int m_event_pipe[2];
 };
 

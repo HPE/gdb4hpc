@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "zmqnet.hpp"
 
@@ -17,6 +18,7 @@ ZMQNetServerProtocol DbgSrvProtoZMQNet;
 ZMQNetServerProtocol::ZMQNetServerProtocol()
      : DebugServerProtocol() 
      , m_network{nullptr} 
+     , m_pending_command{nullptr}
 { 
     registerProtocol();
 };
@@ -61,12 +63,30 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
     { // register command stream callback
         const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
         const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            DVPRINT("zmqnet: send callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+            DVPRINT("zmqnet: callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
             assert(streamId == streamId);
             
-            m_command_queue.push(command.asChars().begin());
-            DVPRINT("zmqnet: done pushing command to queue. waiting for result\n");
-            auto result = m_result_queue.waitForNext();
+            // only process one command at a time
+            static std::mutex zmqnet_thread_lock;
+            std::scoped_lock<std::mutex> thread_lock(zmqnet_thread_lock);
+
+            // make sure a command isn't currently running on the main thread
+            std::unique_lock<std::mutex> command_lock(m_command_lock);
+            
+            // bind argument to command
+            m_pending_command = std::make_unique<CommandDispatchFunc>
+                (std::bind(dbgsrv_dispatch_cmds, command.asChars().begin(), std::placeholders::_1));
+
+            auto future = m_pending_command->get_future();
+            incEventFlag(); // tell main thread there is an event waiting
+
+            command_lock.unlock();
+
+            DVPRINT("zmqnet: waiting for result\n");
+
+            auto result = future.get();
+
+            DVPRINT("zmqnet: got result: %s\n", result.c_str());
 
             return zmqnet::make_ByteArray(result.c_str(), result.length() + 1);
         };
@@ -75,19 +95,9 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
     }
 
     // Set up event fd
-    if (pipe(m_event_pipe)) {
+    if (pipe2(m_event_pipe, O_NONBLOCK)) {
         DVPRINT("Creation of event pipe failed.\n");
         return -1;
-    }
-
-    { // put an x in the pipe to have the main thread call runProto.
-      // this never gets cleared.
-        const char buf[] = {'x'};
-        auto sent = write(m_event_pipe[1], &buf, sizeof(char));
-        if (sent < 0) {
-            DVPRINT("error in write: %d: %s\n", errno, strerror(errno));
-            return -1;
-        }
     }
 
     m_network->notifyReady();
@@ -108,15 +118,13 @@ void ZMQNetServerProtocol::endProto() {
 
 fd_set *ZMQNetServerProtocol::getFdSet() {
     DVPRINT("ZMQNetServerProtocol::getFdSet\n");
-    static fd_set fds;
-
     // this is reconstructed every call because the main loop layer adds to it
     // every iteration
 
-    FD_ZERO(&fds);
-    FD_SET(m_event_pipe[0], &fds);
+    FD_ZERO(&m_fds);
+    FD_SET(m_event_pipe[0], &m_fds);
 
-    return &fds;
+    return &m_fds;
 }
 
 int ZMQNetServerProtocol::setupIo(int *fd, int *port) { 
@@ -131,19 +139,20 @@ int ZMQNetServerProtocol::transferIo(int fd, char *buffer, int size) {
 
 void ZMQNetServerProtocol::runProto(fd_set *fds) {
     DVPRINT("ZMQNetServerProtocol::runProto\n");
+    std::scoped_lock<std::mutex> lock(m_command_lock);
 
-    while (auto command = m_command_queue.getNextIfAvailable()) {
-        DVPRINT("got %s from command queue\n", command->c_str());
-        // TODO pass ci
-        DVPRINT("dispatching \"%s\"\n", command->c_str());
-        auto result = dbgsrv_dispatch_cmds(command->c_str(), nullptr);
-
-        DVPRINT("pushing result \"%s\"...\n", result.c_str());
-        m_result_queue.push(result);
-        DVPRINT("done!\n");
+    if (m_pending_command) {
+        // zmqnet callback has already bound proper arguments.
+        // zmqnet callback is waiting in another thread for result, 
+        // delivered via a future which has already been bound to the command
+        
+        (*m_pending_command)(nullptr /* TODO call with ci */);
+        m_pending_command.reset();
+    } else {
+        DVPRINT("warning: called runProto with null pending command.\n");
     }
 
-    DVPRINT("dispatched all commands.\n");
+    decEventFlag();
 }
 
 dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
@@ -153,6 +162,32 @@ dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
 
 int ZMQNetServerProtocol::sendReply(const char *response) {
     DVPRINT("ZMQNetServerProtocol::sendReply\n");
-    // this is done by the zmqnet callbacks
+    // this is done asynchronously by the zmqnet callbacks
     return 0;
+}
+
+void ZMQNetServerProtocol::incEventFlag() {
+    DVPRINT("ZMQNetServerProtocol::incEventFlag\n");
+    // put an x in the pipe to have the main thread call runProto.
+    const char buf[] = {'x'};
+    auto sent = write(m_event_pipe[1], &buf, sizeof(char));
+
+    if (sent < 0) {
+        DVPRINT("error in write: %d: %s\n", errno, strerror(errno));
+    } else if (sent == 0) {
+        DVPRINT("error: write didn't write anything\n");
+    }
+}
+
+void ZMQNetServerProtocol::decEventFlag() {
+    DVPRINT("ZMQNetServerProtocol::decEventFlag\n");
+    // consume a byte in the pipe
+    char buf[1];
+    auto nread = read(m_event_pipe[0], buf, 1);
+
+    if (nread < 0) {
+        DVPRINT("error in read: %d: %s\n", errno, strerror(errno));
+    } else if (nread == 0) {
+        DVPRINT("error: read didn't read anything\n");
+    }
 }

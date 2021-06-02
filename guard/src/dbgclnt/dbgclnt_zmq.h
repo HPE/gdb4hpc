@@ -65,7 +65,10 @@ private:
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
     std::unique_ptr<zmqnet::Stream> m_command_stream;
 
-    WaitQueue<zmqnet::ByteArrayPtr> m_result_queue;
+    std::string m_command_result;
+    std::mutex m_command_result_lock;
+    std::condition_variable m_command_result_cv;
+    bool m_command_result_ready;
 };
 
 // called once by registerProtos

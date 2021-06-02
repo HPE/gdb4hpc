@@ -18,93 +18,10 @@
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 ZMQNetClientProtocol DbgClntProtoZMQ{};
 
-// Helper class for building argv for cti and zmqnet
-class ArgvStream {
-public:
-    ArgvStream() = default;
-    template <typename... Args>
-    ArgvStream(Args&&... args);
-
-    const std::vector<const char *> c_strs() const {
-        std::vector<const char *> c_strs;
-        std::transform(m_argv.begin(), m_argv.end(), 
-            std::back_inserter(c_strs), [](const std::string &s){return s.c_str();});
-        c_strs.push_back(nullptr);
-        return c_strs;
-    };
-
-    void clear() {m_argv.clear();}
-
-    friend ArgvStream& operator<<(ArgvStream& ab, const std::string &str);
-    friend ArgvStream& operator<<(ArgvStream& ab, const char *cstr);
-    friend ArgvStream& operator<<(ArgvStream& ab, char *cstr);
-    friend ArgvStream& operator<<(ArgvStream& ab, const char *argv[]);
-    friend ArgvStream& operator<<(ArgvStream& ab, char *argv[]);
-    template <typename T>
-      friend ArgvStream& operator<<(ArgvStream& ab, const T &t);
-private:
-    template <typename T, typename... Args> void push(const T &t, Args&&... args);
-    void push();
-
-    std::vector<std::string> m_argv;
-};
-
-template <typename... Args>
-ArgvStream::ArgvStream(Args&&... args) {
-    push(args...);
-}
-
-ArgvStream& operator<<(ArgvStream& ab, const std::string &str) {
-    ab.m_argv.push_back(str);
-    return ab;
-}
-
-ArgvStream& operator<<(ArgvStream& ab, const char *cstr) {
-    ab.m_argv.push_back(std::string{cstr});
-    return ab;
-}
-
-ArgvStream& operator<<(ArgvStream& ab, char *cstr) {
-    ab.m_argv.push_back(std::string{cstr});
-    return ab;
-}
-
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, const char *argv[]) {
-    for (int i = 0; argv != nullptr && argv[i] != nullptr; i++) {
-        ab.m_argv.push_back(std::string{argv[i]});
-    }
-    return ab;
-}
-
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, char *argv[]) {
-    for (int i = 0; argv != nullptr && argv[i] != nullptr; i++) {
-        ab.m_argv.push_back(std::string{argv[i]});
-    }
-    return ab;
-}
-
-// try to_string if no overload is found
-template <typename T>
-ArgvStream& operator<<(ArgvStream& ab, const T &t) {
-    ab.m_argv.push_back(std::to_string(t));
-    return ab;
-}
-
-template <typename T, typename... Args>
-void ArgvStream::push(const T &t, Args&&... args) {
-    *this << t;
-    push(args...);
-}
-
-void ArgvStream::push() {
-    // end variadic arg recursion
-}
-
 ZMQNetClientProtocol::ZMQNetClientProtocol()
     : DebugClientProtocol()
     , m_network{nullptr}
+    , m_command_result_ready{false}
 { 
     registerProtocol(); 
 }
@@ -157,8 +74,17 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
 
     // wait for result
     PrintOutMsg("waiting for result...\n");
-    auto reply = m_result_queue.waitForNext();
-    PrintOutMsg("got reply: %s\n", reply.asBytes().begin());
+    
+    std::unique_lock<std::mutex> lock(m_command_result_lock);
+    m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
+
+    auto reply = m_command_result;
+    m_command_result.erase();
+    m_command_result_ready = false;
+    
+    PrintOutMsg("got reply: %s\n", reply.c_str());
+
+    // TODO process reply
 
     return nullptr;
 }
@@ -257,7 +183,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     auto dbgsrvAlpsArgs = ArgvStream(
         "dbgsrv_alps",
         "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
-        "-c", "1",     // meaningless for zmqnet, but required to be non-null by dbgsrv
+        "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
         "-a", arch,
         "-p", "zmqnet",
         "-e", backend,
@@ -287,8 +213,11 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
             // TODO check errors
             fprintf(stderr, "command_callback: %d %s\n", streamId, result.asBytes().begin());
 
-            m_result_queue.push(result);
-            fprintf(stderr, "successfully pushed result: %d %s\n", streamId, result.asBytes().begin());
+            std::unique_lock<std::mutex> lock(m_command_result_lock);
+            m_command_result = result.asChars().begin();
+            m_command_result_ready = true;
+            lock.unlock();
+            m_command_result_cv.notify_one();
         };
 
         // TODO this is ugly!

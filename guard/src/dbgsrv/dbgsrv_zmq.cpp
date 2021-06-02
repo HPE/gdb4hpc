@@ -147,18 +147,15 @@ int ZMQNetServerProtocol::transferIo(int fd, char *buffer, int size) {
 void ZMQNetServerProtocol::runProto(fd_set *fds) {
     DVPRINT("ZMQNetServerProtocol::runProto\n");
 
-    while (m_command_queue.length() > 0) {
-        DVPRINT("waiting for command...\n");
-
-        auto command = m_command_queue.waitForNext();
-        DVPRINT("got %s from command queue\n", command.c_str());
+    while (auto command = m_command_queue.getNextIfAvailable()) {
+        DVPRINT("got %s from command queue\n", command->c_str());
         // TODO pass ci
-        DVPRINT("dispatching \"%s\"\n", command.c_str());
-        auto result = dbgsrv_dispatch_cmds(command.c_str(), nullptr);
+        DVPRINT("dispatching \"%s\"\n", command->c_str());
+        auto result = dbgsrv_dispatch_cmds(command->c_str(), nullptr);
 
         DVPRINT("pushing result \"%s\"...\n", result.c_str());
         m_result_queue.push(result);
-        DVPRINT("done! checking length...\n");
+        DVPRINT("done!\n");
     }
 
     DVPRINT("dispatched all commands.\n");

@@ -48,4 +48,4 @@ extern int DbgEventCB(dbgevent_t *);
 extern int DbgSetupIO(int *, int *);
 extern int DbgTransferIO(int, char *, int);
 extern dbgevent_t *DbgInvokeNetwork(int);
-extern int DbgSendReply(char *);
+extern int DbgSendReply(const char *);

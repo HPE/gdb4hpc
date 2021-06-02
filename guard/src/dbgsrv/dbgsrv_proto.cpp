@@ -121,7 +121,7 @@ dbgevent_t *DbgInvokeNetwork(int numbe) {
     return DbgSrvProtoSW->invokeNetwork(numbe);
 }
 
-int DbgSendReply(char *response) {
+int DbgSendReply(const char *response) {
     int res;
 
     res = DbgSrvProtoSW->sendReply(response);

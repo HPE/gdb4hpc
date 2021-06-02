@@ -30,7 +30,7 @@ public:
     void set_localrank(int rank);
     int get_localrank() const;
 
-    using MRNetBackEndCallback = const std::string (const char *, const dbgcomm_info *);
+    using MRNetBackEndCallback = std::string (const char *, const dbgcomm_info *);
     void set_callback(MRNetBackEndCallback callback);
     void handle_msg(MRN::Stream *stream);
 

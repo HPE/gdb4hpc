@@ -78,7 +78,7 @@ private:
 };
 }
 
-const std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci) {
+std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci) {
 
     DVPRINT("dbgsrv_dispatch_cmds received: %s\n", msg);
 

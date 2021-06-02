@@ -8,6 +8,7 @@
 
 #include "dbg_client.h"
 #include "dbgclnt_zmq.h"
+#include "dbgclnt_proto_help.h"
 #include "defs.h"
 #include "bitset.h"
 #include "useful.h"
@@ -218,73 +219,29 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     }
 
     // user can specify a custom gdb binary and a (full path) datadir
-    auto serverGdb = std::string{};
-    if (gdb) {
-        auto gdbBin = std::string{gdb};
-        auto colon = gdbBin.find(':');
-        auto dataDir = std::string{};
-        if (colon != std::string::npos) {
-            dataDir = gdbBin.substr(colon+1);
-            gdbBin = gdbBin.substr(0,colon);
-            if (!dataDir.empty() && dataDir[0] != '/') {
-                PrintOutError("adding a dataDir to the manifest is not supported.\n");
-                return 1;
-            }
-        }
-
-        if (gdbBin.empty()) {
-            PrintOutError("--gdb executable name is empty\n");
-            return 1;
-        } else if (gdbBin[0] == '/') {
-            serverGdb = gdbBin;
-        } else {
-            if (cti_addManifestBinary(manifest_id, gdbBin.c_str())) {
-                PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
-                PrintOutError("CTI error: %s\n", cti_error_str());
-                return 1;
-            }
-            serverGdb = std::filesystem::path(gdbBin).filename();
-        }
-
-        if (!dataDir.empty()) {
-            serverGdb += ":";
-            serverGdb += dataDir;
-        }
-    } else if (cti_addManifestBinary(manifest_id, "gdb-guard")) {
-        PrintOutError("Failed to add gdb-guard to manifest.\n");
-        PrintOutError("CTI error: %s\n", cti_error_str());
+    auto serverGdb = shipGdb(manifest_id, gdb);
+    if (!serverGdb) {
+        PrintOutError("Error shipping gdb.\n");
         return 1;
     }
 
-    // TODO gpu_flag check
-
-    if (cti_addManifestBinary(manifest_id, "dbgsrv")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add dbgsrv to manifest.\n");
+    if (gpu_flag && !gdb && !shipGpuGdbs(manifest_id)) {
+        PrintOutError("Error shipping gpu gdbs.\n");
         return 1;
+    }
+
+    if (!shipCommonFiles(manifest_id, gpu_flag)) {
+        PrintOutError("Error shipping common files.\n");
+        return 1;
+    }
+
+    if (!shipOmpd(manifest_id)) {
+        PrintOutMsg("Error shipping OMPD files. OMPD support will not be available.\n");
     }
 
     if (cti_addManifestBinary(manifest_id, "dbgsrv_alps")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to add dbgsrv-alps to manifest.\n");
-        return 1;
-    }
-
-    // send over the uda plugin - only if gpu mode is currently turned off
-    if (!gpu_flag) {
-        if (cti_addManifestLibrary(manifest_id, "uda-plugin-cray-upc.so")) {
-            PrintOutError(
-                "Failed to add uda-plugin-cray-upc.so to manifest.\n");
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            return 1;
-        }
-    }
-
-    // TODO ompd
-
-    if (cti_addManifestLibrary(manifest_id, "libthread_db.so.1")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
         return 1;
     }
 
@@ -302,8 +259,8 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     auto dbgsrvAlpsArgs = ArgvStream(
         "dbgsrv_alps",
-        "-h", "zmq",
-        "-c", "1",
+        "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
+        "-c", "1",     // meaningless for zmqnet, but required to be non-null by dbgsrv
         "-a", arch,
         "-p", "zmqnet",
         "-e", backend,
@@ -313,7 +270,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     if (debug_flag)       dbgsrvAlpsArgs << "--debug";
     if (early_entry_flag) dbgsrvAlpsArgs << "--early-entry";
     if (isNonStop)        dbgsrvAlpsArgs << "--non-stop";
-    if (gdb)              dbgsrvAlpsArgs << "--gdb" << serverGdb;
+    if (gdb && serverGdb) dbgsrvAlpsArgs << "--gdb" << *serverGdb;
 
     PrintOutMsg("zmqnet argv:\n");
     for (const auto cstr : dbgsrvAlpsArgs.c_strs()) {
@@ -324,7 +281,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     // TODO environment variables
 
     m_network = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
-        zmqnet::Topology{ .launch = zmqnet::Topology::Fcfs, .fanout = 1},
+        zmqnet::Topology{ .launch = zmqnet::Topology::Fcfs, .fanout = 4},
         dbgsrvAlpsArgs.c_strs().data()  
     );
 

@@ -24,6 +24,6 @@
 #include <string>
 
 class dbgcomm_info;
-extern const std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci);
+extern std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci);
 
 #endif /*_DBGSRV_CMDS_H*/

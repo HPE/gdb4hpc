@@ -58,35 +58,20 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
 
     m_network = std::make_unique<zmqnet::AsyncBackend>(upstreamControlEndpoint, upstreamDataEndpoint, node_id);
 
-    { // register send command stream callback
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamSend);
-        const auto command_send_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+    { // register command stream callback
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
+        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
             DVPRINT("zmqnet: send callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
             assert(streamId == streamId);
             
             m_command_queue.push(command.asChars().begin());
-            DVPRINT("zmqnet: done pushing command to queue. sending pong\n");
-
-            return zmqnet::make_ByteArray("pong", 5);
-        };
-
-        m_network->registerCallback(streamId, command_send_callback);
-    }
-
-    { // register receive command stream callback
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamReceive);
-        const auto command_receive_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            DVPRINT("zmqnet: %d receive callback got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
-
-            DVPRINT("zmqnet: pulling result from queue...\n");
-
+            DVPRINT("zmqnet: done pushing command to queue. waiting for result\n");
             auto result = m_result_queue.waitForNext();
 
-            DVPRINT("zmqnet: pulled result %s, sending back\n", result.c_str());
             return zmqnet::make_ByteArray(result.c_str(), result.length() + 1);
         };
 
-        m_network->registerCallback(streamId, command_receive_callback);
+        m_network->registerCallback(streamId, command_callback);
     }
 
     // Set up event fd

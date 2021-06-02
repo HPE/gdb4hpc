@@ -132,7 +132,7 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
         return nullptr;
     }
 
-    if (!m_command_send_stream) {
+    if (!m_command_stream) {
         PrintOutError("Tried to send a message without a command stream.\n");
         return nullptr;
     }
@@ -143,7 +143,7 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 
     PrintOutMsg("sending message %s\n", request);
 
-    m_network->sendCommand(*m_command_send_stream, request);
+    m_network->sendCommand(*m_command_stream, request);
 
     return bitset_dup(target);
 }
@@ -154,9 +154,6 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
 
     // TODO respect target
     // TODO update received
-
-    // request reply be fetched and sent to result queue
-    m_network->sendCommand(*m_command_receive_stream, "ping");
 
     // wait for result
     PrintOutMsg("waiting for result...\n");
@@ -286,32 +283,19 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     );
 
     { // create send command stream
-            const auto command_send_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
+        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
             // TODO check errors
-            fprintf(stderr, "command_send_callback: %d %s\n", streamId, result.asBytes().begin());
-        };
+            fprintf(stderr, "command_callback: %d %s\n", streamId, result.asBytes().begin());
 
-        // TODO this is ugly!
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamSend);
-        m_network->registerStreamCallback(streamId, command_send_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_command_send_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::WaitForAll{}));
-    }
-
-    { // create recieve command stream
-        const auto command_receive_callback = [&](zmqnet::Stream::Id const &streamId, zmqnet::ByteArrayPtr result) {
-            // push result to result queue
-            fprintf(stderr, "command_receive_callback: %d %s\n", streamId, result.asBytes().begin());
             m_result_queue.push(result);
             fprintf(stderr, "successfully pushed result: %d %s\n", streamId, result.asBytes().begin());
         };
 
         // TODO this is ugly!
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStreamReceive);
-        m_network->registerStreamCallback(streamId, command_receive_callback);
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
+        m_network->registerStreamCallback(streamId, command_callback);
         auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_command_receive_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
+        m_command_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
             "libzmqnetagg.so", "run", zmqnet::sync::WaitForAll{}));
     }
 

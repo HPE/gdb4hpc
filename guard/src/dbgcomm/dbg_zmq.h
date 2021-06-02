@@ -70,8 +70,7 @@ std::optional<T> WaitQueue<T>::getNextIfAvailable() {
 }
 
 enum class ZMQNetStream : zmqnet::Stream::Id {
-    CommandStreamSend,
-    CommandStreamReceive,
+    CommandStream,
     EventStream,
     IOStream
 };

@@ -63,8 +63,7 @@ public:
 private:
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
-    std::unique_ptr<zmqnet::Stream> m_command_send_stream;
-    std::unique_ptr<zmqnet::Stream> m_command_receive_stream;
+    std::unique_ptr<zmqnet::Stream> m_command_stream;
 
     WaitQueue<zmqnet::ByteArrayPtr> m_result_queue;
 };

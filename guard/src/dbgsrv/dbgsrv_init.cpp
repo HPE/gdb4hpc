@@ -988,6 +988,9 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
         DVPRINT("InitDbgAttach: continued to the real entry!\n");
         FreeEvent(e);
 
+        // and try again
+        DestroyList(m_exitBP, nullptr);
+        m_exitBP = nullptr;
         if ((e = setup_gdbmi_exit_points()) != NULL) return e;
     }
 
@@ -1129,10 +1132,9 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
         cmd = _MIGDBSet("print characters", "200");
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Gdb set print characters command failed.");
-            return e;
+            // support depends on the version of the debugger, but we don't
+            // need to quit if the setting isn't available.
+            DVPRINT("Gdb set print characters command failed.\n");
         }
         MICommandFree(cmd);
     }
@@ -1198,23 +1200,21 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
         MICommandFree(cmd);
     }
 
-    if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
+    if (gdb_vers == GdbVersion::CUDA_101) {
         // If running with gpu's, turn upc off. If we don't do this, things will
-        // break
+        // break, but it is not supported on rocgdb, so it's just a ddt-cuda-gdb thing.
+        // Other version of cuda-gdb don't support it so don't quit if the call fails
         if (gpu_flag) {
             cmd = _MIGDBSet("upcsingle", "1");
             SendMICommand(m_session, cmd);
             if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER,
-                            "Gdb set upcsingle command failed.");
-                return e;
+                DVPRINT("Gdb set upcsingle command failed.\n");
             }
             MICommandFree(cmd);
         }
     }
 
-    // XXX: This actual does do something with the Allinea branch of gdb.
+    // XXX: This actual does do something with the Allinea branch of gdb (ddt-gdb)
     // DO NOT REMOVE! If removed, the backend will hang on gdb fatal errors.
     cmd = _MIGDBSet("continue-on-fatal-error", "1");
     SendMICommand(m_session, cmd);
@@ -1228,9 +1228,10 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // manually set up pretty printing for relocated installs
     setup_pretty_printing();
 
-    // set non-stop mode
+    // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
+    // and cuda-gdb doesn't handle it well
     auto isInNonStopMode = false;
-    if (non_stop_flag) {
+    if (non_stop_flag && gdb_vers != GdbVersion::CUDA_101) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {

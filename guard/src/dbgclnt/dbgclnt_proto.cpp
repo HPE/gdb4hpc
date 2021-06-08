@@ -33,6 +33,8 @@
 #include "list.h"
 #include "useful.h"
 
+#include "common_tools_fe.h"
+
 /*
  * don't use this function!
  * this function is only here to make sure the linker pulls in the protocol
@@ -226,6 +228,31 @@ int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, proto_msg_set *set) 
     if (m_protoEventHandler) return m_protoEventHandler->handleEvent(di, set);
     return 1;
 };
+
+// common exit actions to all protocols. protocol exit functions should call this
+// function in their own exit function after doing protocol specific exit actions.
+int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
+    if (!detach) {
+        // send a kill signal using the CTI
+        if (cti_killApp(di->d_appid, SIGKILL)) {
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            PrintOutError("Failed to kill application process!\n");
+            return -1;
+        }
+    }
+
+    cti_deregisterApp(di->d_appid);
+
+    di->d_appid = 0;
+
+    // Destroy the program output object
+    DbgFreeGenericProgOutp(di->d_proto_outp);
+
+    // clear the program output object
+    di->d_proto_outp = nullptr;
+
+    return 0;
+}
 
 int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, proto_msg_set* set) {
     // by default, just forward to generic handler

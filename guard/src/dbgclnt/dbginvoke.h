@@ -3,11 +3,8 @@
 
 #include "dbgclnt_proto.h"
 #include "dbgclnt_debugfe.h"
+#include "dbgoutp.h"
 #include "bitset.h"
-
-// This is data used by the protocol layer for application output
-// Usually this will be a g_progoutp_t *, but it depends on the proto.
-typedef void *proto_outp;
 
 // This is instance data used by the protocol layer that is allocated on a per
 // dbginvoke basis. It is stored in the di since the protocol object is reused
@@ -47,7 +44,7 @@ struct dbginvoke {
     int d_proto_id;  // di specific protocol id - optionally used by certain
                      // protocols
     proto_network d_proto_net;  // di specific protocol network object
-    proto_outp d_proto_outp;    // di specific protocol output object
+    g_progoutp_t* d_proto_outp; // data used by the protocol layer for application output
     DebugClientProtocol * const d_proto;     // client protocol switch
 
     clnt_ev_callback_func d_clnt_ev_callback;

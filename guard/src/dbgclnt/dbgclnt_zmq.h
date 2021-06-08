@@ -61,7 +61,6 @@ public:
 
     void destroyClient(struct dbginvoke *di) override;
 private:
-
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
     std::unique_ptr<zmqnet::Stream> m_command_stream;
 

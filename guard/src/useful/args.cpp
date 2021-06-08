@@ -275,39 +275,3 @@ std::string ArgsToString(int argc, char* argv[]) {
     }
     return res;
 }
-
-ArgvStream& operator<<(ArgvStream& ab, const std::string &str) {
-    ab.m_argv.push_back(str);
-    return ab;
-}
-
-ArgvStream& operator<<(ArgvStream& ab, const char *cstr) {
-    ab.m_argv.push_back(std::string{cstr});
-    return ab;
-}
-
-ArgvStream& operator<<(ArgvStream& ab, char *cstr) {
-    ab.m_argv.push_back(std::string{cstr});
-    return ab;
-}
-
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, const char *argv[]) {
-    for (int i = 0; argv != nullptr && argv[i] != nullptr; i++) {
-        ab.m_argv.push_back(std::string{argv[i]});
-    }
-    return ab;
-}
-
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, char *argv[]) {
-    for (int i = 0; argv != nullptr && argv[i] != nullptr; i++) {
-        ab.m_argv.push_back(std::string{argv[i]});
-    }
-    return ab;
-}
-
-ArgvStream& operator<<(ArgvStream& ab, const int &i) {
-    ab.m_argv.push_back(std::to_string(i));
-    return ab;
-}

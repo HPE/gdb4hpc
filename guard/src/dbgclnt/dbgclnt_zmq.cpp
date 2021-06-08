@@ -15,6 +15,13 @@
 
 #include "common_tools_fe.h"
 
+// TODO wrap this in #if DEBUG
+#if 1
+static void LOG(const char *msg, ...);
+#else
+#define LOG(...) /**/
+#endif
+
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 ZMQNetClientProtocol DbgClntProtoZMQ{};
 
@@ -27,7 +34,7 @@ ZMQNetClientProtocol::ZMQNetClientProtocol()
 }
 
 int ZMQNetClientProtocol::init() {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 
     // set libzmqnet install prefix so that zmqnet can find the commnode binary
     auto base = getinstallbase();
@@ -42,7 +49,7 @@ int ZMQNetClientProtocol::init() {
 
 bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
                              const char *request) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!m_network) {
         PrintOutError("Tried to send a message without a network.\n");
@@ -58,7 +65,7 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 
     // TODO get/create specific stream for target
 
-    PrintOutMsg("sending message %s\n", request);
+    LOG("sending message %s\n", request);
 
     m_network->sendCommand(*m_command_stream, request);
 
@@ -67,13 +74,13 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
 
 struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
                                             bitset *target, bitset *received) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 
     // TODO respect target
     // TODO update received
 
     // wait for result
-    PrintOutMsg("waiting for result...\n");
+    LOG("waiting for result...\n");
     
     std::unique_lock<std::mutex> lock(m_command_result_lock);
     m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
@@ -82,7 +89,7 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
     m_command_result.erase();
     m_command_result_ready = false;
     
-    PrintOutMsg("got reply: %s\n", reply.c_str());
+    LOG("got reply: %s\n", reply.c_str());
 
     // TODO process reply
 
@@ -90,13 +97,13 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
 }
 
 void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 }
 
 int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
                         const char *backend, int gpu_flag, int debug_flag) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
     return 0;
 }
 
@@ -105,15 +112,23 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
                         const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 
-    PrintOutMsg("Starting application, please wait...\n");
+    if (!di) {
+        PrintOutError("Tried to launch ZMQNet with a null di\n");
+        return 1;
+    }
+
+    // This is rolled into the protocol with zmqnet
+    di->d_proto_net = nullptr;
+
+    LOG("Starting application, please wait...\n");
 
     // launch n ranks of app being debugged ////////////////////////////////////
 
     int prog_outp = -1;
     if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != nullptr) {
-        prog_outp = ((g_progoutp_t *)di->d_proto_outp)->p_o_wfd;
+        prog_outp = di->d_proto_outp->p_o_wfd;
     }
 
     auto launcherArgs = ArgvStream("-n", di->d_nproc, arch_args, prog, argv);
@@ -123,7 +138,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         // TODO: dump error messages
     }
 
-    PrintOutMsg("launched app\n");
+    LOG("launched app\n");
 
     // ship required backend files /////////////////////////////////////////////
 
@@ -176,7 +191,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
-    PrintOutMsg("added files\n");
+    LOG("added files\n");
 
     // create network //////////////////////////////////////////////////////////
 
@@ -195,11 +210,11 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     if (isNonStop)        dbgsrvAlpsArgs << "--non-stop";
     if (gdb && serverGdb) dbgsrvAlpsArgs << "--gdb" << *serverGdb;
 
-    PrintOutMsg("zmqnet argv:\n");
+    LOG("zmqnet argv:\n");
     for (const auto cstr : dbgsrvAlpsArgs.c_strs()) {
-        PrintOutMsg("%s ", cstr);
+        LOG("%s ", cstr);
     }
-    PrintOutMsg("\n");
+    LOG("\n");
 
     // TODO environment variables
 
@@ -245,42 +260,49 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     // TODO set program output stream handler
 
-    PrintOutMsg("Made it out!\n");
+    LOG("Made it out!\n");
 
     return 0;
 }
 
 void ZMQNetClientProtocol::destroyClient(dbginvoke *di) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
 }
 
 int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
-    PrintOutMsg("%s\n", __PRETTY_FUNCTION__);
+    LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (!di) {
+        PrintOutError("Tried to exit with null di.\n");
+        return -1;
+    }
 
     if (m_network) m_network->runExit();
 
-    if (!detach) {
-        // send a kill signal using the CTI
-        if (cti_killApp(di->d_appid, SIGKILL)) {
-            PrintOutError("Failed to kill application process!\n");
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            return -1;
-        }
-    }
-
-    cti_deregisterApp(di->d_appid);
-
-    di->d_appid = 0;
-
-    return 0;
+    return DebugClientProtocol::exit(di, detach);
 }
 
 int ZMQNetAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
-    PrintOutMsg("ZMQNetAttachHandler::handleEvent\n");
+    LOG("ZMQNetAttachHandler::handleEvent\n");
     return 0;
 }
 
 int ZMQNetLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
-    PrintOutMsg("ZMQNetAttachHandler::handleEvent\n");
+    LOG("ZMQNetAttachHandler::handleEvent\n");
     return 0;
 }
+
+// TODO wrap this in #if DEBUG
+#if 1
+void LOG(const char* format, ...) {
+    va_list arg_list;
+
+    // setup the va_list
+    va_start(arg_list, format);
+
+    PrintOutMsg(format, arg_list);
+
+    // end the va_list
+    va_end(arg_list);
+}
+#endif

@@ -98,7 +98,7 @@ public:
         const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
         bool isNonStop) = 0;
 
-    virtual int exit(struct dbginvoke *di, int detach) = 0;
+    virtual int exit(struct dbginvoke *di, int detach);
 
     virtual bitset* sendCommand(struct dbginvoke *di, bitset *target, 
         const char *request) = 0;

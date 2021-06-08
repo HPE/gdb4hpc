@@ -980,7 +980,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // create the output stream to redirect stdout/stderr to
     // Note that this will be a g_progoutp_t in this proto definition
     if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != nullptr) {
-        po = (g_progoutp_t *)di->d_proto_outp;
+        po = di->d_proto_outp;
         prog_outp = po->p_o_wfd;
     }
 
@@ -1447,38 +1447,18 @@ invoke_error:
 
 int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
-    g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
+
+    if (!di) {
+        PrintOutError("Tried to exit with null di.\n");
+        return -1;
+    }
 
     // shutdown mrnet only if not already in a shutdown state
     if (!di->d_isShutdown) {
         delete network;
     }
 
-    // clear the network pointer
-    di->d_proto_net = nullptr;
-
-#ifdef ALPS
-    if (!detach) {
-        // send a kill signal using the CTI
-        if (cti_killApp(di->d_appid, SIGKILL)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to kill application process!\n");
-            return -1;
-        }
-    }
-
-    cti_deregisterApp(di->d_appid);
-
-    di->d_appid = 0;
-#endif
-
-    // Destroy the program output object
-    DbgFreeGenericProgOutp(po);
-
-    // clear the program output object
-    di->d_proto_outp = nullptr;
-
-    return 0;
+    return DebugClientProtocol::exit(di, detach);
 }
 
 void MRNClientProtocol::destroyClient(dbginvoke_t *di) {

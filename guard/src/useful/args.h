@@ -18,6 +18,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <type_traits>
 
 class ArgvStream {
 public:
@@ -35,30 +36,40 @@ public:
 
     void clear() {m_argv.clear();}
 
-    friend ArgvStream& operator<<(ArgvStream& ab, const std::string &str);
-    friend ArgvStream& operator<<(ArgvStream& ab, const char *cstr);
-    friend ArgvStream& operator<<(ArgvStream& ab, char *cstr);
-    friend ArgvStream& operator<<(ArgvStream& ab, const char *argv[]);
-    friend ArgvStream& operator<<(ArgvStream& ab, char *argv[]);
-    friend ArgvStream& operator<<(ArgvStream& ab, const int &i);
-private:
-    template <typename T, typename... Args> void push(const T &t, Args&&... args) {
-        *this << t;
-        push(args...);
+    ArgvStream& operator<<(const std::string &str) {
+        m_argv.push_back(str);
+        return *this;
+    }
+
+    ArgvStream& operator<<(const char *cstr) {
+        m_argv.push_back(std::string{cstr});
+        return *this;
+    }
+
+    // argv must end with a nullptr
+    ArgvStream& operator<<(const char * const * argv) {
+        for (int i = 0; argv != nullptr && argv[i] != nullptr; i++) {
+            m_argv.push_back(std::string{argv[i]});
+        }
+        return *this;
+    }
+
+    // call to_string for arithmetic types
+    template <
+        typename T,
+        typename = std::enable_if_t<std::is_arithmetic<T>::value, T>
+    >
+    ArgvStream& operator<<(const T &t) {
+        m_argv.push_back(std::to_string(t));
+        return *this;
     };
-    void push() { /* end variadic arg recursion */ };
+private:
+    template <typename... Args> void push(Args&&... args) {
+        (*this << ... << args);
+    };
 
     std::vector<std::string> m_argv;
 };
-
-ArgvStream& operator<<(ArgvStream& ab, const std::string &str);
-ArgvStream& operator<<(ArgvStream& ab, const char *cstr);
-ArgvStream& operator<<(ArgvStream& ab, char *cstr);
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, const char *argv[]);
-// argv must end with a nullptr
-ArgvStream& operator<<(ArgvStream& ab, char *argv[]);
-ArgvStream& operator<<(ArgvStream& ab, const int &i);
 
 #ifdef __cplusplus
 extern std::string ArgsToString(int argc, char** argv);

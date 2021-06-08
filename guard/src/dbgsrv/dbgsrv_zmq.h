@@ -6,9 +6,11 @@
 
 #include <future>
 #include <functional>
+#include <type_traits>
 
 #include "dbgsrv_proto.h"
 #include "dbg_zmq.h"
+#include "dbgsrv_cmds.h"
 
 class ZMQNetServerProtocol : public DebugServerProtocol {
 public:
@@ -33,7 +35,7 @@ private:
 
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 
-    using CommandDispatchFunc = std::packaged_task<std::string(const dbgcomm_info*)>;
+    using CommandDispatchFunc = std::packaged_task<std::unique_ptr<char, decltype(&std::free)> (const dbgcomm_info*)>;
     std::unique_ptr<CommandDispatchFunc> m_pending_command;
 
     std::mutex m_command_lock;

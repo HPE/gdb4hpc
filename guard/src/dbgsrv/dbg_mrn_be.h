@@ -17,6 +17,7 @@
 #include "dbg_mrn.h"
 #include "mrnet/Stream.h"
 #include "smart_bitset.h"
+#include "dbgsrv_cmds.h"
 
 class dbgcomm_info;
 
@@ -30,7 +31,7 @@ public:
     void set_localrank(int rank);
     int get_localrank() const;
 
-    using MRNetBackEndCallback = std::string (const char *, const dbgcomm_info *);
+    using MRNetBackEndCallback = decltype(dbgsrv_dispatch_cmds);
     void set_callback(MRNetBackEndCallback callback);
     void handle_msg(MRN::Stream *stream);
 

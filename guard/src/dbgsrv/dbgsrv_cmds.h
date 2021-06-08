@@ -21,9 +21,7 @@
 #ifndef _DBGSRV_CMDS_H
 #define _DBGSRV_CMDS_H
 
-#include <string>
-
 class dbgcomm_info;
-extern std::string dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci);
+std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci);
 
 #endif /*_DBGSRV_CMDS_H*/

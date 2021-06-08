@@ -17,7 +17,7 @@
 
 // TODO wrap this in #if DEBUG
 #if 1
-static void LOG(const char *msg, ...);
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG(...) /**/
 #endif
@@ -85,7 +85,7 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
     std::unique_lock<std::mutex> lock(m_command_result_lock);
     m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
 
-    auto reply = m_command_result;
+    auto reply = std::move(m_command_result);
     m_command_result.erase();
     m_command_result_ready = false;
     
@@ -229,7 +229,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
             fprintf(stderr, "command_callback: %d %s\n", streamId, result.asBytes().begin());
 
             std::unique_lock<std::mutex> lock(m_command_result_lock);
-            m_command_result = result.asChars().begin();
+            m_command_result = std::string{result.asChars().begin(), result.size()};
             m_command_result_ready = true;
             lock.unlock();
             m_command_result_cv.notify_one();
@@ -291,18 +291,3 @@ int ZMQNetLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
     LOG("ZMQNetAttachHandler::handleEvent\n");
     return 0;
 }
-
-// TODO wrap this in #if DEBUG
-#if 1
-void LOG(const char* format, ...) {
-    va_list arg_list;
-
-    // setup the va_list
-    va_start(arg_list, format);
-
-    PrintOutMsg(format, arg_list);
-
-    // end the va_list
-    va_end(arg_list);
-}
-#endif

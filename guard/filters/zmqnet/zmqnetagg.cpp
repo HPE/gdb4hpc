@@ -17,13 +17,13 @@ zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::By
 {
 	auto result = std::string{"{ "};
 	for (auto&& input : inputs) {
-		auto const inputStr = std::string{(char const*)input.begin()};
+		auto const inputStr = std::string{(char const*)input.begin(), input.size()};
 		assert(inputStr != "ready");
 		result += inputStr + " ";
 	}
 	result += "}";
 
-	return zmqnet::make_ByteArray(result.c_str(), result.length() + 1);
+	return zmqnet::make_ByteArray(result.c_str(), result.length());
 }
 
 }

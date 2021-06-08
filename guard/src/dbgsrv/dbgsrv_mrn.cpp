@@ -100,7 +100,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     int be_argc = 6;
     char *hostname;
     char par_addr[MAXADDRLEN + 1];
-    char *program_name = strdup(argv[0]); // dup'd because mrnet doesn't accept const char *
+    char program_name[] = "dbgsrv"; // not actually used by mrnet, but be_argc needs to be correct
     char par_port_str[64];
     char par_rank_str[64];
     char my_rank_str[64];
@@ -178,7 +178,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     char *cfg_env = nullptr;
     char single_rank[16];
     int be_argc = 6;
-    char *program_name = strdup(argv[0]);
+    char program_name[] = "dbgsrv";
     char hostname[MAXPATHLEN];
     char par_addr[MAXADDRLEN + 1];
     char par_port_str[64];
@@ -306,7 +306,6 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     // get the mrnet event fd to select on
     m_mrn_event_fd = m_network->get_event_fd();
 
-    free(program_name);
     free(hostname);
 
     return res;

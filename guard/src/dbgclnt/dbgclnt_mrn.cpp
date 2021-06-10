@@ -1456,6 +1456,8 @@ int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     // shutdown mrnet only if not already in a shutdown state
     if (!di->d_isShutdown) {
         delete network;
+        network = nullptr;
+        di->d_proto_net = nullptr;
     }
 
     return DebugClientProtocol::exit(di, detach);

@@ -48,17 +48,22 @@ struct MulticastType {
     MRN::Stream *stream;
 };
 
-class CallbackHandlerInfo {
+class LaunchCallbackCounter {
 public:
-    CallbackHandlerInfo() : m_num_callbacks{0} {};
+    LaunchCallbackCounter() : m_num_callbacks{0} {};
+
+    void reset() {
+        const std::scoped_lock<std::mutex> lock(m_callback_lock);
+        m_num_callbacks = 0;
+    }
 
     int getNumCallbacks() const {
-        const std::lock_guard<std::mutex> lock(m_callback_lock);
+        const std::scoped_lock<std::mutex> lock(m_callback_lock);
         return m_num_callbacks;
     }
 
     void incrementCallbacks() {
-        const std::lock_guard<std::mutex> lock(m_callback_lock);
+        const std::scoped_lock<std::mutex> lock(m_callback_lock);
         m_num_callbacks++;
     }
 private:
@@ -76,7 +81,7 @@ public:
     bool isEnabled() const {return m_enabled;};
 
     void operator()(void * data) {
-        const std::lock_guard<std::mutex> lock(m_failure_lock);
+        const std::scoped_lock<std::mutex> lock(m_failure_lock);
         
         if (!m_enabled)
             return;
@@ -102,7 +107,14 @@ private:
     std::mutex m_failure_lock;
 };
 
-static CallbackHandlerInfo callback_handler;
+// the launch callback counter is manipulated by callbacks from mrnet, which
+// means it can't be attached to a MRNetFrontEnd as a member variable. it needs
+// to be reset by each launch that uses it or the launch will see data from
+// previous launches.
+static LaunchCallbackCounter callback_handler;
+
+// the failure handler can be shared since a failure from one di means a global
+// failure.
 static FailureHandler failure_handler;
 
 MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
@@ -252,6 +264,8 @@ static void BE_Add_Callback(MRN::Event *evt, void *) {
 }
 
 int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
+    callback_handler.reset();
+
     if (!network.register_EventCallback(MRN::Event::TOPOLOGY_EVENT,
                                         MRN::TopologyEvent::TOPOL_ADD_BE,
                                         BE_Add_Callback, nullptr)) {
@@ -271,7 +285,6 @@ int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
 ** initialize frontend for attaching backend programs
 ** Main way of launching/attaching on a Cray
 */
-#ifdef ALPS
 MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
                                    MRN::NetworkTopology *&p_topology,
                                    int ctiAppid, int ctiMid) {
@@ -324,54 +337,6 @@ MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
 
     return mrnet;
 }
-#else
-MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
-                                   MRN::NetworkTopology *&p_topology) {
-    if (topology_file == nullptr) {
-        PrintOutError(
-            "ERROR: mrn_fe_create_network_no_be topology_file is nullptr!\n");
-        return nullptr;
-    }
-
-    auto *network =
-        MRN::Network::CreateNetworkFE(topology_file, nullptr, nullptr);
-
-    if (network->has_Error()) {
-        network->print_error(
-            "ERROR: mrn_fe_create_network_no_be failed to "
-            "create MRNet network!\n");
-        return nullptr;
-    }
-
-    // enable network event callbacks
-    if (register_TopAddBE_event_callback(*network)) {
-        network->print_error(
-            "ERROR: mrn_fe_create_network_no_be failed to "
-            "enable event callbacks!\n");
-        delete network;
-        return nullptr;
-    }
-
-    auto *topology = network->get_NetworkTopology();
-
-    if (topology == nullptr) {
-        PrintOutError(
-            "ERROR: mrn_fe_create_network_no_be cannot get topology for "
-            "network[%p]\n",
-            network);
-        delete network;
-        return nullptr;
-    }
-
-    p_topology = topology;
-
-    network->set_FailureRecovery(false);
-
-    auto *mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
-
-    return mrnet;
-}
-#endif
 
 /*
 ** wait for attaching backend programs

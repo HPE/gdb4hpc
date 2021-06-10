@@ -1085,7 +1085,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                     if (LVAL_GDB_PROCSET(val)->s_nproc == 0) {
                         PrintOutError("Rank selection \"%s\" is invalid.\n", 
                             RVAL_REF_SLICE(ps_val)->getArgs());
-                        free(LVAL_GDB_PROCSET(val));
+                        FreeProcSet(LVAL_GDB_PROCSET(val));
                         goto bad_var;
                     }
 

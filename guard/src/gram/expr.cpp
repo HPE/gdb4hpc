@@ -2095,13 +2095,13 @@ public:
     AccumulateShape();
     ~AccumulateShape();
     void addArray(AIF* aif);
-    arrayDimension_t* getShape();
+    const ArrayDimension* getShape();
 private:
     bool m_isFortran;
     int m_dim;
     int* m_mins;
     int* m_maxs;
-    arrayDimension_t* m_shape;
+    std::unique_ptr<ArrayDimension> m_shape;
 };
 
 AccumulateShape::AccumulateShape()
@@ -2113,8 +2113,6 @@ AccumulateShape::~AccumulateShape() {
         free(m_mins);
     if (m_maxs)
         free(m_maxs);
-    if (m_shape)
-        freeArrayDimension(m_shape);
 }
 
 void AccumulateShape::addArray(AIF* aif) {
@@ -2145,14 +2143,14 @@ void AccumulateShape::addArray(AIF* aif) {
     }
 };
 
-arrayDimension_t* AccumulateShape::getShape() {
+const ArrayDimension* AccumulateShape::getShape() {
     if (m_shape)
-        return m_shape;
+        return m_shape.get();
     
     if (!m_mins)
         return nullptr;
 
-    arrayDimension_t *shape = newArrayDimension();
+    auto shape = std::make_unique<ArrayDimension>();
     if (!shape) {
         DPRINT("newArrayDimension failed");
         return nullptr;
@@ -2162,12 +2160,12 @@ arrayDimension_t* AccumulateShape::getShape() {
     for (int i=0; i<m_dim; ++i) {
         // arrayDimension orders dims from fastest to slowest
         int d = (m_isFortran ? i : m_dim-1-i);
-        addArrayDimensionDef(shape, m_maxs[d]-m_mins[d]+1,
+        shape->addDimensionDef(m_maxs[d]-m_mins[d]+1,
                              m_mins[d], m_maxs[d]);
     }
 
-    m_shape = shape;
-    return shape;
+    m_shape = std::move(shape);
+    return shape.get();
 }
 } // namespace
 

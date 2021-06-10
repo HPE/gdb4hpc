@@ -1,7 +1,7 @@
 /******************************************************************************\
  * array.h - Header file for the array interface.
  *
- * Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -16,43 +16,25 @@
  * using type information before we create each individual aif entry.
  */
 
-#ifndef _ARRAY_H
-#define _ARRAY_H
+#pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// default size of the dimdef list
-// note that the size of this is automatically increased when calling
-// addArrayDimensionDef is there is not enough room in the list for the
-// new dimension definition.
-#define DIMDEF_SIZE 5
+#include <vector>
+#include <tuple>
 #include "aif.h"
-//
 
 // used for returning shape of arrays
-typedef struct {
-    unsigned int dim;      // dimension of array
-    unsigned int *dimDef;  // indicies in each dimension
-    int *dimMin;           // min range value in each dimension
-    int *dimMax;           // max range value in each dimension
-    bool isFortran;        // array is indexed in fortran
-    int _len;              // *hidden* allocated size of the dimdef array
-} arrayDimension_t;
+class ArrayDimension {
+public:
+    ArrayDimension();
 
-/* arrayDimension_t operator prototypes */
-
-arrayDimension_t *newArrayDimension(void);
-arrayDimension_t *dupArrayDimension(arrayDimension_t *);
-int addArrayDimensionDef(arrayDimension_t *, unsigned int, int, int);
-unsigned int getArrayDimension(arrayDimension_t *, int);
-int getArrayDimensionRangeMin(arrayDimension_t *, int);
-int getArrayDimensionRangeMax(arrayDimension_t *, int);
-void freeArrayDimension(arrayDimension_t *);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* _ARRAY_H */
+    size_t numDimensions() const;
+    int addDimensionDef(size_t size, unsigned int min_range, unsigned int max_range);
+    int getArrayDimension(unsigned int index) const;
+    int getArrayDimensionRangeMin(unsigned int index) const;
+    int getArrayDimensionRangeMax(unsigned int index) const;
+    
+    bool isFortran;            // array is indexed in fortran
+private:
+    // tuple is (dimension size, range minimum, range maximum)
+    std::vector<std::tuple<int, int, int>> m_dimensions;
+};

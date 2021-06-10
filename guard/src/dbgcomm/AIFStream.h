@@ -22,7 +22,7 @@ public:
         virtual ~Slices() = default;
 
         // get the shape of the full array - the result is owned by this object
-        virtual arrayDimension_t* getFullShape() const = 0;
+        virtual const ArrayDimension* getFullShape() const = 0;
 
         // return the next partition of data, the result must be freed by
         // the caller.
@@ -85,7 +85,7 @@ public:
     // Get the dimensional shape of the entire data object if it is an array.   Otherwise,
     // returns nullptr.
     // The object is owned by this object.
-    arrayDimension_t* getShape();
+    const ArrayDimension* getShape() const;
 
     ~AIFStream();
 

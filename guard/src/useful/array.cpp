@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * array.c - Functions relating to maintaining the shape/size of an array.
  *
- * Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -13,205 +13,39 @@
 
 #include "array.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 // external error printing function
 extern void PrintOutError(const char *, ...);
 
-/* static prototypes */
-static int resizeArrayDimension(arrayDimension_t *);
-
-// create a new arrayDimension_t object
-arrayDimension_t *newArrayDimension() {
-    arrayDimension_t *arr_dim;
-
-    // create the object
-    if ((arr_dim = (arrayDimension_t *)malloc(sizeof(arrayDimension_t))) ==
-        (void *)0) {
-        PrintOutError("newArrayDimension: malloc error!\n");
-        return (arrayDimension_t *)NULL;
-    }
-    memset(arr_dim, 0, sizeof(arrayDimension_t));  // clear it to NULL
-
-    // allocate the default dimdef size
-    if ((arr_dim->dimDef = (unsigned int *)malloc(sizeof(unsigned int) *
-                                                  DIMDEF_SIZE)) == (void *)0) {
-        PrintOutError("newArrayDimension: malloc error!\n");
-        freeArrayDimension(arr_dim);
-        return (arrayDimension_t *)NULL;
-    }
-    memset(arr_dim->dimDef, 0,
-           sizeof(unsigned int) * DIMDEF_SIZE);  // clear it to NULL
-
-    // allocate the default dimdef size for the min range
-    if ((arr_dim->dimMin = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
-        (void *)0) {
-        PrintOutError("newArrayDimension: malloc error!\n");
-        freeArrayDimension(arr_dim);
-        return (arrayDimension_t *)NULL;
-    }
-    memset(arr_dim->dimMin, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
-
-    // allocate the default dimdef size for the max range
-    if ((arr_dim->dimMax = (int *)malloc(sizeof(int) * DIMDEF_SIZE)) ==
-        (void *)0) {
-        PrintOutError("newArrayDimension: malloc error!\n");
-        freeArrayDimension(arr_dim);
-        return (arrayDimension_t *)NULL;
-    }
-    memset(arr_dim->dimMax, 0, sizeof(int) * DIMDEF_SIZE);  // clear it to NULL
-
-    arr_dim->isFortran = false;
-
-    // set the hidden len value
-    arr_dim->_len = DIMDEF_SIZE;
-
-
-    return arr_dim;
-}
-
-arrayDimension_t *dupArrayDimension(arrayDimension_t *rhs)
-{
-    if (!rhs)
-        return nullptr;
-
-    arrayDimension_t* cp = (arrayDimension_t*) malloc(sizeof(arrayDimension_t));
-    memset(cp, 0, sizeof(arrayDimension_t));  // clear it to NULL
-    unsigned int dim = cp->dim = rhs->dim;
-
-    size_t arraySize = sizeof(int) * dim;
-
-    cp->dimDef = (unsigned int*)malloc(arraySize);
-    memcpy(cp->dimDef, rhs->dimDef, arraySize);
-
-    cp->dimMin = (int*) malloc(arraySize);
-    memcpy(cp->dimMin, rhs->dimMin, arraySize);
-
-    cp->dimMax = (int*) malloc(arraySize);
-    memcpy(cp->dimMax, rhs->dimMax, arraySize);
-
-    cp->isFortran = rhs->isFortran;
-    cp->_len = dim;
-
-    return cp;
-}
-
-// resize an arrayDimension_t object
-static int resizeArrayDimension(arrayDimension_t *myArray) {
-    unsigned int *temp;
-    int *temp_range;
-
-    // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("resizeArrayDimension: null arg!\n");
-        return 1;
-    }
-
-    // resize the dimdef
-    if ((temp = (unsigned int *)realloc(
-             myArray->dimDef,
-             sizeof(unsigned int) * (myArray->_len + DIMDEF_SIZE))) ==
-        (void *)0) {
-        PrintOutError("resizeArrayDimension: realloc error!\n");
-        return 1;
-    }
-    // null the new memory starting at the first entry after the old _len
-    // note that offsetting to _len in the new array will be this member.
-    memset(&temp[myArray->_len], 0, sizeof(unsigned int) * DIMDEF_SIZE);
-
-    myArray->dimDef = temp;
-
-    // resize the dimmin
-    if ((temp_range = (int *)realloc(
-             myArray->dimMin, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
-        (void *)0) {
-        PrintOutError("resizeArrayDimension: realloc error!\n");
-        return 1;
-    }
-    // null the new memory starting at the first entry after the old _len
-    // note that offsetting to _len in the new array will be this member.
-    memset(&temp_range[myArray->_len], 0, sizeof(int) * DIMDEF_SIZE);
-
-    myArray->dimMin = temp_range;
-
-    // resize the dimmax
-    if ((temp_range = (int *)realloc(
-             myArray->dimMax, sizeof(int) * (myArray->_len + DIMDEF_SIZE))) ==
-        (void *)0) {
-        PrintOutError("resizeArrayDimension: realloc error!\n");
-        return 1;
-    }
-    // null the new memory starting at the first entry after the old _len
-    // note that offsetting to _len in the new array will be this member.
-    memset(&temp_range[myArray->_len], 0, sizeof(int) * DIMDEF_SIZE);
-
-    myArray->dimMax = temp_range;
-
-    // increase the private len variable
-    myArray->_len += DIMDEF_SIZE;
-
-    return 0;
-}
+ArrayDimension::ArrayDimension() 
+    : isFortran{false}
+{}
 
 // add a dimension to the object
-int addArrayDimensionDef(arrayDimension_t *myArray, unsigned int size,
-                         int min_range, int max_range) {
-    // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("addArrayDimensionDef: null args!\n");
-        return 1;
-    }
-
-    // ensure we have enough room in the dimdef array for a new entry
-    if (myArray->_len <= int(myArray->dim) + 1) {
-        if (resizeArrayDimension(myArray)) {
-            PrintOutError(
-                "addArrayDimensionDef: resizeArrayDimension failed!\n");
-            return 1;
-        }
-    }
-
+int ArrayDimension::addDimensionDef(size_t size, unsigned int min_range, unsigned int max_range) {
     // assign the new integer representation of the definition string into the
     // list
-    myArray->dimDef[myArray->dim] = size;
-    myArray->dimMin[myArray->dim] = min_range;
-    myArray->dimMax[myArray->dim] = max_range;
-
-    // increment the dim counter
-    ++myArray->dim;
+    m_dimensions.push_back({size, min_range, max_range});
 
     return 0;
 }
 
 // get the dimension of the domain at the specified index
-unsigned int getArrayDimension(arrayDimension_t *myArray, int index) {
+int ArrayDimension::getArrayDimension(unsigned int index) const {
     // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("getArrayDimension: null args!\n");
-        return -1;
-    }
-
-    if (index <= 0 || index > int(myArray->dim)) {
+    if (index <= 0 || index > m_dimensions.size()) {
         PrintOutError("getArrayDimension: index %d boundary error!\n", index);
         return -1;
     }
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimDef[myArray->dim - index];
+    return std::get<0>(m_dimensions[m_dimensions.size() - index]);
 }
 
 // get the min range for the specified dimension
-int getArrayDimensionRangeMin(arrayDimension_t *myArray, int index) {
+int ArrayDimension::getArrayDimensionRangeMin(unsigned int index) const {
     // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("getArrayDimensionRangeMin: null args!\n");
-        return -1;
-    }
-
-    if (index <= 0 || index > int(myArray->dim)) {
+    if (index <= 0 || index > m_dimensions.size()) {
         PrintOutError("getArrayDimensionRangeMin: index %d boundary error!\n",
                       index);
         return -1;
@@ -219,18 +53,13 @@ int getArrayDimensionRangeMin(arrayDimension_t *myArray, int index) {
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimMin[myArray->dim - index];
+    return std::get<1>(m_dimensions[m_dimensions.size() - index]);
 }
 
 // get the max range for the specified dimension
-int getArrayDimensionRangeMax(arrayDimension_t *myArray, int index) {
+int ArrayDimension::getArrayDimensionRangeMax(unsigned int index) const {
     // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("getArrayDimensionRangeMax: null args!\n");
-        return -1;
-    }
-
-    if (index <= 0 || index > int(myArray->dim)) {
+    if (index <= 0 || index > m_dimensions.size()) {
         PrintOutError("getArrayDimensionRangeMax: index %d boundary error!\n",
                       index);
         return -1;
@@ -238,32 +67,9 @@ int getArrayDimensionRangeMax(arrayDimension_t *myArray, int index) {
 
     // we parsed the string in reverse when creating this dimensional info
     // so we should return the proper index that the caller asks for
-    return myArray->dimMax[myArray->dim - index];
+    return std::get<2>(m_dimensions[m_dimensions.size() - index]);
 }
 
-// free a arrayDimension_t object
-void freeArrayDimension(arrayDimension_t *myArray) {
-    // sanity check
-    if (myArray == (arrayDimension_t *)NULL) {
-        PrintOutError("freeArrayDimension: null arg!\n");
-        return;
-    }
-
-    // free the dimdef array
-    if (myArray->dimDef != (unsigned int *)NULL) {
-        free(myArray->dimDef);
-    }
-
-    // free the dimmin array
-    if (myArray->dimMin != (int *)NULL) {
-        free(myArray->dimMin);
-    }
-
-    // free the dimmin array
-    if (myArray->dimMax != (int *)NULL) {
-        free(myArray->dimMax);
-    }
-
-    // free the arrayDimension_t object
-    free(myArray);
+size_t ArrayDimension::numDimensions() const {
+    return m_dimensions.size();
 }

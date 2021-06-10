@@ -131,7 +131,7 @@ public:
     rep_set_t(const rep_set_t&) = delete;
 
     // create from slices
-    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, arrayDimension_t* shape, bitset* group);
+    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
     // create a copy of the contents of the rep_set
@@ -179,7 +179,7 @@ public:
 private:
     void mergeReplySlices();
     void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                            arrayDimension_t* shape, bitset* group);
+                            const ArrayDimension* shape, bitset* group);
     std::unique_ptr<rep_set_t> recvSlice();
 
     std::vector<group_reply_t*> m_reps;  // event replies of cmd

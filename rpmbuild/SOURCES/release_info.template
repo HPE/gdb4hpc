@@ -30,13 +30,11 @@ Product Description:
 
 Purpose:
 ---------
-  This is a feature release.
+  This is bug fix release
 
-  - Initial support for XC/CS systems
-  - Improved memory consumption of compare commands
-  - Fixed issues with C++ pretty printers
-  - CAST-22211: gdb4hpc doesn't work
-  - CAST-17502: Provide a way for user to inhibit automatic backtrace on finalization of attach
+  - Fixed the startup behavior when launching with rocgdb
+  - Fixed launch using --qsub on PBS/Pro
+
 
 Product and OS Dependencies:
 -----------------------------

@@ -66,7 +66,7 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (procset->s_nproc == 0) {
             PrintOutError("Rank selection \"%s\" is invalid.\n", 
                 RVAL_REF_SLICE(val)->getArgs());
-            free(procset);
+            FreeProcSet(procset);
             return 0;
         }
     } else {

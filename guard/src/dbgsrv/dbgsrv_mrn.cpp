@@ -95,12 +95,10 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
                               const char *key, const char *host, int port) {
     int res;
 
-#ifdef ALPS /* wth ALPS, dbgsrv is supposed to attach to mrnet */
     int pmi_rank = procnum;
     int be_argc = 6;
     char *hostname;
     char par_addr[MAXADDRLEN + 1];
-    char program_name[] = "dbgsrv"; // not actually used by mrnet, but be_argc needs to be correct
     char par_port_str[64];
     char par_rank_str[64];
     char my_rank_str[64];
@@ -133,7 +131,9 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     sprintf(par_rank_str, "%d", par_rank);
     sprintf(my_rank_str, "%d", my_mrnrank);
 
-    be_argv[0] = program_name;
+    // be_argv[0] is not actually used by mrnet (but we need argc to be corrent),
+    // so it's ok to cast away the const
+    be_argv[0] = const_cast<char *>(argv[0]);
     be_argv[1] = par_addr;
     be_argv[2] = par_port_str;
     be_argv[3] = par_rank_str;
@@ -170,136 +170,6 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
                              // client to identifiy dbgsrv
     m_network->set_localrank(m_my_mrn_rank);
     DVPRINT("Done setting local rank");
-#else /*end of ALPS*/
-
-    int c;
-    char **var;
-    char *envval;
-    char *cfg_env = nullptr;
-    char single_rank[16];
-    int be_argc = 6;
-    char program_name[] = "dbgsrv";
-    char hostname[MAXPATHLEN];
-    char par_addr[MAXADDRLEN + 1];
-    char par_port_str[64];
-    char par_rank_str[64];
-    char my_rank_str[64];
-    char *be_argv[6];
-    int mpi_rank = -1;
-    unsigned par_port, par_rank;
-    unsigned my_mrnrank;
-
-    /*
-        we use mpd to launch MRNet backends on non-Cray platform.
-        Not sure why "PMI_RANK" does not work.
-        We use "MPD_JRANK" instead.
-    */
-    char *MPIRankVars[] = {
-        "OMPI_COMM_WORLD_RANK",   /* Open MPI 1.6 */
-        "OMPI_MCA_orte_ess_vpid", /* Open MPI 1.3 */
-        "OMPI_MCA_ns_nds_vpid",   /* Open MPI 1.2 */
-        "PMI_RANK",               /* MPICH2. PMI_RANK does not work for MPICH2. */
-        "MPD_JRANK",              /* MPICH2. MPD_JRANK works on MPICH2. */
-        "MP_CHILD",               /* IBM PE */
-        "SLURM_PROCID",           /* SLURM */
-        nullptr
-    };
-
-    optind = 0;
-    while ((c = getopt(argc, argv, "p:h:c:a:n:i:e:k:v:d:")) != EOF) {
-        switch (c) {
-            case 'v':
-                cfg_env = optarg;
-                break;
-            case 'p':
-            case 'h':
-            case 'c':
-            case 'a':
-            case 'n':
-            case 'i':
-            case 'e':
-            case 'k':
-            case 'd':
-                break;
-        }
-    }
-
-    if (cfg_env == nullptr) {
-        fprintf(stderr, "ERROR: GUARD_CFG_DIRECTORY argument is missing!\n");
-        return -1;
-    }
-
-    DVPRINT("DbgSRVMRNInitProto GUARD_CFG_DIRECTORY=%s\n", cfg_env);
-    setenv(GUARD_CFG_DIRECTORY, cfg_env, 1);
-
-    for (var = MPIRankVars; *var != nullptr; var++) {
-        envval = getenv(*var);
-        if (envval != nullptr) {
-            break;
-        }
-    }
-
-    if (envval == nullptr) /* we assume only single process is debugged */
-    {
-        /*
-        fprintf(stderr, "ERROR: DbgSRVSCIInitProto cannot get MPIRank\n");
-        return -1;
-        */
-        sprintf(single_rank, "0");
-        envval = single_rank;
-        DVPRINT(
-            "DbgSRVMRNInitProto cannot get MPIRank. Debugging single process "
-            "is assumed!\n");
-    }
-
-    sscanf(envval, "%d", &mpi_rank);
-
-    gethostname(hostname, MAXPATHLEN);
-    DVPRINT("INFO: hostname[%s]:mpirank[%d] is attaching to MRNet network\n",
-            hostname, mpi_rank);
-
-    // get parent information
-    res = get_myparent_info(mpi_rank, hostname, par_addr, &par_port, &par_rank);
-    if (res < 0) {
-        fprintf(
-            stderr,
-            "dbgsrv[%d]: DbgSRVMRNInitProto cannot find parent to attach!\n",
-            mpi_rank);
-        ++Shutdown;
-
-        return -1;
-    }
-
-    // calculate local rank
-    my_mrnrank = (unsigned)ProcRankToMRNRank(mpi_rank);
-
-    sprintf(par_port_str, "%d", par_port);
-    sprintf(par_rank_str, "%d", par_rank);
-    sprintf(my_rank_str, "%d", my_mrnrank);
-
-    be_argv[0] = program_name;
-    be_argv[1] = par_addr;
-    be_argv[2] = par_port_str;
-    be_argv[3] = par_rank_str;
-    be_argv[4] = hostname;
-    be_argv[5] = my_rank_str;
-
-    DVPRINT(
-        "DbgSRVMRNInitProto is attaching to: par_addr[%s] par_port[%d] "
-        "par_rank[%d] my_rank[%d]\n",
-        par_addr, par_port, par_rank, my_mrnrank);
-
-    try {
-        m_network = new MRNetBackEnd(be_argc, be_argv);
-        res = 0;
-    } catch (...) {
-        free(hostname);
-        return -1;
-    }
-    m_my_mrn_rank = mpi_rank;  // my_mrn_rank is not rank in mrnet, but is used by
-                             // client to identifiy dbgsrv
-    m_network->(m_my_mrn_rank);
-#endif
 
     m_network->set_callback(dbgsrv_dispatch_cmds);
 

@@ -64,6 +64,17 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
             LOG("zmqnet: callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
             assert(streamId == commandStreamId);
             
+            /*    Two locks are needed here to handle the (unlikely) edge case 
+            * that two zmqnet threads try to run a command at the same time.
+            *     m_command_lock, used in the main thread call to runProto, is 
+            * used to make sure the main thread doesn't destroy the command 
+            * before we get the future. The command is destroyed in the main 
+            * thread to make it impossible to run a single command twice.
+            *     zmqnet_thread_lock, specific to this callback function, is 
+            * used to prevent a second zmqnet thread from overwriting the 
+            * pending command before the main thread has a chance to execute it.
+            */
+
             // only process one zmqnet thread at a time
             static std::mutex zmqnet_thread_lock;
             std::scoped_lock<std::mutex> thread_lock(zmqnet_thread_lock);
@@ -77,7 +88,10 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
             auto future = m_pending_command->get_future();
             
             // tell main thread there is an event waiting
-            incEventFlag();
+            if (!incEventFlag()) {
+                LOG("zmqnet: incEventFlag failed!\n");
+                // TODO shut down
+            }
 
             // ok to run (and delete) m_pending_command now
             command_lock.unlock();
@@ -99,7 +113,7 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
     }
 
     // Set up event fd
-    if (pipe2(m_event_pipe, O_NONBLOCK)) {
+    if (pipe(m_event_pipe)) {
         LOG("Creation of event pipe failed.\n");
         return -1;
     }
@@ -156,7 +170,10 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
         LOG("warning: called runProto with null pending command.\n");
     }
 
-    decEventFlag();
+    if (!decEventFlag()) {
+        LOG("error: decEventFlag failed!\n");
+        // TODO shut down
+    }
 }
 
 dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
@@ -170,28 +187,70 @@ int ZMQNetServerProtocol::sendReply(const char *response) {
     return 0;
 }
 
-void ZMQNetServerProtocol::incEventFlag() {
+bool ZMQNetServerProtocol::incEventFlag() {
     LOG("ZMQNetServerProtocol::incEventFlag\n");
     // put an x in the pipe to have the main thread call runProto.
     const char buf[] = {'x'};
-    auto sent = write(m_event_pipe[1], &buf, sizeof(char));
+    ssize_t sent = 0;
+    bool fatal_error = false;
 
-    if (sent < 0) {
-        LOG("error in write: %d: %s\n", errno, strerror(errno));
-    } else if (sent == 0) {
-        LOG("error: write didn't write anything\n");
-    }
+    do {
+        sent = write(m_event_pipe[1], &buf, sizeof(char));
+
+        if (sent < 0) {
+            LOG("warning: error in write: %d: %s. attempting to handle...\n", errno, strerror(errno));
+
+            switch (errno) {
+                case EINTR: {
+                    // write was interupted by signal.
+                    // we just try again.
+                    break;
+                }
+
+                default: {
+                    LOG("error: unhandled error in write %d: %s\n", errno, strerror(errno));
+                    fatal_error = true;
+                }
+            }
+        }
+    } while (sent <= 0 && !fatal_error);
+
+    return !fatal_error;
 }
 
-void ZMQNetServerProtocol::decEventFlag() {
+bool ZMQNetServerProtocol::decEventFlag() {
     LOG("ZMQNetServerProtocol::decEventFlag\n");
     // consume a byte in the pipe
     char buf[1];
-    auto nread = read(m_event_pipe[0], buf, 1);
+    size_t nread;
+    bool fatal_error = false;
 
-    if (nread < 0) {
-        LOG("error in read: %d: %s\n", errno, strerror(errno));
-    } else if (nread == 0) {
-        LOG("error: read didn't read anything\n");
-    }
+    do {
+        nread = read(m_event_pipe[0], buf, 1);
+
+        if (nread == 0) {
+            LOG("error: read detected EOF\n");
+            fatal_error = true;
+            break;
+        }
+
+        if (nread < 0) {
+            LOG("warning: error in read: %d: %s. attempting to handle...\n", errno, strerror(errno));
+
+            switch (errno) {
+                case EINTR: {
+                    // read was interupted by signal.
+                    // we just try again.
+                    break;
+                }
+
+                default: {
+                    LOG("error: unhandled error in read %d: %s\n", errno, strerror(errno));
+                    fatal_error = true;
+                }
+            }
+        }
+    } while (nread <= 0 && !fatal_error);
+
+    return !fatal_error;
 }

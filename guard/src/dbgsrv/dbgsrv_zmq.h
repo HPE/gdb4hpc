@@ -30,8 +30,11 @@ public:
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(const char *response) override;
 private:
-    void incEventFlag();
-    void decEventFlag();
+    // event flag functions return true on success, false on failure. a failure
+    // means that the main/zmqnet threads will probably desync and therefore 
+    // the debugger should shut down.
+    bool incEventFlag();
+    bool decEventFlag();
 
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 

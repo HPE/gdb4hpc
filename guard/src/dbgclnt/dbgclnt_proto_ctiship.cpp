@@ -2,7 +2,7 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include "dbgclnt_proto_help.h"
+#include "dbgclnt_proto_ctiship.h"
 #include "dbg_client.h"
 #include "useful.h"
 

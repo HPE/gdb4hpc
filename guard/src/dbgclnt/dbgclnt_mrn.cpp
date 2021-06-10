@@ -41,7 +41,7 @@
 #include "list.h"
 #include "useful.h"
 #include "dbgclnt_mrn.h"
-#include "dbgclnt_proto_help.h"
+#include "dbgclnt_proto_ctiship.h"
 
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 MRNClientProtocol DbgClntProtoMRN{};

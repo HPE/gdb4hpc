@@ -8,7 +8,7 @@
 
 #include "dbg_client.h"
 #include "dbgclnt_zmq.h"
-#include "dbgclnt_proto_help.h"
+#include "dbgclnt_proto_ctiship.h"
 #include "defs.h"
 #include "bitset.h"
 #include "useful.h"
@@ -86,7 +86,7 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
     m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
 
     auto reply = std::move(m_command_result);
-    m_command_result.erase();
+    m_command_result.clear();
     m_command_result_ready = false;
     
     LOG("got reply: %s\n", reply.c_str());

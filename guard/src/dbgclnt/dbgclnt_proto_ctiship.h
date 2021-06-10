@@ -1,7 +1,7 @@
 /******************************************************************************\
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  * 
- * Helper functions common to all protocols
+ * Helper functions for shipping files common to all protocols via CTI
  ******************************************************************************/
 
 #pragma once

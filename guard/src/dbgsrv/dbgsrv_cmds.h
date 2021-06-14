@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,6 +22,6 @@
 #define _DBGSRV_CMDS_H
 
 class dbgcomm_info;
-extern void dbgsrv_dispatch_cmds(char *msg, const dbgcomm_info *ci);
+std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci);
 
 #endif /*_DBGSRV_CMDS_H*/

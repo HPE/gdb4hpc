@@ -56,10 +56,6 @@ public:
     void destroyClient(struct dbginvoke *di) override;
 
 private:
-    // MRNet specific helper functions
-    bool addOmpd(cti_manifest_id_t mid);
-    bool addGpuGdbs(cti_manifest_id_t mid);
-
 #ifdef BE_VALGRIND
     int addValgrindFiles(cti_manifest_id_t mid);
 #endif

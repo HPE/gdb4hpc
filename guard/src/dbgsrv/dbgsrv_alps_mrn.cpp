@@ -2,7 +2,7 @@
  * dbgsrv_alps.c - A wrapper program to launch guard dbgsrv's onto the compute
  *		 nodes.
  *
- * Copyright 2011-2019 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fstream>
+#include <vector>
 
 #include "common_tools_be.h"
 #include "defs.h"
@@ -39,6 +40,7 @@
 #define DBGSRV_OPT_PROTO "-p"
 #define DBGSRV_OPT_DBG "-e"
 #define DBGSRV_OPT_PROC "-n"
+#define DBGSRV_OPT_PROG "-f"
 #define DBGSRV_OPT_GPU "--gpu"
 #define DBGSRV_OPT_DEBUG "--debug"
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
@@ -74,6 +76,7 @@ const struct option long_opts[] = {
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
+    {"program", required_argument, 0, 'f'},
     {0, 0, 0, 0}};
 
 void DVPRINT(const char *format, ...) {
@@ -109,6 +112,7 @@ void usage(char *name) {
     fprintf(stdout, "\t    --early-entry      Turn on early entry mode.\n");
     fprintf(stdout, "\t    --debug            Turn on debug logging.\n");
     fprintf(stdout, "\t-x, --help             Display this text and exit\n");
+    fprintf(stdout, "\t-f, --program          Program that the debugger will launch/attach to.\n");
 }
 
 int main(int argc, char **argv) {
@@ -155,7 +159,6 @@ int main(int argc, char **argv) {
     if (debug_flag) {
         // print out the argv
         DVPRINT("dbgsrv_alps argv: \n");
-        DVPRINT("dbgsrv_alps ");
         tmp = argv;
         while (*tmp != NULL) {
             DVPRINT("%s ", *tmp++);
@@ -165,7 +168,7 @@ int main(int argc, char **argv) {
 
     DVPRINT("Parsing longopts...\n");
 
-    while ((c = getopt_long(argc, argv, "h:c:a:p:e:x", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "h:c:a:p:e:f:x", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -225,6 +228,15 @@ int main(int argc, char **argv) {
                 gdb = strdup(optarg);
                 break;
 
+            case 'f':
+                if (optarg == nullptr || *optarg == '\0') {
+                    fprintf(stderr, "--program passed without an argument.\n");
+                    return 1;
+                }
+                prog = strdup(optarg);
+                DVPRINT("program name: %s\n", prog);
+                break;
+
             default:
                 usage(argv[0]);
                 return 1;
@@ -233,10 +245,15 @@ int main(int argc, char **argv) {
 
     DVPRINT("Done parsing longopts.\n");
 
-    // get the final optional program argument
-    if (optind < argc) {
-        prog = strdup(argv[optind++]);
-        DVPRINT("program name: %s\n", prog);
+    if (debug_flag) { 
+        fprintf(stderr, "optind: %d\n", optind);
+        fprintf(stderr, "argv is now: ");
+        // print out the argv
+        auto tmp = argv;
+        while (*tmp != nullptr) {
+            fprintf(stderr, "%s ", *tmp++);
+        }
+        fprintf(stderr, "\n"); 
     }
 
     if (debug_flag) {
@@ -368,30 +385,41 @@ int main(int argc, char **argv) {
     DVPRINT("Number of app pid_t's detected on this node: %d\n",
             myPids->numPids);
 
+    // TODO change this to ArgvStream
     // set the static members of dbgsrv_argv
     dbgsrv_argv =
         NewArgv(DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT,
                 callbackPort, DBGSRV_OPT_ARCH, networkArch, DBGSRV_OPT_PROTO,
-                networkProto, DBGSRV_OPT_DBG, dbgBackend, NULL);
+                networkProto, DBGSRV_OPT_DBG, dbgBackend, nullptr);
 
     if (gpu_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GPU, NULL);
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GPU, nullptr);
     }
 
     if (debug_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_DEBUG, NULL);
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_DEBUG, nullptr);
     }
 
     if (early_entry_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, NULL);
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, nullptr);
     }
     if (non_stop_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_NON_STOP, NULL);
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_NON_STOP, nullptr);
     }
     if (gdb) {
         dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GDB, gdb, nullptr);
     }
+    if (prog) {
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_PROG, prog, nullptr);
+    }
 
+    // forward any non-processed positional arguments to dbgsrv.
+    // optind is set by getopt and points to the first unprocessed non-option
+    // argument. getopt also rearranges argv so that all unprocessed non-option
+    // arguments are at the end of argv, so we can just read until the end.
+    for(; optind < argc; optind++) { 
+        dbgsrv_argv = AppendArgs(dbgsrv_argv, argv[optind], nullptr);
+    }
 
     if (debug_flag) {
         DVPRINT("dbgsrv argv is: \n");
@@ -424,11 +452,6 @@ int main(int argc, char **argv) {
                 DVPRINT("%s ", *tmp++);
             }
             DVPRINT("\n");
-        }
-
-        // append the prog, this is always last
-        if (prog != NULL) {
-            this_argv = AppendArgs(this_argv, prog, NULL);
         }
 
         if (debug_flag) {

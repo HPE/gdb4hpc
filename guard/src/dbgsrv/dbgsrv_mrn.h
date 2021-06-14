@@ -1,3 +1,7 @@
+/*
+ * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ */
+
 #ifndef _DBGSRV_MRN_H
 #define _DBGSRV_MRN_H
 
@@ -16,7 +20,7 @@ public:
     MRNServerProtocol() : DebugServerProtocol() { registerProtocol(); };
 
     const char * name() override;
-    int initProto(int procnum, int argc, char **argv,
+    int initProto(int procnum, int argc, const char **argv,
         const char *key, const char *host, int port) override;
     void endProto() override;
     fd_set* getFdSet() override;

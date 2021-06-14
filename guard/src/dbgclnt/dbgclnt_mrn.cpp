@@ -41,6 +41,7 @@
 #include "list.h"
 #include "useful.h"
 #include "dbgclnt_mrn.h"
+#include "dbgclnt_proto_ctiship.h"
 
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 MRNClientProtocol DbgClntProtoMRN{};
@@ -492,38 +493,18 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
     if (gpu_flag) {
-        if (!addGpuGdbs(mid))
+        if (!shipGpuGdbs(mid))
             goto attach_error;
     }
 
-    // Add dbgsrv to the manifest
-    if (cti_addManifestBinary(mid, "dbgsrv")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add dbgsrv to manifest.\n");
+    if (!shipCommonFiles(mid, gpu_flag)) {
+        PrintOutError("Error shipping comming files.\n");
         goto attach_error;
     }
 
-    // send over the uda plugin - only if gpu mode is currently turned off
-    if (!gpu_flag) {
-        if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to transfer uda-plugin-cray-upc.so.\n");
-            goto attach_error;
-        }
-    }
-
-    if (!addOmpd(mid)) {
+    if (!shipOmpd(mid)) {
         PrintOutMsg("Failed to add OMPD support files to manifest. \
 OMPD support will not be available.\n");
-    }
-
-
-    // Add libthread_db otherwise gdb will be messed up with thread
-    // support
-    if (cti_addManifestLibrary(mid, "libthread_db.so.1")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
-        goto attach_error;
     }
 
 #ifdef BE_VALGRIND
@@ -906,7 +887,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     cti_session_id_t sid;
     char **args = nullptr;
     char *env_base_dir = nullptr;
-    auto serverGdb = std::string{};
+    std::optional<std::string> serverGdb = {};
 
 #ifdef DEBUG
     dbg = 1;
@@ -999,7 +980,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // create the output stream to redirect stdout/stderr to
     // Note that this will be a g_progoutp_t in this proto definition
     if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != nullptr) {
-        po = (g_progoutp_t *)di->d_proto_outp;
+        po = di->d_proto_outp;
         prog_outp = po->p_o_wfd;
     }
 
@@ -1088,81 +1069,28 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     }
 
     // first add gdb-guard to manifest
-    if (gdb) {
-        auto gdbBin = std::string{gdb};
-        auto colon = gdbBin.find(':');
-        auto dataDir = std::string{};
-        if (colon != std::string::npos) {
-            dataDir = gdbBin.substr(colon+1);
-            gdbBin = gdbBin.substr(0,colon);
-            if (!dataDir.empty() && dataDir[0] != '/') {
-                PrintOutError("adding a dataDir to the manifest is not supported.\n");
-                goto invoke_error;
-            }
-        }
-
-        if (gdbBin.empty()) {
-            PrintOutError("--gdb executable name is empty\n");
-            goto invoke_error;
-        } else if (gdbBin[0] == '/') {
-            serverGdb = gdbBin;
-        } else {
-            if (cti_addManifestBinary(mid, gdbBin.c_str())) {
-                PrintOutError("CTI error: %s\n", cti_error_str());
-                PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
-                goto invoke_error;
-            }
-            serverGdb = std::filesystem::path(gdbBin).filename();
-        }
-
-        if (!dataDir.empty()) {
-            serverGdb += ":";
-            serverGdb += dataDir;
-        }
-
-    } else if (cti_addManifestBinary(mid, "gdb-guard")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add gdb-guard to manifest.\n");
+    serverGdb = shipGdb(mid, gdb);
+    if (!serverGdb) {
+        PrintOutError("Error shipping gdb.\n");
         goto invoke_error;
     }
 
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
     if (gpu_flag && !gdb) {
-        if (!addGpuGdbs(mid)) {
+        if (!shipGpuGdbs(mid)) {
             goto invoke_error;
         }
     }
 
-    // add the dbgsrv
-    if (cti_addManifestBinary(mid, "dbgsrv")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add dbgsrv to manifest.\n");
+    if (!shipCommonFiles(mid, gpu_flag)) {
+        PrintOutError("Error shipping common files.\n");
         goto invoke_error;
     }
 
-    // send over the uda plugin - only if gpu mode is currently turned off
-    if (!gpu_flag) {
-        if (cti_addManifestLibrary(mid, "uda-plugin-cray-upc.so")) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError(
-                "Failed to add uda-plugin-cray-upc.so to manifest.\n");
-            goto invoke_error;
-        }
-    }
-    // End upc addition
-
-    if (!addOmpd(mid)) {
+    if (!shipOmpd(mid)) {
         PrintOutMsg("Failed to add OMPD support files to manifest. \
 OMPD support will not be available.\n");
-    }
-
-    // Add libthread_db otherwise gdb will be messed up with thread
-    // support
-    if (cti_addManifestLibrary(mid, "libthread_db.so.1")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add libthread_db.so.1 to manifest.\n");
-        goto invoke_error;
     }
 
 #ifdef BE_VALGRIND
@@ -1170,6 +1098,7 @@ OMPD support will not be available.\n");
     if (addValgrindFiles(mid)) {
         goto invoke_error;
     }
+
 #endif
 
     // add the aggregation filter
@@ -1303,8 +1232,8 @@ OMPD support will not be available.\n");
     if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
     if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
     if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
-    if (gdb) ap = AppendArgs(ap, "--gdb", serverGdb.c_str(), nullptr);
-    ap = AppendArgs(ap, "--", prog, nullptr);
+    if (gdb && serverGdb) ap = AppendArgs(ap, "--gdb", serverGdb->c_str(), nullptr);
+    ap = AppendArgs(ap, "-f", prog, nullptr);
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");
@@ -1518,38 +1447,20 @@ invoke_error:
 
 int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
-    g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
+
+    if (!di) {
+        PrintOutError("Tried to exit with null di.\n");
+        return -1;
+    }
 
     // shutdown mrnet only if not already in a shutdown state
     if (!di->d_isShutdown) {
         delete network;
+        network = nullptr;
+        di->d_proto_net = nullptr;
     }
 
-    // clear the network pointer
-    di->d_proto_net = nullptr;
-
-#ifdef ALPS
-    if (!detach) {
-        // send a kill signal using the CTI
-        if (cti_killApp(di->d_appid, SIGKILL)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to kill application process!\n");
-            return -1;
-        }
-    }
-
-    cti_deregisterApp(di->d_appid);
-
-    di->d_appid = 0;
-#endif
-
-    // Destroy the program output object
-    DbgFreeGenericProgOutp(po);
-
-    // clear the program output object
-    di->d_proto_outp = nullptr;
-
-    return 0;
+    return DebugClientProtocol::exit(di, detach);
 }
 
 void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
@@ -1573,39 +1484,6 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
         // clear the program output object
         di->d_proto_outp = nullptr;
     }
-}
-
-// Add the gpu enabled version of gdb to the manifest.  The back-end will determine
-// which one to use; and they might well not be the same for each rank.
-bool MRNClientProtocol::addGpuGdbs(cti_manifest_id_t mid) {
-    // The backend code will determine which version of cuda-gdb to use
-    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
-        return false;
-    }
-
-    if (cti_addManifestBinary(mid, "cuobjdump")) {
-        // cuda-gdb relies on cuobjdump from cudatoolkit.   If the user is working on an
-        // amd system, it is not required so printint a complaint here could be confusing.
-        // It will be cleaner to trigger this from the back-end after it determines we
-        // are on an nvidia system.
-        //PrintOutError("Failed to add cuobjdump to manifest.\n");
-    }
-
-    // For rocgdb we rely on a system install of rocgdb, currently rocgdb is updating
-    // continuously and a typical machine might have 3 or 4 versions available.   So it
-    // make sense to just let the user select the rocgdb version they want by
-    // loading the right module or otherwise manipulationg PATH.
-    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
-        if (cti_addManifestBinary(mid, rocgdb)) {
-            free(rocgdb);
-            return false;
-        }
-        free(rocgdb);
-    }
-
-    return true;
 }
 
 #ifdef BE_VALGRIND
@@ -1639,42 +1517,6 @@ int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
     return 0;
 }
 #endif
-
-// Explicitly publish the ompd library files for the back-end.
-bool MRNClientProtocol::addOmpd(cti_manifest_id_t mid)
-{
-    auto dir = std::string{};
-    try {
-        dir = std::filesystem::canonical("/proc/self/exe");
-    } catch (std::exception& err) {
-        PrintOutMsg("Could not get executable path, OMPD support will not be available\n");
-        return false;
-    }
-
-
-    // we expect gdb4hpc to bin a bin directory and ompd to be in share
-    auto bloc = dir.rfind("/bin");
-
-    if (bloc == std::string::npos) return false;
-    dir.resize(bloc+1); // keep the /
-    dir += "share/ompd/gdb";
-
-    try {
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            auto f = entry.path();
-            if (f.filename() == "__pycache__") continue;
-            if (cti_addManifestFile(mid, f.c_str())) {
-                PrintOutMsg("Adding OMPD file %s to manifest failed\n", f.c_str());
-                break;
-            }
-        }
-    } catch (std::exception& err) {
-        PrintOutMsg("OMPD path %s not found, OMPD will not be available\n", dir.c_str());
-        return false;
-    }
-
-    return true;
-}
 
 /*
 ** Compatible callback routine for attaching with mrnet.

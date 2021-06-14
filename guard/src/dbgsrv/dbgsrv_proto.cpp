@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -98,7 +98,7 @@ int DbgSetSrvProto(const char *protoName) {
     return 1;
 }
 
-int DbgInitProto(int procnum, int argc, char **argv, const char *key,
+int DbgInitProto(int procnum, int argc, const char **argv, const char *key,
                  const char *host, int port) {
     return DbgSrvProtoSW->initProto(procnum, argc, argv, key, host, port);
 }
@@ -121,12 +121,10 @@ dbgevent_t *DbgInvokeNetwork(int numbe) {
     return DbgSrvProtoSW->invokeNetwork(numbe);
 }
 
-int DbgSendReply(char *response) {
+int DbgSendReply(const char *response) {
     int res;
 
     res = DbgSrvProtoSW->sendReply(response);
-
-    Free(response);
 
     return res;
 }

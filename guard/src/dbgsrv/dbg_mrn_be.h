@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbg_mrn_be.h
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,6 +17,7 @@
 #include "dbg_mrn.h"
 #include "mrnet/Stream.h"
 #include "smart_bitset.h"
+#include "dbgsrv_cmds.h"
 
 class dbgcomm_info;
 
@@ -30,7 +31,8 @@ public:
     void set_localrank(int rank);
     int get_localrank() const;
 
-    void set_callback(void (*callback)(char *, const dbgcomm_info *));
+    using MRNetBackEndCallback = decltype(dbgsrv_dispatch_cmds);
+    void set_callback(MRNetBackEndCallback callback);
     void handle_msg(MRN::Stream *stream);
 
     void set_cmd_stream(MRN::Stream *stream);
@@ -80,5 +82,5 @@ private:
     list_t* m_event_streams;  // asynch return streams for each of cmd_streams
     list_t* m_msg_list;
 
-    void (*m_dbgsrv_callback)(char* msg, const dbgcomm_info*);
+    MRNetBackEndCallback *m_dbgsrv_callback;
 };

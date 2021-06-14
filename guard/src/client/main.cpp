@@ -67,6 +67,7 @@ static int started;     // Is it alright to longjmp?
  */
 static void Banner(void);
 static void SigHandler(int);
+static const char * getDefaultProtocol();
 
 /*
  * long opts
@@ -114,6 +115,11 @@ static void Banner(void) {
     PrintOutMsg("Type \"help\" for a list of commands.\n");
     PrintOutMsg("Type \"help <cmd>\" for detailed help about a command.\n");
     DPRINT("Debug printing is enabled.\n");
+}
+
+static const char * getDefaultProtocol() {
+    auto envProto = getenv("GDB4HPC_PROTO");
+    return envProto ? envProto : DBG_PROTO;
 }
 
 static int checkDirPerms(const char *dir) {
@@ -292,7 +298,7 @@ int main(int argc, char *argv[]) {
     Client.print_elements = 0;        // Elements to print in arrays or char * strings
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;          // Current blocked on async cmd?
-    Client.proto = DBG_PROTO;         // Default debugger protocol
+    Client.proto = getDefaultProtocol(); // Default debugger protocol
     Client.arch = DBG_ARCH;           // Default starter achitecture
     Client.backend = DBG_BACKEND;     // Default debug backend
     Client.XML_mode = 0;              // XML output mode

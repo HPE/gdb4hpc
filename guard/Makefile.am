@@ -8,7 +8,11 @@ if MRN
 MRNET_DIR = sdm filters filters/mrnet
 endif
 
-SUBDIRS =	$(GUARD_RD_DIR) $(GUARD_DF_DIR) $(MRNET_DIR) \
+if ZMQN
+ZMQNET_DIR = filters/zmqnet
+endif
+
+SUBDIRS =	$(GUARD_RD_DIR) $(GUARD_DF_DIR) $(MRNET_DIR) $(ZMQNET_DIR) \
 		src/useful src/gram src/dbgcomm src/dbgclnt \
 		src/dbgsrv src/client src/proxy scripts
 			

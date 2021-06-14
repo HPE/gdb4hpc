@@ -18,7 +18,7 @@ public:
     virtual ~DebugServerProtocol() = default;
 
     virtual const char * name() = 0;
-    virtual int initProto(int procnum, int argc, char **argv,
+    virtual int initProto(int procnum, int argc, const char **argv,
         const char *key, const char *host, int port) = 0;
     virtual void endProto() = 0;
     virtual fd_set* getFdSet() = 0;
@@ -39,7 +39,7 @@ protected:
 };
 
 extern int DbgSetSrvProto(const char *);
-extern int DbgInitProto(int, int, char **, const char *, const char *, int);
+extern int DbgInitProto(int, int, const char **, const char *, const char *, int);
 extern fd_set *DbgGetFDSet(void);
 extern void DbgRunProto(fd_set *);
 extern void DbgEndProto(void);
@@ -48,4 +48,4 @@ extern int DbgEventCB(dbgevent_t *);
 extern int DbgSetupIO(int *, int *);
 extern int DbgTransferIO(int, char *, int);
 extern dbgevent_t *DbgInvokeNetwork(int);
-extern int DbgSendReply(char *);
+extern int DbgSendReply(const char *);

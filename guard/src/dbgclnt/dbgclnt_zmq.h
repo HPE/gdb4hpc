@@ -4,9 +4,14 @@
 
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+
 #include "dbgclnt_proto.h"
 #include "dbginvoke.h"
 #include "zmqnet.hpp"
+#include "dbg_zmq.h"
 
 namespace {
 class ZMQNetAttachHandler : public DebugClientProtocolEventHandler {
@@ -27,7 +32,7 @@ public:
     //  * checkEvents
     //  * any session functions
 
-    ZMQNetClientProtocol() : DebugClientProtocol() { registerProtocol(); };
+    ZMQNetClientProtocol();
 
     const char* name() const override { return "zmqnet"; };
 
@@ -55,6 +60,14 @@ public:
     void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
 
     void destroyClient(struct dbginvoke *di) override;
+private:
+    std::unique_ptr<zmqnet::AsyncFrontend> m_network;
+    std::unique_ptr<zmqnet::Stream> m_command_stream;
+
+    std::string m_command_result;
+    std::mutex m_command_result_lock;
+    std::condition_variable m_command_result_cv;
+    bool m_command_result_ready;
 };
 
 // called once by registerProtos

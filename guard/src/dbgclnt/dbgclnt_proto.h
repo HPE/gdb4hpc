@@ -4,18 +4,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -25,15 +20,13 @@
 **       because each network type will create an implementation of this
 **       interface. The dbginvoke_t struct is defined in dbg_client, but is
 **       passed "down" to this interface. Yet the dbg_client interface relies
-**       on types defined here. This creates a circular dependency that
-*typically
+**       on types defined here. This creates a circular dependency that typically
 **       is frowned upon, but in this instance is alright. We want to make it
 **       clear that new network types should only implement the dbgclnt_proto
 **       object.
 */
 
-#ifndef _DBGCLNT_PROTO_H
-#define _DBGCLNT_PROTO_H
+#pragma once
 
 #include "bitset.h"
 #include "proto_message.h"
@@ -105,7 +98,7 @@ public:
         const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
         bool isNonStop) = 0;
 
-    virtual int exit(struct dbginvoke *di, int detach) = 0;
+    virtual int exit(struct dbginvoke *di, int detach);
 
     virtual bitset* sendCommand(struct dbginvoke *di, bitset *target, 
         const char *request) = 0;
@@ -157,5 +150,3 @@ extern int WaitForProtoStartupEvent(struct dbginvoke *);
 
 // called once to register available protocols
 void registerProtos();
-
-#endif /* !_DBGCLNT_PROTO_H */

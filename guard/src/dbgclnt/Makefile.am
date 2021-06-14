@@ -44,8 +44,8 @@ endif
 noinst_LIBRARIES	= libdbgclnt.a libdbgproto.a
 libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp\
 						  $(FRONTEND)
-libdbgproto_a_SOURCES	= dbgclnt_proto.cpp proto_message.cpp dbginvoke.cpp \
-						  dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
+libdbgproto_a_SOURCES	= dbgclnt_proto.cpp dbgclnt_proto_ctiship.cpp proto_message.cpp \
+						  dbginvoke.cpp dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
 						  $(MRN_PROTO) $(ZMQNET_PROTO)
 
 if CRAY

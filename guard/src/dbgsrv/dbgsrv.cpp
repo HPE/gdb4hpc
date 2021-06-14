@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -34,6 +34,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <vector>
 
 #include "aif.h"
 #include "dbgevent.h"
@@ -66,6 +67,7 @@ const struct option long_opts[] = {
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
+    {"program", required_argument, 0, 'f'},
     {0, 0, 0, 0}};
 
 struct mp_arch MPArchs[] = {
@@ -138,7 +140,6 @@ int main(int argc, char *argv[], char *env[]) {
     const char *backend = DBG_BACKEND;
     const char *prog = NULL;
     const char *jobKey = NULL;
-    char *args = NULL;
     dbgevent_t *e = nullptr;
 
 #ifdef PERFLOG
@@ -165,7 +166,7 @@ int main(int argc, char *argv[], char *env[]) {
 
     Argv0 = argv[0];
 
-    while ((c = getopt_long(argc, argv, "p:h:c:a:n:i:e:k:", long_opts,
+    while ((c = getopt_long(argc, argv, "p:h:c:a:n:i:e:k:f:", long_opts,
                             &opt_ind)) != -1) {
         switch (c) {
             case 0:
@@ -226,15 +227,18 @@ int main(int argc, char *argv[], char *env[]) {
                         custom_gdb_data ? custom_gdb_data : "nullptr");
                 break;
 
+            case 'f':
+                if (optarg == nullptr || *optarg == '\0') {
+                    fprintf(stderr, "--program passed without an argument.\n");
+                    return 1;
+                }
+                prog = strdup(optarg);
+                DVPRINT("program name: %s\n", prog);
+                break;
+
             default:
                 Usage();
         }
-    }
-
-    // get the optional program/args argument
-    if (optind < argc) {
-        prog = argv[optind++];
-        args = MakeStr(argc - optind, &argv[optind]);
     }
 
     if (host == NULL) {
@@ -400,7 +404,22 @@ int main(int argc, char *argv[], char *env[]) {
     // init dbg protocol
     DBEPERFLOG(SetTimerStart("DbgInitProto"));
 
-    if ((pnum = DbgInitProto(procnum, argc, argv, jobKey, host, cb)) < 0) {
+    // we create new argc/argv specifically for the init proto function. argv[0] 
+    // should be the binary name ("dbgsrv") and the rest will be any leftover positional
+    // arguments not processed by getopt above. getopt rearranges argv so that unprocessed
+    // arguments are left at the end, and sets the global optind to point to the
+    // first unprocessed one.
+
+    // TODO make this an argvStream
+
+    std::vector<const char *> protoArgv;
+    protoArgv.push_back(argv[0]);
+    for (; optind < argc; optind++) {
+        protoArgv.push_back(argv[optind]);
+    }
+    protoArgv.push_back(nullptr);
+
+    if ((pnum = DbgInitProto(procnum, protoArgv.size() - 1, protoArgv.data(), jobKey, host, cb)) < 0) {
         fprintf(stderr, "Init of protocol failed\n");
         exit(1);
     }
@@ -429,9 +448,9 @@ int main(int argc, char *argv[], char *env[]) {
     // attach to or launch the application process
     if (arch == MPARCH_P4SLAVE || arch == MPARCH_ALPS) {
         // attach to application
-        DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s args:%s\n", pid, prog, args);
+        DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
         DBEPERFLOG(SetTimerStart("DbgAttach"));
-        e = DbgAttach(pid, prog, args, env, arch);
+        e = DbgAttach(pid, prog, nullptr, env, arch);
         DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
     } else {
         if (procnum < 0 && strncmp(proto, "socket", strlen("socket")) == 0) {
@@ -439,7 +458,7 @@ int main(int argc, char *argv[], char *env[]) {
             exit(1);
         }
 
-        e = DbgLaunch(host, cb, proto, prog, args, env, arch);
+        e = DbgLaunch(host, cb, proto, prog, nullptr, env, arch);
     }
 
     if (e->ev_event != DBGEV_OK) {
@@ -460,7 +479,6 @@ int main(int argc, char *argv[], char *env[]) {
     if (!DbgInvokeCB(host, cb, hname, pnum, procnum, port, e)) EndServer(1);
     DBEPERFLOG(SetTimerStopAndLog("DbgCallBack"));
 
-    if (args != NULL) Free(args);
     if (e != NULL) FreeEvent(e);
 
     Server();
@@ -472,7 +490,7 @@ int main(int argc, char *argv[], char *env[]) {
 
 void Usage(void) {
     fprintf(stderr,
-            "usage: dbgsrv -h host -c cb -a arch [-p proto] program [args]\n");
+            "usage: dbgsrv -h host -c cb -a arch -f program [-p proto] [proto args]\n");
     exit(1);
 }
 

@@ -23,14 +23,9 @@ public:
     MRNetFrontEnd() = delete; // use create_network methods below
     ~MRNetFrontEnd();
 
-#ifdef ALPS
     static MRNetFrontEnd *create_network_no_be(char *topology_file,
                                        MRN::NetworkTopology *&ptopology, int ctiAppid,
                                        int ctiMid);
-#else
-    static MRNetFrontEnd *create_network_no_be(char *topology_file,
-                                       MRN::NetworkTopology *&ptopology);
-#endif
 
     int attach_be(int num_be, int timeout);
     int create_streams_and_load_filter(const char *filter_file,

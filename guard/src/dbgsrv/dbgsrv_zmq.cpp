@@ -14,7 +14,7 @@
 
 #define LOG(...) (debug_flag ? _dvprint(__VA_ARGS__) : (void)0)
 
-// Proto definition
+// Proto instantiation
 ZMQNetServerProtocol DbgSrvProtoZMQNet;
 
 ZMQNetServerProtocol::ZMQNetServerProtocol()
@@ -93,20 +93,28 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
                 // TODO shut down
             }
 
-            // ok to run (and delete) m_pending_command now
+            // ok for main thread to run (and delete) m_pending_command now
             command_lock.unlock();
 
             LOG("zmqnet: waiting for result\n");
 
-            auto result = future.get();
+            try {
+                auto result = future.get();
 
-            LOG("zmqnet: got result: \"%s\"\n", result.get());
+                LOG("zmqnet: got result: \"%s\"\n", result.get());
 
-            return result ? 
-                zmqnet::make_ByteArray(result.get(), std::strlen(result.get()))
-                :
-                zmqnet::make_ByteArray("", 1)
-            ;
+                return result ? 
+                    zmqnet::make_ByteArray(result.get(), std::strlen(result.get()))
+                    :
+                    zmqnet::make_ByteArray("", 1)
+                ;
+            } catch (const std::exception &e) {
+                LOG("zmqnet: exception thrown during command execution: %s.\n", e.what());
+                return zmqnet::make_ByteArray("", 1); // TODO more descriptive error result
+            } catch (...) {
+                LOG("zmqnet: unknown exception thrown during command execution.\n");
+                return zmqnet::make_ByteArray("", 1); // TODO more descriptive error result
+            }
         };
 
         m_network->registerCallback(commandStreamId, command_callback);

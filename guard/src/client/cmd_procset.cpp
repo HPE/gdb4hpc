@@ -139,7 +139,7 @@ static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    std::string procDef = ArgsToString(argc-2, argv+2);
+    std::string procDef = ArgvStream(&argv[2]).asString(0, argc - 2);
     expr_t* e_set = ParseExpr(procDef.c_str());
     if (!e_set) {
         PrintError();

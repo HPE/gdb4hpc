@@ -1915,17 +1915,14 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 ** Launch user program.
 */
 dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
-                       char **argv, const char *handle, int nproc,
-                       const char *arch, char **arch_args,
+                       const char * const *argv, const char *handle, int nproc,
+                       const char *arch, const char * const *arch_args,
                        const char *arch_input, const char *backend, const char* gdb,
                        char **env,
                        const char *cwd, int gpu_flag, int debug_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
-    char **ap;
-    char **ptr;
-    int ap_argc = 0;
     dbgevent_t *e;
 
     if (ptab == nullptr) {
@@ -1990,14 +1987,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     // Create the cmd str and set it
-    ap = NewArgv(prog, nullptr);
-    ap = AppendArgv(ap, argv);
-    // count the number of args
-    for (ptr = ap; *ptr != nullptr; ++ptr) {
-        ++ap_argc;
-    }
-    di->d_cmd = ArgsToBuf(ap, ap_argc);
-    FreeArgv(ap);
+    di->d_cmd = ArgvStream(prog, argv).createBuffer();
 
     if (ptab->launch(di, sess, prog, argv, arch, arch_args, arch_input,
                         backend, gdb, env, cwd, gpu_flag, debug_flag,

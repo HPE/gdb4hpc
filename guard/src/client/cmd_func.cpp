@@ -104,7 +104,7 @@ static int class_set_subcmd_function_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
+    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
 
     if (ParseFuncDef(buf) == (func_t *)NULL) {
         PrintError();

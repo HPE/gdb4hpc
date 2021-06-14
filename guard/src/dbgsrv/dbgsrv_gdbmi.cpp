@@ -2145,20 +2145,18 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     static const std::vector<std::string> subCmds{"help", "info", "set"};
 
     auto cudaOp = "cuda " + op;
-    char **cmd_args = Str2Argv(cudaOp.c_str());
+    auto cmd_args = ArgvStream();
+    cmd_args.parseAndAppendArgs(cudaOp.c_str());
 
     // cuda gdb puts "cuda" after the sub commands, e.g. "help set cuda cuda-variable" 
-    for (int i=0;
-         cmd_args[i+1] && std::find(subCmds.begin(), subCmds.end(), cmd_args[i+1]) != subCmds.end();
+    for (size_t i = 0;
+         i < cmd_args.argc() - 1 && std::find(subCmds.begin(), subCmds.end(), cmd_args[i+1]) != subCmds.end();
          ++i) {
         std::swap(cmd_args[i], cmd_args[i+1]);
     }
-    auto argc = int{0};
-    while (cmd_args[argc]) {
-        ++argc;
-    }
+    auto argc = cmd_args.argc();
     
-    MICommand* cmd = CLIBypass(argc, cmd_args);
+    MICommand* cmd = CLIBypass(argc, const_cast<char**>(cmd_args.c_strs().data()));
     SendMICommand(GDBMISession, cmd);
 
     bool isRunning = false;
@@ -2187,7 +2185,6 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb cuda did not return a value.");
     }
 
-    FreeArgv(cmd_args);
     MICommandFree(cmd);
 
     if (isRunning) {

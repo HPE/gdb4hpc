@@ -108,7 +108,7 @@ int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
 }
 
 int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
-                        char **argv, const char *arch, char **arch_args,
+                        const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {

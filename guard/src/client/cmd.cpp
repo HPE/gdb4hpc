@@ -553,14 +553,12 @@ void DestroyCommands(void) {
 */
 
 void ExecuteCommand(const char *line) {
-    int argc = 0;
     int seq = 0;
     int num_read = 0;
     char *cmd = NULL;
     char *haystack = NULL;
     char *needle = NULL;
-    char **ap = NULL;
-    char **argv = NULL;
+    auto argv = ArgvStream();
     cmdtype_t *c = NULL;
     dbgprocset_t *s = CurrentProcSet();
 
@@ -610,37 +608,26 @@ void ExecuteCommand(const char *line) {
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
 
-    if ((argv = Str2Argv(cmd)) == (char **)NULL) {
-        Free(cmd);
-        PrintOutError("Could not build command list!\n");
-        cli_set_error();
-        goto ExecuteCommand_exit;
-    }
-
-    for (ap = argv; *ap != NULL; ap++) argc++;
+    argv.parseAndAppendArgs(cmd);
 
     // Inform the cli layer that we are starting to execute a command
     if (!cli_start_response(seq)) {
         // Sequence number mismatch, so silently fail
         Free(cmd);
-        FreeArgv(argv);
         goto ExecuteCommand_exit;
     }
 
     // These are not considered to be errors
-    if (argc > 0 && (*argv[0] == '\0' || *argv[0] == '#')) {
+    if (argv.argc() == 0 || argv[0] == "" || argv[0][0] == '#') {
         Free(cmd);
-        FreeArgv(argv);
         // Inform the cli layer that we are done executing a command
         cli_end_response();
         goto ExecuteCommand_exit;
     }
 
-    if (argc < 1 ||
-        ((c = _findcmd(CurrentCmds, argv[0])) == (cmdtype_t *)NULL)) {
+    if ((c = _findcmd(CurrentCmds, argv[0].c_str())) == (cmdtype_t *)NULL) {
         // command not found
         Free(cmd);
-        FreeArgv(argv);
         // Inform the cli layer that we are done executing a command
         cli_end_response();
         // set an error for the cli stream
@@ -649,9 +636,8 @@ void ExecuteCommand(const char *line) {
     }
 
     // do the command
-    if (!_docmd(CurrentCmds, s, c, argc, argv, 0)) {
+    if (!_docmd(CurrentCmds, s, c, argv.argc(), const_cast<char**>(argv.c_strs().data()), 0)) {
         Free(cmd);
-        FreeArgv(argv);
         // Inform the cli layer that we are done executing a command
         cli_end_response();
         // set an error for the cli stream
@@ -668,7 +654,6 @@ void ExecuteCommand(const char *line) {
     }
 
     Free(cmd);
-    FreeArgv(argv);
 
     DPRINT("ExecuteCommand: Command ok!\n");
 

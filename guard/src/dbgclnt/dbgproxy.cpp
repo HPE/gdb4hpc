@@ -47,7 +47,7 @@ static const char *__fmt_null_str = "";
 static char *getstring(char **);
 static int getint(char **);
 static char **getargv(char **);
-static char *ArgvToStr(char **, int *);
+static char *ArgvToStr(const char * const *, int *);
 
 static char *getstring(char **res_buf) {
     int len;
@@ -120,8 +120,7 @@ static char **getargv(char **res_buf) {
     return argv;
 }
 
-static char *ArgvToStr(char **argv, int *argc) {
-    char **t;
+static char *ArgvToStr(const char * const *argv, int *argc) {
     int cnt = 0;
     char *tmp = NULL;
     char *tmp2 = NULL;
@@ -132,7 +131,7 @@ static char *ArgvToStr(char **argv, int *argc) {
     }
 
     // walk through the array entries to determine the number of elements
-    for (t = argv; *t != NULL; ++t) {
+    for (auto t = argv; *t != NULL; ++t) {
         ++cnt;
     }
 
@@ -144,7 +143,7 @@ static char *ArgvToStr(char **argv, int *argc) {
     }
 
     // create the flattened string
-    for (t = argv; *t != NULL; ++t) {
+    for (auto t = argv; *t != NULL; ++t) {
         // This should happen the first time through
         if (tmp == NULL) {
             Asprintf(&tmp2, "%d %s ", (int)strlen(*t), *t);
@@ -522,8 +521,8 @@ char *AttachArgsToSocProto(const char *app_ident, const char *arch,
     return stres;
 }
 
-char *LaunchArgsToSocProto(const char *prog, char **argv, int nproc,
-                           const char *arch, char **arch_args,
+char *LaunchArgsToSocProto(const char *prog, const char * const *argv, int nproc,
+                           const char *arch, const char * const *arch_args,
                            const char *arch_input, const char *backend, const char* gdb,
                            char **env, const char *cwd, int gpu_flag,
                            int debug_flag, int early_entry_flag, bool isNonStop) {

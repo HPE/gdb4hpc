@@ -131,8 +131,6 @@ int main(int argc, char **argv) {
     cti_pidList_t *myPids;
     // dbgsrv info
     int i;
-    char **dbgsrv_argv;
-    char **this_argv;
     char **tmp;
     pid_t mypid;
     // debug related variables
@@ -385,73 +383,50 @@ int main(int argc, char **argv) {
     DVPRINT("Number of app pid_t's detected on this node: %d\n",
             myPids->numPids);
 
-    // TODO change this to ArgvStream
     // set the static members of dbgsrv_argv
-    dbgsrv_argv =
-        NewArgv(DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT,
+    auto dbgsrv_argv =
+        ArgvStream(DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT,
                 callbackPort, DBGSRV_OPT_ARCH, networkArch, DBGSRV_OPT_PROTO,
-                networkProto, DBGSRV_OPT_DBG, dbgBackend, nullptr);
+                networkProto, DBGSRV_OPT_DBG, dbgBackend);
 
-    if (gpu_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GPU, nullptr);
-    }
-
-    if (debug_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_DEBUG, nullptr);
-    }
-
-    if (early_entry_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_EARLY_ENTRY, nullptr);
-    }
-    if (non_stop_flag) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_NON_STOP, nullptr);
-    }
-    if (gdb) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_GDB, gdb, nullptr);
-    }
-    if (prog) {
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, DBGSRV_OPT_PROG, prog, nullptr);
-    }
+    if (gpu_flag)         dbgsrv_argv << DBGSRV_OPT_GPU;
+    if (debug_flag)       dbgsrv_argv << DBGSRV_OPT_DEBUG;
+    if (early_entry_flag) dbgsrv_argv << DBGSRV_OPT_EARLY_ENTRY;
+    if (non_stop_flag)    dbgsrv_argv << DBGSRV_OPT_NON_STOP;
+    if (gdb)              dbgsrv_argv << DBGSRV_OPT_GDB << gdb;
+    if (prog)             dbgsrv_argv << DBGSRV_OPT_PROG << prog;
 
     // forward any non-processed positional arguments to dbgsrv.
     // optind is set by getopt and points to the first unprocessed non-option
     // argument. getopt also rearranges argv so that all unprocessed non-option
     // arguments are at the end of argv, so we can just read until the end.
     for(; optind < argc; optind++) { 
-        dbgsrv_argv = AppendArgs(dbgsrv_argv, argv[optind], nullptr);
+        dbgsrv_argv << argv[optind];
     }
 
     if (debug_flag) {
         DVPRINT("dbgsrv argv is: \n");
-        tmp = dbgsrv_argv;
-        while (*tmp != NULL) {
-            DVPRINT("%s ", *tmp++);
-        }
-        DVPRINT("\n");
+        DVPRINT("%s\n", dbgsrv_argv.asString().c_str());
     }
 
     // start numPids dbgsrv instances.
     for (i = 0; i < myPids->numPids; ++i) {
-        this_argv = CopyArgv(dbgsrv_argv);
+        auto this_argv = ArgvStream(dbgsrv_argv);
         // write this instances rank into the pidbuff and create the str
         snprintf(pidbuff, PID_BUFSIZ, "%d", myPids->pids[i].rank);
-        this_argv = AppendArgs(this_argv, DBGSRV_OPT_PROC, pidbuff, NULL);
+        this_argv << DBGSRV_OPT_PROC << pidbuff;
         DVPRINT("app rank: %s\n", pidbuff);
         memset(pidbuff, 0, PID_BUFSIZ);
 
         // write this instances pid into the pidbuff and create the str
         snprintf(pidbuff, PID_BUFSIZ, "%d", myPids->pids[i].pid);
-        this_argv = AppendArgs(this_argv, DBGSRV_OPT_PID, pidbuff, NULL);
+        this_argv << DBGSRV_OPT_PID << pidbuff;
         DVPRINT("app pid: %s\n", pidbuff);
         memset(pidbuff, 0, PID_BUFSIZ);
 
         if (debug_flag) {
             DVPRINT("Starting dbgsrv with argv: \n");
-            tmp = this_argv;
-            while (*tmp != NULL) {
-                DVPRINT("%s ", *tmp++);
-            }
-            DVPRINT("\n");
+            DVPRINT("%s\n", this_argv.asString().c_str());
         }
 
         if (debug_flag) {
@@ -465,7 +440,6 @@ int main(int argc, char **argv) {
 #ifdef BE_VALGRIND
         FILE *valgrind_log = NULL;
         char valgrind_log_str[BUFSIZ];
-        char **valgrind_argv;
 
         // create a log if valgrind is turned on
         if ((valgrind_log = create_log(i, "valgrind")) == NULL) {
@@ -474,29 +448,26 @@ int main(int argc, char **argv) {
         snprintf(valgrind_log_str, BUFSIZ, "--log-fd=%d", fileno(valgrind_log));
 
         // create an argv for valgrind
-        valgrind_argv =
-            NewArgv("valgrind", "--read-var-info=yes", "--track-origins=yes",
+        auto valgrind_argv =
+            ArgvStream("valgrind", "--read-var-info=yes", "--track-origins=yes",
                     "--leak-check=full", "--show-leak-kinds=definite",
-                    "--gen-suppressions=all", valgrind_log_str, NULL);
+                    "--gen-suppressions=all", valgrind_log_str);
 
         if (char* fileDir = cti_be_getFileDir()) {
             std::string suppressions{ std::string(fileDir) + "/" + GDB4HPC_BE_SUPPRESSIONS};
             if (std::ifstream(suppressions)) {
                 suppressions = "--suppressions=" + suppressions;
-                valgrind_argv = AppendArgs(valgrind_argv, suppressions.c_str(), nullptr);
+                valgrind_argv << suppressions.c_str();
             }
             free(fileDir);
         }
 
         // Add additional valgrind options
         if (char* envArgs = getenv("GDB4HPC_VALGRIND_ARGS")) {
-            if (char** envArgv = Str2Argv(envArgs)) {
-                valgrind_argv = AppendArgv(valgrind_argv, envArgv);
-                FreeArgv(envArgv);
-            }
+            valgrind_argv.parseAndAppendArgs(envArgs);
         }
 
-        valgrind_argv = AppendArgv(valgrind_argv, this_argv);
+        valgrind_argv << this_argv;
 #endif
 
         // fork and exec -- the final time through we don't want to fork since
@@ -513,8 +484,6 @@ int main(int argc, char **argv) {
         // error case
         if (mypid < 0) {
             fprintf(stderr, "Fatal fork error.\n");
-            // cleanup this_argv array
-            FreeArgv(this_argv);
 
             // cleanup pid list
             cti_be_destroyPidList(myPids);
@@ -528,8 +497,6 @@ int main(int argc, char **argv) {
 #ifdef BE_VALGRIND
             // close valgrind logfile
             close_log(valgrind_log);
-            // cleanup argv
-            FreeArgv(valgrind_argv);
 #endif
 
             return 1;
@@ -539,7 +506,6 @@ int main(int argc, char **argv) {
         // processes. Otherwise WLM's such as slurm will fail since the WLM sees
         // the parent exit and assumes the srun is complete.
         if (mypid == 0) {
-            FreeArgv(this_argv);
             continue;
         }
 
@@ -559,7 +525,7 @@ int main(int argc, char **argv) {
         execvp("valgrind", valgrind_argv);
 #else
         // exec dbgsrv
-        execvp(DBGSRV, this_argv);
+        execvp(DBGSRV, const_cast<char**>(this_argv.c_strs().data()));
 #endif
 
         // exec shouldn't return
@@ -569,9 +535,6 @@ int main(int argc, char **argv) {
 
     // shouldn't get here
     fprintf(stderr, "dbgsrv_alps_mrn: At impossible part of code!\n");
-
-    // cleanup static argv
-    FreeArgv(dbgsrv_argv);
 
     // cleanup strdup'ed stuff
     Free(callbackHost);

@@ -10,10 +10,6 @@
 	path = external/ddt_gdb-8.1
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-8.1.git
 	branch = master
-[submodule "external/ddt_cuda-gdb-101"]
-	path = external/ddt_cuda-gdb-101
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_cuda-gdb-101.git
-	branch = master
 [submodule "external/pebuildenv"]
 	path = external/pebuildenv
 	url = ssh://git@stash.us.cray.com:7999/pe_tools/pebuildenv.git

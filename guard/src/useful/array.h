@@ -14,27 +14,35 @@
 /* This interface is used to store information about the size and shape
  * of an array. This is useful when we wish to pre-allocate an aif array
  * using type information before we create each individual aif entry.
- */
+*/
 
 #pragma once
 
 #include <vector>
 #include <tuple>
-#include "aif.h"
 
 // used for returning shape of arrays
 class ArrayDimension {
 public:
     ArrayDimension();
 
-    size_t numDimensions() const;
-    int addDimensionDef(size_t size, unsigned int min_range, unsigned int max_range);
-    int getArrayDimension(unsigned int index) const;
-    int getArrayDimensionRangeMin(unsigned int index) const;
-    int getArrayDimensionRangeMax(unsigned int index) const;
+    int numDimensions() const;
+    int addDimensionDef(int min_range, int max_range);
+    int getArrayDimension(int index) const;
+    int getArrayDimensionRangeMin(int index) const;
+    int getArrayDimensionRangeMax(int index) const;
+    // returns (min, max) for the given index
+    std::pair<int, int> getArrayDimensionRange(int index) const;
     
-    bool isFortran;            // array is indexed in fortran
+    bool isFortran() const;
+    void setIsFortran(bool is_fortran);
 private:
-    // tuple is (dimension size, range minimum, range maximum)
-    std::vector<std::tuple<int, int, int>> m_dimensions;
+    struct Range {
+        int minimum;
+        int maximum;
+    };
+    std::vector<Range> m_dimensions;
+    
+    // true if array is indexed in fortran. not used internally by the class.
+    bool m_is_fortran;
 };

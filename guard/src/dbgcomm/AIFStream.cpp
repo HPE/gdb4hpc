@@ -181,9 +181,8 @@ bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bo
     // and the total number of elements in the full array.
     for (int i=0; i<dim; ++i) {
         // slowest to fastest
-        int d = (shape->isFortran ? dim-i : i+1);
-        int min = shape->getArrayDimensionRangeMin(d);
-        int max = shape->getArrayDimensionRangeMax(d);
+        int d = (shape->isFortran() ? dim-i : i+1);
+        auto [min, max] = shape->getArrayDimensionRange(d);
 
         size_t len = (max-min+1);
         offset *= len;
@@ -228,7 +227,7 @@ AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
         return nullptr;
     }
 
-    bool isFortran = shape->isFortran;
+    bool isFortran = shape->isFortran();
     int dim = shape->numDimensions();
 
     AIFIndex* index = AIFArrayIndexInit(slice);
@@ -240,8 +239,7 @@ AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
     for (int i=0; array && i<dim; ++i) {
         // need to work form innermost to outermost.  Note that arrayDimension used i=1.
         int d = (isFortran ? i+1 : dim-i);
-        int minIdx = shape->getArrayDimensionRangeMin(d);
-        int maxIdx = shape->getArrayDimensionRangeMax(d);
+        auto [minIdx, maxIdx] = shape->getArrayDimensionRange(d);
 
         AIF* nextArray = (isFortran ? EmptyFtnArrayToAIF(minIdx, maxIdx, array) :
                           EmptyArrayToAIF(minIdx, maxIdx, array));

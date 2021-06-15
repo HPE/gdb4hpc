@@ -322,8 +322,8 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int env_list_num = 0;
     int env_list_size = 0;
     char *env_str = NULL;
-    auto args = ArgvStream();
-    auto arch_args = ArgvStream();
+    auto args = ArgvStream{};
+    auto arch_args = ArgvStream{};
     WLM_type manager = WLM_none;
     char *batch_script = NULL;
     // TODO: Allow the user to specify hostname/username

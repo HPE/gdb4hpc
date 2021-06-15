@@ -236,7 +236,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     int i;
     // init this to the default timeout
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
-    auto argv = ArgvStream();
+    auto argv = ArgvStream{};
     int event_fd;
     int *ev_fd_ptr;
     int dbg = debug_flag;
@@ -868,8 +868,8 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     int rtn;
     MRN::NetworkTopology *mrn_topology = nullptr;
     MRNetFrontEnd *network = nullptr;
-    auto app_argv = ArgvStream();
-    auto dbgsrv_alps_argv = ArgvStream();
+    auto app_argv = ArgvStream{};
+    auto dbgsrv_alps_argv = ArgvStream{};
     char **tmp;
     std::string request;
     int event_fd;

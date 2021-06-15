@@ -52,7 +52,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     }
 
-    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
+    buf = argsToBuf(&argv[1], argc - 1);
 
     if ((e = ParseExpr(buf)) == (expr_t *)nullptr) {
         PrintError();

@@ -2145,7 +2145,7 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     static const std::vector<std::string> subCmds{"help", "info", "set"};
 
     auto cudaOp = "cuda " + op;
-    auto cmd_args = ArgvStream();
+    auto cmd_args = ArgvStream{};
     cmd_args.parseAndAppendArgs(cudaOp.c_str());
 
     // cuda gdb puts "cuda" after the sub commands, e.g. "help set cuda cuda-variable" 

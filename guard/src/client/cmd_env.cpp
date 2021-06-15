@@ -189,7 +189,7 @@ static int class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc,
     if (argc < 2) return 0;
 
     // create the message string to echo
-    echo_str = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
+    echo_str = argsToBuf(&argv[1], argc - 1);
 
     PrintOutMsg("%s\n", echo_str);
 
@@ -221,7 +221,7 @@ static int class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc,
     memset((void *)&result[0], '\0', BUFSIZ);
 
     // Create the command string
-    tmp_cmd = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
+    tmp_cmd = argsToBuf(&argv[1], argc - 1);
 
     // Append a redirection of stderr to stdout to the command
     asprintf(&cmd, "%s 2>&1", tmp_cmd);
@@ -536,7 +536,7 @@ static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
+    buf = argsToBuf(&argv[1], argc - 1);
 
     s = buf;
 

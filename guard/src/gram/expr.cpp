@@ -2156,12 +2156,11 @@ const ArrayDimension* AccumulateShape::getShape() {
         return nullptr;
     }
 
-    shape->isFortran = m_isFortran;
+    shape->setIsFortran(m_isFortran);
     for (int i=0; i<m_dim; ++i) {
         // arrayDimension orders dims from fastest to slowest
         int d = (m_isFortran ? i : m_dim-1-i);
-        shape->addDimensionDef(m_maxs[d]-m_mins[d]+1,
-                             m_mins[d], m_maxs[d]);
+        shape->addDimensionDef(m_mins[d], m_maxs[d]);
     }
 
     m_shape = std::move(shape);

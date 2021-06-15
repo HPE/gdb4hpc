@@ -558,7 +558,7 @@ void ExecuteCommand(const char *line) {
     char *cmd = NULL;
     char *haystack = NULL;
     char *needle = NULL;
-    auto argv = ArgvStream();
+    auto argv = ArgvStream{};
     cmdtype_t *c = NULL;
     dbgprocset_t *s = CurrentProcSet();
 

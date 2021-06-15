@@ -2352,13 +2352,12 @@ const ArrayDimension* LocalSlices::getFullShape() const
         return nullptr;
     }
 
-    shape->isFortran = isFortran;
+    shape->setIsFortran(isFortran);
 
     for (int i=0; i<fullDim; ++i) {
         // arrayDimension orders dims from fastest to slowest
         int d = (isFortran ? i : fullDim-1-i);
-        shape->addDimensionDef(fullMaxs[d]-fullMins[d]+1,
-                             fullMins[d], fullMaxs[d]);
+        shape->addDimensionDef(fullMins[d], fullMaxs[d]);
     }
 
     free(fullMins);

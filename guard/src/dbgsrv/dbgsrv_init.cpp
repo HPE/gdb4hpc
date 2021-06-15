@@ -292,8 +292,8 @@ void DbgGdbMI::Initializer::initGpu()
         }
 
         // set the path and data directory
-        DVPRINT("Using cuda101-gdb-guard\n");
-        MISessionSetGDBPath(m_session, "cuda101-gdb-guard");
+        DVPRINT("Using cuda110-gdb-guard\n");
+        MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
         setDataDir("cuda-gdb");
 
     } else if (gdb_vers == GdbVersion::ROC_GDB) {

@@ -1579,9 +1579,9 @@ void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
 // which one to use; and they might well not be the same for each rank.
 bool MRNClientProtocol::addGpuGdbs(cti_manifest_id_t mid) {
     // The backend code will determine which version of cuda-gdb to use
-    if (cti_addManifestBinary(mid, "cuda101-gdb-guard")) {
+    if (cti_addManifestBinary(mid, "cuda110-gdb-guard")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add cuda101-gdb-guard to manifest.\n");
+        PrintOutError("Failed to add cuda110-gdb-guard to manifest.\n");
         return false;
     }
 

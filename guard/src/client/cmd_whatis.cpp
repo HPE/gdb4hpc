@@ -96,7 +96,7 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    auto args = ArgvStream(&argv[1]).asString(0, argc - 1);
+    auto args = argsToString(&argv[1], argc - 1);
 
     auto rep_set = DbgGetType(rec_set, args.c_str(), true);
 

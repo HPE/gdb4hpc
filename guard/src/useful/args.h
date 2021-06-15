@@ -153,6 +153,7 @@ private:
 
 // allocates a buffer containing a copy of the arguments in argv, separated by spaces. 
 // the caller is responsible for freeing the returned buffer.
-inline char *argsToBuf(const char * const * argv, int argc) {
-    return ArgvStream(argv).createBuffer(0, argc);
-}
+char *argsToBuf(const char * const * argv, int argc);
+
+// returns arguments separated by spaces as a string
+std::string argsToString(const char * const * argv, int argc);

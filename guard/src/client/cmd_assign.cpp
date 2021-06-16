@@ -47,7 +47,7 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    buf = argsToBuf(&argv[2], argc - 2);
+    buf = ArgsToBuf(&argv[2], argc - 2);
 
     if ((e2 = ParseExpr(buf)) == (expr_t *)NULL) {
         PrintError();

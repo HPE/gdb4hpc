@@ -15,10 +15,10 @@
 
 #include "args.h"
 
-char *argsToBuf(const char * const * argv, int argc) {
+char *ArgsToBuf(const char * const * argv, int argc) {
     return ArgvStream(argv).createBuffer(0, argc);
 }
 
-std::string argsToString(const char * const * argv, int argc) {
+std::string ArgsToString(const char * const * argv, int argc) {
     return ArgvStream(argv).asString(0, argc);
 }

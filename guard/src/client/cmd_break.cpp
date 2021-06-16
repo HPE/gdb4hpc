@@ -45,7 +45,7 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     } else if (argc >= 4 &&
                strcmp(argv[2],"thread") == 0) {
-        threadSet = argsToString(&argv[3], argc - 3);
+        threadSet = ArgsToString(&argv[3], argc - 3);
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
@@ -153,7 +153,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     } else if (argc >= 4 &&
                strcmp(argv[2],"thread") == 0) {
-        threadSet = argsToString(&argv[3], argc - 3);
+        threadSet = ArgsToString(&argv[3], argc - 3);
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: tbreak main.c:20\n");

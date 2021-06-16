@@ -41,7 +41,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         FreeRepSet(rep_set);
         return 1;
     } else if (argc >= 3 && strcmp(argv[1],"find") == 0) {
-        auto arg = argsToString(&argv[2], argc - 2);
+        auto arg = ArgsToString(&argv[2], argc - 2);
         rep_set_t* rep_set = DbgFindThread(rec_set, arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
@@ -61,7 +61,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         FreeRepSet(rep_set);
         return 1;
     } else if (argc >= 3 && strcmp(argv[1],"apply") == 0) {
-        std::string arg = argsToString(&argv[2], argc - 2);
+        std::string arg = ArgsToString(&argv[2], argc - 2);
         rep_set_t* rep_set = DbgThreadApply(rec_set,arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
@@ -110,7 +110,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
-    std::string arg = argsToString(&argv[1], argc - 1);
+    std::string arg = ArgsToString(&argv[1], argc - 1);
     rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
     ProcessErrorInRepSet(rep_set);
@@ -244,7 +244,7 @@ static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **a
 // command to interface with the ompd plugin
 static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
-    auto arg = argsToString(&argv[1], argc - 1);
+    auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgOmpd(rec_set, arg.c_str());
     ProcessErrorInRepSet(rep_set);
 
@@ -270,7 +270,7 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
 // command to interface with the cuda-gdb extensions
 static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
-    auto arg = argsToString(&argv[1], argc - 1);
+    auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgCuda(rec_set, arg.c_str());
     ProcessErrorInRepSet(rep_set);
 

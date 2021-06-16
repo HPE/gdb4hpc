@@ -150,7 +150,7 @@ private:
     int getTypeLength(const char *);
     int getSimpleType(const char *);
     int getType(char *);
-    arrayDimension_t *getArrayDimensionShape(MIVar *);
+    std::unique_ptr<ArrayDimension> getArrayDimensionShape(MIVar *);
     char *getTypeName(const char *);
     static void removeWhitespace(char *);
     func_info_t *getFunctionInfo(char *);
@@ -2361,12 +2361,10 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
 }
 
 // get the shape of an array
-arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
-    arrayDimension_t *shape;
+std::unique_ptr<ArrayDimension> Mi2Aif::getArrayDimensionShape(MIVar *var) {
     int done = 0;
     int isRange = 0;
     int isFortran = 0;
-    int len = 0;
     int min = 0;
     int max = 0;
     char *p;
@@ -2387,16 +2385,16 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
             // unknown array specification
             DVPRINT("GetArrayDimensionShape: Unknown Array Type!");
             free(str);
-            return (arrayDimension_t *)NULL;
+            return nullptr;
     }
 
-    // get a new arrayDimension_t object from its constructor
-    if ((shape = newArrayDimension()) == (arrayDimension_t *)NULL) {
-        DVPRINT("GetArrayDimensionShape: arrayDimension_t ctor failed!");
+    auto shape = std::make_unique<ArrayDimension>();
+    if (shape == nullptr) {
+        DVPRINT("GetArrayDimensionShape: ArrayDimension ctor failed!");
         free(str);
-        return (arrayDimension_t *)NULL;
+        return nullptr;
     }
-    shape->isFortran = isFortran;
+    shape->setIsFortran(isFortran);
 
     // set the end delimiter char to '\0'
     *p-- = '\0';
@@ -2409,21 +2407,19 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
             case ARRAY_C_TYPE_START:
                 // c arrays have a range of 0:N-1 where N is the typedef size of
                 // the array
-                len = atoi(p + 1);
                 min = 0;
-                max = len - 1;
+                max = atoi(p + 1) - 1;
                 // add p+1 to the dimension definition list
-                if (addArrayDimensionDef(shape, len, min, max)) {
+                if (shape->addDimensionDef(min, max)) {
                     DVPRINT(
                         "GetArrayDimensionShape: addArrayDimensionDef failed!");
                     free(str);
-                    freeArrayDimension(shape);
-                    return (arrayDimension_t *)NULL;
+                    return nullptr;
                 }
                 DVPRINT(
                     "GetArrayDimensionShape: Added dimension %d of length %d "
                     "with range %d to %d\n",
-                    shape->dim, len, min, max);
+                    shape->numDimensions(), max - min + 1, min, max);
 
                 // check if there is a end delim right after this
                 switch (*--p) {
@@ -2447,21 +2443,18 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
                     // remember that we are parsing backwards
                     min = atoi(p + 1);
                     // for a range of N:M the formula is M-N+1
-                    len = max - min + 1;
                     isRange = 0;
                 } else {
                     max = atoi(p + 1);
                     min = 1;
-                    len = max;
                 }
 
                 // add p+1 to the dimension definition list
-                if (addArrayDimensionDef(shape, len, min, max)) {
+                if (shape->addDimensionDef(min, max)) {
                     DVPRINT(
                         "GetArrayDimensionShape: addArrayDimensionDef failed!");
                     free(str);
-                    freeArrayDimension(shape);
-                    return (arrayDimension_t *)NULL;
+                    return nullptr;
                 }
 
                 // post-dec p setting the end delim to '\0'
@@ -2470,7 +2463,7 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
                 DVPRINT(
                     "GetArrayDimensionShape: Added dimension %d of length %d "
                     "with range %d to %d\n",
-                    shape->dim, len, min, max);
+                    shape->numDimensions(), max - min + 1, min, max);
                 break;
 
             // fortran is done when it finds a '(' character
@@ -2480,25 +2473,22 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
                     // remember that we are parsing backwards
                     min = atoi(p + 1);
                     // for a range of N:M the formula is M-N+1
-                    len = max - min + 1;
                     isRange = 0;
                 } else {
                     max = atoi(p + 1);
                     min = 1;
-                    len = max;
                 }
                 // add p+1 to the dimension definition list
-                if (addArrayDimensionDef(shape, len, min, max)) {
+                if (shape->addDimensionDef(min, max)) {
                     DVPRINT(
                         "GetArrayDimensionShape: addArrayDimensionDef failed!");
                     free(str);
-                    freeArrayDimension(shape);
-                    return (arrayDimension_t *)NULL;
+                    return nullptr;
                 }
                 DVPRINT(
                     "GetArrayDimensionShape: Added dimension %d of length %d "
                     "with range %d to %d\n",
-                    shape->dim, len, min, max);
+                    shape->numDimensions(), max - min + 1, min, max);
                 // done parsing the string
                 ++done;
                 break;
@@ -2511,8 +2501,7 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
                 if (isRange) {
                     DVPRINT("GetArrayDimensionShape: isRange was already set!");
                     free(str);
-                    freeArrayDimension(shape);
-                    return (arrayDimension_t *)NULL;
+                    return nullptr;
                 }
                 // store the integer value of p+1 in len and set the isRange
                 // flag.
@@ -2527,8 +2516,7 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
                 if (p <= str) {
                     DVPRINT("GetArrayDimensionShape: OutofBounds error!");
                     free(str);
-                    freeArrayDimension(shape);
-                    return (arrayDimension_t *)NULL;
+                    return nullptr;
                 }
                 // decrement p
                 --p;
@@ -2538,7 +2526,7 @@ arrayDimension_t *Mi2Aif::getArrayDimensionShape(MIVar *var) {
     free(str);
 
     DVPRINT("GetArrayDimensionShape: Total dimensions detected %d (%s)\n",
-            shape->dim, isFortran?"fortran":"C");
+            shape->numDimensions(), isFortran?"fortran":"C");
 
     return shape;
 }
@@ -3626,7 +3614,6 @@ AIF *Mi2Aif::getArrayAIFHash(MIVar *var, char *hashinfo,
     int id;
     char *buf;
     MICommand *cmd;
-    arrayDimension_t *shape;
     AIF *a = NULL;
     AIF *ac;
 
@@ -3672,16 +3659,16 @@ AIF *Mi2Aif::getArrayAIFHash(MIVar *var, char *hashinfo,
     }
 
     // Now lets get the shape of this array
-    if ((shape = getArrayDimensionShape(var)) ==
-        (arrayDimension_t *)NULL) {
+    auto shape = getArrayDimensionShape(var); 
+    if (!shape) {
         // error already set
         DVPRINT("GetArrayAIFHash: GetArrayDimensionShape error\n");
-        return NULL;
+        return nullptr;
     }
 
     // we have the data string and the shape, we need to aply hashinfo to hash
     // the data
-    a = PerformHashMI(buf, var->type, shape, hashinfo, hashfunc,
+    a = PerformHashMI(buf, var->type, shape.get(), hashinfo, hashfunc,
                       precision_lower, precision_upper);
 
     return a;
@@ -3747,7 +3734,7 @@ public:
     // takes ownership of type_str, type_struct and type_func (but not shape)
     MIArrayToAIFParser(char* type_str, int type_len,
                        struct_info_t *type_struct, func_info_t *type_func,
-                       int type_id, arrayDimension_t* shape);
+                       int type_id, const ArrayDimension* shape);
     ~MIArrayToAIFParser();
 
     void parseSome(const char* str);
@@ -3757,7 +3744,7 @@ public:
     bool dataIsTruncated() const;
 
     // reset the parser to work on a new array - takes ownership of shape
-    void setShape(arrayDimension_t* shape);
+    void setShape(std::unique_ptr<ArrayDimension> shape);
 
 private:
     class Error {};
@@ -3779,7 +3766,7 @@ private:
     struct_info_t* m_type_struct;
     func_info_t* m_type_func;
     int m_type_id;
-    arrayDimension_t* m_shape;  // dimension and index range of the array
+    std::unique_ptr<ArrayDimension> m_shape;  // dimension and index range of the array
 
     int m_dim;                  // dimension of the array
     std::vector<int> m_mins;    // minimum index in each direction (slowest to fastest)
@@ -3806,14 +3793,15 @@ private:
 MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
                                        struct_info_t *type_struct,
                                        func_info_t *type_func, int type_id,
-                                       arrayDimension_t *shape)
+                                       const ArrayDimension *shape)
     : m_type_str(type_str),
       m_type_len(type_len),
       m_type_struct(type_struct),
       m_type_func(type_func),
       m_type_id(type_id),
-      m_shape(shape ? dupArrayDimension(shape) : nullptr),
-      m_dim(shape ? shape->dim : 0),
+      // copy shape if given
+      m_shape(shape ? std::make_unique<ArrayDimension>(*shape) : nullptr),
+      m_dim(shape ? shape->numDimensions() : 0),
       m_mins(),
       m_maxs(),
       m_depth(0),
@@ -3829,7 +3817,6 @@ MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
       m_idcs(m_dim, 0) {}
 
 MIArrayToAIFParser::~MIArrayToAIFParser() {
-    if (m_shape) freeArrayDimension(m_shape);
     free(m_type_str);
     delete m_type_struct;
     delete m_type_func;
@@ -3931,16 +3918,16 @@ void MIArrayToAIFParser::openBracket(char bracket) {
 
     if (m_mins.empty()) {
         // get the min and max elements the first time through.
-        // Take care around arrayDimension_t it is a bit of a goofy goober and
+        // Take care around ArrayDimension it is a bit of a goofy goober and
         // used start-1 indexing, so i=1, j=2, k=3, etc. Also, the parser always
         // orders from slowest changing to fastest changing, so note the order
         // reversal we do here for fortran.  (so we don't need to mess with it
-        // again). Actually - the dimension ordering in arrayDimension_t is also
+        // again). Actually - the dimension ordering in ArrayDimension is also
         // perversely reversed, so reverse the logic again.
         for (int i = 0; i < m_dim; ++i) {
             int d = (m_isFortran ? i + 1 : m_dim - i);
-            m_mins.push_back(getArrayDimensionRangeMin(m_shape, d));
-            m_maxs.push_back(getArrayDimensionRangeMax(m_shape, d));
+            m_mins.push_back(m_shape->getArrayDimensionRangeMin(d));
+            m_maxs.push_back(m_shape->getArrayDimensionRangeMax(d));
 
             DVPRINT("range in %d [%d,%d]\n", i, m_mins.back(), m_maxs.back());
         }
@@ -4170,22 +4157,20 @@ bool MIArrayToAIFParser::dataIsTruncated() const {
 }
 
 // reset the parser to work on a new array
-void MIArrayToAIFParser::setShape(arrayDimension_t* shape)
+void MIArrayToAIFParser::setShape(std::unique_ptr<ArrayDimension> shape)
 {
     if (!shape) {
         DVPRINT("nullptr passed to AIFArrayToAIFParser::setShape\n");
         return;
     }
 
-    arrayDimension_t* newShape = dupArrayDimension(shape);
-    std::swap(newShape,m_shape);
-    if (newShape)
-        freeArrayDimension(newShape);
+    // deletes any current m_shape
+    m_shape = std::move(shape);
 
     // reset the processing state
     m_mins.clear();
     m_maxs.clear();
-    m_dim = shape->dim;
+    m_dim = m_shape->numDimensions();
     m_depth = 0;
     m_isC = m_isFortran = false;
     m_hasError = false;
@@ -4214,27 +4199,27 @@ void MIArrayToAIFParser::error(const std::string& message) {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, arrayDimension_t* shape);
+    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ArrayDimension* shape);
     ~ArraySlicer();
 
     // evaluate the next slice of the variable result.   Return the
     // result and the expected shape of the result.   The caller is
     // responsible for free the returned shape.
-    char* getNext(arrayDimension_t** sliceShape, bool& isFinal);
+    std::tuple<char*, std::unique_ptr<ArrayDimension>> getNext(bool& isFinal);
 
-    arrayDimension_t* getShape();
+    const ArrayDimension* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
 
 private:
     void determineSlicing();
-    arrayDimension_t* makeSubShape(long subRng[2]);
+    std::unique_ptr<ArrayDimension> makeSubShape(long subRng[2]);
 
     ArraySlicer(const ArraySlicer&) = delete;
     ArraySlicer& operator=(const ArraySlicer&) = delete;
 
     MISession* m_session;       // session to connect to gdb/MI
     std::shared_ptr<MIVar> m_var;  // MI variable of interest
-    arrayDimension_t* m_shape;  // dimension and size of the array
+    std::unique_ptr<ArrayDimension> m_shape;  // dimension and size of the array
     char* m_buf;                // allocated array for the result (contolled by this)
     char* m_array;              // interpretable region of m_buf
 
@@ -4246,8 +4231,10 @@ private:
 };
 
 ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
-                         arrayDimension_t* shape)
-    : m_session(session), m_var(var), m_shape(shape ? dupArrayDimension(shape) : nullptr),
+                         const ArrayDimension* shape)
+    : m_session(session), m_var(var)
+    // copy shape if given
+    , m_shape(shape ? std::make_unique<ArrayDimension>(*shape) : nullptr),
       m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
@@ -4260,7 +4247,7 @@ ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
 
     if (m_blockSize) {
         DVPRINT("Slicing %s of type %s and dimension %d\n", var->expr, var->type,
-                (!shape ? 0 : shape->dim));
+                (!shape ? 0 : shape->numDimensions()));
         determineSlicing();
     }
 }
@@ -4268,8 +4255,6 @@ ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
 ArraySlicer::~ArraySlicer()
 {
     free(m_buf);
-    if (m_shape)
-        freeArrayDimension(m_shape);
 }
 
 // Paging and the like is unavailable in MI mode.   Instead, this class and this function
@@ -4307,13 +4292,13 @@ void ArraySlicer::determineSlicing()
         DVPRINT("got begin address %s\n", beginRes);
         free(beginRes);
 
-        m_shape = newArrayDimension();
+        m_shape = std::make_unique<ArrayDimension>();
         if (!m_shape) {
             DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
             return;
         }
-        addArrayDimensionDef(m_shape, size, 0, size-1);
-        m_shape->isFortran = false;
+        m_shape->addDimensionDef(0, size-1);
+        m_shape->setIsFortran(false);
 
         frontStr.erase(frontStr.end()-2, frontStr.end());
         frontStr += "$$from$$]@$$len$$";
@@ -4326,40 +4311,39 @@ void ArraySlicer::determineSlicing()
         DVPRINT("Slicing vector %s %ld to %ld by %ld\n",
                 m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
 
-    } else if (m_shape && m_shape->isFortran) {
+    } else if (m_shape && m_shape->isFortran()) {
         // fortran array - we only try to split on the slowest changing dimension.
         // we can revisit if 100M x 2 arrays matter.
-        int dim = m_shape->dim;
+        int dim = m_shape->numDimensions();
         size_t subArrayLen  = 1;
         for (int i=1; i<dim; ++i)
-            subArrayLen *= getArrayDimension(m_shape,i);
-        size_t numElems = subArrayLen * getArrayDimension(m_shape,dim);
+            subArrayLen *= m_shape->getArrayDimension(i);
+        size_t numElems = subArrayLen * m_shape->getArrayDimension(dim);
         if (numElems <= m_blockSize)
             return;             // no need to divide
 
         std::ostringstream os;
         os << m_var->expr << "(";
         for (int i=1; i<dim; ++i) {
-            int minIdx = getArrayDimensionRangeMin(m_shape,i);
-            int maxIdx = getArrayDimensionRangeMax(m_shape,i);
+            auto [minIdx, maxIdx] = m_shape->getArrayDimensionRange(i);
             os << minIdx << ":" << maxIdx << ",";
         }
         os << "$$from$$:$$to$$)";
 
         m_subExpr = os.str();
-        m_subIdx = getArrayDimensionRangeMin(m_shape,dim);
-        m_maxSubIdx = getArrayDimensionRangeMax(m_shape,dim);
+        m_subIdx = m_shape->getArrayDimensionRangeMin(dim);
+        m_maxSubIdx = m_shape->getArrayDimensionRangeMax(dim);
         m_slice = std::max(1, int(m_blockSize / subArrayLen));
 
         DVPRINT("Slicing: fortran type %s %ld to %ld by %ld\n",
                 m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
     } else if (m_shape) {
         // C/C++ array, this may be real or partially artficial
-        int dim = m_shape->dim;
+        int dim = m_shape->numDimensions();
         size_t subArrayLen  = 1;
         for (int i=2; i<=dim; ++i)
-            subArrayLen *= getArrayDimension(m_shape,i);
-        size_t numElems = subArrayLen * getArrayDimension(m_shape,1);
+            subArrayLen *= m_shape->getArrayDimension(i);
+        size_t numElems = subArrayLen * m_shape->getArrayDimension(1);
         if (numElems <= m_blockSize)
             return;             // no need to divide
 
@@ -4373,7 +4357,7 @@ void ArraySlicer::determineSlicing()
         // transform into a series of artificial arrays for the sub-sets
         m_subExpr += "[$$from$$]@$$len$$";
         m_subIdx = 0;
-        m_maxSubIdx = getArrayDimensionRangeMax(m_shape,1);
+        m_maxSubIdx = m_shape->getArrayDimensionRangeMax(1);
         m_slice = std::max(1, int(m_blockSize / subArrayLen));
 
         DVPRINT("Slicing: C array %s %ld to %ld by %ld\n",
@@ -4388,11 +4372,11 @@ void ArraySlicer::determineSlicing()
 // for the data type.  The function is entwined with this class because it
 // needs understand the shape before it is sliced, and need to pass it along to
 // the parsing after it is sliced
-arrayDimension_t *ArraySlicer::getShape() {
+const ArrayDimension* ArraySlicer::getShape() {
     // in most important cases, ArraySlicer already has determined the shape
     // from the type.
     if (m_shape)
-        return m_shape;
+        return m_shape.get();
 
     // Though not always!   The remainder here is the fall-back position where
     // we could not cogitize the type information, so we just pull out the result
@@ -4426,31 +4410,31 @@ arrayDimension_t *ArraySlicer::getShape() {
         return nullptr;
     }
 
-    m_shape = newArrayDimension();
+    m_shape = std::make_unique<ArrayDimension>();
     if (!m_shape) {
         DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
         return nullptr;
     }
 
-    addArrayDimensionDef(m_shape, length, 0, length-1);
-    m_shape->isFortran = false;
+    m_shape->addDimensionDef(0, length-1);
+    m_shape->setIsFortran(false);
 
-    return m_shape;
+    return m_shape.get();
 }
 
 // Return either the next chunk of data, or nullptr if there is no more data to be
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
+std::tuple<char*, std::unique_ptr<ArrayDimension>> ArraySlicer::getNext(bool& isFinal)
 {
     DVPRINT("In ArraySlicer::getNext\n");
 
-    *sliceShape = nullptr;
+    auto sliceShape = std::unique_ptr<ArrayDimension>{nullptr};
     isFinal = true;
 
     if (m_subIdx > m_maxSubIdx)
-        return nullptr;
+        return {nullptr, nullptr};
 
     char* array = nullptr;
     if (m_array) {
@@ -4495,7 +4479,7 @@ char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
             // success!
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
             long subRng[2]= { m_subIdx, maxIdx };
-            *sliceShape = makeSubShape(subRng);
+            sliceShape = makeSubShape(subRng);
             m_subIdx = maxIdx+1;
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
@@ -4508,37 +4492,37 @@ char* ArraySlicer::getNext(arrayDimension_t** sliceShape, bool& isFinal)
     }
 
     DVPRINT("got an array value\n");
-    if (array && !*sliceShape)
-        *sliceShape = makeSubShape(nullptr);
+    if (array && !sliceShape)
+        sliceShape = makeSubShape(nullptr);
 
     isFinal = (m_subIdx > m_maxSubIdx);
 
     DVPRINT("done makeSubShape array=%p\n", array);
 
-    return array;
+    return {array, std::move(sliceShape)};
 }
 
 // Create a shape object corresponding to an array slice, or the full array if subRng is null.
 // If subRng is specified it is the inclusive range of the outermost dimension of the arrray.
 // Callers is responsible for freeing the returned object.
-arrayDimension_t* ArraySlicer::makeSubShape(long subRng[2])
+std::unique_ptr<ArrayDimension> ArraySlicer::makeSubShape(long subRng[2])
 {
-    arrayDimension_t* shape = getShape(); // size of the full array
-    arrayDimension_t* subShape = newArrayDimension();
-    subShape->isFortran = shape->isFortran;
+    auto shape = getShape(); // size of the full array
+    auto subShape = std::make_unique<ArrayDimension>();
+    subShape->setIsFortran(shape->isFortran());
 
-    unsigned int dim = shape->dim;
+    int dim = shape->numDimensions();
 
-    for (unsigned int i=1; i<=shape->dim; ++i) {
+    for (int i=1; i<=shape->numDimensions(); ++i) {
         int minIdx, maxIdx;
-        if (subRng && ((shape->isFortran && i==dim) || (!shape->isFortran && i==1))) {
+        if (subRng && ((shape->isFortran() && i==dim) || (!shape->isFortran() && i==1))) {
             minIdx = subRng[0];
             maxIdx = subRng[1];
         } else {
-            minIdx = getArrayDimensionRangeMin(shape,i);
-            maxIdx = getArrayDimensionRangeMax(shape,i);
+            minIdx = shape->getArrayDimensionRangeMin(i);
+            maxIdx = shape->getArrayDimensionRangeMax(i);
         }
-        addArrayDimensionDef(subShape, maxIdx-minIdx+1, minIdx, maxIdx);
+        subShape->addDimensionDef(minIdx, maxIdx);
     }
 
     return subShape;
@@ -4553,7 +4537,7 @@ public:
     ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser);
 
     // get the shape of the full array
-    virtual arrayDimension_t* getFullShape() const override;
+    virtual const ArrayDimension* getFullShape() const override;
 
     // return the next partition of data
     virtual AIF* getNextSlice(bool& isFinal) override;
@@ -4572,7 +4556,7 @@ ArrayStream::ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MI
 {}
 
 // get the shape of the full array
-arrayDimension_t* ArrayStream::getFullShape() const {
+const ArrayDimension* ArrayStream::getFullShape() const {
     return m_slicer->getShape();
 }
 
@@ -4585,12 +4569,11 @@ AIF* ArrayStream::getNextSlice(bool& isFinal) {
 
 AIF *ArrayStream::getNextSlice(bool& isFinal, size_t& truncatedLength) {
     DVPRINT("In ArrayStream::getNextSlice\n");
-    arrayDimension_t* subShape = nullptr;
     AIF* res = nullptr;
-    if (char* subResult = m_slicer->getNext(&subShape, isFinal)) {
-        m_parser->setShape(subShape);
-        freeArrayDimension(subShape);
 
+    auto [subResult, subShape] = m_slicer->getNext(isFinal);
+    if (subResult) {
+        m_parser->setShape(std::move(subShape));
         m_parser->parseSome(subResult);
 
         truncatedLength = m_parser->dataIsTruncated() ? m_parser->getElementsRead() : 0;
@@ -4636,7 +4619,7 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
             var->numchild, id, type_str, type_len);
 
     // Get the shape of this array
-    arrayDimension_t *shape = getArrayDimensionShape(var.get());
+    auto shape = getArrayDimensionShape(var.get());
     if (!shape) {
         // error already set
         DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
@@ -4645,12 +4628,10 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
 
     // The array data could be enormous, so instead of getting it now, we just return a
     // data stream object which can access it in pieces
-    auto slicer = std::make_shared<ArraySlicer>(m_session,var,shape);
+    auto slicer = std::make_shared<ArraySlicer>(m_session,var,shape.get());
     auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
-                                                       type_func, id, shape);
+                                                       type_func, id, shape.get());
     auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
-
-    freeArrayDimension(shape);
 
     return new AIFStream(arrayStream);
 }
@@ -4688,7 +4669,7 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
 
     auto slicer = std::make_shared<ArraySlicer>(m_session,var,nullptr);
 
-    arrayDimension_t *shape = slicer->getShape();
+    auto shape = slicer->getShape();
     if (!shape) {
         DVPRINT("could not get size of a vector like object");
         free(type_str);

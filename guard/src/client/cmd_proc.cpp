@@ -44,8 +44,8 @@ static char* gdb_backend = nullptr;
 /*
 ** static function prototypes
 */
-static int DoLaunch(const char *, proto_session *, const char *, char **,
-                    dbgprocset_t *, const char *, char **, const char *,
+static int DoLaunch(const char *, proto_session *, const char *, const char * const *,
+                    dbgprocset_t *, const char *, const char * const *, const char *,
                     const char *, const char *, char **, const char *);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
                     const char *, const char *);
@@ -322,8 +322,8 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int env_list_num = 0;
     int env_list_size = 0;
     char *env_str = NULL;
-    char **args = NULL;
-    char **arch_args = NULL;
+    auto args = ArgvStream{};
+    auto arch_args = ArgvStream{};
     WLM_type manager = WLM_none;
     char *batch_script = NULL;
     // TODO: Allow the user to specify hostname/username
@@ -410,7 +410,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                         "Error: --args provided, but missing arguments.\n");
                     goto exit_with_error;
                 }
-                args = Str2Argv(StripQuotes(optarg));
+                args.parseAndAppendArgs(StripQuotes(optarg));
                 break;
 
             case 'g':
@@ -420,7 +420,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                         "arguments.\n");
                     goto exit_with_error;
                 }
-                arch_args = Str2Argv(StripQuotes(optarg));
+                arch_args.parseAndAppendArgs(StripQuotes(optarg));
                 break;
 
             case 'q':
@@ -690,8 +690,9 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // Invoke the application
     //
-    if (!DoLaunch(proto, sess, prog, args, ps, arch, arch_args, arch_input,
-                  backend, gdb_backend, env_list, workdir)) {
+    if (!DoLaunch(proto, sess, prog, args.c_strs().data(), 
+                  ps, arch, arch_args.c_strs().data(), 
+                  arch_input, backend, gdb_backend, env_list, workdir)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);
@@ -702,8 +703,6 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // normal return
 
     Free(prog);
-    FreeArgv(args);
-    FreeArgv(arch_args);
     if (batch_script != NULL) Free(batch_script);
     if (hostname != NULL) Free(hostname);
     if (username != NULL) Free(username);
@@ -719,8 +718,6 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 exit_with_error:
 
-    FreeArgv(args);
-    FreeArgv(arch_args);
     if (ps != NULL) FreeProcSet(ps);
     if (prog != NULL) Free(prog);
     if (batch_script != NULL) Free(batch_script);
@@ -742,8 +739,8 @@ exit_with_error:
 ** Note that the invoke process always operates synchronously.
 */
 static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
-                    char **args, dbgprocset_t *ps, const char *arch,
-                    char **arch_args, const char *arch_input,
+                    const char * const *args, dbgprocset_t *ps, const char *arch,
+                    const char * const*arch_args, const char *arch_input,
                     const char *backend, const char *gdb, char **Env, const char *cwd) {
     dbginvoke_t *di;
     rec_set_t *rec_set;

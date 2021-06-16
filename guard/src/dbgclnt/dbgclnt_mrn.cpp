@@ -236,7 +236,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     int i;
     // init this to the default timeout
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
-    char **ap = nullptr;
+    auto argv = ArgvStream{};
     int event_fd;
     int *ev_fd_ptr;
     int dbg = debug_flag;
@@ -624,20 +624,20 @@ OMPD support will not be available.\n");
     // This now also depends on gpu_flag
     if (dbg) {
         if (gpu_flag) {
-            ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
                          di->d_proto->name(), "-e", backend, "--gpu",
-                         "--debug", nullptr);
+                         "--debug");
         } else {
-            ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--debug", nullptr);
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+                         di->d_proto->name(), "-e", backend, "--debug");
         }
     } else {
         if (gpu_flag) {
-            ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--gpu", nullptr);
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+                         di->d_proto->name(), "-e", backend, "--gpu");
         } else {
-            ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, nullptr);
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+                         di->d_proto->name(), "-e", backend);
         }
     }
 
@@ -694,16 +694,14 @@ OMPD support will not be available.\n");
         }
     }
 
-    if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char *const *)ap,
+    if (cti_execToolDaemon(mid, "dbgsrv_alps", argv.c_strs().data(),
                            (const char *const *)env_vars)) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
         goto attach_error;
     }
 
-    // done with the argv array and env_vars
-    FreeArgv(ap);
-    ap = nullptr;
+    // done with env_vars
     for (i = 0; i < env_var_cnt; ++i) {
         Free(env_vars[i]);
     }
@@ -839,8 +837,6 @@ attach_error:
         di->d_proto_net = nullptr;
     }
 
-    if (ap != nullptr) FreeArgv(ap);
-
     if (root != nullptr) Free(root);
 
     if (machine_hosts != nullptr) {
@@ -859,7 +855,7 @@ attach_error:
 }
 
 int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
-                        char **argv, const char *arch, char **arch_args,
+                        const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
                         const char *cwd, int gpu_flag, int debug_flag,
                         int early_entry_flag, bool isNonStop) {
@@ -872,7 +868,8 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     int rtn;
     MRN::NetworkTopology *mrn_topology = nullptr;
     MRNetFrontEnd *network = nullptr;
-    char **ap = nullptr;
+    auto app_argv = ArgvStream{};
+    auto dbgsrv_alps_argv = ArgvStream{};
     char **tmp;
     std::string request;
     int event_fd;
@@ -949,32 +946,10 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     // the program name this is to address the fact that guard should be
     // ignorant of the starter applications real name.
     snprintf(sn, sizeof(sn), "%d", di->d_nproc);
-#ifdef DEBUG
-    ap = NewArgv("-n", sn, nullptr);
-#else
-    // we want the application to be silent when not in debug mode.
-    // ap = NewArgv("--quiet", "-n", sn, nullptr);
-    ap = NewArgv("-n", sn, nullptr);
-#endif /* DEBUG */
-
-    // add the launcher args if present
-    if (arch_args != nullptr) {
-        tmp = &arch_args[0];
-        while (*tmp != (char *)nullptr) {
-            ap = AppendArgs(ap, *tmp++, nullptr);
-        }
-    }
-
-    ap = AppendArgs(ap, prog, nullptr);  // and the prog
-    ap = AppendArgv(ap, argv);        // plus its args
-
+    app_argv = ArgvStream("-n", sn, arch_args, prog, argv);
 #ifdef DEBUG
     DPRINT("application launcher args: ");
-    tmp = ap;
-    while (*tmp != (char *)nullptr) {
-        DPRINT("%s ", *tmp++);
-    }
-    DPRINT("\n");
+    DPRINT("%s\n", app_argv.asString().c_str());
 #endif /* DEBUG */
 
     // create the output stream to redirect stdout/stderr to
@@ -1009,7 +984,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 
     // launch the application using the tool interface
     // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-    if ((di->d_appid = cti_launchAppBarrier((const char *const *)ap, prog_outp,
+    if ((di->d_appid = cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp,
                                             prog_outp, arch_input, cwd,
                                             (const char *const *)env)) == 0) {
         int n = 0, r;
@@ -1046,10 +1021,6 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     }
 
     DPERFLOG(SetTimerStopAndLog("application launch"));
-
-    // done with this ap
-    FreeArgv(ap);
-    ap = nullptr;
 
     // ship over the binaries to the compute nodes
 
@@ -1226,22 +1197,19 @@ OMPD support will not be available.\n");
     // dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend>
     // prog first create the argv for dbgsrv_alps This now also depends on
     // gpu_flag This now adds the early entry flag...
-    ap = NewArgv("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                 di->d_proto->name(), "-e", backend, nullptr);
-    if (gpu_flag) ap = AppendArgs(ap, "--gpu", nullptr);
-    if (dbg) ap = AppendArgs(ap, "--debug", nullptr);
-    if (early_entry_flag) ap = AppendArgs(ap, "--early-entry", nullptr);
-    if (isNonStop) ap = AppendArgs(ap, "--non-stop", nullptr);
-    if (gdb && serverGdb) ap = AppendArgs(ap, "--gdb", serverGdb->c_str(), nullptr);
-    ap = AppendArgs(ap, "-f", prog, nullptr);
+
+    dbgsrv_alps_argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+                 di->d_proto->name(), "-e", backend);
+    if (gpu_flag)         dbgsrv_alps_argv << "--gpu";
+    if (dbg)              dbgsrv_alps_argv << "--debug";
+    if (early_entry_flag) dbgsrv_alps_argv << "--early-entry";
+    if (isNonStop)        dbgsrv_alps_argv << "--non-stop";
+    if (gdb && serverGdb) dbgsrv_alps_argv << "--gdb" << serverGdb->c_str();
+    dbgsrv_alps_argv << "-f" << prog;
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");
-    tmp = ap;
-    while (*tmp != (char *)nullptr) {
-        DPRINT("%s ", *tmp++);
-    }
-    DPRINT("\n");
+    DPRINT("%s\n", dbgsrv_alps_argv.asString().c_str());
 
     // set dbg to 1 if debug is on
     dbg = 1;
@@ -1264,7 +1232,7 @@ OMPD support will not be available.\n");
     }
 
     // launch dbgsrv_alps onto the compute nodes
-    if (cti_execToolDaemon(mid, "dbgsrv_alps", (const char *const *)ap,
+    if (cti_execToolDaemon(mid, "dbgsrv_alps", dbgsrv_alps_argv.c_strs().data(),
                            (const char *const *)args)) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to launch dbgsrv_alps onto compute nodes!\n");
@@ -1281,10 +1249,6 @@ OMPD support will not be available.\n");
         free(args);
         args = nullptr;
     }
-
-    // done with the argv array
-    FreeArgv(ap);
-    ap = nullptr;
 
     // wait for the debug servers to connect to the mrnet tree
     rtn = network->attach_be(di->d_nproc, mrnet_timeout);
@@ -1419,8 +1383,6 @@ OMPD support will not be available.\n");
     return 0;
 
 invoke_error:
-
-    if (ap != nullptr) FreeArgv(ap);
 
     if (di->d_appid != 0) {
         cti_killApp(di->d_appid, SIGKILL);

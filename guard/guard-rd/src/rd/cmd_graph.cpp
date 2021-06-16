@@ -508,7 +508,7 @@ static int class_set_subcmd_reduce_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
+    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
 
     s = buf;
 
@@ -1279,7 +1279,7 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
+    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
 
     if ((e = ParseExpr(buf)) == (expr_t *)NULL) {
         PrintError();

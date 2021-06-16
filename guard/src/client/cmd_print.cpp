@@ -222,13 +222,10 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
 
 static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *val;
-    char **ap;
     expr_t *e;
     char *buf;
 
     if (argc < 2) return 1;
-
-    ap = &argv[1];
 
     if (argc <= 0) {
         PrintOutError("Not enough command arguments.\n");
@@ -236,7 +233,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     }
 
-    buf = ArgsToBuf(ap, argc - 1);
+    buf = ArgsToBuf(&argv[1], argc - 1);
 
     if ((e = ParseExpr(buf)) == NULL) {
         PrintError();

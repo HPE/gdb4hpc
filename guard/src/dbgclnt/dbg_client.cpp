@@ -98,7 +98,7 @@ static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
 static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group);
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
-                                  arrayDimension_t* shape,
+                                  const ArrayDimension* shape,
                                   bool& isError);
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
@@ -393,7 +393,7 @@ rep_set_t::rep_set_t()
       m_moreSlices(false)
 {}
 
-rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, arrayDimension_t* shape, bitset* group)
+rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, bitset* group)
     : rep_set_t()
 {
     mergeReplySliceSet(slices, shape, group);
@@ -1915,17 +1915,14 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 ** Launch user program.
 */
 dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
-                       char **argv, const char *handle, int nproc,
-                       const char *arch, char **arch_args,
+                       const char * const *argv, const char *handle, int nproc,
+                       const char *arch, const char * const *arch_args,
                        const char *arch_input, const char *backend, const char* gdb,
                        char **env,
                        const char *cwd, int gpu_flag, int debug_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
-    char **ap;
-    char **ptr;
-    int ap_argc = 0;
     dbgevent_t *e;
 
     if (ptab == nullptr) {
@@ -1990,14 +1987,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     // Create the cmd str and set it
-    ap = NewArgv(prog, nullptr);
-    ap = AppendArgv(ap, argv);
-    // count the number of args
-    for (ptr = ap; *ptr != nullptr; ++ptr) {
-        ++ap_argc;
-    }
-    di->d_cmd = ArgsToBuf(ap, ap_argc);
-    FreeArgv(ap);
+    di->d_cmd = ArgvStream(prog, argv).createBuffer();
 
     if (ptab->launch(di, sess, prog, argv, arch, arch_args, arch_input,
                         backend, gdb, env, cwd, gpu_flag, debug_flag,
@@ -2160,7 +2150,7 @@ void rep_set_t::mergeReplySlices()
 // in memory does not help (actually hinders) the memory usage on the client
 // side
 void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                                   arrayDimension_t* shape, bitset* group)
+                                   const ArrayDimension* shape, bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
@@ -2288,18 +2278,20 @@ namespace {
 // in AIFStream.  (which is also a temporary expedient).
 class LocalSlices : public AIFStream::Slices {
 public:
-    LocalSlices(arrayDimension_t* shape) : m_shape(shape ? dupArrayDimension(shape) : nullptr) {}
-    ~LocalSlices() { if (m_shape) freeArrayDimension(m_shape); }
+    LocalSlices(const ArrayDimension *shape) 
+        // copy shape if given
+        : m_shape{shape ? std::make_unique<ArrayDimension>(*shape) : nullptr} 
+    {}
     void addSlice(AIF* aif);
 
-    virtual arrayDimension_t* getFullShape() const override;
+    virtual const ArrayDimension* getFullShape() const override;
     virtual AIF* getNextSlice(bool& isFinal) override;
     virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
     virtual void freeSlice(AIF* aif) override;
 private:
     std::vector<AIF*> m_aifs;
     std::vector<AIF*>::iterator m_current;
-    mutable arrayDimension_t* m_shape;
+    mutable std::unique_ptr<ArrayDimension> m_shape;
 };
 
 void LocalSlices::addSlice(AIF* aif) {
@@ -2309,10 +2301,10 @@ void LocalSlices::addSlice(AIF* aif) {
 
 // compute the full shape of the AIF array by combining the information from the slices
 // if necessary
-arrayDimension_t* LocalSlices::getFullShape() const
+const ArrayDimension* LocalSlices::getFullShape() const
 {
     if (m_shape)
-        return m_shape;
+        return m_shape.get();
 
     int* fullMins = nullptr;
     int* fullMaxs = nullptr;
@@ -2354,27 +2346,26 @@ arrayDimension_t* LocalSlices::getFullShape() const
     }
 
     // Got the bounds, create the array dimension object
-    arrayDimension_t *shape = newArrayDimension();
+    auto shape = std::make_unique<ArrayDimension>();
     if (!shape) {
         DPRINT("newArrayDimension failed");
         return nullptr;
     }
 
-    shape->isFortran = isFortran;
+    shape->setIsFortran(isFortran);
 
     for (int i=0; i<fullDim; ++i) {
         // arrayDimension orders dims from fastest to slowest
         int d = (isFortran ? i : fullDim-1-i);
-        addArrayDimensionDef(shape, fullMaxs[d]-fullMins[d]+1,
-                             fullMins[d], fullMaxs[d]);
+        shape->addDimensionDef(fullMins[d], fullMaxs[d]);
     }
 
     free(fullMins);
     free(fullMaxs);
 
-    m_shape = shape;
+    m_shape = std::move(shape);
 
-    return shape;
+    return m_shape.get();
 }
 
 AIF* LocalSlices::getNextSlice(bool& isFinal)
@@ -2408,7 +2399,7 @@ void LocalSlices::freeSlice(AIF* aif) {}
 // \a isError will contain true on return if any slice in \a replies was an error
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
-                                  arrayDimension_t* shape,
+                                  const ArrayDimension* shape,
                                   bool& isError)
 {
     // JoinReplies should be called on DATA replies - no other type is sliced

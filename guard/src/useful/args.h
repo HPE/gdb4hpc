@@ -15,17 +15,25 @@
 
 #pragma once
 
+#include <string.h>
+
 #include <vector>
 #include <string>
+#include <sstream>
 #include <algorithm>
 #include <type_traits>
+#include <climits>
 
 class ArgvStream {
 public:
+    // declared to suppress warning when using variadic argument constructor with no args
     ArgvStream() = default;
+    
     template <typename... Args>
-    ArgvStream(Args&&... args) { push(args...); };
+    ArgvStream(Args&&... args) { (*this << ... << args); };
 
+    // returns a vector of const char *, passable to cti and others by calling .data()
+    // on the resulting vector
     const std::vector<const char *> c_strs() const {
         std::vector<const char *> c_strs;
         std::transform(m_argv.begin(), m_argv.end(), 
@@ -34,7 +42,82 @@ public:
         return c_strs;
     };
 
+    // parses a string as a list of arguments separated by spaces and adds them
+    // to the current list of arguments
+    void parseAndAppendArgs(const std::string args) {
+        std::stringstream arg;
+
+        for (size_t i = 0; i < args.size(); i++) {
+            if (isspace(args[i])) continue;
+            
+            arg.str("");
+            arg.clear();
+            
+            bool single_quote = false;
+            bool double_quote = false;
+            bool backslash = false;
+
+            for (; i < args.size(); i++) {
+                if (isspace(args[i]) && !single_quote && !double_quote && !backslash) break;
+
+                if (backslash) {
+                    backslash = false;
+                } else if (args[i] == '\\') {
+                    backslash = true;
+                } else if (single_quote && args[i] == '\'') {
+                    single_quote = false;
+                } else if (double_quote && args[i] == '"') {
+                    double_quote = false;
+                } else {
+                    if (args[i] == '\'')
+                        single_quote = true;
+                    else if (args[i] == '"')
+                        double_quote = true;
+                }
+
+                arg << args[i];
+            }
+
+            if (arg.tellp() != 0) {
+                m_argv.push_back(arg.str());
+            }
+        }
+    }
+
+    // returns arguments separated by spaces as a string
+    std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX) const {
+        std::stringstream ss;
+        std::string space = "";
+
+        for (size_t i = start; i < m_argv.size() && stop_after > 0; i++, stop_after--) {
+            ss << space << m_argv[i];
+            space = " ";
+        }
+
+        return ss.str();
+    }
+
+    // allocates a buffer containing a copy of the arguments in the
+    // ArgvStream, separated by spaces. 
+    // the caller is responsible for freeing the returned buffer.
+    char * createBuffer(size_t start = 0, size_t stop_after = ULONG_MAX) const {
+        return strdup(asString(start, stop_after).c_str());
+    }
+
     void clear() {m_argv.clear();}
+
+    size_t argc() const {return m_argv.size();};
+
+    std::string& operator[](size_t idx) {
+        return m_argv[idx];
+    }
+
+    ArgvStream& operator<<(const ArgvStream &b) {
+        for (const auto &arg : b.m_argv) {
+            *this << arg;
+        }
+        return *this;
+    }
 
     ArgvStream& operator<<(const std::string &str) {
         m_argv.push_back(str);
@@ -64,27 +147,13 @@ public:
         return *this;
     };
 private:
-    template <typename... Args> void push(Args&&... args) {
-        (*this << ... << args);
-    };
 
     std::vector<std::string> m_argv;
 };
 
-#ifdef __cplusplus
-extern std::string ArgsToString(int argc, char** argv);
+// allocates a buffer containing a copy of the arguments in argv, separated by spaces. 
+// the caller is responsible for freeing the returned buffer.
+char *ArgsToBuf(const char * const * argv, int argc);
 
-extern "C" {
-#endif
-
-extern char **Str2Argv(const char *);
-extern char **NewArgv(const char *, ...);
-extern char **CopyArgv(char **);
-extern char **AppendArgv(char **, char **);
-extern char **AppendArgs(char **, ...);
-extern char *ArgsToBuf(char **, int);
-extern void FreeArgv(char **);
-
-#ifdef __cplusplus
-}
-#endif
+// returns arguments separated by spaces as a string
+std::string ArgsToString(const char * const * argv, int argc);

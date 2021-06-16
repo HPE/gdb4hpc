@@ -33,7 +33,6 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int res;
     rep_set_t *rep_set;
     expr_t *e;
-    char **ap;
     AIFStream *a;
     int print_diff = 0;
     bitset *true_bitset = nullptr;
@@ -47,15 +46,13 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     }
 
-    ap = &argv[1];
-
     if (argc <= 0) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: compare expr1 == expr2\n");
         return 1;
     }
 
-    buf = ArgsToBuf(ap, argc - 1);
+    buf = ArgsToBuf(&argv[1], argc - 1);
 
     if ((e = ParseExpr(buf)) == (expr_t *)nullptr) {
         PrintError();

@@ -176,8 +176,8 @@ extern char *RecvToSocProto(bitset *target, bitset *recv);
 extern char *AttachArgsToSocProto(const char *app_ident, const char *arch,
                                   const char *backend, int gpu_flag,
                                   int debug_flag);
-extern char *LaunchArgsToSocProto(const char *prog, char **argv, int nproc,
-                                  const char *arch, char **arch_args,
+extern char *LaunchArgsToSocProto(const char *prog, const char * const *argv, int nproc,
+                                  const char *arch, const char * const *arch_args,
                                   const char *arch_input, const char *backend, const char* gdb,
                                   char **env, const char *cwd, int gpu_flag,
                                   int debug_flag, int early_entry_flag,

@@ -160,7 +160,7 @@ void AIFStream::joinAIFFromSlices() {
 // \return true if \a slice is a legitimate subset (including equality) of the result array.
 bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray)
 {
-    arrayDimension_t* shape = getShape();
+    auto shape = getShape();
     if (!shape) {
         warning("no shape in joinAIFFromSlices");
         return false;
@@ -174,16 +174,15 @@ bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bo
     size_t totalElems = 1;
     size_t elemSize = index->i_bsize;
 
-    int dim = shape->dim;
+    int dim = shape->numDimensions();
     bool isOk = true;
 
     // compute the offset (in elements) of slice within the full array
     // and the total number of elements in the full array.
     for (int i=0; i<dim; ++i) {
         // slowest to fastest
-        int d = (shape->isFortran ? dim-i : i+1);
-        int min = getArrayDimensionRangeMin(shape,d);
-        int max = getArrayDimensionRangeMax(shape,d);
+        int d = (shape->isFortran() ? dim-i : i+1);
+        auto [min, max] = shape->getArrayDimensionRange(d);
 
         size_t len = (max-min+1);
         offset *= len;
@@ -222,14 +221,14 @@ bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bo
 // is the most likely place.
 AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
 {
-    arrayDimension_t* shape = getShape();
+    auto shape = getShape();
     if (!shape) {
         warning("no shape in joinAIFFromSlices");
         return nullptr;
     }
 
-    bool isFortran = shape->isFortran;
-    int dim = shape->dim;
+    bool isFortran = shape->isFortran();
+    int dim = shape->numDimensions();
 
     AIFIndex* index = AIFArrayIndexInit(slice);
 
@@ -240,8 +239,7 @@ AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
     for (int i=0; array && i<dim; ++i) {
         // need to work form innermost to outermost.  Note that arrayDimension used i=1.
         int d = (isFortran ? i+1 : dim-i);
-        int minIdx = getArrayDimensionRangeMin(shape, d);
-        int maxIdx = getArrayDimensionRangeMax(shape, d);
+        auto [minIdx, maxIdx] = shape->getArrayDimensionRange(d);
 
         AIF* nextArray = (isFortran ? EmptyFtnArrayToAIF(minIdx, maxIdx, array) :
                           EmptyArrayToAIF(minIdx, maxIdx, array));
@@ -254,7 +252,7 @@ AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
     return array;
 }
 
-arrayDimension_t* AIFStream::getShape() {
+const ArrayDimension* AIFStream::getShape() const {
     if (m_slices) {
         return m_slices->getFullShape();
     }

@@ -953,7 +953,7 @@ proto_session* ProxyClientProtocol::createSession(DebugClientProtocol * const pr
         case WLM_qsub:
         case WLM_sbatch: {
             char *guard_proxy_loc;
-            char **proxy_args;
+            ArgvStream proxy_args;
             char *proxy_arg_str;
             char *popen_cmd;
             FILE *jobStream;
@@ -967,12 +967,11 @@ proto_session* ProxyClientProtocol::createSession(DebugClientProtocol * const pr
             }
 
             proxy_args =
-                NewArgv(guard_proxy_loc, "-h", lhost, "-p", lport, NULL);
+                ArgvStream(guard_proxy_loc, "-h", lhost, "-p", lport);
             // stringify the proxy_args array
-            proxy_arg_str = ArgsToBuf(proxy_args, 5);
+            proxy_arg_str = proxy_args.createBuffer();
             // Cleanup
             Free(guard_proxy_loc);
-            FreeArgv(proxy_args);
 
             if ((PROXY_SESSION_JOBFILE(sess) =
                      parseBatchScript(batch_template, proxy_arg_str)) == NULL) {
@@ -1405,8 +1404,8 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 ** Invoke user program through proxy daemon
 */
 int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
-                          const char *prog, char **argv, const char *arch,
-                          char **arch_args, const char *arch_input,
+                          const char *prog, const char * const *argv, const char *arch,
+                          const char * const *arch_args, const char *arch_input,
                           const char *backend, const char* gdb,  char **env, const char *cwd,
                           int gpu_flag, int debug_flag, int early_entry_flag,
                           bool isNonStop) {

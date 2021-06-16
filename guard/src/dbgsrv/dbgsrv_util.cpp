@@ -450,7 +450,7 @@ uint32_t _perform_hash(char *datastr, char *fds, int *hash_bound,
     return result;
 }
 
-AIF *PerformHashMI(char *datastr, char *type, arrayDimension_t *shape,
+AIF *PerformHashMI(char *datastr, char *type, const ArrayDimension *shape,
                    char *hashinfo, int hashfunc, int precision_lower,
                    int precision_upper) {
     AIF *result = NULL;
@@ -483,17 +483,21 @@ AIF *PerformHashMI(char *datastr, char *type, arrayDimension_t *shape,
         return result;
     }
 
-    rank = shape->dim;
+    if (!shape) {
+        DVPRINT("*** PerformHashMI: null shape passed\n");
+        return nullptr;
+    }
+
+    rank = shape->numDimensions();
 
     hash_bound = (int *)Alloc(rank * sizeof(int));
     data_bound_max = (int *)Alloc(rank * sizeof(int));
     tmparray = (int *)Alloc(rank * sizeof(int));
 
     // value of data_bound_max
-    j = rank - 1;
     for (i = 0; i < rank; i++) {
-        data_bound_max[i] = shape->dimDef[j];
-        j--;
+        // ArrayDimension indexing starts at 1
+        data_bound_max[i] = shape->getArrayDimension(i + 1);
     }
 
     tok = strtok(hashinfo, ",");

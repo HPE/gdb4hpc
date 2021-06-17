@@ -152,17 +152,17 @@ if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
     echo "############################################"
 else
     echo "############################################"
-    echo "#          Building cuda gdb 10.1          #"
+    echo "#          Building cuda gdb 11.0          #"
     echo "############################################"
 
     # we've already ensured python3 exists, just noting it's necessary here too.
     # ensure submodule is checked out
-    if [[ ! -f $top_level/external/ddt_cuda-gdb-101/README ]]; then
-        echo "cuda gdb 10.1 submodule not checked out..."
+    if [[ ! -f $top_level/external/ddt_cuda-gdb-11.0/README ]]; then
+        echo "cuda gdb 11.0 submodule not checked out..."
         exit 1
     fi
 
-    cd $top_level/external/ddt_cuda-gdb-101
+    cd $top_level/external/ddt_cuda-gdb-11.0
     check_exit_status
 
     cuda_install_dir=$install_dir/cuda_gdb_install
@@ -184,13 +184,14 @@ else
 
     # as in ddt_gdb-8.1, the cuda gdb build comes with LOTS of extra stuff: we don't
     # want all of cuda gdb to install, so we only install from the gdb directory.
-    cd $top_level/external/ddt_cuda-gdb-101/gdb
-    check_exit_status
+    # the gdb directory does not have a make in 11.0
+    #cd $top_level/external/ddt_cuda-gdb-11.0/gdb
+    #check_exit_status
     make $cdst_j_flags install
     check_exit_status
 
     # deliver cuda gdb to libexec dir
-    cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda101-gdb-guard
+    cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda110-gdb-guard
     check_exit_status
 fi
 

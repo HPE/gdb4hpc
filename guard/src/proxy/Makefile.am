@@ -33,7 +33,7 @@ endif
 # Check for ZMQNet libraries
 if ZMQN
 AM_CXXFLAGS		+= -I$(ZMQNET)/include
-ZMQN_LIBS 		= -L$(ZMQNET)/lib -lzmqnet
+ZMQN_LIBS 		= -L$(ZMQNET)/lib -lzmqnet -lkj -lcapnp
 endif
 
 # Check for gdb-mi libraries

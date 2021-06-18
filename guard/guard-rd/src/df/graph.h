@@ -160,7 +160,7 @@ struct graph_t {
     int (*g_display_p2p)(struct graph_t *, int, char *, AIF *);
     int (*g_compare)(struct graph_t *, int, char *, AIF *, char *, AIF *, int);
     void (*g_dbgout)(char *, int, int, void *);
-    int (*g_dbgevent)(event_set_t *, bitset *);
+    int (*g_dbgevent)(event_set_t *, const bitset *);
 };
 typedef struct graph_t graph_t;
 

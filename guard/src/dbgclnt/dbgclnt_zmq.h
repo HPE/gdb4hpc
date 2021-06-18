@@ -16,12 +16,12 @@
 namespace {
 class ZMQNetAttachHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
 };
 
 class ZMQNetLaunchHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
 };
 } // private namespace
 
@@ -47,13 +47,13 @@ public:
         const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
         bool isNonStop) override;
 
-    int exit(struct dbginvoke *, int detach) override;
+int exit(struct dbginvoke *, int detach) override;
 
-    bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+    bitset* sendCommand(struct dbginvoke *di, const bitset *target, 
         const char *request) override;
 
-    struct proto_msg_set* receiveReply(struct dbginvoke *di, 
-        bitset *target, bitset *received) override;
+    std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+        const bitset *target, bitset *received) override;
 
     int init() override;
     
@@ -64,8 +64,8 @@ private:
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
     std::unique_ptr<zmqnet::Stream> m_command_stream;
 
-    std::string m_command_result;
     std::mutex m_command_result_lock;
+    zmqnet::ByteArray m_command_result;
     std::condition_variable m_command_result_cv;
     bool m_command_result_ready;
 };

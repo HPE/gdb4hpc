@@ -39,7 +39,7 @@
 /*
 ** Functions defined in main.c
 */
-extern int EventCB(event_set_t *, bitset *);
+extern int EventCB(event_set_t *, const bitset *);
 extern void ForceQuit(void);
 
 /*

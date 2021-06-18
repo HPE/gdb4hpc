@@ -44,32 +44,6 @@ char *StripQuotes(char *s) {
     return s;
 }
 
-char *skipspace(char *s) {
-    if (s == NULL) {
-        return NULL;
-    }
-
-    while (isspace((int)*s)) {
-        s++;
-    }
-
-    return s;
-}
-
-char *SkipTo(char *str, char c) {
-    if (str == NULL) return NULL;
-
-    return strchr(str, c);
-}
-
-char *SkipNum(char *str) {
-    if (str == NULL) return NULL;
-
-    while (*str != '\0' && isdigit((int)*str)) str++;
-
-    return str;
-}
-
 /*
 ** Convert an ascii number to a number. NOTE: silently truncates
 ** the number to fit in sizeof int.

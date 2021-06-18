@@ -37,9 +37,9 @@ extern char *EventToSocProto(dbgevent_t *);
 ** The following define functions for converting from network protocol
 */
 // TODO: Make this static, everything should be an event or a command
-extern AIF *SocProtoToAIF(char *);
+extern AIF *SocProtoToAIF(const char *);
 // Network proto string to event functions.
-extern dbgevent_t *SocProtoToEvent(char *);
+extern dbgevent_t *SocProtoToEvent(const char *);
 
 // String assembler class for CommandToSocProto -- it just needs to define an
 // overrider for every type used as a command argument

@@ -30,7 +30,7 @@
 // FIXME: I don't know how they came up with this number. Whatever.
 #define INVOKE_TABLE_SIZE 7 /* 2^7 = 128 */
 
-extern int NodeEvent(event_set_t *, bitset *);
+extern int NodeEvent(event_set_t *, const bitset *);
 
 /*
 ** Create a new graph.

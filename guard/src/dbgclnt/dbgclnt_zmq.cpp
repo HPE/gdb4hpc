@@ -13,6 +13,9 @@
 #include "bitset.h"
 #include "useful.h"
 
+#include "dbg_zmq.capnp.h"
+#include "capnp/serialize.h"
+
 #include "common_tools_fe.h"
 
 // TODO wrap this in #if DEBUG
@@ -47,7 +50,7 @@ int ZMQNetClientProtocol::init() {
     return 1;
 }
 
-bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
+bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -72,9 +75,13 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
     return bitset_dup(target);
 }
 
-struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
-                                            bitset *target, bitset *received) {
+std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
+                                            const bitset *target, bitset *received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (di->d_isShutdown) {
+        return {};
+    }
 
     // TODO respect target
     // TODO update received
@@ -86,14 +93,25 @@ struct proto_msg_set* ZMQNetClientProtocol::receiveReply(dbginvoke_t *di,
     m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
 
     auto reply = std::move(m_command_result);
-    m_command_result.clear();
     m_command_result_ready = false;
     
-    LOG("got reply: %s\n", reply.c_str());
+    // unpack
+    assert(reply.size() != 0);
+    assert(reply.size() % sizeof(capnp::word) == 0);
+    auto words_ptr = reinterpret_cast<capnp::word const *>(reply.begin());
+    auto words_size = reply.size() / sizeof(capnp::word);
+    auto words_array = kj::arrayPtr(words_ptr, words_size);
+
+    auto reader = capnp::UnalignedFlatArrayMessageReader(words_array);
+    auto pack = reader.getRoot<ZmqnetMessagePackage>();
+
+    // TODO fully unpack
+
+    LOG("got reply: %s\n", pack.getMessages()[0].getData().cStr());
 
     // TODO process reply
 
-    return nullptr;
+    return {};
 }
 
 void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
@@ -156,7 +174,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
-    // user can specify a custom gdb binary and a (full path) datadir
     auto serverGdb = shipGdb(manifest_id, gdb);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
@@ -229,7 +246,11 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
             fprintf(stderr, "command_callback: %d %s\n", streamId, result.asBytes().begin());
 
             std::unique_lock<std::mutex> lock(m_command_result_lock);
-            m_command_result = std::string{result.asChars().begin(), result.size()};
+
+            // copies data and destroys any data that was in the array previously
+            m_command_result = zmqnet::make_ByteArray(result.begin(), result.size());
+
+            // notify a thread waiting for the result, if present
             m_command_result_ready = true;
             lock.unlock();
             m_command_result_cv.notify_one();
@@ -282,12 +303,12 @@ int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
     return DebugClientProtocol::exit(di, detach);
 }
 
-int ZMQNetAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+int ZMQNetAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     LOG("ZMQNetAttachHandler::handleEvent\n");
     return 0;
 }
 
-int ZMQNetLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
+int ZMQNetLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     LOG("ZMQNetAttachHandler::handleEvent\n");
     return 0;
 }

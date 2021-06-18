@@ -165,14 +165,14 @@ extern void FreeAttachArgs(attach_args *args);
 extern launch_args *NewLaunchArgs(void);
 extern void FreeLaunchArgs(launch_args *args);
 
-extern proto_message *SocProtoToProtoMsg(char *);
+extern std::optional<ProtoMessage> SocProtoToProtoMsg(char *);
 extern recv_type *SocProtoToRecv(char *);
 extern attach_args *SocProtoToAttachArgs(char *);
 extern launch_args *SocProtoToLaunchArgs(char *);
 extern int SocProtoToExitArgs(char *);
 
-extern char *ProtoMsgToSocProto(proto_message *);
-extern char *RecvToSocProto(bitset *target, bitset *recv);
+extern char *ProtoMsgToSocProto(const ProtoMessage&);
+extern char *RecvToSocProto(const bitset *target, bitset *recv);
 extern char *AttachArgsToSocProto(const char *app_ident, const char *arch,
                                   const char *backend, int gpu_flag,
                                   int debug_flag);

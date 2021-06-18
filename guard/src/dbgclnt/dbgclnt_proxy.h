@@ -8,12 +8,12 @@
 namespace {
 class ProxyAttachHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
 };
 
 class ProxyLaunchHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, proto_msg_set *set) override;
+    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
 };
 } // private namespace
 
@@ -38,11 +38,11 @@ public:
 
     int exit(struct dbginvoke *di, int detach) override;
 
-    bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+    bitset* sendCommand(struct dbginvoke *di, const bitset *target, 
         const char *request) override;
 
-    struct proto_msg_set* receiveReply(struct dbginvoke *di, 
-        bitset *target, bitset *received) override;
+    std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+        const bitset *target, bitset *received) override;
 
     int init() override;
     void finish() override;
@@ -72,7 +72,7 @@ private:
         int instruction_len, int num_prompts,
         const LIBSSH2_USERAUTH_KBDINT_PROMPT *prompts,
         LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses, void **abstract);
-    proto_msg_set *recvProtoMsg(int net_fd);
+    std::optional<ProtoMessageSet> recvProtoMsg(int net_fd);
 
     // Proxy specific variables
     int callback_failure = 0;

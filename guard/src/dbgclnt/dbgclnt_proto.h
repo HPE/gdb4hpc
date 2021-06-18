@@ -68,12 +68,12 @@ struct proto_session {
 class DebugClientProtocolEventHandler {
 public:
     virtual ~DebugClientProtocolEventHandler() = default;
-    virtual int handleEvent(dbginvoke *di, proto_msg_set* set) = 0;
+    virtual int handleEvent(dbginvoke *di, const ProtoMessageSet &set) = 0;
 };
 
 class DebugClientDefaultProtocolEventHandler : public DebugClientProtocolEventHandler{
 public:
-    int handleEvent(dbginvoke *di, proto_msg_set* set) override;
+    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
 };
 
 // main protocol definition
@@ -100,11 +100,11 @@ public:
 
     virtual int exit(struct dbginvoke *di, int detach);
 
-    virtual bitset* sendCommand(struct dbginvoke *di, bitset *target, 
+    virtual bitset* sendCommand(struct dbginvoke *di, const bitset *target, 
         const char *request) = 0;
 
-    virtual struct proto_msg_set* receiveReply(struct dbginvoke *di, 
-        bitset *target, bitset *received) = 0;
+    virtual std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+        const bitset *target, bitset *received) = 0;
 
     // optional functions:
     virtual int init() { return 1; }; // success by default
@@ -131,7 +131,7 @@ protected:
     // callback related
     virtual void outputCallback(dbginvoke *di, FILE *f);
     void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
-    int handleProtocolEvent(dbginvoke *di, proto_msg_set* set);
+    int handleProtocolEvent(dbginvoke *di, const ProtoMessageSet &set);
 
     // called by derived classes' constructors to register themselves
     void registerProtocol();

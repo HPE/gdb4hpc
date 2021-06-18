@@ -29,9 +29,8 @@
 #include "useful.h"
 
 // Static prototypes
-static char *getstring(char **);
-static char *skipstring(char*);
-static int getint(char **);
+static char *getstring(const char *&);
+static int getint(const char *&);
 
 static inline const char* StrSoc(const char* s) {
     return s ? s : "";
@@ -53,19 +52,19 @@ static char *EventFrameToSocProtoL(const dbgframe_t *);
 static char *EventLocToSocProtoL(dbgloc_t *);
 static char *EventDataToSocProto(dbgev, AIFStream *);
 
-static dbgerr_t SocProtoToErr(char *);
-static dbgloc_t *SocProtoToLoc(char *);
-static dbgvars_t *SocProtoToVars(char *);
-static dbglist_t *SocProtoToList(char *);
-static dbgbp_t *SocProtoToBP(char *);
-static dbgsig_t SocProtoToSig(char *);
-static dbgframe_t *SocProtoToFrame(char *);
-static char *SocProtoToString(char *);
-static dbgstatus_t *SocProtoToStatus(char *);
-static dbgvers_t SocProtoToVers(char *);
-static int SocProtoToInt(char *);
-static dbgsources_t *SocProtoToSources(char *);
-static AIFStream *SocProtoToAIFStream(char *);
+static dbgerr_t SocProtoToErr(const char *);
+static dbgloc_t *SocProtoToLoc(const char *);
+static dbgvars_t *SocProtoToVars(const char *);
+static dbglist_t *SocProtoToList(const char *);
+static dbgbp_t *SocProtoToBP(const char *);
+static dbgsig_t SocProtoToSig(const char *);
+static dbgframe_t *SocProtoToFrame(const char *);
+static char *SocProtoToString(const char *);
+static dbgstatus_t *SocProtoToStatus(const char *);
+static dbgvers_t SocProtoToVers(const char *);
+static int SocProtoToInt(const char *);
+static dbgsources_t *SocProtoToSources(const char *);
+static AIFStream *SocProtoToAIFStream(const char *);
 
 #define NULL_GUARD(s)              \
     if (s == NULL || *s == '\0') { \
@@ -122,29 +121,29 @@ static char* MakeSocStr(dbgev ev, const char* fmt, ...) {
     return str;
 }
 
-static int getint(char **res_buf) {
+static int getint(const char *&res_buf) {
     int digit;
     char *endptr = NULL;
 
-    *res_buf = skipspace(*res_buf);
+    res_buf = skipspace(res_buf);
 
     // Get the digit
-    digit = (int)strtol(*res_buf, &endptr, 10);
+    digit = (int)strtol(res_buf, &endptr, 10);
 
-    *res_buf = endptr;
+    res_buf = endptr;
 
     return digit;
 }
 
-static char *getstring(char **res_buf) {
+static char *getstring(const char *&res_buf) {
     int len;
     char *endptr = NULL;
     char *res;
 
-    *res_buf = skipspace(*res_buf);
+    res_buf = skipspace(res_buf);
 
     // First get the length of the string - Note that this can be 0
-    len = (int)strtol(*res_buf, &endptr, 10);
+    len = (int)strtol(res_buf, &endptr, 10);
 
     // Skip past the space between the length and the start of the string
     ++endptr;
@@ -160,23 +159,9 @@ static char *getstring(char **res_buf) {
     res[len] = '\0';
 
     // set res_buf past string
-    *res_buf = endptr + len;
+    res_buf = endptr + len;
 
     return res;
-}
-
-static char *skipstring(char *res_buf) {
-    char *endptr = NULL;
-
-    res_buf = skipspace(res_buf);
-
-    // get the length of the string - Note that this can be 0
-    int len = (int)strtol(res_buf, &endptr, 10);
-    // set res_buf past string
-    // + 1 for the space in between the size and string
-    res_buf = endptr + len + 1;
-
-    return res_buf;
 }
 
 /*******************************
@@ -626,7 +611,7 @@ std::string OSocStream::str() {
 ** an event
 */
 
-static dbgerr_t SocProtoToErr(char *s) {
+static dbgerr_t SocProtoToErr(const char *s) {
     dbgerr_t res;
     char *tmp_str;
 
@@ -638,10 +623,10 @@ static dbgerr_t SocProtoToErr(char *s) {
     }
 
     // Get the errno
-    res.err_errno = (dbgerr)getint(&s);
+    res.err_errno = (dbgerr)getint(s);
 
     // Get the errstr
-    res.err_str = getstring(&s);
+    res.err_str = getstring(s);
 
     // Don't want to modify the err_str if its length is 0
     if (strlen(res.err_str) == 0) {
@@ -660,7 +645,7 @@ static dbgerr_t SocProtoToErr(char *s) {
     return res;
 }
 
-static dbgloc_t *SocProtoToLoc(char *s) {
+static dbgloc_t *SocProtoToLoc(const char *s) {
     dbgloc_t *res;
     char *tmp_file;
 
@@ -670,10 +655,10 @@ static dbgloc_t *SocProtoToLoc(char *s) {
     res = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
 
     // set the members
-    res->loc_file = getstring(&s);
-    res->loc_func = getstring(&s);
-    res->loc_addr = getstring(&s);
-    res->loc_line = getint(&s);
+    res->loc_file = getstring(s);
+    res->loc_func = getstring(s);
+    res->loc_addr = getstring(s);
+    res->loc_line = getint(s);
 
     // We should try to resolve the realpath of file on this end. If it fails,
     // we will use the original value.
@@ -687,7 +672,7 @@ static dbgloc_t *SocProtoToLoc(char *s) {
     return res;
 }
 
-static dbgvars_t *SocProtoToVars(char *s) {
+static dbgvars_t *SocProtoToVars(const char *s) {
     dbgvars_t *res = NULL;
     dbgvars_t **vp;
 
@@ -700,8 +685,8 @@ static dbgvars_t *SocProtoToVars(char *s) {
         *vp = (dbgvars_t *)Alloc(sizeof(dbgvars_t));
         memset(*vp, 0, sizeof(dbgvars_t));
 
-        (*vp)->var_name = getstring(&s);
-        (*vp)->var_type = getstring(&s);
+        (*vp)->var_name = getstring(s);
+        (*vp)->var_type = getstring(s);
         (*vp)->var_next = (dbgvars_t *)NULL;
 
         vp = &(*vp)->var_next;
@@ -710,7 +695,7 @@ static dbgvars_t *SocProtoToVars(char *s) {
     return res;
 }
 
-AIF *SocProtoToAIF(char *s) {
+AIF *SocProtoToAIF(const char *s) {
     AIF *res;
     char *aif_fmt;
     int dl;
@@ -724,7 +709,7 @@ AIF *SocProtoToAIF(char *s) {
     res = (AIF *)Alloc(sizeof(AIF));
 
     // get the format
-    aif_fmt = getstring(&s);
+    aif_fmt = getstring(s);
 
     // set the format
     if (*aif_fmt != '\0') {
@@ -735,14 +720,14 @@ AIF *SocProtoToAIF(char *s) {
     }
 
     // get the length of the actual aif data
-    dl = getint(&s);
+    dl = getint(s);
     AIF_LEN(res) = dl;
 
     if (dl <= 0) {
         AIF_DATA(res) = (char *)NULL;
     } else {
         // Get the aif_data string
-        aif_data = getstring(&s);
+        aif_data = getstring(s);
 
         if (*aif_data == '\0') {
             // Data is empty, so reset to empty
@@ -767,7 +752,7 @@ AIF *SocProtoToAIF(char *s) {
     return res;
 }
 
-static AIFStream *SocProtoToAIFStream(char *s) {
+static AIFStream *SocProtoToAIFStream(const char *s) {
     // extract AIF
     AIF *aif = SocProtoToAIF(s);
 
@@ -776,19 +761,19 @@ static AIFStream *SocProtoToAIFStream(char *s) {
     s = skipstring(s);
 
     // skip data size
-    getint(&s);
+    getint(s);
 
     // skip data string
     s = skipstring(s);
 
-    size_t truncationLen = (size_t)getint(&s);
+    size_t truncationLen = (size_t)getint(s);
     AIFStream *result = new AIFStream(aif);
     result->setTruncatedLength(truncationLen);
 
     return result;
 }
 
-static dbglist_t *SocProtoToList(char *s) {
+static dbglist_t *SocProtoToList(const char *s) {
     dbglist_t *res = NULL;
     dbglist_t **lp;
 
@@ -801,8 +786,8 @@ static dbglist_t *SocProtoToList(char *s) {
         *lp = (dbglist_t *)Alloc(sizeof(dbglist_t));
         memset(*lp, 0, sizeof(dbglist_t));
 
-        (*lp)->list_lno = getint(&s);
-        (*lp)->list_line = getstring(&s);
+        (*lp)->list_lno = getint(s);
+        (*lp)->list_line = getstring(s);
         (*lp)->list_threads = nullptr;
         (*lp)->list_next = (dbglist_t *)NULL;
 
@@ -812,7 +797,7 @@ static dbglist_t *SocProtoToList(char *s) {
     return res;
 }
 
-static dbgbp_t *SocProtoToBP(char *s) {
+static dbgbp_t *SocProtoToBP(const char *s) {
     dbgbp_t *res;
     int id;
     int simple;
@@ -821,37 +806,37 @@ static dbgbp_t *SocProtoToBP(char *s) {
     NULL_GUARD(s);
 
     // Get the breakpoint id
-    id = getint(&s);
+    id = getint(s);
 
     // Create the new breakpoint
     res = NewBP(id);
 
     // Get value of simplified
-    simple = getint(&s);
+    simple = getint(s);
 
     // simple breakpoints don't contain this information
     if (!simple) {
-        res->bp_pending = getint(&s);
-        res->bp_ignore = getint(&s);
-        res->bp_hits = getint(&s);
-        res->bp_stmt = getstring(&s);
+        res->bp_pending = getint(s);
+        res->bp_ignore = getint(s);
+        res->bp_hits = getint(s);
+        res->bp_stmt = getstring(s);
     }
 
-    res->bp_enabled = getint(&s);
-    res->bp_disp = (dbgbp_disp)getint(&s);
-    res->bp_type = (dbgbp_type)getint(&s);
-    res->bp_loc.loc_file = getstring(&s);
-    res->bp_loc.loc_func = getstring(&s);
+    res->bp_enabled = getint(s);
+    res->bp_disp = (dbgbp_disp)getint(s);
+    res->bp_type = (dbgbp_type)getint(s);
+    res->bp_loc.loc_file = getstring(s);
+    res->bp_loc.loc_func = getstring(s);
 
     // simple breakpoints don't contain this information
     if (!simple) {
-        res->bp_loc.loc_addr = getstring(&s);
+        res->bp_loc.loc_addr = getstring(s);
     }
 
-    res->bp_loc.loc_line = getint(&s);
-    res->bp_exp = getstring(&s);
+    res->bp_loc.loc_line = getint(s);
+    res->bp_exp = getstring(s);
 
-    char* t = getstring(&s);
+    char* t = getstring(s);
     if (t && !t[0]) {
         free(t);
         t = nullptr;
@@ -872,7 +857,7 @@ static dbgbp_t *SocProtoToBP(char *s) {
     return res;
 }
 
-static dbgsig_t SocProtoToSig(char *s) {
+static dbgsig_t SocProtoToSig(const char *s) {
     dbgsig_t res;
     char *fstr;
 
@@ -885,20 +870,20 @@ static dbgsig_t SocProtoToSig(char *s) {
     }
 
     // get the type
-    res.sig_type = getstring(&s);
+    res.sig_type = getstring(s);
 
     // get the line
-    res.sig_line = getstring(&s);
+    res.sig_line = getstring(s);
 
     // get the frame string and convert it to a frame pointer
-    fstr = getstring(&s);
+    fstr = getstring(s);
     res.sig_frame = SocProtoToFrame(fstr);
     Free(fstr);
 
     return res;
 }
 
-static dbgframe_t *SocProtoToFrame(char *s) {
+static dbgframe_t *SocProtoToFrame(const char *s) {
     NULL_GUARD(s);
 
     dbgframe_t *res = nullptr, *tail = nullptr, *threadTail = nullptr;
@@ -906,14 +891,14 @@ static dbgframe_t *SocProtoToFrame(char *s) {
     // Loop until we find a null terminator
     for (; *s != '\0'; s = skipspace(s)) {
         auto loc = dbgloc_t{};
-        auto level = getint(&s);
-        loc.loc_file = getstring(&s);
-        loc.loc_func = getstring(&s);
-        loc.loc_addr = getstring(&s);
-        loc.loc_line = getint(&s);
+        auto level = getint(s);
+        loc.loc_file = getstring(s);
+        loc.loc_func = getstring(s);
+        loc.loc_addr = getstring(s);
+        loc.loc_line = getint(s);
 
-        auto newThread = getint(&s);
-        auto threads = getstring(&s);
+        auto newThread = getint(s);
+        auto threads = getstring(s);
 
         // We should try to resolve the realpath of file on this end. If it
         // fails, we will use the original value.
@@ -943,7 +928,7 @@ static dbgframe_t *SocProtoToFrame(char *s) {
     return res;
 }
 
-dbgstep_t SocProtoToStep(char *s) {
+dbgstep_t SocProtoToStep(const char *s) {
     // FIXME: No way to check for error.......
     dbgstep_t res;
     char *fstr;
@@ -957,32 +942,32 @@ dbgstep_t SocProtoToStep(char *s) {
     }
 
     // get the lno
-    res.step_lno = getint(&s);
+    res.step_lno = getint(s);
 
     // get the line
-    res.step_line = getstring(&s);
+    res.step_line = getstring(s);
 
     // get the frame string
-    fstr = getstring(&s);
+    fstr = getstring(s);
     res.step_frame = SocProtoToFrame(fstr);
     Free(fstr);
 
     return res;
 }
 
-static char *SocProtoToString(char *s) {
+static char *SocProtoToString(const char *s) {
     char *res;
 
     if (s == NULL || *s == '\0') {
         return strdup("");
     }
 
-    res = getstring(&s);
+    res = getstring(s);
 
     return res;
 }
 
-static dbgstatus_t *SocProtoToStatus(char *s) {
+static dbgstatus_t *SocProtoToStatus(const char *s) {
     dbgstatus_t *res;
     char *lstr;
 
@@ -991,17 +976,17 @@ static dbgstatus_t *SocProtoToStatus(char *s) {
     // allocate the res
     res = (dbgstatus_t *)Alloc(sizeof(dbgstatus_t));
 
-    res->stat = (dbgstat)getint(&s);
+    res->stat = (dbgstat)getint(s);
 
     // get the location string and convert it to a loc pointer
-    lstr = getstring(&s);
+    lstr = getstring(s);
     res->stat_loc = SocProtoToLoc(lstr);
     Free(lstr);
 
     return res;
 }
 
-static dbgvers_t SocProtoToVers(char *s) {
+static dbgvers_t SocProtoToVers(const char *s) {
     dbgvers_t res;
 
     if (s == NULL || *s == '\0') {
@@ -1011,27 +996,27 @@ static dbgvers_t SocProtoToVers(char *s) {
     }
 
     // Get the version string
-    res.vers_version = getstring(&s);
+    res.vers_version = getstring(s);
 
     // Get the arch string
-    res.vers_arch = getstring(&s);
+    res.vers_arch = getstring(s);
 
     return res;
 }
 
-static int SocProtoToInt(char *s) {
+static int SocProtoToInt(const char *s) {
     int res;
 
     if (s == NULL || *s == '\0') {
         return 0;
     }
 
-    res = getint(&s);
+    res = getint(s);
 
     return res;
 }
 
-static dbgsources_t *SocProtoToSources(char *s) {
+static dbgsources_t *SocProtoToSources(const char *s) {
     dbgsources_t *res = NULL;
     dbgsources_t **sp;
 
@@ -1044,7 +1029,7 @@ static dbgsources_t *SocProtoToSources(char *s) {
         *sp = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
         memset(*sp, 0, sizeof(dbgsources_t));
 
-        (*sp)->sources_file = getstring(&s);
+        (*sp)->sources_file = getstring(s);
         (*sp)->sources_next = (dbgsources_t *)NULL;
 
         sp = &(*sp)->sources_next;
@@ -1058,7 +1043,7 @@ static dbgsources_t *SocProtoToSources(char *s) {
 ** an event.
 */
 
-dbgevent_t *SocProtoToEvent(char *s) {
+dbgevent_t *SocProtoToEvent(const char *s) {
     dbgevent_t *e;
     dbgev ev;
     char *evdata;
@@ -1081,7 +1066,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
     }
 
     // We expect the first entry to be an int which is the dbgev
-    ev = (dbgev)getint(&s);
+    ev = (dbgev)getint(s);
 
     // Create the event
     e = NewEvent(ev);
@@ -1098,7 +1083,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
 
         case DBGEV_ERROR:
             // Get the string and convert to dbgerr_t
-            evdata = getstring(&s);
+            evdata = getstring(s);
             st_err = SocProtoToErr(evdata);
             Free(evdata);
             // Set the event members
@@ -1112,7 +1097,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_CMD:
         case DBGEV_THREADINFO:
             // Get the string and convert to char * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_string = SocProtoToString(evdata);
             Free(evdata);
             break;
@@ -1120,7 +1105,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
         // This handles the generic int events
         case DBGEV_EXIT:
             // Get the string and convert to int and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_int = SocProtoToInt(evdata);
             Free(evdata);
             break;
@@ -1130,14 +1115,14 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_BPDEL:
         case DBGEV_BPHIT:
             // Get the string and convert to dbgbp_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_bp = SocProtoToBP(evdata);
             Free(evdata);
             break;
 
         case DBGEV_SIGNAL:
             // Get the string and convert to dbgsig_t
-            evdata = getstring(&s);
+            evdata = getstring(s);
             st_sig = SocProtoToSig(evdata);
             Free(evdata);
             // Set the sig members
@@ -1149,14 +1134,14 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_HALT:
         case DBGEV_LOC:
             // get the string and convert to dbgloc_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_loc = SocProtoToLoc(evdata);
             Free(evdata);
             break;
 
         case DBGEV_STEP:
             // Get the string and convert to dbgstep_t
-            evdata = getstring(&s);
+            evdata = getstring(s);
             st_step = SocProtoToStep(evdata);
             Free(evdata);
             // Set step members
@@ -1167,28 +1152,28 @@ dbgevent_t *SocProtoToEvent(char *s) {
 
         case DBGEV_STAT:
             // Get the string and convert to dbgstatus_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_status = SocProtoToStatus(evdata);
             Free(evdata);
             break;
 
         case DBGEV_FRAME:
             // Get the string and convert to dbgframe_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_frame = SocProtoToFrame(evdata);
             Free(evdata);
             break;
 
         case DBGEV_VARS:
             // Get the string and convert to dbgvars_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_vars = SocProtoToVars(evdata);
             Free(evdata);
             break;
 
         case DBGEV_LIST:
             // Get the string and convert to dbglist_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_list = SocProtoToList(evdata);
             Free(evdata);
             break;
@@ -1196,14 +1181,14 @@ dbgevent_t *SocProtoToEvent(char *s) {
         case DBGEV_DATA:
         case DBGEV_DATA_SLICE:
             // Get the string and convert to AIF * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_data = SocProtoToAIFStream(evdata);
             Free(evdata);
             break;
 
         case DBGEV_VERS:
             // Get the string and conver to dbgvers_t
-            evdata = getstring(&s);
+            evdata = getstring(s);
             st_vers = SocProtoToVers(evdata);
             Free(evdata);
             // Set vers
@@ -1213,7 +1198,7 @@ dbgevent_t *SocProtoToEvent(char *s) {
 
         case DBGEV_SOURCES:
             // Get the string and convert to dbgsources_t * and set directly
-            evdata = getstring(&s);
+            evdata = getstring(s);
             e->ev_sources = SocProtoToSources(evdata);
             Free(evdata);
             break;

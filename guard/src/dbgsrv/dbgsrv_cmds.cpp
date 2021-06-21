@@ -481,7 +481,7 @@ ISocStream& ISocStream::operator>>(AIFPtr& aif) {
     *this >> aifStr;
 
     // FIXME - probably move this function to this file...
-    aif.reset( SocProtoToAIF(const_cast<char*>(aifStr.c_str())));
+    aif.reset( SocProtoToAIF(aifStr.c_str()));
     return *this;
 }
 ISocStream& ISocStream::operator>>(CmdArgs& args) {

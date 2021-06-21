@@ -5,12 +5,18 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <iostream>
 
 #include "zmqnet.hpp"
 
 #include "dbgsrv_zmq.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_cmds.h"
+
+#include "dbg_zmq.capnp.h"
+
+#include "capnp/message.h"
+#include "capnp/serialize.h"
 
 #define LOG(...) (debug_flag ? _dvprint(__VA_ARGS__) : (void)0)
 
@@ -104,7 +110,7 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
                 LOG("zmqnet: got result: \"%s\"\n", result.get());
 
                 return result ? 
-                    zmqnet::make_ByteArray(result.get(), std::strlen(result.get()))
+                    packResult(std::move(result))
                     :
                     zmqnet::make_ByteArray("", 1)
                 ;
@@ -261,4 +267,31 @@ bool ZMQNetServerProtocol::decEventFlag() {
     } while (nread <= 0 && !fatal_error);
 
     return !fatal_error;
+}
+
+// private /////////////////////////////////////////////////////////////////////
+
+zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
+    DVPRINT("backend: sending away \"%s\"", result.get());
+    
+    capnp::MallocMessageBuilder builder;
+    auto message_pack = builder.initRoot<ZmqnetMessagePackage>();
+    auto message = message_pack.initMessages(1)[0];
+
+    // data
+    message.setData(result.get()); // copy
+
+    // data hash
+    auto hash = std::hash<std::string>{}(result.get());
+    message.setHash(hash);
+
+    // TODO: generate real bitset
+    unsigned char fake_bitset[40] = "[i'm a fake bitset]";
+    auto bitset = message.initBitset(40);
+    memcpy(bitset.begin(), fake_bitset, 40); // copy
+
+    // pack
+    auto flat = capnp::messageToFlatArray(builder);
+
+    return zmqnet::make_ByteArray(flat.asBytes().begin(), flat.asBytes().size()); // copy
 }

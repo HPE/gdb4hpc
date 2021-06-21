@@ -341,25 +341,25 @@ void FreeLaunchArgs(launch_args *args) {
     Free(args);
 }
 
-proto_message *SocProtoToProtoMsg(char *s) {
+std::optional<ProtoMessage> SocProtoToProtoMsg(char *s) {
     char *bitset_str;
     char *msg_str;
-    proto_message *rtn;
+    std::optional<ProtoMessage> rtn;
 
-    if (s == NULL) {
-        return NULL;
+    if (s == nullptr) {
+        return {};
     }
 
     s = skipspace(s);
 
     if (*s == '\0') {
-        return NULL;
+        return {};
     }
 
     bitset_str = getstring(&s);
     msg_str = getstring(&s);
 
-    rtn = NewProtoMsg(str_to_bitset(bitset_str, NULL), msg_str);
+    rtn = ProtoMessage(str_to_bitset(bitset_str, nullptr), msg_str);
 
     Free(bitset_str);
 
@@ -468,24 +468,22 @@ int SocProtoToExitArgs(char *s) {
     return detach;
 }
 
-char *ProtoMsgToSocProto(proto_message *s) {
+char *ProtoMsgToSocProto(const ProtoMessage &s) {
     char *stres = NULL;
     char *bitset_str = NULL;
 
-    if (s == NULL) return NULL;
-
     // Convert the group to a string
-    bitset_str = bitset_to_str(s->group);
+    bitset_str = bitset_to_str(s.getBitset());
 
     Asprintf(&stres, "%d %s %d %s", (int)strlen(bitset_str), bitset_str,
-             (int)strlen(s->message), s->message);
+             (int)strlen(s.getMessage()), s.getMessage());
 
     Free(bitset_str);
 
     return stres;
 }
 
-char *RecvToSocProto(bitset *target, bitset *recv) {
+char *RecvToSocProto(const bitset *target, bitset *recv) {
     char *stres = NULL;
     char *target_str = NULL;
     char *recv_str = NULL;

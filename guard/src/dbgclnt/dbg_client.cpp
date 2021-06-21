@@ -76,13 +76,13 @@ static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
 //static void SetErrHeadInSet(rep_set_t *);
 //static group_reply_t *GetNextErrInSet(rep_set_t *);
-static event_set_t *NewEventSet(dbginvoke_t *, bitset *, dbgevent_t *);
+static event_set_t *NewEventSet(dbginvoke_t *, const bitset *, dbgevent_t *);
 static void FreeEventSet(event_set_t *);
 static void DestroyEventSet(dbginvoke_t *, dbgev);
-static event_set_t *AddEvent(dbginvoke_t *, bitset *, dbgevent_t *);
+static event_set_t *AddEvent(dbginvoke_t *, const bitset *, dbgevent_t *);
 static void CheckForFullEventSet(dbginvoke_t *, bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
-static void RemoveGroupFromAsyncSet(dbginvoke_t *, bitset *);
+static void RemoveGroupFromAsyncSet(dbginvoke_t *, const bitset *);
 static bp_disp_set_t *NewBPDispSet(bitset *, dbgbp_disp);
 static bp_id_set_t *NewBPIDSet(bitset *, int);
 static void FreeBPSet(bp_set_t *);
@@ -95,7 +95,7 @@ static void DisableBPForBPSet(bp_set_t *, bitset *);
 static void SetBPDispositionForBPSet(bp_set_t *, bitset *, dbgbp_disp);
 static void RemoveBPSet(dbginvoke_t *, bp_set_t *, bitset *);
 static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group);
+static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *group);
 static group_reply_t* JoinReplies(bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   const ArrayDimension* shape,
@@ -635,12 +635,12 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
 /*
 ** Create a new event set
 */
-static event_set_t *NewEventSet(dbginvoke_t *di, bitset *group,
+static event_set_t *NewEventSet(dbginvoke_t *di, const bitset *group,
                                 dbgevent_t *event) {
     event_set_t *eventset = (event_set_t *)Alloc(sizeof(event_set_t));
 
     eventset->e_di = di;
-    eventset->e_group = bitset_dup(group);  // duplicate group
+    eventset->e_group = bitset_dup(group);
     eventset->e_ev = DupEvent(event);
 
     return eventset;
@@ -677,7 +677,7 @@ static void DestroyEventSet(dbginvoke_t *di, dbgev ev) {
 /*
 ** Add a async event to an event set
 */
-static event_set_t *AddEvent(dbginvoke_t *di, bitset *group,
+static event_set_t *AddEvent(dbginvoke_t *di, const bitset *group,
                              dbgevent_t *event) {
     event_set_t *eventset;
 
@@ -776,7 +776,7 @@ static void ResetForAsyncCmd(rec_set_t *set) {
     }
 }
 
-static void RemoveGroupFromAsyncSet(dbginvoke_t *di, bitset *group) {
+static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const bitset *group) {
     if (di == nullptr || group == nullptr || async_set == nullptr) return;
 
     // Find entry for this di in the async_set
@@ -1129,7 +1129,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
     return 0;
 }
 
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
+static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *group) {
     assert(di != nullptr);
     assert (bp != nullptr);
     assert (group != nullptr);
@@ -1453,9 +1453,8 @@ void DbgDispatchEvents(void) {
 #endif /* RD */
 }
 
-int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
+int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgev last_event = DBGEV_NONE;
-    proto_message *msg;
     event_set_t *eventset = nullptr;
     dbgevent_t *event;
     bp_set_t *bp_set;
@@ -1463,12 +1462,9 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
     bitset *group;
     bp_disp_set_t *disp_set;
 
-    if (set == nullptr) return 0;
-
-    ResetProtoMsgSet(set);
-    while ((msg = NextProtoMsgInSet(set)) != nullptr) {
+    for (const auto &msg : set) {
         // convert this protocol msg string to an event
-        event = SocProtoToEvent(msg->message);
+        event = SocProtoToEvent(msg.getMessage());
 
         if (event == nullptr) {
             continue;
@@ -1483,7 +1479,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
                 // Handle special pre-processing for breakpoints
                 bp = EVENT_BP(event);
                 // Fixup any pending breakpoints
-                FixupPendingBPSetForBP(di, bp, msg->group);
+                FixupPendingBPSetForBP(di, bp, msg.getBitset());
                 if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
                     // if the breakpoint was a watchpoint we need to update the
                     // watchpoint locale information
@@ -1491,7 +1487,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
                         case DBGBP_WATCH_TYPE:
                         case DBGBP_AWATCH_TYPE:
                         case DBGBP_RWATCH_TYPE:
-                            bp_set->b_bp_watch_loc.add(msg->group, bp->bp_loc.loc_file, bp->bp_loc.loc_line, bp->bp_loc.loc_func);
+                            bp_set->b_bp_watch_loc.add(msg.getBitset(), bp->bp_loc.loc_file, bp->bp_loc.loc_line, bp->bp_loc.loc_func);
                             break;
 
                         default:
@@ -1514,12 +1510,12 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
         }
 
         // Handle async_set status for this message.
-        RemoveGroupFromAsyncSet(di, msg->group);
+        RemoveGroupFromAsyncSet(di, msg.getBitset());
 
-        eventset = AddEvent(di, msg->group, event);
+        eventset = AddEvent(di, msg.getBitset(), event);
 
         // This is the callback that was set by calling DbgHandleEvent
-        (*(di->d_clnt_ev_callback))(eventset, msg->group);
+        (*(di->d_clnt_ev_callback))(eventset, msg.getBitset());
 
         // conduct special post-processing for certain events
         switch (EVENT_EV(event)) {
@@ -1532,7 +1528,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        group = bitset_and(disp_set->b_group, msg->group);
+                        group = bitset_and(disp_set->b_group, msg.getBitset());
                         if (bitset_isempty(group)) {
                             bitset_free(group);
                             continue;
@@ -1565,7 +1561,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        group = bitset_and(disp_set->b_group, msg->group);
+                        group = bitset_and(disp_set->b_group, msg.getBitset());
                         if (bitset_isempty(group)) {
                             bitset_free(group);
                             continue;
@@ -2018,8 +2014,6 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
     dbginvoke_t *di = set->rec_di;
-    proto_msg_set *proto_res;
-    proto_message *msg;
     rep_set_t *reply;
     group_reply_t *rep;
     dbgevent_t *e;
@@ -2027,12 +2021,12 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
 
     bool isFinal = true;
 
-    proto_res =
+    auto proto_res =
         DBG_PROTO_SW(di)->receiveReply(di, set->rec_group, set->_cmd_sent);
 
     reply = NewRepSet();
 
-    if (proto_res == nullptr) {
+    if (!proto_res) {
         // Create a new error event based on this reply
         EVENT_ERROR(e, DBGERR_INTERNAL,
                     "Protocol returned null proto_msg_set.\n");
@@ -2044,15 +2038,15 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
     }
 
     // process the proto_res
-    while ((msg = NextProtoMsgInSet(proto_res)) != nullptr) {
+    for (const auto &msg : *proto_res) {
         // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
+        e = SocProtoToEvent(msg.getMessage());
         ev = EVENT_EV(e);
 
         switch (ev) {
             // Errors get added to the special error list
             case DBGEV_ERROR:
-                rep = NewGroupReply(di, bitset_dup(msg->group), e);
+                rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
                 // Add this error to the reply set
                 AddErrToSet(reply, rep);
                 break;
@@ -2066,7 +2060,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         e, DBGERR_INTERNAL,
                         "Received event of type %s, expected type %s.\n",
                         DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, bitset_dup(msg->group), e);
+                    rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
@@ -2087,22 +2081,18 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         e, DBGERR_INTERNAL,
                         "Received event of type %s, expected type %s.\n",
                         DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, bitset_dup(msg->group), e);
+                    rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
                 }
                 // Create a reply out of this event
-                rep = NewGroupReply(di, bitset_dup(msg->group), e);
+                rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
                 // Add this reply to the reply set
                 AddReplyToSet(reply, rep);
                 break;
         }
     }
-
-    // Free the proto set, we are done with it.
-    FreeProtoMsgSet(proto_res);
-
 
     // Check to see if there are no replies or errors in the reply set, if so we
     // want to return nullptr. This is because some of the event types have no

@@ -22,7 +22,7 @@ endif
 # Check for ZMQNet
 if ZMQN
 AM_CXXFLAGS += -I$(ZMQNET)/include
-ZMQNET_LIBS  = -L$(ZMQNET)/lib -lkj -lzmqnet
+ZMQNET_LIBS  = -L$(ZMQNET)/lib -lkj -lcapnp -lzmqnet
 ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 

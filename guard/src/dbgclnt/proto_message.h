@@ -1,7 +1,7 @@
 /******************************************************************************\
  * proto_message.h - protocol message interface
  *
- * Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -9,38 +9,60 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  ******************************************************************************/
 
-#ifndef _PROTO_MESSAGE_H
-#define _PROTO_MESSAGE_H
+#pragma once
+
+#include <vector>
+
+#include <stdlib.h>
 
 #include "bitset.h"
-#include "list.h"
 
-// Used to pass unprocessed message strings up to the dbgclnt layer.
-struct proto_message {
-    bitset *group;
-    char *message;
+class ProtoMessage {
+public:
+    // takes ownership of group and message
+    ProtoMessage(bitset* group, char* message)
+        : m_group{group}, m_message{message}
+    {};
+
+    // move instead of copy
+    ProtoMessage(const ProtoMessage &other) = delete;
+    ProtoMessage& operator= (const ProtoMessage &other) = delete;
+
+    ProtoMessage(ProtoMessage &&other)
+        : m_group{other.m_group}, m_message{other.m_message}
+    {
+        other.m_group = nullptr;
+        other.m_message = nullptr;
+    };
+
+    ProtoMessage& operator= (ProtoMessage &&other) {
+        clear();
+
+        m_group = other.m_group;
+        m_message = other.m_message;
+
+        other.m_group = nullptr;
+        other.m_message = nullptr;
+
+        return *this;
+    }
+
+    ~ProtoMessage() {
+        clear();
+    }
+    
+    const bitset* getBitset() const { return m_group; };
+    const char* getMessage() const { return m_message; };
+private:
+    void clear() {
+        bitset_free(m_group);
+        free(m_message);
+    }
+
+    bitset* m_group;
+    char* m_message;
 };
-typedef struct proto_message proto_message;
 
-struct proto_msg_set {
-    list_t *msg_list;  // list of proto_message types
-};
-typedef struct proto_msg_set proto_msg_set;
-
-extern proto_message *NewProtoMsg(bitset *group, char *msg);
-extern void FreeProtoMsg(proto_message *msg);
-extern proto_msg_set *NewProtoMsgSet(void);
-extern void AddProtoMsgSet(proto_msg_set *set, proto_message *msg);
-extern void ResetProtoMsgSet(proto_msg_set *set);
-extern proto_message *NextProtoMsgInSet(proto_msg_set *set);
-extern proto_message *RemoveProtoMsgInSet(proto_msg_set *set);
-extern void FreeProtoMsgSet(proto_msg_set *set);
-
-#endif /* ! _PROTO_MESSAGE_H */
+typedef std::vector<ProtoMessage> ProtoMessageSet;

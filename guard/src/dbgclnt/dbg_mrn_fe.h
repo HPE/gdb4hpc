@@ -38,11 +38,11 @@ public:
     int setup_streams(const char *msg);
 
     /* send commands to backends via the command stream*/
-    int send_command(bitset *target, const char *msg,
+    int send_command(const bitset *target, const char *msg,
                      MRN::Stream **event_stream_ptr);
 
     /* collect replies from backends via the command stream*/
-    proto_msg_set *recv_reply(bitset *target);
+    std::optional<ProtoMessageSet> recv_reply(const bitset *target);
 
     /* enable MRNet frontend to handle failures. */
     void enable_failure_callback(dbginvoke_t *);
@@ -52,8 +52,8 @@ public:
     int get_event_notificationfd() const;
 
     /* dispatch routines for streams */
-    proto_msg_set *dispatch_io(int notification_fd);
-    proto_msg_set *dispatch_event(int notification_fd);
+    std::optional<ProtoMessageSet> dispatch_io(int notification_fd);
+    std::optional<ProtoMessageSet> dispatch_event(int notification_fd);
 
     void debug_print_network_topology();
 
@@ -62,8 +62,8 @@ private:
           MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
     
     void add_event_stream(MRN::Stream *event_stream);
-    MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, bitset *target) const;
-    MRN::Stream *create_stream(bitset *target, MRN::Stream *&event_stream);
+    MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, const bitset *target) const;
+    MRN::Stream *create_stream(const bitset *target, MRN::Stream *&event_stream);
     static int register_TopAddBE_event_callback(MRN::Network &network);
 
     MRN::Network *m_network;

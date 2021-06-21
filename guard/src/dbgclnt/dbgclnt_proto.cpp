@@ -224,7 +224,7 @@ void DebugClientProtocol::setProtocolEventHandler(DebugClientProtocolEventHandle
     m_protoEventHandler.reset(handler);
 }
 
-int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, proto_msg_set *set) { 
+int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, const ProtoMessageSet &set) { 
     if (m_protoEventHandler) return m_protoEventHandler->handleEvent(di, set);
     return 1;
 };
@@ -254,7 +254,7 @@ int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
     return 0;
 }
 
-int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, proto_msg_set* set) {
+int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, const ProtoMessageSet &set) {
     // by default, just forward to generic handler
     return DbgDispatchProtoEvents(di, set);
 }

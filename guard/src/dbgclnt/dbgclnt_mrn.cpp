@@ -92,7 +92,7 @@ int MRNClientProtocol::init() {
     return 1;
 }
 
-bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
+bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
                                        const char *request) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     bitset *received = nullptr;
@@ -120,42 +120,40 @@ bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, bitset *target,
     return received;
 }
 
-struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di, 
-                                            bitset *target, bitset *received) {
+std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di, 
+                                            const bitset *target, bitset *received) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     int full = 0;
-    proto_msg_set *msg_set = nullptr;
-    proto_message *msg;
-    proto_msg_set *result = nullptr;
 
     // recv reply only if not already in a shutdown state
     if (di->d_isShutdown) {
-        return nullptr;
+        return {};
     }
 
+    std::optional<ProtoMessageSet> result{};
+
     while (!full) {
-        if ((msg_set = network->recv_reply(target)) ==
-            nullptr) {
+        auto msg_set = network->recv_reply(target);
+        if (!msg_set) {
             PrintOutError("Could not recv reply from MRNet network.\n");
-            ResetProtoMsgSet(result);
             return result;
         }
 
         // If this is the first message set, then use this as our return type,
         // otherwise merge the set with our return type.
-        if (result == nullptr) {
-            result = msg_set;
-            // process the msg_set to get the received set
-            while ((msg = NextProtoMsgInSet(msg_set)) != nullptr) {
+        if (!result) {
+            result = std::move(msg_set);
+            // process the pmsg_set to get the received set
+            for (const auto &pmsg : *result) {
                 // add this group to the received group
-                bitset_oreq(received, msg->group);
+                bitset_oreq(received, pmsg.getBitset());
             }
         } else {
             // add each message to the result
-            while ((msg = RemoveProtoMsgInSet(msg_set)) != nullptr) {
+            for (auto &pmsg : *msg_set) {
                 // add this group to the received group
-                bitset_oreq(received, msg->group);
-                AddProtoMsgSet(result, msg);
+                bitset_oreq(received, pmsg.getBitset());
+                result->emplace_back(std::move(pmsg));
             }
         }
 
@@ -166,17 +164,12 @@ struct proto_msg_set* MRNClientProtocol::receiveReply(dbginvoke_t *di,
         full = bitset_eq(target, received);
     }
 
-    ResetProtoMsgSet(result);
-
     return result;
 }
 
 void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
-    proto_msg_set *io_res;
-    proto_msg_set *ev_res;
-    proto_message *msg;
     char *set_str;
 
     // dispatch application output if started
@@ -193,27 +186,27 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // FIXME: This isn't used on a Cray, but if it is this should be calling
     // a callback registered in the dbginvoke instead of handling it here. It's
     // not appropriate to handle client events in this layer.
-    if (di->d_started &&
-        ((io_res = network->dispatch_io(ev_fd)) != nullptr)) {
-        // process each io message in the list
-        while ((msg = NextProtoMsgInSet(io_res)) != nullptr) {
-            set_str = bitset_to_set(msg->group);
-            PrintOutMsg("IO from %s: %s\n", set_str, msg->message);
-            Free(set_str);
+    {
+        auto io_res = network->dispatch_io(ev_fd);
+        if (di->d_started && io_res) {
+            // process each io message in the list
+            for (const auto &msg : *io_res) {
+                set_str = bitset_to_set(msg.getBitset());
+                PrintOutMsg("IO from %s: %s\n", set_str, msg.getMessage());
+                Free(set_str);
+            }
+            return;
         }
-
-        FreeProtoMsgSet(io_res);
-        return;
     }
 
-    // dispatch events
-    if ((ev_res = network->dispatch_event(ev_fd)) != nullptr) {
-        // Call the protocol specific callback function to handle this event msg
-        handleProtocolEvent(di, ev_res);
-
-        // Free the message set
-        FreeProtoMsgSet(ev_res);
-        return;
+    {
+        auto ev_res = network->dispatch_event(ev_fd);
+        // dispatch events
+        if (ev_res) {
+            // Call the protocol specific callback function to handle this event msg
+            handleProtocolEvent(di, *ev_res);
+            return;
+        }
     }
 }
 
@@ -1483,18 +1476,15 @@ int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
 /*
 ** Compatible callback routine for attaching with mrnet.
 */
-int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
+int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
 
-    if (set == nullptr) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != nullptr) {
+    for (const auto &msg : set) {
         // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
+        e = SocProtoToEvent(msg.getMessage());
 
-        bitset_oreq(di->d_bitset_launched, msg->group);
+        bitset_oreq(di->d_bitset_launched, msg.getBitset());
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1533,18 +1523,15 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
 /*
 ** Compatible callback routine for invoking with mrnet.
 */
-int MRNLaunchHandler::handleEvent(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *msg;
+int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
 
-    if (set == nullptr) return 0;
-
-    while ((msg = NextProtoMsgInSet(set)) != nullptr) {
+    for (const auto &msg : set) {
         // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg->message);
+        e = SocProtoToEvent(msg.getMessage());
 
-        bitset_oreq(di->d_bitset_launched, msg->group);
+        bitset_oreq(di->d_bitset_launched, msg.getBitset());
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;

@@ -664,7 +664,7 @@ static void SigHandler(int sig) {
 // This is called each time an asynchronous reply is recieved. The entire event
 // set which contains the aggregated event is passed in as ev_set and the
 // individual reply that was just received is passed in as reply_set.
-int EventCB(event_set_t *ev_set, bitset *reply_set) {
+int EventCB(event_set_t *ev_set, const bitset *reply_set) {
     bp_set_t *bpset;
     const char* threadId = nullptr;
     std::string bpThread;

@@ -135,7 +135,6 @@ static void CleanupOnSocketClose(void) {
     proxy_instance *obj = NULL;
     int detach = 0;
     bitset *recv_set;
-    proto_msg_set *pmsg_set;
 
     // find the dbginvoke_t associated with this id
     if (!EmptyList(DbgInvokeList)) {
@@ -161,14 +160,10 @@ static void CleanupOnSocketClose(void) {
             // send the command to every rank
             recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full, request.c_str());
 
-            pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full, recv_set);
-
+            DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full, recv_set);
             // We don't care about actually processing the reply, since
             // this is the cleanup on error case. We want to ensure that
             // we received an asynch reply.
-
-            // cleanup
-            FreeProtoMsgSet(pmsg_set);
 
             bitset_free(recv_set);
 
@@ -744,8 +739,6 @@ void DbgDispatchEvents(void) {
     if (FD_ISSET(PROXY_SESSION_CMDFD(sess), &dispatch_fds)) {
         proxy_msg_header msg_head;
         char *msg = NULL;
-        proto_msg_set *pmsg_set;
-        proto_message *pmsg;
         bitset *set;
         recv_type *recv_set;
         attach_args *att_args;
@@ -791,9 +784,10 @@ void DbgDispatchEvents(void) {
 
         // switch on the msg_type
         switch (msg_head.msg_type) {
-            case MSG_SEND_CMD:
+            case MSG_SEND_CMD: {
                 // convert msg to a proto message
-                if ((pmsg = SocProtoToProtoMsg(msg)) == NULL) {
+                auto cmd_pmsg = SocProtoToProtoMsg(msg);
+                if (!cmd_pmsg) {
                     PrintOutError(
                         "Could not convert cmd stream msg to proto msg.\n");
                     Free(msg);
@@ -818,15 +812,12 @@ void DbgDispatchEvents(void) {
                 }
 
                 // Send the command
-                set = DBG_PROTO_SW(di)->sendCommand(di, pmsg->group, pmsg->message);
-
-                // cleanup
-                FreeProtoMsg(pmsg);
+                set = DBG_PROTO_SW(di)->sendCommand(di, cmd_pmsg->getBitset(), cmd_pmsg->getMessage());
 
                 // send a response back containing the set
 
-                pmsg = NewProtoMsg(set, strdup(""));
-                msg = ProtoMsgToSocProto(pmsg);
+                auto response_pmsg = ProtoMessage(set, strdup(""));
+                msg = ProtoMsgToSocProto(response_pmsg);
 
                 msg_head.msg_type = MSG_OK;
                 msg_head.msg_len = (int)strlen(msg) * sizeof(char);
@@ -847,12 +838,11 @@ void DbgDispatchEvents(void) {
                 }
 
                 // cleanup
-                FreeProtoMsg(pmsg);
                 Free(msg);
 
                 break;
-
-            case MSG_RECV_REPLY:
+            }
+            case MSG_RECV_REPLY: {
                 // convert msg to a recv type
                 if ((recv_set = SocProtoToRecv(msg)) == NULL) {
                     PrintOutError(
@@ -878,12 +868,16 @@ void DbgDispatchEvents(void) {
                     }
                 }
 
-                pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target, recv_set->received);
+                auto pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target, recv_set->received);
+                if (!pmsg_set) {
+                    PrintOutError("Failed to receive reply.\n");
+                    free(msg);
+                    return;
+                }
 
                 // send the result back
 
-                ResetProtoMsgSet(pmsg_set);
-                while ((pmsg = NextProtoMsgInSet(pmsg_set)) != NULL) {
+                for (const auto &pmsg : *pmsg_set) {
                     // Send the header
                     msg_head.msg_type = MSG_OK;
                     msg = ProtoMsgToSocProto(pmsg);
@@ -907,10 +901,8 @@ void DbgDispatchEvents(void) {
                     Free(msg);
                 }
 
-                // cleanup
-                FreeProtoMsgSet(pmsg_set);
                 break;
-
+            }
             case MSG_ATTACH: {
                 // convert msg to an attach_args type
                 if ((att_args = SocProtoToAttachArgs(msg)) == NULL) {
@@ -1025,10 +1017,8 @@ void DbgDispatchEvents(void) {
                 // Send the DBG_OK event for the entire set
                 set = bitset_new(di->d_nproc);
                 bitset_invert(set);
-                pmsg_set = NewProtoMsgSet();
-                AddProtoMsgSet(
-                    pmsg_set,
-                    NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                ProtoMessageSet pmsg_set{};
+                pmsg_set.emplace_back(ProtoMessage(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
@@ -1151,10 +1141,8 @@ void DbgDispatchEvents(void) {
                 // Send the DBG_OK event for the entire set
                 set = bitset_new(di->d_nproc);
                 bitset_invert(set);
-                pmsg_set = NewProtoMsgSet();
-                AddProtoMsgSet(
-                    pmsg_set,
-                    NewProtoMsg(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                ProtoMessageSet pmsg_set{};
+                pmsg_set.emplace_back(ProtoMessage(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
@@ -1265,19 +1253,15 @@ void DbgDispatchEvents(void) {
     }
 }
 
-int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set) {
-    proto_message *pmsg;
+int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     char *msg;
     proxy_msg_header msg_head;
     proxy_type *inst;
 
-    if (set == NULL) return 0;
-
     // get the proxy_type from the instance id
     inst = GetProxyTypeFromInstId(di->d_proto_id);
 
-    ResetProtoMsgSet(set);
-    while ((pmsg = NextProtoMsgInSet(set)) != NULL) {
+    for (const auto &pmsg : set) {
         // Convert this to a string
         msg = ProtoMsgToSocProto(pmsg);
 

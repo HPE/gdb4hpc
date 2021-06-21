@@ -30,17 +30,21 @@ public:
     dbgevent_t* invokeNetwork(int numbe) override;
     int sendReply(const char *response) override;
 private:
+    using ResultPtr = std::unique_ptr<char, decltype(&std::free)>;
+    using CommandDispatchFunc = std::packaged_task<ResultPtr (const dbgcomm_info*)>;
+
     // event flag functions return true on success, false on failure. a failure
     // means that the main/zmqnet threads will probably desync and therefore 
     // the debugger should shut down.
     bool incEventFlag();
     bool decEventFlag();
 
+    // take a result and use capnp to serialize it
+    zmqnet::ByteArray packResult(ResultPtr result);
+
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 
-    using CommandDispatchFunc = std::packaged_task<std::unique_ptr<char, decltype(&std::free)> (const dbgcomm_info*)>;
     std::unique_ptr<CommandDispatchFunc> m_pending_command;
-
     std::mutex m_command_lock;
 
     fd_set m_fds;

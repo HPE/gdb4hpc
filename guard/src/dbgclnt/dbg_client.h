@@ -226,7 +226,7 @@ private:
 public:
     using const_iterator = bp_loc_set_t::const_iterator;
 
-    void add(bitset *group, char *loc_file, int loc_line, char *loc_func)
+    void add(const bitset *group, char *loc_file, int loc_line, char *loc_func)
     {
         // search the list
         if (loc_file != nullptr) {
@@ -404,7 +404,7 @@ extern void DbgDispatchEvents(void);
 // specific events received during the DbgDispatchEvents proto level call. Note
 // that the msg is the unprocessed event network protocol string that will be
 // converted to an actual event.
-extern int DbgDispatchProtoEvents(dbginvoke_t *di, proto_msg_set *set);
+extern int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set);
 extern void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream);
 extern void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
 extern void DbgHandleOutput(void (*)(dbginvoke_t *di, FILE *p_o_stream));

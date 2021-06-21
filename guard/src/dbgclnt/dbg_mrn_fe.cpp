@@ -40,7 +40,7 @@
 #include "smart_bitset.h"
 
 struct MulticastType {
-    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, bitset *target);
+    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, const bitset *target);
     ~MulticastType();
 
     bitset *target;
@@ -118,7 +118,7 @@ static LaunchCallbackCounter callback_handler;
 static FailureHandler failure_handler;
 
 MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
-                             bitset *target)
+                             const bitset *target)
     : comm{comm}, stream{stream} 
 {
     target = bitset_dup(target);
@@ -185,7 +185,7 @@ MRNetFrontEnd::~MRNetFrontEnd() {
     delete m_network; // needs to be deleted last
 }
 
-MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, bitset *target) const {
+MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const bitset *target) const {
     MRN::Stream *stream = nullptr;
 
     switch (proto) {
@@ -221,7 +221,7 @@ MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, bitset *target)
     return stream;
 }
 
-MRN::Stream *MRNetFrontEnd::create_stream(bitset *target, MRN::Stream *&event_stream) {
+MRN::Stream *MRNetFrontEnd::create_stream(const bitset *target, MRN::Stream *&event_stream) {
     if (target == nullptr) {
         event_stream = nullptr;
         return nullptr;
@@ -510,7 +510,7 @@ int MRNetFrontEnd::setup_streams(const char *msg) {
     return 0;
 }
 
-int MRNetFrontEnd::send_command(bitset *target, const char *msg,
+int MRNetFrontEnd::send_command(const bitset *target, const char *msg,
                         MRN::Stream **event_stream_ptr) {
     auto *stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (stream == nullptr) {
@@ -558,13 +558,13 @@ int MRNetFrontEnd::send_command(bitset *target, const char *msg,
     return 0;
 }
 
-proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
+std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const bitset *target) {
     MRN::Stream *cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (!cmd_stream) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
             bitset_to_set(target));
-        return nullptr;
+        return {};
     }
 
     MRN::PacketPtr packetPtr;
@@ -575,14 +575,14 @@ proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply failed to receive replies! retval[%d]\n",
             retval);
-        return nullptr;
+        return {};
     }
 
     char **strArr = nullptr;
     int strLen = -1;
     if (packetPtr && packetPtr->unpack("%as", &strArr, &strLen) == -1) {
         PrintOutError("ERROR: mrn_fe_recv_reply packet_unpack() failed!\n");
-        return nullptr;
+        return {};
     }
 
     int msgNum = strLen / 2;
@@ -591,11 +591,11 @@ proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
             "ERROR: mrn_fe_recv_reply receivd an invalid number of message: "
             "strLen[%d]\n",
             strLen);
-        return nullptr;
+        return {};
     }
 
     // Create the return type
-    auto *result = NewProtoMsgSet();
+    auto result = ProtoMessageSet();
 
     for (int index = 0; index < msgNum; index++) {
         auto *sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
@@ -605,7 +605,8 @@ proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
         smart_bitset_free(sb);
 
         // Create a proto_message for this packet and add it to the result
-        AddProtoMsgSet(result, NewProtoMsg(bs, strArr[index * 2]));
+        // ProtoMessage takes ownership of its arguments
+        result.emplace_back(bs, strArr[index * 2]);
 
         // Cleanup the strArr for the bitset only, the message gets passed up
         // and cleaned up later.
@@ -614,9 +615,6 @@ proto_msg_set *MRNetFrontEnd::recv_reply(bitset *target) {
 
     // free the final strArr allocated by packet_unpack
     free(strArr);
-
-    // reset the message set
-    ResetProtoMsgSet(result);
 
     return result;
 }
@@ -636,8 +634,8 @@ int MRNetFrontEnd::get_event_notificationfd() const {
     return ptr_to_int(GetListNumElement(m_event_nfds, 0));
 }
 
-proto_msg_set *MRNetFrontEnd::dispatch_io(int notification_fd) {
-    proto_msg_set *result = nullptr;
+std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
+    std::optional<ProtoMessageSet> result{};
 
     if (m_io_nfd == notification_fd) {
         DPRINT("mrn_fe_check_io_and_event: handle IO_MESSAGE.\n");
@@ -660,24 +658,22 @@ proto_msg_set *MRNetFrontEnd::dispatch_io(int notification_fd) {
 
                 if (packetPtr && packetPtr->unpack("%s %s", &rank, &msg) == -1) {
                     PrintOutError("ERROR: packet_unpack() failure\n");
-                    // reset the message set
-                    ResetProtoMsgSet(result);
                     return result;
                 }
 
                 // Create the return type if it hasn't been created already
-                if (result == nullptr) {
-                    result = NewProtoMsgSet();
+                if (!result) {
+                    result = ProtoMessageSet();
                 }
 
-                // Create a mrnet_message for this packet and add it to the
-                // result
+                // Create a mrnet_message for this packet and add it to the result
                 bitset *source = nullptr;
                 if (rank != nullptr) {
                     source = str_to_bitset(rank, nullptr);
                 }
 
-                AddProtoMsgSet(result, NewProtoMsg(source, msg));
+                // ProtoMessageSet takes ownership of source and msg
+                result->emplace_back(source, msg);
 #ifdef DEBUG
                 if (msg != nullptr)
                     DPRINT(
@@ -694,21 +690,16 @@ proto_msg_set *MRNetFrontEnd::dispatch_io(int notification_fd) {
                     "ERROR: mrn_fe_check_io_and_event() received an invalid "
                     "tag[%d] for io!\n",
                     tag);
-                // reset the message set
-                ResetProtoMsgSet(result);
                 return result;
             }
         } while (retval > 0);
     }
 
-    // reset the message set
-    ResetProtoMsgSet(result);
-
     return result;
 }
 
-proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
-    proto_msg_set *result = nullptr;
+std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd) {
+    std::optional<ProtoMessageSet> result{};
 
     void *notification_fdptr = int_to_ptr(notification_fd);
     if (InList(m_event_nfds, notification_fdptr)) {
@@ -741,8 +732,6 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
                     PrintOutError(
                         "ERROR: mrn_fe_check_io_and_event packet_unpack() "
                         "failed!\n");
-                    // reset the message set
-                    ResetProtoMsgSet(result);
                     return result;
                 }
 
@@ -757,14 +746,12 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
                         "ERROR: mrn_fe_check_io_and_event received incorrect "
                         "number of message: strLen[%d]\n",
                         strLen);
-                    // reset the message set
-                    ResetProtoMsgSet(result);
                     return result;
                 }
 
                 // Create the return type if it hasn't been created already
-                if (result == nullptr) {
-                    result = NewProtoMsgSet();
+                if (!result) {
+                    result = ProtoMessageSet();
                 }
 
                 for (int index = 0; index < msgNum; index++) {
@@ -775,9 +762,9 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
                     smart_bitset_free(sb);
                     sb = nullptr;
 
-                    // Create a proto_message for this packet and add it to the
-                    // result
-                    AddProtoMsgSet(result, NewProtoMsg(bs, strArr[index * 2]));
+                    // Create a proto_message for this packet and add it to the result
+                    // ProtoMessageSet takes ownership of the arguments
+                    result->emplace_back(bs, strArr[index * 2]);
 
                     // Cleanup the strArr for the bitset only, the message gets
                     // passed up and cleaned up later.
@@ -791,15 +778,11 @@ proto_msg_set *MRNetFrontEnd::dispatch_event(int notification_fd) {
                     "ERROR: mrn_fe_check_io_and_event() invalid tag[%d] for "
                     "event!\n",
                     tag);
-                // reset the message set
-                ResetProtoMsgSet(result);
                 return result;
             }
         } while (retval > 0);
     }
 
-    // reset the message set
-    ResetProtoMsgSet(result);
 
     return result;
 }

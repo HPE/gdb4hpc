@@ -16,6 +16,10 @@
 
 extern "C" {
 
+// This function is unfinished. Right now, it does not actually do any
+// aggregation, only copies and flattens the incoming list of messages. gdb4hpc 
+// expects identical results to be merged, which does not happen right now.
+
 zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::ByteArray> const& inputs) {
 	std::vector<ZmqnetMessagePackage::ZmqnetMessage::Reader> all_messages;
 

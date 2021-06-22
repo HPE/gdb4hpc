@@ -28,8 +28,6 @@ AM_INIT_AUTOMAKE([foreign -Wall])
 
 dnl Pull inCray Specific m4 extensions
 cray_INIT
-AC_DEFINE([GUARD_MAJOR], ["CRAY_MAJOR"], [Major version number of gdb4hpc])
-AC_DEFINE([GUARD_MINOR], ["CRAY_MINOR"], [Minor version number of gdb4hpc])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 

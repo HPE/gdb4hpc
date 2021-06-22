@@ -72,7 +72,6 @@ elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_centos8" ]];
             python3-devel \
             rpm-build \
             tcl \
-            texi2html \
             which \
             xz-devel
     check_exit_status
@@ -100,7 +99,6 @@ elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_rhel83" ]]; 
             python3-devel \
             rpm-build \
             tcl \
-            texi2html \
             which \
             xz-devel
     check_exit_status

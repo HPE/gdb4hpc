@@ -2,7 +2,7 @@
 #
 # runBuildPrep.sh - Preps the build environment
 #
-# Copyright 2019-2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2021 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,6 +18,7 @@ echo "############################################"
 echo "#             Installing deps              #"
 echo "############################################"
 target_pm=$(get_pm)
+target_os=$(get_os)
 if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
     # Install zypper based dependencies
     zypper --non-interactive install \
@@ -46,7 +47,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             xz-devel \
             python3-pip
     check_exit_status
-elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
+elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_centos8" ]]; then
     # Note the following will be different on build VMs vs DST. Errors are okay.
     yum config-manager --set-enabled PowerTools
     yum config-manager --set-enabled dst-remote-centos8-PowerTools
@@ -72,7 +73,34 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             rpm-build \
             tcl \
             texi2html \
-            texinfo \
+            which \
+            xz-devel
+    check_exit_status
+elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_rhel83" ]]; then
+    # Note the following will be different on build VMs vs DST. Errors are okay.
+    # Install yum based components
+    yum subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
+    yum --assumeyes install \
+            autoconf \
+            automake \
+            binutils-devel \
+            bison \
+            bzip2 \
+            bzip2-devel \
+            ctags \
+            cmake \
+            environment-modules \
+            flex \
+            libtool \
+            m4 \
+            make \
+            mksh \
+            ncurses \
+            ncurses-devel \
+            python3-devel \
+            rpm-build \
+            tcl \
+            texi2html \
             which \
             xz-devel
     check_exit_status

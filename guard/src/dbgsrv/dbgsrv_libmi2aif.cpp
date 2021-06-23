@@ -185,7 +185,7 @@ static dbgevent_t *dbg_error = NULL;
 // quote typename with spaces to pass to MI
 static std::string quoteId(std::string var)
 {
-    if (var.find(' ') != std::string::npos) {
+    if (var.find(' ') != std::string::npos && var.find('"') == std::string::npos) {
         var = "\"" + var + "\"";
     }
     return var;
@@ -346,7 +346,7 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
             /*    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
                   if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }}); */
 
-    MICommand* cmd = MIVarCreate("-", "*", expr);
+    MICommand* cmd = MIVarCreate("-", "*", quoteId(expr).c_str());
     sendMICommand(cmd);
     // If this fails, it means the symbol doesn't exist.
     if (!MICommandResultOK(cmd)) {
@@ -514,7 +514,7 @@ void Mi2Aif::fixTypeString(char *p, const char *s, char *orig) {
 
 static char* EvalExpression(MISession* session, const char* expression)
 {
-    MICommand *cmd = MIDataEvaluateExpression(expression);
+    MICommand *cmd = MIDataEvaluateExpression(quoteId(expression).c_str());
     SendMICommand(session, cmd);
     if (!MICommandResultOK(cmd)) {
         DVPRINT("EvalExpression got error from %s\n", expression);
@@ -3680,7 +3680,7 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
     char *buf;
     int last_resort = 0;
     DBEPERFLOG(SetTimerStart("GetArrayAIF: -data-evaluate-expression"));
-    cmd = MIDataEvaluateExpression(var->expr);
+    cmd = MIDataEvaluateExpression(quoteId(var->expr).c_str());
     SendMICommand(session, cmd);
     while (!MICommandResultOK(cmd)) {
         if (MICommandResultClass(cmd) == MIResultRecordERROR) {

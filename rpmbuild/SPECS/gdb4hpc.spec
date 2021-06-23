@@ -570,15 +570,15 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.f90
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.cpp
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.c
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/README
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc.source.tar.gz
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/README
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc.source.tar.gz
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/build_demo.sh
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpccinf.txt
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts/*.rc
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpccinf.txt
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts/*.rc
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/uda-plugin-cray-upc.so

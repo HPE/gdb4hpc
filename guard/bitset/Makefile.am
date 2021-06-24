@@ -13,7 +13,6 @@ lib_LTLIBRARIES = libbitset.la
 
 AM_LIBTOOLFLAGS = --quiet
 
-libbitset_la_SOURCES 	= 	bitset.c compat.c conversion.c sparse_bitset.c \
-				smart_bitset.c varstr.c
+libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp sparse_bitset.cpp smart_bitset.cpp bitset_serialize.cpp \
 libbitset_la_CFLAGS	=	$(CFLAGS) -fPIC
 libbitset_la_LDFLAGS	=	$(LDFLAGS) -shared -avoid-version

@@ -803,7 +803,7 @@ if test "x$mrnet_mode" != xno -o "x$zmqnet_mode" != xno; then
 fi
 
 AC_CONFIG_FILES([Makefile
-		 sdm/Makefile
+		 bitset/Makefile
 		 scripts/Makefile
 		 filters/Makefile
 		 filters/mrnet/Makefile

@@ -78,7 +78,6 @@ elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_centos8" ]];
 elif [[ "$target_pm" == "$cdst_pm_yum" && "$target_os" == "$cdst_os_rhel83" ]]; then
     # Note the following will be different on build VMs vs DST. Errors are okay.
     # Install yum based components
-    yum subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
     yum --assumeyes install \
             autoconf \
             automake \

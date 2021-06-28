@@ -83,6 +83,7 @@ else
     exit 1
 fi
 
+
 # Install the common PE components
 install_common_pe
 
@@ -108,6 +109,9 @@ else
     $top_level/external/pebuildenv/src/cuda-local.sh
     check_exit_status
 fi
+
+ls -al /workspace/external/pebuildenv/opt/cudatoolkit/
+exit
 
 ## building openmp relies on bdist_wheel
 pip3 install wheel

@@ -110,9 +110,6 @@ else
     check_exit_status
 fi
 
-CTK_VERSION=$(ls -al /workspace/external/pebuildenv/opt/cudatoolkit/)
-echo $CTK_VERSION
-
 ## building openmp relies on bdist_wheel
 pip3 install wheel
 check_exit_status

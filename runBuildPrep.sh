@@ -52,9 +52,13 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
       # Note the following will be different on build VMs vs DST. Errors are okay.
       yum config-manager --set-enabled PowerTools
       yum config-manager --set-enabled dst-remote-centos8-PowerTools
+    else
+      yum --assumeyes install subscription-manager
+      subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
     fi
     # Install yum based components
     yum --assumeyes install \
+            texinfo \
             autoconf \
             automake \
             binutils-devel \

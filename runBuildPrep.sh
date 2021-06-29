@@ -50,7 +50,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
     if [[ "$target_os" == "$cdst_os_centos8" ]]; then
       # Note the following will be different on build VMs vs DST. Errors are okay.
-      yum config-manager --set-enabled PowerTools
+      yum config-manager --set-enabled powertools
       yum config-manager --set-enabled dst-remote-centos8-PowerTools
     else
       yum --assumeyes install subscription-manager

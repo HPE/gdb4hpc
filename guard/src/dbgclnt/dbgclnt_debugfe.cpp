@@ -105,14 +105,19 @@ dbgevent_t *DbgDestroyFE(dbgfrontend_sw *fe_obj) {
 ** commands.
 */
 
-int AddListStateLocation(dbgfrontend_sw *fe_obj, bitset *set, const char* threads, const char *str) {
+int AddListStateLocation(dbgfrontend_sw *fe_obj, const Bitset *set, const char* threads, const char *str) {
     if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL || set == NULL ||
         str == NULL) {
         return -1;
     }
 
     auto new_loc = (set_location *)Alloc(sizeof(set_location));
-    new_loc->set = bitset_dup(set);
+    // XXX: See comment about smart pointers and Alloc in
+    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
+    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
+    // delete an arbitrary pointer upon assignent.
+    new_loc->set.release();
+    new_loc->set = set->clone();
     new_loc->loc_str = strdup(str);
     new_loc->threads = StrdupOpt(threads);
     new_loc->count = 0;
@@ -152,7 +157,8 @@ void ClearListState(dbgfrontend_sw *fe_obj) {
 }
 
 static void FreeSetLocation(set_location *set_loc) {
-    bitset_free(set_loc->set);
+    DASSERT_NOT_NULL(set_loc);
+    set_loc->set.reset();
     free(set_loc->loc_str);
     free(set_loc->threads);
     free(set_loc);

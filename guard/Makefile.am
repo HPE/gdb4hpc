@@ -12,7 +12,7 @@ if ZMQN
 ZMQNET_DIR = filters/zmqnet
 endif
 
-SUBDIRS = filters $(GUARD_RD_DIR) $(GUARD_DF_DIR) $(MRNET_DIR) bitset \
+SUBDIRS = filters bitset $(GUARD_RD_DIR) $(GUARD_DF_DIR) $(MRNET_DIR) \
 		src/useful src/gram src/dbgcomm $(ZMQNET_DIR) src/dbgclnt \
 		src/dbgsrv src/client src/proxy scripts
 

@@ -7,11 +7,14 @@
 
 #include <vector>
 
+// DenseBitset is the simplest representation of a bitset possible. It holds and
+// manipulates an array of bits in memory.
+
 class DenseBitset : public Bitset {
 public:
     DenseBitset(unsigned int nbits);
 
-    virtual std::unique_ptr<Bitset> clone() const override;
+    virtual Bitset* rawClone() const override;
     std::unique_ptr<DenseBitset> typedClone() const;
 
     virtual bool isEmpty() const override; 
@@ -23,7 +26,7 @@ public:
     virtual void invert() override; 
     virtual void clear() override; 
 
-    virtual int numSet() const override; 
+    virtual unsigned int numSet() const override; 
     virtual int firstSet() const override; 
 
     virtual size_t sizeInBits() const override; 
@@ -48,11 +51,14 @@ public:
     virtual bool hasCommonBits(const Bitset &other) const override;
 private:
     // NOTE: if you change the size of bits, then the ffs() routine may no 
-    // longer work. see firstSet implimentation.
+    // longer work. see firstSet implementation.
     typedef unsigned int Bits;
 
     unsigned int m_bs_nbits;      // total number of bits in this bitset
     std::vector<Bits> m_bs_bits;  // actual bits storage (unused bits are always 0)
+
+    // helper for rawClone() and typedClone()
+    DenseBitset* typedRawClone() const;
 };
 
 // convert a bit into the index of the Bits containing it in the m_bs_bits vector

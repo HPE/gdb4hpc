@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "defs.h"
 #include "df.h"
 #include "hash.h"
@@ -80,7 +80,6 @@ static dbgprocset_t *other_procset;  // TODO: Remove this, looks buggy
 static int BuildInvoke(graph_t *g, var_t *v) {
     dbgprocset_t *ps = v->v_procset;
     graph_inv *gi;
-    bitset *token_bit_set;
     int xt1;
     int xt2;
     int xt3;
@@ -106,29 +105,29 @@ static int BuildInvoke(graph_t *g, var_t *v) {
 
     // Create a new bitset to figure out if we need to create a PROC_SET node
     // for this particular group
-    token_bit_set = bitset_new(gi->gp_di->d_nproc);
+    auto token_bit_set = DenseBitset(gi->gp_di->d_nproc);
 
     // FIXME: The v_indiv stuff should go away.
     if (v->v_indiv < 0) {
         // Set all ranks to 1
-        bitset_invert(token_bit_set);
+        token_bit_set.invert();
     } else {
         // set the requested rank to one, this should be fixed to use a range
-        bitset_set(token_bit_set, v->v_indiv);
+        token_bit_set.set(v->v_indiv);
     }
 
     // Check to see if we need to build any ranks
-    bitset_andeq(token_bit_set, gi->gp_unbuilt_bs);
+    token_bit_set &= *gi->gp_unbuilt_bs;
 
     // Only create the node if there are some ranks set
-    if (!bitset_isempty(token_bit_set)) {
+    if (!token_bit_set.isEmpty()) {
         // First build PROC_SET
         xt1 = NODE(g, "PROC_SET");
         xt2 = SCONST(g, "CONST", gi->gp_di->d_handle);
         EDGE(g, g->g_initnode, xt2, 0);
-        xt3 = BITSETCONST(g, "CONST", token_bit_set);
-        DPRINT("BuildInvokeProcSet token_bit_set[%s], length[%d]\n",
-               bitset_to_set(token_bit_set), bitset_size(token_bit_set));
+        xt3 = BITSETCONST(g, "CONST", &token_bit_set);
+        DPRINT("BuildInvokeProcSet token_bit_set[%s], length[%lu]\n",
+               token_bit_set.toSet().c_str(), token_bit_set.sizeInBits());
         EDGE(g, g->g_initnode, xt3, 0);
         EDGE(g, xt2, xt1, 0);
         EDGE(g, xt3, xt1, 1);
@@ -164,9 +163,8 @@ static int BuildInvoke(graph_t *g, var_t *v) {
         PROC_GO_NODE(gi) = xt2;
 
         // Modify the gp_unbuilt_bs to no longer include the ranks we just built
-        bitset_andeqnot(gi->gp_unbuilt_bs, token_bit_set);
+        *gi->gp_unbuilt_bs -= token_bit_set;
     }
-    bitset_free(token_bit_set);
 
     /*
     ** Save breakpoint info.
@@ -178,16 +176,16 @@ static int BuildInvoke(graph_t *g, var_t *v) {
     f = AddFile(&gi->gp_files, v->v_fname);
     v->v_line = AddLine(&f->f_lines, v->v_lno);
 
-    if (v->v_bs == NULL) v->v_bs = bitset_new(gi->gp_di->d_nproc);
+    if (v->v_bs == NULL) v->v_bs = std::make_unique<DenseBitset>(gi->gp_di->d_nproc);
 
-    if (v->v_indiv >= 0) built_bp = bitset_test(v->v_bs, v->v_indiv);
+    if (v->v_indiv >= 0) built_bp = v->v_bs->test(v->v_indiv);
 
     if (v->v_bp < 0 || !built_bp) {
         v->v_bp = BuildSetBPSet(g, PROC_PROC_NODE(gi), PROC_SYNC_NODE(gi), v);
         if (v->v_indiv < 0)
-            bitset_invert(v->v_bs);
+            v->v_bs->invert();
         else {
-            bitset_set(v->v_bs, v->v_indiv);
+            v->v_bs->set(v->v_indiv);
             v->v_pid = -1;
         }
     }
@@ -289,20 +287,23 @@ void BuildUnused(graph_t *g) {
     iAssertID = -1;
 
     DPRINT("In BuildUnused\n");
+    DASSERT_NOT_NULL(g);
 
     SetList(g->g_di_list);
     while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
         gi = FindGraphInv(g, di->d_handle);
+        DASSERT_NOT_NULL(gi);
+        DASSERT_NOT_NULL(gi->gp_unbuilt_bs);
 
         // check if there are any unbuilt ranks
-        if (!bitset_isempty(gi->gp_unbuilt_bs)) {
+        if (!gi->gp_unbuilt_bs->isEmpty()) {
             xt1 = NODE(g, "PROC_SET");
             xt2 = SCONST(g, "CONST", di->d_handle);
             EDGE(g, g->g_initnode, xt2, 0);
-            xt3 = BITSETCONST(g, "CONST", gi->gp_unbuilt_bs);
-            DPRINT("BuildUnusedSet bitset[%s], length[%d]\n",
-                   bitset_to_set(gi->gp_unbuilt_bs),
-                   bitset_size(gi->gp_unbuilt_bs));
+            xt3 = BITSETCONST(g, "CONST", gi->gp_unbuilt_bs.get());
+            DPRINT("BuildUnusedSet bitset[%s], length[%lu]\n",
+                   gi->gp_unbuilt_bs->toSet().c_str(),
+                   gi->gp_unbuilt_bs->sizeInBits());
             EDGE(g, g->g_initnode, xt3, 0);
             EDGE(g, xt2, xt1, 0);
             EDGE(g, xt3, xt1, 1);
@@ -311,7 +312,7 @@ void BuildUnused(graph_t *g) {
             EDGE(g, xt1, xt4, 0);
 
             // clear the remaining ranks
-            bitset_clear(gi->gp_unbuilt_bs);
+            gi->gp_unbuilt_bs->clear();
         }
     }
 }

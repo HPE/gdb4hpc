@@ -1277,7 +1277,7 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
         // FIXME: There must be a more efficient way to do this...
         for (i = 0; i < array_size; ++i) {
             // Check if this rank is in this reply
-            if (bitset_test(reply->rep_group, (i + over_set->s_ps_offset))) {
+            if (reply->rep_group->test(i + over_set->s_ps_offset)) {
                 da[i] = EVENT_DATA(reply->rep_event)->joinAIF();
             }
         }

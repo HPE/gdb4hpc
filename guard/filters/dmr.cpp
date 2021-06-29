@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "smart_bitset.h"
+#include "bitset_serialize.h"
 
 using namespace std;
 
@@ -31,7 +32,7 @@ namespace DMR /* DebuggingMessageReduction */
 {
 
 Message::Message(char* mes, char* bt)
-    : m_release(true), m_content(mes), m_btStr(bt), m_sb(NULL) {}
+    : m_release(true), m_content(mes), m_btStr(bt), m_sb() {}
 
 Message::~Message() {
     if (m_content != NULL && m_release) {
@@ -43,11 +44,6 @@ Message::~Message() {
         free(m_btStr);
     }
     m_btStr = NULL;
-
-    if (m_sb != NULL) {
-        smart_bitset_free(m_sb);
-        m_sb = NULL;
-    }
 }
 
 void Message::SetReleaseMemory(bool release) { m_release = release; }
@@ -55,7 +51,7 @@ void Message::SetReleaseMemory(bool release) { m_release = release; }
 char* Message::GetContent() { return m_content; }
 
 char* Message::GetBitsetStr() {
-    if (m_sb != NULL) m_btStr = smart_bitset_serialize(m_sb);
+    if (m_sb != nullptr) m_btStr = m_sb->serialize().release();
 
     return m_btStr;
 }
@@ -93,17 +89,22 @@ bool Message::LessEqual(Message* pMessage) {
 }
 
 void Message::MergeBitset(char* btStr) {
-    smart_bitset* sb = NULL;
+    if (btStr == nullptr) return;
 
-    if (btStr == NULL) return;
+    auto sb = bitset::deserialize(btStr);
 
-    sb = smart_bitset_deserialize(btStr);
+    if (m_sb == nullptr) {
+        auto sp = bitset::deserializeAs<SmartBitset>(m_btStr);
 
-    if (m_sb == NULL) m_sb = smart_bitset_deserialize(m_btStr);
+        if (!sp) {
+            fprintf(stderr, "ERROR: MergeBitset: deserialized bitset wasn't SmartBitset.\n");
+            return;
+        }
 
-    smart_bitset_oreq(m_sb, sb);
+        m_sb = std::move(sp);
+    }
 
-    smart_bitset_free(sb);
+    *m_sb |= *sb;
 }
 
 MessageVector::MessageVector(bool releaseMemory) { m_release = releaseMemory; }

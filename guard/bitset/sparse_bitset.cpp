@@ -30,14 +30,18 @@ SparseBitset::SparseBitset(unsigned int num_bits)
 	: m_sb_num_bits{num_bits}
 {}
 
-std::unique_ptr<Bitset> SparseBitset::clone() const {
-	return typedClone();
+SparseBitset* SparseBitset::typedRawClone() const {
+	auto clone = new SparseBitset(m_sb_num_bits);
+	*clone = *this;
+	return clone;
+}
+
+Bitset* SparseBitset::rawClone() const {
+	return typedRawClone();
 }
 
 std::unique_ptr<SparseBitset> SparseBitset::typedClone() const {
-	auto clone = std::make_unique<SparseBitset>(m_sb_num_bits);
-	*clone = *this;
-	return clone;
+	return std::unique_ptr<SparseBitset>(typedRawClone());
 }
 
 bool SparseBitset::isEmpty() const {
@@ -48,11 +52,14 @@ bool SparseBitset::isFull() const {
 	return m_sb_ranges.size() == 1 && m_sb_ranges.back().sr_end == m_sb_num_bits - 1;
 }
 
-void SparseBitset::set(int n) {
-	// find range that bit n is nearest (without exceeding the range's sr_start)
-	int rangeIdx = findRangeIdx(n);
+void SparseBitset::set(int sn) {
+	if (sn < 0) return;
+	unsigned int n = (unsigned int)sn;
+
+	// find range that bit n is nearest (without exceeding the range's sr_end)
+	size_t rangeIdx = findRangeIdx(n);
 	
-	if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].sr_start <= n && n <= m_sb_ranges[rangeIdx].sr_end) {
+	if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].contains(n)) {
 		// the bit "n" has been set
 		return;
 	}
@@ -69,35 +76,40 @@ void SparseBitset::set(int n) {
 		m_sb_ranges[rangeIdx].sr_start = n;
 		mergeIfNecessary(rangeIdx);
 	} else {
-		// n does not border any ranges, create a new range
-
-		// insert a new Range before rangeidx
-		m_sb_ranges.insert(m_sb_ranges.begin() + rangeIdx, Range{.sr_start = n, .sr_end = n});
+		// n does not border any ranges, insert a new Range before rangeidx
+		m_sb_ranges.insert(
+			m_sb_ranges.begin() + rangeIdx, 
+			Range{.sr_start = n, .sr_end = n}
+		);
 	}
 }
 
-void SparseBitset::setRange(int start, int end) {
-	if (start < 0 || end < start)
-		return;
+void SparseBitset::setRange(unsigned int start, unsigned int end) {
+	if (start >= m_sb_num_bits || end < start) return;
 
-	int num_ranges = m_sb_ranges.size();
+	size_t num_ranges = m_sb_ranges.size();
 
-	int start_pos = findRangeIdx(start);
-	int end_pos = findRangeIdx(end);
+	size_t start_pos = findRangeIdx(start);
+	size_t end_pos = findRangeIdx(end);
 
 	if (start_pos == end_pos) {
-		// if start_pos == end_pos, we are dealing with either appending a brand 
-		// new range or only need to modify a single range
-
-		if (start_pos == num_ranges || end < m_sb_ranges[start_pos].sr_start - 1) {
-			// start_pos == num_ranges   -> append
-			// end < ...sr_start - 1 -> new range is disjoint on the end, insert it
-			m_sb_ranges.insert(m_sb_ranges.begin() + start_pos, Range{.sr_start = start, .sr_end = end});
+		if (start_pos < num_ranges && m_sb_ranges[start_pos].contains(start) && m_sb_ranges[start_pos].contains(end)) {
+			// the bits are already set, there is nothing to do
+			return;
+		} else if (start_pos == num_ranges || end < m_sb_ranges[start_pos].sr_start - 1) {
+			// case start_pos == num_ranges -> append new range
+			// case end < ...sr_start - 1   -> new range is disjoint on the end, insert it as a new range
+			m_sb_ranges.insert(
+				m_sb_ranges.begin() + start_pos, 
+				Range{.sr_start = (unsigned int)start, .sr_end = (unsigned int)end}
+			);
 			mergeIfNecessary(start_pos);
 		} else if (start < m_sb_ranges[start_pos].sr_start) {
-			// we've determined that the range is not disjoint on the end, merge it
-			// we know that end is already in this range, so we don't worry about it
+			// we've determined that the range is not disjoint on the end,
+			// so we extend the existing range down. we know that end is
+			// already in this range, so we don't worry about it.
 			m_sb_ranges[start_pos].sr_start = start;
+			mergeIfNecessary(start_pos);
 		}
 	} else {
 		// here, the new range spans multiple existing ranges, so they will be 
@@ -122,10 +134,12 @@ void SparseBitset::setRange(int start, int end) {
 		
 		// shrink
 		// if num_shrink is 0, this will do nothing
-		m_sb_ranges.erase(
-			m_sb_ranges.begin() + start_pos + 1, 
-			m_sb_ranges.begin() + start_pos + 1 + num_shrink
-		);
+		if (num_shrink >= 0) {
+			m_sb_ranges.erase(
+				m_sb_ranges.begin() + start_pos + 1, 
+				m_sb_ranges.begin() + start_pos + 1 + num_shrink
+			);
+		}
 	}
 }
 
@@ -133,8 +147,8 @@ void SparseBitset::clear() {
 	m_sb_ranges.clear();
 }
 
-int SparseBitset::numSet() const {
-	int set = 0;
+unsigned int SparseBitset::numSet() const {
+	unsigned int set = 0;
 	for (const auto &range : m_sb_ranges) {
 		set += range.sr_end - range.sr_start + 1;
 	}
@@ -155,12 +169,8 @@ size_t SparseBitset::sizeInRanges() const {
 }
 
 Bitset::SerializedPtr SparseBitset::serialize() const {
-	int index;
 	int sep = 0;
 	std::stringstream ss;
-
-	if (m_sb_ranges.size() == 0)
-		return SerializedPtr(strdup("1;0;{}"), std::free);
 
 	ss << static_cast<int>(bitset::Format::Sparse) << ";"
 	   << std::hex << sizeInBits() << ";";
@@ -215,7 +225,7 @@ bool SparseBitset::operator==(const Bitset &_other) const {
 	if (m_sb_num_bits != other.m_sb_num_bits) return false;
 	if (m_sb_ranges.size() != other.m_sb_ranges.size()) return false;
 
-	for (int i = 0; i < m_sb_ranges.size(); i++) {
+	for (size_t i = 0; i < m_sb_ranges.size(); i++) {
 		auto lhs = m_sb_ranges[i];
 		auto rhs = other.m_sb_ranges[i];
 
@@ -230,9 +240,10 @@ bool SparseBitset::operator!=(const Bitset &other) const {
 	return !(*this == other);
 }
 
-int SparseBitset::findRangeIdx(int bit) {
-	// find range that bit n is nearest (without exceeding the range's sr_start)
-	for(int i = 0; i < m_sb_ranges.size(); i++) {
+size_t SparseBitset::findRangeIdx(unsigned int bit) {
+	if (bit >= m_sb_num_bits) return m_sb_ranges.size();
+
+	for(size_t i = 0; i < m_sb_ranges.size(); i++) {
 		if (bit <= m_sb_ranges[i].sr_end) {
 			return i;
 		}
@@ -241,10 +252,10 @@ int SparseBitset::findRangeIdx(int bit) {
 	return m_sb_ranges.size();
 }
 
-void SparseBitset::mergeIfNecessary(int idx) {
+void SparseBitset::mergeIfNecessary(unsigned int idx) {
 	// to merge, idx must point into the list past the first element, 
-	// and the previous range's end must equal idx range's start
-	if (idx <= 0 || idx >= m_sb_ranges.size() || m_sb_ranges[idx-1].sr_end+1 != m_sb_ranges[idx].sr_start) {
+	// and the previous range's end must equal idx range's start - 1
+	if (idx == 0 || idx >= m_sb_ranges.size() || m_sb_ranges[idx-1].sr_end != m_sb_ranges[idx].sr_start - 1) {
 		return;
 	}
 
@@ -253,4 +264,4 @@ void SparseBitset::mergeIfNecessary(int idx) {
 
 	// collapse list
 	m_sb_ranges.erase(m_sb_ranges.begin() + idx);
-};
+}

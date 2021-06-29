@@ -48,7 +48,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // process replies
         for (auto&& reply : rep_set) {
             auto handle = reply->rep_di->d_handle;
-            auto group = reply->rep_group;
+            const auto group = reply->rep_group.get();
 
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
@@ -68,7 +68,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // process replies
         for (auto&& reply : rep_set) {
             auto handle = reply->rep_di->d_handle;
-            auto group = reply->rep_group;
+            const auto group = reply->rep_group.get();
 
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
@@ -118,7 +118,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
     // process replies
     for (auto&& reply : rep_set) {
         auto handle = reply->rep_di->d_handle;
-        auto group = reply->rep_group;
+        const auto group = reply->rep_group.get();
 
         const char* str = reply->rep_event->ev_u.ev_u_string;
         std::istringstream is(str);
@@ -165,7 +165,7 @@ static int class_show_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc,
 
     for (auto&& reply : rep_set) {
         char* mode = reply->rep_event->ev_u.ev_u_string;
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                             "%s\n", mode);
     }
 
@@ -229,7 +229,7 @@ static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **a
 
         for (auto&& reply : rep_set) {
             char* mode = reply->rep_event->ev_u.ev_u_string;
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "non-stop mode is %s\n", mode);
         }
 
@@ -251,7 +251,7 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process replies
     for (auto&& reply : rep_set) {
         auto handle = reply->rep_di->d_handle;
-        auto group = reply->rep_group;
+        const auto group = reply->rep_group.get();
 
         if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
             const char* str = reply->rep_event->ev_u.ev_u_string;
@@ -277,7 +277,7 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process replies
     for (auto&& reply : rep_set) {
         auto handle = reply->rep_di->d_handle;
-        auto group = reply->rep_group;
+        const auto group = reply->rep_group.get();
 
         if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
             const char* str = reply->rep_event->ev_u.ev_u_string;

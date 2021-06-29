@@ -74,10 +74,10 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (ev == DBGEV_TYPE) {
             type_str = EVENT_TYPE(reply->rep_event);
 
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
                                 type_str);
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -109,10 +109,10 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (ev == DBGEV_TYPE) {
             auto type_str = EVENT_TYPE(reply->rep_event);
 
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group, "%s\n",
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
                                 type_str);
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -144,12 +144,12 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
             auto v = EVENT_VARS(reply->rep_event);
 
             for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
                                     v->var_type);
             }
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group,
+            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -193,7 +193,7 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
             if (GetNumberOfReply(rep_set) == 1) {
                 PrintOutMsg("Name:%-25s\tType:%s\n", v->var_name, v->var_type);
             } else {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
                                     v->var_type);
             }

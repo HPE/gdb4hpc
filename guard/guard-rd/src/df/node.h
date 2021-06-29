@@ -23,6 +23,7 @@
 
 #include "queue.h"
 #include "token.h"
+#include "dense_bitset.h"
 
 struct input_t {
     struct tkqueue_t* i_tokens;
@@ -76,7 +77,7 @@ typedef struct node_t node_t;
 
 struct dbgnodesetinfo_t {
     void* t_node;
-    void* t_bitset;
+    std::unique_ptr<DenseBitset> t_bitset;
 };
 typedef struct dbgnodesetinfo_t dbgnodesetinfo_t;
 
@@ -87,7 +88,7 @@ struct dbgtreenodesinfo_t {
 };
 typedef struct dbgtreenodesinfo_t dbgtreenodesinfo_t;
 
-extern void AddNodeInfoByTree(void* tree, void* node, void* bitset);
+extern void AddNodeInfoByTree(void* tree, void* node, const DenseBitset *bitset);
 extern dbgtreenodesinfo_t* GetNodesInfoByTree(void* tree);
 extern void RemoveNodeForTree(void* tree, void* node);
 extern void CleanTreeNodesList();

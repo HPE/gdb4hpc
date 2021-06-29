@@ -596,13 +596,19 @@ void DumpActiveNodes(graph_t *g, node_t *current, FILE *log) {
     }
 }
 
-dbgnodesetinfo_t *NewNodeSetInfo(void *node, void *bs) {
+dbgnodesetinfo_t *NewNodeSetInfo(void *node, const DenseBitset *bs) {
     dbgnodesetinfo_t *info =
         (dbgnodesetinfo_t *)Alloc(sizeof(dbgnodesetinfo_t));
     info->t_node = node;
-    info->t_bitset = bitset_dup((bitset *)bs);
+    // XXX: See comment about smart pointers and Alloc in
+    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
+    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
+    // delete an arbitrary pointer upon assignent.
+    DASSERT_NOT_NULL(bs);
+    info->t_bitset.release();
+    info->t_bitset = bs->typedClone();
     DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bs,
-           bitset_to_set((bitset *)bs));
+        ((DenseBitset*)bs)->toSet().c_str());
 
     return info;
 }
@@ -610,7 +616,7 @@ dbgnodesetinfo_t *NewNodeSetInfo(void *node, void *bs) {
 void FreeNodeSetInfo(dbgnodesetinfo_t *info) {
     if (info != NULL) {
         info->t_node = NULL;
-        info->t_bitset = NULL;
+        info->t_bitset.reset();
     }
 }
 
@@ -641,7 +647,7 @@ dbgtreenodesinfo_t *GetNodesInfoByTree(void *tree) {
     return info;
 }
 
-void AddNodeInfoByTree(void *tree, void *node, void *bs) {
+void AddNodeInfoByTree(void *tree, void *node, const DenseBitset *bs) {
     dbgtreenodesinfo_t *info = NULL;
     dbgnodesetinfo_t *nodes_set = NewNodeSetInfo(node, bs);
 
@@ -656,8 +662,9 @@ void AddNodeInfoByTree(void *tree, void *node, void *bs) {
     }
 
     AddToList(info->t_node_list, nodes_set);
+    DASSERT_NOT_NULL(bs);
     DPRINT("INFO[AddNodeInfoByTree]: node[%d], bitset[%s]\n",
-           ((node_t *)node)->n_id, bitset_to_set((bitset *)bs));
+        ((node_t *)node)->n_id, bs->toSet().c_str());
 }
 
 void RemoveNodeForTree(void *tree, void *node) {

@@ -54,7 +54,7 @@ static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
 static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
 static expr_elt* check_pop(expr_t*, expr_op);
 
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif);
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif);
 // Only called directly with debug - but keep around to be able to call from gdb
 #ifdef DEBUG
 void DumpExpr(expr_t *);
@@ -1605,7 +1605,6 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
     group_reply_t *new_reply;
     val_t *tmp;
     dbgevent_t *ev;
-    bitset *tset;
 
     if (v1 == NULL) {
         SetError("apply_op(): ternary conditional val is null!");
@@ -1752,7 +1751,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                     ev->ev_data = RVAL_AIF(tmp)->clone();
                     new_reply = NewGroupReply(
                         reply->rep_di,
-                        bitset_dup(reply->rep_group), ev);
+                        reply->rep_group->clone(), ev);
                     AddReplyToSet(new_rep_set, new_reply);
                     break;
 
@@ -1780,7 +1779,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                         reply2 = rep_set2->getFirstReply();
                         new_reply = NewGroupReply(
                             reply->rep_di,
-                            bitset_dup(reply->rep_group),
+                            reply->rep_group->clone(),
                             DupEvent(reply2->rep_event));
                         AddReplyToSet(new_rep_set,
                                       new_reply);
@@ -1790,9 +1789,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                         // rval bitset sizes match for the
                         // replies, otherwise throw an error
                         reply2 = rep_set2->getFirstReply();
-                        if (bitset_size(reply->rep_group) !=
-                            bitset_size(
-                                reply2->rep_group)) {
+                        if (reply->rep_group->sizeInBits() != reply2->rep_group->sizeInBits()) {
                             SetError(
                                 "Attempted to apply "
                                 "ternary operator to two "
@@ -1807,24 +1804,20 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                     // loop over this reply
                     for (auto&& reply2 : rep_set2) {
                         // compute the new set
-                        tset =
-                            bitset_and(reply->rep_group,
-                                       reply2->rep_group);
+                        auto tset = bitset::doAnd(*reply->rep_group, *reply2->rep_group);
 
                         // check to see if this is empty, if
                         // so continue
-                        if (bitset_isempty(tset)) {
-                            bitset_free(tset);
+                        if (tset->isEmpty()) {
                             continue;
                         }
 
                         // create the new reply and add it
                         // to the set
                         new_reply = NewGroupReply(
-                            reply2->rep_di, tset,
+                            reply2->rep_di, std::move(tset),
                             DupEvent(reply2->rep_event));
-                        AddReplyToSet(new_rep_set,
-                                      new_reply);
+                        AddReplyToSet(new_rep_set, new_reply);
                     }
                     break;
                 }
@@ -1884,9 +1877,9 @@ static bool op_val_is_ok(val_t* v, rec_set_t* rec_set, const char* message)
 namespace {
     // little struct to apply common processing for rval_aif and rval_reply values
     struct mini_reply {
-        mini_reply(AIFStream* aaif, bitset* agroup) : aif(aaif), group(agroup) {}
+        mini_reply(AIFStream* aaif, const Bitset* agroup) : aif(aaif), group(agroup) {}
         AIFStream* aif;
-        bitset* group;
+        const Bitset* group;
     };
 }
 
@@ -1911,7 +1904,7 @@ static bool rval_next_slice(val_t* v, std::unique_ptr<rep_set_t>& reply, std::ve
         auto repSet = RVAL_REPLY(v);
         if ((reply = repSet->getNextSlice())) {
             for (auto&& r : reply.get()) {
-                slice.push_back( mini_reply( EVENT_DATA(r->rep_event), r->rep_group));
+                slice.push_back(mini_reply( EVENT_DATA(r->rep_event), r->rep_group.get()));
             }
             return true;
         }
@@ -1921,24 +1914,24 @@ static bool rval_next_slice(val_t* v, std::unique_ptr<rep_set_t>& reply, std::ve
 }
 
 // compute the intersection of two bitsets, treating a null-ptr as all 1's
-static bitset* intersect_groups(bitset* a, bitset* b) {
+static std::unique_ptr<Bitset> intersect_groups(const Bitset* a, const Bitset* b) {
     if (a && b)
-        return bitset_and(a,b);
+        return bitset::doAnd(*a, *b);
     else if (a)
-        return bitset_dup(a);
+        return a->clone();
     else if (b)
-        return bitset_dup(b);
+        return b->clone();
     else
         return nullptr;
 }
 
 // create a group reply by wrapping a single AIF data object.   Takes ownership of
 // group and aif.
-static group_reply_t* make_reply_from_aif(dbginvoke_t* di, bitset* group, AIF* aif) {
+static group_reply_t* make_reply_from_aif(dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif) {
     if (aif) {
         auto ev = NewEvent(DBGEV_DATA);
         ev->ev_data = new AIFStream(aif);
-        return NewGroupReply(di, group, ev);
+        return NewGroupReply(di, std::move(group), ev);
     } else {
         return nullptr;
     }
@@ -1989,7 +1982,7 @@ static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
 // \param aif it the aif integer comparison result on the slice.   The function takes ownership
 //       of \a aif
 // \param op is the operation being applied.
-static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, expr_op op) {
+static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIF* aif, expr_op op) {
     // by right there should be no more than two replies as there are but two values
     bool isNeq = (op == EXPR_OPNOTEQUAL);
 
@@ -2009,8 +2002,11 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
     for (size_t i=0; i<origNumReplies; ++i) { 
         auto reply = replies[i];
         di = reply->rep_di;
-        bitset* oldGroup = reply->rep_group;
-        if (!bitset_compare(group,oldGroup))
+
+        // careful, reply still owns this bitset, we just want to borrow it
+        Bitset &oldGroup = *reply->rep_group;
+
+        if (!group->hasCommonBits(oldGroup))
             continue;
 
         // we have shared processes, compute the new comparison result
@@ -2021,7 +2017,7 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
         // if the reult is the same, we don't need to update the reply, just
         // remove the common processes from the ones we're looking for
         if (newVal == oldVal) {
-            bitset_andeqnot(group, oldGroup);
+            *group -= oldGroup;
             continue;
         }
 
@@ -2030,17 +2026,18 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
         // but we'll resolve those later.   The new replies are all after
         // \a origNumReplies because we need to make sure we don't try to apply the
         // new result to a reply twice.
-        bitset* igrp = bitset_and(group, oldGroup);
-        if (auto newReply = make_reply_from_aif(di, igrp, IntToAIF(newVal)))
-            replies.push_back(newReply);
+        auto igrp = bitset::doAnd(*group, oldGroup);
 
         // remove the bits from old and new replies
-        bitset_andeqnot(group, igrp);
-        bitset_andeqnot(oldGroup, igrp);
+        *group -= *igrp;
+        oldGroup -= *igrp; // modifies in place, inside of reply
+
+        if (auto newReply = make_reply_from_aif(di, std::move(igrp), IntToAIF(newVal)))
+            replies.push_back(newReply);
 
         // we might have completely replaced an existing reply value, remove it and
         // update the iteration values
-        if (bitset_isempty(oldGroup)) {
+        if (oldGroup.isEmpty()) {
             replies.erase(replies.begin()+i);
             FreeGroupReply(reply);
             --i;
@@ -2049,12 +2046,12 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
     }
 
     // we're bootstrapping from an enpty reply set - so store the initial value
-    if (!bitset_isempty(group)) {
-        if (auto newReply = make_reply_from_aif(di, group, aif))
+    if (!group->isEmpty()) {
+        if (auto newReply = make_reply_from_aif(di, std::move(group), aif))
             replies.push_back(newReply);
     } else {
         AIFFree(aif);
-        bitset_free(group);
+        group.reset();
     }
 
     // New replies could potentially have an already existing value.   Merge duplicates
@@ -2068,7 +2065,7 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
         for (size_t j=0; j<i; ++j) {
             auto repJ = replies[j];
             if (EVENT_DATA(repJ->rep_event)->toInt(valJ) == 0 && valI == valJ) {
-                bitset_oreq(repJ->rep_group, repI->rep_group);
+                *repJ->rep_group |= *repI->rep_group;
                 replies.erase(replies.begin()+i);
                 --i;
                 FreeGroupReply(repI);
@@ -2080,9 +2077,9 @@ static void add_to_compare_reply(rep_set_t& repSet, bitset* group, AIF* aif, exp
 
 // create a group reply containing the content in \a aif and add it to \a repSet
 // note : takes ownership of \a group and \a aif
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, bitset* group, AIF* aif)
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif)
 {
-    if (auto rep = make_reply_from_aif(di, group, aif)) {
+    if (auto rep = make_reply_from_aif(di, std::move(group), aif)) {
         repSet.addReply(rep);
     }
 }
@@ -2224,7 +2221,7 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     if (reps1.size() >= 1 && reps2.size() >= 1) {
         // check that the bitset sizes match - and determine if our result should be a repset
         auto &r1 = reps1[0], &r2 = reps2[0];
-        if (r1.group && r2.group && bitset_size(r1.group) != bitset_size(r2.group)) {
+        if (r1.group && r2.group && r1.group->sizeInBits() != r2.group->sizeInBits()) {
             if (reps1.size() == 1 && reps2.size() == 1) {
                 // special case = we go forward just treating these as AIFs
                 // FIXME: Alert the user somehow that this is a special set.
@@ -2257,14 +2254,14 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         newRepSet.reset(new rep_set_t);
     }
 
-    bitset* diffGroup = nullptr;
+    std::shared_ptr<Bitset> diffGroup;
     // we need track the involved process set for setSparseValues (otherwise
     // an process for which every element passes would not be in the result)
     for (auto&& reply : reps1) {
         if (!diffGroup)
-            diffGroup = bitset_dup(reply.group);
+            diffGroup = reply.group->clone();
         else
-            bitset_oreq(diffGroup, reply.group);
+            *diffGroup |= *reply.group;
     }
     
     //-----------------------------------------------------------------------
@@ -2292,9 +2289,9 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
         for (auto&& r1 : reps1) {
             for (auto&& r2 : reps2) {
                 bool is_single = false;
-                if (r1.group && r2.group && !bitset_compare(r1.group,r2.group)) {
+                if (r1.group && r2.group && !r1.group->hasCommonBits(*r2.group)) {
                     if (reps1.size() == 1 && reps2.size() == 1 && 
-                        bitset_numset(r1.group) == 1 && bitset_numset(r2.group) == 1)
+                        r1.group->numSet() == 1 && r2.group->numSet() == 1)
                         is_single = true;
                     else
                         continue;
@@ -2309,19 +2306,17 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
 
                 // intersect if we have groups larger than 1 rank in size, 
                 // otherwise it is fine to union them
-                auto tset = is_single ? bitset_dup(r1.group) : intersect_groups(r1.group, r2.group);
+                auto tset = is_single ? r1.group->clone() : intersect_groups(r1.group, r2.group);
                 
                 if (isCompare) {
-                    add_to_compare_reply(*newRepSet, bitset_dup(tset), res, op);
+                    add_to_compare_reply(*newRepSet, tset->clone(), res, op);
                 } else {
                     // we intentionally set the di to null rather than picking an arbitrary one
-                    add_to_reply(*newRepSlice, nullptr, bitset_dup(tset), res);
+                    add_to_reply(*newRepSlice, nullptr, tset->clone(), res);
                 }
 
                 if (diffRepSlice && diff) {
-                    add_to_reply(*diffRepSlice, nullptr, tset, diff);
-                } else {
-                    bitset_free(tset);
+                    add_to_reply(*diffRepSlice, nullptr, std::move(tset), diff);
                 }
 
                 // we need to track the array size because the diff is only sparsely
@@ -2352,9 +2347,8 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
 
     rep_set_t* diffRepSet = nullptr;
     if (check_diff) {
-        diffRepSet = new rep_set_t(diffSlices, diffShape.getShape(), bitset_dup(diffGroup));
+        diffRepSet = new rep_set_t(diffSlices, diffShape.getShape(), diffGroup.get());
     }
-    bitset_free(diffGroup);
         
 
     // create the value result for return and possibly diff.
@@ -2419,7 +2413,7 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
             if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
                 // Make a new event out of the AIF data, use the replies
                 // bitset
-                add_to_reply(*new_rep_set, reply->rep_di, bitset_dup(reply->rep_group),
+                add_to_reply(*new_rep_set, reply->rep_di, reply->rep_group->clone(),
                              aif_res);
             } else {
                 FreeRepSet(new_rep_set);
@@ -3242,7 +3236,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     // res
                     AddReceiverToSet(
                         lval_rec_set,
-                        NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
+                        NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
                 }
 
                 // get the type
@@ -3351,8 +3345,8 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
 
                     // Check if the size of the lval overset bitset matches the
                     // size of the rep_set bitset
-                    if (bitset_size(over_set->s_di_bs) !=
-                        bitset_size(reply->rep_group)) {
+                    if (over_set->s_di_bs->sizeInBits() !=
+                        reply->rep_group->sizeInBits()) {
                         // The sizes do not match, we cannot complete the
                         // request
                         SetError(
@@ -3373,7 +3367,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         target_recset = NewRecSet();
                         AddReceiverToSet(
                             target_recset,
-                            NewGroupReceiver(over_set->s_di, reply->rep_group));
+                            NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
                         // point at the AIF data
                         na = EVENT_DATA(reply->rep_event)->joinAIF();
                         // Send the command using the target_recset and the
@@ -3409,8 +3403,8 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         for (auto&& recv_ptr : rec_set) {
                             // Check if the size of the di bitset matches the
                             // size of the rep_set bitset
-                            if (bitset_size(recv_ptr->rec_group) !=
-                                bitset_size(reply->rep_group)) {
+                            if (recv_ptr->rec_group->sizeInBits() !=
+                                reply->rep_group->sizeInBits()) {
                                 // The sizes do not match, we cannot complete
                                 // the request
                                 SetError(
@@ -3426,7 +3420,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                             AddReceiverToSet(
                                 target_recset,
                                 NewGroupReceiver(recv_ptr->rec_di,
-                                                 reply->rep_group));
+                                                 reply->rep_group.get()));
                             // point at the AIF data
                             na = EVENT_DATA(reply->rep_event)->joinAIF();
                             // Send the command using the target_recset and the
@@ -3557,8 +3551,8 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
 
                 // Check if the size of the lval overset bitset matches the size
                 // of the rep_set bitset
-                if (bitset_size(over_set->s_di_bs) !=
-                    bitset_size(reply->rep_group)) {
+                if (over_set->s_di_bs->sizeInBits() !=
+                    reply->rep_group->sizeInBits()) {
                     // The sizes do not match, we cannot complete the request
                     SetError(
                         "Rank mismatch between requested assignment. The "
@@ -3578,7 +3572,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     target_recset = NewRecSet();
                     AddReceiverToSet(
                         target_recset,
-                        NewGroupReceiver(over_set->s_di, reply->rep_group));
+                        NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
                     // point at the AIF data
                     na = EVENT_DATA(reply->rep_event)->joinAIF();
                     // Send the command using the target_recset and the event
@@ -3613,8 +3607,8 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     for (auto&& recv_ptr : rec_set) {
                         // Check if the size of the di bitset matches the size
                         // of the rep_set bitset
-                        if (bitset_size(recv_ptr->rec_group) !=
-                            bitset_size(reply->rep_group)) {
+                        if (recv_ptr->rec_group->sizeInBits() !=
+                            reply->rep_group->sizeInBits()) {
                             // The sizes do not match, we cannot complete the
                             // request
                             SetError(
@@ -3629,7 +3623,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         target_recset = NewRecSet();
                         AddReceiverToSet(target_recset,
                                          NewGroupReceiver(recv_ptr->rec_di,
-                                                          reply->rep_group));
+                                                          reply->rep_group.get()));
                         // point at the AIF data
                         na = EVENT_DATA(reply->rep_event)->joinAIF();
                         // Send the command using the target_recset and the

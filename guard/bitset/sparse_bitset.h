@@ -30,8 +30,12 @@ private:
     // data representing runs of bits that have been set. ranges are inclusive.
     // e.g. {sr_start = 2, sr_end = 5} = 0b00111100
     struct Range {
-        int sr_start;
-        int sr_end;
+        unsigned int sr_start;
+        unsigned int sr_end;
+
+        bool contains(unsigned int bit) {
+            return bit >= sr_start && bit <= sr_end;
+        }
     };
 public:
     // iterates over all bits that are set. returns integer offsets representing
@@ -49,7 +53,7 @@ public:
             }
         }
 
-        int operator*() const {
+        unsigned int operator*() const {
             return m_current_bit;
         }
 
@@ -75,7 +79,7 @@ public:
         };
     private:
         const SparseBitset& m_bits;
-        int m_current_bit;
+        unsigned int m_current_bit;
 
         std::vector<Range>::const_iterator m_range_it;
     };
@@ -84,20 +88,20 @@ public:
 
     SparseBitset(unsigned int nbits);
 
-    virtual std::unique_ptr<Bitset> clone() const override;
+    virtual Bitset* rawClone() const override;
     std::unique_ptr<SparseBitset> typedClone() const;
 
     virtual bool isEmpty() const override; 
     virtual bool isFull() const override; 
 
     virtual void set(int bit) override; 
-    void setRange(int start, int end);
+    void setRange(unsigned int start, unsigned int end);
     // virtual void unset(int bit) override
     // virtual bool test(int bit) const override
     // virtual void invert() override
     virtual void clear() override; 
 
-    virtual int numSet() const override; 
+    virtual unsigned int numSet() const override; 
     virtual int firstSet() const override;
 
     virtual size_t sizeInBits() const override;
@@ -126,12 +130,15 @@ public:
 private:
     // find index of first range with an end >= bit. returns m_sb_ranges.size()
     // if none are found.
-    int findRangeIdx(int bit);
+    size_t findRangeIdx(unsigned int bit);
 
     // check if range at idx connects with range at idx - 1 and merge if so.
     // e.g. given two ranges: {2-5}, {6-8}, calling mergeIfNecessary(1) would
     // turn them into {2-8}.
-    void mergeIfNecessary(int idx);
+    void mergeIfNecessary(unsigned int idx);
+
+    // helper for rawClone() and typedClone()
+    SparseBitset* typedRawClone() const;
 
     unsigned int m_sb_num_bits; // total number of bits
     std::vector<Range> m_sb_ranges; // ranges in an ascending order

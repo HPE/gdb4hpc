@@ -22,7 +22,7 @@
 #define _GRAPH_H
 
 #include "ainfo.h"
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "dbg_client.h"
 #include "dbgevent.h"
 #include "hash.h"
@@ -51,8 +51,8 @@ struct graph_inv {
     dbginvoke_t *gp_di;  // dbginvoke_t pointer
 
     // procset support components
-    bitset *gp_unbuilt_bs; /* ranks that have yet to be built */
-    list_t *gp_files;      /* per process list of files */
+    std::unique_ptr<DenseBitset> gp_unbuilt_bs; /* ranks that have yet to be built */
+    list_t *gp_files;                           /* per process list of files */
     int gp_node[INVOKE_NODES];
 };
 typedef struct graph_inv graph_inv;
@@ -149,7 +149,7 @@ struct graph_t {
     int (*g_outConstFloat)(struct graph_t *, const char *, double);
     int (*g_outConstStr)(struct graph_t *, const char *, const char *);
     int (*g_outConstAIF)(struct graph_t *, const char *, double, int);
-    int (*g_outConstBitSet)(struct graph_t *, const char *, bitset *);
+    int (*g_outConstBitSet)(struct graph_t *, const char *, const DenseBitset*);
     void (*g_outEdge)(struct graph_t *, int, int, int);
 
     /*
@@ -160,7 +160,7 @@ struct graph_t {
     int (*g_display_p2p)(struct graph_t *, int, char *, AIF *);
     int (*g_compare)(struct graph_t *, int, char *, AIF *, char *, AIF *, int);
     void (*g_dbgout)(char *, int, int, void *);
-    int (*g_dbgevent)(event_set_t *, const bitset *);
+    int (*g_dbgevent)(event_set_t *, const Bitset*);
 };
 typedef struct graph_t graph_t;
 

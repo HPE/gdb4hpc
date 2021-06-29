@@ -3,7 +3,7 @@ GRAM	= @guard_srcdir@/src/gram
 DBGCLNT = @guard_srcdir@/src/dbgclnt
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 MRNET	= @mrn_root@
-SDM	    = @guard_srcdir@/sdm
+BITSET  = @guard_srcdir@/bitset
 ZMQNET  = @zmqnet_root@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
@@ -26,8 +26,8 @@ endif
 
 # Check for MRNet libraries
 if MRN
-AM_CXXFLAGS       += -I$(MRNET) -I$(SDM)
-MRN_LIBS        = -L$(MRNET)/lib -L$(SDM) -lmrnet -lbitset
+AM_CXXFLAGS       += -I$(MRNET) -I$(BITSET)
+MRN_LIBS        = -L$(MRNET)/lib -L$(BITSET) -lmrnet -lbitset
 endif
 
 # Check for ZMQNet libraries

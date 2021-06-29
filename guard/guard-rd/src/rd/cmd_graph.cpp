@@ -62,7 +62,7 @@ static int OutConstInt(graph_t *, const char *, int);
 static int OutConstFloat(graph_t *, const char *, double);
 static int OutConstStr(graph_t *, const char *, const char *);
 static int OutConstAIF(graph_t *, const char *, double, int);
-static int OutConstBitSet(graph_t *, const char *, bitset *);
+static int OutConstBitSet(graph_t *, const char *, const DenseBitset*);
 static void OutEdge(graph_t *, int, int, int);
 
 /********************************
@@ -1818,11 +1818,18 @@ static int OutConstAIF(graph_t *g, const char *node, double val,
     return gennode(g, node, t);
 }
 
-static int OutConstBitSet(graph_t *g, const char *node, bitset *val) {
+static int OutConstBitSet(graph_t *g, const char *node, const DenseBitset *val) {
     token_t *t;
 
     t = NewToken(g, TK_BIT_SET);
-    t->t_bit_set = bitset_dup(val);
+    // XXX: t_bit_set is actually part of a C union, so its data could be
+    // anything here. We need to make sure to "release" the pointer "contained"
+    // there before assigning to it, or the smart pointer assignment operator
+    // will try to delete it. See comment about smart pointers and Alloc in
+    // dbg_client.cpp:NewGroupReceiver.
+    DASSERT_NOT_NULL(val);
+    t->t_bit_set.release();
+    t->t_bit_set = val->typedClone();
 
     return gennode(g, node, t);
 }

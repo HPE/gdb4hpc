@@ -2,21 +2,42 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "bitset.h"
+#include "defs.h"
 
-std::unique_ptr<Bitset> Bitset::doAnd(const Bitset& l, const Bitset &r) {
+namespace bitset {
+
+std::unique_ptr<Bitset> doAnd(const Bitset& l, const Bitset &r) {
 	auto lhs = l.clone();
 	*lhs &= r;
 	return lhs;
 }
 
-std::unique_ptr<Bitset> Bitset::doOr(const Bitset& l, const Bitset &r) {
+std::unique_ptr<Bitset> doOr(const Bitset& l, const Bitset &r) {
 	auto lhs = l.clone();
 	*lhs |= r;
 	return lhs;
 }
 
+void copyBits(Bitset &dest, const Bitset &source) {
+	if (dest.sizeInBits() != source.sizeInBits()) {
+		throw UnimplementedBitsetOperationError("copyBits - unequal sizeInBits");
+	}
+
+	dest.clear();
+	for (unsigned int i = 0; i < dest.sizeInBits(); i++) {
+		if (source.test(i)) dest.set(i);
+	}
+}
+
+} // bitset
+
 std::unique_ptr<Bitset> Bitset::clone() const {
-	throw UnimplementedBitsetOperationError("clone");
+	// try to make use of rawClone by default
+	return std::unique_ptr<Bitset>(rawClone());
+}
+
+Bitset *Bitset::rawClone() const {
+	throw UnimplementedBitsetOperationError("rawClone");
 	return nullptr;
 }
 
@@ -51,7 +72,7 @@ void Bitset::clear() {
 	throw UnimplementedBitsetOperationError("clear");
 }
 
-int Bitset::numSet() const {
+unsigned int Bitset::numSet() const {
 	throw UnimplementedBitsetOperationError("numSet");
 	return -1;
 }

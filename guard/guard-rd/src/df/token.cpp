@@ -99,7 +99,12 @@ token_t *NewToken(graph_t *g, token_type tt) {
     t->t_prev = (token_t *)NULL;
     t->t_set_name = (char *)NULL;
     t->t_set_length = 0;
-    t->t_set_bits = (bitset *)NULL;
+    // XXX: See comment about smart pointers and Alloc in
+    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
+    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
+    // delete an arbitrary pointer upon assignent.
+    t->t_set_bits.release();
+    t->t_set_bits = std::unique_ptr<DenseBitset>();
 
     if (g->g_tokens == (token_t *)NULL) {
         g->g_tokens = t;
@@ -131,7 +136,7 @@ void DestroyToken(graph_t *g, token_t *t) {
 
     if (t->t_set_name != NULL) Free(t->t_set_name);
 
-    if (t->t_set_bits != NULL) bitset_free(t->t_set_bits);
+    t->t_set_bits.reset();
 
     switch (t->t_type) {
         case TK_DATA:
@@ -165,7 +170,7 @@ void DestroyToken(graph_t *g, token_t *t) {
             break;
 
         case TK_BIT_SET:
-            if (t->t_bit_set != NULL) bitset_free(t->t_bit_set);
+            t->t_bit_set.reset();
             break;
 
         case TK_BAD:

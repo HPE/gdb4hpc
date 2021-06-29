@@ -14,18 +14,22 @@ DenseBitset::DenseBitset(unsigned int nbits)
 	, m_bs_bits(BIT_INDEX(nbits-1) + 1, 0)
 {}
 
-std::unique_ptr<Bitset> DenseBitset::clone() const {
-	return typedClone();
+DenseBitset* DenseBitset::typedRawClone() const {
+	auto r = new DenseBitset(m_bs_nbits);
+	*r = *this;
+	return r;
+}
+
+Bitset* DenseBitset::rawClone() const {
+	return typedRawClone();
 }
 
 std::unique_ptr<DenseBitset> DenseBitset::typedClone() const {
-	auto r = std::make_unique<DenseBitset>(m_bs_nbits);
-	*r = *this;
-    return r;
+	return std::unique_ptr<DenseBitset>(typedRawClone());
 }
 
 bool DenseBitset::isEmpty() const {
-	for (int i = 0; i < m_bs_bits.size(); i++)
+	for (size_t i = 0; i < m_bs_bits.size(); i++)
 		if (m_bs_bits[i] != 0)
 			return false;
 
@@ -33,7 +37,16 @@ bool DenseBitset::isEmpty() const {
 }
 
 bool DenseBitset::isFull() const {
-	for(int i = 0; i < m_bs_nbits; i++)
+	// use bit operations for everything until the last chunk
+	for (size_t i = 0; i < m_bs_bits.size() - 1; i++) {
+		if (~m_bs_bits[i] != 0) {
+			return false;
+		}
+	}
+
+	// last chunk might not be fully used, so test individually
+	auto starting_bit = (m_bs_bits.size() - 1) * (sizeof(Bits) * 8);
+	for(unsigned int i = starting_bit; i < m_bs_nbits; i++)
 		if(!test(i))
 			return false;
 
@@ -41,14 +54,14 @@ bool DenseBitset::isFull() const {
 }
 
 void DenseBitset::set(int bit) {
-    if (bit < 0 || bit >= m_bs_nbits)
+    if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] |= (1 << BIT_IN_OBJ(bit));
 }
 
 void DenseBitset::unset(int bit) {
-    if (bit < 0 || bit >= m_bs_nbits)
+    if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] &= ~(1 << BIT_IN_OBJ(bit));
@@ -57,16 +70,14 @@ void DenseBitset::unset(int bit) {
 bool DenseBitset::test(int bit) const {
     Bits mask = (1 << BIT_IN_OBJ(bit));
 
-	if (bit < 0 || bit >= m_bs_nbits)
+	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return 0;
 
 	return (m_bs_bits[BIT_INDEX(bit)] & mask) == mask;
 }
 
 void DenseBitset::invert() {
-	int		i;
-
-	for (i = 0; i < m_bs_bits.size(); i++)
+	for (size_t i = 0; i < m_bs_bits.size(); i++)
 		m_bs_bits[i] = ~m_bs_bits[i];
 
 	/*
@@ -80,12 +91,11 @@ void DenseBitset::clear() {
 	std::fill(m_bs_bits.begin(), m_bs_bits.end(), 0);
 }
 
-int DenseBitset::numSet() const {
+unsigned int DenseBitset::numSet() const {
     // Need to loop over each bs_bits
-	int count = 0;
+	unsigned int count = 0;
     
-    for (int i = 0; i < m_bs_bits.size(); i++)
-	{
+    for (size_t i = 0; i < m_bs_bits.size(); i++) {
 		// set this bit
 		auto curBits = m_bs_bits[i];
 		for(; curBits; ++count)
@@ -105,7 +115,7 @@ int DenseBitset::numSet() const {
 int DenseBitset::firstSet() const {
 	static_assert(sizeof(Bits) == sizeof(int));
     
-	int i;
+	size_t i;
     for (i = 0; i < m_bs_bits.size(); i++)
 		if (m_bs_bits[i] != 0)
 			break;
@@ -139,7 +149,7 @@ std::string DenseBitset::toString() const {
 	for (int pbit = (bytes << 3) - 1; pbit > 0; ) {
         int val = 0;
 		for (val = 0, bit = 3; bit >= 0; bit--, pbit--) {
-			if (pbit < m_bs_nbits && test(pbit)) {
+			if ((unsigned int)pbit < m_bs_nbits && test(pbit)) {
 				val |= (1 << bit);
 			}
 		}
@@ -198,17 +208,18 @@ std::string DenseBitset::toSet(int offset, int len) const {
 		len = m_bs_nbits - offset;
 	}
 
-	if (len < 1 || offset < 0 || offset > m_bs_nbits)
+	if (len < 1 || offset < 0 || (unsigned int)offset > m_bs_nbits)
 		return "{}";
 
-	auto end = (( offset + len) > m_bs_nbits) ? m_bs_nbits : (offset + len);
+	unsigned int end = ((unsigned int)(offset + len) > m_bs_nbits) ? m_bs_nbits : (offset + len);
 
 	std::stringstream str;
 	str << "{";
 
-	int	bit, lower, upper;
+	unsigned int bit;
+	int lower, upper;
 	char sep = 0;
-	for (bit = offset, lower = -1, upper = -1; bit < end; bit++) {
+	for (bit = (unsigned int)offset, lower = -1, upper = -1; bit < end; bit++) {
 		if (test(bit)) {
 			if (lower < 0) {
 				lower = bit;
@@ -231,7 +242,7 @@ std::string DenseBitset::toSet(int offset, int len) const {
 
 Bitset::SerializedPtr DenseBitset::serialize() const {
 	auto content = toString();
-	auto format = bitset::Format::Dense;
+	auto format = static_cast<unsigned int>(bitset::Format::Dense);
 	auto size = content.size() + 16;
 	auto result = (char *)malloc(sizeof(char) * size);
 	sprintf(result, "%x;%x;%s", format, m_bs_nbits, content.c_str());
@@ -259,7 +270,7 @@ DenseBitset& DenseBitset::operator=(const DenseBitset &other) {
 Bitset& DenseBitset::operator&=(const Bitset &_other) {
 	auto &other = dynamic_cast<const DenseBitset&>(_other);
 
-	int	i;
+	size_t i;
 
 	for (i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
 		m_bs_bits[i] &= other.m_bs_bits[i];
@@ -276,7 +287,7 @@ Bitset& DenseBitset::operator&=(const Bitset &_other) {
 Bitset& DenseBitset::operator-=(const Bitset &_other) {
 	auto &other = dynamic_cast<const DenseBitset&>(_other);
 
-	int	i;
+	size_t i;
 
 	for (i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
 		m_bs_bits[i] &= ~other.m_bs_bits[i];
@@ -293,9 +304,7 @@ Bitset& DenseBitset::operator-=(const Bitset &_other) {
 Bitset& DenseBitset::operator|=(const Bitset &_other) {
 	auto &other = dynamic_cast<const DenseBitset&>(_other);
 
-	int	i;
-
-	for (i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
+	for (size_t i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
 		m_bs_bits[i] |= other.m_bs_bits[i];
 
 	/*
@@ -313,12 +322,10 @@ Bitset& DenseBitset::operator|=(const Bitset &_other) {
 bool DenseBitset::operator==(const Bitset &_other) const {
 	auto &other = dynamic_cast<const DenseBitset&>(_other);
 	
-	int	i;
-
 	if (m_bs_nbits != other.m_bs_nbits)
 		return false;
 
-	for (i = 0; i < m_bs_bits.size(); i++)
+	for (size_t i = 0; i < m_bs_bits.size(); i++)
 		if (m_bs_bits[i] != other.m_bs_bits[i])
 			return false;
 
@@ -332,7 +339,7 @@ bool DenseBitset::operator!=(const Bitset &_other) const {
 bool DenseBitset::hasCommonBits(const Bitset &_other) const {
     auto &other = dynamic_cast<const DenseBitset&>(_other);
 
-	for (int i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
+	for (size_t i = 0; i < std::min(m_bs_bits.size(), other.m_bs_bits.size()); i++)
 		if ((m_bs_bits[i] & other.m_bs_bits[i]) != 0)
 			return true;
 

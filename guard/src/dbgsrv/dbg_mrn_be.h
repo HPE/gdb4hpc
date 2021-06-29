@@ -73,8 +73,8 @@ private:
     int m_io_fd;     // for notification of events on io stream
 
     int m_rank;               // rank of backend
-    smart_bitset* m_rank_bs;  // smart_bitset
-    char* m_rank_bs_str;
+    std::unique_ptr<SmartBitset> m_rank_bs; 
+    Bitset::SerializedPtr m_rank_bs_str;
 
     int m_network_size;
 

@@ -13,19 +13,19 @@
 
 namespace bitset {
 
-static std::unique_ptr<DenseBitset> deserializeDense(Bitset::Serialized bitset);
+static DenseBitset* deserializeDense(Bitset::Serialized bitset);
 static std::unique_ptr<DenseBitset> fromStringDense(const std::string &str);
 
-static std::unique_ptr<SparseBitset> deserializeSparse(int nbits, int strlen, Bitset::Serialized bitset);
+static SparseBitset* deserializeSparse(int nbits, int strlen, Bitset::Serialized bitset);
 
-static std::unique_ptr<SmartBitset> deserializeSmart(int nbits, int strlen, Bitset::Serialized bitset);
+static SmartBitset* deserializeSmart(int nbits, int strlen, Bitset::Serialized bitset);
 
 static int digittoint(int c);
 // convert a hex string to an integer
 // returns nullopt on error
-static std::optional<int> atoi_hex(const char* str, int start, int end);
+static std::optional<int> atoi_hex(const char* str, unsigned int start, unsigned int end);
 // returns (low, high), nullopt on error
-static std::optional<std::tuple<int, int>> parse_range(char* set, int start, int end);
+static std::optional<std::tuple<int, int>> parse_range(char* set, unsigned int start, unsigned int end);
 
 int digittoint(int c)
 {
@@ -41,26 +41,26 @@ int digittoint(int c)
 	return 0;
 }
 
-std::optional<int> atoi_hex(const char* str, int start, int end)
+std::optional<int> atoi_hex(const char* str, unsigned int start, unsigned int end)
 {
-	int res = 0, index;
-	if (str == NULL || start < 0 || end < start || start >= strlen(str))
+	int res = 0;
+	if (str == nullptr || end < start || start >= strlen(str))
 		return {}; 
 
-	for (index = start; index <= end && isxdigit(str[index]); index++) {
+	for (unsigned int i = start; i <= end && isxdigit(str[i]); i++) {
 		res <<= 4;
-		res += digittoint(str[index]);
+		res += digittoint(str[i]);
 	}
 
 	return res;
 }
 
-std::optional<std::tuple<int, int>> parse_range(char* set, int start, int end) {
-	int index, res;
-
-	if (set == nullptr || start < 0 || end < start) {
+std::optional<std::tuple<int, int>> parse_range(char* set, unsigned int start, unsigned int end) {
+	if (set == nullptr || end < start) {
 		return {};
 	}
+
+	unsigned int index;
 
 	for (index = start; index <= end && (set[index] != '-' && set[index] != '.'); index++);
 	auto optLower = atoi_hex(set, start, index - 1);
@@ -79,10 +79,20 @@ std::optional<std::tuple<int, int>> parse_range(char* set, int start, int end) {
 }
 
 std::unique_ptr<Bitset> deserialize(const SerializedPtr &ptr) {
-    return deserialize(ptr.get());
+	return std::unique_ptr<Bitset>(detail::deserializeRaw(ptr));
 }
 
 std::unique_ptr<Bitset> deserialize(const Serialized str) {
+	return std::unique_ptr<Bitset>(detail::deserializeRaw(str));
+}
+
+namespace detail {
+
+Bitset* deserializeRaw(const SerializedPtr &ptr) {
+    return detail::deserializeRaw(ptr.get());
+}
+
+Bitset* deserializeRaw(const Serialized str) {
 	//get format
 	int start = 0, index;
 	for (index = start; str[index] != ';' && str[index] != '\0'; index++);
@@ -116,7 +126,9 @@ std::unique_ptr<Bitset> deserialize(const Serialized str) {
 	}
 }
 
-static std::unique_ptr<DenseBitset> deserializeDense(Bitset::Serialized str) {
+} // detail
+
+static DenseBitset* deserializeDense(Bitset::Serialized str) {
 	if (str == nullptr) {
 		return nullptr;
 	}
@@ -133,7 +145,7 @@ static std::unique_ptr<DenseBitset> deserializeDense(Bitset::Serialized str) {
 		return nullptr;
 	}
 
-	auto result = std::make_unique<DenseBitset>(nbits);
+	auto result = new DenseBitset(nbits);
 
 	for (int pos = (bytes << 3) - 1; *str != '\0' && isxdigit(*str) && pos >= 0; str++) {
 		int b = digittoint(*str);
@@ -147,8 +159,8 @@ static std::unique_ptr<DenseBitset> deserializeDense(Bitset::Serialized str) {
 	return result;
 }
 
-static std::unique_ptr<SparseBitset> deserializeSparse(int nbits, int strlen, Bitset::Serialized str) {
-	auto result = std::make_unique<SparseBitset>(nbits);
+static SparseBitset* deserializeSparse(int nbits, int strlen, Bitset::Serialized str) {
+	auto result = new SparseBitset(nbits);
 
 	if (str == nullptr || str[0] != '{' || str[strlen-1] != '}' || strlen < 2) 
 		return nullptr;
@@ -183,16 +195,16 @@ static std::unique_ptr<SparseBitset> deserializeSparse(int nbits, int strlen, Bi
 	return result;
 }
 
-static std::unique_ptr<SmartBitset> deserializeSmart(int nbits, int strlen, Bitset::Serialized bitset) {
+static SmartBitset* deserializeSmart(int nbits, int strlen, Bitset::Serialized bitset) {
 	// smart bitset is either a dense bitset or a sparse bitest. sparse bitsets
 	// always begin with '{'
 	if (bitset[0] == '{') {
-		auto sparse = deserializeSparse(nbits, strlen, bitset);
-		return std::make_unique<SmartBitset>(std::move(sparse));
+		auto sparse = std::unique_ptr<SparseBitset>(deserializeSparse(nbits, strlen, bitset));
+		return new SmartBitset(std::move(sparse));
 	} else {
 		// dense bitsets have their size encoded
-		auto dense = deserializeDense(bitset);
-		return std::make_unique<SmartBitset>(std::move(dense));
+		auto dense = std::unique_ptr<DenseBitset>(deserializeDense(bitset));
+		return new SmartBitset(std::move(dense));
 	}
 }
 

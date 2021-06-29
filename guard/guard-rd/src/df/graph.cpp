@@ -30,7 +30,7 @@
 // FIXME: I don't know how they came up with this number. Whatever.
 #define INVOKE_TABLE_SIZE 7 /* 2^7 = 128 */
 
-extern int NodeEvent(event_set_t *, const bitset *);
+extern int NodeEvent(event_set_t *, const Bitset*);
 
 /*
 ** Create a new graph.
@@ -101,9 +101,15 @@ graph_inv *NewGraphInv(graph_t *g, dbgprocset_t *ps) {
     over_set = GetNextOverlaySetForProcSet(ps);
 
     gi->gp_di = over_set->s_di;
-    gi->gp_unbuilt_bs = bitset_new(over_set->s_di->d_nproc);
+
+    // XXX: See comment about smart pointers and Alloc in
+    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
+    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
+    // delete an arbitrary pointer upon assignent.
+    gi->gp_unbuilt_bs.release();
+    gi->gp_unbuilt_bs = std::make_unique<DenseBitset>(over_set->s_di->d_nproc);
     // Set every rank to 1, since everything is currently unbuilt.
-    bitset_invert(gi->gp_unbuilt_bs);
+    gi->gp_unbuilt_bs->invert();
     gi->gp_files = NULL;
 
     for (d = 0; d < INVOKE_NODES; d++) gi->gp_node[d] = -1;
@@ -166,7 +172,8 @@ graph_inv *FindGraphInv(graph_t *g, char *inv) {
 void destroyInv(char *key, void *arg) {
     graph_inv *gi = (graph_inv *)arg;
 
-    bitset_free(gi->gp_unbuilt_bs);
+    gi->gp_unbuilt_bs.reset();
+
     DestroyList(gi->gp_files, (void (*)(void *))DestroyFile);
 
     Free(gi);
@@ -261,7 +268,7 @@ void PrintGraph(FILE *fp, graph_t *g) {
                     break;
 
                 case TK_BIT_SET:
-                    PrintToFd(fp, " label=\"%s\"", bitset_to_set(t->t_bit_set));
+                    PrintToFd(fp, " label=\"%s\"", t->t_bit_set->toSet().c_str());
                     break;
 
                 case TK_FLOAT:

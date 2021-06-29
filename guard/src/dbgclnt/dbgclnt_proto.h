@@ -100,11 +100,11 @@ public:
 
     virtual int exit(struct dbginvoke *di, int detach);
 
-    virtual bitset* sendCommand(struct dbginvoke *di, const bitset *target, 
+    virtual std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
         const char *request) = 0;
 
     virtual std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
-        const bitset *target, bitset *received) = 0;
+        const Bitset *target, Bitset &received) = 0;
 
     // optional functions:
     virtual int init() { return 1; }; // success by default

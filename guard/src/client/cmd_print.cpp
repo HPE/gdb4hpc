@@ -86,7 +86,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
                 PrintMsgWithSetInfo(
                     ((reply->rep_di == NULL) ? (char *)""
                                              : reply->rep_di->d_handle),
-                    reply->rep_group, NULL);
+                    reply->rep_group.get(), NULL);
 
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...
@@ -135,7 +135,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
 //  <result>
 // etc.  and this will be parsed and combined with diName and group to something
 // like: $a{0..5:1..4}: <result> $a{0..5:5,9}: <result>
-int PrintMultiThreadMsg(const char *diName, const bitset *group,
+int PrintMultiThreadMsg(const char *diName, const Bitset *group,
                         const std::string &msg) {
     // the form is:
     // Threads 1 3 5-7:
@@ -166,7 +166,7 @@ int PrintMultiThreadReply(group_reply_t *reply) {
     if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
         auto res = std::string{reply->rep_event->ev_u.ev_u_string};
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
-        return PrintMultiThreadMsg(diName, reply->rep_group, res);
+        return PrintMultiThreadMsg(diName, reply->rep_group.get(), res);
     } else {
         return -1;
     }
@@ -202,12 +202,12 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
                 strlen(MULTI_THREAD_HDR)};  // skip begin quote and header
             if (msg.size() >= 1) msg.erase(msg.size() - 1);  // end quote
 
-            PrintMultiThreadMsg(diName, reply->rep_group, msg);
+            PrintMultiThreadMsg(diName, reply->rep_group.get(), msg);
 
         } else {
             // A normal expression result, either from no thread focus, or focus
             // on a single thread.
-            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group,
+            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group.get(),
                                          rec_set->getThreads(), nullptr);
             // Print the AIF value
             // AIFPrint doesn't play nice with editline...

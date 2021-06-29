@@ -41,15 +41,19 @@ SmartBitset::SmartBitset(int num_bits)
 	, m_sparse{std::make_unique<SparseBitset>(num_bits)}
 {}
 
-std::unique_ptr<Bitset> SmartBitset::clone() const {
-	return typedClone();
-}
-
-std::unique_ptr<SmartBitset> SmartBitset::typedClone() const {
-	auto clone = std::make_unique<SmartBitset>();
+SmartBitset* SmartBitset::typedRawClone() const {
+	auto clone = new SmartBitset();
 	if (m_dense) clone->m_dense = m_dense->typedClone();
 	if (m_sparse) clone->m_sparse = m_sparse->typedClone();
 	return clone;
+}
+
+Bitset* SmartBitset::rawClone() const {
+	return typedRawClone();
+}
+
+std::unique_ptr<SmartBitset> SmartBitset::typedClone() const {
+	return std::unique_ptr<SmartBitset>(typedRawClone());
 }
 
 bool SmartBitset::isSparse() const {
@@ -58,6 +62,11 @@ bool SmartBitset::isSparse() const {
 
 bool SmartBitset::isDense() const {
 	return m_dense.get() != nullptr;
+}
+
+std::unique_ptr<DenseBitset> SmartBitset::releaseAsDense() {
+	convertToDense();
+	return std::move(m_dense);
 }
 
 bool SmartBitset::convertToDense() {
@@ -82,13 +91,13 @@ bool SmartBitset::isEmpty() const {
 	if (m_dense) return m_dense->isEmpty();
 	else if (m_sparse) return m_sparse->isEmpty();
 	return true;
-};
+}
 
 bool SmartBitset::isFull() const {
 	if (m_dense) return m_dense->isFull();
 	else if (m_sparse) return m_sparse->isFull();
 	return false;
-};
+}
 
 void SmartBitset::set(int bit) {
 	if (m_dense) m_dense->set(bit);
@@ -100,7 +109,7 @@ void SmartBitset::clear() {
 	if (m_sparse) m_sparse->clear();
 }
 
-int SmartBitset::numSet() const {
+unsigned int SmartBitset::numSet() const {
 	if (m_dense) return m_dense->numSet();
 	else if (m_sparse) return m_sparse->numSet();
 

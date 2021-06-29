@@ -21,20 +21,10 @@ private:
 
 class Bitset {
 public:
-    // returns a new bitset containing the result of a bitwise AND between the 
-    // arguments. the format of the returned bitset will be that of the lhs bitset.
-    // it is up to the implimentation of &= to make sure that the two bitsets
-    // are compatible for the operation.
-    static std::unique_ptr<Bitset> doAnd(const Bitset &lhs, const Bitset &rhs);
-
-    // returns a new bitset containing the result of a bitwise OR between the 
-    // arguments. the format of the returned bitset will be that of the lhs bitset.
-    // it is up to the implimentation of |= to make sure that the two bitsets
-    // are compatible for the operation.
-    static std::unique_ptr<Bitset> doOr(const Bitset &lhs, const Bitset &rhs);
-
     // clone the bitset.
     virtual std::unique_ptr<Bitset> clone() const;
+    // useful if you intend to cast immediately after a clone
+    virtual Bitset* rawClone() const;
 
     virtual ~Bitset() = default;
 
@@ -56,7 +46,7 @@ public:
     virtual void clear();
 
     // returns the number of bits set to 1.
-    virtual int numSet() const;
+    virtual unsigned int numSet() const;
     // returns the offset of the first set bit. offset starts from LSB.
     virtual int firstSet() const;
 
@@ -93,3 +83,24 @@ public:
     // returns true if lhs & rhs != 0.
     virtual bool hasCommonBits(const Bitset &other) const;
 };
+
+// helper functions
+namespace bitset {
+    // returns a new bitset containing the result of a bitwise AND between the 
+    // arguments. the format of the returned bitset will be that of the lhs bitset.
+    // it is up to the implimentation of &= to make sure that the two bitsets
+    // are compatible for the operation.
+    std::unique_ptr<Bitset> doAnd(const Bitset &lhs, const Bitset &rhs);
+
+    // returns a new bitset containing the result of a bitwise OR between the 
+    // arguments. the format of the returned bitset will be that of the lhs bitset.
+    // it is up to the implimentation of |= to make sure that the two bitsets
+    // are compatible for the operation.
+    std::unique_ptr<Bitset> doOr(const Bitset &lhs, const Bitset &rhs);
+
+    // generic function to copy the bits from source to dest. since we don't know
+    // the underlying types of the bitsets, this is a slow, one-by-one copy. use
+    // this function only if you can't copy any other way. dest and source must
+    // be the same sizeInBits().
+    void copyBits(Bitset &dest, const Bitset &source);
+} // bitset

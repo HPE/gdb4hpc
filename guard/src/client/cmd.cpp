@@ -257,15 +257,12 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
                     }
 
                     // First create the bitset string
-                    auto bitset_str = bitset_to_set(reply->rep_group);
+                    auto bitset_str = reply->rep_group->toSet();
 
                     // Next create the full set string
                     char *set_str = nullptr;
                     Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
-                             bitset_str);
-
-                    // Done with the bitset_str
-                    Free(bitset_str);
+                             bitset_str.c_str());
 
                     // point at the status data
                     stat = EVENT_STATUS(reply->rep_event);

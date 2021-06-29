@@ -76,27 +76,27 @@ static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
 //static void SetErrHeadInSet(rep_set_t *);
 //static group_reply_t *GetNextErrInSet(rep_set_t *);
-static event_set_t *NewEventSet(dbginvoke_t *, const bitset *, dbgevent_t *);
+static event_set_t *NewEventSet(dbginvoke_t *, const Bitset *, dbgevent_t *);
 static void FreeEventSet(event_set_t *);
 static void DestroyEventSet(dbginvoke_t *, dbgev);
-static event_set_t *AddEvent(dbginvoke_t *, const bitset *, dbgevent_t *);
-static void CheckForFullEventSet(dbginvoke_t *, bitset *, dbgev);
+static event_set_t *AddEvent(dbginvoke_t *, const Bitset *, dbgevent_t *);
+static void CheckForFullEventSet(dbginvoke_t *, const Bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
-static void RemoveGroupFromAsyncSet(dbginvoke_t *, const bitset *);
-static bp_disp_set_t *NewBPDispSet(bitset *, dbgbp_disp);
-static bp_id_set_t *NewBPIDSet(bitset *, int);
+static void RemoveGroupFromAsyncSet(dbginvoke_t *, const Bitset *);
+static bp_disp_set_t *NewBPDispSet(const Bitset *, dbgbp_disp);
+static bp_id_set_t *NewBPIDSet(const Bitset *, int);
 static void FreeBPSet(bp_set_t *);
 static void FreeBPIDSet(bp_id_set_t *);
 static void FreeBPDispSet(bp_disp_set_t *);
-static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group);
-static void AddBPToBPSet(bp_set_t *, bitset *, dbgbp_t *);
-static void EnableBPForBPSet(bp_set_t *, bitset *);
-static void DisableBPForBPSet(bp_set_t *, bitset *);
-static void SetBPDispositionForBPSet(bp_set_t *, bitset *, dbgbp_disp);
-static void RemoveBPSet(dbginvoke_t *, bp_set_t *, bitset *);
+static void AddBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group);
+static void AddBPToBPSet(bp_set_t *, const Bitset *, dbgbp_t *);
+static void EnableBPForBPSet(bp_set_t *, const Bitset *);
+static void DisableBPForBPSet(bp_set_t *, const Bitset *);
+static void SetBPDispositionForBPSet(bp_set_t *, const Bitset *, dbgbp_disp);
+static void RemoveBPSet(dbginvoke_t *, bp_set_t *, const Bitset *);
 static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *group);
-static group_reply_t* JoinReplies(bitset* group,
+static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group);
+static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   const ArrayDimension* shape,
                                   bool& isError);
@@ -200,9 +200,8 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
         FreeEvent(e);
     }
 
-    if (di->d_bitset_full != nullptr) bitset_free(di->d_bitset_full);
-
-    if (di->d_bitset_launched != nullptr) bitset_free(di->d_bitset_launched);
+    di->d_bitset_full.reset();
+    di->d_bitset_launched.reset();
 
     if (di->d_cmd != nullptr) Free(di->d_cmd);
 
@@ -227,30 +226,36 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
  * data structures for group receivers to dbgsrv
  */
 
-group_recv_t *NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask) {
+group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask) {
     group_recv_t *rec;
 
     rec = (group_recv_t *)Alloc(sizeof(group_recv_t));
     rec->rec_di = di;
-    rec->rec_group = bitset_dup(proc_mask);
-    rec->_cmd_sent = nullptr;
+
+    // XXX: Since we're halfway between C and C++, we need to properly reset the
+    // unique ptrs before assigning to them since Alloc gives us a block of
+    // arbitrary unintialized memory. Part of this memory will represent the
+    // inner pointer inside the smart pointers (and other nasty things) so it
+    // needs to be dealt with. We "release" the pointers so the smart pointers
+    // don't try to be too smart and delete an arbitrary pointer upon assignment
+    // below.
+    DASSERT_NOT_NULL(proc_mask);
+    rec->rec_group.release();
+    rec->_cmd_sent.release();
+    rec->rec_group = proc_mask->clone();
+    rec->_cmd_sent = std::unique_ptr<Bitset>();
 
     return rec;
 }
 
 static void FreeGroupReceiver(group_recv_t *rec) {
-    bitset_free(rec->rec_group);
-    if (rec->_cmd_sent != nullptr) {
-        bitset_free(rec->_cmd_sent);
-    }
+    rec->rec_group.reset();
+    rec->_cmd_sent.reset();
     Free(rec);
 }
 
 static void ClearCmdSent(group_recv_t *rec) {
-    if (rec->_cmd_sent != nullptr) {
-        bitset_free(rec->_cmd_sent);
-        rec->_cmd_sent = nullptr;
-    }
+    rec->_cmd_sent.reset();
 }
 
 static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
@@ -261,8 +266,12 @@ static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
     newrec = (group_recv_t *)Alloc(sizeof(group_recv_t));
 
     newrec->rec_di = rec->rec_di;
-    newrec->rec_group = bitset_dup(rec->rec_group);
-    newrec->_cmd_sent = nullptr;
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    DASSERT_NOT_NULL(rec->rec_group);
+    newrec->rec_group.release();
+    newrec->_cmd_sent.release();
+    newrec->rec_group = rec->rec_group->clone();
+    newrec->_cmd_sent = std::unique_ptr<Bitset>();
 
     return newrec;
 }
@@ -306,7 +315,7 @@ void rec_set_t::addReceiver(group_recv_t *rec)
         // If the di objects match, they are they point to the same thing.
         if (r->rec_di == rec->rec_di) {
             // The provided di matches, we need to merge
-            bitset_oreq(r->rec_group, rec->rec_group);
+            *r->rec_group |= *rec->rec_group;
             FreeGroupReceiver(rec);
             return;
         }
@@ -335,7 +344,7 @@ bool RecSetHasOneProcPerReceiver(rec_set_t* set)
 {
     if (!set) return false;
     for (auto&& recv : set) {
-        if (bitset_numset(recv->rec_group) != 1) {
+        if (recv->rec_group->numSet() != 1) {
             return false;
         }
     }
@@ -350,19 +359,21 @@ bool RecSetHasOneProcPerReceiver(rec_set_t* set)
  * data structures for group replies from dbgsrv
  */
 
-group_reply_t *NewGroupReply(dbginvoke_t *di, bitset *src, dbgevent_t *reply) {
+group_reply_t *NewGroupReply(dbginvoke_t *di, std::unique_ptr<Bitset> &&src, dbgevent_t *reply) {
     group_reply_t *rep = (group_reply_t *)Alloc(sizeof(group_reply_t));
 
     rep->rep_di = di;
     rep->rep_event = reply;
-    rep->rep_group = src;
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    rep->rep_group.release();
+    rep->rep_group = std::move(src);
 
     return rep;
 }
 
 void FreeGroupReply(group_reply_t *rep) {
     FreeEvent(rep->rep_event);
-    bitset_free(rep->rep_group);
+    rep->rep_group = nullptr; // calls destructor
     Free(rep);
 }
 
@@ -374,7 +385,10 @@ group_reply_t *CopyGroupReply(group_reply_t *rep) {
     newrep = (group_reply_t *)Alloc(sizeof(group_reply_t));
 
     newrep->rep_di = rep->rep_di;
-    newrep->rep_group = bitset_dup(rep->rep_group);
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    DASSERT_NOT_NULL(rep->rep_group);
+    newrep->rep_group.release();
+    newrep->rep_group = rep->rep_group->clone();
     newrep->rep_event = DupEvent(rep->rep_event);
 
     return newrep;
@@ -393,7 +407,7 @@ rep_set_t::rep_set_t()
       m_moreSlices(false)
 {}
 
-rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, bitset* group)
+rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, const Bitset* group)
     : rep_set_t()
 {
     mergeReplySliceSet(slices, shape, group);
@@ -619,7 +633,7 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
     if (rep_set && rep_set->hasError()) {
         for (auto&& err : rep_set->getErrs()) {
             // Print out the error
-            PrintErrorWithSetInfo(err->rep_di->d_handle, err->rep_group, "%s\n",
+            PrintErrorWithSetInfo(err->rep_di->d_handle, err->rep_group.get(), "%s\n",
                                   DbgEventErrorStr(err->rep_event));
         }
         return 1;
@@ -635,12 +649,16 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
 /*
 ** Create a new event set
 */
-static event_set_t *NewEventSet(dbginvoke_t *di, const bitset *group,
+static event_set_t *NewEventSet(dbginvoke_t *di, const Bitset *group,
                                 dbgevent_t *event) {
     event_set_t *eventset = (event_set_t *)Alloc(sizeof(event_set_t));
 
+    DASSERT_NOT_NULL(group);
+
     eventset->e_di = di;
-    eventset->e_group = bitset_dup(group);
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    eventset->e_group.release();
+    eventset->e_group = group->clone();
     eventset->e_ev = DupEvent(event);
 
     return eventset;
@@ -652,7 +670,7 @@ static event_set_t *NewEventSet(dbginvoke_t *di, const bitset *group,
 static void FreeEventSet(event_set_t *eventset) {
     if (eventset == nullptr) return;
 
-    if (eventset->e_group != nullptr) bitset_free(eventset->e_group);
+    eventset->e_group.reset();
 
     if (eventset->e_ev != nullptr) FreeEvent(eventset->e_ev);
 
@@ -677,7 +695,7 @@ static void DestroyEventSet(dbginvoke_t *di, dbgev ev) {
 /*
 ** Add a async event to an event set
 */
-static event_set_t *AddEvent(dbginvoke_t *di, const bitset *group,
+static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group,
                              dbgevent_t *event) {
     event_set_t *eventset;
 
@@ -689,7 +707,7 @@ static event_set_t *AddEvent(dbginvoke_t *di, const bitset *group,
         // Call the CompareEvents function and handle it if they are equal
         if (CompareEvents(eventset->e_ev, event) == EV_EQUAL) {
             // Add this group to the event set
-            bitset_oreq(eventset->e_group, group);
+            *eventset->e_group |= *group;
             return eventset;
         }
     }
@@ -703,18 +721,17 @@ static event_set_t *AddEvent(dbginvoke_t *di, const bitset *group,
 
 // This will remove the event set if an event of ev_event has been recieved for
 // every rank in the set
-static void CheckForFullEventSet(dbginvoke_t *di, bitset *fullset, dbgev ev) {
-    // A set that represents all ev that we have recieved so far
-    bitset *aggset;
+static void CheckForFullEventSet(dbginvoke_t *di, const Bitset *fullset, dbgev ev) {
     // individual event set
     event_set_t *eventset;
 
     // Return if di is null
     if (di == nullptr) return;
 
-    // dup the fullset and then clear it
-    aggset = bitset_dup(fullset);
-    bitset_clear(aggset);
+    // A set that represents all ev that we have recieved so far
+    DASSERT_NOT_NULL(fullset);
+    auto aggset = fullset->clone();
+    aggset->clear();
 
     // Create a set that contains all the ev events by looping over
     // every event
@@ -723,12 +740,12 @@ static void CheckForFullEventSet(dbginvoke_t *di, bitset *fullset, dbgev ev) {
            nullptr) {
         if (EVENT_EV(eventset->e_ev) == ev) {
             // Add it to the bitset
-            bitset_oreq(aggset, eventset->e_group);
+            *aggset |= *eventset->e_group;
         }
     }
 
     // Check to see if the aggset is the same as the fullset
-    if (bitset_eq(aggset, fullset) == 1) {
+    if (*aggset == *fullset) {
         // An event of ev has been recieved for every rank in fullset, so
         // we should remove this event
         DPRINT(
@@ -737,9 +754,6 @@ static void CheckForFullEventSet(dbginvoke_t *di, bitset *fullset, dbgev ev) {
             DbgevToStr(ev));
         DestroyEventSet(di, ev);
     }
-
-    // Destroy the aggset we dup'ed
-    bitset_free(aggset);
 }
 
 static void ResetForAsyncCmd(rec_set_t *set) {
@@ -760,10 +774,12 @@ static void ResetForAsyncCmd(rec_set_t *set) {
         while ((eventset = (event_set_t *)GetListElement(
                     recv_ptr->rec_di->d_eventset_list)) != nullptr) {
             // Remove the group from the bitset
-            bitset_andeqnot(eventset->e_group, recv_ptr->rec_group);
+            DASSERT_NOT_NULL(eventset->e_group);
+            DASSERT_NOT_NULL(recv_ptr->rec_group);
+            *eventset->e_group -= *recv_ptr->rec_group;
 
             // Make sure the e_group isn't empty, otherwise remove it
-            if (bitset_isempty(eventset->e_group)) {
+            if (eventset->e_group->isEmpty()) {
                 RemoveFromList(recv_ptr->rec_di->d_eventset_list,
                                (void *)eventset);
                 FreeEventSet(eventset);
@@ -772,21 +788,22 @@ static void ResetForAsyncCmd(rec_set_t *set) {
 
         // Add this group to the async_set
         AddReceiverToSet(
-            async_set, NewGroupReceiver(recv_ptr->rec_di, recv_ptr->rec_group));
+            async_set, NewGroupReceiver(recv_ptr->rec_di, recv_ptr->rec_group.get()));
     }
 }
 
-static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const bitset *group) {
+static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const Bitset *group) {
     if (di == nullptr || group == nullptr || async_set == nullptr) return;
 
     // Find entry for this di in the async_set
     for (auto&& recv_ptr : async_set) {
         if (recv_ptr->rec_di == di) {
             // Remove the group from the bitset
-            bitset_andeqnot(recv_ptr->rec_group, group);
+            DASSERT_NOT_NULL(recv_ptr->rec_group);
+            *recv_ptr->rec_group -= *group;
 
             // Check to see if the rec_group is now empty
-            if (bitset_isempty(recv_ptr->rec_group)) {
+            if (recv_ptr->rec_group->isEmpty()) {
                 async_set->removeReceiver(recv_ptr);
             }
 
@@ -813,11 +830,11 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const bitset *group) {
 /*
 ** Create a new breakpoint set
 */
-bp_set_t::bp_set_t(int bp_id, bitset *group, dbgbp_t *bp)
+bp_set_t::bp_set_t(int bp_id, const Bitset *group, dbgbp_t *bp)
     : b_bp_set_id(bp_id),
-      b_group(bitset_dup(group)),
+      b_group(group->clone()),
       b_bp_id_list(NewList()),
-      b_bp_enabled(bp->bp_enabled ? bitset_dup(group) : nullptr),
+      b_bp_enabled(bp->bp_enabled ? group->clone() : nullptr),
       b_bp_disp(NewList()),
       b_bp_type(bp->bp_type),
       b_bp_pending(bp->bp_pending && bp->bp_stmt != nullptr),
@@ -847,10 +864,13 @@ bp_set_t::bp_set_t(int bp_id, bitset *group, dbgbp_t *bp)
 ** Create a new breakpoint disposition set, this goes inside a breakpoint set.
 ** It tracks the disposition of the breakpoint for each rank
 */
-static bp_disp_set_t *NewBPDispSet(bitset *group, dbgbp_disp bp_disp) {
+static bp_disp_set_t *NewBPDispSet(const Bitset *group, dbgbp_disp bp_disp) {
     bp_disp_set_t *disp_set = (bp_disp_set_t *)Alloc(sizeof(bp_disp_set_t));
 
-    disp_set->b_group = bitset_dup(group);
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    DASSERT_NOT_NULL(group);
+    disp_set->b_group.release();
+    disp_set->b_group = group->clone();
     disp_set->b_bp_disp = bp_disp;
 
     return disp_set;
@@ -860,10 +880,13 @@ static bp_disp_set_t *NewBPDispSet(bitset *group, dbgbp_disp bp_disp) {
 ** Create a new breakpoint id set, this goes inside a breakpoint set.
 ** It tracks the backend gdb breakpoint id mapping for each rank.
 */
-static bp_id_set_t *NewBPIDSet(bitset *group, int bp_id) {
+static bp_id_set_t *NewBPIDSet(const Bitset *group, int bp_id) {
     bp_id_set_t *id_set = (bp_id_set_t *)Alloc(sizeof(bp_id_set_t));
 
-    id_set->b_group = bitset_dup(group);
+    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
+    DASSERT_NOT_NULL(group);
+    id_set->b_group.release();
+    id_set->b_group = group->clone();
     id_set->b_bp_id = bp_id;
 
     return id_set;
@@ -877,12 +900,12 @@ static void FreeBPSet(bp_set_t *bp_set) {
 }
 
 bp_set_t::~bp_set_t() {
-    if (b_group != nullptr) bitset_free(b_group);
+    b_group.reset();
 
     if (b_bp_id_list != nullptr)
         DestroyList(b_bp_id_list, (void (*)(void *))FreeBPIDSet);
 
-    if (b_bp_enabled != nullptr) bitset_free(b_bp_enabled);
+    b_bp_enabled.reset();
 
     if (b_bp_disp != nullptr)
         DestroyList(b_bp_disp, (void (*)(void *))FreeBPDispSet);
@@ -901,8 +924,7 @@ bp_set_t::~bp_set_t() {
 static void FreeBPIDSet(bp_id_set_t *id_set) {
     if (id_set == nullptr) return;
 
-    bitset_free(id_set->b_group);
-    id_set->b_group = nullptr;
+    id_set->b_group.reset();
     id_set->b_bp_id = -1;
 
     Free(id_set);
@@ -914,7 +936,7 @@ static void FreeBPIDSet(bp_id_set_t *id_set) {
 static void FreeBPDispSet(bp_disp_set_t *disp_set) {
     if (disp_set == nullptr) return;
 
-    bitset_free(disp_set->b_group);
+    disp_set->b_group.reset();
 
     Free(disp_set);
 }
@@ -924,7 +946,7 @@ static void FreeBPDispSet(bp_disp_set_t *disp_set) {
 ** for the dbginvoke_t
 */
 
-static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
+static void AddBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group) {
     assert(di != nullptr);
     assert(bp != nullptr);
     assert(group != nullptr);
@@ -948,13 +970,14 @@ static void AddBP(dbginvoke_t *di, dbgbp_t *bp, bitset *group) {
     }
 }
 
-static void AddBPToBPSet(bp_set_t *bp_set, bitset *group, dbgbp_t *bp) {
+static void AddBPToBPSet(bp_set_t *bp_set, const Bitset *group, dbgbp_t *bp) {
     assert(bp_set != nullptr);
+    assert(bp_set->b_group != nullptr);
     assert(group != nullptr);
     assert(bp != nullptr);
 
     // Add this group into the bp_set group
-    bitset_oreq(bp_set->b_group, group);
+    *bp_set->b_group |= *group;
 
     // Add internal gdb id to the bp_id_list
     bp_id_set_t *id_set = nullptr;
@@ -969,10 +992,10 @@ static void AddBPToBPSet(bp_set_t *bp_set, bitset *group, dbgbp_t *bp) {
         AddToList(bp_set->b_bp_id_list, id_set);
     } else {
         // existing internal gdb id found, add group to existing id_set
-        bitset_oreq(id_set->b_group, group);
+        *id_set->b_group |= *group;
     }
 
-    // Add this group to the enabled bitset if enabled
+    // Add this group to the enabled Bitset if enabled
     if (bp->bp_enabled) {
         EnableBPForBPSet(bp_set, group);
     }
@@ -981,19 +1004,21 @@ static void AddBPToBPSet(bp_set_t *bp_set, bitset *group, dbgbp_t *bp) {
     SetBPDispositionForBPSet(bp_set, group, bp->bp_disp);
 }
 
-static void EnableBPForBPSet(bp_set_t *bp_set, bitset *group) {
+static void EnableBPForBPSet(bp_set_t *bp_set, const Bitset *group) {
     assert (bp_set != nullptr);
+    assert (bp_set->b_bp_enabled != nullptr);
     assert (group != nullptr);
-    bitset_oreq(bp_set->b_bp_enabled, group);
+    *bp_set->b_bp_enabled |= *group;
 }
 
-static void DisableBPForBPSet(bp_set_t *bp_set, bitset *group) {
+static void DisableBPForBPSet(bp_set_t *bp_set, const Bitset *group) {
     assert (bp_set != nullptr);
+    assert (bp_set->b_bp_enabled != nullptr);
     assert (group != nullptr);
-    bitset_andeqnot(bp_set->b_bp_enabled, group);
+    *bp_set->b_bp_enabled -= *group;
 }
 
-static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
+static void SetBPDispositionForBPSet(bp_set_t *bp_set, const Bitset *group,
                                      dbgbp_disp bp_disp) {
     assert (bp_set != nullptr);
     assert (group != nullptr);
@@ -1005,15 +1030,15 @@ static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
         if (disp_set->b_bp_disp == bp_disp) {
             // This matches the requested disposition
             found = true;
-            bitset_oreq(disp_set->b_group, group);
+            *disp_set->b_group |= *group;
         } else {
             // This doesn't match the requested disposition, so remove the group
             // We do this in case there is any overlap from a previous set
             // disposition command on a set.
-            bitset_andeqnot(disp_set->b_group, group);
+            *disp_set->b_group -= *group;
 
             // Make sure the disp_set isn't empty, otherwise remove it
-            if (bitset_isempty(disp_set->b_group)) {
+            if (disp_set->b_group->isEmpty()) {
                 RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
                 FreeBPDispSet(disp_set);
             }
@@ -1028,27 +1053,27 @@ static void SetBPDispositionForBPSet(bp_set_t *bp_set, bitset *group,
     }
 }
 
-static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, bitset *group) {
+static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, const Bitset *group) {
     assert (bp_set != nullptr);
     assert (group != nullptr);
 
     // Remove the group from the global bp list
-    bitset_andeqnot(bp_set->b_group, group);
+    *bp_set->b_group -= *group;
 
     // Remove the group from the bp_id list
     bp_id_set_t *id_set;
     SetList(bp_set->b_bp_id_list);
     while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
-        bitset_andeqnot(id_set->b_group, group);
+        *id_set->b_group -= *group;
         // Make sure the id_set isn't empty, otherwise remove it
-        if (bitset_isempty(id_set->b_group)) {
+        if (id_set->b_group->isEmpty()) {
             RemoveFromList(bp_set->b_bp_id_list, (void *)id_set);
             FreeBPIDSet(id_set);
         }
     }
 
     // Remove the group from the enabled list
-    bitset_andeqnot(bp_set->b_bp_enabled, group);
+    *bp_set->b_bp_enabled -= *group;
 
     // Remove the group from the disp list
     bp_disp_set_t *disp_set;
@@ -1056,16 +1081,16 @@ static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, bitset *group) {
     while ((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) !=
            nullptr) {
         // Try to remove the group from this set
-        bitset_andeqnot(disp_set->b_group, group);
+        *disp_set->b_group -= *group;
         // Make sure the disp_set isn't empty, otherwise remove it
-        if (bitset_isempty(disp_set->b_group)) {
+        if (disp_set->b_group->isEmpty()) {
             RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
             FreeBPDispSet(disp_set);
         }
     }
 
     // Remove the breakpoint set if its now empty
-    if (bitset_isempty(bp_set->b_group)) {
+    if (bp_set->b_group->isEmpty()) {
         RemoveFromList(di->d_bpset_list, (void *)bp_set);
         FreeBPSet(bp_set);
     }
@@ -1129,14 +1154,14 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
     return 0;
 }
 
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *group) {
+static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group) {
     assert(di != nullptr);
     assert (bp != nullptr);
     assert (group != nullptr);
 
-    bitset *search_group = nullptr;
+    std::unique_ptr<Bitset> search_group = nullptr;
     do {
-        bitset *remove_group = nullptr;
+        std::unique_ptr<Bitset> remove_group = nullptr;
         bp_set_t *bp_set;
         SetList(di->d_bpset_list);
         while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
@@ -1149,12 +1174,12 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *g
                     if (id_set->b_bp_id == bp->bp_id) {
                         // Found a matching bp_id! Check if anything in the group matches
                         if (search_group == nullptr) {
-                            search_group = bitset_dup(group);
+                            search_group = group->clone();
                         }
-                        if (bitset_compare(search_group, id_set->b_group)) {
+                        if (search_group->hasCommonBits(*id_set->b_group)) {
                             // Remove the matching bits, we found a match
-                            remove_group = bitset_and(search_group, id_set->b_group);
-                            bitset_andeqnot(search_group, id_set->b_group);
+                            remove_group = bitset::doAnd(*search_group, *id_set->b_group);
+                            *search_group -= *id_set->b_group;
                             break;
                         }
                     }
@@ -1166,18 +1191,14 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const bitset *g
         // See if we found a matching bp_set, if so we need to clean it up
         if (bp_set != nullptr) {
             assert(remove_group != nullptr);
-            RemoveBPSet(di, bp_set, remove_group);
-            AddBP(di, bp, remove_group);
-            bitset_free(remove_group);
-            remove_group = nullptr;
+            RemoveBPSet(di, bp_set, remove_group.get());
+            AddBP(di, bp, remove_group.get());
         }
         else {
             // no other pending breakpoints found, we are done
-            if (search_group != nullptr) bitset_free(search_group);
             return;
         }
-    } while(!bitset_isempty(search_group));
-    bitset_free(search_group);
+    } while(!search_group->isEmpty());
 }
 
 bp_set_t *FindBPSetByID(dbginvoke_t *di, int id) {
@@ -1459,7 +1480,6 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgevent_t *event;
     bp_set_t *bp_set;
     dbgbp_t *bp;
-    bitset *group;
     bp_disp_set_t *disp_set;
 
     for (const auto &msg : set) {
@@ -1520,7 +1540,8 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
         // conduct special post-processing for certain events
         switch (EVENT_EV(event)) {
             // Post process breakpoints
-            case DBGEV_BPHIT:
+            case DBGEV_BPHIT: {
+
                 bp = EVENT_BP(event);
                 if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
                     // If the breakpoint was set to delete, we need to delete
@@ -1528,9 +1549,8 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        group = bitset_and(disp_set->b_group, msg.getBitset());
-                        if (bitset_isempty(group)) {
-                            bitset_free(group);
+                        auto group = bitset::doAnd(*disp_set->b_group, *msg.getBitset());
+                        if (group->isEmpty()) {
                             continue;
                         }
                         switch (disp_set->b_bp_disp) {
@@ -1538,42 +1558,41 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                                 // remove the breakpoint
                                 // NOTE: The breakpoint has already been removed
                                 // by the backend.
-                                RemoveBPSet(di, bp_set, group);
+                                RemoveBPSet(di, bp_set, group.get());
                                 break;
                             case DBGBP_DISABLE_DISP:
                                 // mark the breakpoint as disabled for the ranks
                                 // in the reply set.
-                                DisableBPForBPSet(bp_set, group);
+                                DisableBPForBPSet(bp_set, group.get());
                                 break;
                             default:
                                 // do nothing
                                 break;
                         }
-                        bitset_free(group);
                     }
                 }
                 break;
+            }
 
-            case DBGEV_BPDEL:
+            case DBGEV_BPDEL: {
                 bp = EVENT_BP(event);
                 if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
                     // Need to delete the breakpoint.
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        group = bitset_and(disp_set->b_group, msg.getBitset());
-                        if (bitset_isempty(group)) {
-                            bitset_free(group);
+                        auto group = bitset::doAnd(*disp_set->b_group, *msg.getBitset());
+                        if (group->isEmpty()) {
                             continue;
                         }
                         // remove the breakpoint
                         // NOTE: The breakpoint has already been removed by the
                         // backend.
-                        RemoveBPSet(di, bp_set, group);
-                        bitset_free(group);
+                        RemoveBPSet(di, bp_set, group.get());
                     }
                 }
                 break;
+            }
 
             default:
                 // do nothing
@@ -1608,7 +1627,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                        DbgevToStr(last_event));
                 // This will remove the eventset if we have recieved an event
                 // of this type for every rank.
-                CheckForFullEventSet(di, di->d_bitset_full, last_event);
+                CheckForFullEventSet(di, di->d_bitset_full.get(), last_event);
             }
             // set the last event to this event type
             last_event = EVENT_EV(eventset->e_ev);
@@ -1620,7 +1639,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
         DPRINT("Checking for full event set for %s\n", DbgevToStr(last_event));
         // This will remove the eventset if we have recieved an event
         // of this type for every rank.
-        CheckForFullEventSet(di, di->d_bitset_full, last_event);
+        CheckForFullEventSet(di, di->d_bitset_full.get(), last_event);
     }
 
 #ifdef DEBUG
@@ -2001,7 +2020,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
 static int DbgSendCmd(group_recv_t *set, const std::string& request) {
     dbginvoke_t *di = set->rec_di;
 
-    set->_cmd_sent = DBG_PROTO_SW(di)->sendCommand(di, set->rec_group, request.c_str());
+    set->_cmd_sent = DBG_PROTO_SW(di)->sendCommand(di, set->rec_group.get(), request.c_str());
 
     return (set->_cmd_sent != nullptr ? 0 : 1);
 }
@@ -2022,7 +2041,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
     bool isFinal = true;
 
     auto proto_res =
-        DBG_PROTO_SW(di)->receiveReply(di, set->rec_group, set->_cmd_sent);
+        DBG_PROTO_SW(di)->receiveReply(di, set->rec_group.get(), *set->_cmd_sent);
 
     reply = NewRepSet();
 
@@ -2030,7 +2049,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
         // Create a new error event based on this reply
         EVENT_ERROR(e, DBGERR_INTERNAL,
                     "Protocol returned null proto_msg_set.\n");
-        rep = NewGroupReply(di, bitset_dup(set->rec_group), e);
+        rep = NewGroupReply(di, set->rec_group->clone(), e);
         // Add the error to the reply set
         AddErrToSet(reply, rep);
         ClearCmdSent(set);
@@ -2046,7 +2065,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
         switch (ev) {
             // Errors get added to the special error list
             case DBGEV_ERROR:
-                rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
+                rep = NewGroupReply(di, msg.getBitset()->clone(), e);
                 // Add this error to the reply set
                 AddErrToSet(reply, rep);
                 break;
@@ -2060,7 +2079,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         e, DBGERR_INTERNAL,
                         "Received event of type %s, expected type %s.\n",
                         DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
+                    rep = NewGroupReply(di, msg.getBitset()->clone(), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
@@ -2081,13 +2100,13 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         e, DBGERR_INTERNAL,
                         "Received event of type %s, expected type %s.\n",
                         DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
+                    rep = NewGroupReply(di, msg.getBitset()->clone(), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
                 }
                 // Create a reply out of this event
-                rep = NewGroupReply(di, bitset_dup(msg.getBitset()), e);
+                rep = NewGroupReply(di, msg.getBitset()->clone(), e);
                 // Add this reply to the reply set
                 AddReplyToSet(reply, rep);
                 break;
@@ -2140,7 +2159,7 @@ void rep_set_t::mergeReplySlices()
 // in memory does not help (actually hinders) the memory usage on the client
 // side
 void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                                   const ArrayDimension* shape, bitset* group)
+                                   const ArrayDimension* shape, const Bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
@@ -2188,15 +2207,15 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
         }
 
         // compute the set of processes left to process
-        bitset* toproc = nullptr;
+        std::unique_ptr<Bitset> toproc = nullptr;
         if (group) {
-            toproc = bitset_dup(group);
+            toproc = group->clone();
         } else {
             for (auto&& r : tiers[0]) {
                 if (toproc)
-                    bitset_oreq(toproc, r->rep_group);
+                    *toproc |= *r->rep_group;
                 else
-                    toproc = bitset_dup(r->rep_group);
+                    toproc = r->rep_group->clone();
             }
         }
 
@@ -2205,15 +2224,15 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
         // Merge that set into a single group reply, removed the shared process nodes
         // from \a toproc and keep doing so until every process has been accounted for.
         std::vector<group_reply*> newSlice;
-        bitset* setset = bitset_dup(toproc);
-        while (!bitset_isempty(toproc)) {
+        auto setset = toproc->clone();
+        while (!toproc->isEmpty()) {
             // find a common reply set
             newSlice.clear();
-            bitset_copy(setset, toproc);
+            *setset = *toproc;
             for (auto&& tier : tiers) {
                 for (auto&& gp : tier) {
-                    if (bitset_compare(setset, gp->rep_group)) {
-                        bitset_andeq(setset, gp->rep_group);
+                    if (setset->hasCommonBits(*gp->rep_group)) {
+                        *setset &= *gp->rep_group;
                         newSlice.push_back(gp);
                         break;
                     }
@@ -2221,7 +2240,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             }
 
             // remove this set from the process set to process
-            bitset_andeqnot(toproc, setset);
+            *toproc -= *setset;
 
             if (!group && newSlice.size() != numTiers) {
                 DPRINT("reply mismatch in MergeReplySlices\n");
@@ -2233,7 +2252,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
                 for (size_t i=0; i<numTiers; ++i) {
                     auto reply = newSlice[i];
                     auto& tier = tiers[i];
-                    if (!bitset_compare(reply->rep_group, toproc)) {
+                    if (!reply->rep_group->hasCommonBits(*toproc)) {
                         // no processes left unprocessed - remove it from the
                         // list because we no longer need to look at it
                         tier.erase(std::find(tier.begin(), tier.end(), reply));
@@ -2244,7 +2263,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             // we have our set of overlapping replies, join the events together
             // and add to the monolithic return set.
             bool isError;
-            if (group_reply_t* newReply = JoinReplies(setset, newSlice, shape, isError)) {
+            if (group_reply_t* newReply = JoinReplies(setset.get(), newSlice, shape, isError)) {
                 if (isError) {
                     m_errs.push_back(newReply);
                 } else {
@@ -2252,10 +2271,6 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
                 }
             }
         }
-
-        // cleanup and return
-        bitset_free(toproc);
-        bitset_free(setset);
     }
 }
 
@@ -2387,7 +2402,7 @@ void LocalSlices::freeSlice(AIF* aif) {}
 //     if \a replies are a sparse representation, otherwise the function can
 //     compute the shape by combining the array sizes in \a replies
 // \a isError will contain true on return if any slice in \a replies was an error
-static group_reply_t* JoinReplies(bitset* group,
+static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   const ArrayDimension* shape,
                                   bool& isError)
@@ -2426,7 +2441,7 @@ static group_reply_t* JoinReplies(bitset* group,
         EVENT_DATA(event) = data;
     }
 
-    group_reply_t* groupReply = NewGroupReply(di, bitset_dup(group), event);
+    group_reply_t* groupReply = NewGroupReply(di, group->clone(), event);
     return groupReply;
 }
 
@@ -2623,7 +2638,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
 
             // Add the event to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                           bitset_dup(recv_ptr->rec_group), e);
+                                           recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -2680,7 +2695,7 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
 
             // Add the event to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                           bitset_dup(recv_ptr->rec_group), e);
+                                           recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -2874,7 +2889,7 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int lin
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group);
+        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2893,7 +2908,7 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *f
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group);
+        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2911,7 +2926,7 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group);
+        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -3053,12 +3068,11 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
-                    if (bitset_isempty(group)) {
-                        bitset_free(group);
+                    if (group->isEmpty()) {
                         continue;
                     }
 
@@ -3068,7 +3082,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3077,7 +3091,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // remove the breakpoint
-                        RemoveBPSet(di, bp_set, group);
+                        RemoveBPSet(di, bp_set, group.get());
                     }
 
                     // Add this to the overall result
@@ -3089,7 +3103,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                         }
                     }
 
-                    bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
             }
@@ -3105,7 +3118,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
+                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 result = NewRepSet();
                 AddErrToSet(result, group_rep);
@@ -3119,11 +3132,10 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the set.
-                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
-                if (bitset_isempty(group)) {
-                    bitset_free(group);
+                if (group->isEmpty()) {
                     continue;
                 }
 
@@ -3133,7 +3145,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3142,7 +3154,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // remove the breakpoint
-                    RemoveBPSet(di, bp_set, group);
+                    RemoveBPSet(di, bp_set, group.get());
                 }
 
                 // Add this to the overall result
@@ -3154,7 +3166,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     }
                 }
 
-                bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
         }
@@ -3189,12 +3200,11 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
-                    if (bitset_isempty(group)) {
-                        bitset_free(group);
+                    if (group->isEmpty()) {
                         continue;
                     }
 
@@ -3204,7 +3214,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3213,7 +3223,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // mark the breakpoint as enabled for this group
-                        DisableBPForBPSet(bp_set, group);
+                        DisableBPForBPSet(bp_set, group.get());
                     }
 
                     // Add this to the overall result
@@ -3225,7 +3235,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                         }
                     }
 
-                    bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
             }
@@ -3240,7 +3249,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
+                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 if (result == nullptr) {
                     result = NewRepSet();
@@ -3256,11 +3265,10 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
-                if (bitset_isempty(group)) {
-                    bitset_free(group);
+                if (group->isEmpty()) {
                     continue;
                 }
 
@@ -3270,7 +3278,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3279,7 +3287,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // mark the breakpoint as disabled for this group
-                    DisableBPForBPSet(bp_set, group);
+                    DisableBPForBPSet(bp_set, group.get());
                 }
 
                 // Add this to the overall result
@@ -3289,7 +3297,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     result = MergeRepSet(result, tmp_result);
                 }
 
-                bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
         }
@@ -3324,12 +3331,11 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
-                    if (bitset_isempty(group)) {
-                        bitset_free(group);
+                    if (group->isEmpty()) {
                         continue;
                     }
 
@@ -3339,7 +3345,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3348,13 +3354,13 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // mark the breakpoint as enabled for this group
-                        EnableBPForBPSet(bp_set, group);
+                        EnableBPForBPSet(bp_set, group.get());
                         // Set the disposition for this group
                         if (once) {
-                            SetBPDispositionForBPSet(bp_set, group,
+                            SetBPDispositionForBPSet(bp_set, group.get(),
                                                      DBGBP_DISABLE_DISP);
                         } else if (del) {
-                            SetBPDispositionForBPSet(bp_set, group,
+                            SetBPDispositionForBPSet(bp_set, group.get(),
                                                      DBGBP_DELETE_DISP);
                         }
                     }
@@ -3368,7 +3374,6 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                         }
                     }
 
-                    bitset_free(group);
                     FreeRecSet(new_rec_set);
                 }
             }
@@ -3383,7 +3388,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, bitset_dup(recv_ptr->rec_group), e);
+                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 if (result == nullptr) {
                     result = NewRepSet();
@@ -3399,11 +3404,10 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset_and(id_set->b_group, recv_ptr->rec_group);
+                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
-                if (bitset_isempty(group)) {
-                    bitset_free(group);
+                if (group->isEmpty()) {
                     continue;
                 }
 
@@ -3413,7 +3417,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3422,13 +3426,13 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // mark the breakpoint as enabled for this group
-                    EnableBPForBPSet(bp_set, group);
+                    EnableBPForBPSet(bp_set, group.get());
                     // Set the disposition for this group
                     if (once) {
-                        SetBPDispositionForBPSet(bp_set, group,
+                        SetBPDispositionForBPSet(bp_set, group.get(),
                                                  DBGBP_DISABLE_DISP);
                     } else if (del) {
-                        SetBPDispositionForBPSet(bp_set, group,
+                        SetBPDispositionForBPSet(bp_set, group.get(),
                                                  DBGBP_DELETE_DISP);
                     }
                 }
@@ -3442,7 +3446,6 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                     }
                 }
 
-                bitset_free(group);
                 FreeRecSet(new_rec_set);
             }
         }
@@ -3525,7 +3528,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         auto location = os.str();
 
                         // Save this new list location state for later calls to list
-                        if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
+                        if (AddListStateLocation(dbg_fe, group_rep->rep_group.get(), fp->getThreads(),
                                                  location.c_str()) < 0) {
                             PrintOutError("Failed to save list location. Further calls to "
                                           "list will not save state.\n");
@@ -3551,7 +3554,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             group_rep->rep_event = e;
                         } else {
                             auto newReply = NewGroupReply(group_rep->rep_di,
-                                                          bitset_dup(group_rep->rep_group), e);
+                                                          group_rep->rep_group->clone(), e);
                             tmp_result->addReply(newReply);
                         }
                     }
@@ -3574,7 +3577,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
                         auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                                       bitset_dup(set_loc->set), e);
+                                                       set_loc->set->clone(), e);
                         AddErrToSet(result, group_rep);
                         continue;
                     }
@@ -3595,7 +3598,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di,
-                                                  bitset_dup(set_loc->set), e);
+                                                  set_loc->set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
                                 break;
@@ -3617,7 +3620,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di,
-                                                  bitset_dup(set_loc->set), e);
+                                                  set_loc->set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
                                 break;
@@ -3656,7 +3659,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                     // Add the event to the result based on its type
                     auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                                   bitset_dup(set_loc->set), e);
+                                                   set_loc->set->clone(), e);
 
                     if (e->ev_event == DBGEV_ERROR) {
                         AddErrToSet(result, group_rep);
@@ -3670,7 +3673,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
             } else if (str != nullptr && !isReverse) {
                 // Note that we are going to create the result by hand here
-                // based on the bitset in the group_recv_t. If the user calls
+                // based on the Bitset in the group_recv_t. If the user calls
                 // the list cmd with a string, then all ranks are going to have
                 // the same answer.
 
@@ -3678,7 +3681,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 ClearListState(dbg_fe);
 
                 // Save this new list location state for later calls to list
-                if (AddListStateLocation(dbg_fe, recv_ptr->rec_group, nullptr, str) <
+                if (AddListStateLocation(dbg_fe, recv_ptr->rec_group.get(), nullptr, str) <
                     0) {
                     PrintOutError(
                         "Failed to save list location. Further calls to list "
@@ -3702,7 +3705,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // Add the event to the result based on its type
                 auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                          bitset_dup(recv_ptr->rec_group), e);
+                                          recv_ptr->rec_group->clone(), e);
 
                 if (e->ev_event == DBGEV_ERROR) {
                     AddErrToSet(result, group_rep);
@@ -3776,7 +3779,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 
             // Add the event to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                           bitset_dup(recv_ptr->rec_group), e);
+                                           recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);
@@ -3925,7 +3928,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 
                     // Save this new list location state for later calls to
                     // list
-                    if (AddListStateLocation(dbg_fe, group_rep->rep_group, fp->getThreads(),
+                    if (AddListStateLocation(dbg_fe, group_rep->rep_group.get(), fp->getThreads(),
                                              locStr.str().c_str()) < 0) {
                         PrintOutError(
                             "Failed to save list location. Further calls "
@@ -4014,7 +4017,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 
             // Add the event msg to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di,
-                                      bitset_dup(recv_ptr->rec_group), e);
+                                      recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
                 AddErrToSet(result, group_rep);

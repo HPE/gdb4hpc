@@ -134,7 +134,6 @@ static void CleanupOnSocketClose(void) {
     dbginvoke_t *di = NULL;
     proxy_instance *obj = NULL;
     int detach = 0;
-    bitset *recv_set;
 
     // find the dbginvoke_t associated with this id
     if (!EmptyList(DbgInvokeList)) {
@@ -158,14 +157,12 @@ static void CleanupOnSocketClose(void) {
             auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
             // send the command to every rank
-            recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full, request.c_str());
+            auto recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full.get(), request.c_str());
 
-            DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full, recv_set);
+            DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full.get(), *recv_set);
             // We don't care about actually processing the reply, since
             // this is the cleanup on error case. We want to ensure that
             // we received an asynch reply.
-
-            bitset_free(recv_set);
 
             // It is now safe to exit
             DBG_PROTO_SW(di)->exit(di, detach);
@@ -739,7 +736,6 @@ void DbgDispatchEvents(void) {
     if (FD_ISSET(PROXY_SESSION_CMDFD(sess), &dispatch_fds)) {
         proxy_msg_header msg_head;
         char *msg = NULL;
-        bitset *set;
         recv_type *recv_set;
         attach_args *att_args;
         launch_args *launch_args;
@@ -812,11 +808,11 @@ void DbgDispatchEvents(void) {
                 }
 
                 // Send the command
-                set = DBG_PROTO_SW(di)->sendCommand(di, cmd_pmsg->getBitset(), cmd_pmsg->getMessage());
+                auto set = DBG_PROTO_SW(di)->sendCommand(di, cmd_pmsg->getBitset(), cmd_pmsg->getMessage());
 
                 // send a response back containing the set
 
-                auto response_pmsg = ProtoMessage(set, strdup(""));
+                auto response_pmsg = ProtoMessage(set.release(), strdup(""));
                 msg = ProtoMsgToSocProto(response_pmsg);
 
                 msg_head.msg_type = MSG_OK;
@@ -868,7 +864,7 @@ void DbgDispatchEvents(void) {
                     }
                 }
 
-                auto pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target, recv_set->received);
+                auto pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target.get(), *recv_set->received);
                 if (!pmsg_set) {
                     PrintOutError("Failed to receive reply.\n");
                     free(msg);
@@ -1015,10 +1011,10 @@ void DbgDispatchEvents(void) {
                 NewProxyInstance(msg_head.msg_id, inst);
 
                 // Send the DBG_OK event for the entire set
-                set = bitset_new(di->d_nproc);
-                bitset_invert(set);
+                auto set = std::make_unique<DenseBitset>(di->d_nproc);
+                set->invert();
                 ProtoMessageSet pmsg_set{};
-                pmsg_set.emplace_back(ProtoMessage(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                pmsg_set.emplace_back(ProtoMessage(set.release(), EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
@@ -1139,10 +1135,10 @@ void DbgDispatchEvents(void) {
                 FreeLaunchArgs(launch_args);
 
                 // Send the DBG_OK event for the entire set
-                set = bitset_new(di->d_nproc);
-                bitset_invert(set);
+                auto set = std::make_unique<DenseBitset>(di->d_nproc);
+                set->invert();
                 ProtoMessageSet pmsg_set{};
-                pmsg_set.emplace_back(ProtoMessage(set, EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                pmsg_set.emplace_back(ProtoMessage(set.release(), EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;

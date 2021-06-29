@@ -2,9 +2,9 @@ USEFUL	= @guard_srcdir@/src/useful
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 DBGCLNT = @guard_srcdir@/src/dbgclnt
 CLIENT	= @guard_srcdir@/src/client
-SDM	= @guard_srcdir@/sdm
+BITSET	= @guard_srcdir@/bitset
 
-AM_CFLAGS = -I$(USEFUL) -I$(DBGCOMM) -I$(DBGCLNT) -I$(CLIENT) -I$(SDM)
+AM_CFLAGS = -I$(USEFUL) -I$(DBGCOMM) -I$(DBGCLNT) -I$(CLIENT) -I$(BITSET)
 AM_CXXFLAGS = $(AM_CFLAGS)
 AM_LIBTOOLFLAGS = --quiet
 

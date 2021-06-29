@@ -14,7 +14,7 @@ typedef void *proto_network;
 // This is the client callback function prototype
 // Arguments are the event_set for this event and a bitset containing the new
 // ranks to report this event
-typedef int (*clnt_ev_callback_func)(struct event_set *, const bitset *);
+typedef int (*clnt_ev_callback_func)(struct event_set *, const Bitset *);
 
 // Used to determine type of dbginvoke, currently there is either launched or
 // attached launched means the application was launched by the debugger,
@@ -33,13 +33,12 @@ struct dbginvoke {
     int d_isShutdown;  // Some networks can use this during error handling. If
                        // this is true, the network is already shutdown.
     int d_nproc;       // number of processes
-    char *d_cmd;  // application command argument - set to name of executable
+    char *d_cmd;  // application command argument - set to name of executable 
                   // for invoke
     int d_stat;   // exit/signal status of proc
     list_t *d_evfds;        // event notification fds specific to this instance
-    bitset *d_bitset_full;  // represents all dbgsrvs
-    bitset *d_bitset_launched;  // for invoke cmd: represents dbgsrvs that has
-                                // been launched
+    std::unique_ptr<Bitset> d_bitset_full;     // represents all dbgsrvs
+    std::unique_ptr<Bitset> d_bitset_launched; // for invoke cmd: represents dbgsrvs that has been launched
 
     int d_proto_id;  // di specific protocol id - optionally used by certain
                      // protocols

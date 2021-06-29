@@ -30,6 +30,7 @@
 #include "dbgsrv_defs.h"
 #include "defs.h"
 #include "smart_bitset.h"
+#include "bitset_serialize.h"
 
 #include "mrnet/Stream.h"
 #include "mrnet/Network.h"
@@ -57,7 +58,7 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
       m_stream_single{nullptr},
       m_event_fd{0},
       m_rank_bs{nullptr},
-      m_rank_bs_str{nullptr},
+      m_rank_bs_str{Bitset::SerializedPtr(nullptr, std::free)},
       m_cmd_streams{NewList()},
       m_event_streams{NewList()},
       m_msg_list{NewList()}
@@ -78,9 +79,6 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
 }
 
 MRNetBackEnd::~MRNetBackEnd() {
-    if (m_rank_bs != nullptr) smart_bitset_free(m_rank_bs);
-    delete m_rank_bs_str;
-
     m_network->close_EventNotificationFd(MRN::Event::DATA_EVENT);
     delete m_network;
 
@@ -218,10 +216,10 @@ void MRNetBackEnd::set_size(int size) {
     DVPRINT("mrn_be_set_size is called. size[%d]\n", size);
 
     m_network_size = size;
-    m_rank_bs = smart_bitset_new(size);
+    m_rank_bs = std::make_unique<SmartBitset>(size);
 
-    smart_bitset_set(m_rank_bs, m_rank);
-    m_rank_bs_str = smart_bitset_serialize(m_rank_bs);
+    m_rank_bs->set(m_rank);
+    m_rank_bs_str = m_rank_bs->serialize();
 }
 
 int MRNetBackEnd::recv(MRN::Stream** stream, int* tag, bool blocking) {
@@ -259,7 +257,7 @@ int MRNetBackEnd::send_reply(MRN::Stream* stream, const char* msg) {
 
     const char* strArr[2];
     strArr[0] = msg;
-    strArr[1] = m_rank_bs_str;
+    strArr[1] = m_rank_bs_str.get();
 
     if (stream == nullptr) stream = m_stream_cmd;
 
@@ -282,7 +280,7 @@ int MRNetBackEnd::send_event(char* msg, const dbgcomm_info* commInfo) {
 
     char* strArr[2];
     strArr[0] = msg;
-    strArr[1] = m_rank_bs_str;
+    strArr[1] = m_rank_bs_str.get();
 
     MRN::Stream* stream = m_stream_event;
 
@@ -324,7 +322,7 @@ int MRNetBackEnd::send_io(char* msg) {
             m_stream_io);
 
     strArr[0] = msg;
-    strArr[1] = m_rank_bs_str;
+    strArr[1] = m_rank_bs_str.get();
 
     if (m_stream_io->send(DBG_MRNet_PRO_IO, "%as", strArr, 2) ==
         -1) {

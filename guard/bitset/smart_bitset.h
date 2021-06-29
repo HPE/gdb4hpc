@@ -22,7 +22,7 @@
 
 class SmartBitset : public Bitset {
 public:
-    virtual std::unique_ptr<Bitset> clone() const override;
+    virtual Bitset* rawClone() const override;
     std::unique_ptr<SmartBitset> typedClone() const;
 
     SmartBitset();
@@ -32,6 +32,10 @@ public:
 
     bool isSparse() const;
     bool isDense() const;
+    // returns the inner dense bitset and transfers ownership of it out of the
+    // smart bitset. if the smart bitset is currently holding a sparse bitset at
+    // the time of the call, it is converted on the spot.
+    std::unique_ptr<DenseBitset> releaseAsDense();
     // return true on success, false on error
     bool convertToDense();
 
@@ -44,7 +48,7 @@ public:
     // virtual void invert() override;
     virtual void clear() override;
 
-    virtual int numSet() const override;
+    virtual unsigned int numSet() const override;
     virtual int firstSet() const override;
 
     virtual size_t sizeInBits() const override;
@@ -67,6 +71,9 @@ public:
 
     // virtual bool hasCommonBits(const Bitset &other) const override;
 private:
+    // helper for typedClone() and rawClone()
+    SmartBitset* typedRawClone() const;
+
     std::unique_ptr<DenseBitset> m_dense;
     std::unique_ptr<SparseBitset> m_sparse;
 };

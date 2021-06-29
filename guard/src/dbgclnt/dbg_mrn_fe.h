@@ -14,6 +14,7 @@
 
 #include "dbg_mrn.h"
 #include "mrn_topgen.h"
+#include "dense_bitset.h"
 
 #include "mrnet/Stream.h"
 #include "mrnet/NetworkTopology.h"
@@ -38,11 +39,11 @@ public:
     int setup_streams(const char *msg);
 
     /* send commands to backends via the command stream*/
-    int send_command(const bitset *target, const char *msg,
+    int send_command(const Bitset *target, const char *msg,
                      MRN::Stream **event_stream_ptr);
 
     /* collect replies from backends via the command stream*/
-    std::optional<ProtoMessageSet> recv_reply(const bitset *target);
+    std::optional<ProtoMessageSet> recv_reply(const Bitset *target);
 
     /* enable MRNet frontend to handle failures. */
     void enable_failure_callback(dbginvoke_t *);
@@ -62,8 +63,8 @@ private:
           MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
     
     void add_event_stream(MRN::Stream *event_stream);
-    MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, const bitset *target) const;
-    MRN::Stream *create_stream(const bitset *target, MRN::Stream *&event_stream);
+    MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *target) const;
+    MRN::Stream *create_stream(const Bitset *target, MRN::Stream *&event_stream);
     static int register_TopAddBE_event_callback(MRN::Network &network);
 
     MRN::Network *m_network;
@@ -75,5 +76,5 @@ private:
     int m_io_nfd;
     int m_filter_id;
     int m_num_be;  // number of dbgsrvs
-    bitset *m_bitset_full;
+    std::unique_ptr<DenseBitset> m_bitset_full;
 };

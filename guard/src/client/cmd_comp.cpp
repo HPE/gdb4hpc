@@ -25,6 +25,7 @@
 
 #include "client.h"
 #include "useful.h"
+#include "dense_bitset.h"
 
 static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *buf;
@@ -35,10 +36,10 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e;
     AIFStream *a;
     int print_diff = 0;
-    bitset *true_bitset = nullptr;
-    bitset *false_bitset = nullptr;
-    bitset *warn_bitset = nullptr;
-    bitset *indet_bitset = nullptr;
+    std::unique_ptr<DenseBitset> true_bitset = nullptr;
+    std::unique_ptr<DenseBitset> false_bitset = nullptr;
+    std::unique_ptr<DenseBitset> warn_bitset = nullptr;
+    std::unique_ptr<DenseBitset> indet_bitset = nullptr;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -147,10 +148,10 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                             // group. Note that every reply will have the same
                             // set size.
                             true_bitset =
-                                bitset_new(bitset_size(reply->rep_group));
+                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
                         }
                         // Add this group to the true_bitset
-                        bitset_oreq(true_bitset, reply->rep_group);
+                        *true_bitset |= *reply->rep_group;
                         break;
                     case -1:
                     case 1:
@@ -159,10 +160,10 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                             // group. Note that every reply will have the same
                             // set size.
                             false_bitset =
-                                bitset_new(bitset_size(reply->rep_group));
+                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
                         }
                         // Add this group to the false_bitset
-                        bitset_oreq(false_bitset, reply->rep_group);
+                        *false_bitset |= *reply->rep_group;
                         print_diff++;
                         break;
                     case -2:
@@ -172,10 +173,10 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                             // group. Note that every reply will have the same
                             // set size.
                             warn_bitset =
-                                bitset_new(bitset_size(reply->rep_group));
+                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
                         }
                         // Add this group to the warn_bitset
-                        bitset_oreq(warn_bitset, reply->rep_group);
+                        *warn_bitset |= *reply->rep_group;
                         print_diff++;
                         break;
                     case 3:
@@ -184,10 +185,10 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
                             // reply group. Note that every reply will have the
                             // same set size.
                             indet_bitset =
-                                bitset_new(bitset_size(reply->rep_group));
+                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
                         }
                         // Add this group to the warn_bitset
-                        bitset_oreq(indet_bitset, reply->rep_group);
+                        *indet_bitset |= *reply->rep_group;
                         break;
                 }
             }
@@ -202,22 +203,18 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
             // print the result summary
             if (true_bitset != nullptr) {
-                PrintMsgWithSetInfo("", true_bitset, "Comparison is true.\n");
-                bitset_free(true_bitset);
+                PrintMsgWithSetInfo("", true_bitset.get(), "Comparison is true.\n");
             }
             if (false_bitset != nullptr) {
-                PrintMsgWithSetInfo("", false_bitset, "Comparison is false.\n");
-                bitset_free(false_bitset);
+                PrintMsgWithSetInfo("", false_bitset.get(), "Comparison is false.\n");
             }
             if (warn_bitset != nullptr) {
-                PrintMsgWithSetInfo("", warn_bitset, "Comparison is warn.\n");
-                bitset_free(warn_bitset);
+                PrintMsgWithSetInfo("", warn_bitset.get(), "Comparison is warn.\n");
             }
             if (indet_bitset != nullptr) {
                 PrintMsgWithSetInfo(
-                    "", indet_bitset,
+                    "", indet_bitset.get(),
                     "Comparison is indeterminate due to pointers.\n");
-                bitset_free(indet_bitset);
             }
 
             // print out the difference deltas once

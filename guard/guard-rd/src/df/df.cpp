@@ -117,20 +117,16 @@ void StartDF(graph_t *g) {
     // xml output. We always do this when starting or stopping a graph.
     if (Client.XML_mode) {
         // used for checking status
-        char *bitset_str;
         char *set_str;
 
         // Need to print graph start for every invoke
         SetList(g->g_di_list);
 
         while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
-            bitset_str = bitset_to_set(di->d_bitset_full);
+            auto bitset_str = di->d_bitset_full->toSet();
 
             // Create the full set string
-            Asprintf(&set_str, "%s%s", di->d_handle, bitset_str);
-
-            // Done with the bitset_str
-            Free(bitset_str);
+            Asprintf(&set_str, "%s%s", di->d_handle, bitset_str.c_str());
 
             // We want to create a new special status message indicating that
             // we are starting a graph.
@@ -280,7 +276,7 @@ void EndDF(graph_t *g) {
     SetList(g->g_di_list);
     while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
         DbgHandleEvent(
-            di, (int (*)(event_set *, const bitset *))GetListElement(_evhandlers));
+            di, (int (*)(event_set *, const Bitset *))GetListElement(_evhandlers));
     }
 
     DestroyList(_evhandlers, NULL);
@@ -306,7 +302,6 @@ void EndDF(graph_t *g) {
         // used for checking status
         rec_set_t *rec_set;
         rep_set_t *rep_set;
-        char *bitset_str;
         char *set_str;
         dbgstatus_t *s;
         char *status_block;
@@ -317,7 +312,8 @@ void EndDF(graph_t *g) {
         while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
             // create the rec_set
             rec_set = NewRecSet();
-            AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+            DASSERT_NOT_NULL(di);
+            AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
             // Query the new status from the backends, note that for this we
             // want to grab the location information
@@ -333,13 +329,10 @@ void EndDF(graph_t *g) {
             // Process each status message and add it to the status block
             for (auto reply : rep_set) {
                 // First create the bitset string
-                bitset_str = bitset_to_set(reply->rep_group);
+                auto bitset_str = reply->rep_group->toSet();
 
                 // Next create the full set string
-                Asprintf(&set_str, "%s%s", di->d_handle, bitset_str);
-
-                // Done with the bitset_str
-                Free(bitset_str);
+                Asprintf(&set_str, "%s%s", di->d_handle, bitset_str.c_str());
 
                 // point at the status data
                 s = EVENT_STATUS(reply->rep_event);
@@ -465,7 +458,8 @@ static void _delete_bp(graph_t *g, dbginvoke_t *di) {
 
     // create the rec_set
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+    DASSERT_NOT_NULL(di);
+    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
     SetList(g->g_bp_reply_list);
     while ((bp_reply = (group_reply_t *)GetListElement(g->g_bp_reply_list)) !=
@@ -496,11 +490,12 @@ static void _halt(dbginvoke_t *di, int haltmode) {
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     dbgloc_t *halt_loc;
-    char *set_info;
+    std::string set_info;
 
     // create the rec_set
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+    DASSERT_NOT_NULL(di);
+    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
     rep_set = DbgInterrupt(rec_set,true);
 
@@ -517,27 +512,25 @@ static void _halt(dbginvoke_t *di, int haltmode) {
         // the rec_set.
         // FIXME: Let this be user defined
         if (GetNumberOfReply(rep_set) > 3) {
-            set_info = bitset_to_set(di->d_bitset_full);
+            set_info = di->d_bitset_full->toSet();
 
             DFMsg("%s%s: Application halted at multiple locations.",
-                  di->d_handle, set_info);
+                  di->d_handle, set_info.c_str());
         } else {
             for (auto reply : rep_set) {
-                set_info = bitset_to_set(reply->rep_group);
+                set_info = reply->rep_group->toSet();
                 // point at the location data
                 halt_loc = EVENT_LOC(reply->rep_event);
 
                 if (halt_loc->loc_line > 0) {
                     DFMsg("%s%s: Application halted in %s at %s:%d",
-                          reply->rep_di->d_handle, set_info, halt_loc->loc_func,
+                          reply->rep_di->d_handle, set_info.c_str(), halt_loc->loc_func,
                           halt_loc->loc_file, halt_loc->loc_line);
                 } else {
                     DFMsg("%s%s: Application halted in %s",
-                          reply->rep_di->d_handle, set_info,
+                          reply->rep_di->d_handle, set_info.c_str(),
                           halt_loc->loc_func);
                 }
-
-                Free(set_info);
             }
         }
     }
@@ -555,7 +548,8 @@ static void _continue(dbginvoke_t *di) {
 
     // create the rec_set
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+    DASSERT_NOT_NULL(di);
+    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
     if ((rep_set = DbgGo(rec_set,true)) != NULL) {
         ProcessErrorInRepSet(rep_set);
@@ -574,7 +568,7 @@ static rec_set_t* NewRecSetFromGraph(graph_t *g) {
 
     for (dbginvoke_t *di = (dbginvoke_t *)GetListElement(g->g_di_list);
         di != nullptr; di = (dbginvoke_t *)GetListElement(g->g_di_list)) {
-        group_recv_t *recv = NewGroupReceiver(di, di->d_bitset_full);
+        group_recv_t *recv = NewGroupReceiver(di, di->d_bitset_full.get());
         rec_set->addReceiver(recv);
     }
 

@@ -21,7 +21,7 @@
 #ifndef _LINE_H
 #define _LINE_H
 
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "list.h"
 
 struct line {
@@ -31,7 +31,7 @@ struct line {
     int l_sync; /* rendezvous for assigns at this bp */
     int l_val;  /* output of getvar graph */
     int l_ref;
-    bitset *l_bs;
+    std::unique_ptr<DenseBitset> l_bs;
 };
 typedef struct line line_t;
 

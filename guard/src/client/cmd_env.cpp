@@ -421,40 +421,40 @@ static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
 
         switch (s->stat) {
             case DBGSTAT_INITIALISING:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "The debugger is initialising.\n");
                 break;
 
             case DBGSTAT_WAITING:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "The debugger is waiting for a command.\n");
                 break;
 
             case DBGSTAT_RUNNING:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "The application is running.\n");
                 break;
 
             case DBGSTAT_STOPPED:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "The application is stopped.\n");
                 break;
 
             case DBGSTAT_STOPPED_IN_THREAD:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "The application is stopped in a thread while in non-stop mode.\n");
                 break;
 
             case DBGSTAT_EXIT:
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group,
+                    reply->rep_di->d_handle, reply->rep_group.get(),
                     "The application is at an exit breakpoint.\n");
                 break;
 
             case DBGSTAT_DBGERR:
             case DBGSTAT_INTERR:
                 PrintErrorWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group,
+                    reply->rep_di->d_handle, reply->rep_group.get(),
                     "The debugger is reporting an error status.\n");
                 break;
         }
@@ -483,7 +483,7 @@ static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
     for (auto&& reply : rep_set) {
         new_path = EVENT_SOURCE_PATH(reply->rep_event);
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                             "Source directory search path set to: %s\n",
                             new_path);
     }
@@ -505,7 +505,7 @@ static int class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc,
     for (auto&& reply : rep_set) {
         path = EVENT_SOURCE_PATH(reply->rep_event);
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                             "Source directories searched: %s\n", path);
     }
 

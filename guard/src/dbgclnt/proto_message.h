@@ -19,10 +19,12 @@
 
 #include "bitset.h"
 
+// TODO: make this class use smart pointers
+
 class ProtoMessage {
 public:
     // takes ownership of group and message
-    ProtoMessage(bitset* group, char* message)
+    ProtoMessage(Bitset* group, char* message)
         : m_group{group}, m_message{message}
     {};
 
@@ -53,15 +55,18 @@ public:
         clear();
     }
     
-    const bitset* getBitset() const { return m_group; };
+    const Bitset* getBitset() const { return m_group; };
     const char* getMessage() const { return m_message; };
 private:
     void clear() {
-        bitset_free(m_group);
+        delete m_group;
+        m_group = nullptr;
+
         free(m_message);
+        m_message = nullptr;
     }
 
-    bitset* m_group;
+    Bitset* m_group;
     char* m_message;
 };
 

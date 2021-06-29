@@ -21,7 +21,7 @@
 #ifndef _PROCSET_H
 #define _PROCSET_H
 
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "dbg_client.h"
 
 /*
@@ -72,12 +72,12 @@ typedef enum dbgset_type dbgset_type;
 ** index in the procset maps onto which dbginvoke_t for targeted commands.
 */
 struct dbg_over_set_t {
-    dbginvoke_t* s_di;  // pointer to dbginvoke
-    bitset* s_di_bs;  // mask for bitset in di, this is the "full set" for this
-                      // overlay set
-    int s_ps_offset;  // offset for this overset, used when multiple oversets
-                      // come into play with defset calculate which index
-                      // corresponds to which over_set
+    dbginvoke_t* s_di;                    // pointer to dbginvoke
+    std::unique_ptr<Bitset> s_di_bs;      // mask for bitset in di, this is the "full set" for this
+                                          // overlay set
+    int s_ps_offset;                      // offset for this overset, used when multiple oversets
+                                          // come into play with defset calculate which index
+                                          // corresponds to which over_set
 };
 typedef struct dbg_over_set_t dbg_over_set_t;
 

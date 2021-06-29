@@ -32,8 +32,35 @@ using SerializedPtr = Bitset::SerializedPtr;
 std::unique_ptr<Bitset> deserialize(const SerializedPtr &bitset);
 std::unique_ptr<Bitset> deserialize(const Serialized bitset);
 
+// cast deserialized Bitset into T before returning. Returns a (smart) nullptr
+// if the cast fails.
+template <typename T>
+std::unique_ptr<T> deserializeAs(const SerializedPtr &bitset);
+template <typename T>
+std::unique_ptr<T> deserializeAs(const Serialized bitset);
+
 // a stringified bitset does not necessarily contain its format, therefore
 // the format must already be known when calling this function.
 std::unique_ptr<Bitset> fromString(const std::string &string, const Format &format);
 
+namespace detail {
+
+// helpers for functions that wrap the return value up in a unique_ptr
+Bitset* deserializeRaw(const bitset::SerializedPtr &bitset);
+Bitset* deserializeRaw(const bitset::Serialized bitset);
+
+} // detail
+
 } // bitset
+
+template <typename T>
+std::unique_ptr<T> bitset::deserializeAs(const SerializedPtr &ptr) {
+	return bitset::deserializeAs<T>(ptr.get());
+}
+
+template <typename T>
+std::unique_ptr<T> bitset::deserializeAs(const Serialized bitset) {
+	auto raw = bitset::detail::deserializeRaw(bitset);
+	auto ptr = dynamic_cast<T*>(raw);
+	return std::unique_ptr<T>(ptr);
+}

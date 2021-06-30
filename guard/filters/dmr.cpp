@@ -91,7 +91,11 @@ bool Message::LessEqual(Message* pMessage) {
 void Message::MergeBitset(char* btStr) {
     if (btStr == nullptr) return;
 
-    auto sb = bitset::deserialize(btStr);
+    auto sb = bitset::deserializeAs<SmartBitset>(btStr);
+    if (!sb) {
+        fprintf(stderr, "ERROR: MergeBitset: deserialized bitset wasn't SmartBitset.\n");
+        return;
+    }
 
     if (m_sb == nullptr) {
         auto sp = bitset::deserializeAs<SmartBitset>(m_btStr);

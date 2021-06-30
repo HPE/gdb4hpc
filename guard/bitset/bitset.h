@@ -12,8 +12,8 @@
 // operation that isn't implemented will result in this error being thrown.
 class UnimplementedBitsetOperationError : public std::exception {
 public:
-    ~UnimplementedBitsetOperationError() noexcept {};
     UnimplementedBitsetOperationError(std::string funcName) : m_funcName{funcName} {};
+    ~UnimplementedBitsetOperationError() noexcept {};
     virtual const char * what() const noexcept override { return m_funcName.c_str(); };
 private:    
     std::string m_funcName;
@@ -62,7 +62,7 @@ public:
     using Serialized = char *;
     using SerializedPtr = std::unique_ptr<char, decltype(&std::free)>;
 
-    // serialize the bitset, not necessicarily in a human readable way. the bitset's
+    // serialize the bitset, not necessarily in a human readable way. the bitset's
     // format must be encoded in the serialization so that bitset::deserialize
     // can reconstruct it in the correct format. see bitset::deserialize 
     // (bitset_serialize.h) for info on the serialization format.

@@ -22,9 +22,7 @@ private:
 class Bitset {
 public:
     // clone the bitset.
-    virtual std::unique_ptr<Bitset> clone() const;
-    // useful if you intend to cast immediately after a clone
-    virtual Bitset* rawClone() const;
+    virtual std::unique_ptr<Bitset> clone() const = 0;
 
     virtual ~Bitset() = default;
 

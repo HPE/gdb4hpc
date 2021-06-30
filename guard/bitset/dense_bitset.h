@@ -14,7 +14,7 @@ class DenseBitset : public Bitset {
 public:
     DenseBitset(unsigned int nbits);
 
-    virtual Bitset* rawClone() const override;
+    std::unique_ptr<Bitset> clone() const;
     std::unique_ptr<DenseBitset> typedClone() const;
 
     virtual bool isEmpty() const override; 
@@ -56,9 +56,6 @@ private:
 
     unsigned int m_bs_nbits;      // total number of bits in this bitset
     std::vector<Bits> m_bs_bits;  // actual bits storage (unused bits are always 0)
-
-    // helper for rawClone() and typedClone()
-    DenseBitset* typedRawClone() const;
 };
 
 // convert a bit into the index of the Bits containing it in the m_bs_bits vector

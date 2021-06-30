@@ -31,16 +31,6 @@ void copyBits(Bitset &dest, const Bitset &source) {
 
 } // bitset
 
-std::unique_ptr<Bitset> Bitset::clone() const {
-	// try to make use of rawClone by default
-	return std::unique_ptr<Bitset>(rawClone());
-}
-
-Bitset *Bitset::rawClone() const {
-	throw UnimplementedBitsetOperationError("rawClone");
-	return nullptr;
-}
-
 bool Bitset::isEmpty() const {
 	throw UnimplementedBitsetOperationError("isEmpty");
 	return false;

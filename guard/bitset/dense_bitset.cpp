@@ -14,18 +14,14 @@ DenseBitset::DenseBitset(unsigned int nbits)
 	, m_bs_bits(BIT_INDEX(nbits-1) + 1, 0)
 {}
 
-DenseBitset* DenseBitset::typedRawClone() const {
-	auto r = new DenseBitset(m_bs_nbits);
-	*r = *this;
-	return r;
-}
-
-Bitset* DenseBitset::rawClone() const {
-	return typedRawClone();
+std::unique_ptr<Bitset> DenseBitset::clone() const {
+	return typedClone();
 }
 
 std::unique_ptr<DenseBitset> DenseBitset::typedClone() const {
-	return std::unique_ptr<DenseBitset>(typedRawClone());
+	auto r = new DenseBitset(m_bs_nbits);
+	*r = *this;
+	return std::unique_ptr<DenseBitset>(r);
 }
 
 bool DenseBitset::isEmpty() const {

@@ -22,7 +22,7 @@
 
 class SmartBitset : public Bitset {
 public:
-    virtual Bitset* rawClone() const override;
+    virtual std::unique_ptr<Bitset> clone() const override;
     std::unique_ptr<SmartBitset> typedClone() const;
 
     SmartBitset();
@@ -71,9 +71,6 @@ public:
 
     // virtual bool hasCommonBits(const Bitset &other) const override;
 private:
-    // helper for typedClone() and rawClone()
-    SmartBitset* typedRawClone() const;
-
     std::unique_ptr<DenseBitset> m_dense;
     std::unique_ptr<SparseBitset> m_sparse;
 };

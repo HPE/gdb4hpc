@@ -41,19 +41,15 @@ SmartBitset::SmartBitset(int num_bits)
 	, m_sparse{std::make_unique<SparseBitset>(num_bits)}
 {}
 
-SmartBitset* SmartBitset::typedRawClone() const {
-	auto clone = new SmartBitset();
-	if (m_dense) clone->m_dense = m_dense->typedClone();
-	if (m_sparse) clone->m_sparse = m_sparse->typedClone();
-	return clone;
-}
-
-Bitset* SmartBitset::rawClone() const {
-	return typedRawClone();
+std::unique_ptr<Bitset> SmartBitset::clone() const {
+	return typedClone();
 }
 
 std::unique_ptr<SmartBitset> SmartBitset::typedClone() const {
-	return std::unique_ptr<SmartBitset>(typedRawClone());
+	auto r = new SmartBitset();
+	if (m_dense) r->m_dense = m_dense->typedClone();
+	if (m_sparse) r->m_sparse = m_sparse->typedClone();
+	return std::unique_ptr<SmartBitset>(r);
 }
 
 bool SmartBitset::isSparse() const {

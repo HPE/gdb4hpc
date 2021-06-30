@@ -88,7 +88,7 @@ public:
 
     SparseBitset(unsigned int nbits);
 
-    virtual Bitset* rawClone() const override;
+    virtual std::unique_ptr<Bitset> clone() const override;
     std::unique_ptr<SparseBitset> typedClone() const;
 
     virtual bool isEmpty() const override; 
@@ -136,9 +136,6 @@ private:
     // e.g. given two ranges: {2-5}, {6-8}, calling mergeIfNecessary(1) would
     // turn them into {2-8}.
     void mergeIfNecessary(unsigned int idx);
-
-    // helper for rawClone() and typedClone()
-    SparseBitset* typedRawClone() const;
 
     unsigned int m_sb_num_bits; // total number of bits
     std::vector<Range> m_sb_ranges; // ranges in an ascending order

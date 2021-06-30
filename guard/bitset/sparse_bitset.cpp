@@ -30,18 +30,14 @@ SparseBitset::SparseBitset(unsigned int num_bits)
 	: m_sb_num_bits{num_bits}
 {}
 
-SparseBitset* SparseBitset::typedRawClone() const {
-	auto clone = new SparseBitset(m_sb_num_bits);
-	*clone = *this;
-	return clone;
-}
-
-Bitset* SparseBitset::rawClone() const {
-	return typedRawClone();
+std::unique_ptr<Bitset> SparseBitset::clone() const {
+	return typedClone();
 }
 
 std::unique_ptr<SparseBitset> SparseBitset::typedClone() const {
-	return std::unique_ptr<SparseBitset>(typedRawClone());
+	auto clone = new SparseBitset(m_sb_num_bits);
+	*clone = *this;
+	return std::unique_ptr<SparseBitset>(clone);
 }
 
 bool SparseBitset::isEmpty() const {

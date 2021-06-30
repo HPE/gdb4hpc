@@ -64,8 +64,8 @@
 #endif                /* BE_PERFLOG */
 
 #ifdef DEBUG
-#define DASSERT_NOT_NULL(p) \
 #define DPRINT(...) fprintf(stderr, __VA_ARGS__)
+#define DASSERT_NOT_NULL(p) \
 do { \
   if (!p) { \
     fprintf(stderr, "!!!: %s:%d: %s is nullptr. Aborting.\n", __FILE__, __LINE__, #p); \

@@ -2,7 +2,7 @@
 #
 # runBuildPrep.sh - Preps the build environment
 #
-# Copyright 2019-2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2021 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,6 +18,7 @@ echo "############################################"
 echo "#             Installing deps              #"
 echo "############################################"
 target_pm=$(get_pm)
+target_os=$(get_os)
 if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
     # Install zypper based dependencies
     zypper --non-interactive install \
@@ -47,11 +48,16 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             python3-pip
     check_exit_status
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
-    # Note the following will be different on build VMs vs DST. Errors are okay.
-    yum config-manager --set-enabled PowerTools
-    yum config-manager --set-enabled dst-remote-centos8-PowerTools
+    if [[ "$target_os" == "$cdst_os_centos8" ]]; then
+      # Note the following will be different on build VMs vs DST. Errors are okay.
+      yum config-manager --set-enabled dst-remote-centos8-PowerTools
+    else
+      yum --assumeyes install subscription-manager
+      subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
+    fi
     # Install yum based components
     yum --assumeyes install \
+            texinfo \
             autoconf \
             automake \
             binutils-devel \
@@ -71,8 +77,6 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             python3-devel \
             rpm-build \
             tcl \
-            texi2html \
-            texinfo \
             which \
             xz-devel
     check_exit_status
@@ -81,6 +85,7 @@ else
     echo "Unsupported Package Manager detected!"
     exit 1
 fi
+
 
 # Install the common PE components
 install_common_pe

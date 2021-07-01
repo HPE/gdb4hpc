@@ -6,13 +6,13 @@
 
 namespace bitset {
 
-std::unique_ptr<Bitset> doAnd(const Bitset& l, const Bitset &r) {
+std::unique_ptr<Bitset> fromAnd(const Bitset& l, const Bitset &r) {
 	auto lhs = l.clone();
 	*lhs &= r;
 	return lhs;
 }
 
-std::unique_ptr<Bitset> doOr(const Bitset& l, const Bitset &r) {
+std::unique_ptr<Bitset> fromOr(const Bitset& l, const Bitset &r) {
 	auto lhs = l.clone();
 	*lhs |= r;
 	return lhs;

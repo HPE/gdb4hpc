@@ -2262,7 +2262,7 @@ int NodeEvent(event_set_t *ev_set, const Bitset *reply_set) {
                         t->t_int = e->ev_bp->bp_id;
                         InjectToken(n->n_graph, n, t);
                     } else { /* DBGGO_SET */
-                        number = bitset::doAnd(*node_set->t_bitset, *reply_set)->numSet();
+                        number = bitset::fromAnd(*node_set->t_bitset, *reply_set)->numSet();
                         n->n_nevent -= number;
 
                         if (n->n_nevent == 0) {

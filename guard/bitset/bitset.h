@@ -109,13 +109,13 @@ namespace bitset {
     // arguments. the format of the returned bitset will be that of the lhs bitset.
     // it is up to the implimentation of &= to make sure that the two bitsets
     // are compatible for the operation.
-    std::unique_ptr<Bitset> doAnd(const Bitset &lhs, const Bitset &rhs);
+    std::unique_ptr<Bitset> fromAnd(const Bitset &lhs, const Bitset &rhs);
 
     // returns a new bitset containing the result of a bitwise OR between the 
     // arguments. the format of the returned bitset will be that of the lhs bitset.
     // it is up to the implimentation of |= to make sure that the two bitsets
     // are compatible for the operation.
-    std::unique_ptr<Bitset> doOr(const Bitset &lhs, const Bitset &rhs);
+    std::unique_ptr<Bitset> fromOr(const Bitset &lhs, const Bitset &rhs);
 
     // generic function to copy the bits from source to dest. since we don't know
     // the underlying types of the bitsets, this is a slow, one-by-one copy. use

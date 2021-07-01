@@ -496,7 +496,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
         while ((bpset = GetNextBPSet(recv_ptr->rec_di)) != nullptr) {
             if (bid > 0 && bpset->b_bp_set_id != bid) continue;
 
-            auto group = bitset::doAnd(*bpset->b_group, *recv_ptr->rec_group);
+            auto group = bitset::fromAnd(*bpset->b_group, *recv_ptr->rec_group);
 
             if (group->isEmpty()) {
                 continue;
@@ -516,9 +516,9 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bpset->b_bp_disp)) != nullptr) {
-                        auto disp_group = bitset::doAnd(*disp_set->b_group, *group);
+                        auto disp_group = bitset::fromAnd(*disp_set->b_group, *group);
                         auto enabled_group =
-                            bitset::doAnd(*bpset->b_bp_enabled, *disp_group);
+                            bitset::fromAnd(*bpset->b_bp_enabled, *disp_group);
 
                         if (!enabled_group->isEmpty()) {
                             // First print out watchpoints that are enabled
@@ -532,7 +532,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                         // Compute the disabled set
                         enabled_group->invert();
-                        auto disabled_group = bitset::doAnd(*enabled_group, *disp_group);
+                        auto disabled_group = bitset::fromAnd(*enabled_group, *disp_group);
 
                         if (!disabled_group->isEmpty()) {
                             // Next print out watchpoints that are disabled
@@ -552,9 +552,9 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bpset->b_bp_disp)) != nullptr) {
-                        auto disp_group = bitset::doAnd(*disp_set->b_group, *group);
+                        auto disp_group = bitset::fromAnd(*disp_set->b_group, *group);
                         auto enabled_group =
-                            bitset::doAnd(*bpset->b_bp_enabled, *disp_group);
+                            bitset::fromAnd(*bpset->b_bp_enabled, *disp_group);
 
                         if (bpset->b_bp_pending) {
                             if (!enabled_group->isEmpty()) {
@@ -571,7 +571,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // Compute the disabled set
                             enabled_group->invert();
                             auto disabled_group =
-                                bitset::doAnd(*enabled_group, *disp_group);
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
@@ -600,7 +600,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // Compute the disabled set
                             enabled_group->invert();
                             auto disabled_group =
-                                bitset::doAnd(*enabled_group, *disp_group);
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
@@ -628,7 +628,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             // Compute the disabled set
                             enabled_group->invert();
                             auto disabled_group =
-                                bitset::doAnd(*enabled_group, *disp_group);
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled

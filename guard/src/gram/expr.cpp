@@ -1804,7 +1804,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                     // loop over this reply
                     for (auto&& reply2 : rep_set2) {
                         // compute the new set
-                        auto tset = bitset::doAnd(*reply->rep_group, *reply2->rep_group);
+                        auto tset = bitset::fromAnd(*reply->rep_group, *reply2->rep_group);
 
                         // check to see if this is empty, if
                         // so continue
@@ -1916,7 +1916,7 @@ static bool rval_next_slice(val_t* v, std::unique_ptr<rep_set_t>& reply, std::ve
 // compute the intersection of two bitsets, treating a null-ptr as all 1's
 static std::unique_ptr<Bitset> intersect_groups(const Bitset* a, const Bitset* b) {
     if (a && b)
-        return bitset::doAnd(*a, *b);
+        return bitset::fromAnd(*a, *b);
     else if (a)
         return a->clone();
     else if (b)
@@ -2026,7 +2026,7 @@ static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&gr
         // but we'll resolve those later.   The new replies are all after
         // \a origNumReplies because we need to make sure we don't try to apply the
         // new result to a reply twice.
-        auto igrp = bitset::doAnd(*group, oldGroup);
+        auto igrp = bitset::fromAnd(*group, oldGroup);
 
         // remove the bits from old and new replies
         *group -= *igrp;

@@ -1178,7 +1178,7 @@ static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *g
                         }
                         if (search_group->hasCommonBits(*id_set->b_group)) {
                             // Remove the matching bits, we found a match
-                            remove_group = bitset::doAnd(*search_group, *id_set->b_group);
+                            remove_group = bitset::fromAnd(*search_group, *id_set->b_group);
                             *search_group -= *id_set->b_group;
                             break;
                         }
@@ -1549,7 +1549,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        auto group = bitset::doAnd(*disp_set->b_group, *msg.getBitset());
+                        auto group = bitset::fromAnd(*disp_set->b_group, *msg.getBitset());
                         if (group->isEmpty()) {
                             continue;
                         }
@@ -1581,7 +1581,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                     SetList(bp_set->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bp_set->b_bp_disp)) != nullptr) {
-                        auto group = bitset::doAnd(*disp_set->b_group, *msg.getBitset());
+                        auto group = bitset::fromAnd(*disp_set->b_group, *msg.getBitset());
                         if (group->isEmpty()) {
                             continue;
                         }
@@ -3068,7 +3068,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3132,7 +3132,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the set.
-                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {
@@ -3200,7 +3200,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3265,7 +3265,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {
@@ -3331,7 +3331,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                             bp_set->b_bp_id_list)) != nullptr) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3404,7 +3404,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                         bp_set->b_bp_id_list)) != nullptr) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset::doAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {

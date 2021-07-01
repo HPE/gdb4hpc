@@ -266,14 +266,8 @@ void FreeProxyType(proxy_type *p) {
 
 recv_type *NewRecvType(std::unique_ptr<Bitset> &&target, std::unique_ptr<Bitset> &&recv) {
     // Alloc the return type
-    recv_type *rtn = (recv_type *)Alloc(sizeof(recv_type));
+    auto *rtn = new recv_type;
 
-    // XXX: See comment about smart pointers and Alloc in
-    // dbg_client.cpp:NewGroupReceiver. In short, we have to make sure to clear
-    // the arbitrary inner pointer in the smart pointer so it doesn't try to
-    // delete it when we move the new one in.
-    rtn->target.release();
-    rtn->received.release();
     rtn->target = std::move(target);
     rtn->received = std::move(recv);
 
@@ -281,12 +275,7 @@ recv_type *NewRecvType(std::unique_ptr<Bitset> &&target, std::unique_ptr<Bitset>
 }
 
 void FreeRecvType(recv_type *recv) {
-    if (recv == NULL) return;
-
-    recv->target.reset();
-    recv->received.reset();
-
-    Free(recv);
+    delete recv;
 }
 
 attach_args *NewAttachArgs(void) {

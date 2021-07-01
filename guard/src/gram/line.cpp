@@ -32,9 +32,7 @@
 line_t *FindLine(list_t *, int);
 
 line_t *NewLine(int lno) {
-    line_t *l;
-
-    l = (line_t *)Alloc(sizeof(line_t));
+    auto l = new line_t;
 
     l->l_lno = lno;
     l->l_bp = -1;
@@ -42,11 +40,6 @@ line_t *NewLine(int lno) {
     l->l_sync = -1;
     l->l_val = -1;
     l->l_ref = 0;
-    // XXX: See comment about smart pointers and Alloc in
-    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
-    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
-    // delete an arbitrary pointer upon assignent.
-    l->l_bs.release();
     l->l_bs = std::unique_ptr<DenseBitset>();
 
     return l;
@@ -82,7 +75,5 @@ void DestroyLine(line_t *l) {
     l->l_ref--;
     if (l->l_ref >= 0) return;
 
-    l->l_bs.reset();
-
-    Free(l);
+    delete l;
 }

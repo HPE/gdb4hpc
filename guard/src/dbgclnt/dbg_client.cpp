@@ -227,21 +227,10 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
  */
 
 group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask) {
-    group_recv_t *rec;
-
-    rec = (group_recv_t *)Alloc(sizeof(group_recv_t));
+    auto rec = new group_recv_t;
     rec->rec_di = di;
 
-    // XXX: Since we're halfway between C and C++, we need to properly reset the
-    // unique ptrs before assigning to them since Alloc gives us a block of
-    // arbitrary unintialized memory. Part of this memory will represent the
-    // inner pointer inside the smart pointers (and other nasty things) so it
-    // needs to be dealt with. We "release" the pointers so the smart pointers
-    // don't try to be too smart and delete an arbitrary pointer upon assignment
-    // below.
     DASSERT_NOT_NULL(proc_mask);
-    rec->rec_group.release();
-    rec->_cmd_sent.release();
     rec->rec_group = proc_mask->clone();
     rec->_cmd_sent = std::unique_ptr<Bitset>();
 
@@ -249,9 +238,7 @@ group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask) {
 }
 
 static void FreeGroupReceiver(group_recv_t *rec) {
-    rec->rec_group.reset();
-    rec->_cmd_sent.reset();
-    Free(rec);
+    delete rec;
 }
 
 static void ClearCmdSent(group_recv_t *rec) {
@@ -259,17 +246,12 @@ static void ClearCmdSent(group_recv_t *rec) {
 }
 
 static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
-    group_recv_t *newrec;
-
     if (rec == nullptr) return nullptr;
 
-    newrec = (group_recv_t *)Alloc(sizeof(group_recv_t));
+    auto newrec = new group_recv_t;
 
     newrec->rec_di = rec->rec_di;
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
     DASSERT_NOT_NULL(rec->rec_group);
-    newrec->rec_group.release();
-    newrec->_cmd_sent.release();
     newrec->rec_group = rec->rec_group->clone();
     newrec->_cmd_sent = std::unique_ptr<Bitset>();
 
@@ -360,12 +342,10 @@ bool RecSetHasOneProcPerReceiver(rec_set_t* set)
  */
 
 group_reply_t *NewGroupReply(dbginvoke_t *di, std::unique_ptr<Bitset> &&src, dbgevent_t *reply) {
-    group_reply_t *rep = (group_reply_t *)Alloc(sizeof(group_reply_t));
+    group_reply_t *rep = new group_reply_t;
 
     rep->rep_di = di;
     rep->rep_event = reply;
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
-    rep->rep_group.release();
     rep->rep_group = std::move(src);
 
     return rep;
@@ -373,21 +353,16 @@ group_reply_t *NewGroupReply(dbginvoke_t *di, std::unique_ptr<Bitset> &&src, dbg
 
 void FreeGroupReply(group_reply_t *rep) {
     FreeEvent(rep->rep_event);
-    rep->rep_group = nullptr; // calls destructor
-    Free(rep);
+    delete rep;
 }
 
 group_reply_t *CopyGroupReply(group_reply_t *rep) {
-    group_reply_t *newrep;
-
     if (rep == nullptr) return nullptr;
 
-    newrep = (group_reply_t *)Alloc(sizeof(group_reply_t));
+    auto newrep = new group_reply_t;
 
     newrep->rep_di = rep->rep_di;
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
     DASSERT_NOT_NULL(rep->rep_group);
-    newrep->rep_group.release();
     newrep->rep_group = rep->rep_group->clone();
     newrep->rep_event = DupEvent(rep->rep_event);
 
@@ -651,13 +626,11 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
 */
 static event_set_t *NewEventSet(dbginvoke_t *di, const Bitset *group,
                                 dbgevent_t *event) {
-    event_set_t *eventset = (event_set_t *)Alloc(sizeof(event_set_t));
+    auto *eventset = new event_set_t;
 
     DASSERT_NOT_NULL(group);
 
     eventset->e_di = di;
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
-    eventset->e_group.release();
     eventset->e_group = group->clone();
     eventset->e_ev = DupEvent(event);
 
@@ -670,11 +643,9 @@ static event_set_t *NewEventSet(dbginvoke_t *di, const Bitset *group,
 static void FreeEventSet(event_set_t *eventset) {
     if (eventset == nullptr) return;
 
-    eventset->e_group.reset();
-
     if (eventset->e_ev != nullptr) FreeEvent(eventset->e_ev);
 
-    Free(eventset);
+    delete eventset;
 }
 
 static void DestroyEventSet(dbginvoke_t *di, dbgev ev) {
@@ -865,11 +836,9 @@ bp_set_t::bp_set_t(int bp_id, const Bitset *group, dbgbp_t *bp)
 ** It tracks the disposition of the breakpoint for each rank
 */
 static bp_disp_set_t *NewBPDispSet(const Bitset *group, dbgbp_disp bp_disp) {
-    bp_disp_set_t *disp_set = (bp_disp_set_t *)Alloc(sizeof(bp_disp_set_t));
+    auto *disp_set = new bp_disp_set_t;
 
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
     DASSERT_NOT_NULL(group);
-    disp_set->b_group.release();
     disp_set->b_group = group->clone();
     disp_set->b_bp_disp = bp_disp;
 
@@ -881,11 +850,9 @@ static bp_disp_set_t *NewBPDispSet(const Bitset *group, dbgbp_disp bp_disp) {
 ** It tracks the backend gdb breakpoint id mapping for each rank.
 */
 static bp_id_set_t *NewBPIDSet(const Bitset *group, int bp_id) {
-    bp_id_set_t *id_set = (bp_id_set_t *)Alloc(sizeof(bp_id_set_t));
+    auto *id_set = new bp_id_set_t;
 
-    // XXX: See comment about smart pointers and Alloc in NewGroupReceiver.
     DASSERT_NOT_NULL(group);
-    id_set->b_group.release();
     id_set->b_group = group->clone();
     id_set->b_bp_id = bp_id;
 
@@ -924,10 +891,8 @@ bp_set_t::~bp_set_t() {
 static void FreeBPIDSet(bp_id_set_t *id_set) {
     if (id_set == nullptr) return;
 
-    id_set->b_group.reset();
     id_set->b_bp_id = -1;
-
-    Free(id_set);
+    delete id_set;
 }
 
 /*
@@ -936,9 +901,7 @@ static void FreeBPIDSet(bp_id_set_t *id_set) {
 static void FreeBPDispSet(bp_disp_set_t *disp_set) {
     if (disp_set == nullptr) return;
 
-    disp_set->b_group.reset();
-
-    Free(disp_set);
+    delete disp_set;
 }
 
 /*

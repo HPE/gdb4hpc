@@ -1822,13 +1822,7 @@ static int OutConstBitSet(graph_t *g, const char *node, const DenseBitset *val) 
     token_t *t;
 
     t = NewToken(g, TK_BIT_SET);
-    // XXX: t_bit_set is actually part of a C union, so its data could be
-    // anything here. We need to make sure to "release" the pointer "contained"
-    // there before assigning to it, or the smart pointer assignment operator
-    // will try to delete it. See comment about smart pointers and Alloc in
-    // dbg_client.cpp:NewGroupReceiver.
     DASSERT_NOT_NULL(val);
-    t->t_bit_set.release();
     t->t_bit_set = val->typedClone();
 
     return gennode(g, node, t);

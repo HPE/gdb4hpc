@@ -89,11 +89,10 @@ graph_t *NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *,
 }
 
 graph_inv *NewGraphInv(graph_t *g, dbgprocset_t *ps) {
-    graph_inv *gi;
     dbg_over_set_t *over_set;
     int d;
 
-    gi = (graph_inv *)Alloc(sizeof(graph_inv));
+    auto gi = new graph_inv;
 
     // FIXME: This assumes only a single dbginvoke - this might not be the case
     // We don't have any checks here to fail if so.
@@ -102,11 +101,6 @@ graph_inv *NewGraphInv(graph_t *g, dbgprocset_t *ps) {
 
     gi->gp_di = over_set->s_di;
 
-    // XXX: See comment about smart pointers and Alloc in
-    // dbg_client.cpp:NewGroupReceiver. In short, we need to "release" the
-    // arbitrary pointer in the Alloc'd smart pointer so it doesn't try to
-    // delete an arbitrary pointer upon assignent.
-    gi->gp_unbuilt_bs.release();
     gi->gp_unbuilt_bs = std::make_unique<DenseBitset>(over_set->s_di->d_nproc);
     // Set every rank to 1, since everything is currently unbuilt.
     gi->gp_unbuilt_bs->invert();
@@ -172,11 +166,9 @@ graph_inv *FindGraphInv(graph_t *g, char *inv) {
 void destroyInv(char *key, void *arg) {
     graph_inv *gi = (graph_inv *)arg;
 
-    gi->gp_unbuilt_bs.reset();
-
     DestroyList(gi->gp_files, (void (*)(void *))DestroyFile);
 
-    Free(gi);
+    delete gi;
 }
 
 void destroyGDiff(graph_diff *gd) {

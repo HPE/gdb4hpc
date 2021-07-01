@@ -590,14 +590,9 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* 
 }
 
 static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, std::unique_ptr<Bitset> &&bs, int offset) {
-    dbg_over_set_t *set = (dbg_over_set_t *)Alloc(sizeof(dbg_over_set_t));
+    auto *set = new dbg_over_set_t;
 
     set->s_di = di;
-    // XXX: See comment about smart pointers and Alloc in
-    // dbg_client.cpp:NewGroupReceiver. In short, we have to make sure to clear
-    // the arbitrary inner pointer in the smart pointer so it doesn't try to
-    // delete it when we move the new one in.
-    set->s_di_bs.release();
     set->s_di_bs = std::move(bs);
     set->s_ps_offset = offset;
 
@@ -606,8 +601,7 @@ static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, std::unique_ptr<Bitset> &&
 
 static void FreeOverlaySet(dbg_over_set_t *set) {
     set->s_di = NULL;
-    set->s_di_bs.reset();
-    Free(set);
+    delete set;
 }
 
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *over_set) {

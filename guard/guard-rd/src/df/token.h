@@ -69,7 +69,7 @@ struct token_t {
     int t_set_length;
     std::unique_ptr<DenseBitset> t_set_bits;
 
-    union {
+    union t_d {
         AIF* t_d_data;
         int t_d_int;
         double t_d_float;
@@ -80,6 +80,9 @@ struct token_t {
         AIF** t_d_data_set;
         std::unique_ptr<DenseBitset> t_d_bit_set;
         int t_d_bool;
+
+        t_d() : t_d_data{nullptr} {};
+        ~t_d() {}; // properly destroyed by DestroyToken
     } t_d;
 #define t_data t_d.t_d_data
 #define t_int t_d.t_d_int

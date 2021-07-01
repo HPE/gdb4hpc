@@ -17,9 +17,10 @@
 #include <strings.h>
 #include <ctype.h>
 
+#include <sstream>
+
 #include "dense_bitset.h"
 #include "sparse_bitset.h"
-#include "bitset_serialize.h"
 
 SmartBitset::SmartBitset()
 	: m_dense{nullptr}
@@ -40,6 +41,28 @@ SmartBitset::SmartBitset(int num_bits)
 	: m_dense{nullptr}
 	, m_sparse{std::make_unique<SparseBitset>(num_bits)}
 {}
+
+SmartBitset::SmartBitset(const Serialized &serialized) {
+	if (serialized.get() == nullptr) {
+		throw std::runtime_error("null ptr passed to SmartBitset constructor.");
+	}
+
+	std::istringstream stream(serialized.get());
+
+	auto start = stream.tellg();
+
+	int typeSwitch;
+	stream >> typeSwitch;
+
+	auto offset = stream.tellg() - start;
+	serialized.setOffset(offset);
+
+	if (typeSwitch == 0) {
+		m_dense = std::make_unique<DenseBitset>(std::move(serialized));
+	} else {
+		m_sparse = std::make_unique<SparseBitset>(std::move(serialized));
+	}
+}
 
 std::unique_ptr<Bitset> SmartBitset::clone() const {
 	return typedClone();
@@ -126,24 +149,20 @@ size_t SmartBitset::sizeInBits() const {
 	return 0;
 }
 
-Bitset::SerializedPtr SmartBitset::serialize() const {
+Bitset::Serialized SmartBitset::serialize() const {
 	if(!m_dense && !m_sparse)
 		// in the case of an empty bitset, we serialize to an empty sparse bitset.
-		return SerializedPtr(strdup("2;0;{}"), std::free);
+		return Serialized(strdup("1 0"));
 
-	auto result = SerializedPtr(nullptr, std::free);
+	std::string result = m_dense ? "0 " : "1 ";
 
 	if (m_dense) {
-		result = m_dense->serialize();
+		result += m_dense->serialize().get();
 	} else if (m_sparse) {
-		result = m_sparse->serialize();
+		result += m_sparse->serialize().get();
 	}
 
-	// change format byte to SmartBitset so the global deserialization function
-	// can properly interpret it
-	result.get()[0] = '2';
-
-	return result;
+	return Serialized(strdup(result.c_str()));
 }
 
 Bitset& SmartBitset::operator=(const Bitset &_other) {

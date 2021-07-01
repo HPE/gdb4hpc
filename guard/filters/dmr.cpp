@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "smart_bitset.h"
-#include "bitset_serialize.h"
 
 using namespace std;
 
@@ -39,19 +38,14 @@ Message::~Message() {
         free(m_content);
     }
     m_content = NULL;
-
-    if (m_btStr != NULL && m_release) {
-        free(m_btStr);
-    }
-    m_btStr = NULL;
 }
 
 void Message::SetReleaseMemory(bool release) { m_release = release; }
 
 char* Message::GetContent() { return m_content; }
 
-char* Message::GetBitsetStr() {
-    if (m_sb != nullptr) m_btStr = m_sb->serialize().release();
+Bitset::Serialized& Message::GetBitsetStr() {
+    if (m_sb != nullptr) m_btStr = m_sb->serialize();
 
     return m_btStr;
 }
@@ -88,27 +82,16 @@ bool Message::LessEqual(Message* pMessage) {
     return comp <= 0;
 }
 
-void Message::MergeBitset(char* btStr) {
-    if (btStr == nullptr) return;
+void Message::MergeBitset(const Bitset::Serialized &bitsetStr) {
+    if (bitsetStr.get() == nullptr) return;
 
-    auto sb = bitset::deserializeAs<SmartBitset>(btStr);
-    if (!sb) {
-        fprintf(stderr, "ERROR: MergeBitset: deserialized bitset wasn't SmartBitset.\n");
-        return;
-    }
+    auto sb = SmartBitset(bitsetStr);
 
     if (m_sb == nullptr) {
-        auto sp = bitset::deserializeAs<SmartBitset>(m_btStr);
-
-        if (!sp) {
-            fprintf(stderr, "ERROR: MergeBitset: deserialized bitset wasn't SmartBitset.\n");
-            return;
-        }
-
-        m_sb = std::move(sp);
+        m_sb = std::make_unique<SmartBitset>(m_btStr);
     }
 
-    *m_sb |= *sb;
+    *m_sb |= sb;
 }
 
 MessageVector::MessageVector(bool releaseMemory) { m_release = releaseMemory; }

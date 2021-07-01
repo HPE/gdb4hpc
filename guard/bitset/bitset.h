@@ -57,14 +57,36 @@ public:
     // returns a string representation in set notation, e.g. {0..2,4,5..100}.
     virtual std::string toSet(int offset = 0, int len = -1) const;
 
-    using Serialized = char *;
-    using SerializedPtr = std::unique_ptr<char, decltype(&std::free)>;
+    // a serialized bitset, not necessarily in a human readable format. derived
+    // classes should implement a (const Serialized&) constructor to
+    // do deserialization.
+    // e.g.
+    //   auto serialized_bitset = bitset->serialize();
+    //   auto new_bitset = Bitset(serialized_bitset);
+    class Serialized {
+    public:
+        using DataPtr = std::unique_ptr<char, decltype(&std::free)>;
+        // takes ownership of data
+        explicit Serialized(char * data) : m_data(data, std::free), m_offset{0} {};
 
-    // serialize the bitset, not necessarily in a human readable way. the bitset's
-    // format must be encoded in the serialization so that bitset::deserialize
-    // can reconstruct it in the correct format. see bitset::deserialize 
-    // (bitset_serialize.h) for info on the serialization format.
-    virtual SerializedPtr serialize() const;
+        // useful when you have layered data and want to read part of the
+        // message and then send the rest off to a different function
+        void setOffset(unsigned int offset) const { m_offset = offset; }
+        const char * get() const { 
+            if (m_data)
+                return m_data.get() + m_offset;
+            else
+                return nullptr;
+        }
+        char * release() { return m_data.release(); }
+    private:
+        DataPtr m_data;
+        mutable unsigned int m_offset;
+    };
+
+    // returns a Bitset::Serialized class that can be used to construct a new
+    // bitset.
+    virtual Serialized serialize() const;
 
     // for binary operators, it is up to the implimentation to make sure the
     // formats of the two bitsets being operated on are compatible.
@@ -82,7 +104,6 @@ public:
     virtual bool hasCommonBits(const Bitset &other) const;
 };
 
-// helper functions
 namespace bitset {
     // returns a new bitset containing the result of a bitwise AND between the 
     // arguments. the format of the returned bitset will be that of the lhs bitset.

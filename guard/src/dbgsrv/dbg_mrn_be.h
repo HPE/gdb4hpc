@@ -74,7 +74,7 @@ private:
 
     int m_rank;               // rank of backend
     std::unique_ptr<SmartBitset> m_rank_bs; 
-    Bitset::SerializedPtr m_rank_bs_str;
+    Bitset::Serialized m_rank_bs_str;
 
     int m_network_size;
 

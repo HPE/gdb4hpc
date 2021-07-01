@@ -2,7 +2,6 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dense_bitset.h"
-#include "bitset_serialize.h"
 
 #include <string.h>
 #include <sstream>
@@ -13,6 +12,45 @@ DenseBitset::DenseBitset(unsigned int nbits)
 	: m_bs_nbits{nbits}
 	, m_bs_bits(BIT_INDEX(nbits-1) + 1, 0)
 {}
+
+DenseBitset::DenseBitset(const Serialized &serialized) {
+	if (serialized.get() == nullptr) {
+		throw std::runtime_error("nullptr passed to DenseBitset constructor.");
+	}
+
+	auto digitToInt = [](int c) {
+		if (c >= '0' && c <= '9')
+			return c - '0';
+		if (c >= 'a' && c <= 'f')
+			return c - 'a' + 10;
+		if (c >= 'A' && c <= 'F')
+			return c - 'A' + 10;
+		
+		return 0;
+	};
+
+	std::istringstream converter(serialized.get());
+
+	int nbits;
+	converter >> std::hex >> nbits;
+
+	std::string data;
+	converter >> data;
+
+	m_bs_nbits = nbits;
+	m_bs_bits = std::vector<Bits>(BIT_INDEX(nbits - 1) + 1, 0);
+
+	int bytes = NUM_BYTES(nbits);
+	const char *dataPtr = data.c_str();
+	for (int pos = (bytes << 3) - 1; *dataPtr != '\0' && isxdigit(*dataPtr) && pos >= 0; dataPtr++) {
+		int b = digitToInt(*dataPtr);
+		for (int n = 3; n >= 0; n--, pos--) {
+			if (b & (1 << n)) {
+				set(pos);
+			}
+		}
+	}
+}
 
 std::unique_ptr<Bitset> DenseBitset::clone() const {
 	return typedClone();
@@ -126,10 +164,9 @@ size_t DenseBitset::sizeInBits() const {
     return m_bs_nbits;
 }
 
-static char tohex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-
 std::string DenseBitset::toString() const {
     char buf[80];
+	const char tohex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
     std::stringstream output;
 
 	/*
@@ -138,7 +175,7 @@ std::string DenseBitset::toString() const {
 	sprintf(buf, "%x", m_bs_nbits & 0xffffffff);
     output << buf;
 
-	output << ':';
+	output << ' ';
 
     int bytes = NUM_BYTES(m_bs_nbits);
     int bit = 0;
@@ -236,14 +273,13 @@ std::string DenseBitset::toSet(int offset, int len) const {
 	return str.str();
 }
 
-Bitset::SerializedPtr DenseBitset::serialize() const {
-	auto content = toString();
-	auto format = static_cast<unsigned int>(bitset::Format::Dense);
-	auto size = content.size() + 16;
-	auto result = (char *)malloc(sizeof(char) * size);
-	sprintf(result, "%x;%x;%s", format, m_bs_nbits, content.c_str());
+Bitset::Serialized DenseBitset::serialize() const {
+	std::string serialized = toString();
+	auto len = serialized.size() + 1; // +1 for \0
+	auto result = (char *)malloc(sizeof(char) * len); 
+	snprintf(result, len, "%s", serialized.c_str());
 
-	return bitset::SerializedPtr(result, std::free);
+	return Bitset::Serialized(result);
 }
 
 Bitset& DenseBitset::operator=(const Bitset &_other) {

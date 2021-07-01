@@ -29,6 +29,7 @@ public:
     SmartBitset(int nbits);
     SmartBitset(std::unique_ptr<DenseBitset> &&denseBitset);
     SmartBitset(std::unique_ptr<SparseBitset> &&sparseBitset);
+    SmartBitset(const Serialized &serialized);
 
     bool isSparse() const;
     bool isDense() const;
@@ -57,7 +58,7 @@ public:
 
     // virtual std::string toSet(int offset = 0, int len = -1) const override;
 
-    virtual SerializedPtr serialize() const override;
+    virtual Serialized serialize() const override;
 
     virtual Bitset& operator= (const Bitset &other) override;
     SmartBitset& operator= (const SmartBitset &other);

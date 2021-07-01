@@ -23,7 +23,6 @@
 #include <mutex>
 
 #include "alloc.h"
-#include "bitset_serialize.h"
 #include "dbg_client.h"
 #include "dbg_mrn.h"
 #include "dbg_mrn_fe.h"
@@ -595,7 +594,8 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
     auto result = ProtoMessageSet();
 
     for (int index = 0; index < msgNum; index++) {
-        auto sb = bitset::deserializeAs<SmartBitset>(strArr[index * 2 + 1]);
+        // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
+        auto sb = std::make_unique<SmartBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
         if (!sb) {
             PrintOutError("ERROR: MRNetFrontEnd::recv_reply: deserialized bitset was not SmartBitset.\n");
             return {};
@@ -605,10 +605,6 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
         // Create a proto_message for this packet and add it to the result
         // ProtoMessage takes ownership of its arguments
         result.emplace_back(bs.release(), strArr[index * 2]);
-
-        // Cleanup the strArr for the bitset only, the message gets passed up
-        // and cleaned up later.
-        free(strArr[index * 2 + 1]);
     }
 
     // free the final strArr allocated by packet_unpack
@@ -663,15 +659,6 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                 if (!result) {
                     result = ProtoMessageSet();
                 }
-
-                // Create a mrnet_message for this packet and add it to the result
-                std::unique_ptr<Bitset> source = nullptr;
-                if (rank != nullptr) {
-                    source = bitset::fromString(rank, bitset::Format::Dense);
-                }
-
-                // ProtoMessageSet takes ownership of source and msg
-                result->emplace_back(source.release(), msg);
 #ifdef DEBUG
                 if (msg != nullptr)
                     DPRINT(
@@ -683,6 +670,15 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                         "INFO: mrn_fe_check_io_and_event() received nullptr "
                         "io!\n");
 #endif
+                // Create a mrnet_message for this packet and add it to the result
+                std::unique_ptr<Bitset> source = nullptr;
+                if (rank != nullptr) {
+                    // Bitset::Serialized will free rank
+                    source = std::make_unique<DenseBitset>(Bitset::Serialized(rank));
+                }
+
+                // ProtoMessageSet takes ownership of source and msg
+                result->emplace_back(source.release(), msg);
             } else if (retval < 0) {
                 PrintOutError(
                     "ERROR: mrn_fe_check_io_and_event() received an invalid "
@@ -753,7 +749,8 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
                 }
 
                 for (int index = 0; index < msgNum; index++) {
-                    auto sb = bitset::deserializeAs<SmartBitset>(strArr[index * 2 + 1]);
+                    // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
+                    auto sb = std::make_unique<SmartBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
                     if (!sb) {
                         PrintOutError("ERROR: MRNetFrontEnd::displatch_event: deserialized bitset was not SmartBitset.\n");
                         return {};
@@ -763,10 +760,6 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
                     // Create a proto_message for this packet and add it to the result
                     // ProtoMessageSet takes ownership of the arguments
                     result->emplace_back(bs.release(), strArr[index * 2]);
-
-                    // Cleanup the strArr for the bitset only, the message gets
-                    // passed up and cleaned up later.
-                    free(strArr[index * 2 + 1]);
                 }
 
                 // Cleanup the strArr

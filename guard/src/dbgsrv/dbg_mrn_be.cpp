@@ -30,7 +30,6 @@
 #include "dbgsrv_defs.h"
 #include "defs.h"
 #include "smart_bitset.h"
-#include "bitset_serialize.h"
 
 #include "mrnet/Stream.h"
 #include "mrnet/Network.h"
@@ -58,7 +57,7 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
       m_stream_single{nullptr},
       m_event_fd{0},
       m_rank_bs{nullptr},
-      m_rank_bs_str{Bitset::SerializedPtr(nullptr, std::free)},
+      m_rank_bs_str{Bitset::Serialized(nullptr)},
       m_cmd_streams{NewList()},
       m_event_streams{NewList()},
       m_msg_list{NewList()}
@@ -280,7 +279,7 @@ int MRNetBackEnd::send_event(char* msg, const dbgcomm_info* commInfo) {
 
     char* strArr[2];
     strArr[0] = msg;
-    strArr[1] = m_rank_bs_str.get();
+    strArr[1] = const_cast<char *>(m_rank_bs_str.get());
 
     MRN::Stream* stream = m_stream_event;
 
@@ -322,7 +321,7 @@ int MRNetBackEnd::send_io(char* msg) {
             m_stream_io);
 
     strArr[0] = msg;
-    strArr[1] = m_rank_bs_str.get();
+    strArr[1] = const_cast<char *>(m_rank_bs_str.get());
 
     if (m_stream_io->send(DBG_MRNet_PRO_IO, "%as", strArr, 2) ==
         -1) {

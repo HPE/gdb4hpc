@@ -38,8 +38,8 @@ class Message {
 
     void SetReleaseMemory(bool release);
     char* GetContent();
-    char* GetBitsetStr();
-    void MergeBitset(char* btStr);
+    Bitset::Serialized& GetBitsetStr();
+    void MergeBitset(const Bitset::Serialized& bitsetStr);
     int Compare(Message* pMessage);
     bool Equal(Message* pMessage);
     bool Less(Message* pMessage);
@@ -48,7 +48,7 @@ class Message {
    private:
     bool m_release;
     char* m_content;
-    char* m_btStr;
+    Bitset::Serialized m_btStr;
     std::unique_ptr<SmartBitset> m_sb;
 };
 

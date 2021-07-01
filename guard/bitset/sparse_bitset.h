@@ -87,6 +87,7 @@ public:
     SetBitsIterator getSetBitsIterator() const { return SetBitsIterator(*this); }
 
     SparseBitset(unsigned int nbits);
+    SparseBitset(const Serialized &serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;
     std::unique_ptr<SparseBitset> typedClone() const;
@@ -111,7 +112,7 @@ public:
     
     // virtual std::string toSet(int offset = 0, int len = -1) const override;
 
-    virtual SerializedPtr serialize() const override;
+    virtual Serialized serialize() const override;
 
     virtual Bitset& operator= (const Bitset &other) override;
     SparseBitset& operator= (const SparseBitset &other);

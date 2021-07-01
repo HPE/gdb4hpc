@@ -86,9 +86,9 @@ std::string Bitset::toSet(int offset, int len) const {
 	return "";
 }
 
-Bitset::SerializedPtr Bitset::serialize() const {
+Bitset::Serialized Bitset::serialize() const {
 	throw UnimplementedBitsetOperationError("serialize");
-	return SerializedPtr(nullptr, std::free);
+	return Serialized(nullptr);
 }
 
 Bitset& Bitset::operator= (const Bitset &other) {

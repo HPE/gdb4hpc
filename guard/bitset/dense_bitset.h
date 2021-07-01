@@ -12,7 +12,8 @@
 
 class DenseBitset : public Bitset {
 public:
-    DenseBitset(unsigned int nbits);
+    explicit DenseBitset(unsigned int nbits);
+    explicit DenseBitset(const Serialized &serialized);
 
     std::unique_ptr<Bitset> clone() const;
     std::unique_ptr<DenseBitset> typedClone() const;
@@ -35,7 +36,7 @@ public:
     
     virtual std::string toSet(int offset = 0, int len = -1) const override;
 
-    virtual SerializedPtr serialize() const override;
+    virtual Serialized serialize() const override;
  
     virtual Bitset& operator= (const Bitset &other) override;
     DenseBitset& operator= (const DenseBitset &other);

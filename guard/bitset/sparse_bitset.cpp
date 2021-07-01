@@ -21,14 +21,41 @@
 #include <strings.h>
 #include <ctype.h>
 
+#include <optional>
 #include <sstream>
 
 #include "sparse_bitset.h"
-#include "bitset_serialize.h"
 
 SparseBitset::SparseBitset(unsigned int num_bits) 
 	: m_sb_num_bits{num_bits}
 {}
+
+SparseBitset::SparseBitset(const Serialized &serialized) {
+	if (serialized.get() == nullptr) {
+		throw std::runtime_error("nullptr passed to SparseBitset constructor\n");
+	}
+
+	std::istringstream stream(serialized.get());
+
+	int nbits;
+	stream >> std::hex >> nbits;
+
+	m_sb_num_bits = nbits;
+
+	// stream won't evaluate false unless we first try to peek the EOF
+	while (stream.peek() && stream) {
+		unsigned int start;
+		unsigned int end;
+		stream >> std::hex >> start;
+		if (stream.peek() == '-') {
+			stream.get();
+			stream >> std::hex >> end;
+		} else {
+			end = start;
+		}
+		setRange(start, end);
+	}
+}
 
 std::unique_ptr<Bitset> SparseBitset::clone() const {
 	return typedClone();
@@ -164,31 +191,20 @@ size_t SparseBitset::sizeInRanges() const {
 	return m_sb_ranges.size();
 }
 
-Bitset::SerializedPtr SparseBitset::serialize() const {
-	int sep = 0;
+Bitset::Serialized SparseBitset::serialize() const {
 	std::stringstream ss;
 
-	ss << static_cast<int>(bitset::Format::Sparse) << ";"
-	   << std::hex << sizeInBits() << ";";
+	ss << std::hex << sizeInBits();
 
-	ss << "{";
-
-	for (const auto &range : m_sb_ranges) {
-		if (sep == 0)
-			sep = 1;
-		else
-			ss << ",";
-		
+	for (const auto &range : m_sb_ranges) {		
 		if (range.sr_start != range.sr_end) {
-			ss << std::hex << range.sr_start << "-" << range.sr_end;
+			ss << std::hex << " " << range.sr_start << "-" << range.sr_end;
 		} else {
-			ss << std::hex << range.sr_start;
+			ss << std::hex << " " << range.sr_start;
 		}
 	}
 
-	ss << "}";
-
-	return SerializedPtr(strdup(ss.str().c_str()), std::free);
+	return Serialized(strdup(ss.str().c_str()));
 }
 
 Bitset& SparseBitset::operator=(const Bitset &_other) {

@@ -84,7 +84,7 @@ void DbgMessageAggregation(std::vector<PacketPtr>& packets_in,
         pMessage = *it;
         pMessage->SetReleaseMemory(false);
         reductionArr[i] = pMessage->GetContent();
-        reductionArr[i + 1] = pMessage->GetBitsetStr();
+        reductionArr[i + 1] = pMessage->GetBitsetStr().release();
 
         i += 2;
     }

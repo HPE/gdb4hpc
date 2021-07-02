@@ -25,7 +25,6 @@
 #include "mrnet/NetworkTopology.h"
 #include "mrnet/Packet.h"
 #include "mrnet/Types.h"
-#include "smart_bitset.h"
 
 using namespace DMR; /*Debugging Message Reduction */
 using namespace MRN; /* MRnet */

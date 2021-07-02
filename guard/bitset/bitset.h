@@ -5,57 +5,64 @@
 
 #include <memory>
 #include <string>
-
-// some bitset implimentations are made for a specific use case such as fast
-// building or efficient space representation. these bitsets don't always 
-// implement every bitset operation available in the interface. trying to do an
-// operation that isn't implemented will result in this error being thrown.
-class UnimplementedBitsetOperationError : public std::exception {
-public:
-    UnimplementedBitsetOperationError(std::string funcName) : m_funcName{funcName} {};
-    ~UnimplementedBitsetOperationError() noexcept {};
-    virtual const char * what() const noexcept override { return m_funcName.c_str(); };
-private:    
-    std::string m_funcName;
-};
+#include <limits>
 
 class Bitset {
-public:
+    // interface describing a bitset that is used to represent sets of ranks.
+
+    // when operating on multiple ranks, gdb4hpc identifies each by its bitset.
+    // when messages from the dbgsrv are aggregated, bitsets are used to indicate
+    // where each message came from.
+
+    // in order to be useful, any bitset implimentation must implement set,
+    // unset, test, sizeInBits, and clone. the rest of the operations have
+    // default implementations in terms of the required operations, but default
+    // implementations operate on one bit at a time and are slow. derived
+    // classes should implement faster versions whenever possible.
+  public:
+    virtual ~Bitset() = default;
+
+    // pure virtual functions:
+
     // clone the bitset.
     virtual std::unique_ptr<Bitset> clone() const = 0;
+    // sets a bit to 1. offset starts from LSB.
+    virtual void set(size_t bit) = 0;
+    // sets a bit to 0. offset starts from LSB.
+    virtual void unset(size_t bit) = 0;
+    // returns true if the bit at the given offset is 1. offset starts from LSB.
+    // if an out-of-bounds bit is tested, the result should be false.
+    virtual bool test(size_t bit) const = 0;
+    // returns the size of the bitset in bits (not bytes).
+    virtual size_t sizeInBits() const = 0;
 
-    virtual ~Bitset() = default;
+    // virtual functions:
 
     // returns true if all bits are 0.
     virtual bool isEmpty() const;
     // returns true if all bits are 1.
     virtual bool isFull() const;
-
-    // sets a bit to 1. offset starts from LSB.
-    virtual void set(int bit);
-    // sets a bit to 0. offset starts from LSB.
-    virtual void unset(int bit);
-    // returns true if the bit at the given offset is 1. offset starts from LSB.
-    // if an out-of-bounds bit is tested, the result should be false.
-    virtual bool test(int bit) const;
+    
     // inverts (bitwise NOT) all bits.
     virtual void invert();
     // sets all bits to 0.
     virtual void clear();
 
     // returns the number of bits set to 1.
-    virtual unsigned int numSet() const;
-    // returns the offset of the first set bit. offset starts from LSB.
-    virtual int firstSet() const;
+    virtual size_t numSet() const;
 
-    // returns the size of the bitset in bits (not bytes).
-    virtual size_t sizeInBits() const;
+    // used to indicate "no bits" in operations such as firstSet()
+    static const size_t None = std::numeric_limits<size_t>::max();
+
+    // returns the offset of the first set bit. offset starts from LSB. if no
+    // bit is set, returns Bitset::None.
+    virtual size_t firstSet() const;
 
     // returns a human readable string representation of the bitset.
     virtual std::string toString() const;
 
     // returns a string representation in set notation, e.g. {0..2,4,5..100}.
-    virtual std::string toSet(int offset = 0, int len = -1) const;
+    virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const;
 
     // a serialized bitset, not necessarily in a human readable format. derived
     // classes should implement a (const Serialized&) constructor to
@@ -65,13 +72,12 @@ public:
     //   auto new_bitset = Bitset(serialized_bitset);
     class Serialized {
     public:
-        using DataPtr = std::unique_ptr<char, decltype(&std::free)>;
         // takes ownership of data
         explicit Serialized(char * data) : m_data(data, std::free), m_offset{0} {};
 
-        // useful when you have layered data and want to read part of the
+        // useful when you have nested data and want to read part of the
         // message and then send the rest off to a different function
-        void setOffset(unsigned int offset) const { m_offset = offset; }
+        void setOffset(size_t offset) const { m_offset = offset; }
         const char * get() const { 
             if (m_data)
                 return m_data.get() + m_offset;
@@ -80,8 +86,9 @@ public:
         }
         char * release() { return m_data.release(); }
     private:
+        using DataPtr = std::unique_ptr<char, decltype(&std::free)>;
         DataPtr m_data;
-        mutable unsigned int m_offset;
+        mutable size_t m_offset;
     };
 
     // returns a Bitset::Serialized class that can be used to construct a new
@@ -89,7 +96,8 @@ public:
     virtual Serialized serialize() const;
 
     // for binary operators, it is up to the implimentation to make sure the
-    // formats of the two bitsets being operated on are compatible.
+    // formats of the two bitsets being operated on are compatible. if they
+    // aren't, they should fall back to the default implementations.
 
     virtual Bitset& operator= (const Bitset &other);
     virtual Bitset& operator&= (const Bitset &other);
@@ -116,10 +124,4 @@ namespace bitset {
     // it is up to the implimentation of |= to make sure that the two bitsets
     // are compatible for the operation.
     std::unique_ptr<Bitset> fromOr(const Bitset &lhs, const Bitset &rhs);
-
-    // generic function to copy the bits from source to dest. since we don't know
-    // the underlying types of the bitsets, this is a slow, one-by-one copy. use
-    // this function only if you can't copy any other way. dest and source must
-    // be the same sizeInBits().
-    void copyBits(Bitset &dest, const Bitset &source);
 } // bitset

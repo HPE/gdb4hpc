@@ -12,7 +12,7 @@
 
 class DenseBitset : public Bitset {
 public:
-    explicit DenseBitset(unsigned int nbits);
+    explicit DenseBitset(size_t nbits);
     explicit DenseBitset(const Serialized &serialized);
 
     std::unique_ptr<Bitset> clone() const;
@@ -21,20 +21,20 @@ public:
     virtual bool isEmpty() const override; 
     virtual bool isFull() const override; 
 
-    virtual void set(int bit) override; 
-    virtual void unset(int bit) override; 
-    virtual bool test(int bit) const override; 
+    virtual void set(size_t bit) override; 
+    virtual void unset(size_t bit) override; 
+    virtual bool test(size_t bit) const override; 
     virtual void invert() override; 
     virtual void clear() override; 
 
-    virtual unsigned int numSet() const override; 
-    virtual int firstSet() const override; 
+    virtual size_t numSet() const override; 
+    virtual size_t firstSet() const override; 
 
     virtual size_t sizeInBits() const override; 
 
     virtual std::string toString() const override; 
     
-    virtual std::string toSet(int offset = 0, int len = -1) const override;
+    // virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const override;
 
     virtual Serialized serialize() const override;
  
@@ -47,7 +47,7 @@ public:
     virtual Bitset& operator|= (const Bitset &other) override;
 
     virtual bool operator== (const Bitset &other) const override;
-    virtual bool operator!= (const Bitset &other) const override;
+    // virtual bool operator!= (const Bitset &other) const override;
 
     virtual bool hasCommonBits(const Bitset &other) const override;
 private:
@@ -55,15 +55,15 @@ private:
     // longer work. see firstSet implementation.
     typedef unsigned int Bits;
 
-    unsigned int m_bs_nbits;      // total number of bits in this bitset
+    size_t m_bs_nbits;      // total number of bits in this bitset
     std::vector<Bits> m_bs_bits;  // actual bits storage (unused bits are always 0)
-};
 
-// convert a bit into the index of the Bits containing it in the m_bs_bits vector
-#define BIT_INDEX(bit) ((bit) >> 3) / (sizeof(Bits))
-// (bit) % (number of bits in a Bits object)
-#define BIT_IN_OBJ(bit) ((bit) % (sizeof(Bits) << 3))
-// convert the length of the m_bs_bits vector to its size in bytes
-#define SIZE_TO_BYTES(size) (sizeof(Bits) * (size))
-// number of bytes required to store n bits
-#define NUM_BYTES(bits) (((bits-1) >> 3) + 1)
+    // convert a bit into the index of the Bits containing it in the m_bs_bits vector
+    constexpr size_t BIT_INDEX(size_t bit) const { return ((bit) >> 3) / (sizeof(DenseBitset::Bits)); }
+    // (bit) % (number of bits in a Bits object)
+    constexpr size_t BIT_IN_OBJ(size_t bit) const { return ((bit) % (sizeof(DenseBitset::Bits) << 3)); }
+    // convert the length of the m_bs_bits vector to its size in bytes
+    constexpr size_t SIZE_TO_BYTES(size_t size) const { return (sizeof(DenseBitset::Bits) * (size)); }
+    // number of bytes required to store n bits
+    constexpr size_t NUM_BYTES(size_t bits) const { return (((bits-1) >> 3) + 1); }
+};

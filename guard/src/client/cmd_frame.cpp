@@ -125,8 +125,6 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // turn backtraces into tree format ////////////////////////////////////////
 
-    // XXX: Explicitly using DenseBitset here will break once we support backends
-    // that send different flavors of bitsets up to the frontend.
     auto dummySet = std::make_unique<DenseBitset>(1);
     BTTree root("", dummySet.get(), nullptr);
     // root is a blank root node which serves to hold multiple trees.

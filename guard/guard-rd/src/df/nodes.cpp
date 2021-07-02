@@ -1874,10 +1874,7 @@ token_t *NodeDbgRequestVarSet(graph_t *g, node_t *n) {
 
     t = NewToken(g, TK_BIT_SET);
 
-    // the slowest possible way to copy a bitset, but we're forced to use the
-    // generic function since we don't know the format of the receiver set,
-    // which ultimately comes from the client layer.
-    bitset::copyBits(*t->t_set_bits, *receiver);
+    *t->t_set_bits = *receiver;
 
     FreeRecSet(rec_set);
 

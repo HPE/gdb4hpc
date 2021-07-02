@@ -23,7 +23,7 @@
 
 #include <vector>
 
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 
 using namespace std;
 
@@ -85,10 +85,10 @@ bool Message::LessEqual(Message* pMessage) {
 void Message::MergeBitset(const Bitset::Serialized &bitsetStr) {
     if (bitsetStr.get() == nullptr) return;
 
-    auto sb = SmartBitset(bitsetStr);
+    auto sb = SparseBitset(bitsetStr);
 
     if (m_sb == nullptr) {
-        m_sb = std::make_unique<SmartBitset>(m_btStr);
+        m_sb = std::make_unique<SparseBitset>(m_btStr);
     }
 
     *m_sb |= sb;

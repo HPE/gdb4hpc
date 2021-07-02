@@ -26,13 +26,13 @@
 
 #include "sparse_bitset.h"
 
-SparseBitset::SparseBitset(unsigned int num_bits) 
+SparseBitset::SparseBitset(size_t num_bits) 
 	: m_sb_num_bits{num_bits}
 {}
 
 SparseBitset::SparseBitset(const Serialized &serialized) {
 	if (serialized.get() == nullptr) {
-		throw std::runtime_error("nullptr passed to SparseBitset constructor\n");
+		throw std::runtime_error("nullptr passed to SparseBitset constructor");
 	}
 
 	std::istringstream stream(serialized.get());
@@ -75,10 +75,7 @@ bool SparseBitset::isFull() const {
 	return m_sb_ranges.size() == 1 && m_sb_ranges.back().sr_end == m_sb_num_bits - 1;
 }
 
-void SparseBitset::set(int sn) {
-	if (sn < 0) return;
-	unsigned int n = (unsigned int)sn;
-
+void SparseBitset::set(size_t n) {
 	// find range that bit n is nearest (without exceeding the range's sr_end)
 	size_t rangeIdx = findRangeIdx(n);
 	
@@ -105,6 +102,43 @@ void SparseBitset::set(int sn) {
 			Range{.sr_start = n, .sr_end = n}
 		);
 	}
+}
+
+void SparseBitset::unset(size_t n) {
+	// find range that bit n is nearest (without exceeding the range's sr_end)
+	size_t rangeIdx = findRangeIdx(n);
+	
+	if (rangeIdx >= m_sb_ranges.size() || !m_sb_ranges[rangeIdx].contains(n)) {
+		// the bit "n" is already unset
+		return;
+	}
+
+	// we assume that all existing ranges are disjoint so shrinking one will
+	// never result in a need to merge.
+	if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].sr_start == n && m_sb_ranges[rangeIdx].sr_end == n) {
+		// the range is only one bit large, remove it
+		m_sb_ranges.erase(m_sb_ranges.begin() + rangeIdx);
+	} else if (rangeIdx > 0 && m_sb_ranges[rangeIdx-1].sr_end == n) {
+		// n == previous range's end, collapse previous range downwards
+		m_sb_ranges[rangeIdx-1].sr_end = n - 1;
+	} else if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].sr_start == n) {
+		// n is the beginning of rangeIdx, collapse range upwards
+		m_sb_ranges[rangeIdx].sr_start = n + 1;
+	} else {
+		// n is solidly in the middle of a range, it will be split into two.
+		// we set the existing range to be the second half, and insert the first
+		// half.
+		auto &existingRange = m_sb_ranges[rangeIdx];
+		auto firstHalf = Range{.sr_start = existingRange.sr_start, .sr_end = n - 1};
+		existingRange.sr_start = n + 1; // sr_end remains unchanged
+
+		m_sb_ranges.insert(m_sb_ranges.begin() + rangeIdx, firstHalf);
+	}
+}
+
+bool SparseBitset::test(size_t bit) const {
+	size_t rangeIdx = findRangeIdx(bit);
+	return (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].contains(bit));
 }
 
 void SparseBitset::setRange(unsigned int start, unsigned int end) {
@@ -170,16 +204,16 @@ void SparseBitset::clear() {
 	m_sb_ranges.clear();
 }
 
-unsigned int SparseBitset::numSet() const {
-	unsigned int set = 0;
+size_t SparseBitset::numSet() const {
+	size_t set = 0;
 	for (const auto &range : m_sb_ranges) {
 		set += range.sr_end - range.sr_start + 1;
 	}
 	return set;
 }
 
-int SparseBitset::firstSet() const {
-	if (m_sb_ranges.size() == 0) return -1;
+size_t SparseBitset::firstSet() const {
+	if (m_sb_ranges.size() == 0) return Bitset::None;
 	return m_sb_ranges.front().sr_start;
 }
 
@@ -207,8 +241,10 @@ Bitset::Serialized SparseBitset::serialize() const {
 	return Serialized(strdup(ss.str().c_str()));
 }
 
-Bitset& SparseBitset::operator=(const Bitset &_other) {
-	auto other = dynamic_cast<const SparseBitset &>(_other);
+Bitset& SparseBitset::operator=(const Bitset &other) {
+	auto sparseOther = dynamic_cast<const SparseBitset*>(&other);
+	if (!sparseOther) return Bitset::operator=(other);
+
 	*this = other;
 	return *this;
 }
@@ -219,27 +255,29 @@ SparseBitset& SparseBitset::operator=(const SparseBitset &other) {
 	return *this;
 }
 
-Bitset& SparseBitset::operator|=(const Bitset &_other) {
-	auto &other = dynamic_cast<const SparseBitset&>(_other);
+Bitset& SparseBitset::operator|=(const Bitset &other) {
+	auto sparseOther = dynamic_cast<const SparseBitset*>(&other);
+	if (!sparseOther) return Bitset::operator|=(other);
 	
-	m_sb_num_bits = std::max(m_sb_num_bits, other.m_sb_num_bits);
+	m_sb_num_bits = std::max(m_sb_num_bits, sparseOther->m_sb_num_bits);
 
-	for (const auto &range : other.m_sb_ranges) {
+	for (const auto &range : sparseOther->m_sb_ranges) {
 		setRange(range.sr_start, range.sr_end);
 	}
 
 	return *this;
 }
 
-bool SparseBitset::operator==(const Bitset &_other) const {
-	auto &other = dynamic_cast<const SparseBitset&>(_other);
+bool SparseBitset::operator==(const Bitset &other) const {
+	auto sparseOther = dynamic_cast<const SparseBitset*>(&other);
+	if (!sparseOther) return Bitset::operator==(other);
 
-	if (m_sb_num_bits != other.m_sb_num_bits) return false;
-	if (m_sb_ranges.size() != other.m_sb_ranges.size()) return false;
+	if (m_sb_num_bits != sparseOther->m_sb_num_bits) return false;
+	if (m_sb_ranges.size() != sparseOther->m_sb_ranges.size()) return false;
 
 	for (size_t i = 0; i < m_sb_ranges.size(); i++) {
 		auto lhs = m_sb_ranges[i];
-		auto rhs = other.m_sb_ranges[i];
+		auto rhs = sparseOther->m_sb_ranges[i];
 
 		if (lhs.sr_start != rhs.sr_start) return false;
 		if (lhs.sr_end != rhs.sr_end) return false;
@@ -248,11 +286,7 @@ bool SparseBitset::operator==(const Bitset &_other) const {
 	return true;
 }
 
-bool SparseBitset::operator!=(const Bitset &other) const {
-	return !(*this == other);
-}
-
-size_t SparseBitset::findRangeIdx(unsigned int bit) {
+size_t SparseBitset::findRangeIdx(size_t bit) const {
 	if (bit >= m_sb_num_bits) return m_sb_ranges.size();
 
 	for(size_t i = 0; i < m_sb_ranges.size(); i++) {
@@ -264,7 +298,7 @@ size_t SparseBitset::findRangeIdx(unsigned int bit) {
 	return m_sb_ranges.size();
 }
 
-void SparseBitset::mergeIfNecessary(unsigned int idx) {
+void SparseBitset::mergeIfNecessary(size_t idx) {
 	// to merge, idx must point into the list past the first element, 
 	// and the previous range's end must equal idx range's start - 1
 	if (idx == 0 || idx >= m_sb_ranges.size() || m_sb_ranges[idx-1].sr_end != m_sb_ranges[idx].sr_start - 1) {

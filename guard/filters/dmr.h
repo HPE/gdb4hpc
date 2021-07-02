@@ -22,7 +22,7 @@
 #include <iostream>
 #include <vector>
 
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 
 using namespace std;
 
@@ -49,7 +49,7 @@ class Message {
     bool m_release;
     char* m_content;
     Bitset::Serialized m_btStr;
-    std::unique_ptr<SmartBitset> m_sb;
+    std::unique_ptr<SparseBitset> m_sb;
 };
 
 /*

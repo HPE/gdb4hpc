@@ -30,10 +30,10 @@ private:
     // data representing runs of bits that have been set. ranges are inclusive.
     // e.g. {sr_start = 2, sr_end = 5} = 0b00111100
     struct Range {
-        unsigned int sr_start;
-        unsigned int sr_end;
+        size_t sr_start;
+        size_t sr_end;
 
-        bool contains(unsigned int bit) {
+        bool contains(size_t bit) const {
             return bit >= sr_start && bit <= sr_end;
         }
     };
@@ -86,7 +86,7 @@ public:
 
     SetBitsIterator getSetBitsIterator() const { return SetBitsIterator(*this); }
 
-    SparseBitset(unsigned int nbits);
+    SparseBitset(size_t nbits);
     SparseBitset(const Serialized &serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;
@@ -95,15 +95,15 @@ public:
     virtual bool isEmpty() const override; 
     virtual bool isFull() const override; 
 
-    virtual void set(int bit) override; 
+    virtual void set(size_t bit) override; 
     void setRange(unsigned int start, unsigned int end);
-    // virtual void unset(int bit) override
-    // virtual bool test(int bit) const override
-    // virtual void invert() override
+    virtual void unset(size_t bit) override;
+    virtual bool test(size_t bit) const override;
+    // virtual void invert() override;
     virtual void clear() override; 
 
-    virtual unsigned int numSet() const override; 
-    virtual int firstSet() const override;
+    virtual size_t numSet() const override; 
+    virtual size_t firstSet() const override;
 
     virtual size_t sizeInBits() const override;
     size_t sizeInRanges() const;
@@ -123,7 +123,7 @@ public:
     virtual Bitset& operator|= (const Bitset &other) override;
 
     virtual bool operator== (const Bitset &other) const override;
-    virtual bool operator!= (const Bitset &other) const override;
+    // virtual bool operator!= (const Bitset &other) const override;
 
     // virtual bool hasCommonBits(const Bitset &other) const override;
 
@@ -131,13 +131,13 @@ public:
 private:
     // find index of first range with an end >= bit. returns m_sb_ranges.size()
     // if none are found.
-    size_t findRangeIdx(unsigned int bit);
+    size_t findRangeIdx(size_t bit) const;
 
     // check if range at idx connects with range at idx - 1 and merge if so.
     // e.g. given two ranges: {2-5}, {6-8}, calling mergeIfNecessary(1) would
     // turn them into {2-8}.
-    void mergeIfNecessary(unsigned int idx);
+    void mergeIfNecessary(size_t idx);
 
-    unsigned int m_sb_num_bits; // total number of bits
+    size_t m_sb_num_bits; // total number of bits
     std::vector<Range> m_sb_ranges; // ranges in an ascending order
 };

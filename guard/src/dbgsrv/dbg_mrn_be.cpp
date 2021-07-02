@@ -29,7 +29,7 @@
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
 #include "defs.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 
 #include "mrnet/Stream.h"
 #include "mrnet/Network.h"
@@ -215,7 +215,7 @@ void MRNetBackEnd::set_size(int size) {
     DVPRINT("mrn_be_set_size is called. size[%d]\n", size);
 
     m_network_size = size;
-    m_rank_bs = std::make_unique<SmartBitset>(size);
+    m_rank_bs = std::make_unique<SparseBitset>(size);
 
     m_rank_bs->set(m_rank);
     m_rank_bs_str = m_rank_bs->serialize();

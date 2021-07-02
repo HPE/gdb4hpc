@@ -36,7 +36,8 @@
 #include "mrnet/NetworkTopology.h"
 #include "mrnet/Packet.h"
 #include "mrnet/Stream.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
+#include "bitset_convert.h"
 
 struct MulticastType {
     MulticastType(MRN::Communicator *comm, MRN::Stream *stream, const Bitset *target);
@@ -595,12 +596,8 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
 
     for (int index = 0; index < msgNum; index++) {
         // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
-        auto sb = std::make_unique<SmartBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
-        if (!sb) {
-            PrintOutError("ERROR: MRNetFrontEnd::recv_reply: deserialized bitset was not SmartBitset.\n");
-            return {};
-        }
-        auto bs = sb->releaseAsDense();
+        auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+        auto bs = bitset::createDenseFrom(*sb);
 
         // Create a proto_message for this packet and add it to the result
         // ProtoMessage takes ownership of its arguments
@@ -750,12 +747,8 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
 
                 for (int index = 0; index < msgNum; index++) {
                     // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
-                    auto sb = std::make_unique<SmartBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
-                    if (!sb) {
-                        PrintOutError("ERROR: MRNetFrontEnd::displatch_event: deserialized bitset was not SmartBitset.\n");
-                        return {};
-                    }
-                    auto bs = sb->releaseAsDense();
+                    auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+                    auto bs = bitset::createDenseFrom(*sb);
 
                     // Create a proto_message for this packet and add it to the result
                     // ProtoMessageSet takes ownership of the arguments

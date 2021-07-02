@@ -10,7 +10,7 @@
 # in any form.
 
 if MRN
-MRN_BITSETS = sparse_bitset.cpp smart_bitset.cpp
+MRN_BITSETS = sparse_bitset.cpp bitset_convert.cpp
 endif
 
 if ZMQN

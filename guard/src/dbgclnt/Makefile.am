@@ -6,7 +6,7 @@ MRNET	= @mrn_root@
 BITSET  = @guard_srcdir@/bitset
 ZMQNET  = @zmqnet_root@
 
-AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(BITSET)
+AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --quiet
 
 ######################
@@ -15,12 +15,12 @@ AM_LIBTOOLFLAGS = --quiet
 
 # Check for MRNet
 if MRN
-AM_CXXFLAGS	+= -I$(MRNET)
+AM_CXXFLAGS	+= -I$(MRNET) -I$(BITSET)
 MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
 endif
 
 if ZMQN
-AM_CXXFLAGS += -I$(ZMQNET)/include
+AM_CXXFLAGS += -I$(ZMQNET)/include -I$(BITSET)
 ZMQNET_PROTO = dbgclnt_zmq.cpp
 endif
 

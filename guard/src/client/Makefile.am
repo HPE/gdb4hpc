@@ -6,7 +6,7 @@ MRNET	= @mrn_root@
 BITSET	= @guard_srcdir@/bitset
 ZMQNET  = @zmqnet_root@
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) -I$(BITSET)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -26,14 +26,14 @@ endif
 
 # Check for MRNet libraries
 if MRN
-AM_CXXFLAGS		+= -I$(MRNET) -I$(BITSET)
-MRN_LIBS 		= -L$(MRNET)/lib -lmrnet -lbitset
+AM_CXXFLAGS		+= -I$(MRNET)
+MRN_LIBS 		= -L$(MRNET)/lib -lmrnet 
 endif
 
 # Check for ZMQNet libraries
 if ZMQN
-AM_CXXFLAGS		+= -I$(ZMQNET)/include -I$(BITSET)
-ZMQN_LIBS 		= -L$(ZMQNET)/lib -lzmqnet -lkj -lcapnp -lbitset
+AM_CXXFLAGS		+= -I$(ZMQNET)/include
+ZMQN_LIBS 		= -L$(ZMQNET)/lib -lzmqnet -lkj -lcapnp
 endif
 
 # Check for gdb-mi libraries
@@ -59,4 +59,4 @@ gdb4hpc_SOURCES	= main.cpp class_cmd.cpp cli_funcs.cpp cmd.cpp help_dict.cpp cmd
 gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/gcc-libs -Wl,--enable-new-dtags
 gdb4hpc_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
 		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(SSH2_LIBS) -laif -lm -lstdc++ -lstdc++fs -lpthread
+		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(SSH2_LIBS) $(BITSET)/libbitset.la -laif -lm -lstdc++ -lstdc++fs -lpthread

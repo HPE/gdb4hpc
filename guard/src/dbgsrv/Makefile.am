@@ -15,14 +15,14 @@ AM_LIBTOOLFLAGS = --silent
 # Check for MRNet
 if MRN
 AM_CXXFLAGS	+= -I$(MRNET) -I$(BITSET)
-MRN_LIBS	= -L$(MRNET)/lib -lmrnet -lbitset
+MRN_LIBS	= -L$(MRNET)/lib -lmrnet $(BITSET)/libbitset.la
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 
 # Check for ZMQNet
 if ZMQN
-AM_CXXFLAGS += -I$(ZMQNET)/include
-ZMQNET_LIBS  = -L$(ZMQNET)/lib -lkj -lcapnp -lzmqnet -lbitset
+AM_CXXFLAGS += -I$(ZMQNET)/include -I$(BITSET)
+ZMQNET_LIBS  = -L$(ZMQNET)/lib -lkj -lcapnp -lzmqnet $(BITSET)/libbitset.la
 ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 

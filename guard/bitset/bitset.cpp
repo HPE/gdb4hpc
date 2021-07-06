@@ -23,7 +23,6 @@ std::unique_ptr<Bitset> fromOr(const Bitset& l, const Bitset &r) {
 } // bitset
 
 bool Bitset::isEmpty() const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		if (test(i)) return false;
 	}
@@ -31,7 +30,6 @@ bool Bitset::isEmpty() const {
 }
 
 bool Bitset::isFull() const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		if (!test(i)) return false;
 	}
@@ -39,21 +37,18 @@ bool Bitset::isFull() const {
 }
 
 void Bitset::invert() {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		if (test(i)) unset(i); else set(i);
 	}
 }
 
 void Bitset::clear() {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		unset(i);
 	}
 }
 
 size_t Bitset::numSet() const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	size_t count = 0;
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		if (test(i)) count++;
@@ -62,7 +57,6 @@ size_t Bitset::numSet() const {
 }
 
 size_t Bitset::firstSet() const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
 		if (test(i)) return i;
 	}
@@ -70,7 +64,7 @@ size_t Bitset::firstSet() const {
 }
 
 std::string Bitset::toString() const {
-	return toSet(0, -1);
+	return toSet(0, Bitset::None);
 }
 
 std::string Bitset::toSet(size_t offset, size_t len) const {
@@ -78,7 +72,11 @@ std::string Bitset::toSet(size_t offset, size_t len) const {
 
 	if (len == Bitset::None) {
 		// default argument
-		len = sizeInBits() - offset;
+		if (sizeInBits() >= offset) {
+			len = sizeInBits() - offset;
+		} else {
+			len = 0;
+		}
 	}
 
 	std::string sep = "";
@@ -127,7 +125,6 @@ Bitset::Serialized Bitset::serialize() const {
 }
 
 Bitset& Bitset::operator= (const Bitset &other) {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	if (other.sizeInBits() != sizeInBits()) 
 		throw std::runtime_error("unimplemented bitset operation: unequal sizeInBits");
 	
@@ -139,7 +136,6 @@ Bitset& Bitset::operator= (const Bitset &other) {
 
 // if unequal sizes, high bits are treated as 0
 Bitset& Bitset::operator&= (const Bitset &other) {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	auto commonSize = std::min(sizeInBits(), other.sizeInBits());
 
 	for (size_t i = 0; i < commonSize; i++) {
@@ -154,7 +150,6 @@ Bitset& Bitset::operator&= (const Bitset &other) {
 }
 
 Bitset& Bitset::operator|= (const Bitset &other) {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	auto commonSize = std::min(sizeInBits(), other.sizeInBits());
 
 	for (size_t i = 0; i < commonSize; i++) {
@@ -166,18 +161,16 @@ Bitset& Bitset::operator|= (const Bitset &other) {
 
 // if unequal sizes, high bits are unchanged
 Bitset& Bitset::operator-= (const Bitset &other) {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	auto commonSize = std::min(sizeInBits(), other.sizeInBits());
 
 	for (size_t i = 0; i < commonSize; i++) {
-		if (test(i) && !other.test(i)) set(i); else unset(i);
+		if (test(i) && other.test(i)) unset(i);
 	}
 
 	return *this;
 }
 
 bool Bitset::operator== (const Bitset &other) const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	if (sizeInBits() != other.sizeInBits()) return false;
 
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {
@@ -191,7 +184,6 @@ bool Bitset::operator!= (const Bitset &other) const {
 }
 
 bool Bitset::hasCommonBits(const Bitset &other) const {
-	DPRINT("Warning: slow default bitset operation in use: %s\n", __FUNCTION__);
 	auto commonSize = std::min(sizeInBits(), other.sizeInBits());
 
 	for (size_t i = 0; i < commonSize; i++) {

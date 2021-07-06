@@ -286,7 +286,9 @@ bool DenseBitset::hasCommonBits(const Bitset &other) const {
     auto denseOther = dynamic_cast<const DenseBitset*>(&other);
 	if (!denseOther) return Bitset::hasCommonBits(other);
 
-	for (size_t i = 0; i < std::min(m_bs_bits.size(), denseOther->m_bs_bits.size()); i++)
+	auto end = std::min(m_bs_bits.size(), denseOther->m_bs_bits.size());
+
+	for (size_t i = 0; i < end; i++)
 		if ((m_bs_bits[i] & denseOther->m_bs_bits[i]) != 0)
 			return true;
 

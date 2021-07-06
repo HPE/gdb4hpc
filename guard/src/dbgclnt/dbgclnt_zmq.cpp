@@ -46,6 +46,7 @@ int ZMQNetClientProtocol::init() {
         return 0;
     }
     setenv("LIBZMQNET_INSTALL_DIR", base, false);
+    free(base);
 
     return 1;
 }

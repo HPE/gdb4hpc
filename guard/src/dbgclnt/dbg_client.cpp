@@ -213,7 +213,7 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
     DestroyList(di->d_bpset_list, (void (*)(void *))FreeBPSet);
 
     Free(di->d_handle);
-    Free(di);
+    delete di;
 
     ReleaseSignals();
 }

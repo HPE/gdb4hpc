@@ -643,7 +643,7 @@ static void SigHandler(int sig) {
     // process location
     for (auto&& reply : rep_set) {
         halt_loc = EVENT_LOC(reply->rep_event);
-        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group,
+        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group.get(),
                                halt_loc);
     }
 
@@ -663,7 +663,7 @@ static void SigHandler(int sig) {
 // This is called each time an asynchronous reply is recieved. The entire event
 // set which contains the aggregated event is passed in as ev_set and the
 // individual reply that was just received is passed in as reply_set.
-int EventCB(event_set_t *ev_set, const bitset *reply_set) {
+int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
     bp_set_t *bpset;
     const char* threadId = nullptr;
     std::string bpThread;
@@ -672,19 +672,20 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
     // for readline support.
     cli_save_stream();
 
+    DASSERT_NOT_NULL(ev_set);
     DPRINT(
         "INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s "
         "from:%s\n",
-        EventToStr(ev_set->e_ev), bitset_to_set(ev_set->e_group),
-        bitset_to_set(reply_set), ev_set->e_di->d_handle);
+        EventToStr(ev_set->e_ev), ev_set->e_group->toSet().c_str(),
+        reply_set->toSet().c_str(), ev_set->e_di->d_handle);
 
     switch (ev_set->e_ev->ev_event) {
         case DBGEV_EXIT:
             if (ev_set->e_ev->ev_exit == 0) {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "Program exited normally.\n");
             } else {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "Program exited with code 0%o.\n",
                                     ev_set->e_ev->ev_exit);
             }
@@ -700,19 +701,19 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 NULL) {
                 if (ev_set->e_ev->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group,
+                        ev_set->e_di->d_handle, ev_set->e_group.get(),
                         "The application has reached an exit breakpoint.\n");
                 } else {
                     if (ev_set->e_ev->ev_bp->bp_loc.loc_line > 0) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "In %s at %s:%d\n",
                             ev_set->e_ev->ev_bp->bp_loc.loc_func,
                             ev_set->e_ev->ev_bp->bp_loc.loc_file,
                             ev_set->e_ev->ev_bp->bp_loc.loc_line);
                     } else {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
+                            ev_set->e_di->d_handle, ev_set->e_group.get(), "In %s\n",
                             ev_set->e_ev->ev_bp->bp_loc.loc_func);
                     }
                 }
@@ -734,17 +735,17 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                     // This was updated in EventCB before calling this function.
                     for (auto &&watch_loc : bpset->b_bp_watch_loc) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, watch_loc.group,
+                            ev_set->e_di->d_handle, watch_loc.group.get(),
                             "Watchpoint %d, variable expression: %s\n",
                             bpset->b_bp_set_id, bpset->b_bp_exp);
                         if (watch_loc.loc_line > 0) {
                             PrintMsgWithSetInfo(
-                                ev_set->e_di->d_handle, watch_loc.group,
+                                ev_set->e_di->d_handle, watch_loc.group.get(),
                                 "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
                                 watch_loc.loc_file.c_str(), watch_loc.loc_line);
                         } else {
                             PrintMsgWithSetInfo(
-                                ev_set->e_di->d_handle, watch_loc.group,
+                                ev_set->e_di->d_handle, watch_loc.group.get(),
                                 "In %s\n", watch_loc.loc_func.c_str());
                         }
                     }
@@ -756,13 +757,13 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
 
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Breakpoint %d, %s at %s:%d%s\n", bpset->b_bp_set_id,
                             bpset->b_loc_func, bpset->b_loc_file,
                             bpset->b_loc_line, bpThread.c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group,
+                                            ev_set->e_group.get(),
                                             "Breakpoint %d, in %s%s\n",
                                             bpset->b_bp_set_id, bpset->b_loc_func,
                                             bpThread.c_str());
@@ -772,13 +773,13 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 default:
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d, %s at %s:%d\n",
                             bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group,
+                                            ev_set->e_group.get(),
                                             "Unknown break type %d, in %s\n",
                                             bpset->b_bp_set_id, bpset->b_loc_func);
                     }
@@ -795,7 +796,7 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
             if ((bpset = FindBPSetForBP(ev_set->e_di, ev_set->e_ev->ev_bp)) ==
                 NULL) {
                 PrintErrorWithSetInfo(
-                    ev_set->e_di->d_handle, ev_set->e_group,
+                    ev_set->e_di->d_handle, ev_set->e_group.get(),
                     "ERROR: cannot find breakpoint in BPSetList.\n");
                 return 0;
             }
@@ -813,18 +814,18 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                     // This was updated in EventCB before calling this function.
                     for (auto &&watch_loc : bpset->b_bp_watch_loc) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, watch_loc.group,
+                            ev_set->e_di->d_handle, watch_loc.group.get(),
                             "Watchpoint %d deleted because the program has left "
                             "the block in which its expression is valid.\n",
                             bpset->b_bp_set_id);
                         if (watch_loc.loc_line > 0) {
                             PrintMsgWithSetInfo(
-                                ev_set->e_di->d_handle, watch_loc.group,
+                                ev_set->e_di->d_handle, watch_loc.group.get(),
                                 "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
                                 watch_loc.loc_file.c_str(), watch_loc.loc_line);
                         } else {
                             PrintMsgWithSetInfo(
-                                ev_set->e_di->d_handle, watch_loc.group,
+                                ev_set->e_di->d_handle, watch_loc.group.get(),
                                 "In %s\n", watch_loc.loc_func.c_str());
                         }
                     }
@@ -835,13 +836,13 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 case DBGBP_BREAK_TYPE:
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Breakpoint %d deleted, %s at %s:%d\n",
                             bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group,
+                                            ev_set->e_group.get(),
                                             "Breakpoint %d deleted, in %s\n",
                                             bpset->b_bp_set_id, bpset->b_loc_func);
                     }
@@ -850,13 +851,13 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 default:
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d deleted, %s at %s:%d\n",
                             bpset->b_bp_set_id, bpset->b_loc_func,
                             bpset->b_loc_file, bpset->b_loc_line);
                     } else {
                         PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group,
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d deleted, in %s\n",
                             bpset->b_bp_set_id, bpset->b_loc_func);
                     }
@@ -866,7 +867,7 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
             break;
 
         case DBGEV_SIGNAL:
-            PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+            PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                 "Program received signal %s.\n",
                                 ev_set->e_ev->ev_sig_type);
 
@@ -874,16 +875,16 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 auto frameLoc = ev_set->e_ev->ev_sig_frame->getLoc();
                 if (frameLoc.loc_file != NULL) {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group,
+                        ev_set->e_di->d_handle, ev_set->e_group.get(),
                         "In %s at %s:%d\n",
                         frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
                 } else {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group, "In %s\n",
+                        ev_set->e_di->d_handle, ev_set->e_group.get(), "In %s\n",
                         frameLoc.loc_func);
                 }
             } else if (ev_set->e_ev->ev_sig_line != NULL) {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "%s\n", ev_set->e_ev->ev_sig_line);
             }
 
@@ -894,33 +895,33 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
                 auto frameLoc = ev_set->e_ev->ev_step_frame->getLoc();
                 if (frameLoc.loc_line > 0) {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group,
+                        ev_set->e_di->d_handle, ev_set->e_group.get(),
                         "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
                 } else {
                     PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group, "in %s\n", frameLoc.loc_func);
+                        ev_set->e_di->d_handle, ev_set->e_group.get(), "in %s\n", frameLoc.loc_func);
                 }
                 break;
             }
 
             if (ev_set->e_ev->ev_step_lno < 0) {
                 PrintMsgWithSetInfo(
-                    ev_set->e_di->d_handle, ev_set->e_group,
+                    ev_set->e_di->d_handle, ev_set->e_group.get(),
                     "Single stepping until exit from function %s,\n",
                     ev_set->e_ev->ev_step_line);
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "which has no line number information.\n");
             } else if (ev_set->e_ev->ev_step_lno == 0) {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "Program has reached the end.\n");
             } else
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                     "%d\t%s\n", ev_set->e_ev->ev_step_lno,
                                     ev_set->e_ev->ev_step_line);
             break;
 
         case DBGEV_ERROR:
-            PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+            PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                   "%s\n", DbgEventErrorStr(ev_set->e_ev));
             break;
 
@@ -928,7 +929,7 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
             break;
 
         default:
-            PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group,
+            PrintErrorWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
                                   "Can't print event %d\n",
                                   ev_set->e_ev->ev_event);
             break;
@@ -941,7 +942,6 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
         // used for checking status
         rec_set_t *rec_set;
         rep_set_t *rep_set;
-        char *bitset_str;
         char *set_str;
         dbgstatus_t *s;
         char *status_block;
@@ -953,9 +953,10 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
             // create the rec_set - FOR THE ENTIRE DI!!!
             // Bugfix for BUG 814782
             rec_set = NewRecSet();
+            DASSERT_NOT_NULL(ev_set->e_di);
             AddReceiverToSet(
                 rec_set,
-                NewGroupReceiver(ev_set->e_di, ev_set->e_di->d_bitset_full));
+                NewGroupReceiver(ev_set->e_di, ev_set->e_di->d_bitset_full.get()));
 
             // Query the new status from the backends, note that for this we
             // want to grab the location information
@@ -969,13 +970,10 @@ int EventCB(event_set_t *ev_set, const bitset *reply_set) {
             // Process each status message and add it to the status block
             for (auto&& reply : rep_set) {
                 // First create the bitset string
-                bitset_str = bitset_to_set(reply->rep_group);
+                auto bitset_str = reply->rep_group->toSet();
 
                 // Create the set string
-                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_str);
-
-                // Done with the bitset_str
-                Free(bitset_str);
+                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_str.c_str());
 
                 // point at the status data
                 s = EVENT_STATUS(reply->rep_event);

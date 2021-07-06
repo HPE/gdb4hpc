@@ -402,7 +402,7 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
             // create a group_recv_t for the over_set and add it to the res
             AddReceiverToSet(
                 target_recset,
-                NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
+                NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
         }
 
         target_recset->setThreads(target_procset->s_threads);

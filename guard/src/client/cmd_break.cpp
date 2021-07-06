@@ -88,7 +88,7 @@ force_pending_break:
         bpset = FindBPSetForBP(reply->rep_di, bp);
         if (bpset == nullptr)  // this is not supposed to happen
         {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
                                   bp->bp_id, bp->bp_loc.loc_file,
@@ -102,18 +102,18 @@ force_pending_break:
         }
 
         if (bpset->b_bp_pending) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Breakpoint %d: Pending at %s%s.\n",
                                 bpset->b_bp_set_id, bpset->b_loc_stmt, bpThread.c_str());
         }
         else if (bpset->b_loc_line >= 0) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_set_id, bpset->b_loc_file,
                                 bpset->b_loc_line, bpThread.c_str());
         }
         else {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Breakpoint %d in %s%s\n", bpset->b_bp_set_id,
                                 bpset->b_loc_func, bpThread.c_str());
         }
@@ -199,12 +199,12 @@ force_pending_tbreak:
         // this reply group
         new_rec = NewRecSet();
         AddReceiverToSet(new_rec,
-                         NewGroupReceiver(reply->rep_di, reply->rep_group));
+                         NewGroupReceiver(reply->rep_di, reply->rep_group.get()));
 
         bpset = FindBPSetForBP(reply->rep_di, bp);
         if (bpset == nullptr)  // this is not supposed to happen
         {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
                                   bp->bp_id, bp->bp_loc.loc_file,
@@ -230,17 +230,17 @@ force_pending_tbreak:
 
         // Print out status
         if (bpset->b_bp_pending) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Temporary breakpoint %d: Pending at %s%s.\n",
                                 bpset->b_bp_set_id, bpset->b_loc_stmt, bpThread.c_str());
         }
         else if (bpset->b_loc_line >= 0) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Temporary breakpoint %d: file %s, line %d%s.\n",
                                 bpset->b_bp_set_id, bpset->b_loc_file,
                                 bpset->b_loc_line, bpThread.c_str());
         } else {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                 "Temporary breakpoint %d in %s%s\n",
                                 bpset->b_bp_set_id, bpset->b_loc_func,
                                 bpThread.c_str());
@@ -318,29 +318,29 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (bp_set_t *bpset = FindBPSetForBP(reply->rep_di, bp)) {
             switch (bpset->b_bp_type) {
             case DBGBP_WATCH_TYPE:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Watchpoint %d: Set on variable %s\n",
                                     bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             case DBGBP_AWATCH_TYPE:
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group,
+                    reply->rep_di->d_handle, reply->rep_group.get(),
                     "Access Watchpoint %d: Set on variable %s\n",
                     bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             case DBGBP_RWATCH_TYPE:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Read Watchpoint %d: Set on variable %s\n",
                                     bpset->b_bp_set_id, bpset->b_bp_exp);
                 break;
             default:
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group,
+                    reply->rep_di->d_handle, reply->rep_group.get(),
                     "Unknown Watchpoint %d: Set on variable %s\n",
                     bpset->b_bp_set_id, bpset->b_bp_exp);
             }
         } else {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                   "ERROR: cannot find watchpoint [%d: variable "
                                   "%s] in BPSetList.\n",
                                   bp->bp_id, bp->bp_exp);
@@ -462,7 +462,6 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     int bid = 0;
-    bitset *group, *disp_group, *enabled_group, *disabled_group;
     bp_set_t *bpset;
     bp_disp_set_t *disp_set;
 
@@ -481,14 +480,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
         if (EmptyBPSetList(recv_ptr->rec_di)) {
-            PrintMsgWithSetInfo(recv_ptr->rec_di->d_handle, recv_ptr->rec_group,
+            PrintMsgWithSetInfo(recv_ptr->rec_di->d_handle, recv_ptr->rec_group.get(),
                                 "No breakpoints or watchpoints.\n");
             continue;
         }
 
         if (bid > 0 && (bpset = FindBPSetByID(recv_ptr->rec_di, bid)) == nullptr) {
             PrintErrorWithSetInfo(
-                recv_ptr->rec_di->d_handle, recv_ptr->rec_group,
+                recv_ptr->rec_di->d_handle, recv_ptr->rec_group.get(),
                 "No breakpoint or watchpoint number %d.\n", bid);
             continue;
         }
@@ -497,10 +496,9 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
         while ((bpset = GetNextBPSet(recv_ptr->rec_di)) != nullptr) {
             if (bid > 0 && bpset->b_bp_set_id != bid) continue;
 
-            group = bitset_and(bpset->b_group, recv_ptr->rec_group);
+            auto group = bitset::fromAnd(*bpset->b_group, *recv_ptr->rec_group);
 
-            if (bitset_isempty(group)) {
-                bitset_free(group);
+            if (group->isEmpty()) {
                 continue;
             }
 
@@ -518,14 +516,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bpset->b_bp_disp)) != nullptr) {
-                        disp_group = bitset_and(disp_set->b_group, group);
-                        enabled_group =
-                            bitset_and(bpset->b_bp_enabled, disp_group);
+                        auto disp_group = bitset::fromAnd(*disp_set->b_group, *group);
+                        auto enabled_group =
+                            bitset::fromAnd(*bpset->b_bp_enabled, *disp_group);
 
-                        if (!bitset_isempty(enabled_group)) {
+                        if (!enabled_group->isEmpty()) {
                             // First print out watchpoints that are enabled
                             PrintMsgWithSetInfo(
-                                recv_ptr->rec_di->d_handle, enabled_group,
+                                recv_ptr->rec_di->d_handle, enabled_group.get(),
                                 "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_set_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "y",
@@ -533,23 +531,18 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                         }
 
                         // Compute the disabled set
-                        bitset_invert(enabled_group);
-                        disabled_group = bitset_and(enabled_group, disp_group);
+                        enabled_group->invert();
+                        auto disabled_group = bitset::fromAnd(*enabled_group, *disp_group);
 
-                        if (!bitset_isempty(disabled_group)) {
+                        if (!disabled_group->isEmpty()) {
                             // Next print out watchpoints that are disabled
                             PrintMsgWithSetInfo(
-                                recv_ptr->rec_di->d_handle, disabled_group,
+                                recv_ptr->rec_di->d_handle, disabled_group.get(),
                                 "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_set_id,
                                 BPTypeToStr(bpset->b_bp_type),
                                 BPDispToStr(disp_set->b_bp_disp), "n",
                                 bpset->b_bp_exp);;
                         }
-
-                        // Free the bitsets
-                        bitset_free(disp_group);
-                        bitset_free(enabled_group);
-                        bitset_free(disabled_group);
                     }
                     break;
 
@@ -559,15 +552,15 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
                                 bpset->b_bp_disp)) != nullptr) {
-                        disp_group = bitset_and(disp_set->b_group, group);
-                        enabled_group =
-                            bitset_and(bpset->b_bp_enabled, disp_group);
+                        auto disp_group = bitset::fromAnd(*disp_set->b_group, *group);
+                        auto enabled_group =
+                            bitset::fromAnd(*bpset->b_bp_enabled, *disp_group);
 
                         if (bpset->b_bp_pending) {
-                            if (!bitset_isempty(enabled_group)) {
+                            if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group,
+                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -576,14 +569,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             }
 
                             // Compute the disabled set
-                            bitset_invert(enabled_group);
-                            disabled_group =
-                                bitset_and(enabled_group, disp_group);
+                            enabled_group->invert();
+                            auto disabled_group =
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
-                            if (!bitset_isempty(disabled_group)) {
+                            if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group,
+                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -592,10 +585,10 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             }
                         }
                         else if (bpset->b_loc_line > 0) {
-                            if (!bitset_isempty(enabled_group)) {
+                            if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group,
+                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -605,14 +598,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             }
 
                             // Compute the disabled set
-                            bitset_invert(enabled_group);
-                            disabled_group =
-                                bitset_and(enabled_group, disp_group);
+                            enabled_group->invert();
+                            auto disabled_group =
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
-                            if (!bitset_isempty(disabled_group)) {
+                            if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group,
+                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -621,10 +614,10 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     bpset->b_loc_line, bpThread.c_str());
                             }
                         } else {
-                            if (!bitset_isempty(enabled_group)) {
+                            if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group,
+                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s in %s%s\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -633,14 +626,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             }
 
                             // Compute the disabled set
-                            bitset_invert(enabled_group);
-                            disabled_group =
-                                bitset_and(enabled_group, disp_group);
+                            enabled_group->invert();
+                            auto disabled_group =
+                                bitset::fromAnd(*enabled_group, *disp_group);
 
-                            if (!bitset_isempty(disabled_group)) {
+                            if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
                                 PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group,
+                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
                                     "\t%-3d %-14s %-4s %-3s in %s%s\n",
                                     bpset->b_bp_set_id,
                                     BPTypeToStr(bpset->b_bp_type),
@@ -648,16 +641,9 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     bpset->b_loc_func, bpThread.c_str());
                             }
                         }
-
-                        // Free the bitsets
-                        bitset_free(disp_group);
-                        bitset_free(enabled_group);
-                        bitset_free(disabled_group);
                     }
                     break;
             }
-
-            bitset_free(group);
 
             if (bid >= 0 && bpset->b_bp_set_id == bid) break;
         }

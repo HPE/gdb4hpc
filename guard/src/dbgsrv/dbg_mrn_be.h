@@ -16,7 +16,7 @@
 
 #include "dbg_mrn.h"
 #include "mrnet/Stream.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 #include "dbgsrv_cmds.h"
 
 class dbgcomm_info;
@@ -73,8 +73,8 @@ private:
     int m_io_fd;     // for notification of events on io stream
 
     int m_rank;               // rank of backend
-    smart_bitset* m_rank_bs;  // smart_bitset
-    char* m_rank_bs_str;
+    std::unique_ptr<SparseBitset> m_rank_bs; 
+    Bitset::Serialized m_rank_bs_str;
 
     int m_network_size;
 

@@ -761,7 +761,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
 
     // Create a rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -799,10 +799,10 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
             // print out the message
             if (loc.loc_line > 0) {
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group,
+                    reply->rep_di->d_handle, reply->rep_group.get(),
                     "Initial breakpoint, %s at %s:%d\n", loc.loc_func, loc.loc_file, loc.loc_line);
             } else {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group,
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Initial breakpoint, in %s\n",
                                     loc.loc_func);
             }
@@ -814,8 +814,8 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
                 char *status_block;
                 status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
                 // Create the full set string
-                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
-                         bitset_to_set(reply->rep_group));
+                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, 
+                    reply->rep_group->toSet().c_str());
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
                              &(f->getLoc()));
                 Free(set_str);
@@ -1018,7 +1018,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
 
     // Create the rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -1059,7 +1059,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
             for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
-                PrintFrameSet(reply->rep_di->d_handle, reply->rep_group, f);
+                PrintFrameSet(reply->rep_di->d_handle, reply->rep_group.get(), f);
             }
             // If XML mode is enabled, we want to print out a status message.
             // We don't need to ask the backend for the status since this is
@@ -1070,7 +1070,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                 status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
                 // Create the full set string
                 Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
-                         bitset_to_set(reply->rep_group));
+                         reply->rep_group->toSet().c_str());
                 // Set the location based on the top frame
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
                              (fp == NULL) ? NULL : &(fp->getLoc()));
@@ -1132,7 +1132,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (auto&& reply : rep_set) {
         // point at location data
         halt_loc = EVENT_LOC(reply->rep_event);
-        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group,
+        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group.get(),
                                halt_loc);
     }
 
@@ -1142,7 +1142,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 // external exposure
-void PrintHaltedLocationSet(char *setname, bitset *group, dbgloc_t *loc) {
+void PrintHaltedLocationSet(char *setname, const Bitset *group, dbgloc_t *loc) {
     if (!loc) {
         PrintMsgWithSetInfo(setname, group, "Halt could not report a location\n");
     } else if (loc->loc_line > 0) {
@@ -1305,7 +1305,7 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
 
         // Create the rec_set based on the di
         rec_set = NewRecSet();
-        AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full));
+        AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
         rep_set = DbgQuit(rec_set, quit_type);
 

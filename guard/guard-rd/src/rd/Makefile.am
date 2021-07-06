@@ -6,11 +6,11 @@ DBGCLNT = $(GUARD)/src/dbgclnt
 DBGSRV	= $(GUARD)/src/dbgsrv
 CLIENT	= $(GUARD)/src/client
 DF	= @guardrd_srcdir@/src/df
-SDM	= $(GUARD)/sdm
+BITSET	= $(GUARD)/bitset
 libhdf	= @HDF_LIB@
 libhdf5	= @HDF5_LIB@
 
-AM_CXXFLAGS = -I$(DF) -I$(GUARD) -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(DBGCLNT) -I$(DBGSRV) -I$(CLIENT) -I$(SDM)
+AM_CXXFLAGS = -I$(DF) -I$(GUARD) -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(DBGCLNT) -I$(DBGSRV) -I$(CLIENT) -I$(BITSET)
 
 noinst_LIBRARIES = librd.a
 librd_a_SOURCES = ainfo.cpp rd_cmd.cpp rd_help_dict.cpp cmd_graph.cpp disp.cpp \

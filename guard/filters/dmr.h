@@ -22,8 +22,7 @@
 #include <iostream>
 #include <vector>
 
-#include "bitset.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 
 using namespace std;
 
@@ -39,8 +38,8 @@ class Message {
 
     void SetReleaseMemory(bool release);
     char* GetContent();
-    char* GetBitsetStr();
-    void MergeBitset(char* btStr);
+    Bitset::Serialized& GetBitsetStr();
+    void MergeBitset(const Bitset::Serialized& bitsetStr);
     int Compare(Message* pMessage);
     bool Equal(Message* pMessage);
     bool Less(Message* pMessage);
@@ -49,8 +48,8 @@ class Message {
    private:
     bool m_release;
     char* m_content;
-    char* m_btStr;
-    smart_bitset* m_sb;
+    Bitset::Serialized m_btStr;
+    std::unique_ptr<SparseBitset> m_sb;
 };
 
 /*

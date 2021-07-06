@@ -46,11 +46,12 @@ int ZMQNetClientProtocol::init() {
         return 0;
     }
     setenv("LIBZMQNET_INSTALL_DIR", base, false);
+    free(base);
 
     return 1;
 }
 
-bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
+std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -72,11 +73,11 @@ bitset* ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
 
     m_network->sendCommand(*m_command_stream, request);
 
-    return bitset_dup(target);
+    return target->clone();
 }
 
 std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
-                                            const bitset *target, bitset *received) {
+                                            const Bitset *target, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (di->d_isShutdown) {
@@ -267,10 +268,10 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     // TODO enable failure callback ?
 
     auto num_be = di->d_nproc;
-    di->d_bitset_full = bitset_new(num_be);
-    bitset_invert(di->d_bitset_full);
+    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
+    di->d_bitset_full->invert();
 
-    di->d_bitset_launched = bitset_new(num_be);
+    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
     // TODO setup event notification fd for io?
     // TODO setup event notification fd for event?

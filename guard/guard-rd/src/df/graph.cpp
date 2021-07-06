@@ -30,7 +30,7 @@
 // FIXME: I don't know how they came up with this number. Whatever.
 #define INVOKE_TABLE_SIZE 7 /* 2^7 = 128 */
 
-extern int NodeEvent(event_set_t *, const bitset *);
+extern int NodeEvent(event_set_t *, const Bitset*);
 
 /*
 ** Create a new graph.
@@ -89,11 +89,10 @@ graph_t *NewGraph(int (*compare)(graph_t *, int, char *, AIF *, char *, AIF *,
 }
 
 graph_inv *NewGraphInv(graph_t *g, dbgprocset_t *ps) {
-    graph_inv *gi;
     dbg_over_set_t *over_set;
     int d;
 
-    gi = (graph_inv *)Alloc(sizeof(graph_inv));
+    auto gi = new graph_inv;
 
     // FIXME: This assumes only a single dbginvoke - this might not be the case
     // We don't have any checks here to fail if so.
@@ -101,9 +100,10 @@ graph_inv *NewGraphInv(graph_t *g, dbgprocset_t *ps) {
     over_set = GetNextOverlaySetForProcSet(ps);
 
     gi->gp_di = over_set->s_di;
-    gi->gp_unbuilt_bs = bitset_new(over_set->s_di->d_nproc);
+
+    gi->gp_unbuilt_bs = std::make_unique<DenseBitset>(over_set->s_di->d_nproc);
     // Set every rank to 1, since everything is currently unbuilt.
-    bitset_invert(gi->gp_unbuilt_bs);
+    gi->gp_unbuilt_bs->invert();
     gi->gp_files = NULL;
 
     for (d = 0; d < INVOKE_NODES; d++) gi->gp_node[d] = -1;
@@ -166,10 +166,9 @@ graph_inv *FindGraphInv(graph_t *g, char *inv) {
 void destroyInv(char *key, void *arg) {
     graph_inv *gi = (graph_inv *)arg;
 
-    bitset_free(gi->gp_unbuilt_bs);
     DestroyList(gi->gp_files, (void (*)(void *))DestroyFile);
 
-    Free(gi);
+    delete gi;
 }
 
 void destroyGDiff(graph_diff *gd) {
@@ -261,7 +260,7 @@ void PrintGraph(FILE *fp, graph_t *g) {
                     break;
 
                 case TK_BIT_SET:
-                    PrintToFd(fp, " label=\"%s\"", bitset_to_set(t->t_bit_set));
+                    PrintToFd(fp, " label=\"%s\"", t->t_bit_set->toSet().c_str());
                     break;
 
                 case TK_FLOAT:

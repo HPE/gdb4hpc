@@ -92,10 +92,11 @@ int MRNClientProtocol::init() {
     return 1;
 }
 
-bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
+std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
                                        const char *request) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
-    bitset *received = nullptr;
+
+    DASSERT_NOT_NULL(target);
 
     // send command only if not already in a shutdown state
     if (di->d_isShutdown) {
@@ -105,9 +106,9 @@ bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
     MRN::Stream *newEventStream = nullptr;
     network->send_command(target, request, &newEventStream);
 
-    received = bitset_new(bitset_size(target));
+    std::unique_ptr<Bitset> received = std::make_unique<DenseBitset>(target->sizeInBits());
 
-    DPRINT("INFO: Sending cmd to set[%s]\n", bitset_to_set(target));
+    DPRINT("INFO: Sending cmd to set[%s]\n", target->toSet().c_str());
 
     if (newEventStream) {
         int eventFd = newEventStream->get_DataNotificationFd();
@@ -121,7 +122,7 @@ bitset *MRNClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
 }
 
 std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di, 
-                                            const bitset *target, bitset *received) {
+                                            const Bitset *target, Bitset &received) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     int full = 0;
 
@@ -146,22 +147,22 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di,
             // process the pmsg_set to get the received set
             for (const auto &pmsg : *result) {
                 // add this group to the received group
-                bitset_oreq(received, pmsg.getBitset());
+                received |= *pmsg.getBitset();
             }
         } else {
             // add each message to the result
             for (auto &pmsg : *msg_set) {
                 // add this group to the received group
-                bitset_oreq(received, pmsg.getBitset());
+                received |= *pmsg.getBitset();
                 result->emplace_back(std::move(pmsg));
             }
         }
 
         DPRINT("INFO: Recieved replies from set[%s]\n",
-               bitset_to_str(received));
+               received.toString().c_str());
 
         // Check to see if we have received all responses
-        full = bitset_eq(target, received);
+        full = *target == received;
     }
 
     return result;
@@ -170,7 +171,6 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di,
 void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
-    char *set_str;
 
     // dispatch application output if started
     // Note that the proxy would segfault here if we tried to handle program
@@ -191,9 +191,9 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
         if (di->d_started && io_res) {
             // process each io message in the list
             for (const auto &msg : *io_res) {
-                set_str = bitset_to_set(msg.getBitset());
-                PrintOutMsg("IO from %s: %s\n", set_str, msg.getMessage());
-                Free(set_str);
+                auto msg_bitset = msg.getBitset();
+                auto set_str = msg_bitset ? msg_bitset->toString() : "0:00";
+                PrintOutMsg("IO from %s: %s\n", set_str.c_str(), msg.getMessage());
             }
             return;
         }
@@ -635,12 +635,7 @@ OMPD support will not be available.\n");
     }
 
 #ifdef DEBUG
-    DPRINT("Starting dbgsrv_alps with argv: \n");
-    tmp = ap;
-    while (*tmp != (char *)nullptr) {
-        DPRINT("%s ", *tmp++);
-    }
-    DPRINT("\n");
+    DPRINT("Starting dbgsrv_alps with argv: \n\t%s\n", argv.asString().c_str());
 
     // set dbg to 1 if debug is on
     dbg = 1;
@@ -744,10 +739,10 @@ OMPD support will not be available.\n");
 
     DPRINT("num_be is %d\n", num_be);
 
-    di->d_bitset_full = bitset_new(num_be);
-    bitset_invert(di->d_bitset_full);
+    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
+    di->d_bitset_full->invert();
 
-    di->d_bitset_launched = bitset_new(num_be);
+    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
     di->d_proto_net = network;
 
@@ -1288,11 +1283,11 @@ OMPD support will not be available.\n");
     DPRINT("num_be is %d\n", num_be);
 
     // Create the full bitset based on the number of ranks
-    di->d_bitset_full = bitset_new(num_be);
-    bitset_invert(di->d_bitset_full);
+    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
+    di->d_bitset_full->invert();
 
     // Create the empty launched bitset
-    di->d_bitset_launched = bitset_new(num_be);
+    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
     // Set the network object in the dbginvoke
     di->d_proto_net = network;
@@ -1480,11 +1475,15 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
 
+    DASSERT_NOT_NULL(di);
+    DASSERT_NOT_NULL(di->d_bitset_launched);
+
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        bitset_oreq(di->d_bitset_launched, msg.getBitset());
+        DASSERT_NOT_NULL(msg.getBitset());
+        *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1498,11 +1497,11 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
 
     if (err) return 1;
 
-    DPRINT("cbMRNAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
+    DPRINT("cbMRNAttach received responses [%s]!\n", di->d_bitset_launched->toString().c_str());
 
+    DASSERT_NOT_NULL(di->d_bitset_full);
     // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+    if (*di->d_bitset_launched == *di->d_bitset_full) {
         // Reset the protocol event callback to the dbgclient default
         di->d_proto->resetProtocolEventHandler();
 
@@ -1527,11 +1526,15 @@ int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
 
+    DASSERT_NOT_NULL(di);
+    DASSERT_NOT_NULL(di->d_bitset_launched);
+
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        bitset_oreq(di->d_bitset_launched, msg.getBitset());
+        DASSERT_NOT_NULL(msg.getBitset());
+        *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1545,11 +1548,10 @@ int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
 
     if (err) return 1;
 
-    DPRINT("cbMRNInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
+    DPRINT("cbMRNInvoke received responses [%s]!\n", di->d_bitset_launched->toString().c_str());
 
     // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+    if (*di->d_bitset_launched == *di->d_bitset_full) {
         // Reset the protocol event callback to the dbgclient default
         di->d_proto->resetProtocolEventHandler();
 

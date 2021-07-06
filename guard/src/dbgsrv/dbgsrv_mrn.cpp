@@ -45,7 +45,7 @@
 #include "defs.h"
 #include "mrn_cfg.h"
 #include "mrn_topo.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
 #include "useful.h"
 
 #ifdef PERFLOG

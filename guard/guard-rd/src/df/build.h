@@ -21,7 +21,6 @@
 #ifndef _BUILD_H
 #define _BUILD_H
 
-#include "bitset.h"
 #include "expr.h"
 #include "graph.h"
 #include "list.h"

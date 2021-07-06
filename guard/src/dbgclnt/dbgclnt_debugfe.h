@@ -20,14 +20,14 @@
 #ifndef _DBGCLNT_DEBUGFE_H
 #define _DBGCLNT_DEBUGFE_H
 
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "dbgevent.h"
 #include "list.h"
 
 typedef void *dbgfrontend_sess;
 
 struct set_location {
-    bitset *set;
+    std::unique_ptr<Bitset> set;
     char *threads;
     char *loc_str;
     int count;
@@ -60,7 +60,7 @@ struct dbgfrontend_sw_create {
 typedef struct dbgfrontend_sw_create dbgfrontend_sw_create;
 
 // Functions used for managing state information for DbgList commands
-extern int AddListStateLocation(dbgfrontend_sw *, bitset *, const char*, const char *);
+extern int AddListStateLocation(dbgfrontend_sw *, const Bitset*, const char*, const char *);
 extern set_location *GetListStateLocation(dbgfrontend_sw *);
 extern void SetListStateLocation(dbgfrontend_sw *);
 extern void ClearListState(dbgfrontend_sw *);

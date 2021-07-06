@@ -522,7 +522,7 @@ int main(int argc, char **argv) {
         }
 #ifdef BE_VALGRIND
         // exec valgrind
-        execvp("valgrind", valgrind_argv);
+        execvp("valgrind", const_cast<char**>(valgrind_argv.c_strs().data()));
 #else
         // exec dbgsrv
         execvp(DBGSRV, const_cast<char**>(this_argv.c_strs().data()));

@@ -25,7 +25,6 @@
 #include "mrnet/NetworkTopology.h"
 #include "mrnet/Packet.h"
 #include "mrnet/Types.h"
-#include "smart_bitset.h"
 
 using namespace DMR; /*Debugging Message Reduction */
 using namespace MRN; /* MRnet */
@@ -84,7 +83,7 @@ void DbgMessageAggregation(std::vector<PacketPtr>& packets_in,
         pMessage = *it;
         pMessage->SetReleaseMemory(false);
         reductionArr[i] = pMessage->GetContent();
-        reductionArr[i + 1] = pMessage->GetBitsetStr();
+        reductionArr[i + 1] = pMessage->GetBitsetStr().release();
 
         i += 2;
     }

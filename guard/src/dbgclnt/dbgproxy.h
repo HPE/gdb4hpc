@@ -120,8 +120,8 @@ struct proxy_msg_header {
 typedef struct proxy_msg_header proxy_msg_header;
 
 struct recv_type {
-    bitset *target;
-    bitset *received;
+    std::unique_ptr<Bitset> target;
+    std::unique_ptr<Bitset> received;
 };
 typedef struct recv_type recv_type;
 
@@ -157,7 +157,8 @@ extern void CleanupProxySession(proxy_session *sess);
 extern proxy_type *NewProxyType(proxy_session *sess);
 extern void FreeProxyType(proxy_type *p);
 
-extern recv_type *NewRecvType(bitset *target, bitset *recv);
+// recv_type takes ownership of bitset pointers
+extern recv_type *NewRecvType(std::unique_ptr<Bitset> &&target, std::unique_ptr<Bitset> &&recv);
 extern void FreeRecvType(recv_type *);
 
 extern attach_args *NewAttachArgs(void);
@@ -172,7 +173,7 @@ extern launch_args *SocProtoToLaunchArgs(char *);
 extern int SocProtoToExitArgs(char *);
 
 extern char *ProtoMsgToSocProto(const ProtoMessage&);
-extern char *RecvToSocProto(const bitset *target, bitset *recv);
+extern char *RecvToSocProto(const Bitset *target, const Bitset *recv);
 extern char *AttachArgsToSocProto(const char *app_ident, const char *arch,
                                   const char *backend, int gpu_flag,
                                   int debug_flag);

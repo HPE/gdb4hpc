@@ -65,8 +65,16 @@
 
 #ifdef DEBUG
 #define DPRINT(...) fprintf(stderr, __VA_ARGS__)
+#define DASSERT_NOT_NULL(p) \
+do { \
+  if (!p) { \
+    fprintf(stderr, "%s:%d: %s is nullptr. Aborting.\n", __FILE__, __LINE__, #p); \
+    throw std::runtime_error("assert not null failed"); \
+  } \
+} while (0)
 #else               /* DEBUG */
 #define DPRINT(...) /**/
+#define DASSERT_NOT_NULL(p) /**/
 #endif              /* DEBUG */
 
 /*

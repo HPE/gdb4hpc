@@ -49,11 +49,11 @@ public:
 
 int exit(struct dbginvoke *, int detach) override;
 
-    bitset* sendCommand(struct dbginvoke *di, const bitset *target, 
+    std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
         const char *request) override;
 
     std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
-        const bitset *target, bitset *received) override;
+        const Bitset *target, Bitset &received) override;
 
     int init() override;
     

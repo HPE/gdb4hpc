@@ -69,9 +69,9 @@ void FreeDbgInvoke(dbginvoke_t *di) {
 
     DBG_PROTO_SW(di)->destroyClient(di);
 
-    if (di->d_bitset_full != NULL) bitset_free(di->d_bitset_full);
+    di->d_bitset_full.reset();
 
-    if (di->d_bitset_launched != NULL) bitset_free(di->d_bitset_launched);
+    di->d_bitset_launched.reset();
 
     if (di->d_cmd != NULL) Free(di->d_cmd);
 

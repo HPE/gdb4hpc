@@ -23,7 +23,6 @@
 #include <mutex>
 
 #include "alloc.h"
-#include "bitset.h"
 #include "dbg_client.h"
 #include "dbg_mrn.h"
 #include "dbg_mrn_fe.h"
@@ -37,13 +36,13 @@
 #include "mrnet/NetworkTopology.h"
 #include "mrnet/Packet.h"
 #include "mrnet/Stream.h"
-#include "smart_bitset.h"
+#include "sparse_bitset.h"
+#include "bitset_convert.h"
 
 struct MulticastType {
-    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, const bitset *target);
-    ~MulticastType();
+    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, const Bitset *target);
 
-    bitset *target;
+    std::unique_ptr<Bitset> target;
     MRN::Communicator *comm;
     MRN::Stream *stream;
 };
@@ -118,13 +117,12 @@ static LaunchCallbackCounter callback_handler;
 static FailureHandler failure_handler;
 
 MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
-                             const bitset *target)
+                             const Bitset *target_)
     : comm{comm}, stream{stream} 
 {
-    target = bitset_dup(target);
+    DASSERT_NOT_NULL(target_);
+    target = target_->clone();
 }
-
-MulticastType::~MulticastType() { bitset_free(target); }
 
 static inline int ptr_to_int(void *p) { return (char *)p - (char *)0; }
 static inline void *int_to_ptr(int i) { return (char *)0 + i; }
@@ -151,8 +149,8 @@ MRNetFrontEnd::MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd, MRN::Strea
 {
     add_event_stream(event);
     if (num_be > 0) {
-        m_bitset_full = bitset_new(num_be);
-        bitset_invert(m_bitset_full);
+        m_bitset_full = std::make_unique<DenseBitset>(num_be);
+        m_bitset_full->invert();
     } else {
         m_bitset_full = nullptr;
     }
@@ -180,24 +178,23 @@ MRNetFrontEnd::~MRNetFrontEnd() {
     // deletion function here. see the ptr_to_int and int_to_ptr functions.
     DestroyList(m_event_nfds, nullptr);
 
-    bitset_free(m_bitset_full);
-    
     delete m_network; // needs to be deleted last
 }
 
-MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const bitset *target) const {
+MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *target) const {
     MRN::Stream *stream = nullptr;
 
     switch (proto) {
         case DBG_MRNet_PRO_COMMAND:
             // is it a broadcast?
-            if (target == nullptr || bitset_eq(m_bitset_full, target)) {
+            DASSERT_NOT_NULL(m_bitset_full);
+            if (target == nullptr || *m_bitset_full == *target) {
                 stream = m_cmd_stream;
             } else {
                 // look for multicast stream
                 SetList(m_mc_streams);
                 while (auto *mc_type = static_cast<MulticastType *>(GetListElement(m_mc_streams))) {
-                    if (bitset_eq(mc_type->target, target)) {
+                    if (*mc_type->target == *target) {
                         // found multicast stream
                         stream = mc_type->stream;
                         break;
@@ -221,24 +218,24 @@ MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const bitset *t
     return stream;
 }
 
-MRN::Stream *MRNetFrontEnd::create_stream(const bitset *target, MRN::Stream *&event_stream) {
+MRN::Stream *MRNetFrontEnd::create_stream(const Bitset *target, MRN::Stream *&event_stream) {
     if (target == nullptr) {
         event_stream = nullptr;
         return nullptr;
     }
 
     std::set<MRN::Rank> endpointers;
-    int size = bitset_size(target);
+    int size = target->sizeInBits();
     for (int bit = 0; bit < size; ++bit)
-        if (bitset_test(target, bit))
+        if (target->test(bit))
             endpointers.insert(static_cast<MRN::Rank>(bit + ATTACHBE_RANK_SKEW));
     auto *comm = m_network->new_Communicator(endpointers);
 
     // Create the broadcast stream
-    auto *stream =
+    auto stream =
         m_network->new_Stream(comm, m_filter_id, MRN::SFILTER_WAITFORALL);
 
-    auto *mc_type = new MulticastType(comm, stream, target);
+    auto mc_type = new MulticastType(comm, stream, target);
     AddToList(m_mc_streams, mc_type);
 
     // Create the event stream for handling asynchronous output from the
@@ -427,8 +424,8 @@ int MRNetFrontEnd::create_streams_and_load_filter(
     add_event_stream(stream_event);
     m_io_stream = stream_io;
     m_num_be = num_be;
-    m_bitset_full = bitset_new(num_be);
-    bitset_invert(m_bitset_full);
+    m_bitset_full = std::make_unique<DenseBitset>(num_be);
+    m_bitset_full->invert();
     m_filter_id = filter_id;
 
     return 0;
@@ -510,7 +507,7 @@ int MRNetFrontEnd::setup_streams(const char *msg) {
     return 0;
 }
 
-int MRNetFrontEnd::send_command(const bitset *target, const char *msg,
+int MRNetFrontEnd::send_command(const Bitset *target, const char *msg,
                         MRN::Stream **event_stream_ptr) {
     auto *stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (stream == nullptr) {
@@ -522,7 +519,7 @@ int MRNetFrontEnd::send_command(const bitset *target, const char *msg,
             PrintOutError(
                 "ERROR: mrn_fe_send_command_to_group cannot create stream for "
                 "network target[%s]\n",
-                bitset_to_set(target));
+                target ? target->toSet().c_str() : "{}");
             return -1;
         }
 
@@ -547,7 +544,7 @@ int MRNetFrontEnd::send_command(const bitset *target, const char *msg,
     }
 
     DPRINT("[INFO]: mrn_fe_send_command_to_group via stream for %s\n",
-           bitset_to_set(target));
+           target ? target->toSet().c_str() : "{}");
 
     if (stream->flush() == -1) {
         PrintOutError(
@@ -558,12 +555,12 @@ int MRNetFrontEnd::send_command(const bitset *target, const char *msg,
     return 0;
 }
 
-std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const bitset *target) {
+std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
     MRN::Stream *cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (!cmd_stream) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
-            bitset_to_set(target));
+            target ? target->toSet().c_str() : "{}");
         return {};
     }
 
@@ -598,19 +595,13 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const bitset *target) {
     auto result = ProtoMessageSet();
 
     for (int index = 0; index < msgNum; index++) {
-        auto *sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
-        smart_bitset_convert(sb);
-        auto *bs = bitset_dup(sb->sb_dense);
-
-        smart_bitset_free(sb);
+        // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
+        auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+        auto bs = bitset::createDenseFrom(*sb);
 
         // Create a proto_message for this packet and add it to the result
         // ProtoMessage takes ownership of its arguments
-        result.emplace_back(bs, strArr[index * 2]);
-
-        // Cleanup the strArr for the bitset only, the message gets passed up
-        // and cleaned up later.
-        free(strArr[index * 2 + 1]);
+        result.emplace_back(bs.release(), strArr[index * 2]);
     }
 
     // free the final strArr allocated by packet_unpack
@@ -665,15 +656,6 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                 if (!result) {
                     result = ProtoMessageSet();
                 }
-
-                // Create a mrnet_message for this packet and add it to the result
-                bitset *source = nullptr;
-                if (rank != nullptr) {
-                    source = str_to_bitset(rank, nullptr);
-                }
-
-                // ProtoMessageSet takes ownership of source and msg
-                result->emplace_back(source, msg);
 #ifdef DEBUG
                 if (msg != nullptr)
                     DPRINT(
@@ -685,6 +667,15 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                         "INFO: mrn_fe_check_io_and_event() received nullptr "
                         "io!\n");
 #endif
+                // Create a mrnet_message for this packet and add it to the result
+                std::unique_ptr<Bitset> source = nullptr;
+                if (rank != nullptr) {
+                    // Bitset::Serialized will free rank
+                    source = std::make_unique<DenseBitset>(Bitset::Serialized(rank));
+                }
+
+                // ProtoMessageSet takes ownership of source and msg
+                result->emplace_back(source.release(), msg);
             } else if (retval < 0) {
                 PrintOutError(
                     "ERROR: mrn_fe_check_io_and_event() received an invalid "
@@ -755,20 +746,13 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
                 }
 
                 for (int index = 0; index < msgNum; index++) {
-                    auto *sb = smart_bitset_deserialize(strArr[index * 2 + 1]);
-                    smart_bitset_convert(sb);
-                    auto *bs = bitset_dup(sb->sb_dense);
-
-                    smart_bitset_free(sb);
-                    sb = nullptr;
+                    // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
+                    auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+                    auto bs = bitset::createDenseFrom(*sb);
 
                     // Create a proto_message for this packet and add it to the result
                     // ProtoMessageSet takes ownership of the arguments
-                    result->emplace_back(bs, strArr[index * 2]);
-
-                    // Cleanup the strArr for the bitset only, the message gets
-                    // passed up and cleaned up later.
-                    free(strArr[index * 2 + 1]);
+                    result->emplace_back(bs.release(), strArr[index * 2]);
                 }
 
                 // Cleanup the strArr

@@ -39,7 +39,7 @@
 /*
 ** Functions defined in main.c
 */
-extern int EventCB(event_set_t *, const bitset *);
+extern int EventCB(event_set_t *, const Bitset *);
 extern void ForceQuit(void);
 
 /*
@@ -55,7 +55,7 @@ extern int cmd_quit_cmd(rec_set_t *, int, char **);
 /*
 ** Functions defined in cmd_frame.c
 */
-extern void PrintFrameSet(char *, bitset *, const dbgframe_t *);
+extern void PrintFrameSet(char *, Bitset *, const dbgframe_t *);
 
 /*
 ** Functions defined in cmd_print.c
@@ -65,7 +65,7 @@ extern int PrintVal(val_t *, rec_set_t *);
 /*
 ** Functions defined in cmd_proc.c
 */
-extern void PrintHaltedLocationSet(char *, bitset *, dbgloc_t *);
+extern void PrintHaltedLocationSet(char *, const Bitset *, dbgloc_t *);
 extern void EndAll(void);
 extern void SetLaunchNonStopMode(bool isNonStop);
 extern bool GetLaunchNonStopMode();

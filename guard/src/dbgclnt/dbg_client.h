@@ -48,8 +48,8 @@ typedef enum dbgquit_type dbgquit_type;
 */
 struct group_recv {
     dbginvoke_t *rec_di;
-    bitset *rec_group;
-    bitset *_cmd_sent;  // Internal to dbg_clnt layer - DO NOT USE!!!
+    std::unique_ptr<Bitset> rec_group;
+    std::unique_ptr<Bitset> _cmd_sent;  // Internal to dbg_clnt layer - DO NOT USE!!!
 };
 typedef struct group_recv group_recv_t;
 
@@ -97,7 +97,7 @@ inline std::vector<group_recv_t*>::const_iterator end(const rec_set_t* set) {
 */
 struct group_reply {
     dbginvoke_t *rep_di;
-    bitset *rep_group;
+    std::unique_ptr<Bitset> rep_group;
     dbgevent_t *rep_event;
 };
 typedef struct group_reply group_reply_t;
@@ -131,7 +131,7 @@ public:
     rep_set_t(const rep_set_t&) = delete;
 
     // create from slices
-    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, bitset* group);
+    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, const Bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
     // create a copy of the contents of the rep_set
@@ -179,7 +179,7 @@ public:
 private:
     void mergeReplySlices();
     void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                            const ArrayDimension* shape, bitset* group);
+                            const ArrayDimension* shape, const Bitset* group);
     std::unique_ptr<rep_set_t> recvSlice();
 
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
@@ -204,17 +204,17 @@ inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t* set) {
 // These are used to describe asynchronous events to the client interface
 struct event_set {
     dbginvoke_t *e_di;
-    bitset *e_group;
+    std::unique_ptr<Bitset> e_group;
     dbgevent_t *e_ev;
 };
 typedef struct event_set event_set_t;
 
 // Used to represent a breakpoint location
 typedef struct {
-    bitset *    group;      // All ranks that hit this location
-    std::string loc_file;   // locale file
-    int         loc_line;   // locale line
-    std::string loc_func;   // locale function
+    std::unique_ptr<Bitset> group; // All ranks that hit this location
+    std::string loc_file;          // locale file
+    int         loc_line;          // locale line
+    std::string loc_func;          // locale function
 } bp_loc_t;
 
 class bp_locale_set
@@ -226,7 +226,7 @@ private:
 public:
     using const_iterator = bp_loc_set_t::const_iterator;
 
-    void add(const bitset *group, char *loc_file, int loc_line, char *loc_func)
+    void add(const Bitset *group, char *loc_file, int loc_line, char *loc_func)
     {
         // search the list
         if (loc_file != nullptr) {
@@ -234,7 +234,7 @@ public:
             for (auto&& i : bp_loc) {
                 if (i.loc_file == loc_file && i.loc_line == loc_line) {
                     // found it!
-                    bitset_oreq(i.group, group);
+                    *i.group |= *group;
                     return;
                 }
             }
@@ -244,21 +244,17 @@ public:
             for (auto&& i : bp_loc) {
                 if (i.loc_func == loc_func) {
                     // found it!
-                    bitset_oreq(i.group, group);
+                    *i.group |= *group;
                     return;
                 }
             }
         }
         // Not found! Add it.
-        bp_loc.push_back({bitset_dup(group), loc_file, loc_line, loc_func});
+        bp_loc.push_back({group->clone(), loc_file, loc_line, loc_func});
     }
 
     void clear()
     {
-        for (auto&& i : bp_loc) {
-            // free the bitset
-            bitset_free(i.group);
-        }
         bp_loc.clear();
     }
 
@@ -283,7 +279,7 @@ public:
 // It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
 // object.
 struct bp_set_t {
-    bp_set_t(int bp_id, bitset* group, dbgbp_t* bp);
+    bp_set_t(int bp_id, const  Bitset* group, dbgbp_t* bp);
     ~bp_set_t();
     
     // Current bp num - This gets reset every time a bp_set is returned to the
@@ -293,13 +289,13 @@ struct bp_set_t {
     int b_bp_set_id;  // The current breakpoint number
 
     // group information
-    bitset *b_group;  // All ranks that contain this breakpoint
+    std::unique_ptr<Bitset> b_group;  // All ranks that contain this breakpoint
 
     // breakpoint unique gdb id's
     list_t *b_bp_id_list;  // a list of bp_id_set_t - private to dbgclnt layer
 
     // breakpoint information
-    bitset *b_bp_enabled;  // set representing enabled breakpoints, this can
+    std::unique_ptr<Bitset> b_bp_enabled;  // set representing enabled breakpoints, this can
                            // vary by rank.
     list_t *
         b_bp_disp;  // a list of bp_disp_set_t representing breakpoint
@@ -325,7 +321,7 @@ struct bp_set_t {
 // Only should be used in the dbg_client layer. This is used to map the client
 // breakpoint number onto gdb backend breakpoint numbers.
 struct bp_id_set {
-    bitset *b_group;
+    std::unique_ptr<Bitset> b_group;
     int b_bp_id;  // unique bkpt id assigned by each gdb
 };
 typedef struct bp_id_set bp_id_set_t;
@@ -333,7 +329,7 @@ typedef struct bp_id_set bp_id_set_t;
 // This is used when checking the disposition of the breakpoint (i.e. enabled,
 // disabled, etc)
 struct bp_disp_set {
-    bitset *b_group;  // bitset representing the ranks with this disposition
+    std::unique_ptr<Bitset> b_group;  // bitset representing the ranks with this disposition
     dbgbp_disp b_bp_disp;  // disposition value
 };
 typedef struct bp_disp_set bp_disp_set_t;
@@ -346,7 +342,7 @@ typedef enum dbgsig_type dbgsig_type;
 /*
 ** Receiver routines
 */
-extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, bitset *proc_mask);
+extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask);
 extern rec_set_t *NewRecSet(void);
 
 extern void AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
@@ -356,7 +352,7 @@ extern bool RecSetHasOneProcPerReceiver(rec_set_t* set);
 /*
 ** Reply routines
 */
-extern group_reply_t *NewGroupReply(dbginvoke_t *di, bitset *src,
+extern group_reply_t *NewGroupReply(dbginvoke_t *di, std::unique_ptr<Bitset> &&src,
                                     dbgevent_t *reply);  // Make static
 extern group_reply_t *CopyGroupReply(group_reply_t *reply);
 extern void FreeGroupReply(group_reply_t *reply);
@@ -504,7 +500,7 @@ extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
 extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);
 
-extern int PrintMultiThreadMsg(const char* diName, const bitset* group, const std::string& msg);
+extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern int PrintMultiThreadReply(group_reply_t* reply);
 
 #endif /* !_DBG_CLIENT_H */

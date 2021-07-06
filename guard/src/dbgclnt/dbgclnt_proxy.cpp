@@ -1530,11 +1530,11 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
     DPRINT("Proxy connected.\n");
 
     // Create the full bitset based on the number of ranks
-    di->d_bitset_full = bitset_new(di->d_nproc);
-    bitset_invert(di->d_bitset_full);
+    di->d_bitset_full = std::make_unique<DenseBitset>(di->d_nproc);
+    di->d_bitset_full->invert();
 
     // Create the empty launched bitset
-    di->d_bitset_launched = bitset_new(di->d_nproc);
+    di->d_bitset_launched = std::make_unique<DenseBitset>(di->d_nproc);
 
     // Set the network object in the dbginvoke
     di->d_proto_net = net;
@@ -1722,10 +1722,9 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
+std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
                                const char *request) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
-    bitset *received;
     char *msg;
     proxy_msg_header msg_head;
 
@@ -1736,7 +1735,9 @@ bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
         return nullptr;
     }
 
-    msg = ProtoMsgToSocProto(ProtoMessage(bitset_dup(target), strdup(request)));
+    DASSERT_NOT_NULL(target);
+
+    msg = ProtoMsgToSocProto(ProtoMessage(target->clone().release(), strdup(request)));
 
     // Send the header
     msg_head.msg_id = PROXY_ID(network);
@@ -1772,18 +1773,17 @@ bitset *ProxyClientProtocol::sendCommand(dbginvoke_t *di, const bitset *target,
         return nullptr;
     }
 
-    received = bitset_dup(pmsg_set->front().getBitset());
+    auto received = pmsg_set->front().getBitset()->clone();
 
-    DPRINT("INFO: Sending cmd to network[%p]:set[%s]\n", network,
-           bitset_to_set(target));
+    DPRINT("INFO: Sending cmd to network[%p]:set[%s]\n", network, target->toSet().c_str());
 
     return received;
 }
 
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
-std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di, const bitset *target,
-                                        bitset *received) {
+std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di, const Bitset *target,
+                                        Bitset &received) {
     proxy_type *network = (proxy_type *)di->d_proto_net;
     int full = 0;
     proxy_msg_header msg_head;
@@ -1795,7 +1795,7 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di
     }
 
     // Convert the received bitset to a recv type message
-    msg = RecvToSocProto(target, received);
+    msg = RecvToSocProto(target, &received);
 
     // send a recv command by sending the header with a recv type
     msg_head.msg_id = PROXY_ID(network);
@@ -1834,22 +1834,21 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di
             // process the pmsg_set to get the received set
             for (const auto &pmsg : *result) {
                 // add this group to the received group
-                bitset_oreq(received, pmsg.getBitset());
+                received |= *pmsg.getBitset();
             }
         } else {
             // add each message to the result
             for (auto &pmsg : *pmsg_set) {
                 // add this group to the received group
-                bitset_oreq(received, pmsg.getBitset());
+                received |= *pmsg.getBitset();
                 result->emplace_back(std::move(pmsg));
             }
         }
 
-        DPRINT("INFO: Recieved replies from set[%s]\n",
-               bitset_to_str(received));
+        DPRINT("INFO: Recieved replies from set[%s]\n", received.toString().c_str());
 
         // Check to see if we have received all responses
-        full = bitset_eq(target, received);
+        full = *target == received;
     }
 
     return result;
@@ -1925,6 +1924,8 @@ int ProxyAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
     dbgevent_t *e = NULL;
     int err = 0;
 
+    DASSERT_NOT_NULL(di);
+
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
@@ -1934,16 +1935,16 @@ int ProxyAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
         // exist until after the attach completes on this end, we just blindly
         // accept what the proxy daemon tells us
         if (di->d_bitset_full == NULL) {
-            di->d_nproc = bitset_size(msg.getBitset());
+            di->d_nproc = msg.getBitset()->sizeInBits();
 
-            di->d_bitset_full = bitset_new(bitset_size(msg.getBitset()));
-            bitset_invert(di->d_bitset_full);
+            di->d_bitset_full = std::make_unique<DenseBitset>(msg.getBitset()->sizeInBits());
+            di->d_bitset_full->invert();
 
             // Create the empty launched bitset
-            di->d_bitset_launched = bitset_new(bitset_size(msg.getBitset()));
+            di->d_bitset_launched = std::make_unique<DenseBitset>(msg.getBitset()->sizeInBits());
         }
 
-        bitset_oreq(di->d_bitset_launched, msg.getBitset());
+        *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1958,10 +1959,10 @@ int ProxyAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
     if (err) return 1;
 
     DPRINT("cbPROXYAttach received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
+           di->d_bitset_launched->toString().c_str());
 
     // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+    if (*di->d_bitset_launched == *di->d_bitset_full) {
         // Reset the protocol event callback to the dbgclient default
         di->d_proto->resetProtocolEventHandler();
 
@@ -1983,11 +1984,13 @@ int ProxyLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
     dbgevent_t *e = NULL;
     int err = 0;
 
+    DASSERT_NOT_NULL(di);
+
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        bitset_oreq(di->d_bitset_launched, msg.getBitset());
+        *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -2002,10 +2005,10 @@ int ProxyLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
     if (err) return 1;
 
     DPRINT("cbPROXYInvoke received responses [%s]!\n",
-           bitset_to_str(di->d_bitset_launched));
+           di->d_bitset_launched->toString().c_str());
 
     // Check if we have received a message from every rank
-    if (bitset_eq(di->d_bitset_launched, di->d_bitset_full)) {
+    if (*di->d_bitset_launched == *di->d_bitset_full) {
         // Reset the protocol event callback to the dbgclient default
         di->d_proto->resetProtocolEventHandler();
 

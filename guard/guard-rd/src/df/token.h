@@ -22,7 +22,7 @@
 #define _TOKEN_H
 
 #include "aif.h"
-#include "bitset.h"
+#include "dense_bitset.h"
 #include "procset.h"
 
 #define T_CHUNK 128
@@ -67,9 +67,9 @@ struct token_t {
     // Set-related data member
     char* t_set_name;
     int t_set_length;
-    bitset* t_set_bits;
+    std::unique_ptr<DenseBitset> t_set_bits;
 
-    union {
+    union t_d {
         AIF* t_d_data;
         int t_d_int;
         double t_d_float;
@@ -78,8 +78,11 @@ struct token_t {
         dbgprocset_t* t_d_procset;
         int* t_d_int_set;
         AIF** t_d_data_set;
-        bitset* t_d_bit_set;
+        std::unique_ptr<DenseBitset> t_d_bit_set;
         int t_d_bool;
+
+        t_d() : t_d_data{nullptr} {};
+        ~t_d() {}; // properly destroyed by DestroyToken
     } t_d;
 #define t_data t_d.t_d_data
 #define t_int t_d.t_d_int

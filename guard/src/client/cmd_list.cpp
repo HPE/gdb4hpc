@@ -49,7 +49,7 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
             l->list_line = ReplaceStr(tmp_str, "\\n", "");
             // Free the tmp_str
             Free(tmp_str);
-            PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group,
+            PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                          l->list_threads,
                                          "%d\t%s\n", l->list_lno, l->list_line);
         }

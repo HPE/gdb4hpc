@@ -158,15 +158,15 @@ extern dbgprocset_t *CurrentProcSet(void);
 extern void PrintProcSet(dbgprocset_t *);
 extern void SetOverlaySetForProcSet(dbgprocset_t *);
 extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *);
-extern void PrintMsgWithSetInfo(const char *setname, const bitset *group,
+extern void PrintMsgWithSetInfo(const char *setname, const Bitset *group,
                                 const char *f, ...) __attribute__((format (printf,3,4)));
-extern void PrintMsgWithSetAndThreadInfo(const char *setname, const bitset *group,
+extern void PrintMsgWithSetAndThreadInfo(const char *setname, const Bitset *group,
                                          const char* threads,
                                          const char *f, ...) __attribute__((format (printf,4,5)));
 
-extern void PrintErrorWithSetInfo(const char *setname, const bitset *group,
+extern void PrintErrorWithSetInfo(const char *setname, const Bitset *group,
                                   const char *f, ...) __attribute__((format (printf,3,4)));
-extern void PrintErrorWithSetAndThreadInfo(const char *setname, const bitset *group,
+extern void PrintErrorWithSetAndThreadInfo(const char *setname, const Bitset *group,
                                            const char* threads,
                                            const char *f, ...) __attribute__((format (printf,4,5)));
 

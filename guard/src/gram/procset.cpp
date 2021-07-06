@@ -31,15 +31,15 @@
 
 // static prototypes
 static dbgprocset_t *NewProcSet(const char *, dbgset_type, const char* threads);
-static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, bitset *, int);
+static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, std::unique_ptr<Bitset>&&, int);
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void _free_procset(dbgprocset_t *);
-static void _print_with_set_info(const char *, const bitset *, const char* threads,
+static void _print_with_set_info(const char *, const Bitset *, const char* threads,
                                  int, int, int, int,
                                  const char *, va_list);
 
-static bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
+static std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
 
 // Internal variables
 static list_t *ProcSets = NULL;  // TODO: Try to get rid of this
@@ -94,23 +94,23 @@ void FinishProcSet(void) {
 //                     be derived from
 //      \param *slice: The slice applied to \a bitset. If null, a duplicate of 
 //                     \a bitset is returned.
-bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice) {
-    const auto bits = overlay_set.s_di_bs;
+std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice) {
+    const auto &bits = overlay_set.s_di_bs;
     if (bits == nullptr) return nullptr;
 
-    const auto num_set = bitset_numset(bits);
-    auto result = bitset_dup(bits);
+    const int num_set = bits->numSet();
+    auto result = bits->clone();
     if (slice == nullptr) return result; // no slice requested
 
-    bitset_clear(result);
+    result->clear();
 
     // get nth set bit in bits, zero indexed, beginning from start
-    auto nthSetBit = [bits](int n, unsigned int start = 0) {
+    auto nthSetBit = [&bits](int n, unsigned int start = 0) {
         auto ret = start;
 
         // skip all unset bits and n set bits
-        for (; ret < bits->bs_nbits; ++ret) {
-            if (bitset_test(bits, ret) && !n--) {
+        for (; ret < bits->sizeInBits(); ++ret) {
+            if (bits->test(ret) && !n--) {
                 break;
             }
         }
@@ -129,7 +129,7 @@ bitset* sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice) {
         int bit = nthSetBit(slice->getLow(i) - overlay_set.s_ps_offset);
 
         for (int j = slice->getLow(i); j <= slice->getHigh(i) && validIndex(j); ++j) {
-            bitset_set(result, nthSetBit(0, bit++));
+            result->set(nthSetBit(0, bit++));
         }
     }
 
@@ -165,8 +165,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         auto di_mask = sliceBitset(*o_ptr, ps_slice);
 
         // Ensure that this mask isn't empty, otherwise we don't want to add it
-        if (bitset_isempty(di_mask)) {
-            bitset_free(di_mask);
+        if (di_mask->isEmpty()) {
             DPRINT(
                 "CreateTempProcSetSlice di $%s had an empty mask. Skipping.\n",
                 o_ptr->s_di->d_handle);
@@ -176,12 +175,12 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         DPRINT(
             "CreateTempProcSetSlice Adding di $%s for mask[%s] to "
             "over_set_list.\n",
-            o_ptr->s_di->d_handle, bitset_to_set(di_mask));
+            o_ptr->s_di->d_handle, di_mask->toSet().c_str());
 
         // We now have a properly formed di_mask for this di. Lets create a new
         // over_set object for this di and add it to the list, note that we will
         // need to recompute the offset for this new temp set.
-        over_set = NewOverlaySet(o_ptr->s_di, di_mask, 0);
+        over_set = NewOverlaySet(o_ptr->s_di, std::move(di_mask), 0);
         AddToList(new_procset->s_over_set_list, over_set);
         // increment num sets
         new_procset->s_num_sets++;
@@ -194,7 +193,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         DPRINT("CreateTempProcSetSlice offset[%d] for di $%s.\n", ps_offset,
                o_ptr->s_di->d_handle);
         o_ptr->s_ps_offset = ps_offset;
-        ps_offset += bitset_numset(o_ptr->s_di_bs);
+        ps_offset += o_ptr->s_di_bs->numSet();
     }
 
     // Update the nproc in the procset
@@ -214,7 +213,6 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
     list_t *l;
     val_t *v;
     dbgprocset_t *procset = NULL;
-    bitset *di_mask = NULL;
     dbg_over_set_t *over_set = NULL;
     dbg_over_set_t *o_ptr = NULL;
     slice_t *ps_slice;
@@ -318,12 +316,11 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
             }
 
             while ((over_set = GetNextOverlaySetForProcSet(procset)) != NULL) {
-                di_mask = sliceBitset(*over_set, ps_slice);
+                auto di_mask = sliceBitset(*over_set, ps_slice);
 
                 // Ensure that this mask isn't empty, otherwise we don't want to
                 // add it
-                if (bitset_isempty(di_mask)) {
-                    bitset_free(di_mask);
+                if (di_mask->isEmpty()) {
                     DPRINT(
                         "CreateProcSet di $%s had an empty mask. Skipping.\n",
                         o_ptr->s_di->d_handle);
@@ -343,23 +340,22 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
 
                 // Update the existing overlay set if found
                 if (o_ptr != NULL) {
-                    bitset_oreq(o_ptr->s_di_bs, di_mask);
-                    bitset_free(di_mask);
+                    *o_ptr->s_di_bs |= *di_mask;
                     DPRINT(
                         "CreateProcSet Updated existing o_ptr for di $%s to "
                         "new mask[%s].\n",
-                        o_ptr->s_di->d_handle, bitset_to_set(o_ptr->s_di_bs));
+                        o_ptr->s_di->d_handle, o_ptr->s_di_bs->toSet().c_str());
                 } else {
                     // Create a new overlay set for this invoke
                     // Note that the offset gets updated on the second pass
-                    o_ptr = NewOverlaySet(over_set->s_di, di_mask, 0);
+                    DPRINT(
+                        "CreateProcSet is about to add di $%s for mask[%s] to "
+                        "over_set_list.\n",
+                        o_ptr->s_di->d_handle, di_mask->toSet().c_str());
+                    o_ptr = NewOverlaySet(over_set->s_di, std::move(di_mask), 0);
                     AddToList(new_procset->s_over_set_list, o_ptr);
                     // increment num sets
                     new_procset->s_num_sets++;
-                    DPRINT(
-                        "CreateProcSet Added di $%s for mask[%s] to "
-                        "over_set_list.\n",
-                        o_ptr->s_di->d_handle, bitset_to_set(di_mask));
                 }
             }
         } else {
@@ -393,7 +389,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
         DPRINT("CreateProcSet offset[%d] for di $%s.\n", ps_offset,
                o_ptr->s_di->d_handle);
         o_ptr->s_ps_offset = ps_offset;
-        ps_offset += bitset_numset(o_ptr->s_di_bs);
+        ps_offset += o_ptr->s_di_bs->numSet();
     }
 
     // Update the nproc in the procset
@@ -537,7 +533,7 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di) {
     // reconcile the nprocs with the di, it is our master
     ps->s_nproc = di->d_nproc;
 
-    over_set = NewOverlaySet(di, bitset_dup(di->d_bitset_full), 0);
+    over_set = NewOverlaySet(di, di->d_bitset_full->clone(), 0);
     AddToList(ps->s_over_set_list, over_set);
     // increment num sets
     ps->s_num_sets++;
@@ -566,7 +562,7 @@ rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps) {
     while (dbg_over_set_t *over_set = GetNextOverlaySetForProcSet(ps)) {
         // create a group_recv_t for the over_set and add it to the res
         AddReceiverToSet(res,
-                         NewGroupReceiver(over_set->s_di, over_set->s_di_bs));
+                         NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
     }
 
     if (ps->s_threads) {
@@ -593,12 +589,11 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* 
     return s;
 }
 
-static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, bitset *bs, int offset) {
-    dbg_over_set_t *set = (dbg_over_set_t *)Alloc(sizeof(dbg_over_set_t));
-    memset(set, 0, sizeof(dbg_over_set_t));
+static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, std::unique_ptr<Bitset> &&bs, int offset) {
+    auto *set = new dbg_over_set_t;
 
     set->s_di = di;
-    set->s_di_bs = bs;
+    set->s_di_bs = std::move(bs);
     set->s_ps_offset = offset;
 
     return set;
@@ -606,13 +601,12 @@ static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, bitset *bs, int offset) {
 
 static void FreeOverlaySet(dbg_over_set_t *set) {
     set->s_di = NULL;
-    bitset_free(set->s_di_bs);
-    Free(set);
+    delete set;
 }
 
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *over_set) {
     AddToList(AllProcSet->s_over_set_list, over_set);
-    AllProcSet->s_nproc += bitset_numset(over_set->s_di_bs);
+    AllProcSet->s_nproc += over_set->s_di_bs->numSet();
 }
 
 static void _free_procset(dbgprocset_t *s) {
@@ -636,7 +630,7 @@ void FreeProcSet(dbgprocset_t *s) {
             SetOverlaySetForProcSet(s);
             while ((over_set = GetNextOverlaySetForProcSet(s)) != NULL) {
                 RemoveFromList(AllProcSet->s_over_set_list, over_set);
-                AllProcSet->s_nproc -= bitset_numset(over_set->s_di_bs);
+                AllProcSet->s_nproc -= over_set->s_di_bs->numSet();
             }
             break;
         case DBGSET_DEFSET:
@@ -728,22 +722,20 @@ void PrintProcSet(dbgprocset_t *s) {
            NULL) {
         PrintOutMsg("%s", over_set->s_di->d_handle);
 
-        if (char* si = bitset_to_set(over_set->s_di_bs)) {
-            if (s->s_threads) {
-                // insert the thread info
-                std::string setInfo{si};
-                auto loc = setInfo.rfind('}');
-                if (loc != std::string::npos) {
-                    setInfo = setInfo.substr(0,loc) + ":" + s->s_threads + "}";
-                }
-                PrintOutMsg("%s", setInfo.c_str());
-            } else {
-                PrintOutMsg("%s", si);
+        std::string si = over_set->s_di_bs->toSet();
+        if (s->s_threads) {
+            // insert the thread info
+            std::string setInfo{si};
+            auto loc = setInfo.rfind('}');
+            if (loc != std::string::npos) {
+                setInfo = setInfo.substr(0,loc) + ":" + s->s_threads + "}";
             }
-            Free(si);
+            PrintOutMsg("%s", setInfo.c_str());
+        } else {
+            PrintOutMsg("%s", si.c_str());
         }
 
-        n += bitset_numset(over_set->s_di_bs);
+        n += over_set->s_di_bs->numSet();
         if (n < s->s_nproc) PrintOutMsg(",");
     }
 }
@@ -755,42 +747,37 @@ dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s) {
     return set;
 }
 
-static void _print_with_set_info(const char *setname, const bitset *group,
+static void _print_with_set_info(const char *setname, const Bitset *group,
                                  const char* threads,
                                  int isOffset, int offset, int len, int isErr,
                                  const char *f, va_list ap) {
-    char *set_info = NULL;
+    std::string set_info = "";
 
     if (isOffset) {
         if (offset >= 0 && len > 0) {
-            set_info = bitset_to_set_by_offset(group, offset, len);
+            set_info = group->toSet(offset, len);
         }
     }
 
-    if (set_info == NULL) {
-        set_info = bitset_to_set(group);
+    if (set_info == "") {
+        set_info = group->toSet();
     }
 
     if (threads && threads[0]) {
         // insert the thread info before the end bracket
-        auto siLen = strlen(set_info);
+        auto siLen = set_info.size();
         if (siLen > 0 && set_info[siLen-1] == '}') {
-            char* s = (char*) malloc(siLen+strlen(threads) + 2); // for ':' and '\0'
-            strcpy(s, set_info);
-            s[siLen-1] = ':';
-            strcat(s,threads);
-            strcat(s,"}");
-            std::swap(set_info, s);
-            free(s);
+            set_info[set_info.size() - 1] = ':';
+            set_info += threads;
+            set_info += '}';
         }
     }
-        
 
-    if (setname != NULL && set_info != NULL) {
+    if (setname != NULL) {
         if (isErr) {
-            PrintOutError("%s%s: ", setname, set_info);
+            PrintOutError("%s%s: ", setname, set_info.c_str());
         } else {
-            PrintOutMsg("%s%s: ", setname, set_info);
+            PrintOutMsg("%s%s: ", setname, set_info.c_str());
         }
     }
 
@@ -799,11 +786,9 @@ static void _print_with_set_info(const char *setname, const bitset *group,
     } else {
         vPrintOutMsg(f, ap);
     }
-
-    Free(set_info);
 }
 
-void PrintMsgWithSetInfo(const char *setname, const bitset *group, const char *f,
+void PrintMsgWithSetInfo(const char *setname, const Bitset *group, const char *f,
                          ...) {
     va_list ap;
 
@@ -816,7 +801,7 @@ void PrintMsgWithSetInfo(const char *setname, const bitset *group, const char *f
     va_end(ap);
 }
 
-void PrintMsgWithSetAndThreadInfo(const char *setname, const bitset* group,
+void PrintMsgWithSetAndThreadInfo(const char *setname, const Bitset* group,
                                   const char* threads, const char* f, ...)
 {
     va_list ap;
@@ -830,7 +815,7 @@ void PrintMsgWithSetAndThreadInfo(const char *setname, const bitset* group,
     va_end(ap);
 }
 
-void PrintErrorWithSetInfo(const char *setname, const bitset *group, const char *f,
+void PrintErrorWithSetInfo(const char *setname, const Bitset *group, const char *f,
                            ...) {
     va_list ap;
 
@@ -843,7 +828,7 @@ void PrintErrorWithSetInfo(const char *setname, const bitset *group, const char 
     va_end(ap);
 }
 
-void PrintErrorWithSetAndThreadInfo(const char *setname, const bitset *group, const char* threads,
+void PrintErrorWithSetAndThreadInfo(const char *setname, const Bitset *group, const char* threads,
                                     const char *f, ...) {
     va_list ap;
 

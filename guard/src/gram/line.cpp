@@ -32,9 +32,7 @@
 line_t *FindLine(list_t *, int);
 
 line_t *NewLine(int lno) {
-    line_t *l;
-
-    l = (line_t *)Alloc(sizeof(line_t));
+    auto l = new line_t;
 
     l->l_lno = lno;
     l->l_bp = -1;
@@ -42,7 +40,7 @@ line_t *NewLine(int lno) {
     l->l_sync = -1;
     l->l_val = -1;
     l->l_ref = 0;
-    l->l_bs = NULL;
+    l->l_bs = std::unique_ptr<DenseBitset>();
 
     return l;
 }
@@ -77,7 +75,5 @@ void DestroyLine(line_t *l) {
     l->l_ref--;
     if (l->l_ref >= 0) return;
 
-    if (l->l_bs != NULL) bitset_free(l->l_bs);
-
-    Free(l);
+    delete l;
 }

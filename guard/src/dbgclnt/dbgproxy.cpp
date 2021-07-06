@@ -28,6 +28,7 @@
 #include "dbgproxy.h"
 #include "defs.h"
 #include "useful.h"
+#include "dense_bitset.h"
 
 // Used for checking null strings
 static const char *__fmt_null_str = "";
@@ -263,24 +264,18 @@ void FreeProxyType(proxy_type *p) {
     Free(p);
 }
 
-recv_type *NewRecvType(bitset *target, bitset *recv) {
+recv_type *NewRecvType(std::unique_ptr<Bitset> &&target, std::unique_ptr<Bitset> &&recv) {
     // Alloc the return type
-    recv_type *rtn = (recv_type *)Alloc(sizeof(recv_type));
+    auto *rtn = new recv_type;
 
-    // Set the bitset pointers
-    rtn->target = target;
-    rtn->received = recv;
+    rtn->target = std::move(target);
+    rtn->received = std::move(recv);
 
     return rtn;
 }
 
 void FreeRecvType(recv_type *recv) {
-    if (recv == NULL) return;
-
-    bitset_free(recv->target);
-    bitset_free(recv->received);
-
-    Free(recv);
+    delete recv;
 }
 
 attach_args *NewAttachArgs(void) {
@@ -359,9 +354,10 @@ std::optional<ProtoMessage> SocProtoToProtoMsg(char *s) {
     bitset_str = getstring(&s);
     msg_str = getstring(&s);
 
-    rtn = ProtoMessage(str_to_bitset(bitset_str, nullptr), msg_str);
+    rtn = ProtoMessage(new DenseBitset(Bitset::Serialized(bitset_str)), msg_str);
 
-    Free(bitset_str);
+    // don't need to free bitset_str since creating a Bitset::Serialized takes
+    // ownership of it
 
     return rtn;
 }
@@ -382,11 +378,11 @@ recv_type *SocProtoToRecv(char *s) {
     target_str = getstring(&s);
     recv_str = getstring(&s);
 
-    rtn = NewRecvType(str_to_bitset(target_str, NULL),
-                      str_to_bitset(recv_str, NULL));
+    rtn = NewRecvType(std::make_unique<DenseBitset>(Bitset::Serialized(target_str)),
+                      std::make_unique<DenseBitset>(Bitset::Serialized(recv_str)));
 
-    Free(target_str);
-    Free(recv_str);
+    // don't need to free the strings, Bitset::Serialized takes ownership and does
+    // it for us
 
     return rtn;
 }
@@ -470,35 +466,28 @@ int SocProtoToExitArgs(char *s) {
 
 char *ProtoMsgToSocProto(const ProtoMessage &s) {
     char *stres = NULL;
-    char *bitset_str = NULL;
 
-    // Convert the group to a string
-    bitset_str = bitset_to_str(s.getBitset());
+    auto bitset = s.getBitset();
+    DASSERT_NOT_NULL(bitset);
+    auto bitset_str = bitset->serialize();
 
-    Asprintf(&stres, "%d %s %d %s", (int)strlen(bitset_str), bitset_str,
+    Asprintf(&stres, "%d %s %d %s", (int)strlen(bitset_str.get()), bitset_str.get(),
              (int)strlen(s.getMessage()), s.getMessage());
-
-    Free(bitset_str);
 
     return stres;
 }
 
-char *RecvToSocProto(const bitset *target, bitset *recv) {
+char *RecvToSocProto(const Bitset *target, const Bitset *recv) {
     char *stres = NULL;
-    char *target_str = NULL;
-    char *recv_str = NULL;
 
     if (target == NULL || recv == NULL) return NULL;
 
     // Convert the bitsets to strings
-    target_str = bitset_to_str(target);
-    recv_str = bitset_to_str(recv);
+    auto target_str = target->serialize();
+    auto recv_str = recv->serialize();
 
-    Asprintf(&stres, "%d %s %d %s", (int)strlen(target_str), target_str,
-             (int)strlen(recv_str), recv_str);
-
-    Free(target_str);
-    Free(recv_str);
+    Asprintf(&stres, "%d %s %d %s", (int)strlen(target_str.get()), target_str.get(),
+             (int)strlen(recv_str.get()), recv_str.get());
 
     return stres;
 }

@@ -38,6 +38,7 @@ public:
 
     // virtual std::string toSet(int offset = 0, int len = -1) const override;
 
+    size_t getSerializedSize() const;
     virtual Serialized serialize() const override;
 
     virtual Bitset& operator= (const Bitset &other) override;

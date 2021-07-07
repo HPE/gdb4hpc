@@ -10,7 +10,7 @@
 #include "dbgclnt_zmq.h"
 #include "dbgclnt_proto_ctiship.h"
 #include "defs.h"
-#include "bitset.h"
+#include "lrunle_bitset.h"
 #include "useful.h"
 
 #include "dbg_zmq.capnp.h"
@@ -107,10 +107,17 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
     // TODO fully unpack
+    auto message = pack.getMessages()[0];
 
-    LOG("got reply: %s\n", pack.getMessages()[0].getData().cStr());
+    LOG("got reply: \n");
+    LOG("\tdata: %s\n", message.getData().cStr());
+    LOG("\thash: %lu\n", message.getHash());
+    auto bitset = LrleBitset(Bitset::Serialized(message.getBitset().asChars().begin()));
+    LOG("\tbitset: %s\n", bitset.toSet().c_str());
 
     // TODO process reply
+
+    received |= bitset;
 
     return {};
 }
@@ -276,9 +283,15 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     // TODO setup event notification fd for io?
     // TODO setup event notification fd for event?
 
-    // TODO send INVOKE
+    // send invoke
+    auto invoke = CommandToSocProto(DBGCMD_INVOKE, num_be);
+    sendCommand(di, di->d_bitset_full.get(), invoke.c_str());
 
-    // TODO wait for response
+    // wait for response
+    auto received{DenseBitset(num_be)};
+    receiveReply(di, di->d_bitset_full.get(), received);
+
+    // TODO check received
 
     // TODO set program output stream handler
 

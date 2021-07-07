@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string.h>
 #include <assert.h>
+#include <cmath>
 
 #include <iostream>
 
@@ -115,15 +116,30 @@ std::string LrleBitset::toString() const {
     return result;
 }
 
+size_t LrleBitset::getSerializedSize() const {
+    // serialized format: "<num bits> <m_compressed.size()>/<raw m_compressed data>" 
+    // all numbers in base 16.
+
+    auto numHexDigits = [](size_t x) -> size_t { 
+        if (x == 0) return 1; // '0' is one digit
+        return (size_t)(std::log(x) / std::log(16)) + 1; 
+    };
+
+    //                <num bits>             ' '  <m_compressed.size()>              '/'
+    auto headerSize = numHexDigits(m_nbits) + 1 + numHexDigits(m_compressed.size()) + 1;
+
+    return headerSize + m_compressed.size() + 1; // + 1 for '\0'
+}
+
 Bitset::Serialized LrleBitset::serialize() const {
     // lrle bitsets are stored in serialized format, we just need to add metadata
+    auto result = new char[getSerializedSize()];
+    
+    // metadata header
     std::ostringstream header;
     header << std::hex << m_nbits << " "
            << std::hex << m_compressed.size() << "/"
     ;
-
-    auto resultLen = header.str().size() + m_compressed.size() + 1; // +1 for \0
-    auto result = (char *)malloc(sizeof(char) * resultLen);
 
     // + 1 because snprintf will truncate with a \0 if exact length is given
     snprintf(result, header.str().size() + 1, "%s", header.str().c_str());
@@ -131,8 +147,7 @@ Bitset::Serialized LrleBitset::serialize() const {
     // memcpy since data might validly contain '\0'
     memcpy(result + header.str().size(), m_compressed.data(), m_compressed.size());
     
-    result[resultLen - 1] = '\0';
-
+    result[getSerializedSize() - 1] = '\0';
     return Bitset::Serialized(result);
 }
 

@@ -73,22 +73,43 @@ class Bitset {
     class Serialized {
     public:
         // takes ownership of data
-        explicit Serialized(char * data) : m_data(data, std::free), m_offset{0} {};
-
-        // useful when you have nested data and want to read part of the
-        // message and then send the rest off to a different function
-        void setOffset(size_t offset) const { m_offset = offset; }
-        const char * get() const { 
-            if (m_data)
-                return m_data.get() + m_offset;
-            else
-                return nullptr;
+        explicit Serialized(char * data) 
+            : m_data(data)
+            , m_ownsData{true}
+        {};
+        // doesn't take ownership of data
+        explicit Serialized(const char * data)
+            : m_data(const_cast<char *>(data))
+            , m_ownsData{false}
+        {};
+        explicit Serialized(std::nullptr_t ptr)
+            : Serialized((char *)ptr)
+        {};
+        ~Serialized() {
+            // don't free data if the memory isn't ours
+            if (!m_ownsData) m_data.release(); 
         }
-        char * release() { return m_data.release(); }
+        Serialized& operator=(Serialized &&other) {
+            // don't free data if the memory isn't ours
+            if (!m_ownsData) m_data.release();
+            m_data = std::move(other.m_data);
+            m_ownsData = other.m_ownsData;
+            return *this;
+        }
+
+        const char * get() const { return m_data.get(); }
+        char * release() { 
+            if (m_ownsData) {
+                m_ownsData = false;
+                return m_data.release();
+            } else {
+                throw std::runtime_error("serialized bitset doesn't have permission to release data");
+            }
+        }
     private:
-        using DataPtr = std::unique_ptr<char, decltype(&std::free)>;
+        using DataPtr = std::unique_ptr<char>;
         DataPtr m_data;
-        mutable size_t m_offset;
+        bool m_ownsData;
     };
 
     // returns a Bitset::Serialized class that can be used to construct a new

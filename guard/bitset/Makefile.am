@@ -9,20 +9,15 @@
 # no part of this work or its content may be used, reproduced or disclosed
 # in any form.
 
-# need to set as empty to use += below
-AM_CXXFLAGS = 
-
 if MRN
 MRN_BITSETS = sparse_bitset.cpp bitset_convert.cpp
 endif
 
 if ZMQN
 ZMQN_BITSETS = lrunle_bitset.cpp
-# TODO: include this with gdb4hpc properly, don't steal the header from zmqnet.
-# luckily for us, when zmqnet is built, the header is installed in the gdb4hpc
-# include directory.
+# when zmqnet is built, the lrle_bitset.h header is installed in the gdb4hpc include directory.
 LRLE = @zmqnet_root@
-AM_CXXFLAGS += -I$(LRLE)/include
+AM_CXXFLAGS = -I$(LRLE)/include
 endif
 
 lib_LTLIBRARIES = libbitset.la

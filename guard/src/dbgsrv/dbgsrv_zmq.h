@@ -11,6 +11,7 @@
 #include "dbgsrv_proto.h"
 #include "dbg_zmq.h"
 #include "dbgsrv_cmds.h"
+#include "lrunle_bitset.h"
 
 class ZMQNetServerProtocol : public DebugServerProtocol {
 public:
@@ -49,6 +50,12 @@ private:
 
     fd_set m_fds;
     int m_event_pipe[2];
+
+    // bitset related
+    size_t m_rank;
+    std::unique_ptr<LrleBitset> m_rank_bitset;
+    Bitset::Serialized m_rank_serialized;
+    size_t m_rank_serialized_size;
 };
 
 // used as a handle in dbgsrv_proto.cpp to make the linker include this class

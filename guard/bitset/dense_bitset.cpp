@@ -188,7 +188,7 @@ std::string DenseBitset::toString() const {
 Bitset::Serialized DenseBitset::serialize() const {
 	std::string serialized = toString();
 	auto len = serialized.size() + 1; // +1 for \0
-	auto result = (char *)malloc(sizeof(char) * len); 
+	auto result = new char[len];
 	snprintf(result, len, "%s", serialized.c_str());
 
 	return Bitset::Serialized(result);

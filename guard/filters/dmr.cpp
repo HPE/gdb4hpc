@@ -31,7 +31,7 @@ namespace DMR /* DebuggingMessageReduction */
 {
 
 Message::Message(char* mes, char* bt)
-    : m_release(true), m_content(mes), m_btStr(bt), m_sb() {}
+    : m_release(true), m_content(mes), m_btStr(std::unique_ptr<char>(bt)), m_sb() {}
 
 Message::~Message() {
     if (m_content != NULL && m_release) {

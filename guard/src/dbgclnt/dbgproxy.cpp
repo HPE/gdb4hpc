@@ -354,7 +354,7 @@ std::optional<ProtoMessage> SocProtoToProtoMsg(char *s) {
     bitset_str = getstring(&s);
     msg_str = getstring(&s);
 
-    rtn = ProtoMessage(new DenseBitset(Bitset::Serialized(bitset_str)), msg_str);
+    rtn = ProtoMessage(new DenseBitset(Bitset::Serialized(std::unique_ptr<char>(bitset_str))), msg_str);
 
     // don't need to free bitset_str since creating a Bitset::Serialized takes
     // ownership of it
@@ -378,8 +378,8 @@ recv_type *SocProtoToRecv(char *s) {
     target_str = getstring(&s);
     recv_str = getstring(&s);
 
-    rtn = NewRecvType(std::make_unique<DenseBitset>(Bitset::Serialized(target_str)),
-                      std::make_unique<DenseBitset>(Bitset::Serialized(recv_str)));
+    rtn = NewRecvType(std::make_unique<DenseBitset>(Bitset::Serialized(std::unique_ptr<char>(target_str))),
+                      std::make_unique<DenseBitset>(Bitset::Serialized(std::unique_ptr<char>(recv_str))));
 
     // don't need to free the strings, Bitset::Serialized takes ownership and does
     // it for us

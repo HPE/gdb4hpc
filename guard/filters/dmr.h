@@ -33,6 +33,7 @@ A message consists of "content" and a bitset indicating the MPI ranks
 */
 class Message {
    public:
+    // takes ownership of both pointers
     Message(char* mes, char* bt);
     ~Message();
 

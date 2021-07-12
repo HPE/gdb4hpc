@@ -112,7 +112,7 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
     LOG("got reply: \n");
     LOG("\tdata: %s\n", message.getData().cStr());
     LOG("\thash: %lu\n", message.getHash());
-    auto bitset = LrleBitset(Bitset::Serialized(message.getBitset().asChars().begin()));
+    auto bitset = LRunLEBitset(Bitset::Serialized(message.getBitset().asChars().begin()));
     LOG("\tbitset: %s\n", bitset.toSet().c_str());
 
     // TODO process reply

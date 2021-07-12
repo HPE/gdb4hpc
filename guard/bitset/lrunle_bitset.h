@@ -7,14 +7,14 @@
 
 #include <vector>
 
-class LrleBitset : public Bitset {
+class LRunLEBitset : public Bitset {
 public:
-    LrleBitset(size_t nbits);
-    LrleBitset(size_t nbits, size_t setBit);
-    LrleBitset(size_t nbits, unsigned const char* buf, size_t len);
-    LrleBitset(const Serialized &bitset);
+    LRunLEBitset(size_t nbits);
+    LRunLEBitset(size_t nbits, size_t setBit);
+    LRunLEBitset(size_t nbits, unsigned const char* buf, size_t len);
+    LRunLEBitset(const Serialized &bitset);
 
-    ~LrleBitset() = default;
+    ~LRunLEBitset() = default;
 
     virtual std::unique_ptr<Bitset> clone() const override;
 
@@ -38,8 +38,9 @@ public:
 
     // virtual std::string toSet(int offset = 0, int len = -1) const override;
 
-    size_t getSerializedSize() const;
     virtual Serialized serialize() const override;
+    // given a serialized LRunLEBitset, return how many bytes the serialized data is
+    static size_t extractSerializedSize(const Serialized &data);
 
     virtual Bitset& operator= (const Bitset &other) override;
     virtual Bitset& operator&= (const Bitset &other) override;

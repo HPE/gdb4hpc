@@ -28,6 +28,7 @@ ZMQNetServerProtocol::ZMQNetServerProtocol()
     , m_pending_command{nullptr}
     , m_rank_bitset{nullptr}
     , m_rank_serialized{nullptr}
+    , m_rank_serialized_size{0}
 { 
     registerProtocol();
 };
@@ -204,9 +205,9 @@ dbgevent_t* ZMQNetServerProtocol::invokeNetwork(int num_be) {
     }
 
     // create bitset
-    m_rank_bitset = std::make_unique<LrleBitset>(num_be, m_rank);
+    m_rank_bitset = std::make_unique<LRunLEBitset>(num_be, m_rank);
     m_rank_serialized = m_rank_bitset->serialize();
-    m_rank_serialized_size = m_rank_bitset->getSerializedSize();
+    m_rank_serialized_size = LRunLEBitset::extractSerializedSize(m_rank_serialized);
 
     LOG("zmqnet: created bitset. rank %s out of %d.\n", m_rank_bitset->toString().c_str(), num_be);
 

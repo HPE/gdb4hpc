@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <limits>
+#include <variant>
 
 class Bitset {
     // interface describing a bitset that is used to represent sets of ranks.
@@ -19,7 +20,7 @@ class Bitset {
     // default implementations in terms of the required operations, but default
     // implementations operate on one bit at a time and are slow. derived
     // classes should implement faster versions whenever possible.
-  public:
+public:
     virtual ~Bitset() = default;
 
     // pure virtual functions:
@@ -72,44 +73,28 @@ class Bitset {
     //   auto new_bitset = Bitset(serialized_bitset);
     class Serialized {
     public:
-        // takes ownership of data
-        explicit Serialized(char * data) 
-            : m_data(data)
-            , m_ownsData{true}
-        {};
-        // doesn't take ownership of data
-        explicit Serialized(const char * data)
-            : m_data(const_cast<char *>(data))
-            , m_ownsData{false}
-        {};
-        explicit Serialized(std::nullptr_t ptr)
-            : Serialized((char *)ptr)
-        {};
-        ~Serialized() {
-            // don't free data if the memory isn't ours
-            if (!m_ownsData) m_data.release(); 
-        }
-        Serialized& operator=(Serialized &&other) {
-            // don't free data if the memory isn't ours
-            if (!m_ownsData) m_data.release();
-            m_data = std::move(other.m_data);
-            m_ownsData = other.m_ownsData;
-            return *this;
-        }
+        // read only
+        Serialized(const char * data) : m_data{data} {};
+        // data will be deleted upon destruction
+        Serialized(std::unique_ptr<char> &&data) : m_data{std::move(data)} {};
 
-        const char * get() const { return m_data.get(); }
-        char * release() { 
-            if (m_ownsData) {
-                m_ownsData = false;
-                return m_data.release();
+        const char * get() const {
+            if (std::holds_alternative<const char *>(m_data)) {
+                return std::get<const char *>(m_data);
             } else {
-                throw std::runtime_error("serialized bitset doesn't have permission to release data");
+                return std::get<std::unique_ptr<char>>(m_data).get();
             }
-        }
+        };
+
+        char * release() {
+            if (std::holds_alternative<const char *>(m_data)) {
+                throw std::runtime_error("Can't release pointer when it isn't owned. Use get().");
+            } else {
+                return std::get<std::unique_ptr<char>>(m_data).release();
+            }
+        };
     private:
-        using DataPtr = std::unique_ptr<char>;
-        DataPtr m_data;
-        bool m_ownsData;
+        std::variant<const char *, std::unique_ptr<char>> m_data;
     };
 
     // returns a Bitset::Serialized class that can be used to construct a new

@@ -11,22 +11,22 @@
 
 #include <iostream>
 
-LrleBitset::LrleBitset(size_t nbits)
+LRunLEBitset::LRunLEBitset(size_t nbits)
     : m_nbits{nbits}
 {}
 
-LrleBitset::LrleBitset(size_t nbits, size_t setBit)
-    : LrleBitset(nbits)
+LRunLEBitset::LRunLEBitset(size_t nbits, size_t setBit)
+    : LRunLEBitset(nbits)
 {
     setFirstBit(setBit);
 }
 
-LrleBitset::LrleBitset(size_t nbits, unsigned const char *buf, size_t len) 
+LRunLEBitset::LRunLEBitset(size_t nbits, unsigned const char *buf, size_t len) 
     : m_nbits{nbits}
     , m_compressed(buf, buf + len)
 {}
 
-LrleBitset::LrleBitset(const Serialized &bitset) {
+LRunLEBitset::LRunLEBitset(const Serialized &bitset) {
     std::istringstream stream(bitset.get());
 
     auto start = stream.tellg();
@@ -43,62 +43,62 @@ LrleBitset::LrleBitset(const Serialized &bitset) {
     m_compressed = std::vector<unsigned char>(bitset.get() + read, bitset.get() + read + memSize);
 }
 
-std::unique_ptr<Bitset> LrleBitset::clone() const {
-    auto r = new LrleBitset(m_nbits, m_compressed.data(), m_compressed.size());
-    return std::unique_ptr<LrleBitset>(r);
+std::unique_ptr<Bitset> LRunLEBitset::clone() const {
+    auto r = new LRunLEBitset(m_nbits, m_compressed.data(), m_compressed.size());
+    return std::unique_ptr<LRunLEBitset>(r);
 }
 
-bool LrleBitset::isEmpty() const {
+bool LRunLEBitset::isEmpty() const {
     return lrle_empty(m_compressed.data(), m_compressed.size());
 }
 
-bool LrleBitset::isFull() const {
+bool LRunLEBitset::isFull() const {
     return lrle_count(m_compressed.data(), m_compressed.size()) == m_nbits;
 }
 
-void LrleBitset::set(size_t bit) {
+void LRunLEBitset::set(size_t bit) {
     if (bit < 0 || bit >= m_nbits) return;
 
     // create new set with single bit
-    auto rhs = LrleBitset(m_nbits, bit);
+    auto rhs = LRunLEBitset(m_nbits, bit);
     *this |= rhs;
 }
 
-void LrleBitset::unset(size_t bit) {
+void LRunLEBitset::unset(size_t bit) {
     // we have no easy way to do this with the current api and a lack of invert()
     throw std::runtime_error("unsupported lrle bitset operation: unset()");
 }
 
-bool LrleBitset::test(size_t bit) const {
+bool LRunLEBitset::test(size_t bit) const {
     if (bit < 0 || bit >= m_nbits) return false;
 
     return lrle_contains(m_compressed.data(), m_compressed.size(), bit);
 }
 
-void LrleBitset::invert() {
+void LRunLEBitset::invert() {
     // we have no easy way to do this with the current api
     throw std::runtime_error("unsupported lrle bitset operation: invert()");
 }
 
-void LrleBitset::clear() {
+void LRunLEBitset::clear() {
     m_compressed.clear();
 }
 
-size_t LrleBitset::numSet() const {
+size_t LRunLEBitset::numSet() const {
     return lrle_count(m_compressed.data(), m_compressed.size());
 }
 
-size_t LrleBitset::firstSet() const {
+size_t LRunLEBitset::firstSet() const {
     auto bit = lrle_next_set_bit(m_compressed.data(), m_compressed.size(), nullptr);
     if (bit < 0) return Bitset::None;
     return bit;
 }
 
-size_t LrleBitset::sizeInBits() const {
+size_t LRunLEBitset::sizeInBits() const {
     return m_nbits;
 }
 
-std::string LrleBitset::toString() const {
+std::string LRunLEBitset::toString() const {
     auto hb_to_hex = [](unsigned char const halfbyte) {
         if (halfbyte < 10U) {
             return (char)('0' + halfbyte);
@@ -116,43 +116,47 @@ std::string LrleBitset::toString() const {
     return result;
 }
 
-size_t LrleBitset::getSerializedSize() const {
-    // serialized format: "<num bits> <m_compressed.size()>/<raw m_compressed data>" 
-    // all numbers in base 16.
-
-    auto numHexDigits = [](size_t x) -> size_t { 
-        if (x == 0) return 1; // '0' is one digit
-        return (size_t)(std::log(x) / std::log(16)) + 1; 
-    };
-
-    //                <num bits>             ' '  <m_compressed.size()>              '/'
-    auto headerSize = numHexDigits(m_nbits) + 1 + numHexDigits(m_compressed.size()) + 1;
-
-    return headerSize + m_compressed.size() + 1; // + 1 for '\0'
-}
-
-Bitset::Serialized LrleBitset::serialize() const {
+Bitset::Serialized LRunLEBitset::serialize() const {
     // lrle bitsets are stored in serialized format, we just need to add metadata
-    auto result = new char[getSerializedSize()];
     
     // metadata header
-    std::ostringstream header;
-    header << std::hex << m_nbits << " "
-           << std::hex << m_compressed.size() << "/"
+    std::ostringstream headerStream;
+    headerStream << std::hex << m_nbits << " "
+                 << std::hex << m_compressed.size() << "/"
     ;
+    auto header = headerStream.str();
 
-    // + 1 because snprintf will truncate with a \0 if exact length is given
-    snprintf(result, header.str().size() + 1, "%s", header.str().c_str());
+    auto size = header.size() + m_compressed.size() + 1; // +1 for \0
+    auto result = new char[size]; 
 
-    // memcpy since data might validly contain '\0'
-    memcpy(result + header.str().size(), m_compressed.data(), m_compressed.size());
-    
-    result[getSerializedSize() - 1] = '\0';
-    return Bitset::Serialized(result);
+    // memcpy since m_compressed might validly contain a \0 byte
+    // header
+    memcpy(result, header.c_str(), header.size());
+    // data
+    memcpy(result + header.size(), m_compressed.data(), m_compressed.size());
+    result[size - 1] = '\0';
+
+    return Bitset::Serialized(std::unique_ptr<char>(result));
 }
 
-Bitset& LrleBitset::operator=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LrleBitset&>(_other);
+size_t LRunLEBitset::extractSerializedSize(const Serialized &data) {
+    std::istringstream stream(data.get());
+
+    auto start = stream.tellg();
+
+    size_t nbits;
+    stream >> std::hex >> nbits;
+
+    size_t memSize;
+    stream >> std::hex >> memSize;
+
+    assert(stream.get() == '/');
+
+    return (stream.tellg() - start) + memSize;
+}
+
+Bitset& LRunLEBitset::operator=(const Bitset &_other) {
+    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
 
     m_nbits = other.m_nbits;
     m_compressed = other.m_compressed;
@@ -160,8 +164,8 @@ Bitset& LrleBitset::operator=(const Bitset &_other) {
     return *this;
 }
 
-Bitset& LrleBitset::operator&=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LrleBitset&>(_other);
+Bitset& LRunLEBitset::operator&=(const Bitset &_other) {
+    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
 
     m_nbits = std::max(m_nbits, other.m_nbits);
     m_compressed = std::move(andBuf(other.m_compressed.data(), other.m_compressed.size()));
@@ -169,8 +173,8 @@ Bitset& LrleBitset::operator&=(const Bitset &_other) {
     return *this;
 }
 
-Bitset& LrleBitset::operator|=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LrleBitset&>(_other);
+Bitset& LRunLEBitset::operator|=(const Bitset &_other) {
+    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
 
     m_nbits = std::max(m_nbits, other.m_nbits);
     m_compressed = std::move(orBuf(other.m_compressed.data(), other.m_compressed.size()));
@@ -178,8 +182,8 @@ Bitset& LrleBitset::operator|=(const Bitset &_other) {
     return *this;
 }
 
-bool LrleBitset::operator==(const Bitset &_other) const {
-    auto &other = dynamic_cast<const LrleBitset&>(_other);
+bool LRunLEBitset::operator==(const Bitset &_other) const {
+    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
 
     if (m_nbits != other.m_nbits) return false;
 
@@ -194,18 +198,18 @@ bool LrleBitset::operator==(const Bitset &_other) const {
     }
 }
 
-bool LrleBitset::operator!=(const Bitset &other) const {
+bool LRunLEBitset::operator!=(const Bitset &other) const {
     return !(*this == other);
 }
 
-bool LrleBitset::hasCommonBits(const Bitset &_other) const {
-    auto &other = dynamic_cast<const LrleBitset&>(_other);
+bool LRunLEBitset::hasCommonBits(const Bitset &_other) const {
+    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
 
     return lrle_any_intersection(m_compressed.data(), m_compressed.size(),
         other.m_compressed.data(), other.m_compressed.size());
 }
 
-void LrleBitset::setFirstBit(size_t bit) {
+void LRunLEBitset::setFirstBit(size_t bit) {
     auto size = lrle_single_bit_size(bit);
     unsigned char buf[size];
 
@@ -217,26 +221,28 @@ void LrleBitset::setFirstBit(size_t bit) {
     m_compressed = std::vector<unsigned char>{buf, buf + m_cap};
 }
 
-std::vector<unsigned char> LrleBitset::andBuf(unsigned char const* rhs, size_t rhs_len) const {
-    unsigned char buf[(m_compressed.size() + rhs_len) * CHUNK_SIZE];
+std::vector<unsigned char> LRunLEBitset::andBuf(unsigned char const* rhs, size_t rhs_len) const {
+    auto buf = std::vector<unsigned char>((m_compressed.size() + rhs_len) * CHUNK_SIZE);
 
-    auto const len = lrle_and_default(buf, sizeof(buf),
+    auto const len = lrle_and_default(buf.data(), buf.size(),
         m_compressed.data(), m_compressed.size(), rhs, rhs_len);
     if (len < 0) {
         throw std::runtime_error("lrle and failed");
     }
 
-    return std::vector<unsigned char>(buf, buf + (size_t)len);
+    buf.resize(len);
+    return buf;
 }
 
-std::vector<unsigned char> LrleBitset::orBuf(unsigned char const* rhs, size_t rhs_len) const {
-    unsigned char buf[(m_compressed.size() + rhs_len) * CHUNK_SIZE];
+std::vector<unsigned char> LRunLEBitset::orBuf(unsigned char const* rhs, size_t rhs_len) const {
+    auto buf = std::vector<unsigned char>((m_compressed.size() + rhs_len) * CHUNK_SIZE);
 
-    auto const len = lrle_or_default(buf, sizeof(buf),
+    auto const len = lrle_or_default(buf.data(), buf.size(),
         m_compressed.data(), m_compressed.size(), rhs, rhs_len);
     if (len < 0) {
         throw std::runtime_error("lrle or failed");
     }
 
-    return std::vector<unsigned char>(buf, buf + (size_t)len);
+    buf.resize(len);
+    return buf;
 }

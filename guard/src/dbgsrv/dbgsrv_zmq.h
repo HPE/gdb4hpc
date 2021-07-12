@@ -53,7 +53,7 @@ private:
 
     // bitset related
     size_t m_rank;
-    std::unique_ptr<LrleBitset> m_rank_bitset;
+    std::unique_ptr<LRunLEBitset> m_rank_bitset;
     Bitset::Serialized m_rank_serialized;
     size_t m_rank_serialized_size;
 };

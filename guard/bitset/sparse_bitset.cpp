@@ -239,10 +239,11 @@ Bitset::Serialized SparseBitset::serialize() const {
 	}
 
 	// Bitset::Serialized expects a pointer allocated with new, not malloc
-	auto ptr = new char[ss.str().size() + 1];
-	memcpy(ptr, ss.str().c_str(), ss.str().size());
-	ptr[ss.str().size()] = '\0';
-	return Serialized(ptr);
+	auto strSize = ss.str().size();
+ 	auto ptr = new char[strSize + 1];
+	memcpy(ptr, ss.str().c_str(), strSize);
+	ptr[strSize] = '\0';
+	return Serialized(std::unique_ptr<char>(ptr));
 }
 
 Bitset& SparseBitset::operator=(const Bitset &other) {

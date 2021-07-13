@@ -137,6 +137,7 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
 
     // remember my rank for when INVOKE comes with rest of info
     m_rank = procnum;
+    LOG("Registered backend number %lu.\n", m_rank);
 
     m_network->notifyReady();
 

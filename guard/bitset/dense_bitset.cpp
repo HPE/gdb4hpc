@@ -16,8 +16,8 @@ DenseBitset::DenseBitset(size_t nbits)
 	}
 }
 
-DenseBitset::DenseBitset(const Serialized &serialized) {
-	if (serialized.get() == nullptr) {
+DenseBitset::DenseBitset(SerializedPtr serialized) {
+	if (serialized == nullptr) {
 		throw std::runtime_error("nullptr passed to DenseBitset constructor.");
 	}
 
@@ -32,7 +32,7 @@ DenseBitset::DenseBitset(const Serialized &serialized) {
 		return 0;
 	};
 
-	std::istringstream converter(serialized.get());
+	std::istringstream converter(serialized);
 
 	int nbits;
 	converter >> std::hex >> nbits;

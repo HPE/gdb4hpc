@@ -40,7 +40,7 @@ class Message {
     void SetReleaseMemory(bool release);
     char* GetContent();
     Bitset::Serialized& GetBitsetStr();
-    void MergeBitset(const Bitset::Serialized& bitsetStr);
+    void MergeBitset(Bitset::SerializedPtr bitsetStr);
     int Compare(Message* pMessage);
     bool Equal(Message* pMessage);
     bool Less(Message* pMessage);

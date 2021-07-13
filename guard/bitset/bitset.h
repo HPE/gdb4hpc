@@ -66,36 +66,13 @@ public:
     virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const;
 
     // a serialized bitset, not necessarily in a human readable format. derived
-    // classes should implement a (const Serialized&) constructor to
+    // classes should implement a (SerializedPtr) constructor to
     // do deserialization.
     // e.g.
     //   auto serialized_bitset = bitset->serialize();
-    //   auto new_bitset = Bitset(serialized_bitset);
-    class Serialized {
-    public:
-        // read only
-        Serialized(const char * data) : m_data{data} {};
-        // data will be deleted upon destruction
-        Serialized(std::unique_ptr<char> &&data) : m_data{std::move(data)} {};
-
-        const char * get() const {
-            if (std::holds_alternative<const char *>(m_data)) {
-                return std::get<const char *>(m_data);
-            } else {
-                return std::get<std::unique_ptr<char>>(m_data).get();
-            }
-        };
-
-        char * release() {
-            if (std::holds_alternative<const char *>(m_data)) {
-                throw std::runtime_error("Can't release pointer when it isn't owned. Use get().");
-            } else {
-                return std::get<std::unique_ptr<char>>(m_data).release();
-            }
-        };
-    private:
-        std::variant<const char *, std::unique_ptr<char>> m_data;
-    };
+    //   auto new_bitset = Bitset(serialized_bitset.get());
+    using SerializedPtr = const char *;
+    using Serialized = std::unique_ptr<char>;
 
     // returns a Bitset::Serialized class that can be used to construct a new
     // bitset.

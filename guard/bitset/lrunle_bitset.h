@@ -12,7 +12,7 @@ public:
     LRunLEBitset(size_t nbits);
     LRunLEBitset(size_t nbits, size_t setBit);
     LRunLEBitset(size_t nbits, unsigned const char* buf, size_t len);
-    LRunLEBitset(const Serialized &bitset);
+    LRunLEBitset(SerializedPtr bitset);
 
     ~LRunLEBitset() = default;
 

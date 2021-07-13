@@ -82,13 +82,13 @@ bool Message::LessEqual(Message* pMessage) {
     return comp <= 0;
 }
 
-void Message::MergeBitset(const Bitset::Serialized &bitsetStr) {
-    if (bitsetStr.get() == nullptr) return;
+void Message::MergeBitset(Bitset::SerializedPtr bitsetStr) {
+    if (bitsetStr == nullptr) return;
 
     auto sb = SparseBitset(bitsetStr);
 
     if (m_sb == nullptr) {
-        m_sb = std::make_unique<SparseBitset>(m_btStr);
+        m_sb = std::make_unique<SparseBitset>(m_btStr.get());
     }
 
     *m_sb |= sb;
@@ -127,7 +127,7 @@ void MessageVector::Append(Message* pMessage) {
     else {
         lastMessage = vector<Message*>::back();
         if (lastMessage->Equal(pMessage)) {
-            lastMessage->MergeBitset(pMessage->GetBitsetStr());
+            lastMessage->MergeBitset(pMessage->GetBitsetStr().get());
         } else {
             vector<Message*>::push_back(pMessage);
         }

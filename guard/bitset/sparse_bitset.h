@@ -87,7 +87,7 @@ public:
     SetBitsIterator getSetBitsIterator() const { return SetBitsIterator(*this); }
 
     SparseBitset(size_t nbits);
-    SparseBitset(const Serialized &serialized);
+    SparseBitset(SerializedPtr serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;
     std::unique_ptr<SparseBitset> typedClone() const;

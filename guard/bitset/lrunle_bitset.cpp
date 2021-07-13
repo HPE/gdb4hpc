@@ -26,8 +26,8 @@ LRunLEBitset::LRunLEBitset(size_t nbits, unsigned const char *buf, size_t len)
     , m_compressed(buf, buf + len)
 {}
 
-LRunLEBitset::LRunLEBitset(const Serialized &bitset) {
-    std::istringstream stream(bitset.get());
+LRunLEBitset::LRunLEBitset(SerializedPtr bitset) {
+    std::istringstream stream(bitset);
 
     auto start = stream.tellg();
 
@@ -40,7 +40,7 @@ LRunLEBitset::LRunLEBitset(const Serialized &bitset) {
 
     auto read = stream.tellg() - start;
 
-    m_compressed = std::vector<unsigned char>(bitset.get() + read, bitset.get() + read + memSize);
+    m_compressed = std::vector<unsigned char>(bitset + read, bitset + read + memSize);
 }
 
 std::unique_ptr<Bitset> LRunLEBitset::clone() const {

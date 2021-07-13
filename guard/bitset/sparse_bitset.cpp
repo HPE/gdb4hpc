@@ -30,12 +30,12 @@ SparseBitset::SparseBitset(size_t num_bits)
 	: m_sb_num_bits{num_bits}
 {}
 
-SparseBitset::SparseBitset(const Serialized &serialized) {
-	if (serialized.get() == nullptr) {
+SparseBitset::SparseBitset(SerializedPtr serialized) {
+	if (serialized == nullptr) {
 		throw std::runtime_error("nullptr passed to SparseBitset constructor");
 	}
 
-	std::istringstream stream(serialized.get());
+	std::istringstream stream(serialized);
 
 	int nbits;
 	stream >> std::hex >> nbits;

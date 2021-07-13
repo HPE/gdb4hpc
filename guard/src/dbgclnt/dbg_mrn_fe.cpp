@@ -595,9 +595,10 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
     auto result = ProtoMessageSet();
 
     for (int index = 0; index < msgNum; index++) {
-        // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
-        auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+        auto sb = std::make_unique<SparseBitset>(strArr[index * 2 + 1]);
         auto bs = bitset::createDenseFrom(*sb);
+
+        free(strArr[index * 2 + 1]);
 
         // Create a proto_message for this packet and add it to the result
         // ProtoMessage takes ownership of its arguments
@@ -670,8 +671,8 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                 // Create a mrnet_message for this packet and add it to the result
                 std::unique_ptr<Bitset> source = nullptr;
                 if (rank != nullptr) {
-                    // Bitset::Serialized will free rank
-                    source = std::make_unique<DenseBitset>(Bitset::Serialized(rank));
+                    source = std::make_unique<DenseBitset>(rank);
+                    free(rank);
                 }
 
                 // ProtoMessageSet takes ownership of source and msg
@@ -746,9 +747,10 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
                 }
 
                 for (int index = 0; index < msgNum; index++) {
-                    // Bitset::Serialized will take ownership of strArr[index * 2 + 1] and free it when done
-                    auto sb = std::make_unique<SparseBitset>(Bitset::Serialized(strArr[index * 2 + 1]));
+                    auto sb = std::make_unique<SparseBitset>(strArr[index * 2 + 1]);
                     auto bs = bitset::createDenseFrom(*sb);
+
+                    free(strArr[index * 2 + 1]);
 
                     // Create a proto_message for this packet and add it to the result
                     // ProtoMessageSet takes ownership of the arguments

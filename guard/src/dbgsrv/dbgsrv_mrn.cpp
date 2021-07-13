@@ -131,7 +131,7 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     sprintf(par_rank_str, "%d", par_rank);
     sprintf(my_rank_str, "%d", my_mrnrank);
 
-    // be_argv[0] is not actually used by mrnet (but we need argc to be corrent),
+    // be_argv[0] is not actually used by mrnet (but we need argc to be correct),
     // so it's ok to cast away the const
     be_argv[0] = const_cast<char *>(argv[0]);
     be_argv[1] = par_addr;

@@ -16,8 +16,8 @@ DenseBitset::DenseBitset(size_t nbits)
 	}
 }
 
-DenseBitset::DenseBitset(const Serialized &serialized) {
-	if (serialized.get() == nullptr) {
+DenseBitset::DenseBitset(SerializedPtr serialized) {
+	if (serialized == nullptr) {
 		throw std::runtime_error("nullptr passed to DenseBitset constructor.");
 	}
 
@@ -32,7 +32,7 @@ DenseBitset::DenseBitset(const Serialized &serialized) {
 		return 0;
 	};
 
-	std::istringstream converter(serialized.get());
+	std::istringstream converter(serialized);
 
 	int nbits;
 	converter >> std::hex >> nbits;
@@ -188,10 +188,10 @@ std::string DenseBitset::toString() const {
 Bitset::Serialized DenseBitset::serialize() const {
 	std::string serialized = toString();
 	auto len = serialized.size() + 1; // +1 for \0
-	auto result = (char *)malloc(sizeof(char) * len); 
+	auto result = new char[len];
 	snprintf(result, len, "%s", serialized.c_str());
 
-	return Bitset::Serialized(result);
+	return Bitset::Serialized(std::unique_ptr<char>(result));
 }
 
 Bitset& DenseBitset::operator=(const Bitset &other) {

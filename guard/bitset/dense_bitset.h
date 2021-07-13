@@ -13,7 +13,7 @@
 class DenseBitset : public Bitset {
 public:
     explicit DenseBitset(size_t nbits);
-    explicit DenseBitset(const Serialized &serialized);
+    explicit DenseBitset(SerializedPtr serialized);
 
     std::unique_ptr<Bitset> clone() const;
     std::unique_ptr<DenseBitset> typedClone() const;

@@ -26,6 +26,9 @@ ZMQNetServerProtocol DbgSrvProtoZMQNet;
 ZMQNetServerProtocol::ZMQNetServerProtocol()
     : m_network{nullptr} 
     , m_pending_command{nullptr}
+    , m_rank_bitset{nullptr}
+    , m_rank_serialized{nullptr}
+    , m_rank_serialized_size{0}
 { 
     registerProtocol();
 };
@@ -132,6 +135,10 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
         return -1;
     }
 
+    // remember my rank for when INVOKE comes with rest of info
+    m_rank = procnum;
+    LOG("Registered backend number %lu.\n", m_rank);
+
     m_network->notifyReady();
 
     LOG("Made it out of initProto!\n");
@@ -190,9 +197,22 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
     }
 }
 
-dbgevent_t *ZMQNetServerProtocol::invokeNetwork(int numbe) {
+dbgevent_t* ZMQNetServerProtocol::invokeNetwork(int num_be) {
     LOG("ZMQNetServerProtocol::invokeNetwork\n");
-    return nullptr;
+
+    if (num_be < 1) {
+        LOG("zmqnet: num_be was less than 1; it was %d\n", num_be);
+        return NewEvent(DBGEV_ERROR);
+    }
+
+    // create bitset
+    m_rank_bitset = std::make_unique<LRunLEBitset>(num_be, m_rank);
+    m_rank_serialized = m_rank_bitset->serialize();
+    m_rank_serialized_size = LRunLEBitset::extractSerializedSize(m_rank_serialized);
+
+    LOG("zmqnet: created bitset. rank %s out of %d.\n", m_rank_bitset->toString().c_str(), num_be);
+
+    return NewEvent(DBGEV_OK);
 }
 
 int ZMQNetServerProtocol::sendReply(const char *response) {
@@ -285,10 +305,9 @@ zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
     auto hash = std::hash<std::string>{}(result.get());
     message.setHash(hash);
 
-    // TODO: generate real bitset
-    unsigned char fake_bitset[40] = "[i'm a fake bitset]";
-    auto bitset = message.initBitset(40);
-    memcpy(bitset.begin(), fake_bitset, 40); // copy
+    // bitset
+    auto bitset = message.initBitset(m_rank_serialized_size);
+    memcpy(bitset.begin(), m_rank_serialized.get(), m_rank_serialized_size); // copy
 
     // pack
     auto flat = capnp::messageToFlatArray(builder);

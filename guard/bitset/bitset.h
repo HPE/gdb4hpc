@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <limits>
+#include <variant>
 
 class Bitset {
     // interface describing a bitset that is used to represent sets of ranks.
@@ -19,7 +20,7 @@ class Bitset {
     // default implementations in terms of the required operations, but default
     // implementations operate on one bit at a time and are slow. derived
     // classes should implement faster versions whenever possible.
-  public:
+public:
     virtual ~Bitset() = default;
 
     // pure virtual functions:
@@ -65,31 +66,13 @@ class Bitset {
     virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const;
 
     // a serialized bitset, not necessarily in a human readable format. derived
-    // classes should implement a (const Serialized&) constructor to
+    // classes should implement a (SerializedPtr) constructor to
     // do deserialization.
     // e.g.
     //   auto serialized_bitset = bitset->serialize();
-    //   auto new_bitset = Bitset(serialized_bitset);
-    class Serialized {
-    public:
-        // takes ownership of data
-        explicit Serialized(char * data) : m_data(data, std::free), m_offset{0} {};
-
-        // useful when you have nested data and want to read part of the
-        // message and then send the rest off to a different function
-        void setOffset(size_t offset) const { m_offset = offset; }
-        const char * get() const { 
-            if (m_data)
-                return m_data.get() + m_offset;
-            else
-                return nullptr;
-        }
-        char * release() { return m_data.release(); }
-    private:
-        using DataPtr = std::unique_ptr<char, decltype(&std::free)>;
-        DataPtr m_data;
-        mutable size_t m_offset;
-    };
+    //   auto new_bitset = Bitset(serialized_bitset.get());
+    using SerializedPtr = const char *;
+    using Serialized = std::unique_ptr<char>;
 
     // returns a Bitset::Serialized class that can be used to construct a new
     // bitset.

@@ -30,11 +30,13 @@ Product Description:
 
 Purpose:
 ---------
-  This is bug fix release
+  This is bug fix and performance release
 
-  - Fixed the startup behavior when launching with rocgdb
-  - Fixed launch using --qsub on PBS/Pro
-
+  - Fixed the version displayed in the startup banner and show version.
+  - Improve performance by reducing binaries by 100 megabytes,
+        200 megabytes when --gpu is specified.
+  - Update cuda-gdb for nvidia gpus to ddt_cuda-gdb 11.0.
+  - Add support for Red Hat 8.3 packages.
 
 Product and OS Dependencies:
 -----------------------------

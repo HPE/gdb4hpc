@@ -345,5 +345,5 @@ zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
     // pack
     auto flat = capnp::messageToFlatArray(builder);
 
-    return zmqnet::make_ByteArray(flat.asBytes().begin(), flat.asBytes().size()); // copy
+    return flat.forceReleaseAsBytes();
 }

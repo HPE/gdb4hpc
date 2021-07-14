@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <unordered_map>
 
 #include "zmqnet.hpp"
 
@@ -21,6 +22,11 @@ extern "C" {
 // This function is unfinished. Right now, it does not actually do any
 // aggregation, only copies and flattens the incoming list of messages. gdb4hpc 
 // expects identical results to be merged, which does not happen right now.
+
+struct Message {
+	LRunLEBitset bitset;
+	const char * data;
+};
 
 zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::ByteArray> const& inputs) {
 	// any reader created from a flat array reader will have pointers into the
@@ -54,36 +60,55 @@ zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::By
 
 	std::cerr << "agg: got " << readers.size() << " readers." << std::endl;
 	
-	// TODO: sort and aggregate messages
-
-	// determine the number of messages we have. each reader can have an 
-	// arbitrary amount of messages.
-	auto numMessages = 0;
+	std::unordered_map<uint64_t, Message> table;
 	for (auto &&reader : readers) {
-		auto root = reader.getRoot<ZmqnetMessagePackage>();
-		numMessages += root.getMessages().size();
+		const auto &messages = reader.getRoot<ZmqnetMessagePackage>().getMessages();
+		for (const auto &message : messages) {
+			auto hash = message.getHash();
+			const auto &serializedBitset = message.getBitset().asChars().begin();
+			
+			{
+				std::cerr << "agg: merging message: " << std::endl;
+				std::cerr << "\tdata: " << message.getData().cStr() << std::endl;
+				std::cerr << "\thash: " << message.getHash() << std::endl;
+				auto bitsetPtr = message.getBitset().asChars().begin();
+				auto bitset = LRunLEBitset(bitsetPtr);
+				std::cerr << "\tbset: " << bitset.toSet().c_str() << std::endl;
+			}
+
+			if (table.count(hash)) {
+				// entry with same data exists
+				std::cerr << "agg: entry already exists" << std::endl;
+				std::cerr << "\t" << table.at(hash).bitset.toSet() << " <- " << LRunLEBitset(serializedBitset).toSet() << std::endl;
+				table.at(hash).bitset |= LRunLEBitset(serializedBitset);
+			} else {
+				// new entry
+				std::cerr << "agg: new entry" << std::endl;
+				table.insert({hash, {LRunLEBitset(serializedBitset), message.getData().cStr()}});
+			}
+		}
 	}
 
-	std::cerr << "agg: got " << numMessages << " messages." << std::endl;
+	std::cerr << "agg: got " << table.size() << " messages after merging." << std::endl;
 
 	// put all messages into single outgoing message pack
 	capnp::MallocMessageBuilder outgoing_builder;
 	auto outgoing_message_pack = outgoing_builder.initRoot<ZmqnetMessagePackage>();
-	auto outgoing_message_list = outgoing_message_pack.initMessages(numMessages);
-	size_t i{};
+	auto outgoing_message_list = outgoing_message_pack.initMessages(table.size());
 	
-	for (auto &&reader : readers) {
-		auto messages = reader.getRoot<ZmqnetMessagePackage>().getMessages();
-		for (size_t j = 0; j < messages.size(); j++, i++) {
-			std::cerr << "	setting message: " << i << std::endl;
-			std::cerr << "\tdata: " << messages[j].getData().cStr() << std::endl;
-			std::cerr << "\thash: " << messages[j].getHash() << std::endl;
-			auto bitsetPtr = messages[j].getBitset().asChars().begin();
-			auto bitset = LRunLEBitset(bitsetPtr);
-			std::cerr << "\tbset: " << bitset.toSet().c_str() << std::endl;
+	size_t i{};
+	for (const auto &[hash, messageStruct] : table) {
+		auto message = outgoing_message_list[i];
 
-			outgoing_message_list.setWithCaveats(i, messages[j]);
-		}
+		message.setData(messageStruct.data);
+		message.setHash(hash);
+
+		auto serializedBitset = messageStruct.bitset.serialize();
+		auto bitsetSize = LRunLEBitset::extractSerializedSize(serializedBitset);
+		auto bitset = message.initBitset(bitsetSize);
+		memcpy(bitset.begin(), serializedBitset.get(), bitsetSize);
+
+		i++;
 	}
 
 	std::cerr << "agg: flattening" << std::endl;

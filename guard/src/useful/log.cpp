@@ -96,7 +96,7 @@ int write_log2(FILE *log, const char *buf) {
     return 0;
 }
 
-int close_log(FILE *log) { return fclose(log); }
+int close_log(FILE *log) { if (log) return fclose(log); else return 0; }
 
 int hook_stdoe(FILE *log) {
     // ensure the file ptr exists

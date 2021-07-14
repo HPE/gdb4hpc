@@ -91,7 +91,7 @@ int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
     return res;
 }
 
-int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
+int MRNServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv,
                               const char *key, const char *host, int port) {
     int res;
 
@@ -105,6 +105,11 @@ int MRNServerProtocol::initProto(int procnum, int argc, const char **argv,
     char *be_argv[6];
     unsigned par_port, par_rank;
     unsigned my_mrnrank;
+
+    // in mrnet's case, procnum and pid are passed as arguments to the layer
+    // above and don't need to be set here.
+    assert(procnum >= 0);
+    assert(pid >= 0);
 
     if ((hostname = cti_be_getNodeHostname()) == nullptr) {
         fprintf(stderr, "DbgSRVMRNInitProto cannot get hostname\n");

@@ -18,6 +18,8 @@
 #include "capnp/message.h"
 #include "capnp/serialize.h"
 
+#include "common_tools_be.h"
+
 #define LOG(...) (debug_flag ? _dvprint(__VA_ARGS__) : (void)0)
 
 // Proto instantiation
@@ -50,7 +52,7 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     return 0;
 }
 
-int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
+int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv,
                               const char *key, const char *host, int port) {
     LOG("ZMQNetServerProtocol::initProto\n");
 
@@ -64,6 +66,37 @@ int ZMQNetServerProtocol::initProto(int procnum, int argc, const char **argv,
 
     auto const [upstreamControlEndpoint, upstreamDataEndpoint, node_id,
 		rest_argc, rest_argv] = zmqnet::AsyncBackend::getParams(argc, argv);
+
+    // set rank for layer above
+    procnum = node_id;
+
+    {
+        // figure out our pid
+        auto pids = std::unique_ptr<cti_pidList_t, decltype(&cti_be_destroyPidList)>
+            (cti_be_findAppPids(), cti_be_destroyPidList);
+        assert(pids != nullptr);
+        auto first = cti_be_getNodeFirstPE();
+        assert(first != -1);
+        auto offset = node_id - first;
+
+        LOG("zmqnet: pid offset is %d from %d. %d ranks reside on this node.\n", offset, first, pids->numPids);
+
+        if (offset >= pids->numPids) {
+            LOG("zmqnet: ERROR, offset (%d) >= numPids (%d).\n", offset, pids->numPids);
+            return -1;
+        }
+
+        // set pid for layer above
+        pid = pids->pids[offset].pid;
+
+        // double check that our assumption that node_id == rank is correct
+        if (pids->pids[offset].rank != node_id) {
+            LOG("zmqnet: ERROR: rank != node_id. (%d != %d)\n", pids->pids[offset].rank, node_id);
+            return -1;
+        }
+    }
+
+    LOG("zmqnet: set rank and pid: %d and %d.\n", procnum, pid);
 
     m_network = std::make_unique<zmqnet::AsyncBackend>(upstreamControlEndpoint, upstreamDataEndpoint, node_id);
 

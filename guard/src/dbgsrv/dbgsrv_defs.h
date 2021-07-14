@@ -20,7 +20,6 @@
 #define _DBGSRV_DEFS_H
 
 extern int Shutdown;
-extern int exit_sleep_time;
 extern int my_rank;
 extern int sock_fd;
 extern int gpu_flag;

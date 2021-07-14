@@ -18,7 +18,10 @@ public:
     virtual ~DebugServerProtocol() = default;
 
     virtual const char * name() = 0;
-    virtual int initProto(int procnum, int argc, const char **argv,
+    // by the time initProto is done, procnum and pid must hold valid (non-negative)
+    // values. some protocols set them inside the function, and some have them
+    // set before this function is called.
+    virtual int initProto(int &procnum, int &pid, int argc, const char * const *argv,
         const char *key, const char *host, int port) = 0;
     virtual void endProto() = 0;
     virtual fd_set* getFdSet() = 0;
@@ -39,7 +42,10 @@ protected:
 };
 
 extern int DbgSetSrvProto(const char *);
-extern int DbgInitProto(int, int, const char **, const char *, const char *, int);
+// by the time initProto is done, procnum and pid must hold valid (non-negative)
+// values. some protocols set them inside the function, and some have them
+// set before this function is called.
+extern int DbgInitProto(int&, int&, int, const char * const *, const char *, const char *, int);
 extern fd_set *DbgGetFDSet(void);
 extern void DbgRunProto(fd_set *);
 extern void DbgEndProto(void);

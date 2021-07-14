@@ -46,6 +46,8 @@
 #include "mparch.h"
 #include "useful.h"
 
+#include "common_tools_be.h"
+
 int debug_flag = 0;
 int gpu_flag = 0;
 int early_entry_flag = 0;
@@ -88,7 +90,6 @@ FILE *out_stream;
 FILE *err_stream;
 
 int Shutdown = 0;
-int exit_sleep_time = 0;
 int WDT = 0;
 int my_rank;
 int sock_fd;
@@ -111,7 +112,7 @@ struct timeval tv_end;
 
 void Usage(void);
 void Server(void);
-void EndServer(int);
+void EndServer();
 void CheckWDT(void);
 char *MakeStr(int, char *[]);
 int FindMPArch(char *);
@@ -336,11 +337,6 @@ int main(int argc, char *argv[], char *env[]) {
             break;
 
         case MPARCH_ALPS:
-            if (pid < 0) {
-                fprintf(stderr, "MPARCH_ALPS: no pid\n");
-                exit(1);
-            }
-
             break;
 
         case MPARCH_MRNET:
@@ -351,8 +347,6 @@ int main(int argc, char *argv[], char *env[]) {
             exit(1);
     }
 
-    // set global my_rank var here
-    my_rank = procnum;
     // for P2P
 #if 0
 	{
@@ -410,26 +404,50 @@ int main(int argc, char *argv[], char *env[]) {
     // arguments are left at the end, and sets the global optind to point to the
     // first unprocessed one.
 
-    // TODO make this an argvStream
-
-    std::vector<const char *> protoArgv;
-    protoArgv.push_back(argv[0]);
+    ArgvStream protoArgv;
+    protoArgv << argv[0];
     for (; optind < argc; optind++) {
-        protoArgv.push_back(argv[optind]);
+        protoArgv << argv[optind];
     }
-    protoArgv.push_back(nullptr);
 
-    if ((pnum = DbgInitProto(procnum, protoArgv.size() - 1, protoArgv.data(), jobKey, host, cb)) < 0) {
+    // if procnum and pid are not already set, initProto sets them.
+    if ((pnum = DbgInitProto(procnum, pid, protoArgv.argc(), protoArgv.c_strs().data(), jobKey, host, cb)) < 0) {
         fprintf(stderr, "Init of protocol failed\n");
-        exit(1);
+        return 1;
+    }
+    // procnum and pid must be set by the end of DbgInitProto
+    if (procnum < 0) {
+        fprintf(stderr, "no procnum (rank) after DbgInitProto.\n");
+        return 1;
+    }
+    if (pid < 0) {
+        fprintf(stderr, "no pid after DbgInitProto.\n");
+        return 1;
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitProto"));
+
+    // set global my_rank
+    my_rank = procnum;
+
+    // create log file
+    auto log = std::unique_ptr<FILE, decltype(&close_log)>(nullptr, close_log);
+    if (debug_flag) {
+        auto nid = cti_be_getNodeHostname();
+        log.reset(create_log(procnum, nid));
+        if (log) {
+            hook_stdoe(log.get());
+        } else {
+            fprintf(stderr, "Warning: Could not create log file on %s rank %d.\n", nid, procnum);
+        }
+        free(nid);
+    }
 
     // init dbg backend
     DBEPERFLOG(SetTimerStart("DbgInitBackend"));
     if ((e = DbgInit(&DbgFD, &IOBackendFD, env)) != NULL) {
         DbgInvokeCB(host, cb, hname, pnum, procnum, port, e);
-        EndServer(1);
+        EndServer();
+        return 1;
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend"));
 
@@ -455,7 +473,8 @@ int main(int argc, char *argv[], char *env[]) {
     } else {
         if (procnum < 0 && strncmp(proto, "socket", strlen("socket")) == 0) {
             fprintf(stderr, "Invalid process number\n");
-            exit(1);
+            EndServer();
+            return 1;
         }
 
         e = DbgLaunch(host, cb, proto, prog, nullptr, env, arch);
@@ -465,7 +484,8 @@ int main(int argc, char *argv[], char *env[]) {
         fprintf(stderr, "dbgsrv: dbg_invoke failed, error %d = %s\n",
                 e->ev_event, e->ev_errstr);
         FreeEvent(e);
-        EndServer(1);
+        EndServer();
+        return 1;
     }
 
 #ifdef PERFLOG
@@ -476,16 +496,17 @@ int main(int argc, char *argv[], char *env[]) {
     ** Exit if the attach or invoke failed.
     */
     DBEPERFLOG(SetTimerStart("DbgCallBack"));
-    if (!DbgInvokeCB(host, cb, hname, pnum, procnum, port, e)) EndServer(1);
+    if (!DbgInvokeCB(host, cb, hname, pnum, procnum, port, e)) {
+        EndServer();
+        return 1;
+    }
     DBEPERFLOG(SetTimerStopAndLog("DbgCallBack"));
 
     if (e != NULL) FreeEvent(e);
 
     Server();
-
-    EndServer(0);
-
-    return (0);
+    EndServer();
+    return 0;
 }
 
 void Usage(void) {
@@ -636,22 +657,12 @@ void Server(void) {
     }
 }
 
-void EndServer(int stat) {
+void EndServer() {
     DVPRINT("EndServer called\n");
     DbgFinalize();
     DbgEndProto();
 
-    // If exit_sleep_time is not zero, we want to sleep before calling exit.
-    // This is useful when there is an automatic cleanup mechanism and we wish
-    // to use that instead of attempting to cleanup ourselves.
-    if (exit_sleep_time) {
-        DVPRINT("Sleeping until we are killed off...\n");
-        sleep(exit_sleep_time);  // to prevent frontend detects network failures
-    }
-
-    DVPRINT("Exiting...\n");
-
-    exit(stat);
+    DVPRINT("Returning from EndServer...\n");
 }
 
 /*

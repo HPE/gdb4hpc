@@ -133,9 +133,6 @@ int main(int argc, char **argv) {
     int i;
     char **tmp;
     pid_t mypid;
-    // debug related variables
-    char *nidName = NULL;
-    FILE *log = NULL;
 #if 1
     // TODO: UPC addition here
     // udaserver info
@@ -252,15 +249,6 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s ", *tmp++);
         }
         fprintf(stderr, "\n"); 
-    }
-
-    if (debug_flag) {
-        // get this nodes nidName
-        if ((nidName = cti_be_getNodeHostname()) == NULL) {
-            fprintf(stderr, "cti_be_getNodeHostname failed.\n");
-            return 1;
-        }
-        DVPRINT("My nidName: %s\n", nidName);
     }
 
 #define CRAY_CCE_UPC 1
@@ -429,14 +417,6 @@ int main(int argc, char **argv) {
             DVPRINT("%s\n", this_argv.asString().c_str());
         }
 
-        if (debug_flag) {
-            log = NULL;
-            // create a log if debug is turned on
-            if ((log = create_log(myPids->pids[i].rank, nidName)) == NULL) {
-                fprintf(stderr, "Could not create dbgsrv logfile.\n");
-            }
-        }
-
 #ifdef BE_VALGRIND
         FILE *valgrind_log = NULL;
         char valgrind_log_str[BUFSIZ];
@@ -487,13 +467,6 @@ int main(int argc, char **argv) {
 
             // cleanup pid list
             cti_be_destroyPidList(myPids);
-
-            if (debug_flag) {
-                // close logfile
-                close_log(log);
-                // cleanup nidName
-                free(nidName);
-            }
 #ifdef BE_VALGRIND
             // close valgrind logfile
             close_log(valgrind_log);
@@ -511,15 +484,7 @@ int main(int argc, char **argv) {
 
         // parent case, or final time through
 
-        if (debug_flag) {
-            // if debug is on, hook into the logfile
-            if (log != NULL) {
-                hook_stdoe(log);
-            } else {
-                DVPRINT("Could not call hook_stdoe\n");
-            }
-            DVPRINT("Exec'ing dbgsrv...\n");
-        }
+        DVPRINT("Exec'ing dbgsrv...\n");
 #ifdef BE_VALGRIND
         // exec valgrind
         execvp("valgrind", const_cast<char**>(valgrind_argv.c_strs().data()));

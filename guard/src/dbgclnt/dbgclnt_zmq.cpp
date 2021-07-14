@@ -106,19 +106,17 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
     auto reader = capnp::UnalignedFlatArrayMessageReader(words_array);
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
-    // TODO fully unpack
-    auto message = pack.getMessages()[0];
-
-    LOG("got reply: \n");
-    LOG("\tdata: %s\n", message.getData().cStr());
-    LOG("\thash: %lu\n", message.getHash());
-    auto bitsetPtr = message.getBitset().asChars().begin();
-    auto bitset = LRunLEBitset(bitsetPtr);
-    LOG("\tbitset: %s\n", bitset.toSet().c_str());
-
-    // TODO process reply
-
-    received |= bitset;
+    // TODO fully unpack and process
+    for (const auto message : pack.getMessages()) {
+        LOG("got reply: \n");
+        LOG("\tdata: %s\n", message.getData().cStr());
+        LOG("\thash: %lu\n", message.getHash());
+        auto bitsetPtr = message.getBitset().asChars().begin();
+        auto bitset = LRunLEBitset(bitsetPtr);
+        LOG("\tbitset: %s\n", bitset.toSet().c_str());
+        
+        received |= bitset;
+    }
 
     return {};
 }
@@ -194,6 +192,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
+    // dbgsrv is shipped here
     if (!shipCommonFiles(manifest_id, gpu_flag)) {
         PrintOutError("Error shipping common files.\n");
         return 1;
@@ -203,11 +202,11 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         PrintOutMsg("Error shipping OMPD files. OMPD support will not be available.\n");
     }
 
-    if (cti_addManifestBinary(manifest_id, "dbgsrv_alps")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add dbgsrv-alps to manifest.\n");
-        return 1;
-    }
+    // if (cti_addManifestBinary(manifest_id, "dbgsrv_alps")) {
+    //     PrintOutError("CTI error: %s\n", cti_error_str());
+    //     PrintOutError("Failed to add dbgsrv-alps to manifest.\n");
+    //     return 1;
+    // }
 
     // TODO support --with-valgrind
 
@@ -221,8 +220,8 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     // create network //////////////////////////////////////////////////////////
 
-    auto dbgsrvAlpsArgs = ArgvStream(
-        "dbgsrv_alps",
+    auto dbgsrvArgs = ArgvStream(
+        "dbgsrv",
         "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
         "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
         "-a", arch,
@@ -230,14 +229,14 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         "-e", backend,
         "-f", prog
     );
-    if (gpu_flag)         dbgsrvAlpsArgs << "--gpu";
-    if (debug_flag)       dbgsrvAlpsArgs << "--debug";
-    if (early_entry_flag) dbgsrvAlpsArgs << "--early-entry";
-    if (isNonStop)        dbgsrvAlpsArgs << "--non-stop";
-    if (gdb && serverGdb) dbgsrvAlpsArgs << "--gdb" << *serverGdb;
+    if (gpu_flag)         dbgsrvArgs << "--gpu";
+    if (debug_flag)       dbgsrvArgs << "--debug";
+    if (early_entry_flag) dbgsrvArgs << "--early-entry";
+    if (isNonStop)        dbgsrvArgs << "--non-stop";
+    if (gdb && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
 
     LOG("zmqnet argv:\n");
-    for (const auto cstr : dbgsrvAlpsArgs.c_strs()) {
+    for (const auto cstr : dbgsrvArgs.c_strs()) {
         LOG("%s ", cstr);
     }
     LOG("\n");
@@ -246,7 +245,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     m_network = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
         zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
-        dbgsrvAlpsArgs.c_strs().data()  
+        dbgsrvArgs.c_strs().data()  
     );
 
     { // create send command stream

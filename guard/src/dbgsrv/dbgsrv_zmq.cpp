@@ -128,12 +128,6 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             m_pending_command = std::make_unique<CommandDispatchFunc>
                 (std::bind(dbgsrv_dispatch_cmds, command.asChars().begin(), std::placeholders::_1));
             auto future = m_pending_command->get_future();
-            
-            // tell main thread there is an event waiting
-            if (!incEventFlag()) {
-                LOG("zmqnet: incEventFlag failed!\n");
-                // TODO shut down
-            }
 
             // ok for main thread to run (and delete) m_pending_command now
             command_lock.unlock();
@@ -162,12 +156,6 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
         m_network->registerCallback(commandStreamId, command_callback);
     }
 
-    // Set up event fd
-    if (pipe(m_event_pipe)) {
-        LOG("Creation of event pipe failed.\n");
-        return -1;
-    }
-
     // remember my rank for when INVOKE comes with rest of info
     m_rank = procnum;
     LOG("Registered backend number %lu.\n", m_rank);
@@ -182,21 +170,13 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 void ZMQNetServerProtocol::endProto() {
     LOG("ZMQNetServerProtocol::endProto\n");
 
-    close(m_event_pipe[0]);
-    close(m_event_pipe[1]);
-
     if (m_network) m_network->waitForExit();
 }
 
-fd_set *ZMQNetServerProtocol::getFdSet() {
-    LOG("ZMQNetServerProtocol::getFdSet\n");
-    // this is reconstructed every call because the main loop layer adds to it
-    // every iteration
-
-    FD_ZERO(&m_fds);
-    FD_SET(m_event_pipe[0], &m_fds);
-
-    return &m_fds;
+bool ZMQNetServerProtocol::checkEvents() const {
+    LOG("ZMQNetServerProtocol::checkEvents\n");
+    std::scoped_lock<std::mutex> lock(m_command_lock);
+    return m_pending_command != nullptr;
 }
 
 int ZMQNetServerProtocol::setupIo(int *fd, int *port) { 
@@ -223,11 +203,6 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
     } else {
         LOG("warning: called runProto with null pending command.\n");
     }
-
-    if (!decEventFlag()) {
-        LOG("error: decEventFlag failed!\n");
-        // TODO shut down
-    }
 }
 
 dbgevent_t* ZMQNetServerProtocol::invokeNetwork(int num_be) {
@@ -252,74 +227,6 @@ int ZMQNetServerProtocol::sendReply(const char *response) {
     LOG("ZMQNetServerProtocol::sendReply\n");
     // this is done asynchronously by the zmqnet callbacks
     return 0;
-}
-
-bool ZMQNetServerProtocol::incEventFlag() {
-    LOG("ZMQNetServerProtocol::incEventFlag\n");
-    // put an x in the pipe to have the main thread call runProto.
-    const char buf[] = {'x'};
-    ssize_t sent = 0;
-    bool fatal_error = false;
-
-    do {
-        sent = write(m_event_pipe[1], &buf, sizeof(char));
-
-        if (sent < 0) {
-            LOG("warning: error in write: %d: %s. attempting to handle...\n", errno, strerror(errno));
-
-            switch (errno) {
-                case EINTR: {
-                    // write was interupted by signal.
-                    // we just try again.
-                    break;
-                }
-
-                default: {
-                    LOG("error: unhandled error in write %d: %s\n", errno, strerror(errno));
-                    fatal_error = true;
-                }
-            }
-        }
-    } while (sent <= 0 && !fatal_error);
-
-    return !fatal_error;
-}
-
-bool ZMQNetServerProtocol::decEventFlag() {
-    LOG("ZMQNetServerProtocol::decEventFlag\n");
-    // consume a byte in the pipe
-    char buf[1];
-    size_t nread;
-    bool fatal_error = false;
-
-    do {
-        nread = read(m_event_pipe[0], buf, 1);
-
-        if (nread == 0) {
-            LOG("error: read detected EOF\n");
-            fatal_error = true;
-            break;
-        }
-
-        if (nread < 0) {
-            LOG("warning: error in read: %d: %s. attempting to handle...\n", errno, strerror(errno));
-
-            switch (errno) {
-                case EINTR: {
-                    // read was interupted by signal.
-                    // we just try again.
-                    break;
-                }
-
-                default: {
-                    LOG("error: unhandled error in read %d: %s\n", errno, strerror(errno));
-                    fatal_error = true;
-                }
-            }
-        }
-    } while (nread <= 0 && !fatal_error);
-
-    return !fatal_error;
 }
 
 // private /////////////////////////////////////////////////////////////////////

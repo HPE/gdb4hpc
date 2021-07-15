@@ -26,6 +26,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
+#include <unistd.h>
 
 #include "dbgsrv_proto.h"
 #include "dbgsrv_defs.h"
@@ -103,7 +105,62 @@ int DbgInitProto(int &procnum, int &pid, int argc, const char * const * argv, co
     return DbgSrvProtoSW->initProto(procnum, pid, argc, argv, key, host, port);
 }
 
-fd_set *DbgGetFDSet(void) { return DbgSrvProtoSW->getFdSet(); }
+fd_set *DbgGetFdSet(int dbgFd, int ioClientFd, int ioBackendFd) { 
+    auto readfds = DbgSrvProtoSW->getFdSet(); 
+
+    if (!readfds) {
+        // if the protocol doesn't use fdsets, it will return nullptr. in that
+        // case we'll make our own.
+        static fd_set fds;
+        FD_ZERO(&fds);
+        readfds = &fds;
+    }
+
+    // add the debugger output file descriptor to the set
+    if (dbgFd >= 0) FD_SET(dbgFd, readfds);
+
+    /*
+    ** If IOBackendFD >= 0 then we are reading the target output and
+    ** the debugger has been told to use read it. We should read from the
+    ** master side.
+    */
+    if (ioBackendFd >= 0) {
+        FD_SET(ioBackendFd, readfds);
+
+        /*
+        ** IOClientFD is just used to set up the socket
+        ** to the client. Once this has been done,
+        ** it is set to -1 and not used again.
+        */
+        if (ioClientFd >= 0) FD_SET(ioClientFd, readfds);
+    }
+
+    return readfds;
+}
+
+int DbgCheckEvents(fd_set *fds) {
+    int dtbsz = min(FD_SETSIZE, getdtablesize());
+
+    struct timeval tv;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+
+    switch (select(dtbsz, fds, NULL, NULL, &tv)) {
+        case -1:
+            // error case, layer above will handle it for us.
+            return -1;
+        case 0:
+            // if the proto supports a checkEvents function, check it here
+            if (DbgSrvProtoSW->checkEvents()) return 1;
+            return 0;
+        default:
+            // event found, layer above will handle it for us.
+            return 1;
+    }
+
+    // should never get here
+    return 0;
+}
 
 void DbgRunProto(fd_set *fds) { DbgSrvProtoSW->runProto(fds); }
 

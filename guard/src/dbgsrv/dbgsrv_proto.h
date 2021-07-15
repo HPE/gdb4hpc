@@ -24,7 +24,31 @@ public:
     virtual int initProto(int &procnum, int &pid, int argc, const char * const *argv,
         const char *key, const char *host, int port) = 0;
     virtual void endProto() = 0;
-    virtual fd_set* getFdSet() = 0;
+
+    // Two ways to notify the main thread that runProto should be called are
+    // supported. In order of precedence:
+    // 1. getFdSet(). The main thread calls getFdSet to get a set of file
+    //    descriptors and then calls select on them. If any supplied fds
+    //    becomes ready for reading, that is a signal to call runProto. If a
+    //    protocol doesn't support event fds, this function should return
+    //    nullptr.
+    // 2. checkEvents(). If, after calling select on the getFdSet set (if
+    //    provided) no fds are available for reading, the main thread will call
+    //    checkEvents. If it returns true, the main thread will call runProto.
+    //    If a protocol doesn't support using this function, the function should
+    //    return false.
+    //
+    //    There are circumstances where the main thread will call runProto even
+    //    without the notification from the protocol. This happens whenever a
+    //    top layer event, such as output from gdb, happens. Thus, a call to
+    //    runProto does not necessarily mean a protocol event is ready, only
+    //    that the main thread is happy to let the protocol have its turn if it
+    //    wants to. Therefore, runProto must do its own checking to verify that
+    //    something is indeed ready to go.
+
+    virtual fd_set* getFdSet() { return nullptr; };
+    virtual bool checkEvents() const { return false; };
+    
     virtual void runProto(fd_set *fds) = 0;
     virtual int invokeCallback(const char *chost, int cport, const char *host, 
         int prog, int pnum, int port, dbgevent_t *e) = 0;
@@ -41,17 +65,15 @@ protected:
     void registerProtocol();
 };
 
-extern int DbgSetSrvProto(const char *);
-// by the time initProto is done, procnum and pid must hold valid (non-negative)
-// values. some protocols set them inside the function, and some have them
-// set before this function is called.
-extern int DbgInitProto(int&, int&, int, const char * const *, const char *, const char *, int);
-extern fd_set *DbgGetFDSet(void);
-extern void DbgRunProto(fd_set *);
-extern void DbgEndProto(void);
-extern int DbgInvokeCB(char *, int, char *, int, int, int, dbgevent_t *);
-extern int DbgEventCB(dbgevent_t *);
-extern int DbgSetupIO(int *, int *);
-extern int DbgTransferIO(int, char *, int);
-extern dbgevent_t *DbgInvokeNetwork(int);
-extern int DbgSendReply(const char *);
+int DbgSetSrvProto(const char *);
+int DbgInitProto(int&, int&, int, const char * const *, const char *, const char *, int);
+fd_set *DbgGetFdSet(int dbgFd, int ioClientFd, int ioBackendFd);
+int DbgCheckEvents(fd_set *);
+void DbgRunProto(fd_set *);
+void DbgEndProto();
+int DbgInvokeCB(char *, int, char *, int, int, int, dbgevent_t *);
+int DbgEventCB(dbgevent_t *);
+int DbgSetupIO(int *, int *);
+int DbgTransferIO(int, char *, int);
+dbgevent_t *DbgInvokeNetwork(int);
+int DbgSendReply(const char *);

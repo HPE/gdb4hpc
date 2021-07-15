@@ -21,7 +21,7 @@ public:
     int initProto(int &procnum, int &pid, int argc, const char * const * argv,
         const char *key, const char *host, int port) override;
     void endProto() override;
-    fd_set* getFdSet() override;
+    bool checkEvents() const override;
     void runProto(fd_set *fds) override;
     int invokeCallback(const char *chost, int cport, const char *host, int prog,
         int pnum, int port, dbgevent_t *e) override;
@@ -34,22 +34,13 @@ private:
     using ResultPtr = std::unique_ptr<char, decltype(&std::free)>;
     using CommandDispatchFunc = std::packaged_task<ResultPtr (const dbgcomm_info*)>;
 
-    // event flag functions return true on success, false on failure. a failure
-    // means that the main/zmqnet threads will probably desync and therefore 
-    // the debugger should shut down.
-    bool incEventFlag();
-    bool decEventFlag();
-
     // take a result and use capnp to serialize it
     zmqnet::ByteArray packResult(ResultPtr result);
 
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 
     std::unique_ptr<CommandDispatchFunc> m_pending_command;
-    std::mutex m_command_lock;
-
-    fd_set m_fds;
-    int m_event_pipe[2];
+    mutable std::mutex m_command_lock;
 
     // bitset related
     size_t m_rank;

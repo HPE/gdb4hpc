@@ -202,12 +202,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         PrintOutMsg("Error shipping OMPD files. OMPD support will not be available.\n");
     }
 
-    // if (cti_addManifestBinary(manifest_id, "dbgsrv_alps")) {
-    //     PrintOutError("CTI error: %s\n", cti_error_str());
-    //     PrintOutError("Failed to add dbgsrv-alps to manifest.\n");
-    //     return 1;
-    // }
-
     // TODO support --with-valgrind
 
     if (cti_addManifestLibrary(manifest_id, "libzmqnetagg.so")) {

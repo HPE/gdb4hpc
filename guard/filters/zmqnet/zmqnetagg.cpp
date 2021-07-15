@@ -16,9 +16,24 @@
 
 extern "C" {
 
-struct Message {
-	LRunLEBitset bitset;
+struct HashKey {
 	const char * data;
+	size_t dataLen;
+	uint64_t hash;
+
+	struct Hash {
+		size_t operator() (const HashKey &key) const {
+			return key.hash;
+		}
+	};
+
+	struct Compare {
+		bool operator() (const HashKey &a, const HashKey &b) const {
+			if (a.hash != b.hash) return false;
+			if (a.dataLen != b.dataLen) return false;
+			return strcmp(a.data, b.data) == 0;
+		}
+	};
 };
 
 zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::ByteArray> const& inputs) {
@@ -39,21 +54,22 @@ zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::By
 	}
 
 	// data hash -> Message struct table
-	std::unordered_map<uint64_t, Message> table;
+	std::unordered_map<HashKey, LRunLEBitset, HashKey::Hash, HashKey::Compare> table;
 
 	// build up table
 	for (auto &&reader : readers) {
 		const auto &messages = reader.getRoot<ZmqnetMessagePackage>().getMessages();
 		for (const auto &message : messages) {
-			auto hash = message.getHash();
+			HashKey key = {message.getData().cStr(), message.getData().size(), message.getHash()};
 			const auto &serializedBitset = message.getBitset().asChars().begin();
 
-			if (table.count(hash)) {
+			auto loc = table.find(key);
+			if (loc != table.end()) {
 				// entry with same data exists
-				table.at(hash).bitset |= LRunLEBitset(serializedBitset);
+				loc->second |= LRunLEBitset(serializedBitset);
 			} else {
 				// new entry
-				table.insert({hash, {LRunLEBitset(serializedBitset), message.getData().cStr()}});
+				table.insert({key, LRunLEBitset(serializedBitset)});
 			}
 		}
 	}
@@ -64,16 +80,16 @@ zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::By
 	auto outgoingMessageList = outgoingMessagePack.initMessages(table.size());
 	
 	size_t i{};
-	for (const auto &[hash, messageStruct] : table) {
+	for (const auto &[hashKey, bitset] : table) {
 		auto message = outgoingMessageList[i];
 
-		message.setData(messageStruct.data);
-		message.setHash(hash);
+		message.setData(hashKey.data);
+		message.setHash(hashKey.hash);
 
-		auto serializedBitset = messageStruct.bitset.serialize();
+		auto serializedBitset = bitset.serialize();
 		auto bitsetSize = LRunLEBitset::extractSerializedSize(serializedBitset);
-		auto bitset = message.initBitset(bitsetSize);
-		memcpy(bitset.begin(), serializedBitset.get(), bitsetSize);
+		auto outgoingBitset = message.initBitset(bitsetSize);
+		memcpy(outgoingBitset.begin(), serializedBitset.get(), bitsetSize);
 
 		i++;
 	}

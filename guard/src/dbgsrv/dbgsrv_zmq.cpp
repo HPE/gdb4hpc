@@ -76,7 +76,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             (cti_be_findAppPids(), cti_be_destroyPidList);
         assert(pids != nullptr);
         auto first = cti_be_getNodeFirstPE();
-        assert(first != -1);
+        assert(first >= 0);
         auto offset = node_id - first;
 
         LOG("zmqnet: pid offset is %d from %d. %d ranks reside on this node.\n", offset, first, pids->numPids);

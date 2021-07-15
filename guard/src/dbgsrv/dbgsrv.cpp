@@ -442,11 +442,13 @@ int main(int argc, char *argv[], char *env[]) {
         free(nid);
     }
 
+    // ensure things are cleaned up on exit
+    auto endServerOnExit = OnScopeExit(&EndServer);
+
     // init dbg backend
     DBEPERFLOG(SetTimerStart("DbgInitBackend"));
     if ((e = DbgInit(&DbgFD, &IOBackendFD, env)) != NULL) {
         DbgInvokeCB(host, cb, hname, pnum, procnum, port, e);
-        EndServer();
         return 1;
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend"));
@@ -473,7 +475,6 @@ int main(int argc, char *argv[], char *env[]) {
     } else {
         if (procnum < 0 && strncmp(proto, "socket", strlen("socket")) == 0) {
             fprintf(stderr, "Invalid process number\n");
-            EndServer();
             return 1;
         }
 
@@ -484,7 +485,6 @@ int main(int argc, char *argv[], char *env[]) {
         fprintf(stderr, "dbgsrv: dbg_invoke failed, error %d = %s\n",
                 e->ev_event, e->ev_errstr);
         FreeEvent(e);
-        EndServer();
         return 1;
     }
 
@@ -497,7 +497,6 @@ int main(int argc, char *argv[], char *env[]) {
     */
     DBEPERFLOG(SetTimerStart("DbgCallBack"));
     if (!DbgInvokeCB(host, cb, hname, pnum, procnum, port, e)) {
-        EndServer();
         return 1;
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgCallBack"));
@@ -505,7 +504,6 @@ int main(int argc, char *argv[], char *env[]) {
     if (e != NULL) FreeEvent(e);
 
     Server();
-    EndServer();
     return 0;
 }
 

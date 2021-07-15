@@ -602,7 +602,7 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
 
         // Create a proto_message for this packet and add it to the result
         // ProtoMessage takes ownership of its arguments
-        result.emplace_back(bs.release(), strArr[index * 2]);
+        result.emplace_back(std::move(bs), std::move(strArr[index * 2]));
     }
 
     // free the final strArr allocated by packet_unpack
@@ -676,7 +676,7 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
                 }
 
                 // ProtoMessageSet takes ownership of source and msg
-                result->emplace_back(source.release(), msg);
+                result->emplace_back(std::move(source), std::move(msg));
             } else if (retval < 0) {
                 PrintOutError(
                     "ERROR: mrn_fe_check_io_and_event() received an invalid "
@@ -754,7 +754,7 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd
 
                     // Create a proto_message for this packet and add it to the result
                     // ProtoMessageSet takes ownership of the arguments
-                    result->emplace_back(bs.release(), strArr[index * 2]);
+                    result->emplace_back(std::move(bs), std::move(strArr[index * 2]));
                 }
 
                 // Cleanup the strArr

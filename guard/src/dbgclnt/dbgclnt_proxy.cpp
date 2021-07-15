@@ -1737,7 +1737,7 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
 
     DASSERT_NOT_NULL(target);
 
-    msg = ProtoMsgToSocProto(ProtoMessage(target->clone().release(), strdup(request)));
+    msg = ProtoMsgToSocProto(ProtoMessage(target->clone(), strdup(request)));
 
     // Send the header
     msg_head.msg_id = PROXY_ID(network);

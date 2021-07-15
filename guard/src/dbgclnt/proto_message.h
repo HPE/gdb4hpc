@@ -19,55 +19,39 @@
 
 #include "bitset.h"
 
-// TODO: make this class use smart pointers
-
 class ProtoMessage {
+private:
+    using unique_c_char_pointer = std::unique_ptr<char, decltype(&std::free)>;
+
 public:
-    // takes ownership of group and message
-    ProtoMessage(Bitset* group, char* message)
-        : m_group{group}, m_message{message}
+    // takes ownership of group and message.
+    ProtoMessage(std::unique_ptr<Bitset> &&group, unique_c_char_pointer &&message)
+        : m_group{std::move(group)}, m_message{std::move(message)}
     {};
-
-    // move instead of copy
-    ProtoMessage(const ProtoMessage &other) = delete;
-    ProtoMessage& operator= (const ProtoMessage &other) = delete;
-
-    ProtoMessage(ProtoMessage &&other)
-        : m_group{other.m_group}, m_message{other.m_message}
+    // helper for raw char pointers. takes ownership of group and message.
+    ProtoMessage(std::unique_ptr<Bitset> &&group, char *&&message)
+        : ProtoMessage(std::move(group), unique_c_char_pointer(message, std::free))
     {
-        other.m_group = nullptr;
-        other.m_message = nullptr;
+        message = nullptr;
     };
 
+    ProtoMessage(ProtoMessage &&other)
+        : m_group{std::move(other.m_group)}, m_message{std::move(other.m_message)}
+    {};
+
     ProtoMessage& operator= (ProtoMessage &&other) {
-        clear();
-
-        m_group = other.m_group;
-        m_message = other.m_message;
-
-        other.m_group = nullptr;
-        other.m_message = nullptr;
+        m_group = std::move(other.m_group);
+        m_message = std::move(other.m_message);
 
         return *this;
     }
-
-    ~ProtoMessage() {
-        clear();
-    }
     
-    const Bitset* getBitset() const { return m_group; };
-    const char* getMessage() const { return m_message; };
+    const Bitset* getBitset() const { return m_group.get(); };
+    const char* getMessage() const { return m_message.get(); };
+
 private:
-    void clear() {
-        delete m_group;
-        m_group = nullptr;
-
-        free(m_message);
-        m_message = nullptr;
-    }
-
-    Bitset* m_group;
-    char* m_message;
+    std::unique_ptr<Bitset> m_group;
+    unique_c_char_pointer m_message;
 };
 
 typedef std::vector<ProtoMessage> ProtoMessageSet;

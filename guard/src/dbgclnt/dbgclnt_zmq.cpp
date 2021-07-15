@@ -85,7 +85,6 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
     }
 
     // TODO respect target
-    // TODO update received
 
     // wait for result
     LOG("waiting for result...\n");
@@ -105,20 +104,22 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
 
     auto reader = capnp::UnalignedFlatArrayMessageReader(words_array);
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
+    auto result = ProtoMessageSet();
 
-    // TODO fully unpack and process
     for (const auto message : pack.getMessages()) {
         LOG("got reply: \n");
         LOG("\tdata: %s\n", message.getData().cStr());
         LOG("\thash: %lu\n", message.getHash());
         auto bitsetPtr = message.getBitset().asChars().begin();
-        auto bitset = LRunLEBitset(bitsetPtr);
-        LOG("\tbitset: %s\n", bitset.toSet().c_str());
+        auto bitset = std::make_unique<LRunLEBitset>(bitsetPtr);
+        LOG("\tbitset: %s\n", bitset->toSet().c_str());
         
-        received |= bitset;
+        received |= *bitset;
+
+        result.emplace_back(std::move(bitset), strdup(message.getData().cStr()));
     }
 
-    return {};
+    return result;
 }
 
 void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {

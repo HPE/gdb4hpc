@@ -31,7 +31,7 @@ struct HashKey {
 		bool operator() (const HashKey &a, const HashKey &b) const {
 			if (a.hash != b.hash) return false;
 			if (a.dataLen != b.dataLen) return false;
-			return strcmp(a.data, b.data) == 0;
+			return strncmp(a.data, b.data, a.dataLen) == 0;
 		}
 	};
 };
@@ -69,7 +69,7 @@ zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::By
 				loc->second |= LRunLEBitset(serializedBitset);
 			} else {
 				// new entry
-				table.insert({key, LRunLEBitset(serializedBitset)});
+				table.emplace(key, LRunLEBitset(serializedBitset));
 			}
 		}
 	}

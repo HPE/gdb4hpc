@@ -124,6 +124,9 @@ void SparseBitset::unset(size_t n) {
 	} else if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].sr_start == n) {
 		// n is the beginning of rangeIdx, collapse range upwards
 		m_sb_ranges[rangeIdx].sr_start = n + 1;
+	} else if (rangeIdx < m_sb_ranges.size() && m_sb_ranges[rangeIdx].sr_end == n) {
+		// n is the end of rangeIdx, collapse range downwards
+		m_sb_ranges[rangeIdx].sr_end = n - 1;
 	} else {
 		// n is solidly in the middle of a range, it will be split into two.
 		// we set the existing range to be the second half, and insert the first

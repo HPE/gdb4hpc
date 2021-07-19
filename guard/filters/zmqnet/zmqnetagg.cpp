@@ -3,12 +3,12 @@
  */
 
 #include <cassert>
-
 #include <vector>
 #include <string>
-#include <iostream>
+#include <unordered_map>
 
 #include "zmqnet.hpp"
+#include "lrunle_bitset.h"
 
 #include "dbg_zmq.capnp.h"
 #include "capnp/message.h"
@@ -16,62 +16,87 @@
 
 extern "C" {
 
-// This function is unfinished. Right now, it does not actually do any
-// aggregation, only copies and flattens the incoming list of messages. gdb4hpc 
-// expects identical results to be merged, which does not happen right now.
+struct HashKey {
+	const char * data;
+	size_t dataLen;
+	uint64_t hash;
+
+	struct Hash {
+		size_t operator() (const HashKey &key) const {
+			return key.hash;
+		}
+	};
+
+	struct Compare {
+		bool operator() (const HashKey &a, const HashKey &b) const {
+			if (a.hash != b.hash) return false;
+			if (a.dataLen != b.dataLen) return false;
+			return strncmp(a.data, b.data, a.dataLen) == 0;
+		}
+	};
+};
 
 zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::ByteArray> const& inputs) {
-	std::vector<ZmqnetMessagePackage::ZmqnetMessage::Reader> all_messages;
+	// any reader created from a flat array reader will have pointers into the
+	// flat array reader, thus it must be kept alive until everything derived
+	// from it is done using it.
+	std::vector<capnp::UnalignedFlatArrayMessageReader> readers;
 
-	std::cerr << "agg: unpacking" << std::endl;
-
-	for (const auto &byte_array : inputs) {
-		std::cerr << "agg: processing \"";
-		for (const auto &byte : byte_array) {
-			if (byte >= 0x20 && byte <= 0x7E) std::cerr << byte;
-			else fprintf(stderr, "0x%02x ", (int)byte);
-		}
-		std::cerr << "\" size:" << byte_array.size() << std::endl;
-
+	// extract capnp::readers from inputs
+	for (const auto &byteArray : inputs) {
 		// interpret byte array as capnp::word array
-		std::cerr << "agg: reinterpreting as words" << std::endl;
-		auto words_ptr = reinterpret_cast<capnp::word const *>(byte_array.begin());
-		assert(byte_array.size() % sizeof(capnp::word) == 0);
-		auto words_length = (byte_array.size() / sizeof(capnp::word));
-		auto word_array = kj::arrayPtr(words_ptr, words_length);
+		auto wordsPtr = reinterpret_cast<capnp::word const *>(byteArray.begin());
+		assert(byteArray.size() % sizeof(capnp::word) == 0);
+		auto wordsLen = (byteArray.size() / sizeof(capnp::word));
+		auto wordsArr = kj::arrayPtr(wordsPtr, wordsLen);
 
-		std::cerr << "agg: creating reader" << std::endl;
-		auto reader = capnp::UnalignedFlatArrayMessageReader(word_array);
+		readers.emplace_back(wordsArr);
+	}
 
-		std::cerr << "agg: getting root" << std::endl;
-		auto message_pack = reader.getRoot<ZmqnetMessagePackage>();
+	// data hash -> Message struct table
+	std::unordered_map<HashKey, LRunLEBitset, HashKey::Hash, HashKey::Compare> table;
 
-		std::cerr << "agg: getting messages" << std::endl;
-		auto messages = message_pack.getMessages();
-
-		std::cerr << "agg: pushing back" << std::endl;
+	// build up table
+	for (auto &&reader : readers) {
+		const auto &messages = reader.getRoot<ZmqnetMessagePackage>().getMessages();
 		for (const auto &message : messages) {
-			all_messages.push_back(message);
+			HashKey key = {message.getData().cStr(), message.getData().size(), message.getHash()};
+			const auto &serializedBitset = message.getBitset().asChars().begin();
+
+			auto loc = table.find(key);
+			if (loc != table.end()) {
+				// entry with same data exists
+				loc->second |= LRunLEBitset(serializedBitset);
+			} else {
+				// new entry
+				table.emplace(key, LRunLEBitset(serializedBitset));
+			}
 		}
 	}
 
-	std::cerr << "agg: got " << all_messages.size() << " messages." << std::endl;
+	// put all messages into single outgoing message pack
+	capnp::MallocMessageBuilder outgoingBuilder;
+	auto outgoingMessagePack = outgoingBuilder.initRoot<ZmqnetMessagePackage>();
+	auto outgoingMessageList = outgoingMessagePack.initMessages(table.size());
 	
-	// TODO: sort and aggregate messages
+	size_t i{};
+	for (const auto &[hashKey, bitset] : table) {
+		auto message = outgoingMessageList[i];
 
-	capnp::MallocMessageBuilder outgoing_builder;
-	auto outgoing_message_pack = outgoing_builder.initRoot<ZmqnetMessagePackage>();
-	auto outgoing_message_list = outgoing_message_pack.initMessages(all_messages.size());
-	
-	for (size_t i = 0; i < all_messages.size(); i++) {
-		outgoing_message_list.setWithCaveats(i, all_messages[i]);
+		message.setData(hashKey.data);
+		message.setHash(hashKey.hash);
+
+		auto serializedBitset = bitset.serialize();
+		auto bitsetSize = LRunLEBitset::extractSerializedSize(serializedBitset);
+		auto outgoingBitset = message.initBitset(bitsetSize);
+		memcpy(outgoingBitset.begin(), serializedBitset.get(), bitsetSize);
+
+		i++;
 	}
 
-	auto flat = capnp::messageToFlatArray(outgoing_builder);
+	auto flat = capnp::messageToFlatArray(outgoingBuilder);
 
-	std::cerr << "agg: sending" << std::endl;
-
-	return zmqnet::make_ByteArray(flat.asBytes().begin(), flat.asBytes().size());
+	return flat.forceReleaseAsBytes();
 }
 
-}
+} // extern C

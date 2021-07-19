@@ -155,46 +155,50 @@ size_t LRunLEBitset::extractSerializedSize(const Serialized &data) {
     return (stream.tellg() - start) + memSize;
 }
 
-Bitset& LRunLEBitset::operator=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
+Bitset& LRunLEBitset::operator=(const Bitset &other) {
+    auto LRLEother = dynamic_cast<const LRunLEBitset*>(&other);
+    if (!LRLEother) return Bitset::operator=(other);
 
-    m_nbits = other.m_nbits;
-    m_compressed = other.m_compressed;
-
-    return *this;
-}
-
-Bitset& LRunLEBitset::operator&=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
-
-    m_nbits = std::max(m_nbits, other.m_nbits);
-    m_compressed = std::move(andBuf(other.m_compressed.data(), other.m_compressed.size()));
+    m_nbits = LRLEother->m_nbits;
+    m_compressed = LRLEother->m_compressed;
 
     return *this;
 }
 
-Bitset& LRunLEBitset::operator|=(const Bitset &_other) {
-    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
+Bitset& LRunLEBitset::operator&=(const Bitset &other) {
+    auto LRLEother = dynamic_cast<const LRunLEBitset*>(&other);
+    if (!LRLEother) return Bitset::operator&=(other);
 
-    m_nbits = std::max(m_nbits, other.m_nbits);
-    m_compressed = std::move(orBuf(other.m_compressed.data(), other.m_compressed.size()));
+    m_nbits = std::max(m_nbits, LRLEother->m_nbits);
+    m_compressed = std::move(andBuf(LRLEother->m_compressed.data(), LRLEother->m_compressed.size()));
 
     return *this;
 }
 
-bool LRunLEBitset::operator==(const Bitset &_other) const {
-    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
+Bitset& LRunLEBitset::operator|=(const Bitset &other) {
+    auto LRLEother = dynamic_cast<const LRunLEBitset*>(&other);
+    if (!LRLEother) return Bitset::operator|=(other);
 
-    if (m_nbits != other.m_nbits) return false;
+    m_nbits = std::max(m_nbits, LRLEother->m_nbits);
+    m_compressed = std::move(orBuf(LRLEother->m_compressed.data(), LRLEother->m_compressed.size()));
 
-    if (m_compressed == other.m_compressed) {
+    return *this;
+}
+
+bool LRunLEBitset::operator==(const Bitset &other) const {
+    auto LRLEother = dynamic_cast<const LRunLEBitset*>(&other);
+    if (!LRLEother) return Bitset::operator==(other);
+
+    if (m_nbits != LRLEother->m_nbits) return false;
+
+    if (m_compressed == LRLEother->m_compressed) {
         return true;
     } else {
         // it's possible that we are dealing with two empty bitsets encoded in
         // different but equal ways. e.g. a bitset with a 0 byte buffer is empty,
         // but so is a 4 byte buffer of "00 04 00 00" (a 4 byte run of zeros)
 
-        return isEmpty() == true && other.isEmpty() == true;
+        return isEmpty() == true && LRLEother->isEmpty() == true;
     }
 }
 
@@ -202,11 +206,12 @@ bool LRunLEBitset::operator!=(const Bitset &other) const {
     return !(*this == other);
 }
 
-bool LRunLEBitset::hasCommonBits(const Bitset &_other) const {
-    auto &other = dynamic_cast<const LRunLEBitset&>(_other);
+bool LRunLEBitset::hasCommonBits(const Bitset &other) const {
+    auto LRLEother = dynamic_cast<const LRunLEBitset*>(&other);
+    if (!LRLEother) return Bitset::hasCommonBits(other);
 
     return lrle_any_intersection(m_compressed.data(), m_compressed.size(),
-        other.m_compressed.data(), other.m_compressed.size());
+        LRLEother->m_compressed.data(), LRLEother->m_compressed.size());
 }
 
 void LRunLEBitset::setFirstBit(size_t bit) {

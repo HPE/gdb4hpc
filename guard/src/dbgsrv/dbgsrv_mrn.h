@@ -20,7 +20,7 @@ public:
     MRNServerProtocol() : DebugServerProtocol() { registerProtocol(); };
 
     const char * name() override;
-    int initProto(int procnum, int argc, const char **argv,
+    int initProto(int &procnum, int &pid, int argc, const char * const *argv,
         const char *key, const char *host, int port) override;
     void endProto() override;
     fd_set* getFdSet() override;

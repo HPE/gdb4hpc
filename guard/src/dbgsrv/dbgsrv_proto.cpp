@@ -98,9 +98,9 @@ int DbgSetSrvProto(const char *protoName) {
     return 1;
 }
 
-int DbgInitProto(int procnum, int argc, const char **argv, const char *key,
+int DbgInitProto(int &procnum, int &pid, int argc, const char * const * argv, const char *key,
                  const char *host, int port) {
-    return DbgSrvProtoSW->initProto(procnum, argc, argv, key, host, port);
+    return DbgSrvProtoSW->initProto(procnum, pid, argc, argv, key, host, port);
 }
 
 fd_set *DbgGetFDSet(void) { return DbgSrvProtoSW->getFdSet(); }

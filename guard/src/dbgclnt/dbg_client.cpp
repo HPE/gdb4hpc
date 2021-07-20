@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +34,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <mutex>
 
 #include "dbg_client.h"
 #include "useful.h"
@@ -51,8 +51,7 @@ struct inpcb_t {
     void (*i_rtn)();
     // This needs a lock because the MRNet error callback is threaded and will
     // mess with the inpcb_t object during printing error messages
-    pthread_mutex_t i_lock;
-    pthread_mutexattr_t i_lock_attr;
+    std::recursive_mutex i_mutex;
 };
 typedef struct inpcb_t inpcb_t;
 
@@ -1231,7 +1230,6 @@ int DbgCheckEvents(void) {
     int res = 0;
     int *ev_fd;
     struct timeval tv = {1, 0};
-    int doUnlock = 0;
 
     // reset the fd_set
     FD_ZERO(&dispatch_fds);
@@ -1291,16 +1289,19 @@ int DbgCheckEvents(void) {
     ** Add the input fd to the fd_set to select on. This enables input events.
     */
     // grab the lock
-    pthread_mutex_lock(&InputCB.i_lock);
-    if (InputCB.i_fd >= 0) {
-        if (high_fd < InputCB.i_fd) {
-            high_fd = InputCB.i_fd;
+
+    int ifd = -1;
+    {
+        std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
+        ifd = InputCB.i_fd;
+    }
+
+    if (ifd >= 0) {
+        if (high_fd < ifd) {
+            high_fd = ifd;
         }
         // DPRINT("DbgCheckEvents: InputCB fd %d added.\n", InputCB.i_fd);
-        FD_SET(InputCB.i_fd, &dispatch_fds);
-        doUnlock = 1;
-    } else {
-        pthread_mutex_unlock(&InputCB.i_lock);
+        FD_SET(ifd, &dispatch_fds);
     }
 
     /*
@@ -1308,7 +1309,7 @@ int DbgCheckEvents(void) {
     */
     for (;;) {
         // from the select manpage, nfds is the highest-numbered file descriptor
-        // in any of the three sets, plus 1.
+        // in any of the three sets, plus 1. 
         status = select(high_fd + 1, &dispatch_fds, nullptr, nullptr, &tv);
 
         switch (status) {
@@ -1317,7 +1318,6 @@ int DbgCheckEvents(void) {
                     case EINTR:
                         DPRINT("DbgCheckEvents: EINTR\n");
                         if (res) {
-                            if (doUnlock) pthread_mutex_unlock(&InputCB.i_lock);
                             return res;
                         }
                         continue;
@@ -1327,12 +1327,10 @@ int DbgCheckEvents(void) {
                     // return with -1 and errno set to EINVAL.
                     case EINVAL:
                         DPRINT("DbgCheckEvents: EINVAL\n");
-                        if (doUnlock) pthread_mutex_unlock(&InputCB.i_lock);
                         return res;
 
                     default:
                         PrintOutError("select: %s\n", strerror(errno));
-                        if (doUnlock) pthread_mutex_unlock(&InputCB.i_lock);
                         return -1;
                 }
                 break;
@@ -1340,20 +1338,18 @@ int DbgCheckEvents(void) {
             case 0:
                 // DPRINT("DbgCheckEvents: select returned 0, res is %d\n",
                 // res);
-                if (doUnlock) pthread_mutex_unlock(&InputCB.i_lock);
                 return res;
 
             default:
-                if (doUnlock) {
+                if (ifd >= 0) {
                     // If the InputCB was set, then we don't want to dispatch
                     // the graph. Commands can take awhile to return and if the
                     // user was typing something we don't want to issue a new
                     // command. The user has a second to type before being
                     // locked out.
-                    if (FD_ISSET(InputCB.i_fd, &dispatch_fds)) {
+                    if (FD_ISSET(ifd, &dispatch_fds)) {
                         _df_ready = 0;
                     }
-                    pthread_mutex_unlock(&InputCB.i_lock);
                 }
                 return 1;
         }
@@ -1416,13 +1412,14 @@ void DbgDispatchEvents(void) {
     /*
     ** Process any input.
     */
-    pthread_mutex_lock(&InputCB.i_lock);
-    if ((InputCB.i_fd >= 0) && FD_ISSET(InputCB.i_fd, &dispatch_fds) &&
-        (InputCB.i_rtn != nullptr)) {
-        // DPRINT("DbgDispatchEvents: InputCB.i_fd is set\n");
-        InputCB.i_rtn();
+    {
+        std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
+        if ((InputCB.i_fd >= 0) && FD_ISSET(InputCB.i_fd, &dispatch_fds) &&
+            (InputCB.i_rtn != nullptr)) {
+            // DPRINT("DbgDispatchEvents: InputCB.i_fd is set\n");
+            InputCB.i_rtn();
+        }
     }
-    pthread_mutex_unlock(&InputCB.i_lock);
 
     // We want to process the df graph last since the above can generate tokens
 #if defined(RD)
@@ -1645,37 +1642,34 @@ void DbgHandleOutput(void (*outp)(dbginvoke_t *, FILE *)) {
 ** Set local input stream handler.
 */
 void DbgHandleInput(int fd, void (*inp)(void)) {
-    pthread_mutex_lock(&InputCB.i_lock);
+    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
     InputCB.i_fd = fd;
     InputCB.i_rtn = inp;
-    pthread_mutex_unlock(&InputCB.i_lock);
 }
 
 /*
 ** Mask input stream events temporarily
 */
 void DbgMaskInput(void) {
-    pthread_mutex_lock(&InputCB.i_lock);
+    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
     if (_mask_cnt == 0) {
         _mask_fd = InputCB.i_fd;
         InputCB.i_fd = -1;
     }
     ++_mask_cnt;
-    pthread_mutex_unlock(&InputCB.i_lock);
 }
 
 /*
 ** Remove temporary input stream mask.
 */
 void DbgUnmaskInput(void) {
-    pthread_mutex_lock(&InputCB.i_lock);
+    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
     if (_mask_cnt > 0) {
         --_mask_cnt;
     }
     if (_mask_cnt == 0) {
         InputCB.i_fd = _mask_fd;
     }
-    pthread_mutex_unlock(&InputCB.i_lock);
 }
 
 /*
@@ -1770,12 +1764,6 @@ int DbgInit(void) {
 
     // Initialize the mutex lock for the InputCB
     InputCB.i_fd = -1;
-    if (pthread_mutexattr_init(&InputCB.i_lock_attr)) return -1;
-    if (pthread_mutexattr_settype(&InputCB.i_lock_attr,
-                                  PTHREAD_MUTEX_RECURSIVE))
-        return -1;
-    if (pthread_mutex_init(&InputCB.i_lock, &InputCB.i_lock_attr)) return -1;
-
     return 0;
 }
 
@@ -1804,8 +1792,6 @@ void DbgFinalize(void) {
     DbgInvokeList = nullptr;
 
     InputCB.i_fd = -1;
-    pthread_mutexattr_destroy(&InputCB.i_lock_attr);
-    pthread_mutex_destroy(&InputCB.i_lock);
 }
 
 /*

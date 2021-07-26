@@ -292,12 +292,8 @@ void DbgGdbMI::Initializer::initGpu()
         }
 
         // set the path and data directory
-        DVPRINT("Using cuda110-gdb-guard\n");
-        DVPRINT("HACKED TO USE CROSSMOUNTING\n");
-        //MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
-        //setDataDir("cuda-gdb");
-
-        MISessionSetGDBPath(m_session, "/home/users/jvogt/rpm_install/gdb4hpc/4.13.4.0/libexec/cuda110-gdb-guard");
+        DVPRINT("Using cuda110-gdb-guard with --cuda-use-lockfile=0\n");
+        MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
         setDataDir("cuda-gdb");
         MISessionAddGDBArg(m_session, "--cuda-use-lockfile=0");
 

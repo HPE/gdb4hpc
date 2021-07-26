@@ -293,8 +293,13 @@ void DbgGdbMI::Initializer::initGpu()
 
         // set the path and data directory
         DVPRINT("Using cuda110-gdb-guard\n");
-        MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
+        DVPRINT("HACKED TO USE CROSSMOUNTING\n");
+        //MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
+        //setDataDir("cuda-gdb");
+
+        MISessionSetGDBPath(m_session, "/home/users/jvogt/rpm_install/gdb4hpc/4.13.4.0/libexec/cuda110-gdb-guard");
         setDataDir("cuda-gdb");
+        MISessionAddGDBArg(m_session, "--cuda-use-lockfile=0");
 
     } else if (gdb_vers == GdbVersion::ROC_GDB) {
         if (runRocgdb(m_session)) {
@@ -821,27 +826,25 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     DVPRINT("InitDbgAttach: Event ready!\n");
     FreeEvent(e);
 
+
     /*
     ** Find out pid.
     */
+    if (false) {
     cmd = CLIInfoProc();
     SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not get pid: %s",
-                    MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+    if (MICommandResultOK(cmd) && (procInfo = CLIGetInfoProcInfo(cmd))) {
+        m_pid = procInfo->pid;
+        CLIInfoProcInfoFree(procInfo);
+    } else {
+        DVPRINT("info proc failed - assuming we've attached\n");
+        m_pid = pid;
     }
-    procInfo = CLIGetInfoProcInfo(cmd);
-    if (procInfo == NULL) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not get pid: %s",
-                    MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
-    m_pid = procInfo->pid;
-    CLIInfoProcInfoFree(procInfo);
     MICommandFree(cmd);
+    } else {
+        DVPRINT("NOT CALLING INFO PROC\n");
+        m_pid = pid;
+    }
 
     DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", m_pid);
     return NewEvent(DBGEV_OK);
@@ -1076,7 +1079,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // manually set up pretty printing for relocated installs
-    setup_pretty_printing();
+    //setup_pretty_printing();
 
     // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
     // and cuda-gdb doesn't handle it well
@@ -1109,134 +1112,30 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
 
 dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_signals() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
+    
+    auto nostops = std::vector<std::string>{"SIG64", "SIG63", "SIG39","SIG33", "SIG32",
+                                            "SIGUSR1", "SIGUSR2", "SIGCONT", "SIGTSTP",
+                                            "SIGCHLD","SIGPROF", "SIGALRM", "SIGVTALRM",
+                                            "SIGURG" };
 
-    cmd = CLIHandle("SIG64 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
+    for ( auto&& sig : nostops ) {
+        auto str = sig + " nostop noprint pass";
+        auto cmd = CLIHandle(str.c_str());
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            return NewErrorEvent(DBGERR_DEBUGGER, "%s command failed.", str.c_str());
+        }
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG64 command failed.");
-        return e;
     }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIG63 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG63 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIG39 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG39 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIG33 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG33 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIG32 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIG32 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGUSR1 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGUSR1 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGUSR2 nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGUSR2 command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
 
     // We use this signal to interrupt the application. SIGINT is blocked and
     // won't work (I can't figure out why...).
-    cmd = CLIHandle("SIGSTOP stop print nopass");
+    auto cmd = CLIHandle("SIGSTOP stop print nopass");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGSTOP command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGCONT nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGCONT command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGTSTP nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGTSTP command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGCHLD nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGCHLD command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGPROF nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGPROF command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGALRM nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGALRM command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
-    cmd = CLIHandle("SIGVTALRM nostop noprint pass");
-    SendMICommand(m_session, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Handle SIGVTALRM command failed.");
-        return e;
+        return NewErrorEvent(DBGERR_DEBUGGER, "Handle SIGSTOP command failed.");
     }
     MICommandFree(cmd);
 

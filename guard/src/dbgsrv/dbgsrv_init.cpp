@@ -436,7 +436,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
                     evt->sigName, evt->sigMeaning);
             MIEventFree(evt);
 
-            if (true || gdb_vers == GdbVersion::ROC_GDB) {
+            if (gdb_vers == GdbVersion::ROC_GDB) {
                 // rocgdb triggers a signal without stopping the process.
                 // if this just goes back to the top of loop, the MIStackListAllFrames
                 // will fail.   One could pose this without the special casing by
@@ -1075,7 +1075,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // manually set up pretty printing for relocated installs
-    //setup_pretty_printing();
+    setup_pretty_printing();
 
     // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
     // and cuda-gdb doesn't handle it well
@@ -1146,6 +1146,16 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
         return;
     }
 
+    const char* safe_path_args[] = { "add-auto-load-safe-path", "/cm/shared/opt" };
+    auto cmd = CLIBypassc(2, safe_path_args);
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Settting auto-load-save-path\n");
+    }
+    MICommandFree(cmd);
+    cmd = nullptr;
+    
+
     std::string scriptFile = std::string(tmpDir) + "/initpretty" +
                                 std::to_string(getpid());
     free(tmpDir);
@@ -1166,7 +1176,7 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
     script.close();
 
     const char* cmd_args[2] = {"source", scriptFile.c_str() };
-    MICommand* cmd = CLIBypassc(2, cmd_args);
+    cmd = CLIBypassc(2, cmd_args);
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         DVPRINT("Loading pretty printers failed\n");

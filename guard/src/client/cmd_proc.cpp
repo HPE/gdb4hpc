@@ -1035,8 +1035,21 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
     // grab all the frames
     rep_set = DbgShowFrame(rec_set, 0);
 
+    // cuda-gdb doesn't report the threads as stopped at attachment time.
+    // The debugger should not quit since since this does not inicate "Could not
+    // communicate with application".
+    bool isRunning = false;
+    if (rep_set && rep_set->hasError()) {
+        isRunning = true;
+        for (auto&& err : rep_set->getErrs()) {
+            if (err->rep_event->ev_errno != DBGERR_ISRUNNING) {
+                isRunning = false;
+            }
+        }
+    }
+
     // process error
-    if (ProcessErrorInRepSet(rep_set)) {
+    if (!isRunning && ProcessErrorInRepSet(rep_set)) {
         // This is fatal as its an indication that things are broken (i.e. we
         // cannot send commands)
         PrintOutError("Could not communicate with application.\n");

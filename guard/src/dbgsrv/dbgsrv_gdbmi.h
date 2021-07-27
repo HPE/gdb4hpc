@@ -141,8 +141,6 @@ public:
     void resetPId() { m_pid = 0; }
 private:
     dbgevent_t* setup_gdbmi_entry_points();
-    dbgevent_t* setup_gdbmi_main_entry_point();
-    dbgevent_t *setup_gdbmi_exit_points();
     dbgevent_t* setup_gdbmi_environment();
     dbgevent_t* setup_gdbmi_signals();
     dbgevent_t* delete_internal_breakpoints(list_t *bplist);

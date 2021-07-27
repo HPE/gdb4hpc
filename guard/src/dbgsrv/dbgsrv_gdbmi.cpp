@@ -1090,12 +1090,21 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        if (MICommandResultClass(cmd) == MIResultRecordRUNNING) {
+            DVPRINT("MIStackListFrames is RUNNING\n");
+            e = NewErrorEvent(DBGERR_ISRUNNING, "Process is running");
+        } else {
+            DVPRINT("MIStackListFrames FAILED\n");
+            e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        }
         MICommandFree(cmd);
         return e;
     }
 
+    DVPRINT("MIStackListFrames succeeded\n");
+
     if ((frames = MIGetStackListFramesInfo(cmd)) == NULL) {
+        DVPRINT("MIGetStackListFramesInfo failed\n");
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_NOSTACK, "");
         return e;

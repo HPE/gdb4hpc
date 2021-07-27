@@ -826,17 +826,20 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     /*
     ** Find out pid.
     */
-    if (false) {
-    cmd = CLIInfoProc();
-    SendMICommand(m_session, cmd);
-    if (MICommandResultOK(cmd) && (procInfo = CLIGetInfoProcInfo(cmd))) {
-        m_pid = procInfo->pid;
-        CLIInfoProcInfoFree(procInfo);
-    } else {
-        DVPRINT("info proc failed - assuming we've attached\n");
-        m_pid = pid;
-    }
-    MICommandFree(cmd);
+    if (gdb_vers != GdbVersion::CUDA_101) {
+        // The info proc call here breaks cuda-gdb.   It will start reporting
+        // "Not supported on this target." errors.   I'm not sure about the
+        // real need for it on other debuggers, but I'll leave it in.
+        cmd = CLIInfoProc();
+        SendMICommand(m_session, cmd);
+        if (MICommandResultOK(cmd) && (procInfo = CLIGetInfoProcInfo(cmd))) {
+            m_pid = procInfo->pid;
+            CLIInfoProcInfoFree(procInfo);
+        } else {
+            DVPRINT("info proc failed - assuming we've attached\n");
+            m_pid = pid;
+        }
+        MICommandFree(cmd);
     } else {
         DVPRINT("NOT CALLING INFO PROC\n");
         m_pid = pid;
@@ -1146,6 +1149,9 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
         return;
     }
 
+    /*
+       -- holding off on adding this since the paths are different on centos and 
+          seles --
     const char* safe_path_args[] = { "add-auto-load-safe-path", "/cm/shared/opt" };
     auto cmd = CLIBypassc(2, safe_path_args);
     SendMICommand(m_session, cmd);
@@ -1154,7 +1160,7 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
     }
     MICommandFree(cmd);
     cmd = nullptr;
-    
+    */
 
     std::string scriptFile = std::string(tmpDir) + "/initpretty" +
                                 std::to_string(getpid());
@@ -1176,7 +1182,7 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
     script.close();
 
     const char* cmd_args[2] = {"source", scriptFile.c_str() };
-    cmd = CLIBypassc(2, cmd_args);
+    auto cmd = CLIBypassc(2, cmd_args);
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         DVPRINT("Loading pretty printers failed\n");

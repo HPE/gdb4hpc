@@ -14,6 +14,12 @@
 #include "capnp/message.h"
 #include "capnp/serialize.h"
 
+#if DEBUG
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOG(...) /**/
+#endif
+
 extern "C" {
 
 struct HashKey {
@@ -36,14 +42,18 @@ struct HashKey {
 	};
 };
 
-zmqnet::ByteArray run(zmqnet::Stream::Id const& streamId, std::vector<zmqnet::ByteArray> const& inputs) {
+zmqnet::ByteArray run(std::vector<zmqnet::ByteArray> const& inputs) {
 	// any reader created from a flat array reader will have pointers into the
 	// flat array reader, thus it must be kept alive until everything derived
 	// from it is done using it.
 	std::vector<capnp::UnalignedFlatArrayMessageReader> readers;
 
+	LOG("agg: got %lu inputs.\n", inputs.size());
+
 	// extract capnp::readers from inputs
 	for (const auto &byteArray : inputs) {
+		LOG("agg: processing chunk of data of size %lu.\n", byteArray.size());
+		
 		// interpret byte array as capnp::word array
 		auto wordsPtr = reinterpret_cast<capnp::word const *>(byteArray.begin());
 		assert(byteArray.size() % sizeof(capnp::word) == 0);

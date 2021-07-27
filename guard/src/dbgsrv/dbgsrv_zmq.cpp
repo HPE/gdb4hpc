@@ -12,6 +12,7 @@
 #include "dbgsrv_zmq.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_cmds.h"
+#include "dbgformat.h"
 
 #include "dbg_zmq.capnp.h"
 
@@ -49,6 +50,12 @@ int ZMQNetServerProtocol::invokeCallback(const char *chost, int cport,
 
 int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     LOG("ZMQNetServerProtocol::eventCallback\n");
+
+    auto eventResult = ResultPtr(EventToSocProto(ev), std::free);
+    auto id = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
+
+    m_network->sendResult(id, packResult(std::move(eventResult)));
+
     return 0;
 }
 
@@ -102,8 +109,8 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
     { // register command stream callback
         const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            LOG("zmqnet: callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+        const auto commandCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            LOG("zmqnet: command callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
             assert(streamId == commandStreamId);
             
             /*    Two locks are needed here to handle the (unlikely) edge case 
@@ -153,7 +160,24 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             }
         };
 
-        m_network->registerCallback(commandStreamId, command_callback);
+        m_network->registerCallback(commandStreamId, commandCallback);
+    }
+
+    { // register event stream callback
+        const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
+        const auto eventCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            // Nothing should be sent on this stream from the client; it is used to
+            // send async events back to the client for processing. We still need
+            // to register a callback to use it this way, though.
+            
+            LOG("zmqnet: event callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+            LOG("zmqnet: WARNING: client shouldn't be sending data on the event stream.\n");
+            assert(streamId == eventStreamId);
+
+            return zmqnet::make_ByteArray("", 1);
+        };
+
+        m_network->registerCallback(eventStreamId, eventCallback);
     }
 
     // remember my rank for when INVOKE comes with rest of info
@@ -174,7 +198,7 @@ void ZMQNetServerProtocol::endProto() {
 }
 
 bool ZMQNetServerProtocol::checkEvents() const {
-    LOG("ZMQNetServerProtocol::checkEvents\n");
+    // LOG("ZMQNetServerProtocol::checkEvents\n");
     std::scoped_lock<std::mutex> lock(m_command_lock);
     return m_pending_command != nullptr;
 }
@@ -200,8 +224,6 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
         
         (*m_pending_command)(nullptr /* TODO call with ci */);
         m_pending_command.reset();
-    } else {
-        LOG("warning: called runProto with null pending command.\n");
     }
 }
 

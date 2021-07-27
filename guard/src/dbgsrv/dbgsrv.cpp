@@ -519,7 +519,8 @@ void Server(void) {
     DVPRINT("dbgsrv: Server() main loop has started!\n");
 
     for (;;) {
-        DVPRINT("dbgsrv: Main loop\n");
+        // DVPRINT("dbgsrv: Main loop\n");
+        
         // Wait for an asynchronous event if a asynch handler has been
         // installed
         if (AsyncRtn != NULL) {

@@ -28,7 +28,7 @@ public:
     // Two ways to notify the main thread that runProto should be called are
     // supported. In order of precedence:
     // 1. getFdSet(). The main thread calls getFdSet to get a set of file
-    //    descriptors and then calls select on them. If any supplied fds
+    //    descriptors and then calls select on them. If any supplied fd
     //    becomes ready for reading, that is a signal to call runProto. If a
     //    protocol doesn't support event fds, this function should return
     //    nullptr.
@@ -39,7 +39,7 @@ public:
     //    return false.
     //
     //    There are circumstances where the main thread will call runProto even
-    //    without the notification from the protocol. This happens whenever a
+    //    without a notification from the protocol. This happens whenever a
     //    top layer event, such as output from gdb, happens. Thus, a call to
     //    runProto does not necessarily mean a protocol event is ready, only
     //    that the main thread is happy to let the protocol have its turn if it

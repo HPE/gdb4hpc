@@ -142,8 +142,8 @@ int DbgCheckEvents(fd_set *fds) {
     int dtbsz = min(FD_SETSIZE, getdtablesize());
 
     struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 10000;
 
     switch (select(dtbsz, fds, NULL, NULL, &tv)) {
         case -1:

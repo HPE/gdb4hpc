@@ -1229,7 +1229,8 @@ int DbgCheckEvents(void) {
     int status;
     int res = 0;
     int *ev_fd;
-    struct timeval tv = {1, 0};
+    struct timeval tv = {0, 10000};
+    int doUnlock = 0;
 
     // reset the fd_set
     FD_ZERO(&dispatch_fds);

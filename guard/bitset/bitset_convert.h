@@ -14,13 +14,11 @@
 #include "bitset.h"
 #include "dense_bitset.h"
 #include "sparse_bitset.h"
-
-// MRNet's behaviour is to package bitsets up as sparse bitsets, send them over
-// the network, and then change them to dense bitsets once they get to the
-// client side.
+#include "lrunle_bitset.h"
 
 namespace bitset {
 
 std::unique_ptr<DenseBitset> createDenseFrom(const SparseBitset &bitset);
+std::unique_ptr<DenseBitset> createDenseFrom(const LRunLEBitset &bitset);
 
 } // bitset

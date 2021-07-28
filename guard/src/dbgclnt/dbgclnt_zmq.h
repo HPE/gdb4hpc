@@ -56,7 +56,7 @@ private:
     struct UnpackedMessage {
         std::unique_ptr<char, decltype(&std::free)> data;
         uint64_t hash;
-        std::unique_ptr<LRunLEBitset> bitset;
+        std::unique_ptr<DenseBitset> bitset;
     };
 
     class EventQueue {

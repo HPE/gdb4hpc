@@ -1573,8 +1573,6 @@ int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
             return 1;
         }
 #endif
-
-        PrintOutMsg("Launch complete.\n");
     }
 
     return 0;

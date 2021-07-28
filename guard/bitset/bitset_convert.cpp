@@ -21,6 +21,7 @@
 
 #include "dense_bitset.h"
 #include "sparse_bitset.h"
+#include "lrunle_bitset.h"
 
 namespace bitset {
 
@@ -34,6 +35,16 @@ std::unique_ptr<DenseBitset> createDenseFrom(const SparseBitset &sparse) {
 
 	for (auto it = sparse.getSetBitsIterator(); *it < sparse.sizeInBits(); ++it) {
 		dense->set(*it);
+	}
+
+	return dense;
+}
+
+std::unique_ptr<DenseBitset> createDenseFrom(const LRunLEBitset &lrun) {
+	auto dense = std::make_unique<DenseBitset>(lrun.sizeInBits());
+
+	for (size_t bit : lrun) {
+		dense->set(bit);
 	}
 
 	return dense;

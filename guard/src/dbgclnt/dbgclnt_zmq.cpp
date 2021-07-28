@@ -11,6 +11,7 @@
 #include "dbgclnt_proto_ctiship.h"
 #include "defs.h"
 #include "lrunle_bitset.h"
+#include "bitset_convert.h"
 #include "useful.h"
 
 #include "dbg_zmq.capnp.h"
@@ -338,9 +339,9 @@ int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
 
     if (m_network) m_network->runExit();
 
-    PrintOutMsg("Disconnected from network...\n");
+    // PrintOutMsg("Disconnected from network...\n");
     
-    PrintOutMsg("Finishing up...\n");
+    // PrintOutMsg("Finishing up...\n");
     return DebugClientProtocol::exit(di, detach);
 }
 
@@ -359,13 +360,14 @@ ZMQNetClientProtocol::UnpackedMessage ZMQNetClientProtocol::unpackMessageReader(
     LOG("\tdata: %s\n", reader.getData().cStr());
     LOG("\thash: %lu\n", reader.getHash());
     auto bitsetPtr = reader.getBitset().asChars().begin();
-    auto bitset = std::make_unique<LRunLEBitset>(bitsetPtr);
+    auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
     LOG("\tbitset: %s\n", bitset->toSet().c_str());
+    auto densebitset = bitset::createDenseFrom(*lrunbitset);
 
     return {
         .data = std::unique_ptr<char, decltype(&std::free)>(strndup(reader.getData().cStr(), reader.getData().size()), std::free), 
         .hash = reader.getHash(), 
-        .bitset = std::move(bitset)
+        .bitset = std::move(densebitset)
     };
 }
 

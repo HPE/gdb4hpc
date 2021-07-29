@@ -19,10 +19,6 @@
 
 #include <sstream>
 
-#include "dense_bitset.h"
-#include "sparse_bitset.h"
-#include "lrunle_bitset.h"
-
 namespace bitset {
 
 #ifdef MRNET

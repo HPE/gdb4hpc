@@ -25,6 +25,7 @@
 
 namespace bitset {
 
+#ifdef MRNET
 std::unique_ptr<DenseBitset> createDenseFrom(const SparseBitset &sparse) {
 	auto dense = std::make_unique<DenseBitset>(sparse.sizeInBits());
 
@@ -39,7 +40,9 @@ std::unique_ptr<DenseBitset> createDenseFrom(const SparseBitset &sparse) {
 
 	return dense;
 }
+#endif
 
+#ifdef ZMQNET
 std::unique_ptr<DenseBitset> createDenseFrom(const LRunLEBitset &lrun) {
 	auto dense = std::make_unique<DenseBitset>(lrun.sizeInBits());
 
@@ -49,5 +52,6 @@ std::unique_ptr<DenseBitset> createDenseFrom(const LRunLEBitset &lrun) {
 
 	return dense;
 }
+#endif
 
 } // bitset

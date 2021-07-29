@@ -2,20 +2,11 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include <algorithm>
-#include <cstdlib>
-#include <filesystem>
-
 #include "dbg_client.h"
 #include "dbgclnt_zmq.h"
 #include "dbgclnt_proto_ctiship.h"
-#include "defs.h"
-#include "lrunle_bitset.h"
-#include "bitset_convert.h"
-#include "useful.h"
 
-#include "dbg_zmq.capnp.h"
-#include "capnp/serialize.h"
+#include "useful.h"
 
 #include "common_tools_fe.h"
 
@@ -30,8 +21,6 @@ ZMQNetClientProtocol DbgClntProtoZMQ{};
 
 ZMQNetClientProtocol::ZMQNetClientProtocol()
     : DebugClientProtocol()
-    , m_network{nullptr}
-    , m_command_result_ready{false}
 { 
     registerProtocol(); 
 }
@@ -55,25 +44,9 @@ std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (!m_network) {
-        PrintOutError("Tried to send a message without a network.\n");
-        return nullptr;
-    }
-
-    if (!m_command_stream) {
-        PrintOutError("Tried to send a message without a command stream.\n");
-        return nullptr;
-    }
-
     if (di->d_isShutdown) return nullptr;
 
-    // TODO get/create specific stream for target
-
-    LOG("sending message %s\n", request);
-
-    m_network->sendCommand(*m_command_stream, request);
-
-    return target->clone();
+    return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
 
 std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
@@ -84,56 +57,21 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
         return {};
     }
 
-    // TODO respect target
-
-    // wait for result
-    LOG("waiting for result...\n");
-    
-    std::unique_lock<std::mutex> lock(m_command_result_lock);
-    m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
-
-    auto reply = std::move(m_command_result);
-    m_command_result_ready = false;
-    
-    auto reader = getReaderFromData(reply);
-    auto pack = reader.getRoot<ZmqnetMessagePackage>();
-    auto result = ProtoMessageSet();
-
-    for (const auto message : pack.getMessages()) {
-        auto unpacked = unpackMessageReader(message);
-    
-        received |= *unpacked.bitset;
-
-        result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
-    }
-
-    return result;
+    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, received);
 }
 
 int ZMQNetClientProtocol::checkEvents(dbginvoke_t *di) {
     // LOG("%s\n", __PRETTY_FUNCTION__);
-    return m_event_queue.hasEvent() ? 1 : 0;
+    return getNetwork<ZMQNetNetwork>(di).checkEvents();
 }
 
 void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // zmqnet doesn't use event file descriptors, so ev_fd will always be -1
     assert(ev_fd == -1);
 
-    auto messages = ProtoMessageSet{};
-
-    while (auto optionalEventData = m_event_queue.getNext()) {
-        auto eventData = std::move(*optionalEventData);
-
-        auto reader = getReaderFromData(eventData);
-        auto pack = reader.getRoot<ZmqnetMessagePackage>();
-
-        LOG("got reader\n");
-
-        for (const auto &message : pack.getMessages()) {
-            auto unpacked = unpackMessageReader(message);
-            messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
-        }
-    }
+    auto &net = getNetwork<ZMQNetNetwork>(di);
+    
+    auto messages = net.releaseEvents();
     
     if (messages.size() > 0) {
         LOG("dispatching\n");
@@ -159,9 +97,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         PrintOutError("Tried to launch ZMQNet with a null di\n");
         return 1;
     }
-
-    // This is rolled into the protocol with zmqnet
-    di->d_proto_net = nullptr;
 
     PrintOutMsg("Starting application, please wait...\n");
 
@@ -255,48 +190,12 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     // TODO environment variables
 
-    m_network = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
+    auto zmqnet = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
         zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
         dbgsrvArgs.c_strs().data()  
     );
 
-    { // create send command stream
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
-            // TODO check errors
-            LOG("command_callback: %d %s\n", streamId, result.begin());
-
-            std::unique_lock<std::mutex> lock(m_command_result_lock);
-
-            // copies data and destroys any data that was in the command result previously
-            m_command_result = zmqnet::make_ByteArray(result.begin(), result.size());
-
-            // notify a thread waiting for the result, if present
-            m_command_result_ready = true;
-            lock.unlock();
-            m_command_result_cv.notify_one();
-        };
-
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        m_network->registerStreamCallback(streamId, command_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_command_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::WaitForAll{}));
-    }
-
-    { // create async event stream
-        const auto event_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
-            LOG("event_callback %d %s\n", streamId, result.begin());
-
-            m_event_queue.enqueue(zmqnet::make_ByteArray(result.begin(), result.size()));
-            LOG("event_callback %d, successfully enqueued\n", streamId);
-        };
-
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
-        m_network->registerStreamCallback(streamId, event_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_event_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::Timeout{400}));
-    }
+    di->d_proto_net = std::make_unique<ZMQNetNetwork>(std::move(zmqnet));
 
     PrintOutMsg("Created network...\n");
 
@@ -327,6 +226,10 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
 void ZMQNetClientProtocol::destroyClient(dbginvoke *di) {
     LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (di->d_proto_net) {
+        exit(di, 0);
+    }
 }
 
 int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
@@ -337,59 +240,8 @@ int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
         return -1;
     }
 
-    if (m_network) m_network->runExit();
+    getNetwork<ZMQNetNetwork>(di).exit();
+    di->d_proto_net.reset();
 
-    // PrintOutMsg("Disconnected from network...\n");
-    
-    // PrintOutMsg("Finishing up...\n");
     return DebugClientProtocol::exit(di, detach);
-}
-
-capnp::UnalignedFlatArrayMessageReader ZMQNetClientProtocol::getReaderFromData(const zmqnet::ByteArray &data) const {
-    assert(data.size() != 0);
-    assert(data.size() % sizeof(capnp::word) == 0);
-    auto words_ptr = reinterpret_cast<capnp::word const *>(data.begin());
-    auto words_size = data.size() / sizeof(capnp::word);
-    auto words_array = kj::arrayPtr(words_ptr, words_size);
-
-    return capnp::UnalignedFlatArrayMessageReader(words_array);
-}
-
-ZMQNetClientProtocol::UnpackedMessage ZMQNetClientProtocol::unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const {
-    LOG("unpacking: \n");
-    LOG("\tdata: %s\n", reader.getData().cStr());
-    LOG("\thash: %lu\n", reader.getHash());
-    auto bitsetPtr = reader.getBitset().asChars().begin();
-    auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
-    LOG("\tbitset: %s\n", bitset->toSet().c_str());
-    auto densebitset = bitset::createDenseFrom(*lrunbitset);
-
-    return {
-        .data = std::unique_ptr<char, decltype(&std::free)>(strndup(reader.getData().cStr(), reader.getData().size()), std::free), 
-        .hash = reader.getHash(), 
-        .bitset = std::move(densebitset)
-    };
-}
-
-bool ZMQNetClientProtocol::EventQueue::hasEvent() {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-    return m_queue.size() > 0;
-}
-
-std::optional<zmqnet::ByteArray> ZMQNetClientProtocol::EventQueue::getNext() {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-
-    if (m_queue.size() > 0) {
-        auto result = std::move(m_queue.front()); 
-        m_queue.pop();
-        return result; 
-    } else {
-        return {};
-    }
-}
-
-void ZMQNetClientProtocol::EventQueue::enqueue(zmqnet::ByteArray &&event) {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-
-    m_queue.push(std::move(event));
 }

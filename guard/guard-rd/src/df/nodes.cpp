@@ -2208,7 +2208,7 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
 int NodeEvent(event_set_t *ev_set, const Bitset *reply_set) {
     dbgevent_t *e = ev_set->e_ev;
     dbgnodesetinfo_t *node_set;
-    dbgtreenodesinfo_t *info = GetNodesInfoByTree(ev_set->e_di->d_proto_net);
+    dbgtreenodesinfo_t *info = GetNodesInfoByTree(ev_set->e_di->d_proto_net.get());
     node_t *n = NULL;
     token_t *t;
     int index = 0;
@@ -2350,7 +2350,7 @@ token_t *NodeDbgGoSet(graph_t *g, node_t *n) {
     // FIXME: This call will alloc some memory and add the object to a list. I
     //         don't know how to clean this up...
     //         I think it should be cleaned up in the NodeEvent function above.
-    AddNodeInfoByTree(over_set->s_di->d_proto_net, (void *)n,
+    AddNodeInfoByTree(over_set->s_di->d_proto_net.get(), (void *)n,
                       t->t_set_bits.get());
 
     auto receiver = over_set->s_di_bs->clone();

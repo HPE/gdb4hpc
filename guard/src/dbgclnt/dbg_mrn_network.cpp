@@ -25,7 +25,7 @@
 #include "alloc.h"
 #include "dbg_client.h"
 #include "dbg_mrn.h"
-#include "dbg_mrn_fe.h"
+#include "dbg_mrn_network.h"
 #include "defs.h"
 #include "list.h"
 #include "mrn_topgen.h"
@@ -107,7 +107,7 @@ private:
 };
 
 // the launch callback counter is manipulated by callbacks from mrnet, which
-// means it can't be attached to a MRNetFrontEnd as a member variable. it needs
+// means it can't be attached to a MRNetNetwork as a member variable. it needs
 // to be reset by each launch that uses it or the launch will see data from
 // previous launches.
 static LaunchCallbackCounter callback_handler;
@@ -127,7 +127,7 @@ MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
 static inline int ptr_to_int(void *p) { return (char *)p - (char *)0; }
 static inline void *int_to_ptr(int i) { return (char *)0 + i; }
 
-void MRNetFrontEnd::add_event_stream(MRN::Stream *event_stream) {
+void MRNetNetwork::add_event_stream(MRN::Stream *event_stream) {
     if (event_stream != nullptr) {
         int eventFd = event_stream->get_DataNotificationFd();
         AddToList(m_event_streams, event_stream);
@@ -135,7 +135,7 @@ void MRNetFrontEnd::add_event_stream(MRN::Stream *event_stream) {
     }
 }
 
-MRNetFrontEnd::MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd, MRN::Stream *event,
+MRNetNetwork::MRNetNetwork(MRN::Network *network, MRN::Stream *cmd, MRN::Stream *event,
              MRN::Stream *io, int num_be, int filter)
     : m_network{network},
       m_cmd_stream{cmd},
@@ -156,7 +156,7 @@ MRNetFrontEnd::MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd, MRN::Strea
     }
 }
 
-MRNetFrontEnd::~MRNetFrontEnd() {
+MRNetNetwork::~MRNetNetwork() {
     delete m_cmd_stream;
     delete m_io_stream;
 
@@ -181,7 +181,7 @@ MRNetFrontEnd::~MRNetFrontEnd() {
     delete m_network; // needs to be deleted last
 }
 
-MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *target) const {
+MRN::Stream *MRNetNetwork::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *target) const {
     MRN::Stream *stream = nullptr;
 
     switch (proto) {
@@ -218,7 +218,7 @@ MRN::Stream *MRNetFrontEnd::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *t
     return stream;
 }
 
-MRN::Stream *MRNetFrontEnd::create_stream(const Bitset *target, MRN::Stream *&event_stream) {
+MRN::Stream *MRNetNetwork::create_stream(const Bitset *target, MRN::Stream *&event_stream) {
     if (target == nullptr) {
         event_stream = nullptr;
         return nullptr;
@@ -260,7 +260,7 @@ static void BE_Add_Callback(MRN::Event *evt, void *) {
     }
 }
 
-int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
+int MRNetNetwork::register_TopAddBE_event_callback(MRN::Network &network) {
     callback_handler.reset();
 
     if (!network.register_EventCallback(MRN::Event::TOPOLOGY_EVENT,
@@ -282,7 +282,7 @@ int MRNetFrontEnd::register_TopAddBE_event_callback(MRN::Network &network) {
 ** initialize frontend for attaching backend programs
 ** Main way of launching/attaching on a Cray
 */
-MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
+MRNetNetwork *MRNetNetwork::create_network_no_be(char *topology_file,
                                    MRN::NetworkTopology *&p_topology,
                                    int ctiAppid, int ctiMid) {
     if (topology_file == nullptr) {
@@ -330,7 +330,7 @@ MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
 
     network->set_FailureRecovery(false);
 
-    auto mrnet = new MRNetFrontEnd(network, nullptr, nullptr, nullptr, 0, -1);
+    auto mrnet = new MRNetNetwork(network, nullptr, nullptr, nullptr, 0, -1);
 
     return mrnet;
 }
@@ -338,7 +338,7 @@ MRNetFrontEnd *MRNetFrontEnd::create_network_no_be(char *topology_file,
 /*
 ** wait for attaching backend programs
 */
-int MRNetFrontEnd::attach_be(int num_be, int timeout) {
+int MRNetNetwork::attach_be(int num_be, int timeout) {
     int num_callbacks = 0;
     int last_num_callbacks = 0;
     int expire = 0;
@@ -393,7 +393,7 @@ int MRNetFrontEnd::attach_be(int num_be, int timeout) {
  * load filters and completes the creation of MRNet for attaching backend
  * programs This is how streams are created on a Cray
  */
-int MRNetFrontEnd::create_streams_and_load_filter(
+int MRNetNetwork::create_streams_and_load_filter(
                                           const char *filter_file,
                                           const char *filter_name) {
     DPRINT("INFO: network_load_filter_func filter_file: %s filter_name: %s\n",
@@ -431,11 +431,11 @@ int MRNetFrontEnd::create_streams_and_load_filter(
     return 0;
 }
 
-int MRNetFrontEnd::get_num_of_be() const {
+int MRNetNetwork::get_num_of_be() const {
     return m_num_be;
 }
 
-int MRNetFrontEnd::setup_streams(const char *msg) {
+int MRNetNetwork::setup_streams(const char *msg) {
     if (msg == nullptr)
         return -1;
 
@@ -507,7 +507,7 @@ int MRNetFrontEnd::setup_streams(const char *msg) {
     return 0;
 }
 
-int MRNetFrontEnd::send_command(const Bitset *target, const char *msg,
+int MRNetNetwork::send_command(const Bitset *target, const char *msg,
                         MRN::Stream **event_stream_ptr) {
     auto *stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (stream == nullptr) {
@@ -555,7 +555,7 @@ int MRNetFrontEnd::send_command(const Bitset *target, const char *msg,
     return 0;
 }
 
-std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
+std::optional<ProtoMessageSet> MRNetNetwork::recv_reply(const Bitset *target) {
     MRN::Stream *cmd_stream = get_stream(DBG_MRNet_PRO_COMMAND, target);
     if (!cmd_stream) {
         PrintOutError(
@@ -611,7 +611,7 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::recv_reply(const Bitset *target) {
     return result;
 }
 
-int MRNetFrontEnd::get_io_notificationfd() {
+int MRNetNetwork::get_io_notificationfd() {
     auto* io_stream = get_stream(DBG_MRNet_PRO_IO, nullptr);
 
     if (io_stream != nullptr) {
@@ -622,11 +622,11 @@ int MRNetFrontEnd::get_io_notificationfd() {
     return m_io_nfd;
 }
 
-int MRNetFrontEnd::get_event_notificationfd() const {
+int MRNetNetwork::get_event_notificationfd() const {
     return ptr_to_int(GetListNumElement(m_event_nfds, 0));
 }
 
-std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
+std::optional<ProtoMessageSet> MRNetNetwork::dispatch_io(int notification_fd) {
     std::optional<ProtoMessageSet> result{};
 
     if (m_io_nfd == notification_fd) {
@@ -690,7 +690,7 @@ std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_io(int notification_fd) {
     return result;
 }
 
-std::optional<ProtoMessageSet> MRNetFrontEnd::dispatch_event(int notification_fd) {
+std::optional<ProtoMessageSet> MRNetNetwork::dispatch_event(int notification_fd) {
     std::optional<ProtoMessageSet> result{};
 
     void *notification_fdptr = int_to_ptr(notification_fd);
@@ -789,7 +789,7 @@ static void call_failure_callback(MRN::Event *evt, void *cb_data) {
     }
 }
 
-void MRNetFrontEnd::enable_failure_callback(dbginvoke_t *di) {
+void MRNetNetwork::enable_failure_callback(dbginvoke_t *di) {
     failure_handler.enable();
 
     m_network->register_EventCallback(
@@ -801,7 +801,7 @@ void MRNetFrontEnd::enable_failure_callback(dbginvoke_t *di) {
         call_failure_callback, static_cast<void *>(di), true);
 }
 
-void MRNetFrontEnd::debug_print_network_topology() {
+void MRNetNetwork::debug_print_network_topology() {
     MRN::NetworkTopology *topology = m_network->get_NetworkTopology();
 
     if (topology == nullptr) {

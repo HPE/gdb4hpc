@@ -1,15 +1,12 @@
 #ifndef _DBGCLNT_INVOKE_H
 #define _DBGCLNT_INVOKE_H
 
-#include "dbgclnt_proto.h"
+#include "dbgclnt_network.h"
 #include "dbgclnt_debugfe.h"
 #include "dbgoutp.h"
 #include "bitset.h"
 
-// This is instance data used by the protocol layer that is allocated on a per
-// dbginvoke basis. It is stored in the di since the protocol object is reused
-// and is not suitable for storing instance data.
-typedef void *proto_network;
+class DebugClientProtocol;
 
 // This is the client callback function prototype
 // Arguments are the event_set for this event and a bitset containing the new
@@ -42,7 +39,7 @@ struct dbginvoke {
 
     int d_proto_id;  // di specific protocol id - optionally used by certain
                      // protocols
-    proto_network d_proto_net;  // di specific protocol network object
+    std::unique_ptr<DebugClientNetwork> d_proto_net;  // di specific protocol network object
     g_progoutp_t* d_proto_outp; // data used by the protocol layer for application output
     DebugClientProtocol * const d_proto;     // client protocol switch
 

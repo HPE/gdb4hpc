@@ -4,32 +4,14 @@
 
 #pragma once
 
-#include <mutex>
-#include <condition_variable>
-#include <queue>
-
 #include "dbgclnt_proto.h"
+#include "dbg_zmq_network.h"
 #include "dbginvoke.h"
-#include "zmqnet.hpp"
-#include "dbg_zmq.h"
-
-namespace {
-class ZMQNetAttachHandler : public DebugClientProtocolEventHandler {
-public:
-    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
-};
-
-class ZMQNetLaunchHandler : public DebugClientProtocolEventHandler {
-public:
-    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
-};
-} // private namespace
 
 class ZMQNetClientProtocol : public DebugClientProtocol {
 public:
     // ZMQnet does not support:
     //  * finish function
-    //  * checkEvents
     //  * any session functions
 
     ZMQNetClientProtocol();
@@ -46,8 +28,9 @@ public:
         const char *backend, const char* gdb, char **env,
         const char *cwd, int gpu_flag, int debug_flag, int early_entry_flag, 
         bool isNonStop) override;
-
-int exit(struct dbginvoke *, int detach) override;
+        
+    void destroyClient(dbginvoke *) override;
+    int exit(struct dbginvoke *, int detach) override;
 
     std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
         const char *request) override;
@@ -57,17 +40,8 @@ int exit(struct dbginvoke *, int detach) override;
 
     int init() override;
     
+    int checkEvents(struct dbginvoke *di) override;
     void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
-
-    void destroyClient(struct dbginvoke *di) override;
-private:
-    std::unique_ptr<zmqnet::AsyncFrontend> m_network;
-    std::unique_ptr<zmqnet::Stream> m_command_stream;
-
-    std::mutex m_command_result_lock;
-    zmqnet::ByteArray m_command_result;
-    std::condition_variable m_command_result_cv;
-    bool m_command_result_ready;
 };
 
 // called once by registerProtos

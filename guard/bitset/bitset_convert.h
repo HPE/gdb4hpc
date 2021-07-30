@@ -11,16 +11,29 @@
  *********************************************************************************/
 #pragma once
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include "bitset.h"
 #include "dense_bitset.h"
-#include "sparse_bitset.h"
 
-// MRNet's behaviour is to package bitsets up as sparse bitsets, send them over
-// the network, and then change them to dense bitsets once they get to the
-// client side.
+#ifdef MRNET
+#include "sparse_bitset.h"
+#endif
+
+#ifdef ZMQNET
+#include "lrunle_bitset.h"
+#endif
 
 namespace bitset {
 
+#ifdef MRNET
 std::unique_ptr<DenseBitset> createDenseFrom(const SparseBitset &bitset);
+#endif
+
+#ifdef ZMQNET
+std::unique_ptr<DenseBitset> createDenseFrom(const LRunLEBitset &bitset);
+#endif
 
 } // bitset

@@ -12,6 +12,7 @@
 #include "dbgsrv_zmq.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_cmds.h"
+#include "dbgformat.h"
 
 #include "dbg_zmq.capnp.h"
 
@@ -49,6 +50,12 @@ int ZMQNetServerProtocol::invokeCallback(const char *chost, int cport,
 
 int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     LOG("ZMQNetServerProtocol::eventCallback\n");
+
+    auto eventResult = ResultPtr(EventToSocProto(ev), std::free);
+    auto id = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
+
+    m_network->sendResult(id, packResult(std::move(eventResult)));
+
     return 0;
 }
 
@@ -102,8 +109,8 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
     { // register command stream callback
         const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            LOG("zmqnet: callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+        const auto commandCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            LOG("zmqnet: command callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
             assert(streamId == commandStreamId);
             
             /*    Two locks are needed here to handle the (unlikely) edge case 
@@ -128,12 +135,6 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             m_pending_command = std::make_unique<CommandDispatchFunc>
                 (std::bind(dbgsrv_dispatch_cmds, command.asChars().begin(), std::placeholders::_1));
             auto future = m_pending_command->get_future();
-            
-            // tell main thread there is an event waiting
-            if (!incEventFlag()) {
-                LOG("zmqnet: incEventFlag failed!\n");
-                // TODO shut down
-            }
 
             // ok for main thread to run (and delete) m_pending_command now
             command_lock.unlock();
@@ -148,7 +149,8 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
                 return result ? 
                     packResult(std::move(result))
                     :
-                    zmqnet::make_ByteArray("", 1)
+                    // intentionally blank result; the frontend will be waiting for something
+                    zmqnet::make_ByteArray("", 1) 
                 ;
             } catch (const std::exception &e) {
                 LOG("zmqnet: exception thrown during command execution: %s.\n", e.what());
@@ -159,13 +161,24 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             }
         };
 
-        m_network->registerCallback(commandStreamId, command_callback);
+        m_network->registerCallback(commandStreamId, commandCallback);
     }
 
-    // Set up event fd
-    if (pipe(m_event_pipe)) {
-        LOG("Creation of event pipe failed.\n");
-        return -1;
+    { // register event stream callback
+        const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
+        const auto eventCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            // Nothing should be sent on this stream from the client; it is used to
+            // send async events back to the client for processing. We still need
+            // to register a callback to use it this way, though.
+            
+            LOG("zmqnet: event callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+            LOG("zmqnet: WARNING: client shouldn't be sending data on the event stream.\n");
+            assert(streamId == eventStreamId);
+
+            return zmqnet::ByteArray{};
+        };
+
+        m_network->registerCallback(eventStreamId, eventCallback);
     }
 
     // remember my rank for when INVOKE comes with rest of info
@@ -182,21 +195,13 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 void ZMQNetServerProtocol::endProto() {
     LOG("ZMQNetServerProtocol::endProto\n");
 
-    close(m_event_pipe[0]);
-    close(m_event_pipe[1]);
-
     if (m_network) m_network->waitForExit();
 }
 
-fd_set *ZMQNetServerProtocol::getFdSet() {
-    LOG("ZMQNetServerProtocol::getFdSet\n");
-    // this is reconstructed every call because the main loop layer adds to it
-    // every iteration
-
-    FD_ZERO(&m_fds);
-    FD_SET(m_event_pipe[0], &m_fds);
-
-    return &m_fds;
+bool ZMQNetServerProtocol::checkEvents() const {
+    // LOG("ZMQNetServerProtocol::checkEvents\n");
+    std::scoped_lock<std::mutex> lock(m_command_lock);
+    return m_pending_command != nullptr;
 }
 
 int ZMQNetServerProtocol::setupIo(int *fd, int *port) { 
@@ -220,13 +225,6 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
         
         (*m_pending_command)(nullptr /* TODO call with ci */);
         m_pending_command.reset();
-    } else {
-        LOG("warning: called runProto with null pending command.\n");
-    }
-
-    if (!decEventFlag()) {
-        LOG("error: decEventFlag failed!\n");
-        // TODO shut down
     }
 }
 
@@ -252,74 +250,6 @@ int ZMQNetServerProtocol::sendReply(const char *response) {
     LOG("ZMQNetServerProtocol::sendReply\n");
     // this is done asynchronously by the zmqnet callbacks
     return 0;
-}
-
-bool ZMQNetServerProtocol::incEventFlag() {
-    LOG("ZMQNetServerProtocol::incEventFlag\n");
-    // put an x in the pipe to have the main thread call runProto.
-    const char buf[] = {'x'};
-    ssize_t sent = 0;
-    bool fatal_error = false;
-
-    do {
-        sent = write(m_event_pipe[1], &buf, sizeof(char));
-
-        if (sent < 0) {
-            LOG("warning: error in write: %d: %s. attempting to handle...\n", errno, strerror(errno));
-
-            switch (errno) {
-                case EINTR: {
-                    // write was interupted by signal.
-                    // we just try again.
-                    break;
-                }
-
-                default: {
-                    LOG("error: unhandled error in write %d: %s\n", errno, strerror(errno));
-                    fatal_error = true;
-                }
-            }
-        }
-    } while (sent <= 0 && !fatal_error);
-
-    return !fatal_error;
-}
-
-bool ZMQNetServerProtocol::decEventFlag() {
-    LOG("ZMQNetServerProtocol::decEventFlag\n");
-    // consume a byte in the pipe
-    char buf[1];
-    size_t nread;
-    bool fatal_error = false;
-
-    do {
-        nread = read(m_event_pipe[0], buf, 1);
-
-        if (nread == 0) {
-            LOG("error: read detected EOF\n");
-            fatal_error = true;
-            break;
-        }
-
-        if (nread < 0) {
-            LOG("warning: error in read: %d: %s. attempting to handle...\n", errno, strerror(errno));
-
-            switch (errno) {
-                case EINTR: {
-                    // read was interupted by signal.
-                    // we just try again.
-                    break;
-                }
-
-                default: {
-                    LOG("error: unhandled error in read %d: %s\n", errno, strerror(errno));
-                    fatal_error = true;
-                }
-            }
-        }
-    } while (nread <= 0 && !fatal_error);
-
-    return !fatal_error;
 }
 
 // private /////////////////////////////////////////////////////////////////////

@@ -775,6 +775,8 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
 
+    PrintOutMsg("Launch complete.\n");
+
     // Issue the startup command
     rep_set = DbgStartup(rec_set);
 

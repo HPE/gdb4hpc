@@ -81,7 +81,6 @@ struct mp_arch MPArchs[] = {
     {"ompi", MPARCH_OMPI},         {"unknown", MPARCH_UNKNOWN}};
 
 #define TIMEOUT_WDT 5000
-#define TIMEOUT_PERIOD 1
 
 // Need to define this for any library that is shared between the client and
 // server components. We need to be able to hook into the CLI stream in the
@@ -515,38 +514,13 @@ void Usage(void) {
 
 void Server(void) {
     int fd = -1;
-    int dtbsz = min(FD_SETSIZE, getdtablesize());
-    fd_set *readfds;
     dbgevent_t *e;
-    struct timeval tv;
 
     DVPRINT("dbgsrv: Server() main loop has started!\n");
-    DVPRINT("dtbsz: %d\n", dtbsz);
 
     for (;;) {
-        DVPRINT("dbgsrv: Main loop\n");
-        // add the backend protocol file descriptor(s) to the set
-        readfds = DbgGetFDSet();
-
-        // add the debugger output file descriptor to the set
-        if (DbgFD >= 0) FD_SET(DbgFD, readfds);
-
-        /*
-        ** If IOBackendFD >= 0 then we are reading the target output and
-        ** the debugger has been told to use read it. We should read from the
-        ** master side.
-        */
-        if (IOBackendFD >= 0) {
-            FD_SET(IOBackendFD, readfds);
-
-            /*
-            ** IOClientFD is just used to set up the socket
-            ** to the client. Once this has been done,
-            ** it is set to -1 and not used again.
-            */
-            if (IOClientFD >= 0) FD_SET(IOClientFD, readfds);
-        }
-
+        // DVPRINT("dbgsrv: Main loop\n");
+        
         // Wait for an asynchronous event if a asynch handler has been
         // installed
         if (AsyncRtn != NULL) {
@@ -563,15 +537,11 @@ void Server(void) {
                 AsyncRtn = NULL;
             }
         }
+        
+        // get common and backend protocol file descriptors
+        auto readfds = DbgGetFdSet(DbgFD, IOClientFD, IOBackendFD);
 
-        /*
-        ** Must initialise timeout here, 'cause Linux
-        ** trashes it.
-        */
-        tv.tv_sec = TIMEOUT_PERIOD;
-        tv.tv_usec = 0;
-
-        switch (select(dtbsz, readfds, NULL, NULL, &tv)) {
+        switch (DbgCheckEvents(readfds)) {
             case -1:
                 if (errno == EINTR) {
                     if (Shutdown) break;

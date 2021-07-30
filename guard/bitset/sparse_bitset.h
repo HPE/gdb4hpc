@@ -53,7 +53,7 @@ public:
             }
         }
 
-        unsigned int operator*() const {
+        size_t operator*() const {
             return m_current_bit;
         }
 
@@ -75,11 +75,11 @@ public:
         }
 
         bool operator!=(const SetBitsIterator &other) {
-            return m_current_bit == other.m_current_bit;
+            return m_current_bit != other.m_current_bit;
         };
     private:
         const SparseBitset& m_bits;
-        unsigned int m_current_bit;
+        size_t m_current_bit;
 
         std::vector<Range>::const_iterator m_range_it;
     };

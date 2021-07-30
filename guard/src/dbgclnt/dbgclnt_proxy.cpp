@@ -1353,7 +1353,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
     // us. The d_nproc is also set there.
 
     // Set the network object in the dbginvoke
-    di->d_proto_net = net;
+    di->d_proto_net.reset(net);
 
     // create the d_evfds list for the di
     di->d_evfds = NewList();
@@ -1537,7 +1537,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
     di->d_bitset_launched = std::make_unique<DenseBitset>(di->d_nproc);
 
     // Set the network object in the dbginvoke
-    di->d_proto_net = net;
+    di->d_proto_net.reset(net);
 
     // create the d_evfds list for the di
     di->d_evfds = NewList();
@@ -1633,7 +1633,7 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::recvProtoMsg(int net_fd) {
 }
 
 void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
-    proxy_type *network = (proxy_type *)di->d_proto_net;
+    proxy_type *network = (proxy_type *)di->d_proto_net.get();
     char *line;
 
     // fix segfault
@@ -1724,7 +1724,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
 
 std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
                                const char *request) {
-    proxy_type *network = (proxy_type *)di->d_proto_net;
+    proxy_type *network = (proxy_type *)di->d_proto_net.get();
     char *msg;
     proxy_msg_header msg_head;
 
@@ -1737,7 +1737,7 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
 
     DASSERT_NOT_NULL(target);
 
-    msg = ProtoMsgToSocProto(ProtoMessage(target->clone().release(), strdup(request)));
+    msg = ProtoMsgToSocProto(ProtoMessage(target->clone(), strdup(request)));
 
     // Send the header
     msg_head.msg_id = PROXY_ID(network);
@@ -1784,7 +1784,7 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
 // command to. Change this to something that makes more sense.
 std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di, const Bitset *target,
                                         Bitset &received) {
-    proxy_type *network = (proxy_type *)di->d_proto_net;
+    proxy_type *network = (proxy_type *)di->d_proto_net.get();
     int full = 0;
     proxy_msg_header msg_head;
     char *msg;
@@ -1859,7 +1859,7 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di
 ** If detach is true, then we detach from application instead of killing it.
 */
 int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
-    proxy_type *network = (proxy_type *)di->d_proto_net;
+    proxy_type *network = (proxy_type *)di->d_proto_net.get();
     proxy_msg_header msg_head;
     char *msg;
 
@@ -1908,7 +1908,7 @@ int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
 }
 
 void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
-    proxy_type *network = (proxy_type *)di->d_proto_net;
+    proxy_type *network = (proxy_type *)di->d_proto_net.get();
 
     // Check to see if the network type has been destroyed
     if (network != NULL) {

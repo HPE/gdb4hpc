@@ -354,7 +354,7 @@ std::optional<ProtoMessage> SocProtoToProtoMsg(char *s) {
     bitset_str = getstring(&s);
     msg_str = getstring(&s);
 
-    rtn = ProtoMessage(new DenseBitset(bitset_str), msg_str);
+    rtn = ProtoMessage(std::make_unique<DenseBitset>(bitset_str), std::move(msg_str));
 
     free(bitset_str);
 

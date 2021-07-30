@@ -812,7 +812,7 @@ void DbgDispatchEvents(void) {
 
                 // send a response back containing the set
 
-                auto response_pmsg = ProtoMessage(set.release(), strdup(""));
+                auto response_pmsg = ProtoMessage(std::move(set), strdup(""));
                 msg = ProtoMsgToSocProto(response_pmsg);
 
                 msg_head.msg_type = MSG_OK;
@@ -1014,7 +1014,7 @@ void DbgDispatchEvents(void) {
                 auto set = std::make_unique<DenseBitset>(di->d_nproc);
                 set->invert();
                 ProtoMessageSet pmsg_set{};
-                pmsg_set.emplace_back(ProtoMessage(set.release(), EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                pmsg_set.emplace_back(ProtoMessage(std::move(set), EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;
@@ -1138,7 +1138,7 @@ void DbgDispatchEvents(void) {
                 auto set = std::make_unique<DenseBitset>(di->d_nproc);
                 set->invert();
                 ProtoMessageSet pmsg_set{};
-                pmsg_set.emplace_back(ProtoMessage(set.release(), EventToSocProto(NewEvent((dbgev)DBG_OK))));
+                pmsg_set.emplace_back(ProtoMessage(std::move(set), EventToSocProto(NewEvent((dbgev)DBG_OK))));
                 DbgDispatchProtoEvents(di, pmsg_set);
 
                 break;

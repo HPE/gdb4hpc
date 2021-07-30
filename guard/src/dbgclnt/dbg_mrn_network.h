@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "dbgclnt_network.h"
 #include "dbg_mrn.h"
 #include "mrn_topgen.h"
 #include "dense_bitset.h"
@@ -19,12 +20,12 @@
 #include "mrnet/Stream.h"
 #include "mrnet/NetworkTopology.h"
 
-class MRNetFrontEnd {
+class MRNetNetwork : public DebugClientNetwork {
 public:
-    MRNetFrontEnd() = delete; // use create_network methods below
-    ~MRNetFrontEnd();
+    MRNetNetwork() = delete; // use create_network methods below
+    ~MRNetNetwork();
 
-    static MRNetFrontEnd *create_network_no_be(char *topology_file,
+    static MRNetNetwork *create_network_no_be(char *topology_file,
                                        MRN::NetworkTopology *&ptopology, int ctiAppid,
                                        int ctiMid);
 
@@ -59,7 +60,7 @@ public:
     void debug_print_network_topology();
 
 private:
-    MRNetFrontEnd(MRN::Network *network, MRN::Stream *cmd,
+    MRNetNetwork(MRN::Network *network, MRN::Stream *cmd,
           MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
     
     void add_event_stream(MRN::Stream *event_stream);

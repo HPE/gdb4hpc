@@ -30,17 +30,13 @@
 
 #include "bitset.h"
 #include "proto_message.h"
+#include "dbginvoke.h"
 
 #include <string>
 #include <exception>
 #include <memory>
 #include <vector>
 #include <unordered_map>
-
-// forward declare struct dbginvoke - Note that because the struct dbginvoke is
-// first encountered inside of a list of parameters for the function pointer, we
-// *must* forward declare it otherwise the compiler will mess up.
-struct dbginvoke;
 
 // Some protocols will interact with the workload manager. Known workload
 // managers are defined in the following enumeration. Note that the name
@@ -121,6 +117,7 @@ public:
     // called when a session is no longer valid
     virtual void cleanupSession(proto_session *session) {};
 
+    // called from FreeDbgInvoke
     virtual void destroyClient(struct dbginvoke *di) {};
 
     void resetProtocolEventHandler();
@@ -135,6 +132,16 @@ protected:
 
     // called by derived classes' constructors to register themselves
     void registerProtocol();
+
+    // helper to extract a reference to a network object from a di.
+    template <typename Net>
+    Net& getNetwork(dbginvoke *di) {
+        if (di->d_proto_net == nullptr) {
+            throw std::runtime_error("Tried to extract a network from a nullptr.");
+        }
+
+        return dynamic_cast<Net&>(*di->d_proto_net);
+    }
 private:
     // we don't want this exposed to derived classes directly, they should only
     // be able to set it and call its handler method.

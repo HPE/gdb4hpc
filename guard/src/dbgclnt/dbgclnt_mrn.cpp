@@ -36,7 +36,7 @@
 
 #include "aif.h"
 #include "dbg_client.h"
-#include "dbg_mrn_fe.h"
+#include "dbg_mrn_network.h"
 #include "defs.h"
 #include "list.h"
 #include "useful.h"
@@ -94,7 +94,7 @@ int MRNClientProtocol::init() {
 
 std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
                                        const char *request) {
-    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
+    auto &network = getNetwork<MRNetNetwork>(di);
 
     DASSERT_NOT_NULL(target);
 
@@ -104,7 +104,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bi
     }
 
     MRN::Stream *newEventStream = nullptr;
-    network->send_command(target, request, &newEventStream);
+    network.send_command(target, request, &newEventStream);
 
     std::unique_ptr<Bitset> received = std::make_unique<DenseBitset>(target->sizeInBits());
 
@@ -123,7 +123,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bi
 
 std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di, 
                                             const Bitset *target, Bitset &received) {
-    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
+    auto &network = getNetwork<MRNetNetwork>(di);
     int full = 0;
 
     // recv reply only if not already in a shutdown state
@@ -134,7 +134,7 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di,
     std::optional<ProtoMessageSet> result{};
 
     while (!full) {
-        auto msg_set = network->recv_reply(target);
+        auto msg_set = network.recv_reply(target);
         if (!msg_set) {
             PrintOutError("Could not recv reply from MRNet network.\n");
             return result;
@@ -169,7 +169,7 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di,
 }
 
 void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
-    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
+    auto &network = getNetwork<MRNetNetwork>(di);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
     // dispatch application output if started
@@ -187,7 +187,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // a callback registered in the dbginvoke instead of handling it here. It's
     // not appropriate to handle client events in this layer.
     {
-        auto io_res = network->dispatch_io(ev_fd);
+        auto io_res = network.dispatch_io(ev_fd);
         if (di->d_started && io_res) {
             // process each io message in the list
             for (const auto &msg : *io_res) {
@@ -200,7 +200,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 
     {
-        auto ev_res = network->dispatch_event(ev_fd);
+        auto ev_res = network.dispatch_event(ev_fd);
         // dispatch events
         if (ev_res) {
             // Call the protocol specific callback function to handle this event msg
@@ -220,7 +220,7 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     int num_be;
     int rtn;
     MRN::NetworkTopology *mrn_topology = nullptr;
-    MRNetFrontEnd *network = nullptr;
+    std::unique_ptr<MRNetNetwork> network = nullptr;
     char *env_var_str;
     std::string request;
     // Set this to the number of environment variables we need to ship over.
@@ -572,8 +572,9 @@ OMPD support will not be available.\n");
     DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
 
     // We let MRNet send the contents of the manifest for us
-    network = MRNetFrontEnd::create_network_no_be(topology_name, mrn_topology,
-                                          di->d_appid, mid);
+    network = std::unique_ptr<MRNetNetwork>
+        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->d_appid, mid));
+    
     if (network == nullptr) {
         // error already printed
         goto attach_error;
@@ -744,10 +745,8 @@ OMPD support will not be available.\n");
 
     di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
-    di->d_proto_net = network;
-
     DPRINT("DbgMRNAttach: MRNet initialization succeded! network:[%p]\n",
-           network);
+           network.get());
 
     // create the d_evfds list for the di
     di->d_evfds = NewList();
@@ -784,6 +783,9 @@ OMPD support will not be available.\n");
         goto attach_error;
     }
 
+    // hand the network over to the di
+    di->d_proto_net = std::move(network);
+
     // wait for the DBG_OK response from the dbgsrv's indicating they have
     // finished starting up
 
@@ -819,12 +821,6 @@ attach_error:
         di->d_appid = 0;
     }
 
-    if (network != nullptr) {
-        delete network;
-        // clear the network pointer
-        di->d_proto_net = nullptr;
-    }
-
     if (root != nullptr) Free(root);
 
     if (machine_hosts != nullptr) {
@@ -855,7 +851,7 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
     int num_be;
     int rtn;
     MRN::NetworkTopology *mrn_topology = nullptr;
-    MRNetFrontEnd *network = nullptr;
+    std::unique_ptr<MRNetNetwork> network = nullptr;
     auto app_argv = ArgvStream{};
     auto dbgsrv_alps_argv = ArgvStream{};
     char **tmp;
@@ -1120,8 +1116,9 @@ OMPD support will not be available.\n");
 
     DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
 
-    network = MRNetFrontEnd::create_network_no_be(topology_name, mrn_topology,
-                                          di->d_appid, mid);
+    network = std::unique_ptr<MRNetNetwork>
+        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->d_appid, mid));
+    
     if (network == nullptr) {
         // error already printed
         goto invoke_error;
@@ -1289,11 +1286,8 @@ OMPD support will not be available.\n");
     // Create the empty launched bitset
     di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
-    // Set the network object in the dbginvoke
-    di->d_proto_net = network;
-
     DPRINT("DbgMRNInvoke: MRNet initialization succeded! network:[%p]\n",
-           network);
+           network.get());
 
     // create the d_evfds list for the di
     di->d_evfds = NewList();
@@ -1329,6 +1323,9 @@ OMPD support will not be available.\n");
             "ERROR: MRNet cannot setup broadcast channels with dbgsrvs!\n");
         goto invoke_error;
     }
+
+    // hand the network over to the di
+    di->d_proto_net = std::move(network);
 
     // wait for the DBG_OK response from the dbgsrv's indicating they have
     // finished starting up
@@ -1378,12 +1375,6 @@ invoke_error:
         di->d_appid = 0;
     }
 
-    if (network != nullptr) {
-        delete network;
-        // clear the network pointer
-        di->d_proto_net = nullptr;
-    }
-
     if (machine_hosts != nullptr) {
         tmp = machine_hosts;
         while (*tmp != nullptr) {
@@ -1395,9 +1386,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
-    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
-
+int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {
     if (!di) {
         PrintOutError("Tried to exit with null di.\n");
         return -1;
@@ -1405,34 +1394,17 @@ int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {::
 
     // shutdown mrnet only if not already in a shutdown state
     if (!di->d_isShutdown) {
-        delete network;
-        network = nullptr;
-        di->d_proto_net = nullptr;
+        di->d_proto_net.reset();
     }
 
     return DebugClientProtocol::exit(di, detach);
 }
 
 void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
-    MRNetFrontEnd *network = static_cast<MRNetFrontEnd *>(di->d_proto_net);
-    g_progoutp_t *po;
-
     // Check to see if the network type has been destroyed
-    if (network != nullptr) {
+    if (di->d_proto_net != nullptr) {
         // call the exit function to force the application to quit
         exit(di, 0);
-    }
-
-    // need to set po now since DbgMRNExit can modify it
-    po = (g_progoutp_t *)di->d_proto_outp;
-
-    // Check to see if the output stream has been destroyed
-    if (po != nullptr) {
-        // Destroy the program output object
-        DbgFreeGenericProgOutp(po);
-
-        // clear the program output object
-        di->d_proto_outp = nullptr;
     }
 }
 
@@ -1573,8 +1545,6 @@ int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
             return 1;
         }
 #endif
-
-        PrintOutMsg("Launch complete.\n");
     }
 
     return 0;

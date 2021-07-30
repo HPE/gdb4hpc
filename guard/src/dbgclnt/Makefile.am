@@ -16,12 +16,12 @@ AM_LIBTOOLFLAGS = --quiet
 # Check for MRNet
 if MRN
 AM_CXXFLAGS	+= -I$(MRNET) -I$(BITSET)
-MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_fe.cpp mrn_topgen.cpp
+MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_network.cpp mrn_topgen.cpp
 endif
 
 if ZMQN
 AM_CXXFLAGS += -I$(ZMQNET)/include -I$(BITSET)
-ZMQNET_PROTO = dbgclnt_zmq.cpp
+ZMQNET_PROTO = dbgclnt_zmq.cpp dbg_zmq_network.cpp
 endif
 
 ############################
@@ -44,7 +44,7 @@ endif
 noinst_LIBRARIES	= libdbgclnt.a libdbgproto.a
 libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp\
 						  $(FRONTEND)
-libdbgproto_a_SOURCES	= dbgclnt_proto.cpp dbgclnt_proto_ctiship.cpp proto_message.cpp \
+libdbgproto_a_SOURCES	= dbgclnt_proto.cpp dbgclnt_proto_ctiship.cpp dbgclnt_network.cpp proto_message.cpp \
 						  dbginvoke.cpp dbgclnt_proxy.cpp dbgproxy.cpp dbgoutp.cpp \
 						  $(MRN_PROTO) $(ZMQNET_PROTO)
 

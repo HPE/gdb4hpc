@@ -25,6 +25,7 @@
 #include <sys/types.h>
 
 #include "dbgclnt_proto.h"
+#include "dbgclnt_network.h"
 
 // This defines a proxy "session". Only the command stream is shared for a
 // single session of the proxy. The event and output stream are unique to each
@@ -73,7 +74,7 @@ typedef struct proxy_session proxy_session;
 #define PROXY_SESSION_JOBFILE(p) (p)->jobScript
 
 // used as the network protocol object for the proxy interface
-struct proxy_type {
+struct proxy_type : public DebugClientNetwork {
     // Every proxy_type references a proxy_session
     proxy_session *sess;
     // unique id for this instance associated with the session

@@ -2,24 +2,15 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include <algorithm>
-#include <cstdlib>
-#include <filesystem>
-
 #include "dbg_client.h"
 #include "dbgclnt_zmq.h"
 #include "dbgclnt_proto_ctiship.h"
-#include "defs.h"
-#include "lrunle_bitset.h"
-#include "useful.h"
 
-#include "dbg_zmq.capnp.h"
-#include "capnp/serialize.h"
+#include "useful.h"
 
 #include "common_tools_fe.h"
 
-// TODO wrap this in #if DEBUG
-#if 1
+#if DEBUG
 #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG(...) /**/
@@ -30,8 +21,6 @@ ZMQNetClientProtocol DbgClntProtoZMQ{};
 
 ZMQNetClientProtocol::ZMQNetClientProtocol()
     : DebugClientProtocol()
-    , m_network{nullptr}
-    , m_command_result_ready{false}
 { 
     registerProtocol(); 
 }
@@ -55,25 +44,9 @@ std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (!m_network) {
-        PrintOutError("Tried to send a message without a network.\n");
-        return nullptr;
-    }
-
-    if (!m_command_stream) {
-        PrintOutError("Tried to send a message without a command stream.\n");
-        return nullptr;
-    }
-
     if (di->d_isShutdown) return nullptr;
 
-    // TODO get/create specific stream for target
-
-    LOG("sending message %s\n", request);
-
-    m_network->sendCommand(*m_command_stream, request);
-
-    return target->clone();
+    return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
 
 std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
@@ -84,45 +57,26 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
         return {};
     }
 
-    // TODO respect target
-    // TODO update received
+    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, received);
+}
 
-    // wait for result
-    LOG("waiting for result...\n");
-    
-    std::unique_lock<std::mutex> lock(m_command_result_lock);
-    m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
-
-    auto reply = std::move(m_command_result);
-    m_command_result_ready = false;
-    
-    // unpack
-    assert(reply.size() != 0);
-    assert(reply.size() % sizeof(capnp::word) == 0);
-    auto words_ptr = reinterpret_cast<capnp::word const *>(reply.begin());
-    auto words_size = reply.size() / sizeof(capnp::word);
-    auto words_array = kj::arrayPtr(words_ptr, words_size);
-
-    auto reader = capnp::UnalignedFlatArrayMessageReader(words_array);
-    auto pack = reader.getRoot<ZmqnetMessagePackage>();
-
-    // TODO fully unpack and process
-    for (const auto message : pack.getMessages()) {
-        LOG("got reply: \n");
-        LOG("\tdata: %s\n", message.getData().cStr());
-        LOG("\thash: %lu\n", message.getHash());
-        auto bitsetPtr = message.getBitset().asChars().begin();
-        auto bitset = LRunLEBitset(bitsetPtr);
-        LOG("\tbitset: %s\n", bitset.toSet().c_str());
-        
-        received |= bitset;
-    }
-
-    return {};
+int ZMQNetClientProtocol::checkEvents(dbginvoke_t *di) {
+    // LOG("%s\n", __PRETTY_FUNCTION__);
+    return getNetwork<ZMQNetNetwork>(di).checkEvents();
 }
 
 void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
-    LOG("%s\n", __PRETTY_FUNCTION__);
+    // zmqnet doesn't use event file descriptors, so ev_fd will always be -1
+    assert(ev_fd == -1);
+
+    auto &net = getNetwork<ZMQNetNetwork>(di);
+    
+    auto messages = net.releaseEvents();
+    
+    if (messages.size() > 0) {
+        LOG("dispatching\n");
+        DbgDispatchProtoEvents(di, messages);
+    }
 }
 
 int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
@@ -144,10 +98,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
-    // This is rolled into the protocol with zmqnet
-    di->d_proto_net = nullptr;
-
-    LOG("Starting application, please wait...\n");
+    PrintOutMsg("Starting application, please wait...\n");
 
     // launch n ranks of app being debugged ////////////////////////////////////
 
@@ -163,7 +114,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         // TODO: dump error messages
     }
 
-    LOG("launched app\n");
+    PrintOutMsg("Launched application...\n");
 
     // ship required backend files /////////////////////////////////////////////
 
@@ -229,42 +180,24 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     if (isNonStop)        dbgsrvArgs << "--non-stop";
     if (gdb && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
 
+#if DEBUG
     LOG("zmqnet argv:\n");
     for (const auto cstr : dbgsrvArgs.c_strs()) {
         LOG("%s ", cstr);
     }
     LOG("\n");
+#endif
 
     // TODO environment variables
 
-    m_network = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
+    auto zmqnet = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
         zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
         dbgsrvArgs.c_strs().data()  
     );
 
-    { // create send command stream
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
-            // TODO check errors
-            fprintf(stderr, "command_callback: %d %s\n", streamId, result.asBytes().begin());
+    di->d_proto_net = std::make_unique<ZMQNetNetwork>(std::move(zmqnet));
 
-            std::unique_lock<std::mutex> lock(m_command_result_lock);
-
-            // copies data and destroys any data that was in the array previously
-            m_command_result = zmqnet::make_ByteArray(result.begin(), result.size());
-
-            // notify a thread waiting for the result, if present
-            m_command_result_ready = true;
-            lock.unlock();
-            m_command_result_cv.notify_one();
-        };
-
-        // TODO this is ugly!
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        m_network->registerStreamCallback(streamId, command_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_command_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::WaitForAll{}));
-    }
+    PrintOutMsg("Created network...\n");
 
     // TODO enable failure callback ?
 
@@ -273,9 +206,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     di->d_bitset_full->invert();
 
     di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
-
-    // TODO setup event notification fd for io?
-    // TODO setup event notification fd for event?
 
     // send invoke
     auto invoke = CommandToSocProto(DBGCMD_INVOKE, num_be);
@@ -289,13 +219,17 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
 
     // TODO set program output stream handler
 
-    LOG("Made it out!\n");
+    PrintOutMsg("Connected to application...\n");
 
     return 0;
 }
 
 void ZMQNetClientProtocol::destroyClient(dbginvoke *di) {
     LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (di->d_proto_net) {
+        exit(di, 0);
+    }
 }
 
 int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
@@ -306,17 +240,8 @@ int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
         return -1;
     }
 
-    if (m_network) m_network->runExit();
+    getNetwork<ZMQNetNetwork>(di).exit();
+    di->d_proto_net.reset();
 
     return DebugClientProtocol::exit(di, detach);
-}
-
-int ZMQNetAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
-    LOG("ZMQNetAttachHandler::handleEvent\n");
-    return 0;
-}
-
-int ZMQNetLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
-    LOG("ZMQNetAttachHandler::handleEvent\n");
-    return 0;
 }

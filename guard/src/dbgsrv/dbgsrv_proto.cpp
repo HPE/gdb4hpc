@@ -111,8 +111,7 @@ fd_set *DbgGetFdSet(int dbgFd, int ioClientFd, int ioBackendFd) {
     if (!readfds) {
         // if the protocol doesn't use fdsets, it will return nullptr. in that
         // case we'll make our own.
-        static fd_set fds;
-        FD_ZERO(&fds);
+        static fd_set fds{};
         readfds = &fds;
     }
 

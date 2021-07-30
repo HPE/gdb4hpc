@@ -56,4 +56,7 @@ private:
 
     std::unique_ptr<zmqnet::Stream> m_event_stream;
     EventQueue m_event_queue;
+
+    // amount of time a commnode will wait for children before sending data up the tree in async streams
+    const int m_stream_timeout_ms = 400; 
 };

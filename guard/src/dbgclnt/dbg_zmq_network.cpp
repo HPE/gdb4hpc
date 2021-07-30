@@ -20,18 +20,19 @@ ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend)
     , m_command_result_ready{false}
 {
     { // create sync command stream
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
+        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr resultPtr) {
             // TODO check errors
             LOG("command_callback: %d %s\n", streamId, result.begin());
 
-            std::unique_lock<std::mutex> lock(m_command_result_lock);
-
-            // copies data and destroys any data that was in the command result previously
-            m_command_result = zmqnet::make_ByteArray(result.begin(), result.size());
+            auto result = zmqnet::make_ByteArray(resultPtr.begin(), resultPtr.size());
+            {
+                std::scoped_lock<std::mutex> lock(m_command_result_lock);
+                // destroys any data that was in the command result previously
+                m_command_result = std::move(result);
+                m_command_result_ready = true;
+            }
 
             // notify a thread waiting for the result, if present
-            m_command_result_ready = true;
-            lock.unlock();
             m_command_result_cv.notify_one();
         };
 
@@ -54,7 +55,7 @@ ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend)
         m_network->registerStreamCallback(streamId, event_callback);
         auto allNodesCommunicator = m_network->getAllNodesCommunicator();
         m_event_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::Timeout{400}));
+            "libzmqnetagg.so", "run", zmqnet::sync::Timeout{m_stream_timeout_ms}));
     }
 }
 
@@ -88,11 +89,15 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
     // wait for result
     LOG("waiting for result...\n");
     
-    std::unique_lock<std::mutex> lock(m_command_result_lock);
-    m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
+    zmqnet::ByteArray reply{};
 
-    auto reply = std::move(m_command_result);
-    m_command_result_ready = false;
+    {
+        std::unique_lock<std::mutex> lock(m_command_result_lock);
+        m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
+
+        reply = std::move(m_command_result);
+        m_command_result_ready = false;
+    }
     
     auto reader = getReaderFromData(reply);
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
@@ -119,9 +124,7 @@ ProtoMessageSet ZMQNetNetwork::releaseEvents() {
     auto messages = ProtoMessageSet{};
 
     while (auto optionalEventData = m_event_queue.getNext()) {
-        auto eventData = std::move(*optionalEventData);
-
-        auto reader = getReaderFromData(eventData);
+        auto reader = getReaderFromData(*optionalEventData);
         auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
         LOG("got reader\n");

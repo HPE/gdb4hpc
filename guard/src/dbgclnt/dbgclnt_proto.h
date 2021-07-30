@@ -140,13 +140,7 @@ protected:
             throw std::runtime_error("Tried to extract a network from a nullptr.");
         }
 
-        auto net = dynamic_cast<Net*>(di->d_proto_net.get());
-
-        if (!net) {
-            throw std::runtime_error("Bad cast in getNetwork.");
-        }
-
-        return *net;
+        return dynamic_cast<Net&>(*di->d_proto_net);
     }
 private:
     // we don't want this exposed to derived classes directly, they should only

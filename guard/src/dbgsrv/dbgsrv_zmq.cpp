@@ -149,7 +149,8 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
                 return result ? 
                     packResult(std::move(result))
                     :
-                    zmqnet::make_ByteArray("", 1)
+                    // intentionally blank result; the frontend will be waiting for something
+                    zmqnet::make_ByteArray("", 1) 
                 ;
             } catch (const std::exception &e) {
                 LOG("zmqnet: exception thrown during command execution: %s.\n", e.what());
@@ -174,7 +175,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             LOG("zmqnet: WARNING: client shouldn't be sending data on the event stream.\n");
             assert(streamId == eventStreamId);
 
-            return zmqnet::make_ByteArray("", 1);
+            return zmqnet::ByteArray{};
         };
 
         m_network->registerCallback(eventStreamId, eventCallback);

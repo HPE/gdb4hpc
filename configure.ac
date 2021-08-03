@@ -11,15 +11,15 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([guard], m4_esyscmd([source $PWD/../release_versioning; echo $major.$minor | tr -d '\n']),[andrewg@cray.com])
+AC_INIT([gdb4hpc], m4_esyscmd([source $PWD/release_versioning; echo $major.$minor | tr -d '\n']),[andrewg@cray.com])
 AC_COPYRIGHT([Copyright 2010-2021 Hewlett Packard Enterprise Development LP.])
 
-AC_CONFIG_SRCDIR([defs.h])
-AC_CONFIG_AUX_DIR([config])
+AC_CONFIG_SRCDIR([guard/defs.h])
+AC_CONFIG_AUX_DIR([guard/config])
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([guard/config.h])
 
-AC_MSG_NOTICE([Configuring Guard])
+AC_MSG_NOTICE([Configuring gdb4hpc])
 
 dnl Turn on Posix extensions
 AC_USE_SYSTEM_EXTENSIONS
@@ -38,7 +38,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 dnl Check for --with-aif
 AC_ARG_WITH([aif],
 	    [AS_HELP_STRING([--with-aif=dir],
-			    [Use libaif install located in dir. Libaif is required to build guard.]
+			    [Use libaif install located in dir. Libaif is required to build gdb4hpc.]
 			    )
 	    ],
 	    [with_aif=$withval],
@@ -48,7 +48,7 @@ AC_ARG_WITH([aif],
 dnl Check for --with-mpi
 AC_ARG_WITH([mpi],
 	    [AS_HELP_STRING([--with-mpi],
-			    [Enable standard MPICH support in Guard.]
+			    [Enable standard MPICH support in gdb4hpc.]
 			    )
 	    ],
 	    [with_mpirun=yes],
@@ -58,7 +58,7 @@ AC_ARG_WITH([mpi],
 dnl Check for --with-ompi
 AC_ARG_WITH([ompi],
 	    [AS_HELP_STRING([--with-ompi],
-			    [Enable open mpi support in Guard.]
+			    [Enable open mpi support in gdb4hpc.]
 			    )
 	    ],
 	    [with_ompi_info=yes],
@@ -68,12 +68,12 @@ AC_ARG_WITH([ompi],
 dnl Check for --with-p4 (P4 Parallel Programming system from ANL)
 AC_ARG_WITH([p4],
 	    [AS_HELP_STRING([--with-p4],
-			    [Enable ANL P4 Parallel Programming System support in Guard.]
+			    [Enable ANL P4 Parallel Programming System support in gdb4hpc.]
 			    )
 	    ],
 	    [AC_DEFINE([P4],
 		       [1],
-		       [Enable P4 support in Guard.]
+		       [Enable P4 support in gdb4hpc.]
 		       )
 	    ],
 	    [])
@@ -81,7 +81,7 @@ AC_ARG_WITH([p4],
 dnl Check for --with-ibm
 AC_ARG_WITH([ibm],
 	    [AS_HELP_STRING([--with-ibm],
-			    [Enable IBM POE support in Guard.]
+			    [Enable IBM POE support in gdb4hpc.]
 			    )
 	    ],
 	    [with_poe=yes],
@@ -91,7 +91,7 @@ AC_ARG_WITH([ibm],
 dnl Check for --with-cray
 AC_ARG_WITH([cray],
 	    [AS_HELP_STRING([--with-cray],
-			    [Enable Cray APRUN support in Guard.]
+			    [Enable Cray APRUN support in gdb4hpc.]
 			    )
 	    ],
 	    [with_cray=yes],
@@ -127,7 +127,7 @@ fi
 dnl Check for --with-mrnet
 AC_ARG_WITH([mrnet],
 	    [AS_HELP_STRING([--with-mrnet],
-			    [Enable MRNet support in Guard.]
+			    [Enable MRNet support in gdb4hpc.]
 			    )
 	    ],
 	    [mrnet_mode=yes
@@ -139,7 +139,7 @@ AC_ARG_WITH([mrnet],
 dnl Check for --with-zmqnet
 AC_ARG_WITH([zmqnet],
 	    [AS_HELP_STRING([--with-zmqnet],
-			    [Enable zmqnet support in Guard.]
+			    [Enable zmqnet support in gdb4hpc.]
 			    )
 	    ],
 	    [zmqnet_mode=yes
@@ -151,7 +151,7 @@ AC_ARG_WITH([zmqnet],
 dnl Check for --with-idb
 AC_ARG_WITH([idb],
 	    [AS_HELP_STRING([--with-idb],
-			    [Enable IDB backend support in Guard.]
+			    [Enable IDB backend support in gdb4hpc.]
 			    )
 	    ],
 	    [idb_mode=yes],
@@ -161,7 +161,7 @@ AC_ARG_WITH([idb],
 dnl Check for --with-gdb
 AC_ARG_WITH([gdb],
 	    [AS_HELP_STRING([--with-gdb],
-			    [Enable GDB regex backend support in Guard.]
+			    [Enable GDB regex backend support in gdb4hpc.]
 			    )
 	    ],
 	    [gdb_mode=yes],
@@ -171,7 +171,7 @@ AC_ARG_WITH([gdb],
 dnl Check for --with-gdbmi
 AC_ARG_WITH([gdbmi],
 	    [AS_HELP_STRING([--with-gdbmi],
-			    [Enable GDB/MI backend support in Guard.]
+			    [Enable GDB/MI backend support in gdb4hpc.]
 			    )
 	    ],
 	    [mi_mode=yes
@@ -243,7 +243,7 @@ AC_ARG_WITH([valgrind],
 ### Setup env options ###
 #########################
 dnl Set the directory path
-AC_SUBST([guard_srcdir], ["$(cd $srcdir && pwd)"])
+AC_SUBST([guard_srcdir], ["$(cd $srcdir/guard && pwd)"])
 
 dnl Check for non-default library paths
 if test -d "/lib"; then
@@ -277,7 +277,7 @@ if test "x$valgrind_mode" = xyes; then
         dnl Check for valgrind
         AC_PATH_PROG([VALGRIND], [valgrind], [no])
         if test "x$VALGRIND" = xno; then
-                AC_MSG_ERROR([You must have valgrind to enable valgrind mode in GUARD.])
+                AC_MSG_ERROR([You must have valgrind to enable valgrind mode in gdb4hpc.])
         fi
         AC_DEFINE([BE_VALGRIND], [1], [Building guard with backend valgrind mode.])
 fi
@@ -347,7 +347,7 @@ fi
 dnl Check for bpsh
 AC_PATH_PROG([BPSH], [bpsh], [no])
 if test "x$BPSH" != xno; then
-	AC_DEFINE([BPROC], [1],[Enable BPROC support in Guard.])
+	AC_DEFINE([BPROC], [1],[Enable BPROC support in gdb4hpc.])
 	AC_DEFINE_UNQUOTED([BPSH], ["$ac_cv_path_BPSH"], [Location of bpsh command.])
 fi
 
@@ -383,15 +383,15 @@ dnl Check for mpirun
 if test "x$with_mpirun" != xno ; then
 	AC_PATH_PROG([MPIRUN], [mpirun], [no])
 	if test "x$MPIRUN" != xno; then
-		AC_DEFINE([MPICH], [1], [Enable MPICH support in Guard])
+		AC_DEFINE([MPICH], [1], [Enable MPICH support in gdb4hpc])
 		AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
 		AC_PATH_PROG([MPDTRACE], [mpdtrace], [no])
 		if test "x$MPDTRACE" != xno; then
-			AC_DEFINE([MPICH_MPD], [1], [Enable MPICH support in Guard with mpd])
+			AC_DEFINE([MPICH_MPD], [1], [Enable MPICH support in gdb4hpc with mpd])
 			AC_DEFINE_UNQUOTED([MPDTRACE], ["$ac_cv_path_MPDTRACE"], [Location of mpdtrace command.])
 		fi
 	else
-		AC_MSG_ERROR([You must have mpirun to enable mpich support in GUARD.])
+		AC_MSG_ERROR([You must have mpirun to enable mpich support in gdb4hpc.])
 	fi
 fi
 
@@ -401,7 +401,7 @@ if test "x$with_ompi_info" != xno; then
 	if test "x$OMPI_INFO" != xno; then
 		AC_PATH_PROG(MPIRUN, mpirun, no)
 		if test "x$ac_cv_path_MPIRUN" != xno; then
-			AC_DEFINE([OMPI], [1], [Enable Open MPI support in Guard.])
+			AC_DEFINE([OMPI], [1], [Enable Open MPI support in gdb4hpc.])
 			AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
 		fi
 	fi
@@ -411,17 +411,17 @@ dnl Check for IBM's Parallel Environment
 if test "x$with_poe" != xno; then
 	AC_PATH_PROG([POE], [poe], [no])
 	if test "x$POE" != xno; then
-		AC_DEFINE([AIX_POE], [1], [Enable POE support in Guard.])
+		AC_DEFINE([AIX_POE], [1], [Enable POE support in gdb4hpc.])
 		AC_DEFINE_UNQUOTED([POE], ["$ac_cv_path_POE"], [Location of poe command.])
 	else
-		AC_MSG_ERROR([You must have poe to enable ibm support in GUARD.])
+		AC_MSG_ERROR([You must have poe to enable ibm support in gdb4hpc.])
 	fi
 fi
 
 dnl Check for Cray's Parallel Environment
 if test "x$with_cray" != xno; then
 	dnl This now always works for build machines that lack the aprun binary
-	AC_DEFINE([ALPS], [1], [Enable ALPS support in Guard.])
+	AC_DEFINE([ALPS], [1], [Enable ALPS support in gdb4hpc.])
 fi
 
 ##################################
@@ -429,12 +429,12 @@ fi
 ##################################
 dnl Check for mrnet
 if test "x$mrnet_mode" = xyes; then
-	AC_DEFINE([MRNET], [1], [Enable MRNet support in Guard.])
+	AC_DEFINE([MRNET], [1], [Enable MRNet support in gdb4hpc.])
 fi
 
 dnl Check for zmqnet
 if test "x$zmqnet_mode" = xyes; then
-	AC_DEFINE([ZMQNET], [1], [Enable zmqnet support in Guard.])
+	AC_DEFINE([ZMQNET], [1], [Enable zmqnet support in gdb4hpc.])
 fi
 
 ##############################
@@ -442,17 +442,17 @@ fi
 ##############################
 dnl Check for idb
 if test "x$IDB" != xno && test "x$idb_mode" != xno; then
-	AC_DEFINE([IDB_BACKEND], [1], [Enable IDB backend support in Guard.])
+	AC_DEFINE([IDB_BACKEND], [1], [Enable IDB backend support in gdb4hpc.])
 fi
 
 dnl Check for gdb
 if test "x$GDB" != xno && test "x$gdb_mode" != xno; then
-	AC_DEFINE([GDB_BACKEND], [1], [Enable GDB backend support in Guard.])
+	AC_DEFINE([GDB_BACKEND], [1], [Enable GDB backend support in gdb4hpc.])
 fi
 
 dnl Check for gdb/mi
 if test "x$GDB" != xno && test "x$mi_mode" != xno; then
-	AC_DEFINE([GDBMI_BACKEND], [1], [Enable GDB/MI backend support in Guard.])
+	AC_DEFINE([GDBMI_BACKEND], [1], [Enable GDB/MI backend support in gdb4hpc.])
 fi
 
 ############################
@@ -518,7 +518,7 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 		fi
 	fi
 
-	AC_DEFINE([GDBMI], [1], [Enable libmi support in Guard.])
+	AC_DEFINE([GDBMI], [1], [Enable libmi support in gdb4hpc.])
 fi
 
 dnl Check for libssh2
@@ -797,20 +797,24 @@ AM_CONDITIONAL([HDF_LIBS], [test "x$mfhdf" = xyes || test "x$hdf5" = xyes])
 ################
 dnl Conditional run of guard-rd configure.ac
 if test "x$mrnet_mode" != xno -o "x$zmqnet_mode" != xno; then
-	AC_CONFIG_SUBDIRS([guard-rd])
+	AC_CONFIG_SUBDIRS([guard/guard-rd])
 fi
 
-AC_CONFIG_FILES([Makefile
-		 bitset/Makefile
-		 scripts/Makefile
-		 filters/Makefile
-		 filters/mrnet/Makefile
-		 filters/zmqnet/Makefile
-		 src/client/Makefile
-		 src/dbgclnt/Makefile
-		 src/dbgcomm/Makefile
-		 src/dbgsrv/Makefile
-		 src/gram/Makefile
-		 src/proxy/Makefile
-		 src/useful/Makefile])
+AC_CONFIG_FILES([
+	Makefile
+	guard/Makefile
+	guard/bitset/Makefile
+	guard/scripts/Makefile
+	guard/filters/Makefile
+	guard/filters/mrnet/Makefile
+	guard/filters/zmqnet/Makefile
+	guard/src/client/Makefile
+	guard/src/dbgclnt/Makefile
+	guard/src/dbgcomm/Makefile
+	guard/src/dbgsrv/Makefile
+	guard/src/gram/Makefile
+	guard/src/proxy/Makefile
+	guard/src/useful/Makefile
+	tests/unit/Makefile
+])
 AC_OUTPUT

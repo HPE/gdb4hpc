@@ -340,7 +340,7 @@ echo "############################################"
 echo "#             Building gdb4hpc             #"
 echo "############################################"
 
-cd $top_level/guard
+cd $top_level
 check_exit_status
 
 autoreconf -ifv

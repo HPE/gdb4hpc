@@ -50,7 +50,7 @@ extern int clientPrintElements;
 
 /*
 ** Types
-*/
+ */
 namespace {
 
 // Type information for describing a function with its argument and return types
@@ -144,9 +144,10 @@ public:
     AIF *getArrayAIFHash(MIVar*, char *, int, int, int);
     static AIF *createSimpleAIF(int, char *, const char *, int, struct_info_t *, func_info_t *);
     int getArrayBaseType(MIVar *, char **, int *, struct_info_t **, func_info_t **);
+    int getChildren(MIVar *);
+    char *getVarValue(char *);
 
 private:
-    int getChildren(MIVar *);
     int getTypeLength(const char *);
     int getSimpleType(const char *);
     int getType(char *);
@@ -159,7 +160,6 @@ private:
     AIF *getFunctionAddress(const char *);
     static char *getFunctionName(const char *);
     char *miToFDS(int, const char *);
-    char *getVarValue(char *);
     AIFStream *getSimpleAIF(MIVar *);
     AIFStream *getComplexAIF(std::shared_ptr<MIVar>);
     struct_info_t *getStructInfo(const char *);
@@ -168,7 +168,6 @@ private:
     AIFStream *getVectorLikeAIF(std::shared_ptr<MIVar>);
     AIFStream *getPointerAIF(MIVar *);
     AIFStream* getReferenceAIF(MIVar*);
-    char *getArrayDataString(MIVar *);
     void fixTypeString(char *, const char *, char *);
     void sendMICommand(MICommand* command);
     std::unique_ptr<char,decltype(std::free)*> sanitizeTypeString(const char *input);
@@ -3674,30 +3673,34 @@ AIF *Mi2Aif::getArrayAIFHash(MIVar *var, char *hashinfo,
     return a;
 }
 
-static char *GetArrayDataString(MISession *session, MIVar *var) {
-    char *buf2;
-    MICommand *cmd;
-    char *buf;
-    int last_resort = 0;
-    DBEPERFLOG(SetTimerStart("GetArrayAIF: -data-evaluate-expression"));
-    cmd = MIDataEvaluateExpression(quoteId(var->expr).c_str());
-    SendMICommand(session, cmd);
-    while (!MICommandResultOK(cmd)) {
-        if (MICommandResultClass(cmd) == MIResultRecordERROR) {
-            if ((buf = MICommandResultErrorMessage(cmd)) != NULL) {
+static char *GetArrayDataString(MISession* session, MIVar *var) {
+
+    if (var->expr) {
+        DVPRINT("In GetArrayDataString %s\n", var->expr);
+        DBEPERFLOG(SetTimerStart("GetArrayAIF: -data-evaluate-expression"));
+
+        bool last_resort = false;
+        auto cmd = MIDataEvaluateExpression(quoteId(var->expr).c_str());
+        SendMICommand(session, cmd);
+        while (!MICommandResultOK(cmd)) {
+            if (MICommandResultClass(cmd) != MIResultRecordERROR) {
+                DVPRINT("GetArrayAIF: Error from GDB, but no message\n");
+                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
+                            "Error without message!");
+            } else if (auto buf = MICommandResultErrorMessage(cmd)) {
                 DVPRINT("GetArrayAIF: Debugger error: %s\n", buf);
                 EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, buf);
                 free(buf);
                 // try to resolve the expression as a last resort and try again
                 if (!last_resort) {
-                    ++last_resort;
+                    last_resort = true;
                     MICommandFree(cmd);
                     cmd = MIVarInfoPathExpression(var->expr);
                     SendMICommand(session, cmd);
                     if (MICommandResultOK(cmd)) {
                         // reset the error message
                         reset_err();
-                        buf2 = MIGetVarInfoPathExpression(cmd);
+                        auto buf2 = MIGetVarInfoPathExpression(cmd);
                         MICommandFree(cmd);
                         cmd = MIDataEvaluateExpression(buf2);
                         SendMICommand(session, cmd);
@@ -3709,23 +3712,53 @@ static char *GetArrayDataString(MISession *session, MIVar *var) {
                 MICommandFree(cmd);
                 return nullptr;
             } else {
-                DVPRINT("GetArrayAIF: Error from GDB, but no message\n");
-                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
-                            "Error without message!");
+                DVPRINT("GetArrayAIF: Bad response from GDB\n");
+                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
             }
-        } else {
-            DVPRINT("GetArrayAIF: Bad response from GDB\n");
-            EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
+            MICommandFree(cmd);
+
+            return nullptr;
         }
+        DBEPERFLOG(SetTimerStopAndLog("GetArrayAIF: -data-evaluate-expression"));
+
+        auto buf = MIGetDataEvaluateExpressionInfo(cmd);
         MICommandFree(cmd);
+        return buf;
 
-        return NULL;
+    } else if (var->numchild > 0) {
+        DVPRINT("GetArrayDataString passed a null expression with children children=%p\n",
+                var->children);
+
+        Mi2Aif mi2(session);
+        mi2.getChildren(var);
+
+        std::ostringstream os;
+        os << "{";
+
+        if (var->children) {
+            for (int i=0; i<var->numchild; ++i) {
+                if (i) os << ",";
+                auto child = var->children[i];
+                if (child->value) {
+                    os << child->value;
+                } else if (auto val = mi2.getVarValue(child->name)) {
+                    os << val;
+                    free(val);
+                } else {
+                    os << "<unavailable>";
+                }
+            }
+        }
+
+        os << "}";
+        
+        return strdup(os.str().c_str());
+
+    } else {
+        DVPRINT("GetArrayDataString passed a null expression\n");
+        EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "null expression while evaluationg an array");
+        return nullptr;
     }
-    DBEPERFLOG(SetTimerStopAndLog("GetArrayAIF: -data-evaluate-expression"));
-
-    buf = MIGetDataEvaluateExpressionInfo(cmd);
-    MICommandFree(cmd);
-    return buf;
 }
 
 namespace {
@@ -4193,7 +4226,7 @@ void MIArrayToAIFParser::error(const std::string& message) {
 // while (char* buf = slicer.getNext()) {
 //    ... process buf ...
 // }
-// The class is not omnicient, we currently only slice on the slowest changing
+// The class is not omniscient, we currently only slice on the slowest changing
 // dimension, so the actual block size could be larger than the nominal limit.
 // Also, since we are plugging into the front end of gdb/mi (paging is disabled in this
 // mode), we are limited to the set of types that can be split using a gdb expression.
@@ -4218,6 +4251,7 @@ private:
     ArraySlicer& operator=(const ArraySlicer&) = delete;
 
     MISession* m_session;       // session to connect to gdb/MI
+    
     std::shared_ptr<MIVar> m_var;  // MI variable of interest
     std::unique_ptr<ArrayDimension> m_shape;  // dimension and size of the array
     char* m_buf;                // allocated array for the result (contolled by this)
@@ -4266,13 +4300,15 @@ void ArraySlicer::determineSlicing()
         return;
 
     std::string type(m_var->type);
+    auto session = m_session;
+    
     if (type.substr(0,12) == "std::vector<") {
         // C++ vector, we can treat this like an array if we can get at the size
         // and the first element.   We usually can, but gdb can get a little gimpy
         // in this area
         DVPRINT("Slicing: it is a vector");
         std::string sizeStr = std::string("(") + m_var->exp + ").size()";
-        char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
+        char* sizeRes = EvalExpression(session, sizeStr.c_str());
         if (!sizeRes)
             return;
 
@@ -4285,7 +4321,7 @@ void ArraySlicer::determineSlicing()
 
         // can I get the address of the first element?
         std::string frontStr = std::string("*&(") + m_var->expr + ")[0]";
-        char* beginRes = EvalExpression(m_session, frontStr.c_str());
+        char* beginRes = EvalExpression(session, frontStr.c_str());
         if (!beginRes)
             return;
 

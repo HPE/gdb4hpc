@@ -13,14 +13,22 @@ class LRunLEBitset : public Bitset {
 public:
     class SetBitsIterator {
     public:
-        SetBitsIterator(const LRunLEBitset &bits, size_t start = 0);
+        SetBitsIterator(const LRunLEBitset &bits);
         ~SetBitsIterator();
-        size_t operator*() const;
+
+        size_t operator*() const { return m_current_bit; }
+
         SetBitsIterator& operator++();
-        bool operator!=(const SetBitsIterator &other);
+
+        bool operator!=(const SetBitsIterator &other) {
+            return m_current_bit != other.m_current_bit;
+        }
 
         friend LRunLEBitset;
     private:
+        struct End {};
+        SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End);
+
         const LRunLEBitset& m_bits;
         std::unique_ptr<lrle_context> m_context;
         size_t m_current_bit;
@@ -28,7 +36,7 @@ public:
 
     SetBitsIterator begin() const { return SetBitsIterator(*this); }
     SetBitsIterator end() const {
-        return SetBitsIterator(*this, m_nbits);
+        return SetBitsIterator(*this, SetBitsIterator::End());
     }
 
     LRunLEBitset(size_t nbits);

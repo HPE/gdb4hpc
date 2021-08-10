@@ -251,3 +251,43 @@ std::vector<unsigned char> LRunLEBitset::orBuf(unsigned char const* rhs, size_t 
     buf.resize(len);
     return buf;
 }
+
+using SetBitsIterator = LRunLEBitset::SetBitsIterator;
+
+SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits) 
+    : m_bits{bits}
+    , m_context(new lrle_context)
+    , m_current_bit{0}
+{ 
+    reset_lrle_context(m_context.get());
+    ++*this;
+}
+
+SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End end)
+    : m_bits{bits}
+    , m_context(nullptr)
+    , m_current_bit{m_bits.m_nbits}
+{
+    // used for LRunLEBitset::end()
+}
+
+// we need to declare the default destructor here, in the .cpp file, since the
+// header file doesn't include enough other headers to know how to destroy a 
+// unique_ptr to an lrle_context and generate the default destructor. 
+//
+// we do this to let files include lrunle_bitset.h without needing to know where lrle_bitset.h is.
+SetBitsIterator::~SetBitsIterator() = default;
+
+SetBitsIterator& SetBitsIterator::operator++() {
+    if (m_current_bit >= m_bits.sizeInBits()) return *this;
+
+    auto next_bit = lrle_next_set_bit(m_bits.m_compressed.data(), m_bits.m_compressed.size(), m_context.get());
+
+    if (next_bit >= 0) {
+        m_current_bit = next_bit;
+    } else {
+        m_current_bit = m_bits.sizeInBits();
+    }
+
+    return *this;
+}

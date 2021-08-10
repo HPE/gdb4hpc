@@ -33,11 +33,11 @@ dnl
 AC_DEFUN([cray_INIT],
 [
     dnl Pull in the revision information from the $PWD/release_versioning file
-    m4_define([BUILD_NUMBER], [m4_esyscmd_s([source $PWD/../release_versioning; echo "$build_number"])])
-    m4_define([REVISION], [m4_esyscmd_s([source $PWD/../release_versioning; echo "$revision"])])
+    m4_define([BUILD_NUMBER], [m4_esyscmd_s([source $PWD/release_versioning; echo "$build_number"])])
+    m4_define([REVISION], [m4_esyscmd_s([source $PWD/release_versioning; echo "$revision"])])
 
-    m4_define([MAJOR], [m4_esyscmd_s([source $PWD/../release_versioning; echo "$major"])])
-    m4_define([MINOR], [m4_esyscmd_s([source $PWD/../release_versioning; echo "$minor"])])
+    m4_define([MAJOR], [m4_esyscmd_s([source $PWD/release_versioning; echo "$major"])])
+    m4_define([MINOR], [m4_esyscmd_s([source $PWD/release_versioning; echo "$minor"])])
 
     AC_ARG_VAR([GDB4HPC_BUILD_NUMBER],[Build Number])
     AC_SUBST([GDB4HPC_BUILD_NUMBER],[BUILD_NUMBER])

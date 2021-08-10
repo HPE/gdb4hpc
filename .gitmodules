@@ -30,3 +30,6 @@
 [submodule "external/ddt_cuda-gdb-11.0"]
 	path = external/ddt_cuda-gdb-11.0
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_cuda-gdb-11.0.git
+[submodule "tests/unit/googletest"]
+	path = tests/unit/googletest
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/googletest.git

@@ -4,39 +4,21 @@
 #pragma once
 
 #include "bitset.h"
-#include "lrle_bitset.h"
 
 #include <vector>
+
+class lrle_context;
 
 class LRunLEBitset : public Bitset {
 public:
     class SetBitsIterator {
     public:
-        SetBitsIterator(const LRunLEBitset &bits) 
-            : m_bits{bits}
-            , m_current_bit{0}
-        { 
-            reset_lrle_context(&m_context);
-            ++*this;
-        }
+        SetBitsIterator(const LRunLEBitset &bits);
+        ~SetBitsIterator();
 
-        size_t operator*() const {
-            return m_current_bit;
-        }
+        size_t operator*() const { return m_current_bit; }
 
-        SetBitsIterator& operator++() {
-            if (m_current_bit >= m_bits.sizeInBits()) return *this;
-
-            auto next_bit = lrle_next_set_bit(m_bits.m_compressed.data(), m_bits.m_compressed.size(), &m_context);
-
-            if (next_bit >= 0) {
-                m_current_bit = next_bit;
-            } else {
-                m_current_bit = m_bits.sizeInBits();
-            }
-
-            return *this;
-        }
+        SetBitsIterator& operator++();
 
         bool operator!=(const SetBitsIterator &other) {
             return m_current_bit != other.m_current_bit;
@@ -44,16 +26,17 @@ public:
 
         friend LRunLEBitset;
     private:
+        struct End {};
+        SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End);
+
         const LRunLEBitset& m_bits;
-        lrle_context m_context;
+        std::unique_ptr<lrle_context> m_context;
         size_t m_current_bit;
     };
 
     SetBitsIterator begin() const { return SetBitsIterator(*this); }
     SetBitsIterator end() const {
-        auto it = SetBitsIterator(*this);
-        it.m_current_bit = m_nbits;
-        return it;
+        return SetBitsIterator(*this, SetBitsIterator::End());
     }
 
     LRunLEBitset(size_t nbits);

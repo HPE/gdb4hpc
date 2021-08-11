@@ -187,18 +187,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     }
     LOG("\n");
 #endif
-
-    // TODO environment variables
-
-    auto zmqnet = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
-        zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
-        dbgsrvArgs.c_strs().data()  
-    );
-
-    di->d_proto_net = std::make_unique<ZMQNetNetwork>(std::move(zmqnet));
-
-    PrintOutMsg("Created network...\n");
-
     // TODO enable failure callback ?
 
     auto num_be = di->d_nproc;
@@ -206,6 +194,15 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     di->d_bitset_full->invert();
 
     di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
+
+    // TODO environment variables
+    auto zmqnet = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
+        zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
+        dbgsrvArgs.c_strs().data()  
+    );
+    di->d_proto_net = std::make_unique<ZMQNetNetwork>(std::move(zmqnet), di->d_bitset_full->clone());
+
+    PrintOutMsg("Created network...\n");
 
     // send invoke
     auto invoke = CommandToSocProto(DBGCMD_INVOKE, num_be);

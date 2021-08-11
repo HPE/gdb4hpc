@@ -14,6 +14,7 @@
 #endif
 
 #include <iostream>
+#include <unordered_set>
 
 template <typename Bitset>
 class BitsetUnitTest : public ::testing::Test {
@@ -247,4 +248,14 @@ TYPED_TEST(BitsetUnitTest, serialize) {
     ASSERT_TRUE(empty_ds != this->m_full);
     ASSERT_TRUE(full_ds != this->m_empty);
     ASSERT_TRUE(sparse_ds == this->m_sparse);
+}
+
+TYPED_TEST(BitsetUnitTest, hash) {
+    auto map = std::unordered_set<Bitset*, BitsetHasher>{};
+
+    map.insert(&this->m_full);
+    map.insert(&this->m_sparse);
+    map.insert(&this->m_empty);
+
+    ASSERT_TRUE(map.size() == 3);
 }

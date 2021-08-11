@@ -18,7 +18,7 @@
 
 class ZMQNetNetwork : public DebugClientNetwork {
 public:
-    ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd);
+    ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd, std::unique_ptr<Bitset> &&allRanks);
 
     std::unique_ptr<Bitset> sendCommand(const Bitset *target, const char *request);
     std::optional<ProtoMessageSet> receiveReply(const Bitset *target, Bitset &received);
@@ -44,11 +44,11 @@ private:
         std::mutex m_queue_lock;
     };
 
-    class PsuedoSyncStream {
+    class CommandStream {
         // Interface to a zmqnet::Async stream which behaves outwardly as if it is synchronous. 
     public:
-        PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator);
-        PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
+        CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator);
+        CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
 
         void sendCommand(const std::string &command);
         zmqnet::ByteArray extractResult();
@@ -66,10 +66,12 @@ private:
     UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const;
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
-    PsuedoSyncStream m_broadcast_command_stream;
+    std::unordered_map<const Bitset*, std::unique_ptr<CommandStream>, BitsetHasher, BitsetHasher::KeyEqual> m_command_streams;
 
     std::unique_ptr<zmqnet::Stream> m_event_stream;
     EventQueue m_event_queue;
+
+    std::unique_ptr<Bitset> m_allRanks;
 
     // amount of time a commnode will wait for children before sending data up the tree in async streams
     const int m_stream_timeout_ms = 400; 

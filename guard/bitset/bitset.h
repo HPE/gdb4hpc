@@ -93,6 +93,22 @@ public:
 
     // returns true if lhs & rhs != 0.
     virtual bool hasCommonBits(const Bitset &other) const;
+
+    virtual size_t hash() const;
+};
+
+struct BitsetHasher {
+    size_t operator()(const Bitset *bitset) const {
+        if (!bitset) throw std::runtime_error("BitsetHasher tried to hash a nullptr");
+        return bitset->hash();
+    }
+
+    struct KeyEqual {
+        bool operator()(const Bitset *a, const Bitset *b) const {
+            if (!a || !b) throw std::runtime_error("Tried to compare a null bitset pointer");
+            return *a == *b;
+        }
+    };
 };
 
 namespace bitset {

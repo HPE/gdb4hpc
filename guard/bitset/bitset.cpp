@@ -192,3 +192,15 @@ bool Bitset::hasCommonBits(const Bitset &other) const {
 
 	return false;
 }
+
+size_t Bitset::hash() const {
+	// take the first 64 bits and convert them to a size_t
+	size_t hash{0};
+	for (size_t i = 0; i < sizeof(size_t) * 8; i++) {
+		// test() is safe out of bounds
+		auto bit = test(i) ? 1 : 0;
+		hash |= (bit << i); 
+	}
+	// hash the size_t for better uniformity across the hash space
+	return std::hash<size_t>{}(hash);
+}

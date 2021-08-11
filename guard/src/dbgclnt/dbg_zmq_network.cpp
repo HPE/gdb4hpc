@@ -8,16 +8,29 @@
 
 #include "dbg_client.h"
 
-#if DEBUG
+#if 1
 #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG(...) /**/
 #endif
 
-ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend)
+ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, std::unique_ptr<Bitset> &&allRanks)
     : m_network{std::move(frontend)}
-    , m_broadcast_command_stream(*m_network, (ZMQNetStream)ZMQNetStream::CommandStream, m_network->getAllNodesCommunicator())
+    , m_allRanks{std::move(allRanks)}
 {
+    if (!m_network) {
+        throw std::runtime_error("Passed a null frontend pointer to ZMQNetNetwork");
+    }
+
+    if (!m_allRanks) {
+        throw std::runtime_error("Passed a null bitset pointer to ZMQNetNetwork");
+    }
+
+    m_command_streams.emplace(
+        m_allRanks.get(), 
+        std::make_unique<CommandStream>(*m_network, ZMQNetStream::CommandStream, m_network->getAllNodesCommunicator())
+    );
+
     { // create async event stream
         const auto event_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
             LOG("event_callback %d %s\n", streamId, result.begin());
@@ -46,7 +59,10 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
 
     LOG("sending message %s\n", request);
 
-    m_broadcast_command_stream.sendCommand(request);
+    // TODO create when doesn't exist
+    auto &commandStream = m_command_streams.at(target);
+
+    commandStream->sendCommand(request);
 
     return target->clone();
 }
@@ -59,7 +75,10 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
     // wait for result
     LOG("waiting for result...\n");
     
-    zmqnet::ByteArray reply = m_broadcast_command_stream.extractResult();
+    // TODO error when target stream doesn't exist
+    auto &stream = m_command_streams.at(target);
+
+    zmqnet::ByteArray reply = stream->extractResult();
     
     auto reader = getReaderFromData(reply);
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
@@ -82,7 +101,7 @@ int ZMQNetNetwork::checkEvents() {
 }
 
 ProtoMessageSet ZMQNetNetwork::releaseEvents() {
-    LOG("%s\n", __PRETTY_FUNCTION__);
+    // LOG("%s\n", __PRETTY_FUNCTION__);
     auto messages = ProtoMessageSet{};
 
     while (auto optionalEventData = m_event_queue.getNext()) {
@@ -124,7 +143,7 @@ ZMQNetNetwork::UnpackedMessage ZMQNetNetwork::unpackMessageReader(const ZmqnetMe
     LOG("\thash: %lu\n", reader.getHash());
     auto bitsetPtr = reader.getBitset().asChars().begin();
     auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
-    LOG("\tbitset: %s\n", bitset->toSet().c_str());
+    LOG("\tbitset: %s\n", lrunbitset->toSet().c_str());
     auto densebitset = bitset::createDenseFrom(*lrunbitset);
 
     return {
@@ -157,14 +176,14 @@ void ZMQNetNetwork::EventQueue::enqueue(zmqnet::ByteArray &&event) {
     m_queue.push(std::move(event));
 }
 
-ZMQNetNetwork::PsuedoSyncStream::PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
+ZMQNetNetwork::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
     : m_parentNetwork{parentNetwork}
     , m_resultReady{false}
 {
     // create "sync" stream
     const auto command_callback = [&](zmqnet::Stream::Id const &streamId, zmqnet::ByteArrayPtr resultPtr) {
         // TODO check errors
-        LOG("command_callback: %d %s\n", streamId, result.begin());
+        LOG("command_callback: %d %s\n", streamId, resultPtr.begin());
 
         auto result =
             zmqnet::make_ByteArray(resultPtr.begin(), resultPtr.size());
@@ -185,19 +204,20 @@ ZMQNetNetwork::PsuedoSyncStream::PsuedoSyncStream(zmqnet::AsyncFrontend &parentN
                                      "run", zmqnet::sync::WaitForAll{}));
 }
 
-ZMQNetNetwork::PsuedoSyncStream::PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator) 
-    : PsuedoSyncStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator)
+ZMQNetNetwork::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator) 
+    : CommandStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator)
 {}
 
-void ZMQNetNetwork::PsuedoSyncStream::sendCommand(const std::string &command) {
+void ZMQNetNetwork::CommandStream::sendCommand(const std::string &command) {
     if (!m_stream) {
-        throw std::runtime_error("PsuedoSyncStream tried to send a command with a null stream");
+        throw std::runtime_error("CommandStream tried to send a command with a null stream");
     }
 
     m_parentNetwork.sendCommand(*m_stream, command);
 }
 
-zmqnet::ByteArray ZMQNetNetwork::PsuedoSyncStream::extractResult() {
+zmqnet::ByteArray ZMQNetNetwork::CommandStream::extractResult() {
+    LOG("%s\n", __PRETTY_FUNCTION__);
     std::unique_lock<std::mutex> lock(m_resultLock);
     m_resultCV.wait(lock, [&]() { return m_resultReady; });
 

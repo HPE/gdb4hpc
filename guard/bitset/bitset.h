@@ -72,7 +72,7 @@ public:
     //   auto serialized_bitset = bitset->serialize();
     //   auto new_bitset = Bitset(serialized_bitset.get());
     using SerializedPtr = const char *;
-    using Serialized = std::unique_ptr<char>;
+    using Serialized = std::unique_ptr<char, decltype(&std::free)>;
 
     // returns a Bitset::Serialized class that can be used to construct a new
     // bitset.

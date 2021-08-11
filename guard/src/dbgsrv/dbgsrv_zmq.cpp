@@ -30,7 +30,7 @@ ZMQNetServerProtocol::ZMQNetServerProtocol()
     : m_network{nullptr} 
     , m_pending_command{nullptr}
     , m_rank_bitset{nullptr}
-    , m_rank_serialized{nullptr}
+    , m_rank_serialized{nullptr, std::free}
     , m_rank_serialized_size{0}
 { 
     registerProtocol();

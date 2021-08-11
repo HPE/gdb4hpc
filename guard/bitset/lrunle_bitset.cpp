@@ -127,7 +127,7 @@ Bitset::Serialized LRunLEBitset::serialize() const {
     auto header = headerStream.str();
 
     auto size = header.size() + m_compressed.size() + 1; // +1 for \0
-    auto result = new char[size]; 
+    auto result = (char*)malloc(sizeof(char) * size);
 
     // memcpy since m_compressed might validly contain a \0 byte
     // header
@@ -136,7 +136,7 @@ Bitset::Serialized LRunLEBitset::serialize() const {
     memcpy(result + header.size(), m_compressed.data(), m_compressed.size());
     result[size - 1] = '\0';
 
-    return Bitset::Serialized(std::unique_ptr<char>(result));
+    return Bitset::Serialized(result, std::free);
 }
 
 size_t LRunLEBitset::extractSerializedSize(const Serialized &data) {

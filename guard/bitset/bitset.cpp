@@ -121,7 +121,7 @@ std::string Bitset::toSet(size_t offset, size_t len) const {
 
 Bitset::Serialized Bitset::serialize() const {
 	throw std::runtime_error("unimplemented bitset operation: serialize");
-	return Serialized(nullptr);
+	return Serialized(nullptr, std::free);
 }
 
 Bitset& Bitset::operator= (const Bitset &other) {

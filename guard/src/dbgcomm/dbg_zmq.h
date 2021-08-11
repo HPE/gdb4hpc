@@ -1,6 +1,7 @@
 /******************************************************************************\
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
+#pragma once
 
 #include <mutex>
 #include <condition_variable>
@@ -10,6 +11,5 @@
 
 enum class ZMQNetStream : zmqnet::Stream::Id {
     CommandStream,
-    EventStream,
-    IOStream
+    EventStream
 };

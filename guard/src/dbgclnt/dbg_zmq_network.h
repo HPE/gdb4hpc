@@ -9,6 +9,7 @@
 #include "dbgclnt_network.h"
 
 #include "zmqnet.hpp"
+#include "dbg_zmq.h"
 #include "proto_message.h"
 #include "dense_bitset.h"
 
@@ -42,17 +43,30 @@ private:
         std::queue<zmqnet::ByteArray> m_queue;
         std::mutex m_queue_lock;
     };
+
+    class PsuedoSyncStream {
+        // Interface to a zmqnet::Async stream which behaves outwardly as if it is synchronous. 
+    public:
+        PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator);
+        PsuedoSyncStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
+
+        void sendCommand(const std::string &command);
+        zmqnet::ByteArray extractResult();
+
+    private:
+        zmqnet::AsyncFrontend &m_parentNetwork;
+        std::unique_ptr<zmqnet::Stream> m_stream;
+        std::mutex m_resultLock;
+        zmqnet::ByteArray m_result;
+        std::condition_variable m_resultCV;
+        bool m_resultReady;
+    };
     
     capnp::UnalignedFlatArrayMessageReader getReaderFromData(const zmqnet::ByteArray &data) const;
     UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const;
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
-
-    std::unique_ptr<zmqnet::Stream> m_command_stream;
-    std::mutex m_command_result_lock;
-    zmqnet::ByteArray m_command_result;
-    std::condition_variable m_command_result_cv;
-    bool m_command_result_ready;
+    PsuedoSyncStream m_broadcast_command_stream;
 
     std::unique_ptr<zmqnet::Stream> m_event_stream;
     EventQueue m_event_queue;

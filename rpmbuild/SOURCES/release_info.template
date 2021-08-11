@@ -30,13 +30,13 @@ Product Description:
 
 Purpose:
 ---------
-  This is bug fix and performance release
+  This is bug fix release
 
-  - Fixed the version displayed in the startup banner and show version.
-  - Improve performance by reducing binaries by 100 megabytes,
-        200 megabytes when --gpu is specified.
-  - Update cuda-gdb for nvidia gpus to ddt_cuda-gdb 11.0.
-  - Add support for Red Hat 8.3 packages.
+  - Fix support for debugging on an Nvidia gpu with cuda-gdb.
+  - Add support for debugging on multiple Nvidia gpus on a single node
+        (with --gpus-per-task=1 on slurm)
+  - Fix crash when printing a struct with a fixed size array data member.
+  - Fix potential deadlock when exiting gdb4hpc.
 
 Product and OS Dependencies:
 -----------------------------

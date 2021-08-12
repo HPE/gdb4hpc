@@ -127,7 +127,7 @@ static int BuildInvoke(graph_t *g, var_t *v) {
         EDGE(g, g->g_initnode, xt2, 0);
         xt3 = BITSETCONST(g, "CONST", &token_bit_set);
         DPRINT("BuildInvokeProcSet token_bit_set[%s], length[%lu]\n",
-               token_bit_set.toSet().c_str(), token_bit_set.sizeInBits());
+               token_bit_set.toSetString().c_str(), token_bit_set.sizeInBits());
         EDGE(g, g->g_initnode, xt3, 0);
         EDGE(g, xt2, xt1, 0);
         EDGE(g, xt3, xt1, 1);
@@ -302,7 +302,7 @@ void BuildUnused(graph_t *g) {
             EDGE(g, g->g_initnode, xt2, 0);
             xt3 = BITSETCONST(g, "CONST", gi->gp_unbuilt_bs.get());
             DPRINT("BuildUnusedSet bitset[%s], length[%lu]\n",
-                   gi->gp_unbuilt_bs->toSet().c_str(),
+                   gi->gp_unbuilt_bs->toSetString().c_str(),
                    gi->gp_unbuilt_bs->sizeInBits());
             EDGE(g, g->g_initnode, xt3, 0);
             EDGE(g, xt2, xt1, 0);

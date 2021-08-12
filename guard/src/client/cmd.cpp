@@ -257,7 +257,7 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
                     }
 
                     // First create the bitset string
-                    auto bitset_str = reply->rep_group->toSet();
+                    auto bitset_str = reply->rep_group->toSetString();
 
                     // Next create the full set string
                     char *set_str = nullptr;

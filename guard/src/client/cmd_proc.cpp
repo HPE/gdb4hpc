@@ -817,7 +817,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
                 status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
                 // Create the full set string
                 Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, 
-                    reply->rep_group->toSet().c_str());
+                    reply->rep_group->toSetString().c_str());
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
                              &(f->getLoc()));
                 Free(set_str);
@@ -1085,7 +1085,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                 status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
                 // Create the full set string
                 Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
-                         reply->rep_group->toSet().c_str());
+                         reply->rep_group->toSetString().c_str());
                 // Set the location based on the top frame
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
                              (fp == NULL) ? NULL : &(fp->getLoc()));

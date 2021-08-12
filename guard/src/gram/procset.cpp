@@ -175,7 +175,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         DPRINT(
             "CreateTempProcSetSlice Adding di $%s for mask[%s] to "
             "over_set_list.\n",
-            o_ptr->s_di->d_handle, di_mask->toSet().c_str());
+            o_ptr->s_di->d_handle, di_mask->toSetString().c_str());
 
         // We now have a properly formed di_mask for this di. Lets create a new
         // over_set object for this di and add it to the list, note that we will
@@ -344,14 +344,14 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                     DPRINT(
                         "CreateProcSet Updated existing o_ptr for di $%s to "
                         "new mask[%s].\n",
-                        o_ptr->s_di->d_handle, o_ptr->s_di_bs->toSet().c_str());
+                        o_ptr->s_di->d_handle, o_ptr->s_di_bs->toSetString().c_str());
                 } else {
                     // Create a new overlay set for this invoke
                     // Note that the offset gets updated on the second pass
                     DPRINT(
                         "CreateProcSet is about to add di $%s for mask[%s] to "
                         "over_set_list.\n",
-                        o_ptr->s_di->d_handle, di_mask->toSet().c_str());
+                        o_ptr->s_di->d_handle, di_mask->toSetString().c_str());
                     o_ptr = NewOverlaySet(over_set->s_di, std::move(di_mask), 0);
                     AddToList(new_procset->s_over_set_list, o_ptr);
                     // increment num sets
@@ -722,7 +722,7 @@ void PrintProcSet(dbgprocset_t *s) {
            NULL) {
         PrintOutMsg("%s", over_set->s_di->d_handle);
 
-        std::string si = over_set->s_di_bs->toSet();
+        std::string si = over_set->s_di_bs->toSetString();
         if (s->s_threads) {
             // insert the thread info
             std::string setInfo{si};
@@ -755,12 +755,12 @@ static void _print_with_set_info(const char *setname, const Bitset *group,
 
     if (isOffset) {
         if (offset >= 0 && len > 0) {
-            set_info = group->toSet(offset, len);
+            set_info = group->toSetString(offset, len);
         }
     }
 
     if (set_info == "") {
-        set_info = group->toSet();
+        set_info = group->toSetString();
     }
 
     if (threads && threads[0]) {

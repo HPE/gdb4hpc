@@ -50,7 +50,7 @@ private:
         CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator);
         CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
 
-        void sendCommand(const std::string &command);
+        void sendCommand(const char *command, size_t len);
         zmqnet::ByteArray extractResult();
 
     private:
@@ -61,17 +61,35 @@ private:
         std::condition_variable m_resultCV;
         bool m_resultReady;
     };
-    
-    capnp::UnalignedFlatArrayMessageReader getReaderFromData(const zmqnet::ByteArray &data) const;
+
+    class CommandStreamTable {
+        // Interface to a hash table mapping bitsets to active streams. 
+        //
+        // We want the memory management of this table to be automatic,
+        // but the hash table keys need to be (const) raw pointers, since that's 
+        // what comes in from the layer above. To meet these requirements, we
+        // store the actual bitsets as unique ptrs in a vector for automatic 
+        // management, and use pointers to those as keys to the hash table.
+    public:
+        CommandStreamTable(zmqnet::AsyncFrontend &parentNetwork, std::unique_ptr<Bitset> &&allRanks);
+        CommandStream& getStream(const Bitset *target);
+    private:
+        zmqnet::Stream::Id generateStreamId() const;
+
+        zmqnet::AsyncFrontend &m_parentNetwork;
+        CommandStream m_internalCommandStream;
+        std::unordered_map<const Bitset*, std::unique_ptr<CommandStream>, BitsetHasher, BitsetHasher::KeyEqual> 
+            m_command_streams;
+        std::vector<std::unique_ptr<Bitset>> m_bitset_pool;
+    };
+
     UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const;
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
-    std::unordered_map<const Bitset*, std::unique_ptr<CommandStream>, BitsetHasher, BitsetHasher::KeyEqual> m_command_streams;
 
+    CommandStreamTable m_command_streams;
     std::unique_ptr<zmqnet::Stream> m_event_stream;
     EventQueue m_event_queue;
-
-    std::unique_ptr<Bitset> m_allRanks;
 
     // amount of time a commnode will wait for children before sending data up the tree in async streams
     const int m_stream_timeout_ms = 400; 

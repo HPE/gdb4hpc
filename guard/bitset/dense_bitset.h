@@ -34,7 +34,7 @@ public:
 
     virtual std::string toString() const override; 
     
-    // virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const override;
+    // virtual std::string toSetString(size_t offset = 0, size_t len = Bitset::None) const override;
 
     virtual Serialized serialize() const override;
  

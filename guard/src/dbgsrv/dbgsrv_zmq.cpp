@@ -52,7 +52,7 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     LOG("ZMQNetServerProtocol::eventCallback\n");
 
     auto eventResult = ResultPtr(EventToSocProto(ev), std::free);
-    auto id = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
+    auto id = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream);
 
     m_network->sendResult(id, packResult(std::move(eventResult)));
 
@@ -108,10 +108,9 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
     m_network = std::make_unique<zmqnet::AsyncBackend>(upstreamControlEndpoint, upstreamDataEndpoint, node_id);
 
     { // register command stream callback
-        const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        const auto commandCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            LOG("zmqnet: command callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
-            assert(streamId == commandStreamId);
+        const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastCommandStream);
+        const auto commandCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+            LOG("zmqnet: command callback %lu got command \"%s\" from stream %d\n", m_rank, command.begin(), streamId);
             
             /*    Two locks are needed here to handle the (unlikely) edge case 
             * that two zmqnet threads try to run a command at the same time.
@@ -150,30 +149,51 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
                     packResult(std::move(result))
                     :
                     // intentionally blank result; the frontend will be waiting for something
-                    zmqnet::make_ByteArray("", 1) 
+                    packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free)); 
                 ;
             } catch (const std::exception &e) {
                 LOG("zmqnet: exception thrown during command execution: %s.\n", e.what());
-                return zmqnet::make_ByteArray("", 1); // TODO more descriptive error result
+                return packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free));; // TODO more descriptive error result
             } catch (...) {
                 LOG("zmqnet: unknown exception thrown during command execution.\n");
-                return zmqnet::make_ByteArray("", 1); // TODO more descriptive error result
+                return packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free));; // TODO more descriptive error result
             }
         };
 
         m_network->registerCallback(commandStreamId, commandCallback);
+
+        // register internal command stream
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
+        const auto internalCmdCallback = [this, commandCallback](zmqnet::Stream::Id const& sId, zmqnet::ByteArray packedCommand) {
+            LOG("zmqnet: received internal command\n");
+
+            // unpack command
+            auto reader = getReaderFromData(packedCommand);
+            auto command = reader.getRoot<InternalCommand>();
+            auto streamCmd = command.getNewStreamCmd();
+            auto streamId = streamCmd.getStreamId();
+
+            LOG("streamid: %d\n", streamId);
+            m_network->registerCallback(streamId, commandCallback);
+
+            // send ok to waiting frontend
+            const auto ok = "ok";
+            auto okPtr = ZMQNetServerProtocol::ResultPtr(strdup(ok), std::free);
+            return packResult(std::move(okPtr));
+        };
+
+        m_network->registerCallback(streamId, internalCmdCallback);
     }
 
     { // register event stream callback
-        const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
-        const auto eventCallback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+        const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream);
+        const auto eventCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
             // Nothing should be sent on this stream from the client; it is used to
             // send async events back to the client for processing. We still need
             // to register a callback to use it this way, though.
             
-            LOG("zmqnet: event callback %d got command \"%s\" from stream %d\n", node_id, command.begin(), streamId);
+            LOG("zmqnet: event callback %lu got command \"%s\" from stream %d\n", m_rank, command.begin(), streamId);
             LOG("zmqnet: WARNING: client shouldn't be sending data on the event stream.\n");
-            assert(streamId == eventStreamId);
 
             return zmqnet::ByteArray{};
         };
@@ -255,7 +275,7 @@ int ZMQNetServerProtocol::sendReply(const char *response) {
 // private /////////////////////////////////////////////////////////////////////
 
 zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
-    DVPRINT("backend: sending away \"%s\"", result.get());
+    DVPRINT("server: packing up \"%s\"\n", result.get());
     
     capnp::MallocMessageBuilder builder;
     auto message_pack = builder.initRoot<ZmqnetMessagePackage>();

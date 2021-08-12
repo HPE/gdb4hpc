@@ -519,7 +519,7 @@ int MRNetNetwork::send_command(const Bitset *target, const char *msg,
             PrintOutError(
                 "ERROR: mrn_fe_send_command_to_group cannot create stream for "
                 "network target[%s]\n",
-                target ? target->toSet().c_str() : "{}");
+                target ? target->toSetString().c_str() : "{}");
             return -1;
         }
 
@@ -544,7 +544,7 @@ int MRNetNetwork::send_command(const Bitset *target, const char *msg,
     }
 
     DPRINT("[INFO]: mrn_fe_send_command_to_group via stream for %s\n",
-           target ? target->toSet().c_str() : "{}");
+           target ? target->toSetString().c_str() : "{}");
 
     if (stream->flush() == -1) {
         PrintOutError(
@@ -560,7 +560,7 @@ std::optional<ProtoMessageSet> MRNetNetwork::recv_reply(const Bitset *target) {
     if (!cmd_stream) {
         PrintOutError(
             "ERROR: mrn_fe_recv_reply cannot find command stream for %s!\n",
-            target ? target->toSet().c_str() : "{}");
+            target ? target->toSetString().c_str() : "{}");
         return {};
     }
 

@@ -602,7 +602,7 @@ dbgnodesetinfo_t *NewNodeSetInfo(void *node, const DenseBitset *bs) {
     DASSERT_NOT_NULL(bs);
     info->t_bitset = bs->typedClone();
     DPRINT("INFO[NewNodeSetInfo]: bitset[%p]:%s\n", bs,
-        ((DenseBitset*)bs)->toSet().c_str());
+        ((DenseBitset*)bs)->toSetString().c_str());
 
     return info;
 }
@@ -659,7 +659,7 @@ void AddNodeInfoByTree(void *tree, void *node, const DenseBitset *bs) {
     AddToList(info->t_node_list, nodes_set);
     DASSERT_NOT_NULL(bs);
     DPRINT("INFO[AddNodeInfoByTree]: node[%d], bitset[%s]\n",
-        ((node_t *)node)->n_id, bs->toSet().c_str());
+        ((node_t *)node)->n_id, bs->toSetString().c_str());
 }
 
 void RemoveNodeForTree(void *tree, void *node) {

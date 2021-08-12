@@ -110,12 +110,12 @@ TYPED_TEST(BitsetUnitTest, test) {
     ASSERT_EQ(this->m_full.test(this->SIZE + 1), false);
 }
 
-TYPED_TEST(BitsetUnitTest, toSet) {
-    ASSERT_EQ(this->m_full.toSet(), "{0.." + std::to_string(this->SIZE - 1) + "}");
-    ASSERT_EQ(this->m_empty.toSet(), "{}");
-    ASSERT_NE(this->m_sparse.toSet(), "{}");
-    ASSERT_NE(this->m_sparse.toSet(), "{0.." + std::to_string(this->SIZE - 1) + "}");
-    ASSERT_EQ(this->m_full.toSet(0, this->SIZE / 2), "{0.." + std::to_string(this->SIZE/2 - 1) + "}");
+TYPED_TEST(BitsetUnitTest, toSetString) {
+    ASSERT_EQ(this->m_full.toSetString(), "{0.." + std::to_string(this->SIZE - 1) + "}");
+    ASSERT_EQ(this->m_empty.toSetString(), "{}");
+    ASSERT_NE(this->m_sparse.toSetString(), "{}");
+    ASSERT_NE(this->m_sparse.toSetString(), "{0.." + std::to_string(this->SIZE - 1) + "}");
+    ASSERT_EQ(this->m_full.toSetString(0, this->SIZE / 2), "{0.." + std::to_string(this->SIZE/2 - 1) + "}");
 }
 
 TYPED_TEST(BitsetUnitTest, Equals) {

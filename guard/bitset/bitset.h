@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <limits>
-#include <variant>
+#include <set>
 
 class Bitset {
     // interface describing a bitset that is used to represent sets of ranks.
@@ -63,7 +63,10 @@ public:
     virtual std::string toString() const;
 
     // returns a string representation in set notation, e.g. {0..2,4,5..100}.
-    virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const;
+    virtual std::string toSetString(size_t offset = 0, size_t len = Bitset::None) const;
+
+    // returns a set containing the individual ranks of the bitset
+    virtual std::set<size_t> toSet() const;
 
     // a serialized bitset, not necessarily in a human readable format. derived
     // classes should implement a (SerializedPtr) constructor to

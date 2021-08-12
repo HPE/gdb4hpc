@@ -260,7 +260,7 @@ void PrintGraph(FILE *fp, graph_t *g) {
                     break;
 
                 case TK_BIT_SET:
-                    PrintToFd(fp, " label=\"%s\"", t->t_bit_set->toSet().c_str());
+                    PrintToFd(fp, " label=\"%s\"", t->t_bit_set->toSetString().c_str());
                     break;
 
                 case TK_FLOAT:

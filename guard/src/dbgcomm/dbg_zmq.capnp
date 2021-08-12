@@ -13,3 +13,9 @@ struct ZmqnetMessagePackage {
         bitset @2 :Data;
     }
 }
+
+struct InternalCommand {
+    newStreamCmd :group {
+        streamId @0 :Int32;
+    }
+}

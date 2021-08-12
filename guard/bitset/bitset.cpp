@@ -64,10 +64,10 @@ size_t Bitset::firstSet() const {
 }
 
 std::string Bitset::toString() const {
-	return toSet(0, Bitset::None);
+	return toSetString(0, Bitset::None);
 }
 
-std::string Bitset::toSet(size_t offset, size_t len) const {
+std::string Bitset::toSetString(size_t offset, size_t len) const {
 	std::ostringstream str;
 
 	if (len == Bitset::None) {
@@ -117,6 +117,16 @@ std::string Bitset::toSet(size_t offset, size_t len) const {
 	str << "}";
 
 	return str.str();
+}
+
+std::set<size_t> Bitset::toSet() const {
+	std::set<size_t> set;
+
+	for (size_t i = 0; i < sizeInBits(); i++) {
+		if (test(i)) set.insert(i);
+	}
+
+	return set;
 }
 
 Bitset::Serialized Bitset::serialize() const {

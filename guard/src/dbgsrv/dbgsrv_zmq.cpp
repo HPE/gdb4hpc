@@ -162,30 +162,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
         m_network->registerCallback(commandStreamId, commandCallback);
 
-        // register internal command stream
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
-        const auto internalCmdCallback = [this, commandCallback](zmqnet::Stream::Id const& sId, zmqnet::ByteArray packedCommand) {
-            LOG("zmqnet: received internal command\n");
-
-            // unpack command
-            auto reader = getReaderFromData(packedCommand);
-            auto command = reader.getRoot<InternalCommand>();
-            auto streamCmd = command.getNewStreamCmd();
-            auto streamId = streamCmd.getStreamId();
-
-            LOG("streamid: %d\n", streamId);
-            m_network->registerCallback(streamId, commandCallback);
-
-            // send ok to waiting frontend
-            const auto ok = "ok";
-            auto okPtr = ZMQNetServerProtocol::ResultPtr(strdup(ok), std::free);
-            return packResult(std::move(okPtr));
-        };
-
-        m_network->registerCallback(streamId, internalCmdCallback);
-    }
-
-    { // register event stream callback
+        // register event stream callback
         const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream);
         const auto eventCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
             // Nothing should be sent on this stream from the client; it is used to
@@ -199,6 +176,31 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
         };
 
         m_network->registerCallback(eventStreamId, eventCallback);
+
+        // register internal command stream
+        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
+        const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const& sId, zmqnet::ByteArray packedCommand) {
+            LOG("zmqnet: received internal command\n");
+
+            // unpack command
+            auto reader = getReaderFromData(packedCommand);
+            auto command = reader.getRoot<InternalCommand>();
+            auto streamCmd = command.getNewStreamCmd();
+            auto commandStreamId = streamCmd.getCommandStreamId();
+            auto eventStreamId = streamCmd.getEventStreamId();
+
+            // register callbacks
+            LOG("new stream ids: %d/%d\n", commandStreamId, eventStreamId);
+            m_network->registerCallback(commandStreamId, commandCallback);
+            m_network->registerCallback(eventStreamId, eventCallback);
+
+            // send ok to waiting frontend
+            const auto ok = "ok";
+            auto okPtr = ZMQNetServerProtocol::ResultPtr(strdup(ok), std::free);
+            return packResult(std::move(okPtr));
+        };
+
+        m_network->registerCallback(streamId, internalCmdCallback);
     }
 
     // remember my rank for when INVOKE comes with rest of info

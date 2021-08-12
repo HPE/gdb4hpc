@@ -16,6 +16,7 @@ struct ZmqnetMessagePackage {
 
 struct InternalCommand {
     newStreamCmd :group {
-        streamId @0 :Int32;
+        commandStreamId @0 :Int32;
+        eventStreamId @1 :Int32;
     }
 }

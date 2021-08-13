@@ -200,7 +200,7 @@ int DbgGdbMI::read(int fd) {
 ** are ready to process the registered asynch event or not.
 */
 bool DbgGdbMI::bufferReady(void) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    // DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     return AsynchEventWaiting; /* Modified by event_callback(). */
 }
 

@@ -30,7 +30,7 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
     LOG("sending message %s\n", request);
 
     auto &commandStream = m_stream_table.getCommandStream(target);
-    commandStream.sendCommand(request, strlen(request));
+    commandStream.sendCommand(request, strlen(request) + 1); // include null terminator
 
     return target->clone();
 }
@@ -274,10 +274,3 @@ ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &pare
 ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator, EventQueue &parentQueue) 
     : EventStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator, parentQueue)
 {}
-
-std::pair<zmqnet::Stream::Id, zmqnet::Stream::Id> ZMQNetNetwork::StreamTable::generateStreamIdPair() const {
-    static auto nextId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::FirstArbitraryStreamId);
-    auto one = nextId++;
-    auto two = nextId++;
-    return {one, two};
-}

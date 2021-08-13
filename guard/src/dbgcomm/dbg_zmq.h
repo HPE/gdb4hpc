@@ -27,3 +27,17 @@ inline capnp::UnalignedFlatArrayMessageReader getReaderFromData(const zmqnet::By
 
     return capnp::UnalignedFlatArrayMessageReader(words_array);
 }
+
+// returns {command stream id, event stream id}
+inline std::pair<zmqnet::Stream::Id, zmqnet::Stream::Id> generateStreamIdPair() {
+    static auto nextId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::FirstArbitraryStreamId);
+    auto one = nextId++;
+    auto two = nextId++;
+    return {one, two};
+}
+
+inline zmqnet::Stream::Id commandStreamIdToEventStreamId(zmqnet::Stream::Id cmdId) {
+    // this pattern holds even for the broadcast streams given that their order
+    // in enum class ZMQNetStream doesn't change
+    return ++cmdId;
+}

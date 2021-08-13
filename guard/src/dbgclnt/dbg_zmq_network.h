@@ -98,7 +98,6 @@ private:
         std::optional<zmqnet::ByteArray> getNextAsyncEvent();
 
     private:
-        std::pair<zmqnet::Stream::Id, zmqnet::Stream::Id> generateStreamIdPair() const;
         zmqnet::AsyncFrontend &m_parentNetwork;
         std::vector<std::unique_ptr<Bitset>> m_bitset_pool;
 

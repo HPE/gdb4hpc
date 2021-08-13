@@ -13,6 +13,7 @@
 #include "dbgsrv_defs.h"
 #include "dbgsrv_cmds.h"
 #include "dbgformat.h"
+#include "dbgcomm_info.h"
 
 #include "dbg_zmq.capnp.h"
 
@@ -26,9 +27,19 @@
 // Proto instantiation
 ZMQNetServerProtocol DbgSrvProtoZMQNet;
 
+class ZMQNetCommInfo : public dbgcomm_info {
+public:
+    ZMQNetCommInfo(zmqnet::Stream::Id id) : m_returnStreamId{id} {}
+    dbgcomm_info* clone() const override { return new ZMQNetCommInfo(*this); }
+    zmqnet::Stream::Id getId() const { return m_returnStreamId; }
+private:
+    zmqnet::Stream::Id m_returnStreamId;
+};
+
 ZMQNetServerProtocol::ZMQNetServerProtocol()
     : m_network{nullptr} 
     , m_pending_command{nullptr}
+    , m_event_stream_id{static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream)}
     , m_rank_bitset{nullptr}
     , m_rank_serialized{nullptr, std::free}
     , m_rank_serialized_size{0}
@@ -51,10 +62,10 @@ int ZMQNetServerProtocol::invokeCallback(const char *chost, int cport,
 int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     LOG("ZMQNetServerProtocol::eventCallback\n");
 
+    // pack result
     auto eventResult = ResultPtr(EventToSocProto(ev), std::free);
-    auto id = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream);
 
-    m_network->sendResult(id, packResult(std::move(eventResult)));
+    m_network->sendResult(m_event_stream_id, packResult(std::move(eventResult)));
 
     return 0;
 }
@@ -110,7 +121,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
     { // register command stream callback
         const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastCommandStream);
         const auto commandCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
-            LOG("zmqnet: command callback %lu got command \"%s\" from stream %d\n", m_rank, command.begin(), streamId);
+            LOG("zmqnet: command callback %lu got command \"%s\" of size %lu from stream %d\n", m_rank, command.begin(), command.size(), streamId);
             
             /*    Two locks are needed here to handle the (unlikely) edge case 
             * that two zmqnet threads try to run a command at the same time.
@@ -130,10 +141,19 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             // make sure a command isn't currently running on the main thread
             std::unique_lock<std::mutex> command_lock(m_command_lock);
             
-            // bind argument to command and get future
+            // bind argument to command and get future.
+            // zmqnet doesn't use the ci argument.
             m_pending_command = std::make_unique<CommandDispatchFunc>
-                (std::bind(dbgsrv_dispatch_cmds, command.asChars().begin(), std::placeholders::_1));
+                (std::bind(dbgsrv_dispatch_cmds, command.asChars().begin(), nullptr));
             auto future = m_pending_command->get_future();
+
+            // set return stream id. this purely a speed optimization, so we can
+            // be fairly careless with the handling if this. even if an async
+            // event takes a long time to return and another command switches
+            // the return stream out from underneath it, it will just go back up
+            // the "wrong" stream, and "wrong" just means slow (but still usable).
+            m_event_stream_id = commandStreamIdToEventStreamId(streamId);
+            LOG("zmqnet: set return stream id to %d\n", m_event_stream_id);
 
             // ok for main thread to run (and delete) m_pending_command now
             command_lock.unlock();
@@ -180,8 +200,8 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
         // register internal command stream
         const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
         const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const& sId, zmqnet::ByteArray packedCommand) {
-            LOG("zmqnet: received internal command\n");
-
+            LOG("zmqnet: new stream cmd\n");
+            
             // unpack command
             auto reader = getReaderFromData(packedCommand);
             auto command = reader.getRoot<InternalCommand>();
@@ -245,7 +265,7 @@ void ZMQNetServerProtocol::runProto(fd_set *fds) {
         // zmqnet callback is waiting in another thread for result, 
         // delivered via a future which has already been bound to the command
         
-        (*m_pending_command)(nullptr /* TODO call with ci */);
+        (*m_pending_command)();
         m_pending_command.reset();
     }
 }

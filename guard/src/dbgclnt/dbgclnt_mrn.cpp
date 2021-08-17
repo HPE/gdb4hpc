@@ -178,7 +178,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     if (di->d_started && (po != nullptr) && (po->p_o_rfd == ev_fd)) {
         // Call the protocol specific callback function to handle the output on
         // the stream
-        outputCallback(di, po->p_o_stream);
+        DbgDispatchProtoOutput(di, po->p_o_stream);
         return;
     }
 

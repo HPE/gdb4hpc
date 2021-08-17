@@ -33,7 +33,8 @@ static cli_stream_t *vNewCLIStream(cli_type_t, cli_stream_args_t *, int,
 static cli_stream_t *NewCLIStream(cli_type_t, cli_stream_args_t *, int, ...);
 static void DestroyCLIStream(cli_stream_t *);
 static void cli_handle_error(void);
-static void ProgOutLine(dbginvoke_t *, FILE *);
+static void ProgOutLineStream(dbginvoke_t *, FILE *);
+static void ProgOutLineStrings(dbginvoke_t *, const std::vector<std::string> &lines);
 
 /*
  * Static Global Variables
@@ -91,7 +92,8 @@ void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
     StreamQueue = NewList();
 
     // Install the output callback handler in the dbg_client layer
-    DbgHandleOutput(ProgOutLine);
+    DbgHandleOutput(ProgOutLineStream);  // handle FILE *
+    DbgHandleOutput(ProgOutLineStrings); // handle vector<string>
 
     // Install the input callback handler in the dbg_client layer
     DbgHandleInput(Client.cli_in_fd, cli_handle_input);
@@ -951,13 +953,11 @@ void XMLPrintStartGraphMsg(char *set_name, char *set_str) {
 /*
 ** Output a program line recieved on a program pipe.
 */
-static void ProgOutLine(dbginvoke_t *di, FILE *o_stream) {
-    char *line;
-
+static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
     // ensure that there is an output stream to print to in the current stream
-    if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL) return;
+    if (CurrentStream == nullptr || CurrentStream->cs_fpout == nullptr) return;
 
-    line = (char *)Alloc(BUFSIZ);
+    char line[BUFSIZ];
 
     cli_save_stream();
 
@@ -973,8 +973,26 @@ static void ProgOutLine(dbginvoke_t *di, FILE *o_stream) {
     }
 
     cli_restore_stream();
+}
 
-    Free(line);
+static void ProgOutLineStrings(dbginvoke_t *di, const std::vector<std::string> &lines) {
+    // ensure that there is an output stream to print to in the current stream
+    if (CurrentStream == nullptr || CurrentStream->cs_fpout == nullptr) return;
+
+    cli_save_stream();
+
+    for (const auto &line : lines) {
+        if (Client.XML_mode) {
+            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
+                    di->d_handle, (unsigned int)line.size());
+            fprintf(CurrentStream->cs_fpout, "%s", line.c_str());
+            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
+        } else {
+            fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line.c_str());
+        }
+    }
+
+    cli_restore_stream();
 }
 
 /*

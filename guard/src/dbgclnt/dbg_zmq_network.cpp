@@ -8,14 +8,17 @@
 
 #include "dbg_client.h"
 
+#include <poll.h>
+
 #if DEBUG
 #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG(...) /**/
 #endif
 
-ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, std::unique_ptr<Bitset> &&allRanks)
+ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, OutputPtr &&output, std::unique_ptr<Bitset> &&allRanks)
     : m_network{std::move(frontend)}
+    , m_output_watcher{std::move(output)}
     , m_stream_table(*m_network, std::move(allRanks))
 {}
 
@@ -63,26 +66,30 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
 
 int ZMQNetNetwork::checkEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
-    return m_stream_table.hasAsyncEvent() ? 1 : 0;
+    return m_stream_table.hasAsyncEvent() || m_output_watcher.hasOutput() ? 1 : 0;
 }
 
 ProtoMessageSet ZMQNetNetwork::releaseEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
     auto messages = ProtoMessageSet{};
 
-    while (auto optionalEventData = m_stream_table.getNextAsyncEvent()) {
-        auto reader = getReaderFromData(*optionalEventData);
-        auto pack = reader.getRoot<ZmqnetMessagePackage>();
+    if (auto events = m_stream_table.releaseAsyncEvents(); events.size() != 0) {
+        for (const auto &eventData : events) {
+            auto reader = getReaderFromData(eventData);
+            auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
-        LOG("got reader\n");
-
-        for (const auto &message : pack.getMessages()) {
-            auto unpacked = unpackMessageReader(message);
-            messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+            for (const auto &message : pack.getMessages()) {
+                auto unpacked = unpackMessageReader(message);
+                messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+            }
         }
     }
     
     return messages;
+}
+
+std::vector<std::string> ZMQNetNetwork::releaseOutputLines() {
+    return m_output_watcher.releaseOutputLines();
 }
 
 int ZMQNetNetwork::exit() {
@@ -107,29 +114,6 @@ ZMQNetNetwork::UnpackedMessage ZMQNetNetwork::unpackMessageReader(const ZmqnetMe
         .hash = reader.getHash(), 
         .bitset = std::move(densebitset)
     };
-}
-
-bool ZMQNetNetwork::StreamTable::EventQueue::hasEvent() {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-    return m_queue.size() > 0;
-}
-
-std::optional<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::EventQueue::getNext() {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-
-    if (m_queue.size() > 0) {
-        auto result = std::move(m_queue.front()); 
-        m_queue.pop();
-        return result; 
-    } else {
-        return {};
-    }
-}
-
-void ZMQNetNetwork::StreamTable::EventQueue::enqueue(zmqnet::ByteArray &&event) {
-    std::scoped_lock<std::mutex> lock(m_queue_lock);
-
-    m_queue.push(std::move(event));
 }
 
 ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
@@ -247,11 +231,11 @@ ZMQNetNetwork::StreamTable::CommandStream& ZMQNetNetwork::StreamTable::getComman
 }
 
 bool ZMQNetNetwork::StreamTable::hasAsyncEvent() {
-    return m_event_queue.hasEvent();
+    return m_event_queue.hasItem();
 }
 
-std::optional<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::getNextAsyncEvent() {
-    return m_event_queue.getNext();
+std::vector<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::releaseAsyncEvents() {
+    return m_event_queue.getAll();
 }
 
 ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator, EventQueue &parentQueue)
@@ -274,3 +258,64 @@ ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &pare
 ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator, EventQueue &parentQueue) 
     : EventStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator, parentQueue)
 {}
+
+ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
+    : m_output{std::move(output)}
+    , m_keep_going{true}
+{
+    auto watchOutput = [this](){
+        const int timeout{1000}; // milliseconds
+
+        // single element array
+        pollfd fds[1] = {{
+            .fd = m_output->p_o_rfd,
+            .events = POLLIN,
+            .revents = 0
+        }};
+
+        while (m_keep_going) {
+            switch (poll(fds, 1, timeout)) {
+                case 1: {
+                    // read as much as we can
+                    char line[BUFSIZ];
+                    while (fgets(line, BUFSIZ, m_output->p_o_stream)) {
+                        m_output_queue.enqueue(std::string{line});
+                    }
+                    break;
+                }
+
+                case 0: {
+                    // keep waiting
+                    break;
+                }
+
+                case -1: {
+                    fprintf(stderr, "An error occured while watching program output.\n");
+                    fprintf(stderr, "error text: %s\n", strerror(errno));
+                    break;
+                }
+                
+                default:
+                    // should never get here
+                    break;
+            }
+        }
+    };
+
+    // start watcher thread
+    m_watcher_thread = std::thread(watchOutput);
+}
+
+ZMQNetNetwork::OutputWatcher::~OutputWatcher() {
+    LOG("shutting down output watcher thread\n");
+    m_keep_going = false;
+    m_watcher_thread.join();
+}
+
+bool ZMQNetNetwork::OutputWatcher::hasOutput() const {
+    return m_output_queue.hasItem();
+}
+
+std::vector<std::string> ZMQNetNetwork::OutputWatcher::releaseOutputLines() {
+    return m_output_queue.getAll();
+}

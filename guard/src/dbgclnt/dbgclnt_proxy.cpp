@@ -1666,7 +1666,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     // dispatch output
     if (ev_fd == PROXY_OUTPUTFD(network)) {
         // Call the protocol specific callback function to handle the output
-        outputCallback(di, PROXY_OUTPUTSTREAM(network));
+        DbgDispatchProtoOutput(di, PROXY_OUTPUTSTREAM(network));
 
         return;
     }

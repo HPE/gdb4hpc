@@ -126,7 +126,6 @@ protected:
     static std::unordered_map<std::string, DebugClientProtocol *> registry;
 
     // callback related
-    virtual void outputCallback(dbginvoke *di, FILE *f);
     void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
     int handleProtocolEvent(dbginvoke *di, const ProtoMessageSet &set);
 

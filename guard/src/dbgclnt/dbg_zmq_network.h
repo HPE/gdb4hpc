@@ -4,29 +4,78 @@
 #pragma once
 
 #include <mutex>
-#include <queue>
+#include <atomic>
 
 #include "dbgclnt_network.h"
 
 #include "zmqnet.hpp"
 #include "dbg_zmq.h"
+#include "dbgoutp.h"
 #include "proto_message.h"
 #include "dense_bitset.h"
 
 #include "dbg_zmq.capnp.h"
 #include "capnp/serialize.h"
 
+namespace detail {
+
+template <typename T>
+class AsyncQueue {
+    // basic thread safe queue
+public:
+    bool hasItem() const {
+        std::scoped_lock<std::mutex> lock(m_queue_lock);
+        return m_queue.size() > 0;
+    }
+    
+    std::optional<T> getNext() {
+        std::scoped_lock<std::mutex> lock(m_queue_lock);
+
+        if (m_queue.size() > 0) {
+            auto result = std::move(m_queue.front()); 
+            m_queue.erase(m_queue.begin());
+            return result; 
+        } else {
+            return {};
+        }
+    }
+
+    std::vector<T> getAll() {
+        std::scoped_lock<std::mutex> lock(m_queue_lock);
+
+        std::vector<T> result;
+        std::swap(result, m_queue);
+
+        return result;
+    }
+
+    void enqueue(T &&item) {
+        std::scoped_lock<std::mutex> lock(m_queue_lock);
+        m_queue.push_back(std::move(item));
+    }
+
+private:
+    std::vector<T> m_queue;
+    mutable std::mutex m_queue_lock;
+};
+
+} // detail
+
 class ZMQNetNetwork : public DebugClientNetwork {
 public:
-    ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd, std::unique_ptr<Bitset> &&allRanks);
+    using OutputPtr = std::unique_ptr<g_progoutp_t, decltype(&DbgFreeGenericProgOutp)>;
+    ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd, OutputPtr &&output, std::unique_ptr<Bitset> &&allRanks);
 
     std::unique_ptr<Bitset> sendCommand(const Bitset *target, const char *request);
     std::optional<ProtoMessageSet> receiveReply(const Bitset *target, Bitset &received);
 
     int checkEvents();
     ProtoMessageSet releaseEvents();
+    std::vector<std::string> releaseOutputLines();
     int exit();
 private:
+    using EventQueue = detail::AsyncQueue<zmqnet::ByteArray>;
+
     struct UnpackedMessage {
         std::unique_ptr<char, decltype(&std::free)> data;
         uint64_t hash;
@@ -62,17 +111,6 @@ private:
             bool m_resultReady;
         };
 
-        class EventQueue {
-            // Holds/distributes async responses from event streams
-        public:
-            bool hasEvent();
-            std::optional<zmqnet::ByteArray> getNext();
-            void enqueue(zmqnet::ByteArray &&event);
-        private:
-            std::queue<zmqnet::ByteArray> m_queue;
-            std::mutex m_queue_lock;
-        };
-
         class EventStream {
             // Creates new stream with given id and communicator and pushes any
             // responses into the passed EventQueue
@@ -95,7 +133,7 @@ private:
         StreamTable(zmqnet::AsyncFrontend &parentNetwork, std::unique_ptr<Bitset> &&allRanks);
         CommandStream& getCommandStream(const Bitset *target);
         bool hasAsyncEvent();
-        std::optional<zmqnet::ByteArray> getNextAsyncEvent();
+        std::vector<zmqnet::ByteArray> releaseAsyncEvents();
 
     private:
         zmqnet::AsyncFrontend &m_parentNetwork;
@@ -111,8 +149,25 @@ private:
         EventQueue m_event_queue;
     };
 
+    class OutputWatcher {
+        // watches program output on a seperate thread and deposits output text
+        // into a thread safe queue
+    public:
+        OutputWatcher(OutputPtr &&output);
+        ~OutputWatcher();
+
+        bool hasOutput() const;
+        std::vector<std::string> releaseOutputLines();
+    private:
+        OutputPtr m_output;
+        std::thread m_watcher_thread;
+        detail::AsyncQueue<std::string> m_output_queue;
+        std::atomic<bool> m_keep_going;
+    };
+
     UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const;
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
+    OutputWatcher m_output_watcher;
     StreamTable m_stream_table;
 };

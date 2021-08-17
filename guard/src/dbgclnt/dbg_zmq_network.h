@@ -150,7 +150,7 @@ private:
     };
 
     class OutputWatcher {
-        // watches program output on a seperate thread and deposits output text
+        // watches program output on a separate thread and deposits output text
         // into a thread safe queue
     public:
         OutputWatcher(OutputPtr &&output);

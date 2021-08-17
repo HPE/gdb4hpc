@@ -253,3 +253,169 @@ int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, const Pro
     // by default, just forward to generic handler
     return DbgDispatchProtoEvents(di, set);
 }
+
+uint64_t DebugClientProtocol::parseAndRegisterAppId(const char *appIdent) {
+    // get the wlm type
+    auto wlm = cti_current_wlm();
+    uint64_t appId;
+
+    switch (wlm) {
+        case CTI_WLM_SLURM: {
+            const char *sep;
+            uint32_t jobid;
+            uint32_t stepid;
+            char *eptr;
+
+            // find '.' in app_ident
+            if ((sep = strchr(appIdent, '.')) == nullptr) {
+                PrintOutError(
+                    "Invalid slurm job step argument. Expected "
+                    "<job_id>.<step_id>\n");
+                return 0;
+            }
+            // turn it into nullptr term and point past
+            //*sep++ = '\0';
+            ++sep;  // point to second digit (no need to modify string, strtol
+                    // will stop at '.'
+
+            // convert the jobid
+            errno = 0;
+            jobid = (uint32_t)strtoul(appIdent, &eptr, 10);
+
+            // check for error
+            if ((errno == ERANGE && (jobid == ULONG_MAX)) ||
+                (errno != 0 && jobid == 0)) {
+                PrintOutError("Invalid slurm jobid argument.\n");
+                return 0;
+            }
+
+            // check for invalid input
+            if (eptr == appIdent) {
+                PrintOutError("Invalid slurm jobid argument.\n");
+                return 0;
+            }
+
+            // convert the stepid
+            errno = 0;
+            stepid = (uint32_t)strtoul(sep, &eptr, 10);
+
+            // check for error
+            if ((errno == ERANGE && (stepid == ULONG_MAX)) ||
+                (errno != 0 && stepid == 0)) {
+                PrintOutError("Invalid slurm stepid argument.\n");
+                return 0;
+            }
+
+            // check for invalid input
+            if (eptr == sep) {
+                PrintOutError("Invalid slurm stepid argument.\n");
+                return 0;
+            }
+
+            // Register the slurm job step with the tool interface
+            cti_slurm_ops_t *ops = nullptr;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_SLURM) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerJobStep(jobid, stepid)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register slurm job step with CTI.\n");
+                return 0;
+            }
+        } break;
+        case CTI_WLM_SSH: {
+            pid_t launcher_pid;
+            char *eptr;
+
+            // convert the string to an int
+            errno = 0;
+            launcher_pid = strtol(appIdent, &eptr, 10);
+
+            // check for error
+            if ((launcher_pid < 0) || (errno != 0)) {
+                PrintOutError("Invalid launcher pid argument.\n");
+                return 0;
+            }
+
+            // check for invalid input
+            if (eptr == appIdent) {
+                PrintOutError("Invalid launcher pid argument.\n");
+                return 0;
+            }
+
+            // Register the pid with the tool interface
+            cti_ssh_ops_t *ops = nullptr;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_SSH) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerJob(launcher_pid)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register launcher pid with CTI.\n");
+                return 0;
+            }
+        } break;
+        case CTI_WLM_ALPS: {
+            uint64_t apid;
+            char *eptr;
+
+            // convert the string to an apid
+            errno = 0;
+            apid = (uint64_t)strtoull(appIdent, &eptr, 10);
+
+            // check for error
+            if ((errno == ERANGE && (apid == ULLONG_MAX)) ||
+                (errno != 0 && apid == 0)) {
+                PrintOutError("Invalid alps apid argument.\n");
+                return 0;
+            }
+
+            // check for invalid input
+            if (eptr == appIdent) {
+                PrintOutError("Invalid alps apid argument.\n");
+                return 0;
+            }
+
+            // Register the alps apid with the tool interface
+            cti_alps_ops_t *ops = nullptr;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_ALPS) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerApid(apid)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register alps apid with CTI.\n");
+                return 0;
+            }
+        }break;
+        case CTI_WLM_PALS: {
+            // check for invalid input
+            if (appIdent == nullptr) {
+                PrintOutError("Invalid pals apid argument.\n");
+                return 0;
+            }
+
+            // Register the pals apid with the tool interface
+            cti_pals_ops_t *ops = nullptr;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_PALS) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerApid(appIdent)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register pals apid with CTI.\n");
+                return 0;
+            }
+        }break;
+        default:
+            PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
+            return 0;
+    }
+
+    return appId;
+}

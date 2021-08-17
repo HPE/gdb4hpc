@@ -262,6 +262,9 @@ ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
     : m_output{std::move(output)}
     , m_keep_going{true}
 {
+    // we might get a nullptr for output, e.g. when attaching instead of launching
+    if (!m_output) return;
+
     auto watchOutput = [this](){
         const int timeout{1000}; // milliseconds
 
@@ -316,7 +319,7 @@ ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
 ZMQNetNetwork::OutputWatcher::~OutputWatcher() {
     LOG("shutting down output watcher thread\n");
     m_keep_going = false;
-    m_watcher_thread.join();
+    if (m_watcher_thread.joinable()) m_watcher_thread.join();
 }
 
 bool ZMQNetNetwork::OutputWatcher::hasOutput() const {

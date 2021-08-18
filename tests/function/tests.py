@@ -55,7 +55,7 @@ def getTmpDir():
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
-def makeRunFile(test):
+def makeRunFile(test, additional_substitutions = {}):
     testName = test.__class__.__name__
     tmpdir = getTmpDir()
     rcfile = test.get_data(testName + ".rc", must_exist=True)
@@ -63,23 +63,17 @@ def makeRunFile(test):
         test.fail("could not get rc file")
     runfile = tmpdir + '/' + testName + ".rc"
 
-    launchRE = re.compile(r"^\s*launch\s+\$\S+{([0-9]+)\}.*\s([^-]\S+)")
-    application = None
-    numProcs = 1
-    totNumProcs = 0
-    for line in open(rcfile,"r"):
-        match = launchRE.search(line)
-        if match:
-            numProcs = int(match.group(1))
-            application = match.group(2)
-            totNumProcs += numProcs
-
-    if not application:
-        test.error("could not find launch in " + rcfile)
+    substitutions = {
+        r"%%launcher_args%%" : lambda: os.environ["CDST_TESTS_LAUNCHER_ARGS"]
+    }
 
     with open(runfile,"w") as run:
         for line in open(rcfile, "r"):
-            line = line.replace(r"%%launcher_args%%", os.environ["CDST_TESTS_LAUNCHER_ARGS"])
+            for re, substitution in additional_substitutions.items():
+                line = line.replace(re, substitution())
+
+            for re, substitution in substitutions.items():
+                line = line.replace(re, substitution())
 
             # hack: on some systems, specifying --launcher-args="" will break the launcher.
             line = line.replace("--launcher-args=\"\"", "")
@@ -91,9 +85,9 @@ def makeRunFile(test):
 '''
 Run the gdb4phc batch script for a test
 '''
-def runScript(test):
+def runScript(test, substitutions = {}):
     testName = test.__class__.__name__
-    runfile = makeRunFile(test)
+    runfile = makeRunFile(test, substitutions)
     outfile = getOut(test, testName)
 
     try:
@@ -286,3 +280,49 @@ class cpp_thread_focus(Test):
 class cpp_arrays_print(Test):
     def test(self):
         runTest(self)
+
+class cpp_attach(Test):
+    def test(self):
+        # make sure we were able to build the proper binaries for this test
+        if not os.path.isfile("./bd_dt/cti_launch.x"):
+            self.cancel("./bd_dt/cti_launch.x not present, skipping. When the tests were built, could the compiler find CTI development libraries?")
+
+        # build arguments
+        wlm = detect_wlm()
+        rank_args = None
+        if wlm == "SLURM":
+            rank_args = ["-n4", "--ntasks-per-node=2"]
+        elif wlm == "ALPS":
+            rank_args = ["-n4", "-N2"]
+        else:
+            self.error("Failed to detect WLM")
+
+        # launch job
+        job = subprocess.Popen(
+            ["./bd_dt/cti_launch.x", *rank_args, "./bd_dt/C++/cpp_attach.x", "60"],
+            stderr=subprocess.PIPE
+        )
+
+        app_id = None
+        # wait for job to start and report app id
+        for line in iter(job.stderr.readline, b''):
+            # first line printed will be the app id, and it will come back in bytes
+            app_id = line.decode("utf-8").rstrip()
+            break
+
+        # wait a few seconds to make sure cpp_attach gets into its loop
+        time.sleep(3)
+
+        # build substitution dict to inject appid into .rc file
+        subs = {
+            r"%%appid%%" : lambda: app_id
+        }
+
+        # start gdb4hpc, attach, and generate results
+        runScript(self, subs)
+        result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
+
+        # stop cti_launch
+        job.terminate()
+
+        self.assertTrue(result, error)

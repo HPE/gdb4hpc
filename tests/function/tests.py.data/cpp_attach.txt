@@ -1,0 +1,15 @@
+%*
+Current rank location:
+%* we are expecting to see two backtraces since the addresses on two nodes will 
+%# be different. the backtrace can change depending on where the app is stopped,
+%# so we just make sure we see two backtraces that end in main.
+a{%.*%}: #%\d%  0x%.*% in main at %.*%
+%* 
+a{%.*%}: #%\d%  0x%.*% in main at %.*%
+a{0..3}: Breakpoint 1: %.*%cpp_attach.cpp, line %\d+%.
+%*
+beacon
+a{0..3}: Breakpoint 1, main(int, char**) at %.*%cpp_attach.cpp:%\d+%
+a{0..3}: 999
+Shutting down debugger and resuming application for 'a'.
+%*

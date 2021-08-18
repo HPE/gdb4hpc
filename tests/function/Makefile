@@ -23,12 +23,36 @@ TESTS = \
    bd_dt/fortran/ftn_decomp.x \
    bd_dt/fortran/ftn_bd_dt.x
 
+# tests which require CTI development libraries to build
+CTI_TESTS = \
+	bd_dt/C++/cpp_attach.x
+
+# you shouldn't have to have cti devel installed to test gdb4hpc, so only build
+# tests which require it if we happen to have it
+CTI_PRESENT := $(shell pkg-config --exists common_tools_fe && echo yes)
+CTI_INC      = $(shell pkg-config --cflags common_tools_fe)
+CTI_LD       = $(shell pkg-config --libs common_tools_fe)
+
+ifeq ($(CTI_PRESENT),yes)
+	TESTS += $(CTI_TESTS)
+endif
+
+# ANSI escape codes
+IN_YELLOW = \033[1;33m
+NO_COLOR = \033[0m
+
 all: $(TESTS)
+ifneq ($(CTI_PRESENT),yes)
+	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."
+	@echo -e "$(IN_YELLOW)To build these tests, load CTI development libraries such that pkg-config can find them."
+	@echo -e "$(IN_YELLOW)Verify with 'pkg-config --cflags common_tools_fe'."
+	@echo -ne "$(NO_COLOR)"
+endif
 
 clean:
 	rm -f $(TESTS)
-	rm -f */*/*.o
-	rm -f */*/*.so
+	rm -f */*.{o,x,so}
+	rm -f */*/*.{o,x,so}
 
 %.o : %.c
 	cc -g -O0 -c -I./include $< -o $@
@@ -90,6 +114,9 @@ bd_dt/C++/cpp_bt_stress.x : bd_dt/C++/cpp_bt_stress.o
 bd_dt/C++/cpp_arrays_print.x : bd_dt/C++/cpp_arrays_print.o
 	CC -g -O0 $^ -o $@
 
+bd_dt/C++/cpp_attach.x : bd_dt/C++/cpp_attach.o bd_dt/cti_launch.x
+	CC -g -O0 bd_dt/C++/cpp_attach.o -o $@
+
 bd_dt/fortran/ftn_cmp_diff.x : bd_dt/fortran/ftn_cmp_diff.o
 	ftn -g -O0 $^ -o $@
 
@@ -101,3 +128,9 @@ bd_dt/fortran/ftn_decomp.x : bd_dt/fortran/ftn_decomp.o
 
 bd_dt/fortran/ftn_bd_dt.x : bd_dt/fortran/ftn_bd_dt.o
 	ftn -g -O0 $^ -o $@
+
+bd_dt/cti_launch.o: bd_dt/cti_launch.cpp
+	CC -g -O0 -c -I./include $(CTI_INC) $< -o $@
+
+bd_dt/cti_launch.x : bd_dt/cti_launch.o
+	CC -g -O0 $^ -o $@ $(CTI_LD)

@@ -327,7 +327,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/test_tool_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
 %{__cp} -a %{tests_source_dir}/function/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/cti_launch.cpp
+%{__cp} -a %{tests_source_dir}/function/bd_dt/cti_launch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/cti_launch.cpp
 
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_cmp_diff.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_pause.c

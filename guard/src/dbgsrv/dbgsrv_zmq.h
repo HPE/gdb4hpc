@@ -32,7 +32,7 @@ public:
     int sendReply(const char *response) override;
 private:
     using ResultPtr = std::unique_ptr<char, decltype(&std::free)>;
-    using CommandDispatchFunc = std::packaged_task<ResultPtr (const dbgcomm_info*)>;
+    using CommandDispatchFunc = std::packaged_task<ResultPtr ()>;
 
     // take a result and use capnp to serialize it
     zmqnet::ByteArray packResult(ResultPtr result);
@@ -40,6 +40,7 @@ private:
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 
     std::unique_ptr<CommandDispatchFunc> m_pending_command;
+    zmqnet::Stream::Id m_event_stream_id;
     mutable std::mutex m_command_lock;
 
     // bitset related

@@ -64,10 +64,10 @@ size_t Bitset::firstSet() const {
 }
 
 std::string Bitset::toString() const {
-	return toSet(0, Bitset::None);
+	return toSetString(0, Bitset::None);
 }
 
-std::string Bitset::toSet(size_t offset, size_t len) const {
+std::string Bitset::toSetString(size_t offset, size_t len) const {
 	std::ostringstream str;
 
 	if (len == Bitset::None) {
@@ -119,9 +119,19 @@ std::string Bitset::toSet(size_t offset, size_t len) const {
 	return str.str();
 }
 
+std::set<size_t> Bitset::toSet() const {
+	std::set<size_t> set;
+
+	for (size_t i = 0; i < sizeInBits(); i++) {
+		if (test(i)) set.insert(i);
+	}
+
+	return set;
+}
+
 Bitset::Serialized Bitset::serialize() const {
 	throw std::runtime_error("unimplemented bitset operation: serialize");
-	return Serialized(nullptr);
+	return Serialized(nullptr, std::free);
 }
 
 Bitset& Bitset::operator= (const Bitset &other) {
@@ -191,4 +201,16 @@ bool Bitset::hasCommonBits(const Bitset &other) const {
 	}
 
 	return false;
+}
+
+size_t Bitset::hash() const {
+	// take the first 64 bits and convert them to a size_t
+	size_t hash{0};
+	for (size_t i = 0; i < sizeof(size_t) * 8; i++) {
+		// test() is safe out of bounds
+		auto bit = test(i) ? 1 : 0;
+		hash |= (bit << i); 
+	}
+	// hash the size_t for better uniformity across the hash space
+	return std::hash<size_t>{}(hash);
 }

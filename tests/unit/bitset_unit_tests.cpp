@@ -14,6 +14,7 @@
 #endif
 
 #include <iostream>
+#include <unordered_set>
 
 template <typename Bitset>
 class BitsetUnitTest : public ::testing::Test {
@@ -109,12 +110,12 @@ TYPED_TEST(BitsetUnitTest, test) {
     ASSERT_EQ(this->m_full.test(this->SIZE + 1), false);
 }
 
-TYPED_TEST(BitsetUnitTest, toSet) {
-    ASSERT_EQ(this->m_full.toSet(), "{0.." + std::to_string(this->SIZE - 1) + "}");
-    ASSERT_EQ(this->m_empty.toSet(), "{}");
-    ASSERT_NE(this->m_sparse.toSet(), "{}");
-    ASSERT_NE(this->m_sparse.toSet(), "{0.." + std::to_string(this->SIZE - 1) + "}");
-    ASSERT_EQ(this->m_full.toSet(0, this->SIZE / 2), "{0.." + std::to_string(this->SIZE/2 - 1) + "}");
+TYPED_TEST(BitsetUnitTest, toSetString) {
+    ASSERT_EQ(this->m_full.toSetString(), "{0.." + std::to_string(this->SIZE - 1) + "}");
+    ASSERT_EQ(this->m_empty.toSetString(), "{}");
+    ASSERT_NE(this->m_sparse.toSetString(), "{}");
+    ASSERT_NE(this->m_sparse.toSetString(), "{0.." + std::to_string(this->SIZE - 1) + "}");
+    ASSERT_EQ(this->m_full.toSetString(0, this->SIZE / 2), "{0.." + std::to_string(this->SIZE/2 - 1) + "}");
 }
 
 TYPED_TEST(BitsetUnitTest, Equals) {
@@ -247,4 +248,14 @@ TYPED_TEST(BitsetUnitTest, serialize) {
     ASSERT_TRUE(empty_ds != this->m_full);
     ASSERT_TRUE(full_ds != this->m_empty);
     ASSERT_TRUE(sparse_ds == this->m_sparse);
+}
+
+TYPED_TEST(BitsetUnitTest, hash) {
+    auto map = std::unordered_set<Bitset*, BitsetHasher>{};
+
+    map.insert(&this->m_full);
+    map.insert(&this->m_sparse);
+    map.insert(&this->m_empty);
+
+    ASSERT_TRUE(map.size() == 3);
 }

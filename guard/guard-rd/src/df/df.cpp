@@ -123,7 +123,7 @@ void StartDF(graph_t *g) {
         SetList(g->g_di_list);
 
         while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
-            auto bitset_str = di->d_bitset_full->toSet();
+            auto bitset_str = di->d_bitset_full->toSetString();
 
             // Create the full set string
             Asprintf(&set_str, "%s%s", di->d_handle, bitset_str.c_str());
@@ -329,7 +329,7 @@ void EndDF(graph_t *g) {
             // Process each status message and add it to the status block
             for (auto reply : rep_set) {
                 // First create the bitset string
-                auto bitset_str = reply->rep_group->toSet();
+                auto bitset_str = reply->rep_group->toSetString();
 
                 // Next create the full set string
                 Asprintf(&set_str, "%s%s", di->d_handle, bitset_str.c_str());
@@ -512,13 +512,13 @@ static void _halt(dbginvoke_t *di, int haltmode) {
         // the rec_set.
         // FIXME: Let this be user defined
         if (GetNumberOfReply(rep_set) > 3) {
-            set_info = di->d_bitset_full->toSet();
+            set_info = di->d_bitset_full->toSetString();
 
             DFMsg("%s%s: Application halted at multiple locations.",
                   di->d_handle, set_info.c_str());
         } else {
             for (auto reply : rep_set) {
-                set_info = reply->rep_group->toSet();
+                set_info = reply->rep_group->toSetString();
                 // point at the location data
                 halt_loc = EVENT_LOC(reply->rep_event);
 

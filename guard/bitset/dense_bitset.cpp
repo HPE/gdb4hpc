@@ -191,7 +191,7 @@ Bitset::Serialized DenseBitset::serialize() const {
 	auto result = new char[len];
 	snprintf(result, len, "%s", serialized.c_str());
 
-	return Bitset::Serialized(std::unique_ptr<char>(result));
+	return Bitset::Serialized(result, std::free);
 }
 
 Bitset& DenseBitset::operator=(const Bitset &other) {

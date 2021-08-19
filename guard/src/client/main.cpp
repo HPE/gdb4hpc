@@ -676,8 +676,8 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
     DPRINT(
         "INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s "
         "from:%s\n",
-        EventToStr(ev_set->e_ev), ev_set->e_group->toSet().c_str(),
-        reply_set->toSet().c_str(), ev_set->e_di->d_handle);
+        EventToStr(ev_set->e_ev), ev_set->e_group->toSetString().c_str(),
+        reply_set->toSetString().c_str(), ev_set->e_di->d_handle);
 
     switch (ev_set->e_ev->ev_event) {
         case DBGEV_EXIT:
@@ -970,7 +970,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             // Process each status message and add it to the status block
             for (auto&& reply : rep_set) {
                 // First create the bitset string
-                auto bitset_str = reply->rep_group->toSet();
+                auto bitset_str = reply->rep_group->toSetString();
 
                 // Create the set string
                 Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, bitset_str.c_str());

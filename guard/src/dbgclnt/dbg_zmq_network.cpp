@@ -2,7 +2,6 @@
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dbg_zmq_network.h"
-#include "dbg_zmq.h"
 
 #include "lrunle_bitset.h"
 #include "bitset_convert.h"
@@ -15,49 +14,10 @@
 #define LOG(...) /**/
 #endif
 
-ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend)
+ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, std::unique_ptr<Bitset> &&allRanks)
     : m_network{std::move(frontend)}
-    , m_command_result_ready{false}
-{
-    { // create sync command stream
-        const auto command_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr resultPtr) {
-            // TODO check errors
-            LOG("command_callback: %d %s\n", streamId, result.begin());
-
-            auto result = zmqnet::make_ByteArray(resultPtr.begin(), resultPtr.size());
-            {
-                std::scoped_lock<std::mutex> lock(m_command_result_lock);
-                // destroys any data that was in the command result previously
-                m_command_result = std::move(result);
-                m_command_result_ready = true;
-            }
-
-            // notify a thread waiting for the result, if present
-            m_command_result_cv.notify_one();
-        };
-
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::CommandStream);
-        m_network->registerStreamCallback(streamId, command_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_command_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::WaitForAll{}));
-    }
-
-    { // create async event stream
-        const auto event_callback = [&](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
-            LOG("event_callback %d %s\n", streamId, result.begin());
-
-            m_event_queue.enqueue(zmqnet::make_ByteArray(result.begin(), result.size()));
-            LOG("event_callback %d, successfully enqueued\n", streamId);
-        };
-
-        const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::EventStream);
-        m_network->registerStreamCallback(streamId, event_callback);
-        auto allNodesCommunicator = m_network->getAllNodesCommunicator();
-        m_event_stream = std::make_unique<zmqnet::Stream>(m_network->registerStream(allNodesCommunicator, streamId,
-            "libzmqnetagg.so", "run", zmqnet::sync::Timeout{m_stream_timeout_ms}));
-    }
-}
+    , m_stream_table(*m_network, std::move(allRanks))
+{}
 
 std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
@@ -67,16 +27,10 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
         return nullptr;
     }
 
-    if (!m_command_stream) {
-        PrintOutError("Tried to send a message without a command stream.\n");
-        return nullptr;
-    }
-
-    // TODO get/create specific stream for target
-
     LOG("sending message %s\n", request);
 
-    m_network->sendCommand(*m_command_stream, request);
+    auto &commandStream = m_stream_table.getCommandStream(target);
+    commandStream.sendCommand(request, strlen(request) + 1); // include null terminator
 
     return target->clone();
 }
@@ -84,25 +38,18 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
 std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    // TODO respect target
-
     // wait for result
     LOG("waiting for result...\n");
     
-    zmqnet::ByteArray reply{};
+    auto &stream = m_stream_table.getCommandStream(target);
+    zmqnet::ByteArray reply = stream.extractResult();
 
-    {
-        std::unique_lock<std::mutex> lock(m_command_result_lock);
-        m_command_result_cv.wait(lock, [&](){ return m_command_result_ready; });
-
-        reply = std::move(m_command_result);
-        m_command_result_ready = false;
-    }
-    
+    // unpack data
     auto reader = getReaderFromData(reply);
     auto pack = reader.getRoot<ZmqnetMessagePackage>();
     auto result = ProtoMessageSet();
 
+    // construct proto message set, update received
     for (const auto message : pack.getMessages()) {
         auto unpacked = unpackMessageReader(message);
     
@@ -116,14 +63,14 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
 
 int ZMQNetNetwork::checkEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
-    return m_event_queue.hasEvent() ? 1 : 0;
+    return m_stream_table.hasAsyncEvent() ? 1 : 0;
 }
 
 ProtoMessageSet ZMQNetNetwork::releaseEvents() {
-    LOG("%s\n", __PRETTY_FUNCTION__);
+    // LOG("%s\n", __PRETTY_FUNCTION__);
     auto messages = ProtoMessageSet{};
 
-    while (auto optionalEventData = m_event_queue.getNext()) {
+    while (auto optionalEventData = m_stream_table.getNextAsyncEvent()) {
         auto reader = getReaderFromData(*optionalEventData);
         auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
@@ -146,23 +93,13 @@ int ZMQNetNetwork::exit() {
     return 0;
 }
 
-capnp::UnalignedFlatArrayMessageReader ZMQNetNetwork::getReaderFromData(const zmqnet::ByteArray &data) const {
-    assert(data.size() != 0);
-    assert(data.size() % sizeof(capnp::word) == 0);
-    auto words_ptr = reinterpret_cast<capnp::word const *>(data.begin());
-    auto words_size = data.size() / sizeof(capnp::word);
-    auto words_array = kj::arrayPtr(words_ptr, words_size);
-
-    return capnp::UnalignedFlatArrayMessageReader(words_array);
-}
-
 ZMQNetNetwork::UnpackedMessage ZMQNetNetwork::unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const {
     LOG("unpacking: \n");
     LOG("\tdata: %s\n", reader.getData().cStr());
     LOG("\thash: %lu\n", reader.getHash());
     auto bitsetPtr = reader.getBitset().asChars().begin();
     auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
-    LOG("\tbitset: %s\n", bitset->toSet().c_str());
+    LOG("\tbitset: %s\n", lrunbitset->toSetString().c_str());
     auto densebitset = bitset::createDenseFrom(*lrunbitset);
 
     return {
@@ -172,12 +109,12 @@ ZMQNetNetwork::UnpackedMessage ZMQNetNetwork::unpackMessageReader(const ZmqnetMe
     };
 }
 
-bool ZMQNetNetwork::EventQueue::hasEvent() {
+bool ZMQNetNetwork::StreamTable::EventQueue::hasEvent() {
     std::scoped_lock<std::mutex> lock(m_queue_lock);
     return m_queue.size() > 0;
 }
 
-std::optional<zmqnet::ByteArray> ZMQNetNetwork::EventQueue::getNext() {
+std::optional<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::EventQueue::getNext() {
     std::scoped_lock<std::mutex> lock(m_queue_lock);
 
     if (m_queue.size() > 0) {
@@ -189,8 +126,151 @@ std::optional<zmqnet::ByteArray> ZMQNetNetwork::EventQueue::getNext() {
     }
 }
 
-void ZMQNetNetwork::EventQueue::enqueue(zmqnet::ByteArray &&event) {
+void ZMQNetNetwork::StreamTable::EventQueue::enqueue(zmqnet::ByteArray &&event) {
     std::scoped_lock<std::mutex> lock(m_queue_lock);
 
     m_queue.push(std::move(event));
 }
+
+ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
+    : m_parentNetwork{parentNetwork}
+    , m_resultReady{false}
+{
+    // create "sync" stream
+    const auto command_callback = [&](zmqnet::Stream::Id const &streamId, zmqnet::ByteArrayPtr resultPtr) {
+        LOG("command_callback: %d %s\n", streamId, resultPtr.begin());
+
+        auto result =
+            zmqnet::make_ByteArray(resultPtr.begin(), resultPtr.size());
+        {
+            std::scoped_lock<std::mutex> lock(m_resultLock);
+            // destroys any data that was in the command result previously
+            m_result = std::move(result);
+            m_resultReady = true;
+        }
+
+        // notify a thread waiting for the result, if present
+        m_resultCV.notify_one();
+    };
+
+    parentNetwork.registerStreamCallback(streamId, command_callback);
+    m_stream = std::make_unique<zmqnet::Stream>(
+        parentNetwork.registerStream(communicator, streamId, "libzmqnetagg.so",
+                                     "run", zmqnet::sync::WaitForAll{}));
+}
+
+ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator) 
+    : CommandStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator)
+{}
+
+void ZMQNetNetwork::StreamTable::CommandStream::sendCommand(const char *command, size_t len) {
+    if (!m_stream) {
+        throw std::runtime_error("CommandStream tried to send a command with a null stream");
+    }
+
+    LOG("CommandStream %d: sending \"%s\" of length %lu\n", m_stream->id, command, len);
+
+    m_parentNetwork.sendCommand(*m_stream, command, len);
+}
+
+zmqnet::ByteArray ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
+    LOG("CommandStream %d: extracting...\n", m_stream->id);
+    std::unique_lock<std::mutex> lock(m_resultLock);
+    m_resultCV.wait(lock, [&]() { return m_resultReady; });
+
+    auto reply = std::move(m_result);
+    m_resultReady = false;
+
+    return reply;
+}
+
+ZMQNetNetwork::StreamTable::StreamTable(
+    zmqnet::AsyncFrontend &parentNetwork, std::unique_ptr<Bitset> &&allRanks)
+    : m_parentNetwork{parentNetwork}
+    , m_internalCommandStream(m_parentNetwork, ZMQNetStream::InternalCommandStream, m_parentNetwork.getAllNodesCommunicator())
+{
+    // store all nodes bitset
+    m_bitset_pool.emplace_back(std::move(allRanks));
+
+    // create broadcast command stream
+    m_command_streams.emplace(
+        m_bitset_pool.back().get(),
+        std::make_unique<CommandStream>(m_parentNetwork, ZMQNetStream::BroadcastCommandStream, m_parentNetwork.getAllNodesCommunicator())
+    );
+
+    // create broadcast event stream
+    m_event_streams.emplace(
+        m_bitset_pool.back().get(),
+        std::make_unique<EventStream>(m_parentNetwork, ZMQNetStream::BroadcastEventStream, m_parentNetwork.getAllNodesCommunicator(), m_event_queue)
+    );
+}
+
+ZMQNetNetwork::StreamTable::CommandStream& ZMQNetNetwork::StreamTable::getCommandStream(const Bitset *target) {
+    // check if we already have a stream for this target
+    auto it = m_command_streams.find(target);
+    if (it != m_command_streams.end()) 
+        return *(it->second);
+
+    // none found, create new stream
+    auto [commandStreamId, eventStreamId] = generateStreamIdPair();
+    LOG("Creating new command/event stream %d/%d...\n", commandStreamId, eventStreamId);
+
+    // register new communicator
+    auto comm = m_parentNetwork.registerCommunicator(target->toSet());
+
+    // send stream create command to backend
+    capnp::MallocMessageBuilder builder;
+    auto root = builder.initRoot<InternalCommand>();
+    auto command = root.initNewStreamCmd();
+    command.setCommandStreamId(commandStreamId);
+    command.setEventStreamId(eventStreamId);
+
+    auto words = capnp::messageToFlatArray(builder);
+    auto bytes = words.forceReleaseAsBytes();
+    m_internalCommandStream.sendCommand(bytes.asChars().begin(), bytes.size());
+    m_internalCommandStream.extractResult(); // ignoring result; just waiting for a ping
+
+    // create bitset -> command stream pair
+    m_bitset_pool.emplace_back(target->clone());
+    m_command_streams.emplace(
+        m_bitset_pool.back().get(), 
+        std::make_unique<CommandStream>(m_parentNetwork, commandStreamId, comm)
+    );
+
+    // create bitset -> event stream pair
+    m_event_streams.emplace(
+        m_bitset_pool.back().get(),
+        std::make_unique<EventStream>(m_parentNetwork, eventStreamId, comm, m_event_queue)
+    );
+
+    return *m_command_streams.at(target);
+}
+
+bool ZMQNetNetwork::StreamTable::hasAsyncEvent() {
+    return m_event_queue.hasEvent();
+}
+
+std::optional<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::getNextAsyncEvent() {
+    return m_event_queue.getNext();
+}
+
+ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator, EventQueue &parentQueue)
+    : m_parentNetwork{parentNetwork}
+    , m_parentQueue{parentQueue}
+{
+    // create async event stream
+    const auto event_callback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
+        LOG("event_callback %d %s\n", streamId, result.begin());
+
+        m_parentQueue.enqueue(zmqnet::make_ByteArray(result.begin(), result.size()));
+        LOG("event_callback %d, successfully enqueued\n", streamId);
+    };
+
+    m_parentNetwork.registerStreamCallback(streamId, event_callback);
+    m_stream = std::make_unique<zmqnet::Stream>(m_parentNetwork.registerStream(communicator, streamId,
+        "libzmqnetagg.so", "run", zmqnet::sync::Timeout{m_stream_timeout_ms}));
+}
+
+ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator, EventQueue &parentQueue) 
+    : EventStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator, parentQueue)
+{}

@@ -2226,7 +2226,7 @@ int NodeEvent(event_set_t *ev_set, const Bitset *reply_set) {
     int number = reply_set->numSet();
 
     DPRINT("[GRAPH INFO] NodeEvent ev_set bitset:%s, reply_set:%s\n",
-           ev_set->e_group->toSet().c_str(), reply_set->toSet().c_str());
+           ev_set->e_group->toSetString().c_str(), reply_set->toSetString().c_str());
 
     /*
     ** All nodes are associated with the same graph. Therefore,
@@ -2798,7 +2798,7 @@ token_t *NodeProcSet(graph_t *g, node_t *n) {
     t->t_set_length = t1->t_bit_set->sizeInBits();
 
     DPRINT("[GRAPH] NodeProcSet t1->t_bit_set[%s], length[%lu]\n",
-           t1->t_bit_set->toSet().c_str(), t1->t_bit_set->sizeInBits());
+           t1->t_bit_set->toSetString().c_str(), t1->t_bit_set->sizeInBits());
 
     if (t->t_set_bits == NULL) {
         t->t_set_bits = t1->t_bit_set->typedClone();

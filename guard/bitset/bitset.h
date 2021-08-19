@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <limits>
-#include <variant>
+#include <set>
 
 class Bitset {
     // interface describing a bitset that is used to represent sets of ranks.
@@ -63,7 +63,10 @@ public:
     virtual std::string toString() const;
 
     // returns a string representation in set notation, e.g. {0..2,4,5..100}.
-    virtual std::string toSet(size_t offset = 0, size_t len = Bitset::None) const;
+    virtual std::string toSetString(size_t offset = 0, size_t len = Bitset::None) const;
+
+    // returns a set containing the individual ranks of the bitset
+    virtual std::set<size_t> toSet() const;
 
     // a serialized bitset, not necessarily in a human readable format. derived
     // classes should implement a (SerializedPtr) constructor to
@@ -72,7 +75,7 @@ public:
     //   auto serialized_bitset = bitset->serialize();
     //   auto new_bitset = Bitset(serialized_bitset.get());
     using SerializedPtr = const char *;
-    using Serialized = std::unique_ptr<char>;
+    using Serialized = std::unique_ptr<char, decltype(&std::free)>;
 
     // returns a Bitset::Serialized class that can be used to construct a new
     // bitset.
@@ -93,6 +96,22 @@ public:
 
     // returns true if lhs & rhs != 0.
     virtual bool hasCommonBits(const Bitset &other) const;
+
+    virtual size_t hash() const;
+};
+
+struct BitsetHasher {
+    size_t operator()(const Bitset *bitset) const {
+        if (!bitset) throw std::runtime_error("BitsetHasher tried to hash a nullptr");
+        return bitset->hash();
+    }
+
+    struct KeyEqual {
+        bool operator()(const Bitset *a, const Bitset *b) const {
+            if (!a || !b) throw std::runtime_error("Tried to compare a null bitset pointer");
+            return *a == *b;
+        }
+    };
 };
 
 namespace bitset {

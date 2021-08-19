@@ -108,7 +108,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bi
 
     std::unique_ptr<Bitset> received = std::make_unique<DenseBitset>(target->sizeInBits());
 
-    DPRINT("INFO: Sending cmd to set[%s]\n", target->toSet().c_str());
+    DPRINT("INFO: Sending cmd to set[%s]\n", target->toSetString().c_str());
 
     if (newEventStream) {
         int eventFd = newEventStream->get_DataNotificationFd();

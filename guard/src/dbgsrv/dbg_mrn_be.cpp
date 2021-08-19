@@ -57,7 +57,7 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
       m_stream_single{nullptr},
       m_event_fd{0},
       m_rank_bs{nullptr},
-      m_rank_bs_str{Bitset::Serialized(nullptr)},
+      m_rank_bs_str(nullptr, std::free),
       m_cmd_streams{NewList()},
       m_event_streams{NewList()},
       m_msg_list{NewList()}

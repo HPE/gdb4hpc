@@ -66,7 +66,7 @@ public:
 
     virtual std::string toString() const override;
 
-    // virtual std::string toSet(int offset = 0, int len = -1) const override;
+    // virtual std::string toSetString(int offset = 0, int len = -1) const override;
 
     virtual Serialized serialize() const override;
     // given a serialized LRunLEBitset, return how many bytes the serialized data is

@@ -1775,7 +1775,7 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
 
     auto received = pmsg_set->front().getBitset()->clone();
 
-    DPRINT("INFO: Sending cmd to network[%p]:set[%s]\n", network, target->toSet().c_str());
+    DPRINT("INFO: Sending cmd to network[%p]:set[%s]\n", network, target->toSetString().c_str());
 
     return received;
 }

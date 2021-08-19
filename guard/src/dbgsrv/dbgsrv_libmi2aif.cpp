@@ -3435,21 +3435,16 @@ AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
     return new AIFStream(a);
 }
 
-
+inline bool fieldIsFunction(const char* str) {
+    auto paren = strchr(str, '(');
+    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
+}
+    
 struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
-    MICommand *cmd;
-    MIList *field_list;
-    char *field;
-    char *tmp_field = NULL;
-    char *tmp;
-    char *tmp2;
-    char tmp_char;
-    int id;
-    int index;
 
     DVPRINT("GetStructInfo: %s\n", type_str);
 
-    cmd = CLIPtype(type_str);
+    MICommand* cmd = CLIPtype(type_str);
     sendMICommand(cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -3458,10 +3453,16 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
         return NULL;
     }
 
-    field_list = CLIGetPtypeFieldList(cmd);
+    MIList* field_list = CLIGetPtypeFieldList(cmd);
     MICommandFree(cmd);
 
-    int numFields = MIListSize(field_list);
+    // count the number of data fields
+    int numFields = 0;
+    char *field;
+    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
+        if (!fieldIsFunction(field)) ++numFields;
+    }
+    
     if (!numFields) {
         DVPRINT("GetStructInfo: Zero fields detected.\n");
         MIListFree(field_list, NULL);
@@ -3477,17 +3478,18 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
     }
 
     // Now fill in the information from the returned list
-    index = 0;
-    MIListSet(field_list);
-    for (index = 0; (field = (char *)MIListGet(field_list)); ++index) {
+    char *tmp_field = nullptr;
+    int index = 0;
+    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
         DVPRINT("GetStructInfo: field is %s\n", field);
+        if (fieldIsFunction(field)) continue;
 
-        struct_info_t::field& sfield = result->getField(index);
+        struct_info_t::field& sfield = result->getField(index++);
 
         // The field contains the type including its name. For instance, field
         // will contain int i. We only want to point at the int part.
         // Note that we need to do special things for function pointers.
-        if ((tmp = strrchr(field, ' ')) != NULL) {
+        if (char* tmp = strrchr(field, ' ')) {
             // ensure tmp+1 is not pointing at a '*', this is included in the
             // base type.
             while (*(tmp + 1) == '*') {
@@ -3519,7 +3521,7 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
                 tmp += 2;
 
                 // point tmp2 at the closing ')'
-                tmp2 = tmp;
+                char* tmp2 = tmp;
                 while (*tmp2 != ')') ++tmp2;
 
                 // copy until null term
@@ -3536,7 +3538,7 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
                 sfield.type_func = getFunctionInfo(tmp_field);
             } else {
                 // not a function pointer, proceed as usual
-                tmp_char = *tmp;
+                char tmp_char = *tmp;
                 *tmp = '\0';
                 tmp_field = strdup(field);
                 // undo what we just did to the original field
@@ -3547,8 +3549,9 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
         }
 
         // use whatis to get the field type while its unknown
+        int id;
         while ((id = getType(tmp_field)) == T_UNKNOWN) {
-            tmp = getWhatisValue(getTypeName(field), NULL);
+            char* tmp = getWhatisValue(getTypeName(field), NULL);
             if (tmp != NULL) {
                 field = tmp;
                 free(tmp_field);

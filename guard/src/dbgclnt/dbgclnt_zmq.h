@@ -42,6 +42,13 @@ public:
     
     int checkEvents(struct dbginvoke *di) override;
     void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
+private:
+    // separate attach function so we can reuse its attach functionality within the launch function
+    int internalAttach(dbginvoke_t *di, proto_session *sess, const char *prog,
+                const char *app_ident, uint64_t appid,
+                ZMQNetNetwork::OutputPtr &&output, const char *arch,
+                const char *backend, const char *gdb, int gpu_flag,
+                int debug_flag, int early_entry_flag, bool isNonStop);
 };
 
 // called once by registerProtos

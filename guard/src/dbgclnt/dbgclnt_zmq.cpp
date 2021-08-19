@@ -89,37 +89,43 @@ int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
                         const char *backend, int gpu_flag, int debug_flag) {
     LOG("%s\n", __PRETTY_FUNCTION__);
-    return 0;
+    // ZMQNetNetwork::OutputPtr is too many aliases deep to be implicitly
+    // convertable from a nullptr, so we'll just make a dummy one to pass.
+    auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
+
+    return internalAttach(di, sess, nullptr, app_ident, 0, std::move(dummyOutput), 
+        arch, backend, nullptr, gpu_flag, debug_flag, 0, false);
 }
 
-int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
-                        const char * const *argv, const char *arch, const char * const *arch_args,
-                        const char *arch_input, const char *backend, const char* gdb, char **env,
-                        const char *cwd, int gpu_flag, int debug_flag,
-                        int early_entry_flag, bool isNonStop) {
+int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
+    const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
+    const char *arch, const char *backend, const char* gdb, int gpu_flag, int debug_flag,
+    int early_entry_flag, bool isNonStop)
+{
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (!di) {
-        PrintOutError("Tried to launch ZMQNet with a null di\n");
+    // figure out our appid
+    if (appid != 0) {
+        di->d_appid = appid;
+    } else if (app_ident == nullptr) {
+        PrintOutError("Can't parse appid from nullptr.\n");
         return 1;
+    } else {
+        di->d_appid = parseAndRegisterAppId(app_ident); 
+        if (di->d_appid == 0) {
+            PrintOutError("Failed to parse appid.\n");
+            return 1;
+        }
     }
 
-    PrintOutMsg("Starting application, please wait...\n");
-
-    // launch n ranks of app being debugged ////////////////////////////////////
-
-    // program output pipe container.
-    // this will eventually be given to the ZMQNetNetwork object.
-    auto output = ZMQNetNetwork::OutputPtr(DbgCreateGenericProgOutp(), DbgFreeGenericProgOutp);
-
-    auto launcherArgs = ArgvStream("-n", di->d_nproc, arch_args, prog, argv);
-    if ((di->d_appid = cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd, output->p_o_wfd, arch_input, cwd, env)) == 0) {
-        PrintOutError("Failed to launch CTI app.\n");
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        return 1;
+    // figure out how many ranks there are
+    if (di->d_nproc == 0) {
+        if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0) {
+            PrintOutError("Failed to retrieve nproc.\n");
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            return 1;
+        }
     }
-
-    PrintOutMsg("Launched application...\n");
 
     // ship required backend files /////////////////////////////////////////////
 
@@ -176,9 +182,9 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
         "-a", arch,
         "-p", "zmqnet",
-        "-e", backend,
-        "-f", prog
+        "-e", backend
     );
+    if (prog)             dbgsrvArgs << "-f" << prog;
     if (gpu_flag)         dbgsrvArgs << "--gpu";
     if (debug_flag)       dbgsrvArgs << "--debug";
     if (early_entry_flag) dbgsrvArgs << "--early-entry";
@@ -221,6 +227,46 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
+    PrintOutMsg("Connected to application...\n");
+
+    return 0;
+}
+
+int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
+                        const char * const *argv, const char *arch, const char * const *arch_args,
+                        const char *arch_input, const char *backend, const char* gdb, char **env,
+                        const char *cwd, int gpu_flag, int debug_flag,
+                        int early_entry_flag, bool isNonStop) {
+    LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (!di) {
+        PrintOutError("Tried to launch ZMQNet with a null di\n");
+        return 1;
+    }
+
+    PrintOutMsg("Starting application, please wait...\n");
+
+    // launch n ranks of app being debugged ////////////////////////////////////
+
+    // program output pipe container.
+    // this will eventually be given to the ZMQNetNetwork object.
+    auto output = ZMQNetNetwork::OutputPtr(DbgCreateGenericProgOutp(), DbgFreeGenericProgOutp);
+
+    auto launcherArgs = ArgvStream("-n", di->d_nproc, arch_args, prog, argv);
+    if ((di->d_appid = cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd, output->p_o_wfd, arch_input, cwd, env)) == 0) {
+        PrintOutError("Failed to launch CTI app.\n");
+        PrintOutError("CTI error: %s\n", cti_error_str());
+        return 1;
+    }
+
+    PrintOutMsg("Launched application...\n");
+
+    // attach to launched application
+    if (internalAttach(di, sess, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop)) {
+        PrintOutError("Failed to attach to application.\n");
+        return 1;
+    }
+
     // tell CTI to release the application from the startup barrier
     if (cti_releaseAppBarrier(di->d_appid)) {
         PrintOutError(
@@ -229,8 +275,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         cti_killApp(di->d_appid, SIGKILL);
         return 1;
     }
-
-    PrintOutMsg("Connected to application...\n");
 
     return 0;
 }

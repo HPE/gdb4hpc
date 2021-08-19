@@ -141,6 +141,10 @@ protected:
 
         return dynamic_cast<Net&>(*di->d_proto_net);
     }
+
+    // helper function for attach to parse out the appId from appIdent and
+    // register the app with CTI. returns 0 on failure.
+    uint64_t parseAndRegisterAppId(const char *appIdent);
 private:
     // we don't want this exposed to derived classes directly, they should only
     // be able to set it and call its handler method.

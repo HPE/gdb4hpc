@@ -172,11 +172,14 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
                     packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free)); 
                 ;
             } catch (const std::exception &e) {
-                LOG("zmqnet: exception thrown during command execution: %s.\n", e.what());
-                return packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free));; // TODO more descriptive error result
+                std::string eString = e.what();
+                std::string message = "An exception was thrown during command execution: " + eString;
+                LOG("zmqnet: %s.\n", message.c_str());
+                return packResult(ZMQNetServerProtocol::ResultPtr(strdup(message.c_str()), std::free));
             } catch (...) {
-                LOG("zmqnet: unknown exception thrown during command execution.\n");
-                return packResult(ZMQNetServerProtocol::ResultPtr(strdup("zmqnet error"), std::free));; // TODO more descriptive error result
+                auto message = "unknown exception thrown during command execution";
+                LOG("zmqnet: %s.\n", message);
+                return packResult(ZMQNetServerProtocol::ResultPtr(strdup(message), std::free));
             }
         };
 

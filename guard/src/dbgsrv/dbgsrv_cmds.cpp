@@ -432,7 +432,6 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         return {nullptr, &std::free};
     }
 
-    // TODO make this logic nicer
     std::unique_ptr<char, decltype(&std::free)> resp(EventToSocProto(e), &std::free);
     
     if (resp) {

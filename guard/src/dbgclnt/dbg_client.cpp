@@ -55,10 +55,14 @@ struct inpcb_t {
 };
 typedef struct inpcb_t inpcb_t;
 
-struct outpcb_t {
-    void (*o_rtn)(dbginvoke_t *, FILE *);
+struct OutputCallbacks {
+    // Called by protocols when output from the program being debugged is detected.
+    // The job of each callback is to output the data to the cli.
+    // Different protocols deliver the data in different formats.
+    
+    std::function<void (dbginvoke *, FILE*)> filestreamCallback;
+    std::function<void (dbginvoke *, const std::vector<std::string>&)> stringVectorCallback; 
 };
-typedef struct outpcb_t outpcb_t;
 
 /*
 ** Internal prototypes
@@ -111,7 +115,7 @@ static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
 static int high_fd;
 static inpcb_t InputCB;
-static outpcb_t OutputCB;
+static OutputCallbacks OutputCB;
 static int _mask_cnt;
 static int _mask_fd;
 #if defined(RD)
@@ -1618,7 +1622,14 @@ void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream) {
     if (di == nullptr || p_o_stream == nullptr) return;
 
     // Call the output callback
-    OutputCB.o_rtn(di, p_o_stream);
+    OutputCB.filestreamCallback(di, p_o_stream);
+}
+
+void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lines) {
+    if (di == nullptr) return;
+
+    // Call the output callback
+    OutputCB.stringVectorCallback(di, lines);
 }
 
 /*
@@ -1634,8 +1645,12 @@ void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback) {
 /*
 ** Set local output stream handler.
 */
-void DbgHandleOutput(void (*outp)(dbginvoke_t *, FILE *)) {
-    OutputCB.o_rtn = outp;  // callback handler
+void DbgHandleOutput(const std::function<void (dbginvoke *, FILE *)> &outp) {
+    OutputCB.filestreamCallback = outp;  // callback handler
+}
+
+void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<std::string> &)> &outp) {
+    OutputCB.stringVectorCallback = outp;  // callback handler
 }
 
 /*

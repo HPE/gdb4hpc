@@ -82,12 +82,6 @@ struct mp_arch MPArchs[] = {
 
 #define TIMEOUT_WDT 5000
 
-// Need to define this for any library that is shared between the client and
-// server components. We need to be able to hook into the CLI stream in the
-// client, so just define this to stdout/stderr in the server.
-FILE *out_stream;
-FILE *err_stream;
-
 int Shutdown = 0;
 int WDT = 0;
 int my_rank;
@@ -155,10 +149,6 @@ int main(int argc, char *argv[], char *env[]) {
 
     free(const_cast<char*>(custom_gdb_data));
     custom_gdb_data = nullptr;
-
-    // Set the streams
-    out_stream = stdout;
-    err_stream = stderr;
 
     DVPRINT("dbgsrv starting!\n");
 

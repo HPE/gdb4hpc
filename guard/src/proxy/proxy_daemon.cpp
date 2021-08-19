@@ -1303,6 +1303,19 @@ void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream) {
     Free(line);
 }
 
+void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lines) {
+    proxy_type *inst;
+
+    if (di == NULL) return;
+
+    // get the proxy_type from the instance id
+    inst = GetProxyTypeFromInstId(di->d_proto_id);
+
+    for (const auto &line : lines) {
+        fprintf(PROXY_OUTPUTSTREAM(inst), "%s", line.c_str());
+    }
+}
+
 /*
 ** fprintf a line to stderr.
 */

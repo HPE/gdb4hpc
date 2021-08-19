@@ -94,12 +94,6 @@ void DVPRINT(const char *format, ...) {
     va_end(arg_list);
 }
 
-// Need to define this for any library that is shared between the client and
-// server components. We need to be able to hook into the CLI stream in the
-// client, so just define this to stdout/stderr in the server.
-FILE *out_stream;
-FILE *err_stream;
-
 void usage(char *name) {
     fprintf(stdout, "Usage: %s [OPTIONS]...\n", name);
     fprintf(stdout, "Launch guard debug servers on compute nodes.\n");
@@ -146,10 +140,6 @@ int main(int argc, char **argv) {
 #ifdef DEBUG
     debug_flag = 1;
 #endif
-
-    // Set the streams
-    out_stream = stdout;
-    err_stream = stderr;
 
     if (debug_flag) {
         // print out the argv

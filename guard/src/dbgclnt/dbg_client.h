@@ -34,6 +34,7 @@
 #include "defs.h"
 #include "dbginvoke.h"
 #include <vector>
+#include <functional>
 
 // Forward declare event set
 struct event_set;
@@ -402,8 +403,10 @@ extern void DbgDispatchEvents(void);
 // converted to an actual event.
 extern int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set);
 extern void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream);
+extern void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lines);
 extern void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
-extern void DbgHandleOutput(void (*)(dbginvoke_t *di, FILE *p_o_stream));
+extern void DbgHandleOutput(const std::function<void (dbginvoke *, FILE *)> &outp);
+extern void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<std::string> &)> &outp);
 extern void DbgHandleInput(int, void (*)(void));
 extern void DbgHandleSignal(int, void (*)(int), dbgsig_type);
 extern void DbgMaskInput(void);

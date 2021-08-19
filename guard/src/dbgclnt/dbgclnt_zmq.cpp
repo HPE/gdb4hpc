@@ -105,18 +105,17 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     // figure out our appid
-    if (appid == 0) {
-        if (app_ident == nullptr) {
-            PrintOutError("Can't parse appid from nullptr.\n");
-            return 1;
-        }
-
-        if (di->d_appid = parseAndRegisterAppId(app_ident); di->d_appid == 0) {
+    if (appid != 0) {
+        di->d_appid = appid;
+    } else if (app_ident == nullptr) {
+        PrintOutError("Can't parse appid from nullptr.\n");
+        return 1;
+    } else {
+        di->d_appid = parseAndRegisterAppId(app_ident); 
+        if (di->d_appid == 0) {
             PrintOutError("Failed to parse appid.\n");
             return 1;
         }
-    } else {
-        di->d_appid = appid;
     }
 
     // figure out how many ranks there are

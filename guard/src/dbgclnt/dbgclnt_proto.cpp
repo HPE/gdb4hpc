@@ -273,10 +273,9 @@ uint64_t DebugClientProtocol::parseAndRegisterAppId(const char *appIdent) {
                     "<job_id>.<step_id>\n");
                 return 0;
             }
-            // turn it into nullptr term and point past
-            //*sep++ = '\0';
-            ++sep;  // point to second digit (no need to modify string, strtol
-                    // will stop at '.'
+            
+            // point to second digit (no need to modify string, strtol will stop at '.')
+            ++sep;
 
             // convert the jobid
             errno = 0;

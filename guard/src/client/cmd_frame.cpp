@@ -49,14 +49,17 @@ public:
     void insertBacktrace(BTTree &bt);
     void transferChild(BTTree &bt);
     void condenseTree();
+    void orderTree();
     void calculateTreeGroups();
 
-    bool operator=(const BTTree &other) = delete;
+    BTTree& operator=(const BTTree &other) = delete;
+    BTTree& operator=(BTTree &&other);
     bool operator==(const BTTree &other) const;
 private:
     void printData(const Bitset* group) const;
+    size_t lowestRank() const;
 
-    const std::string m_setname;
+    std::string m_setname;
     std::unique_ptr<Bitset> m_dirtyGroup; // newly allocated group that is sometimes needed. owned by the tree.
     const Bitset* m_group;                // original group: not owned by the tree
     const dbgframe_t* m_frame;
@@ -152,6 +155,7 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     root.condenseTree();
     root.calculateTreeGroups();
+    root.orderTree();
     root.print();
 
     FreeRepSet(rep_set);
@@ -319,6 +323,30 @@ void BTTree::condenseTree() {
     }
 }
 
+void BTTree::orderTree() {
+    // sort each node's children in ascending order according to the lowest
+    // rank in their set. this method is useful for making the tree's output
+    // deterministic instead of subject to the order that data comes in.
+
+    auto rankCompare = [](const BTTree &lhs, const BTTree &rhs) {
+        return lhs.lowestRank() < rhs.lowestRank();
+    };
+
+    std::sort(m_children.begin(), m_children.end(), rankCompare);
+
+    for (auto &child : m_children) {
+        child.orderTree();
+    }
+}
+
+size_t BTTree::lowestRank() const {
+    if (m_dirtyGroup) {
+        return m_dirtyGroup->firstSet();
+    } else {
+        return m_group->firstSet();
+    }
+}
+
 void BTTree::calculateTreeGroups() {
     for (auto &child : m_children) {
         child.calculateTreeGroups();
@@ -338,6 +366,18 @@ void BTTree::calculateTreeGroups() {
         }
     }
 
+}
+
+BTTree& BTTree::operator=(BTTree &&other) {
+    m_setname = std::move(other.m_setname);
+    m_dirtyGroup = std::move(other.m_dirtyGroup);
+    m_group = std::move(other.m_group);
+    m_frame = std::move(other.m_frame);
+    m_lateral = std::move(other.m_lateral);
+    m_children = std::move(other.m_children);
+    other.m_group = nullptr;
+
+    return *this;
 }
 
 bool BTTree::operator==(const BTTree &other) const {

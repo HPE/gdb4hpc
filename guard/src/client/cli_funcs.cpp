@@ -950,6 +950,18 @@ void XMLPrintStartGraphMsg(char *set_name, char *set_str) {
     }
 }
 
+// common code between ProgOutLineStream and ProgOutLineStrings
+static void ProgOutLine(dbginvoke_t *di, const char* line) {
+    if (Client.XML_mode) {
+        fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
+                di->d_handle, (unsigned int)strlen(line));
+        fprintf(CurrentStream->cs_fpout, "%s", line);
+        fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
+    } else {
+        fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
+    }
+}
+
 /*
 ** Output a program line recieved on a program pipe.
 */
@@ -962,14 +974,7 @@ static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
     cli_save_stream();
 
     while (fgets(line, BUFSIZ, o_stream) > 0) {
-        if (Client.XML_mode) {
-            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
-                    di->d_handle, (unsigned int)strlen(line));
-            fprintf(CurrentStream->cs_fpout, "%s", line);
-            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
-        } else {
-            fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
-        }
+        ProgOutLine(di, line);
     }
 
     cli_restore_stream();
@@ -982,14 +987,7 @@ static void ProgOutLineStrings(dbginvoke_t *di, const std::vector<std::string> &
     cli_save_stream();
 
     for (const auto &line : lines) {
-        if (Client.XML_mode) {
-            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
-                    di->d_handle, (unsigned int)line.size());
-            fprintf(CurrentStream->cs_fpout, "%s", line.c_str());
-            fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
-        } else {
-            fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line.c_str());
-        }
+        ProgOutLine(di, line.c_str());
     }
 
     cli_restore_stream();

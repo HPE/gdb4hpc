@@ -215,7 +215,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     auto received{DenseBitset(num_be)};
     receiveReply(di, di->d_bitset_full.get(), received);
 
-    if (received != *di->d_bitset_full) {
+    if (!received.isFull()) {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");
         exit(di, 0);
         return 1;

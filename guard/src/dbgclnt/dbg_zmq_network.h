@@ -154,6 +154,10 @@ private:
         // into a thread safe queue
     public:
         OutputWatcher(OutputPtr &&output);
+        // an OutputWatcher is not copyable/movable since once its watcher thread
+        // starts, it's sending data to a specific memory address (m_output_queue)
+        OutputWatcher(const OutputWatcher &other) = delete;
+        OutputWatcher(OutputWatcher &&other) = delete;
         ~OutputWatcher();
 
         bool hasOutput() const;

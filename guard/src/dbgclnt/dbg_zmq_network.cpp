@@ -66,25 +66,24 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
 
 int ZMQNetNetwork::checkEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
-    return m_stream_table.hasAsyncEvent() || m_output_watcher.hasOutput() ? 1 : 0;
+    return (m_stream_table.hasAsyncEvent() || m_output_watcher.hasOutput()) ? 1 : 0;
 }
 
 ProtoMessageSet ZMQNetNetwork::releaseEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
     auto messages = ProtoMessageSet{};
 
-    if (auto events = m_stream_table.releaseAsyncEvents(); events.size() != 0) {
-        for (const auto &eventData : events) {
-            auto reader = getReaderFromData(eventData);
-            auto pack = reader.getRoot<ZmqnetMessagePackage>();
+    for (const auto &eventData : m_stream_table.releaseAsyncEvents()) {
+        auto reader = getReaderFromData(eventData);
+        auto pack = reader.getRoot<ZmqnetMessagePackage>();
 
-            for (const auto &message : pack.getMessages()) {
-                auto unpacked = unpackMessageReader(message);
-                messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
-            }
+        messages.reserve(pack.getMessages().size());
+        for (const auto &message : pack.getMessages()) {
+            auto unpacked = unpackMessageReader(message);
+            messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
         }
     }
-    
+
     return messages;
 }
 
@@ -273,32 +272,40 @@ ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
             .revents = 0
         }};
 
-        while (m_keep_going) {
-            switch (poll(fds, 1, timeout)) {
-                case 1: {
-                    // read as much as we can
-                    char line[BUFSIZ];
-                    while (fgets(line, BUFSIZ, m_output->p_o_stream)) {
-                        m_output_queue.enqueue(std::string{line});
+        try {
+            while (m_keep_going) {
+                switch (poll(fds, 1, timeout)) {
+                    case 1: {
+                        // read as much as we can
+                        char line[BUFSIZ];
+                        while (fgets(line, BUFSIZ, m_output->p_o_stream)) {
+                            m_output_queue.enqueue(std::string{line});
+                        }
+                        break;
                     }
-                    break;
-                }
 
-                case 0: {
-                    // keep waiting
-                    break;
-                }
+                    case 0: {
+                        // keep waiting
+                        break;
+                    }
 
-                case -1: {
-                    fprintf(stderr, "An error occured while watching program output.\n");
-                    fprintf(stderr, "error text: %s\n", strerror(errno));
-                    break;
+                    case -1: {
+                        if (errno == EINTR) {
+                            // signals are ok, just try again
+                        } else {
+                            fprintf(stderr, "An error occured while watching program output.\n");
+                            fprintf(stderr, "error text: %s\n", strerror(errno));
+                        }
+                        break;
+                    }
+                    
+                    default:
+                        // should never get here
+                        break;
                 }
-                
-                default:
-                    // should never get here
-                    break;
             }
+        } catch (...) {
+            fprintf(stderr, "WARNING: An exception in the program output collection thread occured.\nProgram output will no longer be displayed.\n");
         }
     };
 

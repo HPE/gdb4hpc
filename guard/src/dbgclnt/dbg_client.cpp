@@ -1645,11 +1645,11 @@ void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback) {
 /*
 ** Set local output stream handler.
 */
-void DbgHandleOutput(std::function<void (dbginvoke *, FILE *)> outp) {
+void DbgHandleOutput(const std::function<void (dbginvoke *, FILE *)> &outp) {
     OutputCB.filestreamCallback = outp;  // callback handler
 }
 
-void DbgHandleOutput(std::function<void (dbginvoke *, const std::vector<std::string> &)> outp) {
+void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<std::string> &)> &outp) {
     OutputCB.stringVectorCallback = outp;  // callback handler
 }
 

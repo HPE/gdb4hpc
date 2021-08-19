@@ -3260,9 +3260,6 @@ AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_l
 
             a = EmptyStructToAIF(type_struct->getName());
 
-            DVPRINT("CreateSimpleAIF trying to create a structure from %s\n", res);
-            DVPRINT("Struct has %zu fields\n", type_struct->getFields().size());
-                    
             char* pch = res;
 
             for (const auto& f : type_struct->getFields()) {
@@ -3281,11 +3278,6 @@ AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_l
                 if (*pch) ++pch;
 
                 for ( ; *pch && isspace(*pch); ++pch) {}
-
-                if (nameEnd) {
-                    DVPRINT("Got name \"%.*s\" : parsing value from \"%s\"\n",
-                            int(nameEnd-nameBeg), nameBeg, pch);
-                }
 
                 char* valBeg = pch, *valEnd = nullptr;
                 int brackets = 0, parens = 0;
@@ -3352,9 +3344,6 @@ AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_l
 
 
                 char* name = strndup(nameBeg, nameEnd-nameBeg);
-
-                DVPRINT("Got field name=\"%s\", value=\"%s\"\n", name, valBeg);
-                
 
                 // now create a new AIF type from the res we just pieced out
                 if (isFixedSize && variableSizeVal) {

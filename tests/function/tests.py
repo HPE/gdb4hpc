@@ -321,8 +321,4 @@ class cpp_attach(Test):
         # start gdb4hpc, attach, and generate results
         runScript(self, subs)
         result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
-
-        # stop cti_launch
-        job.terminate()
-
         self.assertTrue(result, error)

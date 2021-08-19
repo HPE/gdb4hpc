@@ -5,10 +5,6 @@
  * 
  * usage is just like the job launcher on the system, e.g. for srun:
  * $ ./cti_launch -n3 hostname
- * 
- * cti_launch loops indefinitely after launching the job so that the job doesn't
- * get cancelled. it is expected that this program will ultimately be stopped
- * by a SIGINT or similar.
 */
 
 #include <common_tools_fe.h>
@@ -16,6 +12,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <iostream>
 
 int main(int argc, char* argv[]) {
     // launch app
@@ -95,10 +92,12 @@ int main(int argc, char* argv[]) {
             break;
     }
 
-    // wait for signal
-    while (1) {
-        sleep(1);
+    // wait for job to end
+    while (cti_appIsValid(appId)) {
+        sleep(2);
     }
+
+    cti_deregisterApp(appId);
 
     return 0;
 }

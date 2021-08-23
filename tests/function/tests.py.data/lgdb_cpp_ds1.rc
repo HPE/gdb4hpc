@@ -82,6 +82,9 @@ p func1(4)
 p func2(l_tail, i)
 p func2(2,-7)
 
+p vv
+p vv[1]
+
 
 continue
 

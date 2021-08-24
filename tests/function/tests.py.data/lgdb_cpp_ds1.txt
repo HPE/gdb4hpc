@@ -36,5 +36,7 @@ b{0..2}: 27
 b{0..2}: 12
 b{0..2}: 29
 b{0..2}: -12
+b{0..2}: [{width = 3, height = 4, vec = {}},{width = 4, height = 5, vec = {}},{width = 5, height = 6, vec = {}},{width = 6, height = 7, vec = {}},{width = 7, height = 8, vec = {}},{width = 8, height = 9, vec = {}},{width = 9, height = 10, vec = {}},{width = 10, height = 11, vec = {}},{width = 11, height = 12, vec = {}},{width = 12, height = 13, vec = {}}]
+b{0..2}: {width = 4, height = 5, vec = {}}
 b{0..2}: The application has reached an exit breakpoint.
 Shutting down debugger and killing application for 'b'.

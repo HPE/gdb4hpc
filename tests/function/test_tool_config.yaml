@@ -25,7 +25,7 @@ meta:
     - Makefile
 
 # system specific overides
-cfa6k:
+pea2k:
   launch:
     args:
       slurm: "--exclusive --mpi=cray_shasta"

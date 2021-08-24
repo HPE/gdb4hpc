@@ -140,9 +140,11 @@ public:
     std::shared_ptr<MIVar> createMIVar(const char *);
     AIFStream *getAIF(std::shared_ptr<MIVar>);
     int getComplexType(const char *);
-    char *getWhatisValue(char *, MIVar*);
+    int resolveComplexType(char** typePtr);
+    char *getWhatisValue(const char *expr, const char* type);
     AIF *getArrayAIFHash(MIVar*, char *, int, int, int);
-    static AIF *createSimpleAIF(int, char *, const char *, int, struct_info_t *, func_info_t *);
+    static AIF *createSimpleAIF(int, char *, const char *, int, struct_info_t *, func_info_t *,
+                                bool isFixedSize);
     int getArrayBaseType(MIVar *, char **, int *, struct_info_t **, func_info_t **);
     int getChildren(MIVar *);
     char *getVarValue(char *);
@@ -151,6 +153,7 @@ private:
     int getTypeLength(const char *);
     int getSimpleType(const char *);
     int getType(char *);
+    int resolveType(char**);
     std::unique_ptr<ArrayDimension> getArrayDimensionShape(MIVar *);
     char *getTypeName(const char *);
     static void removeWhitespace(char *);
@@ -279,20 +282,10 @@ dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
         return get_err();
     }
 
-    int id;
-    int cnt = 0;
-
-    while ((id = mi2aif.getComplexType(mivar->type)) == T_UNKNOWN) {
-        if (char* pt = mi2aif.getWhatisValue(nullptr, mivar.get())) {
-            free(mivar->type);
-            mivar->type = pt;
-            if (++cnt >= LOOP_PREVENTION) {
-                EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
-                            "GetArrayAIFHash failed.");
-                return get_err();
-            }
-        } else
-            break;
+    int id = mi2aif.resolveComplexType(&mivar->type);
+    if (id == T_UNKNOWN) {
+        EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetArrayAIFHash failed.");
+        return get_err();
     }
 
     AIF *res = nullptr;
@@ -414,15 +407,13 @@ int Mi2Aif::getChildren(MIVar *var) {
 /*
  * Find the type using whatis. Return null on error.
  */
-char *Mi2Aif::getWhatisValue(char *expr, MIVar *var) {
-    MICommand *cmd;
-    char *type;
-
+char *Mi2Aif::getWhatisValue(const char *expr, const char* type) {
     DVPRINT("GetMIWhatisValue: (%s, %s)\n", expr != NULL ? expr : "NULL",
-            var != NULL ? var->type : "NULL");
+            type ? type : "NULL");
 
-    if (var != NULL) {
-        cmd = CLIWhatis(var->type);
+    MICommand *cmd = nullptr;
+    if (type) {
+        cmd = CLIWhatis(type);
         sendMICommand(cmd);
         if (!MICommandResultOK(cmd)) {
             if (expr == NULL) {
@@ -441,7 +432,7 @@ char *Mi2Aif::getWhatisValue(char *expr, MIVar *var) {
                 return NULL;
             }
         }
-    } else if (expr != NULL) {
+    } else if (expr) {
         cmd = CLIWhatis(expr);
         sendMICommand(cmd);
         if (!MICommandResultOK(cmd)) {
@@ -450,17 +441,17 @@ char *Mi2Aif::getWhatisValue(char *expr, MIVar *var) {
             return NULL;
         }
     } else {
-        DVPRINT("CLIWhatis both expr and var are NULL!\n");
+        DVPRINT("CLIWhatis both expr and type are NULL!\n");
         return NULL;
     }
 
-    type = CLIGetWhatisInfo(cmd);
+    auto retType = CLIGetWhatisInfo(cmd);
 
-    DVPRINT("Type is \"%s\"\n", type);
+    DVPRINT("Type is \"%s\"\n", retType);
 
     MICommandFree(cmd);
 
-    return type;
+    return retType;
 }
 
 void Mi2Aif::fixTypeString(char *p, const char *s, char *orig) {
@@ -775,7 +766,7 @@ AIFStream *Mi2Aif::getSimpleAIF(MIVar *var) {
     int id;
     while ((id = getSimpleType(var->type)) == T_UNKNOWN) {
         // default to using whatis
-        if (char* pt = getWhatisValue(nullptr, var)) {
+        if (char* pt = getWhatisValue(nullptr, var->type)) {
             free(var->type);
             var->type = pt;
             if (++cnt >= LOOP_PREVENTION) {
@@ -865,40 +856,16 @@ AIFStream *Mi2Aif::getSimpleAIF(MIVar *var) {
                 // error already set
                 return NULL;
             }
-            a = new AIFStream(createSimpleAIF(id, v, NULL, 0, NULL, NULL));
+            a = new AIFStream(createSimpleAIF(id, v, NULL, 0, NULL, NULL, false));
             free(v);
             return a;
     }
 }
 
 AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
-    int id;
 
     //--- Find the AIF type -----
-    // We allow multiple passes to break off extra type decoration.   I believe
-    // the LOOP_PREVENTION count was primarily in place because of the non-progress
-    // case that is now recognized as T_CLASS, but I'm not 100% sure so we'll leave it
-    // in a safety backup.
-    for (int cnt=0; cnt < LOOP_PREVENTION &&
-             ((id = getComplexType(var->type)) == T_UNKNOWN); ++cnt) {
-        if (char* pt = getWhatisValue(NULL, var.get())) {
-            if (strcmp(pt, var->type) == 0) {
-                // C++ style struct and classes loop into here because the class type
-                // name can't be broken down further.  So whatis("MyStruct") == "MyStruct"
-                DVPRINT("GetComplexAIF: Creating AIF class.\n");
-                free(pt);
-                id = T_STRUCT;
-                break;
-            }
-
-            // otherwise, we have a hopefully simpler version of type, so give
-            // GetComplexType another chance.
-            free(var->type);
-            var->type = pt;
-        } else {
-            break;
-        }
-    }
+    int id = resolveComplexType(&var->type);
 
     if (var->type[strlen(var->type)-1] == '*') {
         return getReferenceAIF(var.get());
@@ -2180,6 +2147,35 @@ int Mi2Aif::getType(char *type) {
     return id;
 }
 
+int Mi2Aif::resolveComplexType(char** typePtr)
+{
+    // We allow multiple passes to break off extra type decoration.   I believe
+    // the LOOP_PREVENTION count was primarily in place because of the non-progress
+    // case that is now recognized as T_CLASS, but I'm not 100% sure so we'll leave it
+    // in a safety backup.
+    for (int cnt=0; cnt < LOOP_PREVENTION; ++cnt) {
+        auto id = getComplexType(*typePtr);
+        if (id != T_UNKNOWN) {
+            return id;
+        }
+
+        auto pt = getWhatisValue(nullptr, *typePtr);
+        if (!pt) {
+            return T_UNKNOWN;
+        } else if (strcmp(pt, *typePtr) == 0) {
+            // C++ style struct and classes loop into here because the class type
+            // name can't be broken down further.  So whatis("MyStruct") == "MyStruct"
+            free(pt);
+            return T_STRUCT;
+        } else {
+            // we have resolved to a simpler type, try again
+            free(*typePtr);
+            *typePtr = pt;
+        }
+    }
+
+    return T_UNKNOWN;
+}
 /*
  * Get the base type of an array from it's type
  * definition string.
@@ -2191,44 +2187,45 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
     if (type_func)
         *type_func = nullptr;
 
-    char *vecStr = strdup(var->type);
-    int done = 0;
     //DVPRINT("GetArrayBaseType: %s\n", var->type);
+    char* str = nullptr;
 
-    if (strncmp(vecStr, "std::", 5) == 0) {
-        vecStr += 5;
-        while (!done) {
-            switch ((*vecStr++)) {
-                case '<':
-                    if (strncmp(vecStr, "std", 3) == 0) {
-                        break;
-                    }
-
-                    else {
-                        vecStr = strtok(vecStr, ",");
-                        done++;
-                        break;
-                    }
-                default:
-                    break;
+    if (strncmp(var->type, "std::", 5) == 0) {
+        const char *beg=nullptr, *end=nullptr;
+        int nesting = 0;
+        for (const char* p = var->type+5 ; !end && *p; ++p) {
+            switch (*p) {
+            case '<':
+                if (++nesting == 1) beg = p+1;
+                break;
+            case '>':
+                if (--nesting == 0) end = p;
+                break;
+            case ',':
+                if (nesting == 1) end = p;  // presumably the rest is the allocator
+                break;
+            default:
+                break;
             }
         }
-        if (type_str != NULL) *type_str = strdup(vecStr);
-        if (type_len != NULL) *type_len = getTypeLength(vecStr);
-        return getType(vecStr);
-    }
 
-    char *str = strdup(var->type);
-    int id;
-    int index;
-    char *p;
-    done = 0;
-    // grab the length of the string
-    index = strlen(str) - 1;
-    p = &str[index];
+        if (!beg || !end || end == beg+1) {
+            DVPRINT("Could not parse the contained type of %s\n",
+                    var->type);
+            return T_UNKNOWN;
+        }
 
-    // check if a valid end_delim matches the last character in the string
-    switch (*p--) {
+        str = strndup(beg, end-beg);
+    } else {
+        str = strdup(var->type);
+        bool done = false;
+
+        // grab the length of the string
+        int index = strlen(str) - 1;
+        char* p = &str[index];
+
+        // check if a valid end_delim matches the last character in the string
+        switch (*p--) {
         case ARRAY_C_TYPE_END:
         case ARRAY_FTN_TYPE_END:
             DVPRINT("GetArrayBaseType: Valid array detected.\n");
@@ -2239,10 +2236,46 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
             DVPRINT("GetArrayBaseType: Unknown Array Type!\n");
             free(str);
             return T_UNKNOWN;
-    }
+        }
 
-    // loop through until we find the end of the array range information
-    while (!done) {
+        // loop through until we find the end of the array range information
+        while (!done) {
+            // bound check
+            if (index == 0) {
+                // unknown array specification
+                DVPRINT("GetArrayBaseType: OutofBounds error!\n");
+                free(str);
+                return T_UNKNOWN;
+            }
+
+            // see if we are at the start of the range info
+            switch (*p--) {
+            case ARRAY_C_TYPE_START:
+            case ARRAY_FTN_TYPE_START:
+                // check to see if p[index-1] is a end delimiter, if so we
+                // are not past the range information yet
+                switch (*p) {
+                case ARRAY_C_TYPE_END:
+                case ARRAY_FTN_TYPE_END:
+                    // we are not done
+                    --index;
+                    --p;
+                    break;
+
+                default:
+                    // we are done
+                    // ignore array range information
+                    *(p + 1) = '\0';
+                    done = true;
+                }
+                break;
+
+            default:
+                // ignore it
+                --index;
+            }
+        }
+
         // bound check
         if (index == 0) {
             // unknown array specification
@@ -2251,68 +2284,32 @@ int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
             return T_UNKNOWN;
         }
 
-        // see if we are at the start of the range info
-        switch (*p--) {
-            case ARRAY_C_TYPE_START:
-            case ARRAY_FTN_TYPE_START:
-                // check to see if p[index-1] is a end delimiter, if so we
-                // are not past the range information yet
-                switch (*p) {
-                    case ARRAY_C_TYPE_END:
-                    case ARRAY_FTN_TYPE_END:
-                        // we are not done
-                        --index;
-                        --p;
-                        break;
-
-                    default:
-                        // we are done
-                        // ignore array range information
-                        *(p + 1) = '\0';
-                        ++done;
-                }
-                break;
-
-            default:
-                // ignore it
-                --index;
+        // remove whitespace
+        while (*p == ' ' && index != 0) {
+            *p-- = '\0';
+            --index;
         }
-    }
 
-    // bound check
-    if (index == 0) {
-        // unknown array specification
-        DVPRINT("GetArrayBaseType: OutofBounds error!\n");
-        free(str);
-        return T_UNKNOWN;
-    }
-
-    // remove whitespace
-    while (*p == ' ' && index != 0) {
-        *p-- = '\0';
-        --index;
-    }
-
-    // bound check
-    if (index == 0) {
-        // unknown array specification
-        DVPRINT("GetArrayBaseType: OutofBounds error!\n");
-        free(str);
-        return T_UNKNOWN;
+        // bound check
+        if (index == 0) {
+            // unknown array specification
+            DVPRINT("GetArrayBaseType: OutofBounds error!\n");
+            free(str);
+            return T_UNKNOWN;
+        }
     }
 
     DVPRINT("GetArrayBaseType: Base resolved to %s.\n", str);
 
     // get the base type
-    id = getType(str);
-
+    int id = getType(str);
     if (type_str != NULL) *type_str = strdup(str);
     if (type_len != NULL) *type_len = getTypeLength(str);
 
     // if its still unknown, try to use ptype
     while (id == T_UNKNOWN) {
         DVPRINT("GetArrayBaseType: Base still unknown, using whatis.\n");
-        p = getWhatisValue(str, NULL);
+        char* p = getWhatisValue(str, NULL);
         if (!p) {
             break;
         } else if (str && strcmp(str,p)==0) {
@@ -2598,7 +2595,7 @@ void Mi2Aif::removeWhitespace(char *str) {
     while (*p1 != '\0') {
         if (isspace(*p1)
             // don't remove spaces between keywords (assume type doesn't
-            // seperate with more than one space)
+            // separate with more than one space)
             &&
             ((p1[1] == '\0') || !(isalnum(*(p1 - 1)) && isalnum(*(p1 + 1))))) {
             ++p1;
@@ -2991,10 +2988,7 @@ char *Mi2Aif::miToFDS(int type_id, const char *base_type) {
 
 AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_len,
                              struct_info_t *type_struct,
-                             func_info_t *type_func) {
-    char *s1, *s2;
-    char *t1, *t2;
-    char *name;
+                             func_info_t *type_func, bool isFixedSize) {
     long double real, img;
     long long int addr_loc;
     void *addr;
@@ -3265,129 +3259,108 @@ AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_l
             }
 
             a = EmptyStructToAIF(type_struct->getName());
+
             char* pch = res;
 
             for (const auto& f : type_struct->getFields()) {
-                // point at the fields "="
-                if ((s1 = strchr(pch, '=')) == NULL) {
-                    DVPRINT("CreateSimpleAIF: Could not find = in field.\n");
-                    return VoidToAIF(0, 0);
-                }
-                // point n2 before the fields "="
-                name = s1 - 1;
-                // set this to null
-                *name = '\0';
-                // point to one before the next occurance of " " or '{'
-                while (*(name - 1) != ' ' && *(name - 1) != '{') --name;
+                DVPRINT("field of type %s\n", f.type_str);
 
-                // point past the fields "="
-                ++s1;
-                // if there is whitespace after the "=", ignore it.
-                while (*s1 == ' ') {
-                    ++s1;
-                }
-                // point s2 at the first occurance of ","
-                if ((s2 = strchr(s1, ',')) == NULL) {
-                    // if there is no "," then we are at the final entry, point
-                    // at the closing bracket
-                    if ((s2 = strchr(s1, '}')) == NULL) {
-                        // not found, something is wrong...
-                        DVPRINT(
-                            "CreateSimpleAIF: Could not find final , or } in "
-                            "field.\n");
-                        return VoidToAIF(0, 0);
+                const char* parseBeg = pch;
+                char *nameBeg = nullptr, *nameEnd = nullptr;
+
+                for ( ; *pch && *pch != '='; ++pch) {
+                    if (isspace(*pch)) {
+                        if (nameBeg) nameEnd = pch;
+                    } else if (!nameBeg && *pch != '{') {
+                        nameBeg = pch;
                     }
-                    // ensure that there is not a opening bracket character,
-                    // implying that s2 is pointing at the wrong bracket
-                    if ((t1 = strchr(s1, '{')) != NULL) {
-                        while (t1 < s2) {
-                            // there is a opening bracket before the closing
-                            // bracket that we found point t2 at the next
-                            // bracket past s2
-                            if ((t2 = strchr(++s2, '}')) == NULL) {
-                                // not found, something is wrong...
-                                DVPRINT(
-                                    "CreateSimpleAIF: Detected no sep, found "
-                                    "opening bracket, could not find second "
-                                    "closing bracket.\n");
-                                return VoidToAIF(0, 0);
-                            }
-                            s2 = t2;
-                            if ((t2 = strchr(++t1, '{')) == NULL) {
-                                // counld not find another opening bracket, so
-                                // we must be done.
-                                break;
-                            }
-                            t1 = t2;
-                        }
-                    }
-                } else {
-                    // ensure that there is not a '{' character, implying that
-                    // s2 might be pointing at the wrong seperator.
-                    if ((t1 = strchr(s1, '{')) != NULL) {
-                        // if the opening bracket happens before the seperator,
-                        // we need to point s2 at the closing bracket the first
-                        // time through
-                        if (t1 < s2) {
-                            if ((s2 = strchr(t1, '}')) == NULL) {
-                                // not found, something is wrong...
-                                DVPRINT(
-                                    "CreateSimpleAIF: Detected sep, found "
-                                    "opening bracket, could not find first "
-                                    "closing bracket.\n");
-                                return VoidToAIF(0, 0);
-                            }
+                }
+                if (*pch) ++pch;
 
-                            // now check for another opening bracket, implying
-                            // we are pointing at the wrong closer
-                            if ((t1 = strchr(++t1, '{')) == NULL) {
-                                // there are no more opening brackets, so we are
-                                // done
-                                t1 = s2;
-                            }
-                        }
+                for ( ; *pch && isspace(*pch); ++pch) {}
 
-                        // now loop through until we find the real closing
-                        // bracket
-                        while (t1 < s2) {
-                            // there is an opening bracket before the sep that
-                            // we found point t2 at the next bracket past s2
-                            if ((t2 = strchr(++s2, '}')) == NULL) {
-                                // not found, something is wrong...
-                                DVPRINT(
-                                    "CreateSimpleAIF: Detected sep, found "
-                                    "opening bracket, could not find closing "
-                                    "bracket.\n");
-                                return VoidToAIF(0, 0);
-                            }
-                            s2 = t2;
-                            if ((t2 = strchr(++t1, '{')) == NULL) {
-                                // could not find another opening bracket, so
-                                // we must be done.
-                                break;
-                            }
-                            t1 = t2;
+                char* valBeg = pch, *valEnd = nullptr;
+                int brackets = 0, parens = 0;
+                bool squote = false, dquote = false;
+                for ( ; *pch && !valEnd; ++pch) {
+                    if (*pch == '\\') {
+                        if (!*++pch) --pch;
+                    } else if (squote) {
+                        squote = (*pch != '\'');
+                    } else if (dquote) {
+                        dquote = (*pch != '"');
+                    } else {
+                        switch(*pch) {
+                        case '(': ++parens; break;
+                        case ')': --parens; break;
+                        case '{': ++brackets; break;
+                        case '}': --brackets; break;
+                        case ',':
+                            if (!parens && !brackets) valEnd = pch;
+                            break;
+                        default:
+                            break;
                         }
-
-                        // need to point s2 past the closing bracket
-                        ++s2;
                     }
                 }
 
-                // point pch past s2
-                pch = s2 + 1;
-                // set s2 to a null terminator
-                *s2 = '\0';
+                if (valBeg && !valEnd && !*pch) valEnd = pch;
+
+                if (!valEnd) {
+                    DVPRINT("CreateSimpleAIF: Could not parse a structure member in \"%s\"\n",
+                            parseBeg);
+                    return VoidToAIF(0,0);
+                }
+
+                char oldValEnd = '\0';
+                std::swap(*valEnd, oldValEnd);
+
+                bool variableSizeVal = false;
+
+                if (strncmp(valBeg, "std::", 5) == 0 && strstr(valBeg, " of length ")) {
+                    variableSizeVal = true;
+                    std::swap(*valEnd, oldValEnd);
+                    // gdb is printing the extended information for a container, which
+                    // is bit of a pain in the tuchus to parse because it has commas.
+                    brackets = 0;
+                    valBeg = valEnd = nullptr;
+                    for ( ; *pch && !valEnd; ++pch) {
+                        if (*pch == '{') {
+                            if (!valBeg) valBeg = pch;
+                            ++brackets;
+                        } else if (*pch == '}') {
+                            if (!--brackets) valEnd = pch+1;
+                        }
+                    }
+
+                    if (!valEnd) {
+                        DVPRINT("CreateSimpleAIF: Could not parse an std:: "
+                                "structure member in \"%s\"\n",
+                                parseBeg);
+                        return VoidToAIF(0,0);
+                    }
+                    std::swap(*valEnd, oldValEnd);
+                }
+
+
+                char* name = strndup(nameBeg, nameEnd-nameBeg);
 
                 // now create a new AIF type from the res we just pieced out
-                ac = createSimpleAIF(f.id, s1, f.type_str, f.type_len,
-                                     f.inner_struct, f.type_func);
+                if (isFixedSize && variableSizeVal) {
+                    DVPRINT("Got a variable sized element in a fixed size context\n");
+                    ac = EmptyStructToAIF(f.type_str);
+                } else {
+                    ac = createSimpleAIF(f.id, valBeg, f.type_str, f.type_len,
+                                         f.inner_struct, f.type_func, isFixedSize);
+                }
+
+                std::swap(*valEnd, oldValEnd);
 
                 CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d\n", index);
                 ++index;
-                AIFAddFieldToStruct(a, strdup(name), ac);
+                AIFAddFieldToStruct(a, name, ac);
                 AIFFree(ac);
-            }
+            } // for (const auto& f : type_struct->getFields())
             return a;
         }
 
@@ -3451,21 +3424,16 @@ AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
     return new AIFStream(a);
 }
 
-
+inline bool fieldIsFunction(const char* str) {
+    auto paren = strchr(str, '(');
+    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
+}
+    
 struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
-    MICommand *cmd;
-    MIList *field_list;
-    char *field;
-    char *tmp_field = NULL;
-    char *tmp;
-    char *tmp2;
-    char tmp_char;
-    int id;
-    int index;
 
     DVPRINT("GetStructInfo: %s\n", type_str);
 
-    cmd = CLIPtype(type_str);
+    MICommand* cmd = CLIPtype(type_str);
     sendMICommand(cmd);
 
     if (!MICommandResultOK(cmd)) {
@@ -3474,10 +3442,16 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
         return NULL;
     }
 
-    field_list = CLIGetPtypeFieldList(cmd);
+    MIList* field_list = CLIGetPtypeFieldList(cmd);
     MICommandFree(cmd);
 
-    int numFields = MIListSize(field_list);
+    // count the number of data fields
+    int numFields = 0;
+    char *field;
+    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
+        if (!fieldIsFunction(field)) ++numFields;
+    }
+    
     if (!numFields) {
         DVPRINT("GetStructInfo: Zero fields detected.\n");
         MIListFree(field_list, NULL);
@@ -3493,18 +3467,18 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
     }
 
     // Now fill in the information from the returned list
-    index = 0;
-    MIListSet(field_list);
-    for (index = 0; (field = (char *)MIListGet(field_list)); ++index) {
+    char *tmp_field = nullptr;
+    int index = 0;
+    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
         DVPRINT("GetStructInfo: field is %s\n", field);
+        if (fieldIsFunction(field)) continue;
 
-        struct_info_t::field& sfield = result->getField(index);
-
+        struct_info_t::field& sfield = result->getField(index++);
 
         // The field contains the type including its name. For instance, field
         // will contain int i. We only want to point at the int part.
         // Note that we need to do special things for function pointers.
-        if ((tmp = strrchr(field, ' ')) != NULL) {
+        if (char* tmp = strrchr(field, ' ')) {
             // ensure tmp+1 is not pointing at a '*', this is included in the
             // base type.
             while (*(tmp + 1) == '*') {
@@ -3536,7 +3510,7 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
                 tmp += 2;
 
                 // point tmp2 at the closing ')'
-                tmp2 = tmp;
+                char* tmp2 = tmp;
                 while (*tmp2 != ')') ++tmp2;
 
                 // copy until null term
@@ -3553,7 +3527,7 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
                 sfield.type_func = getFunctionInfo(tmp_field);
             } else {
                 // not a function pointer, proceed as usual
-                tmp_char = *tmp;
+                char tmp_char = *tmp;
                 *tmp = '\0';
                 tmp_field = strdup(field);
                 // undo what we just did to the original field
@@ -3564,8 +3538,9 @@ struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
         }
 
         // use whatis to get the field type while its unknown
+        int id;
         while ((id = getType(tmp_field)) == T_UNKNOWN) {
-            tmp = getWhatisValue(getTypeName(field), NULL);
+            char* tmp = getWhatisValue(getTypeName(field), NULL);
             if (tmp != NULL) {
                 field = tmp;
                 free(tmp_field);
@@ -3620,7 +3595,7 @@ AIF *Mi2Aif::getArrayAIFHash(MIVar *var, char *hashinfo,
 
     if (var->numchild <= 0)  // empty array
     {
-        ac = createSimpleAIF(id, var->value, NULL, 0, NULL, NULL);
+        ac = createSimpleAIF(id, var->value, NULL, 0, NULL, NULL, false);
         a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
         return a;
@@ -4151,7 +4126,7 @@ AIF *MIArrayToAIFParser::createSimpleAIF() {
     }
 
     return Mi2Aif::createSimpleAIF(m_type_id, element.get(),
-                                   m_type_str, m_type_len, m_type_struct, m_type_func);
+                                   m_type_str, m_type_len, m_type_struct, m_type_func, true);
 }
 
 // pull out the final result representing the entire array after all input
@@ -4306,7 +4281,7 @@ void ArraySlicer::determineSlicing()
         // C++ vector, we can treat this like an array if we can get at the size
         // and the first element.   We usually can, but gdb can get a little gimpy
         // in this area
-        DVPRINT("Slicing: it is a vector");
+        DVPRINT("Slicing: it is a vector\n");
         std::string sizeStr = std::string("(") + m_var->exp + ").size()";
         char* sizeRes = EvalExpression(session, sizeStr.c_str());
         if (!sizeRes)
@@ -4645,7 +4620,7 @@ AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
         AIF *ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                             type_func);
+                                  type_func, true);
         AIF *a = EmptyArrayToAIF(0, 0, ac);
         AIFFree(ac);
         return new AIFStream(a);
@@ -4688,7 +4663,7 @@ AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
     if (var->numchild <= 0) {
         DVPRINT("GetArrayAIF: No children detected.\n");
         AIF* ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                                  type_func);
+                                  type_func, false);
         AIF* a = EmptyArrayToAIF(0, 0, ac);
 
         AIFFree(ac);

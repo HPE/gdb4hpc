@@ -4,11 +4,11 @@ GUARD_DF_DIR = @df_dir@
 ACLOCAL_AMFLAGS = -I m4
 AM_LIBTOOLFLAGS = --quiet
 
-if MRN
+if MRNET
 MRNET_DIR = filters/mrnet
 endif
 
-if ZMQN
+if ZMQNET
 ZMQNET_DIR = filters/zmqnet
 endif
 

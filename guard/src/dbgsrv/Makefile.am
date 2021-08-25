@@ -1,9 +1,9 @@
 USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
-MRNET	= @mrn_root@
+MRNET_ROOT	= @mrn_root@
 BITSET  = @guard_srcdir@/bitset
-ZMQNET  = @zmqnet_root@
+ZMQNET_ROOT  = @zmqnet_root@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
 AM_LIBTOOLFLAGS = --silent
@@ -13,16 +13,16 @@ AM_LIBTOOLFLAGS = --silent
 ######################
 
 # Check for MRNet
-if MRN
-AM_CXXFLAGS	+= -I$(MRNET) -I$(BITSET)
-MRN_LIBS	= -L$(MRNET)/lib -lmrnet $(BITSET)/libbitset.la
+if MRNET
+AM_CXXFLAGS	+= -I$(MRNET_ROOT) -I$(BITSET)
+MRN_LIBS	= -L$(MRNET_ROOT)/lib -lmrnet $(BITSET)/libbitset.la
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 
 # Check for ZMQNet
-if ZMQN
-AM_CXXFLAGS += -I$(ZMQNET)/include -I$(BITSET)
-ZMQNET_LIBS  = -L$(ZMQNET)/lib -lkj -lcapnp -lzmqnet $(BITSET)/libbitset.la
+if ZMQNET
+AM_CXXFLAGS += -I$(ZMQNET_ROOT)/include -I$(BITSET)
+ZMQNET_LIBS  = -L$(ZMQNET_ROOT)/lib -lkj -lcapnp -lzmqnet $(BITSET)/libbitset.la
 ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 
@@ -56,7 +56,7 @@ CRAYTOOL_LIBS = $(CRAY_CTI_BE_LIBS)
 AM_CXXFLAGS += $(CRAY_CTI_BE_CFLAGS)
 CRAY_PROGS	= dbgsrv_alps
 
-if MRN
+if MRNET
 dbgsrv_alps_SOURCES 	= dbgsrv_alps_mrn.cpp
 endif
 

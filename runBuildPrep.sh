@@ -69,6 +69,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             cmake \
             environment-modules \
             flex \
+            libarchive \
             libtool \
             libuuid-devel \
             m4 \

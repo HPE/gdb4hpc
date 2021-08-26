@@ -13,16 +13,16 @@ GUARD=@guard_srcdir@
 
 AM_CXXFLAGS = -I$(GUARD)
 
-if MRN
-MRN_BITSETS = sparse_bitset.cpp bitset_convert.cpp
+if MRNET
+MRNET_BITSETS = sparse_bitset.cpp bitset_convert.cpp
 endif
 
-if ZMQN
+if ZMQNET
 # when zmqnet is built, the lrle_bitset.h header is installed in the gdb4hpc include directory.
 LRLE = @zmqnet_root@
-ZMQN_BITSETS = lrunle_bitset.cpp
-ZMQN_LDFLAG = -Wl,-rpath,$(LRLE)/lib
-ZMQN_LIB = -L$(LRLE)/lib -lLrleBitset
+ZMQNET_BITSETS = lrunle_bitset.cpp
+ZMQNET_LDFLAG = -Wl,-rpath,$(LRLE)/lib
+ZMQNET_LIB = -L$(LRLE)/lib -lLrleBitset
 AM_CXXFLAGS += -I$(LRLE)/include
 endif
 
@@ -30,6 +30,6 @@ lib_LTLIBRARIES = libbitset.la
 
 AM_LIBTOOLFLAGS = --quiet
 
-libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp $(MRN_BITSETS) $(ZMQN_BITSETS)
-libbitset_la_LDFLAGS	= $(LDFLAGS) $(ZMQN_LDFLAG) -shared -avoid-version 
-libbitset_la_LIBADD     = $(ZMQN_LIB)
+libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp $(MRNET_BITSETS) $(ZMQNET_BITSETS)
+libbitset_la_LDFLAGS	= $(LDFLAGS) $(ZMQNET_LDFLAG) -shared -avoid-version 
+libbitset_la_LIBADD     = $(ZMQNET_LIB)

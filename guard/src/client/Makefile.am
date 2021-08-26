@@ -2,9 +2,9 @@ USEFUL	= @guard_srcdir@/src/useful
 GRAM	= @guard_srcdir@/src/gram
 DBGCLNT	= @guard_srcdir@/src/dbgclnt
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
-MRNET	= @mrn_root@
+MRNET_ROOT	= @mrn_root@
 BITSET	= @guard_srcdir@/bitset
-ZMQNET  = @zmqnet_root@
+ZMQNET_ROOT  = @zmqnet_root@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) -I$(BITSET)
 AM_LIBTOOLFLAGS = --quiet
@@ -25,15 +25,15 @@ GUARD_RD_LIBS	= @rd_libs@
 endif
 
 # Check for MRNet libraries
-if MRN
-AM_CXXFLAGS		+= -I$(MRNET)
-MRN_LIBS 		= -L$(MRNET)/lib -lmrnet 
+if MRNET
+AM_CXXFLAGS	+= -I$(MRNET_ROOT)
+MRN_LIBS 	= -L$(MRNET_ROOT)/lib -lmrnet 
 endif
 
 # Check for ZMQNet libraries
-if ZMQN
-AM_CXXFLAGS		+= -I$(ZMQNET)/include
-ZMQN_LIBS 		= -L$(ZMQNET)/lib -lzmqnet -lkj -lcapnp
+if ZMQNET
+AM_CXXFLAGS	+= -I$(ZMQNET_ROOT)/include
+ZMQN_LIBS 	= -L$(ZMQNET_ROOT)/lib -lzmqnet -lkj -lcapnp
 endif
 
 # Check for gdb-mi libraries

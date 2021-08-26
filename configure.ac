@@ -781,8 +781,8 @@ AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
 AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 
 dnl DbgSrv proto conds
-AM_CONDITIONAL([MRN], [test "x$mrnet_mode" != xno])
-AM_CONDITIONAL([ZMQN], [test "x$zmqnet_mode" != xno])
+AM_CONDITIONAL([MRNET], [test "x$mrnet_mode" != xno])
+AM_CONDITIONAL([ZMQNET], [test "x$zmqnet_mode" != xno])
 
 dnl Backend conds
 AM_CONDITIONAL([GDB_BACKEND], [test "x$gdb_mode" != xno])

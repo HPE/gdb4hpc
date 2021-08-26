@@ -31,6 +31,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             cmake \
             flex \
             libtool \
+            libuuid-devel \
             m4 \
             make \
             makeinfo \
@@ -68,7 +69,9 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             cmake \
             environment-modules \
             flex \
+            libarchive \
             libtool \
+            libuuid-devel \
             m4 \
             make \
             mksh \

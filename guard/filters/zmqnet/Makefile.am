@@ -1,8 +1,8 @@
-ZMQNET  = @zmqnet_root@
+ZMQNET_ROOT = @zmqnet_root@
 DBGCOMM	= @guard_srcdir@/src/dbgcomm
 BITSET = @guard_srcdir@/bitset
 
-AM_CPPFLAGS = -I$(ZMQNET)/include -I$(DBGCOMM) -I$(BITSET)
+AM_CPPFLAGS = -I$(ZMQNET_ROOT)/include -I$(DBGCOMM) -I$(BITSET)
 AM_LIBTOOLFLAGS = --quiet
 
 lib_LTLIBRARIES		     = libzmqnetagg.la

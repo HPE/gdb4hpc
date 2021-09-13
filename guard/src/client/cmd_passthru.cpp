@@ -60,8 +60,6 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
                             "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
     }
 
-    FreeRepSet(rep_set);
-
     DbgRestoreAfterDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
     FreeRepSet(rep_set);

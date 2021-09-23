@@ -21,6 +21,7 @@ a{0..2}: Breakpoint 2: file %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp, line
 Procset		Num Type           Disp Enb What
 a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp:83
 a{0..2}: 	2   breakpoint     keep y   in main::$_0::operator()() const at %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp:67 thread 2..11
+a{0..2}: In main::$_0::operator()() const at %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp:67
 a{0..2}: #0  main::$_0::operator() (this=) at %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp:67
    
 a{0..2:2-11}: #0  main::$_0::operator() (this=) at %%testdir%%/bd_dt/C++/cpp_parallel_threads.cpp:67

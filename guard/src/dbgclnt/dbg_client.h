@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -462,6 +462,7 @@ extern rep_set_t *DbgFinishFunc(rec_set_t *);
 extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
+extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
 extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);

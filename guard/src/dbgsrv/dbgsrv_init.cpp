@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1267,6 +1267,8 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
         } else {
             bp->bp_type = DBGBP_WATCH_TYPE;
         }
+    } else if (bpt->catchType != nullptr) {
+        bp->bp_type = DBGBP_CATCH_TYPE;
     } else {
         bp->bp_type = DBGBP_BREAK_TYPE;
     }

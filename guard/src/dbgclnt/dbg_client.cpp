@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1065,10 +1065,11 @@ static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, const Bitset *group) 
 }
 
 static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
-    // This returns 1 if the breakpoints don't match, otherwise it returns 0 if
-    // they do. Do not check the state of the enabled since this can be
-    // different for every rank Do not check the state of the disposition since
-    // this can be different for every rank. check if both are the same type
+    // This returns 1 if the breakpoints don't match, otherwise it returns 0 if they do. 
+    // Do not check the state of the enabled since this can be different for every rank.
+    // Do not check the state of the disposition since this can be different for every rank. 
+    
+    // check if both are the same type
     if (set->b_bp_type != bp->bp_type) return 1;
 
     // Here we only want to check locale info if it is a breakpoint, otherwise
@@ -1103,6 +1104,7 @@ static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
         case DBGBP_WATCH_TYPE:
         case DBGBP_AWATCH_TYPE:
         case DBGBP_RWATCH_TYPE:
+        case DBGBP_CATCH_TYPE:
             // check if both have the same bp expression
             if (bp->bp_exp != nullptr && set->b_bp_exp != nullptr) {
                 if (strcmp(set->b_bp_exp, bp->bp_exp)) return 1;
@@ -2891,6 +2893,18 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
     // process breakpoint information
     for (auto&& reply : result) {
         AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
+    }
+
+    return result;
+}
+
+rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event) {
+    auto request = CommandToSocProto(DBGCMD_SETCATCH, event);
+    auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_BPSET);
+
+    // process catchpoint information
+    for (const auto &reply : result) {
+        AddBP(reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;

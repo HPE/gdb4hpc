@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgcmd.h - Command interface defines
  *
- * Copyright 2013-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -20,6 +20,7 @@ enum dbgcmd {
     DBGCMD_SETLINEBREAK,
     DBGCMD_SETFUNCBREAK,
     DBGCMD_SETWATCH,
+    DBGCMD_SETCATCH,
     DBGCMD_DELETEBREAK,
     DBGCMD_DISABLEBREAK,
     DBGCMD_ENABLEBREAK,

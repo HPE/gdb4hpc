@@ -770,6 +770,20 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                     }
                     break;
 
+                case DBGBP_CATCH_TYPE:
+                    if (bpset->b_bp_exp) {
+                        PrintMsgWithSetInfo(
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
+                            "Catchpoint %d (%s)\n",
+                            bpset->b_bp_set_id, bpset->b_bp_exp);
+                    } else {
+                        PrintMsgWithSetInfo(ev_set->e_di->d_handle,
+                            ev_set->e_group.get(),
+                            "Catchpoint %d\n",
+                            bpset->b_bp_set_id);
+                    }
+                    break;
+
                 default:
                     if (bpset->b_loc_line > 0) {
                         PrintMsgWithSetInfo(
@@ -845,6 +859,20 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                                             ev_set->e_group.get(),
                                             "Breakpoint %d deleted, in %s\n",
                                             bpset->b_bp_set_id, bpset->b_loc_func);
+                    }
+                    break;
+
+                case DBGBP_CATCH_TYPE:
+                    if (bpset->b_bp_exp) {
+                        PrintMsgWithSetInfo(
+                            ev_set->e_di->d_handle, ev_set->e_group.get(),
+                            "Catchpoint %d deleted (%s)\n",
+                            bpset->b_bp_set_id, bpset->b_bp_exp);
+                    } else {
+                        PrintMsgWithSetInfo(ev_set->e_di->d_handle,
+                            ev_set->e_group.get(),
+                            "Catchpoint %d deleted.\n",
+                            bpset->b_bp_set_id);
                     }
                     break;
 

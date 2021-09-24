@@ -3,18 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -29,6 +24,7 @@ enum dbgbp_type {
     DBGBP_WATCH_TYPE,
     DBGBP_AWATCH_TYPE,
     DBGBP_RWATCH_TYPE,
+    DBGBP_CATCH_TYPE,
     DBGBP_EXIT_TYPE,
     DBGBP_UNKNOWN_TYPE
 };

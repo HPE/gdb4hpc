@@ -33,9 +33,8 @@ Purpose:
 ---------
   This is bug fix release
 
-  - Fix potential double free during gdbmode command
-
-  - Fix crash when printing C++ vectors of structs that have vector members. 
+  - Fix crash when setting some types of catchpoints in gdbmode
+  - Add catch command to gdb4hpc client interface
 
 Product and OS Dependencies:
 -----------------------------

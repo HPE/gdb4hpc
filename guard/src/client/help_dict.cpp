@@ -1,7 +1,7 @@
 /****************************************************************************** \
  * help_dict.c - Command help string definition dictionary.
  *
- * Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -872,6 +872,22 @@ const char* const cmd_watch_help[] = {
     "",
     "Adding thread thread-id creates the watchpoint that only applies to the",
     "given thread.",
+    0};
+
+const char* const cmd_catch_help[] = {
+    "Summary: Set catchpoint command.",
+    "Usage: catch [throw|fork|exec|load|unload]",
+    "Example command: catch exec",
+    "",
+    "Descripion:",
+    "Set a catchpoint on a specified event. Available events are:",
+    "    throw: catch the throwing of a C++ exception",
+    "    fork: catch calls to fork",
+    "    exec: catch calls to exec",
+    "    load: stop when a shared library is loaded",
+    "    unload: stop when a shared library is unloaded",
+    "",
+    "For each event, the process is stopped just after the event occurs.",
     0};
 
 const char* const cmd_whatis_help[] = {

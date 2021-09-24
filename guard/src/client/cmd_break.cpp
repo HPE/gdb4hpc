@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,6 +17,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <iostream>
+#include <iomanip>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -352,6 +354,63 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    // There is no special reason that we are limited to these events. dbgsrv
+    // is set up to send a generic "catch _____" command with CLIBypass, so
+    // any valid event type could work. These are just the few that have been
+    // verified to work (and not crash the dbgsrv) so far.
+    const auto eventTypes = 
+        std::vector<std::string>{"throw", "load", "unload", "fork", "exec"};
+    
+    // build a nicely formatted string out of types
+    // e.g. "[throw|load|...|exec]"
+    auto buildExpected = [&](){
+        auto optsStream = std::ostringstream{};
+        optsStream << "[";
+        for (const auto &type : eventTypes) {
+            optsStream << type << "|";
+        }
+        auto opts = optsStream.str();
+        opts[opts.rfind('|')] = ']';
+
+        return opts;
+    };
+
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: catch %s\n", buildExpected().c_str());
+        return 0;
+    }
+
+    auto event = std::string{argv[1]};
+    if (std::find(eventTypes.begin(), eventTypes.end(), event) == eventTypes.end()) {
+        PrintOutError("Invalid catchpoint type: %s\n", event.c_str());
+        PrintOutError("Expected: catch %s\n", buildExpected().c_str());
+        return 0;
+    }
+
+    auto repSet = DbgSetCatch(rec_set, event);
+    ProcessErrorInRepSet(repSet);
+
+    for (auto& reply : repSet) {
+        dbgbp_t *bp = EVENT_BP(reply->rep_event);
+
+        if (auto bpSet = FindBPSetForBP(reply->rep_di, bp); bpSet != nullptr) {
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                "Catchpoint %d: Set on %s.\n",
+                bpSet->b_bp_set_id, bpSet->b_bp_exp);
+        } else {
+            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                "ERROR: cannot find catchpoint [%d: event "
+                "%s] in BPSetList.\n", bp->bp_id, bp->bp_exp);
+        }
+    }
+    
+    FreeRepSet(repSet);
+
+    return 1;
+}
+
 static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int bp_id = 0;
     rep_set_t *rep_set;
@@ -474,8 +533,26 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
         bid = atoi(argv[1]);
     }
 
-    PrintOutMsg("Procset\t\t%-3s %-14s %-4s %-3s %s\n", "Num", "Type", "Disp",
-                "Enb", "What");
+    // Print an entry in the breakpoint table with proper spacing
+    auto printTableEntry = [](std::string handle, const Bitset *group, 
+        std::string id, std::string type, std::string disp, 
+        std::string enabled, std::string extra) 
+    {
+        auto procset = handle;
+        if (group) procset += group->toSetString();
+
+        std::cout << std::left 
+                  << std::setw(16) << procset
+                  << std::setw(4) << id
+                  << std::setw(15) << type
+                  << std::setw(5) << disp
+                  << std::setw(4) << enabled
+                  << extra << std::endl
+        ;
+    };
+
+    // Print header
+    printTableEntry("Procset", nullptr, "Num", "Type", "Disp", "Enb", "What");
 
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
@@ -512,6 +589,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
                 case DBGBP_RWATCH_TYPE:
+                case DBGBP_CATCH_TYPE:
                     // loop over the disposition list
                     SetList(bpset->b_bp_disp);
                     while ((disp_set = (bp_disp_set_t *)GetListElement(
@@ -522,12 +600,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                         if (!enabled_group->isEmpty()) {
                             // First print out watchpoints that are enabled
-                            PrintMsgWithSetInfo(
-                                recv_ptr->rec_di->d_handle, enabled_group.get(),
-                                "\t%-3d %-14s %-4s %-3s %s%s\n", bpset->b_bp_set_id,
-                                BPTypeToStr(bpset->b_bp_type),
-                                BPDispToStr(disp_set->b_bp_disp), "y",
-                                bpset->b_bp_exp, bpThread.c_str());
+                            auto expression = std::ostringstream{};
+                            expression << bpset->b_bp_exp << bpThread;
+
+                            printTableEntry(recv_ptr->rec_di->d_handle, 
+                                enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                BPTypeToStr(bpset->b_bp_type), 
+                                BPDispToStr(disp_set->b_bp_disp), 
+                                "y", expression.str());
                         }
 
                         // Compute the disabled set
@@ -536,12 +616,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                         if (!disabled_group->isEmpty()) {
                             // Next print out watchpoints that are disabled
-                            PrintMsgWithSetInfo(
-                                recv_ptr->rec_di->d_handle, disabled_group.get(),
-                                "\t%-3d %-14s %-4s %-3s %s\n", bpset->b_bp_set_id,
-                                BPTypeToStr(bpset->b_bp_type),
-                                BPDispToStr(disp_set->b_bp_disp), "n",
-                                bpset->b_bp_exp);;
+                            auto expression = std::ostringstream{};
+                            expression << bpset->b_bp_exp << bpThread;
+
+                            printTableEntry(recv_ptr->rec_di->d_handle, 
+                                enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                BPTypeToStr(bpset->b_bp_type), 
+                                BPDispToStr(disp_set->b_bp_disp), 
+                                "n", expression.str());
                         }
                     }
                     break;
@@ -559,13 +641,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                         if (bpset->b_bp_pending) {
                             if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "y",
-                                    bpset->b_loc_stmt, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "at " << bpset->b_loc_stmt << bpThread << " <PENDING>";
+
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "y", location.str());
                             }
 
                             // Compute the disabled set
@@ -575,26 +658,28 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s at %s%s <PENDING>\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "n",
-                                    bpset->b_loc_stmt, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "at " << bpset->b_loc_stmt << bpThread << " <PENDING>";
+
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "n", location.str());
                             }
                         }
                         else if (bpset->b_loc_line > 0) {
                             if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "y",
-                                    bpset->b_loc_func, bpset->b_loc_file,
-                                    bpset->b_loc_line, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "in " << bpset->b_loc_func << " at "
+                                         << bpset->b_loc_file << ":" << bpset->b_loc_line << bpThread;
+                                
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "y", location.str());
                             }
 
                             // Compute the disabled set
@@ -604,25 +689,27 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s in %s at %s:%d%s\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "n",
-                                    bpset->b_loc_func, bpset->b_loc_file,
-                                    bpset->b_loc_line, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "in " << bpset->b_loc_func << " at "
+                                         << bpset->b_loc_file << ":" << bpset->b_loc_line << bpThread;
+                                
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "n", location.str());
                             }
                         } else {
                             if (!enabled_group->isEmpty()) {
                                 // First print out breakpoints that are enabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, enabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s in %s%s\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "y",
-                                    bpset->b_loc_func, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "in " << bpset->b_loc_func << bpThread;
+                                
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "y", location.str());
                             }
 
                             // Compute the disabled set
@@ -632,13 +719,14 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
                             if (!disabled_group->isEmpty()) {
                                 // Next print out breakpoints that are disabled
-                                PrintMsgWithSetInfo(
-                                    recv_ptr->rec_di->d_handle, disabled_group.get(),
-                                    "\t%-3d %-14s %-4s %-3s in %s%s\n",
-                                    bpset->b_bp_set_id,
-                                    BPTypeToStr(bpset->b_bp_type),
-                                    BPDispToStr(disp_set->b_bp_disp), "n",
-                                    bpset->b_loc_func, bpThread.c_str());
+                                auto location = std::ostringstream{};
+                                location << "in " << bpset->b_loc_func << bpThread;
+                                
+                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    enabled_group.get(), std::to_string(bpset->b_bp_set_id), 
+                                    BPTypeToStr(bpset->b_bp_type), 
+                                    BPDispToStr(disp_set->b_bp_disp), 
+                                    "n", location.str());
                             }
                         }
                     }
@@ -718,6 +806,8 @@ void InitCmd_break(void) {
                "Set a temporary breakpoint at specified line or function.");
     AddCommand("watch", nullptr, proc_required, 0, cmd_watch_cmd,
                cmd_watch_help, "Set watchpoint on specified expression.");
+    AddCommand("catch", nullptr, proc_required, 0, cmd_catch_cmd, 
+                cmd_catch_help, "Set catchpoint on specified event.");
 
     // info commands
     AddInfoCommand("breakpoints", proc_required, 0,

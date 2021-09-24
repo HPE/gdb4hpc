@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <string>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <vector>
 #include <regex>
@@ -426,6 +427,88 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     return event;
 }
+
+// Used in DbgGdbMI::setCatch to transfer data from a libMI callback. Don't use elsewhere.
+static MIList *setCatchCallbackReturn = nullptr;
+
+dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s event=%s\n", __FILE__, __func__, event.c_str());
+    
+    using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+
+    int id; // breakpoint id
+
+    // Send catch command and determine catchpoint id
+    {
+        // MI doesn't directly support most catch commands, but they work fine with CLIBypass
+        const char* argv[] = {"catch", event.c_str()};
+        auto CLICatchCommand = CommandPtr(CLIBypassc(2, argv), MICommandFree);
+
+        // Since we're using Bypass, MI only reports a synchronous ^done after
+        // the command is over, no breakpoint info is included. But before that, 
+        // a "breakpoint created" async notification is generated with the info 
+        // we need. We set a callback here to catch that notification. 
+        // Unfortunately, the callback is a pure C function pointer, so we can't 
+        // use a capturing lambda and need to use a global to get the data out.
+
+        // Restore old callback when we're done
+        auto oldCallback = GDBMISession->notify_callback;
+        auto restoreCallbackOnExit = OnScopeExit([&](){
+            MISessionRegisterNotifyCallback(GDBMISession, oldCallback);
+        });
+
+        // Set custom callback
+        MISessionRegisterNotifyCallback(GDBMISession, [](char *className, MIList *results) {
+            // set global
+            setCatchCallbackReturn = MIBreakpointGetBreakNotifyInfo(className, results);
+        });
+
+        // Send command
+        SendMICommand(GDBMISession, CLICatchCommand.get()); // our callback happens here
+        if (!MICommandResultOK(CLICatchCommand.get())) {
+            dbgevent_t *errorEvent;
+            EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(CLICatchCommand.get()));
+            return errorEvent;
+        }
+
+        MIList *breakPoints = nullptr;
+        std::swap(breakPoints, setCatchCallbackReturn);
+
+        if (breakPoints == nullptr) {
+            dbgevent_t *errorEvent;
+            EVENT_ERROR(errorEvent, DBGERR_DEBUGGER,
+                "Cannot create catchpoint. (Couldn't fetch newly inserted catchpoint info)");
+            return errorEvent;
+        }
+
+        MIListSet(breakPoints);
+        id = ((MIBreakpoint *)MIListGet(breakPoints))->number;
+        MIListFree(breakPoints, (void (*)())MIBreakpointFree);
+    }
+
+    // Now send the MIBreakInfo
+    auto breakInfoCommand = CommandPtr(MIBreakInfo(id), MICommandFree);
+
+    SendMICommand(GDBMISession, breakInfoCommand.get());
+    if (!MICommandResultOK(breakInfoCommand.get())) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(breakInfoCommand.get()));
+        return errorEvent;
+    }
+
+    // Now check the breakpoint. It has all the info we need.
+    auto dbgEvent = CheckBreak(breakInfoCommand.get(), commInfo);
+
+    if (dbgEvent == nullptr) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER,
+            "Cannot create internal catchpoint. (Failed to record new breakpoint)");
+        return errorEvent;
+    }
+
+    return dbgEvent;
+}
+
 // If break bid is the breakpoint that has been applied to a thread list, then DbgGdbMI
 // is maintaining the set of *additional* gdb breakpoints - one per thread - otherwise return
 // an empty list.   If remove is true, erase the recorded list.
@@ -2851,35 +2934,49 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
     std::unique_ptr<MIEvent, decltype(&MIEventFree)> evtHolder(evt, &MIEventFree);
 
     switch (evt->type) {
-        case MIEventTypeBreakpointHit:
+        case MIEventTypeCatchpointHit:
+            DVPRINT("MIEventTypeCatchpointHit, falling through to WatchpointTrigger (and then Breakpoint hit)\n");
+        case MIEventTypeWatchpointTrigger:
+            DVPRINT("MIEventTypeWatchpointHit, falling through to BreakpointHit\n");
+        case MIEventTypeBreakpointHit: {
             DVPRINT("MIEventTypeBreakpointHit\n");
-            DVPRINT("Breakpoint id is %d\n", evt->bkptno);
 
+            int idNumber = 0;
+            if (evt->type == MIEventTypeBreakpointHit || evt->type == MIEventTypeCatchpointHit) {
+                // breakpoint and catchpoint fill "bkptno"
+                idNumber = evt->bkptno;
+            } else {
+                // watchpoints fill "number"
+                idNumber = evt->number;
+            }
+            
+            DVPRINT("Breakpoint id is %d\n", idNumber);
+
+            // short circuit during the process of finding the starting breakpoint
             if (Status == DBGSTAT_INITIALISING) {
-                bp = NewBP(evt->bkptno);
+                bp = NewBP(idNumber);
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
                 return e;
             }
 
-            // set the status to stopped
             Status = DBGSTAT_STOPPED;
 
-            bp = FindBPByID(BP, evt->bkptno);
+            bp = FindBPByID(BP, idNumber);
             exitBPs = m_initializer->getExitBPs();
 
             // We want to check for an exit breakpoint if we didn't find it in
             // the normal BP list.
-            if (bp == NULL) {
-                bp = FindBPByID(exitBPs, evt->bkptno);
+            if (bp == nullptr) {
+                bp = FindBPByID(exitBPs, idNumber);
                 // set the status to exit if we are at an exit breakpoint
-                if (bp != NULL) {
+                if (bp != nullptr) {
                     Status = DBGSTAT_EXIT;
                 }
             }
 
             // If bp is still null, we have a problem.
-            if (bp == NULL) {
+            if (bp == nullptr) {
                 e = ChangeEvent(e, DBGEV_ERROR);
                 e->ev_errno = DBGERR_DEBUGGER;
                 EventErrStr(e, unknownBPErrorMsg);
@@ -2889,16 +2986,30 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             bp->bp_hits++;
             CurrBP = bp;
 
-            // If the stored bp was pending, we need to modify it with the new information
-            if (bp->bp_pending && evt->frame != NULL) {
-                bp->bp_pending = 0;
-                if (evt->frame->file != NULL)
-                    bp->bp_loc.loc_file = strdup(evt->frame->file);
-                if (evt->frame->func != NULL)
-                    bp->bp_loc.loc_func = strdup(evt->frame->func);
-                if (evt->frame->addr != NULL)
-                    bp->bp_loc.loc_addr = strdup(evt->frame->addr);
-                bp->bp_loc.loc_line = evt->frame->line;
+            // In the case of pending breakpoints, watchpoints, and catchpoints,
+            // we need to update the breakpoint information with the evt frame.
+            // This will change every time the breakpoint is hit.
+            if (bp->bp_pending || bp->bp_type == DBGBP_WATCH_TYPE || bp->bp_type == DBGBP_CATCH_TYPE) {
+                // First free the old information if present
+                free(bp->bp_loc.loc_file);
+                free(bp->bp_loc.loc_func);
+                free(bp->bp_loc.loc_addr);
+                bp->bp_loc.loc_file = nullptr;
+                bp->bp_loc.loc_func = nullptr;
+                bp->bp_loc.loc_addr = nullptr;
+                bp->bp_loc.loc_line = -1;
+
+                // Now update it with the new info
+                if (evt->frame != nullptr) {
+                    bp->bp_pending = 0; // this is fine on watch/catchpoints too
+                    if (evt->frame->file != nullptr)
+                        bp->bp_loc.loc_file = strdup(evt->frame->file);
+                    if (evt->frame->func != nullptr)
+                        bp->bp_loc.loc_func = strdup(evt->frame->func);
+                    if (evt->frame->addr != nullptr)
+                        bp->bp_loc.loc_addr = strdup(evt->frame->addr);
+                    bp->bp_loc.loc_line = evt->frame->line;
+                }
             }
 
             e->ev_event = DBGEV_BPHIT;
@@ -2930,80 +3041,8 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             }
 
             return e;
-
-        case MIEventTypeWatchpointTrigger:
-            DVPRINT("MIEventTypeWatchpointTrigger\n");
-            DVPRINT("Breakpoint id is %d\n", evt->number);
-
-            bp = FindBPByID(BP, evt->number);
-
-            // If bp is null, we have a problem.
-            if (bp == NULL) {
-                e = ChangeEvent(e, DBGEV_ERROR);
-                e->ev_errno = DBGERR_DEBUGGER;
-                EventErrStr(e, "Hit unknown watchpoint!");
-                return e;
-            }
-
-            bp->bp_hits++;
-
-            // We need to update the breakpoint information with the evt frame.
-            // This will change every time the breakpoint is hit.
-            // First free the old information
-            if (bp->bp_loc.loc_file != NULL) {
-                Free(bp->bp_loc.loc_file);
-                bp->bp_loc.loc_file = NULL;
-            }
-            if (bp->bp_loc.loc_func != NULL) {
-                Free(bp->bp_loc.loc_func);
-                bp->bp_loc.loc_func = NULL;
-            }
-            if (bp->bp_loc.loc_addr != NULL) {
-                Free(bp->bp_loc.loc_addr);
-                bp->bp_loc.loc_addr = NULL;
-            }
-            bp->bp_loc.loc_line = -1;
-
-            // Now update it with the new info
-            if (evt->frame != NULL) {
-                if (evt->frame->file != NULL)
-                    bp->bp_loc.loc_file = strdup(evt->frame->file);
-                if (evt->frame->func != NULL)
-                    bp->bp_loc.loc_func = strdup(evt->frame->func);
-                if (evt->frame->addr != NULL)
-                    bp->bp_loc.loc_addr = strdup(evt->frame->addr);
-                bp->bp_loc.loc_line = evt->frame->line;
-            }
-
-            CurrBP = bp;
-
-            e->ev_event = DBGEV_BPHIT;
-            e->ev_bp = DupBP(bp);
-
-            // Check to see if disposition was set to disable or delete
-            // We have to do this now because if the bp was set to delete we
-            // wouldn't be able to do a DupBP on it...
-            // FIXME: This should probably be implemented by setting the
-            // bp_deleted
-            //         to 1 and cleaning up breakpoints on the next continue.
-            switch (bp->bp_disp) {
-                case DBGBP_DELETE_DISP:
-                    // delete the watchpoint
-                    RemoveBP(BP, evt->bkptno);
-                    CurrBP = NULL;
-                    break;
-                case DBGBP_DISABLE_DISP:
-                    // disable the watchpoint
-                    bp->bp_enabled = 0;
-                    break;
-                default:
-                    // do nothing
-                    break;
-            }
-
-            Status = DBGSTAT_STOPPED;
-            return e;
-
+        }
+        
         case MIEventTypeWatchpointScope:
             DVPRINT("MIEventTypeWatchpointScope\n");
             DVPRINT("Breakpoint id is %d\n", evt->number);
@@ -3156,6 +3195,8 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
         } else {
             bp->bp_type = DBGBP_WATCH_TYPE;
         }
+    } else if (bpt->catchType != nullptr) {
+        bp->bp_type = DBGBP_CATCH_TYPE;
     } else {
         bp->bp_type = DBGBP_BREAK_TYPE;
     }
@@ -3203,7 +3244,13 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
         if (bpt->file != NULL) bp->bp_loc.loc_file = strdup(bpt->file);
         if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
         if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
-        if (bpt->what != NULL) bp->bp_exp = strdup(bpt->what);
+        if (bpt->what != NULL) {
+            bp->bp_exp = strdup(bpt->what);
+        } else if (bpt->catchType != NULL) {
+            // some catch points (e.g. exec) don't report a "what" field but a
+            // "catchpoint" field.
+            bp->bp_exp = strdup(bpt->catchType);
+        }
     }
 
     // Check to see if this is a pending breakpoint

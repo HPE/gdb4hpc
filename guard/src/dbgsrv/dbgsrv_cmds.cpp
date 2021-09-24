@@ -127,6 +127,14 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             e = DbgSetWatch(type, expr.c_str(), ci);
             break;
         }
+
+        case DBGCMD_SETCATCH: {
+            std::string eventType;
+            is.get(eventType);
+            e = DbgSetCatch(eventType, ci);
+            break;
+        }
+
         case DBGCMD_DELETEBREAK: {
             int bpid;
             is.get(bpid);

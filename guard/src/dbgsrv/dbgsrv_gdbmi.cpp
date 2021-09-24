@@ -429,7 +429,7 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 }
 
 // Used in DbgGdbMI::setCatch to transfer data from a libMI callback. Don't use elsewhere.
-static MIList *setCatchCallbackReturn = nullptr;
+static MIList *MICallbackResult = nullptr;
 
 dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s event=%s\n", __FILE__, __func__, event.c_str());
@@ -460,7 +460,7 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *com
         // Set custom callback
         MISessionRegisterNotifyCallback(GDBMISession, [](char *className, MIList *results) {
             // set global
-            setCatchCallbackReturn = MIBreakpointGetBreakNotifyInfo(className, results);
+            MICallbackResult = MIBreakpointGetBreakNotifyInfo(className, results);
         });
 
         // Send command
@@ -472,12 +472,19 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *com
         }
 
         MIList *breakPoints = nullptr;
-        std::swap(breakPoints, setCatchCallbackReturn);
+        std::swap(breakPoints, MICallbackResult);
 
         if (breakPoints == nullptr) {
             dbgevent_t *errorEvent;
             EVENT_ERROR(errorEvent, DBGERR_DEBUGGER,
                 "Cannot create catchpoint. (Couldn't fetch newly inserted catchpoint info)");
+            return errorEvent;
+        }
+
+        if (MIListIsEmpty(breakPoints)) {
+            dbgevent_t *errorEvent;
+            EVENT_ERROR(errorEvent, DBGERR_DEBUGGER,
+                "Cannot create catchpoint. (Empty breakpoint list)");
             return errorEvent;
         }
 

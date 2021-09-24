@@ -360,7 +360,8 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // any valid event type could work. These are just the few that have been
     // verified to work (and not crash the dbgsrv) so far.
     const auto eventTypes = 
-        std::vector<std::string>{"throw", "load", "unload", "fork", "exec"};
+        std::vector<std::string>{"throw", "catch", "load", "unload", "fork", 
+                                 "vfork", "exec"};
     
     // build a nicely formatted string out of types
     // e.g. "[throw|load|...|exec]"
@@ -534,21 +535,24 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
     }
 
     // Print an entry in the breakpoint table with proper spacing
-    auto printTableEntry = [](std::string handle, const Bitset *group, 
-        std::string id, std::string type, std::string disp, 
-        std::string enabled, std::string extra) 
+    auto printTableEntry = [](const std::string &handle, const Bitset *group, 
+        const std::string &id, const std::string &type, const std::string &disp, 
+        const std::string &enabled, const std::string &extra) 
     {
         auto procset = handle;
         if (group) procset += group->toSetString();
+        std::ostringstream out;
 
-        std::cout << std::left 
-                  << std::setw(16) << procset
-                  << std::setw(4) << id
-                  << std::setw(15) << type
-                  << std::setw(5) << disp
-                  << std::setw(4) << enabled
-                  << extra << std::endl
+        out << std::left 
+            << std::setw(16) << procset
+            << std::setw(4) << id
+            << std::setw(15) << type
+            << std::setw(5) << disp
+            << std::setw(4) << enabled
+            << extra
         ;
+
+        std::cout << out.str() << std::endl;
     };
 
     // Print header

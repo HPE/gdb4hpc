@@ -876,13 +876,15 @@ const char* const cmd_watch_help[] = {
 
 const char* const cmd_catch_help[] = {
     "Summary: Set catchpoint command.",
-    "Usage: catch [throw|fork|exec|load|unload]",
+    "Usage: catch [throw|catch|fork|vfork|exec|load|unload]",
     "Example command: catch exec",
     "",
     "Descripion:",
     "Set a catchpoint on a specified event. Available events are:",
     "    throw: catch the throwing of a C++ exception",
+    "    catch: stop when an exception is caught",
     "    fork: catch calls to fork",
+    "    vfork: catch calls to vfork",
     "    exec: catch calls to exec",
     "    load: stop when a shared library is loaded",
     "    unload: stop when a shared library is unloaded",

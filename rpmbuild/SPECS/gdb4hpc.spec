@@ -61,9 +61,9 @@
 # Filter requires - these all come from the cdst-support rpm
 # These should match what is excluded in the cdst-support rpm specfile!
 %global privlibs             libboost.*
-%global privlibs %{privlibs}|libmrnet
+%global privlibs %{privlibs}|libmrnet.*
 %global privlibs %{privlibs}|libbitset
-%global privlibs %{privlibs}|libmi
+%global privlibs %{privlibs}|libmi.*
 %global privlibs %{privlibs}|libssh2
 %global privlibs %{privlibs}|libarchive
 %global privlibs %{privlibs}|libsymtabAPI
@@ -71,14 +71,23 @@
 %global privlibs %{privlibs}|libdynElf
 %global privlibs %{privlibs}|libdynDwarf
 %global privlibs %{privlibs}|libcommon
-%global privlibs %{privlibs}|libxplat
+%global privlibs %{privlibs}|libxplat.*
 %global privlibs %{privlibs}|libedit
 %global privlibs %{privlibs}|libdw
 %global privlibs %{privlibs}|libebl.*
 %global privlibs %{privlibs}|libelf
 %global privlibs %{privlibs}|libtbbmalloc*
 %global privlibs %{privlibs}|libtbb.*
+%global privlibs %{privlibs}|libLrleBitset.*
+%global privlibs %{privlibs}|libbitset.*
+%global privlibs %{privlibs}|libcapnp-0.8-dev.*
+%global privlibs %{privlibs}|libdbgagg.*
+%global privlibs %{privlibs}|libkj-0.8-dev*
+%global privlibs %{privlibs}|libzmq.*
+%global privlibs %{privlibs}|libzmqnet.*
+%global privlibs %{privlibs}|libzmqnetagg.*
 %global __requires_exclude ^(%{privlibs})\\.so*
+%global __provides_exclude ^(%{privlibs})\\.so*
 
 # Dist tags for SuSE need to be manually set
 %if 0%{?suse_version}

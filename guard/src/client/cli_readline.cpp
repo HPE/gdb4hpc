@@ -239,20 +239,16 @@ static int cli_readline_clear_line(cli_stream_t **stream) {
 // returns true if line has a form similar to "!searchterm" and can be passed to
 // history_expand
 static bool should_expand_line(const char *line) {
-    if (line == nullptr || line[0] != '!' || strnlen(line, 3) < 2) {
+    if (line == nullptr || line[0] != '!' || strnlen(line, 2) < 2) {
         return false;
     }
-
     // We support expansion, but only "!search". editline is broken in regards 
     // to !? and will eventually segfault. Most of the other operators don't
     // work either.
 
-    // Prepare to catch other editline expansion prefixes: !?, !!, !n, etc.
-    const char *banned = "0123456789-#?!";
-    const char *bannedEnd = banned + strlen(banned);
-
+    // Catch other editline expansion prefixes: !?, !!, !n, etc.
     // If the second character isn't in our banned list, we can do expansion
-    if (std::find(banned, bannedEnd, line[1]) != bannedEnd) {
+    if (strchr("0123456789-#?!", line[1])) {
         return false;
     }
 
@@ -284,11 +280,11 @@ static void record_and_execute_line(const char *line) {
     // history. Note that we do not want to allow immediate repeat history entries.
     if (*line) {
         // Get the current history and check if it matches current line
-        if (auto entry = current_history(); entry != nullptr) {
+        if (auto entry = current_history()) {
             // compare line to the history line, if true the two differ
             // If they match, do nothing. We don't want repeat history
             // entries since that is annoying to key through.
-            if (strcmp(line, entry->line)) {
+            if (strcmp(line, entry->line) != 0) {
                 // Add the line to the history
                 add_history(line);
             }
@@ -313,20 +309,19 @@ static void rl_handle_line(char *line) {
     // will look correct.
     rl_replace_line("", 0);
 
-    // Try a reverse search if the first character is !
-    if (should_expand_line(line)) {
-        auto expanded = expand_line(line);
-        if (expanded) {
-            PrintOutLine("> %s\n", expanded);
-            record_and_execute_line(expanded);
-        } else {
-            // User tried to search, but it failed. They probably don't want
-            // to try to run a failed search.
-            PrintOutError("Couldn't find a command in history matching \"%s\".\n", line);
-        }
+    // Execute the command, possibly after macro-expanding it
+    if (!should_expand_line(line)) {
+        // No expansion
+        record_and_execute_line(line);
+    } else if (auto expanded = expand_line(line)) {
+        // Try a reverse search if the first character is !
+        PrintOutLine("> %s\n", expanded);
+        record_and_execute_line(expanded);
         free(expanded);
     } else {
-        record_and_execute_line(line);
+        // User tried to search, but it failed.
+        // They probably don't want to try to run a failed search.
+        PrintOutError("Couldn't find a command in history matching \"%s\".\n", line);
     }
 
     // done with line

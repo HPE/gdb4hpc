@@ -1,0 +1,13 @@
+1:maint set sync on
+
+3:# launch 3 instances of the application
+4:launch $a{3} --launcher-args="%%launcher_args%%"  bd_dt/c/c_segv.x --debug
+
+6:# hit the segfault
+7:continue
+
+9:# investigate
+10:list
+11:print p
+
+13:q

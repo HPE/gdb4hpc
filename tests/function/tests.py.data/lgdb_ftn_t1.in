@@ -1,0 +1,128 @@
+1: #
+2: # lgdb_ftn_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: maint set sync on
+19: # launch 2 applications in lgdb
+20: launch $a{3}   bd_dt/fortran/ftn_bd_dt.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
+23: launch $b{3}   bd_dt/fortran/ftn_bd_dt.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
+27: # Set a breakpoint at specified line numbers:
+28: break ftn_bd_dt.f90:46
+a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 46.
+b{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 46.
+30: break ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2: file ftn_bd_dt.f90, line 62.
+b{0..2}: Breakpoint 2: file ftn_bd_dt.f90, line 62.
+34: # Run to breakpoint 1:
+35: continue
+a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:46
+b{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:46
+38: # Confirm program is at specified line: 46
+39: #list
+42: # print some local variables
+43: print x
+a{0..2}: 1
+b{0..2}: 1
+45: print tf
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+48: # run compare command
+49: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is true.
+51: # compare size of same elements in different proc sets
+52: compare $a{0}::"sizeof(tf)" = $b{0}::"sizeof(tf)"
+{0}: Comparison is true.
+55: # Continue to the second breakpoint 
+56: continue
+<$b>:  string= Testing
+<$b>:  string= Testing
+<$b>:  string= Testing
+<$b>:  Integer=  1
+<$b>:  Integer=  1
+<$b>:  Integer=  1
+<$b>:  char= t
+<$b>:  char= t
+<$b>:  char= t
+<$b>:  real=  30.3199997
+<$b>:  real=  30.3199997
+<$b>:  real=  30.3199997
+<$b>:  real8=  1.
+<$b>:  real8=  1.
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  real8=  1.
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  Integer multiplication=  2
+<$b>:  Integer multiplication=  2
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  Boolean=  T
+<$b>:  Boolean=  T
+<$b>:  Integer multiplication=  2
+<$b>:  Struct member= Cray
+<$b>:  Struct member= Cray
+<$b>:  Boolean=  T
+<$b>:  Struct member=  100
+<$b>:  Struct member=  100
+<$b>:  Struct member= Cray
+<$b>:  Struct member=  100
+<$a>:  string= Testing
+<$a>:  string= Testing
+<$a>:  Integer=  1
+<$a>:  char= t
+<$a>:  Integer=  1
+<$a>:  char= t
+<$a>:  real=  30.3199997
+<$a>:  real8=  1.
+<$a>:  real=  30.3199997
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  real8=  1.
+<$a>:  Integer multiplication=  2
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  Boolean=  T
+<$a>:  Integer multiplication=  2
+<$a>:  Struct member= Cray
+<$a>:  Boolean=  T
+<$a>:  Struct member=  100
+<$a>:  Struct member= Cray
+<$a>:  Struct member=  100
+b{0..2}: Breakpoint 2, ftn_dt at ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2, ftn_dt at ftn_bd_dt.f90:62
+59: # Ensure program is set at breakpoint line # 62
+60: #l
+62: # Print m
+63: p m
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+66: #Exit lgdb
+67: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

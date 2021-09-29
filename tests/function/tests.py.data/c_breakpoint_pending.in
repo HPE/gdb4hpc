@@ -1,0 +1,65 @@
+1: #
+2: # c_breakpoint_pending.rc test script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+11: maint set sync on
+14: # launch 3 instances of the application
+15: launch $a{6}   bd_dt/c/c_dlopen.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..5}: Initial breakpoint, in main
+18: # Set a pending breakpoint at function that will be dlopened
+19: set break pending on
+20: break dlopened_function
+a{0..5}: Breakpoint 1: Pending at dlopened_function.
+22: # Run to breakpoint 1:  
+23: continue
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+<$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
+a{0..5}: Breakpoint 2, in dlopened_function
+25: # backtrace
+26: bt
+a{0..5}: #1  main
+a{0..5}: #0  dlopened_function
+   
+28: #list breakpoints
+29: info breakpoint
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+31: # Test disable command
+32: disable 2
+34: #test has breakpoint 3 been disabled?
+35: info breakpoint
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep n   in dlopened_function
+37: # Test enable command
+38: enable 2  
+40: #has breakpoint 3 been enabled?
+41: info breakpoint
+Procset		Num Type           Disp Enb What
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+43: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
+44: delete 2 
+46: #has breakpoint 3 been deleted?
+47: info breakpoint
+Procset		Num Type           Disp Enb What
+a{0..5}: No breakpoints or watchpoints.
+50: #exit lgdb
+51: q
+Shutting down debugger and killing application for 'a'.

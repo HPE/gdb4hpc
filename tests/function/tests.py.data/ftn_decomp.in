@@ -1,0 +1,196 @@
+1: #
+2: # ftn_decomp.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+11: maint set sync on
+13: # launch 3 instances of one application and 4 of another to test decomp
+14: launch $a{3}  --args="0" bd_dt/fortran/ftn_decomp.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_decomp at ftn_decomp.f90:2
+15: launch $b{4}  --args="1" bd_dt/fortran/ftn_decomp.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..3}: Initial breakpoint, ftn_decomp at ftn_decomp.f90:2
+17: # run until the arrays are initialized
+18: b 109
+a{0..2}: Breakpoint 1: file ftn_decomp.f90, line 109.
+b{0..3}: Breakpoint 1: file ftn_decomp.f90, line 109.
+19: c
+b{0..3}: Breakpoint 1, ftn_decomp at ftn_decomp.f90:109
+a{0..2}: Breakpoint 1, ftn_decomp at ftn_decomp.f90:109
+21: decomposition $block1_3
+22: dimension 120
+23: distribute block
+24: proc_grid 3
+25: end
+27: decomposition $block1_4
+28: dimension 120
+29: distribute block
+30: proc_grid 4
+31: end
+33: decomposition $cyclic1_3
+34: dimension 120
+35: distribute cyclic
+36: proc_grid 3
+37: end
+39: decomposition $cyclic1_4
+40: dimension 120
+41: distribute cyclic
+42: proc_grid 4
+43: end
+45: decomposition $blockCyclic1_3
+46: dimension 120
+47: distribute 5
+48: proc_grid 3
+49: end
+51: decomposition $blockCyclic1_4
+52: dimension 120
+53: distribute 5
+54: proc_grid 4
+55: end
+57: decomposition $block2_3
+58: dimension 10,12
+59: distribute *,block
+60: proc_grid *,3
+61: end
+63: decomposition $block2_4
+64: dimension 10,12
+65: distribute *,block
+66: proc_grid *,4
+67: end
+69: decomposition $cyclic2_3
+70: dimension 10,12
+71: distribute *,cyclic
+72: proc_grid *,3
+73: end
+75: decomposition $cyclic2_4
+76: dimension 10,12
+77: distribute *,cyclic
+78: proc_grid *,4
+79: end
+81: decomposition $blockCyclic2_3
+82: dimension 5 ,24
+83: distribute *, 2
+84: proc_grid * , 3
+85: end
+87: decomposition $blockCyclic2_4
+88: dimension 5,24
+89: distribute *,2
+90: proc_grid *,4
+91: end
+93: decomposition $block3_3
+94: dimension 5,4,12
+95: distribute *,*,block
+96: proc_grid *,*,3
+97: end
+99: decomposition $block3_4
+100: dimension 5,4,12
+101: distribute *,*,block
+102: proc_grid *,*,4
+103: end
+105: # lets just print the cotton pickers out so we have a record of the result
+106: p $block1_3{$a::block1}
+a{0..2}: No symbol "block1" in current context
+107: p $block1_4{$b::block1}
+b{0..3}: No symbol "block1" in current context
+108: p $cyclic1_3{$a::cyclic1}
+a{0..2}: No symbol "cyclic1" in current context
+109: p $cyclic1_4{$b::cyclic1}
+b{0..3}: No symbol "cyclic1" in current context
+110: p $blockCyclic1_3{$a::blockCyclic1}
+a{0..2}: No symbol "blockCyclic1" in current context
+111: p $blockCyclic1_4{$b::blockCyclic1}
+b{0..3}: No symbol "blockCyclic1" in current context
+112: p $block2_3{$a::block2}
+a{0..2}: No symbol "block2" in current context
+113: p $block2_4{$b::block2}
+b{0..3}: No symbol "block2" in current context
+114: p $cyclic2_3{$a::cyclic2}
+a{0..2}: No symbol "cyclic2" in current context
+115: p $cyclic2_4{$b::cyclic2}
+b{0..3}: No symbol "cyclic2" in current context
+116: p $blockCyclic2_3{$a::blockCyclic2}
+a{0..2}: No symbol "blockCyclic2" in current context
+117: p $blockCyclic2_4{$b::blockCyclic2}
+b{0..3}: No symbol "blockCyclic2" in current context
+118: p $block1_3{$a::offsetBlock1}
+a{0..2}: No symbol "offsetBlock1" in current context
+119: p $block1_4{$b::offsetBlock1}
+b{0..3}: No symbol "offsetBlock1" in current context
+120: p $cyclic1_3{$a::offsetCyclic1}
+a{0..2}: No symbol "offsetCyclic1" in current context
+121: p $cyclic1_4{$b::offsetCyclic1}
+b{0..3}: No symbol "offsetCyclic1" in current context
+122: p $block3_3{$a::block3}
+a{0..2}: No symbol "block3" in current context
+123: p $block3_4{$b::block3}
+b{0..3}: No symbol "block3" in current context
+126: # at this point in the the comparisons should succeed
+128: compare $block1_3{$a::block1} == $block1_4{$b::block1}
+a{0..2}: No symbol "block1" in current context
+Could not retrieve contents of val.
+Command resulted in an error: 128: compare $block1_3{$a::block1} == $block1_4{$b::block1}
+1: #===========================================================================
+1: # add these back when the symbol lookup is fixed in fortran
+1: #===========================================================================
+1: #compare $block1_3{$a::block1} == $block1_4{$b::block1}
+1: #compare $cyclic1_3{$a::cyclic1} == $cyclic1_4{$b::cyclic1}
+1: #compare $blockCyclic1_3{$a::blockCyclic1} == $blockCyclic1_4{$b::blockCyclic1}
+1: #compare $block2_3{$a::block2} == $block2_4{$b::block2}
+1: #compare $cyclic2_3{$a::cyclic2} == $cyclic2_4{$b::cyclic2}
+1: #compare $blockCyclic2_3{$a::blockCyclic2} == $blockCyclic2_4{$b::blockCyclic2}
+1: #compare $block1_3{$a::offsetBlock1} == $block1_4{$b::offsetBlock1}
+1: #compare $cyclic1_3{$a::offsetCyclic1} == $cyclic1_4{$b::offsetCyclic1}
+1: #compare $block3_3{$a::block3} == $block3_4{$b::block3}
+1: #
+1: ## continue to a point where the same comparisons should fail
+1: #b 124
+1: #c
+1: #
+1: #compare $block1_3{$a::block1} == $block1_4{$b::block1}
+1: #compare $cyclic1_3{$a::cyclic1} == $cyclic1_4{$b::cyclic1}
+1: #compare $blockCyclic1_3{$a::blockCyclic1} == $blockCyclic1_4{$b::blockCyclic2}
+1: #compare $block2_3{$a::block2} == $block2_4{$b::block2}
+1: #compare $cyclic2_3{$a::cyclic2} == $cyclic2_4{$b::cyclic2}
+1: #compare $blockCyclic2_3{$a::blockCyclic2} == $blockCyclic2_4{$b::blockCyclic2}
+1: #compare $block1_3{$a::offsetBlock1} == $block1_4{$b::offsetBlock1}
+1: #compare $cyclic1_3{$a::offsetCyclic1} == $cyclic1_4{$b::offsetCyclic1}
+1: #compare $block3_3{$a::block3} == $block3_4{$b::block3}
+1: #
+1: #
+1: ## continue to a point where the same comparisons should fail
+1: #b 124
+1: #c
+1: #
+1: #compare $block1_3{$a::block1} == $block1_4{$b::block1}
+1: #compare $cyclic1_3{$a::cyclic1} == $cyclic1_4{$b::cyclic1}
+1: #compare $blockCyclic1_3{$a::blockCyclic1} == $blockCyclic1_4{$b::blockCyclic2}
+1: #compare $block2_3{$a::block2} == $block2_4{$b::block2}
+1: #compare $cyclic2_3{$a::cyclic2} == $cyclic2_4{$b::cyclic2}
+1: #compare $blockCyclic2_3{$a::blockCyclic2} == $blockCyclic2_4{$b::blockCyclic2}
+1: #compare $block1_3{$a::offsetBlock1} == $block1_4{$b::offsetBlock1}
+1: #compare $cyclic1_3{$a::offsetCyclic1} == $cyclic1_4{$b::offsetCyclic1}
+1: #compare $block3_3{$a::block3} == $block3_4{$b::block3}
+131: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

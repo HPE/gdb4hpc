@@ -1,0 +1,26 @@
+1:# attach to a process and mess with a variable, breaking out of a loop
+2:maint set sync on
+
+4:attach $a %%appid%%
+
+6:break 20
+
+8:# climp up to main- the depth we will get stopped at can vary, so be excessive...
+9:up
+10:up
+11:up
+12:up
+13:up
+
+15:# beacon for text matching
+16:maint echo beacon
+
+18:# change argc, which will break us out of the loop
+19:assign argc 999
+
+21:# continue to line 20
+22:c
+
+24:p argc
+
+26:q

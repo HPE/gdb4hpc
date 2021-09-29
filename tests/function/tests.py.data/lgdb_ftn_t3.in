@@ -1,0 +1,179 @@
+1: #
+2: # lgdb_ftn_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: # This source file tests lgdb's  compare command for source code in fortran.
+17: # All results should be FAILURE.
+19: maint set sync on
+21: # launch 2 applications in lgdb
+22: launch $a{3}   bd_dt/fortran/ftn_bd_dt.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
+24: break ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
+27: launch $b{3}   bd_dt/fortran/ftn_cmp_diff.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at ftn_cmp_diff.f90:1
+29: focus $b
+31: # Set a breakpoint at specified line number:
+32: break ftn_cmp_diff.f90:64
+b{0..2}: Breakpoint 1: file ftn_cmp_diff.f90, line 64.
+34: focus $all
+36: # Run to breakpoint 1:
+37: continue
+<$a>:  string= Testing
+<$a>:  string= Testing
+<$a>:  string= Testing
+<$a>:  Integer=  1
+<$a>:  Integer=  1
+<$a>:  Integer=  1
+<$a>:  char= t
+<$a>:  char= t
+<$a>:  char= t
+<$a>:  real=  30.3199997
+<$a>:  real=  30.3199997
+<$a>:  real=  30.3199997
+<$a>:  real8=  1.
+<$a>:  real8=  1.
+<$a>:  real8=  1.
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  Integer multiplication=  2
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  Integer multiplication=  2
+<$a>:  Boolean=  T
+<$a>:  Integer multiplication=  2
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Struct member=  100
+<$a>:  Struct member= Cray
+<$a>:  Struct member=  100
+<$a>:  Struct member=  100
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$b>:  string= Error
+<$b>:  string= Error
+<$b>:  string= Error
+<$b>:  Integer=  5
+<$b>:  Integer=  5
+<$b>:  Integer=  5
+<$b>:  char= k
+<$b>:  char= k
+<$b>:  char= k
+<$b>:  real=  1501.20496
+<$b>:  real=  1501.20496
+<$b>:  real=  1501.20496
+<$b>:  real8=  1.02
+<$b>:  real8=  1.02
+<$b>:  real8=  1.02
+<$b>:  complex=  (5.22900009,-4.78000021)
+<$b>:  complex=  (5.22900009,-4.78000021)
+<$b>:  complex=  (5.22900009,-4.78000021)
+<$b>:  Integer multiplication=  40
+<$b>:  Integer multiplication=  40
+<$b>:  Integer multiplication=  40
+<$b>:  Boolean=  F
+<$b>:  Boolean=  F
+<$b>:  Boolean=  F
+<$b>:  Struct member= Test
+<$b>:  Struct member= Test
+<$b>:  Struct member= Test
+<$b>:  Struct member=  60
+<$b>:  Struct member=  60
+<$b>:  Struct member=  60
+<$b>:  Contents of array from subroutine=  2,  3,  4,  5,  6,  7,  8,  9,  10,  11
+<$b>:  Contents of array from subroutine=  2,  3,  4,  5,  6,  7,  8,  9,  10,  11
+<$b>:  Contents of array from subroutine=  2,  3,  4,  5,  6,  7,  8,  9,  10,  11
+a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:64
+b{0..2}: Breakpoint 1, ftn_dt at ftn_cmp_diff.f90:64
+40: # run compare commands on all datatypes
+42: #logical
+43: print tf
+a{0..2}: .TRUE.
+b{0..2}: .FALSE.
+44: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+47: #integer
+48: print x
+a{0..2}: 1
+b{0..2}: 5
+49: compare $a{0}::x=$b{0}::x
+{0}: Comparison is false.
+The difference delta is:
+{0}: -4
+52: #character - dissabled for now as compare on string doesnt work in lgdb 
+53: #print l
+54: #compare $a{0}::l=$b{0}::l
+57: #real
+58: print e
+a{0..2}: 30.32
+b{0..2}: 1501.205
+59: compare $a{0}::e=$b{0}::e
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1470.885
+62: #character*7 - dissabled for now as compare on string doesnt work in lgdb
+63: #print word
+64: #compare $a{0}::word=$b{0}::word
+67: #complex
+68: print r
+a{0..2}: (327.670013,-0.00650000013)
+b{0..2}: (5.22900009,-4.78000021)
+69: compare $a{0}::r=$b{0}::r
+{0}: Comparison is false.
+The difference delta is:
+{0}: (322.44101291,4.77350020987)
+72: #real*8 -> double float
+73: print df
+a{0..2}: 1
+b{0..2}: 1.02
+74: compare $a{0}::df=$b{0}::df
+{0}: Comparison is false.
+The difference delta is:
+{0}: -0.02000000000000002
+77: #int array
+78: print m
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+79: compare $a{0}::m=$b{0}::m
+{0}: Comparison is false.
+The difference delta is:
+{0}: (-1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+82: #struct object data member of type character*4 - dissabled for now as compare on string doesnt work in lgdb
+83: #print myself.name
+84: #compare $a{0}::myself.name=$b{0}::myself.name
+87: #Exit lgdb
+88: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

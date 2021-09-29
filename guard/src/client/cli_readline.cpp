@@ -20,6 +20,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <unordered_set>
+
 #include <editline/readline.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -44,6 +46,7 @@ static int cli_readline_reset_stream(cli_stream_t **);
 static int cli_readline_clear_line(cli_stream_t **);
 
 static bool should_expand_line(const char *line);
+static bool should_repeat_line(const char *line);
 static char *expand_line(const char *line);
 static void record_and_execute_line(const char *line);
 static void rl_handle_line(char *);
@@ -255,6 +258,30 @@ static bool should_expand_line(const char *line) {
     return true;
 }
 
+// returns true if line is blank ("") and the most recently executed command
+// is suitable to be repeated (step, next...)
+static bool should_repeat_line(const char *line) {
+    if (!line || *line != '\0')
+        return false;
+
+    // we only want to repeat a certain few commands
+    const std::unordered_set<std::string> repreatable = {
+        "n", "ne", "nex", "next",
+        "s", "ste", "step", // st is considered ambigious (start, step, or stop?)
+        "l", "li", "lis", "list"
+    };
+
+    auto recentEvent = current_history();
+
+    if (!recentEvent || !recentEvent->line) {
+        return false;
+    }
+
+    auto lastLine = std::string{recentEvent->line};
+
+    return static_cast<bool>(repreatable.count(lastLine));
+}
+
 // returns the expanded version of line as expanded by history_expand
 static char *expand_line(const char *line) {
     if (line == nullptr) {
@@ -309,8 +336,12 @@ static void rl_handle_line(char *line) {
     // will look correct.
     rl_replace_line("", 0);
 
-    // Execute the command, possibly after macro-expanding it
-    if (!should_expand_line(line)) {
+    // Execute the command
+    if (should_repeat_line(line)) {
+        // "" was passed, so execute the most recent command again
+        // should_repeat_line has already made sure current_history() won't be null
+        record_and_execute_line(current_history()->line);
+    } else if (!should_expand_line(line)) {
         // No expansion
         record_and_execute_line(line);
     } else if (auto expanded = expand_line(line)) {

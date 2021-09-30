@@ -146,7 +146,8 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_STEP:
-            e->ev_frame = dbgframe_t::copy(event->ev_frame);
+            e->ev_step.step_frame = dbgframe_t::copy(event->ev_step.step_frame);
+            e->ev_step.step_frame_changed = event->ev_step.step_frame_changed;
             break;
 
         case DBGEV_FRAME:
@@ -373,7 +374,7 @@ event_equiv CompareEvents(dbgevent_t *ev1, dbgevent_t *ev2) {
             return CompareEvSig(ev1->ev_sig, ev2->ev_sig);
 
         case DBGEV_STEP:
-            return CompareEvFrame(ev1->ev_frame, ev2->ev_frame, 0);
+            return CompareEvFrame(ev1->ev_step.step_frame, ev2->ev_step.step_frame, 0);
 
         case DBGEV_ERROR:
             return CompareEvErr(ev1->ev_err, ev2->ev_err);
@@ -430,7 +431,7 @@ void FreeEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_STEP:
-            delete event->ev_frame;
+            delete event->ev_step.step_frame;
             break;
 
         case DBGEV_STAT:

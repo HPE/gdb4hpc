@@ -919,18 +919,28 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             break;
 
         case DBGEV_STEP:
-            if (ev_set->e_ev->ev_frame != nullptr) {
-                const auto &frameLoc = ev_set->e_ev->ev_frame->getLoc();
+            if (ev_set->e_ev->ev_step.step_frame) {
+                const auto &frameLoc = ev_set->e_ev->ev_step.step_frame->getLoc();
 
                 // Print location info
                 if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
-                    // We have line number and file, see if we can get the source line
+                    // See if we can get the source line
                     auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
                     lineArg += "," + lineArg; // filename:xx,filename:xx
 
                     auto listResult = DbgFEList(ev_set->e_di->d_frontend, nullptr, lineArg.c_str());
 
                     if (listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+                        // Print the source line
+
+                        // Print a frame if the last step event changed functions
+                        if (ev_set->e_ev->ev_step.step_frame_changed) {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, ev_set->e_group.get(),
+                                "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                            );
+                        }
+
                         auto line = std::string{listResult->ev_list->list_line};
                         formatSourceLine(line);
                         
@@ -945,6 +955,8 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                             "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                         );
                     }
+
+                    FreeEvent(listResult);
                 } else if (frameLoc.loc_func) {
                     // No file/line, just print function name
                     PrintMsgWithSetInfo(

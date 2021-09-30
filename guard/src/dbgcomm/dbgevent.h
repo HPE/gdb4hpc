@@ -186,6 +186,11 @@ public:
     dbgframe_t& operator=(const dbgframe_t&) = delete;
 };
 
+struct dbgstep_t {
+    bool step_frame_changed; // true when a step event stepped into/out of a function
+    dbgframe_t *step_frame;
+};
+
 struct dbgsig_t {
     char *sig_type;
     char *sig_line;
@@ -234,6 +239,7 @@ struct dbgevent_t {
         AIFStream *ev_u_data;
         dbglist_t *ev_u_list;
         dbgframe_t *ev_u_frame;
+        dbgstep_t ev_u_step;
         dbgloc_t *ev_u_loc;
         dbgvars_t *ev_u_vars;
         dbgstatus_t *ev_u_status;
@@ -252,6 +258,7 @@ struct dbgevent_t {
 #define ev_sig_frame ev_u.ev_u_sig.sig_frame
 #define ev_exit ev_u.ev_u_int
 #define ev_frame ev_u.ev_u_frame
+#define ev_step ev_u.ev_u_step
 #define ev_data ev_u.ev_u_data
 #define ev_list ev_u.ev_u_list
 #define ev_source_path ev_u.ev_u_string

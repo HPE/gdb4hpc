@@ -37,6 +37,7 @@ Purpose:
   - Add catch command to gdb4hpc client interface
   - Fix failure to write history file
   - Add support for csh-like searching of history by starting commands with !
+  - Print line from source code after step, next, or finish
 
 Product and OS Dependencies:
 -----------------------------

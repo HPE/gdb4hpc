@@ -2916,6 +2916,10 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
     dbgbp_t *bp = NULL;
     MIEvent *evt = PendingEvent;
     list_t* exitBPs = nullptr;
+    
+    static auto lastKnownFrame = std::make_unique<dbgframe_t>(
+        0, dbgloc_t{nullptr, nullptr, nullptr, 0}, nullptr, nullptr, nullptr
+    );
 
     if (e == (dbgevent_t *)NULL) e = NewEvent(DBGEV_NONE);
 
@@ -3019,6 +3023,10 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
                 }
             }
 
+            if (evt->frame && Status != DBGSTAT_INITIALISING) {
+                lastKnownFrame.reset(MakeFrameFromMIFrame(evt->frame));
+            }
+
             e->ev_event = DBGEV_BPHIT;
             e->ev_bp = DupBP(bp);
 
@@ -3074,17 +3082,27 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
         case MIEventTypeSuspended:
             DVPRINT("MIEventTypeSuspended, falling through to FunctionFinished, then SteppingRange\n");
         case MIEventTypeFunctionFinished:
-            DVPRINT("MIEventTypeFunctionFinished, falling though to SteppingRange\n");
+            DVPRINT("MIEventTypeFunctionFinished, falling through to SteppingRange\n");
         case MIEventTypeSteppingRange:
             DVPRINT("MIEventTypeSteppingRange\n");
-
             e->ev_event = DBGEV_STEP;
-            e->ev_frame = nullptr;
-
-            // TODO detect if frame changed and set flag in event
+            e->ev_step.step_frame_changed = false;
+            e->ev_step.step_frame = nullptr;
 
             if (evt->frame) {
-                e->ev_frame = MakeFrameFromMIFrame(evt->frame, false);
+                e->ev_step.step_frame = MakeFrameFromMIFrame(evt->frame, false);
+
+                auto oldFunc = lastKnownFrame->getLoc().loc_func;
+                auto newFunc = e->ev_step.step_frame->getLoc().loc_func;
+                
+                e->ev_step.step_frame_changed = 
+                    oldFunc && newFunc && strcmp(oldFunc, newFunc) != 0;
+            }
+
+            // Don't cache our frame during startup or we will think we changed
+            // frames on the very first step because _start or similar will be cached
+            if (Status != DBGSTAT_INITIALISING) {
+                lastKnownFrame.reset(e->ev_step.step_frame->clone());
             }
 
             Status = DBGSTAT_STOPPED;

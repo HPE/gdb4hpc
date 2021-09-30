@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <string>
 #include <string.h>
 #include <ctype.h>
 #include <type_traits>
@@ -85,6 +86,7 @@ char *TrimStr(char *);
 char *TrimStrWithTarget(char *, char);
 int CountOccurence(char, char *);
 char *ReplaceStr(const char *, const char *, const char *);
+void formatSourceLine(std::string &line);
 int IsInteger(char *);
 
 inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };

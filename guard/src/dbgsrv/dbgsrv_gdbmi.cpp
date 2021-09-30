@@ -3072,56 +3072,19 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             return e;
 
         case MIEventTypeSuspended:
-            DVPRINT("MIEventTypeSuspended\n");
-
-            // FIXME: This should be using its own event type
-            e->ev_event = DBGEV_STEP;
-            e->ev_step_frame = (dbgframe_t *)NULL;
-            e->ev_step_line = (char *)NULL;
-
-            if (evt->frame != NULL) {
-                e->ev_step_lno = evt->frame->line;
-                // No need to get the line again since we already have it in the
-                // MIFrame information.
-                e->ev_step_line = NULL;
-                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
-            }
-
-            Status = DBGSTAT_STOPPED;
-            return e;
-
+            DVPRINT("MIEventTypeSuspended, falling through to FunctionFinished, then SteppingRange\n");
         case MIEventTypeFunctionFinished:
-            DVPRINT("MIEventTypeFunctionFinished\n");
-
-            // FIXME: This should be using its own event type
-            e->ev_event = DBGEV_STEP;
-            e->ev_step_frame = (dbgframe_t *)NULL;
-            e->ev_step_line = (char *)NULL;
-
-            if (evt->frame != NULL) {
-                e->ev_step_lno = evt->frame->line;
-                // No need to get the line again since we already have it in the
-                // MIFrame information.
-                e->ev_step_line = NULL;
-                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
-            }
-
-            Status = DBGSTAT_STOPPED;
-            return e;
-
+            DVPRINT("MIEventTypeFunctionFinished, falling though to SteppingRange\n");
         case MIEventTypeSteppingRange:
             DVPRINT("MIEventTypeSteppingRange\n");
 
             e->ev_event = DBGEV_STEP;
-            e->ev_step_frame = (dbgframe_t *)NULL;
-            e->ev_step_line = (char *)NULL;
+            e->ev_frame = nullptr;
 
-            if (evt->frame != NULL) {
-                e->ev_step_lno = evt->frame->line;
-                // No need to get the line again since we already have it in the
-                // MIFrame information.
-                e->ev_step_line = NULL;
-                e->ev_step_frame = MakeFrameFromMIFrame(evt->frame, false);
+            // TODO detect if frame changed and set flag in event
+
+            if (evt->frame) {
+                e->ev_frame = MakeFrameFromMIFrame(evt->frame, false);
             }
 
             Status = DBGSTAT_STOPPED;

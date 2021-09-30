@@ -151,6 +151,28 @@ char *ReplaceStr(const char *str, const char *oldstr, const char *newstr) {
     return result;
 }
 
+// Used to format lines of source code returned from GDBMI
+void formatSourceLine(std::string &line) {
+    // Strings come back with leading tabs escaped and
+    // trailing newlines escaped. We want add those back 
+    // in without messing with any escaped characters 
+    // that might actually be in the contents of the line.
+
+    // un-escape any leading \t
+    for (size_t i = 0; i < line.size(); i++) {
+        if (line.substr(i, 2) == "\\t") {
+            line.replace(i, 2, "\t");
+        }
+
+        if (!std::isspace(line[i])) break;
+    }
+
+    // remove the trailing \n, if present
+    if (line.substr(line.size() - 2, 2) == "\\n") {
+        line.replace(line.size() - 2, 2, "");
+    }
+};
+
 int IsInteger(char *s) {
     if (s == NULL) return 0;
 

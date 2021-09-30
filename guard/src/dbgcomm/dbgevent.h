@@ -205,13 +205,6 @@ struct dbgvers_t {
 };
 typedef struct dbgvers_t dbgvers_t;
 
-struct dbgstep_t {
-    int step_lno;
-    char *step_line;
-    dbgframe_t *step_frame;
-};
-typedef struct dbgstep_t dbgstep_t;
-
 struct dbgsources_t {
     char *sources_file;
     struct dbgsources_t *sources_next;
@@ -238,7 +231,6 @@ struct dbgevent_t {
         int ev_u_int;
         dbgbp_t *ev_u_bp;
         dbgsig_t ev_u_sig;
-        dbgstep_t ev_u_step;
         AIFStream *ev_u_data;
         dbglist_t *ev_u_list;
         dbgframe_t *ev_u_frame;
@@ -254,10 +246,6 @@ struct dbgevent_t {
 #define ev_int ev_u.ev_u_int
 // These should be used everywhere
 #define ev_bp ev_u.ev_u_bp
-#define ev_step ev_u.ev_u_step
-#define ev_step_lno ev_u.ev_u_step.step_lno
-#define ev_step_line ev_u.ev_u_step.step_line
-#define ev_step_frame ev_u.ev_u_step.step_frame
 #define ev_sig ev_u.ev_u_sig
 #define ev_sig_type ev_u.ev_u_sig.sig_type
 #define ev_sig_line ev_u.ev_u_sig.sig_line

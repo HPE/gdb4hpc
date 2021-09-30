@@ -919,29 +919,20 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             break;
 
         case DBGEV_STEP:
-            if (ev_set->e_ev->ev_step_frame != (dbgframe_t *)NULL) {
-                auto frameLoc = ev_set->e_ev->ev_step_frame->getLoc();
-                if (frameLoc.loc_line > 0 && frameLoc.loc_file) {
-                    // See if we can get the source line
+            if (ev_set->e_ev->ev_frame != nullptr) {
+                const auto &frameLoc = ev_set->e_ev->ev_frame->getLoc();
+
+                // Print location info
+                if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
+                    // We have line number and file, see if we can get the source line
                     auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
                     lineArg += "," + lineArg; // filename:xx,filename:xx
 
                     auto listResult = DbgFEList(ev_set->e_di->d_frontend, nullptr, lineArg.c_str());
 
                     if (listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
-                        // replace all instances of oldBit in str with newBit
-                        auto replaceAll = [](std::string &str, const std::string &oldBit, const std::string &newBit) {
-                            for (auto pos = str.find(oldBit, 0); pos != std::string::npos; pos = str.find(oldBit, pos)) {
-                                str.replace(pos, oldBit.length(), newBit);
-                                pos += newBit.length();
-                            }
-                        };
-
                         auto line = std::string{listResult->ev_list->list_line};
-
-                        // lines come back with tabs and newlines escaped
-                        replaceAll(line, "\\t", "\t");
-                        replaceAll(line, "\\n", "");
+                        formatSourceLine(line);
                         
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
@@ -954,27 +945,22 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                             "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                         );
                     }
-                } else {
+                } else if (frameLoc.loc_func) {
+                    // No file/line, just print function name
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group.get(), "in %s\n", frameLoc.loc_func);
+                } else {
+                    // Shouldn't ever happen
+                    PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
+                        "Step finished with no location information.\n"
+                    );
                 }
-                break;
+            } else {
+                // Got a null frame? This should never happen
+                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
+                    "Step finished with no location information.\n"
+                );
             }
-
-            if (ev_set->e_ev->ev_step_lno < 0) {
-                PrintMsgWithSetInfo(
-                    ev_set->e_di->d_handle, ev_set->e_group.get(),
-                    "Single stepping until exit from function %s,\n",
-                    ev_set->e_ev->ev_step_line);
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "which has no line number information.\n");
-            } else if (ev_set->e_ev->ev_step_lno == 0) {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "Program has reached the end.\n");
-            } else
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "%d\t%s\n", ev_set->e_ev->ev_step_lno,
-                                    ev_set->e_ev->ev_step_line);
             break;
 
         case DBGEV_ERROR:

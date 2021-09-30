@@ -35,7 +35,6 @@
 static event_equiv CompareEvExit(int, int);
 static event_equiv CompareEvBp(dbgbp_t *, dbgbp_t *);
 static event_equiv CompareEvSig(dbgsig_t, dbgsig_t);
-static event_equiv CompareEvStep(dbgstep_t, dbgstep_t);
 static event_equiv CompareEvFrame(const dbgframe_t *, const dbgframe_t *, int);
 static event_equiv CompareEvErr(dbgerr_t, dbgerr_t);
 
@@ -147,9 +146,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_STEP:
-            e->ev_step_lno = event->ev_step_lno;
-            e->ev_step_line = strdup(event->ev_step_line);
-            e->ev_step_frame = dbgframe_t::copy(event->ev_step_frame);
+            e->ev_frame = dbgframe_t::copy(event->ev_frame);
             break;
 
         case DBGEV_FRAME:
@@ -248,41 +245,6 @@ static event_equiv CompareEvSig(dbgsig_t sig1, dbgsig_t sig2) {
         // Note that we don't want to recurse since we don't print out all the
         // frames.
         return CompareEvFrame(sig1.sig_frame, sig2.sig_frame, 0);
-    }
-
-    // If we get here they are both equal
-    return EV_EQUAL;
-}
-
-static event_equiv CompareEvStep(dbgstep_t s1, dbgstep_t s2) {
-    // Ensure the frame matches, if no frame ensure the line matches
-    // otherwise assume they are the same
-    if (s1.step_frame == NULL && s2.step_frame == NULL) {
-        // If both have NULL frames check the line
-        if (s1.step_line == NULL || s2.step_line == NULL) {
-            // If only one has a NULL line, they are different
-            if (s1.step_line != NULL || s2.step_line != NULL) {
-                return EV_DIFF;
-            }
-        } else {
-            // Compare the line directly
-            if (strcmp(s1.step_line, s2.step_line)) {
-                return EV_DIFF;
-            }
-        }
-
-        // Also need to check the lno
-        if (s1.step_lno != s2.step_lno) {
-            return EV_DIFF;
-        }
-    } else if (s1.step_frame == NULL || s2.step_frame == NULL) {
-        // If only one of the frames is NULL, they are different
-        return EV_DIFF;
-    } else {
-        // Both have frames, so compare those
-        // Note that we don't want to recurse since we don't print out all the
-        // frames.
-        return CompareEvFrame(s1.step_frame, s2.step_frame, 0);
     }
 
     // If we get here they are both equal
@@ -411,7 +373,7 @@ event_equiv CompareEvents(dbgevent_t *ev1, dbgevent_t *ev2) {
             return CompareEvSig(ev1->ev_sig, ev2->ev_sig);
 
         case DBGEV_STEP:
-            return CompareEvStep(ev1->ev_step, ev2->ev_step);
+            return CompareEvFrame(ev1->ev_frame, ev2->ev_frame, 0);
 
         case DBGEV_ERROR:
             return CompareEvErr(ev1->ev_err, ev2->ev_err);
@@ -468,8 +430,7 @@ void FreeEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_STEP:
-            Free(event->ev_step_line);
-            delete event->ev_step_frame;
+            delete event->ev_frame;
             break;
 
         case DBGEV_STAT:

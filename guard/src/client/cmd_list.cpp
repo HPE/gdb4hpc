@@ -25,10 +25,10 @@
 #include "useful.h"
 
 static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    char *s = NULL;
+    char *s = nullptr;
     dbglist_t *l;
     dbglist_t *lp;
-    rep_set_t *rep_set = NULL;
+    rep_set_t *rep_set = nullptr;
     char *tmp_str;
 
     if (argc > 1) s = argv[1];
@@ -41,17 +41,12 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // point at the list data
         lp = EVENT_LIST(reply->rep_event);
 
-        for (l = lp; l != (dbglist_t *)NULL; l = l->list_next) {
-            // Replace any \\t or \\n with \t and "" respectively
-            tmp_str = ReplaceStr(l->list_line, "\\t", "\t");
-            // Free the old list_line
-            Free(l->list_line);
-            l->list_line = ReplaceStr(tmp_str, "\\n", "");
-            // Free the tmp_str
-            Free(tmp_str);
+        for (l = lp; l != (dbglist_t *)nullptr; l = l->list_next) {
+            auto line = std::string{l->list_line};
+            formatSourceLine(line);
             PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                          l->list_threads,
-                                         "%d\t%s\n", l->list_lno, l->list_line);
+                                         "%d\t%s\n", l->list_lno, line.c_str());
         }
     }
 

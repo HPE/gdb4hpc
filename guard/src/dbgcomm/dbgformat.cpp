@@ -38,7 +38,7 @@ static inline const char* StrSoc(const char* s) {
 
 static char *EventBPToSocProto(dbgev, dbgbp_t *, int);
 static char *EventSigToSocProto(dbgev, dbgsig_t);
-static char *EventStepToSocProto(dbgev, dbgstep_t);
+static char *EventStepToSocProto(dbgev, const dbgframe_t *);
 static char *EventFrameToSocProto(dbgev, const dbgframe_t *);
 static char *EventLocToSocProto(dbgev, dbgloc_t *);
 static char *EventStatusToSocProto(dbgev, dbgstatus_t *);
@@ -223,14 +223,11 @@ static char *EventSigToSocProto(dbgev ev, dbgsig_t se) {
     return stres;
 }
 
-static char *EventStepToSocProto(dbgev ev, dbgstep_t se) {
-    const char* line = StrSoc(se.step_line);
-    char* frame = EventFrameToSocProtoL(se.step_frame);
-    char* stres = MakeSocStr(ev, "%d %d %s %d %s", se.step_lno,
-                             (int)strlen(line), line,
-                             (int)strlen(frame), frame);
-    Free(frame);
-    return stres;
+static char *EventStepToSocProto(dbgev ev, const dbgframe_t *frame) {
+    char *stres = EventFrameToSocProtoL(frame);
+    char* wrappedStr = MakeSocStr(ev, "%s", stres);
+    Free(stres);
+    return wrappedStr;
 }
 
 static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
@@ -468,7 +465,7 @@ char* EventToSocProto(dbgevent_t *e)
         break;
 
     case DBGEV_STEP:
-        res = EventStepToSocProto(ev, e->ev_step);
+        res = EventStepToSocProto(ev, e->ev_frame);
         break;
 
     case DBGEV_FRAME:
@@ -928,33 +925,6 @@ static dbgframe_t *SocProtoToFrame(const char *s) {
     return res;
 }
 
-dbgstep_t SocProtoToStep(const char *s) {
-    // FIXME: No way to check for error.......
-    dbgstep_t res;
-    char *fstr;
-
-    if (s == NULL || *s == '\0') {
-        res.step_lno = 0;
-        res.step_line = strdup("");
-        res.step_frame = NULL;
-
-        return res;
-    }
-
-    // get the lno
-    res.step_lno = getint(s);
-
-    // get the line
-    res.step_line = getstring(s);
-
-    // get the frame string
-    fstr = getstring(s);
-    res.step_frame = SocProtoToFrame(fstr);
-    Free(fstr);
-
-    return res;
-}
-
 static char *SocProtoToString(const char *s) {
     char *res;
 
@@ -1052,7 +1022,6 @@ dbgevent_t *SocProtoToEvent(const char *s) {
     // a sane interface.
     dbgerr_t st_err;
     dbgsig_t st_sig;
-    dbgstep_t st_step;
     dbgvers_t st_vers;
 
     if (s == NULL) {
@@ -1140,14 +1109,10 @@ dbgevent_t *SocProtoToEvent(const char *s) {
             break;
 
         case DBGEV_STEP:
-            // Get the string and convert to dbgstep_t
+            // Get the string and convert to dbgframe_t * and set directly
             evdata = getstring(s);
-            st_step = SocProtoToStep(evdata);
-            Free(evdata);
-            // Set step members
-            e->ev_step_lno = st_step.step_lno;
-            e->ev_step_line = st_step.step_line;
-            e->ev_step_frame = st_step.step_frame;
+            e->ev_frame = SocProtoToFrame(evdata);
+            free(evdata);
             break;
 
         case DBGEV_STAT:

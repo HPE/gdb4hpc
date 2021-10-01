@@ -431,8 +431,8 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 // Used in DbgGdbMI::setCatch to transfer data from a libMI callback. Don't use elsewhere.
 static MIList *MICallbackResult = nullptr;
 
-dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *commInfo) {
-    DVPRINT("*** Dbg %s, %s event=%s\n", __FILE__, __func__, event.c_str());
+dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) {
+    DVPRINT("*** Dbg %s, %s event=%s regex=\"%s\" \n", __FILE__, __func__, event.c_str(), regex.c_str());
     
     using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
 
@@ -441,8 +441,16 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const dbgcomm_info *com
     // Send catch command and determine catchpoint id
     {
         // MI doesn't directly support most catch commands, but they work fine with CLIBypass
-        const char* argv[] = {"catch", event.c_str()};
-        auto CLICatchCommand = CommandPtr(CLIBypassc(2, argv), MICommandFree);
+        CommandPtr CLICatchCommand(nullptr, MICommandFree);
+
+        if ((event == "load" || event == "unload") && regex != "") {
+            // load/unload support regexes to specify libraries to monitor
+            const char* argv[] = {"catch", event.c_str(), regex.c_str()};
+            CLICatchCommand = CommandPtr(CLIBypassc(3, argv), MICommandFree);
+        } else {
+            const char* argv[] = {"catch", event.c_str()};
+            CLICatchCommand = CommandPtr(CLIBypassc(2, argv), MICommandFree);
+        }
 
         // Since we're using Bypass, MI only reports a synchronous ^done after
         // the command is over, no breakpoint info is included. But before that, 

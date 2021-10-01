@@ -462,7 +462,7 @@ extern rep_set_t *DbgFinishFunc(rec_set_t *);
 extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
-extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event);
+extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
 extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);

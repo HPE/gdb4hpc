@@ -2898,8 +2898,8 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
     return result;
 }
 
-rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event) {
-    auto request = CommandToSocProto(DBGCMD_SETCATCH, event);
+rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex) {
+    auto request = CommandToSocProto(DBGCMD_SETCATCH, event, regex);
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_BPSET);
 
     // process catchpoint information

@@ -390,7 +390,13 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    auto repSet = DbgSetCatch(rec_set, event);
+    auto regex = std::string{};
+    if ((event == "load" || event == "unload") && argc >= 3) {
+        // load and unload support regex arguments to match specific libraries
+        regex = argv[2];
+    }
+
+    auto repSet = DbgSetCatch(rec_set, event, regex);
     ProcessErrorInRepSet(repSet);
 
     for (auto& reply : repSet) {

@@ -552,7 +552,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
             << extra
         ;
 
-        std::cout << out.str() << std::endl;
+        PrintOutMsg("%s\n", out.str().c_str());
     };
 
     // Print header

@@ -35,6 +35,8 @@ Purpose:
 
   - Fix crash when setting some types of catchpoints in gdbmode
   - Add catch command to gdb4hpc client interface
+  - Fix failure to write history file
+  - Add support for csh-like searching of history by starting commands with !
 
 Product and OS Dependencies:
 -----------------------------

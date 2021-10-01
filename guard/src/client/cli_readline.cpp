@@ -20,6 +20,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <unordered_set>
+
 #include <editline/readline.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -35,7 +37,6 @@
 /*
  * Internal prototypes
  */
-static void rl_handle_line(char *);
 static int cli_readline_init(cli_stream_t **);
 static int cli_readline_destroy(cli_stream_t **);
 static int cli_readline_handle_char(cli_stream_t **);
@@ -43,6 +44,12 @@ static int cli_readline_save_stream(cli_stream_t **);
 static int cli_readline_restore_stream(cli_stream_t **);
 static int cli_readline_reset_stream(cli_stream_t **);
 static int cli_readline_clear_line(cli_stream_t **);
+
+static bool should_expand_line(const char *line);
+static bool should_repeat_line(const char *line);
+static char *expand_line(const char *line);
+static void record_and_execute_line(const char *line);
+static void rl_handle_line(char *);
 
 cli_externals_t *cli_get_readline_funcs(void) {
     cli_externals_t *rtn;
@@ -148,9 +155,6 @@ static int cli_readline_destroy(cli_stream_t **stream) {
     rl_replace_line("", 0);
     rl_forced_update_display();
 
-    // Remove the readline callback handler
-    rl_callback_handler_remove();
-
     // Get the default configuration location and write the history out to file
     if ((config_loc = getenv("GDB4HPC_HIST_DIR")) != NULL) {
         char *histfile;
@@ -163,6 +167,9 @@ static int cli_readline_destroy(cli_stream_t **stream) {
         write_history(histfile);
         Free(histfile);
     }
+
+    // Remove the readline callback handler
+    rl_callback_handler_remove();
 
     return 0;
 }
@@ -232,6 +239,91 @@ static int cli_readline_clear_line(cli_stream_t **stream) {
     return 0;
 }
 
+// returns true if line has a form similar to "!searchterm" and can be passed to
+// history_expand
+static bool should_expand_line(const char *line) {
+    if (line == nullptr || line[0] != '!' || strnlen(line, 2) < 2) {
+        return false;
+    }
+    // We support expansion, but only "!search". editline is broken in regards 
+    // to !? and will eventually segfault. Most of the other operators don't
+    // work either.
+
+    // Catch other editline expansion prefixes: !?, !!, !n, etc.
+    // If the second character isn't in our banned list, we can do expansion
+    if (strchr("0123456789-#?!", line[1])) {
+        return false;
+    }
+
+    return true;
+}
+
+// returns true if line is blank ("") and the most recently executed command
+// is suitable to be repeated (step, next...)
+static bool should_repeat_line(const char *line) {
+    if (!line || *line != '\0')
+        return false;
+
+    // we only want to repeat a certain few commands
+    const std::unordered_set<std::string> repreatable = {
+        "n", "ne", "nex", "next",
+        "s", "ste", "step", // st is considered ambigious (start, step, or stop?)
+        "l", "li", "lis", "list"
+    };
+
+    auto recentEvent = current_history();
+
+    if (!recentEvent || !recentEvent->line) {
+        return false;
+    }
+
+    auto lastLine = std::string{recentEvent->line};
+
+    return static_cast<bool>(repreatable.count(lastLine));
+}
+
+// returns the expanded version of line as expanded by history_expand
+static char *expand_line(const char *line) {
+    if (line == nullptr) {
+        return nullptr;
+    }
+
+    char *expandedLine = nullptr;
+    if (history_expand(const_cast<char *>(line), &expandedLine) == 1) {
+        return expandedLine;
+    }
+
+    // history_expand can fail in ways that don't clean up expandedLine
+    free(expandedLine);
+
+    return nullptr;
+}
+
+// record line in command history and then execute it
+static void record_and_execute_line(const char *line) {
+    if (line == nullptr) return;
+
+    // If there is something other than a null terminator, maybe add it to the
+    // history. Note that we do not want to allow immediate repeat history entries.
+    if (*line) {
+        // Get the current history and check if it matches current line
+        if (auto entry = current_history()) {
+            // compare line to the history line, if true the two differ
+            // If they match, do nothing. We don't want repeat history
+            // entries since that is annoying to key through.
+            if (strcmp(line, entry->line) != 0) {
+                // Add the line to the history
+                add_history(line);
+            }
+        } else {
+            // Add the line to the history
+            add_history(line);
+        }
+    }
+
+    ExecuteCommand(line);
+}
+
 static void rl_handle_line(char *line) {
     // If line is NULL, something went very very wrong as readline triggered
     // that there was a complete line of text, but it returned nothing to us.
@@ -240,41 +332,31 @@ static void rl_handle_line(char *line) {
         return;
     }
 
-    // If there is something other than a null terminator, maybe add it to the
-    // history. Note that we do not want to allow repeat history entries.
-    if (*line) {
-        HIST_ENTRY *entry;
-        // Get the current history and check if it matches current line
-        if ((entry = current_history()) != NULL) {
-            // If line is not the same length and entry->line, they are
-            // different strings
-            if (strlen(line) != strlen(entry->line)) {
-                // Add the line to the history
-                add_history(line);
-            } else {
-                // compare line to the history line, if true the two differ
-                // If they match, do nothing. We don't want repeat history
-                // entries since that is annoying to key through.
-                if (strncmp(line, entry->line, strlen(entry->line))) {
-                    // Add the line to the history
-                    add_history(line);
-                }
-            }
-        } else {
-            // Add the line to the history
-            add_history(line);
-        }
-    }
-
     // replace the current line entry with a blank line. This is so that output
     // will look correct.
     rl_replace_line("", 0);
 
-    // execute the command
-    ExecuteCommand(line);
+    // Execute the command
+    if (should_repeat_line(line)) {
+        // "" was passed, so execute the most recent command again
+        // should_repeat_line has already made sure current_history() won't be null
+        record_and_execute_line(current_history()->line);
+    } else if (!should_expand_line(line)) {
+        // No expansion
+        record_and_execute_line(line);
+    } else if (auto expanded = expand_line(line)) {
+        // Try a reverse search if the first character is !
+        PrintOutLine("> %s\n", expanded);
+        record_and_execute_line(expanded);
+        free(expanded);
+    } else {
+        // User tried to search, but it failed.
+        // They probably don't want to try to run a failed search.
+        PrintOutError("Couldn't find a command in history matching \"%s\".\n", line);
+    }
 
     // done with line
-    Free(line);
+    free(line);
 
     // Check for quit condition, on quit we reset prompt to empty.
     if (!Client.quit) {

@@ -29,7 +29,6 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbglist_t *l;
     dbglist_t *lp;
     rep_set_t *rep_set = nullptr;
-    char *tmp_str;
 
     if (argc > 1) s = argv[1];
 

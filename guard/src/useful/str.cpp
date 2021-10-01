@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string_view>
 
 #include "alloc.h"
 #include "defs.h"
@@ -160,7 +161,7 @@ void formatSourceLine(std::string &line) {
 
     // un-escape any leading \t
     for (size_t i = 0; i < line.size(); i++) {
-        if (line.substr(i, 2) == "\\t") {
+        if (std::string_view(line).substr(i, 2) == "\\t") {
             line.replace(i, 2, "\t");
         }
 
@@ -168,7 +169,7 @@ void formatSourceLine(std::string &line) {
     }
 
     // remove the trailing \n, if present
-    if (line.substr(line.size() - 2, 2) == "\\n") {
+    if (line.find("\\n", line.size() - 2) != std::string::npos) {
         line.replace(line.size() - 2, 2, "");
     }
 };

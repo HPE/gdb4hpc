@@ -13,18 +13,7 @@ from avocado import Test
 from avocado.utils import process
 
 if False:
-    # get cdst testing library
-    import sys
-    from test_tool_starter import find_cdst_support_prefix
-
-    sys.path.insert(0, find_cdst_support_prefix() + "/testing_lib")
-
-    from cdst_test.useful import detect_wlm, getOut
-    from cdst_test.textcheck import make_regex, compare_files
-
-else:
     #####################    mockery   #######################
-    import os
     class Test:
         def get_data(self, filename, must_exist):
             return "./tests.py.data/" + filename
@@ -32,10 +21,18 @@ else:
         def assertTrue(self, val, msg):
             if not val:
                 print(msg)
-                   
-    os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
-    def getOut(test, name: str):
-        return "./tmp2/" + name + ".out"
+
+import sys
+import os
+
+os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
+
+from test_tool_starter import find_cdst_support_prefix
+
+sys.path.insert(0, find_cdst_support_prefix() + "/testing_lib")
+
+from cdst_test.useful import detect_wlm, getOut
+from cdst_test.textcheck import make_regex
 
 import subprocess
 import os
@@ -55,6 +52,7 @@ command_error_re = re.compile(r"^(Command resulted in an error: )\d+: (.*)")
 replace_dir_re = re.compile(r"\S*/bd_dt/")
 hex_val_re = re.compile(r"0x[0-9a-f]+")
 lwp_val_re = re.compile(r"\(LWP \d+\)")
+ftn_init_bp_re = re.compile(r"(Initial breakpoint, .*\.f90:)\d+")
 
 def getTxt(test, name: str):
     filename = name + ".in"
@@ -109,7 +107,7 @@ def compare_procset_lines(ref_line, out_line):
 
     # by design ref[0] == out[0] because we are looking in a single proc-set, but
     # check anyway
-    if ref[2] != out[2] or ref[0] != out[0]:
+    if not compare_lines(ref[2],out[2]) or ref[0] != out[0]:
         return False
 
     pcs = compare_proc_set(ref[1], out[1])
@@ -143,29 +141,37 @@ def is_prog_out(line):
     else:
         return False
 
+def compare_lines(ref_line, out_line):
+    percents = ref_line.count('%')
+    if percents != 0 and percents & 1 == 0:
+        return re.match(make_regex(ref_line), out_line) != None
+    else:
+        return ref_line == out_line
+
 def compare_batch_lines(ref_line, out_line):
     ref_batch_line = is_batch(ref_line)
     if ref_batch_line == None:
         return "missing output"
 
-    if ref_batch_line != out_line:
+    if not compare_lines(ref_batch_line, out_line):
         return "batch lines do not match"
 
     return None
 
-def compare_lines(ref_line, out_line):
+def compare_non_procset_lines(ref_line, out_line):
     m = command_error_re.match(ref_line)
     if m:
         ref_line = m.group(1) + m.group(2)
     m = command_error_re.match(out_line)
     if m:
         out_line = m.group(1) + m.group(2)
-    return ref_line == out_line
+    return compare_lines(ref_line, out_line)
 
 def anonymize_line(line):
     line = replace_dir_re.sub('./bd_dt/', line)
     line = hex_val_re.sub('hexval', line)
     line = lwp_val_re.sub('LWP', line)
+    line = ftn_init_bp_re.sub(r"\1<start-line>", line)
     m = interrupted_proc_out_re.match(line)
     if m:
         line = m.group(1)
@@ -266,7 +272,7 @@ def compare_files(ref_file_path, out_file_path):
             refline = next_ref_line(ref)
             if refline == None:
                 return (False, "extra output at " + str(outline_num))
-            if not compare_lines(refline, outline):
+            if not compare_non_procset_lines(refline, outline):
                 return (False, "mismatch at " + str(outline_num))
 
     return (True, ' ')
@@ -583,4 +589,5 @@ class cpp_attach(Test):
         runScript(self, subs)
         result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
         self.assertTrue(result, error)
+
 

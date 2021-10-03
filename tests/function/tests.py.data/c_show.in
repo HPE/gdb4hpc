@@ -40,7 +40,7 @@ a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_t
 Display type: text
 31: #Show the debugger version number.
 32: show version
-Version 4.13.5
+Version %\d+\.\d+.[\d.]+%
 34: #Show status of forcing of assertion values.
 35: show force
 Assertion forcing is off.

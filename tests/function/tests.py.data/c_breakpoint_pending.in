@@ -34,7 +34,7 @@ a{0..5}: Breakpoint 1: Pending at dlopened_function.
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 a{0..5}: Breakpoint 2, in dlopened_function
 25: # backtrace
-26: bt
+26: bt???
 a{0..5}: #1  main
 a{0..5}: #0  dlopened_function
    

@@ -186,6 +186,11 @@ public:
     dbgframe_t& operator=(const dbgframe_t&) = delete;
 };
 
+struct dbgstep_t {
+    bool step_frame_changed; // true when a step event stepped into/out of a function
+    dbgframe_t *step_frame;
+};
+
 struct dbgsig_t {
     char *sig_type;
     char *sig_line;
@@ -204,13 +209,6 @@ struct dbgvers_t {
     char *vers_arch;
 };
 typedef struct dbgvers_t dbgvers_t;
-
-struct dbgstep_t {
-    int step_lno;
-    char *step_line;
-    dbgframe_t *step_frame;
-};
-typedef struct dbgstep_t dbgstep_t;
 
 struct dbgsources_t {
     char *sources_file;
@@ -238,10 +236,10 @@ struct dbgevent_t {
         int ev_u_int;
         dbgbp_t *ev_u_bp;
         dbgsig_t ev_u_sig;
-        dbgstep_t ev_u_step;
         AIFStream *ev_u_data;
         dbglist_t *ev_u_list;
         dbgframe_t *ev_u_frame;
+        dbgstep_t ev_u_step;
         dbgloc_t *ev_u_loc;
         dbgvars_t *ev_u_vars;
         dbgstatus_t *ev_u_status;
@@ -254,16 +252,13 @@ struct dbgevent_t {
 #define ev_int ev_u.ev_u_int
 // These should be used everywhere
 #define ev_bp ev_u.ev_u_bp
-#define ev_step ev_u.ev_u_step
-#define ev_step_lno ev_u.ev_u_step.step_lno
-#define ev_step_line ev_u.ev_u_step.step_line
-#define ev_step_frame ev_u.ev_u_step.step_frame
 #define ev_sig ev_u.ev_u_sig
 #define ev_sig_type ev_u.ev_u_sig.sig_type
 #define ev_sig_line ev_u.ev_u_sig.sig_line
 #define ev_sig_frame ev_u.ev_u_sig.sig_frame
 #define ev_exit ev_u.ev_u_int
 #define ev_frame ev_u.ev_u_frame
+#define ev_step ev_u.ev_u_step
 #define ev_data ev_u.ev_u_data
 #define ev_list ev_u.ev_u_list
 #define ev_source_path ev_u.ev_u_string

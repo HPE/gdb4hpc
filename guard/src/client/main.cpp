@@ -68,6 +68,7 @@ static int started;     // Is it alright to longjmp?
 static void Banner(void);
 static void SigHandler(int);
 static const char * getDefaultProtocol();
+static void printEventLocation(const event_set_t *ev_set, const Bitset *group);
 
 /*
  * long opts
@@ -660,6 +661,74 @@ static void SigHandler(int sig) {
     }
 }
 
+// Prints program location after a step event is received
+static void printEventLocation(const event_set_t *ev_set, const Bitset *group) {
+    if (!ev_set || !ev_set->e_ev) {
+        return;
+    }
+
+    const dbgframe_t *frame = ev_set->e_ev->ev_step.step_frame;
+    bool frame_changed = ev_set->e_ev->ev_step.step_frame_changed;
+
+    if (frame) {
+        const auto &frameLoc = frame->getLoc();
+
+        // Print location info
+        if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
+            // See if we can get the source line
+            auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
+            lineArg += "," + lineArg; // filename:xx,filename:xx
+            dbgevent_t *listResult = nullptr;
+
+            if (ev_set->e_di->d_frontend) {
+                listResult = DbgFEList(ev_set->e_di->d_frontend, nullptr, lineArg.c_str());
+            }
+
+            if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+                // Print the source line
+
+                // Print a frame if the last step event changed functions
+                if (frame_changed) {
+                    PrintMsgWithSetInfo(
+                        ev_set->e_di->d_handle, ev_set->e_group.get(),
+                        "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                    );
+                }
+
+                auto line = std::string{listResult->ev_list->list_line};
+                formatSourceLine(line);
+                
+                PrintMsgWithSetInfo(
+                    ev_set->e_di->d_handle, ev_set->e_group.get(),
+                    "%d\t%s\n", frameLoc.loc_line, line.c_str()
+                );
+            } else {
+                // For some reason we didn't get the right line, just print the frame
+                PrintMsgWithSetInfo(
+                    ev_set->e_di->d_handle, ev_set->e_group.get(),
+                    "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                );
+            }
+
+            FreeEvent(listResult);
+        } else if (frameLoc.loc_func) {
+            // No file/line, just print function name
+            PrintMsgWithSetInfo(
+                ev_set->e_di->d_handle, ev_set->e_group.get(), "in %s\n", frameLoc.loc_func);
+        } else {
+            // Shouldn't ever happen
+            PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
+                "Step finished with no location information.\n"
+            );
+        }
+    } else {
+        // Got a null frame? This should never happen
+        PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
+            "Step finished with no location information.\n"
+        );
+    }
+}
+
 // This is called each time an asynchronous reply is recieved. The entire event
 // set which contains the aggregated event is passed in as ev_set and the
 // individual reply that was just received is passed in as reply_set.
@@ -919,33 +988,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             break;
 
         case DBGEV_STEP:
-            if (ev_set->e_ev->ev_step_frame != (dbgframe_t *)NULL) {
-                auto frameLoc = ev_set->e_ev->ev_step_frame->getLoc();
-                if (frameLoc.loc_line > 0) {
-                    PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group.get(),
-                        "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
-                } else {
-                    PrintMsgWithSetInfo(
-                        ev_set->e_di->d_handle, ev_set->e_group.get(), "in %s\n", frameLoc.loc_func);
-                }
-                break;
-            }
-
-            if (ev_set->e_ev->ev_step_lno < 0) {
-                PrintMsgWithSetInfo(
-                    ev_set->e_di->d_handle, ev_set->e_group.get(),
-                    "Single stepping until exit from function %s,\n",
-                    ev_set->e_ev->ev_step_line);
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "which has no line number information.\n");
-            } else if (ev_set->e_ev->ev_step_lno == 0) {
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "Program has reached the end.\n");
-            } else
-                PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),
-                                    "%d\t%s\n", ev_set->e_ev->ev_step_lno,
-                                    ev_set->e_ev->ev_step_line);
+            printEventLocation(ev_set, reply_set);
             break;
 
         case DBGEV_ERROR:

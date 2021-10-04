@@ -886,8 +886,8 @@ const char* const cmd_catch_help[] = {
     "    fork: catch calls to fork",
     "    vfork: catch calls to vfork",
     "    exec: catch calls to exec",
-    "    load: stop when a shared library is loaded",
-    "    unload: stop when a shared library is unloaded",
+    "    load <regex>: stop when a shared library matching regex is loaded",
+    "    unload <regex>: stop when a shared library matching regex is unloaded",
     "",
     "For each event, the process is stopped just after the event occurs.",
     0};

@@ -1,4 +1,0 @@
-%*
-Launch complete.
-a{0..5}: Initial breakpoint, main at %%testdir%%/bd_dt/c/c_type_test.c:55
-Shutting down debugger and killing application for 'a'.

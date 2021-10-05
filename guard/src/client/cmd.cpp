@@ -551,7 +551,10 @@ void DestroyCommands(void) {
 
 // queue a command to later be executed by ExecuteQueuedCommands
 void QueueCommand(const std::string &command) {
-    pendingCommandQueue.push_back(command);
+    // Don't queue pure whitespace
+    if (command.find_first_not_of(" \t\n\v\f\r") != std::string::npos) {
+        pendingCommandQueue.push_back(command);
+    }
 }
 
 // execute all commands in the command queue managed by QueueCommand
@@ -565,7 +568,7 @@ size_t ExecuteQueuedCommands() {
 
     while (pendingCommandQueue.size()) {
         auto command = std::move(pendingCommandQueue.front());
-        pendingCommandQueue.pop_back();
+        pendingCommandQueue.pop_front();
         ExecuteCommand(command.c_str());
     }
 

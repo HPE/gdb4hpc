@@ -35,6 +35,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fstream>
+#include <filesystem>
 
 #include "client.h"
 #include "useful.h"
@@ -69,6 +71,7 @@ static void Banner(void);
 static void SigHandler(int);
 static const char * getDefaultProtocol();
 static void printEventLocation(const event_set_t *ev_set, const Bitset *group);
+static void readInitCommandsFile();
 
 /*
  * long opts
@@ -264,6 +267,30 @@ static void SetupEnvironment(void) {
     Free(lib_dir);
     Free(libexec_dir);
     Free(inst_base);
+}
+
+static void readInitCommandsFile() {
+    const auto filename = std::string{"gdb4hpc_init"};
+    if (auto cfgDir = getenv(GUARD_CFG_DIRECTORY)) {
+        const auto path = std::string{cfgDir} + "/" + filename;
+
+        // The init file is optional. If it doesn't exist, just return
+        if (!std::filesystem::exists(path)) {
+            DPRINT("%s not found at %s.\n", filename.c_str(), path.c_str());
+            return;
+        }
+
+        if (auto stream = std::ifstream(path); !stream.fail()) {
+            for (std::string line; std::getline(stream, line); ) {
+                DPRINT("Queued command from %s: %s\n", filename.c_str(), line.c_str());
+                QueueCommand(line);
+            }
+        } else {
+            PrintOutMsg("Warning: failed to open %s for reading.\n", filename.c_str());
+        }
+    } else {
+        PrintOutMsg("Warning: couldn't find configuration directory to read %s.\n", filename.c_str());
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -534,6 +561,9 @@ int main(int argc, char *argv[]) {
     if (!Client.silent) {
         Banner();
     }
+
+    // Read gdb4hpc_init file
+    readInitCommandsFile();
 
     // Initial reset of the stream, for good measure.
     // If we don't do this, the prompt will be missing when using the editline

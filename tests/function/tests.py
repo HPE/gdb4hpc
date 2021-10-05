@@ -52,7 +52,8 @@ command_error_re = re.compile(r"^(Command resulted in an error: )\d+: (.*)")
 replace_dir_re = re.compile(r"\S*/bd_dt/")
 hex_val_re = re.compile(r"0x[0-9a-f]+")
 lwp_val_re = re.compile(r"\(LWP \d+\)")
-ftn_init_bp_re = re.compile(r"(Initial breakpoint, .*\.f90:)\d+")
+ftn_init_bp_re = re.compile(r"(Initial breakpoint, [a-zA-z_]+ at )(.*/)?(.*\.f90):\d+")
+launcher_arg_re = re.compile('--launcher-args="[^"]*" ')
 
 def getTxt(test, name: str):
     filename = name + ".in"
@@ -171,7 +172,8 @@ def anonymize_line(line):
     line = replace_dir_re.sub('./bd_dt/', line)
     line = hex_val_re.sub('hexval', line)
     line = lwp_val_re.sub('LWP', line)
-    line = ftn_init_bp_re.sub(r"\1<start-line>", line)
+    line = ftn_init_bp_re.sub(r"\1\3:<start-line>", line)
+    line = launcher_arg_re.sub('', line)
     m = interrupted_proc_out_re.match(line)
     if m:
         line = m.group(1)
@@ -307,7 +309,7 @@ def getTmpDir():
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
-def makeRunFile(test, additional_substitutions = {}):
+def makeRunFile(test, substitutions = {}):
     testName = test.__class__.__name__
     tmpdir = getTmpDir()
     rcfile = getTxt(test,testName)
@@ -315,11 +317,12 @@ def makeRunFile(test, additional_substitutions = {}):
         test.fail("could not get rc file")
     runfile = tmpdir + '/' + testName + ".rc"
 
-    substitutions = {
-        r"%%launcher_args%%" : lambda: os.environ["CDST_TESTS_LAUNCHER_ARGS"]
-    }
+    launch_re = None
+    launch_args = os.environ["CDST_TESTS_LAUNCHER_ARGS"]
+    if launch_args:
+        launch_re = re.compile(r"(launch [^}]+} *)")
 
-    rcline = re.compile(r"^\d+: (.*)")
+    rcline = re.compile(r"^\d+: ?(.*)")
 
     with open(runfile,"w") as run:
         for line in open(rcfile, "r"):
@@ -328,14 +331,11 @@ def makeRunFile(test, additional_substitutions = {}):
                 continue
             line = m.group(1) + "\n"
 
-            for repl, substitution in additional_substitutions.items():
-                line = line.replace(repl, substitution())
+            if launch_re:
+                line = launch_re.sub(r"\1" + '--launcher-args="' + launch_args + '" ', line)
 
             for repl, substitution in substitutions.items():
                 line = line.replace(repl, substitution())
-
-            # hack: on some systems, specifying --launcher-args="" will break the launcher.
-            line = line.replace("--launcher-args=\"\"", "")
 
             run.write(line)
 

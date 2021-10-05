@@ -527,6 +527,9 @@ int main(int argc, char *argv[]) {
     (void)setjmp(Top);
     started = 1;
 
+    // Execute any startup commands that may have been queued (none yet)
+    ExecuteQueuedCommands();
+
     // Main event loop
     for (;;) {
         // Check this first in case we got here after a signal arrived, that

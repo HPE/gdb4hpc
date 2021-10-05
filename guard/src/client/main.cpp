@@ -84,6 +84,7 @@ static const struct option long_opts[] = {
     {"version", no_argument, 0, 'v'},
     {"xml", no_argument, &(Client.XML_mode), 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"attach", required_argument, 0, 'j'},
     {0, 0, 0, 0}};
 
 static void usage(char *name) {
@@ -92,6 +93,7 @@ static void usage(char *name) {
     PrintOutMsg("Options:\n\n");
 
     PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
+    PrintOutMsg("  --attach=JOBID, -j   Immediately attach to application with JOBID\n");
     PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered\n");
     PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it\n");
     PrintOutMsg("  --help, -h           Display this text\n");
@@ -326,7 +328,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:kehi:o:sv", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:j:kehi:o:sv", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -352,6 +354,20 @@ int main(int argc, char *argv[]) {
                 // to call an external cli function that is cli stream
                 // dependent.
                 Client.confirm = 0;
+
+                break;
+            }
+            case 'j': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --attach provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                // queue an attach command
+                // TODO support --gpu. can it be automatically detected somehow?
+                auto command = std::string{"attach "} + "$job " + std::string{optarg};
+                QueueCommand(command);
 
                 break;
             }
@@ -527,7 +543,7 @@ int main(int argc, char *argv[]) {
     (void)setjmp(Top);
     started = 1;
 
-    // Execute any startup commands that may have been queued (none yet)
+    // Execute commands that have been queued at startup (e.g. immediate attach)
     ExecuteQueuedCommands();
 
     // Main event loop

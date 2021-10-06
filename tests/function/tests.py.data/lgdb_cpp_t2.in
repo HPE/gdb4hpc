@@ -154,8 +154,9 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_te
 <$b>: Float =                 2.3307               Size = 4 Bytes
 <$b>: Float =                 2.3307               Size = 4 Bytes
 <$b>: Struct member = 	100                  Size = 4 Bytes
-<$b>: Struct member = 	100                  Size = 4 Bytea{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
-b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+<$b>: Struct member = 	100                  Size = 4 Byte
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
 37: # run compare command on all data types
 38: print ret
 a{0..2}: 4
@@ -273,8 +274,8 @@ b{0..2}: 1
 57: #compare $a{0}::word=$b{0}::word
 60: #boolean
 61: print tf
-a{0..2}: true
-b{0..2}: true
+a{0..2}: %((true)|1)%
+b{0..2}: %((true)|1)%
 62: compare $a{0}::tf=$b{0}::tf
 {0}: Comparison is true.
 64: #signed int

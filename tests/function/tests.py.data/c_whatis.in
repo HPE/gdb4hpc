@@ -44,8 +44,8 @@ a{0..5}: double
 a{0..5}: struct test_struct {
     int i;
     double d;
-    char *c_ptr;
-    func_ptr_t func_ptr;
+    %(unsigned )?%char *c_ptr;
+    %((func_ptr_t func_ptr)|(void \(\*func_ptr\)\(\)))%;
 }
 
 34: #exit lgdb

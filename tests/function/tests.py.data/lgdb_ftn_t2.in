@@ -26,7 +26,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
+a{0..2}: Initial breakpoint, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:1
 25: launch $b{3}   bd_dt/fortran/ftn_bd_dt.x --debug
 Starting application, please wait...
 Creating MRNet communication network...
@@ -37,11 +37,11 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
+b{0..2}: Initial breakpoint, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:1
 28: # Set a breakpoint at specified line number:
 29: break ftn_bd_dt.f90:64
-a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
-b{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 64.
 33: # Run to breakpoint 1:
 34: continue
 <$b>:  string= Testing
@@ -110,8 +110,8 @@ b{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
 <$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
 <$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
 <$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
-a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:64
-b{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:64
+b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:64
 37: # run compare commands on all datatypes
 38: print tf
 a{0..2}: .TRUE.

@@ -43,9 +43,9 @@ a{0..5}: Name:numProcs                 	Type:int
 a{0..5}: Name:source                   	Type:int
 a{0..5}: Name:dest                     	Type:int
 a{0..5}: Name:tag                      	Type:int
-a{0..5}: Name:message                  	Type:char [100]
+a{0..5}: Name:message                  	Type:%(unsigned )?%char [100]
 a{0..5}: Name:status                   	Type:MPI_Status
-a{0..5}: Name:c                        	Type:char
+a{0..5}: Name:c                        	Type:%(unsigned )?%char
 a{0..5}: Name:sc                       	Type:signed char
 a{0..5}: Name:uc                       	Type:unsigned char
 a{0..5}: Name:sh                       	Type:short
@@ -64,12 +64,12 @@ a{0..5}: Name:sl                       	Type:long
 a{0..5}: Name:sli                      	Type:long
 a{0..5}: Name:ul                       	Type:unsigned long
 a{0..5}: Name:uli                      	Type:unsigned long
-a{0..5}: Name:ll                       	Type:long long
-a{0..5}: Name:lli                      	Type:long long
-a{0..5}: Name:sll                      	Type:long long
-a{0..5}: Name:slli                     	Type:long long
-a{0..5}: Name:ull                      	Type:unsigned long long
-a{0..5}: Name:ulli                     	Type:unsigned long long
+a{0..5}: Name:ll                       	Type:long%( long)?%
+a{0..5}: Name:lli                      	Type:long%( long)?%
+a{0..5}: Name:sll                      	Type:long%( long)?%
+a{0..5}: Name:slli                     	Type:long%( long)?%
+a{0..5}: Name:ull                      	Type:unsigned long%( long)?%
+a{0..5}: Name:ulli                     	Type:unsigned long%( long)?%
 a{0..5}: Name:f                        	Type:float
 a{0..5}: Name:d                        	Type:double
 a{0..5}: Name:ld                       	Type:long double
@@ -90,7 +90,7 @@ a{0..5}: Name:one_d_ld                 	Type:long double [10]
 a{0..5}: Name:two_d_ld                 	Type:long double [10][20]
 a{0..5}: Name:three_d_ld               	Type:long double [10][20][30]
 a{0..5}: Name:struct_test_1            	Type:struct test_struct
-a{0..5}: Name:char_ptr_test_1          	Type:char *
+a{0..5}: Name:char_ptr_test_1          	Type:%(unsigned )?%char *
 a{0..5}: Name:void_ptr                 	Type:void *
 a{0..5}: Name:int_ptr                  	Type:int *
 a{0..5}: Name:int_ptr_2                	Type:int *
@@ -112,7 +112,7 @@ a{0..5}: Name:three_d_d_cnt            	Type:double
 a{0..5}: Name:one_d_ld_cnt             	Type:long double
 a{0..5}: Name:two_d_ld_cnt             	Type:long double
 a{0..5}: Name:three_d_ld_cnt           	Type:long double
-a{0..5}: Name:addr                     	Type:unsigned long long
+a{0..5}: Name:addr                     	Type:unsigned long%( long)?%
 a{0..5}: Name:assertTest               	Type:int
 a{0..5}: Name:stackTest                	Type:int
 35: #Show attached/launched applications under debugger control.

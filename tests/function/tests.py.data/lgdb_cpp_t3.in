@@ -172,8 +172,8 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_cmp_d
 <$b>: Pointer to int = 	5                    Size = 8 Bytes
 <$b>: Pointer to int = 	5                    Size = 8 Bytes
 <$b>: Pointer
-b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_cmp_diff.cpp:136
-a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_cmp_diff.cpp:136
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
 43: # run compare command on all data types
 44: print ret
 a{0..2}: 4
@@ -206,8 +206,8 @@ The difference delta is:
 63: #compare $a{0}::word=$b{0}::word
 66: #boolean
 67: print tf
-a{0..2}: true
-b{0..2}: false
+a{0..2}: %((true)|1)%
+b{0..2}: %((false)|0)%
 <$a>: truct member = 	Cray                 Size = 32 Bytes
 <$a>: String  =               Testing              Size = 32 Bytes
 <$a>: String  =               Testing              Size = 32 Bytes

@@ -33,11 +33,11 @@ Launch complete.
 b{0..3}: Initial breakpoint, ftn_decomp at ftn_decomp.f90:2
 17: # run until the arrays are initialized
 18: b 109
-a{0..2}: Breakpoint 1: file ftn_decomp.f90, line 109.
-b{0..3}: Breakpoint 1: file ftn_decomp.f90, line 109.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_decomp.f90, line 109.
+b{0..3}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_decomp.f90, line 109.
 19: c
-b{0..3}: Breakpoint 1, ftn_decomp at ftn_decomp.f90:109
-a{0..2}: Breakpoint 1, ftn_decomp at ftn_decomp.f90:109
+b{0..3}: Breakpoint 1, ftn_decomp at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_decomp.f90:109
+a{0..2}: Breakpoint 1, ftn_decomp at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_decomp.f90:109
 21: decomposition $block1_3
 22: dimension 120
 23: distribute block

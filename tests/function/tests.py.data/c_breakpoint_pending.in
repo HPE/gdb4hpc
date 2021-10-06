@@ -19,7 +19,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, in main
+a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_dlopen_test.c:23
 18: # Set a pending breakpoint at function that will be dlopened
 19: set break pending on
 20: break dlopened_function
@@ -32,7 +32,7 @@ a{0..5}: Breakpoint 1: Pending at dlopened_function.
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
-a{0..5}: Breakpoint 2, in dlopened_function
+a{0..5}: Breakpoint 2, dlopened_function at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13
 25: # backtrace
 26: bt???
 a{0..5}: #1  main
@@ -41,19 +41,19 @@ a{0..5}: #0  dlopened_function
 28: #list breakpoints
 29: info breakpoint
 Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13
 31: # Test disable command
 32: disable 2
 34: #test has breakpoint 3 been disabled?
 35: info breakpoint
 Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep n   in dlopened_function
+a{0..5}: 	2   breakpoint     keep n   in dlopened_function at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13
 37: # Test enable command
 38: enable 2  
 40: #has breakpoint 3 been enabled?
 41: info breakpoint
 Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep y   in dlopened_function
+a{0..5}: 	2   breakpoint     keep y   in dlopened_function at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13
 43: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
 44: delete 2 
 46: #has breakpoint 3 been deleted?

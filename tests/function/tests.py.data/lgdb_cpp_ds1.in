@@ -34,7 +34,7 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_te
 b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp, line 105.
 31: # Run to breakpoint 2:
 32: continue
-b{0..2}: Breakpoint 2, f(Struct1 const&, Classy const&) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp:105
+b{0..2}: Breakpoint 2, %.*f.*Struct.*Classy[^ ]*% at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp:105
 34: p s
 b{0..2}: {x = 22.1, y = -5}
 35: p c

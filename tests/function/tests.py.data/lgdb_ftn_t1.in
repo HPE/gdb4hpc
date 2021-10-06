@@ -38,15 +38,15 @@ Launch complete.
 b{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
 27: # Set a breakpoint at specified line numbers:
 28: break ftn_bd_dt.f90:46
-a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 46.
-b{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 46.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 46.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 46.
 30: break ftn_bd_dt.f90:62
-a{0..2}: Breakpoint 2: file ftn_bd_dt.f90, line 62.
-b{0..2}: Breakpoint 2: file ftn_bd_dt.f90, line 62.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 62.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 62.
 34: # Run to breakpoint 1:
 35: continue
-a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:46
-b{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:46
+a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
+b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
 38: # Confirm program is at specified line: 46
 39: #list
 42: # print some local variables
@@ -114,8 +114,8 @@ b{0..2}: .TRUE.
 <$a>:  Struct member=  100
 <$a>:  Struct member= Cray
 <$a>:  Struct member=  100
-b{0..2}: Breakpoint 2, ftn_dt at ftn_bd_dt.f90:62
-a{0..2}: Breakpoint 2, ftn_dt at ftn_bd_dt.f90:62
+b{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
 59: # Ensure program is set at breakpoint line # 62
 60: #l
 62: # Print m

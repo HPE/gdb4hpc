@@ -212,8 +212,8 @@ b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_te
 <$b>: Float =                 2.3307               Size = 4 Bytes
 <$b>: Struct member = 	100                  Size = 4 Bytes
 <$b>: Float =                 2.3307               Size
-a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
-b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
 42: # Confirm program is at specified line:
 43: #list
 46: # print some local variables
@@ -231,8 +231,8 @@ b{0..2}: 4
 {0}: Comparison is true.
 59: #continue to second breakpoint
 60: continue
-a{0..2}: Breakpoint 2, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
-b{0..2}: Breakpoint 2, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
 62: print y
 a{0..2}: 2
 b{0..2}: 2

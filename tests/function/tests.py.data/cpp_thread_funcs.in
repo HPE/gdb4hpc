@@ -47,7 +47,7 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threa
 26: c
 b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
 a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
-28: info threads
+28: info threads???
 a{0..2}:   Id    Frame
 a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:71
 a{0..2}:   2-11  "cpp_threads.x" %.*sleep.*%

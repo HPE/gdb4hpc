@@ -36,8 +36,8 @@ b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/
 a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 78.
 b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 78.
 19: c
-a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
-b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
 21: # distributedArray1 and distributedVec should each have 40 elements, define
 22: # a 1d and 2d decomposition.
 24: # 1D Decomp - not strictly necessary or useful as it turns out
@@ -108,8 +108,8 @@ Comparison is true.
 a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 88.
 b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 88.
 80: c
-a{0..2}: Breakpoint 2, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
-b{0..2}: Breakpoint 2, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
 82: compare $a::array2d == $b::array2d
 {0..2}: Comparison is false.
 The difference delta is:

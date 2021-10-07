@@ -45,7 +45,7 @@ if False:
 import sys
 import os
 
-os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
+#os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
 
 from test_tool_starter import find_cdst_support_prefix
 

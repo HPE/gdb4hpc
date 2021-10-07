@@ -25,5 +25,5 @@ a{0..2}: 12	    return 0;
 a{0..2}: 13	}
 8: print p
 a{0..2}: (int *) 0x0
-9: q
+9: q???
 Shutting down debugger and killing application for 'a'.

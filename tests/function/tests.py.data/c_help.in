@@ -1,0 +1,77 @@
+1: #
+2: # lgdb_c_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: maint set sync on
+19: launch $a{6}   bd_dt/c/c_type_test.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:55
+21: # Test help command
+22: help 
+assign          Change the value of an application or debugger variable.
+attach          Attach to an application.
+backtrace       Print backtrace of all stack frames.
+break           Set breakpoint at specified line or function.
+build           Build an assertion script.
+compare         Compare the contents of two variables.
+continue        Continue execution of application.
+cuda            Cuda debugging functions.
+decomposition   Define a decomposition scheme.
+defset          Create a set of processes.
+delete          Delete a breakpoint.
+disable         Disable a breakpoint.
+down            Move down one or more stack frames.
+enable          Enable a breakpoint.
+finish          Execute application until each rank's current function returns.
+focus           Set the current process set.
+frame           Print the currently selected stack frame.
+gdbmode         Enter direct gdb mode (experimental).
+halt            Halt execution of attached/launched application.
+help            Display help information about commands.
+info            Display information about the application being debugged.
+kill            Kill attached/launched application.
+launch          Launch an application.
+list            List source for specified function or line.
+maint           Commands for use by debugger maintainers.
+next            Step application, proceeding through subroutine calls.
+ompd            OpenMP debugging functions.
+print           Print the value of an expression.
+ptype           Print definition of a type.
+quit            Exit the debugger.
+release         Release attached/launched application from debugger control.
+session         Create a new WLM session.
+set             Set information about the debugger environment.
+show            Show information about the debugger environment.
+source          Read debugger commands from a file.
+start           Start executing an assertion script.
+step            Step application until it reaches a different source line.
+stop            Stop the currently executing assertion script.
+tbreak          Set a temporary breakpoint at specified line or function.
+thread          Thread control functions.
+unset           Unset information in the debugger environment.
+up              Move up one or more stack frames.
+usage           Display usage information about script mode commands.
+viewset         Display information about process sets.
+watch           Set watchpoint on specified expression.
+whatis          Print the data type of an expression.
+25: #exit lgdb
+26: q
+Shutting down debugger and killing application for 'a'.

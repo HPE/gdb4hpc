@@ -1,0 +1,94 @@
+1: maint set sync on
+3: # character array specific tests
+4: launch $a{3}  bd_dt/C++/cpp_arrays_print.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays_print.cpp:4
+6: break cpp_arrays_print.cpp:31
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays_print.cpp, line 31.
+8: continue
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays_print.cpp:31
+10: # full char arrays
+11: p one_d
+a{0..2}: "Hello world!\0x0A"
+12: p one_d_u
+a{0..2}: [78,117,109,98,101,114,115,0]
+13: p one_d_s
+a{0..2}: "Hello world! (signed)\0x09\0x0A"
+14: p two_d
+a{0..2}: ["Hello","World!\0x0A","Empty ->",""]
+15: p two_d_u
+a{0..2}: [[97,98,99,0],[49,50,51,0],[120,121,122,0],[48,57,56,0]]
+17: # full arrays
+18: print intarray
+a{0..2}: [1,2,3,4,5]
+19: print intarray2d
+a{0..2}: [[1,2],[3,4]]
+20: print intarray2d2
+a{0..2}: [[1,2],[3,4],[5,6]]
+21: print floatarray
+a{0..2}: [1.1,2.2,3.3,4.4000001,5.5]
+23: # single elements
+24: ## valid
+25: p one_d[0]
+a{0..2}: H
+26: p two_d[0][0]
+a{0..2}: H
+27: p two_d[2][0]
+a{0..2}: E
+28: p intarray[2]
+a{0..2}: 3
+29: p intarray2d[1][1]
+a{0..2}: 4
+31: ## out of range
+32: p one_d[256]
+a{0..2}: Debugger error: Slicing failed: Index out of range
+33: p two_d[256][0]
+a{0..2}: Debugger error: Slicing failed: Index out of range
+34: p two_d[0][256]
+a{0..2}: Debugger error: Slicing failed: Index out of range
+35: p intarray[10]
+a{0..2}: Debugger error: Slicing failed: Index out of range
+37: # strings
+38: p cstring
+a{0..2}: "hello \n world!"
+39: p cptr
+a{0..2}: "hello \n world!"
+40: p const_cstring
+a{0..2}: "const hello world!"
+41: p empty
+a{0..2}: ""
+42: p cstringarray
+a{0..2}: [(char *) 0x2008f8,(char *) 0x2008b4,(char *) 0x2008c0]
+44: # make sure normal pointers still work too
+45: p inte
+a{0..2}: 23
+46: p intp
+a{0..2}: (int *) [1]
+47: p *intp
+a{0..2}: 23
+48: p intparray
+a{0..2}: [(int *) 0x7fffffff573c,(int *) 0x7fffffff572c]
+50: # make sure printing a char** is normal
+51: p argv
+a{0..2}: (char **) [1]
+53: # setting pring elements
+54: set print elements 3
+56: p intarray
+a{0..2}: [1,2,3...]
+57: p intarray2d
+a{0..2}: [[1,2],[3...]]
+58: p intarray2d2
+a{0..2}: [[1,2],[3...]...]
+59: p two_d
+a{0..2}: ["Hel"...]
+61: kill $a
+Shutting down debugger and killing application for 'a'.
+63: q

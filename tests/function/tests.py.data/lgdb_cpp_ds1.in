@@ -1,0 +1,104 @@
+1: #
+2: # lgdb_cpp_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: # This source files tests most of lgdb's basic commands for C++ source code
+18: maint set sync on
+21: # launch 3 instances of the application
+22: #launch $a{3}   bd_dt/C++/cpp_ds_test1.x --debug
+24: launch $b{3}   bd_dt/C++/cpp_ds_test1.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at %.*%
+27: # Set a breakpoint at specified line numbers:
+28: break cpp_ds_test1.cpp:97
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp, line 97.
+29: break cpp_ds_test1.cpp:105
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp, line 105.
+31: # Run to breakpoint 2:
+32: continue
+b{0..2}: Breakpoint 2, f(Struct1 const&, Classy const&) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp:105
+34: p s
+b{0..2}: {x = 22.1, y = -5}
+35: p c
+b{0..2}: {x = 22.2, y = -6}
+37: # Run to breakpoint 1
+38: continue
+b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_ds_test1.cpp:97
+42: # print some local variables
+43: print i
+b{0..2}: 10
+45: print l_tail
+b{0..2}: 9
+47: print pq_tail
+b{0..2}: 9
+49: print stack_top
+b{0..2}: 9
+51: print q_queue_tail
+b{0..2}: 9
+53: print d_queue_tail
+b{0..2}: 9
+55: print vec_float
+b{0..2}: 9.5
+57: print vec_double
+b{0..2}: 9.5
+59: # run compare command
+60: compare $b{0}::area1=$b{1}::area1
+{0}: Comparison is true.
+62: compare $b{0}::area2=$b{1}::area2
+{0}: Comparison is true.
+64: # print the containers to verify the pretty printing
+65: print l
+b{0..2}: {[1] = {std::__cxx11::_List_base<int, std::allocator<int> > = {_M_impl = {std::__cxx11::_List_base<int, std::allocator<int> >::_Node_alloc_type = {}, _M_node = {std::__detail::_List_node_base = {_M_next = (std::__detail::_List_node_base *) [2], _M_prev = (std::__detail::_List_node_base *) [3]}, _M_size = 10}}}}, [2] = {_M_next = (std::__detail::_List_node_base *) [4], _M_prev = (std::__detail::_List_node_base *) [1]}, [3] = {_M_next = (std::__detail::_List_node_base *) [1], _M_prev = (std::__detail::_List_node_base *) [5]}, [4] = {_M_next = (std::__detail::_List_node_base *) [6], _M_prev = (std::__detail::_List_node_base *) [2]}, [5] = {_M_next = (std::__detail::_List_node_base *) [3], _M_prev = (std::__detail::_List_node_base *) [7]}, [6] = {_M_next = (std::__detail::_List_node_base *) [8], _M_prev = (std::__detail::_List_node_base *) [4]}, [7] = {_M_next = (std::__detail::_List_node_base *) [5], _M_prev = (std::__detail::_List_node_base *) [9]}, [8] = {_M_next = (std::__detail::_List_node_base *) [10], _M_prev = (std::__detail::_List_node_base *) [6]}, [9] = {_M_next = (std::__detail::_List_node_base *) [7], _M_prev = (std::__detail::_List_node_base *) [11]}, [10] = {_M_next = (std::__detail::_List_node_base *) [11], _M_prev = (std::__detail::_List_node_base *) [8]}, [11] = {_M_next = (std::__detail::_List_node_base *) [9], _M_prev = (std::__detail::_List_node_base *) [10]}}
+66: print pq
+b{0..2}: [9,8,5,6,7,1,4,0,3,2]
+67: print s
+b{0..2}: [0,1,2,3,4,5,6,7,8,9]
+68: print q
+b{0..2}: [0,1,2,3,4,5,6,7,8,9]
+69: print d
+b{0..2}: [0,1,2,3,4,5,6,7,8,9]
+70: print vf
+b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
+71: print vd
+b{0..2}: [0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5]
+73: p s1
+b{0..2}: {x = 22.1, y = -5}
+74: p c1
+b{0..2}: {x = 22.2, y = -6}
+76: p ll
+b{0..2}: (LinkedList *) [1]
+77: p *ll
+b{0..2}: {[1] = {val = 0, next = (LinkedList *) [2]}, [2] = {val = 0, next = (LinkedList *) [3]}, [3] = {val = 2, next = (LinkedList *) [4]}, [4] = {val = 4, next = (LinkedList *) [5]}, [5] = {val = 1, next = (LinkedList *) [6]}, [6] = {val = 3, next = (LinkedList *) [7]}, [7] = {val = 0, next = (LinkedList *) [8]}, [8] = {val = 2, next = (LinkedList *) [9]}, [9] = {val = 4, next = (LinkedList *) [10]}, [10] = {val = 1, next = (LinkedList *) [11]}, [11] = {val = 3, next = (LinkedList *) [1]}}
+78: p my_null
+b{0..2}: (void *) 0x0
+80: p func1(l_tail)
+b{0..2}: 27
+81: p func1(4)
+b{0..2}: 12
+82: p func2(l_tail, i)
+b{0..2}: 29
+83: p func2(2,-7)
+b{0..2}: -12
+86: continue
+b{0..2}: The application has reached an exit breakpoint.
+89: #quit lgdb
+90: q
+Shutting down debugger and killing application for 'b'.

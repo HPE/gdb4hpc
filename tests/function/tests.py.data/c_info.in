@@ -1,0 +1,124 @@
+1: #
+2: # lgdb_c_t2.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+17: maint set sync on
+19: # launch 3 instances of the application
+20: launch $a{6}   bd_dt/c/c_type_test.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:55
+22: break c_type_test.c:227
+a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 227.
+24: #Display the status of the debug servers.
+25: info status
+a{0..5}: The application is stopped.
+28: #List local variables of ranks in current process set.
+29: info scope test_stack
+Scope local variables for $a:
+Name:x                        	Type:int
+31: #List variables local to a scope in the application.
+32: info locals
+a{0..5}: Name:argc                     	Type:int
+a{0..5}: Name:argv                     	Type:char **
+a{0..5}: Name:myRank                   	Type:int
+a{0..5}: Name:numProcs                 	Type:int
+a{0..5}: Name:source                   	Type:int
+a{0..5}: Name:dest                     	Type:int
+a{0..5}: Name:tag                      	Type:int
+a{0..5}: Name:message                  	Type:%(unsigned )?%char [100]
+a{0..5}: Name:status                   	Type:MPI_Status
+a{0..5}: Name:c                        	Type:%(unsigned )?%char
+a{0..5}: Name:sc                       	Type:signed char
+a{0..5}: Name:uc                       	Type:unsigned char
+a{0..5}: Name:sh                       	Type:short
+a{0..5}: Name:shi                      	Type:short
+a{0..5}: Name:ssh                      	Type:short
+a{0..5}: Name:sshi                     	Type:short
+a{0..5}: Name:ush                      	Type:unsigned short
+a{0..5}: Name:ushi                     	Type:unsigned short
+a{0..5}: Name:i                        	Type:int
+a{0..5}: Name:si                       	Type:int
+a{0..5}: Name:u                        	Type:unsigned int
+a{0..5}: Name:ui                       	Type:unsigned int
+a{0..5}: Name:l                        	Type:long
+a{0..5}: Name:li                       	Type:long
+a{0..5}: Name:sl                       	Type:long
+a{0..5}: Name:sli                      	Type:long
+a{0..5}: Name:ul                       	Type:unsigned long
+a{0..5}: Name:uli                      	Type:unsigned long
+a{0..5}: Name:ll                       	Type:long%( long)?%
+a{0..5}: Name:lli                      	Type:long%( long)?%
+a{0..5}: Name:sll                      	Type:long%( long)?%
+a{0..5}: Name:slli                     	Type:long%( long)?%
+a{0..5}: Name:ull                      	Type:unsigned long%( long)?%
+a{0..5}: Name:ulli                     	Type:unsigned long%( long)?%
+a{0..5}: Name:f                        	Type:float
+a{0..5}: Name:d                        	Type:double
+a{0..5}: Name:ld                       	Type:long double
+a{0..5}: Name:one_d_i_init             	Type:int [10]
+a{0..5}: Name:one_d_i                  	Type:int [10]
+a{0..5}: Name:two_d_i                  	Type:int [10][20]
+a{0..5}: Name:three_d_i                	Type:int [10][20][30]
+a{0..5}: Name:one_d_l                  	Type:long [10]
+a{0..5}: Name:two_d_l                  	Type:long [10][20]
+a{0..5}: Name:three_d_l                	Type:long [10][20][30]
+a{0..5}: Name:one_d_f                  	Type:float [10]
+a{0..5}: Name:two_d_f                  	Type:float [10][20]
+a{0..5}: Name:three_d_f                	Type:float [10][20][30]
+a{0..5}: Name:one_d_d                  	Type:double [10]
+a{0..5}: Name:two_d_d                  	Type:double [10][20]
+a{0..5}: Name:three_d_d                	Type:double [10][20][30]
+a{0..5}: Name:one_d_ld                 	Type:long double [10]
+a{0..5}: Name:two_d_ld                 	Type:long double [10][20]
+a{0..5}: Name:three_d_ld               	Type:long double [10][20][30]
+a{0..5}: Name:struct_test_1            	Type:struct test_struct
+a{0..5}: Name:char_ptr_test_1          	Type:%(unsigned )?%char *
+a{0..5}: Name:void_ptr                 	Type:void *
+a{0..5}: Name:int_ptr                  	Type:int *
+a{0..5}: Name:int_ptr_2                	Type:int *
+a{0..5}: Name:ii                       	Type:int
+a{0..5}: Name:jj                       	Type:int
+a{0..5}: Name:kk                       	Type:int
+a{0..5}: Name:one_d_i_cnt              	Type:int
+a{0..5}: Name:two_d_i_cnt              	Type:int
+a{0..5}: Name:three_d_i_cnt            	Type:int
+a{0..5}: Name:one_d_l_cnt              	Type:long
+a{0..5}: Name:two_d_l_cnt              	Type:long
+a{0..5}: Name:three_d_l_cnt            	Type:long
+a{0..5}: Name:one_d_f_cnt              	Type:float
+a{0..5}: Name:two_d_f_cnt              	Type:float
+a{0..5}: Name:three_d_f_cnt            	Type:float
+a{0..5}: Name:one_d_d_cnt              	Type:double
+a{0..5}: Name:two_d_d_cnt              	Type:double
+a{0..5}: Name:three_d_d_cnt            	Type:double
+a{0..5}: Name:one_d_ld_cnt             	Type:long double
+a{0..5}: Name:two_d_ld_cnt             	Type:long double
+a{0..5}: Name:three_d_ld_cnt           	Type:long double
+a{0..5}: Name:addr                     	Type:unsigned long%( long)?%
+a{0..5}: Name:assertTest               	Type:int
+a{0..5}: Name:stackTest                	Type:int
+35: #Show attached/launched applications under debugger control.
+36: info application
+Handle     Ranks      Focus Application
+$a         6          y     /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.x
+38: #exit lgdb
+39: q
+Shutting down debugger and killing application for 'a'.

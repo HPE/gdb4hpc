@@ -1,0 +1,127 @@
+1: #
+2: # ftn_arrays.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+12: maint set sync on
+14: # launch 2 instances of the application
+15: launch $a{3}  --args="0 6" bd_dt/fortran/ftn_arrays.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:1
+16: launch $b{3}  --args="1 6" bd_dt/fortran/ftn_arrays.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:1
+18: # Break when the arrays should be equivalent
+19: break 113
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90, line 113.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90, line 113.
+21: continue
+a{0..2}: Breakpoint 1, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:113
+b{0..2}: Breakpoint 1, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:113
+23: # print the array values
+24: p int_1
+a{0..2}: No symbol "int_1" in current context
+b{0..2}: No symbol "int_1" in current context
+25: p int_2
+a{0..2}: No symbol "int_2" in current context
+b{0..2}: No symbol "int_2" in current context
+26: p int_3
+a{0..2}: No symbol "int_3" in current context
+b{0..2}: No symbol "int_3" in current context
+27: p long_1
+a{0..2}: No symbol "long_1" in current context
+b{0..2}: No symbol "long_1" in current context
+28: p long_2
+a{0..2}: No symbol "long_2" in current context
+b{0..2}: No symbol "long_2" in current context
+29: p long_3
+a{0..2}: No symbol "long_3" in current context
+b{0..2}: No symbol "long_3" in current context
+30: p float_1
+a{0..2}: No symbol "float_1" in current context
+b{0..2}: No symbol "float_1" in current context
+31: p float_2
+a{0..2}: No symbol "float_2" in current context
+b{0..2}: No symbol "float_2" in current context
+32: p float_3
+a{0..2}: No symbol "float_3" in current context
+b{0..2}: No symbol "float_3" in current context
+33: p double_1
+a{0..2}: No symbol "double_1" in current context
+b{0..2}: No symbol "double_1" in current context
+34: p double_2
+a{0..2}: No symbol "double_2" in current context
+b{0..2}: No symbol "double_2" in current context
+35: p double_3
+a{0..2}: No symbol "double_3" in current context
+b{0..2}: No symbol "double_3" in current context
+36: p complex_1
+a{0..2}: No symbol "complex_1" in current context
+b{0..2}: No symbol "complex_1" in current context
+37: p complex_2
+a{0..2}: No symbol "complex_2" in current context
+b{0..2}: No symbol "complex_2" in current context
+38: p complex_3
+a{0..2}: No symbol "complex_3" in current context
+b{0..2}: No symbol "complex_3" in current context
+39: p bool_1
+a{0..2}: No symbol "bool_1" in current context
+b{0..2}: No symbol "bool_1" in current context
+40: p bool_2
+a{0..2}: No symbol "bool_2" in current context
+b{0..2}: No symbol "bool_2" in current context
+41: p bool_3
+a{0..2}: No symbol "bool_3" in current context
+b{0..2}: No symbol "bool_3" in current context
+42: p word
+a{0..2}: No symbol "word" in current context
+b{0..2}: No symbol "word" in current context
+44: compare $a::int_1 == $b::int_1
+a{0..2}: No symbol "int_1" in current context
+Could not retrieve contents of val.
+Command resulted in an error: 44: compare $a::int_1 == $b::int_1
+1: #======================================================================
+1: #add these back in when the symbol lookup is fixed
+1: #======================================================================
+1: #compare $a::int_2 != $b::int_2
+1: #compare $a::int_3 != $b::int_3
+1: #compare $a::long_1 != $b::long_1
+1: #compare $a::long_2 != $b::long_2
+1: #compare $a::long_3 != $b::long_3
+1: #compare $a::float_1 != $b::float_1
+1: #compare $a::float_2 != $b::float_2
+1: #compare $a::float_3 != $b::float_3
+1: #compare $a::double_1 != $b::double_1
+1: #compare $a::double_2 != $b::double_2
+1: #compare $a::double_3 != $b::double_3
+1: #compare $a::complex_1 != $b::complex_1
+1: #compare $a::complex_2 != $b::complex_2
+1: #compare $a::complex_3 != $b::complex_3
+1: #compare $a::bool_1 != $b::bool_1
+1: #compare $a::bool_2 != $b::bool_2
+1: #compare $a::bool_3 != $b::bool_3
+1: #compare $a::word != $b::word
+49: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

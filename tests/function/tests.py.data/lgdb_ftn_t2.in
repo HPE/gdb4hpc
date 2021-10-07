@@ -1,0 +1,159 @@
+1: #
+2: # lgdb_ftn_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: # This source file tests lgdb's  compare command for source code in fortran.
+17: # All results should be PASS.
+20: maint set sync on
+22: # launch 2 applications in lgdb
+23: launch $a{3}   bd_dt/fortran/ftn_bd_dt.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:1
+25: launch $b{3}   bd_dt/fortran/ftn_bd_dt.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:1
+28: # Set a breakpoint at specified line number:
+29: break ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 64.
+33: # Run to breakpoint 1:
+34: continue
+<$b>:  string= Testing
+<$b>:  string= Testing
+<$b>:  string= Testing
+<$b>:  Integer=  1
+<$b>:  Integer=  1
+<$b>:  Integer=  1
+<$b>:  char= t
+<$b>:  char= t
+<$b>:  char= t
+<$b>:  real=  30.3199997
+<$b>:  real=  30.3199997
+<$b>:  real=  30.3199997
+<$b>:  real8=  1.
+<$b>:  real8=  1.
+<$b>:  real8=  1.
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  complex=  (327.670013,-6.500000134E-3)
+<$b>:  Integer multiplication=  2
+<$b>:  Integer multiplication=  2
+<$b>:  Integer multiplication=  2
+<$b>:  Boolean=  T
+<$b>:  Boolean=  T
+<$b>:  Boolean=  T
+<$b>:  Struct member= Cray
+<$b>:  Struct member= Cray
+<$b>:  Struct member= Cray
+<$b>:  Struct member=  100
+<$b>:  Struct member=  100
+<$b>:  Struct member=  100
+<$b>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$b>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$b>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$a>:  string= Testing
+<$a>:  string= Testing
+<$a>:  string= Testing
+<$a>:  Integer=  1
+<$a>:  Integer=  1
+<$a>:  Integer=  1
+<$a>:  char= t
+<$a>:  char= t
+<$a>:  char= t
+<$a>:  real=  30.3199997
+<$a>:  real=  30.3199997
+<$a>:  real=  30.3199997
+<$a>:  real8=  1.
+<$a>:  real8=  1.
+<$a>:  real8=  1.
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  complex=  (327.670013,-6.500000134E-3)
+<$a>:  Integer multiplication=  2
+<$a>:  Integer multiplication=  2
+<$a>:  Integer multiplication=  2
+<$a>:  Boolean=  T
+<$a>:  Boolean=  T
+<$a>:  Boolean=  T
+<$a>:  Struct member= Cray
+<$a>:  Struct member= Cray
+<$a>:  Struct member= Cray
+<$a>:  Struct member=  100
+<$a>:  Struct member=  100
+<$a>:  Struct member=  100
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+<$a>:  Contents of array from subroutine=  1,  2,  3,  4,  5,  6,  7,  8,  9,  10
+a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:64
+b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:64
+37: # run compare commands on all datatypes
+38: print tf
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+40: #logical
+41: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is true.
+44: print x
+a{0..2}: 1
+b{0..2}: 1
+46: #integer
+47: compare $a{0}::x=$b{0}::x
+{0}: Comparison is true.
+49: print l
+a{0..2}: No symbol "l" in current context
+b{0..2}: No symbol "l" in current context
+51: #character
+52: compare $a{0}::l=$b{0}::l
+a{0}: No symbol "l" in current context
+Could not retrieve contents of val.
+Command resulted in an error: 52: compare $a{0}::l=$b{0}::l
+1: #==================================================
+1: #add these back in once the symbol problem is fixed
+1: #==================================================
+1: #print e
+1: ##real
+1: #compare $a{0}::e=$b{0}::e
+1: #print word
+1: ##character*7
+1: #compare $a{0}::word=$b{0}::word
+1: #print r
+1: ##complex
+1: #compare $a{0}::r=$b{0}::r
+1: #print df
+1: ##real*8 -> double float
+1: #compare $a{0}::df=$b{0}::df
+1: #print m
+1: ##character array
+1: #compare $a{0}::m=$b{0}::m
+1: #print myself.name
+1: ##struct object data member of type character*4
+1: #compare $a{0}::myself.name=$b{0}::myself.name
+55: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

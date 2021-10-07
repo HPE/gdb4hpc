@@ -1,0 +1,111 @@
+1: #
+2: # lgdb_c_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: # This source file tests the following:
+17: # 1.  Assertion without decomposistion
+18: # 2.  defset command
+19: # 3.  Work with defset, print var, compare newset
+21: #maint set sync on
+23: #for assertion (dataflow) commands, turn dfblock on
+24: set dfblock on
+26: # launch 3 instances of the application
+27: launch $a{3}   bd_dt/c/c_type_test.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:55
+29: break c_type_test.c:223
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 223.
+31: launch $b{3}   bd_dt/c/c_cmp_diff.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c:55
+33: # Set a breakpoint at specified line numbers:
+34: focus $b
+37: break c_cmp_diff.c:223
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c, line 223.
+40: focus $all
+43: build $mine
+44: 	#use assertion without decomposition
+45: 	assert $a{0}::assertTest@"c_type_test.c":160=$b{0}::assertTest@"c_cmp_diff.c":160
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+46: 	assert $a{1}::assertTest@"c_type_test.c":160=$b{1}::assertTest@"c_cmp_diff.c":160
+Warning: Range use detected in procset for command. Only operating on rank 1.
+Warning: Range use detected in procset for command. Only operating on rank 1.
+47: 	assert $a{0}::one_d_i_init@"c_type_test.c":160 != $b{0}::one_d_i_init@"c_cmp_diff.c":160
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+48: end
+Assertion script $mine compiled.
+50: # set print elements to test that it doesn't affect assert results
+51: set print elements 5
+53: #start assertion script
+54: start $mine
+*** Starting execution of application ***
+<$b>: Hello World! from process 0
+<$b>: Hello World! from process 1
+<$b>: Hello World! from process 2
+<$a>: Hello World! from process 0
+<$a>: Hello World! from process 1
+<$a>: Hello World! from process 2
+*** Difference found in AssertID 1 ***
+*** Difference found in AssertID 2 ***
+
+*** The interpreter has halted. ***
+Assertion script $mine complete.
+Successful Assertion Set Iterations: 0
+Total Passed Assertions: 1
+Total Warned Assertions: 0
+Total Failed Assertions: 2
+
+Assertion summary:
+AssertID 1:  Pass: 0 Warn: 0 Fail: 1
+AssertID 2:  Pass: 0 Warn: 0 Fail: 1
+AssertID 3:  Pass: 1 Warn: 0 Fail: 0
+***********************************
+
+Current location:
+b{0..1}: Application halted in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c:160
+b{2}: Application halted in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c:223
+a{0..1}: Application halted in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:160
+a{2}: Application halted in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+
+
+56: #Display active assertion script status.
+57: info script
+There is currently no assertion script executing.
+60: #Display built assertion scripts.
+61: info build $mine
+Script $mine
+AssertID:1  $a{0}::assertTest@"c_type_test.c":160=$b{0}::assertTest@"c_cmp_diff.c":160
+AssertID:2  $a{1}::assertTest@"c_type_test.c":160=$b{1}::assertTest@"c_cmp_diff.c":160
+AssertID:3  $a{0}::one_d_i_init@"c_type_test.c":160 != $b{0}::one_d_i_init@"c_cmp_diff.c":160
+63: #exit lgdb
+64: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

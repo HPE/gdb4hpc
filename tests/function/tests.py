@@ -1,5 +1,5 @@
 '''
- * Copyright 2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2020-2021 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -8,35 +8,341 @@
  * in any form.
 '''
 
+###########################################################################################
+### gdb4hpc function tests
+#
+# This is the top level driver for running the gdb4hpc function tests.  The test information
+# is defined in 'func_tests.py/<testname>.in' which defines both the input and output.  The process
+# when done will leave a tmp/<testname>.rc file with the script to run and a tmp/<testname>.out
+#
+# The process catches much of the variability but additional flexiblity can be added by
+# using the form %<python regular expression>% for more flexible matching.  For example,
+# the output of 'show version' could be set to:
+# Version %[\d.]+%
+# or
+# Version %\d+\.\d+\.\d+(\.d+)?%    if you're feeling more pedantic.
+# Or, for a more blunt instrument, the string "???" can be added to the end of any batch
+# command to disable output checking entirely for that command
+##########################################################################################
+
+#Note: if you want to skip a test but run the suite, add the following line at the top of the class definition:
+#       @avocado.skip("<optional comment here>")
+
 import avocado
 from avocado import Test
 from avocado.utils import process
 
-# get cdst testing library
+if False:
+    # mock avocado test
+    class Test:
+        def get_data(self, filename, must_exist):
+            return "./tests.py.data/" + filename
+
+        def assertTrue(self, val, msg):
+            if not val:
+                print(msg)
+
 import sys
+import os
+
+#os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
+
 from test_tool_starter import find_cdst_support_prefix
 
 sys.path.insert(0, find_cdst_support_prefix() + "/testing_lib")
 
-from cdst_test.useful import detect_wlm, getOut, getTxt
-from cdst_test.textcheck import make_regex, compare_files
+from cdst_test.useful import detect_wlm, getOut
+from cdst_test.textcheck import make_regex
 
 import subprocess
 import os
 import time
 import re
 
-###########################################################################################
-### gdb4hpc function tests
+######################################################
+# Functions for creating a script file and verifying
+# the output against the expect output
 #
-# This is the top level driver for running the gdb4hpc function tests.  For now, at least, these
-# are all based on running gdb4phc with a script file 'see func_tests.py.data/*.rc' gathering the 
-# output and comparing the result against a reference file (see func_tests.py.data/*.txt) which 
-# contain some special mark-ups to account for the expected variations in the output
-##########################################################################################
+# The script file is embedded into the *.in file under data.
+# The script lines are preceded by a line number, and is consisent
+# with a the output genereated by running gdb4hpc with the
+# -s -e -b <batchfile>
+# options.
+# The checking for gdb4hpc has to be pretty smart to handle
+# the variability in the output since in many cases this will depend on
+# the timing of responses from the back-ends.
 
-#Note: if you want to skip a test but run the suite, add the following line at the top of the class definition:
-#       @avocado.skip("<optional comment here>")
+# output from the current command by proc name  
+procRefs = {}
+indeterminate = False
+verbose = False
+
+# regular expressions for types of gdb4hpc output
+is_procset_re = re.compile(r"^([a-z]+){([^:}]+)((:[0-9 -]+)?)}:(.*)")
+is_batch_re = re.compile(r"^\d+:(.*)")
+connected_re = re.compile(r"^Number of dbgsrvs connected: \[(\d+)\]")
+is_prog_out_re = re.compile(r"^<\$[a-z]+>:(.*)")
+interrupted_proc_out_re = re.compile(r"^<\$[a-z]+>:.*([ab]{[0-9.:]+}: Breakpoint .*)")
+command_error_re = re.compile(r"^(Command resulted in an error: )\d+: (.*)")
+
+# regular expressions for anonymizing gdb4hpc output (currently fortan code
+# doesn't generated paths for breakpoints)
+replace_dir_re = re.compile(r"\S*/bd_dt/")
+replace_ftn_dir_re = re.compile(r"\S*/(\w*.f90)\b")
+hex_val_re = re.compile(r"0x[0-9a-f]+")
+lwp_val_re = re.compile(r"\(LWP \d+\)")
+ftn_init_bp_re = re.compile(r"(Initial breakpoint, [a-zA-z_]+ at )(.*/)?(.*\.f90):\d+")
+
+launcher_arg_re = re.compile('--launcher-args="[^"]*" ')
+
+def getTxt(test, name: str):
+    filename = name + ".in"
+    path = test.get_data(filename, must_exist = True)
+    if not path:
+        test.error("Couldn't get .in file: " + str(filename))
+    return path
+
+def is_procset(line):
+    m = is_procset_re.match(line)
+    if m:
+        return m.group(1)
+    else:
+        return None
+
+def expand_proc_set(proc_set):
+    procs = []
+    if proc_set:
+        for x in proc_set.split(','):
+            m = re.match(r'(\d+)\.\.(\d+)', x)
+            if m:
+                procs += range(int(m.group(1)),int(m.group(2))+1)
+            else:
+                procs.append(int(x))
+    return procs
+
+# compare to process sets, return:
+# - True if the process sets are identical
+# - a string with the remaining process set if out_proc_str is a subset
+#       of ref_proc_str
+# - False if the process sets are inconsistent
+def compare_proc_set(ref_proc_str, out_proc_str):
+    ref_procs = expand_proc_set(ref_proc_str)
+    out_procs = expand_proc_set(out_proc_str)
+
+    remaining_procs = [ str(x) for x in ref_procs if x not in out_procs ]
+    mismatched = [ x for x in out_procs if x not in ref_procs ]
+
+    if mismatched:
+        return False
+    elif remaining_procs:
+        return ",".join(remaining_procs)
+    else:
+        return True
+
+# compare a process set reply with the reference
+def compare_procset_lines(ref_line, out_line):
+    ref_m = is_procset_re.match(ref_line)
+    out_m = is_procset_re.match(out_line)
+
+    if not ref_m or not out_m:
+        return False
+
+    # (procset, procs, value)
+    ref = (ref_m.group(1), ref_m.group(2), ref_m.group(5))
+    out = (out_m.group(1), out_m.group(2), out_m.group(5))
+
+    # by design ref[0] == out[0] because we are looking in a single proc-set, but
+    # check anyway
+    if not compare_lines(ref[2],out[2]) or ref[0] != out[0]:
+        return False
+
+    pcs = compare_proc_set(ref[1], out[1])
+    if pcs == True or pcs == False:
+        return pcs
+    else:
+        return ref[0] + "{" + pcs + "}:" + ref[2]
+
+# return the command if this is a batch line
+def is_batch(line):
+    m = is_batch_re.match(line)
+    if m:
+        command = m.group(1)
+        if command[-3:] == '???':
+            global indeterminate; indeterminate = True
+            command = command[0:-3]
+        return command
+    else:
+        return None
+
+# recognize a "Number of dbgsrvs connected: [1];  Timeout Counter: [0]" line
+def is_connected(line):
+    m = connected_re.match(line)
+    if m:
+        return m.group(1)
+    return None
+
+# text output generated by the application itself
+def is_prog_out(line):
+    m = is_prog_out_re.match(line)
+    if m:
+        return True
+    else:
+        return False
+
+# compare out_line with a reference line that may include %<re>% wildcards
+def compare_lines(ref_line, out_line):
+    if verbose:
+        print('compare "%s" and "%s"' % (ref_line, out_line))
+    percents = ref_line.count('%')
+    if percents != 0 and percents & 1 == 0:
+        return re.match(make_regex(ref_line), out_line) != None
+    else:
+        return ref_line == out_line
+
+def compare_batch_lines(ref_line, out_line):
+    ref_batch_line = is_batch(ref_line)
+    if ref_batch_line == None:
+        return "missing output"
+
+    if not compare_lines(ref_batch_line, out_line):
+        return "batch lines do not match"
+
+    return None
+
+# non-procset lines are the return from things like "compare"
+# that are not associated with a single process set
+def compare_non_procset_lines(ref_line, out_line):
+    m = command_error_re.match(ref_line)
+    if m:
+        ref_line = m.group(1) + m.group(2)
+    m = command_error_re.match(out_line)
+    if m:
+        out_line = m.group(1) + m.group(2)
+    return compare_lines(ref_line, out_line)
+
+# remove elements from a line that can vary from
+# run to run or machine to machine
+def anonymize_line(line):
+    line = replace_dir_re.sub('./bd_dt/', line)
+    line = replace_ftn_dir_re.sub(r"\1", line)
+    line = hex_val_re.sub('hexval', line)
+    line = lwp_val_re.sub('LWP', line)
+    line = ftn_init_bp_re.sub(r"\1\3:<start-line>", line)
+    line = launcher_arg_re.sub('', line)
+    m = interrupted_proc_out_re.match(line)
+    if m:
+        line = m.group(1)
+    return line
+
+# read the reference file to get the next comparable line
+def next_ref_line(ref):
+    while True:
+        refline = ref.readline()
+        if not refline:
+            return None
+
+        refline = anonymize_line(refline.rstrip())
+        if indeterminate:
+            if is_batch(refline) != None:
+                return refline
+        elif not is_prog_out(refline):
+            return refline
+
+# generate an error message        
+def error(message, line_num, line):
+    return (False, message + " at " + str(line_num) + " on " + line)
+
+#####################################
+### Top level comparison function ###
+#####################################
+def compare_files(ref_file_path, out_file_path):
+    ref_conn = ''
+
+    with open(ref_file_path, "r") as ref, open(out_file_path) as out:
+        outline_num = 0
+        for outline in out:
+            outline_num += 1
+            orig_outline = outline.rstrip()
+            outline = anonymize_line(orig_outline)
+
+            # input line for the batch file
+            out_batch_line = is_batch(outline)
+            if out_batch_line != None:
+                refline = next_ref_line(ref)
+                global indeterminate; indeterminate = False
+                if refline == None:
+                    return error("extra output", outline_num, orig_outline)
+                cmp = compare_batch_lines(refline, out_batch_line)
+                if cmp:
+                    return error(cmp, outline_num, orig_outline)
+                continue
+
+            if indeterminate:
+                continue
+
+            # gdb procset based output
+            proc = is_procset(outline)
+            if proc:
+                if not procRefs.get(proc):
+                    procRefs[proc] = []
+                matched = False
+                procIdx = 0
+                while not matched:
+                    while procIdx >= len(procRefs[proc]):
+                        refline = next_ref_line(ref)
+                        if refline == None:
+                            return error("extra output", outline_num, orig_outline)
+                        rproc = is_procset(refline)
+                        if rproc:
+                            if procRefs.get(rproc) == None:
+                                procRefs[rproc] = []
+                            procRefs[rproc].append(refline)
+                        else:
+                            return error("did not find match", outline_num, orig_outline)
+
+                    refline = procRefs[proc][procIdx]
+                    pc_cmp = compare_procset_lines(refline, outline)
+                    if pc_cmp == False:
+                        procIdx += 1
+                    elif pc_cmp == True:
+                        procRefs[proc].pop(procIdx)
+                        matched = True
+                    else:
+                        procRefs[proc][procIdx] = pc_cmp
+                        matched = True
+                if not matched:
+                    return error("mismatch in return", outline_num, orig_outline)
+                continue
+
+            # connecting to dbgsrvs lines
+            connected = is_connected(outline)
+            if connected:
+                while not ref_conn or int(ref_conn) < int(connected):
+                    refline = next_ref_line(ref)
+                    if refline == None:
+                        return error("extra output", outline_num, orig_outline)
+                    ref_conn = is_connected(refline)
+                    if not ref_conn:
+                        return error("did not find connection line", outline_num, orig_outline)
+                if ref_conn == connected:
+                    ref_conn = None
+                continue
+
+            # output printed by the application itself
+            prog_out = is_prog_out(outline)
+            if prog_out:
+                continue
+
+            # other output
+            refline = next_ref_line(ref)
+            if refline == None:
+                return error("extra output", outline_num, orig_outline)
+            if not compare_non_procset_lines(refline, outline):
+                return error("mismatch", outline_num, orig_outline)
+
+    return (True, ' ')
+
+
 
 def isSlurm():
     return ( detect_wlm() == "SLURM")
@@ -55,32 +361,47 @@ def getTmpDir():
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
-def makeRunFile(test, additional_substitutions = {}):
+def makeRunFile(test, substitutions = ()):
     testName = test.__class__.__name__
     tmpdir = getTmpDir()
-    rcfile = test.get_data(testName + ".rc", must_exist=True)
+    rcfile = getTxt(test,testName)
     if (not rcfile):
         test.fail("could not get rc file")
     runfile = tmpdir + '/' + testName + ".rc"
 
-    substitutions = {
-        r"%%launcher_args%%" : lambda: os.environ["CDST_TESTS_LAUNCHER_ARGS"]
-    }
+    launch_re = None
+    launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
+
+    if launch_args:
+        launch_re = re.compile(r"(launch [^}]+} *)")
+
+    rcline = re.compile(r"^\d+: ?(.*)")
 
     with open(runfile,"w") as run:
         for line in open(rcfile, "r"):
-            for re, substitution in additional_substitutions.items():
-                line = line.replace(re, substitution())
+            m = rcline.match(line)
+            if not m:
+                continue
+            line = m.group(1) + "\n"
+            if line[-3:] == '???':
+                line = line[0:-3]
 
-            for re, substitution in substitutions.items():
-                line = line.replace(re, substitution())
-
-            # hack: on some systems, specifying --launcher-args="" will break the launcher.
-            line = line.replace("--launcher-args=\"\"", "")
+            if launch_re:
+                line = launch_re.sub(r"\1" + '--launcher-args="' + launch_args + '" ', line)
+            for repl, substitution in substitutions:
+                print('substitute "%s" with "%s" on "%s"' % (repl, substitution,line))
+                line = line.replace(repl, substitution)
 
             run.write(line)
 
     return runfile
+
+def getTxt(test, name: str):
+    filename = name + ".in"
+    path = test.get_data(filename, must_exist = True)
+    if not path:
+        test.error("Couldn't get .in file: " + str(filename))
+    return path
 
 '''
 Run the gdb4phc batch script for a test
@@ -95,7 +416,7 @@ def runScript(test, substitutions = {}):
     except FileNotFoundError:
         pass
 
-    subprocess.call(['gdb4hpc', '-s', '-b', runfile, '--output', outfile, '--keep-going'])
+    subprocess.call(['gdb4hpc', '-s', '-e', '-b', runfile, '--output', outfile, '--keep-going'])
 
 '''
 Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the output
@@ -275,7 +596,8 @@ class cpp_thread_funcs(Test):
 
 class cpp_thread_focus(Test):
     def test(self):
-        runTest(self)
+        self.cancel("need to redo thread focus example to be more determinate")
+        #runTest(self)
 
 class cpp_arrays_print(Test):
     def test(self):
@@ -313,12 +635,15 @@ class cpp_attach(Test):
         # wait a few seconds to make sure cpp_attach gets into its loop
         time.sleep(3)
 
-        # build substitution dict to inject appid into .rc file
-        subs = {
-            r"%%appid%%" : lambda: app_id
-        }
+        # build substitution tuple to inject appid into .rc file
+        #   previously this used %%appid%% but rather than add a special rule,
+        #   look for the patter that is being used to match the --echo output.
+        #   If the same pattern were added elsewhere in the file, this would
+        #   need to be changed to match just the line of interest
+        subs = ( ("%[0-9.]+%", app_id), )
 
         # start gdb4hpc, attach, and generate results
         runScript(self, subs)
         result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
         self.assertTrue(result, error)
+

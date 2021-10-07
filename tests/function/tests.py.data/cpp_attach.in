@@ -1,26 +1,53 @@
-1:# attach to a process and mess with a variable, breaking out of a loop
-2:maint set sync on
-
-4:attach $a %%appid%%
-
-6:break 20
-
-8:# climp up to main- the depth we will get stopped at can vary, so be excessive...
-9:up
-10:up
-11:up
-12:up
-13:up
-
-15:# beacon for text matching
-16:maint echo beacon
-
-18:# change argc, which will break us out of the loop
-19:assign argc 999
-
-21:# continue to line 20
-22:c
-
-24:p argc
-
-26:q
+1: # attach to a process and mess with a variable, breaking out of a loop
+2: maint set sync on
+3: attach $a %[0-9.]+%
+Attaching to application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Attach complete.
+Current rank location:
+a{0}: #0  0x00007f8c1879f571 in nanosleep
+a{0}: #1  0x00007f8c1879f4aa in sleep
+a{0}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+a{1}: #0  0x00007fa1258b5571 in nanosleep
+a{1}: #1  0x00007fa1258b54aa in sleep
+a{1}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+a{2}: #0  0x00007fd80a8e4571 in nanosleep
+a{2}: #1  0x00007fd80a8e44aa in sleep
+a{2}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+a{3}: #0  0x00007fdf4eacb571 in nanosleep
+a{3}: #1  0x00007fdf4eacb4aa in sleep
+a{3}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+4: break 20
+a{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp, line 20.
+5: # climp up to main- the depth we will get stopped at can vary, so be excessive...
+6: up???
+a{0}: #1  0x00007f8c1879f4aa in sleep
+a{1}: #1  0x00007fa1258b54aa in sleep
+a{2}: #1  0x00007fd80a8e44aa in sleep
+a{3}: #1  0x00007fdf4eacb4aa in sleep
+7: up???
+a{0..3}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+8: up???
+a{0..3}: Initial frame selected; you cannot go up.
+9: up???
+a{0..3}: Initial frame selected; you cannot go up.
+10: up???
+a{0..3}: Initial frame selected; you cannot go up.
+11: # beacon for text matching
+12: maint echo beacon
+beacon
+13: # change argc, which will break us out of the loop
+14: assign argc 999
+15: # continue to line 20
+16: c
+a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:20
+17: p argc
+a{0..3}: 999
+18: q
+Shutting down debugger and resuming application for 'a'.

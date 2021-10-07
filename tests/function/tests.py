@@ -361,7 +361,7 @@ def getTmpDir():
 '''
 Create the batch file for running a specific test in gdb4phc
 '''
-def makeRunFile(test, substitutions = {}):
+def makeRunFile(test, substitutions = ()):
     testName = test.__class__.__name__
     tmpdir = getTmpDir()
     rcfile = getTxt(test,testName)
@@ -370,7 +370,8 @@ def makeRunFile(test, substitutions = {}):
     runfile = tmpdir + '/' + testName + ".rc"
 
     launch_re = None
-    launch_args = os.environ["CDST_TESTS_LAUNCHER_ARGS"]
+    launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
+
     if launch_args:
         launch_re = re.compile(r"(launch [^}]+} *)")
 
@@ -387,9 +388,9 @@ def makeRunFile(test, substitutions = {}):
 
             if launch_re:
                 line = launch_re.sub(r"\1" + '--launcher-args="' + launch_args + '" ', line)
-
-            for repl, substitution in substitutions.items():
-                line = line.replace(repl, substitution())
+            for repl, substitution in substitutions:
+                print('substitute "%s" with "%s" on "%s"' % (repl, substitution,line))
+                line = line.replace(repl, substitution)
 
             run.write(line)
 
@@ -634,14 +635,15 @@ class cpp_attach(Test):
         # wait a few seconds to make sure cpp_attach gets into its loop
         time.sleep(3)
 
-        # build substitution dict to inject appid into .rc file
-        subs = {
-            r"%%appid%%" : lambda: app_id
-        }
+        # build substitution tuple to inject appid into .rc file
+        #   previously this used %%appid%% but rather than add a special rule,
+        #   look for the patter that is being used to match the --echo output.
+        #   If the same pattern were added elsewhere in the file, this would
+        #   need to be changed to match just the line of interest
+        subs = ( ("%[0-9.]+%", app_id), )
 
         # start gdb4hpc, attach, and generate results
         runScript(self, subs)
         result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
         self.assertTrue(result, error)
-
 

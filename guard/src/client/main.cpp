@@ -87,32 +87,37 @@ static const struct option long_opts[] = {
     {"version", no_argument, 0, 'v'},
     {"xml", no_argument, &(Client.XML_mode), 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"no-init", no_argument, 0, 'n'},
     {"launch", required_argument, 0, 'l'},
-    {"ranks", required_argument, 0, 'n'},
     {"attach", required_argument, 0, 'j'},
-    {"cmdargs", required_argument, 0, 'g'},
+    {"exec", required_argument, 0, 'x'},
     {0, 0, 0, 0}};
 
 static void usage(char *name) {
     PrintOutMsg("Usage: %s [options]\n\n", name);
 
     PrintOutMsg("Options:\n\n");
-
-    PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit.\n");
-    PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered.\n");
-    PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it.\n");
     PrintOutMsg("  --help, -h           Display this text.\n");
-    PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
+    PrintOutMsg("  --no-init, -n        Don't execute any commands from the gdb4hpc_init file.\n");
+    PrintOutMsg("                       (By default, $HOME/.gdb4hpc/gdb4hpc_init)\n");
     PrintOutMsg("  --silent, -s         Suppress version banner on startup.\n");
     PrintOutMsg("  --version, -v        Display version.\n");
 
+    PrintOutMsg("\nBatch mode options:\n\n");
+    PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit.\n");
+    PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
+    PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered.\n");
+    PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it.\n");
+
     PrintOutMsg("\nTo launch or attach to a job immediately, use these options:\n\n");
-    PrintOutMsg("  --launch=FILE, -l    Immediately launch application FILE. --ranks/-n is required with this option.\n");
-    PrintOutMsg("  --ranks=RANKS, -n    Specify number of ranks to launch with --launch.\n");
+    PrintOutMsg("  --launch=FILE, -l    Immediately launch application FILE.\n");
+    PrintOutMsg("                       By default, a single rank will be launched.\n");
+    PrintOutMsg("                       Set %s to change the number of ranks launched.\n", GDB4HPC_DEFAULT_NUM_RANKS);
     PrintOutMsg("  --attach=JOBID, -j   Immediately attach to application with JOBID.\n");
-    PrintOutMsg("  --cmdargs=ARGS, -g   Additional arguments to pass to internal launch/attach commands.\n");
-    PrintOutMsg("                       See \"help launch\" and \"help attach\" inside gdb4hpc.\n");
-    PrintOutMsg("\ne.g. gdb4hpc -l ./pingswarm -n 10 -g \'--gpu --args=\"10.11.22.33\"\'\n");
+    PrintOutMsg("\nTo do a more advanced attach/launch at startup, use --exec:\n\n");
+    PrintOutMsg("  --exec=CMD, -x       Execute CMD at startup. This option can be used\n");
+    PrintOutMsg("                       multiple times. Commands passed here are executed\n");
+    PrintOutMsg("                       after commands in gdb4hpc_init.\n");
 
     PrintOutMsg("\nFor more information, type \"help\" inside gdb4hpc, or consult the gdb4hpc manpage. (man gdb4hpc)\n");
 }
@@ -288,6 +293,7 @@ static void readInitCommandsFile() {
         }
 
         if (auto stream = std::ifstream(path); !stream.fail()) {
+            PrintOutMsg("Initializing from %s\n", path.c_str());
             for (std::string line; std::getline(stream, line); ) {
                 DPRINT("Queued command from %s: %s\n", filename.c_str(), line.c_str());
                 QueueCommand(line);
@@ -307,6 +313,7 @@ int main(int argc, char *argv[]) {
     cli_stream_args_t *cli_args = NULL;  // CLI args
     char *in_file = NULL;
     char *out_file = NULL;
+    bool should_read_init = true; // read gdb4hpc_init?
 
     // Ensure the environment has been setup, otherwise set it up and re-exec
     // This is required because otherwise dlopen's will be fubared.
@@ -362,16 +369,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    // helper struct for parsing --attach and --launch options.
-    struct JobOptions {
-        std::string type;  // either "attach" or "launch"
-        std::string ranks; // number of ranks in launch case
-        std::string file;  // filename in launch case
-        std::string jobId; // jobID in attach case
-        std::string args;  // additional args added to end of launch/attach command (e.g. --gpu)
-    } jobOptions{"", "", "", "", ""};
-
-    while ((c = getopt_long(argc, argv, "b:j:l:n:g:kehi:o:sv", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:sv", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -406,8 +404,10 @@ int main(int argc, char *argv[]) {
                         "Error: --attach provided, but missing arguments.\n");
                     exit(1);
                 }
-                jobOptions.type = "attach";
-                jobOptions.jobId = std::string{optarg};
+
+                std::ostringstream ss;
+                ss << "attach $job " << optarg;
+                QueueCommand(ss.str());
 
                 break;
             }
@@ -417,29 +417,27 @@ int main(int argc, char *argv[]) {
                         "Error: --launch provided, but missing arguments.\n");
                     exit(1);
                 }
-                jobOptions.type = "launch";
-                jobOptions.file = std::string{optarg};
 
+                auto ranksEnv = getenv(GDB4HPC_DEFAULT_NUM_RANKS);
+                auto ranks = ranksEnv ? ranksEnv : "1";
+
+                std::ostringstream ss;
+                ss << "launch $job{" << ranks << "} " << optarg;
+                QueueCommand(ss.str());
+
+                break;
+            }
+            case 'x': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --exec provided, but missing arguments.\n");
+                    exit(1);
+                }
+                QueueCommand(optarg);
                 break;
             }
             case 'n': {
-                if (optarg == nullptr) {
-                    PrintOutError(
-                        "Error: --ranks provided, but missing arguments.\n");
-                    exit(1);
-                }
-                jobOptions.ranks = std::string{optarg};
-
-                break;
-            }
-            case 'g': {
-                if (optarg == nullptr) {
-                    PrintOutError(
-                        "Error: --args provided, but missing arguments.\n");
-                    exit(1);
-                }
-                jobOptions.args = std::string{optarg};
-                
+                should_read_init = false;
                 break;
             }
             case 'k': {
@@ -606,21 +604,9 @@ int main(int argc, char *argv[]) {
         Banner();
     }
 
-    // See if we got enough info to launch/attach immediately
-    if (jobOptions.type == "launch" && jobOptions.ranks != "" && jobOptions.file != "") {
-        std::ostringstream ss;
-        ss << "launch $job{" << jobOptions.ranks << "} " << jobOptions.file << " " << jobOptions.args;
-        QueueCommand(ss.str());
-    } else if (jobOptions.type == "attach" && jobOptions.jobId != "") {
-        std::ostringstream ss;
-        ss << "attach $job " << jobOptions.jobId << " " << jobOptions.args;
-        QueueCommand(ss.str());
-    } else if (jobOptions.type != "") {
-        PrintOutError("Warning: command line %s specified, but missing info. See gdb4hpc -h.\n", jobOptions.type.c_str());
-    }
-
     // Read gdb4hpc_init file
-    readInitCommandsFile();
+    if (should_read_init)
+        readInitCommandsFile();
 
     // Initial reset of the stream, for good measure.
     // If we don't do this, the prompt will be missing when using the editline

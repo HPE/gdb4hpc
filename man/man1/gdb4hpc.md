@@ -21,11 +21,11 @@ This document is written in standard markdown plus two pandoc extensions:
 # SYNOPSIS
 
 | **gdb4hpc**
-| [**-b** *file* | **\--batch**=*file*]
-| [**-h** | **\--help**]
-| [**-o** *file* | **\--output**=*file*]
-| [**-s** | **\--silent**]
-| [**-v** | **\--version**]
+| [ **\--help** | **-h** ] [ **\--version** | **-v** ]
+| [ **\--no-init** | **-n** ] [ **\--silent** | **-s** ]
+| [ **\--batch=FILE** | **-b** ] [ **\--output=FILE** | **-o** ]
+| [ **\--keep-going** | **-k** ] [ **\--echo** | **-e** ]
+| [ **\--launch=FILE** | **-l** ] [ **\--attach=JOBID** | **-j** ] [ **\--exec=CMD** | **-x** ]
 
 # IMPLEMENTATION
 
@@ -50,22 +50,46 @@ capabilities of **gdb4hpc**. For further information on CCDB, see
 
 The **gdb4hpc** debugger accepts the following options:
 
-**-b**, **\--batch**=*file*
-: Executes debugger commands from *file*, then exits.
+**\--help**, **-h**           
+: Display help text.
 
-**-h**, **\--help**
-: Displays command line help.
+**\--no-init**, **-n**        
+: Don't execute any commands from the gdb4hpc_init file. (By default, $HOME/.gdb4hpc/gdb4hpc_init)
 
-**-o**, **\-output**=*file*
-: Redirects **stdout**/**stderr** to *file*. Must be used with **\--batch**.
+**\--silent**, **-s**         
+: Suppress version banner on startup.
 
-**-s**, **\--silent**
-: Suppresses version banner on startup.
+**\--version**, **-v**        
+: Display version.
 
-**-v**, **\--version**
-: Displays version.
+### Batch mode options:
 
-<!-- TODO: new options -->
+**\--batch=FILE**, **-b**     
+: Execute debugger commands from FILE and exit.
+
+**\--output=FILE**, **-o**    
+: Redirect stdout/stderr to FILE. Must be used with -\-batch.
+
+**\--keep-going**, **-k**     
+: In batch mode, don't exit when an error is encountered.
+
+**\--echo**, **-e**           
+: In batch mode, echo each command before executing it.
+
+### To launch or attach to a job immediately, use these options:
+
+**\--launch=FILE**, **-l**    
+: Immediately launch application FILE.
+  By default, a single rank will be launched.
+  Set GDB4HPC_DEFAULT_NUM_RANKS to change the number of ranks launched.
+
+**\--attach=JOBID**, **-j**   
+: Immediately attach to application with JOBID.
+
+**\--exec=CMD**, **-x**       
+: Execute CMD at startup. This option can be used
+  multiple times. Commands passed here are executed
+  after commands in gdb4hpc_init.
 
 ## **gdb4hpc** Usage
 
@@ -567,11 +591,24 @@ deleted from the queueing system.
 
     Default: not defined
 
+**GDB4HPC_CFG_DIRECTORY**
+:   Defines the general gdb4hpc configuration directory. This directory is
+    where the gdb4hpc_init file is read from, and where the history file
+    is stored by default.
+
+    Default: $HOME/.gdb4hpc
+
 **GDB4HPC_HIST_DIR**
 :   Defines the directory into which the **.gbd4hpc_history** file is
     located.
 
-    Default: not set
+    Default: not set. If not set, GDB4HPC_CFG_DIRECTORY will be used.
+
+**GDB4HPC_DEFAULT_NUM_RANKS**
+:   Defines the default number of ranks launched when using the -l
+    command line argument.
+
+    Default. not set
 
 **GDB4HPC_PMI_INIT_SLEEP**
 :   Sets extra time (in seconds) to sleep after finding the

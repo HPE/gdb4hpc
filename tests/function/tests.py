@@ -416,7 +416,7 @@ def runScript(test, substitutions = {}):
     except FileNotFoundError:
         pass
 
-    subprocess.call(['gdb4hpc', '-s', '-e', '-b', runfile, '--output', outfile, '--keep-going'])
+    subprocess.call(['gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
 
 '''
 Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the output

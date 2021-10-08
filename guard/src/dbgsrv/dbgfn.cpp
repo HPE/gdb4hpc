@@ -187,10 +187,10 @@ dbgevent_t *DbgSetWatch(int type, const char *expr, const dbgcomm_info *ci) {
     return DbgBackendSW->setWatch(type, expr, ci);
 }
 
-dbgevent_t *DbgSetCatch(const std::string &event, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetCatch(const std::string &event, const std::string &regex, const dbgcomm_info *ci) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setCatch(event, ci);
+    return DbgBackendSW->setCatch(event, regex, ci);
 }
 
 dbgevent_t *DbgDeleteBreak(int bp) {

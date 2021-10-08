@@ -130,8 +130,10 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
 
         case DBGCMD_SETCATCH: {
             std::string eventType;
+            std::string regex;
             is.get(eventType);
-            e = DbgSetCatch(eventType, ci);
+            is.get(regex);
+            e = DbgSetCatch(eventType, regex, ci);
             break;
         }
 

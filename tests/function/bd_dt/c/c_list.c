@@ -7,7 +7,7 @@ int main() {
 		for (int j=0; j<i; j++) {
 			int foo	=	j;
 			foo		+=	i;
-			printf("\tfoo is: \"\t%d\n", foo);
+			printf("\tfoo is: \"\t%d\n", foo);	// print foo
 		}
 	}
 }

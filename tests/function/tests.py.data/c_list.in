@@ -10,13 +10,13 @@ Finalizing setup...
 Launch complete.
 a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:6
 4: list
-a{0}: 6		for (int i=0; i<3; i++) {
-a{0}: 7			for (int j=0; j<i; j++) {
-a{0}: 8				int foo =   j;
-a{0}: 9				foo     +=  i;
-a{0}: 10				printf("\tfoo is: \"\t%d\n", foo);
-a{0}: 11			}
-a{0}: 12		}
-a{0}: 13	}
+a{0}: 6     	for (int i=0; i<3; i++) {
+a{0}: 7     		for (int j=0; j<i; j++) {
+a{0}: 8     			int foo	=	j;
+a{0}: 9     			foo		+=	i;
+a{0}: 10    			printf("\tfoo is: \"\t%d\n", foo);	// print foo
+a{0}: 11    		}
+a{0}: 12    	}
+a{0}: 13    }
 5: q
 Shutting down debugger and killing application for 'a'.

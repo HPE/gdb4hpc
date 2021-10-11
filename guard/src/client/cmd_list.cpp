@@ -45,7 +45,7 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
             formatSourceLine(line);
             PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                          l->list_threads,
-                                         "%d\t%s\n", l->list_lno, line.c_str());
+                                         "%-6d%s\n", l->list_lno, line.c_str());
         }
     }
 

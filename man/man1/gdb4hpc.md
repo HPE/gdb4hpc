@@ -23,9 +23,9 @@ This document is written in standard markdown plus two pandoc extensions:
 | **gdb4hpc**
 | [ **\--help** | **-h** ] [ **\--version** | **-v** ]
 | [ **\--no-init** | **-n** ] [ **\--silent** | **-s** ]
+| [ **\--attach=JOBID** | **-j** ] [ **\--exec=CMD** | **-x** ]
 | [ **\--batch=FILE** | **-b** ] [ **\--output=FILE** | **-o** ]
 | [ **\--keep-going** | **-k** ] [ **\--echo** | **-e** ]
-| [ **\--launch=FILE** | **-l** ] [ **\--attach=JOBID** | **-j** ] [ **\--exec=CMD** | **-x** ]
 
 # IMPLEMENTATION
 
@@ -62,6 +62,14 @@ The **gdb4hpc** debugger accepts the following options:
 **\--version**, **-v**        
 : Display version.
 
+**\--attach=JOBID**, **-j**   
+: Immediately attach to application with JOBID.
+
+**\--exec=CMD**, **-x**       
+: Execute CMD at startup. This option can be used
+  multiple times. Commands passed here are executed
+  after commands in gdb4hpc_init.
+
 ### Batch mode options:
 
 **\--batch=FILE**, **-b**     
@@ -75,21 +83,6 @@ The **gdb4hpc** debugger accepts the following options:
 
 **\--echo**, **-e**           
 : In batch mode, echo each command before executing it.
-
-### To launch or attach to a job immediately, use these options:
-
-**\--launch=FILE**, **-l**    
-: Immediately launch application FILE.
-  By default, a single rank will be launched.
-  Set GDB4HPC_DEFAULT_NUM_RANKS to change the number of ranks launched.
-
-**\--attach=JOBID**, **-j**   
-: Immediately attach to application with JOBID.
-
-**\--exec=CMD**, **-x**       
-: Execute CMD at startup. This option can be used
-  multiple times. Commands passed here are executed
-  after commands in gdb4hpc_init.
 
 ## **gdb4hpc** Usage
 
@@ -603,12 +596,6 @@ deleted from the queueing system.
     located.
 
     Default: not set. If not set, GDB4HPC_CFG_DIRECTORY will be used.
-
-**GDB4HPC_DEFAULT_NUM_RANKS**
-:   Defines the default number of ranks launched when using the -l
-    command line argument.
-
-    Default. not set
 
 **GDB4HPC_PMI_INIT_SLEEP**
 :   Sets extra time (in seconds) to sleep after finding the

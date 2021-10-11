@@ -102,22 +102,16 @@ static void usage(char *name) {
     PrintOutMsg("                       (By default, $HOME/.gdb4hpc/gdb4hpc_init)\n");
     PrintOutMsg("  --silent, -s         Suppress version banner on startup.\n");
     PrintOutMsg("  --version, -v        Display version.\n");
+    PrintOutMsg("  --attach=JOBID, -j   Immediately attach to application with JOBID.\n");
+    PrintOutMsg("  --exec=CMD, -x       Execute CMD at startup. This option can be used\n");
+    PrintOutMsg("                       multiple times. Commands passed here are executed\n");
+    PrintOutMsg("                       after commands in gdb4hpc_init.\n");
 
     PrintOutMsg("\nBatch mode options:\n\n");
     PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit.\n");
     PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
     PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered.\n");
     PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it.\n");
-
-    PrintOutMsg("\nTo launch or attach to a job immediately, use these options:\n\n");
-    PrintOutMsg("  --launch=FILE, -l    Immediately launch application FILE.\n");
-    PrintOutMsg("                       By default, a single rank will be launched.\n");
-    PrintOutMsg("                       Set %s to change the number of ranks launched.\n", GDB4HPC_DEFAULT_NUM_RANKS);
-    PrintOutMsg("  --attach=JOBID, -j   Immediately attach to application with JOBID.\n");
-    PrintOutMsg("\nTo do a more advanced attach/launch at startup, use --exec:\n\n");
-    PrintOutMsg("  --exec=CMD, -x       Execute CMD at startup. This option can be used\n");
-    PrintOutMsg("                       multiple times. Commands passed here are executed\n");
-    PrintOutMsg("                       after commands in gdb4hpc_init.\n");
 
     PrintOutMsg("\nFor more information, type \"help\" inside gdb4hpc, or consult the gdb4hpc manpage. (man gdb4hpc)\n");
 }

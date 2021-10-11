@@ -21,6 +21,11 @@
 .PD 0
 .P
 .PD
+[ \f[B]--attach=JOBID\f[R] | \f[B]-j\f[R] ] [ \f[B]--exec=CMD\f[R] |
+\f[B]-x\f[R] ]
+.PD 0
+.P
+.PD
 [ \f[B]--batch=FILE\f[R] | \f[B]-b\f[R] ] [ \f[B]--output=FILE\f[R] |
 \f[B]-o\f[R] ]
 .PD 0
@@ -28,11 +33,6 @@
 .PD
 [ \f[B]--keep-going\f[R] | \f[B]-k\f[R] ] [ \f[B]--echo\f[R] |
 \f[B]-e\f[R] ]
-.PD 0
-.P
-.PD
-[ \f[B]--launch=FILE\f[R] | \f[B]-l\f[R] ] [ \f[B]--attach=JOBID\f[R] |
-\f[B]-j\f[R] ] [ \f[B]--exec=CMD\f[R] | \f[B]-x\f[R] ]
 .SH IMPLEMENTATION
 .PP
 Cray Linux Environment (CLE)
@@ -68,6 +68,14 @@ Suppress version banner on startup.
 .TP
 \f[B]--version\f[R], \f[B]-v\f[R]
 Display version.
+.TP
+\f[B]--attach=JOBID\f[R], \f[B]-j\f[R]
+Immediately attach to application with JOBID.
+.TP
+\f[B]--exec=CMD\f[R], \f[B]-x\f[R]
+Execute CMD at startup.
+This option can be used multiple times.
+Commands passed here are executed after commands in gdb4hpc_init.
 .SS Batch mode options:
 .TP
 \f[B]--batch=FILE\f[R], \f[B]-b\f[R]
@@ -82,20 +90,6 @@ In batch mode, don\[cq]t exit when an error is encountered.
 .TP
 \f[B]--echo\f[R], \f[B]-e\f[R]
 In batch mode, echo each command before executing it.
-.SS To launch or attach to a job immediately, use these options:
-.TP
-\f[B]--launch=FILE\f[R], \f[B]-l\f[R]
-Immediately launch application FILE.
-By default, a single rank will be launched.
-Set GDB4HPC_DEFAULT_NUM_RANKS to change the number of ranks launched.
-.TP
-\f[B]--attach=JOBID\f[R], \f[B]-j\f[R]
-Immediately attach to application with JOBID.
-.TP
-\f[B]--exec=CMD\f[R], \f[B]-x\f[R]
-Execute CMD at startup.
-This option can be used multiple times.
-Commands passed here are executed after commands in gdb4hpc_init.
 .SS \f[B]gdb4hpc\f[R] Usage
 .PP
 \f[B]Procedure 1. To begin using gdb4hpc\f[R]
@@ -774,15 +768,6 @@ located.
 .PP
 Default: not set.
 If not set, GDB4HPC_CFG_DIRECTORY will be used.
-.RE
-.TP
-\f[B]GDB4HPC_DEFAULT_NUM_RANKS\f[R]
-Defines the default number of ranks launched when using the -l command
-line argument.
-.RS
-.PP
-Default.
-not set
 .RE
 .TP
 \f[B]GDB4HPC_PMI_INIT_SLEEP\f[R]

@@ -106,13 +106,15 @@ echo "############################################"
 #       possible that we replace the gdb backend builds here with a separate rpm
 #       of gdb backends included in the build prep.
 
+ddt_gdb=ddt_gdb-10.0
+
 # ensure submodule is checked out
-if [[ ! -f $top_level/external/ddt_gdb-8.1/README ]]; then
+if [[ ! -f $top_level/external/$ddt_gdb/README ]]; then
     echo "gdb submodule not checked out..."
     exit 1
 fi
 
-cd $top_level/external/ddt_gdb-8.1
+cd $top_level/external/$ddt_gdb
 check_exit_status
 
 ./configure --prefix=$install_dir \
@@ -130,7 +132,7 @@ make $cdst_j_flags
 check_exit_status
 
 # gdb is part of binutils. We don't want all of binutils to install, only gdb.
-cd $top_level/external/ddt_gdb-8.1/gdb
+cd $top_level/external/$ddt_gdb/gdb
 check_exit_status
 make $cdst_j_flags install
 check_exit_status

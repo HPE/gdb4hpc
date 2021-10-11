@@ -41,29 +41,29 @@ a{0..5}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
 32: #list breakpoints
 33: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
-a{0..5}: 	2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+Procset         Num Type           Disp Enb What
+a{0..5}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
+a{0..5}         2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
 35: # Test disable command
 36: disable 2
 38: #test has breakpoint 3 been disabled?
 39: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
-a{0..5}: 	2   breakpoint     keep n   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+Procset         Num Type           Disp Enb What
+a{0..5}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
+a{0..5}         2   breakpoint     keep n   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
 41: # Test enable command
 42: enable 2  
 44: #has breakpoint 3 been enabled?
 45: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
-a{0..5}: 	2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+Procset         Num Type           Disp Enb What
+a{0..5}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
+a{0..5}         2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
 47: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
 48: delete 2 
 50: #has breakpoint 3 been deleted?
 51: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
+Procset         Num Type           Disp Enb What
+a{0..5}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
 54: #exit lgdb
 55: q
 Shutting down debugger and killing application for 'a'.

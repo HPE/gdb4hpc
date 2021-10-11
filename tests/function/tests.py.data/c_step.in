@@ -42,6 +42,7 @@ a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_t
 32: # Step - Ensure program is set at first line of subroutine Line # 247
 33: s
 a{0..5}: test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
+a{0..5}: 248		return x * 5;
 35: #exit lgdb
 36: q
 Shutting down debugger and killing application for 'a'.

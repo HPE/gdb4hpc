@@ -40,25 +40,25 @@ a{0..5}: #0  dlopened_function
    
 28: #list breakpoints
 29: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+Procset         Num Type           Disp Enb What
+a{0..5}         2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 31: # Test disable command
 32: disable 2
 34: #test has breakpoint 3 been disabled?
 35: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep n   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+Procset         Num Type           Disp Enb What
+a{0..5}         2   breakpoint     keep n   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 37: # Test enable command
 38: enable 2  
 40: #has breakpoint 3 been enabled?
 41: info breakpoint
-Procset		Num Type           Disp Enb What
-a{0..5}: 	2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+Procset         Num Type           Disp Enb What
+a{0..5}         2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 43: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
 44: delete 2 
 46: #has breakpoint 3 been deleted?
 47: info breakpoint
-Procset		Num Type           Disp Enb What
+Procset         Num Type           Disp Enb What
 a{0..5}: No breakpoints or watchpoints.
 50: #exit lgdb
 51: q

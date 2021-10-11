@@ -125,17 +125,12 @@ b{0..2}: 1
 46: #integer
 47: compare $a{0}::x=$b{0}::x
 {0}: Comparison is true.
-49: print l
-a{0..2}: No symbol "l" in current context
-b{0..2}: No symbol "l" in current context
-51: #character
-52: compare $a{0}::l=$b{0}::l
-a{0}: No symbol "l" in current context
-Could not retrieve contents of val.
-Command resulted in an error: 52: compare $a{0}::l=$b{0}::l
 1: #==================================================
 1: #add these back in once the symbol problem is fixed
 1: #==================================================
+1: #print l
+1: ##character
+1: #52: compare $a{0}::l=$b{0}::l
 1: #print e
 1: ##real
 1: #compare $a{0}::e=$b{0}::e

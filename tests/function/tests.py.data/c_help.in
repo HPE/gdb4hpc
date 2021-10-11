@@ -31,6 +31,7 @@ attach          Attach to an application.
 backtrace       Print backtrace of all stack frames.
 break           Set breakpoint at specified line or function.
 build           Build an assertion script.
+catch           Set catchpoint on specified event.
 compare         Compare the contents of two variables.
 continue        Continue execution of application.
 cuda            Cuda debugging functions.

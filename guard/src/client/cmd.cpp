@@ -17,6 +17,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <deque>
+#include <string>
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +39,7 @@
 static cmdlist_t *CurrentCmds;  /* Current command list */
 static list_t *help_class_list; /* Class Command help lookup */
 static cmdlist_t *Cmds;         /* Main command list */
+static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
 
 /*
 ** Internal function prototypes
@@ -543,6 +547,35 @@ void DestroyCommands(void) {
     DestroyCommandList(Cmds);
     DestroyCmd_class();
     FinishCmdToken();
+}
+
+// queue a command to later be executed by ExecuteQueuedCommands
+void QueueCommand(const std::string &command) {
+    // Don't queue pure whitespace
+    if (command.find_first_not_of(" \t\n\v\f\r") != std::string::npos) {
+        pendingCommandQueue.push_back(command);
+    }
+}
+
+// execute all commands in the command queue managed by QueueCommand
+size_t ExecuteQueuedCommands() {
+    const auto r = pendingCommandQueue.size();
+
+    if (r == 0) return 0;
+    
+    // preserve prompt
+    cli_save_stream();
+
+    while (pendingCommandQueue.size()) {
+        auto command = std::move(pendingCommandQueue.front());
+        pendingCommandQueue.pop_front();
+        ExecuteCommand(command.c_str());
+    }
+
+    // restore prompt
+    cli_restore_stream();
+
+    return r;
 }
 
 /*

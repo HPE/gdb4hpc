@@ -11,23 +11,28 @@
 .PD 0
 .P
 .PD
-[\f[B]-b\f[R] \f[I]file\f[R] | \f[B]--batch\f[R]=\f[I]file\f[R]]
+[ \f[B]--help\f[R] | \f[B]-h\f[R] ] [ \f[B]--version\f[R] | \f[B]-v\f[R]
+]
 .PD 0
 .P
 .PD
-[\f[B]-h\f[R] | \f[B]--help\f[R]]
+[ \f[B]--no-init\f[R] | \f[B]-n\f[R] ] [ \f[B]--silent\f[R] |
+\f[B]-s\f[R] ]
 .PD 0
 .P
 .PD
-[\f[B]-o\f[R] \f[I]file\f[R] | \f[B]--output\f[R]=\f[I]file\f[R]]
+[ \f[B]--attach=JOBID\f[R] | \f[B]-j\f[R] ] [ \f[B]--exec=CMD\f[R] |
+\f[B]-x\f[R] ]
 .PD 0
 .P
 .PD
-[\f[B]-s\f[R] | \f[B]--silent\f[R]]
+[ \f[B]--batch=FILE\f[R] | \f[B]-b\f[R] ] [ \f[B]--output=FILE\f[R] |
+\f[B]-o\f[R] ]
 .PD 0
 .P
 .PD
-[\f[B]-v\f[R] | \f[B]--version\f[R]]
+[ \f[B]--keep-going\f[R] | \f[B]-k\f[R] ] [ \f[B]--echo\f[R] |
+\f[B]-e\f[R] ]
 .SH IMPLEMENTATION
 .PP
 Cray Linux Environment (CLE)
@@ -51,21 +56,40 @@ For further information on CCDB, see \f[B]ccdb\f[R](1).
 .PP
 The \f[B]gdb4hpc\f[R] debugger accepts the following options:
 .TP
-\f[B]-b\f[R], \f[B]--batch\f[R]=\f[I]file\f[R]
-Executes debugger commands from \f[I]file\f[R], then exits.
+\f[B]--help\f[R], \f[B]-h\f[R]
+Display help text.
 .TP
-\f[B]-h\f[R], \f[B]--help\f[R]
-Displays command line help.
+\f[B]--no-init\f[R], \f[B]-n\f[R]
+Don\[cq]t execute any commands from the gdb4hpc_init file.
+(By default, $HOME/.gdb4hpc/gdb4hpc_init)
 .TP
-\f[B]-o\f[R], \f[B]-output\f[R]=\f[I]file\f[R]
-Redirects \f[B]stdout\f[R]/\f[B]stderr\f[R] to \f[I]file\f[R].
-Must be used with \f[B]--batch\f[R].
+\f[B]--silent\f[R], \f[B]-s\f[R]
+Suppress version banner on startup.
 .TP
-\f[B]-s\f[R], \f[B]--silent\f[R]
-Suppresses version banner on startup.
+\f[B]--version\f[R], \f[B]-v\f[R]
+Display version.
 .TP
-\f[B]-v\f[R], \f[B]--version\f[R]
-Displays version.
+\f[B]--attach=JOBID\f[R], \f[B]-j\f[R]
+Immediately attach to application with JOBID.
+.TP
+\f[B]--exec=CMD\f[R], \f[B]-x\f[R]
+Execute CMD at startup.
+This option can be used multiple times.
+Commands passed here are executed after commands in gdb4hpc_init.
+.SS Batch mode options:
+.TP
+\f[B]--batch=FILE\f[R], \f[B]-b\f[R]
+Execute debugger commands from FILE and exit.
+.TP
+\f[B]--output=FILE\f[R], \f[B]-o\f[R]
+Redirect stdout/stderr to FILE.
+Must be used with --batch.
+.TP
+\f[B]--keep-going\f[R], \f[B]-k\f[R]
+In batch mode, don\[cq]t exit when an error is encountered.
+.TP
+\f[B]--echo\f[R], \f[B]-e\f[R]
+In batch mode, echo each command before executing it.
 .SS \f[B]gdb4hpc\f[R] Usage
 .PP
 \f[B]Procedure 1. To begin using gdb4hpc\f[R]
@@ -728,12 +752,22 @@ default location.
 Default: not defined
 .RE
 .TP
+\f[B]GDB4HPC_CFG_DIRECTORY\f[R]
+Defines the general gdb4hpc configuration directory.
+This directory is where the gdb4hpc_init file is read from, and where
+the history file is stored by default.
+.RS
+.PP
+Default: $HOME/.gdb4hpc
+.RE
+.TP
 \f[B]GDB4HPC_HIST_DIR\f[R]
 Defines the directory into which the \f[B].gbd4hpc_history\f[R] file is
 located.
 .RS
 .PP
-Default: not set
+Default: not set.
+If not set, GDB4HPC_CFG_DIRECTORY will be used.
 .RE
 .TP
 \f[B]GDB4HPC_PMI_INIT_SLEEP\f[R]

@@ -31,6 +31,7 @@
 #include "help_dict.h"
 
 // Declarations from these headers are actually used here.
+#include <string>
 #include "client.h"
 #include "gram.h"
 #include "list.h"
@@ -79,6 +80,9 @@ extern cmdlist_t *SetCommands(cmdlist_t *);
 extern void SetDefaultCommand(cmdlist_t *, const char *);
 extern cmdtype_t *FindCommand(const char *);
 extern cmdtype_t *FindSubCommand(cmdlist_t *, const char *);
+
+extern void QueueCommand(const std::string &command);
+extern size_t ExecuteQueuedCommands();
 extern void ExecuteCommand(const char *);
 
 // The following prototypes are used for adding Class commands (i.e. help, set,

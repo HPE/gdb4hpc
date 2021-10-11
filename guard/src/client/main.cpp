@@ -35,6 +35,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fstream>
+#include <filesystem>
 
 #include "client.h"
 #include "useful.h"
@@ -69,6 +71,7 @@ static void Banner(void);
 static void SigHandler(int);
 static const char * getDefaultProtocol();
 static void printEventLocation(const event_set_t *ev_set, const Bitset *group);
+static void readInitCommandsFile();
 
 /*
  * long opts
@@ -84,25 +87,33 @@ static const struct option long_opts[] = {
     {"version", no_argument, 0, 'v'},
     {"xml", no_argument, &(Client.XML_mode), 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"no-init", no_argument, 0, 'n'},
+    {"launch", required_argument, 0, 'l'},
+    {"attach", required_argument, 0, 'j'},
+    {"exec", required_argument, 0, 'x'},
     {0, 0, 0, 0}};
 
 static void usage(char *name) {
     PrintOutMsg("Usage: %s [options]\n\n", name);
 
     PrintOutMsg("Options:\n\n");
+    PrintOutMsg("  --help, -h           Display this text.\n");
+    PrintOutMsg("  --no-init, -n        Don't execute any commands from the gdb4hpc_init file.\n");
+    PrintOutMsg("                       (By default, $HOME/.gdb4hpc/gdb4hpc_init)\n");
+    PrintOutMsg("  --silent, -s         Suppress version banner on startup.\n");
+    PrintOutMsg("  --version, -v        Display version.\n");
+    PrintOutMsg("  --attach=JOBID, -j   Immediately attach to application with JOBID.\n");
+    PrintOutMsg("  --exec=CMD, -x       Execute CMD at startup. This option can be used\n");
+    PrintOutMsg("                       multiple times. Commands passed here are executed\n");
+    PrintOutMsg("                       after commands in gdb4hpc_init.\n");
 
-    PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit\n");
-    PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered\n");
-    PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it\n");
-    PrintOutMsg("  --help, -h           Display this text\n");
+    PrintOutMsg("\nBatch mode options:\n\n");
+    PrintOutMsg("  --batch=FILE, -b     Execute debugger commands from FILE and exit.\n");
     PrintOutMsg("  --output=FILE, -o    Redirect stdout/stderr to FILE. Must be used with --batch.\n");
-    PrintOutMsg("  --silent, -s         Suppress version banner on startup\n");
-    PrintOutMsg("  --version, -v        Display version\n");
+    PrintOutMsg("  --keep-going, -k     In batch mode, don't exit when an error is encountered.\n");
+    PrintOutMsg("  --echo, -e           In batch mode, echo each command before executing it.\n");
 
-    PrintOutMsg(
-        "\nFor more information, type \"help\" inside gdb4hpc, or consult "
-        "the\n");
-    PrintOutMsg("gdb4hpc manpage. (man gdb4hpc)\n");
+    PrintOutMsg("\nFor more information, type \"help\" inside gdb4hpc, or consult the gdb4hpc manpage. (man gdb4hpc)\n");
 }
 
 static void Banner(void) {
@@ -264,6 +275,31 @@ static void SetupEnvironment(void) {
     Free(inst_base);
 }
 
+static void readInitCommandsFile() {
+    const auto filename = std::string{"gdb4hpc_init"};
+    if (auto cfgDir = getenv(GUARD_CFG_DIRECTORY)) {
+        const auto path = std::string{cfgDir} + "/" + filename;
+
+        // The init file is optional. If it doesn't exist, just return
+        if (!std::filesystem::exists(path)) {
+            DPRINT("%s not found at %s.\n", filename.c_str(), path.c_str());
+            return;
+        }
+
+        if (auto stream = std::ifstream(path); !stream.fail()) {
+            PrintOutMsg("Initializing from %s\n", path.c_str());
+            for (std::string line; std::getline(stream, line); ) {
+                DPRINT("Queued command from %s: %s\n", filename.c_str(), line.c_str());
+                QueueCommand(line);
+            }
+        } else {
+            PrintOutMsg("Warning: failed to open %s for reading.\n", filename.c_str());
+        }
+    } else {
+        PrintOutMsg("Warning: couldn't find configuration directory to read %s.\n", filename.c_str());
+    }
+}
+
 int main(int argc, char *argv[]) {
     int c;
     double ulp;
@@ -271,6 +307,7 @@ int main(int argc, char *argv[]) {
     cli_stream_args_t *cli_args = NULL;  // CLI args
     char *in_file = NULL;
     char *out_file = NULL;
+    bool should_read_init = true; // read gdb4hpc_init?
 
     // Ensure the environment has been setup, otherwise set it up and re-exec
     // This is required because otherwise dlopen's will be fubared.
@@ -326,7 +363,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:kehi:o:sv", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:sv", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -353,6 +390,48 @@ int main(int argc, char *argv[]) {
                 // dependent.
                 Client.confirm = 0;
 
+                break;
+            }
+            case 'j': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --attach provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                std::ostringstream ss;
+                ss << "attach $job " << optarg;
+                QueueCommand(ss.str());
+
+                break;
+            }
+            case 'l': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --launch provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                auto ranksEnv = getenv(GDB4HPC_DEFAULT_NUM_RANKS);
+                auto ranks = ranksEnv ? ranksEnv : "1";
+
+                std::ostringstream ss;
+                ss << "launch $job{" << ranks << "} " << optarg;
+                QueueCommand(ss.str());
+
+                break;
+            }
+            case 'x': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --exec provided, but missing arguments.\n");
+                    exit(1);
+                }
+                QueueCommand(optarg);
+                break;
+            }
+            case 'n': {
+                should_read_init = false;
                 break;
             }
             case 'k': {
@@ -519,6 +598,10 @@ int main(int argc, char *argv[]) {
         Banner();
     }
 
+    // Read gdb4hpc_init file
+    if (should_read_init)
+        readInitCommandsFile();
+
     // Initial reset of the stream, for good measure.
     // If we don't do this, the prompt will be missing when using the editline
     // library. I think this is due to some weirdness with the Banner() call.
@@ -526,6 +609,9 @@ int main(int argc, char *argv[]) {
 
     (void)setjmp(Top);
     started = 1;
+
+    // Execute commands that have been queued at startup (e.g. immediate attach)
+    ExecuteQueuedCommands();
 
     // Main event loop
     for (;;) {

@@ -1,6 +1,5 @@
-1: maint set unsafe on
-2: maint set sync on
-3: launch $a{1} bd_dt/c/c_list.x
+1: maint set sync on
+2: launch $a{1} bd_dt/c/c_list.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -8,15 +7,21 @@ Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [1];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:6
-4: list
-a{0}: 6    		for (int i=0; i<3; i++) {
-a{0}: 7    			for (int j=0; j<i; j++) {
-a{0}: 8    				int foo	=	j;
-a{0}: 9    				foo		+=	i;
-a{0}: 10   				printf("\tfoo is: \"\t%d\n", foo);	// print foo
-a{0}: 11   			}
-a{0}: 12   		}
-a{0}: 13   	}
-5: q
+a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:7
+3: break 9
+a{0}: Breakpoint 1: file /bd_dt/c/c_list.c, line 9.
+4: c
+a{0}: Breakpoint 1, main at /bd_dt/c/c_list.c:9
+5: list
+a{0}: 9    		for (int i=0; i<3; i++) {
+a{0}: 10   			for (int j=0; j<i; j++) {
+a{0}: 11   				int foo	=	j;
+a{0}: 12   				foo		+=	i;
+a{0}: 13   				printf("\tfoo is: \"\t%d\n", foo);	// print foo
+a{0}: 14   			}
+a{0}: 15   		}
+a{0}: 16   	
+a{0}: 17   		MPI_Finalize();
+a{0}: 18   	}
+6: q
 Shutting down debugger and killing application for 'a'.

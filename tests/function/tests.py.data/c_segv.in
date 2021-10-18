@@ -17,12 +17,12 @@ a{0..2}: Program received signal SIGSEGV.
 a{0..2}: In main at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/c_segv.c:8
 6: # investigate
 7: list
-a{0..2}: 8	    *p = 2048;
-a{0..2}: 9	
-a{0..2}: 10	    MPI_Finalize();
-a{0..2}: 11	
-a{0..2}: 12	    return 0;
-a{0..2}: 13	}
+a{0..2}: 8    	    *p = 2048;
+a{0..2}: 9    	
+a{0..2}: 10   	    MPI_Finalize();
+a{0..2}: 11   	
+a{0..2}: 12   	    return 0;
+a{0..2}: 13   	}
 8: print p
 a{0..2}: (int *) 0x0
 9: q???

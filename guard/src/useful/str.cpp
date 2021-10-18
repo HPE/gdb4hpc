@@ -154,18 +154,20 @@ char *ReplaceStr(const char *str, const char *oldstr, const char *newstr) {
 
 // Used to format lines of source code returned from GDBMI
 void formatSourceLine(std::string &line) {
-    // Strings come back with leading tabs escaped and
-    // trailing newlines escaped. We want add those back 
-    // in without messing with any escaped characters 
-    // that might actually be in the contents of the line.
+    // Strings come back with tabs newlines escaped. 
+    // We want add those back in without messing with any escaped 
+    // characters that might actually be in the contents of the line.
 
-    // un-escape any leading \t
-    for (size_t i = 0; i < line.size(); i++) {
-        if (std::string_view(line).substr(i, 2) == "\\t") {
-            line.replace(i, 2, "\t");
+    // un-escape any \t, unless it's in a string literal
+    bool inStringLiteral = false;
+    for (size_t i = 0; i < line.size() - 1; i++) {
+        if (line[i] == '\\') {
+            if (line[++i] == 't' && !inStringLiteral) {
+                line.replace(--i, 2, "\t");
+            } 
+        } else if (line[i] == '"') {
+            inStringLiteral = !inStringLiteral;
         }
-
-        if (!std::isspace(line[i])) break;
     }
 
     // remove the trailing \n, if present

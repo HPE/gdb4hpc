@@ -39,7 +39,7 @@ a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
 30: # Run next command
 31: n
-a{0..5}: main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:195
+a{0..5}: 195			one_d_i[ii] = one_d_i_cnt++;
 34: #exit lgdb
 35: q
 Shutting down debugger and killing application for 'a'.

@@ -43,9 +43,12 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (l = lp; l != (dbglist_t *)nullptr; l = l->list_next) {
             auto line = std::string{l->list_line};
             formatSourceLine(line);
+            // We use 5 characters of space for the line number, plus a tab.
+            // We add a tab on the end to ensure that source code lines start
+            // printing on a tab boundary, in case the source code contains tabs itself.
             PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                          l->list_threads,
-                                         "%d\t%s\n", l->list_lno, line.c_str());
+                                         "%-5d\t%s\n", l->list_lno, line.c_str());
         }
     }
 

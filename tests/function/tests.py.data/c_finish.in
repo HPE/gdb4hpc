@@ -40,6 +40,7 @@ a{0..5}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_
 29: # Test the finish command - at next line after the function call
 30: finish
 a{0..5}: main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+a{0..5}: 223		stackTest = test_stack(stackTest);
 33: #exit lgdb
 34: q
 Shutting down debugger and killing application for 'a'.

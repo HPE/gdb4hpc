@@ -59,6 +59,11 @@ import os
 import time
 import re
 
+# The current (as recent as craype 2.7.12.1) ftn compiler's fortran debug info
+# is half-broken and missing variables in certain places. Until that is fixed,
+# we'll just skip tests affected by it.
+SKIP_FORTRAN_TESTS = True
+
 ######################################################
 # Functions for creating a script file and verifying
 # the output against the expect output
@@ -382,9 +387,10 @@ def makeRunFile(test, substitutions = ()):
             m = rcline.match(line)
             if not m:
                 continue
-            line = m.group(1) + "\n"
+            line = m.group(1)
             if line[-3:] == '???':
                 line = line[0:-3]
+            line += '\n'
 
             if launch_re:
                 line = launch_re.sub(r"\1" + '--launcher-args="' + launch_args + '" ', line)
@@ -485,6 +491,10 @@ class c_info(Test):
 class c_kill(Test):
     def test(self):
         runTest(self)
+
+class c_list(Test):
+    def test(self):
+        runTest(self)
         
 class c_next(Test):
     def test(self):
@@ -552,6 +562,8 @@ class lgdb_ftn_t1(Test):
         
 class lgdb_ftn_t2(Test):
     def test(self):
+        if SKIP_FORTRAN_TESTS:
+            self.cancel("Current Cray ftn compiler has broken debug symbols")
         runTest(self)
         
 class lgdb_ftn_t3(Test):
@@ -568,6 +580,8 @@ class c_assert_wdecomp(Test):
         
 class ftn_arrays(Test):
     def test(self):
+        if SKIP_FORTRAN_TESTS:
+            self.cancel("Current Cray ftn compiler has broken debug symbols")
         runTest(self)
 
 class cpp_arrays_compare(Test):
@@ -580,6 +594,8 @@ class cpp_decomp(Test):
 
 class ftn_decomp(Test):
     def test(self):
+        if SKIP_FORTRAN_TESTS:
+            self.cancel("Current Cray ftn compiler has broken debug symbols")
         runTest(self)
 
 class cpp_decomp2(Test):

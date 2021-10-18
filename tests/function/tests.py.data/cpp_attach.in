@@ -11,20 +11,11 @@ Number of dbgsrvs connected: [4];  Timeout Counter: [0]
 Finalizing setup...
 Attach complete.
 Current rank location:
-a{0}: #0  0x00007f8c1879f571 in nanosleep
-a{0}: #1  0x00007f8c1879f4aa in sleep
-a{0}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
-a{1}: #0  0x00007fa1258b5571 in nanosleep
-a{1}: #1  0x00007fa1258b54aa in sleep
-a{1}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
-a{2}: #0  0x00007fd80a8e4571 in nanosleep
-a{2}: #1  0x00007fd80a8e44aa in sleep
-a{2}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
-a{3}: #0  0x00007fdf4eacb571 in nanosleep
-a{3}: #1  0x00007fdf4eacb4aa in sleep
-a{3}: #2  0x0000000000201d16 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+a{0..3}: #0  0x0000 in nanosleep
+a{0..3}: #1  0x0000 in sleep
+a{0..3}: #2  0x0000 in main at /bd_dt/C++/cpp_attach.cpp:15
 4: break 20
-a{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp, line 20.
+a{0..3}: Breakpoint 1: file /bd_dt/C++/cpp_attach.cpp, line 20.
 5: # climp up to main- the depth we will get stopped at can vary, so be excessive...
 6: up???
 a{0}: #1  0x00007f8c1879f4aa in sleep

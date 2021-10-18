@@ -357,6 +357,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_dlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/libdlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
 %{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_segv.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_segv.c
+%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_list.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_list.c
 
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp
@@ -687,6 +688,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_segv.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_list.c
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp

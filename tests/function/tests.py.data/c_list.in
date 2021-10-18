@@ -17,11 +17,11 @@ a{0}: 9    		for (int i=0; i<3; i++) {
 a{0}: 10   			for (int j=0; j<i; j++) {
 a{0}: 11   				int foo	=	j;
 a{0}: 12   				foo		+=	i;
-a{0}: 13   				printf("\tfoo is: \"\t%d\n", foo);	// print foo
-a{0}: 14   			}
-a{0}: 15   		}
-a{0}: 16   	
-a{0}: 17   		MPI_Finalize();
-a{0}: 18   	}
+a{0}: 13   				// try to be as nasty as possible with backslashes...
+a{0}: 14   				printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
+a{0}: 15   					end comment
+a{0}: 16   			}
+a{0}: 17   		}
+a{0}: 18   	
 6: q
 Shutting down debugger and killing application for 'a'.

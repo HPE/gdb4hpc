@@ -10,7 +10,9 @@ int main(int argc, char *argv[]) {
 		for (int j=0; j<i; j++) {
 			int foo	=	j;
 			foo		+=	i;
-			printf("\tfoo is: \"\t%d\n", foo);	// print foo
+			// try to be as nasty as possible with backslashes...
+			printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
+				end comment
 		}
 	}
 

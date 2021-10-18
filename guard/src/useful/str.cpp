@@ -160,18 +160,14 @@ void formatSourceLine(std::string &line) {
 
     // un-escape any \t, unless it's in a string literal
     bool inStringLiteral = false;
-    bool escaped = false;
-    for (size_t i = 0; i < line.size(); i++) {
-        if (!inStringLiteral && std::string_view(line).substr(i, 2) == "\\t") {
-            line.replace(i, 2, "\t");
-        } else if (inStringLiteral && line[i] == '\\' && !escaped) {
-            escaped = true;
-            continue;
-        } else if (line[i] == '"' && !escaped) {
+    for (size_t i = 0; i < line.size() - 1; i++) {
+        if (line[i] == '\\') {
+            if (line[++i] == 't' && !inStringLiteral) {
+                line.replace(--i, 2, "\t");
+            } 
+        } else if (line[i] == '"') {
             inStringLiteral = !inStringLiteral;
         }
-
-        escaped = false;
     }
 
     // remove the trailing \n, if present

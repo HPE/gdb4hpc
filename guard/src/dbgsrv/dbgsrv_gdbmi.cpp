@@ -3826,6 +3826,31 @@ dbgevent_t* DbgGdbMI::waitAndProcessAsyncEvent()
     return WaitEvent(nullptr);
 }
 
+// keep taking async events from MI until none are waiting.
+// events are immediately discarded without being processed.
+// returns amount of events flushed.
+int DbgGdbMI::flushAsyncEvents() {
+    Status = DBGSTAT_RUNNING;
+
+    int flushed = 0;
+
+    while (bufferReady()) {
+        flushed++;
+        DVPRINT("Flushed event with type %d\n", PendingEvent->type);
+        MIEventFree(PendingEvent);
+        PendingEvent = nullptr;
+        AsynchEventWaiting = 0;
+
+        // see if we get another
+        MISessionProgress(GDBMISession);
+    }
+
+    AsynchEventWaiting = 0;
+    Status = DBGSTAT_STOPPED;
+
+    return flushed;
+}
+
 void DbgGdbMI::setAsyncEvent(MIEvent* e) {
     AsynchEventWaiting = 1;
     std::swap(PendingEvent, e);

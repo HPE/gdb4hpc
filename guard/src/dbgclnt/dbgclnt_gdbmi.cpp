@@ -178,17 +178,6 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
     }
     MICommandFree(cmd);
 
-    // always continue on fatal errors
-    cmd = MIGDBSet("continue-on-fatal-error", "on");
-    SendMICommand_fe(sess, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb set continue-on-fatal-error command failed.");
-        return e;
-    }
-    MICommandFree(cmd);
-
     return NULL;
 }
 

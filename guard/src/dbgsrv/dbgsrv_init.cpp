@@ -41,8 +41,8 @@ static bool runRocgdb(MISession*);
 void SendMICommand(MISession *, MICommand *);
 
 // Enum for supported gdb versions
-enum class GdbVersion { GDB_81, CUDA_101, ROC_GDB, CUSTOM};
-static GdbVersion gdb_vers = GdbVersion::GDB_81;
+enum class GdbVersion { GDB_100, CUDA_101, ROC_GDB, CUSTOM};
+static GdbVersion gdb_vers = GdbVersion::GDB_100;
 
 static list_t *main_entry_BP = nullptr;
 static list_t *parallel_entry_BP = nullptr;
@@ -69,7 +69,7 @@ DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
 
 dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    gdb_vers = GdbVersion::GDB_81;
+    gdb_vers = GdbVersion::GDB_100;
 
     /**************DEBUG Start*****************/
     sigset_t debug_mask;
@@ -114,11 +114,11 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
         }
     } else if (gpu_flag) {
         // try to initialize a gpu back-end, if this fails, gdb_vers will
-        // be set to GdbVersion::GDB_81
+        // be set to GDB_100
         initGpu();
     }
 
-    if (gdb_vers == GdbVersion::GDB_81) {
+    if (gdb_vers == GdbVersion::GDB_100) {
         MISessionSetGDBPath(m_session, "gdb-guard");
         setDataDir("gdb");
     }
@@ -242,7 +242,7 @@ void DbgGdbMI::Initializer::initGpu()
         }
     }
 
-    if (gdb_vers == GdbVersion::GDB_81) {
+    if (gdb_vers == GdbVersion::GDB_100) {
         // Didn't find any of the gpu driver types; apparently gpu_flag is
         // a global so we need to tell the world that we didn't find the
         // correct gpu debugger. (really, we need to do better variable
@@ -305,7 +305,7 @@ void DbgGdbMI::Initializer::initGpu()
             DVPRINT("rocgdb is unavailable.\n");
             DVPRINT("reverting to non-gpu mode.\n");
             gpu_flag = 0;
-            gdb_vers = GdbVersion::GDB_81;
+            gdb_vers = GdbVersion::GDB_100;
         }
     }
 }
@@ -401,10 +401,16 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             atEntry = true;
             break;
         }
-                
+        
         // issue a continue command .. this is assuming we're pre-main or
         // pre-parallel entry point.
         DVPRINT("continueToEntryPoint: trying to continue to start breakpoint attempt = %d\n", attempt);
+
+        // it's possible that another stop signal has happened while we were
+        // already stopped. we flush those old events before listening again
+        // so our call to waitForAsyncEvent doesn't pick up a stale event
+        auto flushed = m_dbg.flushAsyncEvents();
+        DVPRINT("Flushed %d events.\n", flushed);
                 
         auto cmd = MIExecContinueAll();
         SendMICommand(m_session, cmd);
@@ -435,22 +441,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             DVPRINT("DbgStartup: Received signal %s (%s), trying to recover.\n",
                     evt->sigName, evt->sigMeaning);
             MIEventFree(evt);
-
-            if (gdb_vers == GdbVersion::ROC_GDB) {
-                // rocgdb triggers a signal without stopping the process.
-                // if this just goes back to the top of loop, the MIStackListAllFrames
-                // will fail.   One could pose this without the special casing by
-                // dealing with failure there, but I don't know enough about every
-                // situation that could cause ListAllFrames to fail to assure
-                // myself it would be waiting forever.  So cowardly, just changing the
-                // handling for roc.
-                DVPRINT("waiting for another event\n");
-                evt = m_dbg.waitForAsyncEvent();
-                DVPRINT("Got event type %d\n", evt->type);
-                MIEventFree(evt);
-            }
-            evt = NULL;
+            evt = nullptr;
+            
             continue;  // for attempt
+        } else {
+            // shouldn't ever happen in theory, but log it just in case
+            DVPRINT("got event type %d, ignoring...\n", evt->type);
         }
 
         // Free the event
@@ -1065,12 +1061,6 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
             MICommandFree(cmd);
         }
     }
-
-    // XXX: This actual does do something with the Allinea branch of gdb (ddt-gdb)
-    // DO NOT REMOVE! If removed, the backend will hang on gdb fatal errors.
-    cmd = _MIGDBSet("continue-on-fatal-error", "1");
-    SendMICommand(m_session, cmd);
-    MICommandFree(cmd);
 
     // Set maximum variable size to unlimited to allow gdb to print large values
     cmd = _MIGDBSet("max-value-size", "unlimited");

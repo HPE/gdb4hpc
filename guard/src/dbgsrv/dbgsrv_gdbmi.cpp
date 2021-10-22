@@ -72,8 +72,7 @@ static MIEvent *PendingEvent = NULL;
 // just indicates it was *requested*
 static bool isInNonStopMode = false;
 
-// print elements setting used for resetting and restoring before direct commands
-// set by DbgSetPrintElements and initialized by setup_gdbmi_environment
+// set by DbgSetPrintElements
 int clientPrintElements = 0;
 
 #ifndef ALPS

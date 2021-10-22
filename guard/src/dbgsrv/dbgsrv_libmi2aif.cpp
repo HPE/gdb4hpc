@@ -3787,8 +3787,6 @@ private:
     bool m_isFortran;           // true if the data-type is a fortran array
     bool m_hasError;            // true if the parser encountered a problem
     bool m_isFragment;          // true if the last block ended in the middle of an array
-    size_t m_elementsRead;      // counts the total amount of elements that have been read across all dimensions
-    bool m_isTruncated;         // true if the array got truncated (by e.g. set print elements)
     std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
     std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
     std::string m_element;      // the text of the current - potentially partial - element
@@ -3819,8 +3817,6 @@ MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
       m_isFortran(false),
       m_hasError(false),
       m_isFragment(false),
-      m_elementsRead{0},
-      m_isTruncated{false},
       m_abuild(m_dim),
       m_idcs(m_dim, 0) {}
 
@@ -3851,43 +3847,21 @@ void MIArrayToAIFParser::parseSome(const char *str) {
         for (const char *p = str; *p; ++p) {
             if ((*p == '(' || *p == '{' || *p == '"') && !m_inCharArray) {
                 openBracket(*p);
-            } else if (m_isFragment && !isspace(*p) && !m_isTruncated) {
+            } else if (m_isFragment && !isspace(*p)) {
                 error("insufficient data items in direction");
             } else if (*p == ')' || *p == '}' || *p == '"') {
                 closeBracket(*p);
             } else if (m_depth == m_dim && *p == ',' && !m_inCharArray) {
                 addElement();
-            } else if (m_depth == m_dim && strncmp(p, "...}", 4) == 0 && !m_inCharArray) {
-                // e.g. parsing "{{1, 2}, {3...}}" will produce an AIF array with data [[1, 2], [3, 0]],
-                // m_isTruncated will be true, and m_elements read will be 3. this behavior is
-                // necessary because AIF arrays are very rigidly sized and can't have inner arrays
-                // of differing length.
-                //
-                // m_elementsRead + 1 to make the debug message reflect the actual amount of elements that
-                // will be read after the bracket is closed
-                DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (inner).\n", m_elementsRead + 1);
-                m_isTruncated = true;
-                // move past "..." so p is pointing to '}'
-                // the ++p in the for loop declaration will make this advance 3 elements
-                p += 2;
             } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
-                // sometimes the data, specifically strings, can come back 
-                // like "{"Hello"...}", so we might detect truncation here too
-                if (strncmp(p, "...}", 4) != 0) {
-                    m_element += *p;
+                m_element += *p;
 
-                    m_escapeNext = false;
+                m_escapeNext = false;
 
-                    if (*p == '\\' && m_inCharArray) {
-                        m_escapeNext = true;
-                    } else if (m_inCharArray) {
-                        addElement();
-                    }
-                } else {
-                    DVPRINT("MIArrayToAIFParser::parseSome: detected data truncation after reading %zu elements (outer).\n", m_elementsRead);
-                    m_isTruncated = true;
-                    // move past ... to }
-                    p += 2; // ++p in for loop declaration will make this 3
+                if (*p == '\\' && m_inCharArray) {
+                    m_escapeNext = true;
+                } else if (m_inCharArray) {
+                    addElement();
                 }
             }
         }
@@ -3976,13 +3950,13 @@ void MIArrayToAIFParser::closeBracket(char bracket) {
     } else {
         if (!m_element.empty()) addElement();
 
-        // this can happen if gdb reports a char array e.g. 8 characters long,
-        // but the actual data is e.g. 3 characters followed by \0. addElement
-        // won't push elements up because it doesn't think we're at the end yet.
-        //
-        // this can also happen if data gets truncated by set print elements.
-        if ((m_inCharArray || m_isTruncated) && m_abuild[m_depth - 1] != nullptr)
+        // addElement will only call pushElementsUp if an array is completely full.
+        // if we hit a closing bracket early, perhaps because we were parsing a
+        // string with a null terminator before the end of its allocated space or
+        // set print elements cut things off, we need to make sure to still push up.
+        if (m_abuild[m_depth - 1] != nullptr) {
             pushElementsUp(m_depth - 1);
+        }
 
         --m_depth;
 
@@ -4028,7 +4002,6 @@ void MIArrayToAIFParser::addElement() {
 
     addArrayElement(m_depth - 1, aif);
     AIFFree(aif);
-    m_elementsRead++;
 }
 
 // Create an empty array in direction \a i to contain type \a ac.
@@ -4149,19 +4122,6 @@ AIF* MIArrayToAIFParser::getResult() {
     if (m_abuild[0])
         AIFFree(m_abuild[0]);
     return nullptr;
-}
-
-// get the total number of elements read in all dimensions
-// e.g. with {{1, 2}, {3, 4}}, getElementsRead() == 4
-//      with {{1, 2}, {3...}}, getElementsRead() == 3
-size_t MIArrayToAIFParser::getElementsRead() const {
-    return m_elementsRead;
-}
-
-// returns true if the parser detected that the data it read was truncated.
-// if this is true, there might be some zeros in the end of the array that aren't real
-bool MIArrayToAIFParser::dataIsTruncated() const {
-    return m_isTruncated;
 }
 
 // reset the parser to work on a new array
@@ -4587,7 +4547,7 @@ AIF *ArrayStream::getNextSlice(bool& isFinal, size_t& truncatedLength) {
         m_parser->setShape(std::move(subShape));
         m_parser->parseSome(subResult);
 
-        truncatedLength = m_parser->dataIsTruncated() ? m_parser->getElementsRead() : 0;
+        truncatedLength = clientPrintElements;
 
         res = m_parser->getResult();
     }

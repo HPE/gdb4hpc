@@ -2003,8 +2003,13 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
     numBackgroundThreads = 0;
 
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
+        using namespace std::string_literals;
+        char * errStr = MICommandResultErrorMessage(cmd);
+        auto fullError = "Thread apply failed. (gdb: "s + (errStr ? errStr : "No error message given") + ")";
+
+        EVENT_ERROR(e, DBGERR_DEBUGGER, fullError.c_str());
         MICommandFree(cmd);
+        free(errStr);
         return e;
     }
 

@@ -106,14 +106,16 @@ b{0..2}: Unsupported symbol type
 a{0..2}: Thread 8 has name 'hunka-hunka-burning-love'
 b{0..2}: Thread 8 has name 'hunka-hunka-burning-love'
 54: focus $b
+55: # XXX: ddt_gdb 10 has a regression where thread apply will fail if any thread is running. 
 55: thread apply 1-3 5 bt 2
-b{0..2}: Thread 1-3:
-b{0..2}: <Selected thread is running.>
+b{0..2}: Debugger error: Thread apply failed. (gdb: Selected thread is running.)
+55: thread apply 5 bt 2
 b{0..2}: Thread 5:
 b{0..2}: #0  main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:61
 b{0..2}: #1   in %.*invoke.*%
 b{0..2}: (More stack frames follow...)
 56: thread apply 1-4 -s -q p i
+b{0..2}: Debugger error: Thread apply failed. (gdb: No symbol "i" in current context.)
 58: focus $a
 59: thread apply 2 -v frame???
 a{0..2}: Thread 2 (Thread 0x15554ffd1700 (LWP 22645)):

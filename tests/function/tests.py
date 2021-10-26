@@ -666,3 +666,6 @@ class cpp_attach(Test):
         result, error = compare_files(getTxt(self, self.__class__.__name__), getOut(self, self.__class__.__name__))
         self.assertTrue(result, error)
 
+class cpp_catch(Test):
+    def test(self):
+        runTest(self)

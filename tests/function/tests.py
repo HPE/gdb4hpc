@@ -436,12 +436,6 @@ def runTest(test):
     result, error = compare_files(getTxt(test, test.__class__.__name__), getOut(test, test.__class__.__name__))
     test.assertTrue(result, error)
 
-'''
-A real dummy test just to make sure the avocado framework is working
-'''
-class Gdb4HpcPass(Test):
-    def test(self):
-        pass
 ########### sanity tests ##################
 class c_assign(Test):
     def test(self):

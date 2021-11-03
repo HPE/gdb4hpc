@@ -43,6 +43,12 @@ a{0..5}: 28.19999999999999928945726423989981
 32: #should be -11
 33: print si  
 a{0..5}: -11
+0: print main
+a{0..5}: {signed int (*)()} 0xffffff <main>
+0: print test_stack
+a{0..5}: {signed int (*)(signed int)} 0xffffff <test_stack>
+0: print test_func
+a{0..5}: {void (*)(signed int,signed int)} 0xffffff <test_func>
 36: #exit lgdb
 37: q
 Shutting down debugger and killing application for 'a'.

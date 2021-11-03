@@ -230,7 +230,10 @@ def compare_non_procset_lines(ref_line, out_line):
 def anonymize_line(line):
     line = replace_dir_re.sub('./bd_dt/', line)
     line = replace_ftn_dir_re.sub(r"\1", line)
-    line = hex_val_re.sub('hexval', line)
+    # 0x0 is special enough that we don't want to anonymize it
+    def hex_match(m):
+        return "hexval" if m[0] != "0x0" else "0x0"
+    line = hex_val_re.sub(hex_match, line)
     line = lwp_val_re.sub('LWP', line)
     line = ftn_init_bp_re.sub(r"\1\3:<start-line>", line)
     line = launcher_arg_re.sub('', line)

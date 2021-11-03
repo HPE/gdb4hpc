@@ -2730,7 +2730,7 @@ int Mi2Aif::getFunctionArguments(const char *type, char **argv[]) {
         // string is returned in a private buffer
         (*argv)[i] = strdup(arg);
 
-        DVPRINT("GetFunctionArguments: Added arg %s\n", *argv[i]);
+        DVPRINT("GetFunctionArguments: Added arg %s\n", (*argv)[i]);
 
         // point p 1 past q and continue
         if (q != NULL) {
@@ -2791,44 +2791,39 @@ char *Mi2Aif::getFunctionReturnType(const char *type) {
 /*
 ** This function returns the address of a function from the value string of a
 ** MIVar represented by value. It is expected that gdb/mi will represent the
-** function address as a numerical string found before " <"
+** function address as a numerical string found before " <" and after "} "
 */
 AIF *Mi2Aif::getFunctionAddress(const char *value) {
+    char *fn;
     char *start;
-    char *end;
     long long int addr_loc;
-    void *addr;
-    int addr_len;
 
     DVPRINT("GetFunctionAddress: %s\n", value);
 
-    if (value == NULL) return (AIF *)NULL;
+    if (value == nullptr) return nullptr;
 
-    start = strdup(value);
+    fn = strdup(value);
 
-    // find the first '<' in the start string
-    if ((end = strchr(start, '<')) != (char *)NULL) {
-        // make the opening '<' into the terminating null character
-        *end = '\0';
+    // find }
+    if ((start = strchr(fn, '}')) != nullptr) {
+        // move past }
+        start++;
+    } else {
+        DVPRINT("GetFunctionAddress: couldn't find }, address parsing will fail\n");
+        start = fn;
     }
 
     removeWhitespace(start);
 
     // convert the address of the pointer to an integer value
-    addr_loc = strtoll(start, NULL, 0);
-
-    // Make the void pointer point at the memory location of the pointer
-    addr = (void *)addr_loc;
-
-    // We need to ask for the length of the address type for this particular
-    // pointer.
-    addr_len = getTypeLength("void *");
+    addr_loc = strtoll(start, nullptr, 0);
+    DVPRINT("GetFunctionAddress: parsed %s, got %#llx\n", start, addr_loc);
 
     // free the string
-    free(start);
+    free(fn);
 
     // Create and return the AIF type representing the address
-    return AddressToAIF(addr, addr_len);
+    return AddressToAIF((void*)addr_loc, getTypeLength("void *"));
 }
 
 /*
@@ -2875,7 +2870,7 @@ char *Mi2Aif::miToFDS(int type_id, const char *base_type) {
     char *fds_type = NULL;
     int len;
 
-    DVPRINT("MIToFDS: base_type=>%s\n", base_type);
+    DVPRINT("MIToFDS: type_id = %d, base_type = %s\n", type_id, base_type);
 
     switch (type_id) {
         case T_CHAR:

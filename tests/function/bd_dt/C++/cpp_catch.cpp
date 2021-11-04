@@ -7,6 +7,8 @@
 
 #include "mpi.h"
 
+// Do all the things gdb4hpc can catch with a "catch" command
+
 using namespace std::string_literals;
 
 void load_and_execute(const char *name) {

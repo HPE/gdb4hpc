@@ -1,0 +1,54 @@
+1: maint set sync on
+3: launch $a{3} ./bd_dt/C++/cpp_catch.x --debug
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /bd_dt/C++/cpp_catch.cpp:33
+3: catch throw
+a{0..2}: Catchpoint 1: Set on exception throw.
+4: catch catch
+a{0..2}: Catchpoint 2: Set on exception catch.
+5: catch load libfoo.so
+a{0..2}: Catchpoint 3: Set on load of library matching libfoo.so.
+6: catch fork
+a{0..2}: Catchpoint 4: Set on fork.
+7: catch vfork
+a{0..2}: Catchpoint 5: Set on vfork.
+8: catch exec
+a{0..2}: Catchpoint 6: Set on exec.
+9: c
+a{0..2}: Catchpoint 1 (exception throw)
+10: frame
+a{0..2}: #0  0x00007ffff79ba370 in %.*%__cxa_throw%.*%
+11: c
+a{0..2}: Catchpoint 2 (exception catch)
+12: frame
+a{0..2}: #0  0x00007ffff79ba480 in %.*%__cxa_begin_catch%.*%
+13: c
+a{0..2}: Catchpoint 3 (load of library matching libfoo.so)
+14: frame
+a{0..2}: #0  0x00007ffff7deb290 in %.*%dl_open_worker%.*%
+15: c
+a{0..2}: Catchpoint 4 (fork)
+16: frame
+a{0..2}: #0  0x00007ffff5176603 in %.*%fork%.*%
+17: c
+<$a>: In libfoo
+<$a>: In libbar
+<$a>: In libfoo
+<$a>: In libbar
+<$a>: In libfoo
+<$a>: In libbar
+a{0..2}: Catchpoint 5 (vfork)
+18: frame
+a{0..2}: #0  0x00007ffff5176858 in %.*%vfork%.*%
+19: c
+a{0..2}: Catchpoint 6 (exec)
+20: frame
+a{0..2}: #0  0x00007ffff7dd7ea0 in %.*%_start%.*%
+21: q
+Shutting down debugger and killing application for 'a'.

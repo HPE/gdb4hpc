@@ -105,11 +105,11 @@ Comparison is true.
 {0..2}: Comparison is true.
 78: # continue to a point where the same comparisons should fail
 79: b 88
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 88.
-b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 88.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 90.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 90.
 80: c
-a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
-b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:88
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:90
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:90
 82: compare $a::array2d == $b::array2d
 {0..2}: Comparison is false.
 The difference delta is:

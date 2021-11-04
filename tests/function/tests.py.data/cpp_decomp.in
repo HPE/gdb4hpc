@@ -155,11 +155,11 @@ Comparison is true.
 Comparison is true.
 133: # continue to a point where the same comparisons should fail
 134: b 91
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp, line 91.
-b{0..3}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp, line 91.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp, line 92.
+b{0..3}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp, line 92.
 135: c
-a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp:91
-b{0..3}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp:91
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp:92
+b{0..3}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp.cpp:92
 137: # at this point in the the comparisons should fail
 138: compare $block1_3{$a::block} == $block1_4{$b::block}
 Comparison is false. The difference delta is:

@@ -72,8 +72,7 @@ static MIEvent *PendingEvent = NULL;
 // just indicates it was *requested*
 static bool isInNonStopMode = false;
 
-// print elements setting used for resetting and restoring before direct commands
-// set by DbgSetPrintElements and initialized by setup_gdbmi_environment
+// set by DbgSetPrintElements
 int clientPrintElements = 0;
 
 #ifndef ALPS
@@ -2004,8 +2003,13 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
     numBackgroundThreads = 0;
 
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed.");
+        using namespace std::string_literals;
+        char * errStr = MICommandResultErrorMessage(cmd);
+        auto fullError = "Thread apply failed. (gdb: "s + (errStr ? errStr : "No error message given") + ")";
+
+        EVENT_ERROR(e, DBGERR_DEBUGGER, fullError.c_str());
         MICommandFree(cmd);
+        free(errStr);
         return e;
     }
 
@@ -3824,6 +3828,31 @@ dbgevent_t* DbgGdbMI::waitAndProcessAsyncEvent()
 {
     while (!bufferReady()) MISessionProgress(GDBMISession);
     return WaitEvent(nullptr);
+}
+
+// keep taking async events from MI until none are waiting.
+// events are immediately discarded without being processed.
+// returns amount of events flushed.
+int DbgGdbMI::flushAsyncEvents() {
+    Status = DBGSTAT_RUNNING;
+
+    int flushed = 0;
+
+    while (bufferReady()) {
+        flushed++;
+        DVPRINT("Flushed event with type %d\n", PendingEvent->type);
+        MIEventFree(PendingEvent);
+        PendingEvent = nullptr;
+        AsynchEventWaiting = 0;
+
+        // see if we get another
+        MISessionProgress(GDBMISession);
+    }
+
+    AsynchEventWaiting = 0;
+    Status = DBGSTAT_STOPPED;
+
+    return flushed;
 }
 
 void DbgGdbMI::setAsyncEvent(MIEvent* e) {

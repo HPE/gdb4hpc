@@ -6,10 +6,6 @@
 	path = external/mrnet
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
 	branch = gdb4hpc-external
-[submodule "third_party/ddt_gdb-8.1"]
-	path = external/ddt_gdb-8.1
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-8.1.git
-	branch = master
 [submodule "external/pebuildenv"]
 	path = external/pebuildenv
 	url = ssh://git@stash.us.cray.com:7999/pe_tools/pebuildenv.git
@@ -33,3 +29,6 @@
 [submodule "tests/unit/googletest"]
 	path = tests/unit/googletest
 	url = ssh://git@stash.us.cray.com:7999/pe-cdst/googletest.git
+[submodule "external/ddt_gdb-10.0"]
+	path = external/ddt_gdb-10.0
+	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-10.0.git

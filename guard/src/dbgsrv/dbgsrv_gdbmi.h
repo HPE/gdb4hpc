@@ -93,6 +93,7 @@ public:
 
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();
+    int flushAsyncEvents();
     static void setAsyncEvent(MIEvent* e);
     bool isRunning() const;
     

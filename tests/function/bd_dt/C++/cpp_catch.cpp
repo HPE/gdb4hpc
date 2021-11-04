@@ -10,7 +10,7 @@
 using namespace std::string_literals;
 
 void load_and_execute(const char *name) {
-    std::string path = BD_DT + "/lib/lib" + name + ".so";
+    std::string path = BD_DT + "/c/lib" + name + ".so";
     
     void *handle = dlopen(path.c_str(), RTLD_NOW);
     if (!handle) {

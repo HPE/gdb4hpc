@@ -119,13 +119,13 @@ bd_dt/C++/cpp_bt_stress.x : bd_dt/C++/cpp_bt_stress.o
 bd_dt/C++/cpp_arrays_print.x : bd_dt/C++/cpp_arrays_print.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/lib/libfoo.so : bd_dt/lib/foo.c
+bd_dt/c/libfoo.so : bd_dt/c/libfoo.c
 	gcc -g -O0 -fPIC -shared $^ -o $@
 
-bd_dt/lib/libbar.so : bd_dt/lib/bar.c
+bd_dt/c/libbar.so : bd_dt/c/libbar.c
 	gcc -g -O0 -fPIC -shared $^ -o $@
 
-bd_dt/C++/cpp_catch.x : bd_dt/C++/cpp_catch.cpp bd_dt/lib/libfoo.so bd_dt/lib/libbar.so
+bd_dt/C++/cpp_catch.x : bd_dt/C++/cpp_catch.cpp bd_dt/c/libfoo.so bd_dt/c/libbar.so
 	CC -g -O0 -DBD_DT=\"$(PWD)/bd_dt\"s bd_dt/C++/cpp_catch.cpp -o $@ -ldl
 
 bd_dt/C++/cpp_attach.x : bd_dt/C++/cpp_attach.o bd_dt/cti_launch.x

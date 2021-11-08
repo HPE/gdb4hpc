@@ -42,6 +42,7 @@
 #include "dbgloc.h"
 #include "list.h"
 #include <optional>
+#include <string>
 
 #define EVENT_ERROR(e, err, ...) \
     (e) = NewEvent(DBGEV_ERROR); \

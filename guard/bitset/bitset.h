@@ -7,6 +7,7 @@
 #include <string>
 #include <limits>
 #include <set>
+#include <stdexcept>
 
 class Bitset {
     // interface describing a bitset that is used to represent sets of ranks.

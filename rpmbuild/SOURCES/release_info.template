@@ -31,13 +31,9 @@ Product Description:
 
 Purpose:
 ---------
-  This is bug fix release
+  This is feature release
 
-  - Fix crash when setting some types of catchpoints in gdbmode
-  - Add catch command to gdb4hpc client interface
-  - Fix failure to write history file
-  - Add support for csh-like searching of history by starting commands with !
-  - Print line from source code after step, next, or finish
+  - Updated gen compilers to cray-gcc-10.3.0
 
 Product and OS Dependencies:
 -----------------------------

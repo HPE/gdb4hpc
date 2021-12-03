@@ -232,7 +232,8 @@ void DbgGdbMI::Initializer::initGpu()
             const size_t size = 1024;
             char linebuf[size];
             while ( fgets(linebuf, size, fp)) {
-                if (strncmp(linebuf, "dkms:2.8", 8) == 0) {
+                if (strncmp(linebuf, "dkms:2.8", 8) == 0 ||
+                    strncmp(linebuf, "dkms-2.8", 8) == 0) {
                     DVPRINT("Detected AMD driver %s\n", linebuf);
                     gdb_vers = GdbVersion::ROC_GDB;
                     break;

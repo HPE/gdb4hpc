@@ -1,34 +1,33 @@
-[submodule "third_party/libmi"]
-	path = external/libmi
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/libmi.git
-	branch = master
-[submodule "third_party/mrnet"]
-	path = external/mrnet
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/mrnet.git
-	branch = gdb4hpc-external
-[submodule "external/pebuildenv"]
-	path = external/pebuildenv
-	url = ssh://git@stash.us.cray.com:7999/pe_tools/pebuildenv.git
-	branch = master
-[submodule "external/openmp"]
-	path = external/openmp
-	url = ssh://git@stash.us.cray.com:7999/pe-cce/openmp.git
-	branch = ompd-plugin-fixes
-[submodule "rpmbuild/SOURCES/set_default"]
-	path = rpmbuild/SOURCES/set_default
-	url = ssh://git@stash.us.cray.com:7999/pe-cenv/set_default.git
 [submodule "external/cdst_build_library"]
 	path = external/cdst_build_library
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/cdst_build_library.git
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-cdst_build_library.git
 [submodule "external/zmqnet"]
 	path = external/zmqnet
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/zmqnet.git
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-zmqnet.git
+[submodule "external/mrnet"]
+	path = external/mrnet
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-mrnet.git
+	branch = gdb4hpc-external
+[submodule "external/libmi"]
+	path = external/libmi
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-libmi.git
 [submodule "external/ddt_cuda-gdb-11.0"]
 	path = external/ddt_cuda-gdb-11.0
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_cuda-gdb-11.0.git
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-ddt_cuda-gdb-11.0.git
 [submodule "tests/unit/googletest"]
 	path = tests/unit/googletest
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/googletest.git
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-googletest.git
+	branch = cdst_external
+[submodule "rpmbuild/SOURCES/set_default"]
+	path = rpmbuild/SOURCES/set_default
+	url = git@github.hpe.com:hpe/hpc-pe-cenv-set_default.git
+[submodule "external/openmp"]
+	path = external/openmp
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-openmp.git
+	branch = ompd-plugin-fixes
+[submodule "external/pebuildenv"]
+	path = external/pebuildenv
+	url = git@github.hpe.com:hpe/hpc-pe_tools-pebuildenv.git
 [submodule "external/ddt_gdb-10.0"]
 	path = external/ddt_gdb-10.0
-	url = ssh://git@stash.us.cray.com:7999/pe-cdst/ddt_gdb-10.0.git
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-ddt_gdb-10.0.git

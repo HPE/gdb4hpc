@@ -127,15 +127,6 @@ bool shipCommonFiles(cti_manifest_id_t manifest, bool gpu_flag) {
         return false;
     }
 
-    if (!gpu_flag) {
-        if (cti_addManifestLibrary(manifest, "uda-plugin-cray-upc.so")) {
-            PrintOutError(
-                "Failed to add uda-plugin-cray-upc.so to manifest.\n");
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            return false;
-        }
-    }
-
     // Add libthread_db otherwise gdb will be messed up with thread support
     if (cti_addManifestLibrary(manifest, "libthread_db.so.1")) {
         PrintOutError("CTI error: %s\n", cti_error_str());

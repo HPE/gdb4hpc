@@ -47,7 +47,7 @@
 #define DBGSRV_OPT_NON_STOP "--non-stop"
 #define DBGSRV_OPT_GDB "--gdb"
 
-#define UDASRV "udaserver"
+/* #define UDASRV "udaserver"
 #define UDASRV_ARGC 2
 
 #define UDASRV_ARGV_NAME 0
@@ -57,7 +57,7 @@
 #define UDASRV_ENV_PLUGIN "UDA_PLUGIN_LIBRARY"
 
 #define UDA_SERVICE "/uda_test"
-#define UDA_PLUGIN "uda-plugin-cray-upc.so"
+#define UDA_PLUGIN "uda-plugin-cray-upc.so"*/
 
 static int debug_flag = 0;
 static int gpu_flag = 0;
@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
     int i;
     char **tmp;
     pid_t mypid;
-#if 1
+/* #if 1
     // TODO: UPC addition here
     // udaserver info
     // char **		udasrv_argv;
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     char *uda_str;
     int len;
 // End UPC addition
-#endif
+#endif*/
 
 #ifdef DEBUG
     debug_flag = 1;
@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "\n"); 
     }
 
-#define CRAY_CCE_UPC 1
+/* #define CRAY_CCE_UPC 1
 #ifdef CRAY_CCE_UPC
     // This only works with non-gpu mode
     if (!gpu_flag) {
@@ -351,7 +351,7 @@ int main(int argc, char **argv) {
 	}
 
 // End UPC addition
-#endif
+#endif*/
 
     // get the app pids for this node
     if ((myPids = cti_be_findAppPids()) == NULL) {

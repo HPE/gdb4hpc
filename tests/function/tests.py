@@ -47,12 +47,13 @@ import os
 
 #os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
 
-from test_tool_starter import find_cdst_support_prefix
-
-sys.path.insert(0, find_cdst_support_prefix() + "/testing_lib")
-
-from cdst_test.useful import detect_wlm, getOut
-from cdst_test.textcheck import make_regex
+try:
+    from cdst_test.useful import detect_wlm, getOut
+    from cdst_test.textcheck import make_regex
+except ModuleNotFoundError:
+    sys.path.insert(0, os.getcwd() + "/cdst-test")
+    from cdst_test.useful import detect_wlm, getOut
+    from cdst_test.textcheck import make_regex
 
 import subprocess
 import os

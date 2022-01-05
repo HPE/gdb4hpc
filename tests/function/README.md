@@ -1,110 +1,59 @@
 # Automated Tests
 
-## Running
-
-To run all functional tests, execute:
-```
-# run all tests
-$ ./test_tool_starter.py
-```
-The `test_tool_starter.py` script is meant to be an easy way to run functional tests.
-```
-usage: test_tool_starter.py [-h] [-t TEST] [-c LOCATION] [-s] [-f] [-r]
-                            [-y FILE]
-
-Run functional tests
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -t TEST, --test TEST  run a single test. if this option isn't used, all
-                        tests are run. can be used multiple times to run
-                        multiple tests.
-  -c LOCATION, --cp LOCATION
-                        copy tests to another location.
-  -s, --skip-build      skip the build step.
-  -f, --force           force tests to run, even if a check fails.
-  -r, --remove, --clean
-                        remove local files that get created when this tool is
-                        run.
-  -y FILE, --yaml FILE  specificy a yaml file with extra config. default is
-                        test_tool_config.yaml.
-```
-
-To run a single test, execute:
-```
-# run a single test
-$ ./test_tool_starter.py -t <test name>
-# example:
-$ ./test_tool_starter.py -t c_assign
-```
-
-The actual test names can be found in `./tests.py`. Just use the
-names of the python classes/methods.
-
-By default, the test script will rebuild test programs upon each run. To skip
-this, use the `--skip-build` or `-s` option:
-```
-# skip the build step
-$ ./test_tool_starter.py --skip-build
-# or
-$ ./test_tool_starter.py -s
-```
-
-In order to write the results of the test to disk, `test_tool_starter.py` needs to be
-in a directory where you have write permissions. To copy test data to a directory
-where you have write permissions, execute:
-```
-# copy tests to another directory
-$ ./test_tool_starter.py --cp <destination>
-# or
-$ ./test_tool_starter.py -c <destination>
-```
-
-Some of these options can be combined:
-```
-# skip the build step and run the c_assign test
-$ ./test_tool_starter.py -s -t c_assign
-```
-
-## System Specific Configuration
-
-`test_tool_config.yaml` defines how to build and run tests. In addition, it can define system-specific configuration. For example, arguments for WLMs are defined in the `launch` section:
+## Running tests from a tests rpm
 
 ```
-# launcher config
-launch:
-  args:
-    slurm: "-n4 --ntasks-per-node=2"
-    alps: "-n4 -N2"
-    ssh: "-n4 --ntasks-per-node=2"
+$ ./test_tool.py --cp <destination> # if tests are installed in a directory that root owns
+$ ./test_tool.py
 ```
 
-On a system that needs additional or different launcher arguments, you can add a new section that is the specific system's hostname and override them. For a system called `cfa6k`, `test_tool_config.yaml` might look like this:
+## Running tests from a git clone
 
 ```
-# launcher config
-launch:
-  args:
-    slurm: "-n4 --ntasks-per-node=2"
-    alps: "-n4 -N2"
-    ssh: "-n4 --ntasks-per-node=2"
-
-# system specific overides
-cfa6k:
-  launch:
-    args:
-      slurm: "-n4 --ntasks-per-node=2 --mpi=cray_shasta"
+$ git submodule update --init ./cdst-test
+$ ./test_tool.py
 ```
 
-This will have the effect of using the new arguments if the test tool is run on a machine called `cfa6k`. Otherwise, the custom arguments are ignored and the defaults are used.
+## A note on the updated gdb4hpc-specific textcheck functions
 
-Only specified options will be changed. If an option isn't specified, the default is used.
+This version of the test process is designed to automatically handle
+most of the variability in the output from gdb4hpc.
+This includes that:
+- results from multiple launches can return in any order,
+- results from some ranks may be delayed,
+- addresses and LWP vary from run to run and rank to rank,
+- the directory for breakpoints depends on you run location,
+- "connecting to dbgsrv" line may vary from run to run,
+- the initial breakpoint in fortran programs is indeterminate,
+- output printed within to application itself isn't consistent enough
+to really check
 
-## Relationship to cdst-support
+It now uses a single input file will incorporate both the batch and
+the result.   The convention dovetails with --echo, so lines starting
+with linenumber: are pulled out as the script lines to run.
 
-The actual testing functionality and framework is provided by `cray-cdst-support-devel`. It needs to be loaded in some way for the test tool to be able to run tests. To find the testing library, `test_tool_starter.py` looks in the following places in the following order:
+After running the test, the .rc and .out files will be available in
+"tmp" as always.
 
-1. If defined, the location specified by the `CRAY_CDST_SUPPORT_INSTALL_DIR` 
-environment variable
-    * This can be set by loading the `cray-cdst-support` module or by manually setting it and pointing to a dev repository of `cdst-support`.
-2. `/opt/cray/pe/cdst-support/default`
+To create a new .in file, you can start with a batch file, and run
+gdb4hpc as : gdb4hpc -s -o tests.py.data/testname.in -b testname.rc -e
+
+Typically the result will need very little additional massaging
+
+- procset results need to be canicalized.   So replace:
+   a{0,2}: 1
+   a{1}: 1
+   with:
+   a{0..2}: 1
+
+- break up lines where the "Breakpoint" message may have happened in
+the middle of program output
+
+- In some cases, add a regualar expression inside %'s to match results
+that can change, e.g.:
+34: show version
+a{0..2}: Version %[\d.]+%
+
+- in desperate circumstances, the function output can me marked as
+indeterminate by adding three question marks, e.g.:
+34:info thread -v???

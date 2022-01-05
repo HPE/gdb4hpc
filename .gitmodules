@@ -31,3 +31,6 @@
 [submodule "external/ddt_gdb-10.0"]
 	path = external/ddt_gdb-10.0
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-ddt_gdb-10.0.git
+[submodule "tests/function/cdst-test"]
+	path = tests/function/cdst-test
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-cdst-test.git

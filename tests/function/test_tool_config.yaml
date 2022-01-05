@@ -4,6 +4,8 @@ build:
   # target specific checks and rules
   targets:
     all:
+      optional-modules:
+      - cray-cti-devel
       directory: .
 
 # config for test time

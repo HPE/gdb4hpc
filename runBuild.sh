@@ -27,6 +27,8 @@ check_exit_status
 module load cray-cti-devel
 check_exit_status
 
+module list
+
 # Create install directory
 source $top_level/release_versioning
 gdb4hpc_version=
@@ -137,10 +139,6 @@ check_exit_status
 make $cdst_j_flags install
 check_exit_status
 
-# deliver pretty-printers
-cp -a $top_level/external/python_extras/gdb $install_dir/share/.
-check_exit_status
-
 # deliver gdb-guard to libexec dir
 mkdir -p $install_dir/libexec
 check_exit_status
@@ -198,20 +196,6 @@ else
     cp -a $cuda_install_dir/bin/cuda-gdb $install_dir/libexec/cuda110-gdb-guard
     check_exit_status
 fi
-
-echo "############################################"
-echo "#           Building uda plugin            #"
-echo "############################################"
-
-cd $top_level/external/gdb_uda
-check_exit_status
-
-CC=gcc make
-check_exit_status
-
-# deliver the gdb uda support library to libdir
-cp -a $top_level/external/gdb_uda/plugin/uda-plugin-cray-upc.so $install_dir/lib
-check_exit_status
 
 echo "############################################"
 echo "#              Building MRNet              #"

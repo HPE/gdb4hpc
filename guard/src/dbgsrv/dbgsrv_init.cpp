@@ -413,7 +413,8 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         auto flushed = m_dbg.flushAsyncEvents();
         DVPRINT("Flushed %d events.\n", flushed);
                 
-        auto cmd = MIExecContinueAll();
+        auto cmd = ( attempt > 0 ? MIExecContinueAll() :
+                     MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             EVENT_ERROR(e, DBGERR_DEBUGGER,

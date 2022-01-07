@@ -412,8 +412,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         // so our call to waitForAsyncEvent doesn't pick up a stale event
         auto flushed = m_dbg.flushAsyncEvents();
         DVPRINT("Flushed %d events.\n", flushed);
-                
-        auto cmd = MIExecContinueAll();
+
+        // nexti can be just enough enough of a bump to finish loading symbols.   Try it first
+        // because continue can just run off without ever returning control to the
+        // debugger
+        auto cmd = ( attempt > 0 ? MIExecContinueAll() :
+                     MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             EVENT_ERROR(e, DBGERR_DEBUGGER,

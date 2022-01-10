@@ -24,19 +24,19 @@ echo "############################################"
 echo "#           Building Unit Tests            #"
 echo "############################################"
 
-#cd $top_level/tests/unit
+cd $top_level/tests/unit
 
-#make $cdst_j_flags
-#check_exit_status
+make $cdst_j_flags
+check_exit_status
 
 echo "############################################"
 echo "#            Running Unit Tests            #"
 echo "############################################"
 
-#cd $top_level/tests/unit
+cd $top_level/tests/unit
 
-#./unit_tests
-#check_exit_status
+./unit_tests
+check_exit_status
 
 echo "############################################"
 echo "#                   Done                   #"

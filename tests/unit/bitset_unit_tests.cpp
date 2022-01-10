@@ -61,7 +61,7 @@ using testing::Types;
 
 typedef Types<MRNET_BITSETS ZMQNET_BITSETS DenseBitset> BitsetImplimentations;
 
-TYPED_TEST_SUITE(BitsetUnitTest, BitsetImplimentations);
+TYPED_TEST_CASE(BitsetUnitTest, BitsetImplimentations);
 
 // the weird "this->m_..." syntax is required because of how google test works.
 
@@ -170,8 +170,8 @@ TYPED_TEST(BitsetUnitTest, Or) {
 TYPED_TEST(BitsetUnitTest, setRemoval) {
 #ifdef ZMQNET
     if (std::is_same<TypeParam, LRunLEBitset>::value) {
-        std::cerr << "LRunLE bitset does not support the unset operation, required for set removal. Skipping test.\n";
-        GTEST_SKIP();
+        std::cerr << "LRunLE bitset does not support the unset operation, required for set removal. Skipping test and reporting success.\n";
+        return;
     }
 #endif
 
@@ -182,8 +182,8 @@ TYPED_TEST(BitsetUnitTest, setRemoval) {
 TYPED_TEST(BitsetUnitTest, invert) {
 #ifdef ZMQNET
     if (std::is_same<TypeParam, LRunLEBitset>::value) {
-        std::cerr << "LRunLE bitset does not support the invert operation. Skipping test.\n";
-        GTEST_SKIP();
+        std::cerr << "LRunLE bitset does not support the invert operation. Skipping test and reporting success.\n";
+        return;
     }
 #endif
 
@@ -202,8 +202,8 @@ TYPED_TEST(BitsetUnitTest, hasCommonBits) {
 TYPED_TEST(BitsetUnitTest, setUnset) {
 #ifdef ZMQNET
     if (std::is_same<TypeParam, LRunLEBitset>::value) {
-        std::cerr << "LRunLE bitset does not support the unset operation. Skipping test.\n";
-        GTEST_SKIP();
+        std::cerr << "LRunLE bitset does not support the unset operation. Skipping test and reporting success.\n";
+        return;
     }
 #endif
 

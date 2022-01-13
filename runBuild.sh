@@ -139,6 +139,10 @@ check_exit_status
 make $cdst_j_flags install
 check_exit_status
 
+# deliver pretty-printers
+cp -a $top_level/external/python_extras/gdb $install_dir/share/.
+check_exit_status
+
 # deliver gdb-guard to libexec dir
 mkdir -p $install_dir/libexec
 check_exit_status

@@ -31,16 +31,16 @@ Product Description:
 
 Purpose:
 ---------
-  This is feature release
+  This is bugfix release
 
-  - Updated gen compilers to cray-gcc-10.3.0
+  - Fix failure to find initial breakpoint on some PBS/Pro systems.
 
 Product and OS Dependencies:
 -----------------------------
   The gdb4hpc <VERSION> is supported on the following Cray systems:
     - HPE/Cray XC systems with CLE 7.0 or later
     - HPE/Cray CS systems with CentOS/RH 8.0 or later
-    - HPE/Cray Shasta systems with SLES 15 service pack 1 or later
+    - HPE/Cray Shasta systems with SLES 15 service pack 2 or later
     - HPE Apollo systems with Slurm and RH 8.0 or later
     - Baymax systems with RH 8.0 or later
 

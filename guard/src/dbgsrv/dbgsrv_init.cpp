@@ -420,6 +420,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
                      MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
+            DVPRINT("next/continue command failed\n");
             EVENT_ERROR(e, DBGERR_DEBUGGER,
                         MICommandResultErrorMessage(cmd));
             MICommandFree(cmd);
@@ -430,6 +431,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         MIEvent *evt = m_dbg.waitForAsyncEvent();
 
         if (evt->type == MIEventTypeBreakpointHit) {
+            DVPRINT("got breakpoint hit event\n");
             // If we hit a main breakpoint, we are done (unset finish).
             // Otherwise check parallel breakpoints
             if (dbgbp_t *bp = FindBPByID(main_entry_BP, evt->bkptno)) {
@@ -440,7 +442,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             } else {
                 DVPRINT("%s, %s Hit unknown entry breakpoint.", __FILE__, __func__);
             }
-        } else if (evt->type == MIEventTypeSignal) {
+        } else if (evt->type == MIEventTypeSignal || evt->type == MIEventTypeSteppingRange) {
             // slurm will send a SIGSTOP for some reason, try to recover from
             // that
             DVPRINT("DbgStartup: Received signal %s (%s), trying to recover.\n",

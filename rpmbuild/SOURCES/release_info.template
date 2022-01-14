@@ -31,9 +31,29 @@ Product Description:
 
 Purpose:
 ---------
-  This is bugfix release
+  22.02 Release adds the following features:
+      - Regarding gen compilers cray-gcc-10.3.0
+        NOTE: If you encounter the following error:
+        ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.26' not found 
+        Temporary workaround:
+        1) export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/gcc/10.3.0/snos/lib64
+        or
+        2) module load gcc/10.3.0
 
-  - Fix failure to find initial breakpoint on some PBS/Pro systems.
+  21.12 This is bugfix release
+      - Updated gen compilers to cray-gcc-10.3.0
+
+  21.11 This is bug fix release
+      - Fix crash when setting some types of catchpoints in gdbmode
+      - Add catch command to gdb4hpc client interface
+      - Fix failure to write history file
+      - Add support for csh-like searching of history by starting commands with !
+      - Print line from source code after step, next, or finish
+
+  21.10 This is bug fix release
+      - Fix potential double free during gdbmode command
+      - Fix crash when printing C++ vectors of structs that have vector members. 
+
 
 Product and OS Dependencies:
 -----------------------------

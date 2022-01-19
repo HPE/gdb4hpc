@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -55,7 +55,6 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
-
 
 #ifndef ALPS
 // These are for sending the target output to the fe
@@ -320,7 +319,13 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     // Setup entry points if we are not running with the special early
     // entry mode:
     if (!early_entry_flag) {
-        if (dbgevent_t *e = continueToEntryPoint()) return e;
+        if (auto [ entrySet, e] = setEntryBPs(); e) return e;
+        else if (entrySet) {
+            if (auto e = continueToEntryPoint()) return e;
+        } else {
+            DVPRINT("Could not get to entry breakpoint\n");
+        }
+        
     }
 
     // Initialize UPC, in case the app uses UPC - this will break gpu debugging
@@ -335,10 +340,66 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     return m_dbg.showFrame(1, nullptr);
 }
 
+// When the debug server starts up, some combination of gdb and WLM give control to
+// the debug server before symbols have been read.   We have to shake it a bit until
+// we can successfully
+std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
+    if (auto x = setEntryBPsL(); x.first || x.second) return x;
+
+    // try loading symbols explicitly
+    if (!m_executable.empty()) {
+        DVPRINT("could not install initial breakpoints, try symbol load from %s\n",
+                m_executable.c_str());
+        const char* sfc[] = { "symbol-file", "-readnow", m_executable.c_str() };
+        auto cmd = CLIBypassc(3, sfc);
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
+            return std::make_pair(false,
+                                  NewErrorEvent(DBGERR_DEBUGGER, "symbol file command failed: %s",
+                                                MICommandResultErrorMessage(cmd)));
+        }
+    }
+
+    if (auto x = setEntryBPsL(); x.first || x.second) return x;
+
+    // first try stepping one instruction, then try doing a continue to get past the
+    // symbol load
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        // it's possible that another stop signal has happened while we were
+        // already stopped. we flush those old events before listening again
+        // so our call to waitForAsyncEvent doesn't pick up a stale event
+        m_dbg.flushAsyncEvents();
+
+        // send the command
+        auto cmd = ( attempt ? MIExecContinueAll() :
+                     MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
+        SendMICommand(m_session, cmd);
+
+        if (!MICommandResultOK(cmd)) {
+            auto e = NewErrorEvent(DBGERR_DEBUGGER,MICommandResultErrorMessage(cmd));
+            MICommandFree(cmd);
+            return std::make_pair(false,e);
+        } 
+        MICommandFree(cmd);
+
+        DVPRINT("wait for aysnc event\n");
+        MIEvent *evt = m_dbg.waitForAsyncEvent();
+        DVPRINT("got event of type %d\n", evt->type);
+        MIEventFree(evt);
+
+        if (auto x = setEntryBPsL(); x.first || x.second) return x;
+
+        DVPRINT("did not install breakpoints\n");
+    }
+
+    return std::make_pair(false, nullptr);
+}
+
+
 // When the debug server starts up, some WLM's give control at a well defined entry point
 // like WLM_Init, but some variations give control earlier in startup process.   This function
-// continues the process, if necessary, until we are actually in the user program.
-// \return nullptr on success
+// continues the process, if necessary, until we are actually at one one of the entry
+// breakpoints
 dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
@@ -350,42 +411,36 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     for (int attempt=0; !atEntry && attempt < 10; ++attempt) {
         DVPRINT("continueToEntryPoint attempt: %d\n", attempt);
 
-        // this function no-ops once it succeeds.
-        if ((e = setup_gdbmi_entry_points()) != NULL) return e;
-
         MIFrame* frame = nullptr;
-        if (EmptyList(main_entry_BP) && EmptyList(parallel_entry_BP)) {
-            DVPRINT("continueToEntryPoint could not set breakpoints\n");
-        } else {
-            // Make sure that we're not inside a parallel entry point
-            // get all of the frames.
-            MICommand* cmd = MIStackListAllFrames();
-            SendMICommand(m_session, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
-                return e;
-            }
 
-            MIList *frames = MIGetStackListFramesInfo(cmd);
-            if (!frames) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
-                return e;
-            }
+        // Make sure that we're not inside a parallel entry point
+        // get all of the frames.
+        MICommand* cmd = MIStackListAllFrames();
+        SendMICommand(m_session, cmd);
+        if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);
-
-            // parse over the frame list
-            for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
-                if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
-                    DVPRINT("continueToEntryPoint: %s: found frame in parallel_entry_BP, frame->level "
-                            "%d, frame->func %s\n", __func__, frame->level, frame->func);
-                    break;
-                }
-            }
-            // free the MIFrame list
-            MIListFree(frames, (void (*)())MIFrameFree);
+            EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
+            return e;
         }
+
+        MIList *frames = MIGetStackListFramesInfo(cmd);
+        if (!frames) {
+            MICommandFree(cmd);
+            EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
+            return e;
+        }
+        MICommandFree(cmd);
+
+        // parse over the frame list
+        for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
+            if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
+                DVPRINT("continueToEntryPoint: %s: found frame in parallel_entry_BP, frame->level "
+                        "%d, frame->func %s\n", __func__, frame->level, frame->func);
+                break;
+            }
+        }
+        // free the MIFrame list
+        MIListFree(frames, (void (*)())MIFrameFree);
 
         //if we found a parallel entry point function, select that frame
         if (frame) {
@@ -413,16 +468,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         auto flushed = m_dbg.flushAsyncEvents();
         DVPRINT("Flushed %d events.\n", flushed);
 
-        // nexti can be just enough enough of a bump to finish loading symbols.   Try it first
-        // because continue can just run off without ever returning control to the
-        // debugger
-        auto cmd = ( attempt > 0 ? MIExecContinueAll() :
-                     MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
+        cmd = MIExecContinueAll();
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
-            DVPRINT("next/continue command failed\n");
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        MICommandResultErrorMessage(cmd));
+            DVPRINT("continue command failed\n");
+            e = NewErrorEvent(DBGERR_DEBUGGER,
+                              MICommandResultErrorMessage(cmd));
             MICommandFree(cmd);
             return e;
         }
@@ -460,7 +511,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         MIEventFree(evt);
         break;
         
-    } // for attempt
+    } // for (attempt)
 
     if (!atEntry) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to hit entry breakpoint.");
@@ -595,27 +646,30 @@ static const std::array<std::string, 6> exit_pt_strs =
     "*(&ompi_mpi_errors_are_fatal_comm_handler)"
 };
 
-dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_entry_points() {
+bool DbgGdbMI::Initializer::entryBPsAreSet() {
+    return (main_entry_BP && parallel_entry_BP &&
+            (!EmptyList(main_entry_BP) || !EmptyList(parallel_entry_BP)));
+}
+
+std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
 
     // this function may be called more than once
     if (!main_entry_BP) {
         main_entry_BP = NewList();
         parallel_entry_BP = NewList();
         m_exitBP = NewList();
-    } else if (!EmptyList(main_entry_BP) || !EmptyList(parallel_entry_BP)) {
-        return nullptr;  // already set
+    } else if (entryBPsAreSet()) {
+        return std::make_pair(true, nullptr);  // already set
     }
 
     // set the lang to c. We always want to do this!!
-    cmd = _MIGDBSet("lang", "c");
+    auto cmd = _MIGDBSet("lang", "c");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-        return e;
+        return std::make_pair(false,
+                              NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed."));
     }
     MICommandFree(cmd);
 
@@ -654,16 +708,18 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_entry_points() {
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-        return e;
+        return std::make_pair(false,
+                              NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed."));
     }
     MICommandFree(cmd);
 
-    return nullptr;
+    auto areSet = entryBPsAreSet();
+    DVPRINT("setting initial breakpoints %s\n", areSet ? "succeeded\n" : "failed\n");
+    return std::make_pair(areSet, nullptr);
 }
 
 /*
-** Initialise debugger, make sure we are using
+** Initialize debugger, make sure we are using
 ** the correct version, etc.
 */
 dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
@@ -779,7 +835,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
     MICommandFree(cmd);
 
     DVPRINT("InitDbg(): ProgMain=%s Pid=%d.\n", ProgMain, m_pid);
-
+    if (prog) m_executable = prog;
     return NewEvent(DBGEV_OK);
 }
 
@@ -849,6 +905,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     }
 
     DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", m_pid);
+    if (prog) m_executable = prog;
     return NewEvent(DBGEV_OK);
 }
 
@@ -856,44 +913,6 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
-
-#if 0
-	if (debug_flag)
-	{
-		// set debug infrun mode on
-		cmd = _MIGDBSet("debug infrun", "1");
-		SendMICommand(m_session, cmd);
-		if (!MICommandResultOK(cmd))
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug infrun command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-
-		// set debug lin-lwp mode on
-		cmd = _MIGDBSet("debug lin-lwp", "1");
-		SendMICommand(m_session, cmd);
-		if (!MICommandResultOK(cmd))
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug lin-lwp command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-
-		// set debug lin-lwp-async mode on
-		cmd = _MIGDBSet("debug lin-lwp-async", "1");
-		SendMICommand(m_session, cmd);
-		if (!MICommandResultOK(cmd))
-		{
-			MICommandFree(cmd);
-			EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set debug lin-lwp-async command failed.");
-			return e;
-		}
-		MICommandFree(cmd);
-	}
-#endif
 
     cmd = _MIGDBSet("confirm", "off");
     SendMICommand(m_session, cmd);

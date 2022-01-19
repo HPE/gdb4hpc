@@ -524,6 +524,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     if ((e = delete_internal_breakpoints(parallel_entry_BP)) != NULL)
         return e;
 
+    // observed on kay (pbs) the breakpoint hit notification got mixed in with a bunch of
+    // library load events, so flush events instead of getting and "unknown breakpoint"
+    // error
+    auto flushed = m_dbg.flushAsyncEvents();
+    DVPRINT("Flushed %d events.\n", flushed);
+
     // We want to set MPIR_debug_gate=1. This is an old MPIR standard.
     MICommand* cmd = _MIGDBSet("lang", "c");
     SendMICommand(m_session, cmd);
@@ -638,12 +644,12 @@ static const std::array<std::string, 21> parallel_entry_pt_strs
 
 static const std::array<std::string, 6> exit_pt_strs =
 {
-    "*(&exit)",
-    "*(&_exit)",
-    "*(&abort)",
-    "*(&MPIR_Errors_are_fatal)",
-    "*(&MPID_Abort)",
-    "*(&ompi_mpi_errors_are_fatal_comm_handler)"
+    "exit",
+    "_exit",
+    "abort",
+    "MPIR_Errors_are_fatal",
+    "MPID_Abort",
+    "ompi_mpi_errors_are_fatal_comm_handler"
 };
 
 bool DbgGdbMI::Initializer::entryBPsAreSet() {
@@ -689,18 +695,22 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     }
 
     // set up the exit breakpoints
-    for (auto&& str : exit_pt_strs) {
-        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
-        SendMICommand(m_session, cmd);
-        // Note we only want to insert the breakpoint into our internal list if the
-        // command succeeded. We expect many of these to fail.
-        if (MICommandResultOK(cmd)) {
-            if (auto bp_res = get_dbgbp(cmd)) {
-                bp_res->bp_type = DBGBP_EXIT_TYPE;
-                AddToList(m_exitBP, bp_res);
+    if (EmptyList(m_exitBP)) {
+        // install the breakpoints as potentially pending since the exit point
+        // might be in a shared library
+        for (auto&& str : exit_pt_strs) {
+            cmd = MIBreakInsert(0, 0, 1, NULL, 0, str.c_str(), 0);
+            SendMICommand(m_session, cmd);
+            // Note we only want to insert the breakpoint into our internal list if the
+            // command succeeded. We expect many of these to fail.
+            if (MICommandResultOK(cmd)) {
+                if (auto bp_res = get_dbgbp(cmd)) {
+                    bp_res->bp_type = DBGBP_EXIT_TYPE;
+                    AddToList(m_exitBP, bp_res);
+                }
             }
+            MICommandFree(cmd);
         }
-        MICommandFree(cmd);
     }
 
     // set the lang back to auto. We always want to do this!!

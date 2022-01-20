@@ -86,6 +86,7 @@
 %global privlibs %{privlibs}|libzmq.*
 %global privlibs %{privlibs}|libzmqnet.*
 %global privlibs %{privlibs}|libzmqnetagg.*
+%global privlibs %{privlibs}|libstdc++.*
 %global __requires_exclude ^(%{privlibs})\\.so*
 %global __provides_exclude ^(%{privlibs})\\.so*
 

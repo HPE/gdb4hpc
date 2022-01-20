@@ -31,3 +31,5 @@ pea2k:
   launch:
     args:
       slurm: "--exclusive --mpi=cray_shasta"
+    environment:
+      CTI_SLURM_DAEMON_GRES: ""

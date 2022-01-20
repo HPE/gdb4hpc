@@ -350,8 +350,7 @@ std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
     if (!m_executable.empty()) {
         DVPRINT("could not install initial breakpoints, try symbol load from %s\n",
                 m_executable.c_str());
-        const char* sfc[] = { "symbol-file", "-readnow", m_executable.c_str() };
-        auto cmd = CLIBypassc(3, sfc);
+        auto cmd = MIFileSymbolFile(const_cast<char*>(m_executable.c_str()));
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             return std::make_pair(false,

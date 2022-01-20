@@ -4,10 +4,10 @@ import os, sys
 
 if __name__ == "__main__":
     # load up cdst test library
-    sys.path.insert(0, os.getcwd() + "/cdst-test")
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/cdst-test")
     try:
         from test_tool import run_tests
-    except ModuleNotFoundError:
+    except ImportError:
         print("Failed to load testing library. Make sure you've initialized submodules.")
         print("Try \"git submodule update --init ./cdst-test\"")
         exit(-1)

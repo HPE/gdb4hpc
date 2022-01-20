@@ -51,7 +51,7 @@ b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_t
 36: focus $all
 38: # Run procset a to breakpoint 1:  
 39: continue
-b{0..2}: The application has reached an exit breakpoint.
+b{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
 <$a>: Hello World! from process 0
 <$a>: Hello World! from process 1
 <$a>: Hello World! from process 2

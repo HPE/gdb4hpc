@@ -78,7 +78,7 @@ bd_dt/c/libdlopen_test.so : bd_dt/c/libdlopen_test.c
 	cc -shared $^ -o $@
 
 bd_dt/c/c_dlopen.x :  bd_dt/c/c_dlopen_test.c bd_dt/c/libdlopen_test.so
-	cc bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
+	cc -g -O0 bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
 
 bd_dt/c/c_segv.x : bd_dt/c/c_segv.o
 	cc -g -O0 $^ -o $@

@@ -819,8 +819,6 @@ static void printEventLocation(const event_set_t *ev_set, const Bitset *group) {
 // set which contains the aggregated event is passed in as ev_set and the
 // individual reply that was just received is passed in as reply_set.
 int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
-    bp_set_t *bpset;
-    const char* threadId = nullptr;
     std::string bpThread;
 
     // need to do "special" things if we are currently reading from stdin
@@ -846,14 +844,14 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             }
             break;
 
-        case DBGEV_BPHIT:
+        case DBGEV_BPHIT: {
             // ensure the recv bp has a corresponding bp_set. If not, this is an
             // unknown breakpoint. If its unknown either its a breakpoint
             // encountered from ending the graph (graph breakpoints are hidden)
             // or an exit breakpoint that was set by the dbg servers.
+            auto bpset = ev_set->e_di->d_breakpoints.findByDbgBreakpoint(*ev_set->e_ev->ev_bp);
 
-            if ((bpset = FindBPSetForBP(ev_set->e_di, ev_set->e_ev->ev_bp)) ==
-                NULL) {
+            if (!bpset) {
                 if (ev_set->e_ev->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group.get(),
@@ -879,91 +877,92 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             // breakpoint
             // TODO: What should this default to? Right now I am having it
             // default to the breakpoint message.
-            threadId = bpset->b_thread_id;
-            if (threadId) bpThread = std::string(" thread ") + threadId;
+            if (!bpset->threadId().empty()) bpThread = " thread " + bpset->threadId();
 
-            switch (bpset->b_bp_type) {
+            switch (bpset->type()) {
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
                 case DBGBP_RWATCH_TYPE:
                     // Print out the updated locale information for the watchpoint.
                     // This was updated in EventCB before calling this function.
-                    for (auto &&watch_loc : bpset->b_bp_watch_loc) {
+                    for (const auto &watch_loc : bpset->watchLocaleSet()) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, watch_loc.group.get(),
                             "Watchpoint %d, variable expression: %s\n",
-                            bpset->b_bp_set_id, bpset->b_bp_exp);
-                        if (watch_loc.loc_line > 0) {
+                            bpset->id(), bpset->watchExpression().c_str());
+                        if (watch_loc.line > 0) {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group.get(),
-                                "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
-                                watch_loc.loc_file.c_str(), watch_loc.loc_line);
+                                "In %s at %s:%d\n", watch_loc.func.c_str(),
+                                watch_loc.file.c_str(), watch_loc.line);
                         } else {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group.get(),
-                                "In %s\n", watch_loc.loc_func.c_str());
+                                "In %s\n", watch_loc.func.c_str());
                         }
                     }
                     // clear out the watchpoint locale to avoid printing multiple times
-                    bpset->b_bp_watch_loc.clear();
+                    bpset->clearWatchLocaleSet();
                     break;
 
                 case DBGBP_BREAK_TYPE:
 
-                    if (bpset->b_loc_line > 0) {
+                    if (bpset->line() > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
-                            "Breakpoint %d, %s at %s:%d%s\n", bpset->b_bp_set_id,
-                            bpset->b_loc_func, bpset->b_loc_file,
-                            bpset->b_loc_line, bpThread.c_str());
+                            "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
+                            bpset->function().c_str(), bpset->file().c_str(),
+                            bpset->line(), bpThread.c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group.get(),
                                             "Breakpoint %d, in %s%s\n",
-                                            bpset->b_bp_set_id, bpset->b_loc_func,
+                                            bpset->id(), bpset->function().c_str(),
                                             bpThread.c_str());
                     }
                     break;
 
                 case DBGBP_CATCH_TYPE:
-                    if (bpset->b_bp_exp) {
+                    if (!bpset->watchExpression().empty()) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Catchpoint %d (%s)\n",
-                            bpset->b_bp_set_id, bpset->b_bp_exp);
+                            bpset->id(), bpset->watchExpression().c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                             ev_set->e_group.get(),
                             "Catchpoint %d\n",
-                            bpset->b_bp_set_id);
+                            bpset->id());
                     }
                     break;
 
                 default:
-                    if (bpset->b_loc_line > 0) {
+                    if (bpset->line() > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d, %s at %s:%d\n",
-                            bpset->b_bp_set_id, bpset->b_loc_func,
-                            bpset->b_loc_file, bpset->b_loc_line);
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group.get(),
                                             "Unknown break type %d, in %s\n",
-                                            bpset->b_bp_set_id, bpset->b_loc_func);
+                                            bpset->id(), bpset->function().c_str());
                     }
                     break;
             }
 
             break;
+        }
 
-        case DBGEV_BPDEL:
+        case DBGEV_BPDEL: {
             // ensure the recv bp has a cooresponding bp_set. If not, this is an
             // unknown breakpoint. If its unknown either its a breakpoint
             // encountered from ending the graph (graph breakpoints are hidden)
             // or an exit breakpoint that was set by the dbg servers.
-            if ((bpset = FindBPSetForBP(ev_set->e_di, ev_set->e_ev->ev_bp)) ==
-                NULL) {
+            auto bpset = ev_set->e_di->d_breakpoints.findByDbgBreakpoint(*ev_set->e_ev->ev_bp);
+
+            if (!bpset) {
                 PrintErrorWithSetInfo(
                     ev_set->e_di->d_handle, ev_set->e_group.get(),
                     "ERROR: cannot find breakpoint in BPSetList.\n");
@@ -975,79 +974,80 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
 
             // What we print out is based on if we are at a watchpoint or
             // breakpoint
-            switch (bpset->b_bp_type) {
+            switch (bpset->type()) {
                 case DBGBP_WATCH_TYPE:
                 case DBGBP_AWATCH_TYPE:
                 case DBGBP_RWATCH_TYPE:
                     // Print out the updated locale information for the watchpoint.
                     // This was updated in EventCB before calling this function.
-                    for (auto &&watch_loc : bpset->b_bp_watch_loc) {
+                    for (const auto &watch_loc : bpset->watchLocaleSet()) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, watch_loc.group.get(),
                             "Watchpoint %d deleted because the program has left "
                             "the block in which its expression is valid.\n",
-                            bpset->b_bp_set_id);
-                        if (watch_loc.loc_line > 0) {
+                            bpset->id());
+                        if (watch_loc.line > 0) {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group.get(),
-                                "In %s at %s:%d\n", watch_loc.loc_func.c_str(),
-                                watch_loc.loc_file.c_str(), watch_loc.loc_line);
+                                "In %s at %s:%d\n", watch_loc.func.c_str(),
+                                watch_loc.file.c_str(), watch_loc.line);
                         } else {
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, watch_loc.group.get(),
-                                "In %s\n", watch_loc.loc_func.c_str());
+                                "In %s\n", watch_loc.func.c_str());
                         }
                     }
                     // clear out the watchpoint locale to avoid printing multiple times
-                    bpset->b_bp_watch_loc.clear();
+                    bpset->clearWatchLocaleSet();
                     break;
 
                 case DBGBP_BREAK_TYPE:
-                    if (bpset->b_loc_line > 0) {
+                    if (bpset->line() > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Breakpoint %d deleted, %s at %s:%d\n",
-                            bpset->b_bp_set_id, bpset->b_loc_func,
-                            bpset->b_loc_file, bpset->b_loc_line);
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group.get(),
                                             "Breakpoint %d deleted, in %s\n",
-                                            bpset->b_bp_set_id, bpset->b_loc_func);
+                                            bpset->id(), bpset->function().c_str());
                     }
                     break;
 
                 case DBGBP_CATCH_TYPE:
-                    if (bpset->b_bp_exp) {
+                    if (!bpset->watchExpression().empty()) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Catchpoint %d deleted (%s)\n",
-                            bpset->b_bp_set_id, bpset->b_bp_exp);
+                            bpset->id(), bpset->watchExpression().c_str());
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                             ev_set->e_group.get(),
                             "Catchpoint %d deleted.\n",
-                            bpset->b_bp_set_id);
+                            bpset->id());
                     }
                     break;
 
                 default:
-                    if (bpset->b_loc_line > 0) {
+                    if (bpset->line() > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d deleted, %s at %s:%d\n",
-                            bpset->b_bp_set_id, bpset->b_loc_func,
-                            bpset->b_loc_file, bpset->b_loc_line);
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
                     } else {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Unknown break type %d deleted, in %s\n",
-                            bpset->b_bp_set_id, bpset->b_loc_func);
+                            bpset->id(), bpset->function().c_str());
                     }
                     break;
             }
 
             break;
+        }
 
         case DBGEV_SIGNAL:
             PrintMsgWithSetInfo(ev_set->e_di->d_handle, ev_set->e_group.get(),

@@ -451,7 +451,6 @@ void DFDisplayMsg(char *msg) { PrintOutLine("%s\n", msg); }
 */
 static void _delete_bp(graph_t *g, dbginvoke_t *di) {
     dbgbp_t *bp;
-    bp_set_t *bpset;
     group_reply_t *bp_reply;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
@@ -470,9 +469,9 @@ static void _delete_bp(graph_t *g, dbginvoke_t *di) {
         bp = EVENT_BP(bp_reply->rep_event);
 
         // Check to see if this di has this breakpoint
-        if ((bpset = FindBPSetForBP(di, bp)) != NULL) {
+        if (auto bpset = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
             // The dbg_client layer handles all the of the details here
-            if ((rep_set = DbgDeleteBreak(rec_set, bpset->b_bp_set_id)) != NULL) {
+            if ((rep_set = DbgDeleteBreak(rec_set, bpset->id())) != NULL) {
                 ProcessErrorInRepSet(rep_set);
                 FreeRepSet(rep_set);
                 DFErrMsg("ERROR: Could not delete graph breakpoint.");

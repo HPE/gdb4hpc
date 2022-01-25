@@ -86,19 +86,6 @@ static event_set_t *AddEvent(dbginvoke_t *, const Bitset *, dbgevent_t *);
 static void CheckForFullEventSet(dbginvoke_t *, const Bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
 static void RemoveGroupFromAsyncSet(dbginvoke_t *, const Bitset *);
-static bp_disp_set_t *NewBPDispSet(const Bitset *, dbgbp_disp);
-static bp_id_set_t *NewBPIDSet(const Bitset *, int);
-static void FreeBPSet(bp_set_t *);
-static void FreeBPIDSet(bp_id_set_t *);
-static void FreeBPDispSet(bp_disp_set_t *);
-static void AddBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group);
-static void AddBPToBPSet(bp_set_t *, const Bitset *, dbgbp_t *);
-static void EnableBPForBPSet(bp_set_t *, const Bitset *);
-static void DisableBPForBPSet(bp_set_t *, const Bitset *);
-static void SetBPDispositionForBPSet(bp_set_t *, const Bitset *, dbgbp_disp);
-static void RemoveBPSet(dbginvoke_t *, bp_set_t *, const Bitset *);
-static int CompareBPSetWithBP(bp_set_t *, dbgbp_t *);
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group);
 static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   const ArrayDimension* shape,
@@ -173,7 +160,6 @@ static dbginvoke_t *NewDbgInvoke(const char *handle, dbgproc_type type,
     di->d_nproc = nproc;
     // di->d_proto = proto; // proto is set in constructor
     di->d_eventset_list = NewList();
-    di->d_bpset_list = NewList();
 
     if (DbgInvokeList == nullptr) DbgInvokeList = NewList();
 
@@ -213,7 +199,6 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
 
     // remove the async lists
     DestroyList(di->d_eventset_list, (void (*)(void *))FreeEventSet);
-    DestroyList(di->d_bpset_list, (void (*)(void *))FreeBPSet);
 
     Free(di->d_handle);
     delete di;
@@ -797,421 +782,6 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const Bitset *group) {
     }
 }
 
-/*************************************************
-** Internal dbgclient breakpoint handling routines
-**************************************************/
-
-/*
-** Create a new breakpoint set
-*/
-bp_set_t::bp_set_t(int bp_id, const Bitset *group, dbgbp_t *bp)
-    : b_bp_set_id(bp_id),
-      b_group(group->clone()),
-      b_bp_id_list(NewList()),
-      b_bp_enabled(bp->bp_enabled ? group->clone() : nullptr),
-      b_bp_disp(NewList()),
-      b_bp_type(bp->bp_type),
-      b_bp_pending(bp->bp_pending && bp->bp_stmt != nullptr),
-      b_loc_stmt(b_bp_pending ? strdup(bp->bp_stmt) : nullptr),
-      b_loc_addr(bp->bp_loc.loc_addr ? strdup(bp->bp_loc.loc_addr) : nullptr),
-      b_loc_file(nullptr),
-      b_loc_func(nullptr),
-      b_loc_line(bp->bp_loc.loc_line),
-      b_bp_exp(strdup(bp->bp_exp)),
-      b_thread_id(bp->bp_threadId ? strdup(bp->bp_threadId) : nullptr)
-{
-    // Add the group and disposition to the disp list
-    bp_disp_set_t *disp_set = NewBPDispSet(group, bp->bp_disp);
-    AddToList(b_bp_disp, (void *)disp_set);
-
-    // Set the id unique to the rank
-    bp_id_set_t *id_set = NewBPIDSet(group, bp->bp_id);
-    AddToList(b_bp_id_list, id_set);
-
-    if (b_loc_line >= 0) {
-        b_loc_file = strdup(bp->bp_loc.loc_file);
-        b_loc_func = strdup(bp->bp_loc.loc_func);
-    }
-}
-
-/*
-** Create a new breakpoint disposition set, this goes inside a breakpoint set.
-** It tracks the disposition of the breakpoint for each rank
-*/
-static bp_disp_set_t *NewBPDispSet(const Bitset *group, dbgbp_disp bp_disp) {
-    auto *disp_set = new bp_disp_set_t;
-
-    DASSERT_NOT_NULL(group);
-    disp_set->b_group = group->clone();
-    disp_set->b_bp_disp = bp_disp;
-
-    return disp_set;
-}
-
-/*
-** Create a new breakpoint id set, this goes inside a breakpoint set.
-** It tracks the backend gdb breakpoint id mapping for each rank.
-*/
-static bp_id_set_t *NewBPIDSet(const Bitset *group, int bp_id) {
-    auto *id_set = new bp_id_set_t;
-
-    DASSERT_NOT_NULL(group);
-    id_set->b_group = group->clone();
-    id_set->b_bp_id = bp_id;
-
-    return id_set;
-}
-
-/*
-** Free a breakpoint set.
-*/
-static void FreeBPSet(bp_set_t *bp_set) {
-    delete bp_set;
-}
-
-bp_set_t::~bp_set_t() {
-    b_group.reset();
-
-    if (b_bp_id_list != nullptr)
-        DestroyList(b_bp_id_list, (void (*)(void *))FreeBPIDSet);
-
-    b_bp_enabled.reset();
-
-    if (b_bp_disp != nullptr)
-        DestroyList(b_bp_disp, (void (*)(void *))FreeBPDispSet);
-
-    free(b_loc_stmt);
-    free(b_loc_addr);
-    free(b_loc_file);
-    free(b_loc_func);
-    free(b_bp_exp);
-    free(b_thread_id);
-}
-
-/*
-** Free a breakpoint id (gdb mapping) set
-*/
-static void FreeBPIDSet(bp_id_set_t *id_set) {
-    if (id_set == nullptr) return;
-
-    id_set->b_bp_id = -1;
-    delete id_set;
-}
-
-/*
-** Free a breakpoint disposition set
-*/
-static void FreeBPDispSet(bp_disp_set_t *disp_set) {
-    if (disp_set == nullptr) return;
-
-    delete disp_set;
-}
-
-/*
-** Process a breakpoint reply set - update internal breakpoint information
-** for the dbginvoke_t
-*/
-
-static void AddBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group) {
-    assert(di != nullptr);
-    assert(bp != nullptr);
-    assert(group != nullptr);
-
-    bp_set_t *bp_set;
-    SetList(di->d_bpset_list);
-    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        if (!CompareBPSetWithBP(bp_set, bp)) {
-            break;
-        }
-    }
-
-    if (bp_set) /* This is a known breakpoint */
-    {
-        // update the bp_set with this group and info from the bp for disp and id
-        AddBPToBPSet(bp_set, group, bp);
-    } else {
-        // create a new breakpoint for this group based on the bp
-        bp_set = new bp_set_t(++(di->d_global_bp_set_id), group, bp);
-        AddToList(di->d_bpset_list, bp_set);
-    }
-}
-
-static void AddBPToBPSet(bp_set_t *bp_set, const Bitset *group, dbgbp_t *bp) {
-    assert(bp_set != nullptr);
-    assert(bp_set->b_group != nullptr);
-    assert(group != nullptr);
-    assert(bp != nullptr);
-
-    // Add this group into the bp_set group
-    *bp_set->b_group |= *group;
-
-    // Add internal gdb id to the bp_id_list
-    bp_id_set_t *id_set = nullptr;
-    SetList(bp_set->b_bp_id_list);
-    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
-        if (id_set->b_bp_id == bp->bp_id) break;
-    }
-
-    if (id_set == nullptr) {
-        // no existing internal gdb id found, add it.
-        id_set = NewBPIDSet(group, bp->bp_id);
-        AddToList(bp_set->b_bp_id_list, id_set);
-    } else {
-        // existing internal gdb id found, add group to existing id_set
-        *id_set->b_group |= *group;
-    }
-
-    // Add this group to the enabled Bitset if enabled
-    if (bp->bp_enabled) {
-        EnableBPForBPSet(bp_set, group);
-    }
-
-    // Set the disposition for the group
-    SetBPDispositionForBPSet(bp_set, group, bp->bp_disp);
-}
-
-static void EnableBPForBPSet(bp_set_t *bp_set, const Bitset *group) {
-    assert (bp_set != nullptr);
-    assert (bp_set->b_bp_enabled != nullptr);
-    assert (group != nullptr);
-    *bp_set->b_bp_enabled |= *group;
-}
-
-static void DisableBPForBPSet(bp_set_t *bp_set, const Bitset *group) {
-    assert (bp_set != nullptr);
-    assert (bp_set->b_bp_enabled != nullptr);
-    assert (group != nullptr);
-    *bp_set->b_bp_enabled -= *group;
-}
-
-static void SetBPDispositionForBPSet(bp_set_t *bp_set, const Bitset *group,
-                                     dbgbp_disp bp_disp) {
-    assert (bp_set != nullptr);
-    assert (group != nullptr);
-
-    bool found = false;
-    bp_disp_set_t *disp_set;
-    SetList(bp_set->b_bp_disp);
-    while ((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) != nullptr) {
-        if (disp_set->b_bp_disp == bp_disp) {
-            // This matches the requested disposition
-            found = true;
-            *disp_set->b_group |= *group;
-        } else {
-            // This doesn't match the requested disposition, so remove the group
-            // We do this in case there is any overlap from a previous set
-            // disposition command on a set.
-            *disp_set->b_group -= *group;
-
-            // Make sure the disp_set isn't empty, otherwise remove it
-            if (disp_set->b_group->isEmpty()) {
-                RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
-                FreeBPDispSet(disp_set);
-            }
-        }
-    }
-
-    // If we didn't find the disp_set, we need to create a new entry and add it
-    // to the list
-    if (!found) {
-        disp_set = NewBPDispSet(group, bp_disp);
-        AddToList(bp_set->b_bp_disp, (void *)disp_set);
-    }
-}
-
-static void RemoveBPSet(dbginvoke_t *di, bp_set_t *bp_set, const Bitset *group) {
-    assert (bp_set != nullptr);
-    assert (group != nullptr);
-
-    // Remove the group from the global bp list
-    *bp_set->b_group -= *group;
-
-    // Remove the group from the bp_id list
-    bp_id_set_t *id_set;
-    SetList(bp_set->b_bp_id_list);
-    while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
-        *id_set->b_group -= *group;
-        // Make sure the id_set isn't empty, otherwise remove it
-        if (id_set->b_group->isEmpty()) {
-            RemoveFromList(bp_set->b_bp_id_list, (void *)id_set);
-            FreeBPIDSet(id_set);
-        }
-    }
-
-    // Remove the group from the enabled list
-    *bp_set->b_bp_enabled -= *group;
-
-    // Remove the group from the disp list
-    bp_disp_set_t *disp_set;
-    SetList(bp_set->b_bp_disp);
-    while ((disp_set = (bp_disp_set_t *)GetListElement(bp_set->b_bp_disp)) !=
-           nullptr) {
-        // Try to remove the group from this set
-        *disp_set->b_group -= *group;
-        // Make sure the disp_set isn't empty, otherwise remove it
-        if (disp_set->b_group->isEmpty()) {
-            RemoveFromList(bp_set->b_bp_disp, (void *)disp_set);
-            FreeBPDispSet(disp_set);
-        }
-    }
-
-    // Remove the breakpoint set if its now empty
-    if (bp_set->b_group->isEmpty()) {
-        RemoveFromList(di->d_bpset_list, (void *)bp_set);
-        FreeBPSet(bp_set);
-    }
-
-    return;
-}
-
-static int CompareBPSetWithBP(bp_set_t *set, dbgbp_t *bp) {
-    // This returns 1 if the breakpoints don't match, otherwise it returns 0 if they do. 
-    // Do not check the state of the enabled since this can be different for every rank.
-    // Do not check the state of the disposition since this can be different for every rank. 
-    
-    // check if both are the same type
-    if (set->b_bp_type != bp->bp_type) return 1;
-
-    // Here we only want to check locale info if it is a breakpoint, otherwise
-    // if its a watchpoint we want to check the expression.
-    switch (bp->bp_type) {
-        case DBGBP_BREAK_TYPE:
-            // check if both are pending and have the same stmt
-            if (bp->bp_pending && bp->bp_stmt != nullptr && set->b_bp_pending && set->b_loc_stmt != nullptr) {
-                if (strcmp(set->b_loc_stmt, bp->bp_stmt)) return 1;
-            }
-            // check if both have the same file name and line number
-            if (bp->bp_loc.loc_file != nullptr && set->b_loc_file != nullptr && bp->bp_loc.loc_line >= 0) {
-                // First check if the file name matches.
-                if (strcmp(set->b_loc_file, bp->bp_loc.loc_file)) return 1;
-                // The file name matches, so we can now safely check the line
-                // number.
-                if (set->b_loc_line != bp->bp_loc.loc_line) return 1;
-            }
-
-            // check if both have the same address
-            if (bp->bp_loc.loc_addr != nullptr && set->b_loc_addr != nullptr) {
-                if (strcmp(set->b_loc_addr, bp->bp_loc.loc_addr)) return 1;
-            }
-
-            // check the thread
-            {
-                const char* t1 = set->b_thread_id, *t2 = bp->bp_threadId;
-                if ( (!t1 ^ !t2) || (t1 && t2 && strcmp(t1,t2))) return 1;
-            }
-            break;
-
-        case DBGBP_WATCH_TYPE:
-        case DBGBP_AWATCH_TYPE:
-        case DBGBP_RWATCH_TYPE:
-        case DBGBP_CATCH_TYPE:
-            // check if both have the same bp expression
-            if (bp->bp_exp != nullptr && set->b_bp_exp != nullptr) {
-                if (strcmp(set->b_bp_exp, bp->bp_exp)) return 1;
-            }
-
-            break;
-
-        case DBGBP_EXIT_TYPE:
-        case DBGBP_UNKNOWN_TYPE:
-            // FIXME: What to do here???
-            return 1;
-    }
-
-    // If we reach this point, everything matches
-    return 0;
-}
-
-static void FixupPendingBPSetForBP(dbginvoke_t *di, dbgbp_t *bp, const Bitset *group) {
-    assert(di != nullptr);
-    assert (bp != nullptr);
-    assert (group != nullptr);
-
-    std::unique_ptr<Bitset> search_group = nullptr;
-    do {
-        std::unique_ptr<Bitset> remove_group = nullptr;
-        bp_set_t *bp_set;
-        SetList(di->d_bpset_list);
-        while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-            // check to see if this bp_set is pending
-            if (bp_set->b_bp_pending) {
-                // see if this bp_id is in the id list
-                bp_id_set_t *id_set;
-                SetList(bp_set->b_bp_id_list);
-                while ((id_set = (bp_id_set_t *)GetListElement(bp_set->b_bp_id_list)) != nullptr) {
-                    if (id_set->b_bp_id == bp->bp_id) {
-                        // Found a matching bp_id! Check if anything in the group matches
-                        if (search_group == nullptr) {
-                            search_group = group->clone();
-                        }
-                        if (search_group->hasCommonBits(*id_set->b_group)) {
-                            // Remove the matching bits, we found a match
-                            remove_group = bitset::fromAnd(*search_group, *id_set->b_group);
-                            *search_group -= *id_set->b_group;
-                            break;
-                        }
-                    }
-                }
-                // See if we found a matching bp_id for group
-                if (id_set != nullptr) break;
-            }
-        }
-        // See if we found a matching bp_set, if so we need to clean it up
-        if (bp_set != nullptr) {
-            assert(remove_group != nullptr);
-            RemoveBPSet(di, bp_set, remove_group.get());
-            AddBP(di, bp, remove_group.get());
-        }
-        else {
-            // no other pending breakpoints found, we are done
-            return;
-        }
-    } while(!search_group->isEmpty());
-}
-
-bp_set_t *FindBPSetByID(dbginvoke_t *di, int id) {
-    assert(di != nullptr);
-    if (id < 1) return nullptr;
-
-    bp_set_t *bp_set;
-    SetList(di->d_bpset_list);
-    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        if (bp_set->b_bp_set_id == id) {
-            break;
-        }
-    }
-    return bp_set;
-}
-
-bp_set_t *FindBPSetForBP(dbginvoke_t *di, dbgbp_t *bp) {
-    assert(di != nullptr);
-    assert(bp != nullptr);
-
-    bp_set_t *bp_set;
-    SetList(di->d_bpset_list);
-    while ((bp_set = (bp_set_t *)GetListElement(di->d_bpset_list)) != nullptr) {
-        if (!CompareBPSetWithBP(bp_set, bp)) {
-            break;
-        }
-    }
-    return bp_set;
-}
-
-void ResetBPSetList(dbginvoke_t *di) {
-    assert(di != nullptr);
-    SetList(di->d_bpset_list);
-}
-
-bp_set_t *GetNextBPSet(dbginvoke_t *di) {
-    assert(di != nullptr);
-    return (bp_set_t *)GetListElement(di->d_bpset_list);
-}
-
-int EmptyBPSetList(dbginvoke_t *di) {
-    assert(di != nullptr);
-    return EmptyList(di->d_bpset_list);
-}
-
 /*
 **********************************************************
 **********************************************************
@@ -1444,9 +1014,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     dbgev last_event = DBGEV_NONE;
     event_set_t *eventset = nullptr;
     dbgevent_t *event;
-    bp_set_t *bp_set;
     dbgbp_t *bp;
-    bp_disp_set_t *disp_set;
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
@@ -1465,15 +1033,15 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                 // Handle special pre-processing for breakpoints
                 bp = EVENT_BP(event);
                 // Fixup any pending breakpoints
-                FixupPendingBPSetForBP(di, bp, msg.getBitset());
-                if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
+                di->d_breakpoints.fixupPendingBreakpoints(*bp, msg.getBitset());
+                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
                     // if the breakpoint was a watchpoint we need to update the
                     // watchpoint locale information
-                    switch (bp_set->b_bp_type) {
+                    switch (bp_set->type()) {
                         case DBGBP_WATCH_TYPE:
                         case DBGBP_AWATCH_TYPE:
                         case DBGBP_RWATCH_TYPE:
-                            bp_set->b_bp_watch_loc.add(msg.getBitset(), bp->bp_loc.loc_file, bp->bp_loc.loc_line, bp->bp_loc.loc_func);
+                            bp_set->addWatchLocale(msg.getBitset(), bp->bp_loc.loc_file, bp->bp_loc.loc_line, bp->bp_loc.loc_func);
                             break;
 
                         default:
@@ -1509,53 +1077,53 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
             case DBGEV_BPHIT: {
 
                 bp = EVENT_BP(event);
-                if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
+                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
                     // If the breakpoint was set to delete, we need to delete
                     // it. If it was set to dis, we need to disable it.
-                    SetList(bp_set->b_bp_disp);
-                    while ((disp_set = (bp_disp_set_t *)GetListElement(
-                                bp_set->b_bp_disp)) != nullptr) {
-                        auto group = bitset::fromAnd(*disp_set->b_group, *msg.getBitset());
+                    for (const auto &disp_set : bp_set->dispSetList()) {
+                        auto group = bitset::fromAnd(*disp_set.group, *msg.getBitset());
                         if (group->isEmpty()) {
                             continue;
                         }
-                        switch (disp_set->b_bp_disp) {
+                        switch (disp_set.disp) {
                             case DBGBP_DELETE_DISP:
                                 // remove the breakpoint
                                 // NOTE: The breakpoint has already been removed
                                 // by the backend.
-                                RemoveBPSet(di, bp_set, group.get());
+                                bp_set->removeGroup(group.get());
                                 break;
                             case DBGBP_DISABLE_DISP:
                                 // mark the breakpoint as disabled for the ranks
                                 // in the reply set.
-                                DisableBPForBPSet(bp_set, group.get());
+                                bp_set->markDisabled(group.get());
                                 break;
                             default:
                                 // do nothing
                                 break;
                         }
                     }
+                    // remove any breakpoints that are empty after removing groups above
+                    di->d_breakpoints.removeEmptyBreakpoints();
                 }
                 break;
             }
 
             case DBGEV_BPDEL: {
                 bp = EVENT_BP(event);
-                if ((bp_set = FindBPSetForBP(di, bp)) != nullptr) {
+                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
                     // Need to delete the breakpoint.
-                    SetList(bp_set->b_bp_disp);
-                    while ((disp_set = (bp_disp_set_t *)GetListElement(
-                                bp_set->b_bp_disp)) != nullptr) {
-                        auto group = bitset::fromAnd(*disp_set->b_group, *msg.getBitset());
+                    for (const auto &disp_set : bp_set->dispSetList()) {
+                        auto group = bitset::fromAnd(*disp_set.group, *msg.getBitset());
                         if (group->isEmpty()) {
                             continue;
                         }
                         // remove the breakpoint
                         // NOTE: The breakpoint has already been removed by the
                         // backend.
-                        RemoveBPSet(di, bp_set, group.get());
+                        bp_set->removeGroup(group.get());
                     }
+                    // remove any breakpoints that are empty after removing groups above
+                    di->d_breakpoints.removeEmptyBreakpoints();
                 }
                 break;
             }
@@ -2855,7 +2423,7 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int lin
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
+        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2874,7 +2442,7 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *f
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
+        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2892,7 +2460,7 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 
     // process breakpoint information
     for (auto&& reply : result) {
-        AddBP((dbginvoke_t *)reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
+        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2904,7 +2472,7 @@ rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::s
 
     // process catchpoint information
     for (const auto &reply : result) {
-        AddBP(reply->rep_di, EVENT_BP(reply->rep_event), reply->rep_group.get());
+        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -3027,7 +2595,6 @@ rep_set_t *DbgKill(rec_set_t *set) {
 rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
     if (!set) return nullptr;
 
-    bp_id_set_t *id_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
@@ -3037,16 +2604,13 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
         auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
-            ResetBPSetList(di);
-            for (bp_set_t* bp_set; (bp_set=GetNextBPSet(di)); ) {
+            for (auto &bp_set : di->d_breakpoints) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
-                SetList(bp_set->b_bp_id_list);
-                while ((id_set = (bp_id_set_t *)GetListElement(
-                            bp_set->b_bp_id_list)) != nullptr) {
+                for (const auto &id_set : bp_set.idSetList()) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3056,7 +2620,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the request for this group
                     auto request =
-                        CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
+                        CommandToSocProto(DBGCMD_DELETEBREAK, id_set.id);
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
@@ -3068,8 +2632,8 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     // We expect this to return nullptr on success, handle the case
                     // were things worked
                     if (tmp_result == nullptr) {
-                        // remove the breakpoint
-                        RemoveBPSet(di, bp_set, group.get());
+                        // remove the group from the breakpoint
+                        bp_set.removeGroup(group.get());
                     }
 
                     // Add this to the overall result
@@ -3084,9 +2648,11 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     FreeRecSet(new_rec_set);
                 }
             }
+            // remove any empty breakpoints left by above
+            di->d_breakpoints.removeEmptyBreakpoints();
         } else {
             // find the bp_set for the bp_set_num
-            auto bp_set = FindBPSetByID(di, bp_set_num);
+            auto bp_set = di->d_breakpoints.findByLogicalID(bp_set_num);
             if (bp_set == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
@@ -3103,14 +2669,12 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 continue;
             }
 
-            // Need to loop over the b_bp_id_list to operate on the correct
+            // Need to loop over the idSetList() to operate on the correct
             // breakpoint number in the backend
-            SetList(bp_set->b_bp_id_list);
-            while ((id_set = (bp_id_set_t *)GetListElement(
-                        bp_set->b_bp_id_list)) != nullptr) {
+            for (const auto &id_set : bp_set->idSetList()) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the set.
-                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {
@@ -3119,7 +2683,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the request for this group
                 auto request =
-                    CommandToSocProto(DBGCMD_DELETEBREAK, id_set->b_bp_id);
+                    CommandToSocProto(DBGCMD_DELETEBREAK, id_set.id);
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
@@ -3131,8 +2695,8 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 // We expect this to return nullptr on success, handle the case
                 // were things worked
                 if (tmp_result == nullptr) {
-                    // remove the breakpoint
-                    RemoveBPSet(di, bp_set, group.get());
+                    // remove the group from the breakpoint
+                    bp_set->removeGroup(group.get());
                 }
 
                 // Add this to the overall result
@@ -3146,6 +2710,8 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 FreeRecSet(new_rec_set);
             }
+            // remove any empty breakpoints left by above
+            di->d_breakpoints.removeEmptyBreakpoints();
         }
     }
 
@@ -3158,8 +2724,6 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
     if (!set) return nullptr;
 
-    bp_set_t *bp_set;
-    bp_id_set_t *id_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
@@ -3169,16 +2733,13 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
         auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
-            ResetBPSetList(di);
-            while ((bp_set = GetNextBPSet(di)) != nullptr) {
+            for (auto &bp_set : di->d_breakpoints) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
-                SetList(bp_set->b_bp_id_list);
-                while ((id_set = (bp_id_set_t *)GetListElement(
-                            bp_set->b_bp_id_list)) != nullptr) {
+                for (const auto &id_set : bp_set.idSetList()) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3188,7 +2749,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the request for this group
                     auto request =
-                        CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
+                        CommandToSocProto(DBGCMD_DISABLEBREAK, id_set.id);
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
@@ -3201,7 +2762,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // mark the breakpoint as enabled for this group
-                        DisableBPForBPSet(bp_set, group.get());
+                        bp_set.markDisabled(group.get());
                     }
 
                     // Add this to the overall result
@@ -3217,8 +2778,10 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 }
             }
         } else {
+            MappedBreakpoint *bp_set;
+
             // find the bp_set for the bp_set_num
-            if ((bp_set = FindBPSetByID(di, bp_set_num)) == nullptr) {
+            if ((bp_set = di->d_breakpoints.findByLogicalID(bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 
@@ -3236,14 +2799,12 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 continue;
             }
 
-            // Need to loop over the b_bp_id_list to operate on the correct
+            // Need to loop over the idSetList() to operate on the correct
             // breakpoint number in the backend
-            SetList(bp_set->b_bp_id_list);
-            while ((id_set = (bp_id_set_t *)GetListElement(
-                        bp_set->b_bp_id_list)) != nullptr) {
+            for (const auto &id_set : bp_set->idSetList()) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {
@@ -3252,7 +2813,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the request for this group
                 auto request =
-                    CommandToSocProto(DBGCMD_DISABLEBREAK, id_set->b_bp_id);
+                    CommandToSocProto(DBGCMD_DISABLEBREAK, id_set.id);
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
@@ -3265,7 +2826,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // mark the breakpoint as disabled for this group
-                    DisableBPForBPSet(bp_set, group.get());
+                    bp_set->markDisabled(group.get());
                 }
 
                 // Add this to the overall result
@@ -3289,8 +2850,6 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
     if (!set) return nullptr;
 
-    bp_set_t *bp_set;
-    bp_id_set_t *id_set;
     rep_set_t *result = nullptr;
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
@@ -3300,16 +2859,13 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
         auto di = recv_ptr->rec_di;
 
         if (bp_set_num == 0) {
-            ResetBPSetList(di);
-            while ((bp_set = GetNextBPSet(di)) != nullptr) {
+            for (auto &bp_set : di->d_breakpoints) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
-                SetList(bp_set->b_bp_id_list);
-                while ((id_set = (bp_id_set_t *)GetListElement(
-                            bp_set->b_bp_id_list)) != nullptr) {
+                for (const auto &id_set : bp_set.idSetList()) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
-                    auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                    auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                     // Ensure that there are ranks in the bitset, otherwise
                     // continue
@@ -3319,7 +2875,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 
                     // Create the request for this group
                     auto request = CommandToSocProto(DBGCMD_ENABLEBREAK,
-                                                id_set->b_bp_id, once, del);
+                                                id_set.id, once, del);
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
@@ -3332,14 +2888,12 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // mark the breakpoint as enabled for this group
-                        EnableBPForBPSet(bp_set, group.get());
+                        bp_set.markEnabled(group.get());
                         // Set the disposition for this group
                         if (once) {
-                            SetBPDispositionForBPSet(bp_set, group.get(),
-                                                     DBGBP_DISABLE_DISP);
+                            bp_set.markDisposition(group.get(), DBGBP_DISABLE_DISP);
                         } else if (del) {
-                            SetBPDispositionForBPSet(bp_set, group.get(),
-                                                     DBGBP_DELETE_DISP);
+                            bp_set.markDisposition(group.get(), DBGBP_DELETE_DISP);
                         }
                     }
 
@@ -3356,8 +2910,10 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 }
             }
         } else {
+            MappedBreakpoint *bp_set;
+
             // find the bp_set for the bp_set_num
-            if ((bp_set = FindBPSetByID(di, bp_set_num)) == nullptr) {
+            if ((bp_set = di->d_breakpoints.findByLogicalID(bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 
@@ -3375,14 +2931,12 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 continue;
             }
 
-            // Need to loop over the b_bp_id_list to operate on the correct
+            // Need to loop over the idSetList() to operate on the correct
             // breakpoint number in the backend
-            SetList(bp_set->b_bp_id_list);
-            while ((id_set = (bp_id_set_t *)GetListElement(
-                        bp_set->b_bp_id_list)) != nullptr) {
+            for (const auto &id_set : bp_set->idSetList()) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the rec_set.
-                auto group = bitset::fromAnd(*id_set->b_group, *recv_ptr->rec_group);
+                auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
 
                 // Ensure that there are ranks in the bitset, otherwise continue
                 if (group->isEmpty()) {
@@ -3390,7 +2944,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 }
 
                 // Create the request for this group
-                auto request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set->b_bp_id,
+                auto request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set.id,
                                             once, del);
 
                 // Create the new rec set for this group
@@ -3404,14 +2958,12 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // mark the breakpoint as enabled for this group
-                    EnableBPForBPSet(bp_set, group.get());
+                    bp_set->markEnabled(group.get());
                     // Set the disposition for this group
                     if (once) {
-                        SetBPDispositionForBPSet(bp_set, group.get(),
-                                                 DBGBP_DISABLE_DISP);
+                        bp_set->markDisposition(group.get(), DBGBP_DISABLE_DISP);
                     } else if (del) {
-                        SetBPDispositionForBPSet(bp_set, group.get(),
-                                                 DBGBP_DELETE_DISP);
+                        bp_set->markDisposition(group.get(), DBGBP_DELETE_DISP);
                     }
                 }
 

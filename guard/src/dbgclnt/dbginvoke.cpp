@@ -19,6 +19,5 @@ dbginvoke::dbginvoke(DebugClientProtocol * const proto)
     , d_clnt_ev_callback{nullptr}
     , d_frontend{nullptr}
     , d_eventset_list{nullptr}
-    , d_bpset_list{nullptr}
-    , d_global_bp_set_id{0}
+    , d_breakpoints{}
 {};

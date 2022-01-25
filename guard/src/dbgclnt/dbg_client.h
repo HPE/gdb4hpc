@@ -27,6 +27,7 @@
 #include "aif.h"
 #include "bitset.h"
 #include "dbg.h"
+#include "dbgclnt_breakpoints.h"
 #include "dbgclnt_debugfe.h"
 #include "dbgclnt_proto.h"
 #include "dbgevent.h"
@@ -210,131 +211,6 @@ struct event_set {
 };
 typedef struct event_set event_set_t;
 
-// Used to represent a breakpoint location
-typedef struct {
-    std::unique_ptr<Bitset> group; // All ranks that hit this location
-    std::string loc_file;          // locale file
-    int         loc_line;          // locale line
-    std::string loc_func;          // locale function
-} bp_loc_t;
-
-class bp_locale_set
-{
-public:
-    using bp_loc_set_t = std::vector<bp_loc_t>;
-private:
-    bp_loc_set_t bp_loc;
-public:
-    using const_iterator = bp_loc_set_t::const_iterator;
-
-    void add(const Bitset *group, char *loc_file, int loc_line, char *loc_func)
-    {
-        // search the list
-        if (loc_file != nullptr) {
-            const std::string file{loc_file};
-            for (auto&& i : bp_loc) {
-                if (i.loc_file == loc_file && i.loc_line == loc_line) {
-                    // found it!
-                    *i.group |= *group;
-                    return;
-                }
-            }
-        }
-        else {
-            const std::string func{loc_func};
-            for (auto&& i : bp_loc) {
-                if (i.loc_func == loc_func) {
-                    // found it!
-                    *i.group |= *group;
-                    return;
-                }
-            }
-        }
-        // Not found! Add it.
-        bp_loc.push_back({group->clone(), loc_file, loc_line, loc_func});
-    }
-
-    void clear()
-    {
-        bp_loc.clear();
-    }
-
-    const_iterator begin() const { return bp_loc.begin(); }
-    const_iterator end() const { return bp_loc.end(); }
-    const_iterator cbegin() { return bp_loc.cbegin(); }
-    const_iterator cend() { return bp_loc.cend(); }
-
-    bp_locale_set() = default;
-    ~bp_locale_set()
-    {
-        clear();
-    }
-
-    // Delete copy/move constructors and assignment
-    bp_locale_set(bp_locale_set const&) = delete;
-    bp_locale_set& operator=(bp_locale_set const&) = delete;
-};
-
-
-// This is used to represent breakpoints and is accessible by the client layer.
-// It gets stored in the dbginvoke and is specific to that pariticular dbginvoke
-// object.
-struct bp_set_t {
-    bp_set_t(int bp_id, const  Bitset* group, dbgbp_t* bp);
-    ~bp_set_t();
-    
-    // Current bp num - This gets reset every time a bp_set is returned to the
-    // client. These numbers are issued per dbginvoke_t object. The dbg_client
-    // layer needs to remember to update these when returning the object to the
-    // client layer.
-    int b_bp_set_id;  // The current breakpoint number
-
-    // group information
-    std::unique_ptr<Bitset> b_group;  // All ranks that contain this breakpoint
-
-    // breakpoint unique gdb id's
-    list_t *b_bp_id_list;  // a list of bp_id_set_t - private to dbgclnt layer
-
-    // breakpoint information
-    std::unique_ptr<Bitset> b_bp_enabled;  // set representing enabled breakpoints, this can
-                           // vary by rank.
-    list_t *
-        b_bp_disp;  // a list of bp_disp_set_t representing breakpoint
-                    // disposition (i.e. keep, dis, del), this can vary by rank.
-    dbgbp_type b_bp_type;  // breakpoint type (i.e. breakpoint, watchpoint)
-    bool b_bp_pending; // pending breakpoint
-
-    // breakpoint locale
-    char *b_loc_stmt;  // locale statement (pending)
-    char *b_loc_addr;  // locale address
-    char *b_loc_file;  // locale file
-    char *b_loc_func;  // locale function
-    int b_loc_line;    // locale line
-
-    // Watchpoint information
-    char *b_bp_exp;               // watchpoint expression
-    bp_locale_set b_bp_watch_loc; // watchpoint location
-
-    // Thread specific breakpoints
-    char*  b_thread_id;  // thread-id (if > 0)
-};
-
-// Only should be used in the dbg_client layer. This is used to map the client
-// breakpoint number onto gdb backend breakpoint numbers.
-struct bp_id_set {
-    std::unique_ptr<Bitset> b_group;
-    int b_bp_id;  // unique bkpt id assigned by each gdb
-};
-typedef struct bp_id_set bp_id_set_t;
-
-// This is used when checking the disposition of the breakpoint (i.e. enabled,
-// disabled, etc)
-struct bp_disp_set {
-    std::unique_ptr<Bitset> b_group;  // bitset representing the ranks with this disposition
-    dbgbp_disp b_bp_disp;  // disposition value
-};
-typedef struct bp_disp_set bp_disp_set_t;
-
 // Used when calling DbgHandleSignal to determine if the signal should be
 // maskable
 enum dbgsig_type { DBG_SIG_MASKABLE, DBG_SIG_NOMASK };
@@ -367,15 +243,6 @@ extern int SetHasError(rep_set_t *set);  // Maybe make static
 extern int GetNumberOfReply(rep_set_t *set);
 //extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
 extern int ProcessErrorInRepSet(rep_set_t *);
-
-/*
-** Async event routines
-*/
-extern bp_set_t *FindBPSetByID(dbginvoke_t *, int);
-extern bp_set_t *FindBPSetForBP(dbginvoke_t *di, dbgbp_t *bp);
-extern void ResetBPSetList(dbginvoke_t *di);
-extern bp_set_t *GetNextBPSet(dbginvoke_t *di);
-extern int EmptyBPSetList(dbginvoke_t *di);
 
 /*
 ** debugger client function prototypes

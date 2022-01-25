@@ -1,6 +1,9 @@
 #ifndef _DBGCLNT_INVOKE_H
 #define _DBGCLNT_INVOKE_H
 
+#include <list>
+
+#include "dbgclnt_breakpoints.h"
 #include "dbgclnt_network.h"
 #include "dbgclnt_debugfe.h"
 #include "dbgoutp.h"
@@ -50,8 +53,7 @@ struct dbginvoke {
     // Extensions for client support
     // FIXME: These should be marked private once this is turned into a class
     list_t *d_eventset_list;  // pending events
-    list_t *d_bpset_list;     // current breakpoints
-    int d_global_bp_set_id;    // private to dbg_client
+    BreakpointManager d_breakpoints; // logical breakpoints for this di
 };
 typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto

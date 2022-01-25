@@ -5,7 +5,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -142,19 +142,24 @@ public:
     list_t* getExitBPs() const { return m_exitBP; }
     void resetPId() { m_pid = 0; }
 private:
-    dbgevent_t* setup_gdbmi_entry_points();
+
     dbgevent_t* setup_gdbmi_environment();
     dbgevent_t* setup_gdbmi_signals();
     dbgevent_t* delete_internal_breakpoints(list_t *bplist);
+    std::pair<bool,dbgevent_t*>  setEntryBPs();
     dbgevent_t* continueToEntryPoint();
     void setup_pretty_printing();
     void initGpu();
     void setDataDir(const char* gdbType);
-        
+    bool entryBPsAreSet();
+    std::pair<bool,dbgevent_t*> setEntryBPsL();        
+
     DbgGdbMI& m_dbg;
     MISession* m_session;
     list_t *m_exitBP;
     int m_pid;
     char* m_runArgs;
+    std::string m_executable;
+    
 };
 

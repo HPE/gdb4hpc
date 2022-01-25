@@ -98,7 +98,7 @@ b{0..2}: 29
 83: p func2(2,-7)
 b{0..2}: -12
 86: continue
-b{0..2}: The application has reached an exit breakpoint.
+b{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
 89: #quit lgdb
 90: q
 Shutting down debugger and killing application for 'b'.

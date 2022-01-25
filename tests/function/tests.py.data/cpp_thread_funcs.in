@@ -149,8 +149,8 @@ a{0..2}: The application is stopped.
 77: focus $all
 78: del 4
 79: c -a
-a{0..2}: The application has reached an exit breakpoint.
-b{0..2}: The application has reached an exit breakpoint.
+a{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
+b{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
 81: # these line hang on the info stautus call, commenting these out for
 82: # now and I'll create a jira to figure out what's going on
 83: #maint sleep 2

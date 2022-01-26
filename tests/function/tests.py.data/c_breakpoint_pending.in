@@ -19,7 +19,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, %(in )?%main%( at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_dlopen_test.c:23)?%
+a{0..5}: Initial breakpoint, %(in )?%main%( at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_dlopen_test.c:\d+)?%
 18: # Set a pending breakpoint at function that will be dlopened
 19: set break pending on
 20: break dlopened_function

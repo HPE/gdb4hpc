@@ -417,9 +417,41 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+// called via the delete command: "delete checkpoint x"
+static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    const auto usage = [](){
+        PrintOutError("Usage: delete checkpoint <id>\n");
+    };
+    
+    if (argc < 3 || !IsInteger(argv[2])) {
+        usage();
+        return 0;
+    }
+
+    errno = 0;
+    auto id = strtoul(argv[2], nullptr, 10);
+    if (errno) {
+        usage();
+        return 0;
+    }
+
+    if (auto rep_set = std::unique_ptr<rep_set_t>(DbgDeleteCheckpoint(rec_set, id))) {
+        ProcessErrorInRepSet(rep_set.get());
+        return 0;
+    }
+
+    return 1;
+}
+
 static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int bp_id = 0;
     rep_set_t *rep_set;
+
+    // if deleting a checkpoint, defer to specific delete checkpoint function
+    using namespace std::string_literals;
+    if (argc >= 2 && argv[1] && "checkpoint"s == argv[1]) {
+        return cmd_delete_checkpoint_cmd(rec_set, argc, argv);
+    }
 
     if (argc < 2) {
         /*
@@ -798,7 +830,7 @@ void InitCmd_break(void) {
     AddCommand("break", "b", proc_required, 0, cmd_break_cmd,
                cmd_break_help, "Set breakpoint at specified line or function.");
     AddCommand("delete", "d", proc_required, 0, cmd_delete_cmd,
-               cmd_delete_help, "Delete a breakpoint.");
+               cmd_delete_help, "Delete a breakpoint or checkpoint.");
     AddCommand("disable", nullptr, proc_required, 0, cmd_disable_cmd,
                cmd_disable_help, "Disable a breakpoint.");
     AddCommand("enable", nullptr, proc_required, 0, cmd_enable_cmd,

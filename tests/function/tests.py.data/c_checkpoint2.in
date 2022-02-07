@@ -1,0 +1,114 @@
+1: maint set sync on
+2: launch $bigname{4} ./bd_dt/c/c_inc.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+bigname{0..3}: Initial breakpoint, main at /.../bd_dt/c/c_inc.c:9
+3: n
+bigname{0..3}: 11	    unsigned int inc = 0;
+4: n
+bigname{0..3}: 13	    do_inc(&inc, 1);
+5: p inc
+bigname{0..3}: 0
+6: check
+Created checkpoint 1 on $bigname{0..3}.
+7: n
+bigname{0..3}: 14	    do_inc(&inc, 2);
+8: n
+bigname{0..3}: 15	    do_inc(&inc, 3);
+9: n
+bigname{0..3}: 16	    do_inc(&inc, 4);
+10: maint sleep 1
+11: p inc
+bigname{0..3}: 6
+12: check
+Created checkpoint 2 on $bigname{0..3}.
+13: focus $bigname{0..1}
+14: n
+bigname{0..1}: 17	    do_inc(&inc, 5);
+15: maint sleep 1
+16: n
+bigname{0..1}: 19	    MPI_Finalize();
+17: maint sleep 1
+18: p inc
+bigname{0..1}: 15
+19: check
+Created checkpoint 3 on $bigname{0..1}.
+20: focus $bigname{3}
+21: n
+bigname{3}: 17	    do_inc(&inc, 5);
+22: maint sleep 1
+23: p inc
+bigname{3}: 10
+24: check
+Created checkpoint 4 on $bigname{3}.
+25: focus $all
+26: frame
+bigname{2}: #0  0x0000000000201b64 in main at /.../bd_dt/c/c_inc.c:16
+bigname{3}: #0  0x0000000000201b72 in main at /.../bd_dt/c/c_inc.c:17
+bigname{0..1}: #0  0x0000000000201b80 in main at /.../bd_dt/c/c_inc.c:19
+27: info check
+Checkpoint Procset          Location
+0          $bigname{0..3} * $bigname{0..3}
+1          $bigname{0..3}   c_inc.c:13 in main
+2          $bigname{0..3}   c_inc.c:16 in main
+3          $bigname{0..1}   c_inc.c:19 in main
+4          $bigname{3}      c_inc.c:17 in main
+28: p inc
+bigname{2}: 6
+bigname{3}: 10
+bigname{0..1}: 15
+29: restart 1
+Checkpoint 1 restored:
+bigname{0..3}: #0  0x0000000000201b3a in main at /.../bd_dt/c/c_inc.c:13
+30: p inc
+bigname{0..3}: 0
+31: restart 2
+Checkpoint 2 restored:
+bigname{0..3}: #0  0x0000000000201b64 in main at /.../bd_dt/c/c_inc.c:16
+32: p inc
+bigname{0..3}: 6
+33: restart 3
+Checkpoint 3 restored:
+bigname{2..3}: #0  0x0000000000201b64 in main at /.../bd_dt/c/c_inc.c:16
+bigname{0..1}: #0  0x0000000000201b80 in main at /.../bd_dt/c/c_inc.c:19
+34: p inc
+bigname{2..3}: 6
+bigname{0..1}: 15
+35: restart 4
+Checkpoint 4 restored:
+bigname{2}: #0  0x0000000000201b64 in main at /.../bd_dt/c/c_inc.c:16
+bigname{3}: #0  0x0000000000201b72 in main at /.../bd_dt/c/c_inc.c:17
+bigname{0..1}: #0  0x0000000000201b80 in main at /.../bd_dt/c/c_inc.c:19
+36: p inc
+bigname{2}: 6
+bigname{3}: 10
+bigname{0..1}: 15
+37: info checkpoint
+Checkpoint Procset          Location
+0          $bigname{2}      c_inc.c:16 in main
+           $bigname{3}      c_inc.c:17 in main
+           $bigname{0..1}   c_inc.c:19 in main
+1          $bigname{0..3}   c_inc.c:13 in main
+2          $bigname{0..3} * $bigname{2}
+3          $bigname{0..1} * $bigname{0..1}
+4          $bigname{3}    * $bigname{3}
+38: restart 0
+Checkpoint 0 restored:
+bigname{2}: #0  0x0000000000201b64 in main at /.../bd_dt/c/c_inc.c:16
+bigname{3}: #0  0x0000000000201b72 in main at /.../bd_dt/c/c_inc.c:17
+bigname{0..1}: #0  0x0000000000201b80 in main at /.../bd_dt/c/c_inc.c:19
+39: delete checkpoint 4
+40: delete checkpoint 3
+41: delete checkpoint 2
+42: delete checkpoint 1
+43: info check
+No checkpoints.
+44: q
+Shutting down debugger and killing application for 'bigname'.

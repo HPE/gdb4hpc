@@ -1,7 +1,7 @@
 /****************************************************************************** \
  * help_dict.c - Command help string definition dictionary.
  *
- * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -237,15 +237,17 @@ const char* const cmd_defset_help[] = {
     0};
 
 const char* const cmd_delete_help[] = {
-    "Summary: Delete breakpoint command.",
-    "Usage: delete [<breakpoints>]",
+    "Summary: Delete a breakpoint or checkpoint.",
+    "Usage: delete <breakpoint id>",
+    "       delete checkpoint <checkpoint id>"
     "Example command: delete 1",
+    "                 delete checkpoint 2"
     "Shortcut: d",
     "",
-    "Arguments: breakpoints (list of breakpoint numbers)",
+    "Arguments: breakpoint or checkpoint id",
     "",
     "Description:",
-    "Delete the list of breakpoints specified by the breakpoints argument in",
+    "Delete the breakpoint or checkpoint specified by the id argument in",
     "every application rank in the current process set. If no argument is",
     "supplied, all breakpoints in the current process set are deleted.",
     0};
@@ -664,6 +666,16 @@ const char* const cmd_release_help[] = {
     "specified.",
     0};
 
+const char* const cmd_restart_help[] = {
+    "Summary: Restore program to state of previously created checkpoint.",
+    "Usage: restart <checkpoint id>",
+    "Example command: restart 2",
+    "",
+    "Description:",
+    "For each rank linked to the specified checkpoint, restore the program to one previously ",
+    "forked and set aside by the checkpoint command.",
+    0};
+
 const char* const cmd_session_help[] = {
     "Summary: Create a new WLM session.",
     "Usage: session [--qsub=<batch_template> OR -q <batch_template>]",
@@ -879,7 +891,7 @@ const char* const cmd_catch_help[] = {
     "Usage: catch [throw|catch|fork|vfork|exec|load|unload]",
     "Example command: catch exec",
     "",
-    "Descripion:",
+    "Description:",
     "Set a catchpoint on a specified event. Available events are:",
     "    throw: catch the throwing of a C++ exception",
     "    catch: stop when an exception is caught",
@@ -890,6 +902,18 @@ const char* const cmd_catch_help[] = {
     "    unload <regex>: stop when a shared library matching regex is unloaded",
     "",
     "For each event, the process is stopped just after the event occurs.",
+    0};
+
+const char* const cmd_checkpoint_help[] = {
+    "Summary: Fork program for restoration at a later point.",
+    "Usage: checkpoint",
+    "Example command: checkpoint",
+    "",
+    "Description:",
+    "Fork all ranks in focus and set aside the new processes for restoration",
+    "later with the restart command.",
+    "",
+    "Delete a checkpoint with the delete checkpoint command.",
     0};
 
 const char* const cmd_whatis_help[] = {
@@ -1093,6 +1117,18 @@ const char* const class_info_subcmd_breakpoints_help[] = {
     "means that the breakpoint will be disabled. The address and what columns",
     "indicate the address and file/line number of the breakpoint",
     "respectively.",
+    0};
+
+const char* const class_info_subcmd_checkpoints_help[] = {
+    "Summary: Checkpoint information.",
+    "",
+    "Description:",
+    "Display current checkpoints. Columns display the following:",
+    "- Checkpoint: The checkpoint id for use in restart and delete commands",
+    "- Procset: The ranks where this checkpoint exists. When the restart command is",
+    "  used, all of these ranks will be affected.",
+    "- Location: Location in program where ranks will be after restarting at this",
+    "  checkpoint.",
     0};
 
 const char* const class_info_subcmd_locals_help[] = {

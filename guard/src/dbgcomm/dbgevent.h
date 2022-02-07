@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020,2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -126,6 +126,7 @@ enum dbgev {
     DBGEV_BPINFO,
     DBGEV_BPSET,
     DBGEV_BPDEL,
+    DBGEV_CHECKPOINT,
     DBGEV_FRAME,
     DBGEV_LOC,
     DBGEV_TYPE,
@@ -179,12 +180,19 @@ public:
 
     dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
                const char* threads, dbgframe_t* nextThreadFrame);
+    dbgframe_t(dbgframe_t &&other);
     dbgframe_t* clone() const;
     static dbgframe_t* copy(const dbgframe_t* rhs) { return rhs ? rhs->clone() : nullptr; }
     ~dbgframe_t();
 
     dbgframe_t(const dbgframe_t&) = delete;
     dbgframe_t& operator=(const dbgframe_t&) = delete;
+};
+
+// a location with an ID attached
+struct dbgcheckpoint_t {
+    unsigned long id;
+    dbgloc_t location;
 };
 
 struct dbgstep_t {
@@ -240,6 +248,7 @@ struct dbgevent_t {
         AIFStream *ev_u_data;
         dbglist_t *ev_u_list;
         dbgframe_t *ev_u_frame;
+        dbgcheckpoint_t *ev_u_checkpoint;
         dbgstep_t ev_u_step;
         dbgloc_t *ev_u_loc;
         dbgvars_t *ev_u_vars;
@@ -259,6 +268,7 @@ struct dbgevent_t {
 #define ev_sig_frame ev_u.ev_u_sig.sig_frame
 #define ev_exit ev_u.ev_u_int
 #define ev_frame ev_u.ev_u_frame
+#define ev_checkpoint ev_u.ev_u_checkpoint
 #define ev_step ev_u.ev_u_step
 #define ev_data ev_u.ev_u_data
 #define ev_list ev_u.ev_u_list
@@ -279,6 +289,7 @@ struct dbgevent_t {
 #define EVENT_EV(e) (e)->ev_event
 #define EVENT_BP(e) (e)->ev_u.ev_u_bp
 #define EVENT_FRAME(e) (e)->ev_u.ev_u_frame
+#define EVENT_CHECKPOINT(e) (e)->ev_u.ev_u_checkpoint
 #define EVENT_DATA(e) (e)->ev_u.ev_u_data
 #define EVENT_LIST(e) (e)->ev_u.ev_u_list
 #define EVENT_SOURCE_PATH(e) (e)->ev_u.ev_u_string

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1080,6 +1080,8 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                 if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
                     // If the breakpoint was set to delete, we need to delete
                     // it. If it was set to dis, we need to disable it.
+
+                    std::vector<std::unique_ptr<Bitset>> removeGroups;
                     for (const auto &disp_set : bp_set->dispSetList()) {
                         auto group = bitset::fromAnd(*disp_set.group, *msg.getBitset());
                         if (group->isEmpty()) {
@@ -1090,7 +1092,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                                 // remove the breakpoint
                                 // NOTE: The breakpoint has already been removed
                                 // by the backend.
-                                bp_set->removeGroup(group.get());
+                                removeGroups.push_back(std::move(group));
                                 break;
                             case DBGBP_DISABLE_DISP:
                                 // mark the breakpoint as disabled for the ranks
@@ -1102,7 +1104,10 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                                 break;
                         }
                     }
-                    // remove any breakpoints that are empty after removing groups above
+                    // remove any breakpoints that are now empty
+                    for (const auto &bitset : removeGroups) {
+                        bp_set->removeGroup(bitset.get());
+                    }
                     di->d_breakpoints.removeEmptyBreakpoints();
                 }
                 break;
@@ -1112,6 +1117,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                 bp = EVENT_BP(event);
                 if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
                     // Need to delete the breakpoint.
+                    std::vector<std::unique_ptr<Bitset>> removeGroups;
                     for (const auto &disp_set : bp_set->dispSetList()) {
                         auto group = bitset::fromAnd(*disp_set.group, *msg.getBitset());
                         if (group->isEmpty()) {
@@ -1120,9 +1126,12 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                         // remove the breakpoint
                         // NOTE: The breakpoint has already been removed by the
                         // backend.
-                        bp_set->removeGroup(group.get());
+                        removeGroups.push_back(std::move(group));
                     }
-                    // remove any breakpoints that are empty after removing groups above
+                    // remove any breakpoints that are now empty
+                    for (const auto &bitset : removeGroups) {
+                        bp_set->removeGroup(bitset.get());
+                    }
                     di->d_breakpoints.removeEmptyBreakpoints();
                 }
                 break;
@@ -2478,6 +2487,272 @@ rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::s
     return result;
 }
 
+rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
+    static auto nextId = 0u;
+
+    auto request = CommandToSocProto(DBGCMD_SETCHECKPOINT);
+    auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_CHECKPOINT);
+
+    // bucket each reply by its di
+    std::unordered_map<dbginvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
+    for (const auto reply : result) {
+        if (!reply->rep_di) {
+            return nullptr;
+        }
+        diMap[reply->rep_di].push_back({reply->rep_group.get(), EVENT_CHECKPOINT(reply->rep_event)});
+    }
+
+    auto mostMade = 0u;
+
+    // add checkpoint to each di
+    for (auto [di, checkpointV] : diMap) {
+        auto produced = di->d_checkpoints.recordCheckpoint(nextId, checkpointV);
+        // recordCheckpoint can make either one or two checkpoints each call,
+        // see comments in recordCheckpoint
+        mostMade = std::max(mostMade, produced);
+        if (produced == 0) {
+            PrintOutError("Failed to record checkpoint\n");
+            PrintOutError("(%s)\n", di->d_checkpoints.getError().c_str());
+        }
+    }
+
+    nextId += mostMade;
+
+    return result;
+}
+
+rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
+    if (!recSet) return nullptr;
+
+    // add string error to rep_set_t result
+    const auto addStrError = [](rep_set_t *&result, dbginvoke &di, const Bitset &group, const std::string message) {
+        if (!result) {
+            result = NewRepSet();
+        }
+
+        AddErrToSet(result, NewGroupReply(&di, group.clone(), NewErrorEvent(DBGERR_DEBUGGER, message.c_str())));
+    };
+
+    // add rep_set_t error to rep_set_t result
+    // deletes toMerge
+    const auto addRepSetError = [](rep_set_t *&result, rep_set_t *&toMerge) {
+        if (!result) {
+            result = NewRepSet();
+        }
+
+        MergeRepSet(result, toMerge);
+    };
+
+    using namespace std::string_literals;
+
+    rep_set_t *result = nullptr;
+
+    // preliminary error checking
+    auto foundCheckp = std::any_of(begin(recSet), end(recSet),
+        [&](const auto &rec) { 
+        return rec->rec_di->d_checkpoints.find(id) != nullptr;
+    });
+
+    if (!foundCheckp) {
+        // just use the first di to generate the error
+        auto first = recSet->getReceivers().front();
+        addStrError(result, *first->rec_di, *first->rec_group, 
+            "Checkpoint "s + std::to_string(id) + " doesn't exist."
+        );
+    }
+
+    // return here if errors are detected
+    if (result) {
+        return result;
+    }
+
+    for (const auto rec : recSet) {
+        auto di = rec->rec_di;
+        auto checkp = di->d_checkpoints.find(id);
+        
+        // it's valid for the checkpoint to only exist on some dis and not others
+        if (!checkp) continue;
+        if (!checkp->currentSet().isEmpty()) continue;
+
+        // send restart commands to individual ranks
+        for (const auto &idSet : checkp->idSetList()) {
+            auto group = bitset::fromAnd(*idSet.group, *rec->rec_group);
+            if (group->isEmpty()) {
+                continue;
+            }
+
+            auto new_rec_set = NewRecSet();
+            AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+
+            // Get frames to update client side location data on success
+            auto frames = DbgGetFrame(new_rec_set);
+            if (!frames) {
+                addStrError(result, *di, *group, "Error fetching frame");
+                continue;
+            }
+            for (const auto* frameReply : frames) {
+                const auto &frameGroup = frameReply->rep_group;
+                const auto &frameLoc = EVENT_FRAME(frameReply->rep_event)->getLoc();
+
+                auto request = CommandToSocProto(DBGCMD_RESTORECHECKPOINT, idSet.id);
+
+                // returns nullptr on success
+                if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
+                    // update client side location data of any checkpoints that
+                    // are current
+                    for (auto &checkp : di->d_checkpoints) {
+                        if (checkp.currentSet().hasCommonBits(*frameGroup)) {
+                            checkp.locations().replace(
+                                bitset::fromAnd(*frameGroup, checkp.currentSet()).get(), 
+                                frameLoc.loc_file, frameLoc.loc_line, frameLoc.loc_func
+                            );
+                        }
+                        checkp.unmarkCurrent(*frameGroup);
+                    }
+                    di->d_checkpoints.find(id)->markCurrent(*frameGroup);
+                } else {
+                    // deletes tmp_result
+                    addRepSetError(result, tmp_result);
+                }
+            }
+
+            FreeRecSet(new_rec_set);
+        }
+    }
+
+    return result;
+}
+
+rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
+    if (!recSet) return nullptr;
+
+    // add string error to rep_set_t result
+    const auto addStrError = [](rep_set_t *&result, dbginvoke &di, const Bitset &group, const std::string message) {
+        if (!result) {
+            result = NewRepSet();
+        }
+
+        dbgevent_t *e;
+        EVENT_ERROR(e, DBGERR_DEBUGGER, message.c_str());
+        auto group_rep = NewGroupReply(&di, group.clone(), e);
+        AddErrToSet(result, group_rep);
+    };
+
+    // add rep_set_t error to rep_set_t result
+    // deletes toMerge
+    const auto addRepSetError = [](rep_set_t *&result, rep_set_t *&toMerge) {
+        if (!result) {
+            result = NewRepSet();
+        }
+
+        MergeRepSet(result, toMerge);
+    };
+
+    using namespace std::string_literals;
+
+    rep_set_t *result = nullptr;
+    
+    // preliminary error checking
+    auto foundCheckp = std::any_of(begin(recSet), end(recSet),
+        [&](const auto &rec) { 
+        return rec->rec_di->d_checkpoints.find(id) != nullptr;
+    });
+
+    if (!foundCheckp) {
+        // just use the first di
+        auto first = recSet->getReceivers().front();
+        addStrError(result, *first->rec_di, *first->rec_group, 
+            "Checkpoint "s + std::to_string(id) + " doesn't exist."
+        );
+    }
+
+    // return here if errors are detected
+    if (result) {
+        return result;
+    }
+
+    // more preliminary error checking
+    for (const auto &rec : recSet) {
+        auto* di = rec->rec_di;
+        const auto* checkpoint = di->d_checkpoints.find(id);
+
+        // don't delete a checkpoint that is current somewhere
+        if (!checkpoint->currentSet().isEmpty()) {
+            addStrError(result, *di, *rec->rec_group, 
+                "Checkpoint "s + std::to_string(id) + " is the current checkpoint on $"
+                + di->d_handle + checkpoint->currentSet().toSetString() + "."
+            );
+            continue;
+        }
+
+        // deleting the original checkpoint thread (ID 0)
+        // results in gdb killing the program, which we don't want
+        auto IDZero = std::find_if(checkpoint->idSetList().begin(), checkpoint->idSetList().end(),
+        [](const auto &idset) {
+            return idset.id == 0;
+        });
+        if (IDZero != checkpoint->idSetList().end()) {
+            addStrError(result, *di, *rec->rec_group,
+                "Checkpoint "s + std::to_string(id) + " is the original thread of execution on $"
+                + di->d_handle + IDZero->group->toSetString() + " and can't be directly deleted. "
+                + "When all other checkpoints on $" + di->d_handle + " are deleted, checkpoint " + std::to_string(id)
+                + " will be implicitly deleted."
+            );
+        }
+    }
+
+    // return here if errors are detected
+    if (result) {
+        return result;
+    }
+
+    for (const auto &rec : recSet) {
+        auto di = rec->rec_di;
+        auto checkp = di->d_checkpoints.find(id);
+        
+        // it's valid for the checkpoint to only exist on some dis and not others
+        if (!checkp) continue;
+
+        std::vector<std::unique_ptr<Bitset>> removeGroups;
+
+        // send delete checkpoint commands to individual ranks
+        for (const auto &idSet : checkp->idSetList()) {
+            auto group = bitset::fromAnd(*idSet.group, *rec->rec_group);
+            if (group->isEmpty()) {
+                continue;
+            }
+
+            auto request = CommandToSocProto(DBGCMD_DELETECHECKPOINT, idSet.id);
+
+            auto new_rec_set = NewRecSet();
+            AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+
+            if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
+                // will remove the group from the checkpoint after loop
+                removeGroups.push_back(std::move(group));
+            } else {
+                // deletes tmp_result
+                addRepSetError(result, tmp_result);
+            }
+
+            FreeRecSet(new_rec_set);
+        }
+
+        // groups that were removed with checkpoint 
+        for (const auto &bitset : removeGroups) {
+            checkp->removeGroup(*bitset.get());
+        }
+
+        // remove any empty checkpoints left by above
+        di->d_checkpoints.removeEmpty();
+        // if the deletion left a single checkpoint, gdb will implicitly delete it,
+        // so reflect that in our client side data as well
+        di->d_checkpoints.removeSingular();
+    }
+
+    return result;
+}
+
 // Set the current thread for subsequent commands
 rep_set_t *DbgSetThread(rec_set_t* set, const char* threadId)
 {
@@ -2607,6 +2882,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
             for (auto &bp_set : di->d_breakpoints) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
+                std::vector<std::unique_ptr<Bitset>> removeGroups;
                 for (const auto &id_set : bp_set.idSetList()) {
                     // Get the new group, based on the intersection between the
                     // bp_set and the rec_set.
@@ -2633,7 +2909,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                     // were things worked
                     if (tmp_result == nullptr) {
                         // remove the group from the breakpoint
-                        bp_set.removeGroup(group.get());
+                        removeGroups.push_back(std::move(group));
                     }
 
                     // Add this to the overall result
@@ -2647,8 +2923,11 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                     FreeRecSet(new_rec_set);
                 }
+                for (const auto &bitset : removeGroups) {
+                    bp_set.removeGroup(bitset.get());
+                }
             }
-            // remove any empty breakpoints left by above
+            // remove any breakpoints that are now empty
             di->d_breakpoints.removeEmptyBreakpoints();
         } else {
             // find the bp_set for the bp_set_num
@@ -2671,6 +2950,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
             // Need to loop over the idSetList() to operate on the correct
             // breakpoint number in the backend
+            std::vector<std::unique_ptr<Bitset>> removeGroups;
             for (const auto &id_set : bp_set->idSetList()) {
                 // Get the new group, based on the intersection between the
                 // bp_set and the set.
@@ -2696,7 +2976,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 // were things worked
                 if (tmp_result == nullptr) {
                     // remove the group from the breakpoint
-                    bp_set->removeGroup(group.get());
+                    removeGroups.push_back(std::move(group));
                 }
 
                 // Add this to the overall result
@@ -2710,7 +2990,10 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 FreeRecSet(new_rec_set);
             }
-            // remove any empty breakpoints left by above
+            // remove any breakpoints that are now empty
+            for (const auto &bitset : removeGroups) {
+                bp_set->removeGroup(bitset.get());
+            }
             di->d_breakpoints.removeEmptyBreakpoints();
         }
     }
@@ -3045,7 +3328,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     const dbgframe_t* fp0 = EVENT_FRAME(group_rep->rep_event);
                     for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
 
-                        auto loc = fp->getLoc();
+                        const auto &loc = fp->getLoc();
 
                         // Now ask the frontend for the source listing around this
                         // location. This is set depending on the value of isReverse
@@ -3445,7 +3728,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
                 // Point at the frame
                 auto fp0 = const_cast<const dbgframe_t*>(EVENT_FRAME(group_rep->rep_event));
                 for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
-                    auto loc = fp->getLoc();
+                    const auto &loc = fp->getLoc();
 
                     // Create the location string based on the new frame
                     // location Note that this should one short of the new

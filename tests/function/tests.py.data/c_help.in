@@ -32,12 +32,13 @@ backtrace       Print backtrace of all stack frames.
 break           Set breakpoint at specified line or function.
 build           Build an assertion script.
 catch           Set catchpoint on specified event.
+checkpoint      Fork program for restoration at a later point.
 compare         Compare the contents of two variables.
 continue        Continue execution of application.
 cuda            Cuda debugging functions.
 decomposition   Define a decomposition scheme.
 defset          Create a set of processes.
-delete          Delete a breakpoint.
+delete          Delete a breakpoint or checkpoint.
 disable         Disable a breakpoint.
 down            Move down one or more stack frames.
 enable          Enable a breakpoint.
@@ -58,6 +59,7 @@ print           Print the value of an expression.
 ptype           Print definition of a type.
 quit            Exit the debugger.
 release         Release attached/launched application from debugger control.
+restart         Restore program to state of previously created checkpoint.
 session         Create a new WLM session.
 set             Set information about the debugger environment.
 show            Show information about the debugger environment.

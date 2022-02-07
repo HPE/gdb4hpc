@@ -8,6 +8,7 @@ TESTS = \
    bd_dt/c/c_dlopen.x \
    bd_dt/c/c_segv.x \
    bd_dt/c/c_list.x \
+   bd_dt/c/c_inc.x \
    bd_dt/C++/cpp_bd_test.x \
    bd_dt/C++/cpp_cmp_diff.x \
    bd_dt/C++/cpp_ds_test1.x \
@@ -84,6 +85,9 @@ bd_dt/c/c_segv.x : bd_dt/c/c_segv.o
 	cc -g -O0 $^ -o $@
 
 bd_dt/c/c_list.x : bd_dt/c/c_list.o
+	cc -g -O0 $^ -o $@
+
+bd_dt/c/c_inc.x : bd_dt/c/c_inc.o
 	cc -g -O0 $^ -o $@
 
 bd_dt/C++/cpp_bd_test.x : bd_dt/C++/cpp_bd_test.o

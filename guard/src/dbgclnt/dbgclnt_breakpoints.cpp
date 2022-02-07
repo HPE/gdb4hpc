@@ -4,6 +4,10 @@
 #include "dbgclnt_breakpoints.h"
 
 #include <algorithm>
+#include <stdexcept>
+#include <iostream>
+#include <sstream>
+#include <set>
 
 #include <string.h>
 #include <assert.h>
@@ -74,7 +78,7 @@ const std::string& MappedBreakpoint::watchExpression() const {
     return m_watchExp;
 }
 
-const MappedBreakpoint::LocaleSet& MappedBreakpoint::watchLocaleSet() const {
+const LocaleSet& MappedBreakpoint::watchLocaleSet() const {
     return m_watchLoc;
 }
 
@@ -98,7 +102,7 @@ const Bitset* MappedBreakpoint::enabledSet() const {
     return m_enabledSet.get();
 }
 
-const std::list<MappedBreakpoint::IDSet>& MappedBreakpoint::idSetList() const {
+const std::list<IDSet>& MappedBreakpoint::idSetList() const {
     return m_idList;
 }
 
@@ -115,7 +119,7 @@ void MappedBreakpoint::addBreakpoint(const Bitset *group, const dbgbp_t &bp) {
 
     // Add internal gdb id to the bp_id_list
     auto found_id_set = std::find_if(m_idList.begin(), m_idList.end(),
-    [=](const auto &id_set) {
+    [&](const auto &id_set) {
         return id_set.id == bp.bp_id;
     });
 
@@ -183,7 +187,7 @@ void MappedBreakpoint::removeGroup(const Bitset *group) {
         *id_set.group -= *group;
     }
     // remove empty sets from list
-    m_idList.remove_if([](const MappedBreakpoint::IDSet &id_set) {
+    m_idList.remove_if([](const IDSet &id_set) {
         return id_set.group->isEmpty();
     });
 
@@ -346,9 +350,179 @@ MappedBreakpoint* BreakpointManager::findByLogicalID(int id) {
 
 MappedBreakpoint* BreakpointManager::findByDbgBreakpoint(const dbgbp_t &bp) {
     auto it = std::find_if(m_breakpoints.begin(), m_breakpoints.end(),
-    [=](const auto &mbp) {
+    [&](const auto &mbp) {
         return mbp.contains(bp);
     });
 
     return it != m_breakpoints.end() ? &(*it) : nullptr;
+}
+
+MappedCheckpoint::MappedCheckpoint(unsigned int id, const std::vector<std::pair<const Bitset*, const dbgcheckpoint_t*>> &checkpointData, std::optional<unsigned long> dbgcpId) 
+    : m_id{id}
+{
+    if (checkpointData.size() == 0) {
+        throw std::runtime_error("Tried to create a MappedCheckpoint with no checkpointData");
+    }
+
+    for (const auto &[group, dbcp] : checkpointData) {
+        if (group == nullptr || dbcp == nullptr) {
+            throw std::runtime_error("Tried to create a MappedCheckpoing with checkpointData that contained nullptr");
+        }
+    }
+
+    // we assume all bitsets are the same size
+    m_allRanks = checkpointData.front().first->clone();
+
+    for (const auto &[group, dbcp] : checkpointData) {
+        *m_allRanks |= *group;
+        // copy in passed dbgcheckpoint_t data. overwrite passed backend ID if specified
+        m_idsMap.emplace_back(group, dbgcpId ? *dbgcpId : dbcp->id);
+        m_locations.add(group, dbcp->location.loc_file, dbcp->location.loc_line, dbcp->location.loc_func);
+    }
+
+    m_current = m_allRanks->clone();
+    m_current->clear();
+}
+
+MappedCheckpoint::MappedCheckpoint(unsigned int id, const std::vector<std::pair<const Bitset*, const dbgcheckpoint_t*>> &checkpointData)
+    : MappedCheckpoint(id, checkpointData, {})
+{}
+
+unsigned int MappedCheckpoint::id() const {
+    return m_id;
+}
+
+LocaleSet& MappedCheckpoint::locations() {
+    return m_locations;
+}
+
+const LocaleSet& MappedCheckpoint::locations() const {
+    return m_locations;
+}
+
+const Bitset& MappedCheckpoint::ranksSet() const {
+    return *m_allRanks;
+}
+
+const std::list<IDSet>& MappedCheckpoint::idSetList() const {
+    return m_idsMap;
+}
+
+const Bitset& MappedCheckpoint::currentSet() const {
+    return *m_current;
+}
+
+void MappedCheckpoint::markCurrent(const Bitset &group) {
+    *m_current |= group;
+}
+
+void MappedCheckpoint::unmarkCurrent(const Bitset &group) {
+    *m_current -= group;
+}
+
+void MappedCheckpoint::removeGroup(const Bitset &group) {
+    *m_allRanks -= group;
+
+    // Remove the group from the id list
+    for (auto &idSet : m_idsMap) {
+        *idSet.group -= group;
+    }
+    // remove empty sets from list
+    m_idsMap.remove_if([](const IDSet &id_set) {
+        return id_set.group->isEmpty();
+    });
+}
+
+CheckpointManager::CheckpointManager()
+    : m_error{"no error"}
+{}
+
+unsigned int CheckpointManager::recordCheckpoint(unsigned int id, const std::vector<std::pair<const Bitset*, const dbgcheckpoint_t*>> &checkpointData) {
+    // add checkpoint to internal checkpoint list, return true on success
+    const auto makeOne = [&](unsigned int theId, const std::vector<std::pair<const Bitset*, const dbgcheckpoint_t*>> &theCheckpointData, std::optional<unsigned long> cpid) {
+        try {
+            m_checkpoints.emplace_back(theId, theCheckpointData, cpid);
+        } catch (const std::runtime_error &e) {
+            std::ostringstream err;
+            err << "Failed to construct checkpoint from passed data ("
+                << e.what() << ")"
+            ;
+            m_error = err.str();
+            return false;
+        }
+        return true;
+    };
+
+    unsigned int successfullyMade{0};
+
+    // on a given rank, the first checkpoint created actually produces two
+    // usable checkpoints: the original process and the newly created process.
+    // we need to reflect this in our client side data.
+
+    auto shouldMakeFirst = std::any_of(checkpointData.begin(), checkpointData.end(),
+        [](const auto &pair) {
+            if (!pair.second) return false;
+            return pair.second->id == 1;
+    });
+
+    // extra checkpoint for first checkpoint case
+    if (shouldMakeFirst) {
+        // first checkpoint always has real id of 0
+        if (makeOne(id, checkpointData, 0)) {
+            successfullyMade++;
+            id++;
+            m_checkpoints.back().markCurrent(m_checkpoints.back().ranksSet());
+        }
+    }
+
+    // base case
+    if (makeOne(id, checkpointData, {})) {
+        successfullyMade++;
+    }
+
+    return successfullyMade;
+}
+
+const MappedCheckpoint* CheckpointManager::newest() const {
+    return m_checkpoints.size() > 0 ? &m_checkpoints.back() : nullptr;
+}
+
+MappedCheckpoint* CheckpointManager::find(unsigned int id) {
+    auto it = std::find_if(m_checkpoints.begin(), m_checkpoints.end(),
+    [&](const auto &mcp) {
+        return mcp.id() == id;
+    });
+    return it != m_checkpoints.end() ? &(*it) : nullptr;
+}
+
+void CheckpointManager::removeEmpty() {
+    // remove checkpoints with empty ranksSet()s
+    m_checkpoints.remove_if([](const auto &p){ return p.ranksSet().isEmpty(); });
+}
+
+void CheckpointManager::removeSingular() {
+    std::set<unsigned int> removeIds; 
+    
+    for (const auto &checkp : m_checkpoints) {
+        bool foundMatch = false;
+        for (const auto &other : m_checkpoints) {
+            if (checkp.id() == other.id()) continue;
+            foundMatch = std::max(foundMatch, checkp.ranksSet().hasCommonBits(other.ranksSet()));
+            if (foundMatch) break;
+        }
+
+        if (!foundMatch) removeIds.insert(checkp.id());
+    }
+
+    m_checkpoints.remove_if([&](const auto &cp) {
+        return removeIds.count(cp.id()) != 0;
+    });
+}
+
+size_t CheckpointManager::size() const {
+    return m_checkpoints.size();
+}
+
+const std::string& CheckpointManager::getError() const {
+    return m_error;
 }

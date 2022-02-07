@@ -136,12 +136,6 @@ dbgbp_t *DupBP(dbgbp_t *bp) {
 void FreeBP(dbgbp_t *bp) {
     char **s;
 
-    if (bp->bp_loc.loc_file != NULL) Free(bp->bp_loc.loc_file);
-
-    if (bp->bp_loc.loc_func != NULL) Free(bp->bp_loc.loc_func);
-
-    if (bp->bp_loc.loc_addr != NULL) Free(bp->bp_loc.loc_addr);
-
     if (bp->bp_exp != NULL) Free(bp->bp_exp);
 
     if (bp->bp_stmt != NULL) Free(bp->bp_stmt);

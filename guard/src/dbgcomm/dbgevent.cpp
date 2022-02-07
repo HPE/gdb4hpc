@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020,2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -38,8 +38,6 @@ static event_equiv CompareEvSig(dbgsig_t, dbgsig_t);
 static event_equiv CompareEvFrame(const dbgframe_t *, const dbgframe_t *, int);
 static event_equiv CompareEvErr(dbgerr_t, dbgerr_t);
 
-static dbgloc_t *DupLocation(dbgloc_t *);
-static void FreeLocation(dbgloc_t *);
 static dbgvars_t *DupVars(dbgvars_t *);
 static void FreeVars(dbgvars_t *);
 static dbglist_t *DupSCList(dbglist_t *);
@@ -153,6 +151,12 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
         case DBGEV_FRAME:
             e->ev_frame = dbgframe_t::copy(event->ev_frame);
             break;
+
+        case DBGEV_CHECKPOINT: {
+            e->ev_checkpoint = 
+                event->ev_checkpoint ? new dbgcheckpoint_t{*event->ev_checkpoint} : nullptr;
+            break;
+        }
 
         case DBGEV_VARS:
             e->ev_vars = DupVars(event->ev_vars);
@@ -426,6 +430,10 @@ void FreeEvent(dbgevent_t *event) {
             delete event->ev_sig_frame;
             break;
 
+        case DBGEV_CHECKPOINT:
+            delete event->ev_checkpoint;
+            break;
+
         case DBGEV_FRAME:
             delete event->ev_frame;
             break;
@@ -517,9 +525,6 @@ dbgframe_t::~dbgframe_t() {
     delete m_next;
     delete m_nextThreadFrame;
     free(m_threads);
-    free(m_loc.loc_addr);
-    free(m_loc.loc_func);
-    free(m_loc.loc_file);
 }
 
 void dbgframe_t::setNext(dbgframe_t* next) {
@@ -534,31 +539,6 @@ void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
         std::swap(next, m_nextThreadFrame);
         delete next;
     }
-}
-
-
-static dbgloc_t *DupLocation(dbgloc_t *l) {
-    dbgloc_t *loc;
-
-    if (l == NULL) return NULL;
-
-    loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
-    if (l->loc_file != NULL) loc->loc_file = strdup(l->loc_file);
-    if (l->loc_addr != NULL) loc->loc_addr = strdup(l->loc_addr);
-    if (l->loc_func != NULL) loc->loc_func = strdup(l->loc_func);
-    loc->loc_line = l->loc_line;
-
-    return loc;
-}
-
-static void FreeLocation(dbgloc_t *l) {
-    if (l == NULL) return;
-
-    if (l->loc_file != NULL) Free(l->loc_file);
-    if (l->loc_addr != NULL) Free(l->loc_addr);
-    if (l->loc_func != NULL) Free(l->loc_func);
-
-    Free(l);
 }
 
 static dbgvars_t *DupVars(dbgvars_t *vars) {
@@ -856,6 +836,9 @@ void PrintDbgEvent(dbgevent_t *event) {
         case DBGEV_BPDEL:
             PrintOutMsg("DBGEV_BPDEL");
             break;
+        case DBGEV_CHECKPOINT:
+            PrintOutMsg("DBGEV_CHECKPOINT");
+            break;
         case DBGEV_FRAME:
             PrintOutMsg("DBGEV_FRAME");
             break;
@@ -924,6 +907,8 @@ const char *EventToStr(dbgevent_t *event) {
             return "DBGEV_BPSET";
         case DBGEV_BPDEL:
             return "DBGEV_BPDEL";
+        case DBGEV_CHECKPOINT:
+            return "DBGEV_CHECKPOINT";
         case DBGEV_FRAME:
             return "DBGEV_FRAME";
         case DBGEV_LOC:
@@ -979,6 +964,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_BPSET";
         case DBGEV_BPDEL:
             return "DBGEV_BPDEL";
+        case DBGEV_CHECKPOINT:
+            return "DBGEV_CHECKPOINT";
         case DBGEV_FRAME:
             return "DBGEV_FRAME";
         case DBGEV_LOC:

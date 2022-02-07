@@ -1055,7 +1055,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                                 ev_set->e_ev->ev_sig_type);
 
             if (ev_set->e_ev->ev_sig_frame != (dbgframe_t *)NULL) {
-                auto frameLoc = ev_set->e_ev->ev_sig_frame->getLoc();
+                const auto &frameLoc = ev_set->e_ev->ev_sig_frame->getLoc();
                 if (frameLoc.loc_file != NULL) {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group.get(),

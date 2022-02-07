@@ -1,7 +1,7 @@
 /******************************************************************************\
  * help_dict.h - Command help string defintion dictionary interface.
  *
- * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,6 +22,7 @@ extern const char* const cmd_assign_help[];
 extern const char* const cmd_backtrace_help[];
 extern const char* const cmd_break_help[];
 extern const char* const cmd_catch_help[];
+extern const char* const cmd_checkpoint_help[];
 extern const char* const cmd_compare_help[];
 extern const char* const cmd_continue_help[];
 extern const char* const cmd_cuda_help[];
@@ -46,6 +47,7 @@ extern const char* const cmd_print_help[];
 extern const char* const cmd_ptype_help[];
 extern const char* const cmd_quit_help[];
 extern const char* const cmd_release_help[];
+extern const char* const cmd_restart_help[];
 extern const char* const cmd_session_help[];
 extern const char* const cmd_source_help[];
 extern const char* const cmd_step_help[];
@@ -80,6 +82,7 @@ extern const char* const class_usage_help[];
  */
 extern const char* const class_info_subcmd_application_help[];
 extern const char* const class_info_subcmd_breakpoints_help[];
+extern const char* const class_info_subcmd_checkpoints_help[];
 extern const char* const class_info_subcmd_locals_help[];
 extern const char* const class_info_subcmd_scope_help[];
 extern const char* const class_info_subcmd_sources_help[];

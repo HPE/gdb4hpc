@@ -796,7 +796,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
         for (auto&& reply : rep_set) {
             // point at the frame
             auto f = EVENT_FRAME(reply->rep_event);
-            auto loc = f->getLoc();
+            const auto &loc = f->getLoc();
 
             // print out the message
             if (loc.loc_line > 0) {

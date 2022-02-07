@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2013,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -71,6 +71,7 @@ private:
     // read typed arguments from the string.  When a new type of data is
     // passed through the socket, we need to add the appopriate data type here.
     ISocStream& operator>>(int& i);
+    ISocStream& operator>>(unsigned int& ui);
     ISocStream& operator>>(bool& b);
     ISocStream& operator>>(size_t& sz);
     ISocStream& operator>>(std::string& s);
@@ -134,6 +135,25 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             is.get(eventType);
             is.get(regex);
             e = DbgSetCatch(eventType, regex, ci);
+            break;
+        }
+
+        case DBGCMD_SETCHECKPOINT: {
+            e = DbgSetCheckpoint();
+            break;
+        }
+
+        case DBGCMD_RESTORECHECKPOINT: {
+            unsigned int id;
+            is.get(id);
+            e = DbgRestoreCheckpoint(id);
+            break;
+        }
+
+        case DBGCMD_DELETECHECKPOINT: {
+            unsigned int id;
+            is.get(id);
+            e = DbgDeleteCheckpoint(id);
             break;
         }
 
@@ -467,6 +487,7 @@ ISocStream::ISocStream(const std::string& str) : m_str(str) {
 }
 
 ISocStream& ISocStream::operator>>(int& i) { m_str >> i; return *this; }
+ISocStream& ISocStream::operator>>(unsigned int& ui) { m_str >> ui; return *this; }
 ISocStream& ISocStream::operator>>(bool& b) { int i; m_str >> i; b = i; return *this; }
 ISocStream& ISocStream::operator>>(size_t& sz) { m_str >> sz; return *this; }
 ISocStream& ISocStream::operator>>(std::string& s) {

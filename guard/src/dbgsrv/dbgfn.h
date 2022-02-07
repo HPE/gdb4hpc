@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -36,6 +36,9 @@ public:
     virtual dbgevent_t *setFuncBreak(const int, const char *file, const char *func, const char* threadSet, const dbgcomm_info *commInfo) = 0;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) = 0;
     virtual dbgevent_t *setCatch(const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) = 0;
+    virtual dbgevent_t *setCheckpoint() = 0;
+    virtual dbgevent_t *restoreCheckpoint(unsigned int id) = 0;
+    virtual dbgevent_t *deleteCheckpoint(unsigned int id) = 0;
     virtual dbgevent_t *deleteBreak(int bid) = 0;
     virtual dbgevent_t *disableBreak(int bid) = 0;
     virtual dbgevent_t *enableBreak(int bid, bool once, bool del) = 0;
@@ -111,6 +114,9 @@ extern dbgevent_t *DbgSetLineBreak(int, const char *, int, const char*, const db
 extern dbgevent_t *DbgSetFuncBreak(int, const char *, const char *, const char*, const dbgcomm_info *);
 extern dbgevent_t *DbgSetWatch(int, const char *, const dbgcomm_info *);
 extern dbgevent_t *DbgSetCatch(const std::string &event, const std::string &regex, const dbgcomm_info *ci);
+extern dbgevent_t *DbgSetCheckpoint();
+extern dbgevent_t *DbgRestoreCheckpoint(unsigned int id);
+extern dbgevent_t *DbgDeleteCheckpoint(unsigned int id);
 extern dbgevent_t *DbgDeleteBreak(int);
 extern dbgevent_t *DbgDisableBreak(int);
 extern dbgevent_t *DbgEnableBreak(int, bool, bool);

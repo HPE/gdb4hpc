@@ -1,3 +1,6 @@
+/******************************************************************************\
+ * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ ******************************************************************************/
 #include "dbginvoke.h"
 
 dbginvoke::dbginvoke(DebugClientProtocol * const proto)
@@ -20,4 +23,5 @@ dbginvoke::dbginvoke(DebugClientProtocol * const proto)
     , d_frontend{nullptr}
     , d_eventset_list{nullptr}
     , d_breakpoints{}
+    , d_checkpoints{}
 {};

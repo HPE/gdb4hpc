@@ -31,6 +31,9 @@ public:
     virtual dbgevent_t *setFuncBreak(const int allowPending, const char *file, const char *func, const char* threadId, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
     virtual dbgevent_t *setCatch(const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) override; // TODO is commInfo needed?
+    virtual dbgevent_t *setCheckpoint() override;
+    virtual dbgevent_t *restoreCheckpoint(unsigned int id) override;
+    virtual dbgevent_t *deleteCheckpoint(unsigned int id) override;
     virtual dbgevent_t *deleteBreak(int bid) override;
     virtual dbgevent_t *disableBreak(int bid) override;
     virtual dbgevent_t *enableBreak(int bid, bool once, bool del) override;

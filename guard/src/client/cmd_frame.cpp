@@ -74,7 +74,7 @@ void PrintFrameSet(char *setname, Bitset *group, const dbgframe_t *frame) {
 
         PrintMsgWithSetAndThreadInfo(setname, group, f->getThreads(), "#%-2d ", f->getLevel());
 
-        auto loc = f->getLoc();
+        const auto &loc = f->getLoc();
         if (*loc.loc_addr != '\0')
             PrintOutMsg("%s in ", loc.loc_addr);
 
@@ -291,7 +291,7 @@ void BTTree::printData(const Bitset* group) const {
 
     PrintMsgWithSetInfo(m_setname.c_str(), group, "#%-2d ", m_frame->getLevel());
 
-    auto loc = m_frame->getLoc();
+    const auto &loc = m_frame->getLoc();
     PrintOutMsg("%s", loc.loc_func);
 
     if (*loc.loc_file != '\0')

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -523,6 +523,106 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &rege
     return dbgEvent;
 }
 
+dbgevent_t *DbgGdbMI::setCheckpoint() {
+    DVPRINT("*** Dbg %s:%s\n", __FILE__, __func__);
+    using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+
+    // send checkpoint command
+    const char* argv[] = {"checkpoint"};
+    CommandPtr cliCheckpointCmd(CLIBypassc(1, argv), MICommandFree);
+
+    SendMICommand(GDBMISession, cliCheckpointCmd.get());
+    if (!MICommandResultOK(cliCheckpointCmd.get())) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
+        return errorEvent;
+    }
+
+    // figure out new ID; returned message will be in the form
+    // "checkpoint N: fork returned pid XXXXX."
+    unsigned long checkpointId = 0;
+    {
+        using CharPtr = std::unique_ptr<char, decltype(&std::free)>;
+        // fetch result message
+        CharPtr resultStr(MICommandConsoleOOBMessages(cliCheckpointCmd.get()), &std::free);
+        if (resultStr == nullptr) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "Failed to get checkpoint ID (null result)");
+        }
+        DVPRINT("Got checkpoint result \"%s\"\n", resultStr.get());
+
+        // parse id
+        const char *s = resultStr.get() + strnlen("checkpoint ", strlen(resultStr.get()));
+        errno = 0;
+        checkpointId = strtoul(s, nullptr, 10);
+        if (errno != 0) {
+            dbgevent_t *errorEvent;
+            EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, "Failed to parse checkpoint ID (errno = %d)", errno);
+            return errorEvent;
+        }
+        DVPRINT("Parsed checkpoint id: %lu\n", checkpointId);
+    }
+    
+    // figure out where we are so we can tell the frontend
+    auto frameEvent = getFrame(nullptr);
+    if (!frameEvent || !frameEvent->ev_frame) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, "Failed to get current frame (null event)");
+        return errorEvent;
+    } else if (frameEvent->ev_event == DBGEV_ERROR) {
+        // pass error up
+        return frameEvent;
+    }
+
+    // package up frame and id
+    dbgevent_t* checkpointEvent = NewEvent(DBGEV_CHECKPOINT);
+    checkpointEvent->ev_checkpoint = new dbgcheckpoint_t {
+        .id = checkpointId,
+        .location{frameEvent->ev_frame->getLoc()}
+    };
+    
+    FreeEvent(frameEvent);
+
+    return checkpointEvent;
+}
+
+dbgevent_t *DbgGdbMI::restoreCheckpoint(unsigned int id) {
+    DVPRINT("*** Dbg %s:%s\n", __FILE__, __func__);
+    using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+
+    auto idStr = std::to_string(id);
+    const char* argv[] = {"restart", idStr.c_str()};
+    CommandPtr cliCheckpointCmd(CLIBypassc(2, argv), MICommandFree);
+
+    SendMICommand(GDBMISession, cliCheckpointCmd.get());
+    if (!MICommandResultOK(cliCheckpointCmd.get())) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
+        return errorEvent;
+    }
+
+    Status = DBGSTAT_STOPPED;
+
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t *DbgGdbMI::deleteCheckpoint(unsigned int id) {
+    DVPRINT("*** Dbg %s:%s\n", __FILE__, __func__);
+    using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+
+    auto idStr = std::to_string(id);
+    const char* argv[] = {"delete", "checkpoint", idStr.c_str()};
+    CommandPtr cliCheckpointCmd(CLIBypassc(3, argv), MICommandFree);
+
+    SendMICommand(GDBMISession, cliCheckpointCmd.get());
+    if (!MICommandResultOK(cliCheckpointCmd.get())) {
+        dbgevent_t *errorEvent;
+        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
+        return errorEvent;
+    }
+
+    return NewEvent(DBGEV_OK);
+}
+
 // If break bid is the breakpoint that has been applied to a thread list, then DbgGdbMI
 // is maintaining the set of *additional* gdb breakpoints - one per thread - otherwise return
 // an empty list.   If remove is true, erase the recorded list.
@@ -980,7 +1080,12 @@ dbgevent_t *DbgGdbMI::kill() {
 }
 
 static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
-    dbgloc resLoc = { mi->file, mi->func, keepAddr ? mi->addr : nullptr, mi->line };
+    dbgloc resLoc{
+        .loc_file = StrdupOpt(mi->file), 
+        .loc_func = StrdupOpt(mi->func), 
+        .loc_addr = keepAddr ? StrdupOpt(mi->addr) : nullptr, 
+        .loc_line = mi->line
+    };
     return new dbgframe_t{mi->level, resLoc, nullptr, nullptr, nullptr};
 }
 
@@ -2564,7 +2669,7 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
                 async_e = showFrame(1, threads);
 
                 if (async_e->ev_frame != NULL) {
-                    auto frameLoc = async_e->ev_frame->getLoc();
+                    const auto &frameLoc = async_e->ev_frame->getLoc();
 
                     s->stat_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
                     s->stat_loc->loc_file = StrdupOpt(frameLoc.loc_file);
@@ -3014,6 +3119,9 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             // This will change every time the breakpoint is hit.
             if (bp->bp_pending || bp->bp_type == DBGBP_WATCH_TYPE || bp->bp_type == DBGBP_CATCH_TYPE) {
                 // First free the old information if present
+
+                // XXX: the dbgloc_t in dbgbp_t manages its own memory and we
+                // really shouldn't be reaching in like this...
                 free(bp->bp_loc.loc_file);
                 free(bp->bp_loc.loc_func);
                 free(bp->bp_loc.loc_addr);

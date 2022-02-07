@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2012-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2020,2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -30,6 +30,7 @@
 
 // Static prototypes
 static char *getstring(const char *&);
+static unsigned long getUnsignedInt(const char *&);
 static int getint(const char *&);
 
 static inline const char* StrSoc(const char* s) {
@@ -39,6 +40,7 @@ static inline const char* StrSoc(const char* s) {
 static char *EventBPToSocProto(dbgev, dbgbp_t *, int);
 static char *EventSigToSocProto(dbgev, dbgsig_t);
 static char *EventStepToSocProto(dbgev, const dbgstep_t &step);
+static char *EventCheckpointToSocProto(dbgev, const dbgcheckpoint_t *);
 static char *EventFrameToSocProto(dbgev, const dbgframe_t *);
 static char *EventLocToSocProto(dbgev, dbgloc_t *);
 static char *EventStatusToSocProto(dbgev, dbgstatus_t *);
@@ -49,7 +51,7 @@ static char *EventListToSocProto(dbgev, dbglist_t *);
 static char *EventVarsToSocProto(dbgev, dbgvars_t *);
 static char *EventStringToSocProto(dbgev, char *);
 static char *EventFrameToSocProtoL(const dbgframe_t *);
-static char *EventLocToSocProtoL(dbgloc_t *);
+static char *EventLocToSocProtoL(const dbgloc_t *);
 static char *EventDataToSocProto(dbgev, AIFStream *);
 
 static dbgerr_t SocProtoToErr(const char *);
@@ -58,6 +60,7 @@ static dbgvars_t *SocProtoToVars(const char *);
 static dbglist_t *SocProtoToList(const char *);
 static dbgbp_t *SocProtoToBP(const char *);
 static dbgsig_t SocProtoToSig(const char *);
+static dbgcheckpoint_t *SocProtoToCheckpoint(const char *);
 static dbgframe_t *SocProtoToFrame(const char *);
 static dbgstep_t SocProtoToStep(const char *);
 static char *SocProtoToString(const char *);
@@ -130,6 +133,19 @@ static int getint(const char *&res_buf) {
 
     // Get the digit
     digit = (int)strtol(res_buf, &endptr, 10);
+
+    res_buf = endptr;
+
+    return digit;
+}
+
+static unsigned long getUnsignedInt(const char *&res_buf) {
+    char *endptr = NULL;
+
+    res_buf = skipspace(res_buf);
+
+    // Get the digit
+    auto digit = strtoul(res_buf, &endptr, 10);
 
     res_buf = endptr;
 
@@ -239,7 +255,7 @@ static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
         auto newThread = 1;
 
         for (auto f=tf; f; f = f->getNext()) {
-            auto loc = f->getLoc();
+            const auto &loc = f->getLoc();
             const char* file = StrSoc(loc.loc_file);
             const char* func = StrSoc(loc.loc_func);
             const char* addr = StrSoc(loc.loc_addr);
@@ -256,6 +272,13 @@ static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
     return strdup(os.str().c_str());
 }
 
+static char *EventCheckpointToSocProto(dbgev ev, const dbgcheckpoint_t *ce) {
+    char* loc = EventLocToSocProtoL(&ce->location);
+    char* wrapped = MakeSocStr(ev, "%lu %d %s", ce->id, (int)strlen(loc), loc);
+    free(loc);
+    return wrapped;
+}
+
 static char *EventFrameToSocProto(dbgev ev, const dbgframe_t *fe) {
     char *stres = EventFrameToSocProtoL(fe);
     char* wrappedStr = MakeSocStr(ev, "%s", stres);
@@ -263,7 +286,7 @@ static char *EventFrameToSocProto(dbgev ev, const dbgframe_t *fe) {
     return wrappedStr;
 }
 
-static char *EventLocToSocProtoL(dbgloc_t *le) {
+static char *EventLocToSocProtoL(const dbgloc_t *le) {
 
     if (le == (dbgloc_t *)NULL) return strdup("");
 
@@ -467,6 +490,10 @@ char* EventToSocProto(dbgevent_t *e)
 
     case DBGEV_STEP:
         res = EventStepToSocProto(ev, e->ev_step);
+        break;
+
+    case DBGEV_CHECKPOINT:
+        res = EventCheckpointToSocProto(ev, e->ev_checkpoint);
         break;
 
     case DBGEV_FRAME:
@@ -881,6 +908,26 @@ static dbgsig_t SocProtoToSig(const char *s) {
     return res;
 }
 
+static dbgcheckpoint_t *SocProtoToCheckpoint(const char *s) {
+    if (s == nullptr) return nullptr;
+
+    auto id = getUnsignedInt(s);
+
+    // get the location string and convert it to a loc pointer
+    auto lstr = getstring(s);
+    auto loc = SocProtoToLoc(lstr);
+
+    auto res = new dbgcheckpoint_t {
+        .id{id},
+        .location{std::move(*loc)}
+    };
+
+    free(lstr);
+    free(loc);
+
+    return res;
+}
+
 static dbgframe_t *SocProtoToFrame(const char *s) {
     NULL_GUARD(s);
 
@@ -907,9 +954,6 @@ static dbgframe_t *SocProtoToFrame(const char *s) {
 
         auto frame = new dbgframe_t(level, loc, nullptr, threads[0] ? threads : nullptr, nullptr);
 
-        free(loc.loc_file);
-        free(loc.loc_func);
-        free(loc.loc_addr);
         free(threads);
 
         if (!tail) {
@@ -1139,6 +1183,13 @@ dbgevent_t *SocProtoToEvent(const char *s) {
             e->ev_status = SocProtoToStatus(evdata);
             Free(evdata);
             break;
+
+        case DBGEV_CHECKPOINT: {
+            evdata = getstring(s);
+            e->ev_checkpoint = SocProtoToCheckpoint(evdata);
+            free(evdata);
+            break;
+        }
 
         case DBGEV_FRAME:
             // Get the string and convert to dbgframe_t * and set directly

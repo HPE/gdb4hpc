@@ -1433,7 +1433,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
             e->ev_loc = (dbgloc_t *)NULL;
 
             if (async_e->ev_sig_frame != NULL) {
-                auto frameLoc = async_e->ev_sig_frame->getLoc();
+                const auto &frameLoc = async_e->ev_sig_frame->getLoc();
                 e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
                 e->ev_loc->loc_file = StrdupOpt(frameLoc.loc_file);
                 e->ev_loc->loc_func = StrdupOpt(frameLoc.loc_func);
@@ -1475,7 +1475,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
     e->ev_loc = (dbgloc_t *)NULL;
 
     if (async_e->ev_frame != NULL && async_e->ev_event == DBGEV_FRAME) {
-        auto frameLoc = async_e->ev_frame->getLoc();
+        const auto &frameLoc = async_e->ev_frame->getLoc();
         e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
         e->ev_loc->loc_file = StrdupOpt(frameLoc.loc_file);
         e->ev_loc->loc_func = StrdupOpt(frameLoc.loc_func);

@@ -349,6 +349,11 @@ def compare_files(ref_file_path, out_file_path):
             if not compare_non_procset_lines(refline, outline):
                 return error("mismatch", outline_num, orig_outline)
 
+        # make sure every line in the ref file has been accounted for
+        extra = next_ref_line(ref)
+        if extra != None:
+            return (False, f"output ended before match for \"{extra}\"")
+
     return (True, ' ')
 
 
@@ -662,5 +667,13 @@ class cpp_attach(Test):
         self.assertTrue(result, error)
 
 class cpp_catch(Test):
+    def test(self):
+        runTest(self)
+
+class c_checkpoint1(Test):
+    def test(self):
+        runTest(self)
+
+class c_checkpoint2(Test):
     def test(self):
         runTest(self)

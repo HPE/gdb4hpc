@@ -330,6 +330,11 @@ extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
+extern rep_set_t *DbgSetCheckpoint(rec_set_t* recSet);
+// return nullptr on success, otherwise reply will contain error
+extern rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id);
+// returns nullptr on success, otherwise reply will contain error
+extern rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id);
 extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
 extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
 extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);

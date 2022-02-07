@@ -1,0 +1,147 @@
+1: main set sync on
+2: launch $a{4} ./bd_dt/c/c_inc.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..3}: Initial breakpoint, main at /.../bd_dt/c/c_inc.c:9
+3: n
+a{0..3}: 11	    unsigned int inc = 0;
+4: maint sleep 1
+5: focus $a{0..1}
+6: check
+Created checkpoint 1 on $a{0..1}.
+7: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+1          $a{0..1}   c_inc.c:11 in main
+8: focus $a{2..3}
+9: check
+Created checkpoint 3 on $a{2..3}.
+10: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+1          $a{0..1}   c_inc.c:11 in main
+2          $a{2..3} * $a{2..3}
+3          $a{2..3}   c_inc.c:11 in main
+11: focus $all
+12: check
+Created checkpoint 4 on $a{0..3}.
+13: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+1          $a{0..1}   c_inc.c:11 in main
+2          $a{2..3} * $a{2..3}
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3}   c_inc.c:11 in main
+14: n
+a{0..3}: 13	    do_inc(&inc, 1);
+15: n
+a{0..3}: 14	    do_inc(&inc, 2);
+16: maint sleep 1
+17: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+1          $a{0..1}   c_inc.c:11 in main
+2          $a{2..3} * $a{2..3}
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3}   c_inc.c:11 in main
+18: restart 1
+Checkpoint 1 restored:
+a{0..1}: #0  0x0000000000201b33 in main at /.../bd_dt/c/c_inc.c:11
+a{2..3}: #0  0x0000000000201b48 in main at /.../bd_dt/c/c_inc.c:14
+19: i c
+Checkpoint Procset    Location
+0          $a{0..1}   c_inc.c:14 in main
+1          $a{0..1} * $a{0..1}
+2          $a{2..3} * $a{2..3}
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3}   c_inc.c:11 in main
+20: restart 4
+Checkpoint 4 restored:
+a{0..3}: #0  0x0000000000201b33 in main at /.../bd_dt/c/c_inc.c:11
+21: i c
+Checkpoint Procset    Location
+0          $a{0..1}   c_inc.c:14 in main
+1          $a{0..1}   c_inc.c:11 in main
+2          $a{2..3}   c_inc.c:14 in main
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3} * $a{0..3}
+22: restart 1
+Checkpoint 1 restored:
+a{0..3}: #0  0x0000000000201b33 in main at /.../bd_dt/c/c_inc.c:11
+23: i c
+Checkpoint Procset    Location
+0          $a{0..1}   c_inc.c:14 in main
+1          $a{0..1} * $a{0..1}
+2          $a{2..3}   c_inc.c:14 in main
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3} * $a{2..3}
+24: delete checkpoint 4
+a{0..3}: Debugger error: Checkpoint 4 is the current checkpoint on $a{2..3}.
+Command resulted in an error: 24: delete checkpoint 4
+25: delete checkpoint 1
+a{0..3}: Debugger error: Checkpoint 1 is the current checkpoint on $a{0..1}.
+Command resulted in an error: 25: delete checkpoint 1
+26: delete checkpoint 2
+a{0..3}: Debugger error: Checkpoint 2 is the original thread of execution on $a{2..3} and can't be directly deleted. When all other checkpoints on $a are deleted, checkpoint 2 will be implicitly deleted.
+Command resulted in an error: 26: delete checkpoint 2
+27: res 0
+Checkpoint 0 restored:
+a{2..3}: #0  0x0000000000201b33 in main at /.../bd_dt/c/c_inc.c:11
+a{0..1}: #0  0x0000000000201b48 in main at /.../bd_dt/c/c_inc.c:14
+28: res 2
+Checkpoint 2 restored:
+a{0..3}: #0  0x0000000000201b48 in main at /.../bd_dt/c/c_inc.c:14
+29: delete checkpoint 1
+30: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+2          $a{2..3} * $a{2..3}
+3          $a{2..3}   c_inc.c:11 in main
+4          $a{0..3}   c_inc.c:11 in main
+31: delete checkpoint 3
+32: i c
+Checkpoint Procset    Location
+0          $a{0..1} * $a{0..1}
+2          $a{2..3} * $a{2..3}
+4          $a{0..3}   c_inc.c:11 in main
+33: delete checkpoint 4
+34: i c
+No checkpoints.
+35: check
+Created checkpoint 6 on $a{0..3}.
+36: i c
+Checkpoint Procset    Location
+5          $a{0..3} * $a{0..3}
+6          $a{0..3}   c_inc.c:14 in main
+37: res 6
+Checkpoint 6 restored:
+a{0..3}: #0  0x0000000000201b48 in main at /.../bd_dt/c/c_inc.c:14
+38: i c
+Checkpoint Procset    Location
+5          $a{0..3}   c_inc.c:14 in main
+6          $a{0..3} * $a{0..3}
+39: delete checkpoint 5
+a{0..3}: Debugger error: Checkpoint 5 is the original thread of execution on $a{0..3} and can't be directly deleted. When all other checkpoints on $a are deleted, checkpoint 5 will be implicitly deleted.
+Command resulted in an error: 39: delete checkpoint 5
+40: res 5
+Checkpoint 5 restored:
+a{0..3}: #0  0x0000000000201b48 in main at /.../bd_dt/c/c_inc.c:14
+41: i c
+Checkpoint Procset    Location
+5          $a{0..3} * $a{0..3}
+6          $a{0..3}   c_inc.c:14 in main
+42: delete checkpoint 600
+a{0..3}: Debugger error: Checkpoint 600 doesn't exist.
+Command resulted in an error: 42: delete checkpoint 600
+43: delete checkpoint 6
+44: i c
+No checkpoints.
+45: q
+Shutting down debugger and killing application for 'a'.

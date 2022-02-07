@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -191,6 +191,24 @@ dbgevent_t *DbgSetCatch(const std::string &event, const std::string &regex, cons
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setCatch(event, regex, ci);
+}
+
+dbgevent_t *DbgSetCheckpoint() {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->setCheckpoint();
+}
+
+dbgevent_t *DbgRestoreCheckpoint(unsigned int id) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->restoreCheckpoint(id);
+}
+
+dbgevent_t *DbgDeleteCheckpoint(unsigned int id) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->deleteCheckpoint(id);
 }
 
 dbgevent_t *DbgDeleteBreak(int bp) {

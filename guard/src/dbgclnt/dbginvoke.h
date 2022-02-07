@@ -1,3 +1,6 @@
+/******************************************************************************\
+ * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ ******************************************************************************/
 #ifndef _DBGCLNT_INVOKE_H
 #define _DBGCLNT_INVOKE_H
 
@@ -54,6 +57,7 @@ struct dbginvoke {
     // FIXME: These should be marked private once this is turned into a class
     list_t *d_eventset_list;  // pending events
     BreakpointManager d_breakpoints; // logical breakpoints for this di
+    CheckpointManager d_checkpoints; // logical checkpoints for this di
 };
 typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto

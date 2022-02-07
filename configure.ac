@@ -1,5 +1,5 @@
 #
-# Copyright 2010-2019,2021 Hewlett Packard Enterprise Development LP. All Rights Reserved
+# Copyright 2010-2022 Hewlett Packard Enterprise Development LP. All Rights Reserved
 # Copyright (c) 1996-2010 by Guardsoft Pty Ltd.
 #
 # Unpublished Proprietary Information.
@@ -11,13 +11,13 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([gdb4hpc], m4_esyscmd([source $PWD/release_versioning; echo $major.$minor | tr -d '\n']),[andrewg@cray.com])
-AC_COPYRIGHT([Copyright 2010-2021 Hewlett Packard Enterprise Development LP.])
+AC_INIT([gdb4hpc], m4_esyscmd([source $PWD/release_versioning; echo $major.$minor | tr -d '\n']),[john.leroy.vogt@hpe.com])
+AC_COPYRIGHT([Copyright 2010-2022 Hewlett Packard Enterprise Development LP.])
 
-AC_CONFIG_SRCDIR([guard/defs.h])
-AC_CONFIG_AUX_DIR([guard/config])
+AC_CONFIG_SRCDIR([src/defs.h])
+AC_CONFIG_AUX_DIR([src/config])
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([guard/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 
 AC_MSG_NOTICE([Configuring gdb4hpc])
 
@@ -45,49 +45,6 @@ AC_ARG_WITH([aif],
 	    [with_aif=check]
 	    )
 
-dnl Check for --with-mpi
-AC_ARG_WITH([mpi],
-	    [AS_HELP_STRING([--with-mpi],
-			    [Enable standard MPICH support in gdb4hpc.]
-			    )
-	    ],
-	    [with_mpirun=yes],
-	    [with_mpirun=no]
-	    )
-
-dnl Check for --with-ompi
-AC_ARG_WITH([ompi],
-	    [AS_HELP_STRING([--with-ompi],
-			    [Enable open mpi support in gdb4hpc.]
-			    )
-	    ],
-	    [with_ompi_info=yes],
-	    [with_ompi_info=no]
-	    )
-
-dnl Check for --with-p4 (P4 Parallel Programming system from ANL)
-AC_ARG_WITH([p4],
-	    [AS_HELP_STRING([--with-p4],
-			    [Enable ANL P4 Parallel Programming System support in gdb4hpc.]
-			    )
-	    ],
-	    [AC_DEFINE([P4],
-		       [1],
-		       [Enable P4 support in gdb4hpc.]
-		       )
-	    ],
-	    [])
-
-dnl Check for --with-ibm
-AC_ARG_WITH([ibm],
-	    [AS_HELP_STRING([--with-ibm],
-			    [Enable IBM POE support in gdb4hpc.]
-			    )
-	    ],
-	    [with_poe=yes],
-	    [with_poe=no]
-	    )
-
 dnl Check for --with-cray
 AC_ARG_WITH([cray],
 	    [AS_HELP_STRING([--with-cray],
@@ -97,32 +54,6 @@ AC_ARG_WITH([cray],
 	    [with_cray=yes],
 	    [with_cray=no]
 	    )
-
-dnl check for --with-cray sub-arguments
-if test "x$with_cray" != xno; then
-	dnl Check for --with-craytool-inc
-	AC_ARG_WITH([craytool-inc],
-		    [AS_HELP_STRING([--with-craytool-inc],
-				    [Location of the craytool header files.]
-				    )
-		    ],
-		    [CPPFLAGS="$CPPFLAGS -I$withval"],
-		    [AC_MSG_WARN([Using default path to the craytool headers.])]
-		    )
-
-	dnl Check for --with-craytool-lib
-	AC_ARG_WITH([craytool-lib],
-		    [AS_HELP_STRING([--with-craytool-lib],
-				    [Location of the craytool libraries.]
-				    )
-		    ],
-		    [LDFLAGS="$LDFLAGS -L$withval"
-		     AC_SUBST([craytool_path], ["$withval"])
-		     libcraytool_path="$withval"
-		    ],
-		    [AC_MSG_WARN([Using default path to craytool libraries.])]
-		    )
-fi
 
 dnl Check for --with-mrnet
 AC_ARG_WITH([mrnet],
@@ -148,26 +79,6 @@ AC_ARG_WITH([zmqnet],
 	    [zmqnet_mode=no]
 	    )
 
-dnl Check for --with-idb
-AC_ARG_WITH([idb],
-	    [AS_HELP_STRING([--with-idb],
-			    [Enable IDB backend support in gdb4hpc.]
-			    )
-	    ],
-	    [idb_mode=yes],
-	    [idb_mode=no]
-	    )
-
-dnl Check for --with-gdb
-AC_ARG_WITH([gdb],
-	    [AS_HELP_STRING([--with-gdb],
-			    [Enable GDB regex backend support in gdb4hpc.]
-			    )
-	    ],
-	    [gdb_mode=yes],
-	    [gdb_mode=no]
-	    )
-
 dnl Check for --with-gdbmi
 AC_ARG_WITH([gdbmi],
 	    [AS_HELP_STRING([--with-gdbmi],
@@ -189,16 +100,6 @@ AC_ARG_WITH([libssh2],
 	    [libssh2_path=$withval]
 	    )
 
-dnl Check for --with-rd
-AC_ARG_WITH([rd],
-	    [AS_HELP_STRING([--with-rd],
-			   [include relative debugging support.]
-			   )
-	    ],
-	    [with_rd=yes],
-	    [with_rd=no]
-	    )
-
 dnl Check for --with-debug
 AC_ARG_WITH([debug],
 	    [AS_HELP_STRING([--with-debug],
@@ -207,26 +108,6 @@ AC_ARG_WITH([debug],
 	    ],
 	    [debug_mode=yes],
 	    [debug_mode=no]
-	    )
-
-dnl Check for --with-perf
-AC_ARG_WITH([perf],
-	    [AS_HELP_STRING([--with-perf],
-			    [Enable performance logging.]
-			    )
-	    ],
-	    [perf_mode=yes],
-	    [perf_mode=no]
-	    )
-
-dnl Check for --with-backend-perf
-AC_ARG_WITH([backend-perf],
-	    [AS_HELP_STRING([--with-backend-perf],
-			    [Enable extra backend performance logging options with added overhead.]
-			    )
-	    ],
-	    [be_perf_mode=yes],
-	    [be_perf_mode=no]
 	    )
 
 dnl Check for --with-valgrind
@@ -243,7 +124,7 @@ AC_ARG_WITH([valgrind],
 ### Setup env options ###
 #########################
 dnl Set the directory path
-AC_SUBST([guard_srcdir], ["$(cd $srcdir/guard && pwd)"])
+AC_SUBST([gdb4hpc_srcdir], ["$(cd $srcdir/src && pwd)"])
 
 dnl Check for non-default library paths
 if test -d "/lib"; then
@@ -259,40 +140,12 @@ LDFLAGS="$LDFLAGS -Wl,--as-needed"
 
 dnl Check for debug settings
 if test "x$debug_mode" = xyes; then
-	AC_DEFINE([DEBUG], [1], [Building guard with debug mode.])
-fi
-
-dnl Check for perf settings
-if test "x$perf_mode" = xyes; then
-        AC_DEFINE([PERFLOG], [1], [Building guard with perf mode.])
-fi
-
-dnl Check for backend perf settings
-if test "x$be_perf_mode" = xyes; then
-	AC_DEFINE([BE_PERFLOG], [1], [Building guard with backend perf mode.])
+	AC_DEFINE([DEBUG], [1], [Building gdb4hpc with debug mode.])
 fi
 
 dnl Check for valgrind settings
 if test "x$valgrind_mode" = xyes; then
-        dnl Check for valgrind
-        AC_PATH_PROG([VALGRIND], [valgrind], [no])
-        if test "x$VALGRIND" = xno; then
-                AC_MSG_ERROR([You must have valgrind to enable valgrind mode in gdb4hpc.])
-        fi
-        AC_DEFINE([BE_VALGRIND], [1], [Building guard with backend valgrind mode.])
-fi
-
-##########################################
-### Check for relative debugging build ###
-##########################################
-dnl Setup rd build environment
-if test "x$with_rd" = xyes; then
-	AC_DEFINE([RD], [1], [Enable relative debugging support])
-	AC_SUBST([rd_dir], ["$guard_srcdir/guard-rd/src/rd"])
-	AC_SUBST([df_dir], ["$guard_srcdir/guard-rd/src/df"])
-	AC_SUBST([rd_libs], ["$rd_dir/librd.a $df_dir/libdf.a"])
-	CPPFLAGS="$CPPFLAGS -I$rd_dir"
-	CPPFLAGS="$CPPFLAGS -I$df_dir"
+        AC_DEFINE([BE_VALGRIND], [1], [Building gdb4hpc with backend valgrind mode.])
 fi
 
 ###########################
@@ -312,115 +165,11 @@ AC_LANG([C++])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
 AX_CXX_COMPILE_STDCXX(17, noext, mandatory)
 
-dnl Check for GDB
-AC_PATH_PROG([GDB_GUARD], [gdb-guard], [no])
-if test "x$GDB_GUARD" != xno; then
-	AC_DEFINE_UNQUOTED([GDB], ["$ac_cv_path_GDB_GUARD"], [Location of gdb command.])
-	AC_DEFINE([GDB_WITH_AIF], [1], [Using gdb with AIF support.])
-else
-	AC_PATH_PROG([GDB], [gdb], [no])
-	if test "x$GDB" != xno; then
-		AC_DEFINE_UNQUOTED([GDB], ["$ac_cv_path_GDB"], [Location of gdb debugger.])
-	fi
-fi
-
-dnl Check for idb
-if test "x$idb_mode" != xno; then
-        AC_PATH_PROG([IDB], [idb], [no])
-        if test "x$IDB" != xno; then
-	        AC_DEFINE_UNQUOTED([IDB], ["$ac_cv_path_IDB"], [Location of idb command.])
-        fi
-fi
-
-dnl Check for rsh
-AC_PATH_PROG([RSH], [rsh], [no])
-if test "x$RSH" != xno; then
-	AC_DEFINE_UNQUOTED([RSH], ["$ac_cv_path_RSH"], [Location of rsh command.])
-fi
-
-dnl Check for ssh
-AC_PATH_PROG([SSH], [ssh], [no])
-if test "x$SSH" != xno; then
-	AC_DEFINE_UNQUOTED([SSH], ["$ac_cv_path_SSH"], [Location of ssh command.])
-fi
-
-dnl Check for bpsh
-AC_PATH_PROG([BPSH], [bpsh], [no])
-if test "x$BPSH" != xno; then
-	AC_DEFINE([BPROC], [1],[Enable BPROC support in gdb4hpc.])
-	AC_DEFINE_UNQUOTED([BPSH], ["$ac_cv_path_BPSH"], [Location of bpsh command.])
-fi
-
-dnl Check for runtest
-dnl used to test guard
-AC_PATH_PROG([DEJA_RUNTEST], [runtest], [no])
-if test "x$DEJA_RUNTEST" != xno; then
-	if test "x$DEJAGNU" = x; then
-		DEJAGNU="$guard_srcdir/testsuite/global-config.exp"
-	fi
-	AC_SUBST([DEJAGNU])
-	dnl doesn't work for now
-	#AC_CONFIG_SUBDIRS([testsuite])
-fi
-
-dnl Check for xmlto
-dnl used to build documentation (Redhat 7.3)
-AC_PATH_PROG([XMLTO], [xmlto], [no])
-if test "x$XMLTO" = xno; then
-	XMLTO=":"
-fi
-
-dnl Check for tar
-AC_PATH_PROGS([TAR], [gtar tar], [no])
-if test "x$TAR" = xno; then
-	AC_MSG_WARN([You must have GNU TAR to compile the tar.gz distribution of Guard.])
-fi
-
-##############################
-### Check for MP Starters. ###
-##############################
-dnl Check for mpirun
-if test "x$with_mpirun" != xno ; then
-	AC_PATH_PROG([MPIRUN], [mpirun], [no])
-	if test "x$MPIRUN" != xno; then
-		AC_DEFINE([MPICH], [1], [Enable MPICH support in gdb4hpc])
-		AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
-		AC_PATH_PROG([MPDTRACE], [mpdtrace], [no])
-		if test "x$MPDTRACE" != xno; then
-			AC_DEFINE([MPICH_MPD], [1], [Enable MPICH support in gdb4hpc with mpd])
-			AC_DEFINE_UNQUOTED([MPDTRACE], ["$ac_cv_path_MPDTRACE"], [Location of mpdtrace command.])
-		fi
-	else
-		AC_MSG_ERROR([You must have mpirun to enable mpich support in gdb4hpc.])
-	fi
-fi
-
-dnl Check for ompi_info
-if test "x$with_ompi_info" != xno; then
-	AC_PATH_PROG([OMPI_INFO], [ompi_info], [no])
-	if test "x$OMPI_INFO" != xno; then
-		AC_PATH_PROG(MPIRUN, mpirun, no)
-		if test "x$ac_cv_path_MPIRUN" != xno; then
-			AC_DEFINE([OMPI], [1], [Enable Open MPI support in gdb4hpc.])
-			AC_DEFINE_UNQUOTED([MPIRUN], ["$ac_cv_path_MPIRUN"], [Location of mpirun command.])
-		fi
-	fi
-fi
-
-dnl Check for IBM's Parallel Environment
-if test "x$with_poe" != xno; then
-	AC_PATH_PROG([POE], [poe], [no])
-	if test "x$POE" != xno; then
-		AC_DEFINE([AIX_POE], [1], [Enable POE support in gdb4hpc.])
-		AC_DEFINE_UNQUOTED([POE], ["$ac_cv_path_POE"], [Location of poe command.])
-	else
-		AC_MSG_ERROR([You must have poe to enable ibm support in gdb4hpc.])
-	fi
-fi
-
 dnl Check for Cray's Parallel Environment
 if test "x$with_cray" != xno; then
-	dnl This now always works for build machines that lack the aprun binary
+	dnl It would be more accurate for this do be AC_DEFINE([CTI]...) but there
+    dnl are many many instances of #ifdef ALPS in gdb4hpc and converting that
+	dnl would require a bit more work.
 	AC_DEFINE([ALPS], [1], [Enable ALPS support in gdb4hpc.])
 fi
 
@@ -437,24 +186,6 @@ if test "x$zmqnet_mode" = xyes; then
 	AC_DEFINE([ZMQNET], [1], [Enable zmqnet support in gdb4hpc.])
 fi
 
-##############################
-### Check for Dbg Backends ###
-##############################
-dnl Check for idb
-if test "x$IDB" != xno && test "x$idb_mode" != xno; then
-	AC_DEFINE([IDB_BACKEND], [1], [Enable IDB backend support in gdb4hpc.])
-fi
-
-dnl Check for gdb
-if test "x$GDB" != xno && test "x$gdb_mode" != xno; then
-	AC_DEFINE([GDB_BACKEND], [1], [Enable GDB backend support in gdb4hpc.])
-fi
-
-dnl Check for gdb/mi
-if test "x$GDB" != xno && test "x$mi_mode" != xno; then
-	AC_DEFINE([GDBMI_BACKEND], [1], [Enable GDB/MI backend support in gdb4hpc.])
-fi
-
 ############################
 ### Check for libraries. ###
 ############################
@@ -465,7 +196,7 @@ if test "x$with_aif" != xcheck; then
 		AC_CHECK_LIB([aif],
 			     [NewAIF],
 			     [AC_SUBST([aif_libs], ["-laif"])],
-			     [AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+			     [AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 			     )
 	else
 		AC_MSG_CHECKING([for libaif.a])
@@ -488,7 +219,7 @@ else
 	AC_CHECK_LIB([aif],
 		     [NewAIF],
 		     [AC_SUBST([aif_libs], ["-laif"])],
-		     [AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+		     [AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 		     )
 fi
 
@@ -499,7 +230,7 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 		AC_CHECK_LIB([mi],
 					[MIVarDelete],
 					[AC_SUBST([mi_libs], ["-lmi"])],
-					[AC_MSG_ERROR([You must have libmi.so to compile GUARD.])]
+					[AC_MSG_ERROR([You must have libmi.so to compile gdb4hpc.])]
 					)
 	else
 		if test -f "$libmi_path/lib/libmi.so"; then
@@ -507,13 +238,13 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 			AC_CHECK_LIB([mi],
 						[MIVarDelete],
 						[AC_SUBST([mi_libs], ["-lmi"])],
-						[AC_MSG_ERROR([You must have libmi.so to compile GUARD.])]
+						[AC_MSG_ERROR([You must have libmi.so to compile gdb4hpc.])]
 						)
 		else
 			AC_CHECK_LIB([mi],
 						[MIVarDelete],
 						[AC_SUBST([mi_libs], ["-lmi"])],
-						[AC_MSG_ERROR([You must have libmi.so to compile GUARD.])]
+						[AC_MSG_ERROR([You must have libmi.so to compile gdb4hpc.])]
 						)
 		fi
 	fi
@@ -527,7 +258,7 @@ if test -f "$libssh2_path/libssh2.so"; then
 	AC_CHECK_LIB(	[ssh2],
 					[libssh2_init],
 					[AC_SUBST([ssh2_libs], ["-lssh2"])],
-					[AC_MSG_ERROR([You must have libssh2.so to compile GUARD.])]
+					[AC_MSG_ERROR([You must have libssh2.so to compile gdb4hpc.])]
 					)
 else
 	if test -f "$libssh2_path/lib/libssh2.so"; then
@@ -535,13 +266,13 @@ else
 		AC_CHECK_LIB(	[ssh2],
 						[libssh2_init],
 						[AC_SUBST([ssh2_libs], ["-lssh2"])],
-						[AC_MSG_ERROR([You must have libssh2.so to compile GUARD.])]
+						[AC_MSG_ERROR([You must have libssh2.so to compile gdb4hpc.])]
 						)
 	else
 		AC_CHECK_LIB(	[ssh2],
 						[libssh2_init],
 						[AC_SUBST([ssh2_libs], ["-lssh2"])],
-						[AC_MSG_ERROR([You must have libssh2.so to compile GUARD.])]
+						[AC_MSG_ERROR([You must have libssh2.so to compile gdb4hpc.])]
 						)
 	fi
 fi
@@ -612,17 +343,20 @@ AC_FUNC_ALLOCA
 AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h libintl.h limits.h malloc.h memory.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h unistd.h values.h wchar.h])
 
+dnl Merge with above
+AC_CHECK_HEADERS([arpa/inet.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/param.h sys/socket.h unistd.h])
+
 dnl Check for aif headers
 if test "x$with_aif" != xcheck; then
 	if test "x$with_aif" = x; then
 		dnl Error condition. Check default system location.
 		AC_CHECK_HEADER([aif.h],
 				[],
-				[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+				[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 				)
 		AC_CHECK_HEADER([fds.h],
 			       	[],
-				[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+				[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 				)
 	else
 		AC_MSG_CHECKING([for aif.h])
@@ -648,12 +382,12 @@ else
 	dnl Error condition. Check default system location.
 	AC_CHECK_HEADER([aif.h],
 			[],
-			[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+			[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 			)
 
 	AC_CHECK_HEADER([fds.h],
 			[],
-			[AC_MSG_ERROR([You must have libaif to compile GUARD.])]
+			[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
 			)
 fi
 
@@ -771,6 +505,9 @@ AC_CHECK_FUNCS([asprintf bzero dup2 floor gethostbyname gethostname gettimeofday
 		strchr strdup strerror strncasecmp strndup strpbrk \
 		strrchr strstr strtol strtoul strtoull])
 
+dnl merge with above
+AC_CHECK_FUNCS([asprintf clock_gettime gethostbyname memset socket strcasecmp strchr strdup strrchr strstr])
+
 AC_SUBST(LIBS,"")
 
 ##############################
@@ -778,43 +515,35 @@ AC_SUBST(LIBS,"")
 ##############################
 dnl Generic conds
 AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
-AM_CONDITIONAL([WITH_RD], [test "x$with_rd" != xno])
 
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRNET], [test "x$mrnet_mode" != xno])
 AM_CONDITIONAL([ZMQNET], [test "x$zmqnet_mode" != xno])
-
-dnl Backend conds
-AM_CONDITIONAL([GDB_BACKEND], [test "x$gdb_mode" != xno])
-AM_CONDITIONAL([GDBMI_BACKEND], [test "x$mi_mode" != xno])
-AM_CONDITIONAL([IDB_BACKEND], [test "x$idb_mode" != xno])
-
-dnl Lib conds
-AM_CONDITIONAL([HDF_LIBS], [test "x$mfhdf" = xyes || test "x$hdf5" = xyes])
 
 ################
 ### Finalize ###
 ################
 dnl Conditional run of guard-rd configure.ac
 if test "x$mrnet_mode" != xno -o "x$zmqnet_mode" != xno; then
-	AC_CONFIG_SUBDIRS([guard/guard-rd])
+	AC_CONFIG_SUBDIRS([src/guard-rd])
 fi
 
 AC_CONFIG_FILES([
 	Makefile
-	guard/Makefile
-	guard/bitset/Makefile
-	guard/scripts/Makefile
-	guard/filters/Makefile
-	guard/filters/mrnet/Makefile
-	guard/filters/zmqnet/Makefile
-	guard/src/client/Makefile
-	guard/src/dbgclnt/Makefile
-	guard/src/dbgcomm/Makefile
-	guard/src/dbgsrv/Makefile
-	guard/src/gram/Makefile
-	guard/src/proxy/Makefile
-	guard/src/useful/Makefile
+	src/Makefile
+	src/bitset/Makefile
+	src/scripts/Makefile
+	src/filters/Makefile
+	src/filters/mrnet/Makefile
+	src/filters/zmqnet/Makefile
+	src/graph/Makefile
+	src/client/Makefile
+	src/dbgclnt/Makefile
+	src/dbgcomm/Makefile
+	src/dbgsrv/Makefile
+	src/gram/Makefile
+	src/proxy/Makefile
+	src/useful/Makefile
 	tests/unit/Makefile
 ])
 AC_OUTPUT

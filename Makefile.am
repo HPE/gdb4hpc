@@ -1,1 +1,1 @@
-SUBDIRS = guard
+SUBDIRS = src

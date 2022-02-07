@@ -4,7 +4,7 @@
 # This assumes you have built and installed gdb4hpc and its required libraries.
 
 UNIT   = $(shell pwd)
-BITSET = ../../guard/bitset
+BITSET = ../../src/bitset
 PREFIX = $(prefix)
 GTEST  = $(UNIT)/googletest/googletest
 

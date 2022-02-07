@@ -1,8 +1,0 @@
-$Log: CHANGES,v $
-Revision 1.1  2002/06/26 20:46:05  greg
-Created CHANGES file.
-
-These files have been moved from util to useful to avoid a name
-	conflict on some systems. The library has been renamed
-	from libutil.a to libuseful.a and the header util.h to
-	useful.h to achieve this.

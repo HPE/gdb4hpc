@@ -1,0 +1,106 @@
+1: launch $lhs{4} bd_dt/C++/cpp_decomp.x -a "0 16 2"
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+lhs{0..3}: Initial breakpoint, main at /bd_dt/C++/cpp_decomp.cpp:18
+2: launch $rhs{4} bd_dt/C++/cpp_decomp.x -a "1 16 2"
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+rhs{0..3}: Initial breakpoint, main at /bd_dt/C++/cpp_decomp.cpp:18
+4: decomposition $b
+5:     dimension 16
+6:     dist block
+7:     proc_grid 4
+8: end
+10: decomposition $c
+11:     dimension 16
+12:     dist cyclic
+13:     proc_grid 4
+14: end
+16: decomposition $bc
+17:     dimension 16
+18:     dist 2
+19:     proc_grid 4
+20: end
+22: decomposition $2db
+23:     dimension 4,4
+24:     dist block,*
+25:     proc_grid 4,*
+26:     dim_order 1,*
+27: end
+29: decomposition $T
+30:     dimension 4,4
+31:     dist *,cyclic
+32:     proc_grid *,4
+33:     dim_order *,1
+34: end
+36: set dfblock on
+38: build $decomp
+39:     # these should all pass
+40:     assert $b{$lhs::block@"cpp_decomp.cpp":79} = $b{$rhs::block@"cpp_decomp.cpp":79}
+41:     assert $c{$lhs::cyclic@"cpp_decomp.cpp":79} = $c{$rhs::cyclic@"cpp_decomp.cpp":79}
+42:     assert $bc{$lhs::blockCyclic@"cpp_decomp.cpp":79} = $bc{$rhs::blockCyclic@"cpp_decomp.cpp":79}
+43:     assert $2db{$lhs::block@"cpp_decomp.cpp":79} = $T{$rhs::cyclic@"cpp_decomp.cpp":79}
+45:     # these should all fail
+46:     assert $b{$lhs::block@"cpp_decomp.cpp":92} = $b{$rhs::block@"cpp_decomp.cpp":92}
+47:     assert $c{$lhs::cyclic@"cpp_decomp.cpp":92} = $c{$rhs::cyclic@"cpp_decomp.cpp":92}
+48:     assert $bc{$lhs::blockCyclic@"cpp_decomp.cpp":92} = $bc{$rhs::blockCyclic@"cpp_decomp.cpp":92}
+49:     assert $2db{$lhs::block@"cpp_decomp.cpp":92} = $T{$rhs::cyclic@"cpp_decomp.cpp":92}
+50: end
+Assertion script $decomp compiled.
+52: start $decomp
+*** Starting execution of application ***
+*** Difference found in AssertID 5 ***
+*** Difference found in AssertID 6 ***
+*** Difference found in AssertID 7 ***
+*** Difference found in AssertID 8 ***
+
+*** The interpreter has halted. ***
+Assertion script $decomp complete.
+Successful Assertion Set Iterations: 0
+Total Passed Assertions: 4
+Total Warned Assertions: 0
+Total Failed Assertions: 4
+
+Assertion summary:
+AssertID 1:  Pass: 1 Warn: 0 Fail: 0
+AssertID 2:  Pass: 1 Warn: 0 Fail: 0
+AssertID 3:  Pass: 1 Warn: 0 Fail: 0
+AssertID 4:  Pass: 1 Warn: 0 Fail: 0
+AssertID 5:  Pass: 0 Warn: 0 Fail: 1
+AssertID 6:  Pass: 0 Warn: 0 Fail: 1
+AssertID 7:  Pass: 0 Warn: 0 Fail: 1
+AssertID 8:  Pass: 0 Warn: 0 Fail: 1
+***********************************
+
+Current location:
+rhs{0..3}: Application halted in main at /bd_dt/C++/cpp_decomp.cpp:92
+lhs{0..3}: Application halted in main at /bd_dt/C++/cpp_decomp.cpp:92
+
+
+54: info diff
+Saved difference values:
+Script $decomp
+1. AssertID 5 Failure
+2. AssertID 6 Failure
+3. AssertID 7 Failure
+4. AssertID 8 Failure
+56: info diff 4
+Script $decomp AssertID 8 Failure
+The difference: [[0,0,0,0],[0,0,0,0],[-10007.9,-10008.9,-10009.9,-10010.9],[0,0,0,0]]
+58: q
+Shutting down debugger and killing application for 'lhs'.
+Shutting down debugger and killing application for 'rhs'.

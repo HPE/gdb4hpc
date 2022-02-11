@@ -1,0 +1,99 @@
+1: launch $a{2} bd_dt/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:55
+2: launch $b{2} bd_dt/c/c_cmp_diff.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:55
+4: # stop before exiting
+5: break 223
+a{0..1}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 223.
+b{0..1}: Breakpoint 1: file /bd_dt/c/c_cmp_diff.c, line 223.
+7: build $arrays
+8:     set stop off
+9:     
+10:     # all of these should pass
+10:     # XXX: the range use warning is a bug
+11:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":95 =  $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+12:     assert $a{0}::one_d_i_init[5..9] @"c_type_test.c":95 <  $b{0}::one_d_i_init[5..9] @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+13:     assert $a{0}::one_d_i_init       @"c_type_test.c":95 <= $b{0}::one_d_i_init       @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+14:     
+15:     # all of these should fail
+16:     assert $a{0}::one_d_i_init       @"c_type_test.c":161  = $b{0}::one_d_i_init       @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+17:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":95  != $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command. Only operating on rank 0.
+Warning: Range use detected in procset for command. Only operating on rank 0.
+19:     # XXX: including this one ensures none of the others will even be evaluated
+20:     #      for some reason. changing the line number affects the outcome...
+21:     # assert $a{0}::one_d_i_init @"c_type_test.c":160 != $b{0}::one_d_i_init @"c_cmp_diff.c":160
+22: end
+Assertion script $arrays compiled.
+24: set dfblock on
+25: start $arrays
+*** Starting execution of application ***
+*** Difference found in AssertID 5 ***
+*** Difference found in AssertID 4 ***
+
+*** The interpreter has halted. ***
+Assertion script $arrays complete.
+Successful Assertion Set Iterations: 0
+Total Passed Assertions: 3
+Total Warned Assertions: 0
+Total Failed Assertions: 2
+
+Assertion summary:
+AssertID 1:  Pass: 1 Warn: 0 Fail: 0
+AssertID 2:  Pass: 1 Warn: 0 Fail: 0
+AssertID 3:  Pass: 1 Warn: 0 Fail: 0
+AssertID 4:  Pass: 0 Warn: 0 Fail: 1
+AssertID 5:  Pass: 0 Warn: 0 Fail: 1
+***********************************
+
+Current location:
+b{0..1}: Application halted in main at /bd_dt/c/c_cmp_diff.c:223
+a{0..1}: Application halted in main at /bd_dt/c/c_type_test.c:223
+
+
+27: info script
+There is currently no assertion script executing.
+29: info build $arrays
+Script $arrays
+AssertID:1  $a{0}::one_d_i_init[0..4] @"c_type_test.c":95 = $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
+AssertID:2  $a{0}::one_d_i_init[5..9] @"c_type_test.c":95 < $b{0}::one_d_i_init[5..9] @"c_cmp_diff.c":161
+AssertID:3  $a{0}::one_d_i_init @"c_type_test.c":95 <= $b{0}::one_d_i_init @"c_cmp_diff.c":161
+AssertID:4  $a{0}::one_d_i_init @"c_type_test.c":161 = $b{0}::one_d_i_init @"c_cmp_diff.c":161
+AssertID:5  $a{0}::one_d_i_init[0..4] @"c_type_test.c":95 != $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
+31: info diff
+Saved difference values:
+Script $arrays
+1. AssertID 5 Failure
+2. AssertID 4 Failure
+33: info diff 2
+Script $arrays AssertID 4 Failure
+The difference: [0,0,0,0,0,50,60,70,80,90]
+35: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

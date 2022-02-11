@@ -34,10 +34,10 @@ int main(int argc, char* argv[])
     if (argc > 1)
         application = atoi(argv[1]);
 
-    const size_t size = 120;
+    const size_t size = argc > 2 ? atoi(argv[2]) : 120;
     const size_t sizeI = 12;
     const size_t sizeJ = 10;
-    const size_t cycle = 5;
+    const size_t cycle = argc > 3 ? atoi(argv[3]) : 5;
 
     const size_t sizeIT = sizeJ;
     const size_t sizeJT = sizeI;

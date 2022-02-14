@@ -1062,7 +1062,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
         eventset = AddEvent(di, msg.getBitset(), event);
 
         // This is the callback that was set by calling DbgHandleEvent
-        (*(di->d_clnt_ev_callback))(eventset, msg.getBitset());
+        di->d_clnt_ev_callback(eventset, msg.getBitset());
 
         // conduct special post-processing for certain events
         switch (EVENT_EV(event)) {

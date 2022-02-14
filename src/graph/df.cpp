@@ -34,8 +34,7 @@
 #include "useful.h"
 
 static int _is_running;
-static list_t *_evhandlers;
-static list_t *_iohandlers;
+static std::list<clnt_ev_callback_func> _evhandlers;
 static graph_t *_active_graph = NULL;
 static int old_print_elements;
 
@@ -75,7 +74,7 @@ void StartDF(graph_t *g) {
         DFErrMsg(
             "ERROR: Graph %s is already active! Stop the active graph or wait "
             "for completion.\n",
-            _active_graph->g_valname);
+            _active_graph->name().c_str());
         return;
     }
 
@@ -83,24 +82,22 @@ void StartDF(graph_t *g) {
     GetGraphVar(GRAPH_DFBLOCK, &block);
     if (block) DbgMaskInput();
 
-    ResetGraph(g);
+    g->reset();
 
     /*
     ** Set event and i/o handlers
     */
-    _evhandlers = NewList();
-    _iohandlers = NewList();
 
-    SetList(g->g_di_list);
-    while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
+    SetList(g->diList());
+    while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
         // Save the old callback
-        AddToList(_evhandlers, (void *)di->d_clnt_ev_callback);
+        _evhandlers.push_back(di->d_clnt_ev_callback);
         // Set the new callback
         DbgHandleEvent(di, g->g_dbgevent);
     }
 
     _active_graph = g;
-    _active_graph->g_isactive = 1;
+    _active_graph->setActive(true);
     _is_running = 1;
 
     // FIXME: this is an inefficient way of accomplishing this.
@@ -120,9 +117,9 @@ void StartDF(graph_t *g) {
         char *set_str;
 
         // Need to print graph start for every invoke
-        SetList(g->g_di_list);
+        SetList(g->diList());
 
-        while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
+        while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
             auto bitset_str = di->d_bitset_full->toSetString();
 
             // Create the full set string
@@ -136,29 +133,6 @@ void StartDF(graph_t *g) {
             Free(set_str);
         }
     }
-
-    // if PERFLOG is turned on, we need to create a string to the location to
-    // create the log file.
-#ifdef PERFLOG
-    char *envDir;
-    char logfile[PATH_MAX];
-
-    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL) {
-        // user didn't set the environment variable, so lets
-        // read the HOME variable
-        if ((envDir = getenv("HOME")) == (char *)NULL) {
-            // couldn't read HOME, so lets default to tmp
-            envDir = "/tmp";
-        }
-    }
-
-    // create the fullpath string to the log file using PATH_MAX plus a null
-    // term
-    snprintf(logfile, PATH_MAX + 1, "%s/ccdb_perf_df.log", envDir);
-
-    DPERFLOG(CreateTimerLog(logfile));
-    DPERFLOG(SetTimerStart("Graph total"));
-#endif /* PERFLOG */
 }
 
 /*
@@ -175,11 +149,11 @@ int DispatchDF(void) {
 
     while (!out_of_nodes) {
         if (!_is_running || _active_graph == (graph_t *)NULL ||
-            !_active_graph->g_isactive ||
+            !_active_graph->isActive() ||
             ((n = GetActiveNode(_active_graph)) == (node_t *)NULL &&
-             !ActiveEvents(_active_graph))) {
+             !_active_graph->hasActiveEvents())) {
             if (_active_graph != (graph_t *)NULL) {
-                _active_graph->g_isactive = 0;
+                _active_graph->setActive(false);
                 _is_running = 0;
             }
 
@@ -223,23 +197,23 @@ void EndDF(graph_t *g) {
 
     // If XML mode is enabled, print out the final result tag with id equal to 0
     if (Client.XML_mode) {
-        DFMsg(XML_RESULT, g->g_valname, 0, g->g_pass, g->g_warn, g->g_fail);
+        DFMsg(XML_RESULT, g->name().c_str(), 0, g->numPasses(), g->numWarnings(), g->numFailures());
     }
 
     DFMsg("\n*** The interpreter has halted. ***");
-    DFMsg("Assertion script $%s complete.", g->g_valname);
+    DFMsg("Assertion script $%s complete.", g->name().c_str());
     DFMsg("Successful Assertion Set Iterations: %d",
-          g->g_assertions ? ((g->g_iterations - g->g_fail) / g->g_assertions)
+          g->numAssertions() ? ((g->iterations() - g->numFailures()) / g->numAssertions())
                           : 0);
-    DFMsg("Total Passed Assertions: %d", g->g_pass);
-    DFMsg("Total Warned Assertions: %d", g->g_warn);
-    DFMsg("Total Failed Assertions: %d", g->g_fail);
+    DFMsg("Total Passed Assertions: %d", g->numPasses());
+    DFMsg("Total Warned Assertions: %d", g->numWarnings());
+    DFMsg("Total Failed Assertions: %d", g->numFailures());
     DFMsg("\nAssertion summary:");
-    for (id = 0; id < g->g_assertions; ++id) {
+    for (id = 0; id < g->numAssertions(); ++id) {
         // remember that the assert id we display to the user is the id offset
         // plus one.
-        DFMsg("AssertID %d:  Pass: %d Warn: %d Fail: %d", id + 1,
-              g->g_assert_pass[id], g->g_assert_warn[id], g->g_assert_fail[id]);
+        auto [pass, warn, fail] = g->getAssertResult(id);
+        DFMsg("AssertID %d:  Pass: %d Warn: %d Fail: %d", id + 1, pass, warn, fail);
     }
     // Print a final newline
     DFMsg("***********************************\n");
@@ -255,8 +229,8 @@ void EndDF(graph_t *g) {
     /*
     ** Remove any breakpoints set by the graph.
     */
-    SetList(g->g_di_list);
-    while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
+    SetList(g->diList());
+    while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
         // In order to delete breakpoints, we need to ensure the process has
         // halted first.
         _halt(di, halt);
@@ -270,17 +244,16 @@ void EndDF(graph_t *g) {
     /*
     ** Restore event and I/O handlers.
     */
-    SetList(_evhandlers);
-    SetList(_iohandlers);
+    // XXX: Horrible half std::list half list_t dual iteration we're stuck with
+    //      until g_di_list graduates to a std::list or similar...
+    auto ev_it = _evhandlers.begin();
 
-    SetList(g->g_di_list);
-    while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
-        DbgHandleEvent(
-            di, (int (*)(event_set *, const Bitset *))GetListElement(_evhandlers));
+    SetList(g->diList());
+    while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
+        DbgHandleEvent(di, *ev_it++);
     }
 
-    DestroyList(_evhandlers, NULL);
-    DestroyList(_iohandlers, NULL);
+    _evhandlers.clear();
 
     // FIXME: this is an inefficient way of accomplishing this.
     // set print elements back to Client setting
@@ -289,9 +262,9 @@ void EndDF(graph_t *g) {
     FreeRecSet(rec_set);
 
     if (!halt) {
-        SetList(g->g_di_list);
+        SetList(g->diList());
 
-        while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
+        while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
             _continue(di);
         }
     }
@@ -307,9 +280,9 @@ void EndDF(graph_t *g) {
         char *status_block;
 
         // Need to check status of every invoke
-        SetList(g->g_di_list);
+        SetList(g->diList());
 
-        while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
+        while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
             // create the rec_set
             rec_set = NewRecSet();
             DASSERT_NOT_NULL(di);
@@ -460,8 +433,8 @@ static void _delete_bp(graph_t *g, dbginvoke_t *di) {
     DASSERT_NOT_NULL(di);
     AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
 
-    SetList(g->g_bp_reply_list);
-    while ((bp_reply = (group_reply_t *)GetListElement(g->g_bp_reply_list)) !=
+    SetList(g->replyList());
+    while ((bp_reply = (group_reply_t *)GetListElement(g->replyList())) !=
            NULL) {
         if (bp_reply->rep_di != di) {
             continue;
@@ -563,10 +536,10 @@ static void _continue(dbginvoke_t *di) {
 static rec_set_t* NewRecSetFromGraph(graph_t *g) {
     rec_set_t* rec_set = NewRecSet();
 
-    SetList(g->g_di_list);
+    SetList(g->diList());
 
-    for (dbginvoke_t *di = (dbginvoke_t *)GetListElement(g->g_di_list);
-        di != nullptr; di = (dbginvoke_t *)GetListElement(g->g_di_list)) {
+    for (dbginvoke_t *di = (dbginvoke_t *)GetListElement(g->diList());
+        di != nullptr; di = (dbginvoke_t *)GetListElement(g->diList())) {
         group_recv_t *recv = NewGroupReceiver(di, di->d_bitset_full.get());
         rec_set->addReceiver(recv);
     }

@@ -56,7 +56,7 @@ static void BuildGetVarSet(graph_t *, int *, int *, var_t *, int, int,
 static int BuildCmp(graph_t *, int, int, int, int);
 static int BuildBlockMap(graph_t *, g_block_map_t *, var_t *, extrainfo *, int);
 static void BuildMerge(graph_t *, var_t *, int, int, int);
-static int BuildMergeProc(graph_t *, graph_inv *, var_t *, int, int, int, int);
+static int BuildMergeProc(graph_t *, graph_t::graph_inv *, var_t *, int, int, int, int);
 static void BuildSync(graph_t *, var_t *, int, int);
 static int BuildReduce(graph_t *, var_t *, int *, extrainfo *);
 static int BuildDisplayP2P(graph_t *, int, int, int, int);
@@ -80,7 +80,7 @@ static dbgprocset_t *other_procset;  // TODO: Remove this, looks buggy
 */
 static int BuildInvoke(graph_t *g, var_t *v) {
     dbgprocset_t *ps = v->v_procset;
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
     int xt1;
     int xt2;
     int xt3;
@@ -102,7 +102,7 @@ static int BuildInvoke(graph_t *g, var_t *v) {
     }
 
     // Try to find an existing graph_inv, otherwise create it for this di.
-    if ((gi = FindGraphInv(g, ps->s_name)) == NULL) gi = NewGraphInv(g, ps);
+    if ((gi = g->FindGraphInv(ps->s_name)) == NULL) gi = g->NewGraphInv(ps);
 
     // Create a new bitset to figure out if we need to create a PROC_SET node
     // for this particular group
@@ -123,42 +123,42 @@ static int BuildInvoke(graph_t *g, var_t *v) {
     // Only create the node if there are some ranks set
     if (!token_bit_set.isEmpty()) {
         // First build PROC_SET
-        xt1 = NODE(g, "PROC_SET");
-        xt2 = SCONST(g, "CONST", gi->gp_di->d_handle);
-        EDGE(g, g->g_initnode, xt2, 0);
-        xt3 = BITSETCONST(g, "CONST", &token_bit_set);
+        xt1 = g->outNode("PROC_SET");
+        xt2 = g->outConstStr(gi->gp_di->d_handle);
+        g->outEdge(g->initNode(), xt2, 0);
+        xt3 = g->outConstBitSet(&token_bit_set);
         DPRINT("BuildInvokeProcSet token_bit_set[%s], length[%lu]\n",
                token_bit_set.toSetString().c_str(), token_bit_set.sizeInBits());
-        EDGE(g, g->g_initnode, xt3, 0);
-        EDGE(g, xt2, xt1, 0);
-        EDGE(g, xt3, xt1, 1);
+        g->outEdge(g->initNode(), xt3, 0);
+        g->outEdge(xt2, xt1, 0);
+        g->outEdge(xt3, xt1, 1);
 
-        xt4 = NODE(g, "SYNC");
+        xt4 = g->outNode("SYNC");
 
         PROC_PROC_NODE(gi) = xt1;
         PROC_SYNC_NODE(gi) = xt4;
 
         // Now build MERGE and DBGGO
-        xt1 = NODE(g, "MERGE");
-        xt2 = NODE(g, "DBGGO_SET");
+        xt1 = g->outNode("MERGE");
+        xt2 = g->outNode("DBGGO_SET");
 
-        EDGE(g, PROC_SYNC_NODE(gi), xt1, 0);
-        EDGE(g, xt1, xt2, 0);
+        g->outEdge(PROC_SYNC_NODE(gi), xt1, 0);
+        g->outEdge(xt1, xt2, 0);
 
         /*
         ** Check if WaitBreak returns 0. This means the
         ** process has exited, so exit graph if it is.
         */
-        t1 = ICONST(g, "CONST", 0);
-        t2 = NODE(g, "PIEQ");
-        t3 = NODE(g, "EXIT");
+        t1 = g->outConstInt(0);
+        t2 = g->outNode("PIEQ");
+        t3 = g->outNode("EXIT");
 
-        EDGE(g, xt2, t1, 0);
-        EDGE(g, xt2, t2, 0);
-        EDGE(g, t1, t2, 1);
+        g->outEdge(xt2, t1, 0);
+        g->outEdge(xt2, t2, 0);
+        g->outEdge(t1, t2, 1);
 
-        EDGE(g, xt1, t2, 2);
-        EDGE(g, t2, t3, 0);
+        g->outEdge(xt1, t2, 2);
+        g->outEdge(t2, t3, 0);
 
         PROC_MERGE_NODE(gi) = xt1;
         PROC_GO_NODE(gi) = xt2;
@@ -195,16 +195,16 @@ static int BuildInvoke(graph_t *g, var_t *v) {
     ** FIXME: I have no fucking clue what this does...
     */
     if (v->v_pid < 0) {
-        t1 = ICONST(g, "CONST", v->v_bp);
-        t2 = NODE(g, "RECALL");
-        t3 = NODE(g, "PIEQ");
+        t1 = g->outConstInt(v->v_bp);
+        t2 = g->outNode("RECALL");
+        t3 = g->outNode("PIEQ");
         v->v_pid = t3;
 
-        EDGE(g, PROC_GO_NODE(gi), t1, 0);
-        EDGE(g, t1, t2, 0);
-        EDGE(g, t2, t3, 0);
-        EDGE(g, PROC_GO_NODE(gi), t3, 1);
-        EDGE(g, PROC_MERGE_NODE(gi), t3, 2);
+        g->outEdge(PROC_GO_NODE(gi), t1, 0);
+        g->outEdge(t1, t2, 0);
+        g->outEdge(t2, t3, 0);
+        g->outEdge(PROC_GO_NODE(gi), t3, 1);
+        g->outEdge(PROC_MERGE_NODE(gi), t3, 2);
 
         v->v_pid = t3;
         v->v_sync = -1;  // v->v_pid and v->v_sync should be consistent
@@ -224,49 +224,49 @@ static int BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v) {
 
     DPRINT("In BuildSetBPSet\n");
 
-    n1 = ICONST(g, "CONST", v->v_lno);
-    n2 = SCONST(g, "CONST", v->v_fname);
-    n3 = NODE(g, "DBGSETBRK_SET");
+    n1 = g->outConstInt(v->v_lno);
+    n2 = g->outConstStr(v->v_fname);
+    n3 = g->outNode("DBGSETBRK_SET");
 
-    EDGE(g, i1, n1, 0);
-    EDGE(g, i1, n2, 0);
-    EDGE(g, i1, n3, 0);
-    EDGE(g, n1, n3, 1);
-    EDGE(g, n2, n3, 2);
+    g->outEdge(i1, n1, 0);
+    g->outEdge(i1, n2, 0);
+    g->outEdge(i1, n3, 0);
+    g->outEdge(n1, n3, 1);
+    g->outEdge(n2, n3, 2);
 
-    n4 = ICONST(g, "CONST", g->g_store);
-    n5 = NODE(g, "STORE");
-    n6 = NODE(g, "PIT");
+    n4 = g->outConstInt(g->lastStore());
+    n5 = g->outNode("STORE");
+    n6 = g->outNode("PIT");
 
-    EDGE(g, n3, n4, 0);
-    EDGE(g, n4, n5, 0);
-    EDGE(g, n3, n5, 1);
-    EDGE(g, i1, n6, 1);
+    g->outEdge(n3, n4, 0);
+    g->outEdge(n4, n5, 0);
+    g->outEdge(n3, n5, 1);
+    g->outEdge(i1, n6, 1);
 
     GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
     if (p2pmode) {
         int n7;
         int n8;
         int n9;
-        n7 = NODE(g, "DBGOPENSOCKET_SET");  // Minh adds here to do p2p
+        n7 = g->outNode("DBGOPENSOCKET_SET");  // Minh adds here to do p2p
         // use global var other_procset to send the name of the other procset
-        n8 = SCONST(g, "CONST", other_procset->s_name);
-        n9 = ICONST(g, "CONST", other_procset->s_nproc);
-        EDGE(g, i1, n7, 0);
-        EDGE(g, n5, n8, 0);
-        EDGE(g, n5, n9, 0);
-        EDGE(g, n8, n7, 1);
-        EDGE(g, n9, n7, 2);
-        EDGE(g, n7, n6, 0);
+        n8 = g->outConstStr(other_procset->s_name);
+        n9 = g->outConstInt(other_procset->s_nproc);
+        g->outEdge(i1, n7, 0);
+        g->outEdge(n5, n8, 0);
+        g->outEdge(n5, n9, 0);
+        g->outEdge(n8, n7, 1);
+        g->outEdge(n9, n7, 2);
+        g->outEdge(n7, n6, 0);
     } else
-        EDGE(g, n5, n6, 0);
+        g->outEdge(n5, n6, 0);
 
     /*
     ** Link to SYNC node.
     */
-    EDGE(g, n6, i2, -1);
+    g->outEdge(n6, i2, -1);
 
-    return g->g_store++;
+    return g->fetchIncLastStore();
 }
 
 /*
@@ -276,7 +276,7 @@ static int BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v) {
 ** false.
 */
 void BuildUnused(graph_t *g) {
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
     dbginvoke_t *di;
     int xt1;
     int xt2;
@@ -290,27 +290,27 @@ void BuildUnused(graph_t *g) {
     DPRINT("In BuildUnused\n");
     DASSERT_NOT_NULL(g);
 
-    SetList(g->g_di_list);
-    while ((di = (dbginvoke_t *)GetListElement(g->g_di_list)) != NULL) {
-        gi = FindGraphInv(g, di->d_handle);
+    SetList(g->diList());
+    while ((di = (dbginvoke_t *)GetListElement(g->diList())) != NULL) {
+        gi = g->FindGraphInv(di->d_handle);
         DASSERT_NOT_NULL(gi);
         DASSERT_NOT_NULL(gi->gp_unbuilt_bs);
 
         // check if there are any unbuilt ranks
         if (!gi->gp_unbuilt_bs->isEmpty()) {
-            xt1 = NODE(g, "PROC_SET");
-            xt2 = SCONST(g, "CONST", di->d_handle);
-            EDGE(g, g->g_initnode, xt2, 0);
-            xt3 = BITSETCONST(g, "CONST", gi->gp_unbuilt_bs.get());
+            xt1 = g->outNode("PROC_SET");
+            xt2 = g->outConstStr(di->d_handle);
+            g->outEdge(g->initNode(), xt2, 0);
+            xt3 = g->outConstBitSet(gi->gp_unbuilt_bs.get());
             DPRINT("BuildUnusedSet bitset[%s], length[%lu]\n",
                    gi->gp_unbuilt_bs->toSetString().c_str(),
                    gi->gp_unbuilt_bs->sizeInBits());
-            EDGE(g, g->g_initnode, xt3, 0);
-            EDGE(g, xt2, xt1, 0);
-            EDGE(g, xt3, xt1, 1);
+            g->outEdge(g->initNode(), xt3, 0);
+            g->outEdge(xt2, xt1, 0);
+            g->outEdge(xt3, xt1, 1);
 
-            xt4 = NODE(g, "DBGGO_SET");
-            EDGE(g, xt1, xt4, 0);
+            xt4 = g->outNode("DBGGO_SET");
+            g->outEdge(xt1, xt4, 0);
 
             // clear the remaining ranks
             gi->gp_unbuilt_bs->clear();
@@ -340,8 +340,8 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
     GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 
     if (v->v_internal) {
-        n4 = NODE(g, "GETVAR");
-        t1 = SCONST(g, "CONST", v->v_var);
+        n4 = g->outNode("GETVAR");
+        t1 = g->outConstStr(v->v_var);
     } else {
         if (auto s = v->v_slice) {
             varexpr = s->getExpr(v->v_var);
@@ -400,48 +400,48 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
             finalexpr << varexpr;
         }
 
-        t1 = SCONST(g, "CONST", finalexpr.str().c_str());
+        t1 = g->outConstStr(finalexpr.str().c_str());
 
-        n4 = NODE(g, "DBGGETVAR_SET");
+        n4 = g->outNode("DBGGETVAR_SET");
     }
 
-    *inp = NODE(g, "PIT");
+    *inp = g->outNode("PIT");
 
-    EDGE(g, v->v_pid, *inp, 1);
-    //	EDGE(g, v->v_pid(low_pid), *inp, 1);
+    g->outEdge(v->v_pid, *inp, 1);
+    //	g->outEdge(v->v_pid(low_pid), *inp, 1);
 
     /* MINH TODO : NEED TO REVIEW THIS BIT OF CODE */
     /* Minh add here to implement blockmap and parallel vs parallel
      * 19/05/2009
      * Donny TODO: Probably we need to synchronize
      */
-    EDGE(g, v->v_pid, *inp, 0);
-    //    EDGE(g, v->v_pid(low_pid), *inp, 0);
+    g->outEdge(v->v_pid, *inp, 0);
+    //    g->outEdge(v->v_pid(low_pid), *inp, 0);
 
-    EDGE(g, *inp, t1, 0);
+    g->outEdge(*inp, t1, 0);
     // Const for asserid
-    a1 = ICONST(g, "CONST", iAssertID);
-    EDGE(g, *inp, a1, 0);
+    a1 = g->outConstInt(iAssertID);
+    g->outEdge(*inp, a1, 0);
 
-    EDGE(g, *inp, n4, 0);
-    EDGE(g, t1, n4, 1);
+    g->outEdge(*inp, n4, 0);
+    g->outEdge(t1, n4, 1);
 
     // Const for asserid
-    EDGE(g, a1, n4, 2);
+    g->outEdge(a1, n4, 2);
 
     if (v->v_perm != (list_t *)NULL) {
-        n6 = NODE(g, "PERMUTE");
-        EDGE(g, n4, n6, 0);
+        n6 = g->outNode("PERMUTE");
+        g->outEdge(n4, n6, 0);
 
         SetPerm(v->v_perm);
 
         n = 1;
 
         while (auto p = GetPerm(v->v_perm)) {
-            t1 = ICONST(g, "CONST", p->p_to);
+            t1 = g->outConstInt(p->p_to);
 
-            EDGE(g, n4, t1, 0);
-            EDGE(g, t1, n6, n++);
+            g->outEdge(n4, t1, 0);
+            g->outEdge(t1, n6, n++);
         }
 
         n4 = n6;
@@ -468,8 +468,8 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
     GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 
     if (v->v_internal) {
-        n4 = NODE(g, "GETVAR");
-        t1 = SCONST(g, "CONST", v->v_var);
+        n4 = g->outNode("GETVAR");
+        t1 = g->outConstStr(v->v_var);
     } else {
         std::ostringstream finalexpr;
         std::string varexpr;
@@ -543,46 +543,46 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
             finalexpr << varexpr;
         }
 
-        t1 = SCONST(g, "CONST", finalexpr.str().c_str());
-        n4 = NODE(g, "DBGGETVAR");
+        t1 = g->outConstStr(finalexpr.str().c_str());
+        n4 = g->outNode("DBGGETVAR");
     }
 
-    *inp = NODE(g, "PIT");
-    EDGE(g, v->v_pid, *inp, 1);
-    //	EDGE(g, v->v_pid(pid), *inp, 1);
+    *inp = g->outNode("PIT");
+    g->outEdge(v->v_pid, *inp, 1);
+    //	g->outEdge(v->v_pid(pid), *inp, 1);
 
     /* MINH TODO : NEED TO REVIEW THIS BIT OF CODE */
     /* Minh add here to implement blockmap and parallel vs parallel
      * 19/05/2009
      * Donny TODO: Probably we need to synchronize
      */
-    EDGE(g, v->v_pid, *inp, 0);
-    //    EDGE(g, v->v_pid(pid), *inp, 0);
+    g->outEdge(v->v_pid, *inp, 0);
+    //    g->outEdge(v->v_pid(pid), *inp, 0);
 
-    EDGE(g, *inp, t1, 0);
+    g->outEdge(*inp, t1, 0);
     // Const for asserid
-    a1 = ICONST(g, "CONST", iAssertID);
-    EDGE(g, *inp, a1, 0);
+    a1 = g->outConstInt(iAssertID);
+    g->outEdge(*inp, a1, 0);
 
-    EDGE(g, *inp, n4, 0);
-    EDGE(g, t1, n4, 1);
+    g->outEdge(*inp, n4, 0);
+    g->outEdge(t1, n4, 1);
 
     // Const for asserid
-    EDGE(g, a1, n4, 2);
+    g->outEdge(a1, n4, 2);
 
     if (v->v_perm != (list_t *)NULL) {
-        n6 = NODE(g, "PERMUTE");
-        EDGE(g, n4, n6, 0);
+        n6 = g->outNode("PERMUTE");
+        g->outEdge(n4, n6, 0);
 
         SetPerm(v->v_perm);
 
         n = 1;
 
         while (auto p = GetPerm(v->v_perm)) {
-            t1 = ICONST(g, "CONST", p->p_to);
+            t1 = g->outConstInt(p->p_to);
 
-            EDGE(g, n4, t1, 0);
-            EDGE(g, t1, n6, n++);
+            g->outEdge(n4, t1, 0);
+            g->outEdge(t1, n6, n++);
         }
 
         n4 = n6;
@@ -719,12 +719,12 @@ static int _find_hash_info(char *hashinfo, graph_t *g, expr_t *e,
 }
 
 static int _identify_p2p_receiver_procset(graph_t *g, var_t *v1, var_t *v2) {
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
     int numprocs1, numprocs2;
 
-    gi = FindGraphInv(g, v1->v_pname);
+    gi = g->FindGraphInv(v1->v_pname);
     numprocs1 = gi->gp_di->d_nproc;
-    gi = FindGraphInv(g, v2->v_pname);
+    gi = g->FindGraphInv(v2->v_pname);
     numprocs2 = gi->gp_di->d_nproc;
 
     return numprocs1 > numprocs2 ? 1 : 0;
@@ -741,14 +741,14 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
     int t1;
     int t2;
     int t3;
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
 
     int reducefunc;
     std::ostringstream mapname;
 
     DPRINT("In BuildBlockMap\n");
 
-    gi = FindGraphInv(g, v->v_pname);
+    gi = g->FindGraphInv(v->v_pname);
 
     GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
     if (reducefunc != EXPR_REDUCE_NONE &&
@@ -763,52 +763,52 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
 
 
     if (blockmap_required) {
-        n1 = SCONST(g, "CONST", mapname.str().c_str());
+        n1 = g->outConstStr(mapname.str().c_str());
 
-        t3 = NODE(g, "TYPE_SET");
-        n3 = NODE(g, "BLOCKMAP_SET");
-        EDGE(g, n1, n3, 0);
-        EDGE(g, t3, n3, 1);
+        t3 = g->outNode("TYPE_SET");
+        n3 = g->outNode("BLOCKMAP_SET");
+        g->outEdge(n1, n3, 0);
+        g->outEdge(t3, n3, 1);
 
         if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-            n2 = ICONST(g, "CONST", 1);
-            EDGE(g, n2, n3, 2);
+            n2 = g->outConstInt(1);
+            g->outEdge(n2, n3, 2);
 
             BuildGetVar(g, &t1, &t2, v, v->v_indiv, extra);
 
-            EDGE(g, t2, n3, 3);
-            EDGE(g, t2, n1, 0);
-            EDGE(g, t2, n2, 0);
-            EDGE(g, t2, t3, 0);
+            g->outEdge(t2, n3, 3);
+            g->outEdge(t2, n1, 0);
+            g->outEdge(t2, n2, 0);
+            g->outEdge(t2, t3, 0);
 
             return n3;
         }
 
-        n2 = ICONST(g, "CONST", bm->m_actual->v_procset->s_nproc);
-        EDGE(g, n2, n3, 2);
+        n2 = g->outConstInt(bm->m_actual->v_procset->s_nproc);
+        g->outEdge(n2, n3, 2);
 
         BuildGetVarSet(g, &t1, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
-        EDGE(g, t2, n3, 3);
+        g->outEdge(t2, n3, 3);
 
-        EDGE(g, t2, n1, 0);
-        EDGE(g, t2, n2, 0);
-        EDGE(g, t2, t3, 0);
+        g->outEdge(t2, n1, 0);
+        g->outEdge(t2, n2, 0);
+        g->outEdge(t2, t3, 0);
     } else {
         /*
-        n3 = NODE(g, "PIEQ");
-        n2 = ICONST(g, "CONST", 0);
-        n1 = NODE(g, "EXIT");
+        n3 = g->outNode("PIEQ");
+        n2 = g->outConstInt(0);
+        n1 = g->outNode("EXIT");
         */
 
         if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
             BuildGetVar(g, &t1, &t2, v, v->v_indiv, extra);
 
-            EDGE(g, t2, n2, 0);
-            EDGE(g, t2, n3, 1);
-            EDGE(g, t2, n3, 2);
-            EDGE(g, n2, n3, 3);
-            EDGE(g, n3, n1, 0);
+            g->outEdge(t2, n2, 0);
+            g->outEdge(t2, n3, 1);
+            g->outEdge(t2, n3, 2);
+            g->outEdge(n2, n3, 3);
+            g->outEdge(n3, n1, 0);
 
             return n3;
         }
@@ -816,11 +816,11 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
         BuildGetVarSet(g, &t1, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
         /*
-        EDGE(g, t2, n2, 0);
-        EDGE(g, t2, n3, 0);
-        EDGE(g, t2, n3, 1);
-        EDGE(g, n2, n3, 2);
-        EDGE(g, n3, n1, 0);
+        g->outEdge(t2, n2, 0);
+        g->outEdge(t2, n3, 0);
+        g->outEdge(t2, n3, 1);
+        g->outEdge(n2, n3, 2);
+        g->outEdge(n3, n1, 0);
         */
     }
 
@@ -837,11 +837,11 @@ static int BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra) {
     int reducefunc;
     char name[BUFSIZ] = "";
 
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
 
     DPRINT("In BuildReduce\n");
 
-    gi = FindGraphInv(g, v->v_pname);
+    gi = g->FindGraphInv(v->v_pname);
 
     // now need to work out the reduce function
     GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
@@ -879,35 +879,35 @@ static int BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra) {
         }
     }
 
-    n1 = SCONST(g, "CONST", name);
+    n1 = g->outConstStr(name);
 
     if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-        n3 = NODE(g, "REDUCE");
-        n2 = ICONST(g, "CONST", 1);
-        EDGE(g, n1, n3, 0);
-        EDGE(g, n2, n3, 1);
+        n3 = g->outNode("REDUCE");
+        n2 = g->outConstInt(1);
+        g->outEdge(n1, n3, 0);
+        g->outEdge(n2, n3, 1);
 
         BuildGetVar(g, inp, &t2, v, v->v_indiv, NULL);
 
-        EDGE(g, t2, n1, 0);
-        EDGE(g, t2, n2, 0);
-        EDGE(g, t2, n3, 2);
+        g->outEdge(t2, n1, 0);
+        g->outEdge(t2, n2, 0);
+        g->outEdge(t2, n3, 2);
 
         return n3;
     }
 
-    n3 = NODE(g, "REDUCE_SET");
-    EDGE(g, n1, n3, 0);
+    n3 = g->outNode("REDUCE_SET");
+    g->outEdge(n1, n3, 0);
 
-    //	n2 = ICONST(g, "CONST", gi->gp_di->d_nproc);
-    n2 = ICONST(g, "CONST", v->v_procset->s_nproc);
-    EDGE(g, n2, n3, 1);
+    //	n2 = g->outConstInt(gi->gp_di->d_nproc);
+    n2 = g->outConstInt(v->v_procset->s_nproc);
+    g->outEdge(n2, n3, 1);
 
     BuildGetVarSet(g, inp, &t2, v, 0, gi->gp_di->d_nproc, extra);
 
-    EDGE(g, t2, n1, 0);
-    EDGE(g, t2, n2, 0);
-    EDGE(g, t2, n3, 2);
+    g->outEdge(t2, n1, 0);
+    g->outEdge(t2, n2, 0);
+    g->outEdge(t2, n3, 2);
 
     return n3;
 }
@@ -925,28 +925,28 @@ static int BuildDisplayP2P(graph_t *g, int id, int receiver_data, int proc_set1,
     int t2;
     int t3;
 
-    n1 = NODE(g, "DISPLAY_P2P");
-    t3 = ICONST(g, "CONST", id);
-    EDGE(g, receiver_data, t3, 0);
-    EDGE(g, t3, n1, 0);
-    EDGE(g, receiver_data, n1, 1);
+    n1 = g->outNode("DISPLAY_P2P");
+    t3 = g->outConstInt(id);
+    g->outEdge(receiver_data, t3, 0);
+    g->outEdge(t3, n1, 0);
+    g->outEdge(receiver_data, n1, 1);
 
-    n2 = NODE(g, "DBGCLOSESOCKET_SET");
+    n2 = g->outNode("DBGCLOSESOCKET_SET");
 
-    t1 = ICONST(g, "CONST", 0);
-    EDGE(g, n1, t1, 0);
-    n3 = NODE(g, "PIEQ");
-    EDGE(g, n1, n3, 0);
-    EDGE(g, t1, n3, 1);
-    EDGE(g, n1, n3, 2);
+    t1 = g->outConstInt(0);
+    g->outEdge(n1, t1, 0);
+    n3 = g->outNode("PIEQ");
+    g->outEdge(n1, n3, 0);
+    g->outEdge(t1, n3, 1);
+    g->outEdge(n1, n3, 2);
 
     // connect the 2 PROC_SET nodes to CLOSESOCKET
-    EDGE(g, proc_set1, n2, 0);
-    EDGE(g, proc_set2, n2, 1);
-    EDGE(g, n3, n2, 2);
+    g->outEdge(proc_set1, n2, 0);
+    g->outEdge(proc_set2, n2, 1);
+    g->outEdge(n3, n2, 2);
 
-    t2 = NODE(g, "EXIT");
-    EDGE(g, n2, t2, 0);
+    t2 = g->outNode("EXIT");
+    g->outEdge(n2, t2, 0);
 
     return n1;
 }
@@ -967,46 +967,46 @@ static int BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop) {
     GetGraphVar(GRAPH_LOGGING, (int *)&log);
     GetGraphVar(GRAPH_LOGFILE, &lf);
 
-    n1 = NODE(g, "COMPARE");
-    t1 = ICONST(g, "CONST", id);
-    EDGE(g, data1, t1, 0);
-    EDGE(g, t1, n1, 0);
-    EDGE(g, data1, n1, 1);
-    EDGE(g, data2, n1, 2);
-    t1 = ICONST(g, "CONST", cmpop);
-    EDGE(g, data1, t1, 0);
-    EDGE(g, t1, n1, 3);
+    n1 = g->outNode("COMPARE");
+    t1 = g->outConstInt(id);
+    g->outEdge(data1, t1, 0);
+    g->outEdge(t1, n1, 0);
+    g->outEdge(data1, n1, 1);
+    g->outEdge(data2, n1, 2);
+    t1 = g->outConstInt(cmpop);
+    g->outEdge(data1, t1, 0);
+    g->outEdge(t1, n1, 3);
 
     if (log) {
-        t1 = SCONST(g, "CONST", "compare");
-        EDGE(g, n1, t1, 0);
-        t2 = SCONST(g, "CONST", lf);
-        EDGE(g, n1, t2, 0);
-        t4 = NODE(g, "LOG");
-        EDGE(g, n1, t4, 0);
-        EDGE(g, t1, t4, 1);
-        EDGE(g, t2, t4, 2);
+        t1 = g->outConstStr("compare");
+        g->outEdge(n1, t1, 0);
+        t2 = g->outConstStr(lf);
+        g->outEdge(n1, t2, 0);
+        t4 = g->outNode("LOG");
+        g->outEdge(n1, t4, 0);
+        g->outEdge(t1, t4, 1);
+        g->outEdge(t2, t4, 2);
     }
 
-    t1 = ICONST(g, "CONST", 0);
-    EDGE(g, n1, t1, 0);
-    n3 = NODE(g, "PIEQ");
-    EDGE(g, n1, n3, 0);
-    EDGE(g, t1, n3, 1);
-    EDGE(g, n1, n3, 2);
+    t1 = g->outConstInt(0);
+    g->outEdge(n1, t1, 0);
+    n3 = g->outNode("PIEQ");
+    g->outEdge(n1, n3, 0);
+    g->outEdge(t1, n3, 1);
+    g->outEdge(n1, n3, 2);
 
-    t6 = NODE(g, "EXIT");
-    EDGE(g, n3, t6, 0);
+    t6 = g->outNode("EXIT");
+    g->outEdge(n3, t6, 0);
 
     if (log) {
-        t1 = SCONST(g, "CONST", "exiting");
-        EDGE(g, n3, t1, 0);
-        t2 = SCONST(g, "CONST", lf);
-        EDGE(g, n3, t2, 0);
-        t3 = NODE(g, "LOG");
-        EDGE(g, n3, t3, 0);
-        EDGE(g, t1, t3, 1);
-        EDGE(g, t2, t3, 2);
+        t1 = g->outConstStr("exiting");
+        g->outEdge(n3, t1, 0);
+        t2 = g->outConstStr(lf);
+        g->outEdge(n3, t2, 0);
+        t3 = g->outNode("LOG");
+        g->outEdge(n3, t3, 0);
+        g->outEdge(t1, t3, 1);
+        g->outEdge(t2, t3, 2);
     }
 
     return n1;
@@ -1022,30 +1022,30 @@ static int BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop) {
         int f7;
         int f8;
 
-        f1 = ICONST(g, "CONST", 0);
+        f1 = g->outConstInt(0);
         EDGE(g, n2, f1);
-        f2 = NODE(g, "PIEQ");
+        f2 = g->outNode("PIEQ");
         EDGE(g, f1, f2);
         EDGE(g, n2, f2);
         EDGE(g, a->a_v1->v_proc, f2);
 
-        f3 = ICONST(g, "CONST", 0);
+        f3 = g->outConstInt(0);
         EDGE(g, n2, f3);
-        f4 = SCONST(g, "CONST", a->a_v1->v_var);
+        f4 = g->outConstStr(a->a_v1->v_var);
         EDGE(g, n2, f4);
-        f5 = NODE(g, "PIEQ");
+        f5 = g->outNode("PIEQ");
         EDGE(g, f3, f5);
         EDGE(g, n2, f5);
         EDGE(g, f4, f5);
 
-        f6 = ICONST(g, "CONST", 0);
+        f6 = g->outConstInt(0);
         EDGE(g, n2, f6);
-        f7 = NODE(g, "PIEQ");
+        f7 = g->outNode("PIEQ");
         EDGE(g, f6, f7);
         EDGE(g, n2, f7);
         EDGE(g, data2, f7);
 
-        f8 = NODE(g, "DBGSETVAR");
+        f8 = g->outNode("DBGSETVAR");
         EDGE(g, f2, f8);
         EDGE(g, f5, f8);
         EDGE(g, f7, f8);
@@ -1097,7 +1097,7 @@ static int build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e,
     var_t *v;
     arg_t *a;
     expr_elt *ep;
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
 
     DPRINT("In build_expr\n");
 
@@ -1176,7 +1176,7 @@ static int build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e,
                 if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
                     BuildGetVar(g, inp, out, v, v->v_indiv, extra);
                 } else {
-                    gi = FindGraphInv(g, v->v_pname);
+                    gi = g->FindGraphInv(v->v_pname);
                     BuildGetVarSet(g, inp, out, v, 0, gi->gp_di->d_nproc,
                                    extra);
                 }
@@ -1184,12 +1184,12 @@ static int build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e,
             return 0;
 
         case EXPR_INT:
-            *out = ICONST(g, "CONST", ep->e_int);
+            *out = g->outConstInt(ep->e_int);
             *inp = *out;
             return 0;
 
         case EXPR_FLOAT:
-            *out = FCONST(g, "CONST", ep->e_float);
+            *out =g->outConstFloat(ep->e_float);
             *inp = *out;
             return 0;
 
@@ -1358,84 +1358,84 @@ static int BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3,
 
     switch (op) {
         case EXPR_OPCOND:
-            n1 = ICONST(g, "CONST", 0);
-            EDGE(g, o1, n1, 0);
-            EDGE(g, o1, i2, 0);
-            EDGE(g, o1, i3, 0);
+            n1 = g->outConstInt(0);
+            g->outEdge(o1, n1, 0);
+            g->outEdge(o1, i2, 0);
+            g->outEdge(o1, i3, 0);
 
-            n2 = NODE(g, "PIEQ");
-            EDGE(g, n1, n2, 0);
-            EDGE(g, o1, n2, 1);
-            EDGE(g, o2, n2, 2);
+            n2 = g->outNode("PIEQ");
+            g->outEdge(n1, n2, 0);
+            g->outEdge(o1, n2, 1);
+            g->outEdge(o2, n2, 2);
 
-            n3 = NODE(g, "PINE");
-            EDGE(g, n1, n3, 0);
-            EDGE(g, o1, n3, 1);
-            EDGE(g, o3, n3, 2);
+            n3 = g->outNode("PINE");
+            g->outEdge(n1, n3, 0);
+            g->outEdge(o1, n3, 1);
+            g->outEdge(o3, n3, 2);
 
-            n = NODE(g, "MERGE");
-            EDGE(g, n2, n, 0);
-            EDGE(g, n3, n, 1);
+            n = g->outNode("MERGE");
+            g->outEdge(n2, n, 0);
+            g->outEdge(n3, n, 1);
 
             break;
 
         case EXPR_OPADD:
-            n = NODE(g, "ADD");
+            n = g->outNode("ADD");
             break;
 
         case EXPR_OPSUB:
-            n = NODE(g, "SUB");
+            n = g->outNode("SUB");
             break;
 
         case EXPR_OPMUL:
-            n = NODE(g, "MUL");
+            n = g->outNode("MUL");
             break;
 
         case EXPR_OPDIV:
-            n = NODE(g, "DIV");
+            n = g->outNode("DIV");
             break;
 
         case EXPR_OPREM:
-            n = NODE(g, "REM");
+            n = g->outNode("REM");
             break;
 
         case EXPR_OPEQUAL:
-            n = NODE(g, "EQUAL");
+            n = g->outNode("EQUAL");
             break;
 
         case EXPR_OPNOTEQUAL:
-            n = NODE(g, "NEQ");
+            n = g->outNode("NEQ");
             break;
 
         case EXPR_OPLEQ:
-            n = NODE(g, "LEQ");
+            n = g->outNode("LEQ");
             break;
 
         case EXPR_OPGEQ:
-            n = NODE(g, "GEQ");
+            n = g->outNode("GEQ");
             break;
 
         case EXPR_OPLT:
-            n = NODE(g, "LT");
+            n = g->outNode("LT");
             break;
 
         case EXPR_OPGT:
-            n = NODE(g, "GT");
+            n = g->outNode("GT");
             break;
 
         case EXPR_OPAND:
-            n = NODE(g, "AND");
+            n = g->outNode("AND");
             break;
 
         case EXPR_OPOR:
-            n = NODE(g, "OR");
+            n = g->outNode("OR");
             break;
 
         case EXPR_OPPOS:
             break;
 
         case EXPR_OPNEG:
-            n = NODE(g, "NEG");
+            n = g->outNode("NEG");
             break;
 
         default:
@@ -1457,13 +1457,13 @@ static int BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3,
         case EXPR_OPGT:
         case EXPR_OPAND:
         case EXPR_OPOR:
-            EDGE(g, o1, n, 0);
-            EDGE(g, o1, i2, 0);
-            EDGE(g, o2, n, 1);
+            g->outEdge(o1, n, 0);
+            g->outEdge(o1, i2, 0);
+            g->outEdge(o2, n, 1);
             break;
 
         case EXPR_OPNEG:
-            EDGE(g, o1, n, 0);
+            g->outEdge(o1, n, 0);
             break;
 
         case EXPR_OPPOS:
@@ -1482,20 +1482,20 @@ static int BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3,
 */
 static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
     int r;
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
 
     DPRINT("In BuildMerge\n");
 
-    gi = FindGraphInv(g, v->v_pname);
+    gi = g->FindGraphInv(v->v_pname);
 
     if (v->v_procset != NULL && v->v_indiv >= 0) {
         r = BuildMergeProc(g, gi, v, v->v_indiv, from, async, force);
 #ifdef DEBUG
-        DebugPrintGraph(g);
+        g->debugPrint();
 #endif
         BuildSync(g, v, v->v_indiv, r);
 #ifdef DEBUG
-        DebugPrintGraph(g);
+        g->debugPrint();
 #endif
     } else {
         // We use proc low_pid (0) as the "base".
@@ -1507,7 +1507,7 @@ static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
 /*
 ** FIXME: I have no clue how to fix this.............................
 */
-static int BuildMergeProc(graph_t *g, graph_inv *gi, var_t *v, int pid,
+static int BuildMergeProc(graph_t *g, graph_t::graph_inv *gi, var_t *v, int pid,
                           int from, int async, int force) {
     int t1;
     int t2;
@@ -1521,25 +1521,25 @@ static int BuildMergeProc(graph_t *g, graph_inv *gi, var_t *v, int pid,
     //	return -1;
 
     if (!async) {
-        t1 = ICONST(g, "CONST", 0);
-        EDGE(g, from, t1, 0);
+        t1 = g->outConstInt(0);
+        g->outEdge(from, t1, 0);
 
 #ifdef to_fix
         if (!force)
 #endif /* to_fix */
-            t2 = NODE(g, "PINE");
+            t2 = g->outNode("PINE");
 #ifdef to_fix
         else
-            t2 = NODE(g, "PILT");
+            t2 = g->outNode("PILT");
 #endif /* to_fix */
 
-        EDGE(g, from, t2, 0);
-        EDGE(g, t1, t2, 1);
-        EDGE(g, v->v_pid, t2, 2);
+        g->outEdge(from, t2, 0);
+        g->outEdge(t1, t2, 1);
+        g->outEdge(v->v_pid, t2, 2);
     } else {
-        t2 = NODE(g, "PIT");
-        EDGE(g, from, t2, 0);
-        EDGE(g, v->v_pid, t2, 1);
+        t2 = g->outNode("PIT");
+        g->outEdge(from, t2, 0);
+        g->outEdge(v->v_pid, t2, 1);
     }
 
     return t2;
@@ -1567,11 +1567,11 @@ int BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist) {
 	
 	DPRINT("In BuildAssign\n");
 
-	n1 = SCONST(g, "CONST", lval);
-	n2 = NODE(g, "ASSIGN");
-	EDGE(g, eout, n1, 0);
-	EDGE(g, n1, n2, 0);
-	EDGE(g, eout, n2, 1);
+	n1 = g->outConstStr(lval);
+	n2 = g->outNode("ASSIGN");
+	g->outEdge(eout, n1, 0);
+	g->outEdge(n1, n2, 0);
+	g->outEdge(eout, n2, 1);
 
 	if ( EmptyList(vlist) )
 	{
@@ -1585,9 +1585,9 @@ int BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist) {
 	{
 		pid = v->v_procset->s_indiv_proc;
 
-		n3 = NODE(g, "PIT");
-		EDGE(g, n2, n3, 0);
-		EDGE(g, v->v_pid, n3, 1);
+		n3 = g->outNode("PIT");
+		g->outEdge(n2, n3, 0);
+		g->outEdge(v->v_pid, n3, 1);
 
 		BuildSync(g, v, pid, n3);
 
@@ -1597,7 +1597,7 @@ int BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist) {
 	/*
 	** Connect a (any) proc to the input of the expression graph.
 	*/
-	EDGE(g, last->v_pid, einp, 0);
+	g->outEdge(last->v_pid, einp, 0);
 
 #endif
 
@@ -1620,11 +1620,11 @@ int BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist) {
 ** then the sync graph will need to change.
 */
 static void BuildSync(graph_t *g, var_t *v, int pid, int from) {
-    graph_inv *gi;
+    graph_t::graph_inv *gi;
 
     DPRINT("In BuildSync\n");
 
-    gi = FindGraphInv(g, v->v_pname);
+    gi = g->FindGraphInv(v->v_pname);
 
     /*
     ** Skip unused procs.
@@ -1634,11 +1634,11 @@ static void BuildSync(graph_t *g, var_t *v, int pid, int from) {
     //	return;
 
     if (v->v_sync < 0) {
-        v->v_sync = NODE(g, "SYNC");
-        EDGE(g, v->v_sync, PROC_MERGE_NODE(gi), -1);
+        v->v_sync = g->outNode("SYNC");
+        g->outEdge(v->v_sync, PROC_MERGE_NODE(gi), -1);
     }
 
-    EDGE(g, from, v->v_sync, -1);
+    g->outEdge(from, v->v_sync, -1);
 }
 
 /*
@@ -1729,14 +1729,14 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         // Just int and float for now
         case EXPR_INT:
             DPRINT("BuildAssert: Found const INT for lval\n");
-            o1 = AIFCONST(g, "CONST", ep->e_int, AIF_INTEGER);
+            o1 = g->outConstAIF(ep->e_int, AIF_INTEGER);
             i1 = o1;
             ep = POP(e);
             break;
 
         case EXPR_FLOAT:
             DPRINT("BuildAssert: Found const FLOAT for lval\n");
-            o1 = AIFCONST(g, "CONST", ep->e_float, AIF_FLOATING);
+            o1 = g->outConstAIF(ep->e_float, AIF_FLOATING);
             i1 = o1;
             ep = POP(e);
             break;
@@ -1787,14 +1787,14 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
         case EXPR_INT:
             DPRINT("BuildAssert: Found const INT for rval\n");
-            o2 = AIFCONST(g, "CONST", ep->e_int, AIF_INTEGER);
+            o2 = g->outConstAIF(ep->e_int, AIF_INTEGER);
             i2 = o2;
             ep = POP(e);
             break;
 
         case EXPR_FLOAT:
             DPRINT("BuildAssert: Found const FLOAT for rval\n");
-            o2 = AIFCONST(g, "CONST", ep->e_float, AIF_FLOATING);
+            o2 = g->outConstAIF(ep->e_float, AIF_FLOATING);
             i2 = o2;
             ep = POP(e);
             break;
@@ -1833,7 +1833,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         SetList(v2);
         v = (var_t *)GetListElement(v2);
         if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-            EDGE(g, v->v_pid, i2, 0);
+            g->outEdge(v->v_pid, i2, 0);
 
             /*
             ** set v_value to output of expression
@@ -1846,7 +1846,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
         // check if there is constant
         if (bm == (g_block_map_t *)NULL) {
-            EDGE(g, cmp1, i1, 0);
+            g->outEdge(cmp1, i1, 0);
             cmp2 = o1;
         }
     }
@@ -1861,7 +1861,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         SetList(v1);
         v = (var_t *)GetListElement(v1);
         if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-            EDGE(g, v->v_pid, i1, 0);
+            g->outEdge(v->v_pid, i1, 0);
             /*
             ** set v_value to output of expression
             */
@@ -1873,7 +1873,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
         // check if there is constant
         if (bm == (g_block_map_t *)NULL) {
-            EDGE(g, cmp1, i2, 0);
+            g->outEdge(cmp1, i2, 0);
             cmp2 = o2;
         }
     }
@@ -1891,7 +1891,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 		SetList(v1);
 		v = (var_t *)GetListElement(v1);
 		if (v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
-			EDGE(g, v->v_pid, i1, 0);
+			g->outEdge(v->v_pid, i1, 0);
 
 			/*
 			** set v_value to output of expression
@@ -1902,7 +1902,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 		SetList(v2);
 		v = (var_t *)GetListElement(v2);
 		if (v->v_procset != (dbgprocset_t *)NULL && v->v_procset->s_indiv_proc >= 0) {
-			EDGE(g, v->v_pid, i2, 0);
+			g->outEdge(v->v_pid, i2, 0);
 
 			/*
 			** set v_value to output of expression
@@ -1947,14 +1947,14 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
             int numprocs, blockmap_required;
             char tmpstr[BUFSIZ] = "";
             double graph_lower, graph_upper;
-            graph_inv *gi;
+            graph_t::graph_inv *gi;
 
-            gi = FindGraphInv(g, tmp_v->v_pname);
+            gi = g->FindGraphInv(tmp_v->v_pname);
             numprocs = gi->gp_di->d_nproc;
             BlockMapToString(bm, tmp_v, numprocs, extra.blockmapinfo);
             strcat(extra.blockmapinfo, "-");
 
-            gi = FindGraphInv(g, bm2->m_actual->v_pname);
+            gi = g->FindGraphInv(bm2->m_actual->v_pname);
             numprocs = gi->gp_di->d_nproc;
             BlockMapToString(bm2, bm2->m_actual, numprocs, tmpstr);
             strcat(extra.blockmapinfo, tmpstr);
@@ -2011,7 +2011,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         if (v2 == (list_t *)NULL && v1 == (list_t *)NULL) {
             cmp1 = blockmap_node;
             cmp2 = o1;
-            EDGE(g, cmp1, i1, 0);
+            g->outEdge(cmp1, i1, 0);
         } else
             cmp2 = blockmap_node;
     }
@@ -2023,17 +2023,17 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         (bm2 != (g_block_map_t *)NULL)) {
         int receiver_cmp;
         int proc_set1, proc_set2;
-        graph_inv *gi;
+        graph_t::graph_inv *gi;
 
         // work out whic cmp is the receiver_cmp
         receiver_cmp = _identify_p2p_receiver_procset(g, tmp_v, bm2->m_actual);
         receiver_cmp = receiver_cmp ? cmp1 : cmp2;
 
         // need to get the PROC_SET for both programs
-        gi = FindGraphInv(g, tmp_v->v_pname);
+        gi = g->FindGraphInv(tmp_v->v_pname);
         proc_set1 = PROC_PROC_NODE(gi);
 
-        gi = FindGraphInv(g, bm2->m_actual->v_pname);
+        gi = g->FindGraphInv(bm2->m_actual->v_pname);
         proc_set2 = PROC_PROC_NODE(gi);
 
         cmp = BuildDisplayP2P(g, id, receiver_cmp, proc_set1, proc_set2);
@@ -2041,7 +2041,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
         cmp = BuildCmp(g, id, cmp1, cmp2, cmpop);
 
 #ifdef DEBUG
-    DebugPrintGraph(g);
+    g->debugPrint();
 #endif
 
     async = AsyncMode(g, vlist, dfmode);
@@ -2062,7 +2062,7 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 */
 static int AsyncMode(graph_t *g, list_t *vlist, dfmode_t dfmode) {
     var_t *v;
-    graph_inv *gi = NULL;
+    graph_t::graph_inv *gi = NULL;
 
     DPRINT("In AsyncMode\n");
 
@@ -2071,12 +2071,12 @@ static int AsyncMode(graph_t *g, list_t *vlist, dfmode_t dfmode) {
     SetList(vlist);
 
     while ((v = (var_t *)GetListElement(vlist)) != (var_t *)NULL) {
-        if (gi == (graph_inv *)NULL) {
-            gi = FindGraphInv(g, v->v_pname);
+        if (gi == (graph_t::graph_inv *)NULL) {
+            gi = g->FindGraphInv(v->v_pname);
             continue;
         }
 
-        if (gi != FindGraphInv(g, v->v_pname)) return 0;
+        if (gi != g->FindGraphInv(v->v_pname)) return 0;
     }
 
     return 1;

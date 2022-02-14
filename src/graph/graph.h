@@ -3,165 +3,301 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
- *
- * Unpublished Proprietary Information.
- * This unpublished work is protected to trade secret, copyright and other laws.
- * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
- * no part of this work or its content may be used, reproduced or disclosed
- * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  **********************************************************************************/
+#pragma once
 
-#ifndef _GRAPH_H
-#define _GRAPH_H
+#include <map>
 
 #include "dense_bitset.h"
 #include "dbgevent.h"
 #include "hash.h"
 #include "list.h"
 
-#include "assertinfo.h"
+#include "file.h"
+#include "gvar.h"
 #include "node.h"
 #include "token.h"
-
-#define INVOKE_NODES 5
-
-/*
-** graph_diff is used to recall saved diff information from a graph execution.
-*/
-struct graph_diff {
-    int gd_assert_id; /* assert id */
-    char *gd_name;    /* difference name */
-    AIF *gd_val;      /* AIF ptr to difference */
-};
-typedef struct graph_diff graph_diff;
-
-/*
-** graph_inv is used when bulding a graph to retain state information.
-** TODO: Allow this to be used with DBGSET_DEFSET
-*/
-struct graph_inv {
-    // dbginvoke_t components
-    dbginvoke_t *gp_di;  // dbginvoke_t pointer
-
-    // procset support components
-    std::unique_ptr<DenseBitset> gp_unbuilt_bs; /* ranks that have yet to be built */
-    list_t *gp_files;                           /* per process list of files */
-    int gp_node[INVOKE_NODES];
-};
-typedef struct graph_inv graph_inv;
 
 /*
 ** graph_t holds information about the static graph, and is also
 ** used when executing the graph.
 */
-struct graph_t {
-    /*
-    ** Graph information
-    */
-    const char *g_valname;  // String name stored in hashtable
-    int g_isactive;         // is currently active bool
-    int g_qlen;
+class graph_t {
+public:
+    struct ainfo_t;
+    struct graph_diff;
+    struct graph_inv;
 
-    /*
-    ** Graph execution results
-    */
-    int g_iterations;    // number of times graph nodes have fired
-    int g_assertions;    // number of assertions in graph.
-    int g_pass;          // number of passed assertions
-    int g_warn;          // number of warned assertions
-    int g_fail;          // number of failed assertions
-    int *g_assert_pass;  // correlates to an assertid pass
-    int *g_assert_warn;  // correlates to an assertid warn
-    int *g_assert_fail;  // correlates to an assertid fail
-    list_t *g_diff;      // actual difference data
+    // TODO make this a properly named struct
+    // tuple<int, int, int> -> <num passes, num warns, num fails>
+    using AssertResult = std::tuple<int, int, int>;
 
-    /*
-    ** Graph state info
-    */
-    int g_reset;  // Graph has not been used.
-    int g_nid;    // Last node id used.
-    int g_store;  // Last store number.
+    graph_t();
+    ~graph_t();
 
-    /*
-    ** Per-invoke and per-process information needed when
-    ** building the graph.
-    */
-    htable_t *g_inv;              // All the procsets used in assert or assign.
-    ainfo_t **g_assert_info_tab;  // Assert info table
+    graph_t(const graph_t&) = delete;
+    graph_t& operator=(const graph_t&) = delete;
 
-    /*
-    ** Node number of start and init nodes.
-    */
+    void reset();
+    void setReset(bool r);
+
+    void print(FILE *fp) const;
+    void debugPrint() const;
+
+    // list of graph_diff structs created on during graph execution when
+    // assertions fail. queried via info diffs
+    list_t* diffsList();
+
+    // number of assertions in graph
+    int numAssertions() const;
+
+    // graph name as saved by user at graph creation time
+    void setName(std::string name);
+    const std::string& name() const;
+
+    // externally set to true/false when graph execution begins/ends
+    bool isActive() const;
+    void setActive(bool state);
+
+    // nodes query this function at creation time for a length for their queues
+    int queueLength() const;
+
+    // number of assertions evaluated
+    int iterations() const;
+
+    // total number of assertion passes, warnings, and failures, combined across
+    // all assertions
+    int numPasses() const;
+    int numWarnings() const;
+    int numFailures() const;
+
+    // TODO merge this information with AssertInfo functions
+    // look up result of a particular assertion by assertion id
+    AssertResult getAssertResult(int id) const;
+
+    // create a graph_inv and record its bginvoke info in an internal list
+    graph_inv* NewGraphInv(dbgprocset_t *ps);
+    // find a graph_inv by procset name
+    graph_inv* FindGraphInv(const char *inv);
+
+    // assert storage
+    ainfo_t* NewAssertInfoEntry();
+    ainfo_t* FindAssertInfo(int id);
+    const ainfo_t* FindAssertInfo(int id) const;
+
+    // view/modify the integer ids of the graph's start/init nodes
+    int startNode() const;
+    void setStartNode(int id);
+    int initNode() const;
+    void setInitNode(int id);
+
+    // ?
+    int lastStore() const;
+    int fetchIncLastStore();
+
+    // XXX these getters don't really provide any protection until the lists are
+    //     converted to stl containers
+
+    // XXX node_t and token_t have linked lists baked into them. these should be
+    //     removed and the list logic should sit on top of the types
+
+    // unused? dbginvoke_t *? only ever read from, never inserted to
+    list_t* diList();
+    // group_reply_t, used for breakpoints
+    list_t* replyList();
+    // var_t
+    list_t* varsList();
+    // char *, assert strings from command line
+    list_t* assertsList();
+
+    // list of all graph nodes
+    node_t* nodesList();
+    node_t** lastNode();
+    void setLastNode(node_t** last);
+
+    // list of active nodes, ready to be fired
+    node_t* activeNodesList();
+    void    setActiveNodesList(node_t *list);
+    node_t* currentActive();
+    void    setCurrentActive(node_t *newCurrent);
+    node_t* lastActive();
+    void    setLastActive(node_t *newLast);
+
+    // active events counter
+    void incActiveEvents();
+    void decActiveEvents();
+    bool hasActiveEvents() const;
+
+    // tokens
+    int      nextTokenId();
+    token_t* tokensList();
+    void     setTokensList(token_t *list);
+    token_t* lastToken();
+    void     setLastToken(token_t *newLast);
+    token_t* currentToken();
+    void     setCurrentToken(token_t *newCurrent);
+
+    // graph construction/verification
+    int prepStartNode();
+    int checkGraph();
+    int outNode(const char *nodeDefName);
+    int outConstInt(int val);
+    int outConstFloat(double val);
+    int outConstStr(const char *val);
+    int outConstAIF(double val, int type);
+    int outConstBitSet(const DenseBitset* val);
+    void outEdge(int from, int to, int port);
+
+    // ?
+    int displayP2P(int id, char *name, AIF *data);
+
+    enum class ComparisonResult { PASS, FAIL, WARN, INDETERMINATE, UNKNOWN };
+    // XXX: This actually returns a ComparisonResult but the rest of gdb4hpc
+    //      still treats it as an int
+    // ?
+    int compareData(int id, char *name1, AIF *data1, char *name2, AIF *data2, int cmpop);
+    
+    // pointer to static event handler function. when the graph starts executing,
+    // the client swaps the event handler function to this one
+    const static clnt_ev_callback_func g_dbgevent;
+private:
+    static const int g_qlen = 5;
+
+    int gennode(const char *node, token_t *t);
+
+    bool g_isactive;
+
+    int g_iterations;
+
+    int g_pass;
+    int g_warn;
+    int g_fail;
+
+    list_t *g_diff;
+
+    bool g_reset;
+    int g_nid;
+    int g_store;
+
+    std::string g_valname;
+
     int g_startnode;
     int g_initnode;
 
-    /*
-    ** List of procs to check when removing bp's.
-    */
-    list_t *g_di_list;        // All of the dbginvoke_t * used by graph
-    list_t *g_bp_reply_list;  // list of group_reply for the breakpoint sets
+    // TODO turn all these lists into stl containers
 
-    /*
-    ** Assertion and assign information used to generate graph.
-    */
-    list_t *g_assigns;
+    list_t *g_di_list;
+    list_t *g_bp_reply_list;
+
     list_t *g_vars;
-    list_t *g_assert_cmds;  // list of assertion command buffers
+    list_t *g_assert_cmds;
 
-    /*
-    ** Internal graph structure.
-    */
     node_t *g_nodes;
+    // TODO this doesn't need to be a double pointer
     node_t **g_lastNode;
 
-    /*
-    ** Active node list for interpreter.
-    */
     node_t *g_active;
     node_t *g_currActive;
     node_t *g_lastActive;
     int g_activeEvents;
 
-    /*
-    ** Tokens used by interpreter.
-    */
     int g_token_id;
     token_t *g_tokens;
     token_t *g_last_token;
     token_t *g_tcurrent;
 
-    /*
-    ** Graph constructor routines.
-    */
-    void (*g_startGraph)(struct graph_t *, char *, int, void *);
-    void (*g_endGraph)(struct graph_t *);
-    int (*g_setStartNode)(struct graph_t *, int);
-    int (*g_checkGraph)(struct graph_t *);
-    int (*g_outNode)(struct graph_t *, const char *);
-    int (*g_outConstInt)(struct graph_t *, const char *, int);
-    int (*g_outConstFloat)(struct graph_t *, const char *, double);
-    int (*g_outConstStr)(struct graph_t *, const char *, const char *);
-    int (*g_outConstAIF)(struct graph_t *, const char *, double, int);
-    int (*g_outConstBitSet)(struct graph_t *, const char *, const DenseBitset*);
-    void (*g_outEdge)(struct graph_t *, int, int, int);
+    std::map<size_t, AssertResult> g_assert_results;
 
-    /*
-    ** User supplied routines.
-    */
-    int (*g_display)(char *, char *, char *, AIF *, char *, AIF *, char *,
-                     AIF *);
-    int (*g_display_p2p)(struct graph_t *, int, char *, AIF *);
-    int (*g_compare)(struct graph_t *, int, char *, AIF *, char *, AIF *, int);
-    void (*g_dbgout)(char *, int, int, void *);
-    int (*g_dbgevent)(event_set_t *, const Bitset*);
+    std::vector<std::unique_ptr<ainfo_t>> g_assert_info_tab;
+
+    // All the procsets used in assert or assign.
+    // Shared ptrs rather than unique ptrs because in some cases the same key 
+    // may point to the same item, see NewGraphInv
+    std::map<std::string, std::shared_ptr<graph_inv>> g_inv;
 };
-typedef struct graph_t graph_t;
 
-#endif /* _GRAPH_H */
+struct graph_t::ainfo_t {
+    // collection of data representing an assert
+
+    ainfo_t() 
+        : a_aifupper{nullptr}, a_aiflower{nullptr}
+        , a_stop{1}
+    {}
+
+    ainfo_t(const ainfo_t&) = delete;
+    ainfo_t& operator=(const ainfo_t&) = delete;
+
+    ~ainfo_t() {
+        AIFFree(a_aifupper);
+        AIFFree(a_aiflower);
+    }
+
+    double a_lower;
+    double a_upper;
+    AIF *a_aifupper;
+    AIF *a_aiflower;
+    int a_relative;
+    int a_force;
+    int a_stop;
+    std::string a_display;
+    std::string a_file;
+    dfmode_t a_dfmode;
+    dfmode_t a_logging;
+};
+
+struct graph_t::graph_diff {
+    // used to recall saved diff information from a graph execution.
+
+    graph_diff(int id, AIF* res, const char* stat) 
+        : gd_assert_id{id}, gd_val{res}
+    {
+        std::ostringstream ss;
+        ss << "AssertID " << id + 1 << stat;
+        gd_name = ss.str();
+    }
+
+    graph_diff(const graph_diff&) = delete;
+    graph_diff& operator=(const graph_diff&) = delete;
+
+    ~graph_diff() {
+        AIFFree(gd_val);
+    }
+
+    int gd_assert_id;    /* assert id */
+    std::string gd_name; /* difference name */
+    AIF *gd_val;         /* AIF ptr to difference */
+};
+
+struct graph_t::graph_inv {
+    // graph_inv is used when bulding a graph to retain state information.
+    // TODO: Allow this to be used with DBGSET_DEFSET
+
+    graph_inv(const dbginvoke_t *di)
+        : gp_di{di}, gp_unbuilt_bs{std::make_unique<DenseBitset>(di->d_nproc)}
+        , gp_files{nullptr}
+    {
+        // Set every rank to 1, since everything is currently unbuilt.
+        gp_unbuilt_bs->invert();
+
+        for (uint d = 0; d < n_invoke_nodes; d++) gp_node[d] = -1;
+    }
+
+    graph_inv(const graph_inv&) = delete;
+    graph_inv& operator=(const graph_inv&) = delete;
+
+    ~graph_inv() {
+        DestroyList(gp_files, (void (*)(void *))DestroyFile);
+        gp_files = nullptr;
+    }
+
+    static const size_t n_invoke_nodes = 5;
+
+    const dbginvoke_t *gp_di;
+
+    // procset support components
+    std::unique_ptr<DenseBitset> gp_unbuilt_bs; /* ranks that have yet to be built */
+    list_t *gp_files;                           /* per process list of files */
+    int gp_node[n_invoke_nodes];
+};

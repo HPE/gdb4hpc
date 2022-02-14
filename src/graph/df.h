@@ -3,18 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  **********************************************************************************/
 
@@ -26,24 +21,6 @@
 #include "gvar.h"
 #include "nodedef.h"
 #include "nodes.h"
-
-/*
-** graph.h
-*/
-extern graph_t *NewGraph(int (*)(graph_t *, int, char *, AIF *, char *, AIF *,
-                                 int),
-                         void (*)(char *, int, int, void *),
-                         int (*)(graph_t *, int, char *, AIF *), int);
-extern graph_inv *NewGraphInv(graph_t *, dbgprocset_t *);
-extern graph_diff *NewGraphDiff(graph_t *, int, AIF *, const char *);
-extern void AddActiveEvent(graph_t *);
-extern void RemoveActiveEvent(graph_t *);
-extern int ActiveEvents(graph_t *);
-extern graph_inv *FindGraphInv(graph_t *, char *);
-extern void DestroyGraph(graph_t *);
-extern void ResetGraph(graph_t *);
-extern void PrintGraph(FILE *, graph_t *);
-extern void DebugPrintGraph(graph_t *);
 
 /*
 ** node.h

@@ -17,7 +17,7 @@ class DebugClientProtocol;
 // This is the client callback function prototype
 // Arguments are the event_set for this event and a bitset containing the new
 // ranks to report this event
-typedef int (*clnt_ev_callback_func)(struct event_set *, const Bitset *);
+using clnt_ev_callback_func = std::function<int(struct event_set *, const Bitset *)>;
 
 // Used to determine type of dbginvoke, currently there is either launched or
 // attached launched means the application was launched by the debugger,

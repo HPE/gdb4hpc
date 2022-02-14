@@ -87,7 +87,7 @@ int SpaceForTokens(void) {
 token_t *NewToken(graph_t *g, token_type tt) {
     auto t = new token_t;
 
-    t->t_id = g->g_token_id++;
+    t->t_id = g->nextTokenId();
     t->t_name = (char *)NULL;
     t->t_ref = 0;
     t->t_node = (node_t *)NULL;
@@ -99,13 +99,13 @@ token_t *NewToken(graph_t *g, token_type tt) {
     t->t_set_length = 0;
     t->t_set_bits = std::unique_ptr<DenseBitset>();
 
-    if (g->g_tokens == (token_t *)NULL) {
-        g->g_tokens = t;
-        g->g_last_token = t;
+    if (g->tokensList() == (token_t *)NULL) {
+        g->setTokensList(t);
+        g->setLastToken(t);
     } else {
-        g->g_last_token->t_next = t;
-        t->t_prev = g->g_last_token;
-        g->g_last_token = t;
+        g->lastToken()->t_next = t;
+        t->t_prev = g->lastToken();
+        g->setLastToken(t);
     }
 
     return t;
@@ -173,9 +173,9 @@ void DestroyToken(graph_t *g, token_t *t) {
 
     if (t->t_next != (token_t *)NULL) t->t_next->t_prev = t->t_prev;
 
-    if (g->g_tokens == t) g->g_tokens = t->t_next;
+    if (g->tokensList() == t) g->setTokensList(t->t_next);
 
-    if (g->g_last_token == t) g->g_last_token = t->t_prev;
+    if (g->lastToken() == t) g->setLastToken(t->t_prev);
 
     delete t;
 }
@@ -217,14 +217,14 @@ int ValidTokenType(token_type t) {
     return (int)(t == TK_ANY || (t & TK_VALID) == t);
 }
 
-void SetToken(graph_t *g) { g->g_tcurrent = g->g_tokens; }
+void SetToken(graph_t *g) { g->setCurrentToken(g->tokensList()); }
 
 token_t *NextToken(graph_t *g) {
-    token_t *t = g->g_tcurrent;
+    token_t *t = g->currentToken();
 
     if (t == (token_t *)NULL) return (token_t *)NULL;
 
-    g->g_tcurrent = t->t_next;
+    g->setCurrentToken(t->t_next);
 
     return t;
 }

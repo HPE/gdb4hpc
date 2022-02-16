@@ -20,57 +20,57 @@ Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
 b{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:55
-4: # stop before exiting
-5: break 242
+3: # stop before exiting
+4: break 242
 a{0..1}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 242.
 b{0..1}: Breakpoint 1: file /bd_dt/c/c_cmp_diff.c, line 242.
-7: build $scalars
-8:     set stop off
-9:     
-10:     # all of these should pass
-10:     # XXX: the range use warning is a bug
-11:     assert $a{0}::assertTest @"c_type_test.c":161 != $b{0}::assertTest @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-12:     assert $a{0}::uc         @"c_type_test.c":168 <  $b{0}::uc         @"c_cmp_diff.c":168
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-13:     assert $a{0}::ush        @"c_type_test.c":168 <= $b{0}::ush        @"c_cmp_diff.c":168
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-14:     
-15:     # all of these should fail
-16:     assert $a{0}::ld  @"c_type_test.c":188 >= $b{0}::ld  @"c_cmp_diff.c":188
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-17:     assert $a{0}::lli @"c_type_test.c":187 >  $b{0}::lli @"c_cmp_diff.c":187
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-18:     assert $a{0}::i   @"c_type_test.c":169 =  $b{0}::i   @"c_cmp_diff.c":178
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-19:     
-20:     # XXX: this should be possible, but isn't right now (char vs member of int[])
-21:     # assert $a{0}::c@"c_type_test.c":160 = $b{0}::one_d_i_init[1]@"c_cmp_diff.c":90
-23:     # generate a warning by setting acceptable error
-24:     set error 1 2
-25:     assert $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-27:     # generate an error by reducing acceptable error
-28:     set error 0.2 0.5
-29:     assert $a{0}::d @"c_type_test.c":188 >= $b{0}::d @"c_cmp_diff.c":188
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-31:     # stop at this failure
-32:     set stop on
-33:     assert $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
-34: end
+5: build $scalars
+6:     set stop off
+7:     # should generate a warning message but still set up an assertion
+8:     assert $a{0..1}::assertTest @"c_type_test.c":161 != $b{0..1}::assertTest @"c_cmp_diff.c":161
+Warning: Range use detected in procset for command ($b{0..1}). Only operating on rank 0.
+Warning: Range use detected in procset for command ($a{0..1}). Only operating on rank 0.
+11:     
+12:     # all of these should pass
+13:     assert $a{0}::uc  @"c_type_test.c":168 <  $b{0}::uc  @"c_cmp_diff.c":168
+14:     assert $a{0}::ush @"c_type_test.c":168 <= $b{0}::ush @"c_cmp_diff.c":168
+15:     
+16:     # all of these should fail
+17:     assert $a{0}::ld  @"c_type_test.c":188 >= $b{0}::ld  @"c_cmp_diff.c":188
+18:     assert $a{0}::lli @"c_type_test.c":187 >  $b{0}::lli @"c_cmp_diff.c":187
+19:     assert $a{0}::i   @"c_type_test.c":169 =  $b{0}::i   @"c_cmp_diff.c":178
+20:     
+21:     # XXX: this should be possible, but isn't right now (char vs member of int[])
+22:     # assert $a{0}::c@"c_type_test.c":160 = $b{0}::one_d_i_init[1]@"c_cmp_diff.c":90
+23:     
+24:     # generate a warning by setting acceptable error
+25:     set error 1 2
+26:     assert $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
+27:     
+28:     # generate an error by reducing acceptable error
+29:     set error 0.2 0.5
+30:     assert $a{0}::d @"c_type_test.c":188 >= $b{0}::d @"c_cmp_diff.c":188
+31:     
+32:     # stop at this failure
+33:     set stop on
+34:     assert $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
+36:     # all of these are errors and should generate an error message and not set an assertion
+37:     #   out of procset range
+38:     assert $a{3}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
+Error: rank 3 not in procset $a.
+Command resulted in an error: 35:     assert $a{3}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
+39:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
+Warning: Range use detected in procset for command ($a{3..4}). Only operating on rank 3.
+Error: rank 3 not in procset $a.
+Command resulted in an error: 36:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
+40:     #   invalid syntax
+41:     assert $a::assertTest@"c_type_test.c":161 == $a::assertTest@"c_type_test.c":161
+Error: Invalid procset ($a::). Specify a single rank (e.g. $a{0}::var...) or use a decomposition (e.g. $dec{$a::var...}).
+Command resulted in an error: 38:     assert $a::assertTest@"c_type_test.c":161 == $a::assertTest@"c_type_test.c":161
+42: end
 Assertion script $scalars compiled.
-36: set dfblock on
-37: start $scalars
+43: set dfblock on
+44: start $scalars
 *** Starting execution of application ***
 *** Difference found in AssertID 6 ***
 *** Difference found in AssertID 5 ***
@@ -105,11 +105,11 @@ a{0}: Application halted in main at /bd_dt/c/c_type_test.c:234
 a{1}: Application halted in main at /bd_dt/c/c_type_test.c:242
 
 
-39: info script
+45: info script
 There is currently no assertion script executing.
-41: info build $scalars
+46: info build $scalars
 Script $scalars
-AssertID:1  $a{0}::assertTest @"c_type_test.c":161 != $b{0}::assertTest @"c_cmp_diff.c":161
+AssertID:1  $a{0..1}::assertTest @"c_type_test.c":161 != $b{0..1}::assertTest @"c_cmp_diff.c":161
 AssertID:2  $a{0}::uc @"c_type_test.c":168 < $b{0}::uc @"c_cmp_diff.c":168
 AssertID:3  $a{0}::ush @"c_type_test.c":168 <= $b{0}::ush @"c_cmp_diff.c":168
 AssertID:4  $a{0}::ld @"c_type_test.c":188 >= $b{0}::ld @"c_cmp_diff.c":188
@@ -118,7 +118,7 @@ AssertID:6  $a{0}::i @"c_type_test.c":169 = $b{0}::i @"c_cmp_diff.c":178
 AssertID:7  $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
 AssertID:8  $a{0}::d @"c_type_test.c":188 >= $b{0}::d @"c_cmp_diff.c":188
 AssertID:9  $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
-43: info diff
+47: info diff
 Saved difference values:
 Script $scalars
 1. AssertID 6 Failure
@@ -127,9 +127,9 @@ Script $scalars
 4. AssertID 7 Warning
 5. AssertID 8 Failure
 6. AssertID 9 Failure
-45: info diff 2
+48: info diff 2
 Script $scalars AssertID 5 Failure
 The difference: 1
-47: q
+49: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

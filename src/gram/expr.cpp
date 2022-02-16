@@ -3106,11 +3106,53 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
     // The var should be changed to hold a slice_t structure representing
     // the subset info. Give it a better name too.
     if (RVAL_TYPE(val) == rval_ref) {
-        PrintOutError(
-            "Warning: Range use detected in procset for command. Only "
-            "operating on rank %d.\n",
-            RVAL_REF_SLICE(val)->getLow(0));
-        var->v_indiv = RVAL_REF_SLICE(val)->getLow(0);
+        // Only output a warning if the slice provided is more than one rank in size
+        const auto* slice = RVAL_REF_SLICE(val);
+        const auto* procset = RVAL_ACTUAL_PROCSET(val);
+        if (slice->getRank() > 1 || (slice->getLow(0) != slice->getHigh(0))) {
+            PrintOutError(
+                "Warning: Range use detected in procset for command ($%s{%d..%d}). "
+                "Only operating on rank %d.\n",
+                procset->s_name, slice->getLow(0), slice->getHigh(0),
+                slice->getLow(0));
+        }
+
+        var->v_indiv = slice->getLow(0);
+        
+        // check that v_indiv is actually in the procset
+        bool found = false;
+
+        SetList(procset->s_over_set_list);
+        while (auto os = (dbg_over_set_t *)GetListElement(procset->s_over_set_list)) {
+            if (os->s_di_bs->test(os->s_ps_offset + var->v_indiv)) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            SetError(
+                "Error: rank %d not in procset $%s.",
+                var->v_indiv, procset->s_name
+            );
+            goto bad_var;
+        }
+    } else {
+        // XXX: When ReadVarDecl is used for parsing assert commands, the
+        //      particulars on how the procset is specified are important.
+        //      -   valid: $proc{0}::var...
+        //      -   valid: $decomp{$proc::var...}
+        //      - invalid: $proc::var...
+        //      The invalid form causes graph build errors because COMPARE nodes
+        //      only accept TK_DATA as input, but the invalid form generates
+        //      nodes that output TK_DATA_SET.
+        const auto* procset = RVAL_ACTUAL_PROCSET(val);
+        SetError(
+            "Error: Invalid procset ($%s::). Specify a single rank "
+            "(e.g. $%s{0}::var...) or use a decomposition (e.g. $dec{$%s::var...}).",
+            procset->s_name, procset->s_name, procset->s_name
+        );
+        goto bad_var;
     }
 
     return var;

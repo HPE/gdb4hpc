@@ -76,16 +76,16 @@ typedef struct proxy_session proxy_session;
 // used as the network protocol object for the proxy interface
 struct proxy_type : public DebugClientNetwork {
     // Every proxy_type references a proxy_session
-    proxy_session *sess;
+    proxy_session *sess = nullptr;
     // unique id for this instance associated with the session
-    int id;
+    int id = 0;
     // used for event callback
-    int eventfd;
-    struct sockaddr_in eventSock;
+    int eventfd = 0;
+    struct sockaddr_in eventSock = {};
     // used for output callback
-    int outputfd;
-    struct sockaddr_in outputSock;
-    FILE *outputStream;
+    int outputfd = 0;
+    struct sockaddr_in outputSock = {};
+    FILE *outputStream = nullptr;
 };
 typedef struct proxy_type proxy_type;
 #define PROXY_SESSION(p) (p)->sess

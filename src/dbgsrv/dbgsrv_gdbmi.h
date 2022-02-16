@@ -155,6 +155,7 @@ private:
     void initGpu();
     void setDataDir(const char* gdbType);
     bool entryBPsAreSet();
+    bool hasAmdGpus();
     std::pair<bool,dbgevent_t*> setEntryBPsL();        
 
     DbgGdbMI& m_dbg;

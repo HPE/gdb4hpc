@@ -28,6 +28,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fstream>
+#include <regex>
 
 static void event_callback(MIEvent *);
 static void console_callback(char *);
@@ -201,45 +202,16 @@ void DbgGdbMI::Initializer::initGpu()
         if (num_fields > 0) {
             // We now have the version string, close the vers file
             DVPRINT("Detected Nvidia driver %s\n", vers_cstr);
-            // Now strcmp the driver version with a list of supported
-            // versions The known driver mappings are:
-            // nvidia 319.* ==> CTK 5.5     ; deprecated, unsupported
-            // nvidia 340.* ==> CTK 6.5     ; deprecated, unsupported
-            // nvidia 346.* ==> CTK 7.0     ; deprecated, unsupported
-            // nvidia 352.* ==> CTK 7.5     ; deprecated, unsupported
-            // nvidia 361.* ==> CTK 8.0     ; deprecated, unsupported
-            // nvidia 384.* ==> CTK 9.0     ; deprecated, unsupported
-            // nvidia 390*  ==> CTK 9.1     ; deprecated, unsupported
-            // nvidia 440*  ==> CTK 10.2    ; hacking 10.1 to work.
             std::string vers_str(vers_cstr);
             int vers_int = stoi(vers_str.substr(0,3));
-            //We're assuming forward compatibility from version 440
+            //We're assuming forward compatibility from version 440 which is CTK 10.2
             if (vers_int >= 440) {
                 gdb_vers = GdbVersion::CUDA_101;
             }
         }
-        if (vers_cstr) {
-            free(vers_cstr);
-        }
-    } else if (access("/usr/sbin/dkms", X_OK ) != -1 ) {
-        // we may be on a AMDnode.
-        // The dkms check seems a little suspect, but the worst side effect might
-        // just be that we run with rocgdb on the backend and lose some fortran
-        // support.
-        if (auto fp = popen("/usr/sbin/dkms --version", "r")) {
-            DVPRINT("popened /usr/sbin/dkms\n");
-            const size_t size = 1024;
-            char linebuf[size];
-            while ( fgets(linebuf, size, fp)) {
-                if (strncmp(linebuf, "dkms:2.8", 8) == 0 ||
-                    strncmp(linebuf, "dkms-2.8", 8) == 0) {
-                    DVPRINT("Detected AMD driver %s\n", linebuf);
-                    gdb_vers = GdbVersion::ROC_GDB;
-                    break;
-                }
-            }
-            pclose(fp);
-        }
+        free(vers_cstr);
+    } else if (hasAmdGpus()) {
+        gdb_vers = GdbVersion::ROC_GDB;
     }
 
     if (gdb_vers == GdbVersion::GDB_100) {
@@ -308,6 +280,43 @@ void DbgGdbMI::Initializer::initGpu()
             gdb_vers = GdbVersion::GDB_100;
         }
     }
+}
+
+bool DbgGdbMI::Initializer::hasAmdGpus() {
+    auto command = "rocminfo";
+
+    auto path = std::unique_ptr<char, decltype(&free)>{pathFind(command, nullptr), free};
+    if (!path) {
+        DVPRINT("did not find %s in path\n", command);
+        return false;
+    }
+
+    auto fp = std::unique_ptr<FILE, decltype(&pclose)>{popen(path.get(), "r"), pclose};
+    if (!fp) {
+        DVPRINT("could not execute %s\n", path.get());
+        return false;
+    }
+
+    DVPRINT("opened AMD command %s\n", command);
+    std::regex gpuLine{R"([dD]evice\s*[tT]ype.*[gG][pP][uU])"};
+    size_t numGPUS = 0;
+    size_t numLines = 0;
+    size_t size = 256;
+
+    char *line = static_cast<char*>(malloc(size));
+
+    while (getline(&line, &size, fp.get()) > 0) {
+        if (std::regex_search(line, gpuLine)) {
+            ++numGPUS;
+            DVPRINT("found gpu %s", line); // line should end in newline
+        }
+        ++numLines;
+    }
+    DVPRINT("looked at %zu lines got %zu AMD gpus\n", numLines, numGPUS);
+
+    free(line);
+
+    return (numGPUS > 0);
 }
 
 /*

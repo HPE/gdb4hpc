@@ -59,7 +59,7 @@ ToNum(char *str, int len)
 }
 
 int
-aif_write_set(AIFFILE *af, char *name, char *fds, char *data, int len)
+aif_write_set(AIFFILE *af, const char *name, char *fds, char *data, int len)
 {
 	int	nlen;
 	int	flen;
@@ -138,7 +138,7 @@ write_data(FILE *fp, char *buf, int len)
 }
 
 int
-AIFWriteSet(AIFFILE *af, AIF *a, char *name)
+AIFWriteSet(AIFFILE *af, AIF *a, const char *name)
 {
 	if ( a == (AIF *)NULL || af == (AIFFILE *)NULL )
 	{
@@ -271,7 +271,7 @@ AIFReadSet(AIFFILE *af, char **name)
 }
 
 AIFFILE *
-AIFOpenSet(char *file, int mode)
+AIFOpenSet(const char *file, int mode)
 {
 	int		n;
 	int		cnt = 0;

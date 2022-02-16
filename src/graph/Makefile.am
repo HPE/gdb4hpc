@@ -9,4 +9,4 @@ BITSET	= @gdb4hpc_srcdir@/bitset
 AM_CXXFLAGS = -I@gdb4hpc_srcdir@ -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(DBGCLNT) -I$(DBGSRV) -I$(CLIENT) -I$(BITSET)
 
 noinst_LIBRARIES = libdf.a
-libdf_a_SOURCES = assertinfo.cpp gvar.cpp build.cpp graph.cpp token.cpp node.cpp nodedef.cpp nodes.cpp df.cpp
+libdf_a_SOURCES = gvar.cpp build.cpp graph.cpp token.cpp node.cpp nodedef.cpp nodes.cpp df.cpp

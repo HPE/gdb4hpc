@@ -49,7 +49,7 @@ node_t *NewNode(graph_t *g, int id, nodedef_t *nd, token_t *store) {
 
     n->n_graph = g;
     n->n_fired = 0;
-    n->n_qlen = g->g_qlen;
+    n->n_qlen = g->queueLength();
     n->n_active = NULL;
     n->n_pactive = NULL;
     n->n_ninp = 0;
@@ -60,8 +60,9 @@ node_t *NewNode(graph_t *g, int id, nodedef_t *nd, token_t *store) {
     n->n_store = store;
     n->n_next = (node_t *)NULL;
 
-    *(g->g_lastNode) = n;
-    g->g_lastNode = &n->n_next;
+    // TODO this logic should be in a graph function, not a node function
+    *(g->lastNode()) = n;
+    g->setLastNode(&n->n_next);
 
     n->n_nevent = 0;
 
@@ -88,7 +89,7 @@ void DestroyNodes(node_t *n) {
 node_t *FindNode(graph_t *g, int id) {
     node_t *n;
 
-    for (n = g->g_nodes; n != NULL; n = n->n_next)
+    for (n = g->nodesList(); n != NULL; n = n->n_next)
         if (n->n_id == id) return n;
 
     return (node_t *)NULL;
@@ -114,7 +115,7 @@ input_t *NewInputs(graph_t *g, node_t *n, nodedef_t *nd, int num,
     for (c = n->n_ninp; c < num; c++) {
         i = &ip[c];
 
-        i->i_tokens = NewQueue(g->g_qlen);
+        i->i_tokens = NewQueue(g->queueLength());
         i->i_from = (node_t *)NULL;
         i->i_node = n;
 
@@ -255,7 +256,7 @@ int CheckNodes(graph_t *g) {
     int c = 0;
     node_t *n;
 
-    for (n = g->g_nodes; n != NULL; n = n->n_next) {
+    for (n = g->nodesList(); n != NULL; n = n->n_next) {
         if (n->n_ninp < n->n_min) {
             PrintOutError("[CheckNodes]: Not enough inputs for node %d (%s)\n",
                           n->n_id, n->n_name);
@@ -317,7 +318,7 @@ int FireNode(graph_t *g, node_t *n) {
     token_t *t;
     token_t *tn;
 
-    g->g_reset = 0;
+    g->setReset(false);
 
     n->n_fired++;
 
@@ -382,11 +383,11 @@ void InjectToken(graph_t *g, node_t *n, token_t *t) {
 node_t *GetActiveNode(graph_t *g) {
     node_t *n;
 
-    if (g->g_currActive == NULL) g->g_currActive = g->g_active;
+    if (g->currentActive() == NULL) g->setCurrentActive(g->activeNodesList());
 
-    n = g->g_currActive;
+    n = g->currentActive();
 
-    if (g->g_currActive != NULL) g->g_currActive = g->g_currActive->n_active;
+    if (g->currentActive() != NULL) g->setCurrentActive(g->currentActive()->n_active);
 
     return n;
 }
@@ -397,16 +398,16 @@ node_t *GetActiveNode(graph_t *g) {
 void AddToActive(graph_t *g, node_t *n) {
     if (g == (graph_t *)NULL || n == (node_t *)NULL) return;
 
-    if (g->g_active == (node_t *)NULL) {
-        g->g_active = n;
-        g->g_lastActive = n;
+    if (g->activeNodesList() == (node_t *)NULL) {
+        g->setActiveNodesList(n);
+        g->setLastActive(n);
 
         return;
     }
 
-    g->g_lastActive->n_active = n;
-    n->n_pactive = g->g_lastActive;
-    g->g_lastActive = n;
+    g->lastActive()->n_active = n;
+    n->n_pactive = g->lastActive();
+    g->setLastActive(n);
 }
 
 /*
@@ -425,19 +426,19 @@ void RemoveFromActive(graph_t *g, node_t *n) {
     /*
     ** If we are head of list then move head to next.
     */
-    if (g->g_active == n) g->g_active = n->n_active;
+    if (g->activeNodesList() == n) g->setActiveNodesList(n->n_active);
 
     /*
     ** If we are tail of list then move tail to prev.
     */
-    if (g->g_lastActive == n) g->g_lastActive = n->n_pactive;
+    if (g->lastActive() == n) g->setLastActive(n->n_pactive);
 
     /*
     ** if we are current then move current to next
     */
-    if (g->g_currActive == n) g->g_currActive = n->n_active;
+    if (g->currentActive() == n) g->setCurrentActive(n->n_active);
 
-    if (g->g_currActive == (node_t *)NULL) g->g_currActive = g->g_active;
+    if (g->currentActive() == (node_t *)NULL) g->setCurrentActive(g->activeNodesList());
 
     n->n_pactive = (node_t *)NULL;
     n->n_active = (node_t *)NULL;
@@ -529,7 +530,7 @@ void DumpNodes(graph_t *g) {
 
     PrintOutError("==========================\n");
 
-    for (n = g->g_nodes; n != NULL; n = n->n_next) {
+    for (n = g->nodesList(); n != NULL; n = n->n_next) {
         PrintOutError("  ");
         DumpNode(n);
     }
@@ -569,7 +570,7 @@ void DumpNode(node_t *n) {
 
 void DumpActiveNodes(graph_t *g, node_t *current, FILE *log) {
     node_t *n = NULL;
-    n = g->g_active;
+    n = g->activeNodesList();
 
     if (log != NULL) {
         fprintf(log, "%d: ", current->n_id);
@@ -579,7 +580,7 @@ void DumpActiveNodes(graph_t *g, node_t *current, FILE *log) {
 
     if (n == NULL) return;
 
-    while (n != NULL && n != g->g_lastActive) {
+    while (n != NULL && n != g->lastActive()) {
         if (log != NULL) {
             fprintf(log, "%d,", n->n_id);
         } else {

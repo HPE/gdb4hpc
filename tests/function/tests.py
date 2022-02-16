@@ -573,11 +573,15 @@ class lgdb_ftn_t3(Test):
     def test(self):
         runTest(self)
         
-class c_assert_wodecomp(Test):
+class assert_scalars(Test):
+    def test(self):
+        runTest(self)
+
+class assert_arrays(Test):
     def test(self):
         runTest(self)
         
-class c_assert_wdecomp(Test):
+class assert_decomp(Test):
     def test(self):
         runTest(self)
         

@@ -40,7 +40,6 @@ extern token_t *NodeDbgRecvVarSet(graph_t *, node_t *);
 extern token_t *NodeDbgGetVarSet(graph_t *, node_t *);
 extern token_t *NodeDbgSetVar(graph_t *, node_t *);
 extern token_t *NodeDbgKill(graph_t *, node_t *);
-extern token_t *NodeDisplay(graph_t *, node_t *);
 extern token_t *NodeDivide(graph_t *, node_t *);
 extern token_t *NodeEPS(graph_t *, node_t *);
 extern token_t *NodeEqual(graph_t *, node_t *);

@@ -31,14 +31,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "assertinfo.h"
 #include "bitset.h"
 #include "client.h"
 #include "df.h"
 #include "useful.h"
 
 #define GRAPH_TABLE_SIZE 100 /* number that can be active */
-#define DEFQLEN 5            /* default length of input queue */
 
 /*
 ** Static global variables
@@ -53,21 +51,7 @@ static graph_t *GraphPtr;
 ** static function prototypes
 */
 static void GraphCleanup(int);
-static int SetStart(graph_t *, int);
-static int CheckGraph(graph_t *);
-static int OutNode(graph_t *, const char *);
-static int OutConstInt(graph_t *, const char *, int);
-static int OutConstFloat(graph_t *, const char *, double);
-static int OutConstStr(graph_t *, const char *, const char *);
-static int OutConstAIF(graph_t *, const char *, double, int);
-static int OutConstBitSet(graph_t *, const char *, const DenseBitset*);
-static void OutEdge(graph_t *, int, int, int);
-static int DisplayData(char *type, char *file, char *name, AIF *data);
-static int CompareData(graph_t *, int, char *, AIF *, char *, AIF *, int);
-static int DisplayP2P(graph_t *, int, char *, AIF *);
-
-enum class ComparisonResult { PASS, FAIL, WARN, INDETERMINATE, UNKNOWN };
-static ComparisonResult OpResult(int aifResult, int cmpop);
+static int DisplayData(char *type, char *file, const char *name, AIF *data);
 
 /********************************
  * Info class commands
@@ -78,7 +62,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
     char *disp = (char *)NULL;
     char *output = (char *)NULL;
     graph_t *g;
-    graph_diff *gd;
+    graph_t::graph_diff *gd;
     ct_val cv;
     const char *s;
     int num = 0, req = 0;
@@ -94,11 +78,11 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
         // loop through each graphptr
         SetList(GraphList);
         while ((g = (graph_t *)GetListElement(GraphList)) != (graph_t *)NULL) {
-            PrintOutMsg("Script $%s\n", g->g_valname);
-            SetList(g->g_diff);
-            while ((gd = (graph_diff *)GetListElement(g->g_diff)) !=
-                   (graph_diff *)NULL) {
-                PrintOutMsg("%d. %s\n", ++num, gd->gd_name);
+            PrintOutMsg("Script $%s\n", g->name().c_str());
+            SetList(g->diffsList());
+            while ((gd = (graph_t::graph_diff *)GetListElement(g->diffsList())) !=
+                   (graph_t::graph_diff *)NULL) {
+                PrintOutMsg("%d. %s\n", ++num, gd->gd_name.c_str());
             }
         }
         return 1;
@@ -118,14 +102,14 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
             SetList(GraphList);
             while ((g = (graph_t *)GetListElement(GraphList)) !=
                    (graph_t *)NULL) {
-                SetList(g->g_diff);
-                while ((gd = (graph_diff *)GetListElement(g->g_diff)) !=
-                       (graph_diff *)NULL) {
+                SetList(g->diffsList());
+                while ((gd = (graph_t::graph_diff *)GetListElement(g->diffsList())) !=
+                       (graph_t::graph_diff *)NULL) {
                     if (++num == req) {
-                        PrintOutMsg("Script $%s %s\n", g->g_valname,
-                                    gd->gd_name);
+                        PrintOutMsg("Script $%s %s\n", g->name().c_str(),
+                                    gd->gd_name.c_str());
                         return (
-                            DisplayData(disp, output, gd->gd_name, gd->gd_val));
+                            DisplayData(disp, output, gd->gd_name.c_str(), gd->gd_val));
                     }
                 }
             }
@@ -141,7 +125,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
             SetList(GraphList);
             while ((g = (graph_t *)GetListElement(GraphList)) !=
                    (graph_t *)NULL) {
-                if (!strcmp(g->g_valname, gname)) break;
+                if (!strcmp(g->name().c_str(), gname)) break;
             }
             // Make sure we found the graph
             if (g == NULL) {
@@ -156,13 +140,13 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
                         // Make sure to subtract one since we use offset 0
                         // internally
                         req = cv.cv_int - 1;
-                        SetList(g->g_diff);
-                        while ((gd = (graph_diff *)GetListElement(g->g_diff)) !=
-                               (graph_diff *)NULL) {
+                        SetList(g->diffsList());
+                        while ((gd = (graph_t::graph_diff *)GetListElement(g->diffsList())) !=
+                               (graph_t::graph_diff *)NULL) {
                             if (gd->gd_assert_id == req) {
-                                PrintOutMsg("Script $%s %s\n", g->g_valname,
-                                            gd->gd_name);
-                                if (!DisplayData(disp, output, gd->gd_name,
+                                PrintOutMsg("Script $%s %s\n", g->name().c_str(),
+                                            gd->gd_name.c_str());
+                                if (!DisplayData(disp, output, gd->gd_name.c_str(),
                                                  gd->gd_val)) {
                                     return 0;
                                 }
@@ -180,11 +164,11 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
             }
             // no AssertID, so lets just print out every difference associated
             // with this graph
-            SetList(g->g_diff);
-            while ((gd = (graph_diff *)GetListElement(g->g_diff)) !=
-                   (graph_diff *)NULL) {
-                PrintOutMsg("Script $%s %s\n", g->g_valname, gd->gd_name);
-                if (!DisplayData(disp, output, gd->gd_name, gd->gd_val)) {
+            SetList(g->diffsList());
+            while ((gd = (graph_t::graph_diff *)GetListElement(g->diffsList())) !=
+                   (graph_t::graph_diff *)NULL) {
+                PrintOutMsg("Script $%s %s\n", g->name().c_str(), gd->gd_name.c_str());
+                if (!DisplayData(disp, output, gd->gd_name.c_str(), gd->gd_val)) {
                     return 0;
                 }
             }
@@ -217,8 +201,8 @@ static int class_info_subcmd_build_cmd(rec_set_t *rec_set, int argc,
 
         // loop through each graphptr
         while ((g = (graph_t *)GetListElement(GraphList)) != (graph_t *)NULL) {
-            PrintOutMsg("Name: $%s\t\t\tTotal Assertions: %d\n", g->g_valname,
-                        g->g_assertions);
+            PrintOutMsg("Name: $%s\t\t\tTotal Assertions: %d\n", g->name().c_str(),
+                        g->numAssertions());
         }
 
         PrintOutMsg(
@@ -254,11 +238,11 @@ static int class_info_subcmd_build_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    PrintOutMsg("Script $%s\n", g->g_valname);
+    PrintOutMsg("Script $%s\n", g->name().c_str());
 
     // loop through the g_assert_cmd list
-    SetList(g->g_assert_cmds);
-    while ((assert_cmd = (char *)GetListElement(g->g_assert_cmds)) !=
+    SetList(g->assertsList());
+    while ((assert_cmd = (char *)GetListElement(g->assertsList())) !=
            (char *)NULL) {
         PrintOutMsg("AssertID:%d  %s\n", id++, assert_cmd);
     }
@@ -273,14 +257,14 @@ static int class_info_subcmd_script_cmd(rec_set_t *rec_set, int argc,
     if ((g = StatusDF()) == (graph_t *)NULL) {
         PrintOutMsg("There is currently no assertion script executing.\n");
     } else {
-        PrintOutMsg("Active assertion script: %s\n", g->g_valname);
+        PrintOutMsg("Active assertion script: %s\n", g->name().c_str());
         PrintOutMsg(
             "Completed Iterations: %d\n",
-            (g->g_iterations /
-             g->g_assertions));  // We want integer values only from division
-        PrintOutMsg("Passed Cases: %d\n", g->g_pass);
-        PrintOutMsg("Warned Cases: %d\n", g->g_warn);
-        PrintOutMsg("Failed Cases: %d\n", g->g_fail);
+            (g->iterations() /
+             g->numAssertions()));  // We want integer values only from division
+        PrintOutMsg("Passed Cases: %d\n", g->numPasses());
+        PrintOutMsg("Warned Cases: %d\n", g->numWarnings());
+        PrintOutMsg("Failed Cases: %d\n", g->numFailures());
     }
 
     return 1;
@@ -1019,7 +1003,7 @@ static int class_maint_subcmd_dump_cmd(rec_set_t *rec_set, int argc,
         }
     }
 
-    PrintGraph(file, g);
+    g->print(file);
 
     if (file != NULL && file != Client.cli_out_stream) fclose(file);
 
@@ -1103,33 +1087,18 @@ static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     GraphVal = v;
-    //	GraphPtr = NewGraph(CompareData, OutLine, QueueLen); TODO: fixe me. how
-    //to replace OutLine() ?
-    GraphPtr = NewGraph(CompareData, NULL, DisplayP2P,
-                        DEFQLEN);  // TODO: What does DEFQLEN even mean?
+    // TODO use smart pointer
+    GraphPtr = new graph_t;
     OldCmds = SetCommands(GraphCmds);
 
     cli_inc_prompt();
 
-    GraphPtr->g_startGraph =
-        (void (*)(struct graph_t *, char *, int, void *))NULL;
-    GraphPtr->g_endGraph = (void (*)(struct graph_t *))NULL;
-    GraphPtr->g_checkGraph = CheckGraph;
-    GraphPtr->g_setStartNode = SetStart;
-    GraphPtr->g_outNode = OutNode;
-    GraphPtr->g_outConstInt = OutConstInt;
-    GraphPtr->g_outConstFloat = OutConstFloat;
-    GraphPtr->g_outConstStr = OutConstStr;
-    GraphPtr->g_outConstAIF = OutConstAIF;
-    GraphPtr->g_outConstBitSet = OutConstBitSet;
-    GraphPtr->g_outEdge = OutEdge;
-
     /*
     ** Start building graph.
     */
-    GraphPtr->g_startnode = SCONST(GraphPtr, "CONST", Client.proto);
-    GraphPtr->g_initnode = NODE(GraphPtr, "DBGINIT");
-    EDGE(GraphPtr, GraphPtr->g_startnode, GraphPtr->g_initnode, 0);
+    GraphPtr->setStartNode(GraphPtr->outConstStr(Client.proto));
+    GraphPtr->setInitNode(GraphPtr->outNode("DBGINIT"));
+    GraphPtr->outEdge(GraphPtr->startNode(), GraphPtr->initNode(), 0);
 
     return 1;
 }
@@ -1273,7 +1242,7 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *buf;
     list_t *vlist;
     expr_t *e;
-    ainfo_t *ai;
+    graph_t::ainfo_t *ai;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -1293,7 +1262,7 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     vlist = NewList();
 
-    if (BuildAssert(GraphPtr, GraphPtr->g_assertions, e, rec_set, vlist) < 0) {
+    if (BuildAssert(GraphPtr, GraphPtr->numAssertions(), e, rec_set, vlist) < 0) {
         PrintError();
         FreeExpr(e);
         Free(buf);
@@ -1303,11 +1272,12 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     /*
     ** Save vars so they are freed properly.
     */
-    AppendList(GraphPtr->g_vars, vlist);
+    AppendList(GraphPtr->varsList(), vlist);
     DestroyList(vlist, NULL);
 
-    if ((ai = NewAssertInfoEntry(GraphPtr->g_assert_info_tab,
-                                 GraphPtr->g_assertions)) == (ainfo_t *)NULL) {
+    // TODO: wrap this all up within the graph class itself
+
+    if (!(ai = GraphPtr->NewAssertInfoEntry())) {
         PrintOutError("Error building assertion.\n");
         Free(buf);
         return 0;
@@ -1317,16 +1287,14 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     GetGraphVar(GRAPH_UPPER, &ai->a_upper);
     GetGraphVar(GRAPH_RELATIVE, &ai->a_relative);
     GetGraphVar(GRAPH_DISPLAY, &str);
-    ai->a_display = strdup(str);
+    ai->a_display = str;
     GetGraphVar(GRAPH_OUTPUT, &str);
-    ai->a_file = strdup(str);
+    ai->a_file = str;
     GetGraphVar(GRAPH_STOP, &ai->a_stop);
 
     // Add the buffer for the assertion command string
     // Note that this does the cleanup later.
-    AddToList(GraphPtr->g_assert_cmds, (void *)buf);
-
-    GraphPtr->g_assertions++;
+    AddToList(GraphPtr->assertsList(), (void *)buf);
 
     FreeExpr(e);  // Memory Leak: Free the expr
 
@@ -1415,7 +1383,7 @@ cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 	/*
 	** Save vars so they are freed properly.
 	*/
-	AppendList(GraphPtr->g_vars, vlist);
+	AppendList(GraphPtr->varsList(), vlist);
 	DestroyList(vlist, NULL);
 
 	return 1;
@@ -1424,23 +1392,19 @@ cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
 
 static int cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *v;
-    size_t assertbuf_size;
 
     /*
     ** Finish off graph.
     */
-    if (GraphPtr->g_endGraph != (void (*)(struct graph_t *))NULL)
-        GraphPtr->g_endGraph(GraphPtr);
 
-    if (GraphPtr->g_setStartNode != (int (*)(struct graph_t *, int))NULL &&
-        !GraphPtr->g_setStartNode(GraphPtr, GraphPtr->g_startnode)) {
+    if (!GraphPtr->prepStartNode()) {
         PrintOutError("Build failed.\n");
+        PrintError();
         GraphCleanup(0);
         return 0;
     }
 
-    if (GraphPtr->g_checkGraph != (int (*)(struct graph_t *))NULL &&
-        !GraphPtr->g_checkGraph(GraphPtr)) {
+    if (!GraphPtr->checkGraph()) {
         PrintOutError("Build failed.\n");
         GraphCleanup(0);
         return 0;
@@ -1457,29 +1421,24 @@ static int cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ** Create graph variable.
     */
 
-    GraphPtr->g_valname = SymLookup(LVAL_SYM(GraphVal));
+    if (auto name = SymLookup(LVAL_SYM(GraphVal))) {
+        GraphPtr->setName(name);
+    } else {
+        PrintOutError("Build failed.\n");
+        GraphCleanup(0);
+        return 0;
+    }
 
     v = NewVal(lval_none, rval_graph, GraphPtr);
 
     if (AssignVal(GraphVal, v, rec_set) < 0) PrintError();
 
     /*
-    ** Create the assertion pass/warn/fail result arrays
-    */
-    assertbuf_size = sizeof(int) * GraphPtr->g_assertions;
-    GraphPtr->g_assert_pass = (int *)Alloc(assertbuf_size);
-    memset(GraphPtr->g_assert_pass, 0, assertbuf_size);
-    GraphPtr->g_assert_warn = (int *)Alloc(assertbuf_size);
-    memset(GraphPtr->g_assert_warn, 0, assertbuf_size);
-    GraphPtr->g_assert_fail = (int *)Alloc(assertbuf_size);
-    memset(GraphPtr->g_assert_fail, 0, assertbuf_size);
-
-    /*
     ** Save the GraphPtr into our internal list of graphs.
     */
     AddToList(GraphList, (void *)GraphPtr);
 
-    PrintOutMsg("Assertion script $%s compiled.\n", GraphPtr->g_valname);
+    PrintOutMsg("Assertion script $%s compiled.\n", GraphPtr->name().c_str());
 
     GraphCleanup(1);
 
@@ -1502,7 +1461,7 @@ static void GraphCleanup(int keep) {
             DestroyVal(GraphVal);
         }
         if (GraphPtr != (graph_t *)NULL) {
-            DestroyGraph(GraphPtr);
+            delete GraphPtr;
         }
     }
 
@@ -1692,194 +1651,11 @@ void FinishCmd_graph(void) {
     DestroyList(GraphList, NULL);  // destroyVal supposedly cleans up the graph
 }
 
-/**************************************
-***************************************
-** Support routines for BuildGraph().**
-***************************************
-**************************************/
-
-static int SetStart(graph_t *g, int start) {
-    token_t *t;
-    node_t *n;
-
-    /*
-    ** Create dummy token.
-    */
-
-    if ((n = FindNode(g, start)) == (node_t *)NULL) {
-        PrintOutError("No such start node \"%d\"\n", start);
-        return 0;
-    }
-
-    /*
-    ** Check if node has any inputs. Create one
-    ** if not.
-    */
-    if (n->n_ninp == 0 && NewInput(g, n, 0, TK_ANY) < 0) {
-        PrintError();
-        return 0;
-    }
-
-    t = NewToken(g, TK_INT);
-    t->t_int = start;
-
-    /*
-    ** Fake an token on first input of node.
-    ** GenNodeInput() duplicates token, and adds
-    ** node to active list.
-    */
-
-    GenNodeInput(g, n, &n->n_inputs[0], t);
-
-    // DestroyToken(g, t);
-
-    return 1;
-}
-
-static int CheckGraph(graph_t *g) {
-    int np;
-
-    if ((np = CheckNodes(g)) == 0) {
-        PrintOutError("Errors encountered, cannot proceed.\n");
-        return 0;
-    }
-
-    DPRINT("%d nodes successfully processed\n", np);
-
-    return 1;
-}
-
-static int gennode(graph_t *g, const char *node, token_t *t) {
-    nodedef_t *nd;
-
-    if ((nd = FindNodeDef(node)) == (nodedef_t *)NULL) {
-        PrintOutError("No such node \"%s\"\n", node);
-        return -1;
-    }
-
-    (void)NewNode(g, g->g_nid, nd, t);
-
-    return g->g_nid++;
-}
-
-static int OutNode(graph_t *g, const char *node) {
-    return gennode(g, node, (token_t *)NULL);
-}
-
-static int OutConstInt(graph_t *g, const char *node, int val) {
-    token_t *t;
-    char buf[BUFSIZ];
-
-    sprintf(buf, "%d", val);
-
-    t = NewToken(g, TK_INT);
-    t->t_int = val;
-    t->t_name = strdup(buf);
-
-    return gennode(g, node, t);
-}
-
-static int OutConstFloat(graph_t *g, const char *node, double val) {
-    token_t *t;
-    char buf[BUFSIZ];
-
-    sprintf(buf, "%#g", val);
-
-    t = NewToken(g, TK_FLOAT);
-    t->t_float = val;
-    t->t_name = strdup(buf);
-
-    return gennode(g, node, t);
-}
-
-static int OutConstStr(graph_t *g, const char *node, const char *val) {
-    token_t *t;
-
-    t = NewToken(g, TK_STR);
-    t->t_str = strdup(val);
-
-    return gennode(g, node, t);
-}
-
-static int OutConstAIF(graph_t *g, const char *node, double val,
-                       int type)  // just int for now
-{
-    token_t *t;
-    char buf[BUFSIZ];
-
-    t = NewToken(g, TK_DATA);
-
-    if (type == AIF_INTEGER) {
-        sprintf(buf, "%d", (int)val);
-        t->t_data = IntToAIF((int)val);
-    } else if (type == AIF_FLOATING) {
-        sprintf(buf, "%f", val);
-        t->t_data = IntToAIF(val);
-    }
-
-    t->t_name = strdup(buf);
-
-    return gennode(g, node, t);
-}
-
-static int OutConstBitSet(graph_t *g, const char *node, const DenseBitset *val) {
-    token_t *t;
-
-    t = NewToken(g, TK_BIT_SET);
-    DASSERT_NOT_NULL(val);
-    t->t_bit_set = val->typedClone();
-
-    return gennode(g, node, t);
-}
-
-static void OutEdge(graph_t *g, int from, int to, int port) {
-    if (!Connect(g, from, to, port)) {
-        PrintOutError("Could not connect node %d to %d:%d\n", from, to, port);
-        PrintError();
-    }
-}
-
-ComparisonResult OpResult(int aifResult, int cmpop) {
-    if (aifResult == 3)
-        return ComparisonResult::INDETERMINATE;
-    else if (aifResult == -2 || aifResult == 2)
-        return ComparisonResult::WARN;
-
-    // the aifResult is reversed from the expected:
-    // -1: A > B
-    //  0: A == B
-    //  1: A < B
-    bool pass = true;
-    switch (cmpop) {
-        case EXPR_OPNOTEQUAL:
-            pass = (aifResult != 0);
-            break;
-        case EXPR_OPLEQ:
-            pass = (aifResult != -1);
-            break;
-        case EXPR_OPGEQ:
-            pass = (aifResult != 1);
-            break;
-        case EXPR_OPLT:
-            pass = (aifResult == 1);
-            break;
-        case EXPR_OPGT:
-            pass = (aifResult == -1);
-            break;
-        case EXPR_OPEQUAL:
-            pass = (aifResult == 0);
-            break;
-        default:
-            return ComparisonResult::UNKNOWN;
-    }
-    return (pass ? ComparisonResult::PASS : ComparisonResult::FAIL);
-}
-
 /*
 ** Called to display the result of a comparison when the
 ** dataflow interpreter is executing.
 */
-int DisplayData(char *type, char *file, char *name, AIF *data) {
+int DisplayData(char *type, char *file, const char *name, AIF *data) {
     if (strcmp(type, "none") == 0) return 1;
 
     if (strcmp(type, "text") == 0) {
@@ -1893,20 +1669,6 @@ int DisplayData(char *type, char *file, char *name, AIF *data) {
         PrintOutError("Output file has not been set.\n");
         return 0;
     }
-
-#ifdef HDF
-    if (strcmp(type, "hdf") == 0) {
-        HDFDump(file, name, data);
-        return 1;
-    }
-#endif /* HDF */
-
-#ifdef HDF5
-    if (strcmp(type, "hdf5") == 0) {
-        HDF5Dump(file, name, data);
-        return 1;
-    }
-#endif /* HDF5 */
 
     if (strcmp(type, "aif") == 0) {
         AIFFILE *af;
@@ -1934,363 +1696,3 @@ int DisplayData(char *type, char *file, char *name, AIF *data) {
     return 0;
 }
 
-/*
-** Called to perform a comParison and display the result when the
-** dataflow interpreter is executing.
-**
-** Returns 1 if interpreter is to continue, 0 to stop the interpreter.
-**
-** g - the graph that is executing
-**
-** id - the assertion id. Can be used to associate assertion specific
-**      data with the comparison. For example this might be used to
-**      associate upper and lower bounds, display type and an output file
-**      with the assertion.
-**
-** name - the name of the variable being compared.
-**
-** data - the data being compared.
-**
-** compare operator
-*/
-int CompareData(graph_t *g, int id, char *name1, AIF *data1, char *name2,
-                AIF *data2, int cmpop) {
-    int rtn = 1;
-    int aifResult;
-    AIF *ar = NULL;
-    ainfo_t *ai;
-
-    if ((ai = FindAssertInfo(g->g_assert_info_tab, id)) == (ainfo_t *)NULL) {
-        PrintOutError("No assertion information found!\n");
-        return 0;
-    }
-
-#ifdef DEBUG
-/*	fprintf(Client.cli_out_stream, "data1 is:\n");
-        AIFPrint(Client.cli_out_stream, 0, data1);
-        fprintf(Client.cli_out_stream, "\ndata2 is:\n");
-        AIFPrint(Client.cli_out_stream, 0, data2);
-        fprintf(Client.cli_out_stream, "\n");
-        fflush(Client.cli_out_stream);*/
-#endif
-
-    // Ensure the error ranges get created
-    if (ai->a_aifupper == NULL || ai->a_aiflower == NULL) {
-        ai->a_aiflower = DoubleToAIF(ai->a_lower);
-        ai->a_aifupper = DoubleToAIF(ai->a_upper);
-    }
-
-    // Call the compare function. This handles EPS/diff calculation for us.
-    if (AIFCompare(data1, data2, &aifResult, &ar, ai->a_aiflower,
-                   ai->a_aifupper)) {
-        PrintOutError("AIFCompare Error: %s\n", AIFErrorStr());
-        if (ai->a_stop)
-            return 0;
-        else
-            return 1;
-    }
-
-    /*
-    ** save result information that is independent from display type.
-    */
-    ComparisonResult res = OpResult(aifResult, cmpop);
-    switch (res) {
-        case ComparisonResult::PASS:
-            // no differences
-            g->g_pass++;
-            g->g_assert_pass[id]++;
-            // continue on pass
-            rtn = 1;
-            break;
-        case ComparisonResult::WARN:
-            // between lo and hi
-            g->g_warn++;
-            g->g_assert_warn[id]++;
-            NewGraphDiff(g, id, CopyAIF(ar), "Warning");
-            // continue on warning
-            rtn = 1;
-            break;
-        case ComparisonResult::FAIL:
-            // fatal difference
-            g->g_fail++;
-            g->g_assert_fail[id]++;
-            NewGraphDiff(g, id, CopyAIF(ar), "Failure");
-            // if stop is true, we want to stop
-            if (ai->a_stop)
-                rtn = 0;
-            else
-                rtn = 1;
-            break;
-        case ComparisonResult::INDETERMINATE:
-            PrintOutError(
-                "Warning: A function type, pointer, or some other type that "
-                "has an \n");
-            PrintOutError(
-                "         indeterminate comparison result was encountered.\n");
-            PrintOutError(
-                "No comparison took place. Continuing graph execution.\n");
-            break;
-        case ComparisonResult::UNKNOWN:
-            PrintOutError("Unknown difference result.\n");
-            AIFFree(ar);
-            if (ai->a_stop)
-                return 0;
-            else
-                return 1;
-    }
-
-    // increment the iteration count
-    // we only increment the count when a full assertion has completed its
-    // evauluation.
-    g->g_iterations++;
-
-    // Always display XML results if XML mode is on
-    if (Client.XML_mode) {
-        PrintOutLine(XML_RESULT, g->g_valname, id + 1, g->g_assert_pass[id],
-                     g->g_assert_warn[id], g->g_assert_fail[id]);
-    }
-
-    if (strcmp(ai->a_display, "none") == 0) {
-        AIFFree(ar);
-        return rtn;
-    }
-
-    if (strcmp(ai->a_display, "text") == 0) {
-        switch (res) {
-            case ComparisonResult::WARN:
-                // display a warning
-                PrintOutLine(
-                    "*** Tolerable difference found in AssertID %d ***\n",
-                    id + 1);
-                break;
-            case ComparisonResult::FAIL:
-                // display an error
-                PrintOutLine("*** Difference found in AssertID %d ***\n",
-                             id + 1);
-                /*
-                #ifdef DEBUG
-                        fprintf(Client.cli_out_stream, "data1 is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, data1);
-                        fprintf(Client.cli_out_stream, "\ndata2 is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, data2);
-                        fprintf(Client.cli_out_stream, "\n");
-                        fprintf(Client.cli_out_stream, "\ndiff is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, ar);
-                        fprintf(Client.cli_out_stream, "\n");
-                        fflush(Client.cli_out_stream);
-                #endif
-                */
-                break;
-            default:
-                // do nothing
-                break;
-        }
-
-        AIFFree(ar);
-        return rtn;
-    }
-
-#ifdef OPENDX
-    if (strcmp(ai->a_display, "vis_opendx") == 0) {
-        GuardVisualization(ar, ai->a_display);
-        AIFFree(ar);
-        return rtn;
-    }
-#endif /* OPENDX */
-
-    if (ai->a_file == NULL) {
-        PrintOutError("Output file has not been set.\n");
-        AIFFree(ar);
-        return rtn;
-    }
-
-#ifdef HDF
-    if (strcmp(ai->a_display, "hdf") == 0) {
-        HDFDump(ai->a_file, "", ar);
-        AIFFree(ar);
-        return rtn;
-    }
-#endif /* HDF */
-
-#ifdef HDF5
-    if (strcmp(ai->a_display, "hdf5") == 0) {
-        HDF5Dump(ai->a_file, "", ar);
-        AIFFree(ar);
-        return rtn;
-    }
-#endif /* HDF5 */
-
-    if (strcmp(ai->a_display, "aif") == 0) {
-        AIFFILE *af;
-
-        if (access(ai->a_file, F_OK) == 0)
-            af = AIFOpenSet(ai->a_file, AIFMODE_APPEND);
-        else
-            af = AIFOpenSet(ai->a_file, AIFMODE_CREATE);
-
-        if (af == (AIFFILE *)NULL) {
-            PrintOutError("AIF Error: %s: %s\n", ai->a_file, AIFErrorStr());
-            AIFFree(ar);
-            return rtn;
-        }
-
-        AIFWriteSet(af, ar, const_cast<char *>(""));
-        AIFCloseSet(af);
-
-        AIFFree(ar);
-        return rtn;
-    }
-
-    PrintOutError("Invalid display type: \"%s\"\n", ai->a_display);
-
-    AIFFree(ar);
-    return rtn;
-}
-
-/*
-** Called to display the result of the p2p operation when the
-** dataflow interpreter is executing.
-**
-** Returns 1 if interpreter is to continue, 0 to stop the interpreter.
-**
-** g - the graph that is executing
-**
-** name - the name of the variable being compared.
-**
-** data - the data being compared.
-**
-** FIXME: This is not supported. It needs to be done properly... Stop this two
-**        function non-sense. Integrate this with CompareData.
-** FIXME: This doesn't support the AIF changes...
-*/
-int DisplayP2P(graph_t *g, int id, char *name, AIF *data) {
-    int res = 0;
-    AIF *zero_aif = IntToAIF(0);
-    ainfo_t *ai;
-
-    if ((ai = FindAssertInfo(g->g_assert_info_tab, id)) == (ainfo_t *)NULL) {
-        PrintOutError("No assertion information found!\n");
-        return 0;
-    }
-    /*
-    fprintf(Client.cli_out_stream, "%s: ", name);
-    AIFPrint(Client.cli_out_stream, 0, data);
-    fprintf(Client.cli_out_stream, "\n");
-    */
-    // tmp = AIFCompare(0, data, zero_aif, &res);
-    AIFFree(zero_aif);
-
-    /*
-    ** save result information that is independent from display type.
-    ** Note that res has three states.
-    ** -1: No differences found
-    ** 0: Inside of the lo and hi precision limits.
-    ** 1: Outside hi precision limit, causes fatal difference.
-    */
-    switch (res) {
-        case -1:
-            // no differences
-            g->g_pass++;
-            g->g_assert_pass[id]++;
-            break;
-        case 0:
-            // between lo and hi
-            g->g_warn++;
-            g->g_assert_warn[id]++;
-            NewGraphDiff(g, id, CopyAIF(data), "Warning");
-            break;
-        case 1:
-            // fatal difference
-            g->g_fail++;
-            g->g_assert_fail[id]++;
-            NewGraphDiff(g, id, CopyAIF(data), "Failure");
-            break;
-        default:
-            PrintOutError("Unknown difference result.\n");
-            return 0;
-    }
-
-    // increment the iteration count
-    // we only increment the count when a full assertion has completed its
-    // evauluation.
-    g->g_iterations++;
-
-    if (strcmp(ai->a_display, "none") == 0) {
-        return res;
-    }
-
-    if (strcmp(ai->a_display, "text") == 0) {
-        switch (res) {
-            case -1:
-                // do nothing
-                break;
-            case 0:
-                // display a warning
-                PrintOutLine(
-                    "*** Tolerable difference found ***\n");  // between %s and
-                                                              // %s ***\n",
-                                                              // name2, name1);
-                break;
-            case 1:
-                PrintOutLine(
-                    "*** Difference found ***\n");  // between %s and %s!
-                                                    // ***\n", name2, name1);
-                PrintOutLine("In AssertID:%d\n", id + 1);
-                break;
-            default:
-                // shouldn't get here.
-                break;
-        }
-
-        return (res == 1) ? 0 : 1;  // correct one
-    }
-
-#ifdef OPENDX
-    if (strcmp(ai->a_display, "vis_opendx") == 0) {
-        GuardVisualization(ar, ai->a_display);
-        return res;
-    }
-#endif /* OPENDX */
-
-    if (ai->a_file == NULL) {
-        PrintOutError("Output file has not been set.\n");
-        return 0;
-    }
-
-#ifdef HDF
-    if (strcmp(ai->a_display, "hdf") == 0) {
-        HDFDump(ai->a_file, "", ar);
-        return res;
-    }
-#endif /* HDF */
-
-#ifdef HDF5
-    if (strcmp(ai->a_display, "hdf5") == 0) {
-        HDF5Dump(ai->a_file, "", ar);
-        return res;
-    }
-#endif /* HDF5 */
-
-    if (strcmp(ai->a_display, "aif") == 0) {
-        AIFFILE *af;
-
-        if (access(ai->a_file, F_OK) == 0)
-            af = AIFOpenSet(ai->a_file, AIFMODE_APPEND);
-        else
-            af = AIFOpenSet(ai->a_file, AIFMODE_CREATE);
-
-        if (af == (AIFFILE *)NULL) {
-            PrintOutError("%s: %s\n", ai->a_file, AIFErrorStr());
-            return 0;
-        }
-
-        AIFWriteSet(af, data, const_cast<char *>(""));
-        AIFCloseSet(af);
-
-        return res;
-    }
-
-    PrintOutError("Invalid display type: \"%s\"\n", ai->a_display);
-
-    return 0;
-}

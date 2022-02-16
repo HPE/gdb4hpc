@@ -115,7 +115,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
                 break;
             }
 
-            PrintGraph(Client.cli_out_stream, g);
+            g->print(Client.cli_out_stream);
 
             break;
 

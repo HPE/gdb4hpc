@@ -179,10 +179,6 @@ void InitNodeDef(void) {
     (void)AddNodeDef("DBGKILL", NodeDbgKill, TK_ANY, 1, 1, TK_PROC_SET);
     //	(void)AddNodeDef("DBGKILL", NodeDbgKill, TK_ANY, 1, 1, TK_PROC);
 
-    /* token NodeDisplay(string,string,token) */
-    (void)AddNodeDef("DISPLAY", NodeDisplay, TK_ANY, 5, 5, TK_STR, TK_STR,
-                     TK_ANY, TK_ANY, TK_ANY);
-
     /* token NodePassIfEqual(int,int,token) */
     (void)AddNodeDef("PIEQ", NodePassIfEqual, TK_ANY, 3, 3, TK_ANY, TK_ANY,
                      TK_ANY);

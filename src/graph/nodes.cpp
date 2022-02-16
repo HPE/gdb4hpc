@@ -91,7 +91,7 @@ token_t *NodeCompare(graph_t *g, node_t *n) {
 
     // Note that the assertid loops. This MUST be modded by the number
     // of assertions.
-    t->t_int = g->g_compare(g, (t0->t_int % (g->g_assertions)), t1->t_name,
+    t->t_int = g->compareData(t0->t_int % (g->numAssertions()), t1->t_name,
                             t1->t_data, t2->t_name, t2->t_data, t3->t_int);
 
     DPERFLOG(SetTimerStopAndLog("client time"));
@@ -118,7 +118,7 @@ token_t *NodeDisplayP2P(graph_t *g, node_t *n) {
 
     // Note that the assertid loops. This MUST be modded by the number
     // of assertions.
-    t->t_int = g->g_display_p2p(g, (t0->t_int % (g->g_assertions)), t1->t_name,
+    t->t_int = g->displayP2P(t0->t_int % (g->numAssertions()), t1->t_name,
                                 t1->t_data);
 
     DPERFLOG(SetTimerStopAndLog("client time"));
@@ -126,37 +126,6 @@ token_t *NodeDisplayP2P(graph_t *g, node_t *n) {
     DPERFLOG(CloseTimerLog());
 
     return t;
-}
-
-/*
-** Display the contents of a token. Passes token on just in
-** case you want to do something after display (like exit for example).
-*/
-token_t *NodeDisplay(graph_t *g, node_t *n) {
-    token_t *t0;
-    token_t *t1;
-    token_t *t2;
-    token_t *t3;
-    token_t *t4;
-
-    t0 = GetTokenFromInput(n, 0);
-    t1 = GetTokenFromInput(n, 1);
-    t2 = GetTokenFromInput(n, 2);
-    t3 = GetTokenFromInput(n, 3);
-    t4 = GetTokenFromInput(n, 4);
-
-    if (strcmp(t0->t_str, "none") == 0) return DupToken(t2);
-
-    if (t2->t_type != TK_DATA || t3->t_type != TK_DATA || t4->t_type != TK_DATA)
-        DFError(n, "Display: Token must contain data\n");
-
-    if (!g->g_display(t0->t_str, t1->t_str, t2->t_name, t2->t_data, t3->t_name,
-                      t3->t_data, t4->t_name, t4->t_data)) {
-        DFError(n, "Display routine failed\n");
-        return (token_t *)NULL;
-    }
-
-    return DupToken(t2);
 }
 
 int IsEqual(token_t *t1, token_t *t2) {
@@ -2230,13 +2199,13 @@ int NodeEvent(event_set_t *ev_set, const Bitset *reply_set) {
 
     /*
     ** All nodes are associated with the same graph. Therefore,
-    *RemoveActiveEvent is conducted only on the first node
+    *decActiveEvents is conducted only on the first node
     */
     SetList(info->t_node_list);
     if ((node_set = (dbgnodesetinfo_t *)GetListElement(info->t_node_list)) !=
         (dbgnodesetinfo_t *)NULL) {
         n = (node_t *)node_set->t_node;
-        for (index = 0; index < number; ++index) RemoveActiveEvent(n->n_graph);
+        for (index = 0; index < number; ++index) n->n_graph->decActiveEvents();
     }
 
     switch (e->ev_event) {
@@ -2270,7 +2239,7 @@ int NodeEvent(event_set_t *ev_set, const Bitset *reply_set) {
                                 e->ev_bp->bp_id, e->ev_bp->bp_loc.loc_func);
                             if (!strcmp(e->ev_bp->bp_loc.loc_func, "exit") &&
                                 (e->ev_bp->bp_id == 1) &&
-                                ActiveEvents(n->n_graph)) {
+                                n->n_graph->hasActiveEvents()) {
                                 ExitDF();
                             } else {
                                 t = NewToken(n->n_graph, TK_INT);
@@ -2342,7 +2311,7 @@ token_t *NodeDbgGoSet(graph_t *g, node_t *n) {
 
     for (index = 0; index < set_length; index++) {
         if (t->t_set_bits->test(index)) {
-            AddActiveEvent(g);
+            g->incActiveEvents();
             n->n_nevent++;
         }
     }
@@ -2369,7 +2338,7 @@ token_t *NodeDbgGoSet(graph_t *g, node_t *n) {
     if ((rep_set = DbgGo(rec_set,true)) != NULL) {
         ProcessErrorInRepSet(rep_set);
 
-        for (index = 0; index < set_length; index++) RemoveActiveEvent(g);
+        for (index = 0; index < set_length; index++) g->decActiveEvents();
 
         FreeRecSet(rec_set);
         FreeRepSet(rep_set);
@@ -2686,9 +2655,9 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
         // are textually different, but that resolve to the same address.  gdb
         // will create multiple breakpoints but will only stop once, so we need
         // to have the graph refer to the first installed breakpoint
-        SetList(g->g_bp_reply_list);
+        SetList(g->replyList());
         for (group_reply_t *oreply;
-             (oreply = (group_reply_t *)GetListElement(g->g_bp_reply_list));) {
+             (oreply = (group_reply_t *)GetListElement(g->replyList()));) {
             dbgbp_t *obp = EVENT_BP(oreply->rep_event);
             if (oreply->rep_di == di && addr &&
                 !strcmp(addr, obp->bp_loc.loc_addr)) {
@@ -2710,7 +2679,7 @@ token_t *NodeDbgSetBreakSet(graph_t *g, node_t *n) {
     // since the originals are about to be deleted, but it does seem worth
     // breaking the abstraction...
     for (auto reply : rep_set) {
-        AddToList(g->g_bp_reply_list, (void *)CopyGroupReply(reply));
+        AddToList(g->replyList(), (void *)CopyGroupReply(reply));
     }
 
     FreeRepSet(rep_set);

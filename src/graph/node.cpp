@@ -239,10 +239,15 @@ int Connect(graph_t *g, int from, int to, int port) {
         return 0;
     }
 
-    if ((port = NewInput(g, tn, port, fn->n_otype)) < 0) return 0;
+    DPRINT("connecting node %d (%s) output %d to node %d (%s) port %d", fn->n_id,
+           fn->n_name, fn->n_nout, tn->n_id, tn->n_name, port);
 
-    DPRINT("connecting node %d output %d to node %d port %d\n", fn->n_id,
-           fn->n_nout, tn->n_id, port);
+    if ((port = NewInput(g, tn, port, fn->n_otype)) < 0) {
+        DPRINT(" -> %d\n", port);
+        return 0;
+    }
+
+    DPRINT(" -> %d\n", port);
 
     NewOutput(fn, tn, port);
 

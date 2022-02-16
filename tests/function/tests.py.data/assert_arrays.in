@@ -28,24 +28,13 @@ b{0..1}: Breakpoint 1: file /bd_dt/c/c_cmp_diff.c, line 223.
 8:     set stop off
 9:     
 10:     # all of these should pass
-10:     # XXX: the range use warning is a bug
 11:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":95 =  $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
 12:     assert $a{0}::one_d_i_init[5..9] @"c_type_test.c":95 <  $b{0}::one_d_i_init[5..9] @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
 13:     assert $a{0}::one_d_i_init       @"c_type_test.c":95 <= $b{0}::one_d_i_init       @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
 14:     
 15:     # all of these should fail
 16:     assert $a{0}::one_d_i_init       @"c_type_test.c":161  = $b{0}::one_d_i_init       @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
 17:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":95  != $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command. Only operating on rank 0.
-Warning: Range use detected in procset for command. Only operating on rank 0.
 19:     # XXX: including this one ensures none of the others will even be evaluated
 20:     #      for some reason. changing the line number affects the outcome...
 21:     # assert $a{0}::one_d_i_init @"c_type_test.c":160 != $b{0}::one_d_i_init @"c_cmp_diff.c":160

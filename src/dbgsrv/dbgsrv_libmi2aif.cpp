@@ -795,9 +795,9 @@ AIFStream *Mi2Aif::getSimpleAIF(MIVar *var) {
                 // null if rtn== NULL
                 // TODO: create test case for fortran real named "TIME"
                 DVPRINT(
-                    "GetSimpleAIF: GetFunctionReturnType returned: %s, "
-                    "returning NULL!\n",
-                    rtn);
+                    "GetSimpleAIF: GetFunctionReturnType returned NULL:"
+                    "returning NULL!\n");
+
                 return nullptr;
             }
             DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);

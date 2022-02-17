@@ -220,9 +220,7 @@ proxy_type *NewProxyType(proxy_session *sess) {
     if (sess == NULL) return NULL;
 
     // Alloc the return type
-    proxy_type *rtn = (proxy_type *)Alloc(sizeof(proxy_type));
-    // memset everything to 0
-    memset(rtn, 0, sizeof(proxy_type));
+    auto *rtn = new proxy_type;
 
     // set each member that needs to be initialized non-zero
     PROXY_EVENTFD(rtn) = -1;

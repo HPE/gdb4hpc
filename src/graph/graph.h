@@ -254,7 +254,7 @@ struct graph_t::graph_diff {
         : gd_assert_id{id}, gd_val{res}
     {
         std::ostringstream ss;
-        ss << "AssertID " << id + 1 << stat;
+        ss << "AssertID " << id + 1 << " " << stat;
         gd_name = ss.str();
     }
 

@@ -463,6 +463,31 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
             a = construct_blockmap_data(LVAL_BM_BLOCKMAP(val),
                                         LVAL_BM_GDB_PROCSET(val),
                                         LVAL_BM_ARRAY_SIZE(val), rep_set);
+            //if aif data is a pointer type change target_expr and
+            //try construct_blockmap_data again
+            if(a && strstr(AIF_DATA(a),"*")){
+                //get pointer array length from decomposition
+                Free(a);
+                int ptrLen=1;
+                for (int i=0; i<LVAL_BM_BLOCKMAP(val)->m_rank;i++){
+                    int temp=LVAL_BM_BLOCKMAP(val)->m_data[i];
+                    temp=temp/(LVAL_BM_BLOCKMAP(val)->m_procs[i]);
+                    ptrLen *= temp;
+                }
+                //concatenate length to target_expr
+                std::string targetStr = target_expr;
+                std::string fullStr = targetStr + "[0]@"+std::to_string(ptrLen)+"\0";
+                target_expr = (char *)fullStr.c_str();
+                //evaluate with new target_expr
+                Free(rep_set);
+                rep_set = DbgEvalExpr(rec_set, target_expr);
+                Free(LVAL_BM_GDB_EXPR(val));
+                LVAL_BM_GDB_EXPR(val)=strdup(target_expr);
+                //construct new blockmap_data
+                a = construct_blockmap_data(LVAL_BM_BLOCKMAP(val),
+                                        LVAL_BM_GDB_PROCSET(val),
+                                        LVAL_BM_ARRAY_SIZE(val), rep_set);
+            }
             // Free the rep_set, we are done with it
             FreeRepSet(rep_set);
             // assign the AIF result to the val

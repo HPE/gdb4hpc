@@ -1270,7 +1270,9 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
 
     // Create an array of aif values
     da = (AIF **)Alloc(sizeof(AIF *) * array_size);
-
+    for (int i = 0; i<array_size; i++){
+        da[i]=nullptr;
+    }
     // process rep_set, placing the AIF data into the array
     for (auto&& reply : rep_set) {
         // Now loop over every rank to see if its in this reply
@@ -1281,6 +1283,13 @@ AIF *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
                 da[i] = EVENT_DATA(reply->rep_event)->joinAIF();
             }
         }
+    }
+    //if AIF_DATA contains the type of pointer return da[0] for AIF_DATA information
+    if (da[0] && strstr(AIF_DATA(da[0]),"*")){
+        a = (AIF *)Alloc(sizeof(AIF));
+        AIF_DATA(a)=strdup(AIF_DATA(da[0]));
+        Free(da);
+        return a;
     }
 
     if ((a = ApplyBlockMap(bm, AIF_FORMAT(da[0]), array_size, da, "")) ==

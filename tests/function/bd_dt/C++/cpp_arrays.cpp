@@ -75,6 +75,8 @@ int main(int argc, char* argv[])
         wafflesVec.push_back(wafflesArray[i]);
     }
 
+    Waffle * wafflesPtr = wafflesArray;
+    
     if (application) {
         localArray1[localSize-1] = -100;
         distributedArray1[size-1] = -100;

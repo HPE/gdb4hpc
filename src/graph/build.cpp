@@ -55,13 +55,11 @@ static void BuildGetVarSet(graph_t *, int *, int *, var_t *, int, int,
                            extrainfo *);
 static int BuildCmp(graph_t *, int, int, int, int);
 static int BuildBlockMap(graph_t *, g_block_map_t *, var_t *, extrainfo *, int);
-static void BuildMerge(graph_t *, var_t *, int, int, int);
-static int BuildMergeProc(graph_t *, graph_t::graph_inv *, var_t *, int, int, int, int);
+static void BuildMerge(graph_t *, var_t *, int, int);
+static int BuildMergeProc(graph_t *, graph_t::graph_inv *, var_t *, int, int, int);
 static void BuildSync(graph_t *, var_t *, int, int);
-static int BuildReduce(graph_t *, var_t *, int *, extrainfo *);
-static int BuildDisplayP2P(graph_t *, int, int, int, int);
 
-static int AsyncMode(graph_t *, list_t *, dfmode_t);
+static int AsyncMode(graph_t *, list_t *);
 static int build_expr(graph_t *, int *, int *, list_t *, expr_t *, rec_set_t *,
                       func_t *, extrainfo *);
 static int build_func(graph_t *, hentry_t *, int *, int *, list_t *, expr_t *,
@@ -73,7 +71,6 @@ static int _validate_block_map(graph_t *, g_block_map_t *, var_t *);
 // without adding an extra parameter to build_expr.  Note: Can we pass assert id
 // down through the vars? Look into this.
 static int iAssertID = -1;
-static dbgprocset_t *other_procset;  // TODO: Remove this, looks buggy
 
 /*
 ** If first time, output nodes and edges to invoke program.
@@ -220,7 +217,6 @@ static int BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v) {
     int n4;
     int n5;
     int n6;
-    int p2pmode;
 
     DPRINT("In BuildSetBPSet\n");
 
@@ -243,23 +239,7 @@ static int BuildSetBPSet(graph_t *g, int i1, int i2, var_t *v) {
     g->outEdge(n3, n5, 1);
     g->outEdge(i1, n6, 1);
 
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-    if (p2pmode) {
-        int n7;
-        int n8;
-        int n9;
-        n7 = g->outNode("DBGOPENSOCKET_SET");  // Minh adds here to do p2p
-        // use global var other_procset to send the name of the other procset
-        n8 = g->outConstStr(other_procset->s_name);
-        n9 = g->outConstInt(other_procset->s_nproc);
-        g->outEdge(i1, n7, 0);
-        g->outEdge(n5, n8, 0);
-        g->outEdge(n5, n9, 0);
-        g->outEdge(n8, n7, 1);
-        g->outEdge(n9, n7, 2);
-        g->outEdge(n7, n6, 0);
-    } else
-        g->outEdge(n5, n6, 0);
+    g->outEdge(n5, n6, 0);
 
     /*
     ** Link to SYNC node.
@@ -332,12 +312,8 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
 
     std::string varexpr;
     std::ostringstream finalexpr;
-    int reducefunc, p2pmode;
 
     DPRINT("In BuildGetVarSet\n");
-
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 
     if (v->v_internal) {
         n4 = g->outNode("GETVAR");
@@ -349,56 +325,7 @@ static void BuildGetVarSet(graph_t *g, int *inp, int *out, var_t *v,
             varexpr = v->v_var;
         }
 
-        /* check if reduce function is on
-        ** Minh 09/06/2009
-        */
-        if (reducefunc != EXPR_REDUCE_NONE) {
-            std::string reduceexpr;
-            double lower_bound;
-            double upper_bound;
-
-            switch (reducefunc) {
-                case EXPR_SUM:
-                    reduceexpr = "`sum`";
-                    break;
-                case EXPR_PRODUCT:
-                    reduceexpr = "`product`";
-                    break;
-                case EXPR_AVERAGE:
-                    reduceexpr = "`average`";
-                    break;
-                case EXPR_MIN:
-                    reduceexpr = "`min`";
-                    break;
-                case EXPR_MAX:
-                    reduceexpr = "`max`";
-                    break;
-                case EXPR_STDEV:
-                    reduceexpr = "`stdev`";
-                    break;
-                case EXPR_COUNTELEM:
-                    GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
-                    GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-                    reduceexpr = "`countelem(" + std::to_string(lower_bound) + ","
-                        + std::to_string(upper_bound) + ")`";
-                    break;
-                case EXPR_HASH_BOB:
-                    reduceexpr = std::string{"`hash("} + extra->hashinfo + ")`";
-                    break;
-                default:
-                    SetError("Unknown reduction function %d", reducefunc);
-                    return;
-            }
-            finalexpr << reduceexpr << varexpr;
-        }
-
-        // if there is p2p mode turn on, attach blockmap info
-        else if (p2pmode) {
-            finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`"
-                      << varexpr;
-        } else {
-            finalexpr << varexpr;
-        }
+        finalexpr << varexpr;
 
         t1 = g->outConstStr(finalexpr.str().c_str());
 
@@ -460,12 +387,9 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
 
     int a1;
 
-    int reducefunc;
     int p2pmode = 0;
 
     DPRINT("In BuildGetVar\n");
-
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
 
     if (v->v_internal) {
         n4 = g->outNode("GETVAR");
@@ -480,64 +404,8 @@ static void BuildGetVar(graph_t *g, int *inp, int *out, var_t *v, int pid,
             varexpr = v->v_var;
         }
 
-        /* check if reduce function is on
-        ** Minh 09/06/2009
-        */
-        if (reducefunc != EXPR_REDUCE_NONE) {
-            std::string reduceexpr;
-            double lower_bound;
-            double upper_bound;
-            int histogram_numbins;
-            double histogram_start;
-            double histogram_end;
-
-            switch (reducefunc) {
-                case EXPR_SUM:
-                    reduceexpr = "`sum`";
-                    break;
-                case EXPR_PRODUCT:
-                    reduceexpr = "`product`";
-                    break;
-                case EXPR_AVERAGE:
-                    reduceexpr = "`average`";
-                    break;
-                case EXPR_MIN:
-                    reduceexpr = "`min`";
-                    break;
-                case EXPR_MAX:
-                    reduceexpr = "`max`";
-                    break;
-                case EXPR_STDEV:
-                    reduceexpr = "`stdev`";
-                    break;
-                case EXPR_COUNTELEM:
-                    GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
-                    GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-                    reduceexpr = "`countelem(" + std::to_string(lower_bound) + "," +
-                        std::to_string(upper_bound) + ")`";
-                    break;
-                case EXPR_HISTOGRAM:
-                    GetGraphVar(GRAPH_HISTOGRAM_NUMBINS,
-                                (int *)&histogram_numbins);
-                    GetGraphVar(GRAPH_HISTOGRAM_START,
-                                (double *)&histogram_start);
-                    GetGraphVar(GRAPH_HISTOGRAM_END, (double *)&histogram_end);
-                    reduceexpr = "`histogram(" + std::to_string(histogram_numbins) + "," +
-                        std::to_string(histogram_start) + "," + std::to_string(histogram_end) + ")`";
-                    break;
-                case EXPR_HASH_BOB:
-                    reduceexpr = std::string{"`hash("} + extra->hashinfo +")`";
-                    break;
-                default:
-                    SetError("Unknown reduction function %d", reducefunc);
-                    return;
-            }
-
-            finalexpr << reduceexpr << varexpr;
-        }
-
         // if there is p2p mode turn on, attach blockmap info
-        else if (p2pmode) {
+        if (p2pmode) {
             finalexpr << "`ptop(" << v->v_pname << "-" << extra->blockmapinfo << ")`" << varexpr;
         } else {
             finalexpr << varexpr;
@@ -616,120 +484,6 @@ static int _validate_block_map(graph_t *g, g_block_map_t *bm, var_t *v) {
     return 1;
 }
 
-static int _determine_hash_info(char *hashinfo, graph_t *g, g_block_map_t *bm1,
-                                g_block_map_t *bm2, int **data_size) {
-    int rank;
-    int *final_size;
-    int i;
-    char buf[100];
-
-    DPRINT("In _determine_hash_info\n");
-
-    // no bockmap used, just hash the whole array
-    if (bm1 == (g_block_map_t *)NULL && bm2 == (g_block_map_t *)NULL) {
-        strcpy(hashinfo, "");
-        return 0;
-    }
-
-    rank = bm1 != (g_block_map_t *)NULL ? bm1->m_rank : bm2->m_rank;
-    final_size = (int *)Alloc(sizeof(int) * rank);
-
-    for (i = 0; i < rank; i++)
-        final_size[i] = gcd(data_size[0][i], data_size[1][i]);
-
-    // now put the data into hashinfo
-    for (i = 0; i < rank; i++) {
-        sprintf(buf, "%d", final_size[i]);
-        strcat(hashinfo, buf);
-        if (i < rank - 1) strcat(hashinfo, ",");
-    }
-
-    Free(final_size);
-
-    return 0;
-}
-
-static int _find_hash_info(char *hashinfo, graph_t *g, expr_t *e,
-                           rec_set_t *rec_set) {
-    expr_elt *ep;
-    g_block_map_t *bm1 = (g_block_map_t *)NULL;  // Minh
-    g_block_map_t *bm2 = (g_block_map_t *)NULL;  // Minh
-    int *data_size[2] = {NULL, NULL};
-    int found = 0;
-    int i, res;
-
-    DPRINT("In _find_hash_info\n");
-
-    RESET(e);
-    while (!EMPTY(e)) {
-        ep = TOP(e);
-        if (ep->e_op == EXPR_BLOCKMAP) {
-            if (found == 0) {
-                if ((bm1 = EvaluateBlockMap(e, rec_set, CMD_MODE_DEFERRED)) ==
-                    (g_block_map_t *)NULL)
-                    return -1;
-
-                data_size[0] = (int *)Alloc(sizeof(int) * bm1->m_rank);
-
-                if (_get_hash_block_size(bm1->m_rank, bm1->m_data,
-                                         bm1->m_distribute,
-                                         bm1->m_blockcyclic_val, bm1->m_procs,
-                                         data_size[0]) != 1) {
-                    char err_message[BUFSIZ];
-                    sprintf(err_message,
-                            "BlockMap %s decomposition is not feasible with "
-                            "the given array shape",
-                            SymLookup(bm1->m_sym));
-                    SetError(err_message);
-                    if (data_size[0]) Free(data_size[0]);
-                    if (data_size[1]) Free(data_size[1]);
-                    return -1;
-                }
-            } else {
-                if ((bm2 = EvaluateBlockMap(e, rec_set, CMD_MODE_DEFERRED)) ==
-                    (g_block_map_t *)NULL)
-                    return -1;
-
-                data_size[1] = (int *)Alloc(sizeof(int) * bm2->m_rank);
-                if (_get_hash_block_size(bm2->m_rank, bm2->m_data,
-                                         bm2->m_distribute,
-                                         bm2->m_blockcyclic_val, bm2->m_procs,
-                                         data_size[1]) != 1) {
-                    char err_message[BUFSIZ];
-                    sprintf(err_message,
-                            "BlockMap %s decomposition is not feasible with "
-                            "the given array shape",
-                            SymLookup(bm2->m_sym));
-                    SetError(err_message);
-                    if (data_size[0]) Free(data_size[0]);
-                    if (data_size[1]) Free(data_size[1]);
-                    return -1;
-                }
-                break;
-            }
-            found++;
-        } else
-            ep = POP(e);
-    }
-    res = _determine_hash_info(hashinfo, g, bm1, bm2, data_size);
-
-    for (i = 0; i < 2; i++) Free(data_size[i]);
-
-    return res;
-}
-
-static int _identify_p2p_receiver_procset(graph_t *g, var_t *v1, var_t *v2) {
-    graph_t::graph_inv *gi;
-    int numprocs1, numprocs2;
-
-    gi = g->FindGraphInv(v1->v_pname);
-    numprocs1 = gi->gp_di->d_nproc;
-    gi = g->FindGraphInv(v2->v_pname);
-    numprocs2 = gi->gp_di->d_nproc;
-
-    return numprocs1 > numprocs2 ? 1 : 0;
-}
-
 /* Minh add this function to implement block map
  * 15/05/2009
  */
@@ -743,24 +497,13 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
     int t3;
     graph_t::graph_inv *gi;
 
-    int reducefunc;
     std::ostringstream mapname;
 
     DPRINT("In BuildBlockMap\n");
 
     gi = g->FindGraphInv(v->v_pname);
 
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-    if (reducefunc != EXPR_REDUCE_NONE &&
-        (
-            // All known hash functions should be or'ed here
-            reducefunc == EXPR_HASH_BOB))
-        mapname << extra->hashinfo << "#" << SymLookup(bm->m_sym) << "("
-                << v->v_var << ")";
-    else {
-        mapname << SymLookup(bm->m_sym) << "(" << v->v_var << ")";
-    }
-
+    mapname << SymLookup(bm->m_sym) << "(" << v->v_var << ")";
 
     if (blockmap_required) {
         n1 = g->outConstStr(mapname.str().c_str());
@@ -827,145 +570,13 @@ static int BuildBlockMap(graph_t *g, g_block_map_t *bm, var_t *v,
     return n3;
 }
 
-/* Minh adds this function for more reduce functions
- */
-static int BuildReduce(graph_t *g, var_t *v, int *inp, extrainfo *extra) {
-    int n1;
-    int n2;
-    int n3;
-    int t2;
-    int reducefunc;
-    char name[BUFSIZ] = "";
-
-    graph_t::graph_inv *gi;
-
-    DPRINT("In BuildReduce\n");
-
-    gi = g->FindGraphInv(v->v_pname);
-
-    // now need to work out the reduce function
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-    if (reducefunc != EXPR_REDUCE_NONE) {
-        switch (reducefunc) {
-            case EXPR_SUM:
-                sprintf(name, "`sum`%s", v->v_var);
-                break;
-            case EXPR_PRODUCT:
-                sprintf(name, "`product`%s", v->v_var);
-                break;
-            case EXPR_AVERAGE:
-                sprintf(name, "`average`%s", v->v_var);
-                break;
-            case EXPR_MIN:
-                sprintf(name, "`min`%s", v->v_var);
-                break;
-            case EXPR_MAX:
-                sprintf(name, "`max`%s", v->v_var);
-                break;
-            case EXPR_STDEV:
-                sprintf(name, "`stdev`%s", v->v_var);
-                break;
-            case EXPR_COUNTELEM:
-                sprintf(name, "`count`%s", v->v_var);
-                break;
-            /*
-            case EXPR_HISTOGRAM:
-                    sprintf(name, "`histogram`%s", v->v_var);
-                    break;
-            */
-            default:
-                sprintf(name, "%s", v->v_var);
-                break;
-        }
-    }
-
-    n1 = g->outConstStr(name);
-
-    if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-        n3 = g->outNode("REDUCE");
-        n2 = g->outConstInt(1);
-        g->outEdge(n1, n3, 0);
-        g->outEdge(n2, n3, 1);
-
-        BuildGetVar(g, inp, &t2, v, v->v_indiv, NULL);
-
-        g->outEdge(t2, n1, 0);
-        g->outEdge(t2, n2, 0);
-        g->outEdge(t2, n3, 2);
-
-        return n3;
-    }
-
-    n3 = g->outNode("REDUCE_SET");
-    g->outEdge(n1, n3, 0);
-
-    //	n2 = g->outConstInt(gi->gp_di->d_nproc);
-    n2 = g->outConstInt(v->v_procset->s_nproc);
-    g->outEdge(n2, n3, 1);
-
-    BuildGetVarSet(g, inp, &t2, v, 0, gi->gp_di->d_nproc, extra);
-
-    g->outEdge(t2, n1, 0);
-    g->outEdge(t2, n2, 0);
-    g->outEdge(t2, n3, 2);
-
-    return n3;
-}
-
-/* this node is used to display compared results from p2p operation
- * Minh 29/06/2011
- */
-
-static int BuildDisplayP2P(graph_t *g, int id, int receiver_data, int proc_set1,
-                           int proc_set2) {
-    int n1;
-    int n2;
-    int n3;
-    int t1;
-    int t2;
-    int t3;
-
-    n1 = g->outNode("DISPLAY_P2P");
-    t3 = g->outConstInt(id);
-    g->outEdge(receiver_data, t3, 0);
-    g->outEdge(t3, n1, 0);
-    g->outEdge(receiver_data, n1, 1);
-
-    n2 = g->outNode("DBGCLOSESOCKET_SET");
-
-    t1 = g->outConstInt(0);
-    g->outEdge(n1, t1, 0);
-    n3 = g->outNode("PIEQ");
-    g->outEdge(n1, n3, 0);
-    g->outEdge(t1, n3, 1);
-    g->outEdge(n1, n3, 2);
-
-    // connect the 2 PROC_SET nodes to CLOSESOCKET
-    g->outEdge(proc_set1, n2, 0);
-    g->outEdge(proc_set2, n2, 1);
-    g->outEdge(n3, n2, 2);
-
-    t2 = g->outNode("EXIT");
-    g->outEdge(n2, t2, 0);
-
-    return n1;
-}
-
 static int BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop) {
     int n1;
     int n3;
     int t1;
     int t2;
-    int t3;
-    int t4;
-    int t6;
-    int log;
-    char *lf;
 
     DPRINT("In BuildCmp\n");
-
-    GetGraphVar(GRAPH_LOGGING, (int *)&log);
-    GetGraphVar(GRAPH_LOGFILE, &lf);
 
     n1 = g->outNode("COMPARE");
     t1 = g->outConstInt(id);
@@ -977,17 +588,6 @@ static int BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop) {
     g->outEdge(data1, t1, 0);
     g->outEdge(t1, n1, 3);
 
-    if (log) {
-        t1 = g->outConstStr("compare");
-        g->outEdge(n1, t1, 0);
-        t2 = g->outConstStr(lf);
-        g->outEdge(n1, t2, 0);
-        t4 = g->outNode("LOG");
-        g->outEdge(n1, t4, 0);
-        g->outEdge(t1, t4, 1);
-        g->outEdge(t2, t4, 2);
-    }
-
     t1 = g->outConstInt(0);
     g->outEdge(n1, t1, 0);
     n3 = g->outNode("PIEQ");
@@ -995,69 +595,10 @@ static int BuildCmp(graph_t *g, int id, int data1, int data2, int cmpop) {
     g->outEdge(t1, n3, 1);
     g->outEdge(n1, n3, 2);
 
-    t6 = g->outNode("EXIT");
-    g->outEdge(n3, t6, 0);
-
-    if (log) {
-        t1 = g->outConstStr("exiting");
-        g->outEdge(n3, t1, 0);
-        t2 = g->outConstStr(lf);
-        g->outEdge(n3, t2, 0);
-        t3 = g->outNode("LOG");
-        g->outEdge(n3, t3, 0);
-        g->outEdge(t1, t3, 1);
-        g->outEdge(t2, t3, 2);
-    }
+    t2 = g->outNode("EXIT");
+    g->outEdge(n3, t2, 0);
 
     return n1;
-
-#ifdef to_fix
-    if (a->a_force) {
-        int f1;
-        int f2;
-        int f3;
-        int f4;
-        int f5;
-        int f6;
-        int f7;
-        int f8;
-
-        f1 = g->outConstInt(0);
-        EDGE(g, n2, f1);
-        f2 = g->outNode("PIEQ");
-        EDGE(g, f1, f2);
-        EDGE(g, n2, f2);
-        EDGE(g, a->a_v1->v_proc, f2);
-
-        f3 = g->outConstInt(0);
-        EDGE(g, n2, f3);
-        f4 = g->outConstStr(a->a_v1->v_var);
-        EDGE(g, n2, f4);
-        f5 = g->outNode("PIEQ");
-        EDGE(g, f3, f5);
-        EDGE(g, n2, f5);
-        EDGE(g, f4, f5);
-
-        f6 = g->outConstInt(0);
-        EDGE(g, n2, f6);
-        f7 = g->outNode("PIEQ");
-        EDGE(g, f6, f7);
-        EDGE(g, n2, f7);
-        EDGE(g, data2, f7);
-
-        f8 = g->outNode("DBGSETVAR");
-        EDGE(g, f2, f8);
-        EDGE(g, f5, f8);
-        EDGE(g, f7, f8);
-
-        /*
-        ** Result of force connected to "MERGE".
-        */
-
-        if (a->a_dfmode == DF_SYNC || (a->a_dfmode == DF_DEFAULT && !async))
-            EDGE(g, f8, or1);
-    }
-#endif /* to_fix */
 }
 
 /*
@@ -1092,7 +633,6 @@ static int build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e,
     int inp1;
     int inp2;
     int inp3;
-    int reducefunc;
     list_t *vl;
     var_t *v;
     arg_t *a;
@@ -1168,18 +708,12 @@ static int build_expr(graph_t *g, int *inp, int *out, list_t *vlist, expr_t *e,
             AddToList(vlist, (void *)v);
 
             BuildInvoke(g, v);
-            // Minh add here for reduce functions
-            GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-            if (reducefunc != EXPR_REDUCE_NONE && reducefunc != EXPR_HASH_BOB) {
-                (*out) = BuildReduce(g, v, inp, extra);
+            if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
+                BuildGetVar(g, inp, out, v, v->v_indiv, extra);
             } else {
-                if (v->v_procset != (dbgprocset_t *)NULL && v->v_indiv >= 0) {
-                    BuildGetVar(g, inp, out, v, v->v_indiv, extra);
-                } else {
-                    gi = g->FindGraphInv(v->v_pname);
-                    BuildGetVarSet(g, inp, out, v, 0, gi->gp_di->d_nproc,
-                                   extra);
-                }
+                gi = g->FindGraphInv(v->v_pname);
+                BuildGetVarSet(g, inp, out, v, 0, gi->gp_di->d_nproc,
+                                extra);
             }
             return 0;
 
@@ -1480,7 +1014,7 @@ static int BuildOp(graph_t *g, expr_op op, int o1, int i2, int o2, int i3,
 /*
 ** FIXME: I have no clue how to fix this.............................
 */
-static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
+static void BuildMerge(graph_t *g, var_t *v, int from, int async) {
     int r;
     graph_t::graph_inv *gi;
 
@@ -1489,7 +1023,7 @@ static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
     gi = g->FindGraphInv(v->v_pname);
 
     if (v->v_procset != NULL && v->v_indiv >= 0) {
-        r = BuildMergeProc(g, gi, v, v->v_indiv, from, async, force);
+        r = BuildMergeProc(g, gi, v, v->v_indiv, from, async);
 #ifdef DEBUG
         g->debugPrint();
 #endif
@@ -1499,7 +1033,7 @@ static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
 #endif
     } else {
         // We use proc low_pid (0) as the "base".
-        r = BuildMergeProc(g, gi, v, 0, from, async, force);
+        r = BuildMergeProc(g, gi, v, 0, from, async);
         BuildSync(g, v, 0, r);
     }
 }
@@ -1508,7 +1042,7 @@ static void BuildMerge(graph_t *g, var_t *v, int from, int async, int force) {
 ** FIXME: I have no clue how to fix this.............................
 */
 static int BuildMergeProc(graph_t *g, graph_t::graph_inv *gi, var_t *v, int pid,
-                          int from, int async, int force) {
+                          int from, int async) {
     int t1;
     int t2;
 
@@ -1524,15 +1058,7 @@ static int BuildMergeProc(graph_t *g, graph_t::graph_inv *gi, var_t *v, int pid,
         t1 = g->outConstInt(0);
         g->outEdge(from, t1, 0);
 
-#ifdef to_fix
-        if (!force)
-#endif /* to_fix */
-            t2 = g->outNode("PINE");
-#ifdef to_fix
-        else
-            t2 = g->outNode("PILT");
-#endif /* to_fix */
-
+        t2 = g->outNode("PINE");
         g->outEdge(from, t2, 0);
         g->outEdge(t1, t2, 1);
         g->outEdge(v->v_pid, t2, 2);
@@ -1543,65 +1069,6 @@ static int BuildMergeProc(graph_t *g, graph_t::graph_inv *gi, var_t *v, int pid,
     }
 
     return t2;
-}
-
-/*
-** Build graph for variable assignment.
-**  lval is the lval string
-**  einp is the node number of the input to the expression graph
-**  eout is the node number of the output of the expression graph
-**  vlist is a list of variables used in the expression graph
-** FIXME: This is broken because s_indiv_proc is no longer part of the procset
-** This should be modified to understand bitsets since the procset will contain
-** a mask of ranks.
-*/
-int BuildAssign(graph_t *g, char *lval, int einp, int eout, list_t *vlist) {
-#if 0
-
-	int	n1;
-	int	n2;
-	int	n3;
-	int	pid=0;
-	var_t *	v;
-	var_t *	last = (var_t *)NULL;
-	
-	DPRINT("In BuildAssign\n");
-
-	n1 = g->outConstStr(lval);
-	n2 = g->outNode("ASSIGN");
-	g->outEdge(eout, n1, 0);
-	g->outEdge(n1, n2, 0);
-	g->outEdge(eout, n2, 1);
-
-	if ( EmptyList(vlist) )
-	{
-		SetError("Must specify breakpoint in assignment");
-		return -1;
-	}
-
-	SetList(vlist);
-
-	while ( (v = (var_t *)GetListElement(vlist)) != (var_t *)NULL )
-	{
-		pid = v->v_procset->s_indiv_proc;
-
-		n3 = g->outNode("PIT");
-		g->outEdge(n2, n3, 0);
-		g->outEdge(v->v_pid, n3, 1);
-
-		BuildSync(g, v, pid, n3);
-
-		last = v;
-	}
-
-	/*
-	** Connect a (any) proc to the input of the expression graph.
-	*/
-	g->outEdge(last->v_pid, einp, 0);
-
-#endif
-
-    return 0;
 }
 
 /*
@@ -1657,10 +1124,6 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
     var_t *v;
     var_t *tmp_v = NULL;
     int async;
-    int force;
-    dfmode_t dfmode;
-    int reducefunc;
-    int p2pmode = 0;
     extrainfo extra;
 
     // initialise the values in extra
@@ -1681,28 +1144,6 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
     if (e->e_lval == 0) return -1;
 
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-    if (reducefunc != EXPR_REDUCE_NONE &&
-        (
-            // known hash functions are or'ed here
-            reducefunc == EXPR_HASH_BOB)) {
-        DPRINT("BuildAssert: Reduce function is set!\n");
-        int precision_lower, precision_upper;
-        if (_find_hash_info(extra.hashinfo, g, e, rec_set) == -1) return -1;
-        GetGraphVar(GRAPH_HASH_LOWER, (int *)&precision_lower);
-        GetGraphVar(GRAPH_HASH_UPPER, (int *)&precision_upper);
-        DPRINT("BuildAssert: hashinfo is %s\n", extra.hashinfo);
-        DPRINT("BuildAssert: Reduce function is %s\n",
-               getExprOpStr((expr_op)reducefunc));
-        DPRINT("BuildAssert: lower precision is %d\n", precision_lower);
-        DPRINT("BuildAssert: upper precision is %d\n", precision_upper);
-        // now pass the hashinfo into the BlockMap node
-        std::ostringstream tmp;
-        tmp << extra.hashinfo << "#" << reducefunc << "," << precision_lower << "," << precision_upper;
-        strcpy(extra.hashinfo, tmp.str().c_str());
-    }
-
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
     RESET(e);
 
     ep = POP(e);
@@ -1919,17 +1360,9 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 
     // Minh
     if ((bm != NULL) && (bm2 != NULL)) {
-        if (p2pmode)
-            // set up the global var other_procset
-            other_procset = bm2->m_actual->v_procset;
-
         AddToList(vlist, (void *)tmp_v);
 
         BuildInvoke(g, tmp_v);
-
-        if (p2pmode)
-            // set up the global var other_procset
-            other_procset = tmp_v->v_procset;
 
         AddToList(vlist, (void *)bm2->m_actual);
 
@@ -1943,58 +1376,15 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
             if (_validate_block_map(g, bm2, bm2->m_actual) == 0) return -1;
         }
 
-        if (p2pmode) {
-            int numprocs, blockmap_required;
-            char tmpstr[BUFSIZ] = "";
-            double graph_lower, graph_upper;
-            graph_t::graph_inv *gi;
-
-            gi = g->FindGraphInv(tmp_v->v_pname);
-            numprocs = gi->gp_di->d_nproc;
-            BlockMapToString(bm, tmp_v, numprocs, extra.blockmapinfo);
-            strcat(extra.blockmapinfo, "-");
-
-            gi = g->FindGraphInv(bm2->m_actual->v_pname);
-            numprocs = gi->gp_di->d_nproc;
-            BlockMapToString(bm2, bm2->m_actual, numprocs, tmpstr);
-            strcat(extra.blockmapinfo, tmpstr);
-
-            GetGraphVar(GRAPH_LOWER, &graph_lower);
-            GetGraphVar(GRAPH_LOWER, &graph_upper);
-
-            blockmap_required =
-                _identify_p2p_receiver_procset(g, tmp_v, bm2->m_actual);
-
-            std::ostringstream bmStr;
-            if (blockmap_required)
-                bmStr << bm2->m_actual->v_pname;
-            else
-                bmStr << tmp_v->v_pname;
-            bmStr << "-" << extra.blockmapinfo << "-" << graph_lower << "," << graph_upper;
-                                           
-            strcpy(extra.blockmapinfo, bmStr.str().c_str());
-
-            cmp1 = BuildBlockMap(g, bm, tmp_v, &extra, blockmap_required);
-            if (cmp1 == -1) {
-                return -1;
-            }
-            cmp2 = BuildBlockMap(g, bm2, bm2->m_actual, &extra,
-                                 !blockmap_required);
-            if (cmp2 == -1) {
-                // DestroyBlockMap(bm2);
-                return -1;
-            }
-        } else {
-            cmp1 = BuildBlockMap(g, bm, tmp_v, &extra, 1);
-            if (cmp1 == -1) {
-                // DestroyBlockMap(bm); //Why destroy the blockmap definition??
-                return -1;
-            }
-            cmp2 = BuildBlockMap(g, bm2, bm2->m_actual, &extra, 1);
-            if (cmp2 == -1) {
-                // DestroyBlockMap(bm2);
-                return -1;
-            }
+        cmp1 = BuildBlockMap(g, bm, tmp_v, &extra, 1);
+        if (cmp1 == -1) {
+            // DestroyBlockMap(bm); //Why destroy the blockmap definition??
+            return -1;
+        }
+        cmp2 = BuildBlockMap(g, bm2, bm2->m_actual, &extra, 1);
+        if (cmp2 == -1) {
+            // DestroyBlockMap(bm2);
+            return -1;
         }
     } else if (bm != (g_block_map_t *)NULL) {
         int blockmap_node;
@@ -2016,39 +1406,17 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
             cmp2 = blockmap_node;
     }
 
-    GetGraphVar(GRAPH_DFMODE, (int *)&dfmode);
-    GetGraphVar(GRAPH_FORCE, (int *)&force);
-
-    if (p2pmode && (bm != (g_block_map_t *)NULL) &&
-        (bm2 != (g_block_map_t *)NULL)) {
-        int receiver_cmp;
-        int proc_set1, proc_set2;
-        graph_t::graph_inv *gi;
-
-        // work out whic cmp is the receiver_cmp
-        receiver_cmp = _identify_p2p_receiver_procset(g, tmp_v, bm2->m_actual);
-        receiver_cmp = receiver_cmp ? cmp1 : cmp2;
-
-        // need to get the PROC_SET for both programs
-        gi = g->FindGraphInv(tmp_v->v_pname);
-        proc_set1 = PROC_PROC_NODE(gi);
-
-        gi = g->FindGraphInv(bm2->m_actual->v_pname);
-        proc_set2 = PROC_PROC_NODE(gi);
-
-        cmp = BuildDisplayP2P(g, id, receiver_cmp, proc_set1, proc_set2);
-    } else
-        cmp = BuildCmp(g, id, cmp1, cmp2, cmpop);
+    cmp = BuildCmp(g, id, cmp1, cmp2, cmpop);
 
 #ifdef DEBUG
     g->debugPrint();
 #endif
 
-    async = AsyncMode(g, vlist, dfmode);
+    async = AsyncMode(g, vlist);
 
     SetList(vlist);
     while ((v = (var_t *)GetListElement(vlist)) != (var_t *)NULL) {
-        BuildMerge(g, v, cmp, async, force);
+        BuildMerge(g, v, cmp, async);
     }
 
     DPRINT("BuildAssert: Finished building assertion for assert id %d\n",
@@ -2058,15 +1426,14 @@ int BuildAssert(graph_t *g, int id, expr_t *e, rec_set_t *rec_set,
 }
 
 /*
-** Determine mode of graph.
+** Take a graph and a list of var_t and return 1 if all of the variables in the
+** list are from the same graph_inv. Returns 0 otherwise.
 */
-static int AsyncMode(graph_t *g, list_t *vlist, dfmode_t dfmode) {
+static int AsyncMode(graph_t *g, list_t *vlist) {
     var_t *v;
     graph_t::graph_inv *gi = NULL;
 
     DPRINT("In AsyncMode\n");
-
-    if (dfmode != DF_DEFAULT) return dfmode == DF_ASYNC;
 
     SetList(vlist);
 

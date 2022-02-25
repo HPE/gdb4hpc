@@ -47,7 +47,7 @@ static void SetPerformSlicingErrorMsg(const char *, ...);
 
 // this function parse the big dbg expression into gdb_var name, reduction
 // function_id and a list of args for such function
-void ParseDBGExpr(const char *expr, int *func_id, char *sliceinfo, char *var,
+void ParseDBGExpr(const char *expr, char *sliceinfo, char *var,
                   char *args) {
     char *tok;
     char buf[BUFSIZ];
@@ -79,42 +79,6 @@ void ParseDBGExpr(const char *expr, int *func_id, char *sliceinfo, char *var,
             strcpy(var, tok);
         } else
             strcpy(var, sub_expr2);
-
-        // now identify the function id
-        if (NULL != strstr(sub_expr, "hash")) {
-            *func_id = EXPR_HASH_BOB;  // by default
-            tok = strtok(sub_expr, "hash");
-            strcpy(tmp, tok);
-            tok = strtok(tmp, "(");
-            tok[strlen(tok) - 1] = '\0';
-            strcpy(args, tok);
-        } else if (NULL != strstr(sub_expr, "sum"))
-            *func_id = EXPR_SUM;
-        else if (NULL != strstr(sub_expr, "average"))
-            *func_id = EXPR_AVERAGE;
-        else if (NULL != strstr(sub_expr, "product"))
-            *func_id = EXPR_PRODUCT;
-        else if (NULL != strstr(sub_expr, "min"))
-            *func_id = EXPR_MIN;
-        else if (NULL != strstr(sub_expr, "max"))
-            *func_id = EXPR_MAX;
-        else if (NULL != strstr(sub_expr, "stdev"))
-            *func_id = EXPR_STDEV;
-        else if (NULL != strstr(sub_expr, "countelem")) {
-            *func_id = EXPR_COUNTELEM;
-            tok = strtok(sub_expr, "countelem");
-            strcpy(tmp, tok);
-            tok = strtok(tmp, "(");
-            tok[strlen(tok) - 1] = '\0';
-            strcat(args, tok);
-        } else if (NULL != strstr(sub_expr, "ptop")) {
-            *func_id = EXPR_P2P;
-            tok = strtok(sub_expr, "ptop");
-            strcpy(tmp, tok);
-            tok = strtok(tmp, "(");
-            tok[strlen(tok) - 1] = '\0';
-            strcat(args, tok);
-        }
     } else if (NULL != strstr(buf, "slice")) {
         buf[strlen(buf) - 1] = '\0';
         tok = strtok(buf, "(");
@@ -425,10 +389,6 @@ uint32_t _perform_hash(char *datastr, char *fds, int *hash_bound,
         strcpy(elem, tok);
         if (strlen(elem) > 0) {
             if (i == data_indices[j]) {
-                if (hashfunc == EXPR_HASH_BOB)
-                    result += BJHash(TrimStr(elem), strlen(TrimStr(elem)),
-                                     DJBHash(fds, strlen(fds), j));
-
                 j++;
                 if (j >= num_elem_to_hash) break;
             }
@@ -477,9 +437,6 @@ AIF *PerformHashMI(char *datastr, char *type, const ArrayDimension *shape,
 
     if (strlen(hashinfo) == 0)  // no hashinfo, just hash the whole block
     {
-        if (hashfunc == EXPR_HASH_BOB)
-            result = HashToAIF(BJHash(datastr, strlen(datastr),
-                                      DJBHash(btype, strlen(btype), 0)));
         return result;
     }
 
@@ -635,9 +592,6 @@ AIF *PerformHash(AIF *data, char *hashinfo, int hashfunc, int precision_lower,
     }
 
     if (strlen(hashinfo) == 0 || FDSType(AIF_FORMAT(data)) != AIF_ARRAY) {
-        if (hashfunc == EXPR_HASH_BOB)
-            result = HashToAIF(BJHash(datastr, strlen(datastr),
-                                      DJBHash(btype, strlen(btype), 0)));
         return result;
     }
 

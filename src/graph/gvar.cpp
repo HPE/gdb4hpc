@@ -38,7 +38,7 @@ static htable_t *GraphVarTab = (htable_t *)NULL;
 
 void InitGraphVars(void) {
     double ulp;
-    int zero, one, i;
+    int zero, one;
 
     if (GraphVarTab != (htable_t *)NULL) return;
 
@@ -52,28 +52,9 @@ void InitGraphVars(void) {
     SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&ulp);
     SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&ulp);
     SetGraphVar(GRAPH_RELATIVE, VAR_INT, (void *)&zero);
-    SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&zero);
     SetGraphVar(GRAPH_HALT, VAR_INT, (void *)&one);
     SetGraphVar(GRAPH_STOP, VAR_INT, (void *)&one);
-    SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&zero);
-    SetGraphVar(GRAPH_LOGFILE, VAR_STRING, (void *)"");
     SetGraphVar(GRAPH_DFBLOCK, VAR_INT, (void *)&zero);
-    i = DF_DEFAULT;
-    SetGraphVar(GRAPH_DFMODE, VAR_INT, (void *)&i);
-    SetGraphVar(GRAPH_DISPLAY, VAR_STRING, (void *)"text");
-    SetGraphVar(GRAPH_OUTPUT, VAR_STRING, (void *)"guard.out");
-    // Minh add here to implement reduce interface
-    i = EXPR_REDUCE_NONE;
-    SetGraphVar(GRAPH_REDUCE, VAR_INT, (void *)&i);
-    SetGraphVar(GRAPH_HASH_LOWER, VAR_INT, (void *)&zero);
-    SetGraphVar(GRAPH_HASH_UPPER, VAR_INT, (void *)&zero);
-    SetGraphVar(GRAPH_LOWER_BOUND, VAR_DOUBLE, (void *)&ulp);
-    SetGraphVar(GRAPH_UPPER_BOUND, VAR_DOUBLE, (void *)&ulp);
-    SetGraphVar(GRAPH_HISTOGRAM_NUMBINS, VAR_INT, (void *)&zero);
-    SetGraphVar(GRAPH_HISTOGRAM_START, VAR_DOUBLE, (void *)&ulp);
-    SetGraphVar(GRAPH_HISTOGRAM_END, VAR_DOUBLE, (void *)&ulp);
-    // Minh adds here to implement the p2p comparison function
-    SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&zero);
 }
 
 // Removing va_args until this function is actually called with

@@ -28,27 +28,9 @@
 #define GRAPH_LOWER "Lower Limit"
 #define GRAPH_UPPER "Upper Limit"
 #define GRAPH_RELATIVE "Relative"
-#define GRAPH_FORCE "Force"
 #define GRAPH_HALT "Halt"
 #define GRAPH_STOP "Stop"
-#define GRAPH_DISPLAY "Display"
-#define GRAPH_OUTPUT "Output"
-#define GRAPH_LOGGING "Logging"
-#define GRAPH_LOGFILE "Log File"
 #define GRAPH_DFBLOCK "DF Block"
-#define GRAPH_DFMODE "DF Mode"
-#define GRAPH_REDUCE "Reduce"
-#define GRAPH_HASH_LOWER "Lower hashing precision"
-#define GRAPH_HASH_UPPER "Upper hashing precision"
-#define GRAPH_HISTOGRAM_NUMBINS "Histogram number of bins"
-#define GRAPH_HISTOGRAM_START "Histogram domain start"
-#define GRAPH_HISTOGRAM_END "Histogram domain end"
-#define GRAPH_LOWER_BOUND "Element counting lower bound"
-#define GRAPH_UPPER_BOUND "Element counting upper bound"
-#define GRAPH_P2PMODE "P2P Comparison"
-
-enum dfmode { DF_DEFAULT, DF_SYNC, DF_ASYNC };
-typedef enum dfmode dfmode_t;
 
 struct graphvar {
     int gv_type;

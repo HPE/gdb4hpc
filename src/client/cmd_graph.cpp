@@ -51,7 +51,7 @@ static graph_t *GraphPtr;
 ** static function prototypes
 */
 static void GraphCleanup(int);
-static int DisplayData(char *type, char *file, const char *name, AIF *data);
+static int DisplayData(AIF *data);
 
 /********************************
  * Info class commands
@@ -59,8 +59,6 @@ static int DisplayData(char *type, char *file, const char *name, AIF *data);
 
 static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
-    char *disp = (char *)NULL;
-    char *output = (char *)NULL;
     graph_t *g;
     graph_t::graph_diff *gd;
     ct_val cv;
@@ -88,11 +86,6 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
         return 1;
     }
 
-    // grab the current display setting
-    GetGraphVar(GRAPH_DISPLAY, &disp);
-    // grab the current output setting
-    GetGraphVar(GRAPH_OUTPUT, &output);
-
     // Figure out the type of the argument
     s = argv[1];
     switch (ScanString(&cv, &s)) {
@@ -108,8 +101,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
                     if (++num == req) {
                         PrintOutMsg("Script $%s %s\n", g->name().c_str(),
                                     gd->gd_name.c_str());
-                        return (
-                            DisplayData(disp, output, gd->gd_name.c_str(), gd->gd_val));
+                        return DisplayData(gd->gd_val);
                     }
                 }
             }
@@ -146,8 +138,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
                             if (gd->gd_assert_id == req) {
                                 PrintOutMsg("Script $%s %s\n", g->name().c_str(),
                                             gd->gd_name.c_str());
-                                if (!DisplayData(disp, output, gd->gd_name.c_str(),
-                                                 gd->gd_val)) {
+                                if (!DisplayData(gd->gd_val)) {
                                     return 0;
                                 }
                             }
@@ -168,7 +159,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc,
             while ((gd = (graph_t::graph_diff *)GetListElement(g->diffsList())) !=
                    (graph_t::graph_diff *)NULL) {
                 PrintOutMsg("Script $%s %s\n", g->name().c_str(), gd->gd_name.c_str());
-                if (!DisplayData(disp, output, gd->gd_name.c_str(), gd->gd_val)) {
+                if (!DisplayData(gd->gd_val)) {
                     return 0;
                 }
             }
@@ -274,103 +265,6 @@ static int class_info_subcmd_script_cmd(rec_set_t *rec_set, int argc,
  * Set class commands
  ********************************/
 
-static int class_set_subcmd_display_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    const char *s;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set display [text|aif|hdf|hdf5]\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_TEXT:
-        case CT_AIF:
-        case CT_HDF:
-        case CT_HDF5:
-            break;
-        default:
-            PrintOutError(
-                "Invalid command argument. See \"help set display\" for more "
-                "information.\n");
-            PrintOutError(
-                "Argument must be one of the following: text, aif, hdf, "
-                "hdf5\n");
-            return 0;
-    }
-
-    SetGraphVar(GRAPH_DISPLAY, VAR_STRING, (void *)cv.cv_sym->h_key);
-
-    return 1;
-}
-
-static int class_set_subcmd_output_cmd(rec_set_t *rec_set, int argc,
-                                       char **argv) {
-    const char *s;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments. Filename expected.\n");
-        PrintOutError("See \"help set output\" for more information.\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    if (ScanString(&cv, &s) != CT_STR) {
-        PrintOutError(
-            "Invalid filename. The filename provided must be enclosed within "
-            "quotes.\n");
-        PrintOutError("Example command: set output \"my.file\"\n");
-        return 0;
-    }
-
-    SetGraphVar(GRAPH_OUTPUT, VAR_STRING, (void *)cv.cv_str);
-
-    return 1;
-}
-
-static int class_set_subcmd_force_cmd(rec_set_t *rec_set, int argc,
-                                      char **argv) {
-    const char *s;
-    int force_flag;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set force [on|off]\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            force_flag = 1;
-            break;
-
-        case CT_FALSE:
-            force_flag = 0;
-            break;
-
-        default:
-            PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError("See \"help set force\" for more information.\n");
-            return 0;
-    }
-
-    SetGraphVar(GRAPH_FORCE, VAR_INT, (void *)&force_flag);
-
-    return 1;
-}
-
 static int class_set_subcmd_halt_cmd(rec_set_t *rec_set, int argc,
                                      char **argv) {
     const char *s;
@@ -441,244 +335,6 @@ static int class_set_subcmd_stop_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-/*
-** Implement the p2p comparison scheme
-*/
-static int class_set_subcmd_p2p_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    const char *s;
-    int p2p_flag;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set p2p [true|false]\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            p2p_flag = 1;
-            break;
-
-        case CT_FALSE:
-            p2p_flag = 0;
-            break;
-
-        default:
-            PrintOutError("Encountered something other than true or false.\n");
-            PrintOutError("See \"help set p2p\" for more information.\n");
-            return 0;
-    }
-
-    SetGraphVar(GRAPH_P2PMODE, VAR_INT, (void *)&p2p_flag);
-
-    return 1;
-}
-
-/*
-** Implements the hashing interface.
-*/
-static int class_set_subcmd_reduce_cmd(rec_set_t *rec_set, int argc,
-                                       char **argv) {
-    const char *s;
-    char *buf;
-    ct_val cv;
-    int reducefunc;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError(
-            "Expected: set reduce "
-            "[sum|product|average|hash|min|max|stdev|none] [args ...]\n");
-        return 0;
-    }
-
-    buf = ArgvStream(&argv[1]).createBuffer(0, argc - 1);
-
-    s = buf;
-
-    switch (ScanString(&cv, &s)) {
-        case CT_SUM:
-            reducefunc = EXPR_SUM;
-            break;
-        case CT_PRODUCT:
-            reducefunc = EXPR_PRODUCT;
-            break;
-        case CT_AVERAGE:
-            reducefunc = EXPR_AVERAGE;
-            break;
-        case CT_BOBHASH:
-            reducefunc = EXPR_HASH_BOB;
-            {
-                int lower_precision = -1;
-                int upper_precision = -1;
-
-                // only need to get lower and upper precision if argc is over 2.
-                if (2 < argc) {
-                    // scan the lower precision
-                    if (ScanString(&cv, &s) != CT_INT) {
-                        PrintOutError(
-                            "Encountered a non-integer value for the lower "
-                            "precision argument.\n");
-                        PrintOutError(
-                            "Example must be a integer value. Example: 2\n");
-                        Free(buf);
-                        return 0;
-                    }
-                    lower_precision = cv.cv_int;
-
-                    // scan the upper precision
-                    if (ScanString(&cv, &s) != CT_INT) {
-                        PrintOutError(
-                            "Encountered a non-integer value for the upper "
-                            "precision argument.\n");
-                        PrintOutError(
-                            "Example must be a integer value. Example: 2\n");
-                        Free(buf);
-                        return 0;
-                    }
-                    upper_precision = cv.cv_int;
-                }
-
-                SetGraphVar(GRAPH_HASH_LOWER, VAR_INT,
-                            (void *)&lower_precision);
-                SetGraphVar(GRAPH_HASH_UPPER, VAR_INT,
-                            (void *)&upper_precision);
-            }
-            break;
-        case CT_MIN:
-            reducefunc = EXPR_MIN;
-            break;
-        case CT_MAX:
-            reducefunc = EXPR_MAX;
-            break;
-        case CT_STDEV:
-            reducefunc = EXPR_STDEV;
-            break;
-        case CT_COUNTELEM:
-            reducefunc = EXPR_COUNTELEM;
-            {
-                double lower_bound = 0.0;
-                double upper_bound = 0.0;
-
-                // only need to get lower and upper bound if argc is over 2.
-                if (2 < argc) {
-                    // scan the lower bound
-                    if (ScanString(&cv, &s) != CT_FLOAT) {
-                        PrintOutError(
-                            "Encountered a non-floating value for the lower "
-                            "bound argument.\n");
-                        PrintOutError(
-                            "Example must be a floating value. Example: 2.1\n");
-                        Free(buf);
-                        return 0;
-                    }
-                    lower_bound = cv.cv_float;
-
-                    // scan the upper bound
-                    if (ScanString(&cv, &s) != CT_FLOAT) {
-                        PrintOutError(
-                            "Encountered a non-floating value for the upper "
-                            "bound argument.\n");
-                        PrintOutError(
-                            "Example must be a floating value. Example: 2.1\n");
-                        Free(buf);
-                        return 0;
-                    }
-                    upper_bound = cv.cv_float;
-                }
-
-                SetGraphVar(GRAPH_LOWER_BOUND, VAR_DOUBLE,
-                            (void *)&lower_bound);
-                SetGraphVar(GRAPH_UPPER_BOUND, VAR_DOUBLE,
-                            (void *)&upper_bound);
-            }
-            break;
-        case CT_NONE:
-            reducefunc = EXPR_REDUCE_NONE;
-            break;
-        default:
-            PrintOutError(
-                "Invalid command argument. See \"help set reduce\" for more "
-                "information.\n");
-            PrintOutError(
-                "Argument must be one of the following: sum, product, average, "
-                "hash, min, max, stdev, countelem, none\n");
-            Free(buf);
-            return 0;
-    }
-
-    // Done with buf
-    Free(buf);
-
-    SetGraphVar(GRAPH_REDUCE, VAR_INT, (void *)&reducefunc);
-
-    return 1;
-}
-
-static int class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    const char *s;
-    int logging_flag;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set logging [on|off]\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            logging_flag = 1;
-            break;
-        case CT_FALSE:
-            logging_flag = 0;
-            break;
-        default:
-            PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError("See \"help set halt\" for more information.\n");
-            return 0;
-    }
-
-    SetGraphVar(GRAPH_LOGGING, VAR_INT, (void *)&logging_flag);
-
-    return 1;
-}
-
-static int class_set_subcmd_logfile_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    const char *s;
-    ct_val cv;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments. Filename expected.\n");
-        PrintOutError("See \"help set logfile\" for more information.\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    if (ScanString(&cv, &s) != CT_STR) {
-        PrintOutError(
-            "Invalid filename. The filename provided must be enclosed within "
-            "quotes.\n");
-        PrintOutError("Example command: set output \"my.file\"\n");
-        return 0;
-    }
-
-    SetGraphVar(GRAPH_LOGFILE, VAR_STRING, (void *)cv.cv_str);
-
-    return 1;
-}
-
 static int class_set_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     const char *s;
@@ -712,145 +368,9 @@ static int class_set_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_set_subcmd_dfmode_cmd(rec_set_t *rec_set, int argc,
-                                       char **argv) {
-    const char *s;
-    ct_val cv;
-    int i;
-
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set dfmode [default|sync|async]\n");
-        return 0;
-    }
-
-    // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_DEFAULT:
-            i = DF_DEFAULT;
-            break;
-        case CT_SYNC:
-            i = DF_SYNC;
-            break;
-        case CT_ASYNC:
-            i = DF_ASYNC;
-            break;
-        default:
-            PrintOutError(
-                "Invalid command argument. See \"help set dfmode\" for more "
-                "information.\n");
-            PrintOutError(
-                "Argument must be one of the following: default, sync, "
-                "async\n");
-            return 0;
-    }
-
-    SetGraphVar(GRAPH_DFMODE, VAR_INT, (void *)&i);
-
-    return 1;
-}
-
 /********************************
  * Show class commands
  ********************************/
-
-static int class_show_subcmd_display_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    char *s = NULL;
-
-    GetGraphVar(GRAPH_DISPLAY, &s);
-
-    if (s != NULL)
-        PrintOutMsg("Display type: %s\n", s);
-    else
-        PrintOutMsg("Display type has not been not set.\n");
-
-    return 1;
-}
-
-static int class_show_subcmd_reduce_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    int reducefunc;
-    int lower_precision;
-    int upper_precision;
-    int histogram_numbins;
-    double histogram_start;
-    double histogram_end;
-    double lower_bound;
-    double upper_bound;
-
-    GetGraphVar(GRAPH_REDUCE, (int *)&reducefunc);
-
-    GetGraphVar(GRAPH_HASH_LOWER, (int *)&lower_precision);
-    GetGraphVar(GRAPH_HASH_UPPER, (int *)&upper_precision);
-    GetGraphVar(GRAPH_LOWER_BOUND, (double *)&lower_bound);
-    GetGraphVar(GRAPH_UPPER_BOUND, (double *)&upper_bound);
-    GetGraphVar(GRAPH_HISTOGRAM_NUMBINS, (int *)&histogram_numbins);
-    GetGraphVar(GRAPH_HISTOGRAM_START, (double *)&histogram_start);
-    GetGraphVar(GRAPH_HISTOGRAM_END, (double *)&histogram_end);
-
-    switch (reducefunc) {
-        case EXPR_SUM:
-            PrintOutMsg("Reduce function: simple sum function\n");
-            break;
-        case EXPR_PRODUCT:
-            PrintOutMsg("Reduce function: simple product function\n");
-            break;
-        case EXPR_AVERAGE:
-            PrintOutMsg("Reduce function: simple average function\n");
-            break;
-        case EXPR_HASH_BOB:
-            PrintOutMsg("Reduce function: hashing algorithm\n");
-            PrintOutMsg("Lower precision: 10^-%d\n", lower_precision);
-            PrintOutMsg("Upper precision: 10^-%d\n", upper_precision);
-            break;
-        case EXPR_MIN:
-            PrintOutMsg("Reduce function: simple min function\n");
-            break;
-        case EXPR_MAX:
-            PrintOutMsg("Reduce function: simple max function\n");
-            break;
-        case EXPR_STDEV:
-            PrintOutMsg("Reduce function: standard deviation function\n");
-            break;
-        case EXPR_COUNTELEM:
-            PrintOutMsg("Reduce function: simple element counting function\n");
-            PrintOutMsg("Lower bound: %lf\n", lower_bound);
-            PrintOutMsg("Upper bound: %lf\n", upper_bound);
-            break;
-        default:
-            PrintOutMsg("Reduce function has not been set.\n");
-    }
-
-    return 1;
-}
-
-static int class_show_subcmd_output_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    char *s = NULL;
-
-    GetGraphVar(GRAPH_OUTPUT, &s);
-
-    if (s != NULL)
-        PrintOutMsg("Output filename: %s\n", s);
-    else
-        PrintOutMsg("Output filename has not been not set.\n");
-
-    return 1;
-}
-
-static int class_show_subcmd_force_cmd(rec_set_t *rec_set, int argc,
-                                       char **argv) {
-    int force;
-
-    GetGraphVar(GRAPH_FORCE, &force);
-
-    PrintOutMsg("Assertion forcing is %s.\n", force ? "on" : "off");
-
-    return 1;
-}
 
 static int class_show_subcmd_halt_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
@@ -875,32 +395,6 @@ static int class_show_subcmd_stop_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_logging_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    int halt;
-
-    GetGraphVar(GRAPH_LOGGING, &halt);
-
-    PrintOutMsg("Assertion script logging mode: %s\n", halt ? "on" : "off");
-
-    return 1;
-}
-
-static int class_show_subcmd_logfile_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    char *s;
-
-    GetGraphVar(GRAPH_LOGFILE, &s);
-
-    if (*s != '\0')
-        PrintOutMsg("Assertion script event logging filename: %s\n", s);
-    else
-        PrintOutMsg(
-            "Assertion script event logging filename has not been set.\n");
-
-    return 1;
-}
-
 static int class_show_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     int block;
@@ -909,41 +403,6 @@ static int class_show_subcmd_dfblock_cmd(rec_set_t *rec_set, int argc,
 
     PrintOutMsg("Assertion script dataflow command blocking: %s\n",
                 block ? "on" : "off");
-
-    return 1;
-}
-
-static int class_show_subcmd_dfmode_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
-    int i;
-
-    GetGraphVar(GRAPH_DFMODE, &i);
-
-    switch (i) {
-        case DF_DEFAULT:
-            PrintOutMsg("Assertion script dataflow mode: default\n");
-            break;
-        case DF_SYNC:
-            PrintOutMsg("Assertion script dataflow mode: sync\n");
-            break;
-        case DF_ASYNC:
-            PrintOutMsg("Assertion script dataflow mode: async\n");
-            break;
-        default:
-            PrintOutMsg("Assertion script dataflow mode: invalid\n");
-            break;
-    }
-
-    return 1;
-}
-
-static int class_show_subcmd_p2p_cmd(rec_set_t *rec_set, int argc,
-                                     char **argv) {
-    int p2p;
-
-    GetGraphVar(GRAPH_P2PMODE, &p2p);
-
-    PrintOutMsg("P2P Comparison mode: %s\n", p2p ? "true" : "false");
 
     return 1;
 }
@@ -1017,13 +476,6 @@ static int class_maint_subcmd_dump_cmd(rec_set_t *rec_set, int argc,
 static int class_usage_subcmd_assert_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     PrintHelpEntry((char **)cmd_graph_alt_assert_help);
-
-    return 1;
-}
-
-static int class_usage_subcmd_assign_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    PrintHelpEntry((char **)cmd_graph_alt_assign_help);
 
     return 1;
 }
@@ -1238,7 +690,6 @@ cmd_restart_cmd(rec_set_t *rec_set, int argc, char **argv)
  ********************************/
 
 static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    char *str;
     char *buf;
     list_t *vlist;
     expr_t *e;
@@ -1286,10 +737,6 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     GetGraphVar(GRAPH_LOWER, &ai->a_lower);
     GetGraphVar(GRAPH_UPPER, &ai->a_upper);
     GetGraphVar(GRAPH_RELATIVE, &ai->a_relative);
-    GetGraphVar(GRAPH_DISPLAY, &str);
-    ai->a_display = str;
-    GetGraphVar(GRAPH_OUTPUT, &str);
-    ai->a_file = str;
     GetGraphVar(GRAPH_STOP, &ai->a_stop);
 
     // Add the buffer for the assertion command string
@@ -1300,95 +747,6 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     return 1;
 }
-
-// FIXME: Disabled until BuildAssign is fixed in build.c
-#if 0
-static int 
-cmd_graph_alt_assign_cmd(rec_set_t *rec_set, int argc, char **argv)
-{
-	int			inp;
-	int			out;
-	list_t *	vlist;
-	expr_t *	e;
-	char *		buf;
-	int			force = 0;
-
-	if ( argc < 3 )
-	{
-		PrintOutError("Not enough command arguments.\n");
-		PrintOutError("Expected: assign [target var] [expr] [<null>|-force]\n");
-		return 0;
-	}
-
-	if ( strcmp(argv[argc-1], "-force") == 0 )
-	{
-		force = 1;
-		argc--;
-	}
-
-	/*
-	** Check that destination parses correctly.
-	*/
-	if ( (e = ParseExpr(argv[1])) == (expr_t *)NULL )
-	{
-		PrintError();
-		return 0;
-	}
-
-	FreeExpr(e);
-
-	/*
-	** Now parse source.
-	*/
-	buf = ArgsToBuf(&argv[2], argc-2);
-
-	if ( (e = ParseExpr(buf)) == (expr_t *)NULL )
-	{
-		PrintError();
-		Free(buf);
-		return 0;
-	}
-	
-	// done with buf
-	Free(buf);
-
-	vlist = NewList();
-
-	if ( BuildExpr(GraphPtr, &inp, &out, vlist, e, rec_set) < 0 )
-	{
-		PrintError();
-		FreeExpr(e);
-		return 0;
-	}
-
-	FreeExpr(e);
-
-	if ( EmptyList(vlist) )
-	{
-		PrintOutError("Must specify breakpoint in assignment.\n");
-		return 0;
-	}
-
-	/*
-	** Build assign graph.
-	*/
-
-	if ( BuildAssign(GraphPtr, argv[1], inp, out, vlist) < 0 )
-	{
-		PrintError();
-		DestroyList(vlist, (void (*)())NULL);
-		return 0;
-	}
-
-	/*
-	** Save vars so they are freed properly.
-	*/
-	AppendList(GraphPtr->varsList(), vlist);
-	DestroyList(vlist, NULL);
-
-	return 1;
-}
-#endif
 
 static int cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *v;
@@ -1513,58 +871,17 @@ void InitCmd_graph(void) {
                     "Dump an assertion script in digraph format.");
 
     // set commands
-    AddSetCommand(
-        "display", proc_ignore, 0, class_set_subcmd_display_cmd,
-        class_set_subcmd_display_help, "Set how to display output of assert.");
-    AddSetCommand(
-        "output", proc_ignore, 0, class_set_subcmd_output_cmd,
-        class_set_subcmd_output_help, "Set name of output file for assert.");
-    AddSetCommand("force", proc_ignore, 0,
-                  class_set_subcmd_force_cmd,
-                  class_set_subcmd_force_help,
-                  "Enable/disable forcing of assertion values.");
     AddSetCommand("halt", proc_ignore, 0, class_set_subcmd_halt_cmd,
                   class_set_subcmd_halt_help,
                   "Enable/disable halting of processes on termination.");
     AddSetCommand("stop", proc_ignore, 0, class_set_subcmd_stop_cmd,
                   class_set_subcmd_stop_help,
                   "Enable/disable stopping on assertion failure.");
-    AddSetCommand("logging", proc_ignore, 0,
-                  class_set_subcmd_logging_cmd,
-                  class_set_subcmd_logging_help, "Enable/disable logging.");
-    AddSetCommand("logfile", proc_ignore, 0,
-                  class_set_subcmd_logfile_cmd,
-                  class_set_subcmd_logfile_help, "Set log file name.");
     AddSetCommand(
         "dfblock", proc_ignore, 0, class_set_subcmd_dfblock_cmd,
         class_set_subcmd_dfblock_help, "Set dataflow command blocking.");
-    AddSetCommand("dfmode", proc_ignore, 0,
-                  class_set_subcmd_dfmode_cmd,
-                  class_set_subcmd_dfmode_help, "Set dataflow mode.");
-    AddSetCommand("reduce", proc_ignore, 0,
-                  class_set_subcmd_reduce_cmd,
-                  class_set_subcmd_reduce_help, "Set reduce function.");
-
-    /* FIXME: andrewg: Once P2P has been fully tested, we can add this to the
-    *normal set
-    **         commands. But for now only support this feature as experimental.
-    */
-    AddMaintSetCommand("p2p", proc_ignore, 0,
-                       class_set_subcmd_p2p_cmd,
-                       class_set_subcmd_p2p_help, "Set p2p mode.");
 
     // show commands
-    AddShowCommand("display", proc_ignore, 0,
-                   class_show_subcmd_display_cmd,
-                   class_show_subcmd_display_help,
-                   "Show how output of assert is displayed.");
-    AddShowCommand(
-        "output", proc_ignore, 0, class_show_subcmd_output_cmd,
-        class_show_subcmd_output_help, "Show name of output file for assert.");
-    AddShowCommand("force", proc_ignore, 0,
-                   class_show_subcmd_force_cmd,
-                   class_show_subcmd_force_help,
-                   "Show status of forcing of assertion values.");
     AddShowCommand("halt", proc_ignore, 0,
                    class_show_subcmd_halt_cmd,
                    class_show_subcmd_halt_help,
@@ -1573,39 +890,15 @@ void InitCmd_graph(void) {
                    class_show_subcmd_stop_cmd,
                    class_show_subcmd_stop_help,
                    "Show status of stopping on assertion failure.");
-    AddShowCommand("logging", proc_ignore, 0,
-                   class_show_subcmd_logging_cmd,
-                   class_show_subcmd_logging_help, "Show logging status.");
-    AddShowCommand("logfile", proc_ignore, 0,
-                   class_show_subcmd_logfile_cmd,
-                   class_show_subcmd_logfile_help, "Show log file name.");
     AddShowCommand(
         "dfblock", proc_ignore, 0, class_show_subcmd_dfblock_cmd,
         class_show_subcmd_dfblock_help, "Show dataflow command blocking.");
-    AddShowCommand("dfmode", proc_ignore, 0,
-                   class_show_subcmd_dfmode_cmd,
-                   class_show_subcmd_dfmode_help, "Show dataflow mode.");
-    AddShowCommand("reduce", proc_ignore, 0,
-                   class_show_subcmd_reduce_cmd,
-                   class_show_subcmd_reduce_help, "Show reduce function.");
-
-    /* FIXME: andrewg: Once P2P has been fully tested, we can add this to the
-    *normal show
-    **         commands. But for now only support this feature as experimental.
-    */
-    AddMaintShowCommand("p2p", proc_ignore, 0,
-                        class_show_subcmd_p2p_cmd,
-                        class_show_subcmd_p2p_help, "Show p2p mode.");
 
     // usage commands
     AddUsageCommand("assert", proc_ignore, 0,
                     class_usage_subcmd_assert_cmd,
                     class_usage_subcmd_assert_help,
                     "Display help about using build \"assert\" commands.");
-    AddUsageCommand("assign", proc_ignore, 0,
-                    class_usage_subcmd_assign_cmd,
-                    class_usage_subcmd_assign_help,
-                    "Display help about using build \"assign\" commands.");
 
     // regular commands
     AddCommand("build", NULL, proc_ignore, 0, cmd_build_cmd,
@@ -1625,11 +918,6 @@ void InitCmd_graph(void) {
     AddAltCommand(GraphCmds, "assert", NULL, proc_ignore, 0,
                   cmd_graph_alt_assert_cmd,
                   cmd_graph_alt_assert_help, "Create an assertion.");
-    // FIXME: Disabled until BuildAssign is fixed in build.c
-#if 0
-	AddAltCommand(GraphCmds, "assign", NULL, proc_ignore, 0, 
-		cmd_graph_alt_assign_cmd, cmd_graph_alt_assign_help, "Assign a value to a debugger variable.");
-#endif
     AddAltCommand(GraphCmds, "end", NULL, proc_ignore, 0,
                   cmd_graph_alt_end_cmd, cmd_graph_alt_end_help,
                   "Finish building the current assertion script.");
@@ -1655,44 +943,10 @@ void FinishCmd_graph(void) {
 ** Called to display the result of a comparison when the
 ** dataflow interpreter is executing.
 */
-int DisplayData(char *type, char *file, const char *name, AIF *data) {
-    if (strcmp(type, "none") == 0) return 1;
-
-    if (strcmp(type, "text") == 0) {
-        PrintOutLine("The difference: ");
-        AIFPrint(Client.cli_out_stream, 0, data);
-        PrintOutLine("\n");
-        return 1;
-    }
-
-    if (file == NULL) {
-        PrintOutError("Output file has not been set.\n");
-        return 0;
-    }
-
-    if (strcmp(type, "aif") == 0) {
-        AIFFILE *af;
-
-        PrintOutLine("Generating data for %s\n", name);
-
-        if (access(file, F_OK) == 0)
-            af = AIFOpenSet(file, AIFMODE_APPEND);
-        else
-            af = AIFOpenSet(file, AIFMODE_CREATE);
-
-        if (af == (AIFFILE *)NULL) {
-            PrintOutError("AIF Error: %s: %s\n", file, AIFErrorStr());
-            return 0;
-        }
-
-        AIFWriteSet(af, data, name);
-        AIFCloseSet(af);
-
-        return 1;
-    }
-
-    PrintOutError("Invalid display type: \"%s\"\n", type);
-
-    return 0;
+int DisplayData(AIF *data) {
+    PrintOutLine("The difference: ");
+    AIFPrint(Client.cli_out_stream, 0, data);
+    PrintOutLine("\n");
+    return 1;
 }
 

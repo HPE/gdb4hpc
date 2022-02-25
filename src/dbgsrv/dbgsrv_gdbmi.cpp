@@ -3435,42 +3435,13 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
     char var[BUFSIZ] = "";
     char args[BUFSIZ] = "";
-    int func_id = 0;
     char sliceinfo[BUFSIZ] = "";
 
     DVPRINT("*** PerformExtEvalExpr(%s-%d)\n", exp, my_rank);
 
-    ParseDBGExpr(exp, &func_id, sliceinfo, var, args);
+    ParseDBGExpr(exp, sliceinfo, var, args);
 
     DVPRINT("*** PerformExtEvalExpr(%s-%s-%s)\n", var, args, sliceinfo);
-
-    // We perform hashing separately
-    if (func_id == EXPR_HASH_BOB) {
-        DVPRINT("*** PerformExtEvalExpr: performing hashing.\n");
-        int hashfunc = 0, precision_lower, precision_upper;
-        char hashinfo[BUFSIZ] = "";
-        ParseHashArgs(args, &hashfunc, &precision_lower, &precision_upper,
-                      hashinfo);
-
-        AIF *a;
-        if ((e = GetAIFVarHash(GDBMISession, var, &a, hashinfo, func_id,
-                               precision_lower, precision_upper)) != NULL) {
-            return e;
-        }
-
-        e = NewEvent(DBGEV_DATA);
-        e->ev_data = new AIFStream(a);
-
-        if (debug_flag) {
-            char *aif_str = NULL;
-            AIFToStr(&aif_str, 0, a);
-            DVPRINT("Final AIF size is: %d\n", AIF_LEN(a));
-            DVPRINT("Final AIF type is: %s\n", aif_str);
-            Free(aif_str);
-        }
-
-        return e;
-    }
 
     // GetAIFVar only returns a value if it fails
     AIFStream* aifStream = nullptr;
@@ -3535,60 +3506,6 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
         } else {
             e->ev_data = aifStream;
         }
-    }
-
-    // Minh changes here to do p2p mode
-    // we should deal with p2p separately
-    if (func_id == EXPR_P2P) {
-        int is_sender = 0;
-        // do a lot of things here
-        tmp = PerformP2P(e->ev_data->joinAIF(), args, my_rank, &is_sender);
-        if (!is_sender)  // if not sender, send the data back to client
-        {
-            delete e->ev_data;
-            e->ev_data = new AIFStream(tmp);
-        } else  // otherwise, just make a empty event
-        {
-            FreeEvent(e);
-            e = NewEvent(DBGEV_OK);
-        }
-    }
-    // Minh change here to do the hashing of data 03/06/2009
-    else if (func_id > 0) {
-        double lower_bound, upper_bound;
-
-        switch (func_id) {
-            case EXPR_SUM:  // sum
-                tmp = AIFSum(e->ev_data->joinAIF());
-                break;
-            case EXPR_PRODUCT:  // product
-                tmp = AIFProduct(e->ev_data->joinAIF());
-                break;
-            case EXPR_AVERAGE:  // average
-                tmp = AIFAverage(e->ev_data->joinAIF());
-                break;
-            case EXPR_MIN:  // min
-                tmp = AIFMin(e->ev_data->joinAIF());
-                break;
-            case EXPR_MAX:  // max
-                tmp = AIFMax(e->ev_data->joinAIF());
-                break;
-            case EXPR_STDEV:  // standard deviation
-                tmp = AIFStdev(e->ev_data->joinAIF());
-                break;
-            case EXPR_COUNTELEM:  // countelem
-                ParseCountelemArgs(args, &lower_bound, &upper_bound);
-                tmp = AIFCountElem(e->ev_data->joinAIF(), lower_bound, upper_bound);
-                break;
-            default:
-                DVPRINT("*** Unknow reduce operation\n");
-                break;
-        }
-
-        delete e->ev_data;
-        e->ev_data = new AIFStream(tmp);
-
-        DVPRINT("Removed AIFToStr here\n");
     }
 
     return e;

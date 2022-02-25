@@ -1512,57 +1512,6 @@ const char * const class_set_subcmd_dfblock_help[] = {
     "setting is off.",
     0};
 
-const char * const class_set_subcmd_dfmode_help[] = {
-    "Summary: Dataflow processing mode.",
-    "Usage: set dfmode <default|sync|async>",
-    "Example command: set dfmode default",
-    "",
-    "Scope: Assertion script",
-    "Default setting: default",
-    "Arguments: default or sync or async",
-    "",
-    "Description:",
-    "Set the dataflow processing mode to synchronous or asynchronous. This",
-    "changes the assertion script that was generated using the build command "
-    "so",
-    "that it operates in one of these three modes. Synchronous mode is",
-    "default for assertions that refer to independent processes. Asynchronous",
-    "mode is default for assertions that refer to the same process. Using",
-    "this setting overrides the default behavior.",
-    0};
-
-const char * const class_set_subcmd_display_help[] = {
-    "Summary: Assertion script assert display mode.",
-    "Usage: set display <text|aif|hdf|hdf5>",
-    "Example command: set display text",
-    "",
-    "Scope: Assertion script",
-    "Default setting: text",
-    "Arguments: text or aif or hdf or hdf5",
-    "",
-    "Description:",
-    "Set the display format for the result of assertion script assertions. In",
-    "text mode, any differences are displayed as plaintext. In aif mode,",
-    "differences are displayed in architecture independent format (AIF). In",
-    "hdf and hdf5 modes, differences are displayed in the hierarchical data",
-    "format (HDF) version 4 and version 5 respectively.",
-    0};
-
-const char * const class_set_subcmd_force_help[] = {
-    "Summary: Assertion script assert force mode.",
-    "Usage: set force [on|off]",
-    "Example command: set force off",
-    "",
-    "Scope: Assertion script",
-    "Default setting: off",
-    "Arguments: on or off",
-    "",
-    "Description:",
-    "Determines whether subsequent assertion script assertions will copy the",
-    "value of the left-variable (LHS) into the right-variable (RHS) after the",
-    "assertion has finished executing.",
-    0};
-
 const char * const class_set_subcmd_halt_help[] = {
     "Summary: Assertion script halting mode.",
     "Usage: set halt [true|false]",
@@ -1575,91 +1524,6 @@ const char * const class_set_subcmd_halt_help[] = {
     "Description:",
     "Determines if application ranks are halted when the assertion script "
     "terminates.",
-    0};
-
-const char * const class_set_subcmd_logfile_help[] = {
-    "Summary: Assertion script event logfile name.",
-    "Usage: set logfile <filename>",
-    "Example command: set logfile \"my.file\"",
-    "",
-    "Scope: Assertion script",
-    "Default setting: null",
-    "Arguments: filename (quoted string)",
-    "",
-    "Description:",
-    "Specifies the name of the file to send assertion script event logging "
-    "entries,",
-    "if assertion script event logging is turned on. Note that the provided "
-    "filename",
-    "must be enclosed by quotes.",
-    0};
-
-const char * const class_set_subcmd_logging_help[] = {
-    "Summary: Assertion script event logging mode.",
-    "Usage: set logging [on|off]",
-    "Example command: set logging on",
-    "",
-    "Scope: Assertion script",
-    "Default setting: off",
-    "Arguments: on or off",
-    "",
-    "Description:",
-    "Turn assertion script event logging on or off.",
-    0};
-
-const char * const class_set_subcmd_output_help[] = {
-    "Summary: Assertion script assertion result logfile name.",
-    "Usage: set output <filename>",
-    "Example command: set output \"my.file\"",
-    "",
-    "Scope: Assertion script",
-    "Default setting: null",
-    "Arguments: filename (quoted string)",
-    "",
-    "Description:",
-    "Specify a file to which the results from assertion script assertions will "
-    "be",
-    "sent. Note that only difference delta information from the execution of "
-    "an",
-    "assertion will be written. The provided filename must be enclosed by",
-    "quotes.",
-    0};
-
-const char * const class_set_subcmd_reduce_help[] = {
-    "Summary: Assertion script reduce mode.",
-    "Usage: set reduce [sum|product|mean|hash|none]",
-    "       [<lower precision>] [<upper precision>]",
-    "Example command: set reduce hash",
-    "",
-    "Scope: Assertion script",
-    "Arguments: sum or product or mean or hash or none,",
-    "           lower precision (float), upper precision (float)",
-    "",
-    "Description:",
-    "Use a data reduction function to reduce the volume of data sent from",
-    "compute nodes. There are both simple and complex functions currently",
-    "supported for data reduction. The simple functions are sum, product, and",
-    "mean which compute the sum, product, or mean of the data structure in",
-    "question.",
-    "",
-    "The complex functions is hash. This will compute a hash for data "
-    "reduction",
-    "purposes. The hash function implemented is prone to collisions, the "
-    "expected",
-    "rate is one collision in 2^32. When hashing is used, the two original",
-    "sets of data will no longer be directly compared. Instead, two sets of",
-    "hashed signatures will be compared. If a decomposition is used to compare "
-    "a",
-    "serial data structure to an n-ary distributed data structure, then the",
-    "serial program will calculate n hashes and compare it with its",
-    "associated counterpart in the n-ary distributed data structure.",
-    "",
-    "If floating point values are being used with a hashing function, the",
-    "user can specify the precision tolerance (lower and upper) for the hash",
-    "function using the optional lower precision and upper precision",
-    "arguments. For example, issuing the command set reduce hash 1 2 will",
-    "set the reduce function to hash with floating point lower precision and",
-    "upper precision of 10^-1 and 10^-2 respectively.",
     0};
 
 const char * const class_set_subcmd_stop_help[] = {
@@ -1675,20 +1539,6 @@ const char * const class_set_subcmd_stop_help[] = {
     "Determines if the assertion script should halt due to encountering "
     "assertion",
     "failures.",
-    0};
-
-const char * const class_set_subcmd_p2p_help[] = {
-    "Summary: Assertion script p2p comparison mode.",
-    "Usage: set p2p [true|false]",
-    "Example command: set p2p true",
-    "",
-    "Scope: Assertion script",
-    "Default setting: false",
-    "Arguments: true or false",
-    "",
-    "Description:",
-    "Use the direct P2P comparison technique to compare datasets when",
-    "evaluating comparitive assertion",
     0};
 
 /*
@@ -1836,39 +1686,6 @@ const char * const class_show_subcmd_dfblock_help[] = {
     "when on. The default setting is off.",
     0};
 
-const char * const class_show_subcmd_dfmode_help[] = {
-    "Summary: Assertion script processing setting.",
-    "",
-    "Description:",
-    "Display the current assertion script processing mode setting. When set to",
-    "default, synchronous mode is used for assertions that refer to",
-    "independent processes. Asynchronous mode is default for assertions that",
-    "refer to the same process. The value of this setting overrides the",
-    "default behavior.",
-    0};
-
-const char * const class_show_subcmd_display_help[] = {
-    "Summary: Assertion script assert display setting.",
-    "",
-    "Description:",
-    "Display the current display format for the result of assertion script",
-    "assertions. In text mode, any differences are displayed as plaintext. In",
-    "aif mode, differences are displayed in architecture independent format",
-    "AIF). In hdf and hdf5 modes, differences are displayed in the",
-    "hierarchical data format (HDF) version 4 and version 5, respectively.",
-    0};
-
-const char * const class_show_subcmd_force_help[] = {
-    "Summary: Assertion script force mode.",
-    "",
-    "Description:",
-    "Display the current setting of the force mode for assertion script",
-    "assertions. Determines whether subsequent assertions will copy the value",
-    "of the left-variable (LHS) into the right-variable (RHS) after the "
-    "assertion",
-    "has finished executing.",
-    0};
-
 const char * const class_show_subcmd_halt_help[] = {
     "Summary: Assertion script halting mode.",
     "",
@@ -1876,30 +1693,6 @@ const char * const class_show_subcmd_halt_help[] = {
     "Display the current setting of the assertion script halting mode. "
     "Determines",
     "if application ranks are halted when the assertion script terminates.",
-    0};
-
-const char * const class_show_subcmd_logfile_help[] = {
-    "Summary: Assertion script event logfile name.",
-    "",
-    "Description:",
-    "Display the current name of the file to send assertion script event "
-    "logging",
-    "entries if assertion script event logging is turned on.",
-    0};
-
-const char * const class_show_subcmd_logging_help[] = {
-    "Summary: Assertion script event logging mode.", "", "Description:",
-    "Display the current mode of assertion script event logging.", 0};
-
-const char * const class_show_subcmd_output_help[] = {
-    "Summary: Assertion script assertion result logfile name.",
-    "",
-    "Description:",
-    "Display the file to which the results from assertion script assertions "
-    "will be",
-    "sent. Only difference delta information from the execution of an "
-    "assertion",
-    "will be written to this file.",
     0};
 
 const char * const class_show_subcmd_reduce_help[] = {
@@ -1936,14 +1729,6 @@ const char * const class_show_subcmd_stop_help[] = {
     "Determines",
     "if the assertion script should halt due to encountering assertion "
     "failures.",
-    0};
-
-const char * const class_show_subcmd_p2p_help[] = {
-    "Summary: Dataflow p2p comparison mode.",
-    "",
-    "Description:",
-    "Enable the direct P2P comparison mode when evaluating comparative",
-    "assertions.",
     0};
 
 /*
@@ -2037,16 +1822,6 @@ const char * const class_usage_subcmd_assert_help[] = {
     "Description:",
     "Display help information regarding the use of assertion script assert",
     "commands. The assert command is only valid while building an assertion "
-    "script",
-    "in script mode.",
-    0};
-
-const char * const class_usage_subcmd_assign_help[] = {
-    "Summary: Assertion script assign command.",
-    "",
-    "Description:",
-    "Display help information regarding the use of assertion script assign",
-    "commands. The assign command is only valid while building an assertion "
     "script",
     "in script mode.",
     0};
@@ -2328,21 +2103,6 @@ const char * const cmd_graph_alt_assert_help[] = {
     "",
     "The result of the assertion command depends on the current settings of",
     "error, display, output, and logging.",
-    0};
-
-const char * const cmd_graph_alt_assign_help[] = {
-    "Summary: Assertion script variable assignment command.",
-    "Usage: assign <convenience var> <application var> [-force]",
-    "Example command: assign $saved_var $procset::var",
-    "",
-    "Arguments: convenience var (debugger convenience variable), application",
-    "           var (application variable), -force (optional force mode)",
-    "",
-    "Description:",
-    "Assign the value of the application variable application var to internal",
-    "debugger convenience variable convenience var. The saved application",
-    "variable will then be available for use in later expressions during",
-    "application execution.",
     0};
 
 const char * const cmd_graph_alt_end_help[] = {

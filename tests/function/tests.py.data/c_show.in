@@ -1,49 +1,22 @@
-1: #
-2: # lgdb_c_t2.rc script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
-10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
-11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
-12: # $Rev: 1 $
-13: # $Author: kdavis $
-14: #
 17: maint set sync on
-19: # launch 3 instances of the application
-20: launch $a{6}   bd_dt/c/c_type_test.x --debug
+20: launch $a{1} bd_dt/c/c_type_test.x --debug
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
 Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:55
+a{0..5}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:55
 22: break c_type_test.c:223
-a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 223.
+a{0..5}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 223.
 25: continue
 <$a>: Hello World! from process 0
-<$a>: Hello World! from process 1
-<$a>: Hello World! from process 2
-<$a>: Hello World! from process 3
-<$a>: Hello World! from process 4
-<$a>: Hello World! from process 5
-a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+a{0..5}: Breakpoint 1, main at /bd_dt/c/c_type_test.c:223
 28: #Show how output of assert is displayed.
-29: show display
-Display type: text
 31: #Show the debugger version number.
 32: show version
 Version %\d+\.\d+.[\d.]+%
-34: #Show status of forcing of assertion values.
-35: show force
-Assertion forcing is off.
 37: #Show status of stopping on assertion failure.
 38: show stop
 Assertion script stopping mode: true

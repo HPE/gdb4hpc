@@ -150,9 +150,6 @@ public:
     int outConstBitSet(const DenseBitset* val);
     void outEdge(int from, int to, int port);
 
-    // ?
-    int displayP2P(int id, char *name, AIF *data);
-
     enum class ComparisonResult { PASS, FAIL, WARN, INDETERMINATE, UNKNOWN };
     // XXX: This actually returns a ComparisonResult but the rest of gdb4hpc
     //      still treats it as an int
@@ -239,12 +236,7 @@ struct graph_t::ainfo_t {
     AIF *a_aifupper;
     AIF *a_aiflower;
     int a_relative;
-    int a_force;
     int a_stop;
-    std::string a_display;
-    std::string a_file;
-    dfmode_t a_dfmode;
-    dfmode_t a_logging;
 };
 
 struct graph_t::graph_diff {

@@ -746,7 +746,6 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
-    int p2pmode = 0;
 
     // Call the invoke in the dbg_client layer
     di = DbgLaunch(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
@@ -838,27 +837,6 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
 
     // Free the created rec_set
     FreeRecSet(rec_set);
-
-    // for P2P here
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-
-    if (p2pmode) {
-        // FIXME: andrewg: the getenv call here can fail. This needs to be
-        //        fixed. When the p2p is fixed to actually ship the
-        //        dbglog_netinfo file, this entire thing should be removed.
-
-        // now, rename the file dbg_netinfo --> dbg_netinfo_<procset_name> file
-        char filename[BUFSIZ];
-        char filerename[BUFSIZ];
-        char *filepath;
-        filepath = getenv("CRAY_DBG_LOG_DIR");
-        sprintf(filename, "%s/dbglog_netinfo_%s", filepath, ps->s_name);
-        sprintf(filerename, "%s/dbglog_netinfo.0.log", filepath);
-        if (rename(filerename, filename) < 0) {
-            PrintOutError("Error in renaming file.");
-        }
-    }
-    // end
 
     return 1;
 }
@@ -1007,7 +985,6 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
-    int p2pmode = 0;
 
     // Note that we are reusing the invoke callback.
     di = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gpu_flag,
@@ -1100,27 +1077,6 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
 
     // Free the created rec_set
     FreeRecSet(rec_set);
-
-    // for P2P here
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
-
-    if (p2pmode) {
-        // FIXME: andrewg: the getenv call here can fail. This needs to be
-        //        fixed. When the p2p is fixed to actually ship the
-        //        dbglog_netinfo file, this entire thing should be removed.
-
-        // now, rename the file dbg_netinfo --> dbg_netinfo_<procset_name> file
-        char filename[BUFSIZ];
-        char filerename[BUFSIZ];
-        char *filepath;
-        filepath = getenv("CRAY_DBG_LOG_DIR");
-        sprintf(filename, "%s/dbglog_netinfo_%s", filepath, ps->s_name);
-        sprintf(filerename, "%s/dbglog_netinfo.0.log", filepath);
-        if (rename(filerename, filename) < 0) {
-            PrintOutError("Error in renaming file.");
-        }
-    }
-    // end
 
     return 1;
 }

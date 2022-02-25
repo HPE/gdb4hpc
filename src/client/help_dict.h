@@ -68,7 +68,6 @@ extern const char* const cmd_blockmap_alt_proc_grid_help[];
 extern const char* const cmd_blockmap_alt_dim_order_help[];
 extern const char* const cmd_blockmap_alt_end_help[];
 extern const char* const cmd_graph_alt_assert_help[];
-extern const char* const cmd_graph_alt_assign_help[];
 extern const char* const cmd_graph_alt_end_help[];
 
 /**********************************************
@@ -125,16 +124,8 @@ extern const char* const class_set_subcmd_function_help[];
 extern const char* const class_set_subcmd_scheduler_locking_help[];
 extern const char* const class_set_subcmd_non_stop_help[];
 extern const char* const class_set_subcmd_dfblock_help[];
-extern const char* const class_set_subcmd_dfmode_help[];
-extern const char* const class_set_subcmd_display_help[];
-extern const char* const class_set_subcmd_force_help[];
 extern const char* const class_set_subcmd_halt_help[];
-extern const char* const class_set_subcmd_logfile_help[];
-extern const char* const class_set_subcmd_logging_help[];
-extern const char* const class_set_subcmd_output_help[];
-extern const char* const class_set_subcmd_reduce_help[];
 extern const char* const class_set_subcmd_stop_help[];
-extern const char* const class_set_subcmd_p2p_help[];
 
 /*
  * Class set print subcommands
@@ -165,16 +156,9 @@ extern const char* const class_show_subcmd_version_help[];
 extern const char* const class_show_subcmd_scheduler_locking_help[];
 extern const char* const class_show_subcmd_non_stop_help[];
 extern const char* const class_show_subcmd_dfblock_help[];
-extern const char* const class_show_subcmd_dfmode_help[];
-extern const char* const class_show_subcmd_display_help[];
-extern const char* const class_show_subcmd_force_help[];
 extern const char* const class_show_subcmd_halt_help[];
-extern const char* const class_show_subcmd_logfile_help[];
-extern const char* const class_show_subcmd_logging_help[];
-extern const char* const class_show_subcmd_output_help[];
 extern const char* const class_show_subcmd_reduce_help[];
 extern const char* const class_show_subcmd_stop_help[];
-extern const char* const class_show_subcmd_p2p_help[];
 
 /*
  * Class show print subcommands
@@ -203,7 +187,6 @@ extern const char* const class_unset_subcmd_environment_help[];
  * Class usage subcommands
  */
 extern const char* const class_usage_subcmd_assert_help[];
-extern const char* const class_usage_subcmd_assign_help[];
 extern const char* const class_usage_subcmd_decomposition_help[];
 
 /*

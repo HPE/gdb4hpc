@@ -38,7 +38,7 @@ typedef struct blockmap_info {
 
 extern char *PerformSlicingErr;
 
-void ParseDBGExpr(const char *, int *, char *, char *, char *);
+void ParseDBGExpr(const char *, char *, char *, char *);
 void ParseHashArgs(char *, int *, int *, int *, char *);
 void ParseCountelemArgs(char *, double *, double *);
 void ParseHistogramArgs(char *, int *, double *, double *);

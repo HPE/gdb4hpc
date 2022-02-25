@@ -239,7 +239,7 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
     char *basetype;
     char *tok;
     char *result;
-    int hashmode = 0, p2pmode = 0;
+    int hashmode = 0;
     int rank, i;
     char tmpstr[BUFSIZ];
     int arraytype;
@@ -270,7 +270,6 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
             break;
     }
 
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
     if (hashmode) {
         rank = m->m_rank;
 
@@ -287,12 +286,6 @@ char *_find_result_type(g_block_map_t *m, char *type, const char *hashinfo,
                 tok = strtok(NULL, ",");
             }
         }
-    } else if (p2pmode) {
-        // just a 1D array of results
-        rank = 1;
-        min[0] = 0;
-        // need to work out the number of result elements for P2P
-        max[0] = (num_procs * (d_max[0] - d_min[0] + 1)) - 1;  // assume just 1 for now
     } else {
         rank = m->m_rank;
         for (i = 0; i < rank; i++) {
@@ -332,7 +325,7 @@ static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
     int *max = NULL;
     int *hash_vals = NULL;
 
-    int process_index, p2pmode = 0;
+    int process_index;
     int expect_num_elems = 1;
     int actual_num_elems = 0;
 
@@ -350,7 +343,6 @@ static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
     basetype = FDSBaseType(type);
     if (basetype == NULL) basetype = type;
 
-    GetGraphVar(GRAPH_P2PMODE, (int *)&p2pmode);
     hashmode = (FDSType(basetype) == AIF_HASHED_SIGNATURE) ? 1 : 0;
 
     /*#ifdef DEBUG
@@ -416,12 +408,8 @@ static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
         if (m->m_distribute[i] != CT_STAR)
             isDegenerate = false;
     }
-       
-    if (p2pmode)
-        expect_num_elems = max[0] - min[0] + 1;
-    else {
-        for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] - min[i] + 1;
-    }
+
+    for (i = 0; i < m->m_rank; i++) expect_num_elems *= max[i] - min[i] + 1;
 
     for (i = 0; i < nd; i++) {
         if (isDegenerate)
@@ -555,7 +543,7 @@ static AIF *ApplyBlockMap_old(g_block_map_t *m, char *type, int nd, AIF **data,
     tmpres = MakeAIF(strdup(type), NULL);
     Free(type);  // Memory Leak: Need to free the type string.
 
-    if (p2pmode || m->m_rank == 1) {
+    if (m->m_rank == 1) {
         for (i = 0; i < nd; i++) {
             int num_elem = 1;
             process_index = i;
@@ -937,10 +925,7 @@ AIF* ApplyBlockMap(g_block_map_t *m, char *d_type, int nd, AIF **data,
     char* basetype = FDSBaseType(d_type);
     if (!basetype) basetype = d_type;
 
-    int p2pmode;
-    GetGraphVar(GRAPH_P2PMODE, &p2pmode);
-
-    if (p2pmode || (FDSType(basetype) == AIF_HASHED_SIGNATURE))
+    if (FDSType(basetype) == AIF_HASHED_SIGNATURE)
         return ApplyBlockMap_old(m, d_type, nd, data, hashinfo);
 
     int d_rank = FDSArrayRank(d_type);

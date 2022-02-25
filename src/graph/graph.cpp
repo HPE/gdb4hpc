@@ -382,143 +382,6 @@ void graph_t::outEdge(int from, int to, int port) {
 }
 
 /*
-** Called to display the result of the p2p operation when the
-** dataflow interpreter is executing.
-**
-** Returns 1 if interpreter is to continue, 0 to stop the interpreter.
-**
-** g - the graph that is executing
-**
-** name - the name of the variable being compared.
-**
-** data - the data being compared.
-**
-** FIXME: This is not supported. It needs to be done properly... Stop this two
-**        function non-sense. Integrate this with CompareData.
-** FIXME: This doesn't support the AIF changes...
-*/
-int graph_t::displayP2P(int id, char *name, AIF *data) {
-    // temporary cast until interpace properly uses unsigned
-    if (id < 0) {
-        PrintOutError("Bad assertion ID\n");
-        return 0;
-    }
-
-    auto uid = static_cast<size_t>(id);
-    
-    int res = 0;
-    AIF *zero_aif = IntToAIF(0);
-    graph_t::ainfo_t *ai;
-
-    // XXX: using id rather than uid (created above) since FindAssertInfo still 
-    //      wants signed for now
-    if ((ai = FindAssertInfo(id)) == nullptr) {
-        PrintOutError("No assertion information found!\n");
-        return 0;
-    }
-    /*
-    fprintf(Client.cli_out_stream, "%s: ", name);
-    AIFPrint(Client.cli_out_stream, 0, data);
-    fprintf(Client.cli_out_stream, "\n");
-    */
-    // tmp = AIFCompare(0, data, zero_aif, &res);
-    AIFFree(zero_aif);
-
-    /*
-    ** save result information that is independent from display type.
-    ** Note that res has three states.
-    ** -1: No differences found
-    ** 0: Inside of the lo and hi precision limits.
-    ** 1: Outside hi precision limit, causes fatal difference.
-    */
-    switch (res) {
-        case -1:
-            // no differences
-            g_pass++;
-            std::get<0>(g_assert_results[uid])++;
-            break;
-        case 0:
-            // between lo and hi
-            g_warn++;
-            std::get<1>(g_assert_results[uid])++;
-            AddToList(g_diff, (void *)new graph_diff(id, CopyAIF(data), "Warning"));
-            break;
-        case 1:
-            // fatal difference
-            g_fail++;
-            std::get<2>(g_assert_results[uid])++;
-            AddToList(g_diff, (void *)new graph_diff(id, CopyAIF(data), "Failure"));
-            break;
-        default:
-            PrintOutError("Unknown difference result.\n");
-            return 0;
-    }
-
-    // increment the iteration count
-    // we only increment the count when a full assertion has completed its
-    // evauluation.
-    g_iterations++;
-
-    if (ai->a_display == "none") {
-        return res;
-    }
-
-    if (ai->a_display == "text") {
-        switch (res) {
-            case -1:
-                // do nothing
-                break;
-            case 0:
-                // display a warning
-                PrintOutLine(
-                    "*** Tolerable difference found ***\n");  // between %s and
-                                                              // %s ***\n",
-                                                              // name2, name1);
-                break;
-            case 1:
-                PrintOutLine(
-                    "*** Difference found ***\n");  // between %s and %s!
-                                                    // ***\n", name2, name1);
-                PrintOutLine("In AssertID:%lu\n", uid + 1);
-                break;
-            default:
-                // shouldn't get here.
-                break;
-        }
-
-        return (res == 1) ? 0 : 1;  // correct one
-    }
-
-    if (ai->a_file == "") {
-        PrintOutError("Output file has not been set.\n");
-        return 0;
-    }
-
-    if (ai->a_display == "aif") {
-        AIFFILE *af;
-
-        if (access(ai->a_file.c_str(), F_OK) == 0)
-            af = AIFOpenSet(ai->a_file.c_str(), AIFMODE_APPEND);
-        else
-            af = AIFOpenSet(ai->a_file.c_str(), AIFMODE_CREATE);
-
-        if (af == (AIFFILE *)NULL) {
-            PrintOutError("%s: %s\n", ai->a_file.c_str(), AIFErrorStr());
-            return 0;
-        }
-
-        AIFWriteSet(af, data, const_cast<char *>(""));
-        AIFCloseSet(af);
-
-        return res;
-    }
-
-    PrintOutError("Invalid display type: \"%s\"\n", ai->a_display.c_str());
-
-    return 0;
-}
-
-/*
 ** Called to perform a comParison and display the result when the
 ** dataflow interpreter is executing.
 **
@@ -680,74 +543,35 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
         PrintOutLine(XML_RESULT, name().c_str(), id + 1, pass, warn, fail);
     }
 
-    if (ai->a_display == "none") {
-        AIFFree(ar);
-        return rtn;
+    switch (res) {
+        case ComparisonResult::WARN:
+            // display a warning
+            PrintOutLine(
+                "*** Tolerable difference found in AssertID %lu ***\n",
+                uid + 1);
+            break;
+        case ComparisonResult::FAIL:
+            // display an error
+            PrintOutLine("*** Difference found in AssertID %lu ***\n",
+                            uid + 1);
+            /*
+            #ifdef DEBUG
+                    fprintf(Client.cli_out_stream, "data1 is:\n");
+                    AIFPrint(Client.cli_out_stream, 0, data1);
+                    fprintf(Client.cli_out_stream, "\ndata2 is:\n");
+                    AIFPrint(Client.cli_out_stream, 0, data2);
+                    fprintf(Client.cli_out_stream, "\n");
+                    fprintf(Client.cli_out_stream, "\ndiff is:\n");
+                    AIFPrint(Client.cli_out_stream, 0, ar);
+                    fprintf(Client.cli_out_stream, "\n");
+                    fflush(Client.cli_out_stream);
+            #endif
+            */
+            break;
+        default:
+            // do nothing
+            break;
     }
-
-    if (ai->a_display == "text") {
-        switch (res) {
-            case ComparisonResult::WARN:
-                // display a warning
-                PrintOutLine(
-                    "*** Tolerable difference found in AssertID %lu ***\n",
-                    uid + 1);
-                break;
-            case ComparisonResult::FAIL:
-                // display an error
-                PrintOutLine("*** Difference found in AssertID %lu ***\n",
-                             uid + 1);
-                /*
-                #ifdef DEBUG
-                        fprintf(Client.cli_out_stream, "data1 is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, data1);
-                        fprintf(Client.cli_out_stream, "\ndata2 is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, data2);
-                        fprintf(Client.cli_out_stream, "\n");
-                        fprintf(Client.cli_out_stream, "\ndiff is:\n");
-                        AIFPrint(Client.cli_out_stream, 0, ar);
-                        fprintf(Client.cli_out_stream, "\n");
-                        fflush(Client.cli_out_stream);
-                #endif
-                */
-                break;
-            default:
-                // do nothing
-                break;
-        }
-
-        AIFFree(ar);
-        return rtn;
-    }
-
-    if (ai->a_file == "") {
-        PrintOutError("Output file has not been set.\n");
-        AIFFree(ar);
-        return rtn;
-    }
-
-    if (ai->a_display == "aif") {
-        AIFFILE *af;
-
-        if (access(ai->a_file.c_str(), F_OK) == 0)
-            af = AIFOpenSet(ai->a_file.c_str(), AIFMODE_APPEND);
-        else
-            af = AIFOpenSet(ai->a_file.c_str(), AIFMODE_CREATE);
-
-        if (af == (AIFFILE *)NULL) {
-            PrintOutError("AIF Error: %s: %s\n", ai->a_file.c_str(), AIFErrorStr());
-            AIFFree(ar);
-            return rtn;
-        }
-
-        AIFWriteSet(af, ar, const_cast<char *>(""));
-        AIFCloseSet(af);
-
-        AIFFree(ar);
-        return rtn;
-    }
-
-    PrintOutError("Invalid display type: \"%s\"\n", ai->a_display.c_str());
 
     AIFFree(ar);
     return rtn;

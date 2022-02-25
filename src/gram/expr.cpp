@@ -265,7 +265,6 @@ expr_t *AddExpr(expr_op op, ...) {
         case EXPR_DSYM:
         case EXPR_FUNC:
         case EXPR_BLOCKMAP:
-        case EXPR_HASH_BOB:
             OPList->e_expr[v].e_sym = va_arg(args, hentry_t *);
             DPRINT("AddExpr: e_sym value is \"%s\"\n",
                    SymLookup(OPList->e_expr[v].e_sym));
@@ -3789,26 +3788,6 @@ const char *getExprOpStr(expr_op op) {
             return "<blockmap>";
         case EXPR_ASSERT:
             return "<assert>";
-        case EXPR_HASH_BOB:
-            return "<hash_bob>";
-        case EXPR_REDUCE_NONE:
-            return "<no_hash>";
-        case EXPR_SUM:
-            return "<sum>";
-        case EXPR_PRODUCT:
-            return "<product>";
-        case EXPR_AVERAGE:
-            return "<average>";
-        case EXPR_MIN:
-            return "<min>";
-        case EXPR_MAX:
-            return "<max>";
-        case EXPR_STDEV:
-            return "<stddev>";
-        case EXPR_COUNTELEM:
-            return "<count>";
-        case EXPR_HISTOGRAM:
-            return "<hist>";
        case EXPR_PROC_THREAD:
            return "<proc_thread>";
         default:

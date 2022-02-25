@@ -121,63 +121,20 @@ void InitNodeDef(void) {
     (void)AddNodeDef("COMPARE", NodeCompare, TK_INT, 4, 4, TK_INT, TK_DATA,
                      TK_DATA, TK_INT);
 
-    /* int NodeDisplayP2P(int, data) */
-    (void)AddNodeDef("DISPLAY_P2P", NodeDisplayP2P, TK_INT, 2, 2, TK_INT,
-                     TK_DATA);
-    /* int NodeDbgOpenSocketSet(proc_set) */
-    (void)AddNodeDef("DBGOPENSOCKET_SET", NodeDbgOpenSocketSet, TK_INT_SET, 3,
-                     3, TK_PROC_SET, TK_STR, TK_INT);
-    /* int NodeClosrSocket(int, data) */
-    (void)AddNodeDef("DBGCLOSESOCKET_SET", NodeDbgCloseSocketSet, TK_INT_SET, 3,
-                     3, TK_PROC_SET, TK_PROC_SET, TK_ANY);
-
     /* token NodeDbgInit(string) */
     (void)AddNodeDef("DBGINIT", NodeDbgInit, TK_ANY, 1, 1, TK_STR);
-
-    /* proc NodeDbgSetBreak(proc,token[,string]) */
-    //	(void)AddNodeDef("DBGSETBRK", NodeDbgSetBreak, TK_PROC_SET, 2, 3,
-    //		TK_PROC_SET, TK_ANY, TK_STR);
-    /*old code
-            (void)AddNodeDef("DBGSETBRK", NodeDbgSetBreak, TK_PROC, 2, 3,
-                    TK_PROC, TK_ANY, TK_STR);
-    */
 
     (void)AddNodeDef("DBGSETBRK_SET", NodeDbgSetBreakSet, TK_PROC_SET, 2, 3,
                      TK_PROC_SET, TK_ANY, TK_STR);
 
-    /* proc NodeDbgGo(proc) */
-    //	(void)AddNodeDef("DBGGO", NodeDbgGo, TK_PROC_SET, 1, 1, TK_PROC_SET);
-    //	(void)AddNodeDef("DBGGO", NodeDbgGo, TK_PROC, 1, 1, TK_PROC);
-
     (void)AddNodeDef("DBGGO_SET", NodeDbgGoSet, TK_PROC_SET, 1, 1, TK_PROC_SET);
-
-    /* data NodeDbgGetVar(proc,string) */
-    //(void)AddNodeDef("DBGGETVAR", NodeDbgGetVar, TK_DATA, 2, 2,
-    //	TK_PROC, TK_STR);
-    // Extra input for assert identifier to support partial assertions.
 
     // TODO: remove it
     (void)AddNodeDef("DBGGETVAR", NodeDbgGetVar, TK_DATA, 2, 3, TK_PROC_SET,
                      TK_STR, TK_INT);
-    //	(void)AddNodeDef("DBGGETVAR", NodeDbgGetVar, TK_DATA, 2, 3,
-    //		TK_PROC, TK_STR, TK_INT);
 
-    (void)AddNodeDef("DBGREQUESTVAR_SET", NodeDbgRequestVarSet, TK_BIT_SET, 2,
-                     3, TK_PROC_SET, TK_STR, TK_INT);
-    (void)AddNodeDef("DBGRECVVAR_SET", NodeDbgRecvVarSet, TK_DATA_SET, 2, 5,
-                     TK_PROC_SET, TK_INT, TK_STR, TK_BIT_SET, TK_BIT_SET);
     (void)AddNodeDef("DBGGETVAR_SET", NodeDbgGetVarSet, TK_DATA_SET, 2, 3,
                      TK_PROC_SET, TK_STR, TK_INT);
-
-    /* void NodeDbgSetVar(proc,string,data) */
-    (void)AddNodeDef("DBGSETVAR", NodeDbgSetVar, TK_ANY, 3, 3, TK_PROC_SET,
-                     TK_STR, TK_DATA);
-    //	(void)AddNodeDef("DBGSETVAR", NodeDbgSetVar, TK_ANY, 3, 3,
-    //		TK_PROC, TK_STR, TK_DATA);
-
-    /* void NodeDbgKill(proc) */
-    (void)AddNodeDef("DBGKILL", NodeDbgKill, TK_ANY, 1, 1, TK_PROC_SET);
-    //	(void)AddNodeDef("DBGKILL", NodeDbgKill, TK_ANY, 1, 1, TK_PROC);
 
     /* token NodePassIfEqual(int,int,token) */
     (void)AddNodeDef("PIEQ", NodePassIfEqual, TK_ANY, 3, 3, TK_ANY, TK_ANY,
@@ -206,10 +163,6 @@ void InitNodeDef(void) {
     /* token NodePassIfToken(token,token) */
     (void)AddNodeDef("PIT", NodePassIfToken, TK_ANY, 2, 2, TK_ANY, TK_ANY);
 
-    /* data NodeSlice(data,int,int,...) */
-    (void)AddNodeDef("SLICE", NodeSlice, TK_DATA, 3, -1, TK_DATA, TK_INT,
-                     TK_INT, TK_INT);
-
     /* data NodePermute(data,int,...) */
     (void)AddNodeDef("PERMUTE", NodePermute, TK_DATA, 2, -1, TK_DATA, TK_INT,
                      TK_INT);
@@ -227,9 +180,6 @@ void InitNodeDef(void) {
     /* token NodeRecall(int) */
     (void)AddNodeDef("RECALL", NodeRecall, TK_ANY, 1, 1, TK_INT);
 
-    /* proc NodeProc(inv,str,int) */
-    //	(void)AddNodeDef("PROC", NodeProc, TK_PROC_SET, 2, 2, TK_STR, TK_INT);
-    //	(void)AddNodeDef("PROC", NodeProc, TK_PROC, 2, 2, TK_STR, TK_INT);
 
     (void)AddNodeDef("PROC_SET", NodeProcSet, TK_PROC_SET, 2, 2, TK_STR,
                      TK_BIT_SET);
@@ -276,56 +226,14 @@ void InitNodeDef(void) {
     /* token NodeNegate(token,token) */
     (void)AddNodeDef("NEG", NodeNegate, TK_ANY, 2, 2, TK_ANY, TK_ANY);
 
-#if 0
-	/* int NodeEPS(float,float,int,data) */
-	(void)AddNodeDef("EPS", NodeEPS, TK_INT, 4, 4,
-		TK_FLOAT, TK_FLOAT, TK_INT, TK_DATA);
-#endif
-
-    /* string NodeType(data) */
-    (void)AddNodeDef("TYPE", NodeType, TK_STR, 1, 1, TK_DATA);
+    /* string NodeTypeSet(data) */
     (void)AddNodeDef("TYPE_SET", NodeTypeSet, TK_STR, 1, 1, TK_DATA_SET);
-
-    /* token NodeInsert(str,token) */
-    (void)AddNodeDef("HSTORE", NodeInsert, TK_ANY, 2, 2, TK_STR, TK_ANY);
-
-    /* token NodeSearch(str) */
-    (void)AddNodeDef("SEARCH", NodeSearch, TK_ANY, 1, 1, TK_STR);
-
-    /* int NodeHashEntry(str) */
-    (void)AddNodeDef("HENTRY", NodeHashEntry, TK_INT, 1, 1, TK_STR);
 
     /* token NodeExit(token) */
     (void)AddNodeDef("EXIT", NodeExit, TK_ANY, 1, 1, TK_ANY);
 
-    /* void NodeLog(data, string, string) */
-    (void)AddNodeDef("LOG", NodeLog, TK_ANY, 3, 3, TK_DATA, TK_STR, TK_STR);
-
-    /* Minh add here to implement blockmap 15/05/2009 */
-    /* data NodeBlockMap(string, string, int, data, ...) */
-    (void)AddNodeDef("BLOCKMAP", NodeBlockMap, TK_DATA, 4, -1, TK_STR, TK_STR,
-                     TK_INT, TK_DATA, TK_DATA);
-
-    /* Minh add here to implement reduce functions 22/02/2010 */
-    /* data NodeReduce(int, data, ...) */
-    (void)AddNodeDef("REDUCE", NodeReduce, TK_DATA, 3, -1, TK_STR, TK_INT,
-                     TK_DATA);
-
     (void)AddNodeDef("BLOCKMAP_SET", NodeBlockMapSet, TK_DATA, 4, -1, TK_STR,
                      TK_STR, TK_INT, TK_DATA_SET, TK_DATA_SET);
 
-    /* Minh add here to implement reduce functions 22/02/2010 */
-    /* data NodeReduceSet(int, data, ...) */
-    (void)AddNodeDef("REDUCE_SET", NodeReduceSet, TK_DATA, 3, -1, TK_STR,
-                     TK_INT, TK_DATA_SET);
-
-    /* data NodeAssign(string, data) */
-    (void)AddNodeDef("ASSIGN", NodeAssign, TK_DATA, 2, 2, TK_STR, TK_DATA);
-
-    /* data NodeGetVar(proc,string) */
-    //(void)AddNodeDef("GETVAR", NodeGetVar, TK_DATA, 2, 2, TK_PROC, TK_STR);
-    // Extra input for assert identifier to support partial assertions.
-
     (void)AddNodeDef("GETVAR", NodeGetVar, TK_DATA, 2, 3, TK_PROC_SET, TK_STR);
-    //	(void)AddNodeDef("GETVAR", NodeGetVar, TK_DATA, 2, 3, TK_PROC, TK_STR);
 }

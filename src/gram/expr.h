@@ -88,17 +88,6 @@ enum expr_op {
     EXPR_BLOCKMAP,
     /* blockmap call */  // Minh
     EXPR_ASSERT,         /* assertion definition*/
-    EXPR_HASH_BOB,       /* Bob Jenkins hashing call */
-    EXPR_REDUCE_NONE,    /* no hash function use call */
-    EXPR_SUM,            /* sum function call */
-    EXPR_PRODUCT,        /* product function call */
-    EXPR_AVERAGE,        /* average function call */
-    EXPR_MIN,            /* min function call */
-    EXPR_MAX,            /* max function call */
-    EXPR_STDEV,          /* standard deviation function call */
-    EXPR_COUNTELEM,      /* element counting function call */
-    EXPR_P2P,            /* p2p comp mode */
-    EXPR_HISTOGRAM,      /* histogram function call */
     EXPR_PROC_THREAD,    /* process set with thread info */
     EXPR_UNKNOWN         /* unknown error */
 };

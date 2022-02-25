@@ -22,7 +22,6 @@
 
 extern void BuildUnused(graph_t *);
 extern int BuildAssert(graph_t *, int, expr_t *, rec_set_t *, list_t *);
-extern int BuildAssign(graph_t *, char *, int, int, list_t *);
 extern int BuildExpr(graph_t *, int *, int *, list_t *, expr_t *, rec_set_t *);
 
 #endif /* _BUILD_H */

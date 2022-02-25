@@ -40,6 +40,8 @@ b{0..1}: Breakpoint 1: file /bd_dt/c/c_cmp_diff.c, line 223.
 21:     # assert $a{0}::one_d_i_init @"c_type_test.c":160 != $b{0}::one_d_i_init @"c_cmp_diff.c":160
 22: end
 Assertion script $arrays compiled.
+23: # set print elements to ensure it doesn't affect results
+23: set print elements 3
 24: set dfblock on
 25: start $arrays
 *** Starting execution of application ***

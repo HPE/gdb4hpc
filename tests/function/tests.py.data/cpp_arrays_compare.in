@@ -32,12 +32,12 @@ Finalizing setup...
 Launch complete.
 b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:8
 17: # run until the arrays are initialized
-18: b 78
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 78.
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 78.
+18: b 80
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 80.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 80.
 19: c
-a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
-b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:78
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:80
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:80
 21: # distributedArray1 and distributedVec should each have 40 elements, define
 22: # a 1d and 2d decomposition.
 24: # 1D Decomp - not strictly necessary or useful as it turns out
@@ -116,12 +116,12 @@ Comparison is true.
 75: compare $d0{$a::wafflesPtr} == $d0{$b::wafflesPtr}
 Comparison is true.
 78: # continue to a point where the same comparisons should fail
-79: b 88
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 90.
-b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 90.
+79: b 92
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 92.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp, line 92.
 80: c
-a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:90
-b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:90
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:92
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_arrays.cpp:92
 82: compare $a::array2d == $b::array2d
 {0..2}: Comparison is false.
 The difference delta is:

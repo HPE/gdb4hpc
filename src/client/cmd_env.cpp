@@ -659,6 +659,52 @@ static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_set_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc,
+                                                 char **argv) {
+    const char *s;
+    int sourceonstep_flag;
+    ct_val cv;
+
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: set print source-on-step [true|false]\n");
+        return 0;
+    }
+
+    // only look at the first arg
+    s = argv[1];
+
+    switch (ScanString(&cv, &s)) {
+        case CT_TRUE:
+            sourceonstep_flag = 1;
+            break;
+
+        case CT_FALSE:
+            sourceonstep_flag = 0;
+            break;
+
+        default:
+            PrintOutError("Encountered something other than true or false.\n");
+            PrintOutError(
+                "See \"help set print source-on-step\" for more information.\n");
+            return 0;
+    }
+
+    Client.print_source_on_step = sourceonstep_flag;
+
+    return 1;
+}
+
+static int class_show_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc,
+                                                  char **argv) {
+    if (Client.print_source_on_step)
+        PrintOutMsg("print source-on-step enabled.\n");
+    else
+        PrintOutMsg("print source-on-step disabled.\n");
+
+    return 1;
+}
+
 void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
@@ -701,6 +747,11 @@ void InitCmd_env(void) {
         class_set_print_subcmd_entryframe_cmd,
         class_set_print_subcmd_entryframe_help,
         "Enable/disable printing of entry frames on launch/attach.");
+    AddSetPrintCommand(
+        "source-on-step", proc_ignore, 0,
+        class_set_print_subcmd_sourceonstep_cmd,
+        class_set_print_subcmd_sourceonstep_help,
+        "Enable/disable printing of source on step/next.");
 
     // maint set commands
     AddMaintSetCommand("earlyentry", proc_ignore, 0,
@@ -736,6 +787,10 @@ void InitCmd_env(void) {
                         class_show_print_subcmd_entryframe_cmd,
                         class_show_print_subcmd_entryframe_help,
                         "Show setting of print entry-frame mode.");
+    AddShowPrintCommand("source-on-step", proc_ignore, 0,
+                        class_show_print_subcmd_sourceonstep_cmd,
+                        class_show_print_subcmd_sourceonstep_help,
+                        "Show setting of print source-on-step mode.");
 
     // maint show commands
     AddMaintShowCommand("earlyentry", proc_ignore, 0,

@@ -1556,7 +1556,18 @@ const char* const class_set_print_subcmd_entryframe_help[] = {
     "Determines if the frames of the application ranks are printed on "
     "launch/attach.",
     0};
-
+const char* const class_set_print_subcmd_sourceonstep_help[] = {
+    "Summary: Set printing of source on step.",
+    "Usage: set print source-on-step [true|false]",
+    "Example command: set print source-on-step false",
+    "",
+    "Default setting: true",
+    "Arguments: true or false",
+    "",
+    "Description:",
+    "Determines if the source line of the application is printed on "
+    "step/next.",
+    0};
 /*
  * Class set breakpoint subcommands
  */
@@ -1739,6 +1750,13 @@ const char* const class_show_print_subcmd_entryframe_help[] = {
     "Display if the frames of the application ranks are printed on "
     "launch/attach.",
     0};
+
+const char* const class_show_print_subcmd_sourceonstep_help[] = {
+    "Summary: Printing of source on step information.", "", "Description:",
+    "Display if the source line of the application is printed on "
+    "step/next.",
+    0};
+
 
 /*
  * Class show breakpoint subcommands

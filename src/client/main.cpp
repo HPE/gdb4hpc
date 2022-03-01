@@ -330,6 +330,7 @@ int main(int argc, char *argv[]) {
     Client.unsafe = 0;                // Be unsafe?
     Client.early_entry = 0;           // Enter at pmi_init?
     Client.print_entry_frame = 1;     // Print frame locations at startup?
+    Client.print_source_on_step = 1;  // Print source line on each step?
     Client.print_elements = 0;        // Elements to print in arrays or char * strings
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;          // Current blocked on async cmd?
@@ -1064,7 +1065,8 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
             break;
 
         case DBGEV_STEP:
-            printEventLocation(ev_set, reply_set);
+            if (Client.print_source_on_step)
+                printEventLocation(ev_set, reply_set);
             break;
 
         case DBGEV_ERROR:

@@ -131,6 +131,7 @@ extern const char* const class_set_subcmd_stop_help[];
  * Class set print subcommands
  */
 extern const char* const class_set_print_subcmd_entryframe_help[];
+extern const char* const class_set_print_subcmd_sourceonstep_help[];
 extern const char* const class_set_print_subcmd_elements_help[];
 
 /*
@@ -164,6 +165,7 @@ extern const char* const class_show_subcmd_stop_help[];
  * Class show print subcommands
  */
 extern const char* const class_show_print_subcmd_entryframe_help[];
+extern const char* const class_show_print_subcmd_sourceonstep_help[];
 extern const char* const class_show_print_subcmd_elements_help[];
 
 /*

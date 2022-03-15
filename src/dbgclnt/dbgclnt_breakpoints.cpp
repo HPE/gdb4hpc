@@ -357,6 +357,11 @@ MappedBreakpoint* BreakpointManager::findByDbgBreakpoint(const dbgbp_t &bp) {
     return it != m_breakpoints.end() ? &(*it) : nullptr;
 }
 
+const MappedBreakpoint* BreakpointManager::findByDbgBreakpoint(const dbgbp_t &bp) const {
+    // findByDbgBreakpoint is const as long as you don't mess with the returned ptr
+    return const_cast<BreakpointManager*>(this)->findByDbgBreakpoint(bp);
+}
+
 MappedCheckpoint::MappedCheckpoint(unsigned int id, const std::vector<std::pair<const Bitset*, const dbgcheckpoint_t*>> &checkpointData, std::optional<unsigned long> dbgcpId) 
     : m_id{id}
 {

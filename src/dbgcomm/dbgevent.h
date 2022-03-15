@@ -308,7 +308,7 @@ extern dbgevent_t *ChangeEvent(dbgevent_t *, dbgev);
 extern dbgevent_t *DupEvent(dbgevent_t *);
 extern void FreeEvent(dbgevent_t *);
 extern void EventErrStr(dbgevent_t *, const char *, ...);
-extern event_equiv CompareEvents(dbgevent_t *, dbgevent_t *);
+extern event_equiv CompareEvents(const dbgevent_t *, const dbgevent_t *);
 
 // Used for error events
 extern const char *DbgEventErrorStr(dbgevent_t *);

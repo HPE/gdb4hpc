@@ -506,7 +506,28 @@ class c_next(Test):
 class c_print(Test):
     def test(self):
         runTest(self)
-        
+
+class c_commnode_fanout(Test):
+    def test(self):
+        # .in file should not contain the text "mrnet_commnode", or check below
+        # will always succeed
+        commnode_binary = "mrnet_commnode"
+
+        run = makeRunFile(self)
+        with open(run, "r") as rc:
+            if commnode_binary in rc.read():
+                self.fail(f"\"{commnode_binary}\" already in {run}, test is invalidated")
+
+        # set fanout env variable to force invocation of mrnet_commnode
+        os.environ["GUARD_MRNET_TOP_FANOUT"] = "2"
+        runTest(self)
+
+        # .out file should contain the text "mrnet_commnode" in output of ps ux
+        outfile = getOut(self, self.__class__.__name__)
+        with open(outfile) as out:
+            if commnode_binary not in out.read():
+                self.fail(f"\"{commnode_binary}\" not found in {outfile}")
+
 class c_release(Test):
     def test(self):
         runTest(self)
@@ -540,6 +561,10 @@ class c_whatis(Test):
         runTest(self)
 
 class c_segv(Test):
+    def test(self):
+        runTest(self)
+
+class c_half_exit(Test):
     def test(self):
         runTest(self)
 

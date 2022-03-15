@@ -33,7 +33,6 @@
 
 // Static prototypes
 static event_equiv CompareEvExit(int, int);
-static event_equiv CompareEvBp(dbgbp_t *, dbgbp_t *);
 static event_equiv CompareEvSig(dbgsig_t, dbgsig_t);
 static event_equiv CompareEvFrame(const dbgframe_t *, const dbgframe_t *, int);
 static event_equiv CompareEvErr(dbgerr_t, dbgerr_t);
@@ -211,16 +210,6 @@ static event_equiv CompareEvExit(int status1, int status2) {
     return EV_EQUAL;
 }
 
-// FIXME: We consider a breakpoint to be the same if its id we give
-// it matches. I don't know if we want to keep it this way in the long term.
-static event_equiv CompareEvBp(dbgbp_t *bp1, dbgbp_t *bp2) {
-    if (bp1->bp_id != bp2->bp_id) {
-        return EV_DIFF;
-    }
-
-    return EV_EQUAL;
-}
-
 static event_equiv CompareEvSig(dbgsig_t sig1, dbgsig_t sig2) {
     // Ensure the sig types match
     if (strcmp(sig1.sig_type, sig2.sig_type)) {
@@ -356,7 +345,7 @@ static event_equiv CompareEvErr(dbgerr_t e1, dbgerr_t e2) {
     return EV_EQUAL;
 }
 
-event_equiv CompareEvents(dbgevent_t *ev1, dbgevent_t *ev2) {
+event_equiv CompareEvents(const dbgevent_t *ev1, const dbgevent_t *ev2) {
     // First ensure the two events have the same type
     if (ev1->ev_event != ev2->ev_event) {
         return EV_DIFF;
@@ -370,9 +359,6 @@ event_equiv CompareEvents(dbgevent_t *ev1, dbgevent_t *ev2) {
     switch (ev1->ev_event) {
         case DBGEV_EXIT:
             return CompareEvExit(ev1->ev_exit, ev2->ev_exit);
-
-        case DBGEV_BPHIT:
-            return CompareEvBp(ev1->ev_bp, ev2->ev_bp);
 
         case DBGEV_SIGNAL:
             return CompareEvSig(ev1->ev_sig, ev2->ev_sig);

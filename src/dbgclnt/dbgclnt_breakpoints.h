@@ -275,6 +275,7 @@ public:
     // Returns a pointer to the logical breakpoint in the internal list that
     // matches the passed dbgbp_t. Returns nullptr if none exist.
     MappedBreakpoint* findByDbgBreakpoint(const dbgbp_t &bp);
+    const MappedBreakpoint* findByDbgBreakpoint(const dbgbp_t &bp) const;
 
     // allow range based iteration
     auto begin() { return m_breakpoints.begin(); }

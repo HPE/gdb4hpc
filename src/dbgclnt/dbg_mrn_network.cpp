@@ -526,7 +526,7 @@ int MRNetNetwork::send_command(const Bitset *target, const char *msg,
         if (event_stream != nullptr) {
             // Send an initializer command along the command stream to register
             // it's matching event stream.
-            auto linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM, "%d %u",
+            auto linkMsg = CommandToSocProto(DBGCMD_SETCOMMPARAM,
                                              MRNCMD_SETEVENTSTREAM,
                                              event_stream->get_Id());
             if (stream->send(DBG_MRNet_PRO_COMMAND, "%s",

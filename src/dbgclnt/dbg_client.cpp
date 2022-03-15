@@ -651,17 +651,48 @@ static void DestroyEventSet(dbginvoke_t *di, dbgev ev) {
 /*
 ** Add a async event to an event set
 */
-static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group,
-                             dbgevent_t *event) {
+static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group, dbgevent_t *event) {
     event_set_t *eventset;
 
     if (di == nullptr || group == nullptr || event == nullptr) return nullptr;
 
     SetList(di->d_eventset_list);
-    while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) !=
-           nullptr) {
-        // Call the CompareEvents function and handle it if they are equal
-        if (CompareEvents(eventset->e_ev, event) == EV_EQUAL) {
+    while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) != nullptr) {
+        // compare two events with the extra context a dbginvoke provides
+        const auto eventsAreEqual = [](const dbginvoke& di, const dbgevent_t& left, const dbgevent_t& right) -> bool {
+            if (left.ev_event == DBGEV_BPHIT && right.ev_event == DBGEV_BPHIT) {
+                // special behavior for BPHIT
+
+                // additional special behavior for exit breakpoints
+                auto leftIsExit = left.ev_bp->bp_type == DBGBP_EXIT_TYPE;
+                auto rightIsExit = right.ev_bp->bp_type == DBGBP_EXIT_TYPE;
+                if (leftIsExit || rightIsExit) {
+                    // We consider all exit breakpoints to be equal
+                    return leftIsExit == rightIsExit;
+                }
+
+                // To compare breakpoint hits, we need the extra context of the di's
+                // logical breakpoint mapping. We can't just forward to CompareEvents()
+                // because it lives in dbgcomm and doesn't know what a dbginvoke is.
+
+                const auto& lbp1 = di.d_breakpoints.findByDbgBreakpoint(*left.ev_bp);
+                const auto& lbp2 = di.d_breakpoints.findByDbgBreakpoint(*right.ev_bp);
+                if (lbp1 != nullptr && lbp2 != nullptr) {
+                    return lbp1->id() == lbp2->id();
+                } else {
+                    // should never happen...
+                    PrintOutError("Tried to process unknown breakpoint. Aggregation might be wrong!\n");
+                    // comparing backend breakpoint ids is a pretty bad
+                    // fallback, but it's the best we can do here
+                    return left.ev_bp->bp_id == right.ev_bp->bp_id;
+                }
+            }
+            
+            // not a BPHIT; fall back to dbgcomm CompareEvents
+            return CompareEvents(&left, &right) == EV_EQUAL;
+        };
+
+        if (eventsAreEqual(*di, *eventset->e_ev, *event)) {
             // Add this group to the event set
             *eventset->e_group |= *group;
             return eventset;
@@ -1232,6 +1263,10 @@ void DbgHandleInput(int fd, void (*inp)(void)) {
     std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
     InputCB.i_fd = fd;
     InputCB.i_rtn = inp;
+
+    // reset input mask
+    _mask_fd = -1;
+    _mask_cnt = 0;
 }
 
 /*

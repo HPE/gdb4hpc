@@ -119,7 +119,7 @@ void MRNetBackEnd::set_cmd_stream(MRN::Stream* stream) {
         DVPRINT("INFO: [dbgsrv] m_stream_cmd is set to %u.\n",
                 streamId);
         m_bc_stream_cmd = stream;
-    } else if (m_stream_cmd == m_bc_stream_cmd) {
+    } else if (stream == m_bc_stream_cmd) {
         DVPRINT(
             "INFO: [dbgsrv] m_stream_event set back to broadcast "
             "stream\n");

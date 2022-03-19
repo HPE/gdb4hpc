@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -32,7 +32,6 @@
 
 #include "dbgsrv_mrn.h"
 
-#include "aif.h"
 #include "bitset.h"
 #include "dbg_mrn_be.h"
 #include "dbgcomm_info.h"

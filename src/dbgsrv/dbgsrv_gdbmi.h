@@ -53,7 +53,7 @@ public:
     virtual dbgevent_t *showFrame(int count, const char* threads) override;
 
     virtual dbgevent_t *getFrame(const char* threads) override;
-    virtual dbgevent_t *setVar(const char *var, AIF *a, const char* threads) override;
+    virtual dbgevent_t *setVar(const char *var, const char* val, const char* threads) override;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
@@ -69,7 +69,7 @@ public:
     virtual bool isReadyForCmd() override;
     virtual bool isOk() override;
     virtual bool isStopped() override;
-    virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) override;
+    virtual dbgevent_t *setDebuggerVar(const char *var, const char *val) override;
     virtual dbgevent_t *setSourcePath(const char *path) override;
     virtual dbgevent_t *getSourcePath() override;
     virtual dbgevent_t *getDebuggerVar(const char *var) override;

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,7 +22,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "aif.h"
 #include "client_settings.h"
 #include "defs.h"
 #include "gram.h"

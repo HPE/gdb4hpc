@@ -45,8 +45,6 @@ struct OptionalString {
     operator const char*() { return str.empty() ? nullptr : str.c_str(); }
 };
 
-using AIFPtr = std::unique_ptr<AIF,decltype(&AIFFree)>;
-
 // Socket prototype string reader.
 class ISocStream {
     dbgcmd m_cmd;
@@ -76,7 +74,6 @@ private:
     ISocStream& operator>>(size_t& sz);
     ISocStream& operator>>(std::string& s);
     ISocStream& operator>>(OptionalString& s);
-    ISocStream& operator>>(AIFPtr& aif);
     ISocStream& operator>>(CmdArgs& args);
 };
 }
@@ -250,9 +247,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SETDEBUGGERVAR: {
-            std::string var; AIFPtr aif(nullptr, AIFFree);
-            is.get(var, aif);
-            e = DbgSetDebuggerVar(var.c_str(), aif.get());
+            std::string var, val;
+            is.get(var, val);
+            e = DbgSetDebuggerVar(var.c_str(), val.c_str());
             break;
         }
 
@@ -293,9 +290,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SETVAR: {
-            std::string var; AIFPtr val{nullptr, AIFFree}; OptionalString threads;
+            std::string var, val; OptionalString threads;
             is.get(var, val, threads);
-            e = DbgSetVar(var.c_str(), val.get(), threads);
+            e = DbgSetVar(var.c_str(), val.c_str(), threads);
             break;
         }
 
@@ -506,14 +503,6 @@ ISocStream& ISocStream::operator>>(OptionalString& s) {
     return *this >> s.str;
 }
 
-ISocStream& ISocStream::operator>>(AIFPtr& aif) {
-    std::string aifStr;
-    *this >> aifStr;
-
-    // FIXME - probably move this function to this file...
-    aif.reset( SocProtoToAIF(aifStr.c_str()));
-    return *this;
-}
 ISocStream& ISocStream::operator>>(CmdArgs& args) {
     int n;
     *this >> n;

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -23,7 +23,6 @@
 
 #include "procset.h"
 #include "dense_bitset.h"
-#include "aif.h"
 
 #define T_CHUNK 128
 #define T_NCHUNKS 20
@@ -70,14 +69,14 @@ struct token_t {
     std::unique_ptr<DenseBitset> t_set_bits;
 
     union t_d {
-        AIF* t_d_data;
+        AIFStream* t_d_data;
         int t_d_int;
         double t_d_float;
         char* t_d_str;
         void* t_d_addr;
         dbgprocset_t* t_d_procset;
         int* t_d_int_set;
-        AIF** t_d_data_set;
+        AIFStream** t_d_data_set;
         std::unique_ptr<DenseBitset> t_d_bit_set;
         int t_d_bool;
 

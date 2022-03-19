@@ -87,8 +87,8 @@ static void ResetForAsyncCmd(rec_set_t *);
 static void RemoveGroupFromAsyncSet(dbginvoke_t *, const Bitset *);
 static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
-                                  const ArrayDimension* shape,
                                   bool& isError);
+
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 /*
@@ -367,10 +367,10 @@ rep_set_t::rep_set_t()
       m_moreSlices(false)
 {}
 
-rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, const Bitset* group)
+rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const Bitset* group)
     : rep_set_t()
 {
-    mergeReplySliceSet(slices, shape, group);
+    mergeReplySliceSet(slices, group);
 }
 
 void FreeRepSet(rep_set_t *set) {
@@ -1643,13 +1643,12 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
 
             // Any event without data should be handled here
             case DBGEV_OK:
+                FreeEvent(e);
                 if (ev != req_type && ev != alt_req_type) {
                     // Create a new error event based on this reply
-                    FreeEvent(e);
-                    EVENT_ERROR(
-                        e, DBGERR_INTERNAL,
-                        "Received event of type %s, expected type %s.\n",
-                        DbgevToStr(ev), DbgevToStr(req_type));
+                    e = NewErrorEvent(DBGERR_INTERNAL,
+                                      "Received event of type %s, expected type %s.\n",
+                                      DbgevToStr(ev), DbgevToStr(req_type));
                     rep = NewGroupReply(di, msg.getBitset()->clone(), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
@@ -1719,7 +1718,7 @@ void rep_set_t::mergeReplySlices()
         slices.push_back(move(slice));
     }
 
-    mergeReplySliceSet(slices, nullptr, nullptr);
+    mergeReplySliceSet(slices, nullptr);
 
     m_isSliced = m_returnedSlice0 = m_moreSlices =  false;
 }
@@ -1730,7 +1729,7 @@ void rep_set_t::mergeReplySlices()
 // in memory does not help (actually hinders) the memory usage on the client
 // side
 void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                                   const ArrayDimension* shape, const Bitset* group)
+                                   const Bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
@@ -1834,7 +1833,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             // we have our set of overlapping replies, join the events together
             // and add to the monolithic return set.
             bool isError;
-            if (group_reply_t* newReply = JoinReplies(setset.get(), newSlice, shape, isError)) {
+            if (group_reply_t* newReply = JoinReplies(setset.get(), newSlice, isError)) {
                 if (isError) {
                     m_errs.push_back(newReply);
                 } else {
@@ -1843,127 +1842,6 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             }
         }
     }
-}
-
-
-namespace {
-// Manage a bunch of *in memory* AIF slices as an AIF stream.
-// This class is temporary (since it still potentially tries to
-// hold a data structure of nearly unlimited size in memory at once).
-// We define it here just in order to access the joinAIF functionality
-// in AIFStream.  (which is also a temporary expedient).
-class LocalSlices : public AIFStream::Slices {
-public:
-    LocalSlices(const ArrayDimension *shape) 
-        // copy shape if given
-        : m_shape{shape ? std::make_unique<ArrayDimension>(*shape) : nullptr} 
-    {}
-    void addSlice(AIF* aif);
-
-    virtual const ArrayDimension* getFullShape() const override;
-    virtual AIF* getNextSlice(bool& isFinal) override;
-    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
-    virtual void freeSlice(AIF* aif) override;
-private:
-    std::vector<AIF*> m_aifs;
-    std::vector<AIF*>::iterator m_current;
-    mutable std::unique_ptr<ArrayDimension> m_shape;
-};
-
-void LocalSlices::addSlice(AIF* aif) {
-    m_aifs.push_back(aif);
-    m_current = m_aifs.begin();
-}
-
-// compute the full shape of the AIF array by combining the information from the slices
-// if necessary
-const ArrayDimension* LocalSlices::getFullShape() const
-{
-    if (m_shape)
-        return m_shape.get();
-
-    int* fullMins = nullptr;
-    int* fullMaxs = nullptr;
-    int fullDim = 0;
-    bool isFortran = false;
-
-    for (auto&& aif : m_aifs) {
-        isFortran = (AIFType(aif) == AIF_FTN_ARRAY);
-        int dim = AIFArrayRank(aif);
-        if (dim <= 0) {
-            DPRINT("could not get array dimension\n");
-            return nullptr;
-        }
-
-        // get the array bounds, (note not using AIFArrayBounds because it
-        // errors out on a fortran array)
-        int* mins, *maxs;
-        if (AIFType(aif) != AIF_ARRAY && AIFType(aif) != AIF_FTN_ARRAY) {
-            fprintf(stderr, "aif is not an array type\n");
-            return nullptr;
-        }
-        FDSArrayBounds(AIF_FORMAT(aif), dim, &mins, &maxs, nullptr);
-
-        if (!fullMins) {
-            fullMins = mins;
-            fullMaxs = maxs;
-            fullDim = dim;
-        } else if (dim == fullDim) {
-            for (int i=0; i<dim; ++i) {
-                fullMins[i] = std::min(fullMins[i], mins[i]);
-                fullMaxs[i] = std::max(fullMaxs[i], maxs[i]);
-            }
-            free(mins);
-            free(maxs);
-        } else {
-            DPRINT("dimensions to not match\n");
-            return nullptr;
-        }
-    }
-
-    // Got the bounds, create the array dimension object
-    auto shape = std::make_unique<ArrayDimension>();
-    if (!shape) {
-        DPRINT("newArrayDimension failed");
-        return nullptr;
-    }
-
-    shape->setIsFortran(isFortran);
-
-    for (int i=0; i<fullDim; ++i) {
-        // arrayDimension orders dims from fastest to slowest
-        int d = (isFortran ? i : fullDim-1-i);
-        shape->addDimensionDef(fullMins[d], fullMaxs[d]);
-    }
-
-    free(fullMins);
-    free(fullMaxs);
-
-    m_shape = std::move(shape);
-
-    return m_shape.get();
-}
-
-AIF* LocalSlices::getNextSlice(bool& isFinal)
-{
-    // unused, but required since the function takes a reference as an argument
-    size_t truncatedLength = 0;
-    return getNextSlice(isFinal, truncatedLength);
-}
-
-AIF* LocalSlices::getNextSlice(bool& isFinal, size_t& truncatedLength) {
-    if (m_current == m_aifs.end()) {
-        return nullptr;
-    } else {
-        isFinal = (m_current+1 == m_aifs.end());
-        // truncation never happens in LocalSlices
-        truncatedLength = 0;
-        return *(m_current++);
-    }
-}
-
-// LocalSlices does not control the aif objects which may be reused
-void LocalSlices::freeSlice(AIF* aif) {}
 }
 
 // Create a single unsliced group_reply from a set of slices
@@ -1975,7 +1853,6 @@ void LocalSlices::freeSlice(AIF* aif) {}
 // \a isError will contain true on return if any slice in \a replies was an error
 static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
-                                  const ArrayDimension* shape,
                                   bool& isError)
 {
     // JoinReplies should be called on DATA replies - no other type is sliced
@@ -1992,19 +1869,17 @@ static group_reply_t* JoinReplies(const Bitset* group,
 
     // AIFStream does the work to paste the data objects into a single object
     AIFStream* data = nullptr;
+        
     if (!isError) {
-        auto assemblerSlices = std::make_shared<LocalSlices>(shape);
+        std::vector<std::string> slices;
         for (auto&& reply : replies) {
-            assemblerSlices->addSlice(EVENT_DATA(reply->rep_event)->joinAIF());
+            bool isFinal;
+            slices.push_back(EVENT_DATA(reply->rep_event)->getNextSlice(isFinal));
         }
 
-        AIFStream assembler(assemblerSlices);
-        AIF* joinedAIF = assembler.joinAIF(AIFStream::STEAL);
-        data = new AIFStream(joinedAIF);
-
-        if (!data)
-            isError = true;
+        data = new AIFStream(std::move(slices));
     }
+
 
     // and create the group reply
     dbgevent_t* event = NewEvent(isError ? DBGEV_ERROR : DBGEV_DATA);
@@ -2015,7 +1890,6 @@ static group_reply_t* JoinReplies(const Bitset* group,
     group_reply_t* groupReply = NewGroupReply(di, group->clone(), event);
     return groupReply;
 }
-
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type) {
@@ -2140,7 +2014,7 @@ rep_set_t *DbgCloseSocket(rec_set_t *set) {
 /*
 ** DBG_EVALEXPR: Evaluate expression.
 */
-rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
+rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp) {
 
     size_t exprId = DbgGetNextExprIdx();
 
@@ -2157,9 +2031,12 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, char *exp) {
 /*
 ** DBG_SETDEBUGGERVAR: Set variable in debugger to new value.
 */
-rep_set_t *DbgSetDebuggerVar(rec_set_t *set, const char *var, AIF *val) {
+rep_set_t *DbgSetDebuggerVar(rec_set_t *set, const char *var, AIFStream *val) {
 
-    auto request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, val);
+    std::ostringstream valStr;
+    val->print(valStr);
+
+    auto request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, valStr.str());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
@@ -2314,8 +2191,11 @@ rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *set) {
 /*
 ** DBG_SETVAR: Set variable in program to new value.
 */
-rep_set_t *DbgSetVar(rec_set_t *set, const char *var, AIF *val) {
-    auto request = CommandToSocProto(DBGCMD_SETVAR, var, val, set->getThreads());
+rep_set_t *DbgSetVar(rec_set_t *set, const char *var, AIFStream *val) {
+    std::ostringstream valStr;
+    val->print(valStr);
+
+    auto request = CommandToSocProto(DBGCMD_SETVAR, var, valStr.str(), set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 

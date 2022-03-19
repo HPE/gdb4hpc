@@ -64,14 +64,14 @@ a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_t
 46: #compare $a{0}::"sizeof(c)" = $b{0}::"sizeof(c)"
 48: #signed char
 49: print sc
-a{0..2}: \0xFE
-b{0..2}: \0xFE
+a{0..2}: -2 '\xFE'
+b{0..2}: -2 '\xFE'
 50: compare $a{0}::"sizeof(sc)" = $b{0}::"sizeof(sc)"
 {0}: Comparison is true.
 52: #unsigned char
 53: print uc
-a{0..2}: 3
-b{0..2}: 3
+a{0..2}: 3 '\x03'
+b{0..2}: 3 '\x03'
 54: compare $a{0}::"sizeof(uc)" = $b{0}::"sizeof(uc)"
 {0}: Comparison is true.
 56: #short
@@ -220,8 +220,8 @@ b{0..2}: 27.1
 {0}: Comparison is true.
 152: #long double
 153: print ld
-a{0..2}: 28.19999999999999928945726423989981
-b{0..2}: 28.19999999999999928945726423989981
+a{0..2}: 28.1999999999999993
+b{0..2}: 28.1999999999999993
 154: compare $a{0}::"sizeof(ld)" = $b{0}::"sizeof(ld)"
 {0}: Comparison is true.
 158: #continue

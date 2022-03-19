@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -92,7 +92,7 @@ token_t *NewToken(graph_t *g, token_type tt) {
     t->t_ref = 0;
     t->t_node = (node_t *)NULL;
     t->t_type = tt;
-    t->t_data = (AIF *)NULL;
+    t->t_data = NULL;
     t->t_next = (token_t *)NULL;
     t->t_prev = (token_t *)NULL;
     t->t_set_name = (char *)NULL;
@@ -131,7 +131,7 @@ void DestroyToken(graph_t *g, token_t *t) {
 
     switch (t->t_type) {
         case TK_DATA:
-            AIFFree(t->t_data);
+            delete t->t_data;
             break;
 
         case TK_BOOL:
@@ -256,7 +256,7 @@ void DumpToken(token_t *t) {
         case TK_DATA:
             PrintOutError("<data ");
 
-            AIFPrint(Client.cli_err_stream, 0, t->t_data);
+            if (t->t_data) t->t_data->print(Client.cli_err_stream);
 
             PrintOutError(">");
             break;

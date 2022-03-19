@@ -8,7 +8,7 @@
 8: # in any form.
 9: #
 10: maint set sync on
-12: launch $a{6}  --args="0" bd_dt/C++/cpp_decomp2.x
+11: launch $a{6}  --args="0" bd_dt/C++/cpp_decomp2.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -18,8 +18,8 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:18
-13: launch $b{6}  --args="1" bd_dt/C++/cpp_decomp2.x
+a{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:18
+12: launch $b{6} --args="1" bd_dt/C++/cpp_decomp2.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -29,54 +29,64 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:18
-15: decomposition $block2_12
-16: dimension 12,10
-17: distribute block,block
-18: proc_grid 3,2
-19: dim_order 1,2
-20: end
-22: decomposition $block2_21
-23: dimension 12,10
-24: distribute block,block
-25: proc_grid 3,2
-26: dim_order 2,1
-27: end
-29: b 76
-a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp, line 76.
-b{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp, line 76.
-30: c
-b{0..5}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:76
-a{0..5}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:76
-32: #print the joined up data
-33: p $block2_12{$a::block12}
-[[0,1,2,3,4,5,6,7,8,9],[100,101,102,103,104,105,106,107,108,109],[200,201,202,203,204,205,206,207,208,209],[300,301,302,303,304,305,306,307,308,309],[400,401,402,403,404,405,406,407,408,409],[500,501,502,503,504,505,506,507,508,509],[600,601,602,603,604,605,606,607,608,609],[700,701,702,703,704,705,706,707,708,709],[800,801,802,803,804,805,806,807,808,809],[900,901,902,903,904,905,906,907,908,909],[1000,1001,1002,1003,1004,1005,1006,1007,1008,1009],[1100,1101,1102,1103,1104,1105,1106,1107,1108,1109]]
-34: p $block2_21{$a::block21}
-[[0,1,2,3,4,5,6,7,8,9],[100,101,102,103,104,105,106,107,108,109],[200,201,202,203,204,205,206,207,208,209],[300,301,302,303,304,305,306,307,308,309],[400,401,402,403,404,405,406,407,408,409],[500,501,502,503,504,505,506,507,508,509],[600,601,602,603,604,605,606,607,608,609],[700,701,702,703,704,705,706,707,708,709],[800,801,802,803,804,805,806,807,808,809],[900,901,902,903,904,905,906,907,908,909],[1000,1001,1002,1003,1004,1005,1006,1007,1008,1009],[1100,1101,1102,1103,1104,1105,1106,1107,1108,1109]]
-36: # compare the values
-37: compare $block2_12{$a::block12} == $block2_12{$b::block12}
+b{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:18
+13: decomposition $block2_12
+14: dimension 12,10
+15: distribute block,block
+16: proc_grid 3,2
+17: dim_order 1,2
+18: end
+19: decomposition $block2_21
+20: dimension 12,10
+21: distribute block,block
+22: proc_grid 3,2
+23: dim_order 2,1
+24: end
+25: b 76
+a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp, line 76.
+b{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp, line 76.
+26: c
+a{0..5}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:76
+b{0..5}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:76
+27: #print the joined up data
+28: p $block2_12{$a::block12}
+{{0,1,2,3,4,5,6,7,8,9},{100,101,102,103,104,105,106,107,108,109},{200,201,202,203,204,205,206,207,208,209},{300,301,302,303,304,305,306,307,308,309},{400,401,402,403,404,405,406,407,408,409},{500,501,502,503,504,505,506,507,508,509},{600,601,602,603,604,605,606,607,608,609},{700,701,702,703,704,705,706,707,708,709},{800,801,802,803,804,805,806,807,808,809},{900,901,902,903,904,905,906,907,908,909},{1000,1001,1002,1003,1004,1005,1006,1007,1008,1009},{1100,1101,1102,1103,1104,1105,1106,1107,1108,1109}}
+29: p $block2_21{$a::block21}
+{{0,1,2,3,4,5,6,7,8,9},{100,101,102,103,104,105,106,107,108,109},{200,201,202,203,204,205,206,207,208,209},{300,301,302,303,304,305,306,307,308,309},{400,401,402,403,404,405,406,407,408,409},{500,501,502,503,504,505,506,507,508,509},{600,601,602,603,604,605,606,607,608,609},{700,701,702,703,704,705,706,707,708,709},{800,801,802,803,804,805,806,807,808,809},{900,901,902,903,904,905,906,907,908,909},{1000,1001,1002,1003,1004,1005,1006,1007,1008,1009},{1100,1101,1102,1103,1104,1105,1106,1107,1108,1109}}
+30: # compare the values
+31: compare $block2_12{$a::block12} == $block2_12{$b::block12}
 Comparison is true.
-38: compare $block2_21{$a::block21} == $block2_21{$b::block21}
+32: compare $block2_21{$a::block21} == $block2_21{$b::block21}
 Comparison is true.
-40: # the cross one should match up too
-41: compare $block2_12{$a::block12} == $block2_21{$b::block21}
+33: # the cross one should match up too
+34: compare $block2_12{$a::block12} == $block2_21{$b::block21}
 Comparison is true.
-42: compare $block2_21{$a::block21} == $block2_12{$b::block12}
+35: compare $block2_21{$a::block21} == $block2_12{$b::block12}
 Comparison is true.
-44: b 81
-a{0..5}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp, line 81.
-b{0..5}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp, line 81.
-45: c
-b{0..5}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:81
-a{0..5}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_decomp2.cpp:81
-47: # at the point, teh arrays should have been modified, so these
-48: # comparisons will fail
-49: compare $block2_12{$a::block12} == $block2_12{$b::block12}
+36: b 81
+a{0..5}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp, line 81.
+b{0..5}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp, line 81.
+37: c
+a{0..5}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:81
+b{0..5}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp2.cpp:81
+38: # at the point, teh arrays should have been modified, so these
+39: # comparisons will fail
+40: compare $block2_12{$a::block12} == $block2_12{$b::block12}
 Comparison is false. The difference delta is:
-[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10199,0,0,0,0,10204,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10599,0,0,0,0,10604,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10999,0,0,0,0,11004,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]
-50: compare $block2_21{$a::block21} == $block2_21{$b::block21}
+[2][0]:-10199
+[2][5]:-10204
+[6][0]:-10599
+[6][5]:-10604
+[10][0]:-10999
+[10][5]:-11004
+41: compare $block2_21{$a::block21} == $block2_21{$b::block21}
 Comparison is false. The difference delta is:
-[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10199,0,0,0,0,10204,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10599,0,0,0,0,10604,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[10999,0,0,0,0,11004,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]
-52: q
+[2][0]:-10199
+[2][5]:-10204
+[6][0]:-10599
+[6][5]:-10604
+[10][0]:-10999
+[10][5]:-11004
+42: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

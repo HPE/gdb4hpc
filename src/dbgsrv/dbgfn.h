@@ -16,7 +16,6 @@
 #ifndef _DBGFN_H
 #define _DBGFN_H
 
-#include "aif.h"
 #include "dbgevent.h"
 
 class dbgcomm_info;
@@ -58,7 +57,7 @@ public:
     virtual dbgevent_t *showFrame(int count, const char* threads) = 0;
 
     virtual dbgevent_t *getFrame(const char* threads) = 0;
-    virtual dbgevent_t *setVar(const char *var, AIF *a, const char* threads) = 0;
+    virtual dbgevent_t *setVar(const char *var, const char *a, const char* threads) = 0;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
     virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) = 0;
     virtual dbgevent_t *getLocation() = 0;   //!! potentially unimplemented
@@ -74,7 +73,7 @@ public:
     virtual bool isReadyForCmd() = 0;
     virtual bool isOk() = 0;
     virtual bool isStopped() = 0;
-    virtual dbgevent_t *setDebuggerVar(const char *var, AIF *val) = 0;
+    virtual dbgevent_t *setDebuggerVar(const char *var, const char *val) = 0;
     virtual dbgevent_t *setSourcePath(const char *path) = 0;
     virtual dbgevent_t *getSourcePath() = 0;
     virtual dbgevent_t *getDebuggerVar(const char *var) = 0;
@@ -132,8 +131,8 @@ extern dbgevent_t *DbgKill(void);
 extern dbgevent_t *DbgMoveFrame(int, bool, const char*);
 extern dbgevent_t *DbgShowFrame(int, const char*);
 extern dbgevent_t *DbgGetFrame(const char*);
-extern dbgevent_t *DbgSetVar(const char *, AIF *, const char* threads);
-extern dbgevent_t *DbgSetDebuggerVar(const char *, AIF *);
+extern dbgevent_t *DbgSetVar(const char *, const char* val, const char* threads);
+extern dbgevent_t *DbgSetDebuggerVar(const char *, const char *val);
 extern dbgevent_t *DbgSetSourcePath(const char *);
 extern dbgevent_t *DbgGetSourcePath(void);
 extern dbgevent_t *DbgSetPrintElements(const char* elements);

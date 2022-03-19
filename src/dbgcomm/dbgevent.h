@@ -320,8 +320,6 @@ extern const char *EventToStr(dbgevent_t *);
 extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);
 
-constexpr const char* MULTI_THREAD_HDR = "Thread Results\n";
-
 // Parser class for processing a THREAD_INFO result into its components.
 // Usage as:
 // for (ThreadMsgParser parser(std::move(msg); auto msg = parser.nextResult(); ) {

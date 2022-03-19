@@ -35,4 +35,4 @@ endif
 ##############################
 
 noinst_LIBRARIES = libdbg.a
-libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp $(ZMQNET_FILES)
+libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp ais.cpp $(ZMQNET_FILES)

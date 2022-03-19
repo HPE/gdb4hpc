@@ -1,9 +1,6 @@
 [submodule "external/cdst_build_library"]
 	path = external/cdst_build_library
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-cdst_build_library.git
-[submodule "external/zmqnet"]
-	path = external/zmqnet
-	url = git@github.hpe.com:hpe/hpc-pe-cdst-zmqnet.git
 [submodule "external/mrnet"]
 	path = external/mrnet
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-mrnet.git
@@ -37,3 +34,6 @@
 [submodule "external/python_extras"]
 	path = external/python_extras
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-python_extras.git
+[submodule "external/zmqnet"]
+	path = external/zmqnet
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-zmqnet.git

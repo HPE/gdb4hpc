@@ -1,272 +1,549 @@
-// Copyright 2020 Hewlett Packard Enterprise Development LP.
+// Copyright 2020-2022 Hewlett Packard Enterprise Development LP.
 
 // Classes for defining a sequential stream of data accessed via the AIF interface.
 #include "AIFStream.h"
+#include "ais.h"
 #include <string.h>
 #include <stdarg.h>
+#include <iomanip>
+#include <cmath>
 
-AIFStream::AIFStream(AIF* aif) :
-    m_joinedAIF(aif), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_dataTruncatedLength{0},
-    m_slices{nullptr}, m_currentSlice(nullptr) {}
-
-AIFStream::AIFStream(std::shared_ptr<Slices> slices) :
-    m_joinedAIF(nullptr), m_joinedIsStolen(false), m_joinedIsExposed(false),
-    m_dataTruncatedLength{0},
-    m_slices(slices), m_currentSlice(nullptr)
-{}
-
-AIFStream::~AIFStream(){
-    if (m_joinedAIF && !m_joinedIsStolen)
-        AIFFree(m_joinedAIF);
-    if (m_currentSlice && m_slices.get())
-        m_slices->freeSlice(m_currentSlice);
+void rd_unimplemented(const char* func) {
+    fprintf(stderr, "UNIMPLEMENTED %s\n", func);
 }
+
+namespace {
+// CachedSlices keep the values when a join operation forces all the
+// data to be pulled to down to the front end.   The stream
+// can then be processed as usual, or copied for reuse
+class CachedSlices : public AIFStream::Slices {
+public:
+    CachedSlices(std::string&& data);
+    CachedSlices(std::vector<std::string>&& data);
+    std::string getNextSlice(bool& isFinal) override;
+    std::shared_ptr<AIFStream::Slices> clone() const;
+private:
+    std::vector<std::string> m_data;
+    size_t m_idx = 0;
+};
+CachedSlices::CachedSlices(std::string&& data) {
+    m_data.push_back(std::move(data));
+}
+CachedSlices::CachedSlices(std::vector<std::string>&& data) : m_data{std::move(data)} {}
+
+std::string CachedSlices::getNextSlice(bool& isFinal) {
+    if (m_idx < m_data.size()) {
+        isFinal = (m_idx+1 == m_data.size());
+        return std::move(m_data[m_idx++]);
+    } else {
+        throw std::runtime_error("result data is truncated");
+    }
+}
+std::shared_ptr<AIFStream::Slices> CachedSlices::clone() const {
+    std::vector cpData = m_data; // copy the data slices
+    return std::make_shared<CachedSlices>(std::move(cpData));
+}
+
+// SharesSlice is a way to reuse stream data by having
+// multiple stream objects connect to one master copy.
+// This class is the shared single representation.
+// Currently, this is used with decompositions when 
+// multiple ranks aggregated the same result, though this
+// structure could be more widely applied
+class SharedSlices : public AIFStream::Slices {
+public:
+    static std::shared_ptr<SharedSlices> make(std::shared_ptr<Slices> original);
+    // clone generates a CloneSlice referencing the
+    // shared state.
+    std::shared_ptr<AIFStream::Slices> clone() const;
+
+    std::string getNextSlice(bool& isFinal) override;
+    std::string getSlice(int idx, bool& isFinal);
+private:
+    SharedSlices(std::shared_ptr<AIFStream::Slices> original);
+    std::shared_ptr<AIFStream::Slices> m_orig;
+    std::vector<std::string> m_data;
+    bool m_readFinal = false;
+    std::vector<size_t> m_idcs;
+    std::weak_ptr<SharedSlices> m_self;
+};
+
+// CloneSlices is a single "view" into a SharedSlices object.
+// It will act like it has a unique copy of the shared data.    
+class CloneSlices : public AIFStream::Slices {
+public:
+    CloneSlices(std::shared_ptr<SharedSlices> parent, int idx);
+    std::string getNextSlice(bool& isFinal) override;
+    std::shared_ptr<AIFStream::Slices> clone() const;
+
+private:
+    std::shared_ptr<SharedSlices> m_parent;
+    int m_idx;
+};
+
+std::shared_ptr<SharedSlices> SharedSlices::make(std::shared_ptr<Slices> original) {
+    auto x = std::shared_ptr<SharedSlices>{new SharedSlices{original}};
+    x->m_self = x;  // I need to create shared_ptrs to self 
+    return x;
+}
+SharedSlices::SharedSlices(std::shared_ptr<AIFStream::Slices> original)
+    : m_orig(original) {}
+
+std::string SharedSlices::getNextSlice(bool& isFinal) {
+    return m_orig->getNextSlice(isFinal);
+}
+std::shared_ptr<AIFStream::Slices> SharedSlices::clone() const {
+    const_cast<SharedSlices*>(this)->m_idcs.push_back(0);
+    return std::make_shared<CloneSlices>(m_self.lock(), m_idcs.size()-1);
+}
+// Retrieve the next slice of data for one of the CloneSlices children
+// using this object.
+std::string SharedSlices::getSlice(int idx, bool& isFinal) {
+    if (auto si=m_idcs[idx]++; si < m_data.size()) {
+        // The slice has already been retrived from the back end
+        isFinal = (m_readFinal && si+1 == m_data.size());
+        if (std::none_of(m_idcs.begin(), m_idcs.end(), [si](auto x) { return x<=si; })) {
+            return std::move(m_data[si]); // last use for this one
+        } else {
+            return m_data[si]; // there is another...
+        }
+    } else if (!m_readFinal) {
+        // we need to fetch the next slice
+        m_data.push_back(getNextSlice(m_readFinal));
+        isFinal = m_readFinal;
+        return m_data.back();
+    } else {
+        throw std::runtime_error("data is truncated");
+    }
+}
+
+CloneSlices::CloneSlices(std::shared_ptr<SharedSlices> parent, int idx) :
+    m_parent(parent), m_idx(idx) {}
+std::string CloneSlices::getNextSlice(bool& isFinal) {
+    return m_parent->getSlice(m_idx, isFinal);
+}
+std::shared_ptr<AIFStream::Slices> CloneSlices::clone() const {
+    return m_parent->clone();
+}
+    
+} // namespace
+
+std::shared_ptr<AIFStream::Slices> AIFStream::Slices::clone() const {
+    throw std::runtime_error("clone is not supported on stream data");
+}
+ 
+
+AIFStream::AIFStream(std::string&& data, bool isPartial) :
+    m_slices{new CachedSlices{std::move(data)}} {
+    /* isPartial was never used */
+}
+
+
+AIFStream::AIFStream(std::vector<std::string>&& data) :
+    m_slices{new CachedSlices{std::move(data)}} {}
+
+AIFStream::AIFStream(std::shared_ptr<Slices> slices) : m_slices(slices) {}
+
+AIFStream::AIFStream(std::shared_ptr<ais::VStream> vstream) :
+    m_vstream(vstream) {}
+
+AIFStream::~AIFStream() {}
 
 // Get the next slice of AIF data.   Set isFinal to true if this is the last
 // slice of the data object.   The returned AIF is owned by this object and
 // is guaranteed to exist until the next call to getNextSlice.
 // FIXME - oh just make this a shared pointer for god's sake.
-AIF* AIFStream::getNextSlice(bool& isFinal)
+std::string AIFStream::getNextSlice(bool& isFinal)
 {
-    isFinal = true;
-    if (m_joinedIsExposed) {
-        return nullptr;
-    } else if (m_joinedAIF) {
-        return m_joinedAIF;
-    } else if (m_slices) {
-        AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength);
-        if (m_currentSlice)
-            m_slices->freeSlice(m_currentSlice);
-        m_currentSlice = slice;
-        return slice;
+    if (m_slices) {
+        return m_slices->getNextSlice(isFinal);
     } else {
-        return nullptr;
+        throw std::runtime_error("trying to read an uninitialized data stream");
     }
+
 }
 
-// Get the next slice of AIF data and return ownership of the AIF object.
-AIF* AIFStream::getNextSlice(steal_t, bool& isFinal)
+// Force the full stream state to be pulled from the back end, potentially
+// for re-use.
+AIFStream* AIFStream::join() {
+    if (m_slices && !dynamic_cast<CachedSlices*>(m_slices.get())) {
+        std::vector<std::string> data;
+        for (bool isFinal = false; !isFinal; ) {
+            data.push_back(m_slices->getNextSlice(isFinal));
+        }
+        m_slices.reset(new CachedSlices{std::move(data)});
+    }
+    return this;
+}
+
+AIFStream* AIFStream::clone()
 {
-    AIF* slice = getNextSlice(isFinal);
-    if (slice) {
-        m_currentSlice = m_joinedAIF = nullptr;
+    // There's only one channel for retrieval from the back end, so
+    // join first.
+    join();
+
+    // and clone
+    if (m_slices) {
+        return new AIFStream(m_slices->clone());
+    } else if (m_vstream) {
+        return new AIFStream(m_vstream);
+    } else {
+        throw std::runtime_error("cannot clone an empty data stream");
     }
-    return slice;
 }
 
-// I am hoping for the joinAIF call be to temporary for when I'm pushing through
-// the pieced out version.  This allows us to improve the performance in
-// step-wise fashion instead of having to implement everything at once.
-// This version maintains ownership of AIF object.
-AIF* AIFStream::joinAIF() {
-    if (m_joinedAIF && m_joinedIsStolen && m_joinedIsExposed) {
-        warning("possible problematic lifetime in AIFStream\n");
-    }
-    if (!m_joinedAIF && m_slices.get()) {
-        joinAIFFromSlices();
-    }
+namespace {
 
-    m_joinedIsExposed = true;
-    return m_joinedAIF;
+// Low level interface for reading primitives off of the data stream.
+// Note.   This is currently implemented just dropping the string
+// representations, which is far from optimal, but made debugging the
+// process very easy.   I expect to redo with cap 'n proto sooner
+// or later.
+class AIFStreamReadBuffer : public ais::ReadBuffer {
+public:
+    AIFStreamReadBuffer(std::shared_ptr<AIFStream::Slices> slices) :
+        m_slices(slices), m_final(false) {}
+    int readInt() override;
+    long readLong() override;
+    long long readLongLong() override;
+    float readFloat() override;
+    double readDouble() override;
+    long double readLongDouble() override;
+    std::string readString() override;
+    bool hasMoreData() override;
+
+private:
+    void getMore();
+
+    template<typename  T>
+    inline T read() {
+        auto val = T{};
+        while (!(m_in >> val)) getMore();
+        return val;
+    }
+    
+    std::shared_ptr<AIFStream::Slices> m_slices;
+    bool m_final;
+    std::istringstream m_in;
+};
+
+
+
+void AIFStreamReadBuffer::getMore() {
+    if (!m_final) {
+        m_in.str(m_slices->getNextSlice(m_final));
+        m_in.clear();
+    } else {
+        throw std::runtime_error("result data is truncated");
+    }
 }
+
+int AIFStreamReadBuffer::readInt() { return read<int>(); }
+long AIFStreamReadBuffer::readLong() { return read<long>(); }
+long long AIFStreamReadBuffer::readLongLong() { return read<long long>(); }
+float AIFStreamReadBuffer::readFloat() { return read<float>(); }
+double AIFStreamReadBuffer::readDouble() { return read<double>(); }
+long double AIFStreamReadBuffer::readLongDouble() { return read<long double>(); }
+std::string AIFStreamReadBuffer::readString() {
+    auto val = std::string{};
+    while (!(m_in >> std::quoted(val))) getMore();
+    return val;
+}
+
+bool AIFStreamReadBuffer::hasMoreData() {
+    return !m_final || (m_in && m_in.peek() != EOF);
+}
+} // anonymous namespace
 
 // creates a new aifstream and transfers ownership of the AIF retrieved from
 // getNextSlice(STEAL).
 // preserves truncation info in the new stream.
 AIFStream* AIFStream::createStreamFromNextSlice(bool &isFinal) {
     // getNextSlice will set internal truncation data
-    auto aif = getNextSlice(AIFStream::STEAL, isFinal);
-    auto returnStream = new AIFStream(aif);
-    returnStream->setTruncatedLength(m_dataTruncatedLength);
-    return returnStream;
+    auto slice = getNextSlice(isFinal);
+    return new AIFStream(std::move(slice), !isFinal);
 }
 
-bool AIFStream::isTruncated() const {
-    return m_dataTruncatedLength != 0;
+// get an integer value from an AIF that is supposed to be an integral value
+int AIFStream::toInt(int& val) {
+    // work off a clone so the stream can be reconsumed
+    auto x = std::unique_ptr<AIFStream>(clone());    
+
+    try {
+        auto gotVal = bool{false};
+        auto f = ais::FVisitor([&val, &gotVal](auto v) {
+                                   if constexpr (std::is_arithmetic<decltype(v)>::value) {
+                                           val = v;
+                                           gotVal = true;
+                                       }});
+        x->getVStream().apply(f);
+        return gotVal ? 0 : -1;
+    } catch (std::exception& err) {
+        return -1;
+    }
 }
 
-size_t AIFStream::getTruncatedLength() const {
-    return m_dataTruncatedLength;
+int AIFStream::isZero(int& val)
+{
+    // I think this one is always cloned directly
+    try {
+        val = true;
+        auto f = ais::FVisitor(
+            [&val](auto v) {
+                if constexpr (std::is_arithmetic<decltype(v)>::value) {
+                        val = val && !v;
+                } else {
+                    val = val && v.empty();
+                }});
+        getVStream().apply(f);
+        return 0;
+    } catch (std::exception& err) {
+        return -1;
+    }
 }
 
-void AIFStream::setTruncatedLength(size_t len) {
-    m_dataTruncatedLength = len;
+AIFStream* AIFStream::fromInt(int val) {
+    return new AIFStream{ais::SingleValueStream<ais::Int,int>::make(val)};
 }
 
-// This version retrieves the monolithic AIF data structure, and cedes
-// its ownership to the caller.
-AIF* AIFStream::joinAIF(steal_t) {
-    if (m_joinedAIF && m_joinedIsExposed) {
-        warning("trying to steal an AIF that has already been exposed");
+AIFStream* AIFStream::fromDouble(double val) {
+    return new AIFStream{ais::SingleValueStream<ais::Double,double>::make(val)};
+}
+
+AIFStream* AIFStream::fromString(const char* val) {
+    return fromString(std::string{val});
+}
+
+AIFStream* AIFStream::fromString(const std::string& val) {
+    return new AIFStream{ais::SingleValueStream<ais::String,std::string>::make(val)};
+}
+
+AIFStream* AIFStream::fromLiteral(const std::string& val) {
+    return new AIFStream{ais::SingleValueStream<ais::Literal,std::string>::make(val)};
+}
+
+
+AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
+    return new AIFStream{
+        ais::SingleValueStream<ais::MultiThreadResult,std::string>::make(val)};
+}
+
+// Little adapter that takes C++ stream style input and sends it
+// to a C file handle
+class FileAdapter : public std::streambuf
+{
+public:
+    FileAdapter(FILE* f) : m_f(f) {}
+    std::streamsize xsputn(const char* s, std::streamsize n) override;
+    int overflow(int c = EOF) override;
+private:
+    FILE* m_f;
+};
+
+std::streamsize FileAdapter::xsputn(const char* s, std::streamsize n) { return fwrite(s,1,n,m_f); }
+int FileAdapter::overflow(int c) { return putc(c, m_f); }
+
+int AIFStream::print(FILE* f)
+{
+    return print(f,"");
+}
+
+
+int AIFStream::print(FILE* f, const std::string& label)
+{
+    FileAdapter fa(f);
+    std::ostream os(&fa);
+    try {
+        ais::print(getVStream(), label, os);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
+}
+
+void AIFStream::print(std::ostream& os) {
+    ais::print(getVStream(), "", os);
+}
+
+template <class T>
+inline AIFStream* AIFStreamFromBinaryOp(AIFStream* a, AIFStream* b, T op) {
+    auto strOp = [](const std::string& a, const std::string& b) { return a; };
+    auto binOp = new ais::FBinaryOperator{op, strOp};
+    auto vs = ais::makeBinaryOpStream(a->getVStreamPtr(),
+                                      b->getVStreamPtr(),
+                                      std::unique_ptr<ais::BinaryOperator>(binOp));
+    return new AIFStream{vs};
+}
+
+AIFStream* AIFStream::add(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x+y; });
+}
+AIFStream* AIFStream::sub(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x-y; });
+}
+AIFStream* AIFStream::mul(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x*y; });
+}
+AIFStream* AIFStream::div(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { if (y != 0) return x/y; else return y/1; });
+}
+AIFStream* AIFStream::rem(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) {
+                                         if constexpr ( std::is_integral<decltype(x)>::value) {
+                                                 return x % y;
+                                             } else {
+                                             return fmod(x,y);
+                                         }});
+}
+AIFStream* AIFStream::And(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x && y; });
+}
+AIFStream* AIFStream::Or(AIFStream* a, AIFStream* b) {
+    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x || y; });
+}
+AIFStream* AIFStream::neg(AIFStream* a) {
+    auto cloneA = new AIFStream(std::move(*a));
+    auto negOp = [](auto x) {
+                     if constexpr (std::is_arithmetic_v<decltype(x)>) return -x; else return x;};
+    auto negStream = makeUnaryOpStream(cloneA->getVStreamPtr(), negOp);
+    return new AIFStream(negStream);
+}
+
+// Class for accumulating differenced during a comparison operation.
+// In the future we could provide implementations to return the
+// largest differences, or do some statistics, but for version 1.0
+// we'll just return the first 100 differences.
+class AIFStream::Difference::Impl : public ais::Difference {
+public:
+    void add(const std::string& idx, long int a, long int b) override;
+    void add(const std::string& idx, long double a, long double b) override;
+    void add(const std::string& idx, const std::string& a, const std::string& b) override;
+    std::string getResult() override;
+private:
+    const char* doPrint();
+    static const int MAX_VALS = 100;
+    std::ostringstream m_difference;
+    int m_numVals = 0;
+};
+
+const char* AIFStream::Difference::Impl::doPrint() {
+    if (++m_numVals <= MAX_VALS)
+        return m_numVals == 1 ? "" : "\n";
+    else
+        return nullptr;
+}
+    
+
+void AIFStream::Difference::Impl::add(const std::string& idx, long int a, long int b) {
+    if (auto p = doPrint()) m_difference << p << idx << (idx.empty() ? "" : ":") << b-a;
+}
+void AIFStream::Difference::Impl::add(const std::string& idx, long double a, long double b) {
+    if (auto p = doPrint()) m_difference << p << idx << (idx.empty() ? "" : ":") << b-a;
+}
+
+void AIFStream::Difference::Impl::add(const std::string& idx,
+                                      const std::string& a, const std::string& b) {
+    if (auto p = doPrint()) {
+        m_difference << p << idx << (idx.empty() ? "" : ":") << a << " vs " << b;
+    }
+}
+
+std::string AIFStream::Difference::Impl::getResult() {
+    if (m_numVals > MAX_VALS) {
+        m_difference << "\n... and " << m_numVals - MAX_VALS << " more...";
+        m_numVals = MAX_VALS; // don't want to add the "and more" every time it's called
+    }
+    return m_difference.str();
+}
+
+AIFStream::Difference::Difference() : m_impl(new Impl) {}
+AIFStream::Difference::~Difference() = default;
+std::string AIFStream::Difference::getResult() { return m_impl->getResult(); }
+AIFStream* AIFStream::Difference::getResultAIF() { return fromLiteral(getResult()); }
+AIFStream::Difference::Impl& AIFStream::Difference::getAis() { return *m_impl; }
+
+int AIFStream::compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
+                       double* lo, double* hi, std::string& errMsg)
+{
+    auto& valA = a->getVStream();
+    auto& valB = b->getVStream();
+
+    try {
+        auto cmp = ais::compare(valA, valB, diff.getAis(), lo ? *lo : 0.0, hi ? *hi : 0.0);
+        using namespace ais;
+
+        bool lt = cmp[LT], ltw = cmp[WARN_LT], eq = cmp[EQ],
+            gt = cmp[GT], gtw = cmp[WARN_GT], nc = cmp[NOT_COMPARABLE];
+
+        bool ltx = (lt || ltw);
+        bool gtx = (gt || gtw);
+
+        // LOOKAT: this return value is used to report <, <=, >, >=, but it doesn't
+        // account for it being a combination of multiple values, so there isn't a value
+        // for less than AND greater than
+        if (nc) *res = 3;
+        else if (eq && !ltx && !gtx) *res = 0;
+        else if (ltw && !lt && !gt) *res = -2;   // ambiguity if ltw && gtw  (otherwise !gtx)
+        else if (lt && !eq && !gtx) *res = -1;
+        else if (gtw && !gt && !ltx) *res = 2;
+        else if (gt && !eq && !ltx) *res = 1;
+        else *res = 1;  // not ideal, but this might cause the least trouble.
+        return 0;
+    } catch (std::exception& e) {
+        errMsg = e.what();
+        *res = 3;
+        return -1;
+    }
+}
+
+AIFStream::AIFStream(std::shared_ptr<ais::DecompIterator> blockIter,
+                     const std::vector<AIFStream*>& data)
+{
+    // If different parts of the decomposition have the same result, then
+    // data will contain duplicates.  We arrange to have multiple
+    // readers access them
+    using SlicesPtr = std::shared_ptr<AIFStream::Slices>;
+    auto smap = std::map<AIFStream*,SlicesPtr>{};
+
+    // gather the set of data objects, create the SharedSlices the
+    // second time we see a data set.
+    for (auto it = data.begin(); it != data.end(); ++it) {
+        auto slices = (*it)->m_slices;        
+        if ( auto [loc,added] = smap.insert(std::pair{*it,slices}); !added) {
+            if (!dynamic_cast<SharedSlices*>(loc->second.get())) {
+                loc->second = SharedSlices::make(slices);
+            }
+        }
     }
 
-    m_joinedIsStolen = true;
-    return joinAIF();
-}
-
-bool AIFStream::hasJoinAIF() const {
-    return m_joinedAIF != nullptr;
-}
-
-// Create a single large AIF structure from the set of slices.
-void AIFStream::joinAIFFromSlices() {
-    AIF* joinedAIF = nullptr;
-    bool hasError = false;
-    bool isFinal;
-    while (AIF* slice = m_slices->getNextSlice(isFinal, m_dataTruncatedLength)) {
-        size_t offset, sliceSize; bool isFullArray;
-
-        if (hasError) {
-        } else if (!getSliceOffset(slice, offset, sliceSize, isFullArray)) {
-            m_slices->freeSlice(slice);
-            hasError = true;
-        } else if (isFullArray) {
-            if (joinedAIF)
-                AIFFree(joinedAIF);
-            joinedAIF = slice;
-        } else if (joinedAIF || (joinedAIF = makeEmptyJoinedAIF(slice))) {
-            const char* sliceData = AIF_DATA(slice);
-            char* joinedData = AIF_DATA(joinedAIF);
-            memcpy(joinedData+offset, sliceData, sliceSize);
-        } else {
-            fprintf(stderr, "could not create joined array\n");
-            hasError = true;
+    // Replace any duplicated results with CloneSlices
+    auto subReaders = std::vector<std::unique_ptr<ais::Reader>>{};
+    for (auto it = data.begin(); it != data.end(); ++it) {
+        auto slices = smap[*it];
+        if (dynamic_cast<SharedSlices*>(slices.get())) {
+            slices = slices->clone();
         }
 
-        if (slice != joinedAIF)
-            m_slices->freeSlice(slice);
+        auto buffer = std::make_shared<AIFStreamReadBuffer>(slices);
+        subReaders.push_back(std::make_unique<ais::BufferReader>(buffer));
     }
 
-    if (hasError) {
-        fprintf(stderr, "could not reassemble array\n");
-        if (joinedAIF)
-            AIFFree(joinedAIF);
-        joinedAIF = nullptr;
+    m_reader.reset(new ais::DecompReader{std::move(subReaders), blockIter});
+}
+
+std::shared_ptr<ais::VStream> AIFStream::getVStreamPtr() {
+    if (m_vstream) return m_vstream;
+    
+    if (!m_reader) {
+        auto buffer = std::make_shared<AIFStreamReadBuffer>(m_slices);
+        m_reader = std::make_unique<ais::BufferReader>(buffer);
     }
 
-    m_joinedAIF = joinedAIF;
+    m_vstream.reset(new ais::ReaderStream(std::move(m_reader)));
+    return m_vstream;
 }
 
 
-// compute the offset in bytes to copy the data in \a slice into the the data for the
-// the monolithic array
-// \param slice the slice of interest
-// \param offset will contrain on output the offset of the equivalent data of \a slice in the
-//         full data object
-// \param sliceSize will contain on output the size of the data in \a slice in bytes
-// \param isFullArray will contain true on output if \a slice is the entire contents of the
-//       the full result.
-// \return true if \a slice is a legitimate subset (including equality) of the result array.
-bool AIFStream::getSliceOffset(AIF* slice, size_t& offset, size_t& sliceSize, bool& isFullArray)
-{
-    auto shape = getShape();
-    if (!shape) {
-        warning("no shape in joinAIFFromSlices");
-        return false;
-    }
-
-    // index is initialized to the first element of \a slice
-    AIFIndex* index = AIFArrayIndexInit(slice);
-    offset = 0;
-    isFullArray = false;
-
-    size_t totalElems = 1;
-    size_t elemSize = index->i_bsize;
-
-    int dim = shape->numDimensions();
-    bool isOk = true;
-
-    // compute the offset (in elements) of slice within the full array
-    // and the total number of elements in the full array.
-    for (int i=0; i<dim; ++i) {
-        // slowest to fastest
-        int d = (shape->isFortran() ? dim-i : i+1);
-        auto [min, max] = shape->getArrayDimensionRange(d);
-
-        size_t len = (max-min+1);
-        offset *= len;
-        totalElems *= len;
-
-        // AIFIndex is slowest to fastest
-        int idx = index->i_index[i];
-        if (idx < min || idx > max)
-            isOk = false;
-        else
-            offset += (idx-min);
-    }
-
-    offset *= elemSize;
-
-    sliceSize = AIF_LEN(slice);
-    size_t arraySize = totalElems * elemSize;
-
-    isFullArray = false;
-
-    // check that its a valid subset
-    if (offset + sliceSize > arraySize) {
-        isOk = false;
-    }
-
-    AIFArrayIndexFree(index);
-    if (!isOk) {
-        DPRINT("slice copy is out of bounds\n");
-    }
-    return isOk;
+ais::VStream& AIFStream::getVStream() {
+    return *getVStreamPtr();
 }
-
-
-// Create the data structure for the monolithic array.   Note that
-// this will allocate all of the storage.  If the process will fail, this
-// is the most likely place.
-AIF* AIFStream::makeEmptyJoinedAIF(AIF* slice)
-{
-    auto shape = getShape();
-    if (!shape) {
-        warning("no shape in joinAIFFromSlices");
-        return nullptr;
-    }
-
-    bool isFortran = shape->isFortran();
-    int dim = shape->numDimensions();
-
-    AIFIndex* index = AIFArrayIndexInit(slice);
-
-    // Actually an element here, but AIF uses it as an exemplar to create the containing
-    // array.
-    AIF* array = AIFArrayElement(slice,index);
-
-    for (int i=0; array && i<dim; ++i) {
-        // need to work form innermost to outermost.  Note that arrayDimension used i=1.
-        int d = (isFortran ? i+1 : dim-i);
-        auto [minIdx, maxIdx] = shape->getArrayDimensionRange(d);
-
-        AIF* nextArray = (isFortran ? EmptyFtnArrayToAIF(minIdx, maxIdx, array) :
-                          EmptyArrayToAIF(minIdx, maxIdx, array));
-
-        AIFFree(array);
-        array = nextArray;
-    }
-
-    AIFArrayIndexFree(index);
-    return array;
-}
-
-const ArrayDimension* AIFStream::getShape() const {
-    if (m_slices) {
-        return m_slices->getFullShape();
-    }
-    return nullptr;
-}
-
-// AIF translations.
-int AIFStream::isZero(int& val) { return AIFIsZero(joinAIF(), &val); }
-int AIFStream::toInt(int& val) { return AIFToInt(joinAIF(), &val); }
-int AIFStream::print(FILE* fp, int depth) { return AIFPrint(fp, depth, joinAIF()); }
-AIFStream* AIFStream::clone() { return new AIFStream(joinAIF()); }
-
-
-void AIFStream::warning(const char* message) const {
-    //fprintf(stderr, "AIFStream: %s\n", message);
-}
-

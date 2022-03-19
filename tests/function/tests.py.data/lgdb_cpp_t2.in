@@ -165,8 +165,8 @@ b{0..2}: 4
 {0}: Comparison is true.
 41: #float
 42: print u
-a{0..2}: 2.3306999
-b{0..2}: 2.3306999
+a{0..2}: 2.3307
+b{0..2}: 2.3307
 43: compare $a{0}::u=$b{0}::u
 {0}: Comparison is true.
 45: #int
@@ -317,8 +317,8 @@ b{0..2}: 1
 {0}: Comparison is true.
 89: #double
 90: print dbl
-a{0..2}: -0.9999999998477852
-b{0..2}: -0.9999999998477852
+a{0..2}: -0.999999999847785
+b{0..2}: -0.999999999847785
 91: compare $a{0}::dbl=$b{0}::dbl
 {0}: Comparison is true.
 92:  
@@ -338,15 +338,15 @@ b{0..2}: -2147483648
 {0}: Comparison is true.
 103: #unsigned char
 104: print uc
-a{0..2}: 236
-b{0..2}: 236
+a{0..2}: 236 '\xEC'
+b{0..2}: 236 '\xEC'
 105: compare $a{0}::uc=$b{0}::uc
 {0}: Comparison is true.
 107:     
 108: #signed char
 109: print sc
-a{0..2}: \0xEC
-b{0..2}: \0xEC
+a{0..2}: -20 '\xEC'
+b{0..2}: -20 '\xEC'
 110: compare $a{0}::sc=$b{0}::sc
 {0}: Comparison is true.
 112: #struct object data member - dissabled as lgdb compare command is not working for strings or chars

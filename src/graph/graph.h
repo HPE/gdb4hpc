@@ -154,7 +154,7 @@ public:
     // XXX: This actually returns a ComparisonResult but the rest of gdb4hpc
     //      still treats it as an int
     // ?
-    int compareData(int id, char *name1, AIF *data1, char *name2, AIF *data2, int cmpop);
+    int compareData(int id, char *name1, AIFStream *data1, char *name2, AIFStream *data2, int cmpop);
     
     // pointer to static event handler function. when the graph starts executing,
     // the client swaps the event handler function to this one
@@ -218,23 +218,16 @@ private:
 struct graph_t::ainfo_t {
     // collection of data representing an assert
 
-    ainfo_t() 
-        : a_aifupper{nullptr}, a_aiflower{nullptr}
-        , a_stop{1}
+    ainfo_t() : a_lower(0.0), a_upper(0.0), a_relative(0), a_stop{1}
     {}
 
     ainfo_t(const ainfo_t&) = delete;
     ainfo_t& operator=(const ainfo_t&) = delete;
 
-    ~ainfo_t() {
-        AIFFree(a_aifupper);
-        AIFFree(a_aiflower);
-    }
+    ~ainfo_t() = default;
 
     double a_lower;
     double a_upper;
-    AIF *a_aifupper;
-    AIF *a_aiflower;
     int a_relative;
     int a_stop;
 };
@@ -242,7 +235,7 @@ struct graph_t::ainfo_t {
 struct graph_t::graph_diff {
     // used to recall saved diff information from a graph execution.
 
-    graph_diff(int id, AIF* res, const char* stat) 
+    graph_diff(int id, AIFStream* res, const char* stat) 
         : gd_assert_id{id}, gd_val{res}
     {
         std::ostringstream ss;
@@ -254,12 +247,12 @@ struct graph_t::graph_diff {
     graph_diff& operator=(const graph_diff&) = delete;
 
     ~graph_diff() {
-        AIFFree(gd_val);
+        delete gd_val;
     }
 
     int gd_assert_id;    /* assert id */
     std::string gd_name; /* difference name */
-    AIF *gd_val;         /* AIF ptr to difference */
+    AIFStream *gd_val;         /* AIF ptr to difference */
 };
 
 struct graph_t::graph_inv {

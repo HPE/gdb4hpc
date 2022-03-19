@@ -1,7 +1,7 @@
-/******************************************************************************\
+/******************************************************************************
  * libmi to aif conversion routines
  *
- * Copyright 2011-2019,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -19,10 +19,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <iomanip>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <regex>
 
 #include "dbgevent.h"
 #include "dbgfn.h"
@@ -31,6 +35,7 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
+#include "ais.h"
 
 /* The following is used to turn on debug printing for the CreateSimpleAIF func.
 ** It generates a ton of output for large arrays, which is why we want to
@@ -47,79 +52,9 @@
 // Used to fix infinite loop issue for recursive calls to whatis
 #define LOOP_PREVENTION 20
 extern int clientPrintElements;
+static char *GetArrayDataString(MISession* session, MIVar *var);
+static char* EvalExpression(MISession* session, const char* expression);
 
-/*
-** Types
- */
-namespace {
-
-// Type information for describing a function with its argument and return types
-class func_info_t {
-public:
-    // note: steals ownership of all arguments
-    func_info_t(int addr_len, char* rtn_type, int argc, char** argv)
-        : m_addr_len(addr_len), m_rtn_type(rtn_type), m_argc(argc), m_argv(argv) {}
-    ~func_info_t();
-    func_info_t(const func_info_t&) = delete;
-    func_info_t& operator=(const func_info_t&) = delete;
-
-    int getAddrLen() const { return m_addr_len; }
-    char* getRtnType() const { return m_rtn_type; }
-    int getArgc() const { return m_argc; }
-    char** getArgv() const { return m_argv; }
-
-private:
-    int m_addr_len;
-    char *m_rtn_type;
-    int m_argc;
-    char **m_argv;
-};
-func_info_t::~func_info_t() {
-    free(m_rtn_type);
-    for (int i=0; i<m_argc; ++i)
-        free(m_argv[i]);
-    free(m_argv);
-}
-
-// type information for describing the data members of a struct or class
-class struct_info_t {
-public:
-    struct_info_t(const char* name, int numFields);
-    ~struct_info_t();
-    struct_info_t(const struct_info_t&) = delete;
-    struct_info_t& operator=(const struct_info_t&) = delete;
-
-    // descriptor type for a single field of the struct.
-    struct field {
-        field() : id(0), type_str(nullptr), type_len(0), type_func(nullptr), inner_struct(nullptr) {}
-        int id;
-        char* type_str;
-        int type_len;
-        func_info_t* type_func;
-        struct_info_t* inner_struct;
-    };
-
-    char* getName() { return m_name; }
-    field& getField(int idx) { return m_fields[idx]; }
-    const std::vector<field>& getFields() const { return m_fields; }
-private:
-    char* m_name;
-    std::vector<field> m_fields;
-};
-
-struct_info_t::struct_info_t(const char* name, int numFields)
-    : m_name(strdup(name)), m_fields(numFields) {
-}
-struct_info_t::~struct_info_t() {
-    free(m_name);
-    for (auto f : m_fields) {
-        free(f.type_str);
-        delete(f.type_func);
-        delete(f.inner_struct);
-    }
-}
-
-} // namespace
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
 
@@ -127,57 +62,297 @@ extern void SendMICommand(MISession *, MICommand *);
 ** Static prototypes
 */
 namespace {
+
+class WriteBuffer; struct TypeName; class MISlices;
+
 class Mi2Aif {
 private:
     MISession* m_session;
     size_t m_depth;
     std::vector<std::shared_ptr<MIVar>> m_refs;
-    std::unordered_map<long long int,size_t> m_refMap;
+    std::unordered_map<void*,size_t> m_refMap;
+
+    std::shared_ptr<WriteBuffer> m_writeBuffer;
+    ais::Writer m_writer;
+
+    std::map<std::string, std::shared_ptr<ais::Type>> m_types;
 
 public:
     Mi2Aif(MISession* session);
 
     std::shared_ptr<MIVar> createMIVar(const char *);
-    AIFStream *getAIF(std::shared_ptr<MIVar>);
-    int getComplexType(const char *);
-    int resolveComplexType(char** typePtr);
-    char *getWhatisValue(const char *expr, const char* type);
-    AIF *getArrayAIFHash(MIVar*, char *, int, int, int);
-    static AIF *createSimpleAIF(int, char *, const char *, int, struct_info_t *, func_info_t *,
-                                bool isFixedSize);
-    int getArrayBaseType(MIVar *, char **, int *, struct_info_t **, func_info_t **);
+    //AIFStream* getAIF(std::shared_ptr<MIVar>);
     int getChildren(MIVar *);
-    char *getVarValue(char *);
+    char* getVarValue(char *);
+    MISession* getSession() const { return m_session; }
+    char *getWhatisValue(const char *expr, const char* type);
+    std::vector<std::string> getPTypeFields(const std::string& type);
+
+    std::shared_ptr<ais::Type> getKnownType(const std::string& name);
+    std::shared_ptr<ais::Type> addKnownType(const std::string& name,
+                                            std::shared_ptr<ais::Type> type);
+
+    size_t swizzlePointer(const std::string& type, void* val);
+    void writeVal(std::shared_ptr<MIVar> var, int refIdx,
+                  const std::function<void(bool)>& endOfSlice);
+
+    std::string getSlice();
 
 private:
-    int getTypeLength(const char *);
-    int getSimpleType(const char *);
-    int getType(char *);
-    int resolveType(char**);
-    std::unique_ptr<ArrayDimension> getArrayDimensionShape(MIVar *);
-    char *getTypeName(const char *);
-    static void removeWhitespace(char *);
-    func_info_t *getFunctionInfo(char *);
-    int getFunctionArguments(const char *, char **[]);
-    char *getFunctionReturnType(const char *);
-    AIF *getFunctionAddress(const char *);
-    static char *getFunctionName(const char *);
-    char *miToFDS(int, const char *);
-    AIFStream *getSimpleAIF(MIVar *);
-    AIFStream *getComplexAIF(std::shared_ptr<MIVar>);
-    struct_info_t *getStructInfo(const char *);
-    AIFStream *getStructAIF(MIVar *);
-    AIFStream *getArrayAIF(std::shared_ptr<MIVar>);
-    AIFStream *getVectorLikeAIF(std::shared_ptr<MIVar>);
-    AIFStream *getPointerAIF(MIVar *);
-    AIFStream* getReferenceAIF(MIVar*);
-    void fixTypeString(char *, const char *, char *);
     void sendMICommand(MICommand* command);
-    std::unique_ptr<char,decltype(std::free)*> sanitizeTypeString(const char *input);
-
-    AIF* makeBackPointerAIF(size_t idx, const char* type);
+    std::shared_ptr<MIVar> createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo);
+    //void writeBackPointerAIF(size_t idx, const char* type);
 };
-}
+
+// Implementation for translating primitive data objects into a data to be sent
+// across the pipe.
+// Note that the current implementation is just based on ostringstream, which
+// is great for debugging but is definitely non-optimal.   It is expected this
+// will be replaced with a cap'n proto based implementation at some point in the
+// future.
+class WriteBuffer : public ais::WriteBuffer {
+public:
+    WriteBuffer(Mi2Aif& mi) : m_mi(mi) {}
+    void writeInt(int val) override;
+    void writeLong(long val) override;
+    void writeLongLong(long long val) override;
+    void writeFloat(float val) override;
+    void writeDouble(double val) override;
+    void writeLongDouble(long double val) override;
+    void writeString(const std::string& str) override;
+    void writePointer(const std::string& type, void* val) override;
+
+    std::string exportResult();
+private:
+    Mi2Aif& m_mi;
+    std::ostringstream m_out;
+};
+
+// Utility class for passing type string around.  type is the portion that has been
+// processed, and decoration is the part left to process.
+struct TypeName {
+    TypeName(const std::string& s, size_t pos) : type(s.substr(0,pos)), decoration(s.substr(pos)) {}
+    TypeName(const TypeName& t, size_t pos) :
+        type(t.type + t.decoration.substr(0,pos)), decoration(t.decoration.substr(pos)) {}
+    TypeName(std::string&& t, std::string&& d) : type(std::move(t)), decoration(std::move(d)) {}
+    TypeName() = default;
+    std::string type;
+    std::string decoration;
+};
+
+// Functions for creating an ais::Type from the string reported by gdb
+class TypeParser {
+public:
+    // Top level parsing function
+    static std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* typeStr);
+
+    static std::shared_ptr<ais::Type> wrap(std::shared_ptr<ais::Type> elemType, TypeName t);
+    static std::shared_ptr<ais::Type> ftnWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
+    static std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
+
+    static std::tuple<std::string, std::string, std::string> getContainerTypes(TypeName t);
+    static std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
+                                                   TypeName t);
+    static std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
+    static std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t);
+    static std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t);
+    static std::shared_ptr<ais::Type> wrapVoidFunc(Mi2Aif&, TypeName t);
+    static std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif& mi, TypeName t);
+    static std::shared_ptr<ais::Type> unimplemented(Mi2Aif&, TypeName type);
+
+    static std::string sanitizeType(const std::string& type);
+
+    using Func = std::function<std::shared_ptr<ais::Type>(Mi2Aif& mi, TypeName t)>;
+    using Prim = std::pair<std::string, Func>;
+
+    template<class T>
+    static Func PrimWrap() { return [](Mi2Aif&, TypeName t) {
+                                        return wrap(std::make_shared<T>(),std::move(t)); } ;}
+
+    template<class T>
+    static Func FtnWrap() { return [](Mi2Aif&, TypeName t) {
+                                       return ftnWrap(std::make_shared<T>(), std::move(t)); } ;}
+
+    template<class T>
+    static Func ComplexWrap() {
+        return [](Mi2Aif&, TypeName t) {
+                   return ftnWrap(std::make_shared<ais::Complex>(std::make_shared<T>()),
+                                  std::move(t)); } ;}
+
+    template<class T>
+    static Func CharWrap() {
+        return [](Mi2Aif&, TypeName t) {
+                   return charWrap(std::make_shared<T>(),std::move(t)); } ;}
+
+    template<class T>
+    static Func ContainerWrap() {
+        return [](Mi2Aif& mi, TypeName t) { return stlContainer(mi, T(), std::move(t)); }; }
+
+    static Func SmartPointerWrap() {
+        return [](Mi2Aif& mi, TypeName t) { return smartPointer(mi, std::move(t)); }; }
+
+    static std::vector<Prim> m_cppPrims;
+    static std::vector<Prim> m_fortranPrims;
+    static std::vector<std::string> m_ignore;
+    static inline bool comparePrims(const Prim& a, const Prim& b) { return a.first < b.first; }
+
+
+    static Func m_logical;
+    static Func m_int1;
+    static Func m_int2;
+    static Func m_int4;
+    static Func m_int8;
+    static Func m_int16;
+    static Func m_real4;
+    static Func m_real8;
+    static Func m_real16;
+    static Func m_complex4;
+    static Func m_complex8;
+    static Func m_complex16;
+};
+
+TypeParser::Func TypeParser::m_logical = FtnWrap<ais::Logical>();
+TypeParser::Func TypeParser::m_int1 = FtnWrap<ais::SignedChar>();
+TypeParser::Func TypeParser::m_int2 = FtnWrap<ais::Short>();
+TypeParser::Func TypeParser::m_int4 = FtnWrap<ais::Int>();
+TypeParser::Func TypeParser::m_int8 = FtnWrap<ais::Long>();
+TypeParser::Func TypeParser::m_int16 = FtnWrap<ais::LongLong>();
+TypeParser::Func TypeParser::m_real4 = FtnWrap<ais::Float>();
+TypeParser::Func TypeParser::m_real8 = FtnWrap<ais::Double>();
+TypeParser::Func TypeParser::m_real16 = FtnWrap<ais::LongDouble>();
+TypeParser::Func TypeParser::m_complex4 = ComplexWrap<ais::Float>();
+TypeParser::Func TypeParser::m_complex8 = ComplexWrap<ais::Double>();
+TypeParser::Func TypeParser::m_complex16 = ComplexWrap<ais::LongDouble>();
+
+std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
+{
+ {"bool",PrimWrap<ais::Bool>()},
+ {"char", CharWrap<ais::Char>()},
+ {"double",PrimWrap<ais::Double>()},
+ {"float",PrimWrap<ais::Float>()},
+ {"int",PrimWrap<ais::Int>()},
+ {"int8_t",PrimWrap<ais::Int>()},
+ {"long",PrimWrap<ais::Long>()},
+ {"long int",PrimWrap<ais::Long>()},
+ {"long long",PrimWrap<ais::LongLong>()},
+ {"long double",PrimWrap<ais::LongDouble>()},
+ {"std::size_t",PrimWrap<ais::Long>()},
+ {"size_t",PrimWrap<ais::UnsignedLong>()},
+ {"short",PrimWrap<ais::Short>()},
+ {"short int",PrimWrap<ais::Short>()},
+ {"signed char",PrimWrap<ais::SignedChar>()},
+ {"std::array", stdArray},
+ {"std::deque", ContainerWrap<ais::Deque>()},
+ {"std::stack", ContainerWrap<ais::Stack>()},
+ {"std::vector", ContainerWrap<ais::Vector>()},
+ {"std::priority_queue", ContainerWrap<ais::PriorityQueue>()},
+ {"std::queue", ContainerWrap<ais::Queue>()},
+ {"std::shared_ptr", SmartPointerWrap()},
+ {"std::unique_ptr", SmartPointerWrap()},
+ {"uint8_t",PrimWrap<ais::UnsignedChar>()},
+ {"uint16_t",PrimWrap<ais::UnsignedShort>()},
+ {"uint32_t",PrimWrap<ais::UnsignedInt>()},
+ {"uint64_t",PrimWrap<ais::UnsignedLong>()},
+ {"unsigned char",CharWrap<ais::UnsignedChar>()},
+ {"unsigned int",PrimWrap<ais::UnsignedInt>()},
+ {"unsigned long",PrimWrap<ais::UnsignedLong>()},
+ {"unsigned long int",PrimWrap<ais::UnsignedLong>()},
+ {"unsigned long long",PrimWrap<ais::UnsignedLongLong>()},
+ {"unsigned short",PrimWrap<ais::UnsignedShort>()},
+ {"unsigned short int",PrimWrap<ais::UnsignedShort>()},
+ {"void", wrapVoidFunc}
+};
+
+std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
+{
+ {"CHARACTER",ftnCharacter},
+ {"COMPLEX",m_complex8},
+ {"COMPLEX(4)",m_complex4},
+ {"COMPLEX(8)",m_complex8},
+ {"COMPLEX(16)",m_complex16},
+ {"COMPLEX(KIND=4)",m_complex4},
+ {"COMPLEX(KIND=8)",m_complex8},
+ {"COMPLEX(KIND=16)",m_complex16},
+ {"COMPLEX*8",m_complex4},
+ {"COMPLEX*16",m_complex8},
+ {"COMPLEX*32",m_complex16},
+ {"INTEGER",m_int4},
+ {"INTEGER(1)",m_int1},
+ {"INTEGER(2)",m_int2},
+ {"INTEGER(4)",m_int4},
+ {"INTEGER(8)",m_int8},
+ {"INTEGER(16)",m_int16},
+ {"INTEGER(KIND=1)",m_int1},
+ {"INTEGER(KIND=2)",m_int2},
+ {"INTEGER(KIND=4)",m_int4},
+ {"INTEGER(KIND=8)",m_int8},
+ {"INTEGER(KIND=16)",m_int16},
+ {"INTEGER*1",m_int1},
+ {"INTEGER*2",m_int2},
+ {"INTEGER*4",m_int4},
+ {"INTEGER*8",m_int8},
+ {"INTEGER*16",m_int16},
+ {"LOGICAL", m_logical},
+ {"LOGICAL(1)",m_logical},
+ {"LOGICAL(2)",m_logical},
+ {"LOGICAL(4)",m_logical},
+ {"LOGICAL(8)",m_logical},
+ {"LOGICAL(16)",m_logical},
+ {"LOGICAL*1",m_logical},
+ {"LOGICAL*2",m_logical},
+ {"LOGICAL*4",m_logical},
+ {"LOGICAL*8",m_logical},
+ {"LOGICAL*16",m_logical},
+ {"LOGICAL(KIND=1)",m_logical},
+ {"LOGICAL(KIND=2)",m_logical},
+ {"LOGICAL(KIND=4)",m_logical},
+ {"LOGICAL(KIND=8)",m_logical},
+ {"LOGICAL(KIND=16)",m_logical},
+ {"REAL",m_real8},
+ {"REAL(4)",m_real4},
+ {"REAL(8)",m_real8},
+ {"REAL(16)",m_real16},
+ {"REAL(KIND=4)",m_real4},
+ {"REAL(KIND=8)",m_real8},
+ {"REAL(KIND=16)",m_real16},
+ {"REAL*4",m_real4},
+ {"REAL*8",m_real8},
+ {"REAL*16",m_real16},
+ {"STRING",unimplemented}
+};
+
+std::vector<std::string> TypeParser::m_ignore = { "const", "signed", "volatile", "shared",
+                                                  "SHARED" };
+class ArraySlicer;
+
+// Data result reported by gdb.
+// In the basic form, this is just the string reported on gdb on the
+// "print expression", but large arrays be broken into multiple
+// "bite-sized" pieces via the ArraySlicer object.
+class GdbResult : public ais::InterpretStream {
+public:
+    GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, const ais::Type& varType,
+              const std::function<void(bool)>& endOfSlice);
+    ~GdbResult() = default;
+    const char* get() override;
+    void setPos(const char* pos) override;
+    bool isContinued() override;
+    bool mayBeTruncated() override;
+    void flush(bool isFinal);
+    
+private:
+    Mi2Aif& m_mi;
+    std::shared_ptr<MIVar> m_var;
+    std::unique_ptr<ArraySlicer> m_slicer;
+
+    char* m_buffer;
+    bool m_finalSlice = true;
+    const char* m_pos;
+
+    std::function<void(bool)> m_endOfSlice;
+};
+
+} //namespace
 
 const char *_aif_ignored_type_specifiers[] = {"const", "restrict", NULL};
 
@@ -191,15 +366,6 @@ static std::string quoteId(std::string var)
         var = "\"" + var + "\"";
     }
     return var;
-}
-
-void printArray(unsigned int *arr, int size) {
-    fprintf(stderr, "[");
-    int i;
-    for (i = 0; i < size; i++) {
-        if (i != size - 1) fprintf(stderr, "%d, ", arr[i]);
-    }
-    fprintf(stderr, "]");
 }
 
 static void reset_err(void) {
@@ -220,96 +386,151 @@ static dbgevent_t *get_err(void) {
     return rtn;
 }
 
-// This is the "main" function that should be called in this interface...
-// It returns NULL on success, otherwise it returns an error event.
-dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
-                      char **type) {
+namespace {
+// Class to define an AIFStream that can transmit one section at a time.
+// This class perform the evaluation on a separate thread which allows
+// the system to work on evaluating the next slice of the data structure (i.e.
+// mainly readining from the gdb/mi socket) while it is still transmitting the
+// current slice across the MRNet system.
+class MISlices : public AIFStream::Slices {
+public:
+    MISlices(MISession* session) : m_mi2aif{std::make_unique<Mi2Aif>(session)} {}
+
+    // Retrieve the next chunk of data to send across the pipe
+    virtual std::string getNextSlice(bool& isFinal) override;
+
+    // begin evaluating an expression.   Note that the evaluation
+    // itself will occur in the background
+    std::pair<dbgevent_t*,std::string> startEval(const char* var);
+
+    
+private:
+    void eval(); 
+
+    void flushOutput(bool isFinal);
+    void reportError(dbgevent_t* evt);
+    
+    std::unique_ptr<Mi2Aif> m_mi2aif;
+    std::shared_ptr<MIVar> m_mivar;
+    std::string m_slice;
+    bool m_isFinal = false;
+    bool m_hasSlice = false;
+    dbgevent_t* m_error = nullptr;
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+};
+
+std::string MISlices::getNextSlice(bool& isFinal) {
+    // This side is called from the primary thread to get
+    // evaluator thread result.
+    // we need to wait for the evaluation thread to post
+    // a result
+    std::unique_lock l(m_mutex);
+    m_cv.wait(l, [this] { return this->m_hasSlice; });
+
+    if (m_error) throw m_error;
+
+    isFinal = m_isFinal;
+    auto retVal = std::move(m_slice);
+    m_hasSlice = false;
+
+    if (!isFinal) { m_cv.notify_one(); }
+    return retVal;
+}
+
+std::pair<dbgevent_t*,std::string> MISlices::startEval(const char* var) {
     // reset the error var
     reset_err();
+    
+    DVPRINT("MISlices::startEval: Resolving variable %s.\n", var);
 
-    DVPRINT("GetAIFVar: Resolving variable %s.\n", var);
+    // Create the mivar objecgt to interact with gdb/mi
+    m_mivar = m_mi2aif->createMIVar(var);
 
-    Mi2Aif mi2aif(session);
+    if (!m_mivar && strchr(var,'[')) {
+        // the frontend can't tell if "(12)" is a C function call or a
+        // fortran array index.
+        DVPRINT("retrying as a function call\n");
+        auto cvar = std::string(var);
+        for (size_t p; (p=cvar.find("][")) != std::string::npos; ) {
+            cvar.replace(p,2,1,',');
+        }
+        std::replace(cvar.begin(), cvar.end(), '[', '(');
+        std::replace(cvar.begin(), cvar.end(), ']', ')');
+        m_mivar = m_mi2aif->createMIVar(cvar.c_str());
+    }
 
-    auto mivar = mi2aif.createMIVar(var);
-
-    if (!mivar) {
+    if (!m_mivar) {
         DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
         if (dbg_error == NULL) {
             EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
         }
-        return get_err();
+        return std::make_pair(get_err(),std::string{""});
     }
 
-    AIFStream* res = mi2aif.getAIF(mivar);
+    // Performng the evaluation happens on a separate thread.  For large
+    // data objects, the primary thread is communicating with the front end,
+    // sending along the next slice of data when the front end is ready to
+    // receive it.
+    auto evalThread = std::thread{ [this]() { this->eval(); }};
+    evalThread.detach();
 
-    if (!res) {
-        DVPRINT("GetAIFVar: GetAIF returned null.\n");
-        if (dbg_error == NULL) {
-            EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
-                        "Parser failed to interpret gdb variable.");
-        }
-        return get_err();
-    }
-    if (type) *type = strdup(mivar->type);
-    *val = res;
-
-    return NULL;
+    return std::make_pair(nullptr,m_mivar->type);
 }
 
-// TODO: Merge this with the above somehow?
-dbgevent_t *GetAIFVarHash(MISession *session, char *var, AIF **val,
-                          char *hashinfo, int hashfunc, int precision_lower,
-                          int precision_upper) {
-    // reset the error var
-    reset_err();
-
-    auto mi2aif = Mi2Aif{session};
-
-    auto mivar = mi2aif.createMIVar(var);
-
-    if (mivar == NULL) {
-        DVPRINT("GetAIFVarHash: Unknown variable\n");
-        if (dbg_error == NULL) {
-            EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
-        }
-        return get_err();
+// primary evaluator thread  function
+void MISlices::eval() {
+    DVPRINT("starting evaluator thread\n");
+    try {
+        // MI2Aif does the interaction with gdb/mi.   The lambda function we're
+        // passing here tells it what do at the end of every slice
+        m_mi2aif->writeVal(m_mivar,0,[this](bool isFinal) { this->flushOutput(isFinal); });
+    } catch (std::exception& err) {
+        dbg_error = NewErrorEvent(DBGERR_INTERNAL, err.what());
+        reportError(dbg_error);
+    } catch (dbgevent_t* evt) {
+        dbg_error = evt;
+        reportError(evt);
     }
+    flushOutput(true);
+    DVPRINT("exit evaluator thread\n");
+};
 
-    if (strcmp(mivar->type, "<text variable, no debug info>") == 0) {
-        DVPRINT("GetAIFVarHash: No symbols\n");
-        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, NULL);
-        return get_err();
-    }
+// This is the interaction point between the evaluator thread and the
+// primary thread.
+void MISlices::flushOutput(bool isFinal) {
+    std::unique_lock l(m_mutex);
+    if (m_isFinal) return;
+    m_cv.wait(l, [this] { return !this->m_hasSlice; });
+    m_slice = m_mi2aif->getSlice();
+    m_isFinal = isFinal;
+    m_hasSlice = true;
+    m_cv.notify_one();
+}
 
-    int id = mi2aif.resolveComplexType(&mivar->type);
-    if (id == T_UNKNOWN) {
-        EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetArrayAIFHash failed.");
-        return get_err();
-    }
+// report an error from the evaluator thread
+void MISlices::reportError(dbgevent_t* evt) {
+    DVPRINT("in MISlices::reportError\n");
+    std::unique_lock l(m_mutex);
+    m_cv.wait(l, [this] { return !this->m_hasSlice; });
+    m_slice = "";
+    m_isFinal = true;
+    m_error = evt;
+    m_hasSlice = true;
+    m_cv.notify_one();
+}
+}
+    
+// This is the "main" function that should be called in this interface...
+// It returns NULL on success, otherwise it returns an error event.
+dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
+                      char **type) {
 
-    AIF *res = nullptr;
-
-    if (mivar->numchild == 0 || !(id == T_ARRAY || id == T_FTNARRAY)) {
-        // simple type
-        AIFStream* a = mi2aif.getAIF(mivar);
-        res = PerformHash(a->joinAIF(), hashinfo, hashfunc, precision_lower,
-                          precision_upper);
-        delete a;
-    } else {
-        // of type array
-        if ((res = mi2aif.getArrayAIFHash(mivar.get(), hashinfo, hashfunc,
-                                          precision_lower, precision_upper)) == NULL) {
-            DVPRINT("GetAIFVarHash: Unknown type\n");
-            if (dbg_error == NULL) {
-                EVENT_ERROR(dbg_error, DBGERR_INTERNAL,
-                            "GetArrayAIFHash failed.");
-            }
-            return get_err();
-        }
-    }
-
-    *val = res;
+    auto slices = std::make_shared<MISlices>(session);
+    auto [errEvent, typeStr] = slices->startEval(var);
+    if (errEvent) return errEvent;
+    if (type) *type = strdup(typeStr.c_str()); // believed to be unused
+    *val = new AIFStream(slices);
     return nullptr;
 }
 
@@ -329,6 +550,18 @@ static void DeleteMIVar(MISession* session, MIVar* mivar)
  * Returns null on error.
  */
 std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
+    // Taking a cue from C++ annotations to use [[...]] to pass meta-data
+    // to the back-end.   So far, this is just being used to pass length
+    // information for raw C/C++ arrays.   I'd expect to add slicing info
+    // via this channel in the future.
+    if (expr && expr[0] == '[' && expr[1] == '[') {
+        if (auto close = strstr(expr,"]]")) {
+            auto metaInfo = std::string{expr+2, size_t(close-expr-2)};
+            DVPRINT("got metaInfo \"%s\"\n", metaInfo.c_str());
+            return createMIVarWithMetaInfo(close+2, metaInfo);
+        }
+    }
+
 
     auto session = m_session;
     auto delVar = [session](MIVar* mivar) { DeleteMIVar(session,mivar); };
@@ -368,15 +601,29 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
     while ((p >= mivar->type) && isspace(*p)) {
         *p-- = '\0';
     }
-
-    if (*p == '&') {
-        *p = '\0';
-    }
-
+    
     var.reset(mivar, delVar);
     return var;
 }
 
+// Create an expression to evaluate based on additional meta-data for context
+std::shared_ptr<MIVar>
+Mi2Aif::createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo)
+{
+    DVPRINT("createMiVarWithMetaInfo \"%s\" + \"%s\"\n", expr, metaInfo.c_str());
+    std::shared_ptr<MIVar> rawVal = createMIVar(expr);
+
+    if (rawVal && rawVal->type && rawVal->type[strlen(rawVal->type)-1] == '*'
+        && !metaInfo.empty() && metaInfo[0] == '@') {
+        // we have C pointerwith additional length info
+        std::ostringstream os;
+        os << "(" << expr << ")[0]" << metaInfo;
+        return createMIVar(os.str().c_str());
+    }
+
+    return rawVal;
+    
+}
 
 int Mi2Aif::getChildren(MIVar *var) {
     if (m_session == NULL || var == NULL) return 1;
@@ -404,102 +651,92 @@ int Mi2Aif::getChildren(MIVar *var) {
     return 0;
 }
 
-/*
- * Find the type using whatis. Return null on error.
- */
-char *Mi2Aif::getWhatisValue(const char *expr, const char* type) {
-    DVPRINT("GetMIWhatisValue: (%s, %s)\n", expr != NULL ? expr : "NULL",
-            type ? type : "NULL");
-
-    MICommand *cmd = nullptr;
-    if (type) {
-        cmd = CLIWhatis(type);
-        sendMICommand(cmd);
-        if (!MICommandResultOK(cmd)) {
-            if (expr == NULL) {
-                DVPRINT("CLIWhatis failed and NULL expr\n");
-                MICommandFree(cmd);
-                return NULL;
-            }
-
-            // As a last resort, try to get the whatis based on the provided
-            // expr
-            cmd = CLIWhatis(expr);
-            sendMICommand(cmd);
-            if (!MICommandResultOK(cmd)) {
-                DVPRINT("CLIWhatis failed for both\n");
-                MICommandFree(cmd);
-                return NULL;
-            }
-        }
-    } else if (expr) {
-        cmd = CLIWhatis(expr);
-        sendMICommand(cmd);
-        if (!MICommandResultOK(cmd)) {
-            DVPRINT("CLIWhatis failed for expr\n");
-            MICommandFree(cmd);
-            return NULL;
-        }
-    } else {
-        DVPRINT("CLIWhatis both expr and type are NULL!\n");
-        return NULL;
-    }
-
-    auto retType = CLIGetWhatisInfo(cmd);
-
-    DVPRINT("Type is \"%s\"\n", retType);
-
-    MICommandFree(cmd);
-
-    return retType;
+inline bool fieldIsFunction(const char* str) {
+    auto paren = strchr(str, '(');
+    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
 }
 
-void Mi2Aif::fixTypeString(char *p, const char *s, char *orig) {
-    int extra_char = 0;  // used for extra characters to account for
+// Get the fields of a struct from a gdb 'ptype" query
+std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
+{
+    auto fields = std::vector<std::string>{};
+    MICommand* cmd = CLIPtype(type.c_str());
+    sendMICommand(cmd);
 
-    if (p == NULL || s == NULL || orig == NULL) {
-        DVPRINT("fixTypeString: bad args\n");
-        return;
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("GetStructInfo: CLIPtype call failed.\n");
+        MICommandFree(cmd);
+        return fields;
     }
 
-    DVPRINT("fixTypeString: p is \"%s\"\n", p);
-    DVPRINT("fixTypeString: s is \"%s\"\n", s);
+    MIList* field_list = CLIGetPtypeFieldList(cmd);
+    MICommandFree(cmd);
 
-    // If this is the last stuff in the string, we simply null terminate.
-    if (strlen(p) == strlen(s)) {
-        DVPRINT("fixTypeString: null terminate method.\n");
-        // Check for a preceeding " "
-        if (*(p - 1) == ' ') {
-            *--p = '\0';
+    for (MIListSet(field_list); char* field = (char *)MIListGet(field_list); ) {
+        DVPRINT("GetStructInfo: field is %s\n", field);
+        if (!fieldIsFunction(field)) fields.push_back(field);
+    }
+    return fields;
+}
+
+std::shared_ptr<ais::Type> Mi2Aif::getKnownType(const std::string& name) {
+    if (auto loc = m_types.find(name); loc != m_types.end()) return loc->second;
+    else return std::shared_ptr<ais::Type>{};
+}
+std::shared_ptr<ais::Type> Mi2Aif::addKnownType(const std::string& name,
+                                                std::shared_ptr<ais::Type> type) {
+    m_types.insert(std::make_pair(name,type));
+    return type;
+}
+
+// Map a pointer value to a reference index.  If the index is a new one,
+// potentiall put the object onto the queue of objects to be traversed.
+// This allows a data structure to be aggegated independently of the
+// specific pointer value which may not be consistent across ranks.
+size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
+{
+    // special case for null
+    if (!p) return 0;
+
+    if (m_refMap.empty() && m_refs.size() == 1) {
+        // we put off indexing the first block until we know we are dealing with pointers      
+        auto top = m_refs[0];
+        DVPRINT("Top reference %s type %s value=%s\n", top->expr, top->type, top->value);
+        void* addr_loc{};
+        if (top->value && top->value[0]=='0') {
+            // the top level is a pointer and we already have the pointer value                
+            addr_loc = reinterpret_cast<void*>(strtoll(m_refs[0]->value, nullptr, 0));
         } else {
-            *p = '\0';
-        }
-    } else {
-        DVPRINT("fixTypeString: memmove method.\n");
-        // If we are not at the start of the string, there might be a
-        // preceeding space to deal with
-        if (p > orig) {
-            // check for a preceeding " "
-            if (*(p - 1) == ' ') {
-                // decrement p to pick up the space
-                --p;
-                ++extra_char;
+            DVPRINT("Trying to get address of top object");
+            // the top level is a value type, use & to try to get an address                   
+            auto addrExpr = std::ostringstream{};
+            addrExpr << "\"&(" << top->expr << ")\"";
+            if (auto addrVar = createMIVar(addrExpr.str().c_str())) {
+                auto addrStr = getVarValue(addrVar->name);
+
+                DVPRINT("Got value %s\n", addrStr);
+
+                addr_loc = reinterpret_cast<void*>(strtoll(addrStr, nullptr, 0));
+                free(addrStr);
+            } else {
+                DVPRINT("createMIVar failed\n");
             }
         }
-
-        // Check for space after string
-        if (*(p + strlen(s)) == ' ') {
-            // point past the ' ' character
-            memmove(p, p + (strlen(s) + extra_char + 1),
-                    (strlen(p) + 1) - (strlen(s) + extra_char + 1));
-        } else {
-            // no ' ' character
-            memmove(p, p + strlen(s) + extra_char,
-                    (strlen(p) + 1) - (strlen(s) + extra_char));
-        }
+        m_refMap.insert(std::make_pair(addr_loc, 1));
     }
 
-    DVPRINT("fixTypeString: New string is \"%s\"\n", p);
+    size_t idx = m_refs.size()+1;
+    if (auto [loc, added] = m_refMap.insert(std::make_pair(p,idx)); added) {
+        auto derefExpr = std::ostringstream{};
+        derefExpr << "\"*(" << type << "*)" << p << "\"";
+        DVPRINT("Creating new MIVar with %s\n", derefExpr.str().c_str());
+        
+        m_refs.push_back(createMIVar(derefExpr.str().c_str()));
+    } else {
+        idx = loc->second;
+    }
+    DVPRINT("Returning index %d\n", int(idx));
+    return idx;
 }
 
 static char* EvalExpression(MISession* session, const char* expression)
@@ -517,133 +754,6 @@ static char* EvalExpression(MISession* session, const char* expression)
     return res;
 }
 
-std::unique_ptr<char,decltype(std::free)*> Mi2Aif::sanitizeTypeString(const char *input) {
-    // first we need to sanitize the stupid string if gpu debugging is turned on
-    // I don't know why Nvidia decided to be dumb by putting the address space
-    // idents in but then making the gdb parser not understand them...
-    char *clean_str;
-    char *p;
-    int found;
-    clean_str = strdup(input);
-
-    if (gpu_flag) {
-        while ((p = strchr(clean_str, '@')) != NULL) {
-            // reset found
-            found = 0;
-            if (NV_CHECK_ADDR_IDENT(p, CODE_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        CODE_S);
-                ++found;
-                fixTypeString(p, CODE_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, CONSTANT_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        CONSTANT_S);
-                ++found;
-                fixTypeString(p, CONSTANT_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, GENERIC_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        GENERIC_S);
-                ++found;
-                fixTypeString(p, GENERIC_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, GLOBAL_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        GLOBAL_S);
-                ++found;
-                fixTypeString(p, GLOBAL_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, PARAMETER_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        PARAMETER_S);
-                ++found;
-                fixTypeString(p, PARAMETER_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, SHARED_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        SHARED_S);
-                ++found;
-                fixTypeString(p, SHARED_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, TEXTURE_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        TEXTURE_S);
-                ++found;
-                fixTypeString(p, TEXTURE_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, LOCAL_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        LOCAL_S);
-                ++found;
-                fixTypeString(p, LOCAL_S, clean_str);
-            }
-            if (NV_CHECK_ADDR_IDENT(p, REGISTER_S)) {
-                DVPRINT("GetTypeLength: Found %s address space identifier\n",
-                        REGISTER_S);
-                ++found;
-                fixTypeString(p, REGISTER_S, clean_str);
-            }
-
-            // ensure found triggered, otherwise just break to avoid infinite
-            // loop this will cause an error later on though.
-            if (!found) {
-                DVPRINT("GetTypeLength: Avoiding infinite loop!\n");
-                break;
-            }
-        }
-    }
-
-    const char **current = _aif_ignored_type_specifiers;
-
-    while (*current != NULL) {
-        while ((p = strstr(clean_str, *current)) != NULL) {
-            fixTypeString(p, *current, clean_str);
-        }
-        current++;
-    }
-
-    return std::unique_ptr<char,decltype(std::free)*>(clean_str,std::free);
-}
-
-int Mi2Aif::getTypeLength(const char *in_base_type) {
-    char *res;
-    MICommand *cmd;
-    char *buf;
-    int type_len;  // in bytes
-
-    DVPRINT("GetTypeLength: Resolving length of %s\n", in_base_type);
-
-    // sanity
-    if (in_base_type == NULL) return 0;
-
-    auto base_type_holder = sanitizeTypeString(in_base_type);
-    char *base_type = base_type_holder.get();
-
-    // create the command string
-    Asprintf(&buf, "\"sizeof(%s)\"", base_type);
-
-    DBEPERFLOG(SetTimerStart("GetTypeLength: -data-evaluate-expression"));
-    cmd = MIDataEvaluateExpression(buf);
-    sendMICommand(cmd);
-    if (!MICommandResultOK(cmd)) {
-        DVPRINT("GetTypeLength: Error\n");
-        MICommandFree(cmd);
-        free(buf);
-        return 0;
-    }
-    DBEPERFLOG(SetTimerStopAndLog("GetTypeLength: -data-evaluate-expression"));
-    res = MIGetDataEvaluateExpressionInfo(cmd);
-    MICommandFree(cmd);
-    free(buf);
-
-    type_len = (int)strtol(res, NULL, 10);
-
-    free(res);
-
-    return type_len;
-}
-
 char *Mi2Aif::getVarValue(char *var) {
     char *res;
     MICommand *cmd;
@@ -657,18 +767,16 @@ char *Mi2Aif::getVarValue(char *var) {
     sendMICommand(cmd);
     if (!MICommandResultOK(cmd)) {
         DVPRINT("GetVarValue: Error\n");
-        EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "GetAIF failed.");
         MICommandFree(cmd);
-        return NULL;
+        throw NewErrorEvent(DBGERR_INTERNAL, "gdb expression evaluation failed");
     }
     res = MIGetVarEvaluateExpressionInfo(cmd);
     MICommandFree(cmd);
 
     // Check to see if the value was optimized out
     if (strcmp(res, "<value optimized out>") == 0) {
-        EVENT_ERROR(dbg_error, DBGERR_OPT, NULL);
         free(res);
-        return NULL;
+        throw NewErrorEvent(DBGERR_OPT, NULL);
     }
 
     return res;
@@ -685,41 +793,52 @@ namespace {
     };
 }
 
-
-AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
-    DVPRINT("GetAIF: %s\n", var->expr);
-
+// Evalate the value of 'var' and write the result to the m_writer
+// member.   Call the function endOfSlice with the argument 'isFinal'
+// when a slice is ready to be transmitted.  Typically, this is a single
+// slice, but large arrays can be sent in multiple slices.
+void Mi2Aif::writeVal(std::shared_ptr<MIVar> var, int refIdx,
+                      const std::function<void(bool)>& endOfSlice) {
     DepthTracker depth(m_depth);
-    if (depth.isTop()) {
+    if (depth.isTop() && var->type && var->type[strlen(var->type)-1] != '*') {
         // Save the input expression - if it contains pointers we will need
         // to index the address of this object to resolve any back-pointers in
         // the structure.
-        DVPRINT("Pushing top expression %s\n", var->expr);
+        DVPRINT("Pushing top expression %s, type %s\n", var->expr, var->type);
         m_refs.push_back(var);
     }
+    auto initNumRefs = m_refs.size();
 
     if (strcmp(var->type, "<text variable, no debug info>") == 0) {
         DVPRINT("GetAIF: No symbols\n");
-        EVENT_ERROR(dbg_error, DBGERR_NOSYMS, nullptr);
-        return nullptr;
+        throw NewErrorEvent(DBGERR_NOSYMS, nullptr);
     }
 
-    if (var->numchild == 0) {
-        // simple type
-        DVPRINT("GetAIF: Resolved to simple type.\n");
-        return getSimpleAIF(var.get());
+    DVPRINT(
+        "writeVal: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, "
+        "value %s, thread_id %d\n",
+        var->expr, var->name, var->exp, var->numchild, var->type, var->value,
+        var->thread_id);
+
+    auto obj = TypeParser::getType(*this, var.get(), nullptr);
+    auto eval = GdbResult{*this, var, *obj, endOfSlice};
+    auto any = std::make_unique<ais::Any>(std::move(obj), refIdx);
+
+    DVPRINT("About to call any->parse\n");
+
+    try {
+        // wrapping the object with ais::any sends the type info for the top
+        // level object.
+        any->parse(eval, m_writer);
+    } catch (std::exception& err) {
+        DVPRINT("parsing failed with %s\n", err.what());
     }
 
-    // complex type
-    DVPRINT("GetAIF: Resolved to complex type.\n");
-    auto val = getComplexAIF(var);
+    DVPRINT("Done with any->parse\n");
 
     // types based multiple blocks connected via pointers or references.  For comparative
     // debugging especially, we have to observe the whole state of the data structure.
-    if (depth.isTop() && m_refs.size() > 1) {
-
-        // checked that the name argument is just copied
-        auto container = EmptyStructToAIF(const_cast<char*>("multi-block"));
+    if (depth.isTop() && m_refs.size() > initNumRefs) {
 
         // add the reference elements as members of the struct - note that
         // the current val is deleted on the first iteration of this loop
@@ -728,2919 +847,25 @@ AIFStream *Mi2Aif::getAIF(std::shared_ptr<MIVar> var) {
                          std::numeric_limits<size_t>::max());
 
         // create the elements, note that m_refs can grow inside the loop
-        for (size_t i=0; i<m_refs.size() && i<refLimit ; ++i) {
-            if (!m_refs[i])
-                continue;
-            if (auto child1 = i ? getAIF(m_refs[i]) : val) {
-                if (auto aif = child1->joinAIF()) {
-                    auto fid = "[" + std::to_string(i+1) + "]";
-                    AIFAddFieldToStruct(container, const_cast<char*>(fid.c_str()), aif);
-                }
-                delete child1;
+        for (size_t i=initNumRefs; i<m_refs.size() && i<refLimit ; ++i) {
+            if (m_refs[i]) {
+                writeVal(m_refs[i], i+1, endOfSlice);
             }
         }
-
-        val = new AIFStream(container);
-    }
-
-    return val;
-}
-
-AIFStream *Mi2Aif::getSimpleAIF(MIVar *var) {
-
-    AIF *ac;
-    AIF *addr;
-    char *v;
-    int argc;
-    char **argv;
-    char *rtn;
-    char *name;
-
-    DVPRINT(
-        "GetSimpleAIF: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, "
-        "value %s, thread_id %d\n",
-        var->expr, var->name, var->exp, var->numchild, var->type, var->value,
-        var->thread_id);
-
-    int cnt = 0;
-    int id;
-    while ((id = getSimpleType(var->type)) == T_UNKNOWN) {
-        // default to using whatis
-        if (char* pt = getWhatisValue(nullptr, var->type)) {
-            free(var->type);
-            var->type = pt;
-            if (++cnt >= LOOP_PREVENTION) {
-                break;
-            }
-        } else
-            break;
-    }
-
-    AIFStream *a = nullptr;
-    switch (id) {
-        case T_FUNCTION:
-            DVPRINT("GetSimpleAIF: Creating AIF function.\n");
-            argc = getFunctionArguments(var->type, &argv);
-            if (debug_flag) {
-                int i;
-                DVPRINT("GetSimpleAIF: Num args: %d\n", argc);
-                for (i = 0; i < argc; ++i) {
-                    DVPRINT("GetSimpleAIF: argv[%d]=\"%s\"\n", i, argv[i]);
-                }
-            }
-            rtn = getFunctionReturnType(var->type);
-            if (rtn == NULL) {
-                // see PE-17307:
-                // to prevent segfault, check the rtn value for null, return
-                // null if rtn== NULL
-                // TODO: create test case for fortran real named "TIME"
-                DVPRINT(
-                    "GetSimpleAIF: GetFunctionReturnType returned NULL:"
-                    "returning NULL!\n");
-
-                return nullptr;
-            }
-            DVPRINT("GetSimpleAIF: Function return type: %s\n", rtn);
-            if ((v = getVarValue(var->name)) == NULL) {
-                // error already set
-                free(rtn);
-                return nullptr;
-            }
-            name = getFunctionName(v);
-            DVPRINT("GetSimpleAIF: Function name: %s\n", name);
-            addr = getFunctionAddress(v);
-            if (debug_flag) {
-                char *aif_str;
-                AIFToStr(&aif_str, 0, addr);
-                DVPRINT(
-                    "GetSimpleAIF: Function address: %s func_name %s "
-                    "func_rtn_fmt %p argc %d\n",
-                    aif_str, name, rtn, argc);
-                Free(aif_str);
-            }
-            ac = FunctionToAIF(addr, name, rtn, argc, argv);
-            if (debug_flag) {
-                char *aif_str;
-                AIFToStr(&aif_str, 0, ac);
-                DVPRINT("GetSimpleAIF: FDS string is: %s\n", AIF_FORMAT(ac));
-                DVPRINT("GetSimpleAIF: Function AIF size is: %d\n",
-                        AIF_LEN(ac));
-                DVPRINT("GetSimpleAIF: Function AIF type is: %s\n", aif_str);
-                Free(aif_str);
-            }
-            free(v);
-            free(rtn);
-            free(name);
-            AIFFree(addr);
-            return new AIFStream(ac);
-
-        case T_ENUM:
-            DVPRINT("GetSimpleAIF: Creating AIF enum.\n");
-            return new AIFStream(EmptyEnumToAIF(getTypeName(var->type)));
-
-        case T_VOID_PTR:
-            // void ptr's don't have any children and are considered simple
-            // types
-            DVPRINT("GetComplexAIF: Creating AIF void pointer.\n");
-            return getPointerAIF(var);
-
-        case T_UNKNOWN:
-            // Unrecognized type.
-            DVPRINT("GetSimpleAIF: Unknown type. Returning error.\n");
-            EVENT_ERROR(dbg_error, DBGERR_BADTYPE, NULL);
-            return NULL;
-
-        default:
-            DVPRINT("GetSimpleAIF: Creating simple type.\n");
-            if ((v = getVarValue(var->name)) == NULL) {
-                // error already set
-                return NULL;
-            }
-            a = new AIFStream(createSimpleAIF(id, v, NULL, 0, NULL, NULL, false));
-            free(v);
-            return a;
     }
 }
 
-AIFStream *Mi2Aif::getComplexAIF(std::shared_ptr<MIVar> var) {
-
-    //--- Find the AIF type -----
-    int id = resolveComplexType(&var->type);
-
-    if (var->type[strlen(var->type)-1] == '*') {
-        return getReferenceAIF(var.get());
-    }
-
-    //--- Create the AIF. ----
-    AIFStream *a = nullptr;
-    switch (id) {
-        case T_ARRAY:
-        case T_FTNARRAY:
-            DVPRINT("GetComplexAIF: Creating AIF array.\n");
-            a = getArrayAIF(var);
-            break;
-
-        case T_POINTER:
-            DVPRINT("GetComplexAIF: Creating AIF pointer.\n");
-            a = getPointerAIF(var.get());
-            break;
-
-        case T_UNION:
-            // NOTE: Unions in C are untagged, meaning that we have no intrinsic
-            // language support to tell us what is currently placed inside the
-            // union. We only know that one of the elements is allocated. To
-            // deal with this, gdb will show the user the representation of each
-            // field, with the assumption that all but the actual field
-            // represents junk. In order to deal with this, we treat unions as
-            // structs in this layer, that way the user will be able to see all
-            // of the representations of what is currently placed in the union.
-            DVPRINT(
-                "GetComplexAIF: Creating AIF struct to represent union "
-                "type.\n");
-            a = getStructAIF(var.get());
-            break;
-
-        case T_STRUCT:
-        case T_CLASS:
-        // Pretend a derived type is a struct
-        case T_FTNDTYPE:
-            DVPRINT("GetComplexAIF: Creating AIF struct.\n");
-            a = getStructAIF(var.get());
-            break;
-
-        case T_STD_VECTOR:
-        case T_STD_DEQUE:
-        case T_STD_STACK:
-        case T_STD_QUEUE:
-        case T_STD_PQUEUE:
-            DVPRINT("GetComplexAIF: Creating AIF Vector.\n");
-            a = getVectorLikeAIF(var);
-            break;
-
-        default:
-            /*
-             * Maybe it was simple all alongg
-             */
-            DVPRINT("GetComplexAIF: Defaulting to simple aif.\n");
-            a = getSimpleAIF(var.get());
-    }
-
-    return a;
+std::string Mi2Aif::getSlice() {
+    return m_writeBuffer->exportResult();
 }
 
-int Mi2Aif::getSimpleType(const char *type) {
-    auto sanStr = sanitizeTypeString(type);
-    const char *t = sanStr.get();
-    int len = strlen(type);
-
-    DVPRINT("GetSimpleType: %s\n", type);
-
-    // instead of strncmp on everything, lets jump in char by char
-    // Note that we need to compare case insensitive since every compiler
-    // generates different type information.
-start:
-    switch (*t++) {
-            // This is for Nvidia address space identifiers that may or may not
-            // be present case "@"
-        case '@':
-            switch (*t++) {
-                    // case "@c"
-                case 'c':
-                case 'C':
-                    switch (*t++) {
-                            // case "@co"
-                        case 'o':
-                        case 'O':
-                            switch (*t++) {
-                                    // case "@cod"
-                                case 'd':
-                                case 'D':
-                                    if (strncasecmp(t, "e ", 2) == 0) {
-                                        // string "@code "
-                                        DVPRINT(
-                                            "GetSimpleType: Found @code "
-                                            "address space identifier!\n");
-                                        t += 2;
-                                        // we ignore these address space
-                                        // identifiers, so simply return the
-                                        // value of the recursive call to this
-                                        // function
-                                        return getSimpleType(t);
-                                    }
-                                    // case "@cod" unknown
-                                    goto unknown;
-
-                                    // case "@con"
-                                case 'n':
-                                case 'N':
-                                    if (strncasecmp(t, "stant ", 6) == 0) {
-                                        // string "@constant "
-                                        DVPRINT(
-                                            "GetSimpleType: Found @constant "
-                                            "address space identifier!\n");
-                                        t += 6;
-                                        // we ignore these address space
-                                        // identifiers, so simply return the
-                                        // value of the recursive call to this
-                                        // function
-                                        return getSimpleType(t);
-                                    }
-                                    // case "@con" unknown
-                                    goto unknown;
-
-                                    // case "@co" unknown
-                                default:
-                                    goto unknown;
-                            }
-
-                            // case "@c" unknown
-                        default:
-                            goto unknown;
-                    }
-
-                    // case "@g"
-                case 'g':
-                case 'G':
-                    switch (*t++) {
-                            // case "@ge"
-                        case 'e':
-                        case 'E':
-                            if (strncasecmp(t, "neric ", 6) == 0) {
-                                // string "@generic "
-                                DVPRINT(
-                                    "GetSimpleType: Found @generic address "
-                                    "space identifier!\n");
-                                t += 6;
-                                // we ignore these address space identifiers, so
-                                // simply return the value of the recursive call
-                                // to this function
-                                return getSimpleType(t);
-                            }
-                            // case "@ge" unknown
-                            goto unknown;
-
-                            // case "@gl"
-                        case 'l':
-                        case 'L':
-                            if (strncasecmp(t, "obal ", 5) == 0) {
-                                // string "@global "
-                                DVPRINT(
-                                    "GetSimpleType: Found @global address "
-                                    "space identifier!\n");
-                                t += 5;
-                                // we ignore these address space identifiers, so
-                                // simply return the value of the recursive call
-                                // to this function
-                                return getSimpleType(t);
-                            }
-                            // case "@gl" unknown
-                            goto unknown;
-
-                            // case "@g" unknown
-                        default:
-                            goto unknown;
-                    }
-
-                    // case "@p"
-                case 'p':
-                case 'P':
-                    if (strncasecmp(t, "arameter ", 9) == 0) {
-                        // string "@parameter "
-                        DVPRINT(
-                            "GetSimpleType: Found @parameter address space "
-                            "identifier!\n");
-                        t += 9;
-                        // we ignore these address space identifiers, so simply
-                        // return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "@p" unknown
-                    goto unknown;
-
-                    // case "@s"
-                case 's':
-                case 'S':
-                    if (strncasecmp(t, "hared ", 6) == 0) {
-                        // string "@shared "
-                        DVPRINT(
-                            "GetSimpleType: Found @shared address space "
-                            "identifier!\n");
-                        t += 6;
-                        // we ignore these address space identifiers, so simply
-                        // return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "@s" unknown
-                    goto unknown;
-
-                    // case "@t"
-                case 't':
-                case 'T':
-                    if (strncasecmp(t, "exture ", 7) == 0) {
-                        // string "@texture "
-                        DVPRINT(
-                            "GetSimpleType: Found @texture address space "
-                            "identifier!\n");
-                        t += 7;
-                        // we ignore these address space identifiers, so simply
-                        // return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "@t" unknown
-                    goto unknown;
-
-                    // case "@l"
-                case 'l':
-                case 'L':
-                    if (strncasecmp(t, "ocal ", 5) == 0) {
-                        // string "@local "
-                        DVPRINT(
-                            "GetSimpleType: Found @local address space "
-                            "identifier!\n");
-                        t += 5;
-                        // we ignore these address space identifiers, so simply
-                        // return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "@l" unknown
-                    goto unknown;
-
-                    // case "@r"
-                case 'r':
-                case 'R':
-                    if (strncasecmp(t, "egister ", 8) == 0) {
-                        // string "@register "
-                        DVPRINT(
-                            "GetSimpleType: Found @register address space "
-                            "identifier!\n");
-                        t += 8;
-                        // we ignore these address space identifiers, so simply
-                        // return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "@r" unknown
-                    goto unknown;
-
-                    // case "@" unknown
-                default:
-                    goto unknown;
-            }
-
-            // case "b"
-        case 'b':
-        case 'B':
-            switch (*t++) {
-                    // case "bo"
-                case 'o':
-                case 'O':
-                    if (strncasecmp(t, "ol", 2) == 0) {
-                        // string "bool"
-                        DVPRINT("GetSimpleType: Found boolean!\n");
-                        return T_BOOLEAN;
-                    }
-                    // case "bo" unknown
-                    goto unknown;
-
-                    // case "by"
-                case 'y':
-                case 'Y':
-                    if (strncasecmp(t, "te", 2) == 0) {
-                        // string "byte"
-                        DVPRINT("GetSimpleType: Found fortran byte!\n");
-                        return T_INTEGER_1;
-                    }
-                    // case "by" unknown
-                    goto unknown;
-
-                default:
-                    // case "b" unknown
-                    goto unknown;
-            }
-
-            // case "c"
-        case 'c':
-        case 'C':
-            switch (*t++) {
-                    // case "ch"
-                case 'h':
-                case 'H': {
-                    if (strncasecmp(t, "ar", 2) == 0) {
-                        // string "char"
-                        t += 2;
-                        switch (*t) {
-                            case '\0':
-                                // case "char"
-                                DVPRINT("GetSimpleType: Found char!\n");
-                                return T_CHAR;
-
-                            case 'a':
-                            case 'A':
-                                // case "chara"
-                                // NOTE: fortran only defines one type of
-                                // character (kind=1)
-                                ++t;
-                                if (strncasecmp(t, "cter", 4) == 0) {
-                                    // string "character"
-                                    DVPRINT(
-                                        "GetSimpleType: Found fortran "
-                                        "character!\n");
-                                    return T_CHARACTER;
-                                }
-                                // "chara" unknown
-                                goto unknown;
-
-                            default:
-                                // "char" unknown
-                                goto unknown;
-                        }
-                    }
-                    // "ch" unknown
-                    goto unknown;
-                }
-
-                    // case "co"
-                case 'o':
-                case 'O': {
-                    switch (*t++) {
-                            // case "con"
-                        case 'n':
-                        case 'N':
-                            if (strncasecmp(t, "st ", 3) == 0) {
-                                // string "const "
-                                // This gets rid of the const modifier
-                                DVPRINT(
-                                    "GetSimpleType: Found const modifier.\n");
-                                t += 3;  // one past the white space
-                                goto start;
-                            }
-                            // case "con" unknown
-                            goto unknown;
-
-                            // case "com"
-                        case 'm':
-                        case 'M':
-                            if (strncasecmp(t, "plex", 4) == 0) {
-                                // string "complex"
-                                DVPRINT(
-                                    "GetSimpleType: Found fortran complex!\n");
-                                t += 4;
-                                switch (*t) {
-                                    case '\0':
-                                        // pgi defaults to kind = 4
-                                        DVPRINT(
-                                            "GetSimpleType: Fortran kind=4\n");
-                                        return T_COMPLEX_4;
-
-                                    case '(':
-                                        // note that type[len-1] is the closing
-                                        // bracket or ')' intel compiler gives
-                                        // us COMPLEX(n) where n is the kind gnu
-                                        // compiler gives us complex(kind=n)
-                                        switch (type[len - 2]) {
-                                            case '4':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=4\n");
-                                                return T_COMPLEX_4;
-
-                                            case '8':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=8\n");
-                                                return T_COMPLEX_8;
-
-                                            case '6':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=16\n");
-                                                return T_COMPLEX_16;
-
-                                            default:
-                                                DVPRINT(
-                                                    "GetSimpleType: "
-                                                    "Unsupported kind!\n");
-                                                goto unknown;
-                                        }
-
-                                    case '*':
-                                        // cray compiler uses this. COMPLEX*n
-                                        // where n is the kind.
-                                        switch (*++t) {
-                                            case '4':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=4\n");
-                                                return T_COMPLEX_4;
-
-                                            case '8':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=8\n");
-                                                return T_COMPLEX_8;
-
-                                            case '1':
-                                                if (*++t == '6') {
-                                                    DVPRINT(
-                                                        "GetSimpleType: "
-                                                        "Fortran kind=16\n");
-                                                    return T_COMPLEX_16;
-                                                }
-
-                                            default:
-                                                DVPRINT(
-                                                    "GetSimpleType: "
-                                                    "Unsupported kind!\n");
-                                                goto unknown;
-                                        }
-
-                                    default:
-                                        DVPRINT(
-                                            "GetSimpleType: Unsupported "
-                                            "kind!\n");
-                                        goto unknown;
-                                }
-                            }
-                            // "com" unknown
-                            goto unknown;
-
-                        default:
-                            // case "co" unknown
-                            goto unknown;
-                    }
-                }
-
-                default:
-                    // case "c" unknown
-                    goto unknown;
-            }
-
-            // case "d"
-        case 'd':
-        case 'D':
-            if (strncasecmp(t, "ouble", 5) == 0) {
-                // string "double"
-                t += 5;
-                switch (*t) {
-                    case '\0':
-                        // case "double"
-                        DVPRINT("GetSimpleType: Found double!\n");
-                        return T_DOUBLE;
-
-                    case ' ':
-                        // case "double "
-                        switch (*++t) {
-                            case 'c':
-                            case 'C':
-                                ++t;
-                                if (strncasecmp(t, "omplex", 6) == 0) {
-                                    // string "double complex"
-                                    // pgi uses double complex
-                                    DVPRINT(
-                                        "GetSimpleType: Found fortran double "
-                                        "complex!\n");
-                                    return T_COMPLEX_8;
-                                }
-                                // case "double c" unknown
-                                // this is not a valid function!
-                                goto unknown_invalid;
-
-                            case 'p':
-                            case 'P':
-                                ++t;
-                                if (strncasecmp(t, "recision", 8) == 0) {
-                                    // string "double precision"
-                                    DVPRINT(
-                                        "GetSimpleType: Found fortran double "
-                                        "precision!\n");
-                                    return T_REAL_8;
-                                }
-                                // case "double p" unknown
-                                goto unknown_invalid;
-
-                            default:
-                                // case "double " unknown
-                                goto unknown_invalid;
-                        }
-
-                    default:
-                        // case "double" unknown
-                        goto unknown;
-                }
-            }
-            // case "d" unknown
-            goto unknown;
-
-            // case "e"
-        case 'e':
-        case 'E':
-            if (strncasecmp(t, "num", 3) == 0) {
-                // string "enum"
-                DVPRINT("GetSimpleType: Found enum!\n");
-                return T_ENUM;
-            }
-            // case "e" unknown
-            goto unknown;
-
-            // case "f"
-        case 'f':
-        case 'F':
-            if (strncasecmp(t, "loat", 4) == 0) {
-                // string "float"
-                DVPRINT("GetSimpleType: Found float!\n");
-                return T_FLOAT;
-            }
-            // case "f" unknown
-            goto unknown;
-
-            // case "i"
-        case 'i':
-        case 'I':
-            if (strncasecmp(t, "nt", 2) == 0) {
-                // string "int"
-                t += 2;
-                switch (*t) {
-                    case '\0':
-                        DVPRINT("GetSimpleType: Found int!\n");
-                        return T_INT;
-
-                    case 'e':
-                    case 'E':
-                        ++t;
-                        if (strncasecmp(t, "ger", 3) == 0) {
-                            // string "integer"
-                            DVPRINT("GetSimpleType: Found fortran integer!\n");
-                            t += 3;
-                            switch (*t) {
-                                case '\0':
-                                    // pgi defaults to kind = 4
-                                    DVPRINT("GetSimpleType: Fortran kind=4\n");
-                                    return T_INTEGER_4;
-
-                                case '(':
-                                    // note that type[len-1] is the closing
-                                    // bracket or ')' intel compiler gives us
-                                    // INTEGER(n) where n is the kind gnu
-                                    // compiler gives us integer(kind=n)
-                                    switch (type[len - 2]) {
-                                        case '1':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=1\n");
-                                            return T_INTEGER_1;
-                                        case '2':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=2\n");
-                                            return T_INTEGER_2;
-                                        case '4':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=4\n");
-                                            return T_INTEGER_4;
-                                        case '8':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=8\n");
-                                            return T_INTEGER_8;
-                                        default:
-                                            DVPRINT(
-                                                "GetSimpleType: Unsupported "
-                                                "kind!\n");
-                                            goto unknown;
-                                    }
-
-                                case '*':
-                                    // cray compiler uses this INTEGER*n where n
-                                    // is the kind
-                                    switch (*++t) {
-                                        case '1':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=1\n");
-                                            return T_INTEGER_1;
-                                        case '2':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=2\n");
-                                            return T_INTEGER_2;
-                                        case '4':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=4\n");
-                                            return T_INTEGER_4;
-                                        case '8':
-                                            DVPRINT(
-                                                "GetSimpleType: Fortran "
-                                                "kind=8\n");
-                                            return T_INTEGER_8;
-                                        default:
-                                            DVPRINT(
-                                                "GetSimpleType: Unsupported "
-                                                "kind!\n");
-                                            goto unknown;
-                                    }
-
-                                default:
-                                    // case "integer" unknown
-                                    goto unknown;
-                            }
-                        }
-                        // case "inte" unknown
-                        goto unknown;
-
-                    case '1':
-                        DVPRINT("GetSimpleType: Fortran kind=1\n");
-                        return T_INTEGER_1;
-
-                    case '2':
-                        DVPRINT("GetSimpleType: Fortran kind=2\n");
-                        return T_INTEGER_2;
-
-                    case '4':
-                        DVPRINT("GetSimpleType: Fortran kind=4\n");
-                        return T_INTEGER_4;
-
-                    case '8':
-                        DVPRINT("GetSimpleType: Fortran kind=8\n");
-                        return T_INTEGER_8;
-
-                    default:
-                        // check for stdint int*_t types including null
-                        // terminator
-                        if (strncasecmp(t, "8_t", 4) == 0) {
-                            return T_CHAR;
-                        } else if (strncasecmp(t, "16_t", 5) == 0) {
-                            return T_SHORT;
-                        } else if (strncasecmp(t, "32_t", 5) == 0) {
-                            return T_INT;
-                        } else if (strncasecmp(t, "64_t", 5) == 0) {
-                            return T_LONGLONG;
-                        }
-
-                        // case "int" unknown
-                        goto unknown;
-                }
-            }
-            // case "i" unknown
-            goto unknown;
-
-            // case "l"
-        case 'l':
-        case 'L':
-            switch (*t++) {
-                    // case "lo"
-                case 'o':
-                case 'O':
-                    switch (*t++) {
-                            // case "lon"
-                        case 'n':
-                        case 'N':
-                            switch (*t++) {
-                                    // case "long"
-                                case 'g':
-                                case 'G':
-                                    switch (*t) {
-                                        case '\0':
-                                            // case "long"
-                                            DVPRINT(
-                                                "GetSimpleType: Found long!\n");
-                                            return T_LONG;
-
-                                        case ' ':
-                                            // here we recursively call this
-                                            // function to avoid having to
-                                            // duplicate cases. We return a
-                                            // value based on the return value
-                                            // of the recursive call. Make sure
-                                            // to preinc t to point past the '
-                                            // '.
-                                            DVPRINT(
-                                                "GetSimpleType: Going "
-                                                "recursive\n");
-                                            switch (getSimpleType(++t)) {
-                                                case T_INT:
-                                                    DVPRINT(
-                                                        "GetSimpleType: Found "
-                                                        "long!\n");
-                                                    return T_LONG;
-                                                case T_UINT:
-                                                    DVPRINT(
-                                                        "GetSimpleType: Found "
-                                                        "unsigned long!\n");
-                                                    return T_ULONG;
-#ifdef CC_HAS_LONG_LONG
-                                                case T_LONG:
-                                                    DVPRINT(
-                                                        "GetSimpleType: Found "
-                                                        "long long!\n");
-                                                    return T_LONGLONG;
-                                                case T_ULONG:
-                                                    DVPRINT(
-                                                        "GetSimpleType: Found "
-                                                        "unsigned long "
-                                                        "long!\n");
-                                                    return T_ULONGLONG;
-#endif /* CC_HAS_LONG_LONG */
-#ifdef HAVE_LONG_DOUBLE
-                                                case T_DOUBLE:
-                                                    DVPRINT(
-                                                        "GetSimpleType: Found "
-                                                        "long double!\n");
-                                                    return T_LONGDOUBLE;
-#endif
-                                                default:
-                                                    // case "long " unknown,
-                                                    // this is not a valid func
-                                                    // name
-                                                    goto unknown_invalid;
-                                            }
-                                        default:
-                                            // case "long" unknown
-                                            goto unknown;
-                                    }
-                                default:
-                                    // case "lon" unknown
-                                    goto unknown;
-                            }
-                            // case "log"
-                        case 'g':
-                        case 'G':
-                            if (strncasecmp(t, "ical", 4) == 0) {
-                                // string "logical"
-                                DVPRINT(
-                                    "GetSimpleType: Found fortran logical!\n");
-                                t += 4;
-
-                                switch (*t) {
-                                    case '\0':
-                                        // pgi defaults to kind = 4
-                                        DVPRINT(
-                                            "GetSimpleType: Fortran kind=4\n");
-                                        return T_LOGICAL_4;
-
-                                    case '(':
-                                        // note that type[len-1] is the closing
-                                        // bracket or ')' intel compiler gives
-                                        // us LOGICAL(n) where n is the kind gnu
-                                        // compiler gives us logical(kind=n)
-                                        switch (type[len - 2]) {
-                                            case '1':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=1\n");
-                                                return T_LOGICAL_1;
-                                            case '2':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=2\n");
-                                                return T_LOGICAL_2;
-                                            case '4':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=4\n");
-                                                return T_LOGICAL_4;
-                                            case '8':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=8\n");
-                                                return T_LOGICAL_8;
-                                            default:
-                                                DVPRINT(
-                                                    "GetSimpleType: "
-                                                    "Unsupported kind!\n");
-                                                goto unknown;
-                                        }
-
-                                    case '*':
-                                        // cray compiler uses this LOGICAL*n
-                                        // where n is the kind
-                                        switch (*++t) {
-                                            case '1':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=1\n");
-                                                return T_LOGICAL_1;
-                                            case '2':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=2\n");
-                                                return T_LOGICAL_2;
-                                            case '4':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=4\n");
-                                                return T_LOGICAL_4;
-                                            case '8':
-                                                DVPRINT(
-                                                    "GetSimpleType: Fortran "
-                                                    "kind=8\n");
-                                                return T_LOGICAL_8;
-                                            default:
-                                                DVPRINT(
-                                                    "GetSimpleType: "
-                                                    "Unsupported kind!\n");
-                                                goto unknown;
-                                        }
-
-                                    default:
-                                        DVPRINT(
-                                            "GetSimpleType: Unsupported "
-                                            "kind!\n");
-                                        goto unknown;
-                                }
-                            }
-                            // case "log" unknown
-                            goto unknown;
-
-                        default:
-                            // case "lo" unknown
-                            goto unknown;
-                    }
-
-                default:
-                    // case "l" unknown
-                    goto unknown;
-            }
-
-            // case "r"
-        case 'r':
-        case 'R':
-            if (strncasecmp(t, "eal", 3) == 0) {
-                // string "real"
-                DVPRINT("GetSimpleType: Found fortran real!\n");
-                t += 3;
-                switch (*t) {
-                    case '\0':
-                        // pgi defaults to kind = 4
-                        DVPRINT("GetSimpleType: Fortran kind=4\n");
-                        return T_REAL_4;
-
-                    case '(':
-                        // note that type[len-1] is the closing bracket or ')'
-                        // intel compiler gives us REAL(n) where n is the kind
-                        // gnu compiler gives us real(kind=n)
-                        switch (type[len - 2]) {
-                            case '4':
-                                DVPRINT("GetSimpleType: Fortran kind=4\n");
-                                return T_REAL_4;
-                            case '8':
-                                DVPRINT("GetSimpleType: Fortran kind=8\n");
-                                return T_REAL_8;
-                            case '6':
-                                DVPRINT("GetSimpleType: Fortran kind=16\n");
-                                return T_REAL_16;
-                            default:
-                                DVPRINT("GetSimpleType: Unsupported kind!\n");
-                                return T_UNKNOWN;
-                        }
-
-                    case '*':
-                        // cray compiler uses this REAL*n where n is the kind
-                        switch (*++t) {
-                            case '4':
-                                DVPRINT("GetSimpleType: Fortran kind=4\n");
-                                return T_REAL_4;
-                            case '8':
-                                DVPRINT("GetSimpleType: Fortran kind=8\n");
-                                return T_REAL_8;
-                            case '1':
-                                if (*++t == '6') {
-                                    DVPRINT("GetSimpleType: Fortran kind=16\n");
-                                    return T_REAL_16;
-                                }
-                            default:
-                                DVPRINT("GetSimpleType: Unsupported kind!\n");
-                                return T_UNKNOWN;
-                        }
-
-                    default:
-                        DVPRINT("GetSimpleType: Unsupported kind!\n");
-                        return T_UNKNOWN;
-                }
-            }
-            // case "r" unknown
-            goto unknown;
-
-            // case "s"
-        case 's':
-        case 'S':
-            switch (*t++) {
-                    // case "sh"
-                case 'h':
-                case 'H':
-                    if (strncasecmp(t, "ort", 3) == 0) {
-                        t += 3;
-                        switch (*t) {
-                            case ' ':
-                                // string "short "
-                                DVPRINT(
-                                    "GetSimpleType: Found short specifier!\n");
-                                t += 1;
-                                // here we recursively call this function to
-                                // avoid having to duplicate cases. We return a
-                                // value based on the return value of the
-                                // recursive call.
-                                DVPRINT("GetSimpleType: Going recursive\n");
-                                switch (getSimpleType(t)) {
-                                    case T_INT:
-                                        DVPRINT(
-                                            "GetSimpleType: Found short!\n");
-                                        return T_SHORT;
-                                    case T_UINT:
-                                        DVPRINT(
-                                            "GetSimpleType: Found unsigned "
-                                            "short!\n");
-                                        return T_USHORT;
-                                    default:
-                                        DVPRINT(
-                                            "GetSimpleType: Unknown short!\n");
-                                        goto unknown_invalid;
-                                }
-
-                            case '\0':
-                                // type short
-                                DVPRINT("GetSimpleType: short!\n");
-                                return T_SHORT;
-                        }
-                    }
-                    if (strncasecmp(t, "ared ", 3) == 0) {
-                        // string "shared "
-                        // This gets rid of the shared modifier
-                        DVPRINT("GetSimpleType: Found shared modifier.\n");
-                        t += 5;  // one past the white space
-                        goto start;
-                    }
-                    // case "sh" unknown
-                    goto unknown;
-
-                    // case "si"
-                case 'i':
-                case 'I':
-                    if (strncasecmp(t, "gned ", 5) == 0) {
-                        // string "signed "
-                        DVPRINT("GetSimpleType: Found signed specifier!\n");
-                        t += 5;
-                        // since we regard signed the same as a normal type,
-                        // simply return the value of the recursive call to this
-                        // function
-                        return getSimpleType(t);
-                    }
-                    // case "si" unknown
-                    goto unknown;
-
-                    // case "st"
-                case 't':
-                case 'T':
-                    if (strncasecmp(t, "ring", 4) == 0) {
-                        // string "string"
-                        DVPRINT("GetSimpleType: Found string!\n");
-                        return T_STRING;
-                    }
-                    // case "st" unknown
-                    goto unknown;
-
-                default:
-                    // case "s" unknown
-                    goto unknown;
-            }
-
-            // case "u"
-        case 'u':
-        case 'U':
-            if (strncasecmp(t, "nsigned", 7) == 0) {
-                // string "unsigned"
-                DVPRINT("GetSimpleType: Found unsigned specifier!\n");
-                t += 7;
-                switch (*t) {
-                    case '\0':
-                        DVPRINT("GetSimpleType: Found unsigned!\n");
-                        return T_UINT;
-
-                    case ' ':
-                        // here we recursively call this function to avoid
-                        // having to duplicate cases. We return a value based on
-                        // the return value of the recursive call. Make sure to
-                        // preinc t to point past the ' '.
-                        DVPRINT("GetSimpleType: Going recursive\n");
-                        switch (getSimpleType(++t)) {
-                            case T_CHAR:
-                                DVPRINT(
-                                    "GetSimpleType: Found unsigned char!\n");
-                                return T_UCHAR;
-                            case T_SHORT:
-                                DVPRINT(
-                                    "GetSimpleType: Found unsigned short!\n");
-                                return T_USHORT;
-                            case T_INT:
-                                DVPRINT("GetSimpleType: Found unsigned int!\n");
-                                return T_UINT;
-                            case T_LONG:
-                                DVPRINT(
-                                    "GetSimpletype: Found unsigned long!\n");
-                                return T_ULONG;
-#ifdef CC_HAS_LONG_LONG
-                            case T_LONGLONG:
-                                DVPRINT(
-                                    "GetSimpleType: Found unsigned long "
-                                    "long!\n");
-                                return T_ULONGLONG;
-#endif /* CC_HAS_LONG_LONG */
-                            default:
-                                DVPRINT("GetSimpleType: Unknown unsigned!\n");
-                                goto unknown_invalid;
-                        }
-
-                    default:
-                        // case "unsigned" unknown
-                        goto unknown;
-                }
-            }
-
-            if (strncasecmp(t, "int", 3) == 0) {
-                t += 3;
-                // check for stdint uint*_t types including null terminator
-                if (strncasecmp(t, "8_t", 4) == 0) {
-                    return T_UCHAR;
-                } else if (strncasecmp(t, "16_t", 5) == 0) {
-                    return T_USHORT;
-                } else if (strncasecmp(t, "32_t", 5) == 0) {
-                    return T_UINT;
-                } else if (strncasecmp(t, "64_t", 5) == 0) {
-                    return T_ULONGLONG;
-                }
-            }
-
-            // case "u" unknown
-            goto unknown;
-
-            // case "v"
-        case 'v':
-        case 'V':
-            switch (*t++) {
-                    // case "vo"
-                case 'o':
-                case 'O':
-                    switch (*t++) {
-                            // case "voi"
-                        case 'i':
-                        case 'I':
-                            switch (*t++) {
-                                    // case "void"
-                                case 'd':
-                                case 'D':
-                                    switch (*t) {
-                                        case '\0':
-                                            // string "void"
-                                            DVPRINT(
-                                                "GetSimpleType: Found void.\n");
-                                            return T_VOID;
-
-                                        case ' ':
-                                            // string "void "
-                                            t += 1;
-                                            if (*t == '*') {
-                                                // string "void *"
-                                                DVPRINT(
-                                                    "GetSimpleType: Found void "
-                                                    "ptr.\n");
-                                                return T_VOID_PTR;
-                                            }
-                                        default:
-                                            // case "void " unknown
-                                            goto unknown;
-                                    }
-                                    // case "void" unknown
-                                default:
-                                    goto unknown;
-                            }
-                            // case "voi" unknown
-                            goto unknown;
-
-                            // case "vol"
-                        case 'l':
-                        case 'L':
-                            if (strncasecmp(t, "atile ", 6) == 0) {
-                                // string "volatile "
-                                // This gets rid of the volatile modifier
-                                DVPRINT(
-                                    "GetSimpleType: Found volatile "
-                                    "modifier.\n");
-                                t += 6;  // one past the white space
-                                goto start;
-                            }
-                            // case "vol" unknown
-                            goto unknown;
-
-                        default:
-                            // case "vo" unknown
-                            goto unknown;
-                    }
-
-                default:
-                    // case "v" unknown
-                    goto unknown;
-            }
-
-        // We are finally at the default case for the first character in the
-        // string. Note that we want to check if the string is a function if we
-        // jumped to unknown or if its first letter was not a known type
-        // specifier.
-        default:
-        unknown:
-            if (type[len - 1] == ')') {
-                DVPRINT("GetSimpleType: Found function!\n");
-                return T_FUNCTION;
-            }
-
-        unknown_invalid:
-            // this is the bottom of the parser. If we get here, the type is
-            // truly unknown. This means that the parser probably has to be
-            // expanded to handle the unknown type, or there was an error with
-            // the type string provided by gdb.
-            DVPRINT("GetSimpleType: Unknown type.\n");
-            return T_UNKNOWN;
+static bool typeIsReference(const char* str) {
+    if (!str) return false;
+    for (auto s = str+strlen(str); s != str; ) {
+        if (auto c = *--s; c == '&') return true;
+        else if (!std::isspace(c)) break;
     }
-}
-
-/*
- * Attempt to determine the type of a variable from a type string. Assumes
- * that the type is structured. Returns T_UNKNOWN if the type can't be
- * determined.
- *
- * Possible return values:
- * 	T_ARRAY
- * 	T_POINTER
- * 	T_UNION
- * 	T_STRUCT
- * 	T_UNKNOWN
- */
-int Mi2Aif::getComplexType(const char *inType) {
-    auto typeHolder = sanitizeTypeString(inType);
-    const char* type = typeHolder.get();
-    int len = strlen(type);
-
-    if (strncmp(type, "std::", 5) == 0) {
-        type += 5;
-        len -= 5;
-        switch (*type) {
-            case 'v':
-                DVPRINT("GetComplexType: Found std::vector\n");
-                return T_STD_VECTOR;
-            case 'd':
-                DVPRINT("GetComplexType: Found std::deque\n");
-                return T_STD_DEQUE;
-            case 's':
-                DVPRINT("GetComplexType: Found std::stack\n");
-                return T_STD_STACK;
-            case 'p':
-                DVPRINT("GetComplexType: Found std::priority_queue\n");
-                return T_STD_PQUEUE;
-            case 'q':
-                DVPRINT("GetComplexType: Found std::queue\n");
-                return T_STD_QUEUE;
-        }
-    }
-
-    const char *t = &type[len - 1];
-    const char *p;
-    // Check for nvidia address space identifiers, we want to ignore these.
-    if (gpu_flag && ((p = strrchr(type, '@')) != NULL)) {
-        DVPRINT("GetComplexType: Pointing at \"%s\"\n", p);
-
-        // ensure that the @... business is the last part of the string,
-        // otherwise something else is going on
-        if (NV_CHECK_ADDR_IDENT_L(p, CODE_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    CODE_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, CONSTANT_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    CONSTANT_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, GENERIC_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    GENERIC_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, GLOBAL_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    GLOBAL_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, PARAMETER_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    PARAMETER_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, SHARED_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    SHARED_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, TEXTURE_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    TEXTURE_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, LOCAL_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    LOCAL_S);
-            t = p - 2;
-        }
-        if (NV_CHECK_ADDR_IDENT_L(p, REGISTER_S)) {
-            DVPRINT("GetComplexType: Found %s address space identifier\n",
-                    REGISTER_S);
-            t = p - 2;
-        }
-
-        DVPRINT("GetComplexType: Pointing at \'%c\'\n", *t);
-    }
-
-    switch (*t) {
-        case ']':
-            DVPRINT("GetComplexType: Found array\n");
-            return T_ARRAY;
-
-        case '*':
-            DVPRINT("GetComplexType: Found pointer\n");
-            return T_POINTER;  // normal pointer
-
-        case ')':
-            // check to see if this is a derived type
-            if (strncasecmp(type, "type(", strlen("type(")) == 0) {
-                DVPRINT("GetComplexType: Found fortran derived type\n");
-                return T_FTNDTYPE;
-            }
-            DVPRINT("GetComplexType: Found fortran array\n");
-            return T_FTNARRAY;
-
-        default:
-            if (strncmp(type, "union", 5) == 0) {
-                DVPRINT("GetComplexType: Found union\n");
-                return T_UNION;
-            }
-
-            if (strncmp(type, "struct", 6) == 0) {
-                DVPRINT("GetComplexType: Found struct\n");
-                return T_STRUCT;
-            }
-
-            DVPRINT("GetComplexType: Unknown type %s\n", type);
-            return T_UNKNOWN;
-    }
-}
-
-int Mi2Aif::getType(char *type) {
-    auto sanType = sanitizeTypeString(type);
-    int id = getSimpleType(sanType.get());
-    if (id == T_UNKNOWN) {
-        id = getComplexType(sanType.get());
-    }
-
-    return id;
-}
-
-int Mi2Aif::resolveComplexType(char** typePtr)
-{
-    // We allow multiple passes to break off extra type decoration.   I believe
-    // the LOOP_PREVENTION count was primarily in place because of the non-progress
-    // case that is now recognized as T_CLASS, but I'm not 100% sure so we'll leave it
-    // in a safety backup.
-    for (int cnt=0; cnt < LOOP_PREVENTION; ++cnt) {
-        auto id = getComplexType(*typePtr);
-        if (id != T_UNKNOWN) {
-            return id;
-        }
-
-        auto pt = getWhatisValue(nullptr, *typePtr);
-        if (!pt) {
-            return T_UNKNOWN;
-        } else if (strcmp(pt, *typePtr) == 0) {
-            // C++ style struct and classes loop into here because the class type
-            // name can't be broken down further.  So whatis("MyStruct") == "MyStruct"
-            free(pt);
-            return T_STRUCT;
-        } else {
-            // we have resolved to a simpler type, try again
-            free(*typePtr);
-            *typePtr = pt;
-        }
-    }
-
-    return T_UNKNOWN;
-}
-/*
- * Get the base type of an array from it's type
- * definition string.
- */
-int Mi2Aif::getArrayBaseType(MIVar *var, char **type_str, int *type_len,
-                             struct_info_t **type_struct, func_info_t **type_func) {
-    if (type_struct)
-        *type_struct = nullptr;
-    if (type_func)
-        *type_func = nullptr;
-
-    //DVPRINT("GetArrayBaseType: %s\n", var->type);
-    char* str = nullptr;
-
-    if (strncmp(var->type, "std::", 5) == 0) {
-        const char *beg=nullptr, *end=nullptr;
-        int nesting = 0;
-        for (const char* p = var->type+5 ; !end && *p; ++p) {
-            switch (*p) {
-            case '<':
-                if (++nesting == 1) beg = p+1;
-                break;
-            case '>':
-                if (--nesting == 0) end = p;
-                break;
-            case ',':
-                if (nesting == 1) end = p;  // presumably the rest is the allocator
-                break;
-            default:
-                break;
-            }
-        }
-
-        if (!beg || !end || end == beg+1) {
-            DVPRINT("Could not parse the contained type of %s\n",
-                    var->type);
-            return T_UNKNOWN;
-        }
-
-        str = strndup(beg, end-beg);
-    } else {
-        str = strdup(var->type);
-        bool done = false;
-
-        // grab the length of the string
-        int index = strlen(str) - 1;
-        char* p = &str[index];
-
-        // check if a valid end_delim matches the last character in the string
-        switch (*p--) {
-        case ARRAY_C_TYPE_END:
-        case ARRAY_FTN_TYPE_END:
-            DVPRINT("GetArrayBaseType: Valid array detected.\n");
-            break;
-
-        default:
-            // unknown array specification
-            DVPRINT("GetArrayBaseType: Unknown Array Type!\n");
-            free(str);
-            return T_UNKNOWN;
-        }
-
-        // loop through until we find the end of the array range information
-        while (!done) {
-            // bound check
-            if (index == 0) {
-                // unknown array specification
-                DVPRINT("GetArrayBaseType: OutofBounds error!\n");
-                free(str);
-                return T_UNKNOWN;
-            }
-
-            // see if we are at the start of the range info
-            switch (*p--) {
-            case ARRAY_C_TYPE_START:
-            case ARRAY_FTN_TYPE_START:
-                // check to see if p[index-1] is a end delimiter, if so we
-                // are not past the range information yet
-                switch (*p) {
-                case ARRAY_C_TYPE_END:
-                case ARRAY_FTN_TYPE_END:
-                    // we are not done
-                    --index;
-                    --p;
-                    break;
-
-                default:
-                    // we are done
-                    // ignore array range information
-                    *(p + 1) = '\0';
-                    done = true;
-                }
-                break;
-
-            default:
-                // ignore it
-                --index;
-            }
-        }
-
-        // bound check
-        if (index == 0) {
-            // unknown array specification
-            DVPRINT("GetArrayBaseType: OutofBounds error!\n");
-            free(str);
-            return T_UNKNOWN;
-        }
-
-        // remove whitespace
-        while (*p == ' ' && index != 0) {
-            *p-- = '\0';
-            --index;
-        }
-
-        // bound check
-        if (index == 0) {
-            // unknown array specification
-            DVPRINT("GetArrayBaseType: OutofBounds error!\n");
-            free(str);
-            return T_UNKNOWN;
-        }
-    }
-
-    DVPRINT("GetArrayBaseType: Base resolved to %s.\n", str);
-
-    // get the base type
-    int id = getType(str);
-    if (type_str != NULL) *type_str = strdup(str);
-    if (type_len != NULL) *type_len = getTypeLength(str);
-
-    // if its still unknown, try to use ptype
-    while (id == T_UNKNOWN) {
-        DVPRINT("GetArrayBaseType: Base still unknown, using whatis.\n");
-        char* p = getWhatisValue(str, NULL);
-        if (!p) {
-            break;
-        } else if (str && strcmp(str,p)==0) {
-            free(p);
-            break;
-        }
-
-        id = getType(p);
-        if (type_str != NULL) {
-            free(*type_str);
-            *type_str = strdup(p);
-        }
-        if (type_len != NULL) *type_len = getTypeLength(p);
-        free(str);
-        str = p;
-    }
-
-    if (id == T_UNKNOWN) {
-        // C++ structs don't use the word "struct" so we need to just see if
-        // GetStructInfo gives us a result
-        DVPRINT("Still unknown, trying as a struct with: %s\n", str);
-        if (struct_info_t* si = getStructInfo(str)) {
-            DVPRINT("Got a struct result\n");
-            if (type_struct)
-                *type_struct = si;
-            else
-                delete si;
-            id = T_STRUCT;
-        } else {
-            DVPRINT("Did not get a struct result\n");
-        }
-    } else if (id == T_STRUCT && type_struct != NULL) {
-        // If this is a C-style struct name, we need to resolve the struct info
-        *type_struct = getStructInfo(str);
-    }
-
-    // If this is a function, we need to resolve the func info
-    if (id == T_FUNCTION && type_func != NULL) {
-        *type_func = getFunctionInfo(str);
-    }
-
-    free(str);
-
-    return id;
-}
-
-// get the shape of an array
-std::unique_ptr<ArrayDimension> Mi2Aif::getArrayDimensionShape(MIVar *var) {
-    int done = 0;
-    int isRange = 0;
-    int isFortran = 0;
-    int min = 0;
-    int max = 0;
-    char *p;
-    char *str = strdup(var->type);
-
-    DVPRINT("GetArrayDimensionShape: %s\n", var->type);
-
-    // point to the last char in the string
-    p = &str[strlen(str) - 1];
-
-    // ensure we have valid dimensional information
-    switch (*p) {
-        case ARRAY_FTN_TYPE_END:
-            isFortran = 1;
-        case ARRAY_C_TYPE_END:
-            break;
-        default:
-            // unknown array specification
-            DVPRINT("GetArrayDimensionShape: Unknown Array Type!");
-            free(str);
-            return nullptr;
-    }
-
-    auto shape = std::make_unique<ArrayDimension>();
-    if (shape == nullptr) {
-        DVPRINT("GetArrayDimensionShape: ArrayDimension ctor failed!");
-        free(str);
-        return nullptr;
-    }
-    shape->setIsFortran(isFortran);
-
-    // set the end delimiter char to '\0'
-    *p-- = '\0';
-
-    // iterate while we are not pointing to the begining of the range info
-    while (!done) {
-        // iterate while we are not pointing to a start delimiter and separation
-        // delimiter and str
-        switch (*p) {
-            case ARRAY_C_TYPE_START:
-                // c arrays have a range of 0:N-1 where N is the typedef size of
-                // the array
-                min = 0;
-                max = atoi(p + 1) - 1;
-                // add p+1 to the dimension definition list
-                if (shape->addDimensionDef(min, max)) {
-                    DVPRINT(
-                        "GetArrayDimensionShape: addArrayDimensionDef failed!");
-                    free(str);
-                    return nullptr;
-                }
-                DVPRINT(
-                    "GetArrayDimensionShape: Added dimension %d of length %d "
-                    "with range %d to %d\n",
-                    shape->numDimensions(), max - min + 1, min, max);
-
-                // check if there is a end delim right after this
-                switch (*--p) {
-                    case ARRAY_C_TYPE_END:
-                        // post-dec p setting the end delim to '\0'
-                        *p-- = '\0';
-                        break;
-
-                    default:
-                        // done parsing the string
-                        ++done;
-                }
-                break;
-
-            // fortran represents this in a (1,2,..,n) way
-            // fortran also allows for range definitions in a N:M way
-            case ARRAY_TYPE_SEP:
-                // only fortran allows for the range specification
-                if (isRange) {
-                    // this is the min index for the range
-                    // remember that we are parsing backwards
-                    min = atoi(p + 1);
-                    // for a range of N:M the formula is M-N+1
-                    isRange = 0;
-                } else {
-                    max = atoi(p + 1);
-                    min = 1;
-                }
-
-                // add p+1 to the dimension definition list
-                if (shape->addDimensionDef(min, max)) {
-                    DVPRINT(
-                        "GetArrayDimensionShape: addArrayDimensionDef failed!");
-                    free(str);
-                    return nullptr;
-                }
-
-                // post-dec p setting the end delim to '\0'
-                *p-- = '\0';
-
-                DVPRINT(
-                    "GetArrayDimensionShape: Added dimension %d of length %d "
-                    "with range %d to %d\n",
-                    shape->numDimensions(), max - min + 1, min, max);
-                break;
-
-            // fortran is done when it finds a '(' character
-            case ARRAY_FTN_TYPE_START:
-                if (isRange) {
-                    // this is the min index for the range
-                    // remember that we are parsing backwards
-                    min = atoi(p + 1);
-                    // for a range of N:M the formula is M-N+1
-                    isRange = 0;
-                } else {
-                    max = atoi(p + 1);
-                    min = 1;
-                }
-                // add p+1 to the dimension definition list
-                if (shape->addDimensionDef(min, max)) {
-                    DVPRINT(
-                        "GetArrayDimensionShape: addArrayDimensionDef failed!");
-                    free(str);
-                    return nullptr;
-                }
-                DVPRINT(
-                    "GetArrayDimensionShape: Added dimension %d of length %d "
-                    "with range %d to %d\n",
-                    shape->numDimensions(), max - min + 1, min, max);
-                // done parsing the string
-                ++done;
-                break;
-
-            // fortran allows for the type information to be specified as a
-            // range such as (0:5,1:3) we need to deal with this case
-            case ARRAY_FTN_RANGE_SEP:
-                // ensure isRange is not set. This would mean we encountered
-                // multiple ":" in the range string.
-                if (isRange) {
-                    DVPRINT("GetArrayDimensionShape: isRange was already set!");
-                    free(str);
-                    return nullptr;
-                }
-                // store the integer value of p+1 in len and set the isRange
-                // flag.
-                max = atoi(p + 1);
-                ++isRange;
-                // post-dec p setting the end delim to '\0'
-                *p-- = '\0';
-                break;
-
-            default:
-                // check if p is less than or equal to str
-                if (p <= str) {
-                    DVPRINT("GetArrayDimensionShape: OutofBounds error!");
-                    free(str);
-                    return nullptr;
-                }
-                // decrement p
-                --p;
-        }
-    }
-    // free the str we were using
-    free(str);
-
-    DVPRINT("GetArrayDimensionShape: Total dimensions detected %d (%s)\n",
-            shape->numDimensions(), isFortran?"fortran":"C");
-
-    return shape;
-}
-
-/*
- * Get the name of a type (struct, union or enum) from the
- * MI type string. This now also works for any generic variable, for instance
- * int i would return i, char *c would return c.
- *
- * Returns the type name or NULL if the type is unnamed.
- */
-char *Mi2Aif::getTypeName(const char *type) {
-    char *p;
-    char *p2;
-
-    DVPRINT("GetTypeName: %s\n", type);
-
-    if ((p = const_cast<char*>(strrchr(type, ' '))) != NULL && p[1] != '>') {
-        p++;
-        if (strncmp(p, "{...}", 5) == 0) {
-            DVPRINT("GetTypeName: NULL type\n");
-            return NULL;
-        }
-
-        while (*p == '*') {
-            p++;
-        }
-
-        DVPRINT("GetTypeName: returning %s\n", p);
-
-        return p;
-    }
-
-    // check for fortran derived type
-    if (strncasecmp(type, "TYPE(", strlen("TYPE(")) == 0) {
-        p = const_cast<char*>(type);
-        // point past type
-        p += strlen("TYPE(");
-        // set closing brace to null term
-        if ((p2 = strchr(p, ')')) != NULL) {
-            *p2 = '\0';
-        }
-
-        DVPRINT("GetTypeName: returning %s\n", p);
-
-        return p;
-    }
-
-    DVPRINT("GetTypeName: returning %s\n", type);
-
-    return const_cast<char*>(type);
-}
-
-/*
-** Remove the whitespace from the string represented by str.
-*/
-void Mi2Aif::removeWhitespace(char *str) {
-    char *p1 = str;
-    char *p2 = str;
-
-    if (*p1 == '\0') {
-        return;
-    }
-
-    // blanket remove all leading spaces
-    while (isspace(*p1) && (*p1 != '\0')) {
-        ++p1;
-    }
-
-    while (*p1 != '\0') {
-        if (isspace(*p1)
-            // don't remove spaces between keywords (assume type doesn't
-            // separate with more than one space)
-            &&
-            ((p1[1] == '\0') || !(isalnum(*(p1 - 1)) && isalnum(*(p1 + 1))))) {
-            ++p1;
-        } else {
-            *p2++ = *p1++;
-        }
-    }
-    // set p2 to a final null terminator
-    *p2 = '\0';
-}
-
-/*
-** This function is used when creating a simple AIF type from a gdb string.
-*/
-func_info_t *Mi2Aif::getFunctionInfo(char *type_str) {
-    DVPRINT("GetFunctionInfo: %s\n", type_str);
-
-    // get the number of arguments and arguments of function
-    char **argv;
-    int argc = getFunctionArguments(type_str, &argv);
-    DVPRINT("GetFunctionInfo: Num args: %d\n", argc);
-
-    // get the return type of the function
-    char* rtn_type = getFunctionReturnType(type_str);
-    DVPRINT("GetFunctionInfo: Function return type: %s\n", rtn_type);
-
-    // We need to ask for the length of an address on this system
-    int addr_len = getTypeLength("void *");
-
-    auto result = new func_info_t(addr_len, rtn_type, argc, argv);
-    if (!result)
-        DVPRINT("GetFunctionInfo: Malloc Failed.\n");
-
-    return result;
-}
-
-/*
-** This function returns the number of arguments of a function and writes the
-** FDS type of the arg into the location of argv. Note that this function will
-** malloc a new argv array and it is the callers responsibility to free it.
-*/
-int Mi2Aif::getFunctionArguments(const char *type, char **argv[]) {
-    const char *start;
-    char *end;
-    char *res;
-    char *p;
-    char *q;
-    int arg_type;
-    char *arg;
-    int num_args = 1;
-    int i;
-
-    DVPRINT("GetFunctionArguments: %s\n", type);
-
-    // find the opening '('
-    if ((start = strchr(type, FUNCTION_START)) == (char *)NULL) {
-        // couldn't find opening '('
-        DVPRINT("GetFunctionArguments: Couldn't find opening \"(\"\n");
-        return 0;
-    }
-
-    // Check to see if this is a function pointer
-    if (!strncmp(start, VOID_FUNCTION_STR, strlen(VOID_FUNCTION_STR))) {
-        DVPRINT("GetFunctionArguments: Found function pointer!\n");
-        // point start past the VOID_FUNCTION_STR string
-        start += strlen(VOID_FUNCTION_STR);
-    }
-
-    // make start point past the '('
-    ++start;
-
-    // make a new copy of start
-    res = strdup(start);
-
-    // now find the end
-    if ((end = strrchr(res, FUNCTION_END)) == (char *)NULL) {
-        // couldn't find closing ')'
-        DVPRINT("GetFunctionArguments: Couldn't find closing \")\"\n");
-        free(res);
-        return 0;
-    }
-    // make the closing ')' into the terminating null character
-    *end = '\0';
-
-    // get rid of any whitespace in the arguments
-    removeWhitespace(res);
-
-    DVPRINT("GetFunctionArguments: res is %s\n", res);
-
-    // check for zero length arg string, or void
-    if (strlen(res) == 0 || strncasecmp(res, "void", 4) == 0) {
-        free(res);
-        return 0;
-    }
-
-    // figure out the number of arguments
-    p = res;
-    while ((p = strchr(p, FUNCTION_ARG_SEP)) != (char *)NULL) {
-        // advance p and num_args
-        ++p;
-        ++num_args;
-    }
-
-    // allocate the argv buffer
-    if ((*argv = (char **)malloc(sizeof(char *) * num_args)) == (void *)0) {
-        DVPRINT("GetFunctionArguments: malloc error\n");
-        free(res);
-        return 0;
-    }
-
-    DVPRINT("GetFunctionArguments: num_args is %d\n", num_args);
-
-    // parse the args and convert to FDS format string
-    p = res;
-    for (i = 0; i < num_args; ++i) {
-        // point q at the first ','
-        // turn the first FUNCTION_ARG_SEP into a null term
-        if ((q = strchr(p, FUNCTION_ARG_SEP)) != (char *)NULL) {
-            *q = '\0';
-        }
-
-        // get the type id of p
-        arg_type = getType(p);
-
-        if ((arg = miToFDS(arg_type, p)) == NULL) {
-            DVPRINT("GetFunctionArguments: Unknown farg_type!\n");
-            free(res);
-            return 0;
-        }
-
-        // get the FDS string, this needs to be strdup'ed since the
-        // string is returned in a private buffer
-        (*argv)[i] = strdup(arg);
-
-        DVPRINT("GetFunctionArguments: Added arg %s\n", (*argv)[i]);
-
-        // point p 1 past q and continue
-        if (q != NULL) {
-            p = q + 1;
-        } else if (i + 1 != num_args) {
-            DVPRINT("GetFunctionArguments: argv != num_args\n");
-            free(res);
-            return i;
-        }
-    }
-
-    // free the res string
-    free(res);
-
-    return num_args;
-}
-
-/*
-** This function returns the return type of a function from the type string of a
-** MIVar represented by type. The return type is found by taking the string
-*before
-** the opening '(' and removing any whitespace.
-*/
-char *Mi2Aif::getFunctionReturnType(const char *type) {
-    char *str;
-    char *end;
-    int rtn_type;
-    char *rtn;
-
-    if (type == NULL) return (char *)NULL;
-
-    DVPRINT("GetFunctionReturnType: %s\n", type);
-    str = strdup(type);
-
-    if ((end = strchr(str, FUNCTION_START)) == (char *)NULL) {
-        // couldn't find opening '('
-        free(str);
-        return NULL;
-    }
-    // make the opening '(' into the null terminator
-    *end = '\0';
-
-    // get rid of any whitespace in the return type string
-    removeWhitespace(str);
-
-    // get the type id of str
-    rtn_type = getType(str);
-    // get the FDS string, this needs to be strdup'ed since the
-    // string is returned in a private buffer
-    if ((rtn = miToFDS(rtn_type, str)) == NULL) {
-        free(str);
-        return (char *)NULL;
-    }
-
-    return strdup(rtn);
-}
-
-/*
-** This function returns the address of a function from the value string of a
-** MIVar represented by value. It is expected that gdb/mi will represent the
-** function address as a numerical string found before " <" and after "} "
-*/
-AIF *Mi2Aif::getFunctionAddress(const char *value) {
-    char *fn;
-    char *start;
-    long long int addr_loc;
-
-    DVPRINT("GetFunctionAddress: %s\n", value);
-
-    if (value == nullptr) return nullptr;
-
-    fn = strdup(value);
-
-    // find }
-    if ((start = strchr(fn, '}')) != nullptr) {
-        // move past }
-        start++;
-    } else {
-        DVPRINT("GetFunctionAddress: couldn't find }, address parsing will fail\n");
-        start = fn;
-    }
-
-    removeWhitespace(start);
-
-    // convert the address of the pointer to an integer value
-    addr_loc = strtoll(start, nullptr, 0);
-    DVPRINT("GetFunctionAddress: parsed %s, got %#llx\n", start, addr_loc);
-
-    // free the string
-    free(fn);
-
-    // Create and return the AIF type representing the address
-    return AddressToAIF((void*)addr_loc, getTypeLength("void *"));
-}
-
-/*
-** This function returns the name of a function from the value string of a
-** MIVar represented by value. It is expected that gdb/mi will represent the
-** function name in a value string as being found between '<' and '>'
-*/
-char *Mi2Aif::getFunctionName(const char *value) {
-    const char *start;
-    char *end;
-    char *res;
-
-    CSAPRINT("GetFunctionName: %s\n", value);
-
-    // find the final '<' in the value string
-    if ((start = strrchr(value, '<')) == (char *)NULL) {
-        // couldn't find final '<'
-        return strdup("");
-    }
-    // point pass the '<'
-    ++start;
-
-    // make a new copy of start
-    res = strdup(start);
-
-    // find the final '>' in the value string
-    if ((end = strrchr(res, '>')) == (char *)NULL) {
-        // couldn't find closing '>'
-        free(res);
-        return strdup("");
-    }
-    // make the closing '>' into the terminating null character
-    *end = '\0';
-
-    removeWhitespace(res);
-
-    return res;
-}
-
-/*
-** Get a valid AIF format description string (FDS) for a MI type.
-*/
-char *Mi2Aif::miToFDS(int type_id, const char *base_type) {
-    char *fds_type = NULL;
-    int len;
-
-    DVPRINT("MIToFDS: type_id = %d, base_type = %s\n", type_id, base_type);
-
-    switch (type_id) {
-        case T_CHAR:
-            fds_type = AIF_CHARACTER_TYPE();
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_STRING:
-            len = getTypeLength(base_type);
-            fds_type = AIF_STRING_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_SHORT:
-        case T_INT:
-        case T_LONG:
-        case T_LONGLONG:
-            len = getTypeLength(base_type);
-            fds_type = AIF_INTEGER_TYPE(1, len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_USHORT:
-        case T_UINT:
-        case T_ULONG:
-        case T_ULONGLONG:
-            len = getTypeLength(base_type);
-            fds_type = AIF_INTEGER_TYPE(0, len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_FLOAT:
-        case T_DOUBLE:
-#ifdef HAVE_LONG_DOUBLE
-        case T_LONGDOUBLE:
-#endif
-            len = getTypeLength(base_type);
-            fds_type = AIF_FLOATING_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_BOOLEAN:
-            fds_type = AIF_BOOLEAN_TYPE();
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_INTEGER_1:
-        case T_INTEGER_2:
-        case T_INTEGER_4:
-        case T_INTEGER_8:
-            len = getTypeLength(base_type);
-            fds_type = AIF_FTN_INTEGER_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_REAL_4:
-        case T_REAL_8:
-        case T_REAL_16:
-            len = getTypeLength(base_type);
-            fds_type = AIF_FTN_REAL_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_COMPLEX_4:
-        case T_COMPLEX_8:
-        case T_COMPLEX_16:
-            len = getTypeLength(base_type);
-            fds_type = AIF_FTN_COMPLEX_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_LOGICAL_1:
-        case T_LOGICAL_2:
-        case T_LOGICAL_4:
-        case T_LOGICAL_8:
-            len = getTypeLength(base_type);
-            fds_type = AIF_FTN_LOGICAL_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_CHARACTER:
-            len = getTypeLength(base_type);
-            fds_type = AIF_FTN_CHARACTER_TYPE(len);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_VOID:
-            // assume that void has a implicit length of 0
-            // AIF_VOID type is confusing and poorly designed...
-            fds_type = AIF_VOID_TYPE(0);
-            DVPRINT("MIToFDS: fds_type=>%s\n", fds_type);
-            break;
-
-        case T_POINTER:
-        case T_UNION:
-        case T_ENUM:
-        case T_ARRAY:
-        case T_STRUCT:
-        case T_CLASS:
-        case T_FTNARRAY:
-            /* FIXME */
-        case T_UNKNOWN:
-        default:
-            DVPRINT("MIToFDS: unknown type.\n");
-            break;
-    }
-
-    return fds_type;
-}
-
-AIF *Mi2Aif::createSimpleAIF(int id, char *res, const char *type_str, int type_len,
-                             struct_info_t *type_struct,
-                             func_info_t *type_func, bool isFixedSize) {
-    long double real, img;
-    long long int addr_loc;
-    void *addr;
-
-    CSAPRINT("CreateSimpleAIF: %s\n", res);
-
-    if (res == NULL) {
-        return NULL;
-    }
-    switch (id) {
-        case T_STRING:
-            if (const char* pch = strchr(res, ' ')) {
-                pch++;
-                CSAPRINT("CreateSimpleAIF: Creating string\n");
-                return StringToAIF(const_cast<char*>(pch));
-            }
-            // other type
-            CSAPRINT("CreateSimpleAIF: Creating void\n");
-            return VoidToAIF(0, 0);
-        case T_CHAR:
-            CSAPRINT("CreateSimpleAIF: Creating char\n");
-            return CharToAIF((char)strtol(res, NULL, 10));
-        case T_UCHAR:
-            CSAPRINT("CreateSimpleAIF: Creating uchar\n");
-            return UnsignedCharToAIF((unsigned char)strtol(res, NULL, 10));
-        case T_SHORT:
-            CSAPRINT("CreateSimpleAIF: Creating short\n");
-            return ShortToAIF((short)strtol(res, NULL, 10));
-        case T_USHORT:
-            CSAPRINT("CreateSimpleAIF: Creating ushort\n");
-            return UnsignedShortToAIF((unsigned short)strtoul(res, NULL, 10));
-        case T_INT:
-            CSAPRINT("CreateSimpleAIF: Creating int\n");
-            return IntToAIF((int)strtol(res, NULL, 10));
-        case T_UINT:
-            CSAPRINT("CreateSimpleAIF: Creating uint\n");
-            return UnsignedIntToAIF((unsigned int)strtoul(res, NULL, 10));
-        case T_LONG:
-            CSAPRINT("CreateSimpleAIF: Creating long\n");
-            return LongToAIF(strtol(res, NULL, 10));
-        case T_ULONG:
-            CSAPRINT("CreateSimpleAIF: Creating ulong\n");
-            return UnsignedLongToAIF((unsigned long)strtoul(res, NULL, 10));
-#ifdef CC_HAS_LONG_LONG
-        case T_LONGLONG:
-            CSAPRINT("CreateSimpleAIF: Creating long long\n");
-            return LongLongToAIF(strtoll(res, NULL, 10));
-        case T_ULONGLONG:
-            CSAPRINT("CreateSimpleAIF: Creating ulong long\n");
-            return UnsignedLongLongToAIF((unsigned long long)strtoull(res, NULL, 10));
-#endif
-        case T_FLOAT:
-            CSAPRINT("CreateSimpleAIF: Creating float\n");
-            return FloatToAIF(strtof(res, NULL));
-        case T_DOUBLE:
-            CSAPRINT("CreateSimpleAIF: Creating double\n");
-            return DoubleToAIF(strtod(res, NULL));
-#ifdef HAVE_LONG_DOUBLE
-        case T_LONGDOUBLE:
-            CSAPRINT("CreateSimpleAIF: Creating long double\n");
-            return LongDoubleToAIF(strtold(res, NULL));
-#endif
-        case T_BOOLEAN:
-            CSAPRINT("CreateSimpleAIF: Creating bool\n");
-            return BoolToAIF(strncmp(res, "true", 4) == 0 ? 1 : 0);
-        case T_INTEGER_1:
-            // gdb adds the actual char value so we need to get rid of that
-            if (char* pch = strchr(res, ' ')) {
-                pch++;
-                if (*pch == '\'') {
-                    pch--;
-                    *pch = '\0';
-                }
-            }
-            CSAPRINT("CreateSimpleAIF: Creating INTEGER1\n");
-            return INTEGER1ToAIF((char)strtol(res, NULL, 10));
-        case T_INTEGER_2:
-            CSAPRINT("CreateSimpleAIF: Creating INTEGER2\n");
-            return INTEGER2ToAIF((short)strtol(res, NULL, 10));
-        case T_INTEGER_4:
-            CSAPRINT("CreateSimpleAIF: Creating INTEGER4\n");
-            return INTEGER4ToAIF((int)strtol(res, NULL, 10));
-#ifdef CC_HAS_LONG_LONG
-        case T_INTEGER_8:
-            CSAPRINT("CreateSimpleAIF: Creating INTEGER8\n");
-            return INTEGER8ToAIF(strtoll(res, NULL, 10));
-#endif
-        case T_REAL_4:
-            CSAPRINT("CreateSimpleAIF: Creating REAL4\n");
-            return REAL4ToAIF(strtof(res, NULL));
-        case T_REAL_8:
-            CSAPRINT("CreateSimpleAIF: Creating REAL8\n");
-            return REAL8ToAIF(strtod(res, NULL));
-#ifdef HAVE_LONG_DOUBLE
-        case T_REAL_16:
-            CSAPRINT("CreateSimpleAIF: Creating REAL16\n");
-            return REAL16ToAIF(strtold(res, NULL));
-#endif
-        case T_COMPLEX_4:
-            // ensure gdb gives us a sane result
-            if (char* pch = strchr(res, ',')) {
-                // get rid of the final ')'
-                res[strlen(res) - 1] = '\0';
-                // get rid of the initial '('
-                // res now holds the real part
-                res++;
-                // get rid of the ','
-                *pch = '\0';
-                // get the index to the complex part
-                pch++;
-                CSAPRINT("CreateSimpleAIF: Creating COMPLEX4\n");
-                return COMPLEX4ToAIF(strtof(res, NULL), strtof(pch, NULL));
-            } else {
-                return VoidToAIF(0, 0);
-            }
-        case T_COMPLEX_8:
-            // ensure gdb gives us a sane result
-            if (char* pch = strchr(res, ',')) {
-                // get rid of the final ')'
-                res[strlen(res) - 1] = '\0';
-                // get rid of the initial '('
-                // res now holds the real part
-                res++;
-                // get rid of the ','
-                *pch = '\0';
-                // get the index to the complex part
-                pch++;
-                CSAPRINT("CreateSimpleAIF: Creating COMPLEX8\n");
-                return COMPLEX8ToAIF(strtod(res, NULL), strtod(pch, NULL));
-            } else {
-                 return VoidToAIF(0, 0);
-            }
-#ifdef HAVE_LONG_DOUBLE
-        case T_COMPLEX_16:
-            // ensure gdb gives us a sane result
-            if (char* pch = strchr(res, ',')) {
-                // get rid of the final ')'
-                res[strlen(res) - 1] = '\0';
-                // get rid of the initial '('
-                // res now holds the real part
-                res++;
-                // get rid of the ','
-                *pch = '\0';
-                // get the index to the complex part
-                pch++;
-                CSAPRINT("CreateSimpleAIF: Creating COMPLEX16\n");
-                CSAPRINT("CreateSimpleAIF: real %s img %s\n", res, pch);
-                real = strtold(res, NULL);
-                img = strtold(pch, NULL);
-                return COMPLEX16ToAIF(real, img);
-            } else {
-                return VoidToAIF(0, 0);
-            }
-#endif
-        case T_LOGICAL_1:
-            CSAPRINT("CreateSimpleAIF: Creating LOGICAL1\n");
-            if (strncmp(res, ".TRUE.", 6) == 0) {
-                return LOGICAL1ToAIF(1);
-            } else {
-                return LOGICAL1ToAIF(0);
-            }
-        case T_LOGICAL_2:
-            CSAPRINT("CreateSimpleAIF: Creating LOGICAL2\n");
-            if (strncmp(res, ".TRUE.", 6) == 0) {
-                return LOGICAL2ToAIF(1);
-            } else {
-                return LOGICAL2ToAIF(0);
-            }
-        case T_LOGICAL_4:
-            CSAPRINT("CreateSimpleAIF: Creating LOGICAL4\n");
-            if (strncmp(res, ".TRUE.", 6) == 0) {
-                return LOGICAL4ToAIF(1);
-            } else {
-                return LOGICAL4ToAIF(0);
-            }
-#ifdef CC_HAS_LONG_LONG
-        case T_LOGICAL_8:
-            CSAPRINT("CreateSimpleAIF: Creating LOGICAL8\n");
-            if (strncmp(res, ".TRUE.", 6) == 0) {
-                return LOGICAL8ToAIF(1);
-            } else {
-                return LOGICAL8ToAIF(0);
-            }
-#endif
-        case T_CHARACTER:
-            CSAPRINT("CreateSimpleAIF: Creating CHARACTER\n");
-            // gdb adds in '...' around the string, we need to remove these
-            if (*res == '\'') {
-                ++res;
-                // get rid of the final '
-                if (char* pch = strrchr(res, '\'')) {
-                    *pch = '\0';
-                }
-                CSAPRINT("CreateSimpleAIF: res is now \"%s\"\n", res);
-            }
-            return CHARACTERToAIF(res);
-
-        case T_POINTER:
-            CSAPRINT("CreateSimpleAIF: Creating pointer\n");
-            if (type_str == NULL || type_len == 0) {
-                CSAPRINT("CreateSimpleAIF: type_str NULL! Creating void\n");
-                return VoidToAIF(0, 0);
-            }
-            CSAPRINT("1\n");
-            addr_loc = strtoll(res, NULL, 0);
-            CSAPRINT("2\n");
-            addr = (void *)addr_loc;
-            CSAPRINT("addr: $%p$\n", addr);
-            CSAPRINT("type_len: $%d$\n", type_len);
-            CSAPRINT("type_str: $%p$\n", type_str);
-            return GenericPointerToAIF(AddressToAIF(addr, type_len), const_cast<char*>(type_str));
-
-        case T_FUNCTION: {
-            AIF *ac;
-            AIF *addr;
-            long long int addr_loc;
-            void *addr_ptr;
-            char *name;
-
-            CSAPRINT("CreateSimpleAIF: Creating function.\n");
-
-            if (type_func == NULL) {
-                DVPRINT("CreateSimpleAIF: type_func NULL! Creating void\n");
-                return VoidToAIF(0, 0);
-            }
-
-            // first create an address of the res
-            addr_loc = strtoll(res, NULL, 0);
-            addr_ptr = (void *)addr_loc;
-            addr = AddressToAIF(addr_ptr, type_func->getAddrLen());
-
-            // get the function name
-            name = getFunctionName(res);
-
-            // Now create the actual function pointer
-            ac = FunctionToAIF(addr, name, type_func->getRtnType(), type_func->getArgc(),
-                               type_func->getArgv());
-
-            Free(name);
-            AIFFree(addr);
-            return ac;
-        }
-
-        case T_UNION:
-            // NOTE: Unions in C are untagged, meaning that we have no intrinsic
-            // language support to tell us what is currently placed inside the
-            // union. We only know that one of the elements is allocated. To
-            // deal with this, gdb will show the user the representation of each
-            // field, with the assumption that all but the actual field
-            // represents junk. In order to deal with this, we treat unions as
-            // structs in this layer, that way the user will be able to see all
-            // of the representations of what is currently placed in the union.
-        case T_STRUCT: {
-            // NOTE: This only works for c structures. Fortran types will need
-            // to be added later.
-            int index = 0;
-            AIF *a;
-            AIF *ac;
-
-            CSAPRINT("CreateSimpleAIF: Creating struct\n");
-            if (type_str == NULL) {
-                DVPRINT("CreateSimpleAIF: type_str NULL! Creating void\n");
-                return VoidToAIF(0, 0);
-            }
-            if (type_struct == NULL) {
-                DVPRINT("CreateSimpleAIF: type_struct NULL! Creating void\n");
-                return VoidToAIF(0, 0);
-            }
-
-            a = EmptyStructToAIF(type_struct->getName());
-
-            char* pch = res;
-
-            for (const auto& f : type_struct->getFields()) {
-                DVPRINT("field of type %s\n", f.type_str);
-
-                const char* parseBeg = pch;
-                char *nameBeg = nullptr, *nameEnd = nullptr;
-
-                for ( ; *pch && *pch != '='; ++pch) {
-                    if (isspace(*pch)) {
-                        if (nameBeg) nameEnd = pch;
-                    } else if (!nameBeg && *pch != '{') {
-                        nameBeg = pch;
-                    }
-                }
-                if (*pch) ++pch;
-
-                for ( ; *pch && isspace(*pch); ++pch) {}
-
-                char* valBeg = pch, *valEnd = nullptr;
-                int brackets = 0, parens = 0;
-                bool squote = false, dquote = false;
-                for ( ; *pch && !valEnd; ++pch) {
-                    if (*pch == '\\') {
-                        if (!*++pch) --pch;
-                    } else if (squote) {
-                        squote = (*pch != '\'');
-                    } else if (dquote) {
-                        dquote = (*pch != '"');
-                    } else {
-                        switch(*pch) {
-                        case '(': ++parens; break;
-                        case ')': --parens; break;
-                        case '{': ++brackets; break;
-                        case '}': --brackets; break;
-                        case ',':
-                            if (!parens && !brackets) valEnd = pch;
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                }
-
-                if (valBeg && !valEnd && !*pch) valEnd = pch;
-
-                if (!valEnd) {
-                    DVPRINT("CreateSimpleAIF: Could not parse a structure member in \"%s\"\n",
-                            parseBeg);
-                    return VoidToAIF(0,0);
-                }
-
-                char oldValEnd = '\0';
-                std::swap(*valEnd, oldValEnd);
-
-                bool variableSizeVal = false;
-
-                if (strncmp(valBeg, "std::", 5) == 0 && strstr(valBeg, " of length ")) {
-                    variableSizeVal = true;
-                    std::swap(*valEnd, oldValEnd);
-                    // gdb is printing the extended information for a container, which
-                    // is bit of a pain in the tuchus to parse because it has commas.
-                    brackets = 0;
-                    valBeg = valEnd = nullptr;
-                    for ( ; *pch && !valEnd; ++pch) {
-                        if (*pch == '{') {
-                            if (!valBeg) valBeg = pch;
-                            ++brackets;
-                        } else if (*pch == '}') {
-                            if (!--brackets) valEnd = pch+1;
-                        }
-                    }
-
-                    if (!valEnd) {
-                        DVPRINT("CreateSimpleAIF: Could not parse an std:: "
-                                "structure member in \"%s\"\n",
-                                parseBeg);
-                        return VoidToAIF(0,0);
-                    }
-                    std::swap(*valEnd, oldValEnd);
-                }
-
-
-                char* name = strndup(nameBeg, nameEnd-nameBeg);
-
-                // now create a new AIF type from the res we just pieced out
-                if (isFixedSize && variableSizeVal) {
-                    DVPRINT("Got a variable sized element in a fixed size context\n");
-                    ac = EmptyStructToAIF(f.type_str);
-                } else {
-                    ac = createSimpleAIF(f.id, valBeg, f.type_str, f.type_len,
-                                         f.inner_struct, f.type_func, isFixedSize);
-                }
-
-                std::swap(*valEnd, oldValEnd);
-
-                CSAPRINT("CreateSimpleAIF: Adding AIF field for member %d\n", index);
-                ++index;
-                AIFAddFieldToStruct(a, name, ac);
-                AIFFree(ac);
-            } // for (const auto& f : type_struct->getFields())
-            return a;
-        }
-
-        default:  // other type
-            CSAPRINT("CreateSimpleAIF: Creating void\n");
-            return VoidToAIF(0, 0);
-    }
-}
-
-/*
-** Create an AIF object that is a struct or class represented by the MIVar var.
-*/
-AIFStream *Mi2Aif::getStructAIF(MIVar *var) {
-    DVPRINT("GetStructAIF: %s\n", var->name);
-
-    // get the base type for this struct
-    char* base_type = getTypeName(var->type);
-    DVPRINT("GetStructAIF: Base type: %s\n", base_type);
-
-    AIF* a = EmptyStructToAIF(base_type);
-
-    if (getChildren(var)) {
-        DVPRINT("MIVarGetChildren failed\n");
-        return new AIFStream(a);
-    }
-
-    // The children of class objects are the visibility sections - as a first pass I will
-    // make no attempt to capture these in the AIF
-    for (int i=0; i<var->numchild; ++i) {
-        auto child1 = var->children[i];
-        if (child1->type == NULL) {
-            // child1 is public|protected|private
-            if (getChildren(child1)) {
-                continue;
-            }
-            DVPRINT("child %s has %d children\n", child1->name, child1->numchild);
-
-            for (int j=0; j<child1->numchild; ++j) {
-                auto child2 = child1->children[j];
-                child2->expr = strdup(child2->name);
-
-                std::shared_ptr<MIVar> sv(child2, [](MIVar*){});
-                if (AIFStream* ac = getAIF(sv)) {
-                    if (auto aif = ac->joinAIF()) {
-                        AIFAddFieldToStruct(a, child2->exp, aif);
-                    }
-                    delete ac;
-                }
-            }
-        } else {
-            std::shared_ptr<MIVar> sv(child1, [](MIVar*){});
-            if (AIFStream* ac = getAIF(sv)) {
-                if (auto aif = ac->joinAIF()) {
-                    AIFAddFieldToStruct(a, child1->exp, aif);
-                }
-                delete ac;
-            }
-        }
-    }
-
-    return new AIFStream(a);
-}
-
-inline bool fieldIsFunction(const char* str) {
-    auto paren = strchr(str, '(');
-    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
-}
-    
-struct_info_t *Mi2Aif::getStructInfo(const char *type_str) {
-
-    DVPRINT("GetStructInfo: %s\n", type_str);
-
-    MICommand* cmd = CLIPtype(type_str);
-    sendMICommand(cmd);
-
-    if (!MICommandResultOK(cmd)) {
-        DVPRINT("GetStructInfo: CLIPtype call failed.\n");
-        MICommandFree(cmd);
-        return NULL;
-    }
-
-    MIList* field_list = CLIGetPtypeFieldList(cmd);
-    MICommandFree(cmd);
-
-    // count the number of data fields
-    int numFields = 0;
-    char *field;
-    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
-        if (!fieldIsFunction(field)) ++numFields;
-    }
-    
-    if (!numFields) {
-        DVPRINT("GetStructInfo: Zero fields detected.\n");
-        MIListFree(field_list, NULL);
-        return NULL;
-    }
-
-    // set the name of the struct
-    const char* name = getTypeName(type_str);
-    struct_info_t* result = new struct_info_t(name, numFields);
-    if (!result) {
-        DVPRINT("allocating struct_info_t failed\n");
-        return nullptr;
-    }
-
-    // Now fill in the information from the returned list
-    char *tmp_field = nullptr;
-    int index = 0;
-    for (MIListSet(field_list); (field = (char *)MIListGet(field_list)); ) {
-        DVPRINT("GetStructInfo: field is %s\n", field);
-        if (fieldIsFunction(field)) continue;
-
-        struct_info_t::field& sfield = result->getField(index++);
-
-        // The field contains the type including its name. For instance, field
-        // will contain int i. We only want to point at the int part.
-        // Note that we need to do special things for function pointers.
-        if (char* tmp = strrchr(field, ' ')) {
-            // ensure tmp+1 is not pointing at a '*', this is included in the
-            // base type.
-            while (*(tmp + 1) == '*') {
-                ++tmp;
-            }
-            // one last time, need to point after the '*'
-            if (*tmp == '*') {
-                ++tmp;
-            }
-
-            // check to see if we are pointing at a named function pointer
-            if (strncmp(tmp, "(*", 2) == 0 || strncmp(tmp, " (*", 3) == 0) {
-                // we are pointing at a function pointer, we need to do
-                // something special. start by strdup'ing the whole string
-                tmp_field = strdup(field);
-                // point at the final ' '
-                tmp = strrchr(tmp_field, ' ');
-                while (*(tmp + 1) == '*') {
-                    ++tmp;
-                }
-                // one last time, need to point after the '*'
-                if (*tmp == '*') {
-                    ++tmp;
-                }
-
-                if (*tmp == ' ') ++tmp;
-
-                // point past the "(*"
-                tmp += 2;
-
-                // point tmp2 at the closing ')'
-                char* tmp2 = tmp;
-                while (*tmp2 != ')') ++tmp2;
-
-                // copy until null term
-                while (*tmp2 != '\0') {
-                    *tmp++ = *tmp2++;
-                }
-                *tmp = '\0';
-                // strdup one last time for good measure, makes sure everything
-                // is clean
-                tmp2 = strdup(tmp_field);
-                Free(tmp_field);
-                tmp_field = tmp2;
-                // Get the function info
-                sfield.type_func = getFunctionInfo(tmp_field);
-            } else {
-                // not a function pointer, proceed as usual
-                char tmp_char = *tmp;
-                *tmp = '\0';
-                tmp_field = strdup(field);
-                // undo what we just did to the original field
-                *tmp = tmp_char;
-            }
-        } else {
-            tmp_field = strdup(field);
-        }
-
-        // use whatis to get the field type while its unknown
-        int id;
-        while ((id = getType(tmp_field)) == T_UNKNOWN) {
-            char* tmp = getWhatisValue(getTypeName(field), NULL);
-            if (tmp != NULL) {
-                field = tmp;
-                free(tmp_field);
-                tmp_field = strdup(tmp);
-            } else
-                break;
-        }
-
-        sfield.id = id;
-        sfield.type_str = strdup(tmp_field);
-        sfield.type_len = getTypeLength(tmp_field);
-
-        DVPRINT("GetStructInfo: id is %d\n", sfield.id);
-        DVPRINT("GetStructInfo: type_str is %s\n", sfield.type_str);
-        DVPRINT("GetStructInfo: type_len is %d\n", sfield.type_len);
-
-        // only need the struct_info_t stuff filled out if this is a struct
-        if (id == T_STRUCT) {
-            DVPRINT("GetStructInfo: Gathering inner struct info.\n");
-            // recursively call this function with the field
-            sfield.inner_struct = getStructInfo(tmp_field);
-        } else {
-            sfield.inner_struct = nullptr;
-        }
-
-        DVPRINT("GetStructInfo: Done with field.\n");
-    }
-
-    // Remember to free the MIList and tmp_field.
-    Free(tmp_field);
-    MIListFree(field_list, (void (*)())Free);
-
-    return result;
-}
-
-/* This function is used to hash the mivar befroe creating the AIF structure.
-** This is to optimise the space required to build the immediate AIFArray
-*structure
-** since only the hashes that we are interested in
-** Minh 17/10/2011
-**/
-AIF *Mi2Aif::getArrayAIFHash(MIVar *var, char *hashinfo,
-                             int hashfunc, int precision_lower,
-                             int precision_upper) {
-    int id;
-    char *buf;
-    MICommand *cmd;
-    AIF *a = NULL;
-    AIF *ac;
-
-    id = getArrayBaseType(var, NULL, NULL, NULL, NULL);
-
-    if (var->numchild <= 0)  // empty array
-    {
-        ac = createSimpleAIF(id, var->value, NULL, 0, NULL, NULL, false);
-        a = EmptyArrayToAIF(0, 0, ac);
-        AIFFree(ac);
-        return a;
-    } else {
-        // first we need to get the data string
-        DBEPERFLOG(SetTimerStart("GetArrayAIFHash: -data-evaluate-expression"));
-        cmd = MIDataEvaluateExpression(var->expr);
-        sendMICommand(cmd);
-        if (!MICommandResultOK(cmd)) {
-            if (MICommandResultClass(cmd) == MIResultRecordERROR) {
-                if ((buf = MICommandResultErrorMessage(cmd)) != NULL) {
-                    DVPRINT("GetArrayAIFHash: Debugger error: %s\n", buf);
-                    EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, buf);
-                    free(buf);
-                } else {
-                    DVPRINT(
-                        "GetArrayAIFHash: Error from GDB, but no message\n");
-                    EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
-                                "Error without message!");
-                }
-            } else {
-                DVPRINT("GetArrayAIFHash: Bad response from GDB\n");
-                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
-            }
-
-            MICommandFree(cmd);
-
-            return NULL;
-        }
-        DBEPERFLOG(
-            SetTimerStopAndLog("GetArrayAIFHash: -data-evaluate-expression"));
-
-        buf = MIGetDataEvaluateExpressionInfo(cmd);
-        MICommandFree(cmd);
-    }
-
-    // Now lets get the shape of this array
-    auto shape = getArrayDimensionShape(var); 
-    if (!shape) {
-        // error already set
-        DVPRINT("GetArrayAIFHash: GetArrayDimensionShape error\n");
-        return nullptr;
-    }
-
-    // we have the data string and the shape, we need to aply hashinfo to hash
-    // the data
-    a = PerformHashMI(buf, var->type, shape.get(), hashinfo, hashfunc,
-                      precision_lower, precision_upper);
-
-    return a;
+    return false;
 }
 
 static char *GetArrayDataString(MISession* session, MIVar *var) {
@@ -3650,7 +875,14 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
         DBEPERFLOG(SetTimerStart("GetArrayAIF: -data-evaluate-expression"));
 
         bool last_resort = false;
-        auto cmd = MIDataEvaluateExpression(quoteId(var->expr).c_str());
+        auto expr = quoteId(var->expr);
+        if (typeIsReference(var->type)) {
+            expr = "*&" + expr;
+            DVPRINT("Type is a reference, using %s\n", expr.c_str());
+        } else if (strstr(var->type, "std::unique_ptr<") == var->type) {
+            expr += ".get()";
+        }
+        auto cmd = MIDataEvaluateExpression(expr.c_str());
         SendMICommand(session, cmd);
         while (!MICommandResultOK(cmd)) {
             if (MICommandResultClass(cmd) != MIResultRecordERROR) {
@@ -3732,424 +964,6 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
 }
 
 namespace {
-class MIArrayToAIFParser {
-public:
-    // takes ownership of type_str, type_struct and type_func (but not shape)
-    MIArrayToAIFParser(char* type_str, int type_len,
-                       struct_info_t *type_struct, func_info_t *type_func,
-                       int type_id, const ArrayDimension* shape);
-    ~MIArrayToAIFParser();
-
-    void parseSome(const char* str);
-
-    AIF* getResult();
-    size_t getElementsRead() const;
-    bool dataIsTruncated() const;
-
-    // reset the parser to work on a new array - takes ownership of shape
-    void setShape(std::unique_ptr<ArrayDimension> shape);
-
-private:
-    class Error {};
-
-    AIF* createSimpleAIF();
-    AIF* makeEmptyArrayAIF(int i, AIF* ac);
-    void addArrayElement(int i, AIF* ac);
-    bool pushElementsUp(int depth);
-
-    void addElement();
-    void openBracket(char bracket);
-    void closeBracket(char bracket);
-    void error(const std::string& message);
-
-    int elementToCharcode(); // if the current element is a character, returns its ascii code
-
-    char* m_type_str;     // type information from GetArrayBaseType
-    int m_type_len;
-    struct_info_t* m_type_struct;
-    func_info_t* m_type_func;
-    int m_type_id;
-    std::unique_ptr<ArrayDimension> m_shape;  // dimension and index range of the array
-
-    int m_dim;                  // dimension of the array
-    std::vector<int> m_mins;    // minimum index in each direction (slowest to fastest)
-    std::vector<int> m_maxs;    // maximum index in each direction (slowest to fastest)
-
-    int m_depth;                // depth of current nesting (i.e. number of unclosed brackets)
-    bool m_isC;                 // true if the data-type is a C/C++ array
-    bool m_inCharArray;         // true if the data-type is a C/C++ char array and the parser is inside of it
-    bool m_escapeNext;          // true if we're reading a char array and just read the character '\'
-    bool m_isFortran;           // true if the data-type is a fortran array
-    bool m_hasError;            // true if the parser encountered a problem
-    bool m_isFragment;          // true if the last block ended in the middle of an array
-    std::vector<AIF*> m_abuild; // the multiple layers of the array m_abuild[0] is the outermost
-    std::vector<int> m_idcs;    // the index of the next element to be filled in each dimension
-    std::string m_element;      // the text of the current - potentially partial - element
-};
-
-// Define the type of object we are defining before we start partsing the actual
-// text of the result.
-// type_str, type_len, type_struct, type_func, and type_id collectively define the
-// data type, while shape defined the dimension and indexing of the array.
-MIArrayToAIFParser::MIArrayToAIFParser(char *type_str, int type_len,
-                                       struct_info_t *type_struct,
-                                       func_info_t *type_func, int type_id,
-                                       const ArrayDimension *shape)
-    : m_type_str(type_str),
-      m_type_len(type_len),
-      m_type_struct(type_struct),
-      m_type_func(type_func),
-      m_type_id(type_id),
-      // copy shape if given
-      m_shape(shape ? std::make_unique<ArrayDimension>(*shape) : nullptr),
-      m_dim(shape ? shape->numDimensions() : 0),
-      m_mins(),
-      m_maxs(),
-      m_depth(0),
-      m_isC(false),
-      m_inCharArray(false),
-      m_escapeNext(false),
-      m_isFortran(false),
-      m_hasError(false),
-      m_isFragment(false),
-      m_abuild(m_dim),
-      m_idcs(m_dim, 0) {}
-
-MIArrayToAIFParser::~MIArrayToAIFParser() {
-    free(m_type_str);
-    delete m_type_struct;
-    delete m_type_func;
-}
-
-// Translate the MI result text into AIF format.
-// \a str may contain either the data result, or a subset of the result.
-// In the case of a partitioned array it will concatenate adjacent array pieces.
-// That is "[0,1,2]" "[3,4,5]" will be understood as "[0,1,2,3,4,5]"
-// Note that there is no comma between those arrays.
-//
-// For char arrays, the gdb backend sends back data in the form of
-// "string here", with no brackets.
-void MIArrayToAIFParser::parseSome(const char *str) {
-    DVPRINT("In MIArrayToAIFParser::parseSome %s\n", str);
-
-    if (m_hasError) return;
-
-    try {
-        if (!m_shape) {
-            error("no array shape is specified\n");
-        }
-
-        for (const char *p = str; *p; ++p) {
-            if ((*p == '(' || *p == '{' || *p == '"') && !m_inCharArray) {
-                openBracket(*p);
-            } else if (m_isFragment && !isspace(*p)) {
-                error("insufficient data items in direction");
-            } else if (*p == ')' || *p == '}' || *p == '"') {
-                closeBracket(*p);
-            } else if (m_depth == m_dim && *p == ',' && !m_inCharArray) {
-                addElement();
-            } else if (m_inCharArray || !isspace(*p) || !m_element.empty()) {
-                m_element += *p;
-
-                m_escapeNext = false;
-
-                if (*p == '\\' && m_inCharArray) {
-                    m_escapeNext = true;
-                } else if (m_inCharArray) {
-                    addElement();
-                }
-            }
-        }
-    } catch (Error &) {
-        m_hasError = true;
-    }
-
-    DVPRINT("leaving MIArrayToAIFParser::parseSome m_hasError = %s\n",
-            m_hasError ? "true" : "false");
-}
-
-// Handle a character that can be the beginning of an array: '(' or '{'
-// In a char array, '"' also marks the beginning of an array.
-void MIArrayToAIFParser::openBracket(char bracket) {
-    if (bracket == '{' && !m_isFortran) {
-        m_isC = true;
-    } else if (bracket == '(' && !m_isC) {
-        m_isFortran = true;
-    } else if (bracket == '"' && !m_isFortran && (m_element.empty() || m_element == ", ")) {
-        // gdb will print single char * as strings, but arrays of char * as 
-        // pointer addresses with strings concatinated.
-        // we only start char arrays from parsing (single) strings, e.g. 
-        // '"string here"', not from pointers, e.g. '0x555c102 "string here"'.
-        m_isC = true;
-        m_inCharArray = true;
-    } else {
-        m_element += bracket;
-        return;
-    }
-
-    if (m_depth >= m_dim) {
-        m_element += bracket;
-        ++m_depth;
-        return;
-    }
-
-    if (m_mins.empty()) {
-        // get the min and max elements the first time through.
-        // Take care around ArrayDimension it is a bit of a goofy goober and
-        // used start-1 indexing, so i=1, j=2, k=3, etc. Also, the parser always
-        // orders from slowest changing to fastest changing, so note the order
-        // reversal we do here for fortran.  (so we don't need to mess with it
-        // again). Actually - the dimension ordering in ArrayDimension is also
-        // perversely reversed, so reverse the logic again.
-        for (int i = 0; i < m_dim; ++i) {
-            int d = (m_isFortran ? i + 1 : m_dim - i);
-            m_mins.push_back(m_shape->getArrayDimensionRangeMin(d));
-            m_maxs.push_back(m_shape->getArrayDimensionRangeMax(d));
-
-            DVPRINT("range in %d [%d,%d]\n", i, m_mins.back(), m_maxs.back());
-        }
-    }
-
-    if (m_depth < m_dim && !m_isFragment) m_idcs[m_depth] = m_mins[m_depth];
-    ++m_depth;
-    m_isFragment = false;
-    m_element.clear();
-}
-
-// Handle the potential end of an array
-void MIArrayToAIFParser::closeBracket(char bracket) {
-    if (m_inCharArray && bracket != '"') {
-        // read a '}' or ')', but this is a char array, so those characters
-        // are part of the array and are not closing it
-        m_element += bracket;
-        addElement();
-    } else if (m_inCharArray && m_escapeNext) {
-        // read a '"', but it came after a '\', so it's part of the char array.
-        m_element += bracket;
-        m_escapeNext = false;
-        addElement();
-    } else if ((bracket == '}' && !m_isC) || (bracket == ')' && !m_isFortran)) {
-        // the brackets don't match the language - treat like an ordinary
-        // character
-        m_element += bracket;
-    } else if (m_depth <= 0) {
-        error("found a closing bracket with no matching open");
-    } else if (m_depth > m_dim) {
-        // this can happen with an array of structs or classes.
-        // Pass into element to give the element parser a crack at it.
-        // We still need to update the depth so we know when we've finished
-        // gettting the element.
-        // We presume the element has balanced brackets.
-        m_element += bracket;
-        --m_depth;
-    } else {
-        if (!m_element.empty()) addElement();
-
-        // addElement will only call pushElementsUp if an array is completely full.
-        // if we hit a closing bracket early, perhaps because we were parsing a
-        // string with a null terminator before the end of its allocated space or
-        // set print elements cut things off, we need to make sure to still push up.
-        if (m_abuild[m_depth - 1] != nullptr) {
-            pushElementsUp(m_depth - 1);
-        }
-
-        --m_depth;
-
-        if (m_idcs[m_depth] != m_maxs[m_depth] + 1 && !m_inCharArray) {
-            // with data chunking, we append adjacent arrays
-            // e.g. {1,2,3,4,5,6} could arrive as {1,2,3}{4,5,6}.
-            // If the next non-space character is *not* an open bracket, the
-            // parsing will generate a delayed error.
-
-            // we don't set this flag in a character array because it is common
-            // for a string to be allocated say, 16 bytes but have its null
-            // terminator on byte 8. the output from the gdb backend doesn't
-            // include bytes after a null terminator, so the char array might
-            // look shorter than its declared size.
-            m_isFragment = true;
-        }
-
-        m_inCharArray = false;
-    }
-}
-
-// We have parsed through an array element, create the AIF and add it to the
-// AIF structure.
-void MIArrayToAIFParser::addElement() {
-    if (m_depth != m_dim) {
-        error(
-            "trying to add an element (" + m_element + ") at the wrong depth. "
-            "(depth:" +
-            std::to_string(m_depth) + " != dim:" + std::to_string(m_dim) + ")");
-        return;
-    }
-
-    AIF *aif = createSimpleAIF();
-    if (!aif) error("could not create element for " + m_element);
-
-    // even for debug output, these can be a little much...
-    // DVPRINT("addElement: m_element: %s\n", m_element.c_str());
-    // DVPRINT("addElement: depth:%d aif:%s(%d):%s\n", m_depth - 1,
-    //         AIF_FORMAT(aif) ? AIF_FORMAT(aif) : "(null)", AIF_LEN(aif),
-    //         AIF_DATA(aif) ? AIF_DATA(aif) : "(null)");
-
-    m_element.clear();
-
-    addArrayElement(m_depth - 1, aif);
-    AIFFree(aif);
-}
-
-// Create an empty array in direction \a i to contain type \a ac.
-// i is ordered from slowest changing i=0 to fastest
-AIF* MIArrayToAIFParser::makeEmptyArrayAIF(int i, AIF* ac)
-{
-    AIF* aif = nullptr;
-    if (m_isFortran) {
-        aif = EmptyFtnArrayToAIF(m_mins[i], m_maxs[i], ac);
-    } else {
-        aif = EmptyArrayToAIF(m_mins[i], m_maxs[i], ac);
-    }
-    if (!aif)
-        error("create empty AIF array failed");
-    return aif;
-}
-
-// Add element \a ac to the current location in direction \a i.
-void MIArrayToAIFParser::addArrayElement(int i, AIF *ac) {
-    if (m_idcs[i] > m_maxs[i]) {
-        error("too many elements returned for direction");
-        return;
-    }
-
-    if (m_idcs[i] == m_mins[i]) {
-        DVPRINT("addArrayElement: making empty array at %d\n", i);
-        m_abuild[i] = makeEmptyArrayAIF(i, ac);
-    }
-
-    if (m_isFortran) {
-        AIFAddFtnArrayElement(m_abuild[i], m_idcs[i]++, ac);
-    } else {
-        AIFAddArrayElement(m_abuild[i], m_idcs[i]++, ac);
-    }
-
-    if (i && (m_idcs[i] == m_maxs[i] + 1)) {
-        pushElementsUp(i);
-    }
-}
-
-// Move array elements up into outer level array
-bool MIArrayToAIFParser::pushElementsUp(int index) {
-    DVPRINT("pushElementsUp: pushing into level above %d.\n", index);
-    if (index > 0) {
-        addArrayElement(index - 1, m_abuild[index]);
-        AIFFree(m_abuild[index]);
-        m_abuild[index] = nullptr;
-        return true;
-    } else {
-        DVPRINT("pushElementsUp: can't push up any more than 0.\n");
-        return false;
-    }
-}
-
-// used in char arrays. converts current element to an integer character code.
-int MIArrayToAIFParser::elementToCharcode() {
-    const std::unordered_map<std::string, char> escapedMap = {
-        {"\\0", '\0'}, {"\\a", '\a'}, {"\\b", '\b'}, {"\\t", '\t'},
-        {"\\n", '\n'}, {"\\v", '\v'}, {"\\f", '\f'}, {"\\r", '\r'}};
-
-    if (!m_inCharArray) {
-        error("elementToCharcode called when m_inCharArray is false.");
-    }
-
-    // handle escaped characters
-    if (m_element[0] == '\\' && m_element.size() >= 2) {
-        if (escapedMap.find(m_element) != escapedMap.end()) {
-            return (int)escapedMap.at(m_element);
-        } else {
-            // not a special invisible character, just return what's there
-            // (for example double quotes go here)
-            return (int)m_element[1];
-        }
-    } else {
-        // not an escaped character at all
-        return (int)m_element[0];
-    }
-}
-
-// Create a single element for the AIF result array
-AIF *MIArrayToAIFParser::createSimpleAIF() {
-
-    std::unique_ptr<char,decltype(std::free)*> element(nullptr,std::free);
-    if (m_inCharArray) {
-        // CreateSimpleAIF expects a string representing a number as the second
-        // argument. If we're dealing with a character array, the elements won't
-        // be strings representing numbers, they will be single characters.
-        // So we convert the characters to their ascii codes and let the front
-        // end change them back into readable characters.
-
-        auto charCodeString = std::to_string(elementToCharcode());
-        element.reset(strdup(charCodeString.c_str()));
-    } else {
-        element.reset(strdup(m_element.c_str()));
-    }
-
-    return Mi2Aif::createSimpleAIF(m_type_id, element.get(),
-                                   m_type_str, m_type_len, m_type_struct, m_type_func, true);
-}
-
-// pull out the final result representing the entire array after all input
-// has been parsed
-AIF* MIArrayToAIFParser::getResult() {
-    if (m_hasError)
-        return nullptr;
-
-    try {
-        if (m_depth != 0)
-            error("missing end bracket for array");
-        else if (!m_abuild[0])
-            error("expression ends prematurely");
-
-    } catch (Error&) {}
-
-    if (!m_hasError) {
-        return m_abuild[0];
-    }
-    if (m_abuild[0])
-        AIFFree(m_abuild[0]);
-    return nullptr;
-}
-
-// reset the parser to work on a new array
-void MIArrayToAIFParser::setShape(std::unique_ptr<ArrayDimension> shape)
-{
-    if (!shape) {
-        DVPRINT("nullptr passed to AIFArrayToAIFParser::setShape\n");
-        return;
-    }
-
-    // deletes any current m_shape
-    m_shape = std::move(shape);
-
-    // reset the processing state
-    m_mins.clear();
-    m_maxs.clear();
-    m_dim = m_shape->numDimensions();
-    m_depth = 0;
-    m_isC = m_isFortran = false;
-    m_hasError = false;
-    m_isFragment = false;
-    m_abuild.resize(m_dim);
-    fill_n(m_abuild.begin(), m_dim, nullptr);
-    m_idcs.resize(m_dim);
-    fill_n(m_idcs.begin(), m_dim, 0);
-}
-
-void MIArrayToAIFParser::error(const std::string& message) {
-    m_hasError = true;
-    DVPRINT("Parsing error %s\n", message.c_str());
-    throw Error();
-}
-
 // Class to manage breaking the MI query for an array into smaller pieces.
 // The calling sequence is simple:
 // ArraySlice slicer(session, val, shape);
@@ -4162,20 +976,18 @@ void MIArrayToAIFParser::error(const std::string& message) {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ArrayDimension* shape);
+    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ais::Type& varType);
     ~ArraySlicer();
 
     // evaluate the next slice of the variable result.   Return the
     // result and the expected shape of the result.   The caller is
     // responsible for free the returned shape.
-    std::tuple<char*, std::unique_ptr<ArrayDimension>> getNext(bool& isFinal);
+    char* getNext(bool& isFinal);
 
-    const ArrayDimension* getShape();
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
 
 private:
-    void determineSlicing();
-    std::unique_ptr<ArrayDimension> makeSubShape(long subRng[2]);
+    void determineSlicing(const ais::Type& varType);
 
     ArraySlicer(const ArraySlicer&) = delete;
     ArraySlicer& operator=(const ArraySlicer&) = delete;
@@ -4183,7 +995,6 @@ private:
     MISession* m_session;       // session to connect to gdb/MI
     
     std::shared_ptr<MIVar> m_var;  // MI variable of interest
-    std::unique_ptr<ArrayDimension> m_shape;  // dimension and size of the array
     char* m_buf;                // allocated array for the result (contolled by this)
     char* m_array;              // interpretable region of m_buf
 
@@ -4194,11 +1005,8 @@ private:
     long m_slice;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
-                         const ArrayDimension* shape)
-    : m_session(session), m_var(var)
-    // copy shape if given
-    , m_shape(shape ? std::make_unique<ArrayDimension>(*shape) : nullptr),
+ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ais::Type& varType)
+    : m_session(session), m_var(var),
       m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
@@ -4210,9 +1018,7 @@ ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
     }
 
     if (m_blockSize) {
-        DVPRINT("Slicing %s of type %s and dimension %d\n", var->expr, var->type,
-                (!shape ? 0 : shape->numDimensions()));
-        determineSlicing();
+        determineSlicing(varType);
     }
 }
 
@@ -4224,183 +1030,96 @@ ArraySlicer::~ArraySlicer()
 // Paging and the like is unavailable in MI mode.   Instead, this class and this function
 // specifically examines the data type and determines how it can be extracted in multiple
 // data print calls that each pull out a portion of the data structure
-void ArraySlicer::determineSlicing()
+void ArraySlicer::determineSlicing(const ais::Type& varType)
 {
+    DVPRINT("in ArraySlicer::determineSlicing blocksize if %zu\n", m_blockSize);
+    
     if (!m_blockSize)
         return;
 
-    std::string type(m_var->type);
-    auto session = m_session;
-    
-    if (type.substr(0,12) == "std::vector<") {
-        // C++ vector, we can treat this like an array if we can get at the size
-        // and the first element.   We usually can, but gdb can get a little gimpy
-        // in this area
-        DVPRINT("Slicing: it is a vector\n");
-        std::string sizeStr = std::string("(") + m_var->exp + ").size()";
-        char* sizeRes = EvalExpression(session, sizeStr.c_str());
-        if (!sizeRes)
-            return;
+    std::vector<int> arrayLens;
+    for (auto v = &varType; auto arr = dynamic_cast<const ais::Array*>(v); v=arr->getElemType()) {
+        auto len = arr->getLen();
+        if (auto vec = dynamic_cast<const ais::Vector*>(arr); vec && !len) {
+            std::string sizeStr = std::string("(") + m_var->exp + ").size()";
+            char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
+            if (!sizeRes) {
+                DVPRINT("could not get vector length\n");
+                return;
+            }
 
-        int size = atoi(sizeRes);
-        DVPRINT("Slicing got a size %d\n", size);
+            len = atoi(sizeRes);
+            DVPRINT("Slicing vector got a size %d\n", len);
+            free(sizeRes);
+        }
+
+        
+        DVPRINT("adding length %d\n", len);
+        arrayLens.push_back(len);
+    }
+
+    if (arrayLens.empty()) {
+        return;
+    }
+
+    if (auto vec = dynamic_cast<const ais::Vector*>(&varType); vec && !vec->getLen()) {
+        std::string sizeStr = std::string("(") + m_var->exp + ").size()";
+        char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
+        if (!sizeRes) {
+            DVPRINT("could not get vector length\n");
+            return;
+        }
+
+        auto size = arrayLens[0] = atoi(sizeRes);
+        DVPRINT("Slicing vector got a size %d\n", size);
         free(sizeRes);
 
         if (size <= ptrdiff_t(m_blockSize))
             return;
-
-        // can I get the address of the first element?
-        std::string frontStr = std::string("*&(") + m_var->expr + ")[0]";
-        char* beginRes = EvalExpression(session, frontStr.c_str());
-        if (!beginRes)
-            return;
-
-        DVPRINT("got begin address %s\n", beginRes);
-        free(beginRes);
-
-        m_shape = std::make_unique<ArrayDimension>();
-        if (!m_shape) {
-            DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
-            return;
-        }
-        m_shape->addDimensionDef(0, size-1);
-        m_shape->setIsFortran(false);
-
-        frontStr.erase(frontStr.end()-2, frontStr.end());
-        frontStr += "$$from$$]@$$len$$";
-
-        m_subExpr = frontStr;
-        m_subIdx = 0;
-        m_maxSubIdx = size-1;
-        m_slice = m_blockSize;
-
-        DVPRINT("Slicing vector %s %ld to %ld by %ld\n",
-                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
-
-    } else if (m_shape && m_shape->isFortran()) {
-        // fortran array - we only try to split on the slowest changing dimension.
-        // we can revisit if 100M x 2 arrays matter.
-        int dim = m_shape->numDimensions();
-        size_t subArrayLen  = 1;
-        for (int i=1; i<dim; ++i)
-            subArrayLen *= m_shape->getArrayDimension(i);
-        size_t numElems = subArrayLen * m_shape->getArrayDimension(dim);
-        if (numElems <= m_blockSize)
-            return;             // no need to divide
-
-        std::ostringstream os;
-        os << m_var->expr << "(";
-        for (int i=1; i<dim; ++i) {
-            auto [minIdx, maxIdx] = m_shape->getArrayDimensionRange(i);
-            os << minIdx << ":" << maxIdx << ",";
-        }
-        os << "$$from$$:$$to$$)";
-
-        m_subExpr = os.str();
-        m_subIdx = m_shape->getArrayDimensionRangeMin(dim);
-        m_maxSubIdx = m_shape->getArrayDimensionRangeMax(dim);
-        m_slice = std::max(1, int(m_blockSize / subArrayLen));
-
-        DVPRINT("Slicing: fortran type %s %ld to %ld by %ld\n",
-                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
-    } else if (m_shape) {
-        // C/C++ array, this may be real or partially artficial
-        int dim = m_shape->numDimensions();
-        size_t subArrayLen  = 1;
-        for (int i=2; i<=dim; ++i)
-            subArrayLen *= m_shape->getArrayDimension(i);
-        size_t numElems = subArrayLen * m_shape->getArrayDimension(1);
-        if (numElems <= m_blockSize)
-            return;             // no need to divide
-
-        // we handle at least the simplest  artificial arrays
-        m_subExpr = m_var->expr;
-        size_t atLoc = m_subExpr.rfind("[0]@");
-        if (atLoc != std::string::npos) {
-            m_subExpr.erase(atLoc);
-        }
-
-        // transform into a series of artificial arrays for the sub-sets
-        m_subExpr += "[$$from$$]@$$len$$";
-        m_subIdx = 0;
-        m_maxSubIdx = m_shape->getArrayDimensionRangeMax(1);
-        m_slice = std::max(1, int(m_blockSize / subArrayLen));
-
-        DVPRINT("Slicing: C array %s %ld to %ld by %ld\n",
-                m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
-
-    } else {
-        DVPRINT("Slicing: no means to slice array\n");
     }
+
+    // C/C++ array, this may be real or partially artficial
+    int dim = arrayLens.size();
+    size_t subArrayLen  = 1;
+    for (int i=1; i<dim; ++i)
+        subArrayLen *= arrayLens[i];
+    size_t numElems = subArrayLen * arrayLens[0];
+
+    DVPRINT("In ArraySlicer:: numElems is %zu\n", numElems);
+    
+    if (numElems <= m_blockSize)
+        return;             // no need to divide
+
+    // we handle at least the simplest  artificial arrays
+    m_subExpr = m_var->expr;
+    size_t atLoc = m_subExpr.rfind("[0]@");
+    if (atLoc != std::string::npos) {
+        m_subExpr.erase(atLoc);
+    }
+    
+    // transform into a series of artificial arrays for the sub-sets
+    m_subExpr += "[$$from$$]@$$len$$";
+    m_subIdx = 0;
+    m_maxSubIdx = arrayLens[0]-1;
+    m_slice = std::max(1, int(m_blockSize / subArrayLen));
+    
+    DVPRINT("Slicing: C array %s %ld to %ld by %ld\n",
+            m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
 }
 
-// Get the data shape, i.e. the dimensionality and range of the array indexing
-// for the data type.  The function is entwined with this class because it
-// needs understand the shape before it is sliced, and need to pass it along to
-// the parsing after it is sliced
-const ArrayDimension* ArraySlicer::getShape() {
-    // in most important cases, ArraySlicer already has determined the shape
-    // from the type.
-    if (m_shape)
-        return m_shape.get();
-
-    // Though not always!   The remainder here is the fall-back position where
-    // we could not cogitize the type information, so we just pull out the result
-    // in a single glob and pull the shape information out of the result.
-    m_buf = GetArrayDataString(m_session, m_var.get());
-
-    // Now lets get the shape of this array
-    int lengthTagLen = 6;
-    char *lengthLoc = strstr(m_buf, "length"), *lengthEnd;
-
-    char* withLoc = strstr(m_buf, "with");
-    if (!lengthLoc || (withLoc && withLoc < lengthLoc)) {
-        lengthLoc = withLoc;
-        lengthTagLen = 4;
-    }
-
-    if (!lengthLoc ) {
-        DVPRINT("GetVectorLikeAIF: could not find length\n");
-        return nullptr;
-    }
-    lengthLoc += lengthTagLen;
-    int length = strtol(lengthLoc, &lengthEnd, 10);
-    if (lengthEnd == lengthLoc) {
-        DVPRINT("GetVectorLikeAIF: could not parse length\n");
-        return nullptr;
-    }
-
-    m_array = strchr(lengthEnd, '{');
-    if (!m_array) {
-        DVPRINT("GetVectorLikeAIF: could not find array in vector\n");
-        return nullptr;
-    }
-
-    m_shape = std::make_unique<ArrayDimension>();
-    if (!m_shape) {
-        DVPRINT("GetVectorLikeAIF: could not allocate shape\n");
-        return nullptr;
-    }
-
-    m_shape->addDimensionDef(0, length-1);
-    m_shape->setIsFortran(false);
-
-    return m_shape.get();
-}
 
 // Return either the next chunk of data, or nullptr if there is no more data to be
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-std::tuple<char*, std::unique_ptr<ArrayDimension>> ArraySlicer::getNext(bool& isFinal)
+char*  ArraySlicer::getNext(bool& isFinal)
 {
     DVPRINT("In ArraySlicer::getNext\n");
 
-    auto sliceShape = std::unique_ptr<ArrayDimension>{nullptr};
     isFinal = true;
 
     if (m_subIdx > m_maxSubIdx)
-        return {nullptr, nullptr};
+        return nullptr;
 
     char* array = nullptr;
     if (m_array) {
@@ -4444,8 +1163,6 @@ std::tuple<char*, std::unique_ptr<ArrayDimension>> ArraySlicer::getNext(bool& is
         if (array) {
             // success!
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
-            long subRng[2]= { m_subIdx, maxIdx };
-            sliceShape = makeSubShape(subRng);
             m_subIdx = maxIdx+1;
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
@@ -4457,347 +1174,564 @@ std::tuple<char*, std::unique_ptr<ArrayDimension>> ArraySlicer::getNext(bool& is
         m_buf = array;
     }
 
-    DVPRINT("got an array value\n");
-    if (array && !sliceShape)
-        sliceShape = makeSubShape(nullptr);
-
     isFinal = (m_subIdx > m_maxSubIdx);
-
-    DVPRINT("done makeSubShape array=%p\n", array);
-
-    return {array, std::move(sliceShape)};
+    return array;
 }
 
-// Create a shape object corresponding to an array slice, or the full array if subRng is null.
-// If subRng is specified it is the inclusive range of the outermost dimension of the arrray.
-// Callers is responsible for freeing the returned object.
-std::unique_ptr<ArrayDimension> ArraySlicer::makeSubShape(long subRng[2])
-{
-    auto shape = getShape(); // size of the full array
-    auto subShape = std::make_unique<ArrayDimension>();
-    subShape->setIsFortran(shape->isFortran());
-
-    int dim = shape->numDimensions();
-
-    for (int i=1; i<=shape->numDimensions(); ++i) {
-        int minIdx, maxIdx;
-        if (subRng && ((shape->isFortran() && i==dim) || (!shape->isFortran() && i==1))) {
-            minIdx = subRng[0];
-            maxIdx = subRng[1];
-        } else {
-            minIdx = shape->getArrayDimensionRangeMin(i);
-            maxIdx = shape->getArrayDimensionRangeMax(i);
-        }
-        subShape->addDimensionDef(minIdx, maxIdx);
-    }
-
-    return subShape;
-}
-
-// Class for managing the extraction of an array data object via slices.   This object will
-// be wrapped in an AIFStream, and ultimately allows us to query gdb/mi for slice data as the
-// slices are ready to be consumed.
-class ArrayStream : public AIFStream::Slices {
-public:
-    // Constructor.   slicr and parser do the heavy lifting.
-    ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser);
-
-    // get the shape of the full array
-    virtual const ArrayDimension* getFullShape() const override;
-
-    // return the next partition of data
-    virtual AIF* getNextSlice(bool& isFinal) override;
-    virtual AIF* getNextSlice(bool& isFinal, size_t& truncatedLength) override;
-
-    // free an slice after it is done being processed
-    virtual void freeSlice(AIF* aif) override;
-
-private:
-    std::shared_ptr<ArraySlicer> m_slicer;
-    std::shared_ptr<MIArrayToAIFParser> m_parser;
-};
-
-ArrayStream::ArrayStream(std::shared_ptr<ArraySlicer> slicer, std::shared_ptr<MIArrayToAIFParser> parser)
-    : m_slicer(slicer), m_parser(parser)
-{}
-
-// get the shape of the full array
-const ArrayDimension* ArrayStream::getFullShape() const {
-    return m_slicer->getShape();
-}
-
-// return the next partition of data
-AIF* ArrayStream::getNextSlice(bool& isFinal) {
-    // unused, but required since the function take a references as an argument
-    size_t truncatedLength = 0;
-    return getNextSlice(isFinal, truncatedLength);
-}
-
-AIF *ArrayStream::getNextSlice(bool& isFinal, size_t& truncatedLength) {
-    DVPRINT("In ArrayStream::getNextSlice\n");
-    AIF* res = nullptr;
-
-    auto [subResult, subShape] = m_slicer->getNext(isFinal);
-    if (subResult) {
-        m_parser->setShape(std::move(subShape));
-        m_parser->parseSome(subResult);
-
-        truncatedLength = clientPrintElements;
-
-        res = m_parser->getResult();
-    }
-
-    return res;
-}
-
-void ArrayStream::freeSlice(AIF* aif)
-{
-    if (aif)
-        AIFFree(aif);
-}
 } // namespace
 
-
-AIFStream *Mi2Aif::getArrayAIF(std::shared_ptr<MIVar> var) {
-    int id;
-    char *type_str;
-    int type_len;
-    struct_info_t *type_struct;
-    func_info_t *type_func;
-    DVPRINT("GetArrayAIF: %s\n", var->expr);
-
-    if ((id = getArrayBaseType(var.get(), &type_str, &type_len, &type_struct,
-                               &type_func)) == T_UNKNOWN) {
-        DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return nullptr;
-    }
-
-    if (var->numchild <= 0) {
-        DVPRINT("GetArrayAIF: No children detected.\n");
-        AIF *ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                                  type_func, true);
-        AIF *a = EmptyArrayToAIF(0, 0, ac);
-        AIFFree(ac);
-        return new AIFStream(a);
-    }
-
-    DVPRINT("GetArrayAIF: %d children of type %d:%s(%d) detected.\n",
-            var->numchild, id, type_str, type_len);
-
-    // Get the shape of this array
-    auto shape = getArrayDimensionShape(var.get());
-    if (!shape) {
-        // error already set
-        DVPRINT("GetArrayAIF: GetArrayDimensionShape error\n");
-        return nullptr;
-    }
-
-    // The array data could be enormous, so instead of getting it now, we just return a
-    // data stream object which can access it in pieces
-    auto slicer = std::make_shared<ArraySlicer>(m_session,var,shape.get());
-    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
-                                                       type_func, id, shape.get());
-    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
-
-    return new AIFStream(arrayStream);
-}
-
-AIFStream *Mi2Aif::getVectorLikeAIF(std::shared_ptr<MIVar> var) {
-    DVPRINT("GetArrayAIF: %s\n", var->expr);
-
-    char *type_str=nullptr; int type_len=0; struct_info_t *type_struct=nullptr;
-    func_info_t *type_func = nullptr;
-    int id = getArrayBaseType(var.get(), &type_str, &type_len, &type_struct, &type_func);
-
-    if (id == T_UNKNOWN) {
-        DVPRINT("GetArrayAIF: Unknown basetype for array!\n");
-        return nullptr;
-    }
-    DVPRINT("id: %d\n", id);
-
-    if (var->numchild <= 0) {
-        DVPRINT("GetArrayAIF: No children detected.\n");
-        AIF* ac = createSimpleAIF(id, var->value, type_str, type_len, type_struct,
-                                  type_func, false);
-        AIF* a = EmptyArrayToAIF(0, 0, ac);
-
-        AIFFree(ac);
-        free(type_str);
-        return new AIFStream(a);
-    }
-
-    DVPRINT("Slicing (vector-like) %s of type %s and dimension one\n", var->expr, var->type);
-
-    DVPRINT("GetVectorLikeArrayAIF: %d children detected.\n", var->numchild);
-
-    // The vector data could be enormous, so instead of getting it now, we just create an
-    // AIFStream which can access the data as it is needed.
-
-    auto slicer = std::make_shared<ArraySlicer>(m_session,var,nullptr);
-
-    auto shape = slicer->getShape();
-    if (!shape) {
-        DVPRINT("could not get size of a vector like object");
-        free(type_str);
-        return nullptr;
-    }
-
-    auto parser = std::make_shared<MIArrayToAIFParser>(type_str, type_len, type_struct,
-                                                       type_func, id, shape);
-    auto arrayStream = std::make_shared<ArrayStream>(slicer,parser);
-
-    return new AIFStream(arrayStream);
-}
-
-// Create the AIF for a pointed to object, which could be either null, an object that has already
-// been visited, or one we haven't seen yet.   In the last case, it pushes the expression onto
-// the evaluation list.   It returns either a null-pointer AIF object or a reference to the index
-// for this object.
-AIFStream* Mi2Aif::getReferenceAIF(MIVar* var) {
-    DVPRINT("Looking at a pointer %s\n",var->type);
-
-    char* addr_str = getVarValue(var->name);
-
-    if (strcmp(var->type, "char *") == 0 || strcmp(var->type, "const char *") == 0) {
-        if (auto strVal = strchr(var->value, '"')) {
-            // string - we won't try to manage these as a reference
-            auto s = std::string{strVal+1, strlen(strVal)-2};  // remove quotes
-            return new AIFStream(StringToAIF(const_cast<char*>(s.c_str())));
-        }
-    }
-
-    long long int addr_loc = strtoll(addr_str, nullptr, 0);
-    free(addr_str); addr_str = nullptr;
-
-    if (!addr_loc) {
-        // NULL pointer
-        return getPointerAIF(var);
-    }
-
-    if (m_refMap.empty()) {
-        // we put off indexing the first block until we know we are dealing with pointers
-        auto top = m_refs[0];
-        DVPRINT("Top reference %s type %s value=%s\n", top->expr, top->type, top->value);
-        long long int addr_loc = 0;
-        if (top->value && top->value[0]=='0') {
-            // the top level is a pointer and we already have the pointer value
-            addr_loc = strtoll(m_refs[0]->value, nullptr, 0);
-        } else {
-            DVPRINT("Trying to get address of top object");
-            // the top level is a value type, use & to try to get an address
-            auto addrExpr = std::ostringstream{};
-            addrExpr << "\"&(" << top->expr << ")\"";
-            if (auto addrVar = createMIVar(addrExpr.str().c_str())) {
-                auto addrStr = getVarValue(addrVar->name);
-
-                DVPRINT("Got value %s\n", addrStr);
-
-                addr_loc = strtoll(addrStr, nullptr, 0);
-                free(addrStr);
-            } else {
-                DVPRINT("createMIVar failed\n");
-            }
-        }
-        m_refMap.insert(std::make_pair(addr_loc, 0));
-    }
-
-    auto [loc,isNew] = m_refMap.insert(std::make_pair(addr_loc,m_refs.size()));
-    if (isNew && var->type && var->value) {
-        // there is no reason for var->type or var->value to be null, but no
-        // good reason to crash if they are
-        DVPRINT("New reference:  type=%s, value=%s gets value %zu\n",
-                var->type, var->value, loc->second);
-
-        // Create and store the var to dereference this pointer, we need to wrap the
-        // expression in quotes to handle types with spaces.
-        auto derefExpr = std::ostringstream{};
-        derefExpr << "\"*(" << var->type << ")" << var->value << "\"";
-        m_refs.push_back(createMIVar(derefExpr.str().c_str()));
-    } 
-    return new AIFStream(makeBackPointerAIF(loc->second, var->type));
-}
-
-// Create the AIF for a raw pointer value for contexts where we want to present
-// hex values instead of replacing them with reference ids
-AIFStream *Mi2Aif::getPointerAIF(MIVar *var) {
-    DVPRINT("GetPointerAIF: Pointer Type => %s\n", var->type);
-
-    // get the address for the pointer, this is represented by the value
-    // in the MI object.
-    char *addr_str = getVarValue(var->name);
-    if (!addr_str) {
-        // error already set
-        return nullptr;
-    }
-
-    DVPRINT("GetPointerAIF: Pointer Addr => %s\n", addr_str);
-
-    // convert the address of the pointer to an integer value
-    long long int addr_loc = strtoll(addr_str, NULL, 0);
-
-    // Make the void pointer point at the memory location of the pointer
-    void* addr = (void *)addr_loc;
-
-    // We need to ask for the length of the address type for this particular
-    // pointer.
-    int addr_len = getTypeLength(var->type);
-
-    DVPRINT("GetPointerAIF: Pointer Addr Length => %d\n", addr_len);
-
-    // Create the AIF type representing the address
-    AIF* addr_aif = AddressToAIF(addr, addr_len);
-
-    AIF *rtn_aif = nullptr;
-
-    if (strcmp(var->type, "char *") == 0) {
-        DVPRINT("GetPointerAIF: Detected a char *\n");
-        // we're dealing with a char pointer, which is special because we want
-        // to print the string as well as the address.
-
-        // if the pointer is a char* pointer, the addr_str (extracted above)
-        // will also include a printout of the string in double quotes. (e.g
-        // addr_str = "0x200f58 \"hello world\"")
-
-        // AIFPrint will add quotes at print time, but the gdb backend also adds
-        // quotes, so we move one character past the first quote.
-        // There is also a quote on the end we chop off by
-        // passing strlen - 1 to CharPointerToAIF
-        char *start = strchr(addr_str, '"');
-        if (start == nullptr) return nullptr;
-
-        start++;
-        rtn_aif =
-            CharPointerToAIF(addr_aif, var->type, start, strlen(start) - 1);
-    } else {
-        DVPRINT("GetPointerAIF: Not a char *\n");
-        // Now create the AIF generic pointer representing both the address that
-        // we actually point to and the type string.
-        rtn_aif = GenericPointerToAIF(addr_aif, var->type);
-    }
-
-    AIFFree(addr_aif);
-    free(addr_str);
-
-    return new AIFStream(rtn_aif);
-}
 
 void Mi2Aif::sendMICommand(MICommand* command) {
     if (m_session) SendMICommand(m_session, command);
 }
 
-// create an AIF type to represent a pointer reference to a specific indexed elmement
-AIF* Mi2Aif::makeBackPointerAIF(size_t idx, const char* type) {
-    auto ival = IntToAIF(idx+1);
-    auto arr = EmptyArrayToAIF(0,0,ival);
-    memcpy(AIF_DATA(arr), AIF_DATA(ival), AIF_LEN(ival));
+namespace {
 
-    AIFFree(ival);
+    void WriteBuffer::writeInt(int val) { m_out << " " << val; }
+    void WriteBuffer::writeLong(long val) { m_out << " " << val; }
+    void WriteBuffer::writeLongLong(long long val) { m_out << " " << val; }
+    void WriteBuffer::writeFloat(float val) {
+        m_out << " " << std::setprecision(std::numeric_limits<float>::max_digits10) << val;
+    }
+    void WriteBuffer::writeDouble(double val) {
+        m_out << " " << std::setprecision(std::numeric_limits<double>::max_digits10) << val;
+    }
+    void WriteBuffer::writeLongDouble(long double val) {
+        m_out << " " << std::setprecision(std::numeric_limits<long double>::max_digits10) << val;
+    }
+    void WriteBuffer::writeString(const std::string& val) {
+        m_out  << " " << std::quoted(val);
+    }
+    void WriteBuffer::writePointer(const std::string& type, void* val) {
+        int idx = m_mi.swizzlePointer(type, val);
+        m_out << " " << idx;
+    }
 
-    auto ptr = GenericPointerToAIF(arr, const_cast<char*>(type));
-    AIFFree(arr);
-    return ptr;
+    std::string WriteBuffer::exportResult() {
+        auto res = m_out.str();
+        m_out.str("");
+        return res;
+    }
+}
+    
+
+Mi2Aif::Mi2Aif(MISession* session) : m_session(session), m_depth(0),
+                                     m_writeBuffer(std::make_shared<WriteBuffer>(*this)),
+                                     m_writer(m_writeBuffer) {}
+
+std::string TypeParser::sanitizeType(const std::string& type) {
+    // remove "const", "signed", and "volatile" from C++
+    // "shared" and "SHARED" from fortran
+    // "@[a-zA-z]* from nvidia registers
+    auto sanType = type;
+    bool inW = false;
+    for (int i=0, word=0; i<int(sanType.size()); ++i) {
+        auto c = sanType[i];
+        auto cIsW = (::isalnum(c) || c == '_' || c == '@' || c == ':');
+        if (cIsW && !inW) {
+            word = i;
+        } else if (inW && !cIsW &&
+                   (sanType[word] == '@' || std::find(m_ignore.begin(), m_ignore.end(),
+                                                      sanType.substr(word,i-word)) != m_ignore.end())) {
+            if (c == ' ' && (!word || sanType[word-1] == ' ')) ++i;
+            sanType.erase(word, i-word);
+            i = word-1;
+        }
+        inW = cIsW;
+    }
+
+    // remove leading and trailing whitespace
+    if (auto p = sanType.find_first_not_of(' ')) sanType.erase(0,p);
+    if (auto p = sanType.find_last_not_of(" &"); p != std::string::npos) {
+        sanType.erase(p+1);
+    }
+    return sanType;
+}
+
+std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const char* inType) {
+    static bool isSorted = false;
+    if (!isSorted) {
+        std::sort(m_cppPrims.begin(), m_cppPrims.end(), comparePrims);
+        std::sort(m_fortranPrims.begin(), m_fortranPrims.end(), comparePrims);
+        isSorted = true;
+    }
+
+    auto isId = [](int c) { return std::isalnum(c) || c == '_'; };
+
+    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\"\n",
+            var ? var->type : "", inType ? inType : "");
+
+    const char* typeStr = var ? var->type : inType;
+    auto type = sanitizeType(typeStr);
+
+    DVPRINT("looking up type for %s (%s)\n", typeStr, type.c_str());
+
+    if (auto knownType = mi.getKnownType(type)) {
+        DVPRINT("found known type for %s\n", type.c_str());
+        return knownType;
+    }
+
+    // pointer types
+    if (type.back() == '*') {
+        DVPRINT("Found a pointer type %s\n", type.c_str());
+        auto derefType = type.substr(0,type.find_last_not_of(' ', type.size()-2)+1);
+        return mi.addKnownType(type, std::make_shared<ais::Pointer>(derefType));
+    }
+
+    // check for C++ types
+    // we need to use upper_bound and work backwards to be sure be get the maximal
+    // match, e.g. "long" v. "long double"
+    auto cpp = Prim{type,0};
+    auto loc = std::upper_bound(m_cppPrims.begin(), m_cppPrims.end(), cpp, comparePrims);
+    while (loc != m_cppPrims.begin() && (--loc)->first[0] == type[0]) {
+        const auto& match = loc->first;
+        if (match == type.substr(0, match.size()) &&
+            (type.size() == match.size() || !isId(type[match.size()]))) {
+            DVPRINT("returning type %s %d\n", type.c_str(), static_cast<int>(match.size()));
+
+            return mi.addKnownType(type, loc->second(mi, TypeName{type,match.size()}));
+        }
+    }
+
+    // check for a fortran primitive, upcase since fortran is case insensitive
+    auto uptype = type;
+    std::transform(uptype.begin(), uptype.end(), uptype.begin(), ::toupper);
+
+    // we need to use upper_bound and work backwards to be sure be get the maximal
+    // match, e.g. "INTEGER" v. "INTEGER*16"
+    auto ftn = Prim{uptype,0};
+    loc = std::upper_bound(m_fortranPrims.begin(), m_fortranPrims.end(), ftn, comparePrims);
+    
+    while (loc != m_fortranPrims.begin() && (--loc)->first[0] == uptype[0]) {
+        const auto& match = loc->first;
+        if (match == uptype.substr(0, match.size())) {
+            DVPRINT("got fortran type %s\n", match.c_str());
+            return mi.addKnownType(type, loc->second(mi, TypeName{uptype,match.size()}));
+        }
+    }
+
+    static std::regex stdStringRE(R"((std::[A-Za-z0-9_:]*string)<.*)");
+    std::smatch match;
+    if (std::regex_match(type, match, stdStringRE)) {
+        DVPRINT("matched on a string type %s\n", match[1].str().c_str());
+        return mi.addKnownType(type, stdString(mi, TypeName{type,match[1].str().size()}));
+    }
+
+    // compound types - (always struct or class? - not sure)
+    // extract the base type - * or [ begins the decoration.
+    auto ty = type.begin();
+    auto templateLevel = int{0};
+    for ( ; ty != type.end(); ++ty) {
+        if (*ty == '<') ++templateLevel;
+        else if (*ty == '>') --templateLevel;
+        else if (!templateLevel && (*ty == '*' || *ty == '[')) break;
+    }
+    for ( ; ty != type.begin() && isspace(*(ty-1)); --ty) {}
+
+    auto typeLen = ty - type.begin();
+    auto baseType = type.substr(0,typeLen);
+    auto decoration = type.substr(typeLen);
+    auto stype = std::make_shared<ais::Struct>(baseType);
+
+    DVPRINT("get baseType %s decoration %s\n", baseType.c_str(), decoration.c_str());
+
+    // register the type here so a class/struct with a pointer to its own type
+    // (like a linked list or graph) doesn't get into infinite recursion
+    mi.addKnownType(baseType, stype);
+
+    if (var) {
+        auto getMemberName = [] (MIVar* var) {
+           DVPRINT("var expr:'%s' name:'%s' exp:'%s\n",
+                   var->expr ? var->expr : "NULL",
+                   var->name ? var->name : "NULL",
+                   var->exp ? var->exp : "NULL");
+           auto memberName = std::string{var->expr ? var->expr : var->exp};
+           if (auto dot = memberName.rfind('.'); dot != std::string::npos) {
+               memberName.erase(0, dot+1);
+           }
+           return memberName;
+        };
+
+        while (true) {
+            DVPRINT("Gettting children of type %s\n", var->type);
+            mi.getChildren(var);
+            if (var->type && var->type != baseType && var->numchild) {
+                var = var->children[0];
+            } else {
+                break;
+            }
+        }
+        DVPRINT("Got %d children\n", var->numchild);
+
+        // The members are in the children of MIVar
+        for (int i=0; i<var->numchild; ++i) {
+            if (auto child1 = var->children[i]; child1->type) {
+                // normal child
+                DVPRINT("adding a child\n");
+                DVPRINT("member name is %s\n", getMemberName(child1).c_str());
+                stype->addMember(getMemberName(child1), getType(mi,child1,nullptr));
+            } else if (!mi.getChildren(child1)) {
+                // child is public|protected|private - walk down another level
+                for (int j=0; j<child1->numchild; ++j) {
+                    auto child2 = child1->children[j];
+                    child2->expr = strdup(child2->name);
+                    stype->addMember(getMemberName(child2), getType(mi,child2,nullptr));
+                }
+            } else {
+                DVPRINT("getting children failed\n");
+            }
+        }
+        DVPRINT("done processing members\n");
+    } else {
+        auto fieldStrs = mi.getPTypeFields(type);
+        for (auto&& fieldStr : fieldStrs) {
+            // the field is type followed by name
+            auto namePos = fieldStr.rfind(' ');
+            if (namePos == std::string::npos) continue;
+
+            while (++namePos < fieldStr.size() && fieldStr[namePos] == '*') {}
+            auto fieldTypeStr = fieldStr.substr(0,namePos);
+            auto fieldName = fieldStr.substr(namePos);
+            DVPRINT("got field type \"%s\" name \"%s\"\n",
+                    fieldTypeStr.c_str(), fieldName.c_str());
+
+            stype->addMember(fieldName, getType(mi,nullptr,fieldTypeStr.c_str()));
+        }
+    }
+
+    DVPRINT("calling addKnownType %s decoration %s\n", baseType.c_str(),
+            decoration.c_str());
+
+    mi.addKnownType(baseType, stype);
+    return wrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+}
+
+// Handle decorations of the base type.  Like *,&,[], etc.
+std::shared_ptr<ais::Type> TypeParser::wrap(std::shared_ptr<ais::Type> elemType, TypeName t) {
+    auto beg = t.decoration.find_first_not_of(' ');
+    if (beg == std::string::npos) {
+        return std::move(elemType);
+    }
+
+    DVPRINT("TypeParser::wrap decoration is \"%s\"\n", t.decoration.c_str());
+
+    auto c = t.decoration[beg];
+    auto w = std::shared_ptr<ais::Type>{};
+    auto end = beg;
+    const std::string& r{t.decoration};
+
+    DVPRINT("c == %c\n", c);
+    
+    if (c == '*') {
+        w.reset(new ais::Pointer(t.type));
+    } else if (c == '&') {
+        DVPRINT("ignoring reference");
+        w = elemType;
+    } else if (c == '[') {
+        // for multi-dimension arrays, the last value is changing
+        // the fastest
+        for (auto loc = end;
+             (loc=r.find(']', loc+1)) != std::string::npos
+                 && (end=loc)+1 != r.size()
+                 && r[end+1] == '['; ) {}
+
+        if (r[end] != ']') return std::make_shared<ais::Unimplemented>("unknown-c-decoration-" + r);
+
+        w = elemType;
+
+        for (auto loc = end+1; loc != beg; ) {
+            auto close = loc-1;
+            loc = r.rfind('[', loc-1);
+            int len = std::stoi(r.substr(loc+1,close-loc-1));
+
+            w.reset(new ais::Array(w, len));
+        }
+    } else if (c == '(') {
+        for (int level=1; level && ++end != r.size(); ) {
+            switch (r[end]) {
+            case '(': ++level; break;
+            case ')': --level; break;
+            default: break;
+            }
+        }
+        w.reset(new ais::Function);
+    } else {
+        w.reset(new ais::Unimplemented{"unknown-decoration-" + t.decoration});
+        end = r.size()-1;
+    }
+
+    return wrap(w, TypeName(t,end+1));
 }
 
 
-Mi2Aif::Mi2Aif(MISession* session) : m_session(session), m_depth(0) {}
+std::shared_ptr<ais::Type> TypeParser::ftnWrap(std::shared_ptr<ais::Type> elemType,
+                                               TypeName t) {
+    if (t.decoration.empty()) return elemType;
 
+    auto result = elemType;
+    bool inSize = false;
+
+    DVPRINT("In ftnWrap decoration=%s\n", t.decoration.c_str());
+    char c;
+    auto is = std::istringstream{t.decoration};
+    while (is >> c) {
+        if (c == '(' || (inSize && (c == ',' || c == ':'))) {
+            inSize = true;
+            int len;
+            if (is.peek() == ':') {
+                is.ignore();
+                DVPRINT("Unallocated array\n");
+                result = std::make_shared<ais::FtnArray>(result,0);
+            } else if (is >> len) {
+                DVPRINT("got len %d\n", len);
+                result = std::make_shared<ais::FtnArray>(result, len);
+            } 
+        } else if (inSize && c == ')') {
+            inSize = false;
+        } else if (c == '*') {
+            int len;
+            if (is >> len) {
+                DVPRINT("got len %d\n", len);
+                result = std::make_shared<ais::FtnArray>(result, len);
+            }
+        } else if (!isspace(c) && !strchr(",ALOCTBE", c)) {
+            // notice we are ignoring ", ALLOCATABLE "
+            DVPRINT("got unexpected character '%c'\n", c);
+            return std::make_shared<ais::Unimplemented>("unknown-fortran-decoration-" + t.decoration);
+        }
+    }
+
+    return result;
+}
+
+// parse the template argument part of a template class declaration into
+// <A, B> C.    A is the contained type, B is the rest of the template arguments
+// (it may be empty or contain ,'s) and the rest of the decoration.
+std::tuple<std::string, std::string, std::string>
+TypeParser::getContainerTypes(TypeName t) {
+    // find the contained type
+    bool parseError = false;
+    std::size_t firstLt = t.decoration.find('<'), lastLt = std::string::npos, comma = std::string::npos;
+    if (firstLt == std::string::npos) parseError = true;
+    
+    int level = 1;
+    for (auto i = firstLt+1; level && i < t.decoration.size(); ++i) {
+        switch (t.decoration[i]) {
+        case '<': ++level; break;
+        case '>': if (!--level) lastLt = i; break;
+        case ',': if (level == 1 && comma == std::string::npos) comma = i; break;
+        }
+    }
+    if (lastLt == std::string::npos) parseError = true;
+    if (parseError) {
+        DVPRINT("could not parse container type\n");
+        return std::tuple<std::string,std::string,std::string>("","","");
+    }
+
+    if (comma == std::string::npos) comma = lastLt;
+    auto containedType = t.decoration.substr(firstLt+1, comma-firstLt-1);
+    auto templateArgs = (comma == lastLt ? "" : t.decoration.substr(comma+1, lastLt-comma-1));
+    auto decoration = t.decoration.substr(lastLt+1);
+
+    return std::make_tuple(containedType, templateArgs, decoration);
+}
+
+std::shared_ptr<ais::Type> TypeParser::stlContainer(Mi2Aif& mi, const ais::Array& ctype, TypeName t) {
+    DVPRINT("parsing STL container type %s\n", t.decoration.c_str());
+
+    auto [containedType, templateArgs, decoration] = getContainerTypes(t);
+    if (containedType.empty()) {
+        return unimplemented(mi,t);
+    }
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            containedType.c_str(), templateArgs.c_str(), decoration.c_str());
+
+    auto t2 = TypeName{t.type  + "<" + containedType + "," + templateArgs + ">",
+                       std::move(decoration)};
+
+    auto elemType = getType(mi, nullptr, containedType.c_str());
+    auto vtype = ctype.makeTyped(elemType);
+    return wrap(vtype, t2);
+}
+
+std::shared_ptr<ais::Type> TypeParser::stdArray(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing stdArray container type %s\n", t.decoration.c_str());
+
+    auto [containedType, templateArgs, decoration] = getContainerTypes(t);
+    if (containedType.empty()) {
+        return unimplemented(mi,t);
+    }
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            containedType.c_str(), templateArgs.c_str(), decoration.c_str());
+
+    auto vt = std::string{"::value_type"};
+    if (decoration.find(vt) == 0) {
+        DVPRINT("got std_array::value_type\n");
+        auto elemType = getType(mi, nullptr, containedType.c_str());
+        auto t2 = TypeName{std::move(containedType), decoration.substr(vt.size())};
+        return wrap(elemType, t2);
+    }
+        
+
+    int len = 0;
+    try {
+        len = std::stoi(templateArgs);
+    } catch (std::exception&) {
+        DVPRINT("could not get length from \"%s\"\n", templateArgs.c_str());
+        return unimplemented(mi,t);
+    }
+
+    auto t2 = TypeName{t.type  + "<" + containedType + "," + templateArgs + ">",
+                       std::move(decoration)};
+
+    auto elemType = getType(mi, nullptr, containedType.c_str());
+    auto vtype = std::make_shared<ais::StdArray>(elemType,len);
+    return wrap(vtype, t2);
+}
+
+std::shared_ptr<ais::Type> TypeParser::stdString(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing stdString container type %s\n", t.decoration.c_str());
+
+    auto [containedType, templateArgs, decoration] = getContainerTypes(t);
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            containedType.c_str(), templateArgs.c_str(), decoration.c_str());
+
+    auto t2 = TypeName{t.type  + "<" + containedType +">", std::move(decoration)};
+    return wrap(std::make_shared<ais::String>(), t2);
+}
+
+std::shared_ptr<ais::Type> TypeParser::ftnCharacter(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing fortran CHARACTER type %s\n", t.decoration.c_str());
+
+    if (auto star = t.decoration.find('*'); star != std::string::npos) {
+        try {
+            int len = std::stoi(t.decoration.substr(star+1));
+            if (len > 1) {
+                return std::make_shared<ais::FtnString>(len);
+            }
+        } catch (std::exception&) {
+            DVPRINT("could not get a length\n");
+        }
+    }
+            
+    return std::make_shared<ais::Char>();
+}
+    
+
+std::shared_ptr<ais::Type> TypeParser::smartPointer(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing smartPointer type %s\n", t.decoration.c_str());
+
+    auto [containedType, templateArgs, decoration] = getContainerTypes(t);
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            containedType.c_str(), templateArgs.c_str(), decoration.c_str());
+
+    auto t2 = TypeName{t.type  + "<" + containedType +">", std::move(decoration)};
+    return wrap(std::make_shared<ais::SmartPointer>(t.type, containedType), t2);
+}
+
+
+std::shared_ptr<ais::Type> TypeParser::charWrap(std::shared_ptr<ais::Type> elemType,
+                                                TypeName t) {
+
+    DVPRINT("in charWrap \"%s\" + \"%s\"\n", t.type.c_str(), t.decoration.c_str());
+
+    auto beg = t.decoration.find_first_not_of(' ');
+    if (beg == std::string::npos) {
+        return elemType;
+    } else if (t.decoration[beg] == '*') {
+        return wrap(std::make_shared<ais::CharArray>(), TypeName{t, beg+1});
+    } else if (t.decoration[beg] == '[') {
+        DVPRINT("processing '['\n");
+        
+        auto d = t.decoration;
+        auto begLast = beg;
+        auto end = beg;
+        while ((end=d.find(']', begLast+1)) != std::string::npos
+               && end+1 != d.size()
+               && d[end+1] == '[') {
+            begLast = end+1;
+        }
+
+
+        DVPRINT("begLast=%d end=%d\n", int(begLast), int(end));
+
+        auto t2 = TypeName{t.type + "*", d.substr(0,begLast)};
+        if (end != std::string::npos) t2.decoration += d.substr(end+1);
+
+        DVPRINT("remainder is %s\n", t2.decoration.c_str());
+        return wrap(std::make_shared<ais::CharArray>(), t2);
+
+    } else {
+        return std::make_shared<ais::Unimplemented>(t.type + t.decoration);
+    }
+}
+
+std::shared_ptr<ais::Type> TypeParser::wrapVoidFunc(Mi2Aif& mi, TypeName t) {
+    auto end = t.decoration.find_last_not_of(' ');
+    if (end == std::string::npos) {
+        return unimplemented(mi, t);
+    }
+
+    if (t.decoration[end] != ')') {
+        return unimplemented(mi, t);
+    }
+
+    return std::make_shared<ais::Function>();
+}
+    
+
+std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
+    return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
+}
+
+GdbResult::GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, const ais::Type& varType,
+                     const std::function<void(bool)>& endOfSlice)
+    : m_mi(mi), m_var(var), m_buffer(nullptr), m_pos(nullptr), m_endOfSlice(endOfSlice) {
+    DVPRINT("Creating GdbResult\n");
+    m_slicer.reset(new ArraySlicer(m_mi.getSession(), var, varType));
+}
+
+const char* GdbResult::get() {
+    if (!m_buffer) {
+        bool endOfSlice = (m_pos != nullptr);
+        bool isFinal = m_finalSlice;
+        m_pos = m_buffer = m_slicer->getNext(m_finalSlice);
+
+        if (!m_pos) {
+            throw NewErrorEvent(DBGERR_INTERNAL, "gdb expression evaluation failed");
+        }
+
+        if (endOfSlice) flush(isFinal);
+    }
+    return m_pos;
+}
+
+void GdbResult::setPos(const char* pos) {
+    m_pos = pos;
+    for (auto *p = pos; *p; ++p) {
+        if (!::isspace(*p))
+            return;
+    }
+    m_buffer = nullptr;
+}
+
+bool GdbResult::isContinued() {
+    if (m_finalSlice) return false;
+    for (auto *p = m_pos; *p; ++p) {
+        if (!::isspace(*p))
+            return false;
+    }
+    return true;
+}
+
+bool GdbResult::mayBeTruncated() {
+    return (clientPrintElements > 0);
+}
+
+void GdbResult::flush(bool isFinal) {
+    m_endOfSlice(isFinal);
+}

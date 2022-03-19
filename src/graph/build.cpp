@@ -8,7 +8,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -36,6 +36,7 @@
 #include "hash.h"
 #include "procset.h"
 #include "useful.h"
+#include "aifCompat.h"
 
 #define PROC_PROC_NODE(p) (p)->gp_node[0]
 #define PROC_SYNC_NODE(p) (p)->gp_node[1]

@@ -3,19 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 #ifndef _VAL_H
@@ -82,7 +76,7 @@ typedef enum rval_type rval_type;
 // Note that graph and blockmap types are not implemented. This is because
 // slicing a blockmap or graph lval isn't allowed.
 #define RVAL_ACTUAL_TYPE(v) (rval_type) GetActualRvalType((v))
-#define RVAL_ACTUAL_AIF(v) (AIF *)GetActualAIF((v))
+#define RVAL_ACTUAL_AIF(v) GetActualAIF(v)
 #define RVAL_ACTUAL_REPLY(v) (rep_set_t *)GetActualReply((v))
 #define RVAL_ACTUAL_PROCSET(v) (dbgprocset_t *)GetActualProcset((v))
 

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -26,11 +26,12 @@
 #include <regex>
 #include <sstream>
 
-#include "aif.h"
 #include "client.h"
 #include "df.h"
 #include "help_dict.h"
 #include "useful.h"
+
+extern void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, FILE* out);
 
 void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
     // only do work if we need to
@@ -55,28 +56,24 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
 
     if (val == NULL) return -1;
 
+    if (RVAL_TYPE(val) == rval_aif || RVAL_TYPE(val) == rval_reply) {
+        // Retrieve the contents of the val
+        // Note: take a little care because VAL_RETRIEVE can change the RVAL_TYPE.
+        if (VAL_RETRIEVE(val, rec_set)) {
+            return -1;
+        }
+    }
+        
+
     switch (RVAL_TYPE(val)) {
         case rval_aif:
-            // Retrieve the contents of the val
-            if (VAL_RETRIEVE(val, rec_set)) {
-                return -1;
-            }
-
-            //
             // Print the result
-            //
-            // AIFPrint doesn't play nice with editline...
-            RVAL_AIF(val)->print(Client.cli_out_stream, 0);
+            RVAL_AIF(val)->print(Client.cli_out_stream);
             PrintOutMsg("\n");
 
             break;
 
         case rval_reply:
-            // Retrieve the contents of the val
-            if (VAL_RETRIEVE(val, rec_set)) {
-                return -1;
-            }
-
             // Print each reply
             rep_set = RVAL_REPLY(val);
             for (auto &&reply : rep_set) {
@@ -90,8 +87,12 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
 
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...
-                AIFPrint(Client.cli_out_stream, 0,
-                         EVENT_DATA(reply->rep_event)->joinAIF());
+                auto aif = EVENT_DATA(reply->rep_event);
+                if (LVAL_TYPE(val) == lval_blockmap) {
+                    PrintWithBlockMap(aif, LVAL_BM_BLOCKMAP(val), Client.cli_out_stream);
+                } else {
+                    aif->print(Client.cli_out_stream);
+                }
                 PrintOutMsg("\n");
             }
 
@@ -161,17 +162,6 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
     return 0;
 }
 
-// print out a reply of type DBGEV_THREADINFO with procset/threadset info.
-int PrintMultiThreadReply(group_reply_t *reply) {
-    if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
-        auto res = std::string{reply->rep_event->ev_u.ev_u_string};
-        auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
-        return PrintMultiThreadMsg(diName, reply->rep_group.get(), res);
-    } else {
-        return -1;
-    }
-}
-
 // print the value of \a prefixed with the process and possibly thread info.
 static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
     if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
@@ -191,30 +181,13 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
         // sets.
         auto stream = EVENT_DATA(reply->rep_event);
         auto diName = (reply->rep_di ? reply->rep_di->d_handle : "");
-        auto aif = stream->joinAIF();
-        char *str = nullptr;
-        if (AIFType(aif) == AIF_STRING && AIFToStr(&str, 0, aif) == 0 &&
-            strncmp(str + 1, MULTI_THREAD_HDR, strlen(MULTI_THREAD_HDR)) == 0) {
-            // this is the result from thread apply returned back in string form
-            // since it is potentially a heterogeneous collection
-            auto msg = std::string{
-                str + 1 +
-                strlen(MULTI_THREAD_HDR)};  // skip begin quote and header
-            if (msg.size() >= 1) msg.erase(msg.size() - 1);  // end quote
 
-            PrintMultiThreadMsg(diName, reply->rep_group.get(), msg);
+        auto label = GetProcSetString(diName, reply->rep_group.get(), rec_set->getThreads());
+        if (!label.empty()) label += ": ";
 
-        } else {
-            // A normal expression result, either from no thread focus, or focus
-            // on a single thread.
-            PrintMsgWithSetAndThreadInfo(diName, reply->rep_group.get(),
-                                         rec_set->getThreads(), nullptr);
-            // Print the AIF value
-            // AIFPrint doesn't play nice with editline...
-            AIFPrintN(Client.cli_out_stream, 0, aif, stream->getTruncatedLength());
-            PrintOutMsg("\n");
-        }
-        free(str);
+        PrintOutMsg("%s", ""); // currently need for edit_line interaction
+        stream->print(Client.cli_out_stream, label);
+        PrintOutMsg("\n");
     }
 
     return 0;

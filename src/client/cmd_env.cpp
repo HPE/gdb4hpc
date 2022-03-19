@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -593,11 +593,8 @@ static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
     SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&lower_d);
     SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&upper_d);
 
-    // Free the old aif values
-    AIFFree(Client.cmp_lower_eps);
-    AIFFree(Client.cmp_upper_eps);
-    Client.cmp_lower_eps = LongDoubleToAIF(lower);
-    Client.cmp_upper_eps = LongDoubleToAIF(upper);
+    Client.cmp_lower_eps = lower;
+    Client.cmp_upper_eps = upper;
 
     return 1;
 }
@@ -605,9 +602,9 @@ static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
 static int class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
     PrintOutMsg("Warning epsilon: ");
-    AIFPrint(Client.cli_out_stream, 0, Client.cmp_lower_eps);
+    PrintOutMsg("%.16lg", Client.cmp_lower_eps);
     PrintOutMsg("\nError epsilon: ");
-    AIFPrint(Client.cli_out_stream, 0, Client.cmp_upper_eps);
+    PrintOutMsg("%.16lg", Client.cmp_upper_eps);
     PrintOutMsg("\n");
 
     return 1;

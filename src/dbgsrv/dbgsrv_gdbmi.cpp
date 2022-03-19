@@ -39,7 +39,6 @@
 
 #include "common_tools_be.h"
 
-#include "aif.h"
 #include "dbgcomm_info.h"
 #include "dbgevent.h"
 #include "dbgsrv_gdbmi.h"
@@ -1404,17 +1403,9 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
 ** types. Right now we just convert to string and let gdb handle it. I think
 ** this is a better implementation (andrewg).
 */
-dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a, const char* threads) {
+
+dbgevent_t *DbgGdbMI::setVar(const char *var, const char* val, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-
-    if (a == NULL) {
-        return NewErrorEvent(DBGERR_SETVAR, "Invalid input. AIF is null.");
-    }
-
-    if (AIF_LEN(a) <= 0) {
-        return NewErrorEvent(DBGERR_SETVAR,
-                    "Attempt to set var with data of null length.");
-    }
 
     // get type info about var to make sure it exists
     if (!threads) {
@@ -1428,15 +1419,8 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a, const char* threads) {
         }
     }
 
-    // convert the aif type to string form
-    char* data = nullptr;
-    if (AIFToStr(&data, 0, a)) {
-        return NewErrorEvent(DBGERR_SETVAR, "Could not convert AIF data to string.");
-    }
-
     // create the assignment string
-    auto expr = std::string{var} + "=" + data;
-    free(data);
+    auto expr = std::string{var} + "=" + val;
     DVPRINT("DbgSetVar: expr is %s\n", expr.c_str());
 
     if (threads) {
@@ -1464,6 +1448,7 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, AIF *a, const char* threads) {
 
     return NewEvent(DBGEV_OK);
 }
+
 
 /*
 ** Find type of variable.
@@ -2807,15 +2792,13 @@ bool DbgGdbMI::isStopped() {
 /*
 ** Set contents of GDB debug variable var.
 */
-dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, AIF *val) {
+dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, const char *val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
-    int intVal;
 
-    AIFToInt(val, &intVal);
 
     cmd = MICommandNew("-gdb-set", MIResultRecordDONE);
-    MICommandAddOption(cmd, var, MIIntToCString(intVal));
+    MICommandAddOption(cmd, var, val);
     SendMICommand(GDBMISession, cmd);
     MICommandFree(cmd);
 
@@ -2909,10 +2892,8 @@ dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
     clientPrintElements = elems;
 
     // update debugger value
-    AIF *aif = IntToAIF(elems);
-    dbgevent_t *r = setDebuggerVar("print elements", aif);
+    dbgevent_t *r = setDebuggerVar("print elements", std::to_string(elems).c_str());
 
-    AIFFree(aif);
     return r;
 }
 
@@ -2927,11 +2908,9 @@ dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
     e = setPrintElements("200");
     FreeEvent(e);
 
-    AIF *aif = IntToAIF(10);
     // also returns NewEvent(DBGEV_OK)
-    e = setDebuggerVar("print repeats", aif);
+    e = setDebuggerVar("print repeats", "10");
     FreeEvent(e);
-    AIFFree(aif);
 
     setSourceOpen(true);
 
@@ -2946,11 +2925,9 @@ dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
     e = setPrintElements(std::to_string(clientPrintElements).c_str());
     FreeEvent(e);
 
-    AIF *aif = IntToAIF(0);
     // also returns NewEvent(DBGEV_OK)
-    e = setDebuggerVar("print repeats", aif);
+    e = setDebuggerVar("print repeats", "0");
     FreeEvent(e);
-    AIFFree(aif);
 
     setSourceOpen(false);
 
@@ -3425,13 +3402,12 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
 ** ----- hashing and slicing functions -----
 **
 */
+extern void rd_unimplemented(const char*);
 
 // rather than coded in DbgGDBMIEvalExpr()
 static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    AIF *tmp = NULL;
 
     char var[BUFSIZ] = "";
     char args[BUFSIZ] = "";
@@ -3459,30 +3435,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     if (!sliceinfo[0]) {
         e->ev_data = aifStream;
     } else if (!strchr(type, '(')) {
-        // slice the data.   Fixme: this should be done up front instead of
-        // killing the buffalo and only eating the tongue
-        DVPRINT("*** PerformExtEvalExpr: slice info found.\n");
-
-        // pull out AIF and slice up
-        AIF *a = aifStream->joinAIF();
-        AIF *slice = PerformSlicing(a, sliceinfo, AIFType(a) == AIF_FTN_ARRAY);
-
-        // done with aifStream (and the aif contained within),
-        // we will create a new one with sliced data
-        delete aifStream;
-        aifStream = nullptr;
-
-        if (slice == nullptr) {
-            // an error occured.
-            DVPRINT("*** PerformExtEvalExpr: an error occured in PerformSlicing. (%s)\n",
-                    PerformSlicingErr);
-            FreeEvent(e);
-            e = NewErrorEvent(DBGERR_DEBUGGER, "Slicing failed: %s", PerformSlicingErr);
-            return e;
-        }
-
-        // finally, create a new AIFStream from our sliced-up AIF
-        e->ev_data = new AIFStream(slice);
+        rd_unimplemented("slice operator");
     } else {
         // the expression is a function call with integer arguments.   We couldn't be
         // sure until now because fortran array references look like function calls.
@@ -3544,7 +3497,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         bool isFinal;
         dbgev ev = DBGEV_DATA_SLICE;
         AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
-        if (returnStream != nullptr && returnStream->hasJoinAIF()) {
+        if (returnStream) {
             if (isFinal) {
                 DVPRINT("returning the last slice of %ld\n", expIdx);
                 ev = DBGEV_DATA;
@@ -3576,9 +3529,15 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
 
     dbgev ev = DBGEV_DATA;
     bool isFinal;
-    AIFStream *returnStream = aifStream->createStreamFromNextSlice(isFinal);
+    AIFStream* returnStream = nullptr;
+    try {
+        returnStream = aifStream->createStreamFromNextSlice(isFinal);
+    } catch (dbgevent_t* err) {
+        DVPRINT("Get value failed\n");
+        return err;
+    }
 
-    if (returnStream == nullptr || !returnStream->hasJoinAIF()) {
+    if (!returnStream) {
         DVPRINT("getNextSlice failed\n");
         return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
     }
@@ -3630,14 +3589,11 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
         // the front end expects data, and most of it will work reasonably well if we
         // return this as string data.   Adding a special header reduces the odds of
         // conflicting with an actual string.
-        char* retStr = nullptr;
-        asprintf(&retStr, "%s%s", MULTI_THREAD_HDR, applyEvent->ev_u.ev_u_string);
-        AIF* aif = StringToAIF(retStr);
+        AIFStream* aif = AIFStream::fromMultiThreadResult(applyEvent->ev_u.ev_u_string);
         FreeEvent(applyEvent);
-        free(retStr);
 
         dbgevent_t* e = NewEvent(DBGEV_DATA);
-        e->ev_data = new AIFStream(aif);
+        e->ev_data = aif;
         return e;
     }
 
@@ -3698,7 +3654,7 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
 
 // translate a frame result from threadApply into a frame event.    The frame event
 // will contain the set of frames for each equivalent thread set
-// -- This is based on the strategy of using threadApply to do the aggragation, though
+// -- This is based on the strategy of using threadApply to do the aggregation, though
 // it may leave us with potentially brittle text at this level.   If in the future gdb/mi
 // gives a more efficient means to get frames from multiple threads, the approach could
 // be changed to take advantage of it. ---

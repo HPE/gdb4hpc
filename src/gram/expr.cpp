@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -23,13 +23,12 @@
 #include <string.h>
 #include <sstream>
 
-#include "aif.h"
 #include "client_settings.h"
 #include "dbg_client.h"
 #include "defs.h"
-#include "fds.h"
 #include "gram.h"
 #include "useful.h"
+#include "aifCompat.h"
 
 // Global variables with external exposure - This is used in expr.y.in
 const char **ExprStr;
@@ -54,7 +53,8 @@ static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
 static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
 static expr_elt* check_pop(expr_t*, expr_op);
 
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif);
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group,
+                         AIFStream* aif);
 // Only called directly with debug - but keep around to be able to call from gdb
 #ifdef DEBUG
 void DumpExpr(expr_t *);
@@ -544,12 +544,12 @@ static val_t *evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
             return val;
 
         case EXPR_INT:
-            v1 = NewVal(lval_none, rval_aif, IntToAIF(ep->e_int));
+            v1 = NewVal(lval_none, rval_aif, AIFStream::fromInt(ep->e_int));
             DPRINT("evaluate_expr_imm: v1 is int %d\n", ep->e_int);
             return v1;
 
         case EXPR_FLOAT:
-            v1 = NewVal(lval_none, rval_aif, DoubleToAIF(ep->e_float));
+            v1 = NewVal(lval_none, rval_aif, AIFStream::fromDouble(ep->e_float));
             DPRINT("evaluate_expr_imm: v1 is float %g\n", ep->e_float);
             return v1;
 
@@ -1421,18 +1421,18 @@ static char *apply_var_op(expr_elt *ep, expr_t *e) {
 ** NOTE - This is a helper function for apply_op and should not be
 ** called directly.
 */
-static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
+static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
+                               AIFStream::Difference* diffArg) {
     int r1;
     int r2;
-    AIF *ar = NULL;
-    AIF *localDiff = nullptr;
-    AIF **diff = (diffArg ? diffArg : &localDiff);
-
+    AIFStream *ar = NULL;
+    AIFStream::Difference localDiff, &diff = (diffArg ? *diffArg : localDiff);
+    std::string errMsg;
     DPRINT("In apply_op_aif\n");
 
     switch (op) {
         case EXPR_OPADD:
-            if ((ar = AIFAdd(a1, a2)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::add(a1, a2))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1440,7 +1440,7 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
             break;
 
         case EXPR_OPSUB:
-            if ((ar = AIFSub(a1, a2)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::sub(a1, a2))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1448,7 +1448,7 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
             break;
 
         case EXPR_OPMUL:
-            if ((ar = AIFMul(a1, a2)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::mul(a1, a2))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1456,7 +1456,7 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
             break;
 
         case EXPR_OPDIV:
-            if ((ar = AIFDiv(a1, a2)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::div(a1, a2))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1465,7 +1465,7 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
 
         // TODO: Broken to fix derived fortran types
         case EXPR_OPREM:
-            if ((ar = AIFRem(a1, a2)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::rem(a1, a2))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1474,108 +1474,105 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
 
         case EXPR_OPEQUAL:
             // TODO: Add epsilon here
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             }
 
-            ar = IntToAIF(r1);
+            ar = AIFStream::fromInt(r1);
             break;
 
         case EXPR_OPNOTEQUAL:
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             } else if (r1 == 3) {
                 SetError("Operator not supported for comparison.");
                 return NULL;
             }
 
-            ar = IntToAIF(r1 == 0);
+            ar = AIFStream::fromInt(r1 == 0);
             break;
 
         case EXPR_OPLEQ:
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             } else if (r1 == 3) {
                 SetError("Operator not supported for comparison.");
                 return NULL;
             }
 
-            ar = IntToAIF(r1 >
-                          0);  // note a value of 0 means the condition passes
+            ar = AIFStream::fromInt(r1 > 0);  // note a value of 0 means the condition passes
             break;
 
         case EXPR_OPGEQ:
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             } else if (r1 == 3) {
                 SetError("Operator not supported for comparison.");
                 return NULL;
             }
 
-            ar = IntToAIF(r1 <
+            ar = AIFStream::fromInt(r1 <
                           0);  // note a value of 0 means the condition passes
             break;
 
         case EXPR_OPLT:
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             } else if (r1 == 3) {
                 SetError("Operator not supported for comparison.");
                 return NULL;
             }
 
-            ar = IntToAIF(r1 >=
-                          0);  // note: a value of 0 means the condition passes
+            ar = AIFStream::fromInt(r1 >= 0);  // note: a value of 0 means the condition passes
             break;
 
         case EXPR_OPGT:
-            if (AIFCompare(a1, a2, &r1, diff, Client.cmp_lower_eps,
-                           Client.cmp_upper_eps) < 0) {
-                SetError("%s", AIFErrorStr());
+            if (AIFStream::compare(a1, a2, &r1, diff, &Client.cmp_lower_eps,
+                                   &Client.cmp_upper_eps, errMsg) < 0) {
+                SetError("%s", errMsg.c_str());
                 return NULL;
             } else if (r1 == 3) {
                 SetError("Operator not supported for comparison.");
                 return NULL;
             }
 
-            ar = IntToAIF(r1 <=
-                          0);  // note: a value of 0 means the condition passes
+            ar = AIFStream::fromInt(r1 <= 0);  // note: a value of 0 means the condition passes
             break;
 
         case EXPR_OPAND:
-            if (AIFIsZero(a1, &r1) < 0 || AIFIsZero(a2, &r2)) {
+            if (a1->isZero(r1) < 0 || a2->isZero(r2) < 0) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
 
-            ar = IntToAIF((int)(!r1 && !r2));
+            ar = AIFStream::fromInt((int)(!r1 && !r2));
             break;
 
         case EXPR_OPOR:
-            if (AIFIsZero(a1, &r1) < 0 || AIFIsZero(a2, &r2)) {
+            if (a1->isZero(r1) < 0 || a2->isZero(r2)) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
 
-            ar = IntToAIF((int)(!r1 || !r2));
+            ar = AIFStream::fromInt((int)(!r1 || !r2));
             break;
 
         case EXPR_OPPOS:
-            ar = CopyAIF(a1);
+            ar = a1->clone();
             break;
 
         case EXPR_OPNEG:
-            if ((ar = AIFNeg(a1)) == (AIF *)NULL) {
+            if (!(ar = AIFStream::neg(a1))) {
                 SetError("%s", AIFErrorStr());
                 return NULL;
             }
@@ -1584,10 +1581,6 @@ static AIF *apply_op_aif(expr_op op, AIF *a1, AIF *a2, AIF **diffArg) {
 
         default:
             return NULL;
-    }
-
-    if (localDiff) {
-        AIFFree(localDiff);
     }
 
     return ar;
@@ -1650,7 +1643,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                     return (val_t *)NULL;
                 }
                 return NewVal(lval_none, rval_aif,
-                              CopyAIF(RVAL_AIF(tmp)->joinAIF()));
+                              RVAL_AIF(tmp));
             case rval_blockmap:
                 return NewVal(lval_none, rval_blockmap,
                               RVAL_BLOCKMAP(tmp));
@@ -1926,10 +1919,10 @@ static std::unique_ptr<Bitset> intersect_groups(const Bitset* a, const Bitset* b
 
 // create a group reply by wrapping a single AIF data object.   Takes ownership of
 // group and aif.
-static group_reply_t* make_reply_from_aif(dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif) {
+static group_reply_t* make_reply_from_aif(dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIFStream* aif) {
     if (aif) {
         auto ev = NewEvent(DBGEV_DATA);
-        ev->ev_data = new AIFStream(aif);
+        ev->ev_data = aif;
         return NewGroupReply(di, std::move(group), ev);
     } else {
         return nullptr;
@@ -1981,12 +1974,13 @@ static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
 // \param aif it the aif integer comparison result on the slice.   The function takes ownership
 //       of \a aif
 // \param op is the operation being applied.
-static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIF* aif, expr_op op) {
+static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIFStream* aif,
+                                 expr_op op) {
     // by right there should be no more than two replies as there are but two values
     bool isNeq = (op == EXPR_OPNOTEQUAL);
 
     int addVal;
-    if (AIFToInt(aif,&addVal)) {
+    if (aif->toInt(addVal)) {
         DPRINT("not a compare result\n");
         return;
     }
@@ -2031,7 +2025,7 @@ static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&gr
         *group -= *igrp;
         oldGroup -= *igrp; // modifies in place, inside of reply
 
-        if (auto newReply = make_reply_from_aif(di, std::move(igrp), IntToAIF(newVal)))
+        if (auto newReply = make_reply_from_aif(di, std::move(igrp), AIFStream::fromInt(newVal)))
             replies.push_back(newReply);
 
         // we might have completely replaced an existing reply value, remove it and
@@ -2046,10 +2040,11 @@ static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&gr
 
     // we're bootstrapping from an enpty reply set - so store the initial value
     if (!group->isEmpty()) {
-        if (auto newReply = make_reply_from_aif(di, std::move(group), aif))
+        if (auto newReply = make_reply_from_aif(di, std::move(group),
+                                                AIFStream::fromInt(addVal)))
             replies.push_back(newReply);
     } else {
-        AIFFree(aif);
+        delete aif;
         group.reset();
     }
 
@@ -2076,102 +2071,20 @@ static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&gr
 
 // create a group reply containing the content in \a aif and add it to \a repSet
 // note : takes ownership of \a group and \a aif
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIF* aif)
+static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIFStream* aif)
 {
     if (auto rep = make_reply_from_aif(di, std::move(group), aif)) {
         repSet.addReply(rep);
     }
 }
 
-namespace {
-// Helper class to build up the full size of a array by accumulating the size of its
-// slices.
-class AccumulateShape {
-public:
-    AccumulateShape();
-    ~AccumulateShape();
-    void addArray(AIF* aif);
-    const ArrayDimension* getShape();
-private:
-    bool m_isFortran;
-    int m_dim;
-    int* m_mins;
-    int* m_maxs;
-    std::unique_ptr<ArrayDimension> m_shape;
-};
-
-AccumulateShape::AccumulateShape()
-    : m_isFortran(false), m_mins(nullptr), m_maxs(nullptr), m_shape(nullptr)
-{}
-
-AccumulateShape::~AccumulateShape() {
-    if (m_mins)
-        free(m_mins);
-    if (m_maxs)
-        free(m_maxs);
-}
-
-void AccumulateShape::addArray(AIF* aif) {
-    if (!aif)
-        return;
-
-    auto type = AIFType(aif);
-    if (type == AIF_FTN_ARRAY)
-        m_isFortran = true;
-    else if (type != AIF_ARRAY)
-        return;
-
-    int dim = AIFArrayRank(aif);
-    int* mins = nullptr, *maxs = nullptr;
-    FDSArrayBounds(AIF_FORMAT(aif), dim, &mins, &maxs, nullptr);
-
-    if (!m_mins) {
-        m_dim = dim;
-        m_mins = mins;
-        m_maxs = maxs;
-    } else if (dim == m_dim) {
-        for (int i=0; i<dim; ++i) {
-            m_mins[i] = std::min(m_mins[i], mins[i]);
-            m_maxs[i] = std::max(m_maxs[i], maxs[i]);
-        }
-        free(mins);
-        free(maxs);
-    }
-};
-
-const ArrayDimension* AccumulateShape::getShape() {
-    if (m_shape)
-        return m_shape.get();
-    
-    if (!m_mins)
-        return nullptr;
-
-    auto shape = std::make_unique<ArrayDimension>();
-    if (!shape) {
-        DPRINT("newArrayDimension failed");
-        return nullptr;
-    }
-
-    shape->setIsFortran(m_isFortran);
-    for (int i=0; i<m_dim; ++i) {
-        // arrayDimension orders dims from fastest to slowest
-        int d = (m_isFortran ? i : m_dim-1-i);
-        shape->addDimensionDef(m_mins[d], m_maxs[d]);
-    }
-
-    m_shape = std::move(shape);
-    return shape.get();
-}
-} // namespace
-
-
 // apply a binary operation when both operands are just AIF types
 static val_t* apply_binary_op_aif(expr_op op, AIFStream* a1, AIFStream* a2, bool check_diff,
-                              val_t **diff) {
-    AIF* diffAIF = nullptr, **darg = (check_diff ? &diffAIF : nullptr);
-    if (AIF* res = apply_op_aif(op, a1->joinAIF(), a2->joinAIF(), darg)) {
-        if (diffAIF && diff)
-            *diff = NewVal(lval_none, rval_aif, diffAIF);
+                                  val_t **diff) {
+    AIFStream::Difference aifDiff, *darg = (check_diff ? &aifDiff : nullptr);
+    if (AIFStream* res = apply_op_aif(op, a1, a2, darg)) {
+        if (darg && diff)
+            *diff = NewVal(lval_none, rval_aif, darg->getResultAIF());
         return NewVal(lval_none, rval_aif, res);
     } else {
         return nullptr;
@@ -2197,7 +2110,6 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     if (!op_val_is_ok(v2, rec_set, "Second val is invalid to apply binary operator."))
         return nullptr;
 
-    AccumulateShape diffShape;
     bool isCompare = false;
     if (op >= EXPR_OPEQUAL && op <= EXPR_OPGT) isCompare = true;
 
@@ -2296,9 +2208,9 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                         continue;
                 }
 
-                AIF* diff = nullptr, **darg = (check_diff ? &diff : nullptr);
-                AIF* a1 = r1.aif->joinAIF(), *a2 = r2.aif->joinAIF();
-                AIF* res = apply_op_aif(op, a1, a2, darg);
+                AIFStream::Difference diff, *darg = (check_diff ? &diff : nullptr);
+                AIFStream* a1 = r1.aif, *a2 = r2.aif;
+                AIFStream* res = apply_op_aif(op, a1, a2, darg);
                 if (!res) {
                     return nullptr; // error
                 }
@@ -2314,14 +2226,13 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                     add_to_reply(*newRepSlice, nullptr, tset->clone(), res);
                 }
 
-                if (diffRepSlice && diff) {
-                    add_to_reply(*diffRepSlice, nullptr, std::move(tset), diff);
+                if (diffRepSlice && darg) {
+                    add_to_reply(*diffRepSlice, nullptr, std::move(tset), darg->getResultAIF());
                 }
 
                 // we need to track the array size because the diff is only sparsely
                 // defined
                 if (isFirst && check_diff) {
-                    diffShape.addArray(a1);
                     isFirst = false;
                 }
             } ///for (auto&& r2 : reps2)
@@ -2340,13 +2251,13 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
             newRepSet = move(newSlices[0]);
             newSlices.clear();
         } else if (newSlices.size() > 1) {
-            newRepSet.reset(new rep_set_t(newSlices, nullptr, nullptr));
+            newRepSet.reset(new rep_set_t(newSlices, nullptr));
         }
     }
 
     rep_set_t* diffRepSet = nullptr;
     if (check_diff) {
-        diffRepSet = new rep_set_t(diffSlices, diffShape.getShape(), diffGroup.get());
+        diffRepSet = new rep_set_t(diffSlices, diffGroup.get());
     }
         
 
@@ -2387,7 +2298,7 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
         a1 = RVAL_AIF(v1);
 
         // return the result
-        if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
+        if (AIFStream* aif_res = apply_op_aif(op, a1, nullptr, nullptr)) {
             return NewVal(lval_none, rval_aif, aif_res);
         } else {
             return nullptr;
@@ -2409,7 +2320,7 @@ static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
             a1 = EVENT_DATA(reply->rep_event);
 
             // apply the operation
-            if (AIF* aif_res = apply_op_aif(op, a1->joinAIF(), nullptr, nullptr)) {
+            if (AIFStream* aif_res = apply_op_aif(op, a1, nullptr, nullptr)) {
                 // Make a new event out of the AIF data, use the replies
                 // bitset
                 add_to_reply(*new_rep_set, reply->rep_di, reply->rep_group->clone(),
@@ -3195,7 +3106,7 @@ int AssignExpr(expr_t *e1, expr_t *e2, rec_set_t *rec_set) {
 }
 
 // Used by assign_expr_imm to send the actual command
-static int SendSetVarCmd(rec_set_t *rec_set, char *var, AIF *val) {
+static int SendSetVarCmd(rec_set_t *rec_set, char *var, AIFStream *val) {
     rep_set_t *rep_set;
 
     if ((rep_set = DbgSetVar(rec_set, var, val)) != NULL) {
@@ -3220,7 +3131,7 @@ static int SendSetVarCmd(rec_set_t *rec_set, char *var, AIF *val) {
 ** directly writing binary data into the inferior.
 */
 static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
-    AIF *na;
+    AIFStream *na;
     rec_set_t *lval_rec_set = NULL;
     rep_set_t *rep_set;
     group_reply_t *reply;
@@ -3318,12 +3229,12 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // Send the command using the rval aif data
                 if (lval_rec_set != NULL) {
                     ret = SendSetVarCmd(lval_rec_set, LVAL_GDB_EXPR(lval),
-                                        RVAL_AIF(rval)->joinAIF());
+                                        RVAL_AIF(rval));
                     FreeRecSet(lval_rec_set);
                     return ret;
                 } else {
                     return SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval),
-                                         RVAL_AIF(rval)->joinAIF());
+                                         RVAL_AIF(rval));
                 }
             }
 
@@ -3354,7 +3265,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     // grab the result
                     reply = rep_set->getFirstReply();
                     // point at the AIF data
-                    na = EVENT_DATA(reply->rep_event)->joinAIF();
+                    na = EVENT_DATA(reply->rep_event);
 
                     // Send the command using the event data
                     if (lval_rec_set != NULL) {
@@ -3410,7 +3321,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                             target_recset,
                             NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
                         // point at the AIF data
-                        na = EVENT_DATA(reply->rep_event)->joinAIF();
+                        na = EVENT_DATA(reply->rep_event);
                         // Send the command using the target_recset and the
                         // event data Only set ret if this returns non-zero
                         if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval),
@@ -3463,7 +3374,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                                 NewGroupReceiver(recv_ptr->rec_di,
                                                  reply->rep_group.get()));
                             // point at the AIF data
-                            na = EVENT_DATA(reply->rep_event)->joinAIF();
+                            na = EVENT_DATA(reply->rep_event);
                             // Send the command using the target_recset and the
                             // event data Only set ret if this returns non-zero
                             if (SendSetVarCmd(target_recset,
@@ -3506,11 +3417,11 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // We can assign the gdb_name of the rval directly inside
                 // each rank. The caller requested something like assign ii jj
                 // where the default focus is used.
-                na = StringToAIF(LVAL_GDB_EXPR(rval));
+                na = AIFStream::fromString(LVAL_GDB_EXPR(rval));
                 // Send the command using the created AIF string
                 ret = SendSetVarCmd(rec_set, LVAL_GDB_EXPR(lval), na);
                 // Make sure to free the AIF string before returning
-                AIFFree(na);
+                delete na;
                 return ret;
             }
 
@@ -3543,7 +3454,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                 // grab the result
                 reply = rep_set->getFirstReply();
                 // point at the AIF data
-                na = EVENT_DATA(reply->rep_event)->joinAIF();
+                na = EVENT_DATA(reply->rep_event);
 
                 // Send the command using the event data
                 if (lval_rec_set != NULL) {
@@ -3615,7 +3526,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         target_recset,
                         NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
                     // point at the AIF data
-                    na = EVENT_DATA(reply->rep_event)->joinAIF();
+                    na = EVENT_DATA(reply->rep_event);
                     // Send the command using the target_recset and the event
                     // data Only set ret if this returns non-zero
                     if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval), na)) {
@@ -3666,7 +3577,7 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                                          NewGroupReceiver(recv_ptr->rec_di,
                                                           reply->rep_group.get()));
                         // point at the AIF data
-                        na = EVENT_DATA(reply->rep_event)->joinAIF();
+                        na = EVENT_DATA(reply->rep_event);
                         // Send the command using the target_recset and the
                         // event data Only set ret if this returns non-zero
                         if (SendSetVarCmd(target_recset, LVAL_GDB_EXPR(lval),

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -24,7 +24,6 @@
 ** ensure that the function that is interfacing with the debugger client has the
 ** definitions it needs through including a single header.
 */
-#include "aif.h"
 #include "bitset.h"
 #include "dbg.h"
 #include "dbgclnt_breakpoints.h"
@@ -133,7 +132,7 @@ public:
     rep_set_t(const rep_set_t&) = delete;
 
     // create from slices
-    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const ArrayDimension* shape, const Bitset* group);
+    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const Bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
     // create a copy of the contents of the rep_set
@@ -181,7 +180,7 @@ public:
 private:
     void mergeReplySlices();
     void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
-                            const ArrayDimension* shape, const Bitset* group);
+                            const Bitset* group);
     std::unique_ptr<rep_set_t> recvSlice();
 
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
@@ -309,10 +308,10 @@ extern rep_set_t *DbgStartup(rec_set_t *);
 extern void DbgSendExpr(rec_set_t *, char *);
 // If the above is removed, get rid of this too.
 extern rep_set_t *DbgGetExpr(rec_set_t *);
-extern rep_set_t *DbgEvalExpr(rec_set_t *, char *);
+extern rep_set_t *DbgEvalExpr(rec_set_t *, const char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
-extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIF *);
+extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIFStream *);
 extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
 extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
 extern rep_set_t *DbgGetSourcePath(rec_set_t *);
@@ -320,7 +319,7 @@ extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
 extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);
 extern rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgSetVar(rec_set_t *, const char *, AIF *);
+extern rep_set_t *DbgSetVar(rec_set_t *, const char *, AIFStream *);
 extern rep_set_t *DbgGetType(rec_set_t *, const char *, int);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgGo(rec_set_t *, bool all);
@@ -377,6 +376,5 @@ extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
-extern int PrintMultiThreadReply(group_reply_t* reply);
 
 #endif /* !_DBG_CLIENT_H */

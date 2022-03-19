@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dense_bitset.h"
 
@@ -198,7 +198,7 @@ Bitset& DenseBitset::operator=(const Bitset &other) {
 	auto denseOther = dynamic_cast<const DenseBitset*>(&other);
 	if (!denseOther) return Bitset::operator=(other);
 
-	*this = other;
+	*this = *denseOther;
 	return *this;
 }
 

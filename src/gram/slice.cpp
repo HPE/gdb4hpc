@@ -3,18 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  *********************************************************************************/
 
@@ -115,14 +110,18 @@ std::string slice_t::getExpr(const char* var) const
     if (m_args && !m_rank) {
         return std::string{var} + m_args;
     }
-    
+
     std::ostringstream sliceexpr;
-    sliceexpr << "|slice";
-    for (int n = 0; n < m_rank; n++) {
-        sliceexpr << (n ? "," : "(" ) << m_low[n] << "," << m_high[n];
+    sliceexpr << var;
+    for (int i=0; i<m_rank; ++i) {
+        sliceexpr << "[" << m_low[i] << "]";
     }
-    sliceexpr << ")";
-    sliceexpr << var << "|";
+
+    if (int d = m_rank-1; d >=0 ) {
+        if (int len = m_high[d] - m_low[d] + 1; len > 1) {
+            sliceexpr << "@" << len;
+        }
+    }
     return sliceexpr.str();
 }
 

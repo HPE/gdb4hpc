@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -95,8 +95,6 @@ extern void SetBlockMap(void);
 extern g_block_map_t *GetBlockMap(void);
 extern g_block_map_t *NewBlockMap(hentry_t *);
 extern void DestroyBlockMap(g_block_map_t *);
-extern AIF *ApplyBlockMap(g_block_map_t *, const char *, int, AIF **,
-                          const char *);
 extern void PrintBlockMap(FILE *, g_block_map_t *);
 extern void FinishBlockMap(void);
 
@@ -108,7 +106,7 @@ extern void FinishVal(void);
 extern val_t *MakeTransitoryLval(hentry_t *);
 extern int RetrieveContents(val_t *, rec_set_t *);
 extern rval_type GetActualRvalType(val_t *);
-extern AIF *GetActualAIF(val_t *);
+extern AIFStream *GetActualAIF(val_t *);
 extern dbgprocset_t *GetActualProcset(val_t *);
 extern val_t *NewVal(lval_type, ...);
 extern void DestroyRval(rval_type, rval_val);

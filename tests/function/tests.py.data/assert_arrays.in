@@ -84,7 +84,11 @@ Script $arrays
 2. AssertID 4 Failure
 33: info diff 2
 Script $arrays AssertID 4 Failure
-The difference: [0,0,0,0,0,50,60,70,80,90]
+The difference: [5]:-50
+[6]:-60
+[7]:-70
+[8]:-80
+[9]:-90
 35: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

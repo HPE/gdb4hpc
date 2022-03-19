@@ -59,5 +59,5 @@ libexec_PROGRAMS= dbgsrv $(CRAY_PROGS)
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
 		$(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
-		$(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -laif -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
+		$(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags

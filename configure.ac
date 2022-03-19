@@ -35,15 +35,6 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 ### Check for --with tags ###
 #############################
 
-dnl Check for --with-aif
-AC_ARG_WITH([aif],
-	    [AS_HELP_STRING([--with-aif=dir],
-			    [Use libaif install located in dir. Libaif is required to build gdb4hpc.]
-			    )
-	    ],
-	    [with_aif=$withval],
-	    [with_aif=check]
-	    )
 
 dnl Check for --with-cray
 AC_ARG_WITH([cray],
@@ -190,39 +181,6 @@ fi
 ### Check for libraries. ###
 ############################
 
-dnl Check for AIF
-if test "x$with_aif" != xcheck; then
-	if test "x$with_aif" = x; then
-		AC_CHECK_LIB([aif],
-			     [NewAIF],
-			     [AC_SUBST([aif_libs], ["-laif"])],
-			     [AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-			     )
-	else
-		AC_MSG_CHECKING([for libaif.a])
-		if test -f "$with_aif/lib/libaif.a"; then
-			AC_MSG_RESULT([$with_aif/lib/libaif.a])
-		else
-			AC_MSG_RESULT([not found])
-			AC_MSG_ERROR([libaif.a not found in given path.])
-		fi
-
-		LDFLAGS="$LDFLAGS -L$with_aif/lib"
-
-		AC_CHECK_LIB([aif],
-			     [NewAIF],
-			     [AC_SUBST([aif_libs], ["-laif"])],
-			     [AC_MSG_ERROR([libaif not found.])]
-			     )
-	fi
-else
-	AC_CHECK_LIB([aif],
-		     [NewAIF],
-		     [AC_SUBST([aif_libs], ["-laif"])],
-		     [AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-		     )
-fi
-
 dnl Check for libmi
 if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 	if test -f "$libmi_path/libmi.so"; then
@@ -346,50 +304,6 @@ AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h libintl.h limits.h mall
 dnl Merge with above
 AC_CHECK_HEADERS([arpa/inet.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/param.h sys/socket.h unistd.h])
 
-dnl Check for aif headers
-if test "x$with_aif" != xcheck; then
-	if test "x$with_aif" = x; then
-		dnl Error condition. Check default system location.
-		AC_CHECK_HEADER([aif.h],
-				[],
-				[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-				)
-		AC_CHECK_HEADER([fds.h],
-			       	[],
-				[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-				)
-	else
-		AC_MSG_CHECKING([for aif.h])
-		if test -f "$with_aif/include/aif.h"; then
-			AC_MSG_RESULT([$with_aif/include/aif.h])
-		else
-			AC_MSG_RESULT([not found])
-			AC_MSG_ERROR([aif.h not found in given path.])
-		fi
-
-		AC_MSG_CHECKING([for fds.h])
-		if test -f "$with_aif/include/fds.h"; then
-			AC_MSG_RESULT([$with_aif/include/fds.h])
-		else
-			AC_MSG_RESULT([not found])
-			AC_MSG_ERROR([fds.h not found in given path.])
-		fi
-
-		dnl if we get here, we have passed the checks.
-		CPPFLAGS="$CPPFLAGS -I$with_aif/include"
-	fi
-else
-	dnl Error condition. Check default system location.
-	AC_CHECK_HEADER([aif.h],
-			[],
-			[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-			)
-
-	AC_CHECK_HEADER([fds.h],
-			[],
-			[AC_MSG_ERROR([You must have libaif to compile gdb4hpc.])]
-			)
-fi
 
 dnl Check for libmi headers
 if test "x$GDB" != xno && test "x$mi_mode" != xno; then

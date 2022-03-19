@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -341,8 +341,8 @@ int main(int argc, char *argv[]) {
     Client.set_env_list = NewList();  // Env vars from set env cmd
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
-    Client.cmp_lower_eps = DoubleToAIF(ulp);
-    Client.cmp_upper_eps = DoubleToAIF(ulp);
+    Client.cmp_lower_eps = ulp;
+    Client.cmp_upper_eps = ulp;
     Client.brk_pending = PendingBrkType::Auto;  // Allow pending breakpoints?
 
     /*

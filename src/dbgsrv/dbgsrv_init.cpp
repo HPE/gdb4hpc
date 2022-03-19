@@ -366,6 +366,7 @@ std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
                                   NewErrorEvent(DBGERR_DEBUGGER, "symbol file command failed: %s",
                                                 MICommandResultErrorMessage(cmd)));
         }
+        MICommandFree(cmd);
     }
 
     if (auto x = setEntryBPsL(); x.first || x.second) return x;

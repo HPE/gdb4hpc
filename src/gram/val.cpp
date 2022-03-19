@@ -3,19 +3,13 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
 /*
@@ -75,10 +69,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "aif.h"
 #include "dbg_client.h"
 #include "defs.h"
-#include "fds.h"
 #include "gram.h"
 #include "useful.h"
 
@@ -151,7 +143,7 @@ rval_type GetActualRvalType(val_t *val) {
 /*
 ** This function is used to return the actual AIF val, ignoring refs.
 */
-AIF *GetActualAIF(val_t *val) {
+AIFStream *GetActualAIF(val_t *val) {
     rval_ref_val *ref;
 
     if (val == NULL) return NULL;
@@ -178,11 +170,11 @@ AIF *GetActualAIF(val_t *val) {
                     }
 
                     // return the base
-                    return AIF_VAL(*(ref->ref_val))->joinAIF();
+                    return AIF_VAL(*(ref->ref_val))->join();
 
                 case rval_aif:
                     // Can return the AIF type directly
-                    return AIF_VAL(RVAL_REF_VAL(val))->joinAIF();
+                    return AIF_VAL(RVAL_REF_VAL(val))->join();
 
                 // Everything else is an error!
                 default:
@@ -196,7 +188,7 @@ AIF *GetActualAIF(val_t *val) {
 
         case rval_aif:
             // Can return the AIF type directly
-            return (RVAL_AIF(val) ? RVAL_AIF(val)->joinAIF() : nullptr);
+            return (RVAL_AIF(val) ? RVAL_AIF(val)->join() : nullptr);
 
         // Everything else is an error!
         default:
@@ -338,8 +330,7 @@ dbgprocset_t *GetActualProcset(val_t *val) {
 ** Retrieve the contents of a val_t from the backend
 */
 int RetrieveContents(val_t *val, rec_set_t *rec_set) {
-    AIF *a = NULL;
-    char *target_expr = NULL;
+    AIFStream *a = NULL;
     dbgprocset_t *target_procset = NULL;
     rec_set_t *target_recset = NULL;
     rep_set_t *rep_set = NULL;
@@ -352,7 +343,7 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
     // We need to evaluate the value of the variable on the debug backends
 
     // Set the target_procset/target_expr based on the lval type
-
+    auto target_expr = std::string{};
     switch (LVAL_TYPE(val)) {
         case lval_gdb:
             DPRINT("RetrieveContents: lval is lval_gdb\n");
@@ -374,9 +365,17 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
             if (RVAL_ACTUAL_TYPE(val) != rval_aif) return 0;
 
             // if the rval is not null, return and use the cached value
-            if (RVAL_ACTUAL_AIF(val) != NULL) return 0;
+            if (RVAL_ACTUAL_AIF(val)) {
+                return 0;
+            } else {
+                // [[..]] is meta-data, we use to give the expected length it couldn't
+                // get from a raw C/C++ pointer.
+                auto bm = LVAL_BM_BLOCKMAP(val);
+                std::ostringstream os;
+                os << "[[@" << BlockMapGetElementsPerRank(bm) << "]]" << LVAL_BM_GDB_EXPR(val);
+                target_expr = os.str();
+            }
 
-            target_expr = LVAL_BM_GDB_EXPR(val);
             target_procset = LVAL_BM_GDB_PROCSET(val);
             break;
 
@@ -416,7 +415,7 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
     }
 
     // Evaluate the expression
-    rep_set = DbgEvalExpr(rec_set, target_expr);
+    rep_set = DbgEvalExpr(rec_set, target_expr.c_str());
 
     // Process errors - If there were no replies in the set we want to make sure
     // the rval gets NULL'ed. I don't think this is ever possible without an
@@ -450,53 +449,28 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
 
     // Set the RVAL based on its type.
     // Conduct special post processing for blockmap types
-    // Note that the rval data gets free'ed when the val is destroyed
-    switch (LVAL_TYPE(val)) {
-        case lval_gdb:
-            // assign the reply to the val
-            RVAL_REPLY(val) = rep_set;
-            break;
+    auto bm = ( LVAL_TYPE(val) == lval_blockmap ? LVAL_BM_BLOCKMAP(val) : nullptr);
 
-        case lval_blockmap:
-            // construct the blockmap based on the replies - This does error
-            // checking for us.
-            a = construct_blockmap_data(LVAL_BM_BLOCKMAP(val),
-                                        LVAL_BM_GDB_PROCSET(val),
-                                        LVAL_BM_ARRAY_SIZE(val), rep_set);
-            //if aif data is a pointer type change target_expr and
-            //try construct_blockmap_data again
-            if(a && strstr(AIF_DATA(a),"*")){
-                //get pointer array length from decomposition
-                Free(a);
-                int ptrLen=1;
-                for (int i=0; i<LVAL_BM_BLOCKMAP(val)->m_rank;i++){
-                    int temp=LVAL_BM_BLOCKMAP(val)->m_data[i];
-                    temp=temp/(LVAL_BM_BLOCKMAP(val)->m_procs[i]);
-                    ptrLen *= temp;
-                }
-                //concatenate length to target_expr
-                std::string targetStr = target_expr;
-                std::string fullStr = targetStr + "[0]@"+std::to_string(ptrLen)+"\0";
-                target_expr = (char *)fullStr.c_str();
-                //evaluate with new target_expr
-                Free(rep_set);
-                rep_set = DbgEvalExpr(rec_set, target_expr);
-                Free(LVAL_BM_GDB_EXPR(val));
-                LVAL_BM_GDB_EXPR(val)=strdup(target_expr);
-                //construct new blockmap_data
-                a = construct_blockmap_data(LVAL_BM_BLOCKMAP(val),
-                                        LVAL_BM_GDB_PROCSET(val),
-                                        LVAL_BM_ARRAY_SIZE(val), rep_set);
-            }
-            // Free the rep_set, we are done with it
-            FreeRepSet(rep_set);
-            // assign the AIF result to the val
-            RVAL_AIF(val) = new AIFStream(a);
-            break;
+    if (bm && !BlockMapIsDegen(bm)) {
+        // construct the blockmap based on the replies - This does error
+        // checking for us.
+        a = construct_blockmap_data(bm, LVAL_BM_GDB_PROCSET(val),
+                                    LVAL_BM_ARRAY_SIZE(val), rep_set);
+        // Free the rep_set, we are done with it
+        FreeRepSet(rep_set);
+        // assign the AIF result to the val
+        RVAL_AIF(val) = a;
+    } else if (bm) {
+        // A degenerate blocks map has every dimension listed as "distributed",
+        // ie '*'.   These are treated like regular values, the decomposition
+        // just defines the shape
+        RVAL_TYPE(val) = rval_reply;
+        RVAL_REPLY(val) = rep_set;
 
-        default:
-            // do nothing
-            break;
+    } else if (LVAL_TYPE(val) == lval_gdb) {
+        // assign the reply to the val
+
+        RVAL_REPLY(val) = rep_set;
     }
 
     // cleanup
@@ -568,7 +542,7 @@ val_t *NewVal(lval_type ltype, ...) {
             break;
 
         case rval_aif:
-            RVAL_AIF(v) = new AIFStream(va_arg(args, AIF *));
+            RVAL_AIF(v) = va_arg(args, AIFStream *);
             break;
 
         case rval_proc:
@@ -807,7 +781,7 @@ val_t *CopyVal(val_t *val) {
                     break;
 
                 case rval_aif:
-                    v = NewVal(lval_none, rval_aif, CopyAIF(RVAL_AIF(val)->joinAIF()));
+                    v = NewVal(lval_none, rval_aif, RVAL_AIF(val)->join()->clone());
                     break;
 
                 case rval_blockmap:
@@ -843,7 +817,7 @@ val_t *CopyVal(val_t *val) {
 
                 case rval_aif:
                     v = NewVal(lval_internal, LVAL_SYM(val), rval_aif,
-                               CopyAIF(RVAL_AIF(val)->joinAIF()));
+                               RVAL_AIF(val)->join()->clone());
                     break;
 
                 case rval_blockmap:
@@ -958,7 +932,7 @@ int AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         return -1;
                     }
                     val = NewVal(lval_internal, LVAL_SYM(lval), rval_aif,
-                                 CopyAIF(RVAL_AIF(rval)->joinAIF()));
+                                 RVAL_AIF(rval)->join()->clone());
                     break;
 
                 case rval_proc:

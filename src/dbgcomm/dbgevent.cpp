@@ -167,7 +167,7 @@ dbgevent_t *DupEvent(dbgevent_t *event) {
 
         case DBGEV_DATA:
         case DBGEV_DATA_SLICE:
-            e->ev_data = (event->ev_data ? new AIFStream(*event->ev_data) : nullptr);
+            e->ev_data = (event->ev_data ? event->ev_data->clone() : nullptr);
             break;
 
         case DBGEV_LIST:
@@ -988,7 +988,7 @@ const char *DbgevToStr(dbgev ev) {
 }
 
 dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
-    fprintf(stderr, "In NewErrorEvent\n");
+    fprintf(stderr, "In NewErrorEvent %s\n", fmt);
     
     auto e = NewEvent(DBGEV_ERROR);
     e->ev_errno = err;

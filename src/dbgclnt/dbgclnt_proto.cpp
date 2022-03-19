@@ -3,7 +3,7 @@
  *
  * Copyright 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -24,7 +24,6 @@
 #include <string.h>
 #include <filesystem>
 
-#include "aif.h"
 #include "bitset.h"
 #include "dbg_client.h"
 #include "dbgclnt_proto.h"

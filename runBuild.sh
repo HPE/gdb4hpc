@@ -53,25 +53,6 @@ if [[ ! -x "$python_loc" ]]; then
 fi
 
 echo "############################################"
-echo "#               Building libaif            #"
-echo "############################################"
-
-cd $top_level/libaif
-check_exit_status
-
-autoreconf -ifv
-check_exit_status
-
-CFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir
-check_exit_status
-
-make $cdst_j_flags
-check_exit_status
-
-make $cdst_j_flags install
-check_exit_status
-
-echo "############################################"
 echo "#               Building libmi             #"
 echo "############################################"
 
@@ -334,7 +315,7 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-aif=$install_dir --with-rd --with-mrnet=$install_dir --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-rd --with-mrnet=$install_dir --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
 
 check_exit_status
 

@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "aif.h"
 #include "dbg.h"
 #include "defs.h"
 #include "useful.h"
@@ -349,52 +348,6 @@ static char *EventListToSocProto(dbgev ev, dbglist_t *le) {
     return wrappedStr;
 }
 
-
-char *AIFToSocProto(AIF *a) {
-    if (a == NULL) return strdup("");
-
-    // Can directly print the format
-    int fl = strlen(AIF_FORMAT(a));
-    const char* aif_format = AIF_FORMAT(a);
-
-    // Convert the data to string format
-    int dl = AIF_LEN(a);
-    char *aif_data = nullptr;
-    if (dl > 0) {
-        aif_data = (char *)Alloc(2 * dl + 1);
-        const char* src = AIF_DATA(a);
-        char* dst = aif_data;
-        for (int i = 0; i < dl; i++) {
-            char ch = *src++;
-            // Need to ensure that the NULL char doesn't appear, hence the '0'
-            // offset
-            // FIXME: This seems messed up and a dumb way of transferring data.
-            // Someone needs to investigate if this is actually necessary...
-            // !!!!!FIXME FIXME FIXME - HOLY MOTHER IF GOD IT IS **DOUBLING** THE
-            // SIZE OF THE DATA!!!!!!!!!!!!
-            *dst++ = ((ch >> 4) & 0xf) + '0';
-            *dst++ = (ch & 0xf) + '0';
-        }
-        *dst = '\0';
-    }
-
-    char *stres = nullptr;
-    if (fl <= 0 && dl <= 0) {
-        Asprintf(&stres, "%d %d", fl, dl);
-    } else if (fl <= 0 && dl > 0) {
-        Asprintf(&stres, "%d %d %zu %s", fl, dl, strlen(aif_data), aif_data);
-    } else if (fl > 0 && dl <= 0) {
-        Asprintf(&stres, "%d %s %d", fl, aif_format, dl);
-    } else if (fl > 0 && dl > 0) {
-        Asprintf(&stres, "%d %s %d %zu %s", fl, aif_format, dl, strlen(aif_data),
-                 aif_data);
-    }
-
-    if (aif_data != NULL) Free(aif_data);
-
-    return stres;
-}
-
 static char *EventStatusToSocProto(dbgev ev, dbgstatus_t *se) {
     if (!se) return MakeSocStr(ev, "");
 
@@ -557,21 +510,8 @@ static char *EventDataToSocProto(dbgev ev, AIFStream *stream) {
     if (stream == nullptr) return MakeSocStr(ev, "");
 
     bool isFinal = false;
-    AIF *aif = stream->getNextSlice(isFinal); // updates truncation info in the stream
-    if (aif == nullptr) return MakeSocStr(ev, "");
-
-    // make aif string
-    char *aifStr = AIFToSocProto(aif);
-
-    // get truncation info
-    // a truncation length of zero means no truncation
-    size_t truncLen = stream->getTruncatedLength();
-
-    // attach to soc proto string
-    char *stres = MakeSocStr(ev, "%s %zu", aifStr, truncLen);
-
-    free(aifStr);
-    return stres;
+    auto slice = stream->getNextSlice(isFinal);
+    return MakeSocStr(ev, "%s", slice.c_str());
 }
 
 OSocStream::OSocStream(dbgcmd cmd) : m_cmd(cmd) {}
@@ -600,14 +540,6 @@ OSocStream& OSocStream::operator<<(const std::pair<int,char**>& args) {
     for (int i=0; i<argc; ++i) {
         *this << args.second[i];
     }
-    return *this;
-}
-OSocStream& OSocStream::operator<<(AIF* val) {
-
-    auto aifStr = AIFToSocProto(val);
-    *this << aifStr;
-    free(aifStr);
-
     return *this;
 }
 
@@ -720,82 +652,13 @@ static dbgvars_t *SocProtoToVars(const char *s) {
     return res;
 }
 
-AIF *SocProtoToAIF(const char *s) {
-    AIF *res;
-    char *aif_fmt;
-    int dl;
-    char *aif_data;
-    char *dptr;
-    char *aptr;
-    int i;
-
-    NULL_GUARD(s);
-
-    res = (AIF *)Alloc(sizeof(AIF));
-
-    // get the format
-    aif_fmt = getstring(s);
-
-    // set the format
-    if (*aif_fmt != '\0') {
-        AIF_FORMAT(res) = aif_fmt;
-    } else {
-        Free(aif_fmt);
-        AIF_FORMAT(res) = (char *)NULL;
-    }
-
-    // get the length of the actual aif data
-    dl = getint(s);
-    AIF_LEN(res) = dl;
-
-    if (dl <= 0) {
-        AIF_DATA(res) = (char *)NULL;
-    } else {
-        // Get the aif_data string
-        aif_data = getstring(s);
-
-        if (*aif_data == '\0') {
-            // Data is empty, so reset to empty
-            AIF_LEN(res) = 0;
-            AIF_DATA(res) = (char *)NULL;
-        } else {
-            AIF_DATA(res) = (char *)Alloc(dl);
-            aptr = AIF_DATA(res);
-            dptr = aif_data;
-            // FIXME: This seems messed up and a dumb way of transferring data.
-            // Someone needs to investigate if this is actually necessary...
-            for (i = 0; i < dl; i++) {
-                *aptr = (*dptr - '0') * 0x10 + (*(dptr + 1) - '0');
-                aptr++;
-                dptr += 2;
-            }
-        }
-
-        Free(aif_data);
-    }
-
-    return res;
+AIFStream *SocProtoToAIF(const char *s) {
+    return new AIFStream{s, false};
 }
 
+
 static AIFStream *SocProtoToAIFStream(const char *s) {
-    // extract AIF
-    AIF *aif = SocProtoToAIF(s);
-
-    // advance s past AIF data
-    // skip AIF format string
-    s = skipstring(s);
-
-    // skip data size
-    getint(s);
-
-    // skip data string
-    s = skipstring(s);
-
-    size_t truncationLen = (size_t)getint(s);
-    AIFStream *result = new AIFStream(aif);
-    result->setTruncatedLength(truncationLen);
-
-    return result;
+    return new AIFStream{s, false};
 }
 
 static dbglist_t *SocProtoToList(const char *s) {
@@ -1109,7 +972,6 @@ dbgevent_t *SocProtoToEvent(const char *s) {
 
         case DBGEV_OK:
             // OK has no data
-            e = NewEvent(ev);
             break;
 
         case DBGEV_ERROR:

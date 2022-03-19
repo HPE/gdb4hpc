@@ -22,7 +22,6 @@
 #define _USEFUL_H
 #include "alloc.h"
 #include "args.h"
-#include "array.h"
 #include "debug.h"
 #include "error.h"
 #include "exec.h"

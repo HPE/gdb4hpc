@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbgserv_util.h
  *
- * Copyright 2011-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -19,7 +19,6 @@
 #ifndef _DBGSRV_UTIL_H
 #define _DBGSRV_UTIL_H
 
-#include "aif.h"
 #include "useful.h"
 
 typedef struct blockmap_info {
@@ -45,13 +44,7 @@ void ParseHistogramArgs(char *, int *, double *, double *);
 void ParseBlockMapArgs(char *, blockmap_info *);
 void ParseP2PArgs(char *, char *, int *, blockmap_info *, blockmap_info *);
 
-AIF *PerformSlicing(AIF *, char *, bool);
-AIF *PerformHash(AIF *, char *, int, int, int);
-AIF *PerformHashMI(char *, char *, const ArrayDimension *, char *, int, int, int);
-
-void SliceSocketSend(int, AIF *);
-AIF *SliceSocketReceive(void);
-AIF *PerformP2P(AIF *, char *, int, int *);
+AIFStream *SliceSocketReceive(void);
 
 // Get the size of the virtual data segment of the current process
 // in megabytes.

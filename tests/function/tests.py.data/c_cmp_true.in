@@ -63,14 +63,14 @@ b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_t
 45: #compare $a{0}::c=$b{0}::c
 47: #signed char
 48: print sc
-a{0..2}: \0xFE
-b{0..2}: \0xFE
+a{0..2}: -2 '\xFE'
+b{0..2}: -2 '\xFE'
 49: compare $a{0}::sc=$b{0}::sc
 {0}: Comparison is true.
 51: #unsigned char
 52: print uc
-a{0..2}: 3
-b{0..2}: 3
+a{0..2}: 3 '\x03'
+b{0..2}: 3 '\x03'
 53: compare $a{0}::uc=$b{0}::uc
 {0}: Comparison is true.
 55: #short
@@ -219,8 +219,8 @@ b{0..2}: 27.1
 {0}: Comparison is true.
 151: #long double
 152: print ld
-a{0..2}: 28.19999999999999928945726423989981
-b{0..2}: 28.19999999999999928945726423989981
+a{0..2}: 28.1999999999999993
+b{0..2}: 28.1999999999999993
 153: compare $a{0}::ld=$b{0}::ld
 {0}: Comparison is true.
 155: #continue

@@ -278,7 +278,7 @@ dbgevent_t *DbgGetFrame(const char* threads) {
     return DbgBackendSW->getFrame(threads);
 }
 
-dbgevent_t *DbgSetDebuggerVar(const char *var, AIF *val) {
+dbgevent_t *DbgSetDebuggerVar(const char *var, const char *val) {
     ResetWDT();
     DBG_READY();
     return DbgBackendSW->setDebuggerVar(var, val);
@@ -320,10 +320,10 @@ dbgevent_t *DbgRestoreAfterDirectCmd() {
     return DbgBackendSW->restoreAfterDirectCmd();
 }
 
-dbgevent_t *DbgSetVar(const char *var, AIF *data, const char* threads) {
+dbgevent_t *DbgSetVar(const char *var, const char* val, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->setVar(var, data, threads);
+    return DbgBackendSW->setVar(var, val, threads);
 }
 
 dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {

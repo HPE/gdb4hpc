@@ -100,7 +100,10 @@ Script $decomp
 4. AssertID 8 Failure
 56: info diff 4
 Script $decomp AssertID 8 Failure
-The difference: [[0,0,0,0],[0,0,0,0],[-10007.9,-10008.9,-10009.9,-10010.9],[0,0,0,0]]
+The difference: [2][0]:10007.9
+[2][1]:10008.9
+[2][2]:10009.9
+[2][3]:10010.9
 58: q
 Shutting down debugger and killing application for 'lhs'.
 Shutting down debugger and killing application for 'rhs'.

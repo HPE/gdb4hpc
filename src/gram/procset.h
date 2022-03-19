@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -99,5 +99,6 @@ typedef struct dbgprocset_t dbgprocset_t;
 dbgprocset_t *FindProcSet(char *procsetName);
 bool CheckProcSet(hentry_t* sym);
 void SetProcSetThreads(dbgprocset_t* procSet, const char* threads);
+std::string GetProcSetString(const char* setName, const Bitset* group, const char* threads);
 
 #endif /* !_PROCSET_H */

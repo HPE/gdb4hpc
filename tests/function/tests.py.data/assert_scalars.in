@@ -44,7 +44,7 @@ Warning: Range use detected in procset for command ($a{0..1}). Only operating on
 22:     # assert $a{0}::c@"c_type_test.c":160 = $b{0}::one_d_i_init[1]@"c_cmp_diff.c":90
 23:     
 24:     # generate a warning by setting acceptable error
-25:     set error 1 2
+25:     set error 0.99 1.99
 26:     assert $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
 27:     
 28:     # generate an error by reducing acceptable error
@@ -129,7 +129,7 @@ Script $scalars
 6. AssertID 9 Failure
 48: info diff 2
 Script $scalars AssertID 5 Failure
-The difference: 1
+The difference: -1
 49: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

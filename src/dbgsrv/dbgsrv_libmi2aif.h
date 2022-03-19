@@ -1,7 +1,7 @@
 /******************************************************************************\
  * Header file for libmi to aif conversion routines
  *
- * Copyright 2011-2013,2020 Hewlett Packard Enterprise Development LP.	All Rights Reserved.
+ * Copyright 2011-2013,2020-2022 Hewlett Packard Enterprise Development LP.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,7 +22,6 @@
 // requisite includes
 #include "MI.h"
 #include "MIOOBRecord.h"
-#include "aif.h"
 #include "dbgevent.h"
 
 /********************************************************
@@ -191,6 +190,5 @@
  * Function prototypes
  */
 dbgevent_t *GetAIFVar(MISession *, const char *, AIFStream **, char **);
-dbgevent_t *GetAIFVarHash(MISession *, char *, AIF **, char *, int, int, int);
 
 #endif /* _DBGSRV_LIBMI2AIF_H */

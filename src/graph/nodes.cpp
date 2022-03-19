@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -30,6 +30,7 @@
 #include "defs.h"
 #include "df.h"
 #include "useful.h"
+#include "aifCompat.h"
 
 #define TSTORE_SIZE 100
 #define HSTORE_SIZE 7 /* 2^7 = 128 */
@@ -58,9 +59,10 @@ htable_t *InvokeStore = (htable_t *)NULL;
 
 token_t *binop_apply(graph_t *, node_t *, arith_op);
 token_t *unop_apply(graph_t *, node_t *, arith_op);
-token_t *binop_aif(graph_t *, node_t *, arith_op, char *, AIF *, char *, AIF *);
 
 int socket_on = 0;
+
+extern void rd_unimplemented(const char* func);
 
 /*************************************************************
 **************************************************************
@@ -403,33 +405,34 @@ token_t *NodeNegate(graph_t *g, node_t *n) { return unop_apply(g, n, op_neg); }
 /*
 ** Apply operator when we know the type of the operands
 */
-token_t *binop_aif(graph_t *g, node_t *n, arith_op op, char *n1, AIF *d1,
-                   char *n2, AIF *d2) {
+token_t *binop_aif(graph_t *g, node_t *n, arith_op op, char *n1, AIFStream *d1,
+                   char *n2, AIFStream *d2) {
     int res;
     int v = 0;
-    AIF *d = NULL;
+    AIFStream *d = NULL;
     token_t *t;
+    std::string errMsg;
 
     switch (op) {
         case op_add:
-            d = AIFAdd(d1, d2);
+            d = AIFStream::add(d1, d2);
             break;
 
         case op_sub:
             DFMsg("Comparing %s and %s.", n1, n2);
-            d = AIFSub(d1, d2);
+            d = AIFStream::sub(d1, d2);
             break;
 
         case op_mul:
-            d = AIFMul(d1, d2);
+            d = AIFStream::mul(d1, d2);
             break;
 
         case op_div:
-            d = AIFDiv(d1, d2);
+            d = AIFStream::div(d1, d2);
             break;
 
         case op_rem:
-            d = AIFRem(d1, d2);
+            d = AIFStream::rem(d1, d2);
             break;
 
         case op_eq:
@@ -441,8 +444,9 @@ token_t *binop_aif(graph_t *g, node_t *n, arith_op op, char *n1, AIF *d1,
             // FIXME: This doesn't work for all AIF types. Some AIF types like
             // arrays will not return negative values from the compare function.
             // This needs to be rewritten.
-            if (AIFCompare(d1, d2, &res, NULL, NULL, NULL) < 0) {
-                DFError(n, "%s", AIFErrorStr());
+            if (AIFStream::Difference diff;
+                AIFStream::compare(d1, d2, &res, diff, NULL, NULL, errMsg) < 0) {
+                DFError(n, "%s", errMsg.c_str());
                 return (token_t *)NULL;
             }
 
@@ -475,22 +479,22 @@ token_t *binop_aif(graph_t *g, node_t *n, arith_op op, char *n1, AIF *d1,
                     break;
             }
 
-            d = IntToAIF(v);
+            d = AIFStream::fromInt(v);
             break;
 
         case op_and:
-            d = AIFAnd(d1, d2);
+            d = AIFStream::And(d1, d2);
             break;
 
         case op_or:
-            d = AIFOr(d1, d2);
+            d = AIFStream::Or(d1, d2);
             break;
 
         case op_neg:
             break;
     }
 
-    if (d == (AIF *)NULL) {
+    if (d == nullptr) {
         DFError(n, "%s", AIFErrorStr());
         return (token_t *)NULL;
     }
@@ -572,7 +576,7 @@ token_t *binop_aif(graph_t *g, node_t *n, arith_op op, char *n1, AIF *d1,
 token_t *binop_apply(graph_t *g, node_t *n, arith_op op) {
     int v;
     double f;
-    AIF *d;
+    AIFStream *d{};
     token_t *t;
     token_t *t1;
     token_t *t2;
@@ -588,14 +592,14 @@ token_t *binop_apply(graph_t *g, node_t *n, arith_op op) {
                     break;
 
                 case TK_INT:
-                    if ((d = IntToAIF(t2->t_int)) == (AIF *)NULL) {
+                    if (!(d = AIFStream::fromInt(t2->t_int))) {
                         DFError(n, "%s", AIFErrorStr());
                         return (token_t *)NULL;
                     }
                     break;
 
                 case TK_FLOAT:
-                    if ((d = DoubleToAIF(t2->t_float)) == (AIF *)NULL) {
+                    if (!(d = AIFStream::fromDouble(t2->t_float))) {
                         DFError(n, "%s", AIFErrorStr());
                         return (token_t *)NULL;
                     }
@@ -611,7 +615,7 @@ token_t *binop_apply(graph_t *g, node_t *n, arith_op op) {
         case TK_INT:
             switch (t2->t_type) {
                 case TK_DATA:
-                    if ((d = IntToAIF(t1->t_int)) == (AIF *)NULL) {
+                    if ((d = AIFStream::fromInt(t1->t_int)) == NULL) {
                         DFError(n, "%s", AIFErrorStr());
                         return (token_t *)NULL;
                     }
@@ -695,7 +699,7 @@ token_t *binop_apply(graph_t *g, node_t *n, arith_op op) {
         case TK_FLOAT:
             switch (t2->t_type) {
                 case TK_DATA:
-                    if ((d = DoubleToAIF(t1->t_float)) == (AIF *)NULL) {
+                    if ((d = AIFStream::fromDouble(t1->t_float)) == NULL) {
                         DFError(n, "%s", AIFErrorStr());
                         return (token_t *)NULL;
                     }
@@ -785,7 +789,7 @@ token_t *binop_apply(graph_t *g, node_t *n, arith_op op) {
 ** Apply unary operator op to a token.
 */
 token_t *unop_apply(graph_t *g, node_t *n, arith_op op) {
-    AIF *d = NULL;
+    AIFStream *d = nullptr;
     token_t *t;
     token_t *t1;
 
@@ -795,14 +799,14 @@ token_t *unop_apply(graph_t *g, node_t *n, arith_op op) {
         case TK_DATA:
             switch (op) {
                 case op_neg:
-                    d = AIFNeg(t1->t_data);
+                    d = AIFStream::neg(t1->t_data);
                     break;
 
                 default:
                     break;
             }
 
-            if (d == (AIF *)NULL) {
+            if (d == NULL) {
                 DFError(n, "%s", AIFErrorStr());
                 return (token_t *)NULL;
             }
@@ -877,13 +881,17 @@ token_t *NodeConst(graph_t *g, node_t *n) {
 ** Permute an array.
 */
 token_t *NodePermute(graph_t *g, node_t *n) {
+    rd_unimplemented("NodePermute");
+    return nullptr;
+    
+    /*
     int i;
     int nd;
     int *new_ids;
     token_t *t;
     token_t *t0;
-    AIF *a;
-    AIF *na;
+    AIFStream *a;
+    AIFStream *na;
 
     t0 = GetTokenFromInput(n, 0);
 
@@ -926,24 +934,16 @@ token_t *NodePermute(graph_t *g, node_t *n) {
     Free(new_ids);
 
     return t;
+    */
 }
 
 /*
 ** Return type of variable.
 */
 token_t *NodeTypeSet(graph_t *g, node_t *n) {
-    token_t *t;
-    token_t *t0;
-    AIF *a;
 
-    t0 = GetTokenFromInput(n, 0);
-
-    // DONNY TODO FIXME
-    // We use (0) as the "base".
-    a = t0->t_data_set[0];
-
-    t = NewToken(g, TK_STR);
-    t->t_str = strdup(AIF_FORMAT(a));
+    auto t = NewToken(g, TK_STR);
+    t->t_str = strdup("AIFStream");
 
     return t;
 }
@@ -1021,26 +1021,13 @@ token_t *NodeExit(graph_t *g, node_t *n) {
 }
 
 token_t *NodeBlockMapSet(graph_t *g, node_t *n) {
-    int i;
-    int np;
-    token_t *t0;
-    token_t *t1;
-    token_t *t2;
-    token_t *t;
-    g_block_map_t *m;
-    AIF *a;
-    AIF **d;
-    AIF **da;
-    char *hashinfo = (char *)NULL;
-    char *tok = (char *)NULL;
-    char *t0_str_tok = (char *)NULL;
-    char *t0_str = (char *)NULL;
 
-    t0 = GetTokenFromInput(n, 0);
-    t0_str_tok = strdup(t0->t_str);
-    t0_str = strdup(t0->t_str);  // needs to be at least t0->t_str in size
+    token_t* t0 = GetTokenFromInput(n, 0);
+    char* t0_str_tok = strdup(t0->t_str);
+    char* t0_str = strdup(t0->t_str);  // needs to be at least t0->t_str in size
 
     // check if slcing info is attached
+    char* tok = nullptr;
     if ((tok = strtok(t0_str_tok, "|")) != (char *)NULL) {
         // ignore it
         strcpy(t0_str, tok);
@@ -1056,7 +1043,11 @@ token_t *NodeBlockMapSet(graph_t *g, node_t *n) {
     // note here we need to ensure that a hash character is
     // present using strchr before calling strtok since we
     // are making assumptions about the string format.
+    char *hashinfo = nullptr;
+
     if (strchr(t0_str_tok, '#') != NULL) {
+        rd_unimplemented("hash values");
+
         tok = strtok(t0_str_tok, "#");
         hashinfo = strdup(tok);
 
@@ -1074,38 +1065,37 @@ token_t *NodeBlockMapSet(graph_t *g, node_t *n) {
         }
     }
 
-    t1 = GetTokenFromInput(n, 1);
-    t2 = GetTokenFromInput(n, 2);
+    // t1 had been used to just pass a type string to AIFApplyBlockMap
+    //token_t* t1 = GetTokenFromInput(n, 1);
+    token_t* t2 = GetTokenFromInput(n, 2);
 
-    if ((m = FindBlockMap(t0_str)) == (g_block_map_t *)NULL) {
+    g_block_map_t *m = FindBlockMap(t0_str);
+    if (!m) {
         DFError(n, "No such blockmap \"%s\"", t0_str);
         return (token_t *)NULL;
     }
 
-    np = t2->t_int;
+    int np = t2->t_int;
+    token_t* t = GetTokenFromInput(n, 3);
+    
+    std::vector<AIFStream*> data(t->t_data_set, t->t_data_set+np);
+    auto blockIter = MakeBlockMapIterator(m);
 
-    d = da = (AIF **)Alloc(sizeof(AIF *) * np);
+    AIFStream* a = new AIFStream{blockIter, data};
 
-    t = GetTokenFromInput(n, 3);
-    for (i = 0; i < np; i++) {
-        // t = GetTokenFromInput(n, i+3);
-        //*d++ = t->t_data;
-        *d++ = t->t_data_set[i];
-    }
-    if ((a = ApplyBlockMap(m, t1->t_str, np, da, hashinfo)) == (AIF *)NULL) {
+    if (!a) {
         DFError(n, GetError());
         ExitDF();
         return (token_t *)NULL;
     }
-    Free(da);
 
     t = NewToken(g, TK_DATA);
     t->t_name = strdup(t0->t_str);
     t->t_data = a;
 
-    if (hashinfo) Free(hashinfo);
-    if (t0_str) Free(t0_str);
-    if (t0_str_tok) Free(t0_str_tok);
+    free(hashinfo);
+    free(t0_str);
+    free(t0_str_tok);
 
     return t;
 }
@@ -1121,16 +1111,12 @@ ConvertRepSetToAIF converts all the "values" into a AIF_STRUCT
 all the "bitsets" are kept within a rep_set_t
 */
 // FIXME: Remove
-static AIF *ConvertRepSetToAIF(rep_set_t *set) {
-    AIF *res = NULL;
-    AIF *value = NULL;
-    int index = 0;
-    char index_str[32];
-    int num = 0;
+static AIFStream* ConvertRepSetToAIF(rep_set_t *set) {
+    AIFStream *res = nullptr;
 
     if (set == NULL) return NULL;
 
-    num = GetNumberOfReply(set);
+    int num = GetNumberOfReply(set);
 
     if (num == 0) return NULL;
 
@@ -1140,11 +1126,17 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
         // Mark the event as save data to prevent the AIF data from being
         // free'ed when the reply is cleaned up.
         // Point at the aif data
-        res = EVENT_DATA(rep->rep_event)->joinAIF(AIFStream::STEAL);
+        res = EVENT_DATA(rep->rep_event)->join();
     } else { /* an array of AIF. Implementation is based on AIFStruct */
+        rd_unimplemented("ConvertRepSetToAIF");
+        /*
+        AIFStream *value = nullptr;
+        int index = 0;
+        char index_str[32];
+
         for (auto rep : set) {
             // point at the aif data
-            value = EVENT_DATA(rep->rep_event)->joinAIF();
+            value = EVENT_DATA(rep->rep_event)->join();
 
             if (res == NULL) {
                 res = EmptyStructToAIF(const_cast<char *>("repset_struct"));
@@ -1155,6 +1147,7 @@ static AIF *ConvertRepSetToAIF(rep_set_t *set) {
             // This will copy the AIF data, no need to save it.
             AIFAddFieldToStruct(res, index_str, value);
         }
+        */
     }
 
     return res;
@@ -1204,7 +1197,7 @@ token_t *NodeGetVar(graph_t *g, node_t *n) {
 
         case lval_blockmap:
             // assign the AIF data directly
-            t->t_data = CopyAIF(RVAL_AIF(v)->joinAIF());
+            t->t_data = RVAL_AIF(v)->join();
             break;
 
         default:
@@ -1231,7 +1224,7 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
     token_t *t1;
     token_t *t2;
     token_t *t3 [[maybe_unused]];
-    AIF **ax;
+    AIFStream **ax;
     int set_length;
     rep_set_t *rep_set;
     dbgprocset_t *procset;
@@ -1268,7 +1261,7 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
 
     set_length = t1->t_set_length;
 
-    ax = (AIF **)Alloc(set_length * sizeof(AIF *));
+    ax = (AIFStream **)Alloc(set_length * sizeof(AIFStream *));
 
     procset_name = t1->t_set_name;
     procset = FindProcSet(procset_name);
@@ -1319,7 +1312,7 @@ token_t *NodeDbgGetVarSet(graph_t *g, node_t *n) {
         for (i = 0; i < set_length; ++i) {
             if (reply->rep_group->test((i + over_set->s_ps_offset))) {
                 // Save the AIF data into the ax
-                ax[i] = EVENT_DATA(reply->rep_event)->joinAIF();
+                ax[i] = EVENT_DATA(reply->rep_event)->join();
             }
         }
     }
@@ -1352,7 +1345,7 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
     token_t *t1;
     token_t *t2;
     token_t *t3 [[maybe_unused]];
-    AIF *a = NULL;
+    AIFStream *a = nullptr;
     rep_set_t *rep_set;
     dbgprocset_t *procset;
     dbg_over_set_t *over_set;
@@ -1424,7 +1417,8 @@ token_t *NodeDbgGetVar(graph_t *g, node_t *n) {
         // to mark this reply as save data to prevent it from being free'ed when
         // we free the reply.
         // point a directly at the event data
-        a = EVENT_DATA(reply->rep_event)->joinAIF(AIFStream::STEAL);
+        a = nullptr;
+        std::swap(a,EVENT_DATA(reply->rep_event));
     }
 
     // cleanup

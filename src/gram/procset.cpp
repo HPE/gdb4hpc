@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -35,8 +35,7 @@ static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, std::unique_ptr<Bitset>&&, i
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void _free_procset(dbgprocset_t *);
-static void _print_with_set_info(const char *, const Bitset *, const char* threads,
-                                 int, int, int, int,
+static void _print_with_set_info(const char *, const Bitset *, const char* threads, bool,
                                  const char *, va_list);
 
 static std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
@@ -747,37 +746,31 @@ dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s) {
     return set;
 }
 
-static void _print_with_set_info(const char *setname, const Bitset *group,
-                                 const char* threads,
-                                 int isOffset, int offset, int len, int isErr,
-                                 const char *f, va_list ap) {
-    std::string set_info = "";
+std::string GetProcSetString(const char *setname, const Bitset *group, const char* threads) {
+    if (!setname) return "";
 
-    if (isOffset) {
-        if (offset >= 0 && len > 0) {
-            set_info = group->toSetString(offset, len);
-        }
-    }
-
-    if (set_info == "") {
-        set_info = group->toSetString();
-    }
-
+    auto info = setname + group->toSetString();
     if (threads && threads[0]) {
         // insert the thread info before the end bracket
-        auto siLen = set_info.size();
-        if (siLen > 0 && set_info[siLen-1] == '}') {
-            set_info[set_info.size() - 1] = ':';
-            set_info += threads;
-            set_info += '}';
+        auto siLen = info.size();
+        if (siLen > 0 && info[siLen-1] == '}') {
+            info[info.size() - 1] = ':';
+            info += threads;
+            info += '}';
         }
     }
 
-    if (setname != NULL) {
+    return info;
+}    
+
+static void _print_with_set_info(const char *setname, const Bitset *group,
+                                 const char* threads, bool isErr,
+                                 const char *f, va_list ap) {
+    if (auto set_info = GetProcSetString(setname, group , threads); !set_info.empty()) {
         if (isErr) {
-            PrintOutError("%s%s: ", setname, set_info.c_str());
+            PrintOutError("%s: ", set_info.c_str());
         } else {
-            PrintOutMsg("%s%s: ", setname, set_info.c_str());
+            PrintOutMsg("%s: ", set_info.c_str());
         }
     }
 
@@ -795,7 +788,7 @@ void PrintMsgWithSetInfo(const char *setname, const Bitset *group, const char *f
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, nullptr, 0, 0, 0, 0, f, ap);
+    _print_with_set_info(setname, group, nullptr, false, f, ap);
 
     // end the va_list
     va_end(ap);
@@ -809,7 +802,7 @@ void PrintMsgWithSetAndThreadInfo(const char *setname, const Bitset* group,
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, threads, 0, 0, 0, 0, f, ap);
+    _print_with_set_info(setname, group, threads, false, f, ap);
 
     // end the va_list
     va_end(ap);
@@ -822,7 +815,7 @@ void PrintErrorWithSetInfo(const char *setname, const Bitset *group, const char 
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, nullptr, 0, 0, 0, 1, f, ap);
+    _print_with_set_info(setname, group, nullptr, true, f, ap);
 
     // end the va_list
     va_end(ap);
@@ -835,7 +828,7 @@ void PrintErrorWithSetAndThreadInfo(const char *setname, const Bitset *group, co
     // setup the va_list
     va_start(ap, f);
 
-    _print_with_set_info(setname, group, threads, 0, 0, 0, 1, f, ap);
+    _print_with_set_info(setname, group, threads, true, f, ap);
 
     // end the va_list
     va_end(ap);

@@ -12,9 +12,9 @@
 12: # $Rev: 1 $
 13: # $Author: kdavis $
 14: #
-16: maint set sync on
-18: # launch 3 instances of the application
-19: launch $a{6}   bd_dt/c/c_type_test.x --debug
+15: maint set sync on
+16: # launch 3 instances of the application
+17: launch $a{6} bd_dt/c/c_type_test.x --debug
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -24,31 +24,25 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:55
-22: # Set a breakpoint at specified line numbers:
-23: break c_type_test.c:193
-a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 193.
-25: continue
-<$a>: Hello World! from process 0
-<$a>: Hello World! from process 1
-<$a>: Hello World! from process 2
-<$a>: Hello World! from process 3
-<$a>: Hello World! from process 4
-<$a>: Hello World! from process 5
-a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:193
-28: # print some local variables
-29: #should be 28.2
-30: print ld
-a{0..5}: 28.19999999999999928945726423989981
-32: #should be -11
-33: print si  
+a{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:55
+18: # Set a breakpoint at specified line numbers:
+19: break c_type_test.c:193
+a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 193.
+20: continue
+a{0..5}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:193
+21: # print some local variables
+22: #should be 28.2
+23: print ld
+a{0..5}: 28.1999999999999993
+24: #should be -11
+25: print si  
 a{0..5}: -11
-0: print main
-a{0..5}: {signed int (*)()} 0xffffff <main>
-0: print test_stack
-a{0..5}: {signed int (*)(signed int)} 0xffffff <test_stack>
-0: print test_func
-a{0..5}: {void (*)(signed int,signed int)} 0xffffff <test_func>
-36: #exit lgdb
-37: q
+26: print main
+a{0..5}: "int (int, char **) <main>"
+27: print test_stack
+a{0..5}: "int (int) <test_stack>"
+28: print test_func
+a{0..5}: "void (int, int) <test_func>"
+29: #exit lgdb
+30: q
 Shutting down debugger and killing application for 'a'.

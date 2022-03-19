@@ -1,7 +1,7 @@
 /******************************************************************************\
  * client_settings.h - Client settings interface definitions.
  *
- * Copyright 2013-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -14,7 +14,6 @@
 #ifndef _CLIENT_SETTINGS_H
 #define _CLIENT_SETTINGS_H
 
-#include "aif.h"
 #include "cli_funcs.h"
 
 enum class PendingBrkType {
@@ -53,8 +52,8 @@ struct clnt_settings {
     int cli_err_fd;             /* error fd */
     int XML_mode;               /* XML output mode */
     list_t* set_env_list;       /* Env vars from set env cmd */
-    AIF* cmp_lower_eps;         /* Lower eps limit */
-    AIF* cmp_upper_eps;         /* upper eps limit */
+    double cmp_lower_eps;         /* Lower eps limit */
+    double cmp_upper_eps;         /* upper eps limit */
     PendingBrkType brk_pending; /* pending breakpoint mode */
 };
 typedef struct clnt_settings clnt_settings_t;

@@ -20,7 +20,6 @@
 
 #include	"defs.h"
 #include	"useful.h"
-#include	"aif.h"
 #include	"gram.h"
 #include	"hash.h"
 

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -36,8 +36,6 @@
 #include "df.h"
 #include "useful.h"
 
-#define GRAPH_TABLE_SIZE 100 /* number that can be active */
-
 /*
 ** Static global variables
 */
@@ -51,7 +49,7 @@ static graph_t *GraphPtr;
 ** static function prototypes
 */
 static void GraphCleanup(int);
-static int DisplayData(AIF *data);
+static int DisplayData(AIFStream *data);
 
 /********************************
  * Info class commands
@@ -943,9 +941,9 @@ void FinishCmd_graph(void) {
 ** Called to display the result of a comparison when the
 ** dataflow interpreter is executing.
 */
-int DisplayData(AIF *data) {
+int DisplayData(AIFStream *data) {
     PrintOutLine("The difference: ");
-    AIFPrint(Client.cli_out_stream, 0, data);
+    data->print(Client.cli_out_stream);
     PrintOutLine("\n");
     return 1;
 }

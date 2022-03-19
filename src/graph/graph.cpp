@@ -30,6 +30,9 @@
 #include "defs.h"
 #include "df.h"
 #include "useful.h"
+#include "aifCompat.h"
+
+extern void rd_unimplemented(const char* func);
 
 extern int NodeEvent(event_set_t *, const Bitset*);
 const clnt_ev_callback_func graph_t::g_dbgevent = NodeEvent;
@@ -188,7 +191,7 @@ void graph_t::print(FILE *fp) const {
                     break;
                 case TK_DATA:
                     PrintToFd(fp, " label=");
-                    AIFPrint(fp, 0, t->t_data);
+                    if (t->t_data) t->t_data->print(fp);
                     break;
             }
 
@@ -353,10 +356,10 @@ int graph_t::outConstAIF(double val, int type)  // just int for now
 
     if (type == AIF_INTEGER) {
         sprintf(buf, "%d", (int)val);
-        t->t_data = IntToAIF((int)val);
+        t->t_data = AIFStream::fromInt((int)val);
     } else if (type == AIF_FLOATING) {
         sprintf(buf, "%f", val);
-        t->t_data = IntToAIF(val);
+        t->t_data = AIFStream::fromDouble(val);
     }
 
     t->t_name = strdup(buf);
@@ -400,7 +403,7 @@ void graph_t::outEdge(int from, int to, int port) {
 **
 ** compare operator
 */
-int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data2, int cmpop) {
+int graph_t::compareData(int id, char *name1, AIFStream *data1, char *name2, AIFStream *data2, int cmpop) {
     // temporary cast until interpace properly uses unsigned
     if (id < 0) {
         PrintOutError("Bad assertion ID\n");
@@ -446,8 +449,7 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
     };
 
     int rtn = 1;
-    int aifResult;
-    AIF *ar = NULL;
+    int result;
     graph_t::ainfo_t *ai;
 
     // XXX: using id rather than uid since FindAssertInfo still wants signed for now
@@ -465,16 +467,10 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
         fflush(Client.cli_out_stream);*/
 #endif
 
-    // Ensure the error ranges get created
-    if (ai->a_aifupper == NULL || ai->a_aiflower == NULL) {
-        ai->a_aiflower = DoubleToAIF(ai->a_lower);
-        ai->a_aifupper = DoubleToAIF(ai->a_upper);
-    }
-
     // Call the compare function. This handles EPS/diff calculation for us.
-    if (AIFCompare(data1, data2, &aifResult, &ar, ai->a_aiflower,
-                   ai->a_aifupper)) {
-        PrintOutError("AIFCompare Error: %s\n", AIFErrorStr());
+    AIFStream::Difference diff; std::string errMsg;
+    if (AIFStream::compare(data1, data2, &result, diff, &ai->a_lower, &ai->a_upper, errMsg)) {
+        PrintOutError("AIFCompare Error: %s\n", errMsg.c_str());
         if (ai->a_stop)
             return 0;
         else
@@ -484,7 +480,7 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
     /*
     ** save result information that is independent from display type.
     */
-    ComparisonResult res = OpResult(aifResult, cmpop);
+    ComparisonResult res = OpResult(result, cmpop);
     switch (res) {
         case ComparisonResult::PASS:
             // no differences
@@ -497,7 +493,7 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
             // between lo and hi
             g_warn++;
             std::get<1>(g_assert_results[uid])++;
-            AddToList(g_diff, (void*)new graph_diff(id, CopyAIF(ar), "Warning"));
+            AddToList(g_diff, (void*)new graph_diff(id, diff.getResultAIF(), "Warning"));
             // continue on warning
             rtn = 1;
             break;
@@ -505,7 +501,7 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
             // fatal difference
             g_fail++;
             std::get<2>(g_assert_results[uid])++;
-            AddToList(g_diff, (void*)new graph_diff(id, CopyAIF(ar), "Failure"));
+            AddToList(g_diff, (void*)new graph_diff(id, diff.getResultAIF(), "Failure"));
             // if stop is true, we want to stop
             if (ai->a_stop)
                 rtn = 0;
@@ -523,7 +519,6 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
             break;
         case ComparisonResult::UNKNOWN:
             PrintOutError("Unknown difference result.\n");
-            AIFFree(ar);
             if (ai->a_stop)
                 return 0;
             else
@@ -554,26 +549,12 @@ int graph_t::compareData(int id, char *name1, AIF *data1, char *name2, AIF *data
             // display an error
             PrintOutLine("*** Difference found in AssertID %lu ***\n",
                             uid + 1);
-            /*
-            #ifdef DEBUG
-                    fprintf(Client.cli_out_stream, "data1 is:\n");
-                    AIFPrint(Client.cli_out_stream, 0, data1);
-                    fprintf(Client.cli_out_stream, "\ndata2 is:\n");
-                    AIFPrint(Client.cli_out_stream, 0, data2);
-                    fprintf(Client.cli_out_stream, "\n");
-                    fprintf(Client.cli_out_stream, "\ndiff is:\n");
-                    AIFPrint(Client.cli_out_stream, 0, ar);
-                    fprintf(Client.cli_out_stream, "\n");
-                    fflush(Client.cli_out_stream);
-            #endif
-            */
             break;
         default:
             // do nothing
             break;
     }
 
-    AIFFree(ar);
     return rtn;
 }
 

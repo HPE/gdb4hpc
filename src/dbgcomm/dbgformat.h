@@ -21,7 +21,6 @@
 #ifndef _DBGFORMAT_H
 #define _DBGFORMAT_H
 
-#include "aif.h"
 #include "dbgbp.h"
 #include "dbgcmd.h"
 #include "dbgevent.h"
@@ -29,7 +28,7 @@
 #include <sstream>
 
 // TODO: Make this static, everything should be an event or a command
-extern char *AIFToSocProto(AIF *);
+extern char *AIFToSocProto(AIFStream *);
 // Event to network proto string functions
 extern char *EventToSocProto(dbgevent_t *);
 
@@ -37,7 +36,7 @@ extern char *EventToSocProto(dbgevent_t *);
 ** The following define functions for converting from network protocol
 */
 // TODO: Make this static, everything should be an event or a command
-extern AIF *SocProtoToAIF(const char *);
+extern AIFStream *SocProtoToAIF(const char *);
 // Network proto string to event functions.
 extern dbgevent_t *SocProtoToEvent(const char *);
 
@@ -58,7 +57,6 @@ public:
     OSocStream& operator<<(const char*s);
     OSocStream& operator<<(const std::string& s);
     OSocStream& operator<<(const std::pair<int,char**>& args);
-    OSocStream& operator<<(AIF* val);
 
     // retrieve the result string
     std::string str();
@@ -68,9 +66,14 @@ public:
 // parameters to be encoded into the string.
 template<typename ...Targs>
 std::string CommandToSocProto(dbgcmd cmd, Targs&&... args) {
-    OSocStream str(cmd);
-    (void) (str << ... << std::forward<Targs>(args));
-    return str.str();
+    try {
+        OSocStream str(cmd);
+        (void) (str << ... << std::forward<Targs>(args));
+        return str.str();
+    } catch (std::exception& err) {
+        fprintf(stderr, "CommandToSocProto failed: %s\n", err.what());
+        return "";
+    }
 }
 
 

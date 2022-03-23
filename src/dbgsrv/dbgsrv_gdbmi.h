@@ -144,6 +144,9 @@ public:
     MISession* getMISession() const { return m_session; }
     list_t* getExitBPs() const { return m_exitBP; }
     void resetPId() { m_pid = 0; }
+
+    int sendSigstop();
+    bool ignoreSigstop();
 private:
 
     dbgevent_t* setup_gdbmi_environment();
@@ -151,12 +154,17 @@ private:
     dbgevent_t* delete_internal_breakpoints(list_t *bplist);
     std::pair<bool,dbgevent_t*>  setEntryBPs();
     dbgevent_t* continueToEntryPoint();
+    dbgevent_t* trampolineToEntryPoint();
     void setup_pretty_printing();
     void initGpu();
     void setDataDir(const char* gdbType);
     bool entryBPsAreSet();
     bool hasAmdGpus();
-    std::pair<bool,dbgevent_t*> setEntryBPsL();        
+    std::pair<bool,dbgevent_t*> setEntryBPsL();
+
+    using MIEventPtr = std::unique_ptr<MIEvent,decltype(&MIEventFree)>;
+    enum ContinueType { CONTINUE, NEXTI, FINISH };
+    std::pair<MIEventPtr, dbgevent_t*> continueToEvent(ContinueType ctype=CONTINUE);
 
     DbgGdbMI& m_dbg;
     MISession* m_session;
@@ -164,6 +172,7 @@ private:
     int m_pid;
     char* m_runArgs;
     std::string m_executable;
-    
+    bool m_ignoreSigstop = false;
+    bool m_isNonMPI = false;
 };
 

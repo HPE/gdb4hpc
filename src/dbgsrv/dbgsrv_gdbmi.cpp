@@ -3208,6 +3208,14 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
         case MIEventTypeSignal:
             DVPRINT("MIEventTypeSignal %s\n", evt->sigName);
 
+            if (strcmp(evt->sigName,"SIGSTOP") == 0 && m_initializer->ignoreSigstop()) {
+                DVPRINT("ignoring SIGSTOP\n");
+                auto goEvent = go(true,nullptr);
+                auto went = (goEvent && goEvent->ev_event == DBGEV_OK);
+                FreeEvent(goEvent);
+                if (went) return e; // still DBGEV_NONE
+            }
+
             e->ev_event = DBGEV_SIGNAL;
             e->ev_sig_type =
                 (evt->sigName == NULL ? NULL : strdup(evt->sigName));

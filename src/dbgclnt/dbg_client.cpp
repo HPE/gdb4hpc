@@ -91,6 +91,9 @@ static group_reply_t* JoinReplies(const Bitset* group,
 
 static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
+static std::pair<std::string,std::unique_ptr<const char*[]>>
+GetTrampolineArgs(const char* prog, const char* const* args);
+
 /*
 ** Internal Variables
 */
@@ -1505,7 +1508,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                        const char *arch, const char * const *arch_args,
                        const char *arch_input, const char *backend, const char* gdb,
                        char **env,
-                       const char *cwd, int gpu_flag, int debug_flag,
+                       const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
                        int unsafe_flag, int early_entry_flag, bool isNonStop) {
     dbginvoke_t *di;
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
@@ -1542,7 +1545,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     // Check for startup function presence if unsafe is false
-    if (!unsafe_flag) {
+    if (!unsafe_flag && !non_mpi_flag) {
         if (di->d_frontend != nullptr) {
             e = DbgFECheckStartupFunc(di->d_frontend);
 
@@ -1558,6 +1561,8 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
                     "This is usually MPI_Init()/shmem_init()/etc. To bypass "
                     "this check,\n");
                 PrintOutError(
+                    "add the --non-mpi argument to launch, or\n");
+                PrintOutError(
                     "use the command \"maint set unsafe on\". Note that your "
                     "application\n");
                 PrintOutError("may hang during startup.\n");
@@ -1572,12 +1577,24 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
         }
     }
 
+    std::pair<std::string,std::unique_ptr<const char*[]>> trampolineArgs;
+    if (non_mpi_flag) {
+        trampolineArgs = GetTrampolineArgs(prog, argv);
+        if (trampolineArgs.first.empty()) {
+            non_mpi_flag = false;
+        } else {
+            prog = trampolineArgs.first.c_str();
+            argv = trampolineArgs.second.get();
+        }
+    }
+
     // Create the cmd str and set it
     di->d_cmd = ArgvStream(prog, argv).createBuffer();
 
     if (ptab->launch(di, sess, prog, argv, arch, arch_args, arch_input,
-                        backend, gdb, env, cwd, gpu_flag, debug_flag,
-                        early_entry_flag, isNonStop)) {
+                     backend, gdb, env, cwd, gpu_flag, debug_flag,
+                     non_mpi_flag,
+                     early_entry_flag, isNonStop)) {
         FreeDbgInvoke(di);
         return nullptr;
     }
@@ -3928,4 +3945,28 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
     }
 
     return result;
+}
+
+static std::pair<std::string,std::unique_ptr<const char*[]>>
+GetTrampolineArgs(const char* prog, const char* const* args)
+{
+    std::pair<std::string,std::unique_ptr<const char*[]>> retVal;
+
+    auto baseDir = getinstallbase();
+    if (!baseDir) {
+        return retVal;
+    }
+
+    retVal.first = std::string{baseDir} + "/libexec/dbgsrv_trampoline";
+    free(baseDir);
+
+    auto n = size_t{0};
+    for (auto it = args; *it; ++it) ++n;
+
+    auto& targs = retVal.second = std::unique_ptr<const char*[]>{ new const char*[n+2] };
+
+    targs[0] = prog;
+    std::copy(args, args+n+1, &targs[1]);  // +1 for terminator
+
+    return retVal;
 }

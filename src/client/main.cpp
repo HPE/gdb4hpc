@@ -42,10 +42,6 @@
 #include "useful.h"
 #include "df.h"
 
-#ifdef ALPS
-#include "common_tools_fe.h"
-#endif /* ALPS */
-
 /*
  * External Global Variables
  */

@@ -38,6 +38,7 @@
 */
 static int debug_flag = 0;
 static int gpu_flag = 0;
+static int non_mpi_flag = 0;
 static bool non_stop_mode = true;
 static char* gdb_backend = nullptr;
 
@@ -70,6 +71,7 @@ static const struct option launch_long_opts[] = {
     {"sbatch", optional_argument, 0, 's'},
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"non-mpi", no_argument, &non_mpi_flag, 1},
     {"launcher", optional_argument, 0, 'l'},
     {"gdb", required_argument, 0, 'b'},
     {0, 0, 0, 0}};
@@ -338,6 +340,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     optind = 0;
     debug_flag = 0;
     gpu_flag = 0;
+    non_mpi_flag = 0;
     free(gdb_backend);
     gdb_backend = nullptr;
 
@@ -750,7 +753,8 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     // Call the invoke in the dbg_client layer
     di = DbgLaunch(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
                    arch_args, arch_input, backend, gdb, Env, cwd, gpu_flag,
-                   debug_flag, Client.unsafe, Client.early_entry, non_stop_mode);
+                   debug_flag, non_mpi_flag, Client.unsafe,
+                   Client.early_entry, non_stop_mode);
 
     if (di == NULL) {
         // Do not print out an error message here since the lower layer already

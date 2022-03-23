@@ -47,6 +47,9 @@ if MRNET
 dbgsrv_alps_SOURCES 	= dbgsrv_alps_mrn.cpp
 endif
 
+dbgsrv_trampoline_SOURCES = dbgsrv_trampoline.c
+dbgsrv_trampoline_LDFLAGS = -O0
+
 dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS)
 dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
 endif
@@ -55,7 +58,7 @@ endif
 # Build dbgsrv #
 ################
 
-libexec_PROGRAMS= dbgsrv $(CRAY_PROGS)
+libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
 		$(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \

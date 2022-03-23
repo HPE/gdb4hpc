@@ -1116,6 +1116,7 @@ void DbgDispatchEvents(void) {
                                     launch_args->arch_input, launch_args->backend, launch_args->gdb,
                                     launch_args->env, launch_args->cwd,
                                     launch_args->gpu_flag, launch_args->debug_flag,
+                                    launch_args->non_mpi_flag,
                                     launch_args->early_entry_flag,
                                     launch_args->non_stop_flag)) {
                     // Handle error

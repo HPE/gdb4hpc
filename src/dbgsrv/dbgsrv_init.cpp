@@ -325,16 +325,15 @@ bool DbgGdbMI::Initializer::hasAmdGpus() {
 dbgevent_t *DbgGdbMI::Initializer::startup() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
+    DVPRINT("non-mpi is %d\n", non_mpi_flag);
+
     // Setup entry points if we are not running with the special early
     // entry mode:
     if (!early_entry_flag) {
-        if (auto [ entrySet, e] = setEntryBPs(); e) return e;
-        else if (entrySet) {
-            if (auto e = continueToEntryPoint()) return e;
-        } else {
-            DVPRINT("Could not get to entry breakpoint\n");
-        }
-        
+        if (non_mpi_flag) { if (auto e = trampolineToEntryPoint()) return e; }
+        else if (auto [entrySet, e] = setEntryBPs(); e) return e;
+        else if (!entrySet) DVPRINT("Could not get to entry breakpoint\n");
+        else if (auto e = continueToEntryPoint()) return e;
     }
 
     // Initialize UPC, in case the app uses UPC - this will break gpu debugging
@@ -374,28 +373,10 @@ std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
     // first try stepping one instruction, then try doing a continue to get past the
     // symbol load
     for (int attempt = 0; attempt < 2; ++attempt) {
-        // it's possible that another stop signal has happened while we were
-        // already stopped. we flush those old events before listening again
-        // so our call to waitForAsyncEvent doesn't pick up a stale event
-        m_dbg.flushAsyncEvents();
-
-        // send the command
-        auto cmd = ( attempt ? MIExecContinueAll() :
-                     MICommandNew("-exec-next-instruction", MIResultRecordRUNNING));
-        SendMICommand(m_session, cmd);
-
-        if (!MICommandResultOK(cmd)) {
-            auto e = NewErrorEvent(DBGERR_DEBUGGER,MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
+        // try nexti the first time
+        if (auto [evt, e] = continueToEvent(attempt ? CONTINUE : NEXTI); e) {
             return std::make_pair(false,e);
-        } 
-        MICommandFree(cmd);
-
-        DVPRINT("wait for aysnc event\n");
-        MIEvent *evt = m_dbg.waitForAsyncEvent();
-        DVPRINT("got event of type %d\n", evt->type);
-        MIEventFree(evt);
-
+        }
         if (auto x = setEntryBPsL(); x.first || x.second) return x;
 
         DVPRINT("did not install breakpoints\n");
@@ -426,30 +407,26 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         // get all of the frames.
         MICommand* cmd = MIStackListAllFrames();
         SendMICommand(m_session, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "MIStackListAllFrames command failed.");
-            return e;
-        }
-
-        MIList *frames = MIGetStackListFramesInfo(cmd);
-        if (!frames) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
-            return e;
-        }
-        MICommandFree(cmd);
-
-        // parse over the frame list
-        for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
-            if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
-                DVPRINT("continueToEntryPoint: %s: found frame in parallel_entry_BP, frame->level "
-                        "%d, frame->func %s\n", __func__, frame->level, frame->func);
-                break;
+        if (MICommandResultOK(cmd)) {
+            MIList *frames = MIGetStackListFramesInfo(cmd);
+            if (!frames) {
+                MICommandFree(cmd);
+                EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
+                return e;
             }
+            MICommandFree(cmd);
+
+            // parse over the frame list
+            for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
+                if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
+                    DVPRINT("continueToEntryPoint: %s: found frame in parallel_entry_BP, frame->level "
+                            "%d, frame->func %s\n", __func__, frame->level, frame->func);
+                    break;
+                }
+            }
+            // free the MIFrame list
+            MIListFree(frames, (void (*)())MIFrameFree);
         }
-        // free the MIFrame list
-        MIListFree(frames, (void (*)())MIFrameFree);
 
         //if we found a parallel entry point function, select that frame
         if (frame) {
@@ -470,27 +447,8 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         // issue a continue command .. this is assuming we're pre-main or
         // pre-parallel entry point.
         DVPRINT("continueToEntryPoint: trying to continue to start breakpoint attempt = %d\n", attempt);
-
-        // it's possible that another stop signal has happened while we were
-        // already stopped. we flush those old events before listening again
-        // so our call to waitForAsyncEvent doesn't pick up a stale event
-        auto flushed = m_dbg.flushAsyncEvents();
-        DVPRINT("Flushed %d events.\n", flushed);
-
-        cmd = MIExecContinueAll();
-        SendMICommand(m_session, cmd);
-        if (!MICommandResultOK(cmd)) {
-            DVPRINT("continue command failed\n");
-            e = NewErrorEvent(DBGERR_DEBUGGER,
-                              MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
-        MICommandFree(cmd);
-
-        MIEvent *evt = m_dbg.waitForAsyncEvent();
-
-        if (evt->type == MIEventTypeBreakpointHit) {
+        if (auto [evt,e] = continueToEvent(); e) return e;
+        else if (evt->type == MIEventTypeBreakpointHit) {
             DVPRINT("got breakpoint hit event\n");
             // If we hit a main breakpoint, we are done (unset finish).
             // Otherwise check parallel breakpoints
@@ -507,17 +465,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             // that
             DVPRINT("DbgStartup: Received signal %s (%s), trying to recover.\n",
                     evt->sigName, evt->sigMeaning);
-            MIEventFree(evt);
-            evt = nullptr;
-            
             continue;  // for attempt
         } else {
             // shouldn't ever happen in theory, but log it just in case
             DVPRINT("got event type %d, ignoring...\n", evt->type);
         }
 
-        // Free the event
-        MIEventFree(evt);
         break;
         
     } // for (attempt)
@@ -567,31 +520,173 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     if (finish) {
         // now we want to issue the finish command to get back to main.
-        cmd = MIExecFinish();
-        SendMICommand(m_session, cmd);
-        if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "Finish command failed.");
-            return e;
+        if (auto [evt, e] = continueToEvent(FINISH); e) return e;
+        else if (evt->type != MIEventTypeFunctionFinished &&
+                 evt->type != MIEventTypeSuspended) {
+            // we didn't finish the function
+            return NewErrorEvent(DBGERR_DEBUGGER,
+                                 "Failed to finish the entry function.");
         }
-        MICommandFree(cmd);
-
-        MIEvent *evt = m_dbg.waitForAsyncEvent();
-
-        // ensure we finished the function
-        if (evt->type != MIEventTypeFunctionFinished &&
-            evt->type != MIEventTypeSuspended) {
-            EVENT_ERROR(e, DBGERR_DEBUGGER,
-                        "Failed to finish the entry function.");
-            return e;
-        }
-
-        // Free the event
-        MIEventFree(evt);
     }
 
     return nullptr;
 }
+
+// Launch strategy that does not rely on the WLM launch barrier.
+// When this is called, gdb4hpc has launched the program
+// dbgsrv_trampoline instead of the actual application.
+// dbgsrv_trampoline waits for gdb to connect to it before
+// exec's the application which gives gdb4hpc a chance to
+// get a stop set in main.
+dbgevent_t *DbgGdbMI::Initializer::trampolineToEntryPoint() {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    DVPRINT("Load symbol table for %s\n", m_executable.c_str());
+    auto cmd = MIFileSymbolFile(const_cast<char*>(m_executable.c_str()));
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "symbol file command failed: %s",
+                             MICommandResultErrorMessage(cmd));
+    }
+    MICommandFree(cmd);
+
+    // dbgsrv_trampoline calls connectedHook once a second.  Since we don't
+    // know what state we're starting in, and catch exec is also a nebulous
+    // state we just catch the bus at connectHook.
+    DVPRINT("set breakpoint in connectHook\n");
+    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "connectHook", 0);
+    SendMICommand(m_session, cmd);
+    if (MICommandResultOK(cmd)) {
+        std::vector<int> connectBPs;
+        if (auto bpts = MIBreakpointGetBreakInsertInfo(cmd)) {
+            MIListSet(bpts);
+            if (auto bpt = (MIBreakpoint *)MIListGet(bpts))
+                connectBPs.push_back(bpt->number);
+        }
+        MICommandFree(cmd);
+
+        auto [evt,e] = continueToEvent();
+        if (e) {
+            DVPRINT("continue command failed \"%s\"\n", DbgEventErrorStr(e));
+            FreeEvent(e);
+        }
+        
+        DVPRINT("delete the connectHookBP\n");
+        for (auto bp : connectBPs) {
+            cmd = MIBreakDelete(1, &bp);
+            SendMICommand(m_session, cmd);
+            if (!MICommandResultOK(cmd)) DVPRINT("Delete breakpoint failed\n");
+            MICommandFree(cmd);
+        }
+    } else {
+        // The odds of the remaining steps working if we can't set a breakpoint
+        // is a little remote, but we'll give them a chance anyway
+        MICommandFree(cmd);
+    }
+
+    DVPRINT("Get the real application\n");
+    cmd = MIDataEvaluateExpression("theApplication");
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Getting real name of application failed\n");
+        return NewErrorEvent(DBGERR_DEBUGGER, "Get application path failed:%s",
+                             MICommandResultErrorMessage(cmd));
+    }
+
+    std::string application;
+    if (auto app = MIGetDataEvaluateExpressionInfo(cmd)) {
+        if (const auto beg = strchr(app,'"')) {
+            if (const auto end = strchr(beg+1, '"')) {
+                application.assign(beg+1, end-beg-1);
+            }
+        }
+    }
+    MICommandFree(cmd);
+
+    if (application.empty()) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Could not get application path");
+    }
+
+    DVPRINT("Got application %s\n", application.c_str());
+
+
+
+    DVPRINT("Set connected in %s\n", m_executable.c_str());
+    // Tell dbgsrv_trampoline that we have connected
+    cmd = MIDataEvaluateExpression("dbgsrv_trampoline_connected=1");
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Setting value to connected failed\n");
+        return NewErrorEvent(DBGERR_DEBUGGER, "Setting value to connected failed:%s",
+                             MICommandResultErrorMessage(cmd));
+    }
+    MICommandFree(cmd);
+
+    const char* catchExec[] = { "catch", "exec" };
+    cmd = CLIBypassc(2, catchExec);
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Setting value to connected failed\n");
+        return NewErrorEvent(DBGERR_DEBUGGER, "Setting value to connected failed:%s",
+                             MICommandResultErrorMessage(cmd));
+    }
+    MICommandFree(cmd);
+
+    
+    // Like continueToEntryPoint, the road gets a little bumpy here and
+    // we might get some signals before the exec actually happens.
+    // I had tried out setting a "catch exec" here, but that *seems* to be
+    // unnecessary.  If we just let it go, gdb will naturally recreate the
+    // entry breakpoints after the exec.
+    int numSigs = 0, maxNumSigs = 5;
+    for (int numSigs=0; numSigs<5; ++numSigs) {
+        if (auto [evt,e] = continueToEvent(); e) {
+            DVPRINT("continue command failed \"%s\"\n"
+                    "- in this case I think because we're at the exec\n",
+                    DbgEventErrorStr(e));
+            FreeEvent(e);
+            break;
+        } else if (evt->type != MIEventTypeSignal) {
+            DVPRINT("bounced to a breakpoint\n");
+            break;
+        }
+    }
+
+    if (numSigs == maxNumSigs) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "could not launch in non-MPI mode");
+    }
+
+    DVPRINT("delete catchpoint - expected to be 2\n");
+    int catchBP[1] = { 2 };
+    cmd = MIBreakDelete(1, catchBP);
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Delete breakpoint failed\n");
+    }
+    MICommandFree(cmd);
+
+    DVPRINT("Setting executable to \"%s\"\n", application.c_str());
+    m_executable = application;
+
+    cmd = MIFileSymbolFile(const_cast<char*>(m_executable.c_str()));
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("Reading symbols failed: %s\n",
+                MICommandResultErrorMessage(cmd));
+    }
+    MICommandFree(cmd);
+
+    DVPRINT("set entry bps\n");
+    if (auto [ entrySet, e] = setEntryBPs(); e) return e;
+    else if (!entrySet) {
+        DVPRINT("Could not set entry breakpoint\n");
+    }
+
+    auto e = continueToEntryPoint();
+    if (!e) m_ignoreSigstop = m_isNonMPI = true;
+    return e;
+}
+
 
 /* GDBMI callback functions */
 static void event_callback(MIEvent *e) {
@@ -1363,8 +1458,8 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
     */
     if (m_dbg.isRunning() && !detach) {
         DVPRINT("DbgQuit: Sending SIGSTOP to process.\n");
-        ::kill(m_pid, SIGSTOP);
         // wait for the asynch command to complete
+        sendSigstop();
         e = m_dbg.waitAndProcessAsyncEvent();
         FreeEvent(e);
     }
@@ -1387,7 +1482,7 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
 
     // If the command completed ok, we need to send SIGSTOP ASAP!!!
     if (MICommandResultOK(cmd) && !detach) {
-        ::kill(m_pid, SIGSTOP);
+        sendSigstop();
         DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
     }
 #endif
@@ -1414,7 +1509,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
 
     if (m_dbg.isRunning()) {
         DVPRINT("RUNNING - sending SIGSTOP\n");
-        if (::kill(m_pid, SIGSTOP)) {
+        if (sendSigstop()) {
             switch (errno) {
                 case EINVAL:
                     EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid signal SIGSTOP.");
@@ -1525,3 +1620,61 @@ static bool runRocgdb(MISession* session) {
     return false;
 }
 
+// Execute a non-synchronous command and wait for an event
+// return the MIEvent and a dbgevent if there is an error.
+std::pair<DbgGdbMI::Initializer::MIEventPtr,dbgevent_t*>
+DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
+    // it's possible that another stop signal has happened while we were
+    // already stopped. we flush those old events before listening again
+    // so our call to waitForAsyncEvent doesn't pick up a stale event
+    m_dbg.flushAsyncEvents();
+
+    // send the command
+    MICommand* cmd;
+    switch (ctype) {
+    case CONTINUE: cmd = MIExecContinueAll(); break;
+    case NEXTI: cmd = MICommandNew("-exec-next-instruction", MIResultRecordRUNNING); break;
+    case FINISH: cmd = MIExecFinish(); break;
+    }
+
+    SendMICommand(m_session, cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        auto e = NewErrorEvent(DBGERR_DEBUGGER,MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return std::make_pair(MIEventPtr{nullptr,MIEventFree},e);
+    }
+    MICommandFree(cmd);
+
+    DVPRINT("wait for aysnc event\n");
+    MIEvent *evt = m_dbg.waitForAsyncEvent();
+    DVPRINT("got event of type %d\n", evt->type);
+
+    return std::make_pair(MIEventPtr{evt,MIEventFree}, nullptr);
+}
+
+// This little wart of logic was prompted by cfa6k that needs to run mpi programs
+// with --non-mpi probably because the mpi library is stripped so the usual
+// start-up barrier drops gdb into a stop with to readable stack.
+//
+// So --non-mpi avoids the usual MPI breakpoints, but MPI_Init is still generating
+// a SIGSTOP at a point with no usuable stack.  So we skip over it and everything's
+// copacetic.
+// Except that gdb4hpc uses SIGSTOP to halt the process.   But those calls are all
+// inside this class, so we just rest the flag before call to 'kill' so the
+// gdb4hpc server handles the signal like usual.
+//
+// This strategy could be used all the time, but to limit exposure, we'll just
+// use it in non-mpi mode for now.  (a lot of the complexity of continueToEntryPoint
+// is related to spurious stop signals)
+bool DbgGdbMI::Initializer::ignoreSigstop() {
+    if (!m_isNonMPI) return false;
+    else if (m_ignoreSigstop) return true;
+    else { m_ignoreSigstop = true; return false; }
+}
+
+int DbgGdbMI::Initializer::sendSigstop() {
+    m_ignoreSigstop = false;
+    return ::kill(m_pid, SIGSTOP);
+
+}

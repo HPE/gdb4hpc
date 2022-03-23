@@ -43,6 +43,7 @@
 #define DBGSRV_OPT_PROG "-f"
 #define DBGSRV_OPT_GPU "--gpu"
 #define DBGSRV_OPT_DEBUG "--debug"
+#define DBGSRV_OPT_NON_MPI "--non-mpi"
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
 #define DBGSRV_OPT_NON_STOP "--non-stop"
 #define DBGSRV_OPT_GDB "--gdb"
@@ -63,6 +64,7 @@ static int debug_flag = 0;
 static int gpu_flag = 0;
 static int early_entry_flag = 0;
 static int non_stop_flag = 0;
+static int non_mpi_flag = 0;
 
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
@@ -73,6 +75,7 @@ const struct option long_opts[] = {
     {"help", no_argument, 0, 'x'},
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"non-mpi", no_argument, &non_mpi_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
@@ -105,6 +108,7 @@ void usage(char *name) {
     fprintf(stdout, "\t    --gpu              Turn on gpu mode.\n");
     fprintf(stdout, "\t    --early-entry      Turn on early entry mode.\n");
     fprintf(stdout, "\t    --debug            Turn on debug logging.\n");
+    fprintf(stdout, "\t    --non-mpi          Start a non-mpi application.\n");
     fprintf(stdout, "\t-x, --help             Display this text and exit\n");
     fprintf(stdout, "\t-f, --program          Program that the debugger will launch/attach to.\n");
 }
@@ -369,6 +373,7 @@ int main(int argc, char **argv) {
 
     if (gpu_flag)         dbgsrv_argv << DBGSRV_OPT_GPU;
     if (debug_flag)       dbgsrv_argv << DBGSRV_OPT_DEBUG;
+    if (non_mpi_flag)     dbgsrv_argv << DBGSRV_OPT_NON_MPI;
     if (early_entry_flag) dbgsrv_argv << DBGSRV_OPT_EARLY_ENTRY;
     if (non_stop_flag)    dbgsrv_argv << DBGSRV_OPT_NON_STOP;
     if (gdb)              dbgsrv_argv << DBGSRV_OPT_GDB << gdb;

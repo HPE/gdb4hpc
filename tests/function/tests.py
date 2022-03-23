@@ -44,6 +44,7 @@ if False:
 
 import sys
 import os
+import socket
 
 #os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
 
@@ -100,6 +101,7 @@ lwp_val_re = re.compile(r"\(LWP \d+\)")
 ftn_init_bp_re = re.compile(r"(Initial breakpoint, [a-zA-z_]+ at )(.*/)?(.*\.f90):\d+")
 
 launcher_arg_re = re.compile('--launcher-args="[^"]*" ')
+non_mpi_arg = ' --non-mpi '
 
 def getTxt(test, name: str):
     filename = name + ".in"
@@ -238,6 +240,7 @@ def anonymize_line(line):
     line = lwp_val_re.sub('LWP', line)
     line = ftn_init_bp_re.sub(r"\1\3:<start-line>", line)
     line = launcher_arg_re.sub('', line)
+    line = line.replace(non_mpi_arg, '')
     m = interrupted_proc_out_re.match(line)
     if m:
         line = m.group(1)
@@ -387,6 +390,12 @@ def makeRunFile(test, substitutions = ()):
     launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
 
     if launch_args:
+        launch_args = '--launcher-args="' + launch_args + '" '
+
+    if socket.gethostname()[0:5] == 'cfa6k':
+        launch_args = launch_args + non_mpi_arg
+
+    if launch_args:
         launch_re = re.compile(r"(launch [^}]+} *)")
 
     rcline = re.compile(r"^\d+: ?(.*)")
@@ -402,7 +411,7 @@ def makeRunFile(test, substitutions = ()):
             line += '\n'
 
             if launch_re:
-                line = launch_re.sub(r"\1" + '--launcher-args="' + launch_args + '" ', line)
+                line = launch_re.sub(r"\1" + launch_args, line)
             for repl, substitution in substitutions:
                 print('substitute "%s" with "%s" on "%s"' % (repl, substitution,line))
                 line = line.replace(repl, substitution)

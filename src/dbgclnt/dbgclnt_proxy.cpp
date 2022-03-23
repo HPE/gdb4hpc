@@ -1407,8 +1407,8 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
                           const char *prog, const char * const *argv, const char *arch,
                           const char * const *arch_args, const char *arch_input,
                           const char *backend, const char* gdb,  char **env, const char *cwd,
-                          int gpu_flag, int debug_flag, int early_entry_flag,
-                          bool isNonStop) {
+                          int gpu_flag, int debug_flag, int non_mpi_flag,
+                          int early_entry_flag, bool isNonStop) {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1465,7 +1465,7 @@ int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
     // Create the invoke args string
     msg = LaunchArgsToSocProto(prog, argv, di->d_nproc, arch, arch_args,
                                arch_input, backend, gdb, env, cwd, gpu_flag,
-                               debug_flag, early_entry_flag, isNonStop);
+                               debug_flag, non_mpi_flag, early_entry_flag, isNonStop);
 
     // set the length in the header
     msg_head.msg_len = (int)strlen(msg) * sizeof(char);

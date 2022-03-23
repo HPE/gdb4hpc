@@ -421,6 +421,8 @@ const char* const cmd_launch_help[] = {
     "              [--sbatch=<batch_template> OR -s <batch_template>]",
     "              [--gpu]",
     "              [--gdb=<gdb_app>]",
+    "              [--non-mpi]",
+    "              [--debug]",
     "",
     "Example command: launch $a{20000} ./helloworld",
     "",
@@ -534,6 +536,13 @@ const char* const cmd_launch_help[] = {
     "",
     "Using the above, the user would launch with the following arguments:",
     "launch $a{128} --launcher-args=\"-N32\" --qsub=sample.pbs a.out",
+    "",
+    "--non-mpi is an experimental launch method for handling cases where",
+    "the WLM launch barrier is not available, typically for non MPI applications.",
+    "",
+    "--debug writes gdb4hpc logging information to a directory defined by",
+    "the enviroment variable $CRAY_DBG_LOG_DIR, the directory needs to be",
+    "a location writable from the compute nodes.",
     0};
 
 const char* const cmd_kill_help[] = {

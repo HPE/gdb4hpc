@@ -683,7 +683,7 @@ attach_error:
 int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
-                        const char *cwd, int gpu_flag, int debug_flag,
+                        const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
                         int early_entry_flag, bool isNonStop) {
     char sn[80];
     char *root = nullptr;
@@ -1029,6 +1029,7 @@ OMPD support will not be available.\n");
                  di->d_proto->name(), "-e", backend);
     if (gpu_flag)         dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";
+    if (non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
     if (early_entry_flag) dbgsrv_alps_argv << "--early-entry";
     if (isNonStop)        dbgsrv_alps_argv << "--non-stop";
     if (gdb && serverGdb) dbgsrv_alps_argv << "--gdb" << serverGdb->c_str();

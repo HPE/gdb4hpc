@@ -235,13 +235,17 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
 int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, char **env,
-                        const char *cwd, int gpu_flag, int debug_flag,
+                        const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
                         int early_entry_flag, bool isNonStop) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {
         PrintOutError("Tried to launch ZMQNet with a null di\n");
         return 1;
+    }
+
+    if (non_mpi_flag) {
+        PrintOutMsg("--non-mpi is not supported on zmqnet\n");
     }
 
     PrintOutMsg("Starting application, please wait...\n");

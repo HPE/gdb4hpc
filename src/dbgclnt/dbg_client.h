@@ -298,7 +298,7 @@ extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
 extern dbginvoke_t *DbgLaunch(const char *, proto_session *, const char *,
                               const char * const *, const char *, int, const char *, const char * const *,
                               const char *, const char *, const char*, char **, const char *,
-                              int, int, int, int, bool);
+                              int, int, int, int, int, bool);
 
 extern rep_set_t *DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than

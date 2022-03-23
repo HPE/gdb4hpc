@@ -20,8 +20,6 @@
 
 class dbgcomm_info;
 
-#define ASYNC_FORCE (dbgevent_t * (*)(dbgevent_t *)) - 1
-
 extern void AsyncCheck(dbgevent_t *(*)(dbgevent_t *), dbgevent_t *);
 
 class dbgbackend_sw {

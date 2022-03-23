@@ -51,6 +51,8 @@ int debug_flag = 0;
 int gpu_flag = 0;
 int early_entry_flag = 0;
 int non_stop_flag = 0;
+int non_mpi_flag = 0;
+
 const char* custom_gdb = nullptr;
 const char* custom_gdb_data = nullptr;
 
@@ -65,6 +67,7 @@ const struct option long_opts[] = {
     {"jobkey", required_argument, 0, 'k'},
     {"gpu", no_argument, &gpu_flag, 1},
     {"debug", no_argument, &debug_flag, 1},
+    {"non-mpi", no_argument, &non_mpi_flag, 1},
     {"early-entry", no_argument, &early_entry_flag, 1},
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
@@ -503,7 +506,6 @@ void Usage(void) {
 
 void Server(void) {
     int fd = -1;
-    dbgevent_t *e;
 
     DVPRINT("dbgsrv: Server() main loop has started!\n");
 
@@ -512,18 +514,15 @@ void Server(void) {
         
         // Wait for an asynchronous event if a asynch handler has been
         // installed
-        if (AsyncRtn != NULL) {
-            if (AsyncRtn == ASYNC_FORCE || (DbgBufferReady() > 0)) {
-                if (AsyncRtn != ASYNC_FORCE)
-                    e = (*AsyncRtn)(AsyncEvent);
-                else
-                    e = AsyncEvent;
-
+        if (AsyncRtn && (DbgBufferReady() > 0)) {
+            auto e = (*AsyncRtn)(AsyncEvent);
+            if (e->ev_event != DBGEV_NONE) {
                 DVPRINT("Handle asynch callback.\n");
                 DbgEventCB(e);
                 DVPRINT("Asynch callback finished.\n");
-
                 AsyncRtn = NULL;
+            } else {
+                DVPRINT("Ignoring null asynch event\n");
             }
         }
         

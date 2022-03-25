@@ -67,6 +67,12 @@ namespace ais {
 class Error : public std::runtime_error {
 public:
     Error(const std::string& message);
+    bool empty() { return false; }
+};
+
+class GdbError : public Error {
+public:
+    GdbError(const std::string& message) : Error(message) {}
 };
 
 // Abstract class for writing a stream of primitive data
@@ -84,6 +90,7 @@ public:
     virtual void writeString(const std::string& str) = 0;
 
     virtual void writePointer(const std::string& type, void* val) = 0;
+    virtual void writeError(const std::string& str) = 0;
 };
 
 // Abstracrt class for read stream of primitive data
@@ -267,6 +274,7 @@ public:
     virtual void operator()(double val);
     virtual void operator()(long double val) = 0;
     virtual void operator()(const std::string& val) = 0;
+    virtual void operator()(const Error& val) = 0;
 
     // called when the nesting level of the data structure is
     // increased
@@ -306,6 +314,7 @@ public:
     void operator()(double val) override { f(val); }
     void operator()(long double val) override { f(val); }
     void operator()(const std::string& val) override { f(val); }
+    void operator()(const ais::Error& val) override { f(val); }
 
     F& getF() { return f; }
 private:
@@ -333,6 +342,8 @@ public:
     void operator()(double val) override;
     void operator()(long double val) override;
     void operator()(const std::string& val) override;
+    void operator()(const ais::Error& val) override;
+    
     void nest(const Type* t, int refIdx) override;
     void start(const Type* t) override;
     void addMetaInfo(const Type* t, std::pair<int,int> info) override;
@@ -390,17 +401,26 @@ public:
     virtual int getTypeId(Writer& writer) const;
 
     // Parse gdb output and write to a data stream
-    virtual void parse(InterpretStream& in, Writer& out) const = 0;
+    void parse(InterpretStream& in, Writer& out) const;
 
     // Read the object form a data stream and forward to
     // an operator
-    virtual void apply(Reader& reader, Visitor& f) const = 0;
+    void apply(Reader& reader, Visitor& f) const;
 
     // create a printer for human readable display
     virtual std::unique_ptr<Printer> makePrinter(Printer& parent) const;
 
     // specialization for printing the index within a compound type
     virtual void printIndex(int idx, std::ostream& out) const;
+
+protected:
+    // Parse gdb output and write to a data stream
+    virtual void parseL(InterpretStream& in, Writer& out) const = 0;
+
+    // Read the object form a data stream and forward to
+    // an operator
+    virtual void applyL(Reader& reader, Visitor& f) const = 0;
+
 };
 
 // Base class for a binary operator.   This can be use used to
@@ -421,6 +441,7 @@ public:
     virtual void operator()(double a, double b);
     virtual void operator()(long double a, long double) = 0;
     virtual void operator()(const std::string& a, const std::string& b) = 0;
+    virtual void operator()(const ais::Error& a, const ais::Error& b) = 0;
 
     // set the vistor to which the output of the operation can be
     // piped.
@@ -448,6 +469,10 @@ public:
     void operator()(const std::string& a, const std::string& b) override {
         f(a,b,m_naOp);
     }
+    void operator()(const ais::Error& a, const ais::Error& b) override {
+        f(a.what(),b.what(),m_naOp);
+    }
+
 private:
     template <class T, class OP> inline void f(T a, T  b, OP& op) {
         using RT = typename std::invoke_result<decltype(op),T,T>::type;
@@ -476,8 +501,8 @@ class Any : public Type {
 public:
     Any();
     Any(std::shared_ptr<Type> obj, int idx);
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
 private:
@@ -489,8 +514,8 @@ private:
 class Unimplemented : public Type {
 public:
     Unimplemented(const std::string& typeName);
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
 
     std::string getTypeName() const override;
 private:
@@ -500,8 +525,8 @@ private:
 class Bool : public Type {
 public:
     Bool() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     bool readVal(Reader& reader) const;
@@ -511,9 +536,9 @@ public:
 class Char : public Type {
 public:
     Char() {}
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     char readVal(Reader& reader) const;
@@ -532,8 +557,8 @@ class UnsignedChar : public Char {
 class Short : public Type {
 public:
     Short() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     short readVal(Reader& reader) const;
@@ -549,8 +574,8 @@ public:
 class Int : public Type {
 public:
     Int() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     int readVal(Reader& reader) const;
@@ -566,8 +591,8 @@ public:
 class Long : public Type {
 public:
     Long() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     long readVal(Reader& reader) const;
@@ -583,8 +608,8 @@ public:
 class LongLong : public Type {
 public:
     LongLong() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     long long readVal(Reader& reader) const;
@@ -600,8 +625,8 @@ public:
 class Float : public Type {
 public:
     Float() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
     float readVal(Reader& reader) const;
 };
@@ -609,8 +634,8 @@ public:
 class Double : public Type {
 public:
     Double() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     double readVal(Reader& reader) const;
@@ -619,8 +644,8 @@ public:
 class LongDouble : public Type {
 public:
     LongDouble() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     long double readVal(Reader& reader) const;
@@ -629,10 +654,10 @@ public:
 class Complex : public Type {
 public:
     Complex(std::shared_ptr<Type> elemType);
-    void parse(InterpretStream& in, Writer& out) const;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     void printIndex(int idx, std::ostream& out) const override;;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 private:
     std::shared_ptr<Type> m_elemType;
@@ -641,8 +666,8 @@ private:
 class String : public Type {
 public:
     String() {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     std::string readVal(Reader& reader) const;
@@ -659,8 +684,8 @@ public:
 class FtnString : public String {
 public:
     FtnString(int len=0) : m_len(len) {}
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
 private:
@@ -671,9 +696,9 @@ private:
 class Logical : public Type {
 public:
     Logical() {}
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
     bool readVal(Reader& reader) const;
@@ -683,7 +708,7 @@ class MultiThreadResult : public String {
 public:
     MultiThreadResult() {}
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 };
 
@@ -691,8 +716,8 @@ public:
 class Function : public Type {
 public:
     Function();
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 private:
     std::string readVal(Reader& reader) const;
@@ -706,9 +731,9 @@ class Array : public Type {
 public:
     Array();
     Array(std::shared_ptr<Type> elemType, int len=0);  // len only used on write side
-    void parse(InterpretStream& in, Writer& out) const;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     void printIndex(int idx, std::ostream& out) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -756,8 +781,8 @@ class Vector : public Array {
 public:
     Vector();
     Vector(std::shared_ptr<Type> elemType, int len=0, int capacity=0);
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
 
@@ -775,7 +800,7 @@ class Deque : public Array {
 public:
     Deque();
     Deque(std::shared_ptr<Type> elemType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -786,7 +811,7 @@ class Queue : public Deque {
 public:
     Queue();
     Queue(std::shared_ptr<Type> elemType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -797,7 +822,7 @@ class Stack : public Array {
 public:
     Stack();
     Stack(std::shared_ptr<Type> elemType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -808,7 +833,7 @@ class PriorityQueue: public Vector {
 public:
     PriorityQueue();
     PriorityQueue(std::shared_ptr<Type> elemType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -819,7 +844,7 @@ class StdArray : public Array {
 public:
     StdArray();
     StdArray(std::shared_ptr<Type> elemType, int len=0);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
@@ -829,8 +854,8 @@ public:
 class CharArray : public Type {
 public:
     CharArray();
-    void parse(InterpretStream& in, Writer& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 private:
     std::string readVal(Reader& reader) const;
@@ -843,10 +868,10 @@ public:
     // mapping from locations to the rank it comes from
     DecompArray(std::shared_ptr<ais::Array> array,
                 std::shared_ptr<ais::DecompIterator> decompIter);
-    void parse(InterpretStream& in, Writer& out) const;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     void printIndex(int idx, std::ostream& out) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 
 protected:
@@ -860,7 +885,7 @@ protected:
 class Array1 : public Array {
 public:
     Array1(std::shared_ptr<Type> elemType);
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     void applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, int level,
                   const std::function<void(const Type&,Reader&)>& func);
 };
@@ -874,9 +899,9 @@ public:
     // add a member to the definition
     void addMember(const std::string& memberName, std::shared_ptr<Type> member);
 
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     void printIndex(int idx, std::ostream& out) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& out) const override;
@@ -889,9 +914,9 @@ private:
 class Pointer : public Type {
 public:
     Pointer(std::string derefType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 private:
     std::string m_derefType;
@@ -901,9 +926,9 @@ private:
 class SmartPointer : public Type {
 public:
     SmartPointer(std::string pointerType, std::string derefType);
-    void parse(InterpretStream& in, Writer& out) const override;
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
-    void apply(Reader& reader, Visitor& f) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
 private:
     std::string m_pointerType;

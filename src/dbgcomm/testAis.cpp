@@ -39,6 +39,7 @@ public:
     void writeLongDouble(long double val) override;
     void writeString(const std::string& str) override;
     void writePointer(const std::string& str, void* ptr) override;
+    void writeError(const std::string& err) override;
 
     int readInt() override;
     long readLong() override;
@@ -51,6 +52,7 @@ public:
 
     void set(const std::string message);
 private:
+    void check();
     std::istringstream& getIs();
     std::ostringstream m_os;
     std::unique_ptr<std::istringstream> m_is;
@@ -69,6 +71,10 @@ void Buffer::writeString(const std::string& val) { m_os << " " << std::quoted(va
 void Buffer::writePointer(const std::string& type, void* val) {
     m_os << " unimplemented writePointer " << type << " " << val;
 }
+void Buffer::writeError(const std::string& err) {
+    m_os << "@" <<  std::quoted(err);
+}
+
 
 int Buffer::readInt() { int val; getIs() >> val; return val; }
 long Buffer::readLong() { long val; getIs() >> val; return val; }
@@ -88,6 +94,12 @@ std::istringstream& Buffer::getIs() {
     if (!m_is) {
         auto data = m_os.str();
         m_is.reset(new std::istringstream(data));
+    }
+    if (m_is->peek() == '@') {
+        m_is->get();
+        std::string err;
+        *m_is >> std::quoted(err);
+        throw ais::GdbError(err);
     }
     return *m_is;
 }
@@ -161,10 +173,9 @@ int main(int argc, char* argv[])
         auto writer = ais::Writer{buffer};
         //getTestInts(writer);
 
-        auto elemType = std::make_shared<ais::String>();
-        auto vecType = std::make_shared<ais::Vector>(elemType);
-        auto vecType2 = std::make_shared<ais::Vector>(vecType);
-        auto aif = ais::Any{vecType2,0};
+        auto elemType = std::make_shared<ais::Int>();
+        auto arrayType = std::make_shared<ais::Array>(elemType, 4);
+        auto aif = ais::Any{arrayType,0};
 
         aif.parse(is, writer);
 

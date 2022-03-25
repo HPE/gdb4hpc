@@ -120,6 +120,7 @@ public:
     void writeDouble(double val) override;
     void writeLongDouble(long double val) override;
     void writeString(const std::string& str) override;
+    void writeError(const std::string& str) override;
     void writePointer(const std::string& type, void* val) override;
 
     std::string exportResult();
@@ -1202,6 +1203,10 @@ namespace {
     void WriteBuffer::writeString(const std::string& val) {
         m_out  << " " << std::quoted(val);
     }
+    void WriteBuffer::writeError(const std::string& val) {
+        m_out  << "@" << std::quoted(val);
+    }
+
     void WriteBuffer::writePointer(const std::string& type, void* val) {
         int idx = m_mi.swizzlePointer(type, val);
         m_out << " " << idx;

@@ -29,10 +29,33 @@ int ais::Type::getTypeId(ais::Writer& writer) const
 {
     return writer.getTypeId(getTypeName());
 }
+
+void ais::Type::parse(InterpretStream& in, Writer& out) const
+{
+    auto s = skipspace(in.get());
+    if (*s != '<')
+        return parseL(in,out);
+
+    if (auto end = strchr(s+1, '>')) {
+        auto error = std::string{s, size_t(end-s+1)};
+        out.writeError(error);
+        in.setPos(end+1);
+    } else {
+        return parseL(in,out);
+    }
+}
+
+void ais::Type::apply(Reader& reader, Visitor& f) const {
+    try {
+        applyL(reader, f);
+    } catch (GdbError& err) {
+        f(err);
+    }
+}
     
 ais::Type::~Type() {}
 
-void ais::Bool::parse(InterpretStream& in, Writer& out) const
+void ais::Bool::parseL(InterpretStream& in, Writer& out) const
 {
     const char* s = skipspace(in.get());
 
@@ -50,7 +73,7 @@ void ais::Bool::parse(InterpretStream& in, Writer& out) const
     out.writeInt(val);
 }
 
-void ais::Bool::apply(Reader& reader, Visitor& f) const {
+void ais::Bool::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -63,10 +86,10 @@ std::string ais::Bool::getTypeName() const {
     return "bool";
 }
 
-void ais::Char::parse(InterpretStream& in, Writer& out) const
+void ais::Char::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
-
+    
     char* next = nullptr;
     char val = strtol(str, &next, 10);
     bool gotVal = (next != str); // fortran doesn't print the numeric value
@@ -90,7 +113,7 @@ void ais::Char::parse(InterpretStream& in, Writer& out) const
     }
     if (!*next) throw ais::Error("no end quote in character constant");
     
-    in.setPos(next);
+    in.setPos(next+1);
     
     out.writeInt(val);
 }
@@ -122,7 +145,7 @@ std::unique_ptr<ais::Printer> ais::Char::makePrinter(Printer& parent) const {
     return std::make_unique<TPrinter>(parent);
 }
 
-void ais::Char::apply(Reader& reader, Visitor& f) const {
+void ais::Char::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -162,7 +185,7 @@ std::string ais::UnsignedChar::getTypeName() const {
     return "unsigned char";
 }
 
-void ais::Short::parse(InterpretStream& in, Writer& out) const
+void ais::Short::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
     char* next = nullptr;
@@ -171,7 +194,7 @@ void ais::Short::parse(InterpretStream& in, Writer& out) const
     out.writeInt(val);
 }
 
-void ais::Short::apply(Reader& reader, Visitor& f) const {
+void ais::Short::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -197,7 +220,7 @@ std::string ais::UnsignedShort::getTypeName() const {
     return "unsigned short";
 }
 
-void ais::Int::parse(InterpretStream& in, Writer& out) const
+void ais::Int::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
 
@@ -208,7 +231,7 @@ void ais::Int::parse(InterpretStream& in, Writer& out) const
     out.writeInt(val);
 }
 
-void ais::Int::apply(Reader& reader, Visitor& f) const {
+void ais::Int::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -233,7 +256,7 @@ std::string ais::UnsignedInt::getTypeName() const {
     return "unsigned int";
 }
 
-void ais::Long::parse(InterpretStream& in, Writer& out) const
+void ais::Long::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
 
@@ -245,7 +268,7 @@ void ais::Long::parse(InterpretStream& in, Writer& out) const
 }
 
 
-void ais::Long::apply(Reader& reader, Visitor& f) const {
+void ais::Long::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -270,7 +293,7 @@ std::string ais::UnsignedLong::getTypeName() const {
     return "unsigned long";
 }
 
-void ais::LongLong::parse(InterpretStream& in, Writer& out) const
+void ais::LongLong::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
 
@@ -281,7 +304,7 @@ void ais::LongLong::parse(InterpretStream& in, Writer& out) const
     out.writeLongLong(val);
 }
 
-void ais::LongLong::apply(Reader& reader, Visitor& f) const {
+void ais::LongLong::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -306,7 +329,7 @@ std::string ais::UnsignedLongLong::getTypeName() const {
     return "unsigned long long";
 }
 
-void ais::Double::parse(InterpretStream& in, Writer& out) const
+void ais::Double::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
 
@@ -317,7 +340,7 @@ void ais::Double::parse(InterpretStream& in, Writer& out) const
     out.writeDouble(val);
 }
 
-void ais::Double::apply(Reader& reader, Visitor& f) const {
+void ais::Double::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -331,7 +354,7 @@ std::string ais::Double::getTypeName() const {
     return "double";
 }
 
-void ais::Float::parse(InterpretStream& in, Writer& out) const
+void ais::Float::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
 
@@ -342,7 +365,7 @@ void ais::Float::parse(InterpretStream& in, Writer& out) const
     out.writeFloat(val);
 }
 
-void ais::Float::apply(Reader& reader, Visitor& f) const {
+void ais::Float::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -356,7 +379,7 @@ std::string ais::Float::getTypeName() const {
 }
 
 
-void ais::LongDouble::parse(InterpretStream& in, Writer& out) const
+void ais::LongDouble::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
     char* next = nullptr;
@@ -365,7 +388,7 @@ void ais::LongDouble::parse(InterpretStream& in, Writer& out) const
     out.writeLongDouble(val);
 }
 
-void ais::LongDouble::apply(Reader& reader, Visitor& f) const {
+void ais::LongDouble::applyL(Reader& reader, Visitor& f) const {
     auto v = readVal(reader);
     f(v);
 }
@@ -380,7 +403,7 @@ std::string ais::LongDouble::getTypeName() const {
 
 ais::Complex::Complex(std::shared_ptr<ais::Type> elem) : m_elemType(elem) {}
 
-void ais::Complex::parse(InterpretStream& in, Writer& out) const
+void ais::Complex::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = skipspace(in.get());
     if (*str != '(') throw ais::Error("expected paren for complex");
@@ -413,7 +436,7 @@ void ais::Complex::printIndex(int idx, std::ostream& out) const {
     out << '[' << idx << ']';  // change me!
 }
 
-void ais::Complex::apply(Reader& reader, Visitor& f) const {
+void ais::Complex::applyL(Reader& reader, Visitor& f) const {
     f.nest(m_elemType.get());
     f.start(m_elemType.get());
     m_elemType->apply(reader, f);
@@ -430,7 +453,7 @@ std::string ais::Complex::getTypeName() const {
 }
 
 
-void ais::Logical::parse(InterpretStream& in, Writer& out) const
+void ais::Logical::parseL(InterpretStream& in, Writer& out) const
 {
     const char* s = in.get();
 
@@ -457,7 +480,7 @@ std::unique_ptr<ais::Printer> ais::Logical::makePrinter(Printer& parent) const {
     return std::make_unique<TPrinter>(parent);
 }
 
-void ais::Logical::apply(Reader& reader, Visitor& f) const {
+void ais::Logical::applyL(Reader& reader, Visitor& f) const {
     f(readVal(reader));
 }
 
@@ -471,7 +494,7 @@ std::string ais::Logical::getTypeName() const {
 }
 
 
-void ais::String::parse(InterpretStream& in, Writer& out) const {
+void ais::String::parseL(InterpretStream& in, Writer& out) const {
     const char* str = skipspace(in.get());
     if (str[0] == '{') {
         // gdb has printed the contents of the templated object which has the
@@ -502,7 +525,7 @@ void ais::String::parse(InterpretStream& in, Writer& out) const {
     out.writeString(std::string{"unrecognized-string-result:"} + in.get());
 }
 
-void ais::String::apply(Reader& reader, Visitor& f) const {
+void ais::String::applyL(Reader& reader, Visitor& f) const {
     f(readVal(reader));
 }
 
@@ -514,7 +537,7 @@ std::string ais::String::readVal(Reader& reader) const {
     return reader.readString();
 }
 
-void ais::FtnString::parse(InterpretStream& in, Writer& out) const {
+void ais::FtnString::parseL(InterpretStream& in, Writer& out) const {
     const char* str = skipspace(in.get());
     const char* strEnd{};
     if (str[0] == '\'' && (strEnd=strchr(str+1,'\''))) {
@@ -525,8 +548,8 @@ void ais::FtnString::parse(InterpretStream& in, Writer& out) const {
     }
 }
 
-void ais::FtnString::apply(Reader& reader, Visitor& f) const {
-    String::apply(reader, f);
+void ais::FtnString::applyL(Reader& reader, Visitor& f) const {
+    String::applyL(reader, f);
 }
 
 std::unique_ptr<ais::Printer> ais::FtnString::makePrinter(Printer& parent) const {
@@ -588,8 +611,8 @@ ais::MultiThreadResult::makePrinter(Printer& parent) const {
     return std::make_unique<TPrinter>(parent);
 }
 
-void ais::MultiThreadResult::apply(Reader& reader, Visitor& f) const {
-    String::apply(reader, f);
+void ais::MultiThreadResult::applyL(Reader& reader, Visitor& f) const {
+    String::applyL(reader, f);
 }
 
 
@@ -599,7 +622,7 @@ std::string ais::MultiThreadResult::getTypeName() const {
 
 ais::Function::Function() {}
 
-void ais::Function::parse(InterpretStream& in, Writer& out) const {
+void ais::Function::parseL(InterpretStream& in, Writer& out) const {
     // expecting: {type signature} pointer <name>
     const char* s = in.get();
     std::ostringstream ss;
@@ -625,7 +648,7 @@ void ais::Function::parse(InterpretStream& in, Writer& out) const {
     in.setPos(s);
 }
 
-void ais::Function::apply(Reader& reader, Visitor& f) const {
+void ais::Function::applyL(Reader& reader, Visitor& f) const {
     f(readVal(reader));
 }
 
@@ -643,13 +666,13 @@ std::string ais::Function::readVal(Reader& reader) const {
 ais::Any::Any() : m_idx(0) {}
 ais::Any::Any(std::shared_ptr<Type> obj, int idx) : m_obj(obj), m_idx(idx) {}
 
-void ais::Any::parse(InterpretStream& in, ais::Writer& out) const {
+void ais::Any::parseL(InterpretStream& in, ais::Writer& out) const {
     out.writeType(*this);
     out.writeInt(m_idx);
     m_obj->parse(in, out);
 }
 
-void ais::Any::apply(Reader& reader, Visitor& f) const {
+void ais::Any::applyL(Reader& reader, Visitor& f) const {
     const auto type = reader.readType();
     int refIdx = reader.readInt();
     f.nest(type.get(), refIdx);
@@ -721,12 +744,12 @@ std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
 
 ais::Unimplemented::Unimplemented(const std::string& typeName) : m_typeName(typeName) {}
 
-void ais::Unimplemented::parse(InterpretStream& in, Writer& out) const {
+void ais::Unimplemented::parseL(InterpretStream& in, Writer& out) const {
     out.writeString(std::string{"unimplemented-"} + m_typeName + "-parse" + in.get());
 }
 
 
-void ais::Unimplemented::apply(Reader& reader, Visitor& f) const {
+void ais::Unimplemented::applyL(Reader& reader, Visitor& f) const {
     std::cerr << "in Unimplemented::apply\n";
     f(reader.readString());
 }
@@ -743,7 +766,7 @@ ais::Array::Array() : m_numElems(0) {}
 ais::Array::Array(std::shared_ptr<Type> elemType, int len)
     : m_elemType(elemType), m_numElems(len){}
 
-void ais::Array::parse(InterpretStream& in, Writer& out) const {
+void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
     auto mayBeTruncated = in.mayBeTruncated();
     
@@ -818,7 +841,7 @@ std::unique_ptr<ais::Printer> ais::Array::makePrinter(Printer& parent) const {
     return std::make_unique<ArrayPrinter>(parent,"{", ",", "}");
 }
 
-void ais::Array::apply(Reader& reader, Visitor& f) const {
+void ais::Array::applyL(Reader& reader, Visitor& f) const {
     // to keep Array flexible, it supports fixed size and non-fixed sized modes.
     // i.e. mayBeTruncated, which in practice is possible when 'set print elements' is
     // set.   For multi-dimension arrays the actual number of values output gets
@@ -925,13 +948,60 @@ void ais::FtnArray::printIndex(int idx, std::ostream& os) const {
 bool ais::FtnArray::isFortran() const { return true; }
 
 //===========================================================================
+
 ais::CharArray::CharArray() {}
 
-void ais::CharArray::parse(InterpretStream& in, Writer& out) const {
+namespace {
+    // A little one-off to parse char arrays when gdb print the result
+    // as an array of characters
+    class CharArrayBuffer : public ais::WriteBuffer {
+    public:
+        void writeLong(long val) override {}
+        void writeLongLong(long long val) override {}
+        void writeFloat(float val) override {}
+        void writeDouble(double val) override {}
+        void writeLongDouble(long double val) override {}
+        void writeString(const std::string& str) override {}
+        void writePointer(const std::string& type, void* val) override {}
+        void writeInt(int val) override { str << char(val); }
+        void writeError(const std::string& str) override { if (err.empty()) err = str; }
+
+        std::ostringstream str;
+        std::string err;
+    };
+}
+
+
+
+void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
     const char* str = in.get();
 
     printf("In CharArray::parse, value is <%s>\n", str);
     str = skipspace(str);
+
+    // gdb may return this as an array; currently the main case we've seen
+    // is when the value is optimized out
+    if (str[0] == '{') {
+        in.setPos(str+1);
+        auto ctype = ais::Char{};
+        auto b = std::make_shared<CharArrayBuffer>();
+        auto w = ais::Writer{b};
+        do {
+            ctype.parse(in, w);
+            str = skipspace(in.get());
+            if (*str)
+                in.setPos(str+1);
+        } while (*str == ',');
+
+        if (*str != '}') {
+            out.writeError("no closing brace in result\n");
+        } else if (!b->err.empty()) {
+            out.writeError(b->err);
+        } else {
+            out.writeString(b->str.str());
+        }
+        return;
+    }
 
     // depending on the context, gdb may print out the pointer value
     // first - skip to the string value.
@@ -955,7 +1025,7 @@ void ais::CharArray::parse(InterpretStream& in, Writer& out) const {
     out.writeString(std::string{"unexpected-CharArray-value"} + in.get());
 }
 
-void ais::CharArray::apply(Reader& reader, Visitor& f) const {
+void ais::CharArray::applyL(Reader& reader, Visitor& f) const {
     f(readVal(reader));
 }
 
@@ -973,7 +1043,7 @@ ais::DecompArray::DecompArray(std::shared_ptr<ais::Array> array,
                               std::shared_ptr<ais::DecompIterator> decompIter)
     : m_array(array), m_decompIter(decompIter), m_openChar('{'), m_closeChar('}') {}
 
-void ais::DecompArray::parse(InterpretStream& in, Writer& out) const {
+void ais::DecompArray::parseL(InterpretStream& in, Writer& out) const {
     // DecompArray is a client side feature, the parsing should happen as
     // normal array (or vector) types on the back end.
     std::cerr << "DecompArray::parse";
@@ -986,13 +1056,11 @@ void ais::DecompArray::printIndex(int idx, std::ostream& out) const {
     out << "[" << idx << "]";
 }
     
-void ais::DecompArray::apply(Reader& reader, Visitor& f) const {
-
+void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {        
     auto distReader = dynamic_cast<DecompReader*>(&reader);
     if (!distReader) {
         throw ais::Error("expected a decomp reader inside a block map");
     }
-        
 
     // determine the underling array and element types
     const ais::Type* arrayType = m_array.get();
@@ -1063,7 +1131,7 @@ std::string ais::DecompArray::getTypeName() const {
 
 ais::Array1::Array1(std::shared_ptr<Type> elemType) : Array(elemType,1) {}
 
-void ais::Array1::apply(Reader& reader, Visitor& f) const {
+void ais::Array1::applyL(Reader& reader, Visitor& f) const {
     f.nest(m_elemType.get());
     f.start(m_elemType.get());
     m_elemType->apply(reader, f);
@@ -1085,7 +1153,7 @@ ais::Vector::Vector() : m_capacity(0) {}
 ais::Vector::Vector(std::shared_ptr<Type> elemType, int len, int capacity)
     : Array(elemType, len), m_capacity(capacity) {}
 
-void ais::Vector::parse(InterpretStream& in, Writer& out) const {
+void ais::Vector::parseL(InterpretStream& in, Writer& out) const {
     const char* s = skipspace(in.get());
 
     int len, capacity, chars;
@@ -1112,7 +1180,7 @@ void ais::Vector::parse(InterpretStream& in, Writer& out) const {
         if (*s == '=') {
             s = skipspace(s+1);
             in.setPos(s);
-            Array::parse(in, out);
+            Array::parseL(in, out);
         } else {
             fprintf(stderr, "did not find '=' in \"%s\"\n", s);
             out.writeString("vector-parse-failed");
@@ -1120,10 +1188,10 @@ void ais::Vector::parse(InterpretStream& in, Writer& out) const {
     }
 }
 
-void ais::Vector::apply(Reader& reader, Visitor& f) const {
+void ais::Vector::applyL(Reader& reader, Visitor& f) const {
     [[maybe_unused]] auto capacity = reader.readInt();
 
-    Array::apply(reader, f);
+    Array::applyL(reader, f);
 }
 
 std::string ais::Vector::getTypeName() const {
@@ -1155,7 +1223,7 @@ ais::Deque::Deque() {}
 
 ais::Deque::Deque(std::shared_ptr<Type> elemType) : ais::Array(elemType) {}
 
-void ais::Deque::parse(InterpretStream& in, Writer& out) const {
+void ais::Deque::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
 
     int len,chars;
@@ -1171,7 +1239,7 @@ void ais::Deque::parse(InterpretStream& in, Writer& out) const {
 
     in.setPos(s+chars);
 
-    Array::parse(in, out);
+    Array::parseL(in, out);
 }
 
 // generate a typed vector from a factory instance
@@ -1195,14 +1263,14 @@ ais::Queue::Queue() {}
 
 ais::Queue::Queue(std::shared_ptr<Type> elemType) : ais::Deque(elemType) {}
 
-void ais::Queue::parse(InterpretStream& in, Writer& out) const {
+void ais::Queue::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
 
     const auto wr_tag = "wrapping:";
     if (auto w = strstr(s, wr_tag)) {
         s = skipspace(w+strlen(wr_tag));
         in.setPos(s);
-        Deque::parse(in, out);
+        Deque::parseL(in, out);
     } else {
         fprintf(stderr, "could not parse %s\n", s);
         out.writeString("priority_queue-parse-failed");
@@ -1232,7 +1300,7 @@ ais::Stack::Stack() {}
 
 ais::Stack::Stack(std::shared_ptr<Type> elemType) : ais::Array(elemType) {}
 
-void ais::Stack::parse(InterpretStream& in, Writer& out) const {
+void ais::Stack::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
 
     int len = -1;
@@ -1258,7 +1326,7 @@ void ais::Stack::parse(InterpretStream& in, Writer& out) const {
     s = skipspace(eq+1);
     in.setPos(s);
 
-    Array::parse(in, out);
+    Array::parseL(in, out);
 }
 
 // generate a typed vector from a factory instance
@@ -1281,13 +1349,13 @@ ais::StdArray::StdArray() {}
 
 ais::StdArray::StdArray(std::shared_ptr<Type> elemType, int len) : ais::Array(elemType,len) {}
 
-void ais::StdArray::parse(InterpretStream& in, Writer& out) const {
+void ais::StdArray::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
 
     if (auto eq = strchr(s, '=')) {
         s = skipspace(eq+1);
         in.setPos(s);
-        Array::parse(in, out);
+        Array::parseL(in, out);
     } else {
         fprintf(stderr, "could not parse %s\n", s);
         out.writeString("std::array-parse-failed");
@@ -1316,7 +1384,7 @@ ais::PriorityQueue::PriorityQueue() {}
 
 ais::PriorityQueue::PriorityQueue(std::shared_ptr<Type> elemType) : ais::Vector(elemType) {}
 
-void ais::PriorityQueue::parse(InterpretStream& in, Writer& out) const {
+void ais::PriorityQueue::parseL(InterpretStream& in, Writer& out) const {
     // std::priority_queue is a wrapper around an std::vector
     
     const char* s = in.get();
@@ -1325,7 +1393,7 @@ void ais::PriorityQueue::parse(InterpretStream& in, Writer& out) const {
     if (auto w = strstr(s, wr_tag)) {
         s = skipspace(w+strlen(wr_tag));
         in.setPos(s);
-        Vector::parse(in, out);
+        Vector::parseL(in, out);
     } else {
         fprintf(stderr, "could not parse %s\n", s);
         out.writeString("priority_queue-parse-failed");
@@ -1362,7 +1430,7 @@ void ais::Struct::addMember(const std::string& memberName, std::shared_ptr<Type>
     m_members.push_back(std::make_pair(memberName, memberType));
 }
 
-void ais::Struct::parse(InterpretStream& in, ais::Writer& writer) const {
+void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     auto s = in.get();
     s = skipspace(s);
 
@@ -1485,7 +1553,7 @@ void ais::Struct::printIndex(int idx, std::ostream& out) const {
     }
 }
 
-void ais::Struct::apply(Reader& reader, Visitor& f) const {
+void ais::Struct::applyL(Reader& reader, Visitor& f) const {
     for ( auto [ name, elem] : m_members) {
         f.nest(elem.get());
         f.start(elem.get());
@@ -1503,7 +1571,7 @@ std::string ais::Struct::getTypeName() const {
 
 ais::Pointer::Pointer(std::string derefType) : m_derefType(std::move(derefType)) {}
 
-void ais::Pointer::parse(InterpretStream& in, Writer& out) const {
+void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {
     fprintf(stderr, "in Pointer::parse %s\n", m_derefType.c_str());
     fprintf(stderr, "in Pointer::parse \"%s\"\n", in.get());
 
@@ -1534,7 +1602,7 @@ std::unique_ptr<ais::Printer> ais::Pointer::makePrinter(Printer& parent) const {
     return std::make_unique<TPrinter>(parent);
 }
 
-void ais::Pointer::apply(Reader& reader, Visitor& f) const {
+void ais::Pointer::applyL(Reader& reader, Visitor& f) const {
     auto idx = reader.readInt();
     f(idx);
 }
@@ -1546,8 +1614,8 @@ std::string ais::Pointer::getTypeName() const {
 ais::SmartPointer::SmartPointer(std::string pointerType, std::string derefType) :
     m_pointerType(std::move(pointerType)), m_derefType(std::move(derefType)) {}
 
-void ais::SmartPointer::parse(InterpretStream& in, Writer& out) const {
-    fprintf(stderr, "in SmartPointer::parse %s<%s> \"%s\"\n",
+void ais::SmartPointer::parseL(InterpretStream& in, Writer& out) const {
+    fprintf(stderr, "in SmartPointer::parseL %s<%s> \"%s\"\n",
             m_pointerType.c_str(), m_derefType.c_str(), in.get());
 
     const char* s = in.get();
@@ -1581,7 +1649,7 @@ void ais::SmartPointer::parse(InterpretStream& in, Writer& out) const {
     }
 }
 
-void ais::SmartPointer::apply(Reader& reader, Visitor& f) const {
+void ais::SmartPointer::applyL(Reader& reader, Visitor& f) const {
     auto ptrType = reader.readString();
     auto gotValue = reader.readInt();
     auto refType = reader.readString();
@@ -1646,6 +1714,9 @@ void ais::Writer::writeLongDouble(long double val) { m_buffer->writeLongDouble(v
 void ais::Writer::writeString(const std::string& val) { m_buffer->writeString(val); }
 void ais::Writer::writePointer(const std::string& type, void* val) {
     m_buffer->writePointer(type, val);
+}
+void ais::Writer::writeError(const std::string& err) {
+    m_buffer->writeError(err);
 }
 
 void ais::Writer::writeType(const ais::Type& obj) {
@@ -1870,6 +1941,7 @@ namespace ais {
         void operator()(double val) override { m_top ? (*m_top)(val) : Printer::operator()(val); }
         void operator()(long double val) override { m_top ? (*m_top)(val) : Printer::operator()(val); }
         void operator()(const std::string& val) override { m_top ? (*m_top)(val) : Printer::operator()(val); }
+        void operator()(const ais::Error& val) override { m_top ? (*m_top)(val) : Printer::operator()(val); }
         void nest(const Type* t, int refIdx) override {
             if (m_top) m_top->nest(t, refIdx);
             else {
@@ -1964,7 +2036,7 @@ namespace ais {
 
 // cache type for working with binary ops.   
 enum NoValType { NO_VAL };
-using PrimV = std::variant<NoValType,bool,char,int,long,long long, float, double, long double, std::string>;
+    using PrimV = std::variant<NoValType,bool,char,int,long,long long, float, double, long double, std::string, ais::Error>;
 
 // Class calling a binary function.
 // BinaryOp is a template function taking two arguments *of the same type*
@@ -2182,6 +2254,8 @@ public:
             m_state.set(s);
             if (s != EQ) m_diff.add(getIdx(),static_cast<long double>(a),
                                     static_cast<long double>(b));
+        } else if constexpr (std::is_same<T,ais::Error>::value) {
+          throw a;
         } else if (a == b) {
             m_state.set(EQ);
         } else if constexpr (std::is_arithmetic<T>::value) {
@@ -2227,6 +2301,10 @@ void ais::Printer::operator()(long double val) {
 void ais::Printer::operator()(const std::string& val) {
         out << '"' << val << '"';
 }
+void ais::Printer::operator()(const ais::Error& val) {
+    out << val.what();
+}
+
 
 void ais::Printer::nest(const ais::Type* t, int refIdx) {
     child = t->makePrinter(*this);

@@ -217,8 +217,21 @@ private:
 
     template<typename  T>
     inline T read() {
+        auto c = m_in.peek();
+        if (c == EOF) {
+            getMore();
+            c = m_in.peek();
+        }
+        if (c == '@') {
+            // An error, e.g. <optimized out> sent from the back-end
+            c = m_in.get();
+            auto err = std::string{};
+            m_in >> std::quoted(err);
+            throw ais::GdbError(err);
+        }
+        
         auto val = T{};
-        while (!(m_in >> val)) getMore();
+        m_in >> val;
         return val;
     }
     

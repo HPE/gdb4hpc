@@ -1259,7 +1259,11 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
     if (type.back() == '*') {
         DVPRINT("Found a pointer type %s\n", type.c_str());
         auto derefType = type.substr(0,type.find_last_not_of(' ', type.size()-2)+1);
-        return mi.addKnownType(type, std::make_shared<ais::Pointer>(derefType));
+        if (derefType == "char") {
+            return mi.addKnownType(type, std::make_shared<ais::CharArray>());
+        } else {
+            return mi.addKnownType(type, std::make_shared<ais::Pointer>(derefType));
+        }
     }
 
     // check for C++ types

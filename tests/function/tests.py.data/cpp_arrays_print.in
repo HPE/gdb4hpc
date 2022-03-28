@@ -59,13 +59,13 @@ a{0}: "=38;5;9:*.z=38;5"
 a{0..2}: 8026488
 29: # strings
 30: p cstring
-a{0..2}: [1] 1:104 'h'
+a{0..2}: "hello \n world!"
 31: p cptr
-a{0..2}: [1] 1:104 'h'
+a{0..2}: "hello \n world!"
 32: p const_cstring
-a{0..2}: [1] 1:99 'c'
+a{0..2}: "const hello world!"
 33: p empty
-a{0..2}: [1] 1:0 '\x00'
+a{0..2}: ""
 34: p cstringarray
 a{0..2}: {"hello \n world!","hola mundo!","hallo wereld!"}
 35: # make sure normal pointers still work too
@@ -79,8 +79,10 @@ a{0..2}: 23
 a{0..2}: {[2],[3]} 2:23 3:24
 40: # make sure printing a char** is normal
 41: p argv
-a{0..2}: [1] 1:[2] 2:47 '/'
-42: # setting pring elements
+a{0..2}: [1] 1:"%.*%/bd_dt/C++/cpp_arrays_print.x"
+42: # setting print elements
+42: p "argv[0]@argc"
+a{0..2}: {"%.*%/bd_dt/C++/cpp_arrays_print.x"}
 43: set print elements 3
 44: p intarray
 a{0..2}: {1,2,3...}

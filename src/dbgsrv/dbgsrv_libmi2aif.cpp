@@ -357,9 +357,6 @@ private:
 
 const char *_aif_ignored_type_specifiers[] = {"const", "restrict", NULL};
 
-// Internal globals
-static dbgevent_t *dbg_error = NULL;
-
 // quote typename with spaces to pass to MI
 static std::string quoteId(std::string var)
 {
@@ -369,23 +366,7 @@ static std::string quoteId(std::string var)
     return var;
 }
 
-static void reset_err(void) {
-    if (dbg_error != NULL) {
-        FreeEvent(dbg_error);
-    }
-    dbg_error = NULL;
-}
-
-static dbgevent_t *get_err(void) {
-    dbgevent_t *rtn = NULL;
-
-    if (dbg_error != NULL) {
-        rtn = dbg_error;
-        dbg_error = NULL;
-    }
-
-    return rtn;
-}
+std::unique_ptr<dbgevent_t, decltype(&FreeEvent)> dbg_error{nullptr, FreeEvent};
 
 namespace {
 // Class to define an AIFStream that can transmit one section at a time.
@@ -441,7 +422,7 @@ std::string MISlices::getNextSlice(bool& isFinal) {
 
 std::pair<dbgevent_t*,std::string> MISlices::startEval(const char* var) {
     // reset the error var
-    reset_err();
+    dbg_error.reset();
     
     DVPRINT("MISlices::startEval: Resolving variable %s.\n", var);
 
@@ -463,10 +444,10 @@ std::pair<dbgevent_t*,std::string> MISlices::startEval(const char* var) {
 
     if (!m_mivar) {
         DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
-        if (dbg_error == NULL) {
-            EVENT_ERROR(dbg_error, DBGERR_INTERNAL, "CreateMIVar failed.");
+        if (!dbg_error) {
+            dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "CreateMIVar failed."));
         }
-        return std::make_pair(get_err(),std::string{""});
+        return std::make_pair(dbg_error.release(),std::string{""});
     }
 
     // Performng the evaluation happens on a separate thread.  For large
@@ -487,10 +468,8 @@ void MISlices::eval() {
         // passing here tells it what do at the end of every slice
         m_mi2aif->writeVal(m_mivar,0,[this](bool isFinal) { this->flushOutput(isFinal); });
     } catch (std::exception& err) {
-        dbg_error = NewErrorEvent(DBGERR_INTERNAL, err.what());
-        reportError(dbg_error);
+        reportError(NewErrorEvent(DBGERR_INTERNAL, err.what()));
     } catch (dbgevent_t* evt) {
-        dbg_error = evt;
         reportError(evt);
     }
     flushOutput(true);
@@ -576,7 +555,7 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
     sendMICommand(cmd);
     // If this fails, it means the symbol doesn't exist.
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(dbg_error, DBGERR_NOSYM, expr);
+        dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, expr));
         MICommandFree(cmd);
         return var;
     }
@@ -637,11 +616,11 @@ int Mi2Aif::getChildren(MIVar *var) {
             char *err = MICommandResultErrorMessage(cmd);
             const char* errMsg = ( err ? err : "Error without message!");
             DVPRINT("MIVarGetChildren: Debugger error: %s\n", errMsg);
-            EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, errMsg);
+            dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, errMsg));
             free(err);
         } else {
             DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
-            EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB.");
+            dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN, "Bad response from GDB."));
         }
         MICommandFree(cmd);
         return 1;
@@ -888,11 +867,11 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
         while (!MICommandResultOK(cmd)) {
             if (MICommandResultClass(cmd) != MIResultRecordERROR) {
                 DVPRINT("GetArrayAIF: Error from GDB, but no message\n");
-                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN,
-                            "Error without message!");
+                dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN,
+                                              "Error without message!"));
             } else if (auto buf = MICommandResultErrorMessage(cmd)) {
                 DVPRINT("GetArrayAIF: Debugger error: %s\n", buf);
-                EVENT_ERROR(dbg_error, DBGERR_DEBUGGER, buf);
+                dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, buf));
                 free(buf);
                 // try to resolve the expression as a last resort and try again
                 if (!last_resort) {
@@ -902,7 +881,7 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
                     SendMICommand(session, cmd);
                     if (MICommandResultOK(cmd)) {
                         // reset the error message
-                        reset_err();
+                        dbg_error.reset();
                         auto buf2 = MIGetVarInfoPathExpression(cmd);
                         MICommandFree(cmd);
                         cmd = MIDataEvaluateExpression(buf2);
@@ -916,7 +895,7 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
                 return nullptr;
             } else {
                 DVPRINT("GetArrayAIF: Bad response from GDB\n");
-                EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "Bad response from GDB");
+                dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN, "Bad response from GDB"));
             }
             MICommandFree(cmd);
 
@@ -959,7 +938,7 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
 
     } else {
         DVPRINT("GetArrayDataString passed a null expression\n");
-        EVENT_ERROR(dbg_error, DBGERR_UNKNOWN, "null expression while evaluationg an array");
+        dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN, "null expression while evaluationg an array"));
         return nullptr;
     }
 }
@@ -1316,8 +1295,10 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
     }
 
     static std::regex stdStringRE(R"((std::[A-Za-z0-9_:]*string)<.*)");
+    static std::regex stdStringRE2(R"((std::[A-Za-z0-9_:]*string))");
     std::smatch match;
-    if (std::regex_match(type, match, stdStringRE)) {
+    if (std::regex_match(type, match, stdStringRE) ||
+        std::regex_match(type, match, stdStringRE2)) {
         DVPRINT("matched on a string type %s\n", match[1].str().c_str());
         return mi.addKnownType(type, stdString(mi, TypeName{type,match[1].str().size()}));
     }
@@ -1707,7 +1688,10 @@ const char* GdbResult::get() {
         m_pos = m_buffer = m_slicer->getNext(m_finalSlice);
 
         if (!m_pos) {
-            throw NewErrorEvent(DBGERR_INTERNAL, "gdb expression evaluation failed");
+            if (dbg_error)
+                throw dbg_error.release();
+            else
+                throw NewErrorEvent(DBGERR_INTERNAL, "gdb expression evaluation failed");
         }
 
         if (endOfSlice) flush(isFinal);

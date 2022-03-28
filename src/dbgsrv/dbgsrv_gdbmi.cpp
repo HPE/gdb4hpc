@@ -3542,11 +3542,13 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         returnStream = aifStream->createStreamFromNextSlice(isFinal);
     } catch (dbgevent_t* err) {
         DVPRINT("Get value failed\n");
+        delete aifStream;
         return err;
     }
 
     if (!returnStream) {
         DVPRINT("getNextSlice failed\n");
+        delete aifStream;
         return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
     }
 

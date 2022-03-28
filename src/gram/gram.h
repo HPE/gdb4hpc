@@ -88,7 +88,7 @@ extern void PrintFunc(FILE *, func_t *);
 /*
 ** blockmap.h
 */
-extern g_block_map_t *FindBlockMap(char *);
+extern g_block_map_t *FindBlockMap(const char *);
 extern int CheckBlockMap(hentry_t *);
 extern int VerifyBlockMap(hentry_t *);
 extern void SetBlockMap(void);
@@ -146,12 +146,12 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
 extern int CreateProcSet(expr_t *, expr_t *);
 extern dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t*& isInUse);
 extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di);
-extern rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps);
+extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
 extern void SetProcSet(void);
 extern dbgprocset_t *GetProcSet(void);
 extern void FreeProcSet(dbgprocset_t *);
 extern void SetCurrentProcSet(dbgprocset_t *);
-extern dbgprocset_t *FindProcSet(char *name);
+extern dbgprocset_t *FindProcSet(const char *name);
 extern dbgprocset_t *CurrentProcSet(void);
 extern void PrintProcSet(dbgprocset_t *);
 extern void SetOverlaySetForProcSet(dbgprocset_t *);

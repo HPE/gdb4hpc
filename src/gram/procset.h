@@ -23,6 +23,8 @@
 
 #include "dense_bitset.h"
 #include "dbg_client.h"
+#include "hash.h"
+#include "slice.h"
 
 /*
 ** The following describes each type of procset.
@@ -96,9 +98,12 @@ struct dbgprocset_t {
 };
 typedef struct dbgprocset_t dbgprocset_t;
 
-dbgprocset_t *FindProcSet(char *procsetName);
+dbgprocset_t *FindProcSet(const char *procsetName);
 bool CheckProcSet(hentry_t* sym);
 void SetProcSetThreads(dbgprocset_t* procSet, const char* threads);
 std::string GetProcSetString(const char* setName, const Bitset* group, const char* threads);
+std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
+// apply fn to each overlay set in procset
+void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn);
 
 #endif /* !_PROCSET_H */

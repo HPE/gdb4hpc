@@ -1,0 +1,103 @@
+1: launch $a{3} ./bd_dt/c/c_inc.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_inc.c:9
+3: # just do a bunch of bad stuff and make sure gdb4hpc handles it nicely
+5: build $badscript
+5:     # show options table (in two ways)
+5:     set
+Current settings:
+Name                Scope      Currently  Description
+stop                per assert false      Assertion script will stop upon assertion failure.
+halt                per script false      Assertion script will halt all involved ranks upon script end.
+verbose-asserts     per assert false      Assertion results will be printed as they are evaluated.
+verbose-breakpoints per script false      Breakpoints will be printed as they are hit.
+error               per assert 0, 0       Assertion warn/error tolerances.
+6:     show
+Current settings:
+Name                Scope      Currently  Description
+stop                per assert false      Assertion script will stop upon assertion failure.
+halt                per script false      Assertion script will halt all involved ranks upon script end.
+verbose-asserts     per assert false      Assertion results will be printed as they are evaluated.
+verbose-breakpoints per script false      Breakpoints will be printed as they are hit.
+error               per assert 0, 0       Assertion warn/error tolerances.
+6:     # this is okay...
+7:     assert $a{0..1}::inc@"c_inc.c":13 == $a{1..2}::inc@"c_inc.c":13
+8:     # but this is impossible (rank 1 can't be at :15 and :19 at the same time)
+9:     assert $a{0..1}::inc@"c_inc.c":15 == $a{1..2}::inc@"c_inc.c":19
+Error creating assert: Expressions' ranks overlap ({1}), but locations are different. Assertion is impossible to evaluate.
+Command resulted in an error: 9:     assert $a{0..1}::inc@"c_inc.c":15 == $a{1..2}::inc@"c_inc.c":19
+10:     # and this is also impossible (implicit overlap)
+11:     assert $a{1}::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
+Error creating assert: Expressions' ranks overlap ({1}), but locations are different. Assertion is impossible to evaluate.
+Command resulted in an error: 11:     assert $a{1}::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
+12:     # and this is also also impossible (implicit overlap)
+13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
+Error creating assert: Expressions' ranks overlap ($a), but locations are different. Assertion is impossible to evaluate.
+Command resulted in an error: 13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
+14:     # catch invalid syntax
+15:     assert this certainly isn't the syntax for an assert
+Assertion parsing failed: Parsing of "this certainly isn't the syntax for an assert
+" failed: syntax error, unexpected SYM, expecting $end.
+Command resulted in an error: 15:     assert this certainly isn't the syntax for an assert
+16: end
+Assertion script $badscript compiled.
+17: start $nonexistent
+Assertion script "$nonexistent" doesn't exist.
+Command resulted in an error: 17: start $nonexistent
+18: build $badscript
+Assertion script $badscript has already been defined:
+Assertion script $badscript:
+Assertion 1: $a{0..1}::inc@"c_inc.c":13 == $a{1..2}::inc@"c_inc.c":13
+
+Command resulted in an error: 18: build $badscript
+19: maint set sync on
+20: start $badscript
+Sending continue to application...
+a{0..2}: The application has reached an exit breakpoint.
+Assertion script $badscript finished.
+Use "info script $badscript results" to view results.
+Assertion script $badscript stopped.
+21: info script $nonexistent
+Assertion script "$nonexistent" doesn't exist.
+Expected "info script $name"
+Command resulted in an error: 21: info script $nonexistent
+22: info script $nonexistent results
+Assertion script "$nonexistent" doesn't exist.
+Expected "info script $name"
+Command resulted in an error: 22: info script $nonexistent results
+23: info script $badscript
+Assertion script $badscript:
+Assertion 1: $a{0..1}::inc@"c_inc.c":13 == $a{1..2}::inc@"c_inc.c":13
+Use "info script $badscript results" for results.
+24: info script $badscript results
+Results summary for script $badscript:
+
+Total assertion evaluations: 1
+Passed: 1, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a{0..1}::inc@"c_inc.c":13 == $a{1..2}::inc@"c_inc.c":13
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+25: info diff $nonexistent
+Assertion script "$nonexistent" doesn't exist.
+Expected "info diff [$script] [<assert id>]"
+Command resulted in an error: 25: info diff $nonexistent
+26: info diff $nonexistent 3
+Assertion script "$nonexistent" doesn't exist.
+Expected "info diff [$script] [<assert id>]"
+Command resulted in an error: 26: info diff $nonexistent 3
+27: info diff $badscript 999
+No assertion in $badscript with id 999.
+Command resulted in an error: 27: info diff $badscript 999
+28: q
+Shutting down debugger and killing application for 'a'.

@@ -28,6 +28,9 @@ public:
 
     // clone the bitset.
     virtual std::unique_ptr<Bitset> clone() const = 0;
+    // return a new bitset of size nbits with the same set bits as the old
+    // bitset. newly created bits and truncated bits are set to 0.
+    virtual std::unique_ptr<Bitset> clone(size_t nbits) const = 0;
     // sets a bit to 1. offset starts from LSB.
     virtual void set(size_t bit) = 0;
     // sets a bit to 0. offset starts from LSB.

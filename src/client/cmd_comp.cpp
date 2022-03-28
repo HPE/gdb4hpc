@@ -26,20 +26,13 @@
 #include "client.h"
 #include "useful.h"
 #include "dense_bitset.h"
+#include "compare_util.h"
 
 static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *buf;
     val_t *val_res = nullptr;
     val_t *val_diff = nullptr;
-    int res;
-    rep_set_t *rep_set;
     expr_t *e;
-    AIFStream *a;
-    int print_diff = 0;
-    std::unique_ptr<DenseBitset> true_bitset = nullptr;
-    std::unique_ptr<DenseBitset> false_bitset = nullptr;
-    std::unique_ptr<DenseBitset> warn_bitset = nullptr;
-    std::unique_ptr<DenseBitset> indet_bitset = nullptr;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -97,137 +90,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
     **       similar to what graph does with info diff.
     */
 
-    // Process the result val based on its rval type
-    switch (RVAL_TYPE(val_res)) {
-        case rval_aif:
-            // point at the aif result
-            a = RVAL_AIF(val_res);
-            // Set res to the comparison result
-            a->toInt(res);
-            switch (res) {
-                case 0:
-                    PrintOutMsg("Comparison is true.\n");
-                    break;
-                case -1:
-                case 1:
-                    PrintOutMsg(
-                        "Comparison is false. The difference delta is:\n");
-                    if (PrintVal(val_diff, rec_set) < 0) PrintError();
-                    break;
-                case -2:
-                case 2:
-                    PrintOutMsg(
-                        "Comparison is warn. The difference delta is:\n");
-                    if (PrintVal(val_diff, rec_set) < 0) PrintError();
-                    break;
-                case 3:
-                    PrintOutMsg(
-                        "Comparison is indeterminate due to pointers.\n");
-                    break;
-            }
-            break;
-
-        case rval_reply:
-            // Point at the reply set
-            rep_set = RVAL_REPLY(val_res);
-
-            // Fix for BUG 817334 - This used to print the results of the comp
-            // operation directly, but now it will try to group like messages
-            // together and only print a summary over all the ranks.
-
-            // Need to loop over the reply
-            for (auto&& reply : rep_set) {
-                // point at the aif result
-                a = EVENT_DATA(reply->rep_event);
-                // Set res to the comparison result
-                a->toInt(res);
-                switch (res) {
-                    case 0:
-                        if (true_bitset == nullptr) {
-                            // create a new true bitset based off the reply
-                            // group. Note that every reply will have the same
-                            // set size.
-                            true_bitset =
-                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
-                        }
-                        // Add this group to the true_bitset
-                        *true_bitset |= *reply->rep_group;
-                        break;
-                    case -1:
-                    case 1:
-                        if (false_bitset == nullptr) {
-                            // create a new false bitset based off the reply
-                            // group. Note that every reply will have the same
-                            // set size.
-                            false_bitset =
-                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
-                        }
-                        // Add this group to the false_bitset
-                        *false_bitset |= *reply->rep_group;
-                        print_diff++;
-                        break;
-                    case -2:
-                    case 2:
-                        if (warn_bitset == nullptr) {
-                            // create a new warn bitset based off the reply
-                            // group. Note that every reply will have the same
-                            // set size.
-                            warn_bitset =
-                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
-                        }
-                        // Add this group to the warn_bitset
-                        *warn_bitset |= *reply->rep_group;
-                        print_diff++;
-                        break;
-                    case 3:
-                        if (indet_bitset == nullptr) {
-                            // create a new indeterminate bitset based off the
-                            // reply group. Note that every reply will have the
-                            // same set size.
-                            indet_bitset =
-                                std::make_unique<DenseBitset>(reply->rep_group->sizeInBits());
-                        }
-                        // Add this group to the warn_bitset
-                        *indet_bitset |= *reply->rep_group;
-                        break;
-                }
-            }
-
-            // XXX: Note that for the PrintMsgWithSetInfo command we don't want
-            // to use the handle in the set,
-            //      since that is not really a valid representation of what we
-            //      are looking at. What we have is a delta between the two
-            //      sets, and since a di was needed to be set in the reply, it
-            //      just arbitrarily chose the first one. This is a flaw and
-            //      someday should be fixed. For now just use the string ""
-
-            // print the result summary
-            if (true_bitset != nullptr) {
-                PrintMsgWithSetInfo("", true_bitset.get(), "Comparison is true.\n");
-            }
-            if (false_bitset != nullptr) {
-                PrintMsgWithSetInfo("", false_bitset.get(), "Comparison is false.\n");
-            }
-            if (warn_bitset != nullptr) {
-                PrintMsgWithSetInfo("", warn_bitset.get(), "Comparison is warn.\n");
-            }
-            if (indet_bitset != nullptr) {
-                PrintMsgWithSetInfo(
-                    "", indet_bitset.get(),
-                    "Comparison is indeterminate due to pointers.\n");
-            }
-
-            // print out the difference deltas once
-            if (print_diff && val_diff != nullptr) {
-                PrintOutMsg("The difference delta is:\n");
-                if (PrintVal(val_diff, rec_set) < 0) PrintError();
-            }
-            break;
-
-        default:
-            // shouldn't get here
-            break;
-    }
+    printCompareResult(val_res, val_diff, *rec_set);
 
     if (val_diff != nullptr) DestroyVal(val_diff);
 

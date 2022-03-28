@@ -38,8 +38,6 @@ static void _free_procset(dbgprocset_t *);
 static void _print_with_set_info(const char *, const Bitset *, const char* threads, bool,
                                  const char *, va_list);
 
-static std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
-
 // Internal variables
 static list_t *ProcSets = NULL;  // TODO: Try to get rid of this
 static dbgprocset_t *CurrProcSet = NULL;
@@ -97,14 +95,13 @@ std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const sli
     const auto &bits = overlay_set.s_di_bs;
     if (bits == nullptr) return nullptr;
 
-    const int num_set = bits->numSet();
     auto result = bits->clone();
-    if (slice == nullptr) return result; // no slice requested
+    if (slice == nullptr || slice->getRank() == 0) return result; // no slice requested
 
     result->clear();
 
     // get nth set bit in bits, zero indexed, beginning from start
-    auto nthSetBit = [&bits](int n, unsigned int start = 0) {
+    auto nthSetBit = [](const auto& bits, int n, unsigned int start = 0) {
         auto ret = start;
 
         // skip all unset bits and n set bits
@@ -117,22 +114,40 @@ std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const sli
         return ret;
     };
 
-    // check that the requested slice index makes sense in the context of the
-    // overlay sets
-    auto validIndex = [&overlay_set, &num_set](int index) {
+    // check that the requested slice index is actually contained in this overlay set
+    auto validIndex = [](int index, const auto& oSet) {
         return
-            index >= overlay_set.s_ps_offset && index < overlay_set.s_ps_offset + num_set;
+            index >= oSet.s_ps_offset && index < oSet.s_ps_offset + static_cast<int>(oSet.s_di_bs->numSet());
     };
 
     for (int i = 0; i < slice->getRank(); ++i) {
-        int bit = nthSetBit(slice->getLow(i) - overlay_set.s_ps_offset);
+        int startBit = nthSetBit(bits, slice->getLow(i) - overlay_set.s_ps_offset);
 
-        for (int j = slice->getLow(i); j <= slice->getHigh(i) && validIndex(j); ++j) {
-            result->set(nthSetBit(0, bit++));
+        // pick first n set bits where n = getHigh - getLow + 1 (slice ranges are inclusive)
+        for (int j = slice->getLow(i); j <= slice->getHigh(i) && validIndex(j, overlay_set); ++j) {
+            auto nextBit = nthSetBit(bits, 0, startBit);
+            if (nextBit >= result->sizeInBits()) break;
+
+            result->set(nextBit);
+            startBit = nextBit + 1;
         }
     }
 
     return result;
+}
+
+void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn) {
+    // would make a good password given its length...
+    const auto& GNOSFPS = GetNextOverlaySetForProcSet;
+
+    // XXX: procset parameter should be treated as const, but c-style list
+    //      manipulators are technically not const (changing iterator pointers etc)
+    auto& rawProcset = const_cast<dbgprocset_t&>(procset);
+
+    SetOverlaySetForProcSet(&rawProcset);
+    for (auto* os = GNOSFPS(&rawProcset); os; os = GNOSFPS(&rawProcset)) {
+        fn(os);
+    }
 }
 
 /*
@@ -548,20 +563,24 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di) {
 ** Call this function to create a rec_set_t for a procset that is suitable for
 ** passing down to the dbg_client layer.
 */
-rec_set_t *CreateRecSetForProcset(dbgprocset_t *ps) {
+rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps) {
 
     if (ps == NULL) return NULL;
 
     // create an empty rec_set
     rec_set_t* res = NewRecSet();
 
-    // loop over each over_set in the procset
-    ;
-    SetOverlaySetForProcSet(ps);
-    while (dbg_over_set_t *over_set = GetNextOverlaySetForProcSet(ps)) {
-        // create a group_recv_t for the over_set and add it to the res
-        AddReceiverToSet(res,
-                         NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
+    {   // for each overlay set, add the bitset to the recset
+
+        // passed procset should be treated as const, but to iterate over its
+        // overlay set list, we need to reset/increment the list iterators
+        auto listHandle = const_cast<dbgprocset_t*>(ps);
+        
+        SetOverlaySetForProcSet(listHandle);
+        while (const dbg_over_set_t* over_set = GetNextOverlaySetForProcSet(listHandle)) {
+            // create a group_recv_t for the over_set and add it to the res
+            AddReceiverToSet(res, NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
+        }
     }
 
     if (ps->s_threads) {
@@ -651,8 +670,7 @@ void FreeProcSet(dbgprocset_t *s) {
     _free_procset(s);
 }
 
-// TODO: Remove
-dbgprocset_t *FindProcSet(char *name) {
+dbgprocset_t *FindProcSet(const char *name) {
     dbgprocset_t *s;
 
     if (ProcSets == (list_t *)NULL) return (dbgprocset_t *)NULL;

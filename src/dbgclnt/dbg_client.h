@@ -72,9 +72,18 @@ public:
     ~rec_set_t();
     rec_set_t(const rec_set_t&) = delete;
     rec_set_t& operator=(const rec_set_t&) = delete;
+    std::unique_ptr<rec_set_t> clone() const;
 
     void addReceiver(group_recv_t* rec);
-    void removeReceiver(group_recv_t* rec);  // frees the receiver
+    // remove receiver with the same memory address as rec from internal list.
+    // frees the passed receiver.
+    void removeReceiver(group_recv_t* rec);  
+    // for each internal receiver that matches rec's di, intersect its group with
+    // the passed rec's group.
+    void intersectReceiver(const group_recv_t* rec);
+
+    void merge(rec_set_t&& other);
+    void merge(std::unique_ptr<rec_set_t>&& other);
 
     void setThreads(const char* threads);
     const char* getThreads() const { return m_threads; }
@@ -219,6 +228,7 @@ typedef enum dbgsig_type dbgsig_type;
 ** Receiver routines
 */
 extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask);
+extern group_recv_t *NewGroupReceiver(dbginvoke_t *di, std::unique_ptr<Bitset>&& proc_mask);
 extern rec_set_t *NewRecSet(void);
 
 extern void AddReceiverToSet(rec_set_t *set, group_recv_t *rec);
@@ -325,7 +335,7 @@ extern rep_set_t *DbgGetType(rec_set_t *, const char *, int);
 extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
-extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, char *, int, const char*);
+extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, const char *, int, const char*);
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);

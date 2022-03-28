@@ -43,7 +43,7 @@ static list_t *_block_map_list = (list_t *)NULL;
 /*
 ** Find a map.
 */
-g_block_map_t *FindBlockMap(char *blockmap) {
+g_block_map_t *FindBlockMap(const char *blockmap) {
     hentry_t *h;
 
     if ((h = HashSearch(_block_map_table, blockmap)) != (hentry_t *)NULL)

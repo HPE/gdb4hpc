@@ -35,6 +35,7 @@ struct clnt_settings {
     int unsafe;                 /* Be unsafe? */
     int early_entry;            /* Enter at pmi_init? */
     int print_entry_frame;      /* Print frame locations at startup? */
+    bool print_bp_frames;       /* Print breakpoint frames as they are hit? */
     int print_source_on_step;   /* Print line after each step? */
     int print_elements;         /* Number of elements to print in arrays or char * strings */
     int sync_wait;              /* Treat asynchronous cmds as sync? */

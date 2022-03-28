@@ -26,110 +26,180 @@ a{0..1}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 242.
 b{0..1}: Breakpoint 1: file /bd_dt/c/c_cmp_diff.c, line 242.
 5: build $scalars
 6:     set stop off
-7:     # should generate a warning message but still set up an assertion
-8:     assert $a{0..1}::assertTest @"c_type_test.c":161 != $b{0..1}::assertTest @"c_cmp_diff.c":161
-Warning: Range use detected in procset for command ($b{0..1}). Only operating on rank 0.
-Warning: Range use detected in procset for command ($a{0..1}). Only operating on rank 0.
-11:     
-12:     # all of these should pass
-13:     assert $a{0}::uc  @"c_type_test.c":168 <  $b{0}::uc  @"c_cmp_diff.c":168
-14:     assert $a{0}::ush @"c_type_test.c":168 <= $b{0}::ush @"c_cmp_diff.c":168
-15:     
-16:     # all of these should fail
-17:     assert $a{0}::ld  @"c_type_test.c":188 >= $b{0}::ld  @"c_cmp_diff.c":188
-18:     assert $a{0}::lli @"c_type_test.c":187 >  $b{0}::lli @"c_cmp_diff.c":187
-19:     assert $a{0}::i   @"c_type_test.c":169 =  $b{0}::i   @"c_cmp_diff.c":178
-20:     
-21:     # XXX: this should be possible, but isn't right now (char vs member of int[])
-22:     # assert $a{0}::c@"c_type_test.c":160 = $b{0}::one_d_i_init[1]@"c_cmp_diff.c":90
-23:     
-24:     # generate a warning by setting acceptable error
-25:     set error 0.99 1.99
-26:     assert $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
-27:     
-28:     # generate an error by reducing acceptable error
-29:     set error 0.2 0.5
-30:     assert $a{0}::d @"c_type_test.c":188 >= $b{0}::d @"c_cmp_diff.c":188
-31:     
-32:     # stop at this failure
-33:     set stop on
-34:     assert $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
-36:     # all of these are errors and should generate an error message and not set an assertion
-37:     #   out of procset range
+7:     
+8:     # all of these should pass
+9:     assert $a{0..1}::assertTest @"c_type_test.c":161 != $b{0..1}::assertTest @"c_cmp_diff.c":161
+10:     assert $a{0}::uc  @"c_type_test.c":168 <  $b{0}::uc          @"c_cmp_diff.c":168
+11:     assert $a{0}::ush @"c_type_test.c":168 <= $b{0}::ush         @"c_cmp_diff.c":168
+12:     assert $a::c      @"c_type_test.c":161 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+13:     
+14:     # all of these should fail
+15:     assert $a{0}::ld  @"c_type_test.c":195 >= $b{0}::ld  @"c_cmp_diff.c":195
+16:     assert $a{0}::lli @"c_type_test.c":195 >  $b{0}::lli @"c_cmp_diff.c":195
+17:     assert $a{0}::i   @"c_type_test.c":195 =  $b{0}::i   @"c_cmp_diff.c":195
+18:     
+19:     # given a comparison with a true difference of 1.0...
+21:     # pass with difference under warning threshold
+22:     set error 1.01 2
+23:     assert $a{0}::f @"c_type_test.c":195 == $b{0}::f @"c_cmp_diff.c":195
+24:     
+25:     # generate a warning by reducing acceptable error
+26:     set error 0.99 2
+27:     assert $a{0}::f @"c_type_test.c":195 == $b{0}::f @"c_cmp_diff.c":195
+28:     
+29:     # generate an error by reducing acceptable error
+30:     set error 0.1 0.99
+31:     assert $a{0}::d @"c_type_test.c":195 == $b{0}::d @"c_cmp_diff.c":195
+32:     
+33:     # stop at this failure
+34:     set stop on
+34:     show stop
+stop: Assertion script will stop upon assertion failure.
+Current value: true.
+34:     show error
+error: Assertion warn/error tolerances.
+Current value: 0.1, 0.99.
+35:     assert $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
+37:     # all of these are errors and should generate an error message and not set an assertion
 38:     assert $a{3}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
-Error: rank 3 not in procset $a.
-Command resulted in an error: 35:     assert $a{3}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
-39:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
-Warning: Range use detected in procset for command ($a{3..4}). Only operating on rank 3.
-Error: rank 3 not in procset $a.
-Command resulted in an error: 36:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
-40:     #   invalid syntax
-41:     assert $a::assertTest@"c_type_test.c":161 == $a::assertTest@"c_type_test.c":161
-Error: Invalid procset ($a::). Specify a single rank (e.g. $a{0}::var...) or use a decomposition (e.g. $dec{$a::var...}).
-Command resulted in an error: 38:     assert $a::assertTest@"c_type_test.c":161 == $a::assertTest@"c_type_test.c":161
-42: end
+Error creating assert: Invalid procset slice; out of bounds: $a::{3}.
+Command resulted in an error: 38:     assert $a{3}::assertTest@"c_type_test.c":161 == $a{0}::assertTest@"c_type_test.c":161
+39:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{-3}::assertTest@"c_type_test.c":161
+Error creating assert: Invalid procset slice; out of bounds: $a::{3..4}.
+Command resulted in an error: 39:     assert $a{3..4}::assertTest@"c_type_test.c":161 == $a{-3}::assertTest@"c_type_test.c":161
+40:     assert $a{1}::assertTest@"c_type_test.c":161 == $a{-3}::assertTest@"c_type_test.c":161
+Error creating assert: Invalid procset slice; negative index: $a::{...}.
+Command resulted in an error: 40:     assert $a{1}::assertTest@"c_type_test.c":161 == $a{-3}::assertTest@"c_type_test.c":161
+41: end
 Assertion script $scalars compiled.
-43: set dfblock on
-44: start $scalars
-*** Starting execution of application ***
-*** Difference found in AssertID 6 ***
-*** Difference found in AssertID 5 ***
-*** Difference found in AssertID 4 ***
-*** Tolerable difference found in AssertID 7 ***
-*** Difference found in AssertID 8 ***
-*** Difference found in AssertID 9 ***
+42: maint set sync on
+43: start $scalars
+Sending continue to application...
+Assertion 11: $a{0}::i@"c_type_test.c":234 == $b{0}::i@"c_cmp_diff.c":234 failed. Stopping script.
+Assertion script $scalars finished.
+Use "info script $scalars results" to view results.
+Assertion script $scalars stopped.
+44: frame
+a{0..1}: #0  0x0000000000202588 in main at /bd_dt/c/c_type_test.c:242
+b{0..1}: #0  0x0000000000202588 in main at /bd_dt/c/c_cmp_diff.c:242
+44: info script
+Saved assertion scripts:
+$scalars
+45: info script $scalars
+Assertion script $scalars:
+Assertion  1: $a{0..1}::assertTest@"c_type_test.c":161 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Assertion  2: $a{0}::uc@"c_type_test.c":168 < $b{0}::uc@"c_cmp_diff.c":168
+Assertion  3: $a{0}::ush@"c_type_test.c":168 <= $b{0}::ush@"c_cmp_diff.c":168
+Assertion  4: $a::c@"c_type_test.c":161 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Assertion  5: $a{0}::ld@"c_type_test.c":195 >= $b{0}::ld@"c_cmp_diff.c":195
+Assertion  6: $a{0}::lli@"c_type_test.c":195 > $b{0}::lli@"c_cmp_diff.c":195
+Assertion  7: $a{0}::i@"c_type_test.c":195 == $b{0}::i@"c_cmp_diff.c":195
+Assertion  8: $a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+Assertion  9: $a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 10: $a{0}::d@"c_type_test.c":195 == $b{0}::d@"c_cmp_diff.c":195
+Assertion 11: $a{0}::i@"c_type_test.c":234 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $scalars results" for results.
+46: info script $scalars results
+Results summary for script $scalars:
 
-*** The interpreter has halted. ***
-Assertion script $scalars complete.
-Successful Assertion Set Iterations: 0
-Total Passed Assertions: 3
-Total Warned Assertions: 1
-Total Failed Assertions: 5
+Total assertion evaluations: 65
+Passed: 14, Passed with warning: 10, Failed: 41, Indeterminate: 0
+Assertion results:
 
-Assertion summary:
-AssertID 1:  Pass: 1 Warn: 0 Fail: 0
-AssertID 2:  Pass: 1 Warn: 0 Fail: 0
-AssertID 3:  Pass: 1 Warn: 0 Fail: 0
-AssertID 4:  Pass: 0 Warn: 0 Fail: 1
-AssertID 5:  Pass: 0 Warn: 0 Fail: 1
-AssertID 6:  Pass: 0 Warn: 0 Fail: 1
-AssertID 7:  Pass: 0 Warn: 1 Fail: 0
-AssertID 8:  Pass: 0 Warn: 0 Fail: 1
-AssertID 9:  Pass: 0 Warn: 0 Fail: 1
-***********************************
+Assertion 1:
+$a{0..1}::assertTest@"c_type_test.c":161 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Current location:
-b{0}: Application halted in main at /bd_dt/c/c_cmp_diff.c:234
-b{1}: Application halted in main at /bd_dt/c/c_cmp_diff.c:242
-a{0}: Application halted in main at /bd_dt/c/c_type_test.c:234
-a{1}: Application halted in main at /bd_dt/c/c_type_test.c:242
+Assertion 2:
+$a{0}::uc@"c_type_test.c":168 < $b{0}::uc@"c_cmp_diff.c":168
+Passes: 1, Passes with warnings: 0, Failures: 0.
 
+Assertion 3:
+$a{0}::ush@"c_type_test.c":168 <= $b{0}::ush@"c_cmp_diff.c":168
+Passes: 1, Passes with warnings: 0, Failures: 0.
 
-45: info script
-There is currently no assertion script executing.
-46: info build $scalars
-Script $scalars
-AssertID:1  $a{0..1}::assertTest @"c_type_test.c":161 != $b{0..1}::assertTest @"c_cmp_diff.c":161
-AssertID:2  $a{0}::uc @"c_type_test.c":168 < $b{0}::uc @"c_cmp_diff.c":168
-AssertID:3  $a{0}::ush @"c_type_test.c":168 <= $b{0}::ush @"c_cmp_diff.c":168
-AssertID:4  $a{0}::ld @"c_type_test.c":188 >= $b{0}::ld @"c_cmp_diff.c":188
-AssertID:5  $a{0}::lli @"c_type_test.c":187 > $b{0}::lli @"c_cmp_diff.c":187
-AssertID:6  $a{0}::i @"c_type_test.c":169 = $b{0}::i @"c_cmp_diff.c":178
-AssertID:7  $a{0}::f @"c_type_test.c":188 >= $b{0}::f @"c_cmp_diff.c":188
-AssertID:8  $a{0}::d @"c_type_test.c":188 >= $b{0}::d @"c_cmp_diff.c":188
-AssertID:9  $a{0}::i@"c_type_test.c":234 = $b{0}::i@"c_cmp_diff.c":234
-47: info diff
-Saved difference values:
-Script $scalars
-1. AssertID 6 Failure
-2. AssertID 5 Failure
-3. AssertID 4 Failure
-4. AssertID 7 Warning
-5. AssertID 8 Failure
-6. AssertID 9 Failure
-48: info diff 2
-Script $scalars AssertID 5 Failure
-The difference: -1
-49: q
+Assertion 4:
+$a::c@"c_type_test.c":161 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 5:
+$a{0}::ld@"c_type_test.c":195 >= $b{0}::ld@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 6:
+$a{0}::lli@"c_type_test.c":195 > $b{0}::lli@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 7:
+$a{0}::i@"c_type_test.c":195 == $b{0}::i@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 8, configured with error: 1, 2:
+$a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+Passes: 10, Passes with warnings: 0, Failures: 0.
+
+Assertion 9, configured with error: 0.99, 2:
+$a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 10, Failures: 0.
+
+Assertion 10, configured with error: 0.1, 0.99:
+$a{0}::d@"c_type_test.c":195 == $b{0}::d@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 11, configured with stop, error: 0.1, 0.99:
+$a{0}::i@"c_type_test.c":234 == $b{0}::i@"c_cmp_diff.c":234
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+48: info diff
+Stored assertion deltas:
+In assertion script $scalars:
+For assertion 5: $a{0}::ld@"c_type_test.c":195 >= $b{0}::ld@"c_cmp_diff.c":195
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 6: $a{0}::lli@"c_type_test.c":195 > $b{0}::lli@"c_cmp_diff.c":195
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 7: $a{0}::i@"c_type_test.c":195 == $b{0}::i@"c_cmp_diff.c":195
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 9: $a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+{0}: Comparison is warn.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 10: $a{0}::d@"c_type_test.c":195 == $b{0}::d@"c_cmp_diff.c":195
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 11: $a{0}::i@"c_type_test.c":234 == $b{0}::i@"c_cmp_diff.c":234
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+
+49: info diff $scalars 9
+For assertion 9: $a{0}::f@"c_type_test.c":195 == $b{0}::f@"c_cmp_diff.c":195
+{0}: Comparison is warn.
+The difference delta is:
+{0}: 1
+(x10)
+
+50: # Are breakpoints cleaned up?
+51: info break
+Procset         Num Type           Disp Enb What
+a{0..1}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_type_test.c:242
+b{0..1}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_cmp_diff.c:242
+52: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

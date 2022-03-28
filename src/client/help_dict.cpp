@@ -988,12 +988,12 @@ const char * const cmd_build_help[] = {
     "Usage: build <name>",
     "Example command: build $my_script",
     "",
-    "Script mode commands: assert, assign, end, help, set, show",
+    "Script mode commands: assert, end, help, set, show",
     "Arguments: name (debugger variable)",
     "",
     "Description:",
     "Begin creation of a new assertion script. Build sub-commands are read",
-    "until \"end\" is encountered. See usage assert for more information.",
+    "until \"end\" is encountered.",
     0};
 
 const char * const cmd_start_help[] = {
@@ -1005,9 +1005,9 @@ const char * const cmd_start_help[] = {
     "",
     "Description:",
     "Begin execution of a built assertion script. Assertion script execution",
-    "cycles until encountering assertion failures or reaching the end of "
-    "program",
-    "execution. Behavior can be changed via the \"set stop\" command.",
+    "continues until assertion failures (if set stop is used),",
+    "the end of the program is reached, or a deadlock is detected.",
+    "Stopping behavior can be changed via the \"set stop\" command.",
     0};
 
 const char * const cmd_stop_help[] = {
@@ -1297,32 +1297,33 @@ const char * const class_info_subcmd_blockmap_help[] = {
     "Summary: Display defined decompositions.", "",
     "Description:", "Display the names of defined decompositions.", 0};
 
-const char * const class_info_subcmd_diff_help[] = {
-    "Summary: Saved assertion script diff information.",
-    "",
+const char* const class_info_subcmd_diff_help[] = {
+    "Summary: Display saved assertion script difference delta information.",
+    "Usage: info diff", 
+    "       info diff <$script>",
+    "       info diff <$script> <assert id>",
     "Description:",
-    "Display the set of saved difference data from assertion script assertions",
-    "collected during execution. A numeric argument can be provided to view "
-    "the",
-    "actual deltas of the data type comparison. Or an assertion script name "
-    "(i.e. $script)",
-    "along with an AssertID number (i.e. 1) can be provided to view all saved "
-    "difference",
-    "data corresponding to the requested scripts assertion id.",
+    "Display the set of saved difference data collected during assertion script",
+    "execution. Without a script $name argument, the command ",
+    "will show a list of all collected diffs from all assertion",
+    "scripts. To view a list of collected diffs for a specific assertion",
+    "script only, pass its $name as the third argument. To see the actual",
+    "difference value, pass the $name and the id of the assertion you want to",
+    "view the differences of.",
     0};
 
-const char * const class_info_subcmd_build_help[] = {
-    "Summary: Display built assertion scripts.",
-    "",
+const char* const class_info_subcmd_script_help[] = {
+    "Summary: Assertion script information.", 
+    "Usage: info script",
+    "     : info script <$script>",
+    "     : info script <$script> results",
     "Description:",
-    "Display the names of built assertion scripts. A name argument can be",
-    "provided to view the assertions defined in the assertion script.",
-    0};
-
-const char * const class_info_subcmd_script_help[] = {
-    "Summary: Assertion script status information.", "", "Description:",
-    "Display summary information relating to actively executing assertion "
-    "scripts.",
+    "Display information about saved assertion scripts and their results.",
+    "Without a script $name argument, the command will print a list of all",
+    "assertion scripts and indicate if one of them is currently running.",
+    "Passing a $name argument will print the actual assertions within the",
+    "script. Passing an additional \"results\" argument will show a detailed",
+    "view of the results of the assertion script.",
     0};
 
 /*
@@ -1379,20 +1380,6 @@ const char* const class_maint_subcmd_system_help[] = {
     "to enumerate information about the system the client is running on. The",
     "stderr of the command will be redirected to stdout and printed in the "
     "result.",
-    0};
-
-const char * const class_maint_subcmd_dump_help[] = {
-    "Summary: Dataflow graph dump command.",
-    "Usage: maint dump <name> [<filename>]",
-    "Example command: maint dump $my_script",
-    "",
-    "Arguments: NAME(defined assertion script variable), FILENAME(optional "
-    "quoted filename)",
-    "",
-    "Description:",
-    "Dump a built assertion script in digraph format. An optional filename "
-    "argument",
-    "can be given to dump the assertion script to a file in digraph format.",
     0};
 
 /*
@@ -1500,54 +1487,6 @@ const char* const class_set_subcmd_non_stop_help[] = {
     "Set the non-stop mode",
     "off    : stopping one thread in a process stops all threads",
     "on     : other threads continue running when one is stopped",
-    0};
-
-const char * const class_set_subcmd_dfblock_help[] = {
-    "Summary: Dataflow command blocking mode.",
-    "Usage: set dfblock [on|off]",
-    "Example command: set dfblock on",
-    "",
-    "Scope: Assertion script",
-    "Default setting: off",
-    "Arguments: on or off",
-    "",
-    "Description:",
-    "Set the dataflow command blocking mode to on or off. If on, commands will "
-    "not",
-    "be allowed to be entered until after the assertion script finishes "
-    "execution.",
-    "There is no way to interrupt an executing assertion script when on. The "
-    "default",
-    "setting is off.",
-    0};
-
-const char * const class_set_subcmd_halt_help[] = {
-    "Summary: Assertion script halting mode.",
-    "Usage: set halt [true|false]",
-    "Example command: set halt true",
-    "",
-    "Scope: Assertion script",
-    "Default setting: true",
-    "Arguments: true or false",
-    "",
-    "Description:",
-    "Determines if application ranks are halted when the assertion script "
-    "terminates.",
-    0};
-
-const char * const class_set_subcmd_stop_help[] = {
-    "Summary: Assertion script stopping mode.",
-    "Usage: set stop [true|false]",
-    "Example command: set stop true",
-    "",
-    "Scope: Assertion script",
-    "Default setting: true",
-    "Arguments: true or false",
-    "",
-    "Description:",
-    "Determines if the assertion script should halt due to encountering "
-    "assertion",
-    "failures.",
     0};
 
 /*
@@ -1693,64 +1632,6 @@ const char* const class_show_subcmd_non_stop_help[] = {
     "on     : other threads continue running when one is stopped",
     0};
 
-const char * const class_show_subcmd_dfblock_help[] = {
-    "Summary: Assertion script command blocking setting.",
-    "",
-    "Description:",
-    "Display the current assertion script command blocking mode setting. If "
-    "on,",
-    "commands will not be allowed to be entered until after the assertion "
-    "script",
-    "finishes execution. There is no way to interrupt an executing assertion "
-    "script",
-    "when on. The default setting is off.",
-    0};
-
-const char * const class_show_subcmd_halt_help[] = {
-    "Summary: Assertion script halting mode.",
-    "",
-    "Description:",
-    "Display the current setting of the assertion script halting mode. "
-    "Determines",
-    "if application ranks are halted when the assertion script terminates.",
-    0};
-
-const char * const class_show_subcmd_reduce_help[] = {
-    "Summary: Assertion script reduce mode.",
-    "",
-    "Description:",
-    "Display the current setting of the assertion script reduce mode. There "
-    "are",
-    "both simple and complex functions currently supported for data reduction.",
-    "The simple functions are sum, product, and mean which compute the sum,",
-    "product, or mean of the data structure in question.",
-    "",
-    "The complex function is hash. This will compute a hash for data reduction",
-    "purposes. The hash function implemented is prone to collisions, the "
-    "expected",
-    "rate is one collision in 2^32. When hashing is used, the two original",
-    "sets of data will no longer be directly compared. Instead, two sets of",
-    "hashed signatures will be compared. If a decomposition is used to compare "
-    "a",
-    "serial data structure to an n-ary distributed data structure, then the",
-    "serial program will calculate n hashes and compare it with its",
-    "associated counterpart in the n-ary distributed data structure.",
-    "",
-    "If floating point values are being used with the hash function, the",
-    "precision tolerance (lower and upper) for the hash function is",
-    "determined by the lower precision and upper precision settings.",
-    0};
-
-const char * const class_show_subcmd_stop_help[] = {
-    "Summary: Assertion script stopping mode.",
-    "",
-    "Description:",
-    "Display the current setting of the assertion script stopping mode. "
-    "Determines",
-    "if the assertion script should halt due to encountering assertion "
-    "failures.",
-    0};
-
 /*
  * Class show print subcommands
  */
@@ -1842,16 +1723,6 @@ const char *const class_set_print_subcmd_elements_help[] = {
 /*
  * Class usage subcommands
  */
-
-const char * const class_usage_subcmd_assert_help[] = {
-    "Summary: Assertion script assert command.",
-    "",
-    "Description:",
-    "Display help information regarding the use of assertion script assert",
-    "commands. The assert command is only valid while building an assertion "
-    "script",
-    "in script mode.",
-    0};
 
 const char * const class_usage_subcmd_decomposition_help[] = {
     "Summary: Decomposition commands.",
@@ -2098,6 +1969,34 @@ const char * const cmd_blockmap_alt_end_help[] = {
     "a decomposition function for future use. The user will be warned if there",
     "were any errors that prevented the decomposition function from being "
     "created.",
+    0};
+
+const char* const cmd_graph_alt_set_help[] = {
+    "Summary: Set assertion script options", 
+    "Usage: set",
+    "     : set <option> <value> [<value>, <value>...]", 
+    "Description:",
+    "Set various assertion script options while writing an assertion script.",
+    "If used with no arguments, a table of all available settings is printed",
+    "with their current values. Each setting has a scope: \"per assert\" or",
+    "\"per script\". \"per assert\" settings will apply to each assert written",
+    "after the set command, and none before. \"per script\" settings will",
+    "apply to the entire script, even to asserts written before the set",
+    "command was given.",
+    0};
+
+const char* const cmd_graph_alt_show_help[] = {
+    "Summary: Show current values of assertion script options", 
+    "Usage: show",
+    "     : show <option>", 
+    "Description:",
+    "Show the current values of various assertion script options.",
+    "If used with no arguments, a table of all available settings is printed",
+    "with their current values. Each setting has a scope: \"per assert\" or",
+    "\"per script\". \"per assert\" settings will apply to each assert",
+    "written after the set command, and none before. \"per script\" settings",
+    "will apply to the entire script, even to asserts written before the set",
+    "command was given.",
     0};
 
 const char * const cmd_graph_alt_assert_help[] = {

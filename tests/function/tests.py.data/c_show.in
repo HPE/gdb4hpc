@@ -13,20 +13,12 @@ a{0..5}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 223.
 25: continue
 <$a>: Hello World! from process 0
 a{0..5}: Breakpoint 1, main at /bd_dt/c/c_type_test.c:223
-28: #Show how output of assert is displayed.
 31: #Show the debugger version number.
 32: show version
 Version %\d+\.\d+.[\d.]+%
-37: #Show status of stopping on assertion failure.
-38: show stop
-Assertion script stopping mode: true
 41: #Show current search path for finding source files.
 42: show directories
 a{0..5}: Source directories searched: $cdir:$cwd
-44: #Show warn and error epsilon for floating point comparison.
-45: show error
-Warning epsilon: 4.940656458412465e-324
-Error epsilon: 4.940656458412465e-324
 48: #exit lgdb
 49: q
 Shutting down debugger and killing application for 'a'.

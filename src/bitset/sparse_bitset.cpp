@@ -61,9 +61,20 @@ std::unique_ptr<Bitset> SparseBitset::clone() const {
 	return typedClone();
 }
 
+std::unique_ptr<Bitset> SparseBitset::clone(size_t newSize) const {
+	return typedClone(newSize);
+}
+
 std::unique_ptr<SparseBitset> SparseBitset::typedClone() const {
-	auto clone = new SparseBitset(m_sb_num_bits);
-	*clone = *this;
+	return typedClone(m_sb_num_bits);
+}
+
+std::unique_ptr<SparseBitset> SparseBitset::typedClone(size_t newSize) const {
+	auto clone = new SparseBitset(newSize);
+	for (const auto& range : m_sb_ranges) {
+		if (range.sr_start >= newSize) break;
+		clone->setRange(range.sr_start, std::min(range.sr_end, newSize - 1));
+	}
 	return std::unique_ptr<SparseBitset>(clone);
 }
 
@@ -252,7 +263,7 @@ Bitset& SparseBitset::operator=(const Bitset &other) {
 	auto sparseOther = dynamic_cast<const SparseBitset*>(&other);
 	if (!sparseOther) return Bitset::operator=(other);
 
-	*this = other;
+	*this = *sparseOther;
 	return *this;
 }
 

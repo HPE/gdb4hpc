@@ -133,27 +133,32 @@ def expand_proc_set(proc_set):
 # - a string with the remaining process set if out_proc_str is a subset
 #       of ref_proc_str
 # - False if the process sets are inconsistent
-def compare_proc_set(ref_proc_str, out_proc_str):
+def compare_proc_set(ref_proc_str, out_proc_str, seen):
     ref_procs = expand_proc_set(ref_proc_str)
     out_procs = expand_proc_set(out_proc_str)
+    seen_procs = expand_proc_set(seen)
 
     remaining_procs = [ str(x) for x in ref_procs if x not in out_procs ]
-    mismatched = [ x for x in out_procs if x not in ref_procs ]
+    mismatched = [ x for x in out_procs if x not in ref_procs and x not in seen_procs]
+    for p in out_procs:
+        if p not in seen_procs:
+            seen_procs.append(p)
+    seen_procs = [ str(x) for x in seen_procs ]
 
     if mismatched:
-        return False
+        return False, None, None
     elif remaining_procs:
-        return ",".join(remaining_procs)
+        return None, ",".join(remaining_procs), ",".join(seen_procs) 
     else:
-        return True
+        return True, None, None
 
 # compare a process set reply with the reference
-def compare_procset_lines(ref_line, out_line):
+def compare_procset_lines(ref_line, out_line, seen):
     ref_m = is_procset_re.match(ref_line)
     out_m = is_procset_re.match(out_line)
 
     if not ref_m or not out_m:
-        return False
+        return False, None, None
 
     # (procset, procs, value)
     ref = (ref_m.group(1), ref_m.group(2), ref_m.group(5))
@@ -162,13 +167,13 @@ def compare_procset_lines(ref_line, out_line):
     # by design ref[0] == out[0] because we are looking in a single proc-set, but
     # check anyway
     if not compare_lines(ref[2],out[2]) or ref[0] != out[0]:
-        return False
+        return False, None, None
 
-    pcs = compare_proc_set(ref[1], out[1])
-    if pcs == True or pcs == False:
-        return pcs
+    cmp, refset, seen = compare_proc_set(ref[1], out[1], seen)
+    if cmp is not None:
+        return cmp, None, None
     else:
-        return ref[0] + "{" + pcs + "}:" + ref[2]
+        return None, ref[0] + "{" + refset + "}:" + ref[2], seen 
 
 # return the command if this is a batch line
 def is_batch(line):
@@ -308,19 +313,20 @@ def compare_files(ref_file_path, out_file_path):
                         if rproc:
                             if procRefs.get(rproc) == None:
                                 procRefs[rproc] = []
-                            procRefs[rproc].append(refline)
+                            procRefs[rproc].append([refline, ""])
                         else:
                             return error("did not find match", outline_num, orig_outline)
 
-                    refline = procRefs[proc][procIdx]
-                    pc_cmp = compare_procset_lines(refline, outline)
-                    if pc_cmp == False:
+                    refline, seen = procRefs[proc][procIdx]
+                    cmp, newref, seen = compare_procset_lines(refline, outline, seen)
+                    if cmp is not None and cmp == False:
                         procIdx += 1
-                    elif pc_cmp == True:
+                    elif cmp is not None and cmp == True:
                         procRefs[proc].pop(procIdx)
                         matched = True
                     else:
-                        procRefs[proc][procIdx] = pc_cmp
+                        procRefs[proc][procIdx][0] = newref
+                        procRefs[proc][procIdx][1] = seen
                         matched = True
                 if not matched:
                     return error("mismatch in return", outline_num, orig_outline)
@@ -618,6 +624,18 @@ class assert_arrays(Test):
 class assert_decomp(Test):
     def test(self):
         runTest(self)
+
+class assert_deadlock(Test):
+    def test(self):
+        runTest(self)
+
+class assert_interrupted(Test):
+    def test(self):
+        runTest(self)
+
+class assert_errors(Test):
+    def test(self):
+        runTest(self)
         
 class ftn_arrays(Test):
     def test(self):
@@ -715,3 +733,4 @@ class c_checkpoint1(Test):
 class c_checkpoint2(Test):
     def test(self):
         runTest(self)
+

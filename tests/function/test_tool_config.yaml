@@ -31,3 +31,18 @@ pea2k:
   launch:
     args:
       slurm: "--exclusive --mpi=cray_shasta"
+
+pinoak-login1:
+  launch:
+    args:
+      slurm: "--exclusive -N1"
+
+uan01:
+  launch:
+    environment:
+      CTI_WLM_IMPL: slurm
+
+slice-uan:
+  launch:
+    environment:
+      CTI_WLM_IMPL: slurm

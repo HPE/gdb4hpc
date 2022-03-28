@@ -495,11 +495,11 @@ int AIFStream::compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
         // account for it being a combination of multiple values, so there isn't a value
         // for less than AND greater than
         if (nc) *res = 3;
-        else if (eq && !ltx && !gtx) *res = 0;
-        else if (ltw && !lt && !gt) *res = -2;   // ambiguity if ltw && gtw  (otherwise !gtx)
-        else if (lt && !eq && !gtx) *res = -1;
-        else if (gtw && !gt && !ltx) *res = 2;
-        else if (gt && !eq && !ltx) *res = 1;
+        else if (eq && !ltx && !gtx) *res = 0; // {1, 1} == {1, 1}
+        else if (ltw && !lt && !gt) *res = -2; // {.99, 1, 1.01} ~= {1, 1, 1} // ambiguity if ltw && gtw  (otherwise !gtx)
+        else if (lt && !gtx) *res = -1;        // {0, 1} < {1, 1}
+        else if (gtw && !gt && !ltx) *res = 2; // {1.01, 1} ~>= {1, 1}
+        else if (gt && !ltx) *res = 1;         // {2, 1} > {1, 1}
         else *res = 1;  // not ideal, but this might cause the least trouble.
         return 0;
     } catch (std::exception& e) {

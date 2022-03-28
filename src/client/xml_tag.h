@@ -35,7 +35,7 @@
 #define XML_PROG_OUTPUT_END "</output>\n"
 
 #define XML_RESULT \
-    "<result script=\"%s\" id=\"%d\" Pass: %d Warn: %d Fail: %d />\n"
+    "<result script=\"%s\" id=\"%lu\" Pass: %lu Warn: %lu Fail: %lu />\n"
 
 #define XML_STATUS_START "<status set=\"%s\">\n"
 #define XML_STATUS_INIT "%s Initializing\n"

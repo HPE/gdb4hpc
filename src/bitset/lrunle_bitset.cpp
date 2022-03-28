@@ -48,6 +48,19 @@ std::unique_ptr<Bitset> LRunLEBitset::clone() const {
     return std::unique_ptr<LRunLEBitset>(r);
 }
 
+std::unique_ptr<Bitset> LRunLEBitset::clone(size_t newNumBits) const {
+    if (newNumBits < m_nbits) {
+        // efficient shrinking lrle bitsets is not possible with current api
+        auto r = std::make_unique<LRunLEBitset>(newNumBits);
+        for (size_t i = 0; i < m_nbits; i++) {
+            if (test(i)) r->set(i);
+        }
+        return r;
+    } else {
+        return std::make_unique<LRunLEBitset>(newNumBits, m_compressed.data(), m_compressed.size());
+    }
+}
+
 bool LRunLEBitset::isEmpty() const {
     return lrle_empty(m_compressed.data(), m_compressed.size());
 }

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -11,18 +11,14 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
-
-#ifndef _SLICE_H
-#define _SLICE_H
+#pragma once
 
 #include <string>
 #include <vector>
+#include <memory>
+
+#include "bitset.h"
 
 // This is a candidate for a rename.   Originally, it was used to track the info for
 // extracting a portion of an array - and it still is.   But it has morphed into a more 
@@ -40,9 +36,12 @@ class slice_t {
 
 public:
     slice_t();
+    explicit slice_t(const slice_t&);
+    slice_t(slice_t &&other);
     ~slice_t();
 
     slice_t& operator=(const slice_t&) = delete;
+    slice_t& operator=(slice_t &&other);
 
     slice_t* clone() const;
     
@@ -67,13 +66,17 @@ public:
 
     void setArgs(const char* args);
 
+    // create a bitset from the slice data. if the slice has multiple dimensions,
+    // all dimensions are collapsed into a single bitset. if any of those
+    // collapsed dimensions happen to overlap, the overlapping portions are merged.
+    // e.g.
+    // given slice (0, 2), (1, 4), (7, 7), createBitset returns 10011111,
+    // where the least significant bit corresponds to slice index 0.
+    std::unique_ptr<Bitset> createBitset() const;
 private:
-    slice_t(const slice_t&);
+    void cleanup();
     void resize();
     void parseIdcs();
 };
 
 inline slice_t* CopySlice(slice_t *s) { return s ? s->clone() : nullptr; }
-
-
-#endif /* !_SLICE_H */

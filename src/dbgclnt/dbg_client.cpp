@@ -36,11 +36,10 @@
 #include <algorithm>
 #include <mutex>
 
+#include "assert_client.h"
 #include "dbg_client.h"
 #include "useful.h"
 #include "gram.h"
-
-#include "df.h"
 
 /*
 ** Internal types
@@ -225,6 +224,17 @@ group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask) {
     return rec;
 }
 
+group_recv_t* NewGroupReceiver(dbginvoke *di, std::unique_ptr<Bitset>&& mask) {
+    auto rec = new group_recv_t;
+    rec->rec_di = di;
+
+    DASSERT_NOT_NULL(proc_mask.get());
+    rec->rec_group = std::move(mask);
+    rec->_cmd_sent = std::unique_ptr<Bitset>();
+
+    return rec;
+}
+
 static void FreeGroupReceiver(group_recv_t *rec) {
     delete rec;
 }
@@ -261,6 +271,30 @@ rec_set_t::~rec_set_t() {
         FreeGroupReceiver(recv);
     }
     free(m_threads);
+}
+
+std::unique_ptr<rec_set_t> rec_set_t::clone() const {
+    auto r = std::make_unique<rec_set_t>();
+    
+    // copy receivers
+    for (const auto& rec : m_recs) {
+        r->m_recs.emplace_back(new group_recv_t {
+            .rec_di = rec->rec_di,
+            .rec_group = rec->rec_group
+                ? rec->rec_group->clone()
+                : nullptr,
+            ._cmd_sent = rec->_cmd_sent
+                ? rec->_cmd_sent->clone()
+                : nullptr
+        });
+    }
+    // copy thread string
+    r->m_threads = m_threads
+        ? strdup(m_threads)
+        : nullptr
+    ;
+
+    return r;
 }
 
 void rec_set_t::setThreads(const char* threads)
@@ -304,6 +338,36 @@ void rec_set_t::removeReceiver(group_recv_t* rec) {
     FreeGroupReceiver(rec);
 }
 
+void rec_set_t::intersectReceiver(const group_recv_t* rec) {
+    if (!rec || !rec->rec_group || !rec->rec_di) return;
+    auto toRemove = std::set<group_recv_t*>{};
+
+    for (auto* group : m_recs) {
+        if (group->rec_di == rec->rec_di) {
+            *group->rec_group &= *rec->rec_group;
+            if (group->rec_group->numSet() == 0) {
+                toRemove.insert(group);
+            }
+        }
+    }
+
+    for (auto* group : toRemove) {
+        removeReceiver(group); // frees group
+    }
+}
+
+void rec_set_t::merge(rec_set_t&& other) {
+    for (auto*& group : other.m_recs) {
+        addReceiver(group); // frees group
+        group = nullptr;
+    }
+    other.m_recs.clear();
+}
+
+void rec_set_t::merge(std::unique_ptr<rec_set_t>&& other) {
+    if (!other) return; // nothing to merge
+    merge(std::move(*other));
+}
 
 // This returns the number of dbginvoke_t in the rec_set
 static int GetNumberOfReceivers(rec_set_t *set) {
@@ -682,15 +746,20 @@ static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group, dbgevent_t *e
                 const auto& lbp2 = di.d_breakpoints.findByDbgBreakpoint(*right.ev_bp);
                 if (lbp1 != nullptr && lbp2 != nullptr) {
                     return lbp1->id() == lbp2->id();
+                } else if ((lbp1 == nullptr) != (lbp2 == nullptr)) {
+                    // one breakpoint found, other not found. most likely a
+                    // breakpoint was deleted and the cached one doesn't exist
+                    // any more. in any case, these events don't go together.
+                    return false;
                 } else {
-                    // should never happen...
-                    PrintOutError("Tried to process unknown breakpoint. Aggregation might be wrong!\n");
+                    // in rare cases it's possible for both breakpoints to have
+                    // been deleted out from under us.
                     // comparing backend breakpoint ids is a pretty bad
                     // fallback, but it's the best we can do here
                     return left.ev_bp->bp_id == right.ev_bp->bp_id;
                 }
             }
-            
+
             // not a BPHIT; fall back to dbgcomm CompareEvents
             return CompareEvents(&left, &right) == EV_EQUAL;
         };
@@ -846,14 +915,10 @@ int DbgCheckEvents(void) {
     ** Check if any events are ready.
     */
 
-    /*
-    ** Begin by checking if there is an active graph that needs dispatching.
-    */
-    if (ActiveDF()) {
-        ++_df_ready;
+    if (auto* script = script::getCurrentScript(); script && script->hasReadyAsserts()) {
         res = 1;
     }
-
+ 
     // Check the protocols for each dbginvoke if there are any.
     if (!EmptyList(DbgInvokeList)) {
         // Reset the DbgInvokeList
@@ -1026,14 +1091,27 @@ void DbgDispatchEvents(void) {
         }
     }
 
-    // We want to process the df graph last since the above can generate tokens
-    /*
-    ** If the DbgCheckEvents fuction flagged _df_ready, then we need to
-    ** call the dataflow dispatch routine.
-    */
-    if (_df_ready) {
-        _df_ready = 0;
-        if (!DispatchDF()) EndActiveDF();  // Finish the current graph execution
+    if (auto* script = script::getCurrentScript()) {
+        if (!script->hasError()) {
+            // process ready asserts
+            if (!script->evaluateReadyAsserts()) {
+                // error, printed below
+            } else if (!script->releaseReadyAsserts()) {
+                // error, printed below
+            } else if (script->finished()) {
+                PrintOutMsg("Assertion script $%s finished.\n", script->name().c_str());
+                PrintOutMsg("Use \"info script $%s results\" to view results.\n", script->name().c_str());
+                script->uninstall();
+            } else if (script->allRanksBlocked()) {
+                PrintOutError("Assertion script reached a point where every rank is stopped and no assertions can be evaluated.\n");
+                script->uninstall();
+            }
+        }
+
+        if (script->hasError()) {
+            PrintOutError("Assertion script error: %s\n", script->getError().c_str());
+            script->uninstall();
+        }
     }
 }
 
@@ -2348,7 +2426,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, char *file, int line,
+rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, int line,
                            const char* threadSet) {
 
     auto request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);

@@ -47,6 +47,7 @@ public:
     ~LRunLEBitset() = default;
 
     virtual std::unique_ptr<Bitset> clone() const override;
+    virtual std::unique_ptr<Bitset> clone(size_t newNumBits) const override;
 
     virtual bool isEmpty() const override;
     virtual bool isFull() const override;

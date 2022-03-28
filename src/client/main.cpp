@@ -326,6 +326,7 @@ int main(int argc, char *argv[]) {
     Client.unsafe = 0;                // Be unsafe?
     Client.early_entry = 0;           // Enter at pmi_init?
     Client.print_entry_frame = 1;     // Print frame locations at startup?
+    Client.print_bp_frames = true;    // Print breakpoint frames as they are hit?
     Client.print_source_on_step = 1;  // Print source line on each step?
     Client.print_elements = 0;        // Elements to print in arrays or char * strings
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
@@ -843,7 +844,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group.get(),
                         "The application has reached an exit breakpoint.\n");
-                } else {
+                } else if (Client.print_bp_frames) {
                     if (ev_set->e_ev->ev_bp->bp_loc.loc_line > 0) {
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
@@ -893,19 +894,20 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                     break;
 
                 case DBGBP_BREAK_TYPE:
-
-                    if (bpset->line() > 0) {
-                        PrintMsgWithSetInfo(
-                            ev_set->e_di->d_handle, ev_set->e_group.get(),
-                            "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
-                            bpset->function().c_str(), bpset->file().c_str(),
-                            bpset->line(), bpThread.c_str());
-                    } else {
-                        PrintMsgWithSetInfo(ev_set->e_di->d_handle,
-                                            ev_set->e_group.get(),
-                                            "Breakpoint %d, in %s%s\n",
-                                            bpset->id(), bpset->function().c_str(),
-                                            bpThread.c_str());
+                    if (Client.print_bp_frames) {
+                        if (bpset->line() > 0) {
+                            PrintMsgWithSetInfo(
+                                ev_set->e_di->d_handle, ev_set->e_group.get(),
+                                "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
+                                bpset->function().c_str(), bpset->file().c_str(),
+                                bpset->line(), bpThread.c_str());
+                        } else {
+                            PrintMsgWithSetInfo(ev_set->e_di->d_handle,
+                                                ev_set->e_group.get(),
+                                                "Breakpoint %d, in %s%s\n",
+                                                bpset->id(), bpset->function().c_str(),
+                                                bpThread.c_str());
+                        }
                     }
                     break;
 

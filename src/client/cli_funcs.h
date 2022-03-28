@@ -214,12 +214,12 @@ extern char *cli_get_line(void);
 extern int cli_start_response(int);
 extern void cli_end_response(void);
 // Used to print out XML status messages
-extern char *XMLStartStatusBlock(char *set_name);
+extern char *XMLStartStatusBlock(const char *set_name);
 extern void XMLAddStatus(char **status_block, char *set, dbgstat stat,
                          const dbgloc_t *location);
 extern void XMLPrintStatusBlock(char *status_block);
 // Used to print out when a graph has been started
-extern void XMLPrintStartGraphMsg(char *set_name, char *set_str);
+extern void XMLPrintStartGraphMsg(const char *set_name, const char *set_str);
 // Used to print out when a process set has been removed
 extern void XMLPrintRemovedMsg(char *set_name);
 

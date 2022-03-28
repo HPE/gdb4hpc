@@ -1,0 +1,57 @@
+1: launch $a{4} ./bd_dt/c/c_half_exit.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [4];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..3}: Initial breakpoint, main at /bd_dt/c/c_half_exit.c:11
+3: # get all ranks passed MPI sync points
+4: break 22
+a{0..3}: Breakpoint 1: file /bd_dt/c/c_half_exit.c, line 22.
+5: maint set sync on
+6: c
+a{0..3}: Breakpoint 1, main at /bd_dt/c/c_half_exit.c:22
+8: build $earlyexit
+9:     # true, but $a{1} will never reach :23 and will exit early
+10:     assert $a{0}::myRank@"c_half_exit.c":23 != $a{1}::myRank@"c_half_exit.c":23
+11: end
+Assertion script $earlyexit compiled.
+12: start $earlyexit
+Sending continue to application...
+a{1}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $earlyexit stopped.
+13: frame
+a{1}: #0  0x00007fbcfed15db0 in exit
+a{2..3}: #0  0x0000000000201b06 in main at /bd_dt/c/c_half_exit.c:22
+a{0}: #0  0x0000000000201b15 in main at /bd_dt/c/c_half_exit.c:23
+14: info break
+Procset         Num Type           Disp Enb What
+a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22
+16: break 6
+a{2..3}: Breakpoint 3: file /bd_dt/c/c_half_exit.c, line 6.
+a{0..1}: Breakpoint 3: file /bd_dt/c/c_half_exit.c, line 6.
+17: build $unknbp
+18:     # true, but $a{2} will hit an unexpected breakpoint before the assert
+19:     assert $a{2}::myRank@"c_half_exit.c":26 != $a{3}::myRank@"c_half_exit.c":26
+20: end
+Assertion script $unknbp compiled.
+21: start $unknbp
+Sending continue to application...
+Assertion script error: A breakpoint unrelated to the assertion script was hit.
+Assertion script $unknbp stopped.
+22: frame
+a{1}: #0  0x00007fbcfed15db0 in exit
+a{2}: #0  0x0000000000201ab4 in foo at /bd_dt/c/c_half_exit.c:6
+a{0}: #0  0x0000000000201b15 in main at /bd_dt/c/c_half_exit.c:23
+a{3}: #0  0x0000000000201b1a in main at /bd_dt/c/c_half_exit.c:26
+23: info break
+Procset         Num Type           Disp Enb What
+a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22
+a{0..3}         3   breakpoint     keep y   in foo at /bd_dt/c/c_half_exit.c:6
+24: q
+Shutting down debugger and killing application for 'a'.

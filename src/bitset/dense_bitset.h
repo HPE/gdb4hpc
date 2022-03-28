@@ -15,8 +15,10 @@ public:
     explicit DenseBitset(size_t nbits);
     explicit DenseBitset(SerializedPtr serialized);
 
-    std::unique_ptr<Bitset> clone() const;
+    virtual std::unique_ptr<Bitset> clone() const override;
+    virtual std::unique_ptr<Bitset> clone(size_t newSize) const override;
     std::unique_ptr<DenseBitset> typedClone() const;
+    std::unique_ptr<DenseBitset> typedClone(size_t newSize) const;
 
     virtual bool isEmpty() const override; 
     virtual bool isFull() const override; 

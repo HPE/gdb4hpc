@@ -65,6 +65,75 @@ TYPED_TEST_CASE(BitsetUnitTest, BitsetImplimentations);
 
 // the weird "this->m_..." syntax is required because of how google test works.
 
+TYPED_TEST(BitsetUnitTest, clone) {
+    auto clone_full = this->m_full.clone();
+    auto clone_empty = this->m_empty.clone();
+    auto clone_sparse = this->m_sparse.clone();
+
+    ASSERT_TRUE(*clone_full == this->m_full);
+    ASSERT_TRUE(*clone_empty == this->m_empty);
+    ASSERT_TRUE(*clone_sparse == this->m_sparse);
+}
+
+TYPED_TEST(BitsetUnitTest, resizeCloneGrow) {
+    const auto newSize = this->SIZE*2;
+
+    auto clone_full = this->m_full.clone(newSize);
+    auto clone_empty = this->m_empty.clone(newSize);
+    auto clone_sparse = this->m_sparse.clone(newSize);
+
+    ASSERT_TRUE(*clone_full != this->m_full);
+    ASSERT_TRUE(*clone_empty != this->m_empty);
+    ASSERT_TRUE(*clone_sparse != this->m_sparse);
+
+    for (size_t i = this->SIZE; i < newSize; i++) {
+        ASSERT_TRUE(clone_full->test(i) == false);
+        ASSERT_TRUE(clone_empty->test(i) == false);
+        ASSERT_TRUE(clone_sparse->test(i) == false);
+    }
+
+    clone_full->set(newSize-1);
+    clone_empty->set(newSize-1);
+    clone_sparse->set(newSize-1);
+
+    ASSERT_EQ(clone_full->numSet(), this->SIZE + 1);
+    ASSERT_TRUE(clone_full->test(newSize - 1));
+    ASSERT_EQ(clone_empty->numSet(), 1ul);
+    ASSERT_TRUE(clone_empty->test(newSize - 1));
+    ASSERT_EQ(clone_sparse->numSet(), this->m_sparse.numSet() + 1);
+    ASSERT_TRUE(clone_sparse->test(newSize - 1));
+}
+
+TYPED_TEST(BitsetUnitTest, resizeCloneShrink) {
+    const auto newSize = this->SIZE/2;
+
+    auto clone_full = this->m_full.clone(newSize);
+    auto clone_empty = this->m_empty.clone(newSize);
+    auto clone_sparse = this->m_sparse.clone(newSize);
+
+    ASSERT_TRUE(*clone_full != this->m_full);
+    ASSERT_TRUE(*clone_empty != this->m_empty);
+    ASSERT_TRUE(*clone_sparse != this->m_sparse);
+
+    for (size_t i = 0; i < newSize; i++) {
+        ASSERT_TRUE(clone_full->test(i) == true);
+        ASSERT_TRUE(clone_empty->test(i) == false);
+    }
+
+    // old bits should be 0
+    for (size_t i = newSize; i < this->SIZE; i++) {
+        ASSERT_TRUE(clone_full->test(i) == false);
+        ASSERT_TRUE(clone_empty->test(i) == false);
+        ASSERT_TRUE(clone_sparse->test(i) == false);
+    }
+
+    ASSERT_EQ(clone_full->numSet(), newSize);
+    ASSERT_TRUE(clone_full->test(newSize - 1));
+    ASSERT_EQ(clone_empty->numSet(), 0ul);
+    ASSERT_FALSE(clone_empty->test(newSize - 1));
+    ASSERT_LT(clone_sparse->numSet(), this->m_sparse.numSet());
+}
+
 TYPED_TEST(BitsetUnitTest, isFull) {
     ASSERT_TRUE(this->m_full.isFull());
     ASSERT_FALSE(this->m_empty.isFull());
@@ -124,6 +193,10 @@ TYPED_TEST(BitsetUnitTest, Equals) {
     ASSERT_TRUE(this->m_sparse != this->m_full);
     ASSERT_TRUE(this->m_sparse != this->m_empty);
     ASSERT_TRUE(this->m_sparse == this->m_sparse);
+
+    // was once an infinite recursion bug
+    this->m_empty = dynamic_cast<Bitset&>(this->m_sparse);
+    ASSERT_TRUE(this->m_empty == this->m_sparse);
 }
 
 TYPED_TEST(BitsetUnitTest, And) {

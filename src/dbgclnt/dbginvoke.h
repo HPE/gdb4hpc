@@ -5,6 +5,7 @@
 #define _DBGCLNT_INVOKE_H
 
 #include <list>
+#include <functional>
 
 #include "dbgclnt_breakpoints.h"
 #include "dbgclnt_network.h"
@@ -61,5 +62,20 @@ struct dbginvoke {
 };
 typedef struct dbginvoke dbginvoke_t;
 #define DBG_PROTO_SW(p) (p)->d_proto
+
+// for std::map<dbginvoke*, ..., dbginvokeMapper> etc.
+struct dbginvokeMapper {
+    // return true if l is "less than" r
+    bool operator()(const dbginvoke* l, const dbginvoke* r) const {
+        if (l == nullptr && r == nullptr) return false;
+
+        // nullptrs considered "lowest"
+        if (l == nullptr && r != nullptr) return true;
+        if (l != nullptr && r == nullptr) return false;
+
+        // handles are unique and never null
+        return strcmp(l->d_handle, r->d_handle) < 0;
+    }
+};
 
 #endif // _DBGCLNT_INVOKE_H

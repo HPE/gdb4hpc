@@ -59,9 +59,17 @@ std::unique_ptr<Bitset> DenseBitset::clone() const {
 	return typedClone();
 }
 
+std::unique_ptr<Bitset> DenseBitset::clone(size_t newSize) const {
+	return typedClone(newSize);
+}
+
 std::unique_ptr<DenseBitset> DenseBitset::typedClone() const {
-	auto r = new DenseBitset(m_bs_nbits);
-	*r = *this;
+	return typedClone(m_bs_nbits);
+}
+
+std::unique_ptr<DenseBitset> DenseBitset::typedClone(size_t newSize) const {
+	auto r = new DenseBitset(newSize);
+	*r |= *this;
 	return std::unique_ptr<DenseBitset>(r);
 }
 

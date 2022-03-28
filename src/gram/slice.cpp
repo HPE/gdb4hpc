@@ -24,12 +24,60 @@
 #include "defs.h"
 #include "gram.h"
 #include "useful.h"
+#include "sparse_bitset.h"
 
 #define INIT_SLICE 4
+
+void slice_t::cleanup() {
+    delete[] m_low;
+    delete[] m_high;
+    free(m_threads);
+    free(m_args);
+
+    m_low = nullptr;
+    m_high = nullptr;
+    m_threads = nullptr;
+    m_args = nullptr;
+}
 
 slice_t::slice_t() : m_rank(0), m_size(INIT_SLICE),
                      m_low(new int[INIT_SLICE]), m_high(new int[INIT_SLICE]),
                      m_threads(nullptr), m_args(nullptr) {}
+
+slice_t::slice_t(slice_t &&other)
+    : m_rank{other.m_rank}, m_size{other.m_size}
+    , m_low{other.m_low}, m_high{other.m_high}
+    , m_threads{other.m_threads}, m_args{other.m_args}
+{
+    other.m_rank = 0;
+    other.m_size = 0;
+    other.m_low = nullptr;
+    other.m_high = nullptr;
+    other.m_threads = nullptr;
+    other.m_args = nullptr;
+}
+
+slice_t& slice_t::operator=(slice_t &&other) {
+    if (this == &other) return *this;
+
+    cleanup();
+
+    m_rank = other.m_rank;
+    m_size = other.m_size;
+    m_low = other.m_low;
+    m_high = other.m_high;
+    m_threads = other.m_threads;
+    m_args = other.m_args;
+
+    other.m_rank = 0;
+    other.m_size = 0;
+    other.m_low = nullptr;
+    other.m_high = nullptr;
+    other.m_threads = nullptr;
+    other.m_args = nullptr;
+
+    return *this;
+}
 
 void slice_t::resize() {
     m_size *= 2;
@@ -83,10 +131,7 @@ void slice_t::reverse() {
 }
 
 slice_t::~slice_t() {
-    delete[] m_low;
-    delete[] m_high;
-    free(m_threads);
-    free(m_args);
+    cleanup();
 }
 
 void slice_t::setThreads(const char* threads)
@@ -160,5 +205,26 @@ void slice_t::parseIdcs() {
             auto val = std::stoi(a);
             addSlice(val,val);
         }
+    }
+}
+
+std::unique_ptr<Bitset> slice_t::createBitset() const {
+    // find largest index in slice to determine bitset size
+    int size = -1;
+    for (int i = 0; i < getRank(); i++) {
+        size = std::max(size, getHigh(i));
+    }
+    size++;
+
+    if (size <= 0) {
+        return nullptr;
+    } else {
+        auto bs = std::make_unique<SparseBitset>(size);
+        for (int i = 0; i < getRank(); i++) {
+            for (int j = getLow(i); j <= getHigh(i); j++) {
+                bs->set(j);
+            }
+        }
+        return bs;
     }
 }

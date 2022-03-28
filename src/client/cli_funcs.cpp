@@ -780,7 +780,7 @@ void cli_end_response(void) {
     }
 }
 
-char *XMLStartStatusBlock(char *set_name) {
+char *XMLStartStatusBlock(const char *set_name) {
     char *status_block = NULL;
 
     if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL)
@@ -916,7 +916,7 @@ void XMLPrintRemovedMsg(char *set_name) {
     }
 }
 
-void XMLPrintStartGraphMsg(char *set_name, char *set_str) {
+void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
     char *s1, *s2, *s3;
 
     if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL) return;

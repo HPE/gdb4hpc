@@ -90,7 +90,9 @@ public:
     SparseBitset(SerializedPtr serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;
+    virtual std::unique_ptr<Bitset> clone(size_t newSize) const override;
     std::unique_ptr<SparseBitset> typedClone() const;
+    std::unique_ptr<SparseBitset> typedClone(size_t newSize) const;
 
     virtual bool isEmpty() const override; 
     virtual bool isFull() const override; 

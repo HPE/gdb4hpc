@@ -23,4 +23,4 @@ expr.tab.cpp expr.tab.h: expr.y
 noinst_LIBRARIES	= libgram.a
 libgram_a_SOURCES	= assign.cpp blockmap.cpp blockmap_util.cpp cmdtoken.cpp expr.cpp expr.tab.cpp \
 			  file.cpp func.cpp line.cpp perm.cpp procset.cpp \
-			  slice.cpp val.cpp var.cpp
+			  slice.cpp val.cpp var.cpp expression_handle.cpp

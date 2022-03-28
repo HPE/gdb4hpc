@@ -43,7 +43,7 @@ typedef struct g_block_map_t g_block_map_t;
 
 extern void SetBlockMap(void);
 extern g_block_map_t *GetBlockMap(void);
-extern g_block_map_t *FindBlockMap(char *);
+extern g_block_map_t *FindBlockMap(const char *);
 extern int CheckBlockMap(hentry_t *);
 extern int VerifyBlockMap(hentry_t *);
 extern g_block_map_t *NewBlockMap(hentry_t *);

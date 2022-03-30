@@ -373,8 +373,9 @@ bool ScriptRunner::evaluateReadyAsserts() {
             ClientSetPrintElements(0, &m_fullRecSet);
             
             auto recSet = assert.createRecSet();
+            auto expr = assert.expressionHandle();
 
-            if (EvalCompare(&rawResult, &rawDifference, assert.expressionHandle().raw(), recSet.get()) < 0 || !rawResult) {
+            if (!expr || EvalCompare(&rawResult, &rawDifference, expr->raw(), recSet.get()) < 0 || !rawResult) {
                 PrintOutError("Error in evaluation of \"%s\".\n", assert.string().c_str());
                 PrintError();
                 uninstall();
@@ -1139,7 +1140,7 @@ std::vector<std::pair<const SR::Result*, size_t>> SR::Assertion::getCondensedDif
     return stats;
 }
 
-ExpressionHandle SR::Assertion::expressionHandle() const {
+std::unique_ptr<ExpressionHandle> SR::Assertion::expressionHandle() const {
     // XXX: probably can construct an expr_t in place rather than re-parse...
     std::ostringstream ss;
 
@@ -1150,12 +1151,12 @@ ExpressionHandle SR::Assertion::expressionHandle() const {
 
     LOG("exprString: " << ss.str());
     try {
-        return ExpressionHandle(ss.str());
+        return std::make_unique<ExpressionHandle>(ss.str());
     } catch (const ExpressionHandle::ParseError& e) {
         // should never happen
         PrintOutError("Error parsing assertion: %s\n", ss.str().c_str());
         PrintOutError("%s\n", e.what());
-        return ExpressionHandle("");
+        return nullptr;
     }
 }
 

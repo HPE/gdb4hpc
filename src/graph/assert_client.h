@@ -237,7 +237,7 @@ public:
     std::unique_ptr<rec_set_t> createRecSet() const;
     const auto& settings() const { return m_assert.settings(); }
 
-    ExpressionHandle expressionHandle() const;
+    std::unique_ptr<ExpressionHandle> expressionHandle() const;
     std::string string() const { return m_assert.string(); };
     std::string settingsString() const { return m_assert.settingsString(); }
     std::string summary() const;

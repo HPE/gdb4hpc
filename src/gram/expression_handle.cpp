@@ -32,13 +32,12 @@ void ExpressionHandle::printExpr() const {
         fprintf(stderr, "%s ", getExprOpStr(m_expr->e_expr[i].e_op));
         // print value
         switch (m_expr->e_expr[i].e_op) {
-        case EXPR_INT: fprintf(stderr, "%d\n", m_expr->e_expr[i].e_val.e_v_int); break;
-        default: fprintf(stderr, "\n"); break;
+        case EXPR_INT: fprintf(stderr, "%d", m_expr->e_expr[i].e_val.e_v_int); break;
+        default: break;
         }
         // print arrow
         std::string arrow = i == m_expr->e_eval ? "<-" : "";
         fprintf(stderr, "%s\n", arrow.c_str());
-
     }
     fprintf(stderr, "(TOP)\n");
 }
@@ -208,9 +207,9 @@ SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
     //
     // ranged procset subscripts (e.g. $a{0..2}) look like this:
     //    <dsym> (e.g. "a")
-    //    <int> (second index, e.g. 2)
-    //    [<neg>]
     //    <int> (first index, e.g. 0)
+    //    [<neg>]
+    //    <int> (second index, e.g. 2)
     //    [<neg>]
     //    <slice>
     //    <list element>
@@ -226,9 +225,9 @@ SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
     //
     // array subscripts with slices (e.g. myArray[0..9]) look like this:
     //    <sym> (e.g. "myArray")
-    //    <int> (second index, e.g. 9)
-    //    [<neg>]
     //    <int> (first index, e.g. 0)
+    //    [<neg>]
+    //    <int> (second index, e.g. 9)
     //    [<neg>]
     //    <slice>
     //    <subscr> (top)
@@ -254,12 +253,14 @@ SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
                     
                     if (topExprOp() == EXPR_INT || topExprOp() == EXPR_OPNEG) {
                         // single numbered subscript (not a slice)
-                        auto idx = popExpr<int>(); // pop <int>, after <neg>, if present
+                        auto idx = popExpr<int>(); // pop <int>, and <neg> if present
                         r.addSlice(idx, idx);
                     } else if (topExprOp() == EXPR_SLICE) {
                         // slice
                         popExpr(); // pop <slice>
-                        r.addSlice(popExpr<int>(), popExpr<int>());
+                        auto high = popExpr<int>(); // pop <int>, and <neg> if present
+                        auto low = popExpr<int>();  // pop <int>, and <neg> if present
+                        r.addSlice(low, high);
                     } else {
                         throw ParseError("Tried to parse a subscript but found a "s + getExprOpStr(topExprOp()));
                     }
@@ -270,14 +271,16 @@ SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
 
             case EXPR_OPNEG:
             case EXPR_INT: { // found an array subscript
-                auto idx = popExpr<int>(); // pop <int>, after <neg>, if present
+                auto idx = popExpr<int>(); // pop <int>, and <neg> if present
                 r.addSlice(idx, idx);
                 break; // success
             }
 
             case EXPR_SLICE: { // found a sliced array subscript
                 popExpr(); // pop <slice>
-                r.addSlice(popExpr<int>(), popExpr<int>());
+                auto high = popExpr<int>(); // pop <int>, and <neg> if present
+                auto low = popExpr<int>();  // pop <int>, and <neg> if present
+                r.addSlice(low, high);
                 break; // success
             }
 

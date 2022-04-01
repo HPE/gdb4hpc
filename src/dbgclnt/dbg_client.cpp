@@ -36,7 +36,7 @@
 #include <algorithm>
 #include <mutex>
 
-#include "assert_client.h"
+#include "script_client.h"
 #include "dbg_client.h"
 #include "useful.h"
 #include "gram.h"

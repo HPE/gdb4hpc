@@ -9,7 +9,7 @@
 // for example, these classes point to actual instances of procsets and blockmaps
 // instead of simply holding on to their names.
 
-#include "assert_settings.h"
+#include "script_settings.h"
 
 #include "blockmap.h"
 #include "expression_handle.h"

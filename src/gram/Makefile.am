@@ -3,9 +3,9 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 DBGCLNT = @gdb4hpc_srcdir@/dbgclnt
 CLIENT	= @gdb4hpc_srcdir@/client
 BITSET	= @gdb4hpc_srcdir@/bitset
-GRAPH   = @gdb4hpc_srcdir@/graph
+SCRIPT  = @gdb4hpc_srcdir@/script
 
-AM_CFLAGS = -I$(USEFUL) -I$(DBGCOMM) -I$(DBGCLNT) -I$(CLIENT) -I$(BITSET) -I$(GRAPH)
+AM_CFLAGS = -I$(USEFUL) -I$(DBGCOMM) -I$(DBGCLNT) -I$(CLIENT) -I$(BITSET) -I$(SCRIPT)
 AM_CXXFLAGS = $(AM_CFLAGS)
 AM_LIBTOOLFLAGS = --quiet
 

@@ -3,11 +3,11 @@
  ******************************************************************************/
 #pragma once
 
-// classes that read assertion data classes (assert_data.h) and run an assertion
+// classes that read assertion data classes (script_data.h) and run an assertion
 // script with them. classes here know how to talk to the backends and are the
 // classes that actually issue continue/breakpoint/etc commands.
 
-#include "assert_data.h"
+#include "script_data.h"
 #include "bitset.h"
 #include "dbgclnt_breakpoints.h"
 #include "dbg_client.h"

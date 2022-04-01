@@ -154,11 +154,6 @@ static int cmd_blockmap_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     switch (RVAL_ACTUAL_TYPE(v)) {
-        case rval_graph:
-            PrintOutError(
-                "An assertion script has already been defined using this "
-                "name.\n");
-            return 0;
         case rval_proc:
             PrintOutError(
                 "A process set has already been defined using this name.\n");

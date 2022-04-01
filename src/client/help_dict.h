@@ -67,10 +67,10 @@ extern const char* const cmd_blockmap_alt_distribute_help[];
 extern const char* const cmd_blockmap_alt_proc_grid_help[];
 extern const char* const cmd_blockmap_alt_dim_order_help[];
 extern const char* const cmd_blockmap_alt_end_help[];
-extern const char* const cmd_graph_alt_assert_help[];
-extern const char* const cmd_graph_alt_end_help[];
-extern const char* const cmd_graph_alt_set_help[];
-extern const char* const cmd_graph_alt_show_help[];
+extern const char* const cmd_script_alt_assert_help[];
+extern const char* const cmd_script_alt_end_help[];
+extern const char* const cmd_script_alt_set_help[];
+extern const char* const cmd_script_alt_show_help[];
 
 /**********************************************
  * Command class help definitions

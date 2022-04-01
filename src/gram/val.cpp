@@ -567,10 +567,6 @@ val_t *NewVal(lval_type ltype, ...) {
         case rval_reply:
             RVAL_REPLY(v) = va_arg(args, rep_set_t *);
             break;
-
-        case rval_graph:
-            RVAL_GRAPH(v) = va_arg(args, graph_t *);
-            break;
     }
 
     va_end(args);
@@ -650,11 +646,6 @@ void DestroyRval(rval_type rtype, rval_val rval) {
             // DestroyBlockMap(RVAL_BLOCKMAP(v));
             return;
 
-        case rval_graph:
-            // FIXME: Make use of this
-            // DestroyGraph(RVAL_GRAPH(v));
-            return;
-
         case rval_reply:
             FreeRepSet(REPLY_VAL(rval));
             return;
@@ -726,12 +717,6 @@ rval_val CopyRval(rval_type rtype, rval_val rval) {
             BLOCKMAP_VAL(new_rval) = BLOCKMAP_VAL(rval);
             return new_rval;
 
-        case rval_graph:
-            // A graph val is a pointer to a graph. These are impossible
-            // to copy right now.
-            GRAPH_VAL(new_rval) = GRAPH_VAL(rval);
-            return new_rval;
-
         case rval_reply:
             // A reply val is a pointer to a reply set. These are impossible to
             // copy right now.
@@ -788,10 +773,6 @@ val_t *CopyVal(val_t *val) {
                     v = NewVal(lval_none, rval_blockmap, RVAL_BLOCKMAP(val));
                     break;
 
-                case rval_graph:
-                    v = NewVal(lval_none, rval_graph, RVAL_GRAPH(val));
-                    break;
-
                 case rval_proc:
                     v = NewVal(lval_none, rval_proc, RVAL_PROCSET(val));
                     break;
@@ -823,11 +804,6 @@ val_t *CopyVal(val_t *val) {
                 case rval_blockmap:
                     v = NewVal(lval_internal, LVAL_SYM(val), rval_blockmap,
                                RVAL_BLOCKMAP(val));
-                    break;
-
-                case rval_graph:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_graph,
-                               RVAL_GRAPH(val));
                     break;
 
                 case rval_proc:
@@ -862,7 +838,6 @@ val_t *CopyVal(val_t *val) {
                 case rval_aif:
                 case rval_none:
                 case rval_blockmap:
-                case rval_graph:
                 case rval_proc:
                 case rval_ref:
                     SetError(
@@ -959,11 +934,6 @@ int AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     }
                     val = NewVal(lval_internal, LVAL_SYM(lval), rval_reply,
                                  CopyRepSet(RVAL_REPLY(rval)));
-                    break;
-
-                case rval_graph:
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_graph,
-                                 RVAL_GRAPH(rval));
                     break;
             }
 

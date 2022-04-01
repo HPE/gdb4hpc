@@ -39,8 +39,8 @@
 #include <filesystem>
 
 #include "client.h"
+#include "script_client.h"
 #include "useful.h"
-#include "df.h"
 
 /*
  * External Global Variables
@@ -585,7 +585,6 @@ int main(int argc, char *argv[]) {
     InitVal();
     InitProcSet();
     InitCommands();
-    InitDF();
     InitCLI(Client.cli_mode, cli_args);
 
     if (!Client.silent) {
@@ -658,7 +657,6 @@ int main(int argc, char *argv[]) {
     DbgHandleSignal(SIGTERM, SIG_IGN, DBG_SIG_NOMASK);
     DbgHandleSignal(SIGQUIT, SIG_IGN, DBG_SIG_NOMASK);
 
-    FinishDF();
     EndAll();
     DbgFinalize();
     FinishProcSet();
@@ -678,8 +676,6 @@ int main(int argc, char *argv[]) {
 
 void ForceQuit(void) {
     Client.quit = 1;
-    // Force any running graphs to finish
-    FinishDF();
 }
 
 static void SigHandler(int sig) {
@@ -691,10 +687,10 @@ static void SigHandler(int sig) {
     DPRINT("\n***In SigHandler\n");
 
     /*
-    ** Stop the active graph if there is one.
+    ** Stop the active script if there is one.
     */
-    if (ActiveDF()) {
-        ExitDF();
+    if (auto script = script::getCurrentScript()) {
+        script->uninstall();
     }
 
     // Any signals that should cause gdb4hpc to quit should be handled here.

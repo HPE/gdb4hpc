@@ -27,7 +27,6 @@
 #include <sstream>
 
 #include "client.h"
-#include "df.h"
 #include "help_dict.h"
 #include "useful.h"
 
@@ -50,7 +49,6 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
 
 // external exposure
 int PrintVal(val_t *val, rec_set_t *rec_set) {
-    graph_t *g;
     dbgprocset_t *pr = NULL;
     rep_set_t *rep_set;
 
@@ -106,17 +104,6 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
             }
 
             PrintOutMsg("<proc %s[%d]>\n", pr->s_name, pr->s_nproc);
-
-            break;
-
-        case rval_graph:
-            // assign the graph directly
-            if ((g = RVAL_GRAPH(val)) == NULL) {
-                PrintOutMsg("NULL graph\n");
-                break;
-            }
-
-            g->print(Client.cli_out_stream);
 
             break;
 

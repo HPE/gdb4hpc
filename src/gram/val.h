@@ -20,7 +20,6 @@
 #include "AIFStream.h"
 #include "blockmap.h"
 #include "procset.h"
-#include "graph.h"
 
 #define LVAL_SYM_VAL(sym) (val_t *)MakeTransitoryLval((sym))
 
@@ -36,7 +35,6 @@ enum rval_type {
     rval_none,     /* no rvalue */
     rval_aif,      /* default rval */
     rval_blockmap, /* blockmap rval pointer */
-    rval_graph,    /* graph rval pointer */
     rval_reply,    /* group of rep_set_t replies */
     rval_proc,     /* procset rval pointer */
     rval_ref       /* sliced rval type*/
@@ -63,7 +61,6 @@ typedef enum rval_type rval_type;
 // RVAL val union accessors
 #define RVAL_AIF(v) (v)->rval_u.rval_aif
 #define RVAL_BLOCKMAP(v) (v)->rval_u.rval_blockmap
-#define RVAL_GRAPH(v) (v)->rval_u.rval_graph
 #define RVAL_REPLY(v) (v)->rval_u.rval_reply
 #define RVAL_PROCSET(v) (v)->rval_u.rval_procset
 // The following are used to access the different parts of the rval ref val
@@ -130,13 +127,11 @@ typedef struct rval_ref_val rval_ref_val;
 union rval_val {
     AIFStream *rval_aif;
     g_block_map_t *rval_blockmap;
-    graph_t *rval_graph;
     rep_set_t *rval_reply;
     dbgprocset_t *rval_procset;
     struct rval_ref_val *rval_ref;
 #define AIF_VAL(rval) (rval).rval_aif
 #define BLOCKMAP_VAL(rval) (rval).rval_blockmap
-#define GRAPH_VAL(rval) (rval).rval_graph
 #define REPLY_VAL(rval) (rval).rval_reply
 #define PROCSET_VAL(rval) (rval).rval_procset
 #define REF_VAL(rval) (rval).rval_ref

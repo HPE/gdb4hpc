@@ -2,7 +2,7 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include "assert_client.h"
+#include "script_client.h"
 #include "compare_util.h"
 #include "cli_funcs.h"
 #include "client.h"

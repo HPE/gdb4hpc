@@ -501,7 +501,7 @@ void InitCommands() {
     InitCmd_frame();
     InitCmd_func();
     InitCmd_go();
-    InitCmd_graph();
+    InitCmd_script();
     InitCmd_list();
     InitCmd_passthru();
     InitCmd_print();

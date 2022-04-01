@@ -275,11 +275,6 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                           SymLookup(LVAL_SYM(v_name)));
             return 0;
 
-        case rval_graph:
-            PrintOutError("An assertion script named %s is already defined.\n",
-                          SymLookup(LVAL_SYM(v_name)));
-            return 0;
-
         case rval_reply:
             PrintOutError(
                 "An application variable symbol named %s already exists.\n",
@@ -449,12 +444,6 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) 
     }
 
     switch (RVAL_ACTUAL_TYPE(val)) {
-        case rval_graph:
-            PrintOutError(
-                "An assertion script has already been defined using this "
-                "name.\n");
-            return NULL;
-
         case rval_proc:
             existingProcSet = RVAL_ACTUAL_PROCSET(val);
             return NULL;

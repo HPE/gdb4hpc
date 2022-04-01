@@ -1647,9 +1647,6 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
             case rval_blockmap:
                 return NewVal(lval_none, rval_blockmap,
                               RVAL_BLOCKMAP(tmp));
-            case rval_graph:
-                return NewVal(lval_none, rval_graph,
-                              RVAL_GRAPH(tmp));
             case rval_reply:
                 // Make sure the rval contents get refreshed
                 if (VAL_RETRIEVE(tmp, rec_set)) {
@@ -1715,7 +1712,6 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                     // the reply
                 case rval_none:
                 case rval_blockmap:
-                case rval_graph:
                 case rval_proc:
                 case rval_ref:
                     SetError(
@@ -1823,7 +1819,6 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
         case rval_ref:
         case rval_none:
         case rval_blockmap:
-        case rval_graph:
         case rval_proc:
             SetError(
                 "Conditional val is invalid to apply ternary "
@@ -1857,7 +1852,6 @@ static bool op_val_is_ok(val_t* v, rec_set_t* rec_set, const char* message)
         case rval_ref:
         case rval_none:
         case rval_blockmap:
-        case rval_graph:
         case rval_proc:
             SetError(message);
             return false;

@@ -30,7 +30,6 @@
 
 #include "client.h"
 #include "common_tools_fe.h"
-#include "gvar.h"
 #include "useful.h"
 
 /*

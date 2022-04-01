@@ -31,7 +31,6 @@
 #include "blockmap.h"
 #include "defs.h"
 #include "gram.h"
-#include "gvar.h"
 #include "useful.h"
 
 int _get_block_size(int rank, int *local_data, int *dist, int *blockcyclic_val,

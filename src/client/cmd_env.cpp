@@ -27,8 +27,6 @@
 #include "client.h"
 #include "useful.h"
 
-extern void SetGraphVar(char *, int, void *);
-
 static int class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
     int putenv_str_size;
@@ -586,12 +584,6 @@ static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
         PrintOutError("See \"help set error\" for more information.\n");
         return 0;
     }
-
-    // FIXME: Modify graph to use the common client interface instead...
-    double lower_d = (double)lower;
-    double upper_d = (double)upper;
-    SetGraphVar(GRAPH_LOWER, VAR_DOUBLE, (void *)&lower_d);
-    SetGraphVar(GRAPH_UPPER, VAR_DOUBLE, (void *)&upper_d);
 
     Client.cmp_lower_eps = lower;
     Client.cmp_upper_eps = upper;

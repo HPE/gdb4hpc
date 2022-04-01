@@ -2,7 +2,7 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include "assert_data.h"
+#include "script_data.h"
 #include "blockmap.h"
 #include "gram.h"
 

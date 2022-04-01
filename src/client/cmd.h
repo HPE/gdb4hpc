@@ -48,7 +48,7 @@ extern void InitCmd_env(void);
 extern void InitCmd_frame(void);
 extern void InitCmd_func(void);
 extern void InitCmd_go(void);
-extern void InitCmd_graph(void);
+extern void InitCmd_script(void);
 extern void InitCmd_list(void);
 extern void InitCmd_passthru(void);
 extern void InitCmd_print(void);

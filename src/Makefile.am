@@ -9,7 +9,7 @@ if ZMQNET
 ZMQNET_DIR = filters/zmqnet
 endif
 
-SUBDIRS = bitset filters graph $(MRNET_DIR) \
+SUBDIRS = bitset filters script $(MRNET_DIR) \
 		useful gram dbgcomm $(ZMQNET_DIR) dbgclnt \
 		dbgsrv client proxy scripts
 

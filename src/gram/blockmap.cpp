@@ -31,7 +31,6 @@
 #include "client_settings.h"
 #include "defs.h"
 #include "gram.h"
-#include "gvar.h"
 #include "useful.h"
 
 #define BLOCKMAP_TABLE_SIZE 7 /* 2^7 = 128 = number that can be active */

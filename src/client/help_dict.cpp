@@ -1971,7 +1971,7 @@ const char * const cmd_blockmap_alt_end_help[] = {
     "created.",
     0};
 
-const char* const cmd_graph_alt_set_help[] = {
+const char* const cmd_script_alt_set_help[] = {
     "Summary: Set assertion script options", 
     "Usage: set",
     "     : set <option> <value> [<value>, <value>...]", 
@@ -1985,7 +1985,7 @@ const char* const cmd_graph_alt_set_help[] = {
     "command was given.",
     0};
 
-const char* const cmd_graph_alt_show_help[] = {
+const char* const cmd_script_alt_show_help[] = {
     "Summary: Show current values of assertion script options", 
     "Usage: show",
     "     : show <option>", 
@@ -1999,7 +1999,7 @@ const char* const cmd_graph_alt_show_help[] = {
     "command was given.",
     0};
 
-const char * const cmd_graph_alt_assert_help[] = {
+const char * const cmd_script_alt_assert_help[] = {
     "Summary: Assertion script assert command.",
     "Usage: assert <expr1> = <expr2>",
     "Example command:",
@@ -2031,7 +2031,7 @@ const char * const cmd_graph_alt_assert_help[] = {
     "error, display, output, and logging.",
     0};
 
-const char * const cmd_graph_alt_end_help[] = {
+const char * const cmd_script_alt_end_help[] = {
     "Summary: Assertion script end command.",
     "Usage: end",
     "Example command: end",

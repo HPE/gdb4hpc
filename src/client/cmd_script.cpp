@@ -1,6 +1,6 @@
 /*********************************************************************************\
- * Graph commands.
- *
+ * Script commands.
+ * 
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
  * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
@@ -35,16 +35,15 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "assert_client.h"
-#include "assert_settings.h"
+#include "script_client.h"
+#include "script_settings.h"
 #include "bitset.h"
 #include "client.h"
 #include "compare_util.h"
-#include "df.h"
 #include "expression_handle.h"
 #include "useful.h"
 
-static cmdlist_t *GraphCmds;
+static cmdlist_t *ScriptCmds;
 static cmdlist_t *OldCmds;
 
 // script object built up by subsequent assert/set/etc commands
@@ -298,7 +297,7 @@ static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // name is passed without $
     g_pendingScript = std::make_unique<script::data::Script>(std::string{name});
 
-    OldCmds = SetCommands(GraphCmds);
+    OldCmds = SetCommands(ScriptCmds);
     cli_inc_prompt();
 
     return 1;
@@ -362,7 +361,7 @@ static int cmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Alt commands
  ********************************/
 
-static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     namespace Ex = ExpressionHandleShorthands;
 
     if (!g_pendingScript) {
@@ -395,7 +394,7 @@ static int cmd_graph_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_graph_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (g_pendingScript) {
         // should never be false...
         PrintOutMsg("Assertion script $%s compiled.\n", g_pendingScript->name().c_str());
@@ -448,7 +447,7 @@ static void printSettingsTable() {
     }
 }
 
-static int cmd_graph_alt_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_alt_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set script setting with null script\n");
@@ -530,7 +529,7 @@ static int cmd_graph_alt_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_graph_alt_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_alt_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set a script setting with null script\n");
@@ -566,11 +565,11 @@ static int cmd_graph_alt_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Helper functions
  ********************************/
 
-static void graphnotfound(const char *cmd) { CmdNotFound(cmd); }
+static void scriptnotfound(const char *cmd) { CmdNotFound(cmd); }
 
-static void graphambig(const char *cmd) { AmbiguousAltCmd(GraphCmds, cmd); }
+static void scriptambig(const char *cmd) { AmbiguousAltCmd(ScriptCmds, cmd); }
 
-static void graphfailed(void) {
+static void scriptfailed(void) {
     // do nothing
     return;
 }
@@ -579,7 +578,7 @@ static void graphfailed(void) {
  * command init functions
  ********************************/
 
-void InitCmd_graph(void) {
+void InitCmd_script(void) {
     // info commands
     AddInfoCommand("diff", proc_ignore, 0,
                    class_info_subcmd_diff_cmd,
@@ -599,25 +598,25 @@ void InitCmd_graph(void) {
                cmd_stop_help, "Stop the currently executing assertion script.");
 
     // graph alt commands
-    GraphCmds = NewCommandList(graphnotfound, graphambig, graphfailed);
+    ScriptCmds = NewCommandList(scriptnotfound, scriptambig, scriptfailed);
 
-    AddAltCommand(GraphCmds, "assert", NULL, proc_ignore, 0,
-                  cmd_graph_alt_assert_cmd,
-                  cmd_graph_alt_assert_help, "Create an assertion.");
-    AddAltCommand(GraphCmds, "end", NULL, proc_ignore, 0,
-                  cmd_graph_alt_end_cmd, cmd_graph_alt_end_help,
+    AddAltCommand(ScriptCmds, "assert", NULL, proc_ignore, 0,
+                  cmd_script_alt_assert_cmd,
+                  cmd_script_alt_assert_help, "Create an assertion.");
+    AddAltCommand(ScriptCmds, "end", NULL, proc_ignore, 0,
+                  cmd_script_alt_end_cmd, cmd_script_alt_end_help,
                   "Finish building the current assertion script.");
-    AddAltCommand(GraphCmds, "help", "h", proc_ignore, 0,
+    AddAltCommand(ScriptCmds, "help", "h", proc_ignore, 0,
                   cmd_help_cmd, cmd_help_help,
                   "Display help information about build script mode commands.");
-    AddAltCommand(GraphCmds, "set", NULL, proc_ignore, 1,
-                  cmd_graph_alt_set_cmd, cmd_graph_alt_set_help,
+    AddAltCommand(ScriptCmds, "set", NULL, proc_ignore, 1,
+                  cmd_script_alt_set_cmd, cmd_script_alt_set_help,
                   "Set information about the debugger environment.");
-    AddAltCommand(GraphCmds, "show", NULL, proc_ignore, 1,
-                  cmd_graph_alt_show_cmd, cmd_graph_alt_show_help,
+    AddAltCommand(ScriptCmds, "show", NULL, proc_ignore, 1,
+                  cmd_script_alt_show_cmd, cmd_script_alt_show_help,
                   "Show information about the debugger environment.");
 }
 
 void FinishCmd_graph(void) {
-    DestroyCommandList(GraphCmds);
+    DestroyCommandList(ScriptCmds);
 }

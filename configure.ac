@@ -450,7 +450,7 @@ AC_CONFIG_FILES([
 	src/filters/Makefile
 	src/filters/mrnet/Makefile
 	src/filters/zmqnet/Makefile
-	src/graph/Makefile
+	src/script/Makefile
 	src/client/Makefile
 	src/dbgclnt/Makefile
 	src/dbgcomm/Makefile

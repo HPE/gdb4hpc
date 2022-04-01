@@ -28,6 +28,7 @@
 #Note: if you want to skip a test but run the suite, add the following line at the top of the class definition:
 #       @avocado.skip("<optional comment here>")
 
+import shutil
 import avocado
 from avocado import Test
 from avocado.utils import process
@@ -43,6 +44,7 @@ if False:
                 print(msg)
 
 import sys
+import glob
 import os
 import socket
 
@@ -523,25 +525,37 @@ class c_print(Test):
         runTest(self)
 
 class c_commnode_fanout(Test):
+    def getLogDir(self):
+        return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"
+
+    def setUp(self):
+        # create mrnet log dir
+        os.mkdir(self.getLogDir())
+
     def test(self):
-        # .in file should not contain the text "mrnet_commnode", or check below
-        # will always succeed
-        commnode_binary = "mrnet_commnode"
-
-        run = makeRunFile(self)
-        with open(run, "r") as rc:
-            if commnode_binary in rc.read():
-                self.fail(f"\"{commnode_binary}\" already in {run}, test is invalidated")
-
         # set fanout env variable to force invocation of mrnet_commnode
         os.environ["GUARD_MRNET_TOP_FANOUT"] = "2"
+        os.environ["MRNET_DEBUG_LOG_DIRECTORY"] = self.getLogDir()
+        os.environ["MRNET_OUTPUT_LEVEL"] = "3"
+
         runTest(self)
 
-        # .out file should contain the text "mrnet_commnode" in output of ps ux
-        outfile = getOut(self, self.__class__.__name__)
-        with open(outfile) as out:
-            if commnode_binary not in out.read():
-                self.fail(f"\"{commnode_binary}\" not found in {outfile}")
+        found = False
+        for file in glob.glob(f"{self.getLogDir()}/FE_*"):
+            magic = "Using CTI to start: mrnet_commnode"
+            data = open(file, "r").read()
+            print(file)
+            print(data) # write to job log
+            if magic in data:
+                print(f"found in {file}")
+                found = True
+                break
+
+        self.assertTrue(found, f"\"{magic}\" not found in MRNET logs. Check job.log for contents")
+
+    def tearDown(self):
+        # cleanup mrnet log dir
+        shutil.rmtree(self.getLogDir())
 
 class c_release(Test):
     def test(self):
@@ -726,11 +740,48 @@ class cpp_catch(Test):
     def test(self):
         runTest(self)
 
+NOCHECKPOINT_FLAG = "./avocado-virtual-environment/nocheckpoint"
+
+class c_checkpoint0(Test):
+    def test(self):
+        # some systems can't support checkpoints because of multithreaded MPI implementations.
+        # this test serves as a meta-test to see if the system can support checkpoints. if
+        # it can, we run the full checkpoint tests below.
+
+        # we need to drop a file onto disk to communicate with other tests.
+        # this is because avocado runs each test as a new process, so
+        # global variables or environment variables wouldn't work.
+
+        # we invert the logic of the flag in case the user runs the full checkpoint tests
+        # without running this one first. the full checkpoint tests should always
+        # be run unless we know for sure that they can't be.
+
+        if os.path.exists(NOCHECKPOINT_FLAG):
+            self.cancel(f"Determined that checkpoints are unsupported via {NOCHECKPOINT_FLAG}")
+            return # this test always passes
+        
+        runScript(self)
+        with open(getOut(self, self.__class__.__name__), "r") as out:
+            data = out.read()
+            if "Debugger error: checkpoint: can't checkpoint multiple threads." in data:
+                print("Checkpoints unsupported")
+                open(NOCHECKPOINT_FLAG, "a").close()
+                self.cancel(f"Determined that checkpoints are unsupported")
+            elif "Created checkpoint 1" in data:
+                print("Checkpoints supported")
+
+        # this test always passes
+
 class c_checkpoint1(Test):
     def test(self):
-        runTest(self)
+        if not os.path.exists(NOCHECKPOINT_FLAG):
+            runTest(self)
+        else:
+            self.cancel("System doesn't support gdb checkpoints")
 
 class c_checkpoint2(Test):
     def test(self):
-        runTest(self)
-
+        if not os.path.exists(NOCHECKPOINT_FLAG):
+            runTest(self)
+        else:
+            self.cancel("System doesn't support gdb checkpoints")

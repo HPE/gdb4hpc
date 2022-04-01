@@ -2,20 +2,16 @@
 2: maint set sync on
 3: # we ignore output because the reported backtrace after attach is unpredictable
 3: attach $a %[0-9.]+%???
-4: break 20
-a{0..3}: Breakpoint 1: file /bd_dt/C++/cpp_attach.cpp, line 20.
-5: # climp up to main- the depth we will get stopped at can vary, so be excessive...
-6: up???
-7: up???
-8: up???
-9: up???
-10: up???
-13: # change argc, which will break us out of the loop
-14: assign argc 999
-15: # continue to line 20
+4: # get back to main
+4: break cpp_attach.cpp:15
+a{0..3}: Breakpoint 1: file /bd_dt/C++/cpp_attach.cpp, line 15.
 16: c
-a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:20
+a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+16: # change argc, which will break us out of the loop
+16: assign argc 999
 17: p argc
 a{0..3}: 999
+18: c
+a{0..3}: Program exited normally.
 18: q
 Shutting down debugger and resuming application for 'a'.

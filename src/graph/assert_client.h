@@ -272,6 +272,7 @@ public:
     Ranks(RanksMap&& allRanks);
     // returns internal ranks map
     const auto& ranks() const { return m_involvedRanks; }
+    const auto& blockedRanks() const { return m_blockedRanks; }
     // queires backend for status (running, stopped) of all involved ranks and
     // sets internal tracking structures accordingly
     void reset();

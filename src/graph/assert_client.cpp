@@ -245,6 +245,7 @@ bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
 
     for (const auto* rec : receivers) {
         if (!rec) continue;
+        LOG("Sending continue to " << rec->rec_di->d_handle << ": " << rec->rec_group->toSetString());
         if (const auto* blockedRanks = m_ranks->blocked(*rec->rec_di)) {
             group_recv_t tmpRec {
                 .rec_di = rec->rec_di,
@@ -597,8 +598,14 @@ void ScriptRunner::handleExit(event_set& eventSet, const Bitset& replySet) {
         }
     }
 
+    LOG("exit recorded");
+
     // mark ranks that have exited as blocked
     m_ranks->markRanksBlocked(*eventSet.e_di, replySet);
+
+    for ([[maybe_unused]] const auto& [di, ranks] : m_ranks->blockedRanks()) {
+        LOG(di->d_handle << ": " << ranks->toSetString());
+    }
 }
 
 int ScriptRunner::passEventToOldHandler(event_set& eventSet, const Bitset& replySet) {
@@ -921,8 +928,8 @@ std::unique_ptr<rec_set_t> SR::Expression::createRecSet() const {
         forEachOverlaySet(*expression().procset(), [&](const auto* os){
             auto bs = sliceBitset(*os, &expression().procsetSlice());
             if (!bs->isEmpty()) {
-                m_cachedRecSet->addReceiver(NewGroupReceiver(os->s_di, std::move(bs)));
                 LOG("adding receiver " << bs->toSetString());
+                m_cachedRecSet->addReceiver(NewGroupReceiver(os->s_di, std::move(bs)));
             }
         });
     }
@@ -1207,7 +1214,8 @@ void SR::Ranks::reset() {
         for (const auto& reply : repSet) {
             if (reply->rep_event->ev_event == DBGEV_STAT) {
                 LOG("stat reply: " << reply->rep_di->d_handle << ": " << reply->rep_group->toSetString() << " " << reply->rep_event->ev_u.ev_u_status->stat);
-                if (reply->rep_event->ev_u.ev_u_status->stat == DBGSTAT_STOPPED) {
+                const auto& stat = reply->rep_event->ev_u.ev_u_status->stat;
+                if (stat == DBGSTAT_STOPPED || stat == DBGSTAT_STOPPED_IN_THREAD) {
                     auto it = m_blockedRanks.find(reply->rep_di);
                     if (it == m_blockedRanks.end()) {
                         // new

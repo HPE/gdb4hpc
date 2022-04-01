@@ -1451,7 +1451,10 @@ void DbgResetStatusChange(void) { inferior_status_change = 0; }
 /*
 ** Used to check if we are currently waiting for an async command to complete.
 */
-int DbgCheckForAsyncPending(void) { return async_pending; }
+int DbgCheckForAsyncPending(void) { 
+    // return true if there's an async event waiting or there's a script running
+    return async_pending || (script::getCurrentScript() != nullptr); 
+}
 
 /************************************
 ** dbgclnt_proto command functions **
@@ -2496,30 +2499,32 @@ rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
     auto request = CommandToSocProto(DBGCMD_SETCHECKPOINT);
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_CHECKPOINT);
 
-    // bucket each reply by its di
-    std::unordered_map<dbginvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
-    for (const auto reply : result) {
-        if (!reply->rep_di) {
-            return nullptr;
+    if (!result->hasError()) {
+        // bucket each reply by its di
+        std::unordered_map<dbginvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
+        for (const auto reply : result) {
+            if (!reply->rep_di) {
+                return nullptr;
+            }
+            diMap[reply->rep_di].push_back({reply->rep_group.get(), EVENT_CHECKPOINT(reply->rep_event)});
         }
-        diMap[reply->rep_di].push_back({reply->rep_group.get(), EVENT_CHECKPOINT(reply->rep_event)});
-    }
 
-    auto mostMade = 0u;
+        auto mostMade = 0u;
 
-    // add checkpoint to each di
-    for (auto [di, checkpointV] : diMap) {
-        auto produced = di->d_checkpoints.recordCheckpoint(nextId, checkpointV);
-        // recordCheckpoint can make either one or two checkpoints each call,
-        // see comments in recordCheckpoint
-        mostMade = std::max(mostMade, produced);
-        if (produced == 0) {
-            PrintOutError("Failed to record checkpoint\n");
-            PrintOutError("(%s)\n", di->d_checkpoints.getError().c_str());
+        // add checkpoint to each di
+        for (auto [di, checkpointV] : diMap) {
+            auto produced = di->d_checkpoints.recordCheckpoint(nextId, checkpointV);
+            // recordCheckpoint can make either one or two checkpoints each call,
+            // see comments in recordCheckpoint
+            mostMade = std::max(mostMade, produced);
+            if (produced == 0) {
+                PrintOutError("Failed to record checkpoint\n");
+                PrintOutError("(%s)\n", di->d_checkpoints.getError().c_str());
+            }
         }
-    }
 
-    nextId += mostMade;
+        nextId += mostMade;
+    }
 
     return result;
 }

@@ -92,28 +92,32 @@ void ais::Char::parseL(InterpretStream& in, Writer& out) const
     
     char* next = nullptr;
     char val = strtol(str, &next, 10);
-    bool gotVal = (next != str); // fortran doesn't print the numeric value
 
-    next = const_cast<char*>(skipspace(next));
-    if (*next != '\'') {
-        throw ais::Error("expected value after a character");
-    }
+    if (next == str) {
+        // parse a single character surrounded by single quotes
 
-    if (!gotVal) {
+        next = const_cast<char*>(skipspace(next));
+        if (*next != '\'') {
+            throw ais::Error("expected value after a character");
+        }
+
         // get the value from the character, use std::quoted which
         // understands escape sequences
         auto is = std::istringstream{next};
         auto s = std::string{};
         is >> std::quoted(s,'\'');
         val = (s.size() ? int{s[0]} : 0);
-    }
+
+        for (char c; (c=*++next) && c != '\''; ) {
+            if (c == '\\' && next[1]) ++next;
+        }
+        if (!*next) throw ais::Error("no end quote in character constant");
         
-    for (char c; (c=*++next) && c != '\''; ) {
-        if (c == '\\' && next[1]) ++next;
+        in.setPos(next+1);
+    } else {
+        // already parsed a number via strtol
+        in.setPos(next);
     }
-    if (!*next) throw ais::Error("no end quote in character constant");
-    
-    in.setPos(next+1);
     
     out.writeInt(val);
 }

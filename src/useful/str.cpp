@@ -160,7 +160,7 @@ void formatSourceLine(std::string &line) {
 
     // un-escape any \t, unless it's in a string literal
     bool inStringLiteral = false;
-    for (size_t i = 0; i < line.size() - 1; i++) {
+    for (size_t i = 0; i+1 < line.size(); i++) {
         if (line[i] == '\\') {
             if (line[++i] == 't' && !inStringLiteral) {
                 line.replace(--i, 2, "\t");
@@ -171,7 +171,7 @@ void formatSourceLine(std::string &line) {
     }
 
     // remove the trailing \n, if present
-    if (line.find("\\n", line.size() - 2) != std::string::npos) {
+    if (line.size() >= 2 && line.find("\\n", line.size() - 2) != std::string::npos) {
         line.replace(line.size() - 2, 2, "");
     }
 };

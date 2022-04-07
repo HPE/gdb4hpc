@@ -10,6 +10,7 @@ TESTS = \
    bd_dt/c/c_list.x \
    bd_dt/c/c_inc.x \
    bd_dt/c/c_half_exit.x \
+   bd_dt/c/simple_gpu.x \
    bd_dt/C++/cpp_bd_test.x \
    bd_dt/C++/cpp_cmp_diff.x \
    bd_dt/C++/cpp_ds_test1.x \
@@ -156,3 +157,11 @@ bd_dt/cti_launch.o: bd_dt/cti_launch.cpp
 
 bd_dt/cti_launch.x : bd_dt/cti_launch.o
 	CC -g -O0 $^ -o $@ $(CTI_LD)
+
+ROCM_SCRIPT = tests.py.data/rocm/$(HOSTNAME).sh 
+
+bd_dt/c/simple_gpu.x : bd_dt/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
+	if [ -f $(ROCM_SCRIPT)] ; then \
+		$(ROCM_SCRIPT) make; \
+	fi
+

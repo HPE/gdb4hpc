@@ -459,6 +459,26 @@ def runTest(test):
     result, error = compare_files(getTxt(test, test.__class__.__name__), getOut(test, test.__class__.__name__))
     test.assertTrue(result, error)
 
+'''
+Specialized driver for running a gdb4hpc script with a gpu.
+'''
+def runGpuTest(test, gpu):
+    hostname = os.environ.get("HOSTNAME")
+    gpuScript = "./tests.py.data/" + gpu + "/" + hostname + ".sh"
+    if not os.path.exists(gpuScript):
+        self.cancel("No " + gpuScript + " script")
+
+    substitutions = {}
+    testName = test.__class__.__name__
+    runfile = makeRunFile(test, substitutions)
+    outfile = getOut(test, testName)
+
+    print([gpuScript, 'launch','gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
+    subprocess.call([gpuScript, 'launch','gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
+
+    result, error = compare_files(getTxt(test, test.__class__.__name__), getOut(test, test.__class__.__name__))
+    test.assertTrue(result, error)
+    
 ########### sanity tests ##################
 class c_assign(Test):
     def test(self):
@@ -785,3 +805,7 @@ class c_checkpoint2(Test):
             runTest(self)
         else:
             self.cancel("System doesn't support gdb checkpoints")
+
+class rocmGpu(Test):
+    def test(self):
+        runGpuTest(self, "rocm")

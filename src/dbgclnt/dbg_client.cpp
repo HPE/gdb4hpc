@@ -1049,8 +1049,8 @@ void DbgDispatchEvents(void) {
         // Loop through each dbginvoke entry and check for events.
         while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
             // if the proto is shutting down, don't dispatch further pending
-            // events
-            if (di->d_isShutdown) continue;
+            // events || if it didn't complete starting
+            if (di->d_isShutdown || !di->d_proto_net) continue;
 
             // If there is an d_evfds list, then the protol layer is using
             // event notification fd's. We should try to check to see if

@@ -635,6 +635,12 @@ deleted from the queueing system.
 
     Default: not set
 
+**Other CRAY_CTI_.. variables**
+:   cray-cti defines many more environment variables for less common situations.
+    If there are problems with launch or attach, for extended CTI options see:
+
+    module load cray-cti; man cti
+
 <!-- TODO: undocumented variables -->
 
 # EXAMPLES
@@ -682,4 +688,4 @@ Print the value of myRank for each rank in the current process set.
 # SEE ALSO
 
 **aprun**(1), **apstat**(1), **CC**(1), **cc**(1), **ccdb**(1),
-**ftn**(1), **gdb**(1), **qstat**(1), **srun**(1)
+**ftn**(1), **gdb**(1), **qstat**(1), **srun**(1), **cti**(1)

@@ -820,6 +820,16 @@ specified launcher.
 .PP
 Default: not set
 .RE
+.TP
+\f[B]Other CRAY_CTI_.. variables\f[R]
+cray-cti defines many more environment variables for less common
+situations.
+If there are problems with launch or attach, for extended CTI options
+see:
+.RS
+.PP
+module load cray-cti; man cti
+.RE
 .SH EXAMPLES
 .PP
 A demo directory with sample codes is included in the \f[B]gbd4hpc\f[R]
@@ -878,6 +888,6 @@ tst{7}: 7
 .PP
 \f[B]aprun\f[R](1), \f[B]apstat\f[R](1), \f[B]CC\f[R](1),
 \f[B]cc\f[R](1), \f[B]ccdb\f[R](1), \f[B]ftn\f[R](1), \f[B]gdb\f[R](1),
-\f[B]qstat\f[R](1), \f[B]srun\f[R](1)
+\f[B]qstat\f[R](1), \f[B]srun\f[R](1), \f[B]cti\f[R](1)
 .SH AUTHORS
 Hewlett Packard Enterprise Development LP..

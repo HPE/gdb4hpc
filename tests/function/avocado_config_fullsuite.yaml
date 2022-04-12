@@ -1,0 +1,7 @@
+timeout: 140
+
+proto: !mux
+  mrnet: 
+    proto: "mrnet"
+  zmqnet: 
+    proto: "zmqnet"

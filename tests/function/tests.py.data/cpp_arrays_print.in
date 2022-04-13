@@ -57,6 +57,17 @@ a{1..2}: "5;9:*.z=38;5;9:*"
 a{0}: "=38;5;9:*.z=38;5"
 28: p intarray[10]???
 a{0..2}: 8026488
+# slices
+29: p intarray[0..2]
+a{0..2}: {1,2,3}
+29: p intarray[0]@3
+a{0..2}: {1,2,3}
+29: p intarray[3]@2
+a{0..2}: {4,5}
+29: p "intarray[0]@3"
+a{0..2}: {1,2,3}
+29: p "intarray[3]@2"
+a{0..2}: {4,5}
 29: # strings
 30: p cstring
 a{0..2}: "hello \n world!"

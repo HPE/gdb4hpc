@@ -32,10 +32,10 @@ verbose-asserts: Assertion results will be printed as they are evaluated.
 Current value: true.
 8:     
 9:     # all of these should pass
-10:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":161 == $b{0}::one_d_i_init[0..4] @"c_cmp_diff.c":161
-11:     assert $a{1}::one_d_i_init[5..9] @"c_type_test.c":162  < $b{0}::one_d_i_init[5..9] @"c_cmp_diff.c":162
-12:     assert $a::   one_d_i_init       @"c_type_test.c":163 <= $b::   one_d_i_init       @"c_cmp_diff.c":163
-13:     assert $a{0}::one_d_i_init       @"c_type_test.c":164 != $b{1}::one_d_i_init       @"c_cmp_diff.c":164
+10:     assert $a{0}::one_d_i_init[0..4] @"c_type_test.c":161 == $b{0}::"one_d_i_init[0]@5" @"c_cmp_diff.c":161
+11:     assert $a{1}::one_d_i_init[5]@5  @"c_type_test.c":162  < $b{0}::one_d_i_init[5..9]  @"c_cmp_diff.c":162
+12:     assert $a::   one_d_i_init       @"c_type_test.c":163 <= $b::   one_d_i_init        @"c_cmp_diff.c":163
+13:     assert $a{0}::one_d_i_init       @"c_type_test.c":164 != $b{1}::one_d_i_init        @"c_cmp_diff.c":164
 14:     
 15:     # all of these should fail
 16:     assert $a::    one_d_i_init      @"c_type_test.c":165 =  $b::   one_d_i_init       @"c_cmp_diff.c":165
@@ -48,9 +48,9 @@ Assertion script $arrays compiled.
 22: maint set sync on
 23: start $arrays
 Sending continue to application...
-Evaluating assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0..4]@"c_cmp_diff.c":161
+Evaluating assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0]@5@"c_cmp_diff.c":161
 {0}: Comparison is true.
-Evaluating assertion 2: $a{1}::one_d_i_init[5..9]@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+Evaluating assertion 2: $a{1}::one_d_i_init[5]@5@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
 {1}: Comparison is true.
 Evaluating assertion 3: $a::one_d_i_init@"c_type_test.c":163 <= $b::one_d_i_init@"c_cmp_diff.c":163
 {0..1}: Comparison is true.
@@ -80,8 +80,8 @@ Saved assertion scripts:
 $arrays
 25: info script $arrays
 Assertion script $arrays:
-Assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0..4]@"c_cmp_diff.c":161
-Assertion 2: $a{1}::one_d_i_init[5..9]@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+Assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0]@5@"c_cmp_diff.c":161
+Assertion 2: $a{1}::one_d_i_init[5]@5@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
 Assertion 3: $a::one_d_i_init@"c_type_test.c":163 <= $b::one_d_i_init@"c_cmp_diff.c":163
 Assertion 4: $a{0}::one_d_i_init@"c_type_test.c":164 != $b{1}::one_d_i_init@"c_cmp_diff.c":164
 Assertion 5: $a::one_d_i_init@"c_type_test.c":165 == $b::one_d_i_init@"c_cmp_diff.c":165
@@ -95,11 +95,11 @@ Passed: 4, Passed with warning: 0, Failed: 2, Indeterminate: 0
 Assertion results:
 
 Assertion 1, configured with verbose-asserts:
-$a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0..4]@"c_cmp_diff.c":161
+$a{0}::one_d_i_init[0..4]@"c_type_test.c":161 == $b{0}::one_d_i_init[0]@5@"c_cmp_diff.c":161
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 2, configured with verbose-asserts:
-$a{1}::one_d_i_init[5..9]@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+$a{1}::one_d_i_init[5]@5@"c_type_test.c":162 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 3, configured with verbose-asserts:

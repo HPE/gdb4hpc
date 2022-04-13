@@ -141,11 +141,11 @@ private:
 };
 
 class ExpressionHandle::ProgVarExpr {
-    // program variable expression. a (possibly subscripted) symbol name located
-    // at a location inside of a (possibly subscripted) procset name, all
-    // possibly wrapped in a blockmap name
-    // from e.g. '$b{$a{0..2}::myArray[3..4]@"c_type_test.x":123}'
-public:
+    // program variable expression. a (possibly subscripted) (possibly repeated
+    // with '@') symbol name located at a location inside of a (possibly
+    // subscripted) procset name, all possibly wrapped in a blockmap name from
+    // e.g. '$b{$a{0..2}::myArray[3..4]@2@"c_type_test.x":123}'
+   public:
     // returns "" if no blockmap present
     const auto& blockmapName() const {return m_blockmapName; }
     const auto& location() const { return m_location; }
@@ -155,6 +155,8 @@ public:
     const auto& procsetName() const { return m_procsetName; }
     // if no subscript, returned slice_t will have a getRank() of 0
     const auto& procsetSubscript() const { return m_procsetSubscript; }
+    // if no repeat, returns 0
+    const auto& repeat() const { return m_repeat; }
 private:
     friend ExpressionHandle;
 
@@ -164,6 +166,7 @@ private:
     SubscriptExpr m_symbolSubscript;
     std::string m_procsetName;
     SubscriptExpr m_procsetSubscript;
+    unsigned int m_repeat;
 };
 
 class ExpressionHandle::AssertExpr {

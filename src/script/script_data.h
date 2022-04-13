@@ -63,10 +63,13 @@ public:
     const auto& symbolName() const { return m_symbolName; }
     // if no subscript, returned slice_t will have a getRank() of 0
     const auto& symbolSubscript() const { return m_symbolSubscript; }
+    // returns 0 if no repeat
+    const auto& repeat() const { return m_repeat; }
 
 private:
     std::string m_symbolName;
     slice_t m_symbolSubscript;
+    unsigned int m_repeat;
 };
 
 class ProgramLocation {

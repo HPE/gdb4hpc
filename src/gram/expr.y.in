@@ -410,6 +410,13 @@ expr		:	expr COLONCOLON expr
 			{ $$ = AddExpr(EXPR_VAR); }
 		;
 
+expr : expr AT INT
+	 { 
+		 AddExpr(EXPR_INT, $3);
+		 AddExpr(EXPR_REPEAT); 
+     }
+	 ;
+
 /*
 ** This is used to add on a location to a debug variable reference
 */

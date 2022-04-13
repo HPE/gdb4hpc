@@ -24,22 +24,34 @@ template<> ProgLocExpr ExprHndl::popExpr<ProgLocExpr>();
 template<> ProgVarExpr ExprHndl::popExpr<ProgVarExpr>();
 template<> SubscriptExpr ExprHndl::popExpr<SubscriptExpr>();
 
-void ExpressionHandle::printExpr() const {
+static void printExpr(const expr_t* expr) {
     // useful in gdb
+    if (!expr) {
+        fprintf(stderr, "(nullptr)\n");
+        return;
+    }
+
     fprintf(stderr, "(BOTTOM)\n");
-    for (int i = 0; i < m_expr->e_lval; i++) {
+    for (int i = 0; i < expr->e_lval; i++) {
         // print type
-        fprintf(stderr, "%s ", getExprOpStr(m_expr->e_expr[i].e_op));
+        fprintf(stderr, "%s ", getExprOpStr(expr->e_expr[i].e_op));
         // print value
-        switch (m_expr->e_expr[i].e_op) {
-        case EXPR_INT: fprintf(stderr, "%d", m_expr->e_expr[i].e_val.e_v_int); break;
+        switch (expr->e_expr[i].e_op) {
+        case EXPR_INT:    fprintf(stderr, "%d ", expr->e_expr[i].e_val.e_v_int);         break;
+        case EXPR_SYM:    fprintf(stderr, "%s ", expr->e_expr[i].e_val.e_v_sym_str);     break;
+        case EXPR_DSYM:   fprintf(stderr, "$%s ", expr->e_expr[i].e_val.e_v_sym->h_key); break;
+        case EXPR_STRING: fprintf(stderr, "%s" , expr->e_expr[i].e_val.e_v_string);      break;
         default: break;
         }
         // print arrow
-        std::string arrow = i == m_expr->e_eval ? "<-" : "";
+        std::string arrow = i == expr->e_eval ? "<-" : "";
         fprintf(stderr, "%s\n", arrow.c_str());
     }
     fprintf(stderr, "(TOP)\n");
+}
+
+void ExpressionHandle::printExpr() const {
+    ::printExpr(m_expr.get());
 }
 
 ExpressionHandle::ExpressionHandle(std::string&& str)
@@ -320,6 +332,16 @@ ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() {
     //    <loc>
     //    <var> (top)
     //
+    // <sym> (and its optional <subscript>) might be preceded by <repeat>, the '@' operator.
+    // e.g. intarray@3
+    //
+    //    ...
+    //    <int> (3)
+    //    <repeat> ('@')
+    //    ... <loc>, <subscr> stuff ...
+    //    <loc>
+    //    <var> (top)
+    //
     // the entire <var> might be wrapped in a <blockmap>, e.g.:
     //
     //    ...
@@ -352,6 +374,14 @@ ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() {
             case EXPR_VAR: {
                 popExpr(); // pop <var> token
                 r.m_location = popExpr<ProgLocExpr>();
+                if (topExprOp() == EXPR_REPEAT) {
+                    popExpr(); // pop <repeat>
+                    if (auto num = popExpr<int>(); num >= 0) { // pop <int>
+                        r.m_repeat = num;
+                    } else {
+                        throw ParseError("Can't repeat a negative amount of times: " + std::string{"@"} + std::to_string(num));
+                    }
+                }
                 if (topExprOp() == EXPR_OPSUBSCR) {
                     r.m_symbolSubscript = popExpr<SubscriptExpr>();
                 } // else keep default initialization

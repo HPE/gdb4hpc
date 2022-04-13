@@ -89,6 +89,7 @@ enum expr_op {
     /* blockmap call */  // Minh
     EXPR_ASSERT,         /* assertion definition*/
     EXPR_PROC_THREAD,    /* process set with thread info */
+    EXPR_REPEAT,         /* '@' to create artificial arrays */
     EXPR_UNKNOWN         /* unknown error */
 };
 typedef enum expr_op expr_op;

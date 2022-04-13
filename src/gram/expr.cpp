@@ -17,6 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <cmath>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -626,6 +627,7 @@ static val_t *evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
         case EXPR_OPCAST:
         case EXPR_STRING:
         case EXPR_VAR:
+        case EXPR_REPEAT:
             PUSH(e);
             DPRINT("evaluate_expr_imm: Pushed expr_op %s\n",
                    getExprOpStr(*(TOP(e).e_op)));
@@ -875,6 +877,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     val_t *val = nullptr;
     val_t *ps_val = nullptr;
     val_t *v1 = nullptr;
+    int repeat = 0;
     slice_t *slice = nullptr;
     expr_elt *ep;
     expr_op stype;
@@ -889,6 +892,13 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     if (ep->e_op == EXPR_LOC) {
         SetError("Can't specify location in immediate mode");
         return nullptr;
+    }
+
+    // Remember repeat ('@n')
+    if (ep->e_op == EXPR_REPEAT) {
+        auto reps_elt = POP(e);
+        repeat = reps_elt->e_val.e_v_int;
+        ep = POP(e);
     }
 
     // This now works for multi-dimensional fortran arrays. They are represented
@@ -1004,6 +1014,13 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
                 auto sliceexpr = slice->getExpr(var_expr);
                 Free(var_expr);
                 var_expr = strdup(sliceexpr.c_str());
+            }
+
+            if (repeat > 0) {
+                // append "@{repeat}"
+                auto extra_bytes = 1 + (static_cast<int>(::log10(repeat)) + 1) + 1; // '@' + digits of repeat + \0
+                var_expr = static_cast<char *>(realloc(var_expr, strlen(var_expr) + extra_bytes));
+                sprintf(var_expr + strlen(var_expr), "@%d", repeat);
             }
 
             // Always have procset be null here, the EXPR_VAR case above takes
@@ -3695,6 +3712,8 @@ const char *getExprOpStr(expr_op op) {
             return "<assert>";
        case EXPR_PROC_THREAD:
            return "<proc_thread>";
+        case EXPR_REPEAT:
+            return "<repeat>";
         default:
             return "<UNKNOWN>";
     }

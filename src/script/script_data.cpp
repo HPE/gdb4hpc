@@ -25,11 +25,13 @@ namespace script::data {
 ProgramVariable::ProgramVariable(const ExpressionHandle::ProgVarExpr& var)
     : m_symbolName{var.symbolName()}
     , m_symbolSubscript(var.symbolSubscript())
+    , m_repeat{var.repeat()}
 {}
 
 ProgramVariable::ProgramVariable(const ProgramVariable& other)
     : m_symbolName{other.m_symbolName}
     , m_symbolSubscript{other.m_symbolSubscript}
+    , m_repeat{other.m_repeat}
 {}
 
 ProgramLocation::ProgramLocation(const ExpressionHandle::ProgLocExpr& loc)
@@ -152,6 +154,10 @@ std::string Expression::evalString() const {
         ss << "[";
         ss << stringInnerSlice(ssub);
         ss << "]";
+    }
+
+    if (variable().repeat() > 0) {
+        ss << "@" << variable().repeat();
     }
 
     if (hasBlockmap) {

@@ -31,7 +31,26 @@ Product Description:
 
 Purpose:
 ---------
-  22.04 Release add the following feature:
+
+  22.05 Release updates the minor version as there are significant chages:
+      - C++ container of containers are correctly supported
+      - Added support for C++ std::array and std::shared_ptr
+      - The "difference vector" for array comparisons is now printed as
+           index/difference pairs instead of long changes of zeros
+      - <optimized-out> and other gdb errors are handled correctly by
+          print
+      - Arrays are printed out in language specific format
+      - Assertion scripts no longer need a decomposition if the number
+          of compared ranks is equivalent
+      - Improved error reporting for assertion scripts
+      - Add --non-mpi launch option to enforce a start-up barrier without
+          work load manager support
+      - Fixed the handling of fully distributed decompositions
+      - Fixed the handling of C and fortran strings
+      - Fixed artificial array syntax (myarray[0]@4) requiring quotes
+      - Dyninst has been updated to v12.1.0
+
+  22.04 Release adds the following feature:
       - Fix the identification of nodes with AMD GPU's when launching or
            attaching with the --gpu option
       - Improved error detection and reporting for assertion scripts
@@ -50,14 +69,6 @@ Purpose:
 
   21.12 This is bugfix release
       - Updated gen compilers to cray-gcc-10.3.0
-
-  21.11 This is bug fix release
-      - Fix crash when setting some types of catchpoints in gdbmode
-      - Add catch command to gdb4hpc client interface
-      - Fix failure to write history file
-      - Add support for csh-like searching of history by starting commands with !
-      - Print line from source code after step, next, or finish
-
 
 
 Product and OS Dependencies:

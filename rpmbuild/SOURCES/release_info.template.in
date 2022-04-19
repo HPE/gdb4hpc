@@ -85,7 +85,7 @@ Also, type `help` at the gdb4hpc command line for more information on commands.
 Installation instructions:
 --------------------------
 
-   Installation instructions for <ARCH>:
+   Installation instructions for <DIST>:
    =============================================
       rpm -ivh gdb4hpc-<VERSION>-<RELEASE>.<ARCH>.rpm
 

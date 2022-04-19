@@ -45,7 +45,7 @@ echo "Install dir: \"$install_dir\""
 
 if [[ ! -z $BRANCH_NAME ]]; then
   echo "cleaning build env"
-  rm -rf /opt/cray/pe/cti
+  rm -rf /opt/cray/pe/gdb4hpc
 fi
 
 mkdir -p $install_dir

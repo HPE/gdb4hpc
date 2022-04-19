@@ -29,46 +29,36 @@ Product Description:
 
   * Workload manager support via Common Tools Interface (cray-cti).
 
-Purpose:
+Changelog:
 ---------
+[ MANUAL_RELEASE_HISTORY ]
+[ AUTO_RELEASE_HISTORY ]
 
-  22.05 Release updates the minor version as there are significant chages:
-      - C++ container of containers are correctly supported
-      - Added support for C++ std::array and std::shared_ptr
-      - The "difference vector" for array comparisons is now printed as
-           index/difference pairs instead of long changes of zeros
-      - <optimized-out> and other gdb errors are handled correctly by
-          print
-      - Arrays are printed out in language specific format
-      - Assertion scripts no longer need a decomposition if the number
-          of compared ranks is equivalent
-      - Improved error reporting for assertion scripts
-      - Add --non-mpi launch option to enforce a start-up barrier without
-          work load manager support
-      - Fixed the handling of fully distributed decompositions
-      - Fixed the handling of C and fortran strings
-      - Fixed artificial array syntax (myarray[0]@4) requiring quotes
-      - Dyninst has been updated to v12.1.0
+=======================================================================
+## [4.13.10] - 2022-03-21  (22.04)
+=======================================================================
+* Fix the identification of nodes with AMD GPU's when launching or
+  attaching with the --gpu option
+* Improved error detection and reporting for assertion scripts
+* Removed extraneous line number reporting when used within ccdb
+* Decompositions now work with C/C++ arrays.  The array length
+  is inferred from the decomposition.
 
-  22.04 Release adds the following feature:
-      - Fix the identification of nodes with AMD GPU's when launching or
-           attaching with the --gpu option
-      - Improved error detection and reporting for assertion scripts
-      - Removed extraneous line number reporting when used within ccdb
-      - Decompositions now work with C/C++ arrays.  The array length
-          is inferred from the decomposition.
+=======================================================================
+## [4.13.9] - 2022-01-21  (22.02)
+=======================================================================
+* Regarding gen compilers cray-gcc-10.3.0
+  NOTE: If you encounter the following error:
+  ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.26' not found 
+  Temporary workaround:
+  1) export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/gcc/10.3.0/snos/lib64
+  or
+  2) module load gcc/10.3.0
 
-  22.02 Release adds the following features:
-      - Regarding gen compilers cray-gcc-10.3.0
-        NOTE: If you encounter the following error:
-        ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.26' not found 
-        Temporary workaround:
-        1) export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/gcc/10.3.0/snos/lib64
-        or
-        2) module load gcc/10.3.0
-
-  21.12 This is bugfix release
-      - Updated gen compilers to cray-gcc-10.3.0
+=======================================================================
+## [4.13.8] - 2021-12-06  (21.12)
+=======================================================================
+* Updated gen compilers to cray-gcc-10.3.0
 
 
 Product and OS Dependencies:

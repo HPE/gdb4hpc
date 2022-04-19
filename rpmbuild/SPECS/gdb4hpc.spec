@@ -1,9 +1,9 @@
 # Packaging definitions
-%global pkgversion %(%{_sourcedir}/get_package_data --crayversion)
-%global branch %(%{_sourcedir}/get_package_data --branch)
+%global pkgversion           %(%{_sourcedir}/get_package_data --crayversion)
+%global branch               %(%{_sourcedir}/get_package_data --branch)
 %global pkgversion_separator -
-%global copyright_date %(date +%%Y)
-%global copyright Copyright 2007-%{copyright_date} Hewlett Packard Enterprise Development LP.
+%global copyright_date       %(date +%%Y)
+%global copyright Copyright  2007-%{copyright_date} Hewlett Packard Enterprise Development LP.
 
 # RPM build time
 %global release_date %(date +%%B\\ %%Y)
@@ -96,17 +96,17 @@
 %if 0%{?sle_version} == 150100
 %global dist .sles15sp1
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp1
+%global OS_WB_TAG sles15
 %endif
 %if 0%{?sle_version} == 150200
 %global dist .sles15sp2
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp2
+%global OS_WB_TAG sles15
 %endif
 %if 0%{?sle_version} == 150300
 %global dist .sles15sp3
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp3
+%global OS_WB_TAG sles15
 %endif
 %endif
 

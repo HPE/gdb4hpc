@@ -37,3 +37,6 @@
 [submodule "external/zmqnet"]
 	path = external/zmqnet
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-zmqnet.git
+[submodule "external/changelog"]
+	path = external/changelog
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-changelog.git

@@ -191,3 +191,5 @@ tests/function/bd_dt/c/*.x
 tests/function/bd_dt/fortran/*.x
 tests/function/tmp
 tests/missing
+
+rpmbuild/SOURCES/release_info.template

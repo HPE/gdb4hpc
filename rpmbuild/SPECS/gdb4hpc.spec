@@ -1,9 +1,9 @@
 # Packaging definitions
-%global pkgversion %(%{_sourcedir}/get_package_data --crayversion)
-%global branch %(%{_sourcedir}/get_package_data --branch)
+%global pkgversion           %(%{_sourcedir}/get_package_data --crayversion)
+%global branch               %(%{_sourcedir}/get_package_data --branch)
 %global pkgversion_separator -
-%global copyright_date %(date +%%Y)
-%global copyright Copyright 2007-%{copyright_date} Hewlett Packard Enterprise Development LP.
+%global copyright_date       %(date +%%Y)
+%global copyright Copyright  2007-%{copyright_date} Hewlett Packard Enterprise Development LP.
 
 # RPM build time
 %global release_date %(date +%%B\\ %%Y)
@@ -96,17 +96,17 @@
 %if 0%{?sle_version} == 150100
 %global dist .sles15sp1
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp1
+%global OS_WB_TAG sles15
 %endif
 %if 0%{?sle_version} == 150200
 %global dist .sles15sp2
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp2
+%global OS_WB_TAG sles15
 %endif
 %if 0%{?sle_version} == 150300
 %global dist .sles15sp3
 %global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15sp3
+%global OS_WB_TAG sles15
 %endif
 %endif
 
@@ -161,7 +161,7 @@ Tests for Cray gdb4hpc parallel debugger
 %setup -q -n %{name} -c -T
 %build
 # external build
-%{__sed} 's|<RELEASE_DATE>|%{release_date}|g;s|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<ARCH>|%{_target_cpu}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_info_name}
+%{__sed} 's|<RELEASE_DATE>|%{release_date}|g;s|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_info_name}
 %{__cp} -a %{SOURCE3} ${RPM_BUILD_DIR}/%{attributions_name}
 
 %install

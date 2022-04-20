@@ -42,6 +42,12 @@ fi
 echo "gdb4hpc version: \"$gdb4hpc_version\""
 install_dir="/opt/cray/pe/gdb4hpc/$gdb4hpc_version"
 echo "Install dir: \"$install_dir\""
+
+if [[ ! -z $BRANCH_NAME ]]; then
+  echo "cleaning build env"
+  rm -rf /opt/cray/pe/gdb4hpc
+fi
+
 mkdir -p $install_dir
 check_exit_status
 

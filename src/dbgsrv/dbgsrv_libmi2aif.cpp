@@ -332,25 +332,28 @@ class ArraySlicer;
 // "bite-sized" pieces via the ArraySlicer object.
 class GdbResult : public ais::InterpretStream {
 public:
-    GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, const ais::Type& varType,
-              const std::function<void(bool)>& endOfSlice);
+    GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
     ~GdbResult() = default;
     const char* get() override;
     void setPos(const char* pos) override;
     bool isContinued() override;
     bool mayBeTruncated() override;
     void flush(bool isFinal);
+
+    std::pair<std::shared_ptr<ais::Type>,bool> nextSlice();
+
+    GdbResult(const GdbResult&) = delete;
+    GdbResult& operator=(const GdbResult&) = delete;
     
 private:
     Mi2Aif& m_mi;
     std::shared_ptr<MIVar> m_var;
     std::unique_ptr<ArraySlicer> m_slicer;
+    std::shared_ptr<ais::Type> m_type;
 
     char* m_buffer;
     bool m_finalSlice = true;
     const char* m_pos;
-
-    std::function<void(bool)> m_endOfSlice;
 };
 
 } //namespace
@@ -801,15 +804,26 @@ void Mi2Aif::writeVal(std::shared_ptr<MIVar> var, int refIdx,
         var->thread_id);
 
     auto obj = TypeParser::getType(*this, var.get(), nullptr);
-    auto eval = GdbResult{*this, var, *obj, endOfSlice};
-    auto any = std::make_unique<ais::Any>(std::move(obj), refIdx);
+    auto eval = GdbResult{*this, var, obj};
 
     DVPRINT("About to call any->parse\n");
 
     try {
-        // wrapping the object with ais::any sends the type info for the top
-        // level object.
-        any->parse(eval, m_writer);
+
+        while (true) {
+            if (auto [ sliceType, isFinal ] = eval.nextSlice(); sliceType) {
+                // wrapping the object with ais::any sends the type info for the top
+                // level object.
+                auto any = std::make_unique<ais::Any>(sliceType, refIdx);
+                any->parse(eval, m_writer);
+                if (!isFinal) {
+                    endOfSlice(isFinal);
+                    m_writer.resetTypes();
+                }
+            } else {
+                break;
+            }
+        }
     } catch (std::exception& err) {
         DVPRINT("parsing failed with %s\n", err.what());
     }
@@ -956,13 +970,11 @@ namespace {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ais::Type& varType);
+    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
     ~ArraySlicer();
 
-    // evaluate the next slice of the variable result.   Return the
-    // result and the expected shape of the result.   The caller is
-    // responsible for free the returned shape.
-    char* getNext(bool& isFinal);
+    // evaluate the next slice of the variable result.
+    std::tuple<std::shared_ptr<ais::Type>, char*, bool> getNext();
 
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
 
@@ -975,6 +987,7 @@ private:
     MISession* m_session;       // session to connect to gdb/MI
     
     std::shared_ptr<MIVar> m_var;  // MI variable of interest
+    std::shared_ptr<ais::Type> m_type;   // type of the full variable
     char* m_buf;                // allocated array for the result (contolled by this)
     char* m_array;              // interpretable region of m_buf
 
@@ -985,20 +998,21 @@ private:
     long m_slice;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, const ais::Type& varType)
-    : m_session(session), m_var(var),
+ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
+                         std::shared_ptr<ais::Type> varType)
+    : m_session(session), m_var(var), m_type(varType),
       m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
       m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
     static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");
     if (blockSizeStr) {
         long lval = atol(blockSizeStr);
-        if (lval > 0)
+        if (lval >= 0)
             m_blockSize = lval;
     }
 
     if (m_blockSize) {
-        determineSlicing(varType);
+        determineSlicing(*varType);
     }
 }
 
@@ -1058,7 +1072,7 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
             return;
     }
 
-    // C/C++ array, this may be real or partially artficial
+    // C/C++ array, this may be real or partially artificial
     int dim = arrayLens.size();
     size_t subArrayLen  = 1;
     for (int i=1; i<dim; ++i)
@@ -1092,16 +1106,19 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
 // had.
 // The returned array is controlled by ArraySlicer and should not be freed by the
 // caller.
-char*  ArraySlicer::getNext(bool& isFinal)
+std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
 {
     DVPRINT("In ArraySlicer::getNext\n");
 
-    isFinal = true;
-
-    if (m_subIdx > m_maxSubIdx)
-        return nullptr;
-
+    bool isFinal = true;
     char* array = nullptr;
+
+    if (m_subIdx > m_maxSubIdx) {
+        return std::tuple(m_type, array, isFinal);
+    }
+
+    auto retType = m_type;
+
     if (m_array) {
         DVPRINT("In ArraySlicer::getNext no size information\n");
         // we were unable to get the size information for variable, so we
@@ -1143,7 +1160,15 @@ char*  ArraySlicer::getNext(bool& isFinal)
         if (array) {
             // success!
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
+
+            // update the array type to contain just the length of the slice
+            auto subArrayType = std::static_pointer_cast<ais::Array>(m_type);
+            subArrayType = subArrayType->makeTyped(subArrayType->getElemTypePtr());
+            subArrayType->setBounds(len, m_subIdx);
+            retType = subArrayType;
+            
             m_subIdx = maxIdx+1;
+
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
             array = GetArrayDataString(m_session, m_var.get());
@@ -1155,7 +1180,7 @@ char*  ArraySlicer::getNext(bool& isFinal)
     }
 
     isFinal = (m_subIdx > m_maxSubIdx);
-    return array;
+    return std::tuple(retType, array, isFinal);
 }
 
 } // namespace
@@ -1673,34 +1698,28 @@ std::shared_ptr<ais::Type> TypeParser::wrapVoidFunc(Mi2Aif& mi, TypeName t) {
     return std::make_shared<ais::Function>();
 }
     
-
 std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
 
-GdbResult::GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, const ais::Type& varType,
-                     const std::function<void(bool)>& endOfSlice)
-    : m_mi(mi), m_var(var), m_buffer(nullptr), m_pos(nullptr), m_endOfSlice(endOfSlice) {
+GdbResult::GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType)
+    : m_mi(mi), m_var(var), m_type(varType), m_buffer(nullptr), m_pos(nullptr) {
     DVPRINT("Creating GdbResult\n");
     m_slicer.reset(new ArraySlicer(m_mi.getSession(), var, varType));
 }
 
-const char* GdbResult::get() {
-    if (!m_buffer) {
-        bool endOfSlice = (m_pos != nullptr);
-        bool isFinal = m_finalSlice;
-        m_pos = m_buffer = m_slicer->getNext(m_finalSlice);
+const char* GdbResult::get() { return m_pos; }
 
-        if (!m_pos) {
-            if (dbg_error)
-                throw dbg_error.release();
-            else
-                throw NewErrorEvent(DBGERR_INTERNAL, "gdb expression evaluation failed");
-        }
-
-        if (endOfSlice) flush(isFinal);
+std::pair<std::shared_ptr<ais::Type>,bool> GdbResult::nextSlice() {
+    
+    if (auto [ type, arr, isFinal ] = m_slicer->getNext(); arr) {
+        m_pos = m_buffer = arr;
+        m_finalSlice = true;
+        return std::pair{type, isFinal};
+    } else {
+        m_pos = m_buffer = nullptr;
+        return std::pair{std::shared_ptr<ais::Type>{}, true};
     }
-    return m_pos;
 }
 
 void GdbResult::setPos(const char* pos) {
@@ -1725,6 +1744,3 @@ bool GdbResult::mayBeTruncated() {
     return (clientPrintElements > 0);
 }
 
-void GdbResult::flush(bool isFinal) {
-    m_endOfSlice(isFinal);
-}

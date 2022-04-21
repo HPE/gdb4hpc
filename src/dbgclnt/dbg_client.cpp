@@ -1969,13 +1969,12 @@ static group_reply_t* JoinReplies(const Bitset* group,
     AIFStream* data = nullptr;
         
     if (!isError) {
-        std::vector<std::string> slices;
+        std::vector<AIFStream*> slices;
         for (auto&& reply : replies) {
-            bool isFinal;
-            slices.push_back(EVENT_DATA(reply->rep_event)->getNextSlice(isFinal));
+            slices.push_back(EVENT_DATA(reply->rep_event));
         }
 
-        data = new AIFStream(std::move(slices));
+        data = new AIFStream(slices);
     }
 
 

@@ -125,6 +125,34 @@ std::string CloneSlices::getNextSlice(bool& isFinal) {
 std::shared_ptr<AIFStream::Slices> CloneSlices::clone() const {
     return m_parent->clone();
 }
+
+struct NullOp { template <class T> T operator()(T x) { return x; } };
+
+// concatenate a series of streams into a single visitor
+class ConcatVisitor : public ais::OpVisitor<NullOp> {
+public:
+    ConcatVisitor(ais::Visitor& out) : ais::OpVisitor<NullOp>{NullOp(), out} {}
+    void eof() override {}
+};
+
+// a vstream that concatenates the output of a series of streams
+class ConcatVStream : public ais::VStream {
+public:
+    ConcatVStream(std::vector<std::shared_ptr<ais::VStream> > subStrs) :
+        m_strs(std::move(subStrs)) {}
+    void apply(ais::Visitor& v) override;
+
+private:
+    std::vector<std::shared_ptr<ais::VStream> > m_strs;
+};
+
+void ConcatVStream::apply(ais::Visitor& v) {
+    ConcatVisitor cv{v};
+    for (auto subStr : m_strs) {
+        subStr->apply(cv);
+    }
+    v.eof();
+}
     
 } // namespace
 
@@ -147,6 +175,27 @@ AIFStream::AIFStream(std::shared_ptr<Slices> slices) : m_slices(slices) {}
 AIFStream::AIFStream(std::shared_ptr<ais::VStream> vstream) :
     m_vstream(vstream) {}
 
+
+// concatenate a set of streams
+AIFStream::AIFStream(const std::vector<AIFStream*>& subStrs) {
+    auto streams = std::vector<std::shared_ptr<ais::VStream>>{};
+    auto slices = std::vector<std::string>{};
+
+    for (auto subStr : subStrs ) {
+        if (auto vs = subStr->getVStreamPtr()) {
+            streams.push_back(vs);
+        } else if (subStr->m_slices) {
+            bool isFinal;
+            slices.emplace_back(subStr->getNextSlice(isFinal));
+        }
+    }
+
+    if (!slices.empty()) {
+        m_slices.reset(new CachedSlices{std::move(slices)});
+    } else {
+        m_vstream.reset(new ConcatVStream(streams));
+    }
+}
 AIFStream::~AIFStream() {}
 
 // Get the next slice of AIF data.   Set isFinal to true if this is the last

@@ -125,6 +125,8 @@ public:
     // get the index for a type 
     int getTypeId(const std::string& typeName);
 
+    void resetTypes();
+
     // writer primitives
     void writeInt(int val);
     void writeLong(long val);
@@ -730,7 +732,7 @@ private:
 class Array : public Type {
 public:
     Array();
-    Array(std::shared_ptr<Type> elemType, int len=0);  // len only used on write side
+    Array(std::shared_ptr<Type> elemType, int len=0, int idx0=0);  // len only used on write side
     void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     void applyL(Reader& reader, Visitor& f) const override;
@@ -757,10 +759,12 @@ public:
     std::shared_ptr<Type> getElemTypePtr() { return m_elemType; }
     const Type* getElemType() const { return m_elemType.get(); }
     int getLen() const { return m_numElems; }
+    void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
         
 protected:
     std::shared_ptr<Type> m_elemType;
     int m_numElems;
+    int m_idx0 = 0;
 };
 
 // Fortran array - multi dimension arrays are handled by nesting FntArray types

@@ -767,14 +767,15 @@ std::string ais::Unimplemented::getTypeName() const {
 
 ais::Array::Array() : m_numElems(0) {}
 
-ais::Array::Array(std::shared_ptr<Type> elemType, int len)
-    : m_elemType(elemType), m_numElems(len){}
+ais::Array::Array(std::shared_ptr<Type> elemType, int len, int idx0)
+    : m_elemType(elemType), m_numElems(len), m_idx0(idx0) {}
 
 void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
     auto mayBeTruncated = in.mayBeTruncated();
     
     out.writeInt(m_numElems);
+    out.writeInt(m_idx0);
     out.writeInt(mayBeTruncated);
 
     // assuming something like {val,val,val}
@@ -851,9 +852,13 @@ void ais::Array::applyL(Reader& reader, Visitor& f) const {
     // set.   For multi-dimension arrays the actual number of values output gets
     // super complicated, so instead we just write a 1 before every element and a
     // 0 at the end.
+
+    // note - this header information is also read (and discarded) in applyOne, so
+    // if a field is added, make sure to update there
     auto len = reader.readInt();
+    auto idx0 = reader.readInt();
     auto mayBeTruncated = static_cast<bool>(reader.readInt());
-    f.addMetaInfo(this, std::make_pair(0,len));
+    f.addMetaInfo(this, std::make_pair(idx0,len));
     f.nest(m_elemType.get());
     for (int i=0; i<len; ++i) {
         if (mayBeTruncated && !reader.readInt()) break;
@@ -893,8 +898,9 @@ void ais::Array::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, in
         }
 
         // nesting into another array
-        // logic duplicated from Array::read
+        // logic duplicated from Array::apply
         auto len = reader.readInt();
+        [[maybe_unused]] auto idx0 = reader.readInt(); // unused in decomposition
         auto mayBeTruncated = static_cast<bool>(reader.readInt());
 
         if (len <= 0) return;
@@ -923,7 +929,11 @@ bool ais::Array::isFortran() const { return false; }
 ais::FtnArray::FtnArray() {}
 
 ais::FtnArray::FtnArray(std::shared_ptr<Type> elemType, int len) :
-    ais::Array(elemType, len) {}
+    ais::Array(elemType, len) {
+    // not resetting m_idx0 to 1 here.  That is used for handling a slice.
+    // The cultural difference of starting with 1 is handled in
+    // FtnArray::printIndex.
+}
 
 std::string ais::FtnArray::getTypeName() const {
     return m_elemType ? "^fortran[" + m_elemType->getTypeName() : "^fortran[";
@@ -1178,6 +1188,7 @@ void ais::Vector::parseL(InterpretStream& in, Writer& out) const {
         // ArrayParse is looking for "{}"
         in.setPos(s+chars);
         out.writeInt(0);     // numElems
+        out.writeInt(0);     // idx0
         out.writeInt(false); // mayBeTruncated
     } else if (len > 0) {
         s = skipspace(s+chars);
@@ -1739,6 +1750,10 @@ int ais::Writer::getTypeId(const std::string& typeName) {
     return idx;
 }
 
+void ais::Writer::resetTypes() {
+    m_typeNameToIdx.clear();
+}
+
 //===========================================================================
 
 ais::BufferReader::BufferReader(std::shared_ptr<ais::ReadBuffer> buffer) : m_buffer(buffer) {
@@ -1993,6 +2008,10 @@ void ais::TrackingVisitor::start(const ais::Type* t) {
 }
 
 void ais::TrackingVisitor::addMetaInfo(const ais::Type* t, std::pair<int,int> info) {
+    if (!m_idcs.empty()) {
+        
+        m_idcs.back().second = info.first;
+    }
     if (m_wrapped) m_wrapped->addMetaInfo(t, info);
 }
 void ais::TrackingVisitor::unnest() {

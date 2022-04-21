@@ -65,8 +65,11 @@ public:
     AIFStream(std::shared_ptr<ais::DecompIterator> blockmap,
               const std::vector<AIFStream*>& data);
 
-    // build from a operator 
+    // build from an operator 
     AIFStream(std::shared_ptr<ais::VStream> vstream);
+
+    // concatenate the results of a set of streams
+    AIFStream(const std::vector<AIFStream*>& streams);
 
     // make rhs empty
     AIFStream(AIFStream&& rhs) = default;

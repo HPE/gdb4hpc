@@ -19,6 +19,7 @@ echo "#             Installing deps              #"
 echo "############################################"
 target_pm=$(get_pm)
 target_os=$(get_os)
+target_arch=$(get_arch)
 if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
     # Install zypper based dependencies
     zypper refresh -f
@@ -59,7 +60,6 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
     fi
     # Install yum based components
     yum --assumeyes install \
-            texinfo \
             autoconf \
             automake \
             binutils-devel \
@@ -83,6 +83,15 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             tcl \
             which \
             xz-devel
+    check_exit_status
+
+    if [[ "$target_arch" == "$cdst_arch_aarch64" && "$target_os" == "$cdst_os_rhel84" ]]; then
+      yum --assumeyes install \
+      https://arti.dev.cray.com/artifactory/hpe-rhel-remote/EL8/Update4/GA/CRB/os/Packages/perl-Unicode-EastAsianWidth-1.33-13.el8.noarch.rpm \
+      https://vault.centos.org/centos/8/PowerTools/aarch64/os/Packages/texinfo-6.5-6.el8.aarch64.rpm
+    else
+      yum --assumeyes install texinfo
+    fi
     check_exit_status
 else
     # Unknown OS! Exit with error.

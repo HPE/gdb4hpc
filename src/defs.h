@@ -16,10 +16,10 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
-#ifdef MRNET
-#define DBG_PROTO "mrnet"
-#elif ZMQNET
+#ifdef ZMQNET
 #define DBG_PROTO "zmqnet"
+#elif MRNET
+#define DBG_PROTO "mrnet"
 #else
 #define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
 #endif

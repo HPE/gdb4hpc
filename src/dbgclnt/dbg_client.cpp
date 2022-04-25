@@ -477,6 +477,8 @@ rep_set_t* rep_set_t::clone() const
 
     newset->m_dataId = m_dataId;
     newset->m_moreSlices = m_moreSlices;
+    newset->m_repsIsSorted = m_repsIsSorted;
+    newset->m_errsIsSorted = m_errsIsSorted;
 
     return newset;
 }
@@ -518,6 +520,9 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     }
     delete tmp;
 
+    m_repsIsSorted = false;
+    m_errsIsSorted = false;
+
     return this;
 }
 
@@ -535,6 +540,103 @@ void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
 void rep_set_t::addReply(group_reply_t *rep)
 {
     m_reps.push_back(rep);
+    m_repsIsSorted = false;
+}
+
+void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data,
+        std::function<AIFStream* (AIFStream* oldData, AIFStream* data)> tFn)
+{
+    // creates a new reply containing the passed aif stream. new reply owns passed aif pointer.
+    const auto aif2Reply = [](dbginvoke_t* di, std::unique_ptr<Bitset>&& group, AIFStream*&& aif) {
+        auto ev = NewEvent(DBGEV_DATA);
+        ev->ev_data = aif;
+        aif = nullptr;
+        return NewGroupReply(di, std::move(group), ev);
+    };
+
+    size_t origNumReplies = m_reps.size();
+    for (size_t i = 0; i < origNumReplies && !ranks->isEmpty(); i++) {
+        auto* reply = m_reps[i];
+
+        if (reply->rep_event->ev_event != DBGEV_DATA || !ranks->hasCommonBits(*reply->rep_group)) continue;
+
+        // generate new aif via passed transform operation
+        auto newAif = tFn(EVENT_DATA(reply->rep_event), data);
+        if (!newAif) continue;
+        if (static_cast<void*>(newAif) == static_cast<void*>(data)) {
+            throw std::runtime_error("Transformation function must not return original data");
+        }
+
+        // if the new data is equivalent to the data already in the reply,
+        // we can mark the data as already accounted for (for ranks matching the
+        // existing reply) and continue.
+        if (AIFStream::compareEqual(*EVENT_DATA(reply->rep_event), *newAif)) {
+            *ranks -= *reply->rep_group;
+            delete newAif;
+            continue;
+        }
+
+        // if we get here, the data is different. replace the data for ranks that
+        // overlap by removing data from the old reply and creating a new reply
+        // with the new data
+        auto commonRanks = bitset::fromAnd(*ranks, *reply->rep_group);
+
+        *ranks -= *commonRanks;
+        *reply->rep_group -= *commonRanks;
+
+        m_reps.push_back(aif2Reply(reply->rep_di, std::move(commonRanks), std::move(newAif)));
+
+        // we might have completely replaced an existing reply value, remove it and
+        // update the iteration values
+        if (reply->rep_group->isEmpty()) {
+            m_reps.erase(m_reps.begin()+i);
+            FreeGroupReply(reply);
+            --i;
+            --origNumReplies;
+        }
+    }
+
+    // if any ranks are left over, add a new reply from them
+    if (!ranks->isEmpty()) {
+        m_reps.push_back(aif2Reply(nullptr, std::move(ranks), std::move(data)));
+        data = nullptr;
+    } else {
+        delete data;
+        data = nullptr;
+    }
+
+    // New replies could potentially have an already existing value.   Merge
+    // duplicates here.  The total number or possible values is small so the
+    // amount of processing here should be limited.
+    for (size_t i=origNumReplies; i<m_reps.size(); ++i) {
+        auto repI = m_reps[i];
+        auto repIe = repI->rep_event;
+
+        for (size_t j=0; j<i; ++j) {
+            auto repJ = m_reps[j];
+            auto repJe = repJ->rep_event;
+
+            if (repIe->ev_event == DBGEV_DATA && repJe->ev_event == DBGEV_DATA
+                && AIFStream::compareEqual(*EVENT_DATA(repIe), *EVENT_DATA(repJe)))
+            {
+                *repJ->rep_group |= *repI->rep_group;
+                m_reps.erase(m_reps.begin()+i);
+                --i;
+                FreeGroupReply(repI);
+            }
+        }
+    }
+
+    m_repsIsSorted = false;
+
+    // nullify passed pointers so calling function no longer has access to internal data
+    data = nullptr;
+}
+
+void rep_set_t::writeDataReply(std::unique_ptr<Bitset>&& group, AIFStream*&& data) {
+    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *_, AIFStream *newData) { 
+        return newData ? newData->clone() : nullptr; 
+    });
 }
 
 static void AddErrToSet(rep_set_t *set, group_reply_t *err_rep) {
@@ -546,6 +648,7 @@ static void AddErrToSet(rep_set_t *set, group_reply_t *err_rep) {
 void rep_set_t::addErr(group_reply_t* rep)
 {
     m_errs.push_back(rep);
+    m_errsIsSorted = false;
 }
 
 bool rep_set_t::isEmpty() const
@@ -572,12 +675,8 @@ const std::vector<group_reply_t*>& rep_set_t::getReplies() const
         const_cast<rep_set_t*>(this)->mergeReplySlices();
     }
 
-    return m_reps;
-}
+    const_cast<rep_set_t*>(this)->sortReplies();
 
-std::vector<group_reply_t*>& rep_set_t::getMutableReplies()
-{
-    getReplies();
     return m_reps;
 }
 
@@ -589,6 +688,8 @@ const std::vector<group_reply_t*>& rep_set_t::getErrs() const
         const_cast<rep_set_t*>(this)->mergeReplySlices();
     }
 
+    const_cast<rep_set_t*>(this)->sortErrors();
+
     return m_errs;
 }
 
@@ -598,7 +699,10 @@ std::unique_ptr<rep_set_t> rep_set_t::getNextSlice() {
         rep_set_t* slice0 = new rep_set_t;
         m_reps.swap(slice0->m_reps);
         m_errs.swap(slice0->m_errs);
+        slice0->m_repsIsSorted = m_repsIsSorted;
+        slice0->m_errsIsSorted = m_errsIsSorted;
         m_returnedSlice0 = true;
+        m_repsIsSorted = m_errsIsSorted = true; // reps and errs now empty
         return std::unique_ptr<rep_set_t>(slice0);
     } else if (m_isSliced && m_moreSlices) {
         return recvSlice();
@@ -1838,7 +1942,9 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
         return;
     } else if (slices.size() == 1) {
         m_reps.swap(slices[0]->m_reps);
+        std::swap(m_repsIsSorted, slices[0]->m_repsIsSorted);
         m_errs.swap(slices[0]->m_errs);
+        std::swap(m_errsIsSorted, slices[0]->m_errsIsSorted);
         m_dataId = 0;
         m_isSliced = m_returnedSlice0 = m_moreSlices = false;
         return;
@@ -1934,12 +2040,39 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             if (group_reply_t* newReply = JoinReplies(setset.get(), newSlice, isError)) {
                 if (isError) {
                     m_errs.push_back(newReply);
+                    m_errsIsSorted = false;
                 } else {
                     m_reps.push_back(newReply);
+                    m_repsIsSorted = false;
                 }
             }
         }
     }
+}
+
+// return true if l->rep_group < r->rep_group
+static bool compareRepsByBitset(const group_reply_t* l, const group_reply_t* r) {
+    // nullptr < non-null ptr
+    if (!l && !r) return false;        // nullptr == nullptr
+    if (!l || !r) return l == nullptr; // else r is nullptr and thus < l
+
+    // ->!rep_group < ->rep_group
+    if (!l->rep_group && !r->rep_group) return false; // nullptr == nullptr
+    if (!l->rep_group || !r->rep_group) return l->rep_group == nullptr;
+
+    return *l->rep_group < *r->rep_group;
+}
+
+void rep_set_t::sortReplies() {
+    if (m_repsIsSorted) return;
+    std::sort(m_reps.begin(), m_reps.end(), compareRepsByBitset);
+    m_repsIsSorted = true;
+}
+
+void rep_set_t::sortErrors() {
+    if (m_errsIsSorted) return;
+    std::sort(m_errs.begin(), m_errs.end(), compareRepsByBitset);
+    m_errsIsSorted = true;
 }
 
 // Create a single unsliced group_reply from a set of slices

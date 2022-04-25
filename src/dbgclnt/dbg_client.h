@@ -156,6 +156,31 @@ public:
     // add a successful reply
     void addReply(group_reply_t* reply);
 
+    // add a data reply associated with `ranks`. If `ranks` overlaps any
+    // existing ranks in the rep set, the transformation function tFn is called
+    // with the already existing data and the passed `data`. the result of tFn
+    // is added to the rep set, replacing any replies or parts of replies which
+    // overlap with `ranks`. tFn must not return &`data`. if tFn deems that no
+    // transformation should be applied, it should return a copy of `data`, not
+    // `data` itself.
+    //
+    // if any portion of `ranks` does not overlap any existing replies,
+    // a new data reply is added which stores `data` without calling tFn.
+    //
+    // after this function is called, the rep set owns
+    // `ranks` and `data` and the pointers will be set to nullptr.
+    void writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data,
+        std::function<AIFStream* (AIFStream* oldData, AIFStream* data)> tFn);
+
+    // add a data reply associated with `ranks`. If `ranks` overlaps any
+    // existing ranks in the rep set, the old data for those ranks is replaced
+    // with a copy of `data`. if any portion of `ranks` does not overlap any
+    // existing replies, a new data reply is added which stores `data`.
+    //
+    // after this function is called, the rep set owns
+    // `ranks` and `data` and the pointers will be set to nullptr.
+    void writeDataReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data);
+
     // add a error reply
     void addErr(group_reply_t* reply);
 
@@ -183,7 +208,6 @@ public:
     // each expression result keeps and sequential id for requesting additional slices.
     void setDataId(size_t id);
 
-    std::vector<group_reply_t*>& getMutableReplies();
     static const std::vector<group_reply_t*>& getNullReply();
 
 private:
@@ -192,13 +216,21 @@ private:
                             const Bitset* group);
     std::unique_ptr<rep_set_t> recvSlice();
 
+    // these lists should always be sorted by their groups (bitset::operator<) 
+    // when accessed externally
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
-    rec_set_t* m_set;                 // for continuation of large arrays
+
+    rec_set_t* m_set;                    // for continuation of large arrays
     size_t m_dataId;                     // for continuation of large arrays
     bool m_isSliced;                     // the data can be accessed in sequential pieces
     bool m_returnedSlice0;               // the first result has been returned by getNextSlice
     bool m_moreSlices;                   // more slices remain to be retrieved
+
+    void sortReplies();
+    void sortErrors();
+    bool m_repsIsSorted;
+    bool m_errsIsSorted;
 };
 
 // Iteration support for processing the non-error replies of a rep_set_t, which

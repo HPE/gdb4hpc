@@ -958,21 +958,11 @@ bool SR::Result::operator==(const Result& other) const {
         return false;
     }
 
-    const auto compareAIS = [](auto* l, auto* r) {
-        AIFStream::Difference diff;
-        std::string error;
-        int res = -1;
-
-        AIFStream::compare(l, r, &res, diff, nullptr, nullptr, error);
-
-        return res == 0;
-    };
-
     switch (difference->val_rval_type) {
         case rval_aif: {
             auto* aisL = difference->rval_u.rval_aif;
             auto* aisR = other.difference->rval_u.rval_aif;
-            return compareAIS(aisL, aisR);
+            return AIFStream::compareEqual(*aisL, *aisR);
         }
 
         case rval_reply: {
@@ -984,9 +974,15 @@ bool SR::Result::operator==(const Result& other) const {
             }
 
             for (size_t i = 0; i < repSetL->getNumReplies(); i++) {
-                auto* aisL = repSetL->getReplies()[i]->rep_event->ev_u.ev_u_data;
-                auto* aisR = repSetR->getReplies()[i]->rep_event->ev_u.ev_u_data;
-                if (!compareAIS(aisL, aisR) != 0) return false;
+                auto* repL = repSetL->getReplies()[i];
+                auto* repR = repSetR->getReplies()[i];
+
+                if (repL->rep_di != repR->rep_di) return false;
+                if (*repL->rep_group != *repR->rep_group) return false;
+
+                auto* aisL = repL->rep_event->ev_u.ev_u_data;
+                auto* aisR = repR->rep_event->ev_u.ev_u_data;
+                if (!AIFStream::compareEqual(*aisL, *aisR) != 0) return false;
             }
 
             return true;

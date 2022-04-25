@@ -97,6 +97,8 @@ public:
 
     virtual bool operator== (const Bitset &other) const;
     virtual bool operator!= (const Bitset &other) const;
+    // 0b0000 < 0b0001 {1} < 0b0010 {2} < 0b0011 {1..2} < ... < 0b1111
+    virtual bool operator< (const Bitset &other) const;
 
     // returns true if lhs & rhs != 0.
     virtual bool hasCommonBits(const Bitset &other) const;

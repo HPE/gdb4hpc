@@ -199,6 +199,47 @@ TYPED_TEST(BitsetUnitTest, Equals) {
     ASSERT_TRUE(this->m_empty == this->m_sparse);
 }
 
+TYPED_TEST(BitsetUnitTest, LessThan) {
+    ASSERT_TRUE(this->m_empty < this->m_full);
+    ASSERT_TRUE(this->m_empty < this->m_sparse);
+
+    ASSERT_FALSE(this->m_full < this->m_full);
+    ASSERT_FALSE(this->m_empty < this->m_empty);
+    ASSERT_FALSE(this->m_sparse < this->m_sparse);
+
+    auto left  = this->m_empty.clone();
+    auto right = this->m_empty.clone();
+
+    ASSERT_FALSE(*left < *right);
+    
+    left->set(0);
+    right->set(1);
+    // {0} < {1}
+    ASSERT_TRUE(*left < *right);
+
+    right->set(0);
+    // {0} < {0..1}
+    ASSERT_TRUE(*left < *right);
+
+    left->set(1);
+    right->set(2);
+    // {0..1} < {0..2}
+    ASSERT_TRUE(*left < *right);
+
+    auto left2 = this->m_empty.clone();
+    left2->set(0);
+    left2->set(2);
+    // {0, 2} < {0..2}
+    ASSERT_TRUE(*left < *right);
+
+    left->clear();
+    right->clear();
+    left->set(1);
+    right->set(0);
+    // {1} not < {0}
+    ASSERT_FALSE(*left < *right);
+}
+
 TYPED_TEST(BitsetUnitTest, And) {
     auto random_anded_full = bitset::fromAnd(this->m_sparse, this->m_full);
     auto random_anded_empty = bitset::fromAnd(this->m_sparse, this->m_empty);

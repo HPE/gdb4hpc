@@ -1985,100 +1985,24 @@ static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
 // \param aif it the aif integer comparison result on the slice.   The function takes ownership
 //       of \a aif
 // \param op is the operation being applied.
-static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIFStream* aif,
-                                 expr_op op) {
-    // by right there should be no more than two replies as there are but two values
-    bool isNeq = (op == EXPR_OPNOTEQUAL);
+static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIFStream*&& aif, expr_op op) {
+    repSet.writeTransformedReply(std::move(group), std::move(aif), [op](AIFStream* oldData, AIFStream* newData) -> AIFStream* {
+        // XXX: params should be passed as const
+        if (!oldData || !newData) return nullptr;
 
-    int addVal;
-    if (aif->toInt(addVal)) {
-        DPRINT("not a compare result\n");
-        return;
-    }
+        int addVal;
+        if (newData->toInt(addVal)) {
+            DPRINT("not a compare result\n");
+            return nullptr;
+        }
 
-    // we need to do the usual reply combination work of find existing replies that share any 
-    // members of the process group with the new result
-    dbginvoke_t* di = nullptr;
-    auto& replies = repSet.getMutableReplies();
-
-    // make sure not to reprocess any newly created replies
-    size_t origNumReplies = replies.size();
-    for (size_t i=0; i<origNumReplies; ++i) { 
-        auto reply = replies[i];
-        di = reply->rep_di;
-
-        // careful, reply still owns this bitset, we just want to borrow it
-        Bitset &oldGroup = *reply->rep_group;
-
-        if (!group->hasCommonBits(oldGroup))
-            continue;
-
-        // we have shared processes, compute the new comparison result
         int oldVal;
-        EVENT_DATA(reply->rep_event)->toInt(oldVal);
-        int newVal = combine_compare_vals(oldVal, addVal, isNeq);
+        oldData->toInt(oldVal);
+        int newVal = combine_compare_vals(oldVal, addVal, op == EXPR_OPNOTEQUAL);
 
-        // if the reult is the same, we don't need to update the reply, just
-        // remove the common processes from the ones we're looking for
-        if (newVal == oldVal) {
-            *group -= oldGroup;
-            continue;
-        }
-
-        // the result is different.  create a reply and add it to the set.
-        // this might be the same value as an existing element of \a replies
-        // but we'll resolve those later.   The new replies are all after
-        // \a origNumReplies because we need to make sure we don't try to apply the
-        // new result to a reply twice.
-        auto igrp = bitset::fromAnd(*group, oldGroup);
-
-        // remove the bits from old and new replies
-        *group -= *igrp;
-        oldGroup -= *igrp; // modifies in place, inside of reply
-
-        if (auto newReply = make_reply_from_aif(di, std::move(igrp), AIFStream::fromInt(newVal)))
-            replies.push_back(newReply);
-
-        // we might have completely replaced an existing reply value, remove it and
-        // update the iteration values
-        if (oldGroup.isEmpty()) {
-            replies.erase(replies.begin()+i);
-            FreeGroupReply(reply);
-            --i;
-            --origNumReplies;
-        }
-    }
-
-    // we're bootstrapping from an enpty reply set - so store the initial value
-    if (!group->isEmpty()) {
-        if (auto newReply = make_reply_from_aif(di, std::move(group),
-                                                AIFStream::fromInt(addVal)))
-            replies.push_back(newReply);
-    } else {
-        delete aif;
-        group.reset();
-    }
-
-    // New replies could potentially have an already existing value.   Merge duplicates
-    // here.  The total number or possible values is small so the amount of processing
-    // here should be limited.
-    for (size_t i=origNumReplies; i<replies.size(); ++i) {
-        auto repI = replies[i];
-        int valI, valJ;
-        if (EVENT_DATA(repI->rep_event)->toInt(valI) != 0)
-            continue;
-        for (size_t j=0; j<i; ++j) {
-            auto repJ = replies[j];
-            if (EVENT_DATA(repJ->rep_event)->toInt(valJ) == 0 && valI == valJ) {
-                *repJ->rep_group |= *repI->rep_group;
-                replies.erase(replies.begin()+i);
-                --i;
-                FreeGroupReply(repI);
-            }
-        }
-    }
+        return AIFStream::fromInt(newVal);
+    });
 }
-
 
 // create a group reply containing the content in \a aif and add it to \a repSet
 // note : takes ownership of \a group and \a aif
@@ -2231,7 +2155,8 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                 auto tset = is_single ? r1.group->clone() : intersect_groups(r1.group, r2.group);
                 
                 if (isCompare) {
-                    add_to_compare_reply(*newRepSet, tset->clone(), res, op);
+                    // consumes res
+                    add_to_compare_reply(*newRepSet, tset->clone(), std::move(res), op);
                 } else {
                     // we intentionally set the di to null rather than picking an arbitrary one
                     add_to_reply(*newRepSlice, nullptr, tset->clone(), res);

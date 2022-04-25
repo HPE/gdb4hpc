@@ -193,6 +193,24 @@ bool Bitset::operator!= (const Bitset &other) const {
 	return !(*this == other);
 }
 
+bool Bitset::operator< (const Bitset &other) const {
+    auto myFirst = firstSet();
+    auto theirFirst = other.firstSet();
+    if (myFirst != Bitset::None && theirFirst != Bitset::None) {
+        if (myFirst != theirFirst) return myFirst < theirFirst;
+        
+        // iterate until we find a difference
+        for (size_t bit = std::min(myFirst, theirFirst); bit < std::max(sizeInBits(), other.sizeInBits()); bit++) {
+            if (test(bit) != other.test(bit)) return other.test(bit);
+        }
+
+        return false; // bitsets are equal
+    } else {
+        // at least one bitset has nothing set. {} is less than everything
+        return theirFirst != Bitset::None;
+    }
+}
+
 bool Bitset::hasCommonBits(const Bitset &other) const {
 	auto commonSize = std::min(sizeInBits(), other.sizeInBits());
 

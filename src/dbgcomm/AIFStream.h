@@ -136,6 +136,9 @@ public:
     static int compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
                        double* lo, double* hi, std::string& errMsg);
 
+    // simpler case of AIFStream::compare; returns true if a == b
+    static bool compareEqual(AIFStream& a, AIFStream& b);
+
 private:
     std::shared_ptr<Slices> getSlices() { return m_slices; }
 

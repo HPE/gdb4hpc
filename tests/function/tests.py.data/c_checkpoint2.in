@@ -92,9 +92,9 @@ bigname{3}: 10
 bigname{0..1}: 15
 37: info checkpoint
 Checkpoint Procset          Location
-0          $bigname{2}      c_inc.c:16 in main
+0          $bigname{0..1}   c_inc.c:19 in main
+           $bigname{2}      c_inc.c:16 in main
            $bigname{3}      c_inc.c:17 in main
-           $bigname{0..1}   c_inc.c:19 in main
 1          $bigname{0..3}   c_inc.c:13 in main
 2          $bigname{0..3} * $bigname{2}
 3          $bigname{0..1} * $bigname{0..1}

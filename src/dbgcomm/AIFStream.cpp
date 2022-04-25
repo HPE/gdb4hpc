@@ -558,6 +558,16 @@ int AIFStream::compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
     }
 }
 
+bool AIFStream::compareEqual(AIFStream& a, AIFStream& b) {
+    AIFStream::Difference diff; // unused
+    std::string error;          // unused
+    int res = -1;
+
+    AIFStream::compare(&a, &b, &res, diff, nullptr, nullptr, error);
+
+    return res == 0;
+};
+
 AIFStream::AIFStream(std::shared_ptr<ais::DecompIterator> blockIter,
                      const std::vector<AIFStream*>& data)
 {

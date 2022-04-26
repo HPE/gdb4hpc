@@ -82,11 +82,10 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
     }
     fprintf(stderr, "\n"); 
 
-    auto const [upstreamControlEndpoint, upstreamDataEndpoint, node_id,
-		rest_argc, rest_argv] = zmqnet::AsyncBackend::getParams(argc, argv);
+    auto const [params, rest_argc, rest_argv] = zmqnet::AsyncBackend::getParams(argc, argv);
 
     // set rank for layer above
-    procnum = node_id;
+    procnum = params.node_id;
 
     {
         // figure out our pid
@@ -95,7 +94,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
         assert(pids != nullptr);
         auto first = cti_be_getNodeFirstPE();
         assert(first >= 0);
-        auto offset = node_id - first;
+        auto offset = params.node_id - first;
 
         LOG("zmqnet: pid offset is %d from %d. %d ranks reside on this node.\n", offset, first, pids->numPids);
 
@@ -108,15 +107,15 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
         pid = pids->pids[offset].pid;
 
         // double check that our assumption that node_id == rank is correct
-        if (pids->pids[offset].rank != node_id) {
-            LOG("zmqnet: ERROR: rank != node_id. (%d != %d)\n", pids->pids[offset].rank, node_id);
+        if (pids->pids[offset].rank != params.node_id) {
+            LOG("zmqnet: ERROR: rank != node_id. (%d != %d)\n", pids->pids[offset].rank, params.node_id);
             return -1;
         }
     }
 
     LOG("zmqnet: set rank and pid: %d and %d.\n", procnum, pid);
 
-    m_network = std::make_unique<zmqnet::AsyncBackend>(upstreamControlEndpoint, upstreamDataEndpoint, node_id);
+    m_network = std::make_unique<zmqnet::AsyncBackend>(params);
 
     { // register command stream callback
         const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastCommandStream);

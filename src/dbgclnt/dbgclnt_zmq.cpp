@@ -204,7 +204,6 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
 
     di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
 
-    // TODO environment variables
     auto zmqnet = std::make_unique<zmqnet::AsyncFrontend>(di->d_appid, session_id, manifest_id, 
         zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
         dbgsrvArgs.c_strs().data()  

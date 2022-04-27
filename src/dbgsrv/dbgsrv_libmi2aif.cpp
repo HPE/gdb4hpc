@@ -85,7 +85,7 @@ public:
     int getChildren(MIVar *);
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
-    char *getWhatisValue(const char *expr, const char* type);
+    std::string getPTypeAlias(const std::string& type);
     std::vector<std::string> getPTypeFields(const std::string& type);
 
     std::shared_ptr<ais::Type> getKnownType(const std::string& name);
@@ -637,6 +637,33 @@ int Mi2Aif::getChildren(MIVar *var) {
 inline bool fieldIsFunction(const char* str) {
     auto paren = strchr(str, '(');
     return (paren && paren[1] != '*');   // "(*" is a pointer to a function
+}
+
+// Find the more fundamental description of a type.   This is for when the
+// application does something like "typedef int MyInt;
+// So this function will "MyInt" -> "int"
+std::string Mi2Aif::getPTypeAlias(const std::string& type) {
+    MICommand* cmd = CLIPtype(type.c_str());
+    sendMICommand(cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("GetStructInfo: CLIPtype call failed.\n");
+        MICommandFree(cmd);
+        return type;
+    }
+
+    auto retType = type;
+    if (char* info = CLIGetPtypeInfo(cmd)) {
+        // info ends with a \n
+        if (auto len = strlen(info); len > 1 && !strchr(info,'{')) {
+            retType = std::string{info, len-1};
+            DVPRINT("Get CLIPTypeInfo %s\n", retType.c_str());
+        }
+        free(info);
+    }
+        
+    MICommandFree(cmd);
+    return retType;
 }
 
 // Get the fields of a struct from a gdb 'ptype" query
@@ -1267,10 +1294,11 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
 
     auto isId = [](int c) { return std::isalnum(c) || c == '_'; };
 
-    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\"\n",
+    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\"\n", 
             var ? var->type : "", inType ? inType : "");
 
-    const char* typeStr = var ? var->type : inType;
+
+    const char* typeStr = inType ? inType : var->type;
     auto type = sanitizeType(typeStr);
 
     DVPRINT("looking up type for %s (%s)\n", typeStr, type.c_str());
@@ -1330,6 +1358,13 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         std::regex_match(type, match, stdStringRE2)) {
         DVPRINT("matched on a string type %s\n", match[1].str().c_str());
         return mi.addKnownType(type, stdString(mi, TypeName{type,match[1].str().size()}));
+    }
+
+    // possible typedef for a more fundamental type
+    auto aliasName = mi.getPTypeAlias(type);
+    if (aliasName != type) {
+        DVPRINT("got an alias \"%s\"\n", aliasName.c_str());
+        return getType(mi, var, aliasName.c_str());
     }
 
     // compound types - (always struct or class? - not sure)

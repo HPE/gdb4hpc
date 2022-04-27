@@ -38,11 +38,35 @@ a{0..5}: 28.1999999999999993
 25: print si  
 a{0..5}: -11
 26: print main
-a{0..5}: "int (int, char **) <main>"
+a{0..5}: int (int, char **) <main>
 27: print test_stack
-a{0..5}: "int (int) <test_stack>"
+a{0..5}: int (int) <test_stack>
 28: print test_func
-a{0..5}: "void (int, int) <test_func>"
-29: #exit lgdb
-30: q
+a{0..5}: void (int, int) <test_func>
+29: p mi
+a{0..5}: 123
+30: p md
+a{0..5}: 123.45
+31: p struct_test_1
+a{0..5}: {i = 0, d = 0, c_ptr = 0x0, func_ptr = 0x0}
+32: ptype struct_test_1
+a{0..5}: struct test_struct {
+    int i;
+    double d;
+    char *c_ptr;
+    func_ptr_t func_ptr;
+}
+
+33: p struct_test_1.i
+a{0..5}: 0
+34: p struct_test_1.d
+a{0..5}: 0
+35: p struct_test_1.c_ptr
+a{0..5}: 0x0
+36: p struct_test_1.func_ptr
+a{0..5}: 0x0
+37: p void_ptr
+a{0..5}: 0x0
+38: #exit lgdb
+39: q
 Shutting down debugger and killing application for 'a'.

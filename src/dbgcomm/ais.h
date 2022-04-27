@@ -715,14 +715,11 @@ public:
 };
 
 // A function pointer
-class Function : public Type {
+class Function : public Literal {
 public:
     Function();
     void parseL(InterpretStream& in, Writer& out) const override;
-    void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
-private:
-    std::string readVal(Reader& reader) const;
 };
 
 // C array class.
@@ -860,8 +857,10 @@ public:
     CharArray();
     void parseL(InterpretStream& in, Writer& out) const override;
     void applyL(Reader& reader, Visitor& f) const override;
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
 private:
+    static const std::string nullString;
     std::string readVal(Reader& reader) const;
 };
 

@@ -627,8 +627,15 @@ std::string ais::MultiThreadResult::getTypeName() const {
 ais::Function::Function() {}
 
 void ais::Function::parseL(InterpretStream& in, Writer& out) const {
-    // expecting: {type signature} pointer <name>
-    const char* s = in.get();
+    // expecting: {type signature} pointer <name> or 0x0
+    const char* s = skipspace(in.get());
+
+    if (strncmp(s, "0x0", 3) == 0 && !isxdigit(s[3])) {
+        out.writeString("0x0");
+        in.setPos(s+3);
+        return;
+    }
+
     std::ostringstream ss;
     static const char* toggles = "{}<K>k"; // <K and >k keep the delim
     bool keep = false;
@@ -652,17 +659,8 @@ void ais::Function::parseL(InterpretStream& in, Writer& out) const {
     in.setPos(s);
 }
 
-void ais::Function::applyL(Reader& reader, Visitor& f) const {
-    f(readVal(reader));
-}
-
-
 std::string ais::Function::getTypeName() const {
     return "^function";
-}
-
-std::string ais::Function::readVal(Reader& reader) const {
-    return reader.readString();
 }
 
 //===========================================================================
@@ -965,6 +963,8 @@ bool ais::FtnArray::isFortran() const { return true; }
 
 ais::CharArray::CharArray() {}
 
+const::std::string ais::CharArray::nullString{"<<<null>>>"};
+
 namespace {
     // A little one-off to parse char arrays when gdb print the result
     // as an array of characters
@@ -1021,8 +1021,17 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
     // first - skip to the string value.
     // lookat - this won't properly handle a null pointer..
     if (str[0] == '0' && str[1] == 'x') {
-        if (auto beg = strchr(str,'"'))
+        if (str[2] == '0' && !isalnum(str[3])) {
+            // using a reserved value and hoping the application doesn't
+            // happen to use it is a little weak, but pushing the equivalent
+            // of std::optional<std::string> through the operators
+            // seems like overkill.
+            out.writeString(nullString);
+            in.setPos(str+3);
+            return;
+        } else if (auto beg = strchr(str,'"')) {
             str = beg;
+        }
     }
 
     if (str[0] == '"') {
@@ -1036,7 +1045,7 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
         return;
     }
         
-    out.writeString(std::string{"unexpected-CharArray-value"} + in.get());
+    out.writeError(std::string{"unexpected-CharArray-value"} + in.get());
 }
 
 void ais::CharArray::applyL(Reader& reader, Visitor& f) const {
@@ -1049,6 +1058,20 @@ std::string ais::CharArray::getTypeName() const {
 
 std::string ais::CharArray::readVal(Reader& reader) const {
     return reader.readString();
+}
+
+std::unique_ptr<ais::Printer> ais::CharArray::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent) : Printer(parent) {}
+        void operator()(const std::string& val) override {
+            if (val == nullString) {
+                out << "0x0";
+            } else {
+                Printer::operator()(val);
+            }
+        }
+    };
+    return std::make_unique<TPrinter>(parent);
 }
 
 //===========================================================================

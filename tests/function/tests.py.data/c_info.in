@@ -112,6 +112,8 @@ a{0..5}: Name:three_d_d_cnt            	Type:double
 a{0..5}: Name:one_d_ld_cnt             	Type:long double
 a{0..5}: Name:two_d_ld_cnt             	Type:long double
 a{0..5}: Name:three_d_ld_cnt           	Type:long double
+a{0..5}: Name:mi                       	Type:MyInt
+a{0..5}: Name:md                       	Type:MyDouble
 a{0..5}: Name:addr                     	Type:unsigned long%( long)?%
 a{0..5}: Name:assertTest               	Type:int
 a{0..5}: Name:stackTest                	Type:int

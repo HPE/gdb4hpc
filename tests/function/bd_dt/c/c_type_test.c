@@ -31,7 +31,7 @@ st.c $
 #include <string.h>
 #include "mpi.h"
 
-typedef void (*func_ptr_t)(int, int);
+typedef void (*func_ptr_t)(int, int); typedef int MyInt; typedef double MyDouble;
 int test_stack(int x);
 
 struct test_struct
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
 	long double		one_d_ld_cnt = 0.3;
 	long double		two_d_ld_cnt = 0.3;
 	long double		three_d_ld_cnt = 0.3;
-	
+	MyInt mi = 123; MyDouble md = 123.45;
 
 	/* other vars */
 	unsigned long long int addr;

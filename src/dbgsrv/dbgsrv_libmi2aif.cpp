@@ -23,9 +23,6 @@
 #include <unordered_map>
 #include <vector>
 #include <iomanip>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
 #include <regex>
 
 #include "dbgevent.h"
@@ -41,16 +38,8 @@
 ** It generates a ton of output for large arrays, which is why we want to
 ** normally leave it off.
 */
-//#define CreateSimpleAIF_PRINT
-
-#ifdef CreateSimpleAIF_PRINT
-#define CSAPRINT(...) fprintf(stderr, __VA_ARGS__)
-#else /* CreateSimpleAIF_PRINT */
-#define CSAPRINT(...)
-#endif /* CreateSimpleAIF_PRINT */
 
 // Used to fix infinite loop issue for recursive calls to whatis
-#define LOOP_PREVENTION 20
 extern int clientPrintElements;
 static char *GetArrayDataString(MISession* session, MIVar *var);
 static char* EvalExpression(MISession* session, const char* expression);
@@ -63,7 +52,7 @@ extern void SendMICommand(MISession *, MICommand *);
 */
 namespace {
 
-class WriteBuffer; struct TypeName; class MISlices;
+class WriteBuffer; struct TypeName; class ArraySlicer;
 
 class Mi2Aif {
 private:
@@ -81,27 +70,28 @@ public:
     Mi2Aif(MISession* session);
 
     std::shared_ptr<MIVar> createMIVar(const char *);
-    //AIFStream* getAIF(std::shared_ptr<MIVar>);
+    AIFStream* getAIF(std::shared_ptr<MIVar>);
     int getChildren(MIVar *);
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
     std::string getPTypeAlias(const std::string& type);
     std::vector<std::string> getPTypeFields(const std::string& type);
 
+    std::string nextSlice(ArraySlicer& slicer, bool& isFinal);
+    std::unique_ptr<ArraySlicer> makeSlicer(const std::string& var);
+    std::unique_ptr<ArraySlicer> makeSlicer(std::shared_ptr<MIVar> var);
+    void initTopRef(std::shared_ptr<MIVar> var);
     std::shared_ptr<ais::Type> getKnownType(const std::string& name);
     std::shared_ptr<ais::Type> addKnownType(const std::string& name,
                                             std::shared_ptr<ais::Type> type);
 
     size_t swizzlePointer(const std::string& type, void* val);
-    void writeVal(std::shared_ptr<MIVar> var, int refIdx,
-                  const std::function<void(bool)>& endOfSlice);
-
-    std::string getSlice();
 
 private:
+    void writeVal(std::shared_ptr<MIVar> var, int refIdx);
     void sendMICommand(MICommand* command);
     std::shared_ptr<MIVar> createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo);
-    //void writeBackPointerAIF(size_t idx, const char* type);
+    void parse(std::shared_ptr<ais::Type> type, const char* gdbRes, int refIdx);
 };
 
 // Implementation for translating primitive data objects into a data to be sent
@@ -332,33 +322,53 @@ class ArraySlicer;
 // "bite-sized" pieces via the ArraySlicer object.
 class GdbResult : public ais::InterpretStream {
 public:
-    GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
+    GdbResult(const char* buf) : m_buffer{buf}, m_pos{buf} {}
     ~GdbResult() = default;
-    const char* get() override;
-    void setPos(const char* pos) override;
-    bool isContinued() override;
+    const char* get() override { return m_pos; }
+    void setPos(const char* pos) override { m_pos = pos; }
+    bool isContinued() override { return false; }
     bool mayBeTruncated() override;
-    void flush(bool isFinal);
-
-    std::pair<std::shared_ptr<ais::Type>,bool> nextSlice();
 
     GdbResult(const GdbResult&) = delete;
     GdbResult& operator=(const GdbResult&) = delete;
     
 private:
-    Mi2Aif& m_mi;
-    std::shared_ptr<MIVar> m_var;
-    std::unique_ptr<ArraySlicer> m_slicer;
-    std::shared_ptr<ais::Type> m_type;
-
-    char* m_buffer;
-    bool m_finalSlice = true;
+    const char* m_buffer;
     const char* m_pos;
+};
+
+bool GdbResult::mayBeTruncated() {
+    return (clientPrintElements > 0);
+}
+
+// Slices implementation where the data is created on demand by
+// using gdb/mi to evaluate an expression.
+class EvalSlices : public AIFStream::Slices {
+public:
+    EvalSlices(MISession* session, const std::string& var);
+    std::string getNextSlice(bool& isFinal) override;
+private:
+    void initSlicer();
+    Mi2Aif m_mi2aif;
+    std::string m_var;
+    std::unique_ptr<ArraySlicer> m_slicer;
 };
 
 } //namespace
 
-const char *_aif_ignored_type_specifiers[] = {"const", "restrict", NULL};
+// global debug event set by the evaluator
+std::unique_ptr<dbgevent_t, decltype(&FreeEvent)> dbg_error{nullptr, FreeEvent};
+
+// This is the "main" function that should be called in this interface...
+// Note the deferred evaluation; the AIFStream may throw an evaluation failure
+// when the data is accessed.
+AIFStream *GetAIFVar(MISession *session, const char *var) {
+    // The actual evaluation is deferred until the AIFStream request
+    // the next (i.e. first) slice.
+    if (!var) throw NewErrorEvent(DBGERR_INTERNAL, "null expression");
+    auto slices = std::make_shared<EvalSlices>(session, var);
+    return new AIFStream(slices);
+}
 
 // quote typename with spaces to pass to MI
 static std::string quoteId(std::string var)
@@ -367,154 +377,6 @@ static std::string quoteId(std::string var)
         var = "\"" + var + "\"";
     }
     return var;
-}
-
-std::unique_ptr<dbgevent_t, decltype(&FreeEvent)> dbg_error{nullptr, FreeEvent};
-
-namespace {
-// Class to define an AIFStream that can transmit one section at a time.
-// This class perform the evaluation on a separate thread which allows
-// the system to work on evaluating the next slice of the data structure (i.e.
-// mainly readining from the gdb/mi socket) while it is still transmitting the
-// current slice across the MRNet system.
-class MISlices : public AIFStream::Slices {
-public:
-    MISlices(MISession* session) : m_mi2aif{std::make_unique<Mi2Aif>(session)} {}
-
-    // Retrieve the next chunk of data to send across the pipe
-    virtual std::string getNextSlice(bool& isFinal) override;
-
-    // begin evaluating an expression.   Note that the evaluation
-    // itself will occur in the background
-    std::pair<dbgevent_t*,std::string> startEval(const char* var);
-
-    
-private:
-    void eval(); 
-
-    void flushOutput(bool isFinal);
-    void reportError(dbgevent_t* evt);
-    
-    std::unique_ptr<Mi2Aif> m_mi2aif;
-    std::shared_ptr<MIVar> m_mivar;
-    std::string m_slice;
-    bool m_isFinal = false;
-    bool m_hasSlice = false;
-    dbgevent_t* m_error = nullptr;
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-};
-
-std::string MISlices::getNextSlice(bool& isFinal) {
-    // This side is called from the primary thread to get
-    // evaluator thread result.
-    // we need to wait for the evaluation thread to post
-    // a result
-    std::unique_lock l(m_mutex);
-    m_cv.wait(l, [this] { return this->m_hasSlice; });
-
-    if (m_error) throw m_error;
-
-    isFinal = m_isFinal;
-    auto retVal = std::move(m_slice);
-    m_hasSlice = false;
-
-    if (!isFinal) { m_cv.notify_one(); }
-    return retVal;
-}
-
-std::pair<dbgevent_t*,std::string> MISlices::startEval(const char* var) {
-    // reset the error var
-    dbg_error.reset();
-    
-    DVPRINT("MISlices::startEval: Resolving variable %s.\n", var);
-
-    // Create the mivar objecgt to interact with gdb/mi
-    m_mivar = m_mi2aif->createMIVar(var);
-
-    if (!m_mivar && strchr(var,'[')) {
-        // the frontend can't tell if "(12)" is a C function call or a
-        // fortran array index.
-        DVPRINT("retrying as a function call\n");
-        auto cvar = std::string(var);
-        for (size_t p; (p=cvar.find("][")) != std::string::npos; ) {
-            cvar.replace(p,2,1,',');
-        }
-        std::replace(cvar.begin(), cvar.end(), '[', '(');
-        std::replace(cvar.begin(), cvar.end(), ']', ')');
-        m_mivar = m_mi2aif->createMIVar(cvar.c_str());
-    }
-
-    if (!m_mivar) {
-        DVPRINT("GetAIFVar: CreateMIVar returned null.\n");
-        if (!dbg_error) {
-            dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "CreateMIVar failed."));
-        }
-        return std::make_pair(dbg_error.release(),std::string{""});
-    }
-
-    // Performng the evaluation happens on a separate thread.  For large
-    // data objects, the primary thread is communicating with the front end,
-    // sending along the next slice of data when the front end is ready to
-    // receive it.
-    auto evalThread = std::thread{ [this]() { this->eval(); }};
-    evalThread.detach();
-
-    return std::make_pair(nullptr,m_mivar->type);
-}
-
-// primary evaluator thread  function
-void MISlices::eval() {
-    DVPRINT("starting evaluator thread\n");
-    try {
-        // MI2Aif does the interaction with gdb/mi.   The lambda function we're
-        // passing here tells it what do at the end of every slice
-        m_mi2aif->writeVal(m_mivar,0,[this](bool isFinal) { this->flushOutput(isFinal); });
-    } catch (std::exception& err) {
-        reportError(NewErrorEvent(DBGERR_INTERNAL, err.what()));
-    } catch (dbgevent_t* evt) {
-        reportError(evt);
-    }
-    flushOutput(true);
-    DVPRINT("exit evaluator thread\n");
-};
-
-// This is the interaction point between the evaluator thread and the
-// primary thread.
-void MISlices::flushOutput(bool isFinal) {
-    std::unique_lock l(m_mutex);
-    if (m_isFinal) return;
-    m_cv.wait(l, [this] { return !this->m_hasSlice; });
-    m_slice = m_mi2aif->getSlice();
-    m_isFinal = isFinal;
-    m_hasSlice = true;
-    m_cv.notify_one();
-}
-
-// report an error from the evaluator thread
-void MISlices::reportError(dbgevent_t* evt) {
-    DVPRINT("in MISlices::reportError\n");
-    std::unique_lock l(m_mutex);
-    m_cv.wait(l, [this] { return !this->m_hasSlice; });
-    m_slice = "";
-    m_isFinal = true;
-    m_error = evt;
-    m_hasSlice = true;
-    m_cv.notify_one();
-}
-}
-    
-// This is the "main" function that should be called in this interface...
-// It returns NULL on success, otherwise it returns an error event.
-dbgevent_t *GetAIFVar(MISession *session, const char *var, AIFStream **val,
-                      char **type) {
-
-    auto slices = std::make_shared<MISlices>(session);
-    auto [errEvent, typeStr] = slices->startEval(var);
-    if (errEvent) return errEvent;
-    if (type) *type = strdup(typeStr.c_str()); // believed to be unused
-    *val = new AIFStream(slices);
-    return nullptr;
 }
 
 static void DeleteMIVar(MISession* session, MIVar* mivar)
@@ -526,7 +388,6 @@ static void DeleteMIVar(MISession* session, MIVar* mivar)
         MIVarFree(mivar);
     }
 }
-
 
 /*
  * Create a MI variable in gdb and get its MIVar type.
@@ -545,14 +406,10 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
         }
     }
 
-
     auto session = m_session;
     auto delVar = [session](MIVar* mivar) { DeleteMIVar(session,mivar); };
 
     std::shared_ptr<MIVar> var(nullptr, delVar);
-
-            /*    std::shared_ptr<MIVar> var(nullptr, [session](MIVar* mivar) {
-                  if (mivar) { DeleteMIVar(session,mivar->name);  MIVarFree(mivar); }}); */
 
     MICommand* cmd = MIVarCreate("-", "*", quoteId(expr).c_str());
     sendMICommand(cmd);
@@ -689,10 +546,27 @@ std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
     return fields;
 }
 
+// Translate a gdb output into socket form
+void Mi2Aif::parse(std::shared_ptr<ais::Type> type, const char* gdbRes, int refIdx) {
+
+    auto eval = GdbResult{gdbRes};
+    auto any = std::make_unique<ais::Any>(type, refIdx);
+    DVPRINT("About to call any->parse\n");
+    try {
+        any->parse(eval, m_writer);
+    } catch (std::exception& err) {
+        DVPRINT("parsing failed with %s\n", err.what());
+    }
+}
+    
+
+// find a type object if the type has already been seen
 std::shared_ptr<ais::Type> Mi2Aif::getKnownType(const std::string& name) {
     if (auto loc = m_types.find(name); loc != m_types.end()) return loc->second;
     else return std::shared_ptr<ais::Type>{};
 }
+
+// cache the type object for a processed type
 std::shared_ptr<ais::Type> Mi2Aif::addKnownType(const std::string& name,
                                                 std::shared_ptr<ais::Type> type) {
     m_types.insert(std::make_pair(name,type));
@@ -764,6 +638,7 @@ static char* EvalExpression(MISession* session, const char* expression)
     return res;
 }
 
+// get the raw gdb result f or evaluating an expression
 char *Mi2Aif::getVarValue(char *var) {
     char *res;
     MICommand *cmd;
@@ -801,83 +676,6 @@ namespace {
         ~DepthTracker() { --m_depth; }
         bool isTop() const { return (m_depth == 1); }
     };
-}
-
-// Evalate the value of 'var' and write the result to the m_writer
-// member.   Call the function endOfSlice with the argument 'isFinal'
-// when a slice is ready to be transmitted.  Typically, this is a single
-// slice, but large arrays can be sent in multiple slices.
-void Mi2Aif::writeVal(std::shared_ptr<MIVar> var, int refIdx,
-                      const std::function<void(bool)>& endOfSlice) {
-    DepthTracker depth(m_depth);
-    if (depth.isTop() && var->type && var->type[strlen(var->type)-1] != '*') {
-        // Save the input expression - if it contains pointers we will need
-        // to index the address of this object to resolve any back-pointers in
-        // the structure.
-        DVPRINT("Pushing top expression %s, type %s\n", var->expr, var->type);
-        m_refs.push_back(var);
-    }
-    auto initNumRefs = m_refs.size();
-
-    if (strcmp(var->type, "<text variable, no debug info>") == 0) {
-        DVPRINT("GetAIF: No symbols\n");
-        throw NewErrorEvent(DBGERR_NOSYMS, nullptr);
-    }
-
-    DVPRINT(
-        "writeVal: MIVar: expr %s, name %s, exp %s, numchild %d, type %s, "
-        "value %s, thread_id %d\n",
-        var->expr, var->name, var->exp, var->numchild, var->type, var->value,
-        var->thread_id);
-
-    auto obj = TypeParser::getType(*this, var.get(), nullptr);
-    auto eval = GdbResult{*this, var, obj};
-
-    DVPRINT("About to call any->parse\n");
-
-    try {
-
-        while (true) {
-            if (auto [ sliceType, isFinal ] = eval.nextSlice(); sliceType) {
-                // wrapping the object with ais::any sends the type info for the top
-                // level object.
-                auto any = std::make_unique<ais::Any>(sliceType, refIdx);
-                any->parse(eval, m_writer);
-                if (!isFinal) {
-                    endOfSlice(isFinal);
-                    m_writer.resetTypes();
-                }
-            } else {
-                break;
-            }
-        }
-    } catch (std::exception& err) {
-        DVPRINT("parsing failed with %s\n", err.what());
-    }
-
-    DVPRINT("Done with any->parse\n");
-
-    // types based multiple blocks connected via pointers or references.  For comparative
-    // debugging especially, we have to observe the whole state of the data structure.
-    if (depth.isTop() && m_refs.size() > initNumRefs) {
-
-        // add the reference elements as members of the struct - note that
-        // the current val is deleted on the first iteration of this loop
-        auto refLimit = (clientPrintElements > 0 ?
-                         static_cast<size_t>(clientPrintElements) :
-                         std::numeric_limits<size_t>::max());
-
-        // create the elements, note that m_refs can grow inside the loop
-        for (size_t i=initNumRefs; i<m_refs.size() && i<refLimit ; ++i) {
-            if (m_refs[i]) {
-                writeVal(m_refs[i], i+1, endOfSlice);
-            }
-        }
-    }
-}
-
-std::string Mi2Aif::getSlice() {
-    return m_writeBuffer->exportResult();
 }
 
 static bool typeIsReference(const char* str) {
@@ -1737,45 +1535,111 @@ std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
 
-GdbResult::GdbResult(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType)
-    : m_mi(mi), m_var(var), m_type(varType), m_buffer(nullptr), m_pos(nullptr) {
-    DVPRINT("Creating GdbResult\n");
-    m_slicer.reset(new ArraySlicer(m_mi.getSession(), var, varType));
+// Create the top level ArraySlicer for an expression.   The ArraySlicer
+// will potentially break the expression into multiple evaluations if
+// var is a large container
+std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(const std::string& var)
+{
+    auto mivar = createMIVar(var.c_str());
+
+    // This version is called on the top level expression, so we add some
+    // additional logic for the quirks in the top level expression
+    if (!mivar && var.find('[') != std::string::npos) {
+        // the frontend can't tell if "(12)" is a C function call or a
+        // fortran array index.
+        DVPRINT("retrying as a function call\n");
+        auto cvar = var;
+        for (size_t p; (p=cvar.find("][")) != std::string::npos; ) {
+            cvar.replace(p,2,1,',');
+        }
+        std::replace(cvar.begin(), cvar.end(), '[', '(');
+        std::replace(cvar.begin(), cvar.end(), ']', ')');
+        mivar = createMIVar(cvar.c_str());
+    }
+
+    if (!mivar) {
+        DVPRINT("CreateMIVar returned null.\n");
+        if (!dbg_error) dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "CreateMIVar failed."));
+        throw dbg_error.release();
+    }
+
+    // For non-point top values, we do extra work in case the expansion
+    // has a reference to the address &(var)
+    initTopRef(mivar);
+
+    return makeSlicer(mivar);
 }
 
-const char* GdbResult::get() { return m_pos; }
+// Create an ArraySlicer for a secondary reference.
+// Note: slicing of chain of values hasn't really been tested..
+std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(std::shared_ptr<MIVar> mivar) {
+    auto origType = TypeParser::getType(*this, mivar.get(), nullptr);
+    return std::make_unique<ArraySlicer>(m_session, mivar, origType);
+}
 
-std::pair<std::shared_ptr<ais::Type>,bool> GdbResult::nextSlice() {
-    
-    if (auto [ type, arr, isFinal ] = m_slicer->getNext(); arr) {
-        m_pos = m_buffer = arr;
-        m_finalSlice = true;
-        return std::pair{type, isFinal};
-    } else {
-        m_pos = m_buffer = nullptr;
-        return std::pair{std::shared_ptr<ais::Type>{}, true};
+// Special handling for the original expression passed by the user.
+// This comes into play if a tree/graph/list structure might contain a
+// reference to the initial value
+void Mi2Aif::initTopRef(std::shared_ptr<MIVar> var) {
+    if (var->type && var->type[strlen(var->type)-1] != '*') {
+        // Save the input expression - if it contains pointers we will need
+        // to index the address of this object to resolve any back-pointers in
+        // the structure.
+        DVPRINT("Pushing top expression %s, type %s\n", var->expr, var->type);
+        m_refs.push_back(var);
     }
 }
 
-void GdbResult::setPos(const char* pos) {
-    m_pos = pos;
-    for (auto *p = pos; *p; ++p) {
-        if (!::isspace(*p))
-            return;
+// Get the next slice of data from in socket protocol form.
+// Node: currently, we are transmitting simple ascii text, if we switch to
+// something more specialized and (hopefully) performant the return type
+// would not be a string.
+std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
+    DVPRINT("nextSlice\n");
+
+    auto initNumRefs = m_refs.size();
+
+    auto [ type, gdbArr, sliceIsFinal ] = slicer.getNext();
+    isFinal = sliceIsFinal;
+    parse(type, gdbArr, 0);
+
+    // add the reference elements as members of the struct - note that
+    // the current val is deleted on the first iteration of this loop
+    auto refLimit = (clientPrintElements > 0 ?
+                     static_cast<size_t>(clientPrintElements) :
+                     std::numeric_limits<size_t>::max());
+
+    // create the elements, note that m_refs can grow inside the loop
+    for (size_t i=initNumRefs; i<m_refs.size() && i<refLimit ; ++i) {
+        if (m_refs[i]) {
+            writeVal(m_refs[i], i+1);
+        }
     }
-    m_buffer = nullptr;
+
+    m_writer.resetTypes();
+    return m_writeBuffer->exportResult();
 }
 
-bool GdbResult::isContinued() {
-    if (m_finalSlice) return false;
-    for (auto *p = m_pos; *p; ++p) {
-        if (!::isspace(*p))
-            return false;
-    }
-    return true;
+// translate a variable into socket form - the date is pumped
+// through via m_writer
+void Mi2Aif::writeVal(std::shared_ptr<MIVar> var, int refIdx) {
+    auto slicer = makeSlicer(var);
+    auto [ type, arr, isFinal ] = slicer->getNext();
+    parse(type, arr, refIdx);
 }
 
-bool GdbResult::mayBeTruncated() {
-    return (clientPrintElements > 0);
+// AIFStream adapter to evaluate and parse a value on demand.
+EvalSlices::EvalSlices(MISession* session, const std::string& var)
+    : m_mi2aif(session), m_var(var) {}
+
+std::string EvalSlices::getNextSlice(bool& isFinal) {
+    if (!m_slicer) initSlicer();
+
+    // Mi2Aif does the work and returns a chunk of socket protocol
+    // data
+    return m_mi2aif.nextSlice(*m_slicer, isFinal);
 }
 
+void EvalSlices::initSlicer() {
+    if (!m_slicer) m_slicer = m_mi2aif.makeSlicer(m_var);
+}

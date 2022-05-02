@@ -488,10 +488,10 @@ ISocStream& ISocStream::operator>>(unsigned int& ui) { m_str >> ui; return *this
 ISocStream& ISocStream::operator>>(bool& b) { int i; m_str >> i; b = i; return *this; }
 ISocStream& ISocStream::operator>>(size_t& sz) { m_str >> sz; return *this; }
 ISocStream& ISocStream::operator>>(std::string& s) {
-    size_t len;
+    size_t len = 0;
     m_str >> len;
     
-    char c;
+    char c = '\0';
     m_str.get(c); // the space between the length an the string
     s.resize(len);
     if (len) m_str.read(&s[0], len);

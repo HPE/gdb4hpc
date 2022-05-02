@@ -3405,14 +3405,12 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
     } while (!MICommandCompleted(cmd));
 }
 
-/*
-**
-** ----- hashing and slicing functions -----
-**
-*/
-extern void rd_unimplemented(const char*);
-
-// rather than coded in DbgGDBMIEvalExpr()
+// Handle expressions with slice info.   This is an old path that used 
+// to have a bunch of hashing and reduction options.  They never really
+// worked - or at least they never had any tests, so much the same.
+// The idea is sound, but the whole notion needs to be rethought and
+// re-engineered.   So this functions hangs around for the vestigial
+// "slicing" operator; in the older sense of slicing.
 static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
@@ -3428,13 +3426,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     DVPRINT("*** PerformExtEvalExpr(%s-%s-%s)\n", var, args, sliceinfo);
 
     // GetAIFVar only returns a value if it fails
-    AIFStream* aifStream = nullptr;
-    char* type = nullptr;
-    if ((e = GetAIFVar(GDBMISession, var, &aifStream, &type))) {
-        free(type);
-        return e;
-    }
-    auto typeHolder = std::unique_ptr<char,decltype(std::free)*>{type,std::free};
+    AIFStream* aifStream = GetAIFVar(GDBMISession, var);
 
     e = NewEvent(DBGEV_DATA);
     e->ev_data = nullptr;
@@ -3442,8 +3434,6 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
     // if slice info found, perform slicing first
     if (!sliceinfo[0]) {
         e->ev_data = aifStream;
-    } else if (!strchr(type, '(')) {
-        rd_unimplemented("slice operator");
     } else {
         // the expression is a function call with integer arguments.   We couldn't be
         // sure until now because fortran array references look like function calls.
@@ -3460,18 +3450,14 @@ static dbgevent_t *PerformExtEvalExpr(const char *exp) {
 
         // so run the evaluation again as a function call
         delete aifStream;
-        aifStream = nullptr;
-        if (auto e2 = GetAIFVar(GDBMISession, os.str().c_str(), &aifStream, nullptr)) {
-            FreeEvent(e);
-            return e2;
-        } else {
-            e->ev_data = aifStream;
-        }
+        aifStream = GetAIFVar(GDBMISession, os.str().c_str());
+        e->ev_data = aifStream;
     }
 
     return e;
 }
 
+// Top level call for evaluating a program expression and returning the data
 dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads) {
     DVPRINT("*** Dbg %s, %s(exp %s, rank %d, idx %ld)\n", __FILE__, __func__, exp, my_rank, expIdx);
 
@@ -3502,25 +3488,30 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     auto remainderLoc = remainders.find(expIdx);
     if (remainderLoc != remainders.end()) {
         // Return the next slice of data
-        bool isFinal;
-        dbgev ev = DBGEV_DATA_SLICE;
-        AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
-        if (returnStream) {
-            if (isFinal) {
-                DVPRINT("returning the last slice of %ld\n", expIdx);
-                ev = DBGEV_DATA;
-                remainders.erase(remainderLoc);
+        try {
+            bool isFinal;
+            dbgev ev = DBGEV_DATA_SLICE;
+            AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
+            if (returnStream) {
+                if (isFinal) {
+                    DVPRINT("returning the last slice of %ld\n", expIdx);
+                    ev = DBGEV_DATA;
+                    remainders.erase(remainderLoc);
+                } else {
+                    DVPRINT("Returning the next slice of %ld\n", expIdx);
+                }
             } else {
-                DVPRINT("Returning the next slice of %ld\n", expIdx);
+                DVPRINT("getNextSlice failed");
+                return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
             }
-        } else {
-            DVPRINT("getNextSlice failed");
-            return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
-        }
 
-        auto e = NewEvent(ev);
-        e->ev_data = returnStream;
-        return e;
+            auto e = NewEvent(ev);
+            e->ev_data = returnStream;
+            return e;
+        } catch (dbgevent_t* e) {
+            remainders.erase(remainderLoc);
+            return e;
+        }
     }
 
     if (threads && threads[0]) {
@@ -3529,11 +3520,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         if (auto e = evalExprWithThreads(exp, threads)) return e;
     }
 
-    AIFStream* aifStream = nullptr;
-
-    if (dbgevent_t* e = GetAIFVar(GDBMISession, exp, &aifStream, nullptr)) {
-        return e;
-    }
+    AIFStream* aifStream = GetAIFVar(GDBMISession, exp);
 
     dbgev ev = DBGEV_DATA;
     bool isFinal;

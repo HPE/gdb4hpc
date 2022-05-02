@@ -171,6 +171,8 @@ b{0..2}: {i = 300, d = -34.2500000000021}
 b{0..2}: Breakpoint 6: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_ds_test1.cpp, line 216.
 95: p size64
 b{0..2}: 8
+96: p notAnActualVariable
+b{0..2}: No symbol "notAnActualVariable" in current context
 96: #quit lgdb
 97: q
 Shutting down debugger and killing application for 'b'.

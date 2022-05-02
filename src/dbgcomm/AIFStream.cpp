@@ -2,6 +2,7 @@
 
 // Classes for defining a sequential stream of data accessed via the AIF interface.
 #include "AIFStream.h"
+#include "dbgevent.h"
 #include "ais.h"
 #include <string.h>
 #include <stdarg.h>
@@ -18,22 +19,23 @@ namespace {
 // can then be processed as usual, or copied for reuse
 class CachedSlices : public AIFStream::Slices {
 public:
-    CachedSlices(std::string&& data);
+    CachedSlices(std::string&& data, bool isPartial);
     CachedSlices(std::vector<std::string>&& data);
     std::string getNextSlice(bool& isFinal) override;
     std::shared_ptr<AIFStream::Slices> clone() const;
 private:
     std::vector<std::string> m_data;
+    bool m_isPartial = false;
     size_t m_idx = 0;
 };
-CachedSlices::CachedSlices(std::string&& data) {
+CachedSlices::CachedSlices(std::string&& data, bool isPartial) : m_isPartial(isPartial) {
     m_data.push_back(std::move(data));
 }
 CachedSlices::CachedSlices(std::vector<std::string>&& data) : m_data{std::move(data)} {}
 
 std::string CachedSlices::getNextSlice(bool& isFinal) {
     if (m_idx < m_data.size()) {
-        isFinal = (m_idx+1 == m_data.size());
+        isFinal = (!m_isPartial && m_idx+1 == m_data.size());
         return std::move(m_data[m_idx++]);
     } else {
         throw std::runtime_error("result data is truncated");
@@ -162,8 +164,7 @@ std::shared_ptr<AIFStream::Slices> AIFStream::Slices::clone() const {
  
 
 AIFStream::AIFStream(std::string&& data, bool isPartial) :
-    m_slices{new CachedSlices{std::move(data)}} {
-    /* isPartial was never used */
+    m_slices{new CachedSlices{std::move(data), isPartial}} {
 }
 
 
@@ -318,12 +319,18 @@ bool AIFStreamReadBuffer::hasMoreData() {
 } // anonymous namespace
 
 // creates a new aifstream and transfers ownership of the AIF retrieved from
-// getNextSlice(STEAL).
+// getNextSlice(STEAL). 
 // preserves truncation info in the new stream.
 AIFStream* AIFStream::createStreamFromNextSlice(bool &isFinal) {
     // getNextSlice will set internal truncation data
-    auto slice = getNextSlice(isFinal);
-    return new AIFStream(std::move(slice), !isFinal);
+    try {
+        auto slice = getNextSlice(isFinal);
+        return new AIFStream(std::move(slice), !isFinal);
+    } catch (dbgevent_t* e) {
+        throw e;
+    } catch (...) {
+        throw NewErrorEvent(DBGERR_INTERNAL, "value evaluation failed");
+    }
 }
 
 // get an integer value from an AIF that is supposed to be an integral value

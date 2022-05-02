@@ -186,9 +186,6 @@
 #define NV_CHECK_ADDR_IDENT_L(a, b) \
     ((strncmp(a, b, strlen(b)) == 0) && (strlen(a) == strlen(b)))
 
-/*
- * Function prototypes
- */
-dbgevent_t *GetAIFVar(MISession *, const char *, AIFStream **, char **);
+AIFStream* GetAIFVar(MISession *, const char *);
 
 #endif /* _DBGSRV_LIBMI2AIF_H */

@@ -21,6 +21,7 @@ static char *theApplication;
 
 // Setting this value via the debugger triggers the exec.
 int dbgsrv_trampoline_connected = 0;
+int dbgsrv_wait_cnt = 0;
 
 void doExec() {
     int argc = theArgc;
@@ -34,7 +35,11 @@ void doExec() {
 
 void MPI_Init() {}
 
-void connectHook() {}
+void connectHook() {
+    // setting a breakpoint on an entirely empty function
+    // can be a little unreliable - so give it something to do.
+    ++dbgsrv_wait_cnt;  
+}
 
 void doWait() {
     for (int i=0; !dbgsrv_trampoline_connected && i<400; ++i) {

@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include "dbg_client.h"
@@ -94,13 +94,13 @@ int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
     return internalAttach(di, sess, nullptr, app_ident, 0, std::move(dummyOutput), 
-        arch, backend, nullptr, gpu_flag, debug_flag, 0, false);
+                   arch, backend, nullptr, gpu_flag, debug_flag, 0, false, false);
 }
 
 int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
     const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
     const char *arch, const char *backend, const char* gdb, int gpu_flag, int debug_flag,
-    int early_entry_flag, bool isNonStop)
+    int early_entry_flag, bool isNonStop, bool isNonMpi)
 {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -189,6 +189,7 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
     if (debug_flag)       dbgsrvArgs << "--debug";
     if (early_entry_flag) dbgsrvArgs << "--early-entry";
     if (isNonStop)        dbgsrvArgs << "--non-stop";
+    if (isNonMpi)         dbgsrvArgs << "--non-mpi";
     if (gdb && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
 
 #if DEBUG
@@ -243,10 +244,6 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
         return 1;
     }
 
-    if (non_mpi_flag) {
-        PrintOutMsg("--non-mpi is not supported on zmqnet\n");
-    }
-
     PrintOutMsg("Starting application, please wait...\n");
 
     // launch n ranks of app being debugged ////////////////////////////////////
@@ -265,7 +262,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     PrintOutMsg("Launched application...\n");
 
     // attach to launched application
-    if (internalAttach(di, sess, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop)) {
+    if (internalAttach(di, sess, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
         PrintOutError("Failed to attach to application.\n");
         return 1;
     }

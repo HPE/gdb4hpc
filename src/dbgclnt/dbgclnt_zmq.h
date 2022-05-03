@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2022 Hewlett Packard Enterprise Development LP. 
  ******************************************************************************/
 
 #pragma once
@@ -49,7 +49,8 @@ private:
                 const char *app_ident, uint64_t appid,
                 ZMQNetNetwork::OutputPtr &&output, const char *arch,
                 const char *backend, const char *gdb, int gpu_flag,
-                int debug_flag, int early_entry_flag, bool isNonStop);
+                int debug_flag, int early_entry_flag, bool isNonStop,
+                bool isNonMpi);
 };
 
 // called once by registerProtos

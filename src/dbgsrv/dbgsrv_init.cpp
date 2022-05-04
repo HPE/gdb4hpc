@@ -385,6 +385,7 @@ std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
     return std::make_pair(false, nullptr);
 }
 
+static void FreeFrames(MIList* f) {  MIListFree(f, (void (*)())MIFrameFree); }
 
 // When the debug server starts up, some WLM's give control at a well defined entry point
 // like WLM_Init, but some variations give control earlier in startup process.   This function
@@ -401,14 +402,15 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     for (int attempt=0; !atEntry && attempt < 10; ++attempt) {
         DVPRINT("continueToEntryPoint attempt: %d\n", attempt);
 
-        MIFrame* frame = nullptr;
+        MIFrame* f = nullptr, *frame = nullptr;
+        std::unique_ptr<MIList, decltype(&FreeFrames)> frames(nullptr,&FreeFrames);
 
         // Make sure that we're not inside a parallel entry point
         // get all of the frames.
         MICommand* cmd = MIStackListAllFrames();
         SendMICommand(m_session, cmd);
         if (MICommandResultOK(cmd)) {
-            MIList *frames = MIGetStackListFramesInfo(cmd);
+            frames.reset(MIGetStackListFramesInfo(cmd));
             if (!frames) {
                 MICommandFree(cmd);
                 EVENT_ERROR(e, DBGERR_NOSTACK, "MIGetStackListFramesInfo command failed");
@@ -417,15 +419,20 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             MICommandFree(cmd);
 
             // parse over the frame list
-            for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
-                if (FindBPByFunc(parallel_entry_BP, frame->func) != NULL) {
-                    DVPRINT("continueToEntryPoint: %s: found frame in parallel_entry_BP, frame->level "
-                            "%d, frame->func %s\n", __func__, frame->level, frame->func);
-                    break;
+            for (MIListSet(frames.get()); (f = (MIFrame *)MIListGet(frames.get()));) {
+                if (FindBPByFunc(parallel_entry_BP, f->func)
+                    || FindBPByFunc(main_entry_BP, f->func)) {
+                    DVPRINT("continueToEntryPoint: %s: found frame in entry_BP, level "
+                            "%d, func %s\n", __func__, f->level, f->func);
+                    frame = f;
+
+                    // we're processing the frame bottom up, so keep going to look for 
+                    // another entry breakpoint higher in the stack.  In particular,
+                    // we might have gotten control of the process after main had already
+                    // started.
+                    //break;
                 }
             }
-            // free the MIFrame list
-            MIListFree(frames, (void (*)())MIFrameFree);
         }
 
         //if we found a parallel entry point function, select that frame
@@ -454,6 +461,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             // Otherwise check parallel breakpoints
             if (dbgbp_t *bp = FindBPByID(main_entry_BP, evt->bkptno)) {
                 atEntry = true;
+                finish = false;
             } else if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno))) {
                 // If we hit a parallel breakpoint, we need to finish
                 atEntry = finish = true;
@@ -487,7 +495,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         return e;
 
     // observed on kay (pbs) the breakpoint hit notification got mixed in with a bunch of
-    // library load events, so flush events instead of getting and "unknown breakpoint"
+    // library load events, so flush events instead of getting an "unknown breakpoint"
     // error
     auto flushed = m_dbg.flushAsyncEvents();
     DVPRINT("Flushed %d events.\n", flushed);
@@ -1630,13 +1638,18 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
     m_dbg.flushAsyncEvents();
 
     // send the command
-    MICommand* cmd;
+    MICommand* cmd = nullptr;
     switch (ctype) {
     case CONTINUE: cmd = MIExecContinueAll(); break;
     case NEXTI: cmd = MICommandNew("-exec-next-instruction", MIResultRecordRUNNING); break;
     case FINISH: cmd = MIExecFinish(); break;
     }
 
+    if (!cmd) {
+        auto e = NewErrorEvent(DBGERR_DEBUGGER,"command creating failed");
+        return std::make_pair(MIEventPtr{nullptr,MIEventFree},e);
+    }
+    
     SendMICommand(m_session, cmd);
 
     if (!MICommandResultOK(cmd)) {

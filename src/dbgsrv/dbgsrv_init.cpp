@@ -396,13 +396,13 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     dbgevent_t *e = nullptr;
     
-    bool finish = false;
     bool atEntry = false;
+    bool finish = false;
 
     for (int attempt=0; !atEntry && attempt < 10; ++attempt) {
         DVPRINT("continueToEntryPoint attempt: %d\n", attempt);
 
-        MIFrame* f = nullptr, *frame = nullptr;
+        MIFrame* f = nullptr, *prevF = nullptr, *frame = nullptr;
         std::unique_ptr<MIList, decltype(&FreeFrames)> frames(nullptr,&FreeFrames);
 
         // Make sure that we're not inside a parallel entry point
@@ -419,34 +419,37 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             MICommandFree(cmd);
 
             // parse over the frame list
-            for (MIListSet(frames.get()); (f = (MIFrame *)MIListGet(frames.get()));) {
-                if (FindBPByFunc(parallel_entry_BP, f->func)
-                    || FindBPByFunc(main_entry_BP, f->func)) {
-                    DVPRINT("continueToEntryPoint: %s: found frame in entry_BP, level "
-                            "%d, func %s\n", __func__, f->level, f->func);
+            for (MIListSet(frames.get()); (f = (MIFrame *)MIListGet(frames.get())); prevF=f) {
+                // we're processing the frame bottom up, so keep going to look for 
+                // another entry breakpoint higher in the stack.  In particular,
+                // we might have gotten control of the process after main had already
+                // started.
+                if (FindBPByFunc(main_entry_BP, f->func)) {
+                    if (prevF) {
+                        // finish the frame below
+                        frame = prevF;
+                        finish = true;
+                    } else {
+                        // just stopped in main
+                        frame = f;
+                        finish = false;
+                    }
+                } else if (FindBPByFunc(parallel_entry_BP, f->func)) {
                     frame = f;
-
-                    // we're processing the frame bottom up, so keep going to look for 
-                    // another entry breakpoint higher in the stack.  In particular,
-                    // we might have gotten control of the process after main had already
-                    // started.
-                    //break;
+                    finish = true;
                 }
             }
         }
 
         //if we found a parallel entry point function, select that frame
         if (frame) {
-            DVPRINT("continueToEntryPoint: found entry point %s\n", frame->func);
-            
+            DVPRINT("continueToEntryPoint: found entry point %s finish=%B\n",
+                    frame->func, finish);
+
             //set the frame to the parallel entry point
             auto cmd = MIStackSelectFrame(frame->level);
             SendMICommand(m_session, cmd);
-            if (MICommandResultOK(cmd)) {
-                finish = true;
-            }
             MICommandFree(cmd);
-
             atEntry = true;
             break;
         }
@@ -528,8 +531,9 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     if (finish) {
         // now we want to issue the finish command to get back to main.
-        if (auto [evt, e] = continueToEvent(FINISH); e) return e;
-        else if (evt->type != MIEventTypeFunctionFinished &&
+        if (auto [evt, e] = continueToEvent(FINISH); e) {
+            return e;
+        } else if (evt->type != MIEventTypeFunctionFinished &&
                  evt->type != MIEventTypeSuspended) {
             // we didn't finish the function
             return NewErrorEvent(DBGERR_DEBUGGER,

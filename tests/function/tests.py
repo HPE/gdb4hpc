@@ -47,6 +47,7 @@ import sys
 import glob
 import os
 import socket
+import platform
 
 #os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
 
@@ -498,6 +499,12 @@ class Gdb4hpcTest(Test):
         if self.proto != None:
             os.environ["GDB4HPC_PROTO"] = self.proto
             print(f"Set proto to {self.proto}")
+            # aarch64 machines are too slow to run all tests.
+            # if we're on an aarch64 machine, only run default tests
+            arch = platform.uname()[5] # .processor
+            # zmqnet is default
+            if self.proto != "zmqnet" and arch == "aarch64":
+                self.cancel("Skipping non-default proto on aarch machine.")
         else:
             print(f"No proto param") # use gdb4hpc default
 

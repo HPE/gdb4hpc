@@ -20,6 +20,8 @@ launch:
     slurm: "--exclusive"
     alps: ""
     ssh: ""
+  allocation:
+    nodes: 6
 
 # having to do with the test tool itself
 meta:
@@ -46,3 +48,11 @@ slice-uan:
   launch:
     environment:
       CTI_WLM_IMPL: slurm
+
+"*-aarch":
+  launch:
+    args:
+      slurm: "-p aarch"
+    allocation:
+      # %%n%% replaced by /launch/allocation/nodes
+      nodelist: "select=1:nodetype=mom-aarch64+%%n%%:nodetype=TX264,place=scatter"

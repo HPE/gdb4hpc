@@ -367,7 +367,9 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/README_config.md            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/README_config.md
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/README_textcheck.md         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/README_textcheck.md
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/__init__.py                 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/__init__.py
+%{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/requirements.txt            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/requirements.txt
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/artifactory.py              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/artifactory.py
+%{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/bootstrap.py                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/bootstrap.py
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/config.py                   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config.py
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/config_default.py           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config_default.py
 %{__cp} -a %{tests_source_dir}/function/cdst-test/cdst_test/config_nodes.py             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config_nodes.py
@@ -757,7 +759,9 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/README_config.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/README_textcheck.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/__init__.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/requirements.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/artifactory.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/bootstrap.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config_default.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test/config_nodes.py
@@ -894,7 +898,7 @@ fi
 #%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_openacc_t1.in
 #%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_upc_t1.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
 
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h

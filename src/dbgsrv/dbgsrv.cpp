@@ -116,6 +116,8 @@ int DoProgIO(int *, int);
 int AllocPty(int *, char **, char **);
 int AllocFifo(int *, char **, char **);
 
+std::function<void(void)> AtServerExit;
+
 extern int errno;
 extern int optind;
 extern char *optarg;
@@ -611,6 +613,9 @@ void Server(void) {
 
         if (Shutdown) break;
     }
+
+    if (AtServerExit)
+        AtServerExit();
 }
 
 void EndServer() {

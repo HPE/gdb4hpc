@@ -228,11 +228,9 @@ int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, const ProtoMessageSe
 int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
     if (!detach) {
         // send a kill signal using the CTI
-        if (cti_killApp(di->d_appid, SIGKILL)) {
-            PrintOutError("CTI error: %s\n", cti_error_str());
-            PrintOutError("Failed to kill application process!\n");
-            return -1;
-        }
+        // not reporting an error here since the most likely reason for
+        // a failure is that the application is already dead
+        [[maybe_unused]] auto  err = cti_killApp(di->d_appid, SIGKILL);
     }
 
     cti_deregisterApp(di->d_appid);

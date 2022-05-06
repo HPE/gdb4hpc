@@ -161,6 +161,7 @@ private:
     bool entryBPsAreSet();
     bool hasAmdGpus();
     std::pair<bool,dbgevent_t*> setEntryBPsL();
+    void quitGdb(bool detach);
 
     using MIEventPtr = std::unique_ptr<MIEvent,decltype(&MIEventFree)>;
     enum ContinueType { CONTINUE, NEXTI, FINISH };

@@ -30,6 +30,8 @@
 #include <fstream>
 #include <regex>
 
+extern std::function<void(void)> AtServerExit;
+
 static void event_callback(MIEvent *);
 static void console_callback(char *);
 static void log_callback(char *);
@@ -975,8 +977,8 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
 
 
 /*
-** Attach debugger. Added specifically for Cray XT / ALPS, but it might
-** work for other platforms as well.
+** Attach debugger. Added specifically for Cray XT / ALPS, but it works
+** for other platforms as well.
 */
 dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
@@ -1466,11 +1468,6 @@ dbgevent_t *DbgGdbMI::Initializer::setArgs(const char *arg) {
 */
 dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e = nullptr;
-#ifdef ALPS
-    MICommand *cmd;
-#endif
-
     /*
     ** Interrupt the process if it is running. This will generate a async event.
     ** We want to grab it and ignore it.
@@ -1480,13 +1477,28 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
         DVPRINT("DbgQuit: Sending SIGSTOP to process.\n");
         // wait for the asynch command to complete
         sendSigstop();
-        e = m_dbg.waitAndProcessAsyncEvent();
+        auto e = m_dbg.waitAndProcessAsyncEvent();
         FreeEvent(e);
     }
 
+    DVPRINT("DbgQuit: Signal shutdown state.\n");
+
+    // signal the shutdown state
+    // We delay detaching gdb because on some systems (looking at you cfa6k)
+    // the application will then finish and the WLM immediately kills the
+    // tool processes - which would then kill MRNet before the front
+    // end got a response.   
+    AtServerExit = [this,detach] { this->quitGdb(detach); };
+    Shutdown++;
+
+    return NewEvent(DBGEV_OK);
+}
+
+void DbgGdbMI::Initializer::quitGdb(bool detach) {
+
     DVPRINT("DbgQuit: Detaching from process.\n");
 
-    cmd = MITargetDetach(m_pid);
+    auto cmd = MITargetDetach(m_pid);
 
     SendMICommand(m_session, cmd);
 
@@ -1508,13 +1520,6 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
 #endif
 
     MICommandFree(cmd);
-
-    DVPRINT("DbgQuit: Signal shutdown state.\n");
-
-    // signal the shutdown state
-    Shutdown++;
-
-    return NewEvent(DBGEV_OK);
 }
 
 /*

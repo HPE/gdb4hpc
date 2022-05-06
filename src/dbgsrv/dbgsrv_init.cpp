@@ -354,6 +354,15 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
 std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
     if (auto x = setEntryBPsL(); x.first || x.second) return x;
 
+    // for cfa6k moved the nexti fall-back above the symbol-file version
+    // because symbol-file leaves the symbols as an unresolved linker offset 
+    // that gdb should be able to follow but doesn't.
+    if (auto [evt, e] = continueToEvent(NEXTI); e) {
+        return std::make_pair(false,e);
+    }
+
+    if (auto x = setEntryBPsL(); x.first || x.second) return x;
+    
     // try loading symbols explicitly
     if (!m_executable.empty()) {
         DVPRINT("could not install initial breakpoints, try symbol load from %s\n",
@@ -370,17 +379,15 @@ std::pair<bool,dbgevent_t*> DbgGdbMI::Initializer::setEntryBPs() {
 
     if (auto x = setEntryBPsL(); x.first || x.second) return x;
 
-    // first try stepping one instruction, then try doing a continue to get past the
-    // symbol load
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        // try nexti the first time
-        if (auto [evt, e] = continueToEvent(attempt ? CONTINUE : NEXTI); e) {
-            return std::make_pair(false,e);
-        }
-        if (auto x = setEntryBPsL(); x.first || x.second) return x;
-
-        DVPRINT("did not install breakpoints\n");
+    // finally try doing a continue to get past the symbol load.  In this case we
+    // have to hope the WLM will generate a signal during the process
+    if (auto [evt, e] = continueToEvent(CONTINUE); e) {
+        return std::make_pair(false,e);
     }
+
+    if (auto x = setEntryBPsL(); x.first || x.second) return x;
+        
+    DVPRINT("did not install breakpoints\n");
 
     return std::make_pair(false, nullptr);
 }
@@ -443,8 +450,8 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
         //if we found a parallel entry point function, select that frame
         if (frame) {
-            DVPRINT("continueToEntryPoint: found entry point %s finish=%B\n",
-                    frame->func, finish);
+            DVPRINT("continueToEntryPoint: found entry point %s finish=%s\n",
+                    frame->func, finish ? "true" : "false");
 
             //set the frame to the parallel entry point
             auto cmd = MIStackSelectFrame(frame->level);
@@ -531,6 +538,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     if (finish) {
         // now we want to issue the finish command to get back to main.
+        DVPRINT("calling finish on initial frame\n");
         if (auto [evt, e] = continueToEvent(FINISH); e) {
             return e;
         } else if (evt->type != MIEventTypeFunctionFinished &&
@@ -1672,7 +1680,7 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
 
 // This little wart of logic was prompted by cfa6k that needs to run mpi programs
 // with --non-mpi probably because the mpi library is stripped so the usual
-// start-up barrier drops gdb into a stop with to readable stack.
+// start-up barrier drops gdb into a stop with no readable stack.
 //
 // So --non-mpi avoids the usual MPI breakpoints, but MPI_Init is still generating
 // a SIGSTOP at a point with no usuable stack.  So we skip over it and everything's

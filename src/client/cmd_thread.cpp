@@ -196,7 +196,7 @@ static int class_set_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **ar
     // note that the usual gdb back-ends do not support changing the non-stop
     // mode once the process is running, so we set a flag to set the
     // mode during the next launch.
-    SetLaunchNonStopMode(isNonStop);
+    Client.non_stop = isNonStop;
 
     // however, some back end *might* support changing the mode either now
     // or in the future - so we'll just give that try.   If it's not supported
@@ -235,7 +235,7 @@ static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **a
 
         FreeRepSet(rep_set);
     } else {
-        PrintOutMsg("non-stop mode is %s\n", GetLaunchNonStopMode() ? "on" : "off");
+        PrintOutMsg("non-stop mode is %s\n", Client.non_stop ? "on" : "off");
     }
 
     return 1;

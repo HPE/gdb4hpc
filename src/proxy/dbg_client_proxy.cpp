@@ -73,7 +73,9 @@ void FreeDbgInvoke(dbginvoke_t *di) {
 
     di->d_bitset_launched.reset();
 
-    if (di->d_cmd != NULL) Free(di->d_cmd);
+    di->d_launch.launcher_argv.clear();
+    di->d_launch.app_argv.clear();
+    di->d_launch.run_argv.clear();
 
     // remove any event fds from the proto
     DestroyList(di->d_evfds, Free);

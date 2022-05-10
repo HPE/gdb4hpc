@@ -325,6 +325,7 @@ int main(int argc, char *argv[]) {
     Client.keep_going = false;        // Ignore errors in batch mode?
     Client.unsafe = 0;                // Be unsafe?
     Client.early_entry = 0;           // Enter at pmi_init?
+    Client.non_stop = 1;              // Launch applications in non stop mode?
     Client.print_entry_frame = 1;     // Print frame locations at startup?
     Client.print_bp_frames = true;    // Print breakpoint frames as they are hit?
     Client.print_source_on_step = 1;  // Print source line on each step?

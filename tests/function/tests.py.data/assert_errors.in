@@ -44,8 +44,8 @@ Error creating assert: Expressions' ranks overlap ($a), but locations are differ
 Command resulted in an error: 13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
 14:     # catch invalid syntax
 15:     assert this certainly isn't the syntax for an assert
-Assertion parsing failed: Parsing of "this certainly isn't the syntax for an assert
-" failed: syntax error, unexpected SYM, expecting $end.
+Assertion parsing failed: Parsing of "this certainly "isn't the syntax for an assert
+"" failed: syntax error, unexpected SYM, expecting $end.
 Command resulted in an error: 15:     assert this certainly isn't the syntax for an assert
 16: end
 Assertion script $badscript compiled.

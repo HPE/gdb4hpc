@@ -181,19 +181,6 @@ const char* const cmd_cuda_help[] = {
     "with --gpu and running with an nvidia device.",
     0};
 
-
-const char* const cmd_run_help[] = {
-    "Summary: start debugging application.",
-    "Usage: run",
-    "Example command: continue",
-    "",
-    "Arguments: None.",
-    "",
-    "Description:",
-    "Start execution of every application rank in the current process set from",
-    "its beginning location.",
-    0};
-
 const char* const cmd_defset_help[] = {
     "Summary: Define process set command.",
     "Usage: defset <name> <process set expression>",
@@ -543,6 +530,28 @@ const char* const cmd_launch_help[] = {
     "--debug writes gdb4hpc logging information to a directory defined by",
     "the enviroment variable $CRAY_DBG_LOG_DIR, the directory needs to be",
     "a location writable from the compute nodes.",
+    0};
+
+const char* const cmd_run_help[] = {
+    "Summary: Re-launch an application, preserving breakpoints",
+    "Usage: run [$handle] [--keep]",
+    "Example command: run",
+    "Example command: run $app --keep",
+    "",
+    "Arguments:",
+    "- $handle: Name of application handle to re-launch. Handles must be passed",
+    "           with a leading '$'. If not specified, whatever handle is currently ",
+    "           in focus is chosen.",
+    "- --keep : If specified, don't release the original application.",
+    "",
+    "Description:",
+    "Re-launch an application and re-set any breakpoints from the old application. After",
+    "the launch, the old application is released unless the --keep flag is passed.",
+    "If no application handle is passed, the currently focused handle will be selected.",
+    "If the selected handle contains only a subset of the ranks of a launched application, ",
+    "it cannot be re-launched. Attached applications cannot be re-launched.",
+    "",
+    "The run command also functions as an alias for the launch command. See \"help launch\".",
     0};
 
 const char* const cmd_kill_help[] = {
@@ -1489,6 +1498,22 @@ const char* const class_set_subcmd_non_stop_help[] = {
     "on     : other threads continue running when one is stopped",
     0};
 
+const char* const set_subcmd_args_help[] = {
+    "Summary: Set or clear arguments to use for new processes",
+    "         after the \"run\" commmand is invoked.",
+    "Usage: set args <arg1> <arg2> \"<multi> <word> <arg3>\"",
+    "Example command: set args -x filename -w \"mutli word\"",
+    "              -> argv = {\"-x\", \"filename\", \"-w\", \"multi word\"}",
+    "Example command: set args",
+    "              -> argv = {}",
+    "",
+    "Description:",
+    "Set new arguments to give to a new job launch when the \"run\"",
+    "command is used. To set arguments for only a certain procset,",
+    "use the \"focus\" command to focus on the procset first. If no",
+    "arguments are passed, the stored list of arguments is reset.",
+    0};
+
 /*
  * Class set print subcommands
  */
@@ -1630,6 +1655,16 @@ const char* const class_show_subcmd_non_stop_help[] = {
     "Show the non-stop mode for thread stopping:",
     "off    : stopping one thread in a process stops all threads",
     "on     : other threads continue running when one is stopped",
+    0};
+
+const char* const show_subcmd_args_help[] = {
+    "Summary: Show arguments that will be passed to new processes upon a \"run\" command.",
+    "Usage: show args",
+    "Example command: show args",
+    "",
+    "Description:",
+    "Shows arguments that will be passed to new launches upon a \"run\" command.",
+    "By default, stored arguments are set to those used upon initial job launch.",
     0};
 
 /*

@@ -191,8 +191,6 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
     di->d_bitset_full.reset();
     di->d_bitset_launched.reset();
 
-    if (di->d_cmd != nullptr) Free(di->d_cmd);
-
     // remove any event fds from the proto
     DestroyList(di->d_evfds, Free);
 
@@ -228,7 +226,7 @@ group_recv_t* NewGroupReceiver(dbginvoke *di, std::unique_ptr<Bitset>&& mask) {
     auto rec = new group_recv_t;
     rec->rec_di = di;
 
-    DASSERT_NOT_NULL(proc_mask.get());
+    DASSERT_NOT_NULL(mask.get());
     rec->rec_group = std::move(mask);
     rec->_cmd_sent = std::unique_ptr<Bitset>();
 
@@ -1688,19 +1686,13 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 /*
 ** Launch user program.
 */
-dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
-                       const char * const *argv, const char *handle, int nproc,
-                       const char *arch, const char * const *arch_args,
-                       const char *arch_input, const char *backend, const char* gdb,
-                       char **env,
-                       const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
-                       int unsafe_flag, int early_entry_flag, bool isNonStop) {
+dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& args) {
     dbginvoke_t *di;
-    DebugClientProtocol * const ptab = findClientProtoByName(proto);
+    DebugClientProtocol * const ptab = findClientProtoByName(args.proto_name.c_str());
     dbgevent_t *e;
 
     if (ptab == nullptr) {
-        PrintOutError("No such protocol \"%s\"\n", proto);
+        PrintOutError("No such protocol \"%s\"\n", args.proto_name.c_str());
         return nullptr;
     }
 
@@ -1711,11 +1703,11 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     // checks on the a.out
 
     // The frontend debug presence can fail silently
-    di->d_frontend = DbgInstantiateFE(backend);
+    di->d_frontend = DbgInstantiateFE(args.backend_name.c_str());
 
     // Set the debug frontend a.out directly.
     if (di->d_frontend != nullptr) {
-        e = DbgFESetFile(di->d_frontend, prog);
+        e = DbgFESetFile(di->d_frontend, args.app_argv[0].c_str());
 
         // handle the error case
         if (e->ev_event == DBGEV_ERROR) {
@@ -1730,7 +1722,7 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     // Check for startup function presence if unsafe is false
-    if (!unsafe_flag && !non_mpi_flag) {
+    if (!args.unsafe_flag && !args.non_mpi_flag) {
         if (di->d_frontend != nullptr) {
             e = DbgFECheckStartupFunc(di->d_frontend);
 
@@ -1763,26 +1755,35 @@ dbginvoke_t *DbgLaunch(const char *proto, proto_session *sess, const char *prog,
     }
 
     std::pair<std::string,std::unique_ptr<const char*[]>> trampolineArgs;
-    if (non_mpi_flag) {
-        trampolineArgs = GetTrampolineArgs(prog, argv);
+    if (args.non_mpi_flag) {
+        trampolineArgs = GetTrampolineArgs(args.app_argv[0].c_str(), args.app_argv.c_strs(1).data());
         if (trampolineArgs.first.empty()) {
-            non_mpi_flag = false;
+            args.non_mpi_flag = false;
         } else {
-            prog = trampolineArgs.first.c_str();
-            argv = trampolineArgs.second.get();
+            ArgvStream newArgv;
+            newArgv << trampolineArgs.first << trampolineArgs.second.get();
+            args.app_argv = newArgv;
+            args.run_argv = std::move(newArgv);
         }
     }
 
-    // Create the cmd str and set it
-    di->d_cmd = ArgvStream(prog, argv).createBuffer();
+    const auto optStr = [](const std::string& str) {
+        return str != "" ? str.c_str() : nullptr;
+    };
 
-    if (ptab->launch(di, sess, prog, argv, arch, arch_args, arch_input,
-                     backend, gdb, env, cwd, gpu_flag, debug_flag,
-                     non_mpi_flag,
-                     early_entry_flag, isNonStop)) {
+    if (ptab->launch(
+        di, nullptr, args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(), 
+        args.arch_name.c_str(), args.launcher_argv.c_strs(1).data(), 
+        optStr(args.input_file_path), args.backend_name.c_str(), 
+        optStr(args.gdb_path), args.env.c_strs().data(), 
+        optStr(args.cwd), args.gpu_flag, args.debug_flag,
+        args.non_mpi_flag, args.early_entry_flag, args.non_stop_flag)
+    ) {
         FreeDbgInvoke(di);
         return nullptr;
     }
+
+    di->d_launch = std::move(args);
 
     // This command changes the status
     inferior_status_change = 1;
@@ -2580,8 +2581,8 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, i
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, char *file, char *func,
-                           const char* threadSet) {
+rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file, 
+        const char *func, const char* threadSet) {
 
     auto request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
 

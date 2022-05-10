@@ -1,17 +1,18 @@
 /******************************************************************************\
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
-#ifndef _DBGCLNT_INVOKE_H
-#define _DBGCLNT_INVOKE_H
+#pragma once
 
 #include <list>
 #include <functional>
 
+#include "dbgclnt_settings.h"
 #include "dbgclnt_breakpoints.h"
 #include "dbgclnt_network.h"
 #include "dbgclnt_debugfe.h"
 #include "dbgoutp.h"
 #include "bitset.h"
+#include "args.h"
 
 class DebugClientProtocol;
 
@@ -36,9 +37,55 @@ struct dbginvoke {
     int d_started;        // indicates if this di has been started
     int d_isShutdown;  // Some networks can use this during error handling. If
                        // this is true, the network is already shutdown.
+
+    class LaunchOpts {
+        // LaunchOpts stores arguments initially passed to the launch
+        // command that created the dbginvoke.
+    private:
+        // to allow a default dbginvoke constructor
+        LaunchOpts() = default;
+        friend dbginvoke;
+    public:
+        // throws std::runtime_error upon parse error
+        LaunchOpts(int argc, const char* const argv[], ClientSettingsInterface& csi);
+
+        ArgvStream launcher_argv;          // --launcher="custom_launcher"
+                                           // --launcher-args="launcher argv"
+                                           // if d_type == DBG_LAUNCHED, stores passed WLM launcher
+                                           // arguments. if the user passes --launcher, argv[0] will
+                                           // be set and CTI_LAUNCHER_NAME_ENV_VAR should be set before
+                                           // launch. these arguments can't be changed by the user after launch.
+                                           //
+        ArgvStream app_argv;               // --args="application argv"
+                                           // if d_type == DBG_LAUNCHED, holds app's argv,
+                                           // with the name of the binary as argv[0].
+                                           //
+        ArgvStream run_argv;               // args to apply when a `run` command is invoked. initially
+                                           // holds app_argv, but args can be changed with "set args" 
+                                           // command. argv[0] should never change.
+                                           //
+        std::string gdb_path = "";         // --gdb /path/to/custom/gdb
+        std::string input_file_path = "";  // --launcher-input /path/to/input/file
+        std::string cwd = "";              // --workdir /path/to/workdir
+        bool set_default_cwd = false;      // true if --workdir is passed with no argument. if true,
+                                           // the cwd of the program should be set to the directory
+                                           // the actual binary file is located in.
+        ArgvStream env;                    // --env "name=value"
+        bool gpu_flag = false;             // --gpu
+        bool non_mpi_flag = false;         // --non-mpi
+        bool debug_flag = false;           // --debug
+        std::string procset_name;          // full name of passed procset, including rank count, e.g. $a{3}
+                                           //
+        bool non_stop_flag = true;         // settings copied from passed ClientSettingsInterface
+        bool early_entry_flag = false;     //
+        bool unsafe_flag = false;          //
+        std::string proto_name = "";       //
+        std::string arch_name = "";        // arch and proto are legacy settings that don't change
+        std::string backend_name = "";     // any more, but are still passed down
+    };
+
+    LaunchOpts d_launch;
     int d_nproc;       // number of processes
-    char *d_cmd;  // application command argument - set to name of executable 
-                  // for invoke
     int d_stat;   // exit/signal status of proc
     list_t *d_evfds;        // event notification fds specific to this instance
     std::unique_ptr<Bitset> d_bitset_full;     // represents all dbgsrvs
@@ -78,4 +125,3 @@ struct dbginvokeMapper {
     }
 };
 
-#endif // _DBGCLNT_INVOKE_H

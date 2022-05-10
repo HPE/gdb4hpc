@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <cassert>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -27,60 +28,22 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <unordered_map>
+#include <optional>
+#include <filesystem>
 
 #include "client.h"
 #include "common_tools_fe.h"
 #include "useful.h"
 
-/*
-** Static global variables
-*/
-static int debug_flag = 0;
-static int gpu_flag = 0;
-static int non_mpi_flag = 0;
-static bool non_stop_mode = true;
-static char* gdb_backend = nullptr;
-
-/*
-** static function prototypes
-*/
-static int DoLaunch(const char *, proto_session *, const char *, const char * const *,
-                    dbgprocset_t *, const char *, const char * const *, const char *,
-                    const char *, const char *, char **, const char *);
+static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& opts);
+static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, bool keepFlag);
+static int DoRelaunch(dbgprocset_t* procset, bool keepFlag);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
-                    const char *, const char *);
+                    const char *, const char *, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
 
-/*
-** long opts definitions
-*/
-static const struct option session_long_opts[] = {
-    {"qsub", optional_argument, 0, 'q'},
-    {"sbatch", optional_argument, 0, 's'},
-    {"end", optional_argument, 0, 'e'},
-    {0, 0, 0, 0}};
-
-static const struct option launch_long_opts[] = {
-    {"args", optional_argument, 0, 'a'},
-    {"launcher-args", optional_argument, 0, 'g'},
-    {"launcher-input", optional_argument, 0, 'i'},
-    {"workdir", optional_argument, 0, 'd'},
-    {"env", optional_argument, 0, 'e'},
-    {"qsub", optional_argument, 0, 'q'},
-    {"sbatch", optional_argument, 0, 's'},
-    {"gpu", no_argument, &gpu_flag, 1},
-    {"debug", no_argument, &debug_flag, 1},
-    {"non-mpi", no_argument, &non_mpi_flag, 1},
-    {"launcher", optional_argument, 0, 'l'},
-    {"gdb", required_argument, 0, 'b'},
-    {0, 0, 0, 0}};
-
-static const struct option attach_long_opts[] = {
-    {"gpu", no_argument, &gpu_flag, 1},
-    {"debug", no_argument, &debug_flag, 1},
-    {0, 0, 0, 0}};
-
-static int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
+int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     dbgprocset_t *ps;
     int num_ps = 0;
@@ -122,11 +85,7 @@ static int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
                 PrintOutMsg("%-5s ", "n");
             }
 
-            if (di->d_cmd != NULL) {
-                PrintOutMsg("%s\n", di->d_cmd);
-            } else {
-                PrintOutMsg("\n");
-            }
+            PrintOutMsg("%s\n", di->d_launch.app_argv.asString().c_str());
         }
     }
 
@@ -153,6 +112,12 @@ static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // Process user provided arguments
     //
+    const struct option session_long_opts[] = {
+        {"qsub", optional_argument, 0, 'q'},
+        {"sbatch", optional_argument, 0, 's'},
+        {"end", optional_argument, 0, 'e'},
+        {0, 0, 0, 0}
+    };
 
     while ((opt = getopt_long(argc, argv, "q:s:e:", session_long_opts,
                               &opt_ind)) != -1) {
@@ -304,461 +269,70 @@ static dbgprocset_t* getNewProcSet(const char* procName) {
                   [--launcher-input=<path_to_file>]
                   [--workdir=<path>]
                   [--env="<name=value>"]
-                  [--qsub=<batch_template>]
-                  [--sbatch=<batch_template>]
                   [--gpu]
                   [--debug]
 */
 static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    proto_session *sess = NULL;
-    dbgprocset_t *ps = NULL;
-    char *prog = NULL;
-    const char *arch = Client.arch;
-    const char *proto = Client.proto;
-    const char *backend = Client.backend;
-    char *arch_input = NULL;
-    int set_default_workdir = 0;
-    char *workdir = NULL;
-    char **env_list = NULL;
-    int env_list_num = 0;
-    int env_list_size = 0;
-    char *env_str = NULL;
-    auto args = ArgvStream{};
-    auto arch_args = ArgvStream{};
-    WLM_type manager = WLM_none;
-    char *batch_script = NULL;
-    // TODO: Allow the user to specify hostname/username
-    char *hostname = NULL;
-    char *username = NULL;
-    int opt_ind = 0;
-    int opt;
-    int i;
-    char *elogin_env;
-
-    // reset optind and flags
-    optind = 0;
-    debug_flag = 0;
-    gpu_flag = 0;
-    non_mpi_flag = 0;
-    free(gdb_backend);
-    gdb_backend = nullptr;
-
-    if (argc < 3) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: launch $handle ./program\n");
+    try {
+        // throws if arguments are malformed
+        auto args = dbginvoke::LaunchOpts(argc, argv, Client);
+        return DoLaunch(std::move(args)) ? 1 : 0;
+    } catch (const std::runtime_error& e) {
+        PrintOutError("Error: %s\n", e.what());
         return 0;
     }
-
-    //
-    // Setup the env_list copying in any environment variables set by calling
-    // the set environment command.
-    //
-
-    if (SizeOfList(Client.set_env_list) > 1) {
-        // there are entires in the list, process them
-        SetList(Client.set_env_list);
-
-        // loop through the list
-        while ((env_str = (char *)GetListElement(Client.set_env_list)) !=
-               (char *)NULL) {
-            // realloc memory if env_list_num + 1 is GEQ to env_list_size
-            // note that we need at least 1 entry that acts as a null pointer
-            if ((env_list_num + 1) >= env_list_size) {
-                // increase the list by 10 entries
-                env_list_size += 10;
-                // BUG 801222 - ensure the list is not null
-                if (env_list == NULL) {
-                    env_list = (char **)Alloc(env_list_size * sizeof(char *));
-                    memset(env_list, 0, env_list_size * sizeof(char *));
-                } else {
-                    Resize((void *)env_list, env_list_size * sizeof(char *));
-                    // set the new entries to null, note that env_list_num is
-                    // where the new entry will be placed, the malloced entries
-                    // start after this.
-                    memset(&env_list[env_list_num], 0, 10 * sizeof(char *));
-                }
-            }
-
-            // set the new entry
-            env_list[env_list_num++] = strdup(env_str);
-        }
-    }
-
-    //
-    // Process user provided arguments
-    //
-
-    // Note that invoke/launch used to allow the user to provide the following
-    // args:
-    //
-    // --arch-args --arch-input --using --on --backend --with --path
-    //
-    // These are no longer supported with longopts. Their use relates back to
-    // the pre-MRNet days and legacy stuff. I don't think there is value in
-    // maintaining these in the Cray trunk.
-
-    // This will permute the non-option stuff to the end, so parse that stuff
-    // last.
-
-    while ((opt = getopt_long(argc, argv, "a:g:i:d::e:q:", launch_long_opts,
-                              &opt_ind)) != -1) {
-        switch (opt) {
-            case 0:
-                // if this is a flag, do nothing
-                break;
-            case 'a':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --args provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-                args.parseAndAppendArgs(StripQuotes(optarg));
-                break;
-
-            case 'g':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --launcher-args provided, but missing "
-                        "arguments.\n");
-                    goto exit_with_error;
-                }
-                arch_args.parseAndAppendArgs(StripQuotes(optarg));
-                break;
-
-            case 'q':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --qsub provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                // Note that we want to convert any relative path name into an
-                // absolute pathname
-                if ((batch_script = realpath(StripQuotes(optarg), NULL)) ==
-                    (char *)NULL) {
-                    PrintOutError(
-                        "Failed to resolve absolute path of provided batch "
-                        "script.\n");
-                    goto exit_with_error;
-                }
-
-                // set proto to proxy since we are required to use the proxy in
-                // conjunction with the batch system
-                proto = "proxy";
-                // set the manager to qsub
-                manager = WLM_qsub;
-                break;
-
-            case 's':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --sbatch provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                // Note that we want to convert any relative path name into an
-                // absolute pathname
-                if ((batch_script = realpath(StripQuotes(optarg), NULL)) ==
-                    (char *)NULL) {
-                    PrintOutError(
-                        "Failed to resolve absolute path of provided batch "
-                        "script.\n");
-                    goto exit_with_error;
-                }
-
-                // set proto to proxy since we are required to use the proxy in
-                // conjunction with the batch system
-                proto = "proxy";
-                // set the manager to sbatch
-                manager = WLM_sbatch;
-                break;
-
-            case 'i':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --launcher-input provided, but missing "
-                        "arguments.\n");
-                    goto exit_with_error;
-                }
-                arch_input = strdup(StripQuotes(optarg));
-                break;
-
-            case 'd':
-                if (optarg == (char *)NULL) {
-                    // --workdir provided without argument, so default to chdir
-                    // to the directory that the binary is located in. We need
-                    // to post process this since the name of the a.out is not
-                    // known yet.
-                    ++set_default_workdir;
-                } else {
-                    // Note that we want to convert any relative path name into
-                    // an absolute pathname
-                    if ((workdir = realpath(StripQuotes(optarg), NULL)) ==
-                        (char *)NULL) {
-                        PrintOutError(
-                            "Error: --workdir provided, but failed to resolve "
-                            "its absolute path.\n");
-                        goto exit_with_error;
-                    }
-                }
-                break;
-
-            case 'e':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --env provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                // realloc memory if env_list_num + 1 is GEQ to env_list_size
-                // note that we need at least 1 entry that acts as a null
-                // pointer
-                if ((env_list_num + 1) >= env_list_size) {
-                    // increase the list by 10 entries
-                    env_list_size += 10;
-                    // BUG 801222 - ensure the list is not null
-                    if (env_list == NULL) {
-                        env_list =
-                            (char **)Alloc(env_list_size * sizeof(char *));
-                        memset(env_list, 0, 10 * sizeof(char *));
-                    } else {
-                        Resize((void *)env_list,
-                               env_list_size * sizeof(char *));
-                        // set the new entries to null, note that env_list_num
-                        // is where the new entry will be placed, the malloced
-                        // entries start after this.
-                        memset(&env_list[env_list_num], 0, 10 * sizeof(char *));
-                    }
-                }
-
-                // set the new entry
-                env_list[env_list_num++] = strdup(StripQuotes(optarg));
-                break;
-            case 'l':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --launcher provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                setenv(CTI_LAUNCHER_NAME_ENV_VAR, optarg, 1);
-                break;
-            case 'b':
-                gdb_backend = StrdupOpt(optarg);
-                break;
-                
-            default:
-                PrintOutError(
-                    "Invalid launch argument provided. See \"help launch\" for "
-                    "usage.\n");
-                goto exit_with_error;
-        }
-    }
-
-    // Ensure the user provided two non-option arguments
-    if (argc - optind != 2) {
-        PrintOutError(
-            "Invalid number of non-option arguments. See \"help launch\" for "
-            "usage.\n");
-        PrintOutError("Expected 2, found %d.\n", argc - optind);
-        goto exit_with_error;
-    }
-
-    // parse the non-option arguments
-
-    // The first argument should be the name of the process set
-    if ((ps = getNewProcSet(argv[optind++])) == NULL) {
-        goto exit_with_error;
-    }
-
-    // The second argument is the name of the a.out
-
-    // Note that we want to convert any relative path name into an absolute
-    // pathname
-    if ((prog = realpath(argv[optind++], NULL)) == (char *)NULL) {
-        PrintOutError(
-            "Failed to resolve absolute path of provided application.\n");
-        goto exit_with_error;
-    }
-
-    // Process any arguments from above that were dependent on the non-option
-    // arguments
-
-    if (set_default_workdir) {
-        // --workdir provided without argument, so default to chdir to
-        // the directory that the binary is located in.
-        char *tmp;
-        char *ptr;
-
-        // We want to point at the final "/" in the string
-        tmp = strdup(prog);
-        ptr = strrchr(tmp, '/');
-
-        if (ptr != NULL) {
-            *ptr = '\0';
-            workdir = strdup(tmp);
-        } else {
-            // No path provided, so we can't chdir anywhere. Silently ignore the
-            // argument This should never happen since prog points at the
-            // realpath of the app
-            workdir = NULL;
-        }
-
-        Free(tmp);
-    }
-
-    // Verify that the arguments are correct
-
-    if (arch == NULL) {
-        PrintOutError("Must specify an MP architecure.\n");
-        goto exit_with_error;
-    }
-
-    if (proto == NULL) {
-        PrintOutError("Must specify a protocol.\n");
-        goto exit_with_error;
-    }
-
-    // Check to see if we need to handle a session for this invoke
-    switch (manager) {
-        case WLM_none:
-            // First check to see if we currently have an open session
-            if ((sess = DbgGetSession()) != NULL) {
-                // There currently is an open session, so use it in the invoke
-                proto = "proxy";
-                break;
-            }
-
-            // Get the value of the ESWRAP_LOGIN environment variable
-            elogin_env = getenv("ESWRAP_LOGIN");
-            if (elogin_env == NULL) {
-                // Also check value of new EPROXY_LOGIN var
-                elogin_env = getenv("EPROXY_LOGIN");
-            }
-
-            // If on a Cray system, check to see if we are currently on an
-            // eslogin node if using WLM_none.
-            //
-            // If so, we want to create a new session on the service node using
-            // the proxy protocol and forward every command through that.
-            //
-            // For the cluster system, this is not the case. We do not need a
-            // proxy.
-            // FIXME: The same is also true for native slurm.
-
-            // Are we on an eslogin node?
-            if (elogin_env != NULL) {
-                // We are on an eslogin node since the file did not exist
-
-                // set proto to proxy since we are required to use the proxy in
-                // conjunction with eslogin nodes
-                proto = "proxy";
-
-                hostname = strdup(elogin_env);
-
-                // Create a new session
-                if ((sess = DbgSessionCreate(proto, manager, NULL, hostname,
-                                             username)) == NULL) {
-                    PrintOutError("Could not create session for eslogin!\n");
-                    goto exit_with_error;
-                }
-
-                // Set this session for all future launch/attach commands
-                DbgSetSession(sess);
-            }
-
-            // There is no current session and we are not on an eslogin node, so
-            // we can use the default protocol.
-
-            break;
-
-        case WLM_qsub:
-        case WLM_sbatch:
-
-            // These sessions are only tied to this launch command and are not
-            // set for future use. Aka they are temporary in nature and get
-            // cleaned up when the dbginvoke gets cleaned up.
-
-            // Create a new session
-            if ((sess = DbgSessionCreate(proto, manager, batch_script, NULL,
-                                         NULL)) == NULL) {
-                PrintOutError("Could not create session for WLM!\n");
-                goto exit_with_error;
-            }
-
-            break;
-    }
-
-    //
-    // Invoke the application
-    //
-    if (!DoLaunch(proto, sess, prog, args.c_strs().data(), 
-                  ps, arch, arch_args.c_strs().data(), 
-                  arch_input, backend, gdb_backend, env_list, workdir)) {
-        // If XML mode is enabled, we want to print out a removed message.
-        if (Client.XML_mode) {
-            XMLPrintRemovedMsg(ps->s_name);
-        }
-        goto exit_with_error;
-    }
-
-    // normal return
-
-    Free(prog);
-    if (batch_script != NULL) Free(batch_script);
-    if (hostname != NULL) Free(hostname);
-    if (username != NULL) Free(username);
-    if (arch_input != NULL) Free(arch_input);
-    if (workdir != NULL) Free(workdir);
-    if (env_list != NULL) {
-        i = 0;
-        while (env_list[i] != NULL) Free(env_list[i++]);
-        Free(env_list);
-    }
-
-    return 1;
-
-exit_with_error:
-
-    if (ps != NULL) FreeProcSet(ps);
-    if (prog != NULL) Free(prog);
-    if (batch_script != NULL) Free(batch_script);
-    if (hostname != NULL) Free(hostname);
-    if (username != NULL) Free(username);
-    if (arch_input != NULL) Free(arch_input);
-    if (workdir != NULL) Free(workdir);
-    if (env_list != NULL) {
-        i = 0;
-        while (env_list[i] != NULL) Free(env_list[i++]);
-        Free(env_list);
-    }
-
-    return 0;
 }
 
 /*
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the invoke process always operates synchronously.
 */
-static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
-                    const char * const *args, dbgprocset_t *ps, const char *arch,
-                    const char * const*arch_args, const char *arch_input,
-                    const char *backend, const char *gdb, char **Env, const char *cwd) {
-    dbginvoke_t *di;
-    rec_set_t *rec_set;
-    rep_set_t *rep_set;
-    rep_set_t *quit_rep;
+static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
+    dbginvoke_t *di = nullptr;;
+    rec_set_t *rec_set = nullptr;
+    rep_set_t *rep_set = nullptr;
+    rep_set_t *quit_rep = nullptr;
+    auto ps = getNewProcSet(args.procset_name.c_str());
+
+    const auto exitWithFailure = [&](){
+        // If XML mode is enabled, we want to print out a removed message.
+        if (Client.XML_mode) {
+            // procset_name will be of the form $a{n}.
+            // XMLPrintRemoveMsg only wants the $a part.
+            auto procset_name = args.procset_name.substr(0, args.procset_name.find('{'));
+            XMLPrintRemovedMsg(procset_name.c_str());
+        }
+
+        FreeRecSet(rec_set);
+        FreeRepSet(quit_rep);
+        FreeRepSet(rep_set);
+        FreeProcSet(ps);
+
+        return nullptr;
+    };
+
+    if (!ps) return exitWithFailure();
+
+    // if the user has set any environment variables via the set env command, add them
+    if (SizeOfList(Client.set_env_list) > 1) {
+        SetList(Client.set_env_list);
+
+        char* env_str;
+        while ((env_str = (char *)GetListElement(Client.set_env_list)) != nullptr) {
+            args.env << env_str;
+        }
+    }
+
+    if (args.launcher_argv[0] != "") {
+        setenv(CTI_LAUNCHER_NAME_ENV_VAR, args.launcher_argv[0].c_str(), 1);
+    }
 
     // Call the invoke in the dbg_client layer
-    di = DbgLaunch(proto, sess, prog, args, ps->s_name, ps->s_nproc, arch,
-                   arch_args, arch_input, backend, gdb, Env, cwd, gpu_flag,
-                   debug_flag, non_mpi_flag, Client.unsafe,
-                   Client.early_entry, non_stop_mode);
-
-    if (di == NULL) {
+    // moves args into the returned di as the d_launch member
+    if (!(di = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args)))) {
         // Do not print out an error message here since the lower layer already
         // printed it for us.
-        return 0;
+        return exitWithFailure();
     }
 
     // Create a rec_set based on the di
@@ -769,9 +343,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     if (FinalizeProcSetForInvoke(ps, di)) {
         quit_rep = DbgQuit(rec_set, DBG_KILL);
         ProcessErrorInRepSet(quit_rep);
-        FreeRecSet(rec_set);
-        FreeRepSet(quit_rep);
-        return 0;
+        return exitWithFailure();
     }
 
     // Set the client event callback handler
@@ -787,10 +359,7 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
         PrintOutError("Could not startup application.\n");
         quit_rep = DbgQuit(rec_set, DBG_KILL);
         ProcessErrorInRepSet(quit_rep);
-        FreeRecSet(rec_set);
-        FreeRepSet(quit_rep);
-        FreeRepSet(rep_set);
-        return 0;
+        return exitWithFailure();
     }
 
     // Print the startup frames based on this bitset
@@ -841,7 +410,252 @@ static int DoLaunch(const char *proto, proto_session *sess, const char *prog,
     // Free the created rec_set
     FreeRecSet(rec_set);
 
-    return 1;
+    return ps;
+}
+
+std::string getProcsetCloneName(const dbgprocset_t& procset) {
+    // keeps track of the number of clones that have been spawned from a given procset.
+    // maps procset.s_name to number of iterations
+    static std::unordered_map<std::string, int> iterationsMap;
+
+    // start the count at 2 since a clone will be the second instance of a procset
+    auto [it, newEntry] = iterationsMap.emplace(std::string{procset.s_name}, 2);
+
+    if (!newEntry) {
+        it->second++;
+    }
+
+    using namespace std::string_literals;
+    return "$"s + procset.s_name + "_" + std::to_string(it->second)
+        + "{" + std::to_string(procset.s_nproc) + "}";
+};
+
+// relaunch procsets where s_type == DBGSET_INVOKE.
+// if `keepFlag` is false, the old procset will be deleted after relaunch.
+// returns newly launched procset.
+static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
+    if (!oldProcset) {
+        PrintOutError("Error: null procset\n");
+        return nullptr;
+    }
+
+#if DEBUG
+    assert(oldProcset->s_type == DBGSET_INVOKE);
+#endif
+
+    // get convenience pointer to old procset's internal di
+    SetOverlaySetForProcSet(oldProcset);
+    auto* oldDi = GetNextOverlaySetForProcSet(oldProcset)->s_di;
+
+#if DEBUG
+    // DBGSET_INVOKE procsets should only have one di
+    assert(GetNextOverlaySetForProcSet(oldProcset) == nullptr);
+#endif
+
+    // validate that this di can be relaunched
+    if (!oldDi) {
+        PrintOutError("Error: null di in procset\n");
+        return nullptr;
+    }
+
+    if (oldDi->d_type == DBG_ATTACHED) {
+        PrintOutError("Can't re-launch attached programs.\n");
+        return nullptr;
+    }
+
+    auto newArgs = dbginvoke::LaunchOpts(oldDi->d_launch);
+    newArgs.procset_name = getProcsetCloneName(*oldProcset);
+
+    dbgprocset_t* newProcset = nullptr;
+
+    // launch new app
+    if (!(newProcset = DoLaunch(std::move(newArgs)))) {
+        PrintOutError("Launch failed.\n");
+        return nullptr;
+    }
+
+    bool printedHeader = false;
+    for (const auto& oldBp : oldDi->d_breakpoints) {
+        if (!printedHeader) {
+            PrintOutMsg("Re-setting breakpoints...\n");
+            printedHeader = true;
+        }
+
+        rep_set_t *repSet = nullptr;
+        auto* recSet = CreateRecSetForProcset(newProcset);
+
+        // mask recSet to only the ranks that the breakpoint was on
+        auto tmpGroup = group_recv{
+            .rec_di = getFirstDbgInvoke(*newProcset), 
+            .rec_group = oldBp.ranksSet()->clone(),
+            ._cmd_sent = nullptr
+        };
+
+        recSet->intersectReceiver(&tmpGroup);
+
+        if (oldBp.line() > 0) {
+            repSet = DbgSetLineBreak(recSet, 
+                    oldBp.isPending(), oldBp.file().c_str(), 
+                    oldBp.line(), oldBp.threadId().c_str()
+            );
+        } else {
+            repSet = DbgSetFuncBreak(recSet, 
+                    oldBp.isPending(), oldBp.file().c_str(), 
+                    oldBp.function().c_str(), oldBp.threadId().c_str()
+            );
+        }
+
+        FreeRecSet(recSet);
+
+        if (!repSet || ProcessErrorInRepSet(repSet)) {
+            FreeRepSet(repSet);
+            PrintOutError("Warning: failed to set breakpoint for $%s.\n", newProcset->s_name);
+            continue;
+        }
+
+        for (const auto* reply : repSet) {
+            auto newDbgBp = EVENT_BP(reply->rep_event);
+            auto newBp = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*newDbgBp);
+
+            if (!newBp) {
+                PrintOutError("Warning: Failed to set breakpoint for $%s.\n", reply->rep_di->d_handle);
+                continue;
+            }
+
+            PrintOutMsg("Re-set breakpoint $%s::%d as new breakpoint $%s::%d.\n",
+                oldDi->d_handle, oldBp.id(), newProcset->s_name, newBp->id());
+        }
+    }
+
+    if (!keepFlag) {
+        // replace old procset with new one by making the new procset look
+        // identical to the old
+        // TODO: do this in background thead?
+
+        // claim old name and release old procset
+        auto oldName = strdup(oldProcset->s_name);
+        ReleaseProc(oldProcset, DBG_DEFAULT); // frees oldProcset
+        oldProcset = nullptr;
+
+        // remove name of newly created tmp procset from the symbol tables
+        if (auto* val = FindVal(newProcset->s_name)) {
+            RemoveVal(val);
+        } else {
+            PrintOutError("Warning: didn't find val for %s.\n", newProcset->s_name);
+        }
+
+        if (auto* sym = FindSym(newProcset->s_name)) {
+            RemoveSym(sym);
+        } else {
+            PrintOutError("Warning: didn't find symbol for %s\n", newProcset->s_name);
+        }
+
+        free(newProcset->s_name);
+        newProcset->s_name = oldName; // procset name...
+        {
+            // ...and di name. newly launched procsets should only have one di
+            auto di = getFirstDbgInvoke(*newProcset);
+            free(di->d_handle);
+            di->d_handle = strdup(newProcset->s_name);
+        }
+
+        // get new symbol/val into global symbol/val table. both are handled in
+        // the ParseExpr/EvalExpr functions.
+        std::string exprString = std::string("$") + newProcset->s_name;
+        // adds entry in symbol table
+        auto* expr = ParseExpr(exprString.c_str()); 
+        if (!expr) {
+            PrintError(); 
+            return nullptr;
+        }
+
+        val_t* newProcsetVal = nullptr;
+        // creates entry in val table
+        if (EvalExpr(&newProcsetVal, expr, nullptr) < 0) {
+            PrintError();
+            return nullptr;
+        }
+
+#if DEBUG
+        assert(LVAL_TYPE(newProcsetVal) == lval_internal);
+        assert(RVAL_ACTUAL_TYPE(newProcsetVal) == rval_none);
+#endif
+        // val returned above is a generic "internal value" val
+        // fix it up so that it is specifically a procset val
+        DestroyRval(RVAL_TYPE(newProcsetVal), RVAL_VAL(newProcsetVal));
+        RVAL_TYPE(newProcsetVal) = rval_proc;
+        RVAL_PROCSET(newProcsetVal) = newProcset;
+        RVAL_DESTROY(newProcsetVal) = 0;
+    }
+
+    return newProcset;
+}
+
+static int DoRelaunch(dbgprocset_t* oldProcset, bool keepFlag) {
+    if (!oldProcset) return 0;
+
+    switch (oldProcset->s_type) {
+        case DBGSET_INVOKE: {
+            auto newProcset = DoRelaunchInvoke(oldProcset, keepFlag);
+            if (!newProcset) {
+                PrintOutError("Relaunch failed!\n");
+                return 0;
+            }
+            return 1;
+        }
+
+        case DBGSET_DEFSET: 
+            // fall through
+        case DBGSET_TEMP:
+            // fall through
+        case DBGSET_INTERNAL: {
+            bool validProcset = true;
+            forEachOverlaySet(*oldProcset, [oldProcset, &validProcset](const auto* os){
+                // we can't restart only part of a di, so a procset
+                // is invalid if it only includes a subset of a di.
+                if (validProcset && *os->s_di_bs != *os->s_di->d_bitset_full) {
+                    PrintOutError("Error: $%s contains only a subset (%s) of $%s.\n",
+                        oldProcset->s_name, os->s_di_bs->toSetString().c_str(), os->s_di->d_handle);
+                    validProcset = false;
+                }
+            });
+
+            if (!validProcset) return 0;
+
+            // create a list of procsets to relaunch. if we were to relaunch within
+            // forEachOverlaySet, the overlay set list would get a new entry upon
+            // each iteration and the loop would never end!
+            std::vector<dbgprocset_t*> toRelaunch;
+
+            bool success = true;
+            forEachOverlaySet(*oldProcset, [&toRelaunch, &success](const auto* os) {
+                if (!success) return;
+
+                if (auto* diProcset = FindProcSet(os->s_di->d_handle)) {
+                    toRelaunch.push_back(diProcset);
+                } else {
+                    PrintOutError("Error: failed to find procset for $%s!\n", os->s_di->d_handle);
+                    success = false;
+                }  
+            });
+
+            if (!success) return 0;
+
+            for (auto* diProcset : toRelaunch) {
+                auto* newProcset = DoRelaunchInvoke(diProcset, keepFlag);
+                if (!newProcset) {
+                    success = false;
+                    PrintOutError("Error: relaunching $%s failed!\n", diProcset->s_name);
+                    break;
+                }
+            }
+
+            return success;
+        }
+    }
+
+    // should never get here
+    return 0;
 }
 
 /*
@@ -859,13 +673,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int opt_ind = 0;
     int opt;
 
-    // reset optind and flags
     optind = 0;
-    debug_flag = 0;
-    gpu_flag = 0;
-
-    free(gdb_backend);
-    gdb_backend = nullptr;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -878,6 +686,14 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     //
     // This will permute the non-option stuff to the end, so parse that stuff
     // last.
+    
+    int debug_flag = 0;
+    int gpu_flag = 0;
+    const struct option attach_long_opts[] = {
+        {"gpu", no_argument, &gpu_flag, 1},
+        {"debug", no_argument, &debug_flag, 1},
+        {0, 0, 0, 0}
+    };
 
     while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
            -1) {
@@ -962,7 +778,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    if (!DoAttach(proto, sess, ps, app_ident, arch, backend)) {
+    if (!DoAttach(proto, sess, ps, app_ident, arch, backend, gpu_flag, debug_flag)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);
@@ -982,7 +798,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 */
 static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                     const char *app_ident, const char *arch,
-                    const char *backend) {
+                    const char *backend, bool gpu_flag, bool debug_flag) {
     dbginvoke_t *di;
     dbgframe_t *fp;
     rec_set_t *rec_set;
@@ -1128,12 +944,6 @@ void PrintHaltedLocationSet(char *setname, const Bitset *group, dbgloc_t *loc) {
                             loc->loc_func);
     }
 }
-
-// Non-stop mode must generally be enable before the process is running,
-// thus it is managed as a launch time option.  
-void SetLaunchNonStopMode(bool isNonStop) { non_stop_mode = isNonStop; }
-bool GetLaunchNonStopMode() { return non_stop_mode; }
-
 
 static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e;
@@ -1294,6 +1104,156 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
     FreeProcSet(p);
 }
 
+static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+    // run [$procset] [--keep]
+    //
+    // re-launch procsets and release the old job(s). if no procset is 
+    // supplied, default to the procset currently in focus. if --keep 
+    // is supplied, don't release the old procset.
+    //
+    // this command also tries to be an alias for/point the user to the
+    // launch command, since it is most likely the first thing a new
+    // user will try.
+    const auto tryDeferToLaunch = [recSet, argc, argv](std::string origError) {
+        // if args are valid for a launch, defer to launch.
+        try {
+            // throws if args are malformed
+            auto args = dbginvoke::LaunchOpts(argc, argv, Client);
+            return DoLaunch(std::move(args)) ? 1 : 0;
+        } catch (const std::runtime_error& e) { 
+            // if the user is trying to use the run command to start a program,
+            // they probably didn't provide a properly formed procset name ($a{n}),
+            // so we infer one from the binary name
+            try {
+                auto newArgv = ArgvStream("$tmp", argv);
+                // throws on error
+                auto args = dbginvoke::LaunchOpts(newArgv.argc(), newArgv.c_strs().data(), Client);
+                // success, now change the procset name
+                using namespace std::string_literals;
+                args.procset_name = 
+                    "$"s + std::string{std::filesystem::path{args.app_argv[0]}.filename()};
+                // the expr parser doesn't like procset names with dots (.) in them
+                std::replace(args.procset_name.begin(), args.procset_name.end(), '.', '_');
+                if (DoLaunch(std::move(args))) {
+                    PrintOutMsg("To launch with more than one rank, use the \"launch\" command.\n");
+                    return 1;
+                } else {
+                    return 0;
+                }
+            } catch (std::runtime_error& e) {
+                PrintOutError("Error: %s\n", origError.c_str());
+                PrintOutError("Usage: run [$procset] [--keep]\n");
+                if (!recSet) {
+                    PrintOutMsg("Use the \"launch\" or \"attach\" commands to start debugging an application.\n");
+                }
+                return 0;
+            }
+        }
+    };
+
+    // parse arguments
+    dbgprocset_t* explProcset = nullptr; // explicit procset
+    bool keepFlag = false;               // --keep
+
+    for (int i = 1; i < argc; i++) {
+        auto argView = std::string_view(argv[i]);
+        if (!explProcset && argView.size() >= 2 && argView.front() == '$') {
+            // $procset
+            // procset names are stored without the leading $
+            argView = argView.substr(1);
+            explProcset = FindProcSet(&argView.front());
+            if (!explProcset) {
+                using namespace std::string_literals;
+                return tryDeferToLaunch("No procset with the name $"s + std::string{argView} + ".");
+            }
+        } else if (!keepFlag && argView == "--keep") {
+            keepFlag = true;
+        } else {
+            // unknown arg
+            using namespace std::string_literals;
+            return tryDeferToLaunch("Malformed argument: \""s + std::string{argView} + "\"");
+        }
+    }
+
+    if (!explProcset) {
+        // if no procset given, default to current
+        explProcset = CurrentProcSet();
+    }
+
+    if (!explProcset) {
+        PrintOutError("Error: couldn't find a procset.\n");
+        return 0;
+    }
+
+    if (!keepFlag) {
+        using namespace std::string_literals;
+        const auto YES = cli_query_default::YES;
+        const auto NO = cli_query_default::NO;
+
+        auto prompt = "Re-launch $"s + explProcset->s_name + "? Original will be released.";
+        if (!cli_query(prompt.c_str(), NO, YES)) {
+            PrintOutMsg("Cancelled.\n");
+            return 1;
+        }
+    }
+
+    if (!DoRelaunch(explProcset, keepFlag)) {
+        PrintOutError("Relaunch failed!\n");
+        return 0;
+    }
+
+    return 1;
+}
+
+static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+    bool onlyReset = (argc == 1);
+
+    // collect dis to modify
+    auto dis = std::set<dbginvoke_t*, dbginvokeMapper>{};
+    for (const auto* rec : recSet) {
+        dis.insert(rec->rec_di);
+    }
+
+    // set args
+    for (auto* di : dis) {
+        // remember argv[0]
+        auto argv0 = di->d_launch.run_argv[0];
+        di->d_launch.run_argv.clear();
+        di->d_launch.run_argv << argv0;
+        if (!onlyReset) {
+            for (int i = 1 /* because argv[0] == "args" */; i < argc; i++) {
+                // the command layer above will correctly parse quoted
+                // multi-word strings as a single entry in argv, but will pass
+                // them down to this layer with the quotes still there.
+                // ArgvStream has its own way to handle multi-word
+                // strings, so we chop off the existing quotes from the input.
+                std::string_view window(argv[i]);
+                if (window.size() > 1 && window.front() == '"' && window.back() == '"') {
+                    window = window.substr(1, window.size() - 2);
+                }
+                di->d_launch.run_argv << window;
+            }
+        }
+    }
+
+    if (onlyReset) {
+        PrintOutMsg("Arguments reset.\n");
+    }
+
+    return 1;
+}
+
+static int show_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+    for (const auto* rec : recSet) {
+        const auto& dargv = rec->rec_di->d_launch.run_argv;
+        // start printing args from argv[1]
+        PrintMsgWithSetInfo(rec->rec_di->d_handle, rec->rec_group.get(), 
+            "\"%s\"\n", dargv.asString(1).c_str());
+    }
+            
+    return 1;
+}
+
 // external exposure
 void EndAll(void) {
     dbgprocset_t *ps;
@@ -1329,5 +1289,13 @@ void InitCmd_proc(void) {
                "Release attached/launched application from debugger control.");
     AddCommand("kill", NULL, proc_ignore, 0, cmd_kill_cmd,
                cmd_kill_help, "Kill attached/launched application.");
+    AddCommand("run", NULL, proc_optional, 0, cmd_run_cmd,
+               cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
+
+    // set/show commands
+    AddSetCommand("args", proc_required, 0, set_subcmd_args_cmd,
+               set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
+    AddShowCommand("args", proc_required, 0, show_subcmd_args_cmd,
+               show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
 }
 

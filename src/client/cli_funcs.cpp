@@ -898,7 +898,7 @@ void XMLAddStatus(char **status_block, char *set, dbgstat stat,
     *status_block = new_status_block;
 }
 
-void XMLPrintRemovedMsg(char *set_name) {
+void XMLPrintRemovedMsg(const char *set_name) {
     char *removed_str = NULL;
 
     if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL) return;

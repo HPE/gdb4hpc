@@ -656,7 +656,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             expression << bpset.watchExpression() << bpThread;
 
                             printTableEntry(recv_ptr->rec_di->d_handle, 
-                                enabled_group.get(), std::to_string(bpset.id()), 
+                                disabled_group.get(), std::to_string(bpset.id()), 
                                 BPTypeToStr(bpset.type()), 
                                 BPDispToStr(disp_set.disp), 
                                 "n", expression.str());
@@ -696,7 +696,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
                                 printTableEntry(recv_ptr->rec_di->d_handle, 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
+                                    disabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 
                                     "n", location.str());
@@ -728,7 +728,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                          << bpset.file() << ":" << bpset.line() << bpThread;
                                 
                                 printTableEntry(recv_ptr->rec_di->d_handle, 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
+                                    disabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 
                                     "n", location.str());
@@ -757,7 +757,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << bpThread;
                                 
                                 printTableEntry(recv_ptr->rec_di->d_handle, 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
+                                    disabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 
                                     "n", location.str());

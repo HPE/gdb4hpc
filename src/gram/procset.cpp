@@ -150,6 +150,18 @@ void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg
     }
 }
 
+dbginvoke_t* getFirstDbgInvoke(const dbgprocset_t& procset) {
+    // XXX: procset parameter should be treated as const, but c-style list
+    //      manipulators are technically not const (changing iterator pointers etc)
+    auto& rawProcset = const_cast<dbgprocset_t&>(procset);
+    SetOverlaySetForProcSet(&rawProcset);
+    if (auto* oSet = GetNextOverlaySetForProcSet(&rawProcset)) {
+        return oSet->s_di;
+    } else {
+        return nullptr;
+    }
+}
+
 /*
 ** Create a temporary process set from a slice
 */

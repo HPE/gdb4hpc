@@ -221,6 +221,6 @@ extern void XMLPrintStatusBlock(char *status_block);
 // Used to print out when a graph has been started
 extern void XMLPrintStartGraphMsg(const char *set_name, const char *set_str);
 // Used to print out when a process set has been removed
-extern void XMLPrintRemovedMsg(char *set_name);
+extern void XMLPrintRemovedMsg(const char *set_name);
 
 #endif /* _CLI_FUNCS_H */

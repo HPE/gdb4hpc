@@ -15,6 +15,7 @@
 #define _CLIENT_SETTINGS_H
 
 #include "cli_funcs.h"
+#include "dbgclnt_settings.h"
 
 enum class PendingBrkType {
     Auto,
@@ -25,7 +26,7 @@ enum class PendingBrkType {
 
 // This is the global settings object definition
 // All settings should go here. If you find any that are missing, add them!
-struct clnt_settings {
+struct clnt_settings : public ClientSettingsInterface {
     int confirm;                /* Confirm dangerous commands */
     int quit;                   /* Quit the debugger? */
     int interactive;            /* Interactive mode? */
@@ -34,6 +35,7 @@ struct clnt_settings {
     bool keep_going;            /* Ignore errors in batch mode? */
     int unsafe;                 /* Be unsafe? */
     int early_entry;            /* Enter at pmi_init? */
+    int non_stop;               /* Launch applications in non stop mode? */
     int print_entry_frame;      /* Print frame locations at startup? */
     bool print_bp_frames;       /* Print breakpoint frames as they are hit? */
     int print_source_on_step;   /* Print line after each step? */
@@ -56,6 +58,14 @@ struct clnt_settings {
     double cmp_lower_eps;         /* Lower eps limit */
     double cmp_upper_eps;         /* upper eps limit */
     PendingBrkType brk_pending; /* pending breakpoint mode */
+
+    // methods for ClientSettingsInterface base class
+    std::string getProto() override { return proto; }
+    std::string getArch() override { return arch; }
+    std::string getBackend() override { return backend; }
+    bool isUnsafe() override { return static_cast<bool>(unsafe); }
+    bool isEarlyEntry() override { return static_cast<bool>(early_entry); }
+    bool isNonStop() override { return static_cast<bool>(non_stop); }
 };
 typedef struct clnt_settings clnt_settings_t;
 

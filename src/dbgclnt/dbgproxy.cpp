@@ -509,7 +509,7 @@ char *AttachArgsToSocProto(const char *app_ident, const char *arch,
 char *LaunchArgsToSocProto(const char *prog, const char * const *argv, int nproc,
                            const char *arch, const char * const *arch_args,
                            const char *arch_input, const char *backend, const char* gdb,
-                           char **env, const char *cwd, int gpu_flag,
+                           const char* const *env, const char *cwd, int gpu_flag,
                            int debug_flag, int non_mpi_flag, int early_entry_flag,
                            bool isNonStop) {
     char *stres = NULL;

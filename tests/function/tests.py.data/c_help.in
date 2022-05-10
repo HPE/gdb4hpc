@@ -35,6 +35,7 @@ ptype           Print definition of a type.
 quit            Exit the debugger.
 release         Release attached/launched application from debugger control.
 restart         Restore program to state of previously created checkpoint.
+run             Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.
 session         Create a new WLM session.
 set             Set information about the debugger environment.
 show            Show information about the debugger environment.

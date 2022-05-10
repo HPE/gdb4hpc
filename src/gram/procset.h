@@ -105,5 +105,6 @@ std::string GetProcSetString(const char* setName, const Bitset* group, const cha
 std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
 // apply fn to each overlay set in procset
 void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn);
+dbginvoke_t* getFirstDbgInvoke(const dbgprocset_t& procset);
 
 #endif /* !_PROCSET_H */

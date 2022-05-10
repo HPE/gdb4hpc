@@ -1406,7 +1406,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
                           const char *prog, const char * const *argv, const char *arch,
                           const char * const *arch_args, const char *arch_input,
-                          const char *backend, const char* gdb,  char **env, const char *cwd,
+                          const char *backend, const char* gdb, const char * const *env, const char *cwd,
                           int gpu_flag, int debug_flag, int non_mpi_flag,
                           int early_entry_flag, bool isNonStop) {
     proxy_session *sess;

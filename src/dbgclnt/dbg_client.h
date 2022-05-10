@@ -337,10 +337,7 @@ extern proto_session *DbgGetSession(void);
 extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
                               const char *, const char *, const char *, int,
                               int);
-extern dbginvoke_t *DbgLaunch(const char *, proto_session *, const char *,
-                              const char * const *, const char *, int, const char *, const char * const *,
-                              const char *, const char *, const char*, char **, const char *,
-                              int, int, int, int, int, bool);
+extern dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& args);
 
 extern rep_set_t *DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than
@@ -368,7 +365,7 @@ extern rep_set_t *DbgGo(rec_set_t *, bool all);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgFinishFunc(rec_set_t *);
 extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, const char *, int, const char*);
-extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, char *, char *, const char*);
+extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, const char *, const char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
 extern rep_set_t *DbgSetCheckpoint(rec_set_t* recSet);

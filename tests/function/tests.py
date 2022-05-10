@@ -90,10 +90,10 @@ indeterminate = False
 verbose = False
 
 # regular expressions for types of gdb4hpc output
-is_procset_re = re.compile(r"^([a-z]+){([^:}]+)((:[0-9 -]+)?)}:(.*)")
+is_procset_re = re.compile(r"^([a-z0-9_]+){([^:}]+)((:[0-9 -]+)?)}:(.*)")
 is_batch_re = re.compile(r"^\d+:(.*)")
-is_prog_out_re = re.compile(r"^<\$[a-z]+>:(.*)")
-interrupted_proc_out_re = re.compile(r"^<\$[a-z]+>:.*([ab]{[0-9.:]+}: Breakpoint .*)")
+is_prog_out_re = re.compile(r"^<\$[a-z0-9_]+>:(.*)")
+interrupted_proc_out_re = re.compile(r"^<\$[a-z0-9_]+>:.*([ab]{[0-9.:]+}: Breakpoint .*)")
 command_error_re = re.compile(r"^(Command resulted in an error: )\d+: (.*)")
 
 # regular expressions for anonymizing gdb4hpc output (currently fortan code
@@ -280,6 +280,10 @@ def compare_files(ref_file_path, out_file_path):
             orig_outline = outline.rstrip()
             outline = anonymize_line(orig_outline)
 
+            # notice app launches
+            if outline == "Starting application, please wait...":
+                launching = True
+
             # input line for the batch file
             out_batch_line = is_batch(outline)
             if out_batch_line != None:
@@ -291,16 +295,12 @@ def compare_files(ref_file_path, out_file_path):
                 global indeterminate; indeterminate = False
                 if refline == None:
                     return error("extra output", outline_num, orig_outline)
-
-                print(out_batch_line)
-                if out_batch_line.startswith(" launch"): # out_batch_line returns with a leading space
-                    launching = True
-                
+    
                 cmp = compare_batch_lines(refline, out_batch_line)
                 if cmp:
                     return error(cmp, outline_num, orig_outline)
                 continue
-
+            
             if launching:
                 # mrnet and zmqnet output differ, so ignore launch output 
                 # until "Launch complete." or another command (checked above)
@@ -582,7 +582,7 @@ class c_commnode_fanout(Gdb4hpcTest):
         os.mkdir(self.getLogDir())
 
     def test(self):
-        if self.proto != None and self.proto != "mrnet":
+        if self.proto == None or self.proto != "mrnet":
             self.cancel("Only applicable to mrnet")
 
         # set fanout env variable to force invocation of mrnet_commnode
@@ -841,3 +841,8 @@ class c_checkpoint2(Gdb4hpcTest):
 class rocmGpu(Gdb4hpcTest):
     def test(self):
         runGpuTest(self, "rocm")
+
+class c_run(Gdb4hpcTest):
+    def test(self):
+        runTest(self)
+

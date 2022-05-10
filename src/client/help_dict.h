@@ -39,6 +39,7 @@ extern const char* const cmd_frame_help[];
 extern const char* const cmd_halt_help[];
 extern const char* const cmd_help_help[];
 extern const char* const cmd_launch_help[];
+extern const char* const cmd_run_help[];
 extern const char* const cmd_kill_help[];
 extern const char* const cmd_list_help[];
 extern const char* const cmd_next_help[];
@@ -123,6 +124,7 @@ extern const char* const class_set_subcmd_environment_help[];
 extern const char* const class_set_subcmd_function_help[];
 extern const char* const class_set_subcmd_scheduler_locking_help[];
 extern const char* const class_set_subcmd_non_stop_help[];
+extern const char* const set_subcmd_args_help[];
 
 /*
  * Class set print subcommands
@@ -153,6 +155,7 @@ extern const char* const class_show_subcmd_environment_help[];
 extern const char* const class_show_subcmd_version_help[];
 extern const char* const class_show_subcmd_scheduler_locking_help[];
 extern const char* const class_show_subcmd_non_stop_help[];
+extern const char* const show_subcmd_args_help[];
 
 /*
  * Class show print subcommands

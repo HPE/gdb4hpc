@@ -23,28 +23,33 @@
 #include <algorithm>
 #include <type_traits>
 #include <climits>
+#include <iomanip>
 
 class ArgvStream {
 public:
     // declared to suppress warning when using variadic argument constructor with no args
     ArgvStream() = default;
-    
+   
     template <typename... Args>
     ArgvStream(Args&&... args) { (*this << ... << args); };
 
     // returns a vector of const char *, passable to cti and others by calling .data()
     // on the resulting vector
-    const std::vector<const char *> c_strs() const {
+    const std::vector<const char *> c_strs(size_t start) const {
         std::vector<const char *> c_strs;
-        std::transform(m_argv.begin(), m_argv.end(), 
+        std::transform(m_argv.begin() + start, m_argv.end(), 
             std::back_inserter(c_strs), [](const std::string &s){return s.c_str();});
         c_strs.push_back(nullptr);
         return c_strs;
     };
 
+    const std::vector<const char*> c_strs() const {
+        return c_strs(0);
+    }
+
     // parses a string as a list of arguments separated by spaces and adds them
     // to the current list of arguments
-    void parseAndAppendArgs(const std::string args) {
+    void parseAndAppendArgs(const std::string_view& args) {
         std::stringstream arg;
 
         for (size_t i = 0; i < args.size(); i++) {
@@ -84,13 +89,18 @@ public:
         }
     }
 
-    // returns arguments separated by spaces as a string
+    // returns arguments separated by spaces as a string. if a stored argument
+    // contains spaces, it will be surrounded with double quotes.
     std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX) const {
         std::stringstream ss;
         std::string space = "";
 
         for (size_t i = start; i < m_argv.size() && stop_after > 0; i++, stop_after--) {
-            ss << space << m_argv[i];
+            if (std::string_view(m_argv[i]).find(' ') != std::string::npos) {
+                ss << space << std::quoted(m_argv[i]);
+            } else {
+                ss << space << m_argv[i];
+            }
             space = " ";
         }
 
@@ -119,8 +129,13 @@ public:
         return *this;
     }
 
-    ArgvStream& operator<<(const std::string &str) {
+    ArgvStream& operator<<(std::string str) {
         m_argv.push_back(str);
+        return *this;
+    }
+
+    ArgvStream& operator<<(const std::string_view &view) {
+        m_argv.push_back(std::string{view});
         return *this;
     }
 

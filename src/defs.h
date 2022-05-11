@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -12,9 +12,12 @@
  * in any form.
  *
  *********************************************************************************/
+#pragma once
 
-#ifndef _DEFS_H
-#define _DEFS_H
+#include "config.h"
+
+// determine default protocol
+#if GDB4HPC_ARCH == GDB4HPC_ARCH_X86_64
 
 #ifdef ZMQNET
 #define DBG_PROTO "zmqnet"
@@ -23,6 +26,20 @@
 #else
 #define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
 #endif
+
+#else
+
+// aarch64 + anything else
+
+#ifdef MRNET
+#define DBG_PROTO "mrnet"
+#elif ZMQNET
+#define DBG_PROTO "zmqnet"
+#else
+#define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
+#endif
+
+#endif // GDB4HPC_ARCH == x86_86
 
 // I don't think this is used anymore - pretty sure it related to the old
 // starter architecture.
@@ -113,4 +130,3 @@ typedef double DOUBLEST;
 #define MAXADDRLEN 15
 #define MAXADDRLEN_FMT "15"
 
-#endif /* !_DEFS_H */

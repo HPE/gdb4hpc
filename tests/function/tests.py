@@ -478,7 +478,7 @@ def runGpuTest(test, gpu):
     hostname = os.environ.get("HOSTNAME")
     gpuScript = "./tests.py.data/" + gpu + "/" + hostname + ".sh"
     if not os.path.exists(gpuScript):
-        self.cancel("No " + gpuScript + " script")
+        test.cancel("No " + gpuScript + " script")
 
     substitutions = {}
     testName = test.__class__.__name__
@@ -502,8 +502,8 @@ class Gdb4hpcTest(Test):
             # aarch64 machines are too slow to run all tests.
             # if we're on an aarch64 machine, only run default tests
             arch = platform.uname()[5] # .processor
-            # zmqnet is default
-            if self.proto != "zmqnet" and arch == "aarch64":
+            # mrnet is default on aarch64
+            if self.proto != "mrnet" and arch == "aarch64":
                 self.cancel("Skipping non-default proto on aarch machine.")
         else:
             print(f"No proto param") # use gdb4hpc default

@@ -32,6 +32,22 @@ cray_INIT
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 #############################
+###  Define architecture  ###
+#############################
+AC_CANONICAL_HOST
+
+AC_DEFINE([GDB4HPC_ARCH_X86_64], [1], [Architecture value])
+AC_DEFINE([GDB4HPC_ARCH_AARCH64], [2], [Architecture value])
+AC_DEFINE([GDB4HPC_ARCH_UNKNOWN], [3], [Architecture value])
+
+AS_CASE([$host_cpu],
+	[x86_64],  [AC_DEFINE([GDB4HPC_ARCH], [GDB4HPC_ARCH_X86_64], [Architecture])],
+	[aarch64], [AC_DEFINE([GDB4HPC_ARCH], [GDB4HPC_ARCH_AARCH64], [Architecture])],
+	# default
+	           [AC_DEFINE([GDB4HPC_ARCH], [GDB4HPC_ARCH_UNKNOWN], [Architecture])]
+)
+
+#############################
 ### Check for --with tags ###
 #############################
 

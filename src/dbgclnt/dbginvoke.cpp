@@ -221,9 +221,9 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
         cwd = binary_path.parent_path();
     }
 
-    gpu_flag = gpu_flag;
-    debug_flag = debug_flag;
-    non_mpi_flag = non_mpi_flag;
+    this->gpu_flag = gpu_flag;
+    this->debug_flag = debug_flag;
+    this->non_mpi_flag = non_mpi_flag;
     run_argv = app_argv;
 
     non_stop_flag = csi.isNonStop();

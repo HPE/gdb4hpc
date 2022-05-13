@@ -404,8 +404,8 @@ def makeRunFile(test, substitutions = ()):
     if launch_args:
         launch_args = '--launcher-args="' + launch_args + '" '
 
-    if socket.gethostname()[0:5] == 'cfa6k':
-        launch_args = launch_args + non_mpi_arg
+    #if socket.gethostname()[0:5] == 'cfa6k':
+    #    launch_args = launch_args + non_mpi_arg
 
     if launch_args:
         launch_re = re.compile(r"(launch [^}]+} *)")

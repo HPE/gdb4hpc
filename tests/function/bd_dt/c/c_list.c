@@ -2,11 +2,18 @@
 
 #include <stdio.h>
 #include "mpi.h"
-
+static void printIt();
 int main(int argc, char *argv[]) {
 	MPI_Init(&argc, &argv);
 
-	for (int i=0; i<3; i++) {
+    printIt();
+
+	MPI_Finalize();
+}
+
+static void printIt()
+{
+    for (int i=0; i<3; i++) {
 		for (int j=0; j<i; j++) {
 			int foo	=	j;
 			foo		+=	i;
@@ -15,6 +22,5 @@ int main(int argc, char *argv[]) {
 				end comment
 		}
 	}
-
-	MPI_Finalize();
 }
+

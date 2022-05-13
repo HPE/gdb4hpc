@@ -7,21 +7,21 @@ Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [1];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:7
-3: break 9
-a{0}: Breakpoint 1: file /bd_dt/c/c_list.c, line 9.
+a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:%(7|9)%
+3: break printIt
+a{0}: Breakpoint 1: file /bd_dt/c/c_list.c, line 16.
 4: c
-a{0}: Breakpoint 1, main at /bd_dt/c/c_list.c:9
+a{0}: Breakpoint 1, printIt at /bd_dt/c/c_list.c:16
 5: list
-a{0}: 9    		for (int i=0; i<3; i++) {
-a{0}: 10   			for (int j=0; j<i; j++) {
-a{0}: 11   				int foo	=	j;
-a{0}: 12   				foo		+=	i;
-a{0}: 13   				// try to be as nasty as possible with backslashes...
-a{0}: 14   				printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
-a{0}: 15   					end comment
-a{0}: 16   			}
-a{0}: 17   		}
-a{0}: 18   	
+a{0}: 16   	    for (int i=0; i<3; i++) {
+a{0}: 17   			for (int j=0; j<i; j++) {
+a{0}: 18   				int foo	=	j;
+a{0}: 19   				foo		+=	i;
+a{0}: 20   				// try to be as nasty as possible with backslashes...
+a{0}: 21   				printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
+a{0}: 22   					end comment
+a{0}: 23   			}
+a{0}: 24   		}
+a{0}: 25   	}
 6: q
 Shutting down debugger and killing application for 'a'.

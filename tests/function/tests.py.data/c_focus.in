@@ -8,23 +8,23 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:55
+a{0..2}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:%(55|140)%
 20: maint set sync on
 20: # ensure breakpoints with the same backend ids are differentiated on the frontend
 20: focus $a{0}
-20: break 120
-a{0}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 120.
+20: break 160
+a{0}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 160.
 20: focus $a{1}
-20: break 125
-a{1}: Breakpoint 2: file /bd_dt/c/c_type_test.c, line 125.
+20: break 165
+a{1}: Breakpoint 2: file /bd_dt/c/c_type_test.c, line 165.
 20: focus $a{2}
-20: break 130
-a{2}: Breakpoint 3: file /bd_dt/c/c_type_test.c, line 130.
+20: break 170
+a{2}: Breakpoint 3: file /bd_dt/c/c_type_test.c, line 170.
 20: focus $all
 20: continue
-a{2}: Breakpoint 3, main at /bd_dt/c/c_type_test.c:130
-a{1}: Breakpoint 2, main at /bd_dt/c/c_type_test.c:125
-a{0}: Breakpoint 1, main at /bd_dt/c/c_type_test.c:120
+a{2}: Breakpoint 3, main at /bd_dt/c/c_type_test.c:170
+a{1}: Breakpoint 2, main at /bd_dt/c/c_type_test.c:165
+a{0}: Breakpoint 1, main at /bd_dt/c/c_type_test.c:160
 22: launch $b{3}   bd_dt/c/c_type_test.x --debug
 Starting application, please wait...
 Creating MRNet communication network...
@@ -35,7 +35,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:55
+b{0..2}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:%(55|140)%
 25: # Set a breakpoint at specified line numbers:
 26: break c_type_test.c:193
 a{0..2}: Breakpoint 4: file /bd_dt/c/c_type_test.c, line 193.

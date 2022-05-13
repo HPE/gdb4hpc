@@ -131,7 +131,7 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
                     // convert to absolute path
                     try {
                         // throws if directory doesn't exist
-                        cwd = std::filesystem::canonical(optarg);
+                        cwd = std::filesystem::canonical(withoutQuotes(optarg));
                         if (!std::filesystem::is_directory(cwd)) {
                             throw std::runtime_error(cwd + " is not a directory.");
                         }

@@ -16,21 +16,6 @@
 
 #include "config.h"
 
-// determine default protocol
-#if GDB4HPC_ARCH == GDB4HPC_ARCH_X86_64
-
-#ifdef ZMQNET
-#define DBG_PROTO "zmqnet"
-#elif MRNET
-#define DBG_PROTO "mrnet"
-#else
-#define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
-#endif
-
-#else
-
-// aarch64 + anything else
-
 #ifdef MRNET
 #define DBG_PROTO "mrnet"
 #elif ZMQNET
@@ -38,8 +23,6 @@
 #else
 #define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
 #endif
-
-#endif // GDB4HPC_ARCH == x86_86
 
 // I don't think this is used anymore - pretty sure it related to the old
 // starter architecture.

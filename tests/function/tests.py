@@ -49,27 +49,40 @@ import os
 import socket
 import platform
 
-#os.environ["CDST_TESTS_LAUNCHER_ARGS"] = "--exclusive"
-
 try:
     from cdst_test.useful import detect_wlm
     import cdst_test.useful as useful
     from cdst_test.textcheck import make_regex
+    import cdst_test.modules as mods
 except ModuleNotFoundError:
     sys.path.insert(0, os.getcwd() + "/cdst-test")
     from cdst_test.useful import detect_wlm
     import cdst_test.useful as useful
     from cdst_test.textcheck import make_regex
+    import cdst_test.modules as mods 
 
 import subprocess
 import os
 import time
 import re
 
-# The current (as recent as craype 2.7.12.1) ftn compiler's fortran debug info
-# is half-broken and missing variables in certain places. Until that is fixed,
-# we'll just skip tests affected by it.
-SKIP_FORTRAN_TESTS = True
+SKIP_FORTRAN_TESTS = None
+def should_skip_fortran_tests():
+    # The current (as recent as cce 14.0.0.1) ftn compiler's fortran debug info
+    # is half-broken and missing variables in certain places. Until that is fixed,
+    # we'll just skip tests affected by it.
+    global SKIP_FORTRAN_TESTS
+    if SKIP_FORTRAN_TESTS is not None:
+        return SKIP_FORTRAN_TESTS
+    loaded = mods.list("cce")
+    if "cce/14.0.0" in loaded or "cce/14.0.0.1" in loaded or "cce/14.0.0.x" in loaded:
+        # broken versions
+        SKIP_FORTRAN_TESTS = True        
+    else:
+        # assume anything else has correct symbols
+        SKIP_FORTRAN_TESTS = False
+
+    return SKIP_FORTRAN_TESTS
 
 ######################################################
 # Functions for creating a script file and verifying
@@ -214,7 +227,7 @@ def compare_batch_lines(ref_line, out_line):
     if ref_batch_line == None:
         return "missing output"
 
-    if not compare_lines(ref_batch_line, out_line):
+    if not ref_batch_line == out_line:
         return "batch lines do not match"
 
     return None
@@ -475,7 +488,7 @@ def runTest(test):
 Specialized driver for running a gdb4hpc script with a gpu.
 '''
 def runGpuTest(test, gpu):
-    hostname = os.environ.get("HOSTNAME")
+    hostname = socket.gethostname() 
     gpuScript = "./tests.py.data/" + gpu + "/" + hostname + ".sh"
     if not os.path.exists(gpuScript):
         test.cancel("No " + gpuScript + " script")
@@ -484,6 +497,12 @@ def runGpuTest(test, gpu):
     testName = test.__class__.__name__
     runfile = makeRunFile(test, substitutions)
     outfile = getOut(test, testName)
+ 
+    try:
+        os.remove(outfile)
+    except FileNotFoundError as e:
+        # already gone
+        pass
 
     print([gpuScript, 'launch','gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
     subprocess.call([gpuScript, 'launch','gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
@@ -582,7 +601,8 @@ class c_commnode_fanout(Gdb4hpcTest):
         os.mkdir(self.getLogDir())
 
     def test(self):
-        if self.proto == None or self.proto != "mrnet":
+        # mrnet is default
+        if self.proto != None and self.proto != "mrnet":
             self.cancel("Only applicable to mrnet")
 
         # set fanout env variable to force invocation of mrnet_commnode
@@ -667,16 +687,20 @@ class lgdb_cpp_ds1(Gdb4hpcTest):
         
 class lgdb_ftn_t1(Gdb4hpcTest):
     def test(self):
+        if should_skip_fortran_tests():
+            self.cancel("Skipping test: broken ftn compiler")
         runTest(self)
         
 class lgdb_ftn_t2(Gdb4hpcTest):
     def test(self):
-        if SKIP_FORTRAN_TESTS:
-            self.cancel("Current Cray ftn compiler has broken debug symbols")
+        if should_skip_fortran_tests():
+            self.cancel("Skipping test: broken ftn compiler")
         runTest(self)
         
 class lgdb_ftn_t3(Gdb4hpcTest):
     def test(self):
+        if should_skip_fortran_tests():
+            self.cancel("Skipping test: broken ftn compiler")
         runTest(self)
         
 class assert_scalars(Gdb4hpcTest):
@@ -705,8 +729,6 @@ class assert_errors(Gdb4hpcTest):
         
 class ftn_arrays(Gdb4hpcTest):
     def test(self):
-        if SKIP_FORTRAN_TESTS:
-            self.cancel("Current Cray ftn compiler has broken debug symbols")
         runTest(self)
 
 class cpp_arrays_compare(Gdb4hpcTest):
@@ -719,8 +741,6 @@ class cpp_decomp(Gdb4hpcTest):
 
 class ftn_decomp(Gdb4hpcTest):
     def test(self):
-        if SKIP_FORTRAN_TESTS:
-            self.cancel("Current Cray ftn compiler has broken debug symbols")
         runTest(self)
 
 class cpp_decomp2(Gdb4hpcTest):

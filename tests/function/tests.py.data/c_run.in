@@ -45,7 +45,6 @@ Re-set breakpoint $a::1 as new breakpoint $a_2::1.
 Re-set breakpoint $a::2 as new breakpoint $a_2::2.
 Re-set breakpoint $a::3 as new breakpoint $a_2::3.
 Shutting down debugger and killing application for 'a'.
-Procset renamed: $a_2 changed to $a.
 17: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
@@ -92,7 +91,6 @@ Re-set breakpoint $a::2 as new breakpoint $a_3::2.
 Re-set breakpoint $a::3 as new breakpoint $a_3::3.
 Re-set breakpoint $a::4 as new breakpoint $a_3::4.
 Shutting down debugger and killing application for 'a'.
-Procset renamed: $a_3 changed to $a.
 32: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
@@ -160,7 +158,6 @@ Re-set breakpoint $a::2 as new breakpoint $a_5::2.
 Re-set breakpoint $a::3 as new breakpoint $a_5::3.
 Re-set breakpoint $a::4 as new breakpoint $a_5::4.
 Shutting down debugger and killing application for 'a'.
-Procset renamed: $a_5 changed to $a.
 Creating new procset $a_4_2...
 Starting application, please wait...
 Launched application...
@@ -174,7 +171,6 @@ Re-set breakpoint $a_4::2 as new breakpoint $a_4_2::2.
 Re-set breakpoint $a_4::3 as new breakpoint $a_4_2::3.
 Re-set breakpoint $a_4::4 as new breakpoint $a_4_2::4.
 Shutting down debugger and killing application for 'a_4'.
-Procset renamed: $a_4_2 changed to $a_4.
 48: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13

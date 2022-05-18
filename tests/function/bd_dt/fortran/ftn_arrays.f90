@@ -82,7 +82,7 @@ program ftn_arrays
       long_1(i) = 2*i+1
       float_1(i) = 2*i+1
       double_1(i) = 2*i+1
-      complex_1(i) = CMPLX(1.1*i, 2.1*j+1)
+      complex_1(i) = CMPLX(1.1*i, 2.1*i+1)
    end forall
 
    bool_1 = .FALSE.  

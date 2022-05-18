@@ -1,108 +1,89 @@
-1: #
-2: # lgdb_ftn_t1.rc script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
-10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
-11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
-12: # $Rev: 1 $
-13: # $Author: kdavis $
-14: #
-15: # This source file tests lgdb's  compare command for source code in fortran.
-16: # All results should be FAILURE.
-17: maint set sync on
-18: # launch 2 applications in lgdb
-19: launch $a{3}  bd_dt/fortran/ftn_bd_dt.x --debug
+1: # This source file tests gdb4hpc compare command for source code in fortran.
+2: # All results should be FAILURE.
+3: maint set sync on
+4: # launch 2 applications in lgdb
+5: launch $a{3} bd_dt/fortran/ftn_bd_dt.x --debug
 Starting application, please wait...
-Creating MRNet communication network...
-Waiting for debug servers to attach to MRNet communications network...
-Timeout in 400 seconds. Please wait for the attach to complete.
-Number of dbgsrvs connected: [0];  Timeout Counter: [1]
-Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [3];  Timeout Counter: [0]
-Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
-20: break ftn_bd_dt.f90:64
-a{0..2}: Breakpoint 1: file ftn_bd_dt.f90, line 64.
-21: launch $b{3}  bd_dt/fortran/ftn_cmp_diff.x --debug
+a{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:1
+6: break ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_bd_dt.f90, line 64.
+7: launch $b{3} bd_dt/fortran/ftn_cmp_diff.x --debug
 Starting application, please wait...
-Creating MRNet communication network...
-Waiting for debug servers to attach to MRNet communications network...
-Timeout in 400 seconds. Please wait for the attach to complete.
-Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [3];  Timeout Counter: [0]
-Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, ftn_dt at ftn_cmp_diff.f90:1
-22: focus $b
-23: # Set a breakpoint at specified line number:
-24: break ftn_cmp_diff.f90:64
-b{0..2}: Breakpoint 1: file ftn_cmp_diff.f90, line 64.
-25: focus $all
-26: # Run to breakpoint 1:
-27: continue
-a{0..2}: Breakpoint 1, ftn_dt at ftn_bd_dt.f90:64
-b{0..2}: Breakpoint 1, ftn_dt at ftn_cmp_diff.f90:64
-28: # run compare commands on all datatypes
-29: #logical
-30: print tf
+b{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_cmp_diff.f90:1
+8: focus $b
+9: # Set a breakpoint at specified line number:
+10: break ftn_cmp_diff.f90:64
+b{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_cmp_diff.f90, line 64.
+11: focus $all
+12: # Run to breakpoint 1:
+13: continue
+b{0..2}: Breakpoint 1, ftn_dt at /bd_dt/fortran/ftn_cmp_diff.f90:64
+a{0..2}: Breakpoint 1, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:64
+14: # run compare commands on all datatypes
+15: #logical
+16: print tf
 a{0..2}: .TRUE.
 b{0..2}: .FALSE.
-31: compare $a{0}::tf=$b{0}::tf
+17: compare $a{0}::tf=$b{0}::tf
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1
-32: #integer
-33: print x
+18: #integer
+19: print x
 a{0..2}: 1
 b{0..2}: 5
-34: compare $a{0}::x=$b{0}::x
+20: compare $a{0}::x=$b{0}::x
 {0}: Comparison is false.
 The difference delta is:
 {0}: 4
-35: #character - dissabled for now as compare on string doesnt work in lgdb 
-36: #print l
-37: #compare $a{0}::l=$b{0}::l
-38: #real
-39: print e
+21: #character
+22: print l
+a{0..2}: 116 't'
+b{0..2}: 107 'k'
+23: compare $a{0}::l=$b{0}::l
+{0}: Comparison is false.
+The difference delta is:
+{0}: -9
+24: #real
+25: print e
 a{0..2}: 30.32
 b{0..2}: 1501.2
-40: compare $a{0}::e=$b{0}::e
+26: compare $a{0}::e=$b{0}::e
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1470.88
-41: #character*7 - dissabled for now as compare on string doesnt work in lgdb
-42: #print word
-43: #compare $a{0}::word=$b{0}::word
-44: #complex
-45: print r
+27: #character*7
+28: print word
+a{0..2}: 'Testing'
+b{0..2}: 'Error'
+29: compare $a{0}::word=$b{0}::word
+{0}: Comparison is false.
+The difference delta is:
+{0}: Testing vs Error
+30: #complex
+31: print r
 a{0..2}: (327.67,-0.0065)
 b{0..2}: (5.229,-4.78)
-46: compare $a{0}::r=$b{0}::r
+32: compare $a{0}::r=$b{0}::r
 {0}: Comparison is false.
 The difference delta is:
 {0}: [0]:-322.441
 [1]:-4.7735
-47: #real*8 -> double float
-48: print df
+33: #real*8 -> double float
+34: print df
 a{0..2}: 1
 b{0..2}: 1.02
-49: compare $a{0}::df=$b{0}::df
+35: compare $a{0}::df=$b{0}::df
 {0}: Comparison is false.
 The difference delta is:
 {0}: 0.02
-50: #int array
-51: print m
+36: #int array
+37: print m
 a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 b{0..2}: (2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
-52: compare $a{0}::m=$b{0}::m
+38: compare $a{0}::m=$b{0}::m
 {0}: Comparison is false.
 The difference delta is:
 {0}: (1):1
@@ -115,10 +96,15 @@ The difference delta is:
 (8):1
 (9):1
 (10):1
-53: #struct object data member of type character*4 - dissabled for now as compare on string doesnt work in lgdb
-54: #print myself.name
-55: #compare $a{0}::myself.name=$b{0}::myself.name
-56: #Exit lgdb
-57: q
+39: #struct object data member of type character*4
+40: print myself%name
+a{0..2}: 'Cray'
+b{0..2}: 'Test'
+41: compare $a{0}::myself%name=$b{0}::myself%name
+{0}: Comparison is false.
+The difference delta is:
+{0}: Cray vs Test
+42: #Exit lgdb
+43: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

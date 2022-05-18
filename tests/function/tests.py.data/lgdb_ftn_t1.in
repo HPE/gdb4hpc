@@ -47,8 +47,6 @@ b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_b
 35: continue
 a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
 b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
-38: # Confirm program is at specified line: 46
-39: #list
 42: # print some local variables
 43: print x
 a{0..2}: 1
@@ -116,8 +114,6 @@ b{0..2}: .TRUE.
 <$a>:  Struct member=  100
 b{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
 a{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
-59: # Ensure program is set at breakpoint line # 62
-60: #l
 62: # Print m
 63: p m
 a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)

@@ -1,127 +1,155 @@
-1: #
-2: # ftn_arrays.rc script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
-10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
-12: maint set sync on
-14: # launch 2 instances of the application
-15: launch $a{3}  --args="0 6" bd_dt/fortran/ftn_arrays.x --debug
+1: maint set sync on
+2: # launch 2 instances of the application
+3: launch $a{3} --args="0 6" bd_dt/fortran/ftn_arrays.x --debug
 Starting application, please wait...
-Creating MRNet communication network...
-Waiting for debug servers to attach to MRNet communications network...
-Timeout in 400 seconds. Please wait for the attach to complete.
-Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [3];  Timeout Counter: [0]
-Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:1
-16: launch $b{3}  --args="1 6" bd_dt/fortran/ftn_arrays.x --debug
+a{0..2}: Initial breakpoint, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:1
+4: launch $b{3} --args="1 6" bd_dt/fortran/ftn_arrays.x --debug
 Starting application, please wait...
-Creating MRNet communication network...
-Waiting for debug servers to attach to MRNet communications network...
-Timeout in 400 seconds. Please wait for the attach to complete.
-Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [3];  Timeout Counter: [0]
-Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:1
-18: # Break when the arrays should be equivalent
-19: break 113
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90, line 113.
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90, line 113.
-21: continue
-a{0..2}: Breakpoint 1, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:113
-b{0..2}: Breakpoint 1, ftn_arrays at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_arrays.f90:113
-23: # print the array values
-24: p int_1
-a{0..2}: No symbol "int_1" in current context
-b{0..2}: No symbol "int_1" in current context
-25: p int_2
-a{0..2}: No symbol "int_2" in current context
-b{0..2}: No symbol "int_2" in current context
-26: p int_3
-a{0..2}: No symbol "int_3" in current context
-b{0..2}: No symbol "int_3" in current context
-27: p long_1
-a{0..2}: No symbol "long_1" in current context
-b{0..2}: No symbol "long_1" in current context
-28: p long_2
-a{0..2}: No symbol "long_2" in current context
-b{0..2}: No symbol "long_2" in current context
-29: p long_3
-a{0..2}: No symbol "long_3" in current context
-b{0..2}: No symbol "long_3" in current context
-30: p float_1
-a{0..2}: No symbol "float_1" in current context
-b{0..2}: No symbol "float_1" in current context
-31: p float_2
-a{0..2}: No symbol "float_2" in current context
-b{0..2}: No symbol "float_2" in current context
-32: p float_3
-a{0..2}: No symbol "float_3" in current context
-b{0..2}: No symbol "float_3" in current context
-33: p double_1
-a{0..2}: No symbol "double_1" in current context
-b{0..2}: No symbol "double_1" in current context
-34: p double_2
-a{0..2}: No symbol "double_2" in current context
-b{0..2}: No symbol "double_2" in current context
-35: p double_3
-a{0..2}: No symbol "double_3" in current context
-b{0..2}: No symbol "double_3" in current context
-36: p complex_1
-a{0..2}: No symbol "complex_1" in current context
-b{0..2}: No symbol "complex_1" in current context
-37: p complex_2
-a{0..2}: No symbol "complex_2" in current context
-b{0..2}: No symbol "complex_2" in current context
-38: p complex_3
-a{0..2}: No symbol "complex_3" in current context
-b{0..2}: No symbol "complex_3" in current context
-39: p bool_1
-a{0..2}: No symbol "bool_1" in current context
-b{0..2}: No symbol "bool_1" in current context
-40: p bool_2
-a{0..2}: No symbol "bool_2" in current context
-b{0..2}: No symbol "bool_2" in current context
-41: p bool_3
-a{0..2}: No symbol "bool_3" in current context
-b{0..2}: No symbol "bool_3" in current context
-42: p word
-a{0..2}: No symbol "word" in current context
-b{0..2}: No symbol "word" in current context
-44: compare $a::int_1 == $b::int_1
-a{0..2}: No symbol "int_1" in current context
-Could not retrieve contents of val.
-Command resulted in an error: 44: compare $a::int_1 == $b::int_1
-1: #======================================================================
-1: #add these back in when the symbol lookup is fixed
-1: #======================================================================
-1: #compare $a::int_2 != $b::int_2
-1: #compare $a::int_3 != $b::int_3
-1: #compare $a::long_1 != $b::long_1
-1: #compare $a::long_2 != $b::long_2
-1: #compare $a::long_3 != $b::long_3
-1: #compare $a::float_1 != $b::float_1
-1: #compare $a::float_2 != $b::float_2
-1: #compare $a::float_3 != $b::float_3
-1: #compare $a::double_1 != $b::double_1
-1: #compare $a::double_2 != $b::double_2
-1: #compare $a::double_3 != $b::double_3
-1: #compare $a::complex_1 != $b::complex_1
-1: #compare $a::complex_2 != $b::complex_2
-1: #compare $a::complex_3 != $b::complex_3
-1: #compare $a::bool_1 != $b::bool_1
-1: #compare $a::bool_2 != $b::bool_2
-1: #compare $a::bool_3 != $b::bool_3
-1: #compare $a::word != $b::word
-49: q
+b{0..2}: Initial breakpoint, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:1
+5: # Break when the arrays should be equivalent
+6: break 113
+a{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 113.
+b{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 113.
+7: continue
+a{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:113
+b{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:113
+8: # print the array values
+9: p int_1
+a{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+b{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+10: p int_2
+a{0..2}: ((3, 4, 5, 6, 7, 8, 9, 10), (5, 6, 7, 8, 9, 10, 11, 12), (7, 8, 9, 10, 11, 12, 13, 14), (9, 10, 11, 12, 13, 14, 15, 16), (11, 12, 13, 14, 15, 16, 17, 18), (13, 14, 15, 16, 17, 18, 19, 20), (15, 16, 17, 18, 19, 20, 21, 22), (17, 18, 19, 20, 21, 22, 23, 24), (19, 20, 21, 22, 23, 24, 25, 26), (21, 22, 23, 24, 25, 26, 27, 28), (23, 24, 25, 26, 27, 28, 29, 30), (25, 26, 27, 28, 29, 30, 31, 32), (27, 28, 29, 30, 31, 32, 33, 34), (29, 30, 31, 32, 33, 34, 35, 36), (31, 32, 33, 34, 35, 36, 37, 38), (33, 34, 35, 36, 37, 38, 39, 40), (35, 36, 37, 38, 39, 40, 41, 42))
+b{0..2}: ((3, 4, 5, 6, 7, 8, 9, 10), (5, 6, 7, 8, 9, 10, 11, 12), (7, 8, 9, 10, 11, 12, 13, 14), (9, 10, 11, 12, 13, 14, 15, 16), (11, 12, 13, 14, 15, 16, 17, 18), (13, 14, 15, 16, 17, 18, 19, 20), (15, 16, 17, 18, 19, 20, 21, 22), (17, 18, 19, 20, 21, 22, 23, 24), (19, 20, 21, 22, 23, 24, 25, 26), (21, 22, 23, 24, 25, 26, 27, 28), (23, 24, 25, 26, 27, 28, 29, 30), (25, 26, 27, 28, 29, 30, 31, 32), (27, 28, 29, 30, 31, 32, 33, 34), (29, 30, 31, 32, 33, 34, 35, 36), (31, 32, 33, 34, 35, 36, 37, 38), (33, 34, 35, 36, 37, 38, 39, 40), (35, 36, 37, 38, 39, 40, 41, 42))
+11: p int_3
+a{0..2}: (((6, 7), (8, 9), (10, 11), (12, 13), (14, 15)), ((9, 10), (11, 12), (13, 14), (15, 16), (17, 18)), ((12, 13), (14, 15), (16, 17), (18, 19), (20, 21)), ((15, 16), (17, 18), (19, 20), (21, 22), (23, 24)), ((18, 19), (20, 21), (22, 23), (24, 25), (26, 27)), ((21, 22), (23, 24), (25, 26), (27, 28), (29, 30)), ((24, 25), (26, 27), (28, 29), (30, 31), (32, 33)))
+b{0..2}: (((6, 7), (8, 9), (10, 11), (12, 13), (14, 15)), ((9, 10), (11, 12), (13, 14), (15, 16), (17, 18)), ((12, 13), (14, 15), (16, 17), (18, 19), (20, 21)), ((15, 16), (17, 18), (19, 20), (21, 22), (23, 24)), ((18, 19), (20, 21), (22, 23), (24, 25), (26, 27)), ((21, 22), (23, 24), (25, 26), (27, 28), (29, 30)), ((24, 25), (26, 27), (28, 29), (30, 31), (32, 33)))
+12: p long_1
+a{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+b{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+13: p long_2
+a{0..2}: ((3, 4, 5, 6, 7, 8, 9, 10), (5, 6, 7, 8, 9, 10, 11, 12), (7, 8, 9, 10, 11, 12, 13, 14), (9, 10, 11, 12, 13, 14, 15, 16), (11, 12, 13, 14, 15, 16, 17, 18), (13, 14, 15, 16, 17, 18, 19, 20), (15, 16, 17, 18, 19, 20, 21, 22), (17, 18, 19, 20, 21, 22, 23, 24), (19, 20, 21, 22, 23, 24, 25, 26), (21, 22, 23, 24, 25, 26, 27, 28), (23, 24, 25, 26, 27, 28, 29, 30), (25, 26, 27, 28, 29, 30, 31, 32), (27, 28, 29, 30, 31, 32, 33, 34), (29, 30, 31, 32, 33, 34, 35, 36), (31, 32, 33, 34, 35, 36, 37, 38), (33, 34, 35, 36, 37, 38, 39, 40), (35, 36, 37, 38, 39, 40, 41, 42))
+b{0..2}: ((3, 4, 5, 6, 7, 8, 9, 10), (5, 6, 7, 8, 9, 10, 11, 12), (7, 8, 9, 10, 11, 12, 13, 14), (9, 10, 11, 12, 13, 14, 15, 16), (11, 12, 13, 14, 15, 16, 17, 18), (13, 14, 15, 16, 17, 18, 19, 20), (15, 16, 17, 18, 19, 20, 21, 22), (17, 18, 19, 20, 21, 22, 23, 24), (19, 20, 21, 22, 23, 24, 25, 26), (21, 22, 23, 24, 25, 26, 27, 28), (23, 24, 25, 26, 27, 28, 29, 30), (25, 26, 27, 28, 29, 30, 31, 32), (27, 28, 29, 30, 31, 32, 33, 34), (29, 30, 31, 32, 33, 34, 35, 36), (31, 32, 33, 34, 35, 36, 37, 38), (33, 34, 35, 36, 37, 38, 39, 40), (35, 36, 37, 38, 39, 40, 41, 42))
+14: p long_3
+a{0..2}: (((6, 7), (8, 9), (10, 11), (12, 13), (14, 15)), ((9, 10), (11, 12), (13, 14), (15, 16), (17, 18)), ((12, 13), (14, 15), (16, 17), (18, 19), (20, 21)), ((15, 16), (17, 18), (19, 20), (21, 22), (23, 24)), ((18, 19), (20, 21), (22, 23), (24, 25), (26, 27)), ((21, 22), (23, 24), (25, 26), (27, 28), (29, 30)), ((24, 25), (26, 27), (28, 29), (30, 31), (32, 33)))
+b{0..2}: (((6, 7), (8, 9), (10, 11), (12, 13), (14, 15)), ((9, 10), (11, 12), (13, 14), (15, 16), (17, 18)), ((12, 13), (14, 15), (16, 17), (18, 19), (20, 21)), ((15, 16), (17, 18), (19, 20), (21, 22), (23, 24)), ((18, 19), (20, 21), (22, 23), (24, 25), (26, 27)), ((21, 22), (23, 24), (25, 26), (27, 28), (29, 30)), ((24, 25), (26, 27), (28, 29), (30, 31), (32, 33)))
+15: p float_1
+a{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+b{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+16: p float_2
+a{0..2}: ((3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 9.1, 10.1), (5.2, 6.2, 7.2, 8.2, 9.2, 10.2, 11.2, 12.2), (7.3, 8.3, 9.3, 10.3, 11.3, 12.3, 13.3, 14.3), (9.4, 10.4, 11.4, 12.4, 13.4, 14.4, 15.4, 16.4), (11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 18.5), (13.6, 14.6, 15.6, 16.6, 17.6, 18.6, 19.6, 20.6), (15.7, 16.7, 17.7, 18.7, 19.7, 20.7, 21.7, 22.7), (17.8, 18.8, 19.8, 20.8, 21.8, 22.8, 23.8, 24.8), (19.9, 20.9, 21.9, 22.9, 23.9, 24.9, 25.9, 26.9), (22, 23, 24, 25, 26, 27, 28, 29), (24.1, 25.1, 26.1, 27.1, 28.1, 29.1, 30.1, 31.1), (26.2, 27.2, 28.2, 29.2, 30.2, 31.2, 32.2, 33.2), (28.3, 29.3, 30.3, 31.3, 32.3, 33.3, 34.3, 35.3), (30.4, 31.4, 32.4, 33.4, 34.4, 35.4, 36.4, 37.4), (32.5, 33.5, 34.5, 35.5, 36.5, 37.5, 38.5, 39.5), (34.6, 35.6, 36.6, 37.6, 38.6, 39.6, 40.6, 41.6), (36.7, 37.7, 38.7, 39.7, 40.7, 41.7, 42.7, 43.7))
+b{0..2}: ((3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 9.1, 10.1), (5.2, 6.2, 7.2, 8.2, 9.2, 10.2, 11.2, 12.2), (7.3, 8.3, 9.3, 10.3, 11.3, 12.3, 13.3, 14.3), (9.4, 10.4, 11.4, 12.4, 13.4, 14.4, 15.4, 16.4), (11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 18.5), (13.6, 14.6, 15.6, 16.6, 17.6, 18.6, 19.6, 20.6), (15.7, 16.7, 17.7, 18.7, 19.7, 20.7, 21.7, 22.7), (17.8, 18.8, 19.8, 20.8, 21.8, 22.8, 23.8, 24.8), (19.9, 20.9, 21.9, 22.9, 23.9, 24.9, 25.9, 26.9), (22, 23, 24, 25, 26, 27, 28, 29), (24.1, 25.1, 26.1, 27.1, 28.1, 29.1, 30.1, 31.1), (26.2, 27.2, 28.2, 29.2, 30.2, 31.2, 32.2, 33.2), (28.3, 29.3, 30.3, 31.3, 32.3, 33.3, 34.3, 35.3), (30.4, 31.4, 32.4, 33.4, 34.4, 35.4, 36.4, 37.4), (32.5, 33.5, 34.5, 35.5, 36.5, 37.5, 38.5, 39.5), (34.6, 35.6, 36.6, 37.6, 38.6, 39.6, 40.6, 41.6), (36.7, 37.7, 38.7, 39.7, 40.7, 41.7, 42.7, 43.7))
+17: p float_3
+a{0..2}: (((6.2, 7.2), (8.3, 9.3), (10.4, 11.4), (12.5, 13.5), (14.6, 15.6)), ((9.3, 10.3), (11.4, 12.4), (13.5, 14.5), (15.6, 16.6), (17.7, 18.7)), ((12.4, 13.4), (14.5, 15.5), (16.6, 17.6), (18.7, 19.7), (20.8, 21.8)), ((15.5, 16.5), (17.6, 18.6), (19.7, 20.7), (21.8, 22.8), (23.9, 24.9)), ((18.6, 19.6), (20.7, 21.7), (22.8, 23.8), (24.9, 25.9), (27, 28)), ((21.7, 22.7), (23.8, 24.8), (25.9, 26.9), (28, 29), (30.1, 31.1)), ((24.8, 25.8), (26.9, 27.9), (29, 30), (31.1, 32.1), (33.2, 34.2)))
+b{0..2}: (((6.2, 7.2), (8.3, 9.3), (10.4, 11.4), (12.5, 13.5), (14.6, 15.6)), ((9.3, 10.3), (11.4, 12.4), (13.5, 14.5), (15.6, 16.6), (17.7, 18.7)), ((12.4, 13.4), (14.5, 15.5), (16.6, 17.6), (18.7, 19.7), (20.8, 21.8)), ((15.5, 16.5), (17.6, 18.6), (19.7, 20.7), (21.8, 22.8), (23.9, 24.9)), ((18.6, 19.6), (20.7, 21.7), (22.8, 23.8), (24.9, 25.9), (27, 28)), ((21.7, 22.7), (23.8, 24.8), (25.9, 26.9), (28, 29), (30.1, 31.1)), ((24.8, 25.8), (26.9, 27.9), (29, 30), (31.1, 32.1), (33.2, 34.2)))
+18: p double_1
+a{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+b{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
+19: p double_2
+a{0..2}: ((3.09999990463257, 4.09999990463257, 5.09999990463257, 6.09999990463257, 7.09999990463257, 8.10000038146973, 9.10000038146973, 10.1000003814697), (5.19999980926514, 6.19999980926514, 7.19999980926514, 8.19999980926514, 9.19999980926514, 10.1999998092651, 11.1999998092651, 12.1999998092651), (7.29999971389771, 8.29999923706055, 9.29999923706055, 10.2999992370605, 11.2999992370605, 12.2999992370605, 13.2999992370605, 14.2999992370605), (9.39999961853027, 10.3999996185303, 11.3999996185303, 12.3999996185303, 13.3999996185303, 14.3999996185303, 15.3999996185303, 16.3999996185303), (11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 18.5), (13.5999994277954, 14.5999994277954, 15.5999994277954, 16.5999984741211, 17.5999984741211, 18.5999984741211, 19.5999984741211, 20.5999984741211), (15.6999988555908, 16.6999988555908, 17.6999988555908, 18.6999988555908, 19.6999988555908, 20.6999988555908, 21.6999988555908, 22.6999988555908), (17.7999992370605, 18.7999992370605, 19.7999992370605, 20.7999992370605, 21.7999992370605, 22.7999992370605, 23.7999992370605, 24.7999992370605), (19.8999996185303, 20.8999996185303, 21.8999996185303, 22.8999996185303, 23.8999996185303, 24.8999996185303, 25.8999996185303, 26.8999996185303), (22, 23, 24, 25, 26, 27, 28, 29), (24.0999984741211, 25.0999984741211, 26.0999984741211, 27.0999984741211, 28.0999984741211, 29.0999984741211, 30.0999984741211, 31.0999984741211), (26.1999988555908, 27.1999988555908, 28.1999988555908, 29.1999988555908, 30.1999988555908, 31.1999988555908, 32.1999969482422, 33.1999969482422), (28.2999992370605, 29.2999992370605, 30.2999992370605, 31.2999992370605, 32.2999992370605, 33.2999992370605, 34.2999992370605, 35.2999992370605), (30.3999977111816, 31.3999977111816, 32.3999977111816, 33.3999977111816, 34.3999977111816, 35.3999977111816, 36.3999977111816, 37.3999977111816), (32.5, 33.5, 34.5, 35.5, 36.5, 37.5, 38.5, 39.5), (34.5999984741211, 35.5999984741211, 36.5999984741211, 37.5999984741211, 38.5999984741211, 39.5999984741211, 40.5999984741211, 41.5999984741211), (36.6999969482422, 37.6999969482422, 38.6999969482422, 39.6999969482422, 40.6999969482422, 41.6999969482422, 42.6999969482422, 43.6999969482422))
+b{0..2}: ((3.09999990463257, 4.09999990463257, 5.09999990463257, 6.09999990463257, 7.09999990463257, 8.10000038146973, 9.10000038146973, 10.1000003814697), (5.19999980926514, 6.19999980926514, 7.19999980926514, 8.19999980926514, 9.19999980926514, 10.1999998092651, 11.1999998092651, 12.1999998092651), (7.29999971389771, 8.29999923706055, 9.29999923706055, 10.2999992370605, 11.2999992370605, 12.2999992370605, 13.2999992370605, 14.2999992370605), (9.39999961853027, 10.3999996185303, 11.3999996185303, 12.3999996185303, 13.3999996185303, 14.3999996185303, 15.3999996185303, 16.3999996185303), (11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 18.5), (13.5999994277954, 14.5999994277954, 15.5999994277954, 16.5999984741211, 17.5999984741211, 18.5999984741211, 19.5999984741211, 20.5999984741211), (15.6999988555908, 16.6999988555908, 17.6999988555908, 18.6999988555908, 19.6999988555908, 20.6999988555908, 21.6999988555908, 22.6999988555908), (17.7999992370605, 18.7999992370605, 19.7999992370605, 20.7999992370605, 21.7999992370605, 22.7999992370605, 23.7999992370605, 24.7999992370605), (19.8999996185303, 20.8999996185303, 21.8999996185303, 22.8999996185303, 23.8999996185303, 24.8999996185303, 25.8999996185303, 26.8999996185303), (22, 23, 24, 25, 26, 27, 28, 29), (24.0999984741211, 25.0999984741211, 26.0999984741211, 27.0999984741211, 28.0999984741211, 29.0999984741211, 30.0999984741211, 31.0999984741211), (26.1999988555908, 27.1999988555908, 28.1999988555908, 29.1999988555908, 30.1999988555908, 31.1999988555908, 32.1999969482422, 33.1999969482422), (28.2999992370605, 29.2999992370605, 30.2999992370605, 31.2999992370605, 32.2999992370605, 33.2999992370605, 34.2999992370605, 35.2999992370605), (30.3999977111816, 31.3999977111816, 32.3999977111816, 33.3999977111816, 34.3999977111816, 35.3999977111816, 36.3999977111816, 37.3999977111816), (32.5, 33.5, 34.5, 35.5, 36.5, 37.5, 38.5, 39.5), (34.5999984741211, 35.5999984741211, 36.5999984741211, 37.5999984741211, 38.5999984741211, 39.5999984741211, 40.5999984741211, 41.5999984741211), (36.6999969482422, 37.6999969482422, 38.6999969482422, 39.6999969482422, 40.6999969482422, 41.6999969482422, 42.6999969482422, 43.6999969482422))
+20: p double_3
+a{0..2}: (((6.19999980926514, 7.19999980926514), (8.29999923706055, 9.29999923706055), (10.3999996185303, 11.3999996185303), (12.5, 13.5), (14.6000003814697, 15.6000003814697)), ((9.29999923706055, 10.2999992370605), (11.3999996185303, 12.3999996185303), (13.5, 14.4999990463257), (15.5999994277954, 16.5999984741211), (17.7000007629395, 18.7000007629395)), ((12.3999996185303, 13.3999996185303), (14.4999990463257, 15.4999990463257), (16.5999984741211, 17.5999984741211), (18.6999988555908, 19.6999988555908), (20.7999992370605, 21.7999992370605)), ((15.5, 16.5), (17.5999984741211, 18.5999984741211), (19.6999988555908, 20.6999988555908), (21.7999992370605, 22.7999992370605), (23.8999996185303, 24.8999996185303)), ((18.6000003814697, 19.6000003814697), (20.7000007629395, 21.7000007629395), (22.7999992370605, 23.7999992370605), (24.8999996185303, 25.8999996185303), (27, 28)), ((21.6999988555908, 22.6999988555908), (23.7999992370605, 24.7999992370605), (25.8999977111816, 26.8999977111816), (27.9999980926514, 28.9999980926514), (30.0999984741211, 31.0999984741211)), ((24.7999992370605, 25.7999992370605), (26.8999977111816, 27.8999977111816), (28.9999980926514, 29.9999980926514), (31.0999984741211, 32.0999984741211), (33.1999969482422, 34.1999969482422)))
+b{0..2}: (((6.19999980926514, 7.19999980926514), (8.29999923706055, 9.29999923706055), (10.3999996185303, 11.3999996185303), (12.5, 13.5), (14.6000003814697, 15.6000003814697)), ((9.29999923706055, 10.2999992370605), (11.3999996185303, 12.3999996185303), (13.5, 14.4999990463257), (15.5999994277954, 16.5999984741211), (17.7000007629395, 18.7000007629395)), ((12.3999996185303, 13.3999996185303), (14.4999990463257, 15.4999990463257), (16.5999984741211, 17.5999984741211), (18.6999988555908, 19.6999988555908), (20.7999992370605, 21.7999992370605)), ((15.5, 16.5), (17.5999984741211, 18.5999984741211), (19.6999988555908, 20.6999988555908), (21.7999992370605, 22.7999992370605), (23.8999996185303, 24.8999996185303)), ((18.6000003814697, 19.6000003814697), (20.7000007629395, 21.7000007629395), (22.7999992370605, 23.7999992370605), (24.8999996185303, 25.8999996185303), (27, 28)), ((21.6999988555908, 22.6999988555908), (23.7999992370605, 24.7999992370605), (25.8999977111816, 26.8999977111816), (27.9999980926514, 28.9999980926514), (30.0999984741211, 31.0999984741211)), ((24.7999992370605, 25.7999992370605), (26.8999977111816, 27.8999977111816), (28.9999980926514, 29.9999980926514), (31.0999984741211, 32.0999984741211), (33.1999969482422, 34.1999969482422)))
+21: # debug info for complex numbers is currently broken, see PE-41265
+21: p complex_1
+this line is an intentionally incorrect result until PE-41268 is resolved
+22: # debug info for complex numbers is currently broken, see PE-41265
+22: p complex_2
+this line is an intentionally incorrect result until PE-41268 is resolved
+23: # debug info for complex numbers is currently broken, see PE-41265
+23: p complex_3
+this line is an intentionally incorrect result until PE-41268 is resolved
+24: p bool_1
+a{0..2}: (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.)
+b{0..2}: (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.)
+25: p bool_2
+a{0..2}: ((.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.))
+b{0..2}: ((.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.), (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.), (.FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE.))
+26: p bool_3
+a{0..2}: (((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)))
+b{0..2}: (((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)), ((.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.)), ((.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.), (.FALSE., .TRUE.), (.TRUE., .FALSE.)))
+27: p word
+a{0..2}: 'boy howdy!          '
+b{0..2}: 'boy howdy!          '
+28: compare $a::int_1 == $b::int_1
+{0..2}: Comparison is true.
+29: compare $a::int_2 != $b::int_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+30: compare $a::int_3 != $b::int_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+31: compare $a::long_1 != $b::long_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+32: compare $a::long_2 != $b::long_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+33: compare $a::long_3 != $b::long_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+34: compare $a::float_1 != $b::float_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+35: compare $a::float_2 != $b::float_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+36: compare $a::float_3 != $b::float_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+37: compare $a::double_1 != $b::double_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+38: compare $a::double_2 != $b::double_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+39: compare $a::double_3 != $b::double_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+40: # debug info for complex numbers is currently broken, see PE-41265
+40: compare $a::complex_1 != $b::complex_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}:
+41: # debug info for complex numbers is currently broken, see PE-41265
+41: compare $a::complex_2 != $b::complex_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+41: # debug info for complex numbers is currently broken, see PE-41265
+42: compare $a::complex_3 != $b::complex_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+43: compare $a::bool_1 != $b::bool_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+44: compare $a::bool_2 != $b::bool_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+45: compare $a::bool_3 != $b::bool_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+46: compare $a::word != $b::word
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: 
+47: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

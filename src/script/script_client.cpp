@@ -414,10 +414,15 @@ bool ScriptRunner::evaluateReadyAsserts() {
 }
 
 bool ScriptRunner::releaseReadyAsserts() {
+    auto doContinue{true};
+    if (finished() && m_script->scriptSettings().haltUponEnd) {
+        doContinue = false;
+    }
+        
     for (auto& assert : m_pendingAsserts) {
         if (assert.isReady()) {
             assert.reset();
-            if (!sendContinue(assert)) {
+            if (doContinue && !sendContinue(assert)) {
                 return false;
             }
         }

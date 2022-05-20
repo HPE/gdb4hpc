@@ -1,7 +1,7 @@
 #
 # Release and shared library version control for gdb4hpc.
 #
-# Copyright 2011-2021 Hewlett Packard Enterprise Development LP.
+# Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -66,7 +66,7 @@
 #
 
 # Jenkins will override this 
-revision="1"
+revision="2"
 build_number=""
 
 major="4"

@@ -698,8 +698,6 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
         if (typeIsReference(var->type)) {
             expr = "*&" + expr;
             DVPRINT("Type is a reference, using %s\n", expr.c_str());
-        } else if (strstr(var->type, "std::unique_ptr<") == var->type) {
-            expr += ".get()";
         }
         auto cmd = MIDataEvaluateExpression(expr.c_str());
         SendMICommand(session, cmd);

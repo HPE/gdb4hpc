@@ -1572,7 +1572,7 @@ std::unique_ptr<ais::Printer> ais::Struct::makePrinter(Printer& parent) const {
     using Members = decltype(m_members);
     struct TPrinter : public Printer {
         TPrinter(Printer& parent, Members members) : Printer(parent), m_members(members) {}
-        void start(const Type* t) override { Printer::start(t); out << "{"; }
+        void start(const Type* t) override { Printer::start(t); m_idx = 0; out << "{"; }
                 void startChild() override {
             if (m_idx) out << ", ";
             if (m_idx < int(m_members.size())) out << m_members[m_idx].first << " = ";
@@ -1661,10 +1661,16 @@ void ais::SmartPointer::parseL(InterpretStream& in, Writer& out) const {
     void* p = nullptr; bool parsed = false;
     if (s) {
         // looks like "std::shared_ptr (count 1, weak 0) 0x3bfc6f0"
-        // unique_ptr is modified in mi2aif to call val.get() - because
-        // ddt_gdb can't currently print the handle.
-        if (auto s2 = strchr(s,')')) {
-            s = skipspace(s2+1);
+        // std::unique_ptr<T> containing 0x3bfc6f0
+        s = skipspace(s);
+
+        if (strncmp(s,"std::shared_ptr",15) == 0) {
+            if (auto s2 = strchr(s+15,')'))
+                s = skipspace(s2+1);
+        } else if (strncmp(s,"std::unique_ptr",15) == 0) {
+            if (auto s2 = strstr(s+15,"> containing ")) {
+                s = skipspace(s2+13);
+            }
         }
         int chars, n = sscanf(s, "%p%n", &p, &chars);
         if (n == 1) {

@@ -26,7 +26,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_ds_test1.cpp:%(51|53)%
+b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_ds_test1.cpp:51
 20: # Set a breakpoint at specified line numbers:
 21: break cpp_ds_test1.cpp:100
 b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_ds_test1.cpp, line 100.
@@ -125,11 +125,11 @@ b{0..2}: Breakpoint 4: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests
 b{0..2}: Breakpoint 4, templateClassTest() at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_ds_test1.cpp:195
 71: # test a templated class and smart pointers
 72: p mi
-b{0..2}: {v = {5,3,0}, sp = std::shared_ptr<int>[2], up = std::unique_ptr<int>:<unavailable>} 2:5
+b{0..2}: {v = {5,3,0}, sp = std::shared_ptr<int>[2], up = std::unique_ptr<int>[3]} 2:5 3:0
 73: p md
-b{0..2}: {v = {-12,16.2,17.1}, sp = std::shared_ptr<double>[2], up = std::unique_ptr<double>:<unavailable>} 2:-12
+b{0..2}: {v = {-12,16.2,17.1}, sp = std::shared_ptr<double>[2], up = std::unique_ptr<double>[3]} 2:-12 3:17.1
 74: p vmi
-b{0..2}: {{v = {1,2,3}, sp = std::shared_ptr<T>[2], up = std::unique_ptr<int>[3]},{, {caught error printing result result data is truncated
+b{0..2}: {{v = {1,2,3}, sp = std::shared_ptr<T>[2], up = std::unique_ptr<int>[3]},{, {3,2,0}, std::shared_ptr<T>[4], std::unique_ptr<int>[5]}} 3:3 5:0
 75: # smart pointers
 76: p mi.up
 b{0..2}: std::unique_ptr<int>[2] 2:0

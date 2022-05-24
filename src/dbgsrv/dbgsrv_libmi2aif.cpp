@@ -549,7 +549,7 @@ std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
 // Translate a gdb output into socket form
 void Mi2Aif::parse(std::shared_ptr<ais::Type> type, const char* gdbRes, int refIdx) {
 
-    auto eval = GdbResult{gdbRes};
+    auto eval = GdbResult{gdbRes ? gdbRes : ""};
     auto any = std::make_unique<ais::Any>(type, refIdx);
     DVPRINT("About to call any->parse\n");
     try {
@@ -865,7 +865,7 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
                 return;
             }
 
-            len = atoi(sizeRes);
+            len = std::max(atoi(sizeRes), 0);
             DVPRINT("Slicing vector got a size %d\n", len);
             free(sizeRes);
         }
@@ -877,22 +877,6 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
 
     if (arrayLens.empty()) {
         return;
-    }
-
-    if (auto vec = dynamic_cast<const ais::Vector*>(&varType); vec && !vec->getLen()) {
-        std::string sizeStr = std::string("(") + m_var->exp + ").size()";
-        char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
-        if (!sizeRes) {
-            DVPRINT("could not get vector length\n");
-            return;
-        }
-
-        auto size = arrayLens[0] = atoi(sizeRes);
-        DVPRINT("Slicing vector got a size %d\n", size);
-        free(sizeRes);
-
-        if (size <= ptrdiff_t(m_blockSize))
-            return;
     }
 
     // C/C++ array, this may be real or partially artificial
@@ -1599,6 +1583,12 @@ std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
 
     auto [ type, gdbArr, sliceIsFinal ] = slicer.getNext();
     isFinal = sliceIsFinal;
+
+    if (!gdbArr) {
+        if (!dbg_error) dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "Getting array data failed."));
+        throw dbg_error.release();
+    }
+
     parse(type, gdbArr, 0);
 
     // add the reference elements as members of the struct - note that

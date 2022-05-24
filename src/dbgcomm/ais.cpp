@@ -428,9 +428,10 @@ void ais::Complex::parseL(InterpretStream& in, Writer& out) const
 
 std::unique_ptr<ais::Printer> ais::Complex::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
-        TPrinter(Printer& parent) : Printer(parent) { out << "("; }
+        TPrinter(Printer& parent) : Printer(parent) { }
+        void start(const Type* t) override { Printer::start(t); out << "("; }
         void startChild() override { if (m_idx++) out << ","; }
-        void end() override { out << ")"; }
+        void end() override { out << ")"; m_idx = 0; Printer::end(); }
         int m_idx = 0;
     };
     return std::make_unique<TPrinter>(parent);

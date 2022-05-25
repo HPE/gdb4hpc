@@ -2,7 +2,7 @@
 #
 # runBuildPrep.sh - Preps the build environment
 #
-# Copyright 2019-2021 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2022 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -107,6 +107,7 @@ install_common_pe
 
 # Install CTI and CDST support
 install_cti
+check_exit_status
 
 arch=$(get_arch)
 if [[ "$arch" == "$cdst_arch_aarch64" ]]; then

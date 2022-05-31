@@ -31,7 +31,7 @@
 import shutil
 import avocado
 from avocado import Test
-from avocado.utils import process
+from avocado.utils import process as avproc
 
 if False:
     # mock avocado test
@@ -48,6 +48,8 @@ import glob
 import os
 import socket
 import platform
+import time
+import signal
 
 try:
     from cdst_test.useful import detect_wlm
@@ -473,7 +475,34 @@ def runScript(test, substitutions = {}):
     except FileNotFoundError:
         pass
 
-    subprocess.call(['gdb4hpc', '-s', '-e', '-n', '-b', runfile, '--output', outfile, '--keep-going'])
+    # avocado will kill the test after this amount of time. we set a shorter timeout
+    # to give us time to do our own cleanup before avocado kills everything
+    absolute_timeout = test.params.get("timeout") if test.params.get("timeout") is not None else 140
+    cleanup_time = 10 
+    # add a 2 second buffer to run final kill commands
+    timeout = absolute_timeout - cleanup_time - 2
+
+    if absolute_timeout < 0 or timeout < 0:
+        test.fail(f"Invalid timeout values: abs: {absolute_timeout}, timeout: {timeout}")
+    print(f"timeout: {timeout}, cleanup: {cleanup_time}")
+    
+    try:
+        p = subprocess.Popen(['gdb4hpc', '-snekb', runfile, '--output', outfile])
+        p.wait(timeout)
+    except subprocess.TimeoutExpired:
+        # send sigterm to gdb4hpc, triggering clean up.
+        # returns list of pids the signal was sent to
+        descs = avproc.kill_process_tree(p.pid, signal.SIGTERM)
+        
+        # give gdb4hpc some time to clean up
+        time.sleep(cleanup_time)
+        
+        # send sigkill to gdb4hpc and all previous children (including srun/aprun)
+        # in case any of them ignored sigterm
+        for pid in descs:
+            avproc.safe_kill(pid, signal.SIGKILL)
+
+        test.fail("Timed out")
 
 '''
 Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the output

@@ -523,6 +523,86 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type) {
     return retType;
 }
 
+namespace {
+// Class to handle templated types.   For templated classes, gdb will report some
+// types in terms of template arguments, e.g. std::shared_ptr<T> where it
+// reported the template mapping earlier with "[with T = int]"
+class TypeMapper {
+public:
+    TypeMapper(MIList* oobs);
+    std::string operator()(std::string&& type);
+private:
+    std::vector<std::pair<std::regex,std::string>> typeMap;
+};
+
+// Build up the mapping from the ptype result.  Oobs is the
+// full line by line output captured by ptype
+TypeMapper::TypeMapper(MIList* oobs) {
+    MIListSet(oobs);
+    while (auto oob = (MIOOBRecord *)MIListGet(oobs)) {
+        auto line = oob->cstring;
+
+        auto s = strstr(line, "[with ");
+        if (!s) continue;
+
+        s += 6;
+
+        for (; *s && *s != ']'; ) {
+            // template arguments we expect something like:
+            // "[with T = int]" or
+            // "[with T = int, U = double]"
+
+            // get the template argument name
+            auto e = strstr(s+1, " = ");
+            if (!e) {
+                DVPRINT("could not parse [with]: \"%s\"\n", line);
+                break;
+            }
+
+            auto targ = std::string{s, std::string::size_type(e-s)};
+            s = e+3;
+            // and the type it maps to. I'm assuming valid type syntax, and
+            // I'm just looking for a separator (,) or terminator (]) that
+            // isn't inside a nested <>, () or [].   Which would make for
+            // one heck of a challenging RE.
+            auto nest = 0;
+            for (e=s; *e && (nest || (*e != ',' && *e != ']')); ++e) {
+                if (strchr("(<[", *e)) ++nest;
+                else if (strchr(")>]", *e)) --nest;
+            }
+
+            if (!*e) {
+                DVPRINT("could not parse [with]: \"%s\"\n", line);
+                break;
+            }
+
+            auto tval = std::string{s, std::string::size_type(e-s)};
+
+            // create the regex for doing the mapping
+            // there may be some super diabolical counter-exampe, but
+            // I'm  just going the restrict the paranoia to just making
+            // sure I'm looking for words.
+            DVPRINT("got a template mapping: \"%s\"->\"%s\"\n",
+                    targ.c_str(), tval.c_str());
+
+            auto tmatch = "\\b" + targ + "\\b";
+            typeMap.push_back(std::pair{std::regex{tmatch}, tval});
+
+            s = e;
+            if (*s == ',') while (*++s && std::isspace(*s)) {}
+        }
+    }
+
+}
+std::string TypeMapper::operator()(std::string&& field) {
+    // expand any template parameters in field
+    for ( auto& tm: typeMap ) {
+        field = std::regex_replace(field, tm.first, tm.second);
+    }
+    return field;
+}
+}    
+
 // Get the fields of a struct from a gdb 'ptype" query
 std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
 {
@@ -536,12 +616,17 @@ std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
         return fields;
     }
 
+    TypeMapper mapper(cmd->output->oobs);
+
     MIList* field_list = CLIGetPtypeFieldList(cmd);
     MICommandFree(cmd);
 
     for (MIListSet(field_list); char* field = (char *)MIListGet(field_list); ) {
         DVPRINT("GetStructInfo: field is %s\n", field);
-        if (!fieldIsFunction(field)) fields.push_back(field);
+        if (!fieldIsFunction(field)) {
+            auto fieldStr = mapper(field);
+            fields.push_back(fieldStr);
+        }
     }
     return fields;
 }

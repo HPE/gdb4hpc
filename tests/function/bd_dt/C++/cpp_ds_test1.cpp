@@ -23,7 +23,7 @@ private:
 };
 static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
-static void templateClassTest();
+static void templateClassTest(), templateClassTest2();
 static void obscureDataTypes();
 class LinkedList {
 public:
@@ -100,8 +100,8 @@ int main(int argc, char ** argv){
     variableSizeDataTest();
     templateClassTest();
     obscureDataTypes();
+    templateClassTest2();
     delete ll;
-
 	MPI_Finalize();
 	return 0;
 }
@@ -214,4 +214,24 @@ static void obscureDataTypes() {
     ux.d = -34.25;
     ux.i = 300;
     ux.i = 300;
+}
+
+template <class T, class U>
+class Moderne2
+{
+public:
+    Moderne2(T val1, U val2) : t(val1,val1+1,val1+2), u(val2, val2*2+1, val2*3+2) {}
+private:
+    Moderne<T> t;
+    Moderne<U> u;
+};
+
+static void templateClassTest2() {
+    Moderne2<double,int> mi2(1.0, -8);
+
+    std::vector<Moderne2<double,int>> vmi2;
+    vmi2.push_back(Moderne2<double,int>(16.0,117));
+    vmi2.push_back(Moderne2<double,int>(4.0,100));
+
+    size_t len = vmi2.size();
 }

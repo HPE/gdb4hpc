@@ -57,7 +57,7 @@
 %global _build_id_links none
 
 # System strip command may be too old, use current path
-%global __strip strip
+%global __strip /usr/bin/true
 
 # Filter requires - these all come from the cdst-support rpm
 # These should match what is excluded in the cdst-support rpm specfile!
@@ -319,6 +319,13 @@ Tests for Cray gdb4hpc parallel debugger
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
 %{__cp} -a %{external_build_dir}/share/man/man1/gdb4hpc.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
+
+# doc
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/tutorial.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/tutorial.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/getting-started.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/getting-started.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
@@ -602,6 +609,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/man
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
@@ -741,6 +749,11 @@ fi
 #end share
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/getting-started.md
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/getting-started.html
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/tutorial.md
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/tutorial.html
+
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}

@@ -548,10 +548,9 @@ class Gdb4hpcTest(Test):
             os.environ["GDB4HPC_PROTO"] = self.proto
             print(f"Set proto to {self.proto}")
             # aarch64 machines are too slow to run all tests.
-            # if we're on an aarch64 machine, only run default tests
+            # if we're on an aarch64 machine, only run default proto tests
             arch = platform.uname()[5] # .processor
-            # mrnet is default on aarch64
-            if self.proto != "mrnet" and arch == "aarch64":
+            if self.proto != "zmqnet" and arch == "aarch64":
                 self.cancel("Skipping non-default proto on aarch machine.")
         else:
             print(f"No proto param") # use gdb4hpc default
@@ -630,8 +629,8 @@ class c_commnode_fanout(Gdb4hpcTest):
         os.mkdir(self.getLogDir())
 
     def test(self):
-        # mrnet is default
-        if self.proto != None and self.proto != "mrnet":
+        # self.proto == None indicates zmqnet
+        if self.proto == None or self.proto != "mrnet":
             self.cancel("Only applicable to mrnet")
 
         # set fanout env variable to force invocation of mrnet_commnode

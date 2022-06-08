@@ -52,13 +52,71 @@ extern void SendMICommand(MISession *, MICommand *);
 */
 namespace {
 
+class Mi2Aif;
+
+class LazyMIVar {
+    // handle for an MIVar which defers var, type, and expression calculations
+private:
+    Mi2Aif& m_mi;
+
+    std::shared_ptr<MIVar> m_var;
+    std::shared_ptr<ais::Type> m_type;
+    std::string m_expr;
+
+public:
+    LazyMIVar(Mi2Aif& mi, std::string expr);
+    LazyMIVar(Mi2Aif& mi, std::shared_ptr<MIVar> var);
+
+    std::shared_ptr<MIVar> getVar();
+    std::shared_ptr<ais::Type> getType();
+    std::string getExpr();
+
+private:
+    std::string arrayToFnCall(const std::string& expr);
+};
+
 class WriteBuffer; struct TypeName; class ArraySlicer;
+
+// Class to handle templated types.   For templated classes, gdb will report some
+// types in terms of template arguments, e.g. std::shared_ptr<T> where it
+// reported the template mapping earlier with "[with T = int]"
+class TypeMapper {
+public:
+    TypeMapper(MIList* oobs);
+    TypeMapper() = default; // construct empty
+
+    TypeMapper(const TypeMapper&) = delete;
+    TypeMapper(TypeMapper&& other) = default;
+    TypeMapper& operator=(const TypeMapper&) = delete;
+
+    std::string operator()(std::string&& type);
+private:
+    std::vector<std::pair<std::regex,std::string>> typeMap;
+};
+
+class PTypeFields {
+    // derive class fields and parent classes from the result of a ptype command
+public:
+    PTypeFields(MICommand& sentCmd);
+    PTypeFields() = default; // construct empty
+
+    const std::vector<std::string>& parentClasses() const { return m_parentClasses; }
+    const std::vector<std::string>& fields() const { return m_fields; }
+private:
+    bool fieldIsFunction(const char* str) const;
+    bool fieldIsTypedef(const char* str) const;
+
+    std::vector<std::string> m_parentClasses;
+    std::vector<std::string> m_fields;
+
+    TypeMapper m_typeMapper;
+};
 
 class Mi2Aif {
 private:
     MISession* m_session;
     size_t m_depth;
-    std::vector<std::shared_ptr<MIVar>> m_refs;
+    std::vector<std::shared_ptr<LazyMIVar>> m_refs;
     std::unordered_map<void*,size_t> m_refMap;
 
     std::shared_ptr<WriteBuffer> m_writeBuffer;
@@ -75,17 +133,22 @@ public:
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
     std::string getPTypeAlias(const std::string& type);
-    std::vector<std::string> getPTypeFields(const std::string& type);
+    PTypeFields getPTypeFields(const std::string& type);
 
     std::string nextSlice(ArraySlicer& slicer, bool& isFinal);
     std::unique_ptr<ArraySlicer> makeSlicer(const std::string& var);
     std::unique_ptr<ArraySlicer> makeSlicer(std::shared_ptr<MIVar> var);
-    void initTopRef(std::shared_ptr<MIVar> var);
+    void initTopRef(std::shared_ptr<LazyMIVar> var);
     std::shared_ptr<ais::Type> getKnownType(const std::string& name);
     std::shared_ptr<ais::Type> addKnownType(const std::string& name,
                                             std::shared_ptr<ais::Type> type);
 
     size_t swizzlePointer(const std::string& type, void* val);
+
+    // parse `expr` for meta info ("[[...]]") and return the separated meta info
+    // with the rest of the original string, in that order. If no meta info is
+    // present, the meta info portion of the returned tuple will be an empty string.
+    std::tuple<std::string, std::string> extractMetaInfo(const char* expr);
 
 private:
     void writeVal(std::shared_ptr<MIVar> var, int refIdx);
@@ -183,6 +246,7 @@ public:
         return [](Mi2Aif& mi, TypeName t) { return smartPointer(mi, std::move(t)); }; }
 
     static std::vector<Prim> m_cppPrims;
+    static std::vector<Prim> m_cppStlPrims;
     static std::vector<Prim> m_fortranPrims;
     static std::vector<std::string> m_ignore;
     static inline bool comparePrims(const Prim& a, const Prim& b) { return a.first < b.first; }
@@ -232,14 +296,6 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
  {"short",PrimWrap<ais::Short>()},
  {"short int",PrimWrap<ais::Short>()},
  {"signed char",PrimWrap<ais::SignedChar>()},
- {"std::array", stdArray},
- {"std::deque", ContainerWrap<ais::Deque>()},
- {"std::stack", ContainerWrap<ais::Stack>()},
- {"std::vector", ContainerWrap<ais::Vector>()},
- {"std::priority_queue", ContainerWrap<ais::PriorityQueue>()},
- {"std::queue", ContainerWrap<ais::Queue>()},
- {"std::shared_ptr", SmartPointerWrap()},
- {"std::unique_ptr", SmartPointerWrap()},
  {"uint8_t",PrimWrap<ais::UnsignedChar>()},
  {"uint16_t",PrimWrap<ais::UnsignedShort>()},
  {"uint32_t",PrimWrap<ais::UnsignedInt>()},
@@ -252,6 +308,18 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
  {"unsigned short",PrimWrap<ais::UnsignedShort>()},
  {"unsigned short int",PrimWrap<ais::UnsignedShort>()},
  {"void", wrapVoidFunc}
+};
+
+std::vector<TypeParser::Prim> TypeParser::m_cppStlPrims =
+{
+ {"std::array", stdArray},
+ {"std::deque", ContainerWrap<ais::Deque>()},
+ {"std::stack", ContainerWrap<ais::Stack>()},
+ {"std::vector", ContainerWrap<ais::Vector>()},
+ {"std::priority_queue", ContainerWrap<ais::PriorityQueue>()},
+ {"std::queue", ContainerWrap<ais::Queue>()},
+ {"std::shared_ptr", SmartPointerWrap()},
+ {"std::unique_ptr", SmartPointerWrap()},
 };
 
 std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
@@ -358,6 +426,12 @@ private:
 
 // global debug event set by the evaluator
 std::unique_ptr<dbgevent_t, decltype(&FreeEvent)> dbg_error{nullptr, FreeEvent};
+void throwDbgError(const std::string& what) {
+    DVPRINT("%s\n", what.c_str());
+    if (!dbg_error)
+        dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, what.c_str()));
+    throw dbg_error.release();
+}
 
 // This is the "main" function that should be called in this interface...
 // Note the deferred evaluation; the AIFStream may throw an evaluation failure
@@ -389,151 +463,148 @@ static void DeleteMIVar(MISession* session, MIVar* mivar)
     }
 }
 
-/*
- * Create a MI variable in gdb and get its MIVar type.
- * Returns null on error.
- */
-std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *expr) {
-    // Taking a cue from C++ annotations to use [[...]] to pass meta-data
-    // to the back-end.   So far, this is just being used to pass length
-    // information for raw C/C++ arrays.   I'd expect to add slicing info
-    // via this channel in the future.
-    if (expr && expr[0] == '[' && expr[1] == '[') {
-        if (auto close = strstr(expr,"]]")) {
-            auto metaInfo = std::string{expr+2, size_t(close-expr-2)};
-            DVPRINT("got metaInfo \"%s\"\n", metaInfo.c_str());
-            return createMIVarWithMetaInfo(close+2, metaInfo);
+LazyMIVar::LazyMIVar(Mi2Aif& mi, std::string expr) 
+    : m_mi{mi}, m_expr{std::move(expr)}
+{}
+
+LazyMIVar::LazyMIVar(Mi2Aif& mi, std::shared_ptr<MIVar> var) 
+    : m_mi{mi}, m_var{var}
+{}
+
+std::string LazyMIVar::arrayToFnCall(const std::string& funcExpr) {
+    if (funcExpr.find('[') != std::string::npos) {
+        DVPRINT("fixing up \"%s\"; retrying as a function call: ", funcExpr.c_str());
+        auto newFuncExpr = funcExpr;
+        for (size_t p; (p=newFuncExpr.find("][")) != std::string::npos; ) {
+            newFuncExpr.replace(p,2,1,',');
+        }
+        std::replace(newFuncExpr.begin(), newFuncExpr.end(), '[', '(');
+        std::replace(newFuncExpr.begin(), newFuncExpr.end(), ']', ')');
+
+        DVPRINT("%s\n", newFuncExpr.c_str());
+        return newFuncExpr;
+    }
+
+    // passed expression not possibly a function call
+    return "";
+}
+
+std::shared_ptr<MIVar> LazyMIVar::getVar() {
+    if (m_var) return m_var;
+
+    if (m_expr.empty()) {
+        throwDbgError("No expression to create variable with.");
+    }
+
+    m_var = m_mi.createMIVar(m_expr.c_str());
+
+    if (!m_var) {
+        // the frontend can't tell if "(12)" is a C function call or a
+        // fortran array index and thus sends function calls to us
+        // as "myFunc[12]" instead of "myFunc(12)"
+
+        if (auto fnCallExpr = arrayToFnCall(m_expr); !fnCallExpr.empty()) {
+            dbg_error.reset(); // set in createMIVar above
+            m_var = m_mi.createMIVar(fnCallExpr.c_str());
         }
     }
 
-    auto session = m_session;
-    auto delVar = [session](MIVar* mivar) { DeleteMIVar(session,mivar); };
-
-    std::shared_ptr<MIVar> var(nullptr, delVar);
-
-    MICommand* cmd = MIVarCreate("-", "*", quoteId(expr).c_str());
-    sendMICommand(cmd);
-    // If this fails, it means the symbol doesn't exist.
-    if (!MICommandResultOK(cmd)) {
-        dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, expr));
-        MICommandFree(cmd);
-        return var;
+    if (!m_var) {
+        throwDbgError("CreateMIVar returned null.\n");
     }
 
-    MIVar* mivar = MIGetVarCreateInfo(cmd);
-    MICommandFree(cmd);
-
-    if (mivar->exp == NULL) {
-        mivar->exp = strdup(expr);
-    }
-
-    mivar->expr = strdup(expr);
-
-    // remove newline
-    if (mivar->expr[strlen(expr) - 1] == '\n') {
-        mivar->expr[strlen(expr) - 1] = '\0';
-    }
-
-    // Remove whitespace and the final '&' for reference types.
-    // ptype breaks with '&'.
-    char* p = &(mivar->type)[strlen(mivar->type) - 1];
-
-    while ((p >= mivar->type) && isspace(*p)) {
-        *p-- = '\0';
-    }
-    
-    var.reset(mivar, delVar);
-    return var;
+    return m_var;
 }
 
-// Create an expression to evaluate based on additional meta-data for context
-std::shared_ptr<MIVar>
-Mi2Aif::createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo)
-{
-    DVPRINT("createMiVarWithMetaInfo \"%s\" + \"%s\"\n", expr, metaInfo.c_str());
-    std::shared_ptr<MIVar> rawVal = createMIVar(expr);
+std::shared_ptr<ais::Type> LazyMIVar::getType() {
+    if (m_type) return m_type;
 
-    if (rawVal && rawVal->type && rawVal->type[strlen(rawVal->type)-1] == '*'
-        && !metaInfo.empty() && metaInfo[0] == '@') {
-        // we have C pointerwith additional length info
-        std::ostringstream os;
-        os << "(" << expr << ")[0]" << metaInfo;
-        return createMIVar(os.str().c_str());
-    }
-
-    return rawVal;
-    
-}
-
-int Mi2Aif::getChildren(MIVar *var) {
-    if (m_session == NULL || var == NULL) return 1;
-
-    auto cmd = MIVarListChildren(quoteId(var->name).c_str());
-    sendMICommand(cmd);
-
-    if (!MICommandResultOK(cmd)) {
-        if (MICommandResultClass(cmd) == MIResultRecordERROR) {
-            char *err = MICommandResultErrorMessage(cmd);
-            const char* errMsg = ( err ? err : "Error without message!");
-            DVPRINT("MIVarGetChildren: Debugger error: %s\n", errMsg);
-            dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, errMsg));
-            free(err);
-        } else {
-            DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
-            dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN, "Bad response from GDB."));
+    if (m_var) {
+        m_type = TypeParser::getType(m_mi, m_var.get(), nullptr);
+    } else {
+        if (m_expr.empty()) {
+            throwDbgError("No expression to create variable with.");
         }
-        MICommandFree(cmd);
-        return 1;
-    }
-    MIGetVarListChildrenInfo(cmd, var);
-    MICommandFree(cmd);
 
-    return 0;
-}
+        // Use whatis commands to determine the gdb type of `exp`. Accounts
+        // for the frontend's confusion with ftn array indices and c function calls.
+        // If no type is found, returns an empty string.
+        auto getGDBType = [this](const std::string& exp) {
+            // Send a "whatis `exp`" command to gdb, returns "" on failure
+            auto SendWhatIs = [this](const std::string& exp) {
+                auto cmd = CLIWhatis(exp.c_str());
+                SendMICommand(m_mi.getSession(), cmd);
 
-inline bool fieldIsFunction(const char* str) {
-    auto paren = strchr(str, '(');
-    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
-}
+                if (MICommandResultOK(cmd)) {
+                    auto typeStr = CLIGetWhatisInfo(cmd);
+                    MICommandFree(cmd);
+                    if (!typeStr) return std::string{""};
+                    std::string r = typeStr;
+                    free(typeStr);
+                    return r;
+                } else {
+                    MICommandFree(cmd);
+                    return std::string{""};
+                }
+            };
 
-// Find the more fundamental description of a type.   This is for when the
-// application does something like "typedef int MyInt;
-// So this function will "MyInt" -> "int"
-std::string Mi2Aif::getPTypeAlias(const std::string& type) {
-    MICommand* cmd = CLIPtype(type.c_str());
-    sendMICommand(cmd);
+            auto typeStr = SendWhatIs(exp);
+            if (typeStr.empty()) {
+                // the frontend can't tell if "(12)" is a C function call or a
+                // fortran array index and thus sends function calls to us
+                // as "myFunc[12]" instead of "myFunc(12)"
+                if (auto fnCallExpr = arrayToFnCall(exp); !fnCallExpr.empty()) {
+                    return SendWhatIs(fnCallExpr);
+                }
+            }
 
-    if (!MICommandResultOK(cmd)) {
-        DVPRINT("GetStructInfo: CLIPtype call failed.\n");
-        MICommandFree(cmd);
-        return type;
-    }
+            return typeStr;
+        };
 
-    auto retType = type;
-    if (char* info = CLIGetPtypeInfo(cmd)) {
-        // info ends with a \n
-        if (auto len = strlen(info); len > 1 && !strchr(info,'{')) {
-            retType = std::string{info, len-1};
-            DVPRINT("Get CLIPTypeInfo %s\n", retType.c_str());
+        // strip meta info if present
+        auto [strippedExpr, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
+
+        auto strippedExprType = getGDBType(strippedExpr);
+        if (strippedExprType.empty()) {
+            DVPRINT("Whatis %s failed. Assuming no symbol.\n", strippedExpr.c_str());
+            if (!dbg_error) {
+                DVPRINT("New error\n");
+                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, strippedExpr.c_str()));
+            } else {
+                DVPRINT("Existing error?\n");
+            }
+            throw dbg_error.release();
         }
-        free(info);
+
+        m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
+        DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
+
+        // if we have a pointer with length meta info, we can apply it now
+        if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type);
+            ptrType && !metaInfo.empty() && metaInfo[0] == '@')
+        {
+            DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
+            auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
+            auto appliedType = getGDBType(lengthened);
+            if (!appliedType.empty()) {
+                m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
+            }
+        }
     }
-        
-    MICommandFree(cmd);
-    return retType;
+
+    return m_type;
 }
 
-namespace {
-// Class to handle templated types.   For templated classes, gdb will report some
-// types in terms of template arguments, e.g. std::shared_ptr<T> where it
-// reported the template mapping earlier with "[with T = int]"
-class TypeMapper {
-public:
-    TypeMapper(MIList* oobs);
-    std::string operator()(std::string&& type);
-private:
-    std::vector<std::pair<std::regex,std::string>> typeMap;
-};
+std::string LazyMIVar::getExpr() {
+    if (!m_expr.empty()) return m_expr;
+
+    if (!m_var || !m_var->expr) {
+        throwDbgError("No var to derive expression from.");
+    }
+
+    m_expr = m_var->expr;
+    return m_expr;
+}
 
 // Build up the mapping from the ptype result.  Oobs is the
 // full line by line output captured by ptype
@@ -601,33 +672,250 @@ std::string TypeMapper::operator()(std::string&& field) {
     }
     return field;
 }
-}    
 
-// Get the fields of a struct from a gdb 'ptype" query
-std::vector<std::string> Mi2Aif::getPTypeFields(const std::string& type)
+PTypeFields::PTypeFields(MICommand& sentCmd)
+    : m_typeMapper(sentCmd.output->oobs)
 {
-    auto fields = std::vector<std::string>{};
-    MICommand* cmd = CLIPtype(type.c_str());
+    MIList* field_list = CLIGetPtypeFieldList(&sentCmd);
+
+    // populate fields
+    for (MIListSet(field_list); char* field = (char *)MIListGet(field_list); ) {
+        DVPRINT("PTypeFields: field is %s\n", field);
+        if (!fieldIsFunction(field) && !fieldIsTypedef(field)) {
+            auto fieldStr = m_typeMapper(field);
+            m_fields.push_back(fieldStr);
+        }
+    }
+
+    // return a pointer to the first letter of the first inherited base class name
+    // starting from `from` or nullptr of there are no more
+    auto nextBaseClass = [](const char* from) {
+        // input string looks something like
+        // "type = class MultiDerived : public LeftBase, protected RightBase {\n..."
+        auto tokens = {
+            // first listed base class is prepended by a colon
+            ": public", ": protected", ": private",
+            // subsequent base classes are prepended by a comma
+            ", public", ", protected", ", private"
+        };
+        auto lineEnd = strchr(from, '\n');
+        if (!lineEnd) {
+            // last line has no \n
+            lineEnd = from + strlen(from);
+        }
+
+        auto earliest = static_cast<const char*>(nullptr);
+
+        for (const auto* token : tokens) {
+            auto match = strstr(from, token);
+            if (match) {
+                match += strlen(token) + 1; // move to beginning of class name
+                if (match < lineEnd && (earliest == nullptr || match < earliest)) {
+                    earliest = match;
+                }
+            }
+        }
+
+        DVPRINT("nextBaseClass returning %s\n", earliest);
+        return earliest;
+    };
+
+    // populate parent classes
+    const auto* info = CLIGetPtypeInfo(&sentCmd);
+    auto* end = info;
+
+    while (auto* start = nextBaseClass(end)) {
+        // found the start of parent class name, now find the end
+        end = start;
+        int nest = 0;
+        // scan until we hit a space or a comma outside of a template (or the end of the line)
+        for (; !(*end == ' ' && nest == 0) && !(*end == ',' && nest == 0) && !(*end == '\n'); end++) {
+            if (*end == '<') nest++;
+            if (*end == '>') nest--;
+        }
+        DVPRINT("parsed to end: %s\n", std::string(start, end).c_str());
+        auto parent = m_typeMapper(std::string(start, end));
+        // gdb can't properly parse the closure of nested templates (">>")
+        // without a space in between ("> >")
+        parent = std::regex_replace(parent, std::regex(">>"), "> >");
+        DVPRINT("found parent: %s\n", parent.c_str());
+        m_parentClasses.push_back(parent);
+    }
+}
+
+bool PTypeFields::fieldIsFunction(const char* str) const {
+    auto paren = strchr(str, '(');
+    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
+}
+
+bool PTypeFields::fieldIsTypedef(const char* str) const {
+    // point to first non-whitespace character in the line
+    while (str && ::isspace(*str) && *str != '\n') str++;
+    auto typdef = strstr(str, "typedef");
+    return typdef == str;
+}
+
+/*
+ * Create a MI variable in gdb and get its MIVar type.
+ * Returns null on error.
+ */
+std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *taggedExpr) {
+    auto [expr, metaInfo] = extractMetaInfo(taggedExpr);
+    if (!metaInfo.empty()) {
+        return createMIVarWithMetaInfo(expr.c_str(), metaInfo);
+    }
+
+    auto session = m_session;
+    auto delVar = [session](MIVar* mivar) { DeleteMIVar(session,mivar); };
+
+    std::shared_ptr<MIVar> var(nullptr, delVar);
+
+    MICommand* cmd = MIVarCreate("-", "*", quoteId(expr).c_str());
+    sendMICommand(cmd);
+    // If this fails, it means the symbol doesn't exist.
+    if (!MICommandResultOK(cmd)) {
+        dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, expr.c_str()));
+        MICommandFree(cmd);
+        return var;
+    }
+
+    MIVar* mivar = MIGetVarCreateInfo(cmd);
+    MICommandFree(cmd);
+
+    if (mivar->exp == NULL) {
+        mivar->exp = strdup(expr.c_str());
+    }
+
+    mivar->expr = strdup(expr.c_str());
+
+    // remove newline
+    if (expr.back() == '\n') {
+        mivar->expr[expr.size() - 1] = '\0';
+    }
+
+    // Remove whitespace and the final '&' for reference types.
+    // ptype breaks with '&'.
+    char* p = &(mivar->type)[strlen(mivar->type) - 1];
+
+    while ((p >= mivar->type) && isspace(*p)) {
+        *p-- = '\0';
+    }
+    
+    var.reset(mivar, delVar);
+    return var;
+}
+
+std::tuple<std::string, std::string> Mi2Aif::extractMetaInfo(const char* expr) {
+    // Taking a cue from C++ annotations to use [[...]] to pass meta-data
+    // to the back-end.   So far, this is just being used to pass length
+    // information for raw C/C++ arrays.   I'd expect to add slicing info
+    // via this channel in the future.
+    if (expr && expr[0] == '[' && expr[1] == '[') {
+        if (auto close = strstr(expr,"]]")) {
+            auto metaInfo = std::string{expr+2, size_t(close-expr-2)};
+            DVPRINT("got metaInfo \"%s\"\n", metaInfo.c_str());
+            return {std::string(close + 2), metaInfo};
+        }
+    }
+
+    // XXX copying the unchanged input for no reason? a little wasteful...
+    return {std::string{expr}, ""};
+}
+
+// Create an expression to evaluate based on additional meta-data for context
+std::shared_ptr<MIVar>
+Mi2Aif::createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo)
+{
+    DVPRINT("createMiVarWithMetaInfo \"%s\" + \"%s\"\n", expr, metaInfo.c_str());
+    std::shared_ptr<MIVar> rawVal = createMIVar(expr);
+
+    if (rawVal && rawVal->type && rawVal->type[strlen(rawVal->type)-1] == '*'
+        && !metaInfo.empty() && metaInfo[0] == '@') {
+        // we have C pointerwith additional length info
+        std::ostringstream os;
+        os << "(" << expr << ")[0]" << metaInfo;
+        return createMIVar(os.str().c_str());
+    }
+
+    return rawVal;
+    
+}
+
+int Mi2Aif::getChildren(MIVar *var) {
+    if (m_session == NULL || var == NULL) return 1;
+
+    auto cmd = MIVarListChildren(quoteId(var->name).c_str());
+    sendMICommand(cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        if (MICommandResultClass(cmd) == MIResultRecordERROR) {
+            char *err = MICommandResultErrorMessage(cmd);
+            const char* errMsg = ( err ? err : "Error without message!");
+            DVPRINT("MIVarGetChildren: Debugger error: %s\n", errMsg);
+            dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, errMsg));
+            free(err);
+        } else {
+            DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
+            dbg_error.reset(NewErrorEvent(DBGERR_UNKNOWN, "Bad response from GDB."));
+        }
+        MICommandFree(cmd);
+        return 1;
+    }
+    MIGetVarListChildrenInfo(cmd, var);
+    MICommandFree(cmd);
+
+    return 0;
+}
+
+// Find the more fundamental description of a type.   This is for when the
+// application does something like "typedef int MyInt;
+// So this function will "MyInt" -> "int"
+std::string Mi2Aif::getPTypeAlias(const std::string& type) {
+    // gdb can't properly parse the closure of nested templates (">>")
+    // without a space in between ("> >")
+    auto fixedType = std::regex_replace(type, std::regex(">>"), "> >");
+    
+    MICommand* cmd = CLIPtype(fixedType.c_str());
     sendMICommand(cmd);
 
     if (!MICommandResultOK(cmd)) {
         DVPRINT("GetStructInfo: CLIPtype call failed.\n");
         MICommandFree(cmd);
-        return fields;
+        return type;
     }
 
-    TypeMapper mapper(cmd->output->oobs);
-
-    MIList* field_list = CLIGetPtypeFieldList(cmd);
-    MICommandFree(cmd);
-
-    for (MIListSet(field_list); char* field = (char *)MIListGet(field_list); ) {
-        DVPRINT("GetStructInfo: field is %s\n", field);
-        if (!fieldIsFunction(field)) {
-            auto fieldStr = mapper(field);
-            fields.push_back(fieldStr);
+    auto retType = type;
+    if (char* info = CLIGetPtypeInfo(cmd)) {
+        // info ends with a \n
+        if (auto len = strlen(info); len > 1 && !strchr(info,'{')) {
+            retType = std::string{info, len-1};
+            DVPRINT("Get CLIPTypeInfo %s\n", retType.c_str());
         }
+        free(info);
     }
+        
+    MICommandFree(cmd);
+    return retType;
+}
+
+// Get the fields of a struct from a gdb 'ptype" query
+PTypeFields Mi2Aif::getPTypeFields(const std::string& type)
+{
+    // gdb can't properly parse the closure of nested templates (">>")
+    // without a space in between ("> >")
+    auto fixedType = std::regex_replace(type, std::regex(">>"), "> >");
+
+    MICommand* cmd = CLIPtype(fixedType.c_str());
+    sendMICommand(cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("GetStructInfo: CLIPtype call failed.\n");
+        MICommandFree(cmd);
+        return PTypeFields();
+    }
+
+    auto fields = PTypeFields(*cmd);
+    MICommandFree(cmd);
     return fields;
 }
 
@@ -669,12 +957,12 @@ size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
 
     if (m_refMap.empty() && m_refs.size() == 1) {
         // we put off indexing the first block until we know we are dealing with pointers      
-        auto top = m_refs[0];
+        auto top = m_refs[0]->getVar();
         DVPRINT("Top reference %s type %s value=%s\n", top->expr, top->type, top->value);
         void* addr_loc{};
         if (top->value && top->value[0]=='0') {
             // the top level is a pointer and we already have the pointer value                
-            addr_loc = reinterpret_cast<void*>(strtoll(m_refs[0]->value, nullptr, 0));
+            addr_loc = reinterpret_cast<void*>(strtoll(m_refs[0]->getVar()->value, nullptr, 0));
         } else {
             DVPRINT("Trying to get address of top object");
             // the top level is a value type, use & to try to get an address                   
@@ -700,7 +988,7 @@ size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
         derefExpr << "\"*(" << type << "*)" << p << "\"";
         DVPRINT("Creating new MIVar with %s\n", derefExpr.str().c_str());
         
-        m_refs.push_back(createMIVar(derefExpr.str().c_str()));
+        m_refs.emplace_back(std::make_shared<LazyMIVar>(*this, createMIVar(derefExpr.str().c_str())));
     } else {
         idx = loc->second;
     }
@@ -878,26 +1166,28 @@ namespace {
 // mode), we are limited to the set of types that can be split using a gdb expression.
 class ArraySlicer {
 public:
-    ArraySlicer(MISession* session, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
+    ArraySlicer(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
+    ArraySlicer(Mi2Aif& mi, std::string fullExpr);
     ~ArraySlicer();
 
     // evaluate the next slice of the variable result.
     std::tuple<std::shared_ptr<ais::Type>, char*, bool> getNext();
+    std::shared_ptr<LazyMIVar> getVar() { return m_var; }
 
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
 
 private:
-    void determineSlicing(const ais::Type& varType);
+    void determineSlicing();
+    size_t determineBlockSize();
 
     ArraySlicer(const ArraySlicer&) = delete;
     ArraySlicer& operator=(const ArraySlicer&) = delete;
 
-    MISession* m_session;       // session to connect to gdb/MI
-    
-    std::shared_ptr<MIVar> m_var;  // MI variable of interest
-    std::shared_ptr<ais::Type> m_type;   // type of the full variable
+    Mi2Aif& m_mi;               // Parent Mi2Aif
+
+    std::shared_ptr<LazyMIVar> m_var; // MI variable of interest
+
     char* m_buf;                // allocated array for the result (contolled by this)
-    char* m_array;              // interpretable region of m_buf
 
     size_t m_blockSize;         // maximum number of elements in each query
     std::string m_subExpr;      // encode expression to use for querying a chunk
@@ -906,21 +1196,24 @@ private:
     long m_slice;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(MISession* session, std::shared_ptr<MIVar> var,
+ArraySlicer::ArraySlicer(Mi2Aif& mi, std::shared_ptr<MIVar> var,
                          std::shared_ptr<ais::Type> varType)
-    : m_session(session), m_var(var), m_type(varType),
-      m_buf(nullptr), m_array(nullptr), m_blockSize(DEFAULT_BLOCK_SIZE),
-      m_subIdx(0), m_maxSubIdx(0), m_slice(0)
+    : m_mi{mi}, m_var(std::make_shared<LazyMIVar>(mi, var))
+    , m_buf(nullptr), m_blockSize(determineBlockSize())
+    , m_subIdx(0), m_maxSubIdx(0), m_slice(0)
 {
-    static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");
-    if (blockSizeStr) {
-        long lval = atol(blockSizeStr);
-        if (lval >= 0)
-            m_blockSize = lval;
-    }
-
     if (m_blockSize) {
-        determineSlicing(*varType);
+        determineSlicing();
+    }
+}
+
+ArraySlicer::ArraySlicer(Mi2Aif& mi, std::string fullExpr)
+    : m_mi{mi}, m_var(std::make_shared<LazyMIVar>(mi, std::move(fullExpr)))
+    , m_buf(nullptr), m_blockSize(determineBlockSize())
+    , m_subIdx(0), m_maxSubIdx(0), m_slice(0)
+{
+    if (m_blockSize) {
+        determineSlicing();
     }
 }
 
@@ -932,7 +1225,7 @@ ArraySlicer::~ArraySlicer()
 // Paging and the like is unavailable in MI mode.   Instead, this class and this function
 // specifically examines the data type and determines how it can be extracted in multiple
 // data print calls that each pull out a portion of the data structure
-void ArraySlicer::determineSlicing(const ais::Type& varType)
+void ArraySlicer::determineSlicing()
 {
     DVPRINT("in ArraySlicer::determineSlicing blocksize if %zu\n", m_blockSize);
     
@@ -940,11 +1233,11 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
         return;
 
     std::vector<int> arrayLens;
-    for (auto v = &varType; auto arr = dynamic_cast<const ais::Array*>(v); v=arr->getElemType()) {
+    for (const ais::Type* v = m_var->getType().get(); auto arr = dynamic_cast<const ais::Array*>(v); v=arr->getElemType()) {
         auto len = arr->getLen();
         if (auto vec = dynamic_cast<const ais::Vector*>(arr); vec && !len) {
-            std::string sizeStr = std::string("(") + m_var->exp + ").size()";
-            char* sizeRes = EvalExpression(m_session, sizeStr.c_str());
+            std::string sizeStr = std::string("(") + m_var->getExpr() + ").size()";
+            char* sizeRes = EvalExpression(m_mi.getSession(), sizeStr.c_str());
             if (!sizeRes) {
                 DVPRINT("could not get vector length\n");
                 return;
@@ -977,7 +1270,7 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
         return;             // no need to divide
 
     // we handle at least the simplest  artificial arrays
-    m_subExpr = m_var->expr;
+    m_subExpr = m_var->getExpr();
     size_t atLoc = m_subExpr.rfind("[0]@");
     if (atLoc != std::string::npos) {
         m_subExpr.erase(atLoc);
@@ -993,6 +1286,16 @@ void ArraySlicer::determineSlicing(const ais::Type& varType)
             m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
 }
 
+size_t ArraySlicer::determineBlockSize() {
+    static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");
+    if (blockSizeStr) {
+        long lval = atol(blockSizeStr);
+        if (lval >= 0)
+            return lval;
+    }
+
+    return DEFAULT_BLOCK_SIZE;
+}
 
 // Return either the next chunk of data, or nullptr if there is no more data to be
 // had.
@@ -1006,24 +1309,17 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
     char* array = nullptr;
 
     if (m_subIdx > m_maxSubIdx) {
-        return std::tuple(m_type, array, isFinal);
+        return std::tuple(m_var->getType(), array, isFinal);
     }
 
-    auto retType = m_type;
+    auto retType = m_var->getType();
 
-    if (m_array) {
-        DVPRINT("In ArraySlicer::getNext no size information\n");
-        // we were unable to get the size information for variable, so we
-        // have already gotten the full data
-        array = m_array;
-        m_array = nullptr;
-        ++m_subIdx;
-    } else if (m_slice == 0 && !m_buf) {
+    if (m_slice == 0 && !m_buf) {
         DVPRINT("In ArraySlicer::getNext not big enough to split\n");
         // splitting is not enabled, the array is not big enough to split,
         // or it's a form the splitter doesn't recognize, just return it
         // all
-        array = m_buf = GetArrayDataString(m_session, m_var.get());
+        array = m_buf = GetArrayDataString(m_mi.getSession(), m_var->getVar().get());
         ++m_subIdx;
     } else {
         DVPRINT("In ArraySlicer::getNext get next chunk\n");
@@ -1048,13 +1344,13 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
 
         DVPRINT("Evaluating sub-expression %s\n", subExpr.c_str());
 
-        array = EvalExpression(m_session,const_cast<char*>(subExpr.c_str()));
+        array = EvalExpression(m_mi.getSession(),const_cast<char*>(subExpr.c_str()));
         if (array) {
             // success!
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
 
             // update the array type to contain just the length of the slice
-            auto subArrayType = std::static_pointer_cast<ais::Array>(m_type);
+            auto subArrayType = std::static_pointer_cast<ais::Array>(m_var->getType());
             subArrayType = subArrayType->makeTyped(subArrayType->getElemTypePtr());
             subArrayType->setBounds(len, m_subIdx);
             retType = subArrayType;
@@ -1063,7 +1359,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
 
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
-            array = GetArrayDataString(m_session, m_var.get());
+            array = GetArrayDataString(m_mi.getSession(), m_var->getVar().get());
             m_subIdx = m_maxSubIdx + 1;
 
             DVPRINT("Failed getting sub-array value, full result: %s\n", array);
@@ -1154,6 +1450,7 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
     if (!isSorted) {
         std::sort(m_cppPrims.begin(), m_cppPrims.end(), comparePrims);
         std::sort(m_fortranPrims.begin(), m_fortranPrims.end(), comparePrims);
+        std::sort(m_cppStlPrims.begin(), m_cppStlPrims.end(), comparePrims);
         isSorted = true;
     }
 
@@ -1184,7 +1481,7 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
     }
 
-    // check for C++ types
+    // check for C++ primitive types
     // we need to use upper_bound and work backwards to be sure be get the maximal
     // match, e.g. "long" v. "long double"
     auto cpp = Prim{type,0};
@@ -1193,8 +1490,34 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         const auto& match = loc->first;
         if (match == type.substr(0, match.size()) &&
             (type.size() == match.size() || !isId(type[match.size()]))) {
-            DVPRINT("returning type %s %d\n", type.c_str(), static_cast<int>(match.size()));
+            DVPRINT("returning c++ primitive type %s %d\n", type.c_str(), static_cast<int>(match.size()));
+            return mi.addKnownType(type, loc->second(mi, TypeName{type,match.size()}));
+        }
+    }
 
+    // check for C++ stl types
+    loc = std::upper_bound(m_cppStlPrims.begin(), m_cppStlPrims.end(), cpp, comparePrims);
+    while (loc != m_cppStlPrims.begin() && (--loc)->first[0] == type[0]) {
+        const auto& match = loc->first;
+        if (match == type.substr(0, match.size()) &&
+            (type.size() == match.size() || !isId(type[match.size()]))) {
+            // make sure our real type isn't a scoped member of the match,
+            // e.g. a std::array<int, 10>::value_type
+            auto tnest = int{0};
+            auto scoped = false;
+            for (auto i = match.size(); type.size() > 0 && i < type.size() - 1; i++) {
+                if (type[i] == '<') tnest++;
+                if (type[i] == '>') tnest--;
+                if (tnest == 0 && type[i] == ':' && type[i+1] == ':') {
+                    DVPRINT("matched with %s but found further scoping. continuing.\n", match.c_str());
+                    scoped = true;
+                    break;
+                }
+            }
+
+            if (scoped) continue;
+
+            DVPRINT("returning c++ stl type %s %d\n", type.c_str(), static_cast<int>(match.size()));
             return mi.addKnownType(type, loc->second(mi, TypeName{type,match.size()}));
         }
     }
@@ -1298,8 +1621,13 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
         DVPRINT("done processing members\n");
     } else {
-        auto fieldStrs = mi.getPTypeFields(type);
-        for (auto&& fieldStr : fieldStrs) {
+        auto ptfields = mi.getPTypeFields(type);
+        // parent classes
+        for (const auto& parent : ptfields.parentClasses()) {
+            stype->addMember(parent, getType(mi, nullptr, parent.c_str()));
+        }
+        // class members
+        for (auto&& fieldStr : ptfields.fields()) {
             // the field is type followed by name
             auto namePos = fieldStr.rfind(' ');
             if (namePos == std::string::npos) continue;
@@ -1481,15 +1809,6 @@ std::shared_ptr<ais::Type> TypeParser::stdArray(Mi2Aif& mi, TypeName t) {
     DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
             containedType.c_str(), templateArgs.c_str(), decoration.c_str());
 
-    auto vt = std::string{"::value_type"};
-    if (decoration.find(vt) == 0) {
-        DVPRINT("got std_array::value_type\n");
-        auto elemType = getType(mi, nullptr, containedType.c_str());
-        auto t2 = TypeName{std::move(containedType), decoration.substr(vt.size())};
-        return wrap(elemType, t2);
-    }
-        
-
     int len = 0;
     try {
         len = std::stoi(templateArgs);
@@ -1605,55 +1924,29 @@ std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
 // Create the top level ArraySlicer for an expression.   The ArraySlicer
 // will potentially break the expression into multiple evaluations if
 // var is a large container
-std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(const std::string& var)
-{
-    auto mivar = createMIVar(var.c_str());
-
-    // This version is called on the top level expression, so we add some
-    // additional logic for the quirks in the top level expression
-    if (!mivar && var.find('[') != std::string::npos) {
-        // the frontend can't tell if "(12)" is a C function call or a
-        // fortran array index.
-        DVPRINT("retrying as a function call\n");
-        auto cvar = var;
-        for (size_t p; (p=cvar.find("][")) != std::string::npos; ) {
-            cvar.replace(p,2,1,',');
-        }
-        std::replace(cvar.begin(), cvar.end(), '[', '(');
-        std::replace(cvar.begin(), cvar.end(), ']', ')');
-        mivar = createMIVar(cvar.c_str());
-    }
-
-    if (!mivar) {
-        DVPRINT("CreateMIVar returned null.\n");
-        if (!dbg_error) dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "CreateMIVar failed."));
-        throw dbg_error.release();
-    }
-
-    // For non-point top values, we do extra work in case the expansion
-    // has a reference to the address &(var)
-    initTopRef(mivar);
-
-    return makeSlicer(mivar);
+std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(const std::string& var) {
+    return std::make_unique<ArraySlicer>(*this, var);
 }
 
 // Create an ArraySlicer for a secondary reference.
 // Note: slicing of chain of values hasn't really been tested..
 std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(std::shared_ptr<MIVar> mivar) {
     auto origType = TypeParser::getType(*this, mivar.get(), nullptr);
-    return std::make_unique<ArraySlicer>(m_session, mivar, origType);
+    return std::make_unique<ArraySlicer>(*this, mivar, origType);
 }
 
 // Special handling for the original expression passed by the user.
 // This comes into play if a tree/graph/list structure might contain a
 // reference to the initial value
-void Mi2Aif::initTopRef(std::shared_ptr<MIVar> var) {
-    if (var->type && var->type[strlen(var->type)-1] != '*') {
+void Mi2Aif::initTopRef(std::shared_ptr<LazyMIVar> lvar) {
+    if (!lvar) return;
+    if (auto ptrT = std::dynamic_pointer_cast<ais::Pointer>(lvar->getType()); !ptrT) {
         // Save the input expression - if it contains pointers we will need
         // to index the address of this object to resolve any back-pointers in
         // the structure.
-        DVPRINT("Pushing top expression %s, type %s\n", var->expr, var->type);
-        m_refs.push_back(var);
+        DVPRINT("Pushing top expression %s, type %s\n", 
+            lvar->getExpr().c_str(), lvar->getType()->getTypeName().c_str());
+        m_refs.push_back(lvar);
     }
 }
 
@@ -1664,6 +1957,9 @@ void Mi2Aif::initTopRef(std::shared_ptr<MIVar> var) {
 std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
     DVPRINT("nextSlice\n");
 
+    if (m_refs.size() == 0) {
+        initTopRef(slicer.getVar());
+    }
     auto initNumRefs = m_refs.size();
 
     auto [ type, gdbArr, sliceIsFinal ] = slicer.getNext();
@@ -1684,9 +1980,7 @@ std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
 
     // create the elements, note that m_refs can grow inside the loop
     for (size_t i=initNumRefs; i<m_refs.size() && i<refLimit ; ++i) {
-        if (m_refs[i]) {
-            writeVal(m_refs[i], i+1);
-        }
+        if (m_refs[i]) writeVal(m_refs[i]->getVar(), i+1);
     }
 
     m_writer.resetTypes();

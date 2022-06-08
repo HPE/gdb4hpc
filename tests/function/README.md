@@ -10,7 +10,7 @@ $ ./test_tool.py
 ## Running tests from a git clone
 
 ```
-$ git submodule update --init ./cdst-test
+$ git submodule update --init --remote ./cdst-test
 $ ./test_tool.py
 ```
 

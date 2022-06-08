@@ -1,6 +1,6 @@
 1: # attach to a process and mess with a variable, breaking out of a loop
 2: maint set sync on
-3: # we ignore output because the reported backtrace after attach is unpredictable
+3: # the job id and the reported backtrace after attach is unpredictable
 3: attach $a %[0-9.]+%???
 4: # get back to main
 4: break cpp_attach.cpp:15

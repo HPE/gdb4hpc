@@ -30,12 +30,14 @@
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-ddt_gdb-10.0.git
 [submodule "tests/function/cdst-test"]
 	path = tests/function/cdst-test
+	branch = master
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-cdst-test.git
 [submodule "external/python_extras"]
 	path = external/python_extras
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-python_extras.git
 [submodule "external/zmqnet"]
 	path = external/zmqnet
+	branch = cdst-external
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-zmqnet.git
 [submodule "external/changelog"]
 	path = external/changelog

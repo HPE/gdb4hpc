@@ -229,6 +229,10 @@ def compare_batch_lines(ref_line, out_line):
     if ref_batch_line == None:
         return "missing output"
 
+    global indeterminate
+    if indeterminate:
+        return None
+
     if not ref_batch_line == out_line:
         return "batch lines do not match"
 

@@ -25,6 +25,12 @@ static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2();
 static void obscureDataTypes();
+static void inheritanceTest();
+
+static void trap() {
+    std::cout << "trap function\n";
+}
+
 class LinkedList {
 public:
     LinkedList() : val(0), next(this) {}
@@ -101,6 +107,7 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
+    inheritanceTest();
     delete ll;
 	MPI_Finalize();
 	return 0;
@@ -109,6 +116,7 @@ int main(int argc, char ** argv){
 static void f(const Struct1& s, const Classy& c)
 {
   int i = 0;
+  trap();
 }
 
 int func2(int x, int y) 
@@ -124,6 +132,7 @@ static size_t f2(const std::vector<std::string>& strings,
                const std::vector<std::vector<int>>& vecOfVecs,
                const std::vector<std::vector<std::string>> vecOfStrings) {
     size_t totalLen = strings.size() + vecOfVecs.size() + vecOfStrings.size();
+    trap();
     return totalLen;
 }
 
@@ -193,6 +202,7 @@ static void templateClassTest() {
 
     size_t len = mi.getLen();
     size_t lend = md.getLen();
+    trap();
 }
 
 union ux_t { int i; double d; };
@@ -205,6 +215,7 @@ static void obscureDataTypes() {
     uint64_t ui64 = uint64_t(1) << 62;
     ux_t ux;
     ux.i = 100;
+    trap();
 
     i8 = -i8;
     ui16 = 1 << 15;
@@ -214,6 +225,7 @@ static void obscureDataTypes() {
     ux.d = -34.25;
     ux.i = 300;
     ux.i = 300;
+    trap();
 }
 
 template <class T, class U>
@@ -234,4 +246,53 @@ static void templateClassTest2() {
     vmi2.push_back(Moderne2<double,int>(4.0,100));
 
     size_t len = vmi2.size();
+    trap();
+}
+
+class LeftBase {
+public:
+    int leftInt = -1;
+    float leftFloat = -1.1f;
+private:
+    double leftDouble = -11.11f;
+};
+
+class RightBase {
+protected:
+    int rightInt = 1;
+    float rightFloat = 1.1f;
+private:
+    double rightDouble = 11.11f;
+};
+
+class LinearDerived : public LeftBase {
+public:
+    int derivedInt = 2;
+    float derivedFloat = 2.2f;
+};
+
+class GrandChild : protected LinearDerived {
+private:
+    int grandChildInt = 3;
+};
+
+class PrivateGrandChild : private LinearDerived {
+private:
+    int grandChildInt = 33;
+};
+
+class MultiDerived : public LeftBase, protected RightBase {
+public:
+    int derivedInt = 4;
+    float derivedFloat = 4.4f;
+};
+
+static void inheritanceTest() {
+    auto LB = LeftBase{};
+    auto RB = RightBase{};
+    auto LD = LinearDerived{};
+    auto GC = GrandChild{};
+    auto PGC = PrivateGrandChild{};
+    auto MD = MultiDerived{};
+    trap();
 }

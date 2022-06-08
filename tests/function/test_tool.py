@@ -9,7 +9,7 @@ if __name__ == "__main__":
         from test_tool import run_tests
     except ImportError:
         print("Failed to load testing library. Make sure you've initialized submodules.")
-        print("Try \"git submodule update --init ./cdst-test\"")
+        print("Try \"git submodule update --init --remote ./cdst-test\"")
         exit(-1)
 
     run_tests()

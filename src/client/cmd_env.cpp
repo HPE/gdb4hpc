@@ -204,7 +204,7 @@ static int class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_subcmd_system_cmd(rec_set_t *rec_set, int argc,
+static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     FILE *cmd_out;
     char *cmd = NULL;
@@ -698,17 +698,24 @@ void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
                cmd_quit_help, "Exit the debugger.");
+    
+    AddCommand("shell", nullptr, proc_ignore, 0,
+                cmd_shell_cmd,
+                cmd_shell_help, "Run a shell command.");
 
     // maint commands
     AddMaintCommand("echo", proc_ignore, 0,
                     class_maint_subcmd_echo_cmd,
                     class_maint_subcmd_echo_help, "Echo a string.");
+
+    AddMaintCommand("system", proc_ignore, 0,
+                cmd_shell_cmd,
+                cmd_shell_help, "Run a shell command.");
+
     AddMaintCommand("sleep", proc_ignore, 0,
                     class_maint_subcmd_sleep_cmd,
                     class_maint_subcmd_sleep_help, "Pause the debugger.");
-    AddMaintCommand("system", proc_ignore, 0,
-                    class_maint_subcmd_system_cmd,
-                    class_maint_subcmd_system_help, "Run a shell command.");
+    
 
     // info commands
     AddInfoCommand("status", proc_required, 0,

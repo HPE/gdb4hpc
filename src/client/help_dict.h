@@ -50,6 +50,7 @@ extern const char* const cmd_quit_help[];
 extern const char* const cmd_release_help[];
 extern const char* const cmd_restart_help[];
 extern const char* const cmd_session_help[];
+extern const char* const cmd_shell_help[];
 extern const char* const cmd_source_help[];
 extern const char* const cmd_step_help[];
 extern const char* const cmd_tbreak_help[];

@@ -38,6 +38,7 @@ restart         Restore program to state of previously created checkpoint.
 run             Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.
 session         Create a new WLM session.
 set             Set information about the debugger environment.
+shell           Run a shell command.
 show            Show information about the debugger environment.
 source          Read debugger commands from a file.
 start           Start executing an assertion script.

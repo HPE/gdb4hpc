@@ -731,6 +731,19 @@ const char* const cmd_session_help[] = {
     "delete the job reservation from the queueing system.",
     0};
 
+const char* const cmd_shell_help[] = {
+    "Summary: Launch a shell command locally",
+    "Usage: shell <command>",
+    "Example command: shell hostname",
+    "",
+    "Arguments: command (entire string to pass to shell)",
+    "",
+    "Description:",
+    "Runs a command in the shell environment of the client. This can be used",
+    "to enumerate information about the system the client is running on. The",
+    "stderr of the command will be redirected to stdout and printed in the result.",
+    0};
+
 const char* const cmd_source_help[] = {
     "Summary: Read and execute debugger commands.",
     "Usage: source <filename>",
@@ -1377,6 +1390,7 @@ const char* const class_maint_subcmd_direct_help[] = {
     "output will be aggregated and returned.",
     0};
 
+// This is deprecated, please seee class_shell_help[] for current implementation
 const char* const class_maint_subcmd_system_help[] = {
     "Summary: System command.",
     "Usage: maint system <command>",

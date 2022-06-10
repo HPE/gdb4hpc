@@ -1720,15 +1720,24 @@ std::shared_ptr<ais::Type> TypeParser::ftnWrap(std::shared_ptr<ais::Type> elemTy
     while (is >> c) {
         if (c == '(' || (inSize && (c == ',' || c == ':'))) {
             inSize = true;
-            int len;
+            int len = 0, idx0 = 1;
             if (is.peek() == ':') {
                 is.ignore();
                 DVPRINT("Unallocated array\n");
-                result = std::make_shared<ais::FtnArray>(result,0);
             } else if (is >> len) {
-                DVPRINT("got len %d\n", len);
-                result = std::make_shared<ais::FtnArray>(result, len);
-            } 
+                if (is.peek() == ':') {
+                    is.ignore();
+                    idx0 = len;
+                    is >> len;
+                    len = len-idx0+1;
+                }
+                DVPRINT("got len %d idx0 %d\n", len, idx0);
+            }
+                    
+            auto arr = std::make_shared<ais::FtnArray>(result);
+            arr->setBounds(len, idx0);
+            result = arr;
+
         } else if (inSize && c == ')') {
             inSize = false;
         } else if (c == '*') {

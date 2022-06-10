@@ -13,6 +13,9 @@ program ftn_arrays
    integer(kind=8), allocatable :: long_2(:,:)
    integer(kind=8), allocatable :: long_3(:,:,:)
 
+   integer(kind=4) :: int_0(0:9)
+   integer(kind=4) :: int_0_2( -10:10, -5:13)
+
    real*4, allocatable :: float_1(:)
    real*4, allocatable :: float_2(:,:)
    real*4, allocatable :: float_3(:,:,:)
@@ -110,29 +113,36 @@ program ftn_arrays
    bool_3 = .FALSE.
    forall(i=1:size_3_1, j=1:size_3_2, k=1:size_3_3, mod(i+j+k,2).eq.1) bool_3(i,j,k) = .TRUE.
 
+   forall(i=0:9) int_0(i) = 2 * (i+5) - 3
+   forall(i=-10:10, j=-5:13) int_0_2(i,j) = i + j
+
    if (application.ne.0) then
       int_1(1) = 100
       long_1(1) = 100
       float_1(1) = 100.0
       double_1(1) = 100.0
 
-      int_2(1,1) = 100
-      long_2(1,1) = 100
-      float_2(1,1) = 100.0
-      double_2(1,1) = 100.0
+      int_2(1,2) = 100
+      long_2(1,2) = 100
+      float_2(1,2) = 100.0
+      double_2(1,2) = 100.0
 
-      int_3(1,1,1) = 100
-      long_3(1,1,1) = 100
-      float_3(1,1,1) = 100.0
-      double_3(1,1,1) = 100.0
+      int_3(1,2,3) = 100
+      long_3(1,2,3) = 100
+      float_3(1,2,3) = 100.0
+      double_3(1,2,3) = 100.0
 
       complex_1(1) = (100.0,100.0)
-      complex_2(1,1) = (100.0,100.0)
-      complex_3(1,1,1) = (100.0, 100.0)
+      complex_2(1,2) = (100.0,100.0)
+      complex_3(1,2,3) = (100.0, 100.0)
 
       bool_1(1) = .FALSE.
-      bool_2(1,1) = .TRUE.
-      bool_3(1,1,1) = .FALSE.
+      bool_2(1,2) = .FALSE.
+      bool_3(1,2,3) = .TRUE.
+
+      int_0(0) = 99
+      int_0(9) = -99
+      int_0_2(3,-2) = 98
       
       word = "bad beef"
    endif

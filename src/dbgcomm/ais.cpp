@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <future>
 #include <mutex>
+#include <regex>
 #include <cstring>
 #include <condition_variable>
 #include <iomanip>
@@ -438,7 +439,7 @@ std::unique_ptr<ais::Printer> ais::Complex::makePrinter(Printer& parent) const {
 }
 
 void ais::Complex::printIndex(int idx, std::ostream& out) const {
-    out << '[' << idx << ']';  // change me!
+    out << (idx ? "i" : "r");
 }
 
 void ais::Complex::applyL(Reader& reader, Visitor& f) const {
@@ -953,9 +954,9 @@ std::unique_ptr<ais::Printer> ais::FtnArray::makePrinter(Printer& parent) const 
 }
 
 void ais::FtnArray::printIndex(int idx, std::ostream& os) const {
-    // assuming the default array indexing.   To support non-default indexing,
-    // we'd add an addMetaInfo call (and maybe have to expand that interface)
-    os << "(" << idx+1 << ")";
+    // TrackingVisitor catches the addMetaInfo, so idx already reflects the
+    // initial index
+    os << "(" << idx << ")";
 }
 
 bool ais::FtnArray::isFortran() const { return true; }
@@ -2069,7 +2070,19 @@ std::string ais::TrackingVisitor::getIdx() const {
     for (auto& [t, i] : m_idcs) {
         t->printIndex(i, os);
     }
-    return os.str();
+    auto s = os.str();
+
+    // handle fortran multi-dimension indices which need be to reveresed and
+    // changed to commas, so: (-8)(4)(5) => (5,4,-8)
+    if (s.find(")(") != std::string::npos) {
+        static auto re = std::regex{R"(\(([0-9,-]+)\)\(([0-9]+)\))"};
+        for (size_t prevLen = 0; s.size() != prevLen; ) {
+            prevLen = s.size();
+            s = std::regex_replace(s, re, "($2,$1)", std::regex_constants::match_default);
+        }
+    }
+    
+    return s;
 }
 
 void ais::Visitor::operator()(bool val) { operator()(int(val)); }

@@ -102,6 +102,7 @@ def should_skip_fortran_tests():
 # output from the current command by proc name  
 procRefs = {}
 indeterminate = False
+suppressedCheck = set()
 verbose = False
 
 # regular expressions for types of gdb4hpc output
@@ -199,9 +200,12 @@ def is_batch(line):
     m = is_batch_re.match(line)
     if m:
         command = m.group(1)
-        if command[-3:] == '???':
+        loc = command.find('???')
+        if loc > 0:
             global indeterminate; indeterminate = True
-            command = command[0:-3]
+            if command[loc+3:]:
+                global suppressedCheck; suppressedCheck.add(command[loc+3:])
+            command = command[0:loc]
         return command
     else:
         return None
@@ -437,8 +441,9 @@ def makeRunFile(test, substitutions = ()):
             if not m:
                 continue
             line = m.group(1)
-            if line[-3:] == '???':
-                line = line[0:-3]
+            qloc = line.find('???')
+            if qloc > 0:
+                line = line[0:qloc]
             line += '\n'
 
             if launch_re:
@@ -513,9 +518,12 @@ Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the
 against the saved reference file.
 '''
 def runTest(test):
+    global suppressedCheck; suppressedCheck.clear()
     runScript(test)
     result, error = compare_files(getTxt(test, test.__class__.__name__), getOut(test, test.__class__.__name__))
     test.assertTrue(result, error)
+    if suppressedCheck:
+        test.cancel("suppressed checks: " + str(suppressedCheck))
 
 '''
 Specialized driver for running a gdb4hpc script with a gpu.

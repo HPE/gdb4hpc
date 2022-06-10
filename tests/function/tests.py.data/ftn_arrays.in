@@ -9,12 +9,12 @@ Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:1
 5: # Break when the arrays should be equivalent
-6: break 113
-a{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 113.
-b{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 113.
+6: break 119
+a{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 119.
+b{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_arrays.f90, line 119.
 7: continue
-a{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:113
-b{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:113
+a{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:119
+b{0..2}: Breakpoint 1, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:119
 8: # print the array values
 9: p int_1
 a{0..2}: (3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129)
@@ -53,14 +53,11 @@ b{0..2}: ((3.09999990463257, 4.09999990463257, 5.09999990463257, 6.0999999046325
 a{0..2}: (((6.19999980926514, 7.19999980926514), (8.29999923706055, 9.29999923706055), (10.3999996185303, 11.3999996185303), (12.5, 13.5), (14.6000003814697, 15.6000003814697)), ((9.29999923706055, 10.2999992370605), (11.3999996185303, 12.3999996185303), (13.5, 14.4999990463257), (15.5999994277954, 16.5999984741211), (17.7000007629395, 18.7000007629395)), ((12.3999996185303, 13.3999996185303), (14.4999990463257, 15.4999990463257), (16.5999984741211, 17.5999984741211), (18.6999988555908, 19.6999988555908), (20.7999992370605, 21.7999992370605)), ((15.5, 16.5), (17.5999984741211, 18.5999984741211), (19.6999988555908, 20.6999988555908), (21.7999992370605, 22.7999992370605), (23.8999996185303, 24.8999996185303)), ((18.6000003814697, 19.6000003814697), (20.7000007629395, 21.7000007629395), (22.7999992370605, 23.7999992370605), (24.8999996185303, 25.8999996185303), (27, 28)), ((21.6999988555908, 22.6999988555908), (23.7999992370605, 24.7999992370605), (25.8999977111816, 26.8999977111816), (27.9999980926514, 28.9999980926514), (30.0999984741211, 31.0999984741211)), ((24.7999992370605, 25.7999992370605), (26.8999977111816, 27.8999977111816), (28.9999980926514, 29.9999980926514), (31.0999984741211, 32.0999984741211), (33.1999969482422, 34.1999969482422)))
 b{0..2}: (((6.19999980926514, 7.19999980926514), (8.29999923706055, 9.29999923706055), (10.3999996185303, 11.3999996185303), (12.5, 13.5), (14.6000003814697, 15.6000003814697)), ((9.29999923706055, 10.2999992370605), (11.3999996185303, 12.3999996185303), (13.5, 14.4999990463257), (15.5999994277954, 16.5999984741211), (17.7000007629395, 18.7000007629395)), ((12.3999996185303, 13.3999996185303), (14.4999990463257, 15.4999990463257), (16.5999984741211, 17.5999984741211), (18.6999988555908, 19.6999988555908), (20.7999992370605, 21.7999992370605)), ((15.5, 16.5), (17.5999984741211, 18.5999984741211), (19.6999988555908, 20.6999988555908), (21.7999992370605, 22.7999992370605), (23.8999996185303, 24.8999996185303)), ((18.6000003814697, 19.6000003814697), (20.7000007629395, 21.7000007629395), (22.7999992370605, 23.7999992370605), (24.8999996185303, 25.8999996185303), (27, 28)), ((21.6999988555908, 22.6999988555908), (23.7999992370605, 24.7999992370605), (25.8999977111816, 26.8999977111816), (27.9999980926514, 28.9999980926514), (30.0999984741211, 31.0999984741211)), ((24.7999992370605, 25.7999992370605), (26.8999977111816, 27.8999977111816), (28.9999980926514, 29.9999980926514), (31.0999984741211, 32.0999984741211), (33.1999969482422, 34.1999969482422)))
 21: # debug info for complex numbers is currently broken, see PE-41265
-21: p complex_1???
-this line is an intentionally incorrect result until PE-41268 is resolved
+21: p complex_1???PE-41268
 22: # debug info for complex numbers is currently broken, see PE-41265
-22: p complex_2???
-this line is an intentionally incorrect result until PE-41268 is resolved
+22: p complex_2???PE-41268
 23: # debug info for complex numbers is currently broken, see PE-41265
-23: p complex_3???
-this line is an intentionally incorrect result until PE-41268 is resolved
+23: p complex_3???PE-41268
 24: p bool_1
 a{0..2}: (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.)
 b{0..2}: (.TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE., .TRUE., .FALSE.)
@@ -120,20 +117,11 @@ The difference delta is:
 The difference delta is:
 {0..2}: 
 40: # debug info for complex numbers is currently broken, see PE-41265
-40: compare $a::complex_1 != $b::complex_1???
-{0..2}: Comparison is false.
-The difference delta is:
-{0..2}:
+40: compare $a::complex_1 != $b::complex_1???PE-41265
 41: # debug info for complex numbers is currently broken, see PE-41265
-41: compare $a::complex_2 != $b::complex_2???
-{0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
+41: compare $a::complex_2 != $b::complex_2???PE-41265
 41: # debug info for complex numbers is currently broken, see PE-41265
-42: compare $a::complex_3 != $b::complex_3???
-{0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
+42: compare $a::complex_3 != $b::complex_3???PE-41265
 43: compare $a::bool_1 != $b::bool_1
 {0..2}: Comparison is false.
 The difference delta is:
@@ -149,7 +137,127 @@ The difference delta is:
 46: compare $a::word != $b::word
 {0..2}: Comparison is false.
 The difference delta is:
-{0..2}: 
-47: q
+{0..2}:
+47: p int_0
+a{0..2}: (7, 9, 11, 13, 15, 17, 19, 21, 23, 25)
+b{0..2}: (7, 9, 11, 13, 15, 17, 19, 21, 23, 25)
+54: p int_0_2
+a{0..2}: ((-15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5), (-14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6), (-13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7), (-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8), (-11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9), (-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), (-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), (-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), (-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), (-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), (-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), (-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16), (-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17), (-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18), (-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21), (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22), (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23))
+b{0..2}: ((-15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5), (-14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6), (-13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7), (-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8), (-11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9), (-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), (-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), (-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), (-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), (-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), (-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), (-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16), (-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17), (-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18), (-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21), (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22), (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23))
+55: compare $a::int_0 == $b::int_0
+{0..2}: Comparison is true.
+56: compare $a::int_0_2 == $b::int_0_2
+{0..2}: Comparison is true.
+57: b 150
+a{0..2}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_arrays.f90, line 150.
+b{0..2}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_arrays.f90, line 150.
+58: c
+a{0..2}: Breakpoint 2, ftn_arrays at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_arrays.f90:150
+b{0..2}: Breakpoint 2, ftn_arrays at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_arrays.f90:150
+59: compare $a::int_1 == $b::int_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1):97
+60: compare $a::int_2 == $b::int_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2):95
+61: compare $a::int_3 == $b::int_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2,3):86
+62: compare $a::long_1 == $b::long_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1):97
+63: compare $a::long_2 == $b::long_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2):95
+64: compare $a::long_3 == $b::long_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2,3):86
+65: compare $a::float_1 == $b::float_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1):97
+66: compare $a::float_2 == $b::float_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2):94.8
+67: compare $a::float_3 == $b::float_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2,3):85.5
+68: compare $a::double_1 == $b::double_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1):97
+69: compare $a::double_2 == $b::double_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2):94.8
+70: compare $a::double_3 == $b::double_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2,3):85.5
+71: compare $a::complex_1 == $b::complex_1???PE-41268
+{0..2}: Comparison is false.
+The difference delta is:
+{0}: (1)r:98.9
+(1)i:96.9
+(33)r:1.83952e+25
+(33)i:5.90225e-10
+(34)r:2.38769e-18
+(34)i:1.71847e+25
+(35)r:1.50931e-19
+(35)i:1.30007e+22
+(36)r:1.30007e+22
+(36)i:6.44752e-10
+(37)r:1.68174e+19
+(37)i:2.88222e+26
+(38)r:-8.6796e-38
+(39)r:1.35632e-19
+(39)i:1.10328e+21
+(41)r:96.9
+(41)i:101.1
+{1..2}: (1)r:98.9
+(1)i:96.9
+(38)r:2.4411e-38
+(41)r:96.9
+(41)i:101.1
+72: compare $a::complex_2 == $b::complex_2???PE-41268
+Second operand is truncated
+Command resulted in an error: 72: compare $a::complex_2 == $b::complex_2
+73: compare $a::complex_3 == $b::complex_3???PE-41268
+Second operand is truncated
+Command resulted in an error: 73: compare $a::complex_3 == $b::complex_3
+74: compare $a::bool_1 == $b::bool_1
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1):-1
+75: compare $a::bool_2 == $b::bool_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2):-1
+76: compare $a::bool_3 == $b::bool_3
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (1,2,3):1
+77: compare $a::word == $b::word
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: boy howdy!           vs bad beef            
+78: compare $a::int_0 == $b::int_0
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (0):92
+(9):-124
+79: compare $a::int_0_2 == $b::int_0_2
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: (3,-2):97
+80: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

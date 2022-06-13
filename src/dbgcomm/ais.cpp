@@ -1092,7 +1092,7 @@ std::unique_ptr<ais::Printer> ais::DecompArray::makePrinter(Printer& parent) con
     return m_array->makePrinter(parent);
 }
 void ais::DecompArray::printIndex(int idx, std::ostream& out) const {
-    out << "[" << idx << "]";
+    m_array->printIndex(idx,out);
 }
     
 void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {        
@@ -1124,8 +1124,9 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
     bool first = true;
     bool pend = false;
     int outputLevel = 0;
+    bool isFortran = m_array->isFortran();
     auto& it = *m_decompIter;
-    it.begin(m_array->isFortran());
+    it.begin(isFortran);
     while (it.next()) {
         if (pend) f.end();
 
@@ -1134,6 +1135,7 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
             // similar logic to the previous, the caller call the first start
             if (first) first = false;
             else f.start(arrayType);
+            if (isFortran) f.addMetaInfo(this, std::make_pair(1,0));
             f.nest( i+1 == it.startLevel ? elemType : arrayType);
         }
         outputLevel = it.startLevel;

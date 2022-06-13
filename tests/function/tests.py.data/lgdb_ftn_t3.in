@@ -69,8 +69,8 @@ b{0..2}: (5.229,-4.78)
 32: compare $a{0}::r=$b{0}::r
 {0}: Comparison is false.
 The difference delta is:
-{0}: [0]:-322.441
-[1]:-4.7735
+{0}: r:-322.441
+i:-4.7735
 33: #real*8 -> double float
 34: print df
 a{0..2}: 1

@@ -58,6 +58,7 @@ public:
     virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) override;
     virtual dbgevent_t *getLocation() override;   //!! potentially unimplemented
     virtual dbgevent_t *getVars(const char* threads) override;
+    virtual dbgevent_t *getArgs(const char* threads) override;
     virtual dbgevent_t *getScope(const char *location) override;
     virtual dbgevent_t *getStatus(bool getLocation) override;
     virtual dbgevent_t *quit(bool detach) override;

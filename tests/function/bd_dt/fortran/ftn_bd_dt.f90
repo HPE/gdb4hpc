@@ -60,7 +60,7 @@ Program ftn_DT
   !Call a function to allow for testing of lgdb step command (which steps into a function)
   CALL getState(m)
   print*,'Contents of array from subroutine= ', m
-
+  CALL getParams(-27, 10.* df, .FALSE.)
   call mpi_finalize(ierr)
   end program !ftn_DTend
 
@@ -70,8 +70,18 @@ Program ftn_DT
        m(i)= i;
     end do
     RETURN
-  END SUBROUTINE
-  
+  END SUBROUTINE getState
 
+  SUBROUTINE getParams(a,b,c)
+    INTEGER a
+    REAL*8 b
+    LOGICAL c
+    if (c .AND. a * b == b) then
+       b = b + 1
+    endif
+  END SUBROUTINE getParams
+    
+    
+        
 
   

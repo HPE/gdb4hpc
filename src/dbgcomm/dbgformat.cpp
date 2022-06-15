@@ -413,6 +413,7 @@ char* EventToSocProto(dbgevent_t *e)
     case DBGEV_TYPE:
     case DBGEV_CMD:
     case DBGEV_THREADINFO:
+    case DBGEV_STRING:
         res = EventStringToSocProto(ev, e->ev_string);
         break;
 
@@ -989,6 +990,7 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_TYPE:
         case DBGEV_CMD:
         case DBGEV_THREADINFO:
+        case DBGEV_STRING:
             // Get the string and convert to char * and set directly
             evdata = getstring(s);
             e->ev_string = SocProtoToString(evdata);

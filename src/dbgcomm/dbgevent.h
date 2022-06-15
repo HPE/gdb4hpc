@@ -141,7 +141,8 @@ enum dbgev {
     DBGEV_NONE,
     DBGEV_ERROR,
     DBGEV_DATA_SLICE,
-    DBGEV_THREADINFO
+    DBGEV_THREADINFO,
+    DBGEV_STRING
 };
 typedef enum dbgev dbgev;
 

@@ -3931,6 +3931,14 @@ rep_set_t *DbgGetVars(rec_set_t *set) {
     return result;
 }
 
+// Return arguments of current frame
+rep_set_t *DbgGetArgs(rec_set_t *set) {
+    auto request = CommandToSocProto(DBGCMD_GETARGS, set->getThreads());
+    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_THREADINFO);
+    return result;
+}
+
+
 /*
 ** DBG_GETSCOPE: Return variables local to a scope.
 */

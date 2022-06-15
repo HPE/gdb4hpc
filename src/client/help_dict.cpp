@@ -1249,6 +1249,15 @@ const char* const class_info_subcmd_locals_help[] = {
     "application rank in the current process set.",
     0};
 
+const char* const class_info_subcmd_args_help[] = {
+    "Summary: Argument variables of the current frame.",
+    "",
+    "Description:",
+    "Display a list of the arguments of the current stack frame for each",
+    "application rank in the current process set.",
+    0};
+
+
 const char* const class_info_subcmd_application_help[] = {
     "Summary: Application information.",
     "",

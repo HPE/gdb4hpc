@@ -205,6 +205,34 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_info_subcmd_args_cmd(rec_set_t *rec_set, int argc,
+                                        char **argv) {
+    auto rep_set = DbgGetArgs(rec_set);
+
+    ProcessErrorInRepSet(rep_set);
+
+    // Process the replies
+    for (auto&& reply : rep_set) {
+        auto ev = reply->rep_event->ev_event;
+        if (ev != DBGEV_THREADINFO && ev != DBGEV_STRING) {
+            PrintOutError("unexpected result type.\n");
+            continue;
+        }
+
+        auto is = std::istringstream{reply->rep_event->ev_u.ev_u_string};
+        auto line = std::string{};
+        while (std::getline(is,line)) {
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                                "%s\n", line.c_str());
+        }
+    }
+
+    FreeRepSet(rep_set);
+
+    return 1;
+}
+
+
 void InitCmd_whatis(void) {
     AddCommand("whatis", NULL, proc_required, 0, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
@@ -216,6 +244,12 @@ void InitCmd_whatis(void) {
                    class_info_subcmd_locals_cmd,
                    class_info_subcmd_locals_help,
                    "List local variables of ranks in current process set.");
+
+    AddInfoCommand("args", proc_required, 0,
+                   class_info_subcmd_args_cmd,
+                   class_info_subcmd_args_help,
+                   "List argument variables of the current frame.");
+
     AddInfoCommand("scope", proc_required, 0,
                    class_info_subcmd_scope_cmd,
                    class_info_subcmd_scope_help,

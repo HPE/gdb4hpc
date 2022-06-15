@@ -17,6 +17,16 @@ b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
 b{0..1}: {x = 22.1, y = -5}
 9: p c
 b{0..1}: {x = 22.2, y = -6}
+9: info args
+b{0..1}: const Struct1 & s = @...: {x = 22.100000000000001, y = -5}
+b{0..1}: const Classy & c = @...: {x = 22.199999999999999, y = -6}
+9: up
+b{0..1}: #1  0x000000000020d1e8 in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:104
+9: info args
+b{0..1}: int argc = 1
+b{0..1}: char ** argv = ...
+9: down
+b{0..1}: #0  0x000000000020d3bc in f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:120
 10: finish???
 11: # print some local variables
 12: print i

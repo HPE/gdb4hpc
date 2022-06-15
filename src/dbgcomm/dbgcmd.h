@@ -69,7 +69,8 @@ enum dbgcmd {
     DBGCMD_SETNONSTOP,
     DBGCMD_GETNONSTOP,
     DBGCMD_OMPD,
-    DBGCMD_CUDA
+    DBGCMD_CUDA,
+    DBGCMD_GETARGS
 };
 
 #endif /* !_DBGCMD_H */

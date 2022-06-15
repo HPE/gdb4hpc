@@ -118,6 +118,22 @@ a{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/
 63: p m
 a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+64: b getParams
+a{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90, line 75.
+b{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90, line 75.
+64: c
+a{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90:75
+b{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90:75
+64: n
+a{0..2}: 79	    if (c .AND. a * b == b) then
+b{0..2}: 79	    if (c .AND. a * b == b) then
+64: info args
+a{0..2}: INTEGER*4 a = -27
+a{0..2}: REAL*8 b = 10
+a{0..2}: LOGICAL*4 c = .FALSE.
+b{0..2}: INTEGER*4 a = -27
+b{0..2}: REAL*8 b = 10
+b{0..2}: LOGICAL*4 c = .FALSE.
 66: #Exit lgdb
 67: q
 Shutting down debugger and killing application for 'a'.

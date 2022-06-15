@@ -2478,6 +2478,92 @@ dbgevent_t *DbgGdbMI::getVars(const char* threads) {
 }
 
 /*
+** List variables in the current stack frame
+*/
+dbgevent_t *DbgGdbMI::getArgs(const char* threads) {
+    DVPRINT("*** Dbg %s, %s %s\n", __FILE__, __func__,  threads ? threads : "");
+
+    if (threads) {
+        auto command = std::string{threads} + " info args";
+        return threadApply(command.c_str());
+    }
+
+    // first get the level of the current frame
+    auto cmd = MIStackInfoFrame();
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return e;
+    }
+
+    auto mi_frame_list = MIGetFrameInfo(cmd);
+    if (!mi_frame_list) {
+        auto e = NewErrorEvent(DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return e;
+    }
+
+    MIListSet(mi_frame_list);
+    auto mi_frame = (MIFrame *)MIListGet(mi_frame_list);
+    auto level = mi_frame->level;
+
+    MICommandFree(cmd);
+
+    DVPRINT("got stack level %d, calling info args\n", level);
+
+    cmd = MIStackListArguments(SIMPLE_VALUES, level, level);
+    SendMICommand(GDBMISession, cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return e;
+    }
+
+    mi_frame_list = MIGetStackListArgumentsInfo(cmd);
+    if (!mi_frame_list) {
+        auto e = NewErrorEvent(DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return e;
+    }
+
+    auto resultStr = std::ostringstream{};
+    bool first = true;
+
+    static auto hexValRE = std::regex{R"(0x[1-9a-f][[:xdigit:]]+)"};
+
+    MIListSet(mi_frame_list);
+    for (MIFrame* frame; (frame = (MIFrame*)MIListGet(mi_frame_list)); ) {
+        DVPRINT("GET A FRAME %s\n", frame->func ? frame->func : "nofunc" );
+
+        if (auto args = frame->args) {
+            MIListSet(args);
+            while (auto arg = (MIArg*)MIListGet(args)) {
+                if (!arg->name) continue;
+                if (first) first = false;
+                else resultStr << "\n";
+
+                if (arg->type) resultStr << arg->type << " ";
+                resultStr << arg->name;
+
+                if (arg->value) {
+                    resultStr << " = " << std::regex_replace(arg->value, hexValRE, "...");
+                }
+            }
+        }
+    }
+
+    MICommandFree(cmd);
+
+    auto e = NewEvent(DBGEV_STRING);
+    e->ev_string = strdup(resultStr.str().c_str());
+    
+    return e;
+}
+
+
+/*
 ** List local variables relative to a scope
 */
 dbgevent_t *DbgGdbMI::getScope(const char *location) {
@@ -2544,7 +2630,7 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     e->ev_vars = result;
 
     // Now we need to get the type information based on the scope. First figure
-    // out what function the scope referrs to by setting a breakpoint to get
+    // out what function the scope refers to by setting a breakpoint to get
     // the function name.
 
     cmd = MIBreakInsert(0, 0, 0, NULL, 0, location, 0);

@@ -362,6 +362,13 @@ dbgevent_t *DbgGetVars(const char* threads) {
     return DbgBackendSW->getVars(threads);
 }
 
+dbgevent_t *DbgGetArgs(const char* threads) {
+    ResetWDT();
+    DBG_READY();
+    return DbgBackendSW->getArgs(threads);
+}
+
+
 dbgevent_t *DbgGetScope(const char *location) {
     ResetWDT();
     DBG_READY();

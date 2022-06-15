@@ -100,6 +100,7 @@ extern const char* const class_info_subcmd_application_help[];
 extern const char* const class_info_subcmd_breakpoints_help[];
 extern const char* const class_info_subcmd_checkpoints_help[];
 extern const char* const class_info_subcmd_locals_help[];
+extern const char* const class_info_subcmd_args_help[];
 extern const char* const class_info_subcmd_scope_help[];
 extern const char* const class_info_subcmd_sources_help[];
 extern const char* const class_info_subcmd_status_help[];

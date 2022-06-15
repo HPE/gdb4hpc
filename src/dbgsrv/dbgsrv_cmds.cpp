@@ -324,6 +324,14 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_GETARGS: {
+            OptionalString threads;
+            is.get(threads);
+            e = DbgGetArgs(threads);
+            break;
+        }
+
+
         case DBGCMD_GETSCOPE: {
             std::string location;
             is.get(location);

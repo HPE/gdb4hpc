@@ -2,7 +2,7 @@
 #
 # runBuildPackage.sh - Package steps for CTI
 #
-# Copyright 2019-2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2022 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -19,6 +19,9 @@ module load cray-cdst-support
 check_exit_status
 
 module load cray-cti-devel
+check_exit_status
+
+module load cray-mrnet
 check_exit_status
 
 # Update the changelog & release notes

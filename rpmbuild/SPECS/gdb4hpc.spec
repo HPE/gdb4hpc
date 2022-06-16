@@ -52,6 +52,10 @@
 %global cti_pkgversion_min %(%{_sourcedir}/get_package_data --ctiversionmin)
 %global cti_pkgversion_max %(%{_sourcedir}/get_package_data --ctiversionmax)
 
+# mrnet version
+%global mrnet_pkgversion_min %(%{_sourcedir}/get_package_data --mrnetversionmin)
+%global mrnet_pkgversion_max %(%{_sourcedir}/get_package_data --mrnetversionmax)
+
 # Disable debug package
 %global debug_package %{nil}
 %global _build_id_links none
@@ -63,6 +67,7 @@
 # These should match what is excluded in the cdst-support rpm specfile!
 %global privlibs             libboost.*
 %global privlibs %{privlibs}|libmrnet.*
+%global privlibs %{privlibs}|libxplat.*
 %global privlibs %{privlibs}|libbitset
 %global privlibs %{privlibs}|libmi.*
 %global privlibs %{privlibs}|libssh2
@@ -142,7 +147,7 @@ License:    %{copyright}
 Vendor:     Hewlett Packard Enterprise Development LP.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
-Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}
+Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-mrnet >= %{mrnet_pkgversion_min}, cray-mrnet < %{mrnet_pkgversion_max}
 Source0:    %{module_template_name}
 Source2:    %{release_info_template_name}
 Source3:    %{attributions_name}
@@ -184,8 +189,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/lib/libbitset.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libdbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libmi.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libmrnet.so* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libxplat.so* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libcapnp-0.8-dev.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libkj-0.8-dev.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
@@ -213,8 +216,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/libexec/guard_proxy ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/start_proxy.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-%{__cp} -a %{external_build_dir}/bin/mrnet_commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-%{__cp} -a %{external_build_dir}/bin/mrnet_topgen ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
+
 
 # Binaries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
@@ -659,8 +661,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/build_demo.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpccinf.txt
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts/*.rc
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libmrnet.so*
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libxplat.so*
+
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
@@ -670,8 +671,6 @@ fi
 %endif
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_commnode
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/mrnet_topgen
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
 #gdb share

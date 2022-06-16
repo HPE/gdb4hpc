@@ -261,20 +261,20 @@ if test "x$mrnet_mode" = xyes; then
 		     )
 
 	dnl Check for the mrnet libs
-	AC_MSG_CHECKING([for libmrnet.a])
-	if test -f "$mrnet_root/lib/libmrnet.a"; then
-		AC_MSG_RESULT([$mrnet_root/lib/libmrnet.a])
+	AC_MSG_CHECKING([for libmrnet.so])
+	if test -f "$mrnet_root/lib/libmrnet.so"; then
+		AC_MSG_RESULT([$mrnet_root/lib/libmrnet.so])
 	else
 		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libmrnet.a not found in given path.])
+		AC_MSG_ERROR([libmrnet.so not found in given path.])
 	fi
 
 	AC_MSG_CHECKING([for libxplat.a])
-	if test -f "$mrnet_root/lib/libxplat.a"; then
-		AC_MSG_RESULT([$mrnet_root/lib/libxplat.a])
+	if test -f "$mrnet_root/lib/libxplat.so"; then
+		AC_MSG_RESULT([$mrnet_root/lib/libxplat.so])
 	else
 		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libxplat.a not found in given path.])
+		AC_MSG_ERROR([libxplat.so not found in given path.])
 	fi
 
 	LDFLAGS="$LDFLAGS -L$mrnet_root/lib"

@@ -23,17 +23,23 @@ ctiversionmin=$(echo ${CTI_VERSION} | awk -F . '{ print $1"."$2 }')
 tmpver=$(echo ${CTI_VERSION} | awk -F . '{ print $1 }')
 ctiversionmax=$(($tmpver+1))
 
-arguments=$(getopt -o csmtx --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,branch -n ${0} -- "$@")
+mrnetversionmin=$(echo ${MRNET_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${MRNET_VERSION} | awk -F . '{ print $1 }')
+mrnetversionmax=$(($tmpver+1))
+
+arguments=$(getopt -o csmtxdeb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,branch -n ${0} -- "$@")
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
 while true ; do
     case "$1" in
         -c|--crayversion) echo "${crayversion}" ; shift ;;
-        -s|--cdstversionmin) echo "${cdstsupportversionmin}" ; shift ;;
+        -s|--cdstversionmin) echo "${cdstsupportversionmin}" ;shift ;;
         -m|--cdstversionmax) echo "${cdstsupportversionmax}" ; shift ;;
         -t|--ctiversionmin) echo "${ctiversionmin}" ; shift ;;
         -x|--ctiversionmax) echo "${ctiversionmax}" ; shift ;;
+        -d|--mrnetversionmin) echo "${mrnetversionmin}" ; shift ;;
+        -e|--mrnetversionmax) echo "${mrnetversionmax}" ; shift ;;
         -b|--branch) echo "${branch}" ; shift ;;
         *) break ;;
     esac

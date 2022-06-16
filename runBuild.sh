@@ -27,6 +27,9 @@ check_exit_status
 module load cray-cti-devel
 check_exit_status
 
+module load cray-mrnet
+check_exit_status
+
 module list
 
 # Create install directory
@@ -46,6 +49,11 @@ echo "Install dir: \"$install_dir\""
 if [[ ! -z $BRANCH_NAME ]]; then
   echo "cleaning build env"
   rm -rf /opt/cray/pe/gdb4hpc
+
+  # Ensure our DST working directory is usable (safe) by user other than owner
+  echo "Setting git safe directory . . ." 
+  git config --global --add safe.directory /home/jenkins
+  check_exit_status
 fi
 
 mkdir -p $install_dir
@@ -189,73 +197,6 @@ else
 fi
 
 echo "############################################"
-echo "#              Building MRNet              #"
-echo "############################################"
-
-cti_pkgconfig_L_dir=$(pkg-config --libs-only-L common_tools_fe)
-if [[ $? -ne 0 ]]; then
-    echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
-    exit 1
-fi
-
-cti_pkgconfig_I_dir=$(pkg-config --cflags-only-I common_tools_fe)
-if [[ $? -ne 0 ]]; then
-    echo "Could not find CTI in pkgconfig path. CTI may not be installed. Cannot continue with MRNet build."
-    exit 1
-fi
-
-cti_lib_directory=$(echo $cti_pkgconfig_L_dir | cut -c 3-)
-cti_include_directory=$(echo $cti_pkgconfig_I_dir | cut -c 3-)
-
-echo "cti_pkgconfig_L_dir:    $cti_pkgconfig_L_dir"
-echo "cti_pkgconfig_I_dir:    $cti_pkgconfig_I_dir"
-echo "cti_lib_directory:      $cti_lib_directory"
-echo "cti_include_directory:  $cti_include_directory"
-
-if [[ ! -d ${CRAY_CDST_SUPPORT_INSTALL_DIR} ]]; then
-    echo "Could not find cray-cdst-support install path."
-    exit 1
-fi
-
-# ensure submodule is checked out
-if [[ ! -f $top_level/external/mrnet/README ]]; then
-    echo "MRNet submodule not checked out..."
-    exit 1
-fi
-
-cd $top_level/external/mrnet
-check_exit_status
-
-mrnet_cflags=$(pkg-config --cflags cray-cdst-support)
-mrnet_cxxflags=${mrnet_cflags}
-mrnet_ldflags="$(pkg-config --libs cray-cdst-support) "'-Wl,-rpath,\$$ORIGIN'
-mrnet_soflags="-Wl,-rpath,/opt/cray/pe/gcc-libs"
-mrnet_ctiflags=$(pkg-config --libs common_tools_be)
-mrnet_flags="${mrnet_ldflags} ${mrnet_ctiflags}"
-
-echo "mrnet_cflags:     $mrnet_cflags"
-echo "mrnet_cxxflags:   $mrnet_cxxflags"
-echo "mrnet_ldflags:    $mrnet_ldflags"
-echo "mrnet_soflags:    $mrnet_soflags"
-echo "mrnet_ctiflags:   $mrnet_ctiflags"
-
-CFLAGS=${mrnet_cflags} CXXFLAGS=${mrnet_cxxflags} LDFLAGS=${mrnet_flags} SOFLAGS=${mrnet_soflags} ./configure --prefix=$install_dir --with-startup=cray-cti --enable-shared --with-craycti-inc=${cti_include_directory} --with-craycti-lib=${cti_lib_directory} --with-boost=${CRAY_CDST_SUPPORT_INSTALL_DIR}
-check_exit_status
-
-# parallel builds are broken with mrnet
-make
-check_exit_status
-
-make install
-check_exit_status
-
-# deliver extra config files
-cp -a $top_level/external/mrnet/build/*/xplat_config.h $install_dir/include/.
-check_exit_status
-cp -a $top_level/external/mrnet/build/*/mrnet_config.h $install_dir/include/.
-check_exit_status
-
-echo "############################################"
 echo "#             Building zmqnet              #"
 echo "############################################"
 
@@ -315,13 +256,47 @@ echo "############################################"
 echo "#             Building gdb4hpc             #"
 echo "############################################"
 
+# Get cray-mrnet pkg-config
+mrnet_pkgconfig_L_dir=$(pkg-config --libs-only-L cray-mrnet)
+if [[ $? -ne 0 ]]; then
+  echo "Could not find cray-mrnet in pkgconfig path. cray-mrnet may not be installed. Cannot continue with the build."
+  exit 1
+fi
+
+mrnet_pkgconfig_I_dir=$(pkg-config --cflags-only-I cray-mrnet)
+if [[ $? -ne 0 ]]; then
+  echo "Could not find cray-mrnet in pkgconfig path. cray-mrnet may not be installed. Cannot continue with the build."
+  exit 1
+fi
+
+mrnet_lib_directory=$(echo $mrnet_pkgconfig_L_dir | cut -c 3-)
+mrnet_include_directory=$(echo $mrnet_pkgconfig_I_dir | cut -c 3-)
+
+echo "mrnet_pkgconfig_L_dir:    $mrnet_pkgconfig_L_dir"
+echo "mrnet_pkgconfig_I_dir:    $mrnet_pkgconfig_I_dir"
+echo "mrnet_lib_directory:      $mrnet_lib_directory"
+echo "mrnet_include_directory:  $mrnet_include_directory"
+
+mrnet_cflags=$(pkg-config --cflags cray-mrnet)
+mrnet_cxxflags=${mrnet_cflags}
+mrnet_ldflags="$(pkg-config --libs cray-mrnet) "'-Wl,-rpath,\$$ORIGIN -Wl,--as-needed'
+
+echo "mrnet_cflags:     $mrnet_cflags"
+echo "mrnet_cxxflags:   $mrnet_cxxflags"
+echo "mrnet_ldflags:    $mrnet_ldflags"
+
+cdst_ldflags=$(pkg-config --libs cray-cdst-support)
+mrnet_ldflags="${cdst_ldflags} ${mrnet_ldflags}"
+
+mrnet_base_directory=$(realpath -s $mrnet_include_directory/../../default)
+
 cd $top_level
 check_exit_status
 
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall" CXXFLAGS="-g -O2 -Wall" LDFLAGS=$(pkg-config --libs cray-cdst-support) ./configure --prefix=$install_dir --with-rd --with-mrnet=$install_dir --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
 
 check_exit_status
 

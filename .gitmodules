@@ -1,10 +1,6 @@
 [submodule "external/cdst_build_library"]
 	path = external/cdst_build_library
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-cdst_build_library.git
-[submodule "external/mrnet"]
-	path = external/mrnet
-	url = git@github.hpe.com:hpe/hpc-pe-cdst-mrnet.git
-	branch = gdb4hpc-external
 [submodule "external/libmi"]
 	path = external/libmi
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-libmi.git

@@ -20,6 +20,8 @@ top_level=$PWD
 
 source ./external/cdst_build_library/build_lib
 
+setup_modules
+
 echo "############################################"
 echo "#           Building Unit Tests            #"
 echo "############################################"

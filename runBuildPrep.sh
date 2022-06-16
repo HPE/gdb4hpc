@@ -105,8 +105,8 @@ fi
 # Install the common PE components
 install_common_pe
 
-# Install CTI and CDST support
-install_cti
+# Install CDST support, CTI and mrnet
+install_mrnet
 check_exit_status
 
 arch=$(get_arch)

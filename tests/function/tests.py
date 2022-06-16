@@ -567,6 +567,9 @@ class Gdb4hpcTest(Test):
         else:
             print(f"No proto param") # use gdb4hpc default
 
+        # set startup timeout env var to speed up failures
+        os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "20" # seconds
+
 class c_assign(Gdb4hpcTest):
     def test(self):
         runTest(self)

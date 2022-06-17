@@ -97,7 +97,7 @@ private:
 class PTypeFields {
     // derive class fields and parent classes from the result of a ptype command
 public:
-    PTypeFields(MICommand& sentCmd);
+    PTypeFields(MICommand& sentCmd, bool isFortran);
     PTypeFields() = default; // construct empty
 
     const std::vector<std::string>& parentClasses() const { return m_parentClasses; }
@@ -105,6 +105,7 @@ public:
 private:
     bool fieldIsFunction(const char* str) const;
     bool fieldIsTypedef(const char* str) const;
+    void initFortranFields(MICommand& sentCmd);
 
     std::vector<std::string> m_parentClasses;
     std::vector<std::string> m_fields;
@@ -133,7 +134,7 @@ public:
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
     std::string getPTypeAlias(const std::string& type);
-    PTypeFields getPTypeFields(const std::string& type);
+    PTypeFields getPTypeFields(const std::string& type, bool isFortran);
 
     std::string nextSlice(ArraySlicer& slicer, bool& isFinal);
     std::unique_ptr<ArraySlicer> makeSlicer(const std::string& var);
@@ -429,7 +430,7 @@ std::unique_ptr<dbgevent_t, decltype(&FreeEvent)> dbg_error{nullptr, FreeEvent};
 void throwDbgError(const std::string& what) {
     DVPRINT("%s\n", what.c_str());
     if (!dbg_error)
-        dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, what.c_str()));
+        dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "%s", what.c_str()));
     throw dbg_error.release();
 }
 
@@ -569,7 +570,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
             DVPRINT("Whatis %s failed. Assuming no symbol.\n", strippedExpr.c_str());
             if (!dbg_error) {
                 DVPRINT("New error\n");
-                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, strippedExpr.c_str()));
+                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
             } else {
                 DVPRINT("Existing error?\n");
             }
@@ -673,9 +674,14 @@ std::string TypeMapper::operator()(std::string&& field) {
     return field;
 }
 
-PTypeFields::PTypeFields(MICommand& sentCmd)
+PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
     : m_typeMapper(sentCmd.output->oobs)
 {
+    if (isFortran) {
+        // CLIGetPtypeFieldList does not handle fortran output
+        initFortranFields(sentCmd);
+        return;
+    }
     MIList* field_list = CLIGetPtypeFieldList(&sentCmd);
 
     // populate fields
@@ -743,6 +749,30 @@ PTypeFields::PTypeFields(MICommand& sentCmd)
     }
 }
 
+// parse the output from a ptype command on a fortran type
+// (CLIGetTypeFieldList doesn't handle the format, and it's
+//  10 times easier to do in C++)
+void PTypeFields::initFortranFields(MICommand& cmd) {
+    if (!cmd.completed || !cmd.output || !cmd.output->oobs)
+		return;
+
+    // Looking for type :: field   and somehow mi or libmi has replaced the
+    // newline with two characters "[backslash]n".
+    auto re = std::regex(R"(\s*(.*\S)\s*::\s*(\w+)\s*(\\n)?)");
+
+    auto oobs = cmd.output->oobs;
+    for (MIListSet(oobs); auto oob = (MIOOBRecord *)MIListGet(oobs); ) {
+        auto s = std::string{oob->cstring};
+        auto match = std::smatch{};
+        if (std::regex_match(s, match, re)) {
+            std::ostringstream os;
+            os << match[1] << " " << match[2];
+            DVPRINT("got fortran field \"%s\"\n", os.str().c_str());
+            m_fields.push_back(os.str()) ;
+        }
+    }
+}
+
 bool PTypeFields::fieldIsFunction(const char* str) const {
     auto paren = strchr(str, '(');
     return (paren && paren[1] != '*');   // "(*" is a pointer to a function
@@ -774,7 +804,7 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *taggedExpr) {
     sendMICommand(cmd);
     // If this fails, it means the symbol doesn't exist.
     if (!MICommandResultOK(cmd)) {
-        dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, expr.c_str()));
+        dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", expr.c_str()));
         MICommandFree(cmd);
         return var;
     }
@@ -852,7 +882,7 @@ int Mi2Aif::getChildren(MIVar *var) {
             char *err = MICommandResultErrorMessage(cmd);
             const char* errMsg = ( err ? err : "Error without message!");
             DVPRINT("MIVarGetChildren: Debugger error: %s\n", errMsg);
-            dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, errMsg));
+            dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s", errMsg));
             free(err);
         } else {
             DVPRINT("MIVarGetChildren: Bad response from GDB.\n");
@@ -899,7 +929,7 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type) {
 }
 
 // Get the fields of a struct from a gdb 'ptype" query
-PTypeFields Mi2Aif::getPTypeFields(const std::string& type)
+PTypeFields Mi2Aif::getPTypeFields(const std::string& type, bool isFortran)
 {
     // gdb can't properly parse the closure of nested templates (">>")
     // without a space in between ("> >")
@@ -914,7 +944,7 @@ PTypeFields Mi2Aif::getPTypeFields(const std::string& type)
         return PTypeFields();
     }
 
-    auto fields = PTypeFields(*cmd);
+    auto fields = PTypeFields(*cmd, isFortran);
     MICommandFree(cmd);
     return fields;
 }
@@ -1081,7 +1111,7 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
                                               "Error without message!"));
             } else if (auto buf = MICommandResultErrorMessage(cmd)) {
                 DVPRINT("GetArrayAIF: Debugger error: %s\n", buf);
-                dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, buf));
+                dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s", buf));
                 free(buf);
                 // try to resolve the expression as a last resort and try again
                 if (!last_resort) {
@@ -1555,6 +1585,14 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         return getType(mi, var, aliasName.c_str());
     }
 
+    // fortran compound types - these are reported as "Type typename"
+    bool isFortran = false;
+    if (std::string_view(uptype).substr(0,5) == "TYPE ") {
+        isFortran = true;
+        type = type.substr(5);
+        DVPRINT("fortran type! using %s\n", type.c_str());
+    }
+
     // compound types - (always struct or class? - not sure)
     // extract the base type - * or [ begins the decoration.
     auto ty = type.begin();
@@ -1621,7 +1659,7 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
         DVPRINT("done processing members\n");
     } else {
-        auto ptfields = mi.getPTypeFields(type);
+        auto ptfields = mi.getPTypeFields(type, isFortran);
         // parent classes
         for (const auto& parent : ptfields.parentClasses()) {
             stype->addMember(parent, getType(mi, nullptr, parent.c_str()));

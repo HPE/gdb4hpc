@@ -92,6 +92,9 @@ static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
 static std::string threadIdsToString(const std::vector<int>& ids);
 static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
 
+enum free_cmd_type { NO_FREE_CMD, FREE_CMD };
+static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type = NO_FREE_CMD, dbgerr=DBGERR_DEBUGGER);
+
 static const char* unknownBPErrorMsg = "Hit unknown breakpoint!";
 
 /* hashing and slicing functions */
@@ -99,6 +102,7 @@ static dbgevent_t *PerformExtEvalExpr(const char *);
 
 /* debugger definition */
 static DbgGdbMI DbgBackendGDBMI;
+
 
 // number of threads still running that were set off by background commands in thread apply
 static size_t numBackgroundThreads = 0;
@@ -246,7 +250,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         std::string error;
         threads = getThreadSet(threadSet, nullptr, error);
         if (!error.empty()) {
-            return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
+            return NewErrorEvent(DBGERR_DEBUGGER, "%s", error.c_str());
         }
     }
 
@@ -275,7 +279,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         event_ptr tbEvent(nullptr,FreeEvent);
 
         if (!MICommandResultOK(cmd)) {
-            tbEvent.reset(NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd)));
+            tbEvent.reset(NewMIErrorEvent(cmd));
 
             // Try the basename instead in case the file was compiled locally.
             auto where2 = std::filesystem::path(where).filename();
@@ -371,11 +375,7 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return event;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     /*
     ** The MIBreakWatch command returns a limited amount of information when
@@ -406,11 +406,7 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(event, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return event;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // Now check the breakpoint. It has all the info we need.
 
@@ -472,9 +468,7 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &rege
         // Send command
         SendMICommand(GDBMISession, CLICatchCommand.get()); // our callback happens here
         if (!MICommandResultOK(CLICatchCommand.get())) {
-            dbgevent_t *errorEvent;
-            EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(CLICatchCommand.get()));
-            return errorEvent;
+            return NewMIErrorEvent(CLICatchCommand.get());
         }
 
         MIList *breakPoints = nullptr;
@@ -504,9 +498,7 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &rege
 
     SendMICommand(GDBMISession, breakInfoCommand.get());
     if (!MICommandResultOK(breakInfoCommand.get())) {
-        dbgevent_t *errorEvent;
-        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(breakInfoCommand.get()));
-        return errorEvent;
+        return NewMIErrorEvent(breakInfoCommand.get());
     }
 
     // Now check the breakpoint. It has all the info we need.
@@ -532,9 +524,7 @@ dbgevent_t *DbgGdbMI::setCheckpoint() {
 
     SendMICommand(GDBMISession, cliCheckpointCmd.get());
     if (!MICommandResultOK(cliCheckpointCmd.get())) {
-        dbgevent_t *errorEvent;
-        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
-        return errorEvent;
+        return NewMIErrorEvent(cliCheckpointCmd.get());
     }
 
     // figure out new ID; returned message will be in the form
@@ -594,9 +584,7 @@ dbgevent_t *DbgGdbMI::restoreCheckpoint(unsigned int id) {
 
     SendMICommand(GDBMISession, cliCheckpointCmd.get());
     if (!MICommandResultOK(cliCheckpointCmd.get())) {
-        dbgevent_t *errorEvent;
-        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
-        return errorEvent;
+        return NewMIErrorEvent(cliCheckpointCmd.get());
     }
 
     Status = DBGSTAT_STOPPED;
@@ -614,9 +602,7 @@ dbgevent_t *DbgGdbMI::deleteCheckpoint(unsigned int id) {
 
     SendMICommand(GDBMISession, cliCheckpointCmd.get());
     if (!MICommandResultOK(cliCheckpointCmd.get())) {
-        dbgevent_t *errorEvent;
-        EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, MICommandResultErrorMessage(cliCheckpointCmd.get()));
-        return errorEvent;
+        return NewMIErrorEvent(cliCheckpointCmd.get());
     }
 
     return NewEvent(DBGEV_OK);
@@ -808,11 +794,7 @@ dbgevent_t *DbgGdbMI::list(const char *str) {
 
     cmd = CLIList(str);
     SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     lines = CLIGetListInfo(cmd);
 
@@ -860,11 +842,7 @@ dbgevent_t *DbgGdbMI::getSources() {
 
     cmd = MIFileListExecSourceFiles();
     SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     sources = MIGetFileListExecSourceFilesInfo(cmd);
 
@@ -929,11 +907,7 @@ dbgevent_t *DbgGdbMI::go(bool all, const char* threads) {
 
         SendMICommand(GDBMISession, cmd);
 
-        if (!MICommandResultOK(cmd)) {
-            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
+        if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
         MICommandFree(cmd);
     }
@@ -968,11 +942,7 @@ dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
 
         SendMICommand(GDBMISession, cmd);
 
-        if (!MICommandResultOK(cmd)) {
-            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
+        if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
         MICommandFree(cmd);
     }
@@ -1025,11 +995,7 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
         auto cmd = (in ? MIExecStep(count) : MIExecNext(count));
         SendMICommand(GDBMISession, cmd);
 
-        if (!MICommandResultOK(cmd)) {
-            auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
+        if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
         MICommandFree(cmd);
     }
@@ -1062,10 +1028,8 @@ dbgevent_t *DbgGdbMI::kill() {
     SendMICommand(GDBMISession, cmd);
 
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
         Status = DBGSTAT_WAITING;
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD);
     }
 
     Pid = 0;
@@ -1114,28 +1078,18 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     cmd = MIStackInfoFrame();
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // process the result
     mi_frame_list = MIGetFrameInfo(cmd);
 
-    if (mi_frame_list == NULL) {
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (mi_frame_list == NULL) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // get the frame
     MIListSet(mi_frame_list);
     if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL) {
         MIListFree(mi_frame_list, NULL);
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
     }
     // save the level of the current frame
     cur_level = mi_frame->level;
@@ -1148,17 +1102,11 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     cmd = MIStackInfoDepth();
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // process the result
     if ((max_depth = MIGetStackInfoDepth(cmd)) < 0) {
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
     }
     MICommandFree(cmd);
 
@@ -1189,28 +1137,18 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     cmd = MIStackInfoFrame();
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // process the result
     mi_frame_list = MIGetFrameInfo(cmd);
 
-    if (mi_frame_list == NULL) {
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (mi_frame_list == NULL) return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
 
     // get the frame
     MIListSet(mi_frame_list);
     if ((mi_frame = (MIFrame *)MIListGet(mi_frame_list)) == NULL) {
         MIListFree(mi_frame_list, NULL);
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
     }
     MICommandFree(cmd);
 
@@ -1259,11 +1197,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
 
         SendMICommand(GDBMISession, cmd);
 
-        if (!MICommandResultOK(cmd)) {
-            EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
+        if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
         if ((depth = MIGetStackInfoDepth(cmd)) == -1) {
             MICommandFree(cmd);
@@ -1296,7 +1230,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
             e = NewErrorEvent(DBGERR_ISRUNNING, "Process is running");
         } else {
             DVPRINT("MIStackListFrames FAILED\n");
-            e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+            e = NewMIErrorEvent(cmd);
         }
         MICommandFree(cmd);
         return e;
@@ -1355,20 +1289,12 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     auto cmd = MIStackInfoFrame();
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // process the result
     auto mi_frame_list = MIGetFrameInfo(cmd);
 
-    if (mi_frame_list == NULL) {
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (mi_frame_list == NULL) return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
 
     // get the frame
     MIListSet(mi_frame_list);
@@ -1376,9 +1302,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
 
     if (!mi_frame) {
         MIListFree(mi_frame_list, NULL);
-        EVENT_ERROR(e, DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
     }
 
     // create the result
@@ -1438,11 +1362,7 @@ dbgevent_t *DbgGdbMI::setVar(const char *var, const char* val, const char* threa
         auto cmd = _MIGDBSet(expr.c_str(), NULL);
         SendMICommand(GDBMISession, cmd);
 
-        if (!MICommandResultOK(cmd)) {
-            auto e = NewErrorEvent(DBGERR_SETVAR, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
-        }
+        if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_SETVAR);
         MICommandFree(cmd);
     }
 
@@ -1467,14 +1387,14 @@ dbgevent_t *DbgGdbMI::getType(const char *var, bool isType, const char* threads)
 
     SendMICommand(GDBMISession, cmd);
     if (!MICommandResultOK(cmd)) {
-        auto e = NewErrorEvent(DBGERR_NOSYM, var);
+        auto e = NewErrorEvent(DBGERR_NOSYM, "%s", var);
         MICommandFree(cmd);
         return e;
     }
 
     auto type = (isType ? CLIGetPtypeInfo(cmd) : CLIGetWhatisInfo(cmd));
     if (!type) {
-        auto e = NewErrorEvent(DBGERR_NOSYM, var);
+        auto e = NewErrorEvent(DBGERR_NOSYM, "%s", var);
         MICommandFree(cmd);
         return e;
     }
@@ -2097,7 +2017,7 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
         char * errStr = MICommandResultErrorMessage(cmd);
         auto fullError = "Thread apply failed. (gdb: "s + (errStr ? errStr : "No error message given") + ")";
 
-        EVENT_ERROR(e, DBGERR_DEBUGGER, fullError.c_str());
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "%s", fullError.c_str());
         MICommandFree(cmd);
         free(errStr);
         return e;
@@ -2166,7 +2086,7 @@ dbgevent_t *DbgGdbMI::setNonStop(const char* mode) {
 
     dbgevent_t* e = nullptr;
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        e = NewMIErrorEvent(cmd);
     } else {
         // current compilers can't change this state after launch, but update the
         // mode if this ever succeeds
@@ -2255,7 +2175,7 @@ dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
     } else if (!MICommandResultOK(cmd)) {
         const char* msg = MICommandResultErrorMessage(cmd);
         if (!msg) msg = "ompd failed.";
-        EVENT_ERROR(e, DBGERR_DEBUGGER, msg);
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "%s", msg);
     } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
         e = NewEvent(DBGEV_THREADINFO);
 
@@ -2370,7 +2290,7 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     } else if (!MICommandResultOK(cmd)) {
         const char* msg = MICommandResultErrorMessage(cmd);
         if (!msg) msg = "cuda command failed.";
-        EVENT_ERROR(e, DBGERR_DEBUGGER, msg);
+        e = NewErrorEvent(DBGERR_DEBUGGER, "%s", msg);
     } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
         e = NewEvent(DBGEV_THREADINFO);
 
@@ -2411,18 +2331,11 @@ dbgevent_t *DbgGdbMI::getVars(const char* threads) {
     auto cmd = MIStackListVariables(SIMPLE_VALUES);
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     auto vars = MIGetStackListVariablesInfo(cmd);
-    if (vars == nullptr) {
-        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!vars) return NewMIErrorEvent(cmd, FREE_CMD);
+
     MICommandFree(cmd);
 
     dbgvars_t *result = nullptr;
@@ -2491,18 +2404,10 @@ dbgevent_t *DbgGdbMI::getArgs(const char* threads) {
     // first get the level of the current frame
     auto cmd = MIStackInfoFrame();
     SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     auto mi_frame_list = MIGetFrameInfo(cmd);
-    if (!mi_frame_list) {
-        auto e = NewErrorEvent(DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!mi_frame_list) return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
 
     MIListSet(mi_frame_list);
     auto mi_frame = (MIFrame *)MIListGet(mi_frame_list);
@@ -2515,18 +2420,10 @@ dbgevent_t *DbgGdbMI::getArgs(const char* threads) {
     cmd = MIStackListArguments(SIMPLE_VALUES, level, level);
     SendMICommand(GDBMISession, cmd);
 
-    if (!MICommandResultOK(cmd)) {
-        auto e = NewErrorEvent(DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     mi_frame_list = MIGetStackListArgumentsInfo(cmd);
-    if (!mi_frame_list) {
-        auto e = NewErrorEvent(DBGERR_NOSTACK, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
-    }
+    if (!mi_frame_list) return NewMIErrorEvent(cmd, FREE_CMD, DBGERR_NOSTACK);
 
     auto resultStr = std::ostringstream{};
     bool first = true;
@@ -2584,17 +2481,11 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     cmd = CLIInfoScope(location);
 
     SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        return e;
-    }
+    if (!MICommandResultOK(cmd)) return NewMIErrorEvent(cmd, FREE_CMD);
 
     // Get the names of the vars
-    if ((vars = CLIGetVariablesFromInfoScopeInfo(cmd)) == NULL) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+    if (!(vars = CLIGetVariablesFromInfoScopeInfo(cmd))) {
+        return NewMIErrorEvent(cmd, FREE_CMD);
     }
     MICommandFree(cmd);
 
@@ -2639,9 +2530,7 @@ dbgevent_t *DbgGdbMI::getScope(const char *location) {
     if (!MICommandResultOK(cmd)) {
         // free existing event
         FreeEvent(e);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-        MICommandFree(cmd);
-        return e;
+        return NewMIErrorEvent(cmd, FREE_CMD);
     }
 
     if ((bpts = MIBreakpointGetBreakInsertInfo(cmd)) == NULL) {
@@ -3049,9 +2938,7 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
             break;
 
         case MIResultRecordERROR:
-            EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
-            MICommandFree(cmd);
-            return e;
+            return NewMIErrorEvent(cmd, FREE_CMD);
 
         case MIResultRecordEXIT:
             // The user shouldn't be allowed to exit directly!!!
@@ -3647,7 +3534,7 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
     std::string error;
     auto threadSet = getThreadSet(threads, nullptr, error);
     if (!error.empty()) {
-        return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
+        return NewErrorEvent(DBGERR_DEBUGGER, "%s", error.c_str());
     }
 
     auto threadStr = threadIdsToString(threadSet);
@@ -3927,3 +3814,11 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
 
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }
+
+static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type doFree, dbgerr err) {
+    auto e = NewErrorEvent(err, "%s", MICommandResultErrorMessage(cmd));
+    if (doFree == FREE_CMD)
+        MICommandFree(cmd);
+    return e;
+}
+    

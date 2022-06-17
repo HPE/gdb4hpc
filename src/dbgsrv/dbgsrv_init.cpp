@@ -1670,7 +1670,7 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
     SendMICommand(m_session, cmd);
 
     if (!MICommandResultOK(cmd)) {
-        auto e = NewErrorEvent(DBGERR_DEBUGGER,MICommandResultErrorMessage(cmd));
+        auto e = NewErrorEvent(DBGERR_DEBUGGER, "%s", MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
         return std::make_pair(MIEventPtr{nullptr,MIEventFree},e);
     }

@@ -60,6 +60,55 @@ b{0..2}: .TRUE.
 51: # compare size of same elements in different proc sets
 52: compare $a{0}::"sizeof(tf)" = $b{0}::"sizeof(tf)"
 {0}: Comparison is true.
+54: p myself
+a{0..2}: {name = 'Cray', age = 100}
+b{0..2}: {name = 'Cray', age = 100}
+54: ptype person
+a{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+
+b{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+
+54: ptype myself
+a{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+
+b{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+
+54: p myself%age
+a{0..2}: 100
+b{0..2}: 100
+54: p myself%name
+a{0..2}: 'Cray'
+b{0..2}: 'Cray'
+54: p myself%notafield
+a{0..2}: No symbol "myself%notafield" in current context
+b{0..2}: No symbol "myself%notafield" in current context
+54: ptype myself%notafield
+a{0..2}: No symbol "myself%notafield" in current context
+b{0..2}: No symbol "myself%notafield" in current context
+54: whatis myself
+a{0..2}: Type person
+b{0..2}: Type person
+54: whatis myself%age
+a{0..2}: INTEGER*4
+b{0..2}: INTEGER*4
+54: whatis myself%name
+a{0..2}: character*4
+b{0..2}: character*4
+54: whatis myself%notafield
+a{0..2}: No symbol "myself%notafield " in current context
+b{0..2}: No symbol "myself%notafield " in current context
 55: # Continue to the second breakpoint 
 56: continue
 <$b>:  string= Testing

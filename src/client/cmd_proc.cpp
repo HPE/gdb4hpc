@@ -465,6 +465,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
 
     auto newArgs = dbginvoke::LaunchOpts(oldDi->d_launch);
     newArgs.procset_name = getProcsetCloneName(*oldProcset);
+    newArgs.app_argv = oldDi->d_launch.run_argv;
 
     dbgprocset_t* newProcset = nullptr;
 

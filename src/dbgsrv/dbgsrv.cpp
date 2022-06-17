@@ -340,32 +340,6 @@ int main(int argc, char *argv[], char *env[]) {
             exit(1);
     }
 
-    // for P2P
-#if 0
-	{
-		char name[MAXHOSTNAMELEN];
-		char netinfo[BUFSIZ];
-		int port = my_rank+10000;
-		FILE *log = (FILE *)NULL;
-		if ( gethostname(name, MAXHOSTNAMELEN-1) < 0 )
-		{
-			perror("gethostname");
-			exit(1);
-		}
-		sprintf(netinfo, "%d:%s:%d", my_rank, name, port);
-		// create a log if debug is turned on
-		if ((log = open_log(0, "netinfo")) == (FILE *)NULL)
-		{
-//			fprintf(stderr, "Could not create dbgsrv logfile.\n");
-		} else
-		{
-			write_log2(log, netinfo);
-			close_log(log);
-		}
-	}
-#endif
-    // end here
-
 #ifdef PERFLOG
     gettimeofday(&tv_init, NULL);
 #endif
@@ -440,16 +414,18 @@ int main(int argc, char *argv[], char *env[]) {
 
     // init dbg backend
     DBEPERFLOG(SetTimerStart("DbgInitBackend"));
-    if ((e = DbgInit(&DbgFD, &IOBackendFD, env)) != NULL) {
-        DbgInvokeCB(host, cb, hname, pnum, procnum, port, e);
-        return 1;
+    if ((e = DbgInit(&DbgFD, &IOBackendFD, env))) {
+        // This used to exit at this point, but since creating the protocol
+        // has succeeded, we can return more information by continuing into
+        // server
+        DVPRINT("DbgInit failed\n");
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend"));
 
     // init backend i/o
     DBEPERFLOG(SetTimerStart("DbgInitI/O"));
     if (IOBackendFD != -1 && SetupProgIO(&IOClientFD, &port) < 0) {
-        fprintf(stderr, "Could not setup program IO channel\n");
+        DVPRINT("Could not setup program IO channel\n");
         IOBackendFD = -1;
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitI/O"));
@@ -459,7 +435,12 @@ int main(int argc, char *argv[], char *env[]) {
 #endif
 
     // attach to or launch the application process
-    if (arch == MPARCH_P4SLAVE || arch == MPARCH_ALPS) {
+    if (e && e->ev_event != DBGEV_OK) {
+        // intentionally empty
+        // Initializing the network connection succeeded but
+        // initializing gdb failed; we are continuing into the
+        // server loop so we can send a real failure message.
+    } else if (arch == MPARCH_P4SLAVE || arch == MPARCH_ALPS) {
         // attach to application
         DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
         DBEPERFLOG(SetTimerStart("DbgAttach"));
@@ -475,10 +456,7 @@ int main(int argc, char *argv[], char *env[]) {
     }
 
     if (e->ev_event != DBGEV_OK) {
-        fprintf(stderr, "dbgsrv: dbg_invoke failed, error %d = %s\n",
-                e->ev_event, e->ev_errstr);
-        FreeEvent(e);
-        return 1;
+        DVPRINT("dbgsrv: dbg_invoke failed, error %d = %s\n", e->ev_event, e->ev_errstr);
     }
 
 #ifdef PERFLOG

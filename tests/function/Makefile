@@ -1,36 +1,39 @@
+# Copyright 2022 Hewlett Packard Enterprise Development LP.
 
-# Copyright 2020 Hewlett Packard Enterprise Development LP.
+# Needed until PE-41446 is fixed and released
+# Set DOT to local working directory if not already set externally
+DOT?=${PWD}
 
 TESTS = \
-   bd_dt/c/c_time.x \
-   bd_dt/c/c_type_test.x \
-   bd_dt/c/c_cmp_diff.x \
-   bd_dt/c/c_dlopen.x \
-   bd_dt/c/c_segv.x \
-   bd_dt/c/c_list.x \
-   bd_dt/c/c_inc.x \
-   bd_dt/c/c_half_exit.x \
-   bd_dt/c/simple_gpu.x \
-   bd_dt/C++/cpp_bd_test.x \
-   bd_dt/C++/cpp_cmp_diff.x \
-   bd_dt/C++/cpp_ds_test1.x \
-   bd_dt/C++/cpp_arrays.x \
-   bd_dt/C++/cpp_decomp.x \
-   bd_dt/C++/cpp_decomp2.x \
-   bd_dt/C++/cpp_threads.x \
-   bd_dt/C++/cpp_parallel_threads.x \
-   bd_dt/C++/cpp_bt.x \
-   bd_dt/C++/cpp_bt_stress.x \
-   bd_dt/C++/cpp_arrays_print.x \
-   bd_dt/C++/cpp_catch.x \
-   bd_dt/fortran/ftn_cmp_diff.x \
-   bd_dt/fortran/ftn_arrays.x \
-   bd_dt/fortran/ftn_decomp.x \
-   bd_dt/fortran/ftn_bd_dt.x
+   ${DOT}/bd_dt/c/c_time.x \
+   ${DOT}/bd_dt/c/c_type_test.x \
+   ${DOT}/bd_dt/c/c_cmp_diff.x \
+   ${DOT}/bd_dt/c/c_dlopen.x \
+   ${DOT}/bd_dt/c/c_segv.x \
+   ${DOT}/bd_dt/c/c_list.x \
+   ${DOT}/bd_dt/c/c_inc.x \
+   ${DOT}/bd_dt/c/c_half_exit.x \
+   ${DOT}/bd_dt/c/simple_gpu.x \
+   ${DOT}/bd_dt/C++/cpp_bd_test.x \
+   ${DOT}/bd_dt/C++/cpp_cmp_diff.x \
+   ${DOT}/bd_dt/C++/cpp_ds_test1.x \
+   ${DOT}/bd_dt/C++/cpp_arrays.x \
+   ${DOT}/bd_dt/C++/cpp_decomp.x \
+   ${DOT}/bd_dt/C++/cpp_decomp2.x \
+   ${DOT}/bd_dt/C++/cpp_threads.x \
+   ${DOT}/bd_dt/C++/cpp_parallel_threads.x \
+   ${DOT}/bd_dt/C++/cpp_bt.x \
+   ${DOT}/bd_dt/C++/cpp_bt_stress.x \
+   ${DOT}/bd_dt/C++/cpp_arrays_print.x \
+   ${DOT}/bd_dt/C++/cpp_catch.x \
+   ${DOT}/bd_dt/fortran/ftn_cmp_diff.x \
+   ${DOT}/bd_dt/fortran/ftn_arrays.x \
+   ${DOT}/bd_dt/fortran/ftn_decomp.x \
+   ${DOT}/bd_dt/fortran/ftn_bd_dt.x
 
 # tests which require CTI development libraries to build
 CTI_TESTS = \
-	bd_dt/C++/cpp_attach.x
+	${DOT}/bd_dt/C++/cpp_attach.x
 
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
@@ -46,7 +49,12 @@ endif
 IN_YELLOW = \033[1;33m
 NO_COLOR = \033[0m
 
-all: $(TESTS)
+# Needed until PE-41446 is fixed and released
+# Note that `make -C` can't be used since it will un-change the current directory away from /tmp
+all:
+	cd /tmp && make all-real -f ${DOT}/Makefile DOT=${DOT}
+
+all-real: $(TESTS)
 ifneq ($(CTI_PRESENT),yes)
 	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."
 	@echo -e "$(IN_YELLOW)To build these tests, load CTI development libraries such that pkg-config can find them."
@@ -56,111 +64,111 @@ endif
 
 clean:
 	rm -f $(TESTS)
-	rm -f */*.{o,x,so}
-	rm -f */*/*.{o,x,so}
+	rm -f ${DOT}/*/*.{o,x,so}
+	rm -f ${DOT}/*/*/*.{o,x,so}
 
 %.o : %.c
-	cc -g -O0 -c -I./include $< -o $@
+	cc -g -O0 -c -I${DOT}/include $< -o $@
 
 %.o : %.cpp
-	CC -g -O0 -c -I./include $< -o $@
+	CC -g -O0 -c -I${DOT}/include $< -o $@
 
 %.o : %.f90
 	ftn -g -O0 -c $< -o $@
 
-bd_dt/c/c_time.x : bd_dt/c/wtime.o bd_dt/c/mtest.o
+${DOT}/bd_dt/c/c_time.x : ${DOT}/bd_dt/c/wtime.o ${DOT}/bd_dt/c/mtest.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/c_type_test.x : bd_dt/c/c_type_test.o
+${DOT}/bd_dt/c/c_type_test.x : ${DOT}/bd_dt/c/c_type_test.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/c_cmp_diff.x : bd_dt/c/c_cmp_diff.o
+${DOT}/bd_dt/c/c_cmp_diff.x : ${DOT}/bd_dt/c/c_cmp_diff.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/libdlopen_test.so : bd_dt/c/libdlopen_test.c
+${DOT}/bd_dt/c/libdlopen_test.so : ${DOT}/bd_dt/c/libdlopen_test.c
 	cc -shared $^ -o $@
 
-bd_dt/c/c_dlopen.x :  bd_dt/c/c_dlopen_test.c bd_dt/c/libdlopen_test.so
-	cc -g -O0 bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"$(PWD)/bd_dt/c/\" -ldl -o $@
+${DOT}/bd_dt/c/c_dlopen.x :  ${DOT}/bd_dt/c/c_dlopen_test.c ${DOT}/bd_dt/c/libdlopen_test.so
+	cc -g -O0 ${DOT}/bd_dt/c/c_dlopen_test.c -DBIN_PATH=\"${DOT}/bd_dt/c/\" -ldl -o $@
 
-bd_dt/c/c_segv.x : bd_dt/c/c_segv.o
+${DOT}/bd_dt/c/c_segv.x : ${DOT}/bd_dt/c/c_segv.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/c_list.x : bd_dt/c/c_list.o
+${DOT}/bd_dt/c/c_list.x : ${DOT}/bd_dt/c/c_list.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/c_inc.x : bd_dt/c/c_inc.o
+${DOT}/bd_dt/c/c_inc.x : ${DOT}/bd_dt/c/c_inc.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/c/c_half_exit.x : bd_dt/c/c_half_exit.o
+${DOT}/bd_dt/c/c_half_exit.x : ${DOT}/bd_dt/c/c_half_exit.o
 	cc -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_bd_test.x : bd_dt/C++/cpp_bd_test.o
+${DOT}/bd_dt/C++/cpp_bd_test.x : ${DOT}/bd_dt/C++/cpp_bd_test.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_cmp_diff.x : bd_dt/C++/cpp_cmp_diff.o
+${DOT}/bd_dt/C++/cpp_cmp_diff.x : ${DOT}/bd_dt/C++/cpp_cmp_diff.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_ds_test1.x : bd_dt/C++/cpp_ds_test1.o
+${DOT}/bd_dt/C++/cpp_ds_test1.x : ${DOT}/bd_dt/C++/cpp_ds_test1.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_arrays.x : bd_dt/C++/cpp_arrays.o
+${DOT}/bd_dt/C++/cpp_arrays.x : ${DOT}/bd_dt/C++/cpp_arrays.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_decomp.x : bd_dt/C++/cpp_decomp.o
+${DOT}/bd_dt/C++/cpp_decomp.x : ${DOT}/bd_dt/C++/cpp_decomp.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_decomp2.x : bd_dt/C++/cpp_decomp2.o
+${DOT}/bd_dt/C++/cpp_decomp2.x : ${DOT}/bd_dt/C++/cpp_decomp2.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_threads.x : bd_dt/C++/cpp_threads.o
+${DOT}/bd_dt/C++/cpp_threads.x : ${DOT}/bd_dt/C++/cpp_threads.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_parallel_threads.x : bd_dt/C++/cpp_parallel_threads.o
+${DOT}/bd_dt/C++/cpp_parallel_threads.x : ${DOT}/bd_dt/C++/cpp_parallel_threads.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_bt.x : bd_dt/C++/cpp_bt.o
+${DOT}/bd_dt/C++/cpp_bt.x : ${DOT}/bd_dt/C++/cpp_bt.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_bt_stress.x : bd_dt/C++/cpp_bt_stress.o
+${DOT}/bd_dt/C++/cpp_bt_stress.x : ${DOT}/bd_dt/C++/cpp_bt_stress.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/C++/cpp_arrays_print.x : bd_dt/C++/cpp_arrays_print.o
+${DOT}/bd_dt/C++/cpp_arrays_print.x : ${DOT}/bd_dt/C++/cpp_arrays_print.o
 	CC -g -O0 $^ -o $@
 
-bd_dt/c/libfoo.so : bd_dt/c/libfoo.c
+${DOT}/bd_dt/c/libfoo.so : ${DOT}/bd_dt/c/libfoo.c
 	gcc -g -O0 -fPIC -shared $^ -o $@
 
-bd_dt/c/libbar.so : bd_dt/c/libbar.c
+${DOT}/bd_dt/c/libbar.so : ${DOT}/bd_dt/c/libbar.c
 	gcc -g -O0 -fPIC -shared $^ -o $@
 
-bd_dt/C++/cpp_catch.x : bd_dt/C++/cpp_catch.cpp bd_dt/c/libfoo.so bd_dt/c/libbar.so
-	CC -g -O0 -DBD_DT=\"$(PWD)/bd_dt\"s bd_dt/C++/cpp_catch.cpp -o $@ -ldl
+${DOT}/bd_dt/C++/cpp_catch.x : ${DOT}/bd_dt/C++/cpp_catch.cpp ${DOT}/bd_dt/c/libfoo.so ${DOT}/bd_dt/c/libbar.so
+	CC -g -O0 -DBD_DT=\"${DOT}/bd_dt\"s ${DOT}/bd_dt/C++/cpp_catch.cpp -o $@ -ldl
 
-bd_dt/C++/cpp_attach.x : bd_dt/C++/cpp_attach.o bd_dt/cti_launch.x
-	CC -g -O0 bd_dt/C++/cpp_attach.o -o $@
+${DOT}/bd_dt/C++/cpp_attach.x : ${DOT}/bd_dt/C++/cpp_attach.o ${DOT}/bd_dt/cti_launch.x
+	CC -g -O0 ${DOT}/bd_dt/C++/cpp_attach.o -o $@
 
-bd_dt/fortran/ftn_cmp_diff.x : bd_dt/fortran/ftn_cmp_diff.o
+${DOT}/bd_dt/fortran/ftn_cmp_diff.x : ${DOT}/bd_dt/fortran/ftn_cmp_diff.o
 	ftn -g -O0 $^ -o $@
 
-bd_dt/fortran/ftn_arrays.x : bd_dt/fortran/ftn_arrays.o
+${DOT}/bd_dt/fortran/ftn_arrays.x : ${DOT}/bd_dt/fortran/ftn_arrays.o
 	ftn -g -O0 $^ -o $@
 
-bd_dt/fortran/ftn_decomp.x : bd_dt/fortran/ftn_decomp.o
+${DOT}/bd_dt/fortran/ftn_decomp.x : ${DOT}/bd_dt/fortran/ftn_decomp.o
 	ftn -g -O0 $^ -o $@
 
-bd_dt/fortran/ftn_bd_dt.x : bd_dt/fortran/ftn_bd_dt.o
+${DOT}/bd_dt/fortran/ftn_bd_dt.x : ${DOT}/bd_dt/fortran/ftn_bd_dt.o
 	ftn -g -O0 $^ -o $@
 
-bd_dt/cti_launch.o: bd_dt/cti_launch.cpp
+${DOT}/bd_dt/cti_launch.o: ${DOT}/bd_dt/cti_launch.cpp
 	CC -g -O0 -c -I./include $(CTI_INC) $< -o $@
 
-bd_dt/cti_launch.x : bd_dt/cti_launch.o
+${DOT}/bd_dt/cti_launch.x : ${DOT}/bd_dt/cti_launch.o
 	CC -g -O0 $^ -o $@ $(CTI_LD)
 
-ROCM_SCRIPT = tests.py.data/rocm/$(HOSTNAME).sh 
+ROCM_SCRIPT = ${DOT}/tests.py.data/rocm/$(HOSTNAME).sh 
 
-bd_dt/c/simple_gpu.x : bd_dt/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
+${DOT}/bd_dt/c/simple_gpu.x : ${DOT}/bd_dt/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
 	if [ -f $(ROCM_SCRIPT)] ; then \
 		$(ROCM_SCRIPT) make; \
 	fi

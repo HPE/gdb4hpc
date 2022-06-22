@@ -49,11 +49,11 @@ b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_
 a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
 28: info threads???
 a{0..2}:   Id    Frame
-a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:71
+a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%bd_dt/C++/cpp_threads.cpp:71
 a{0..2}:   2-11  "cpp_threads.x" %.*sleep.*%
 a{0..2}: 
 b{0..2}:   Id    Frame
-b{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:71
+b{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%bd_dt/C++/cpp_threads.cpp:71
 b{0..2}:   2-11  "cpp_threads.x" (running)
 b{0..2}: 
 30: b 60 thread 5
@@ -64,12 +64,12 @@ b{0..2}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests
 a{0..2}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:60 thread 5
 33: info threads 1 5
 a{0..2}:   Id    Frame
-a{0..2}:   1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:80
-a{0..2}: * 5     "cpp_threads.x" main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:60
+a{0..2}:   1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%bd_dt/C++/cpp_threads.cpp:80
+a{0..2}: * 5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%bd_dt/C++/cpp_threads.cpp:60
 a{0..2}: 
 b{0..2}:   Id    Frame
 b{0..2}: * 1     "cpp_threads.x" (running)
-b{0..2}:   5     "cpp_threads.x" main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:60
+b{0..2}:   5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%bd_dt/C++/cpp_threads.cpp:60
 b{0..2}: 
 34: info breakpoints
 Procset         Num Type           Disp Enb What
@@ -111,7 +111,7 @@ b{0..2}: Thread 8 has name 'hunka-hunka-burning-love'
 b{0..2}: Debugger error: Thread apply failed. (gdb: Selected thread is running.)
 55: thread apply 5 bt 2
 b{0..2}: Thread 5:
-b{0..2}: #0  main::$_0::operator() (this=) at bd_dt/C++/cpp_threads.cpp:61
+b{0..2}: #0  main::$_0::operator() (this=) at %.*/?%bd_dt/C++/cpp_threads.cpp:61
 b{0..2}: #1   in %.*invoke.*%
 b{0..2}: (More stack frames follow...)
 56: thread apply 1-4 -s -q p i
@@ -137,7 +137,7 @@ a{0..2}: Mode for locking scheduler during execution is "replay".
 a{0..2}: 76	            valAvail = true;
 71: info threads 1 8???
 a{0..2}:   Id    Frame
-a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at bd_dt/C++/cpp_threads.cpp:76
+a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%bd_dt/C++/cpp_threads.cpp:76
 a{0..2}:   8     "hunka-hunka-burning-love" __lll_lock_wait () from /lib64/libpthread.so.0
 a{0..2}: 
 72: set scheduler-locking off

@@ -272,10 +272,10 @@ dbgevent_t *DbgShowFrame(int count, const char* threads) {
     return DbgBackendSW->showFrame(count, threads);
 }
 
-dbgevent_t *DbgGetFrame(const char* threads) {
+dbgevent_t *DbgGetFrame(bool verbose, const char* threads) {
     ResetWDT();
     DBG_READY();
-    return DbgBackendSW->getFrame(threads);
+    return DbgBackendSW->getFrame(verbose, threads);
 }
 
 dbgevent_t *DbgSetDebuggerVar(const char *var, const char *val) {

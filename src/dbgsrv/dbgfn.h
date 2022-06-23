@@ -54,7 +54,7 @@ public:
     // outermost frames.
     virtual dbgevent_t *showFrame(int count, const char* threads) = 0;
 
-    virtual dbgevent_t *getFrame(const char* threads) = 0;
+    virtual dbgevent_t *getFrame(bool verbose, const char* threads) = 0;
     virtual dbgevent_t *setVar(const char *var, const char *a, const char* threads) = 0;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
     virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) = 0;
@@ -129,7 +129,7 @@ extern dbgevent_t *DbgStep(int, int, const char*);
 extern dbgevent_t *DbgKill(void);
 extern dbgevent_t *DbgMoveFrame(int, bool, const char*);
 extern dbgevent_t *DbgShowFrame(int, const char*);
-extern dbgevent_t *DbgGetFrame(const char*);
+extern dbgevent_t *DbgGetFrame(bool, const char*);
 extern dbgevent_t *DbgSetVar(const char *, const char* val, const char* threads);
 extern dbgevent_t *DbgSetDebuggerVar(const char *, const char *val);
 extern dbgevent_t *DbgSetSourcePath(const char *);

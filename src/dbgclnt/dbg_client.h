@@ -404,7 +404,7 @@ extern rep_set_t *DbgSetArgs(rec_set_t *, char *);
 extern rep_set_t *DbgStep(rec_set_t *, int, int);
 extern rep_set_t *DbgMoveFrame(rec_set_t *, int, int);
 extern rep_set_t *DbgShowFrame(rec_set_t *, int);
-extern rep_set_t *DbgGetFrame(rec_set_t *);
+extern rep_set_t *DbgGetFrame(rec_set_t *, bool);
 extern rep_set_t *DbgGetVars(rec_set_t *);
 extern rep_set_t *DbgGetArgs(rec_set_t *);
 extern rep_set_t *DbgGetScope(rec_set_t *, char *);

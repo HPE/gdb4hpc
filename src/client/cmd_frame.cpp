@@ -165,7 +165,14 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
-    auto rep_set = DbgGetFrame(rec_set);
+    bool verbose = false;
+    if (argc == 2 && std::string{argv[1]} == "-v") verbose = true;
+    else if (argc > 1) {
+        PrintOutError("unrecognized argument expected [-v]");
+        return 1;
+    }
+
+    auto rep_set = DbgGetFrame(rec_set, verbose);
 
     // process error
     ProcessErrorInRepSet(rep_set);

@@ -147,7 +147,7 @@ static int cmd_restart_cmd(rec_set_t *recSet, int argc, char **argv) {
     PrintOutMsg("Checkpoint %lu restored:\n", id);
 
     // show new locations
-    auto frameRepSet = std::unique_ptr<rep_set_t>(DbgGetFrame(recSet));
+    auto frameRepSet = std::unique_ptr<rep_set_t>(DbgGetFrame(recSet, false));
 
     if (ProcessErrorInRepSet(frameRepSet.get())) {
         return 0;

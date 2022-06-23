@@ -26,9 +26,9 @@ a{1}: The application has reached an exit breakpoint.
 Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $earlyexit stopped.
 13: frame
-a{1}: #0  0x00007fbcfed15db0 in exit
-a{2..3}: #0  0x0000000000201b06 in main at /bd_dt/c/c_half_exit.c:22
-a{0}: #0  0x0000000000201b15 in main at /bd_dt/c/c_half_exit.c:23
+a{1}: #0  exit
+a{2..3}: #0  main at /bd_dt/c/c_half_exit.c:22
+a{0}: #0  main at /bd_dt/c/c_half_exit.c:23
 14: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22
@@ -45,10 +45,10 @@ Sending continue to application...
 Assertion script error: A breakpoint unrelated to the assertion script was hit.
 Assertion script $unknbp stopped.
 22: frame
-a{1}: #0  0x00007fbcfed15db0 in exit
-a{2}: #0  0x0000000000201ab4 in foo at /bd_dt/c/c_half_exit.c:6
-a{0}: #0  0x0000000000201b15 in main at /bd_dt/c/c_half_exit.c:23
-a{3}: #0  0x0000000000201b1a in main at /bd_dt/c/c_half_exit.c:26
+a{1}: #0  exit
+a{2}: #0  foo at /bd_dt/c/c_half_exit.c:6
+a{0}: #0  main at /bd_dt/c/c_half_exit.c:23
+a{3}: #0  main at /bd_dt/c/c_half_exit.c:26
 23: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22

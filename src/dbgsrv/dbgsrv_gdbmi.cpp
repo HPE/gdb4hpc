@@ -87,7 +87,7 @@ static dbgevent_t *WaitOmpdEvent(dbgevent_t *e);
 static dbgevent_t *CheckBreak(MICommand *, const dbgcomm_info *);
 
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
-static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=true);
+static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=false);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
 static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
@@ -552,7 +552,7 @@ dbgevent_t *DbgGdbMI::setCheckpoint() {
     }
     
     // figure out where we are so we can tell the frontend
-    auto frameEvent = getFrame(nullptr);
+    auto frameEvent = getFrame(false, nullptr);
     if (!frameEvent || !frameEvent->ev_frame) {
         dbgevent_t *errorEvent;
         EVENT_ERROR(errorEvent, DBGERR_DEBUGGER, "Failed to get current frame (null event)");
@@ -1251,8 +1251,8 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     dbgframe_t *result = nullptr, *tail = nullptr;
 
     for (MIListSet(frames); (frame = (MIFrame *)MIListGet(frames)) != NULL;) {
-        // create the new frame
-        auto df = MakeFrameFromMIFrame(frame);
+        // create the new frame (the "treeing" process relies on the frame address)
+        auto df = MakeFrameFromMIFrame(frame, true);
         if (tail) {
             tail->setNext(df);
             tail = df;
@@ -1276,7 +1276,7 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
 *frame
 ** that is selected.
 */
-dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
+dbgevent_t *DbgGdbMI::getFrame(bool verbose, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
@@ -1306,7 +1306,7 @@ dbgevent_t *DbgGdbMI::getFrame(const char* threads) {
     }
 
     // create the result
-    auto result = MakeFrameFromMIFrame(mi_frame);
+    auto result = MakeFrameFromMIFrame(mi_frame, verbose);
 
     // free the MIFrame list
     MIListFree(mi_frame_list, (void (*)())MIFrameFree);

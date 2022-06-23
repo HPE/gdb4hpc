@@ -80,8 +80,8 @@ Assertion script $scalars finished.
 Use "info script $scalars results" to view results.
 Assertion script $scalars stopped.
 44: frame
-a{0..1}: #0  0x0000000000202588 in main at /bd_dt/c/c_type_test.c:242
-b{0..1}: #0  0x0000000000202588 in main at /bd_dt/c/c_cmp_diff.c:242
+a{0..1}: #0  main at /bd_dt/c/c_type_test.c:242
+b{0..1}: #0  main at /bd_dt/c/c_cmp_diff.c:242
 44: info script
 Saved assertion scripts:
 $scalars

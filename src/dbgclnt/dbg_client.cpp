@@ -2726,7 +2726,7 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
             AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
 
             // Get frames to update client side location data on success
-            auto frames = DbgGetFrame(new_rec_set);
+            auto frames = DbgGetFrame(new_rec_set, false);
             if (!frames) {
                 addStrError(result, *di, *group, "Error fetching frame");
                 continue;
@@ -3911,8 +3911,8 @@ rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
 /*
 ** DBG_GETFRAME: Get selected stack frame.
 */
-rep_set_t *DbgGetFrame(rec_set_t *set) {
-    auto request = CommandToSocProto(DBGCMD_GETFRAME, set->getThreads());
+rep_set_t *DbgGetFrame(rec_set_t *set, bool verbose) {
+    auto request = CommandToSocProto(DBGCMD_GETFRAME, int(verbose), set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 

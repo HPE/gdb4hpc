@@ -240,9 +240,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_GETFRAME: {
-            OptionalString threads;
-            is.get(threads);
-            e = DbgGetFrame(threads);
+            bool verbose; OptionalString threads;
+            is.get(verbose, threads);
+            e = DbgGetFrame(verbose, threads);
             break;
         }
 

@@ -52,7 +52,7 @@ public:
     // outermost frames.
     virtual dbgevent_t *showFrame(int count, const char* threads) override;
 
-    virtual dbgevent_t *getFrame(const char* threads) override;
+    virtual dbgevent_t *getFrame(bool verbose, const char* threads) override;
     virtual dbgevent_t *setVar(const char *var, const char* val, const char* threads) override;
     virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) override;
     virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) override;

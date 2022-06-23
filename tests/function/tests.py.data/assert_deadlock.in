@@ -23,6 +23,6 @@ a{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:14
 Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $deadlock stopped.
 9: frame
-a{0..1}: #0  0x0000000000201ab8 in main at /bd_dt/c/c_inc.c:14
+a{0..1}: #0  main at /bd_dt/c/c_inc.c:14
 10: q
 Shutting down debugger and killing application for 'a'.

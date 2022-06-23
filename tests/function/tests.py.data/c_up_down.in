@@ -39,10 +39,10 @@ a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 a{0..5}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
 28: # Test up command - back to calling location
 29: up
-a{0..5}: #1  0x0000000000202590 in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
+a{0..5}: #1  main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:223
 32: # Test down command - back at line 247
 33: down
-a{0..5}: #0  0x0000000000202647 in test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
+a{0..5}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
 36: #exit lgdb
 37: q
 Shutting down debugger and killing application for 'a'.

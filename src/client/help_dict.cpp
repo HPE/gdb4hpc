@@ -356,15 +356,15 @@ const char* const cmd_focus_help[] = {
 
 const char* const cmd_frame_help[] = {
     "Summary: Print selected stack frame command.",
-    "Usage: frame",
+    "Usage: frame [-v]",
     "Example command: frame",
     "",
-    "Arguments: None.",
+    "Arguments: optional -v for \"verbose\".",
     "",
     "Description:",
     "Display the selected stack frame from every application rank in the "
-    "current",
-    "process set.",
+    "current process set.",
+    "-v (verbose) prints the program counter address for the frame.",
     0};
 
 const char* const cmd_halt_help[] = {

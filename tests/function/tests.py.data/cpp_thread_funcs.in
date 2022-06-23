@@ -119,7 +119,7 @@ b{0..2}: Debugger error: Thread apply failed. (gdb: No symbol "i" in current con
 58: focus $a
 59: thread apply 2 -v frame???
 a{0..2}: Thread 2 (Thread 0x15554ffd1700 (LWP 22645)):
-a{0..2}: #0  0x0000155553101760 in %.*sleep.*%
+a{0..2}: #0  %.*sleep.*%
 61: focus $all
 63: b 75
 a{0..2}: Breakpoint 4: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp, line 75.

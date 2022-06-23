@@ -43,7 +43,8 @@ list_t *DbgInvokeList = (list_t *)NULL;
 ** Create a dbginvoke_t structure.
 */
 dbginvoke_t *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
-    dbginvoke_t *di = new dbginvoke_t(proto);
+    // XXX: no sane default exists for the `type` parameter. DBG_ATTCHED is 0
+    dbginvoke_t *di = new dbginvoke_t(nullptr, DBG_ATTACHED, nproc, proto);
 
     // Set non-zero members here
     di->d_nproc = nproc;

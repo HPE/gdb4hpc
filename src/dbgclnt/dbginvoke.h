@@ -28,8 +28,7 @@ enum dbgproc_type { DBG_ATTACHED, DBG_LAUNCHED };
 typedef enum dbgproc_type dbgproc_type;
 
 struct dbginvoke {
-    // zero everything except the const proto pointer
-    dbginvoke(DebugClientProtocol * const proto);
+    dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClientProtocol * const proto);
 
     char *d_handle;       // invoke handle used as identifier in client layer
     uint64_t d_appid;     // app identifier - this should be generic

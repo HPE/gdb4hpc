@@ -313,6 +313,8 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
 
     PrintOutMsg("Connected to application...\n");
 
+    di->d_started = 1;
+
     return 0;
 }
 

@@ -7,13 +7,13 @@
 #include <algorithm>
 #include <filesystem>
 
-dbginvoke::dbginvoke(DebugClientProtocol * const proto)
-    : d_handle{nullptr}
+dbginvoke::dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClientProtocol * const proto)
+    : d_handle{name != nullptr ? strdup(name) : nullptr}
     , d_appid{0}
-    , d_type{DBG_ATTACHED} // 0
+    , d_type{type}
     , d_started{0}
     , d_isShutdown{0}
-    , d_nproc{0}
+    , d_nproc{nproc}
     , d_stat{0}
     , d_evfds{nullptr}
     , d_bitset_full{nullptr}
@@ -24,7 +24,7 @@ dbginvoke::dbginvoke(DebugClientProtocol * const proto)
     , d_proto{proto}
     , d_clnt_ev_callback{nullptr}
     , d_frontend{nullptr}
-    , d_eventset_list{nullptr}
+    , d_eventset_list{NewList()}
     , d_breakpoints{}
     , d_checkpoints{}
 {};

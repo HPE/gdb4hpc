@@ -65,8 +65,7 @@ struct OutputCallbacks {
 /*
 ** Internal prototypes
 */
-static dbginvoke_t *NewDbgInvoke(const char *, dbgproc_type, int,
-                                DebugClientProtocol * const);
+static void RegisterDbgInvoke(dbginvoke_t* di);
 static void FreeDbgInvoke(dbginvoke_t *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
@@ -146,28 +145,10 @@ void ReleaseSignals(void) {
     }
 }
 
-/*
-** Create a dbginvoke_t structure.
-*/
-static dbginvoke_t *NewDbgInvoke(const char *handle, dbgproc_type type,
-                                 int nproc, DebugClientProtocol * const proto) {
-    dbginvoke_t *di = new dbginvoke_t(proto);
-
-    // Set non-zero members here
-    di->d_handle = (handle != nullptr) ? strdup(handle) : nullptr;
-    di->d_type = type;
-    di->d_nproc = nproc;
-    // di->d_proto = proto; // proto is set in constructor
-    di->d_eventset_list = NewList();
-
+// Add dbginvoke to main dbginvoke list used in the main event loop
+static void RegisterDbgInvoke(dbginvoke_t* di) {
     if (DbgInvokeList == nullptr) DbgInvokeList = NewList();
-
-    /*
-    ** Add to DbgInvokeList
-    */
     AddToList(DbgInvokeList, (void *)di);
-
-    return di;
 }
 
 /*
@@ -1651,7 +1632,6 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
                        const char *handle, const char *app_ident,
                        const char *arch, const char *backend, int gpu_flag,
                        int debug_flag) {
-    dbginvoke_t *di;
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
 
     if (ptab == nullptr) {
@@ -1661,13 +1641,15 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 
     // Create the dbginvoke_t object to pass down, nproc is unknown since this
     // is the attach case
-    di = NewDbgInvoke(handle, DBG_ATTACHED, 0, ptab);
+    auto di = new dbginvoke(handle, DBG_ATTACHED, 0, ptab);
 
     if (ptab->attach(di, sess, app_ident, arch, backend, gpu_flag,
                         debug_flag)) {
         FreeDbgInvoke(di);
         return nullptr;
     }
+
+    RegisterDbgInvoke(di);
 
     // The frontend debug presence can fail silently
     // This is currently disabled for the attach case since I have no idea how
@@ -1687,7 +1669,6 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 ** Launch user program.
 */
 dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& args) {
-    dbginvoke_t *di;
     DebugClientProtocol * const ptab = findClientProtoByName(args.proto_name.c_str());
     dbgevent_t *e;
 
@@ -1697,7 +1678,7 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
     }
 
     // Create the dbginvoke_t object to pass down
-    di = NewDbgInvoke(handle, DBG_LAUNCHED, nproc, ptab);
+    auto di = new dbginvoke(handle, DBG_LAUNCHED, nproc, ptab);
 
     // Start out by creating the frontend gdb instance. We want to do some pre
     // checks on the a.out
@@ -1784,6 +1765,8 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
     }
 
     di->d_launch = std::move(args);
+
+    RegisterDbgInvoke(di);
 
     // This command changes the status
     inferior_status_change = 1;

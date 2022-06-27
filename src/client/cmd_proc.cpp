@@ -31,14 +31,15 @@
 #include <unordered_map>
 #include <optional>
 #include <filesystem>
+#include <regex>
 
 #include "client.h"
 #include "common_tools_fe.h"
 #include "useful.h"
 
 static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& opts);
-static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, bool keepFlag);
-static int DoRelaunch(dbgprocset_t* procset, bool keepFlag);
+static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
+static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
                     const char *, const char *, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
@@ -413,27 +414,10 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
     return ps;
 }
 
-std::string getProcsetCloneName(const dbgprocset_t& procset) {
-    // keeps track of the number of clones that have been spawned from a given procset.
-    // maps procset.s_name to number of iterations
-    static std::unordered_map<std::string, int> iterationsMap;
-
-    // start the count at 2 since a clone will be the second instance of a procset
-    auto [it, newEntry] = iterationsMap.emplace(std::string{procset.s_name}, 2);
-
-    if (!newEntry) {
-        it->second++;
-    }
-
-    using namespace std::string_literals;
-    return "$"s + procset.s_name + "_" + std::to_string(it->second)
-        + "{" + std::to_string(procset.s_nproc) + "}";
-};
-
 // relaunch procsets where s_type == DBGSET_INVOKE.
 // if `keepFlag` is false, the old procset will be deleted after relaunch.
 // returns newly launched procset.
-static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
+static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* cloneName) {
     if (!oldProcset) {
         PrintOutError("Error: null procset\n");
         return nullptr;
@@ -464,7 +448,9 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
     }
 
     auto newArgs = dbginvoke::LaunchOpts(oldDi->d_launch);
-    newArgs.procset_name = getProcsetCloneName(*oldProcset);
+    newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
+    newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
+    
     newArgs.app_argv = oldDi->d_launch.run_argv;
 
     dbgprocset_t* newProcset = nullptr;
@@ -528,7 +514,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
         }
     }
 
-    if (!keepFlag) {
+    if (!cloneName) {
         // replace old procset with new one by making the new procset look
         // identical to the old
         // TODO: do this in background thead?
@@ -592,12 +578,12 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, bool keepFlag) {
     return newProcset;
 }
 
-static int DoRelaunch(dbgprocset_t* oldProcset, bool keepFlag) {
+static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
     if (!oldProcset) return 0;
 
     switch (oldProcset->s_type) {
         case DBGSET_INVOKE: {
-            auto newProcset = DoRelaunchInvoke(oldProcset, keepFlag);
+            auto newProcset = DoRelaunchInvoke(oldProcset, clone);
             if (!newProcset) {
                 PrintOutError("Relaunch failed!\n");
                 return 0;
@@ -643,7 +629,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, bool keepFlag) {
             if (!success) return 0;
 
             for (auto* diProcset : toRelaunch) {
-                auto* newProcset = DoRelaunchInvoke(diProcset, keepFlag);
+                auto* newProcset = DoRelaunchInvoke(diProcset, clone);
                 if (!newProcset) {
                     success = false;
                     PrintOutError("Error: relaunching $%s failed!\n", diProcset->s_name);
@@ -1105,104 +1091,86 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
     FreeProcSet(p);
 }
 
-static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
-    // run [$procset] [--keep]
-    //
-    // re-launch procsets and release the old job(s). if no procset is 
-    // supplied, default to the procset currently in focus. if --keep 
-    // is supplied, don't release the old procset.
-    //
-    // this command also tries to be an alias for/point the user to the
-    // launch command, since it is most likely the first thing a new
-    // user will try.
-    const auto tryDeferToLaunch = [recSet, argc, argv](std::string origError) {
-        // if args are valid for a launch, defer to launch.
-        try {
-            // throws if args are malformed
-            auto args = dbginvoke::LaunchOpts(argc, argv, Client);
-            return DoLaunch(std::move(args)) ? 1 : 0;
-        } catch (const std::runtime_error& e) { 
-            // if the user is trying to use the run command to start a program,
-            // they probably didn't provide a properly formed procset name ($a{n}),
-            // so we infer one from the binary name
-            try {
-                auto newArgv = ArgvStream("$tmp", argv);
-                // throws on error
-                auto args = dbginvoke::LaunchOpts(newArgv.argc(), newArgv.c_strs().data(), Client);
-                // success, now change the procset name
-                using namespace std::string_literals;
-                args.procset_name = 
-                    "$"s + std::string{std::filesystem::path{args.app_argv[0]}.filename()};
-                // the expr parser doesn't like procset names with dots (.) in them
-                std::replace(args.procset_name.begin(), args.procset_name.end(), '.', '_');
-                if (DoLaunch(std::move(args))) {
-                    PrintOutMsg("To launch with more than one rank, use the \"launch\" command.\n");
-                    return 1;
-                } else {
-                    return 0;
-                }
-            } catch (std::runtime_error& e) {
-                PrintOutError("Error: %s\n", origError.c_str());
-                PrintOutError("Usage: run [$procset] [--keep]\n");
-                if (!recSet) {
-                    PrintOutMsg("Use the \"launch\" or \"attach\" commands to start debugging an application.\n");
-                }
-                return 0;
-            }
+static int cmd_rerun_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+    using namespace std::string_literals;
+    dbgprocset_t* procSet = nullptr;
+    const char* cloneName = nullptr;
+
+    if (argc == 1) {
+        if (procSet = CurrentProcSet(); !procSet || !recSet) {
+            PrintOutError("No current process set to re-launch.\n");
+            return 1;
         }
-    };
+    } else {
+        procSet = FindProcSet(argv[1]+1);
+        if (!procSet) {
+            PrintOutError("No process set %s to re-launch.\n", argv[1]);
+        }
+    }
 
-    // parse arguments
-    dbgprocset_t* explProcset = nullptr; // explicit procset
-    bool keepFlag = false;               // --keep
+    if (argc > 2 && strcmp(argv[1],argv[2]) != 0) {
+        cloneName = argv[2];
+    }
 
-    for (int i = 1; i < argc; i++) {
-        auto argView = std::string_view(argv[i]);
-        if (!explProcset && argView.size() >= 2 && argView.front() == '$') {
-            // $procset
-            // procset names are stored without the leading $
-            argView = argView.substr(1);
-            explProcset = FindProcSet(&argView.front());
-            if (!explProcset) {
-                using namespace std::string_literals;
-                return tryDeferToLaunch("No procset with the name $"s + std::string{argView} + ".");
-            }
-        } else if (!keepFlag && argView == "--keep") {
-            keepFlag = true;
+
+    if (!cloneName) {
+        auto prompt = "Re-launch $"s + procSet->s_name + "? Original will be released.";
+        if (!cli_query(prompt.c_str(), cli_query_default::NO, cli_query_default::YES)) {
+            PrintOutMsg("Cancelled.\n");
+            return 1;
+        }
+    } else if (auto cloneSet = FindProcSet(cloneName)) {
+        auto prompt = "Re-use "s + cloneName + "? Original will be released.";
+        if (cli_query(prompt.c_str(), cli_query_default::NO, cli_query_default::YES)) {
+            ReleaseProc(cloneSet, DBG_DEFAULT);
         } else {
-            // unknown arg
-            using namespace std::string_literals;
-            return tryDeferToLaunch("Malformed argument: \""s + std::string{argView} + "\"");
-        }
-    }
-
-    if (!explProcset) {
-        // if no procset given, default to current
-        explProcset = CurrentProcSet();
-    }
-
-    if (!explProcset) {
-        PrintOutError("Error: couldn't find a procset.\n");
-        return 0;
-    }
-
-    if (!keepFlag) {
-        using namespace std::string_literals;
-        const auto YES = cli_query_default::YES;
-        const auto NO = cli_query_default::NO;
-
-        auto prompt = "Re-launch $"s + explProcset->s_name + "? Original will be released.";
-        if (!cli_query(prompt.c_str(), NO, YES)) {
             PrintOutMsg("Cancelled.\n");
             return 1;
         }
     }
 
-    if (!DoRelaunch(explProcset, keepFlag)) {
+    if (!DoRelaunch(procSet, cloneName)) {
         PrintOutError("Relaunch failed!\n");
         return 0;
     }
 
+    return 1;
+}
+
+
+static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+
+    // the command handles launches and attach in addition to rerun.   Infer the
+    // case from the arguments we get.
+    static auto procName = std::regex{R"(\$([[:alpha:]][[:w:]]*))"};
+    static auto procArray = std::regex{R"(\$([[:alpha:]][[:w:]]*)\{[[:d:]]+\})"};
+
+    auto procs = std::vector<std::string>{};
+    auto numProcArrs = 0, numNonProcs = 0;
+
+    for (int i=1; i<argc; ++i) {
+        auto match = std::cmatch{};
+        if (std::regex_match(argv[i], match, procName)) {
+            procs.push_back(match[1]);
+        } else if (std::regex_match(argv[i], match, procArray)) {
+            ++numProcArrs;
+        } else {
+            ++numNonProcs;
+        }
+    }
+
+    if (numProcArrs) {
+        return cmd_launch_cmd(recSet, argc, argv);
+    } else if (procs.size() == 1 && numNonProcs) {
+        return cmd_attach_cmd(recSet, argc, argv);
+    } else if (!numNonProcs && procs.size() < 3) {
+        return cmd_rerun_cmd(recSet, argc, argv);
+    } else if (!numProcArrs && procs.empty()) {
+        PrintOutError("A procset handle is required, see \"help run\".\n");
+    } else {
+        PrintOutError("Unrecognized run arguments, see \"help run\".\n");
+    }
+    
     return 1;
 }
 
@@ -1290,7 +1258,7 @@ void InitCmd_proc(void) {
                "Release attached/launched application from debugger control.");
     AddCommand("kill", NULL, proc_ignore, 0, cmd_kill_cmd,
                cmd_kill_help, "Kill attached/launched application.");
-    AddCommand("run", NULL, proc_optional, 0, cmd_run_cmd,
+    AddCommand("run", "r", proc_optional, 0, cmd_run_cmd,
                cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
 
     // set/show commands

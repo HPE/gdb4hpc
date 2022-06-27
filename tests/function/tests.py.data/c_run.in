@@ -39,11 +39,11 @@ Launched application...
 Created network...
 Connected to application...
 Launch complete.
-a_2{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
+tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 Re-setting breakpoints...
-Re-set breakpoint $a::1 as new breakpoint $a_2::1.
-Re-set breakpoint $a::2 as new breakpoint $a_2::2.
-Re-set breakpoint $a::3 as new breakpoint $a_2::3.
+Re-set breakpoint $a::1 as new breakpoint $tmp_clone::1.
+Re-set breakpoint $a::2 as new breakpoint $tmp_clone::2.
+Re-set breakpoint $a::3 as new breakpoint $tmp_clone::3.
 Shutting down debugger and killing application for 'a'.
 17: info break
 Procset         Num Type           Disp Enb What
@@ -84,12 +84,12 @@ Launched application...
 Created network...
 Connected to application...
 Launch complete.
-a_3{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
+tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 Re-setting breakpoints...
-Re-set breakpoint $a::1 as new breakpoint $a_3::1.
-Re-set breakpoint $a::2 as new breakpoint $a_3::2.
-Re-set breakpoint $a::3 as new breakpoint $a_3::3.
-Re-set breakpoint $a::4 as new breakpoint $a_3::4.
+Re-set breakpoint $a::1 as new breakpoint $tmp_clone::1.
+Re-set breakpoint $a::2 as new breakpoint $tmp_clone::2.
+Re-set breakpoint $a::3 as new breakpoint $tmp_clone::3.
+Re-set breakpoint $a::4 as new breakpoint $tmp_clone::4.
 Shutting down debugger and killing application for 'a'.
 32: info break
 Procset         Num Type           Disp Enb What
@@ -110,87 +110,85 @@ Relaunch failed!
 Command resulted in an error: 38: run
 39: focus $all
 40: # case 4: restart $all and preserve old procset
-41: run --keep
-Creating new procset $a_4...
+41: run $a $b
+Creating new procset $b...
 Starting application, please wait...
 Launched application...
 Created network...
 Connected to application...
 Launch complete.
-a_4{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
+b{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 Re-setting breakpoints...
-Re-set breakpoint $a::1 as new breakpoint $a_4::1.
-Re-set breakpoint $a::2 as new breakpoint $a_4::2.
-Re-set breakpoint $a::3 as new breakpoint $a_4::3.
-Re-set breakpoint $a::4 as new breakpoint $a_4::4.
+Re-set breakpoint $a::1 as new breakpoint $b::1.
+Re-set breakpoint $a::2 as new breakpoint $b::2.
+Re-set breakpoint $a::3 as new breakpoint $b::3.
+Re-set breakpoint $a::4 as new breakpoint $b::4.
 42: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
 a{0..1}         2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
 a{0..1}         3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
 a{0}            4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
-a_4{0..1}       1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
-a_4{0..1}       2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
-a_4{0..1}       3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
-a_4{0}          4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
+b{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
+b{0..1}         2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
+b{0..1}         3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
+b{0}            4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
 43: info app
 Handle     Ranks      Focus Application
 $a         2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
-$a_4       2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
+$b         2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
 44: c
 a{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
-a_4{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
+b{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
 45: p inc
 a{0..1}: 0
-a_4{0..1}: 0
+b{0..1}: 0
 46: # case 5: restart $all again, which now contains multiple procsets
 47: run
-Creating new procset $a_5...
 Starting application, please wait...
 Launched application...
 Created network...
 Connected to application...
 Launch complete.
-a_5{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
+tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 Re-setting breakpoints...
-Re-set breakpoint $a::1 as new breakpoint $a_5::1.
-Re-set breakpoint $a::2 as new breakpoint $a_5::2.
-Re-set breakpoint $a::3 as new breakpoint $a_5::3.
-Re-set breakpoint $a::4 as new breakpoint $a_5::4.
+Re-set breakpoint $a::1 as new breakpoint $tmp_clone::1.
+Re-set breakpoint $a::2 as new breakpoint $tmp_clone::2.
+Re-set breakpoint $a::3 as new breakpoint $tmp_clone::3.
+Re-set breakpoint $a::4 as new breakpoint $tmp_clone::4.
 Shutting down debugger and killing application for 'a'.
-Creating new procset $a_4_2...
 Starting application, please wait...
 Launched application...
 Created network...
 Connected to application...
 Launch complete.
-a_4_2{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
+tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 Re-setting breakpoints...
-Re-set breakpoint $a_4::1 as new breakpoint $a_4_2::1.
-Re-set breakpoint $a_4::2 as new breakpoint $a_4_2::2.
-Re-set breakpoint $a_4::3 as new breakpoint $a_4_2::3.
-Re-set breakpoint $a_4::4 as new breakpoint $a_4_2::4.
-Shutting down debugger and killing application for 'a_4'.
+Re-set breakpoint $b::1 as new breakpoint $tmp_clone::1.
+Re-set breakpoint $b::2 as new breakpoint $tmp_clone::2.
+Re-set breakpoint $b::3 as new breakpoint $tmp_clone::3.
+Re-set breakpoint $b::4 as new breakpoint $tmp_clone::4.
+Shutting down debugger and killing application for 'b'.
 48: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
 a{0..1}         2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
 a{0..1}         3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
 a{0}            4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
-a_4{0..1}       1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
-a_4{0..1}       2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
-a_4{0..1}       3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
-a_4{0}          4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
+b{0..1}         1   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:13
+b{0..1}         2   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:15
+b{0..1}         3   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:17
+b{0}            4   breakpoint     keep y   in main at /bd_dt/c/c_inc.c:16
 49: info app
 Handle     Ranks      Focus Application
 $a         2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
-$a_4       2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
+$b         2          y     /bd_dt/c/c_inc.x altered "multi word arguments"
 50: c
 a{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
-a_4{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
+b{0..1}: Breakpoint 1, main at /bd_dt/c/c_inc.c:13
 51: p inc
 a{0..1}: 0
-a_4{0..1}: 0
+b{0..1}: 0
 52: q
 Shutting down debugger and killing application for 'a'.
-Shutting down debugger and killing application for 'a_4'.
+Shutting down debugger and killing application for 'b'.

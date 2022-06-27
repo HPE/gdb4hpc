@@ -293,6 +293,27 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+static int class_info_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    auto args = ArgvStream{"cuda", "info"};
+    args << ArgvStream{argc-1, argv+1};
+    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    
+}
+
+static int class_set_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    auto args = ArgvStream{"cuda", "set"};
+    args << ArgvStream{argc-1, argv+1};
+    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    
+}
+
+static int class_show_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    auto args = ArgvStream{"cuda", "show"};
+    args << ArgvStream{argc-1, argv+1};
+    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    
+}
+
 
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, 0, cmd_thread_cmd,
@@ -303,6 +324,16 @@ void InitCmd_thread(void) {
                cmd_ompd_help, "OpenMP debugging functions.");
     AddCommand("cuda", "", proc_required, 0, cmd_cuda_cmd,
                cmd_cuda_help, "Cuda debugging functions.");
+    AddInfoCommand("cuda", proc_required, 0, class_info_subcmd_cuda_cmd,
+                   class_info_subcmd_cuda_help,
+                   "Display cuda specific information.");
+    AddSetCommand("cuda", proc_required, 0, class_set_subcmd_cuda_cmd,
+                  class_set_subcmd_cuda_help,
+                  "Set cuda specific information.");
+    AddShowCommand("cuda", proc_required, 0, class_show_subcmd_cuda_cmd,
+                   class_show_subcmd_cuda_help,
+                   "Show cuda specific settings.");
+
 
     AddInfoCommand("threads", proc_required, 0,
                    class_info_subcmd_threads_cmd,

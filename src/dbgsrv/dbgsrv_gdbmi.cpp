@@ -2263,7 +2263,7 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
         op = match.suffix().str();
     }
 
-    static const std::vector<std::string> subCmds{"help", "info", "set"};
+    static const std::vector<std::string> subCmds{"help", "info", "set", "show"};
 
     auto cudaOp = "cuda " + op;
     auto cmd_args = ArgvStream{};

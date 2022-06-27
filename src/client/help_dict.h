@@ -99,6 +99,7 @@ extern const char* const class_usage_help[];
 extern const char* const class_info_subcmd_application_help[];
 extern const char* const class_info_subcmd_breakpoints_help[];
 extern const char* const class_info_subcmd_checkpoints_help[];
+extern const char* const class_info_subcmd_cuda_help[];
 extern const char* const class_info_subcmd_locals_help[];
 extern const char* const class_info_subcmd_args_help[];
 extern const char* const class_info_subcmd_scope_help[];
@@ -120,6 +121,7 @@ extern const char* const class_maint_subcmd_system_help[];
 /*
  * Class set subcommands
  */
+extern const char* const class_set_subcmd_cuda_help[];
 extern const char* const class_set_subcmd_directory_help[];
 extern const char* const class_set_subcmd_error_help[];
 extern const char* const class_set_subcmd_environment_help[];
@@ -150,6 +152,7 @@ extern const char* const class_maint_set_subcmd_sync_help[];
 /*
  * Class show subcommands
  */
+extern const char* const class_show_subcmd_cuda_help[];
 extern const char* const class_show_subcmd_directories_help[];
 extern const char* const class_show_subcmd_error_help[];
 extern const char* const class_show_subcmd_function_help[];

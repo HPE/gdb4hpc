@@ -33,6 +33,10 @@ public:
     template <typename... Args>
     ArgvStream(Args&&... args) { (*this << ... << args); };
 
+    ArgvStream(int argc, char **argv) {
+        for (int i=0; i<argc; ++i) *this << argv[i];
+    }
+
     // returns a vector of const char *, passable to cti and others by calling .data()
     // on the resulting vector
     const std::vector<const char *> c_strs(size_t start) const {

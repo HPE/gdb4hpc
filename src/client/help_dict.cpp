@@ -176,9 +176,11 @@ const char* const cmd_cuda_help[] = {
     "Usage: cuda help <subcommand>",
     "Usage: cuda info <subcommand>",
     "Usage: cuda set <subcommand> <value>",
+    "Usage: cuda show <subcommand>",
     "",
     "Calls the cuda thread functions, which will be available when launching/attaching",
     "with --gpu and running with an nvidia device.",
+    "Use \"cuda help\" for the list of subcommands.",
     0};
 
 const char* const cmd_defset_help[] = {
@@ -1275,6 +1277,18 @@ const char* const class_info_subcmd_application_help[] = {
     "to the application launcher in order to launch the application.",
     0};
 
+const char* const class_info_subcmd_cuda_help[] = {
+    "Summary: cuda specific information.",
+    "Usage: info cuda [subcommand]",
+    "Example: info cuda threads",
+    "Description:",
+    "Display cuda specific information.   This will only be available",
+    "when a cuda application is launched or attached with the --gpu",
+    "flag.  Use \"cuda help info\" for the available subcommands.",
+    0
+};
+    
+  
 const char* const class_info_subcmd_scope_help[] = {
     "Summary: Local symbol information relative to a scope.",
     "Usage: info scope <location>",
@@ -1420,6 +1434,19 @@ const char* const class_maint_subcmd_system_help[] = {
 /*
  * Class set subcommands
  */
+
+
+const char* const class_set_subcmd_cuda_help[] = {
+    "Summary: set cuda specific settings.",
+    "Usage: set cuda [subcommand]",
+    "Example: set cuda hide_internal_frame on",
+    "Description:",
+    "Set cuda-gdb specific settings.   This will only be available",
+    "when a cuda application is launched or attached with the --gpu",
+    "flag.  Use with no arguments for the available subcommands.",
+    0
+};
+
 
 const char* const class_set_subcmd_directory_help[] = {
     "Summary: Directory search source path.",
@@ -1623,6 +1650,17 @@ const char* const class_maint_set_subcmd_sync_help[] = {
 /*
  * Class show subcommands
  */
+
+const char* const class_show_subcmd_cuda_help[] = {
+    "Summary: show cuda specific settings.",
+    "Usage: show cuda [subcommand]",
+    "Example: show cuda memcheck",
+    "Description:",
+    "Show cuda specific settings.   This will only be available",
+    "when a cuda application is launched or attached with the --gpu",
+    "flag.  Use with no arguments for the available subcommands.",
+    0
+};
 
 const char* const class_show_subcmd_directories_help[] = {
     "Summary: Display source search path.",

@@ -175,5 +175,28 @@ b{0..1}: {LinearDerived = {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDoubl
 b{0..1}: {LinearDerived = {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDouble = -11.1099996566772}, derivedInt = 2, derivedFloat = 2.2}, grandChildInt = 33}
 89: p MD
 b{0..1}: {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDouble = -11.1099996566772}, RightBase = {rightInt = 1, rightFloat = 1.1, rightDouble = 11.1099996566772}, derivedInt = 4, derivedFloat = 4.4}
-90: q
+94: # nested template
+95: c
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:31
+96: up
+b{0..1}: #1  nestedTemplateClassTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:314
+97: p s
+b{0..1}: {tval = -104, uval = 1.2981}
+98: p s.tval
+b{0..1}: -104
+99: p s.uval
+b{0..1}: 1.2981
+100: whatis s
+b{0..1}: excelsior::Luxure<int>::Nested<float>
+101: ptype s
+b{0..1}: struct excelsior::Luxure<int>::Nested<float> [with U = float] {
+    int tval;
+    U uval;
+}
+
+102: whatis s.tval
+b{0..1}: int
+103: whatis s.uval
+b{0..1}: float
+104: q
 Shutting down debugger and killing application for 'b'.

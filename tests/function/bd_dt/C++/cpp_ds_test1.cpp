@@ -23,7 +23,7 @@ private:
 };
 static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
-static void templateClassTest(), templateClassTest2();
+static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes();
 static void inheritanceTest();
 
@@ -107,10 +107,10 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest();
+    inheritanceTest(); nestedTemplateClassTest();
     delete ll;
-	MPI_Finalize();
-	return 0;
+    MPI_Finalize();
+    return 0;
 }
 
 static void f(const Struct1& s, const Classy& c)
@@ -181,7 +181,7 @@ public:
         sp = std::make_shared<T>(a);
         up = std::make_unique<T>(c);
     }
-
+    
     size_t getLen() const { return v.size(); }
 private:
     std::vector<T> v;
@@ -296,3 +296,21 @@ static void inheritanceTest() {
     auto MD = MultiDerived{};
     trap();
 }
+
+namespace excelsior {
+template <class T> class Luxure {
+public:
+    template <class U> struct Nested {
+        T tval;
+        U uval;
+    };
+};
+}
+
+static void nestedTemplateClassTest() {
+    using namespace excelsior;
+
+    auto s = Luxure<int>::Nested<float>{ -104, 1.2981f };
+    trap();
+}
+

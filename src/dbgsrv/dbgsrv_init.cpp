@@ -563,6 +563,13 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 dbgevent_t *DbgGdbMI::Initializer::trampolineToEntryPoint() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
+    // similar to the logic in the setEntryBPs, though in this case I
+    // saw the similar problem in pegasus.  The remedy is the same in that
+    // nexti gives the tiny fillip to initiate the link process.
+    if (auto [evt, e] = continueToEvent(NEXTI); e) {
+        return e;
+    }
+
     DVPRINT("Load symbol table for %s\n", m_executable.c_str());
     auto cmd = MIFileSymbolFile(const_cast<char*>(m_executable.c_str()));
     SendMICommand(m_session, cmd);

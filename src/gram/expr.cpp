@@ -1203,19 +1203,19 @@ static char *apply_var_op(expr_elt *ep, expr_t *e) {
 
                 // Handle the first element in the list
                 if (tmp == 0) {
-                    // there are no elements in the list, we can return
-                    len = strlen("(") + strlen(")") + 1;
-                    v_res = (char *)Alloc(len);
-                    snprintf(v_res, len, "()");
-                    break;
+                    // there are no elements in the list, create the
+                    // empty content
+                    len = 1;
+                    v1 = (char *)Alloc(len);
+                    snprintf(v1, len, "%s", "");
+                } else {
+                    // length is at least one, so create the first element
+                    ep_next = POP(e);
+                    DPRINT("apply_var_op: popped expr_op %s\n",
+                           getExprOpStr(ep_next->e_op));
+                    v1 = apply_var_op(ep_next, e);
+                    if (v1 == NULL) return NULL;
                 }
-
-                // length is at least one, so create the first element
-                ep_next = POP(e);
-                DPRINT("apply_var_op: popped expr_op %s\n",
-                       getExprOpStr(ep_next->e_op));
-                v1 = apply_var_op(ep_next, e);
-                if (v1 == NULL) return NULL;
 
                 // Handle the rest of the elements
                 for (i = 1; i < tmp; ++i) {

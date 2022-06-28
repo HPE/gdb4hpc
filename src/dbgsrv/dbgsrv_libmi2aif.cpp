@@ -544,35 +544,42 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
                     free(typeStr);
                     return r;
                 } else {
+                    auto err = std::string{MICommandResultErrorMessage(cmd)};
                     MICommandFree(cmd);
-                    return std::string{""};
+                    throw err;
                 }
             };
 
-            auto typeStr = SendWhatIs(exp);
-            if (typeStr.empty()) {
+            try {
+                return SendWhatIs(exp);
+            } catch (...) {
                 // the frontend can't tell if "(12)" is a C function call or a
                 // fortran array index and thus sends function calls to us
                 // as "myFunc[12]" instead of "myFunc(12)"
                 if (auto fnCallExpr = arrayToFnCall(exp); !fnCallExpr.empty()) {
                     return SendWhatIs(fnCallExpr);
+                } else {
+                    throw;
                 }
             }
-
-            return typeStr;
         };
 
         // strip meta info if present
         auto [strippedExpr, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
 
-        auto strippedExprType = getGDBType(strippedExpr);
-        if (strippedExprType.empty()) {
-            DVPRINT("Whatis %s failed. Assuming no symbol.\n", strippedExpr.c_str());
+        auto strippedExprType = std::string{};
+        try {
+            strippedExprType = getGDBType(strippedExpr);
+        } catch (std::string err) {
             if (!dbg_error) {
-                DVPRINT("New error\n");
-                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
-            } else {
-                DVPRINT("Existing error?\n");
+                if (err.find("No symbol") != std::string::npos) {
+                    DVPRINT("Whatis %s failed; no symbol.\n", strippedExpr.c_str());
+                    dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
+                } else {
+                    DVPRINT("Whatis %s failed: %s.\n", strippedExpr.c_str(), err.c_str());
+                    dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s: %s",
+                                                  strippedExpr.c_str(), err.c_str()));
+                }
             }
             throw dbg_error.release();
         }
@@ -586,10 +593,12 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
         {
             DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
             auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
-            auto appliedType = getGDBType(lengthened);
-            if (!appliedType.empty()) {
-                m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
-            }
+            try {
+                auto appliedType = getGDBType(lengthened);
+                if (!appliedType.empty()) {
+                    m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
+                }
+            } catch (...) {}
         }
     }
 

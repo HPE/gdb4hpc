@@ -88,8 +88,8 @@ b{0..2}: 100
 a{0..2}: 'Cray'
 b{0..2}: 'Cray'
 54: p myself%notafield
-a{0..2}: No symbol "myself%notafield" in current context
-b{0..2}: No symbol "myself%notafield" in current context
+a{0..2}: Debugger error: myself%notafield: There is no member named notafield.
+b{0..2}: Debugger error: myself%notafield: There is no member named notafield.
 54: ptype myself%notafield
 a{0..2}: No symbol "myself%notafield" in current context
 b{0..2}: No symbol "myself%notafield" in current context

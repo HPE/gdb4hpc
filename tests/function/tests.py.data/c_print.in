@@ -43,20 +43,23 @@ a{0..5}: int (int, char **) <main>
 a{0..5}: int (int) <test_stack>
 28: print test_func
 a{0..5}: void (int, int) <test_func>
-29: p mi
+29: ptype test_func
+a{0..5}: void (int, int)
+30: whatis test_func
+a{0..5}: void (int, int)
+31: p mi
 a{0..5}: 123
-30: p md
+32: p md
 a{0..5}: 123.45
-31: p struct_test_1
+33: p struct_test_1
 a{0..5}: {i = 0, d = 0, c_ptr = 0x0, func_ptr = 0x0}
-32: ptype struct_test_1
+33: ptype struct_test_1
 a{0..5}: struct test_struct {
     int i;
     double d;
     char *c_ptr;
     func_ptr_t func_ptr;
 }
-
 33: p struct_test_1.i
 a{0..5}: 0
 34: p struct_test_1.d

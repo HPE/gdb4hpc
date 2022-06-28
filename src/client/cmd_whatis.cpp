@@ -109,7 +109,8 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (ev == DBGEV_TYPE) {
             auto type_str = EVENT_TYPE(reply->rep_event);
 
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
+            // the result ends with a newline
+            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s",
                                 type_str);
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),

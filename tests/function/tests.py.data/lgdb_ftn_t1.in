@@ -68,23 +68,19 @@ a{0..2}: Type person
 character*4 :: name
     INTEGER*4 :: age
 End Type person
-
 b{0..2}: Type person
 character*4 :: name
     INTEGER*4 :: age
 End Type person
-
 54: ptype myself
 a{0..2}: Type person
 character*4 :: name
     INTEGER*4 :: age
 End Type person
-
 b{0..2}: Type person
 character*4 :: name
     INTEGER*4 :: age
 End Type person
-
 54: p myself%age
 a{0..2}: 100
 b{0..2}: 100

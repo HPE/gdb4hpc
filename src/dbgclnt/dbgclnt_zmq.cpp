@@ -23,13 +23,63 @@
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 ZMQNetClientProtocol DbgClntProtoZMQ{};
 
-static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(int num_be,
-    int appId, long int sessionId, long int manifestId, const char* const* leafArgv)
-{
-    using namespace std::chrono_literals;
+// launch killswitch, used in makeZmqnetFrontend, set by launchSigHandler
+static std::atomic<bool> launchKS = false;
 
-    auto last_connected = 0;
-    auto connected = 0;
+static void launchSigHandler(int sig) {
+    if (sig == SIGINT) launchKS = true;
+}
+
+static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
+    int num_be, int appId, long int sessionId, long int manifestId, const char* const* leafArgv
+){
+    auto makeZmqnet = [](
+        const std::atomic<bool>* killSwitch,
+        int& connected, int appId, long int sessionId,
+        long int manifestId, const char* const* leafArgv
+    ){
+        auto connectCallback = [&](int node) {
+            (connected)++;
+        };
+
+        auto callbacks = zmqnet::UserCallbacks();
+        callbacks.registerCallback<zmqnet::Event::InitialConnection>(connectCallback);
+
+        // might throw on error or interruption. exception handled around zmqnetF.get()
+        return std::make_unique<zmqnet::AsyncFrontend>(
+            appId, sessionId, manifestId,
+            zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 32},
+            leafArgv, /* leaf env */ nullptr, std::move(callbacks), killSwitch
+        );
+    };
+
+    class TmpSigHandler {
+    public:
+        TmpSigHandler(int signal, SigHandlerFn handler)
+            : m_signal{signal}
+        {
+            memset(&m_tmp_sigaction, 0, sizeof(m_tmp_sigaction));
+            sigemptyset(&m_tmp_sigaction.sa_mask);
+            m_tmp_sigaction.sa_handler = handler;
+            // XXX: Can't use DbgHandleSignal as it's not linked into the proxy
+            sigaction(m_signal, &m_tmp_sigaction, &m_old_sigaction);
+        }
+
+        ~TmpSigHandler() {
+            sigaction(m_signal, &m_old_sigaction, nullptr);
+        }
+
+    private:
+        struct sigaction m_tmp_sigaction;
+        struct sigaction m_old_sigaction;
+        int m_signal;
+    };
+
+    launchKS = false;
+    auto tmpSigHandler = TmpSigHandler(SIGINT, launchSigHandler);
+
+    auto connected = int{0};
+    auto zmqnetF = std::async(makeZmqnet, &launchKS, std::ref(connected), appId, sessionId, manifestId, leafArgv);
 
     // in practice, approx. number of seconds of silence until timeout
     auto tries = 300;
@@ -39,48 +89,20 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(int num_be,
         PrintOutMsg("Got a timeout of %d from GDB4HPC_STARTUP_TIMEOUT.\n", tries);
     }
     auto tries_left = tries;
-
-    auto makeZmqnet = [&connected](
-        std::promise<std::unique_ptr<zmqnet::AsyncFrontend>>&& zmqnetP, int appId,
-        long int sessionId, long int manifestId, const char* const* leafArgv)
-    {
-        auto connectCallback = [&](int node) {
-            connected++;
-        };
-
-        auto callbacks = zmqnet::UserCallbacks();
-        callbacks.registerCallback<zmqnet::Event::InitialConnection>(connectCallback);
-
-        zmqnetP.set_value(
-            std::make_unique<zmqnet::AsyncFrontend>(appId, sessionId, manifestId,
-                zmqnet::Topology{ .launch = zmqnet::Topology::Packed, .fanout = 4},
-                leafArgv, /* leaf env */ nullptr, std::move(callbacks)
-            )
-        );
-    };
-
-    // a simple std::async(...) future won't work for us here,
-    // because the std::async future will implicitly wait for its internal
-    // thread's completion on scope exit, meaning we couldn't return early after a timeout.
-    auto zmqnetP  = std::promise<std::unique_ptr<zmqnet::AsyncFrontend>>{};
-    auto zmqnetF  = zmqnetP.get_future();
-    auto zmqnetTh = std::thread(
-        makeZmqnet, std::move(zmqnetP), appId, sessionId, manifestId, leafArgv
-    );
+    auto last_connected = 0;
 
     // wait for network to connect
     using Fs = std::future_status;
-    for (auto status = zmqnetF.wait_for(1s); status != Fs::ready; status = zmqnetF.wait_for(1s)) {
+    using namespace std::chrono_literals;
+    for (auto status = zmqnetF.wait_for(1s); status != Fs::ready && launchKS == false; status = zmqnetF.wait_for(1s)) {
         if (status == Fs::timeout && last_connected != connected) {
             // a new node connected, reset timeout
             tries_left = tries;
         } else if (status == Fs::timeout && last_connected == connected && --tries_left == 0) {
             // waited, no new ranks connected.
-            PrintOutError("Timed out.\n");
-            // XXX: the thread runs forever, stuck waiting for nodes to connect.
-            // but we have no way to stop it with the current zmqnet api.
-            zmqnetTh.detach();
-            return nullptr;
+            PrintOutError("Timed out. Cancelling launch. Please wait...\n");
+            // this causes the zmqnet thread to eventually throw
+            launchKS = true;
         } else if (status == std::future_status::deferred) {
             // other possibilities for status are either ::ready or ::deferred.
             // we should never actually see deferred.
@@ -90,11 +112,15 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(int num_be,
         last_connected = connected;
     };
 
-    PrintOutMsg("%d/%d ranks connected.\n", connected, num_be);
+    auto zmqnet = std::unique_ptr<zmqnet::AsyncFrontend>();
 
-    auto zmqnet = zmqnetF.get();
-    zmqnet->removeCallback<zmqnet::Event::InitialConnection>();
-    zmqnetTh.join();
+    try {
+        zmqnet = zmqnetF.get();
+        PrintOutMsg("%d/%d ranks connected.\n", connected, num_be);
+        zmqnet->removeCallback<zmqnet::Event::InitialConnection>();
+    } catch (std::runtime_error& e) {
+        PrintOutError("Network creation failed: %s\n", e.what());
+    }
 
     return zmqnet;
 }

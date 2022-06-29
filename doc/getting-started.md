@@ -248,17 +248,25 @@ Instead, gdb4hpc prints the values based on reference ids:
 
 ```
 dbg all> p ll
-b{0..2}: [1] 1:{val = 0, next = [2]} 2:{val = 0, next = [3]} 3:{val = 2, next = 
-[4]} 4:{val = 4, next = [5]} 5:{val = 1, next = [6]} 6:{val = 3, next = [7]} 7:{
-val = 0, next = [8]} 8:{val = 2, next = [9]} 9:{val = 4, next = [10]} 10:{val = 
-1, next = [11]} 11:{val = 3, next = [1]}
+b{0..1}: (LinkedList*) <1>
+  <1>:{val = 0, next = (LinkedList*) <2>}
+  <2>:{val = 0, next = (LinkedList*) <3>}
+  <3>:{val = 2, next = (LinkedList*) <4>}
+  <4>:{val = 4, next = (LinkedList*) <5>}
+  <5>:{val = 1, next = (LinkedList*) <6>}
+  <6>:{val = 3, next = (LinkedList*) <7>}
+  <7>:{val = 0, next = (LinkedList*) <8>}
+  <8>:{val = 2, next = (LinkedList*) <9>}
+  <9>:{val = 4, next = (LinkedList*) <10>}
+  <10>:{val = 1, next = (LinkedList*) <11>}
+  <11>:{val = 3, next = (LinkedList*) <1>}
 ```
 
 Which could use a little explanation.
 
-So `ll` is a pointer and gdb4hpc used `[1]` in place of its pointer value.   Then it continues by printing the object it references.   So `1:` is the contents of the object at `[1]`, which in this case is a list node that contains yet another pointer.   And so on, until it links back to first node; i.e. it's a classic cicularly linked list.
+So `ll` is a pointer and gdb4hpc used `<1>` in place of its pointer value.   Then it continues by printing the object it references.   So `1:` is the contents of the object at `<1>`, which in this case is a list node that contains yet another pointer.   And so on, until it links back to first node; i.e. it's a classic cicularly linked list.
 
-The reference indices are not global, so [1] in the next print command is not the same pointer as [1] in this one.  The number of refences the print command will process is controlled by `set print elements`.
+The reference indices are not global, so <1> in the next print command is not the same pointer as <1> in this one.  The number of refences the print command will process is controlled by `set print elements`.
 
 ## Debugging a job that is already running
 

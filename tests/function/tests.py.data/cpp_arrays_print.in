@@ -83,14 +83,18 @@ a{0..2}: {"hello \n world!","hola mundo!","hallo wereld!"}
 36: p inte
 a{0..2}: 23
 37: p intp
-a{0..2}: [1] 1:23
+a{0..2}: (int*) <1>
+  <1>:23
 38: p *intp
 a{0..2}: 23
 39: p intparray
-a{0..2}: {[2],[3]} 2:23 3:24
+a{0..2}: {(int*) <2>,(int*) <3>}
+  <2>:23
+  <3>:24
 40: # make sure printing a char** is normal
 41: p argv
-a{0..2}: [1] 1:"%.*%/bd_dt/C++/cpp_arrays_print.x"
+a{0..2}: (char **) <1>
+  <1>:"/home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_arrays_print.x"
 42: # setting print elements
 42: p "argv[0]@argc"
 a{0..2}: {"%.*%/bd_dt/C++/cpp_arrays_print.x"}

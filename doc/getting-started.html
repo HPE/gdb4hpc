@@ -321,13 +321,21 @@ dbg all&gt;</code></pre>
 <p>You will notice that gdb4hpc seldom prints out the hex values of pointers. In a multi-process application these aren’t generally useful and they impede aggregation. You can see them by switching to gdb mode, and some commands support a <code>-v</code> (verbose) option.</p>
 <p>Instead, gdb4hpc prints the values based on reference ids:</p>
 <pre><code>dbg all&gt; p ll
-b{0..2}: [1] 1:{val = 0, next = [2]} 2:{val = 0, next = [3]} 3:{val = 2, next = 
-[4]} 4:{val = 4, next = [5]} 5:{val = 1, next = [6]} 6:{val = 3, next = [7]} 7:{
-val = 0, next = [8]} 8:{val = 2, next = [9]} 9:{val = 4, next = [10]} 10:{val = 
-1, next = [11]} 11:{val = 3, next = [1]}</code></pre>
+b{0..1}: (LinkedList*) &lt;1&gt;
+  &lt;1&gt;:{val = 0, next = (LinkedList*) &lt;2&gt;}
+  &lt;2&gt;:{val = 0, next = (LinkedList*) &lt;3&gt;}
+  &lt;3&gt;:{val = 2, next = (LinkedList*) &lt;4&gt;}
+  &lt;4&gt;:{val = 4, next = (LinkedList*) &lt;5&gt;}
+  &lt;5&gt;:{val = 1, next = (LinkedList*) &lt;6&gt;}
+  &lt;6&gt;:{val = 3, next = (LinkedList*) &lt;7&gt;}
+  &lt;7&gt;:{val = 0, next = (LinkedList*) &lt;8&gt;}
+  &lt;8&gt;:{val = 2, next = (LinkedList*) &lt;9&gt;}
+  &lt;9&gt;:{val = 4, next = (LinkedList*) &lt;10&gt;}
+  &lt;10&gt;:{val = 1, next = (LinkedList*) &lt;11&gt;}
+  &lt;11&gt;:{val = 3, next = (LinkedList*) &lt;1&gt;}</code></pre>
 <p>Which could use a little explanation.</p>
-<p>So <code>ll</code> is a pointer and gdb4hpc used <code>[1]</code> in place of its pointer value. Then it continues by printing the object it references. So <code>1:</code> is the contents of the object at <code>[1]</code>, which in this case is a list node that contains yet another pointer. And so on, until it links back to first node; i.e. it’s a classic cicularly linked list.</p>
-<p>The reference indices are not global, so [1] in the next print command is not the same pointer as [1] in this one. The number of refences the print command will process is controlled by <code>set print elements</code>.</p>
+<p>So <code>ll</code> is a pointer and gdb4hpc used <code>&lt;1&gt;</code> in place of its pointer value. Then it continues by printing the object it references. So <code>1:</code> is the contents of the object at <code>&lt;1&gt;</code>, which in this case is a list node that contains yet another pointer. And so on, until it links back to first node; i.e. it’s a classic cicularly linked list.</p>
+<p>The reference indices are not global, so &lt;1&gt; in the next print command is not the same pointer as &lt;1&gt; in this one. The number of refences the print command will process is controlled by <code>set print elements</code>.</p>
 <h2 id="debugging-a-job-that-is-already-running">Debugging a job that is already running</h2>
 <p>Gdb4hpc has the <code>attach</code> command to connect to a job that is already running. The command itself is straightforward : <code>attach $a &lt;job-id&gt;</code></p>
 <p>The hard part is just that the means to find your ‘<job-id>’ depends on the platform. See <code>help attach</code> for more information.</p>

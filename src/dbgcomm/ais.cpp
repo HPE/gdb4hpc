@@ -1067,7 +1067,7 @@ std::unique_ptr<ais::Printer> ais::CharArray::makePrinter(Printer& parent) const
         TPrinter(Printer& parent) : Printer(parent) {}
         void operator()(const std::string& val) override {
             if (val == nullString) {
-                out << "0x0";
+                out << "(char*) 0x0";
             } else {
                 Printer::operator()(val);
             }
@@ -1626,6 +1626,7 @@ void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {
     }
     in.setPos(s + chars);
 
+    out.writeString(m_derefType);
     out.writePointer(m_derefType, p);
 }
 
@@ -1633,10 +1634,15 @@ void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {
 std::unique_ptr<ais::Printer> ais::Pointer::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        // expecting an int because it's been swizzled into an int.
+        void operator()(const std::string& val) override {
+            // apply sends the dereference type first
+            out << "(" << val << "*) ";
+        }
+
         void operator()(int idx) override {
+            // and then the swizzled pointer
             if (idx > 0)
-                out << "[" << idx << "]";
+                out << "<" << idx << ">";
             else
                 out << "0x0";
         }
@@ -1645,6 +1651,9 @@ std::unique_ptr<ais::Printer> ais::Pointer::makePrinter(Printer& parent) const {
 }
 
 void ais::Pointer::applyL(Reader& reader, Visitor& f) const {
+    auto derefType = reader.readString();
+    f(derefType);
+    
     auto idx = reader.readInt();
     f(idx);
 }
@@ -1719,7 +1728,7 @@ std::unique_ptr<ais::Printer> ais::SmartPointer::makePrinter(Printer& parent) co
         TPrinter(Printer& parent) : Printer(parent) {}
         void operator()(int idx) override {
             if (idx > 0)
-                out << "[" << idx << "]";
+                out << "(<" << idx << ">)";
             else
                 out << "0x0";
         }
@@ -1999,7 +2008,7 @@ namespace ais {
             else {
                 out << m_label;
                 m_label.clear();
-                if (refIdx > 0) out << " " << refIdx << ":";
+                if (refIdx > 0) out << "\n  <" << refIdx << ">:";
                 Printer::nest(t,-1);
             }
         }

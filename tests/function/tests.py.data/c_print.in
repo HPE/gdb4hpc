@@ -52,7 +52,7 @@ a{0..5}: 123
 32: p md
 a{0..5}: 123.45
 33: p struct_test_1
-a{0..5}: {i = 0, d = 0, c_ptr = 0x0, func_ptr = 0x0}
+a{0..5}: {i = 0, d = 0, (char*) c_ptr = 0x0, func_ptr = 0x0}
 33: ptype struct_test_1
 a{0..5}: struct test_struct {
     int i;
@@ -65,11 +65,11 @@ a{0..5}: 0
 34: p struct_test_1.d
 a{0..5}: 0
 35: p struct_test_1.c_ptr
-a{0..5}: 0x0
+a{0..5}: (char*) 0x0
 36: p struct_test_1.func_ptr
 a{0..5}: 0x0
 37: p void_ptr
-a{0..5}: 0x0
+a{0..5}: (void*) 0x0
 38: #exit lgdb
 39: q
 Shutting down debugger and killing application for 'a'.

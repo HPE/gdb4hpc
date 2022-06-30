@@ -254,7 +254,6 @@ b{0..1}: struct excelsior::Luxure<int>::Nested<float> [with U = float] {
     int tval;
     U uval;
 }
-
 102: whatis s.tval
 b{0..1}: int
 103: whatis s.uval

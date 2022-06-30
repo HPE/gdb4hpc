@@ -52,7 +52,7 @@ a{0..5}: 123
 32: p md
 a{0..5}: 123.45
 33: p struct_test_1
-a{0..5}: {i = 0, d = 0, (char*) c_ptr = 0x0, func_ptr = 0x0}
+a{0..5}: {i = 0, d = 0, c_ptr = (char*) 0x0, func_ptr = 0x0}
 33: ptype struct_test_1
 a{0..5}: struct test_struct {
     int i;

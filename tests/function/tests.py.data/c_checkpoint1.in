@@ -16,14 +16,14 @@ a{0..3}: 11	    unsigned int inc = 0;
 5: focus $a{0..1}
 6: check
 Created checkpoint 1 on $a{0..1}.
-7: i c
+7: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 1          $a{0..1}   c_inc.c:11 in main
 8: focus $a{2..3}
 9: check
 Created checkpoint 3 on $a{2..3}.
-10: i c
+10: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 1          $a{0..1}   c_inc.c:11 in main
@@ -32,7 +32,7 @@ Checkpoint Procset    Location
 11: focus $all
 12: check
 Created checkpoint 4 on $a{0..3}.
-13: i c
+13: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 1          $a{0..1}   c_inc.c:11 in main
@@ -44,7 +44,7 @@ a{0..3}: 13	    do_inc(&inc, 1);
 15: n
 a{0..3}: 14	    do_inc(&inc, 2);
 16: maint sleep 1
-17: i c
+17: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 1          $a{0..1}   c_inc.c:11 in main
@@ -55,7 +55,7 @@ Checkpoint Procset    Location
 Checkpoint 1 restored:
 a{0..1}: #0  main at /.../bd_dt/c/c_inc.c:11
 a{2..3}: #0  main at /.../bd_dt/c/c_inc.c:14
-19: i c
+19: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
 1          $a{0..1} * $a{0..1}
@@ -65,7 +65,7 @@ Checkpoint Procset    Location
 20: restart 4
 Checkpoint 4 restored:
 a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:11
-21: i c
+21: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
 1          $a{0..1}   c_inc.c:11 in main
@@ -75,7 +75,7 @@ Checkpoint Procset    Location
 22: restart 1
 Checkpoint 1 restored:
 a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:11
-23: i c
+23: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
 1          $a{0..1} * $a{0..1}
@@ -99,31 +99,31 @@ a{0..1}: #0  main at /.../bd_dt/c/c_inc.c:14
 Checkpoint 2 restored:
 a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
 29: delete checkpoint 1
-30: i c
+30: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 2          $a{2..3} * $a{2..3}
 3          $a{2..3}   c_inc.c:11 in main
 4          $a{0..3}   c_inc.c:11 in main
 31: delete checkpoint 3
-32: i c
+32: i ch
 Checkpoint Procset    Location
 0          $a{0..1} * $a{0..1}
 2          $a{2..3} * $a{2..3}
 4          $a{0..3}   c_inc.c:11 in main
 33: delete checkpoint 4
-34: i c
+34: i ch
 No checkpoints.
 35: check
 Created checkpoint 6 on $a{0..3}.
-36: i c
+36: i ch
 Checkpoint Procset    Location
 5          $a{0..3} * $a{0..3}
 6          $a{0..3}   c_inc.c:14 in main
 37: res 6
 Checkpoint 6 restored:
 a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
-38: i c
+38: i ch
 Checkpoint Procset    Location
 5          $a{0..3}   c_inc.c:14 in main
 6          $a{0..3} * $a{0..3}
@@ -133,7 +133,7 @@ Command resulted in an error: 39: delete checkpoint 5
 40: res 5
 Checkpoint 5 restored:
 a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
-41: i c
+41: i ch
 Checkpoint Procset    Location
 5          $a{0..3} * $a{0..3}
 6          $a{0..3}   c_inc.c:14 in main
@@ -141,7 +141,7 @@ Checkpoint Procset    Location
 a{0..3}: Debugger error: Checkpoint 600 doesn't exist.
 Command resulted in an error: 42: delete checkpoint 600
 43: delete checkpoint 6
-44: i c
+44: i ch
 No checkpoints.
 45: q
 Shutting down debugger and killing application for 'a'.

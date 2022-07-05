@@ -59,3 +59,8 @@ append_path   (    "PE_PRODUCT_LIST",            "GDB4HPC"                   )
 prepend_path  (    "LD_LIBRARY_PATH",            PE_DIR .. "/lib"            )
 prepend_path  (    "PATH",                       PE_DIR .. "/bin"            )
 prepend_path  (    "MANPATH",                    PE_DIR .. "/share/man"      )
+
+-- Load MRNet package dependency --
+if (not isloaded("cray-mrnet")) then
+    load("cray-mrnet")
+end

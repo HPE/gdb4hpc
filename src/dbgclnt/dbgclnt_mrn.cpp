@@ -79,6 +79,28 @@ int MRNClientProtocol::init() {
     // Set the MRNET_PORT_BASE env var
     setenv("MRNET_PORT_BASE", mrnet_port_base, 1);
 
+    // Adjust PATH to prepend MRNet libexec directory
+    auto newPath = std::string{};
+    if (auto path = ::getenv("PATH")) {
+       newPath = std::string{path};
+    }
+
+   // Prepend MRNet libexec directory for commnode
+   if (auto mrnet_install_dir = ::getenv("MRNET_INSTALL_DIR")) {
+       auto mrnetLibexecDir = std::string{mrnet_install_dir} + "/libexec";
+       newPath = mrnetLibexecDir + ":" + newPath;
+
+    // Print warning
+    } else {
+        PrintOutError("MRNet install location was not found in "
+            "environment. Tool launch may fail. Load the `cray-mrnet` "
+            "module, or set MRNET_INSTALL_DIR to the system MRNet "
+            "installation path\n");
+    }
+
+    // Set PATH
+    ::setenv("PATH", newPath.c_str(), 1);
+
     // Set DSL by default unless overridden by an environment variable
     setenv(LIBALPS_ENABLE_DSL, "1", 1);
     char *guard_libalps_enable_dsl = getenv(GUARD_LIBALPS_ENABLE_DSL);

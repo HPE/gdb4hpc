@@ -80,15 +80,19 @@ int MRNClientProtocol::init() {
     setenv("MRNET_PORT_BASE", mrnet_port_base, 1);
 
     // Adjust PATH to prepend MRNet libexec directory
-    auto newPath = std::string{};
-    if (auto path = ::getenv("PATH")) {
-       newPath = std::string{path};
-    }
+    auto appendPath = [](const std::string& newDir) {
+        auto oldPath = ::getenv("PATH") ? std::string{":"} + ::getenv("PATH") : "";
+        auto newPath = newDir + oldPath;
+        ::setenv("PATH", newPath.c_str(), 1);
+    };
 
-   // Prepend MRNet libexec directory for commnode
-   if (auto mrnet_install_dir = ::getenv("MRNET_INSTALL_DIR")) {
-       auto mrnetLibexecDir = std::string{mrnet_install_dir} + "/libexec";
-       newPath = mrnetLibexecDir + ":" + newPath;
+    // Prepend MRNet libexec directory for commnode
+    if (auto mrnet_install_dir = ::getenv("MRNET_INSTALL_DIR")) {
+        appendPath(std::string{mrnet_install_dir} + "/libexec");
+
+    // Use default installation (MRNET_ROOT_DIR set at configure time)
+    } else if (auto e = std::error_code(); std::filesystem::is_directory(MRNET_ROOT_DIR, e)) {
+        appendPath(std::string{MRNET_ROOT_DIR} + "/libexec");
 
     // Print warning
     } else {
@@ -97,9 +101,6 @@ int MRNClientProtocol::init() {
             "module, or set MRNET_INSTALL_DIR to the system MRNet "
             "installation path\n");
     }
-
-    // Set PATH
-    ::setenv("PATH", newPath.c_str(), 1);
 
     // Set DSL by default unless overridden by an environment variable
     setenv(LIBALPS_ENABLE_DSL, "1", 1);

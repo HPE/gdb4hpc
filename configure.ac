@@ -186,6 +186,7 @@ fi
 dnl Check for mrnet
 if test "x$mrnet_mode" = xyes; then
 	AC_DEFINE([MRNET], [1], [Enable MRNet support in gdb4hpc.])
+	AC_DEFINE_UNQUOTED([MRNET_ROOT_DIR], ["$mrnet_root"], [cray-mrnet default installation directory.])
 fi
 
 dnl Check for zmqnet

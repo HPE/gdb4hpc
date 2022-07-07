@@ -61,7 +61,7 @@
 %global _build_id_links none
 
 # System strip command may be too old, use current path
-%global __strip /usr/bin/true
+%global __strip strip
 
 # Filter requires - these all come from the cdst-support rpm
 # These should match what is excluded in the cdst-support rpm specfile!

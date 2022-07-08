@@ -100,6 +100,7 @@ public:
     int flushAsyncEvents();
     static void setAsyncEvent(MIEvent* e);
     bool isRunning() const;
+    bool isAtExit() const;
     
     void setIsInNonStopMode(bool inNonStop);
     void setSourceOpen(bool doOpen);

@@ -3813,6 +3813,7 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
 }
 
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
+bool DbgGdbMI::isAtExit() const { return Status == DBGSTAT_EXIT; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }
 
 static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type doFree, dbgerr err) {

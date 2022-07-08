@@ -1520,7 +1520,9 @@ void DbgGdbMI::Initializer::quitGdb(bool detach) {
     */
 
     // If the command completed ok, we need to send SIGSTOP ASAP!!!
-    if (MICommandResultOK(cmd) && !detach) {
+    // Unless we are already at the exit breakpoint, so we can 
+    // (hopefully) let it exit gracefully.
+    if (MICommandResultOK(cmd) && !detach && !m_dbg.isAtExit()) {
         sendSigstop();
         DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
     }

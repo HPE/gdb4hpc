@@ -3286,10 +3286,11 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
     // If this breakpoint has multiple locations, fake the information based
     // on the original location.
     if (bpt->hasMultiple) {
+        // libmi might tuck the address in either the origLoc or func member
         DVPRINT("bpt has multiple locations.\n");
-        if (bpt->origLoc != NULL) {
+        if (bpt->origLoc || bpt->func) {
             DVPRINT("bpt original location is present.\n");
-            char *loc_str = strdup(bpt->origLoc);
+            char *loc_str = strdup(bpt->origLoc ? bpt->origLoc : bpt->func);
             char *loc_ptr;
             // try to split based on "file:line"
             if ((loc_ptr = strstr(loc_str, ":")) != NULL) {

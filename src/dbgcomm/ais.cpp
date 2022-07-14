@@ -585,6 +585,20 @@ std::unique_ptr<ais::Printer> ais::Literal::makePrinter(Printer& parent) const {
     return std::make_unique<TPrinter>(parent);
 }
 
+ais::Enum::Enum() {}
+ais::Enum::Enum(const std::string& name) : m_name(name) {}
+
+void ais::Enum::parseL(InterpretStream& in, Writer& out) const
+{
+    const char* s = skipspace(in.get());
+    const char* end{};
+    for (end=s; *end && !isspace(*end); ++end) {}
+    out.writeString(std::string{s, end});
+    in.setPos(end);
+}
+
+std::string ais::Enum::getTypeName() const { return "enum"; };
+
 std::unique_ptr<ais::Printer>
 ais::MultiThreadResult::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
@@ -725,6 +739,7 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::String>(),
     std::make_shared<ais::FtnString>(),
     std::make_shared<ais::Literal>(),
+    std::make_shared<ais::Enum>(),
     std::make_shared<ais::Function>(),
     std::make_shared<ais::Complex>(std::make_shared<ais::Float>()),
     std::make_shared<ais::Complex>(std::make_shared<ais::Double>()),
@@ -1461,22 +1476,16 @@ int ais::PriorityQueue::getTypeId(Writer& writer) const {
 
 //===========================================================================
 
-ais::Struct::Struct(const std::string& name) : m_name(name) {
-    fprintf(stderr, "Struct name=\"%s\"\n", name.c_str());
-}
+ais::Struct::Struct(const std::string& name) : m_name(name) {}
 
     
 void ais::Struct::addMember(const std::string& memberName, std::shared_ptr<Type> memberType) {
-    fprintf(stderr, "adding member %s to %s\n", memberName.c_str(), m_name.c_str());
-    
     m_members.push_back(std::make_pair(memberName, memberType));
 }
 
 void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     auto s = in.get();
     s = skipspace(s);
-
-    fprintf(stderr, "ais::Struct(%s)::parse \"%s\"\n", m_name.c_str(), s);
 
     if (*s == '@') throw ais::Error("got a structure reference");
 

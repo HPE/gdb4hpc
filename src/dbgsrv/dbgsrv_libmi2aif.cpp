@@ -212,6 +212,7 @@ public:
     static std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> wrapVoidFunc(Mi2Aif&, TypeName t);
+    static std::shared_ptr<ais::Type> wrapEnum(Mi2Aif&, TypeName t);
     static std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> unimplemented(Mi2Aif&, TypeName type);
 
@@ -285,6 +286,7 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
  {"bool",PrimWrap<ais::Bool>()},
  {"char", CharWrap<ais::Char>()},
  {"double",PrimWrap<ais::Double>()},
+ {"enum", wrapEnum},
  {"float",PrimWrap<ais::Float>()},
  {"int",PrimWrap<ais::Int>()},
  {"int8_t",PrimWrap<ais::Int>()},
@@ -926,10 +928,16 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type) {
     auto retType = type;
     if (char* info = CLIGetPtypeInfo(cmd)) {
         // info ends with a \n
-        if (auto len = strlen(info); len > 1 && !strchr(info,'{')) {
+        auto len = strlen(info);
+        auto bracket = strchr(info,'{');
+        if (len > 1 && !bracket) {
             retType = std::string{info, len-1};
             DVPRINT("Get CLIPTypeInfo %s\n", retType.c_str());
+        } else if (strncmp(info, "enum ", 5) == 0 && bracket) {
+            retType = std::string{info, bracket};
+            DVPRINT("Got enum alias %s\n", retType.c_str());
         }
+ 
         free(info);
     }
         
@@ -1578,8 +1586,8 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
     }
 
-    static std::regex stdStringRE(R"((std::[A-Za-z0-9_:]*string)<.*)");
-    static std::regex stdStringRE2(R"((std::[A-Za-z0-9_:]*string))");
+    static std::regex stdStringRE(R"((std::[A-Za-z0-9_:]*string)<.*>\s*)");
+    static std::regex stdStringRE2(R"((std::[A-Za-z0-9_:]*string)\s*)");
     std::smatch match;
     if (std::regex_match(type, match, stdStringRE) ||
         std::regex_match(type, match, stdStringRE2)) {
@@ -1971,6 +1979,18 @@ std::shared_ptr<ais::Type> TypeParser::wrapVoidFunc(Mi2Aif& mi, TypeName t) {
     }
 
     return std::make_shared<ais::Function>();
+}
+
+std::shared_ptr<ais::Type> TypeParser::wrapEnum(Mi2Aif& mi, TypeName t) {
+    DVPRINT("enum decoration is \"%s\"\n", t.decoration.c_str());
+
+    auto namePos = t.decoration.find_first_not_of(' ');
+    if (namePos == std::string::npos) {
+        return unimplemented(mi, t);
+    }
+
+    auto name = t.decoration.substr(namePos);
+    return std::make_shared<ais::Enum>(name);
 }
     
 std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {

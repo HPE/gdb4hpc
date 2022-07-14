@@ -24,12 +24,12 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(55|140)%
+a{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(58|143)%
 18: # Set a breakpoint at specified line numbers:
-19: break c_type_test.c:193
-a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 193.
+19: break c_type_test.c:198
+a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 198.
 20: continue
-a{0..5}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:193
+a{0..5}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:198
 21: # print some local variables
 22: #should be 28.2
 23: print ld
@@ -70,6 +70,30 @@ a{0..5}: (char*) 0x0
 a{0..5}: 0x0
 37: p void_ptr
 a{0..5}: (void*) 0x0
+37: p e1
+a{0..5}: BONY
+37: p e2
+a{0..5}: MA
+37: p e3
+a{0..5}: RONY
+37: p te1
+a{0..5}: BONY
+37: p te2
+a{0..5}: MA
+37: p te3
+a{0..5}: RONY
+37: whatis e1
+a{0..5}: enum MyEnum
+37: whatis te1
+a{0..5}: MyEnum
+37: ptype e1
+a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+37: ptype te1
+a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+37: ptype MyEnum
+a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+37: ptype enum MyEnum
+a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
 38: #exit lgdb
 39: q
 Shutting down debugger and killing application for 'a'.

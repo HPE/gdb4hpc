@@ -49,6 +49,9 @@ test_func(int i, int j)
 	k = i+j;
 }
 
+enum MyEnum { BONY=3, MA, RONY=6 };
+typedef enum MyEnum MyEnum;
+
 int main(int argc, char* argv[])
 {
 	int myRank, numProcs;
@@ -131,6 +134,8 @@ int main(int argc, char* argv[])
 	long double		two_d_ld_cnt = 0.3;
 	long double		three_d_ld_cnt = 0.3;
 	MyInt mi = 123; MyDouble md = 123.45;
+    enum MyEnum e1 = BONY, e2 = MA, e3 = RONY;
+    MyEnum te1 = BONY, te2 = MA, te3 = RONY;
 
 	/* other vars */
 	unsigned long long int addr;
@@ -187,7 +192,7 @@ int main(int argc, char* argv[])
 	ld		= 28.2;
 
 
-
+    
 	/* initialize all the arrays */
 
 	for (ii=0; ii<10; ++ii)

@@ -694,6 +694,16 @@ private:
     int m_len;
 };
 
+class Enum : public Literal {
+public:
+    Enum();
+    Enum(const std::string& name);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    std::string getTypeName() const override;
+private:
+    std::string m_name;
+};
+
 // Fortran LOGICAL type
 class Logical : public Type {
 public:

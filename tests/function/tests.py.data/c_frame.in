@@ -24,10 +24,10 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:%(55|140)%
+a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:%(58|143)%
 21: # Set a breakpoint at specified line numbers:
-22: break c_type_test.c:248
-a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 248.
+22: break c_type_test.c:253
+a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 253.
 25: # Run to breakpoint 1:  
 26: continue
 <$a>: Hello World! from process 0
@@ -36,12 +36,12 @@ a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 <$a>: Hello World! from process 3
 <$a>: Hello World! from process 4
 <$a>: Hello World! from process 5
-a{0..5}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
+a{0..5}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:253
 29: #test frame command
 30: frame
-a{0..5}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
+a{0..5}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:253
 32: frame -v
-a{0..5}: #0  0x00000000002025e7 in test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:248
+a{0..5}: #0  0x00000000002025e7 in test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:253
 33: #exit lgdb
 34: q
 Shutting down debugger and killing application for 'a'.

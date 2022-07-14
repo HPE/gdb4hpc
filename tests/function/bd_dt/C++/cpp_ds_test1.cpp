@@ -25,7 +25,7 @@ static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes();
-static void inheritanceTest();
+static void inheritanceTest(), enumTest();
 
 static void trap() {
     std::cout << "trap function\n";
@@ -107,7 +107,7 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest(); nestedTemplateClassTest();
+    inheritanceTest(); nestedTemplateClassTest(); enumTest();
     delete ll;
     MPI_Finalize();
     return 0;
@@ -314,3 +314,17 @@ static void nestedTemplateClassTest() {
     trap();
 }
 
+enum OldEnum { BONY=4, MA, RONY=6 };
+enum class ClassEnum { WHACK=-1, A, DOODLE };
+enum class CharEnum : char { A, B, C };
+struct AroundStruct {
+    enum Nested { BETTY, VERONICA, JUGHEAD };
+};
+
+static void enumTest() {
+    OldEnum o1 = BONY, o2 = MA, o3 = RONY;
+    ClassEnum c1 = ClassEnum::WHACK, c2 = ClassEnum::A, c3 = ClassEnum::DOODLE;
+    CharEnum ch1 = CharEnum::A, ch2 = CharEnum::B, ch3 = CharEnum::C;
+    AroundStruct::Nested n1 = AroundStruct::BETTY, n2 = AroundStruct::VERONICA, n3 = AroundStruct::JUGHEAD;
+    trap();
+};

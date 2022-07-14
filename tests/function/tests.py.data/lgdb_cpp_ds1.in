@@ -258,5 +258,56 @@ b{0..1}: struct excelsior::Luxure<int>::Nested<float> [with U = float] {
 b{0..1}: int
 103: whatis s.uval
 b{0..1}: float
+104: c
+b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+105: finish???
+110: p o1
+b{0..1}: BONY
+111: p o2
+b{0..1}: MA
+112: p o3
+b{0..1}: RONY
+113: whatis o1
+b{0..1}: OldEnum
+114: ptype o1
+b{0..1}: enum OldEnum : unsigned int {BONY = 4, MA, RONY}
+115: ptype OldEnum
+b{0..1}: enum OldEnum : unsigned int {BONY = 4, MA, RONY}
+116: p c1
+b{0..1}: ClassEnum::WHACK
+117: p c2
+b{0..1}: ClassEnum::A
+118: p c3
+b{0..1}: ClassEnum::DOODLE
+119: whatis c1
+b{0..1}: ClassEnum
+120: ptype c1
+b{0..1}: enum class ClassEnum : int {ClassEnum::WHACK = -1, ClassEnum::A, ClassEnum::DOODLE}
+121: ptype ClassEnum
+b{0..1}: enum class ClassEnum : int {ClassEnum::WHACK = -1, ClassEnum::A, ClassEnum::DOODLE}
+122: p ch1
+b{0..1}: CharEnum::A
+123: p ch2
+b{0..1}: CharEnum::B
+124: p ch3
+b{0..1}: CharEnum::C
+125: whatis ch1
+b{0..1}: CharEnum
+126: ptype ch1
+b{0..1}: enum class CharEnum : char {CharEnum::A, CharEnum::B, CharEnum::C}
+127: ptype CharEnum
+b{0..1}: enum class CharEnum : char {CharEnum::A, CharEnum::B, CharEnum::C}
+128: p n1
+b{0..1}: AroundStruct::BETTY
+129: p n2
+b{0..1}: AroundStruct::VERONICA
+130: p n3
+b{0..1}: AroundStruct::JUGHEAD
+131: whatis n1
+b{0..1}: AroundStruct::Nested
+132: ptype n2
+b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
+133: ptype AroundStruct::Nested
+b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 104: q
 Shutting down debugger and killing application for 'b'.

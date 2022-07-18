@@ -818,6 +818,9 @@ class cpp_attach(Gdb4hpcTest):
         rank_args = None
         if wlm == "SLURM":
             rank_args = ["-n4", "--ntasks-per-node=2"]
+            config_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
+            if config_args:
+                rank_args += config_args.split()
         elif wlm == "ALPS":
             rank_args = ["-n4", "-N2"]
         else:

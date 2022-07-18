@@ -49,6 +49,12 @@ slice-uan:
     environment:
       CTI_WLM_IMPL: slurm
 
+pegasus:
+  launch:
+    args:
+      # Multi-node MPI launches break if they include node007 or node008
+      slurm: "--exclusive --exclude=node007,node008"
+
 "*-aarch":
   launch:
     args:

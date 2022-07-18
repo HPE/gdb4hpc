@@ -1105,6 +1105,7 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, char* argv[]) {
         procSet = FindProcSet(argv[1]+1);
         if (!procSet) {
             PrintOutError("No process set %s to re-launch.\n", argv[1]);
+            return 1;
         }
     }
 

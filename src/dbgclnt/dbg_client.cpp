@@ -44,14 +44,22 @@
 /*
 ** Internal types
 */
-struct inpcb_t {
+class inpcb_t {
+public:
+    inpcb_t(int fd, cli_stream_t* stream, void (*f)());
+    int getFd() const;
+    cli_stream_t* getStream() const { return i_stream; }
+    void invoke() { if (i_rtn) { (*i_rtn)(); } }
+    void mask(bool masked);
+private:
     int i_fd;
+    cli_stream_t* i_stream;
     void (*i_rtn)();
+    int masked;
     // This needs a lock because the MRNet error callback is threaded and will
     // mess with the inpcb_t object during printing error messages
-    std::recursive_mutex i_mutex;
+    mutable std::recursive_mutex i_mutex;
 };
-typedef struct inpcb_t inpcb_t;
 
 struct OutputCallbacks {
     // Called by protocols when output from the program being debugged is detected.
@@ -101,14 +109,12 @@ static std::vector<int> DbgSigList;
 static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
 static int high_fd;
-static inpcb_t InputCB;
 static OutputCallbacks OutputCB;
-static int _mask_cnt;
-static int _mask_fd;
-static int _df_ready;
 static int inferior_status_change;
 static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
+
+static std::vector<inpcb_t*> InputCBs;
 
 /*
 ** Hold any pending signals.
@@ -1041,20 +1047,15 @@ int DbgCheckEvents(void) {
     /*
     ** Add the input fd to the fd_set to select on. This enables input events.
     */
-    // grab the lock
-
-    int ifd = -1;
-    {
-        std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
-        ifd = InputCB.i_fd;
-    }
-
-    if (ifd >= 0) {
-        if (high_fd < ifd) {
-            high_fd = ifd;
+    for (auto inputCB : InputCBs) {
+        int ifd = inputCB->getFd();
+        if (ifd >= 0) {
+            if (high_fd < ifd) {
+                high_fd = ifd;
+            }
+            // DPRINT("DbgCheckEvents: InputCB fd %d added.\n", InputCB.i_fd);
+            FD_SET(ifd, &dispatch_fds);
         }
-        // DPRINT("DbgCheckEvents: InputCB fd %d added.\n", InputCB.i_fd);
-        FD_SET(ifd, &dispatch_fds);
     }
 
     /*
@@ -1094,14 +1095,16 @@ int DbgCheckEvents(void) {
                 return res;
 
             default:
-                if (ifd >= 0) {
-                    // If the InputCB was set, then we don't want to dispatch
-                    // the graph. Commands can take awhile to return and if the
-                    // user was typing something we don't want to issue a new
-                    // command. The user has a second to type before being
-                    // locked out.
-                    if (FD_ISSET(ifd, &dispatch_fds)) {
-                        _df_ready = 0;
+                for (auto inputCB : InputCBs) {
+                    if (int ifd = inputCB->getFd(); ifd >= 0) {
+                        // If the InputCB was set, then we don't want to dispatch
+                        // the graph. Commands can take awhile to return and if the
+                        // user was typing something we don't want to issue a new
+                        // command. The user has a second to type before being
+                        // locked out.
+                        if (FD_ISSET(ifd, &dispatch_fds)) {
+                            DbgSwitchCurrentStream(inputCB->getStream());
+                        }
                     }
                 }
                 return 1;
@@ -1165,12 +1168,12 @@ void DbgDispatchEvents(void) {
     /*
     ** Process any input.
     */
-    {
-        std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
-        if ((InputCB.i_fd >= 0) && FD_ISSET(InputCB.i_fd, &dispatch_fds) &&
-            (InputCB.i_rtn != nullptr)) {
+    for (auto inputCB : InputCBs) {
+        int ifd = inputCB->getFd();
+        if (ifd >= 0 && FD_ISSET(ifd, &dispatch_fds)) {
             // DPRINT("DbgDispatchEvents: InputCB.i_fd is set\n");
-            InputCB.i_rtn();
+            DbgSwitchCurrentStream(inputCB->getStream());
+            inputCB->invoke();
         }
     }
 
@@ -1423,39 +1426,35 @@ void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<st
 /*
 ** Set local input stream handler.
 */
-void DbgHandleInput(int fd, void (*inp)(void)) {
-    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
-    InputCB.i_fd = fd;
-    InputCB.i_rtn = inp;
+void DbgHandleInput(int fd, cli_stream_t* stream, void (*inp)(void)) {
+    if (fd != -1){
+        auto InputCB = new inpcb_t(fd, stream, inp);
+        InputCBs.push_back(InputCB);
+    }
+}
 
-    // reset input mask
-    _mask_fd = -1;
-    _mask_cnt = 0;
+void DbgUnhandleInput(cli_stream_t* stream) {
+    auto loc = std::find_if(InputCBs.begin(), InputCBs.end(),
+                            [stream] (auto x) { return x->getStream() == stream; });
+    if (loc != InputCBs.end()) {
+        auto hndlr = *loc;
+        InputCBs.erase(loc);
+        delete hndlr;
+    }
 }
 
 /*
 ** Mask input stream events temporarily
 */
-void DbgMaskInput(void) {
-    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
-    if (_mask_cnt == 0) {
-        _mask_fd = InputCB.i_fd;
-        InputCB.i_fd = -1;
-    }
-    ++_mask_cnt;
+void DbgMaskInput() {
+    for (auto cb : InputCBs) cb->mask(true);
 }
 
 /*
 ** Remove temporary input stream mask.
 */
-void DbgUnmaskInput(void) {
-    std::scoped_lock<std::recursive_mutex> ilock(InputCB.i_mutex);
-    if (_mask_cnt > 0) {
-        --_mask_cnt;
-    }
-    if (_mask_cnt == 0) {
-        InputCB.i_fd = _mask_fd;
-    }
+void DbgUnmaskInput() {
+    for (auto cb : InputCBs) cb->mask(false);
 }
 
 /*
@@ -1551,8 +1550,6 @@ int DbgInit(void) {
         if (!proto->init()) return -1;
     }
 
-    // Initialize the mutex lock for the InputCB
-    InputCB.i_fd = -1;
     return 0;
 }
 
@@ -1579,8 +1576,6 @@ void DbgFinalize(void) {
     }
     DestroyList(DbgInvokeList, nullptr);
     DbgInvokeList = nullptr;
-
-    InputCB.i_fd = -1;
 }
 
 /*
@@ -1770,7 +1765,6 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
 
     // This command changes the status
     inferior_status_change = 1;
-
     return di;
 }
 
@@ -4177,3 +4171,18 @@ GetTrampolineArgs(const char* prog, const char* const* args)
 
     return retVal;
 }
+
+inpcb_t::inpcb_t(int fd, cli_stream_t* stream, void (*f)()) :
+    i_fd(fd), i_stream(stream), i_rtn(f), masked(0) {}
+
+int inpcb_t::getFd() const {
+    std::scoped_lock ilock(i_mutex);
+    return masked ? -1 : i_fd;
+}
+
+void inpcb_t::mask(bool mask) {
+    std::scoped_lock ilock(i_mutex);
+    if (mask) ++masked; else --masked;
+}
+
+    

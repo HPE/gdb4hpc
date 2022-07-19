@@ -315,7 +315,10 @@ extern void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::strin
 extern void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback);
 extern void DbgHandleOutput(const std::function<void (dbginvoke *, FILE *)> &outp);
 extern void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<std::string> &)> &outp);
-extern void DbgHandleInput(int, void (*)(void));
+struct cli_stream_t;
+extern void DbgHandleInput(int, cli_stream_t*, void (*)(void));
+extern void DbgUnhandleInput(cli_stream_t*);
+extern void DbgSwitchCurrentStream(cli_stream_t*);
 using SigHandlerFn = void(*)(int);
 extern void DbgHandleSignal(int signal, SigHandlerFn fn, dbgsig_type type);
 extern void DbgMaskInput(void);

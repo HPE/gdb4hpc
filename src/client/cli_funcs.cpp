@@ -40,7 +40,7 @@ static void ProgOutLineStrings(dbginvoke_t *, const std::vector<std::string> &li
  * Static Global Variables
  */
 static cli_stream_t *CurrentStream; /* Current cli stream */
-static list_t *StreamQueue; /* Queue of cli streams for nested streams */
+static std::vector<cli_stream_t*> AllStreams;
 
 void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
     cli_stream_t *stream = NULL;
@@ -75,45 +75,46 @@ void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
         exit(1);
     }
 
-    // set the current stream to the newly created cli stream.
-    CurrentStream = stream;
-
-    // Set the current IO FILE pointers
-    Client.cli_in_stream = CurrentStream->cs_fpin;
-    Client.cli_out_stream = CurrentStream->cs_fpout;
-    Client.cli_err_stream = CurrentStream->cs_fperr;
-
-    // Set the current IO fd's
-    Client.cli_in_fd = CurrentStream->cs_fdin;
-    Client.cli_out_fd = CurrentStream->cs_fdout;
-    Client.cli_err_fd = CurrentStream->cs_fderr;
+    stream->cs_num = 0;
 
     // Create the stream queue
-    StreamQueue = NewList();
+    AllStreams.push_back(stream);
+    DbgSwitchCurrentStream(stream);
 
     // Install the output callback handler in the dbg_client layer
     DbgHandleOutput(ProgOutLineStream);  // handle FILE *
     DbgHandleOutput(ProgOutLineStrings); // handle vector<string>
 
     // Install the input callback handler in the dbg_client layer
-    DbgHandleInput(Client.cli_in_fd, cli_handle_input);
+    DbgHandleInput(Client.cli_in_fd, CurrentStream, cli_handle_input);
+}
+
+void DbgSwitchCurrentStream(cli_stream_t* stream){
+    CurrentStream = stream;
+    Client.cli_in_stream = CurrentStream->cs_fpin;
+    Client.cli_out_stream = CurrentStream->cs_fpout;
+    Client.cli_err_stream = CurrentStream->cs_fperr;
+    Client.cli_in_fd = CurrentStream->cs_fdin;
+    Client.cli_out_fd = CurrentStream->cs_fdout;
+    Client.cli_err_fd = CurrentStream->cs_fderr;
 }
 
 void DestroyCLI(void) {
     // Destroy the stream queue
-    DestroyList(StreamQueue, (void (*)(void *))DestroyCLIStream);
+    for (auto s : AllStreams)
+        DestroyCLIStream(s);
+    AllStreams.clear();
 
     // Destroy the CurrentStream
-    DestroyCLIStream(CurrentStream);
+    //DestroyCLIStream(CurrentStream);
 
     // Null out the global variables
 
-    StreamQueue = NULL;
-    CurrentStream = NULL;
+    CurrentStream = nullptr;
 
-    Client.cli_in_stream = NULL;
-    Client.cli_out_stream = NULL;
-    Client.cli_err_stream = NULL;
+    Client.cli_in_stream = nullptr;
+    Client.cli_out_stream = nullptr;
+    Client.cli_err_stream = nullptr;
 
     Client.cli_in_fd = -1;
     Client.cli_out_fd = -1;
@@ -134,120 +135,48 @@ int SetNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, ...) {
 
     va_end(pargs);
 
-    // Make sure the call didn't fail
+        // Make sure the call didn't fail
     if (stream == NULL) {
         return 1;
     }
-
+    stream->cs_num = int(AllStreams.size());
     // Enqueue the existing command stream
-    if (CurrentStream != NULL) {
-        AddFirst(StreamQueue, (void *)CurrentStream);
-    }
-
-    // Set the current stream
-    CurrentStream = stream;
-
-    // Set the current IO FILE pointers
-    Client.cli_in_stream = CurrentStream->cs_fpin;
-    Client.cli_out_stream = CurrentStream->cs_fpout;
-    Client.cli_err_stream = CurrentStream->cs_fperr;
-
-    // Set the current IO fd's
-    Client.cli_in_fd = CurrentStream->cs_fdin;
-    Client.cli_out_fd = CurrentStream->cs_fdout;
-    Client.cli_err_fd = CurrentStream->cs_fderr;
-
+    AllStreams.push_back(stream);
+    DbgSwitchCurrentStream(stream);
     // call the stream restore function
     cli_reset_stream();
 
     // Reset the input handler in the dbg_client layer
-    DbgHandleInput(Client.cli_in_fd, cli_handle_input);
+    DbgHandleInput(CurrentStream->cs_fdin, CurrentStream, cli_handle_input);
 
     return 0;
 }
 
 void DestroyCurrentCLIStream(void) {
+    if (!CurrentStream) return;
+
     // Destroy the current stream
-    if (CurrentStream != NULL) {
-        // clear the current line this should contain a prompt
-        cli_clear_line();
-        DestroyCLIStream(CurrentStream);
-    }
+    // clear the current line this should contain a prompt
+    cli_clear_line();
+    AllStreams.erase(std::remove(AllStreams.begin(), AllStreams.end(), CurrentStream),
+                     AllStreams.end());
+    DestroyCLIStream(CurrentStream);
 
-    // Dequeue the top stream
-    CurrentStream = (cli_stream_t *)RemoveFirst(StreamQueue);
-
-    // Ensure the current stream isn't null, if it is we need to quit
-    if (CurrentStream == NULL) {
-        Client.quit = 1;
-        // Remove the input handler
-        DbgHandleInput(-1, NULL);
-    } else {
-        // Set the current IO FILE pointers
-        Client.cli_in_stream = CurrentStream->cs_fpin;
-        Client.cli_out_stream = CurrentStream->cs_fpout;
-        Client.cli_err_stream = CurrentStream->cs_fperr;
-
-        // Set the current IO fd's
-        Client.cli_in_fd = CurrentStream->cs_fdin;
-        Client.cli_out_fd = CurrentStream->cs_fdout;
-        Client.cli_err_fd = CurrentStream->cs_fderr;
-
-        // call the stream restore function
-        cli_reset_stream();
-
-        // Reset the input handler in the dbg_client layer
-        DbgHandleInput(Client.cli_in_fd, cli_handle_input);
-    }
+    // reset to the default
+    SetDefaultCLIStream();
 }
 
 void SetDefaultCLIStream(void) {
-    cli_stream_t *stream = NULL;
-
-    if (StreamQueue == NULL) {
-        PrintOutError("Error: Default stream is invalid.\n");
+    if (AllStreams.empty()) {
+        Client.quit = 1;
         return;
     }
 
-    // We only need to do stuff if the StreamQueue isn't empty
-    while (SizeOfList(StreamQueue) != 0) {
-        stream = (cli_stream_t *)RemoveFirst(StreamQueue);
+    // The first stream is the default
+    DbgSwitchCurrentStream(AllStreams[0]);
 
-        // Check to see if we just removed the last element
-        if (SizeOfList(StreamQueue) == 0) {
-            // Ensure that stream isn't null, if it is print error
-            if (stream == NULL) {
-                PrintOutError("Error: Could not restore default stream.\n");
-                return;
-            }
-
-            // clear the current line this should contain a prompt
-            cli_clear_line();
-
-            // Destroy the saved current stream
-            DestroyCLIStream(CurrentStream);
-
-            // set the current stream to this stream
-            CurrentStream = stream;
-
-            // Set the current IO FILE pointers
-            Client.cli_in_stream = CurrentStream->cs_fpin;
-            Client.cli_out_stream = CurrentStream->cs_fpout;
-            Client.cli_err_stream = CurrentStream->cs_fperr;
-
-            // Set the current IO fd's
-            Client.cli_in_fd = CurrentStream->cs_fdin;
-            Client.cli_out_fd = CurrentStream->cs_fdout;
-            Client.cli_err_fd = CurrentStream->cs_fderr;
-        } else {
-            // destroy it
-            DestroyCLIStream(stream);
-        }
-    }
-
-    // Reset the input handler in the dbg_client layer
-    DbgHandleInput(Client.cli_in_fd, cli_handle_input);
-
+    // LOOKAT: I'm pretty sure this should be happening more generally
+    
     // call the stream restore function
     // Note that this should always be done. Editline gets messed up if the
     // reset isn't called after signal handling for some reason (it would be in
@@ -306,6 +235,7 @@ static cli_stream_t *vNewCLIStream(cli_type_t type, cli_stream_args_t *args,
     cs->cs_handling = 0;
     cs->cs_seq = 0;
     cs->cs_in_cmd = 0;
+    cs->cs_num = 0;
     // list for deferred print
     cs->cs_deferred = NewList();
 
@@ -360,30 +290,26 @@ static cli_stream_t *vNewCLIStream(cli_type_t type, cli_stream_args_t *args,
         // destroy the cs
         DestroyCLIStream(cs);
         // return null
-        return (cli_stream_t *)NULL;
+        return nullptr;;
     }
 
     return cs;
 }
 
 static void DestroyCLIStream(cli_stream_t *cs) {
-    int rtn;
-    int n;
+    if (cs == nullptr) return;
 
-    if (cs == NULL) {
-        return;
-    }
+    DbgUnhandleInput(cs);
 
     if (cs->cs_prompts != (char **)NULL) {
-        for (n = 0; n < cs->cs_nprom; n++) Free(cs->cs_prompts[n]);
+        for (int n = 0; n < cs->cs_nprom; n++) Free(cs->cs_prompts[n]);
 
         Free(cs->cs_prompts);
     }
 
     // call to external destroy function
     if (cs->cs_ext_funcs->external_destroy != NULL) {
-        rtn = (*cs->cs_ext_funcs->external_destroy)(&cs);
-        if (rtn) {
+        if ((*cs->cs_ext_funcs->external_destroy)(&cs)) {
             PrintOutError("Warning: external_destroy() failed.\n");
         }
     } else {

@@ -92,7 +92,7 @@ typedef union cli_stream_args cli_stream_args_t;
 /*
 ** CLI stream for I/O
 */
-struct cli_stream {
+struct cli_stream_t {
     cli_type_t cs_type;  /* cli stream type */
     int cs_fdin;         /* fd number for input to select on */
     int cs_fdout;        /* underlying fd number for output */
@@ -114,6 +114,7 @@ struct cli_stream {
     int cs_handling;     /* stream handling line control variable */
     int cs_seq;          /* current command sequence number */
     int cs_in_cmd;       /* currently processing command */
+    int cs_num;          // stream number
     list_t *cs_deferred; /* list of deferred lines to print after command
                             completes */
     struct cli_externals
@@ -132,7 +133,6 @@ struct cli_stream {
 #define cs_file_out_path cs_args->file_args.out_path
 #define cs_file_err_path cs_args->file_args.err_path
 };
-typedef struct cli_stream cli_stream_t;
 
 /*
 ** External CLI interface
@@ -161,6 +161,7 @@ extern cli_externals_t *cli_get_file_funcs(void);
 ** CLI stream init functions
 */
 extern void InitCLI(cli_type_t, cli_stream_args_t *);
+extern void switchCurrentStream(cli_stream_t*);
 extern void DestroyCLI(void);
 extern int SetNewCLIStream(cli_type_t, cli_stream_args_t *, int, ...);
 extern void DestroyCurrentCLIStream(void);

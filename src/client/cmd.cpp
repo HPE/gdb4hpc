@@ -676,7 +676,7 @@ void ExecuteCommand(const char *line) {
 
     // If Quit is true after executing the command, remove the input handler.
     if (Client.quit) {
-        DbgHandleInput(-1, NULL);
+        DbgHandleInput(-1, nullptr, NULL);
     }
 
     Free(cmd);

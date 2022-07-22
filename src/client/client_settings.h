@@ -15,6 +15,7 @@
 #define _CLIENT_SETTINGS_H
 
 #include "cli_funcs.h"
+#include "mi_funcs.h"
 #include "dbgclnt_settings.h"
 
 enum class PendingBrkType {
@@ -54,6 +55,7 @@ struct clnt_settings : public ClientSettingsInterface {
     FILE* cli_err_stream;       /* error stream */
     int cli_err_fd;             /* error fd */
     int XML_mode;               /* XML output mode */
+    bool MI_mode;                /* MI output mode */
     list_t* set_env_list;       /* Env vars from set env cmd */
     double cmp_lower_eps;         /* Lower eps limit */
     double cmp_upper_eps;         /* upper eps limit */

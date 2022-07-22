@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "client.h"
 #include "useful.h"
@@ -65,6 +66,7 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
+    std::stringstream ss;
     // Need to loop this over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
         auto print_header = true;
@@ -74,21 +76,43 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
             if (recv_ptr->rec_di != reply->rep_di) {
                 continue;
             }
-
             // Only want to print the header message once
-            if (print_header) {
+            if (print_header && !Client.MI_mode) {
                 PrintOutMsg("\nSource files for $%s:\n",
                             recv_ptr->rec_di->d_handle);
                 print_header = false;
             }
 
+            PrintOutMsg("\nSource files for $%s:\n",
+                            recv_ptr->rec_di->d_handle);
+
             // point at the sources data
             auto sp = EVENT_SOURCES(reply->rep_event);
 
             for (auto s = sp; s != nullptr; s = s->sources_next) {
-                PrintOutMsg("%s\n", s->sources_file);
+                if (!Client.MI_mode){
+                    PrintOutMsg("%s\n", s->sources_file);
+                }else{
+                    if (!ss.str().empty()){
+                        ss<<",";
+                    }else{
+                        ss<<"[";
+                    }
+                    //current workaround for relative/full path issue
+                    std::string source_file = std::string(s->sources_file);
+                    if (source_file.find(std::string("bd_dt"))!=std::string::npos){
+                        std::string bd_dt=source_file.substr(source_file.find(std::string("bd_dt")));
+                        source_file = bd_dt;
+                    }
+                    ss<<"{proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",file=\""<<source_file.c_str()<<"\",fullname=\""<<s->sources_file<<"\"}";
+                    StoreSourcePath(s->sources_file);
+                }
             }
         }
+    }
+    if (Client.MI_mode && !ss.str().empty()){
+        ss<<"]";
+        PrintOutMsg( mi_response("done","files",ss.str().c_str()));
     }
 
     FreeRepSet(rep_set);

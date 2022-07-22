@@ -73,9 +73,12 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto ev = reply->rep_event->ev_event;
         if (ev == DBGEV_TYPE) {
             type_str = EVENT_TYPE(reply->rep_event);
-
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
+            if (Client.MI_mode){
+                PrintOutMsg("^done,{name=\"var1\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", type=\"%s\"}\n", type_str );
+            }else{
+                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
                                 type_str);
+            }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
@@ -134,7 +137,6 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     auto rep_set = DbgGetVars(rec_set);
-
     ProcessErrorInRepSet(rep_set);
 
     // Process the replies
@@ -143,11 +145,24 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
         if (ev == DBGEV_VARS) {
             // point at the vars data
             auto v = EVENT_VARS(reply->rep_event);
-
+            std::stringstream ss;
             for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                if (Client.MI_mode){
+                    if (!ss.str().empty()){
+                        ss<<",";
+                    }else{
+                        ss<<"[";
+                    }
+                    ss<<"{proc_set=\""<<reply->rep_di->d_handle<<"\",name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
+                }else{
+                    PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
                                     v->var_type);
+                }
+            }
+            if (Client.MI_mode && !ss.str().empty()){
+                ss<<"]}";
+                PrintOutMsg( mi_response("done","variables", ss.str().c_str()));
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),

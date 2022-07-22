@@ -349,9 +349,11 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
 
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
-
-    PrintOutMsg("Launch complete.\n");
-
+    if (Client.MI_mode){
+        PrintOutMsg(mi_response("done", nullptr, nullptr));
+    }else{
+        PrintOutMsg("Launch complete.\n");
+    }
     // Issue the startup command
     rep_set = DbgStartup(rec_set);
 
@@ -696,22 +698,35 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    // Ensure the user provided two non-option arguments
-    if (argc - optind != 2) {
-        PrintOutError(
-            "Invalid number of non-option arguments. See \"help attach\" for "
-            "usage.\n");
-        PrintOutError("Expected 2, found %d.\n", argc - optind);
-        return 0;
+    if (Client.MI_mode){
+        if (argc - optind != 1) {
+            PrintOutMsg("^error,msg=\"Invalid number of non-option arguments. See \"help attach\" for "
+                "usage.\nExpected 1, found %d.\n\"", argc - optind);
+            return 0;
+        }
+    }else{
+        // Ensure the user provided two non-option arguments
+        if (argc - optind != 2) {
+            PrintOutError(
+                "Invalid number of non-option arguments. See \"help attach\" for "
+                "usage.\n");
+            PrintOutError("Expected 2, found %d.\n", argc - optind);
+            return 0;
+        }
     }
 
     // parse the non-option arguments
-
-    // The first argument should be the name of the process set
-    if ((ps = getNewProcSet(argv[optind++])) == NULL) {
-        return 0;
+    if (Client.MI_mode){
+        //temporary name for proc set
+        if ((ps = getNewProcSet("$a")) == NULL) {
+            return 0;
+        }
+    }else{
+        // The first argument should be the name of the process set
+        if ((ps = getNewProcSet(argv[optind++])) == NULL) {
+            return 0;
+        }
     }
-
     app_ident = strdup(argv[optind++]);
 
     // Verify that the arguments are correct

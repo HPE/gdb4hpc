@@ -738,7 +738,6 @@ int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *
 #ifdef DEBUG
     dbg = 1;
 #endif
-
     // ensure the dbginvoke_t object was passed down
     if (di == nullptr) goto invoke_error;
 

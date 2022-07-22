@@ -20,6 +20,7 @@
 #define _CLIENT_H
 
 #include <stdarg.h>
+#include <string.h>
 
 /*
 ** These includes define a common interface that many of the functions which
@@ -35,6 +36,8 @@
 #include "gram.h"
 #include "useful.h"
 #include "xml_tag.h"
+#include "mi_tag.h"
+#include "mi_funcs.h"
 
 /*
 ** Functions defined in main.c
@@ -67,5 +70,9 @@ extern int PrintVal(val_t *, rec_set_t *);
 */
 extern void PrintHaltedLocationSet(char *, const Bitset *, dbgloc_t *);
 extern void EndAll(void);
+
+extern std::vector<std::string> sourceList;
+extern void StoreSourcePath(char *);
+extern std::string GetFullPath(const std::string& relativePath);
 
 #endif /* _CLIENT_H */

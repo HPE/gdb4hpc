@@ -40,6 +40,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
         return 1;
+
     } else if (argc >= 3 && strcmp(argv[1],"find") == 0) {
         auto arg = ArgsToString(&argv[2], argc - 2);
         rep_set_t* rep_set = DbgFindThread(rec_set, arg.c_str());
@@ -115,22 +116,78 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
+    std::stringstream ss;
+    std::string current_thread_id="current_thread_id=\"";
+
     // process replies
     for (auto&& reply : rep_set) {
         auto handle = reply->rep_di->d_handle;
         const auto group = reply->rep_group.get();
 
         const char* str = reply->rep_event->ev_u.ev_u_string;
+
         std::istringstream is(str);
         std::string line;
+
         while (std::getline(is,line)) {
-            PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            if (Client.MI_mode){
+                std::istringstream line_stream(line);
+                std::string word;
+                std::string id="id=\"";
+                std::string target_id="target-id=\"";
+                std::string func="func=\"";
+                std::string file="file=\"";
+                std::string thread_state="state=\"";
+                line_stream >> word;
+                if (strstr( word.c_str(), "*")){
+                    if(line_stream >> word){
+                        current_thread_id.append(word);
+                        
+                    }
+                }
+                else if(strstr(word.c_str(), "Id")){
+                    continue;
+                }
+                id.append(word);
+                for (int i =0; i<4; i++){
+                    line_stream >> word;
+                    target_id.append(word);
+                    target_id.append(" ");
+                }
+
+                line_stream >> word;
+                file.append(word);
+
+                line_stream >> word;
+
+                if (!strcmp(word.c_str(), "(running)")){
+                    thread_state.append("running");
+                }else{
+                    func.append(word);
+                    thread_state.append("break");
+                }
+
+
+                if (!ss.str().empty()){
+                    ss<<",";
+                }else{
+                    ss<<"[";
+                }
+                ss<<"{"<<id.data()<<"\","<<target_id.data()<<"\",frame={"<<func.data()<<"\","<<file.data()<<"\"},"<<thread_state.data()<<"\"}";
+            }else{
+                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+            }
         }
         // add a blank line to make the output more understandable
         PrintMsgWithSetInfo(handle, group, "\n");
     }
 
     FreeRepSet(rep_set);
+
+    if (Client.MI_mode && !ss.str().empty()){
+        ss<<"]},"<<current_thread_id.data()<<"\"";
+        PrintOutMsg( mi_response("done", "threads", ss.str().c_str()));
+    }
 
     return 1;
 }

@@ -175,6 +175,7 @@ static int cli_file_get_line(cli_stream_t **stream) {
         // cs->cs_buf has a \n on the end
         PrintOutMsg("%d: %s", cs->cs_line, cs->cs_buf); 
     }
+
     ExecuteCommand(cs->cs_buf);
 
     // print an error if the err flag is set

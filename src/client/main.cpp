@@ -66,6 +66,10 @@ static void SigHandler(int);
 static const char * getDefaultProtocol();
 static void printEventLocation(const event_set_t *ev_set, const Bitset *group);
 static void readInitCommandsFile();
+static void interfaceOption(const char* opt, cli_stream_args_t*& cli_args);
+static void iexOption(const char* opt);
+static void procIexCommand(const std::string& command);
+static std::vector<std::string> IexCommands;
 
 /*
  * long opts
@@ -80,6 +84,7 @@ static const struct option long_opts[] = {
     {"silent", no_argument, 0, 's'},
     {"version", no_argument, 0, 'v'},
     {"xml", no_argument, &(Client.XML_mode), 1},
+    {"interpreter", required_argument, 0, 'I'},
     {"debug", no_argument, &debug_flag, 1},
     {"no-init", no_argument, 0, 'n'},
     {"launch", required_argument, 0, 'l'},
@@ -336,6 +341,7 @@ int main(int argc, char *argv[]) {
     Client.arch = DBG_ARCH;           // Default starter achitecture
     Client.backend = DBG_BACKEND;     // Default debug backend
     Client.XML_mode = 0;              // XML output mode
+    Client.MI_mode = false;               // MI output mode
     Client.set_env_list = NewList();  // Env vars from set env cmd
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
@@ -439,78 +445,16 @@ int main(int argc, char *argv[]) {
                 Client.echo = true;
                 break;
             }
+
             case 'i': {
-                char *stringp, *argstr, *token;
-                char *hoststr, *portstr, *errpstr;
-
-                if (optarg == NULL) {
-                    PrintOutError(
-                        "Error: --interface provided, but missing "
-                        "arguments.\n");
-                    exit(1);
+                if (strncmp(optarg, "ex=", 3) == 0) {
+                    iexOption(optarg+3);
+                } else {
+                    interfaceOption(optarg, cli_args);
                 }
-
-                // Setup things. Note that strsep modifies the string, so it
-                // shouldn't use optarg directly.
-                argstr = strdup(optarg);
-                stringp = argstr;
-
-                // First parse the host argument
-                // Make sure its not null or that it doesn't contain a null
-                // terminator
-                if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
-                    PrintOutError(
-                        "Error:    Encountered problem with host argument.\n");
-                    PrintOutError(
-                        "Expected: --interface host:IOPort:ERRPort\n");
-                    PrintOutError("Found:    --interface %s\n", optarg);
-                    exit(1);
-                }
-                hoststr = token;
-                // Next parse the IO port argument
-                // Make sure its not null or that it doesn't contain a null
-                // terminator
-                if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
-                    PrintOutError(
-                        "Error:    Encountered problem with IOPort "
-                        "argument.\n");
-                    PrintOutError(
-                        "Expected: --interface host:IOPort:ERRPort\n");
-                    PrintOutError("Found:    --interface %s\n", optarg);
-                    exit(1);
-                }
-                portstr = token;
-                // The final argument is what is left in stringp
-                // Make sure this isn't pointing at the null terminator
-                if (*stringp == '\0') {
-                    PrintOutError(
-                        "Error:    Encountered problem with ERRPort "
-                        "argument.\n");
-                    PrintOutError(
-                        "Expected: --interface host:IOPort:ERRPort\n");
-                    PrintOutError("Found:    --interface %s\n", optarg);
-                    exit(1);
-                }
-                errpstr = stringp;
-
-                // Set the default CLI and args to socket type
-                Client.cli_mode = CLI_SOCKET_STREAM;
-                cli_args =
-                    NewCLIArgs(CLI_SOCKET_STREAM, hoststr, portstr, errpstr);
-                // Turn confirm off, we will not be able to call fgetc on stdin
-                // through a socket. If this is needed, rework the query
-                // function to call an external cli function that is cli stream
-                // dependent.
-                Client.confirm = 0;
-                // Set silent to 1, we don't want to print out banner
-                // This should be the case when output is XML
-                Client.silent = 1;
-
-                // Cleanup original strsep string that we strdup'ed.
-                Free(argstr);
-
                 break;
             }
+
             case 'o': {
                 char *stringp;
 
@@ -528,6 +472,15 @@ int main(int argc, char *argv[]) {
 
                 break;
             }
+            case 'I': {
+                if (strcmp(optarg, "mi") == 0) {
+                    Client.MI_mode = true;
+                } else {
+                    PrintOutError("Unrecognized interpreter: %s\n", optarg);
+                }
+                break;
+            }
+
             case 's':
                 // Set silent to 1, we don't want to print out banner
                 Client.silent = 1;
@@ -562,7 +515,6 @@ int main(int argc, char *argv[]) {
             if (out_file != NULL) Free(out_file);
         } else {
             // Use the default CLI
-
             // Check to see if stdin is a tty, if not set the default CLI to
             // notty
             if (!isatty(STDIN_FILENO)) {
@@ -576,17 +528,20 @@ int main(int argc, char *argv[]) {
             cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
         }
     }
-
     registerProtos();
     if (DbgInit() < 0) {
-        PrintOutError("Could not initialise debugger.\n");
         exit(1);
     }
 
     InitVal();
     InitProcSet();
     InitCommands();
-    InitCLI(Client.cli_mode, cli_args);
+
+    auto interpreter = interpreter_type::CLI;
+    if (Client.XML_mode) interpreter = interpreter_type::XML;
+    else if (Client.MI_mode) interpreter = interpreter_type::MI;
+
+    InitCLI(Client.cli_mode, interpreter, cli_args);
 
     if (!Client.silent) {
         Banner();
@@ -595,6 +550,10 @@ int main(int argc, char *argv[]) {
     // Read gdb4hpc_init file
     if (should_read_init)
         readInitCommandsFile();
+
+    for (auto&& command : IexCommands) {
+        procIexCommand(command);
+    }
 
     // Initial reset of the stream, for good measure.
     // If we don't do this, the prompt will be missing when using the editline
@@ -747,6 +706,12 @@ static void printEventLocation(const event_set_t *ev_set, const Bitset *group) {
         // Print location info
         if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
             // See if we can get the source line
+            if (Client.MI_mode){
+                std::stringstream ss;
+                auto fullpath = GetFullPath(frameLoc.loc_file);
+                ss<<"*stopped,reason=\"end-stepping-range\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<frameLoc.loc_func<<"\",args=[],file=\""<<frameLoc.loc_file<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<frameLoc.loc_line<<"\"}";
+                PrintOutMsg( ss.str().c_str() );
+            }
             auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
             lineArg += "," + lineArg; // filename:xx,filename:xx
             dbgevent_t *listResult = nullptr;
@@ -838,6 +803,11 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
 
             if (!bpset) {
                 if (ev_set->e_ev->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
+                    if (Client.MI_mode){
+                        std::ostringstream ss;
+                        ss << "*stopped,reason=\"exited-normally\", proc_set=\""<<ev_set->e_di->d_handle<<"\"";
+                        PrintOutMsg(ss.str().c_str());
+                    }
                     PrintMsgWithSetInfo(
                         ev_set->e_di->d_handle, ev_set->e_group.get(),
                         "The application has reached an exit breakpoint.\n");
@@ -893,6 +863,12 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                 case DBGBP_BREAK_TYPE:
                     if (Client.print_bp_frames) {
                         if (bpset->line() > 0) {
+                            if (Client.MI_mode){
+                                std::ostringstream ss;
+                                auto fullpath = GetFullPath(bpset->file());
+                                ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                                PrintOutMsg( ss.str().c_str() );
+                            }
                             PrintMsgWithSetInfo(
                                 ev_set->e_di->d_handle, ev_set->e_group.get(),
                                 "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
@@ -989,11 +965,18 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
 
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
+                        if (Client.MI_mode){
+                            std::ostringstream ss;
+                            auto fullpath = GetFullPath(bpset->file());
+                            ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                            PrintOutMsg( ss.str().c_str() );
+                        }else{
                         PrintMsgWithSetInfo(
                             ev_set->e_di->d_handle, ev_set->e_group.get(),
                             "Breakpoint %d deleted, %s at %s:%d\n",
                             bpset->id(), bpset->function().c_str(),
                             bpset->file().c_str(), bpset->line());
+                        }
                     } else {
                         PrintMsgWithSetInfo(ev_set->e_di->d_handle,
                                             ev_set->e_group.get(),
@@ -1146,4 +1129,107 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
     cli_restore_stream();
 
     return 1;
+}
+
+// Handle the old -i/--interface option which is used for ccdb to
+// specify a socket.   
+void interfaceOption(const char* opt, cli_stream_args_t*& cli_args)
+{
+    // Setup things. Note that strsep modifies the string, so it
+    // shouldn't use optarg directly.
+    char* argstr = strdup(opt);
+    char* stringp = argstr;
+
+    // First parse the host argument
+    // Make sure its not null or that it doesn't contain a null
+    // terminator
+    char* token;
+    if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
+        PrintOutError(
+            "Error:    Encountered problem with host argument.\n");
+        PrintOutError(
+            "Expected: --interface host:IOPort:ERRPort\n");
+        PrintOutError("Found:    --interface %s\n", optarg);
+        exit(1);
+    }
+    char* hoststr = token;
+    // Next parse the IO port argument
+    // Make sure its not null or that it doesn't contain a null
+    // terminator
+    if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
+        PrintOutError(
+            "Error:    Encountered problem with IOPort "
+            "argument.\n");
+        PrintOutError(
+            "Expected: --interface host:IOPort:ERRPort\n");
+        PrintOutError("Found:    --interface %s\n", optarg);
+        exit(1);
+    }
+    char* portstr = token;
+    // The final argument is what is left in stringp
+    // Make sure this isn't pointing at the null terminator
+    if (*stringp == '\0') {
+        PrintOutError(
+            "Error:    Encountered problem with ERRPort "
+            "argument.\n");
+        PrintOutError(
+            "Expected: --interface host:IOPort:ERRPort\n");
+        PrintOutError("Found:    --interface %s\n", optarg);
+        exit(1);
+    }
+    char* errpstr = stringp;
+
+    // Set the default CLI and args to socket type
+    Client.cli_mode = CLI_SOCKET_STREAM;
+    cli_args =
+        NewCLIArgs(CLI_SOCKET_STREAM, hoststr, portstr, errpstr);
+    // Turn confirm off, we will not be able to call fgetc on stdin
+    // through a socket. If this is needed, rework the query
+    // function to call an external cli function that is cli stream
+    // dependent.
+    Client.confirm = 0;
+    // Set silent to 1, we don't want to print out banner
+    // This should be the case when output is XML
+    Client.silent = 1;
+
+    // Cleanup original strsep string that we strdup'ed.
+    Free(argstr);
+}
+
+// handle gdb stype -iex arguments which can add arbitrary CLI commands
+// to the startup sequence
+static void iexOption(const char* opt) {
+    IexCommands.push_back(std::string{opt});
+}
+
+static void procIexCommand(const std::string& command)
+{
+    // we're not document the -iex option which could be used to add
+    // any CLI command to the startup.  But, we're only trying to
+    // get gdbgui to work, so for now just hack in the functions
+    // it uses.   When these are implemented, look into just putting these
+    // in QueueCommand
+    static const std::string new_ui{"new-ui mi2 "};
+    static const std::string inferior_tty{"set inferior-tty "};
+    if (command.substr(0,new_ui.size()) == new_ui) {
+        auto tty = command.substr(new_ui.size());
+        auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty.c_str(), tty.c_str(),
+                                   tty.c_str());
+        SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
+        
+    } else if (command.substr(0,inferior_tty.size()) == inferior_tty) {
+    }
+
+    /*
+    if (!strcmp(token, "mi2") ){
+        mi2 = true;
+        Client.MI_mode = true;
+        Client.silent = 1;
+        PrintOutError("\n New UI Found %s\n", stringp);
+        inport=stringp;
+    }else if (!strcmp(token, "inferior-tty")){
+        PrintOutError("\n New TTY Found %s\n", stringp);
+        outport=stringp;
+    }
+    */
 }

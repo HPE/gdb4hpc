@@ -36,6 +36,8 @@ enum cli_type {
 };
 typedef enum cli_type cli_type_t;
 
+enum class interpreter_type { CLI, MI, XML };
+
 /*
 ** defined arg types for each stream type
 */
@@ -94,6 +96,7 @@ typedef union cli_stream_args cli_stream_args_t;
 */
 struct cli_stream_t {
     cli_type_t cs_type;  /* cli stream type */
+    interpreter_type cs_interpreter;  /* interpreter type (CLI, MI, etc) */
     int cs_fdin;         /* fd number for input to select on */
     int cs_fdout;        /* underlying fd number for output */
     int cs_fderr;        /* underlying fd number for err */
@@ -157,13 +160,14 @@ extern cli_externals_t *cli_get_readline_funcs(void);
 extern cli_externals_t *cli_get_socket_funcs(void);
 extern cli_externals_t *cli_get_file_funcs(void);
 
+
+extern list_t * InputCBList;
 /*
 ** CLI stream init functions
 */
-extern void InitCLI(cli_type_t, cli_stream_args_t *);
-extern void switchCurrentStream(cli_stream_t*);
+extern void InitCLI(cli_type_t, interpreter_type, cli_stream_args_t *);
 extern void DestroyCLI(void);
-extern int SetNewCLIStream(cli_type_t, cli_stream_args_t *, int, ...);
+extern int SetNewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *, int, ...);
 extern void DestroyCurrentCLIStream(void);
 extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);

@@ -29,6 +29,7 @@
 #include "useful.h"
 #include "bitset.h"
 #include "dbgevent.h"
+#include "mi_funcs.h"
 
 /*
 ** Internal global variables
@@ -567,8 +568,7 @@ size_t ExecuteQueuedCommands() {
         pendingCommandQueue.pop_front();
         ExecuteCommand(command.c_str());
     }
-
-    // restore prompt
+    
     cli_restore_stream();
 
     return r;
@@ -630,6 +630,23 @@ void ExecuteCommand(const char *line) {
         *needle = '\n';
         *(needle + 1) = '\0';
         DPRINT("ExecuteCommand: seq is %d\n", seq);
+    } else if (Client.MI_mode) {
+        //Convert mi to cli command
+        cmd = convertMiToCli(cmd);
+        printf(cmd);
+        if (strstr(cmd, "-exec-run")){
+            PrintOutMsg("^running\n");
+            Free(cmd);
+            goto ExecuteCommand_exit;
+        }else if (strstr(cmd, "focus")){
+            PrintOutMsg("^running\n");
+        }else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
+
+        }
+        else if (strstr(cmd, "unknown")||strstr(cmd, "-")){
+            Free(cmd);
+            goto ExecuteCommand_exit;
+        }
     }
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
@@ -637,12 +654,13 @@ void ExecuteCommand(const char *line) {
     argv.parseAndAppendArgs(cmd);
 
     // Inform the cli layer that we are starting to execute a command
-    if (!cli_start_response(seq)) {
-        // Sequence number mismatch, so silently fail
-        Free(cmd);
-        goto ExecuteCommand_exit;
+    if (!Client.MI_mode){
+        if (!cli_start_response(seq)) {
+            // Sequence number mismatch, silently fail so next command does not have interference
+            Free(cmd);
+            goto ExecuteCommand_exit;
+        }
     }
-
     // These are not considered to be errors
     if (argv.argc() == 0 || argv[0] == "" || argv[0][0] == '#') {
         Free(cmd);
@@ -673,6 +691,13 @@ void ExecuteCommand(const char *line) {
 
     // Inform the cli layer that we are done executing a command
     cli_end_response();
+    if (Client.MI_mode){
+        if (strstr(cmd, "-exec-continue")){
+            //PrintOutMsg("^running\n");
+        } else if (strstr(cmd, "focus")){
+            PrintOutMsg("^done");
+        }
+    }
 
     // If Quit is true after executing the command, remove the input handler.
     if (Client.quit) {

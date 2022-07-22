@@ -33,7 +33,7 @@ static int cmd_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
     stream_args = NewCLIArgs(CLI_FILE_STREAM, argv[1], NULL, NULL);
 
     // Create and set the new stream
-    if (SetNewCLIStream(CLI_FILE_STREAM, stream_args, 0)) {
+    if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args, 0)) {
         PrintOutError("Could not create a cli stream from the given file.\n");
         return 0;
     }

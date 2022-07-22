@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_funcs.c - Command line interface routines.
  *
- * Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -28,9 +28,11 @@
 /*
 ** Static internal definitions
 */
-static cli_stream_t *vNewCLIStream(cli_type_t, cli_stream_args_t *, int,
+static cli_stream_t *vNewCLIStream(cli_type_t, interpreter_type,
+                                   cli_stream_args_t *, int,
                                    va_list);
-static cli_stream_t *NewCLIStream(cli_type_t, cli_stream_args_t *, int, ...);
+static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type,
+                                  cli_stream_args_t *, int, ...);
 static void DestroyCLIStream(cli_stream_t *);
 static void cli_handle_error(void);
 static void ProgOutLineStream(dbginvoke_t *, FILE *);
@@ -42,7 +44,8 @@ static void ProgOutLineStrings(dbginvoke_t *, const std::vector<std::string> &li
 static cli_stream_t *CurrentStream; /* Current cli stream */
 static std::vector<cli_stream_t*> AllStreams;
 
-void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
+void InitCLI(cli_type_t default_type, interpreter_type interpreter,
+             cli_stream_args_t *default_args) {
     cli_stream_t *stream = NULL;
 
     // Create the cli stream
@@ -51,22 +54,24 @@ void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
     switch (default_type) {
         case CLI_NOTTY_STREAM:
             // There are no prompts for tty-less streams
-            stream = NewCLIStream(CLI_NOTTY_STREAM, default_args, 0);
+            stream = NewCLIStream(CLI_NOTTY_STREAM, interpreter, default_args, 0);
             break;
 
         case CLI_TTY_STREAM:
             stream =
-                NewCLIStream(CLI_TTY_STREAM, default_args, 2, "dbg %s> ", "> ");
+                NewCLIStream(CLI_TTY_STREAM, interpreter,
+                             default_args, 2, "dbg %s> ", "> ");
             break;
 
         case CLI_SOCKET_STREAM:
-            stream = NewCLIStream(CLI_SOCKET_STREAM, default_args, 0);
+            stream = NewCLIStream(CLI_SOCKET_STREAM, interpreter, default_args, 0);
             break;
 
         case CLI_FILE_STREAM:
-            stream = NewCLIStream(CLI_FILE_STREAM, default_args, 0);
+            stream = NewCLIStream(CLI_FILE_STREAM, interpreter, default_args, 0);
             break;
     }
+    stream->cs_num = 0;
 
     // Make sure the call didn't fail, if so its fatal. We cannot continue
     // without a default stream
@@ -74,8 +79,6 @@ void InitCLI(cli_type_t default_type, cli_stream_args_t *default_args) {
         PrintOutError("Fatal: InitCLI() failed.\n");
         exit(1);
     }
-
-    stream->cs_num = 0;
 
     // Create the stream queue
     AllStreams.push_back(stream);
@@ -97,6 +100,8 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
     Client.cli_in_fd = CurrentStream->cs_fdin;
     Client.cli_out_fd = CurrentStream->cs_fdout;
     Client.cli_err_fd = CurrentStream->cs_fderr;
+    Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
+    Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
 }
 
 void DestroyCLI(void) {
@@ -105,11 +110,7 @@ void DestroyCLI(void) {
         DestroyCLIStream(s);
     AllStreams.clear();
 
-    // Destroy the CurrentStream
-    //DestroyCLIStream(CurrentStream);
-
     // Null out the global variables
-
     CurrentStream = nullptr;
 
     Client.cli_in_stream = nullptr;
@@ -121,7 +122,8 @@ void DestroyCLI(void) {
     Client.cli_err_fd = -1;
 }
 
-int SetNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, ...) {
+int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
+                    cli_stream_args_t *args, int nprom, ...) {
     va_list pargs;
     cli_stream_t *stream;
 
@@ -131,8 +133,7 @@ int SetNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, ...) {
     // First create the new stream
     va_start(pargs, nprom);
 
-    stream = vNewCLIStream(type, args, nprom, pargs);
-
+    stream = vNewCLIStream(type, interpreter, args, nprom, pargs);
     va_end(pargs);
 
         // Make sure the call didn't fail
@@ -143,9 +144,9 @@ int SetNewCLIStream(cli_type_t type, cli_stream_args_t *args, int nprom, ...) {
     // Enqueue the existing command stream
     AllStreams.push_back(stream);
     DbgSwitchCurrentStream(stream);
+
     // call the stream restore function
     cli_reset_stream();
-
     // Reset the input handler in the dbg_client layer
     DbgHandleInput(CurrentStream->cs_fdin, CurrentStream, cli_handle_input);
 
@@ -184,21 +185,24 @@ void SetDefaultCLIStream(void) {
     cli_reset_stream();
 }
 
-static cli_stream_t *NewCLIStream(cli_type_t type, cli_stream_args_t *args,
+static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter,
+                                  cli_stream_args_t *args,
                                   int nprom, ...) {
     va_list pargs;
     cli_stream_t *rtn;
 
     va_start(pargs, nprom);
 
-    rtn = vNewCLIStream(type, args, nprom, pargs);
+    rtn = vNewCLIStream(type, interpreter, args, nprom, pargs);
 
     va_end(pargs);
 
     return rtn;
 }
 
-static cli_stream_t *vNewCLIStream(cli_type_t type, cli_stream_args_t *args,
+static cli_stream_t *vNewCLIStream(cli_type_t type,
+                                   interpreter_type interpreter,
+                                   cli_stream_args_t *args,
                                    int nprom, va_list pargs) {
     int rtn;
     int n;
@@ -235,6 +239,7 @@ static cli_stream_t *vNewCLIStream(cli_type_t type, cli_stream_args_t *args,
     cs->cs_handling = 0;
     cs->cs_seq = 0;
     cs->cs_in_cmd = 0;
+    cs->cs_interpreter = interpreter;
     cs->cs_num = 0;
     // list for deferred print
     cs->cs_deferred = NewList();
@@ -292,7 +297,6 @@ static cli_stream_t *vNewCLIStream(cli_type_t type, cli_stream_args_t *args,
         // return null
         return nullptr;;
     }
-
     return cs;
 }
 
@@ -418,6 +422,7 @@ void cli_handle_input(void) {
 
     // call to external handle input function
     rtn = (*CurrentStream->cs_ext_funcs->external_handle_input)(&CurrentStream);
+
     if (rtn) {
         // Call the error handling function to figure out what to do
         cli_handle_error();
@@ -450,7 +455,6 @@ static void cli_handle_error(void) {
 
 void cli_save_stream(void) {
     int rtn;
-
     if (CurrentStream == NULL) return;
 
     // not thread safe
@@ -472,11 +476,12 @@ void cli_save_stream(void) {
             PrintOutError("Warning: external_save_stream() failed.\n");
         }
     }
+    // restore input processing
+    DbgUnmaskInput();
 }
 
 void cli_restore_stream(void) {
     int rtn;
-
     if (CurrentStream == NULL) return;
 
     // ensure there is a saved stream and we are not handling a line.
@@ -494,14 +499,10 @@ void cli_restore_stream(void) {
     }
 
     CurrentStream->cs_saved = 0;
-
-    // restore input processing
-    DbgUnmaskInput();
 }
 
 void cli_reset_stream(void) {
     int rtn;
-
     if (CurrentStream == NULL) return;
 
     // call to external reset stream function
@@ -878,12 +879,17 @@ void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
 
 // common code between ProgOutLineStream and ProgOutLineStrings
 static void ProgOutLine(dbginvoke_t *di, const char* line) {
+
     if (Client.XML_mode) {
         fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
                 di->d_handle, (unsigned int)strlen(line));
         fprintf(CurrentStream->cs_fpout, "%s", line);
         fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
-    } else {
+    }else if (Client.MI_mode){
+        // TEMPORARY HACK
+        //fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
+        fprintf(AllStreams[0]->cs_fpout, "<$%s>: %s", di->d_handle, line);
+    }else {
         fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
     }
 }
@@ -958,9 +964,9 @@ void PrintOutError(const char *format, ...) {
 }
 
 void vPrintOutError(const char *format, va_list arg_list) {
-    // we need to disable input processing while we are printing
+     // we need to disable input processing while we are printing
     DbgMaskInput();
-
+    
     // ensure that there is an error stream to print to in the current stream
     if (CurrentStream == NULL || CurrentStream->cs_fperr == NULL) {
         // otherwise default to stderr
@@ -971,6 +977,7 @@ void vPrintOutError(const char *format, va_list arg_list) {
 
         return;
     }
+
 
     // clear the current line this should contain a prompt
     cli_clear_line();
@@ -1016,7 +1023,7 @@ void PrintOutMsg(const char *format, ...) {
 void vPrintOutMsg(const char *format, va_list arg_list) {
     // we need to disable input processing while we are printing
     DbgMaskInput();
-
+    
     // ensure that there is an output stream to print to in the current stream
     if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL) {
         // otherwise default to stdout
@@ -1027,13 +1034,11 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
 
         return;
     }
-
+    
     // clear the current line this should contain a prompt
     cli_clear_line();
-
     // vfprintf the line we recieved
     vfprintf(CurrentStream->cs_fpout, format, arg_list);
-
     // restore input processing
     DbgUnmaskInput();
 }
@@ -1062,7 +1067,7 @@ void vPrintToFd(FILE *fd, const char *format, va_list arg_list) {
 
     // vfprintf the line we recieved
     vfprintf(fd, format, arg_list);
-
+    
     // restore input processing
     DbgUnmaskInput();
 }

@@ -79,6 +79,44 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+std::string ProcSetToString(dbgprocset_t *s) {
+    int n = 0;
+    std::stringstream ss;
+    dbg_over_set_t *over_set;
+
+    if (EmptyList(s->s_over_set_list)) {
+        ss<<"none";
+        return ss.str();
+    }
+
+    SetList(s->s_over_set_list);
+
+    // Here we want to print the "actual" ranks in the procset, not the "offset"
+    // ranks.
+    while ((over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) !=
+           NULL) {
+        ss<<over_set->s_di->d_handle;
+        std::string si = over_set->s_di_bs->toSetString();
+        if (s->s_threads) {
+            // insert the thread info
+            std::string setInfo{si};
+            auto loc = setInfo.rfind('}');
+            if (loc != std::string::npos) {
+                setInfo = setInfo.substr(0,loc) + ":" + s->s_threads + "}";
+            }
+            ss<<setInfo.c_str();
+        } else {
+            ss<<si.c_str();
+        }
+
+        n += over_set->s_di_bs->numSet();
+        if (n < s->s_nproc) {
+            ss<<",";
+        }
+    }
+    return ss.str();
+}
+
 static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *ex;
     val_t *val;
@@ -113,15 +151,28 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     }
 
-    PrintOutMsg("Name       Procs\n");
-
     SetProcSet();
-    while ((procset = GetProcSet()) != nullptr) {
-        PrintOutMsg("%-10s ", procset->s_name);
-        PrintProcSet(procset);
-        PrintOutMsg("\n");
+    if (Client.MI_mode){
+        std::stringstream ss;
+        while ((procset = GetProcSet()) != nullptr) {
+            if (!ss.str().empty()){
+                ss<<",";
+            }else{
+                ss<<"[";
+            }
+            std::string proc_str = ProcSetToString(procset);
+            ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
+        }
+        ss<<"]";
+        PrintOutMsg( mi_response("done","pe_sets",ss.str().c_str()));
+    }else{
+        PrintOutMsg("Name       Procs\n");
+        while ((procset = GetProcSet()) != nullptr) {
+            PrintOutMsg("%-10s ", procset->s_name);
+            PrintProcSet(procset);
+            PrintOutMsg("\n");
+        }
     }
-
     return 1;
 }
 

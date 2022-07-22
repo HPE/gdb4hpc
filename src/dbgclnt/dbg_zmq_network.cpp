@@ -16,11 +16,57 @@
 #define LOG(...) /**/
 #endif
 
+namespace {
+
+struct UnpackedMessage {
+    std::unique_ptr<char, decltype(&std::free)> data;
+    uint64_t hash;
+    std::unique_ptr<DenseBitset> bitset;
+};
+
+UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) {
+    LOG("unpacking: \n");
+    LOG("\tdata: %s\n", reader.getData().cStr());
+    LOG("\thash: %lu\n", reader.getHash());
+    auto bitsetPtr = reader.getBitset().asChars().begin();
+    auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
+    LOG("\tbitset: %s\n", lrunbitset->toSetString().c_str());
+    auto densebitset = bitset::createDenseFrom(*lrunbitset);
+
+    return {
+        .data = std::unique_ptr<char, decltype(&std::free)>(strndup(reader.getData().cStr(), reader.getData().size()), std::free), 
+        .hash = reader.getHash(), 
+        .bitset = std::move(densebitset)
+    };
+}
+
+} // anonymous namespace
+
 ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, OutputPtr &&output, std::unique_ptr<Bitset> &&allRanks)
     : m_network{std::move(frontend)}
     , m_output_watcher{std::move(output)}
     , m_stream_table(*m_network, std::move(allRanks))
-{}
+{
+    // Generate an error if a dbgsrv exits unexpectedly
+    m_network->registerCallback<zmqnet::Event::LeafExit>([this](int rank) {
+        // rank will be 0-indexed, so add 1 for size argument
+        auto bitset = std::make_unique<SparseBitset>(rank + 1);
+        bitset->set(rank);
+
+        // generate an error event. the message will have rank info prepended
+        // by the async callback handling functions
+        auto error = NewErrorEvent(DBGERR_INTERNAL,
+            "Remote debugger disappeared. This is a bug. Please report it!",
+            rank
+        );
+
+        // Async event callbacks want messages in soc proto form.
+        // EventToSocProto free()'s error.
+        auto socProto = EventToSocProto(error);
+
+        m_stream_table.injectAsyncEvent(ProtoMessage(std::move(bitset), std::move(socProto)));
+    });
+}
 
 std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
@@ -43,24 +89,12 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
 
     // wait for result
     LOG("waiting for result...\n");
-    
+
     auto &stream = m_stream_table.getCommandStream(target);
-    zmqnet::ByteArray reply = stream.extractResult();
-
-    // unpack data
-    auto reader = getReaderFromData(reply);
-    auto pack = reader.getRoot<ZmqnetMessagePackage>();
-    auto result = ProtoMessageSet();
-
-    // construct proto message set, update received
-    for (const auto message : pack.getMessages()) {
-        auto unpacked = unpackMessageReader(message);
-    
-        received |= *unpacked.bitset;
-
-        result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+    auto result = stream.extractResult();
+    for (const auto& res : result) {
+        received |= *res.getBitset();
     }
-
     return result;
 }
 
@@ -71,20 +105,7 @@ int ZMQNetNetwork::checkEvents() {
 
 ProtoMessageSet ZMQNetNetwork::releaseEvents() {
     // LOG("%s\n", __PRETTY_FUNCTION__);
-    auto messages = ProtoMessageSet{};
-
-    for (const auto &eventData : m_stream_table.releaseAsyncEvents()) {
-        auto reader = getReaderFromData(eventData);
-        auto pack = reader.getRoot<ZmqnetMessagePackage>();
-
-        messages.reserve(pack.getMessages().size());
-        for (const auto &message : pack.getMessages()) {
-            auto unpacked = unpackMessageReader(message);
-            messages.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
-        }
-    }
-
-    return messages;
+    return m_stream_table.releaseAsyncEvents();
 }
 
 std::vector<std::string> ZMQNetNetwork::releaseOutputLines() {
@@ -94,25 +115,12 @@ std::vector<std::string> ZMQNetNetwork::releaseOutputLines() {
 int ZMQNetNetwork::exit() {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (m_network) m_network->runExit();
+    if (m_network) {
+        m_network->removeCallback<zmqnet::Event::LeafExit>();
+        m_network->runExit();
+    }
 
     return 0;
-}
-
-ZMQNetNetwork::UnpackedMessage ZMQNetNetwork::unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const {
-    LOG("unpacking: \n");
-    LOG("\tdata: %s\n", reader.getData().cStr());
-    LOG("\thash: %lu\n", reader.getHash());
-    auto bitsetPtr = reader.getBitset().asChars().begin();
-    auto lrunbitset = std::make_unique<LRunLEBitset>(bitsetPtr);
-    LOG("\tbitset: %s\n", lrunbitset->toSetString().c_str());
-    auto densebitset = bitset::createDenseFrom(*lrunbitset);
-
-    return {
-        .data = std::unique_ptr<char, decltype(&std::free)>(strndup(reader.getData().cStr(), reader.getData().size()), std::free), 
-        .hash = reader.getHash(), 
-        .bitset = std::move(densebitset)
-    };
 }
 
 ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
@@ -156,15 +164,29 @@ void ZMQNetNetwork::StreamTable::CommandStream::sendCommand(const char *command,
     m_parentNetwork.sendCommand(*m_stream, command, len);
 }
 
-zmqnet::ByteArray ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
+ProtoMessageSet ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
     LOG("CommandStream %d: extracting...\n", m_stream->id);
-    std::unique_lock<std::mutex> lock(m_resultLock);
-    m_resultCV.wait(lock, [&]() { return m_resultReady; });
+    auto reply = [this](){
+        std::unique_lock<std::mutex> lock(m_resultLock);
+        m_resultCV.wait(lock, [&]() { return m_resultReady; });
 
-    auto reply = std::move(m_result);
-    m_resultReady = false;
+        auto rep = std::move(m_result);
+        m_resultReady = false;
+        return rep;
+    }();
 
-    return reply;
+    // unpack data
+    auto reader = getReaderFromData(reply);
+    auto pack = reader.getRoot<ZmqnetMessagePackage>();
+    auto result = ProtoMessageSet();
+
+    // construct proto message set, update received
+    for (const auto message : pack.getMessages()) {
+        auto unpacked = unpackMessageReader(message);
+        result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+    }
+
+    return result;
 }
 
 ZMQNetNetwork::StreamTable::StreamTable(
@@ -233,7 +255,11 @@ bool ZMQNetNetwork::StreamTable::hasAsyncEvent() {
     return m_event_queue.hasItem();
 }
 
-std::vector<zmqnet::ByteArray> ZMQNetNetwork::StreamTable::releaseAsyncEvents() {
+void ZMQNetNetwork::StreamTable::injectAsyncEvent(ProtoMessage&& expiring) {
+    m_event_queue.enqueue(std::move(expiring));
+}
+
+ProtoMessageSet ZMQNetNetwork::StreamTable::releaseAsyncEvents() {
     return m_event_queue.getAll();
 }
 
@@ -245,7 +271,15 @@ ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &pare
     const auto event_callback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
         LOG("event_callback %d %s\n", streamId, result.begin());
 
-        m_parentQueue.enqueue(zmqnet::make_ByteArray(result.begin(), result.size()));
+        // unpack and enqueue
+        auto data = zmqnet::make_ByteArray(result.begin(), result.size());
+        auto reader = getReaderFromData(data);
+        auto pack = reader.getRoot<ZmqnetMessagePackage>();
+        for (const auto& msg : pack.getMessages()) {
+            auto unpacked = unpackMessageReader(msg);
+            m_parentQueue.enqueue(ProtoMessage(std::move(unpacked.bitset), std::move(unpacked.data)));
+        }
+
         LOG("event_callback %d, successfully enqueued\n", streamId);
     };
 

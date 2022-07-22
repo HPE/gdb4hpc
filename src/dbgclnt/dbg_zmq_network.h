@@ -74,13 +74,7 @@ public:
     std::vector<std::string> releaseOutputLines();
     int exit();
 private:
-    using EventQueue = detail::AsyncQueue<zmqnet::ByteArray>;
-
-    struct UnpackedMessage {
-        std::unique_ptr<char, decltype(&std::free)> data;
-        uint64_t hash;
-        std::unique_ptr<DenseBitset> bitset;
-    };
+    using EventQueue = detail::AsyncQueue<ProtoMessage>;
 
     class StreamTable {
         // Interface to a hash table mapping bitsets to active streams. 
@@ -100,7 +94,7 @@ private:
             CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
 
             void sendCommand(const char *command, size_t len);
-            zmqnet::ByteArray extractResult();
+            ProtoMessageSet extractResult();
 
         private:
             zmqnet::AsyncFrontend &m_parentNetwork;
@@ -133,7 +127,8 @@ private:
         StreamTable(zmqnet::AsyncFrontend &parentNetwork, std::unique_ptr<Bitset> &&allRanks);
         CommandStream& getCommandStream(const Bitset *target);
         bool hasAsyncEvent();
-        std::vector<zmqnet::ByteArray> releaseAsyncEvents();
+        void injectAsyncEvent(ProtoMessage&& expiring);
+        ProtoMessageSet releaseAsyncEvents();
 
     private:
         zmqnet::AsyncFrontend &m_parentNetwork;
@@ -168,8 +163,6 @@ private:
         detail::AsyncQueue<std::string> m_output_queue;
         std::atomic<bool> m_keep_going;
     };
-
-    UnpackedMessage unpackMessageReader(const ZmqnetMessagePackage::ZmqnetMessage::Reader &reader) const;
 
     std::unique_ptr<zmqnet::AsyncFrontend> m_network;
     OutputWatcher m_output_watcher;

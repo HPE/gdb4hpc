@@ -592,6 +592,9 @@ void Server(void) {
         if (Shutdown) break;
     }
 
+    // TODO Fix up this exit sequence
+    DbgEndProto();
+
     if (AtServerExit)
         AtServerExit();
 }
@@ -599,8 +602,6 @@ void Server(void) {
 void EndServer() {
     DVPRINT("EndServer called\n");
     DbgFinalize();
-    DbgEndProto();
-
     DVPRINT("Returning from EndServer...\n");
 }
 

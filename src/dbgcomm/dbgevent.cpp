@@ -997,8 +997,6 @@ const char *DbgevToStr(dbgev ev) {
 }
 
 dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
-    fprintf(stderr, "In NewErrorEvent %s\n", fmt);
-    
     auto e = NewEvent(DBGEV_ERROR);
     e->ev_errno = err;
 

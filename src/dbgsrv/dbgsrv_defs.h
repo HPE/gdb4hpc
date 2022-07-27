@@ -31,7 +31,6 @@ extern const char* custom_gdb;
 extern const char* custom_gdb_data;
 
 extern void _dvprint(const char *format, ...) __attribute__((format (printf,1,2)));
-extern void ResetWDT(void);
 
 #define DVPRINT(...) \
     (debug_flag ? _dvprint(__VA_ARGS__) : (void)0)

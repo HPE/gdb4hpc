@@ -1476,59 +1476,32 @@ dbgevent_t *DbgGdbMI::Initializer::setArgs(const char *arg) {
 dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     /*
-    ** Interrupt the process if it is running. This will generate a async event.
+    ** Interrupt the process if it is running. This will generate an async event.
     ** We want to grab it and ignore it.
-    ** We only want to do this if we are not detaching.
     */
-    if (m_dbg.isRunning() && !detach) {
-        DVPRINT("DbgQuit: Sending SIGSTOP to process.\n");
-        // wait for the asynch command to complete
-        sendSigstop();
+
+    if (m_dbg.isRunning()) {
+        DVPRINT("DbgQuit: Stopping program.\n");
+
+        // gdbmi will catch this, generating an async event.
+        // gdbmi will stop the inferior in response to the event,
+        // but the inferior will not actually get the signal yet.
+        sendAndCatchSigstop();
+
         auto e = m_dbg.waitAndProcessAsyncEvent();
         FreeEvent(e);
     }
 
-    DVPRINT("DbgQuit: Signal shutdown state.\n");
-
-    // signal the shutdown state
-    // We delay detaching gdb because on some systems (looking at you cfa6k)
-    // the application will then finish and the WLM immediately kills the
-    // tool processes - which would then kill MRNet before the front
-    // end got a response.   
-    AtServerExit = [this,detach] { this->quitGdb(detach); };
-    Shutdown++;
+    // Even if we are detaching, we stop the process so that it will not finish
+    // while the network cleans itself up, resulting in the WLM killing the whole
+    // network before the client knows.
+    // We let the client kill (or continue in the detach case) the process
+    // via CTI once network cleanup is done.
+    if (!sendAndDeliverSigstop()) {
+        DVPRINT("WARNING: failed to send a SIGSTOP to the inferior for shutdown.\n");
+    }
 
     return NewEvent(DBGEV_OK);
-}
-
-void DbgGdbMI::Initializer::quitGdb(bool detach) {
-
-    DVPRINT("DbgQuit: Detaching from process.\n");
-
-    auto cmd = MITargetDetach(m_pid);
-
-    SendMICommand(m_session, cmd);
-
-#ifdef ALPS
-    /*
-    ** On Cray systems there is a nasty race condition where alps kills off
-    ** the toolhelper daemons (i.e. gdb) before the application processes. This
-    ** means that when this happens there is a chance that the application will
-    *continue
-    ** and often cause a segfault. Detatching and then sending SIGSTOP fixes the
-    ** issue.
-    */
-
-    // If the command completed ok, we need to send SIGSTOP ASAP!!!
-    // Unless we are already at the exit breakpoint, so we can 
-    // (hopefully) let it exit gracefully.
-    if (MICommandResultOK(cmd) && !detach && !m_dbg.isAtExit()) {
-        sendSigstop();
-        DVPRINT("DbgQuit: Sent process SIGSTOP.\n");
-    }
-#endif
-
-    MICommandFree(cmd);
 }
 
 /*
@@ -1543,7 +1516,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
 
     if (m_dbg.isRunning()) {
         DVPRINT("RUNNING - sending SIGSTOP\n");
-        if (sendSigstop()) {
+        if (sendAndCatchSigstop()) {
             switch (errno) {
                 case EINVAL:
                     EVENT_ERROR(e, DBGERR_DEBUGGER, "Invalid signal SIGSTOP.");
@@ -1712,8 +1685,28 @@ bool DbgGdbMI::Initializer::ignoreSigstop() {
     else { m_ignoreSigstop = true; return false; }
 }
 
-int DbgGdbMI::Initializer::sendSigstop() {
+int DbgGdbMI::Initializer::sendAndCatchSigstop() {
     m_ignoreSigstop = false;
     return ::kill(m_pid, SIGSTOP);
+}
 
+[[nodiscard]] bool DbgGdbMI::Initializer::sendAndDeliverSigstop() {
+    DVPRINT("Sending a SIGSTOP directly to the inferior.\n");
+
+    // "SignalInfo" is a misnomer. This function is the equivalent of the command
+    // "signal SIGSTOP", which just sends a SIGSTOP without gathering any "info"
+    MICommand* cmd = CLISignalInfo("SIGSTOP");
+    if (!cmd) return false;
+
+    // XXX: CLISignalInfo will set the cmd up expecting an MIResultRecordDONE (^done).
+    // The signal command actually generates a MIResultRecordRUNNING (^running),
+    // even after a SIGSTOP.
+    cmd->expected_class = MIResultRecordRUNNING;
+
+    SendMICommand(m_session, cmd);
+    auto ok = static_cast<bool>(MICommandResultOK(cmd));
+
+    MICommandFree(cmd);
+
+    return ok;
 }

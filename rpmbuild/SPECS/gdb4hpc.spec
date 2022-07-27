@@ -576,6 +576,12 @@ then
     echo "Uninstalled version and .version file match = ${default_version}."
     echo "Removing %{modulefile_name} .version file."
     %{__rm} -f ${default_link}
+
+    # Attempt to determine the latest version installed & reset the default link
+    latest_version=$(ls ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/* | xargs -d'\n' -n 1 basename | tail -1)
+    if [ ! -z $latest_version ]; then
+      echo "Setting default to ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{latest_version}"
+      ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{latest_version}
   fi
 fi
 
@@ -623,6 +629,8 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo
@@ -664,7 +672,7 @@ fi
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda110-gdb-guard
@@ -765,6 +773,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
 
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test

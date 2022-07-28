@@ -208,6 +208,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__gzip} -c %{external_build_dir}/libexec/dbgsrv_trampoline > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 
 %ifnarch aarch64
@@ -560,7 +561,7 @@ else
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
     %{__sed} -i "/^setenv[[:space:]]*GDB4HPC_INSTALL_DIR.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
-%{__gzip} -d -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+%{__gzip} -c -d -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz > ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
@@ -576,12 +577,6 @@ then
     echo "Uninstalled version and .version file match = ${default_version}."
     echo "Removing %{modulefile_name} .version file."
     %{__rm} -f ${default_link}
-
-    # Attempt to determine the latest version installed & reset the default link
-    latest_version=$(ls ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/* | xargs -d'\n' -n 1 basename | tail -1)
-    if [ ! -z $latest_version ]; then
-      echo "Setting default to ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{latest_version}"
-      ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{latest_version}
   fi
 fi
 
@@ -672,7 +667,8 @@ fi
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda110-gdb-guard

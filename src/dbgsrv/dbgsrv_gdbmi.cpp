@@ -2728,6 +2728,7 @@ dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
 void DbgGdbMI::finalize() {
     MICommand *cmd;
 
+    DVPRINT("DbgGdbMI::finalize: sending exit.\n");
     cmd = MIGDBExit();
     SendMICommand(GDBMISession, cmd);
     MICommandFree(cmd);

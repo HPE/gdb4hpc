@@ -80,13 +80,15 @@ static int cli_readline_init(cli_stream_t **stream) {
     switch (cs->cs_type) {
         case CLI_NOTTY_STREAM:
             cs->cs_fpin = cs->cs_notty_in;
-            cs->cs_fpout = cs->cs_notty_out;
+            cs->cs_out.setOut(cs->cs_notty_out);
+            cs->cs_fpprog = cs->cs_notty_out;
             cs->cs_fperr = cs->cs_notty_err;
             break;
 
         case CLI_TTY_STREAM:
             cs->cs_fpin = cs->cs_tty_in;
-            cs->cs_fpout = cs->cs_tty_out;
+            cs->cs_out.setOut(cs->cs_tty_out);
+            cs->cs_fpprog = cs->cs_tty_out;
             cs->cs_fperr = cs->cs_tty_err;
             break;
 
@@ -97,12 +99,10 @@ static int cli_readline_init(cli_stream_t **stream) {
     }
 
     cs->cs_fdin = fileno(cs->cs_fpin);
-    cs->cs_fdout = fileno(cs->cs_fpout);
-    cs->cs_fderr = fileno(cs->cs_fperr);
 
     // Set the readline input and output streams
     rl_instream = cs->cs_fpin;
-    rl_outstream = cs->cs_fpout;
+    rl_outstream = cs->cs_out.getOut();
 
     /*
     ** Readline init stuff.

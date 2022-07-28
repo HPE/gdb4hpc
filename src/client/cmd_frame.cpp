@@ -168,7 +168,7 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     bool verbose = false;
     if (argc == 2 && std::string{argv[1]} == "-v") verbose = true;
     else if (argc > 1) {
-        PrintOutError("unrecognized argument expected [-v]");
+        PrintOutError("unrecognized argument expected [-v]\n");
         return 1;
     }
 

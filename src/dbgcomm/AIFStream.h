@@ -103,9 +103,8 @@ public:
     int toInt(int& val);
 
     // Print the data in human readable form
-    int print(FILE* fp);
-    int print(FILE* fp, const std::string& label);
     void print(std::ostream & out);
+    void print(std::ostream& out, const std::string& label);
 
     // Create an AIFStream representing a single value
     static AIFStream* fromInt(int val);

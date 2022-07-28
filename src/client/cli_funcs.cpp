@@ -28,12 +28,7 @@
 /*
 ** Static internal definitions
 */
-static cli_stream_t *vNewCLIStream(cli_type_t, interpreter_type,
-                                   cli_stream_args_t *, int,
-                                   va_list);
-static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type,
-                                  cli_stream_args_t *, int, ...);
-static void DestroyCLIStream(cli_stream_t *);
+static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *, int, ...);
 static void cli_handle_error(void);
 static void ProgOutLineStream(dbginvoke_t *, FILE *);
 static void ProgOutLineStrings(dbginvoke_t *, const std::vector<std::string> &lines);
@@ -89,17 +84,12 @@ void InitCLI(cli_type_t default_type, interpreter_type interpreter,
     DbgHandleOutput(ProgOutLineStrings); // handle vector<string>
 
     // Install the input callback handler in the dbg_client layer
-    DbgHandleInput(Client.cli_in_fd, CurrentStream, cli_handle_input);
+    DbgHandleInput(CurrentStream->cs_fdin, CurrentStream, cli_handle_input);
 }
 
 void DbgSwitchCurrentStream(cli_stream_t* stream){
     CurrentStream = stream;
-    Client.cli_in_stream = CurrentStream->cs_fpin;
-    Client.cli_out_stream = CurrentStream->cs_fpout;
-    Client.cli_err_stream = CurrentStream->cs_fperr;
-    Client.cli_in_fd = CurrentStream->cs_fdin;
-    Client.cli_out_fd = CurrentStream->cs_fdout;
-    Client.cli_err_fd = CurrentStream->cs_fderr;
+    Client.cli_out = CurrentStream->cs_out;
     Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
     Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
 }
@@ -107,19 +97,13 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
 void DestroyCLI(void) {
     // Destroy the stream queue
     for (auto s : AllStreams)
-        DestroyCLIStream(s);
+        delete s;
     AllStreams.clear();
 
     // Null out the global variables
     CurrentStream = nullptr;
 
-    Client.cli_in_stream = nullptr;
-    Client.cli_out_stream = nullptr;
-    Client.cli_err_stream = nullptr;
-
-    Client.cli_in_fd = -1;
-    Client.cli_out_fd = -1;
-    Client.cli_err_fd = -1;
+    Client.cli_out.reset();
 }
 
 int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
@@ -133,7 +117,8 @@ int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
     // First create the new stream
     va_start(pargs, nprom);
 
-    stream = vNewCLIStream(type, interpreter, args, nprom, pargs);
+    stream = new cli_stream_t(type, interpreter, args, nprom, pargs);
+
     va_end(pargs);
 
         // Make sure the call didn't fail
@@ -161,7 +146,7 @@ void DestroyCurrentCLIStream(void) {
     cli_clear_line();
     AllStreams.erase(std::remove(AllStreams.begin(), AllStreams.end(), CurrentStream),
                      AllStreams.end());
-    DestroyCLIStream(CurrentStream);
+    delete CurrentStream;
 
     // reset to the default
     SetDefaultCLIStream();
@@ -189,68 +174,27 @@ static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter,
                                   cli_stream_args_t *args,
                                   int nprom, ...) {
     va_list pargs;
-    cli_stream_t *rtn;
 
     va_start(pargs, nprom);
 
-    rtn = vNewCLIStream(type, interpreter, args, nprom, pargs);
+    auto rtn = new cli_stream_t(type, interpreter, args, nprom, pargs);
 
     va_end(pargs);
 
     return rtn;
 }
 
-static cli_stream_t *vNewCLIStream(cli_type_t type,
-                                   interpreter_type interpreter,
-                                   cli_stream_args_t *args,
-                                   int nprom, va_list pargs) {
-    int rtn;
-    int n;
-    cli_stream_t *cs;
-
-    cs = (cli_stream_t *)Alloc(sizeof(cli_stream_t));
-    // force it to be empty
-    memset(cs, 0, sizeof(cli_stream_t));
-
-    // set the type
-    cs->cs_type = type;
-    // Initialize the fd and fp members, note that it is the external init
-    // functions responsibility to set these.
-    cs->cs_fdin = -1;
-    cs->cs_fdout = -1;
-    cs->cs_fderr = -1;
-    cs->cs_fpin = NULL;
-    cs->cs_fpout = NULL;
-    cs->cs_fperr = NULL;
-    // prompt information
-    cs->cs_nprom = 0;
-    cs->cs_plevel = 0;
-    cs->cs_prompts = NULL;
-    cs->cs_prompt = NULL;
-    cs->cs_tmp_prompt = NULL;
-    // buffer information
-    cs->cs_buf = NULL;
-    cs->cs_buf_size = 0;
-    cs->cs_buf_point = 0;
-    // various state information
-    cs->cs_line = 1;
-    cs->cs_err = 0;
-    cs->cs_saved = 0;
-    cs->cs_handling = 0;
-    cs->cs_seq = 0;
-    cs->cs_in_cmd = 0;
-    cs->cs_interpreter = interpreter;
-    cs->cs_num = 0;
-    // list for deferred print
-    cs->cs_deferred = NewList();
-
+cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_stream_args_t *args,
+                           int nprom, va_list pargs) :
+    cs_type(type), cs_interpreter(interpreter), cs_args(args), cs_logging(cs_out)
+{
     // Set the prompts if the user supplied any
     if (nprom > 0) {
-        cs->cs_nprom = nprom;
-        cs->cs_prompts = (char **)Alloc(sizeof(char *) * nprom);
+        cs_nprom = nprom;
+        cs_prompts = (char **)Alloc(sizeof(char *) * nprom);
 
-        for (n = 0; n < nprom; n++) {
-            cs->cs_prompts[n] = strdup(va_arg(pargs, char *));
+        for (int n = 0; n < nprom; n++) {
+            cs_prompts[n] = strdup(va_arg(pargs, char *));
         }
     }
 
@@ -258,75 +202,65 @@ static cli_stream_t *vNewCLIStream(cli_type_t type,
         case CLI_NOTTY_STREAM:
             // TODO: Create an external definition for no tty if needed.
         case CLI_TTY_STREAM:
-            cs->cs_ext_funcs = cli_get_readline_funcs();
+            cs_ext_funcs = cli_get_readline_funcs();
             break;
 
         case CLI_SOCKET_STREAM:
-            cs->cs_ext_funcs = cli_get_socket_funcs();
+            cs_ext_funcs = cli_get_socket_funcs();
             break;
 
         case CLI_FILE_STREAM:
-            cs->cs_ext_funcs = cli_get_file_funcs();
+            cs_ext_funcs = cli_get_file_funcs();
             break;
     }
 
-    // set the args
-    cs->cs_args = args;
 
     // An external init function is required since these set the the fp and fd
     // members of the stream
-    if (cs->cs_ext_funcs->external_init == NULL) {
+    if (!cs_ext_funcs->external_init) {
         PrintOutError(
             "Error: No external_init() function defined for cli stream "
             "type.\n");
         // set the external destroy function to null since it wasn't able to
         // init
-        cs->cs_ext_funcs->external_destroy = NULL;
+        cs_ext_funcs->external_destroy = nullptr;
         // destroy the cs
-        DestroyCLIStream(cs);
-        // return null
-        return (cli_stream_t *)NULL;
+
+        //DestroyCLIStream(cs);
     }
 
     // call to external init function
-    rtn = (*cs->cs_ext_funcs->external_init)(&cs);
-    if (rtn) {
+    auto tp = this;
+    if ((*cs_ext_funcs->external_init)(&tp)) {
         PrintOutError("Error: cli external_init() failed.\n");
         // destroy the cs
-        DestroyCLIStream(cs);
-        // return null
-        return nullptr;;
+        //DestroyCLIStream(cs);
     }
-    return cs;
 }
 
-static void DestroyCLIStream(cli_stream_t *cs) {
-    if (cs == nullptr) return;
+cli_stream_t::~cli_stream_t() {
+    DbgUnhandleInput(this);
 
-    DbgUnhandleInput(cs);
-
-    if (cs->cs_prompts != (char **)NULL) {
-        for (int n = 0; n < cs->cs_nprom; n++) Free(cs->cs_prompts[n]);
-
-        Free(cs->cs_prompts);
+    if (cs_prompts) {
+        for (int n = 0; n < cs_nprom; n++) Free(cs_prompts[n]);
+        free(cs_prompts);
     }
 
     // call to external destroy function
-    if (cs->cs_ext_funcs->external_destroy != NULL) {
-        if ((*cs->cs_ext_funcs->external_destroy)(&cs)) {
+    if (cs_ext_funcs->external_destroy) {
+        auto cs = this;
+        if ((*cs_ext_funcs->external_destroy)(&cs)) {
             PrintOutError("Warning: external_destroy() failed.\n");
         }
     } else {
         // Free it
-        Free(cs->cs_ext_funcs);
+        free(cs_ext_funcs);
     }
 
     // Destroy the deferred list
-    DestroyList(cs->cs_deferred, (void (*)(void *))Free);
+    DestroyList(cs_deferred, free);
 
-    DestroyCLIArgs(cs->cs_type, cs->cs_args);
-
-    Free(cs);
+    DestroyCLIArgs(cs_type, cs_args);
 }
 
 cli_stream_args_t *NewCLIArgs(cli_type_t type, ...) {
@@ -672,12 +606,12 @@ int cli_start_response(int seq) {
         // Respond to the invalid seq num with an empty response
         PrintOutMsg(XML_RESPONSE_START, seq);
         PrintOutMsg(XML_RESPONSE_END);
-        if (CurrentStream->cs_fpout != NULL) fflush(CurrentStream->cs_fpout);
+        CurrentStream->cs_out.flush();
         return 0;
     }
 
     PrintOutMsg(XML_RESPONSE_START, CurrentStream->cs_seq);
-    if (CurrentStream->cs_fpout != NULL) fflush(CurrentStream->cs_fpout);
+    CurrentStream->cs_out.flush();
 
     // Increment the seq num
     CurrentStream->cs_seq = (CurrentStream->cs_seq+1) % XML_MAX_SEQ;
@@ -697,7 +631,7 @@ void cli_end_response(void) {
     if (!Client.XML_mode) return;
 
     PrintOutMsg(XML_RESPONSE_END);
-    if (CurrentStream->cs_fpout != NULL) fflush(CurrentStream->cs_fpout);
+    CurrentStream->cs_out.flush();
 
     // Print any deferred messages
     while ((xml_msg = (char *)RemoveFirst(CurrentStream->cs_deferred)) !=
@@ -879,18 +813,13 @@ void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
 
 // common code between ProgOutLineStream and ProgOutLineStrings
 static void ProgOutLine(dbginvoke_t *di, const char* line) {
-
+    auto f = CurrentStream->cs_fpprog;
     if (Client.XML_mode) {
-        fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_START,
-                di->d_handle, (unsigned int)strlen(line));
-        fprintf(CurrentStream->cs_fpout, "%s", line);
-        fprintf(CurrentStream->cs_fpout, XML_PROG_OUTPUT_END);
-    }else if (Client.MI_mode){
-        // TEMPORARY HACK
-        //fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
-        fprintf(AllStreams[0]->cs_fpout, "<$%s>: %s", di->d_handle, line);
-    }else {
-        fprintf(CurrentStream->cs_fpout, "<$%s>: %s", di->d_handle, line);
+        fprintf(f, XML_PROG_OUTPUT_START, di->d_handle, (unsigned int)strlen(line));
+        fprintf(f, "%s", line);
+        fprintf(f, XML_PROG_OUTPUT_END);
+    } else {
+        fprintf(f, "<$%s>: %s", di->d_handle, line);
     }
 }
 
@@ -899,7 +828,7 @@ static void ProgOutLine(dbginvoke_t *di, const char* line) {
 */
 static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
     // ensure that there is an output stream to print to in the current stream
-    if (CurrentStream == nullptr || CurrentStream->cs_fpout == nullptr) return;
+    if (!CurrentStream || !CurrentStream->cs_fpprog) return;
 
     char line[BUFSIZ];
 
@@ -914,7 +843,7 @@ static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
 
 static void ProgOutLineStrings(dbginvoke_t *di, const std::vector<std::string> &lines) {
     // ensure that there is an output stream to print to in the current stream
-    if (CurrentStream == nullptr || CurrentStream->cs_fpout == nullptr) return;
+    if (!CurrentStream || !CurrentStream->cs_fpprog) return;
 
     cli_save_stream();
 
@@ -932,17 +861,12 @@ void PrintOutLine(const char *format, ...) {
     va_list arg_list;
 
     // ensure that there is an output stream to print to in the current stream
-    if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL) return;
+    if (!CurrentStream) return;
 
     cli_save_stream();
 
-    // setup the va_list
     va_start(arg_list, format);
-
-    // vfprintf the line we recieved.
-    vfprintf(CurrentStream->cs_fpout, format, arg_list);
-
-    // end the va_list
+    CurrentStream->cs_out.vprintf(format, arg_list);
     va_end(arg_list);
 
     cli_restore_stream();
@@ -968,7 +892,7 @@ void vPrintOutError(const char *format, va_list arg_list) {
     DbgMaskInput();
     
     // ensure that there is an error stream to print to in the current stream
-    if (CurrentStream == NULL || CurrentStream->cs_fperr == NULL) {
+    if (!CurrentStream || !CurrentStream->cs_fperr) {
         // otherwise default to stderr
         vfprintf(stderr, format, arg_list);
 
@@ -986,19 +910,22 @@ void vPrintOutError(const char *format, va_list arg_list) {
     //      we want to output the error in an XML format ON STANDARD OUT!!!
     // FIXME: This is a current CCDB GUI requirement. I don't like this, but
     //         its what we have to deal with.
-    if (CurrentStream->cs_in_cmd && CurrentStream->cs_fpout &&
-        Client.XML_mode) {
+    auto f = CurrentStream->cs_fperr;
+    if (Client.XML_mode && CurrentStream->cs_in_cmd && CurrentStream->cs_out.getOut()) {
+
+        f = CurrentStream->cs_out.getOut();
+
         // Print out XML error start
-        fprintf(CurrentStream->cs_fpout, XML_RESPONSE_ERROR);
+        fprintf(f, XML_RESPONSE_ERROR);
 
         // Print out the message
-        vfprintf(CurrentStream->cs_fpout, format, arg_list);
+        vfprintf(f, format, arg_list);
 
         // Print out XML error end
-        fprintf(CurrentStream->cs_fpout, XML_RESPONSE_ERROR_END);
+        fprintf(f, XML_RESPONSE_ERROR_END);
     } else {
         // vfprintf the line we recieved
-        vfprintf(CurrentStream->cs_fperr, format, arg_list);
+        vfprintf(f, format, arg_list);
     }
 
     // restore input processing
@@ -1025,7 +952,7 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
     DbgMaskInput();
     
     // ensure that there is an output stream to print to in the current stream
-    if (CurrentStream == NULL || CurrentStream->cs_fpout == NULL) {
+    if (!CurrentStream) {
         // otherwise default to stdout
         vfprintf(stdout, format, arg_list);
 
@@ -1038,27 +965,27 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
     // clear the current line this should contain a prompt
     cli_clear_line();
     // vfprintf the line we recieved
-    vfprintf(CurrentStream->cs_fpout, format, arg_list);
+    CurrentStream->cs_out.vprintf(format, arg_list);
+
     // restore input processing
     DbgUnmaskInput();
 }
 
-// TODO: These are very kludge... Try to rewrite the functions that use this
-// to instead call the appropriate stream print functions.
+cli_out_t::cli_out_t() : m_out(nullptr), m_log(nullptr) {}
 
-void PrintToFd(FILE *fd, const char *format, ...) {
+void cli_out_t::operator()(const char *format, ...) {
     va_list arg_list;
 
     // setup the va_list
     va_start(arg_list, format);
 
-    vPrintToFd(fd, format, arg_list);
+    this->vprintf(format, arg_list);
 
     // end the va_list
     va_end(arg_list);
 }
 
-void vPrintToFd(FILE *fd, const char *format, va_list arg_list) {
+void cli_out_t::vprintf(const char *format, va_list args) {
     // we need to disable input processing while we are printing
     DbgMaskInput();
 
@@ -1066,13 +993,158 @@ void vPrintToFd(FILE *fd, const char *format, va_list arg_list) {
     cli_clear_line();
 
     // vfprintf the line we recieved
-    vfprintf(fd, format, arg_list);
-    
+    if (m_out && m_log) {
+        va_list args2;
+        va_copy(args2, args);
+        vfprintf(m_out, format, args);
+        vfprintf(m_log, format, args2);
+    } else if (m_out) {
+        vfprintf(m_out, format, args);
+    } else if (m_log) {
+        vfprintf(m_log, format, args);
+    }
+
     // restore input processing
     DbgUnmaskInput();
+}
+
+void cli_out_t::reset() {
+    m_out = m_log = nullptr;
+}
+
+void cli_out_t::flush() {
+    if (m_out) fflush(m_out);
+    if (m_log) fflush(m_log);
+}
+
+void cli_out_t::close() {
+    if (m_out) fclose(m_out);
+    if (m_log) fclose(m_log);
+    m_ostream.reset();
+}
+void cli_out_t::setOut(FILE* f) { m_out = f; m_ostream.reset(); }
+
+void cli_out_t::setLog(FILE* f) {
+    if (m_log && m_log != f) fclose(m_log);
+    m_log = f;
+    m_ostream.reset();
+}
+
+/*
+// Little adapter that takes C++ stream style input and sends it
+// to a C file handle
+class FileAdapter : public std::streambuf
+{
+public:
+    FileAdapter(FILE* f) : m_f(f) {}
+    std::streamsize xsputn(const char* s, std::streamsize n) override;
+    int overflow(int c = EOF) override;
+private:
+    FILE* m_f;
+};
+
+std::streamsize FileAdapter::xsputn(const char* s, std::streamsize n) { return fwrite(s,1,n,m_f); }
+int FileAdapter::overflow(int c) { return putc(c, m_f); }
+*/
+
+// Little adapter that takes C++ stream style input and sends it
+// to a C file handle
+class FileAdapter2 : public std::streambuf
+{
+public:
+    FileAdapter2(FILE* f1, FILE* f2) : m_f1(f1), m_f2(f2) {}
+    std::streamsize xsputn(const char* s, std::streamsize n) override;
+    int overflow(int c = EOF) override;
+private:
+    FILE *m_f1, *m_f2;
+};
+
+std::streamsize FileAdapter2::xsputn(const char* s, std::streamsize n) {
+    auto r1 = (m_f1 ? fwrite(s,1,n,m_f1) : 0);
+    auto r2 = (m_f2 ? fwrite(s,1,n,m_f2) : 0);
+    return (m_f1 ? r1 : r2);
+}
+int FileAdapter2::overflow(int c) {
+    int r1 = (m_f1 ? putc(c, m_f1) : 0);
+    int r2 = (m_f2 ? putc(c, m_f2) : 0);
+    return (m_f1 ? r1 : r2);
+}
+
+std::ostream& cli_out_t::ostream()
+{
+    if (!m_ostream) {
+        m_buff = std::make_shared<FileAdapter2>(m_out, m_log);
+        m_ostream = std::make_shared<std::ostream>(m_buff.get());
+    }
+    return *m_ostream;
 }
 
 /*
 ** fprintf the current saved error string
 */
 void PrintError() { PrintOutError("%s\n", GetError()); }
+
+cli_logging_t& GetLogging()
+{
+    return CurrentStream->cs_logging;
+}
+
+cli_logging_t::cli_logging_t(cli_out_t& out) : m_out(out) {}
+
+void cli_logging_t::setEnabled(bool enabled) {
+    if (enabled == m_enabled) {
+        return;
+    } else if (!enabled) {
+        m_out.setLog(nullptr);
+        if (m_redirected) {
+            // return output to cli
+            m_out.setOut(m_redirected);
+            m_redirected = nullptr;
+        }
+    } else if (!m_filename.empty()) {
+        startLog();
+    }
+
+    m_enabled = enabled;
+}
+
+void cli_logging_t::setFile(const std::string& filename) {
+    m_filename = filename;
+    if (m_enabled && !filename.empty())
+        startLog();
+}
+void cli_logging_t::startLog()
+{
+    if (FILE* f = fopen(m_filename.c_str(), m_overwrite ? "w" : "a")) {
+        m_out.setLog(f);
+        setRedirect(m_redirect);
+    } else {
+        PrintOutError("Could not open logfile: %s for writing\n", m_filename.c_str());
+    }
+}
+
+void cli_logging_t::setOverwrite(bool overwrite) {
+    // only takes effect the next time we start logging
+    m_overwrite = overwrite;
+}
+
+void cli_logging_t::setRedirect(bool redirect) {
+    if (m_enabled) {
+        // not checking m_redirect because startLog is using this
+        // to update the m_out state
+        if (redirect && !m_redirected) {
+            m_redirected = m_out.getOut();
+            m_out.setOut(nullptr);
+        } else if (!redirect && m_redirected) {
+            m_out.setOut(m_redirected);
+            m_redirected = nullptr;
+        }
+    }
+
+    m_redirect = redirect;
+}
+
+bool cli_logging_t::isEnabled() const { return m_enabled; }
+std::string cli_logging_t::getFile() const { return m_filename; }
+bool cli_logging_t::isOverwrite() const { return m_overwrite; }
+bool cli_logging_t::isRedirect() const { return m_redirect; }

@@ -216,21 +216,21 @@ int FindArg(arg_t **v, hentry_t *sym, func_t *f) {
     return 0;
 }
 
-void PrintFunc(FILE *fp, func_t *f) {
+void PrintFunc(cli_out_t& fp, func_t *f) {
     int n = 0;
     hentry_t *sym;
 
     if (f == (func_t *)NULL) return;
 
-    PrintToFd(fp, "%s(", SymLookup(f->f_sym));
+    fp("%s(", SymLookup(f->f_sym));
 
     SetList(f->f_args);
 
     while ((sym = (hentry_t *)GetListElement(f->f_args)) != (hentry_t *)NULL) {
-        if (n++ > 0) PrintToFd(fp, ",");
+        if (n++ > 0) fp(",");
 
-        PrintToFd(fp, "%s", SymLookup(sym));
+        fp("%s", SymLookup(sym));
     }
 
-    PrintToFd(fp, ")=%s\n", f->f_strdef);
+    fp(")=%s\n", f->f_strdef);
 }

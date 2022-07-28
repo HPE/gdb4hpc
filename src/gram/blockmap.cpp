@@ -344,17 +344,17 @@ void indexer1D::setProcSize(const indexer1D& oproc) {
 
 // for now remove EvalMapFunc, when need, copy from map.c
 
-void PrintBlockMap(FILE *fp, g_block_map_t *m) {
+void PrintBlockMap(cli_out_t &fp, g_block_map_t *m) {
     int i;
 
-    PrintToFd(fp, "$%s:\n", SymLookup(m->m_sym));
+    fp("$%s:\n", SymLookup(m->m_sym));
 
     if (m->m_rank == 0) {
         SetError("Invalid decomposition.");
         return;
     }
 
-    PrintToFd(fp, "\tdimension ");
+    fp("\tdimension ");
 
     if (m->m_data == (int *)NULL) {
         SetError("Invalid dimension definition for decomposition.");
@@ -362,13 +362,13 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
     } else {
         // want to stop before last index
         for (i = 0; i < (m->m_rank - 1); i++) {
-            PrintToFd(fp, "%d,", m->m_data[i]);
+            fp("%d,", m->m_data[i]);
         }
         // now print the last index
-        PrintToFd(fp, "%d\n", m->m_data[m->m_rank - 1]);
+        fp("%d\n", m->m_data[m->m_rank - 1]);
     }
 
-    PrintToFd(fp, "\tdistribute ");
+    fp("\tdistribute ");
 
     if (m->m_distribute == (int *)NULL) {
         SetError("Invalid distribute definition for decomposition.");
@@ -378,16 +378,16 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
         for (i = 0; i < (m->m_rank - 1); i++) {
             switch (m->m_distribute[i]) {
                 case CT_BLOCK:
-                    PrintToFd(fp, "%s,", "block");
+                    fp("%s,", "block");
                     break;
                 case CT_CYCLIC:
-                    PrintToFd(fp, "%s,", "cyclic");
+                    fp("%s,", "cyclic");
                     break;
                 case CT_STAR:
-                    PrintToFd(fp, "%s,", "*");
+                    fp("%s,", "*");
                     break;
                 case CT_BLOCK_CYCLIC:
-                    PrintToFd(fp, "%d,", m->m_blockcyclic_val[i]);
+                    fp("%d,", m->m_blockcyclic_val[i]);
                     break;
                 default:
                     SetError(
@@ -398,16 +398,16 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
         // need to print the last index
         switch (m->m_distribute[m->m_rank - 1]) {
             case CT_BLOCK:
-                PrintToFd(fp, "%s\n", "block");
+                fp("%s\n", "block");
                 break;
             case CT_CYCLIC:
-                PrintToFd(fp, "%s\n", "cyclic");
+                fp("%s\n", "cyclic");
                 break;
             case CT_STAR:
-                PrintToFd(fp, "%s\n", "*");
+                fp("%s\n", "*");
                 break;
             case CT_BLOCK_CYCLIC:
-                PrintToFd(fp, "%d\n", m->m_blockcyclic_val[m->m_rank - 1]);
+                fp("%d\n", m->m_blockcyclic_val[m->m_rank - 1]);
                 break;
             default:
                 SetError("Invalid distribute definition for decomposition.");
@@ -415,7 +415,7 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
         }
     }
 
-    PrintToFd(fp, "\tproc_grid ");
+    fp("\tproc_grid ");
 
     if (m->m_procs == (int *)NULL) {
         SetError("Invalid process grid definition for decomposition.");
@@ -424,18 +424,18 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
         // want to stop before last index
         for (i = 0; i < (m->m_rank - 1); i++) {
             if (m->m_procs[i] == 1)
-                PrintToFd(fp, "%s,", "*");
+                fp("%s,", "*");
             else
-                PrintToFd(fp, "%d,", m->m_procs[i]);
+                fp("%d,", m->m_procs[i]);
         }
         // now print the last index
         if (m->m_procs[i] == 1)
-            PrintToFd(fp, "%s\n", "*");
+            fp("%s\n", "*");
         else
-            PrintToFd(fp, "%d\n", m->m_procs[m->m_rank - 1]);
+            fp("%d\n", m->m_procs[m->m_rank - 1]);
     }
 
-    PrintToFd(fp, "\tdim_order ");
+    fp("\tdim_order ");
 
     if (m->m_dim_order == (int *)NULL) {
         SetError("Invalid dimension order definition for decomposition.");
@@ -444,18 +444,18 @@ void PrintBlockMap(FILE *fp, g_block_map_t *m) {
         // want to stop before last index
         for (i = 0; i < (m->m_rank - 1); i++) {
             if (m->m_dim_order[i] == CT_STAR)
-                PrintToFd(fp, "%s,", "*");
+                fp("%s,", "*");
             else
-                PrintToFd(fp, "%d,", m->m_dim_order[i]);
+                fp("%d,", m->m_dim_order[i]);
         }
         // now print the last index
         if (m->m_dim_order[i] == CT_STAR)
-            PrintToFd(fp, "%s\n", "*");
+            fp("%s\n", "*");
         else
-            PrintToFd(fp, "%d\n", m->m_dim_order[m->m_rank - 1]);
+            fp("%d\n", m->m_dim_order[m->m_rank - 1]);
     }
 
-    PrintToFd(fp, "\n");
+    fp("\n");
 }
 
 void FinishBlockMap(void) {
@@ -586,7 +586,7 @@ AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
 }
 
 // Print out an AIF (presumably stream) value reformated by a block map
-void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, FILE* out) {
+void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {
     if (!bm || !BlockMapIsDegen(bm)) {
         PrintOutError("Expected a fully distributed decomposition\n");
         return;

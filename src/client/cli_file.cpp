@@ -61,15 +61,8 @@ static int cli_file_init(cli_stream_t **stream) {
 
     // set input
     if (cs->cs_file_in_path == NULL) {
-        // Default to the current setting if possible
-        // Note that these are not updated until after the call to this function
-        // so they are still pointing at the old streams stuff
-        if (Client.cli_in_stream != NULL) {
-            cs->cs_fpin = Client.cli_in_stream;
-        } else {
-            // Use stdin as a last resort
+        // Use stdin as a last resort
             cs->cs_fpin = stdin;
-        }
     } else {
         if ((cs->cs_fpin = fopen(cs->cs_file_in_path, "r")) == NULL) {
             PrintOutError("Could not open %s for input file.\n",
@@ -84,32 +77,23 @@ static int cli_file_init(cli_stream_t **stream) {
         // Default to the current setting if possible
         // Note that these are not updated until after the call to this function
         // so they are still pointing at the old streams stuff
-        if (Client.cli_out_stream != NULL) {
-            cs->cs_fpout = Client.cli_out_stream;
-        } else {
-            // Use stdout as a last resort
-            cs->cs_fpout = stdout;
-        }
+        cs->cs_out = Client.cli_out;
+        cs->cs_fpprog = cs->cs_out.getOut();
+    } else if (auto out = fopen(cs->cs_file_out_path, "a")) {
+        cs->cs_out.setOut(out);
+        cs->cs_fpprog = out;
+        setlinebuf(out);
+                    
     } else {
-        if ((cs->cs_fpout = fopen(cs->cs_file_out_path, "a")) == NULL) {
-            PrintOutError("Could not open %s for output file.\n",
+        PrintOutError("Could not open %s for output file.\n",
                           cs->cs_file_out_path);
-            return 1;
-        }
-        setlinebuf(cs->cs_fpout);
+        return 1;
     }
 
     // set error
     if (cs->cs_file_err_path == NULL) {
-        // Default to the current setting
-        // Note that these are not updated until after the call to this function
-        // so they are still pointing at the old streams stuff
-        if (Client.cli_err_stream != NULL) {
-            cs->cs_fperr = Client.cli_err_stream;
-        } else {
-            // Use stderr as a last resort
-            cs->cs_fperr = stderr;
-        }
+        // Use stderr as a last resort
+        cs->cs_fperr = stderr;
     } else {
         if ((cs->cs_fperr = fopen(cs->cs_file_err_path, "a")) == NULL) {
             PrintOutError("Could not open %s for error file.\n",
@@ -121,8 +105,6 @@ static int cli_file_init(cli_stream_t **stream) {
 
     // set the fd's
     cs->cs_fdin = fileno(cs->cs_fpin);
-    cs->cs_fdout = fileno(cs->cs_fpout);
-    cs->cs_fderr = fileno(cs->cs_fperr);
 
     return 0;
 }
@@ -136,10 +118,8 @@ static int cli_file_destroy(cli_stream_t **stream) {
     if (cs->cs_file_in_path != NULL && cs->cs_fpin != NULL) {
         fclose(cs->cs_fpin);
     }
-    if (cs->cs_file_out_path != NULL && cs->cs_fpout != NULL) {
-        fflush(cs->cs_fpout);
-        fclose(cs->cs_fpout);
-    }
+    cs->cs_out.flush();
+    cs->cs_out.close();
     if (cs->cs_file_err_path != NULL && cs->cs_fperr != NULL) {
         fflush(cs->cs_fperr);
         fclose(cs->cs_fperr);

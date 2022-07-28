@@ -83,7 +83,8 @@ extern func_t *GetFunc(void);
 extern arg_t *NewArg(int, ...);
 extern void DestroyArg(arg_t *);
 extern int FindArg(arg_t **, hentry_t *, func_t *);
-extern void PrintFunc(FILE *, func_t *);
+class cli_out_t;
+extern void PrintFunc(cli_out_t&, func_t *);
 
 /*
 ** blockmap.h

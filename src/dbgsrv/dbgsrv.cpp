@@ -82,10 +82,7 @@ struct mp_arch MPArchs[] = {
     {"p4", MPARCH_P4MASTER},       {"p4slave", MPARCH_P4SLAVE},
     {"ompi", MPARCH_OMPI},         {"unknown", MPARCH_UNKNOWN}};
 
-#define TIMEOUT_WDT 5000
-
 int Shutdown = 0;
-int WDT = 0;
 int my_rank;
 int sock_fd;
 dbgevent_t *(*AsyncRtn)(dbgevent_t *) = NULL;
@@ -108,15 +105,12 @@ struct timeval tv_end;
 void Usage(void);
 void Server(void);
 void EndServer();
-void CheckWDT(void);
 char *MakeStr(int, char *[]);
 int FindMPArch(char *);
 int SetupProgIO(int *, int *);
 int DoProgIO(int *, int);
 int AllocPty(int *, char **, char **);
 int AllocFifo(int *, char **, char **);
-
-std::function<void(void)> AtServerExit;
 
 extern int errno;
 extern int optind;
@@ -521,7 +515,6 @@ void Server(void) {
 
                 return;
             case 0:
-                CheckWDT();
                 break;
 
             default:
@@ -591,47 +584,19 @@ void Server(void) {
 
         if (Shutdown) break;
     }
-
-    // TODO Fix up this exit sequence
-    DbgEndProto();
-
-    if (AtServerExit)
-        AtServerExit();
 }
 
 void EndServer() {
+    // Called on scope exit from main()
     DVPRINT("EndServer called\n");
+
+    // Put network into exit state. Network is not necessarily completely gone after this.
+    DbgEndProto();
+
+    // Disconnect from the inferior
     DbgFinalize();
+
     DVPRINT("Returning from EndServer...\n");
-}
-
-/*
-** Reset watch dog timer
-*/
-void ResetWDT(void) { WDT = 0; }
-
-/*
-** Check if WDT has expired. If it has, then server should exit
-** after current command. Otherwise, just increment counter.
-*/
-void CheckWDT(void) {
-// We don't want the watchdog timer to kill us if we are running on a Cray. The
-// Toolhelper is always guaranteed to clean us up.
-#ifndef ALPS
-    if (WDT++ < TIMEOUT_WDT)
-#endif
-        return;
-
-    /*
-    ** Stop process if it's running. We should detach in the case and attempt
-    ** cleanup.
-    */
-    (void)DbgQuit(1);
-
-    /*
-    ** Shutdown server
-    */
-    Shutdown++;
 }
 
 /*

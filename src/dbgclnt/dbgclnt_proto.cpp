@@ -226,11 +226,19 @@ int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, const ProtoMessageSe
 // common exit actions to all protocols. protocol exit functions should call this
 // function in their own exit function after doing protocol specific exit actions.
 int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
-    if (!detach) {
-        // send a kill signal using the CTI
-        // not reporting an error here since the most likely reason for
-        // a failure is that the application is already dead
-        [[maybe_unused]] auto  err = cti_killApp(di->d_appid, SIGKILL);
+    if (detach) {
+        // The app was sent a SIGSTOP while the network cleaned up.
+        // By the time we reach this common ::exit function, the network
+        // should be gone, so we can start the app again.
+        if (cti_killApp(di->d_appid, SIGCONT)) {
+            PrintOutError("Warning: an error occurred during release of $%s.\n", di->d_handle);
+            PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
+        }
+    } else {
+        if (cti_killApp(di->d_appid, SIGKILL)) {
+            PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->d_handle);
+            PrintOutError("Your job might still be running.\n");
+        }
     }
 
     cti_deregisterApp(di->d_appid);

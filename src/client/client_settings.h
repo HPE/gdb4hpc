@@ -24,7 +24,6 @@ enum class PendingBrkType {
     Off
 };
 
-
 // This is the global settings object definition
 // All settings should go here. If you find any that are missing, add them!
 struct clnt_settings : public ClientSettingsInterface {
@@ -34,9 +33,9 @@ struct clnt_settings : public ClientSettingsInterface {
     int silent;                 /* Print banner? */
     bool echo;                  /* Echo each command in batch mode? */
     bool keep_going;            /* Ignore errors in batch mode? */
-    int unsafe;                 /* Be unsafe? */
-    int early_entry;            /* Enter at pmi_init? */
-    int non_stop;               /* Launch applications in non stop mode? */
+    int unsafe;                 // Attempt to work with a non-mpi application
+    int early_entry;            // Start debugging before continuing to an entry breakpoint
+    int non_stop;               // Launch applications in non stop mode
     int print_entry_frame;      /* Print frame locations at startup? */
     bool print_bp_frames;       /* Print breakpoint frames as they are hit? */
     int print_source_on_step;   /* Print line after each step? */
@@ -48,12 +47,7 @@ struct clnt_settings : public ClientSettingsInterface {
     const char* backend;        /* Default debug backend*/
     cli_type_t cli_mode;        /* CLI mode */
     // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
-    FILE* cli_in_stream;        /* input stream */
-    int cli_in_fd;              /* input fd */
-    FILE* cli_out_stream;       /* output stream */
-    int cli_out_fd;             /* output fd */
-    FILE* cli_err_stream;       /* error stream */
-    int cli_err_fd;             /* error fd */
+    cli_out_t cli_out;          /* output stream-like object */
     int XML_mode;               /* XML output mode */
     bool MI_mode;                /* MI output mode */
     list_t* set_env_list;       /* Env vars from set env cmd */

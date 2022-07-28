@@ -125,11 +125,11 @@ static int class_show_subcmd_function_cmd(rec_set_t *rec_set, int argc,
 
     while ((f = GetFunc()) != (func_t *)NULL) {
         if (argc > 1 && strcmp(argv[1], SymLookup(f->f_sym)) == 0) {
-            PrintFunc(Client.cli_out_stream, f);
+            PrintFunc(Client.cli_out, f);
             break;
         }
 
-        PrintFunc(Client.cli_out_stream, f);
+        PrintFunc(Client.cli_out, f);
     }
 
     return 1;

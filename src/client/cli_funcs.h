@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_funcs.c - Command line interface definitions.
  *
- * Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -91,38 +91,102 @@ union cli_stream_args {
 };
 typedef union cli_stream_args cli_stream_args_t;
 
+class FileAdapter2;
+
+// class for managing gdb4hpc ouput, which can be sent to 0, 1, or 2
+// file locations.
+class cli_out_t {
+public:
+    cli_out_t();
+
+    // printf formatted output
+    void operator()(const char* format, ...) __attribute__((format (printf,2,3)));
+    void vprintf(const char* format, va_list);
+
+    // C++ output
+    std::ostream& ostream();
+
+    // other stream operations 
+    void reset();
+    void flush();
+    void close();
+
+
+    // manage the streams
+    void setOut(FILE* f);
+    FILE* getOut() const { return m_out; }
+    void setLog(FILE* f);
+
+private:
+    FILE* m_out;
+    FILE* m_log;
+    std::shared_ptr<FileAdapter2> m_buff;
+    std::shared_ptr<std::ostream> m_ostream;
+};
+
+// interface for managing logging, which sends gdb4hpc output to
+// file either in addition to the terminal or instead of terminal
+class cli_logging_t {
+public:
+    cli_logging_t(cli_out_t& out);
+    cli_logging_t(const cli_logging_t&) = delete;
+    cli_logging_t& operator=(const cli_logging_t&) = delete;
+    
+    void setEnabled(bool enabled);
+    void setFile(const std::string& filename);
+    void setOverwrite(bool overwrite);
+    void setRedirect(bool redirect);
+
+    bool isEnabled() const;
+    std::string getFile() const;
+    bool isOverwrite() const;
+    bool isRedirect() const;
+private:
+    void startLog();
+    cli_out_t& m_out;
+    std::string m_filename = "gdb4hpc.txt";
+    bool m_enabled = false;
+    bool m_overwrite = false;
+    bool m_redirect = false;
+    FILE* m_redirected = nullptr;
+};
+
 /*
 ** CLI stream for I/O
 */
 struct cli_stream_t {
+    cli_stream_t(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args,
+                 int nprom, va_list pargs);
+    ~cli_stream_t();
+    
     cli_type_t cs_type;  /* cli stream type */
-    interpreter_type cs_interpreter;  /* interpreter type (CLI, MI, etc) */
-    int cs_fdin;         /* fd number for input to select on */
-    int cs_fdout;        /* underlying fd number for output */
-    int cs_fderr;        /* underlying fd number for err */
-    FILE *cs_fpin;       /* file to read from */
-    FILE *cs_fpout;      /* steam to output to */
-    FILE *cs_fperr;      /* stream to send errors to */
-    int cs_nprom;        /* number of prompt levels */
-    int cs_plevel;       /* current prompt level */
-    char **cs_prompts;   /* prompts to display */
-    char *cs_prompt;     /* current prompt */
-    char *cs_tmp_prompt; /* used to temporarily save a prompt */
-    char *cs_buf;        /* current line buffer */
-    size_t cs_buf_size;  /* size of current line buffer in elements */
-    int cs_buf_point;    /* current index into line buffer */
-    int cs_line;         /* current line */
-    int cs_err;          /* error control variable */
-    int cs_saved;        /* stream save control variable */
-    int cs_handling;     /* stream handling line control variable */
-    int cs_seq;          /* current command sequence number */
-    int cs_in_cmd;       /* currently processing command */
-    int cs_num;          // stream number
-    list_t *cs_deferred; /* list of deferred lines to print after command
-                            completes */
+    interpreter_type cs_interpreter = interpreter_type::CLI;  // or MI, XML
+    int cs_fdin = -1;         /* fd number for input to select on */
+    FILE *cs_fpin = nullptr;       /* file to read from */
+    cli_out_t cs_out;      /* stream to output to */
+    FILE *cs_fperr = nullptr;      /* stream to send errors to */
+    FILE *cs_fpprog = nullptr;     // stream for program output
+    int cs_nprom = 0;        /* number of prompt levels */
+    int cs_plevel = 0;       /* current prompt level */
+    char **cs_prompts = nullptr;   /* prompts to display */
+    char *cs_prompt = nullptr;     /* current prompt */
+    char *cs_tmp_prompt = nullptr; /* used to temporarily save a prompt */
+    char *cs_buf = nullptr;        /* current line buffer */
+    size_t cs_buf_size = 0;  /* size of current line buffer in elements */
+    int cs_buf_point = 0;    /* current index into line buffer */
+    int cs_line = 1;         /* current line */
+    int cs_err = 0;          /* error control variable */
+    int cs_saved = 0;        /* stream save control variable */
+    int cs_handling = 0;     /* stream handling line control variable */
+    int cs_seq = 0;          /* current command sequence number */
+    int cs_in_cmd = 0;       /* currently processing command */
+    int cs_num = 0;          // stream number
+    list_t *cs_deferred = NewList(); /* list of deferred lines to print after command
+                                       completes */
     struct cli_externals
-        *cs_ext_funcs;          /* cli externals associated with stream */
+        *cs_ext_funcs = nullptr;          /* cli externals associated with stream */
     cli_stream_args_t *cs_args; /* cli arguments used to initialize stream */
+    cli_logging_t cs_logging;   // setting for loggind output
 #define cs_notty_in cs_args->notty_args.in
 #define cs_notty_out cs_args->notty_args.out
 #define cs_notty_err cs_args->notty_args.err
@@ -173,6 +237,7 @@ extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
 extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 
+
 /*
 ** Output functions
 */
@@ -184,6 +249,9 @@ extern void vPrintOutMsg(const char *, va_list);
 extern void PrintToFd(FILE *, const char *, ...) __attribute__((format (printf,2,3)));
 extern void vPrintToFd(FILE *, const char *, va_list);
 extern void PrintError();
+
+// Get set teh 
+extern cli_logging_t&  GetLogging();
 
 /*
 ** CLI helper functions

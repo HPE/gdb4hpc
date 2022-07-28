@@ -30,7 +30,7 @@
 #include "help_dict.h"
 #include "useful.h"
 
-extern void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, FILE* out);
+extern void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out);
 
 void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
     // only do work if we need to
@@ -66,7 +66,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     switch (RVAL_TYPE(val)) {
         case rval_aif:
             // Print the result
-            RVAL_AIF(val)->print(Client.cli_out_stream);
+            RVAL_AIF(val)->print(Client.cli_out.ostream());
             PrintOutMsg("\n");
 
             break;
@@ -86,10 +86,11 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...
                 auto aif = EVENT_DATA(reply->rep_event);
+                auto& os = Client.cli_out.ostream();
                 if (LVAL_TYPE(val) == lval_blockmap) {
-                    PrintWithBlockMap(aif, LVAL_BM_BLOCKMAP(val), Client.cli_out_stream);
+                    PrintWithBlockMap(aif, LVAL_BM_BLOCKMAP(val), os);
                 } else {
-                    aif->print(Client.cli_out_stream);
+                    aif->print(os);
                 }
                 PrintOutMsg("\n");
             }
@@ -162,6 +163,8 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
 
     // Print each reply
     auto rep_set = RVAL_REPLY(val);
+    auto& os = Client.cli_out.ostream();
+    
     for (auto &&reply : rep_set) {
         // Print the set info - Note that the rep_di can be null here if
         // the reply set was the result of an operation on two different
@@ -177,11 +180,11 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
             var_count++;
             std::string s = "var" + std::to_string(var_count);
             PrintOutMsg("^done,name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
-            stream->print(Client.cli_out_stream, label);
+            stream->print(os, label);
             PrintOutMsg("\"\n");
         }else{
             PrintOutMsg("%s", ""); // currently need for edit_line interaction
-            stream->print(Client.cli_out_stream, label);
+            stream->print(Client.cli_out.ostream(), label);
             PrintOutMsg("\n");
         }
     }

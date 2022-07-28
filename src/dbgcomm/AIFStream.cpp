@@ -397,42 +397,14 @@ AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
         ais::SingleValueStream<ais::MultiThreadResult,std::string>::make(val)};
 }
 
-// Little adapter that takes C++ stream style input and sends it
-// to a C file handle
-class FileAdapter : public std::streambuf
-{
-public:
-    FileAdapter(FILE* f) : m_f(f) {}
-    std::streamsize xsputn(const char* s, std::streamsize n) override;
-    int overflow(int c = EOF) override;
-private:
-    FILE* m_f;
-};
-
-std::streamsize FileAdapter::xsputn(const char* s, std::streamsize n) { return fwrite(s,1,n,m_f); }
-int FileAdapter::overflow(int c) { return putc(c, m_f); }
-
-int AIFStream::print(FILE* f)
-{
-    return print(f,"");
-}
-
-
-int AIFStream::print(FILE* f, const std::string& label)
-{
-    FileAdapter fa(f);
-    std::ostream os(&fa);
-    try {
-        ais::print(getVStream(), label, os);
-        return 0;
-    } catch (...) {
-        return -1;
-    }
-}
-
 void AIFStream::print(std::ostream& os) {
     ais::print(getVStream(), "", os);
 }
+
+void AIFStream::print(std::ostream& os, const std::string& label) {
+    ais::print(getVStream(), label, os);
+}
+
 
 template <class T>
 inline AIFStream* AIFStreamFromBinaryOp(AIFStream* a, AIFStream* b, T op) {

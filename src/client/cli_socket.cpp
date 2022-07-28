@@ -169,17 +169,16 @@ static int cli_socket_init(cli_stream_t **stream) {
     // stuff and we will only process a single line.
 
     cs->cs_fpin = NULL;  // there is no input stream since we need to recv
-    cs->cs_fpout = w_fp;
+    cs->cs_out.setOut(w_fp);
+    cs->cs_fpprog = w_fp;
     cs->cs_fperr = e_fp;
     cs->cs_fdin = s_fd;  // this points to the fd of the socket for recv
-    cs->cs_fdout = s_fd;
-    cs->cs_fderr = es_fd;
 
     // set the output stream to be line buffered.
     setvbuf(cs->cs_fperr, NULL, _IONBF, 0);
 
     // set the error stream to be unbuffered.
-    setlinebuf(cs->cs_fpout);
+    setlinebuf(cs->cs_out.getOut());
 
     return 0;
 }
@@ -195,9 +194,7 @@ static int cli_socket_destroy(cli_stream_t **stream) {
     }
 
     // fclose stdout and stderr since those also point at sockets
-    if (cs->cs_fpout != NULL) {
-        fclose(cs->cs_fpout);
-    }
+    cs->cs_out.close();
     if (cs->cs_fperr != NULL) {
         fclose(cs->cs_fperr);
     }
@@ -279,7 +276,7 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
         Free(cmd_buf);
         if (cs->cs_nprom > 0) {
             PrintOutLine("%s", cli_get_prompt());
-            fflush(cs->cs_fpout);
+            cs->cs_out.flush();
         }
     }
 

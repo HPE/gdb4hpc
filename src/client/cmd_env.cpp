@@ -694,6 +694,40 @@ static int class_show_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc
     return 1;
 }
 
+static int class_new_ui_cmd(rec_set_t* rec_set, int argc, char**argv) {
+    if (argc != 3) {
+        PrintOutError("Wrong number of arguments to new-ui interpreter tty.\n");
+        return 0;
+    }
+
+    if (strcmp(argv[1], "mi2") != 0 && strcmp(argv[1], "mi") != 0) {
+        PrintOutError("Only mi ui is supported.\n");
+        return 0;
+    }
+
+    auto tty = argv[2];
+    auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty, tty, tty);
+    SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
+
+    return 0;
+}
+
+static int class_set_subcmd_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
+    const char* tty = nullptr;
+    if (argc == 2) {
+        tty = argv[1];
+    } else if (argc != 1) {
+        PrintOutError("Unexpected arguments, expected [TTY].\n");
+        return 1;
+    }
+
+    if (!SetProgramOutputFile(tty)) {
+        PrintOutError("Could not open %s for output.\n", tty ? tty : "default location");
+        return 1;
+    }
+    return 0;
+}
+
 void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
@@ -806,4 +840,11 @@ void InitCmd_env(void) {
                     class_unset_subcmd_environment_cmd,
                     class_unset_subcmd_environment_help,
                     "Remove a previously set environment variable.");
+
+    // MI related commands - not documented
+    AddCommand("new-ui", nullptr, proc_ignore, 0, class_new_ui_cmd, nullptr, nullptr);
+
+    AddSetCommand("inferior-tty", proc_ignore, 0, class_set_subcmd_inferior_tty_cmd,
+                  nullptr,  "set the tty for the application i/o");
+               
 }

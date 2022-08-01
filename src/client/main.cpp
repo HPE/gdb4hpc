@@ -67,9 +67,6 @@ static const char * getDefaultProtocol();
 static void printEventLocation(const event_set_t *ev_set, const Bitset *group);
 static void readInitCommandsFile();
 static void interfaceOption(const char* opt, cli_stream_args_t*& cli_args);
-static void iexOption(const char* opt);
-static void procIexCommand(const std::string& command);
-static std::vector<std::string> IexCommands;
 
 /*
  * long opts
@@ -340,6 +337,7 @@ int main(int argc, char *argv[]) {
     Client.proto = getDefaultProtocol(); // Default debugger protocol
     Client.arch = DBG_ARCH;           // Default starter achitecture
     Client.backend = DBG_BACKEND;     // Default debug backend
+    Client.cli_fpprog = nullptr;      // only set to override the stream setting
     Client.XML_mode = 0;              // XML output mode
     Client.MI_mode = false;               // MI output mode
     Client.set_env_list = NewList();  // Env vars from set env cmd
@@ -448,7 +446,7 @@ int main(int argc, char *argv[]) {
 
             case 'i': {
                 if (strncmp(optarg, "ex=", 3) == 0) {
-                    iexOption(optarg+3);
+                    QueueCommand(optarg+3);
                 } else {
                     interfaceOption(optarg, cli_args);
                 }
@@ -550,10 +548,6 @@ int main(int argc, char *argv[]) {
     // Read gdb4hpc_init file
     if (should_read_init)
         readInitCommandsFile();
-
-    for (auto&& command : IexCommands) {
-        procIexCommand(command);
-    }
 
     // Initial reset of the stream, for good measure.
     // If we don't do this, the prompt will be missing when using the editline
@@ -1194,42 +1188,4 @@ void interfaceOption(const char* opt, cli_stream_args_t*& cli_args)
 
     // Cleanup original strsep string that we strdup'ed.
     Free(argstr);
-}
-
-// handle gdb stype -iex arguments which can add arbitrary CLI commands
-// to the startup sequence
-static void iexOption(const char* opt) {
-    IexCommands.push_back(std::string{opt});
-}
-
-static void procIexCommand(const std::string& command)
-{
-    // we're not document the -iex option which could be used to add
-    // any CLI command to the startup.  But, we're only trying to
-    // get gdbgui to work, so for now just hack in the functions
-    // it uses.   When these are implemented, look into just putting these
-    // in QueueCommand
-    static const std::string new_ui{"new-ui mi2 "};
-    static const std::string inferior_tty{"set inferior-tty "};
-    if (command.substr(0,new_ui.size()) == new_ui) {
-        auto tty = command.substr(new_ui.size());
-        auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty.c_str(), tty.c_str(),
-                                   tty.c_str());
-        SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
-        
-    } else if (command.substr(0,inferior_tty.size()) == inferior_tty) {
-    }
-
-    /*
-    if (!strcmp(token, "mi2") ){
-        mi2 = true;
-        Client.MI_mode = true;
-        Client.silent = 1;
-        PrintOutError("\n New UI Found %s\n", stringp);
-        inport=stringp;
-    }else if (!strcmp(token, "inferior-tty")){
-        PrintOutError("\n New TTY Found %s\n", stringp);
-        outport=stringp;
-    }
-    */
 }

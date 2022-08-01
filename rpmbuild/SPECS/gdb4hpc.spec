@@ -208,6 +208,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__gzip} -c %{external_build_dir}/libexec/dbgsrv_trampoline > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 
 %ifnarch aarch64
@@ -356,9 +357,9 @@ Tests for Cray gdb4hpc parallel debugger
 %global tests_rm_name %{cray_name}-tests-%{pkgversion}-%{version}-%{release}.%{_arch}
 %global rpm_list %{tests_pkg_name}
 %if %{branch} == "release"
-%{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<RPM_1>|%{tests_pkg_name}|g;s|<RPM_RM_1>|%{tests_rm_name}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
+%{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<RPM_1>|%{tests_pkg_name}|g;s|<RPM_RM_1>|%{tests_rm_name}|g;s|<SET_DEFAULT_VALUE>|1|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 %else
-%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<RPM_1>|%{tests_pkg_name}|g;s|<RPM_RM_1>|%{tests_rm_name}|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
+%{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<RPM_1>|%{tests_pkg_name}|g;s|<RPM_RM_1>|%{tests_rm_name}|g;s|<SET_DEFAULT_VALUE>|0|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 %endif
 
 # tests
@@ -560,7 +561,7 @@ else
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
     %{__sed} -i "/^setenv[[:space:]]*GDB4HPC_INSTALL_DIR.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
-%{__gzip} -d -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+%{__gzip} -c -d -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz > ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
@@ -623,6 +624,8 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/gdb/printer
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo
@@ -665,6 +668,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda110-gdb-guard
@@ -765,6 +769,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
 
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test

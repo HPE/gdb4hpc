@@ -48,6 +48,7 @@ struct clnt_settings : public ClientSettingsInterface {
     cli_type_t cli_mode;        /* CLI mode */
     // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
     cli_out_t cli_out;          /* output stream-like object */
+    FILE* cli_fpprog;
     int XML_mode;               /* XML output mode */
     bool MI_mode;                /* MI output mode */
     list_t* set_env_list;       /* Env vars from set env cmd */

@@ -224,17 +224,13 @@ cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_str
         // set the external destroy function to null since it wasn't able to
         // init
         cs_ext_funcs->external_destroy = nullptr;
-        // destroy the cs
-
-        //DestroyCLIStream(cs);
+        return;
     }
 
     // call to external init function
     auto tp = this;
     if ((*cs_ext_funcs->external_init)(&tp)) {
         PrintOutError("Error: cli external_init() failed.\n");
-        // destroy the cs
-        //DestroyCLIStream(cs);
     }
 }
 
@@ -819,6 +815,7 @@ static void ProgOutLine(dbginvoke_t *di, const char* line) {
         fprintf(f, "%s", line);
         fprintf(f, XML_PROG_OUTPUT_END);
     } else {
+        if (Client.cli_fpprog) f = Client.cli_fpprog;
         fprintf(f, "<$%s>: %s", di->d_handle, line);
     }
 }
@@ -1148,3 +1145,25 @@ bool cli_logging_t::isEnabled() const { return m_enabled; }
 std::string cli_logging_t::getFile() const { return m_filename; }
 bool cli_logging_t::isOverwrite() const { return m_overwrite; }
 bool cli_logging_t::isRedirect() const { return m_redirect; }
+
+FILE* cli_logging_t::getOrigOut() const {
+    return m_redirected ? m_redirected : m_out.getOut();
+}
+
+bool SetProgramOutputFile(const char* file) {
+    if (file) {
+        if (FILE* f = fopen(file, "a")) {
+            if (Client.cli_fpprog) fflush(Client.cli_fpprog);
+            else if (CurrentStream->cs_fpprog) fflush(CurrentStream->cs_fpprog);
+            Client.cli_fpprog = f;
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        if (Client.cli_fpprog) fflush(Client.cli_fpprog);
+        Client.cli_fpprog = nullptr;
+        return true;
+    }
+}
+    

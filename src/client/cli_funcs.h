@@ -141,6 +141,8 @@ public:
     std::string getFile() const;
     bool isOverwrite() const;
     bool isRedirect() const;
+
+    FILE* getOrigOut() const;
 private:
     void startLog();
     cli_out_t& m_out;
@@ -250,8 +252,9 @@ extern void PrintToFd(FILE *, const char *, ...) __attribute__((format (printf,2
 extern void vPrintToFd(FILE *, const char *, va_list);
 extern void PrintError();
 
-// Get set teh 
+// Get/set the logging state 
 extern cli_logging_t&  GetLogging();
+extern bool SetProgramOutputFile(const char* file);
 
 /*
 ** CLI helper functions

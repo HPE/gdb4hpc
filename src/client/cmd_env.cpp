@@ -602,6 +602,98 @@ static int class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+// Check if given string is found in vector of strings
+static bool check_string_in_vector(std::vector<std::string> v, std::string s){
+    // return true if string is present
+    return (std::find(v.begin(), v.end(), s) != v.end());
+}
+
+static bool get_on_off(char *val){
+    return (strcmp(val, "on") == 0);
+}
+
+// Set output redirection for logging purposes
+static int class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
+
+    // Constant vector of valid arguments
+    const static std::vector<std::string> valid_args = {"on", "off"};
+    // Reference to the cli_logging_t which allows us to modify logging behavior
+    cli_logging_t& logger = GetLogging();
+    static bool enabled_bool;
+    static bool invalid_arg_bool;
+
+    if(argc < 2 || argc > 3){
+        PrintOutError("Invalid number of arguments!\n");
+        return 0;
+    }
+
+    if(argc == 3){
+        enabled_bool = get_on_off(argv[2]);
+        invalid_arg_bool = !check_string_in_vector(valid_args, argv[2]);
+        // Check that argv[1] isnt file, handles wrong arguments independently
+        if(invalid_arg_bool && strcmp(argv[1], "file")){
+            PrintOutError("Error: Expected usage \"set logging %s [on | off]\"\n", argv[1]);
+            return 0;
+        }
+    }
+        
+    // enable or disable logging functionality
+    if(strcmp(argv[1], "enabled") == 0){
+        
+        // default to enabling logging if argument isnt passed
+        if(!argv[2] || enabled_bool){
+            logger.setEnabled(true);
+            PrintOutMsg("Copying output to gdb4hpc.txt.\n");
+        } else {
+            logger.setEnabled(false);
+            PrintOutMsg("Logging disabled.\n");
+        }
+    
+    }
+
+    // change logging output file
+    else if(strcmp(argv[1], "file") == 0){
+        if(argv[2]){
+            if(!logger.isEnabled()){
+                PrintOutError("Error: Please enable logging first.\n");
+                return 0;
+            }
+            logger.setFile(argv[2]);
+        } else {
+            PrintOutError("Error: Expected usage \"set logging file <file>\".\n");
+        }
+    }
+
+    // set logging to overwrite current logfile instead of append
+    else if(strcmp(argv[1], "overwrite") == 0){
+        if(!argv[2] || enabled_bool){
+            logger.setOverwrite(true);
+        } else {
+            logger.setOverwrite(false);
+        }
+    }
+
+    // Set stdout to entirely redirect to log file and not print to terminal
+    else if(strcmp(argv[1], "redirect") == 0){
+        if(!argv[2] || enabled_bool){
+            if(!logger.isEnabled()){
+                PrintOutError("Error: Please enable logging first.\n");
+                return 0;
+            }
+            PrintOutMsg("Redirecting output to logfile.\n");
+            logger.setRedirect(true);
+        } else {
+            logger.setRedirect(false);
+        }
+    } else {
+        // if invalid command
+        PrintOutMsg("Undefined Set logging command \"%s\": . Try \"help set logging\"\n", argv[1]);
+        return 0;
+    }
+        
+    return 1;
+}
+
 static int class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
@@ -770,6 +862,10 @@ void InitCmd_env(void) {
                   class_set_subcmd_environment_cmd,
                   class_set_subcmd_environment_help,
                   "Set environment variable value for launching applications.");
+    AddSetCommand("logging", proc_ignore, 0,
+                  class_set_subcmd_logging_cmd,
+                  class_set_subcmd_logging_help,
+                  "Redirect client side output.");
 
     // set print commands
     AddSetPrintCommand(

@@ -1512,6 +1512,22 @@ const char* const class_set_subcmd_environment_help[] = {
     "forked environment of the application launcher process (aprun/srun).",
     0};
 
+const char* const class_set_subcmd_logging_help[] = {
+    // TODO: Finish this
+    "Summary: Set output file for logging client output.",
+    "Usage: set logging <subcmd> <value>",
+    "Example command: set logging enabled on",
+    "",
+    "Description: Used to enable and control logging functionality of debug client.",
+    "Can enable logging to file and define or change file location.",
+    "See following lines for valid subcmds and arguments:",
+    "set logging enabled [on | off]: Enables or disables logging functionality, defaults to \"on\" if no argument passed.",
+    "set logging file <file>: Sets filepath of file to write to, defaults to \"gdb4hpc.txt\" if no argument pased.",
+    "set logging overwrite [on | off]: Enable overwrite to have logs overwrite file instead of appending to it",
+    "set logging redirect [on | off]: If redirect enabled, output will only go to log file instead of log file and terminal.",
+    0
+};
+
 const char* const class_set_subcmd_function_help[] = {
     "Summary: Set function definition.",
     "Usage: set function <function_name>(<function_args>) = <expr>",

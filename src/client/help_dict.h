@@ -125,6 +125,7 @@ extern const char* const class_set_subcmd_cuda_help[];
 extern const char* const class_set_subcmd_directory_help[];
 extern const char* const class_set_subcmd_error_help[];
 extern const char* const class_set_subcmd_environment_help[];
+extern const char* const class_set_subcmd_logging_help[];
 extern const char* const class_set_subcmd_function_help[];
 extern const char* const class_set_subcmd_scheduler_locking_help[];
 extern const char* const class_set_subcmd_non_stop_help[];

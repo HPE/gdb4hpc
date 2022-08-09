@@ -27,6 +27,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <optional>
@@ -324,16 +325,68 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
         }
     }
 
-    if (args.launcher_argv[0] != "") {
-        setenv(CTI_LAUNCHER_NAME_ENV_VAR, args.launcher_argv[0].c_str(), 1);
-    }
+    // Submit PBS script and attach
+    if (!args.qsub_file_path.empty()) {
 
-    // Call the invoke in the dbg_client layer
-    // moves args into the returned di as the d_launch member
-    if (!(di = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args)))) {
-        // Do not print out an error message here since the lower layer already
-        // printed it for us.
-        return exitWithFailure();
+        try {
+
+            // Check WLM for PBS PALS
+            cti_pals_ops_t *ops = nullptr;
+            if (cti_open_ops((void**)&ops) != CTI_WLM_PALS) {
+
+                // Did not have PBS PALS
+                auto wlm = cti_current_wlm();
+                auto wlm_name = cti_wlm_type_toString(wlm);
+                throw std::runtime_error("PBS batch launch requires PBS / PALS as "
+                    "the current WLM " + (wlm_name != nullptr)
+                        ? "(have " + std::string(wlm_name) + ")"
+                        : "(failed to detect WLM)");
+            }
+
+            // Submit PBS script and get PBS job ID
+            auto launcherArgs = args.launcher_argv.c_strs(1);
+            auto envList = args.env.c_strs(0);
+            auto pbs_job_id = ops->submitJobScript(args.qsub_file_path.c_str(),
+                launcherArgs.data(), envList.data());
+            if (pbs_job_id == nullptr) {
+                throw std::runtime_error(cti_error_str());
+            }
+
+            // Attach to submitted job
+            if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, pbs_job_id,
+                  Client.arch, Client.backend, args.gpu_flag, args.debug_flag))) {
+                PrintOutError("Failed to attach to PBS job ID %s\n", pbs_job_id);
+                free(pbs_job_id);
+                return exitWithFailure();
+            }
+
+            // Continue job past barrier and into main
+            if (cti_killApp(di->d_appid, SIGCONT)) {
+                PrintOutError("Failed to continue ID %lu\n", di->d_appid);
+            }
+
+            free(pbs_job_id);
+
+        } catch (std::exception const& ex) {
+            PrintOutError("Failed to submit PBS batch file %s: %s\n",
+                args.qsub_file_path.c_str(), ex.what());
+            return exitWithFailure();
+        }
+
+    // Launch normally
+    } else {
+
+        if (args.launcher_argv[0] != "") {
+            setenv(CTI_LAUNCHER_NAME_ENV_VAR, args.launcher_argv[0].c_str(), 1);
+        }
+
+        // Call the invoke in the dbg_client layer
+        // moves args into the returned di as the d_launch member
+        if (!(di = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args)))) {
+            // Do not print out an error message here since the lower layer already
+            // printed it for us.
+            return exitWithFailure();
+        }
     }
 
     // Create a rec_set based on the di

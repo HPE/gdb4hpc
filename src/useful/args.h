@@ -93,19 +93,19 @@ public:
         }
     }
 
-    // returns arguments separated by spaces as a string. if a stored argument
-    // contains spaces, it will be surrounded with double quotes.
-    std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX) const {
+    // returns arguments separated by delimiter as a string. if a stored argument
+    // contains delimiter, it will be surrounded with double quotes.
+    std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX, char delim=' ') const {
         std::stringstream ss;
-        std::string space = "";
+        std::string delimStr = "";
 
         for (size_t i = start; i < m_argv.size() && stop_after > 0; i++, stop_after--) {
-            if (std::string_view(m_argv[i]).find(' ') != std::string::npos) {
-                ss << space << std::quoted(m_argv[i]);
+            if (std::string_view(m_argv[i]).find(delim) != std::string::npos) {
+                ss << delimStr << std::quoted(m_argv[i]);
             } else {
-                ss << space << m_argv[i];
+                ss << delimStr << m_argv[i];
             }
-            space = " ";
+            delimStr = delim;
         }
 
         return ss.str();

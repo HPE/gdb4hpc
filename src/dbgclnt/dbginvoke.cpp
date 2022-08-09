@@ -61,6 +61,7 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
         {"env", optional_argument, 0, 'e'},
         {"gpu", no_argument, &gpu_flag, 1},
         {"debug", no_argument, &debug_flag, 1},
+        {"qsub", required_argument, 0, 'q'},
         {"non-mpi", no_argument, &non_mpi_flag, 1},
         {"launcher", optional_argument, 0, 'l'},
         {"gdb", required_argument, 0, 'b'},
@@ -170,6 +171,13 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
                 if (!fs::is_regular_file(gdb_path) && !fs::is_symlink(gdb_path)) {
                     throw std::runtime_error("--gdb provided, but doesn't point to a normal file.");
                 }
+                break;
+
+            case 'q':
+                if (optarg == nullptr) {
+                    throw std::runtime_error("--qsub provided, but missing arguments.");
+                }
+                qsub_file_path = optarg;
                 break;
 
             default:

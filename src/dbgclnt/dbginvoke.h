@@ -73,6 +73,7 @@ struct dbginvoke {
         bool gpu_flag = false;             // --gpu
         bool non_mpi_flag = false;         // --non-mpi
         bool debug_flag = false;           // --debug
+        std::string qsub_file_path = "";   // --qsub /path/to/script
         std::string procset_name;          // full name of passed procset, including rank count, e.g. $a{3}
                                            //
         bool non_stop_flag = true;         // settings copied from passed ClientSettingsInterface

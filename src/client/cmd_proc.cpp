@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -370,6 +370,51 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
         } catch (std::exception const& ex) {
             PrintOutError("Failed to submit PBS batch file %s: %s\n",
                 args.qsub_file_path.c_str(), ex.what());
+            return exitWithFailure();
+        }
+
+    // Submit Slurm batch script and attach
+    } else if (!args.sbatch_file_path.empty()) {
+
+        try {
+
+            // Check WLM for Slurm
+            cti_slurm_ops_t *ops = nullptr;
+            if (cti_open_ops((void**)&ops) != CTI_WLM_SLURM) {
+
+                // Did not have Slurm
+                auto wlm = cti_current_wlm();
+                auto wlm_name = cti_wlm_type_toString(wlm);
+                throw std::runtime_error("Slurm batch launch requires Slurm as "
+                    "the current WLM " + (wlm_name != nullptr)
+                        ? "(have " + std::string(wlm_name) + ")"
+                        : "(failed to detect WLM)");
+            }
+
+            // Submit sbatch script and get Slurm job / step ID
+            auto launcherArgs = args.launcher_argv.c_strs(1);
+            auto envList = args.env.c_strs(0);
+            auto slurm_job_step_id = ops->submitBatchScript(args.sbatch_file_path.c_str(),
+                launcherArgs.data(), envList.data());
+            if (slurm_job_step_id == nullptr) {
+                throw std::runtime_error(cti_error_str());
+            }
+            auto slurmJobStepStr = std::to_string(slurm_job_step_id->jobid) + "."
+                + std::to_string(slurm_job_step_id->stepid);
+
+            // Attach to submitted job
+            if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, slurmJobStepStr.c_str(),
+                  Client.arch, Client.backend, args.gpu_flag, args.debug_flag))) {
+                PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStepStr.c_str());
+                free(slurm_job_step_id);
+                return exitWithFailure();
+            }
+
+            free(slurm_job_step_id);
+
+        } catch (std::exception const& ex) {
+            PrintOutError("Failed to submit Slurm batch file %s: %s\n",
+                args.sbatch_file_path.c_str(), ex.what());
             return exitWithFailure();
         }
 

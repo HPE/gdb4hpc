@@ -62,6 +62,7 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
         {"gpu", no_argument, &gpu_flag, 1},
         {"debug", no_argument, &debug_flag, 1},
         {"qsub", required_argument, 0, 'q'},
+        {"sbatch", required_argument, 0, 's'},
         {"non-mpi", no_argument, &non_mpi_flag, 1},
         {"launcher", optional_argument, 0, 'l'},
         {"gdb", required_argument, 0, 'b'},
@@ -178,6 +179,13 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
                     throw std::runtime_error("--qsub provided, but missing arguments.");
                 }
                 qsub_file_path = optarg;
+                break;
+
+            case 's':
+                if (optarg == nullptr) {
+                    throw std::runtime_error("--sbatch provided, but missing arguments.");
+                }
+                sbatch_file_path = optarg;
                 break;
 
             default:

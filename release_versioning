@@ -61,11 +61,11 @@
 # JENKINS INTEGRATION
 # -------------------
 # We now key off the BUILD_NUMBER environment variable from jenkins
-# to get the revision number. We hardcode the revision to "9999" if the
-# environment variable is not set.
+# to get the revision number.
 #
+# NOTE: If you bump the manor number then reset the minor and revision to 0
+#       If you bump the minor number then reset the revision to 0
 
-# Jenkins will override this
 revision="4"
 build_number=""
 

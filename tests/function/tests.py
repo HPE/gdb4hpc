@@ -674,6 +674,12 @@ class c_commnode_fanout(Gdb4hpcTest):
 
 class c_release(Gdb4hpcTest):
     def test(self):
+        wlm = detect_wlm()
+
+        # XXX: on ALPS, because of PE-42693, releasing an app causes it to linger and clog our allocation
+        if wlm == "ALPS":
+            self.cancel("Cancelling on ALPS because of PE-42693")
+
         runTest(self)
         
 class c_set_unset(Gdb4hpcTest):
@@ -809,19 +815,24 @@ class cpp_arrays_print(Gdb4hpcTest):
 
 class cpp_attach(Gdb4hpcTest):
     def test(self):
+        wlm = detect_wlm()
+
+        # XXX: on ALPS, because of PE-42693, releasing an app causes it to linger and clog our allocation
+        if wlm == "ALPS":
+            self.cancel("Cancelling on ALPS because of PE-42693")
+
         # make sure we were able to build the proper binaries for this test
         if not os.path.isfile("./bd_dt/cti_launch.x"):
             self.cancel("./bd_dt/cti_launch.x not present, skipping. When the tests were built, could the compiler find CTI development libraries?")
 
         # build arguments
-        wlm = detect_wlm()
         rank_args = None
         if wlm == "SLURM":
             rank_args = ["-n4", "--ntasks-per-node=2"]
             config_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
             if config_args:
                 rank_args += config_args.split()
-        elif wlm == "ALPS":
+        elif wlm == "ALPS" or wlm == "PALS":
             rank_args = ["-n4", "-N2"]
         else:
             self.error("Failed to detect WLM")

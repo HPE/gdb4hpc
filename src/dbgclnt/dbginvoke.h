@@ -102,6 +102,21 @@ struct dbginvoke {
 
     dbgfrontend_sw *d_frontend;  // debug frontend object
 
+    class SourcePaths{
+    public:
+        void storeSourcePath(const char * str);
+        std::string getFullPath(const std::string& relativePath);
+
+        SourcePaths() {};
+        SourcePaths(const SourcePaths&) = delete;
+        SourcePaths& operator=(const SourcePaths&)= delete;
+
+    private:
+        std::vector<std::string> m_sourceList; // Stores all values in order of arrival.
+    };
+
+    SourcePaths source_paths;
+
     // Extensions for client support
     // FIXME: These should be marked private once this is turned into a class
     list_t *d_eventset_list;  // pending events

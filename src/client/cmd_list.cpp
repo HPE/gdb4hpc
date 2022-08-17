@@ -98,14 +98,12 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    //current workaround for relative/full path issue
-                    std::string source_file = std::string(s->sources_file);
-                    if (source_file.find(std::string("bd_dt"))!=std::string::npos){
-                        std::string bd_dt=source_file.substr(source_file.find(std::string("bd_dt")));
-                        source_file = bd_dt;
-                    }
-                    ss<<"{proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",file=\""<<source_file.c_str()<<"\",fullname=\""<<s->sources_file<<"\"}";
-                    StoreSourcePath(s->sources_file);
+                    
+                    //create message to send back to gui
+                    ss<<"{proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
+                    
+                    //save fullpath to source list
+                    recv_ptr->rec_di->source_paths.storeSourcePath(s->sources_file);
                 }
             }
         }

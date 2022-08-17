@@ -702,7 +702,7 @@ static void printEventLocation(const event_set_t *ev_set, const Bitset *group) {
             // See if we can get the source line
             if (Client.MI_mode){
                 std::stringstream ss;
-                auto fullpath = GetFullPath(frameLoc.loc_file);
+                auto fullpath = ev_set->e_di->source_paths.getFullPath(frameLoc.loc_file);
                 ss<<"*stopped,reason=\"end-stepping-range\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<frameLoc.loc_func<<"\",args=[],file=\""<<frameLoc.loc_file<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<frameLoc.loc_line<<"\"}";
                 PrintOutMsg( ss.str().c_str() );
             }
@@ -859,7 +859,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                         if (bpset->line() > 0) {
                             if (Client.MI_mode){
                                 std::ostringstream ss;
-                                auto fullpath = GetFullPath(bpset->file());
+                                auto fullpath = ev_set->e_di->source_paths.getFullPath(bpset->file());
                                 ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
                                 PrintOutMsg( ss.str().c_str() );
                             }
@@ -961,7 +961,7 @@ int EventCB(event_set_t *ev_set, const Bitset *reply_set) {
                     if (bpset->line() > 0) {
                         if (Client.MI_mode){
                             std::ostringstream ss;
-                            auto fullpath = GetFullPath(bpset->file());
+                            auto fullpath = ev_set->e_di->source_paths.getFullPath(bpset->file());
                             ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set->e_di->d_handle<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
                             PrintOutMsg( ss.str().c_str() );
                         }else{

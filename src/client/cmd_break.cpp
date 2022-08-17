@@ -109,9 +109,10 @@ force_pending_break:
                                 bpset->id(), bpset->statement().c_str(), bpThread.c_str());
         }
         else if (bpset->line() >= 0) {
+            printf("file:%s\n",bpset->file().c_str());
             if (Client.MI_mode){
                 std::stringstream ss;
-                auto fullpath = GetFullPath(bpset->file());
+                auto fullpath = reply->rep_di->source_paths.getFullPath(bpset->file());
                 ss<<"^done,proc_set=\""<<reply->rep_di->d_handle<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
                 PrintOutMsg( ss.str().c_str());
             }else{
@@ -725,7 +726,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     }else{
                                         ss<<"[";
                                     }
-                                    auto fullpath = GetFullPath(bpset.file());
+                                    auto fullpath = recv_ptr->rec_di->source_paths.getFullPath(bpset.file());
                                     ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
                                 } else{
                                     printTableEntry(recv_ptr->rec_di->d_handle, 
@@ -752,7 +753,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     }else{
                                         ss<<"[";
                                     }
-                                    auto fullpath = GetFullPath(bpset.file());
+                                    auto fullpath = recv_ptr->rec_di->source_paths.getFullPath(bpset.file());
                                     ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
                                 }else{
                                     printTableEntry(recv_ptr->rec_di->d_handle, 

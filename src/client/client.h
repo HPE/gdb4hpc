@@ -70,8 +70,4 @@ extern int PrintVal(val_t *, rec_set_t *);
 extern void PrintHaltedLocationSet(char *, const Bitset *, dbgloc_t *);
 extern void EndAll(void);
 
-extern std::vector<std::string> sourceList;
-extern void StoreSourcePath(char *);
-extern std::string GetFullPath(const std::string& relativePath);
-
 #endif /* _CLIENT_H */

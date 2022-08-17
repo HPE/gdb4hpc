@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <filesystem>
 
+
+
 dbginvoke::dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClientProtocol * const proto)
     : d_handle{name != nullptr ? strdup(name) : nullptr}
     , d_appid{0}
@@ -248,5 +250,24 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
     proto_name = csi.getProto();
     arch_name = csi.getArch();
     backend_name = csi.getBackend();
+}
+
+void dbginvoke::SourcePaths::storeSourcePath(const char * str) {
+    if(str!=nullptr){
+        m_sourceList.push_back(std::filesystem::path(str));
+    }
+}
+
+std::string dbginvoke::SourcePaths::getFullPath(const std::string& relativePath){
+    if (!relativePath.empty() && !m_sourceList.empty()){
+        for(auto &source : m_sourceList){
+            if (source.find(relativePath) != std::string::npos){
+                return source;
+            }
+        }
+    }
+    
+    //Cannot find full path. Return the relative path as the full path.
+    return relativePath;
 }
 

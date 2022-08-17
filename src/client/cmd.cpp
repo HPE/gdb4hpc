@@ -630,7 +630,7 @@ void ExecuteCommand(const char *line) {
         *needle = '\n';
         *(needle + 1) = '\0';
         DPRINT("ExecuteCommand: seq is %d\n", seq);
-    } else if (Client.MI_mode) {
+    }else if (Client.MI_mode) {
         //Convert mi to cli command
         cmd = strdup(convertMiToCli(cmd).c_str());
 
@@ -640,11 +640,9 @@ void ExecuteCommand(const char *line) {
             goto ExecuteCommand_exit;
         }else if (strstr(cmd, "focus")){
             PrintOutMsg("^running\n");
-        }
-        else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
+        }else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
             //empty so it doesn't get caught in next else statement
-        }
-        else if (strstr(cmd, "ignore")||strstr(cmd, "-")){
+        }else if (strstr(cmd, "ignore")||strstr(cmd, "-")){
             Free(cmd);
             goto ExecuteCommand_exit;
         }

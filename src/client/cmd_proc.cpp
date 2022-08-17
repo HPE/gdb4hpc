@@ -448,7 +448,7 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
     if (Client.MI_mode){
-        PrintOutMsg(mi_response("done", nullptr, nullptr));
+        PrintOutMsg("^done");
     }else{
         PrintOutMsg("Launch complete.\n");
     }

@@ -6,5 +6,4 @@
 #include "dbgevent.h"
 #include "list.h"
 
-extern char * convertMiToCli(char *);
-extern char * mi_response(const char *, const char *, const char *);
+extern std::string convertMiToCli(char *);

@@ -164,7 +164,7 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
             ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
         }
         ss<<"]";
-        PrintOutMsg( mi_response("done","pe_sets",ss.str().c_str()));
+        PrintOutMsg("^done,pe_sets=%s",ss.str().c_str());
     }else{
         PrintOutMsg("Name       Procs\n");
         while ((procset = GetProcSet()) != nullptr) {

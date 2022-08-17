@@ -632,18 +632,19 @@ void ExecuteCommand(const char *line) {
         DPRINT("ExecuteCommand: seq is %d\n", seq);
     } else if (Client.MI_mode) {
         //Convert mi to cli command
-        cmd = convertMiToCli(cmd);
-        printf(cmd);
+        cmd = strdup(convertMiToCli(cmd).c_str());
+
         if (strstr(cmd, "-exec-run")){
             PrintOutMsg("^running\n");
             Free(cmd);
             goto ExecuteCommand_exit;
         }else if (strstr(cmd, "focus")){
             PrintOutMsg("^running\n");
-        }else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
-
         }
-        else if (strstr(cmd, "unknown")||strstr(cmd, "-")){
+        else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
+            //empty so it doesn't get caught in next else statement
+        }
+        else if (strstr(cmd, "ignore")||strstr(cmd, "-")){
             Free(cmd);
             goto ExecuteCommand_exit;
         }

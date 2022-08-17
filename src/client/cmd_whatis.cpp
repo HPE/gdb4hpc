@@ -162,7 +162,7 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
             }
             if (Client.MI_mode && !ss.str().empty()){
                 ss<<"]}";
-                PrintOutMsg( mi_response("done","variables", ss.str().c_str()));
+                PrintOutMsg("^done,variables=%s", ss.str().c_str());
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),

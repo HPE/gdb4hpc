@@ -36,7 +36,6 @@
 #include "gram.h"
 #include "useful.h"
 #include "xml_tag.h"
-#include "mi_tag.h"
 #include "mi_funcs.h"
 
 /*

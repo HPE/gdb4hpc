@@ -40,11 +40,11 @@
 list_t *DbgInvokeList = (list_t *)NULL;
 
 /*
-** Create a dbginvoke_t structure.
+** Create a DbgInvoke structure.
 */
-dbginvoke_t *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
+DbgInvoke *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
     // XXX: no sane default exists for the `type` parameter. DBG_ATTCHED is 0
-    dbginvoke_t *di = new dbginvoke_t(nullptr, DBG_ATTACHED, nproc, proto);
+    DbgInvoke *di = new DbgInvoke(DBG_ATTACHED, nproc, proto);
 
     // Set non-zero members here
     di->d_nproc = nproc;
@@ -63,12 +63,12 @@ dbginvoke_t *NewDbgInvoke(int nproc, DebugClientProtocol * const proto) {
 }
 
 /*
-** Free a dbginvoke_t structure.
+** Free a DbgInvoke structure.
 */
-void FreeDbgInvoke(dbginvoke_t *di) {
+void FreeDbgInvoke(DbgInvoke *di) {
     RemoveFromList(DbgInvokeList, (void *)di);
 
-    DBG_PROTO_SW(di)->destroyClient(di);
+    di->d_proto->destroyClient(di);
 
     di->d_bitset_full.reset();
 

@@ -10,12 +10,12 @@
 namespace {
 class MRNAttachHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
+    int handleEvent(DbgInvoke *di, const ProtoMessageSet &set) override;
 };
 
 class MRNLaunchHandler : public DebugClientProtocolEventHandler {
 public:
-    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
+    int handleEvent(DbgInvoke *di, const ProtoMessageSet &set) override;
 };
 } // private namespace
 
@@ -30,30 +30,30 @@ public:
 
     const char* name() const override { return "mrnet"; };
 
-    int attach(struct dbginvoke *di, proto_session *session, 
+    int attach(DbgInvoke *di, proto_session *session, 
                const char *app_ident, const char *arch, const char *backend, 
                const char* gdb, int gpu_flag, int debug_flag) override;
 
-    int launch(struct dbginvoke *di, proto_session *session, 
+    int launch(DbgInvoke *di, proto_session *session, 
         const char *prog, const char * const *argv,
         const char *arch, const char * const *arch_args, const char *arch_input, 
         const char *backend, const char* gdb, const char * const *env,
         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
         int early_entry_flag, bool isNonStop) override;
 
-    int exit(struct dbginvoke *, int detach) override;
+    int exit(DbgInvoke *, int detach) override;
 
-    std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
+    std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) override;
 
-    std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+    std::optional<ProtoMessageSet> receiveReply(DbgInvoke *di, 
         const Bitset *target, Bitset &received) override;
 
     int init() override;
     
-    void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
+    void dispatchEvents(DbgInvoke *di, int ev_fd) override;
 
-    void destroyClient(struct dbginvoke *di) override;
+    void destroyClient(DbgInvoke *di) override;
 
 private:
 #ifdef BE_VALGRIND

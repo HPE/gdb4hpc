@@ -30,7 +30,7 @@ class ScriptRunner {
     // backend and keeps track of breakpoints that have been hit and assertions
     // that are ready to be evaluated
 public:
-    using RanksMap = std::map<const dbginvoke*, std::unique_ptr<Bitset>, dbginvokeMapper>;
+    using RanksMap = std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>;
     class EventInterface; friend EventInterface;
 
 private:
@@ -100,17 +100,17 @@ private:
     EventInterface getEventInterface();
     // notify internal tracking structures that ranks corresponding to the event
     // set and bitset have hit dbgBp
-    void handleBPHit(event_set& eventSet, const Bitset& bitset, const dbgbp_t& dbgBp);
+    void handleBPHit(const DbgInvoke::EventSet& eventSet, const Bitset& bitset, const dbgbp_t& dbgBp);
     // notify internal tracking structures that ranks corresponding to the event
     // set and bitset have exitted or hit an exit breakpoint
-    void handleExit(event_set& eventSet, const Bitset& bitset);
+    void handleExit(const DbgInvoke::EventSet& eventSet, const Bitset& bitset);
     // pass the given event to the event handler which the script runner replaced
     // and return the result
-    int passEventToOldHandler(event_set& eventSet, const Bitset& replySet);
+    int passEventToOldHandler(DbgInvoke::EventSet& eventSet, const Bitset& replySet);
     // create a mapping from all dis involved in the assertion script to a bitset
     // of all of its ranks involved in the script
 
-    std::set<dbginvoke*, dbginvokeMapper> getDisFromScript() const;
+    std::set<DbgInvoke::Handle> getDisFromScript() const;
     // helper for sendContinue() and sendContinue(assert)
     bool sendContinueHelper(rec_set_t* recSet);
     // send a continue command to ranks involved in the passed assert that aren't
@@ -134,7 +134,7 @@ private:
     std::unique_ptr<data::Script> m_script;
     std::vector<Assertion> m_pendingAsserts;
     std::unique_ptr<Ranks> m_ranks;
-    std::map<const dbginvoke*, clnt_ev_callback_func, dbginvokeMapper> m_oldEventHandlers;
+    std::map<DbgInvoke::Handle, DbgInvoke::AsyncEventCallback> m_oldEventHandlers;
     rec_set_t m_fullRecSet;
 
     std::string m_error = "";
@@ -161,18 +161,18 @@ public:
     // notify the object of new ranks that have stopped. if passed di does not
     // match a di from the original expression, this function is a no-op. returns
     // the result of isReady().
-    bool notify(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
+    bool notify(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
     // notify the object that any internal state kept about the passed ranks is
     // no longer valid.
-    void unnotify(const dbginvoke& di, const Bitset& bitset);
+    void unnotify(const DbgInvoke& di, const Bitset& bitset);
     // returns true when all ranks from the original expression have been passed
     // through notify() with correct breakpoint locations.
     bool isReady() const;
     // check if a breakpoint event is relevant to the internal expression. if it
     // is, returns the MappedBreakpoint that matches it. if it isn't, returns nullptr
-    const MappedBreakpoint* BPIsRelevant(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
+    const MappedBreakpoint* BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
     // check if a set of ranks is relevant to the internal expression.
-    bool procsetIsRelevant(const dbginvoke& di, const Bitset& bitset) const;
+    bool procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;
     // reset internal state to be waiting on all ranks
     void reset();
     // return a map mapping dis to a bitsets representing the set of ranks that
@@ -188,10 +188,9 @@ public:
 
 private:
     const data::Expression& m_expression;
-    std::map<const dbginvoke*, std::unique_ptr<Bitset>, dbginvokeMapper> m_fullSets;
-    std::map<const dbginvoke*, std::unique_ptr<Bitset>, dbginvokeMapper> m_waitingFor;
+    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_fullSets;
+    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_waitingFor;
     int m_breakPointId;
-    mutable std::unique_ptr<rec_set_t> m_cachedRecSet;
 };
 
 using ValPtr = std::unique_ptr<val_t, decltype(&DestroyVal)>;
@@ -226,12 +225,12 @@ public:
     auto id() const { return m_assert.id(); }
     bool setBreakpoints();
     bool deleteBreakpoints();
-    bool notify(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
-    void unnotify(const dbginvoke& di, const Bitset& bitset);
+    bool notify(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
+    void unnotify(const DbgInvoke& di, const Bitset& bitset);
     bool isReady() const;
     bool isFinished() const;
-    bool BPIsRelevant(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
-    bool procsetIsRelevant(const dbginvoke& di, const Bitset& bitset) const;
+    bool BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
+    bool procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;
     void reset();
     RanksMap ranksMap() const;
     std::unique_ptr<rec_set_t> createRecSet() const;
@@ -260,7 +259,6 @@ private:
     size_t m_warns;
     size_t m_fails;
     std::vector<Result> m_results;
-    mutable std::unique_ptr<rec_set_t> m_cachedRecSet;
 };
 
 class ScriptRunner::Ranks {
@@ -277,9 +275,9 @@ public:
     // sets internal tracking structures accordingly
     void reset();
     // mark ranks in di as blocked
-    void markRanksBlocked(const dbginvoke& di, const Bitset& ranks);
+    void markRanksBlocked(const DbgInvoke::Handle& di, const Bitset& ranks);
     // mark ranks in di as unblocked
-    void markRanksUnblocked(const dbginvoke& di, const Bitset& ranks);
+    void markRanksUnblocked(const DbgInvoke::Handle& di, const Bitset& ranks);
     // mark ranks associated with assert as unblocked
     void markRanksUnblocked(const Assertion& assert);
     // mark all ranks as blocked
@@ -291,8 +289,8 @@ public:
     // assertion script and it should be stopped
     bool allRanksBlocked() const;
     // returns the bitset corresponding to di or nullptr if it doesn't exist
-    Bitset* blocked(const dbginvoke& di);
-    const Bitset* blocked(const dbginvoke& di) const;
+    Bitset* blocked(const DbgInvoke& di);
+    const Bitset* blocked(const DbgInvoke& di) const;
 private:
     RanksMap m_involvedRanks;
     RanksMap m_blockedRanks;
@@ -305,13 +303,13 @@ public:
         : m_scriptRunner{sc}
     {}
 
-    void handleBPHit(event_set& eventSet, const Bitset& bitset, const dbgbp_t& dbgBp) {
+    void handleBPHit(const DbgInvoke::EventSet& eventSet, const Bitset& bitset, const dbgbp_t& dbgBp) {
         m_scriptRunner.handleBPHit(eventSet, bitset, dbgBp);
     }
-    void handleExit(event_set& eventSet, const Bitset& bitset) {
+    void handleExit(const DbgInvoke::EventSet& eventSet, const Bitset& bitset) {
         m_scriptRunner.handleExit(eventSet, bitset);
     }
-    int passEventToOldHandler(event_set& eventSet, const Bitset& replySet) {
+    int passEventToOldHandler(DbgInvoke::EventSet& eventSet, const Bitset& replySet) {
         return m_scriptRunner.passEventToOldHandler(eventSet, replySet);
     }
 private:

@@ -44,7 +44,6 @@ public:
     virtual dbgevent_t *finishFunc(const char* threads) override;
     virtual dbgevent_t *setArgs(const char *arg) override; // set run arguments
     virtual dbgevent_t *step(int const, bool in, const char* threads) override;
-    virtual dbgevent_t *kill() override;
     virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) override;
 
     // If count is not zero then return only that many frames. If count is zero then

@@ -23,18 +23,14 @@
 
 #include <stdarg.h>
 
-#include "assign.h"
 #include "bitset.h"
 #include "blockmap.h"
 #include "blockmap_util.h"
 #include "cmdtoken.h"
 #include "dbg_client.h"
 #include "expr.h"
-#include "file.h"
 #include "func.h"
 #include "hash.h"
-#include "line.h"
-#include "perm.h"
 #include "procset.h"
 #include "slice.h"
 #include "val.h"
@@ -59,7 +55,6 @@ extern void RemoveTopElt(void);          // called by yacc expr.y.in
 extern int EvalCompare(val_t **, val_t **, expr_t *, rec_set_t *);
 extern int EvalExpr(val_t **, expr_t *, rec_set_t *);
 extern int EvalExprList(list_t **, expr_t *, rec_set_t *);
-extern int EvalFunc(val_t **, func_t *, list_t *, rec_set_t *);
 extern g_block_map_t *EvaluateBlockMap(expr_t *, rec_set_t *, CMD_MODE);
 extern var_t *ReadVarDecl(expr_t *, rec_set_t *);
 extern int AssignExpr(expr_t *, expr_t *, rec_set_t *);
@@ -146,7 +141,7 @@ extern void FinishProcSet(void);
 dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
 extern int CreateProcSet(expr_t *, expr_t *);
 extern dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t*& isInUse);
-extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di);
+extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, DbgInvoke *di);
 extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
 extern void SetProcSet(void);
 extern dbgprocset_t *GetProcSet(void);

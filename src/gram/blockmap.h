@@ -51,7 +51,6 @@ extern void DestroyBlockMap(g_block_map_t *);
 class cli_out_t;
 extern void PrintBlockMap(cli_out_t&, g_block_map_t *);
 extern void FinishBlockMap(void);
-extern void BlockMapToString(g_block_map_t *, var_t *, int, char *);
 extern bool BlockMapIsDegen(g_block_map_t *);
 extern AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *,
                                           int array_size, rep_set_t *replies);

@@ -30,8 +30,8 @@
 */
 static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *, int, ...);
 static void cli_handle_error(void);
-static void ProgOutLineStream(dbginvoke_t *, FILE *);
-static void ProgOutLineStrings(dbginvoke_t *, const std::vector<std::string> &lines);
+static void ProgOutLineStream(DbgInvoke *, FILE *);
+static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &lines);
 
 /*
  * Static Global Variables
@@ -808,22 +808,22 @@ void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
 }
 
 // common code between ProgOutLineStream and ProgOutLineStrings
-static void ProgOutLine(dbginvoke_t *di, const char* line) {
+static void ProgOutLine(DbgInvoke *di, const char* line) {
     auto f = CurrentStream->cs_fpprog;
     if (Client.XML_mode) {
-        fprintf(f, XML_PROG_OUTPUT_START, di->d_handle, (unsigned int)strlen(line));
+        fprintf(f, XML_PROG_OUTPUT_START, di->handle().c_str(), (unsigned int)strlen(line));
         fprintf(f, "%s", line);
         fprintf(f, XML_PROG_OUTPUT_END);
     } else {
         if (Client.cli_fpprog) f = Client.cli_fpprog;
-        fprintf(f, "<$%s>: %s", di->d_handle, line);
+        fprintf(f, "<$%s>: %s", di->handle().c_str(), line);
     }
 }
 
 /*
 ** Output a program line recieved on a program pipe.
 */
-static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
+static void ProgOutLineStream(DbgInvoke *di, FILE *o_stream) {
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream || !CurrentStream->cs_fpprog) return;
 
@@ -838,7 +838,7 @@ static void ProgOutLineStream(dbginvoke_t *di, FILE *o_stream) {
     cli_restore_stream();
 }
 
-static void ProgOutLineStrings(dbginvoke_t *di, const std::vector<std::string> &lines) {
+static void ProgOutLineStrings(DbgInvoke *di, const std::vector<std::string> &lines) {
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream || !CurrentStream->cs_fpprog) return;
 

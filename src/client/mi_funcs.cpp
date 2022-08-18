@@ -39,7 +39,6 @@ int launch_count=0;
 std::string convertMiToCli(char * cmd){
     char * temp = strdup(cmd);
     char * token = strtok(temp, " ");
-    char * result = nullptr;
     std::string token_str=std::string(token);
 
     token_str.erase(token_str.find_last_not_of(" \n\r\t")+1);

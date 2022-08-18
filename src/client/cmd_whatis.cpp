@@ -76,11 +76,11 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
             if (Client.MI_mode){
                 PrintOutMsg("^done,{name=\"var1\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", type=\"%s\"}\n", type_str );
             }else{
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s\n",
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n",
                                 type_str);
             }
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -113,10 +113,10 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
             auto type_str = EVENT_TYPE(reply->rep_event);
 
             // the result ends with a newline
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(), "%s",
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s",
                                 type_str);
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -153,9 +153,9 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    ss<<"{proc_set=\""<<reply->rep_di->d_handle<<"\",name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
+                    ss<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
                 }else{
-                    PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                    PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
                                     v->var_type);
                 }
@@ -165,7 +165,7 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
                 PrintOutMsg("^done,variables=%s", ss.str().c_str());
             }
         } else if (ev == DBGEV_THREADINFO) {
-            PrintMultiThreadMsg(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
@@ -199,7 +199,7 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
         // This only gets printed if there is one reply
         if (GetNumberOfReply(rep_set) == 1) {
             PrintOutMsg("Scope local variables for $%s:\n",
-                        reply->rep_di->d_handle);
+                        reply->rep_di.c_str());
         }
 
         for (; v != NULL; v = v->var_next) {
@@ -209,7 +209,7 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
             if (GetNumberOfReply(rep_set) == 1) {
                 PrintOutMsg("Name:%-25s\tType:%s\n", v->var_name, v->var_type);
             } else {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
                                     v->var_type);
             }
@@ -238,7 +238,7 @@ static int class_info_subcmd_args_cmd(rec_set_t *rec_set, int argc,
         auto is = std::istringstream{reply->rep_event->ev_u.ev_u_string};
         auto line = std::string{};
         while (std::getline(is,line)) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "%s\n", line.c_str());
         }
     }

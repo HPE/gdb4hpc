@@ -2,13 +2,13 @@
 2: # All results should be FAILURE.
 3: maint set sync on
 4: # launch 2 applications in lgdb
-5: launch $a{3} bd_dt/fortran/ftn_bd_dt.x --debug
+5: launch $a{3} bd_dt/fortran/ftn_bd_dt.x
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:1
 6: break ftn_bd_dt.f90:64
 a{0..2}: Breakpoint 1: file /bd_dt/fortran/ftn_bd_dt.f90, line 64.
-7: launch $b{3} bd_dt/fortran/ftn_cmp_diff.x --debug
+7: launch $b{3} bd_dt/fortran/ftn_cmp_diff.x
 Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_cmp_diff.f90:1

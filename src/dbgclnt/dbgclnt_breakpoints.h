@@ -111,7 +111,6 @@ struct IDSet {
     IDSet(const Bitset * _group, int _id)
         : id{_id}
     {
-        DASSERT_NOT_NULL(_group);
         group = _group->clone();
     };
 
@@ -150,7 +149,6 @@ class MappedBreakpoint {
         DispositionSet(const Bitset * _group, dbgbp_disp _disp)
             : disp{_disp}
         {
-            DASSERT_NOT_NULL(_group);
             group = _group->clone();
         }
 

@@ -2,11 +2,11 @@
 2: # All results should be PASS.
 3: maint set sync on
 4: # launch 2 applications in lgdb
-5: launch $a{3} bd_dt/fortran/ftn_bd_dt.x --debug
+5: launch $a{3} bd_dt/fortran/ftn_bd_dt.x
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:1
-6: launch $b{3} bd_dt/fortran/ftn_bd_dt.x --debug
+6: launch $b{3} bd_dt/fortran/ftn_bd_dt.x
 Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:1

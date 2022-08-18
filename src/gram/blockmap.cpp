@@ -491,47 +491,6 @@ size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
     return len;
 }
 
-/* This function turn the given blockmap function into a description string for
- * p2p comp purposes 21/06/2011 - Minh Dinh
- */
-void BlockMapToString(g_block_map_t *m, var_t *v, int numprocs, char *str) {
-    int i;
-    char buf[100];
-
-    sprintf(buf, "$%s,%d,%d,", v->v_pname, numprocs, m->m_rank);
-    strcat(str, buf);
-    for (i = 0; i < m->m_rank; i++) {
-        sprintf(buf, "%d,", m->m_distribute[i]);
-        strcat(str, buf);
-    }
-
-    for (i = 0; i < m->m_rank; i++) {
-        sprintf(buf, "%d,", m->m_blockcyclic_val[i]);
-        strcat(str, buf);
-    }
-
-    for (i = 0; i < m->m_rank; i++) {
-        sprintf(buf, "%d,", m->m_data[i]);
-        strcat(str, buf);
-    }
-
-    for (i = 0; i < m->m_rank; i++) {
-        sprintf(buf, "%d,", m->m_procs[i]);
-        strcat(str, buf);
-    }
-
-    for (i = 0; i < m->m_rank; i++) {
-        sprintf(buf, "%d", m->m_dim_order[i]);
-        strcat(str, buf);
-        if (i < m->m_rank - 1)
-            strcat(str, ",");
-        else
-            strcat(str, "");
-    }
-
-    return;
-}
-
 /*
 ** Extract and combine data using blockmap function.
 */

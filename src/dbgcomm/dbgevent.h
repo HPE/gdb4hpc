@@ -306,7 +306,7 @@ typedef struct dbgevent_t dbgevent_t;
 
 extern dbgevent_t *NewEvent(dbgev);
 extern dbgevent_t *ChangeEvent(dbgevent_t *, dbgev);
-extern dbgevent_t *DupEvent(dbgevent_t *);
+extern dbgevent_t *DupEvent(const dbgevent_t *);
 extern void FreeEvent(dbgevent_t *);
 extern void EventErrStr(dbgevent_t *, const char *, ...);
 extern event_equiv CompareEvents(const dbgevent_t *, const dbgevent_t *);
@@ -317,7 +317,7 @@ extern const char *DbgEventErrorStr(dbgevent_t *);
 // Used for debug
 extern dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...);
 extern void PrintDbgEvent(dbgevent_t *);
-extern const char *EventToStr(dbgevent_t *);
+extern const char *EventToStr(const dbgevent_t *);
 extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);
 

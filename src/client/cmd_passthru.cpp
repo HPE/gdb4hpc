@@ -56,7 +56,7 @@ static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
 
-        PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+        PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                             "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
     }
 
@@ -105,7 +105,7 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (GetNumberOfReply(rep_set) == 1) {
             PrintOutMsg("%s\n", cmd);
         } else {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "%s\n", cmd);
         }
     }
@@ -158,7 +158,7 @@ static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
             PrintOutMsg("%s\n", cmd);
         } else {
             PrintOutMsg("\n");
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "\n%s\n", cmd);
         }
     }

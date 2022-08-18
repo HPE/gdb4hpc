@@ -54,7 +54,7 @@ static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
 static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
 static expr_elt* check_pop(expr_t*, expr_op);
 
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group,
+static void add_to_reply(rep_set_t& repSet, DbgInvoke::Handle di, std::unique_ptr<Bitset> &&group,
                          AIFStream* aif);
 // Only called directly with debug - but keep around to be able to call from gdb
 #ifdef DEBUG
@@ -456,27 +456,6 @@ int EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set) {
     AddFirst(l, (void *)v);
 
     *res = l;
-
-    return 0;
-}
-
-int EvalFunc(val_t **res, func_t *fp, list_t *args, rec_set_t *rec_set) {
-    val_t *val;
-
-    if (fp->f_builtin != (int (*)(list_t *, val_t **))NULL)
-        return fp->f_builtin(args, res);
-
-    fp->f_actual = args;
-
-    /*
-    ** Apply function to its arguments.
-    */
-    RESET(fp->f_def);
-
-    if ((val = evaluate_expr_imm(fp->f_def, rec_set, fp)) == (val_t *)NULL)
-        return -1;
-
-    *res = val;
 
     return 0;
 }
@@ -1930,7 +1909,7 @@ static std::unique_ptr<Bitset> intersect_groups(const Bitset* a, const Bitset* b
 
 // create a group reply by wrapping a single AIF data object.   Takes ownership of
 // group and aif.
-static group_reply_t* make_reply_from_aif(dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIFStream* aif) {
+static group_reply_t* make_reply_from_aif(DbgInvoke::Handle di, std::unique_ptr<Bitset> &&group, AIFStream* aif) {
     if (aif) {
         auto ev = NewEvent(DBGEV_DATA);
         ev->ev_data = aif;
@@ -2006,7 +1985,7 @@ static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&gr
 
 // create a group reply containing the content in \a aif and add it to \a repSet
 // note : takes ownership of \a group and \a aif
-static void add_to_reply(rep_set_t& repSet, dbginvoke_t* di, std::unique_ptr<Bitset> &&group, AIFStream* aif)
+static void add_to_reply(rep_set_t& repSet, DbgInvoke::Handle di, std::unique_ptr<Bitset> &&group, AIFStream* aif)
 {
     if (auto rep = make_reply_from_aif(di, std::move(group), aif)) {
         repSet.addReply(rep);
@@ -2150,10 +2129,10 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
                     return nullptr; // error
                 }
 
-                // intersect if we have groups larger than 1 rank in size, 
+                // intersect if we have groups larger than 1 rank in size,
                 // otherwise it is fine to union them
                 auto tset = is_single ? r1.group->clone() : intersect_groups(r1.group, r2.group);
-                
+
                 if (isCompare) {
                     // consumes res
                     add_to_compare_reply(*newRepSet, tset->clone(), std::move(res), op);
@@ -3122,9 +3101,16 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                             LVAL_GDB_PROCSET(lval))) != NULL) {
                     // create a group_recv_t for the over_set and add it to the
                     // res
+                    auto* diptr = over_set->s_di.lock();
+                    if (!diptr) {
+                        PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
+                        continue;
+                    }
+
                     AddReceiverToSet(
                         lval_rec_set,
-                        NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
+                        NewGroupReceiver(*diptr, over_set->s_di_bs.get())
+                    );
                 }
 
                 // get the type
@@ -3253,9 +3239,17 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                         // Create the rec_set for this reply from the lval
                         // overset using the bitset from the reply
                         target_recset = NewRecSet();
+                        auto* diptr = over_set->s_di.lock();
+                        if (!diptr) {
+                            ret = -1;
+                            SetError("Expired procset $%s.", over_set->s_di.c_str());
+                            continue;
+                        }
+
                         AddReceiverToSet(
                             target_recset,
-                            NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
+                            NewGroupReceiver(*diptr, reply->rep_group.get())
+                        );
                         // point at the AIF data
                         na = EVENT_DATA(reply->rep_event);
                         // Send the command using the target_recset and the
@@ -3458,9 +3452,18 @@ static int assign_expr_imm(val_t *lval, val_t *rval, rec_set_t *rec_set) {
                     // Create the rec_set for this reply from the lval overset
                     // using the bitset from the reply
                     target_recset = NewRecSet();
+                    auto* diptr = over_set->s_di.lock();
+                    if (!diptr) {
+                        ret = -1;
+                        SetError("Expired procset $%s.", over_set->s_di.c_str());
+                        continue;
+                    }
+
                     AddReceiverToSet(
                         target_recset,
-                        NewGroupReceiver(over_set->s_di, reply->rep_group.get()));
+                        NewGroupReceiver(*diptr, reply->rep_group.get())
+                    );
+
                     // point at the AIF data
                     na = EVENT_DATA(reply->rep_event);
                     // Send the command using the target_recset and the event

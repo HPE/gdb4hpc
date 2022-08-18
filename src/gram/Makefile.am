@@ -21,6 +21,6 @@ expr.tab.cpp expr.tab.h: expr.y
 	$(YACC) -b expr -p expr_ -d -v expr.y -o expr.tab.cpp
 
 noinst_LIBRARIES	= libgram.a
-libgram_a_SOURCES	= assign.cpp blockmap.cpp blockmap_util.cpp cmdtoken.cpp expr.cpp expr.tab.cpp \
-			  file.cpp func.cpp line.cpp perm.cpp procset.cpp \
-			  slice.cpp val.cpp var.cpp expression_handle.cpp
+libgram_a_SOURCES	= blockmap.cpp blockmap_util.cpp cmdtoken.cpp expr.cpp expr.tab.cpp \
+			 func.cpp procset.cpp \
+			 slice.cpp val.cpp var.cpp expression_handle.cpp

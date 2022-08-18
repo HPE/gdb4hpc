@@ -40,6 +40,8 @@
 #include "dbg_client.h"
 #include "useful.h"
 #include "gram.h"
+#include "dbginvoke.h"
+
 /*
 ** Internal types
 */
@@ -65,15 +67,13 @@ struct OutputCallbacks {
     // The job of each callback is to output the data to the cli.
     // Different protocols deliver the data in different formats.
     
-    std::function<void (dbginvoke *, FILE*)> filestreamCallback;
-    std::function<void (dbginvoke *, const std::vector<std::string>&)> stringVectorCallback; 
+    std::function<void (DbgInvoke *, FILE*)> filestreamCallback;
+    std::function<void (DbgInvoke *, const std::vector<std::string>&)> stringVectorCallback; 
 };
 
 /*
 ** Internal prototypes
 */
-static void RegisterDbgInvoke(dbginvoke_t* di);
-static void FreeDbgInvoke(dbginvoke_t *);
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
@@ -83,13 +83,11 @@ static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
 static void AddErrToSet(rep_set_t *, group_reply_t *);
 //static void SetErrHeadInSet(rep_set_t *);
 //static group_reply_t *GetNextErrInSet(rep_set_t *);
-static event_set_t *NewEventSet(dbginvoke_t *, const Bitset *, dbgevent_t *);
-static void FreeEventSet(event_set_t *);
-static void DestroyEventSet(dbginvoke_t *, dbgev);
-static event_set_t *AddEvent(dbginvoke_t *, const Bitset *, dbgevent_t *);
-static void CheckForFullEventSet(dbginvoke_t *, const Bitset *, dbgev);
+static void DestroyEventSet(DbgInvoke *, dbgev);
+static DbgInvoke::EventSet *AddEvent(DbgInvoke *, const Bitset *, dbgevent_t *);
+static void CheckForFullEventSet(DbgInvoke *, const Bitset *, dbgev);
 static void ResetForAsyncCmd(rec_set_t *);
-static void RemoveGroupFromAsyncSet(dbginvoke_t *, const Bitset *);
+static void RemoveGroupFromAsyncSet(DbgInvoke *, const Bitset *);
 static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   bool& isError);
@@ -105,7 +103,6 @@ void (*switchStream)(int);
 ** Internal Variables
 */
 static proto_session *DbgCurrSess;
-static list_t *DbgInvokeList;
 static std::vector<int> DbgSigList;
 static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
@@ -116,6 +113,28 @@ static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
 
 static std::vector<inpcb_t*> InputCBs;
+
+// XXX: Since the proxy has its own definition of freeing a dbginvoke, this
+//      function can't live in dbginvoke.cpp (which is linked with the proxy).
+//      This is called by the dbginvoke destructor and shouldn't be called manually.
+//      It can be folded into the dbginvoke destructor once the proxy is removed.
+void FreeDbgInvoke(DbgInvoke *di) {
+    HoldSignals();
+
+    // XXX has large side effects. does it belong in this dtor?
+    di->d_proto->destroyClient(di);
+
+    // Quit the debug frontend if there is one
+    if (di->d_frontend != nullptr) {
+        auto e = DbgDestroyFE(di->d_frontend);
+        FreeEvent(e);
+    }
+
+    // remove any event fds from the proto
+    DestroyList(di->d_evfds, free);
+
+    ReleaseSignals();
+}
 
 /*
 ** Hold any pending signals.
@@ -152,45 +171,6 @@ void ReleaseSignals(void) {
     }
 }
 
-// Add dbginvoke to main dbginvoke list used in the main event loop
-static void RegisterDbgInvoke(dbginvoke_t* di) {
-    if (DbgInvokeList == nullptr) DbgInvokeList = NewList();
-    AddToList(DbgInvokeList, (void *)di);
-}
-
-/*
-** Free a dbginvoke_t structure.
-*/
-static void FreeDbgInvoke(dbginvoke_t *di) {
-    dbgevent_t *e;
-
-    HoldSignals();
-
-    RemoveFromList(DbgInvokeList, (void *)di);
-
-    DBG_PROTO_SW(di)->destroyClient(di);
-
-    // Quit the debug frontend if there is one
-    if (di->d_frontend != nullptr) {
-        e = DbgDestroyFE(di->d_frontend);
-        FreeEvent(e);
-    }
-
-    di->d_bitset_full.reset();
-    di->d_bitset_launched.reset();
-
-    // remove any event fds from the proto
-    DestroyList(di->d_evfds, Free);
-
-    // remove the async lists
-    DestroyList(di->d_eventset_list, (void (*)(void *))FreeEventSet);
-
-    Free(di->d_handle);
-    delete di;
-
-    ReleaseSignals();
-}
-
 /**************************
 ** Receiver set functions
 **************************/
@@ -199,24 +179,22 @@ static void FreeDbgInvoke(dbginvoke_t *di) {
  * data structures for group receivers to dbgsrv
  */
 
-group_recv_t *NewGroupReceiver(dbginvoke_t *di, const Bitset *proc_mask) {
-    auto rec = new group_recv_t;
-    rec->rec_di = di;
-
-    DASSERT_NOT_NULL(proc_mask);
-    rec->rec_group = proc_mask->clone();
-    rec->_cmd_sent = std::unique_ptr<Bitset>();
+group_recv_t *NewGroupReceiver(DbgInvoke& di, const Bitset *proc_mask) {
+    auto rec = new group_recv_t {
+        .rec_di = di,
+        .rec_group = proc_mask->clone(),
+        ._cmd_sent = std::unique_ptr<Bitset>()
+    };
 
     return rec;
 }
 
-group_recv_t* NewGroupReceiver(dbginvoke *di, std::unique_ptr<Bitset>&& mask) {
-    auto rec = new group_recv_t;
-    rec->rec_di = di;
-
-    DASSERT_NOT_NULL(mask.get());
-    rec->rec_group = std::move(mask);
-    rec->_cmd_sent = std::unique_ptr<Bitset>();
+group_recv_t* NewGroupReceiver(DbgInvoke& di, std::unique_ptr<Bitset>&& mask) {
+    auto rec = new group_recv_t {
+        .rec_di = di,
+        .rec_group = std::move(mask),
+        ._cmd_sent = std::unique_ptr<Bitset>()
+    };
 
     return rec;
 }
@@ -232,12 +210,11 @@ static void ClearCmdSent(group_recv_t *rec) {
 static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
     if (rec == nullptr) return nullptr;
 
-    auto newrec = new group_recv_t;
-
-    newrec->rec_di = rec->rec_di;
-    DASSERT_NOT_NULL(rec->rec_group);
-    newrec->rec_group = rec->rec_group->clone();
-    newrec->_cmd_sent = std::unique_ptr<Bitset>();
+    auto newrec = new group_recv_t {
+        .rec_di = rec->rec_di,
+        .rec_group = rec->rec_group->clone(),
+        ._cmd_sent = std::unique_ptr<Bitset>()
+    };
 
     return newrec;
 }
@@ -325,7 +302,7 @@ void rec_set_t::removeReceiver(group_recv_t* rec) {
 }
 
 void rec_set_t::intersectReceiver(const group_recv_t* rec) {
-    if (!rec || !rec->rec_group || !rec->rec_di) return;
+    if (!rec || !rec->rec_group) return;
     auto toRemove = std::set<group_recv_t*>{};
 
     for (auto* group : m_recs) {
@@ -379,14 +356,12 @@ bool RecSetHasOneProcPerReceiver(rec_set_t* set)
  * data structures for group replies from dbgsrv
  */
 
-group_reply_t *NewGroupReply(dbginvoke_t *di, std::unique_ptr<Bitset> &&src, dbgevent_t *reply) {
-    group_reply_t *rep = new group_reply_t;
-
-    rep->rep_di = di;
-    rep->rep_event = reply;
-    rep->rep_group = std::move(src);
-
-    return rep;
+group_reply_t *NewGroupReply(DbgInvoke::Handle di, std::unique_ptr<Bitset> &&src, dbgevent_t *reply) {
+    return new group_reply_t {
+        .rep_di = std::move(di),
+        .rep_group = std::move(src),
+        .rep_event = reply
+    };
 }
 
 void FreeGroupReply(group_reply_t *rep) {
@@ -397,12 +372,11 @@ void FreeGroupReply(group_reply_t *rep) {
 group_reply_t *CopyGroupReply(group_reply_t *rep) {
     if (rep == nullptr) return nullptr;
 
-    auto newrep = new group_reply_t;
-
-    newrep->rep_di = rep->rep_di;
-    DASSERT_NOT_NULL(rep->rep_group);
-    newrep->rep_group = rep->rep_group->clone();
-    newrep->rep_event = DupEvent(rep->rep_event);
+    auto newrep = new group_reply_t {
+        .rep_di = rep->rep_di,
+        .rep_group = rep->rep_group->clone(),
+        .rep_event = DupEvent(rep->rep_event)
+    };
 
     return newrep;
 }
@@ -533,7 +507,7 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
         std::function<AIFStream* (AIFStream* oldData, AIFStream* data)> tFn)
 {
     // creates a new reply containing the passed aif stream. new reply owns passed aif pointer.
-    const auto aif2Reply = [](dbginvoke_t* di, std::unique_ptr<Bitset>&& group, AIFStream*&& aif) {
+    const auto aif2Reply = [](const DbgInvoke::Handle& di, std::unique_ptr<Bitset>&& group, AIFStream*&& aif) {
         auto ev = NewEvent(DBGEV_DATA);
         ev->ev_data = aif;
         aif = nullptr;
@@ -750,7 +724,7 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
     if (rep_set && rep_set->hasError()) {
         for (auto&& err : rep_set->getErrs()) {
             // Print out the error
-            PrintErrorWithSetInfo(err->rep_di->d_handle, err->rep_group.get(), "%s\n",
+            PrintErrorWithSetInfo(err->rep_di.c_str(), err->rep_group.get(), "%s\n",
                                   DbgEventErrorStr(err->rep_event));
         }
         return 1;
@@ -759,64 +733,24 @@ int ProcessErrorInRepSet(rep_set_t *rep_set) {
     return 0;
 }
 
-/*****************************
-** Event set for async events
-*****************************/
-
-/*
-** Create a new event set
-*/
-static event_set_t *NewEventSet(dbginvoke_t *di, const Bitset *group,
-                                dbgevent_t *event) {
-    auto *eventset = new event_set_t;
-
-    DASSERT_NOT_NULL(group);
-
-    eventset->e_di = di;
-    eventset->e_group = group->clone();
-    eventset->e_ev = DupEvent(event);
-
-    return eventset;
-}
-
-/*
-** Free an event set
-*/
-static void FreeEventSet(event_set_t *eventset) {
-    if (eventset == nullptr) return;
-
-    if (eventset->e_ev != nullptr) FreeEvent(eventset->e_ev);
-
-    delete eventset;
-}
-
-static void DestroyEventSet(dbginvoke_t *di, dbgev ev) {
-    event_set_t *eventset;
-
+// Remove any event matching `ev` from `di`'s internal event list
+static void DestroyEventSet(DbgInvoke *di, dbgev ev) {
     if (di == nullptr) return;
 
-    SetList(di->d_eventset_list);
-    while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) !=
-           nullptr) {
-        if ((ev < 0) || (EVENT_EV(eventset->e_ev) == ev)) {
-            RemoveFromList(di->d_eventset_list, (void *)eventset);
-            FreeEventSet(eventset);
-        }
-    }
+    di->d_eventset_list.remove_if([ev](const auto& eset){
+        return ev < 0 || eset.event()->ev_event == ev;
+    });
 }
 
 /*
 ** Add a async event to an event set
 */
-static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group, dbgevent_t *event) {
-    event_set_t *eventset;
-
+static DbgInvoke::EventSet *AddEvent(DbgInvoke *di, const Bitset *group, dbgevent_t *event) {
     if (di == nullptr || group == nullptr || event == nullptr) return nullptr;
 
-    SetList(di->d_eventset_list);
-    while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) != nullptr) {
+    for (auto& eventset : di->d_eventset_list) {
         // compare two events with the extra context a dbginvoke provides
-        const auto eventsAreEqual = [](const dbginvoke& di, const dbgevent_t& left, const dbgevent_t& right) -> bool {
+        const auto eventsAreEqual = [](const DbgInvoke& di, const dbgevent_t& left, const dbgevent_t& right) -> bool {
             if (left.ev_event == DBGEV_BPHIT && right.ev_event == DBGEV_BPHIT) {
                 // special behavior for BPHIT
 
@@ -832,8 +766,8 @@ static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group, dbgevent_t *e
                 // logical breakpoint mapping. We can't just forward to CompareEvents()
                 // because it lives in dbgcomm and doesn't know what a dbginvoke is.
 
-                const auto& lbp1 = di.d_breakpoints.findByDbgBreakpoint(*left.ev_bp);
-                const auto& lbp2 = di.d_breakpoints.findByDbgBreakpoint(*right.ev_bp);
+                const auto& lbp1 = di.breakpoints().findByDbgBreakpoint(*left.ev_bp);
+                const auto& lbp2 = di.breakpoints().findByDbgBreakpoint(*right.ev_bp);
                 if (lbp1 != nullptr && lbp2 != nullptr) {
                     return lbp1->id() == lbp2->id();
                 } else if ((lbp1 == nullptr) != (lbp2 == nullptr)) {
@@ -854,42 +788,34 @@ static event_set_t *AddEvent(dbginvoke_t *di, const Bitset *group, dbgevent_t *e
             return CompareEvents(&left, &right) == EV_EQUAL;
         };
 
-        if (eventsAreEqual(*di, *eventset->e_ev, *event)) {
+        if (eventsAreEqual(*di, *eventset.event(), *event)) {
             // Add this group to the event set
-            *eventset->e_group |= *group;
-            return eventset;
+            eventset.group() |= *group;
+            return &eventset;
         }
     }
 
     // If we get here we need to make a new event set
-    eventset = NewEventSet(di, group, event);
-    AddToList(di->d_eventset_list, eventset);
+    di->d_eventset_list.emplace_back(*di, *group, event);
 
-    return eventset;
+    return &di->d_eventset_list.back();
 }
 
 // This will remove the event set if an event of ev_event has been recieved for
 // every rank in the set
-static void CheckForFullEventSet(dbginvoke_t *di, const Bitset *fullset, dbgev ev) {
-    // individual event set
-    event_set_t *eventset;
-
-    // Return if di is null
+static void CheckForFullEventSet(DbgInvoke *di, const Bitset *fullset, dbgev ev) {
     if (di == nullptr) return;
 
     // A set that represents all ev that we have recieved so far
-    DASSERT_NOT_NULL(fullset);
     auto aggset = fullset->clone();
     aggset->clear();
 
     // Create a set that contains all the ev events by looping over
     // every event
-    SetList(di->d_eventset_list);
-    while ((eventset = (event_set_t *)GetListElement(di->d_eventset_list)) !=
-           nullptr) {
-        if (EVENT_EV(eventset->e_ev) == ev) {
+    for (const auto& eventset : di->d_eventset_list) {
+        if (EVENT_EV(eventset.event()) == ev) {
             // Add it to the bitset
-            *aggset |= *eventset->e_group;
+            *aggset |= eventset.group();
         }
     }
 
@@ -906,8 +832,6 @@ static void CheckForFullEventSet(dbginvoke_t *di, const Bitset *fullset, dbgev e
 }
 
 static void ResetForAsyncCmd(rec_set_t *set) {
-    event_set_t *eventset;
-
     if (set == nullptr) return;
 
     // Remove the old async_set if there is one
@@ -917,21 +841,16 @@ static void ResetForAsyncCmd(rec_set_t *set) {
 
     // Remove any old events for this group, and add each one to the async_set
     for (auto&& recv_ptr : set) {
-        // Clear any pending events for the group we are sending an async
-        // command to
-        SetList(recv_ptr->rec_di->d_eventset_list);
-        while ((eventset = (event_set_t *)GetListElement(
-                    recv_ptr->rec_di->d_eventset_list)) != nullptr) {
+        auto& eList = recv_ptr->rec_di.d_eventset_list;
+        for (auto it = eList.begin(); it != eList.end(); ) {
             // Remove the group from the bitset
-            DASSERT_NOT_NULL(eventset->e_group);
-            DASSERT_NOT_NULL(recv_ptr->rec_group);
-            *eventset->e_group -= *recv_ptr->rec_group;
+            it->group() -= *recv_ptr->rec_group;
 
             // Make sure the e_group isn't empty, otherwise remove it
-            if (eventset->e_group->isEmpty()) {
-                RemoveFromList(recv_ptr->rec_di->d_eventset_list,
-                               (void *)eventset);
-                FreeEventSet(eventset);
+            if (it->group().isEmpty()) {
+                it = eList.erase(it);
+            } else {
+                it++;
             }
         }
 
@@ -941,14 +860,13 @@ static void ResetForAsyncCmd(rec_set_t *set) {
     }
 }
 
-static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const Bitset *group) {
+static void RemoveGroupFromAsyncSet(DbgInvoke *di, const Bitset *group) {
     if (di == nullptr || group == nullptr || async_set == nullptr) return;
 
     // Find entry for this di in the async_set
     for (auto&& recv_ptr : async_set) {
-        if (recv_ptr->rec_di == di) {
+        if (recv_ptr->rec_di == *di) {
             // Remove the group from the bitset
-            DASSERT_NOT_NULL(recv_ptr->rec_group);
             *recv_ptr->rec_group -= *group;
 
             // Check to see if the rec_group is now empty
@@ -991,7 +909,6 @@ static void RemoveGroupFromAsyncSet(dbginvoke_t *di, const Bitset *group) {
 ** layer.
 */
 int DbgCheckEvents(void) {
-    dbginvoke_t *di;
     int status;
     int res = 0;
     int *ev_fd;
@@ -1008,39 +925,37 @@ int DbgCheckEvents(void) {
     if (auto* script = script::getCurrentScript(); script && script->hasReadyAsserts()) {
         res = 1;
     }
- 
-    // Check the protocols for each dbginvoke if there are any.
-    if (!EmptyList(DbgInvokeList)) {
-        // Reset the DbgInvokeList
-        SetList(DbgInvokeList);
+    // Loop through each dbginvoke entry and check for events.
+    for (auto& dih : DbgInvoke::getAll()) {
+        auto di = dih.lock();
+        if (!di) {
+            PrintOutError("Warning: no di %s.\n", dih.c_str());
+            continue;
+        }
+        /*
+         Note: This should be used for protocols that do not use an event
+         notification fd. If a event notification fd can be used, then it 
+         should be added to the sw_evfd list and sw_checkevents should 
+         simply return 0.
+        */
+        if (di->d_proto->checkEvents(di) > 0) {
+            DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
+            return 1;  // there is a proto event to handle. Return immediately.
+        }
 
-        // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
-            /*
-             Note: This should be used for protocols that do not use an event
-             notification fd. If a event notification fd can be used, then it 
-             should be added to the sw_evfd list and sw_checkevents should 
-             simply return 0.
-            */
-            if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
-                DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
-                return 1;  // there is a proto event to handle. Return immediately.
-            }
+        /*
+        ** If there is a d_evfds fd set, we want to add it to the fd_set to
+        *select on.
+        ** This enables protocol events.
+        */
+        if (di->d_evfds != nullptr) {
+            SetList(di->d_evfds);
 
-            /*
-            ** If there is a d_evfds fd set, we want to add it to the fd_set to
-            *select on.
-            ** This enables protocol events.
-            */
-            if (di->d_evfds != nullptr) {
-                SetList(di->d_evfds);
-
-                while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
-                    if (high_fd < *ev_fd) {
-                        high_fd = *ev_fd;
-                    }
-                    FD_SET(*ev_fd, &dispatch_fds);
+            while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
+                if (high_fd < *ev_fd) {
+                    high_fd = *ev_fd;
                 }
+                FD_SET(*ev_fd, &dispatch_fds);
             }
         }
     }
@@ -1121,7 +1036,6 @@ int DbgCheckEvents(void) {
 ** Dispactch pending debugger events.
 */
 void DbgDispatchEvents(void) {
-    dbginvoke_t *di;
     int *ev_fd;
 
     // DPRINT("*** In DbgDispatchEvents\n");
@@ -1129,40 +1043,40 @@ void DbgDispatchEvents(void) {
     /*
     ** Now dispatch any callback routines that are active.
     */
-    if (!EmptyList(DbgInvokeList)) {
-        // Reset the DbgInvokeList
-        SetList(DbgInvokeList);
+    for (auto& dih : DbgInvoke::getAll()) {
+        auto di = dih.lock();
+        if (!di) {
+            PrintOutError("Warning: no di %s.\n", dih.c_str());
+            continue;
+        }
 
-        // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != nullptr) {
-            // if the proto is shutting down, don't dispatch further pending
-            // events || if it didn't complete starting
-            if (di->d_isShutdown || !di->d_proto_net) continue;
+        // if the proto is shutting down, don't dispatch further pending
+        // events || if it didn't complete starting
+        if (di->d_isShutdown || !di->d_proto_net) continue;
 
-            // If there is an d_evfds list, then the protol layer is using
-            // event notification fd's. We should try to check to see if
-            // each one is set, and if so call the protocol specific
-            // dispatch function with the event fd as an argument
-            if (di->d_evfds != nullptr) {
-                SetList(di->d_evfds);
+        // If there is an d_evfds list, then the protol layer is using
+        // event notification fd's. We should try to check to see if
+        // each one is set, and if so call the protocol specific
+        // dispatch function with the event fd as an argument
+        if (di->d_evfds != nullptr) {
+            SetList(di->d_evfds);
 
-                while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
-                    // if the previous event caused a shutdown, don't
-                    // continue processing events
-                    if (di->d_isShutdown) break;
+            while ((ev_fd = (int *)GetListElement(di->d_evfds)) != nullptr) {
+                // if the previous event caused a shutdown, don't
+                // continue processing events
+                if (di->d_isShutdown) break;
 
-                    if (FD_ISSET(*ev_fd, &dispatch_fds)) {
-                        // dispatch each of the set notification fds one at
-                        // a time.
-                        DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
-                    }
+                if (FD_ISSET(*ev_fd, &dispatch_fds)) {
+                    // dispatch each of the set notification fds one at
+                    // a time.
+                    di->d_proto->dispatchEvents(di, *ev_fd);
                 }
-            } else {
-                // event notification fd's not in use by this protocol, so
-                // call the generic dispatch function with -1 for event fd
-                // arg.
-                DBG_PROTO_SW(di)->dispatchEvents(di, -1);
             }
+        } else {
+            // event notification fd's not in use by this protocol, so
+            // call the generic dispatch function with -1 for event fd
+            // arg.
+            di->d_proto->dispatchEvents(di, -1);
         }
     }
 
@@ -1202,9 +1116,9 @@ void DbgDispatchEvents(void) {
     }
 }
 
-int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
+int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgev last_event = DBGEV_NONE;
-    event_set_t *eventset = nullptr;
+    DbgInvoke::EventSet *eventset = nullptr;
     dbgevent_t *event;
     dbgbp_t *bp;
 
@@ -1225,8 +1139,8 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                 // Handle special pre-processing for breakpoints
                 bp = EVENT_BP(event);
                 // Fixup any pending breakpoints
-                di->d_breakpoints.fixupPendingBreakpoints(*bp, msg.getBitset());
-                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
+                di->breakpoints().fixupPendingBreakpoints(*bp, msg.getBitset());
+                if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
                     // if the breakpoint was a watchpoint we need to update the
                     // watchpoint locale information
                     switch (bp_set->type()) {
@@ -1261,7 +1175,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
         eventset = AddEvent(di, msg.getBitset(), event);
 
         // This is the callback that was set by calling DbgHandleEvent
-        di->d_clnt_ev_callback(eventset, msg.getBitset());
+        di->d_clnt_ev_callback(*eventset, *msg.getBitset());
 
         // conduct special post-processing for certain events
         switch (EVENT_EV(event)) {
@@ -1269,7 +1183,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
             case DBGEV_BPHIT: {
 
                 bp = EVENT_BP(event);
-                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
+                if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
                     // If the breakpoint was set to delete, we need to delete
                     // it. If it was set to dis, we need to disable it.
 
@@ -1300,14 +1214,14 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                     for (const auto &bitset : removeGroups) {
                         bp_set->removeGroup(bitset.get());
                     }
-                    di->d_breakpoints.removeEmptyBreakpoints();
+                    di->breakpoints().removeEmptyBreakpoints();
                 }
                 break;
             }
 
             case DBGEV_BPDEL: {
                 bp = EVENT_BP(event);
-                if (auto bp_set = di->d_breakpoints.findByDbgBreakpoint(*bp)) {
+                if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
                     // Need to delete the breakpoint.
                     std::vector<std::unique_ptr<Bitset>> removeGroups;
                     for (const auto &disp_set : bp_set->dispSetList()) {
@@ -1324,7 +1238,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                     for (const auto &bitset : removeGroups) {
                         bp_set->removeGroup(bitset.get());
                     }
-                    di->d_breakpoints.removeEmptyBreakpoints();
+                    di->breakpoints().removeEmptyBreakpoints();
                 }
                 break;
             }
@@ -1354,7 +1268,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
         // having to do this for each and every event we recieve if the
         // aggregation in the tree is particularly bad. If it is bad, we expect
         // to receive multiple events of the same type in a row.
-        if (EVENT_EV(eventset->e_ev) != last_event) {
+        if (EVENT_EV(eventset->event()) != last_event) {
             // Only check if last_event is not DBGEV_NONE since this is the
             // default noneness case
             if (last_event != DBGEV_NONE) {
@@ -1365,7 +1279,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
                 CheckForFullEventSet(di, di->d_bitset_full.get(), last_event);
             }
             // set the last event to this event type
-            last_event = EVENT_EV(eventset->e_ev);
+            last_event = EVENT_EV(eventset->event());
         }
     }
 
@@ -1389,14 +1303,14 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     return 1;
 }
 
-void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream) {
+void DbgDispatchProtoOutput(DbgInvoke *di, FILE *p_o_stream) {
     if (di == nullptr || p_o_stream == nullptr) return;
 
     // Call the output callback
     OutputCB.filestreamCallback(di, p_o_stream);
 }
 
-void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lines) {
+void DbgDispatchProtoOutput(DbgInvoke *di, const std::vector<std::string> &lines) {
     if (di == nullptr) return;
 
     // Call the output callback
@@ -1406,7 +1320,7 @@ void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lin
 /*
 ** Set client event handler
 */
-void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback) {
+void DbgHandleEvent(DbgInvoke *di, DbgInvoke::AsyncEventCallback ev_callback) {
     if (di == nullptr) return;
 
     // set the new callback
@@ -1416,11 +1330,11 @@ void DbgHandleEvent(dbginvoke_t *di, clnt_ev_callback_func ev_callback) {
 /*
 ** Set local output stream handler.
 */
-void DbgHandleOutput(const std::function<void (dbginvoke *, FILE *)> &outp) {
+void DbgHandleOutput(const std::function<void (DbgInvoke *, FILE *)> &outp) {
     OutputCB.filestreamCallback = outp;  // callback handler
 }
 
-void DbgHandleOutput(const std::function<void (dbginvoke *, const std::vector<std::string> &)> &outp) {
+void DbgHandleOutput(const std::function<void (DbgInvoke *, const std::vector<std::string> &)> &outp) {
     OutputCB.stringVectorCallback = outp;  // callback handler
 }
 
@@ -1562,8 +1476,6 @@ int DbgInit(void) {
 }
 
 void DbgFinalize(void) {
-    dbginvoke_t *di;
-
     // Cleanup the current session if there is one
     if (DbgCurrSess != nullptr) {
         DebugClientProtocol * const sw = DbgCurrSess->sess_proto;
@@ -1577,13 +1489,7 @@ void DbgFinalize(void) {
 
     DbgSigList.clear();
     DbgUnblockableSigList.clear();
-
-    // Manually free the elements in the dbginvoke list
-    while ((di = (dbginvoke_t *)RemoveFirst(DbgInvokeList)) != nullptr) {
-        FreeDbgInvoke(di);
-    }
-    DestroyList(DbgInvokeList, nullptr);
-    DbgInvokeList = nullptr;
+    DbgInvoke::deactivateAll();
 }
 
 /*
@@ -1630,9 +1536,10 @@ proto_session *DbgGetSession(void) { return DbgCurrSess; }
 
 /*
 ** Attach to running program.
+** Returns name of newly created di or "" on failure.
 */
-dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
-                       const char *handle, const char *app_ident,
+DbgInvoke::Handle DbgAttach(const char *proto, proto_session *sess,
+                       const char *name, const char *app_ident,
                        const char *arch, const char *backend, const char* gdb,
                        int gpu_flag, int debug_flag) {
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
@@ -1642,17 +1549,18 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
         return nullptr;
     }
 
-    // Create the dbginvoke_t object to pass down, nproc is unknown since this
-    // is the attach case
-    auto di = new dbginvoke(handle, DBG_ATTACHED, 0, ptab);
-
-    if (ptab->attach(di, sess, app_ident, arch, backend, gdb,
-                     gpu_flag, debug_flag)) {
-        FreeDbgInvoke(di);
-        return nullptr;
+    if (name == nullptr) {
+        PrintOutError("Empty di name\n");
     }
 
-    RegisterDbgInvoke(di);
+    // Create the dbginvoke_t object to pass down, nproc is unknown since this
+    // is the attach case
+    auto di = std::make_unique<DbgInvoke>(DBG_ATTACHED, 0, ptab);
+
+    if (ptab->attach(di.get(), sess, app_ident, arch, backend, gdb,
+                gpu_flag, debug_flag)) {
+        return nullptr;
+    }
 
     // The frontend debug presence can fail silently
     // This is currently disabled for the attach case since I have no idea how
@@ -1662,16 +1570,22 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
 
     // FIXME: How to set the debug frontend a.out???
 
+    auto handle = DbgInvoke::activate(name, std::move(di));
+    if (!handle.lock()) {
+        // return nullptr without changing inferior status
+        return handle;
+    }
+
     // This command changes the status
     inferior_status_change = 1;
 
-    return di;
+    return handle;
 }
 
 /*
 ** Launch user program.
 */
-dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& args) {
+DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&& args) {
     DebugClientProtocol * const ptab = findClientProtoByName(args.proto_name.c_str());
     dbgevent_t *e;
 
@@ -1680,8 +1594,13 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
         return nullptr;
     }
 
+    if (name == nullptr) {
+        PrintOutError("Empty di name\n");
+        return nullptr;
+    }
+
     // Create the dbginvoke_t object to pass down
-    auto di = new dbginvoke(handle, DBG_LAUNCHED, nproc, ptab);
+    auto di = std::make_unique<DbgInvoke>(DBG_LAUNCHED, nproc, ptab);
 
     // Start out by creating the frontend gdb instance. We want to do some pre
     // checks on the a.out
@@ -1729,7 +1648,6 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
                 PrintOutError("may hang during startup.\n");
 
                 FreeEvent(e);
-                FreeDbgInvoke(di);
 
                 return nullptr;
             }
@@ -1756,30 +1674,33 @@ dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& ar
     };
 
     if (ptab->launch(
-        di, nullptr, args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(), 
+        di.get(), nullptr, args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(), 
         args.arch_name.c_str(), args.launcher_argv.c_strs(1).data(), 
         optStr(args.input_file_path), args.backend_name.c_str(), 
         optStr(args.gdb_path), args.env.c_strs().data(), 
         optStr(args.cwd), args.gpu_flag, args.debug_flag,
         args.non_mpi_flag, args.early_entry_flag, args.non_stop_flag)
     ) {
-        FreeDbgInvoke(di);
         return nullptr;
     }
 
     di->d_launch = std::move(args);
 
-    RegisterDbgInvoke(di);
+    auto handle = DbgInvoke::activate(name, std::move(di));
+    if (!handle.lock()) {
+        // return nullptr without inferior status change
+        return handle;
+    }
 
     // This command changes the status
     inferior_status_change = 1;
-    return di;
+    return handle;
 }
 
 static int DbgSendCmd(group_recv_t *set, const std::string& request) {
-    dbginvoke_t *di = set->rec_di;
+    if (!set) return 1;
 
-    set->_cmd_sent = DBG_PROTO_SW(di)->sendCommand(di, set->rec_group.get(), request.c_str());
+    set->_cmd_sent = set->rec_di.d_proto->sendCommand(&set->rec_di, set->rec_group.get(), request.c_str());
 
     return (set->_cmd_sent != nullptr ? 0 : 1);
 }
@@ -1791,24 +1712,22 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
 //      DBG_DATA).
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
-    dbginvoke_t *di = set->rec_di;
     rep_set_t *reply;
     group_reply_t *rep;
     dbgevent_t *e;
     dbgev ev;
 
     bool isFinal = true;
+    reply = NewRepSet();
 
     auto proto_res =
-        DBG_PROTO_SW(di)->receiveReply(di, set->rec_group.get(), *set->_cmd_sent);
-
-    reply = NewRepSet();
+        set->rec_di.d_proto->receiveReply(&set->rec_di, set->rec_group.get(), *set->_cmd_sent);
 
     if (!proto_res) {
         // Create a new error event based on this reply
         EVENT_ERROR(e, DBGERR_INTERNAL,
                     "Protocol returned null proto_msg_set.\n");
-        rep = NewGroupReply(di, set->rec_group->clone(), e);
+        rep = NewGroupReply(set->rec_di.handle(), set->rec_group->clone(), e);
         // Add the error to the reply set
         AddErrToSet(reply, rep);
         ClearCmdSent(set);
@@ -1824,7 +1743,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
         switch (ev) {
             // Errors get added to the special error list
             case DBGEV_ERROR:
-                rep = NewGroupReply(di, msg.getBitset()->clone(), e);
+                rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                 // Add this error to the reply set
                 AddErrToSet(reply, rep);
                 break;
@@ -1837,7 +1756,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                     e = NewErrorEvent(DBGERR_INTERNAL,
                                       "Received event of type %s, expected type %s.\n",
                                       DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, msg.getBitset()->clone(), e);
+                    rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
@@ -1858,13 +1777,13 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         e, DBGERR_INTERNAL,
                         "Received event of type %s, expected type %s.\n",
                         DbgevToStr(ev), DbgevToStr(req_type));
-                    rep = NewGroupReply(di, msg.getBitset()->clone(), e);
+                    rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                     // Add the error to the reply set
                     AddErrToSet(reply, rep);
                     break;
                 }
                 // Create a reply out of this event
-                rep = NewGroupReply(di, msg.getBitset()->clone(), e);
+                rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                 // Add this reply to the reply set
                 AddReplyToSet(reply, rep);
                 break;
@@ -1938,8 +1857,8 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
 
     // find the set of dbg_invokes.   The slice set for the delta output from
     // compare is sparse, so we can't just look at the first slice.
-    std::set<dbginvoke_t*> disSet;
-    std::vector<dbginvoke_t*> dis;
+    std::set<DbgInvoke::Handle> disSet;
+    std::vector<DbgInvoke::Handle> dis;
     for (auto&& slice : slices) {
         for (auto&& reply : slice.get()) {
             auto di = reply->rep_di;
@@ -2073,7 +1992,7 @@ static group_reply_t* JoinReplies(const Bitset* group,
                                   bool& isError)
 {
     // JoinReplies should be called on DATA replies - no other type is sliced
-    dbginvoke_t* di = nullptr;
+    auto di = DbgInvoke::Handle(nullptr);
     isError = false;
     for (auto&& reply : replies) {
         di = reply->rep_di;
@@ -2284,7 +2203,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
     // Loop over each di in the rec set
     for (auto&& recv_ptr : set) {
         // point at the debug frontend
-        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+        if (auto dbg_fe = recv_ptr->rec_di.d_frontend) {
             if (result == nullptr) {
                 result = NewRepSet();
             }
@@ -2301,7 +2220,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
             }
 
             // Add the event to the result based on its type
-            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+            auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                            recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
@@ -2345,7 +2264,7 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
     // Loop over each di in the rec set
     for (auto&& recv_ptr : set) {
         // point at the debug frontend
-        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+        if (auto* dbg_fe = recv_ptr->rec_di.d_frontend) {
             auto e = DbgFEGetSourcePath(dbg_fe);
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
@@ -2358,7 +2277,7 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
             }
 
             // Add the event to the result based on its type
-            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+            auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                            recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
@@ -2432,7 +2351,6 @@ rep_set_t *DbgGetType(rec_set_t *set, const char *var, int isType) {
 ** DBG_GO: Continue/start execution.
 */
 rep_set_t *DbgGo(rec_set_t *set, bool all) {
-    dbgfrontend_sw *dbg_fe;
     int has_err;
 
     // Remove any old events for this group
@@ -2446,7 +2364,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            dbg_fe = recv_ptr->rec_di->d_frontend;
+            auto* dbg_fe = recv_ptr->rec_di.d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
@@ -2459,7 +2377,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
-                if (err->rep_di == recv_ptr->rec_di) {
+                if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     ++has_err;
                     break;
@@ -2468,7 +2386,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto* dbg_fe = recv_ptr->rec_di.d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -2504,7 +2422,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto dbg_fe = recv_ptr->rec_di->d_frontend;
+            auto* dbg_fe = recv_ptr->rec_di.d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
@@ -2517,7 +2435,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
-                if (err->rep_di == recv_ptr->rec_di) {
+                if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     ++has_err;
                     break;
@@ -2526,7 +2444,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto* dbg_fe = recv_ptr->rec_di.d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -2556,7 +2474,8 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, i
 
     // process breakpoint information
     for (auto&& reply : result) {
-        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
+        auto* di = reply->rep_di.lock();
+        di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2575,7 +2494,8 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file,
 
     // process breakpoint information
     for (auto&& reply : result) {
-        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
+        auto* di = reply->rep_di.lock();
+        di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2593,7 +2513,8 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 
     // process breakpoint information
     for (auto&& reply : result) {
-        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
+        auto* di = reply->rep_di.lock();
+        di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2605,7 +2526,8 @@ rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::s
 
     // process catchpoint information
     for (const auto &reply : result) {
-        reply->rep_di->d_breakpoints.recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
+        auto* di = reply->rep_di.lock();
+        di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
     return result;
@@ -2619,25 +2541,24 @@ rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
 
     if (!result->hasError()) {
         // bucket each reply by its di
-        std::unordered_map<dbginvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
+        std::unordered_map<DbgInvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
         for (const auto reply : result) {
-            if (!reply->rep_di) {
-                return nullptr;
-            }
-            diMap[reply->rep_di].push_back({reply->rep_group.get(), EVENT_CHECKPOINT(reply->rep_event)});
+            if (!reply->rep_di.lock()) continue;
+            diMap[reply->rep_di.lock()].push_back({reply->rep_group.get(), EVENT_CHECKPOINT(reply->rep_event)});
         }
 
         auto mostMade = 0u;
 
         // add checkpoint to each di
-        for (auto [di, checkpointV] : diMap) {
-            auto produced = di->d_checkpoints.recordCheckpoint(nextId, checkpointV);
+        for (auto& [di, checkpointV] : diMap) {
+            auto produced = di->checkpoints().recordCheckpoint(nextId, checkpointV);
+
             // recordCheckpoint can make either one or two checkpoints each call,
             // see comments in recordCheckpoint
             mostMade = std::max(mostMade, produced);
             if (produced == 0) {
                 PrintOutError("Failed to record checkpoint\n");
-                PrintOutError("(%s)\n", di->d_checkpoints.getError().c_str());
+                PrintOutError("(%s)\n", di->checkpoints().getError().c_str());
             }
         }
 
@@ -2651,12 +2572,12 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
     if (!recSet) return nullptr;
 
     // add string error to rep_set_t result
-    const auto addStrError = [](rep_set_t *&result, dbginvoke &di, const Bitset &group, const std::string message) {
+    const auto addStrError = [](rep_set_t *&result, const DbgInvoke& di, const Bitset &group, const std::string message) {
         if (!result) {
             result = NewRepSet();
         }
 
-        AddErrToSet(result, NewGroupReply(&di, group.clone(), NewErrorEvent(DBGERR_DEBUGGER, message.c_str())));
+        AddErrToSet(result, NewGroupReply(di.handle(), group.clone(), NewErrorEvent(DBGERR_DEBUGGER, message.c_str())));
     };
 
     // add rep_set_t error to rep_set_t result
@@ -2675,14 +2596,14 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
 
     // preliminary error checking
     auto foundCheckp = std::any_of(begin(recSet), end(recSet),
-        [&](const auto &rec) { 
-        return rec->rec_di->d_checkpoints.find(id) != nullptr;
+        [&](const auto *rec) {
+        return rec->rec_di.checkpoints().find(id) != nullptr;
     });
 
     if (!foundCheckp) {
         // just use the first di to generate the error
         auto first = recSet->getReceivers().front();
-        addStrError(result, *first->rec_di, *first->rec_group, 
+        addStrError(result, first->rec_di, *first->rec_group, 
             "Checkpoint "s + std::to_string(id) + " doesn't exist."
         );
     }
@@ -2693,9 +2614,8 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
     }
 
     for (const auto rec : recSet) {
-        auto di = rec->rec_di;
-        auto checkp = di->d_checkpoints.find(id);
-        
+        auto checkp = rec->rec_di.checkpoints().find(id);
+
         // it's valid for the checkpoint to only exist on some dis and not others
         if (!checkp) continue;
         if (!checkp->currentSet().isEmpty()) continue;
@@ -2708,12 +2628,12 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
             }
 
             auto new_rec_set = NewRecSet();
-            AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+            AddReceiverToSet(new_rec_set, NewGroupReceiver(rec->rec_di, group.get()));
 
             // Get frames to update client side location data on success
             auto frames = DbgGetFrame(new_rec_set, false);
             if (!frames) {
-                addStrError(result, *di, *group, "Error fetching frame");
+                addStrError(result, rec->rec_di, *group, "Error fetching frame");
                 continue;
             }
             for (const auto* frameReply : frames) {
@@ -2726,7 +2646,7 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
                 if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
                     // update client side location data of any checkpoints that
                     // are current
-                    for (auto &checkp : di->d_checkpoints) {
+                    for (auto &checkp : rec->rec_di.checkpoints()) {
                         if (checkp.currentSet().hasCommonBits(*frameGroup)) {
                             checkp.locations().replace(
                                 bitset::fromAnd(*frameGroup, checkp.currentSet()).get(), 
@@ -2735,7 +2655,7 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
                         }
                         checkp.unmarkCurrent(*frameGroup);
                     }
-                    di->d_checkpoints.find(id)->markCurrent(*frameGroup);
+                    rec->rec_di.checkpoints().find(id)->markCurrent(*frameGroup);
                 } else {
                     // deletes tmp_result
                     addRepSetError(result, tmp_result);
@@ -2753,14 +2673,14 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
     if (!recSet) return nullptr;
 
     // add string error to rep_set_t result
-    const auto addStrError = [](rep_set_t *&result, dbginvoke &di, const Bitset &group, const std::string message) {
+    const auto addStrError = [](rep_set_t *&result, const DbgInvoke& di, const Bitset &group, const std::string message) {
         if (!result) {
             result = NewRepSet();
         }
 
         dbgevent_t *e;
         EVENT_ERROR(e, DBGERR_DEBUGGER, message.c_str());
-        auto group_rep = NewGroupReply(&di, group.clone(), e);
+        auto group_rep = NewGroupReply(di.handle(), group.clone(), e);
         AddErrToSet(result, group_rep);
     };
 
@@ -2777,17 +2697,17 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
     using namespace std::string_literals;
 
     rep_set_t *result = nullptr;
-    
+
     // preliminary error checking
     auto foundCheckp = std::any_of(begin(recSet), end(recSet),
-        [&](const auto &rec) { 
-        return rec->rec_di->d_checkpoints.find(id) != nullptr;
+        [&](const auto* rec) {
+        return rec->rec_di.checkpoints().find(id) != nullptr;
     });
 
     if (!foundCheckp) {
         // just use the first di
         auto first = recSet->getReceivers().front();
-        addStrError(result, *first->rec_di, *first->rec_group, 
+        addStrError(result, first->rec_di, *first->rec_group, 
             "Checkpoint "s + std::to_string(id) + " doesn't exist."
         );
     }
@@ -2799,14 +2719,13 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
 
     // more preliminary error checking
     for (const auto &rec : recSet) {
-        auto* di = rec->rec_di;
-        const auto* checkpoint = di->d_checkpoints.find(id);
+        const auto* checkpoint = rec->rec_di.checkpoints().find(id);
 
         // don't delete a checkpoint that is current somewhere
         if (!checkpoint->currentSet().isEmpty()) {
-            addStrError(result, *di, *rec->rec_group, 
+            addStrError(result, rec->rec_di, *rec->rec_group, 
                 "Checkpoint "s + std::to_string(id) + " is the current checkpoint on $"
-                + di->d_handle + checkpoint->currentSet().toSetString() + "."
+                + rec->rec_di.handle().c_str() + checkpoint->currentSet().toSetString() + "."
             );
             continue;
         }
@@ -2818,10 +2737,10 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
             return idset.id == 0;
         });
         if (IDZero != checkpoint->idSetList().end()) {
-            addStrError(result, *di, *rec->rec_group,
+            addStrError(result, rec->rec_di, *rec->rec_group,
                 "Checkpoint "s + std::to_string(id) + " is the original thread of execution on $"
-                + di->d_handle + IDZero->group->toSetString() + " and can't be directly deleted. "
-                + "When all other checkpoints on $" + di->d_handle + " are deleted, checkpoint " + std::to_string(id)
+                + rec->rec_di.handle().c_str() + IDZero->group->toSetString() + " and can't be directly deleted. "
+                + "When all other checkpoints on $" + rec->rec_di.handle().c_str() + " are deleted, checkpoint " + std::to_string(id)
                 + " will be implicitly deleted."
             );
         }
@@ -2833,9 +2752,8 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
     }
 
     for (const auto &rec : recSet) {
-        auto di = rec->rec_di;
-        auto checkp = di->d_checkpoints.find(id);
-        
+        auto checkp = rec->rec_di.checkpoints().find(id);
+
         // it's valid for the checkpoint to only exist on some dis and not others
         if (!checkp) continue;
 
@@ -2851,7 +2769,7 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
             auto request = CommandToSocProto(DBGCMD_DELETECHECKPOINT, idSet.id);
 
             auto new_rec_set = NewRecSet();
-            AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+            AddReceiverToSet(new_rec_set, NewGroupReceiver(rec->rec_di, group.get()));
 
             if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
                 // will remove the group from the checkpoint after loop
@@ -2870,10 +2788,10 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
         }
 
         // remove any empty checkpoints left by above
-        di->d_checkpoints.removeEmpty();
+        rec->rec_di.checkpoints().removeEmpty();
         // if the deletion left a single checkpoint, gdb will implicitly delete it,
         // so reflect that in our client side data as well
-        di->d_checkpoints.removeSingular();
+        rec->rec_di.checkpoints().removeSingular();
     }
 
     return result;
@@ -2961,35 +2879,6 @@ rep_set_t *DbgCuda(rec_set_t* set, const char* op)
     return result;
 }
 
-
-/*
-** DBG_KILL: Terminate execution of program.
-** TODO: Probably remove this, the DbgQuit should be sufficient.
-*/
-rep_set_t *DbgKill(rec_set_t *set) {
-
-    if (!set) return nullptr;
-
-    auto request = CommandToSocProto(DBGCMD_KILL);
-
-    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-    // Loop over each di and call the protocol specific hook
-    for (auto&& recv_ptr : set) {
-        // point at the di
-        auto di = recv_ptr->rec_di;
-
-        // We always want to kill the application, so hardcode detatch to 0
-        DBG_PROTO_SW(di)->exit(di, 0);
-
-        FreeDbgInvoke(di);
-
-        recv_ptr->rec_di = nullptr;
-    }
-
-    return result;
-}
-
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */
@@ -3001,11 +2890,8 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
     for (auto&& recv_ptr : set) {
-        // point at the di
-        auto di = recv_ptr->rec_di;
-
         if (bp_set_num == 0) {
-            for (auto &bp_set : di->d_breakpoints) {
+            for (auto &bp_set : recv_ptr->rec_di.breakpoints()) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
                 std::vector<std::unique_ptr<Bitset>> removeGroups;
@@ -3026,7 +2912,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3054,10 +2940,10 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 }
             }
             // remove any breakpoints that are now empty
-            di->d_breakpoints.removeEmptyBreakpoints();
+            recv_ptr->rec_di.breakpoints().removeEmptyBreakpoints();
         } else {
             // find the bp_set for the bp_set_num
-            auto bp_set = di->d_breakpoints.findByLogicalID(bp_set_num);
+            auto bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num);
             if (bp_set == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
@@ -3067,7 +2953,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
+                    NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 result = NewRepSet();
                 AddErrToSet(result, group_rep);
@@ -3093,7 +2979,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3120,7 +3006,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
             for (const auto &bitset : removeGroups) {
                 bp_set->removeGroup(bitset.get());
             }
-            di->d_breakpoints.removeEmptyBreakpoints();
+            recv_ptr->rec_di.breakpoints().removeEmptyBreakpoints();
         }
     }
 
@@ -3138,11 +3024,8 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
     for (auto&& recv_ptr : set) {
-        // point at the di
-        auto di = recv_ptr->rec_di;
-
         if (bp_set_num == 0) {
-            for (auto &bp_set : di->d_breakpoints) {
+            for (auto &bp_set : recv_ptr->rec_di.breakpoints()) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
                 for (const auto &id_set : bp_set.idSetList()) {
@@ -3162,7 +3045,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3190,7 +3073,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
             MappedBreakpoint *bp_set;
 
             // find the bp_set for the bp_set_num
-            if ((bp_set = di->d_breakpoints.findByLogicalID(bp_set_num)) == nullptr) {
+            if ((bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 
@@ -3199,7 +3082,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
+                    NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 if (result == nullptr) {
                     result = NewRepSet();
@@ -3226,7 +3109,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3264,11 +3147,8 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
     for (auto&& recv_ptr : set) {
-        // point at the di
-        auto di = recv_ptr->rec_di;
-
         if (bp_set_num == 0) {
-            for (auto &bp_set : di->d_breakpoints) {
+            for (auto &bp_set : recv_ptr->rec_di.breakpoints()) {
                 // We send the command to the backend based on the backend gdb
                 // id. Loop over this list
                 for (const auto &id_set : bp_set.idSetList()) {
@@ -3288,7 +3168,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                    AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                     auto tmp_result =
                         DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3322,7 +3202,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
             MappedBreakpoint *bp_set;
 
             // find the bp_set for the bp_set_num
-            if ((bp_set = di->d_breakpoints.findByLogicalID(bp_set_num)) == nullptr) {
+            if ((bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num)) == nullptr) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 
@@ -3331,7 +3211,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
                             bp_set_num);
                 // Add the event to the result based on its type
                 auto group_rep =
-                    NewGroupReply(di, recv_ptr->rec_group->clone(), e);
+                    NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
                 if (result == nullptr) {
                     result = NewRepSet();
@@ -3358,7 +3238,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(di, group.get()));
+                AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
 
                 auto tmp_result =
                     DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
@@ -3415,8 +3295,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
     // Loop over each di in the set
     for (auto&& recv_ptr : set) {
-        // point at the dbg fe
-        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+        if (auto dbg_fe = recv_ptr->rec_di.d_frontend) {
             // set the forward/reverse direction
             auto isReverse = (str == nullptr) ? false : (*str == '-');
 
@@ -3515,7 +3394,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
-                        auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                        auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                                        set_loc->set->clone(), e);
                         AddErrToSet(result, group_rep);
                         continue;
@@ -3536,7 +3415,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
-                                    NewGroupReply(recv_ptr->rec_di,
+                                    NewGroupReply(recv_ptr->rec_di.handle(),
                                                   set_loc->set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
@@ -3558,7 +3437,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
-                                    NewGroupReply(recv_ptr->rec_di,
+                                    NewGroupReply(recv_ptr->rec_di.handle(),
                                                   set_loc->set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
@@ -3597,7 +3476,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     }
 
                     // Add the event to the result based on its type
-                    auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                    auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                                    set_loc->set->clone(), e);
 
                     if (e->ev_event == DBGEV_ERROR) {
@@ -3643,7 +3522,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 }
 
                 // Add the event to the result based on its type
-                auto group_rep = NewGroupReply(recv_ptr->rec_di,
+                auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                           recv_ptr->rec_group->clone(), e);
 
                 if (e->ev_event == DBGEV_ERROR) {
@@ -3699,8 +3578,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 
     // Loop over each di in the set
     for (auto&& recv_ptr : set) {
-        // point at the dbg fe
-        auto dbg_fe = recv_ptr->rec_di->d_frontend;
+        auto dbg_fe = recv_ptr->rec_di.d_frontend;
 
         if (dbg_fe != nullptr) {
             auto e = DbgFEGetSources(dbg_fe);
@@ -3717,7 +3595,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
             }
 
             // Add the event to the result based on its type
-            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+            auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                            recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
@@ -3776,7 +3654,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto dbg_fe = recv_ptr->rec_di->d_frontend;
+            auto dbg_fe = recv_ptr->rec_di.d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
@@ -3788,7 +3666,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
-                if (err->rep_di == recv_ptr->rec_di) {
+                if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     has_err = true;
                     break;
@@ -3797,7 +3675,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di.d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -3833,7 +3711,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
 
         // Ensure this di is not in the error list
         for (auto&& err : result->getErrs()) {
-            if (err->rep_di == recv_ptr->rec_di) {
+            if (err->rep_di == recv_ptr->rec_di.handle()) {
                 // this di has an error
                 hasErr = true;
                 break;
@@ -3844,8 +3722,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
             continue;
         }
 
-        // point at the dbg fe
-        if (auto dbg_fe = recv_ptr->rec_di->d_frontend) {
+        if (auto dbg_fe = recv_ptr->rec_di.d_frontend) {
             // Clear any existing state
             ClearListState(dbg_fe);
 
@@ -3945,8 +3822,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 
     // Loop over each di in the set
     for (auto&& recv_ptr : set) {
-        // point at the dbg fe
-        auto dbg_fe = recv_ptr->rec_di->d_frontend;
+        auto dbg_fe = recv_ptr->rec_di.d_frontend;
 
         if (dbg_fe != nullptr) {
             auto e = DbgFEGetScope(dbg_fe, location);
@@ -3963,7 +3839,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
             }
 
             // Add the event msg to the result based on its type
-            auto group_rep = NewGroupReply(recv_ptr->rec_di,
+            auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                       recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
@@ -4030,7 +3906,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto dbg_fe = recv_ptr->rec_di->d_frontend;
+            auto dbg_fe = recv_ptr->rec_di.d_frontend;
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
@@ -4043,7 +3919,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
-                if (err->rep_di == recv_ptr->rec_di) {
+                if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     has_err = true;
                     break;
@@ -4052,7 +3928,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto dbg_fe = recv_ptr->rec_di->d_frontend;
+                auto dbg_fe = recv_ptr->rec_di.d_frontend;
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
@@ -4101,13 +3977,10 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
             // Call protocol specific communication network exit function and
             // destroy the di for each di in the rec_set
             for (auto&& recv_ptr : set) {
-                // point at the di
-                auto di = recv_ptr->rec_di;
-
-                DBG_PROTO_SW(di)->exit(di, detach);
+                recv_ptr->rec_di.d_proto->exit(&recv_ptr->rec_di, detach);
 
                 // cleanup the di object
-                FreeDbgInvoke(di);
+                DbgInvoke::deactivate(recv_ptr->rec_di.handle());
             }
 
             break;
@@ -4117,15 +3990,12 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
             // attach value in each di. So we need to loop over each di in the
             // rec_set individually since these can be different.
             for (auto&& recv_ptr : set) {
-                // point at the di
-                auto di = recv_ptr->rec_di;
-
                 // create the rec_set
                 auto to_send = NewRecSet();
                 AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
 
                 // use default based on attach value
-                switch (di->d_type) {
+                switch (recv_ptr->rec_di.d_type) {
                     case DBG_ATTACHED:
                         detach = 1;
                         break;
@@ -4144,10 +4014,10 @@ rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
                 result = MergeRepSet(result, tmp_result);
 
                 // Call protocol specific communication network exit function
-                DBG_PROTO_SW(di)->exit(di, detach);
+                recv_ptr->rec_di.d_proto->exit(&recv_ptr->rec_di, detach);
 
                 // cleanup the di object
-                FreeDbgInvoke(di);
+                DbgInvoke::deactivate(recv_ptr->rec_di.handle());
             }
 
             break;

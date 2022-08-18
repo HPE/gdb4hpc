@@ -396,12 +396,18 @@ int RetrieveContents(val_t *val, rec_set_t *rec_set) {
         target_recset = NewRecSet();
 
         SetOverlaySetForProcSet(target_procset);
-        while ((over_set = GetNextOverlaySetForProcSet(target_procset)) !=
-               NULL) {
+        while ((over_set = GetNextOverlaySetForProcSet(target_procset)) != NULL) {
             // create a group_recv_t for the over_set and add it to the res
+            auto diptr = over_set->s_di.lock();
+            if (!diptr) {
+                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
+                continue;
+            }
+
             AddReceiverToSet(
                 target_recset,
-                NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
+                NewGroupReceiver(*diptr, over_set->s_di_bs.get())
+            );
         }
 
         target_recset->setThreads(target_procset->s_threads);

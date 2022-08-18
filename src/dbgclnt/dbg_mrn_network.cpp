@@ -85,7 +85,7 @@ public:
         if (!m_enabled)
             return;
         
-        auto di = static_cast<dbginvoke_t *>(data);
+        auto di = static_cast<DbgInvoke *>(data);
 
         PrintOutError("\nERROR: MRNet failure callback invoked.\n");
         PrintOutError("Debugger is shutting down! Please file a bugreport.\n");
@@ -120,7 +120,6 @@ MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
                              const Bitset *target_)
     : comm{comm}, stream{stream} 
 {
-    DASSERT_NOT_NULL(target_);
     target = target_->clone();
 }
 
@@ -187,7 +186,6 @@ MRN::Stream *MRNetNetwork::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *ta
     switch (proto) {
         case DBG_MRNet_PRO_COMMAND:
             // is it a broadcast?
-            DASSERT_NOT_NULL(m_bitset_full);
             if (target == nullptr || *m_bitset_full == *target) {
                 stream = m_cmd_stream;
             } else {
@@ -789,7 +787,7 @@ static void call_failure_callback(MRN::Event *evt, void *cb_data) {
     }
 }
 
-void MRNetNetwork::enable_failure_callback(dbginvoke_t *di) {
+void MRNetNetwork::enable_failure_callback(DbgInvoke *di) {
     failure_handler.enable();
 
     m_network->register_EventCallback(

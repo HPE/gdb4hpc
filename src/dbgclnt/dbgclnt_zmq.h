@@ -18,11 +18,11 @@ public:
 
     const char* name() const override { return "zmqnet"; };
 
-    int attach(struct dbginvoke *di, proto_session *session, 
+    int attach(DbgInvoke *di, proto_session *session, 
         const char *app_ident, const char *arch, const char *backend, 
         const char* gdb, int gpu_flag, int debug_flag) override;
 
-    int launch(struct dbginvoke *di, proto_session *session, 
+    int launch(DbgInvoke *di, proto_session *session, 
         const char *prog, const char * const *argv,
         const char *arch, const char * const *arch_args, const char *arch_input, 
         const char *backend, const char* gdb, const char* const *env,
@@ -30,22 +30,22 @@ public:
         int early_entry_flag, 
         bool isNonStop) override;
         
-    void destroyClient(dbginvoke *) override;
-    int exit(struct dbginvoke *, int detach) override;
+    void destroyClient(DbgInvoke *) override;
+    int exit(DbgInvoke *, int detach) override;
 
-    std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
+    std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) override;
 
-    std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+    std::optional<ProtoMessageSet> receiveReply(DbgInvoke *di, 
         const Bitset *target, Bitset &received) override;
 
     int init() override;
     
-    int checkEvents(struct dbginvoke *di) override;
-    void dispatchEvents(struct dbginvoke *di, int ev_fd) override;
+    int checkEvents(DbgInvoke *di) override;
+    void dispatchEvents(DbgInvoke *di, int ev_fd) override;
 private:
     // separate attach function so we can reuse its attach functionality within the launch function
-    int internalAttach(dbginvoke_t *di, proto_session *sess, const char *prog,
+    int internalAttach(DbgInvoke *di, proto_session *sess, const char *prog,
                 const char *app_ident, uint64_t appid,
                 ZMQNetNetwork::OutputPtr &&output, const char *arch,
                 const char *backend, const char *gdb, int gpu_flag,

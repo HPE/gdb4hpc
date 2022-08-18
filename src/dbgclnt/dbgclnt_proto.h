@@ -64,12 +64,12 @@ struct proto_session {
 class DebugClientProtocolEventHandler {
 public:
     virtual ~DebugClientProtocolEventHandler() = default;
-    virtual int handleEvent(dbginvoke *di, const ProtoMessageSet &set) = 0;
+    virtual int handleEvent(DbgInvoke *di, const ProtoMessageSet &set) = 0;
 };
 
 class DebugClientDefaultProtocolEventHandler : public DebugClientProtocolEventHandler{
 public:
-    int handleEvent(dbginvoke *di, const ProtoMessageSet &set) override;
+    int handleEvent(DbgInvoke *di, const ProtoMessageSet &set) override;
 };
 
 // main protocol definition
@@ -83,11 +83,11 @@ public:
     // functions required by every derived class:
     virtual const char* name() const = 0;
 
-    virtual int attach(struct dbginvoke *di, proto_session *session, 
+    virtual int attach(DbgInvoke *di, proto_session *session, 
         const char *app_ident, const char *arch, const char *backend, 
         const char* gdb, int gpu_flag, int debug_flag) = 0;
 
-    virtual int launch(struct dbginvoke *di, proto_session *session, 
+    virtual int launch(DbgInvoke *di, proto_session *session, 
         const char *prog, const char * const *argv,
         const char *arch, const char * const *arch_args, const char *arch_input, 
         const char *backend, const char* gdb, const char * const *env,
@@ -95,20 +95,20 @@ public:
         int early_entry_flag, 
         bool isNonStop) = 0;
 
-    virtual int exit(struct dbginvoke *di, int detach);
+    virtual int exit(DbgInvoke *di, int detach);
 
-    virtual std::unique_ptr<Bitset> sendCommand(struct dbginvoke *di, const Bitset *target, 
+    virtual std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) = 0;
 
-    virtual std::optional<ProtoMessageSet> receiveReply(struct dbginvoke *di, 
+    virtual std::optional<ProtoMessageSet> receiveReply(DbgInvoke *di, 
         const Bitset *target, Bitset &received) = 0;
 
     // optional functions:
     virtual int init() { return 1; }; // success by default
     virtual void finish() {};
     
-    virtual int checkEvents(struct dbginvoke *di) { return 0; };
-    virtual void dispatchEvents(struct dbginvoke *di, int ev_fd) {};
+    virtual int checkEvents(DbgInvoke *di) { return 0; };
+    virtual void dispatchEvents(DbgInvoke *di, int ev_fd) {};
 
     virtual proto_session *createSession(DebugClientProtocol * const proto, 
         WLM_type manager, const char *batch_template, const char *hostname, 
@@ -119,7 +119,7 @@ public:
     virtual void cleanupSession(proto_session *session) {};
 
     // called from FreeDbgInvoke
-    virtual void destroyClient(struct dbginvoke *di) {};
+    virtual void destroyClient(DbgInvoke *di) {};
 
     void resetProtocolEventHandler();
 protected:
@@ -128,14 +128,14 @@ protected:
 
     // callback related
     void setProtocolEventHandler(DebugClientProtocolEventHandler *handler);
-    int handleProtocolEvent(dbginvoke *di, const ProtoMessageSet &set);
+    int handleProtocolEvent(DbgInvoke *di, const ProtoMessageSet &set);
 
     // called by derived classes' constructors to register themselves
     void registerProtocol();
 
     // helper to extract a reference to a network object from a di.
     template <typename Net>
-    Net& getNetwork(dbginvoke *di) {
+    Net& getNetwork(DbgInvoke *di) {
         if (di->d_proto_net == nullptr) {
             throw std::runtime_error("Tried to extract a network from a nullptr.");
         }
@@ -157,7 +157,7 @@ private:
 */
 DebugClientProtocol * const findClientProtoByName(const char* protoName);
 
-extern int WaitForProtoStartupEvent(struct dbginvoke *);
+extern int WaitForProtoStartupEvent(DbgInvoke *);
 
 // called once to register available protocols
 void registerProtos();

@@ -249,12 +249,12 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
             // di.
             for (auto&& recv_ptr : rec_set) {
                 // Start a new status block for this di
-                auto status_block = XMLStartStatusBlock(recv_ptr->rec_di->d_handle);
+                auto status_block = XMLStartStatusBlock(recv_ptr->rec_di.handle().c_str());
 
                 // Process each status message and add it to the status block
                 for (auto&& reply : rep_set) {
                     // Ensure the di match
-                    if (recv_ptr->rec_di != reply->rep_di) {
+                    if (recv_ptr->rec_di.handle() != reply->rep_di) {
                         continue;
                     }
 
@@ -263,7 +263,7 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
 
                     // Next create the full set string
                     char *set_str = nullptr;
-                    Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
+                    Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
                              bitset_str.c_str());
 
                     // point at the status data

@@ -1,10 +1,10 @@
 1: maint set sync on
 2: # launch 2 instances of the application
-3: launch $a{3} --args="0 6" bd_dt/fortran/ftn_arrays.x --debug
+3: launch $a{3} --args="0 6" bd_dt/fortran/ftn_arrays.x
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:1
-4: launch $b{3} --args="1 6" bd_dt/fortran/ftn_arrays.x --debug
+4: launch $b{3} --args="1 6" bd_dt/fortran/ftn_arrays.x
 Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, ftn_arrays at /bd_dt/fortran/ftn_arrays.f90:1

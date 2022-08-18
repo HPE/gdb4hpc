@@ -34,9 +34,7 @@ var_t *NewVar(void) {
 
     v = (var_t *)Alloc(sizeof(var_t));
 
-    v->v_line = (line_t *)NULL;
     v->v_slice = (slice_t *)NULL;
-    v->v_perm = (list_t *)NULL;
     v->v_fname = NULL;
     v->v_var = NULL;
     v->v_procset = (dbgprocset_t *)NULL;
@@ -49,11 +47,7 @@ var_t *NewVar(void) {
 void DestroyVar(var_t *v) {
     if (v == (var_t *)NULL) return;
 
-    if (v->v_line != (line_t *)NULL) DestroyLine(v->v_line);
-
     delete v->v_slice;
-
-    if (v->v_perm != (list_t *)NULL) DestroyPerm(v->v_perm);
 
     if (v->v_fname != NULL) Free(v->v_fname);
 

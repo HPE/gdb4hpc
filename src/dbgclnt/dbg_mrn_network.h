@@ -47,7 +47,7 @@ public:
     std::optional<ProtoMessageSet> recv_reply(const Bitset *target);
 
     /* enable MRNet frontend to handle failures. */
-    void enable_failure_callback(dbginvoke_t *);
+    void enable_failure_callback(DbgInvoke *);
 
     /* Obtain event notification fds for the io and event streams */
     int get_io_notificationfd();

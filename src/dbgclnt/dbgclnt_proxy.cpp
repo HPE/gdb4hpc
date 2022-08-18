@@ -1226,7 +1226,7 @@ void ProxyClientProtocol::cleanupSession(proto_session *session) {
 /*
 ** Attach to user program through proxy daemon
 */
-int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::attach(DbgInvoke *di, proto_session *session,
                           const char *app_ident, const char *arch,
                           const char *backend, const char* gdb, int gpu_flag, int debug_flag) {
     proxy_session *sess;
@@ -1403,7 +1403,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
 /*
 ** Invoke user program through proxy daemon
 */
-int ProxyClientProtocol::launch(dbginvoke_t *di, proto_session *session,
+int ProxyClientProtocol::launch(DbgInvoke *di, proto_session *session,
                           const char *prog, const char * const *argv, const char *arch,
                           const char * const *arch_args, const char *arch_input,
                           const char *backend, const char* gdb, const char * const *env, const char *cwd,
@@ -1632,7 +1632,7 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::recvProtoMsg(int net_fd) {
     return res;
 }
 
-void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
+void ProxyClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     proxy_type *network = (proxy_type *)di->d_proto_net.get();
     char *line;
 
@@ -1722,7 +1722,7 @@ void ProxyClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
+std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
                                const char *request) {
     proxy_type *network = (proxy_type *)di->d_proto_net.get();
     char *msg;
@@ -1734,8 +1734,6 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
     if (di->d_isShutdown) {
         return nullptr;
     }
-
-    DASSERT_NOT_NULL(target);
 
     msg = ProtoMsgToSocProto(ProtoMessage(target->clone(), strdup(request)));
 
@@ -1782,7 +1780,7 @@ std::unique_ptr<Bitset> ProxyClientProtocol::sendCommand(dbginvoke_t *di, const 
 
 // Here received means the bitset that represents the ranks we sent the initial
 // command to. Change this to something that makes more sense.
-std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di, const Bitset *target,
+std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target,
                                         Bitset &received) {
     proxy_type *network = (proxy_type *)di->d_proto_net.get();
     int full = 0;
@@ -1858,7 +1856,7 @@ std::optional<ProtoMessageSet> ProxyClientProtocol::receiveReply(dbginvoke_t *di
 ** DBG_EXIT: Tell server to quit immediately.
 ** If detach is true, then we detach from application instead of killing it.
 */
-int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
+int ProxyClientProtocol::exit(DbgInvoke *di, int detach) {
     proxy_type *network = (proxy_type *)di->d_proto_net.get();
     proxy_msg_header msg_head;
     char *msg;
@@ -1907,7 +1905,7 @@ int ProxyClientProtocol::exit(dbginvoke_t *di, int detach) {
     return 0;
 }
 
-void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
+void ProxyClientProtocol::destroyClient(DbgInvoke *di) {
     proxy_type *network = (proxy_type *)di->d_proto_net.get();
 
     // Check to see if the network type has been destroyed
@@ -1920,11 +1918,9 @@ void ProxyClientProtocol::destroyClient(dbginvoke_t *di) {
 /*
 ** Compatible callback routine for attaching with the proxy
 */
-int ProxyAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
+int ProxyAttachHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgevent_t *e = NULL;
     int err = 0;
-
-    DASSERT_NOT_NULL(di);
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
@@ -1980,11 +1976,9 @@ int ProxyAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set)
 /*
 ** Compatible callback routine for invoking with the proxy
 */
-int ProxyLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
+int ProxyLaunchHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgevent_t *e = NULL;
     int err = 0;
-
-    DASSERT_NOT_NULL(di);
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event

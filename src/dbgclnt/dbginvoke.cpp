@@ -3,15 +3,94 @@
  ******************************************************************************/
 #include "dbginvoke.h"
 #include "path.h"
+
 #include <getopt.h>
 #include <algorithm>
 #include <filesystem>
+#include <cassert>
 
+// Public API for accessing dbginvoke table
 
+namespace {
 
-dbginvoke::dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClientProtocol * const proto)
-    : d_handle{name != nullptr ? strdup(name) : nullptr}
-    , d_appid{0}
+// private table of all active dbginvokes
+std::vector<std::shared_ptr<DbgInvoke>> g_allInvokes;
+
+// cached list of dbginvoke handles to return via getAllDbgInvokes()
+// to avoid rebuilding the list in every call to DbgCheckEvents etc.
+std::vector<DbgInvoke::Handle> g_allHandles;
+void rebuildCachedHandles() {
+    g_allHandles.clear();
+    for (const auto& di : g_allInvokes) {
+        g_allHandles.emplace_back(di->handle());
+    }
+}
+
+} // anonymous namespace
+
+DbgInvoke::Handle DbgInvoke::activate(std::string name, std::unique_ptr<DbgInvoke>&& di) {
+    if (!di || name == "") return nullptr;
+
+    // disallow duplicate names
+    for (const auto& existingDi : g_allInvokes) {
+        if (name == existingDi->handle().name()) {
+            return nullptr;
+        }
+    }
+
+    auto sptr = std::shared_ptr<DbgInvoke>(std::move(di));
+    auto handle = DbgInvoke::Handle(name, sptr);
+
+    sptr->m_handle = handle;
+
+    g_allInvokes.push_back(std::move(sptr));
+    g_allHandles.push_back(handle);
+
+    return handle;
+}
+
+std::shared_ptr<DbgInvoke> DbgInvoke::deactivate(const DbgInvoke::Handle& handle) {
+    // find it
+    auto it = std::find_if(g_allInvokes.begin(), g_allInvokes.end(), [&handle](const auto& diptr) {
+        return handle == diptr->handle();
+    });
+
+    if (it == g_allInvokes.end()) return nullptr;
+
+    // remove it
+    auto r = std::move(*it);
+    g_allInvokes.erase(it);
+
+    rebuildCachedHandles();
+
+    return r;
+}
+
+DbgInvoke::Handle DbgInvoke::rename(DbgInvoke::Handle handle, std::string newName) {
+    if (!handle.lock() || newName.empty()) return nullptr;
+
+    for (auto& existingDi : g_allInvokes) {
+        if (existingDi->handle().name() == handle.name()) {
+            existingDi->m_handle = DbgInvoke::Handle(newName, existingDi);
+            rebuildCachedHandles();
+            return existingDi->handle();
+        }
+    }
+
+    return nullptr;
+}
+
+void DbgInvoke::deactivateAll() {
+    g_allInvokes.clear();
+    rebuildCachedHandles();
+}
+
+std::vector<DbgInvoke::Handle>& DbgInvoke::getAll() {
+    return g_allHandles;
+}
+
+DbgInvoke::DbgInvoke(dbgproc_type type, int nproc, DebugClientProtocol * const proto)
+    : d_appid{0}
     , d_type{type}
     , d_started{0}
     , d_isShutdown{0}
@@ -26,12 +105,100 @@ dbginvoke::dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClient
     , d_proto{proto}
     , d_clnt_ev_callback{nullptr}
     , d_frontend{nullptr}
-    , d_eventset_list{NewList()}
+    , d_eventset_list{}
     , d_breakpoints{}
     , d_checkpoints{}
+    , m_handle(nullptr)
 {};
 
-dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
+DbgInvoke::DbgInvoke(DbgInvoke&& o)
+    : d_appid{o.d_appid}
+    , d_type{o.d_type}
+    , d_started{o.d_started}
+    , d_isShutdown{o.d_isShutdown}
+    , d_launch{std::move(o.d_launch)}
+    , d_nproc{o.d_nproc}
+    , d_stat{o.d_stat}
+    , d_evfds{o.d_evfds}
+    , d_bitset_full{std::move(o.d_bitset_full)}
+    , d_bitset_launched{std::move(o.d_bitset_launched)}
+    , d_proto_id{o.d_proto_id}
+    , d_proto_net{std::move(o.d_proto_net)}
+    , d_proto_outp{o.d_proto_outp}
+    , d_proto{o.d_proto}
+    , d_clnt_ev_callback{std::move(o.d_clnt_ev_callback)}
+    , d_frontend{o.d_frontend}
+    , d_eventset_list{std::move(o.d_eventset_list)}
+    , d_breakpoints{std::move(o.d_breakpoints)}
+    , d_checkpoints{std::move(o.d_checkpoints)}
+    , m_handle{std::move(o.m_handle)}
+{
+    o.d_appid = 0;
+    o.d_started = 0;
+    o.d_isShutdown = 1;
+    o.d_nproc = 0;
+    o.d_evfds = nullptr;
+    o.d_proto_outp = nullptr;
+    o.d_frontend = nullptr;
+}
+
+DbgInvoke::~DbgInvoke() {
+    // XXX This is needed until the proxy is removed since the proxy has its own
+    //     definition of freeing a debuginvoke
+    extern void FreeDbgInvoke(DbgInvoke*);
+    FreeDbgInvoke(this);
+}
+
+DbgInvoke::Handle DbgInvoke::handle() {
+    if (m_handle.lock() == nullptr) {
+        // The handle is put in place by registerDbgInvoke. Don't call handle() before that.
+        throw std::runtime_error("Bad dbginvoke handle");
+    }
+    return m_handle;
+}
+
+const DbgInvoke::Handle DbgInvoke::handle() const {
+    // OK as long as handle() never gains any side effects
+    return const_cast<DbgInvoke*>(this)->handle();
+}
+
+DbgInvoke::Handle::Handle(std::string name, std::shared_ptr<DbgInvoke> parent) {
+    if (parent == nullptr) {
+        // use ::Handle(nullptr_t)
+        throw std::runtime_error("Can't construct named DbgInvoke::Handle from nullptr");
+    }
+
+    m_name = std::move(name);
+    m_ptr = parent;
+}
+
+DbgInvoke::Handle::Handle(nullptr_t) {
+    // Creates a null handle. lock() will return nullptr
+}
+
+const std::string& DbgInvoke::Handle::name() const {
+    if (lock()) {
+        // If this handle is still valid, fetch name from parent.
+        // It might have changed via DbgInvoke::rename.
+        m_name = lock()->handle().m_name;
+    }
+    return m_name;
+}
+
+const char* DbgInvoke::Handle::c_str() const {
+    return name().c_str();
+}
+
+DbgInvoke* DbgInvoke::Handle::lock() {
+    return m_ptr.lock().get();
+}
+
+const DbgInvoke* DbgInvoke::Handle::lock() const {
+    // OK as long as lock() never gains any side effects
+    return const_cast<DbgInvoke::Handle*>(this)->lock();
+}
+
+DbgInvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
     if (argc < 3) {
         throw std::runtime_error("Not enough command arguments.\nExpected: launch $handle ./program <args>");
     }
@@ -237,10 +404,10 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
         // --workdir provided without argument, so default to chdir to
         // the directory that the binary is located in.
         auto binary_path = std::filesystem::path{app_argv[0]};
-#if DEBUG
+
         // argument parsing function should always canonicalize path
         assert(binary_path.is_absolute());
-#endif
+
         cwd = binary_path.parent_path();
     }
 
@@ -257,13 +424,13 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
     backend_name = csi.getBackend();
 }
 
-void dbginvoke::SourcePaths::storeSourcePath(const char * str) {
+void DbgInvoke::SourcePaths::storeSourcePath(const char * str) {
     if(str!=nullptr){
         m_sourceList.push_back(std::filesystem::path(str));
     }
 }
 
-std::string dbginvoke::SourcePaths::getFullPath(const std::string& relativePath){
+std::string DbgInvoke::SourcePaths::getFullPath(const std::string& relativePath) const {
     if (!relativePath.empty() && !m_sourceList.empty()){
         for(auto &source : m_sourceList){
             if (source.find(relativePath) != std::string::npos){
@@ -276,3 +443,10 @@ std::string dbginvoke::SourcePaths::getFullPath(const std::string& relativePath)
     return relativePath;
 }
 
+DbgInvoke::EventSet::EventSet(DbgInvoke& di, const Bitset& group, const dbgevent_t* event)
+    : m_di{di}, m_group{group.clone()}, m_event{DupEvent(event)}
+{}
+
+DbgInvoke::EventSet::~EventSet() {
+    if (m_event) FreeEvent(m_event);
+}

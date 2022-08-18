@@ -1,99 +1,78 @@
-1: #
-2: # lgdb_c_t1.rc script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
-10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
-11: # $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
-12: # $Rev: 1 $
-13: # $Author: kdavis $
-14: #
 15: maint set sync on
 16: # launch 3 instances of the application
-17: launch $a{6} bd_dt/c/c_type_test.x --debug
+17: launch $a{3} bd_dt/c/c_type_test.x
 Starting application, please wait...
-Creating MRNet communication network...
-Waiting for debug servers to attach to MRNet communications network...
-Timeout in 400 seconds. Please wait for the attach to complete.
-Number of dbgsrvs connected: [1];  Timeout Counter: [0]
-Number of dbgsrvs connected: [1];  Timeout Counter: [1]
-Number of dbgsrvs connected: [6];  Timeout Counter: [0]
-Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(58|143)%
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(58|143)%
 18: # Set a breakpoint at specified line numbers:
 19: break c_type_test.c:198
-a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 198.
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 198.
 20: continue
-a{0..5}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:198
 21: # print some local variables
 22: #should be 28.2
 23: print ld
-a{0..5}: 28.1999999999999993
+a{0..2}: 28.1999999999999993
 24: #should be -11
 25: print si  
-a{0..5}: -11
+a{0..2}: -11
 26: print main
-a{0..5}: int (int, char **) <main>
+a{0..2}: int (int, char **) <main>
 27: print test_stack
-a{0..5}: int (int) <test_stack>
+a{0..2}: int (int) <test_stack>
 28: print test_func
-a{0..5}: void (int, int) <test_func>
+a{0..2}: void (int, int) <test_func>
 29: ptype test_func
-a{0..5}: void (int, int)
+a{0..2}: void (int, int)
 30: whatis test_func
-a{0..5}: void (int, int)
+a{0..2}: void (int, int)
 31: p mi
-a{0..5}: 123
+a{0..2}: 123
 32: p md
-a{0..5}: 123.45
+a{0..2}: 123.45
 33: p struct_test_1
-a{0..5}: {i = 0, d = 0, c_ptr = (char*) 0x0, func_ptr = 0x0}
+a{0..2}: {i = 0, d = 0, c_ptr = (char*) 0x0, func_ptr = 0x0}
 33: ptype struct_test_1
-a{0..5}: struct test_struct {
+a{0..2}: struct test_struct {
     int i;
     double d;
     char *c_ptr;
     func_ptr_t func_ptr;
 }
 33: p struct_test_1.i
-a{0..5}: 0
+a{0..2}: 0
 34: p struct_test_1.d
-a{0..5}: 0
+a{0..2}: 0
 35: p struct_test_1.c_ptr
-a{0..5}: (char*) 0x0
+a{0..2}: (char*) 0x0
 36: p struct_test_1.func_ptr
-a{0..5}: 0x0
+a{0..2}: 0x0
 37: p void_ptr
-a{0..5}: (void*) 0x0
+a{0..2}: (void*) 0x0
 37: p e1
-a{0..5}: BONY
+a{0..2}: BONY
 37: p e2
-a{0..5}: MA
+a{0..2}: MA
 37: p e3
-a{0..5}: RONY
+a{0..2}: RONY
 37: p te1
-a{0..5}: BONY
+a{0..2}: BONY
 37: p te2
-a{0..5}: MA
+a{0..2}: MA
 37: p te3
-a{0..5}: RONY
+a{0..2}: RONY
 37: whatis e1
-a{0..5}: enum MyEnum
+a{0..2}: enum MyEnum
 37: whatis te1
-a{0..5}: MyEnum
+a{0..2}: MyEnum
 37: ptype e1
-a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+a{0..2}: enum MyEnum {BONY = 3, MA, RONY = 6}
 37: ptype te1
-a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+a{0..2}: enum MyEnum {BONY = 3, MA, RONY = 6}
 37: ptype MyEnum
-a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+a{0..2}: enum MyEnum {BONY = 3, MA, RONY = 6}
 37: ptype enum MyEnum
-a{0..5}: enum MyEnum {BONY = 3, MA, RONY = 6}
+a{0..2}: enum MyEnum {BONY = 3, MA, RONY = 6}
 38: #exit lgdb
 39: q
 Shutting down debugger and killing application for 'a'.

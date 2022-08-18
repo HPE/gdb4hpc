@@ -466,7 +466,6 @@ char *ProtoMsgToSocProto(const ProtoMessage &s) {
     char *stres = NULL;
 
     auto bitset = s.getBitset();
-    DASSERT_NOT_NULL(bitset);
     auto bitset_str = bitset->serialize();
 
     Asprintf(&stres, "%d %s %d %s", (int)strlen(bitset_str.get()), bitset_str.get(),

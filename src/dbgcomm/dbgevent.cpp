@@ -108,7 +108,7 @@ dbgevent_t *ChangeEvent(dbgevent_t *e, dbgev stat) {
     return NewEvent(stat);
 }
 
-dbgevent_t *DupEvent(dbgevent_t *event) {
+dbgevent_t *DupEvent(const dbgevent_t *event) {
     dbgevent_t *e;
 
     if (event == (dbgevent_t *)NULL) return (dbgevent_t *)NULL;
@@ -878,7 +878,7 @@ void PrintDbgEvent(dbgevent_t *event) {
     }
 }
 
-const char *EventToStr(dbgevent_t *event) {
+const char *EventToStr(const dbgevent_t *event) {
     switch (event->ev_event) {
         case DBGEV_OK:
             return "DBGEV_OK";

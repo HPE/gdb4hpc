@@ -4,7 +4,9 @@
 #pragma once
 
 #include <list>
+#include <vector>
 #include <functional>
+#include <memory>
 
 #include "dbgclnt_settings.h"
 #include "dbgclnt_breakpoints.h"
@@ -16,26 +18,80 @@
 
 class DebugClientProtocol;
 
-// This is the client callback function prototype
-// Arguments are the event_set for this event and a bitset containing the new
-// ranks to report this event
-using clnt_ev_callback_func = std::function<int(struct event_set *, const Bitset *)>;
-
 // Used to determine type of dbginvoke, currently there is either launched or
 // attached launched means the application was launched by the debugger,
 // attached means it was an existing application attached onto.
 enum dbgproc_type { DBG_ATTACHED, DBG_LAUNCHED };
 typedef enum dbgproc_type dbgproc_type;
 
-struct dbginvoke {
-    dbginvoke(const char* name, dbgproc_type type, int nproc, DebugClientProtocol * const proto);
+class DbgInvoke {
+public:
+    // Types
 
-    char *d_handle;       // invoke handle used as identifier in client layer
-    uint64_t d_appid;     // app identifier - this should be generic
-    dbgproc_type d_type;  // launched or attached?
-    int d_started;        // indicates if this di has been started
-    int d_isShutdown;  // Some networks can use this during error handling. If
-                       // this is true, the network is already shutdown.
+    // Used to store a dbginvoke long term in other classes
+    class Handle {
+    public:
+        Handle(std::string name, std::shared_ptr<DbgInvoke> parent);
+        Handle(nullptr_t); // construct an empty handle. lock() will return nullptr
+
+        const std::string& name() const;
+        const char* c_str() const; // helper for name().c_str()
+
+        // Returns a pointer to parent DbgInvoke. If parent DbgInvoke has
+        // expired, returns nullptr. Don't store returned pointer long-term.
+        DbgInvoke* lock();
+        const DbgInvoke* lock() const;
+
+        bool operator==(const Handle& other) const {
+            const auto* lhs = m_ptr.lock().get();
+            const auto* rhs = other.m_ptr.lock().get();
+            if (lhs && rhs) return lhs == rhs; // both alive
+            else if (lhs || rhs) return false; // one expired, one alive
+            return name() == other.name();     // both expired
+        }
+
+        bool operator!=(const Handle& other) const {
+            return !(*this == other);
+        }
+
+        bool operator<(const Handle& other) const {
+            const auto* lhs = m_ptr.lock().get();
+            const auto* rhs = other.m_ptr.lock().get();
+            if (lhs && rhs) return name() < other.name(); // both alive
+            else if (lhs && !rhs) return false;           // rhs expired. nullptr is ordered first
+            else if (!lhs && rhs) return true;            // lhs expired. nullptr is ordered first
+            return false;                                 // both expired
+        }
+
+    private:
+        mutable std::string m_name;
+        std::weak_ptr<DbgInvoke> m_ptr;
+    };
+
+    // Used to track async events and how many ranks have reported a given event
+    class EventSet {
+    public:
+        // Clones group and event
+        EventSet(DbgInvoke& di, const Bitset& group, const dbgevent_t* event);
+        ~EventSet();
+
+        DbgInvoke& di() { return m_di; }
+        Bitset& group() { return *m_group; }
+        dbgevent_t* event() { return m_event; }
+
+        const DbgInvoke& di() const { return m_di; }
+        const Bitset& group() const { return *m_group; }
+        const dbgevent_t* event() const { return m_event; }
+    private:
+        DbgInvoke& m_di;
+        std::unique_ptr<Bitset> m_group;
+        dbgevent_t* m_event;
+    };
+
+    // This is the client callback function prototype
+    // Arguments are the event_set for this event and a bitset containing the new
+    // ranks to report this event
+    using AsyncEventCallback = std::function<int(EventSet&, const Bitset&)>;
 
     class LaunchOpts {
         // LaunchOpts stores arguments initially passed to the launch
@@ -43,7 +99,7 @@ struct dbginvoke {
     private:
         // to allow a default dbginvoke constructor
         LaunchOpts() = default;
-        friend dbginvoke;
+        friend DbgInvoke;
     public:
         // throws std::runtime_error upon parse error
         LaunchOpts(int argc, const char* const argv[], ClientSettingsInterface& csi);
@@ -85,6 +141,44 @@ struct dbginvoke {
         std::string backend_name = "";     // any more, but are still passed down
     };
 
+    class SourcePaths{
+    public:
+        void storeSourcePath(const char * str);
+        std::string getFullPath(const std::string& relativePath) const;
+
+        SourcePaths() {};
+        SourcePaths(const SourcePaths&) = delete;
+        SourcePaths& operator=(const SourcePaths&)= delete;
+
+    private:
+        std::vector<std::string> m_sourceList; // Stores all values in order of arrival.
+    };
+
+public: // TODO privatize
+    DbgInvoke(dbgproc_type type, int nproc, DebugClientProtocol * const proto);
+    DbgInvoke(DbgInvoke&& other);
+
+    DbgInvoke(const DbgInvoke& other) = delete;
+    DbgInvoke& operator=(const DbgInvoke& other) = delete;
+
+    ~DbgInvoke();
+
+    bool operator==(const DbgInvoke& other) const {
+        return m_handle == other.m_handle;
+    }
+
+    bool operator!=(const DbgInvoke& other) const {
+        return !(*this == other);
+    }
+
+    DbgInvoke::Handle handle();
+    const DbgInvoke::Handle handle() const;
+    uint64_t d_appid;     // app identifier - this should be generic
+    dbgproc_type d_type;  // launched or attached?
+    int d_started;        // indicates if this di has been started
+    int d_isShutdown;  // Some networks can use this during error handling. If
+                       // this is true, the network is already shutdown.
+
     LaunchOpts d_launch;
     int d_nproc;       // number of processes
     int d_stat;   // exit/signal status of proc
@@ -98,46 +192,65 @@ struct dbginvoke {
     g_progoutp_t* d_proto_outp; // data used by the protocol layer for application output
     DebugClientProtocol * const d_proto;     // client protocol switch
 
-    clnt_ev_callback_func d_clnt_ev_callback;
+    AsyncEventCallback d_clnt_ev_callback;
 
     dbgfrontend_sw *d_frontend;  // debug frontend object
 
-    class SourcePaths{
-    public:
-        void storeSourcePath(const char * str);
-        std::string getFullPath(const std::string& relativePath);
-
-        SourcePaths() {};
-        SourcePaths(const SourcePaths&) = delete;
-        SourcePaths& operator=(const SourcePaths&)= delete;
-
-    private:
-        std::vector<std::string> m_sourceList; // Stores all values in order of arrival.
-    };
-
     SourcePaths source_paths;
 
-    // Extensions for client support
-    // FIXME: These should be marked private once this is turned into a class
-    list_t *d_eventset_list;  // pending events
+    BreakpointManager& breakpoints() { return d_breakpoints; }
+    CheckpointManager& checkpoints() { return d_checkpoints; }
+    const BreakpointManager& breakpoints() const { return d_breakpoints; }
+    const CheckpointManager& checkpoints() const { return d_checkpoints; }
+
+    // XXX: Using std::list because some legacy functions return pointers directly into the list
+    std::list<EventSet> d_eventset_list; // partial async event responses
+
+    // API to access internal dbginvoke list
+
+    // Transfers ownership of passed di to internal dbginvoke list.
+    // If the di is inserted successfully, returns its handle.
+    // Else returns a null Handle (.lock() returns nullptr).
+    // Reasons that the insertion could fail are:
+    // - a di with the passed name already exists
+    // - the passed di is invalid (nullptr, invalid/empty name, etc)
+    // On failure, the passed DbgInvoke pointer is untouched and is still usable.
+    static Handle activate(std::string name, std::unique_ptr<DbgInvoke>&& di);
+
+    // Removes di matching the given Handle from the internal list and returns it, if it exists.
+    // If it doesn't exist, returns nullptr.
+    // Any Handles pointing to the removed di become expired.
+    static std::shared_ptr<DbgInvoke> deactivate(const DbgInvoke::Handle& handle);
+
+    // Finds the DbgInvoke matching `handle` in the internal list and changes its
+    // name to `newName` and returns the new handle. If renaming fails, returns
+    // a null Handle. Any Handles pointing to the renamed di are still valid.
+    static Handle rename(Handle handle, std::string newName);
+
+    // Frees and invalidates all dbginvokes in the list
+    static void deactivateAll();
+
+    // Return list of handles of all active dbginvokes.
+    // Note: this function returns a reference for speed, but the returned list's
+    // size should not be changed with functions like .erase or .push_back.
+    static std::vector<DbgInvoke::Handle>& getAll();
+
+private:
     BreakpointManager d_breakpoints; // logical breakpoints for this di
     CheckpointManager d_checkpoints; // logical checkpoints for this di
+
+    // register() will set up the di's internal m_handle when it is registered
+    Handle m_handle;
 };
-typedef struct dbginvoke dbginvoke_t;
-#define DBG_PROTO_SW(p) (p)->d_proto
 
-// for std::map<dbginvoke*, ..., dbginvokeMapper> etc.
-struct dbginvokeMapper {
-    // return true if l is "less than" r
-    bool operator()(const dbginvoke* l, const dbginvoke* r) const {
-        if (l == nullptr && r == nullptr) return false;
+namespace std {
 
-        // nullptrs considered "lowest"
-        if (l == nullptr && r != nullptr) return true;
-        if (l != nullptr && r == nullptr) return false;
-
-        // handles are unique and never null
-        return strcmp(l->d_handle, r->d_handle) < 0;
+template <>
+struct hash<DbgInvoke::Handle> {
+    std::size_t operator()(const DbgInvoke::Handle& key) const {
+        return std::hash<std::string>{}(key.name());
     }
 };
+
+} // namespace std
 

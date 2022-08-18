@@ -14,16 +14,18 @@
 #include "onscopeexit.h"
 
 #include <algorithm>
-
-#if DEBUG
 #include <iostream>
 #include <iomanip>
+
+#if DEBUG
 // backslash sequences are escape codes to print debug messages in dark grey. if
 // output is redirected to a file, they should be removed
 #define LOG(msg) \
     std::cerr << "\u001b[30;1m" << __FILE__ << ":" << __LINE__ << "(" << __FUNCTION__ << "): " << msg << "\033[0m" << std::endl
-#else 
-#define LOG(msg)
+#else
+// dummy log that will be optimized out but still checked for syntax errors
+#define LOG(msg) \
+    while (0) { std::cerr << msg; }
 #endif
 
 namespace script {
@@ -38,8 +40,8 @@ std::string g_currentScriptName;
 
 // assertion script event handler installed in dis on script start. called by dis
 // in the client event handling layer. to enforce a limited interface to the currently
-// running script, it is access via the passed ScriptRunner::EventInterface object
-int handleEvent(ScriptRunner::EventInterface scei, event_set* eventSet, const Bitset* replySet);
+// running script, it is accessed via the passed ScriptRunner::EventInterface object
+int handleEvent(ScriptRunner::EventInterface scei, DbgInvoke::EventSet& eventSet, const Bitset& replySet);
 
 } // anonymous namespace
 
@@ -149,8 +151,8 @@ ScriptRunner::ScriptRunner(std::unique_ptr<data::Script>&& script)
 
     // debug print
     LOG("ranks involved in script " << name() << ":");
-    for ([[maybe_unused]] const auto& [di, bitset] : allRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [dih, bitset] : allRanks) {
+        LOG(dih.name() << ": " << bitset->toSetString());
     }
 
     m_ranks = std::make_unique<Ranks>(std::move(allRanks));
@@ -245,8 +247,8 @@ bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
 
     for (const auto* rec : receivers) {
         if (!rec) continue;
-        LOG("Sending continue to " << rec->rec_di->d_handle << ": " << rec->rec_group->toSetString());
-        if (const auto* blockedRanks = m_ranks->blocked(*rec->rec_di)) {
+        LOG("Sending continue to " << rec->rec_di.handle().name() << ": " << rec->rec_group->toSetString());
+        if (const auto* blockedRanks = m_ranks->blocked(rec->rec_di)) {
             group_recv_t tmpRec {
                 .rec_di = rec->rec_di,
                 .rec_group = blockedRanks->clone()
@@ -266,7 +268,7 @@ bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
     // the released ranks, they need to start waiting all over again
     for (auto& pendingAssert : m_pendingAsserts) {
         for (const auto* group : recSet->getReceivers()) {
-            pendingAssert.unnotify(*group->rec_di, *group->rec_group);
+            pendingAssert.unnotify(group->rec_di, *group->rec_group);
         }
     }
     
@@ -289,8 +291,8 @@ bool ScriptRunner::sendContinue() {
 
     if (Client.XML_mode) {
         for (const auto& [di, ranks] : m_ranks->ranks()) {
-            std::string setStr = di->d_handle + ranks->toSetString();
-            XMLPrintStartGraphMsg(di->d_handle, setStr.c_str());
+            std::string setStr = di.name() + ranks->toSetString();
+            XMLPrintStartGraphMsg(di.c_str(), setStr.c_str());
         }
     }
 
@@ -515,8 +517,8 @@ SR::EventInterface ScriptRunner::getEventInterface() {
     return EventInterface(*this);
 }
 
-void ScriptRunner::handleBPHit(event_set& eventSet, const Bitset& replySet, const dbgbp_t& dbgBp) {
-    if (!eventSet.e_ev || !eventSet.e_di) {
+void ScriptRunner::handleBPHit(const DbgInvoke::EventSet& eventSet, const Bitset& replySet, const dbgbp_t& dbgBp) {
+    if (!eventSet.event()) {
         // should never happen
         PrintOutError("Assertion script event handler received event set containing nullptrs");
         return;
@@ -539,12 +541,12 @@ void ScriptRunner::handleBPHit(event_set& eventSet, const Bitset& replySet, cons
         // it's relevant to at least one of them
         bool relevantBreakpoint = false;
         for (auto& assert : m_pendingAsserts) {
-            if (assert.BPIsRelevant(*eventSet.e_di, replySet, dbgBp)) {
+            if (assert.BPIsRelevant(eventSet.di(), replySet, dbgBp)) {
                 relevantBreakpoint = true;
             }
             // notify after checking relevance, as notify will reduce
             // the set of ranks that BPIsRelevant is checking for
-            auto ready = assert.notify(*eventSet.e_di, replySet, dbgBp);
+            auto ready = assert.notify(eventSet.di(), replySet, dbgBp);
             m_readyFlag = std::max(ready, m_readyFlag);
         }
         if (!relevantBreakpoint) {
@@ -554,7 +556,7 @@ void ScriptRunner::handleBPHit(event_set& eventSet, const Bitset& replySet, cons
             // finished, it's not really an interruption and we can let it slide.
             bool someoneStillNeededIt = false;
             for (const auto& assert : m_pendingAsserts) {
-                if (!assert.isFinished() && assert.procsetIsRelevant(*eventSet.e_di, replySet)) {
+                if (!assert.isFinished() && assert.procsetIsRelevant(eventSet.di(), replySet)) {
                     // found an unfinished assertion that cared about these ranks
                     someoneStillNeededIt = true;
                     break;
@@ -570,21 +572,21 @@ void ScriptRunner::handleBPHit(event_set& eventSet, const Bitset& replySet, cons
         }
 
         // update internal blocked ranks map
-        m_ranks->markRanksBlocked(*eventSet.e_di, replySet);
+        m_ranks->markRanksBlocked(eventSet.di().handle(), replySet);
     }
 }
 
-void ScriptRunner::handleExit(event_set& eventSet, const Bitset& replySet) {
-    if (!eventSet.e_ev || !eventSet.e_di) {
+void ScriptRunner::handleExit(const DbgInvoke::EventSet& eventSet, const Bitset& replySet) {
+    if (!eventSet.event()) {
         // should never happen
         PrintOutError("Assertion script event handler received event set containing nullptrs");
         return;
     }
 
     // check that we're actually dealing with an exit event
-    switch (eventSet.e_ev->ev_event) {
+    switch (eventSet.event()->ev_event) {
         case DBGEV_BPHIT: {
-            if (eventSet.e_ev->ev_bp->bp_type != DBGBP_EXIT_TYPE) {
+            if (eventSet.event()->ev_bp->bp_type != DBGBP_EXIT_TYPE) {
                 LOG("exit ignored (not exit breakpoint)");
                 return;
             }
@@ -606,25 +608,28 @@ void ScriptRunner::handleExit(event_set& eventSet, const Bitset& replySet) {
     LOG("exit recorded");
 
     // mark ranks that have exited as blocked
-    m_ranks->markRanksBlocked(*eventSet.e_di, replySet);
+    m_ranks->markRanksBlocked(eventSet.di().handle(), replySet);
 
-    for ([[maybe_unused]] const auto& [di, ranks] : m_ranks->blockedRanks()) {
-        LOG(di->d_handle << ": " << ranks->toSetString());
+    for ([[maybe_unused]] const auto& [dih, ranks] : m_ranks->blockedRanks()) {
+        LOG(dih.name() << ": " << ranks->toSetString());
     }
 }
 
-int ScriptRunner::passEventToOldHandler(event_set& eventSet, const Bitset& replySet) {
-    return m_oldEventHandlers.at(eventSet.e_di)(&eventSet, &replySet);
+int ScriptRunner::passEventToOldHandler(DbgInvoke::EventSet& eventSet, const Bitset& replySet) {
+    return m_oldEventHandlers.at(eventSet.di().handle())(eventSet, replySet);
 }
 
 // ScriptRunner private helpers ////////////////////////////////////////////////
 
-std::set<dbginvoke*, dbginvokeMapper> ScriptRunner::getDisFromScript() const {
-    auto dis = std::set<dbginvoke*, dbginvokeMapper>{};
+std::set<DbgInvoke::Handle> ScriptRunner::getDisFromScript() const {
+    auto dis = std::set<DbgInvoke::Handle>{};
     
     const auto getDiFromExpression = [&](const data::Expression& e) {
         forEachOverlaySet(*e.procset(), [&](const auto* os) {
-            if (os->s_di) dis.insert(os->s_di);
+            if (os->s_di.lock())
+                dis.insert(os->s_di);
+            else
+                PrintOutError("Warning: Expired procset $%s. Ignoring.\n", os->s_di.c_str());
         });
     };
     
@@ -636,9 +641,9 @@ std::set<dbginvoke*, dbginvokeMapper> ScriptRunner::getDisFromScript() const {
     }
 
     // debug print
-    for ([[maybe_unused]] const auto& di : dis) {
+    for ([[maybe_unused]] const auto& dih : dis) {
         LOG("Got dis:");
-        LOG("- " << di->d_handle);
+        LOG("- " << dih.name());
     }
 
     return dis;
@@ -666,24 +671,31 @@ bool ScriptRunner::deleteBreakpoints() {
 
 bool ScriptRunner::setEventHandlers() {
     // for each di, install new event handler and keep track of old one
-    for (auto* di : getDisFromScript()) {
-        m_oldEventHandlers.insert({di, di->d_clnt_ev_callback});
-        di->d_clnt_ev_callback = [this](event_set* e, const Bitset* b) {
-            return handleEvent(this->getEventInterface(), e, b);
-        };
+    for (auto dih : getDisFromScript()) {
+        if (auto* diptr = dih.lock()) {
+            m_oldEventHandlers.insert({dih, diptr->d_clnt_ev_callback});
+            diptr->d_clnt_ev_callback = [this](DbgInvoke::EventSet& e, const Bitset& b) {
+                LOG("Passing to handleEvent");
+                return handleEvent(this->getEventInterface(), e, b);
+            };
+        } else {
+            LOG("Null handle? " << dih.name());
+        }
     }
 
     return true;
 }
 
 bool ScriptRunner::restoreOldEventHandlers() {
-    for (auto* di : getDisFromScript()) {
-        auto it = m_oldEventHandlers.find(di);
-        if (it != m_oldEventHandlers.end()) {
-            di->d_clnt_ev_callback = it->second;
-            LOG("Restored old event handler for " << di->d_handle);
-        } else {
-            LOG("No old event handler found for " << di->d_handle);
+    for (auto dih : getDisFromScript()) {
+        if (auto diptr = dih.lock()) {
+            auto it = m_oldEventHandlers.find(dih);
+            if (it != m_oldEventHandlers.end()) {
+                diptr->d_clnt_ev_callback = it->second;
+                LOG("Restored old event handler for " << dih.name());
+            } else {
+                LOG("No old event handler found for " << dih.name());
+            }
         }
     }
 
@@ -706,7 +718,7 @@ bool ScriptRunner::sendHalt() {
     for (auto&& reply : repSet) {
         // point at location data
         auto loc = EVENT_LOC(reply->rep_event);
-        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group.get(), loc);
+        PrintHaltedLocationSet(reply->rep_di.c_str(), reply->rep_group.get(), loc);
     }
 
     FreeRepSet(repSet);
@@ -768,7 +780,8 @@ bool SR::Expression::setBreakpoints() {
 
     for (const auto& reply : repSet) {
         const auto* dbgBp = EVENT_BP(reply->rep_event);
-        const auto* bp = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*dbgBp);
+        auto* di = reply->rep_di.lock();
+        const auto* bp = di->breakpoints().findByDbgBreakpoint(*dbgBp);
 
         if (!bp) {
             LOG("Error setting breakpoint: " << e.location().string());
@@ -799,11 +812,11 @@ bool SR::Expression::deleteBreakpoints() {
 
     // if another expression already deleted our breakpoint, we can stop early
     {   // make sure our assumption that our recSet only has one unique di is correct
-        dbginvoke_t* seen = nullptr;
+        auto seen = DbgInvoke::Handle(nullptr);
         for (const auto& rec : recSet.get()) {
-            if (!seen) {
-                seen = rec->rec_di;
-            } else if (seen != rec->rec_di) {
+            if (!seen.lock()) {
+                seen = rec->rec_di.handle();
+            } else if (seen != rec->rec_di.handle()) {
                 LOG("Found multiple dis, can't properly delete breakpoints");
                 return false;
             }
@@ -812,7 +825,9 @@ bool SR::Expression::deleteBreakpoints() {
 
     // short circuit if our breakpoint is already gone
     if (recSet->getReceivers().size() == 0) return true;
-    if (!recSet->getReceivers().front()->rec_di->d_breakpoints.findByLogicalID(m_breakPointId)) {
+    auto& di = recSet->getReceivers().front()->rec_di;
+
+    if (!di.breakpoints().findByLogicalID(m_breakPointId)) {
         LOG("Breakpoint " << m_breakPointId << " already deleted.");
         m_breakPointId = -1;
         return true;
@@ -835,14 +850,14 @@ bool SR::Expression::deleteBreakpoints() {
     return true;
 }
 
-bool SR::Expression::notify(const dbginvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
-    LOG(m_expression.string() << " notified of " << di.d_handle << ": " << bitset.toSetString() << " at backend breakpoint " << dbgBp.bp_id);
+bool SR::Expression::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
+    LOG(m_expression.string() << " notified of " << di.handle().name() << ": " << bitset.toSetString() << " at backend breakpoint " << dbgBp.bp_id);
 
     if (BPIsRelevant(di, bitset, dbgBp)) {
         LOG("id match: " << BPIsRelevant(di, bitset, dbgBp)->id());
-        LOG("bitset before " << m_waitingFor.at(&di)->toSetString());
-        *m_waitingFor.at(&di) -= bitset;
-        LOG("bitset (" << (void*)m_waitingFor.at(&di).get() << ") now " << m_waitingFor.at(&di)->toSetString());
+        LOG("bitset before " << m_waitingFor.at(di.handle())->toSetString());
+        *m_waitingFor.at(di.handle()) -= bitset;
+        LOG("bitset (" << (void*)m_waitingFor.at(di.handle()).get() << ") now " << m_waitingFor.at(di.handle())->toSetString());
     } else {
         LOG("id mismatch");
     }
@@ -850,11 +865,11 @@ bool SR::Expression::notify(const dbginvoke& di, const Bitset &bitset, const dbg
     return isReady();
 }
 
-void SR::Expression::unnotify(const dbginvoke& di, const Bitset &bitset) {
-    if (auto it = m_waitingFor.find(&di); it != m_waitingFor.end()) {
+void SR::Expression::unnotify(const DbgInvoke& di, const Bitset &bitset) {
+    if (auto it = m_waitingFor.find(di.handle()); it != m_waitingFor.end()) {
         // we are now waiting for these ranks again
-        (*it->second |= bitset) &= *m_fullSets.at(&di);
-    }   
+        (*it->second |= bitset) &= *m_fullSets.at(di.handle());
+    }
 }
 
 bool SR::Expression::isReady() const {
@@ -866,8 +881,8 @@ bool SR::Expression::isReady() const {
     return !foundNotReady;
 }
 
-const MappedBreakpoint* SR::Expression::BPIsRelevant(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
-    auto it = m_waitingFor.find(&di);
+const MappedBreakpoint* SR::Expression::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
+    auto it = m_waitingFor.find(di.handle());
     if (it == m_waitingFor.end()) {
         // irrelevant di
         return nullptr;
@@ -878,17 +893,16 @@ const MappedBreakpoint* SR::Expression::BPIsRelevant(const dbginvoke& di, const 
         return nullptr;
     }
 
-    const auto* mappedBP = di.d_breakpoints.findByDbgBreakpoint(dbgBp);
+    const auto* mappedBP = di.breakpoints().findByDbgBreakpoint(dbgBp);
     if (!mappedBP || mappedBP->id() != m_breakPointId) {
         // irrelevant BP
         return nullptr;
     }
-
     return mappedBP;
 }
 
-bool SR::Expression::procsetIsRelevant(const dbginvoke& di, const Bitset& bitset) const {
-    auto it = m_waitingFor.find(&di);
+bool SR::Expression::procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {
+    auto it = m_waitingFor.find(di.handle());
     if (it == m_waitingFor.end()) {
         // irrelevant di
         return false;
@@ -911,35 +925,41 @@ void SR::Expression::reset() {
     }
 
     LOG("wait mapping reset:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_waitingFor) {
-        LOG("di " << di->d_handle << " waiting for " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [dih, bitset] : m_waitingFor) {
+        LOG("di " << dih.name() << " waiting for " << bitset->toSetString());
     }
 }
 
 std::unique_ptr<rec_set_t> SR::Expression::createRecSet() const {
-    // an expression's recset is based on the expression text and thus never changes
-    
-    if (!m_cachedRecSet) {
-        LOG("creating recset for " << string());
-        if (expression().procsetSlice().getRank() == 0) {
-            LOG("no slice, returning CreateRecSetForProcset");
-            return std::unique_ptr<rec_set_t>(CreateRecSetForProcset(expression().procset()));
-        }
-
-        LOG("slice");
-        // slice up the procset
-        m_cachedRecSet = std::make_unique<rec_set_t>();
-
-        forEachOverlaySet(*expression().procset(), [&](const auto* os){
-            auto bs = sliceBitset(*os, &expression().procsetSlice());
-            if (!bs->isEmpty()) {
-                LOG("adding receiver " << bs->toSetString());
-                m_cachedRecSet->addReceiver(NewGroupReceiver(os->s_di, std::move(bs)));
-            }
-        });
+    LOG("creating recset for " << string());
+    if (expression().procsetSlice().getRank() == 0) {
+        LOG("no slice, returning CreateRecSetForProcset");
+        return std::unique_ptr<rec_set_t>(CreateRecSetForProcset(expression().procset()));
     }
 
-    return m_cachedRecSet->clone();
+    LOG("slice");
+    // slice up the procset
+    auto result = std::make_unique<rec_set_t>();
+
+    forEachOverlaySet(*expression().procset(), [&](auto* os){
+        auto bs = sliceBitset(*os, &expression().procsetSlice());
+        if (!bs->isEmpty()) {
+            // XXX: forEachOverlaySet iterates a const procset, containing
+            // const DbgInvoke::Handles in its overlay sets. 99% of the time, a const
+            // Handle represents a const DbgInvoke, but we can't make a
+            // group reciever with a const DbgInvoke, so we need to const_cast it
+            auto* diptr = const_cast<DbgInvoke*>(os->s_di.lock());
+            if (!diptr) {
+                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", os->s_di.c_str());
+                return;
+            }
+
+            LOG("adding receiver " << bs->toSetString());
+            result->addReceiver(NewGroupReceiver(*diptr, std::move(bs)));
+        }
+    });
+
+    return result;
 }
 
 bool SR::Result::operator==(const Result& other) const {
@@ -1017,13 +1037,13 @@ bool SR::Assertion::deleteBreakpoints() {
     return m_lhs.deleteBreakpoints() && m_rhs.deleteBreakpoints();
 }
 
-bool SR::Assertion::notify(const dbginvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
+bool SR::Assertion::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
     auto lhsReady = m_lhs.notify(di, bitset, dbgBp);
     auto rhsReady = m_rhs.notify(di, bitset, dbgBp);
     return lhsReady && rhsReady;
 }
 
-void SR::Assertion::unnotify(const dbginvoke& di, const Bitset &bitset) {
+void SR::Assertion::unnotify(const DbgInvoke& di, const Bitset &bitset) {
     m_lhs.unnotify(di, bitset);
     m_rhs.unnotify(di, bitset);
 }
@@ -1037,11 +1057,11 @@ bool SR::Assertion::isFinished() const {
     return m_results.size() != 0;
 }
 
-bool SR::Assertion::BPIsRelevant(const dbginvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
+bool SR::Assertion::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
     return m_lhs.BPIsRelevant(di, bitset, dbgBp) || m_rhs.BPIsRelevant(di, bitset, dbgBp);
 }
 
-bool SR::Assertion::procsetIsRelevant(const dbginvoke& di, const Bitset& bitset) const {
+bool SR::Assertion::procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {
     return m_lhs.procsetIsRelevant(di, bitset) || m_rhs.procsetIsRelevant(di, bitset);
 }
 
@@ -1050,9 +1070,9 @@ void SR::Assertion::reset() {
     m_rhs.reset();
 }
 
-std::map<const dbginvoke*, std::unique_ptr<Bitset>, dbginvokeMapper>
+std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>
 SR::Assertion::ranksMap() const {
-    auto r = std::map<const dbginvoke*, std::unique_ptr<Bitset>, dbginvokeMapper>{};
+    auto r = std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>{};
     
     // initialize with lhs
     for (const auto& [di, bitset] : m_lhs.ranksMap()) {
@@ -1169,13 +1189,9 @@ std::unique_ptr<ExpressionHandle> SR::Assertion::expressionHandle() const {
 }
 
 std::unique_ptr<rec_set_t> SR::Assertion::createRecSet() const {
-    // an assertion's recset is based on the assertion text and thus never changes
-    if (!m_cachedRecSet) {
-        m_cachedRecSet = m_lhs.createRecSet();
-        m_cachedRecSet->merge(m_rhs.createRecSet());
-    }
-
-    return m_cachedRecSet->clone();
+    auto result = m_lhs.createRecSet();
+    result->merge(m_rhs.createRecSet());
+    return result;
 }
 
 // ScriptRunner private blocked ranks tracking api /////////////////////////////
@@ -1192,9 +1208,19 @@ void SR::Ranks::reset() {
 
     // figure out who is running and who isn't
     auto tmpRecSet = rec_set_t();
-    for (const auto& [di, bitset] : m_involvedRanks) {
-        auto tmpGroup = new group_recv_t{
-            .rec_di = const_cast<dbginvoke*>(di),
+    for (auto& [dih, bitset] : m_involvedRanks) {
+        // XXX: Iterators over stl maps return the key as a const object
+        // so that the key can't be changed while iterating. Creating a
+        // group receiver doesn't change the Handle in a way that would
+        // affect hashing, so it's okay to const cast in this case
+        auto* diptr = const_cast<DbgInvoke*>(dih.lock());
+        if (!diptr) {
+            PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", dih.c_str());
+            continue;
+        }
+
+        auto tmpGroup = new group_recv_t {
+            .rec_di = *diptr,
             .rec_group = bitset->clone()
         };
         // takes ownership of tmpGroup
@@ -1214,7 +1240,7 @@ void SR::Ranks::reset() {
     } else {
         for (const auto& reply : repSet) {
             if (reply->rep_event->ev_event == DBGEV_STAT) {
-                LOG("stat reply: " << reply->rep_di->d_handle << ": " << reply->rep_group->toSetString() << " " << reply->rep_event->ev_u.ev_u_status->stat);
+                LOG("stat reply: " << reply->rep_di.name() << ": " << reply->rep_group->toSetString() << " " << reply->rep_event->ev_u.ev_u_status->stat);
                 const auto& stat = reply->rep_event->ev_u.ev_u_status->stat;
                 if (stat == DBGSTAT_STOPPED || stat == DBGSTAT_STOPPED_IN_THREAD) {
                     auto it = m_blockedRanks.find(reply->rep_di);
@@ -1236,38 +1262,38 @@ void SR::Ranks::reset() {
     FreeRepSet(repSet);
 
     LOG("Reset blocked ranks map:");
-    for ([[maybe_unused]] const auto& [di, ranks] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << ranks->toSetString());
+    for ([[maybe_unused]] const auto& [dih, ranks] : m_blockedRanks) {
+        LOG(dih.name() << ": " << ranks->toSetString());
     }
 }
 
-void SR::Ranks::markRanksBlocked(const dbginvoke& di, const Bitset& ranks) {
-    if (auto it = m_blockedRanks.find(&di); it != m_blockedRanks.end()) {
-        (*it->second |= ranks) &= *m_involvedRanks.at(&di);
+void SR::Ranks::markRanksBlocked(const DbgInvoke::Handle& di, const Bitset& ranks) {
+    if (auto it = m_blockedRanks.find(di); it != m_blockedRanks.end()) {
+        (*it->second |= ranks) &= *m_involvedRanks.at(di);
     }
     LOG("Blocked ranks:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [diHdl, bitset] : m_blockedRanks) {
+        LOG(diHdl.name() << ": " << bitset->toSetString());
     }
 }
 
-void SR::Ranks::markRanksUnblocked(const dbginvoke& di, const Bitset& ranks) {
-    if (auto it = m_blockedRanks.find(&di); it != m_blockedRanks.end()) {
+void SR::Ranks::markRanksUnblocked(const DbgInvoke::Handle& di, const Bitset& ranks) {
+    if (auto it = m_blockedRanks.find(di); it != m_blockedRanks.end()) {
         *it->second -= ranks;
     }
     LOG("Blocked ranks:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [diHdl, bitset] : m_blockedRanks) {
+        LOG(diHdl.name() << ": " << bitset->toSetString());
     }
 }
 
 void SR::Ranks::markRanksUnblocked(const Assertion& assert) {
     for (const auto& [di, bitset] : assert.ranksMap()) {
-        markRanksUnblocked(*di, *bitset);
+        markRanksUnblocked(di, *bitset);
     }
     LOG("Blocked ranks:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [dih, bitset] : m_blockedRanks) {
+        LOG(dih.name() << ": " << bitset->toSetString());
     }
 }
 
@@ -1276,8 +1302,8 @@ void SR::Ranks::markAllRanksBlocked() {
         *bitset = *m_involvedRanks.at(di);
     }
     LOG("Blocked ranks:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [dih, bitset] : m_blockedRanks) {
+        LOG(dih.name() << ": " << bitset->toSetString());
     }
 }
 
@@ -1286,18 +1312,18 @@ void SR::Ranks::markAllRanksUnblocked() {
         bitset->clear();
     }
     LOG("Blocked ranks:");
-    for ([[maybe_unused]] const auto& [di, bitset] : m_blockedRanks) {
-        LOG(di->d_handle << ": " << bitset->toSetString());
+    for ([[maybe_unused]] const auto& [dih, bitset] : m_blockedRanks) {
+        LOG(dih.name() << ": " << bitset->toSetString());
     }
 }
 
 bool SR::Ranks::allRanksBlocked() const {
     LOG("checking for full block...");
     for (const auto& [di, blockedBitset] : m_blockedRanks) {
-        LOG("di: " << di->d_handle << " " << blockedBitset->toSetString());
+        LOG("di: " << di.name() << " " << blockedBitset->toSetString());
         if (*blockedBitset != *m_involvedRanks.at(di)) {
             // found a case where not all ranks are blocked
-            LOG(di->d_handle << ": " << blockedBitset->toSetString() << " != " << m_involvedRanks.at(di)->toSetString());
+            LOG(di.name() << ": " << blockedBitset->toSetString() << " != " << m_involvedRanks.at(di)->toSetString());
             return false;
         }        
     }
@@ -1306,52 +1332,52 @@ bool SR::Ranks::allRanksBlocked() const {
     return true;
 }
 
-Bitset* SR::Ranks::blocked(const dbginvoke& di) {
-    auto it = m_blockedRanks.find(&di);
+Bitset* SR::Ranks::blocked(const DbgInvoke& di) {
+    auto it = m_blockedRanks.find(di.handle());
     if (it == m_blockedRanks.end()) {
         return nullptr;
     }
     return it->second.get();
 }
 
-const Bitset* SR::Ranks::blocked(const dbginvoke& di) const {
+const Bitset* SR::Ranks::blocked(const DbgInvoke& di) const {
     // blocked() is const if the returned ptr is cast to const
     return const_cast<Ranks*>(this)->blocked(di);
 }
 
 namespace {
 
-int handleEvent(ScriptRunner::EventInterface scei, event_set* eventSet, const Bitset* replySet) {
-    if (!eventSet || !eventSet->e_ev || !replySet) {
-        LOG("Called with nullptr (" << eventSet << ") (" << eventSet->e_ev << ") (" << replySet << ")");
+int handleEvent(ScriptRunner::EventInterface scei, DbgInvoke::EventSet& eventSet, const Bitset& replySet) {
+    if (!eventSet.event()) {
+        LOG("Called with nullptr");
         return -1;
     }
-    LOG("Event! di: " << eventSet->e_di->d_handle << " eventSet: " << eventSet->e_group->toSetString() << " replySet: " << replySet->toSetString());
+    LOG("Event! di: " << eventSet.di().handle().name() << " eventSet: " << eventSet.group().toSetString() << " replySet: " << replySet.toSetString());
 
-    switch (eventSet->e_ev->ev_event) {
+    switch (eventSet.event()->ev_event) {
         case DBGEV_EXIT: {
             LOG("DBGEV_EXIT");
-            scei.handleExit(*eventSet, *replySet);
-            return scei.passEventToOldHandler(*eventSet, *replySet);
+            scei.handleExit(eventSet, replySet);
+            return scei.passEventToOldHandler(eventSet, replySet);
         }
 
         case DBGEV_BPHIT: {
             LOG("DBGEV_BPHIT");
-            const auto* dbgBp = eventSet->e_ev->ev_bp;
+            const auto* dbgBp = eventSet.event()->ev_bp;
             if (!dbgBp) {
                 // should never happen
                 LOG("null dbgBP");
                 return -1;
             }
 
-            scei.handleBPHit(*eventSet, *replySet, *dbgBp);
-            return scei.passEventToOldHandler(*eventSet, *replySet);
+            scei.handleBPHit(eventSet, replySet, *dbgBp);
+            return scei.passEventToOldHandler(eventSet, replySet);
         }
 
         default: {
             // includes DBGEV_ERROR case
             LOG("default");
-            return scei.passEventToOldHandler(*eventSet, *replySet);
+            return scei.passEventToOldHandler(eventSet, replySet);
         };
     }
 

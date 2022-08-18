@@ -24,10 +24,10 @@ static int cmd_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     for (const auto *rec : rec_set) {
-        if (auto newest = rec->rec_di->d_checkpoints.newest()) {
+        if (auto newest = rec->rec_di.checkpoints().newest()) {
             PrintOutMsg(
                 "Created checkpoint %u on $%s%s.\n", 
-                newest->id(), rec->rec_di->d_handle, 
+                newest->id(), rec->rec_di.handle().c_str(), 
                 newest->ranksSet().toSetString().c_str()
             );
         }
@@ -38,10 +38,10 @@ static int cmd_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // combine all checkpoints from all dis into single ID-indexed map
-    std::map<unsigned int, std::vector<std::pair<const dbginvoke *, const MappedCheckpoint *>>> idMap;
+    std::map<unsigned int, std::vector<std::pair<DbgInvoke::Handle, const MappedCheckpoint *>>> idMap;
     for (const auto *rec : rec_set) {
-        for (const auto &check : rec->rec_di->d_checkpoints) {
-            idMap[check.id()].push_back({rec->rec_di, &check});
+        for (const auto &check : rec->rec_di.checkpoints()) {
+            idMap[check.id()].push_back({rec->rec_di.handle(), &check});
         }
     }
 
@@ -64,7 +64,7 @@ static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char 
     ){
         std::ostringstream out;
 
-        out << std::left 
+        out << std::left
             << std::setw(cheHeader.size() + 1) << id
             << std::setw(proWidth + 1) << resident
             << std::setw(2) << cStar
@@ -76,14 +76,14 @@ static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char 
 
     // One pass to calibrate table entry widths
     for (const auto &[id, checkpointsV] : idMap) {
-        for (const auto [diPtr, checkPtr] : checkpointsV) {
-            if (!diPtr || !checkPtr) {
+        for (const auto [di, checkPtr] : checkpointsV) {
+            if (!di.lock() || !checkPtr) {
                 // shouldn't happen...
                 continue;
             }
 
             for (const auto &loc : checkPtr->locations()) {
-                proWidth = std::max(proWidth, ("$"s + diPtr->d_handle + loc.group->toSetString()).size());
+                proWidth = std::max(proWidth, ("$"s + di.c_str() + loc.group->toSetString()).size());
             }
         }
     }
@@ -94,8 +94,8 @@ static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char 
     // Print data
     for (const auto &[id, checkpointsV] : idMap) {
         std::string idStr = std::to_string(id);
-        for (const auto [diPtr, checkPtr] : checkpointsV) {
-            if (!diPtr || !checkPtr) {
+        for (const auto [di, checkPtr] : checkpointsV) {
+            if (!di.lock() || !checkPtr) {
                 // shouldn't happen...
                 PrintOutError("Warning: null checkpoint data\n");
                 continue;
@@ -106,10 +106,10 @@ static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char 
             for (const auto &loc : checkPtr->locations()) {
                 printTableEntry(
                       idStr 
-                    , "$"s + diPtr->d_handle + loc.group->toSetString()
+                    , "$"s + di.c_str() + loc.group->toSetString()
                     , isCurrent ? "*" : ""
                     , isCurrent ? 
-                        "$"s + diPtr->d_handle + checkPtr->currentSet().toSetString()
+                        "$"s + di.c_str() + checkPtr->currentSet().toSetString()
                         :
                         std::filesystem::path(loc.file).filename().string()
                         + ":" + std::to_string(loc.line) + " in " + loc.func
@@ -155,7 +155,7 @@ static int cmd_restart_cmd(rec_set_t *recSet, int argc, char **argv) {
 
     for (const auto* reply : frameRepSet.get()) {
         auto fp = EVENT_FRAME(reply->rep_event);
-        PrintFrameSet(reply->rep_di->d_handle, reply->rep_group.get(), fp);
+        PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
     }
 
     return 1;

@@ -38,12 +38,16 @@
 #include "common_tools_fe.h"
 #include "useful.h"
 
-static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& opts);
+static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
 static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
                     const char *, const char *, const char* gdb, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
+
+static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group);
+// Main async event handler
+static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 
 int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
@@ -52,7 +56,6 @@ int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
     dbgprocset_t *c_ps;
     dbg_over_set_t *over_set;
     dbg_over_set_t *c_over_set;
-    dbginvoke_t *di;
     int found;
 
     PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus",
@@ -70,14 +73,14 @@ int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
         SetOverlaySetForProcSet(ps);
         while ((over_set = GetNextOverlaySetForProcSet(ps)) != NULL) {
             // point at the di
-            di = over_set->s_di;
-            PrintOutMsg("$%-9s %-10d ", di->d_handle, di->d_nproc);
+            auto* di = over_set->s_di.lock();
+            PrintOutMsg("$%-9s %-10d ", di->handle().c_str(), di->d_nproc);
 
             // reset found, we only print n if the di is not in the over_set
             found = 0;
             SetOverlaySetForProcSet(c_ps);
             while ((c_over_set = GetNextOverlaySetForProcSet(c_ps)) != NULL) {
-                if (di == c_over_set->s_di) {
+                if (di->handle() == c_over_set->s_di) {
                     PrintOutMsg("%-5s ", "y");
                     ++found;
                     break;
@@ -277,7 +280,7 @@ static dbgprocset_t* getNewProcSet(const char* procName) {
 static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     try {
         // throws if arguments are malformed
-        auto args = dbginvoke::LaunchOpts(argc, argv, Client);
+        auto args = DbgInvoke::LaunchOpts(argc, argv, Client);
         return DoLaunch(std::move(args)) ? 1 : 0;
     } catch (const std::runtime_error& e) {
         PrintOutError("Error: %s\n", e.what());
@@ -289,8 +292,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the invoke process always operates synchronously.
 */
-static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
-    dbginvoke_t *di = nullptr;;
+static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     rec_set_t *rec_set = nullptr;
     rep_set_t *rep_set = nullptr;
     rep_set_t *quit_rep = nullptr;
@@ -325,6 +327,9 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
         }
     }
 
+    // set below depending on launch strategy
+    auto newHandle = DbgInvoke::Handle(nullptr);
+
     // Submit PBS script and attach
     if (!args.qsub_file_path.empty()) {
 
@@ -353,18 +358,18 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
             }
 
             // Attach to submitted job
-            if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, pbs_job_id,
-                                 Client.arch, Client.backend,
-                                 args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
-                                 args.gpu_flag, args.debug_flag))) {
+            if (newHandle = DbgAttach(Client.proto, nullptr, ps->s_name, pbs_job_id,
+                     Client.arch, Client.backend,
+                     args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
+                     args.gpu_flag, args.debug_flag); !newHandle.lock()) {
                 PrintOutError("Failed to attach to PBS job ID %s\n", pbs_job_id);
                 free(pbs_job_id);
                 return exitWithFailure();
             }
 
             // Continue job past barrier and into main
-            if (cti_killApp(di->d_appid, SIGCONT)) {
-                PrintOutError("Failed to continue ID %lu\n", di->d_appid);
+            if (cti_killApp(newHandle.lock()->d_appid, SIGCONT)) {
+                PrintOutError("Failed to continue ID %lu\n", newHandle.lock()->d_appid);
             }
 
             free(pbs_job_id);
@@ -405,10 +410,10 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
                 + std::to_string(slurm_job_step_id->stepid);
 
             // Attach to submitted job
-            if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, slurmJobStepStr.c_str(),
+            if (newHandle = DbgAttach(Client.proto, nullptr, ps->s_name, slurmJobStepStr.c_str(),
                   Client.arch, Client.backend,
-                                 args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
-                                 args.gpu_flag, args.debug_flag))) {
+                  args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
+                  args.gpu_flag, args.debug_flag); !newHandle.lock()) {
                 PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStepStr.c_str());
                 free(slurm_job_step_id);
                 return exitWithFailure();
@@ -431,16 +436,18 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
 
         // Call the invoke in the dbg_client layer
         // moves args into the returned di as the d_launch member
-        if (!(di = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args)))) {
+        if ((newHandle = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args))); !newHandle.lock()) {
             // Do not print out an error message here since the lower layer already
             // printed it for us.
             return exitWithFailure();
         }
     }
 
+    auto* di = newHandle.lock();
+
     // Create a rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -477,10 +484,10 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
             // print out the message
             if (loc.loc_line > 0) {
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group.get(),
+                    reply->rep_di.c_str(), reply->rep_group.get(),
                     "Initial breakpoint, %s at %s:%d\n", loc.loc_func, loc.loc_file, loc.loc_line);
             } else {
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Initial breakpoint, in %s\n",
                                     loc.loc_func);
             }
@@ -490,9 +497,9 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
             if (Client.XML_mode) {
                 char *set_str;
                 char *status_block;
-                status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
+                status_block = XMLStartStatusBlock(reply->rep_di.c_str());
                 // Create the full set string
-                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle, 
+                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(), 
                     reply->rep_group->toSetString().c_str());
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
                              &(f->getLoc()));
@@ -519,7 +526,6 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
 }
 
 // relaunch procsets where s_type == DBGSET_INVOKE.
-// if `keepFlag` is false, the old procset will be deleted after relaunch.
 // returns newly launched procset.
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* cloneName) {
     if (!oldProcset) {
@@ -527,18 +533,14 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-#if DEBUG
     assert(oldProcset->s_type == DBGSET_INVOKE);
-#endif
 
     // get convenience pointer to old procset's internal di
     SetOverlaySetForProcSet(oldProcset);
-    auto* oldDi = GetNextOverlaySetForProcSet(oldProcset)->s_di;
+    auto* oldDi = GetNextOverlaySetForProcSet(oldProcset)->s_di.lock();
 
-#if DEBUG
     // DBGSET_INVOKE procsets should only have one di
     assert(GetNextOverlaySetForProcSet(oldProcset) == nullptr);
-#endif
 
     // validate that this di can be relaunched
     if (!oldDi) {
@@ -551,10 +553,10 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    auto newArgs = dbginvoke::LaunchOpts(oldDi->d_launch);
+    auto newArgs = DbgInvoke::LaunchOpts(oldDi->d_launch);
     newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
-    
+
     newArgs.app_argv = oldDi->d_launch.run_argv;
 
     dbgprocset_t* newProcset = nullptr;
@@ -566,7 +568,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
     }
 
     bool printedHeader = false;
-    for (const auto& oldBp : oldDi->d_breakpoints) {
+    for (const auto& oldBp : oldDi->breakpoints()) {
         if (!printedHeader) {
             PrintOutMsg("Re-setting breakpoints...\n");
             printedHeader = true;
@@ -574,10 +576,11 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         rep_set_t *repSet = nullptr;
         auto* recSet = CreateRecSetForProcset(newProcset);
+        auto* di = getFirstDbgInvoke(*newProcset).lock();
 
         // mask recSet to only the ranks that the breakpoint was on
         auto tmpGroup = group_recv{
-            .rec_di = getFirstDbgInvoke(*newProcset), 
+            .rec_di = *di,
             .rec_group = oldBp.ranksSet()->clone(),
             ._cmd_sent = nullptr
         };
@@ -606,15 +609,15 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         for (const auto* reply : repSet) {
             auto newDbgBp = EVENT_BP(reply->rep_event);
-            auto newBp = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*newDbgBp);
-
+            auto* di = reply->rep_di.lock();
+            auto newBp = di->breakpoints().findByDbgBreakpoint(*newDbgBp);
             if (!newBp) {
-                PrintOutError("Warning: Failed to set breakpoint for $%s.\n", reply->rep_di->d_handle);
+                PrintOutError("Warning: Failed to set breakpoint for $%s.\n", reply->rep_di.c_str());
                 continue;
             }
 
             PrintOutMsg("Re-set breakpoint $%s::%d as new breakpoint $%s::%d.\n",
-                oldDi->d_handle, oldBp.id(), newProcset->s_name, newBp->id());
+                oldDi->handle().c_str(), oldBp.id(), newProcset->s_name, newBp->id());
         }
     }
 
@@ -628,7 +631,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         ReleaseProc(oldProcset, DBG_DEFAULT); // frees oldProcset
         oldProcset = nullptr;
 
-        // remove name of newly created tmp procset from the symbol tables
+        // remove name of newly created tmp procset from the expression symbol tables
         if (auto* val = FindVal(newProcset->s_name)) {
             RemoveVal(val);
         } else {
@@ -641,20 +644,36 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             PrintOutError("Warning: didn't find symbol for %s\n", newProcset->s_name);
         }
 
-        free(newProcset->s_name);
-        newProcset->s_name = oldName; // procset name...
-        {
-            // ...and di name. newly launched procsets should only have one di
-            auto di = getFirstDbgInvoke(*newProcset);
-            free(di->d_handle);
-            di->d_handle = strdup(newProcset->s_name);
+        // Set names for the newly created procset/di. There are four names we need to update:
+        // 1. The name of the newly created di (di.handle().name())
+        // 2. The name of the newly created procset (procset.s_name)
+        // 3. The stored handle in the newly created procset, used to look up the di
+        //    (items in procset.s_over_set_list)
+        // 4. The name for the procset in the global expression/val hash tables
+
+        // update newly created di's internal name (1)
+        SetOverlaySetForProcSet(newProcset);
+        auto newHandle = GetNextOverlaySetForProcSet(newProcset)->s_di;
+        newHandle = DbgInvoke::rename(newHandle, oldName);
+        if (!newHandle.lock()) {
+            PrintOutError("Error: failed to rename newly created procset.\n");
+            return nullptr;
         }
 
-        // get new symbol/val into global symbol/val table. both are handled in
-        // the ParseExpr/EvalExpr functions.
+        // update newly created procset's name (2)
+        free(newProcset->s_name);
+        newProcset->s_name = oldName;
+
+        // update handle stored in newly created procset. (3)
+        // The new procset only has one overlay set.
+        SetOverlaySetForProcSet(newProcset);
+        GetNextOverlaySetForProcSet(newProcset)->s_di = newHandle;
+
+        // get new symbol/val into global symbol/val table. (4)
+        // both are handled in the ParseExpr/EvalExpr functions.
         std::string exprString = std::string("$") + newProcset->s_name;
         // adds entry in symbol table
-        auto* expr = ParseExpr(exprString.c_str()); 
+        auto* expr = ParseExpr(exprString.c_str());
         if (!expr) {
             PrintError(); 
             return nullptr;
@@ -667,10 +686,9 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             return nullptr;
         }
 
-#if DEBUG
         assert(LVAL_TYPE(newProcsetVal) == lval_internal);
         assert(RVAL_ACTUAL_TYPE(newProcsetVal) == rval_none);
-#endif
+
         // val returned above is a generic "internal value" val
         // fix it up so that it is specifically a procset val
         DestroyRval(RVAL_TYPE(newProcsetVal), RVAL_VAL(newProcsetVal));
@@ -704,9 +722,10 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
             forEachOverlaySet(*oldProcset, [oldProcset, &validProcset](const auto* os){
                 // we can't restart only part of a di, so a procset
                 // is invalid if it only includes a subset of a di.
-                if (validProcset && *os->s_di_bs != *os->s_di->d_bitset_full) {
+                auto* di = os->s_di.lock();
+                if (validProcset && *os->s_di_bs != *di->d_bitset_full) {
                     PrintOutError("Error: $%s contains only a subset (%s) of $%s.\n",
-                        oldProcset->s_name, os->s_di_bs->toSetString().c_str(), os->s_di->d_handle);
+                        oldProcset->s_name, os->s_di_bs->toSetString().c_str(), os->s_di.c_str());
                     validProcset = false;
                 }
             });
@@ -722,12 +741,12 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
             forEachOverlaySet(*oldProcset, [&toRelaunch, &success](const auto* os) {
                 if (!success) return;
 
-                if (auto* diProcset = FindProcSet(os->s_di->d_handle)) {
+                if (auto* diProcset = FindProcSet(os->s_di.c_str())) {
                     toRelaunch.push_back(diProcset);
                 } else {
-                    PrintOutError("Error: failed to find procset for $%s!\n", os->s_di->d_handle);
+                    PrintOutError("Error: failed to find procset for $%s!\n", os->s_di.c_str());
                     success = false;
-                }  
+                }
             });
 
             if (!success) return 0;
@@ -915,24 +934,25 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                     const char *app_ident, const char *arch,
                     const char *backend, const char* gdb, bool gpu_flag, bool debug_flag) {
-    dbginvoke_t *di;
     dbgframe_t *fp;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
-    di = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gdb, gpu_flag,
+    auto newHandle = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gdb, gpu_flag,
                    debug_flag);
 
-    if (di == NULL) {
+    if (!newHandle.lock()) {
         PrintOutError("Could not attach to application.\n");
         return 0;
     }
 
+    auto* di = newHandle.lock();
+
     // Create the rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -986,7 +1006,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
             for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
-                PrintFrameSet(reply->rep_di->d_handle, reply->rep_group.get(), f);
+                PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), f);
             }
             // If XML mode is enabled, we want to print out a status message.
             // We don't need to ask the backend for the status since this is
@@ -994,9 +1014,9 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
             if (Client.XML_mode) {
                 char *set_str;
                 char *status_block;
-                status_block = XMLStartStatusBlock(reply->rep_di->d_handle);
+                status_block = XMLStartStatusBlock(reply->rep_di.c_str());
                 // Create the full set string
-                Asprintf(&set_str, "%s%s", reply->rep_di->d_handle,
+                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
                          reply->rep_group->toSetString().c_str());
                 // Set the location based on the top frame
                 XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
@@ -1038,7 +1058,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (auto&& reply : rep_set) {
         // point at location data
         halt_loc = EVENT_LOC(reply->rep_event);
-        PrintHaltedLocationSet(reply->rep_di->d_handle, reply->rep_group.get(),
+        PrintHaltedLocationSet(reply->rep_di.c_str(), reply->rep_group.get(),
                                halt_loc);
     }
 
@@ -1048,7 +1068,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 // external exposure
-void PrintHaltedLocationSet(char *setname, const Bitset *group, dbgloc_t *loc) {
+void PrintHaltedLocationSet(const char *setname, const Bitset *group, dbgloc_t *loc) {
     if (!loc) {
         PrintMsgWithSetInfo(setname, group, "Halt could not report a location\n");
     } else if (loc->loc_line > 0) {
@@ -1157,27 +1177,30 @@ static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
     dbg_over_set_t *over_set;
-    dbginvoke_t *di;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
 
     SetOverlaySetForProcSet(p);
     while ((over_set = GetNextOverlaySetForProcSet(p)) != NULL) {
         // point at the dbginvoke for this set
-        di = over_set->s_di;
+        auto di = over_set->s_di.lock();
+        if (!di) {
+            PrintOutError("Warning: reply with unknown di %s. Ignoring.\n", over_set->s_di.c_str());
+            continue;
+        }
 
         switch (quit_type) {
             case DBG_KILL:
                 PrintOutMsg(
                     "Shutting down debugger and killing application for "
                     "\'%s\'.\n",
-                    di->d_handle);
+                    di->handle().c_str());
                 break;
             case DBG_DETACH:
                 PrintOutMsg(
                     "Shutting down debugger and resuming application for "
                     "\'%s\'.\n",
-                    di->d_handle);
+                    di->handle().c_str());
                 break;
             case DBG_DEFAULT:
                 // use di instead
@@ -1186,13 +1209,13 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
                         PrintOutMsg(
                             "Shutting down debugger and resuming application "
                             "for \'%s\'.\n",
-                            di->d_handle);
+                            di->handle().c_str());
                         break;
                     case DBG_LAUNCHED:
                         PrintOutMsg(
                             "Shutting down debugger and killing application "
                             "for \'%s\'.\n",
-                            di->d_handle);
+                            di->handle().c_str());
                         break;
                 }
                 break;
@@ -1200,12 +1223,12 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
 
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
-            XMLPrintRemovedMsg(di->d_handle);
+            XMLPrintRemovedMsg(di->handle().c_str());
         }
 
         // Create the rec_set based on the di
         rec_set = NewRecSet();
-        AddReceiverToSet(rec_set, NewGroupReceiver(di, di->d_bitset_full.get()));
+        AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
 
         rep_set = DbgQuit(rec_set, quit_type);
 
@@ -1308,13 +1331,13 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     bool onlyReset = (argc == 1);
 
     // collect dis to modify
-    auto dis = std::set<dbginvoke_t*, dbginvokeMapper>{};
+    auto dis = std::set<DbgInvoke*>{};
     for (const auto* rec : recSet) {
-        dis.insert(rec->rec_di);
+        dis.insert(&rec->rec_di);
     }
 
     // set args
-    for (auto* di : dis) {
+    for (auto di : dis) {
         // remember argv[0]
         auto argv0 = di->d_launch.run_argv[0];
         di->d_launch.run_argv.clear();
@@ -1344,12 +1367,12 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
 
 static int show_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     for (const auto* rec : recSet) {
-        const auto& dargv = rec->rec_di->d_launch.run_argv;
+        const auto& dargv = rec->rec_di.d_launch.run_argv;
         // start printing args from argv[1]
-        PrintMsgWithSetInfo(rec->rec_di->d_handle, rec->rec_group.get(), 
+        PrintMsgWithSetInfo(rec->rec_di.handle().c_str(), rec->rec_group.get(), 
             "\"%s\"\n", dargv.asString(1).c_str());
     }
-            
+
     return 1;
 }
 
@@ -1363,6 +1386,444 @@ void EndAll(void) {
 
         ReleaseProc(ps, DBG_DEFAULT);
     }
+}
+
+// Prints program location after a step event is received
+static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group) {
+    if (!ev_set || !ev_set->event()) {
+        return;
+    }
+
+    const dbgframe_t *frame = ev_set->event()->ev_step.step_frame;
+    bool frame_changed = ev_set->event()->ev_step.step_frame_changed;
+
+    if (frame) {
+        const auto &frameLoc = frame->getLoc();
+
+        // Print location info
+        if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
+            // See if we can get the source line
+            if (Client.MI_mode){
+                std::stringstream ss;
+                auto fullpath = ev_set->di().source_paths.getFullPath(frameLoc.loc_file);
+                ss<<"*stopped,reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()<<"\",frame={func=\""<<frameLoc.loc_func<<"\",args=[],file=\""<<frameLoc.loc_file<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<frameLoc.loc_line<<"\"}";
+                PrintOutMsg( ss.str().c_str() );
+            }
+            auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
+            lineArg += "," + lineArg; // filename:xx,filename:xx
+            dbgevent_t *listResult = nullptr;
+
+            if (ev_set->di().d_frontend) {
+                listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
+            }
+
+            if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+                // Print the source line
+
+                // Print a frame if the last step event changed functions
+                if (frame_changed) {
+                    PrintMsgWithSetInfo(
+                        ev_set->di().handle().c_str(), &ev_set->group(),
+                        "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                    );
+                }
+
+                auto line = std::string{listResult->ev_list->list_line};
+                formatSourceLine(line);
+                
+                PrintMsgWithSetInfo(
+                    ev_set->di().handle().c_str(), &ev_set->group(),
+                    "%d\t%s\n", frameLoc.loc_line, line.c_str()
+                );
+            } else {
+                // For some reason we didn't get the right line, just print the frame
+                PrintMsgWithSetInfo(
+                    ev_set->di().handle().c_str(), &ev_set->group(),
+                    "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                );
+            }
+
+            FreeEvent(listResult);
+        } else if (frameLoc.loc_func) {
+            // No file/line, just print function name
+            PrintMsgWithSetInfo(
+                ev_set->di().handle().c_str(), &ev_set->group(), "in %s\n", frameLoc.loc_func);
+        } else {
+            // Shouldn't ever happen
+            PrintMsgWithSetInfo(ev_set->di().handle().c_str(), &ev_set->group(),
+                "Step finished with no location information.\n"
+            );
+        }
+    } else {
+        // Got a null frame? This should never happen
+        PrintMsgWithSetInfo(ev_set->di().handle().c_str(), &ev_set->group(),
+            "Step finished with no location information.\n"
+        );
+    }
+}
+
+// This is called each time an asynchronous reply is recieved. The entire event
+// set which contains the aggregated event is passed in as ev_set and the
+// individual reply that was just received is passed in as reply_set.
+int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
+    std::string bpThread;
+
+    // need to do "special" things if we are currently reading from stdin
+    // for readline support.
+    cli_save_stream();
+
+    DPRINT(
+        "INFO[EventCB]: received event type:[%s], ev_bitset:%s, reply_set:%s "
+        "from:%s\n",
+        EventToStr(ev_set.event()), ev_set.group().toSetString().c_str(),
+        reply_set.toSetString().c_str(), ev_set.di().handle().c_str());
+
+    switch (ev_set.event()->ev_event) {
+        case DBGEV_EXIT:
+            if (ev_set.event()->ev_exit == 0) {
+                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                    "Program exited normally.\n");
+            } else {
+                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                    "Program exited with code 0%o.\n",
+                                    ev_set.event()->ev_exit);
+            }
+            break;
+
+        case DBGEV_BPHIT: {
+            // ensure the recv bp has a corresponding bp_set. If not, this is an
+            // unknown breakpoint. If its unknown either its a breakpoint
+            // encountered from ending the graph (graph breakpoints are hidden)
+            // or an exit breakpoint that was set by the dbg servers.
+            auto bpset = ev_set.di().breakpoints().findByDbgBreakpoint(*ev_set.event()->ev_bp);
+
+            if (!bpset) {
+                if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
+                    if (Client.MI_mode){
+                        std::ostringstream ss;
+                        ss << "*stopped,reason=\"exited-normally\", proc_set=\""<<ev_set.di().handle().name()<<"\"";
+                        PrintOutMsg(ss.str().c_str());
+                    }
+                    PrintMsgWithSetInfo(
+                        ev_set.di().handle().c_str(), &ev_set.group(),
+                        "The application has reached an exit breakpoint.\n");
+                } else if (Client.print_bp_frames) {
+                    if (ev_set.event()->ev_bp->bp_loc.loc_line > 0) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "In %s at %s:%d\n",
+                            ev_set.event()->ev_bp->bp_loc.loc_func,
+                            ev_set.event()->ev_bp->bp_loc.loc_file,
+                            ev_set.event()->ev_bp->bp_loc.loc_line);
+                    } else {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(), "In %s\n",
+                            ev_set.event()->ev_bp->bp_loc.loc_func);
+                    }
+                }
+                break;
+            }
+
+            // What we print out is based on if we are at a watchpoint or
+            // breakpoint
+            // TODO: What should this default to? Right now I am having it
+            // default to the breakpoint message.
+            if (!bpset->threadId().empty()) bpThread = " thread " + bpset->threadId();
+
+            switch (bpset->type()) {
+                case DBGBP_WATCH_TYPE:
+                case DBGBP_AWATCH_TYPE:
+                case DBGBP_RWATCH_TYPE:
+                    // Print out the updated locale information for the watchpoint.
+                    // This was updated in EventCB before calling this function.
+                    for (const auto &watch_loc : bpset->watchLocaleSet()) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            "Watchpoint %d, variable expression: %s\n",
+                            bpset->id(), bpset->watchExpression().c_str());
+                        if (watch_loc.line > 0) {
+                            PrintMsgWithSetInfo(
+                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                                "In %s at %s:%d\n", watch_loc.func.c_str(),
+                                watch_loc.file.c_str(), watch_loc.line);
+                        } else {
+                            PrintMsgWithSetInfo(
+                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                                "In %s\n", watch_loc.func.c_str());
+                        }
+                    }
+                    // clear out the watchpoint locale to avoid printing multiple times
+                    bpset->clearWatchLocaleSet();
+                    break;
+
+                case DBGBP_BREAK_TYPE:
+                    if (Client.print_bp_frames) {
+                        if (bpset->line() > 0) {
+                            if (Client.MI_mode){
+                                std::ostringstream ss;
+                                auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
+                                ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set.di().handle().name()<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                                PrintOutMsg( ss.str().c_str() );
+                            }
+                            PrintMsgWithSetInfo(
+                                ev_set.di().handle().c_str(), &ev_set.group(),
+                                "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
+                                bpset->function().c_str(), bpset->file().c_str(),
+                                bpset->line(), bpThread.c_str());
+                        } else {
+                            PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
+                                                &ev_set.group(),
+                                                "Breakpoint %d, in %s%s\n",
+                                                bpset->id(), bpset->function().c_str(),
+                                                bpThread.c_str());
+                        }
+                    }
+                    break;
+
+                case DBGBP_CATCH_TYPE:
+                    if (!bpset->watchExpression().empty()) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Catchpoint %d (%s)\n",
+                            bpset->id(), bpset->watchExpression().c_str());
+                    } else {
+                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
+                            &ev_set.group(),
+                            "Catchpoint %d\n",
+                            bpset->id());
+                    }
+                    break;
+
+                default:
+                    if (bpset->line() > 0) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Unknown break type %d, %s at %s:%d\n",
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
+                    } else {
+                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
+                                            &ev_set.group(),
+                                            "Unknown break type %d, in %s\n",
+                                            bpset->id(), bpset->function().c_str());
+                    }
+                    break;
+            }
+
+            break;
+        }
+
+        case DBGEV_BPDEL: {
+            // ensure the recv bp has a cooresponding bp_set. If not, this is an
+            // unknown breakpoint. If its unknown either its a breakpoint
+            // encountered from ending the graph (graph breakpoints are hidden)
+            // or an exit breakpoint that was set by the dbg servers.
+            auto bpset = ev_set.di().breakpoints().findByDbgBreakpoint(*ev_set.event()->ev_bp);
+
+            if (!bpset) {
+                PrintErrorWithSetInfo(
+                    ev_set.di().handle().c_str(), &ev_set.group(),
+                    "ERROR: cannot find breakpoint in BPSetList.\n");
+                return 0;
+            }
+
+            // ranks removed from breakpoint bitset in
+            // src/dbgclnt/dbg_client.cpp
+
+            // What we print out is based on if we are at a watchpoint or
+            // breakpoint
+            switch (bpset->type()) {
+                case DBGBP_WATCH_TYPE:
+                case DBGBP_AWATCH_TYPE:
+                case DBGBP_RWATCH_TYPE:
+                    // Print out the updated locale information for the watchpoint.
+                    // This was updated in EventCB before calling this function.
+                    for (const auto &watch_loc : bpset->watchLocaleSet()) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            "Watchpoint %d deleted because the program has left "
+                            "the block in which its expression is valid.\n",
+                            bpset->id());
+                        if (watch_loc.line > 0) {
+                            PrintMsgWithSetInfo(
+                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                                "In %s at %s:%d\n", watch_loc.func.c_str(),
+                                watch_loc.file.c_str(), watch_loc.line);
+                        } else {
+                            PrintMsgWithSetInfo(
+                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                                "In %s\n", watch_loc.func.c_str());
+                        }
+                    }
+                    // clear out the watchpoint locale to avoid printing multiple times
+                    bpset->clearWatchLocaleSet();
+                    break;
+
+                case DBGBP_BREAK_TYPE:
+                    if (bpset->line() > 0) {
+                        if (Client.MI_mode){
+                            std::ostringstream ss;
+                            auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
+                            ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set.di().handle().name()<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                            PrintOutMsg( ss.str().c_str() );
+                        }else{
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Breakpoint %d deleted, %s at %s:%d\n",
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
+                        }
+                    } else {
+                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
+                                            &ev_set.group(),
+                                            "Breakpoint %d deleted, in %s\n",
+                                            bpset->id(), bpset->function().c_str());
+                    }
+                    break;
+
+                case DBGBP_CATCH_TYPE:
+                    if (!bpset->watchExpression().empty()) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Catchpoint %d deleted (%s)\n",
+                            bpset->id(), bpset->watchExpression().c_str());
+                    } else {
+                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
+                            &ev_set.group(),
+                            "Catchpoint %d deleted.\n",
+                            bpset->id());
+                    }
+                    break;
+
+                default:
+                    if (bpset->line() > 0) {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Unknown break type %d deleted, %s at %s:%d\n",
+                            bpset->id(), bpset->function().c_str(),
+                            bpset->file().c_str(), bpset->line());
+                    } else {
+                        PrintMsgWithSetInfo(
+                            ev_set.di().handle().c_str(), &ev_set.group(),
+                            "Unknown break type %d deleted, in %s\n",
+                            bpset->id(), bpset->function().c_str());
+                    }
+                    break;
+            }
+
+            break;
+        }
+
+        case DBGEV_SIGNAL:
+            PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                "Program received signal %s.\n",
+                                ev_set.event()->ev_sig_type);
+
+            if (ev_set.event()->ev_sig_frame != (dbgframe_t *)NULL) {
+                const auto &frameLoc = ev_set.event()->ev_sig_frame->getLoc();
+                if (frameLoc.loc_file != NULL) {
+                    PrintMsgWithSetInfo(
+                        ev_set.di().handle().c_str(), &ev_set.group(),
+                        "In %s at %s:%d\n",
+                        frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
+                } else {
+                    PrintMsgWithSetInfo(
+                        ev_set.di().handle().c_str(), &ev_set.group(), "In %s\n",
+                        frameLoc.loc_func);
+                }
+            } else if (ev_set.event()->ev_sig_line != NULL) {
+                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                    "%s\n", ev_set.event()->ev_sig_line);
+            }
+
+            break;
+
+        case DBGEV_STEP:
+            if (Client.print_source_on_step)
+                printEventLocation(&ev_set, &reply_set);
+            break;
+
+        case DBGEV_ERROR:
+            PrintErrorWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                  "%s\n", DbgEventErrorStr(ev_set.event()));
+            break;
+
+        case DBGEV_OK:
+            break;
+
+        default:
+            PrintErrorWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                                  "Can't print event %d\n",
+                                  ev_set.event()->ev_event);
+            break;
+    }
+
+    // If XML mode is enabled, we need to ask the dbgclient layer if the event
+    // we just received changed the status. If it did, we want to add the status
+    // information to the xml output.
+    if (Client.XML_mode) {
+        // used for checking status
+        rec_set_t *rec_set;
+        rep_set_t *rep_set;
+        char *set_str;
+        dbgstatus_t *s;
+        char *status_block;
+
+        if (DbgCheckForStatusChange()) {
+            // Status has changed. We need to generate updated status
+            // information - this only impacts a single di
+
+            // create the rec_set - FOR THE ENTIRE DI!!!
+            // Bugfix for BUG 814782
+            rec_set = NewRecSet();
+            AddReceiverToSet(
+                rec_set,
+                NewGroupReceiver(ev_set.di(), ev_set.di().d_bitset_full.get()));
+
+            // Query the new status from the backends, note that for this we
+            // want to grab the location information
+            rep_set = DbgStatus(rec_set, 1);
+
+            ProcessErrorInRepSet(rep_set);
+
+            // Start a new status block
+            status_block = XMLStartStatusBlock(ev_set.di().handle().c_str());
+
+            // Process each status message and add it to the status block
+            for (auto&& reply : rep_set) {
+                // First create the bitset string
+                auto bitset_str = reply->rep_group->toSetString();
+
+                // Create the set string
+                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(), bitset_str.c_str());
+
+                // point at the status data
+                s = EVENT_STATUS(reply->rep_event);
+
+                // The XML status that is printed is based on the status value
+                XMLAddStatus(&status_block, set_str, s->stat, s->stat_loc);
+
+                // Done with the set_str
+                Free(set_str);
+            }
+
+            // Print the entire status block, this will free the string
+            XMLPrintStatusBlock(status_block);
+
+            // Free the reply set
+            FreeRepSet(rep_set);
+
+            // Done with the rec_set
+            FreeRecSet(rec_set);
+
+            // Reset the status change since we handled it
+            DbgResetStatusChange();
+        }
+    }
+
+    cli_restore_stream();
+
+    return 1;
 }
 
 void InitCmd_proc(void) {

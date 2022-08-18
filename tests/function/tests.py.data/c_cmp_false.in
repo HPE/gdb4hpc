@@ -20,9 +20,8 @@
 20: #this test compares variables in two files.
 21: #all comparisons should result in
 22: #comparision is false
-23: maint sleep 15
 24: maint set sync on
-25: launch $a{3}  bd_dt/c/c_type_test.x --debug
+25: launch $a{3}  bd_dt/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -35,7 +34,7 @@ Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(58|143)%
 26: break c_type_test.c:247
 a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 247.
-27: launch $b{3}  bd_dt/c/c_cmp_diff.x --debug
+27: launch $b{3}  bd_dt/c/c_cmp_diff.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...

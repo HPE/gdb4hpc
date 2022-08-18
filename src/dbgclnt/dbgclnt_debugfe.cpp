@@ -148,7 +148,6 @@ void ClearListState(dbgfrontend_sw *fe_obj) {
 }
 
 static void FreeSetLocation(set_location *set_loc) {
-    DASSERT_NOT_NULL(set_loc);
     free(set_loc->loc_str);
     free(set_loc->threads);
     delete set_loc;

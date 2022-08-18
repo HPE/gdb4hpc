@@ -17,6 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <iostream>
 #include <iomanip>
 #include <variant>
 #include <cmath>
@@ -50,14 +51,14 @@ static cmdlist_t *OldCmds;
 static std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
 
 #if DEBUG
-#include <iostream>
-#include <iomanip>
 // backslash sequences are escape codes to print debug messages in dark grey. if
 // output is redirected to a file, they should be removed
 #define LOG(msg) \
     std::cerr << "\u001b[30;1m" << __FILE__ << ":" << __LINE__ << "(" << __FUNCTION__ << "): " << msg << "\033[0m" << std::endl
-#else 
-#define LOG(msg)
+#else
+// dummy log message that will be optimized out, but still be syntax/type checked
+#define LOG(msg) \
+    while (false) std::cerr << msg << std::endl
 #endif
 
 /********************************

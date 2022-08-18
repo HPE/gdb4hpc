@@ -95,7 +95,7 @@ std::string ProcSetToString(dbgprocset_t *s) {
     // ranks.
     while ((over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) !=
            NULL) {
-        ss<<over_set->s_di->d_handle;
+        ss<<over_set->s_di.c_str();
         std::string si = over_set->s_di_bs->toSetString();
         if (s->s_threads) {
             // insert the thread info

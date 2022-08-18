@@ -114,11 +114,9 @@ int MRNClientProtocol::init() {
     return 1;
 }
 
-std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
+std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
                                        const char *request) {
     auto &network = getNetwork<MRNetNetwork>(di);
-
-    DASSERT_NOT_NULL(target);
 
     // send command only if not already in a shutdown state
     if (di->d_isShutdown) {
@@ -143,7 +141,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(dbginvoke_t *di, const Bi
     return received;
 }
 
-std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di, 
+std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
                                             const Bitset *target, Bitset &received) {
     auto &network = getNetwork<MRNetNetwork>(di);
     int full = 0;
@@ -190,7 +188,7 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(dbginvoke_t *di,
     return result;
 }
 
-void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
+void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     auto &network = getNetwork<MRNetNetwork>(di);
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
@@ -232,7 +230,7 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
+int MRNClientProtocol::attach(DbgInvoke *di, proto_session *sess,
                         const char *app_ident, const char *arch,
                         const char *backend, const char* gdb,
                         int gpu_flag, int debug_flag) {
@@ -714,7 +712,7 @@ attach_error:
     return 1;
 }
 
-int MRNClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
+int MRNClientProtocol::launch(DbgInvoke *di, proto_session *sess, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, const char * const *env,
                         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
@@ -1262,7 +1260,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {
+int MRNClientProtocol::exit(DbgInvoke *di, int detach) {
     if (!di) {
         PrintOutError("Tried to exit with null di.\n");
         return -1;
@@ -1276,7 +1274,7 @@ int MRNClientProtocol::exit(dbginvoke_t *di, int detach) {
     return DebugClientProtocol::exit(di, detach);
 }
 
-void MRNClientProtocol::destroyClient(dbginvoke_t *di) {
+void MRNClientProtocol::destroyClient(DbgInvoke *di) {
     // Check to see if the network type has been destroyed
     if (di->d_proto_net != nullptr) {
         // call the exit function to force the application to quit
@@ -1319,18 +1317,14 @@ int MRNClientProtocol::addValgrindFiles(cti_manifest_id_t mid)
 /*
 ** Compatible callback routine for attaching with mrnet.
 */
-int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
+int MRNAttachHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
-
-    DASSERT_NOT_NULL(di);
-    DASSERT_NOT_NULL(di->d_bitset_launched);
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        DASSERT_NOT_NULL(msg.getBitset());
         *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {
@@ -1347,7 +1341,6 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
 
     DPRINT("cbMRNAttach received responses [%s]!\n", di->d_bitset_launched->toString().c_str());
 
-    DASSERT_NOT_NULL(di->d_bitset_full);
     // Check if we have received a message from every rank
     if (*di->d_bitset_launched == *di->d_bitset_full) {
         // Reset the protocol event callback to the dbgclient default
@@ -1370,18 +1363,14 @@ int MRNAttachHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
 /*
 ** Compatible callback routine for invoking with mrnet.
 */
-int MRNLaunchHandler::handleEvent(dbginvoke_t *di, const ProtoMessageSet &set) {
+int MRNLaunchHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgevent_t *e = nullptr;
     int err = 0;
-
-    DASSERT_NOT_NULL(di);
-    DASSERT_NOT_NULL(di->d_bitset_launched);
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        DASSERT_NOT_NULL(msg.getBitset());
         *di->d_bitset_launched |= *msg.getBitset();
 
         if (e->ev_event != DBGEV_OK) {

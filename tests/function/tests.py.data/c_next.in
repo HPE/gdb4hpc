@@ -1,20 +1,6 @@
-1: #
-2: # lgdb_c_t1.rc script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
-10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
-11: # $Date: 2014-1-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
-12: # $Rev: 1 $
-13: # $Author: kdavis $
-14: #
 16: maint set sync on
 18: # launch 3 instances of the application
-19: launch $a{6}   bd_dt/c/c_type_test.x --debug
+19: launch $a{3}   bd_dt/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -24,10 +10,10 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..5}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:%(58|143)%
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:%(58|143)%
 22: # Set a breakpoint at specified line numbers:
 23: break c_type_test.c:198
-a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 198.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 198.
 26: # Run to breakpoint 1:  
 27: continue
 <$a>: Hello World! from process 0
@@ -36,10 +22,10 @@ a{0..5}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 <$a>: Hello World! from process 3
 <$a>: Hello World! from process 4
 <$a>: Hello World! from process 5
-a{0..5}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
 30: # Run next command
 31: n
-a{0..5}: 200			one_d_i[ii] = one_d_i_cnt++;
+a{0..2}: 200			one_d_i[ii] = one_d_i_cnt++;
 34: #exit lgdb
 35: q
 Shutting down debugger and killing application for 'a'.

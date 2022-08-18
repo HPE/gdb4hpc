@@ -86,7 +86,7 @@ void DebugClientProtocol::registerProtocol() {
 }
 
 // Used during launch/attach to wait for the initial setup to complete
-static int CheckForProtoStartupEvent(dbginvoke_t *di) {
+static int CheckForProtoStartupEvent(DbgInvoke *di) {
     int *ev_fd;
     int status;
 
@@ -101,7 +101,7 @@ static int CheckForProtoStartupEvent(dbginvoke_t *di) {
      notification fd. If a event notification fd can be used, then it should 
      be added to the sw_evfd list and sw_checkevents should simply return 0.
     */
-    if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
+    if (di->d_proto->checkEvents(di) > 0) {
         DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
         return 1;  // there is a proto event to handle. Return immediately.
     }
@@ -166,7 +166,7 @@ static int CheckForProtoStartupEvent(dbginvoke_t *di) {
     return 1;
 }
 
-static void DispatchProtoStartupEvent(dbginvoke_t *di) {
+static void DispatchProtoStartupEvent(DbgInvoke *di) {
     int *ev_fd;
 
     if (di == NULL) return;
@@ -182,17 +182,17 @@ static void DispatchProtoStartupEvent(dbginvoke_t *di) {
                 (int *)NULL) {
             if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
                 // dispatch each of the set notification fds one at a time.
-                DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
+                di->d_proto->dispatchEvents(di, *ev_fd);
             }
         }
     } else {
         // event notification fd's not in use by this protocol, so call
         // the generic dispatch function with -1 for event fd arg.
-        DBG_PROTO_SW(di)->dispatchEvents(di, -1);
+        di->d_proto->dispatchEvents(di, -1);
     }
 }
 
-int WaitForProtoStartupEvent(dbginvoke_t *di) {
+int WaitForProtoStartupEvent(DbgInvoke *di) {
     for (;;) {
         switch (CheckForProtoStartupEvent(di)) {
             case -1:
@@ -218,25 +218,25 @@ void DebugClientProtocol::setProtocolEventHandler(DebugClientProtocolEventHandle
     m_protoEventHandler.reset(handler);
 }
 
-int DebugClientProtocol::handleProtocolEvent(dbginvoke *di, const ProtoMessageSet &set) { 
+int DebugClientProtocol::handleProtocolEvent(DbgInvoke *di, const ProtoMessageSet &set) { 
     if (m_protoEventHandler) return m_protoEventHandler->handleEvent(di, set);
     return 1;
 };
 
 // common exit actions to all protocols. protocol exit functions should call this
 // function in their own exit function after doing protocol specific exit actions.
-int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
+int DebugClientProtocol::exit(DbgInvoke *di, int detach) {
     if (detach) {
         // The app was sent a SIGSTOP while the network cleaned up.
         // By the time we reach this common ::exit function, the network
         // should be gone, so we can start the app again.
         if (cti_killApp(di->d_appid, SIGCONT)) {
-            PrintOutError("Warning: an error occurred during release of $%s.\n", di->d_handle);
+            PrintOutError("Warning: an error occurred during release of $%s.\n", di->handle().c_str());
             PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
         }
     } else {
         if (cti_killApp(di->d_appid, SIGKILL)) {
-            PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->d_handle);
+            PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->handle().c_str());
             PrintOutError("Your job might still be running.\n");
         }
     }
@@ -254,7 +254,7 @@ int DebugClientProtocol::exit(struct dbginvoke *di, int detach) {
     return 0;
 }
 
-int DebugClientDefaultProtocolEventHandler::handleEvent(dbginvoke *di, const ProtoMessageSet &set) {
+int DebugClientDefaultProtocolEventHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     // by default, just forward to generic handler
     return DbgDispatchProtoEvents(di, set);
 }

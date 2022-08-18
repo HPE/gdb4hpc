@@ -31,7 +31,7 @@
 
 // static prototypes
 static dbgprocset_t *NewProcSet(const char *, dbgset_type, const char* threads);
-static dbg_over_set_t *NewOverlaySet(dbginvoke_t *, std::unique_ptr<Bitset>&&, int);
+static dbg_over_set_t *NewOverlaySet(DbgInvoke::Handle, std::unique_ptr<Bitset>&&, int);
 static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
 static void _free_procset(dbgprocset_t *);
@@ -150,7 +150,7 @@ void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg
     }
 }
 
-dbginvoke_t* getFirstDbgInvoke(const dbgprocset_t& procset) {
+DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset) {
     // XXX: procset parameter should be treated as const, but c-style list
     //      manipulators are technically not const (changing iterator pointers etc)
     auto& rawProcset = const_cast<dbgprocset_t&>(procset);
@@ -194,14 +194,14 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         if (di_mask->isEmpty()) {
             DPRINT(
                 "CreateTempProcSetSlice di $%s had an empty mask. Skipping.\n",
-                o_ptr->s_di->d_handle);
+                o_ptr->s_di.c_str());
             continue;
         }
 
         DPRINT(
             "CreateTempProcSetSlice Adding di $%s for mask[%s] to "
             "over_set_list.\n",
-            o_ptr->s_di->d_handle, di_mask->toSetString().c_str());
+            o_ptr->s_di.c_str(), di_mask->toSetString().c_str());
 
         // We now have a properly formed di_mask for this di. Lets create a new
         // over_set object for this di and add it to the list, note that we will
@@ -217,7 +217,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     SetOverlaySetForProcSet(new_procset);
     while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL) {
         DPRINT("CreateTempProcSetSlice offset[%d] for di $%s.\n", ps_offset,
-               o_ptr->s_di->d_handle);
+               o_ptr->s_di.c_str());
         o_ptr->s_ps_offset = ps_offset;
         ps_offset += o_ptr->s_di_bs->numSet();
     }
@@ -344,7 +344,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                 if (di_mask->isEmpty()) {
                     DPRINT(
                         "CreateProcSet di $%s had an empty mask. Skipping.\n",
-                        o_ptr->s_di->d_handle);
+                        o_ptr->s_di.c_str());
                     continue;
                 }
 
@@ -365,14 +365,14 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
                     DPRINT(
                         "CreateProcSet Updated existing o_ptr for di $%s to "
                         "new mask[%s].\n",
-                        o_ptr->s_di->d_handle, o_ptr->s_di_bs->toSetString().c_str());
+                        o_ptr->s_di.c_str(), o_ptr->s_di_bs->toSetString().c_str());
                 } else {
                     // Create a new overlay set for this invoke
                     // Note that the offset gets updated on the second pass
                     DPRINT(
                         "CreateProcSet is about to add di $%s for mask[%s] to "
                         "over_set_list.\n",
-                        o_ptr->s_di->d_handle, di_mask->toSetString().c_str());
+                        o_ptr->s_di.c_str(), di_mask->toSetString().c_str());
                     o_ptr = NewOverlaySet(over_set->s_di, std::move(di_mask), 0);
                     AddToList(new_procset->s_over_set_list, o_ptr);
                     // increment num sets
@@ -408,7 +408,7 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
     SetOverlaySetForProcSet(new_procset);
     while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL) {
         DPRINT("CreateProcSet offset[%d] for di $%s.\n", ps_offset,
-               o_ptr->s_di->d_handle);
+               o_ptr->s_di.c_str());
         o_ptr->s_ps_offset = ps_offset;
         ps_offset += o_ptr->s_di_bs->numSet();
     }
@@ -532,7 +532,7 @@ dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) 
 ** Finish setting up the procset after the application has finished
 ** launching/attaching in the dbg client layer.
 */
-int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di) {
+int FinalizeProcSetForInvoke(dbgprocset_t *ps, DbgInvoke *di) {
     dbg_over_set_t *over_set = NULL;
 
     if (ps == NULL) {
@@ -548,7 +548,7 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, dbginvoke_t *di) {
     // reconcile the nprocs with the di, it is our master
     ps->s_nproc = di->d_nproc;
 
-    over_set = NewOverlaySet(di, di->d_bitset_full->clone(), 0);
+    over_set = NewOverlaySet(di->handle(), di->d_bitset_full->clone(), 0);
     AddToList(ps->s_over_set_list, over_set);
     // increment num sets
     ps->s_num_sets++;
@@ -578,9 +578,15 @@ rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps) {
         auto listHandle = const_cast<dbgprocset_t*>(ps);
         
         SetOverlaySetForProcSet(listHandle);
-        while (const dbg_over_set_t* over_set = GetNextOverlaySetForProcSet(listHandle)) {
+        while (dbg_over_set_t* over_set = GetNextOverlaySetForProcSet(listHandle)) {
             // create a group_recv_t for the over_set and add it to the res
-            AddReceiverToSet(res, NewGroupReceiver(over_set->s_di, over_set->s_di_bs.get()));
+            auto* diptr = over_set->s_di.lock();
+            if (!diptr) {
+                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
+                continue;
+            }
+
+            AddReceiverToSet(res, NewGroupReceiver(*diptr, over_set->s_di_bs.get()));
         }
     }
 
@@ -608,18 +614,15 @@ static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* 
     return s;
 }
 
-static dbg_over_set_t *NewOverlaySet(dbginvoke_t *di, std::unique_ptr<Bitset> &&bs, int offset) {
-    auto *set = new dbg_over_set_t;
-
-    set->s_di = di;
-    set->s_di_bs = std::move(bs);
-    set->s_ps_offset = offset;
-
-    return set;
+static dbg_over_set_t *NewOverlaySet(DbgInvoke::Handle di, std::unique_ptr<Bitset> &&bs, int offset) {
+    return new dbg_over_set_t {
+        .s_di = std::move(di),
+        .s_di_bs = std::move(bs),
+        .s_ps_offset = offset
+    };
 }
 
 static void FreeOverlaySet(dbg_over_set_t *set) {
-    set->s_di = NULL;
     delete set;
 }
 
@@ -738,7 +741,7 @@ void PrintProcSet(dbgprocset_t *s) {
     // ranks.
     while ((over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) !=
            NULL) {
-        PrintOutMsg("%s", over_set->s_di->d_handle);
+        PrintOutMsg("%s", over_set->s_di.c_str());
 
         std::string si = over_set->s_di_bs->toSetString();
         if (s->s_threads) {

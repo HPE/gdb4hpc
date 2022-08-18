@@ -85,18 +85,17 @@ force_pending_break:
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
-
-        auto bpset = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*bp);
+        auto* di = reply->rep_di.lock();
+        auto bpset = di->breakpoints().findByDbgBreakpoint(*bp);
         if (!bpset)  // this is not supposed to happen
         {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
                                   bp->bp_id, bp->bp_loc.loc_file,
                                   bp->bp_loc.loc_line);
             continue;
         }
-        
 
         std::string bpThread;
         if (!bpset->threadId().empty()) {
@@ -104,26 +103,25 @@ force_pending_break:
         }
 
         if (bpset->isPending()) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Breakpoint %d: Pending at %s%s.\n",
                                 bpset->id(), bpset->statement().c_str(), bpThread.c_str());
         }
         else if (bpset->line() >= 0) {
-            printf("file:%s\n",bpset->file().c_str());
             if (Client.MI_mode){
                 std::stringstream ss;
-                auto fullpath = reply->rep_di->source_paths.getFullPath(bpset->file());
-                ss<<"^done,proc_set=\""<<reply->rep_di->d_handle<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                auto fullpath = reply->rep_di.lock()->source_paths.getFullPath(bpset->file());
+                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
                 PrintOutMsg( ss.str().c_str());
             }else{
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Breakpoint %d: file %s, line %d%s.\n",
                                     bpset->id(), bpset->file().c_str(),
                                     bpset->line(), bpThread.c_str());
             }
         }
         else {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Breakpoint %d in %s%s\n", bpset->id(),
                                 bpset->function().c_str(), bpThread.c_str());
         }
@@ -203,17 +201,18 @@ force_pending_tbreak:
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
         bp = EVENT_BP(reply->rep_event);
+        auto* di = reply->rep_di.lock();
 
         // Now set this to a temporary breakpoint using the enable command for
         // this reply group
         new_rec = NewRecSet();
         AddReceiverToSet(new_rec,
-                         NewGroupReceiver(reply->rep_di, reply->rep_group.get()));
+                         NewGroupReceiver(*di, reply->rep_group.get()));
 
-        auto bpset = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*bp);
+        auto bpset = di->breakpoints().findByDbgBreakpoint(*bp);
         if (!bpset)  // this is not supposed to happen
         {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
                                   bp->bp_id, bp->bp_loc.loc_file,
@@ -239,17 +238,17 @@ force_pending_tbreak:
 
         // Print out status
         if (bpset->isPending()) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Temporary breakpoint %d: Pending at %s%s.\n",
                                 bpset->id(), bpset->statement().c_str(), bpThread.c_str());
         }
         else if (bpset->line() >= 0) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Temporary breakpoint %d: file %s, line %d%s.\n",
                                 bpset->id(), bpset->file().c_str(),
                                 bpset->line(), bpThread.c_str());
         } else {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Temporary breakpoint %d in %s%s\n",
                                 bpset->id(), bpset->function().c_str(),
                                 bpThread.c_str());
@@ -323,33 +322,34 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     for (auto&& reply : rep_set) {
         // Point at the breakpoint data
         dbgbp_t *bp = EVENT_BP(reply->rep_event);
+        auto* di = reply->rep_di.lock();
 
-        if (auto bpset = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*bp)) {
+        if (auto bpset = di->breakpoints().findByDbgBreakpoint(*bp)) {
             switch (bpset->type()) {
             case DBGBP_WATCH_TYPE:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Watchpoint %d: Set on variable %s\n",
                                     bpset->id(), bpset->watchExpression().c_str());
                 break;
             case DBGBP_AWATCH_TYPE:
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group.get(),
+                    reply->rep_di.c_str(), reply->rep_group.get(),
                     "Access Watchpoint %d: Set on variable %s\n",
                     bpset->id(), bpset->watchExpression().c_str());
                 break;
             case DBGBP_RWATCH_TYPE:
-                PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Read Watchpoint %d: Set on variable %s\n",
                                     bpset->id(), bpset->watchExpression().c_str());
                 break;
             default:
                 PrintMsgWithSetInfo(
-                    reply->rep_di->d_handle, reply->rep_group.get(),
+                    reply->rep_di.c_str(), reply->rep_group.get(),
                     "Unknown Watchpoint %d: Set on variable %s\n",
                     bpset->id(), bpset->watchExpression().c_str());
             }
         } else {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find watchpoint [%d: variable "
                                   "%s] in BPSetList.\n",
                                   bp->bp_id, bp->bp_exp);
@@ -408,13 +408,14 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     for (auto& reply : repSet) {
         dbgbp_t *bp = EVENT_BP(reply->rep_event);
+        auto* di = reply->rep_di.lock();
 
-        if (auto bpSet = reply->rep_di->d_breakpoints.findByDbgBreakpoint(*bp); bpSet != nullptr) {
-            PrintMsgWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+        if (auto bpSet = di->breakpoints().findByDbgBreakpoint(*bp); bpSet != nullptr) {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                 "Catchpoint %d: Set on %s.\n",
                 bpSet->id(), bpSet->watchExpression().c_str());
         } else {
-            PrintErrorWithSetInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                 "ERROR: cannot find catchpoint [%d: event "
                 "%s] in BPSetList.\n", bp->bp_id, bp->bp_exp);
         }
@@ -606,21 +607,21 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
-        if (recv_ptr->rec_di->d_breakpoints.isEmpty()) {
+        if (recv_ptr->rec_di.breakpoints().isEmpty()) {
             ss<<"[]}";
-            PrintMsgWithSetInfo(recv_ptr->rec_di->d_handle, recv_ptr->rec_group.get(),
+            PrintMsgWithSetInfo(recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
                                 "No breakpoints or watchpoints.\n");
             continue;
         }
 
-        if (bid > 0 && recv_ptr->rec_di->d_breakpoints.findByLogicalID(bid) == nullptr) {
+        if (bid > 0 && recv_ptr->rec_di.breakpoints().findByLogicalID(bid) == nullptr) {
             PrintErrorWithSetInfo(
-                recv_ptr->rec_di->d_handle, recv_ptr->rec_group.get(),
+                recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
                 "No breakpoint or watchpoint number %d.\n", bid);
             continue;
         }
 
-        for (const auto &bpset : recv_ptr->rec_di->d_breakpoints) {
+        for (const auto &bpset : recv_ptr->rec_di.breakpoints()) {
             if (bid > 0 && bpset.id() != bid) continue;
 
             auto group = bitset::fromAnd(*bpset.ranksSet(), *recv_ptr->rec_group);
@@ -651,7 +652,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             auto expression = std::ostringstream{};
                             expression << bpset.watchExpression() << bpThread;
 
-                            printTableEntry(recv_ptr->rec_di->d_handle, 
+                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                 enabled_group.get(), std::to_string(bpset.id()), 
                                 BPTypeToStr(bpset.type()), 
                                 BPDispToStr(disp_set.disp), 
@@ -667,7 +668,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             auto expression = std::ostringstream{};
                             expression << bpset.watchExpression() << bpThread;
 
-                            printTableEntry(recv_ptr->rec_di->d_handle, 
+                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                 disabled_group.get(), std::to_string(bpset.id()), 
                                 BPTypeToStr(bpset.type()), 
                                 BPDispToStr(disp_set.disp), 
@@ -690,7 +691,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
-                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                     enabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 
@@ -707,7 +708,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
-                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                     disabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 
@@ -726,10 +727,10 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     }else{
                                         ss<<"[";
                                     }
-                                    auto fullpath = recv_ptr->rec_di->source_paths.getFullPath(bpset.file());
-                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
+                                    auto fullpath = recv_ptr->rec_di.source_paths.getFullPath(bpset.file());
+                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
                                 } else{
-                                    printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(),
                                                     enabled_group.get(), std::to_string(bpset.id()), 
                                                     BPTypeToStr(bpset.type()), 
                                                     BPDispToStr(disp_set.disp), 
@@ -753,10 +754,10 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                     }else{
                                         ss<<"[";
                                     }
-                                    auto fullpath = recv_ptr->rec_di->source_paths.getFullPath(bpset.file());
-                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
+                                    auto fullpath = recv_ptr->rec_di.source_paths.getFullPath(bpset.file());
+                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
                                 }else{
-                                    printTableEntry(recv_ptr->rec_di->d_handle, 
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                         disabled_group.get(), std::to_string(bpset.id()), 
                                         BPTypeToStr(bpset.type()), 
                                         BPDispToStr(disp_set.disp), 
@@ -769,7 +770,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "in " << bpset.function() << bpThread;
                                 
-                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                     enabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp),
@@ -786,7 +787,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "in " << bpset.function() << bpThread;
                                 
-                                printTableEntry(recv_ptr->rec_di->d_handle, 
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                     disabled_group.get(), std::to_string(bpset.id()), 
                                     BPTypeToStr(bpset.type()), 
                                     BPDispToStr(disp_set.disp), 

@@ -1010,38 +1010,6 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     return e;
 }
 
-/*
-** Kill the currently running process.
-*/
-dbgevent_t *DbgGdbMI::kill() {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-
-#ifndef ALPS
-    // Note that if we are on a cray platform, we don't want to send the kill
-    // command. The ALPS interface will cleanup for us on the front-end. Killing
-    // the application process causes an "unclean" exit in the viewpoint of
-    // alps.
-
-    MICommand *cmd = MICommandNew("kill", MIResultRecordDONE);
-
-    SendMICommand(GDBMISession, cmd);
-
-    if (!MICommandResultOK(cmd)) {
-        Status = DBGSTAT_WAITING;
-        return NewMIErrorEvent(cmd, FREE_CMD);
-    }
-
-    Pid = 0;
-    MICommandFree(cmd);
-#endif
-
-    e = NewEvent(DBGEV_OK);
-    Status = DBGSTAT_WAITING;
-
-    return e;
-}
-
 static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
     dbgloc resLoc{
         .loc_file = StrdupOpt(mi->file), 

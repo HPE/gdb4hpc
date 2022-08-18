@@ -47,7 +47,7 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
             // We use 5 characters of space for the line number, plus a tab.
             // We add a tab on the end to ensure that source code lines start
             // printing on a tab boundary, in case the source code contains tabs itself.
-            PrintMsgWithSetAndThreadInfo(reply->rep_di->d_handle, reply->rep_group.get(),
+            PrintMsgWithSetAndThreadInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                          l->list_threads,
                                          "%-5d\t%s\n", l->list_lno, line.c_str());
         }
@@ -73,18 +73,18 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
 
         // process replies
         for (auto&& reply : rep_set) {
-            if (recv_ptr->rec_di != reply->rep_di) {
+            if (recv_ptr->rec_di.handle() != reply->rep_di) {
                 continue;
             }
             // Only want to print the header message once
             if (print_header && !Client.MI_mode) {
                 PrintOutMsg("\nSource files for $%s:\n",
-                            recv_ptr->rec_di->d_handle);
+                            recv_ptr->rec_di.handle().c_str());
                 print_header = false;
             }
 
             PrintOutMsg("\nSource files for $%s:\n",
-                            recv_ptr->rec_di->d_handle);
+                            recv_ptr->rec_di.handle().c_str());
 
             // point at the sources data
             auto sp = EVENT_SOURCES(reply->rep_event);
@@ -98,12 +98,12 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    
+
                     //create message to send back to gui
-                    ss<<"{proc_set=\""<<recv_ptr->rec_di->d_handle<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
-                    
+                    ss<<"{proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
+
                     //save fullpath to source list
-                    recv_ptr->rec_di->source_paths.storeSourcePath(s->sources_file);
+                    recv_ptr->rec_di.source_paths.storeSourcePath(s->sources_file);
                 }
             }
         }

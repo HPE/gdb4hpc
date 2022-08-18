@@ -74,7 +74,7 @@ typedef enum dbgset_type dbgset_type;
 ** index in the procset maps onto which dbginvoke_t for targeted commands.
 */
 struct dbg_over_set_t {
-    dbginvoke_t* s_di;                    // pointer to dbginvoke
+    DbgInvoke::Handle s_di;               // pointer to dbginvoke
     std::unique_ptr<Bitset> s_di_bs;      // mask for bitset in di, this is the "full set" for this
                                           // overlay set
     int s_ps_offset;                      // offset for this overset, used when multiple oversets
@@ -105,6 +105,6 @@ std::string GetProcSetString(const char* setName, const Bitset* group, const cha
 std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
 // apply fn to each overlay set in procset
 void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn);
-dbginvoke_t* getFirstDbgInvoke(const dbgprocset_t& procset);
+DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset);
 
 #endif /* !_PROCSET_H */

@@ -228,11 +228,6 @@ dbgevent_t *DbgStep(int count, int in, const char* threads) {
     return DbgBackendSW->step(count, in, threads);
 }
 
-dbgevent_t *DbgKill(void) {
-    DBG_READY();
-    return DbgBackendSW->kill();
-}
-
 dbgevent_t *DbgMoveFrame(int count, bool up, const char* threads) {
     DBG_READY();
     return DbgBackendSW->moveFrame(count, up, threads);

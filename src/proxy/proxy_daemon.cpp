@@ -42,8 +42,8 @@
 #define RECONNECT_TRIES 10
 
 // These are static in dbg_client, here they are provided by dbg_client_proxy.c
-extern dbginvoke_t *NewDbgInvoke(int, DebugClientProtocol * const);
-extern void FreeDbgInvoke(dbginvoke_t *);
+extern DbgInvoke *NewDbgInvoke(int, DebugClientProtocol * const);
+extern void FreeDbgInvoke(DbgInvoke *);
 
 /*
 ** global variables
@@ -131,18 +131,18 @@ static proxy_type *GetProxyTypeFromInstId(int id) {
 }
 
 static void CleanupOnSocketClose(void) {
-    dbginvoke_t *di = NULL;
+    DbgInvoke *di = NULL;
     proxy_instance *obj = NULL;
     int detach = 0;
 
-    // find the dbginvoke_t associated with this id
+    // find the DbgInvoke associated with this id
     if (!EmptyList(DbgInvokeList)) {
         // Reset the DbgInvokeList
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and call its exit function
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) !=
-               (dbginvoke_t *)NULL) {
+        while ((di = (DbgInvoke *)GetListElement(DbgInvokeList)) !=
+               (DbgInvoke *)NULL) {
             // use default based on attach value
             switch (di->d_type) {
                 case DBG_ATTACHED:
@@ -157,15 +157,15 @@ static void CleanupOnSocketClose(void) {
             auto request = CommandToSocProto(DBGCMD_QUIT, detach);
 
             // send the command to every rank
-            auto recv_set = DBG_PROTO_SW(di)->sendCommand(di, di->d_bitset_full.get(), request.c_str());
+            auto recv_set = di->d_proto->sendCommand(di, di->d_bitset_full.get(), request.c_str());
 
-            DBG_PROTO_SW(di)->receiveReply(di, di->d_bitset_full.get(), *recv_set);
+            di->d_proto->receiveReply(di, di->d_bitset_full.get(), *recv_set);
             // We don't care about actually processing the reply, since
             // this is the cleanup on error case. We want to ensure that
             // we received an asynch reply.
 
             // It is now safe to exit
-            DBG_PROTO_SW(di)->exit(di, detach);
+            di->d_proto->exit(di, detach);
 
             // Cleanup the dbginvoke, we are done with it.
             FreeDbgInvoke(di);
@@ -583,11 +583,11 @@ int main(int argc, char **argv) {
 **		0 if there is nothing to do
 **		1 if there are callbacks to process
 **
-** This now will check on dbginvoke_t objects rather than on generic protocol
+** This now will check on DbgInvoke objects rather than on generic protocol
 ** layer.
 */
 int DbgCheckEvents(void) {
-    dbginvoke_t *di;
+    DbgInvoke *di;
     int status;
     int *ev_fd;
     struct timeval tv = {1, 0};
@@ -606,14 +606,14 @@ int DbgCheckEvents(void) {
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) != (dbginvoke_t *)NULL) {
+        while ((di = (DbgInvoke *)GetListElement(DbgInvokeList)) != (DbgInvoke *)NULL) {
             /*
              Note: This should be used for protocols that do not use an event
              notification fd. If a event notification fd can be used, then 
              it should be added to the sw_evfd list and sw_checkevents should 
              simply return 0.
             */
-            if (DBG_PROTO_SW(di)->checkEvents(di) > 0) {
+            if (di->d_proto->checkEvents(di) > 0) {
                 DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
                 return 1;  // there is a proto event to handle. Return
                            // immediately.
@@ -685,7 +685,7 @@ int DbgCheckEvents(void) {
 ** Dispactch pending debugger events.
 */
 void DbgDispatchEvents(void) {
-    dbginvoke_t *di;
+    DbgInvoke *di;
     int *ev_fd;
 
     /*
@@ -696,8 +696,8 @@ void DbgDispatchEvents(void) {
         SetList(DbgInvokeList);
 
         // Loop through each dbginvoke entry and check for events.
-        while ((di = (dbginvoke_t *)GetListElement(DbgInvokeList)) !=
-               (dbginvoke_t *)NULL) {
+        while ((di = (DbgInvoke *)GetListElement(DbgInvokeList)) !=
+               (DbgInvoke *)NULL) {
             // if the proto is shutting down, don't dispatch further pending
             // events
             if (di->d_isShutdown) continue;
@@ -718,14 +718,14 @@ void DbgDispatchEvents(void) {
                     if (FD_ISSET(*ev_fd, &dispatch_fds)) {
                         // dispatch each of the set notification fds one at
                         // a time.
-                        DBG_PROTO_SW(di)->dispatchEvents(di, *ev_fd);
+                        di->d_proto->dispatchEvents(di, *ev_fd);
                     }
                 }
             } else {
                 // event notification fd's not in use by this protocol, so
                 // call the generic dispatch function with -1 for event fd
                 // arg.
-                DBG_PROTO_SW(di)->dispatchEvents(di, -1);
+                di->d_proto->dispatchEvents(di, -1);
             }
         }
     }
@@ -793,7 +793,7 @@ void DbgDispatchEvents(void) {
                 // cleanup
                 Free(msg);
 
-                // find the dbginvoke_t associated with this id
+                // find the DbgInvoke associated with this id
                 inst = GetProxyTypeFromClntId(msg_head.msg_id);
                 di = NULL;
                 if (!EmptyList(DbgInvokeList)) {
@@ -801,14 +801,14 @@ void DbgDispatchEvents(void) {
                     SetList(DbgInvokeList);
 
                     // Loop through each dbginvoke entry and check for events.
-                    while ((di = (dbginvoke_t *)GetListElement(
-                                DbgInvokeList)) != (dbginvoke_t *)NULL) {
+                    while ((di = (DbgInvoke *)GetListElement(
+                                DbgInvokeList)) != (DbgInvoke *)NULL) {
                         if (di->d_proto_id == PROXY_ID(inst)) break;
                     }
                 }
 
                 // Send the command
-                auto set = DBG_PROTO_SW(di)->sendCommand(di, cmd_pmsg->getBitset(), cmd_pmsg->getMessage());
+                auto set = di->d_proto->sendCommand(di, cmd_pmsg->getBitset(), cmd_pmsg->getMessage());
 
                 // send a response back containing the set
 
@@ -850,7 +850,7 @@ void DbgDispatchEvents(void) {
                 // cleanup
                 Free(msg);
 
-                // find the dbginvoke_t associated with this id
+                // find the DbgInvoke associated with this id
                 inst = GetProxyTypeFromClntId(msg_head.msg_id);
                 di = NULL;
                 if (!EmptyList(DbgInvokeList)) {
@@ -858,13 +858,13 @@ void DbgDispatchEvents(void) {
                     SetList(DbgInvokeList);
 
                     // Loop through each dbginvoke entry and check for events.
-                    while ((di = (dbginvoke_t *)GetListElement(
-                                DbgInvokeList)) != (dbginvoke_t *)NULL) {
+                    while ((di = (DbgInvoke *)GetListElement(
+                                DbgInvokeList)) != (DbgInvoke *)NULL) {
                         if (di->d_proto_id == PROXY_ID(inst)) break;
                     }
                 }
 
-                auto pmsg_set = DBG_PROTO_SW(di)->receiveReply(di, recv_set->target.get(), *recv_set->received);
+                auto pmsg_set = di->d_proto->receiveReply(di, recv_set->target.get(), *recv_set->received);
                 if (!pmsg_set) {
                     PrintOutError("Failed to receive reply.\n");
                     free(msg);
@@ -982,7 +982,7 @@ void DbgDispatchEvents(void) {
                     return;
                 }
 
-                // Create the dbginvoke_t object to pass down, nproc is unknown
+                // Create the DbgInvoke object to pass down, nproc is unknown
                 // since this is the attach case
                 di = NewDbgInvoke(0, ptab);
 
@@ -1103,7 +1103,7 @@ void DbgDispatchEvents(void) {
                     return;
                 }
 
-                // Create the dbginvoke_t object to pass down
+                // Create the DbgInvoke object to pass down
                 di = NewDbgInvoke(launch_args->nproc, ptab);
 
                 // Call the protocol specific invoke function
@@ -1191,7 +1191,7 @@ void DbgDispatchEvents(void) {
                 // cleanup
                 Free(msg);
 
-                // find the dbginvoke_t associated with this id
+                // find the DbgInvoke associated with this id
                 inst = GetProxyTypeFromClntId(msg_head.msg_id);
                 di = NULL;
                 if (!EmptyList(DbgInvokeList)) {
@@ -1199,8 +1199,8 @@ void DbgDispatchEvents(void) {
                     SetList(DbgInvokeList);
 
                     // Loop through each dbginvoke entry and check for events.
-                    while ((di = (dbginvoke_t *)GetListElement(
-                                DbgInvokeList)) != (dbginvoke_t *)NULL) {
+                    while ((di = (DbgInvoke *)GetListElement(
+                                DbgInvokeList)) != (DbgInvoke *)NULL) {
                         if (di->d_proto_id == PROXY_ID(inst)) break;
                     }
                 }
@@ -1210,7 +1210,7 @@ void DbgDispatchEvents(void) {
                 // ensure the exit function is implemented
                 if (di != NULL) {
                     // call the exit function
-                    if (DBG_PROTO_SW(di)->exit(di, detach)) {
+                    if (di->d_proto->exit(di, detach)) {
                         PrintOutError("Exit failed.\n");
                         msg_head.msg_type = MSG_ERROR;
                     } else {
@@ -1250,7 +1250,7 @@ void DbgDispatchEvents(void) {
     }
 }
 
-int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
+int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
     char *msg;
     proxy_msg_header msg_head;
     proxy_type *inst;
@@ -1285,7 +1285,7 @@ int DbgDispatchProtoEvents(dbginvoke_t *di, const ProtoMessageSet &set) {
     return 1;
 }
 
-void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream) {
+void DbgDispatchProtoOutput(DbgInvoke *di, FILE *p_o_stream) {
     proxy_type *inst;
     char *line;
 
@@ -1304,7 +1304,7 @@ void DbgDispatchProtoOutput(dbginvoke_t *di, FILE *p_o_stream) {
     Free(line);
 }
 
-void DbgDispatchProtoOutput(dbginvoke_t *di, const std::vector<std::string> &lines) {
+void DbgDispatchProtoOutput(DbgInvoke *di, const std::vector<std::string> &lines) {
     proxy_type *inst;
 
     if (di == NULL) return;

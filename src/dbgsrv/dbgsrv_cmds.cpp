@@ -220,11 +220,6 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
-        case DBGCMD_KILL: {
-            e = DbgKill();
-            break;
-        }
-
         case DBGCMD_MOVEFRAME: {
             int count; bool up; OptionalString threads;
             is.get(count, up, threads);

@@ -146,7 +146,7 @@ int ZMQNetClientProtocol::init() {
     return 1;
 }
 
-std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const Bitset *target,
+std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -155,7 +155,7 @@ std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(dbginvoke_t *di, const
     return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
 
-std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *di, 
+std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(DbgInvoke *di,
                                             const Bitset *target, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -166,12 +166,12 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(dbginvoke_t *d
     return getNetwork<ZMQNetNetwork>(di).receiveReply(target, received);
 }
 
-int ZMQNetClientProtocol::checkEvents(dbginvoke_t *di) {
+int ZMQNetClientProtocol::checkEvents(DbgInvoke *di) {
     // LOG("%s\n", __PRETTY_FUNCTION__);
     return getNetwork<ZMQNetNetwork>(di).checkEvents();
 }
 
-void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
+void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     // zmqnet doesn't use event file descriptors, so ev_fd will always be -1
     assert(ev_fd == -1);
 
@@ -191,7 +191,7 @@ void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
     }
 }
 
-int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
+int ZMQNetClientProtocol::attach(DbgInvoke *di, proto_session *sess,
                                  const char *app_ident, const char *arch,
                                  const char *backend, const char* gdb,
                                  int gpu_flag, int debug_flag) {
@@ -204,7 +204,7 @@ int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                    arch, backend, gdb, gpu_flag, debug_flag, 0, false, false);
 }
 
-int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
+int ZMQNetClientProtocol::internalAttach(DbgInvoke *di, proto_session *sess,
     const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
     const char *arch, const char *backend, const char* gdb, int gpu_flag, int debug_flag,
     int early_entry_flag, bool isNonStop, bool isNonMpi)
@@ -345,7 +345,7 @@ int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,
     return 0;
 }
 
-int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const char *prog,
+int ZMQNetClientProtocol::launch(DbgInvoke *di, proto_session *sess, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, const char * const *env,
                         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
@@ -401,7 +401,7 @@ int ZMQNetClientProtocol::launch(dbginvoke_t *di, proto_session *sess, const cha
     return 0;
 }
 
-void ZMQNetClientProtocol::destroyClient(dbginvoke *di) {
+void ZMQNetClientProtocol::destroyClient(DbgInvoke *di) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (di->d_proto_net) {
@@ -409,7 +409,7 @@ void ZMQNetClientProtocol::destroyClient(dbginvoke *di) {
     }
 }
 
-int ZMQNetClientProtocol::exit(dbginvoke_t *di, int detach) {
+int ZMQNetClientProtocol::exit(DbgInvoke *di, int detach) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {

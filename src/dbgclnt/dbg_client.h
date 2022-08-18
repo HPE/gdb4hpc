@@ -338,9 +338,10 @@ extern proto_session *DbgSessionCreate(const char *, WLM_type, char *, char *,
 extern void DbgSetSession(proto_session *);
 extern proto_session *DbgGetSession(void);
 
-extern dbginvoke_t *DbgAttach(const char *, proto_session *, const char *,
-                              const char *, const char *, const char *, int,
-                              int);
+extern dbginvoke_t *DbgAttach(const char *proto, proto_session *sess, const char *handle,
+                              const char *app_ident, const char *arch, const char *backend,
+                              const char *gdb, int gpu_flag,
+                              int debug_flag);
 extern dbginvoke_t *DbgLaunch(const char* handle, int nproc, dbginvoke::LaunchOpts&& args);
 
 extern rep_set_t *DbgStartup(rec_set_t *);

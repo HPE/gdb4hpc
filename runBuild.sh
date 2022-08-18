@@ -175,7 +175,7 @@ else
                 --enable-targets=x86_64-unknown-linux-gnu,arm-elf-linux-gnu,m68k-unknown-linux-gnu \
                 CFLAGS="-Wno-shift-negative-value \
                     -Wno-unused-const-variable \
-                    -I$top_level/external/pebuildenv/opt/cudatoolkit/11.2/include -O2" \
+                    -I$top_level/external/pebuildenv/opt/cudatoolkit/11.6.2/include -O2" \
 		CXXFLAGS="-O2" \
                 LDFLAGS="-lpthread"
     check_exit_status

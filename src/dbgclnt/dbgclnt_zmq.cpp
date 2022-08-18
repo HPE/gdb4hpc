@@ -192,15 +192,16 @@ void ZMQNetClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
 }
 
 int ZMQNetClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
-                        const char *app_ident, const char *arch,
-                        const char *backend, int gpu_flag, int debug_flag) {
+                                 const char *app_ident, const char *arch,
+                                 const char *backend, const char* gdb,
+                                 int gpu_flag, int debug_flag) {
     LOG("%s\n", __PRETTY_FUNCTION__);
     // ZMQNetNetwork::OutputPtr is too many aliases deep to be implicitly
     // convertable from a nullptr, so we'll just make a dummy one to pass.
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
     return internalAttach(di, sess, nullptr, app_ident, 0, std::move(dummyOutput), 
-                   arch, backend, nullptr, gpu_flag, debug_flag, 0, false, false);
+                   arch, backend, gdb, gpu_flag, debug_flag, 0, false, false);
 }
 
 int ZMQNetClientProtocol::internalAttach(dbginvoke_t *di, proto_session *sess,

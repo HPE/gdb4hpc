@@ -42,7 +42,7 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
 static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
 static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
-                    const char *, const char *, bool gpu_flag, bool debug_flag);
+                    const char *, const char *, const char* gdb, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
 
 int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
@@ -354,7 +354,9 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
 
             // Attach to submitted job
             if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, pbs_job_id,
-                  Client.arch, Client.backend, args.gpu_flag, args.debug_flag))) {
+                                 Client.arch, Client.backend,
+                                 args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
+                                 args.gpu_flag, args.debug_flag))) {
                 PrintOutError("Failed to attach to PBS job ID %s\n", pbs_job_id);
                 free(pbs_job_id);
                 return exitWithFailure();
@@ -404,7 +406,9 @@ static dbgprocset_t* DoLaunch(dbginvoke::LaunchOpts&& args) {
 
             // Attach to submitted job
             if (!(di = DbgAttach(Client.proto, nullptr, ps->s_name, slurmJobStepStr.c_str(),
-                  Client.arch, Client.backend, args.gpu_flag, args.debug_flag))) {
+                  Client.arch, Client.backend,
+                                 args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
+                                 args.gpu_flag, args.debug_flag))) {
                 PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStepStr.c_str());
                 free(slurm_job_step_id);
                 return exitWithFailure();
@@ -779,15 +783,25 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     const struct option attach_long_opts[] = {
         {"gpu", no_argument, &gpu_flag, 1},
         {"debug", no_argument, &debug_flag, 1},
+        {"gdb", required_argument, 0, 'b'},
         {0, 0, 0, 0}
     };
 
+    char* custom_gdb = nullptr;
     while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
            -1) {
         switch (opt) {
             case 0:
                 // if this is a flag, do nothing
                 break;
+            case 'b':
+                custom_gdb = pathFind(optarg,nullptr);
+                if (!custom_gdb) {
+                    PrintOutError("Could not find %s in $PATH.\n", optarg);
+                    return 0;
+                }
+                break;
+                    
             default:
                 PrintOutError(
                     "Invalid attach argument provided. See \"help attach\" for "
@@ -878,16 +892,18 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    if (!DoAttach(proto, sess, ps, app_ident, arch, backend, gpu_flag, debug_flag)) {
+    if (!DoAttach(proto, sess, ps, app_ident, arch, backend, custom_gdb, gpu_flag, debug_flag)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);
         }
         Free(app_ident);
+        free(custom_gdb);
         return 0;
     }
 
     Free(app_ident);
+    free(custom_gdb);
 
     return 1;
 }
@@ -898,7 +914,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 */
 static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
                     const char *app_ident, const char *arch,
-                    const char *backend, bool gpu_flag, bool debug_flag) {
+                    const char *backend, const char* gdb, bool gpu_flag, bool debug_flag) {
     dbginvoke_t *di;
     dbgframe_t *fp;
     rec_set_t *rec_set;
@@ -906,7 +922,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
-    di = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gpu_flag,
+    di = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gdb, gpu_flag,
                    debug_flag);
 
     if (di == NULL) {

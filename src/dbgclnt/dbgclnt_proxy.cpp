@@ -1228,7 +1228,7 @@ void ProxyClientProtocol::cleanupSession(proto_session *session) {
 */
 int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
                           const char *app_ident, const char *arch,
-                          const char *backend, int gpu_flag, int debug_flag) {
+                          const char *backend, const char* gdb, int gpu_flag, int debug_flag) {
     proxy_session *sess;
     proxy_type *net;
     proxy_msg_header msg_head;
@@ -1283,7 +1283,7 @@ int ProxyClientProtocol::attach(dbginvoke_t *di, proto_session *session,
     msg_head.msg_type = MSG_ATTACH;
 
     // Create the attach args string
-    msg = AttachArgsToSocProto(app_ident, arch, backend, gpu_flag, debug_flag);
+    msg = AttachArgsToSocProto(app_ident, arch, backend, gdb, gpu_flag, debug_flag);
 
     // set the length in the header
     msg_head.msg_len = (int)strlen(msg) * sizeof(char);

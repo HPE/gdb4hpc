@@ -34,6 +34,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
             ctags \
             cmake \
             flex \
+            jq \
             libtool \
             libuuid-devel \
             m4 \
@@ -81,6 +82,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             ncurses \
             ncurses-devel \
             python3-devel \
+	    jq \
             rpm-build \
             tcl \
             which \
@@ -123,8 +125,9 @@ else
         echo "$top_level/external/pebuildenv submodule not checked out..."
         exit 1
     fi
-    export product_version="11.2"
+    export product_version="11.6.2"
     export pebuildenv_path=$top_level/external/pebuildenv
+    module load jq
     $top_level/external/pebuildenv/src/cuda-local.sh
     check_exit_status
 fi

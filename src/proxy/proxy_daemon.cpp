@@ -992,8 +992,8 @@ void DbgDispatchEvents(void) {
                 //       to support multiple hops, but that is not required
                 //       right now...
                 if (ptab->attach(di, NULL, att_args->app_ident,
-                                    att_args->arch, att_args->backend,
-                                    att_args->gpu_flag, att_args->debug_flag)) {
+                                 att_args->arch, att_args->backend, nullptr,
+                                 att_args->gpu_flag, att_args->debug_flag)) {
                     // Handle error
                     FreeAttachArgs(att_args);
                     FreeDbgInvoke(di);

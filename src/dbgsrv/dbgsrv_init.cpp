@@ -157,9 +157,12 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     WRITE_fd = progio_pipe[1];
     dbgsrv_fd = progio_pipe[0];
     *iofd = dbgsrv_fd;
+
+    DVPRINT("non-alps iofd is %d\n", *iofd);
 #else
     // ALPS already forwards the stdout to the frontend for us.
     *iofd = -1;
+    DVPRINT("alps iofd is %d\n", *iofd);
 #endif
 
     // set in DbgGdbMI::init
@@ -1242,7 +1245,8 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
     // and cuda-gdb doesn't handle it well
     auto isInNonStopMode = false;
-    if (non_stop_flag && gdb_vers != GdbVersion::CUDA_101) {
+    if (non_stop_flag && gdb_vers != GdbVersion::CUDA_101 &&
+        (!custom_gdb || !strstr(custom_gdb,"cuda")) ) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {

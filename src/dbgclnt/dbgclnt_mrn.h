@@ -31,8 +31,8 @@ public:
     const char* name() const override { return "mrnet"; };
 
     int attach(struct dbginvoke *di, proto_session *session, 
-        const char *app_ident, const char *arch, const char *backend, 
-        int gpu_flag, int debug_flag) override;
+               const char *app_ident, const char *arch, const char *backend, 
+               const char* gdb, int gpu_flag, int debug_flag) override;
 
     int launch(struct dbginvoke *di, proto_session *session, 
         const char *prog, const char * const *argv,

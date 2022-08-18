@@ -1633,8 +1633,8 @@ proto_session *DbgGetSession(void) { return DbgCurrSess; }
 */
 dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
                        const char *handle, const char *app_ident,
-                       const char *arch, const char *backend, int gpu_flag,
-                       int debug_flag) {
+                       const char *arch, const char *backend, const char* gdb,
+                       int gpu_flag, int debug_flag) {
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
 
     if (ptab == nullptr) {
@@ -1646,8 +1646,8 @@ dbginvoke_t *DbgAttach(const char *proto, proto_session *sess,
     // is the attach case
     auto di = new dbginvoke(handle, DBG_ATTACHED, 0, ptab);
 
-    if (ptab->attach(di, sess, app_ident, arch, backend, gpu_flag,
-                        debug_flag)) {
+    if (ptab->attach(di, sess, app_ident, arch, backend, gdb,
+                     gpu_flag, debug_flag)) {
         FreeDbgInvoke(di);
         return nullptr;
     }

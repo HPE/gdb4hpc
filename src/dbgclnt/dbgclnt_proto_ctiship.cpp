@@ -82,6 +82,15 @@ bool shipGpuGdbs(cti_manifest_id_t manifest) {
         free(rocgdb);
     }
 
+    if (char* rocminfo = pathFind("rocminfo", nullptr)) {
+        if (cti_addManifestBinary(manifest, rocminfo)) {
+            free(rocminfo);
+            return false;
+        }
+        free(rocminfo);
+    }
+
+
     return true;
 }
 

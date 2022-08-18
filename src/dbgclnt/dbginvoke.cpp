@@ -2,7 +2,7 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dbginvoke.h"
-
+#include "path.h"
 #include <getopt.h>
 #include <algorithm>
 #include <filesystem>
@@ -165,12 +165,17 @@ dbginvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
 
             case 'b':
                 if (optarg == nullptr) {
-                    throw std::runtime_error("--gdb proided, but missing argument.");
+                    throw std::runtime_error("--gdb provided, but missing argument.");
                 }
                 // convert to absolute path
                 namespace fs = std::filesystem;
                 // throws if file doesn't exist
-                gdb_path = fs::canonical(optarg);
+                if (auto p = pathFind(optarg, nullptr)) {
+                    gdb_path = fs::canonical(p);
+                    free(p);
+                } else {
+                    throw std::runtime_error("Could not find --gdb provided gdb in $PATH.");
+                }
                 if (!fs::is_regular_file(gdb_path) && !fs::is_symlink(gdb_path)) {
                     throw std::runtime_error("--gdb provided, but doesn't point to a normal file.");
                 }

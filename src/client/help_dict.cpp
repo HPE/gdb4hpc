@@ -19,7 +19,7 @@
 
 const char* const cmd_attach_help[] = {
     "Summary: Attach to an application.",
-    "Usage: attach <app_handle> <app_ident> [--gpu]",
+    "Usage: attach <app_handle> <app_ident> [--gpu] [--debug] [--gdb=<gdb_app>]",
     "Example command: attach $a 9544773",
     "",
     "Arguments: app_handle (debugger variable syntax), app_ident (wlm specific",
@@ -30,12 +30,10 @@ const char* const cmd_attach_help[] = {
     "debugger.",
     "",
     "The app_handle argument is a process set handle used to refer to this",
-    "application in future commands. The handle must not be array syntax. The",
-    "size of the array is automatically set to the number of ranks in the",
-    "application.",
-    "",
-    "For example, app_handle should only be a scalar debugger variable such as "
-    "$a.",
+    "application in future commands.  The number of ranks is taken from the",
+    "application, so app_handle should be scalar variable such as $a.",
+    "After attaching, $a{0} refers to the first rank exactly like the",
+    "launch case.",
     "",
     "For ALPS, the apid can be obtained by using the apstat utility.",
     "",
@@ -49,10 +47,18 @@ const char* const cmd_attach_help[] = {
     "the same node that started the batch run.   The launching node is printed by ",
     "qstat -n",
     "",
-    "If you wish to enable GPU debugging, add --gpu to your attach command.",
-    "This will enable the use of a GPU supported version of gdb and set "
-    "several",
-    "environment variables for debugging.",
+    "--gpu enables GPU debugging.",
+    "This will enable the use of a GPU supported version of gdb and set ",
+    "several environment variables for debugging.",
+    "",
+    "--debug writes gdb4hpc logging information to a directory defined by",
+    "the enviroment variable $CRAY_DBG_LOG_DIR, the directory needs to be",
+    "a location writable from the compute nodes.",
+    "",
+    "--gdb=<gdbapp> directly specifies the gdb to use, <gdbapp> is either the",
+    "full path to a gdb executable, or on application in PATH, for",
+    "example: --gdb=cuda-gdb will use the locally installed cuda-gdb instead of",
+    "the version tested and packaged with gdb4hpc.  Use is experimental.",
     0};
 
 const char* const cmd_assign_help[] = {

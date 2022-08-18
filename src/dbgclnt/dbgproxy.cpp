@@ -491,7 +491,7 @@ char *RecvToSocProto(const Bitset *target, const Bitset *recv) {
 }
 
 char *AttachArgsToSocProto(const char *app_ident, const char *arch,
-                           const char *backend, int gpu_flag, int debug_flag) {
+                           const char *backend, const char* gdb, int gpu_flag, int debug_flag) {
     char *stres = NULL;
 
     // null guard the strings

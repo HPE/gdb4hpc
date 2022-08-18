@@ -234,7 +234,8 @@ void MRNClientProtocol::dispatchEvents(dbginvoke_t *di, int ev_fd) {
 
 int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
                         const char *app_ident, const char *arch,
-                        const char *backend, int gpu_flag, int debug_flag) {
+                        const char *backend, const char* gdb,
+                        int gpu_flag, int debug_flag) {
     char *root = nullptr;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
@@ -260,7 +261,8 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
     cti_manifest_id_t mid;
     cti_session_id_t sid;
     char *env_base_dir = nullptr;
-
+    std::optional<std::string> serverGdb = {};
+    
 #ifdef DEBUG
     dbg = 1;
 #endif
@@ -348,9 +350,16 @@ int MRNClientProtocol::attach(dbginvoke_t *di, proto_session *sess,
         goto attach_error;
     }
 
+    // first add gdb-guard to manifest
+    serverGdb = shipGdb(mid, gdb);
+    if (!serverGdb) {
+        PrintOutError("Error shipping gdb.\n");
+        goto attach_error;
+    }
+
     // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
-    if (gpu_flag) {
+    if (gpu_flag && !gdb) {
         if (!shipGpuGdbs(mid))
             goto attach_error;
     }
@@ -499,6 +508,8 @@ OMPD support will not be available.\n");
                          di->d_proto->name(), "-e", backend);
         }
     }
+
+    if (gdb && serverGdb) argv << "--gdb" << *serverGdb;
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n\t%s\n", argv.asString().c_str());
@@ -1054,7 +1065,7 @@ OMPD support will not be available.\n");
     if (non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
     if (early_entry_flag) dbgsrv_alps_argv << "--early-entry";
     if (isNonStop)        dbgsrv_alps_argv << "--non-stop";
-    if (gdb && serverGdb) dbgsrv_alps_argv << "--gdb" << serverGdb->c_str();
+    if (gdb && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;
     dbgsrv_alps_argv << "-f" << prog;
 
 #ifdef DEBUG

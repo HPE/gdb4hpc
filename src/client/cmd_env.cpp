@@ -204,6 +204,24 @@ static int class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int shell_remote(rec_set_t *rec_set, int argc, char **argv){
+    auto rep_set = DbgShell(rec_set, argc, argv);
+    ProcessErrorInRepSet(rep_set);
+    for (auto&& reply : rep_set){
+        auto ev = reply->rep_event->ev_event;
+        if(ev != DBGEV_STRING){
+            PrintOutError("unexpected result type.\n");
+            continue;
+        }
+        auto is = std::istringstream{reply->rep_event->ev_u.ev_u_string};
+        auto line = std::string{};
+        while(std::getline(is, line)){
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n", line.c_str());
+        }
+    }
+    return 1;
+}
+
 static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     FILE *cmd_out;
@@ -216,8 +234,22 @@ static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
     // clear the buffer
     memset((void *)&result[0], '\0', BUFSIZ);
 
+    // If remote flag, run shell on remote nodes and return
+    // Otherwise run locally
+    if(!strcmp(argv[1], "-r")) {
+        if (argc > 2) {
+            return shell_remote(rec_set, argc-2, argv+2);
+        } else {
+            PrintOutError("No command given for remote shell.\n");
+            return 0;
+        }
+    }
+
+    // Local implementation below
+
     // Create the command string
     tmp_cmd = ArgsToBuf(&argv[1], argc - 1);
+
 
     // Append a redirection of stderr to stdout to the command
     asprintf(&cmd, "%s 2>&1", tmp_cmd);
@@ -825,7 +857,7 @@ void InitCmd_env(void) {
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
                cmd_quit_help, "Exit the debugger.");
     
-    AddCommand("shell", nullptr, proc_ignore, 0,
+    AddCommand("shell", nullptr, proc_optional, 0,
                 cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
 

@@ -93,6 +93,7 @@ public:
     virtual dbgevent_t *getNonStop() override;
     virtual dbgevent_t *ompd(const char* op) override;
     virtual dbgevent_t *cuda(const char* op) override;
+    virtual dbgevent_t *shell(int argc, char **argv) override;
 
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();

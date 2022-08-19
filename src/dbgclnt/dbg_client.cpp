@@ -2806,6 +2806,11 @@ rep_set_t *DbgCuda(rec_set_t* set, const char* op)
     return result;
 }
 
+rep_set_t *DbgShell(rec_set_t* recSet, int argc, char **argv){
+    auto request = CommandToSocProto(DBGCMD_SHELL, std::make_pair(argc, argv));
+    auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);
+    return result;
+}
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */

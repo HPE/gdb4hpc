@@ -451,6 +451,13 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_SHELL: {
+            CmdArgs args;
+            is.get(args);
+            e = DbgShell(args.argc, args.argv);
+            break;
+        }
+
 
     }
 

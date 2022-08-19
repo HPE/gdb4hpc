@@ -2284,6 +2284,61 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     return e;
 }
 
+dbgevent_t *DbgGdbMI::shell(int argc, char **argv){
+    DVPRINT("Shell Invoked\n");
+    
+    // Create the command string
+    auto cmd = ArgsToString(&argv[0], argc);
+    cmd += " 2>&1";
+
+    // Open the command for reading
+    DVPRINT("sending command: \"%s\"\n", cmd.c_str());
+
+    auto cmd_out = popen(cmd.c_str(), "r");
+    if (!cmd_out) {
+        DVPRINT("Failed to run command.\n");
+        return NewErrorEvent(DBGERR_PIPE, "Could not open pipe on back end.");
+    }
+
+    // Now read the result
+    char *line = NULL;
+    char result[BUFSIZ];
+    char *tmp_line = NULL;
+    auto e = NewEvent(DBGEV_STRING);
+    std::string output = "";
+    while (fgets(result, BUFSIZ, cmd_out) != NULL) {
+        // copy the result into the line buffer and clear the result buf
+        asprintf(&line, "%s", result);
+        memset((void *)result, '\0', BUFSIZ);
+        // ensure the last character is a newline, otherwise we need to keep
+        // reading
+        
+        while (line[strlen(line) - 1] != '\n') {
+            // read in another line
+            if (fgets(result, BUFSIZ, cmd_out) == NULL) {
+                return NewErrorEvent(DBGERR_NOLINE, "Line returned NULL");
+            }
+            // save a copy of line
+            tmp_line = line;
+            line = NULL;
+            // concat the two strings together
+            asprintf(&line, "%s%s", tmp_line, result);
+            // cleanup
+            Free(tmp_line);
+            memset((void *)result, '\0', BUFSIZ);
+            
+        }
+        output += line;
+
+        Free(line);
+    }
+    e->ev_string = strdup(output.c_str());
+    // close the file pointer
+    pclose(cmd_out);
+
+    return e;
+}
+
 
 /*
 ** List variables in the current stack frame

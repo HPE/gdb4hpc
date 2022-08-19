@@ -33,7 +33,15 @@ public:
     template <typename... Args>
     ArgvStream(Args&&... args) { (*this << ... << args); };
 
-    ArgvStream(int argc, char **argv) {
+    ArgvStream(int argc, const char * const * argv) {
+        for (int i=0; i<argc; ++i) *this << argv[i];
+    }
+
+    ArgvStream(int argc, const char** argv) {
+        for (int i=0; i<argc; ++i) *this << argv[i];
+    }
+
+    ArgvStream(int argc, char** argv){
         for (int i=0; i<argc; ++i) *this << argv[i];
     }
 

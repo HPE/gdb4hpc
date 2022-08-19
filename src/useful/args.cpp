@@ -18,7 +18,7 @@
 char *ArgsToBuf(const char * const * argv, int argc) {
     return ArgvStream(argv).createBuffer(0, argc);
 }
-
+ 
 std::string ArgsToString(const char * const * argv, int argc) {
-    return ArgvStream(argv).asString(0, argc);
+    return ArgvStream(argc, argv).asString(0, argc);
 }

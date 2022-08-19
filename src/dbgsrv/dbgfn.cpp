@@ -389,6 +389,11 @@ dbgevent_t *DbgCuda(const char* op)
     return DbgBackendSW->cuda(op);
 }
 
+dbgevent_t *DbgShell(int argc, char **argv){
+    DBG_READY();
+    return DbgBackendSW->shell(argc, argv);
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

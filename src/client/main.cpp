@@ -183,8 +183,6 @@ static void setupCfgDir(const char *dir) {
 }
 
 // All environment setup should happen here
-// XXX: This function and it's dependencies should be synced with the stuff in
-// the proxy_daemon.c source. If you change it here, change it there also.
 static void SetupEnvironment(void) {
     char *inst_base;
     char *lib_dir;

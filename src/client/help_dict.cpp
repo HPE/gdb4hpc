@@ -705,43 +705,6 @@ const char* const cmd_restart_help[] = {
     "forked and set aside by the checkpoint command.",
     0};
 
-const char* const cmd_session_help[] = {
-    "Summary: Create a new WLM session.",
-    "Usage: session [--qsub=<batch_template> OR -q <batch_template>]",
-    "               [--sbatch=<batch_template> OR -s <batch_template>]",
-    "               [--end OR -e]",
-    "",
-    "Example command: session --qsub=job_script.pbs",
-    "",
-    "Arguments: batch_template (job script)",
-    "",
-    "Description:",
-    "Create a new WLM session to associate all future launch/attach commands",
-    "to. This allows multiple launch commands to be used inside of the same",
-    "WLM batch session. The qsub and sbatch arguments are the same as what is",
-    "used for the launch command. If multiple launches are used with the same",
-    "session, the user must ensure enough resources are requested to cover all",
-    "application launcher commands (aprun/srun) issued by launch.",
-    "",
-    "Modify the existing job script for the application by placing the "
-    "comments",
-    "#cray_debug_start and #cray_debug_end around the launcher command to be",
-    "debugged.",
-    "",
-    "For example, we would modify an existing job script named sample.pbs:",
-    "#cray_debug_start",
-    "aprun -n128 -N32 a.out",
-    "#cray_debug_end",
-    "",
-    "Everything between the comment lines will be ignored. The user is still",
-    "required to recreate the launcher command (aprun/srun) using the existing",
-    "launch command arguments.",
-    "",
-    "If the session command is interrupted before completion, the user must "
-    "manually",
-    "delete the job reservation from the queueing system.",
-    0};
-
 const char* const cmd_shell_help[] = {
     "Summary: Launch a shell command locally",
     "Usage: shell <command>",

@@ -463,7 +463,6 @@ AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
 	src/bitset/Makefile
-	src/scripts/Makefile
 	src/filters/Makefile
 	src/filters/mrnet/Makefile
 	src/filters/zmqnet/Makefile
@@ -473,7 +472,6 @@ AC_CONFIG_FILES([
 	src/dbgcomm/Makefile
 	src/dbgsrv/Makefile
 	src/gram/Makefile
-	src/proxy/Makefile
 	src/useful/Makefile
 	tests/unit/Makefile
 ])

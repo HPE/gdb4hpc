@@ -48,9 +48,6 @@ void registerProtos() {
     extern void ZMQClientProtocol_init();
     ZMQClientProtocol_init();
     #endif
-    // proxy is always present
-    extern void ProxyClientProtocol_init();
-    ProxyClientProtocol_init();
 }
 
 // Used for the protocol wait for events function
@@ -227,15 +224,20 @@ int DebugClientProtocol::handleProtocolEvent(DbgInvoke *di, const ProtoMessageSe
 // function in their own exit function after doing protocol specific exit actions.
 int DebugClientProtocol::exit(DbgInvoke *di, int detach) {
     if (detach) {
-        // The app was sent a SIGSTOP while the network cleaned up.
-        // By the time we reach this common ::exit function, the network
-        // should be gone, so we can start the app again.
-        if (cti_killApp(di->d_appid, SIGCONT)) {
+        // In the launch case, the app was sent a SIGSTOP while the network
+        // cleaned up. By the time we reach this common ::exit function, the
+        // network should be gone, so we can start the app again without worrying
+        // about the wlm killing the network.
+        //
+        // If we attached to the app instead of launched it, no exit breakpoint
+        // was set, and it's possible that it ran until complete exit by now. We
+        // still try to send a signal, but only print an error if we launched the app.
+        if (cti_killApp(di->d_appid, SIGCONT) && di->d_type == DBG_LAUNCHED) {
             PrintOutError("Warning: an error occurred during release of $%s.\n", di->handle().c_str());
             PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
         }
     } else {
-        if (cti_killApp(di->d_appid, SIGKILL)) {
+        if (cti_killApp(di->d_appid, SIGKILL) && di->d_type == DBG_LAUNCHED) {
             PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->handle().c_str());
             PrintOutError("Your job might still be running.\n");
         }

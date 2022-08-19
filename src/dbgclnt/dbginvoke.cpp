@@ -2,6 +2,8 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dbginvoke.h"
+#include "dbgclnt_proto.h"
+#include "dbg_client.h"
 #include "path.h"
 
 #include <getopt.h>
@@ -143,10 +145,21 @@ DbgInvoke::DbgInvoke(DbgInvoke&& o)
 }
 
 DbgInvoke::~DbgInvoke() {
-    // XXX This is needed until the proxy is removed since the proxy has its own
-    //     definition of freeing a debuginvoke
-    extern void FreeDbgInvoke(DbgInvoke*);
-    FreeDbgInvoke(this);
+    HoldSignals();
+
+    // XXX has large side effects. does it belong in this dtor?
+    d_proto->destroyClient(this);
+
+    // Quit the debug frontend if there is one
+    if (d_frontend != nullptr) {
+        auto e = DbgDestroyFE(d_frontend);
+        FreeEvent(e);
+    }
+
+    // remove any event fds from the proto
+    DestroyList(d_evfds, free);
+
+    ReleaseSignals();
 }
 
 DbgInvoke::Handle DbgInvoke::handle() {

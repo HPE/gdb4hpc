@@ -41,7 +41,7 @@
 static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
 static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
-static int DoAttach(const char *, proto_session *, dbgprocset_t *, const char *,
+static int DoAttach(const char *, dbgprocset_t *, const char *,
                     const char *, const char *, const char* gdb, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
 
@@ -101,129 +101,6 @@ int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
     }
 
     return 1;
-}
-
-static int cmd_session_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    proto_session *sess = NULL;
-    const char *proto = Client.proto;
-    WLM_type manager = WLM_none;
-    char *batch_script = NULL;
-    int opt_ind = 0;
-    int opt;
-
-    // reset optind
-    optind = 0;
-
-    //
-    // Process user provided arguments
-    //
-    const struct option session_long_opts[] = {
-        {"qsub", optional_argument, 0, 'q'},
-        {"sbatch", optional_argument, 0, 's'},
-        {"end", optional_argument, 0, 'e'},
-        {0, 0, 0, 0}
-    };
-
-    while ((opt = getopt_long(argc, argv, "q:s:e:", session_long_opts,
-                              &opt_ind)) != -1) {
-        switch (opt) {
-            case 0:
-                // if this is a flag, do nothing
-                break;
-
-            case 'q':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --qsub provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                // Note that we want to convert any relative path name into an
-                // absolute pathname
-                if ((batch_script = realpath(StripQuotes(optarg), NULL)) ==
-                    (char *)NULL) {
-                    PrintOutError(
-                        "Failed to resolve absolute path of provided batch "
-                        "script.\n");
-                    goto exit_with_error;
-                }
-
-                // set proto to proxy since we are required to use the proxy in
-                // conjunction with the batch system
-                proto = "proxy";
-                // set the manager to qsub
-                manager = WLM_qsub;
-                break;
-
-            case 's':
-                if (optarg == (char *)NULL) {
-                    PrintOutError(
-                        "Error: --sbatch provided, but missing arguments.\n");
-                    goto exit_with_error;
-                }
-
-                // Note that we want to convert any relative path name into an
-                // absolute pathname
-                if ((batch_script = realpath(StripQuotes(optarg), NULL)) ==
-                    (char *)NULL) {
-                    PrintOutError(
-                        "Failed to resolve absolute path of provided batch "
-                        "script.\n");
-                    goto exit_with_error;
-                }
-
-                // set proto to proxy since we are required to use the proxy in
-                // conjunction with the batch system
-                proto = "proxy";
-                // set the manager to sbatch
-                manager = WLM_sbatch;
-                break;
-
-            case 'e':
-                // User wants to end the session. So lets set the current
-                // session to NULL. This handles cleanups for us automatically.
-                if ((sess = DbgGetSession()) != NULL) {
-                    PrintOutMsg(
-                        "Ending current session. Future attach/launch commands "
-                        "will not be associated with it.\n");
-                }
-                DbgSetSession(NULL);
-                break;
-
-            default:
-                PrintOutError(
-                    "Invalid session argument provided. See \"help session\" "
-                    "for usage.\n");
-                return 1;
-        }
-    }
-
-    // Make sure the user provided us batch arguments, otherwise return.
-    if (batch_script == NULL || manager == WLM_none) {
-        return 1;
-    }
-
-    // Create a new session
-    if ((sess = DbgSessionCreate(proto, manager, batch_script, NULL, NULL)) ==
-        NULL) {
-        PrintOutError("Could not create session for WLM!\n");
-        goto exit_with_error;
-    }
-
-    // Set this session for all future launch/attach commands
-    DbgSetSession(sess);
-
-    PrintOutMsg("Session ready.\n");
-
-    Free(batch_script);
-
-    return 1;
-
-exit_with_error:
-
-    if (batch_script != NULL) Free(batch_script);
-
-    return 0;
 }
 
 static dbgprocset_t* getNewProcSet(const char* procName) {
@@ -358,7 +235,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
             }
 
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, nullptr, ps->s_name, pbs_job_id,
+            if (newHandle = DbgAttach(Client.proto, ps->s_name, pbs_job_id,
                      Client.arch, Client.backend,
                      args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
                      args.gpu_flag, args.debug_flag); !newHandle.lock()) {
@@ -410,7 +287,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
                 + std::to_string(slurm_job_step_id->stepid);
 
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, nullptr, ps->s_name, slurmJobStepStr.c_str(),
+            if (newHandle = DbgAttach(Client.proto, ps->s_name, slurmJobStepStr.c_str(),
                   Client.arch, Client.backend,
                   args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
                   args.gpu_flag, args.debug_flag); !newHandle.lock()) {
@@ -772,14 +649,11 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 ** attach $proc apid [--gpu] [--debug]
 */
 static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    proto_session *sess = NULL;
     dbgprocset_t *ps;
     char *app_ident;
     const char *arch = Client.arch;
     const char *proto = Client.proto;
     const char *backend = Client.backend;
-    char *hostname = NULL;
-    char *username = NULL;
     int opt_ind = 0;
     int opt;
 
@@ -868,50 +742,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    // Get the value of the ESWRAP_LOGIN environment variable
-    char *elogin_env = getenv("ESWRAP_LOGIN");
-    if (elogin_env == NULL) {
-        // Also check value of new EPROXY_LOGIN var
-        elogin_env = getenv("EPROXY_LOGIN");
-    }
-
-    // If on a Cray system, check to see if we are currently on an eslogin node
-    // if using WLM_none.
-    //
-    // If so, we want to create a new session on the service node using the
-    // proxy protocol and forward every command through that.
-    //
-    // For the cluster system, this is not the case. We do not need a proxy.
-    // FIXME: The same is also true for native slurm.
-
-    // Are we on an eslogin node?
-    if (elogin_env != NULL) {
-        // We are on an eslogin node since the file did not exist
-
-        // set proto to proxy since we are required to use the proxy in
-        // conjunction with eslogin nodes
-        proto = "proxy";
-
-        // First check to see if we currently have an open session
-        if ((sess = DbgGetSession()) == NULL) {
-            // There is no open session, so we need to create one.
-
-            hostname = strdup(elogin_env);
-
-            // Create a new session
-            if ((sess = DbgSessionCreate(proto, WLM_none, NULL, hostname,
-                                         username)) == NULL) {
-                PrintOutError("Could not create session for eslogin!\n");
-                Free(app_ident);
-                return 0;
-            }
-
-            // Set this session for all future launch/attach commands
-            DbgSetSession(sess);
-        }
-    }
-
-    if (!DoAttach(proto, sess, ps, app_ident, arch, backend, custom_gdb, gpu_flag, debug_flag)) {
+    if (!DoAttach(proto, ps, app_ident, arch, backend, custom_gdb, gpu_flag, debug_flag)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name);
@@ -931,7 +762,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the attach process always operates synchronously.
 */
-static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
+static int DoAttach(const char *proto, dbgprocset_t *ps,
                     const char *app_ident, const char *arch,
                     const char *backend, const char* gdb, bool gpu_flag, bool debug_flag) {
     dbgframe_t *fp;
@@ -940,8 +771,7 @@ static int DoAttach(const char *proto, proto_session *sess, dbgprocset_t *ps,
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
-    auto newHandle = DbgAttach(proto, sess, ps->s_name, app_ident, arch, backend, gdb, gpu_flag,
-                   debug_flag);
+    auto newHandle = DbgAttach(proto, ps->s_name, app_ident, arch, backend, gdb, gpu_flag, debug_flag);
 
     if (!newHandle.lock()) {
         PrintOutError("Could not attach to application.\n");
@@ -1835,8 +1665,6 @@ void InitCmd_proc(void) {
         "Show attached/launched applications under debugger control.");
 
     // regular commands
-    AddCommand("session", NULL, proc_ignore, 0, cmd_session_cmd,
-               cmd_session_help, "Create a new WLM session.");
     AddCommand("launch", NULL, proc_ignore, 0, cmd_launch_cmd,
                cmd_launch_help, "Launch an application.");
     AddCommand("attach", NULL, proc_ignore, 0, cmd_attach_cmd,

@@ -327,12 +327,7 @@ extern void DbgResetStatusChange(void);
 // event
 extern int DbgCheckForAsyncPending(void);
 
-extern proto_session *DbgSessionCreate(const char *, WLM_type, char *, char *,
-                                       char *);
-extern void DbgSetSession(proto_session *);
-extern proto_session *DbgGetSession(void);
-
-extern DbgInvoke::Handle DbgAttach(const char *proto, proto_session *sess, const char *handle,
+extern DbgInvoke::Handle DbgAttach(const char *proto, const char *handle,
                               const char *app_ident, const char *arch, const char *backend,
                               const char *gdb, int gpu_flag, int debug_flag);
 extern DbgInvoke::Handle DbgLaunch(const char* handle, int nproc, DbgInvoke::LaunchOpts&& args);

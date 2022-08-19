@@ -24,17 +24,16 @@ public:
     // MRNet does not support:
     //  * finish function
     //  * checkEvents
-    //  * any session functions
 
     MRNClientProtocol() : DebugClientProtocol() { registerProtocol(); };
 
     const char* name() const override { return "mrnet"; };
 
-    int attach(DbgInvoke *di, proto_session *session, 
+    int attach(DbgInvoke *di,
                const char *app_ident, const char *arch, const char *backend, 
                const char* gdb, int gpu_flag, int debug_flag) override;
 
-    int launch(DbgInvoke *di, proto_session *session, 
+    int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,
         const char *arch, const char * const *arch_args, const char *arch_input, 
         const char *backend, const char* gdb, const char * const *env,

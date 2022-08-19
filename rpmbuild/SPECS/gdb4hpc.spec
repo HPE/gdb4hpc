@@ -214,8 +214,6 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %ifnarch aarch64
 %{__cp} -a %{external_build_dir}/libexec/cuda110-gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %endif
-%{__cp} -a %{external_build_dir}/libexec/guard_proxy ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-%{__cp} -a %{external_build_dir}/libexec/start_proxy.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 
 
@@ -673,8 +671,6 @@ fi
 %ifnarch aarch64
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/cuda110-gdb-guard
 %endif
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/guard_proxy
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/start_proxy.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
 #gdb share

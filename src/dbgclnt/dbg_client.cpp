@@ -102,7 +102,6 @@ void (*switchStream)(int);
 /*
 ** Internal Variables
 */
-static proto_session *DbgCurrSess;
 static std::vector<int> DbgSigList;
 static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
@@ -113,28 +112,6 @@ static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
 
 static std::vector<inpcb_t*> InputCBs;
-
-// XXX: Since the proxy has its own definition of freeing a dbginvoke, this
-//      function can't live in dbginvoke.cpp (which is linked with the proxy).
-//      This is called by the dbginvoke destructor and shouldn't be called manually.
-//      It can be folded into the dbginvoke destructor once the proxy is removed.
-void FreeDbgInvoke(DbgInvoke *di) {
-    HoldSignals();
-
-    // XXX has large side effects. does it belong in this dtor?
-    di->d_proto->destroyClient(di);
-
-    // Quit the debug frontend if there is one
-    if (di->d_frontend != nullptr) {
-        auto e = DbgDestroyFE(di->d_frontend);
-        FreeEvent(e);
-    }
-
-    // remove any event fds from the proto
-    DestroyList(di->d_evfds, free);
-
-    ReleaseSignals();
-}
 
 /*
 ** Hold any pending signals.
@@ -1393,7 +1370,7 @@ void DbgUnmaskSignal(int sig) {
 /*
 ** Set signal handler.
 */
-void DbgHandleSignal(int sig, void (*hand)(int), dbgsig_type mask_type) {
+void DbgHandleSignal(int sig, SigHandlerFn hand, dbgsig_type mask_type) {
     struct sigaction handler;
 
     if (hand == SIG_DFL || hand == SIG_IGN) {
@@ -1476,13 +1453,6 @@ int DbgInit(void) {
 }
 
 void DbgFinalize(void) {
-    // Cleanup the current session if there is one
-    if (DbgCurrSess != nullptr) {
-        DebugClientProtocol * const sw = DbgCurrSess->sess_proto;
-        sw->cleanupSession(DbgCurrSess);
-        DbgCurrSess = nullptr;
-    }
-
     for (const auto &[name, proto] : DebugClientProtocol::getRegistry()) {
         proto->finish();
     }
@@ -1493,52 +1463,10 @@ void DbgFinalize(void) {
 }
 
 /*
-** Create a new session
-*/
-proto_session *DbgSessionCreate(const char *proto, WLM_type manager,
-                                char *batch_template, char *hostname,
-                                char *username) {
-    DebugClientProtocol * const ptab = findClientProtoByName(proto);
-
-    if (ptab == nullptr) {
-        PrintOutError("No such protocol \"%s\"\n", proto);
-        return nullptr;
-    }
-
-    return ptab->createSession(ptab, manager, batch_template, hostname, username);
-}
-
-/*
-** Set the session to associate all subsequent launches/attaches with.
-** If a session is currently set as being open, clean it up if possible.
-** It's up to the protocol implementation to handle the actual cleanup.
-*/
-void DbgSetSession(proto_session *sess) {
-    // Cleanup the current session if there is one
-    if (DbgCurrSess != nullptr) {
-        DebugClientProtocol * const ptab = DbgCurrSess->sess_proto;
-        ptab->cleanupSession(DbgCurrSess);
-    }
-
-    // Ask the protocol layer to keep the new session around if its not null
-    if (sess != nullptr) {
-        DebugClientProtocol * const ptab = sess->sess_proto;
-        ptab->saveSession(sess);
-    }
-
-    DbgCurrSess = sess;
-}
-
-/*
-** Get the current session (if there is one)
-*/
-proto_session *DbgGetSession(void) { return DbgCurrSess; }
-
-/*
 ** Attach to running program.
 ** Returns name of newly created di or "" on failure.
 */
-DbgInvoke::Handle DbgAttach(const char *proto, proto_session *sess,
+DbgInvoke::Handle DbgAttach(const char *proto,
                        const char *name, const char *app_ident,
                        const char *arch, const char *backend, const char* gdb,
                        int gpu_flag, int debug_flag) {
@@ -1557,8 +1485,7 @@ DbgInvoke::Handle DbgAttach(const char *proto, proto_session *sess,
     // is the attach case
     auto di = std::make_unique<DbgInvoke>(DBG_ATTACHED, 0, ptab);
 
-    if (ptab->attach(di.get(), sess, app_ident, arch, backend, gdb,
-                gpu_flag, debug_flag)) {
+    if (ptab->attach(di.get(), app_ident, arch, backend, gdb, gpu_flag, debug_flag)) {
         return nullptr;
     }
 
@@ -1674,7 +1601,7 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
     };
 
     if (ptab->launch(
-        di.get(), nullptr, args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(), 
+        di.get(), args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(),
         args.arch_name.c_str(), args.launcher_argv.c_strs(1).data(), 
         optStr(args.input_file_path), args.backend_name.c_str(), 
         optStr(args.gdb_path), args.env.c_strs().data(), 

@@ -61,7 +61,7 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
             memset(&m_tmp_sigaction, 0, sizeof(m_tmp_sigaction));
             sigemptyset(&m_tmp_sigaction.sa_mask);
             m_tmp_sigaction.sa_handler = handler;
-            // XXX: Can't use DbgHandleSignal as it's not linked into the proxy
+            // XXX: Can't use DbgHandleSignal as it offers no way to save the old sigactions
             sigaction(m_signal, &m_tmp_sigaction, &m_old_sigaction);
         }
 
@@ -191,7 +191,7 @@ void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     }
 }
 
-int ZMQNetClientProtocol::attach(DbgInvoke *di, proto_session *sess,
+int ZMQNetClientProtocol::attach(DbgInvoke *di,
                                  const char *app_ident, const char *arch,
                                  const char *backend, const char* gdb,
                                  int gpu_flag, int debug_flag) {
@@ -200,11 +200,11 @@ int ZMQNetClientProtocol::attach(DbgInvoke *di, proto_session *sess,
     // convertable from a nullptr, so we'll just make a dummy one to pass.
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
-    return internalAttach(di, sess, nullptr, app_ident, 0, std::move(dummyOutput), 
+    return internalAttach(di, nullptr, app_ident, 0, std::move(dummyOutput),
                    arch, backend, gdb, gpu_flag, debug_flag, 0, false, false);
 }
 
-int ZMQNetClientProtocol::internalAttach(DbgInvoke *di, proto_session *sess,
+int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
     const char *arch, const char *backend, const char* gdb, int gpu_flag, int debug_flag,
     int early_entry_flag, bool isNonStop, bool isNonMpi)
@@ -345,7 +345,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di, proto_session *sess,
     return 0;
 }
 
-int ZMQNetClientProtocol::launch(DbgInvoke *di, proto_session *sess, const char *prog,
+int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, const char * const *env,
                         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
@@ -375,7 +375,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, proto_session *sess, const char 
     PrintOutMsg("Launched application...\n");
 
     // attach to launched application
-    if (internalAttach(di, sess, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
+    if (internalAttach(di, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
         if (di->d_appid != 0) {

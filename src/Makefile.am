@@ -11,7 +11,7 @@ endif
 
 SUBDIRS = bitset filters script $(MRNET_DIR) \
 		useful gram dbgcomm $(ZMQNET_DIR) dbgclnt \
-		dbgsrv client proxy scripts
+		dbgsrv client
 
 install-exec-hook: 
 	find $(DESTDIR)$(libdir) -type f -name \*.la \! -name libLrleBitset.la -delete

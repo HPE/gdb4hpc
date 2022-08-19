@@ -193,8 +193,6 @@ void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
 
     // dispatch application output if started
-    // Note that the proxy would segfault here if we tried to handle program
-    // output before the startup event completes...
     if (di->d_started && (po != nullptr) && (po->p_o_rfd == ev_fd)) {
         // Call the protocol specific callback function to handle the output on
         // the stream
@@ -230,7 +228,7 @@ void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     }
 }
 
-int MRNClientProtocol::attach(DbgInvoke *di, proto_session *sess,
+int MRNClientProtocol::attach(DbgInvoke *di,
                         const char *app_ident, const char *arch,
                         const char *backend, const char* gdb,
                         int gpu_flag, int debug_flag) {
@@ -712,7 +710,7 @@ attach_error:
     return 1;
 }
 
-int MRNClientProtocol::launch(DbgInvoke *di, proto_session *sess, const char *prog,
+int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
                         const char * const *argv, const char *arch, const char * const *arch_args,
                         const char *arch_input, const char *backend, const char* gdb, const char * const *env,
                         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
@@ -1222,9 +1220,7 @@ OMPD support will not be available.\n");
 
     DPERFLOG(SetTimerStopAndLog("Launch finalize"));
 
-    // setup the program output stream handler if we are handling output - Note
-    // we need to do this after the startup event completes. Otherwise the proxy
-    // might segfault...
+    // setup the program output stream handler if we are handling output
     if (po != nullptr) {
         ev_fd_ptr = (int *)Alloc(sizeof(int));
         *ev_fd_ptr = po->p_o_rfd;

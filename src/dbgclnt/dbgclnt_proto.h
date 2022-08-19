@@ -38,26 +38,6 @@
 #include <vector>
 #include <unordered_map>
 
-// Some protocols will interact with the workload manager. Known workload
-// managers are defined in the following enumeration. Note that the name
-// cooresponds to the job submission command used by the WLM.
-enum WLM_type { WLM_none, WLM_qsub, WLM_sbatch };
-typedef enum WLM_type WLM_type;
-
-class DebugClientProtocol;
-
-// Used to keep track of sessions associated with the proxy based dbgclnt_proto
-// implementation
-struct proto_session {
-    proto_session(DebugClientProtocol * const sess_proto_, void *sess_obj_)
-        : sess_proto{sess_proto_}
-        , sess_obj{sess_obj_} {}
-    
-    DebugClientProtocol * const sess_proto;
-    void *sess_obj; // This is data used by the protocol layer
-                    // that is allocated on a per session basis.
-};
-
 // event handlers used by protocols to handle events in certain situations
 //
 // 
@@ -83,11 +63,11 @@ public:
     // functions required by every derived class:
     virtual const char* name() const = 0;
 
-    virtual int attach(DbgInvoke *di, proto_session *session, 
+    virtual int attach(DbgInvoke *di,
         const char *app_ident, const char *arch, const char *backend, 
         const char* gdb, int gpu_flag, int debug_flag) = 0;
 
-    virtual int launch(DbgInvoke *di, proto_session *session, 
+    virtual int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,
         const char *arch, const char * const *arch_args, const char *arch_input, 
         const char *backend, const char* gdb, const char * const *env,
@@ -109,14 +89,6 @@ public:
     
     virtual int checkEvents(DbgInvoke *di) { return 0; };
     virtual void dispatchEvents(DbgInvoke *di, int ev_fd) {};
-
-    virtual proto_session *createSession(DebugClientProtocol * const proto, 
-        WLM_type manager, const char *batch_template, const char *hostname, 
-        const char *username) { return nullptr; };
-    
-    virtual void saveSession(proto_session *session) {};
-    // called when a session is no longer valid
-    virtual void cleanupSession(proto_session *session) {};
 
     // called from FreeDbgInvoke
     virtual void destroyClient(DbgInvoke *di) {};

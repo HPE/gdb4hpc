@@ -178,7 +178,7 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
             std::string s = "var" + std::to_string(var_count);
             PrintOutMsg("^done,name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
             stream->print(os, label);
-            PrintOutMsg("\"\n");
+            PrintOutMsg("\"\n(gdb)\n");
         }else{
             PrintOutMsg("%s", ""); // currently need for edit_line interaction
             stream->print(Client.cli_out.ostream(), label);

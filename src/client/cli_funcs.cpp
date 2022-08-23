@@ -945,11 +945,11 @@ void PrintOutMsg(const char *format, ...) {
 }
 
 void vPrintOutMsg(const char *format, va_list arg_list) {
-    // we need to disable input processing while we are printing
-    DbgMaskInput();
-    
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream) {
+        // we need to disable input processing while we are printing
+        DbgMaskInput();
+
         // otherwise default to stdout
         vfprintf(stdout, format, arg_list);
 
@@ -958,14 +958,9 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
 
         return;
     }
-    
-    // clear the current line this should contain a prompt
-    cli_clear_line();
+
     // vfprintf the line we recieved
     CurrentStream->cs_out.vprintf(format, arg_list);
-
-    // restore input processing
-    DbgUnmaskInput();
 }
 
 cli_out_t::cli_out_t() : m_out(nullptr), m_log(nullptr) {}

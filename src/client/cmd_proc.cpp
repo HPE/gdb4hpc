@@ -336,7 +336,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
     if (Client.MI_mode){
-        PrintOutMsg("^done");
+        PrintOutMsg("^done\n(gdb)\n");
     }else{
         PrintOutMsg("Launch complete.\n");
     }
@@ -706,7 +706,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (Client.MI_mode){
         if (argc - optind != 1) {
             PrintOutMsg("^error,msg=\"Invalid number of non-option arguments. See \"help attach\" for "
-                "usage.\nExpected 1, found %d.\n\"", argc - optind);
+                "usage.\nExpected 1, found %d.\"\n(gdb)\n", argc - optind);
             return 0;
         }
     }else{

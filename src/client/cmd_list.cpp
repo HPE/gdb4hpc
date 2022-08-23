@@ -83,9 +83,6 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                 print_header = false;
             }
 
-            PrintOutMsg("\nSource files for $%s:\n",
-                            recv_ptr->rec_di.handle().c_str());
-
             // point at the sources data
             auto sp = EVENT_SOURCES(reply->rep_event);
 
@@ -110,7 +107,7 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
     }
     if (Client.MI_mode && !ss.str().empty()){
         ss<<"]";
-        PrintOutMsg("^done,files=%s",ss.str().c_str());
+        PrintOutMsg("^done,files=%s\n(gdb)\n",ss.str().c_str());
     }
 
     FreeRepSet(rep_set);

@@ -111,7 +111,7 @@ force_pending_break:
             if (Client.MI_mode){
                 std::stringstream ss;
                 auto fullpath = reply->rep_di.lock()->source_paths.getFullPath(bpset->file());
-                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
+                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}\n(gdb)\n";
                 PrintOutMsg( ss.str().c_str());
             }else{
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -608,7 +608,6 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
         if (recv_ptr->rec_di.breakpoints().isEmpty()) {
-            ss<<"[]}";
             PrintMsgWithSetInfo(recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
                                 "No breakpoints or watchpoints.\n");
             continue;
@@ -801,9 +800,13 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
             if (bid >= 0 && bpset.id() == bid) break;
         }
     }
-    if (Client.MI_mode && !ss.str().empty()){
+    
+    if (Client.MI_mode){
+        if (ss.str().empty()){
+            ss<<"[";
+        }
         ss<<"]}";
-        PrintOutMsg("^done,BreakpointTable={body=%s",ss.str().c_str());
+        PrintOutMsg("^done,BreakpointTable={body=%s\n(gdb)\n",ss.str().c_str());
     }
     return 1;
 }

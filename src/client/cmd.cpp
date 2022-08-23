@@ -633,16 +633,18 @@ void ExecuteCommand(const char *line) {
     }else if (Client.MI_mode) {
         //Convert mi to cli command
         cmd = strdup(convertMiToCli(cmd).c_str());
+        std::string cmd_str= strdup(cmd);
 
-        if (strstr(cmd, "-exec-run")){
-            PrintOutMsg("^running\n");
+        if (cmd_str.substr(0, cmd_str.find(" ")) == "-exec-run"){
+            PrintOutMsg("^running\n(gdb)\n");
             Free(cmd);
             goto ExecuteCommand_exit;
-        }else if (strstr(cmd, "focus")){
-            PrintOutMsg("^running\n");
+        }else if (cmd_str.substr(0, cmd_str.find(" ")) == "focus"){
+            PrintOutMsg("^running\n(gdb)\n");
         }else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
             //empty so it doesn't get caught in next else statement
-        }else if (strstr(cmd, "ignore")||strstr(cmd, "-")){
+        }else if ((cmd_str.substr(0, cmd_str.find(" ")) == "ignore")||strstr(cmd, "-")){
+            PrintOutMsg("^done\n(gdb)\n");
             Free(cmd);
             goto ExecuteCommand_exit;
         }
@@ -692,9 +694,9 @@ void ExecuteCommand(const char *line) {
     cli_end_response();
     if (Client.MI_mode){
         if (strstr(cmd, "-exec-continue")){
-            //PrintOutMsg("^running\n");
+            PrintOutMsg("^running\n(gdb)\n");
         } else if (strstr(cmd, "focus")){
-            PrintOutMsg("^done");
+            PrintOutMsg("^done\n(gdb)\n");
         }
     }
 

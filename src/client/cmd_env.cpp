@@ -833,7 +833,7 @@ static int class_new_ui_cmd(rec_set_t* rec_set, int argc, char**argv) {
     auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty, tty, tty);
     SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
 
-    return 0;
+    return 1;
 }
 
 static int class_set_subcmd_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {

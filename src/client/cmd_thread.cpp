@@ -186,7 +186,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
 
     if (Client.MI_mode && !ss.str().empty()){
         ss<<"]},"<<current_thread_id.data()<<"\"";
-        PrintOutMsg("^done,threads=%s", ss.str().c_str());
+        PrintOutMsg("^done,threads=%s\n(gdb)\n", ss.str().c_str());
     }
 
     return 1;

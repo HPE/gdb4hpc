@@ -37,6 +37,11 @@ std::map<std::string, std::string> return_cmd_map={{"-break-list", "info breakpo
 int launch_count=0;
 
 std::string convertMiToCli(char * cmd){
+    //pagination is not supported so cmd should be skipped
+    if (strstr(cmd, "pagination")){
+        return std::string("ignore");
+    }
+
     char * temp = strdup(cmd);
     char * token = strtok(temp, " ");
     std::string token_str=std::string(token);

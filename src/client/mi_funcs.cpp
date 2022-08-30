@@ -10,6 +10,8 @@ std::string num_ranks;
 
 std::string break_insert_cmd(char *);
 std::string break_delete_cmd(char *);
+std::string break_disable_cmd(char *);
+std::string break_enable_cmd(char *);
 std::string exec_args_cmd(char *);
 std::string file_exec_and_sym_cmd(char *);
 std::string thread_select_cmd(char *);
@@ -18,6 +20,8 @@ typedef std::string (*fp)(char *);
 
 //map for commands that have to be parsed for cli command
 std::map<std::string, fp> func_cmd_map={{"-break-delete", &break_delete_cmd },
+                                {"-break-disable", &break_disable_cmd },
+                                {"-break-enable", &break_enable_cmd },
                                 {"-break-insert", &break_insert_cmd },
                                 {"-exec-arguments", &exec_args_cmd },
                                 {"-file-exec-and-symbols", &file_exec_and_sym_cmd},
@@ -67,6 +71,10 @@ std::string break_insert_cmd(char * cmd){
     char * temp = strdup(cmd);
     char * token = strtok(temp, " ");
     token = strtok(nullptr, " ");
+    if (!strcmp(token, "-t")){
+        token = strtok(nullptr, " ");
+        return "tbreak " + std::string(token);
+    }
     return "break " + std::string(token);
 }
 
@@ -75,6 +83,20 @@ std::string break_delete_cmd(char * cmd){
     char * token = strtok(temp, " ");
     token = strtok(nullptr, " ");
     return "delete "+ std::string(token);
+}
+
+std::string break_disable_cmd(char * cmd){
+    char * temp = strdup(cmd);
+    char * token = strtok(temp, " ");
+    token = strtok(nullptr, " ");
+    return "disable "+ std::string(token);
+}
+
+std::string break_enable_cmd(char * cmd){
+    char * temp = strdup(cmd);
+    char * token = strtok(temp, " ");
+    token = strtok(nullptr, " ");
+    return "enable "+ std::string(token);
 }
 
 std::string exec_args_cmd(char * cmd){

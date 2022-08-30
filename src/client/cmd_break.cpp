@@ -111,7 +111,11 @@ force_pending_break:
             if (Client.MI_mode){
                 std::stringstream ss;
                 auto fullpath = reply->rep_di.lock()->source_paths.getFullPath(bpset->file());
-                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""<<bpset->address().c_str()<<"\",func=\""<<bpset->function().c_str()<<"\",file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}\n(gdb)\n";
+                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()
+                  <<"\",type=\""<<BPTypeToStr(bpset->type())<<"\",disp=\""<<"keep"
+                  <<"\",enabled=\"y\",addr=\""<<bpset->address()
+                  <<"\",func=\""<<bpset->function()<<"\",file=\""<<bpset->file()
+                  <<"\",fullname=\""<<fullpath<<"\",line=\""<<bpset->line()<<"\"}\n(gdb)\n";
                 PrintOutMsg( ss.str().c_str());
             }else{
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -600,6 +604,35 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
         PrintOutMsg("%s\n", out.str().c_str());
     };
 
+    // Add entry to breakpoint table string for MI mode
+    auto addMiEntry = [&ss](const std::string &handle, 
+        const std::string &id, const std::string &type, const std::string &disp, 
+        const std::string &enabled, const std::string &func, const std::string &file, 
+        const std::string &fullpath, const std::string &line) 
+    {
+        if (!ss.str().empty()){
+            ss<<",";
+        }else{
+            ss<<"[";
+        }
+
+        ss <<"bkpt={proc_set=\""<<handle
+           <<"\",number=\""<<id
+           <<"\",type=\""<<type
+           <<"\",disp=\""<<disp
+           <<"\",enabled=\""<<enabled
+           <<"\",func=\""<<func
+           <<"\",file=\""<<file
+           <<"\",fullname=\""<<fullpath<<"\"";
+
+        if (!line.empty()){
+            ss<<",line=\""<<line<<"\"}";
+        }else{
+            ss<<"}";
+        }
+        return ss.str();
+    };
+
     // Print header
     if (!Client.MI_mode){
         printTableEntry("Procset", nullptr, "Num", "Type", "Disp", "Enb", "What");
@@ -651,11 +684,19 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             auto expression = std::ostringstream{};
                             expression << bpset.watchExpression() << bpThread;
 
-                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                enabled_group.get(), std::to_string(bpset.id()), 
-                                BPTypeToStr(bpset.type()), 
-                                BPDispToStr(disp_set.disp), 
-                                "y", expression.str());
+                            if (Client.MI_mode){
+                                addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                    std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
+                                    bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                    "");
+                            }else{
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                    enabled_group.get(), std::to_string(bpset.id()), 
+                                    BPTypeToStr(bpset.type()), 
+                                    BPDispToStr(disp_set.disp), 
+                                    "y", expression.str());
+                            }
                         }
 
                         // Compute the disabled set
@@ -667,11 +708,19 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             auto expression = std::ostringstream{};
                             expression << bpset.watchExpression() << bpThread;
 
-                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                disabled_group.get(), std::to_string(bpset.id()), 
-                                BPTypeToStr(bpset.type()), 
-                                BPDispToStr(disp_set.disp), 
-                                "n", expression.str());
+                            if (Client.MI_mode){
+                                addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                    std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
+                                    bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                    "");
+                            }else{
+                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                    disabled_group.get(), std::to_string(bpset.id()), 
+                                    BPTypeToStr(bpset.type()), 
+                                    BPDispToStr(disp_set.disp), 
+                                    "n", expression.str());
+                            }
                         }
                     }
                     break;
@@ -690,11 +739,19 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp), 
-                                    "y", location.str());
+                                if (Client.MI_mode){
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        "");
+                                }else{
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                        enabled_group.get(), std::to_string(bpset.id()), 
+                                        BPTypeToStr(bpset.type()), 
+                                        BPDispToStr(disp_set.disp), 
+                                        "y", location.str());
+                                }
                             }
 
                             // Compute the disabled set
@@ -707,11 +764,19 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 auto location = std::ostringstream{};
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    disabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp), 
-                                    "n", location.str());
+                                if (Client.MI_mode){
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        "");
+                                }else{
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                        disabled_group.get(), std::to_string(bpset.id()), 
+                                        BPTypeToStr(bpset.type()), 
+                                        BPDispToStr(disp_set.disp), 
+                                        "n", location.str());
+                                }
                             }
                         }
                         else if (bpset.line() > 0) {
@@ -721,13 +786,11 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << " at "
                                          << bpset.file() << ":" << bpset.line() << bpThread;
                                 if (Client.MI_mode){
-                                    if (!ss.str().empty()){
-                                        ss<<",";
-                                    }else{
-                                        ss<<"[";
-                                    }
-                                    auto fullpath = recv_ptr->rec_di.source_paths.getFullPath(bpset.file());
-                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        std::to_string(bpset.line()));
                                 } else{
                                     printTableEntry(recv_ptr->rec_di.handle().c_str(),
                                                     enabled_group.get(), std::to_string(bpset.id()), 
@@ -748,13 +811,11 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << " at "
                                          << bpset.file() << ":" << bpset.line() << bpThread;
                                 if (Client.MI_mode){
-                                    if (!ss.str().empty()){
-                                        ss<<",";
-                                    }else{
-                                        ss<<"[";
-                                    }
-                                    auto fullpath = recv_ptr->rec_di.source_paths.getFullPath(bpset.file());
-                                    ss<<"bkpt={proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",number=\""<<bpset.id()<<"\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",func=\""<<bpset.function().c_str()<<"\",file=\""<<bpset.file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset.line()<<"\"}";
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        std::to_string(bpset.line()));
                                 }else{
                                     printTableEntry(recv_ptr->rec_di.handle().c_str(), 
                                         disabled_group.get(), std::to_string(bpset.id()), 
@@ -768,12 +829,20 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 // First print out breakpoints that are enabled
                                 auto location = std::ostringstream{};
                                 location << "in " << bpset.function() << bpThread;
-                                
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp),
-                                    "y", location.str());
+
+                                if (Client.MI_mode){
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        "");
+                                }else{
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                        enabled_group.get(), std::to_string(bpset.id()), 
+                                        BPTypeToStr(bpset.type()), 
+                                        BPDispToStr(disp_set.disp),
+                                        "y", location.str());
+                                }
                             }
 
                             // Compute the disabled set
@@ -785,12 +854,20 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 // Next print out breakpoints that are disabled
                                 auto location = std::ostringstream{};
                                 location << "in " << bpset.function() << bpThread;
-                                
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    disabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp), 
-                                    "n", location.str());
+
+                                if (Client.MI_mode){
+                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
+                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
+                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                        "");
+                                }else{
+                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                        disabled_group.get(), std::to_string(bpset.id()), 
+                                        BPTypeToStr(bpset.type()), 
+                                        BPDispToStr(disp_set.disp), 
+                                        "n", location.str());
+                                }
                             }
                         }
                     }

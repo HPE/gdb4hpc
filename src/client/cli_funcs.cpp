@@ -88,10 +88,13 @@ void InitCLI(cli_type_t default_type, interpreter_type interpreter,
 }
 
 void DbgSwitchCurrentStream(cli_stream_t* stream){
-    CurrentStream = stream;
-    Client.cli_out = CurrentStream->cs_out;
-    Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
-    Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
+
+    if (stream != CurrentStream) {
+        CurrentStream = stream;
+        Client.cli_out = CurrentStream->cs_out;
+        Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
+        Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
+    }
 }
 
 void DestroyCLI(void) {
@@ -988,12 +991,12 @@ void cli_out_t::vprintf(const char *format, va_list args) {
     if (m_out && m_log) {
         va_list args2;
         va_copy(args2, args);
-        vfprintf(m_out, format, args);
-        vfprintf(m_log, format, args2);
+        vfprintf(m_out.get(), format, args);
+        vfprintf(m_log.get(), format, args2);
     } else if (m_out) {
-        vfprintf(m_out, format, args);
+        vfprintf(m_out.get(), format, args);
     } else if (m_log) {
-        vfprintf(m_log, format, args);
+        vfprintf(m_log.get(), format, args);
     }
 
     // restore input processing
@@ -1005,20 +1008,21 @@ void cli_out_t::reset() {
 }
 
 void cli_out_t::flush() {
-    if (m_out) fflush(m_out);
-    if (m_log) fflush(m_log);
+    if (m_out) fflush(m_out.get());
+    if (m_log) fflush(m_log.get());
 }
 
 void cli_out_t::close() {
-    if (m_out) fclose(m_out);
-    if (m_log) fclose(m_log);
+    m_out.reset();
+    m_log.reset();
     m_ostream.reset();
 }
-void cli_out_t::setOut(FILE* f) { m_out = f; m_ostream.reset(); }
+void cli_out_t::setOut(FILE* f) { m_out.reset(f, &::fclose); m_ostream.reset(); }
+
+void cli_out_t::setOut(std::shared_ptr<FILE> f) { m_out = f; m_ostream.reset(); }
 
 void cli_out_t::setLog(FILE* f) {
-    if (m_log && m_log != f) fclose(m_log);
-    m_log = f;
+    m_log.reset(f, &::fclose);
     m_ostream.reset();
 }
 
@@ -1065,7 +1069,7 @@ int FileAdapter2::overflow(int c) {
 std::ostream& cli_out_t::ostream()
 {
     if (!m_ostream) {
-        m_buff = std::make_shared<FileAdapter2>(m_out, m_log);
+        m_buff = std::make_shared<FileAdapter2>(m_out.get(), m_log.get());
         m_ostream = std::make_shared<std::ostream>(m_buff.get());
     }
     return *m_ostream;
@@ -1091,7 +1095,7 @@ void cli_logging_t::setEnabled(bool enabled) {
         if (m_redirected) {
             // return output to cli
             m_out.setOut(m_redirected);
-            m_redirected = nullptr;
+            m_redirected.reset();
         }
     } else if (!m_filename.empty()) {
         startLog();
@@ -1125,7 +1129,7 @@ void cli_logging_t::setRedirect(bool redirect) {
         // not checking m_redirect because startLog is using this
         // to update the m_out state
         if (redirect && !m_redirected) {
-            m_redirected = m_out.getOut();
+            m_redirected = m_out.getOutSP();
             m_out.setOut(nullptr);
         } else if (!redirect && m_redirected) {
             m_out.setOut(m_redirected);
@@ -1142,7 +1146,7 @@ bool cli_logging_t::isOverwrite() const { return m_overwrite; }
 bool cli_logging_t::isRedirect() const { return m_redirect; }
 
 FILE* cli_logging_t::getOrigOut() const {
-    return m_redirected ? m_redirected : m_out.getOut();
+    return m_redirected ? m_redirected.get() : m_out.getOut();
 }
 
 bool SetProgramOutputFile(const char* file) {

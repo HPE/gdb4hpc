@@ -113,13 +113,15 @@ public:
 
 
     // manage the streams
-    void setOut(FILE* f);
-    FILE* getOut() const { return m_out; }
+    void setOut(FILE* f);  // for a newly constructed file
+    void setOut(std::shared_ptr<FILE> f);
+    FILE* getOut() const { return m_out.get(); }
+    std::shared_ptr<FILE> getOutSP() const { return m_out; }
     void setLog(FILE* f);
 
 private:
-    FILE* m_out;
-    FILE* m_log;
+    std::shared_ptr<FILE> m_out;
+    std::shared_ptr<FILE> m_log;
     std::shared_ptr<FileAdapter2> m_buff;
     std::shared_ptr<std::ostream> m_ostream;
 };
@@ -150,7 +152,7 @@ private:
     bool m_enabled = false;
     bool m_overwrite = false;
     bool m_redirect = false;
-    FILE* m_redirected = nullptr;
+    std::shared_ptr<FILE> m_redirected;
 };
 
 /*

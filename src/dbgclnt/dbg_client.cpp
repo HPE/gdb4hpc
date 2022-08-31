@@ -97,8 +97,6 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
 static std::pair<std::string,std::unique_ptr<const char*[]>>
 GetTrampolineArgs(const char* prog, const char* const* args);
 
-void (*switchStream)(int);
-
 /*
 ** Internal Variables
 */
@@ -1347,13 +1345,6 @@ void DbgMaskInput() {
 */
 void DbgUnmaskInput() {
     for (auto cb : InputCBs) cb->mask(false);
-}
-
-/*
-** Sets the switchStream handler
-*/
-void DbgHandleSwitchStream(void(*switchCurrentStream)(int)){
-    switchStream=switchCurrentStream;
 }
 
 /*

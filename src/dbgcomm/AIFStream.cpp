@@ -63,6 +63,8 @@ public:
     std::string getSlice(int idx, bool& isFinal);
 private:
     SharedSlices(std::shared_ptr<AIFStream::Slices> original);
+    std::string getNextSliceOrig(bool& isFinal);
+
     std::shared_ptr<AIFStream::Slices> m_orig;
     std::vector<std::string> m_data;
     bool m_readFinal = false;
@@ -89,11 +91,21 @@ std::shared_ptr<SharedSlices> SharedSlices::make(std::shared_ptr<Slices> origina
     return x;
 }
 SharedSlices::SharedSlices(std::shared_ptr<AIFStream::Slices> original)
-    : m_orig(original) {}
+    : m_orig(original)
+{
+    // reserve an index slot for the SharedSlices object itself
+    m_idcs.push_back(0);
+}
 
-std::string SharedSlices::getNextSlice(bool& isFinal) {
+std::string SharedSlices::getNextSliceOrig(bool& isFinal) {
     return m_orig->getNextSlice(isFinal);
 }
+
+std::string SharedSlices::getNextSlice(bool& isFinal) {
+    // index 0 is reserved for use by the ShareSlices object itself
+    return getSlice(0, isFinal);
+}
+
 std::shared_ptr<AIFStream::Slices> SharedSlices::clone() const {
     const_cast<SharedSlices*>(this)->m_idcs.push_back(0);
     return std::make_shared<CloneSlices>(m_self.lock(), m_idcs.size()-1);
@@ -111,7 +123,7 @@ std::string SharedSlices::getSlice(int idx, bool& isFinal) {
         }
     } else if (!m_readFinal) {
         // we need to fetch the next slice
-        m_data.push_back(getNextSlice(m_readFinal));
+        m_data.push_back(getNextSliceOrig(m_readFinal));
         isFinal = m_readFinal;
         return m_data.back();
     } else {
@@ -228,12 +240,10 @@ AIFStream* AIFStream::join() {
 
 AIFStream* AIFStream::clone()
 {
-    // There's only one channel for retrieval from the back end, so
-    // join first.
-    join();
-
-    // and clone
     if (m_slices) {
+        if (m_slices && !std::dynamic_pointer_cast<SharedSlices>(m_slices)) {
+            m_slices = SharedSlices::make(m_slices);
+        }
         return new AIFStream(m_slices->clone());
     } else if (m_vstream) {
         return new AIFStream(m_vstream);

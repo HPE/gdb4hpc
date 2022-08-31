@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sstream>
+#include <queue>
 
 #include "client_settings.h"
 #include "dbg_client.h"
@@ -1837,7 +1838,7 @@ static bool op_val_is_ok(val_t* v, rec_set_t* rec_set, const char* message)
         if (VAL_RETRIEVE(v, rec_set)) {
             return false;
         }
-    case lval_none:
+    case lval_none: // anonymous ais
     case lval_internal:
         switch (RVAL_TYPE(v)) {
         case rval_aif:
@@ -1863,48 +1864,65 @@ namespace {
         AIFStream* aif;
         const Bitset* group;
     };
-}
 
-// get the next slice of the result reply from an aif or reply value object and
-// store the replies in \a slice.   Return false if there are are no more slices to
-// process.   The reply argument hold the reply slice on return and its lifetime controls
-// the lifetime of the object in \a slice.
-static bool rval_next_slice(val_t* v, std::unique_ptr<rep_set_t>& reply, std::vector<mini_reply>& slice) {
-    switch (RVAL_TYPE(v)) {
-    default:
-        break;
-    case rval_aif:
-        if (slice.empty()) {
-            slice.push_back( mini_reply(RVAL_AIF(v), nullptr));
-            return true;
-        }
-        // return false after the first time: there isn't anything new to process
-        break;
 
-    case rval_reply:
-        slice.clear();
-        auto repSet = RVAL_REPLY(v);
-        if ((reply = repSet->getNextSlice())) {
-            for (auto&& r : reply.get()) {
-                slice.push_back(mini_reply( EVENT_DATA(r->rep_event), r->rep_group.get()));
+    // pack of data passed into binary op functions
+    struct BinaryOpData {
+        BinaryOpData(val_t& val_ref)
+            : val{val_ref}
+        {}
+
+        // get the next slice of the result reply from an aif or reply value object and
+        // store the replies in `mini_replies`. When there are no more slices to process,
+        // `mini_replies` will be empty after the function call.
+        // The `reply` member variable holds the reply slice on return and its
+        // lifetime controls the lifetime of the objects in `mini_replies`.
+        void fetchNextSlice() {
+            switch (RVAL_TYPE(&val)) {
+            case rval_none:
+            case rval_blockmap:
+            case rval_proc:
+            case rval_ref:
+                // shouldn't happen
+                mini_replies.clear();
+                return;
+
+            case rval_aif:
+                if (mini_replies.empty()) {
+                    mini_replies.push_back( mini_reply(RVAL_AIF(&val), nullptr));
+                }
+                // do nothing after the first time: there isn't anything new to process
+                return;
+
+            case rval_reply:
+                mini_replies.clear();
+                auto repSet = RVAL_REPLY(&val);
+                if ((reply = repSet->getNextSlice())) {
+                    for (auto&& r : reply.get()) {
+                        mini_replies.push_back(mini_reply( EVENT_DATA(r->rep_event), r->rep_group.get()));
+                    }
+                }
+                return;
             }
-            return true;
         }
-        break;
-    }
-    return false;
-}
 
-// compute the intersection of two bitsets, treating a null-ptr as all 1's
-static std::unique_ptr<Bitset> intersect_groups(const Bitset* a, const Bitset* b) {
-    if (a && b)
-        return bitset::fromAnd(*a, *b);
-    else if (a)
-        return a->clone();
-    else if (b)
-        return b->clone();
-    else
-        return nullptr;
+        val_t& val;
+        std::unique_ptr<rep_set_t> reply;
+        // mini_replies reference data in `reply`
+        std::vector<mini_reply> mini_replies;
+    };
+
+    // compute the union of two bitsets, treating a null-ptr as all 0's
+    std::unique_ptr<Bitset> union_groups(const Bitset* a, const Bitset* b) {
+        if (a && b)
+            return bitset::fromOr(*a, *b);
+        else if (a)
+            return a->clone();
+        else if (b)
+            return b->clone();
+        else
+            return nullptr;
+    }
 }
 
 // create a group reply by wrapping a single AIF data object.   Takes ownership of
@@ -1954,7 +1972,9 @@ static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
     return oldVal;
 }
 
-// merge the comparison result on an array slice into the full result.  The comparison result
+// Merge the binary op result.
+//
+// If the binary op was a type of compare, the comparison result
 // is a AIF integer with results 0,1,2,3 for true, false, warn error respectively.   Here we've
 // done the comparison on a slice, but since this need not match the comparison result of any
 // other slice, we need a reduction step to get a final answer.
@@ -1964,22 +1984,28 @@ static int combine_compare_vals(int oldVal, int addVal, bool isNeq)
 // \param aif it the aif integer comparison result on the slice.   The function takes ownership
 //       of \a aif
 // \param op is the operation being applied.
-static void add_to_compare_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIFStream*&& aif, expr_op op) {
+static void add_to_binary_op_reply(rep_set_t& repSet, std::unique_ptr<Bitset> &&group, AIFStream*&& aif, expr_op op) {
     repSet.writeTransformedReply(std::move(group), std::move(aif), [op](AIFStream* oldData, AIFStream* newData) -> AIFStream* {
-        // XXX: params should be passed as const
-        if (!oldData || !newData) return nullptr;
+            // XXX: params should be passed as const
+            if (!oldData || !newData) return nullptr;
 
-        int addVal;
-        if (newData->toInt(addVal)) {
-            DPRINT("not a compare result\n");
-            return nullptr;
+        if (EXPR_OPEQUAL <= op && op <= EXPR_OPGT) {
+            // op is a compare, apply compare merging rules
+            int addVal;
+            if (newData->toInt(addVal)) {
+                DPRINT("not a compare result\n");
+                return nullptr;
+            }
+
+            int oldVal;
+            oldData->toInt(oldVal);
+            int newVal = combine_compare_vals(oldVal, addVal, op == EXPR_OPNOTEQUAL);
+
+            return AIFStream::fromInt(newVal);
+        } else {
+            // normal binary op, just write the result
+            return newData;
         }
-
-        int oldVal;
-        oldData->toInt(oldVal);
-        int newVal = combine_compare_vals(oldVal, addVal, op == EXPR_OPNOTEQUAL);
-
-        return AIFStream::fromInt(newVal);
     });
 }
 
@@ -2005,16 +2031,349 @@ static val_t* apply_binary_op_aif(expr_op op, AIFStream* a1, AIFStream* a2, bool
     }
 }
 
-// apply a binary operation to two values and return the result
-// if check_diff is true, also return the delta array via \a diff
-static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_set, bool check_diff,
-                              val_t **diff) {
-    if (diff) {
-        *diff = nullptr;
+// binary op SINGLE strategy
+//
+// used when each side has a single *value*. as long as there is only one
+// value, each side can have an arbitrary amount of ranks.
+//
+//   e.g.
+//   compare $a{0}::foo == $a{1}::foo
+//   or
+//   compare $a{0..50000}::foo == $a{50001..70000}::foo
+//   - where all ranks on the left hand side report the same value (and are
+//     aggregated into a single ais), with the same being true for the rhs.
+//
+// prerequisites:
+// - lhs.mini_replies.size() == 1
+// - rhs.mini_replies.size() == 1
+// - at least one of the sides is a reply, not an anonymous ais val
+static bool apply_binary_op_single(expr_op op, const BinaryOpData& lhs, const BinaryOpData& rhs, rep_set_t& result_reps, rep_set_t* result_diff) {
+    AIFStream::Difference local_diff;
+    AIFStream::Difference* darg = (result_diff != nullptr ? &local_diff : nullptr);
+
+    AIFStream* res = apply_op_aif(op, lhs.mini_replies[0].aif, rhs.mini_replies[0].aif, darg);
+    if (!res) {
+        // error message set by ais
+        return false;
     }
 
-    // First check to make sure the supplied vals are safe to operate on
+    // note that we might have been given one ais val, which don't
+    // have groups attached. union_groups is ok with nullptrs.
+    //
+    // this function should never receive ais values on *both* sides.
+    // use apply_binary_op_aif for that.
+    auto matched_group = union_groups(lhs.mini_replies[0].group, rhs.mini_replies[0].group);
 
+    auto record_diff = darg && result_diff;
+
+    add_to_binary_op_reply(
+        result_reps,
+        record_diff && matched_group ? matched_group->clone() : std::move(matched_group),
+        std::move(res),
+        op
+    );
+
+    if (record_diff) {
+        result_diff->writeDataReply(matched_group ? std::move(matched_group) : nullptr, darg->getResultAIF());
+    }
+
+    return true;
+}
+
+// binary op DISTRIBUTED strategy
+//
+// if one side has a single value and the other side has
+// multiple values, we do a "distributed" compare,
+// where the singular value is compared against each of the
+// multiple values.
+//   e.g.
+//   given that foo is different on each rank,
+//   compare $a{0}::foo == $a{1..3}::foo
+//   => $a{0}::foo == $a{1}::foo
+//   && $a{0}::foo == $a{2}::foo
+//   && $a{0}::foo == $a{3}::foo
+//
+// prerequisites:
+// - either lhs.mini_replies.size() or rhs.mini_replies.size() == 1
+// - the .size() of the other side's mini_replies is > 1
+// - at least one of the sides is a reply, not an anonymous ais val
+static bool apply_binary_op_distributed(expr_op op, const BinaryOpData& lhs, const BinaryOpData& rhs, rep_set_t& result_reps, rep_set_t* result_diff) {
+
+    // array ais can only be evaluated once, so we need to clone them if we
+    // are going to compare them more than once
+    auto ais_storage = std::vector<std::unique_ptr<AIFStream>>{};
+
+    // total number of evaluations to be performed
+    auto num_combos = std::max(lhs.mini_replies.size(), rhs.mini_replies.size());
+
+    for (auto lhs_i = 0u; lhs_i < lhs.mini_replies.size(); lhs_i++) {
+        for (auto rhs_i = 0u; rhs_i < rhs.mini_replies.size(); rhs_i++) {
+            AIFStream* lhs_ais = lhs.mini_replies[lhs_i].aif;
+            AIFStream* rhs_ais = rhs.mini_replies[rhs_i].aif;
+            if (std::max(lhs_i, rhs_i) != num_combos - 1) {
+                // clone the ais that we will be using again.
+                // we don't need to clone on the last combo.
+                if (lhs.mini_replies.size() == 1) {
+                    ais_storage.emplace_back(lhs.mini_replies[lhs_i].aif->clone());
+                    lhs_ais = ais_storage.back().get();
+                }
+
+                if (rhs.mini_replies.size() == 1) {
+                    ais_storage.emplace_back(rhs.mini_replies[rhs_i].aif->clone());
+                    rhs_ais = ais_storage.back().get();
+                }
+            }
+
+            // XXX: we only use the group from the side with multiple values.
+            // if we used the union, there are cases where all the generated
+            // groups would overlap and merge (incorrectly) in the reply.
+            // e.g. 3 results with groups {0,1}, {0,2}, and {0,3} would
+            // all get merged together and report as {0..3} with only the
+            // data from the most recently added reply surviving.
+            //
+            // note that it is impossible for the multi value side to be plain ais
+            // so we can assume it has a group
+            const Bitset* reported_group = nullptr;
+            if (lhs.mini_replies.size() > 1) {
+                reported_group = lhs.mini_replies[lhs_i].group;
+            } else {
+                reported_group = rhs.mini_replies[rhs_i].group;
+            }
+
+            AIFStream::Difference local_diff;
+            AIFStream::Difference* darg = (result_diff != nullptr ? &local_diff : nullptr);
+
+            AIFStream* res = apply_op_aif(op, lhs_ais, rhs_ais, darg);
+            if (!res) {
+                // error message set by ais
+                return false;
+            }
+
+            auto record_diff = darg && result_diff;
+
+            add_to_binary_op_reply(
+                result_reps,
+                reported_group->clone(),
+                std::move(res),
+                op
+            );
+
+            if (record_diff) {
+                result_diff->writeDataReply(reported_group->clone(), darg->getResultAIF());
+            }
+        }
+    }
+
+    return true;
+}
+
+// binary op ZIPPED strategy
+//
+// if each side has the same number of ranks (not necessarily values),
+// we do a "zipped" apply, where the items are matched in order in their
+// respective sets.
+//   e.g.
+//   compare $a{0..1}::foo == $a{2..3}::foo
+//   => $a{0}::foo == $a{2}::foo
+//   && $a{1}::foo == $a{3}::foo
+//
+// prerequisites:
+// - the type of data in both lhs' and rhs' val element is a reply. this
+//   function requires a group bitset to be attached to the data, and ais
+//   vals don't have this.
+// - the number of ranks represented in lhs and rhs is equal
+static bool apply_binary_op_zipped(expr_op op, BinaryOpData& lhs, BinaryOpData& rhs, rep_set_t& result_reps, rep_set_t* result_diff) {
+    // see /docs/internal/binary_operation_algorithms.md for a more
+    // detailed explanation of the algorithm in use here.
+
+    auto buildRankMap = [](const std::vector<mini_reply>& reps) {
+        // given a list of replies, create a "rank map" from
+        // the union of the groups in the replies.
+        // e.g.
+        // given 0b10011001, where the lsb is rank 0, return {0, 3, 4, 7}.
+        // in other words, rank_map[i] = ith set bit in the union of `reps`'s groups
+
+        std::vector<size_t> rank_map;
+        std::unique_ptr<Bitset> unionn;
+        for (const auto& reply: reps) {
+            if (!unionn) unionn = reply.group->clone();
+            else *unionn |= *reply.group;
+        }
+        auto it_storage = unionn->iterator();
+        for (auto& it = *it_storage; *it != Bitset::None; ++it) {
+            rank_map.push_back(*it);
+        }
+        return rank_map;
+    };
+
+    auto lhs_rank_map = buildRankMap(lhs.mini_replies);
+    auto rhs_rank_map = buildRankMap(rhs.mini_replies);
+
+    struct Helper {
+        // helper struct to use in the priority queues
+        Helper(mini_reply& reply, Bitset* group)
+            : rep{&reply}
+            , mapped_group{group}
+        {}
+
+        // all of these are needed for use in an std::priority_queue
+        Helper(const Helper& o) = default;
+        Helper(Helper&& o) = default;
+        Helper& operator=(Helper&& o) = default;
+
+        mini_reply* rep;
+        Bitset* mapped_group;
+
+        bool operator<(const Helper& r) const {
+            // this function returns true if l has a *lower* priority
+            // than r. we want the lowest bitsets to have the *largest* priority.
+            return mapped_group->firstSet() > r.mapped_group->firstSet();
+        }
+    };
+
+    auto buildPriorityQueue = [](
+        std::vector<std::unique_ptr<AIFStream>>& aif_storage,
+        std::vector<std::unique_ptr<Bitset>>& mapped_group_storage,
+        std::vector<mini_reply>& reps,
+        const std::vector<size_t>& rank_map
+    ) {
+        // given a list of replies and a rank_map, create a priority queue of Helper
+        // objects. the objects in the priority queue will be constructed with their
+        // groups mapped according to the rank map.
+
+        std::priority_queue<Helper> pq;
+        for (auto& reply : reps) {
+            auto mapped_group = reply.group->clone();
+            mapped_group->clear();
+
+            // map the group in the queue such that bit 0 in the
+            // constructed group maps to the first set bit in the actual reply.
+            // e.g. given rank_map {0, 3, 4, 7}, from 0b10011001,
+            // the following groups would be constructed:
+            // - 0b10011001 => 0b1111
+            // - 0b10000001 => 0b1001
+            // - 0b00001001 => 0b0011
+            auto map_i = 0ul;
+            auto it_storage = reply.group->iterator();
+            for (auto &it = *it_storage; *it != Bitset::None; ++it) {
+                while (rank_map[map_i] != *it) map_i++;
+                mapped_group->set(map_i);
+            }
+
+            mapped_group_storage.emplace_back(std::move(mapped_group));
+            pq.emplace(reply, mapped_group_storage.back().get());
+        }
+        return pq;
+    };
+
+    // XXX: mini_replies don't own their aif/group pointers, so when we
+    // clone them, we need to keep track of them ourselves
+    std::vector<std::unique_ptr<AIFStream>> aif_storage;
+    std::vector<std::unique_ptr<Bitset>> mapped_group_storage;
+
+    auto lhs_pq = buildPriorityQueue(aif_storage, mapped_group_storage, lhs.mini_replies, lhs_rank_map);
+    auto rhs_pq = buildPriorityQueue(aif_storage, mapped_group_storage, rhs.mini_replies, rhs_rank_map);
+
+    // apply the operator until no ranks are remaining to work on.
+    //
+    // assuming valid input with the same number of ranks on each side,
+    // lhs_pq and rhs_pq will become empty at the same time.
+    while (!lhs_pq.empty()) {
+        // extract top items. explicit copy since q.top() returns a const&
+        auto lhs_rep = static_cast<Helper>(lhs_pq.top());
+        auto rhs_rep = static_cast<Helper>(rhs_pq.top());
+        lhs_pq.pop();
+        rhs_pq.pop();
+
+        // create bitset of matched ranks
+        auto mapped_matched_group = bitset::fromAnd(*lhs_rep.mapped_group, *rhs_rep.mapped_group);
+
+        // XXX: we only report ranks from the lhs in the result. if we
+        // used the union of both sides, there are cases where all the generated
+        // groups would overlap and merge (incorrectly) in the reply.
+        // e.g. 3 results with groups {0..1}, {1..2}, and {2..3} would
+        // all get merged together and report as {0..3} with only the
+        // data from the most recently added reply surviving.
+        auto lhs_matched_group = mapped_matched_group->clone();
+        lhs_matched_group->clear();
+        {
+            auto it_storage = mapped_matched_group->iterator();
+            for (auto& it = *it_storage; *it != Bitset::None; ++it) {
+                lhs_matched_group->set(lhs_rank_map[*it]);
+            }
+        }
+
+        // erase from groups in items from queue
+        *lhs_rep.mapped_group -= *mapped_matched_group;
+        *rhs_rep.mapped_group -= *mapped_matched_group;
+
+        AIFStream* lhs_aif = nullptr;
+        AIFStream* rhs_aif = nullptr;
+
+        {   // determine if we need to clone any ais. since array ais can't be evaluated
+            // more than once, we need to clone when we know that a given ais will
+            // be used again. after removing the bits from the mapped groups above
+            // we know that an ais will be used again if there are still bits set in its group.
+            if (!lhs_rep.mapped_group->isEmpty()) {
+                aif_storage.emplace_back(lhs_rep.rep->aif->clone());
+                lhs_aif = aif_storage.back().get();
+            } else {
+                // last use of this aif
+                lhs_aif = lhs_rep.rep->aif;
+            }
+
+            if (!rhs_rep.mapped_group->isEmpty()) {
+                aif_storage.emplace_back(rhs_rep.rep->aif->clone());
+                rhs_aif = aif_storage.back().get();
+            } else {
+                // last use of this aif
+                rhs_aif = rhs_rep.rep->aif;
+            }
+        }
+
+        {   // do the compare
+            AIFStream::Difference local_diff;
+            AIFStream::Difference* darg = (result_diff != nullptr ? &local_diff : nullptr);
+
+            AIFStream* res = apply_op_aif(op, lhs_aif, rhs_aif, darg);
+            if (!res) {
+                // error message set by ais
+                return false;
+            }
+
+            auto record_diff = darg && result_diff;
+
+            // record result
+            add_to_binary_op_reply(
+                result_reps,
+                record_diff ? lhs_matched_group->clone() : std::move(lhs_matched_group),
+                std::move(res),
+                op
+            );
+
+            if (record_diff) {
+                result_diff->writeDataReply(std::move(lhs_matched_group), darg->getResultAIF());
+            }
+        }
+
+        // if the group has bits left over, they will be
+        // matched to another reply. put them back into the queue.
+        if (!lhs_rep.mapped_group->isEmpty()) {
+            lhs_pq.emplace(std::move(lhs_rep));
+        }
+        if (!rhs_rep.mapped_group->isEmpty()) {
+            rhs_pq.emplace(std::move(rhs_rep));
+        }
+    }
+
+    return true;
+}
+
+// compare expressions and return the result
+// if check_diff is true, also return the delta array via `diff`
+static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2,
+        rec_set_t *rec_set, bool check_diff, val_t **diff)
+{
     if (!v1 || !v2) {
         SetError("apply_op(): binary operator called with missing val!");
         return nullptr;
@@ -2024,172 +2383,99 @@ static val_t* apply_binary_op(expr_op op, val_t *v1, val_t *v2, rec_set_t *rec_s
     if (!op_val_is_ok(v2, rec_set, "Second val is invalid to apply binary operator."))
         return nullptr;
 
-    bool isCompare = false;
-    if (op >= EXPR_OPEQUAL && op <= EXPR_OPGT) isCompare = true;
-
-    // boil down aif and replies to a common workable form - note that if the r-value type
-    // is AIF mini_reply.group == nullptr
-
-    std::vector<std::unique_ptr<rep_set_t>> newSlices, diffSlices;
-
-    //-----------------------------------------------------------------------
-    // retrieve the first slice
-    //-----------------------------------------------------------------------
-    // we do extra processing on the first slice to determine the type we are working with
-    std::unique_ptr<rep_set_t> reply1,reply2;
-    std::vector<mini_reply> reps1, reps2;
-    bool toProc1 = rval_next_slice(v1,reply1,reps1);
-    bool toProc2 = rval_next_slice(v2,reply2,reps2);
-
-    bool resultIsRepSet = true;
-
-    if (reps1.size() >= 1 && reps2.size() >= 1) {
-        // check that the bitset sizes match - and determine if our result should be a repset
-        auto &r1 = reps1[0], &r2 = reps2[0];
-        if (r1.group && r2.group && r1.group->sizeInBits() != r2.group->sizeInBits()) {
-            if (reps1.size() == 1 && reps2.size() == 1) {
-                // special case = we go forward just treating these as AIFs
-                // FIXME: Alert the user somehow that this is a special set.
-                r1.group = r2.group = nullptr;
-            } else {
-                SetError("Attempted to apply binary operator to two val sets with "
-                         "different sizes.");
-                return nullptr;
-            }
-        }
-
-        // determine if the result is a rep_set - note that only a rep_set can lead to an
-        // *empty* reps set - so we'll treat that like a rep_set to match old behavior
-        if (!r1.group && !r2.group)
-            resultIsRepSet = false;
+    if (diff) {
+        *diff = nullptr;
     }
 
-    if (!resultIsRepSet) {
-        if (reps1.size() == 1 && reps2.size() == 1) {
-            return apply_binary_op_aif(op, reps1[0].aif, reps2[0].aif, check_diff, diff);
-        } else {
-            SetError("Attempted to apply binary operator to a null AIF");
+    // if two anonymous ais vals are passed in, we just use the ais-specific function
+    if (v1->val_rval_type == rval_aif && v2->val_rval_type == rval_aif)
+    {
+        return apply_binary_op_aif(op, v1->rval_u.rval_aif, v2->rval_u.rval_aif, check_diff, diff);
+    }
+
+    // for each slice, pick a matching strategy and evaluate. the matching
+    // strategy depends on how many ranks or values each side of the operation has.
+
+    // return the number of ranks in the *procset* of a val
+    auto ranksInVal = [](val_t& v) {
+        switch (v.val_rval_type) {
+            case rval_aif:
+                return 1;
+            case rval_reply: {
+                // v has an lval of lval_gdb, which contains the procset
+                // that the data came from
+                if (v.val_lval_type != lval_gdb) return 0;
+                auto* procset = v.lval_u.lval_gdb.gdb_procset;
+                if (!procset) return 0;
+                return procset->s_nproc;
+            }
+            default:
+                return 0;
+        }
+    };
+
+    // fetch initial slice
+    auto lhs = BinaryOpData(*v1);
+    auto rhs = BinaryOpData(*v2);
+    lhs.fetchNextSlice();
+    rhs.fetchNextSlice();
+
+    if (lhs.mini_replies.size() == 0 || rhs.mini_replies.size() == 0) {
+        SetError("Failed to prepare data for binary op");
+        return nullptr;
+    }
+
+    auto result_reps = std::make_unique<rep_set_t>();
+    auto result_diff = check_diff ? std::make_unique<rep_set_t>() : nullptr;
+
+    for (; lhs.mini_replies.size() != 0 && rhs.mini_replies.size() != 0;
+           lhs.fetchNextSlice(), rhs.fetchNextSlice())
+    {
+        // choose a matching strategy and get the result
+        auto success = [&]() {
+            // NOTE: checks concerning mini_replies.size() are checking for number
+            // of *unique values* returned on each side, and checks concerning
+            // ranksInVal are checking for number of *ranks* on each side,
+            // regardless of the data returned.
+
+            if (lhs.mini_replies.size() == 1 && rhs.mini_replies.size() == 1)
+                // 1 value vs 1 value
+                return apply_binary_op_single(op, lhs, rhs, *result_reps, result_diff.get());
+            else if ((lhs.mini_replies.size() == 1 && rhs.mini_replies.size() > 1)
+                 || (lhs.mini_replies.size() > 1 && rhs.mini_replies.size() == 1))
+                // 1 value vs. n values
+                return apply_binary_op_distributed(op, lhs, rhs, *result_reps, result_diff.get());
+            else if (ranksInVal(*v1) == ranksInVal(*v2))
+                // n ranks vs. n ranks
+                //
+                // NOTE: this function doesn't support vals that hold a plain ais
+                // instead of a reply, since vals like that don't have a group attached.
+                //
+                // ais vals will get a mini_replies.size() of 1 when fetched,
+                // so the above cases should catch them before we get here.
+                return apply_binary_op_zipped(op, lhs, rhs, *result_reps, result_diff.get());
+            else {
+                // no useful strategy exists
+                SetError("Can't evaluate; no mapping from lhs to rhs exists.");
+                return false;
+            }
+        }();
+
+        if (!success) {
+            // error set by compare function
             return nullptr;
         }
     }
 
-    // storage for the return values.   
-    std::unique_ptr<rep_set_t> newRepSet;
-    if (isCompare) {
-        newRepSet.reset(new rep_set_t);
-    }
-
-    std::shared_ptr<Bitset> diffGroup;
-    // we need track the involved process set for setSparseValues (otherwise
-    // an process for which every element passes would not be in the result)
-    for (auto&& reply : reps1) {
-        if (!diffGroup)
-            diffGroup = reply.group->clone();
-        else
-            *diffGroup |= *reply.group;
-    }
-    
-    //-----------------------------------------------------------------------
-    // Process each slice -- add the result to the reply
-    //-----------------------------------------------------------------------
-    for (int sliceCnt=0; toProc1 || toProc2;
-         ++sliceCnt, toProc1=rval_next_slice(v1,reply1,reps1), toProc2 = rval_next_slice(v2,reply2,reps2)) {
-
-        std::unique_ptr<rep_set_t> newRepSlice, diffRepSlice;
-        
-        if (!sliceCnt || !isCompare)
-            newRepSlice.reset(NewRepSet());
-        if (check_diff)
-            diffRepSlice.reset(NewRepSet());
-
-        //-----------------------------------------------------------------------
-        // Main comparison operation
-        //-----------------------------------------------------------------------
-        // Apply the op to all pairwise results that share a group. We make an
-        // exception to the "share a group" rule when the full set of replies is
-        // only one rank in size on each side.
-        // we could be a smarter about finding overlapping replies, but the previous version
-        // was just n-squared so I'll just repeat that for now
-        bool isFirst = true;
-        for (auto&& r1 : reps1) {
-            for (auto&& r2 : reps2) {
-                bool is_single = false;
-                if (r1.group && r2.group && !r1.group->hasCommonBits(*r2.group)) {
-                    if (reps1.size() == 1 && reps2.size() == 1 && 
-                        r1.group->numSet() == 1 && r2.group->numSet() == 1)
-                        is_single = true;
-                    else
-                        continue;
-                }
-
-                AIFStream::Difference diff, *darg = (check_diff ? &diff : nullptr);
-                AIFStream* a1 = r1.aif, *a2 = r2.aif;
-                AIFStream* res = apply_op_aif(op, a1, a2, darg);
-                if (!res) {
-                    return nullptr; // error
-                }
-
-                // intersect if we have groups larger than 1 rank in size,
-                // otherwise it is fine to union them
-                auto tset = is_single ? r1.group->clone() : intersect_groups(r1.group, r2.group);
-
-                if (isCompare) {
-                    // consumes res
-                    add_to_compare_reply(*newRepSet, tset->clone(), std::move(res), op);
-                } else {
-                    // we intentionally set the di to null rather than picking an arbitrary one
-                    add_to_reply(*newRepSlice, nullptr, tset->clone(), res);
-                }
-
-                if (diffRepSlice && darg) {
-                    add_to_reply(*diffRepSlice, nullptr, std::move(tset), darg->getResultAIF());
-                }
-
-                // we need to track the array size because the diff is only sparsely
-                // defined
-                if (isFirst && check_diff) {
-                    isFirst = false;
-                }
-            } ///for (auto&& r2 : reps2)
-        } // for (auto&& r1 : reps1)
-
-        // combine the slice result with the previous result
-        if (!isCompare)
-            newSlices.push_back(move(newRepSlice));
-        if (diffRepSlice)
-            diffSlices.push_back(move(diffRepSlice));
-    } // for (each slice)
-
-    // create the reply sets
-    if (!newRepSet) {
-        if (newSlices.size() == 1) {
-            newRepSet = move(newSlices[0]);
-            newSlices.clear();
-        } else if (newSlices.size() > 1) {
-            newRepSet.reset(new rep_set_t(newSlices, nullptr));
-        }
-    }
-
-    rep_set_t* diffRepSet = nullptr;
-    if (check_diff) {
-        diffRepSet = new rep_set_t(diffSlices, diffGroup.get());
-    }
-        
-
     // create the value result for return and possibly diff.
-    val_t* retVal = nullptr;
+    auto retVal = NewVal(lval_none, rval_reply, result_reps.release());
 
-    if (newRepSet) {
-        retVal = NewVal(lval_none, rval_reply, newRepSet.release());
-    } 
-
-    if (diff && diffRepSet) {
-        *diff = NewVal(lval_none, rval_reply, diffRepSet);
+    if (diff && result_diff) {
+        *diff = NewVal(lval_none, rval_reply, result_diff.release());
     }
-        
+
     return retVal;
 }
-            
 
 // apply a unary operator to a value \a v1 and return the new result
 static val_t* apply_unary_op(expr_op op, val_t *v1, rec_set_t *rec_set) {
@@ -2284,7 +2570,7 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
         case EXPR_OPLT:
         case EXPR_OPGT:
             // check to see if we should calculate the different result in situ.
-            if (diff != NULL) check_diff = true;
+            if (diff != nullptr) check_diff = true;
 
         case EXPR_OPADD:
         case EXPR_OPSUB:
@@ -2295,12 +2581,12 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
         case EXPR_OPAND:
         case EXPR_OPOR:
             return apply_binary_op(op, v1, v2, rec_set, check_diff, diff);
-            
+
         case EXPR_OPPOS:
         case EXPR_OPNEG:
             // First check to make sure the supplied val is safe to operate on
             return apply_unary_op(op, v1, rec_set);
-            
+
         default:
             SetError("Invalid operation");
             return (val_t *)NULL;

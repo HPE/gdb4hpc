@@ -25,16 +25,22 @@ protected:
         : m_full(SIZE) 
         , m_empty(SIZE)
         , m_sparse(SIZE)
+        , m_hibit(SIZE)
+        , m_lobit(SIZE)
     {
         for (size_t i = 0; i < SIZE; i++) {
             m_full.set(i);
             if (i % 4 == 0) m_sparse.set(i);
         }
+        m_hibit.set(SIZE-1);
+        m_lobit.set(0);
     }
 
     Bitset m_full;
     Bitset m_empty;
     Bitset m_sparse;
+    Bitset m_hibit;
+    Bitset m_lobit;
 };
 
 using testing::Types;
@@ -138,18 +144,24 @@ TYPED_TEST(BitsetUnitTest, isFull) {
     ASSERT_TRUE(this->m_full.isFull());
     ASSERT_FALSE(this->m_empty.isFull());
     ASSERT_FALSE(this->m_sparse.isFull());
+    ASSERT_FALSE(this->m_hibit.isFull());
+    ASSERT_FALSE(this->m_lobit.isFull());
 }
 
 TYPED_TEST(BitsetUnitTest, isEmpty) {
     ASSERT_FALSE(this->m_full.isEmpty());
     ASSERT_TRUE(this->m_empty.isEmpty());
     ASSERT_FALSE(this->m_sparse.isEmpty());
+    ASSERT_FALSE(this->m_hibit.isEmpty());
+    ASSERT_FALSE(this->m_lobit.isEmpty());
 }
 
 TYPED_TEST(BitsetUnitTest, sizeInBits) {
     ASSERT_EQ(this->m_full.sizeInBits(), this->SIZE);
     ASSERT_EQ(this->m_empty.sizeInBits(), this->SIZE);
     ASSERT_EQ(this->m_sparse.sizeInBits(), this->SIZE);
+    ASSERT_EQ(this->m_hibit.sizeInBits(), this->SIZE);
+    ASSERT_EQ(this->m_lobit.sizeInBits(), this->SIZE);
 }
 
 TYPED_TEST(BitsetUnitTest, numSet) {
@@ -157,6 +169,8 @@ TYPED_TEST(BitsetUnitTest, numSet) {
     ASSERT_EQ(this->m_empty.numSet(), 0lu);
     ASSERT_NE(this->m_sparse.numSet(), 0lu);
     ASSERT_NE(this->m_sparse.numSet(), this->SIZE);
+    ASSERT_EQ(this->m_hibit.numSet(), 1u);
+    ASSERT_EQ(this->m_lobit.numSet(), 1u);
 }
 
 TYPED_TEST(BitsetUnitTest, firstSet) {
@@ -166,6 +180,8 @@ TYPED_TEST(BitsetUnitTest, firstSet) {
     ASSERT_EQ(this->m_full.firstSet(), 0lu);
     ASSERT_EQ(this->m_sparse.firstSet(), 0lu);
     ASSERT_EQ(this->m_empty.firstSet(), none);
+    ASSERT_EQ(this->m_hibit.firstSet(), this->SIZE - 1);
+    ASSERT_EQ(this->m_lobit.firstSet(), 0lu);
 }
 
 TYPED_TEST(BitsetUnitTest, test) {
@@ -173,6 +189,12 @@ TYPED_TEST(BitsetUnitTest, test) {
         ASSERT_EQ(this->m_full.test(i), true);
         ASSERT_EQ(this->m_empty.test(i), false);
     }
+
+    ASSERT_EQ(this->m_hibit.test(this->SIZE-1), true);
+    ASSERT_EQ(this->m_lobit.test(this->SIZE-1), false);
+
+    ASSERT_EQ(this->m_hibit.test(0), false);
+    ASSERT_EQ(this->m_lobit.test(0), true);
 
     // out of bounds test should return false
     ASSERT_EQ(this->m_full.test(-1), false);
@@ -185,6 +207,8 @@ TYPED_TEST(BitsetUnitTest, toSetString) {
     ASSERT_NE(this->m_sparse.toSetString(), "{}");
     ASSERT_NE(this->m_sparse.toSetString(), "{0.." + std::to_string(this->SIZE - 1) + "}");
     ASSERT_EQ(this->m_full.toSetString(0, this->SIZE / 2), "{0.." + std::to_string(this->SIZE/2 - 1) + "}");
+    ASSERT_EQ(this->m_hibit.toSetString(), "{" + std::to_string(this->SIZE - 1) + "}");
+    ASSERT_EQ(this->m_lobit.toSetString(), "{0}");
 }
 
 TYPED_TEST(BitsetUnitTest, Equals) {
@@ -290,7 +314,7 @@ TYPED_TEST(BitsetUnitTest, setRemoval) {
 #endif
 
     this->m_full -= this->m_sparse;
-    ASSERT_TRUE(!this->m_full.hasCommonBits(this->m_sparse));
+    ASSERT_FALSE(this->m_full.hasCommonBits(this->m_sparse));
 }
 
 TYPED_TEST(BitsetUnitTest, invert) {
@@ -372,4 +396,67 @@ TYPED_TEST(BitsetUnitTest, hash) {
     map.insert(&this->m_empty);
 
     ASSERT_TRUE(map.size() == 3);
+}
+
+TYPED_TEST(BitsetUnitTest, iteratorFull) {
+    size_t count = 0;
+    auto iterator_storage = this->m_full.iterator();
+
+    // iterators should return Bitset::None when they're done
+    for (auto& it = *iterator_storage; *it != Bitset::None && count < 999999; ++it) {
+        count++;
+    }
+
+    ASSERT_EQ(this->m_full.sizeInBits(), count);
+}
+
+TYPED_TEST(BitsetUnitTest, iteratorEmpty) {
+    size_t count = 0;
+    auto iterator_storage = this->m_empty.iterator();
+
+    // iterators should return Bitset::None when they're done
+    for (auto& it = *iterator_storage; *it != Bitset::None && count < 999999; ++it) {
+        count++;
+    }
+
+    ASSERT_EQ(count, 0u);
+}
+
+TYPED_TEST(BitsetUnitTest, iteratorSparse) {
+    size_t count = 0;
+    auto iterator_storage = this->m_sparse.iterator();
+
+    // iterators should return Bitset::None when they're done
+    for (auto& it = *iterator_storage; *it != Bitset::None && count < 999999; ++it) {
+        count++;
+    }
+
+    ASSERT_GT(count, 0u);
+    ASSERT_LT(count, this->m_sparse.sizeInBits());
+}
+
+TYPED_TEST(BitsetUnitTest, iteratorHi) {
+    size_t count = 0;
+    auto iterator_storage = this->m_hibit.iterator();
+
+    // iterators should return Bitset::None when they're done
+    for (auto& it = *iterator_storage; *it != Bitset::None && count < 999999; ++it) {
+        ASSERT_EQ(*it, this->m_hibit.sizeInBits() - 1);
+        count++;
+    }
+
+    ASSERT_EQ(count, 1u);
+}
+
+TYPED_TEST(BitsetUnitTest, iteratorLo) {
+    size_t count = 0;
+    auto iterator_storage = this->m_lobit.iterator();
+
+    // iterators should return Bitset::None when they're done
+    for (auto& it = *iterator_storage; *it != Bitset::None && count < 999999; ++it) {
+        ASSERT_EQ(*it, 0u);
+        count++;
+    }
+
+    ASSERT_EQ(count, 1u);
 }

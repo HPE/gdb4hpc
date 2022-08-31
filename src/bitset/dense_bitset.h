@@ -11,7 +11,28 @@
 // manipulates an array of bits in memory.
 
 class DenseBitset : public Bitset {
+private:
+    // NOTE: if you change the size of bits, then the ffs() routine may no 
+    // longer work. see firstSet implementation.
+    typedef unsigned int Bits;
+
 public:
+    class SetBitsIterator : public Bitset::SetBitsIterator {
+    public:
+        SetBitsIterator(const DenseBitset& bits);
+
+        size_t operator*() const override;
+        SetBitsIterator& operator++() override;
+        bool operator!=(const SetBitsIterator& other) const;
+    private:
+        void extractNextChunk();
+        const DenseBitset& m_bits;
+
+        size_t m_offset;
+        std::vector<size_t> m_next_bits;
+        size_t m_next_bits_i;
+    };
+
     explicit DenseBitset(size_t nbits);
     explicit DenseBitset(SerializedPtr serialized);
 
@@ -52,11 +73,9 @@ public:
     // virtual bool operator!= (const Bitset &other) const override;
 
     virtual bool hasCommonBits(const Bitset &other) const override;
-private:
-    // NOTE: if you change the size of bits, then the ffs() routine may no 
-    // longer work. see firstSet implementation.
-    typedef unsigned int Bits;
 
+    virtual std::unique_ptr<Bitset::SetBitsIterator> iterator() const override;
+private:
     size_t m_bs_nbits;      // total number of bits in this bitset
     std::vector<Bits> m_bs_bits;  // actual bits storage (unused bits are always 0)
 
@@ -68,4 +87,6 @@ private:
     constexpr size_t SIZE_TO_BYTES(size_t size) const { return (sizeof(DenseBitset::Bits) * (size)); }
     // number of bytes required to store n bits
     constexpr size_t NUM_BYTES(size_t bits) const { return (((bits-1) >> 3) + 1); }
+
+    friend SetBitsIterator;
 };

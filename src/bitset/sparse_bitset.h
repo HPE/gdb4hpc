@@ -40,37 +40,39 @@ private:
 public:
     // iterates over all bits that are set. returns integer offsets representing
     // the position of the set bits.
-    class SetBitsIterator {
+    class SetBitsIterator : public Bitset::SetBitsIterator {
     public:
         SetBitsIterator(const SparseBitset &bits)
             : m_bits{bits}
         {
             if (m_bits.sizeInRanges() == 0) {
-                m_current_bit = m_bits.sizeInBits();
+                m_current_bit = Bitset::None;
             } else {
                 m_range_it = m_bits.m_sb_ranges.begin();
                 m_current_bit = m_range_it->sr_start;
             }
         }
 
-        size_t operator*() const {
+        size_t operator*() const override {
             return m_current_bit;
         }
 
-        SetBitsIterator& operator++() {
-            if (m_current_bit >= m_bits.sizeInBits()) return *this;
+        SetBitsIterator& operator++() override {
+            if (m_current_bit >= m_bits.sizeInBits()) {
+                return *this;
+            }
 
             m_current_bit++;
 
             if (m_current_bit > m_range_it->sr_end) {
                 m_range_it++;
                 if (m_range_it == m_bits.m_sb_ranges.end()) {
-                    m_current_bit = m_bits.sizeInBits();
+                    m_current_bit = Bitset::None;
                 } else {
                     m_current_bit = m_range_it->sr_start;
                 }
             }
-            
+
             return *this;
         }
 
@@ -128,6 +130,8 @@ public:
     // virtual bool operator!= (const Bitset &other) const override;
 
     // virtual bool hasCommonBits(const Bitset &other) const override;
+
+    virtual std::unique_ptr<Bitset::SetBitsIterator> iterator() const override;
 
     friend SetBitsIterator;
 private:

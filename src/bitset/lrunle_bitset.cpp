@@ -267,11 +267,15 @@ std::vector<unsigned char> LRunLEBitset::orBuf(unsigned char const* rhs, size_t 
 
 using SetBitsIterator = LRunLEBitset::SetBitsIterator;
 
-SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits) 
+std::unique_ptr<Bitset::SetBitsIterator> LRunLEBitset::iterator() const {
+    return std::make_unique<SetBitsIterator>(*this);
+}
+
+SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits)
     : m_bits{bits}
     , m_context(new lrle_context)
     , m_current_bit{0}
-{ 
+{
     reset_lrle_context(m_context.get());
     ++*this;
 }
@@ -279,7 +283,7 @@ SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits)
 SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End end)
     : m_bits{bits}
     , m_context(nullptr)
-    , m_current_bit{m_bits.m_nbits}
+    , m_current_bit{Bitset::None}
 {
     // used for LRunLEBitset::end()
 }
@@ -291,16 +295,26 @@ SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End 
 // we do this to let files include lrunle_bitset.h without needing to know where lrle_bitset.h is.
 SetBitsIterator::~SetBitsIterator() = default;
 
+size_t SetBitsIterator::operator*() const {
+    return m_current_bit;
+}
+
 SetBitsIterator& SetBitsIterator::operator++() {
-    if (m_current_bit >= m_bits.sizeInBits()) return *this;
+    if (m_current_bit >= m_bits.sizeInBits()) {
+        return *this;
+    }
 
     auto next_bit = lrle_next_set_bit(m_bits.m_compressed.data(), m_bits.m_compressed.size(), m_context.get());
 
     if (next_bit >= 0) {
         m_current_bit = next_bit;
     } else {
-        m_current_bit = m_bits.sizeInBits();
+        m_current_bit = Bitset::None;
     }
 
     return *this;
+}
+
+bool SetBitsIterator::operator!=(const SetBitsIterator &other) {
+    return m_current_bit != other.m_current_bit;
 }

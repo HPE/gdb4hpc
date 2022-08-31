@@ -92,6 +92,13 @@ int main(int argc, char* argv[])
     delete[] distributedArray1;
     delete[] localArray1;
 
+    int same[16] = {9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9};
+    int unique[16];
+
+    for (int i=0; i<16; i++) {
+        unique[i] = rank + i/4 + 3 * application;
+    }
+
     ierr = MPI_Finalize();
     if (ierr != MPI_SUCCESS) {
         std::cout << stderr << "Error: MPI_Finalize() failed: " << ierr;

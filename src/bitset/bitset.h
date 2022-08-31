@@ -104,6 +104,18 @@ public:
     virtual bool hasCommonBits(const Bitset &other) const;
 
     virtual size_t hash() const;
+
+    // iterates over *set bits* in the bitset, skipping all unset bits.
+    // returns Bitset::None when no more bits are left
+    class SetBitsIterator {
+    public:
+        virtual size_t operator*() const = 0;
+        virtual SetBitsIterator& operator++() = 0;
+    };
+
+    // XXX: Can't make a proper "std like" interface (begin(), end()) because
+    // those need to return iterators by value, not reference, and therefore can't use polymorphism
+    virtual std::unique_ptr<SetBitsIterator> iterator() const = 0;
 };
 
 struct BitsetHasher {

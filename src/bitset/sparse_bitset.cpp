@@ -83,7 +83,7 @@ bool SparseBitset::isEmpty() const {
 }
 
 bool SparseBitset::isFull() const {
-	return m_sb_ranges.size() == 1 && m_sb_ranges.back().sr_end == m_sb_num_bits - 1;
+	return m_sb_ranges.size() == 1 && m_sb_ranges.back().sr_start == 0 && m_sb_ranges.back().sr_end == m_sb_num_bits - 1;
 }
 
 void SparseBitset::set(size_t n) {
@@ -328,4 +328,10 @@ void SparseBitset::mergeIfNecessary(size_t idx) {
 
 	// collapse list
 	m_sb_ranges.erase(m_sb_ranges.begin() + idx);
+}
+
+using SetBitsIterator = SparseBitset::SetBitsIterator;
+
+std::unique_ptr<Bitset::SetBitsIterator> SparseBitset::iterator() const {
+	return std::make_unique<SetBitsIterator>(*this);
 }

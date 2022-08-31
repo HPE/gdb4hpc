@@ -11,18 +11,16 @@ class lrle_context;
 
 class LRunLEBitset : public Bitset {
 public:
-    class SetBitsIterator {
+    class SetBitsIterator : public Bitset::SetBitsIterator {
     public:
         SetBitsIterator(const LRunLEBitset &bits);
         ~SetBitsIterator();
 
-        size_t operator*() const { return m_current_bit; }
+        size_t operator*() const override;
 
-        SetBitsIterator& operator++();
+        SetBitsIterator& operator++() override;
 
-        bool operator!=(const SetBitsIterator &other) {
-            return m_current_bit != other.m_current_bit;
-        }
+        bool operator!=(const SetBitsIterator &other);
 
         friend LRunLEBitset;
     private:
@@ -82,6 +80,8 @@ public:
     virtual bool operator!= (const Bitset &other) const override;
 
     virtual bool hasCommonBits(const Bitset &other) const override;
+
+    virtual std::unique_ptr<Bitset::SetBitsIterator> iterator() const override;
 
     friend SetBitsIterator;
 private:

@@ -498,7 +498,7 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
         // generate new aif via passed transform operation
         auto newAif = tFn(EVENT_DATA(reply->rep_event), data);
         if (!newAif) continue;
-        if (static_cast<void*>(newAif) == static_cast<void*>(data)) {
+        if (static_cast<void*>(newAif) == static_cast<void*>(EVENT_DATA(reply->rep_event))) {
             throw std::runtime_error("Transformation function must not return original data");
         }
 
@@ -507,7 +507,10 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
         // existing reply) and continue.
         if (AIFStream::compareEqual(*EVENT_DATA(reply->rep_event), *newAif)) {
             *ranks -= *reply->rep_group;
-            delete newAif;
+
+            // tFn might have just spat `data` back out at us, so be careful when deleting
+            if (static_cast<void*>(newAif) != static_cast<void*>(data))
+                delete newAif;
             continue;
         }
 
@@ -519,7 +522,7 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
         *ranks -= *commonRanks;
         *reply->rep_group -= *commonRanks;
 
-        m_reps.push_back(aif2Reply(reply->rep_di, std::move(commonRanks), std::move(newAif)));
+        m_reps.push_back(aif2Reply(reply->rep_di, std::move(commonRanks), std::move(newAif->clone())));
 
         // we might have completely replaced an existing reply value, remove it and
         // update the iteration values
@@ -569,8 +572,8 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
 }
 
 void rep_set_t::writeDataReply(std::unique_ptr<Bitset>&& group, AIFStream*&& data) {
-    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *_, AIFStream *newData) { 
-        return newData ? newData->clone() : nullptr; 
+    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *_, AIFStream *newData) {
+        return newData;
     });
 }
 

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 
 DenseBitset::DenseBitset(size_t nbits)
 	: m_bs_nbits{nbits}
@@ -98,21 +99,21 @@ bool DenseBitset::isFull() const {
 }
 
 void DenseBitset::set(size_t bit) {
-    if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
+	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] |= (1 << BIT_IN_OBJ(bit));
 }
 
 void DenseBitset::unset(size_t bit) {
-    if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
+	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] &= ~(1 << BIT_IN_OBJ(bit));
 }
 
 bool DenseBitset::test(size_t bit) const {
-    Bits mask = (1 << BIT_IN_OBJ(bit));
+	Bits mask = (1 << BIT_IN_OBJ(bit));
 
 	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
 		return 0;
@@ -136,14 +137,14 @@ void DenseBitset::clear() {
 }
 
 size_t DenseBitset::numSet() const {
-    // Need to loop over each bs_bits
+	// Need to loop over each bs_bits
 	size_t count = 0;
-    
-    for (size_t i = 0; i < m_bs_bits.size(); i++) {
+
+	for (size_t i = 0; i < m_bs_bits.size(); i++) {
 		// This clears the LSB set in curBits - we loop until curBits is 0
 		for (auto curBits = m_bs_bits[i]; curBits; ++count) curBits &= curBits - 1;
 	}
-	
+
 	return count;
 }
 
@@ -153,9 +154,9 @@ size_t DenseBitset::numSet() const {
  */
 size_t DenseBitset::firstSet() const {
 	static_assert(sizeof(Bits) == sizeof(int));
-    
+
 	size_t i;
-    for (i = 0; i < m_bs_bits.size(); i++)
+	for (i = 0; i < m_bs_bits.size(); i++)
 		if (m_bs_bits[i] != 0)
 			return (SIZE_TO_BYTES(i) << 3) + ffs(m_bs_bits[i]) - 1;
 
@@ -163,21 +164,21 @@ size_t DenseBitset::firstSet() const {
 }
 
 size_t DenseBitset::sizeInBits() const {
-    return m_bs_nbits;
+	return m_bs_nbits;
 }
 
 std::string DenseBitset::toString() const {
-    std::stringstream output;
+	std::stringstream output;
 
 	// Start with actual number of bits (silently truncate to 32 bits)
-    output << std::hex << (m_bs_nbits & 0xffffffff);
+	output << std::hex << (m_bs_nbits & 0xffffffff);
 
 	output << ' ';
 
-    int bytes = NUM_BYTES(m_bs_nbits);
-    int bit = 0;
+	int bytes = NUM_BYTES(m_bs_nbits);
+	int bit = 0;
 	for (int pbit = (bytes * 8) - 1; pbit > 0; ) {
-        int val = 0;
+		int val = 0;
 		for (val = 0, bit = 3; bit >= 0; bit--, pbit--) {
 			if ((unsigned int)pbit < m_bs_nbits && test(pbit)) {
 				val |= (1 << bit);
@@ -291,7 +292,7 @@ bool DenseBitset::operator==(const Bitset &other) const {
 }
 
 bool DenseBitset::hasCommonBits(const Bitset &other) const {
-    auto denseOther = dynamic_cast<const DenseBitset*>(&other);
+	auto denseOther = dynamic_cast<const DenseBitset*>(&other);
 	if (!denseOther) return Bitset::hasCommonBits(other);
 
 	auto end = std::min(m_bs_bits.size(), denseOther->m_bs_bits.size());
@@ -302,3 +303,56 @@ bool DenseBitset::hasCommonBits(const Bitset &other) const {
 
 	return false;
 }
+
+using SetBitsIterator = DenseBitset::SetBitsIterator;
+
+std::unique_ptr<Bitset::SetBitsIterator> DenseBitset::iterator() const {
+	return std::make_unique<SetBitsIterator>(*this);
+}
+
+SetBitsIterator::SetBitsIterator(const DenseBitset& bits)
+	: m_bits{bits}
+	, m_offset{0}
+{
+	m_next_bits.reserve(sizeof(DenseBitset::Bits) * 8);
+	extractNextChunk();
+}
+
+// prep m_next_bits for reading, or leave it empty if there are no more bits to read
+void SetBitsIterator::extractNextChunk() {
+	m_next_bits.clear();
+	m_next_bits_i = 0;
+
+	if (m_offset == m_bits.m_bs_bits.size()) return;
+
+	auto chunk = m_bits.m_bs_bits[m_offset];
+	for (size_t bit = 0; chunk; chunk >>= 1, ++bit) {
+		if (chunk & 1) m_next_bits.push_back(bit + m_offset * sizeof(DenseBitset::Bits) * 8);
+	}
+
+	m_offset++;
+
+	// if there are no bits in the extracted chunk, keep extracting until we get some
+	if (m_next_bits.size() == 0)
+		extractNextChunk();
+}
+
+size_t SetBitsIterator::operator*() const {
+	return m_next_bits.size() > 0 ? m_next_bits[m_next_bits_i] : Bitset::None;
+}
+
+SetBitsIterator& SetBitsIterator::operator++() {
+	m_next_bits_i++;
+	if (m_next_bits_i == m_next_bits.size()) {
+		// this resets m_next_bits_i
+		extractNextChunk();
+	}
+
+	return *this;
+}
+
+bool SetBitsIterator::operator!=(const SetBitsIterator& other) const {
+	// Note: this won't work for comparing two iterators from two different bitsets
+	return m_offset == other.m_offset && m_next_bits_i == other.m_next_bits_i;
+}
+

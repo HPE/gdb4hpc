@@ -160,11 +160,9 @@ public:
 
     // add a data reply associated with `ranks`. If `ranks` overlaps any
     // existing ranks in the rep set, the transformation function tFn is called
-    // with the already existing data and the passed `data`. the result of tFn
+    // with the already existing `oldData` and the passed `data`. the result of tFn
     // is added to the rep set, replacing any replies or parts of replies which
-    // overlap with `ranks`. tFn must not return &`data`. if tFn deems that no
-    // transformation should be applied, it should return a copy of `data`, not
-    // `data` itself.
+    // overlap with `ranks`. tFn must not return `oldDdata`.
     //
     // if any portion of `ranks` does not overlap any existing replies,
     // a new data reply is added which stores `data` without calling tFn.
@@ -176,7 +174,7 @@ public:
 
     // add a data reply associated with `ranks`. If `ranks` overlaps any
     // existing ranks in the rep set, the old data for those ranks is replaced
-    // with a copy of `data`. if any portion of `ranks` does not overlap any
+    // with `data`. if any portion of `ranks` does not overlap any
     // existing replies, a new data reply is added which stores `data`.
     //
     // after this function is called, the rep set owns

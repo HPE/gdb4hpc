@@ -384,7 +384,7 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
 };
 
 std::vector<std::string> TypeParser::m_ignore = { "const", "signed", "volatile", "shared",
-                                                  "SHARED" };
+                                                  "SHARED", "pointer,", "POINTER," };
 class ArraySlicer;
 
 // Data result reported by gdb.
@@ -1465,13 +1465,13 @@ Mi2Aif::Mi2Aif(MISession* session) : m_session(session), m_depth(0),
 
 std::string TypeParser::sanitizeType(const std::string& type) {
     // remove "const", "signed", and "volatile" from C++
-    // "shared" and "SHARED" from fortran
+    // "shared", "SHARED", "pointer," and "POINTER," from fortran
     // "@[a-zA-z]* from nvidia registers
     auto sanType = type;
     bool inW = false;
     for (int i=0, word=0; i<int(sanType.size()); ++i) {
         auto c = sanType[i];
-        auto cIsW = (::isalnum(c) || c == '_' || c == '@' || c == ':');
+        auto cIsW = (::isalnum(c) || c == '_' || c == '@' || c == ':' || c == ',');
         if (cIsW && !inW) {
             word = i;
         } else if (inW && !cIsW &&
@@ -1801,8 +1801,8 @@ std::shared_ptr<ais::Type> TypeParser::ftnWrap(std::shared_ptr<ais::Type> elemTy
                 DVPRINT("got len %d\n", len);
                 result = std::make_shared<ais::FtnArray>(result, len);
             }
-        } else if (!isspace(c) && !strchr(",ALOCTBE", c)) {
-            // notice we are ignoring ", ALLOCATABLE "
+        } else if (!isspace(c) && !strchr(",ALOCTBEaloctbe", c)) {
+            // notice we are ignoring ", ALLOCATABLE " and ", allocatable"
             DVPRINT("got unexpected character '%c'\n", c);
             return std::make_shared<ais::Unimplemented>("unknown-fortran-decoration-" + t.decoration);
         }

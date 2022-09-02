@@ -191,6 +191,7 @@ struct cli_stream_t {
         *cs_ext_funcs = nullptr;          /* cli externals associated with stream */
     cli_stream_args_t *cs_args; /* cli arguments used to initialize stream */
     cli_logging_t cs_logging;   // setting for loggind output
+    std::string cs_prefix;
 #define cs_notty_in cs_args->notty_args.in
 #define cs_notty_out cs_args->notty_args.out
 #define cs_notty_err cs_args->notty_args.err
@@ -250,10 +251,11 @@ extern void PrintOutError(const char *, ...) __attribute__((format (printf,1,2))
 extern void vPrintOutError(const char *, va_list);
 extern void PrintOutMsg(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutMsg(const char *, va_list);
-extern void PrintToFd(FILE *, const char *, ...) __attribute__((format (printf,2,3)));
-extern void vPrintToFd(FILE *, const char *, va_list);
 extern void PrintError();
+extern void PrintOutOk();
 
+enum class MIResult { DONE, STOPPED, CONTINUATION };
+extern void PrintOutMIResult(MIResult res, const char* format, ...) __attribute__((format (printf,2,3)));
 // Get/set the logging state 
 extern cli_logging_t&  GetLogging();
 extern bool SetProgramOutputFile(const char* file);
@@ -278,6 +280,10 @@ extern void cli_restore_stream(void);
 extern void cli_reset_stream(void);
 // Used to clear the current line of its input
 extern void cli_clear_line(void);
+
+extern const std::string& cli_get_prefix();
+extern void cli_set_prefix(std::string prefix);
+
 
 enum class cli_query_default { NONE, NO, YES };
 // Used to confirm dangerous instructions

@@ -1273,6 +1273,11 @@ const char* const class_info_subcmd_scope_help[] = {
     "file, or an address prefixed with *.",
     0};
 
+const char* const class_info_subcmd_source_help[] = {
+    "Display the current source file.",
+    0};
+
+
 const char* const class_info_subcmd_sources_help[] = {
     "Summary: Source file information.",
     "",
@@ -1681,6 +1686,9 @@ const char* const class_show_subcmd_environment_help[] = {
 const char* const class_show_subcmd_version_help[] = {
     "Summary: Version information.", "",
     "Description:", "Display the debugger version number.", 0};
+const char* const class_show_subcmd_prompt_help[] = {
+    "Display the debugger prompt.", 0};
+
 
 const char* const class_show_subcmd_scheduler_locking_help[] = {
     "Summary: Show the behavior of the thread schedule locking during execution",

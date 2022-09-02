@@ -111,12 +111,13 @@ force_pending_break:
             if (Client.MI_mode){
                 std::stringstream ss;
                 auto fullpath = reply->rep_di.lock()->source_paths.getFullPath(bpset->file());
-                ss<<"^done,proc_set=\""<<reply->rep_di.name()<<"\",bkpt={number=\""<<bpset->id()
-                  <<"\",type=\""<<BPTypeToStr(bpset->type())<<"\",disp=\""<<"keep"
-                  <<"\",enabled=\"y\",addr=\""<<bpset->address()
-                  <<"\",func=\""<<bpset->function()<<"\",file=\""<<bpset->file()
-                  <<"\",fullname=\""<<fullpath<<"\",line=\""<<bpset->line()<<"\"}\n(gdb)\n";
-                PrintOutMsg( ss.str().c_str());
+                ss << "proc_set=\"" << reply->rep_di.name()
+                   << "\",bkpt={number=\"" << bpset->id()
+                   << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
+                   << bpset->address() << "\",func=\"" << bpset->function()
+                   << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
+                   << "\",line=\"" <<bpset->line() << "\"}";
+                PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", ss.str().c_str());
             }else{
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Breakpoint %d: file %s, line %d%s.\n",
@@ -570,6 +571,19 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
+    if (Client.MI_mode && !rec_set) {
+        PrintOutMIResult(MIResult::DONE, "%s\n",
+                         "BreakpointTable={nr_rows=\"0\",nr_cols=\"6\","
+                         "hdr=[{width=\"3\",alignment=\"-1\",col_name=\"number\",colhdr=\"Num\"},"
+                         "{width=\"14\",alignment=\"-1\",col_name=\"type\",colhdr=\"Type\"},"
+                         "{width=\"4\",alignment=\"-1\",col_name=\"disp\",colhdr=\"Disp\"},"
+                         "{width=\"3\",alignment=\"-1\",col_name=\"enabled\",colhdr=\"Enb\"},"
+                         "{width=\"10\",alignment=\"-1\",col_name=\"addr\",colhdr=\"Address\"},"
+                         "{width=\"40\",alignment=\"2\",col_name=\"what\",colhdr=\"What\"}],"
+                         "body=[]}");
+        return 1;
+    }
+
     int bid = 0;
     std::stringstream ss;
 
@@ -883,7 +897,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
             ss<<"[";
         }
         ss<<"]}";
-        PrintOutMsg("^done,BreakpointTable={body=%s\n(gdb)\n",ss.str().c_str());
+        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=%s\n(gdb)\n",ss.str().c_str());
     }
     return 1;
 }
@@ -958,7 +972,7 @@ void InitCmd_break(void) {
                 cmd_catch_help, "Set catchpoint on specified event.");
 
     // info commands
-    AddInfoCommand("breakpoints", proc_required, 0,
+    AddInfoCommand("breakpoints", proc_optional_mi, 0,
         class_info_subcmd_breakpoints_cmd,
         class_info_subcmd_breakpoints_help,
         "Show status of breakpoints.");

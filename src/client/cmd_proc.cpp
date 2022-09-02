@@ -336,7 +336,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
     if (Client.MI_mode){
-        PrintOutMsg("^done\n(gdb)\n");
+        PrintOutOk();  // LOOKAT: better way to suppress when in -iex
     }else{
         PrintOutMsg("Launch complete.\n");
     }
@@ -1236,8 +1236,12 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             if (Client.MI_mode){
                 std::stringstream ss;
                 auto fullpath = ev_set->di().source_paths.getFullPath(frameLoc.loc_file);
-                ss<<"*stopped,reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()<<"\",frame={func=\""<<frameLoc.loc_func<<"\",args=[],file=\""<<frameLoc.loc_file<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<frameLoc.loc_line<<"\"}";
-                PrintOutMsg( ss.str().c_str() );
+                ss << "reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()
+                   <<"\",frame={func=\"" << frameLoc.loc_func
+                   <<"\",args=[],file=\""<< frameLoc.loc_file
+                   <<"\",fullname=\""<< fullpath
+                   <<"\",line=\""<<frameLoc.loc_line << "\"}";
+                PrintOutMIResult(MIResult::STOPPED, "%s\n", ss.str().c_str() );
             }
             auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
             lineArg += "," + lineArg; // filename:xx,filename:xx
@@ -1331,8 +1335,10 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     if (Client.MI_mode){
                         std::ostringstream ss;
-                        ss << "*stopped,reason=\"exited-normally\", proc_set=\""<<ev_set.di().handle().name()<<"\"";
-                        PrintOutMsg(ss.str().c_str());
+                        ss << "reason=\"exited-normally\", proc_set=\""<<ev_set.di().handle().name()<<"\"";
+                        PrintOutMIResult(MIResult::STOPPED,
+                                         "reason=\"exited-normally\", proc_set=\"%s\"\n", 
+                                         ev_set.di().handle().name().c_str());
                     }
                     PrintMsgWithSetInfo(
                         ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1392,8 +1398,13 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                             if (Client.MI_mode){
                                 std::ostringstream ss;
                                 auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
-                                ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set.di().handle().name()<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
-                                PrintOutMsg( ss.str().c_str() );
+                                ss << "reason=\"breakpoint-hit\",bkptno=\"" << bpset->id()
+                                   << "\",proc_set=\""<< ev_set.di().handle().name()
+                                   <<"\",frame={func=\""<< bpset->function()
+                                   << "\",args=[],file=\""<<bpset->file()
+                                   <<"\",fullname=\""<< fullpath
+                                   <<"\",line=\"" << bpset->line() << "\"}";
+                                PrintOutMIResult( MIResult::STOPPED, "%s\n", ss.str().c_str() );
                             }
                             PrintMsgWithSetInfo(
                                 ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1494,8 +1505,13 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                         if (Client.MI_mode){
                             std::ostringstream ss;
                             auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
-                            ss << "*stopped,reason=\"breakpoint-hit\",bkptno=\""<<bpset->id()<<"\",proc_set=\""<<ev_set.di().handle().name()<<"\",frame={func=\""<<bpset->function().c_str()<<"\",args=[],file=\""<<bpset->file().c_str()<<"\",fullname=\""<<fullpath.c_str()<<"\",line=\""<<bpset->line()<<"\"}";
-                            PrintOutMsg( ss.str().c_str() );
+                            ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bpset->id()
+                               << "\",proc_set=\"" << ev_set.di().handle().name()
+                               << "\",frame={func=\"" << bpset->function()
+                               << "\",args=[],file=\"" << bpset->file()
+                               <<"\",fullname=\""<< fullpath
+                               <<"\",line=\"" << bpset->line() << "\"}";
+                            PrintOutMIResult( MIResult::STOPPED, "%s\n", ss.str().c_str() );
                         }else{
                         PrintMsgWithSetInfo(
                             ev_set.di().handle().c_str(), &ev_set.group(),

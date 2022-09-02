@@ -109,6 +109,11 @@ static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
 
+    if (Client.MI_mode && !rec_set) {
+        PrintOutOk();
+        return 1;
+    }
+
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
     std::string arg = ArgsToString(&argv[1], argc - 1);
@@ -392,7 +397,7 @@ void InitCmd_thread(void) {
                    "Show cuda specific settings.");
 
 
-    AddInfoCommand("threads", proc_required, 0,
+    AddInfoCommand("threads", proc_optional_mi, 0,
                    class_info_subcmd_threads_cmd,
                    class_info_subcmd_threads_help,
                    "List currently known threads.");

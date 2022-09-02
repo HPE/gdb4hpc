@@ -74,7 +74,7 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
         if (ev == DBGEV_TYPE) {
             type_str = EVENT_TYPE(reply->rep_event);
             if (Client.MI_mode){
-                PrintOutMsg("^done,{name=\"var1\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", type=\"%s\"}\n(gdb)\n", type_str );
+                PrintOutMIResult(MIResult::DONE,"{name=\"var1\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", type=\"%s\"}\n", type_str );
             }else{
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n",
                                 type_str);
@@ -162,7 +162,7 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
             }
             if (Client.MI_mode && !ss.str().empty()){
                 ss<<"]}";
-                PrintOutMsg("^done,variables=%s\n(gdb)\n", ss.str().c_str());
+                PrintOutMIResult(MIResult::DONE, "variables=%s\n(gdb)\n", ss.str().c_str());
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),

@@ -622,7 +622,7 @@ void InitCmd_class(void) {
 
     // class commands
     AddClassCommand(
-        "info", NULL, proc_ignore, 1, class_info_cmd,
+        "info", "i", proc_ignore, 1, class_info_cmd,
         FindInfoCommand, class_info_help,
         "Display information about the application being debugged.");
     AddClassCommand("maint", NULL, proc_ignore, 1, class_maint_cmd,

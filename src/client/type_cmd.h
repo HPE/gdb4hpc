@@ -25,7 +25,7 @@
 enum cmdres { cmd_ok, cmd_notfound, cmd_ambig, cmd_ambig_set, cmd_ambig_info };
 typedef enum cmdres cmdres_t;
 
-enum cmdptype { proc_required, proc_optional, proc_ignore };
+enum cmdptype { proc_required, proc_optional, proc_optional_mi, proc_ignore };
 typedef enum cmdptype cmdptype_t;
 
 struct cmdtype {

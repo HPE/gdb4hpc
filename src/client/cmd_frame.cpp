@@ -177,11 +177,23 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process error
     ProcessErrorInRepSet(rep_set);
 
-    // process frame - there should only be one
-    for (auto&& reply : rep_set) {
-        // Point at the frame data
-        auto fp = EVENT_FRAME(reply->rep_event);
-        PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
+    if (Client.MI_mode && !rep_set->isEmpty()) {
+        auto reply = rep_set->getFirstReply();
+        auto f = EVENT_FRAME(reply->rep_event);
+        auto loc = f->getLoc();
+        PrintOutMIResult(MIResult::DONE,
+                        "frame={level=\"%d\",addr=\"%s\","
+                        "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
+                         f->getLevel(), loc.loc_addr,
+                         loc.loc_func, loc.loc_file, loc.loc_file, loc.loc_line);
+
+    } else {
+        // process frame - there should only be one
+        for (auto&& reply : rep_set) {
+            // Point at the frame data
+            auto fp = EVENT_FRAME(reply->rep_event);
+            PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
+        }
     }
 
     FreeRepSet(rep_set);

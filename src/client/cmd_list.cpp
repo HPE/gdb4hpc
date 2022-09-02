@@ -97,7 +97,8 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
                     }
 
                     //create message to send back to gui
-                    ss<<"{proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
+                    //ss<<"{proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
+                    ss<<"{file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
 
                     //save fullpath to source list
                     recv_ptr->rec_di.source_paths.storeSourcePath(s->sources_file);
@@ -105,13 +106,41 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
             }
         }
     }
-    if (Client.MI_mode && !ss.str().empty()){
+    if (Client.MI_mode) {
+        if (ss.str().empty()) ss << "[";
         ss<<"]";
-        PrintOutMsg("^done,files=%s\n(gdb)\n",ss.str().c_str());
+        PrintOutMIResult(MIResult::DONE, "files=%s\n(gdb)\n",ss.str().c_str());
     }
 
     FreeRepSet(rep_set);
 
+    return 1;
+}
+
+static int class_info_subcmd_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    if (!rec_set) return 1;
+
+    auto rep_set = DbgGetFrame(rec_set, false);
+    ProcessErrorInRepSet(rep_set);
+
+    if (Client.MI_mode && !rep_set->isEmpty()) {
+        auto reply = rep_set->getFirstReply();
+        auto f = EVENT_FRAME(reply->rep_event);
+        auto loc = f->getLoc();
+        PrintOutMIResult(MIResult::DONE,
+                         "line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
+                         loc.loc_line, loc.loc_file, loc.loc_file);
+    } else {
+        for (auto&& reply : rep_set) {
+            // Point at the frame data
+            auto fp = EVENT_FRAME(reply->rep_event);
+            auto loc = fp->getLoc();
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),"In file %s.\n",
+                                loc.loc_file);
+        }
+    }
+
+    FreeRepSet(rep_set);
     return 1;
 }
 
@@ -121,8 +150,14 @@ void InitCmd_list(void) {
                cmd_list_help, "List source for specified function or line.");
 
     // Info commands
+    AddInfoCommand("source", proc_required, 0,
+                   class_info_subcmd_source_cmd,
+                   class_info_subcmd_source_help,
+                   "Display information about the current source file.");
+
     AddInfoCommand("sources", proc_required, 0,
                    class_info_subcmd_sources_cmd,
                    class_info_subcmd_sources_help,
                    "Display the source files in the application.");
+
 }

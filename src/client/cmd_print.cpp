@@ -172,13 +172,14 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
         auto label = GetProcSetString(diName, reply->rep_group.get(), rec_set->getThreads());
         if (!label.empty()) label += ": ";
         if (Client.MI_mode){
-            //temporarily naming variables "var"+"number" to get distinct names, need to figure out how to get better naming convention.
+            // temporarily naming variables "var"+"number" to get distinct names, need to figure out
+            // how to get better naming convention.
             static int var_count=0;
             var_count++;
             std::string s = "var" + std::to_string(var_count);
-            PrintOutMsg("^done,name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
+            PrintOutMIResult(MIResult::DONE, "name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
             stream->print(os, label);
-            PrintOutMsg("\"\n(gdb)\n");
+            PrintOutMIResult(MIResult::CONTINUATION, "\"\n(gdb)\n");
         }else{
             PrintOutMsg("%s", ""); // currently need for edit_line interaction
             stream->print(Client.cli_out.ostream(), label);

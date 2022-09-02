@@ -548,6 +548,17 @@ static int class_show_subcmd_version_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int class_show_sub_cmd_prompt_cmd(rec_set_t *rec_set, int argc,
+                                        char **argv) {
+    if (!Client.MI_mode) {
+        PrintOutMsg("dbg all>\n");
+    } else {
+        PrintOutMIResult(MIResult::DONE, "value=\"(gdb)\"\n");
+    }
+    return 1;
+}
+
+
 static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
     const char *s;
@@ -833,10 +844,16 @@ static int class_new_ui_cmd(rec_set_t* rec_set, int argc, char**argv) {
     auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty, tty, tty);
     SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
 
+    // Set back to the default stream since this make be part of a sequence of
+    // -iex arguments
+    SetDefaultCLIStream();
+
     return 1;
 }
 
 static int class_set_subcmd_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
+    mi_log("in class_set_subcmd_inferior_tty_cmd\n");
+    
     const char* tty = nullptr;
     if (argc == 2) {
         tty = argv[1];
@@ -849,6 +866,46 @@ static int class_set_subcmd_inferior_tty_cmd(rec_set_t* rec_set, int argc, char*
         PrintOutError("Could not open %s for output.\n", tty ? tty : "default location");
         return 1;
     }
+
+    PrintOutOk();
+    return 0;
+}
+
+static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
+    if (argc < 3) {
+        PrintOutError("Usage %s console|mi <command>.\n", argv[0]);
+        return 1;
+    }
+
+    if (strcmp(argv[1],"console") != 0) {
+        PrintOutError("Only console is supported.\n");
+        return 1;
+    }
+
+    if (!Client.MI_mode) {
+        PrintOutError("Only supported from MI mode.\n");
+        return 1;
+    }
+
+    Client.MI_mode = false;
+
+    PrintOutMsg("~\"");
+
+    auto command = std::string{};
+    if (argc > 3 || argv[2][0] != '"') {
+        command = ArgsToString(argv+2, argc-2);
+    } else {
+        auto len = strlen(argv[2]);
+        command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
+    }
+    ExecuteCommand(command.c_str());
+
+    PrintOutMsg("\"\n");
+
+    Client.MI_mode = true;
+
+    PrintOutOk();
+
     return 0;
 }
 
@@ -860,6 +917,9 @@ void InitCmd_env(void) {
     AddCommand("shell", nullptr, proc_optional, 0,
                 cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
+
+    AddCommand("interpreter-exec", nullptr, proc_optional, 0,
+               cmd_interpreter_exec_cmd, nullptr, nullptr); // undocumented
 
     // maint commands
     AddMaintCommand("echo", proc_ignore, 0,
@@ -939,6 +999,10 @@ void InitCmd_env(void) {
     AddShowCommand(
         "version", proc_ignore, 0, class_show_subcmd_version_cmd,
         class_show_subcmd_version_help, "Show the debugger version number.");
+
+    AddShowCommand(
+        "prompt", proc_ignore, 0, class_show_sub_cmd_prompt_cmd,
+        class_show_subcmd_prompt_help, "Show the prompt.");
 
     // show print commands
     AddShowPrintCommand("entry-frame", proc_ignore, 0,

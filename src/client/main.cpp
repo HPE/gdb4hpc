@@ -294,6 +294,10 @@ static void readInitCommandsFile() {
 }
 
 int main(int argc, char *argv[]) {
+    for (int i=0; i<argc; ++i) {
+        mi_log("arg: %s\n", argv[i]);
+    }
+    
     int c;
     double ulp;
     int opt_ind = 0;
@@ -512,7 +516,7 @@ int main(int argc, char *argv[]) {
             // Use the default CLI
             // Check to see if stdin is a tty, if not set the default CLI to
             // notty
-            if (!isatty(STDIN_FILENO)) {
+            if (!Client.interactive || !isatty(STDIN_FILENO)) {
                 // Set the default stream to notty
                 Client.cli_mode = CLI_NOTTY_STREAM;  // CLI mode
             } else {
@@ -686,6 +690,13 @@ static void SigHandler(int sig) {
 // specify a socket.   
 void interfaceOption(const char* opt, cli_stream_args_t*& cli_args)
 {
+    if (opt && opt[0] == '=' && strstr(opt, "mi")) {
+        Client.MI_mode = true;
+        Client.silent = true;
+        Client.interactive = false;
+        return;
+    }
+
     // Setup things. Note that strsep modifies the string, so it
     // shouldn't use optarg directly.
     char* argstr = strdup(opt);

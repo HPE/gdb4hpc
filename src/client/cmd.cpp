@@ -200,6 +200,15 @@ static int _docmd(cmdlist_t *cmd, dbgprocset_t *s, cmdtype_t *c, int argc,
             case proc_ignore:
                 res = (*c->c_cmd)(NULL, argc, argv);
                 break;
+
+            case proc_optional_mi:
+                if (!Client.MI_mode && (!s || s->s_nproc <= 0)) {
+                    PrintOutError("No process, use launch/attach first.\n");
+                    res = 0;
+                } else {
+                    res = _apply_command(s, c, argc, argv);
+                }
+                break;
         }
     }
 
@@ -311,9 +320,14 @@ static cmdtype_t *_findcmd(cmdlist_t *cmds, const char *cmd) {
            (cmdtype_t *)NULL) {
         if (c->c_alias != NULL && strcmp(cmd, c->c_alias) == 0) return c;
 
-        if (strncmp(cmd, c->c_name, strlen(cmd)) == 0 && c->c_cmd != NULL) {
+        auto len = strlen(cmd);
+        if (strncmp(cmd, c->c_name, len) == 0 && c->c_cmd != NULL) {
             cnt++;
             cp = c;
+            if (strlen(c->c_name) == len) {
+                cnt = 1;  // an exact match takes precedence over a subset
+                break;
+            }
         }
     }
 
@@ -587,10 +601,11 @@ void ExecuteCommand(const char *line) {
     auto argv = ArgvStream{};
     cmdtype_t *c = NULL;
     dbgprocset_t *s = CurrentProcSet();
+    auto exiter = OnScopeExit([](){DPRINT("Exit ExecuteCommand\n");});
 
     DPRINT("In ExecuteCommand\n");
 
-    if (line == NULL) goto ExecuteCommand_exit;
+    if (line == NULL) return;
 
     cmd = strdup(line);
 
@@ -599,7 +614,7 @@ void ExecuteCommand(const char *line) {
         if ((sscanf(line, XML_REQUEST_START, &seq, &num_read)) < 1) {
             PrintOutError("XML request parse error.\n");
             cli_set_error();
-            goto ExecuteCommand_exit;
+            return;
         }
 
         Free(cmd);
@@ -611,7 +626,7 @@ void ExecuteCommand(const char *line) {
             PrintOutError("XML request parse error.\n");
             cli_set_error();
             Free(cmd);
-            goto ExecuteCommand_exit;
+            return;
         }
         needle = haystack;
 
@@ -630,23 +645,41 @@ void ExecuteCommand(const char *line) {
         *needle = '\n';
         *(needle + 1) = '\0';
         DPRINT("ExecuteCommand: seq is %d\n", seq);
-    }else if (Client.MI_mode) {
+    } else if (Client.MI_mode) {
         //Convert mi to cli command
-        cmd = strdup(convertMiToCli(cmd).c_str());
-        std::string cmd_str= strdup(cmd);
+        try {
+            auto cliCmd = convertMiToCli(cmd);
+            free(cmd);
+
+            if (cliCmd == "ok") {
+                PrintOutOk();
+                return;
+            } else if (cliCmd.rfind("ok,", 0) == 0) {
+                PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", cliCmd.substr(3).c_str());
+                return;
+            }
+
+            cmd = strdup(cliCmd.c_str());
+        } catch (std::string msg) {
+            PrintOutError("%s\n", msg.c_str());
+            free(cmd);
+            return;
+        }
+
+        std::string cmd_str = cmd;
 
         if (cmd_str.substr(0, cmd_str.find(" ")) == "-exec-run"){
-            PrintOutMsg("^running\n(gdb)\n");
-            Free(cmd);
-            goto ExecuteCommand_exit;
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
+            free(cmd);
+            return;
         }else if (cmd_str.substr(0, cmd_str.find(" ")) == "focus"){
-            PrintOutMsg("^running\n(gdb)\n");
-        }else if(strstr(cmd, " -a ")||strstr(cmd, " -v")){
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
+        }else if (strstr(cmd, " -a ")||strstr(cmd, " -v")){
             //empty so it doesn't get caught in next else statement
-        }else if ((cmd_str.substr(0, cmd_str.find(" ")) == "ignore")||strstr(cmd, "-")){
-            PrintOutMsg("^done\n(gdb)\n");
-            Free(cmd);
-            goto ExecuteCommand_exit;
+        }else if (strstr(cmd, "-")){
+            PrintOutOk();
+            free(cmd);
+            return;
         }
     }
 
@@ -659,7 +692,7 @@ void ExecuteCommand(const char *line) {
         if (!cli_start_response(seq)) {
             // Sequence number mismatch, silently fail so next command does not have interference
             Free(cmd);
-            goto ExecuteCommand_exit;
+            return;
         }
     }
     // These are not considered to be errors
@@ -667,7 +700,7 @@ void ExecuteCommand(const char *line) {
         Free(cmd);
         // Inform the cli layer that we are done executing a command
         cli_end_response();
-        goto ExecuteCommand_exit;
+        return;
     }
 
     if ((c = _findcmd(CurrentCmds, argv[0].c_str())) == (cmdtype_t *)NULL) {
@@ -677,7 +710,7 @@ void ExecuteCommand(const char *line) {
         cli_end_response();
         // set an error for the cli stream
         cli_set_error();
-        goto ExecuteCommand_exit;
+        return;
     }
 
     // do the command
@@ -687,16 +720,16 @@ void ExecuteCommand(const char *line) {
         cli_end_response();
         // set an error for the cli stream
         cli_set_error();
-        goto ExecuteCommand_exit;
+        return;
     }
 
     // Inform the cli layer that we are done executing a command
     cli_end_response();
     if (Client.MI_mode){
         if (strstr(cmd, "-exec-continue")){
-            PrintOutMsg("^running\n(gdb)\n");
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
         } else if (strstr(cmd, "focus")){
-            PrintOutMsg("^done\n(gdb)\n");
+            PrintOutOk();
         }
     }
 
@@ -709,7 +742,5 @@ void ExecuteCommand(const char *line) {
 
     DPRINT("ExecuteCommand: Command ok!\n");
 
-ExecuteCommand_exit:
-    DPRINT("Exit ExecuteCommand\n");
     return;
 }

@@ -32,6 +32,7 @@ static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_
 static void cli_handle_error(void);
 static void ProgOutLineStream(DbgInvoke *, FILE *);
 static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &lines);
+static void vPrintOutMIMsg(const char *format, va_list arg_list);
 
 /*
  * Static Global Variables
@@ -923,6 +924,26 @@ void vPrintOutError(const char *format, va_list arg_list) {
 
         // Print out XML error end
         fprintf(f, XML_RESPONSE_ERROR_END);
+    } else if (Client.MI_mode) {
+        // We can print out a MI error message here for now, but this will
+        // sooner or later prove insufficient since it assumes PrintOutError
+        // is called *exactly once* when a command fails.
+        auto errFmt = std::string{format};
+        auto hasNL = false;
+        for (std::size_t pos=0; (pos=errFmt.find_first_of("\"\n",pos)) != std::string::npos; ) {
+            if (errFmt[pos] == '\n') hasNL = true;
+            errFmt.erase(pos,1);
+        }
+        errFmt = cli_get_prefix() + "^error,msg=\"" + errFmt + (hasNL ? "\"\n" : "\"" );
+
+        va_list args2;
+        va_copy(args2, arg_list);
+
+        vfprintf(f, errFmt.c_str(), arg_list);
+
+        mi_logv2("output mi:", errFmt.c_str(), args2);
+        va_end(args2);
+        
     } else {
         // vfprintf the line we recieved
         vfprintf(f, format, arg_list);
@@ -932,10 +953,13 @@ void vPrintOutError(const char *format, va_list arg_list) {
     DbgUnmaskInput();
 }
 
+
 /*
 ** fprintf a line to stdout without saving input
 */
 void PrintOutMsg(const char *format, ...) {
+    
+    
     va_list arg_list;
 
     // setup the va_list
@@ -948,6 +972,11 @@ void PrintOutMsg(const char *format, ...) {
 }
 
 void vPrintOutMsg(const char *format, va_list arg_list) {
+    if (Client.MI_mode) {
+        vPrintOutMIMsg(format, arg_list);
+        return;
+    }
+
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream) {
         // we need to disable input processing while we are printing
@@ -964,6 +993,43 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
 
     // vfprintf the line we recieved
     CurrentStream->cs_out.vprintf(format, arg_list);
+}
+
+void PrintOutOk() {
+    if (Client.MI_mode) {
+        //CurrentStream->cs_out("^done\n(gdb)\n");
+        CurrentStream->cs_out("%s^done\n(gdb)\n", cli_get_prefix().c_str());
+    }
+}
+
+static void vPrintOutMIMsg(const char *format, va_list arg_list) {
+    // ignoring embedded quotes for the moment
+    CurrentStream->cs_out("~\"");
+    CurrentStream->cs_out.vprintf(format, arg_list);
+    CurrentStream->cs_out("\"\n");
+}
+
+void PrintOutMIResult(MIResult res, const char* format, ...)
+{
+    if (res == MIResult::DONE) CurrentStream->cs_out("%s^done,", cli_get_prefix().c_str());
+    else if (res == MIResult::STOPPED) CurrentStream->cs_out("%s*stopped,", cli_get_prefix().c_str());
+
+
+    va_list args;
+    va_start(args, format);
+    CurrentStream->cs_out.vprintf(format, args);
+    va_end(args);
+}
+
+// The prefix is currently used in MI mode where each input has an
+// optional numeric tag this is prepended to any output from that
+// command.
+const std::string& cli_get_prefix() {
+    return CurrentStream->cs_prefix;
+}
+void cli_set_prefix(std::string prefix)
+{
+    CurrentStream->cs_prefix = std::move(prefix);
 }
 
 cli_out_t::cli_out_t() : m_out(nullptr), m_log(nullptr) {}
@@ -986,6 +1052,19 @@ void cli_out_t::vprintf(const char *format, va_list args) {
 
     // clear the current line this should contain a prompt
     cli_clear_line();
+
+    if (Client.MI_mode) {
+        static const char* tag0 = "output MI:";
+        static const char* tag = tag0;
+        va_list spargs;
+        va_copy(spargs, args);
+        mi_logv2(tag, format, spargs);
+
+        auto len = strlen(format);
+        if (len && format[len-1] == '\n') tag = tag0;
+        else tag = "";
+        va_end(spargs);
+    }
 
     // vfprintf the line we recieved
     if (m_out && m_log) {

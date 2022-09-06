@@ -145,7 +145,7 @@ namespace {
 std::unique_ptr<ais::Printer> ais::Char::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(char val) override { out << static_cast<int>(val) << " " << CharLiteral{val}; }
+        void operator()(char val) override { out << format() << static_cast<int>(val) << " " << CharLiteral{val}; }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -166,7 +166,7 @@ std::string ais::Char::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::SignedChar::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(char val) override { out << static_cast<int>(val) << " " << CharLiteral(val); }
+        void operator()(char val) override { out << format() << static_cast<int>(val) << " " << CharLiteral(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -180,7 +180,7 @@ std::unique_ptr<ais::Printer> ais::UnsignedChar::makePrinter(Printer& parent) co
         TPrinter(Printer& parent) : Printer(parent) {}
         void operator()(char val) override {
             auto v = static_cast<unsigned int>(static_cast<unsigned char>(val));
-            out << v << " " << CharLiteral(val);
+            out << format() << v << " " << CharLiteral(val);
         }
     };
     return std::make_unique<TPrinter>(parent);
@@ -216,7 +216,7 @@ std::unique_ptr<ais::Printer>
 ais::UnsignedShort::makePrinter(ais::Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(int val) override { out << static_cast<unsigned short>(val); }
+        void operator()(int val) override { out << format() << static_cast<unsigned short>(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -252,7 +252,7 @@ std::string ais::Int::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedInt::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(int val) { out << static_cast<unsigned int>(val); }
+        void operator()(int val) { out << format() << static_cast<unsigned int>(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -289,7 +289,7 @@ std::string ais::Long::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedLong::makePrinter(Printer& parent) const {
     struct  TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(long val) override { out << static_cast<unsigned long>(val); }
+        void operator()(long val) override { out << format() << static_cast<unsigned long>(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -325,7 +325,7 @@ std::string ais::LongLong::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedLongLong::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(long long val) override { out << static_cast<unsigned long long>(val); }
+        void operator()(long long val) override { out << format() << static_cast<unsigned long long>(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -1984,6 +1984,7 @@ void ais::ReaderStream::apply(ais::Visitor& v) {
 
 namespace ais {
 
+
     // When printing the data object, the data is handled by the most deeply nested
     // data type, i.e. the top of the Printer stack.   But we need a single object to
     // be passed around by 'apply', so PrinterMaster is a little class that forwards 
@@ -1991,7 +1992,10 @@ namespace ais {
     // intercepting the nest and unnest callbacks.
     class PrinterMaster : public Printer {
     public:
-        PrinterMaster(const std::string& label, std::ostream& aout) : Printer(aout), m_label(label) {}
+        PrinterMaster(const std::string& label, std::ostream& aout,
+                      const Formatter& formatter) : Printer(aout), m_label(label),
+                                                    m_formatter(formatter)
+        {}
         void setTop(Printer* p) {
             if (p == this) {
                 // nest/unnest is unbalanced.  I could throw an exception here, but
@@ -2032,15 +2036,19 @@ namespace ais {
         void startChild() override {}
         void endChild() override {}
         std::string getLabel() override { auto label = std::string{}; m_label.swap(label); return label; }
+
+        Formatter& getFormatter() { return m_formatter; }
+            
     private:
         std::string m_label;
         Printer* m_top = nullptr;
+        Formatter m_formatter;
     };
 }
 
-void ais::print(VStream& val, const std::string& label, std::ostream& out) {
+void ais::print(VStream& val, const std::string& label, const std::string& format, std::ostream& out) {
     try {
-        PrinterMaster printer(label, out);
+        PrinterMaster printer(label, out, Formatter(format));
         val.apply(printer);
     } catch (std::exception& err) {
         out << "caught error printing result " << err.what();
@@ -2374,9 +2382,9 @@ ais::Printer::Printer(std::ostream& o) :
 
 void ais::Printer::operator()(bool val) { out << (val ? "true" : "false"); }
 void ais::Printer::operator()(char val) { out << val; }
-void ais::Printer::operator()(int val) {  out << val; }
-void ais::Printer::operator()(long val) { out << val; }
-void ais::Printer::operator()(long long val) { out << val; }
+void ais::Printer::operator()(int val) {  out << format() << val; }
+void ais::Printer::operator()(long val) { out << format() << val; }
+void ais::Printer::operator()(long long val) { out << format() << val; }
 void ais::Printer::operator()(float val) {
     out << std::setprecision(std::numeric_limits<float>::digits10) << val;
 }
@@ -2413,8 +2421,22 @@ std::string ais::Printer::getLabel() {
     return ((parent == &master) ? master.getLabel() : "");
 }
 
+ais::Formatter& ais::Printer::format() { return master.getFormatter(); }
+
 std::unique_ptr<ais::Printer> ais::Type::makePrinter(Printer& parent) const {
     return std::make_unique<ais::Printer>(parent);
+}
+
+ais::Formatter::Formatter(const std::string& format) {
+    if (format.find('x') != std::string::npos) form = HEX;
+    else if (format.find('o') != std::string::npos) form = OCT;
+    else if (format.find('t') != std::string::npos) form = BIN;
+    else if (format.find('z') != std::string::npos) form = PADDED_BIN;
+}
+
+ais::Formatter& operator<<(std::ostream& s, ais::Formatter& f) {
+    f.os = &s;
+    return f;
 }
 
 PrimCompare::PrimCompare(double eqTol, double warnTol, ais::Difference& diff) :

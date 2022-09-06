@@ -314,17 +314,19 @@ static cmdtype_t *_findcmd(cmdlist_t *cmds, const char *cmd) {
     cmdtype_t *c;
     cmdtype_t *cp = NULL;
 
+    auto cmdlen = strlen(cmd);
+    if (auto slash = strchr(cmd, '/')) cmdlen = (slash-cmd);
+
     SetList(cmds->cmd_list);
 
     while ((c = (cmdtype_t *)GetListElement(cmds->cmd_list)) !=
            (cmdtype_t *)NULL) {
-        if (c->c_alias != NULL && strcmp(cmd, c->c_alias) == 0) return c;
+        if (c->c_alias && strlen(c->c_alias) == cmdlen && strncmp(cmd, c->c_alias, cmdlen) == 0) return c;
 
-        auto len = strlen(cmd);
-        if (strncmp(cmd, c->c_name, len) == 0 && c->c_cmd != NULL) {
+        if (strncmp(cmd, c->c_name, cmdlen) == 0 && c->c_cmd != NULL) {
             cnt++;
             cp = c;
-            if (strlen(c->c_name) == len) {
+            if (strlen(c->c_name) == cmdlen) {
                 cnt = 1;  // an exact match takes precedence over a subset
                 break;
             }

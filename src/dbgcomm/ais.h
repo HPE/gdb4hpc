@@ -323,6 +323,17 @@ private:
     F f;
 };
 
+
+class Formatter {
+public:
+    Formatter(const std::string& format);
+    Formatter(const Formatter&) = default;
+    enum Form { DEC, HEX, OCT, BIN, PADDED_BIN };
+    Form form = DEC;
+    std::ostream* os = nullptr;
+};
+
+    
 // Visitor class for applying the print operation to the data structure.
 // The print operation is very specialized to the actual data types,
 // and is not always stateless (e.g. print a comma before the element
@@ -330,6 +341,7 @@ private:
 // stucture we maintain a set of Printer objects that mirrors the
 // data structure nesting.
 class PrinterMaster;
+    
 class Printer : public Visitor {
 public:
     Printer(Printer& aparent);
@@ -351,6 +363,8 @@ public:
     void addMetaInfo(const Type* t, std::pair<int,int> info) override;
     void end() override;
     void unnest();
+
+    Formatter& format();
 
     virtual void startChild();
     virtual void endChild();
@@ -1060,7 +1074,7 @@ std::bitset<6> compare(VStream& a, VStream& b, Difference& diff,
 // print a data stream, prepend with label if given.
 // (note, label is passed in mainly because it needs to be interpolated into
 //  MultiTheadOutput).
-void print(ais::VStream& from, const std::string& label, std::ostream& stream);
+void print(ais::VStream& from, const std::string& label, const std::string& format, std::ostream& stream);
 
 std::shared_ptr<ais::VStream> makeBinaryOpStream(
     std::shared_ptr<ais::VStream> a,
@@ -1068,3 +1082,29 @@ std::shared_ptr<ais::VStream> makeBinaryOpStream(
     std::unique_ptr<ais::BinaryOperator>&& op);
 
 } // namespace ais
+
+ais::Formatter& operator<<(std::ostream& s, ais::Formatter& f);
+
+template <class T>
+std::ostream& operator<<(ais::Formatter& f, T val) {
+    switch (f.form) {
+    default:
+    case ais::Formatter::DEC:
+        return *f.os << val;
+    case ais::Formatter::HEX:
+        return *f.os << std::hex << std::showbase << val << std::dec << std::noshowbase;
+    case ais::Formatter::OCT:
+        return *f.os << std::oct << std::showbase << val << std::dec << std::noshowbase;
+    case ais::Formatter::BIN: {
+        typename std::make_unsigned<T>::type m;
+        for (m = 1; val & ~(2*m-1); m <<= 1) {}
+        for ( ; m ; m >>= 1) { *f.os << ((val & m) ? 1 : 0); };
+        return *f.os;
+    }
+    case ais::Formatter::PADDED_BIN: {
+        typename std::make_unsigned<T>::type m = ~0;
+        for (m = m ^ (m>>1); m ; m >>= 1) { *f.os << ((val & m) ? 1 : 0); };
+        return *f.os;
+    }
+    }
+}

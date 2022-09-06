@@ -408,11 +408,11 @@ AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
 }
 
 void AIFStream::print(std::ostream& os) {
-    ais::print(getVStream(), "", os);
+    ais::print(getVStream(), "", "", os);
 }
 
-void AIFStream::print(std::ostream& os, const std::string& label) {
-    ais::print(getVStream(), label, os);
+void AIFStream::print(std::ostream& os, const std::string& label, const std::string& format) {
+    ais::print(getVStream(), label, format, os);
 }
 
 

@@ -104,7 +104,7 @@ public:
 
     // Print the data in human readable form
     void print(std::ostream & out);
-    void print(std::ostream& out, const std::string& label);
+    void print(std::ostream& out, const std::string& label, const std::string& format);
 
     // Create an AIFStream representing a single value
     static AIFStream* fromInt(int val);

@@ -107,6 +107,20 @@ a{0..2}: {{1,2},{3,0}}
 a{0..2}: {{1,2},{3,0}...}
 47: p two_d
 a{0..2}: {"Hel"...}
-48: kill $a
+54: set print elements 0
+55: assign intarray2d[1][0] 271
+56: assign intarray2d[1][1] -1
+57: p/x intarray2d
+a{0..2}: {{0x1,0x2},{0x10f,0xffffffff}}
+58: p/o intarray2d
+a{0..2}: {{01,02},{0417,037777777777}}
+59: print /t intarray2d
+a{0..2}: {{1,10},{100001111,11111111111111111111111111111111}}
+60: print /z intarray2d
+a{0..2}: {{00000000000000000000000000000001,00000000000000000000000000000010},{00000000000000000000000100001111,11111111111111111111111111111111}}
+61: p/n intarray2d
+Unrecognized format 'n'.
+Command resulted in an error: 61: p/n intarray2d
+62: kill $a
 Shutting down debugger and killing application for 'a'.
-49: q
+63: q

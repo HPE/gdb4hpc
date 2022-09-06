@@ -25,13 +25,13 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
                 case 1:
                     PrintOutMsg(
                         "Comparison is false. The difference delta is:\n");
-                    if (PrintVal(difference, &recSet) < 0) PrintError();
+                    if (PrintVal(difference, &recSet, "") < 0) PrintError();
                     break;
                 case -2:
                 case 2:
                     PrintOutMsg(
                         "Comparison is warn. The difference delta is:\n");
-                    if (PrintVal(difference, &recSet) < 0) PrintError();
+                    if (PrintVal(difference, &recSet, "") < 0) PrintError();
                     break;
                 case 3:
                     PrintOutMsg(
@@ -141,7 +141,7 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
             // print out the difference deltas once
             if (print_diff) {
                 PrintOutMsg("The difference delta is:\n");
-                if (PrintVal(difference, &recSet) < 0) PrintError();
+                if (PrintVal(difference, &recSet, "") < 0) PrintError();
             }
             break;
         }

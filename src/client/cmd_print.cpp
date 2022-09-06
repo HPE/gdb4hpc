@@ -48,7 +48,7 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
 }
 
 // external exposure
-int PrintVal(val_t *val, rec_set_t *rec_set) {
+int PrintVal(val_t *val, rec_set_t *rec_set, const std::string& format) {
     dbgprocset_t *pr = NULL;
     rep_set_t *rep_set;
 
@@ -66,7 +66,7 @@ int PrintVal(val_t *val, rec_set_t *rec_set) {
     switch (RVAL_TYPE(val)) {
         case rval_aif:
             // Print the result
-            RVAL_AIF(val)->print(Client.cli_out.ostream());
+            RVAL_AIF(val)->print(Client.cli_out.ostream(), "", format);
             PrintOutMsg("\n");
 
             break;
@@ -148,9 +148,9 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
 }
 
 // print the value of \a prefixed with the process and possibly thread info.
-static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
+static int printValWithThreads(val_t *val, rec_set_t *rec_set, const std::string& format) {
     if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
-        return PrintVal(val, rec_set);
+        return PrintVal(val, rec_set, format);
     }
 
     // Retrieve the contents of the val
@@ -178,11 +178,11 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
             var_count++;
             std::string s = "var" + std::to_string(var_count);
             PrintOutMIResult(MIResult::DONE, "name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
-            stream->print(os, label);
+            stream->print(os, label, format);
             PrintOutMIResult(MIResult::CONTINUATION, "\"\n(gdb)\n");
         }else{
             PrintOutMsg("%s", ""); // currently need for edit_line interaction
-            stream->print(Client.cli_out.ostream(), label);
+            stream->print(Client.cli_out.ostream(), label, format);
             PrintOutMsg("\n");
         }
     }
@@ -191,29 +191,35 @@ static int printValWithThreads(val_t *val, rec_set_t *rec_set) {
 }
 
 static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    val_t *val;
-    expr_t *e;
-    char *buf;
 
     if (argc < 2) return 1;
 
-    if (argc <= 0) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: print expr\n");
-        return 1;
+    auto format = std::string{}, args = std::string{};
+
+    // Check for print format modifier
+    if (auto slash = strchr(argv[0], '/')) {
+        format = std::string{slash+1};
+        args = ArgsToString(argv+1, argc-1);
+    } else if (argv[1][0] == '/') {
+        if (argc < 3) return 1;
+        format = std::string{argv[1]+1};
+        args = ArgsToString(argv+2, argc-2);
+    } else {
+        args = ArgsToString(argv+1, argc-1);
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
-
-    if ((e = ParseExpr(buf)) == NULL) {
-        PrintError();
-        Free(buf);
+    if (auto bad = format.find_first_not_of("xotz"); bad != std::string::npos) {
+        PrintOutError("Unrecognized format \'%c\'.\n", format[bad]);
         return 0;
     }
 
-    // done with buf
-    Free(buf);
+    auto e = ParseExpr(args.c_str());
+    if (!e) {
+        PrintError();
+        return 0;
+    }
 
+    val_t *val;
     if (EvalExpr(&val, e, rec_set) < 0) {
         PrintError();
         FreeExpr(e);
@@ -241,7 +247,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     DPERFLOG(SetTimerStart("print"));
 
-    printValWithThreads(val, rec_set);
+    printValWithThreads(val, rec_set, format);
 
     DPERFLOG(SetTimerStopAndLog("print"));
 

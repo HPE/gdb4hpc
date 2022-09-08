@@ -27,7 +27,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_environment_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
     int putenv_str_size;
     char *putenv_str;
@@ -75,7 +75,7 @@ static int class_set_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+static int cmd_unset_environment_cmd(rec_set_t *rec_set, int argc,
                                               char **argv) {
     char *str;
     char *name;
@@ -117,7 +117,7 @@ static int class_unset_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_environment_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_environment_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     char *str;
     char *name;
@@ -178,7 +178,7 @@ int cmd_quit_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_echo_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
     char *echo_str;
 
@@ -194,7 +194,7 @@ static int class_maint_subcmd_echo_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_subcmd_sleep_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_sleep_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     int time = 5;
 
@@ -302,7 +302,7 @@ static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_set_earlyentry_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
     ct_val cv;
@@ -333,7 +333,7 @@ static int class_maint_set_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_show_earlyentry_cmd(rec_set_t *rec_set, int argc,
                                                   char **argv) {
     if (Client.early_entry)
         PrintOutMsg("Early entry mode enabled.\n");
@@ -343,7 +343,7 @@ static int class_maint_show_subcmd_earlyentry_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_set_unsafe_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     const char *s;
     ct_val cv;
@@ -374,7 +374,7 @@ static int class_maint_set_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_show_unsafe_cmd(rec_set_t *rec_set, int argc,
                                               char **argv) {
     if (Client.unsafe)
         PrintOutMsg("Unsafe mode enabled.\n");
@@ -384,7 +384,7 @@ static int class_maint_show_subcmd_unsafe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_set_sync_cmd(rec_set_t *rec_set, int argc,
                                            char **argv) {
     const char *s;
     ct_val cv;
@@ -423,7 +423,7 @@ static int class_maint_set_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_show_sync_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
     if (Client.sync_wait)
         PrintOutMsg("Synchronous event mode enabled.\n");
@@ -433,7 +433,7 @@ static int class_maint_show_subcmd_sync_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_status_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     rep_set_t *rep_set;
     dbgstatus_t *s;
@@ -493,7 +493,7 @@ static int class_info_subcmd_status_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_directory_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     rep_set_t *rep_set;
     char *new_path;
@@ -521,7 +521,7 @@ static int class_set_subcmd_directory_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_directories_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     rep_set_t *rep_set;
     char *path;
@@ -542,7 +542,7 @@ static int class_show_subcmd_directories_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_version_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_version_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     PrintOutMsg("Version %s\n", GUARD_VERSION);
     return 1;
@@ -559,7 +559,7 @@ static int class_show_sub_cmd_prompt_cmd(rec_set_t *rec_set, int argc,
 }
 
 
-static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_error_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
     const char *s;
     char *buf;
@@ -634,7 +634,7 @@ static int class_set_subcmd_error_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_error_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_error_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
     PrintOutMsg("Warning epsilon: ");
     PrintOutMsg("%.16lg", Client.cmp_lower_eps);
@@ -656,7 +656,7 @@ static bool get_on_off(char *val){
 }
 
 // Set output redirection for logging purposes
-static int class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
+static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
 
     // Constant vector of valid arguments
     const static std::vector<std::string> valid_args = {"on", "off"};
@@ -737,7 +737,7 @@ static int class_set_subcmd_logging_cmd(rec_set_t *rec_set, int argc, char **arg
     return 1;
 }
 
-static int class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_print_entryframe_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
     int entryframe_flag;
@@ -773,7 +773,7 @@ static int class_set_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_print_entryframe_cmd(rec_set_t *rec_set, int argc,
                                                   char **argv) {
     if (Client.print_entry_frame)
         PrintOutMsg("print entry-frame enabled.\n");
@@ -783,7 +783,7 @@ static int class_show_print_subcmd_entryframe_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_set_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_print_sourceonstep_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
     int sourceonstep_flag;
@@ -819,7 +819,7 @@ static int class_set_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_print_subcmd_sourceonstep_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_print_sourceonstep_cmd(rec_set_t *rec_set, int argc,
                                                   char **argv) {
     if (Client.print_source_on_step)
         PrintOutMsg("print source-on-step enabled.\n");
@@ -851,8 +851,8 @@ static int class_new_ui_cmd(rec_set_t* rec_set, int argc, char**argv) {
     return 1;
 }
 
-static int class_set_subcmd_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
-    mi_log("in class_set_subcmd_inferior_tty_cmd\n");
+static int cmd_set_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
+    mi_log("in cmd_set_inferior_tty_cmd\n");
     
     const char* tty = nullptr;
     if (argc == 2) {
@@ -923,120 +923,120 @@ void InitCmd_env(void) {
 
     // maint commands
     AddMaintCommand("echo", proc_ignore, 0,
-                    class_maint_subcmd_echo_cmd,
-                    class_maint_subcmd_echo_help, "Echo a string.");
+                    cmd_maint_echo_cmd,
+                    cmd_maint_echo_help, "Echo a string.");
 
     AddMaintCommand("system", proc_ignore, 0,
                 cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
 
     AddMaintCommand("sleep", proc_ignore, 0,
-                    class_maint_subcmd_sleep_cmd,
-                    class_maint_subcmd_sleep_help, "Pause the debugger.");
+                    cmd_maint_sleep_cmd,
+                    cmd_maint_sleep_help, "Pause the debugger.");
     
 
     // info commands
     AddInfoCommand("status", proc_required, 0,
-                   class_info_subcmd_status_cmd,
-                   class_info_subcmd_status_help,
+                   cmd_info_status_cmd,
+                   cmd_info_status_help,
                    "Display the status of the debug servers.");
 
     // set commands
     AddSetCommand("directory", proc_required, 0,
-                  class_set_subcmd_directory_cmd,
-                  class_set_subcmd_directory_help,
+                  cmd_set_directory_cmd,
+                  cmd_set_directory_help,
                   "Add directory to search path for source files.");
     AddSetCommand("error", proc_ignore, 0,
-                  class_set_subcmd_error_cmd,
-                  class_set_subcmd_error_help,
+                  cmd_set_error_cmd,
+                  cmd_set_error_help,
                   "Set warn and error epsilon for floating point comparison.");
     AddSetCommand("environment", proc_ignore, 0,
-                  class_set_subcmd_environment_cmd,
-                  class_set_subcmd_environment_help,
+                  cmd_set_environment_cmd,
+                  cmd_set_environment_help,
                   "Set environment variable value for launching applications.");
     AddSetCommand("logging", proc_ignore, 0,
-                  class_set_subcmd_logging_cmd,
-                  class_set_subcmd_logging_help,
+                  cmd_set_logging_cmd,
+                  cmd_set_logging_help,
                   "Redirect client side output.");
 
     // set print commands
     AddSetPrintCommand(
         "entry-frame", proc_ignore, 0,
-        class_set_print_subcmd_entryframe_cmd,
-        class_set_print_subcmd_entryframe_help,
+        cmd_set_print_entryframe_cmd,
+        cmd_set_print_entryframe_help,
         "Enable/disable printing of entry frames on launch/attach.");
     AddSetPrintCommand(
         "source-on-step", proc_ignore, 0,
-        class_set_print_subcmd_sourceonstep_cmd,
-        class_set_print_subcmd_sourceonstep_help,
+        cmd_set_print_sourceonstep_cmd,
+        cmd_set_print_sourceonstep_help,
         "Enable/disable printing of source on step/next.");
 
     // maint set commands
     AddMaintSetCommand("earlyentry", proc_ignore, 0,
-                       class_maint_set_subcmd_earlyentry_cmd,
-                       class_maint_set_subcmd_earlyentry_help,
+                       cmd_maint_set_earlyentry_cmd,
+                       cmd_maint_set_earlyentry_help,
                        "Enable early entry mode.");
     AddMaintSetCommand(
-        "unsafe", proc_ignore, 0, class_maint_set_subcmd_unsafe_cmd,
-        class_maint_set_subcmd_unsafe_help, "Enable unsafe functionality.");
+        "unsafe", proc_ignore, 0, cmd_maint_set_unsafe_cmd,
+        cmd_maint_set_unsafe_help, "Enable unsafe functionality.");
     AddMaintSetCommand(
-        "sync", proc_ignore, 0, class_maint_set_subcmd_sync_cmd,
-        class_maint_set_subcmd_sync_help, "Enable synchronous event mode.");
+        "sync", proc_ignore, 0, cmd_maint_set_sync_cmd,
+        cmd_maint_set_sync_help, "Enable synchronous event mode.");
 
     // show commands
     AddShowCommand("directories", proc_required, 0,
-                   class_show_subcmd_directories_cmd,
-                   class_show_subcmd_directories_help,
+                   cmd_show_directories_cmd,
+                   cmd_show_directories_help,
                    "Show current search path for finding source files.");
     AddShowCommand(
-        "error", proc_ignore, 0, class_show_subcmd_error_cmd,
-        class_show_subcmd_error_help,
+        "error", proc_ignore, 0, cmd_show_error_cmd,
+        cmd_show_error_help,
         "Show warn and error epsilon for floating point comparison.");
     AddShowCommand("environment", proc_ignore, 0,
-                   class_show_subcmd_environment_cmd,
-                   class_show_subcmd_environment_help,
+                   cmd_show_environment_cmd,
+                   cmd_show_environment_help,
                    "Show environment variables that were set.");
     AddShowCommand(
-        "version", proc_ignore, 0, class_show_subcmd_version_cmd,
-        class_show_subcmd_version_help, "Show the debugger version number.");
+        "version", proc_ignore, 0, cmd_show_version_cmd,
+        cmd_show_version_help, "Show the debugger version number.");
 
     AddShowCommand(
         "prompt", proc_ignore, 0, class_show_sub_cmd_prompt_cmd,
-        class_show_subcmd_prompt_help, "Show the prompt.");
+        cmd_show_prompt_help, "Show the prompt.");
 
     // show print commands
     AddShowPrintCommand("entry-frame", proc_ignore, 0,
-                        class_show_print_subcmd_entryframe_cmd,
-                        class_show_print_subcmd_entryframe_help,
+                        cmd_show_print_entryframe_cmd,
+                        cmd_show_print_entryframe_help,
                         "Show setting of print entry-frame mode.");
     AddShowPrintCommand("source-on-step", proc_ignore, 0,
-                        class_show_print_subcmd_sourceonstep_cmd,
-                        class_show_print_subcmd_sourceonstep_help,
+                        cmd_show_print_sourceonstep_cmd,
+                        cmd_show_print_sourceonstep_help,
                         "Show setting of print source-on-step mode.");
 
     // maint show commands
     AddMaintShowCommand("earlyentry", proc_ignore, 0,
-                        class_maint_show_subcmd_earlyentry_cmd,
-                        class_maint_show_subcmd_earlyentry_help,
+                        cmd_maint_show_earlyentry_cmd,
+                        cmd_maint_show_earlyentry_help,
                         "Show setting of early entry mode.");
     AddMaintShowCommand(
-        "unsafe", proc_ignore, 0, class_maint_show_subcmd_unsafe_cmd,
-        class_maint_show_subcmd_unsafe_help, "Show setting of unsafe mode.");
+        "unsafe", proc_ignore, 0, cmd_maint_show_unsafe_cmd,
+        cmd_maint_show_unsafe_help, "Show setting of unsafe mode.");
     AddMaintShowCommand("sync", proc_ignore, 0,
-                        class_maint_show_subcmd_sync_cmd,
-                        class_maint_show_subcmd_sync_help,
+                        cmd_maint_show_sync_cmd,
+                        cmd_maint_show_sync_help,
                         "Show setting of synchronous event mode.");
 
     // unset commands
     AddUnsetCommand("environment", proc_ignore, 0,
-                    class_unset_subcmd_environment_cmd,
-                    class_unset_subcmd_environment_help,
+                    cmd_unset_environment_cmd,
+                    cmd_unset_environment_help,
                     "Remove a previously set environment variable.");
 
     // MI related commands - not documented
     AddCommand("new-ui", nullptr, proc_ignore, 0, class_new_ui_cmd, nullptr, nullptr);
 
-    AddSetCommand("inferior-tty", proc_ignore, 0, class_set_subcmd_inferior_tty_cmd,
+    AddSetCommand("inferior-tty", proc_ignore, 0, cmd_set_inferior_tty_cmd,
                   nullptr,  "set the tty for the application i/o");
                
 }

@@ -94,7 +94,7 @@ static func_t *ParseFuncDef(const char *str) {
     return f;
 }
 
-static int class_set_subcmd_function_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_function_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     char *buf;
 
@@ -117,7 +117,7 @@ static int class_set_subcmd_function_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_subcmd_function_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_function_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     func_t *f;
 
@@ -137,11 +137,11 @@ static int class_show_subcmd_function_cmd(rec_set_t *rec_set, int argc,
 
 void InitCmd_func(void) {
     AddSetCommand("function", proc_ignore, 0,
-                  class_set_subcmd_function_cmd,
-                  class_set_subcmd_function_help, "Define a function.");
+                  cmd_set_function_cmd,
+                  cmd_set_function_help, "Define a function.");
     AddShowCommand("function", proc_ignore, 0,
-                   class_show_subcmd_function_cmd,
-                   class_show_subcmd_function_help,
+                   cmd_show_function_cmd,
+                   cmd_show_function_help,
                    "Show information about defined functions.");
 }
 

@@ -134,7 +134,7 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** this to info locals instead. Now it displays the local variables of the
 ** current frame.
 */
-static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
@@ -177,7 +177,7 @@ static int class_info_subcmd_locals_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
     rep_set_t *rep_set;
     dbgvars_t *v;
@@ -221,7 +221,7 @@ static int class_info_subcmd_scope_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_info_subcmd_args_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_args_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
     auto rep_set = DbgGetArgs(rec_set);
 
@@ -257,17 +257,17 @@ void InitCmd_whatis(void) {
 
 
     AddInfoCommand("locals", proc_required, 0,
-                   class_info_subcmd_locals_cmd,
-                   class_info_subcmd_locals_help,
+                   cmd_info_locals_cmd,
+                   cmd_info_locals_help,
                    "List local variables of ranks in current process set.");
 
     AddInfoCommand("args", proc_required, 0,
-                   class_info_subcmd_args_cmd,
-                   class_info_subcmd_args_help,
+                   cmd_info_args_cmd,
+                   cmd_info_args_help,
                    "List argument variables of the current frame.");
 
     AddInfoCommand("scope", proc_required, 0,
-                   class_info_subcmd_scope_cmd,
-                   class_info_subcmd_scope_help,
+                   cmd_info_scope_cmd,
+                   cmd_info_scope_help,
                    "List variables local to a scope in the application.");
 }

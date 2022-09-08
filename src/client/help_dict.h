@@ -63,15 +63,15 @@ extern const char* const cmd_build_help[];
 extern const char* const cmd_start_help[];
 extern const char* const cmd_stop_help[];
 
-extern const char* const cmd_blockmap_alt_dimension_help[];
-extern const char* const cmd_blockmap_alt_distribute_help[];
-extern const char* const cmd_blockmap_alt_proc_grid_help[];
-extern const char* const cmd_blockmap_alt_dim_order_help[];
-extern const char* const cmd_blockmap_alt_end_help[];
-extern const char* const cmd_script_alt_assert_help[];
-extern const char* const cmd_script_alt_end_help[];
-extern const char* const cmd_script_alt_set_help[];
-extern const char* const cmd_script_alt_show_help[];
+extern const char* const cmd_blockmap_dimension_help[];
+extern const char* const cmd_blockmap_distribute_help[];
+extern const char* const cmd_blockmap_proc_grid_help[];
+extern const char* const cmd_blockmap_dim_order_help[];
+extern const char* const cmd_blockmap_end_help[];
+extern const char* const cmd_script_assert_help[];
+extern const char* const cmd_script_end_help[];
+extern const char* const cmd_script_set_help[];
+extern const char* const cmd_script_show_help[];
 
 /**********************************************
  * Command class help definitions
@@ -95,104 +95,104 @@ extern const char* const class_usage_help[];
 /*
  * Class info subcommands
  */
-extern const char* const class_info_subcmd_application_help[];
-extern const char* const class_info_subcmd_breakpoints_help[];
-extern const char* const class_info_subcmd_checkpoints_help[];
-extern const char* const class_info_subcmd_cuda_help[];
-extern const char* const class_info_subcmd_locals_help[];
-extern const char* const class_info_subcmd_args_help[];
-extern const char* const class_info_subcmd_scope_help[];
-extern const char* const class_info_subcmd_source_help[];
-extern const char* const class_info_subcmd_sources_help[];
-extern const char* const class_info_subcmd_status_help[];
-extern const char* const class_info_subcmd_threads_help[];
-extern const char* const class_info_subcmd_blockmap_help[];
-extern const char* const class_info_subcmd_diff_help[];
-extern const char* const class_info_subcmd_script_help[];
+extern const char* const cmd_info_application_help[];
+extern const char* const cmd_info_breakpoints_help[];
+extern const char* const cmd_info_checkpoints_help[];
+extern const char* const cmd_info_cuda_help[];
+extern const char* const cmd_info_locals_help[];
+extern const char* const cmd_info_args_help[];
+extern const char* const cmd_info_scope_help[];
+extern const char* const cmd_info_source_help[];
+extern const char* const cmd_info_sources_help[];
+extern const char* const cmd_info_status_help[];
+extern const char* const cmd_info_threads_help[];
+extern const char* const cmd_info_blockmap_help[];
+extern const char* const cmd_info_diff_help[];
+extern const char* const cmd_info_script_help[];
 
 /*
  * Class maint subcommands
  */
-extern const char* const class_maint_subcmd_echo_help[];
-extern const char* const class_maint_subcmd_sleep_help[];
-extern const char* const class_maint_subcmd_direct_help[];
-extern const char* const class_maint_subcmd_system_help[];
+extern const char* const cmd_maint_echo_help[];
+extern const char* const cmd_maint_sleep_help[];
+extern const char* const cmd_maint_direct_help[];
+extern const char* const cmd_maint_system_help[];
 
 /*
  * Class set subcommands
  */
-extern const char* const class_set_subcmd_cuda_help[];
-extern const char* const class_set_subcmd_directory_help[];
-extern const char* const class_set_subcmd_error_help[];
-extern const char* const class_set_subcmd_environment_help[];
-extern const char* const class_set_subcmd_logging_help[];
-extern const char* const class_set_subcmd_function_help[];
-extern const char* const class_set_subcmd_scheduler_locking_help[];
-extern const char* const class_set_subcmd_non_stop_help[];
+extern const char* const cmd_set_cuda_help[];
+extern const char* const cmd_set_directory_help[];
+extern const char* const cmd_set_error_help[];
+extern const char* const cmd_set_environment_help[];
+extern const char* const cmd_set_logging_help[];
+extern const char* const cmd_set_function_help[];
+extern const char* const cmd_set_scheduler_locking_help[];
+extern const char* const cmd_set_non_stop_help[];
 extern const char* const set_subcmd_args_help[];
 
 /*
  * Class set print subcommands
  */
-extern const char* const class_set_print_subcmd_entryframe_help[];
-extern const char* const class_set_print_subcmd_sourceonstep_help[];
-extern const char* const class_set_print_subcmd_elements_help[];
+extern const char* const cmd_set_print_entryframe_help[];
+extern const char* const cmd_set_print_sourceonstep_help[];
+extern const char* const cmd_set_print_elements_help[];
 
 /*
  * Class set breakpoint subcommands
  */
-extern const char* const class_set_break_subcmd_pending_help[];
+extern const char* const cmd_set_break_pending_help[];
 
 /*
  * Class maint set subcommands
  */
-extern const char* const class_maint_set_subcmd_earlyentry_help[];
-extern const char* const class_maint_set_subcmd_unsafe_help[];
-extern const char* const class_maint_set_subcmd_sync_help[];
+extern const char* const cmd_maint_set_earlyentry_help[];
+extern const char* const cmd_maint_set_unsafe_help[];
+extern const char* const cmd_maint_set_sync_help[];
 
 /*
  * Class show subcommands
  */
-extern const char* const class_show_subcmd_cuda_help[];
-extern const char* const class_show_subcmd_directories_help[];
-extern const char* const class_show_subcmd_error_help[];
-extern const char* const class_show_subcmd_function_help[];
-extern const char* const class_show_subcmd_environment_help[];
-extern const char* const class_show_subcmd_prompt_help[];
-extern const char* const class_show_subcmd_version_help[];
-extern const char* const class_show_subcmd_scheduler_locking_help[];
-extern const char* const class_show_subcmd_non_stop_help[];
+extern const char* const cmd_show_cuda_help[];
+extern const char* const cmd_show_directories_help[];
+extern const char* const cmd_show_error_help[];
+extern const char* const cmd_show_function_help[];
+extern const char* const cmd_show_environment_help[];
+extern const char* const cmd_show_prompt_help[];
+extern const char* const cmd_show_version_help[];
+extern const char* const cmd_show_scheduler_locking_help[];
+extern const char* const cmd_show_non_stop_help[];
 extern const char* const show_subcmd_args_help[];
 
 /*
  * Class show print subcommands
  */
-extern const char* const class_show_print_subcmd_entryframe_help[];
-extern const char* const class_show_print_subcmd_sourceonstep_help[];
-extern const char* const class_show_print_subcmd_elements_help[];
+extern const char* const cmd_show_print_entryframe_help[];
+extern const char* const cmd_show_print_sourceonstep_help[];
+extern const char* const cmd_show_print_elements_help[];
 
 /*
  * Class show break subcommands
  */
-extern const char* const class_show_break_subcmd_pending_help[];
+extern const char* const cmd_show_break_pending_help[];
 
 /*
  * Class maint show subcommands
  */
-extern const char* const class_maint_show_subcmd_earlyentry_help[];
-extern const char* const class_maint_show_subcmd_unsafe_help[];
-extern const char* const class_maint_show_subcmd_sync_help[];
+extern const char* const cmd_maint_show_earlyentry_help[];
+extern const char* const cmd_maint_show_unsafe_help[];
+extern const char* const cmd_maint_show_sync_help[];
 
 /*
  * Class unset subcommands
  */
-extern const char* const class_unset_subcmd_environment_help[];
+extern const char* const cmd_unset_environment_help[];
 
 /*
  * Class usage subcommands
  */
-extern const char* const class_usage_subcmd_assert_help[];
-extern const char* const class_usage_subcmd_decomposition_help[];
+extern const char* const cmd_usage_assert_help[];
+extern const char* const cmd_usage_decomposition_help[];
 
 /*
  * Dummy help - used when a help cmd isn't actually required

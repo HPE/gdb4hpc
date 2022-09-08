@@ -58,7 +58,7 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     if (!rec_set) return 1;
 
@@ -117,7 +117,7 @@ static int class_info_subcmd_sources_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_info_subcmd_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!rec_set) return 1;
 
     auto rep_set = DbgGetFrame(rec_set, false);
@@ -151,13 +151,13 @@ void InitCmd_list(void) {
 
     // Info commands
     AddInfoCommand("source", proc_required, 0,
-                   class_info_subcmd_source_cmd,
-                   class_info_subcmd_source_help,
+                   cmd_info_source_cmd,
+                   cmd_info_source_help,
                    "Display information about the current source file.");
 
     AddInfoCommand("sources", proc_required, 0,
-                   class_info_subcmd_sources_cmd,
-                   class_info_subcmd_sources_help,
+                   cmd_info_sources_cmd,
+                   cmd_info_sources_help,
                    "Display the source files in the application.");
 
 }

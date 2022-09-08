@@ -36,7 +36,7 @@ static int cmd_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_info_subcmd_checkpoints_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_checkpoints_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // combine all checkpoints from all dis into single ID-indexed map
     std::map<unsigned int, std::vector<std::pair<DbgInvoke::Handle, const MappedCheckpoint *>>> idMap;
     for (const auto *rec : rec_set) {
@@ -175,6 +175,6 @@ void InitCmd_checkpoint(void) {
 
     // info commands
     AddInfoCommand(
-        "checkpoints", proc_required, 0, class_info_subcmd_checkpoints_cmd,
-        class_info_subcmd_checkpoints_help, "Show status of checkpoints.");
+        "checkpoints", proc_required, 0, cmd_info_checkpoints_cmd,
+        cmd_info_checkpoints_help, "Show status of checkpoints.");
 }

@@ -256,7 +256,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_print_elements_cmd(rec_set_t *rec_set, int argc,
                                                char **argv) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -292,7 +292,7 @@ static int class_set_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_print_subcmd_elements_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_print_elements_cmd(rec_set_t *rec_set, int argc,
                                                char **argv) {
     if (Client.print_elements == 0) {
         PrintOutMsg("Limit on string chars or array elements to print is unlimited.\n");
@@ -308,12 +308,12 @@ void InitCmd_print(void) {
                "Print the value of an expression.");
 
     AddSetPrintCommand(
-        "elements", proc_optional, 0, class_set_print_subcmd_elements_cmd,
-        class_set_print_subcmd_elements_help,
+        "elements", proc_optional, 0, cmd_set_print_elements_cmd,
+        cmd_set_print_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
     AddShowPrintCommand(
-        "elements", proc_optional, 0, class_show_print_subcmd_elements_cmd,
-        class_show_print_subcmd_elements_help,
+        "elements", proc_optional, 0, cmd_show_print_elements_cmd,
+        cmd_show_print_elements_help,
         "Show number of elements to print when an array is printed.");
 }

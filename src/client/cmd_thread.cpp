@@ -106,7 +106,7 @@ static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 
-static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
 
     if (Client.MI_mode && !rec_set) {
@@ -197,7 +197,7 @@ static int class_info_subcmd_threads_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_set_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
@@ -215,7 +215,7 @@ static int class_set_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc, 
     return 1;
 }
 
-static int class_show_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -238,7 +238,7 @@ static int class_show_subcmd_scheduler_locking_cmd(rec_set_t *rec_set, int argc,
 
 // enable/disable non-stop mode which lets other threads in a process continue
 // running instead of stopping every thread
-static int class_set_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on.\n");
@@ -278,7 +278,7 @@ static int class_set_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **ar
 }
 
 // on means other threads can continue to run when one is stopped
-static int class_show_subcmd_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -355,21 +355,21 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_info_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto args = ArgvStream{"cuda", "info"};
     args << ArgvStream{argc-1, argv+1};
     return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
     
 }
 
-static int class_set_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_set_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto args = ArgvStream{"cuda", "set"};
     args << ArgvStream{argc-1, argv+1};
     return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
     
 }
 
-static int class_show_subcmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_show_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto args = ArgvStream{"cuda", "show"};
     args << ArgvStream{argc-1, argv+1};
     return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
@@ -386,37 +386,37 @@ void InitCmd_thread(void) {
                cmd_ompd_help, "OpenMP debugging functions.");
     AddCommand("cuda", "", proc_required, 0, cmd_cuda_cmd,
                cmd_cuda_help, "Cuda debugging functions.");
-    AddInfoCommand("cuda", proc_required, 0, class_info_subcmd_cuda_cmd,
-                   class_info_subcmd_cuda_help,
+    AddInfoCommand("cuda", proc_required, 0, cmd_info_cuda_cmd,
+                   cmd_info_cuda_help,
                    "Display cuda specific information.");
-    AddSetCommand("cuda", proc_required, 0, class_set_subcmd_cuda_cmd,
-                  class_set_subcmd_cuda_help,
+    AddSetCommand("cuda", proc_required, 0, cmd_set_cuda_cmd,
+                  cmd_set_cuda_help,
                   "Set cuda specific information.");
-    AddShowCommand("cuda", proc_required, 0, class_show_subcmd_cuda_cmd,
-                   class_show_subcmd_cuda_help,
+    AddShowCommand("cuda", proc_required, 0, cmd_show_cuda_cmd,
+                   cmd_show_cuda_help,
                    "Show cuda specific settings.");
 
 
     AddInfoCommand("threads", proc_optional_mi, 0,
-                   class_info_subcmd_threads_cmd,
-                   class_info_subcmd_threads_help,
+                   cmd_info_threads_cmd,
+                   cmd_info_threads_help,
                    "List currently known threads.");
 
     AddSetCommand("scheduler-locking", proc_required, 0,
-                  class_set_subcmd_scheduler_locking_cmd,
-                  class_set_subcmd_scheduler_locking_help,
+                  cmd_set_scheduler_locking_cmd,
+                  cmd_set_scheduler_locking_help,
                   "Set mode for locking scheduler during execution.");
     AddShowCommand("scheduler-locking", proc_required, 0,
-                   class_show_subcmd_scheduler_locking_cmd,
-                   class_show_subcmd_scheduler_locking_help,
+                   cmd_show_scheduler_locking_cmd,
+                   cmd_show_scheduler_locking_help,
                    "Show mode for locking scheduler during execution.");
 
     AddSetCommand("non-stop", proc_optional, 0,
-                  class_set_subcmd_non_stop_cmd,
-                  class_set_subcmd_non_stop_help,
+                  cmd_set_non_stop_cmd,
+                  cmd_set_non_stop_help,
                   "Set mode for thread stopping during execution.");
     AddShowCommand("non-stop", proc_optional, 0,
-                   class_show_subcmd_non_stop_cmd,
-                   class_show_subcmd_non_stop_help,
+                   cmd_show_non_stop_cmd,
+                   cmd_show_non_stop_help,
                    "Show mode for thread stopping during execution.");
 }

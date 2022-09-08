@@ -29,7 +29,7 @@
 static cmdlist_t *DirectModeCmds;
 static cmdlist_t *OldCmds;
 
-static int class_maint_subcmd_direct_cmd(rec_set_t *rec_set, int argc,
+static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     rep_set_t *rep_set;
     char *cmd;
@@ -115,7 +115,7 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc,
+static int cmd_directmode_end_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
     PrintOutMsg(
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
@@ -131,7 +131,7 @@ static int cmd_directmode_alt_end_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
+static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
     char *cmd;
     rep_set_t *rep_set;
@@ -168,7 +168,7 @@ static int cmd_directmode_alt_direct_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_directmode_alt_blacklist_cmd(rec_set_t *rec_set, int argc,
+static int cmd_directmode_blacklist_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
     if (argc > 0) {
         PrintOutError("%s is unsupported.\n", argv[0]);
@@ -201,8 +201,8 @@ void InitCmd_passthru(void) {
 
     // maint commands
     AddMaintCommand(
-        "passthru", proc_required, 0, class_maint_subcmd_direct_cmd,
-        class_maint_subcmd_direct_help, "Pass command to gdb backend.");
+        "passthru", proc_required, 0, cmd_maint_direct_cmd,
+        cmd_maint_direct_help, "Pass command to gdb backend.");
 
     // gdbmode alt commands
     DirectModeCmds =
@@ -211,18 +211,18 @@ void InitCmd_passthru(void) {
     // XXX: The help strings below are not viewable. The help command is passed
     // to the gdb backend while in gdbmode.
     AddAltCommand(DirectModeCmds, "_default_cmd", NULL, proc_required, 0,
-                  cmd_directmode_alt_direct_cmd, dummy_help, "");
+                  cmd_directmode_direct_cmd, dummy_help, "");
     AddAltCommand(DirectModeCmds, "end", NULL, proc_ignore, 0,
-                  cmd_directmode_alt_end_cmd, dummy_help, "");
+                  cmd_directmode_end_cmd, dummy_help, "");
     AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
                   cmd_quit_cmd, dummy_help, "");
 
     AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
-                  cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+                  cmd_directmode_blacklist_cmd, dummy_help, "");
     AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
-                  cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+                  cmd_directmode_blacklist_cmd, dummy_help, "");
     AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
-                  cmd_directmode_alt_blacklist_cmd, dummy_help, "");
+                  cmd_directmode_blacklist_cmd, dummy_help, "");
 
     SetDefaultCommand(DirectModeCmds, "_default_cmd");
 }

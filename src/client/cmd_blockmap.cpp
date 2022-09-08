@@ -37,7 +37,7 @@ static val_t *CurrentBlockMapVal;
  * Info class commands
  ********************************/
 
-static int class_info_subcmd_blockmap_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_blockmap_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     expr_t *e;
     val_t *v;
@@ -91,30 +91,30 @@ static int class_info_subcmd_blockmap_cmd(rec_set_t *rec_set, int argc,
  * Usage class commands
  ********************************/
 
-static int class_usage_subcmd_dimension_cmd(rec_set_t *rec_set, int argc,
+static int cmd_usage_dimension_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
-    PrintHelpEntry((char **)cmd_blockmap_alt_dimension_help);
+    PrintHelpEntry((char **)cmd_blockmap_dimension_help);
 
     return 1;
 }
 
-static int class_usage_subcmd_distribute_cmd(rec_set_t *rec_set, int argc,
+static int cmd_usage_distribute_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
-    PrintHelpEntry((char **)cmd_blockmap_alt_distribute_help);
+    PrintHelpEntry((char **)cmd_blockmap_distribute_help);
 
     return 1;
 }
 
-static int class_usage_subcmd_proc_grid_cmd(rec_set_t *rec_set, int argc,
+static int cmd_usage_proc_grid_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
-    PrintHelpEntry((char **)cmd_blockmap_alt_proc_grid_help);
+    PrintHelpEntry((char **)cmd_blockmap_proc_grid_help);
 
     return 1;
 }
 
-static int class_usage_subcmd_dim_order_cmd(rec_set_t *rec_set, int argc,
+static int cmd_usage_dim_order_cmd(rec_set_t *rec_set, int argc,
                                             char **argv) {
-    PrintHelpEntry((char **)cmd_blockmap_alt_dim_order_help);
+    PrintHelpEntry((char **)cmd_blockmap_dim_order_help);
 
     return 1;
 }
@@ -208,7 +208,7 @@ static expr_t* join_and_parse(int argc, char** argv)
     return ParseExpr(args.c_str());
 }
 
-static int cmd_blockmap_alt_dimension_cmd(rec_set_t *rec_set, int argc,
+static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     expr_t *ex;
     expr_elt *ep;
@@ -321,7 +321,7 @@ static int cmd_blockmap_alt_dimension_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_alt_distribute_cmd(rec_set_t *rec_set, int argc,
+static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
                                            char **argv) {
     expr_t *ex;
     expr_elt *ep;
@@ -518,7 +518,7 @@ static int cmd_blockmap_alt_distribute_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_alt_proc_grid_cmd(rec_set_t *rec_set, int argc,
+static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     expr_t *ex;
     expr_elt *ep;
@@ -669,7 +669,7 @@ static int cmd_blockmap_alt_proc_grid_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_alt_dim_order_cmd(rec_set_t *rec_set, int argc,
+static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
                                           char **argv) {
     expr_t *ex;
     expr_elt *ep;
@@ -823,7 +823,7 @@ static int cmd_blockmap_alt_dim_order_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_blockmap_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     val_t *v;
 
     if (!VerifyBlockMap(CurrentBlockMap->m_sym)) {
@@ -870,30 +870,30 @@ static void blockmapfailed(void) {
 void InitCmd_blockmap(void) {
     // info commands
     AddInfoCommand("decomposition", proc_ignore, 0,
-                   class_info_subcmd_blockmap_cmd,
-                   class_info_subcmd_blockmap_help,
+                   cmd_info_blockmap_cmd,
+                   cmd_info_blockmap_help,
                    "Display currently defined decomposition schemes.");
 
     // usage commands
     AddUsageCommand(
         "dimension", proc_ignore, 0,
-        class_usage_subcmd_dimension_cmd,
-        class_usage_subcmd_decomposition_help,
+        cmd_usage_dimension_cmd,
+        cmd_usage_decomposition_help,
         "Display help about using decomposition \"dimension\" command.");
     AddUsageCommand(
         "distribute", proc_ignore, 0,
-        class_usage_subcmd_distribute_cmd,
-        class_usage_subcmd_decomposition_help,
+        cmd_usage_distribute_cmd,
+        cmd_usage_decomposition_help,
         "Display help about using decomposition \"distribute\" command.");
     AddUsageCommand(
         "proc_grid", proc_ignore, 0,
-        class_usage_subcmd_proc_grid_cmd,
-        class_usage_subcmd_decomposition_help,
+        cmd_usage_proc_grid_cmd,
+        cmd_usage_decomposition_help,
         "Display help about using decomposition \"proc_grid\" command.");
     AddUsageCommand(
         "dim_order", proc_ignore, 0,
-        class_usage_subcmd_dim_order_cmd,
-        class_usage_subcmd_decomposition_help,
+        cmd_usage_dim_order_cmd,
+        cmd_usage_decomposition_help,
         "Display help about using decomposition \"dim_order\" command.");
 
     // regular commands
@@ -906,24 +906,24 @@ void InitCmd_blockmap(void) {
         NewCommandList(blockmapnotfound, blockmapambig, blockmapfailed);
 
     AddAltCommand(BlockMapCmds, "dimension", NULL, proc_ignore, 0,
-                  cmd_blockmap_alt_dimension_cmd,
-                  cmd_blockmap_alt_dimension_help,
+                  cmd_blockmap_dimension_cmd,
+                  cmd_blockmap_dimension_help,
                   "Provide a dimension definition.");
     AddAltCommand(BlockMapCmds, "distribute", NULL, proc_ignore, 0,
-                  cmd_blockmap_alt_distribute_cmd,
-                  cmd_blockmap_alt_distribute_help,
+                  cmd_blockmap_distribute_cmd,
+                  cmd_blockmap_distribute_help,
                   "Provide a distribute definition.");
     AddAltCommand(BlockMapCmds, "proc_grid", NULL, proc_ignore, 0,
-                  cmd_blockmap_alt_proc_grid_cmd,
-                  cmd_blockmap_alt_proc_grid_help,
+                  cmd_blockmap_proc_grid_cmd,
+                  cmd_blockmap_proc_grid_help,
                   "Provide a process grid definition.");
     AddAltCommand(BlockMapCmds, "dim_order", NULL, proc_ignore, 0,
-                  cmd_blockmap_alt_dim_order_cmd,
-                  cmd_blockmap_alt_dim_order_help,
+                  cmd_blockmap_dim_order_cmd,
+                  cmd_blockmap_dim_order_help,
                   "Provide a dimension order definition.");
     AddAltCommand(BlockMapCmds, "end", NULL, proc_ignore, 0,
-                  cmd_blockmap_alt_end_cmd,
-                  cmd_blockmap_alt_end_help,
+                  cmd_blockmap_end_cmd,
+                  cmd_blockmap_end_help,
                   "Finish defining the current decomposition scheme.");
     AddAltCommand(
         BlockMapCmds, "help", "h", proc_ignore, 0, cmd_help_cmd,

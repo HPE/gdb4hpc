@@ -1185,7 +1185,7 @@ const char* const class_usage_help[] = {
  * Class info subcommands
  */
 
-const char* const class_info_subcmd_breakpoints_help[] = {
+const char* const cmd_info_breakpoints_help[] = {
     "Summary: Breakpoint information.",
     "",
     "Description:",
@@ -1203,7 +1203,7 @@ const char* const class_info_subcmd_breakpoints_help[] = {
     "respectively.",
     0};
 
-const char* const class_info_subcmd_checkpoints_help[] = {
+const char* const cmd_info_checkpoints_help[] = {
     "Summary: Checkpoint information.",
     "",
     "Description:",
@@ -1215,7 +1215,7 @@ const char* const class_info_subcmd_checkpoints_help[] = {
     "  checkpoint.",
     0};
 
-const char* const class_info_subcmd_locals_help[] = {
+const char* const cmd_info_locals_help[] = {
     "Summary: Local symbol information.",
     "",
     "Description:",
@@ -1223,7 +1223,7 @@ const char* const class_info_subcmd_locals_help[] = {
     "application rank in the current process set.",
     0};
 
-const char* const class_info_subcmd_args_help[] = {
+const char* const cmd_info_args_help[] = {
     "Summary: Argument variables of the current frame.",
     "",
     "Description:",
@@ -1232,7 +1232,7 @@ const char* const class_info_subcmd_args_help[] = {
     0};
 
 
-const char* const class_info_subcmd_application_help[] = {
+const char* const cmd_info_application_help[] = {
     "Summary: Application information.",
     "",
     "Description:",
@@ -1246,7 +1246,7 @@ const char* const class_info_subcmd_application_help[] = {
     "to the application launcher in order to launch the application.",
     0};
 
-const char* const class_info_subcmd_cuda_help[] = {
+const char* const cmd_info_cuda_help[] = {
     "Summary: cuda specific information.",
     "Usage: info cuda [subcommand]",
     "Example: info cuda threads",
@@ -1258,7 +1258,7 @@ const char* const class_info_subcmd_cuda_help[] = {
 };
     
   
-const char* const class_info_subcmd_scope_help[] = {
+const char* const cmd_info_scope_help[] = {
     "Summary: Local symbol information relative to a scope.",
     "Usage: info scope <location>",
     "Example command: info scope source.f:20",
@@ -1273,12 +1273,12 @@ const char* const class_info_subcmd_scope_help[] = {
     "file, or an address prefixed with *.",
     0};
 
-const char* const class_info_subcmd_source_help[] = {
+const char* const cmd_info_source_help[] = {
     "Display the current source file.",
     0};
 
 
-const char* const class_info_subcmd_sources_help[] = {
+const char* const cmd_info_sources_help[] = {
     "Summary: Source file information.",
     "",
     "Description:",
@@ -1289,11 +1289,11 @@ const char* const class_info_subcmd_sources_help[] = {
     "with the list command. Try \"set directory\" to improve the results.",
     0};
 
-const char* const class_info_subcmd_status_help[] = {
+const char* const cmd_info_status_help[] = {
     "Summary: Status command.", "",
     "Description:", "Display the status of lauched/attached applications.", 0};
 
-const char* const class_info_subcmd_threads_help[] = {
+const char* const cmd_info_threads_help[] = {
     "Summary: List threads.", "",
     "Usage: info threads",
     "Usage: info threads 2",
@@ -1315,11 +1315,11 @@ const char* const class_info_subcmd_threads_help[] = {
     "returned by thread find.",
     nullptr};
 
-const char * const class_info_subcmd_blockmap_help[] = {
+const char * const cmd_info_blockmap_help[] = {
     "Summary: Display defined decompositions.", "",
     "Description:", "Display the names of defined decompositions.", 0};
 
-const char* const class_info_subcmd_diff_help[] = {
+const char* const cmd_info_diff_help[] = {
     "Summary: Display saved assertion script difference delta information.",
     "Usage: info diff", 
     "       info diff <$script>",
@@ -1334,7 +1334,7 @@ const char* const class_info_subcmd_diff_help[] = {
     "view the differences of.",
     0};
 
-const char* const class_info_subcmd_script_help[] = {
+const char* const cmd_info_script_help[] = {
     "Summary: Assertion script information.", 
     "Usage: info script",
     "     : info script <$script>",
@@ -1352,7 +1352,7 @@ const char* const class_info_subcmd_script_help[] = {
  * Class maint subcommands
  */
 
-const char* const class_maint_subcmd_echo_help[] = {
+const char* const cmd_maint_echo_help[] = {
     "Summary: Echo command.",
     "Usage: maint echo <string>",
     "Example command: maint echo print this string",
@@ -1363,7 +1363,7 @@ const char* const class_maint_subcmd_echo_help[] = {
     "Echo a string as output.",
     0};
 
-const char* const class_maint_subcmd_sleep_help[] = {
+const char* const cmd_maint_sleep_help[] = {
     "Summary: Sleep command.",
     "Usage: maint sleep [<secs>]",
     "Example command: maint sleep 5",
@@ -1375,7 +1375,7 @@ const char* const class_maint_subcmd_sleep_help[] = {
     "will sleep for a default of five seconds.",
     0};
 
-const char* const class_maint_subcmd_direct_help[] = {
+const char* const cmd_maint_direct_help[] = {
     "Summary: Passthru command.",
     "Usage: maint passthru <command>",
     "Example command: maint passthru show version",
@@ -1391,7 +1391,7 @@ const char* const class_maint_subcmd_direct_help[] = {
     0};
 
 // This is deprecated, please seee class_shell_help[] for current implementation
-const char* const class_maint_subcmd_system_help[] = {
+const char* const cmd_maint_system_help[] = {
     "Summary: System command.",
     "Usage: maint system <command>",
     "Example command: maint system ls -la",
@@ -1410,7 +1410,7 @@ const char* const class_maint_subcmd_system_help[] = {
  */
 
 
-const char* const class_set_subcmd_cuda_help[] = {
+const char* const cmd_set_cuda_help[] = {
     "Summary: set cuda specific settings.",
     "Usage: set cuda [subcommand]",
     "Example: set cuda hide_internal_frame on",
@@ -1422,7 +1422,7 @@ const char* const class_set_subcmd_cuda_help[] = {
 };
 
 
-const char* const class_set_subcmd_directory_help[] = {
+const char* const cmd_set_directory_help[] = {
     "Summary: Directory search source path.",
     "Usage: set directory <path>",
     "Example command: set directory /path/to/source",
@@ -1439,7 +1439,7 @@ const char* const class_set_subcmd_directory_help[] = {
     "to be lost.",
     0};
 
-const char* const class_set_subcmd_error_help[] = {
+const char* const cmd_set_error_help[] = {
     "Summary: Warn and error epsilon for floating point comparison.",
     "Usage: set error <warn limit> <error limit>",
     "Example command: set error 1e-16 2e-15",
@@ -1466,7 +1466,7 @@ const char* const class_set_subcmd_error_help[] = {
     "is true.",
     0};
 
-const char* const class_set_subcmd_environment_help[] = {
+const char* const cmd_set_environment_help[] = {
     "Summary: Set environment variable value.",
     "Usage: set environment <name> <value>",
     "Example command: set environment var val",
@@ -1486,7 +1486,7 @@ const char* const class_set_subcmd_environment_help[] = {
     "forked environment of the application launcher process (aprun/srun).",
     0};
 
-const char* const class_set_subcmd_logging_help[] = {
+const char* const cmd_set_logging_help[] = {
     // TODO: Finish this
     "Summary: Set output file for logging client output.",
     "Usage: set logging <subcmd> <value>",
@@ -1502,7 +1502,7 @@ const char* const class_set_subcmd_logging_help[] = {
     0
 };
 
-const char* const class_set_subcmd_function_help[] = {
+const char* const cmd_set_function_help[] = {
     "Summary: Set function definition.",
     "Usage: set function <function_name>(<function_args>) = <expr>",
     "Example command: set function myfunc(myvar) = 1",
@@ -1517,7 +1517,7 @@ const char* const class_set_subcmd_function_help[] = {
     "allowed.",
     0};
 
-const char* const class_set_subcmd_scheduler_locking_help[] = {
+const char* const cmd_set_scheduler_locking_help[] = {
     "Summary: Set the behavior of the thread schedule locking during execution",
     "Usage set scheduler-locking  off|on|step|replay",
     "Example command: set scheduler-locking off",
@@ -1530,7 +1530,7 @@ const char* const class_set_subcmd_scheduler_locking_help[] = {
     "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
     0};
 
-const char* const class_set_subcmd_non_stop_help[] = {
+const char* const cmd_set_non_stop_help[] = {
     "Summary: Set the behavior of the threads during a break",
     "Usage set non-stop off|on",
     "Example command: set non-stop on",
@@ -1560,7 +1560,7 @@ const char* const set_subcmd_args_help[] = {
 /*
  * Class set print subcommands
  */
-const char* const class_set_print_subcmd_entryframe_help[] = {
+const char* const cmd_set_print_entryframe_help[] = {
     "Summary: Set printing of frame on entry mode.",
     "Usage: set print entry-frame [true|false]",
     "Example command: set print entry-frame false",
@@ -1572,7 +1572,7 @@ const char* const class_set_print_subcmd_entryframe_help[] = {
     "Determines if the frames of the application ranks are printed on "
     "launch/attach.",
     0};
-const char* const class_set_print_subcmd_sourceonstep_help[] = {
+const char* const cmd_set_print_sourceonstep_help[] = {
     "Summary: Set printing of source on step.",
     "Usage: set print source-on-step [true|false]",
     "Example command: set print source-on-step false",
@@ -1587,7 +1587,7 @@ const char* const class_set_print_subcmd_sourceonstep_help[] = {
 /*
  * Class set breakpoint subcommands
  */
-const char* const class_set_break_subcmd_pending_help[] = {
+const char* const cmd_set_break_pending_help[] = {
     "Summary: Set behavior of setting pending breakpoints.",
     "",
     "Default setting: auto",
@@ -1604,7 +1604,7 @@ const char* const class_set_break_subcmd_pending_help[] = {
  * Class maint set subcommands
  */
 
-const char* const class_maint_set_subcmd_earlyentry_help[] = {
+const char* const cmd_maint_set_earlyentry_help[] = {
     "Summary: Set early entry mode.",
     "Usage: maint set earlyentry [on|off]",
     "Example command: maint set earlyentry on",
@@ -1615,7 +1615,7 @@ const char* const class_maint_set_subcmd_earlyentry_help[] = {
     "application will be left in the PMI_Init() function upon startup.",
     0};
 
-const char* const class_maint_set_subcmd_unsafe_help[] = {
+const char* const cmd_maint_set_unsafe_help[] = {
     "Summary: Set unsafe execution mode.",
     "Usage: maint set unsafe [on|off]",
     "Example command: maint set unsafe on",
@@ -1625,7 +1625,7 @@ const char* const class_maint_set_subcmd_unsafe_help[] = {
     "be modified by maintainers.",
     0};
 
-const char* const class_maint_set_subcmd_sync_help[] = {
+const char* const cmd_maint_set_sync_help[] = {
     "Summary: Set synchronous event mode.",
     "Usage: maint set sync [on|off]",
     "Example command: maint set sync on",
@@ -1641,7 +1641,7 @@ const char* const class_maint_set_subcmd_sync_help[] = {
  * Class show subcommands
  */
 
-const char* const class_show_subcmd_cuda_help[] = {
+const char* const cmd_show_cuda_help[] = {
     "Summary: show cuda specific settings.",
     "Usage: show cuda [subcommand]",
     "Example: show cuda memcheck",
@@ -1652,7 +1652,7 @@ const char* const class_show_subcmd_cuda_help[] = {
     0
 };
 
-const char* const class_show_subcmd_directories_help[] = {
+const char* const cmd_show_directories_help[] = {
     "Summary: Display source search path.",
     "",
     "Description:",
@@ -1661,7 +1661,7 @@ const char* const class_show_subcmd_directories_help[] = {
     "compilation directory of the source file.",
     0};
 
-const char* const class_show_subcmd_error_help[] = {
+const char* const cmd_show_error_help[] = {
     "Summary: Warn and error epsilon for floating point comparison.",
     "",
     "Description:",
@@ -1669,12 +1669,12 @@ const char* const class_show_subcmd_error_help[] = {
     "difference deltas when comparing floating point values.",
     0};
 
-const char* const class_show_subcmd_function_help[] = {
+const char* const cmd_show_function_help[] = {
     "Summary: Function definition information.", "",
     "Description:", "Display a list of the currently defined function macros.",
     0};
 
-const char* const class_show_subcmd_environment_help[] = {
+const char* const cmd_show_environment_help[] = {
     "Summary: Environment variable information.",
     "",
     "Description:",
@@ -1683,14 +1683,14 @@ const char* const class_show_subcmd_environment_help[] = {
     "command.",
     0};
 
-const char* const class_show_subcmd_version_help[] = {
+const char* const cmd_show_version_help[] = {
     "Summary: Version information.", "",
     "Description:", "Display the debugger version number.", 0};
-const char* const class_show_subcmd_prompt_help[] = {
+const char* const cmd_show_prompt_help[] = {
     "Display the debugger prompt.", 0};
 
 
-const char* const class_show_subcmd_scheduler_locking_help[] = {
+const char* const cmd_show_scheduler_locking_help[] = {
     "Summary: Show the behavior of the thread schedule locking during execution",
     "Usage: show scheduler-locking",
     "Example command: show scheduler-locking",
@@ -1703,7 +1703,7 @@ const char* const class_show_subcmd_scheduler_locking_help[] = {
     "replay : scheduler is locked during replay mode and unlocked during  normal execution.",
     0};
 
-const char* const class_show_subcmd_non_stop_help[] = {
+const char* const cmd_show_non_stop_help[] = {
     "Summary: Show the behavior of the thread schedule locking during execution",
     "Usage: show non-stop",
     "Example command: show non-stop",
@@ -1727,13 +1727,13 @@ const char* const show_subcmd_args_help[] = {
 /*
  * Class show print subcommands
  */
-const char* const class_show_print_subcmd_entryframe_help[] = {
+const char* const cmd_show_print_entryframe_help[] = {
     "Summary: Printing of frame on entry mode information.", "", "Description:",
     "Display if the frames of the application ranks are printed on "
     "launch/attach.",
     0};
 
-const char* const class_show_print_subcmd_sourceonstep_help[] = {
+const char* const cmd_show_print_sourceonstep_help[] = {
     "Summary: Printing of source on step information.", "", "Description:",
     "Display if the source line of the application is printed on "
     "step/next.",
@@ -1743,7 +1743,7 @@ const char* const class_show_print_subcmd_sourceonstep_help[] = {
 /*
  * Class show breakpoint subcommands
  */
-const char* const class_show_break_subcmd_pending_help[] = {
+const char* const cmd_show_break_pending_help[] = {
     "Summary: Show behavior of setting pending breakpoints.",
     "",
     "Description:",
@@ -1757,15 +1757,15 @@ const char* const class_show_break_subcmd_pending_help[] = {
  * Class maint show subcommands
  */
 
-const char* const class_maint_show_subcmd_earlyentry_help[] = {
+const char* const cmd_maint_show_earlyentry_help[] = {
     "Summary: Early entry mode information.", "",
     "Description:", "Display the current setting of early entry mode.", 0};
 
-const char* const class_maint_show_subcmd_unsafe_help[] = {
+const char* const cmd_maint_show_unsafe_help[] = {
     "Summary: Unsafe mode information.", "",
     "Description:", "Display the current setting of unsafe mode.", 0};
 
-const char* const class_maint_show_subcmd_sync_help[] = {
+const char* const cmd_maint_show_sync_help[] = {
     "Summary: Synchronous event mode information.", "",
     "Description:", "Display the current setting of synchronous event mode.",
     0};
@@ -1774,7 +1774,7 @@ const char* const class_maint_show_subcmd_sync_help[] = {
  * Class unset subcommands
  */
 
-const char* const class_unset_subcmd_environment_help[] = {
+const char* const cmd_unset_environment_help[] = {
     "Summary: Unset environment variable value.",
     "Usage: unset environment <name>",
     "Example command: unset environment var",
@@ -1791,14 +1791,14 @@ const char* const class_unset_subcmd_environment_help[] = {
     "only take effect upon the next launch command.",
     0};
 
-const char *const class_show_print_subcmd_elements_help[] = {
+const char *const cmd_show_print_elements_help[] = {
     "Summary: Number of elements to print when an array or c-string is printed.", 
     "", 
     "Description:",
     "Display the number of elements to print when an array or c-string is printed.",
     0};
 
-const char *const class_set_print_subcmd_elements_help[] = {
+const char *const cmd_set_print_elements_help[] = {
     "Summary: Set the amount of elements to be printed in arrays or c-strings.",
     "Usage: set print elements [<n>|\"unlimited\"]",
     "Example command: set print elements 200",
@@ -1816,7 +1816,7 @@ const char *const class_set_print_subcmd_elements_help[] = {
  * Class usage subcommands
  */
 
-const char * const class_usage_subcmd_decomposition_help[] = {
+const char * const cmd_usage_decomposition_help[] = {
     "Summary: Decomposition commands.",
     "",
     "Description:",
@@ -1830,7 +1830,7 @@ const char * const class_usage_subcmd_decomposition_help[] = {
  * Alt rd command help definitions
  **********************************************/
 
-const char * const cmd_blockmap_alt_dimension_help[] = {
+const char * const cmd_blockmap_dimension_help[] = {
     "Summary: Decomposition dimension command.",
     "Usage: dimension <dimensional definition>",
     "Example command: dimension 32,64,1024",
@@ -1861,7 +1861,7 @@ const char * const cmd_blockmap_alt_dimension_help[] = {
     "describe the characteristics of each of the three dimensions.",
     0};
 
-const char * const cmd_blockmap_alt_distribute_help[] = {
+const char * const cmd_blockmap_distribute_help[] = {
     "Summary: Decomposition distribute command.",
     "Usage: distribute <dimensional definition>",
     "Example command: distribute *,block,block",
@@ -1921,7 +1921,7 @@ const char * const cmd_blockmap_alt_distribute_help[] = {
     "the characteristics of each of the three dimensions.",
     0};
 
-const char * const cmd_blockmap_alt_proc_grid_help[] = {
+const char * const cmd_blockmap_proc_grid_help[] = {
     "Summary: Decomposition process grid command.",
     "Usage: proc_grid <dimensional definition>",
     "Example command: proc_grid *,4,64",
@@ -1974,7 +1974,7 @@ const char * const cmd_blockmap_alt_proc_grid_help[] = {
     "characteristics of each of the three dimensions.",
     0};
 
-const char * const cmd_blockmap_alt_dim_order_help[] = {
+const char * const cmd_blockmap_dim_order_help[] = {
     "Summary: Decomposition dimension order command.",
     "Usage: dim_order <dimensional definition>",
     "Example command: dim_order *,1,2",
@@ -2048,7 +2048,7 @@ const char * const cmd_blockmap_alt_dim_order_help[] = {
     "characteristics of each of the three dimensions.",
     0};
 
-const char * const cmd_blockmap_alt_end_help[] = {
+const char * const cmd_blockmap_end_help[] = {
     "Summary: Decomposition end command.",
     "Usage: end",
     "Example command: end",
@@ -2063,7 +2063,7 @@ const char * const cmd_blockmap_alt_end_help[] = {
     "created.",
     0};
 
-const char* const cmd_script_alt_set_help[] = {
+const char* const cmd_script_set_help[] = {
     "Summary: Set assertion script options", 
     "Usage: set",
     "     : set <option> <value> [<value>, <value>...]", 
@@ -2077,7 +2077,7 @@ const char* const cmd_script_alt_set_help[] = {
     "command was given.",
     0};
 
-const char* const cmd_script_alt_show_help[] = {
+const char* const cmd_script_show_help[] = {
     "Summary: Show current values of assertion script options", 
     "Usage: show",
     "     : show <option>", 
@@ -2091,7 +2091,7 @@ const char* const cmd_script_alt_show_help[] = {
     "command was given.",
     0};
 
-const char * const cmd_script_alt_assert_help[] = {
+const char * const cmd_script_assert_help[] = {
     "Summary: Assertion script assert command.",
     "Usage: assert <expr1> = <expr2>",
     "Example command:",
@@ -2123,7 +2123,7 @@ const char * const cmd_script_alt_assert_help[] = {
     "error, display, output, and logging.",
     0};
 
-const char * const cmd_script_alt_end_help[] = {
+const char * const cmd_script_end_help[] = {
     "Summary: Assertion script end command.",
     "Usage: end",
     "Example command: end",

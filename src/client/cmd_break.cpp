@@ -569,7 +569,7 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
+static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     if (Client.MI_mode && !rec_set) {
         PrintOutMIResult(MIResult::DONE, "%s\n",
@@ -902,7 +902,7 @@ static int class_info_subcmd_breakpoints_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_set_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
+static int cmd_set_break_pending_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
     const char *s;
     PendingBrkType pending_val;
@@ -942,7 +942,7 @@ static int class_set_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int class_show_break_subcmd_pending_cmd(rec_set_t *rec_set, int argc,
+static int cmd_show_break_pending_cmd(rec_set_t *rec_set, int argc,
                                                   char **argv) {
     if (Client.brk_pending == PendingBrkType::Auto)
         PrintOutMsg("Allow setting of pending breakpoints will ask user first. (auto)\n");
@@ -973,19 +973,19 @@ void InitCmd_break(void) {
 
     // info commands
     AddInfoCommand("breakpoints", proc_optional_mi, 0,
-        class_info_subcmd_breakpoints_cmd,
-        class_info_subcmd_breakpoints_help,
+        cmd_info_breakpoints_cmd,
+        cmd_info_breakpoints_help,
         "Show status of breakpoints.");
 
     // set breakpoint commands
     AddSetBreakCommand("pending", proc_ignore, 0,
-        class_set_break_subcmd_pending_cmd,
-        class_set_break_subcmd_pending_help,
+        cmd_set_break_pending_cmd,
+        cmd_set_break_pending_help,
         "Set behavior for pending breakpoints.");
 
     // show breakpoint commands
     AddShowBreakCommand("pending", proc_ignore, 0,
-        class_show_break_subcmd_pending_cmd,
-        class_show_break_subcmd_pending_help,
+        cmd_show_break_pending_cmd,
+        cmd_show_break_pending_help,
         "Show behavior for pending breakpoints.");
 }

@@ -65,7 +65,7 @@ static std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
  * Info class commands
  ********************************/
 
-static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // this is a subcommand under "info", so argc/argv start at "diff", not "info"
 
     const auto printSyntax = [](){
@@ -160,7 +160,7 @@ static int class_info_subcmd_diff_cmd(rec_set_t *rec_set, int argc, char **argv)
     return 1;
 }
 
-static int class_info_subcmd_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // this is a subcommand under "info", so argc/argv start at "script", not "info"
 
     const auto printSyntax = [](){
@@ -362,7 +362,7 @@ static int cmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Alt commands
  ********************************/
 
-static int cmd_script_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     namespace Ex = ExpressionHandleShorthands;
 
     if (!g_pendingScript) {
@@ -395,7 +395,7 @@ static int cmd_script_alt_assert_cmd(rec_set_t *rec_set, int argc, char **argv) 
     return 1;
 }
 
-static int cmd_script_alt_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (g_pendingScript) {
         // should never be false...
         PrintOutMsg("Assertion script $%s compiled.\n", g_pendingScript->name().c_str());
@@ -448,7 +448,7 @@ static void printSettingsTable() {
     }
 }
 
-static int cmd_script_alt_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set script setting with null script\n");
@@ -530,7 +530,7 @@ static int cmd_script_alt_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_script_alt_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_script_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set a script setting with null script\n");
@@ -582,12 +582,12 @@ static void scriptfailed(void) {
 void InitCmd_script(void) {
     // info commands
     AddInfoCommand("diff", proc_ignore, 0,
-                   class_info_subcmd_diff_cmd,
-                   class_info_subcmd_diff_help,
+                   cmd_info_diff_cmd,
+                   cmd_info_diff_help,
                    "Display saved deltas from assertion script execution.");
     AddInfoCommand("script", proc_ignore, 0,
-                   class_info_subcmd_script_cmd,
-                   class_info_subcmd_script_help,
+                   cmd_info_script_cmd,
+                   cmd_info_script_help,
                    "Display built and active assertion scripts.");
 
     // regular commands
@@ -602,19 +602,19 @@ void InitCmd_script(void) {
     ScriptCmds = NewCommandList(scriptnotfound, scriptambig, scriptfailed);
 
     AddAltCommand(ScriptCmds, "assert", NULL, proc_ignore, 0,
-                  cmd_script_alt_assert_cmd,
-                  cmd_script_alt_assert_help, "Create an assertion.");
+                  cmd_script_assert_cmd,
+                  cmd_script_assert_help, "Create an assertion.");
     AddAltCommand(ScriptCmds, "end", NULL, proc_ignore, 0,
-                  cmd_script_alt_end_cmd, cmd_script_alt_end_help,
+                  cmd_script_end_cmd, cmd_script_end_help,
                   "Finish building the current assertion script.");
     AddAltCommand(ScriptCmds, "help", "h", proc_ignore, 0,
                   cmd_help_cmd, cmd_help_help,
                   "Display help information about build script mode commands.");
     AddAltCommand(ScriptCmds, "set", NULL, proc_ignore, 1,
-                  cmd_script_alt_set_cmd, cmd_script_alt_set_help,
+                  cmd_script_set_cmd, cmd_script_set_help,
                   "Set information about the debugger environment.");
     AddAltCommand(ScriptCmds, "show", NULL, proc_ignore, 1,
-                  cmd_script_alt_show_cmd, cmd_script_alt_show_help,
+                  cmd_script_show_cmd, cmd_script_show_help,
                   "Show information about the debugger environment.");
 }
 

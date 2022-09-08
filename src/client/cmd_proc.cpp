@@ -49,7 +49,7 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
 // Main async event handler
 static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 
-int class_info_subcmd_application_cmd(rec_set_t *rec_set, int argc,
+int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     dbgprocset_t *ps;
     int num_ps = 0;
@@ -1676,8 +1676,8 @@ void InitCmd_proc(void) {
     // info commands
     AddInfoCommand(
         "application", proc_ignore, 0,
-        class_info_subcmd_application_cmd,
-        class_info_subcmd_application_help,
+        cmd_info_application_cmd,
+        cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
 
     // regular commands

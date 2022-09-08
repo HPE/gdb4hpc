@@ -36,10 +36,16 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
     auto makeZmqnet = [](
         const std::atomic<bool>* killSwitch,
         int& connected, int appId, long int sessionId,
-        long int manifestId, const char* const* leafArgv
+        long int manifestId, const char* const* leafArgv,
+        const cti_hostsList_t* hosts
     ){
         auto connectCallback = [&](int node) {
-            (connected)++;
+            if (hosts && node < hosts->numHosts) {
+                connected += hosts->hosts[node].numPes;
+            } else {
+                // not correct, but at least it still shows progress is being made
+                connected++;
+            }
         };
 
         auto callbacks = zmqnet::UserCallbacks();
@@ -79,7 +85,9 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
     auto tmpSigHandler = TmpSigHandler(SIGINT, launchSigHandler);
 
     auto connected = int{0};
-    auto zmqnetF = std::async(makeZmqnet, &launchKS, std::ref(connected), appId, sessionId, manifestId, leafArgv);
+    auto hosts = std::unique_ptr<cti_hostsList_t, decltype(&cti_destroyHostsList)>
+        (cti_getAppHostsPlacement(appId), cti_destroyHostsList);
+    auto zmqnetF = std::async(makeZmqnet, &launchKS, std::ref(connected), appId, sessionId, manifestId, leafArgv, hosts.get());
 
     // in practice, approx. number of seconds of silence until timeout
     auto tries = 300;

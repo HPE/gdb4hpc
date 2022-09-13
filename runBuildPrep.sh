@@ -82,7 +82,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             ncurses \
             ncurses-devel \
             python3-devel \
-	    jq \
+	          jq \
             rpm-build \
             tcl \
             which \
@@ -111,8 +111,7 @@ install_common_pe
 install_mrnet
 check_exit_status
 
-arch=$(get_arch)
-if [[ "$arch" == "$cdst_arch_aarch64" ]]; then
+if [[ "$target_arch" == "$cdst_arch_aarch64" ]]; then
     echo "############################################"
     echo "#    aarch64, cudatoolkit not supported    #"
     echo "############################################"
@@ -127,7 +126,17 @@ else
     fi
     export product_version="11.6.2"
     export pebuildenv_path=$top_level/external/pebuildenv
-    module load jq
+
+    # allow update of external zypper repos - jenkins only
+    if [[ ! -z $BRANCH_NAME ]]; then
+      sudo sh -c 'cat >> /etc/sysconfig/proxy << EOF
+PROXY_ENABLED="yes"
+HTTP_PROXY="http://proxy.houston.hpecorp.net:8080/"
+HTTPS_PROXY="http://proxy.houston.hpecorp.net:8080/"
+FTP_PROXY="http://proxy.houston.hpecorp.net:8080/"
+NO_PROXY="localhost,127.0.0.1,.us.cray.com,.americas.cray.com,.dev.cray.com,.eag.rdlabs.hpecorp.net,github.hpe.com,jira-pro.its.hpecorp.net"
+EOF'
+    fi
     $top_level/external/pebuildenv/src/cuda-local.sh
     check_exit_status
 fi

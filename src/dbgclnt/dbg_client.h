@@ -82,6 +82,9 @@ public:
     // the passed rec's group.
     void intersectReceiver(const group_recv_t* rec);
 
+    // deletes all internal data
+    void clear();
+
     void merge(rec_set_t&& other);
     void merge(std::unique_ptr<rec_set_t>&& other);
 

@@ -107,7 +107,9 @@ public:
     const auto& location() const { return m_location; }
     const auto* blockmap() const { return m_blockmap; }
     const auto& procsetSlice() const { return m_procsetSlice; }
-    const auto* procset() const { return m_procset; }
+    // if the procset has expired, returns nullptr
+    const dbgprocset_t* procset() const;
+    const auto& procsetName() const { return m_procset; }
 
     // full string with location, e.g. $bmap{$pset::varName@"file.c":XX}
     std::string string() const;
@@ -119,7 +121,7 @@ private:
     ProgramLocation m_location;
     g_block_map_t* m_blockmap; // non-owning, points to data in global blockmap table
     slice_t m_procsetSlice; // if no slice, getRank() returns 0
-    dbgprocset_t* m_procset; // non-owning, points to data in global procset table
+    std::string m_procset;
 };
 
 class Assertion {

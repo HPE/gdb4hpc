@@ -127,35 +127,6 @@ ScriptRunner::ScriptRunner(std::unique_ptr<data::Script>&& script)
     for ([[maybe_unused]] const auto& tracker : m_pendingAsserts) {
         LOG("Waiting for: " << tracker.leftHandSide().expression().string() << " and " << tracker.rightHandSide().expression().string());
     }
-
-    // calculate full recset and cache it for later
-    for (const auto& tracker : m_pendingAsserts) {
-        m_fullRecSet.merge(tracker.createRecSet());
-    }
-
-    auto allRanks = RanksMap{};
-
-    // calculate map of dis to ranks involved in assertion script
-    for (const auto& tracker : m_pendingAsserts) {
-        for (auto& [di, bitset] : tracker.ranksMap()) {
-            auto it = allRanks.find(di);
-            if (it == allRanks.end()) {
-                // new
-                allRanks.emplace(std::make_pair(di, std::move(bitset)));
-            } else {
-                // update
-                *it->second |= *bitset;
-            }
-        }
-    }
-
-    // debug print
-    LOG("ranks involved in script " << name() << ":");
-    for ([[maybe_unused]] const auto& [dih, bitset] : allRanks) {
-        LOG(dih.name() << ": " << bitset->toSetString());
-    }
-
-    m_ranks = std::make_unique<Ranks>(std::move(allRanks));
 }
 
 const std::string& ScriptRunner::name() const {
@@ -230,8 +201,36 @@ bool ScriptRunner::uninstall() {
 
 void ScriptRunner::reset() {
     m_readyFlag = false;
-    // create map to keep track of which ranks are stopped or exited
-    m_ranks->reset();
+
+    // calculate full recset and cache it for later
+    m_fullRecSet.clear();
+    for (const auto& tracker : m_pendingAsserts) {
+        m_fullRecSet.merge(tracker.createRecSet());
+    }
+
+    auto allRanks = RanksMap{};
+
+    // calculate map of dis to ranks involved in assertion script
+    for (const auto& tracker : m_pendingAsserts) {
+        for (auto& [di, bitset] : tracker.ranksMap()) {
+            auto it = allRanks.find(di);
+            if (it == allRanks.end()) {
+                // new
+                allRanks.emplace(std::make_pair(di, std::move(bitset)));
+            } else {
+                // update
+                *it->second |= *bitset;
+            }
+        }
+    }
+
+    LOG("ranks involved in script " << name() << ":");
+    for ([[maybe_unused]] const auto& [dih, bitset] : allRanks) {
+        LOG(dih.name() << ": " << bitset->toSetString());
+    }
+
+    m_ranks = std::make_unique<Ranks>(std::move(allRanks));
+
     for (auto& assert : m_pendingAsserts) {
         assert.reset();
     }
@@ -623,16 +622,20 @@ int ScriptRunner::passEventToOldHandler(DbgInvoke::EventSet& eventSet, const Bit
 
 std::set<DbgInvoke::Handle> ScriptRunner::getDisFromScript() const {
     auto dis = std::set<DbgInvoke::Handle>{};
-    
+
     const auto getDiFromExpression = [&](const data::Expression& e) {
-        forEachOverlaySet(*e.procset(), [&](const auto* os) {
-            if (os->s_di.lock())
-                dis.insert(os->s_di);
-            else
-                PrintOutError("Warning: Expired procset $%s. Ignoring.\n", os->s_di.c_str());
-        });
+        if (auto* procset = e.procset()) {
+            forEachOverlaySet(*procset, [&](const auto* os) {
+                if (os->s_di.lock())
+                    dis.insert(os->s_di);
+                else
+                    PrintOutError("Warning: Expired procset $%s. Ignoring.\n", os->s_di.c_str());
+            });
+        } else {
+            PrintOutError("Warning: Expired procset $%s. Ignoring. \n", e.procsetName().c_str());
+        }
     };
-    
+
     for (const auto& assert : m_script->asserts()) {
         LOG("Extracting dis from " << assert.leftHandSide().string());
         getDiFromExpression(assert.leftHandSide());
@@ -746,21 +749,25 @@ SR::Expression::Expression(const data::Expression& expression)
     , m_breakPointId{-1}
 {
     // assemble overlay sets into a mapping from a di to a single bitset
-    forEachOverlaySet(*m_expression.procset(), [&](const auto* os) {
-        auto it = m_fullSets.find(os->s_di);
-        if (it != m_fullSets.end()) {
-            // in theory, procsets shouldn't contain multiple overlay sets for
-            // the same di, but just in case...
+    if (auto* procset = m_expression.procset()) {
+        forEachOverlaySet(*procset, [&](const auto* os) {
+            auto it = m_fullSets.find(os->s_di);
+            if (it != m_fullSets.end()) {
+                // in theory, procsets shouldn't contain multiple overlay sets for
+                // the same di, but just in case...
 
-            auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
-            *it->second |= *newBitset;
-        } else {
-            // create new entry
+                auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
+                *it->second |= *newBitset;
+            } else {
+                // create new entry
 
-            auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
-            m_fullSets.emplace(std::make_pair(os->s_di, std::move(newBitset)));
-        }
-    });
+                auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
+                m_fullSets.emplace(std::make_pair(os->s_di, std::move(newBitset)));
+            }
+        });
+    } else {
+        PrintOutError("Warning: Expired procset $%s. Ignoring.\n", m_expression.procsetName().c_str());
+    }
 }
 
 bool SR::Expression::setBreakpoints() {
@@ -932,32 +939,38 @@ void SR::Expression::reset() {
 
 std::unique_ptr<rec_set_t> SR::Expression::createRecSet() const {
     LOG("creating recset for " << string());
-    if (expression().procsetSlice().getRank() == 0) {
+
+    auto* procset = expression().procset();
+
+    if (procset && expression().procsetSlice().getRank() == 0) {
         LOG("no slice, returning CreateRecSetForProcset");
-        return std::unique_ptr<rec_set_t>(CreateRecSetForProcset(expression().procset()));
+        return std::unique_ptr<rec_set_t>(CreateRecSetForProcset(procset));
     }
 
-    LOG("slice");
-    // slice up the procset
     auto result = std::make_unique<rec_set_t>();
 
-    forEachOverlaySet(*expression().procset(), [&](auto* os){
-        auto bs = sliceBitset(*os, &expression().procsetSlice());
-        if (!bs->isEmpty()) {
-            // XXX: forEachOverlaySet iterates a const procset, containing
-            // const DbgInvoke::Handles in its overlay sets. 99% of the time, a const
-            // Handle represents a const DbgInvoke, but we can't make a
-            // group reciever with a const DbgInvoke, so we need to const_cast it
-            auto* diptr = const_cast<DbgInvoke*>(os->s_di.lock());
-            if (!diptr) {
-                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", os->s_di.c_str());
-                return;
-            }
+    if (procset) {
+        // slice up the procset
+        forEachOverlaySet(*procset, [&](auto* os){
+            auto bs = sliceBitset(*os, &expression().procsetSlice());
+            if (!bs->isEmpty()) {
+                // XXX: forEachOverlaySet iterates a const procset, containing
+                // const DbgInvoke::Handles in its overlay sets. 99% of the time, a const
+                // Handle represents a const DbgInvoke, but we can't make a
+                // group reciever with a const DbgInvoke, so we need to const_cast it
+                auto* diptr = const_cast<DbgInvoke*>(os->s_di.lock());
+                if (!diptr) {
+                    PrintOutError("Warning: expired procset $%s. Ignoring.\n", os->s_di.c_str());
+                    return;
+                }
 
-            LOG("adding receiver " << bs->toSetString());
-            result->addReceiver(NewGroupReceiver(*diptr, std::move(bs)));
-        }
-    });
+                LOG("adding receiver " << bs->toSetString());
+                result->addReceiver(NewGroupReceiver(*diptr, std::move(bs)));
+            }
+        });
+    } else {
+        PrintOutError("Warning: Expired procset $%s. Ignoring.\n", expression().procsetName().c_str());
+    }
 
     return result;
 }

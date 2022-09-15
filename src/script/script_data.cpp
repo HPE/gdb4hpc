@@ -48,15 +48,17 @@ Expression::Expression(const ExpressionHandle::ProgVarExpr& var)
     , m_location(var.location())
     , m_blockmap{FindBlockMap(var.blockmapName().c_str())}
     , m_procsetSlice(var.procsetSubscript())
-    , m_procset{FindProcSet(var.procsetName().c_str())}
+    , m_procset{var.procsetName()}
 {
     using namespace std::string_literals;
 
-    if (!m_procset) {
+    auto* procset = FindProcSet(m_procset.c_str());
+
+    if (!procset) {
         LOG("Missing procset " << var.procsetName());
         throw InvalidAssertionError("Procset doesn't exist: $"s + var.procsetName());
     } else {
-        LOG("Matched procset " << m_procset->s_name);
+        LOG("Matched procset " << procset->s_name);
     }
 
     if (var.blockmapName() != "" && !m_blockmap) {
@@ -68,21 +70,25 @@ Expression::Expression(const ExpressionHandle::ProgVarExpr& var)
 
     // check that if a procset slice is present, it's not out of bounds
     auto ranksInProcset = 0;
-    forEachOverlaySet(*m_procset, [&ranksInProcset](auto *os) {
+    forEachOverlaySet(*procset, [&ranksInProcset](auto *os) {
         ranksInProcset += os->s_di_bs->numSet();
     });
 
     for (int i = 0; i < m_procsetSlice.getRank(); i++) {
         // no negative indices
         if (m_procsetSlice.getLow(i) < 0 || m_procsetSlice.getHigh(i) < 0) {
-            throw InvalidAssertionError("Invalid procset slice; negative index: $"s + m_procset->s_name + "::{...}");
+            throw InvalidAssertionError("Invalid procset slice; negative index: $"s + m_procset + "::{...}");
         }
 
         // no indices above the number of ranks in the procset
         if (m_procsetSlice.getLow(i) >= ranksInProcset || m_procsetSlice.getHigh(i) >= ranksInProcset) {
-            throw InvalidAssertionError("Invalid procset slice; out of bounds: $"s + m_procset->s_name + "::" + m_procsetSlice.createBitset()->toSetString());
+            throw InvalidAssertionError("Invalid procset slice; out of bounds: $"s + m_procset + "::" + m_procsetSlice.createBitset()->toSetString());
         }
     }
+}
+
+const dbgprocset_t* Expression::procset() const {
+    return FindProcSet(m_procset.c_str());
 }
 
 Expression::Expression(const Expression& other)
@@ -141,7 +147,7 @@ std::string Expression::evalString() const {
         ss << "$" << blockmap()->m_sym->h_key << "{";
     }
 
-    ss << "$" << (procset() ? procset()->s_name : "?"); 
+    ss << "$" << procsetName();
     if (procsetSlice().getRank() > 0) {
         ss << "{";
         ss << stringInnerSlice(procsetSlice());
@@ -178,7 +184,7 @@ Assertion::Assertion(size_t id, settings::Assertion settings, const ExpressionHa
 
     // if lhs ranks overlap rhs ranks but the locations are different, the assertion
     // is impossible to evaluate
-    if (std::string_view{m_lhs.procset()->s_name} == std::string_view{m_rhs.procset()->s_name}) {
+    if (m_lhs.procsetName() == m_rhs.procsetName()) {
         // the procsets are the same...
         if (m_lhs.location() != m_rhs.location()) {
             // ...and the locations are different...
@@ -187,7 +193,7 @@ Assertion::Assertion(size_t id, settings::Assertion settings, const ExpressionHa
             auto rightSlice = m_rhs.procsetSlice().createBitset();
             if (!leftSlice && !rightSlice) {
                 // ..and none of them are sliced, and therefore overlap. impossible!
-                throw InvalidAssertionError("Expressions' ranks overlap ($"s + m_lhs.procset()->s_name + "), but locations are different. Assertion is impossible to evaluate");
+                throw InvalidAssertionError("Expressions' ranks overlap ($"s + m_lhs.procsetName() + "), but locations are different. Assertion is impossible to evaluate");
             }
             if (!leftSlice || !rightSlice) {
                 // ...and at least one is not sliced, therefore containing all 

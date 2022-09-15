@@ -205,10 +205,7 @@ rec_set_t *NewRecSet(void) {
 rec_set_t::rec_set_t() : m_threads(nullptr) {}
 
 rec_set_t::~rec_set_t() {
-    for (auto&& recv : m_recs) {
-        FreeGroupReceiver(recv);
-    }
-    free(m_threads);
+    clear();
 }
 
 std::unique_ptr<rec_set_t> rec_set_t::clone() const {
@@ -292,6 +289,15 @@ void rec_set_t::intersectReceiver(const group_recv_t* rec) {
     for (auto* group : toRemove) {
         removeReceiver(group); // frees group
     }
+}
+
+void rec_set_t::clear() {
+    for (auto&& recv : m_recs) {
+        FreeGroupReceiver(recv);
+    }
+    m_recs.clear();
+    free(m_threads);
+    m_threads = nullptr;
 }
 
 void rec_set_t::merge(rec_set_t&& other) {
@@ -2272,8 +2278,6 @@ rep_set_t *DbgGetType(rec_set_t *set, const char *var, int isType) {
 ** DBG_GO: Continue/start execution.
 */
 rep_set_t *DbgGo(rec_set_t *set, bool all) {
-    int has_err;
-
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
@@ -2290,17 +2294,21 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
                 ClearListState(dbg_fe);
             }
         }
+        if (set->getNumReceivers() > 0) {
+            // update global status flags
+            inferior_status_change = 1;
+            async_pending = 1;
+        }
     } else {
         // selectively clear the list
         for (auto&& recv_ptr : set) {
-            // reset the has_err
-            has_err = 0;
+            auto has_err = false;
 
             // Ensure this di is not in the error list
             for (auto&& err : result->getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
-                    ++has_err;
+                    has_err = true;
                     break;
                 }
             }
@@ -2311,15 +2319,12 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
+                // update global status flags
+                inferior_status_change = 1;
+                async_pending = 1;
             }
         }
     }
-
-    // This command changes the status
-    inferior_status_change = 1;
-
-    // An async event is now pending
-    async_pending = 1;
 
     return result;
 }

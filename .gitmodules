@@ -4,9 +4,6 @@
 [submodule "external/libmi"]
 	path = external/libmi
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-libmi.git
-[submodule "external/ddt_cuda-gdb-11.0"]
-	path = external/ddt_cuda-gdb-11.0
-	url = git@github.hpe.com:hpe/hpc-pe-cdst-ddt_cuda-gdb-11.0.git
 [submodule "tests/unit/googletest"]
 	path = tests/unit/googletest
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-googletest.git

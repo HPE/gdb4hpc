@@ -56,10 +56,13 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest, const char *gdb) 
 // which one to use; and they might well not be the same for each rank.
 bool shipGpuGdbs(cti_manifest_id_t manifest) {
     // The backend code will determine which version of cuda-gdb to use
-    if (cti_addManifestBinary(manifest, "cuda110-gdb-guard")) {
-        PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add cuda110-gdb-guard to manifest.\n");
-        return false;
+    //if (cti_addManifestBinary(manifest, "cuda110-gdb-guard")) {
+    if (char* cudaGdb = pathFind("cuda-gdb", nullptr)) {
+        if (cti_addManifestBinary(manifest, "cuda-gdb")) {
+            free(cudaGdb);
+            return false;
+        }
+        free(cudaGdb);
     }
 
     if (cti_addManifestBinary(manifest, "cuobjdump")) {

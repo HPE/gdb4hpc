@@ -269,8 +269,8 @@ void DbgGdbMI::Initializer::initGpu()
         }
 
         // set the path and data directory
-        DVPRINT("Using cuda110-gdb-guard with --cuda-use-lockfile=0\n");
-        MISessionSetGDBPath(m_session, "cuda110-gdb-guard");
+        DVPRINT("Using cuda-gdb with --cuda-use-lockfile=0\n");
+        MISessionSetGDBPath(m_session, "cuda-gdb");
         setDataDir("cuda-gdb");
         MISessionAddGDBArg(m_session, "--cuda-use-lockfile=0");
 

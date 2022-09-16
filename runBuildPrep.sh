@@ -111,36 +111,6 @@ install_common_pe
 install_mrnet
 check_exit_status
 
-if [[ "$target_arch" == "$cdst_arch_aarch64" ]]; then
-    echo "############################################"
-    echo "#    aarch64, cudatoolkit not supported    #"
-    echo "############################################"
-else
-    echo "############################################"
-    echo "#          Installing cudatoolkit          #"
-    echo "############################################"
-    # ensure submodule is checked out
-    if [[ ! -f $top_level/external/pebuildenv/README.md ]]; then
-        echo "$top_level/external/pebuildenv submodule not checked out..."
-        exit 1
-    fi
-    export product_version="11.6.2"
-    export pebuildenv_path=$top_level/external/pebuildenv
-
-    # allow update of external zypper repos - jenkins only
-    if [[ ! -z $BRANCH_NAME ]]; then
-      sudo sh -c 'cat >> /etc/sysconfig/proxy << EOF
-PROXY_ENABLED="yes"
-HTTP_PROXY="http://proxy.houston.hpecorp.net:8080/"
-HTTPS_PROXY="http://proxy.houston.hpecorp.net:8080/"
-FTP_PROXY="http://proxy.houston.hpecorp.net:8080/"
-NO_PROXY="localhost,127.0.0.1,.us.cray.com,.americas.cray.com,.dev.cray.com,.eag.rdlabs.hpecorp.net,github.hpe.com,jira-pro.its.hpecorp.net"
-EOF'
-    fi
-    $top_level/external/pebuildenv/src/cuda-local.sh
-    check_exit_status
-fi
-
 ## building openmp relies on bdist_wheel
 
 sudo -H pip3 install wheel

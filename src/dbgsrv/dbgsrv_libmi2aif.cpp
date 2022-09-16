@@ -1753,6 +1753,10 @@ std::shared_ptr<ais::Type> TypeParser::wrap(std::shared_ptr<ais::Type> elemType,
             }
         }
         w.reset(new ais::Function);
+    } else if (c == '@') {
+        // gpu register tag - like @local
+        while ( ::isalpha(r[end+1])) ++end;
+        w = elemType;
     } else {
         w.reset(new ais::Unimplemented{"unknown-decoration-" + t.decoration});
         end = r.size()-1;

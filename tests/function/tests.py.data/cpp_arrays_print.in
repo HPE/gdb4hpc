@@ -121,6 +121,32 @@ a{0..2}: {{00000000000000000000000000000001,00000000000000000000000000000010},{0
 61: p/n intarray2d
 Unrecognized format 'n'.
 Command resulted in an error: 61: p/n intarray2d
-62: kill $a
+62: p/csv intarray2d2
+a{0..2}: 1,2
+3,4
+5,6
+63: print /csv floatarray
+a{0..2}: 1.1,2.2,3.3,4.4,5.5
+64: p/1 intarray2d2
+a{0..2}: 1
+2
+3
+4
+5
+6
+65: print /1 two_d
+a{0..2}: "Hello"
+"World!\n"
+"Empty ->"
+""
+66: p/csvx intarray2d
+a{0..2}: 0x1,0x2
+0x10f,0xffffffff
+67: p/x1 intarray2d
+a{0..2}: 0x1
+0x2
+0x10f
+0xffffffff
+68: kill $a
 Shutting down debugger and killing application for 'a'.
-63: q
+69: q

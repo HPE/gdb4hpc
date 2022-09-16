@@ -858,7 +858,16 @@ namespace ais {
 
 
 std::unique_ptr<ais::Printer> ais::Array::makePrinter(Printer& parent) const {
-    return std::make_unique<ArrayPrinter>(parent,"{", ",", "}");
+    static const char* arr[3] = { "{", ",", "}" };  // open, separator, close
+    static const char* one[3] = { "", "\n", "" };   // one per line
+    static const char* csv[3] = { "", ",", "" };    // comma separated values
+    auto& fmt = parent.format();
+    const char** f;
+    if (fmt.onePerLine) f = one;
+    else if (!fmt.csv) f = arr;
+    else if (dynamic_cast<ais::Array*>(m_elemType.get())) f = one;
+    else f = csv;
+    return std::make_unique<ArrayPrinter>(parent,f[0], f[1], f[2]);
 }
 
 void ais::Array::applyL(Reader& reader, Visitor& f) const {
@@ -965,7 +974,9 @@ std::shared_ptr<ais::Array> ais::FtnArray::makeTyped(std::shared_ptr<ais::Type> 
 }
 
 std::unique_ptr<ais::Printer> ais::FtnArray::makePrinter(Printer& parent) const {
-    return std::make_unique<ArrayPrinter>(parent, "(", ", ", ")");
+    auto& fmt = parent.format();
+    if (fmt.csv || fmt.onePerLine) return ais::Array::makePrinter(parent);
+    else return std::make_unique<ArrayPrinter>(parent, "(", ", ", ")");
 }
 
 void ais::FtnArray::printIndex(int idx, std::ostream& os) const {
@@ -2432,6 +2443,9 @@ ais::Formatter::Formatter(const std::string& format) {
     else if (format.find('o') != std::string::npos) form = OCT;
     else if (format.find('t') != std::string::npos) form = BIN;
     else if (format.find('z') != std::string::npos) form = PADDED_BIN;
+
+    if (format.find('1') != std::string::npos) onePerLine = true;
+    if (format.find("csv") != std::string::npos) csv = true;
 }
 
 ais::Formatter& operator<<(std::ostream& s, ais::Formatter& f) {

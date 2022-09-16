@@ -324,12 +324,14 @@ private:
 };
 
 
-class Formatter {
-public:
+struct Formatter {
     Formatter(const std::string& format);
     Formatter(const Formatter&) = default;
     enum Form { DEC, HEX, OCT, BIN, PADDED_BIN };
+
     Form form = DEC;
+    bool csv = false;
+    bool onePerLine = false;
     std::ostream* os = nullptr;
 };
 

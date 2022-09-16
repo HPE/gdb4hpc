@@ -208,7 +208,9 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
         args = ArgsToString(argv+1, argc-1);
     }
 
-    if (auto bad = format.find_first_not_of("xotz"); bad != std::string::npos) {
+    auto cf = format;
+    if (auto loc = cf.find("csv"); loc != std::string::npos) cf.erase(loc,3);
+    if (auto bad = cf.find_first_not_of("xotz1"); bad != std::string::npos) {
         PrintOutError("Unrecognized format \'%c\'.\n", format[bad]);
         return 0;
     }

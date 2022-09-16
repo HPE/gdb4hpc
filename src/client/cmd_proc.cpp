@@ -49,8 +49,41 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
 // Main async event handler
 static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 
-int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
-                                             char **argv) {
+
+enum class StoppedType { END_RANGE, EXIT, BKPT_HIT};
+
+
+void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type, std::string file, std::string func, std::string line, std::string bkpt_id){
+    std::ostringstream ss;
+    auto fullpath = ev_set->di().source_paths.getFullPath(file);
+    switch(type){
+        case StoppedType::BKPT_HIT:{
+            ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
+                << "\",proc_set=\"" << ev_set->di().handle().name()
+                << "\",frame={func=\"" << func
+                << "\",args=[],file=\"" << file
+                <<"\",fullname=\""<< fullpath
+                <<"\",line=\"" << line << "\"}";
+            break;
+        }
+        case StoppedType::END_RANGE:{
+            ss << "reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()
+                <<"\",frame={func=\"" << func
+                <<"\",args=[],file=\""<< file
+                <<"\",fullname=\""<< fullpath
+                <<"\",line=\""<<line << "\"}";
+            break;
+        }
+        case StoppedType::EXIT:{
+            ss << "reason=\"exited-normally\", proc_set=\""<<ev_set->di().handle().name()<<"\"";
+            break;
+        }
+    }
+    PrintOutMIResult(MIResult::STOPPED, "%s\n", ss.str().c_str() );
+    
+}
+
+int cmd_info_application_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgprocset_t *ps;
     int num_ps = 0;
     dbgprocset_t *c_ps;
@@ -1233,51 +1266,43 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
         // Print location info
         if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
             // See if we can get the source line
-            if (Client.MI_mode){
-                std::stringstream ss;
-                auto fullpath = ev_set->di().source_paths.getFullPath(frameLoc.loc_file);
-                ss << "reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()
-                   <<"\",frame={func=\"" << frameLoc.loc_func
-                   <<"\",args=[],file=\""<< frameLoc.loc_file
-                   <<"\",fullname=\""<< fullpath
-                   <<"\",line=\""<<frameLoc.loc_line << "\"}";
-                PrintOutMIResult(MIResult::STOPPED, "%s\n", ss.str().c_str() );
-            }
-            auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
-            lineArg += "," + lineArg; // filename:xx,filename:xx
-            dbgevent_t *listResult = nullptr;
+            if (!Client.MI_mode){
+                auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
+                lineArg += "," + lineArg; // filename:xx,filename:xx
+                dbgevent_t *listResult = nullptr;
 
-            if (ev_set->di().d_frontend) {
-                listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
-            }
+                if (ev_set->di().d_frontend) {
+                    listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
+                }
 
-            if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
-                // Print the source line
+                if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+                    // Print a frame if the last step event changed functions
+                    if (frame_changed) {
+                        PrintMsgWithSetInfo(
+                            ev_set->di().handle().c_str(), &ev_set->group(),
+                            "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                        );
+                    }
 
-                // Print a frame if the last step event changed functions
-                if (frame_changed) {
+                    auto line = std::string{listResult->ev_list->list_line};
+                    formatSourceLine(line);
+                    
+                    PrintMsgWithSetInfo(
+                        ev_set->di().handle().c_str(), &ev_set->group(),
+                        "%d\t%s\n", frameLoc.loc_line, line.c_str()
+                    );
+                } else {
+                    // For some reason we didn't get the right line, just print the frame
                     PrintMsgWithSetInfo(
                         ev_set->di().handle().c_str(), &ev_set->group(),
                         "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                     );
                 }
-
-                auto line = std::string{listResult->ev_list->list_line};
-                formatSourceLine(line);
-                
-                PrintMsgWithSetInfo(
-                    ev_set->di().handle().c_str(), &ev_set->group(),
-                    "%d\t%s\n", frameLoc.loc_line, line.c_str()
-                );
-            } else {
-                // For some reason we didn't get the right line, just print the frame
-                PrintMsgWithSetInfo(
-                    ev_set->di().handle().c_str(), &ev_set->group(),
-                    "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
-                );
+                FreeEvent(listResult);
+            }else{
+                // Print the source line
+                PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, frameLoc.loc_file, frameLoc.loc_func, std::to_string(frameLoc.loc_line), "");
             }
-
-            FreeEvent(listResult);
         } else if (frameLoc.loc_func) {
             // No file/line, just print function name
             PrintMsgWithSetInfo(
@@ -1334,11 +1359,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             if (!bpset) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     if (Client.MI_mode){
-                        std::ostringstream ss;
-                        ss << "reason=\"exited-normally\", proc_set=\""<<ev_set.di().handle().name()<<"\"";
-                        PrintOutMIResult(MIResult::STOPPED,
-                                         "reason=\"exited-normally\", proc_set=\"%s\"\n", 
-                                         ev_set.di().handle().name().c_str());
+                        PrintMIStoppedMsg(&ev_set, StoppedType::EXIT, "", "", "", "");
                     }
                     PrintMsgWithSetInfo(
                         ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1396,15 +1417,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                     if (Client.print_bp_frames) {
                         if (bpset->line() > 0) {
                             if (Client.MI_mode){
-                                std::ostringstream ss;
-                                auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
-                                ss << "reason=\"breakpoint-hit\",bkptno=\"" << bpset->id()
-                                   << "\",proc_set=\""<< ev_set.di().handle().name()
-                                   <<"\",frame={func=\""<< bpset->function()
-                                   << "\",args=[],file=\""<<bpset->file()
-                                   <<"\",fullname=\""<< fullpath
-                                   <<"\",line=\"" << bpset->line() << "\"}";
-                                PrintOutMIResult( MIResult::STOPPED, "%s\n", ss.str().c_str() );
+                                PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), std::to_string(bpset->line()), std::to_string(bpset->id()));
                             }
                             PrintMsgWithSetInfo(
                                 ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1503,15 +1516,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
                         if (Client.MI_mode){
-                            std::ostringstream ss;
-                            auto fullpath = ev_set.di().source_paths.getFullPath(bpset->file());
-                            ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bpset->id()
-                               << "\",proc_set=\"" << ev_set.di().handle().name()
-                               << "\",frame={func=\"" << bpset->function()
-                               << "\",args=[],file=\"" << bpset->file()
-                               <<"\",fullname=\""<< fullpath
-                               <<"\",line=\"" << bpset->line() << "\"}";
-                            PrintOutMIResult( MIResult::STOPPED, "%s\n", ss.str().c_str() );
+                            PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), std::to_string(bpset->line()), std::to_string(bpset->id()));
                         }else{
                         PrintMsgWithSetInfo(
                             ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1702,4 +1707,3 @@ void InitCmd_proc(void) {
     AddShowCommand("args", proc_required, 0, show_subcmd_args_cmd,
                show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
 }
-

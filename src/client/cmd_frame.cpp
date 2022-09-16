@@ -118,6 +118,7 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int count = 0;
+    std::stringstream ss;
 
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -141,6 +142,19 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f != nullptr; f = f->getNext()) {
             // deepest (farthest from main) frame will be in the front
             frames.push_back(BTTree(reply->rep_di.c_str(), reply->rep_group.get(), f));
+            auto reply = rep_set->getFirstReply();
+            auto loc = f->getLoc();
+
+            if(Client.MI_mode){
+                if (!ss.str().empty()){
+                    ss<<",";
+                }else{
+                    ss<<"[";
+                }
+                ss << "frame={level=\"" << f->getLevel() << "\",addr=\"" << loc.loc_addr
+                << "\",func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
+                << "\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}";
+            }
         }
 
         // link frames up
@@ -156,7 +170,16 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     root.condenseTree();
     root.calculateTreeGroups();
     root.orderTree();
-    root.print();
+
+    if (Client.MI_mode){
+        if (ss.str().empty()){
+            ss<<"[";
+        }
+        ss<<"]";
+        PrintOutMIResult(MIResult::DONE, "stack=%s\n(gdb)\n",ss.str().c_str());
+    }else{
+        root.print();
+    }
 
     FreeRepSet(rep_set);
 

@@ -46,6 +46,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-list-target-features", "ok,features=[]"}, 
  {"-special-launch", "launch $a{4} ./bd_dt/C++/cpp_bt.x" }, // temporary
  {"-stack-info-frame", "frame"},
+ {"-stack-list-frames","backtrace"},
  {"-stack-list-variables", "info locals"},
  {"-thread-info", "info threads -v"},
  {"-thread-select", "thread" },
@@ -54,47 +55,13 @@ static std::map<std::string, std::string> return_cmd_map=
 
 int launch_count=0;
 
-/*
-std::string convertMiToCli(const std::string& cmd){
-    SPECIAL_LOG("input mi: \"%s\"\n", cmd);
-    
-    char * temp = strdup(cmd.c_str());
-    //pagination is not supported so cmd should be skipped
-    if (strstr(cmd, "pagination")){
-        return std::string("ignore");
-    }
-
-    char * token = strtok(temp, " ");
-    std::string token_str=std::string(token);
-
-    token_str.erase(token_str.find_last_not_of(" \n\r\t")+1);
-
-    std::string result_str;
-    if (func_cmd_map.find(token_str)==func_cmd_map.end()){
-        if (return_cmd_map.find(token_str)==return_cmd_map.end()){
-            //if cmd is not found in either map, return original cmd
-            result_str=cmd;
-        }else{
-            result_str=return_cmd_map.at(token_str);
-        }
-    }else{
-        result_str=func_cmd_map.at(token_str)(cmd.c_str());
-    }
-
-    return result_str;
-}
-*/
 std::string convertMiToCli(const std::string& cmdLine) {
     mi_log("input mi: \"%s\"\n", cmdLine.c_str());
 
     static std::regex cmdRE(R"((\d*)(-[^ "\n]+) ?(.*)\n?)");
     std::smatch match;
     if (!std::regex_match(cmdLine, match, cmdRE)) {
-        cli_set_prefix("");
-        mi_log("not a recognized MI format \"%s\"\n", cmdLine.c_str());
-        std::ostringstream os;
-        os << "not a recognized MI format: " << cmdLine;
-        throw os.str();
+        return cmdLine;
     }
 
     auto tag = match[1].str(), cmd = match[2].str(), args = match[3].str();

@@ -659,8 +659,10 @@ void ExecuteCommand(const char *line) {
             } else if (cliCmd.rfind("ok,", 0) == 0) {
                 PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", cliCmd.substr(3).c_str());
                 return;
+            } else if (cliCmd.rfind("error,", 0) == 0) {
+                PrintOutError("%s", cliCmd.substr(6).c_str());
+                return;
             }
-
             cmd = strdup(cliCmd.c_str());
         } catch (std::string msg) {
             PrintOutError("%s\n", msg.c_str());

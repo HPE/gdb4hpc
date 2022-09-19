@@ -61,7 +61,7 @@ extern void PrintFrameSet(const char *, Bitset *, const dbgframe_t *);
 /*
 ** Functions defined in cmd_print.c
 */
-extern int PrintVal(val_t *, rec_set_t *, const std::string& format);
+extern int PrintVal(std::ostream& os, val_t *, rec_set_t *, const std::string& format);
 
 /*
 ** Functions defined in cmd_proc.c

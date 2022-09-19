@@ -49,7 +49,6 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
 // Main async event handler
 static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 
-
 enum class StoppedType { END_RANGE, EXIT, BKPT_HIT};
 
 
@@ -83,7 +82,9 @@ void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type, std:
     
 }
 
-int cmd_info_application_cmd(rec_set_t *rec_set, int argc, char **argv) {
+
+static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
+                                             char **argv) {
     dbgprocset_t *ps;
     int num_ps = 0;
     dbgprocset_t *c_ps;
@@ -1301,7 +1302,8 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
                 FreeEvent(listResult);
             }else{
                 // Print the source line
-                PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, frameLoc.loc_file, frameLoc.loc_func, std::to_string(frameLoc.loc_line), "");
+                PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, frameLoc.loc_file, frameLoc.loc_func,
+                                  std::to_string(frameLoc.loc_line), "");
             }
         } else if (frameLoc.loc_func) {
             // No file/line, just print function name

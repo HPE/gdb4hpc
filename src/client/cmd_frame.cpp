@@ -142,7 +142,6 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f != nullptr; f = f->getNext()) {
             // deepest (farthest from main) frame will be in the front
             frames.push_back(BTTree(reply->rep_di.c_str(), reply->rep_group.get(), f));
-            auto reply = rep_set->getFirstReply();
             auto loc = f->getLoc();
 
             if(Client.MI_mode){

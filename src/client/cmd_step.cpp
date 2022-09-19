@@ -42,6 +42,7 @@ static int StepCmd(rec_set_t *rec_set, int argc, char **argv) {
     if ((rep_set = DbgStep(rec_set, count, in)) != NULL) {
         ProcessErrorInRepSet(rep_set);
         FreeRepSet(rep_set);
+        PrintOutOk();
         return 0;
     }
     DPERFLOG(SetTimerStopAndLog("step"));

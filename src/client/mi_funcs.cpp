@@ -9,9 +9,12 @@
 std::string launcher_args;
 std::string num_ranks;
 
+
 static std::string exec_args_cmd(const char *);
 static std::string file_exec_and_sym_cmd(const char *);
 static std::string var_create_cmd(const char *);
+static std::string var_delete_cmd(const char *);
+static std::string var_update_cmd(const char *);
 
 typedef std::string (*fp)(const char *);
 
@@ -20,7 +23,9 @@ static std::map<std::string, fp> func_cmd_map =
 {
  {"-exec-arguments", &exec_args_cmd },
  {"-file-exec-and-symbols", &file_exec_and_sym_cmd},
- {"-var-create", &var_create_cmd}
+ {"-var-create", &var_create_cmd},
+ {"-var-delete", &var_delete_cmd},
+ {"-var-update", &var_update_cmd}
 };
 
 //map for commands that have a default cli command
@@ -33,6 +38,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-enable-pretty-printing", "ok"},
  {"-exec-continue", "continue"},
  {"-exec-next", "next"},
+ {"-exec-return", "finish"},
  {"-exec-run", "-exec-run"},
  {"-exec-step", "step"},
  {"-file-list-exec-source-file", "info source"},
@@ -50,7 +56,6 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-stack-list-variables", "info locals"},
  {"-thread-info", "info threads -v"},
  {"-thread-select", "thread" },
- {"-var-update", "ok"}
 };
 
 int launch_count=0;
@@ -116,13 +121,7 @@ static std::string file_exec_and_sym_cmd(const char * args){
     }
 }
 
-static std::string var_create_cmd(const char *args){
-    auto is = std::istringstream{args};
-    auto str2 = std::string{};
-    // ignoring the first two arguments
-    is >> str2 >> str2 >> str2;
-    return "print "+ str2.substr(1,str2.length()-3);
-}
+
 
 void mi_logv2(const char* tag, const char* format, va_list arg_list) {
     if (auto dir = ::getenv("CRAY_DBG_LOG_DIR")) {
@@ -144,3 +143,146 @@ void mi_log(const char* format, ...) {
     mi_logv(format, arg_list);
     va_end(arg_list);
 }
+
+namespace {
+
+// a single MI variable object.  MI uses these as a persistent reference to a program
+// variable
+class Var {
+public:
+    Var(const std::string& name, const std::string& frame, const std::string& expression,
+        std::string&& value);
+
+    void update(bool allValues, bool& isFirst, std::ostream& os);
+    
+private:
+    std::string m_name;
+    std::string m_frame;
+    std::string m_expression;
+    std::string m_value;
+};
+
+// manage the full set of MI variable objects
+class Vars {
+public:
+    std::string create(const std::string& name, const std::string& frame,
+                       const std::string& expression);
+    void remove(const std::string& name);
+    std::string update(const std::string& name, bool allValues);
+
+private:
+    int m_nextVar = 1;
+    std::map<const std::string, Var> m_vars;
+};
+
+}
+
+// singleton for managing the MI vars
+Vars miVars;    
+
+extern std::string GetMiValue(const std::string& expression);
+
+// The frame part of the MI variables it no implemented
+Var::Var(const std::string& name, const std::string& frame, const std::string& expression,
+         std::string&& value) :
+    m_name(name), m_frame(frame), m_expression(expression), m_value(std::move(value))
+{}
+
+// Determine if the value of a program variable has changed
+// If the value has changed, send the MI formatted result to "os"
+void Var::update(bool allValues, bool& isFirst, std::ostream& os)
+{
+    auto newValue = GetMiValue(m_expression);
+    if (newValue == m_value) return;
+
+    m_value = std::move(newValue);
+    auto inScope = !m_value.empty();
+
+    if (isFirst) isFirst = false;
+    else os << ",";
+
+    os << "{name=\"" << m_name << "\",";
+    if (allValues && inScope) {
+        os << "value=\"" << m_value << "\",";
+    }
+    os << "in_scope=\"" << (inScope ? "true" : "false")
+       << R"(",type_changed="false"})";
+}
+
+// Create a new MI variable with name "inname" for a given expression.
+// The frame element is unimplemented so it will act like "-"
+std::string Vars::create(const std::string& inname, const std::string& frame,
+                         const std::string& expression) {
+    std::ostringstream os;
+
+    // Follow the MI specification to generate a name if one isn't
+    // given
+    auto name = inname;
+    if (name == "-") {
+        std::ostringstream nm;
+        nm << "var" << std::setfill('0') << std::setw(6) << m_nextVar++;
+        name = nm.str();
+    }
+
+    // get the new current value
+    auto value = GetMiValue(expression);
+
+    if (value.empty()) return "error,unable to evalute";
+
+    os << "ok,name=\"" << name << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
+
+    // and store it
+    m_vars.insert( std::make_pair(name, Var{name, frame, expression, std::move(value)}));
+
+    return os.str();
+}
+
+void Vars::remove(const std::string& name) {
+    m_vars.erase(name);
+}
+
+// Update one or all MI variables, and send the MI output to os
+std::string Vars::update(const std::string& name, bool allValues) {
+    auto os = std::ostringstream{};
+
+    os << "ok,changelist=[";
+    auto isFirst = true;
+    if (name == "*") {
+        for (auto& [name,var] : m_vars) {
+            var.update(allValues, isFirst, os);
+        }
+    } else if (auto loc = m_vars.find(name); loc != m_vars.end()) {
+        loc->second.update(allValues, isFirst, os);
+    }
+    os << "]";
+    return os.str();
+}
+
+static std::string var_create_cmd(const char *args){
+    auto is = std::istringstream{args};
+    std::string name, frame, expression;
+    is >> name  >> frame >> std::quoted(expression);
+    return miVars.create(name, frame, expression);
+}
+
+static std::string var_delete_cmd(const char *args) {
+    auto is = std::istringstream{args};
+    std::string name;
+    is >> name;
+    miVars.remove(name);
+    return "ok";
+}
+
+static std::string var_update_cmd(const char *args) {
+    auto is = std::istringstream{args};
+    auto arg = std::string{};
+
+    auto allValues = false;
+    while (is >> arg) {
+        if (arg == "--all-values") { allValues = true; }
+        else if ( arg[0] == '-') { /* unhandled */ }
+        else return miVars.update(arg, allValues);
+    }
+    return "ok";
+}
+        

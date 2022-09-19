@@ -48,9 +48,10 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
 }
 
 // external exposure
-int PrintVal(val_t *val, rec_set_t *rec_set, const std::string& format) {
+int PrintVal(std::ostream& os, val_t *val, rec_set_t *rec_set, const std::string& format) {
     dbgprocset_t *pr = NULL;
     rep_set_t *rep_set;
+    auto threads = rec_set ? rec_set->getThreads() : nullptr;
 
     if (val == NULL) return -1;
 
@@ -62,12 +63,11 @@ int PrintVal(val_t *val, rec_set_t *rec_set, const std::string& format) {
         }
     }
         
-
     switch (RVAL_TYPE(val)) {
         case rval_aif:
             // Print the result
-            RVAL_AIF(val)->print(Client.cli_out.ostream(), "", format);
-            PrintOutMsg("\n");
+            RVAL_AIF(val)->print(os, "", format);
+            os << "\n";
 
             break;
 
@@ -78,18 +78,21 @@ int PrintVal(val_t *val, rec_set_t *rec_set, const std::string& format) {
                 // Print the set info - Note that the rep_di can be null here if
                 // the reply set was the result of an operation on two different
                 // sets.
-                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), NULL);
+                auto diName = reply->rep_di.c_str();
+
+                auto label = GetProcSetString(diName, reply->rep_group.get(), threads);
+                if (!label.empty()) label += ": ";
 
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...
                 auto aif = EVENT_DATA(reply->rep_event);
-                auto& os = Client.cli_out.ostream();
                 if (LVAL_TYPE(val) == lval_blockmap) {
+                    os << label;
                     PrintWithBlockMap(aif, LVAL_BM_BLOCKMAP(val), os);
                 } else {
-                    aif->print(os);
+                    aif->print(os, label, format);
                 }
-                PrintOutMsg("\n");
+                os << "\n";
             }
 
             break;
@@ -97,12 +100,11 @@ int PrintVal(val_t *val, rec_set_t *rec_set, const std::string& format) {
         case rval_proc:
             // assign the procset directly
             if ((pr = RVAL_PROCSET(val)) == NULL) {
-                PrintOutMsg("<proc NULL>");
+                os << "<proc NULL>";
                 break;
             }
 
-            PrintOutMsg("<proc %s[%d]>\n", pr->s_name, pr->s_nproc);
-
+            os << "<proc " << pr->s_name << "[" << pr->s_nproc << "]>\n";
             break;
 
         default:
@@ -141,49 +143,6 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
             line += "\n";
             PrintMsgWithSetAndThreadInfo(diName, group, thread.c_str(),
                                          line.c_str());
-        }
-    }
-
-    return 0;
-}
-
-// print the value of \a prefixed with the process and possibly thread info.
-static int printValWithThreads(val_t *val, rec_set_t *rec_set, const std::string& format) {
-    if (!val || !rec_set || RVAL_TYPE(val) != rval_reply) {
-        return PrintVal(val, rec_set, format);
-    }
-
-    // Retrieve the contents of the val
-    if (VAL_RETRIEVE(val, rec_set)) {
-        return -1;
-    }
-
-    // Print each reply
-    auto rep_set = RVAL_REPLY(val);
-    auto& os = Client.cli_out.ostream();
-    
-    for (auto &&reply : rep_set) {
-        // Print the set info - Note that the rep_di can be null here if
-        // the reply set was the result of an operation on two different
-        // sets.
-        auto stream = EVENT_DATA(reply->rep_event);
-        auto diName = reply->rep_di.c_str();
-
-        auto label = GetProcSetString(diName, reply->rep_group.get(), rec_set->getThreads());
-        if (!label.empty()) label += ": ";
-        if (Client.MI_mode){
-            // temporarily naming variables "var"+"number" to get distinct names, need to figure out
-            // how to get better naming convention.
-            static int var_count=0;
-            var_count++;
-            std::string s = "var" + std::to_string(var_count);
-            PrintOutMIResult(MIResult::DONE, "name=\"%s\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", value=\"", s.c_str());
-            stream->print(os, label, format);
-            PrintOutMIResult(MIResult::CONTINUATION, "\"\n(gdb)\n");
-        }else{
-            PrintOutMsg("%s", ""); // currently need for edit_line interaction
-            stream->print(Client.cli_out.ostream(), label, format);
-            PrintOutMsg("\n");
         }
     }
 
@@ -249,7 +208,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     DPERFLOG(SetTimerStart("print"));
 
-    printValWithThreads(val, rec_set, format);
+    PrintVal(Client.cli_out.ostream(), val, rec_set, format);
 
     DPERFLOG(SetTimerStopAndLog("print"));
 
@@ -303,6 +262,38 @@ static int cmd_show_print_elements_cmd(rec_set_t *rec_set, int argc,
     }
 
     return 1;
+}
+
+// retrieve the value of an expresison for the MI context.
+// return an empty string if it fails (typically a variable out of scope)
+std::string GetMiValue(const std::string& expression)
+{
+    SuppressPrintOutError suppressor;
+    
+    auto e = ParseExpr(expression.c_str());
+    if (!e) {
+        return "";
+    }
+
+    auto s = CurrentProcSet();
+    auto rec_set = std::unique_ptr<rec_set_t>{CreateRecSetForProcset(s)};
+
+    val_t *val = nullptr;
+    if (EvalExpr(&val, e, rec_set.get()) < 0) {
+        FreeExpr(e);
+        return "";
+    }
+
+    FreeExpr(e);
+
+    auto os = std::ostringstream{};
+    PrintVal(os, val, rec_set.get(), "");
+
+    DestroyVal(val);
+
+    auto value = os.str(); // fixme - C++20 can move
+    value.erase(std::remove(value.begin(), value.end(), '\n'), value.end());
+    return value;
 }
 
 void InitCmd_print(void) {

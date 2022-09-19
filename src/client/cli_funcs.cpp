@@ -903,7 +903,6 @@ void vPrintOutError(const char *format, va_list arg_list) {
         return;
     }
 
-
     // clear the current line this should contain a prompt
     cli_clear_line();
 
@@ -924,6 +923,7 @@ void vPrintOutError(const char *format, va_list arg_list) {
 
         // Print out XML error end
         fprintf(f, XML_RESPONSE_ERROR_END);
+    } else if (!f) { // error output is suppressed
     } else if (Client.MI_mode) {
         // We can print out a MI error message here for now, but this will
         // sooner or later prove insufficient since it assumes PrintOutError
@@ -1245,3 +1245,7 @@ bool SetProgramOutputFile(const char* file) {
     }
 }
     
+SuppressPrintOutError::SuppressPrintOutError() : stream(CurrentStream), prev(nullptr) {
+    if (stream) std::swap(stream->cs_fperr, prev);
+}
+SuppressPrintOutError::~SuppressPrintOutError() { if (stream) stream->cs_fperr=prev; };

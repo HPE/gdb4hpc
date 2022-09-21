@@ -9,7 +9,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c:%\d+%
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c:11
 2: maint set sync on
 3: break foo
 a{0..1}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c, line %\d+%.

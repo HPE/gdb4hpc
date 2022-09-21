@@ -3,7 +3,7 @@
 17: launch $a{3} bd_dt/c/c_type_test.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:%(58|143)%
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:58
 18: # Set a breakpoint at specified line numbers:
 19: break c_type_test.c:198
 a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 198.

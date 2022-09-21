@@ -21,6 +21,8 @@ launch:
     slurm: "--exclusive"
     alps: ""
     ssh: ""
+    aprun: ""
+    mpiexec: ""
   allocation:
     nodes: 4
 

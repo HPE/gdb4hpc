@@ -8,7 +8,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..1}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:%(58|143)%
+a{0..1}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:58
 2: launch $b{2} bd_dt/c/c_cmp_diff.x
 Starting application, please wait...
 Creating MRNet communication network...
@@ -19,7 +19,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:%(55|140)%
+b{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:55
 3: # stop before exiting
 4: focus $a
 4: break 227

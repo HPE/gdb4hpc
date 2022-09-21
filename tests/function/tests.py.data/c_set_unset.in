@@ -2,7 +2,7 @@
 19: launch $a{3}   bd_dt/c/c_type_test.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:%(58|143)%
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
 21: #set env var
 22: set environment CRAY_ENV_TEST "TRUE"
 24: #has set env var worked?

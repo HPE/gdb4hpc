@@ -7,7 +7,7 @@ Timeout in 400 seconds. Please wait for the attach to complete.
 Number of dbgsrvs connected: [1];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:%(7|9)%
+a{0}: Initial breakpoint, main at /bd_dt/c/c_list.c:7
 3: break printIt
 a{0}: Breakpoint 1: file /bd_dt/c/c_list.c, line 16.
 4: c

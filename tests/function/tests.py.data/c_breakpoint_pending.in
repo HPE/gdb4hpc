@@ -3,7 +3,7 @@
 15: launch $a{3}   bd_dt/c/c_dlopen.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, %(in )?%main%( at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_dlopen_test.c:\d+)?%
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_dlopen_test.c:29
 18: # Set a pending breakpoint at function that will be dlopened
 19: set break pending on
 20: break dlopened_function

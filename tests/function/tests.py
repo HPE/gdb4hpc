@@ -118,7 +118,7 @@ replace_dir_re = re.compile(r"\S*/bd_dt/")
 replace_ftn_dir_re = re.compile(r"\S*/(\w*.f90)\b")
 hex_val_re = re.compile(r"0x[0-9a-f]+")
 lwp_val_re = re.compile(r"\(LWP \d+\)")
-ftn_init_bp_re = re.compile(r"(Initial breakpoint, [a-zA-z_]+ at )(.*/)?(.*\.f90):\d+")
+init_bp_re = re.compile(r"(Initial breakpoint, [a-zA-z_]+ at )(.*/)?(.*\.[fcp90]+):\d+")
 
 launcher_arg_re = re.compile('--launcher-args="[^"]*" ')
 non_mpi_arg = ' --non-mpi '
@@ -263,7 +263,7 @@ def anonymize_line(line):
         return "hexval" if m[0] != "0x0" else "0x0"
     line = hex_val_re.sub(hex_match, line)
     line = lwp_val_re.sub('LWP', line)
-    line = ftn_init_bp_re.sub(r"\1\3:<start-line>", line)
+    line = init_bp_re.sub(r"\1\3:<start-line>", line)
     line = launcher_arg_re.sub('', line)
     line = line.replace(non_mpi_arg, '')
     m = interrupted_proc_out_re.match(line)

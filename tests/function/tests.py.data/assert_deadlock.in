@@ -8,7 +8,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:%(9|11)%
+a{0..1}: Initial breakpoint, main at /bd_dt/c/c_inc.c:9
 2: build $deadlock
 2:     set verbose-breakpoints true
 3:     # these assertions are true, but both ranks will stop at :14 and get stuck

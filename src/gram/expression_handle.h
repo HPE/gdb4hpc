@@ -34,64 +34,70 @@ public:
         ParseError(const std::string& msg) : std::runtime_error(msg) {};
     };
 
+    // Read only, filterable view into an ExpressionHandle
+    class View;
+
     // output types produced by assemble<T>
 
-    struct AssertExpr;             // assert expression
+    struct ProgVarExpr; // program variable expression
 
     // "building block" types produced by popExpr<T>. output types are made of these
 
-    enum class CompOpExpr;         // comparison operator expression
-    struct ProgVarExpr;            // program variable expression
     struct ProgLocExpr;            // program location expression
     using SubscriptExpr = slice_t; // subscript expression
 
 private:
-    // used to flag that assemble<T> or popExpr<T> is unimplemented for a type
+    // used to flag that assemble<T>, filterOut<T>, or popExpr<T> is unimplemented for a type
     template <typename T> struct Unimplemented : std::false_type {};
 
 public:
-    // parse expr into internal tokens, ready to be assembled into output types 
+    // parse expr into internal tokens, ready to be assembled into output types
     // via assemble<T>. If a parsing error occurs, ExpressionHandle::ParseError is thrown
-    ExpressionHandle(std::string&& expr);
+    ExpressionHandle(std::string expr);
+    ExpressionHandle(ExpressionHandle&& other) = default;
 
-    // assemble internal tokens into T. throws ExpressionHandle::ParseError on failure
+    // Create an ExpressionHandle::View into this ExpressionHandle. The view is only
+    // valid as long as the original ExpressionHandle is alive.
+    View view() const;
+
+    // assemble internal tokens into T starting from wherever the top of the internal
+    // token stack happens to be. throws ExpressionHandle::ParseError on failure.
     template <typename T>
-    T assemble() {
-        static_assert(Unimplemented<T>::value, "Assemble not implemented for T");
-        return T{}; // suppress "control reaches end of non-void function" warning
-    }
+    T assemble() const;
+
+    // assemble internal tokens into T, starting from an offset from the top of
+    // the internal stack. throws ExpressionHandle::ParseError on failure.
+    template <typename T>
+    T assembleFromOffset(int offset) const;
 
     // access to inner expr_t
-    expr_t* raw() { return m_expr.get(); }
+    const expr_t& raw() const;
+
+    const std::string& string() const { return m_buf; }
 
 private:
-    // manipulators for underlying expr_t
+    // manipulators for underlying expr_t. none of these actually modify the underlying
+    // expr_t *data*, only its stack top index, so they can be considered const.
 
-    const expr_elt* popExpr();
+    const expr_elt* popExpr() const;
     const expr_elt* topExpr() const;
     expr_op topExprOp() const;
     const expr_elt* lastExpr() const;
-    void incExprIdx();
-    void resetExprIdx();
+    void incExprIdx() const;
+    // reset internal expression stack index to an offset from the top of the
+    // internal expressions' stack
+    void resetExprIdx(int offset = 0) const;
     bool exprIsEmpty() const;
 
-    // return building block type T made out of token(s) on the top of the 
-    // internal expr_t's stack. on success, T is returned and the stack tokens 
-    // are consumed. upon failure, it resets the internal stack to the state it 
+    // return building block type T made out of token(s) on the top of the
+    // internal expr_t's stack. on success, T is returned and the stack tokens
+    // are consumed. upon failure, it resets the internal stack to the state it
     // was before the function was called and throws ExpressionHandle::ParseError.
     template <typename T>
-    T popExpr() {
+    T popExpr() const {
         static_assert(Unimplemented<T>::value, "popExpr not implemented for T");
         return T{}; // suppress warning
     }
-
-    // helper functions to help with resetting the internal expr_t's stack upon 
-    // error in popExpr<T>. stores checkpoints on a stack so these functions can
-    // be used in recursive functions.
-
-    void pushStackCheckpoint();
-    void restoreStackCheckpoint();
-    void removeStackCheckpoint();
 
     // prints internal expr_t's stack and an arrow pointing to the current top.
     // useful in gdb.
@@ -99,32 +105,46 @@ private:
 
     // original expression string
     const std::string m_buf;
-    // internal expr_t
+
+    // internal expr_t. this should not be modified, with the exception of the
+    // expr's internal stack pointer.
+    // XXX: expr_t still uses legacy FreeExpr for destruction, which makes
+    // declaring this as unique_ptr<const expr_t> impossible right now.
     std::unique_ptr<expr_t, decltype(&FreeExpr)> m_expr;
-    // stack of checkpoint indices used by *StackCheckpoint()
-    std::vector<int> m_stackCheckpoints;
+};
+
+class ExpressionHandle::View {
+    // An ExpressionHandle::View is a view into an ExpressionHandle that doesn't
+    // own any of the underlying data. Its lifetime is the same as the lifetime of the
+    // underlying ExpressionHandle. Views can be filtered, removing tokens or patterns of
+    // tokens from the view, and they can be used as raw expr_t for expressions.
+public:
+    View(const ExpressionHandle& parent);
+
+    const ExpressionHandle& parent() const;
+    // access to inner expr_t
+    const expr_t& raw() const;
+
+    // filter out T from the expression. after filtering, there is no guarantee that the
+    // expression is still semantically correct.
+    template <typename T>
+    void filterOut();
+
+private:
+    const ExpressionHandle& m_parent;
+
+    std::unique_ptr<expr_t, decltype(&::free)> m_expr;
 };
 
 // for easy access to ExpressionHandle types 
 // via "using namespace ExpressionHandleShorthands"
 namespace ExpressionHandleShorthands {
     using ExprHndl = ExpressionHandle;
-    using CompOpExpr = ExpressionHandle::CompOpExpr;
     using ProgVarExpr = ExpressionHandle::ProgVarExpr;
     using ProgLocExpr = ExpressionHandle::ProgLocExpr;
     using SubscriptExpr = ExpressionHandle::SubscriptExpr;
-    using AssertExpr = ExpressionHandle::AssertExpr;
     using ParseError = ExpressionHandle::ParseError;
 } // namespace
-
-enum class ExpressionHandle::CompOpExpr {
-    // binary comparison operator
-    // from e.g. '==', '!=', '<', etc...
-    None,
-    Equal, NotEqual,
-    LessThan, LessThanEqual,
-    GreaterThan, GreaterThanEqual
-};
 
 class ExpressionHandle::ProgLocExpr {
     // program location expression. a line number and a location name. the name
@@ -169,22 +189,31 @@ private:
     unsigned int m_repeat;
 };
 
-class ExpressionHandle::AssertExpr {
-    // assertion expression. a binary comparison operator with a left-hand side
-    // (lhs) and a right-hand side (rhs).
-    // from e.g. 'assert $a::...@...:... == $b::...@...:...'
-public:
-    const auto& compareOp() const { return m_op; }
-    const auto& rightHandSide() const { return m_rhs; }
-    const auto& leftHandSide() const { return m_lhs; }
-private:
-    friend ExpressionHandle;
+template <typename T>
+T ExpressionHandle::assemble() const {
+    static_assert(Unimplemented<T>::value,
+                  "ExpressionHandle::Assemble not implemented for T");
+    return T{}; // suppress "control reaches end of non-void function" warning
+}
 
-    CompOpExpr m_op;
-    ProgVarExpr m_rhs;
-    ProgVarExpr m_lhs;
-};
+template <typename T>
+T ExpressionHandle::assembleFromOffset(int offset) const {
+    resetExprIdx(offset);
+    return assemble<T>();
+}
 
-template<>
-ExpressionHandle::AssertExpr
-ExpressionHandle::assemble<ExpressionHandle::AssertExpr>();
+template <typename T>
+void ExpressionHandle::View::filterOut() {
+    static_assert(ExpressionHandle::Unimplemented<T>::value,
+                  "ExpressionHandle::View::FilterOut not implemented for T");
+}
+
+// available assemble specializations
+
+template <>
+ExpressionHandle::ProgVarExpr ExpressionHandle::assemble<ExpressionHandle::ProgVarExpr>() const;
+
+// available filterOut specializations
+
+template <>
+void ExpressionHandle::View::filterOut<ExpressionHandle::ProgLocExpr>();

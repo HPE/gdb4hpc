@@ -25,6 +25,8 @@
 
 namespace script {
 
+using ValPtr = std::unique_ptr<val_t, decltype(&DestroyVal)>;
+
 class ScriptRunner {
     // Runs an assertion script. Sends start/stop/compare/etc commands to the
     // backend and keeps track of breakpoints that have been hit and assertions
@@ -36,8 +38,23 @@ public:
 private:
     class Expression;
     class Assertion;
-    struct Result;
     class Ranks;
+    struct Result {
+        std::unique_ptr<rec_set_t> recSet;
+        ValPtr result;
+        ValPtr difference;
+
+        // return true if two results, in particular their stored difference values,
+        // are the same
+        bool operator==(const Result& other) const;
+    };
+
+    struct ResultPack {
+        std::vector<Result> results;
+        size_t passes = 0;
+        size_t warnings = 0;
+        size_t failures = 0;
+    };
 
 public:
     ScriptRunner(std::unique_ptr<data::Script>&& script);
@@ -60,21 +77,28 @@ public:
     // this script is the global "current" script, it will be removed. returns
     // true on success
     bool uninstall();
-    // reset the internal state of the assertion script
-    void reset();
+    // reset the internal state of the assertion script. returns true on success
+    bool reset();
     // send a continue command to all ranks involved in the assertion script
     // that aren't already running according to the ScriptRunner's internal
     // tracking. this serves as the initial "start running" function. returns
     // true if continues were successfully sent
     bool sendContinue();
-    // returns true if the assertion script is considered finished and should be
-    // stopped. the definition of finished depends on the options that the user
-    // specified when writing the script
-    bool finished() const;
+    // returns true if the assertion script should be stopped and uninstalled. the
+    // conditions for stopping depend on the settings used when the user initially writes
+    // the script. as a rule of thumb, a script should be stopped when every assertion has
+    // at least one result, or the user set an assert to stop on failure, and it has
+    // failed.
+    bool shouldStop() const;
+    // returns true if the assertion script has evaluated each assertion at least once.
+    bool hasRunToCompletion() const;
     // returns true if all ranks are blocked (stopped or exited). if no asserts
     // can be evaluated and released, it is impossible to make progress in the
     // assertion script and it should be stopped
     bool allRanksBlocked() const;
+    // returns true if all dbginvokes involved in the assertion script are at their
+    // initial breakpoint.
+    bool allDbgInvokesAtInitialBreakpoint() const;
 
     // returns true if any asserts are ready (all associated ranks are stopped
     // at the correct location) to be evaluated
@@ -84,10 +108,14 @@ public:
     // sends a continue command to any ready asserts
     bool releaseReadyAsserts();
 
-    const Assertion* getAssert(size_t id) const;
+    const data::Assertion* getAssert(size_t id) const;
     const auto& asserts() const { return m_pendingAsserts; }
     // return a list of all stored diffs sorted by the diffs' ids
-    const std::vector<std::pair<const Assertion*, const Result*>> getAllDiffs() const;
+    std::vector<std::pair<const data::Assertion*, const Result*>> getAllDiffs() const;
+    // returns a list of all results results tagged with the amount of times they repeat in a row
+    std::vector<std::pair<const Result*, size_t>> getCondensedDiffs(const Assertion& assert) const;
+    // return number of times that this script hasRunToCompletion().
+    size_t numRuns() const;
 
     bool hasError() const { return m_error != ""; }
     std::string getError() const { return m_error; }
@@ -132,6 +160,10 @@ private:
     std::tuple<size_t, size_t, size_t> getResultTotals() const;
 
     std::unique_ptr<data::Script> m_script;
+
+    // assert id -> results
+    std::map<int, ResultPack> m_results;
+
     std::vector<Assertion> m_pendingAsserts;
     std::unique_ptr<Ranks> m_ranks;
     std::map<DbgInvoke::Handle, DbgInvoke::AsyncEventCallback> m_oldEventHandlers;
@@ -140,125 +172,90 @@ private:
     std::string m_error = "";
     bool m_readyFlag = false;
     bool m_manualFinishFlag = false;
+    bool m_clearResultsOnStartFlag = false;
 
     int m_oldPrintElements = 0;
     bool m_oldPrintBpFrames = false;
-};
 
-class ScriptRunner::Expression {
-    // Holds a data::Expression, keeps track of program state, and notifies when
-    // the program state matches the location of the held data::expression. When the
-    // program state matches, a compare call can be made by the ScriptRunner.
-public:
-    Expression(const data::Expression& expression);
-
-    // return the data::Expression which the object is tracking
-    const auto& expression() const { return m_expression; }
-
-    // Create/delete breakpoints needed to evaluate this expression. returns true on success.
-    bool setBreakpoints();
-    bool deleteBreakpoints();
-    // notify the object of new ranks that have stopped. if passed di does not
-    // match a di from the original expression, this function is a no-op. returns
-    // the result of isReady().
-    bool notify(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
-    // notify the object that any internal state kept about the passed ranks is
-    // no longer valid.
-    void unnotify(const DbgInvoke& di, const Bitset& bitset);
-    // returns true when all ranks from the original expression have been passed
-    // through notify() with correct breakpoint locations.
-    bool isReady() const;
-    // check if a breakpoint event is relevant to the internal expression. if it
-    // is, returns the MappedBreakpoint that matches it. if it isn't, returns nullptr
-    const MappedBreakpoint* BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
-    // check if a set of ranks is relevant to the internal expression.
-    bool procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;
-    // reset internal state to be waiting on all ranks
-    void reset();
-    // return a map mapping dis to a bitsets representing the set of ranks that
-    // are involved in this assertion
-    const auto& ranksMap() const { return m_fullSets; }
-    // return a newly created rec_set_t including every di/rank mentioned in the expression
-    std::unique_ptr<rec_set_t> createRecSet() const;
-
-    // return the full expression as originally typed
-    std::string string() const { return m_expression.string(); }
-    // return portion of the expression appropriate for passing to a compare evaluation
-    std::string evalString() const { return m_expression.evalString(); }
-
-private:
-    const data::Expression& m_expression;
-    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_fullSets;
-    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_waitingFor;
-    int m_breakPointId;
-};
-
-using ValPtr = std::unique_ptr<val_t, decltype(&DestroyVal)>;
-
-struct ScriptRunner::Result {
-    std::unique_ptr<rec_set_t> recSet;
-    ValPtr result;
-    ValPtr difference;
-
-    // return true if two results, in particular their stored difference values,
-    // are the same
-    bool operator==(const Result& other) const;
+    size_t m_completedRunsCount = 0;
 };
 
 class ScriptRunner::Assertion {
-    // Holds two instances of Expression and a binary operation. supports
-    // the same operations as Expression, forwarding each call to the
-    // underlying expressions. when the program state is ready to evaluate the
-    // assertion, Assertion can generate the ExpressionHandle object for use
-    // with EvalCompare etc
-
+    // Holds a data::Assertion. Sets breakpoints, keeps track of program state relative to
+    // the data:Assertion, and keeps tracks of assertion evaluation results.
 public:
     Assertion(const data::Assertion& assert);
     Assertion(Assertion&& other) = default;
 
-    const auto& leftHandSide() const { return m_lhs; }
-    const auto& rightHandSide() const { return m_rhs; }
-
-    // forward to underlying instances Expression and return the logical
-    // and/or (depending on the operation) of the results if applicable
-
     auto id() const { return m_assert.id(); }
+
+    // Create/delete breakpoints needed to evaluate this expression. returns true on success.
     bool setBreakpoints();
     bool deleteBreakpoints();
+
+    // return a vector of locations that have to do with this assertion, and which breakpoints
+    // they map to.
+    const std::vector<std::pair<int, const data::ProgramLocation*>>& breakpointLocations() const;
+
+    // notify the object of new ranks that have stopped. before notifying, BPIsRelevant
+    // should be used to check if the event matters to this assertion. returns the result
+    // of isReady().
     bool notify(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp);
+
+    // notify the object that any internal state kept about the passed ranks is
+    // no longer valid.
     void unnotify(const DbgInvoke& di, const Bitset& bitset);
+
+    // returns true when breakpoint events for all ranks from the original expression have
+    // been passed through notify().
     bool isReady() const;
-    bool isFinished() const;
-    bool BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
-    bool procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;
+
+    // check if a breakpoint event is relevant to the internal expression. if it
+    // is, returns the MappedBreakpoint that matches it. if it isn't, returns nullptr.
+    const MappedBreakpoint* BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
+
+    // check if a set of ranks is relevant to the internal expression.
+    bool dbgInvokeIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;
+
+    // reset internal state to be waiting on all ranks.
     void reset();
-    RanksMap ranksMap() const;
+
+    // return a map mapping dis to a bitsets representing the set of ranks that
+    // are involved in this assertion.
+    const std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>& ranksMap() const;
+
+    // return a newly created rec_set_t including every di/rank mentioned in the expression.
     std::unique_ptr<rec_set_t> createRecSet() const;
-    const auto& settings() const { return m_assert.settings(); }
 
-    std::unique_ptr<ExpressionHandle> expressionHandle() const;
+    // return the original expression in a form that can be used with EvalCompare.
+    const ExpressionHandle::View& expressionHandle() const;
+
+    // return a human readable representation of the assert expression, as it was
+    // originally typed.
     std::string string() const { return m_assert.string(); };
+    const auto& settings() const { return m_assert.settings(); }
+    // return a human readable string of settings applied to this assert that differ from
+    // default assertion settings.
     std::string settingsString() const { return m_assert.settingsString(); }
-    std::string summary() const;
-
-    // result storage
-
-    // takes ownership of both pointers
-    void recordResult(ValPtr&& result, ValPtr&& difference);
-    std::tuple<size_t, size_t, size_t> getResultTotals() const;
-    const std::vector<Result>& results() const;
-    std::vector<std::pair<const Result*, size_t>> getCondensedDiffs() const;
 
 private:
-    const data::Assertion& m_assert;
-    Expression m_lhs;
-    data::Op m_op;
-    Expression m_rhs;
+    const data::Assertion &m_assert;
+    data::Assertion::ParsedAssertion m_parsed;
 
-    size_t m_passes;
-    size_t m_warns;
-    size_t m_fails;
-    std::vector<Result> m_results;
+    // convenience member. reference to m_parsed.expression
+    ExpressionHandle& m_orig_expression;
+    // convenience member. reference to m_parsed.locations
+    std::vector<data::ProgramLocation>& m_locs;
+
+    // returned by expressionHandle()
+    ExpressionHandle::View m_eval_expression;
+
+    // <breakpoint id, ProgramLocation>
+    // pointers to ProgramLocations inside of m_locs
+    std::vector<std::pair<int, const data::ProgramLocation*>> m_breakpointLocs;
+
+    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_fullSets;
+    std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>> m_waitingFor;
 };
 
 class ScriptRunner::Ranks {

@@ -63,8 +63,6 @@ rhs{0..3}: Initial breakpoint, main at /bd_dt/C++/cpp_decomp.cpp:18
 Assertion script $decomp compiled.
 43: start $decomp
 Sending continue to application...
-rhs{0..3}: The application has reached an exit breakpoint.
-lhs{0..3}: The application has reached an exit breakpoint.
 Assertion script $decomp finished.
 Use "info script $decomp results" to view results.
 Assertion script $decomp stopped.
@@ -85,7 +83,8 @@ Use "info script $decomp results" for results.
 46: info script $decomp results
 Results summary for script $decomp:
 
-Total assertion evaluations: 8
+Total full runs: 1
+Total assertion evaluations this run: 8
 Passed: 4, Passed with warning: 0, Failed: 4, Indeterminate: 0
 Assertion results:
 

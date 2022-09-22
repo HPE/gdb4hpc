@@ -202,13 +202,8 @@ const char* DbgInvoke::Handle::c_str() const {
     return name().c_str();
 }
 
-DbgInvoke* DbgInvoke::Handle::lock() {
+DbgInvoke* DbgInvoke::Handle::lock() const {
     return m_ptr.lock().get();
-}
-
-const DbgInvoke* DbgInvoke::Handle::lock() const {
-    // OK as long as lock() never gains any side effects
-    return const_cast<DbgInvoke::Handle*>(this)->lock();
 }
 
 DbgInvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {

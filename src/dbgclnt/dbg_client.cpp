@@ -1081,12 +1081,17 @@ void DbgDispatchEvents(void) {
             // process ready asserts
             if (!script->evaluateReadyAsserts()) {
                 // error, printed below
-            } else if (!script->releaseReadyAsserts()) {
-                // error, printed below
-            } else if (script->finished()) {
-                PrintOutMsg("Assertion script $%s finished.\n", script->name().c_str());
+            } else if (script->shouldStop()) {
+                if (script->hasRunToCompletion())
+                    PrintOutMsg("Assertion script $%s finished.\n", script->name().c_str());
+                else
+                    PrintOutMsg("Assertion script $%s stopped before completion. Use "
+                                "\"start $%s\" to resume.\n",
+                                script->name().c_str(), script->name().c_str());
                 PrintOutMsg("Use \"info script $%s results\" to view results.\n", script->name().c_str());
                 script->uninstall();
+            } else if (!script->releaseReadyAsserts()) {
+                // error, printed below
             } else if (script->allRanksBlocked()) {
                 PrintOutError("Assertion script reached a point where every rank is stopped and no assertions can be evaluated.\n");
                 script->uninstall();
@@ -2293,6 +2298,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
+            recv_ptr->rec_di.d_atInitialBreakpoint = false;
         }
         if (set->getNumReceivers() > 0) {
             // update global status flags
@@ -2322,6 +2328,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
                 // update global status flags
                 inferior_status_change = 1;
                 async_pending = 1;
+                recv_ptr->rec_di.d_atInitialBreakpoint = false;
             }
         }
     }
@@ -2374,6 +2381,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
+                recv_ptr->rec_di.d_atInitialBreakpoint = false;
             }
         }
     }
@@ -3589,6 +3597,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
             if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                 ClearListState(dbg_fe);
             }
+            recv_ptr->rec_di.d_atInitialBreakpoint = false;
         }
     } else {
         // selectively clear the list
@@ -3610,6 +3619,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
                 if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
                     ClearListState(dbg_fe);
                 }
+                recv_ptr->rec_di.d_atInitialBreakpoint = false;
             }
         }
     }

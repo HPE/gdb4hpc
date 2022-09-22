@@ -510,43 +510,21 @@ char *cli_get_prompt(void) {
     return cs->cs_prompt;
 }
 
-// print prompt s and get a yes/no response - return true if "yes"
-// default value indicates which response to use if the user just hits return
-//    or NONE if the user must type y or n
-// nonInteractiveDefaultVal governs the response if the context it non-interactive
-//    i.e. in batch mode or in a "source" command.   In that case return:
-//    true if YES,  false if NO, or use defaultVal if nonInteractiveDefaultVal is NONE.
-//    If the context is non-interactive and *both* default values are NONE, return true.
-bool cli_query(const char *s, cli_query_default defaultVal,
-              cli_query_default nonInteractiveDefaultVal) {
-
-    // Make sure we are currently in confirm mode, if not return true.
-    // Also ensure that there is an input stream to read from in the current
-    // stream
-    if (!Client.confirm || CurrentStream == NULL ||
-        CurrentStream->cs_fpin == NULL ||
-        CurrentStream->cs_type == CLI_FILE_STREAM) {
-        if (nonInteractiveDefaultVal == cli_query_default::NONE) {
-            return (defaultVal != cli_query_default::NO);
-        } else {
-            return (nonInteractiveDefaultVal != cli_query_default::NO);
-        }
-            
-    }
-
-    const char* prompt = "%s (y or n) ";
-    switch (defaultVal) {
+static const char* cli_query_prompt_fmt_string(cli_query_default default_val) {
+    switch (default_val) {
     case cli_query_default::NO:
-        prompt = "%s (y or [n]) ";
-        break;
+        return "%s (y or [n]) ";
     case cli_query_default::YES:
-        prompt = "%s ([y] or n) ";
-        break;
+        return "%s ([y] or n) ";
     case cli_query_default::NONE:
-        break;
+    default:
+        return "%s (y or n) ";
     }
-    
-    PrintOutMsg(prompt, s);
+}
+
+static bool cli_query_interactive(const char* s, cli_query_default default_val) {
+    // no newline
+    PrintOutMsg(cli_query_prompt_fmt_string(default_val), s);
 
     int rval = -1;
     for (; rval < 0;) {
@@ -556,8 +534,8 @@ bool cli_query(const char *s, cli_query_default defaultVal,
             rval = 0;
         } else if (resp == 'y' || resp == 'Y') {
             rval = 1;
-        } else if (resp == '\n' && defaultVal != cli_query_default::NONE) {
-            rval = (defaultVal == cli_query_default::YES);
+        } else if (resp == '\n' && default_val != cli_query_default::NONE) {
+            rval = (default_val == cli_query_default::YES);
         } else {
             PrintOutMsg("\nPlease answer y or n:\n");
         }
@@ -570,6 +548,45 @@ bool cli_query(const char *s, cli_query_default defaultVal,
 
     PrintOutMsg("\n");
     return rval;
+}
+
+static bool cli_query_noninteractive(const char* s, cli_query_default default_val) {
+    // no newline
+    PrintOutMsg(cli_query_prompt_fmt_string(default_val), s);
+
+    // print a fake answer for logging purposes
+    switch (default_val) {
+    case cli_query_default::NO:
+        PrintOutMsg("n\n");
+        break;
+    case cli_query_default::YES:
+        PrintOutMsg("y\n");
+        break;
+    case cli_query_default::NONE:
+        // if this message is ever printed, it's a bug and the calling function should be
+        // fixed to provide a sane default for non-interactive.
+        PrintOutMsg("Warning: No default given, assuming y\n");
+        break;
+    }
+
+    return default_val != cli_query_default::NO;
+}
+
+// print prompt s and get a yes/no response - return true if "yes"
+// default value indicates which response to use if the user just hits return
+//    or NONE if the user must type y or n
+// nonInteractiveDefaultVal governs the response if the context it non-interactive
+//    i.e. in batch mode or in a "source" command.   In that case return:
+//    true if YES,  false if NO, or use defaultVal if nonInteractiveDefaultVal is NONE.
+//    If the context is non-interactive and *both* default values are NONE, return true.
+bool cli_query(const char *s, cli_query_default defaultVal,
+              cli_query_default nonInteractiveDefaultVal) {
+    if (!Client.confirm || CurrentStream == NULL ||
+        CurrentStream->cs_fpin == NULL ||
+        CurrentStream->cs_type == CLI_FILE_STREAM) {
+        return cli_query_noninteractive(s, nonInteractiveDefaultVal);
+    }
+    return cli_query_interactive(s, defaultVal);
 }
 
 char *cli_get_line(void) {

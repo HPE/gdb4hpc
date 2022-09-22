@@ -15,14 +15,39 @@ using namespace ExpressionHandleShorthands;
 using namespace std::string_literals;
 
 // basic types
-template<> int ExprHndl::popExpr<int>();
-template<> std::string ExprHndl::popExpr<std::string>();
+template<> int ExprHndl::popExpr<int>() const ;
+template<> std::string ExprHndl::popExpr<std::string>() const;
 
 // structs
-template<> CompOpExpr ExprHndl::popExpr<CompOpExpr>();
-template<> ProgLocExpr ExprHndl::popExpr<ProgLocExpr>();
-template<> ProgVarExpr ExprHndl::popExpr<ProgVarExpr>();
-template<> SubscriptExpr ExprHndl::popExpr<SubscriptExpr>();
+template<> ProgLocExpr ExprHndl::popExpr<ProgLocExpr>() const;
+template<> ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() const;
+template<> SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() const;
+
+namespace {
+
+class ExprTransaction {
+    // RAII device to save the state of an expr_t's stack and restore it on
+    // scope exit. use commit() to disable state reset and commit any
+    // changes made to the expr_t's stack.
+    //
+    // this *only* saves the stack position. if the expr_t grows and/or is moved in
+    // memory, this will break.
+public:
+    ExprTransaction(const expr_t& expr) : m_expression{expr}, m_index{expr.e_eval} {}
+    ~ExprTransaction() {
+        if (m_revert_on_exit)
+            m_expression.e_eval = m_index;
+    }
+
+    void commit() { m_revert_on_exit = false; }
+
+private:
+    const expr_t& m_expression;
+    int m_index;
+    bool m_revert_on_exit = true;
+};
+
+} // anonymous namespace
 
 static void printExpr(const expr_t* expr) {
     // useful in gdb
@@ -33,19 +58,19 @@ static void printExpr(const expr_t* expr) {
 
     fprintf(stderr, "(BOTTOM)\n");
     for (int i = 0; i < expr->e_lval; i++) {
+        // print arrow
+        std::string arrow = i == expr->e_eval ? "->" : "  ";
+        fprintf(stderr, "%s ", arrow.c_str());
         // print type
         fprintf(stderr, "%s ", getExprOpStr(expr->e_expr[i].e_op));
         // print value
         switch (expr->e_expr[i].e_op) {
-        case EXPR_INT:    fprintf(stderr, "%d ", expr->e_expr[i].e_val.e_v_int);         break;
-        case EXPR_SYM:    fprintf(stderr, "%s ", expr->e_expr[i].e_val.e_v_sym_str);     break;
-        case EXPR_DSYM:   fprintf(stderr, "$%s ", expr->e_expr[i].e_val.e_v_sym->h_key); break;
-        case EXPR_STRING: fprintf(stderr, "%s" , expr->e_expr[i].e_val.e_v_string);      break;
-        default: break;
+        case EXPR_INT:    fprintf(stderr, "%d\n", expr->e_expr[i].e_val.e_v_int);         break;
+        case EXPR_SYM:    fprintf(stderr, "%s\n", expr->e_expr[i].e_val.e_v_sym_str);     break;
+        case EXPR_DSYM:   fprintf(stderr, "$%s\n", expr->e_expr[i].e_val.e_v_sym->h_key); break;
+        case EXPR_STRING: fprintf(stderr, "%s\n" , expr->e_expr[i].e_val.e_v_string);     break;
+        default:          fprintf(stderr, "\n"); break;
         }
-        // print arrow
-        std::string arrow = i == expr->e_eval ? "<-" : "";
-        fprintf(stderr, "%s\n", arrow.c_str());
     }
     fprintf(stderr, "(TOP)\n");
 }
@@ -54,7 +79,7 @@ void ExpressionHandle::printExpr() const {
     ::printExpr(m_expr.get());
 }
 
-ExpressionHandle::ExpressionHandle(std::string&& str)
+ExpressionHandle::ExpressionHandle(std::string str)
     : m_buf{std::move(str)}
     , m_expr(ParseExpr(m_buf.c_str()), FreeExpr)
 {
@@ -65,7 +90,12 @@ ExpressionHandle::ExpressionHandle(std::string&& str)
     resetExprIdx();
 }
 
-const expr_elt* ExpressionHandle::popExpr() {
+const expr_t& ExpressionHandle::raw() const {
+    resetExprIdx();
+    return *m_expr;
+}
+
+const expr_elt* ExpressionHandle::popExpr() const {
     auto r = &m_expr->e_expr[m_expr->e_eval--];
     if (!r) {
         incExprIdx(); // stack should appear unchanged
@@ -86,42 +116,26 @@ const expr_elt* ExpressionHandle::lastExpr() const {
     return &m_expr->e_expr[m_expr->e_lval - 1];
 }
 
-void ExpressionHandle::incExprIdx() {
+void ExpressionHandle::incExprIdx() const {
     m_expr->e_eval++;
 }
 
-void ExpressionHandle::resetExprIdx() {
-    m_expr->e_eval = m_expr->e_lval - 1;
+void ExpressionHandle::resetExprIdx(int offset) const {
+    if (offset >= m_expr->e_lval) {
+        throw ParseError("Offset out of bounds");
+    }
+    //                   top of stack
+    m_expr->e_eval = (m_expr->e_lval - 1) - offset;
 }
 
 bool ExpressionHandle::exprIsEmpty() const {
     return m_expr->e_eval < 0;
 }
 
-void ExpressionHandle::pushStackCheckpoint() {
-    m_stackCheckpoints.push_back(m_expr->e_eval);
-}
-
-void ExpressionHandle::restoreStackCheckpoint() {
-    if (m_stackCheckpoints.empty()) {
-        throw ParseError("Empty checkpoint stack");
-    }
-
-    m_expr->e_eval = m_stackCheckpoints.back();
-    m_stackCheckpoints.pop_back();
-}
-
-void ExpressionHandle::removeStackCheckpoint() {
-    if (m_stackCheckpoints.empty()) {
-        throw ParseError("Empty checkpoint stack");
-    }
-    m_stackCheckpoints.pop_back();
-}
-
 // popExpr specializations, private to ExpressionHandle ////////////////////////
 
 template<>
-int ExprHndl::popExpr<int>() {
+int ExprHndl::popExpr<int>() const {
     int factor = 1;
     int stackChanged = 0;
 
@@ -143,7 +157,7 @@ int ExprHndl::popExpr<int>() {
 }
 
 template<>
-std::string ExprHndl::popExpr<std::string>() {
+std::string ExprHndl::popExpr<std::string>() const {
     auto elt = popExpr(); // won't return nullptr
 
     switch (elt->e_op) {
@@ -161,51 +175,22 @@ std::string ExprHndl::popExpr<std::string>() {
 }
 
 template<>
-CompOpExpr ExprHndl::popExpr<CompOpExpr>() {
-    auto elt = popExpr(); // won't return nullptr
-
-    switch (elt->e_op) {
-        case EXPR_OPEQUAL:
-            return CompOpExpr::Equal;
-        case EXPR_OPNOTEQUAL:
-            return CompOpExpr::NotEqual;
-        case EXPR_OPLT:
-            return CompOpExpr::LessThan;
-        case EXPR_OPLEQ:
-            return CompOpExpr::LessThanEqual;
-        case EXPR_OPGT:
-            return CompOpExpr::GreaterThan;
-        case EXPR_OPGEQ:
-            return CompOpExpr::GreaterThanEqual;
-        default:
-            incExprIdx(); // stack should appear unchanged
-            throw ParseError("Tried to parse a comparison op but found a "s + getExprOpStr(elt->e_op));
-    }
-}
-
-template<>
-ProgLocExpr ExprHndl::popExpr<ProgLocExpr>() {
+ProgLocExpr ExprHndl::popExpr<ProgLocExpr>() const {
+    auto t = ExprTransaction(*m_expr);
     auto r = ProgLocExpr{};
 
-    pushStackCheckpoint();
+    // pop operations will throw on error
 
     popExpr(); // pop <loc> token
+    r.m_lineNumber = popExpr<int>();
+    r.m_name = popExpr<std::string>();
 
-    try {
-        r.m_lineNumber = popExpr<int>();
-        r.m_name = popExpr<std::string>();
-    } catch (const ParseError &e) {
-        // fix stack and propagate error
-        restoreStackCheckpoint();
-        throw e;
-    }
-
-    removeStackCheckpoint();
+    t.commit();
     return r;
 }
 
 template<>
-SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
+SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() const {
     // there are a few variations of how subscripts can appear:
     //
     // procset subscripts (e.g. $a{0}) look like this:
@@ -248,70 +233,63 @@ SubscriptExpr ExprHndl::popExpr<SubscriptExpr>() {
     // <sym> and <dsym> were left in the above examples for explanatory purposes,
     // but we don't actually pop them off the stack in this function.
 
-    pushStackCheckpoint();
-
     auto r = SubscriptExpr{}; // slice_t
+    auto t = ExprTransaction(*m_expr);
 
     popExpr(); // pop <subscr>
 
-    try {
-        switch (topExprOp()) {
-            case EXPR_LIST_START: { // found a procset subscript, maybe with slice
-                popExpr(); // pop <list>
-                auto subscriptLen = popExpr<int>(); // pop <int> (list length)
+    switch (topExprOp()) {
+        case EXPR_LIST_START: { // found a procset subscript, maybe with slice
+            popExpr(); // pop <list>
+            auto subscriptLen = popExpr<int>(); // pop <int> (list length)
 
-                for (int i = 0; i < subscriptLen; i++) {
-                    popExpr(); // pop <list element>
-                    
-                    if (topExprOp() == EXPR_INT || topExprOp() == EXPR_OPNEG) {
-                        // single numbered subscript (not a slice)
-                        auto idx = popExpr<int>(); // pop <int>, and <neg> if present
-                        r.addSlice(idx, idx);
-                    } else if (topExprOp() == EXPR_SLICE) {
-                        // slice
-                        popExpr(); // pop <slice>
-                        auto high = popExpr<int>(); // pop <int>, and <neg> if present
-                        auto low = popExpr<int>();  // pop <int>, and <neg> if present
-                        r.addSlice(low, high);
-                    } else {
-                        throw ParseError("Tried to parse a subscript but found a "s + getExprOpStr(topExprOp()));
-                    }
+            for (int i = 0; i < subscriptLen; i++) {
+                popExpr(); // pop <list element>
+
+                if (topExprOp() == EXPR_INT || topExprOp() == EXPR_OPNEG) {
+                    // single numbered subscript (not a slice)
+                    auto idx = popExpr<int>(); // pop <int>, and <neg> if present
+                    r.addSlice(idx, idx);
+                } else if (topExprOp() == EXPR_SLICE) {
+                    // slice
+                    popExpr(); // pop <slice>
+                    auto high = popExpr<int>(); // pop <int>, and <neg> if present
+                    auto low = popExpr<int>();  // pop <int>, and <neg> if present
+                    r.addSlice(low, high);
+                } else {
+                    throw ParseError("Tried to parse a subscript but found a "s + getExprOpStr(topExprOp()));
                 }
-
-                break; // success
             }
 
-            case EXPR_OPNEG:
-            case EXPR_INT: { // found an array subscript
-                auto idx = popExpr<int>(); // pop <int>, and <neg> if present
-                r.addSlice(idx, idx);
-                break; // success
-            }
-
-            case EXPR_SLICE: { // found a sliced array subscript
-                popExpr(); // pop <slice>
-                auto high = popExpr<int>(); // pop <int>, and <neg> if present
-                auto low = popExpr<int>();  // pop <int>, and <neg> if present
-                r.addSlice(low, high);
-                break; // success
-            }
-
-            default: {
-                throw ParseError("Tried to parse a subscript but found a "s + getExprOpStr(topExprOp()));
-            }
+            break; // success
         }
-    } catch (const ParseError &e) {
-        // fix stack, propagate error
-        restoreStackCheckpoint();
-        throw e;
+
+        case EXPR_OPNEG:
+        case EXPR_INT: { // found an array subscript
+            auto idx = popExpr<int>(); // pop <int>, and <neg> if present
+            r.addSlice(idx, idx);
+            break; // success
+        }
+
+        case EXPR_SLICE: { // found a sliced array subscript
+            popExpr(); // pop <slice>
+            auto high = popExpr<int>(); // pop <int>, and <neg> if present
+            auto low = popExpr<int>();  // pop <int>, and <neg> if present
+            r.addSlice(low, high);
+            break; // success
+        }
+
+        default: {
+            throw ParseError("Tried to parse a subscript but found a "s + getExprOpStr(topExprOp()));
+        }
     }
 
-    removeStackCheckpoint();
+    t.commit();
     return r;
 }
 
 template<>
-ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() {
+ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() const {
     // program variables show up starting with <var>, e.g.:
     //
     //    <dsym> (procset name, e.g. "a") 
@@ -352,70 +330,125 @@ ProgVarExpr ExprHndl::popExpr<ProgVarExpr>() {
     //    <blockmap> (top)
 
     auto r = ProgVarExpr{};
+    auto t = ExprTransaction(*m_expr);
 
-    pushStackCheckpoint();
-
-    try {
-        switch (topExprOp()) {
-            case EXPR_BLOCKMAP: {
-                r.m_blockmapName = popExpr<std::string>();
-                popExpr(); // pop <list>
-                if (popExpr<int>() > 1) { // pop <int> (list length)
-                    throw ParseError("Multi-part blockmap");
-                }
-                popExpr(); // pop <list element>
-
-                if (topExprOp() != EXPR_VAR) {
-                    throw ParseError("Blockmap without var");
-                }
-                // success, fall through to parse rest of <var>
+    switch (topExprOp()) {
+        case EXPR_BLOCKMAP: {
+            r.m_blockmapName = popExpr<std::string>();
+            popExpr(); // pop <list>
+            if (popExpr<int>() > 1) { // pop <int> (list length)
+                throw ParseError("Multi-part blockmap");
             }
+            popExpr(); // pop <list element>
 
-            case EXPR_VAR: {
-                popExpr(); // pop <var> token
-                r.m_location = popExpr<ProgLocExpr>();
-                if (topExprOp() == EXPR_REPEAT) {
-                    popExpr(); // pop <repeat>
-                    if (auto num = popExpr<int>(); num >= 0) { // pop <int>
-                        r.m_repeat = num;
-                    } else {
-                        throw ParseError("Can't repeat a negative amount of times: " + std::string{"@"} + std::to_string(num));
-                    }
+            if (topExprOp() != EXPR_VAR) {
+                throw ParseError("Blockmap without var");
+            }
+            // success, fall through to parse rest of <var>
+        }
+
+        case EXPR_VAR: {
+            popExpr(); // pop <var> token
+            r.m_location = popExpr<ProgLocExpr>();
+            if (topExprOp() == EXPR_REPEAT) {
+                popExpr(); // pop <repeat>
+                if (auto num = popExpr<int>(); num >= 0) { // pop <int>
+                    r.m_repeat = num;
+                } else {
+                    throw ParseError("Can't repeat a negative amount of times: " + std::string{"@"} + std::to_string(num));
                 }
-                if (topExprOp() == EXPR_OPSUBSCR) {
-                    r.m_symbolSubscript = popExpr<SubscriptExpr>();
-                } // else keep default initialization
-                r.m_symbolName = popExpr<std::string>();
-                if (topExprOp() == EXPR_OPSUBSCR) {
-                    r.m_procsetSubscript = popExpr<SubscriptExpr>();
-                } // else keep default initialization
-                r.m_procsetName = popExpr<std::string>();
-
-                break; // success
             }
+            if (topExprOp() == EXPR_OPSUBSCR) {
+                r.m_symbolSubscript = popExpr<SubscriptExpr>();
+            } // else keep default initialization
+            r.m_symbolName = popExpr<std::string>();
+            if (topExprOp() == EXPR_OPSUBSCR) {
+                r.m_procsetSubscript = popExpr<SubscriptExpr>();
+            } // else keep default initialization
+            r.m_procsetName = popExpr<std::string>();
 
-            default: {
-                throw ParseError("Tried to parse a variable but found a "s + getExprOpStr(topExprOp()));
-            }
-        } 
-    } catch (const ParseError& e) {
-        // fix stack and propagate error
-        restoreStackCheckpoint();
-        throw e;
+            break; // success
+        }
+
+        default: {
+            throw ParseError("Tried to parse a variable but found a "s + getExprOpStr(topExprOp()));
+        }
     }
 
-    removeStackCheckpoint();
+    t.commit();
     return r;
+}
+
+ExpressionHandle::View ExpressionHandle::view() const {
+    return ExpressionHandle::View(*this);
+}
+
+ExpressionHandle::View::View(const ExpressionHandle& parent)
+    : m_parent{parent}
+    , m_expr(nullptr, &::free)
+{
+    // XXX mimicking legacy behavior from expr.cpp::do_parse...
+    m_expr.reset((expr_t*)malloc(sizeof(expr_t) + sizeof(expr_elt) * parent.raw().e_len));
+    m_expr->e_len = parent.raw().e_len;
+    m_expr->e_lval = parent.raw().e_lval;
+    m_expr->e_eval = parent.raw().e_eval;
+
+    // copy tokens
+    for (int i = 0; i < parent.raw().e_lval; ++i) {
+        m_expr->e_expr[i] = parent.raw().e_expr[i];
+    }
+}
+
+const expr_t& ExpressionHandle::View::raw() const {
+    // reset stack pointer
+    m_expr->e_eval = m_expr->e_lval - 1;
+    return *m_expr;
 }
 
 // assemble specializations, public ////////////////////////////////////////////
 
 template<>
-AssertExpr ExprHndl::assemble<AssertExpr>() {
-    auto r = AssertExpr{};
-    r.m_op = popExpr<CompOpExpr>();
-    // rhs appears first in the stack
-    r.m_rhs = popExpr<ProgVarExpr>();
-    r.m_lhs = popExpr<ProgVarExpr>();
-    return r;
+ProgVarExpr ExprHndl::assemble<ProgVarExpr>() const {
+    // no transaction commit, only used to reset stack state after assembly
+    auto t = ExprTransaction(*m_expr);
+    return popExpr<ProgVarExpr>();
+}
+
+// filterOut specializations, public ///////////////////////////////////////////
+
+template <>
+void ExprHndl::View::filterOut<ProgLocExpr>() {
+    // ProgLocExpr shows up on the stack as:
+    //   <string>
+    //   <int>
+    //   <loc> (top)
+
+    // clear all ProgLocExpr patterns
+    auto top = m_expr->e_lval - 1;
+    for (int i = top; i >= 2; --i) {
+        if (m_expr->e_expr[i].e_op == EXPR_LOC &&
+            m_expr->e_expr[i - 1].e_op == EXPR_INT &&
+            m_expr->e_expr[i - 2].e_op == EXPR_STRING)
+        {
+            m_expr->e_expr[i--].e_op = EXPR_UNKNOWN;
+            m_expr->e_expr[i--].e_op = EXPR_UNKNOWN;
+            m_expr->e_expr[i--].e_op = EXPR_UNKNOWN;
+        };
+    }
+
+    // collapse
+    {
+        int write = 0;
+        for (int read = 0; read < m_expr->e_lval; ++read) {
+            // skip EXPR_UNKNOWNS
+            while (m_expr->e_expr[read].e_op == EXPR_UNKNOWN &&
+                   read < m_expr->e_lval)
+                ++read;
+            m_expr->e_expr[write++] = m_expr->e_expr[read];
+        }
+        m_expr->e_lval = write;
+    }
+
+    // reset stack pointer
+    m_expr->e_eval = m_expr->e_lval - 1;
 }

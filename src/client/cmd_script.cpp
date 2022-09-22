@@ -72,9 +72,9 @@ static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
         PrintOutError("Expected \"info diff [$script] [<assert id>]\"\n");
     };
 
-    const auto printAssertDiffs = [](const auto& assert) {
+    const auto printAssertDiffs = [](const auto& script, const auto& assert) {
         bool printHeader = true;
-        for (auto& [diff, count] : assert.getCondensedDiffs()) {
+        for (auto& [diff, count] : script.getCondensedDiffs(assert)) {
             if (printHeader) {
                 PrintOutMsg("For assertion %lu: %s\n", assert.id(), assert.string().c_str());
                 printHeader = false;
@@ -91,7 +91,7 @@ static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
     const auto printScriptDiffs = [&printAssertDiffs](const script::ScriptRunner& script) {
         PrintOutMsg("In assertion script $%s:\n", script.name().c_str());
         for (const auto& assert : script.asserts()) {
-            printAssertDiffs(assert);
+            printAssertDiffs(script, assert);
         }
     };
 
@@ -149,7 +149,7 @@ static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     if (auto assert = script->getAssert(id)) {
-        if (!printAssertDiffs(*assert)) {
+        if (!printAssertDiffs(*script, *assert)) {
             PrintOutMsg("(None)\n");
         }
     } else {
@@ -321,12 +321,34 @@ static int cmd_start_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    auto script = script::setCurrentScript(name);
+    auto script = script::getScript(name);
 
     if (!script) {
         PrintOutError("Assertion script \"$%s\" doesn't exist.\n", name.data());
         return 0;
     }
+
+    // detect the case where a user runs an assertion script for a second time without
+    // restarting the processes involved
+    if (script->hasRunToCompletion() && !script->allDbgInvokesAtInitialBreakpoint()) {
+        auto prompt =
+            std::string{"Start $"} + script->name() +
+            "? Program state is different than the initial first run, so results "
+            "might be unexpected.\nYou might want to restart your app with the run "
+            "command first.";
+
+        if (!cli_query(prompt.c_str(), cli_query_default::NO, cli_query_default::YES)) {
+            PrintOutMsg("Cancelled.\n");
+            return 1;
+        }
+    }
+
+    if (!script->reset()) {
+        PrintOutError("Failed to set up script $%s: (%s)\n", script->name().c_str(), script->getError().c_str());
+        PrintOutError("Cancelling execution.\n");
+        return 0;
+    }
+    LOG("Successful script reset");
 
     if (!script->install()) {
         PrintOutError("Failed to set up script $%s: (%s)\n", script->name().c_str(), script->getError().c_str());
@@ -334,9 +356,6 @@ static int cmd_start_cmd(rec_set_t *rec_set, int argc, char **argv) {
         script->uninstall();
         return 0;
     }
-
-    script->reset();
-    LOG("Reset");
 
     // send go
     if (!script->sendContinue()) {
@@ -372,23 +391,13 @@ static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     auto& currentScript = *g_pendingScript;
 
-    auto assertExpr = Ex::AssertExpr{};
     try {
-        // Parse text into tokens
-        auto eh = ExpressionHandle(ArgvStream(&argv[1]).asString());
-        
-        // Parse tokens into assert struct
-        assertExpr = eh.assemble<Ex::AssertExpr>();
-    } catch (const Ex::ParseError &e) {
-        PrintOutError("Assertion parsing failed: %s.\n", e.what());
-        return 0;
-    }
-
-    // Add assert to current pending assertion script
-    try {
-        currentScript.newAssert(assertExpr);
-    } catch (script::data::InvalidAssertionError &e) {
-        PrintOutError("Error creating assert: %s.\n", e.what());
+        // Add assert to current pending assertion script. Throws
+        // InvalidAssertionError if expression is not fit to be used in an
+        // assertion script (e.g. not a compare, missing location data)
+        currentScript.newAssert(ArgvStream(&argv[1]).asString());
+    } catch (const script::data::InvalidAssertionError& e) {
+        PrintOutError("Error: %s.\n", e.what());
         return 0;
     }
 
@@ -396,10 +405,11 @@ static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_script_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    // should never be false...
     if (g_pendingScript) {
-        // should never be false...
-        PrintOutMsg("Assertion script $%s compiled.\n", g_pendingScript->name().c_str());
+        auto name = g_pendingScript->name();
         script::saveScript(std::move(g_pendingScript));
+        PrintOutMsg("Assertion script $%s compiled.\n", name.c_str());
     } else {
         // ...but just in case
         PrintOutError("Tried to compile a nonexistent assertion script.\n");

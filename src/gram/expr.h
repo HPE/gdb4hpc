@@ -118,9 +118,24 @@ struct expr_elt {
 typedef struct expr_elt expr_elt;
 
 struct expr_t {
-    int e_len;
-    int e_lval;
-    int e_eval;
+    expr_t() = delete;
+    expr_t(const expr_t& other) = delete;
+    expr_t& operator=(const expr_t& other) = delete;
+
+    int e_len = 0;          // number of expr_elts currently allocated for e_expr (i.e. capacity)
+    int e_lval = 0;         // number of expr_elts in e_expr actually in use (i.e. size)
+    mutable int e_eval = 0; // index of expr_r to the top of the stack. marked mutable so we can pass
+                            // around a read-only expr_t and still parse it (using POP etc).
+
+    // internal stack of tokens
+    //
+    // XXX: This is actually used as a variable length array. When expr_t is
+    // malloc'd, extra memory beyond the end of the struct will be allocated and the
+    // code indexes into it from e_expr. e_len holds the actual *allocated*
+    // length of e_expr (plus 1), and e_lval holds the actual *used* length. in other
+    // words, memory at and beyond e_expr[e_lval] is uninitialized.
+    //
+    // until this pattern changes, we can't write a constructor/destructor for expr_t.
     expr_elt e_expr[1];
 };
 typedef struct expr_t expr_t;

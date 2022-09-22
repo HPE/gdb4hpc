@@ -52,12 +52,12 @@ extern void SaveTopElt(void);            // called by yacc expr.y.in
 extern expr_op GetTopEltOp(void);        // called by yacc expr.y.in
 extern hentry_t *GetTopEltSymVal(void);  // called by yacc expr.y.in
 extern void RemoveTopElt(void);          // called by yacc expr.y.in
-extern int EvalCompare(val_t **, val_t **, expr_t *, rec_set_t *);
-extern int EvalExpr(val_t **, expr_t *, rec_set_t *);
+extern int EvalCompare(val_t **, val_t **, const expr_t *, rec_set_t *);
+extern int EvalExpr(val_t **, const expr_t *, rec_set_t *);
 extern int EvalExprList(list_t **, expr_t *, rec_set_t *);
-extern g_block_map_t *EvaluateBlockMap(expr_t *, rec_set_t *, CMD_MODE);
+extern g_block_map_t *EvaluateBlockMap(const expr_t *, rec_set_t *, CMD_MODE);
 extern var_t *ReadVarDecl(expr_t *, rec_set_t *);
-extern int AssignExpr(expr_t *, expr_t *, rec_set_t *);
+extern int AssignExpr(expr_t *, const expr_t *, rec_set_t *);
 extern void StartExprList(void);  // called by yacc expr.y.in
 extern void IncExprList(void);    // called by yacc expr.y.in
 extern void SetExprList(int);     // called by yacc expr.y.in

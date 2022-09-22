@@ -39,8 +39,7 @@ public:
 
         // Returns a pointer to parent DbgInvoke. If parent DbgInvoke has
         // expired, returns nullptr. Don't store returned pointer long-term.
-        DbgInvoke* lock();
-        const DbgInvoke* lock() const;
+        DbgInvoke* lock() const;
 
         bool operator==(const Handle& other) const {
             const auto* lhs = m_ptr.lock().get();
@@ -173,11 +172,13 @@ public: // TODO privatize
 
     DbgInvoke::Handle handle();
     const DbgInvoke::Handle handle() const;
-    uint64_t d_appid;     // app identifier - this should be generic
-    dbgproc_type d_type;  // launched or attached?
-    int d_started;        // indicates if this di has been started
-    int d_isShutdown;  // Some networks can use this during error handling. If
-                       // this is true, the network is already shutdown.
+    uint64_t d_appid;                   // app identifier - this should be generic
+    dbgproc_type d_type;                // launched or attached?
+    int d_started;                      // indicates if this di has been started
+    bool d_atInitialBreakpoint = false; // true if the dbginvoke's state has not been
+                                        // changed with continue/step/etc
+    int d_isShutdown; // Some networks can use this during error handling. If this is
+                      // true, the network is already shutdown.
 
     LaunchOpts d_launch;
     int d_nproc;       // number of processes

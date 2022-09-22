@@ -44,22 +44,22 @@ static list_t *_elt_list = NULL;
 
 // Static function prototypes
 static expr_t *do_parse(const char **);
-static val_t *evaluate_expr_imm(expr_t *, rec_set_t *, func_t *);
-static val_t *evaluate_func_imm(hentry_t *, expr_t *, rec_set_t *, func_t *);
-static val_t *read_var_imm(expr_t *, rec_set_t *, func_t *);
-static char *apply_var_op(expr_elt *, expr_t *);
+static val_t *evaluate_expr_imm(const expr_t *, rec_set_t *, func_t *);
+static val_t *evaluate_func_imm(hentry_t *, const expr_t *, rec_set_t *, func_t *);
+static val_t *read_var_imm(const expr_t *, rec_set_t *, func_t *);
+static char *apply_var_op(const expr_elt *, const expr_t *);
 static val_t *apply_op(expr_op, val_t *, val_t *, val_t *, rec_set_t *,
                        val_t **);
 static int assign_expr_imm(val_t *, val_t *, rec_set_t *);
-static var_t *ReadVar_BlockMap(expr_t *, rec_set_t *, CMD_MODE);
-static val_t *ReadThreadProcSet(expr_t*, rec_set_t*);
-static expr_elt* check_pop(expr_t*, expr_op);
+static var_t *ReadVar_BlockMap(const expr_t *, rec_set_t *, CMD_MODE);
+static val_t *ReadThreadProcSet(const expr_t*, rec_set_t*);
+static const expr_elt* check_pop(const expr_t*, expr_op);
 
 static void add_to_reply(rep_set_t& repSet, DbgInvoke::Handle di, std::unique_ptr<Bitset> &&group,
                          AIFStream* aif);
 // Only called directly with debug - but keep around to be able to call from gdb
 #ifdef DEBUG
-void DumpExpr(expr_t *);
+void DumpExpr(const expr_t *);
 #endif
 
 expr_t *ParseExpr(const char *str) { return do_parse(&str); }
@@ -292,8 +292,8 @@ expr_t *AddExpr(expr_op op, ...) {
     return OPList;
 }
 
-int EvalCompare(val_t **res, val_t **diff, expr_t *e, rec_set_t *rec_set) {
-    expr_elt *ep;
+int EvalCompare(val_t **res, val_t **diff, const expr_t *e, rec_set_t *rec_set) {
+    const expr_elt* ep;
     val_t *lval = (val_t *)NULL;
     val_t *rval = (val_t *)NULL;
     val_t *val;
@@ -388,7 +388,7 @@ int EvalCompare(val_t **res, val_t **diff, expr_t *e, rec_set_t *rec_set) {
     return 0;
 }
 
-int EvalExpr(val_t **res, expr_t *e, rec_set_t *rec_set) {
+int EvalExpr(val_t **res, const expr_t *e, rec_set_t *rec_set) {
     if (e->e_lval == 0) {
         SetError("Parsed expression returned 0 lval. Nothing to compare.");
         return -1;
@@ -464,14 +464,12 @@ int EvalExprList(list_t **res, expr_t *e, rec_set_t *rec_set) {
 /*
 ** Evaluate an immediate expression.
 */
-static val_t *evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
-    // hentry_t *	sym;
-    // arg_t *		a;
+static val_t *evaluate_expr_imm(const expr_t *e, rec_set_t *rec_set, func_t *f) {
     val_t *v1 = (val_t *)NULL;
     val_t *v2 = (val_t *)NULL;
     val_t *v3 = (val_t *)NULL;
     val_t *val;
-    expr_elt *ep;
+    const expr_elt* ep;
     g_block_map_t *bm = NULL;
 
     DPRINT("In evaluate_expr_imm\n");
@@ -624,7 +622,7 @@ static val_t *evaluate_expr_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
 ** Evaluate a function. Collect arguments to function and
 ** apply a function to them.
 */
-static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
+static val_t *evaluate_func_imm(hentry_t *sym, const expr_t *e, rec_set_t *rec_set,
                                 func_t *f) {
     int n;
     arg_t *a;
@@ -632,7 +630,7 @@ static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
     func_t *fp;
     list_t *aarg;
     list_t *sarg;
-    expr_elt *ep;
+    const expr_elt *ep;
 
     if ((fp = FindFunc(sym)) == (func_t *)NULL) {
         SetError("Function \"%s\" not defined", SymLookup(sym));
@@ -728,14 +726,14 @@ static val_t *evaluate_func_imm(hentry_t *sym, expr_t *e, rec_set_t *rec_set,
 namespace {
 // helper to translate an parsed expression back into a string
 struct ExprToArgList {
-    static std::string str(expr_t* e);
-    static std::string binOp(expr_t* e, const std::string& op, bool wrap=true);
+    static std::string str(const expr_t* e);
+    static std::string binOp(const expr_t* e, const std::string& op, bool wrap=true);
 };
 }
     
 // string-ize an expression binary operation.   If wrap is true, the result is
 // parenthesized
-std::string ExprToArgList::binOp(expr_t* e, const std::string& op, bool wrap) {
+std::string ExprToArgList::binOp(const expr_t* e, const std::string& op, bool wrap) {
     auto right = str(e);
     auto left = str(e);
     if (wrap) {
@@ -746,7 +744,7 @@ std::string ExprToArgList::binOp(expr_t* e, const std::string& op, bool wrap) {
 }
 
 // recursively translate the parsed expression e into a string
-std::string ExprToArgList::str(expr_t* e) {
+std::string ExprToArgList::str(const expr_t* e) {
     auto ep = POP(e);
     switch (ep->e_op) {
     case EXPR_OPADD: return binOp(e,"+");
@@ -827,7 +825,7 @@ std::string ExprToArgList::str(expr_t* e) {
 }
 
 // translate an expression back into a string.  
-static std::string makeArgumentList(expr_t* e) {
+static std::string makeArgumentList(const expr_t* e) {
     try {
         return ExprToArgList::str(e);
     } catch (std::exception& e) {
@@ -851,7 +849,7 @@ static std::string makeArgumentList(expr_t* e) {
 ** A variable can be either an internal debugger variable or a gdb variable.
 ** Internal variables are created if they don't already exist.
 */
-static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
+static val_t *read_var_imm(const expr_t *e, rec_set_t *rec_set, func_t *f) {
     hentry_t *sym = nullptr;
     char *var_expr = nullptr;
     val_t *val = nullptr;
@@ -859,7 +857,7 @@ static val_t *read_var_imm(expr_t *e, rec_set_t *rec_set, func_t *f) {
     val_t *v1 = nullptr;
     int repeat = 0;
     slice_t *slice = nullptr;
-    expr_elt *ep;
+    const expr_elt *ep;
     expr_op stype;
 
     DPRINT("In read_var_imm\n");
@@ -1112,8 +1110,8 @@ bad_var:
 /*
 ** Apply var operators handled by the backend
 */
-static char *apply_var_op(expr_elt *ep, expr_t *e) {
-    expr_elt *ep_next = NULL;
+static char *apply_var_op(const expr_elt *ep, const expr_t *e) {
+    const expr_elt *ep_next = NULL;
     char *v1 = NULL;
     char *v2 = NULL;
     char *v3 = NULL;
@@ -2594,12 +2592,12 @@ static val_t *apply_op(expr_op op, val_t *v1, val_t *v2, val_t *v3,
 }
 
 
-static var_t *ReadVar_BlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
+static var_t *ReadVar_BlockMap(const expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
     int smn;
     int smx;
     val_t *val;
     var_t *var = (var_t *)NULL;
-    expr_elt *ep;
+    const expr_elt *ep;
 
     DPRINT("In ReadVar_Blockmap. cmd_mode[%d]\n", mode);
 
@@ -2847,10 +2845,10 @@ bad_var:
     return (var_t *)NULL;
 }
 
-g_block_map_t *EvaluateBlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
+g_block_map_t *EvaluateBlockMap(const expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
     var_t *v;
     g_block_map_t *m;
-    expr_elt *ep;
+    const expr_elt *ep;
 
     ep = POP(e);
 
@@ -2915,10 +2913,10 @@ g_block_map_t *EvaluateBlockMap(expr_t *e, rec_set_t *rec_set, CMD_MODE mode) {
 // Create a procset value from the expression stack e.   The epression stack should have
 // the thread info as a list that contains integers, integer ranges, strings (for regexps), and
 // possibly the special '*' for all.   These will be on top of the usual proc set definition.
-static val_t* ReadThreadProcSet(expr_t* e, rec_set_t* rec_set)
+static val_t* ReadThreadProcSet(const expr_t* e, rec_set_t* rec_set)
 {
     // We expect a list start for the thread list
-    expr_elt *ep, *ep2;
+    const expr_elt *ep, *ep2;
     if (!check_pop(e, EXPR_LIST_START)) return nullptr;
 
     // then the length of the thread list
@@ -3277,7 +3275,7 @@ bad_var:
 /*
 ** Assign expression (e2) to variable (e1).
 */
-int AssignExpr(expr_t *e1, expr_t *e2, rec_set_t *rec_set) {
+int AssignExpr(expr_t *e1, const expr_t *e2, rec_set_t *rec_set) {
     int ret;
     val_t *lval;
     val_t *rval;
@@ -3937,9 +3935,9 @@ const char *getExprOpStr(expr_op op) {
 }
 
 // Only used when debug is turned on; export the symbol for calling from gdb
-void DumpExpr(expr_t *e) {
+void DumpExpr(const expr_t *e) {
     int i;
-    expr_elt *ep;
+    const expr_elt *ep;
 
     PrintOutMsg("Parsed expression is: ");
 
@@ -4057,14 +4055,14 @@ int EndExprList(void) {
 // pop the expression stack of e and verify that the result is an expected type.
 // op==EXPR_UNKNOWN pops without checking the type of the result.
 // return nullptr if the stack is empty, or the type of the top element is wrong.
-static expr_elt* check_pop(expr_t* e, expr_op op)
+static const expr_elt* check_pop(const expr_t* e, expr_op op)
 {
     if (EMPTY(e)) {
         SetError("Internal error: exected a list element");
         return nullptr;
     } 
         
-    expr_elt* ep = POP(e);
+    const expr_elt* ep = POP(e);
     if (op != EXPR_UNKNOWN && ep->e_op != op) {
         SetError("Internal error: expected a %s got %s", getExprOpStr(op),
                  getExprOpStr(ep->e_op));

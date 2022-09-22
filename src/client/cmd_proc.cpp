@@ -420,6 +420,8 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
         }
     }
 
+    di->d_atInitialBreakpoint = true;
+
     // ensure the new process has the current print elements setting
     // 0 is the default value set up by the dbgsrv, so if the setting is already
     // 0, we don't have to do anything

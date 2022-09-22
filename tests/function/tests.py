@@ -751,7 +751,7 @@ class lgdb_ftn_t3(Gdb4hpcTest):
         if should_skip_fortran_tests():
             self.cancel("Skipping test: broken ftn compiler")
         runTest(self)
-        
+
 class assert_scalars(Gdb4hpcTest):
     def test(self):
         runTest(self)
@@ -759,7 +759,7 @@ class assert_scalars(Gdb4hpcTest):
 class assert_arrays(Gdb4hpcTest):
     def test(self):
         runTest(self)
-        
+
 class assert_decomp(Gdb4hpcTest):
     def test(self):
         runTest(self)
@@ -775,7 +775,23 @@ class assert_interrupted(Gdb4hpcTest):
 class assert_errors(Gdb4hpcTest):
     def test(self):
         runTest(self)
-        
+
+class assert_expressions(Gdb4hpcTest):
+    def test(self):
+        runTest(self)
+
+class assert_stopstart(Gdb4hpcTest):
+    def test(self):
+        runTest(self)
+
+class assert_twice(Gdb4hpcTest):
+    def test(self):
+        runTest(self)
+
+class assert_invalidated(Gdb4hpcTest):
+    def test(self):
+        runTest(self)
+
 class ftn_arrays(Gdb4hpcTest):
     def test(self):
         runTest(self)

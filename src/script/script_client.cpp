@@ -115,19 +115,7 @@ const ScriptTable& scripts() {
 // ScriptRunner public api /////////////////////////////////////////////////////
 
 ScriptRunner::ScriptRunner(std::unique_ptr<data::Script>&& script)
-    : m_script{std::move(script)}
-{
-    LOG("Creating script runner");
-
-    for (const auto& assert : m_script->asserts()) {
-        m_pendingAsserts.emplace_back(assert);
-    }
-
-    LOG("Created " << m_pendingAsserts.size() << " assert trackers.");
-    for ([[maybe_unused]] const auto& tracker : m_pendingAsserts) {
-        LOG("Waiting for: " << tracker.leftHandSide().expression().string() << " and " << tracker.rightHandSide().expression().string());
-    }
-}
+    : m_script{std::move(script)} {}
 
 const std::string& ScriptRunner::name() const {
     return m_script->name();
@@ -165,6 +153,12 @@ bool ScriptRunner::install() {
 bool ScriptRunner::uninstall() {
     LOG("Stopping");
     auto success = true;
+
+    if (hasRunToCompletion()) {
+        m_completedRunsCount++;
+        m_clearResultsOnStartFlag = true;
+    }
+
     if (!restoreOldEventHandlers()) {
         m_error = "Failed to restore original event handlers";
         success = false;
@@ -199,8 +193,24 @@ bool ScriptRunner::uninstall() {
     return success;
 }
 
-void ScriptRunner::reset() {
+bool ScriptRunner::reset() {
     m_readyFlag = false;
+    m_manualFinishFlag = false;
+
+    m_pendingAsserts.clear();
+    try {
+        for (const auto& assert : m_script->asserts()) {
+            m_pendingAsserts.emplace_back(assert);
+        }
+    } catch (const data::InvalidAssertionError& e) {
+        m_error = std::string{"Script contains an invalid procset: "} + e.what();
+        return false;
+    }
+
+    LOG("Created " << m_pendingAsserts.size() << " assert trackers.");
+    for ([[maybe_unused]] const auto& tracker : m_pendingAsserts) {
+        LOG("Waiting for: " << tracker.string());
+    }
 
     // calculate full recset and cache it for later
     m_fullRecSet.clear();
@@ -216,7 +226,7 @@ void ScriptRunner::reset() {
             auto it = allRanks.find(di);
             if (it == allRanks.end()) {
                 // new
-                allRanks.emplace(std::make_pair(di, std::move(bitset)));
+                allRanks.emplace(std::make_pair(di, bitset->clone()));
             } else {
                 // update
                 *it->second |= *bitset;
@@ -231,9 +241,12 @@ void ScriptRunner::reset() {
 
     m_ranks = std::make_unique<Ranks>(std::move(allRanks));
 
-    for (auto& assert : m_pendingAsserts) {
-        assert.reset();
+    if (m_clearResultsOnStartFlag) {
+        m_results.clear();
+        m_clearResultsOnStartFlag = false;
     }
+
+    return true;
 }
 
 bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
@@ -270,7 +283,9 @@ bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
             pendingAssert.unnotify(group->rec_di, *group->rec_group);
         }
     }
-    
+
+    m_manualFinishFlag = false;
+
     return true;
 }
 
@@ -313,24 +328,40 @@ bool ScriptRunner::sendContinue(const Assertion& assert) {
     return true;
 }
 
-bool ScriptRunner::finished() const {
+bool ScriptRunner::shouldStop() const {
     // all ranks must be stopped so we can send our cleanup 
     // (breakpoints, print elements) commands
     if (!m_ranks->allRanksBlocked()) return false;
 
     if (m_manualFinishFlag) return true;
-    
-    for (const auto& assert : m_pendingAsserts) {
-        if (assert.isFinished() == false) {
-            return false;
-        }
-    }
 
-    return true;
+    return hasRunToCompletion();
+}
+
+bool ScriptRunner::hasRunToCompletion() const {
+    return std::all_of(m_script->asserts().begin(), m_script->asserts().end(),
+    [&](const auto& assert){
+        return m_results.find(assert.id()) != m_results.end();
+    });
 }
 
 bool ScriptRunner::allRanksBlocked() const {
     return m_ranks->allRanksBlocked();
+}
+
+bool ScriptRunner::allDbgInvokesAtInitialBreakpoint() const {
+    return std::all_of(m_pendingAsserts.begin(), m_pendingAsserts.end(),
+    [](const auto& assert){
+        return std::all_of(assert.breakpointLocations().begin(), assert.breakpointLocations().end(),
+        [](const auto& pair) {
+            const auto& loc = pair.second;
+            if (auto dih = loc->dbgInvoke(); auto* di = dih.lock()) {
+                return di->d_atInitialBreakpoint;
+            } else {
+                return true;
+            }
+        });
+    });
 }
 
 bool ScriptRunner::hasReadyAsserts() const {
@@ -364,6 +395,7 @@ bool ScriptRunner::evaluateReadyAsserts() {
                 Client.cmp_upper_eps = oldHigh;
             };
 
+            LOG("Evaluating " << assert.id() << ": " << assert.string());
             if (assert.settings().verboseEval) {
                 PrintOutMsg("Evaluating assertion %lu: %s\n", assert.id(), assert.string().c_str());
             }
@@ -375,9 +407,9 @@ bool ScriptRunner::evaluateReadyAsserts() {
             ClientSetPrintElements(0, &m_fullRecSet);
             
             auto recSet = assert.createRecSet();
-            auto expr = assert.expressionHandle();
+            auto& expr = assert.expressionHandle();
 
-            if (!expr || EvalCompare(&rawResult, &rawDifference, expr->raw(), recSet.get()) < 0 || !rawResult) {
+            if (EvalCompare(&rawResult, &rawDifference, &expr.raw(), recSet.get()) < 0 || !rawResult) {
                 PrintOutError("Error in evaluation of \"%s\".\n", assert.string().c_str());
                 PrintError();
                 uninstall();
@@ -395,12 +427,33 @@ bool ScriptRunner::evaluateReadyAsserts() {
                 printCompareResult(result.get(), difference.get(), *recSet);
             }
 
+            // record result - update counters
+            auto& resultPack = m_results[assert.id()]; // creates if not present
             auto simpleResult = simpleCompareResult(*result);
-            assert.recordResult(std::move(result), std::move(difference));
+
+            switch (simpleResult) {
+            case CompareResult::Pass:
+                resultPack.passes++;
+                break;
+            case CompareResult::Warn:
+                resultPack.warnings++;
+                break;
+            case CompareResult::Fail:
+                resultPack.failures++;
+                break;
+            case CompareResult::Unknown:
+                // not counted
+                break;
+            }
+
+            // record result - update result/diffs
+            resultPack.results.emplace_back(Result{.recSet = std::move(recSet),
+                                           .result = std::move(result),
+                                           .difference = std::move(difference)});
 
             if (Client.XML_mode) {
-                auto [passes, warns, fails] = assert.getResultTotals();
-                PrintOutLine(XML_RESULT, name().c_str(), assert.id(), passes, warns, fails);
+                PrintOutLine(XML_RESULT, name().c_str(), assert.id(), resultPack.passes,
+                             resultPack.warnings, resultPack.failures);
             }
 
             if (assert.settings().stopOnFailure && simpleResult == CompareResult::Fail) {
@@ -416,7 +469,7 @@ bool ScriptRunner::evaluateReadyAsserts() {
 
 bool ScriptRunner::releaseReadyAsserts() {
     auto doContinue{true};
-    if (finished() && m_script->scriptSettings().haltUponEnd) {
+    if (shouldStop() && m_script->scriptSettings().haltUponEnd) {
         doContinue = false;
     }
         
@@ -434,19 +487,23 @@ bool ScriptRunner::releaseReadyAsserts() {
     return true;
 }
 
-const SR::Assertion* ScriptRunner::getAssert(size_t id) const {
-    auto it = std::find_if(m_pendingAsserts.begin(), m_pendingAsserts.end(), [id](const auto& a) {
-        return a.id() == id;
-    });
-    return (it != m_pendingAsserts.end()) ? &(*it) : nullptr;
+const data::Assertion* ScriptRunner::getAssert(size_t id) const {
+    if (id > m_script->asserts().size()) {
+        return nullptr;
+    }
+    // ids start at 1
+    return &m_script->asserts()[id - 1];
 }
 
-const std::vector<std::pair<const SR::Assertion*, const SR::Result*>> ScriptRunner::getAllDiffs() const {
-    std::vector<std::pair<const SR::Assertion*, const SR::Result*>> r;
+std::vector<std::pair<const data::Assertion*, const SR::Result*>> ScriptRunner::getAllDiffs() const {
+    std::vector<std::pair<const data::Assertion*, const SR::Result*>> r;
 
     // build list
-    for (const auto& assert : asserts()) {
-        for (const auto& result : assert.results()) {
+    for (const auto& [id, resultPack] : m_results) {
+        // ids start at 1
+        const auto& assert = m_script->asserts()[id - 1];
+
+        for (const auto& result : resultPack.results) {
             auto simpleResult = simpleCompareResult(*result.result);
             if (simpleResult == CompareResult::Warn || simpleResult == CompareResult::Fail) {
                 r.emplace_back(&assert, &result);
@@ -460,6 +517,37 @@ const std::vector<std::pair<const SR::Assertion*, const SR::Result*>> ScriptRunn
     });
 
     return r;
+}
+
+std::vector<std::pair<const SR::Result*, size_t>> ScriptRunner::getCondensedDiffs(const Assertion& assert) const {
+    std::vector<std::pair<const SR::Result*, size_t>> stats;
+
+    if (auto it = m_results.find(assert.id()); it != m_results.end()) {
+        for (const auto& result : it->second.results) {
+            const auto& Pass = CompareResult::Pass;
+            const auto& Unkn = CompareResult::Unknown;
+
+            if (simpleCompareResult(*result.result) != Pass &&
+                simpleCompareResult(*result.result) != Unkn) {
+                if (stats.size() == 0) {
+                    stats.emplace_back(std::make_pair(&result, 1ul));
+                } else {
+                    // if this result is the same as the last, just increase the counter
+                    if (result == *stats.back().first) {
+                        stats.back().second++;
+                    } else {
+                        stats.emplace_back(std::make_pair(&result, 1ul));
+                    }
+                }
+            }
+        }
+    }
+
+    return stats;
+}
+
+size_t ScriptRunner::numRuns() const {
+    return m_completedRunsCount;
 }
 
 std::string ScriptRunner::summary() const {
@@ -476,18 +564,27 @@ std::string ScriptRunner::summary() const {
     size_t warn = 0;
     size_t fail = 0;
     size_t indet = 0;
-    for (const auto& assert : m_pendingAsserts) {
-        for (const auto& result : assert.results()) {
+    for (const auto& [id, resultPack] : m_results) {
+        for (const auto& result : resultPack.results) {
             switch (simpleCompareResult(*result.result)) {
-            case CompareResult::Pass: pass++; break;
-            case CompareResult::Warn: warn++; break;
-            case CompareResult::Fail: fail++; break;            
-            case CompareResult::Unknown: indet++; break;
+            case CompareResult::Pass:
+                pass++;
+                break;
+            case CompareResult::Warn:
+                warn++;
+                break;
+            case CompareResult::Fail:
+                fail++;
+                break;
+            case CompareResult::Unknown:
+                indet++;
+                break;
             }
         }
     }
 
-    ss << "Total assertion evaluations: " << pass + warn + fail + indet << "\n";
+    ss << "Total full runs: " << m_completedRunsCount << "\n";
+    ss << "Total assertion evaluations this run: " << pass + warn + fail + indet << "\n";
     ss << "Passed: " << pass 
        << ", Passed with warning: " << warn 
        << ", Failed: " << fail 
@@ -496,14 +593,28 @@ std::string ScriptRunner::summary() const {
 
     // individual assertion results
     ss << "Assertion results:\n\n";
-    for (const auto& assert : m_pendingAsserts) {
+    for (const auto& assert : m_script->asserts()) {
         ss << "Assertion " << assert.id();
         if (auto settings = assert.settingsString(); settings != "") {
             ss << ", " << settings; 
         }
         ss << ":\n";
-        ss << assert.string() << "\n"
-           << assert.summary() << "\n\n"
+        ss << assert.string() << "\n";
+
+        size_t passes = 0;
+        size_t warnings = 0;
+        size_t failures = 0;
+
+        if (auto it = m_results.find(assert.id()); it != m_results.end()) {
+            passes = it->second.passes;
+            warnings = it->second.warnings;
+            failures = it->second.failures;
+        }
+
+        ss << "Passes: " << passes
+           << ", Passes with warnings: " << warnings
+           << ", Failures: " << failures << "."
+           << "\n\n"
         ;
     }
 
@@ -542,11 +653,9 @@ void ScriptRunner::handleBPHit(const DbgInvoke::EventSet& eventSet, const Bitset
         for (auto& assert : m_pendingAsserts) {
             if (assert.BPIsRelevant(eventSet.di(), replySet, dbgBp)) {
                 relevantBreakpoint = true;
+                auto ready = assert.notify(eventSet.di(), replySet, dbgBp);
+                m_readyFlag = std::max(ready, m_readyFlag);
             }
-            // notify after checking relevance, as notify will reduce
-            // the set of ranks that BPIsRelevant is checking for
-            auto ready = assert.notify(eventSet.di(), replySet, dbgBp);
-            m_readyFlag = std::max(ready, m_readyFlag);
         }
         if (!relevantBreakpoint) {
             // we've hit a breakpoint which no assertion cares about. if this
@@ -555,7 +664,8 @@ void ScriptRunner::handleBPHit(const DbgInvoke::EventSet& eventSet, const Bitset
             // finished, it's not really an interruption and we can let it slide.
             bool someoneStillNeededIt = false;
             for (const auto& assert : m_pendingAsserts) {
-                if (!assert.isFinished() && assert.procsetIsRelevant(eventSet.di(), replySet)) {
+                if (m_results.find(assert.id()) == m_results.end() &&
+                    assert.dbgInvokeIsRelevant(eventSet.di(), replySet)) {
                     // found an unfinished assertion that cared about these ranks
                     someoneStillNeededIt = true;
                     break;
@@ -623,24 +733,16 @@ int ScriptRunner::passEventToOldHandler(DbgInvoke::EventSet& eventSet, const Bit
 std::set<DbgInvoke::Handle> ScriptRunner::getDisFromScript() const {
     auto dis = std::set<DbgInvoke::Handle>{};
 
-    const auto getDiFromExpression = [&](const data::Expression& e) {
-        if (auto* procset = e.procset()) {
-            forEachOverlaySet(*procset, [&](const auto* os) {
-                if (os->s_di.lock())
-                    dis.insert(os->s_di);
-                else
-                    PrintOutError("Warning: Expired procset $%s. Ignoring.\n", os->s_di.c_str());
-            });
-        } else {
-            PrintOutError("Warning: Expired procset $%s. Ignoring. \n", e.procsetName().c_str());
+    for (const auto& assert : m_pendingAsserts) {
+        LOG("Getting dis from " << assert.string());
+        for (const auto& [bpid, loc] : assert.breakpointLocations()) {
+            if (loc->dbgInvoke().lock()) {
+                dis.insert(loc->dbgInvoke());
+            } else {
+                PrintOutMsg("Warning: Expired procset $%s. Ignoring. \n",
+                              loc->dbgInvoke().c_str());
+            }
         }
-    };
-
-    for (const auto& assert : m_script->asserts()) {
-        LOG("Extracting dis from " << assert.leftHandSide().string());
-        getDiFromExpression(assert.leftHandSide());
-        LOG("Extracting dis from " << assert.rightHandSide().string());
-        getDiFromExpression(assert.rightHandSide());
     }
 
     // debug print
@@ -670,6 +772,10 @@ bool ScriptRunner::deleteBreakpoints() {
     }
 
     return true;
+}
+
+const std::vector<std::pair<int, const data::ProgramLocation*>>& SR::Assertion::breakpointLocations() const {
+    return m_breakpointLocs;
 }
 
 bool ScriptRunner::setEventHandlers() {
@@ -733,246 +839,12 @@ std::tuple<size_t, size_t, size_t> ScriptRunner::getResultTotals() const {
     size_t passes = 0;
     size_t warns = 0;
     size_t fails = 0;
-    for (const auto& assert : m_pendingAsserts) {
-        auto [aPasses, aWarns, aFails] = assert.getResultTotals();
-        passes += aPasses;
-        warns += aWarns;
-        fails += aFails;
+    for (const auto& [id, resultPack] : m_results) {
+        passes += resultPack.passes;
+        warns += resultPack.warnings;
+        fails += resultPack.failures;
     }
     return {passes, warns, fails};
-}
-
-// ScriptRunner::Expression ////////////////////////////////////////////////////
-
-SR::Expression::Expression(const data::Expression& expression)
-    : m_expression{expression}
-    , m_breakPointId{-1}
-{
-    // assemble overlay sets into a mapping from a di to a single bitset
-    if (auto* procset = m_expression.procset()) {
-        forEachOverlaySet(*procset, [&](const auto* os) {
-            auto it = m_fullSets.find(os->s_di);
-            if (it != m_fullSets.end()) {
-                // in theory, procsets shouldn't contain multiple overlay sets for
-                // the same di, but just in case...
-
-                auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
-                *it->second |= *newBitset;
-            } else {
-                // create new entry
-
-                auto newBitset = sliceBitset(*os, &m_expression.procsetSlice());
-                m_fullSets.emplace(std::make_pair(os->s_di, std::move(newBitset)));
-            }
-        });
-    } else {
-        PrintOutError("Warning: Expired procset $%s. Ignoring.\n", m_expression.procsetName().c_str());
-    }
-}
-
-bool SR::Expression::setBreakpoints() {
-    const auto& e = expression();
-    auto success = true;
-
-    LOG("Setting breakpoint " << e.location().string());
-    auto recSet = createRecSet();
-    auto repSet = DbgSetLineBreak(recSet.get(), 0, e.location().filename().c_str(), 
-            e.location().lineNumber(), recSet->getThreads());
-
-    if (ProcessErrorInRepSet(repSet)) {
-        LOG("Error setting breakpoint: " << e.location().string());
-        FreeRepSet(repSet);
-        return false;
-    }
-
-    for (const auto& reply : repSet) {
-        const auto* dbgBp = EVENT_BP(reply->rep_event);
-        auto* di = reply->rep_di.lock();
-        const auto* bp = di->breakpoints().findByDbgBreakpoint(*dbgBp);
-
-        if (!bp) {
-            LOG("Error setting breakpoint: " << e.location().string());
-            success = false;
-            break;
-        }
-
-        if (m_breakPointId == -1) {
-            m_breakPointId = bp->id();
-        } else if (m_breakPointId != bp->id()) {
-            LOG("Error setting breakpoint: got two logical ids");
-            success = false;
-            break;
-        }
-    }
-
-    FreeRepSet(repSet);
-
-    return success;
-}
-
-bool SR::Expression::deleteBreakpoints() {
-    if (m_breakPointId == -1) return true;
-
-    LOG("Deleting breakpoint " << m_breakPointId);
-    
-    auto recSet = createRecSet();
-
-    // if another expression already deleted our breakpoint, we can stop early
-    {   // make sure our assumption that our recSet only has one unique di is correct
-        auto seen = DbgInvoke::Handle(nullptr);
-        for (const auto& rec : recSet.get()) {
-            if (!seen.lock()) {
-                seen = rec->rec_di.handle();
-            } else if (seen != rec->rec_di.handle()) {
-                LOG("Found multiple dis, can't properly delete breakpoints");
-                return false;
-            }
-        }
-    }
-
-    // short circuit if our breakpoint is already gone
-    if (recSet->getReceivers().size() == 0) return true;
-    auto& di = recSet->getReceivers().front()->rec_di;
-
-    if (!di.breakpoints().findByLogicalID(m_breakPointId)) {
-        LOG("Breakpoint " << m_breakPointId << " already deleted.");
-        m_breakPointId = -1;
-        return true;
-    }
-    
-    // returns nullptr on success
-    auto repSet = DbgDeleteBreak(recSet.get(), m_breakPointId);
-
-    if (repSet) {
-        ProcessErrorInRepSet(repSet);
-        LOG("Error deleting breakpoint: " << m_breakPointId);
-        FreeRepSet(repSet);
-        return false;
-    }
-
-    LOG("Deleted breakpoint " << m_breakPointId);
-    m_breakPointId = -1;
-    FreeRepSet(repSet);
-
-    return true;
-}
-
-bool SR::Expression::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
-    LOG(m_expression.string() << " notified of " << di.handle().name() << ": " << bitset.toSetString() << " at backend breakpoint " << dbgBp.bp_id);
-
-    if (BPIsRelevant(di, bitset, dbgBp)) {
-        LOG("id match: " << BPIsRelevant(di, bitset, dbgBp)->id());
-        LOG("bitset before " << m_waitingFor.at(di.handle())->toSetString());
-        *m_waitingFor.at(di.handle()) -= bitset;
-        LOG("bitset (" << (void*)m_waitingFor.at(di.handle()).get() << ") now " << m_waitingFor.at(di.handle())->toSetString());
-    } else {
-        LOG("id mismatch");
-    }
-
-    return isReady();
-}
-
-void SR::Expression::unnotify(const DbgInvoke& di, const Bitset &bitset) {
-    if (auto it = m_waitingFor.find(di.handle()); it != m_waitingFor.end()) {
-        // we are now waiting for these ranks again
-        (*it->second |= bitset) &= *m_fullSets.at(di.handle());
-    }
-}
-
-bool SR::Expression::isReady() const {
-    // return true when all bitsets are empty
-    auto foundNotReady = std::any_of(m_waitingFor.begin(), m_waitingFor.end(), [](const auto& pair){
-        return pair.second->numSet() > 0;
-    });
-    LOG("ready? " << !foundNotReady);
-    return !foundNotReady;
-}
-
-const MappedBreakpoint* SR::Expression::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
-    auto it = m_waitingFor.find(di.handle());
-    if (it == m_waitingFor.end()) {
-        // irrelevant di
-        return nullptr;
-    }
-
-    if (!it->second->hasCommonBits(bitset)) {
-        // irrelevant bitset
-        return nullptr;
-    }
-
-    const auto* mappedBP = di.breakpoints().findByDbgBreakpoint(dbgBp);
-    if (!mappedBP || mappedBP->id() != m_breakPointId) {
-        // irrelevant BP
-        return nullptr;
-    }
-    return mappedBP;
-}
-
-bool SR::Expression::procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {
-    auto it = m_waitingFor.find(di.handle());
-    if (it == m_waitingFor.end()) {
-        // irrelevant di
-        return false;
-    }
-
-    if (!it->second->hasCommonBits(bitset)) {
-        // irrelevant bitset
-        return false;
-    }
-
-    return true;
-}
-
-void SR::Expression::reset() {
-    LOG("resetting expression tracker");
-
-    m_waitingFor.clear();
-    for (const auto& [di, bitset] : m_fullSets) {
-        m_waitingFor.emplace(std::make_pair(di, bitset->clone()));
-    }
-
-    LOG("wait mapping reset:");
-    for ([[maybe_unused]] const auto& [dih, bitset] : m_waitingFor) {
-        LOG("di " << dih.name() << " waiting for " << bitset->toSetString());
-    }
-}
-
-std::unique_ptr<rec_set_t> SR::Expression::createRecSet() const {
-    LOG("creating recset for " << string());
-
-    auto* procset = expression().procset();
-
-    if (procset && expression().procsetSlice().getRank() == 0) {
-        LOG("no slice, returning CreateRecSetForProcset");
-        return std::unique_ptr<rec_set_t>(CreateRecSetForProcset(procset));
-    }
-
-    auto result = std::make_unique<rec_set_t>();
-
-    if (procset) {
-        // slice up the procset
-        forEachOverlaySet(*procset, [&](auto* os){
-            auto bs = sliceBitset(*os, &expression().procsetSlice());
-            if (!bs->isEmpty()) {
-                // XXX: forEachOverlaySet iterates a const procset, containing
-                // const DbgInvoke::Handles in its overlay sets. 99% of the time, a const
-                // Handle represents a const DbgInvoke, but we can't make a
-                // group reciever with a const DbgInvoke, so we need to const_cast it
-                auto* diptr = const_cast<DbgInvoke*>(os->s_di.lock());
-                if (!diptr) {
-                    PrintOutError("Warning: expired procset $%s. Ignoring.\n", os->s_di.c_str());
-                    return;
-                }
-
-                LOG("adding receiver " << bs->toSetString());
-                result->addReceiver(NewGroupReceiver(*diptr, std::move(bs)));
-            }
-        });
-    } else {
-        PrintOutError("Warning: Expired procset $%s. Ignoring.\n", expression().procsetName().c_str());
-    }
-
-    return result;
 }
 
 bool SR::Result::operator==(const Result& other) const {
@@ -1029,181 +901,249 @@ bool SR::Result::operator==(const Result& other) const {
         default:
             return false;
     }
+}
 
+static std::unique_ptr<rec_set_t> createRecSetForLocation(const data::ProgramLocation& loc) {
+    LOG("creating recset for " << loc.getLogString());
+
+    auto result = std::make_unique<rec_set_t>();
+    if (auto* di = loc.dbgInvoke().lock()) {
+        result->addReceiver(NewGroupReceiver(*di, &loc.bitset()));
+    } else {
+        PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", loc.dbgInvoke().c_str());
+    }
+
+    return result;
 }
 
 SR::Assertion::Assertion(const data::Assertion& assert)
     : m_assert{assert}
-    , m_lhs(assert.leftHandSide())
-    , m_op{assert.op()}
-    , m_rhs(assert.rightHandSide())
-    , m_passes{0}
-    , m_warns{0}
-    , m_fails{0}
-{}
+    , m_parsed{assert.parse()} // throws InvalidAssertionError on error
+    , m_orig_expression{m_parsed.expression}
+    , m_locs{m_parsed.locations}
+    , m_eval_expression{m_orig_expression.view()}
+{
+    // evaluation will fail if expression contains locations (@"filename":linenum), so
+    // filter them out
+    m_eval_expression.filterOut<ExpressionHandle::ProgLocExpr>();
+
+    for (const auto& loc : m_locs) {
+        m_breakpointLocs.emplace_back(-1, &loc);
+    }
+
+    reset();
+}
 
 bool SR::Assertion::setBreakpoints() {
-    return m_lhs.setBreakpoints() && m_rhs.setBreakpoints();
+    auto success = true;
+
+    for (auto& [bpid, loc] : m_breakpointLocs) {
+        LOG("Setting breakpoint for " << loc->getLogString());
+        auto recSet = createRecSetForLocation(*loc);
+        auto repSet = DbgSetLineBreak(recSet.get(), 0, loc->filename().c_str(),
+                                      loc->lineNumber(), recSet->getThreads());
+
+        if (ProcessErrorInRepSet(repSet)) {
+            LOG("Error setting breakpoint: " << loc->getLogString());
+            FreeRepSet(repSet);
+            return false;
+        }
+
+        for (const auto& reply : repSet) {
+            const auto* dbgBp = EVENT_BP(reply->rep_event);
+            auto* di = reply->rep_di.lock();
+            const auto* bp = di->breakpoints().findByDbgBreakpoint(*dbgBp);
+
+            if (!bp) {
+                LOG("Error setting breakpoint: " << loc->getLogString());
+                success = false;
+                break;
+            }
+
+            if (bpid == -1) {
+                bpid = bp->id();
+                LOG("Set breakpoint " << di->handle().name() << ": " << bp->id() << ": "
+                                      << bp->file() << ":" << bp->line());
+            } else if (bpid != bp->id()) {
+                LOG("Error setting breakpoint: got two logical ids");
+                success = false;
+                break;
+            }
+        }
+
+        FreeRepSet(repSet);
+    }
+
+    return success;
 }
 
 bool SR::Assertion::deleteBreakpoints() {
-    return m_lhs.deleteBreakpoints() && m_rhs.deleteBreakpoints();
-}
+    for (auto& [bpid, loc] : m_breakpointLocs) {
+        LOG("Deleting breakpoint " << bpid);
 
-bool SR::Assertion::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
-    auto lhsReady = m_lhs.notify(di, bitset, dbgBp);
-    auto rhsReady = m_rhs.notify(di, bitset, dbgBp);
-    return lhsReady && rhsReady;
-}
+        auto recSet = createRecSetForLocation(*loc);
 
-void SR::Assertion::unnotify(const DbgInvoke& di, const Bitset &bitset) {
-    m_lhs.unnotify(di, bitset);
-    m_rhs.unnotify(di, bitset);
-}
-
-bool SR::Assertion::isReady() const {
-    return m_lhs.isReady() && m_rhs.isReady();
-}
-
-bool SR::Assertion::isFinished() const {
-    LOG(string() << ": " << (m_results.size() != 0));
-    return m_results.size() != 0;
-}
-
-bool SR::Assertion::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
-    return m_lhs.BPIsRelevant(di, bitset, dbgBp) || m_rhs.BPIsRelevant(di, bitset, dbgBp);
-}
-
-bool SR::Assertion::procsetIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {
-    return m_lhs.procsetIsRelevant(di, bitset) || m_rhs.procsetIsRelevant(di, bitset);
-}
-
-void SR::Assertion::reset() {
-    m_lhs.reset();
-    m_rhs.reset();
-}
-
-std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>
-SR::Assertion::ranksMap() const {
-    auto r = std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>{};
-    
-    // initialize with lhs
-    for (const auto& [di, bitset] : m_lhs.ranksMap()) {
-        r.emplace(std::make_pair(di, bitset->clone()));
-    }
-
-    // merge rhs
-    for (const auto& [di, bitset] : m_rhs.ranksMap()) {
-        auto it = r.find(di);
-        if (it == r.end()) {
-            // new entry
-            r.emplace(std::make_pair(di, bitset->clone()));
-        } else {
-            // existing entry
-            *it->second |= *bitset;
-        }
-    }
-
-    return r;
-}
-
-std::string SR::Assertion::summary() const {
-    std::ostringstream ss;
-
-    size_t passes = 0;
-    size_t warns = 0;
-    size_t failures = 0;
-
-    for (const auto& res : m_results) {
-        switch (simpleCompareResult(*res.result)) {
-            case CompareResult::Pass: passes++; break;
-            case CompareResult::Warn: warns++; break;
-            case CompareResult::Fail: failures++; break;
-            case CompareResult::Unknown: break; // we don't show these in the summary
-        }
-    }
-
-    ss << "Passes: " << passes
-       << ", Passes with warnings: " << warns
-       << ", Failures: " << failures << ".";
-
-    return ss.str();
-}
-
-void SR::Assertion::recordResult(ValPtr&& res, ValPtr&& diff) {
-    if (!res) return;
-    LOG("Recording assert");
-
-    // keep track of running totals
-    switch (simpleCompareResult(*res)) {
-        case CompareResult::Pass: m_passes++; break;
-        case CompareResult::Warn: m_warns++; break;
-        case CompareResult::Fail: m_fails++; break;
-        case CompareResult::Unknown: break; // ignore
-    };
-
-    m_results.emplace_back(Result {
-        .recSet = createRecSet(),
-        .result = std::move(res),
-        .difference = std::move(diff)
-    });
-}
-
-std::tuple<size_t, size_t, size_t> SR::Assertion::getResultTotals() const {
-    return {m_passes, m_warns, m_fails};
-}
-
-const std::vector<SR::Result>& SR::Assertion::results() const {
-    return m_results;
-}
-
-std::vector<std::pair<const SR::Result*, size_t>> SR::Assertion::getCondensedDiffs() const {
-    std::vector<std::pair<const SR::Result*, size_t>> stats;
-
-    for (const auto& result : m_results) {
-        const auto& Pass = CompareResult::Pass;
-        const auto& Unkn = CompareResult::Unknown;
-
-        if (simpleCompareResult(*result.result) != Pass && simpleCompareResult(*result.result) != Unkn) {
-            if (stats.size() == 0) {
-                stats.emplace_back(std::make_pair(&result, 1ul));
-            } else {
-                // if this result is the same as the last, just increase the counter
-                if (result == *stats.back().first) {
-                    stats.back().second++;
-                } else {
-                    stats.emplace_back(std::make_pair(&result, 1ul));
+        // if another expression already deleted our breakpoint, we can stop early
+        { // make sure our assumption that our recSet only has one unique di is correct
+            auto seen = DbgInvoke::Handle(nullptr);
+            for (const auto& rec : recSet.get()) {
+                if (!seen.lock()) {
+                    seen = rec->rec_di.handle();
+                } else if (seen != rec->rec_di.handle()) {
+                    LOG("Found multiple dis, can't properly delete "
+                        "breakpoints");
+                    return false;
                 }
             }
         }
+
+        // short circuit if our breakpoint is already gone
+        if (recSet->getReceivers().size() == 0)
+            continue;
+
+        auto& di = recSet->getReceivers().front()->rec_di;
+
+        if (!di.breakpoints().findByLogicalID(bpid)) {
+            LOG("Breakpoint " << bpid << " already deleted.");
+            bpid = -1;
+            continue;
+        }
+
+        // returns nullptr on success
+        auto repSet = DbgDeleteBreak(recSet.get(), bpid);
+
+        if (repSet) {
+            ProcessErrorInRepSet(repSet);
+            LOG("Error deleting breakpoint: " << bpid);
+            FreeRepSet(repSet);
+            return false;
+        }
+
+        LOG("Deleted breakpoint " << bpid);
+        bpid = -1;
+        FreeRepSet(repSet);
     }
 
-    return stats;
+    return true;
 }
 
-std::unique_ptr<ExpressionHandle> SR::Assertion::expressionHandle() const {
-    // XXX: probably can construct an expr_t in place rather than re-parse...
-    std::ostringstream ss;
+bool SR::Assertion::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
+    LOG(m_assert.string() << " notified of " << di.handle().name() << ": "
+                          << bitset.toSetString() << " at backend breakpoint "
+                          << dbgBp.bp_id);
+    LOG("bitset before " << m_waitingFor.at(di.handle())->toSetString());
 
-    ss << m_lhs.evalString() << " "
-       << m_op.string() << " "
-       << m_rhs.evalString()
-    ;
+    *m_waitingFor.at(di.handle()) -= bitset;
 
-    LOG("exprString: " << ss.str());
-    try {
-        return std::make_unique<ExpressionHandle>(ss.str());
-    } catch (const ExpressionHandle::ParseError& e) {
-        // should never happen
-        PrintOutError("Error parsing assertion: %s\n", ss.str().c_str());
-        PrintOutError("%s\n", e.what());
+    LOG("bitset (" << (void*)m_waitingFor.at(di.handle()).get() << ") now "
+                   << m_waitingFor.at(di.handle())->toSetString());
+
+    return isReady();
+}
+
+void SR::Assertion::unnotify(const DbgInvoke& di, const Bitset &bitset) {
+    if (auto it = m_waitingFor.find(di.handle()); it != m_waitingFor.end()) {
+        // we are now waiting for these ranks again
+        (*it->second |= bitset) &= *m_fullSets.at(di.handle());
+    }
+}
+
+bool SR::Assertion::isReady() const {
+    // return true when all bitsets are empty
+    auto foundNotReady = std::any_of(m_waitingFor.begin(), m_waitingFor.end(), [](const auto& pair){
+        return pair.second->numSet() > 0;
+    });
+    LOG("ready? " << !foundNotReady);
+    return !foundNotReady;
+}
+
+const MappedBreakpoint* SR::Assertion::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
+    auto it = m_waitingFor.find(di.handle());
+    if (it == m_waitingFor.end()) {
+        // irrelevant di
         return nullptr;
     }
+
+    for (auto& [bpid, loc] : m_breakpointLocs) {
+        if (!loc->bitset().hasCommonBits(bitset)) {
+            // irrelevant bitset
+            continue;
+        }
+
+        if (loc->dbgInvoke() != di.handle()) {
+            // irrelevant di
+            continue;
+        }
+
+        const auto* mappedBP = di.breakpoints().findByDbgBreakpoint(dbgBp);
+        if (mappedBP && mappedBP->id() == bpid) {
+            return mappedBP;
+        }
+        // irrelevant breakpoint
+    }
+
+    return nullptr;
+}
+
+bool SR::Assertion::dbgInvokeIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {
+    auto it = m_waitingFor.find(di.handle());
+    if (it == m_waitingFor.end()) {
+        // irrelevant di
+        return false;
+    }
+
+    if (!it->second->hasCommonBits(bitset)) {
+        // irrelevant bitset
+        return false;
+    }
+
+    return true;
+}
+
+void SR::Assertion::reset() {
+    LOG("resetting expression tracker");
+
+    // create di -> bitset map
+    m_fullSets.clear();
+    for (auto& [bpid, loc] : m_breakpointLocs) {
+        auto it = m_fullSets.find(loc->dbgInvoke());
+        if (it != m_fullSets.end()) {
+            // merge with existing entry
+            *it->second |= loc->bitset();
+        } else {
+            // create new entry
+            m_fullSets.emplace(std::make_pair(loc->dbgInvoke(), loc->bitset().clone()));
+        }
+    }
+
+    m_waitingFor.clear();
+    for (const auto& [di, bitset] : m_fullSets) {
+        m_waitingFor.emplace(std::make_pair(di, bitset->clone()));
+    }
+
+    LOG("wait mapping reset:");
+    for ([[maybe_unused]] const auto& [dih, bitset] : m_waitingFor) {
+        LOG("di " << dih.name() << " waiting for " << bitset->toSetString());
+    }
+}
+
+const std::map<DbgInvoke::Handle, std::unique_ptr<Bitset>>&
+SR::Assertion::ranksMap() const {
+    return m_fullSets;
+}
+
+const ExpressionHandle::View& SR::Assertion::expressionHandle() const {
+    return m_eval_expression;
 }
 
 std::unique_ptr<rec_set_t> SR::Assertion::createRecSet() const {
-    auto result = m_lhs.createRecSet();
-    result->merge(m_rhs.createRecSet());
+    auto result = std::unique_ptr<rec_set_t>();
+    for (auto& [bpid, loc] : m_breakpointLocs) {
+        if (!result)
+            result = createRecSetForLocation(*loc);
+        else
+            result->merge(createRecSetForLocation(*loc));
+    }
     return result;
 }
 

@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "client.h"
 #include "useful.h"
@@ -91,8 +92,9 @@ void InitCLI(cli_type_t default_type, interpreter_type interpreter,
 void DbgSwitchCurrentStream(cli_stream_t* stream){
 
     if (stream != CurrentStream) {
+        if (CurrentStream) CurrentStream->cs_out.flush();
         CurrentStream = stream;
-        Client.cli_out = CurrentStream->cs_out;
+        Client.cli_out = &CurrentStream->cs_out;
         Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
         Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
     }
@@ -107,7 +109,7 @@ void DestroyCLI(void) {
     // Null out the global variables
     CurrentStream = nullptr;
 
-    Client.cli_out.reset();
+    Client.cli_out->reset();
 }
 
 int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
@@ -1083,7 +1085,7 @@ void cli_out_t::vprintf(const char *format, va_list args) {
         va_end(spargs);
     }
 
-    // vfprintf the line we recieved
+    // vfprintf the line we received
     if (m_out && m_log) {
         va_list args2;
         va_copy(args2, args);
@@ -1104,6 +1106,7 @@ void cli_out_t::reset() {
 }
 
 void cli_out_t::flush() {
+    if (m_ostream) m_ostream->flush();
     if (m_out) fflush(m_out.get());
     if (m_log) fflush(m_log.get());
 }
@@ -1113,14 +1116,31 @@ void cli_out_t::close() {
     m_log.reset();
     m_ostream.reset();
 }
-void cli_out_t::setOut(FILE* f) { m_out.reset(f, &::fclose); m_ostream.reset(); }
 
-void cli_out_t::setOut(std::shared_ptr<FILE> f) { m_out = f; m_ostream.reset(); }
+void cli_out_t::setOut(FILE* f) {
+    auto p = std::shared_ptr<FILE>{};
+    if (f) p.reset(f, ::fclose); // without the if (f) it will try to fclose(nullptr)
+    setOut(p);
+}
 
-void cli_out_t::setLog(FILE* f) {
-    m_log.reset(f, &::fclose);
+void cli_out_t::setOut(std::shared_ptr<FILE> f) {
+    flush();
+    m_out = f;
     m_ostream.reset();
 }
+
+void cli_out_t::setLog(FILE* f) {
+    auto p = std::shared_ptr<FILE>{};
+    if (f) p.reset(f, &::fclose); // without the if (f) it will try to fclose(nullptr)
+    setLog(p);
+}
+
+void cli_out_t::setLog(std::shared_ptr<FILE> f) {
+    flush();
+    m_log = f;
+    m_ostream.reset();
+}
+
 
 /*
 // Little adapter that takes C++ stream style input and sends it
@@ -1187,6 +1207,7 @@ void cli_logging_t::setEnabled(bool enabled) {
     if (enabled == m_enabled) {
         return;
     } else if (!enabled) {
+        m_out.flush();
         m_out.setLog(nullptr);
         if (m_redirected) {
             // return output to cli
@@ -1208,7 +1229,9 @@ void cli_logging_t::setFile(const std::string& filename) {
 void cli_logging_t::startLog()
 {
     if (FILE* f = fopen(m_filename.c_str(), m_overwrite ? "w" : "a")) {
+        m_out.flush();
         m_out.setLog(f);
+        m_enabled = true;
         setRedirect(m_redirect);
     } else {
         PrintOutError("Could not open logfile: %s for writing\n", m_filename.c_str());
@@ -1266,3 +1289,102 @@ SuppressPrintOutError::SuppressPrintOutError() : stream(CurrentStream), prev(nul
     if (stream) std::swap(stream->cs_fperr, prev);
 }
 SuppressPrintOutError::~SuppressPrintOutError() { if (stream) stream->cs_fperr=prev; };
+
+cli_pipe::cli_pipe(const std::string& command) : m_stream(CurrentStream) {
+    if (!m_stream) return;
+
+    // primary output
+    auto& out = m_stream->cs_out;
+    if (auto prev= out.getOutSP()) {
+        if (auto [f,pid] = open(prev.get(), command); f) {
+            m_prev = prev;
+            m_forkPid = pid;
+            out.setOut(f);
+        }
+    }
+
+    // logging output - forking a separate process for each isn't super
+    // elegant, but doing a pipe while logging seems a pretty obscure case
+    // to start with.
+    if (auto prev = out.getLogSP()) {
+        if (auto [f,pid] = open(prev.get(), command); f) {
+            m_prevLog = prev;
+            m_logForkPid = pid;
+            out.setLog(f);
+        }
+    }
+}
+
+cli_pipe::~cli_pipe() {
+    if (!m_stream) return;
+    auto& out = m_stream->cs_out;
+    out.close();
+    if (m_prev) {
+        int status = 0;
+        waitpid(m_forkPid, &status, 0);
+        out.setOut(m_prev);
+    }
+    if (m_prevLog) {
+        int status = 0;
+        waitpid(m_logForkPid, &status, 0);
+        out.setLog(m_prevLog);
+    }
+}
+
+bool cli_pipe::ok() const {
+    return !!m_prev;
+}
+
+// Create a stream that injects a application command e.g. "grep"
+// into a stream.  Any data written to the returned stream is
+// piped into command and the stdout from command is then
+// sent to "out".
+// Return a (file, pid) pair, the fiel is nullptr on failure.
+// The pid is the pid of the forked process to run the command, and
+// should be waited on to avoid zombies.
+std::pair<FILE*,int> cli_pipe::open(FILE* out, const std::string& command)
+{
+    auto fail = std::pair<FILE*,int>{};
+    if (!out) return fail;    
+
+    // create the new pipe
+    int cmdPipes[2];
+    if (pipe(cmdPipes) < 0) {
+        setError("create pipe");
+        return fail;
+    }
+
+    if (auto cmdPid = fork(); cmdPid < 0) {
+        setError("fork");
+        close(cmdPipes[0]);
+        close(cmdPipes[1]);
+        return fail;
+    } else if (cmdPid == 0) {
+        // child fork - we're not using the input side of the pipe
+        close(cmdPipes[1]);
+        cmdPipes[1] = -1;
+
+        // connect pipe | command > out
+        dup2(cmdPipes[0], STDIN_FILENO);
+        fflush(out);
+        dup2(fileno(out), STDOUT_FILENO);
+
+        char const* args[] = { "/bin/sh", "-c", command.c_str(), nullptr };
+        execvp("/bin/sh", (char* const*) args);
+        perror("execvp");
+        close(cmdPipes[0]);
+        return fail;
+    } else {
+        close(cmdPipes[0]);
+        cmdPipes[0] = -1;
+
+        // connect retFile | pipe
+        return std::make_pair(fdopen(cmdPipes[1], "w"), cmdPid);;
+    } 
+    
+    return fail;
+}
+
+void cli_pipe::setError(const char* msg) {
+    m_error = std::string{msg} + ":" + strerror(errno);
+}

@@ -994,7 +994,7 @@ std::shared_ptr<ais::Type> Mi2Aif::addKnownType(const std::string& name,
 }
 
 // Map a pointer value to a reference index.  If the index is a new one,
-// potentiall put the object onto the queue of objects to be traversed.
+// potentially put the object onto the queue of objects to be traversed.
 // This allows a data structure to be aggegated independently of the
 // specific pointer value which may not be consistent across ranks.
 size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
@@ -1030,14 +1030,17 @@ size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
     }
 
     size_t idx = m_refs.size()+1;
-    if (auto [loc, added] = m_refMap.insert(std::make_pair(p,idx)); added) {
+    if (auto [loc, added] = m_refMap.insert(std::make_pair(p,idx)); !added) {
+        idx = loc->second;
+    } else if ( type != "void") {
         auto derefExpr = std::ostringstream{};
         derefExpr << "\"*(" << type << "*)" << p << "\"";
         DVPRINT("Creating new MIVar with %s\n", derefExpr.str().c_str());
-        
         m_refs.emplace_back(std::make_shared<LazyMIVar>(*this, createMIVar(derefExpr.str().c_str())));
     } else {
-        idx = loc->second;
+        DVPRINT("Not trying to evaluate a void*\n");
+        // add to m_refs to keep the mapping consistent
+        m_refs.emplace_back(std::shared_ptr<LazyMIVar>{});
     }
     DVPRINT("Returning index %d\n", int(idx));
     return idx;

@@ -10,7 +10,7 @@
 
 void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
     // Process the result val based on its rval type
-    auto& os = Client.cli_out.ostream();
+    auto& os = Client.cli_out->ostream();
     switch (RVAL_TYPE(result)) {
         case rval_aif: {
             // point at the aif result

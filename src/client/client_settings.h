@@ -47,7 +47,7 @@ struct clnt_settings : public ClientSettingsInterface {
     const char* backend;        /* Default debug backend*/
     cli_type_t cli_mode;        /* CLI mode */
     // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
-    cli_out_t cli_out;          /* output stream-like object */
+    cli_out_t* cli_out;         /* output stream-like object */
     FILE* cli_fpprog;
     int XML_mode;               /* XML output mode */
     bool MI_mode;                /* MI output mode */

@@ -1,6 +1,6 @@
-16: maint set sync on
-21: # Test help command
-22: help 
+1: maint set sync on
+2: # Test help command
+3: help 
 assign          Change the value of an application or debugger variable.
 attach          Attach to an application.
 backtrace       Print backtrace of all stack frames.
@@ -30,6 +30,7 @@ list            List source for specified function or line.
 maint           Commands for use by debugger maintainers.
 next            Step application, proceeding through subroutine calls.
 ompd            OpenMP debugging functions.
+pipe            Send the output of a gdb command to a shell command.
 print           Print the value of an expression.
 ptype           Print definition of a type.
 quit            Exit the debugger.
@@ -51,5 +52,5 @@ usage           Display usage information about script mode commands.
 viewset         Display information about process sets.
 watch           Set watchpoint on specified expression.
 whatis          Print the data type of an expression.
-25: #exit lgdb
-26: q
+4: #exit lgdb
+5: q

@@ -643,7 +643,8 @@ std::string ais::MultiThreadResult::getTypeName() const {
 ais::Function::Function() {}
 
 void ais::Function::parseL(InterpretStream& in, Writer& out) const {
-    // expecting: {type signature} pointer <name> or 0x0
+    // expecting: {type signature} pointer <name> or
+    // pointer <name> or 0x0
     const char* s = skipspace(in.get());
 
     if (strncmp(s, "0x0", 3) == 0 && !isxdigit(s[3])) {
@@ -652,11 +653,14 @@ void ais::Function::parseL(InterpretStream& in, Writer& out) const {
         return;
     }
 
+    fprintf(stderr, "In Function::parseL \"%s\"\n", s);
+
     std::ostringstream ss;
     static const char* toggles = "{}<K>k"; // <K and >k keep the delim
+    static const char* toggles2 = "<k>k";
     bool keep = false;
 
-    for (const char* tp = toggles; *s && *tp; ++s) {
+    for (const char* tp = (*s == '0' ? toggles2 : toggles); *s && *tp; ++s) {
         if (*s == *tp) {
             if (*++tp == 'K') {
                 ss << " " << *s;

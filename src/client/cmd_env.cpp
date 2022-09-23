@@ -222,20 +222,14 @@ static int shell_remote(rec_set_t *rec_set, int argc, char **argv){
     return 1;
 }
 
-static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    FILE *cmd_out;
-    char *cmd = NULL;
-    char *tmp_cmd;
-    char result[BUFSIZ];
-    char *line = NULL;
-    char *tmp_line = NULL;
-
-    // clear the buffer
-    memset((void *)&result[0], '\0', BUFSIZ);
-
+static int cmd_shell_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // If remote flag, run shell on remote nodes and return
     // Otherwise run locally
+    if (argc < 2) {
+        PrintOutError("Usage shell <command>\n");
+        return 0;
+    }
+            
     if(!strcmp(argv[1], "-r")) {
         if (argc > 2) {
             return shell_remote(rec_set, argc-2, argv+2);
@@ -248,56 +242,86 @@ static int cmd_shell_cmd(rec_set_t *rec_set, int argc,
     // Local implementation below
 
     // Create the command string
-    tmp_cmd = ArgsToBuf(&argv[1], argc - 1);
-
-
-    // Append a redirection of stderr to stdout to the command
-    asprintf(&cmd, "%s 2>&1", tmp_cmd);
-    Free(tmp_cmd);
+    auto cmd = ArgsToString(&argv[1], argc - 1);
+    cmd += " 2>&1";
 
     // Open the command for reading
-    if ((cmd_out = popen(cmd, "r")) == NULL) {
+    auto cmd_out = popen(cmd.c_str(), "r");
+    if (!cmd_out) {
         PrintOutError("Failed to run command.\n");
-        Free(cmd);
         return 0;
     }
 
-    // Done with the cmd string
-    Free(cmd);
-
-    // Now read the result
-    while (fgets(result, BUFSIZ, cmd_out) != NULL) {
-        // copy the result into the line buffer and clear the result buf
-        asprintf(&line, "%s", result);
-        memset((void *)result, '\0', BUFSIZ);
-        // ensure the last character is a newline, otherwise we need to keep
-        // reading
-        while (line[strlen(line) - 1] != '\n') {
-            // read in another line
-            if (fgets(result, BUFSIZ, cmd_out) == NULL) {
-                // could not read an entire line, so print what we have and
-                // return
-                PrintOutMsg("%s", line);
-                Free(line);
-                return 1;
-            }
-            // save a copy of line
-            tmp_line = line;
-            line = NULL;
-            // concat the two strings together
-            asprintf(&line, "%s%s", tmp_line, result);
-            // cleanup
-            Free(tmp_line);
-            memset((void *)result, '\0', BUFSIZ);
-        }
-
-        // Print the line and cleanup
+    char line[BUFSIZ];
+    while (fgets(line, BUFSIZ, cmd_out)) {
         PrintOutMsg("%s", line);
-        Free(line);
+    }
+    
+    pclose(cmd_out);
+    return 1;
+}
+
+static int cmd_pipe_cmd(rec_set_t *rec_set, int argc, char **argv) {
+
+    if (argc < 2) {
+        PrintOutError("No command given.\n");
+        return 0;
     }
 
-    // close the file pointer
-    pclose(cmd_out);
+    int argIdx = 1;
+    auto delim = "|";
+    if (strcmp(argv[1],"-d") == 0) {
+        if (argc > 2) {
+            delim = argv[2];
+            argIdx = 3;
+        } else {
+            PrintOutError("-d needs a delimiter.\n");
+            return 0;
+        }
+    }
+
+    auto gdbCommand = std::string{};
+    auto shellCommand = std::string{};
+
+    // | or delim could show up in the *middle* of an argument, so scan each 
+    // argument
+    for ( ; argIdx < argc; ++argIdx) {
+        auto arg = argv[argIdx];
+        if (auto d = strstr(arg, delim)) {
+            if (d != arg) gdbCommand.append(arg, size_t(d-arg));
+            shellCommand = std::string{d+strlen(delim)};
+            break;
+        } else {
+            gdbCommand.append(arg);
+            gdbCommand += " ";
+        }
+    }
+    for (++argIdx; argIdx < argc; ++argIdx) {
+        if (!shellCommand.empty()) shellCommand += " ";
+        shellCommand += argv[argIdx];
+    }
+
+    if (gdbCommand.empty()) {
+        PrintOutError("Gdb command is required before %s.\n", delim);
+        return 0;
+    } else if (!gdbCommand.empty() && gdbCommand.back() == ' ') {
+        gdbCommand.pop_back();
+    }
+
+    if (shellCommand.empty()) {
+        PrintOutError("Shell command is required after %s.\n", delim);
+    }
+
+    auto piper = cli_pipe(shellCommand);
+
+    if (!piper.ok()) {
+        // Piper down!!
+        PrintOutError("Could not execute pipe command: %s.\n",
+                      piper.getErr().c_str());
+        return 0;
+    }
+
+    ExecuteCommand(gdbCommand.c_str());
 
     return 1;
 }
@@ -686,7 +710,7 @@ static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
         // default to enabling logging if argument isnt passed
         if(!argv[2] || enabled_bool){
             logger.setEnabled(true);
-            PrintOutMsg("Copying output to gdb4hpc.txt.\n");
+            PrintOutMsg("Copying output to %s.\n", logger.getFile().c_str());
         } else {
             logger.setEnabled(false);
             PrintOutMsg("Logging disabled.\n");
@@ -697,10 +721,6 @@ static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
     // change logging output file
     else if(strcmp(argv[1], "file") == 0){
         if(argv[2]){
-            if(!logger.isEnabled()){
-                PrintOutError("Error: Please enable logging first.\n");
-                return 0;
-            }
             logger.setFile(argv[2]);
         } else {
             PrintOutError("Error: Expected usage \"set logging file <file>\".\n");
@@ -719,10 +739,6 @@ static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
     // Set stdout to entirely redirect to log file and not print to terminal
     else if(strcmp(argv[1], "redirect") == 0){
         if(!argv[2] || enabled_bool){
-            if(!logger.isEnabled()){
-                PrintOutError("Error: Please enable logging first.\n");
-                return 0;
-            }
             PrintOutMsg("Redirecting output to logfile.\n");
             logger.setRedirect(true);
         } else {
@@ -917,6 +933,11 @@ void InitCmd_env(void) {
     AddCommand("shell", nullptr, proc_optional, 0,
                 cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
+
+    AddCommand("pipe", nullptr, proc_optional, 0,
+               cmd_pipe_cmd,
+               cmd_pipe_help, "Send the output of a gdb command to a shell command.");
+
 
     AddCommand("interpreter-exec", nullptr, proc_optional, 0,
                cmd_interpreter_exec_cmd, nullptr, nullptr); // undocumented

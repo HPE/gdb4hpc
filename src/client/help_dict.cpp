@@ -633,6 +633,19 @@ const char* const cmd_ompd_help[] = {
     "\"ompd help\" to get the commands available with the current process.",
     0};
 
+const char* const cmd_pipe_help[] = {
+    "Summary: Pipe the output of a gdb command to a shell command."
+    "Usage: pipe <command> | <shell command>",
+    "Usage: pipe -d <delim> command <delim> <shell command>",
+    "Example command: pipe p/1 my_array | grep 0x0",
+    "",
+    "Description:",
+    "Pipes the result of any gdb command to a shell command.   Error output",
+    "from the command is not redirected.   The -d version allows you to use",
+    "a character sequence other than \"|\" for redirection.",
+    0};
+
+
 const char* const cmd_print_help[] = {
     "Summary: Print the value of an expression.",
     "Usage: print <expr>",

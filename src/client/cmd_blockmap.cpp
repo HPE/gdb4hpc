@@ -70,7 +70,7 @@ static int cmd_info_blockmap_cmd(rec_set_t *rec_set, int argc,
             return 0;
         }
 
-        PrintBlockMap(Client.cli_out, m);
+        PrintBlockMap(*Client.cli_out, m);
 
         DestroyVal(v);
 
@@ -82,7 +82,7 @@ static int cmd_info_blockmap_cmd(rec_set_t *rec_set, int argc,
     SetBlockMap();
 
     while ((m = GetBlockMap()) != (g_block_map_t *)NULL)
-        PrintBlockMap(Client.cli_out, m);
+        PrintBlockMap(*Client.cli_out, m);
 
     return 1;
 }

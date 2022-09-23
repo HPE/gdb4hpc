@@ -208,7 +208,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     DPERFLOG(SetTimerStart("print"));
 
-    PrintVal(Client.cli_out.ostream(), val, rec_set, format);
+    PrintVal(Client.cli_out->ostream(), val, rec_set, format);
 
     DPERFLOG(SetTimerStopAndLog("print"));
 

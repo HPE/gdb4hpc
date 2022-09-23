@@ -111,13 +111,14 @@ public:
     void flush();
     void close();
 
-
     // manage the streams
     void setOut(FILE* f);  // for a newly constructed file
     void setOut(std::shared_ptr<FILE> f);
     FILE* getOut() const { return m_out.get(); }
     std::shared_ptr<FILE> getOutSP() const { return m_out; }
+    std::shared_ptr<FILE> getLogSP() const { return m_log; }
     void setLog(FILE* f);
+    void setLog(std::shared_ptr<FILE> f);
 
 private:
     std::shared_ptr<FILE> m_out;
@@ -204,6 +205,33 @@ struct cli_stream_t {
 #define cs_file_in_path cs_args->file_args.in_path
 #define cs_file_out_path cs_args->file_args.out_path
 #define cs_file_err_path cs_args->file_args.err_path
+};
+
+// class for inserting a shell command into the output stream.
+// Any output printed while in the scope of this object will
+// be piped through "command".   It works on both the output and/or
+// the logging channels of the current cli_stream.
+class cli_pipe {
+public:
+    cli_pipe(const std::string& command);
+    ~cli_pipe();
+    bool ok() const;
+    const std::string& getErr() const { return m_error; }
+
+    cli_pipe(const cli_pipe&) = default;
+    cli_pipe& operator=(const cli_pipe&) = default;
+
+private:
+    std::pair<FILE*,int> open(FILE* out, const std::string& command);
+    void setError(const char* msg);
+
+    cli_stream_t* m_stream;
+    std::shared_ptr<FILE> m_prev;
+    int m_forkPid = 0;
+    std::shared_ptr<FILE> m_prevLog;
+    int m_logForkPid = 0;
+
+    std::string m_error;
 };
 
 /*

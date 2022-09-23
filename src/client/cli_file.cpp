@@ -77,7 +77,7 @@ static int cli_file_init(cli_stream_t **stream) {
         // Default to the current setting if possible
         // Note that these are not updated until after the call to this function
         // so they are still pointing at the old streams stuff
-        cs->cs_out = Client.cli_out;
+        if (Client.cli_out) cs->cs_out = *Client.cli_out;
         cs->cs_fpprog = cs->cs_out.getOut();
     } else if (auto out = fopen(cs->cs_file_out_path, "a")) {
         cs->cs_out.setOut(out);
